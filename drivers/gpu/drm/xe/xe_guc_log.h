@@ -63,7 +63,9 @@ struct xe_guc_log_snapshot *xe_guc_log_snapshot_capture(struct xe_guc_log *log, 
 
 void xe_guc_print_blob(struct xe_gt *gt, struct drm_printer *p, const char *length_label,
 		       const char *data_label, void **chunks, int num_chunks,
-		       size_t chunk_size, size_t total_size);
+		       size_t chunk_size, size_t total_size,
+		       struct xe_guc_dump_cache *cache);
+void xe_guc_dump_cache_fini(struct xe_guc_dump_cache *cache);
 
 void xe_guc_log_snapshot_print(struct xe_guc_log_snapshot *snapshot, struct drm_printer *p,
 			       struct xe_gt *gt);

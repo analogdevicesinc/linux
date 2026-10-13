@@ -2223,7 +2223,8 @@ void xe_guc_ct_snapshot_print(struct xe_guc_ct_snapshot *snapshot,
 		if (snapshot->ctb)
 			xe_guc_print_blob(gt, p, "[CTB]", "[CTB].data",
 					  &snapshot->ctb, 1,
-					  snapshot->ctb_size, snapshot->ctb_size);
+					  snapshot->ctb_size, snapshot->ctb_size,
+					  &snapshot->dump_cache);
 	} else {
 		drm_puts(p, "CT disabled\n");
 	}
@@ -2241,6 +2242,7 @@ void xe_guc_ct_snapshot_free(struct xe_guc_ct_snapshot *snapshot)
 	if (!snapshot)
 		return;
 
+	xe_guc_dump_cache_fini(&snapshot->dump_cache);
 	kfree(snapshot->ctb);
 	kfree(snapshot);
 }
@@ -2369,6 +2371,8 @@ static void ct_dead_print(struct xe_dead_ct *dead)
 static void ct_dead_worker_func(struct work_struct *w)
 {
 	struct xe_guc_ct *ct = container_of(w, struct xe_guc_ct, dead.worker);
+	struct xe_guc_log_snapshot *snapshot_log;
+	struct xe_guc_ct_snapshot *snapshot_ct;
 
 	if (!ct->dead.reported) {
 		ct->dead.reported = true;
@@ -2377,9 +2381,9 @@ static void ct_dead_worker_func(struct work_struct *w)
 
 	spin_lock_irq(&ct->dead.lock);
 
-	xe_guc_log_snapshot_free(ct->dead.snapshot_log);
+	snapshot_log = ct->dead.snapshot_log;
 	ct->dead.snapshot_log = NULL;
-	xe_guc_ct_snapshot_free(ct->dead.snapshot_ct);
+	snapshot_ct = ct->dead.snapshot_ct;
 	ct->dead.snapshot_ct = NULL;
 
 	if (ct->dead.reason & (1 << CT_DEAD_STATE_REARM)) {
@@ -2389,5 +2393,9 @@ static void ct_dead_worker_func(struct work_struct *w)
 	}
 
 	spin_unlock_irq(&ct->dead.lock);
+
+	/* Printing may have vmalloc'ed a compression cache; vfree() can sleep */
+	xe_guc_log_snapshot_free(snapshot_log);
+	xe_guc_ct_snapshot_free(snapshot_ct);
 }
 #endif

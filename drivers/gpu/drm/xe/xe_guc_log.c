@@ -178,6 +178,7 @@ void xe_guc_log_snapshot_free(struct xe_guc_log_snapshot *snapshot)
 		kfree(snapshot->copy);
 	}
 
+	xe_guc_dump_cache_fini(&snapshot->dump_cache);
 	kfree(snapshot);
 }
 
@@ -230,10 +231,9 @@ struct xe_guc_log_snapshot *xe_guc_log_snapshot_capture(struct xe_guc_log *log, 
 }
 
 #if IS_ENABLED(CONFIG_DRM_XE_COMPRESS_DUMP)
-static void xe_guc_print_blob_compressed(struct xe_gt *gt, struct drm_printer *p,
-					 const char *length_label, const char *data_label,
-					 void **chunks, int num_chunks,
-					 size_t chunk_size, size_t total_size)
+static void xe_guc_compress_blob(struct xe_gt *gt, struct xe_guc_dump_cache *cache,
+				 void **chunks, int num_chunks,
+				 size_t chunk_size, size_t total_size)
 {
 	zstd_parameters params;
 	zstd_cstream *cstream;
@@ -243,6 +243,9 @@ static void xe_guc_print_blob_compressed(struct xe_gt *gt, struct drm_printer *p
 	void *wksp = NULL;
 	char *dst = NULL;
 	int i;
+
+	/* One shot only: every later print replays whatever this pass produced. */
+	cache->attempted = true;
 
 	/*
 	 * Pass 0 as estimated_src_size to use zstd level-3 defaults
@@ -286,6 +289,17 @@ static void xe_guc_print_blob_compressed(struct xe_gt *gt, struct drm_printer *p
 		zstd_in_buffer inbuf = { .src = chunks[i], .size = size, .pos = 0 };
 
 		while (inbuf.pos < inbuf.size) {
+			/*
+			 * zstd only guarantees forward progress while the output
+			 * buffer has room. zstd_compress_bound() sizes dst so that
+			 * a single frame always fits, but never risk spinning
+			 * forever in an error-dump path.
+			 */
+			if (outbuf.pos == outbuf.size) {
+				xe_gt_err(gt, "zstd output buffer exhausted\n");
+				goto err;
+			}
+
 			ret = zstd_compress_stream(cstream, &outbuf, &inbuf);
 			if (ZSTD_isError(ret)) {
 				xe_gt_err(gt, "zstd_compress_stream failed: %s\n",
@@ -296,29 +310,47 @@ static void xe_guc_print_blob_compressed(struct xe_gt *gt, struct drm_printer *p
 		remain -= size;
 	}
 
+	/*
+	 * zstd_end_stream() must be called until it returns 0, otherwise the
+	 * frame epilogue is missing and no decompressor will accept the result.
+	 * Running out of output before that happens is a hard error, not a
+	 * reason to stop.
+	 */
 	do {
+		if (outbuf.pos == outbuf.size) {
+			xe_gt_err(gt, "zstd output buffer exhausted\n");
+			goto err;
+		}
+
 		ret = zstd_end_stream(cstream, &outbuf);
 		if (ZSTD_isError(ret)) {
 			xe_gt_err(gt, "zstd_end_stream failed: %s\n",
 				  ZSTD_getErrorName(ret));
 			goto err;
 		}
-	} while (ret > 0 && outbuf.pos < outbuf.size);
+	} while (ret);
 
-	drm_printf(p, "%s.length: 0x%zx -> 0x%zx Algo: ZSTD\n",
-		   length_label, total_size, outbuf.pos);
-	xe_print_blob_ascii85(p, data_label, '\n', dst, 0,
-			      DIV_ROUND_UP(outbuf.pos, sizeof(u32)) * sizeof(u32));
-	goto out;
+	cache->data = dst;
+	cache->size = outbuf.pos;
+	kvfree(wksp);
+	return;
 
 err:
-	drm_printf(p, "%s.length: 0x%zx Algo: ERROR (compression failed)\n",
-		   length_label, total_size);
-out:
 	kvfree(dst);
 	kvfree(wksp);
 }
 #endif
+
+/**
+ * xe_guc_dump_cache_fini - release a dump blob's compression cache
+ * @cache: cache embedded in the snapshot being freed
+ */
+void xe_guc_dump_cache_fini(struct xe_guc_dump_cache *cache)
+{
+	kvfree(cache->data);
+	cache->data = NULL;
+	cache->size = 0;
+}
 
 /**
  * xe_guc_print_blob - Print binary data (compressed or uncompressed) as ascii85
@@ -330,23 +362,45 @@ out:
  * @num_chunks: number of elements in @chunks
  * @chunk_size: nominal size of each chunk; the last chunk may hold fewer valid bytes
  * @total_size: total uncompressed byte count across all chunks
+ * @cache: per-snapshot compression cache, zeroed at capture time
  *
  * If CONFIG_DRM_XE_COMPRESS_DUMP is enabled, compresses @total_size bytes using
  * zstd level-3 streaming compression and prints the result via @p using ascii85
  * encoding. Otherwise, directly prints the uncompressed data.
- * On failure the function returns without printing the data blob.
+ *
+ * The compressed blob is produced once and kept in @cache, because a snapshot
+ * is printed repeatedly: __xe_devcoredump_read() measures the output before
+ * emitting it, and re-emits it a chunk at a time. Compressing per pass would
+ * let the measured size and the emitted bytes disagree.
+ *
+ * If compression fails the raw data is printed instead, so the dump is never
+ * lost. @cache->attempted latches that decision, so every later pass makes the same
+ * choice and produces byte-identical output.
  */
 void xe_guc_print_blob(struct xe_gt *gt __maybe_unused, struct drm_printer *p,
 		       const char *length_label, const char *data_label,
 		       void **chunks, int num_chunks,
-		       size_t chunk_size, size_t total_size)
+		       size_t chunk_size, size_t total_size,
+		       struct xe_guc_dump_cache *cache __maybe_unused)
 {
-#if IS_ENABLED(CONFIG_DRM_XE_COMPRESS_DUMP)
-	xe_guc_print_blob_compressed(gt, p, length_label, data_label,
-				     chunks, num_chunks, chunk_size, total_size);
-#else
 	size_t remain;
 	int i;
+
+#if IS_ENABLED(CONFIG_DRM_XE_COMPRESS_DUMP)
+	if (!cache->attempted)
+		xe_guc_compress_blob(gt, cache, chunks, num_chunks,
+				     chunk_size, total_size);
+
+	if (cache->data) {
+		drm_printf(p, "%s.length: 0x%zx -> 0x%zx Algo: ZSTD\n",
+			   length_label, total_size, cache->size);
+		xe_print_blob_ascii85(p, data_label, '\n', cache->data, 0,
+				      round_up(cache->size, sizeof(u32)));
+		return;
+	}
+
+	/* Compression failed - fallback to emit the blob uncompressed. */
+#endif
 
 	drm_printf(p, "%s.length: 0x%zx Algo: RAW\n", length_label, total_size);
 
@@ -366,7 +420,6 @@ void xe_guc_print_blob(struct xe_gt *gt __maybe_unused, struct drm_printer *p,
 				      DIV_ROUND_UP(size, sizeof(u32)) * sizeof(u32));
 		remain -= size;
 	}
-#endif
 }
 
 /**
@@ -393,7 +446,8 @@ void xe_guc_log_snapshot_print(struct xe_guc_log_snapshot *snapshot, struct drm_
 
 	xe_guc_print_blob(gt, p, "[LOG]", "[LOG].data",
 			  snapshot->copy, snapshot->num_chunks,
-			  GUC_LOG_CHUNK_SIZE, snapshot->size);
+			  GUC_LOG_CHUNK_SIZE, snapshot->size,
+			  &snapshot->dump_cache);
 }
 
 static inline void lfd_output_binary(struct drm_printer *p, char *buf, int buf_size)
