@@ -1864,6 +1864,25 @@ void btrfs_free_fs_roots(struct btrfs_fs_info *fs_info)
 	struct btrfs_root *gang[8];
 	int i;
 
+	/*
+	 * Some dirty roots may still be linked to dirty_cowonly_roots after
+	 * the transaction is aborted. Cleanup them here.
+	 */
+	while (!list_empty(&fs_info->dirty_cowonly_roots)) {
+		struct btrfs_root *root;
+
+		root = list_first_entry(&fs_info->dirty_cowonly_roots,
+					struct btrfs_root, dirty_list);
+		list_del_init(&root->dirty_list);
+		/*
+		 * The dirty_log_pages should never be populated for
+		 * cowonly trees.
+		 */
+		spin_lock(&root->dirty_log_pages.lock);
+		ASSERT(RB_EMPTY_ROOT(&root->dirty_log_pages.state));
+		spin_unlock(&root->dirty_log_pages.lock);
+	}
+
 	while (!list_empty(&fs_info->dead_roots)) {
 		gang[0] = list_first_entry(&fs_info->dead_roots,
 					   struct btrfs_root, root_list);
