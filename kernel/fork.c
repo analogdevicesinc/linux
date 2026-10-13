@@ -1599,6 +1599,7 @@ static int copy_mm(u64 clone_flags, struct task_struct *tsk)
 
 	tsk->mm = mm;
 	tsk->active_mm = mm;
+	sched_cache_fork(tsk);
 	return 0;
 }
 
@@ -1618,7 +1619,13 @@ static int copy_exec_state(u64 clone_flags, struct task_struct *tsk)
 	return task_exec_state_copy(tsk);
 }
 
-static int copy_fs(u64 clone_flags, struct task_struct *tsk, bool umh)
+enum copy_fs_flags_t {
+	COPY_FS_UMH	= (1 << 0),
+	COPY_FS_IDLE	= (1 << 1),
+};
+
+static int copy_fs(u64 clone_flags, struct task_struct *tsk,
+		   enum copy_fs_flags_t flags)
 {
 	struct fs_struct *fs;
 
@@ -1628,19 +1635,20 @@ static int copy_fs(u64 clone_flags, struct task_struct *tsk, bool umh)
 	 * filesystem state, or be started from a non-initial mount
 	 * namespace.
 	 */
-	if (umh) {
+	if (flags & COPY_FS_UMH) {
 		if (clone_flags & (CLONE_NEWNS | CLONE_FS))
 			return -EINVAL;
 		if (current->nsproxy->mnt_ns != &init_mnt_ns)
 			return -EINVAL;
 		fs = userspace_init_fs;
+	} else if (flags & COPY_FS_IDLE) {
+		fs = &init_fs;
 	} else {
 		fs = current->fs;
 		VFS_WARN_ON_ONCE(current->fs != current->real_fs);
 	}
 
 	if (clone_flags & CLONE_FS) {
-		/* tsk->fs is already what we want */
 		read_seqlock_excl(&fs->seq);
 		/* "users" and "in_exec" locked for check_unsafe_exec() */
 		if (fs->in_exec) {
@@ -1649,6 +1657,7 @@ static int copy_fs(u64 clone_flags, struct task_struct *tsk, bool umh)
 		}
 		fs->users++;
 		read_sequnlock_excl(&fs->seq);
+		tsk->real_fs = tsk->fs = fs;
 		return 0;
 	}
 	tsk->real_fs = tsk->fs = copy_fs_struct(fs);
@@ -1996,9 +2005,9 @@ static bool need_futex_hash_allocate_default(u64 clone_flags)
 {
 	/*
 	 * Allocate a default futex hash for any sibling that will
-	 * share the parent's mm, except vfork.
+	 * share the parent's mm.
 	 */
-	return (clone_flags & (CLONE_VM | CLONE_VFORK)) == CLONE_VM;
+	return clone_flags & CLONE_VM;
 }
 
 /*
@@ -2133,6 +2142,11 @@ __latent_entropy struct task_struct *copy_process(
 	p = dup_task_struct(current, node);
 	if (!p)
 		goto fork_out;
+	/*
+	 * Must run before the first fallible op, so error paths never
+	 * free the parent's ret_stack.
+	 */
+	ftrace_graph_init_task(p);
 	retval = copy_exec_state(clone_flags, p);
 	if (retval)
 		goto bad_fork_free;
@@ -2158,8 +2172,6 @@ __latent_entropy struct task_struct *copy_process(
 	 * TID is cleared in mm_release() when the task exits
 	 */
 	p->clear_child_tid = (clone_flags & CLONE_CHILD_CLEARTID) ? args->child_tid : NULL;
-
-	ftrace_graph_init_task(p);
 
 	rt_mutex_init_task(p);
 	raw_spin_lock_init(&p->blocked_lock);
@@ -2295,7 +2307,9 @@ __latent_entropy struct task_struct *copy_process(
 	retval = copy_files(clone_flags, p, args->no_files);
 	if (retval)
 		goto bad_fork_cleanup_semundo;
-	retval = copy_fs(clone_flags, p, args->umh);
+	retval = copy_fs(clone_flags, p,
+			 (args->umh ? COPY_FS_UMH : 0) |
+			 (args->idle ? COPY_FS_IDLE : 0));
 	if (retval)
 		goto bad_fork_cleanup_files;
 	retval = copy_sighand(clone_flags, p);
@@ -2599,6 +2613,7 @@ bad_fork_cleanup_io:
 bad_fork_cleanup_namespaces:
 	exit_nsproxy_namespaces(p);
 bad_fork_cleanup_mm:
+	sched_cache_fork_cleanup(p);
 	if (p->mm) {
 		mm_clear_owner(p->mm, p);
 		mmput(p->mm);
@@ -2666,7 +2681,7 @@ struct task_struct * __init fork_idle(int cpu)
 {
 	struct task_struct *task;
 	struct kernel_clone_args args = {
-		.flags		= CLONE_VM,
+		.flags		= CLONE_VM | CLONE_FS,
 		.fn		= &idle_dummy,
 		.fn_arg		= NULL,
 		.kthread	= 1,
@@ -3312,13 +3327,16 @@ int ksys_unshare(unsigned long unshare_flags)
 			shm_init_task(current);
 		}
 
+		if (new_fs) {
+			new_fs = switch_fs_struct(new_fs);
+			if (new_fs)
+				free_fs_struct(no_free_ptr(new_fs));
+		}
+
 		if (new_nsproxy) {
 			switch_task_namespaces(current, new_nsproxy);
 			new_nsproxy = NULL;
 		}
-
-		if (new_fs)
-			new_fs = switch_fs_struct(new_fs);
 
 		if (new_fd) {
 			guard(task_lock)(current);
@@ -3335,8 +3353,9 @@ int ksys_unshare(unsigned long unshare_flags)
 	perf_event_namespaces(current);
 
 bad_unshare_cleanup_nsproxy:
+	/* never installed, so no active references to drop */
 	if (new_nsproxy)
-		put_nsproxy(new_nsproxy);
+		nsproxy_free(new_nsproxy);
 bad_unshare_cleanup_cred:
 	if (new_cred)
 		put_cred(new_cred);
