@@ -19,7 +19,9 @@ description: |
 
 properties:
   compatible:
-    const: skyworks,aat1290
+    enum:
+      - skyworks,aat1290
+      - skyworks,aat1270
 
   enset-gpios:
     maxItems: 1
@@ -39,12 +41,13 @@ properties:
       flash-max-microamp:
         description: |
           Maximum flash LED supply current can be calculated using following
-          formula: I = 1A * 162 kOhm / Rset.
+          formula: I = 1A * 162 kOhm / Rset (for AAT1290) and
+          I = 1A * 81 kOhm / Rset (for AAT1270).
 
       flash-max-timeout-us:
         description: |
           Maximum flash timeout can be calculated using following formula:
-            T = 8.82 * 10^9 * Ct.
+          T = 8.82 * 10^9 * Ct (for AAT1290) and T = 21.5 * 10^9 * Ct (for AAT1270).
 
     required:
       - flash-max-microamp
