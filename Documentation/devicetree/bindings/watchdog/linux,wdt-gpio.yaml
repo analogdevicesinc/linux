@@ -51,6 +51,11 @@ properties:
       It will only cease to toggle the signal when the device is open and the
       timeout elapsed.
 
+  reset-from-wdt-gpios:
+    description:
+      gpio connection that signals, that the last reset was issued by this watchdog.
+    maxItems: 1
+
 required:
   - compatible
   - gpios
