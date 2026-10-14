@@ -1322,7 +1322,6 @@ void scsi_init_command(struct scsi_device *dev, struct scsi_cmnd *cmd)
 	}
 
 	cmd->device = dev;
-	INIT_LIST_HEAD(&cmd->eh_entry);
 	INIT_DELAYED_WORK(&cmd->abort_work, scmd_eh_abort_handler);
 }
 
@@ -1589,8 +1588,6 @@ static void scsi_complete(struct request *rq)
 		__blk_mq_end_request(rq, scsi_result_to_blk_status(cmd->result));
 		return;
 	}
-
-	INIT_LIST_HEAD(&cmd->eh_entry);
 
 	atomic_inc(&cmd->device->iodone_cnt);
 	if (cmd->result)

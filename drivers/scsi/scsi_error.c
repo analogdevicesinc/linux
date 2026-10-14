@@ -270,7 +270,6 @@ scsi_abort_command(struct scsi_cmnd *scmd)
 	spin_lock_irqsave(&shost->host_lock, flags);
 	if (shost->eh_deadline != -1 && !shost->last_reset)
 		shost->last_reset = jiffies;
-	BUG_ON(!list_empty(&scmd->eh_entry));
 	list_add_tail(&scmd->eh_entry, &shost->eh_abort_list);
 	spin_unlock_irqrestore(&shost->host_lock, flags);
 

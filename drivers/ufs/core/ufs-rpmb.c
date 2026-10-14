@@ -47,7 +47,8 @@ static int ufs_sec_submit(struct ufs_hba *hba, u16 spsp, void *buffer, size_t le
 		{
 			.sense_key = UNIT_ATTENTION,
 			.sense_code =
-				POWER_ON_RESET_OR_BUS_DEVICE_RESET_OCCURRED,
+				scsi_sense_code(ASC_POWER_ON_RESET_OR_BUS_DEVICE_RESET_OCCURRED,
+						SCMD_FAILURE_ASCQ_ANY),
 			.allowed = UFS_RPMB_UA_RETRIES,
 			.result = SAM_STAT_CHECK_CONDITION,
 		},
