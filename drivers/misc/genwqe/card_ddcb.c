@@ -1103,6 +1103,9 @@ static void free_ddcb_queue(struct genwqe_dev *cd, struct ddcb_queue *queue)
 
 	queue_size = roundup(queue->ddcb_max * sizeof(struct ddcb), PAGE_SIZE);
 
+	kfree(queue->ddcb_waitqs);
+	queue->ddcb_waitqs = NULL;
+
 	kfree(queue->ddcb_req);
 	queue->ddcb_req = NULL;
 

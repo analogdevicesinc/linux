@@ -71,7 +71,6 @@ struct xillyfifo {
 	unsigned int bufsize; /* In bytes, always a power of 2 */
 	unsigned int bufnum;
 	unsigned int size; /* Lazy: Equals bufsize * bufnum */
-	unsigned int buf_order;
 
 	int fill; /* Number of bytes in the FIFO */
 	spinlock_t lock;
@@ -95,7 +94,6 @@ struct xillyusb_endpoint {
 	struct list_head filled_buffers;
 	spinlock_t buffers_lock; /* protect these two lists */
 
-	unsigned int order;
 	unsigned int buffer_size;
 
 	unsigned int fill_mask;
@@ -370,7 +368,6 @@ static int fifo_init(struct xillyfifo *fifo,
 		     unsigned int log2_size)
 {
 	unsigned int log2_bufnum;
-	unsigned int buf_order;
 	int i;
 
 	unsigned int log2_fifo_buf_size;
@@ -380,18 +377,14 @@ retry:
 
 	if (log2_size > log2_fifo_buf_size) {
 		log2_bufnum = log2_size - log2_fifo_buf_size;
-		buf_order = fifo_buf_order;
 		fifo->bufsize = 1 << log2_fifo_buf_size;
 	} else {
 		log2_bufnum = 0;
-		buf_order = (log2_size > PAGE_SHIFT) ?
-			log2_size - PAGE_SHIFT : 0;
 		fifo->bufsize = 1 << log2_size;
 	}
 
 	fifo->bufnum = 1 << log2_bufnum;
 	fifo->size = fifo->bufnum * fifo->bufsize;
-	fifo->buf_order = buf_order;
 
 	fifo->mem = kmalloc_array(fifo->bufnum, sizeof(void *), GFP_KERNEL);
 
@@ -399,8 +392,7 @@ retry:
 		return -ENOMEM;
 
 	for (i = 0; i < fifo->bufnum; i++) {
-		fifo->mem[i] = (void *)
-			__get_free_pages(GFP_KERNEL, buf_order);
+		fifo->mem[i] = kmalloc(fifo->bufsize, GFP_KERNEL);
 
 		if (!fifo->mem[i])
 			goto memfail;
@@ -417,7 +409,7 @@ retry:
 
 memfail:
 	for (i--; i >= 0; i--)
-		free_pages((unsigned long)fifo->mem[i], buf_order);
+		kfree(fifo->mem[i]);
 
 	kfree(fifo->mem);
 	fifo->mem = NULL;
@@ -438,7 +430,7 @@ static void fifo_mem_release(struct xillyfifo *fifo)
 		return;
 
 	for (i = 0; i < fifo->bufnum; i++)
-		free_pages((unsigned long)fifo->mem[i], fifo->buf_order);
+		kfree(fifo->mem[i]);
 
 	kfree(fifo->mem);
 }
@@ -477,7 +469,7 @@ static void endpoint_dealloc(struct xillyusb_endpoint *ep)
 		struct xillybuffer *xb =
 			list_entry(this, struct xillybuffer, entry);
 
-		free_pages((unsigned long)xb->buf, ep->order);
+		kfree(xb->buf);
 		kfree(xb);
 	}
 
@@ -509,8 +501,7 @@ static struct xillyusb_endpoint
 	init_usb_anchor(&ep->anchor);
 	INIT_WORK(&ep->workitem, work);
 
-	ep->order = order;
-	ep->buffer_size =  1 << (PAGE_SHIFT + order);
+	ep->buffer_size = 1 << (PAGE_SHIFT + order);
 	ep->outstanding_urbs = 0;
 	ep->drained = true;
 	ep->wake_on_drain = false;
@@ -520,7 +511,6 @@ static struct xillyusb_endpoint
 
 	for (i = 0; i < bufnum; i++) {
 		struct xillybuffer *xb;
-		unsigned long addr;
 
 		xb = kzalloc_obj(*xb);
 
@@ -529,15 +519,14 @@ static struct xillyusb_endpoint
 			return NULL;
 		}
 
-		addr = __get_free_pages(GFP_KERNEL, order);
+		xb->buf = kmalloc(ep->buffer_size, GFP_KERNEL);
 
-		if (!addr) {
+		if (!xb->buf) {
 			kfree(xb);
 			endpoint_dealloc(ep);
 			return NULL;
 		}
 
-		xb->buf = (void *)addr;
 		xb->ep = ep;
 		list_add_tail(&xb->entry, &ep->buffers);
 	}
