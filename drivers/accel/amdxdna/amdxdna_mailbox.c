@@ -481,7 +481,7 @@ struct mailbox_channel *xdna_mailbox_alloc_channel(struct mailbox *mb)
 		return NULL;
 
 	INIT_WORK(&mb_chann->rx_work, mailbox_rx_worker);
-	mb_chann->work_q = create_singlethread_workqueue(MAILBOX_NAME);
+	mb_chann->work_q = alloc_ordered_workqueue(MAILBOX_NAME, WQ_MEM_RECLAIM);
 	if (!mb_chann->work_q) {
 		MB_ERR(mb_chann, "Create workqueue failed");
 		goto free_chann;

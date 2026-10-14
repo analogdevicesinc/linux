@@ -364,6 +364,25 @@ static void ivpu_fw_release(struct ivpu_device *vdev)
 }
 
 
+static void ivpu_fw_mem_fini(struct ivpu_device *vdev)
+{
+	struct ivpu_fw_info *fw = vdev->fw;
+
+	ivpu_bo_free(fw->mem_shave_nn);
+	ivpu_bo_free(fw->mem_log_verb);
+	ivpu_bo_free(fw->mem_log_crit);
+	ivpu_bo_free(fw->mem);
+	ivpu_bo_free(fw->mem_fw_ver);
+	ivpu_bo_free(fw->mem_bp);
+
+	fw->mem_shave_nn = NULL;
+	fw->mem_log_verb = NULL;
+	fw->mem_log_crit = NULL;
+	fw->mem = NULL;
+	fw->mem_fw_ver = NULL;
+	fw->mem_bp = NULL;
+}
+
 static int ivpu_fw_mem_init(struct ivpu_device *vdev)
 {
 	struct ivpu_fw_info *fw = vdev->fw;
@@ -382,7 +401,7 @@ static int ivpu_fw_mem_init(struct ivpu_device *vdev)
 	if (!fw->mem_fw_ver) {
 		ivpu_err(vdev, "Failed to create firmware version memory buffer\n");
 		ret = -ENOMEM;
-		goto err_free_bp;
+		goto err_free;
 	}
 
 	fw->mem = ivpu_bo_create_runtime(vdev, fw->runtime_addr, fw->runtime_size,
@@ -390,14 +409,14 @@ static int ivpu_fw_mem_init(struct ivpu_device *vdev)
 	if (!fw->mem) {
 		ivpu_err(vdev, "Failed to create firmware runtime memory buffer\n");
 		ret = -ENOMEM;
-		goto err_free_fw_ver;
+		goto err_free;
 	}
 
 	ret = ivpu_mmu_context_set_pages_ro(vdev, &vdev->gctx, fw->read_only_addr,
 					    fw->read_only_size);
 	if (ret) {
 		ivpu_err(vdev, "Failed to set firmware image read-only\n");
-		goto err_free_fw_mem;
+		goto err_free;
 	}
 
 	fw->mem_log_crit = ivpu_bo_create_global(vdev, IVPU_FW_CRITICAL_BUFFER_SIZE,
@@ -405,7 +424,7 @@ static int ivpu_fw_mem_init(struct ivpu_device *vdev)
 	if (!fw->mem_log_crit) {
 		ivpu_err(vdev, "Failed to create critical log buffer\n");
 		ret = -ENOMEM;
-		goto err_free_fw_mem;
+		goto err_free;
 	}
 
 	if (ivpu_fw_log_level <= IVPU_FW_LOG_INFO)
@@ -418,7 +437,7 @@ static int ivpu_fw_mem_init(struct ivpu_device *vdev)
 	if (!fw->mem_log_verb) {
 		ivpu_err(vdev, "Failed to create verbose log buffer\n");
 		ret = -ENOMEM;
-		goto err_free_log_crit;
+		goto err_free;
 	}
 
 	if (fw->shave_nn_size) {
@@ -427,45 +446,15 @@ static int ivpu_fw_mem_init(struct ivpu_device *vdev)
 		if (!fw->mem_shave_nn) {
 			ivpu_err(vdev, "Failed to create shavenn buffer\n");
 			ret = -ENOMEM;
-			goto err_free_log_verb;
+			goto err_free;
 		}
 	}
 
 	return 0;
 
-err_free_log_verb:
-	ivpu_bo_free(fw->mem_log_verb);
-err_free_log_crit:
-	ivpu_bo_free(fw->mem_log_crit);
-err_free_fw_mem:
-	ivpu_bo_free(fw->mem);
-err_free_fw_ver:
-	ivpu_bo_free(fw->mem_fw_ver);
-err_free_bp:
-	ivpu_bo_free(fw->mem_bp);
+err_free:
+	ivpu_fw_mem_fini(vdev);
 	return ret;
-}
-
-static void ivpu_fw_mem_fini(struct ivpu_device *vdev)
-{
-	struct ivpu_fw_info *fw = vdev->fw;
-
-	if (fw->mem_shave_nn) {
-		ivpu_bo_free(fw->mem_shave_nn);
-		fw->mem_shave_nn = NULL;
-	}
-
-	ivpu_bo_free(fw->mem_log_verb);
-	ivpu_bo_free(fw->mem_log_crit);
-	ivpu_bo_free(fw->mem);
-	ivpu_bo_free(fw->mem_fw_ver);
-	ivpu_bo_free(fw->mem_bp);
-
-	fw->mem_log_verb = NULL;
-	fw->mem_log_crit = NULL;
-	fw->mem = NULL;
-	fw->mem_fw_ver = NULL;
-	fw->mem_bp = NULL;
 }
 
 int ivpu_fw_init(struct ivpu_device *vdev)

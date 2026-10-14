@@ -25,7 +25,6 @@
 #include <drm/drm_ioctl.h>
 #include <drm/drm_print.h>
 #include <drm/drm_syncobj.h>
-#include <drm/drm_utils.h>
 #include <drm/gpu_scheduler.h>
 #include <drm/panthor_drm.h>
 
@@ -1769,6 +1768,7 @@ static void panthor_debugfs_init(struct drm_minor *minor)
 {
 	panthor_mmu_debugfs_init(minor);
 	panthor_gem_debugfs_init(minor);
+	panthor_sched_debugfs_init(minor);
 }
 #endif
 
