@@ -1331,8 +1331,7 @@ static struct ib_qp *create_qp(struct ib_device *dev, struct ib_pd *pd,
 	return qp;
 
 err_security:
-	qp->device->ops.destroy_qp(
-		qp, uattrs ? uverbs_get_cleared_udata(uattrs) : NULL);
+	qp->device->ops.destroy_qp(qp, uverbs_get_cleared_udata(uattrs));
 err_create:
 	rdma_restrack_put(&qp->res);
 	xa_destroy(&qp->comp_cntrs);
@@ -2362,7 +2361,7 @@ EXPORT_SYMBOL(ib_dereg_mr_user);
  * @max_num_sg:    maximum sg entries available for registration.
  *
  * Notes:
- * Memory registeration page/sg lists must not exceed max_num_sg.
+ * Memory registration page/sg lists must not exceed max_num_sg.
  * For mr_type IB_MR_TYPE_MEM_REG, the total length cannot exceed
  * max_num_sg * used_page_size.
  *

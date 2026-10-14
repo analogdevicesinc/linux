@@ -1169,7 +1169,8 @@ void __mlx5_ib_cq_clean(struct mlx5_ib_cq *cq, u32 rsn, struct mlx5_ib_srq *srq)
 	/* Now sweep backwards through the CQ, removing CQ entries
 	 * that match our QP by copying older entries on top of them.
 	 */
-	while ((int) --prod_index - (int) cq->mcq.cons_index >= 0) {
+	while (prod_index != cq->mcq.cons_index) {
+		--prod_index;
 		cqe = get_cqe(cq, prod_index & cq->ibcq.cqe);
 		cqe64 = (cq->mcq.cqe_sz == 64) ? cqe : cqe + 64;
 		if (is_equal_rsn(cqe64, rsn)) {
@@ -1245,9 +1246,9 @@ static int resize_user(struct mlx5_ib_dev *dev, struct mlx5_ib_cq *cq,
 	if (ucmd.cqe_size && SIZE_MAX / ucmd.cqe_size <= entries - 1)
 		return -EINVAL;
 
-	umem = ib_umem_get_va(&dev->ib_dev, ucmd.buf_addr,
-			      (size_t)ucmd.cqe_size * entries,
-			      IB_ACCESS_LOCAL_WRITE);
+	umem = ib_umem_get_cq_buf_or_va(&dev->ib_dev, NULL, ucmd.buf_addr,
+					(size_t)ucmd.cqe_size * entries,
+					IB_ACCESS_LOCAL_WRITE);
 	if (IS_ERR(umem)) {
 		err = PTR_ERR(umem);
 		return err;
