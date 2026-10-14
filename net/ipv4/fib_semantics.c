@@ -613,13 +613,13 @@ static int fib_detect_death(struct fib_info *fi, int order,
 			    int dflt)
 {
 	const struct fib_nh_common *nhc = fib_info_nhc(fi, 0);
-	struct neighbour *n;
 	int state = NUD_NONE;
+	struct neighbour *n;
 
 	if (likely(nhc->nhc_gw_family == AF_INET))
-		n = neigh_lookup(&arp_tbl, &nhc->nhc_gw.ipv4, nhc->nhc_dev);
+		n = ipv4_neigh_lookup(nhc->nhc_dev, &nhc->nhc_gw.ipv4);
 	else if (IS_ENABLED(CONFIG_IPV6) && nhc->nhc_gw_family == AF_INET6)
-		n = neigh_lookup(&nd_tbl, &nhc->nhc_gw.ipv6, nhc->nhc_dev);
+		n = ipv6_neigh_lookup(nhc->nhc_dev, &nhc->nhc_gw.ipv6);
 	else
 		n = NULL;
 
@@ -1224,7 +1224,7 @@ static int fib_check_nh_v4_gw(struct net *net, struct fib_nh *nh, u32 table,
 			tbl = fib_get_table(net, table);
 
 		if (tbl)
-			err = fib_table_lookup(tbl, &fl4, &res,
+			err = fib_table_lookup(net, tbl, &fl4, &res,
 					       FIB_LOOKUP_IGNORE_LINKSTATE |
 					       FIB_LOOKUP_NOREF);
 

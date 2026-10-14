@@ -368,6 +368,7 @@ static int ieee80211_nan_conf_copy(struct cfg80211_nan_conf *dst,
 		dst->discovery_beacon_interval =
 			src->discovery_beacon_interval;
 		dst->enable_dw_notification = src->enable_dw_notification;
+		dst->instant_comm = src->instant_comm;
 		memcpy(&dst->band_cfgs, &src->band_cfgs,
 		       sizeof(dst->band_cfgs));
 
@@ -615,12 +616,15 @@ static int ieee80211_set_tx(struct ieee80211_sub_if_data *sdata,
 }
 
 static int ieee80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-			     int link_id, u8 key_idx, bool pairwise,
+			     int link_id, u8 key_idx,
+			     enum nl80211_key_type type,
 			     const u8 *mac_addr, struct key_params *params)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_WDEV_TO_SUB_IF(wdev);
 	struct ieee80211_link_data *link =
 		ieee80211_link_or_deflink(sdata, link_id, false);
+	bool pairwise = type == NL80211_KEYTYPE_PAIRWISE;
+	bool cigtk = type == NL80211_KEYTYPE_CIGTK;
 	struct ieee80211_local *local = sdata->local;
 	struct sta_info *sta = NULL;
 	struct ieee80211_key *key;
@@ -664,6 +668,9 @@ static int ieee80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 		key->conf.link_id = -1;
 	} else {
 		key->conf.link_id = link->link_id;
+
+		if (cigtk)
+			key->conf.flags |= IEEE80211_KEY_FLAG_CIP;
 	}
 
 	if (params->mode == NL80211_KEY_NO_TX)
@@ -741,10 +748,13 @@ static int ieee80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 
 static struct ieee80211_key *
 ieee80211_lookup_key(struct ieee80211_sub_if_data *sdata, int link_id,
-		     u8 key_idx, bool pairwise, const u8 *mac_addr)
+		     u8 key_idx, enum nl80211_key_type type,
+		     const u8 *mac_addr)
 {
 	struct ieee80211_local *local __maybe_unused = sdata->local;
 	struct ieee80211_link_data *link = &sdata->deflink;
+	bool pairwise = type == NL80211_KEYTYPE_PAIRWISE;
+	bool cigtk = type == NL80211_KEYTYPE_CIGTK;
 	struct ieee80211_key *key;
 
 	if (link_id >= 0) {
@@ -774,7 +784,11 @@ ieee80211_lookup_key(struct ieee80211_sub_if_data *sdata, int link_id,
 			return wiphy_dereference(local->hw.wiphy,
 						 sta->ptk[key_idx]);
 
-		if (!pairwise &&
+		if (cigtk && key_idx < NUM_CTRL_KEYS)
+			return wiphy_dereference(local->hw.wiphy,
+						 link_sta->cigtk[key_idx]);
+
+		if (!pairwise && !cigtk &&
 		    key_idx < NUM_DEFAULT_KEYS +
 			      NUM_DEFAULT_MGMT_KEYS +
 			      NUM_DEFAULT_BEACON_KEYS)
@@ -786,6 +800,9 @@ ieee80211_lookup_key(struct ieee80211_sub_if_data *sdata, int link_id,
 
 	if (pairwise && key_idx < NUM_DEFAULT_KEYS)
 		return wiphy_dereference(local->hw.wiphy, sdata->keys[key_idx]);
+
+	if (cigtk)
+		return wiphy_dereference(local->hw.wiphy, link->cigtk[key_idx]);
 
 	key = wiphy_dereference(local->hw.wiphy, link->gtk[key_idx]);
 	if (key)
@@ -799,8 +816,8 @@ ieee80211_lookup_key(struct ieee80211_sub_if_data *sdata, int link_id,
 }
 
 static int ieee80211_del_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-			     int link_id, u8 key_idx, bool pairwise,
-			     const u8 *mac_addr)
+			     int link_id, u8 key_idx,
+			     enum nl80211_key_type type, const u8 *mac_addr)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_WDEV_TO_SUB_IF(wdev);
 	struct ieee80211_local *local = sdata->local;
@@ -808,7 +825,7 @@ static int ieee80211_del_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 
 	lockdep_assert_wiphy(local->hw.wiphy);
 
-	key = ieee80211_lookup_key(sdata, link_id, key_idx, pairwise, mac_addr);
+	key = ieee80211_lookup_key(sdata, link_id, key_idx, type, mac_addr);
 	if (!key)
 		return -ENOENT;
 
@@ -818,7 +835,8 @@ static int ieee80211_del_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 }
 
 static int ieee80211_get_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-			     int link_id, u8 key_idx, bool pairwise,
+			     int link_id, u8 key_idx,
+			     enum nl80211_key_type type,
 			     const u8 *mac_addr, void *cookie,
 			     void (*callback)(void *cookie,
 					      struct key_params *params))
@@ -837,7 +855,7 @@ static int ieee80211_get_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 
 	rcu_read_lock();
 
-	key = ieee80211_lookup_key(sdata, link_id, key_idx, pairwise, mac_addr);
+	key = ieee80211_lookup_key(sdata, link_id, key_idx, type, mac_addr);
 	if (!key)
 		goto out;
 
@@ -1142,7 +1160,15 @@ static int ieee80211_set_fils_discovery(struct ieee80211_sub_if_data *sdata,
 	struct fils_discovery_data *new, *old = NULL;
 	struct ieee80211_fils_discovery *fd;
 
-	if (!params->update)
+	/*
+	 * This configuration is only applicable to transmitting BSSes.
+	 *
+	 * Current user-space version may also set this for non-transmitting
+	 * BSSes. While this is not a valid configuration, to maintain the
+	 * compatibility with the existing user-space ignore the configuration
+	 * for non-transmitting BSS silently.
+	 */
+	if (!params->update || link_conf->nontransmitted)
 		return 0;
 
 	fd = &link_conf->fils_discovery;
@@ -1177,7 +1203,15 @@ ieee80211_set_unsol_bcast_probe_resp(struct ieee80211_sub_if_data *sdata,
 {
 	struct unsol_bcast_probe_resp_data *new, *old = NULL;
 
-	if (!params->update)
+	/*
+	 * This configuration is only applicable to transmitting BSSes.
+	 *
+	 * Current user-space version may also set this for non-transmitting
+	 * BSSes. While this is not a valid configuration, to maintain the
+	 * compatibility with the existing user-space ignore the configuration
+	 * for non-transmitting BSS silently.
+	 */
+	if (!params->update || link_conf->nontransmitted)
 		return 0;
 
 	link_conf->unsol_bcast_probe_resp_interval = params->interval;
@@ -1501,11 +1535,21 @@ ieee80211_assign_beacon(struct ieee80211_sub_if_data *sdata,
 
 	size = sizeof(*new) + new_head_len + new_tail_len;
 
+	/* new or old multiple BSSID elements? */
 	if (params->mbssid_ies) {
 		mbssid = params->mbssid_ies;
 		size += struct_size(new->mbssid_ies, elem, mbssid->cnt);
 		if (params->rnr_ies) {
 			rnr = params->rnr_ies;
+			size += struct_size(new->rnr_ies, elem, rnr->cnt);
+		}
+		size += ieee80211_get_mbssid_beacon_len(mbssid, rnr,
+							mbssid->cnt);
+	} else if (old && old->mbssid_ies) {
+		mbssid = old->mbssid_ies;
+		size += struct_size(new->mbssid_ies, elem, mbssid->cnt);
+		if (old->rnr_ies) {
+			rnr = old->rnr_ies;
 			size += struct_size(new->rnr_ies, elem, rnr->cnt);
 		}
 		size += ieee80211_get_mbssid_beacon_len(mbssid, rnr,
@@ -2296,6 +2340,8 @@ static int sta_link_apply_parameters(struct ieee80211_local *local,
 	case STA_LINK_MODE_NEW:
 		if (!params->link_mac)
 			return -EINVAL;
+		if (sta->sta.cip && !params->cip_cap_set)
+			return -EINVAL;
 		break;
 	case STA_LINK_MODE_LINK_MODIFY:
 		break;
@@ -2417,6 +2463,9 @@ static int sta_link_apply_parameters(struct ieee80211_local *local,
 	if (params->s1g_capa)
 		ieee80211_s1g_cap_to_sta_s1g_cap(sdata, params->s1g_capa,
 						 link_sta);
+
+	if (params->cip_cap_set)
+		link_sta->pub->cip_cap = params->cip_cap;
 
 	switch (sdata->vif.type) {
 	case NL80211_IFTYPE_NAN:
@@ -2579,6 +2628,9 @@ static int sta_apply_parameters(struct ieee80211_local *local,
 
 	if (params->eml_cap_present)
 		sta->sta.eml_cap = params->eml_cap;
+
+	if (params->sta_flags_set & BIT(NL80211_STA_FLAG_CIP))
+		sta->sta.cip = true;
 
 	ret = sta_link_apply_parameters(local, sta, STA_LINK_MODE_STA_MODIFY,
 					&params->link_sta_params);
@@ -5779,7 +5831,9 @@ ieee80211_color_change(struct wiphy *wiphy, struct net_device *dev,
 	cfg80211_color_change_started_notify(sdata->dev, params->count, link_id);
 
 	if (changed)
-		ieee80211_color_change_bss_config_notify(link, 0, 0, changed);
+		ieee80211_color_change_bss_config_notify(link,
+							 link_conf->he_bss_color.color,
+							 0, changed);
 	else
 		/* if the beacon didn't change, we can finalize immediately */
 		ieee80211_color_change_finalize(link);
@@ -5987,6 +6041,18 @@ ieee80211_set_peer_nan_sched(struct wiphy *wiphy,
 	return ieee80211_nan_set_peer_sched(sdata, sched);
 }
 
+static int
+ieee80211_set_nan_non_evac_channels(struct wiphy *wiphy,
+				    struct wireless_dev *wdev,
+				    struct cfg80211_nan_non_evac_channels *channels)
+{
+	struct ieee80211_sub_if_data *sdata = IEEE80211_WDEV_TO_SUB_IF(wdev);
+
+	lockdep_assert_wiphy(wiphy);
+
+	return ieee80211_nan_set_non_evac_channels(sdata, channels);
+}
+
 const struct cfg80211_ops mac80211_config_ops = {
 	.add_virtual_intf = ieee80211_add_iface,
 	.del_virtual_intf = ieee80211_del_iface,
@@ -6105,4 +6171,5 @@ const struct cfg80211_ops mac80211_config_ops = {
 	.set_epcs = ieee80211_set_epcs,
 	.nan_set_local_sched = ieee80211_set_local_nan_sched,
 	.nan_set_peer_sched = ieee80211_set_peer_nan_sched,
+	.nan_set_non_evac_channels = ieee80211_set_nan_non_evac_channels,
 };

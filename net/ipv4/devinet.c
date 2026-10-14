@@ -157,7 +157,8 @@ struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref)
 		 */
 		local = fib_get_table(net, RT_TABLE_LOCAL);
 		if (local &&
-		    !fib_table_lookup(local, &fl4, &res, FIB_LOOKUP_NOREF) &&
+		    !fib_table_lookup(net, local, &fl4, &res,
+				      FIB_LOOKUP_NOREF) &&
 		    res.type == RTN_LOCAL)
 			result = FIB_RES_DEV(res);
 	} else {
@@ -265,7 +266,9 @@ EXPORT_SYMBOL(in_dev_finish_destroy);
 
 static struct in_device *inetdev_init(struct net_device *dev)
 {
+	struct net *net = dev_net(dev);
 	struct in_device *in_dev;
+	struct neigh_table *tbl;
 	int err = -ENOMEM;
 
 	ASSERT_RTNL();
@@ -273,11 +276,12 @@ static struct in_device *inetdev_init(struct net_device *dev)
 	in_dev = kzalloc_obj(*in_dev);
 	if (!in_dev)
 		goto out;
-	memcpy(&in_dev->cnf, dev_net(dev)->ipv4.devconf_dflt,
-			sizeof(in_dev->cnf));
+
+	tbl = arp_table(net);
+	memcpy(&in_dev->cnf, net->ipv4.devconf_dflt, sizeof(in_dev->cnf));
 	in_dev->cnf.sysctl = NULL;
 	in_dev->dev = dev;
-	in_dev->arp_parms = neigh_parms_alloc(dev, &arp_tbl);
+	in_dev->arp_parms = neigh_parms_alloc(dev, tbl);
 	if (!in_dev->arp_parms)
 		goto out_kfree;
 	if (IPV4_DEVCONF(in_dev->cnf, FORWARDING))
@@ -291,7 +295,7 @@ static struct in_device *inetdev_init(struct net_device *dev)
 		err = devinet_sysctl_register(in_dev);
 		if (err) {
 			in_dev->dead = 1;
-			neigh_parms_release(&arp_tbl, in_dev->arp_parms);
+			neigh_parms_release(tbl, in_dev->arp_parms);
 			in_dev_put(in_dev);
 			in_dev = NULL;
 			goto out;
@@ -313,12 +317,11 @@ out_kfree:
 
 static void inetdev_destroy(struct in_device *in_dev)
 {
-	struct net_device *dev;
+	struct net_device *dev = in_dev->dev;
+	struct net *net = dev_net(dev);
 	struct in_ifaddr *ifa;
 
 	ASSERT_RTNL();
-
-	dev = in_dev->dev;
 
 	in_dev->dead = 1;
 
@@ -332,23 +335,11 @@ static void inetdev_destroy(struct in_device *in_dev)
 	}
 
 	devinet_sysctl_unregister(in_dev);
-	neigh_parms_release(&arp_tbl, in_dev->arp_parms);
+	neigh_parms_release(arp_table(net), in_dev->arp_parms);
 	arp_ifdown(dev);
 
 	in_dev_put(in_dev);
 }
-
-static int __init inet_blackhole_dev_init(void)
-{
-	struct in_device *in_dev;
-
-	rtnl_lock();
-	in_dev = inetdev_init(blackhole_netdev);
-	rtnl_unlock();
-
-	return PTR_ERR_OR_ZERO(in_dev);
-}
-late_initcall(inet_blackhole_dev_init);
 
 int inet_addr_onlink(struct in_device *in_dev, __be32 a, __be32 b)
 {
@@ -2972,4 +2963,9 @@ void __init devinet_init(void)
 		panic("Unable to register inet_af_ops\n");
 
 	rtnl_register_many(devinet_rtnl_msg_handlers);
+
+	rtnl_lock();
+	if (IS_ERR(inetdev_init(blackhole_netdev)))
+		panic("IP: failed to allocate in_device for blackhole_netdev\n");
+	rtnl_unlock();
 }

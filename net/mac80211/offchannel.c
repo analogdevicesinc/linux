@@ -861,8 +861,10 @@ int ieee80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 			need_offchan = true;
 
 		rcu_read_lock();
-		sta = sta_info_get_bss(sdata, mgmt->da);
-		mlo_sta = sta && sta->sta.mlo;
+		if (!params->no_sta) {
+			sta = sta_info_get_bss(sdata, mgmt->da);
+			mlo_sta = sta && sta->sta.mlo;
+		}
 
 		if (!ieee80211_is_action(mgmt->frame_control) ||
 		    mgmt->u.action.category == WLAN_CATEGORY_PUBLIC ||
@@ -891,7 +893,8 @@ int ieee80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 		     local->ops->remain_on_channel &&
 		     memcmp(sdata->vif.cfg.ap_addr, mgmt->bssid, ETH_ALEN))) {
 			need_offchan = true;
-		} else if (sdata->u.mgd.associated &&
+		} else if (!params->no_sta &&
+			   sdata->u.mgd.associated &&
 			   ether_addr_equal(sdata->vif.cfg.ap_addr, mgmt->da)) {
 			sta = sta_info_get_bss(sdata, mgmt->da);
 			mlo_sta = sta && sta->sta.mlo;
@@ -1029,7 +1032,9 @@ int ieee80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 	}
 
 	if (!need_offchan) {
-		ieee80211_tx_skb_tid(sdata, skb, 7, link_id);
+		ieee80211_tx_skb_tid(sdata, skb,
+				     params->no_sta ? ERR_PTR(-ENOENT) : sta,
+				     7, link_id);
 		ret = 0;
 		goto out_unlock;
 	}
@@ -1070,9 +1075,13 @@ void ieee80211_roc_purge(struct ieee80211_local *local,
 			 struct ieee80211_sub_if_data *sdata)
 {
 	struct ieee80211_roc_work *roc, *tmp;
+	bool start_next_roc = false;
 	bool work_to_do = false;
 
 	lockdep_assert_wiphy(local->hw.wiphy);
+
+	if (local->ops->remain_on_channel)
+		wiphy_work_flush(local->hw.wiphy, &local->hw_roc_start);
 
 	list_for_each_entry_safe(roc, tmp, &local->roc_list, list) {
 		if (sdata && roc->sdata != sdata)
@@ -1083,6 +1092,7 @@ void ieee80211_roc_purge(struct ieee80211_local *local,
 				/* can race, so ignore return value */
 				drv_cancel_remain_on_channel(local, roc->sdata);
 				ieee80211_roc_notify_destroy(roc);
+				start_next_roc = true;
 			} else {
 				roc->abort = true;
 				work_to_do = true;
@@ -1093,4 +1103,9 @@ void ieee80211_roc_purge(struct ieee80211_local *local,
 	}
 	if (work_to_do)
 		__ieee80211_roc_work(local);
+	else if (start_next_roc) {
+		wiphy_work_cancel(local->hw.wiphy, &local->hw_roc_done);
+		if (!list_empty(&local->roc_list))
+			ieee80211_start_next_roc(local);
+	}
 }

@@ -644,11 +644,12 @@ __le32 iwl_mvm_mac_ctxt_cmd_p2p_sta_get_oppps_ctwin(struct iwl_mvm *mvm,
 u32 iwl_mvm_mac_ctxt_cmd_sta_get_twt_policy(struct iwl_mvm *mvm,
 					    struct ieee80211_vif *vif)
 {
+	struct iwl_mvm_vif *mvmvif = iwl_mvm_vif_from_mac80211(vif);
 	u32 twt_policy = 0;
 
 	if (vif->bss_conf.twt_requester && IWL_MVM_USE_TWT)
 		twt_policy |= TWT_SUPPORTED;
-	if (vif->bss_conf.twt_protected)
+	if (mvmvif->ap_sta && mvmvif->ap_sta->twt_protected)
 		twt_policy |= PROTECTED_TWT_SUPPORTED;
 	if (vif->bss_conf.twt_broadcast)
 		twt_policy |= BROADCAST_TWT_SUPPORTED;

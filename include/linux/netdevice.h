@@ -433,6 +433,7 @@ enum {
 	NAPI_STATE_SCHED_THREADED,	/* Napi is currently scheduled in threaded mode */
 	NAPI_STATE_HAS_NOTIFIER,	/* Napi has an IRQ notifier */
 	NAPI_STATE_THREADED_BUSY_POLL,	/* The threaded NAPI poller will busy poll */
+	NAPI_STATE_PERCPU,		/* NAPI handler is run per-CPU - incompatible with threaded mode */
 };
 
 enum {
@@ -448,6 +449,7 @@ enum {
 	NAPIF_STATE_SCHED_THREADED	= BIT(NAPI_STATE_SCHED_THREADED),
 	NAPIF_STATE_HAS_NOTIFIER	= BIT(NAPI_STATE_HAS_NOTIFIER),
 	NAPIF_STATE_THREADED_BUSY_POLL	= BIT(NAPI_STATE_THREADED_BUSY_POLL),
+	NAPIF_STATE_PERCPU		= BIT(NAPI_STATE_PERCPU),
 };
 
 enum gro_result {
@@ -1138,13 +1140,16 @@ struct netdev_net_notifier {
  *				struct netdev_hw_addr_list *uc,
  *				struct netdev_hw_addr_list *mc);
  *	Async version of ndo_set_rx_mode which runs in process context
- *	with rtnl_lock and netdev_lock_ops(dev) held. The uc/mc parameters
+ *	under the netdev instance lock for "ops locked" drivers, or
+ *	rtnl_lock for all other drivers. The uc/mc parameters
  *	are snapshots of the address lists - iterate with
  *	netdev_hw_addr_list_for_each(ha, uc). Return 0 on success or a
  *	negative errno to request a retry via the core backoff.
  *
  * void (*ndo_work)(struct net_device *dev, unsigned long events);
  *	Run deferred work scheduled with netdev_work_sched(@events).
+ *	Runs in process context under the netdev instance lock for "ops
+ *	locked" drivers, or rtnl_lock for all other drivers.
  *
  * int (*ndo_set_mac_address)(struct net_device *dev, void *addr);
  *	This function  is called when the Media Access Control address
@@ -1153,11 +1158,6 @@ struct netdev_net_notifier {
  *
  * int (*ndo_validate_addr)(struct net_device *dev);
  *	Test if Media Access Control address is valid for the device.
- *
- * int (*ndo_do_ioctl)(struct net_device *dev, struct ifreq *ifr, int cmd);
- *	Old-style ioctl entry point. This is used internally by the
- *	ieee802154 subsystem but is no longer called by the device
- *	ioctl handler.
  *
  * int (*ndo_siocbond)(struct net_device *dev, struct ifreq *ifr, int cmd);
  *	Used by the bonding driver for its device specific ioctls:
@@ -1480,8 +1480,6 @@ struct net_device_ops {
 	int			(*ndo_set_mac_address)(struct net_device *dev,
 						       void *addr);
 	int			(*ndo_validate_addr)(struct net_device *dev);
-	int			(*ndo_do_ioctl)(struct net_device *dev,
-					        struct ifreq *ifr, int cmd);
 	int			(*ndo_eth_ioctl)(struct net_device *dev,
 						 struct ifreq *ifr, int cmd);
 	int			(*ndo_siocbond)(struct net_device *dev,
@@ -1840,6 +1838,7 @@ enum netdev_reg_state {
  *			drivers. Mainly used by logical interfaces, such as
  *			bonding and tunnels
  *	@netmem_tx:	device netmem TX mode
+ *	@pacing_offload: enable EDT pacing offload.
  *
  *	@name:	This is the first field of the "visible" part of this structure
  *		(i.e. as seen by users in the "Space.c" file).  It is the name
@@ -2170,6 +2169,7 @@ struct net_device {
 		unsigned long		priv_flags:32;
 		unsigned long		lltx:1;
 		unsigned long		netmem_tx:2;
+		unsigned long		pacing_offload:1;
 	);
 	const struct net_device_ops *netdev_ops;
 	const struct header_ops *header_ops;
@@ -3672,7 +3672,11 @@ struct page_pool_bh {
 };
 DECLARE_PER_CPU(struct page_pool_bh, system_page_pool);
 
+#ifdef CONFIG_KASAN
+#define XMIT_RECURSION_LIMIT	4
+#else
 #define XMIT_RECURSION_LIMIT	8
+#endif
 
 #ifndef CONFIG_PREEMPT_RT
 static inline int dev_recursion_level(void)
@@ -5324,7 +5328,6 @@ void netdev_lower_state_changed(struct net_device *lower_dev,
 				void *lower_state_info);
 
 #define NETDEV_RSS_KEY_LEN 256
-extern u8 netdev_rss_key[NETDEV_RSS_KEY_LEN] __read_mostly;
 void netdev_rss_key_fill(void *buffer, size_t len);
 
 int skb_checksum_help(struct sk_buff *skb);
@@ -5497,7 +5500,14 @@ void netif_stacked_transfer_operstate(const struct net_device *rootdev,
 netdev_features_t passthru_features_check(struct sk_buff *skb,
 					  struct net_device *dev,
 					  netdev_features_t features);
-netdev_features_t netif_skb_features(struct sk_buff *skb);
+netdev_features_t __netif_skb_features(struct sk_buff *skb,
+				       bool check_gso_limits);
+
+static inline netdev_features_t netif_skb_features(struct sk_buff *skb)
+{
+	return __netif_skb_features(skb, true);
+}
+
 void skb_warn_bad_offload(const struct sk_buff *skb);
 
 static inline bool net_gso_ok(netdev_features_t features, int gso_type)
@@ -5563,15 +5573,6 @@ netif_get_gro_max_size(const struct net_device *dev, const struct sk_buff *skb)
 	       READ_ONCE(dev->gro_ipv4_max_size);
 }
 
-static inline unsigned int
-netif_get_gso_max_size(const struct net_device *dev, const struct sk_buff *skb)
-{
-	/* pairs with WRITE_ONCE() in netif_set_gso(_ipv4)_max_size() */
-	return skb->protocol == htons(ETH_P_IPV6) ?
-	       READ_ONCE(dev->gso_max_size) :
-	       READ_ONCE(dev->gso_ipv4_max_size);
-}
-
 static inline bool netif_is_macsec(const struct net_device *dev)
 {
 	return dev->priv_flags & IFF_MACSEC;
@@ -5609,12 +5610,12 @@ static inline bool netif_has_l3_rx_handler(const struct net_device *dev)
 
 static inline bool netif_is_l3_master(const struct net_device *dev)
 {
-	return dev->priv_flags & IFF_L3MDEV_MASTER;
+	return IS_ENABLED(CONFIG_NET_VRF) && (dev->priv_flags & IFF_L3MDEV_MASTER);
 }
 
 static inline bool netif_is_l3_slave(const struct net_device *dev)
 {
-	return dev->priv_flags & IFF_L3MDEV_SLAVE;
+	return IS_ENABLED(CONFIG_NET_VRF) && (dev->priv_flags & IFF_L3MDEV_SLAVE);
 }
 
 static inline int dev_sdif(const struct net_device *dev)
@@ -5712,6 +5713,12 @@ static inline const char *netdev_name(const struct net_device *dev)
 	if (!dev->name[0] || strchr(dev->name, '%'))
 		return "(unnamed net_device)";
 	return dev->name;
+}
+
+/* Caller holds RTNL, netdev->lock or RCU */
+static inline bool netif_is_alive(const struct net_device *dev)
+{
+	return READ_ONCE(dev->reg_state) <= NETREG_REGISTERED;
 }
 
 static inline const char *netdev_reg_state(const struct net_device *dev)

@@ -798,7 +798,8 @@ static int __stmmac_get_coalesce(struct net_device *dev,
 
 	if (queue < tx_cnt) {
 		ec->tx_coalesce_usecs = priv->tx_coal_timer[queue];
-		ec->tx_max_coalesced_frames = priv->tx_coal_frames[queue];
+		ec->tx_max_coalesced_frames =
+			READ_ONCE(priv->tx_coal_frames[queue]);
 	} else {
 		ec->tx_coalesce_usecs = 0;
 		ec->tx_max_coalesced_frames = 0;
@@ -887,14 +888,14 @@ static int __stmmac_set_coalesce(struct net_device *dev,
 		int i;
 
 		for (i = 0; i < tx_cnt; i++) {
-			priv->tx_coal_frames[i] =
-				ec->tx_max_coalesced_frames;
+			WRITE_ONCE(priv->tx_coal_frames[i],
+				   ec->tx_max_coalesced_frames);
 			priv->tx_coal_timer[i] =
 				ec->tx_coalesce_usecs;
 		}
 	} else if (queue < tx_cnt) {
-		priv->tx_coal_frames[queue] =
-			ec->tx_max_coalesced_frames;
+		WRITE_ONCE(priv->tx_coal_frames[queue],
+			   ec->tx_max_coalesced_frames);
 		priv->tx_coal_timer[queue] =
 			ec->tx_coalesce_usecs;
 	}
@@ -1007,8 +1008,7 @@ static int stmmac_get_ts_info(struct net_device *dev,
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
 
-	if ((priv->dma_cap.time_stamp || priv->dma_cap.atime_stamp)) {
-
+	if (stmmac_check_timestamp_cap(priv)) {
 		info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE |
 					SOF_TIMESTAMPING_TX_HARDWARE |
 					SOF_TIMESTAMPING_RX_HARDWARE |

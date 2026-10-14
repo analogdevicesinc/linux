@@ -15,10 +15,14 @@
 #include <linux/platform_device.h>
 #include <net/ip.h>
 #include <net/ipv6.h>
+#include <net/netdev_queues.h>
 #include <net/page_pool/helpers.h>
 
 #include "bcmasp.h"
 #include "bcmasp_intf_defs.h"
+
+#define BCMASP_TX_STOP_THRS	(MAX_SKB_FRAGS + 1)
+#define BCMASP_TX_START_THRS	(2 * MAX_SKB_FRAGS)
 
 static int incr_ring(int index, int ring_count)
 {
@@ -143,19 +147,13 @@ static void bcmasp_clean_txcb(struct bcmasp_intf *intf, int index)
 	txcb->last = false;
 }
 
-static int tx_spb_ring_full(struct bcmasp_intf *intf, int cnt)
+static int bcmasp_tx_avail(struct bcmasp_intf *intf)
 {
-	int next_index, i;
+	int used = (READ_ONCE(intf->tx_spb_index) -
+		    READ_ONCE(intf->tx_spb_clean_index) + DESC_RING_COUNT) %
+		   DESC_RING_COUNT;
 
-	/* Check if we have enough room for cnt descriptors */
-	next_index = intf->tx_spb_index;
-	for (i = 0; i < cnt; i++) {
-		next_index = incr_ring(next_index, DESC_RING_COUNT);
-		if (next_index == intf->tx_spb_clean_index)
-			return 1;
-	}
-
-	return 0;
+	return DESC_RING_COUNT - used - 1;
 }
 
 static struct sk_buff *bcmasp_csum_offload(struct net_device *dev,
@@ -241,16 +239,19 @@ static netdev_tx_t bcmasp_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct bcmasp_tx_cb *txcb;
 	dma_addr_t mapping, valid;
 	struct bcmasp_desc *desc;
+	struct netdev_queue *txq;
 	bool csum_hw = false;
 	struct device *kdev;
 	skb_frag_t *frag;
 
 	kdev = &intf->parent->pdev->dev;
+	txq = netdev_get_tx_queue(dev, 0);
 
 	nr_frags = skb_shinfo(skb)->nr_frags;
 
-	if (tx_spb_ring_full(intf, nr_frags + 1)) {
-		netif_stop_queue(dev);
+	if (unlikely(bcmasp_tx_avail(intf) < nr_frags + 1)) {
+		netif_txq_try_stop(txq, bcmasp_tx_avail(intf),
+				   BCMASP_TX_START_THRS);
 		if (net_ratelimit())
 			netdev_err(dev, "Tx Ring Full!\n");
 		return NETDEV_TX_BUSY;
@@ -333,15 +334,17 @@ static netdev_tx_t bcmasp_xmit(struct sk_buff *skb, struct net_device *dev)
 	 */
 	wmb();
 
-	intf->tx_spb_index = spb_index;
+	WRITE_ONCE(intf->tx_spb_index, spb_index);
 	intf->tx_spb_dma_valid = valid;
+
+	netdev_tx_sent_queue(txq, total_bytes);
 
 	skb_tx_timestamp(skb);
 
 	tx_spb_dma_wq(intf, intf->tx_spb_dma_valid, TX_SPB_DMA_VALID);
 
-	if (tx_spb_ring_full(intf, MAX_SKB_FRAGS + 1))
-		netif_stop_queue(dev);
+	netif_txq_maybe_stop(txq, bcmasp_tx_avail(intf),
+			     BCMASP_TX_STOP_THRS, BCMASP_TX_START_THRS);
 
 	return NETDEV_TX_OK;
 }
@@ -398,14 +401,16 @@ static void umac_enable_set(struct bcmasp_intf *intf, u32 mask,
 		usleep_range(1000, 2000);
 }
 
-static int bcmasp_tx_reclaim(struct bcmasp_intf *intf)
+static int bcmasp_tx_reclaim(struct bcmasp_intf *intf, unsigned int *bytes_out)
 {
 	struct bcmasp_intf_stats64 *stats = &intf->stats64;
 	struct device *kdev = &intf->parent->pdev->dev;
-	unsigned long read, released = 0;
+	unsigned int bytes_compl = 0;
 	struct bcmasp_tx_cb *txcb;
 	struct bcmasp_desc *desc;
+	unsigned long read;
 	dma_addr_t mapping;
+	int packets = 0;
 
 	read = tx_spb_dma_rq(intf, TX_SPB_DMA_READ);
 	while (intf->tx_spb_dma_read != read) {
@@ -423,6 +428,9 @@ static int bcmasp_tx_reclaim(struct bcmasp_intf *intf)
 			u64_stats_inc(&stats->tx_packets);
 			u64_stats_add(&stats->tx_bytes, txcb->bytes_sent);
 			u64_stats_update_end(&stats->syncp);
+
+			bytes_compl += txcb->bytes_sent;
+			packets++;
 		}
 
 		desc = &intf->tx_spb_cpu[intf->tx_spb_clean_index];
@@ -433,32 +441,36 @@ static int bcmasp_tx_reclaim(struct bcmasp_intf *intf)
 			  intf->tx_spb_clean_index);
 
 		bcmasp_clean_txcb(intf, intf->tx_spb_clean_index);
-		released++;
 
-		intf->tx_spb_clean_index = incr_ring(intf->tx_spb_clean_index,
-						     DESC_RING_COUNT);
+		WRITE_ONCE(intf->tx_spb_clean_index,
+			   incr_ring(intf->tx_spb_clean_index, DESC_RING_COUNT));
 		intf->tx_spb_dma_read = incr_first_byte(intf->tx_spb_dma_read,
 							intf->tx_spb_dma_addr,
 							DESC_RING_COUNT);
 	}
 
-	return released;
+	if (bytes_out)
+		*bytes_out = bytes_compl;
+
+	return packets;
 }
 
 static int bcmasp_tx_poll(struct napi_struct *napi, int budget)
 {
 	struct bcmasp_intf *intf =
 		container_of(napi, struct bcmasp_intf, tx_napi);
-	int released = 0;
+	struct netdev_queue *txq = netdev_get_tx_queue(intf->ndev, 0);
+	unsigned int bytes = 0;
+	int packets;
 
-	released = bcmasp_tx_reclaim(intf);
+	packets = bcmasp_tx_reclaim(intf, &bytes);
+
+	netif_txq_completed_wake(txq, packets, bytes,
+				 bcmasp_tx_avail(intf), BCMASP_TX_START_THRS);
 
 	napi_complete(&intf->tx_napi);
 
 	bcmasp_enable_tx_irq(intf, 1);
-
-	if (released)
-		netif_wake_queue(intf->ndev);
 
 	return 0;
 }
@@ -847,6 +859,7 @@ static void bcmasp_init_tx(struct bcmasp_intf *intf)
 	intf->tx_spb_index = 0;
 	intf->tx_spb_clean_index = 0;
 	memset(intf->tx_cbs, 0, sizeof(struct bcmasp_tx_cb) * DESC_RING_COUNT);
+	netdev_tx_reset_queue(netdev_get_tx_queue(intf->ndev, 0));
 
 	/* Make sure channels are disabled */
 	tx_spb_ctrl_wl(intf, 0x0, TX_SPB_CTRL_ENABLE);
@@ -944,7 +957,7 @@ static void bcmasp_netif_deinit(struct net_device *dev, bool stop_phy)
 	} while (timeout-- > 0);
 	tx_spb_dma_wl(intf, 0x0, TX_SPB_DMA_FIFO_CTRL);
 
-	bcmasp_tx_reclaim(intf);
+	bcmasp_tx_reclaim(intf, NULL);
 
 	umac_enable_set(intf, UMC_CMD_TX_EN, 0);
 
