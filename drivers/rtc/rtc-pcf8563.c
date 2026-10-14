@@ -479,7 +479,8 @@ static int pcf8563_probe(struct i2c_client *client)
 
 	dev_dbg(&client->dev, "%s\n", __func__);
 
-	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C) &&
+	    !i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_I2C_BLOCK))
 		return -ENODEV;
 
 	pcf8563 = devm_kzalloc(&client->dev, sizeof(struct pcf8563),
