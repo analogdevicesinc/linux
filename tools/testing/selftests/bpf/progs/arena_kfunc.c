@@ -205,7 +205,7 @@ int arena_arg_no_arena(void *ctx)
 SEC("syscall")
 __arch_x86_64
 __arch_arm64
-__failure __msg("is not a pointer to arena or scalar")
+__failure __msg("R1 type=fp expected=arena, scalar")
 int arena_arg_bad_reg(void *ctx)
 {
 	u64 buf = 0;
@@ -228,6 +228,21 @@ int arena_arg_stack(void *ctx)
 	bpf_kfunc_arena_stack_arg_test(1, 2, 3, 4, 5, (u64 *)1);
 	return 0;
 }
+
+#if defined(__clang__)
+/* The struct takes two slots, so the arena pointer is the sixth. */
+SEC("syscall")
+__arch_x86_64 __arch_arm64
+__failure __msg("arena pointer cannot be a stack argument")
+int arena_arg_stack_after_pair(void *ctx)
+{
+	struct prog_test_pair_arg s = { .lo = 1, .hi = 2 };
+
+	bpf_arena_alloc_pages(&arena, NULL, 1, NUMA_NO_NODE, 0);
+	bpf_kfunc_call_test_pair_arena_arg(1, 2, 3, s, (u64 *)1);
+	return 0;
+}
+#endif
 #else
 SEC("syscall")
 __arch_x86_64

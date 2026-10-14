@@ -164,8 +164,10 @@ static void test_fexit_bpf2bpf_common(const char *obj_file,
 		goto close_prog;
 
 close_prog:
-	for (i = 0; i < prog_cnt; i++)
-		bpf_link__destroy(link[i]);
+	if (link) {
+		for (i = 0; i < prog_cnt; i++)
+			bpf_link__destroy(link[i]);
+	}
 	bpf_object__close(obj);
 	bpf_object__close(tgt_obj);
 	free(link);

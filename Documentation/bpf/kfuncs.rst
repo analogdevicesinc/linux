@@ -164,19 +164,32 @@ suffix should be used.
 2.3.3 __uninit Annotation
 -------------------------
 
-This annotation is used to indicate that the argument will be treated as
-uninitialized.
+Use ``__uninit`` on a pointer parameter for an output buffer whose incoming
+contents the kfunc does not read.
 
-An example is given below::
+For generic memory buffers, the kfunc may leave bytes untouched, including
+on error returns. The writable range is determined by the pointed-to type
+or the associated ``__sz`` or ``__szk`` size argument.
 
-        __bpf_kfunc int bpf_dynptr_from_skb(..., struct bpf_dynptr_kern *ptr__uninit)
+The annotation does not change the accepted pointer types. A stack-backed
+struct passed as a generic memory buffer must still be scalar-only.
+
+Generic stack buffers may be uninitialized before the call. The call does
+not make previously uninitialized bytes readable unless the program is
+allowed to read uninitialized stack memory (normally requiring
+``CAP_PERFMON``). Other callers must initialize those bytes themselves
+before reading them. Stack bounds and variable-offset restrictions still
+apply.
+
+For dynptr parameters, ``__uninit`` indicates that the kfunc constructs a
+dynptr in the supplied storage. For example::
+
+        __bpf_kfunc int bpf_dynptr_from_skb(..., struct bpf_dynptr *ptr__uninit)
         {
         ...
         }
 
-Here, the dynptr will be treated as an uninitialized dynptr. Without this
-annotation, the verifier will reject the program if the dynptr passed in is
-not initialized.
+Without this annotation, a dynptr argument must already be initialized.
 
 2.3.4 __nullable Annotation
 ---------------------------
@@ -314,6 +327,29 @@ pass NULL. With ``__arena__nullable`` a NULL kernel pointer arrives as NULL.
 However, there is no obligation to prove to the verifier that such a pointer is
 non-NULL before use, in-line with existing semantics of arena pointers used in
 a program (or obtained from any other source).
+
+2.3.9 __ctx_out Annotation
+--------------------------
+
+This annotation is used to indicate that the argument is an output
+parameter of the attached hook, passed through from the program's
+context. The verifier requires the register to be a trusted read-only
+pointer to fixed-size memory, which can only be produced by loading an
+argument described by the program's ctx_arg_info from the context. The
+program itself cannot write through the pointer; the kfunc may.
+
+An example is given below::
+
+        __bpf_kfunc int bpf_inode_init_xattr(struct xattr *xattrs,
+                                             int *xattr_count__ctx_out,
+                                             ...)
+        {
+        ...
+        }
+
+In this case, a program attached to the ``inode_init_security`` LSM hook
+can pass the hook's own ``xattr_count`` argument through to the kfunc,
+which claims xattr slots by writing through it.
 
 .. _BPF_kfunc_nodef:
 
@@ -546,7 +582,7 @@ For example, for the following type definition:
 
 The verifier would allow a ``struct bpf_cpumask *`` to be passed to a kfunc
 taking a ``cpumask_t *`` (which is a typedef of ``struct cpumask *``). For
-instance, both ``struct cpumask *`` and ``struct bpf_cpmuask *`` can be passed
+instance, both ``struct cpumask *`` and ``struct bpf_cpumask *`` can be passed
 to bpf_cpumask_test_cpu().
 
 In some cases, this type-aliasing behavior is not desired. ``struct

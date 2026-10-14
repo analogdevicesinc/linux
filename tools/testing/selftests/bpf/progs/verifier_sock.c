@@ -148,7 +148,7 @@ l0_%=:	r0 = *(u32*)(r1 + %[bpf_sock_type]);		\
 
 SEC("cgroup/skb")
 __description("bpf_sk_fullsock(skb->sk): no !skb->sk check")
-__failure __msg("type=sock_common_or_null expected=sock_common")
+__failure __msg("Possibly NULL pointer passed to trusted R1")
 __failure_unpriv
 __naked void sk_no_skb_sk_check_1(void)
 {
@@ -504,7 +504,7 @@ l1_%=:	r0 = *(u32*)(r0 + %[bpf_sock_rx_queue_mapping__end]);\
 
 SEC("cgroup/skb")
 __description("bpf_tcp_sock(skb->sk): no !skb->sk check")
-__failure __msg("type=sock_common_or_null expected=sock_common")
+__failure __msg("Possibly NULL pointer passed to trusted R1")
 __failure_unpriv
 __naked void sk_no_skb_sk_check_2(void)
 {
@@ -641,7 +641,7 @@ l2_%=:	r0 = *(u32*)(r0 + %[bpf_tcp_sock_snd_cwnd]);	\
 
 SEC("tc")
 __description("bpf_sk_release(skb->sk)")
-__failure __msg("release helper bpf_sk_release expects referenced PTR_TO_BTF_ID passed to R1")
+__failure __msg("release function bpf_sk_release expects referenced PTR_TO_BTF_ID passed to R1")
 __naked void bpf_sk_release_skb_sk(void)
 {
 	asm volatile ("					\
@@ -658,7 +658,7 @@ l0_%=:	r0 = 0;						\
 
 SEC("tc")
 __description("bpf_sk_release(bpf_sk_fullsock(skb->sk))")
-__failure __msg("release helper bpf_sk_release expects referenced PTR_TO_BTF_ID passed to R1")
+__failure __msg("release function bpf_sk_release expects referenced PTR_TO_BTF_ID passed to R1")
 __naked void bpf_sk_fullsock_skb_sk(void)
 {
 	asm volatile ("					\
@@ -682,7 +682,7 @@ l1_%=:	r1 = r0;					\
 
 SEC("tc")
 __description("bpf_sk_release(bpf_tcp_sock(skb->sk))")
-__failure __msg("release helper bpf_sk_release expects referenced PTR_TO_BTF_ID passed to R1")
+__failure __msg("release function bpf_sk_release expects referenced PTR_TO_BTF_ID passed to R1")
 __naked void bpf_tcp_sock_skb_sk(void)
 {
 	asm volatile ("					\

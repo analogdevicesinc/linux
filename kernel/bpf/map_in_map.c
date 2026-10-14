@@ -25,6 +25,10 @@ struct bpf_map *bpf_map_meta_alloc(int inner_map_ufd)
 	if (!inner_map->ops->map_meta_equal)
 		return ERR_PTR(-ENOTSUPP);
 
+	/* An inner map has no used_maps reference to hold it under a queued callback. */
+	if (btf_record_has_field(inner_map->record, BPF_RCU_HEAD))
+		return ERR_PTR(-EOPNOTSUPP);
+
 	inner_map_meta_size = sizeof(*inner_map_meta);
 	/* In some cases verifier needs to access beyond just base map. */
 	if (inner_map->ops == &array_map_ops || inner_map->ops == &percpu_array_map_ops)

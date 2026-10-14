@@ -9,6 +9,7 @@
 #include <linux/filter.h>
 #include <linux/if_vlan.h>
 #include <linux/bitfield.h>
+#include <linux/init.h>
 #include <linux/bpf.h>
 #include <linux/bpf_verifier.h>
 #include <linux/memory.h>
@@ -34,6 +35,21 @@ void __asan_store8(void *p);
 #endif
 
 static bool all_callee_regs_used[4] = {true, true, true, true};
+
+static void *trampoline_size_image;
+
+static int __init init_trampoline_size_image(void)
+{
+	/*
+	 * The generated trampoline contains calls and jumps with 32bit relative
+	 * offsets, so the scratch image must be in the execmem range.
+	 * On x86, module data and executable memory share the same address range,
+	 * so using EXECMEM_MODULE_DATA to get writable memory.
+	 */
+	trampoline_size_image = execmem_alloc(EXECMEM_MODULE_DATA, PAGE_SIZE);
+	return trampoline_size_image ? 0 : -ENOMEM;
+}
+late_initcall(init_trampoline_size_image);
 
 static u8 *emit_code(u8 *ptr, u32 bytes, unsigned int len)
 {
@@ -220,6 +236,7 @@ static const int reg2pt_regs[] = {
 	[BPF_REG_7] = offsetof(struct pt_regs, r13),
 	[BPF_REG_8] = offsetof(struct pt_regs, r14),
 	[BPF_REG_9] = offsetof(struct pt_regs, r15),
+	[BPF_REG_AX] = offsetof(struct pt_regs, r10),
 };
 
 /*
@@ -731,6 +748,46 @@ static void emit_indirect_jump(u8 **pprog, int bpf_reg, u8 *ip)
 	}
 
 	*pprog = prog;
+}
+
+static void __emit_indirect_call(u8 **pprog, int reg, bool ereg)
+{
+	u8 *prog = *pprog;
+
+	if (ereg)
+		EMIT1(0x41);
+
+	EMIT2(0xFF, 0xD0 + reg);
+
+	*pprog = prog;
+}
+
+/* call *bpf_reg */
+static int emit_indirect_call(u8 **pprog, int bpf_reg, u8 *ip)
+{
+	u8 *prog = *pprog;
+	int reg = reg2hex[bpf_reg];
+	bool ereg = is_ereg(bpf_reg);
+	int err = 0;
+
+	if (cpu_feature_enabled(X86_FEATURE_INDIRECT_THUNK_ITS)) {
+		OPTIMIZER_HIDE_VAR(reg);
+		err = emit_call(&prog, its_static_thunk(reg + 8*ereg), ip);
+	} else if (cpu_feature_enabled(X86_FEATURE_RETPOLINE_LFENCE)) {
+		EMIT_LFENCE();
+		__emit_indirect_call(&prog, reg, ereg);
+	} else if (cpu_feature_enabled(X86_FEATURE_RETPOLINE)) {
+		OPTIMIZER_HIDE_VAR(reg);
+		if (cpu_feature_enabled(X86_FEATURE_CALL_DEPTH))
+			err = emit_call(&prog, &__x86_indirect_call_thunk_array[reg + 8*ereg], ip);
+		else
+			err = emit_call(&prog, &__x86_indirect_thunk_array[reg + 8*ereg], ip);
+	} else {
+		__emit_indirect_call(&prog, reg, ereg);
+	}
+
+	*pprog = prog;
+	return err;
 }
 
 static void emit_return(u8 **pprog, u8 *ip)
@@ -1839,6 +1896,65 @@ static int emit_spectre_bhb_barrier(u8 **pprog, u8 *ip,
 	return 0;
 }
 
+static const struct bpf_jit_arg_abi x86_arg_abi = {
+	.nr_arg_regs		= 6,
+	.backfill_after_stack	= true,
+	.even_stack_align	= true,
+};
+
+static const u8 x86_arg_reg[] = {
+	BPF_REG_1, BPF_REG_2, BPF_REG_3, BPF_REG_4, BPF_REG_5, X86_REG_R9,
+};
+
+/*
+ * Move the arguments the x86-64 ABI places somewhere other than the argument
+ * slot the BPF calling convention gave them. @stack_base addresses the
+ * outgoing stack argument area from RBP. Return the number of emitted bytes.
+ */
+static int emit_kfunc_arg_moves(const struct btf_func_model *fm, s32 stack_base, u8 **pprog)
+{
+	struct bpf_jit_arg_move moves[BPF_JIT_MAX_ARG_MOVES];
+	const u8 nreg = x86_arg_abi.nr_arg_regs;
+	u8 *prog = *pprog, *start = prog;
+	u32 i, n;
+
+	n = bpf_jit_plan_arg_moves(&x86_arg_abi, fm, moves);
+
+	for (i = 0; i < n; i++) {
+		u8 dst = moves[i].dst, src = moves[i].src, reg;
+		bool dst_mem = dst != BPF_JIT_ARG_TMP && dst >= nreg;
+		bool src_mem = src != BPF_JIT_ARG_TMP && src >= nreg;
+
+		/*
+		 * Take the value into a register: the one it belongs in, the
+		 * scratch when it is carried past its own destination, and
+		 * BPF_REG_AX only to pass one stack slot to another.
+		 */
+		if (src == BPF_JIT_ARG_TMP) {
+			reg = AUX_REG;
+		} else if (src_mem) {
+			reg = dst == BPF_JIT_ARG_TMP ? AUX_REG :
+			      dst_mem ? BPF_REG_AX : x86_arg_reg[dst];
+			emit_ldx(&prog, BPF_DW, reg, BPF_REG_FP,
+				 stack_base + (src - nreg) * 8);
+		} else {
+			reg = x86_arg_reg[src];
+		}
+
+		/* And leave it where the argument belongs. */
+		if (dst == BPF_JIT_ARG_TMP)
+			emit_mov_reg(&prog, true, AUX_REG, reg);
+		else if (dst_mem)
+			emit_stx(&prog, BPF_DW, BPF_REG_FP, reg,
+				 stack_base + (dst - nreg) * 8);
+		else if (reg != x86_arg_reg[dst])
+			emit_mov_reg(&prog, true, x86_arg_reg[dst], reg);
+	}
+
+	*pprog = prog;
+	return prog - start;
+}
+
 /*
  * Rebase the __arena args of a kfunc call to arena kernel addresses,
  * rN = kern_vm_start + (u32)rN, with R12 holding kern_vm_start. A nullable
@@ -1850,11 +1966,17 @@ static int emit_kfunc_arena_args(struct bpf_prog *bpf_prog,
 {
 	u8 *prog = *pprog;
 	u8 *start = prog;
-	int i;
+	int i, slot;
 
-	for (i = 0; i < min_t(int, fm->nr_args, MAX_BPF_FUNC_REG_ARGS); i++) {
+	for (i = 0, slot = 0; i < fm->nr_args; i++) {
+		u32 arg_regs = (fm->arg_size[i] + 7) / 8;
 		u8 flags = fm->arg_flags[i];
-		u32 reg = BPF_REG_1 + i;
+		u32 reg;
+
+		if (slot + arg_regs > MAX_BPF_FUNC_REG_ARGS)
+			break;
+		reg = BPF_REG_1 + slot;
+		slot += arg_regs;
 
 		if (!(flags & BTF_FMODEL_ARENA_ARG))
 			continue;
@@ -2837,6 +2959,20 @@ populate_extable:
 				if (err < 0)
 					return err;
 				ip += err;
+				ip += emit_kfunc_arg_moves(fm, outgoing_arg_base -
+							   outgoing_rsp, &prog);
+			}
+			if (func == (u8 *)arch_bpf_timed_may_goto) {
+				u32 fp = priv_frame_ptr ? X86_REG_R9 : BPF_REG_FP;
+
+				/*
+				 * AX has the offset of count and timestamp
+				 * in the stack. Turn it into a pointer.
+				 * add r10, rbp or add r10, r9
+				 */
+				maybe_emit_mod(&prog, BPF_REG_AX, fp, true);
+				EMIT2(0x01, add_2reg(0xC0, BPF_REG_AX, fp));
+				ip += 3;
 			}
 			if (priv_frame_ptr) {
 				push_r9(&prog);
@@ -2857,6 +2993,24 @@ populate_extable:
 				emit_mov_reg(&prog, true, BPF_REG_2, BPF_REG_3);
 			break;
 		}
+
+			/* callx: call of a bpf subprog whose address is in dst_reg */
+		case BPF_JMP | BPF_CALL | BPF_X:
+			/*
+			 * The verifier makes sure that callees of callx are
+			 * not tail call reachable, hence unlike a direct call
+			 * of a subprog there is no need to pass
+			 * tail_call_cnt_ptr in rax.
+			 */
+			if (priv_frame_ptr) {
+				push_r9(&prog);
+				ip += 2;
+			}
+			if (emit_indirect_call(&prog, insn->dst_reg, ip))
+				return -EINVAL;
+			if (priv_frame_ptr)
+				pop_r9(&prog);
+			break;
 
 		case BPF_JMP | BPF_TAIL_CALL:
 			if (imm32)
@@ -4006,24 +4160,14 @@ int arch_bpf_trampoline_size(const struct btf_func_model *m, u32 flags,
 			     struct bpf_tramp_nodes *tnodes, void *func_addr)
 {
 	struct bpf_tramp_image im = {};
-	void *image;
-	int ret;
 
-	/* Allocate a temporary buffer for __arch_prepare_bpf_trampoline().
-	 *
-	 * We cannot use kvmalloc here, because we need image to be in
-	 * module memory range.
-	 * Since it must be writable use execmem_alloc(EXECMEM_MODULE_DATA)
-	 * that returns writable memory in the module address space.
-	 */
-	image = execmem_alloc(EXECMEM_MODULE_DATA, PAGE_SIZE);
-	if (!image)
+	if (!trampoline_size_image)
 		return -ENOMEM;
 
-	ret = __arch_prepare_bpf_trampoline(&im, image, image + PAGE_SIZE, image,
-					    m, flags, tnodes, func_addr);
-	execmem_free(image);
-	return ret;
+	return __arch_prepare_bpf_trampoline(&im, trampoline_size_image,
+					     trampoline_size_image + PAGE_SIZE,
+					     trampoline_size_image, m, flags,
+					     tnodes, func_addr);
 }
 
 static int emit_bpf_dispatcher(u8 **pprog, int a, int b, s64 *progs, u8 *image, u8 *buf)
@@ -4347,6 +4491,16 @@ out_priv_stack:
 	return prog;
 }
 
+bool bpf_jit_supports_callx(void)
+{
+	/*
+	 * FineIBT poisons ENDBR at the entry of a JITed function and expects
+	 * indirect callers to go through the CFI preamble instead.
+	 * callx doesn't do that yet.
+	 */
+	return cfi_mode != CFI_FINEIBT;
+}
+
 bool bpf_jit_supports_kfunc_call(void)
 {
 	return true;
@@ -4355,6 +4509,11 @@ bool bpf_jit_supports_kfunc_call(void)
 bool bpf_jit_supports_kfunc_ret_reg_pair(void)
 {
 	return true;
+}
+
+const struct bpf_jit_arg_abi *bpf_jit_arg_abi(void)
+{
+	return &x86_arg_abi;
 }
 
 bool bpf_jit_supports_stack_args(void)
@@ -4376,6 +4535,18 @@ void *bpf_arch_text_copy(void *dst, void *src, size_t len)
 
 /* Indicate the JIT backend supports mixing bpf2bpf and tailcalls. */
 bool bpf_jit_supports_subprog_tailcalls(void)
+{
+	return true;
+}
+
+/*
+ * Frame sizes are 32-bit immediates in the prologue, epilogue and tail call
+ * sequences, a tail call pops the caller's frame and lands in the target's
+ * prologue before the target allocates its own, and private stacks are
+ * allocated from the program's own depth, so MAX_BPF_STACK_JIT frames need
+ * nothing special.
+ */
+bool bpf_jit_supports_large_stack(void)
 {
 	return true;
 }
@@ -4499,6 +4670,11 @@ void bpf_arch_poke_desc_update(struct bpf_jit_poke_descriptor *poke,
 }
 
 bool bpf_jit_supports_arena(void)
+{
+	return true;
+}
+
+bool bpf_jit_supports_arena_scalar(void)
 {
 	return true;
 }

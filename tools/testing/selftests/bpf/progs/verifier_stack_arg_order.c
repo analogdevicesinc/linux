@@ -116,8 +116,8 @@ __naked void stack_arg_pruning_load_after_call(void)
 /*
  * "bad_ptr": the first arg is 'long *', which is not a recognized pointer
  * type for static subprogs (not ctx, dynptr, or tagged).  btf_prepare_func_args()
- * sets arg_cnt = 7 / stack_arg_cnt = 2, then fails with -EINVAL.  The subprog
- * is marked unreliable but the call still proceeds for static subprogs.
+ * sets arg_slot_cnt = 7 / stack_arg_cnt = 2, then fails with -EINVAL.  The
+ * subprog is marked unreliable but the call still proceeds for static subprogs.
  */
 __noinline __used __naked
 static void subprog_bad_ptr_7args(long *a, int b, int c, int d, int e, int f, int g)

@@ -602,38 +602,45 @@ static bool can_alloc_pages(void)
 		!IS_ENABLED(CONFIG_PREEMPT_RT);
 }
 
-static struct page *__bpf_alloc_page(int nid)
+struct page *bpf_alloc_page(int nid, bool sleepable)
 {
-	if (!can_alloc_pages())
+	if (!sleepable || !can_alloc_pages())
 		return alloc_pages_nolock(__GFP_ACCOUNT, nid, 0);
 
 	return alloc_pages_node(nid,
 				GFP_KERNEL | __GFP_ZERO | __GFP_ACCOUNT
-				| __GFP_NOWARN,
+				| __GFP_NOWARN | __GFP_RETRY_MAYFAIL,
 				0);
 }
 
-int bpf_map_alloc_pages(const struct bpf_map *map, int nid,
-			unsigned long nr_pages, struct page **pages)
+void bpf_free_pages(struct llist_head *pages)
 {
-	unsigned long i, j;
+	struct llist_node *node;
+	struct page *page, *tmp;
+
+	node = llist_del_all(pages);
+	llist_for_each_entry_safe(page, tmp, node, pcp_llist)
+		free_pages_nolock(page, 0);
+}
+
+int bpf_alloc_pages(int nid, unsigned long nr_pages,
+		    struct llist_head *pages, bool sleepable)
+{
+	unsigned long i;
 	struct page *pg;
-	int ret = 0;
 
 	for (i = 0; i < nr_pages; i++) {
-		pg = __bpf_alloc_page(nid);
-
-		if (pg) {
-			pages[i] = pg;
-			continue;
-		}
-		for (j = 0; j < i; j++)
-			free_pages_nolock(pages[j], 0);
-		ret = -ENOMEM;
-		break;
+		pg = bpf_alloc_page(nid, sleepable);
+		if (!pg)
+			goto free_pages;
+		llist_add(&pg->pcp_llist, pages);
 	}
 
-	return ret;
+	return 0;
+
+free_pages:
+	bpf_free_pages(pages);
+	return -ENOMEM;
 }
 
 static int btf_field_cmp(const void *a, const void *b)
@@ -687,6 +694,7 @@ void btf_record_free(struct btf_record *rec)
 		case BPF_REFCOUNT:
 		case BPF_WORKQUEUE:
 		case BPF_TASK_WORK:
+		case BPF_RCU_HEAD:
 			/* Nothing to release */
 			break;
 		default:
@@ -741,6 +749,7 @@ struct btf_record *btf_record_dup(const struct btf_record *rec)
 		case BPF_REFCOUNT:
 		case BPF_WORKQUEUE:
 		case BPF_TASK_WORK:
+		case BPF_RCU_HEAD:
 			/* Nothing to acquire */
 			break;
 		default:
@@ -874,6 +883,7 @@ void bpf_obj_free_fields(const struct btf_record *rec, void *obj)
 		case BPF_LIST_NODE:
 		case BPF_RB_NODE:
 		case BPF_REFCOUNT:
+		case BPF_RCU_HEAD:
 			break;
 		default:
 			WARN_ON_ONCE(1);
@@ -953,6 +963,9 @@ void bpf_map_put(struct bpf_map *map)
 	if (atomic64_dec_and_test(&map->refcnt)) {
 		/* bpf_map_free_id() must be called first */
 		bpf_map_free_id(map);
+
+		if (map->ops->map_free_pre_rcu)
+			map->ops->map_free_pre_rcu(map);
 
 		WARN_ON_ONCE(atomic64_read(&map->sleepable_refcnt));
 		/* RCU tasks trace grace period implies RCU grace period. */
@@ -1277,7 +1290,7 @@ static int map_check_btf(struct bpf_map *map, struct bpf_token *token,
 	map->record = btf_parse_fields(btf, value_type,
 				       BPF_SPIN_LOCK | BPF_RES_SPIN_LOCK | BPF_TIMER | BPF_KPTR | BPF_LIST_HEAD |
 				       BPF_RB_ROOT | BPF_REFCOUNT | BPF_WORKQUEUE | BPF_UPTR |
-				       BPF_TASK_WORK,
+				       BPF_TASK_WORK | BPF_RCU_HEAD,
 				       map->value_size);
 	if (!IS_ERR_OR_NULL(map->record)) {
 		int i;
@@ -1315,6 +1328,12 @@ static int map_check_btf(struct bpf_map *map, struct bpf_token *token,
 				    map->map_type != BPF_MAP_TYPE_RHASH &&
 				    map->map_type != BPF_MAP_TYPE_LRU_HASH &&
 				    map->map_type != BPF_MAP_TYPE_ARRAY) {
+					ret = -EOPNOTSUPP;
+					goto free_map_tab;
+				}
+				break;
+			case BPF_RCU_HEAD:
+				if (map->map_type != BPF_MAP_TYPE_ARRAY) {
 					ret = -EOPNOTSUPP;
 					goto free_map_tab;
 				}
@@ -2441,6 +2460,7 @@ static void __bpf_prog_put_rcu(struct rcu_head *rcu)
 {
 	struct bpf_prog_aux *aux = container_of(rcu, struct bpf_prog_aux, rcu);
 
+	btf_put(aux->btf);
 	kvfree(aux->func_info);
 	kfree(aux->func_info_aux);
 	free_uid(aux->user);
@@ -2466,7 +2486,6 @@ static void __bpf_prog_put_rcu_tasks(struct rcu_head *rcu)
 static void __bpf_prog_put_noref(struct bpf_prog *prog, bool deferred)
 {
 	bpf_prog_kallsyms_del_all(prog);
-	btf_put(prog->aux->btf);
 	module_put(prog->aux->mod);
 	kvfree(prog->aux->jited_linfo);
 	kvfree(prog->aux->linfo);
@@ -2953,8 +2972,12 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, struct bpf_log_at
 				 BPF_F_XDP_HAS_FRAGS |
 				 BPF_F_XDP_DEV_BOUND_ONLY |
 				 BPF_F_TEST_REG_INVARIANTS |
+				 BPF_F_ARENA_SCALAR |
 				 BPF_F_TOKEN_FD))
 		return -EINVAL;
+
+	if ((attr->prog_flags & BPF_F_ARENA_SCALAR) && !bpf_jit_supports_arena_scalar())
+		return -EOPNOTSUPP;
 
 	bpf_prog_load_fixup_attach_type(attr);
 
@@ -3084,6 +3107,10 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, struct bpf_log_at
 
 	prog->aux->user = get_current_user();
 	prog->len = attr->insn_cnt;
+
+	err = bpf_prog_stream_init(prog, GFP_USER);
+	if (err)
+		goto free_prog;
 
 	err = -EFAULT;
 	if (copy_from_bpfptr(prog->insns,
@@ -4772,6 +4799,7 @@ static int bpf_prog_query(const union bpf_attr *attr,
 	case BPF_CGROUP_GETSOCKOPT:
 	case BPF_CGROUP_SETSOCKOPT:
 	case BPF_LSM_CGROUP:
+	case BPF_STRUCT_OPS:
 		return cgroup_bpf_prog_query(attr, uattr, uattr_size);
 	case BPF_LIRC_MODE2:
 		return lirc_prog_query(attr, uattr);
@@ -6320,6 +6348,28 @@ put_prog:
 	return ret;
 }
 
+#define BPF_PROG_STREAM_OPEN_LAST_FIELD prog_stream_open.flags
+
+static int prog_stream_open(union bpf_attr *attr)
+{
+	struct bpf_prog *prog;
+	u32 flags = attr->prog_stream_open.flags;
+	int ret;
+
+	if (CHECK_ATTR(BPF_PROG_STREAM_OPEN))
+		return -EINVAL;
+	if (flags & ~BPF_F_STREAM_NONBLOCK)
+		return -EINVAL;
+
+	prog = bpf_prog_get(attr->prog_stream_open.prog_fd);
+	if (IS_ERR(prog))
+		return PTR_ERR(prog);
+
+	ret = bpf_prog_stream_new_fd(prog, attr->prog_stream_open.stream_id, flags);
+	bpf_prog_put(prog);
+	return ret;
+}
+
 static int __sys_bpf(enum bpf_cmd cmd, bpfptr_t uattr, unsigned int size,
 		     bpfptr_t uattr_common, unsigned int size_common)
 {
@@ -6491,6 +6541,9 @@ static int __sys_bpf(enum bpf_cmd cmd, bpfptr_t uattr, unsigned int size,
 		break;
 	case BPF_PROG_ASSOC_STRUCT_OPS:
 		err = prog_assoc_struct_ops(&attr);
+		break;
+	case BPF_PROG_STREAM_OPEN:
+		err = prog_stream_open(&attr);
 		break;
 	default:
 		err = -EINVAL;

@@ -91,6 +91,15 @@ config BPF_UNPRIV_DEFAULT_OFF
 
 	  If you are unsure how to answer this question, answer Y.
 
+config BPF_CRYPTO
+	def_bool y
+	depends on BPF_SYSCALL
+	select CRYPTO_LIB_AES_CBC
+	select CRYPTO_LIB_AES_ECB
+	help
+	  Provide the kfuncs needed for BPF programs to encrypt and decrypt
+	  data. The supported algorithms are AES-CBC and AES-ECB.
+
 source "kernel/bpf/preload/Kconfig"
 
 config BPF_LSM

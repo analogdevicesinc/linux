@@ -89,6 +89,7 @@ extern bool block_mount;
 extern bool verifier_logs;
 extern bool relaxed_maps;
 extern bool use_loader;
+extern bool wait_output;
 extern struct btf *base_btf;
 extern struct hashmap *refs_table;
 extern bool sign_progs;
@@ -120,6 +121,7 @@ struct obj_refs {
 };
 
 struct btf;
+struct btf_var_secinfo;
 struct bpf_line_info;
 
 int build_pinned_obj_table(struct hashmap *table,
@@ -216,6 +218,7 @@ void print_hex_data_json(uint8_t *data, size_t len);
 
 unsigned int get_page_size(void);
 unsigned int get_possible_cpus(void);
+int get_possible_cpu_ids(int **cpu_ids);
 const char *
 ifindex_to_arch(__u32 ifindex, __u64 ns_dev, __u64 ns_ino, const char **opt);
 
@@ -237,6 +240,7 @@ int btf_dumper_type(const struct btf_dumper *d, __u32 type_id,
 		    const void *data);
 void btf_dumper_type_only(const struct btf *btf, __u32 func_type_id,
 			  char *func_only, int size);
+bool btf_var_is_piece(const struct btf *btf, const struct btf_var_secinfo *vsi);
 
 void btf_dump_linfo_plain(const struct btf *btf,
 			  const struct bpf_line_info *linfo,

@@ -11,7 +11,7 @@
 
 #define BPFTOOL_DEFAULT_PATH		"tools/sbin/bpftool"
 
-static int detect_bpftool_path(char *buffer, size_t size)
+int detect_bpftool_path(char *buffer, size_t size)
 {
 	char tmp[PATH_MAX];
 	const char *env_path;

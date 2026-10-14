@@ -198,6 +198,50 @@ static inline struct cnum_t FN(normalize)(struct cnum_t cnum)
 	return cnum;
 }
 
+/*
+ * Return a smallest arc containing both 'a' and 'b'.
+ * Break equal-size ties by choosing the smaller base.
+ */
+struct cnum_t FN(union)(struct cnum_t a, struct cnum_t b)
+{
+	struct cnum_t b1, ab, ba;
+	ut end;
+
+	if (FN(is_empty)(a))
+		return b;
+	if (FN(is_empty)(b))
+		return a;
+
+	/*
+	 * Rotate so that a1.base == 0 and a1.end == a.size.
+	 * Normalize b1 to preserve the full-circle representation.
+	 */
+	b1 = FN(normalize)((struct cnum_t){ b.base - a.base, b.size });
+	end = max(a.size, (ut)(b1.base + b1.size));
+
+	if (FN(urange_overflow)(b1)) {
+		/* a1 reaches b1's main arc: together they cover the circle. */
+		if (b1.base <= a.size)
+			return (struct cnum_t){ 0, UT_MAX };
+
+		/* Extend b1's tail through a1's end, then rotate back. */
+		return FN(normalize)((struct cnum_t){ b.base, end - b1.base });
+	}
+
+	/* ab, rotated back, covers both nonwrapping arcs. */
+	ab = (struct cnum_t){ a.base, end };
+	if (b1.base <= a.size)
+		return FN(normalize)(ab);
+
+	/* The arcs are disjoint; ba is the other possible covering arc. */
+	ba = (struct cnum_t){ b.base, a.size - b1.base };
+	if (ba.size < ab.size ||
+	    (ba.size == ab.size && ba.base < ab.base))
+		ab = ba;
+
+	return FN(normalize)(ab);
+}
+
 struct cnum_t FN(add)(struct cnum_t a, struct cnum_t b)
 {
 	if (FN(is_empty)(a) || FN(is_empty)(b))
