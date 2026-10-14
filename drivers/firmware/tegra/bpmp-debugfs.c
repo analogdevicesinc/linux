@@ -6,6 +6,7 @@
 #include <linux/cleanup.h>
 #include <linux/debugfs.h>
 #include <linux/dma-mapping.h>
+#include <linux/moduleparam.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 
@@ -773,6 +774,11 @@ free:
 
 static DEFINE_MUTEX(bpmp_debugfs_root_lock);
 static struct dentry *bpmp_debugfs_root;
+static bool bpmp_debugfs_enabled = true;
+
+module_param_named(debugfs, bpmp_debugfs_enabled, bool, 0444);
+MODULE_PARM_DESC(debugfs,
+		 "Populate the BPMP firmware debugfs (default: enabled)");
 
 static struct dentry *bpmp_debugfs_get_root(void)
 {
@@ -788,6 +794,9 @@ int tegra_bpmp_init_debugfs(struct tegra_bpmp *bpmp)
 	char name[32];
 	bool inband;
 	int err;
+
+	if (!bpmp_debugfs_enabled)
+		return 0;
 
 	inband = tegra_bpmp_mrq_is_supported(bpmp, MRQ_DEBUG);
 
