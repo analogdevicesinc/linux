@@ -2962,8 +2962,10 @@ static int rt5682_suspend(struct snd_soc_component *component)
 	if (rt5682->is_sdw)
 		return 0;
 
-	if (rt5682->irq)
+	if (rt5682->irq && !rt5682->suspend_irq_disabled) {
 		disable_irq(rt5682->irq);
+		rt5682->suspend_irq_disabled = true;
+	}
 
 	cancel_delayed_work_sync(&rt5682->jack_detect_work);
 	cancel_delayed_work_sync(&rt5682->jd_check_work);
@@ -3010,12 +3012,18 @@ static int rt5682_suspend(struct snd_soc_component *component)
 static int rt5682_resume(struct snd_soc_component *component)
 {
 	struct rt5682_priv *rt5682 = snd_soc_component_get_drvdata(component);
+	int ret;
 
 	if (rt5682->is_sdw)
 		return 0;
 
 	regcache_cache_only(rt5682->regmap, false);
-	regcache_sync(rt5682->regmap);
+	ret = regcache_sync(rt5682->regmap);
+	if (ret) {
+		regcache_cache_only(rt5682->regmap, true);
+		regcache_mark_dirty(rt5682->regmap);
+		return ret;
+	}
 
 	if (rt5682->hs_jack && (rt5682->jack_type & SND_JACK_HEADSET) == SND_JACK_HEADSET) {
 		snd_soc_component_update_bits(component, RT5682_SAR_IL_CMD_1,
@@ -3033,8 +3041,10 @@ static int rt5682_resume(struct snd_soc_component *component)
 	mod_delayed_work(system_power_efficient_wq,
 		&rt5682->jack_detect_work, msecs_to_jiffies(0));
 
-	if (rt5682->irq)
+	if (rt5682->suspend_irq_disabled) {
+		rt5682->suspend_irq_disabled = false;
 		enable_irq(rt5682->irq);
+	}
 
 	return 0;
 }
