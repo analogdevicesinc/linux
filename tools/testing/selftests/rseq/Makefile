@@ -18,10 +18,22 @@ LDLIBS += -lpthread -ldl
 # still track changes to header files and depend on shared object.
 OVERRIDE_TARGETS = 1
 
-TEST_GEN_PROGS = basic_test basic_percpu_ops_test basic_percpu_ops_mm_cid_test \
+comma := ,
+RSEQ_ARCH_SUPPORTED = $(shell printf '\043if defined(__x86_64__) || defined(__i386__) || \
+	defined(__ARMEL__) || defined(__AARCH64EL__) || \
+	defined(__PPC__) || defined(__mips__) || defined(__s390__) || \
+	defined(__or1k__) || (defined(__riscv) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)\n1\n\043endif\n' | \
+	$(filter-out -fuse-ld=%,$(CC)) $(filter-out -L% -Wl$(comma)%,$(CFLAGS) $(USERCFLAGS)) \
+	-E -P -x c - || echo 1)
+
+TEST_GEN_PROGS = $(if $(filter 1,$(RSEQ_ARCH_SUPPORTED)),$(RSEQ_TEST_GEN_PROGS))
+TEST_GEN_PROGS_EXTENDED = $(if $(filter 1,$(RSEQ_ARCH_SUPPORTED)),$(RSEQ_TEST_GEN_PROGS_EXTENDED))
+TEST_PROGS = $(if $(filter 1,$(RSEQ_ARCH_SUPPORTED)),$(RSEQ_TEST_PROGS))
+
+RSEQ_TEST_GEN_PROGS = basic_test basic_percpu_ops_test basic_percpu_ops_mm_cid_test \
 		 param_test_benchmark param_test_mm_cid_benchmark
 
-TEST_GEN_PROGS_EXTENDED = librseq.so \
+RSEQ_TEST_GEN_PROGS_EXTENDED = librseq.so \
 	param_test \
 	param_test_compare_twice \
 	param_test_mm_cid \
@@ -31,7 +43,7 @@ TEST_GEN_PROGS_EXTENDED = librseq.so \
 	slice_test \
 	check_optimized
 
-TEST_PROGS = run_param_test.sh run_syscall_errors_test.sh run_legacy_check.sh run_timeslice_test.sh
+RSEQ_TEST_PROGS = run_param_test.sh run_syscall_errors_test.sh run_legacy_check.sh run_timeslice_test.sh
 
 TEST_FILES := settings
 
