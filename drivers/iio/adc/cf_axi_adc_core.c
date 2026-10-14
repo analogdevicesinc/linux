@@ -1004,6 +1004,13 @@ static int axiadc_append_attrs(struct iio_dev *indio_dev, const struct attribute
 	return 0;
 }
 
+static void axiadc_detach_converter(void *data)
+{
+	struct axiadc_converter *conv = data;
+
+	conv->indio_dev = NULL;
+}
+
 static void axiadc_release_converter(void *conv)
 {
 	struct axiadc_spidev *axiadc_spidev = conv;
@@ -1110,6 +1117,10 @@ static int axiadc_probe(struct platform_device *pdev)
 	iio_device_set_drvdata(indio_dev, conv);
 	conv->indio_dev = indio_dev;
 	mutex_init(&conv->lock);
+
+	ret = devm_add_action_or_reset(&pdev->dev, axiadc_detach_converter, conv);
+	if (ret)
+		return ret;
 
 	if (conv->chip_info->num_shadow_slave_channels) {
 		u32 regs[2];
