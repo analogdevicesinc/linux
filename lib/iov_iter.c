@@ -538,37 +538,38 @@ static void iov_iter_iovec_advance(struct iov_iter *i, size_t size)
 	i->__iov = iov;
 }
 
-static void iov_iter_folioq_advance(struct iov_iter *i, size_t size)
+static void iov_iter_bvecq_advance(struct iov_iter *i, size_t by)
 {
-	const struct folio_queue *folioq = i->folioq;
-	unsigned int slot = i->folioq_slot;
+	const struct bvecq *bq = i->bvecq;
+	unsigned int slot = i->bvecq_slot;
 
 	if (!i->count)
 		return;
-	i->count -= size;
+	i->count -= by;
 
-	if (slot >= folioq_nr_slots(folioq)) {
-		folioq = folioq->next;
-		slot = 0;
-	}
-
-	size += i->iov_offset; /* From beginning of current segment. */
+	by += i->iov_offset; /* From beginning of current segment. */
 	do {
-		size_t fsize = folioq_folio_size(folioq, slot);
+		size_t len;
 
-		if (likely(size < fsize))
-			break;
-		size -= fsize;
-		slot++;
-		if (slot >= folioq_nr_slots(folioq) && folioq->next) {
-			folioq = folioq->next;
+		if (slot >= bq->nr_slots) {
+			if (!bq->next)
+				break;
+			bq = bq->next;
 			slot = 0;
+			continue;
 		}
-	} while (size);
 
-	i->iov_offset = size;
-	i->folioq_slot = slot;
-	i->folioq = folioq;
+		len = bq->bv[slot].bv_len;
+
+		if (likely(by < len))
+			break;
+		by -= len;
+		slot++;
+	} while (by);
+
+	i->iov_offset = by;
+	i->bvecq_slot = slot;
+	i->bvecq = bq;
 }
 
 void iov_iter_advance(struct iov_iter *i, size_t size)
@@ -583,38 +584,39 @@ void iov_iter_advance(struct iov_iter *i, size_t size)
 		iov_iter_iovec_advance(i, size);
 	} else if (iov_iter_is_bvec(i)) {
 		iov_iter_bvec_advance(i, size);
-	} else if (iov_iter_is_folioq(i)) {
-		iov_iter_folioq_advance(i, size);
+	} else if (iov_iter_is_bvecq(i)) {
+		iov_iter_bvecq_advance(i, size);
 	} else if (iov_iter_is_discard(i)) {
 		i->count -= size;
 	}
 }
 EXPORT_SYMBOL(iov_iter_advance);
 
-static void iov_iter_folioq_revert(struct iov_iter *i, size_t unroll)
+static void iov_iter_bvecq_revert(struct iov_iter *i, size_t unroll)
 {
-	const struct folio_queue *folioq = i->folioq;
-	unsigned int slot = i->folioq_slot;
+	const struct bvecq *bq = i->bvecq;
+	unsigned int slot = i->bvecq_slot;
 
 	for (;;) {
-		size_t fsize;
+		size_t len;
 
 		if (slot == 0) {
-			folioq = folioq->prev;
-			slot = folioq_nr_slots(folioq);
+			bq = bq->prev;
+			slot = bq->nr_slots;
+			continue;
 		}
 		slot--;
 
-		fsize = folioq_folio_size(folioq, slot);
-		if (unroll <= fsize) {
-			i->iov_offset = fsize - unroll;
+		len = bq->bv[slot].bv_len;
+		if (unroll <= len) {
+			i->iov_offset = len - unroll;
 			break;
 		}
-		unroll -= fsize;
+		unroll -= len;
 	}
 
-	i->folioq_slot = slot;
-	i->folioq = folioq;
+	i->bvecq_slot = slot;
+	i->bvecq = bq;
 }
 
 void iov_iter_revert(struct iov_iter *i, size_t unroll)
@@ -648,9 +650,9 @@ void iov_iter_revert(struct iov_iter *i, size_t unroll)
 			}
 			unroll -= n;
 		}
-	} else if (iov_iter_is_folioq(i)) {
+	} else if (iov_iter_is_bvecq(i)) {
 		i->iov_offset = 0;
-		iov_iter_folioq_revert(i, unroll);
+		iov_iter_bvecq_revert(i, unroll);
 	} else { /* same logics for iovec and kvec */
 		const struct iovec *iov = iter_iov(i);
 		while (1) {
@@ -678,9 +680,28 @@ size_t iov_iter_single_seg_count(const struct iov_iter *i)
 		if (iov_iter_is_bvec(i))
 			return min(i->count, i->bvec->bv_len - i->iov_offset);
 	}
-	if (unlikely(iov_iter_is_folioq(i)))
-		return !i->count ? 0 :
-			umin(folioq_folio_size(i->folioq, i->folioq_slot), i->count);
+	if (!i->count)
+		return 0;
+	if (unlikely(iov_iter_is_bvecq(i))) {
+		const struct bvecq *bq = i->bvecq;
+		unsigned int slot = i->bvecq_slot;
+		size_t offset = i->iov_offset;
+
+		for (;;) {
+			while (slot >= bq->nr_slots) {
+				bq = bq->next;
+				if (!bq)
+					return 0;
+				slot = 0;
+				offset = 0;
+			}
+			if (bq->bv[slot].bv_len > offset)
+				break;
+			slot++;
+			offset = 0;
+		}
+		return min(i->count, bq->bv[slot].bv_len - offset);
+	}
 	return i->count;
 }
 EXPORT_SYMBOL(iov_iter_single_seg_count);
@@ -718,34 +739,33 @@ void iov_iter_bvec(struct iov_iter *i, unsigned int direction,
 EXPORT_SYMBOL(iov_iter_bvec);
 
 /**
- * iov_iter_folio_queue - Initialise an I/O iterator to use the folios in a folio queue
+ * iov_iter_bvec_queue - Initialise an I/O iterator to use a segmented bvec queue
  * @i: The iterator to initialise.
  * @direction: The direction of the transfer.
- * @folioq: The starting point in the folio queue.
- * @first_slot: The first slot in the folio queue to use
- * @offset: The offset into the folio in the first slot to start at
+ * @bvecq: The starting point in the bvec queue.
+ * @first_slot: The first slot in the bvec queue to use
+ * @offset: The offset into the bvec in the first slot to start at
  * @count: The size of the I/O buffer in bytes.
  *
- * Set up an I/O iterator to either draw data out of the pages attached to an
- * inode or to inject data into those pages.  The pages *must* be prevented
- * from evaporation, either by taking a ref on them or locking them by the
- * caller.
+ * Set up an I/O iterator to either draw data out of the buffers attached to an
+ * inode or to inject data into those buffers.  The pages *must* be prevented
+ * from evaporation, either by the caller.
  */
-void iov_iter_folio_queue(struct iov_iter *i, unsigned int direction,
-			  const struct folio_queue *folioq, unsigned int first_slot,
-			  unsigned int offset, size_t count)
+void iov_iter_bvec_queue(struct iov_iter *i, unsigned int direction,
+			 const struct bvecq *bvecq, unsigned int first_slot,
+			 unsigned int offset, size_t count)
 {
-	BUG_ON(direction & ~1);
+	WARN_ON(direction & ~(READ | WRITE));
 	*i = (struct iov_iter) {
-		.iter_type = ITER_FOLIOQ,
-		.data_source = direction,
-		.folioq = folioq,
-		.folioq_slot = first_slot,
-		.count = count,
-		.iov_offset = offset,
+		.iter_type	= ITER_BVECQ,
+		.data_source	= direction,
+		.bvecq		= bvecq,
+		.bvecq_slot	= first_slot,
+		.count		= count,
+		.iov_offset	= offset,
 	};
 }
-EXPORT_SYMBOL(iov_iter_folio_queue);
+EXPORT_SYMBOL(iov_iter_bvec_queue);
 
 /**
  * iov_iter_xarray - Initialise an I/O iterator to use the pages in an xarray
@@ -839,6 +859,39 @@ static unsigned long iov_iter_alignment_bvec(const struct iov_iter *i)
 	return res;
 }
 
+static unsigned long iov_iter_alignment_bvecq(const struct iov_iter *iter)
+{
+	const struct bvecq *bq;
+	unsigned long res = 0;
+	unsigned int slot = iter->bvecq_slot;
+	size_t skip = iter->iov_offset;
+	size_t size = iter->count;
+
+	if (!size)
+		return res;
+
+	for (bq = iter->bvecq; bq; bq = bq->next) {
+		for (; slot < bq->nr_slots; slot++) {
+			const struct bio_vec *bvec = &bq->bv[slot];
+			size_t part = min(bvec->bv_len - skip, size);
+
+			if (part) {
+				res |= bvec->bv_offset + skip;
+				res |= part;
+			}
+
+			size -= part;
+			if (size == 0)
+				return res;
+			skip = 0;
+		}
+
+		slot = 0;
+	}
+
+	return res;
+}
+
 unsigned long iov_iter_alignment(const struct iov_iter *i)
 {
 	if (likely(iter_is_ubuf(i))) {
@@ -854,10 +907,10 @@ unsigned long iov_iter_alignment(const struct iov_iter *i)
 
 	if (iov_iter_is_bvec(i))
 		return iov_iter_alignment_bvec(i);
+	if (iov_iter_is_bvecq(i))
+		return iov_iter_alignment_bvecq(i);
 
-	/* With both xarray and folioq types, we're dealing with whole folios. */
-	if (iov_iter_is_folioq(i))
-		return i->iov_offset | i->count;
+	/* With the xarray type, we're dealing with whole folios. */
 	if (iov_iter_is_xarray(i))
 		return (i->xarray_start + i->iov_offset) | i->count;
 
@@ -910,62 +963,158 @@ static int want_pages_array(struct page ***res, size_t size,
 	return count;
 }
 
-static ssize_t iter_folioq_get_pages(struct iov_iter *iter,
-				     struct page ***ppages, size_t maxsize,
-				     unsigned maxpages, size_t *_start_offset)
+/*
+ * Count the number of virtually contiguous pages coming up next in an
+ * ITER_BVECQ iterator, up to the specified maxima.
+ */
+static unsigned int iter_count_bvecq_pages(const struct iov_iter *iter,
+					   size_t maxsize,
+					   unsigned int maxpages)
 {
-	const struct folio_queue *folioq = iter->folioq;
-	struct page **pages;
-	unsigned int slot = iter->folioq_slot;
-	size_t extracted = 0, count = iter->count, iov_offset = iter->iov_offset;
+	const struct bvecq *bvecq = iter->bvecq;
+	unsigned int slot = iter->bvecq_slot;
+	ssize_t remain = umin(maxsize, iter->count);
+	size_t count = 0, offset = iter->iov_offset;
 
-	if (slot >= folioq_nr_slots(folioq)) {
-		folioq = folioq->next;
-		slot = 0;
-		if (WARN_ON(iov_offset != 0))
-			return -EIO;
-	}
+	do {
+		const struct bio_vec *bv;
+		size_t boff, blen;
 
-	maxpages = want_pages_array(ppages, maxsize, iov_offset & ~PAGE_MASK, maxpages);
-	if (!maxpages)
-		return -ENOMEM;
-	*_start_offset = iov_offset & ~PAGE_MASK;
-	pages = *ppages;
-
-	for (;;) {
-		struct folio *folio = folioq_folio(folioq, slot);
-		size_t offset = iov_offset, fsize = folioq_folio_size(folioq, slot);
-		size_t part = PAGE_SIZE - offset % PAGE_SIZE;
-
-		if (offset < fsize) {
-			part = umin(part, umin(maxsize - extracted, fsize - offset));
-			count -= part;
-			iov_offset += part;
-			extracted += part;
-
-			*pages = folio_page(folio, offset / PAGE_SIZE);
-			get_page(*pages);
-			pages++;
-			maxpages--;
+		if (slot >= bvecq->nr_slots) {
+			if (!bvecq->next) {
+				WARN_ON_ONCE(remain > 0);
+				break;
+			}
+			bvecq = bvecq->next;
+			slot = 0;
+			offset = 0;
+			continue;
 		}
 
-		if (maxpages == 0 || extracted >= maxsize)
+		bv = &bvecq->bv[slot++];
+		boff = bv->bv_offset;
+		blen = bv->bv_len;
+
+		/* bv_page is not allowed to be NULL unless bv_len == 0. */
+		if (WARN_ON_ONCE(!bv->bv_page && blen > 0))
+			break;
+		if (!PAGE_ALIGNED(boff) && count > 0)
 			break;
 
-		if (iov_offset >= fsize) {
-			iov_offset = 0;
-			slot++;
-			if (slot == folioq_nr_slots(folioq) && folioq->next) {
-				folioq = folioq->next;
-				slot = 0;
-			}
+		boff += offset;
+		blen -= offset;
+		offset = 0;
+		if (!blen)
+			continue;
+
+		blen = umin(blen, remain);
+		remain -= blen;
+		blen += offset_in_page(boff);
+		count += DIV_ROUND_UP(blen, PAGE_SIZE);
+
+		if (!PAGE_ALIGNED(blen))
+			break;
+	} while (remain > 0 && count < maxpages);
+
+	return min(count, maxpages);
+}
+
+/*
+ * Get a list of virtually contiguous pages from an ITER_BVECQ iterator and pin
+ * them.
+ */
+static ssize_t iter_bvecq_get_pages(struct iov_iter *iter,
+				    struct page ***ppages, size_t maxsize,
+				    unsigned int maxpages, size_t *_start_offset)
+{
+	const struct bvecq *bvecq = iter->bvecq;
+	struct page **pages;
+	unsigned int slot = iter->bvecq_slot, nr = 0;
+	size_t extracted = 0, offset = iter->iov_offset;
+
+	for (;;) {
+		if (slot >= bvecq->nr_slots) {
+			if (!bvecq->next)
+				return 0;
+			bvecq = bvecq->next;
+			slot = 0;
+			offset = 0;
+			continue;
 		}
+		if (offset >= bvecq->bv[slot].bv_len) {
+			slot++;
+			offset = 0;
+			continue;
+		}
+		break;
 	}
 
-	iter->count = count;
-	iter->iov_offset = iov_offset;
-	iter->folioq = folioq;
-	iter->folioq_slot = slot;
+	/* Count the next run of virtually contiguous pages. */
+	maxpages = iter_count_bvecq_pages(iter, maxsize, maxpages);
+	if (!maxpages)
+		return 0;
+
+	maxpages = want_pages_array(ppages, maxsize,
+				    (bvecq->bv[slot].bv_offset + offset) & ~PAGE_MASK,
+				    maxpages);
+	if (!maxpages)
+		return -ENOMEM;
+	pages = *ppages;
+
+	/* Now transcribe the page pointers. */
+	do {
+		const struct bio_vec *bv;
+		size_t boff, blen;
+
+		if (slot >= bvecq->nr_slots) {
+			if (!bvecq->next) {
+				WARN_ON_ONCE(extracted < iter->count);
+				break;
+			}
+			bvecq = bvecq->next;
+			slot = 0;
+			offset = 0;
+			continue;
+		}
+
+		bv = &bvecq->bv[slot];
+		boff = bv->bv_offset;
+		blen = bv->bv_len;
+
+		/* bv_page is not allowed to be NULL unless bv_len == 0. */
+
+		if (offset < blen) {
+			struct folio *folio;
+			size_t poff = (boff + offset) % PAGE_SIZE;
+			size_t part = min(maxsize - extracted, blen - offset);
+			size_t pix = (boff + offset) / PAGE_SIZE;
+
+			if (poff + part > PAGE_SIZE)
+				part = PAGE_SIZE - poff;
+
+			if (!extracted)
+				*_start_offset = poff;
+
+			/* Get a ref on the page if it's not a slab page. */
+			folio = page_folio(bv->bv_page + pix);
+			if (!folio_test_slab(folio))
+				folio_get(folio);
+
+			pages[nr++] = bv->bv_page + pix;
+			offset += part;
+			extracted += part;
+		}
+
+		if (offset >= blen) {
+			offset = 0;
+			slot++;
+		}
+	} while (nr < maxpages && extracted < maxsize);
+
+	iter->bvecq = bvecq;
+	iter->bvecq_slot = slot;
+	iter->iov_offset = offset;
+	iter->count -= extracted;
 	return extracted;
 }
 
@@ -1120,8 +1269,8 @@ static ssize_t __iov_iter_get_pages_alloc(struct iov_iter *i,
 		}
 		return maxsize;
 	}
-	if (iov_iter_is_folioq(i))
-		return iter_folioq_get_pages(i, pages, maxsize, maxpages, start);
+	if (iov_iter_is_bvecq(i))
+		return iter_bvecq_get_pages(i, pages, maxsize, maxpages, start);
 	if (iov_iter_is_xarray(i))
 		return iter_xarray_get_pages(i, pages, maxsize, maxpages, start);
 	return -EFAULT;
@@ -1192,6 +1341,38 @@ static int bvec_npages(const struct iov_iter *i, int maxpages)
 	return npages;
 }
 
+static size_t iov_npages_bvecq(const struct iov_iter *iter, size_t maxpages)
+{
+	const struct bvecq *bq;
+	unsigned int slot = iter->bvecq_slot;
+	size_t npages = 0;
+	size_t skip = iter->iov_offset;
+	size_t size = iter->count;
+
+	for (bq = iter->bvecq; bq; bq = bq->next) {
+		for (; slot < bq->nr_slots; slot++) {
+			const struct bio_vec *bvec = &bq->bv[slot];
+			size_t offs = (bvec->bv_offset + skip) % PAGE_SIZE;
+			size_t part = min(bvec->bv_len - skip, size);
+
+			if (part) {
+				npages += DIV_ROUND_UP(offs + part, PAGE_SIZE);
+				if (npages >= maxpages)
+					goto out;
+			}
+
+			size -= part;
+			if (!size)
+				goto out;
+			skip = 0;
+		}
+
+		slot = 0;
+	}
+out:
+	return umin(npages, maxpages);
+}
+
 int iov_iter_npages(const struct iov_iter *i, int maxpages)
 {
 	if (unlikely(!i->count))
@@ -1206,11 +1387,8 @@ int iov_iter_npages(const struct iov_iter *i, int maxpages)
 		return iov_npages(i, maxpages);
 	if (iov_iter_is_bvec(i))
 		return bvec_npages(i, maxpages);
-	if (iov_iter_is_folioq(i)) {
-		unsigned offset = i->iov_offset % PAGE_SIZE;
-		int npages = DIV_ROUND_UP(offset + i->count, PAGE_SIZE);
-		return min(npages, maxpages);
-	}
+	if (iov_iter_is_bvecq(i))
+		return iov_npages_bvecq(i, maxpages);
 	if (iov_iter_is_xarray(i)) {
 		unsigned offset = (i->xarray_start + i->iov_offset) % PAGE_SIZE;
 		int npages = DIV_ROUND_UP(offset + i->count, PAGE_SIZE);
@@ -1494,64 +1672,86 @@ void iov_iter_restore(struct iov_iter *i, struct iov_iter_state *state)
 EXPORT_SYMBOL_FOR_MODULES(iov_iter_restore, "vmw_vsock_virtio_transport_common");
 
 /*
- * Extract a list of contiguous pages from an ITER_FOLIOQ iterator.  This does
- * not get references on the pages, nor does it get a pin on them.
+ * Extract a list of virtually contiguous pages from an ITER_BVECQ iterator.
+ * This does not get references on the pages, nor does it get a pin on them.
  */
-static ssize_t iov_iter_extract_folioq_pages(struct iov_iter *i,
-					     struct page ***pages, size_t maxsize,
-					     unsigned int maxpages,
-					     iov_iter_extraction_t extraction_flags,
-					     size_t *offset0)
+static ssize_t iov_iter_extract_bvecq_pages(struct iov_iter *iter,
+					    struct page ***pages, size_t maxsize,
+					    unsigned int maxpages,
+					    iov_iter_extraction_t extraction_flags,
+					    size_t *offset0)
 {
-	const struct folio_queue *folioq = i->folioq;
+	const struct bvecq *bvecq;
 	struct page **p;
-	unsigned int nr = 0;
-	size_t extracted = 0, offset, slot = i->folioq_slot;
+	unsigned int slot, nr = 0;
+	size_t extracted = 0, offset;
 
-	if (slot >= folioq_nr_slots(folioq)) {
-		folioq = folioq->next;
-		slot = 0;
-		if (WARN_ON(i->iov_offset != 0))
-			return -EIO;
+	/* Count the next run of virtually contiguous pages. */
+	maxpages = iter_count_bvecq_pages(iter, maxsize, maxpages);
+	if (!maxpages)
+		return 0;
+
+	if (!*pages) {
+		*pages = kvmalloc_array(maxpages, sizeof(struct page *), GFP_KERNEL);
+		if (!*pages)
+			return -ENOMEM;
 	}
 
-	offset = i->iov_offset & ~PAGE_MASK;
-	*offset0 = offset;
-
-	maxpages = want_pages_array(pages, maxsize, offset, maxpages);
-	if (!maxpages)
-		return -ENOMEM;
 	p = *pages;
 
-	for (;;) {
-		struct folio *folio = folioq_folio(folioq, slot);
-		size_t offset = i->iov_offset, fsize = folioq_folio_size(folioq, slot);
-		size_t part = PAGE_SIZE - offset % PAGE_SIZE;
+	/* Now transcribe the page pointers. */
+	extracted = 0;
+	bvecq = iter->bvecq;
+	offset = iter->iov_offset;
+	slot = iter->bvecq_slot;
 
-		if (offset < fsize) {
-			part = umin(part, umin(maxsize - extracted, fsize - offset));
-			i->count -= part;
-			i->iov_offset += part;
-			extracted += part;
+	do {
+		const struct bio_vec *bv;
+		size_t boff, blen;
 
-			p[nr++] = folio_page(folio, offset / PAGE_SIZE);
-		}
-
-		if (nr >= maxpages || extracted >= maxsize)
-			break;
-
-		if (i->iov_offset >= fsize) {
-			i->iov_offset = 0;
-			slot++;
-			if (slot == folioq_nr_slots(folioq) && folioq->next) {
-				folioq = folioq->next;
-				slot = 0;
+		if (slot >= bvecq->nr_slots) {
+			if (!bvecq->next) {
+				WARN_ON_ONCE(extracted < iter->count);
+				break;
 			}
+			bvecq = bvecq->next;
+			slot = 0;
+			offset = 0;
+			continue;
 		}
-	}
 
-	i->folioq = folioq;
-	i->folioq_slot = slot;
+		bv = &bvecq->bv[slot];
+		boff = bv->bv_offset;
+		blen = bv->bv_len;
+
+		/* bv_page is not allowed to be NULL unless bv_len == 0. */
+
+		if (offset < blen) {
+			size_t part = umin(maxsize - extracted, blen - offset);
+			size_t poff = (boff + offset) % PAGE_SIZE;
+			size_t pix = (boff + offset) / PAGE_SIZE;
+
+			if (poff + part > PAGE_SIZE)
+				part = PAGE_SIZE - poff;
+
+			if (!extracted)
+				*offset0 = poff;
+
+			p[nr++] = bv->bv_page + pix;
+			offset += part;
+			extracted += part;
+		}
+
+		if (offset >= blen) {
+			offset = 0;
+			slot++;
+		}
+	} while (nr < maxpages && extracted < maxsize);
+
+	iter->bvecq = bvecq;
+	iter->bvecq_slot = slot;
+	iter->iov_offset = offset;
+	iter->count -= extracted;
 	return extracted;
 }
 
@@ -1817,8 +2017,8 @@ static ssize_t iov_iter_extract_user_pages(struct iov_iter *i,
  *      added to the pages, but refs will not be taken.
  *      iov_iter_extract_will_pin() will return true.
  *
- *  (*) If the iterator is ITER_KVEC, ITER_BVEC, ITER_FOLIOQ or ITER_XARRAY, the
- *      pages are merely listed; no extra refs or pins are obtained.
+ *  (*) If the iterator is ITER_KVEC, ITER_BVEC, ITER_XARRAY, the pages are
+ *      merely listed; no extra refs or pins are obtained.
  *      iov_iter_extract_will_pin() will return 0.
  *
  * Note also:
@@ -1853,10 +2053,10 @@ ssize_t iov_iter_extract_pages(struct iov_iter *i,
 		return iov_iter_extract_bvec_pages(i, pages, maxsize,
 						   maxpages, extraction_flags,
 						   offset0);
-	if (iov_iter_is_folioq(i))
-		return iov_iter_extract_folioq_pages(i, pages, maxsize,
-						     maxpages, extraction_flags,
-						     offset0);
+	if (iov_iter_is_bvecq(i))
+		return iov_iter_extract_bvecq_pages(i, pages, maxsize,
+						    maxpages, extraction_flags,
+						    offset0);
 	if (iov_iter_is_xarray(i))
 		return iov_iter_extract_xarray_pages(i, pages, maxsize,
 						     maxpages, extraction_flags,

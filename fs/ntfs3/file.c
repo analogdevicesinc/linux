@@ -129,7 +129,7 @@ int ntfs_fileattr_get(struct dentry *dentry, struct file_kattr *fa)
 /*
  * ntfs_fileattr_set - inode_operations::fileattr_set
  */
-int ntfs_fileattr_set(struct mnt_idmap *idmap, struct dentry *dentry,
+int ntfs_fileattr_set(const struct mnt_idmap *idmap, struct dentry *dentry,
 		      struct file_kattr *fa)
 {
 	struct inode *inode = d_inode(dentry);
@@ -182,6 +182,9 @@ static int ntfs_ioctl_set_volume_label(struct ntfs_sb_info *sbi, u8 __user *buf)
 
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
+
+	if (sb_rdonly(sbi->sb))
+		return -EROFS;
 
 	if (copy_from_user(user, buf, FSLABEL_MAX))
 		return -EFAULT;
@@ -261,7 +264,7 @@ long ntfs_compat_ioctl(struct file *filp, u32 cmd, unsigned long arg)
 /*
  * ntfs_getattr - inode_operations::getattr
  */
-int ntfs_getattr(struct mnt_idmap *idmap, const struct path *path,
+int ntfs_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		 struct kstat *stat, u32 request_mask, u32 flags)
 {
 	struct inode *inode = d_inode(path->dentry);
@@ -703,7 +706,7 @@ out:
 /*
  * ntfs_setattr - inode_operations::setattr
  */
-int ntfs_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+int ntfs_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 		 struct iattr *attr)
 {
 	struct inode *inode = d_inode(dentry);

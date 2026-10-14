@@ -200,10 +200,10 @@ int fuse_file_io_open(struct file *file, struct inode *inode)
 	int err;
 
 	/*
-	 * io modes are not relevant with DAX and with server that does not
+	 * io modes are not relevant with virtiofs DAX and with server that does not
 	 * implement open.
 	 */
-	if (FUSE_IS_DAX(inode) || !ff->args)
+	if (FUSE_IS_VDAX(inode) || !ff->args)
 		return 0;
 
 	/*

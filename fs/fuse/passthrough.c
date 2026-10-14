@@ -11,6 +11,10 @@
 #include <linux/backing-file.h>
 #include <linux/splice.h>
 
+static inline struct file *fuse_file_passthrough(struct fuse_file *ff)
+{
+	return ff->passthrough;
+}
 static void fuse_file_accessed(struct file *file)
 {
 	struct inode *inode = file_inode(file);
@@ -187,10 +191,15 @@ out:
 
 void fuse_passthrough_release(struct fuse_file *ff, struct fuse_backing *fb)
 {
-	pr_debug("%s: fb=0x%p, backing_file=0x%p\n", __func__,
-		 fb, ff->passthrough);
+	struct file *backing_file = fuse_file_passthrough(ff);
 
-	fput(ff->passthrough);
+	pr_debug("%s: fb=0x%p, backing_file=0x%p\n", __func__,
+		 fb, backing_file);
+
+	if (!backing_file)
+		return;
+
+	fput(backing_file);
 	ff->passthrough = NULL;
 	put_cred(ff->cred);
 	ff->cred = NULL;

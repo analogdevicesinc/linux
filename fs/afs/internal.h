@@ -712,7 +712,7 @@ struct afs_vnode {
 #define AFS_VNODE_MODIFYING	10		/* Set if we're performing a modification op */
 #define AFS_VNODE_DIR_READ	11		/* Set if we've read a dir's contents */
 
-	struct folio_queue	*directory;	/* Directory contents */
+	struct bvecq		*directory;	/* Directory contents */
 	struct afs_symlink __rcu *symlink;	/* Symlink content */
 	struct list_head	wb_keys;	/* List of keys available for writeback */
 	struct list_head	pending_locks;	/* locks waiting to be granted */
@@ -993,9 +993,9 @@ static inline void afs_invalidate_cache(struct afs_vnode *vnode, unsigned int fl
 struct afs_dir_iter {
 	struct afs_vnode	*dvnode;
 	union afs_xdr_dir_block *block;
-	struct folio_queue	*fq;
+	struct bvecq		*bq;
 	unsigned int		fpos;
-	int			fq_slot;
+	int			bq_slot;
 	unsigned int		loop_check;
 	u8			nr_slots;
 	u8			bucket;
@@ -1173,7 +1173,7 @@ extern int afs_open(struct inode *, struct file *);
 extern int afs_release(struct inode *, struct file *);
 void afs_fetch_data_async_rx(struct work_struct *work);
 void afs_fetch_data_immediate_cancel(struct afs_call *call);
-void afs_set_i_size(struct afs_vnode *vnode, loff_t new_i_size);
+void afs_set_i_size(struct afs_vnode *vnode, uoff_t new_i_size);
 
 /*
  * flock.c
@@ -1268,9 +1268,9 @@ extern int afs_fetch_status(struct afs_vnode *, struct key *, bool, afs_access_t
 extern int afs_ilookup5_test_by_fid(struct inode *, void *);
 extern struct inode *afs_iget(struct afs_operation *, struct afs_vnode_param *);
 extern struct inode *afs_root_iget(struct super_block *, struct key *);
-extern int afs_getattr(struct mnt_idmap *idmap, const struct path *,
+extern int afs_getattr(const struct mnt_idmap *idmap, const struct path *,
 		       struct kstat *, u32, unsigned int);
-extern int afs_setattr(struct mnt_idmap *idmap, struct dentry *, struct iattr *);
+extern int afs_setattr(const struct mnt_idmap *idmap, struct dentry *, struct iattr *);
 extern void afs_evict_inode(struct inode *);
 extern int afs_drop_inode(struct inode *);
 
@@ -1540,7 +1540,7 @@ extern void afs_cache_permit(struct afs_vnode *, struct key *, unsigned int,
 extern struct key *afs_request_key(struct afs_cell *);
 extern struct key *afs_request_key_rcu(struct afs_cell *);
 extern int afs_check_permit(struct afs_vnode *, struct key *, afs_access_t *);
-extern int afs_permission(struct mnt_idmap *, struct inode *, int);
+extern int afs_permission(const struct mnt_idmap *, struct inode *, int);
 extern void __exit afs_clean_up_permit_cache(void);
 
 /*

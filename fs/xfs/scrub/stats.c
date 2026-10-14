@@ -143,7 +143,6 @@ STATIC size_t
 xchk_stats_estimate_bufsize(
 	struct xchk_stats	*cs)
 {
-	struct xchk_scrub_stats	*css = &cs->cs_stats[0];
 	unsigned int		i;
 	size_t			field_width;
 	size_t			ret = 0;
@@ -157,7 +156,7 @@ xchk_stats_estimate_bufsize(
 			      offsetof(struct xchk_scrub_stats, checktime_us)) /
 			     sizeof(uint64_t));
 
-	for (i = 0; i < XFS_SCRUB_TYPE_NR; i++, css++) {
+	for (i = 0; i < XFS_SCRUB_TYPE_NR; i++) {
 		if (!name_map[i])
 			continue;
 
@@ -168,7 +167,8 @@ xchk_stats_estimate_bufsize(
 		ret += field_width + 1;
 	}
 
-	return ret;
+	/* null byte for scnprintf */
+	return ret + 1;
 }
 
 /* Clear all counters. */
@@ -300,6 +300,7 @@ out:
 }
 
 static const struct file_operations scrub_stats_fops = {
+	.owner			= THIS_MODULE,
 	.open			= simple_open,
 	.read			= xchk_scrub_stats_read,
 };
@@ -327,6 +328,7 @@ xchk_clear_scrub_stats_write(
 }
 
 static const struct file_operations clear_scrub_stats_fops = {
+	.owner			= THIS_MODULE,
 	.open			= simple_open,
 	.write			= xchk_clear_scrub_stats_write,
 };
