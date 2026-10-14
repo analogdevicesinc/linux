@@ -126,6 +126,8 @@ static const struct cs35l41_config cs35l41_config_table[] = {
 	{ "10433A60", 2, INTERNAL, { CS35L41_LEFT, CS35L41_RIGHT, 0, 0 }, 1, 2, 0, 1000, 4500, 24 },
 	{ "17AA3865", 2, EXTERNAL, { CS35L41_LEFT, CS35L41_RIGHT, 0, 0 }, 0, -1, -1, 0, 0, 0 },
 	{ "17AA3866", 2, EXTERNAL, { CS35L41_LEFT, CS35L41_RIGHT, 0, 0 }, 0, -1, -1, 0, 0, 0 },
+	{ "17AA3845", 2, EXTERNAL, { CS35L41_LEFT, CS35L41_RIGHT, 0, 0 }, 0, -1, -1, 0, 0, 0 },
+	{ "17AA3846", 2, EXTERNAL, { CS35L41_LEFT, CS35L41_RIGHT, 0, 0 }, 0, -1, -1, 0, 0, 0 },
 	{ "17AA386E", 2, EXTERNAL, { CS35L41_LEFT, CS35L41_RIGHT, 0, 0 }, 0, 2, -1, 0, 0, 0 },
 	{ "17AA386F", 2, EXTERNAL, { CS35L41_LEFT, CS35L41_RIGHT, 0, 0 }, 0, -1, -1, 0, 0, 0 },
 	{ "17AA3874", 2, EXTERNAL, { CS35L41_LEFT, CS35L41_RIGHT, 0, 0 }, 0, -1, -1, 0, 0, 0 },
@@ -439,6 +441,33 @@ static int lenovo_legion_no_acpi(struct cs35l41_hda *cs35l41, struct device *phy
 	return 0;
 }
 
+/*
+ * Device CLSA0102 (Lenovo Yoga Slim 7 Carbon 14ACN6) has the same ACPI layout as CLSA010(0/1):
+ * no _DSD, both amps in one node, reset on GPIO index 0. It has no speaker ID GPIO, the
+ * interrupt GPIO sits at index 2. The speakers use an external VSPK supply switched by GPIO1
+ * (the Windows driver sets ExternalVspkControl and keeps the boost converter off).
+ */
+static int lenovo_yoga_slim7_carbon_no_acpi(struct cs35l41_hda *cs35l41, struct device *physdev,
+					    int id, const char *hid)
+{
+	struct cs35l41_hw_cfg *hw_cfg = &cs35l41->hw_cfg;
+
+	/* check I2C address to assign the index */
+	cs35l41->index = id == 0x40 ? 0 : 1;
+	cs35l41->channel_index = 0;
+	cs35l41->reset_gpio = gpiod_get_index(physdev, NULL, 0, GPIOD_OUT_HIGH);
+	cs35l41->speaker_id = -ENOENT;
+	hw_cfg->spk_pos = cs35l41->index;
+	hw_cfg->bst_type = CS35L41_EXT_BOOST;
+	hw_cfg->gpio1.func = CS35l41_VSPK_SWITCH;
+	hw_cfg->gpio1.valid = true;
+	hw_cfg->gpio2.func = CS35L41_INTERRUPT;
+	hw_cfg->gpio2.valid = true;
+	hw_cfg->valid = true;
+
+	return 0;
+}
+
 static int missing_speaker_id_gpio2(struct cs35l41_hda *cs35l41, struct device *physdev, int id,
 				    const char *hid)
 {
@@ -463,6 +492,7 @@ struct cs35l41_prop_model {
 static const struct cs35l41_prop_model cs35l41_prop_model_table[] = {
 	{ "CLSA0100", NULL, lenovo_legion_no_acpi },
 	{ "CLSA0101", NULL, lenovo_legion_no_acpi },
+	{ "CLSA0102", NULL, lenovo_yoga_slim7_carbon_no_acpi },
 	{ "CSC3551", "10251826", generic_dsd_config },
 	{ "CSC3551", "1025182C", generic_dsd_config },
 	{ "CSC3551", "10251844", generic_dsd_config },
@@ -551,6 +581,8 @@ static const struct cs35l41_prop_model cs35l41_prop_model_table[] = {
 	{ "CSC3551", "10433A40", generic_dsd_config },
 	{ "CSC3551", "10433A50", generic_dsd_config },
 	{ "CSC3551", "10433A60", generic_dsd_config },
+	{ "CSC3551", "17AA3845", generic_dsd_config },
+	{ "CSC3551", "17AA3846", generic_dsd_config },
 	{ "CSC3551", "17AA3865", generic_dsd_config },
 	{ "CSC3551", "17AA3866", generic_dsd_config },
 	{ "CSC3551", "17AA386E", generic_dsd_config },
