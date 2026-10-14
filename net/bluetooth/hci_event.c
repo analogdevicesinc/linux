@@ -404,10 +404,7 @@ static u8 hci_cc_write_auth_enable(struct hci_dev *hdev, void *data,
 	if (!rp->status) {
 		__u8 param = *((__u8 *) sent);
 
-		if (param == AUTH_ENABLED)
-			set_bit(HCI_AUTH, &hdev->flags);
-		else
-			clear_bit(HCI_AUTH, &hdev->flags);
+		assign_bit(HCI_AUTH, &hdev->flags, param == AUTH_ENABLED);
 	}
 
 	if (hci_dev_test_flag(hdev, HCI_MGMT))
@@ -436,10 +433,7 @@ static u8 hci_cc_write_encrypt_mode(struct hci_dev *hdev, void *data,
 
 	param = *((__u8 *) sent);
 
-	if (param)
-		set_bit(HCI_ENCRYPT, &hdev->flags);
-	else
-		clear_bit(HCI_ENCRYPT, &hdev->flags);
+	assign_bit(HCI_ENCRYPT, &hdev->flags, param);
 
 	return rp->status;
 }
@@ -466,15 +460,9 @@ static u8 hci_cc_write_scan_enable(struct hci_dev *hdev, void *data,
 		goto done;
 	}
 
-	if (param & SCAN_INQUIRY)
-		set_bit(HCI_ISCAN, &hdev->flags);
-	else
-		clear_bit(HCI_ISCAN, &hdev->flags);
+	assign_bit(HCI_ISCAN, &hdev->flags, param & SCAN_INQUIRY);
 
-	if (param & SCAN_PAGE)
-		set_bit(HCI_PSCAN, &hdev->flags);
-	else
-		clear_bit(HCI_PSCAN, &hdev->flags);
+	assign_bit(HCI_PSCAN, &hdev->flags, param & SCAN_PAGE);
 
 done:
 	hci_dev_unlock(hdev);
@@ -744,6 +732,14 @@ static u8 hci_cc_read_enc_key_size(struct hci_dev *hdev, void *data,
 		bt_dev_err(hdev, "failed to read key size for handle %u",
 			   handle);
 		conn->enc_key_size = 0;
+		clear_bit(HCI_CONN_ENCRYPT, &conn->flags);
+		clear_bit(HCI_CONN_AES_CCM, &conn->flags);
+		/* Downgrade to reflect the connection no longer being
+		 * encrypted, instead of advertising a stale elevated
+		 * security level alongside MGMT_CONN_SEC_ENCRYPT_NONE.
+		 */
+		if (conn->sec_level > BT_SECURITY_LOW)
+			conn->sec_level = BT_SECURITY_LOW;
 	} else {
 		u8 *key_enc_size = hci_conn_key_enc_size(conn);
 
@@ -767,6 +763,25 @@ static u8 hci_cc_read_enc_key_size(struct hci_dev *hdev, void *data,
 			status = HCI_ERROR_AUTH_FAILURE;
 			clear_bit(HCI_CONN_ENCRYPT, &conn->flags);
 			clear_bit(HCI_CONN_AES_CCM, &conn->flags);
+			/* Downgrade to reflect the connection no longer being
+			 * encrypted, instead of advertising a stale elevated
+			 * security level alongside MGMT_CONN_SEC_ENCRYPT_NONE.
+			 */
+			if (conn->sec_level > BT_SECURITY_LOW)
+				conn->sec_level = BT_SECURITY_LOW;
+		} else {
+			/* Pre-apply hci_encrypt_cfm()'s own upgrade rules
+			 * here unconditionally on success, so its internal
+			 * change check below always finds nothing new: this
+			 * function remains the sole place deciding whether
+			 * and when to report the change, regardless of
+			 * whether the caller already touched conn->sec_level
+			 * (e.g. hci_encrypt_change_evt()) or not.
+			 */
+			if (conn->sec_level == BT_SECURITY_SDP)
+				conn->sec_level = BT_SECURITY_LOW;
+			if (conn->pending_sec_level > conn->sec_level)
+				conn->sec_level = conn->pending_sec_level;
 		}
 
 		/* Update the key encryption size with the connection one */
@@ -775,6 +790,13 @@ static u8 hci_cc_read_enc_key_size(struct hci_dev *hdev, void *data,
 	}
 
 	hci_encrypt_cfm(conn, status);
+
+	/* mgmt_security_level_changed() only reports the change for
+	 * connections already announced to userspace (it checks
+	 * HCI_CONN_MGMT_CONNECTED itself); otherwise it is a no-op here and
+	 * reporting is deferred to mgmt_device_connected().
+	 */
+	mgmt_security_level_changed(conn);
 
 done:
 	hci_dev_unlock(hdev);
@@ -2806,7 +2828,11 @@ static void hci_cs_disconnect(struct hci_dev *hdev, u8 status)
 	if (hdev->suspended)
 		conn->state = BT_CLOSED;
 
-	mgmt_conn = test_and_clear_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags);
+	/* Only peek at the flag here: hci_conn_del() (via hci_conn_unlink())
+	 * still needs it set to know whether to report the security level
+	 * reset, so it is consumed there instead of here.
+	 */
+	mgmt_conn = test_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags);
 
 	if (conn->type == ACL_LINK) {
 		if (test_and_clear_bit(HCI_CONN_FLUSH_KEY, &conn->flags))
@@ -3410,6 +3436,16 @@ static void hci_conn_request_evt(struct hci_dev *hdev, void *data,
 			bt_dev_err(hdev, "connection err: %ld", PTR_ERR(conn));
 			goto unlock;
 		}
+
+		/* Unlike outgoing BR/EDR connections, conn->sec_level is not
+		 * set at connection request time for incoming connections,
+		 * so it is still at its zero-initialized value
+		 * (BT_SECURITY_SDP) here. Set it to BT_SECURITY_LOW so
+		 * mgmt_device_connected() later reports the correct initial
+		 * security level instead of a transient, never-really-in-use
+		 * SDP value.
+		 */
+		conn->sec_level = BT_SECURITY_LOW;
 	}
 
 	memcpy(conn->dev_class, ev->dev_class, 3);
@@ -3476,7 +3512,11 @@ static void hci_disconn_complete_evt(struct hci_dev *hdev, void *data,
 
 	conn->state = BT_CLOSED;
 
-	mgmt_connected = test_and_clear_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags);
+	/* Only peek at the flag here: hci_conn_del() (via hci_conn_unlink())
+	 * still needs it set to know whether to report the security level
+	 * reset, so it is consumed there instead of here.
+	 */
+	mgmt_connected = test_bit(HCI_CONN_MGMT_CONNECTED, &conn->flags);
 
 	if (test_bit(HCI_CONN_AUTH_FAILURE, &conn->flags))
 		reason = MGMT_DEV_DISCONN_AUTH_FAILURE;
@@ -3560,6 +3600,15 @@ static void hci_auth_complete_evt(struct hci_dev *hdev, void *data,
 	if (!ev->status) {
 		clear_bit(HCI_CONN_AUTH_FAILURE, &conn->flags);
 		set_bit(HCI_CONN_AUTH, &conn->flags);
+		/* Authentication alone does not imply encryption: for SSP
+		 * capable devices, encryption is only requested below, and
+		 * for legacy devices it is requested by a separate
+		 * HCI_OP_SET_CONN_ENCRYPT command. Do not report the new
+		 * security level yet, to avoid userspace seeing an elevated
+		 * level alongside no encryption; hci_encrypt_change_evt()
+		 * (possibly via hci_cc_read_enc_key_size() for ACL links)
+		 * reports it once encryption is actually confirmed.
+		 */
 		conn->sec_level = conn->pending_sec_level;
 	} else {
 		if (ev->status == HCI_ERROR_PIN_OR_KEY_MISSING)
@@ -3676,9 +3725,28 @@ static void hci_encrypt_change_evt(struct hci_dev *hdev, void *data,
 			if ((conn->type == ACL_LINK && ev->encrypt == 0x02) ||
 			    conn->type == LE_LINK)
 				set_bit(HCI_CONN_AES_CCM, &conn->flags);
+
+			/* For ACL links the encryption key size is still
+			 * validated below via hci_read_enc_key_size(). Its
+			 * completion handler, hci_cc_read_enc_key_size(),
+			 * reports the final security level so userspace does
+			 * not see a transient "encrypted" state that a
+			 * key-size downgrade would immediately invalidate.
+			 */
+			if (conn->type != ACL_LINK)
+				mgmt_security_level_changed(conn);
 		} else {
 			clear_bit(HCI_CONN_ENCRYPT, &conn->flags);
 			clear_bit(HCI_CONN_AES_CCM, &conn->flags);
+			/* Elevated security levels (MEDIUM and above) require
+			 * encryption, so downgrade to reflect the connection
+			 * no longer being encrypted before reporting, instead
+			 * of advertising a stale elevated level alongside
+			 * MGMT_CONN_SEC_ENCRYPT_NONE.
+			 */
+			if (conn->sec_level > BT_SECURITY_LOW)
+				conn->sec_level = BT_SECURITY_LOW;
+			mgmt_security_level_changed(conn);
 		}
 	}
 
@@ -3711,8 +3779,14 @@ static void hci_encrypt_change_evt(struct hci_dev *hdev, void *data,
 
 	/* Try reading the encryption key size for encrypted ACL links */
 	if (!ev->status && ev->encrypt && conn->type == ACL_LINK) {
-		if (hci_read_enc_key_size(hdev, conn))
+		if (hci_read_enc_key_size(hdev, conn)) {
+			/* Could not even issue the key-size read: report the
+			 * security level now since hci_cc_read_enc_key_size()
+			 * will not run to do it.
+			 */
+			mgmt_security_level_changed(conn);
 			goto notify;
+		}
 
 		goto unlock;
 	}
@@ -4131,6 +4205,9 @@ unlock:
 #define HCI_CC_STATUS(_op, _func) \
 	HCI_CC(_op, _func, sizeof(struct hci_ev_status))
 
+#define HCI_MAX_CC_PLEN \
+	(HCI_MAX_EVENT_PLEN - sizeof(struct hci_ev_cmd_complete))
+
 static const struct hci_cc {
 	u16  op;
 	u8 (*func)(struct hci_dev *hdev, void *data, struct sk_buff *skb);
@@ -4224,7 +4301,7 @@ static const struct hci_cc {
 	       sizeof(struct hci_rp_le_read_local_features)),
 	HCI_CC_VL(HCI_OP_LE_READ_CONN_INTERVAL, hci_cc_le_read_conn_interval,
 		  sizeof(struct hci_rp_le_read_conn_interval),
-		  HCI_MAX_EVENT_SIZE),
+		  HCI_MAX_CC_PLEN),
 	HCI_CC(HCI_OP_LE_READ_ADV_TX_POWER, hci_cc_le_read_adv_tx_power,
 	       sizeof(struct hci_rp_le_read_adv_tx_power)),
 	HCI_CC(HCI_OP_USER_CONFIRM_REPLY, hci_cc_user_confirm_reply,
@@ -4296,7 +4373,7 @@ static const struct hci_cc {
 	HCI_CC(HCI_OP_LE_READ_BUFFER_SIZE_V2, hci_cc_le_read_buffer_size_v2,
 	       sizeof(struct hci_rp_le_read_buffer_size_v2)),
 	HCI_CC_VL(HCI_OP_LE_SET_CIG_PARAMS, hci_cc_le_set_cig_params,
-		  sizeof(struct hci_rp_le_set_cig_params), HCI_MAX_EVENT_SIZE),
+		  sizeof(struct hci_rp_le_set_cig_params), HCI_MAX_CC_PLEN),
 	HCI_CC(HCI_OP_LE_SETUP_ISO_PATH, hci_cc_le_setup_iso_path,
 	       sizeof(struct hci_rp_le_setup_iso_path)),
 	HCI_CC(HCI_OP_LE_READ_ALL_LOCAL_FEATURES,
@@ -4643,10 +4720,8 @@ static void hci_mode_change_evt(struct hci_dev *hdev, void *data,
 
 		if (!test_and_clear_bit(HCI_CONN_MODE_CHANGE_PEND,
 					&conn->flags)) {
-			if (conn->mode == HCI_CM_ACTIVE)
-				set_bit(HCI_CONN_POWER_SAVE, &conn->flags);
-			else
-				clear_bit(HCI_CONN_POWER_SAVE, &conn->flags);
+			assign_bit(HCI_CONN_POWER_SAVE, &conn->flags,
+				   conn->mode == HCI_CM_ACTIVE);
 		}
 
 		if (test_and_clear_bit(HCI_CONN_SCO_SETUP_PEND, &conn->flags))
@@ -4846,10 +4921,7 @@ static void hci_link_key_notify_evt(struct hci_dev *hdev, void *data,
 		goto unlock;
 	}
 
-	if (persistent)
-		clear_bit(HCI_CONN_FLUSH_KEY, &conn->flags);
-	else
-		set_bit(HCI_CONN_FLUSH_KEY, &conn->flags);
+	assign_bit(HCI_CONN_FLUSH_KEY, &conn->flags, !persistent);
 
 unlock:
 	hci_dev_unlock(hdev);
@@ -5274,8 +5346,14 @@ static void hci_key_refresh_complete_evt(struct hci_dev *hdev, void *data,
 	if (conn->type != LE_LINK)
 		goto unlock;
 
-	if (!ev->status)
+	if (!ev->status) {
+		bool sec_level_changed =
+				conn->sec_level != conn->pending_sec_level;
+
 		conn->sec_level = conn->pending_sec_level;
+		if (sec_level_changed)
+			mgmt_security_level_changed(conn);
+	}
 
 	clear_bit(HCI_CONN_ENCRYPT_PEND, &conn->flags);
 
@@ -5904,9 +5982,16 @@ static void le_conn_complete_evt(struct hci_dev *hdev, u8 status,
 		goto unlock;
 	}
 
+	/* Unlike outgoing BR/EDR connections, conn->sec_level is not set at
+	 * connection request time for LE, so it is still at its
+	 * zero-initialized value (BT_SECURITY_SDP) here. Set it to
+	 * BT_SECURITY_LOW before reporting the connection so
+	 * mgmt_device_connected() reports the correct initial security level
+	 * instead of a transient, never-really-in-use SDP value.
+	 */
+	conn->sec_level = BT_SECURITY_LOW;
 	mgmt_device_connected(hdev, conn, NULL, 0);
 
-	conn->sec_level = BT_SECURITY_LOW;
 	conn->state = BT_CONFIG;
 
 	/* Store current advertising instance as connection advertising instance
@@ -6343,6 +6428,15 @@ static void process_adv_report(struct hci_dev *hdev, u8 type, bdaddr_t *bdaddr,
 	if (irk) {
 		bdaddr = &irk->bdaddr;
 		bdaddr_type = irk->addr_type;
+	} else {
+		/* The peer is on air with its identity address, so whatever
+		 * RPA is cached for it has been abandoned. Drop it, or
+		 * hci_connect_le() would swap it back in and dial an address
+		 * the peer no longer answers.
+		 */
+		irk = hci_find_irk_by_addr(hdev, bdaddr, bdaddr_type);
+		if (irk)
+			bacpy(&irk->rpa, BDADDR_ANY);
 	}
 
 	bdaddr_type = ev_bdaddr_type(hdev, bdaddr_type, &bdaddr_resolved);
@@ -7348,8 +7442,13 @@ static void hci_le_big_sync_lost_evt(struct hci_dev *hdev, void *data,
 						     BT_CONNECTED,
 						     HCI_ROLE_SLAVE))) {
 		if (!mgmt_conn) {
-			mgmt_conn = test_and_clear_bit(HCI_CONN_MGMT_CONNECTED,
-						       &bis->flags);
+			/* Only peek at the flag here: hci_conn_del() (via
+			 * hci_conn_unlink()) still needs it set to know
+			 * whether to report the security level reset, so
+			 * it is consumed there instead of here.
+			 */
+			mgmt_conn = test_bit(HCI_CONN_MGMT_CONNECTED,
+					     &bis->flags);
 			mgmt_device_disconnected(hdev, &bis->dst, bis->type,
 						 bis->dst_type, ev->reason,
 						 mgmt_conn);
@@ -7497,6 +7596,9 @@ static void hci_le_conn_rate_change_evt(struct hci_dev *hdev, void *data,
 #define HCI_LE_EV_STATUS(_op, _func) \
 	HCI_LE_EV(_op, _func, sizeof(struct hci_ev_status))
 
+#define HCI_MAX_LE_SUBEVT_PLEN \
+	(HCI_MAX_EVENT_PLEN - sizeof(struct hci_ev_le_meta))
+
 /* Entries in this table shall have their position according to the subevent
  * opcode they handle so the use of the macros above is recommend since it does
  * attempt to initialize at its proper index using Designated Initializers that
@@ -7513,7 +7615,7 @@ static const struct hci_le_ev {
 	/* [0x02 = HCI_EV_LE_ADVERTISING_REPORT] */
 	HCI_LE_EV_VL(HCI_EV_LE_ADVERTISING_REPORT, hci_le_adv_report_evt,
 		     sizeof(struct hci_ev_le_advertising_report),
-		     HCI_MAX_EVENT_SIZE),
+		     HCI_MAX_LE_SUBEVT_PLEN),
 	/* [0x03 = HCI_EV_LE_CONN_UPDATE_COMPLETE] */
 	HCI_LE_EV(HCI_EV_LE_CONN_UPDATE_COMPLETE,
 		  hci_le_conn_update_complete_evt,
@@ -7536,14 +7638,14 @@ static const struct hci_le_ev {
 	/* [0x0b = HCI_EV_LE_DIRECT_ADV_REPORT] */
 	HCI_LE_EV_VL(HCI_EV_LE_DIRECT_ADV_REPORT, hci_le_direct_adv_report_evt,
 		     sizeof(struct hci_ev_le_direct_adv_report),
-		     HCI_MAX_EVENT_SIZE),
+		     HCI_MAX_LE_SUBEVT_PLEN),
 	/* [0x0c = HCI_EV_LE_PHY_UPDATE_COMPLETE] */
 	HCI_LE_EV(HCI_EV_LE_PHY_UPDATE_COMPLETE, hci_le_phy_update_evt,
 		  sizeof(struct hci_ev_le_phy_update_complete)),
 	/* [0x0d = HCI_EV_LE_EXT_ADV_REPORT] */
 	HCI_LE_EV_VL(HCI_EV_LE_EXT_ADV_REPORT, hci_le_ext_adv_report_evt,
 		     sizeof(struct hci_ev_le_ext_adv_report),
-		     HCI_MAX_EVENT_SIZE),
+		     HCI_MAX_LE_SUBEVT_PLEN),
 	/* [0x0e = HCI_EV_LE_PA_SYNC_ESTABLISHED] */
 	HCI_LE_EV(HCI_EV_LE_PA_SYNC_ESTABLISHED,
 		  hci_le_pa_sync_established_evt,
@@ -7552,7 +7654,7 @@ static const struct hci_le_ev {
 	HCI_LE_EV_VL(HCI_EV_LE_PER_ADV_REPORT,
 				 hci_le_per_adv_report_evt,
 				 sizeof(struct hci_ev_le_per_adv_report),
-				 HCI_MAX_EVENT_SIZE),
+				 HCI_MAX_LE_SUBEVT_PLEN),
 	/* [0x10 = HCI_EV_LE_PA_SYNC_LOST] */
 	HCI_LE_EV(HCI_EV_LE_PA_SYNC_LOST, hci_le_pa_sync_lost_evt,
 		  sizeof(struct hci_ev_le_pa_sync_lost)),
@@ -7573,28 +7675,28 @@ static const struct hci_le_ev {
 	HCI_LE_EV_VL(HCI_EVT_LE_CREATE_BIG_COMPLETE,
 		     hci_le_create_big_complete_evt,
 		     sizeof(struct hci_evt_le_create_big_complete),
-		     HCI_MAX_EVENT_SIZE),
+		     HCI_MAX_LE_SUBEVT_PLEN),
 	/* [0x1d = HCI_EV_LE_BIG_SYNC_ESTABLISHED] */
 	HCI_LE_EV_VL(HCI_EVT_LE_BIG_SYNC_ESTABLISHED,
 		     hci_le_big_sync_established_evt,
 		     sizeof(struct hci_evt_le_big_sync_established),
-		     HCI_MAX_EVENT_SIZE),
+		     HCI_MAX_LE_SUBEVT_PLEN),
 	/* [0x1e = HCI_EVT_LE_BIG_SYNC_LOST] */
 	HCI_LE_EV_VL(HCI_EVT_LE_BIG_SYNC_LOST,
 		     hci_le_big_sync_lost_evt,
 		     sizeof(struct hci_evt_le_big_sync_lost),
-		     HCI_MAX_EVENT_SIZE),
+		     HCI_MAX_LE_SUBEVT_PLEN),
 	/* [0x22 = HCI_EVT_LE_BIG_INFO_ADV_REPORT] */
 	HCI_LE_EV_VL(HCI_EVT_LE_BIG_INFO_ADV_REPORT,
 		     hci_le_big_info_adv_report_evt,
 		     sizeof(struct hci_evt_le_big_info_adv_report),
-		     HCI_MAX_EVENT_SIZE),
+		     HCI_MAX_LE_SUBEVT_PLEN),
 	/* [0x2b = HCI_EVT_LE_ALL_REMOTE_FEATURES_COMPLETE] */
 	HCI_LE_EV_VL(HCI_EVT_LE_ALL_REMOTE_FEATURES_COMPLETE,
 		     hci_le_read_all_remote_features_evt,
 		     sizeof(struct
 			    hci_evt_le_read_all_remote_features_complete),
-		     HCI_MAX_EVENT_SIZE),
+		     HCI_MAX_LE_SUBEVT_PLEN),
 	/* [0x37 = HCI_EVT_LE_CONN_RATE_CHANGE] */
 	HCI_LE_EV(HCI_EVT_LE_CONN_RATE_CHANGE, hci_le_conn_rate_change_evt,
 		  sizeof(struct hci_evt_le_conn_rate_change)),

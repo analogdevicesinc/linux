@@ -470,7 +470,7 @@ static void reenable_adv(struct work_struct *work)
 static void cancel_adv_timeout(struct hci_dev *hdev)
 {
 	if (hdev->adv_instance_timeout) {
-		hdev->adv_instance_timeout = 0;
+		hdev->adv_instance_timeout = false;
 		cancel_delayed_work(&hdev->adv_instance_expire);
 	}
 }
@@ -570,7 +570,7 @@ static void adv_timeout_expire(struct work_struct *work)
 
 	hci_dev_lock(hdev);
 
-	hdev->adv_instance_timeout = 0;
+	hdev->adv_instance_timeout = false;
 
 	if (hdev->cur_adv_instance == 0x00)
 		goto unlock;
@@ -2134,7 +2134,7 @@ int hci_schedule_adv_instance_sync(struct hci_dev *hdev, u8 instance,
 
 	/* Only use work for scheduling instances with legacy advertising */
 	if (!ext_adv_capable(hdev)) {
-		hdev->adv_instance_timeout = timeout;
+		hdev->adv_instance_timeout = true;
 		queue_delayed_work(hdev->req_workqueue,
 				   &hdev->adv_instance_expire,
 				   adv->mesh ? msecs_to_jiffies(timeout) :
@@ -5431,6 +5431,30 @@ static int hci_dev_init_sync(struct hci_dev *hdev)
 	return ret;
 }
 
+static void hci_dev_drop_last_cmd_req_and_close(struct hci_dev *hdev)
+{
+	/* Drop last sent command */
+	if (hdev->sent_cmd) {
+		cancel_delayed_work_sync(&hdev->cmd_timer);
+		kfree_skb(hdev->sent_cmd);
+		hdev->sent_cmd = NULL;
+	}
+
+	/* Drop last request */
+	if (hdev->req_skb) {
+		kfree_skb(hdev->req_skb);
+		hdev->req_skb = NULL;
+		hci_dev_clear_flag(hdev, HCI_CMD_PENDING);
+	}
+
+	clear_bit(HCI_RUNNING, &hdev->flags);
+	hci_sock_dev_event(hdev, HCI_DEV_CLOSE);
+
+	/* After this point our queues are empty and no tasks are scheduled. */
+	hdev->close(hdev);
+	hdev->flags &= BIT(HCI_RAW);
+}
+
 int hci_dev_open_sync(struct hci_dev *hdev)
 {
 	int ret;
@@ -5519,23 +5543,7 @@ int hci_dev_open_sync(struct hci_dev *hdev)
 		if (hdev->flush)
 			hdev->flush(hdev);
 
-		if (hdev->sent_cmd) {
-			cancel_delayed_work_sync(&hdev->cmd_timer);
-			kfree_skb(hdev->sent_cmd);
-			hdev->sent_cmd = NULL;
-		}
-
-		if (hdev->req_skb) {
-			kfree_skb(hdev->req_skb);
-			hdev->req_skb = NULL;
-			hci_dev_clear_flag(hdev, HCI_CMD_PENDING);
-		}
-
-		clear_bit(HCI_RUNNING, &hdev->flags);
-		hci_sock_dev_event(hdev, HCI_DEV_CLOSE);
-
-		hdev->close(hdev);
-		hdev->flags &= BIT(HCI_RAW);
+		hci_dev_drop_last_cmd_req_and_close(hdev);
 	}
 
 done:
@@ -5613,7 +5621,7 @@ int hci_dev_close_sync(struct hci_dev *hdev)
 
 	if (hdev->adv_instance_timeout) {
 		cancel_delayed_work_sync(&hdev->adv_instance_expire);
-		hdev->adv_instance_timeout = 0;
+		hdev->adv_instance_timeout = false;
 	}
 
 	err = hci_dev_shutdown(hdev);
@@ -5702,28 +5710,10 @@ int hci_dev_close_sync(struct hci_dev *hdev)
 	skb_queue_purge(&hdev->cmd_q);
 	skb_queue_purge(&hdev->raw_q);
 
-	/* Drop last sent command */
-	if (hdev->sent_cmd) {
-		cancel_delayed_work_sync(&hdev->cmd_timer);
-		kfree_skb(hdev->sent_cmd);
-		hdev->sent_cmd = NULL;
-	}
-
-	/* Drop last request */
-	if (hdev->req_skb) {
-		kfree_skb(hdev->req_skb);
-		hdev->req_skb = NULL;
-		hci_dev_clear_flag(hdev, HCI_CMD_PENDING);
-	}
-
-	clear_bit(HCI_RUNNING, &hdev->flags);
-	hci_sock_dev_event(hdev, HCI_DEV_CLOSE);
-
-	/* After this point our queues are empty and no tasks are scheduled. */
-	hdev->close(hdev);
+	/* Drop last sent command, last request and close */
+	hci_dev_drop_last_cmd_req_and_close(hdev);
 
 	/* Clear flags */
-	hdev->flags &= BIT(HCI_RAW);
 	hci_dev_clear_volatile_flags(hdev);
 	hci_dev_clear_flag(hdev, HCI_CMD_DRAIN_WORKQUEUE);
 
