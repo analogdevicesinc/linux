@@ -37,6 +37,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/prefetch.h>
 #include <linux/unaligned.h>
 
 /*-*****************************
@@ -121,6 +122,26 @@ static FORCE_INLINE int LZ4_decompress_generic(
 		size_t length;
 		const BYTE *match;
 		size_t offset;
+
+		/*
+		 * Software-pipelined prefetch hints.  On the zswap/zram
+		 * hot path, both the compressed input and the output page
+		 * are cold (just faulted in or freshly allocated).  Prime
+		 * the L1d for the next loop iteration so that the actual
+		 * loads/stores hit warm cache lines.
+		 *
+		 * Distances are tuned for 4 KiB page-at-a-time workloads:
+		 *   96 B read-ahead on ip  ~  6 tokens ahead
+		 *  128 B write-intent on op ~ 2 long-literal copies ahead
+		 *  192 B deeper read-ahead  ~  covers the match-copy tail
+		 *
+		 * prefetch() / prefetchw() are architecture-portable hints
+		 * that compile to NOP on targets without HW prefetch.  They
+		 * never fault, even past buffer boundaries.
+		 */
+		prefetch(ip + 96);
+		prefetchw(op + 128);
+		prefetch(ip + 192);
 
 		/* get literal length */
 		unsigned int const token = *ip++;
