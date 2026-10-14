@@ -553,7 +553,7 @@ out_free:
  *
  * Return: Referenced stream inode on success, or ERR_PTR() on failure.
  */
-struct inode *ntfs_create_named_stream(struct mnt_idmap *idmap,
+struct inode *ntfs_create_named_stream(const struct mnt_idmap *idmap,
 		struct inode *dir, __le16 *base_name, int base_len,
 		__le16 *stream_name, int stream_len)
 {
@@ -795,7 +795,7 @@ static int ntfs_stream_claim(struct inode *inode)
 }
 
 /* Stream permission checks use the base inode's permissions. */
-static int ntfs_stream_permission(struct mnt_idmap *idmap,
+static int ntfs_stream_permission(const struct mnt_idmap *idmap,
 		struct inode *inode, int mask)
 {
 	return inode_permission(idmap,
@@ -803,7 +803,7 @@ static int ntfs_stream_permission(struct mnt_idmap *idmap,
 }
 
 /* Report base metadata with the stream's own size and allocation. */
-static int ntfs_stream_getattr(struct mnt_idmap *idmap,
+static int ntfs_stream_getattr(const struct mnt_idmap *idmap,
 		const struct path *path, struct kstat *stat,
 		unsigned int request_mask, unsigned int query_flags)
 {
@@ -850,7 +850,7 @@ static int ntfs_stream_getattr(struct mnt_idmap *idmap,
  * Apply size changes to the stream and route shared inode metadata changes to
  * its base inode.
  */
-static int ntfs_stream_setattr_common(struct mnt_idmap *idmap,
+static int ntfs_stream_setattr_common(const struct mnt_idmap *idmap,
 		struct inode *inode, struct iattr *attr)
 {
 	struct ntfs_inode *ni = NTFS_I(inode);
@@ -918,7 +918,7 @@ out:
 }
 
 /* Hold the stream against unlink while applying VFS setattr operations. */
-static int ntfs_stream_setattr(struct mnt_idmap *idmap,
+static int ntfs_stream_setattr(const struct mnt_idmap *idmap,
 		struct dentry *dentry, struct iattr *attr)
 {
 	struct inode *inode = d_inode(dentry);
@@ -988,13 +988,13 @@ static ssize_t ntfs_stream_listxattr(struct dentry *dentry, char *buffer,
 }
 
 #ifdef CONFIG_NTFS_FS_POSIX_ACL
-static struct posix_acl *ntfs_stream_get_acl(struct mnt_idmap *idmap,
+static struct posix_acl *ntfs_stream_get_acl(const struct mnt_idmap *idmap,
 		struct dentry *dentry, int type)
 {
 	return ERR_PTR(-EOPNOTSUPP);
 }
 
-static int ntfs_stream_set_acl(struct mnt_idmap *idmap,
+static int ntfs_stream_set_acl(const struct mnt_idmap *idmap,
 		struct dentry *dentry, struct posix_acl *acl, int type)
 {
 	return -EOPNOTSUPP;

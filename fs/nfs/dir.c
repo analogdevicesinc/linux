@@ -2438,7 +2438,7 @@ out_err:
 	return error;
 }
 
-int nfs_create(struct mnt_idmap *idmap, struct inode *dir,
+int nfs_create(const struct mnt_idmap *idmap, struct inode *dir,
 	       struct dentry *dentry, umode_t mode)
 {
 	return nfs_do_create(dir, dentry, mode, O_EXCL);
@@ -2449,7 +2449,7 @@ EXPORT_SYMBOL_GPL(nfs_create);
  * See comments for nfs_proc_create regarding failed operations.
  */
 int
-nfs_mknod(struct mnt_idmap *idmap, struct inode *dir,
+nfs_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 	  struct dentry *dentry, umode_t mode, dev_t rdev)
 {
 	struct iattr attr;
@@ -2476,7 +2476,7 @@ EXPORT_SYMBOL_GPL(nfs_mknod);
 /*
  * See comments for nfs_proc_create regarding failed operations.
  */
-struct dentry *nfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+struct dentry *nfs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 			 struct dentry *dentry, umode_t mode)
 {
 	struct iattr attr;
@@ -2636,7 +2636,7 @@ EXPORT_SYMBOL_GPL(nfs_unlink);
  * now have a new file handle and can instantiate an in-core NFS inode
  * and move the raw page into its mapping.
  */
-int nfs_symlink(struct mnt_idmap *idmap, struct inode *dir,
+int nfs_symlink(const struct mnt_idmap *idmap, struct inode *dir,
 		struct dentry *dentry, const char *symname)
 {
 	struct folio *folio;
@@ -2766,7 +2766,7 @@ static bool nfs_rename_is_unsafe_cross_dir(struct dentry *old_dentry,
  * If these conditions are met, we can drop the dentries before doing
  * the rename.
  */
-int nfs_rename(struct mnt_idmap *idmap, struct inode *old_dir,
+int nfs_rename(const struct mnt_idmap *idmap, struct inode *old_dir,
 	       struct dentry *old_dentry, struct inode *new_dir,
 	       struct dentry *new_dentry, unsigned int flags)
 {
@@ -3388,7 +3388,7 @@ static int nfs_execute_ok(struct inode *inode, int mask)
 	return ret;
 }
 
-int nfs_permission(struct mnt_idmap *idmap,
+int nfs_permission(const struct mnt_idmap *idmap,
 		   struct inode *inode,
 		   int mask)
 {

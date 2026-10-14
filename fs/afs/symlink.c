@@ -56,7 +56,6 @@ void afs_evict_symlink(struct afs_vnode *vnode)
 void afs_init_new_symlink(struct afs_vnode *vnode, struct afs_operation *op)
 {
 	struct afs_symlink *symlink = op->create.symlink;
-	size_t dsize = 0;
 	size_t size = strlen(symlink->content) + 1;
 	char *p;
 
@@ -66,13 +65,18 @@ void afs_init_new_symlink(struct afs_vnode *vnode, struct afs_operation *op)
 	if (!fscache_cookie_enabled(netfs_i_cookie(&vnode->netfs)))
 		return;
 
-	if (netfs_alloc_folioq_buffer(NULL, &vnode->directory, &dsize, size,
-				      mapping_gfp_mask(vnode->netfs.inode.i_mapping)) < 0)
+	vnode->directory =
+		bvecq_alloc_buffer(PAGE_SIZE,
+				   mapping_gfp_mask(vnode->netfs.inode.i_mapping),
+				   false);
+	if (!vnode->directory)
 		return;
 
-	vnode->directory_size = dsize;
-	p = kmap_local_folio(folioq_folio(vnode->directory, 0), 0);
+	vnode->directory_size = size;
+	p = bvec_kmap_partial(&vnode->directory->bv[0], 0);
 	memcpy(p, symlink->content, size);
+	if (size < PAGE_SIZE)
+		memset(p + size, 0, PAGE_SIZE - size);
 	kunmap_local(p);
 	netfs_single_mark_inode_dirty(&vnode->netfs.inode);
 }
@@ -94,17 +98,13 @@ static ssize_t afs_do_read_symlink(struct afs_vnode *vnode)
 	}
 
 	if (!vnode->directory) {
-		size_t cur_size = 0;
-
-		ret = netfs_alloc_folioq_buffer(NULL,
-						&vnode->directory, &cur_size, PAGE_SIZE,
-						mapping_gfp_mask(vnode->netfs.inode.i_mapping));
-		vnode->directory_size = PAGE_SIZE - 1;
-		if (ret < 0)
-			return ret;
+		vnode->directory = bvecq_alloc_buffer(
+			PAGE_SIZE, mapping_gfp_mask(vnode->netfs.inode.i_mapping), false);
+		if (!vnode->directory)
+			return -ENOMEM;
 	}
 
-	iov_iter_folio_queue(&iter, ITER_DEST, vnode->directory, 0, 0, PAGE_SIZE);
+	iov_iter_bvec_queue(&iter, ITER_DEST, vnode->directory, 0, 0, PAGE_SIZE);
 
 	/* AFS requires us to perform the read of a symlink as a single unit to
 	 * avoid issues with the content being changed between reads.
@@ -126,7 +126,7 @@ static ssize_t afs_do_read_symlink(struct afs_vnode *vnode)
 		refcount_set(&symlink->ref, 1);
 		symlink->content[i_size] = 0;
 
-		const char *s = kmap_local_folio(folioq_folio(vnode->directory, 0), 0);
+		const char *s = bvec_kmap_partial(&vnode->directory->bv[0], 0);
 
 		memcpy(symlink->content, s, i_size);
 		kunmap_local(s);
@@ -135,7 +135,7 @@ static ssize_t afs_do_read_symlink(struct afs_vnode *vnode)
 	}
 
 	if (!fscache_cookie_enabled(netfs_i_cookie(&vnode->netfs))) {
-		netfs_free_folioq_buffer(vnode->directory);
+		bvecq_put(vnode->directory);
 		vnode->directory = NULL;
 		vnode->directory_size = 0;
 	}
@@ -248,14 +248,14 @@ int afs_symlink_writepages(struct address_space *mapping,
 
 	if (vnode->directory &&
 	    atomic64_read(&vnode->cb_expires_at) != AFS_NO_CB_PROMISE) {
-		iov_iter_folio_queue(&iter, ITER_SOURCE, vnode->directory, 0, 0,
-				     i_size_read(&vnode->netfs.inode));
+		iov_iter_bvec_queue(&iter, ITER_SOURCE, vnode->directory, 0, 0,
+				    i_size_read(&vnode->netfs.inode));
 		ret = netfs_writeback_single(mapping, wbc, &iter);
 	}
 
 	if (ret == 0) {
 		netfs_wb_begin(&vnode->netfs, false);
-		netfs_free_folioq_buffer(vnode->directory);
+		bvecq_put(vnode->directory);
 		vnode->directory = NULL;
 		vnode->directory_size = 0;
 		netfs_wb_end(&vnode->netfs);

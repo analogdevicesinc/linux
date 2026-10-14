@@ -116,7 +116,7 @@ static int ksmbd_vfs_path_lookup(struct ksmbd_share_config *share_conf,
 	return 0;
 }
 
-void ksmbd_vfs_query_maximal_access(struct mnt_idmap *idmap,
+void ksmbd_vfs_query_maximal_access(const struct mnt_idmap *idmap,
 				   struct dentry *dentry, __le32 *daccess)
 {
 	*daccess = cpu_to_le32(FILE_READ_ATTRIBUTES | READ_CONTROL |
@@ -185,7 +185,7 @@ int ksmbd_vfs_create(struct ksmbd_work *work, const char *name, umode_t mode)
  */
 int ksmbd_vfs_mkdir(struct ksmbd_work *work, const char *name, umode_t mode)
 {
-	struct mnt_idmap *idmap;
+	const struct mnt_idmap *idmap;
 	struct path path;
 	struct dentry *dentry, *d;
 	int err = 0;
@@ -218,7 +218,7 @@ int ksmbd_vfs_mkdir(struct ksmbd_work *work, const char *name, umode_t mode)
 	return err;
 }
 
-ssize_t ksmbd_vfs_getcasexattr(struct mnt_idmap *idmap,
+ssize_t ksmbd_vfs_getcasexattr(const struct mnt_idmap *idmap,
 			       struct dentry *dentry, char *attr_name,
 			       int attr_name_len, char **attr_value)
 {
@@ -388,7 +388,7 @@ static int ksmbd_vfs_stream_write(struct ksmbd_file *fp, char *buf, loff_t *pos,
 {
 	const struct cred *saved_cred;
 	char *stream_buf = NULL, *wbuf;
-	struct mnt_idmap *idmap = file_mnt_idmap(fp->filp);
+	const struct mnt_idmap *idmap = file_mnt_idmap(fp->filp);
 	size_t size, write_end;
 	ssize_t v_len;
 	int err = 0;
@@ -465,7 +465,7 @@ out:
 int ksmbd_vfs_stream_truncate(struct ksmbd_file *fp, loff_t newsize)
 {
 	const struct cred *saved_cred;
-	struct mnt_idmap *idmap = file_mnt_idmap(fp->filp);
+	const struct mnt_idmap *idmap = file_mnt_idmap(fp->filp);
 	char *stream_buf = NULL, *new_buf = NULL;
 	ssize_t v_len;
 	int err;
@@ -635,7 +635,7 @@ int ksmbd_vfs_fsync(struct ksmbd_work *work, u64 fid, u64 p_id)
  */
 int ksmbd_vfs_remove_file(struct ksmbd_work *work, const struct path *path)
 {
-	struct mnt_idmap *idmap;
+	const struct mnt_idmap *idmap;
 	struct dentry *parent = path->dentry->d_parent;
 	int err;
 
@@ -899,7 +899,7 @@ ssize_t ksmbd_vfs_listxattr(struct dentry *dentry, char **list)
 	return size;
 }
 
-ssize_t ksmbd_vfs_xattr_len(struct mnt_idmap *idmap,
+ssize_t ksmbd_vfs_xattr_len(const struct mnt_idmap *idmap,
 			    struct dentry *dentry, char *xattr_name)
 {
 	return vfs_getxattr(idmap, dentry, xattr_name, NULL, 0);
@@ -914,7 +914,7 @@ ssize_t ksmbd_vfs_xattr_len(struct mnt_idmap *idmap,
  *
  * Return:	read xattr value length on success, otherwise error
  */
-ssize_t ksmbd_vfs_getxattr(struct mnt_idmap *idmap,
+ssize_t ksmbd_vfs_getxattr(const struct mnt_idmap *idmap,
 			   struct dentry *dentry,
 			   char *xattr_name, char **xattr_buf)
 {
@@ -951,7 +951,7 @@ ssize_t ksmbd_vfs_getxattr(struct mnt_idmap *idmap,
  *
  * Return:	0 on success, otherwise error
  */
-int ksmbd_vfs_setxattr(struct mnt_idmap *idmap,
+int ksmbd_vfs_setxattr(const struct mnt_idmap *idmap,
 		       const struct path *path, const char *attr_name,
 		       void *attr_value, size_t attr_size, int flags,
 		       bool get_write)
@@ -1235,7 +1235,7 @@ int ksmbd_vfs_query_allocated_ranges(struct ksmbd_file *fp, loff_t start,
 	return ret;
 }
 
-int ksmbd_vfs_remove_xattr(struct mnt_idmap *idmap,
+int ksmbd_vfs_remove_xattr(const struct mnt_idmap *idmap,
 			   const struct path *path, char *attr_name,
 			   bool get_write)
 {
@@ -1260,7 +1260,7 @@ int ksmbd_vfs_unlink(struct file *filp)
 	const struct cred *saved_cred;
 	int err = 0;
 	struct dentry *dir, *dentry = filp->f_path.dentry;
-	struct mnt_idmap *idmap = file_mnt_idmap(filp);
+	const struct mnt_idmap *idmap = file_mnt_idmap(filp);
 
 	saved_cred = override_creds(filp->f_cred);
 	err = mnt_want_write(filp->f_path.mnt);
@@ -1529,7 +1529,7 @@ struct dentry *ksmbd_vfs_kern_path_create(struct ksmbd_work *work,
 	return dent;
 }
 
-int ksmbd_vfs_remove_acl_xattrs(struct mnt_idmap *idmap,
+int ksmbd_vfs_remove_acl_xattrs(const struct mnt_idmap *idmap,
 				const struct path *path)
 {
 	char *name, *xattr_list = NULL;
@@ -1569,7 +1569,7 @@ out:
 	return err;
 }
 
-int ksmbd_vfs_remove_sd_xattrs(struct mnt_idmap *idmap, const struct path *path)
+int ksmbd_vfs_remove_sd_xattrs(const struct mnt_idmap *idmap, const struct path *path)
 {
 	char *name, *xattr_list = NULL;
 	ssize_t xattr_list_len;
@@ -1598,7 +1598,7 @@ out:
 	return err;
 }
 
-static struct xattr_smb_acl *ksmbd_vfs_make_xattr_posix_acl(struct mnt_idmap *idmap,
+static struct xattr_smb_acl *ksmbd_vfs_make_xattr_posix_acl(const struct mnt_idmap *idmap,
 							    struct inode *inode,
 							    int acl_type)
 {
@@ -1664,7 +1664,7 @@ out:
 }
 
 int ksmbd_vfs_set_sd_xattr(struct ksmbd_conn *conn,
-			   struct mnt_idmap *idmap,
+			   const struct mnt_idmap *idmap,
 			   const struct path *path,
 			   struct smb_ntsd *pntsd, int len,
 			   bool get_write)
@@ -1732,7 +1732,7 @@ out:
 EXPORT_SYMBOL_IF_KUNIT(ksmbd_vfs_set_sd_xattr);
 
 int ksmbd_vfs_get_sd_xattr(struct ksmbd_conn *conn,
-			   struct mnt_idmap *idmap,
+			   const struct mnt_idmap *idmap,
 			   struct dentry *dentry,
 			   struct smb_ntsd **pntsd)
 {
@@ -1801,7 +1801,7 @@ out_free:
 	return rc;
 }
 
-int ksmbd_vfs_set_dos_attrib_xattr(struct mnt_idmap *idmap,
+int ksmbd_vfs_set_dos_attrib_xattr(const struct mnt_idmap *idmap,
 				   const struct path *path,
 				   struct xattr_dos_attrib *da,
 				   bool get_write)
@@ -1823,7 +1823,7 @@ out:
 	return err;
 }
 
-int ksmbd_vfs_get_dos_attrib_xattr(struct mnt_idmap *idmap,
+int ksmbd_vfs_get_dos_attrib_xattr(const struct mnt_idmap *idmap,
 				   struct dentry *dentry,
 				   struct xattr_dos_attrib *da)
 {
@@ -1879,7 +1879,7 @@ void *ksmbd_vfs_init_kstat(char **p, struct ksmbd_kstat *ksmbd_kstat)
 }
 
 int ksmbd_vfs_fill_dentry_attrs(struct ksmbd_work *work,
-				struct mnt_idmap *idmap,
+				const struct mnt_idmap *idmap,
 				struct dentry *dentry,
 				struct ksmbd_kstat *ksmbd_kstat)
 {
@@ -1954,7 +1954,7 @@ int ksmbd_vfs_fill_dentry_attrs(struct ksmbd_work *work,
 	return 0;
 }
 
-ssize_t ksmbd_vfs_casexattr_len(struct mnt_idmap *idmap,
+ssize_t ksmbd_vfs_casexattr_len(const struct mnt_idmap *idmap,
 				struct dentry *dentry, char *attr_name,
 				int attr_name_len, char *actual_name)
 {
@@ -2278,7 +2278,7 @@ void ksmbd_vfs_posix_lock_unblock(struct file_lock *flock)
 	locks_delete_block(flock);
 }
 
-int ksmbd_vfs_set_init_posix_acl(struct mnt_idmap *idmap,
+int ksmbd_vfs_set_init_posix_acl(const struct mnt_idmap *idmap,
 				 const struct path *path)
 {
 	struct posix_acl_state acl_state;
@@ -2331,7 +2331,7 @@ int ksmbd_vfs_set_init_posix_acl(struct mnt_idmap *idmap,
 	return rc;
 }
 
-int ksmbd_vfs_inherit_posix_acl(struct mnt_idmap *idmap,
+int ksmbd_vfs_inherit_posix_acl(const struct mnt_idmap *idmap,
 				const struct path *path, struct inode *parent_inode)
 {
 	struct posix_acl *acls;
@@ -2394,7 +2394,7 @@ static int __ksmbd_vfs_set_compression(struct ksmbd_work *work,
 	const struct cred *saved_cred = NULL;
 	struct file_kattr fa;
 	struct dentry *dentry = fp->filp->f_path.dentry;
-	struct mnt_idmap *idmap = file_mnt_idmap(fp->filp);
+	const struct mnt_idmap *idmap = file_mnt_idmap(fp->filp);
 	u32 flags;
 	__le32 old_fattr;
 	int rc;

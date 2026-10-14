@@ -28,7 +28,7 @@ static struct kmem_cache *netfs_request_slab;
 static struct kmem_cache *netfs_subrequest_slab;
 mempool_t netfs_request_pool;
 mempool_t netfs_subrequest_pool;
-mempool_t netfs_folioq_pool;
+mempool_t netfs_bvecq_pool;
 
 #ifdef CONFIG_PROC_FS
 LIST_HEAD(netfs_io_requests);
@@ -44,7 +44,6 @@ static const char *netfs_origins[nr__netfs_io_origin] = {
 	[NETFS_DIO_READ]		= "DR",
 	[NETFS_WRITEBACK]		= "WB",
 	[NETFS_WRITEBACK_SINGLE]	= "W1",
-	[NETFS_WRITETHROUGH]		= "WT",
 	[NETFS_UNBUFFERED_WRITE]	= "UW",
 	[NETFS_DIO_WRITE]		= "DW",
 	[NETFS_PGPRIV2_COPY_TO_CACHE]	= "2C",
@@ -109,8 +108,9 @@ static int __init netfs_init(void)
 {
 	int ret = -ENOMEM;
 
-	if (mempool_init_kmalloc_pool(&netfs_folioq_pool, 100, sizeof(struct folio_queue)) < 0)
-		goto error_folioq_pool;
+	if (mempool_init_kmalloc_pool(&netfs_bvecq_pool, 100,
+				      struct_size_t(struct bvecq, __bv, BVECQ_POOL_SLOTS)) < 0)
+		goto error_bvecq_pool;
 
 	netfs_request_slab = kmem_cache_create("netfs_request",
 					       sizeof(struct netfs_io_request), 0,
@@ -164,8 +164,8 @@ error_subreq:
 error_reqpool:
 	kmem_cache_destroy(netfs_request_slab);
 error_req:
-	mempool_exit(&netfs_folioq_pool);
-error_folioq_pool:
+	mempool_exit(&netfs_bvecq_pool);
+error_bvecq_pool:
 	return ret;
 }
 fs_initcall(netfs_init);
@@ -178,6 +178,6 @@ static void __exit netfs_exit(void)
 	kmem_cache_destroy(netfs_subrequest_slab);
 	mempool_exit(&netfs_request_pool);
 	kmem_cache_destroy(netfs_request_slab);
-	mempool_exit(&netfs_folioq_pool);
+	mempool_exit(&netfs_bvecq_pool);
 }
 module_exit(netfs_exit);
