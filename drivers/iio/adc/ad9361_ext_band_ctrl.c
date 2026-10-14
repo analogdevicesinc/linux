@@ -144,18 +144,23 @@ static int ad9361_parse_setting_seq(struct device *dev,
 				    const char *root_node_name)
 {
 	struct ad9361_band_setting *nseq;
-	struct of_phandle_iterator it;
-	uint32_t args[1];
+	struct of_phandle_args args;
 	int cell_count = 1;
-	int c, rc = 0;
+	int i, rc;
 
 	INIT_LIST_HEAD(lst);
 
-	of_for_each_phandle(&it, rc, np, list_name, NULL, cell_count) {
-		c = of_phandle_iterator_args(&it, args, cell_count);
-		if (c != cell_count) {
+	for (i = 0; ; i++) {
+		rc = of_parse_phandle_with_fixed_args(np, list_name,
+						      cell_count, i, &args);
+		if (rc == -ENOENT)
+			break;
+		if (rc < 0)
+			return rc;
+
+		if (args.args_count != cell_count) {
 			dev_err(dev, "Invalid cell count for phandle '%s'\n",
-				it.node->name);
+				args.np->name);
 			rc = -EINVAL;
 			goto out;
 		}
@@ -166,23 +171,23 @@ static int ad9361_parse_setting_seq(struct device *dev,
 			goto out;
 		}
 
-		rc = ad9361_parse_setting(dev, it.node, ctl,
+		rc = ad9361_parse_setting(dev, args.np, ctl,
 					  nseq, root_node_name);
 		if (rc < 0) {
 			devm_kfree(dev, nseq);
 			goto out;
 		}
 
-		nseq->delay = args[0]; /* delay to wait after this setting */
+		nseq->delay = args.args[0]; /* delay to wait after this setting */
 
 		list_add_tail(&nseq->list, lst);
-	};
+		of_node_put(args.np);
+	}
+
+	return 0;
 
 out:
-	if (rc)
-		of_node_put(it.node);
-	if (rc == -ENOENT)
-		return 0;
+	of_node_put(args.np);
 	return rc;
 }
 
