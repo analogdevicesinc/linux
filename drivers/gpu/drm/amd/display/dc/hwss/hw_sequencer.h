@@ -1641,7 +1641,6 @@ struct hw_sequencer_funcs {
 			struct dc_state *context);
 	void (*update_plane_addr)(const struct dc *dc,
 			struct pipe_ctx *pipe_ctx);
-	bool (*configure_dsc)(struct pipe_ctx *pipe_ctx, bool enable);
 	void (*prepare_plane_addr_update)(const struct dc *dc,
 			struct pipe_ctx *pipe_ctx,
 			struct dc_plane_address *addr_to_program,
