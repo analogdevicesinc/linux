@@ -196,8 +196,8 @@
 							  "USB_ADP_PROBE_PLUG",
 							  "USB_ADP_PROBE_UNPLUG";
 					vddulpivio18-supply = <&ab8500_ldo_intcore_reg>;
-					v-ape-supply = <&db8500_vape_reg>;
-					musb_1v8-supply = <&db8500_vsmps2_reg>;
+					v-ape-supply = <&ab8505_buck_vsmpsc>;
+					musb_1v8-supply = <&ab8505_buck_vsmpsb>;
 					clocks = <&prcmu_clk PRCMU_SYSCLK>;
 					clock-names = "sysclk";
 					#phy-cells = <0>;
@@ -224,6 +224,7 @@
 
 				codec: codec {
 					compatible = "stericsson,ab8500-codec";
+					#sound-dai-cells = <1>;
 
 					V-AUD-supply = <&ab8500_ldo_audio_reg>;
 					V-AMIC1-supply = <&ab8500_ldo_anamic1_reg>;
@@ -297,14 +298,32 @@
 					// supply for U8500 CSI/DSI; VANA LDO
 					ab8500_ldo_ana_reg: ab8500_ldo_ana {
 					};
+
+					// 1.2 V I/O and memory supply for DB8500 and peripherals
+					ab8505_buck_vsmpsa: ab8505_buck_smpsa {
+					};
+
+					// 1.8 V I/O and memory supply for DB8500 and peripherals
+					buck_vio18: ab8505_buck_vsmpsb: ab8505_buck_smpsb {
+					};
+
+					// DB8500 VSAFE supply for permanent logic and DDR PHY
+					ab8505_buck_vsafe: ab8505_buck_safe {
+					};
+
+					// DB8500 Cortex-A9 supply
+					ab8505_buck_varm: ab8505_buck_arm {
+					};
+
+					// DB8500 APE logic and multimedia accelerator supply
+					ab8505_buck_vsmpsc: ab8505_buck_smpsc {
+					};
+
+					// DB8500 modem subsystem supply
+					ab8505_buck_vsmpsm: ab8505_buck_smpsm {
+					};
 				};
 			};
-		};
-
-		sound {
-			stericsson,audio-codec = <&codec>;
-			clocks = <&prcmu_clk PRCMU_SYSCLK>, <&ab8500_clock AB8500_SYSCLK_ULP>, <&ab8500_clock AB8500_SYSCLK_INT>;
-			clock-names = "sysclk", "ulpclk", "intclk";
 		};
 
 		mcde@a0350000 {
