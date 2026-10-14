@@ -207,9 +207,8 @@ static const char * const omen_thermal_profile_boards[] = {
 	"886B", "886C", "88C8", "88CB", "88D1", "88D2", "88F4", "88F5", "88F6",
 	"88F7", "88FD", "88FE", "88FF",
 	"8900", "8901", "8902", "8912", "8917", "8918", "8949", "894A", "89EB",
-	"8A15", "8A42", "8A43",
+	"8A15", "8A17", "8A18", "8A42", "8A43",
 	"8BAD",
-	"8C58",
 	"8E41",
 };
 
@@ -227,7 +226,7 @@ static const char * const omen_thermal_profile_force_v0_boards[] = {
  * "balanced" when reaching zero.
  */
 static const char * const omen_timed_thermal_profile_boards[] = {
-	"8A15", "8A42",
+	"8A15", "8A17", "8A42",
 	"8BAD",
 };
 
@@ -300,6 +299,10 @@ static const struct dmi_system_id hp_wmi_feature_boards[] __initconst = {
 		.driver_data = (void *)&victus_s_board_params,
 	},
 	{
+		.matches = { DMI_MATCH(DMI_BOARD_NAME, "8C58") },
+		.driver_data = (void *)&omen_v1_legacy_board_params,
+	},
+	{
 		.matches = { DMI_MATCH(DMI_BOARD_NAME, "8C76") },
 		.driver_data = (void *)&omen_v1_board_params,
 	},
@@ -324,7 +327,19 @@ static const struct dmi_system_id hp_wmi_feature_boards[] __initconst = {
 		.driver_data = (void *)&omen_v1_legacy_board_params,
 	},
 	{
+		.matches = { DMI_MATCH(DMI_BOARD_NAME, "8D3F") },
+		.driver_data = (void *)&omen_v1_legacy_board_params,
+	},
+	{
+		.matches = { DMI_MATCH(DMI_BOARD_NAME, "8D40") },
+		.driver_data = (void *)&omen_v1_no_ec_board_params,
+	},
+	{
 		.matches = { DMI_MATCH(DMI_BOARD_NAME, "8D41") },
+		.driver_data = (void *)&omen_v1_no_ec_board_params,
+	},
+	{
+		.matches = { DMI_MATCH(DMI_BOARD_NAME, "8D42") },
 		.driver_data = (void *)&omen_v1_no_ec_board_params,
 	},
 	{
@@ -336,11 +351,23 @@ static const struct dmi_system_id hp_wmi_feature_boards[] __initconst = {
 		.driver_data = (void *)&omen_v1_no_ec_board_params,
 	},
 	{
+		.matches = { DMI_MATCH(DMI_BOARD_NAME, "8DD0") },
+		.driver_data = (void *)&omen_v1_no_ec_board_params,
+	},
+	{
 		.matches = { DMI_MATCH(DMI_BOARD_NAME, "8DD6") },
 		.driver_data = (void *)&omen_v1_no_ec_board_params,
 	},
 	{
+		.matches = { DMI_MATCH(DMI_BOARD_NAME, "8DE1") },
+		.driver_data = (void *)&victus_s_board_params,
+	},
+	{
 		.matches = { DMI_MATCH(DMI_BOARD_NAME, "8E35") },
+		.driver_data = (void *)&omen_v1_legacy_board_params,
+	},
+	{
+		.matches = { DMI_MATCH(DMI_BOARD_NAME, "8E41") },
 		.driver_data = (void *)&omen_v1_legacy_board_params,
 	},
 	{},
@@ -533,7 +560,6 @@ static struct platform_device *hp_wmi_platform_dev;
 static struct device *platform_profile_device;
 static struct notifier_block platform_power_source_nb;
 static enum platform_profile_option active_platform_profile;
-static bool platform_profile_support;
 static bool zero_insize_support;
 
 static struct rfkill *wifi_rfkill;
@@ -691,8 +717,9 @@ static int hp_wmi_perform_query(int query, enum hp_wmi_command command,
 		goto out_free;
 	}
 
-	if (obj->type != ACPI_TYPE_BUFFER) {
-		pr_warn("query 0x%x returned an invalid object 0x%x\n", query, ret);
+	if (obj->type != ACPI_TYPE_BUFFER ||
+	    obj->buffer.length < sizeof(*bios_return)) {
+		pr_warn("query 0x%x returned wrong type or too small buffer\n", query);
 		ret = -EINVAL;
 		goto out_free;
 	}
@@ -711,7 +738,7 @@ static int hp_wmi_perform_query(int query, enum hp_wmi_command command,
 	if (!outsize)
 		goto out_free;
 
-	actual_outsize = min(outsize, (int)(obj->buffer.length - sizeof(*bios_return)));
+	actual_outsize = min_t(u32, outsize, obj->buffer.length - sizeof(*bios_return));
 	memcpy(buffer, obj->buffer.pointer + sizeof(*bios_return), actual_outsize);
 	memset(buffer + actual_outsize, 0, outsize - actual_outsize);
 
@@ -2508,7 +2535,6 @@ static int thermal_profile_setup(struct platform_device *device)
 		return PTR_ERR(platform_profile_device);
 
 	pr_info("Registered as platform profile handler\n");
-	platform_profile_support = true;
 
 	return 0;
 }
