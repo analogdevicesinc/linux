@@ -3891,6 +3891,7 @@ static int per_family_init(struct amd64_pvt *pvt)
 			pvt->max_mcs			= 12;
 			break;
 		case 0x40 ... 0x4f:
+		case 0x88 ... 0x8f:
 			break;
 		case 0x50 ... 0x57:
 		case 0xc0 ... 0xc7:
