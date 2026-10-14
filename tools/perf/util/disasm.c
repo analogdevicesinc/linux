@@ -31,6 +31,7 @@
 #include "map.h"
 #include "maps.h"
 #include "namespaces.h"
+#include "path.h"
 #include "srcline.h"
 #include "symbol.h"
 #include "thread.h"
@@ -161,6 +162,8 @@ const struct arch *arch__find(uint16_t e_machine, uint32_t e_flags, const char *
 		.e_flags = e_flags,
 	};
 	const struct arch *result = NULL, **tmp;
+	const struct arch *(*new_fn)(const struct e_machine_and_e_flags *id,
+				     const char *cpuid) = NULL;
 
 	if (num_archs > 0) {
 		tmp = bsearch(&key, archs, num_archs, sizeof(*archs), arch__key_cmp);
@@ -171,7 +174,16 @@ const struct arch *arch__find(uint16_t e_machine, uint32_t e_flags, const char *
 	if (result)
 		return result;
 
-	if (e_machine >= ARRAY_SIZE(arch_new_fn) || arch_new_fn[e_machine] == NULL) {
+	/*
+	 * EM_ALPHA (0x9026) is far too large to index arch_new_fn[], so it is
+	 * selected explicitly; everything else uses the e_machine-indexed table.
+	 */
+	if (e_machine == EM_ALPHA)
+		new_fn = arch__new_alpha;
+	else if (e_machine < ARRAY_SIZE(arch_new_fn))
+		new_fn = arch_new_fn[e_machine];
+
+	if (new_fn == NULL) {
 		errno = ENOTSUP;
 		return NULL;
 	}
@@ -182,7 +194,7 @@ const struct arch *arch__find(uint16_t e_machine, uint32_t e_flags, const char *
 
 	archs = tmp;
 
-	result = arch_new_fn[e_machine](&key, cpuid);
+	result = new_fn(&key, cpuid);
 	if (!result) {
 		pr_err("%s: failed to initialize %u arch priv area\n",
 			__func__, e_machine);
@@ -201,6 +213,11 @@ bool arch__is_x86(const struct arch *arch)
 bool arch__is_powerpc(const struct arch *arch)
 {
 	return arch->id.e_machine == EM_PPC || arch->id.e_machine == EM_PPC64;
+}
+
+bool arch__is_arm64(const struct arch *arch)
+{
+	return arch->id.e_machine == EM_AARCH64;
 }
 
 static void ins_ops__delete(struct ins_operands *ops)
@@ -1173,7 +1190,12 @@ static int dso__disassemble_filename(struct dso *dso, char *filename, size_t fil
 
 	build_id_filename = dso__build_id_filename(dso, NULL, 0, false);
 	if (build_id_filename) {
-		__symbol__join_symfs(filename, filename_size, build_id_filename);
+		/*
+		 * This is a path in perf's own build id cache, not a path on
+		 * the profiled system, so the symfs layout does not apply.
+		 */
+		path__join(filename, filename_size, symbol_conf.symfs,
+			   build_id_filename);
 		free(build_id_filename);
 	} else {
 		if (dso__has_build_id(dso))

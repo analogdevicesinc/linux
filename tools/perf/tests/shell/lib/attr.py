@@ -4,13 +4,15 @@ import configparser
 import os
 import sys
 import glob
-import optparse
+import argparse
 import platform
 import tempfile
 import logging
 import re
 import shutil
 import subprocess
+
+log = logging.getLogger('test')
 
 def data_equal(a, b):
     # Allow multiple values in assignment separated by '|'
@@ -89,19 +91,19 @@ class Event(dict):
 
     def add(self, data):
         for key, val in data:
-            log.debug("      %s = %s" % (key, val))
+            log.debug("      %s = %s", key, val)
             self[key] = val
 
     def __init__(self, name, data, base):
-        log.debug("    Event %s" % name);
-        self.name  = name;
+        log.debug("    Event %s", name)
+        self.name  = name
         self.group = ''
         self.add(base)
         self.add(data)
 
     def equal(self, other):
         for t in Event.terms:
-            log.debug("      [%s] %s %s" % (t, self[t], other[t]));
+            log.debug("      [%s] %s %s", t, self[t], other[t])
             if t not in self or t not in other:
                 return False
             if not data_equal(self[t], other[t]):
@@ -118,7 +120,7 @@ class Event(dict):
             if t not in self or t not in other:
                 continue
             if not data_equal(self[t], other[t]):
-                log.warning("expected %s=%s, got %s" % (t, self[t], other[t]))
+                log.warning("expected %s=%s, got %s", t, self[t], other[t])
 
 def parse_version(version):
     if not version:
@@ -149,7 +151,7 @@ class Test(object):
         parser = configparser.ConfigParser()
         parser.read(path)
 
-        log.warning("running '%s'" % path)
+        log.warning("running '%s'", path)
 
         self.path     = path
         self.test_dir = options.test_dir
@@ -159,15 +161,15 @@ class Test(object):
 
         try:
             self.ret  = parser.get('config', 'ret')
-        except:
+        except Exception:
             self.ret  = 0
 
         self.test_ret = parser.getboolean('config', 'test_ret', fallback=False)
 
         try:
             self.arch  = parser.get('config', 'arch')
-            log.warning("test limitation '%s'" % self.arch)
-        except:
+            log.warning("test limitation '%s'", self.arch)
+        except Exception:
             self.arch  = ''
 
         self.auxv = parser.get('config', 'auxv', fallback=None)
@@ -175,7 +177,7 @@ class Test(object):
         self.kernel_until = parse_version(parser.get('config', 'kernel_until', fallback=None))
         self.expect   = {}
         self.result   = {}
-        log.debug("  loading expected events");
+        log.debug("  loading expected events")
         self.load_events(path, self.expect)
 
     def is_event(self, name):
@@ -203,7 +205,7 @@ class Test(object):
             else:
                 try:
                     value = int(items[-1], 0)
-                except:
+                except ValueError:
                     value = items[-1]
             return (items[0], value)
 
@@ -227,7 +229,7 @@ class Test(object):
         # Handle negated list such as !s390x,ppc
         if arch_list[0][0] == '!':
             arch_list[0] = arch_list[0][1:]
-            log.warning("excluded architecture list %s" % arch_list)
+            log.warning("excluded architecture list %s", arch_list)
             for arch_item in arch_list:
                 # log.warning("test for %s arch is %s" % (arch_item, myarch))
                 if arch_item == myarch:
@@ -243,19 +245,19 @@ class Test(object):
     def restore_sample_rate(self, value=10000):
         try:
             # Check value of sample_rate
-            with open("/proc/sys/kernel/perf_event_max_sample_rate", "r") as fIn:
+            with open("/proc/sys/kernel/perf_event_max_sample_rate", "r", encoding="utf-8") as fIn:
                 curr_value = fIn.readline()
             # If too low restore to reasonable value
             if not curr_value or int(curr_value) < int(value):
-                with open("/proc/sys/kernel/perf_event_max_sample_rate", "w") as fOut:
+                with open("/proc/sys/kernel/perf_event_max_sample_rate", "w", encoding="utf-8") as fOut:
                     fOut.write(str(value))
 
         except IOError as e:
-            log.warning("couldn't restore sample_rate value: I/O error %s" % e)
+            log.warning("couldn't restore sample_rate value: I/O error %s", e)
         except ValueError as e:
-            log.warning("couldn't restore sample_rate value: Value error %s" % e)
+            log.warning("couldn't restore sample_rate value: Value error %s", e)
         except TypeError as e:
-            log.warning("couldn't restore sample_rate value: Type error %s" % e)
+            log.warning("couldn't restore sample_rate value: Type error %s", e)
 
     def load_events(self, path, events):
         parser_event = configparser.ConfigParser()
@@ -266,7 +268,7 @@ class Test(object):
         # event' first as a base
         for section in filter(self.is_event, parser_event.sections()):
 
-            parser_items = parser_event.items(section);
+            parser_items = parser_event.items(section)
             base_items   = {}
 
             # Read parent event if there's any
@@ -280,7 +282,7 @@ class Test(object):
             events[section] = e
 
     def run_cmd(self, tempdir):
-        junk1, junk2, junk3, junk4, myarch = (os.uname())
+        _junk1, _junk2, _junk3, _junk4, myarch = (os.uname())
 
         if self.skip_test_arch(myarch):
             raise Notest(self, myarch)
@@ -299,7 +301,7 @@ class Test(object):
               self.perf, self.command, tempdir, self.args)
         ret = os.WEXITSTATUS(os.system(cmd))
 
-        log.info("  '%s' ret '%s', expected '%s'" % (cmd, str(ret), str(self.ret)))
+        log.info("  '%s' ret '%s', expected '%s'", cmd, str(ret), str(self.ret))
 
         if not data_equal(str(ret), str(self.ret)):
             if self.test_ret:
@@ -310,34 +312,34 @@ class Test(object):
     def compare(self, expect, result):
         match = {}
 
-        log.debug("  compare");
+        log.debug("  compare")
 
         # For each expected event find all matching
         # events in result. Fail if there's not any.
         for exp_name, exp_event in expect.items():
             exp_list = []
             res_event = {}
-            log.debug("    matching [%s]" % exp_name)
+            log.debug("    matching [%s]", exp_name)
             for res_name, res_event in result.items():
-                log.debug("      to [%s]" % res_name)
+                log.debug("      to [%s]", res_name)
                 if (exp_event.equal(res_event)):
                     exp_list.append(res_name)
                     log.debug("    ->OK")
                 else:
-                    log.debug("    ->FAIL");
+                    log.debug("    ->FAIL")
 
-            log.debug("    match: [%s] matches %s" % (exp_name, str(exp_list)))
+            log.debug("    match: [%s] matches %s", exp_name, str(exp_list))
 
             # we did not any matching event - fail
             if not exp_list:
                 if exp_event.optional():
-                    log.debug("    %s does not match, but is optional" % exp_name)
+                    log.debug("    %s does not match, but is optional", exp_name)
                 else:
                     if not res_event:
-                        log.debug("    res_event is empty");
+                        log.debug("    res_event is empty")
                     else:
                         exp_event.diff(res_event)
-                    raise Fail(self, 'match failure');
+                    raise Fail(self, 'match failure')
 
             match[exp_name] = exp_list
 
@@ -354,38 +356,38 @@ class Test(object):
                 if res_group not in match[group]:
                     raise Fail(self, 'group failure')
 
-                log.debug("    group: [%s] matches group leader %s" %
-                         (exp_name, str(match[group])))
+                log.debug("    group: [%s] matches group leader %s",
+                          exp_name, str(match[group]))
 
         log.debug("  matched")
 
     def resolve_groups(self, events):
         for name, event in events.items():
-            group_fd = event['group_fd'];
+            group_fd = event['group_fd']
             if group_fd == '-1':
-                continue;
+                continue
 
             for iname, ievent in events.items():
                 if (ievent['fd'] == group_fd):
                     event.group = iname
-                    log.debug('[%s] has group leader [%s]' % (name, iname))
-                    break;
+                    log.debug('[%s] has group leader [%s]', name, iname)
+                    break
 
     def run(self):
-        tempdir = tempfile.mkdtemp();
+        tempdir = tempfile.mkdtemp()
 
         try:
             # run the test script
-            self.run_cmd(tempdir);
+            self.run_cmd(tempdir)
 
             # load events expectation for the test
-            log.debug("  loading result events");
+            log.debug("  loading result events")
             for f in glob.glob(tempdir + '/event*'):
-                self.load_events(f, self.result);
+                self.load_events(f, self.result)
 
             # resolve group_fd to event names
-            self.resolve_groups(self.expect);
-            self.resolve_groups(self.result);
+            self.resolve_groups(self.expect)
+            self.resolve_groups(self.result)
 
             # do the expectation - results matching - both ways
             self.compare(self.expect, self.result)
@@ -401,9 +403,9 @@ def run_tests(options):
         try:
             Test(f, options).run()
         except Unsup as obj:
-            log.warning("unsupp  %s" % obj.getMsg())
+            log.warning("unsupp  %s", obj.getMsg())
         except Notest as obj:
-            log.warning("skipped %s" % obj.getMsg())
+            log.warning("skipped %s", obj.getMsg())
 
 def setup_log(verbose):
     global log
@@ -424,29 +426,20 @@ def setup_log(verbose):
     ch.setFormatter(formatter)
     log.addHandler(ch)
 
-USAGE = '''%s [OPTIONS]
-  -d dir  # tests dir
-  -p path # perf binary
-  -t test # single test
-  -v      # verbose level
-''' % sys.argv[0]
-
 def main():
-    parser = optparse.OptionParser(usage=USAGE)
+    parser = argparse.ArgumentParser()
 
-    parser.add_option("-t", "--test",
-                      action="store", type="string", dest="test")
-    parser.add_option("-d", "--test-dir",
-                      action="store", type="string", dest="test_dir")
-    parser.add_option("-p", "--perf",
-                      action="store", type="string", dest="perf")
-    parser.add_option("-v", "--verbose",
-                      default=0, action="count", dest="verbose")
+    parser.add_argument("-t", "--test",
+                        action="store", dest="test", help="single test")
+    parser.add_argument("-d", "--test-dir",
+                        action="store", dest="test_dir", help="tests dir")
+    parser.add_argument("-p", "--perf",
+                        action="store", dest="perf", help="perf binary")
+    parser.add_argument("-v", "--verbose",
+                        default=0, action="count", dest="verbose",
+                        help="verbose level")
 
-    options, args = parser.parse_args()
-    if args:
-        parser.error('FAILED wrong arguments %s' %  ' '.join(args))
-        return -1
+    options = parser.parse_args()
 
     setup_log(options.verbose)
 

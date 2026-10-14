@@ -27,6 +27,7 @@
 #include "util/kvm-stat.h"
 #include "util/util.h"
 #include "ui/browsers/hists.h"
+#include "ui/keysyms.h"
 #include "ui/progress.h"
 #include "ui/ui.h"
 #include "util/string2.h"

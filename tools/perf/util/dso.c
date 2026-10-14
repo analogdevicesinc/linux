@@ -1,38 +1,44 @@
 // SPDX-License-Identifier: GPL-2.0
+#include "dso.h"
+
+#include <errno.h>
+#include <stdlib.h>
+
 #include <asm/bug.h>
+#include <fcntl.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/zalloc.h>
-#include <sys/time.h>
 #include <sys/resource.h>
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
 #include <unistd.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <stdlib.h>
+
+#include "annotate-data.h"
+#include "auxtrace.h"
+#include "compress.h"
+#include "debug.h"
+#include "dsos.h"
+#include "env.h"
+#include "libbfd.h"
+#include "libdw.h"
+#include "machine.h"
+#include "map.h"
+#include "namespaces.h"
+#include "path.h"
+#include "srcline.h"
+#include "string2.h"
+#include "symbol.h"
+#include "util.h" /* O_CLOEXEC for older systems */
+#include "vdso.h"
+
 #ifdef HAVE_LIBBPF_SUPPORT
 #include <bpf/libbpf.h>
+
 #include "bpf-event.h"
 #include "bpf-utils.h"
 #endif
-#include "compress.h"
-#include "env.h"
-#include "namespaces.h"
-#include "path.h"
-#include "map.h"
-#include "symbol.h"
-#include "srcline.h"
-#include "dso.h"
-#include "dsos.h"
-#include "machine.h"
-#include "auxtrace.h"
-#include "util.h" /* O_CLOEXEC for older systems */
-#include "debug.h"
-#include "string2.h"
-#include "vdso.h"
-#include "annotate-data.h"
-#include "libdw.h"
 
 static const char * const debuglink_paths[] = {
 	"%.0s%s",
@@ -115,6 +121,7 @@ int dso__read_binary_type_filename(const struct dso *dso,
 				   const char *root_dir, char *filename, size_t size)
 {
 	char build_id_hex[SBUILD_ID_SIZE];
+	char relative[PATH_MAX];
 	int ret = 0;
 	size_t len;
 
@@ -167,13 +174,15 @@ int dso__read_binary_type_filename(const struct dso *dso,
 		break;
 
 	case DSO_BINARY_TYPE__FEDORA_DEBUGINFO:
-		len = __symbol__join_symfs(filename, size, "/usr/lib/debug");
-		snprintf(filename + len, size - len, "%s.debug", dso__long_name(dso));
+		snprintf(relative, sizeof(relative), "/usr/lib/debug%s.debug",
+			 dso__long_name(dso));
+		__symbol__join_symfs(filename, size, relative);
 		break;
 
 	case DSO_BINARY_TYPE__UBUNTU_DEBUGINFO:
-		len = __symbol__join_symfs(filename, size, "/usr/lib/debug");
-		snprintf(filename + len, size - len, "%s", dso__long_name(dso));
+		snprintf(relative, sizeof(relative), "/usr/lib/debug%s",
+			 dso__long_name(dso));
+		__symbol__join_symfs(filename, size, relative);
 		break;
 
 	case DSO_BINARY_TYPE__MIXEDUP_UBUNTU_DEBUGINFO:
@@ -187,8 +196,9 @@ int dso__read_binary_type_filename(const struct dso *dso,
 			ret = -1;
 			break;
 		}
-		len = __symbol__join_symfs(filename, size, "/usr/lib/debug");
-		snprintf(filename + len, size - len, "%s", dso__long_name(dso) + 4);
+		snprintf(relative, sizeof(relative), "/usr/lib/debug%s",
+			 dso__long_name(dso) + 4);
+		__symbol__join_symfs(filename, size, relative);
 		break;
 
 	case DSO_BINARY_TYPE__OPENEMBEDDED_DEBUGINFO:
@@ -200,15 +210,15 @@ int dso__read_binary_type_filename(const struct dso *dso,
 		while (last_slash != dso__long_name(dso) && *last_slash != '/')
 			last_slash--;
 
-		len = __symbol__join_symfs(filename, size, "");
 		dir_size = last_slash - dso__long_name(dso) + 2;
-		if (dir_size > (size - len)) {
+		if (dir_size > sizeof(relative)) {
 			ret = -1;
 			break;
 		}
-		len += scnprintf(filename + len, dir_size, "%s",  dso__long_name(dso));
-		len += scnprintf(filename + len , size - len, ".debug%s",
-								last_slash);
+		len = scnprintf(relative, dir_size, "%s", dso__long_name(dso));
+		scnprintf(relative + len, sizeof(relative) - len, ".debug%s",
+			  last_slash);
+		__symbol__join_symfs(filename, size, relative);
 		break;
 	}
 
@@ -219,9 +229,20 @@ int dso__read_binary_type_filename(const struct dso *dso,
 		}
 
 		build_id__snprintf(dso__bid(dso), build_id_hex, sizeof(build_id_hex));
-		len = __symbol__join_symfs(filename, size, "/usr/lib/debug/.build-id/");
-		snprintf(filename + len, size - len, "%.2s/%s.debug",
-			 build_id_hex, build_id_hex + 2);
+		/*
+		 * The build id cache layout splits the first two characters off
+		 * into a directory name, so the basename of the hierarchy path
+		 * is only part of the build id. Name the flat file after the
+		 * whole build id instead.
+		 */
+		if (symbol_conf.symfs_layout_flat)
+			snprintf(relative, sizeof(relative), "/%s.debug",
+				 build_id_hex);
+		else
+			snprintf(relative, sizeof(relative),
+				 "/usr/lib/debug/.build-id/%.2s/%s.debug",
+				 build_id_hex, build_id_hex + 2);
+		__symbol__join_symfs(filename, size, relative);
 		break;
 
 	case DSO_BINARY_TYPE__VMLINUX:
@@ -569,8 +590,8 @@ char *dso__filename_with_chroot(const struct dso *dso, const char *filename)
 	return filename_with_chroot(nsinfo__pid(dso__nsinfo_const(dso)), filename);
 }
 
-static char *dso__get_filename(struct dso *dso, const char *root_dir,
-			       bool *decomp)
+char *dso__get_filename(struct dso *dso, const char *root_dir, bool *decomp,
+			enum dso_binary_type type)
 {
 	char *name = malloc(PATH_MAX);
 
@@ -579,8 +600,7 @@ static char *dso__get_filename(struct dso *dso, const char *root_dir,
 	if (name == NULL)
 		return NULL;
 
-	if (dso__read_binary_type_filename(dso, dso__binary_type(dso),
-					    root_dir, name, PATH_MAX))
+	if (dso__read_binary_type_filename(dso, type, root_dir, name, PATH_MAX))
 		goto out;
 
 	if (!is_regular_file(name)) {
@@ -641,6 +661,14 @@ out:
 	return NULL;
 }
 
+void dso__put_filename(struct dso *dso __maybe_unused, char *filename, bool decomp)
+{
+	if (decomp)
+		unlink(filename);
+
+	free(filename);
+}
+
 static int __open_dso(struct dso *dso, struct machine *machine)
 	EXCLUSIVE_LOCKS_REQUIRED(_dso__data_open_lock)
 {
@@ -650,7 +678,8 @@ static int __open_dso(struct dso *dso, struct machine *machine)
 
 	mutex_lock(dso__lock(dso));
 
-	name = dso__get_filename(dso, machine ? machine->root_dir : "", &decomp);
+	name = dso__get_filename(dso, machine ? machine->root_dir : "", &decomp,
+				 dso__binary_type(dso));
 	if (name) {
 		fd = do_open(name);
 	} else {
@@ -659,11 +688,8 @@ static int __open_dso(struct dso *dso, struct machine *machine)
 		fd = -errno;
 	}
 
-	if (decomp)
-		unlink(name);
-
+	dso__put_filename(dso, name, decomp);
 	mutex_unlock(dso__lock(dso));
-	free(name);
 	return fd;
 }
 
@@ -1700,6 +1726,7 @@ struct dso *dso__new_id(const char *name, const struct dso_id *id)
 		dso->data.status = DSO_DATA_STATUS_UNKNOWN;
 		dso->symtab_type = DSO_BINARY_TYPE__NOT_FOUND;
 		dso->binary_type = DSO_BINARY_TYPE__NOT_FOUND;
+		dso->dbginfo_type = DSO_BINARY_TYPE__NOT_FOUND;
 		dso->is_64_bit = (sizeof(void *) == 8);
 		dso->loaded = 0;
 		dso->rel = 0;
@@ -1757,6 +1784,7 @@ void dso__delete(struct dso *dso)
 	auxtrace_cache__free(RC_CHK_ACCESS(dso)->auxtrace_cache);
 	dso_cache__free(dso);
 	dso__free_a2l(dso);
+	dso__free_a2l_libbfd(dso);
 	dso__free_libdw(dso);
 	dso__free_symsrc_filename(dso);
 	nsinfo__zput(RC_CHK_ACCESS(dso)->nsinfo);
@@ -2058,20 +2086,72 @@ const u8 *dso__read_symbol(struct dso *dso, const char *symfs_filename,
 
 struct debuginfo *dso__debuginfo(struct dso *dso)
 {
-	char *name;
-	bool decomp = false;
-	struct debuginfo *dinfo = NULL;
+	struct debuginfo *dinfo;
 
 	mutex_lock(dso__lock(dso));
-
-	name = dso__get_filename(dso, "", &decomp);
-	if (name)
-		dinfo = debuginfo__new(name);
-
-	if (decomp)
-		unlink(name);
-
+	dinfo = debuginfo__new(dso);
 	mutex_unlock(dso__lock(dso));
-	free(name);
 	return dinfo;
+}
+
+void dso__set_symsrc_filename(struct dso *dso, char *val)
+{
+	RC_CHK_ACCESS(dso)->symsrc_filename = val;
+	dso__free_libdw(dso);
+	dso__free_a2l(dso);
+	dso__free_a2l_libbfd(dso);
+	dso__set_has_srcline(dso, true);
+	dso__set_a2l_fails(dso, 0);
+}
+
+void dso__find_dbginfo_type(struct dso *dso)
+{
+	static const enum dso_binary_type dbginfo_types[] = {
+		DSO_BINARY_TYPE__FEDORA_DEBUGINFO,
+		DSO_BINARY_TYPE__UBUNTU_DEBUGINFO,
+		DSO_BINARY_TYPE__MIXEDUP_UBUNTU_DEBUGINFO,
+		DSO_BINARY_TYPE__OPENEMBEDDED_DEBUGINFO,
+		DSO_BINARY_TYPE__BUILDID_DEBUGINFO,
+		DSO_BINARY_TYPE__SYSTEM_PATH_DSO,
+		DSO_BINARY_TYPE__NOT_FOUND,
+	};
+	const enum dso_binary_type *type;
+	char *path;
+	bool found, decomp = false;
+
+	if (dso__dbginfo_type(dso) != DSO_BINARY_TYPE__NOT_FOUND)
+		return;
+
+	if (dso__debuginfo_searched(dso))
+		return;
+	dso__set_debuginfo_searched(dso);
+
+	/* Maybe debug info is in the same file with the symbol table */
+	path = dso__get_filename(dso, "", &decomp, dso__symtab_type(dso));
+	if (path) {
+		found = filename__has_section(path, ".debug_info") ||
+			filename__has_section(path, ".zdebug_info");
+
+		dso__put_filename(dso, path, decomp);
+		if (found) {
+			dso__set_dbginfo_type(dso, dso__symtab_type(dso));
+			return;
+		}
+	}
+
+	/* Otherwise check distro debug locations */
+	for (type = dbginfo_types; *type != DSO_BINARY_TYPE__NOT_FOUND; type++) {
+		path = dso__get_filename(dso, "", &decomp, *type);
+		if (path == NULL)
+			continue;
+
+		found = filename__has_section(path, ".debug_info") ||
+			filename__has_section(path, ".zdebug_info");
+
+		dso__put_filename(dso, path, decomp);
+		if (found)
+			break;
+	}
+
+	dso__set_dbginfo_type(dso, *type);
 }

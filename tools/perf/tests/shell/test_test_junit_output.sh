@@ -7,7 +7,6 @@ set -e
 err=0
 
 shelldir=$(dirname "$0")
-# shellcheck source=lib/setup_python.sh
 . "${shelldir}"/lib/setup_python.sh
 
 result=$(mktemp /tmp/__perf_test.output.xml.XXXXX)
