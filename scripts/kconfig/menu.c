@@ -43,7 +43,7 @@ void menu_warn(const struct menu *menu, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
-	fprintf(stderr, "%s:%d:warning: ", menu->filename, menu->lineno);
+	fprintf(stderr, "%s:%d: warning: ", menu->filename, menu->lineno);
 	vfprintf(stderr, fmt, ap);
 	fprintf(stderr, "\n");
 	va_end(ap);
@@ -53,7 +53,17 @@ static void prop_warn(const struct property *prop, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
-	fprintf(stderr, "%s:%d:warning: ", prop->filename, prop->lineno);
+	fprintf(stderr, "%s:%d: warning: ", prop->filename, prop->lineno);
+	vfprintf(stderr, fmt, ap);
+	fprintf(stderr, "\n");
+	va_end(ap);
+}
+
+static void prop_err(const struct property *prop, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	fprintf(stderr, "%s:%d: error: ", prop->filename, prop->lineno);
 	vfprintf(stderr, fmt, ap);
 	fprintf(stderr, "\n");
 	va_end(ap);
@@ -246,18 +256,15 @@ static int menu_validate_number(struct symbol *sym, struct symbol *sym2,
 
 	if (sym2->type != S_UNKNOWN ||
 		!sym_string_valid(sym, sym2->name)) {
-		fprintf(stderr, "%s:%d: error: '%s' is an invalid value for '%s'\n",
-			prop->filename, prop->lineno, sym2->name,
-			sym_type_name(sym->type));
+		prop_err(prop, "'%s' is an invalid value for '%s'",
+			 sym2->name, sym_type_name(sym->type));
 		return 1;
 	}
 
 	if (!sym_string_check_bounds(sym, sym2->name)) {
-		fprintf(stderr,
-			"%s:%d: error: %s constant '%s' is outside the 64-bit %s bounds\n",
-			prop->filename, prop->lineno, sym_type_name(sym->type),
-			sym2->name, sym->type == S_INT ? "signed" : "unsigned");
-
+		prop_err(prop, "%s constant '%s' is outside the 64-bit %s bounds",
+			 sym_type_name(sym->type), sym2->name,
+			 sym->type == S_INT ? "signed" : "unsigned");
 		return 1;
 	}
 
