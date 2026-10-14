@@ -165,6 +165,15 @@ static void do_fault_siginfo(int code, int sig, struct pt_regs *regs,
 
 	if (fault_code & FAULT_CODE_ITLB) {
 		addr = regs->tpc;
+	} else if (fault_code & FAULT_CODE_WINFIXUP) {
+		/* The fault came from a register window spill or fill, so
+		 * the instruction at regs->tpc is the one being resumed,
+		 * not the access that faulted.  Decoding it would fabricate
+		 * an address out of unrelated register contents; the fault
+		 * time provided address is the real one, even if it only
+		 * has page granularity.
+		 */
+		addr = fault_addr;
 	} else {
 		/* If we were able to probe the faulting instruction, use it
 		 * to compute a precise fault address.  Otherwise use the fault
