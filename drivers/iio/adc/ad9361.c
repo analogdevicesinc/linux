@@ -4098,7 +4098,7 @@ static int ad9361_set_trx_clock_chain(struct ad9361_rf_phy *phy,
 {
 	struct device *dev = &phy->spi->dev;
 	struct ad9361_rf_phy_state *st = phy->state;
-	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
+	struct axiadc_converter *conv = ad9361_axi_core(phy);
 	int ret, i, j, n;
 
 	dev_dbg(&phy->spi->dev, "%s", __func__);

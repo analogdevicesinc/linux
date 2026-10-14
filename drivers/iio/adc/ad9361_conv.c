@@ -26,8 +26,17 @@
 
 #include "ad9361.h"
 
-#if IS_ENABLED(CONFIG_CF_AXI_ADC)
 #include "cf_axi_adc.h"
+
+struct axiadc_converter *ad9361_axi_core(struct ad9361_rf_phy *phy)
+{
+	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
+
+	if (!conv || !conv->indio_dev)
+		return NULL;
+
+	return conv;
+}
 
 static void ad9361_set_intf_delay(struct ad9361_rf_phy *phy, bool tx,
 				  unsigned int clock_delay,
@@ -76,7 +85,7 @@ static int ad9361_check_pn(struct axiadc_converter *conv, bool tx,
 ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 						   char *buf, unsigned buflen)
 {
-	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
+	struct axiadc_converter *conv = ad9361_axi_core(phy);
 	struct ad9361_dig_tune_data data;
 	int i, j, len = 0;
 	int ret;
@@ -333,7 +342,7 @@ static int ad9361_write_raw(struct iio_dev *indio_dev,
 
 int ad9361_hdl_loopback(struct ad9361_rf_phy *phy, bool enable)
 {
-	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
+	struct axiadc_converter *conv = ad9361_axi_core(phy);
 	struct axiadc_state *st;
 	unsigned reg, addr, chan, version;
 
@@ -577,7 +586,7 @@ static int ad9361_dig_tune_tx(struct ad9361_rf_phy *phy, unsigned long max_freq,
 int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
 		    enum dig_tune_flags flags)
 {
-	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
+	struct axiadc_converter *conv = ad9361_axi_core(phy);
 	struct ad9361_dig_tune_data data;
 	struct axiadc_state *st;
 	bool restore = false;
@@ -767,42 +776,3 @@ struct ad9361_rf_phy* ad9361_spi_to_phy(struct spi_device *spi)
 	return conv->phy;
 }
 EXPORT_SYMBOL(ad9361_spi_to_phy);
-
-#else  /* CONFIG_CF_AXI_ADC */
-
-int ad9361_dig_tune(struct ad9361_rf_phy *phy, unsigned long max_freq,
-			   enum dig_tune_flags flags)
-{
-	return -ENODEV;
-}
-EXPORT_SYMBOL(ad9361_dig_tune);
-
-ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
-						   char *buf, unsigned buflen)
-{
-	return 0;
-}
-EXPORT_SYMBOL(ad9361_dig_interface_timing_analysis);
-
-int ad9361_hdl_loopback(struct ad9361_rf_phy *phy, bool enable)
-{
-	return -ENODEV;
-}
-EXPORT_SYMBOL(ad9361_hdl_loopback);
-
-int ad9361_register_axi_converter(struct ad9361_rf_phy *phy)
-{
-	struct spi_device *spi = phy->spi;
-	spi_set_drvdata(spi, phy); /* Take care here */
-
-	return 0;
-}
-EXPORT_SYMBOL(ad9361_register_axi_converter);
-
-struct ad9361_rf_phy* ad9361_spi_to_phy(struct spi_device *spi)
-{
-	return spi_get_drvdata(spi);
-}
-EXPORT_SYMBOL(ad9361_spi_to_phy);
-
-#endif /* CONFIG_CF_AXI_ADC */

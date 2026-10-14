@@ -100,6 +100,8 @@ enum digital_tune_skip_mode {
 	SKIP_ALL,
 };
 
+struct axiadc_converter;
+
 struct ad9361_rf_phy;
 struct ad9361_debugfs_entry {
 	struct ad9361_rf_phy *phy;
@@ -163,6 +165,7 @@ ssize_t ad9361_dig_interface_timing_analysis(struct ad9361_rf_phy *phy,
 int ad9361_hdl_loopback(struct ad9361_rf_phy *phy, bool enable);
 int ad9361_register_axi_converter(struct ad9361_rf_phy *phy);
 struct ad9361_rf_phy* ad9361_spi_to_phy(struct spi_device *spi);
+struct axiadc_converter *ad9361_axi_core(struct ad9361_rf_phy *phy);
 int ad9361_spi_read(struct spi_device *spi, u32 reg);
 int ad9361_spi_write(struct spi_device *spi, u32 reg, u32 val);
 int ad9361_bist_loopback(struct ad9361_rf_phy *phy, unsigned mode);
