@@ -769,7 +769,11 @@ static int ssd1307fb_probe(struct i2c_client *client)
 
 	info->flags = FBINFO_VIRTFB;
 
-	fb_deferred_io_init(info);
+	ret = fb_deferred_io_init(info);
+	if (ret) {
+		dev_err(dev, "failed to init fb deferred io: %d\n", ret);
+		goto fb_defio_error;
+	}
 
 	i2c_set_clientdata(client, info);
 
