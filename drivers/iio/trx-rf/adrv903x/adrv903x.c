@@ -559,7 +559,6 @@ static ssize_t adrv903x_phy_lo_write(struct iio_dev *indio_dev,
 
 	switch (private) {
 	case LOEXT_FREQ:
-
 		ret = kstrtoull(buf, 10, &readin);
 		if (ret)
 			return ret;
@@ -592,12 +591,12 @@ static ssize_t adrv903x_phy_lo_read(struct iio_dev *indio_dev,
 	case LOEXT_FREQ:
 		loConfig.loName = ADI_ADRV903X_LO0 + chan->channel;
 		ret = adrv903x_api_call(phy, adi_adrv903x_LoFrequencyGet, &loConfig);
-		break;
+		if (ret)
+			return ret;
+		return sysfs_emit(buf, "%llu\n", loConfig.loFrequency_Hz);
 	default:
-		ret = 0;
+		return -EINVAL;
 	}
-
-	return ret ? ret : sysfs_emit(buf, "%llu\n", loConfig.loFrequency_Hz);
 }
 
 #define _ADRV903X_EXT_LO_INFO(_name, _ident)                                   \
