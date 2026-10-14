@@ -340,22 +340,6 @@ static const unsigned int ad4190_sinc5_filt_fs_tbl[] = {
 	4, 8, 12, 16, 20, 40, 48, 80, 100, 256,
 };
 
-static const unsigned int ad4170_iout_pin_tbl[] = {
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(0),
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(1),
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(2),
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(3),
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(4),
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(5),
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(6),
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(7),
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(8),
-	AD4170_CURRENT_SRC_I_OUT_PIN_GPIO(0),
-	AD4170_CURRENT_SRC_I_OUT_PIN_GPIO(1),
-	AD4170_CURRENT_SRC_I_OUT_PIN_GPIO(2),
-	AD4170_CURRENT_SRC_I_OUT_PIN_GPIO(3),
-};
-
 static const unsigned int ad4170_iout_current_ua_tbl[] = {
 	0, 10, 50, 100, 250, 500, 1000, 1500,
 };
@@ -1819,19 +1803,8 @@ static int ad4170_gpio_init(struct iio_dev *indio_dev)
 static int ad4170_validate_excitation_pin(struct ad4170_state *st, u32 pin)
 {
 	struct device *dev = &st->spi->dev;
-	unsigned int i;
 
-	/* Check the pin number is valid */
-	for (i = 0; i < ARRAY_SIZE(ad4170_iout_pin_tbl); i++)
-		if (ad4170_iout_pin_tbl[i] == pin)
-			break;
-
-	if (i == ARRAY_SIZE(ad4170_iout_pin_tbl))
-		return dev_err_probe(dev, -EINVAL,
-				     "Invalid excitation pin: %u\n",
-				     pin);
-
-	/* Check the pin is available */
+	/* Check the pin number is valid and the pin is available */
 	if (pin <= AD4170_MAX_ANALOG_PINS) {
 		if (st->pins_fn[pin] != AD4170_PIN_UNASSIGNED)
 			return dev_err_probe(dev, -EINVAL,
@@ -1839,7 +1812,9 @@ static int ad4170_validate_excitation_pin(struct ad4170_state *st, u32 pin)
 					     pin, st->pins_fn[pin]);
 
 		st->pins_fn[pin] |= AD4170_PIN_CURRENT_OUT;
-	} else {
+		return 0;
+	} else if (in_range(pin, AD4170_CURRENT_SRC_I_OUT_PIN_GPIO(0),
+			    AD4170_NUM_GPIO_PINS)) {
 		unsigned int gpio = pin - AD4170_CURRENT_SRC_I_OUT_PIN_GPIO(0);
 
 		if (st->gpio_fn[gpio] != AD4170_GPIO_UNASSIGNED)
@@ -1848,9 +1823,10 @@ static int ad4170_validate_excitation_pin(struct ad4170_state *st, u32 pin)
 					     gpio, st->gpio_fn[gpio]);
 
 		st->gpio_fn[gpio] |= AD4170_GPIO_AC_EXCITATION;
+		return 0;
 	}
 
-	return 0;
+	return dev_err_probe(dev, -EINVAL, "Invalid excitation pin: %u\n", pin);
 }
 
 static int ad4170_validate_excitation_pins(struct ad4170_state *st,
