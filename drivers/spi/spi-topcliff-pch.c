@@ -934,9 +934,10 @@ static void pch_spi_handle_dma(struct pch_spi_data *data, int *bpw)
 	}
 	data->bpw_len = data->cur_trans->len / (*bpw / 8);
 
-	if (data->bpw_len > PCH_BUF_SIZE) {
-		data->bpw_len = PCH_BUF_SIZE;
-		data->cur_trans->len -= PCH_BUF_SIZE;
+	/* DMA buffers are PCH_BUF_SIZE bytes, bpw_len is in words */
+	if (data->bpw_len > PCH_BUF_SIZE / (*bpw / 8)) {
+		data->bpw_len = PCH_BUF_SIZE / (*bpw / 8);
+		data->cur_trans->len -= data->bpw_len * (*bpw / 8);
 	}
 
 	/* copy Tx Data */
