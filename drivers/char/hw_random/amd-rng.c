@@ -80,7 +80,7 @@ static int amd_rng_read(struct hwrng *rng, void *buf, size_t max, bool wait)
 				if (timeout-- == 0)
 					return read;
 			} else {
-				return 0;
+				return read;
 			}
 		} else {
 			*data = ioread32(priv->iobase + RNGDATA);
@@ -129,19 +129,15 @@ static int __init amd_rng_mod_init(void)
 {
 	int err;
 	struct pci_dev *pdev = NULL;
-	const struct pci_device_id *ent;
 	u32 pmbase;
 	struct amd768_priv *priv;
 
-	for_each_pci_dev(pdev) {
-		ent = pci_match_id(pci_tbl, pdev);
-		if (ent)
-			goto found;
-	}
-	/* Device not found. */
-	return -ENODEV;
+	for_each_pci_dev(pdev)
+		if (pci_match_id(pci_tbl, pdev))
+			break;
+	if (!pdev)
+		return -ENODEV;
 
-found:
 	err = pci_read_config_dword(pdev, 0x58, &pmbase);
 	if (err) {
 		err = pcibios_err_to_errno(err);
@@ -171,7 +167,7 @@ found:
 	if (!priv->iobase) {
 		pr_err(DRV_NAME "Cannot map ioport\n");
 		err = -EINVAL;
-		goto err_iomap;
+		goto err;
 	}
 
 	amd_rng.priv = (unsigned long)priv;
@@ -182,13 +178,12 @@ found:
 	err = hwrng_register(&amd_rng);
 	if (err) {
 		pr_err(DRV_NAME " registering failed (%d)\n", err);
-		goto err_hwrng;
+		ioport_unmap(priv->iobase);
+		goto err;
 	}
 	return 0;
 
-err_hwrng:
-	ioport_unmap(priv->iobase);
-err_iomap:
+err:
 	release_region(pmbase + PMBASE_OFFSET, PMBASE_SIZE);
 out:
 	kfree(priv);
