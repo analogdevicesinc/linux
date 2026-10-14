@@ -228,6 +228,12 @@ int __adrv903x_dev_err(struct adrv903x_rf_phy *phy, const char *function, int li
 int adrv903x_register_axi_converter(struct adrv903x_rf_phy *phy);
 int adrv903x_spi_read(struct spi_device *spi, u32 reg);
 int adrv903x_spi_write(struct spi_device *spi, u32 reg, u32 val);
+int adrv903x_lo_loop_filter_set(struct adrv903x_rf_phy *phy,
+				adi_adrv903x_LoName_e loName,
+				bool set_bw, u32 val);
+int adrv903x_lo_loop_filter_get(struct adrv903x_rf_phy *phy,
+				adi_adrv903x_LoName_e loName,
+				u32 *bw_khz, u32 *phase_deg);
 
 /* DebugFS APIs */
 #ifdef CONFIG_DEBUG_FS
