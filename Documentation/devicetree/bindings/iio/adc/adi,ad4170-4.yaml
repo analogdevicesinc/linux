@@ -162,6 +162,14 @@ allOf:
                 anyOf:
                   - maximum: 19
                   - minimum: 21
+            single-channel:
+              anyOf:
+                - maximum: 19
+                - minimum: 21
+            common-mode-channel:
+              anyOf:
+                - maximum: 19
+                - minimum: 21
 
   # Only AD4170-4 and AD4171-8 can be clocked by an external crystal. The other
   # devices have no XTAL1 and XTAL2 pins.
@@ -220,6 +228,28 @@ allOf:
               items:
                 enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20, 21, 22, 23,
                        24, 25, 26, 27, 28, 29]
+            single-channel:
+              enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20, 21, 22, 23, 24,
+                     25, 26, 27, 28, 29]
+            common-mode-channel:
+              enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20, 21, 22, 23, 24,
+                     25, 26, 27, 28, 29]
+            adi,excitation-pin-0:
+              anyOf:
+                - maximum: 8
+                - minimum: 17
+            adi,excitation-pin-1:
+              anyOf:
+                - maximum: 8
+                - minimum: 17
+            adi,excitation-pin-2:
+              anyOf:
+                - maximum: 8
+                - minimum: 17
+            adi,excitation-pin-3:
+              anyOf:
+                - maximum: 8
+                - minimum: 17
 
   # Require to specify the interrupt pin when using interrupts
   - if:
@@ -291,6 +321,20 @@ patternProperties:
         items:
           minimum: 0
           maximum: 29
+
+      single-channel:
+        description:
+          Positive input of a pseudo-differential channel. Uses the same input
+          numbers as diff-channels.
+        minimum: 0
+        maximum: 29
+
+      common-mode-channel:
+        description:
+          Negative input of a pseudo-differential channel. Uses the same input
+          numbers as diff-channels.
+        minimum: 0
+        maximum: 29
 
       adi,reference-select:
         description: |
