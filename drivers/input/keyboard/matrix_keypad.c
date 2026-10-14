@@ -443,7 +443,7 @@ static int matrix_keypad_probe(struct platform_device *pdev)
 					 NULL, input_dev);
 	if (err) {
 		dev_err(&pdev->dev, "failed to build keymap\n");
-		return -ENOMEM;
+		return err;
 	}
 
 	if (!device_property_read_bool(&pdev->dev, "linux,no-autorepeat"))

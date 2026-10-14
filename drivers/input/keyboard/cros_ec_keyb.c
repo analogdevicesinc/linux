@@ -602,7 +602,6 @@ static int cros_ec_keyb_register_bs(struct cros_ec_keyb *ckdev,
 	idev->id.bustype = BUS_VIRTUAL;
 	idev->id.version = 1;
 	idev->id.product = 0;
-	idev->dev.parent = dev;
 
 	input_set_drvdata(idev, ckdev);
 	ckdev->bs_idev = idev;
@@ -776,7 +775,6 @@ static int cros_ec_keyb_register_matrix(struct cros_ec_keyb *ckdev)
 	idev->id.bustype = BUS_VIRTUAL;
 	idev->id.version = 1;
 	idev->id.product = 0;
-	idev->dev.parent = dev;
 	idev->setkeycode = cros_ec_keyb_setkeycode;
 
 	ckdev->ghost_filter = device_property_read_bool(dev, "google,needs-ghost-filter");

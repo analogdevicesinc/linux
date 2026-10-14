@@ -449,7 +449,6 @@ static int cyapa_create_input_dev(struct cyapa *cyapa)
 	input->id.bustype = BUS_I2C;
 	input->id.version = 1;
 	input->id.product = 0;  /* Means any product in eventcomm. */
-	input->dev.parent = &cyapa->client->dev;
 
 	input->open = cyapa_open;
 	input->close = cyapa_close;
