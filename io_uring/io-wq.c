@@ -526,7 +526,8 @@ static bool io_wait_on_hash(struct io_wq *wq, unsigned int hash)
 }
 
 static struct io_wq_work *io_get_next_work(struct io_wq_acct *acct,
-					   struct io_wq *wq)
+					   struct io_wq *wq,
+					   bool *need_wake)
 	__must_hold(acct->lock)
 {
 	struct io_wq_work_node *node, *prev;
@@ -575,8 +576,7 @@ static struct io_wq_work *io_get_next_work(struct io_wq_acct *acct,
 		raw_spin_lock(&acct->lock);
 		if (unstalled) {
 			clear_bit(IO_ACCT_STALLED_BIT, &acct->flags);
-			if (wq_has_sleeper(&wq->hash->wait))
-				wake_up(&wq->hash->wait);
+			*need_wake = wq_has_sleeper(&wq->hash->wait);
 		}
 	}
 
@@ -607,6 +607,7 @@ static void io_worker_handle_work(struct io_wq_acct *acct,
 
 	do {
 		struct io_wq_work *work;
+		bool need_wake = false;
 
 		/*
 		 * If we got some work, mark us as busy. If we didn't, but
@@ -615,7 +616,7 @@ static void io_worker_handle_work(struct io_wq_acct *acct,
 		 * can't make progress, any work completion or insertion will
 		 * clear the stalled flag.
 		 */
-		work = io_get_next_work(acct, wq);
+		work = io_get_next_work(acct, wq, &need_wake);
 		if (work) {
 			/*
 			 * Make sure cancelation can find this, even before
@@ -630,6 +631,9 @@ static void io_worker_handle_work(struct io_wq_acct *acct,
 		}
 
 		raw_spin_unlock(&acct->lock);
+
+		if (need_wake)
+			wake_up(&wq->hash->wait);
 
 		if (!work)
 			break;
@@ -972,7 +976,7 @@ static void io_wq_for_each_worker(struct io_wq *wq,
 
 static bool io_wq_worker_wake(struct io_worker *worker, void *data)
 {
-	__set_notify_signal(worker->task);
+	set_tsk_thread_flag(worker->task, TIF_NOTIFY_SIGNAL);
 	wake_up_process(worker->task);
 	return false;
 }
