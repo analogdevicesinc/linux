@@ -506,13 +506,6 @@ static inline struct mem_cgroup *folio_memcg_check(const struct folio *folio)
 	return obj_cgroup_memcg(objcg);
 }
 
-static inline struct mem_cgroup *page_memcg_check(const struct page *page)
-{
-	if (PageTail(page))
-		return NULL;
-	return folio_memcg_check((const struct folio *)page);
-}
-
 static inline struct mem_cgroup *get_mem_cgroup_from_objcg(const struct obj_cgroup *objcg)
 {
 	struct mem_cgroup *memcg;
@@ -1092,11 +1085,6 @@ static inline bool folio_memcg_charged(const struct folio *folio)
 }
 
 static inline struct mem_cgroup *folio_memcg_check(const struct folio *folio)
-{
-	return NULL;
-}
-
-static inline struct mem_cgroup *page_memcg_check(const struct page *page)
 {
 	return NULL;
 }
