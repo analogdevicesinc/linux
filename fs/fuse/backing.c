@@ -10,7 +10,7 @@
 
 #include <linux/file.h>
 
-struct fuse_backing *fuse_backing_get(struct fuse_backing *fb)
+static struct fuse_backing *fuse_backing_get(struct fuse_backing *fb)
 {
 	if (fb && refcount_inc_not_zero(&fb->count))
 		return fb;
