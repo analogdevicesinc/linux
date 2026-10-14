@@ -232,15 +232,17 @@ no_context:
 		const struct exception_table_entry *entry;
 
 		entry = search_exception_tables(regs->pc);
+		if (entry) {
 #ifdef DEBUG_EXCEPTIONS
-		printk("Exception: PC<%08lx> faddr<%08lx>\n",
-		       regs->pc, address);
-		printk("EX_TABLE: insn<%08lx> fixup<%08x>\n",
-			regs->pc, entry->fixup);
+			printk("Exception: PC<%08lx> faddr<%08lx>\n",
+			       regs->pc, address);
+			printk("EX_TABLE: insn<%08lx> fixup<%08x>\n",
+				regs->pc, entry->fixup);
 #endif
-		regs->pc = entry->fixup;
-		regs->npc = regs->pc + 4;
-		return;
+			regs->pc = entry->fixup;
+			regs->npc = regs->pc + 4;
+			return;
+		}
 	}
 
 	unhandled_fault(address, tsk, regs);
