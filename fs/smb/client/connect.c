@@ -130,8 +130,11 @@ void smb2_query_server_interfaces(struct work_struct *work)
 #define set_need_reco(server) \
 do { \
 	spin_lock(&server->srv_lock); \
-	if (server->tcpStatus != CifsExiting) \
+	if (server->tcpStatus != CifsExiting) { \
+		if (server->tcpStatus != CifsNeedReconnect) \
+			server->need_sock_shutdown = true; \
 		server->tcpStatus = CifsNeedReconnect; \
+	} \
 	spin_unlock(&server->srv_lock); \
 } while (0)
 
@@ -353,6 +356,8 @@ cifs_abort_connection(struct TCP_Server_Info *server)
 
 static bool cifs_tcp_ses_needs_reconnect(struct TCP_Server_Info *server, int num_targets)
 {
+	bool shutdown;
+
 	spin_lock(&server->srv_lock);
 	server->nr_targets = num_targets;
 	if (server->tcpStatus == CifsExiting) {
@@ -365,9 +370,25 @@ static bool cifs_tcp_ses_needs_reconnect(struct TCP_Server_Info *server, int num
 	cifs_dbg(FYI, "Mark tcp session as need reconnect\n");
 	trace_smb3_reconnect(server->current_mid, server->conn_id,
 			     server->hostname);
-	server->tcpStatus = CifsNeedReconnect;
 
+	/*
+	 * Cover cases where sender tasks didn't manage to shutdown the socket
+	 * for some reason.
+	 */
+	shutdown = server->tcpStatus != CifsNeedReconnect ||
+		   server->need_sock_shutdown;
+	server->need_sock_shutdown = false;
+	server->tcpStatus = CifsNeedReconnect;
 	spin_unlock(&server->srv_lock);
+
+	if (shutdown) {
+		cifs_server_lock(server);
+		if (server->ssocket)
+			/* Don't release it here/yet! */
+			kernel_sock_shutdown(server->ssocket, SHUT_RDWR);
+		cifs_server_unlock(server);
+	}
+
 	return true;
 }
 
@@ -2064,7 +2085,7 @@ struct cifs_tcon *cifs_setup_ipc(struct cifs_ses *ses, bool seal)
 	tcon->ses = ses;
 	tcon->ipc = true;
 	tcon->seal = seal;
-	rc = server->ops->tree_connect(xid, ses, unc, tcon, ses->local_nls);
+	rc = server->ops->tree_connect(xid, ses, unc, tcon);
 	free_xid(xid);
 
 	if (rc) {
@@ -2382,8 +2403,7 @@ retry_old_session:
 				return ERR_PTR(rc);
 			}
 
-			rc = cifs_setup_session(xid, ses, server,
-						ctx->local_nls);
+			rc = cifs_setup_session(xid, ses, server);
 			if (rc) {
 				if (((rc == -EACCES) || (rc == -EKEYEXPIRED) ||
 					(rc == -EKEYREVOKED)) && !retries && ses->password2) {
@@ -2500,7 +2520,7 @@ retry_new_session:
 	mutex_lock(&ses->session_mutex);
 	rc = cifs_negotiate_protocol(xid, ses, server);
 	if (!rc)
-		rc = cifs_setup_session(xid, ses, server, ctx->local_nls);
+		rc = cifs_setup_session(xid, ses, server);
 	mutex_unlock(&ses->session_mutex);
 
 	/* each channel uses a different signing key */
@@ -2795,8 +2815,7 @@ cifs_get_tcon(struct cifs_ses *ses, struct smb3_fs_context *ctx)
 	}
 
 	xid = get_xid();
-	rc = ses->server->ops->tree_connect(xid, ses, ctx->UNC, tcon,
-					    ctx->local_nls);
+	rc = ses->server->ops->tree_connect(xid, ses, ctx->UNC, tcon);
 	free_xid(xid);
 	cifs_dbg(FYI, "Tcon rc = %d\n", rc);
 	if (rc)
@@ -4072,10 +4091,8 @@ retry:
 	return rc;
 }
 
-int
-cifs_setup_session(const unsigned int xid, struct cifs_ses *ses,
-		   struct TCP_Server_Info *server,
-		   struct nls_table *nls_info)
+int cifs_setup_session(const unsigned int xid, struct cifs_ses *ses,
+		       struct TCP_Server_Info *server)
 {
 	int rc = 0;
 	struct TCP_Server_Info *pserver = SERVER_IS_CHAN(server) ? server->primary_server : server;
@@ -4167,15 +4184,19 @@ cifs_setup_session(const unsigned int xid, struct cifs_ses *ses,
 
 	if (!rc) {
 		if (server->ops->sess_setup)
-			rc = server->ops->sess_setup(xid, ses, server, nls_info);
+			rc = server->ops->sess_setup(xid, ses, server);
 		else
 			rc = -ENOSYS;
 	}
 
 	if (rc) {
 		if (new_ses) {
+			enum securityEnum sectype;
+
+			sectype = server->ops->select_sectype(server,
+							      ses->sectype);
 			cifs_server_dbg(VFS, "failed to create a new SMB session with %s: %d\n",
-					get_security_type_str(ses->sectype), rc);
+					get_security_type_str(sectype), rc);
 		}
 		spin_lock(&ses->ses_lock);
 		if (ses->ses_status == SES_IN_SETUP)
@@ -4539,8 +4560,7 @@ int cifs_tree_connect(const unsigned int xid, struct cifs_tcon *tcon)
 	tcon->status = TID_IN_TCON;
 	spin_unlock(&tcon->tc_lock);
 
-	rc = ops->tree_connect(xid, tcon->ses, tcon->tree_name,
-			       tcon, tcon->ses->local_nls);
+	rc = ops->tree_connect(xid, tcon->ses, tcon->tree_name, tcon);
 	if (rc) {
 		spin_lock(&tcon->tc_lock);
 		if (tcon->status == TID_IN_TCON)
