@@ -30,6 +30,7 @@
 #include "xe_exec_queue.h"
 #include "xe_gt.h"
 #include "xe_migrate.h"
+#include "xe_module.h"
 #include "xe_pagefault.h"
 #include "xe_pat.h"
 #include "xe_pm.h"
@@ -412,6 +413,33 @@ int xe_vm_validate_rebind(struct xe_vm *vm, struct drm_exec *exec,
 	return 0;
 }
 
+/**
+ * xe_vm_bump_lru() - Bump the LRU position of BOs used by a submission
+ * @vm: The vm for which we are bumping LRUs.
+ * @exec: The struct drm_exec with the locked GEM objects.
+ *
+ * Move the VM's private BOs, and all external objects locked by @exec,
+ * to the LRU tail. Private BOs are moved in bulk using @vm's
+ * &xe_vm.lru_bulk_move. External objects, which may be shared with other
+ * VMs, are not part of that bulk move and are bumped individually.
+ */
+void xe_vm_bump_lru(struct xe_vm *vm, struct drm_exec *exec)
+{
+	spinlock_t *lru_lock = &vm->xe->ttm.lru_lock;
+	struct drm_gem_object *obj;
+
+	spin_lock(lru_lock);
+	ttm_lru_bulk_move_tail(&vm->lru_bulk_move);
+	drm_exec_for_each_locked_object(exec, obj) {
+		if (!drm_gpuvm_is_extobj(&vm->gpuvm, obj))
+			continue;
+
+		ttm_bo_move_to_lru_tail(&gem_to_xe_bo(obj)->ttm);
+		cond_resched_lock(lru_lock);
+	}
+	spin_unlock(lru_lock);
+}
+
 static int xe_preempt_work_begin(struct drm_exec *exec, struct xe_vm *vm,
 				 bool *done)
 {
@@ -562,9 +590,7 @@ retry:
 
 #undef retry_required
 
-	spin_lock(&vm->xe->ttm.lru_lock);
-	ttm_lru_bulk_move_tail(&vm->lru_bulk_move);
-	spin_unlock(&vm->xe->ttm.lru_lock);
+	xe_vm_bump_lru(vm, &exec);
 
 	/* Point of no return. */
 	arm_preempt_fences(vm, &preempt_fences);
@@ -1243,7 +1269,14 @@ static void vma_destroy_cb(struct dma_fence *fence,
 	struct xe_vma *vma = container_of(cb, struct xe_vma, destroy_cb);
 
 	INIT_WORK(&vma->destroy_work, vma_destroy_work_func);
-	queue_work(system_dfl_wq, &vma->destroy_work);
+
+	/*
+	 * The destroy work puts a vm reference which may put the last
+	 * device reference. Hence we can't queue this work on the device
+	 * destroy queue since that may deadlock. Use the module-wide
+	 * destroy queue.
+	 */
+	xe_destroy_wq_queue(&vma->destroy_work);
 }
 
 static void xe_vm_assert_write_mode_or_garbage_collector(struct xe_vm *vm)
@@ -2045,8 +2078,12 @@ static void xe_vm_free(struct drm_gpuvm *gpuvm)
 {
 	struct xe_vm *vm = container_of(gpuvm, struct xe_vm, gpuvm);
 
-	/* To destroy the VM we need to be able to sleep */
-	queue_work(system_dfl_wq, &vm->destroy_work);
+	/*
+	 * To destroy the VM we need to be able to sleep.
+	 * drm_gpuvm keeps at least one device reference at this
+	 * point so xe->destroy_wq must still be alive.
+	 */
+	queue_work(vm->xe->destroy_wq, &vm->destroy_work);
 }
 
 struct xe_vm *xe_vm_lookup(struct xe_file *xef, u32 id)

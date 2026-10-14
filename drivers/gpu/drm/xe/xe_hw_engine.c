@@ -875,23 +875,42 @@ static u32 read_svccopy_fuses(struct xe_gt *gt)
 			     xe_mmio_read32(&gt->mmio, SERVICE_COPY_ENABLE));
 }
 
+static u32 read_rescopy_fuses(struct xe_gt *gt)
+{
+	u32 fuse = REG_FIELD_GET(FUSE_RESOURCE_COPY_ENABLE_MASK,
+				 xe_mmio_read32(&gt->mmio, RESOURCE_COPY_ENABLE));
+
+	/*
+	 * Although the register field is 16-bits wide, we don't expect to ever
+	 * see more than one resource copy engine (BCS0 in bit 0) enabled.
+	 */
+	xe_gt_WARN(gt, fuse & GENMASK(15, 1), "Unexpected resource copy fuse (%#x)\n", fuse);
+
+	return fuse & BIT(0);
+}
+
 static void read_copy_fuses(struct xe_gt *gt)
 {
 	struct xe_device *xe = gt_to_xe(gt);
-	u32 bcs_mask;
+	u32 bcs_mask, svc_copy_mask, res_copy_mask;
 
 	xe_force_wake_assert_held(gt_to_fw(gt), XE_FW_GT);
 
-	if (GRAPHICS_VER(xe) >= 35)
-		bcs_mask = read_svccopy_fuses(gt);
-	else if (GRAPHICS_VERx100(xe) == 1260)
-		bcs_mask = infer_svccopy_from_meml3(gt);
-	else
+	if (GRAPHICS_VER(xe) >= 35) {
+		svc_copy_mask = read_svccopy_fuses(gt);
+		res_copy_mask = read_rescopy_fuses(gt);
+	} else if (GRAPHICS_VERx100(xe) == 1260) {
+		svc_copy_mask = infer_svccopy_from_meml3(gt);
+		/* Only BCS1-BCS8 may be fused off */
+		res_copy_mask = 0x1;
+	} else {
 		return;
+	}
 
-	/* Only BCS1-BCS8 may be fused off */
-	bcs_mask <<= XE_HW_ENGINE_BCS1;
-	for (int i = XE_HW_ENGINE_BCS1; i <= XE_HW_ENGINE_BCS8; ++i) {
+	bcs_mask = svc_copy_mask << XE_HW_ENGINE_BCS1 |
+		res_copy_mask << XE_HW_ENGINE_BCS0;
+
+	for (int i = XE_HW_ENGINE_BCS0; i <= XE_HW_ENGINE_BCS8; ++i) {
 		if (!(gt->info.engine_mask & BIT(i)))
 			continue;
 
