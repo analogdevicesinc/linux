@@ -828,8 +828,8 @@ sys_sigreturn:
 	be	1f
 	 nop
 
-	call	syscall_trace
-	 mov	1, %o1
+	call	syscall_trace_leave
+	 nop
 
 1:
 	/* We don't want to muck with user registers like a
@@ -848,9 +848,8 @@ sys_rt_sigreturn:
 	be	1f
 	 nop
 
-	add	%sp, STACKFRAME_SZ, %o0
-	call	syscall_trace
-	 mov	1, %o1
+	call	syscall_trace_leave
+	 add	%sp, STACKFRAME_SZ, %o0
 
 1:
 	/* We are returning to a signal handler. */
@@ -932,9 +931,8 @@ linux_sparc_ni_syscall:
 	 or     %l7, %lo(sys_ni_syscall), %l7
 
 linux_syscall_trace:
-	add	%sp, STACKFRAME_SZ, %o0
-	call	syscall_trace
-	 mov	0, %o1
+	call	syscall_trace_enter
+	 add	%sp, STACKFRAME_SZ, %o0
 	cmp	%o0, 0
 	bne	3f
 	 mov	-ENOSYS, %o0
@@ -1053,10 +1051,9 @@ ret_sys_call:
 	 st	%l2, [%sp + STACKFRAME_SZ + PT_NPC]
 
 linux_syscall_trace2:
-	add	%sp, STACKFRAME_SZ, %o0
-	mov	1, %o1
-	call	syscall_trace
-	 add	%l1, 0x4, %l2			/* npc = npc+4 */
+	call	syscall_trace_leave
+	 add	%sp, STACKFRAME_SZ, %o0
+	add	%l1, 0x4, %l2			/* npc = npc+4 */
 	st	%l1, [%sp + STACKFRAME_SZ + PT_PC]
 	b	ret_trap_entry
 	 st	%l2, [%sp + STACKFRAME_SZ + PT_NPC]
