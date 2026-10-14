@@ -4157,8 +4157,6 @@ static int psp_hw_init(struct amdgpu_ip_block *ip_block)
 	int ret;
 	struct amdgpu_device *adev = ip_block->adev;
 
-	mutex_lock(&adev->firmware.mutex);
-
 	ret = amdgpu_ucode_init_bo(adev);
 	if (ret)
 		goto failed;
@@ -4169,12 +4167,10 @@ static int psp_hw_init(struct amdgpu_ip_block *ip_block)
 		goto failed;
 	}
 
-	mutex_unlock(&adev->firmware.mutex);
 	return 0;
 
 failed:
 	adev->firmware.load_type = AMDGPU_FW_LOAD_DIRECT;
-	mutex_unlock(&adev->firmware.mutex);
 	return -EINVAL;
 }
 
@@ -4282,8 +4278,6 @@ static int psp_resume(struct amdgpu_ip_block *ip_block)
 		}
 	}
 
-	mutex_lock(&adev->firmware.mutex);
-
 	ret = amdgpu_ucode_init_bo(adev);
 	if (ret)
 		goto failed;
@@ -4345,13 +4339,10 @@ static int psp_resume(struct amdgpu_ip_block *ip_block)
 				"SECUREDISPLAY: Failed to initialize SECUREDISPLAY\n");
 	}
 
-	mutex_unlock(&adev->firmware.mutex);
-
 	return 0;
 
 failed:
 	dev_err(adev->dev, "PSP resume failed\n");
-	mutex_unlock(&adev->firmware.mutex);
 	return ret;
 }
 
