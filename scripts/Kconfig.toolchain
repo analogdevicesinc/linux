@@ -166,6 +166,11 @@ config CC_OPT_ALLOW_STORE_DATA_RACES_PARAM
 config CC_OPT_NO_ALLOW_STORE_DATA_RACES
 	def_string "$(cc-option-str,-fno-allow-store-data-races)"
 
+config CC_OPT_INLINE_MEMSET
+        string
+        default "-finline-stringops=memset" if $(cc-option,-finline-stringops=memset)
+        default "-mllvm -max-store-memset=4294967295" if $(cc-option,-mllvm -max-store-memset=4294967295)
+
 config CC_HAS_MNOP_MCOUNT
 	def_bool $(cc-option,-mnop-mcount)
 

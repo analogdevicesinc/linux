@@ -127,6 +127,12 @@ struct efi_runtime_work efi_rts_work;
 #define EFI_RTS_TIMEOUT		(120 * HZ)
 
 /*
+ * Set when __efi_queue_work() gives up waiting for a call that is wedged in
+ * firmware. EFI runtime services are disabled for good at that point.
+ */
+static bool efi_rts_abandoned;
+
+/*
  * efi_queue_work:	Queue EFI runtime service call and wait for completion
  * @_rts:		EFI runtime service function identifier
  * @_args:		Arguments to pass to the EFI runtime service
@@ -336,7 +342,12 @@ static void __nocfi efi_call_rts(struct work_struct *work)
 	efi_call_virt_check_flags(flags, efi_rts_work.caller);
 	arch_efi_call_virt_teardown();
 
-	if (!efi_enabled(EFI_RUNTIME_SERVICES))
+	/*
+	 * EFI runtime services may also have been disabled because the
+	 * firmware faulted, but the caller is still waiting for us in that
+	 * case. Only park the worker if the caller has given up on it.
+	 */
+	if (READ_ONCE(efi_rts_abandoned))
 		efi_rts_park_worker();
 
 	efi_rts_work.status = status;
@@ -373,6 +384,7 @@ static efi_status_t __efi_queue_work(enum efi_rts_ids id,
 					 EFI_RTS_TIMEOUT)) {
 		pr_err("EFI runtime service %d wedged in firmware; disabling EFI runtime services\n",
 		       id);
+		WRITE_ONCE(efi_rts_abandoned, true);
 		clear_bit(EFI_RUNTIME_SERVICES, &efi.flags);
 		return EFI_ABORTED;
 	}
@@ -651,4 +663,32 @@ efi_call_acpi_prm_handler(efi_status_t (__efiapi *handler_addr)(u64, void *),
 void efi_runtime_assert_lock_held(void)
 {
 	WARN_ON(efi_runtime_lock_owner != current);
+}
+
+efi_status_t efi_runtime_set_enable_flag(bool enable)
+{
+	static bool runtime_disabled;
+	efi_status_t ret = EFI_NOT_READY;
+
+	if (down_interruptible(&efi_runtime_lock))
+		return EFI_ABORTED;
+
+	if (enable) {
+		/* It could be enabled only if it is disabled here */
+		if (runtime_disabled) {
+			set_bit(EFI_RUNTIME_SERVICES, &efi.flags);
+			runtime_disabled = false;
+			ret = EFI_SUCCESS;
+		}
+	} else {
+		if (efi_enabled(EFI_RUNTIME_SERVICES)) {
+			clear_bit(EFI_RUNTIME_SERVICES, &efi.flags);
+			runtime_disabled = true;
+			ret = EFI_SUCCESS;
+		}
+	}
+
+	up(&efi_runtime_lock);
+
+	return ret;
 }
