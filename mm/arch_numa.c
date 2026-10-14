@@ -201,21 +201,6 @@ void __init setup_per_cpu_areas(void)
 }
 #endif
 
-/*
- * Initialize NODE_DATA for a node on the local memory
- */
-static void __init setup_node_data(int nid, u64 start_pfn, u64 end_pfn)
-{
-	if (start_pfn >= end_pfn)
-		pr_info("Initmem setup node %d [<memory-less node>]\n", nid);
-
-	alloc_node_data(nid);
-
-	NODE_DATA(nid)->node_id = nid;
-	NODE_DATA(nid)->node_start_pfn = start_pfn;
-	NODE_DATA(nid)->node_spanned_pages = end_pfn - start_pfn;
-}
-
 static int __init numa_register_nodes(void)
 {
 	int nid;
@@ -226,10 +211,7 @@ static int __init numa_register_nodes(void)
 
 	/* Finally register nodes. */
 	for_each_node_mask(nid, numa_nodes_parsed) {
-		unsigned long start_pfn, end_pfn;
-
-		get_pfn_range_for_nid(nid, &start_pfn, &end_pfn);
-		setup_node_data(nid, start_pfn, end_pfn);
+		alloc_node_data(nid);
 		node_set_online(nid);
 	}
 
