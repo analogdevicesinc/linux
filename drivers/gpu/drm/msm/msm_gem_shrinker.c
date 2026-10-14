@@ -4,6 +4,8 @@
  * Author: Rob Clark <robdclark@gmail.com>
  */
 
+#include <linux/seq_file.h>
+#include <linux/swap.h>
 #include <linux/vmalloc.h>
 #include <linux/sched/mm.h>
 
