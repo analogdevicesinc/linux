@@ -24,6 +24,7 @@
 
 #include <linux/uaccess.h>
 #include <asm/cacheflush.h>
+#include <asm/syscall.h>
 
 #include "kernel.h"
 
@@ -436,8 +437,14 @@ long arch_ptrace(struct task_struct *child, long request,
 asmlinkage int syscall_trace_enter(struct pt_regs *regs)
 {
 	if (test_thread_flag(TIF_SYSCALL_TRACE) &&
-	    !ptrace_report_syscall_permit_entry(regs))
-		return 1;
+	    !ptrace_report_syscall_permit_entry(regs)) {
+		syscall_set_return_value(current, regs, -ENOSYS, 0);
+		return -1;
+	}
+
+	/* Do seccomp after ptrace; syscall may have changed. */
+	if (!seccomp_permit_syscall())
+		return -1;
 
 	return 0;
 }
