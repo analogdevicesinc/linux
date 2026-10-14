@@ -263,15 +263,6 @@
 		regulator-boot-on;
 	};
 
-	reserved-memory {
-		linux,cma {
-			compatible = "shared-dma-pool";
-			size = <0x0 0x10000000>;
-			reusable;
-			linux,cma-default;
-		};
-	};
-
 	sound {
 		compatible = "qcom,glymur-sndcard";
 		model = "GLYMUR-ASUS-Zenbook-A14-UX3407NA";
