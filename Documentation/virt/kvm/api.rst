@@ -117,7 +117,7 @@ description:
       x86 includes both i386 and x86_64.
 
   Type:
-      system, vm, or vcpu.
+      system, vm, vcpu or guest_memfd.
 
   Parameters:
       what parameters are accepted by the ioctl.
@@ -6397,17 +6397,32 @@ mapping for userspace_addr is not required to be valid/populated at the time of
 KVM_SET_USER_MEMORY_REGION2, e.g. shared memory can be lazily mapped/allocated
 on-demand.
 
-When mapping a gfn into the guest, KVM selects shared vs. private, i.e consumes
-userspace_addr vs. guest_memfd, based on the gfn's KVM_MEMORY_ATTRIBUTE_PRIVATE
-state.  At VM creation time, all memory is shared, i.e. the PRIVATE attribute
-is '0' for all gfns.  Userspace can control whether memory is shared/private by
-toggling KVM_MEMORY_ATTRIBUTE_PRIVATE via KVM_SET_MEMORY_ATTRIBUTES as needed.
+When mapping a gfn into the guest, guest faults are always serviced from
+guest_memfd regardless of whether memory is shared or private.  KVM determines
+shared vs. private based on the state in guest_memfd, which is the sole
+authority on private vs. shared memory.  See :ref:`KVM_CREATE_GUEST_MEMFD` to
+find out more about the creation-time shared/private status.  Userspace can
+control whether memory is shared/private by toggling
+KVM_MEMORY_ATTRIBUTE_PRIVATE via :ref:`KVM_SET_MEMORY_ATTRIBUTES2` as needed.
+
+userspace_addr is expected to be the mmap()-ed address corresponding to the
+right offset within the guest_memfd. Any mismatch between userspace_addr and
+guest_memfd is not validated and is a user error. userspace_addr is only used
+for host-side guest accesses such as kvm_read_guest().
+
+If in-place conversion is disabled, KVM selects shared vs. private based on the
+gfn's KVM_MEMORY_ATTRIBUTE_PRIVATE state.  At VM creation time, all memory is
+shared, i.e. the PRIVATE attribute is '0' for all gfns.  Userspace can control
+whether memory is shared/private by toggling KVM_MEMORY_ATTRIBUTE_PRIVATE via
+KVM_SET_MEMORY_ATTRIBUTES as needed.
 
 S390:
 ^^^^^
 
 Returns -EINVAL if the VM has the KVM_VM_S390_UCONTROL flag set.
 Returns -EINVAL if called on a protected VM.
+
+.. _KVM_SET_MEMORY_ATTRIBUTES:
 
 4.141 KVM_SET_MEMORY_ATTRIBUTES
 -------------------------------
@@ -6444,6 +6459,10 @@ Note, there is no "get" API.  Userspace is responsible for explicitly tracking
 the state of a gfn/page as needed.
 
 The "flags" field is reserved for future extensions and must be '0'.
+
+See also: :ref:`KVM_SET_MEMORY_ATTRIBUTES2`.
+
+.. _KVM_CREATE_GUEST_MEMFD:
 
 4.142 KVM_CREATE_GUEST_MEMFD
 ----------------------------
@@ -6499,10 +6518,10 @@ specified via KVM_CREATE_GUEST_MEMFD.  Currently defined flags:
                                page tables. Private memory cannot.
   ============================ ================================================
 
-When the KVM MMU performs a PFN lookup to service a guest fault and the backing
-guest_memfd has the GUEST_MEMFD_FLAG_MMAP set, then the fault will always be
-consumed from guest_memfd, regardless of whether it is a shared or a private
-fault.
+When the KVM MMU performs a PFN lookup to service a guest fault, the fault will
+always be consumed from guest_memfd, regardless of whether it is a shared or a
+private fault (unless in-place conversion is disabled and the backing
+guest_memfd does not have the GUEST_MEMFD_FLAG_MMAP flag set).
 
 See KVM_SET_USER_MEMORY_REGION2 for additional details.
 
@@ -6691,6 +6710,83 @@ significant bit):
 
    Userspace should use the defined constants from ``<linux/kvm.h>`` rather
    than hardcoding bit positions.
+
+.. _KVM_SET_MEMORY_ATTRIBUTES2:
+
+4.146 KVM_SET_MEMORY_ATTRIBUTES2
+---------------------------------
+
+:Capability: KVM_CAP_GUEST_MEMFD_MEMORY_ATTRIBUTES
+:Architectures: all
+:Type: guest_memfd ioctl
+:Parameters: struct kvm_memory_attributes2 (in/out)
+:Returns: 0 on success, <0 on error
+
+Errors:
+
+  ========== ===============================================================
+  EINVAL     The specified `offset` or `size` was invalid (e.g. not
+             page aligned, causes an overflow, or size is zero).
+  EFAULT     The parameter address was invalid.
+  ENOMEM     Ran out of memory trying to track private/shared state
+  EAGAIN     Pages in the range have outstanding references, see
+             ``error_offset`` below.
+  ========== ===============================================================
+
+KVM_SET_MEMORY_ATTRIBUTES2 is an extension to
+KVM_SET_MEMORY_ATTRIBUTES that supports returning (writing) values to
+userspace.  The original (pre-extension) fields are shared with
+KVM_SET_MEMORY_ATTRIBUTES identically.
+
+Attribute values are shared with KVM_SET_MEMORY_ATTRIBUTES.
+
+::
+
+  struct kvm_memory_attributes2 {
+	union {
+		__u64 address;
+		__u64 offset;
+	};
+	__u64 size;
+	__u64 attributes;
+	__u64 flags;
+	__u64 error_offset;
+	__u64 reserved[11];
+  };
+
+  #define KVM_MEMORY_ATTRIBUTE_PRIVATE           (1ULL << 3)
+
+The capability KVM_CAP_GUEST_MEMFD_MEMORY_ATTRIBUTES enumerates the attributes
+that can be set via KVM_SET_MEMORY_ATTRIBUTES2.
+
+Set attributes for a range of offsets within a guest_memfd to
+KVM_MEMORY_ATTRIBUTE_PRIVATE to limit the specified guest_memfd backed
+memory range for guest use. Even if the guest_memfd was created with
+GUEST_MEMFD_FLAG_MMAP, after a successful call to set
+KVM_MEMORY_ATTRIBUTE_PRIVATE, the requested range will not be mappable
+into host userspace and will only be mappable by the guest.
+
+To allow the range to be mappable into host userspace again, call
+KVM_SET_MEMORY_ATTRIBUTES2 on the guest_memfd again with
+KVM_MEMORY_ATTRIBUTE_PRIVATE unset.
+
+KVM does not directly manipulate the memory contents of pages during
+attribute updates. However, the process of setting these attributes,
+which includes operations such as unmapping pages from the host or
+stage-2 page tables, may result in side effects on memory contents
+that vary across different trusted firmware implementations.
+
+If this ioctl returns -EAGAIN, the offset of the page with unexpected
+refcounts will be returned in ``error_offset``. This can occur if
+there are transient refcounts on the pages, taken by other parts of
+the kernel.
+
+Userspace is expected to figure out how to remove all known refcounts
+on the shared pages, such as refcounts taken by get_user_pages(), and
+try the ioctl again. A possible source of these long term refcounts is
+if the guest_memfd memory was pinned in IOMMU page tables.
+
+See also: :ref:`KVM_SET_MEMORY_ATTRIBUTES`.
 
 .. _kvm_run:
 
@@ -9663,6 +9759,31 @@ On older versions of Linux, CPU[EAX=1]:ECX[24] (TSC_DEADLINE) is not reported by
 ``KVM_GET_SUPPORTED_CPUID``, but it can be enabled if ``KVM_CAP_TSC_DEADLINE_TIMER``
 is present and the kernel has enabled in-kernel emulation of the local APIC.
 On newer versions, ``KVM_GET_SUPPORTED_CPUID`` does report the bit as available.
+
+Long mode segment limits
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+CPU[EAX=0x80000008]:EBX[20] (EFER_LMSLE_MBZ) is a "defeature" bit: it is set
+when the CPU does *not* support long mode segment limits, and so requires
+EFER.LMSLE to be zero.  KVM reports the bit via ``KVM_GET_SUPPORTED_CPUID`` if
+and only if KVM refuses to set EFER.LMSLE, i.e. if the CPU doesn't support long
+mode segment limits, or if nested SVM is unsupported.  KVM therefore reports
+the bit on all Intel hosts, as KVM allows EFER.LMSLE only when nested SVM is
+enabled.
+
+KVM never reports the bit via ``KVM_GET_EMULATED_CPUID``, but userspace may set
+it via ``KVM_SET_CPUID2`` even on a host where KVM doesn't report it.  KVM
+honors the guest's enumeration and rejects EFER.LMSLE=1 accordingly.  That lets
+userspace defeature a vCPU on a host that *does* support long mode segment
+limits, so that the vCPU can later be migrated to a host that doesn't, e.g. so
+that a vCPU created on AMD Rome can be migrated to Milan and later, which
+dropped support for long mode segment limits.  The opposite direction needs no
+emulation, as a host that lacks long mode segment limits already enumerates the
+defeature.
+
+Note, ``KVM_SET_MSRS`` is exempt from the check, as host-initiated MSR writes
+skip guest CPUID checks so that userspace can set MSRs before it sets guest
+CPUID.  ``KVM_SET_SREGS`` and nested VMRUN are not exempt.
 
 CPU topology
 ~~~~~~~~~~~~
