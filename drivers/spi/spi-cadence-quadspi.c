@@ -1381,7 +1381,7 @@ static int cqspi_direct_read_execute(struct cqspi_flash_pdata *f_pdata,
 		return 0;
 	}
 
-	ddev = cqspi->rx_chan->device->dev;
+	ddev = dmaengine_get_dma_device(cqspi->rx_chan);
 	dma_dst = dma_map_single(ddev, buf, len, DMA_FROM_DEVICE);
 	if (dma_mapping_error(ddev, dma_dst)) {
 		dev_err(dev, "dma mapping failed\n");
@@ -1397,7 +1397,7 @@ static int cqspi_direct_read_execute(struct cqspi_flash_pdata *f_pdata,
 
 	tx->callback = cqspi_rx_dma_callback;
 	tx->callback_param = cqspi;
-	cookie = tx->tx_submit(tx);
+	cookie = dmaengine_submit(tx);
 	reinit_completion(&cqspi->rx_dma_complete);
 
 	ret = dma_submit_error(cookie);
