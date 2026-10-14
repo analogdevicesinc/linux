@@ -165,10 +165,8 @@ static int uniphier_uart_probe(struct platform_device *pdev)
 	int ret;
 
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!regs) {
-		dev_err(dev, "failed to get memory resource\n");
-		return -EINVAL;
-	}
+	if (!regs)
+		return dev_err_probe(dev, -EINVAL, "failed to get memory resource\n");
 
 	membase = devm_ioremap(dev, regs->start, resource_size(regs));
 	if (!membase)
@@ -180,15 +178,10 @@ static int uniphier_uart_probe(struct platform_device *pdev)
 
 	memset(&up, 0, sizeof(up));
 
-	priv->clk = devm_clk_get(dev, NULL);
-	if (IS_ERR(priv->clk)) {
-		dev_err(dev, "failed to get clock\n");
-		return PTR_ERR(priv->clk);
-	}
-
-	ret = clk_prepare_enable(priv->clk);
-	if (ret)
-		return ret;
+	priv->clk = devm_clk_get_enabled(dev, NULL);
+	if (IS_ERR(priv->clk))
+		return dev_err_probe(dev, PTR_ERR(priv->clk),
+				     "failed to get and enable clock\n");
 
 	up.port.uartclk = clk_get_rate(priv->clk);
 
@@ -220,11 +213,9 @@ static int uniphier_uart_probe(struct platform_device *pdev)
 	up.dl_write = uniphier_serial_dl_write;
 
 	ret = serial8250_register_8250_port(&up);
-	if (ret < 0) {
-		dev_err(dev, "failed to register 8250 port\n");
-		clk_disable_unprepare(priv->clk);
-		return ret;
-	}
+	if (ret < 0)
+		return dev_err_probe(dev, ret, "failed to register 8250 port\n");
+
 	priv->line = ret;
 
 	platform_set_drvdata(pdev, priv);
@@ -237,7 +228,6 @@ static void uniphier_uart_remove(struct platform_device *pdev)
 	struct uniphier8250_priv *priv = platform_get_drvdata(pdev);
 
 	serial8250_unregister_port(priv->line);
-	clk_disable_unprepare(priv->clk);
 }
 
 static int __maybe_unused uniphier_uart_suspend(struct device *dev)

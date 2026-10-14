@@ -526,7 +526,7 @@ static struct pnp_driver serial_pnp_driver = {
 	.id_table	= pnp_dev_table,
 };
 
-int serial8250_pnp_init(void)
+int __init serial8250_pnp_init(void)
 {
 	return pnp_register_driver(&serial_pnp_driver);
 }
