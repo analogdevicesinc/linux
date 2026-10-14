@@ -433,16 +433,17 @@ long arch_ptrace(struct task_struct *child, long request,
 	return ret;
 }
 
-asmlinkage int syscall_trace(struct pt_regs *regs, int syscall_exit_p)
+asmlinkage int syscall_trace_enter(struct pt_regs *regs)
 {
-	int ret = 0;
+	if (test_thread_flag(TIF_SYSCALL_TRACE) &&
+	    !ptrace_report_syscall_permit_entry(regs))
+		return 1;
 
-	if (test_thread_flag(TIF_SYSCALL_TRACE)) {
-		if (syscall_exit_p)
-			ptrace_report_syscall_exit(regs, 0);
-		else
-			ret = !ptrace_report_syscall_permit_entry(regs);
-	}
+	return 0;
+}
 
-	return ret;
+asmlinkage void syscall_trace_leave(struct pt_regs *regs)
+{
+	if (test_thread_flag(TIF_SYSCALL_TRACE))
+		ptrace_report_syscall_exit(regs, 0);
 }
