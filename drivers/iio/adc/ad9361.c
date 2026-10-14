@@ -8637,10 +8637,10 @@ static struct ad9361_phy_platform_data
 			   &pdata->tdd_skip_vco_cal);
 
 	ad9361_of_get_u32(iodev, np, "adi,tx-fastlock-delay-ns", 0,
-			  &pdata->rx_fastlock_delay_ns);
+			  &pdata->tx_fastlock_delay_ns);
 
 	ad9361_of_get_u32(iodev, np, "adi,rx-fastlock-delay-ns", 0,
-			  &pdata->tx_fastlock_delay_ns);
+			  &pdata->rx_fastlock_delay_ns);
 
 	ad9361_of_get_bool(iodev, np, "adi,rx-fastlock-pincontrol-enable",
 			   &pdata->trx_fastlock_pinctrl_en[0]);
