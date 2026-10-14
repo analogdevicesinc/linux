@@ -1872,10 +1872,21 @@ TEST_F(TRACE_poke, getpid_runs_normally)
 # define ARCH_REGS		struct user_regs_struct
 # define SYSCALL_NUM(_regs)	(_regs).orig_d0
 # define SYSCALL_RET(_regs)	(_regs).d0
-#elif defined(__sparc__) && defined(__arch64__)
+#elif defined(__sparc__)
 # include <asm/ptrace.h>
+
+# if defined(__arch64__)
+#  include <asm/pstate.h>
+#  define CARRY_MASK			(TSTATE_ICARRY | TSTATE_XCARRY)
+#  define SPARC_CARRY_REG(_regs)	((_regs).tstate)
+# else
+#  include <asm/psr.h>
+#  define CARRY_MASK			PSR_C
+#  define SPARC_CARRY_REG(_regs)	((_regs).psr)
+# endif
+
 /*
- * PTRACE_GETREGS64/PTRACE_SETREGS64 transfer the uapi struct pt_regs,
+ * PTRACE_GETREGS{64}/PTRACE_SETREGS{64} transfer the uapi struct pt_regs,
  * but in the historical layout that omits %g0: the blob starts at %g1,
  * so every u_regs index is one lower than the register number suggests.
  */
@@ -1883,20 +1894,20 @@ TEST_F(TRACE_poke, getpid_runs_normally)
 # define SYSCALL_NUM(_regs)	(_regs).u_regs[0]	/* %g1 */
 # define SYSCALL_RET(_regs)	(_regs).u_regs[7]	/* %o0 */
 /*
- * A syscall error is signaled by the carry bit in tstate, with the
- * errno held in %o0 as a positive value; the carry can only be
- * written reliably once the syscall has been skipped or has run.
+ * A syscall error is signaled by the carry bit in tstate (SPARC64) or
+ * psr (SPARC32), with the errno held in %o0 as a positive value;
+ * the carry can only be written reliably once the syscall has been
+ * skipped or has run.
  */
-# define SPARC64_TSTATE_CARRY	0x0000001100000000UL	/* xcc.c | icc.c */
 # define SYSCALL_RET_SET(_regs, _val)				\
 	do {							\
 		typeof(_val) _result = (_val);			\
 		if (_result < 0) {				\
 			SYSCALL_RET(_regs) = -_result;		\
-			(_regs).tstate |= SPARC64_TSTATE_CARRY;	\
+			SPARC_CARRY_REG(_regs) |= CARRY_MASK;	\
 		} else {					\
 			SYSCALL_RET(_regs) = _result;		\
-			(_regs).tstate &= ~SPARC64_TSTATE_CARRY; \
+			SPARC_CARRY_REG(_regs) &= ~CARRY_MASK;	\
 		}						\
 	} while (0)
 # define SYSCALL_RET_SET_ON_PTRACE_EXIT
@@ -1967,14 +1978,19 @@ const bool ptrace_entry_set_syscall_ret =
 #if defined(__x86_64__) || defined(__i386__) || defined(__mips__) || defined(__mc68000__)
 # define ARCH_GETREGS(_regs)	ptrace(PTRACE_GETREGS, tracee, 0, &(_regs))
 # define ARCH_SETREGS(_regs)	ptrace(PTRACE_SETREGS, tracee, 0, &(_regs))
-#elif defined(__sparc__) && defined(__arch64__)
+#elif defined(__sparc__)
+# if defined(__arch64__)
 /*
  * The NT_PRSTATUS regset appends the register window, which struct
  * pt_regs does not carry; the sparc-specific requests transfer
  * struct pt_regs directly (and take the buffer in addr).
  */
-# define ARCH_GETREGS(_regs)	ptrace(PTRACE_GETREGS64, tracee, &(_regs), 0)
-# define ARCH_SETREGS(_regs)	ptrace(PTRACE_SETREGS64, tracee, &(_regs), 0)
+#  define ARCH_GETREGS(_regs)	ptrace(PTRACE_GETREGS64, tracee, &(_regs), 0)
+#  define ARCH_SETREGS(_regs)	ptrace(PTRACE_SETREGS64, tracee, &(_regs), 0)
+# else
+#  define ARCH_GETREGS(_regs)	ptrace(PTRACE_GETREGS, tracee, &(_regs), 0)
+#  define ARCH_SETREGS(_regs)	ptrace(PTRACE_SETREGS, tracee, &(_regs), 0)
+# endif
 #else
 # define ARCH_GETREGS(_regs)	({					\
 		struct iovec __v;					\
