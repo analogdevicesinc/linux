@@ -663,7 +663,8 @@ special flag to request "REF-walk".  If either of those report the
 error ``ESTALE`` a final attempt is made with ``LOOKUP_REVAL`` set (and no
 ``LOOKUP_RCU``) to ensure that entries found in the cache are forcibly
 revalidated - normally entries are only revalidated if the filesystem
-determines that they are too old to trust.
+determines that they are too old to trust.  That attempt is repeated only
+while it fails with ``ND_UNLINKED`` set.
 
 The ``LOOKUP_RCU`` attempt may drop that flag internally and switch to
 REF-walk, but will never then try to switch back to RCU-walk.  Places
@@ -1310,6 +1311,11 @@ name (with ``d_revalidate()``).  In such cases the inode may still need
 to be revalidated, so ``d_op->d_weak_revalidate()`` is called if
 ``ND_JUMPED`` is set when the look completes - which may be at the
 final component or, when creating, unlinking, or renaming, at the penultimate component.
+
+``ND_UNLINKED`` means that REF-walk failed with ``ESTALE`` because a name
+was unlinked or renamed over after its dentry was found and before the
+mounts on that dentry were looked at.  No cached information was stale, so
+the walk is repeated even if it already had ``LOOKUP_REVAL`` set.
 
 Resolution-restriction flags
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
