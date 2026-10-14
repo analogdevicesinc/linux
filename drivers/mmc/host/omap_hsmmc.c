@@ -1892,15 +1892,15 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 
 	host->rx_chan = dma_request_chan(&pdev->dev, "rx");
 	if (IS_ERR(host->rx_chan)) {
-		dev_err(mmc_dev(host->mmc), "RX DMA channel request failed\n");
 		ret = PTR_ERR(host->rx_chan);
+		dev_err_probe(mmc_dev(host->mmc), ret, "RX DMA channel request failed\n");
 		goto err_irq;
 	}
 
 	host->tx_chan = dma_request_chan(&pdev->dev, "tx");
 	if (IS_ERR(host->tx_chan)) {
-		dev_err(mmc_dev(host->mmc), "TX DMA channel request failed\n");
 		ret = PTR_ERR(host->tx_chan);
+		dev_err_probe(mmc_dev(host->mmc), ret, "TX DMA channel request failed\n");
 		goto err_irq;
 	}
 
