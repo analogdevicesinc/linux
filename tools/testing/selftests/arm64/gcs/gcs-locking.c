@@ -77,6 +77,21 @@ FIXTURE_VARIANT_ADD(valid_modes, enable_write_push)
 		PR_SHADOW_STACK_PUSH,
 };
 
+FIXTURE_VARIANT_ADD(valid_modes, write)
+{
+	.mode = PR_SHADOW_STACK_WRITE,
+};
+
+FIXTURE_VARIANT_ADD(valid_modes, push)
+{
+	.mode = PR_SHADOW_STACK_PUSH,
+};
+
+FIXTURE_VARIANT_ADD(valid_modes, write_push)
+{
+	.mode = PR_SHADOW_STACK_WRITE | PR_SHADOW_STACK_PUSH,
+};
+
 FIXTURE_SETUP(valid_modes)
 {
 }
