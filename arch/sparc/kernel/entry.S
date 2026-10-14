@@ -933,9 +933,9 @@ linux_sparc_ni_syscall:
 linux_syscall_trace:
 	call	syscall_trace_enter
 	 add	%sp, STACKFRAME_SZ, %o0
-	cmp	%o0, 0
-	bne	3f
-	 mov	-ENOSYS, %o0
+	cmp	%o0, -1
+	be	linux_syscall_trace_exit
+	 nop
 
 	/* Syscall tracing can modify the registers.  */
 	ld	[%sp + STACKFRAME_SZ + PT_G1], %g1
@@ -1007,7 +1007,7 @@ do_syscall:
 
 	ld	[%curptr + TI_FLAGS], %l5
 	mov	%i3, %o3
-	andcc	%l5, _TIF_SYSCALL_TRACE, %g0
+	andcc	%l5, _TIF_SYSCALL_TRACE | _TIF_SECCOMP, %g0
 	mov	%i4, %o4
 	bne	linux_syscall_trace
 	 mov	%i0, %l6
@@ -1049,6 +1049,10 @@ ret_sys_call:
 	st	%l1, [%sp + STACKFRAME_SZ + PT_PC]
 	b	ret_trap_entry
 	 st	%l2, [%sp + STACKFRAME_SZ + PT_NPC]
+
+linux_syscall_trace_exit:
+	/* The syscall was skipped - exit tracing */
+	ld	[%sp + STACKFRAME_SZ + PT_NPC], %l1
 
 linux_syscall_trace2:
 	call	syscall_trace_leave
