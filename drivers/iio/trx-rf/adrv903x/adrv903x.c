@@ -545,7 +545,70 @@ static int adrv903x_phy_reg_access(struct iio_dev *indio_dev, u32 reg,
 
 enum lo_ext_info {
 	LOEXT_FREQ,
+	LOEXT_LOOP_BW,
+	LOEXT_PHASE_MARGIN,
 };
+
+int adrv903x_lo_loop_filter_get(struct adrv903x_rf_phy *phy,
+				adi_adrv903x_LoName_e loName,
+				u32 *bw_khz, u32 *phase_deg)
+{
+	adi_adrv903x_LoLoopFilterCfg_t filterCfg = { 0 };
+	int ret;
+
+	ret = adrv903x_api_call(phy, adi_adrv903x_LoLoopFilterGet,
+				loName, &filterCfg);
+	if (ret)
+		return ret;
+
+	*bw_khz = filterCfg.loopBandwidth_kHz;
+	*phase_deg = filterCfg.phaseMargin_degrees;
+
+	return 0;
+}
+
+int adrv903x_lo_loop_filter_set(struct adrv903x_rf_phy *phy,
+				adi_adrv903x_LoName_e loName,
+				bool set_bw, u32 val)
+{
+	adi_adrv903x_LoLoopFilterCfg_t filterCfg = { 0 };
+	int ret;
+
+	ret = adrv903x_api_call(phy, adi_adrv903x_LoLoopFilterGet,
+				loName, &filterCfg);
+	if (ret)
+		return ret;
+
+	filterCfg.loopBandwidth_kHz = clamp(filterCfg.loopBandwidth_kHz, 60, 1000);
+	filterCfg.phaseMargin_degrees = clamp(filterCfg.phaseMargin_degrees, 45, 75);
+
+	if (set_bw)
+		filterCfg.loopBandwidth_kHz = clamp(val, 60, 1000);
+	else
+		filterCfg.phaseMargin_degrees = clamp(val, 45, 75);
+
+	ret = adrv903x_api_call(phy, adi_adrv903x_LoLoopFilterSet,
+				loName, &filterCfg);
+	if (ret)
+		return ret;
+
+	if (set_bw) {
+		adi_adrv903x_LoConfigReadback_t loReadback = { 0 };
+		adi_adrv903x_LoConfig_t loConfig = { 0 };
+
+		loReadback.loName = loName;
+		ret = adrv903x_api_call(phy, adi_adrv903x_LoFrequencyGet,
+					&loReadback);
+		if (ret)
+			return ret;
+		loConfig.loName = loName;
+		loConfig.loFrequency_Hz = loReadback.loFrequency_Hz;
+		ret = adrv903x_api_call(phy, adi_adrv903x_LoFrequencySet,
+					&loConfig);
+	}
+
+	return ret;
+}
 
 static ssize_t adrv903x_phy_lo_write(struct iio_dev *indio_dev,
 				     uintptr_t private,
@@ -570,6 +633,19 @@ static ssize_t adrv903x_phy_lo_write(struct iio_dev *indio_dev,
 			ret = adrv903x_api_call(phy, adi_adrv903x_LoFrequencySet, &loConfig);
 		}
 		break;
+	case LOEXT_LOOP_BW:
+	case LOEXT_PHASE_MARGIN:
+		ret = kstrtoull(buf, 10, &readin);
+		if (ret)
+			return ret;
+
+		scoped_guard(mutex, &phy->lock) {
+			ret = adrv903x_lo_loop_filter_set(phy,
+							  ADI_ADRV903X_LO0 + chan->channel,
+							  private == LOEXT_LOOP_BW,
+							  readin);
+		}
+		break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -584,6 +660,7 @@ static ssize_t adrv903x_phy_lo_read(struct iio_dev *indio_dev,
 {
 	struct adrv903x_rf_phy *phy = iio_priv(indio_dev);
 	adi_adrv903x_LoConfigReadback_t loConfig = { 0 };
+	u32 bw_khz, phase_deg;
 	int ret;
 
 	guard(mutex)(&phy->lock);
@@ -594,6 +671,16 @@ static ssize_t adrv903x_phy_lo_read(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 		return sysfs_emit(buf, "%llu\n", loConfig.loFrequency_Hz);
+	case LOEXT_LOOP_BW:
+	case LOEXT_PHASE_MARGIN:
+		ret = adrv903x_lo_loop_filter_get(phy,
+						  ADI_ADRV903X_LO0 + chan->channel,
+						  &bw_khz, &phase_deg);
+		if (ret)
+			return ret;
+		if (private == LOEXT_LOOP_BW)
+			return sysfs_emit(buf, "%u\n", bw_khz);
+		return sysfs_emit(buf, "%u\n", phase_deg);
 	default:
 		return -EINVAL;
 	}
@@ -611,6 +698,8 @@ static const struct iio_chan_spec_ext_info adrv903x_phy_ext_lo_info[] = {
 	 * in Hz. Using scale is a bit ugly.
 	 */
 	_ADRV903X_EXT_LO_INFO("frequency", LOEXT_FREQ),
+	_ADRV903X_EXT_LO_INFO("lo_loop_filter_bandwidth_khz", LOEXT_LOOP_BW),
+	_ADRV903X_EXT_LO_INFO("lo_loop_filter_phase_margin_degrees", LOEXT_PHASE_MARGIN),
 	{},
 };
 
