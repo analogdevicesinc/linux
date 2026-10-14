@@ -115,7 +115,7 @@ static int tpm2_key_decode(struct trusted_key_payload *payload,
 	if (ctx.priv_len + ctx.pub_len > MAX_BLOB_SIZE)
 		return -EINVAL;
 
-	blob = kmalloc(ctx.priv_len + ctx.pub_len + 4, GFP_KERNEL);
+	blob = kmalloc(ctx.priv_len + ctx.pub_len, GFP_KERNEL);
 	if (!blob)
 		return -ENOMEM;
 
@@ -412,6 +412,8 @@ static int tpm2_load_cmd(struct tpm_chip *chip,
 
 	public_len = get_unaligned_be16(blob + 2 + private_len);
 	if (private_len + 2 + public_len + 2 > blob_len)
+		return -E2BIG;
+	if (public_len < 8)
 		return -E2BIG;
 
 	pub = blob + 2 + private_len + 2;
