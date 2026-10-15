@@ -1319,6 +1319,7 @@ struct dc_debug_options {
 	unsigned int urgent_watermark_override;
 	bool enable_block_sequence_programming;
 	uint32_t custom_psp_footer_size;
+	uint32_t dmcub_fw_load_type;
 	bool disable_deferred_minimal_transitions;
 	unsigned int num_fast_flips_to_steady_state_override;
 	bool enable_dmu_recovery;
