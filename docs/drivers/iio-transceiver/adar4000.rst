@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adar4000
 
+
 .. _adar4000:
 
 ADAR4000
@@ -10,10 +11,10 @@ ADAR4000/ADAR4001 2 GHz to 18 GHz, Single Beam, 4-Element Beamformer Linux Devic
 The ADAR4000 and ADAR4001 are wideband beamformer ICs operating from 2 GHz to 18
 GHz, designed for transmit and receive phased array applications, respectively.
 Both feature a true time delay core for beam-squint free operation, with
-configurable delays up to 508 ps and fine resolution down to 2 ps. Each path
-includes a 31.5 dB digital step attenuator with 0.5 dB steps. They support SPI
-control for up to 16 devices and include on-chip RAM and FIFO for storing and
-sequencing beamstates.
+configurable delays of 0 to 254 ps in 2 ps steps, or 0 to 508 ps in 4 ps steps.
+Each path includes a 31.5 dB digital step attenuator with 0.5 dB steps. They
+support SPI control for up to 16 devices and include on-chip RAM and FIFO for
+storing and sequencing beamstates.
 
 Supported Devices
 -----------------
@@ -63,8 +64,43 @@ Files
    * - devicetree bindings
      - :git+linux:`adi,adar400x.yaml <staging/adar400x:Documentation/devicetree/bindings/iio/beamformer/adi,adar400x.yaml>`
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADAR4000 driver depends on **CONFIG_SPI**
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+           -*-   Enable buffer support within IIO
+           -*-   Enable triggered sampling support
+
+                 *** Analog to digital converters ***
+           [--snip--]
+
+           <*>   Analog Devices ADAR4000 and ADR4001 Beamformer driver
+
+           [--snip--]
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example Linux Device-Tree Initialization
-----------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ADAR4000 driver is a spi-bus driver and can currently only be instantiated
 via device tree.
@@ -86,41 +122,8 @@ Optional properties:
    * - RPI Device Tree
      -
 
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The ADAR4000 driver depends on **CONFIG_SPI**
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-           -*-   Enable ring buffer support within IIO
-           -*-     Industrial I/O lock free software ring
-           -*-   Enable triggered sampling support
-
-                 *** Analog to digital converters ***
-           [--snip--]
-
-           <*>   Analog Devices ADAR4000 and ADR4001 Beamformer driver
-
-           [--snip--]
-
-Driver testing / API
---------------------
+Driver testing
+--------------
 
 .. important::
 
@@ -223,6 +226,14 @@ Driver testing / API
    -r--r--r-- 1 root root 4096 Oct  1 14:25 waiting_for_supplier
    root@analog:/sys/bus/iio/devices/iio:device0#
 
+Identify the device
+~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0> cat name
+   adar4000
+
 Channel attributes
 ~~~~~~~~~~~~~~~~~~
 
@@ -230,85 +241,6 @@ Channel attributes
 - scale - Multiplied with raw will result in a physical value.
 - delay = raw \* scale
 - gain = raw \* scale
-
-Device attributes
-^^^^^^^^^^^^^^^^^
-
-- active_device – Select device for multiple connected devices
-- beam0_fifo_rd - FIFO read pointer
-- beam0_fifo_wr - FIFO write pointer
-- beam0_mode - Beam operation mode
-- beam0_mode_available - Possible values: direct memory fifo instant_direct
-  reset mute
-- beam0_ram_index - Starting position in memory for saving beamstates
-- beam0_ram_start - Start beamstate in memory. Default: 0
-- beam0_ram_stop - Stop beamstate in memory. Default: 63
-- beam0_update - Update beamstate
-- beamstate_ram – Beamstate data for RAM mode, can be in table format or echo
-  command
-- beamstate_fifo – Beamstate data for FIFO mode
-- amp_bias_mute_ELxA
-- amp_bias_operational_ELxA
-- amp_bias_operational_ELxA
-- amp_bias_reset_ELxA
-- amp_bias_sleep_ELxA
-- amp_bias_sleep_ELxA
-- amp_en_mute_ELx
-- amp_en_operational_ELx
-- amp_en_operational_ELx
-- amp_en_reset_ELx
-- amp_en_sleep_ELx
-- amp_en_sleep_ELx
-
-Beam components
-'''''''''''''''
-
-- Beam0: power0, phase0, power1, phase1, power2, phase2, power3, phase3
-
-Show device name
-''''''''''''''''
-
-::
-
-   root@analog:/sys/bus/iio/devices/iio:device0> cat name
-   adar4000
-
-Read/Write Register
-'''''''''''''''''''
-
-Read scratchpad: ::
-
-   root@analog:/sys/bus/iio/devices/iio:device0# iio_reg adar4000 0x0a
-   0x0
-
-Write scratchpad: ::
-
-   root@analog:/sys/bus/iio/devices/iio:device0# iio_reg adar4000 0x0a 0x12
-
-Beamstate Mode
-''''''''''''''
-
-**Description:**
-
-- beam0_mode - Specifies the mode corresponding to where the values are saved.
-  The device can be configured into one of the following modes:
-- Direct: Data will be saved into registers corresponding to the ``direct``
-  mode.
-- RAM: Data will be saved into RAM, allowing for temporary storage and faster
-  access.
-- FIFO: Data will be saved into a First-In-First-Out queue, ensuring that the
-  first data entered is the first to be processed.
-- Reset: The device will reset, clearing any stored data, and returning to its
-  initial state.
-- Mute: The device will enter a mute state, where no data is processed or saved.
-
-When configuring beam0_mode to mute or reset this will set the commanded beam to
-a user predefined beamstate and bias setting for the amplifiers.
-
-::
-
-   root@analog:/sys/bus/iio/devices/iio:device0# cat beam0_mode_available
-   direct ram fifo instant_direct mute reset
 
 Direct Mode
 ^^^^^^^^^^^
@@ -326,7 +258,7 @@ This mode means that data will be saved into registers corresponding to the
 ``direct`` mode.
 
 Writing beamstate in direct mode:
-'''''''''''''''''''''''''''''''''
+"""""""""""""""""""""""""""""""""
 
 ::
 
@@ -415,9 +347,14 @@ beamstate data into the VAPs. ::
 
    root@analog:/sys/bus/iio/devices/iio:device0# echo 1 > beam0_update
 
-Alternatively, beamstate data can be applied directly using echo command. Example: ::
+Alternatively, beamstate data can be applied directly using echo command. Example:
 
-   root@analog:/sys/bus/iio/devices/iio:device0# echo 0, 1, 32, 28 > beamstate_ram
+Write one complete four-element beamstate in a single sysfs write. Elements must
+be ordered 0, 1, 2, 3; writing only element 1 does not commit a beamstate.
+
+.. code-block:: text
+
+   printf '0, 0, 12, 23\n0, 1, 32, 28\n0, 2, 34, 7\n0, 3, 29, 18\n' > beamstate_ram
 
 FIFO
 ^^^^
@@ -434,6 +371,105 @@ Write 1 to beam0_update to dequeue the next beamstate in the FIFO and load it
 into the VAPs. ::
 
    root@analog:/sys/bus/iio/devices/iio:device0# echo 1 > beam0_update
+
+Attribute reference
+~~~~~~~~~~~~~~~~~~~
+
+-  active_device – Select device for multiple connected devices
+
+-  beam0_fifo_rd - FIFO read pointer
+
+-  beam0_fifo_wr - FIFO write pointer
+
+-  beam0_mode - Beam operation mode
+
+-  beam0_mode_available - Possible values: direct ram fifo instant_direct mute
+   reset
+
+-  beam0_ram_index - Starting position in memory for saving beamstates
+
+-  beam0_ram_start - Start beamstate in memory. Default: 0
+
+-  beam0_ram_stop - Stop beamstate in memory. Default: 63
+
+-  beam0_update - Update beamstate
+
+-  beamstate_ram – Beamstate data for RAM mode, can be in table format or echo
+   command
+
+-  beamstate_fifo – Beamstate data for FIFO mode
+
+-  amp_bias_mute_ELxA
+
+-  amp_bias_operational_ELxA
+
+-  amp_bias_operational_ELxA
+
+-  amp_bias_reset_ELxA
+
+-  amp_bias_sleep_ELxA
+
+-  amp_bias_sleep_ELxA
+
+-  amp_en_mute_ELx
+
+-  amp_en_operational_ELx
+
+-  amp_en_operational_ELx
+
+-  amp_en_reset_ELx
+
+-  amp_en_sleep_ELx
+
+-  amp_en_sleep_ELx
+
+Beam components
+^^^^^^^^^^^^^^^
+
+- Beam0: power0, phase0, power1, phase1, power2, phase2, power3, phase3
+
+Read/Write Register
+^^^^^^^^^^^^^^^^^^^
+
+Read scratchpad: ::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# iio_reg adar4000 0x0a
+   0x0
+
+Write scratchpad: ::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# iio_reg adar4000 0x0a 0x12
+
+Beamstate Mode
+^^^^^^^^^^^^^^
+
+**Description:**
+
+-  beam0_mode - Specifies the mode corresponding to where the values are saved.
+   The device can be configured into one of the following modes:
+
+-  Direct: Data will be saved into registers corresponding to the ``direct``
+   mode.
+
+-  RAM: Data will be saved into RAM, allowing for temporary storage and faster
+   access.
+
+-  FIFO: Data will be saved into a First-In-First-Out queue, ensuring that the
+   first data entered is the first to be processed.
+
+-  Reset: Select the predefined reset beamstate and amplifier-bias settings.
+   This beam mode is not a device software reset and does not clear all RAM.
+
+-  Mute: The device will enter a mute state, where no data is processed or
+   saved.
+
+When configuring beam0_mode to mute or reset this will set the commanded beam to
+a user predefined beamstate and bias setting for the amplifiers.
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat beam0_mode_available
+   direct ram fifo instant_direct mute reset
 
 More Information
 ----------------
