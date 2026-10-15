@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/sound/ssm2518
 
+
 .. _ssm2518:
 
 SSM2518
@@ -12,16 +13,16 @@ Supported Devices
 
 - :adi:`SSM2518`
 
-Reference Circuits
-------------------
-
-- :adi:`CN0296`
-
 Evaluation Boards
 -----------------
 
 - :adi:`EVAL-SSM2518Z`
 - `PMOD-AMP3 (Digilent) <https://digilent.com/reference/pmod/pmodamp3/start>`__
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0296`
 
 Source Code
 -----------
@@ -42,7 +43,7 @@ Status
      -
 
 Files
-^^^^^
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -57,8 +58,33 @@ Files
      - `sound/soc/codecs/ssm2518.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ssm2518.h>`__
      -
 
+Adding Linux driver support
+---------------------------
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   i2s: i2c@41600000 {
+       compatible = "...;
+       ...
+
+       #size-cells = <0>;
+       #address-cells = <1>;
+
+       ssm2518: ssm2518@34 {
+           compatible = "adi,ssm2518";
+           reg = <0x34>;
+           gpios = <&gpio 5 0>;
+       };
+   };
+
+Device enumeration
+~~~~~~~~~~~~~~~~~~
+
 Example device initialization
------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
@@ -104,27 +130,14 @@ The I2C address of the SSM2518 depends on the setting of the ADDR pin
    }
    arch_initcall(board_init);
 
-Devicetree
-~~~~~~~~~~
+Driver testing
+--------------
 
-::
-
-   i2s: i2c@41600000 {
-       compatible = "...;
-       ...
-
-       #size-cells = <0>;
-       #address-cells = <1>;
-
-       ssm2518: ssm2518@34 {
-           compatible = "adi,ssm2518";
-           reg = <0x34>;
-           gpios = <&gpio 5 0>;
-       };
-   };
+Routing and DAPM
+~~~~~~~~~~~~~~~~
 
 ASoC DAPM Widgets
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -136,7 +149,7 @@ ASoC DAPM Widgets
    * - OUTR
      - Output for Right Channel
 
-ALSA Controls
+ALSA controls
 ~~~~~~~~~~~~~
 
 .. list-table::
@@ -203,13 +216,16 @@ ALSA Controls
      - DRC RMS Detector Averaging Time. This is the averaging time for the rms
        level that is compared to the DRC thresholds
 
+DAI formats and clocks
+~~~~~~~~~~~~~~~~~~~~~~
+
 DAI configuration
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 The codec driver registers one DAI named **``ssm2518-hifi``**.
 
 Supported DAI formats
-^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""
 
 .. list-table::
    :header-rows: 1
@@ -270,7 +286,7 @@ Supported DAI formats
      - Codec bit- and frameclock slave
 
 Supported SYSCLK rates
-^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""
 
 The CODECs system clock can be configured for various input rates. When
 configuring the codec system clock use SSM2518_SYSCLK for the clock id.
@@ -294,7 +310,7 @@ sample-rates.
      - 8kHz, 12kHz, 16kHz, 24kHz, 32kHz, 48kHz, 96kHz
 
 SYSCLK configuration
-^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""
 
 To configure the devices sysclk the ``snd_soc_codec_set_sysclk()`` function can
 be used. It needs to be called at least once before playback starts. The
@@ -330,13 +346,17 @@ snd_soc_dai_set_tdm_slot() from you ASoC board driver.
 The following restrictions apply to the parameters of
 snd_soc_dai_set_tdm_slot().
 
-- **tx_mask** must have exactly two bits set. The most upper bit will be the
-  slot of right channel, the most lower bit will be the slot left channel. E.g.
-  0x3 means the left channel will be at slot 0 and the right channel will be at
-  slot 1 in the TDM stream.
-- **rx_mask** must be 0.
-- **slots** must be either 1, 2, 4, 8 or 16
-- **width** must be either 16, 24, 32
+-  **tx_mask accepts one or two bits set. A single bit routes the same slot to
+   both channels (for slots = 1 the mask must be 1). With two bits, the most
+   upper bit will be the** slot of right channel, the most lower bit will be the
+   slot left channel. E.g. 0x3 means the left channel will be at slot 0 and the
+   right channel will be at slot 1 in the TDM stream.
+
+-  **rx_mask** must be 0.
+
+-  **slots** must be either 1, 2, 4, 8 or 16
+
+-  **width** must be either 16, 24, 32
 
 Example:
 
@@ -361,13 +381,13 @@ Example:
 Example DAI configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. code:: c
+.. code-block:: c
 
    #include "../codecs/ssm2518.h"
 
    static int pmod_amp3_init(struct snd_soc_pcm_runtime *rtd)
    {
-       return snd_soc_codec_set_sysclk(rtd->codec, SSM2518_SYSCLK,
+       return snd_soc_component_set_sysclk(snd_soc_rtd_to_codec(rtd, 0)->component, SSM2518_SYSCLK,
                    SSM2518_SYSCLK_SRC_MCLK, 12288000, SND_SOC_CLOCK_IN);
    }
 
@@ -402,8 +422,8 @@ Example DAI configuration
        .fully_routed = true,
    };
 
-More information
-~~~~~~~~~~~~~~~~
+More Information
+----------------
 
 .. include:: /include/need-help.rst
    :start-after: .. start-need-help
