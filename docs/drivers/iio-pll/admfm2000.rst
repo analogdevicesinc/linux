@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/admfm2000
 
+
 .. _admfm2000:
 
 ADMFM2000
@@ -58,21 +59,52 @@ Files
    * - device tree bindings
      - `adi,admfm2000.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/frequency/adi,admfm2000.yaml>`_
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADMFM2000 driver depends on **GPIOLIB**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+                   Frequency  --->
+                       <*> Analog Devices ADMFM2000 Dual Microwave Down Converter
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example Linux Device-Tree Initialization
-----------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ADMFM2000 driver is a platform driver and can currently only be instantiated
 via device tree.
 
 **Required properties:**
 
-- **compatible**: Must be of ``adi,admfm2000``.
-- \*\* switch-gpios:\*\*: GPIOs to select the RF path for the channel. The same
-  state of CTRL-A and CTRL-B GPIOs is not permitted.
-- \*\* attenuation-gpios:\*\*: GPIOs to select the choice of attenuation for the
-  channel.
-- **#address-cells**: Must be set to 1
-- **#size-cells**: Must be set to 0
+-  **compatible**: Must be of ``adi,admfm2000``.
+
+-  \*\* switch-gpios:\*\*: GPIOs to select the RF path for the channel. The same
+   state of CTRL-A and CTRL-B GPIOs is not permitted.
+
+-  \*\* attenuation-gpios:\*\*: GPIOs to select the choice of attenuation for
+   the channel.
+
+-  **#address-cells**: Must be set to 1
+
+-  **#size-cells: Must be set to 0 Each channel child requires reg = <0> or reg
+   = <1>, two switch-gpios and five attenuation-gpios. adi,mixer-mode belongs to
+   the channel child.**
 
 **Optional properties:**
 
@@ -119,27 +151,8 @@ via device tree.
            };
    };
 
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The ADMFM2000 driver depends on **GPIOLIB**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-                   Frequency  --->
-                       <*> Analog Devices ADMFM2000 Dual Microwave Down Converter
-
-Driver testing / API
---------------------
+Driver testing
+--------------
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-device-files
@@ -167,8 +180,8 @@ This device can be found under **/sys/bus/iio/devices/**
    -r--r--r-- 1 root root 4096 Oct 26 22:20 waiting_for_supplier
    root@analog:/sys/bus/iio/devices/iio:device0#
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -176,12 +189,13 @@ Show device name
    admfm2000
 
 Set ChannelY Gain
-^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/iio:deviceX/out_voltageY_hardwaregain
 
-Hardware applied gain factor. If shared across all channels, <type>_hardwaregain
-is used.
+Hardware applied gain in dB, independently per channel. Accepted range is −31 dB
+to 0 dB in 1 dB steps. Fractional requests are truncated to the next integer
+toward zero; read back the applied gain.
 
 ::
 
