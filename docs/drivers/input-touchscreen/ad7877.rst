@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/input-touchscreen/ad7877
 
+
 .. _ad7877:
 
 AD7877
@@ -42,8 +43,8 @@ includes a shutdown mode that reduces its current consumption to less than 1 μA
 
 *See also:* :ref:`AD7879`
 
-Software configurable features
-------------------------------
+Driver features and limitations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Software configurable:**
 
@@ -84,36 +85,23 @@ Files
    * - include
      - `include/linux/spi/ad7877.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/spi/ad7877.h>`__
 
-Example platform device initialization
---------------------------------------
+Hardware configuration
+----------------------
 
-.. include:: /include/platform-and-bus-model.rst
-   :start-after: .. start-platform-data
-   :end-before: .. end-platform-data
+.. tip::
 
-Touchscreen characteristics vary between boards and models. The platform_data
-for the device’s ``struct device`` holds this information.
+   The AD7877 Linux Driver only uses the /DAV Data Available Interrupt. /PENIRQ
+   is not used. STOPACQ can be used to reduce the effect of noise from an LCD
+   screen on the touch screen measurements.
 
-<source trunk/include/linux/spi/ad7877.h c linux-kernel>
-
-These snippets are all from the same file.
-``arch/blackfin/mach-bf537/boards/pnav10.c``:
-
-.. code:: C
-
-   #include <linux/spi/ad7877.h>
-
-:git+linux:`spi_ad7877_chip_info{} <main:arch/blackfin/mach-bf537/boards/pnav10.c>`
-:git+linux:`bfin_ad7877_ts_info{} <main:arch/blackfin/mach-bf537/boards/pnav10.c>`
-
-.. include:: /include/platform-and-bus-model.rst
-   :start-after: .. start-declaring-spi-slave-devices
-   :end-before: .. end-declaring-spi-slave-devices
-
-:git+linux:`bfin_spi_board_info[] <main:arch/blackfin/mach-bf537/boards/pnav10.c>`
+.. figure:: https://wiki.analog.com/_media/software/driver/linux/ad7877_example_schematic.png
+   :width: 800px
 
 Adding Linux driver support
 ---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
@@ -149,23 +137,8 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
      [ ]   Miscellaneous devices  --->
          Hardware I/O ports  --->
 
-Hardware configuration
-----------------------
-
-.. tip::
-
-   The AD7877 Linux Driver only uses the /DAV Data Available Interrupt. /PENIRQ
-   is not used. STOPACQ can be used to reduce the effect of noise from an LCD
-   screen on the touch screen measurements.
-
-.. figure:: https://wiki.analog.com/_media/software/driver/linux/ad7877_example_schematic.png
-   :width: 800px
-
-Driver testing
---------------
-
 Driver compiled as a module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -175,13 +148,45 @@ Driver compiled as a module
    root:~>
 
 Driver compiled into the kernel
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Your kernel startup messages should include something like this
 
 ::
 
    input: AD7877 Touchscreen as /class/input/input2
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The AD7877 driver has no devicetree binding; it is configured entirely
+through ``struct ad7877_platform_data`` (``include/linux/spi/ad7877.h``),
+supplied as the SPI device's platform data:
+
+.. code-block:: c
+
+   struct ad7877_platform_data {
+       u16 model;                  /* 7877 */
+       u16 vref_delay_usecs;       /* 0 for external vref; etc */
+       u16 x_plate_ohms;
+       u16 y_plate_ohms;
+       u16 x_min, x_max;
+       u16 y_min, y_max;
+       u16 pressure_min, pressure_max;
+       u8  stopacq_polarity;       /* 1 = active high, 0 = active low */
+       u8  first_conversion_delay; /* 0 = 0.5us, 1 = 128us, 2 = 1ms, 3 = 8ms */
+       u8  acquisition_time;       /* 0 = 2us, 1 = 4us, 2 = 8us, 3 = 16us */
+       u8  averaging;              /* 0 = 1, 1 = 4, 2 = 8, 3 = 16 */
+       u8  pen_down_acc_interval;  /* 0 = convert once, 1 = every 0.5ms,
+                                      2 = every 1ms, 3 = every 8ms */
+   };
+
+The board code registers the SPI device with a pointer to this structure in
+``spi_board_info.platform_data``, together with the IRQ, chip select and bus
+number.
+
+Driver testing
+--------------
 
 Use the evtest/event_test utility to test proper function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -229,33 +234,6 @@ Use the evtest/event_test utility to test proper function
    Event: time 67435.596000, type 1 (Key), code 330 (Touch), value 0
    Event: time 67435.596000, -------------- Report Sync ------------
 
-Common Problems
-~~~~~~~~~~~~~~~
-
-In case you see a message like this
-
-::
-
-   spi0.2: Failed to probe AD7877 Touchscreen
-
-This means that the SPI communication and initilaization with the AD7877
-touchscreen controller/digitizer failed. **check bus_num and chip_select in your
-platform device file**
-
-::
-
-   #if defined(CONFIG_TOUCHSCREEN_AD7877) || defined(CONFIG_TOUCHSCREEN_AD7877_MODULE)
-   {
-       .modalias       = "ad7877",
-       .platform_data      = &bfin_ad7877_ts_info,
-       .irq            = IRQ_PJ11,
-       .max_speed_hz       = 12500000,     /* max spi clock (SCK) speed in HZ */
-       .bus_num        = 0,
-       .chip_select        = 2,
-       .controller_data = &spi_ad7877_chip_info,
-   },
-   #endif
-
 Testing
 ~~~~~~~
 
@@ -275,8 +253,8 @@ Check that the interrupt is registered.
 .. tip::
 
    In case you touch the surface and don’t receive events, it’s likely that
-   something with your /DAV Interrupt is wrong. **check irq number in your
-   platform device file**
+   something with your /DAV Interrupt is wrong. Check the IRQ in the
+   board's platform data.
 
 .. tip::
 
@@ -286,8 +264,11 @@ Check that the interrupt is registered.
 Aux functions
 ~~~~~~~~~~~~~
 
-Under the device folder there are auxiliary functions such as temperature, GPIO,
-DAC and ADC read backs and controls.
+Under the device folder, temp1/temp2, aux1/aux2/aux3 and bat1/bat2 return raw
+ADC conversion codes, not degrees Celsius or millivolts. The dac file accepts an
+unsigned decimal value and writes its low eight bits (use 0–255). gpio4 is
+available; the gpio3 module option replaces aux3 with gpio3. disable controls
+touchscreen IRQ handling.
 
 ::
 
@@ -325,3 +306,30 @@ DAC and ADC read backs and controls.
    1929
    root:/sys/devices/platform/bfin-spi.0/spi0.2> cat aux1
    1929
+
+Troubleshooting
+---------------
+
+Common Problems
+~~~~~~~~~~~~~~~
+
+In case you see a message like this
+
+::
+
+   spi0.2: Failed to probe AD7877 Touchscreen
+
+This means that the SPI communication and initialization with the AD7877
+touchscreen controller/digitizer failed. Check the ``bus_num`` and
+``chip_select`` in the board's ``spi_board_info`` entry:
+
+::
+
+   {
+       .modalias     = "ad7877",
+       .platform_data    = &ad7877_ts_info,
+       .irq          = irq,
+       .max_speed_hz     = 12500000,  /* max spi clock (SCK) speed in HZ */
+       .bus_num      = 0,
+       .chip_select      = 2,
+   },
