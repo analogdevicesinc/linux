@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/net-phy/adin
 
+
 .. _adin:
 
 ADIN1300/ADIN1200
@@ -13,8 +14,8 @@ Supported Devices
 - :adi:`ADIN1200`
 - :adi:`ADIN1300`
 
-Supported Boards
-----------------
+Evaluation Boards
+-----------------
 
 Description
 -----------
@@ -83,8 +84,40 @@ Files
      - :git+linux:`2019_R2:drivers/net/phy/adin-compat.h`
      -
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+#. Hit the search button (typically the slash ``/`` key)
+#. Type ADIN_PHY, then hit Enter; if nothing shows up, the driver is not
+   available in your kernel tree, please use
+   `the ADI linux tree <https://github.com/analogdevicesinc/linux/>`__
+#. Press 1 (the key), then hit Enter
+#. You should see the location + dependencies for enabling the driver
+
+::
+
+   Linux Kernel Configuration
+   Symbol: ADIN_PHY [=y]
+   Type  : tristate
+   Prompt: Analog Devices Industrial Ethernet PHYs
+      Location:
+        -> Device Drivers
+          -> Network device support (NETDEVICES [=y])│
+    (1)     -> PHY Device support and infrastructure (PHYLIB [=y])
+      Defined at drivers/net/phy/Kconfig:208
+      Depends on: NETDEVICES [=y] && PHYLIB [=y]
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ADIN PHY driver instantiates via Linux’s phylib framework, which is
 typically enabled on most systems.
@@ -147,32 +180,6 @@ or via SW.
            };
        };
 
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-#. Hit the search button (typically the slash ``/`` key)
-#. Type ADIN_PHY, then hit Enter; if nothing shows up, the driver is not
-   available in your kernel tree, please use
-   `the ADI linux tree <https://github.com/analogdevicesinc/linux/>`__
-#. Press 1 (the key), then hit Enter
-#. You should see the location + dependencies for enabling the driver
-
-::
-
-   Linux Kernel Configuration
-   Symbol: ADIN_PHY [=y]
-   Type  : tristate
-   Prompt: Analog Devices Industrial Ethernet PHYs
-      Location:
-        -> Device Drivers
-          -> Network device support (NETDEVICES [=y])│
-    (1)     -> PHY Device support and infrastructure (PHYLIB [=y])
-      Defined at drivers/net/phy/Kconfig:208
-      Depends on: NETDEVICES [=y] && PHYLIB [=y]
-
 Driver testing
 --------------
 
@@ -190,6 +197,19 @@ But on the slightly more advanced side, see the sections below.
    If NetworkManager isn’t running, it sometimes works to obtain a DHCP lease
    via **dhclient eth0** [or **eth1** or **eth2**, depending which MAC is
    attached to the ADIN PHY].
+
+::
+
+   Usage: adintool.sh <command> [args]
+     setup - setup phytool and ethtool required for demo
+             WARNING: will override system tools
+     dump_regs <eth> - show all reg values
+                       WARNING: some registers will be cleared on read
+     phy_read_mmd <eth> <reg-addr> - read value from a MMD register
+     phy_write_mmd <eth> <reg-addr> <val> - write value to MMD register
+     cable_diagnostics <eth> - run cable diagnostics on cable
+                               WARNING: puts device into special mode.
+                                        device won't send data during this mode
 
 ifconfig
 ~~~~~~~~
@@ -417,22 +437,6 @@ Link: :git+wiki-scripts:`linux/adintool.sh`
 
 When downloading, make sure the script is made executable.
 
-Usage
-^^^^^
-
-::
-
-   Usage: adintool.sh <command> [args]
-     setup - setup phytool and ethtool required for demo
-             WARNING: will override system tools
-     dump_regs <eth> - show all reg values
-                       WARNING: some registers will be cleared on read
-     phy_read_mmd <eth> <reg-addr> - read value from a MMD register
-     phy_write_mmd <eth> <reg-addr> <val> - write value to MMD register
-     cable_diagnostics <eth> - run cable diagnostics on cable
-                               WARNING: puts device into special mode.
-                                        device won't send data during this mode
-
 First setup
 ^^^^^^^^^^^
 
@@ -462,15 +466,9 @@ Example:
 cable_diagnostics
 ^^^^^^^^^^^^^^^^^
 
-This runs a sequence of register changes to put the PHY into diagnostics mode,
-which interrupts normal operation.
-
-Then a diagnostics will be run on the cable and the results of the registers
-will be read back.
-
-::
-
-   ./adintool.sh cable_diagnostics eth0
+Use ``ethtool --cable-test eth0``. The PHY driver reports pair faults and fault
+lengths through the ethtool cable-test interface. The test interrupts normal
+link operation.
 
 Throughput testing - iperf
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -522,8 +520,11 @@ On the other host check the hash
    sha256sum test.data
    <SHA256-hash-of-data> == should be identical with the first hash
 
+More Information
+----------------
+
 Ethernet pointers
------------------
+~~~~~~~~~~~~~~~~~
 
 - netdev mailing list: netdev@vger.kernel.org
 - `Ethernet Controller bindings doc <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/net/ethernet-controller.yaml>`__
