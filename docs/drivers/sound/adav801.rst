@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/sound/adav801
 
+
 .. _adav801:
 
 ADAV80X
@@ -7,7 +8,7 @@ ADAV80X
 
 ADAV80X Sound CODEC Linux Driver.
 
-Supported devices
+Supported Devices
 -----------------
 
 - :adi:`ADAV801`
@@ -16,98 +17,25 @@ Supported devices
 ADAV801 and ADAV803 differs in serial interface. ADAV801 uses SPI, while ADAV803
 uses I2C.
 
-Reference Circuits
-------------------
-
-- :adi:`CN0219`
-
 Evaluation Boards
 -----------------
 
 - :adi:`EVAL-ADAV801EBZ`
 - :adi:`EVAL-ADAV803EBZ`
 
-Source Code
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0219`
+
+Description
 -----------
 
-Status
-~~~~~~
-
-.. list-table::
-   :header-rows: 1
-
-   * - Source
-     - Mainlined?
-   * - :git+linux:`ADI tree <main:sound/soc/codecs/adav80x.c>`
-     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav80x.c>`__
-
-Files
-^^^^^
-
-.. list-table::
-   :header-rows: 1
-
-   * - Function
-     - File
-   * - driver
-     - `sound/soc/codecs/adav80x.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav80x.c>`__
-   * - include
-     - `sound/soc/codecs/adav80x.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav80x.h>`__
-
-Supported Features
-------------------
-
-ASoC DAPM widgets
-~~~~~~~~~~~~~~~~~
-
-.. list-table::
-   :header-rows: 1
-
-   * - Name
-     - Description
-   * - VINL
-     - Left Analog Input
-   * - VINR
-     - Right Analog Input
-   * - VOUTL
-     - Left Analog Output
-   * - VOUTR
-     - Right Analog Output
-
-ALSA controls
-~~~~~~~~~~~~~
-
-.. list-table::
-   :header-rows: 1
-
-   * - Name
-     - Description
-   * - Master Playback Volume
-     - DAC Volume
-   * - Master Playback Switch
-     - Mute/Unmute DAC output
-   * - Master Capture Switch
-     - ADC Volume
-   * - Master Capture Volume
-     - Mute/Unmute ADC input
-   * - PGA Capture Volume
-     - Input PGA gain
-   * - ADC High Pass Filter Switch
-     - Enable/Disable ADC high-pass filter
-   * - Playback De-emphasis Switch
-     - Enable/Disable playback de-emphassis
-   * - Capture Select
-     - Select the serial port capture source. Possible values: ``ADC``,
-       ``Playback``, ``Aux Playback``
-   * - Aux Capture Select
-     - Select the auxiliary serial port capture source. Possible values:
-       ``ADC``, ``Playback``, ``Aux Playback``
-   * - DAC Select
-     - Select the DAC signal source. Possible values: ``ADC``, ``Playback``,
-       ``Aux Playback``
+Driver features and limitations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Supported DAI formats
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -168,15 +96,58 @@ Supported DAI formats
      - Codec bit- and frameclock slave
 
 Currently unsupported features
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Automatic level control
 - on-chip sample rate converter (Both serial ports have to use the same sample
   rate)
 - S/PDIF input and output
 
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+   * - `Upstream tree <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav80x.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav80x.c>`__
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - shared codec
+     - `sound/soc/codecs/adav80x.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav80x.c>`__
+   * - ADAV801 SPI driver
+     - `sound/soc/codecs/adav801.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav801.c>`__
+   * - ADAV803 I2C driver
+     - `sound/soc/codecs/adav803.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav803.c>`__
+   * - include
+     - `sound/soc/codecs/adav80x.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav80x.h>`__
+
+Adding Linux driver support
+---------------------------
+
+Board integration
+~~~~~~~~~~~~~~~~~
+
 ADAV80X evaluation board driver
--------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following Blackfin board integration and configuration instructions are
+historical. Upstream removed the board driver in commit
+``6ca1118551ca5bb267e75faa6b944679ca195423``; the source link below points to
+the last version before the removal. The ADAV80X codec and its ADAV801/ADAV803
+bus drivers remain upstream.
 
 There is no dedicated Blackfin STAMP evaluation board for the ADAV80X. During
 test and driver development we used the EVAL-ADAV801/ADAV803 board.
@@ -184,10 +155,10 @@ test and driver development we used the EVAL-ADAV801/ADAV803 board.
 It can be easily wired to the Blackfin STAMP SPORT header.
 
 Source Code
-~~~~~~~~~~~
+"""""""""""
 
 Status
-^^^^^^
+''''''
 
 .. list-table::
    :header-rows: 1
@@ -196,13 +167,13 @@ Status
      - Mainlined?
      -
      -
-   * - :git+linux:`git  <2018_R1:sound/soc/blackfin/bfin-eval-adav80x.c>`
-     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adav80x.c>`__
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adav80x.c?id=03a0ddeda7ebafea8e99078581a50d856e3587a4>`__
+     - Deprecated
      -
      -
 
 Files
-^^^^^
+'''''
 
 .. list-table::
    :header-rows: 1
@@ -210,10 +181,10 @@ Files
    * - Function
      - File
    * - driver
-     - `sound/soc/blackfin/bfin-eval-adav80x.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adav80x.c>`__
+     - `sound/soc/blackfin/bfin-eval-adav80x.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adav80x.c?id=03a0ddeda7ebafea8e99078581a50d856e3587a4>`__
 
 Kernel configuration
-~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""
 
 For ADAV801, enable SPI:
 
@@ -246,7 +217,7 @@ Enable ALSA SoC evaluation board driver:
    <M>       Support for the EVAL-ADAV80X boards on Blackfin eval boards
 
 Hardware configuration
-~~~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""""
 
 Default setting for the 12-way DIP switch: from SW11 to SW0 - 110001110001. Keep
 all switch and jumpers as default value defined in the manual, except:
@@ -262,7 +233,7 @@ corresponding pins STAMP. Also, please make sure to connect the **GND** of the
 two boards together to get better signal.
 
 Driver testing
-~~~~~~~~~~~~~~
+""""""""""""""
 
 Load the driver and make sure the sound card is properly instantiated.
 
@@ -284,3 +255,58 @@ Load the driver and make sure the sound card is properly instantiated.
    root:/> arecord -f cd | aplay
    Recording WAVE 'stdin' : Signed 16 bit Little Endian, Rate 44100 Hz, Stereo
    Playing WAVE 'stdin' : Signed 16 bit Little Endian, Rate 44100 Hz, Stereo
+
+Driver testing
+--------------
+
+Routing and DAPM
+~~~~~~~~~~~~~~~~
+
+ASoC DAPM widgets
+^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Description
+   * - VINL
+     - Left Analog Input
+   * - VINR
+     - Right Analog Input
+   * - VOUTL
+     - Left Analog Output
+   * - VOUTR
+     - Right Analog Output
+
+ALSA controls
+~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Description
+   * - Master Playback Volume
+     - DAC Volume
+   * - Master Playback Switch
+     - Mute/Unmute DAC output
+   * - Master Capture Switch
+     - Mute/Unmute ADC input
+   * - Master Capture Volume
+     - ADC digital volume
+   * - PGA Capture Volume
+     - Input PGA gain
+   * - ADC High Pass Filter Switch
+     - Enable/Disable ADC high-pass filter
+   * - Playback De-emphasis Switch
+     - Enable/Disable playback de-emphassis
+   * - Capture Select
+     - Select the serial port capture source. Possible values: ``ADC``, ``Playback``,
+       ``Aux Playback``
+   * - Aux Capture Select
+     - Select the auxiliary serial port capture source. Possible values: ``ADC``,
+       ``Playback``, ``Aux Playback``
+   * - DAC Select
+     - Select the DAC signal source. Possible values: ``ADC``, ``Playback``,
+       ``Aux Playback``
