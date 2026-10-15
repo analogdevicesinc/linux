@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/ad9508
 
+
 .. _ad9508:
 
 AD9508
@@ -64,8 +65,11 @@ Files
      - :git+linux:`main:include/dt-bindings/iio/frequency/ad9508.h`
      -
 
-Enabling the driver
--------------------
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
@@ -83,16 +87,14 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
                     Clock Generator/Distribution  --->
                     <*>  Analog Devices AD9508 Clock Fanout Buffer
 
-Adding a device tree entry
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-Device tree example
-^^^^^^^^^^^^^^^^^^^
+The following example instantiates the AD9508 driver on SPI chip-select 3
+(``reg = <3>``). The board must provide the input clock named ``clkin``;
+the driver enables that clock during probe.
 
-The following example instanciates the ad9508 driver for a ad9508-3 device
-connected on the SPI bus to the chip-select line 1.
-
-::
+.. code-block:: dts
 
    #include <dt-bindings/iio/frequency/ad9508.h>
 
@@ -107,6 +109,7 @@ connected on the SPI bus to the chip-select line 1.
                    spi-cpha;
 
                    clocks = <&ad9508_clkin>;
+                   clock-names = "clkin";
 
                    spi-max-frequency = <10000000>;
                    clock-output-names = "ad9508-1_out0", "ad9508-1_out1", "ad9508-1_out2", "ad9508-1_out3";
