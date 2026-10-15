@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/net-phy/adin1320
 
+
 .. _adin1320:
 
 ADIN1320
@@ -11,8 +12,11 @@ In this guide, we'll provide the steps you need to follow in order to connect
 the ADIN1320EBZ-U1 to a development board running Linux, and use the ADIN1320 as
 a PHY for one of the network interfaces.
 
+Prerequisites
+-------------
+
 Hardware requirements
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
 For this setup you will need the following boards or hardware accessories:
 
@@ -24,8 +28,11 @@ For this setup you will need the following boards or hardware accessories:
 - Jumper wires for the connecting the MII and MDIO to the FMC converter.
 - SD card
 
+Configuration and sequence
+--------------------------
+
 Eval board setup
-----------------
+~~~~~~~~~~~~~~~~
 
 The following jumpers and switches will need to be configured on the
 ADIN1320EBZ-U1 board:
@@ -115,7 +122,7 @@ cross check their position with the following setup:
    :width: 400px
 
 SD card setup
--------------
+~~~~~~~~~~~~~
 
 The next step is to flash a Linux distribution image to an SD card. For this,
 you can use
@@ -163,8 +170,58 @@ The steps are the following:
 
 You may now switch off the board.
 
+Compiling the Linux driver for ADIN1320
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For this step you will need a PC running a Linux distribution. We’ll use the ADI
+Linux kernel fork.
+
+Before compiling the custom kernel, you’ll need to install the following
+dependencies:
+
+::
+
+   sudo apt-get install git fakeroot build-essential ncurses-dev xz-utils libssl-dev bc flex libelf-dev bison openssl device-tree-compiler gcc-arm-linux-gnueabihf u-boot-tools
+
+Clone the ADI Linux repository:
+
+.. code-block:: text
+
+   git clone https://github.com/analogdevicesinc/linux.git
+   cd linux
+   git checkout 6705fadc27d33a6a10958eee5227af0b5b1bdd0d
+
+These instructions apply to the dev/adin1320 branch at the commit above; main
+does not support the ADIN1320.
+
+Compile the kernel for the Zedboard:
+
+.. code-block:: text
+
+   export ARCH=arm
+   export CROSS_COMPILE=arm-linux-gnueabihf-
+   make zynq_xcomm_adv7511_defconfig
+   scripts/config --enable ADIN_PHY
+   make olddefconfig
+   make -j4 UIMAGE_LOADADDR=0x8000 uImage modules
+   sudo make modules_install INSTALL_MOD_PATH=/media/$USER/rootfs
+
+After the build is done, insert the SD card in your PC and copy the kernel image
+to the BOOT partition:
+
+::
+
+   cp arch/arm/boot/uImage /media/$USER/BOOT/
+   sync
+
+Insert the SD card back in the Zedboard and follow the same process described in
+the **Testing the ADIN1320EBZ-U1** section.
+
+Verification and diagnostics
+----------------------------
+
 Testing the ADIN1320EBZ-U1
---------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 At this point we can connect the ADIN1320EBZ-U1 to the development board and
 start testing. The pinout between the ADIN1320 board and the FMC extender should
@@ -247,45 +304,3 @@ unless you want to use some of the ADIN13xx particular features (such as frame
 checker counters, MDI/MDIX settings with ethtool), you don’t need the ADIN1320
 Linux driver. For more details on various ways to test the driver you can check
 out the **Driver testing** section in :ref:`adin`.
-
-Compiling the Linux driver for ADIN1320
----------------------------------------
-
-For this step you will need a PC running a Linux distribution. We’ll use the ADI
-Linux kernel fork.
-
-Before compiling the custom kernel, you’ll need to install the following
-dependencies:
-
-::
-
-   sudo apt-get install git fakeroot build-essential ncurses-dev xz-utils libssl-dev bc flex libelf-dev bison openssl device-tree-compiler gcc-arm-linux-gnueabihf u-boot-tools
-
-Clone the ADI Linux repository:
-
-::
-
-   git clone :git+linux.git
-   cd linux
-   git checkout dev:`adin1320+`
-
-Compile the kernel for the Zedboard:
-
-::
-
-   export ARCH=arm
-   export CROSS_COMPILE=arm-linux-gnueabihf-
-   make zynq_xcomm_adv7511_defconfig -j4
-   make -j4 UIMAGE_LOADADDR=0x8000 uImage
-   sudo make modules_install INSTALL_MOD_PATH=/media/$USER/rootfs
-
-After the build is done, insert the SD card in your PC and copy the kernel image
-to the BOOT partition:
-
-::
-
-   cp arch/arm/boot/uImage /media/$USER/BOOT/
-   sync
-
-Insert the SD card back in the Zedboard and follow the same process described in
-the **Testing the ADIN1320EBZ-U1** section.
