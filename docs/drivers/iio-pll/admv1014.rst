@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/admv1014
 
+
 .. _admv1014:
 
 ADMV1014
@@ -57,160 +58,17 @@ Files
    :start-after: .. start-declaring-spi-slave-devices
    :end-before: .. end-declaring-spi-slave-devices
 
-properties
-^^^^^^^^^^
+Hardware configuration
+----------------------
 
-**compatible:**
-
-- enum:
-- adi,admv1014
-
-**reg:**
-
-- maxItems: 1
-
-**spi-max-frequency:**
-
-- minimum: 1000000
-
-**clocks:**
-
-- description: Definition of the external clock (see clock/clock-bindings.txt)
-- minItems: 1
-
-**clock-names:**
-
-- description: Must be ``lo_in``
-- maxItems: 1
-
-**clock-output-names:**
-
-- maxItems: 1
-
-**clock-scales:**
-
-- description: The Common Clock Framework max rate is limited by MAX of unsigned
-  long. For ADMV1014 device this is a deficiency. If specified, this property
-  allows arbitrary scales. The first element in the array should be the
-  multiplier and the second element should be the divider.
-- $ref: /schemas/types.yaml#/definitions/uint32-array
-- minimum: 1
-
-**vcm-supply:**
-
-- description: analog voltage regulator (see regulator/regulator.txt)
-
-**adi,parity-en:**
-
-- description: Enable Parity for Write execution.
-- type: boolean
-
-**adi,ibias-pd:**
-
-- description: Power Down the Rx IBIAS.
-- type: boolean
-
-**adi,if-amp-pd:**
-
-- description: Power Down the IF Amp.
-- type: boolean
-
-**adi,quad-bg-pd:**
-
-- description: Power Down the Quadrupler Band Gap.
-- type: boolean
-
-**adi,bb-amp-pd:**
-
-- description: Power Down the Baseband Amp.
-- type: boolean
-
-**adi,quad-ibias-pd:**
-
-- description: Power Down the Quadrupler Bias Current.
-- type: boolean
-
-**adi,det-en:**
-
-- description: Digital Rx Detector Enable.
-- type: boolean
-
-**adi,bg-pd:**
-
-- description: Power Down the Rx BG.
-- type: boolean
-
-**adi,p1db-comp:**
-
-- description: Turn on bits to optimize P1dB.
-- $ref: /schemas/types.yaml#/definitions/uint32
-- enum: [0, 3]
-
-**adi,quad-se-mode:**
-
-- description: Switch Differential/SE Modes.
-- $ref: /schemas/types.yaml#/definitions/uint32
-- enum: [6, 9, 12]
-
-**adi,det-prog:**
-
-- description: Digital Rx Detector Program.
-- $ref: /schemas/types.yaml#/definitions/uint32
-- enum: [1, 2, 4, 8, 16, 32, 64]
-
-**adi,adi,bb-amp-gain-ctrl:**
-
-- description: Baseband Amp Gain control.
-- $ref: /schemas/types.yaml#/definitions/uint32
-- enum: [0, 1, 2, 3]
-
-**‘#address-cells’:**
-
-- const: 1
-
-**‘#size-cells’:**
-
-- const: 0
-
-**‘#clock-cells’:**
-
-- const: 0
-
-**required:**
-
-- compatible
-- reg
-- clocks
-- clock-names
-- vcm-supply
-
-Example
-^^^^^^^
-
-.. code:: dts
-
-   spi {
-         #address-cells = <1>;
-         #size-cells = <0>;
-         admv1014@0{
-           compatible = "adi,admv1014";
-           reg = <0>;
-           spi-max-frequency = <1000000>;
-           clocks = <&admv1014_lo>;
-           clock-names = "lo_in";
-           clock-scales = <1 5>;
-           vcm-supply = <&vcm>;
-           adi,quad-se-mode = <12>;
-           adi,parity-en;
-           adi,det-en;
-           adi,p1db-comp = <3>;
-           adi,det-prog = <0>;
-           adi,bb-amp-gain-ctrl = <0>;
-         };
-       };
+Use the device and evaluation-board documentation for physical wiring, power
+supplies and the LO connection.
 
 Adding Linux driver support
 ---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
@@ -228,34 +86,86 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
                    Frequency  --->
                        <*> Analog Devices ADMV1014 Microwave Downconverter
 
-Hardware configuration
-----------------------
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Properties
+^^^^^^^^^^
+
+Required properties:
+
+- ``compatible = "adi,admv1014"``.
+- ``reg``: SPI chip-select number.
+- ``clocks`` and ``clock-names = "lo_in"``: The LO input clock.
+- Supply references:
+
+  - ``vcm-supply``.
+  - ``vcc-if-bb-supply``.
+  - ``vcc-vga-supply``.
+  - ``vcc-vva-supply``.
+  - ``vcc-lna-3p3-supply``.
+  - ``vcc-lna-1p5-supply``.
+  - ``vcc-bg-supply``.
+  - ``vcc-quad-supply``.
+  - ``vcc-mixer-supply``.
+
+Mode-selection properties:
+
+- ``adi,input-mode``: String ``iq`` or ``if``.
+- ``adi,quad-se-mode``: String ``diff``, ``se-pos`` or ``se-neg``.
+- ``adi,detector-enable``: Boolean enabling the detector.
+- ``adi,p1db-compensation-enable``: Boolean enabling P1dB compensation.
+
+Example
+^^^^^^^
+
+This example selects IQ input mode and differential quadrature mode. The LO clock
+provider supplies the input frequency.
+
+.. code-block:: dts
+
+   &spi0 {
+     #address-cells = <1>;
+     #size-cells = <0>;
+     converter@0 {
+       compatible = "adi,admv1014";
+       reg = <0>;
+       spi-max-frequency = <1000000>;
+       clocks = <&admv1014_lo>;
+       clock-names = "lo_in";
+       vcm-supply = <&vcm>;
+       vcc-if-bb-supply = <&vcc_if_bb>;
+       vcc-vga-supply = <&vcc_vga>;
+       vcc-vva-supply = <&vcc_vva>;
+       vcc-lna-3p3-supply = <&vcc_lna_3p3>;
+       vcc-lna-1p5-supply = <&vcc_lna_1p5>;
+       vcc-bg-supply = <&vcc_bg>;
+       vcc-quad-supply = <&vcc_quad>;
+       vcc-mixer-supply = <&vcc_mixer>;
+       adi,input-mode = "iq";
+       adi,quad-se-mode = "diff";
+       adi,detector-enable;
+       adi,p1db-compensation-enable;
+     };
+   };
+
+Driver testing
+--------------
+
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-device-files
    :end-before: .. end-iio-device-files
 
-::
+Select the IIO device whose ``name`` attribute is ``admv1014``.
 
-   root:/> cd /sys/bus/iio/devices/
-   root:/sys/bus/iio/devices> ls
-   iio:device0
-   root:/sys/bus/iio/devices> iio:device0
+.. code-block:: text
 
-   root:/> ls -l
-   -r--r--r-- 1 root root 4096 May  6 12:20 dev
-   -r--r--r-- 1 root root 4096 May  6 12:20 name
-   -rw-r--r-- 1 root root 4096 May  6 13:00 out_altvoltage0_i_hardwaregain
-   -rw-r--r-- 1 root root 4096 May  6 13:00 out_altvoltage0_q_hardwaregain
-   -rw-r--r-- 1 root root 4096 May  6 13:01 out_altvoltage0_i_offset
-   -rw-r--r-- 1 root root 4096 May  6 13:01 out_altvoltage0_q_offset
-   -rw-r--r-- 1 root root 4096 May  6 13:01 out_altvoltage0_i_phase
-   -rw-r--r-- 1 root root 4096 May  6 13:01 out_altvoltage0_q_phase
-   lrwxrwxrwx 1 root root    0 May  6 12:20 subsystem -> ../../../../../../../../bus/iio
-   -rw-r--r-- 1 root root 4096 May  6 12:20 uevent
-
-Show device name
-~~~~~~~~~~~~~~~~
+   cd /sys/bus/iio/devices/iio:device0
+   cat name
+   ls -l
 
 ::
 
@@ -263,53 +173,45 @@ Show device name
    root:/> cat name
    admv1014
 
-Set ChannelY Gain
-^^^^^^^^^^^^^^^^^
+Calibrate IQ baseband gain
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_Z_hardwaregain
+In IQ mode, calibration scale is a shared integer register code, not a decimal
+I/Q hardware-gain pair. Run in the correct device directory. IF mode instead
+exposes per-path calibscale_coarse and calibscale_fine attributes.
 
-Gain factor. If shared across all channels, <type>_hardwaregain is used.
+.. code-block:: bash
 
-::
-
-   root:/> cat out_altvoltage0_i_hardwaregain
-   0 0
-
-   root:/> echo 1.1 > out_altvoltage0_i_hardwaregain
-   root:/> cat out_altvoltage0_hardwaregain
-   1 1
+   set -eu
+   cat in_altvoltage_calibscale
+   echo 1 > in_altvoltage_calibscale
+   cat in_altvoltage_calibscale
 
 Set ChannelY Offset value
-^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_Z_offset
+Use the current input-channel attribute; replace \_i\_ with \_q\_ for the Q
+path. Values are integer register codes.
 
-Offset value. If shared across all channels, <type>_offset is used.
+.. code-block:: bash
 
-::
-
-   root:/> cat out_altvoltage0_i_offset
-   0
-
-   root:/> echo 1 > out_altvoltage0_i_offset
-   root:/> cat out_altvoltage0_offset
-   1
+   set -eu
+   cat in_altvoltage0_i_offset
+   echo 1 > in_altvoltage0_i_offset
+   cat in_altvoltage0_i_offset
 
 Set ChannelY Phase value
-^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_Z_phase
+Use the current input-channel attribute; replace \_i\_ with \_q\_ for the Q
+path. Values are integer register codes.
 
-Phase value. If shared across all channels, <type>_phase is used.
+.. code-block:: bash
 
-::
-
-   root:/> cat out_altvoltage0_i_phase
-   0
-
-   root:/> echo 1 > out_altvoltage0_i_phase
-   root:/> cat out_altvoltage0_phase
-   1
+   set -eu
+   cat in_altvoltage0_i_phase
+   echo 1 > in_altvoltage0_i_phase
+   cat in_altvoltage0_i_phase
 
 More Information
 ----------------
