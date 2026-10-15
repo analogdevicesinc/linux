@@ -25,7 +25,7 @@ IIO devices with trigger consumer interface
 .. start-iio-devices-with-trigger-consumer-interface
 
 If deviceX supports triggered sampling, it's a so called trigger consumer and
-there will be an additional folder ``/sys/bus/iio/device/iio:deviceX/trigger``.
+there will be an additional folder ``/sys/bus/iio/devices/iio:deviceX/trigger``.
 In this folder there is a file called ``current_trigger``, allowing controlling
 and viewing the current trigger source connected to deviceX. Available trigger
 sources can be identified by reading the name file
@@ -37,9 +37,8 @@ from a number of sensors, converters, etc.
 
    **Trigger Consumers:**
 
-   Currently triggers are only used for the filling of software ring
-   buffers and as such any device supporting INDIO_RING_TRIGGERED has the
-   consumer interface automatically created.
+   Triggers are used to fill buffers, and any device supporting
+   INDIO_BUFFER_TRIGGERED has the consumer interface automatically created.
 
 **Description:** Read name of triggerY
 
@@ -93,15 +92,17 @@ Buffer management
 
 .. start-buffer-management
 
-The Industrial I/O subsystem provides support for various ring buffer based
-data acquisition methods. Apart from device specific hardware buffer support,
-the user can chose between two different software ring buffer implementations.
-One is the IIO lock free software ring, and the other is based on Linux kfifo.
-Devices with buffer support feature an additional sub-folder in the
-``/sys/bus/iio/devices/deviceX/`` folder hierarchy. Called ``deviceX:bufferY``,
-where Y defaults to 0, for devices with a single buffer.
-
-Every buffer implementation features a set of files:
+The Industrial I/O subsystem supports buffered data acquisition. Buffer
+implementation and capabilities depend on the driver. Devices with buffer
+support expose each buffer at
+``/sys/bus/iio/devices/iio:deviceX/bufferY``, where Y is the buffer index,
+starting at 0. The first buffer is additionally exposed through the legacy
+``buffer`` directory, which contains its buffer-control attributes. Its scan
+configuration is exposed through the legacy ``scan_elements`` directory, while
+multi-buffer systems expose the scan attributes in the corresponding
+``bufferY`` directory. Read samples from the device character node
+``/dev/iio:deviceX``; the selected buffer is determined by the active buffer
+configuration.
 
 **length**
    Get/set the number of sample sets that may be held by the buffer.
@@ -145,27 +146,24 @@ Typical ADC scan elements
 
 .. start-typical-adc-scan-elements
 
-**in_voltageX_en / in_voltageX-voltageY_en / timestamp_en:**
+**in_voltageX_en / in_voltageX-voltageY_en / in_timestamp_en:**
    Scan element control for triggered data capture.
    Writing 1 will enable the scan element, writing 0 will disable it
 
-**in_voltageX_type / in_voltageX-voltageY_type / timestamp_type:**
-   Description of the scan element data storage within the buffer
-   and therefore in the form in which it is read from user-space.
-   Form is [s|u]bits/storage-bits. s or u specifies if signed
-   (2's complement) or unsigned. bits is the number of bits of
-   data and storage-bits is the space (after padding) that it
-   occupies in the buffer. Note that some devices will have
-   additional information in the unused bits so to get a clean
-   value, the bits value must be used to mask the buffer output
-   value appropriately. The storage-bits value also specifies the
-   data alignment. So u12/16 will be a unsigned 12 bit integer
-   stored in a 16 bit location aligned to a 16 bit boundary.
-   For other storage combinations this attribute will be extended
-   appropriately.
+**in_voltageX_type / in_voltageX-voltageY_type / in_timestamp_type:**
+   Describes the scan element's representation in the buffer. The format is
+   ``[be|le]:[s|u]bits/storagebits[Xrepeat]>>shift``. The prefix gives byte
+   order; ``s`` or ``u`` specifies signed (two's complement) or unsigned
+   data. ``bits`` is the number of meaningful bits and ``storagebits`` is
+   the storage width. The optional repeat count describes repeated elements.
+   After interpreting byte order, shift the storage value right by ``shift``
+   and mask it to ``bits``; signed values also require sign extension.
+   For example, ``be:u12/16>>1`` describes an unsigned 12-bit value in
+   big-endian 16-bit storage, shifted right by one bit. Account for alignment
+   padding when combining enabled elements into a complete scan.
 
-**in_voltageX_index / in_voltageX-voltageY_index / timestamp_index:**
-   A single positive integer specifying the position of this
+**in_voltageX_index / in_voltageX-voltageY_index / in_timestamp_index:**
+   A nonnegative integer specifying the ordering of this
    scan element in the buffer. Note these are not dependent on
    what is enabled and may not be contiguous. Thus for user-space
    to establish the full layout these must be used in conjunction
