@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-resolver/ad2s90
 
+
 .. _ad2s90:
 
 AD2S90
@@ -41,8 +42,8 @@ Status
      - Mainlined?
      -
      -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/resolver/ad2s90.c>`__
-     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/resolver/ad2s90.c>`__
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/resolver/ad2s90.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/resolver/ad2s90.c>`__
      -
      -
 
@@ -55,59 +56,35 @@ Files
    * - Function
      - File
    * - driver
-     - `drivers/staging/iio/resolver/ad2s90.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/resolver/ad2s90.c>`__
+     - `drivers/iio/resolver/ad2s90.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/resolver/ad2s90.c>`__
 
 Adding Linux driver support
 ---------------------------
 
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
-.. note::
+Enable ``CONFIG_AD2S90`` with ``CONFIG_SPI``. The module is ``ad2s90``.
 
-   The Driver depends on **CONFIG_SPI**
+.. code-block:: text
 
-::
+   Device Drivers
+     Industrial I/O support
+       Resolver to digital converters
+         <*> Analog Devices ad2s90 driver
 
-   Linux Kernel Configuration
-       Device Drivers  --->
-           [*] Staging drivers  --->
-               <*>     Industrial I/O support --->
-                   --- Industrial I/O support
-                   -*-   Enable ring buffer support within IIO
-                   -*-     Industrial I/O lock free software ring
-                   -*-   Enable triggered sampling support
+Driver testing
+--------------
 
-                         *** Resolver to digital converters ***
-                   [--snip--]
+Identify the device by reading ``name`` under
+``/sys/bus/iio/devices/iio:deviceX/``; the number X depends on probe order.
 
-                   <*>   Analog Devices AD2S90 driver
-
-                   [--snip--]
-
-Driver Usage
-------------
-
-The device file path may looks like,
-
-::
-
-   /sys/devices/platform/bfin-spi.0/spi0.3/iio/device0/ad2s90>
-
-There are two files:
-
-.. list-table::
-   :header-rows: 1
-
-   * - File Name
-     - Permission
-     - Usage
-   * - angular
-     - read only
-     - 12 bits angular value
-   * - description
-     - read only
-     - description about this chip
+The device exposes ``in_angl0_raw`` and ``in_angl0_scale``. The raw position
+is a 12-bit unsigned code; the scale is 6283 / 4096 (2π / 2^12), giving the
+angle in radians.
 
 More Information
 ----------------
