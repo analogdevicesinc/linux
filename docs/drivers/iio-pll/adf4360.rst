@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/adf4360
 
+
 .. _adf4360:
 
 ADF4360
@@ -61,15 +62,18 @@ Files
      - :git+linux:`main:Documentation/devicetree/bindings/iio/frequency/adi,adf4360.yaml`
      -
 
-Enabling the driver
--------------------
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
-.. note::
+Note
 
-   The ADF4360 Driver depends on **CONFIG_SPI**
+The ADF4360 Driver depends on CONFIG_SPI and CONFIG_COMMON_CLK
 
 ::
 
@@ -80,16 +84,13 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
                     Clock Generator/Distribution  --->
                     <*>  Analog Devices ADF4360 Wideband Synthesizer
 
-Adding a device tree entry
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Device tree example
-^^^^^^^^^^^^^^^^^^^
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 The following example instantiates the adf4360 driver for a adf4360-7 device
 connected on the SPI bus to the chip-select line 0.
 
-::
+.. code-block:: dts
 
    / {
        clocks {
@@ -100,7 +101,7 @@ connected on the SPI bus to the chip-select line 0.
                clock-output-names = "adf_ref_clock";
            };
        };
-   ];
+   };
 
    &spi {
        adf4360: pll@0 {
@@ -120,3 +121,7 @@ connected on the SPI bus to the chip-select line 0.
        };
 
    };
+
+For -7/-8/-9 parts, specify adi,vco-minimum-frequency-hz and
+adi,vco-maximum-frequency-hz for the fitted external inductor. The startup
+frequency must lie within the resulting allowed range.
