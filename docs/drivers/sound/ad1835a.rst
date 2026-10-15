@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/sound/ad1835a
 
+
 .. _ad1835a:
 
 AD1836
@@ -7,7 +8,7 @@ AD1836
 
 AD1836 Sound CODEC Linux Driver.
 
-Supported devices
+Supported Devices
 -----------------
 
 - :adi:`AD1835A`
@@ -40,7 +41,7 @@ Status
      -
 
 Files
-^^^^^
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -52,8 +53,14 @@ Files
    * - include
      - `sound/soc/codecs/ad1836.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ad1836.h>`__
 
+Adding Linux driver support
+---------------------------
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example device initialization
------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-spi-slave-devices
@@ -91,209 +98,14 @@ also have to adjust bus_num and chip_select according to your board setup.
    }
    arch_initcall(board_init);
 
-ASoC DAPM Widgets
+Board integration
 ~~~~~~~~~~~~~~~~~
-
-.. list-table::
-   :header-rows: 1
-
-   * - Name
-     - Description
-     - Model
-   * - DAC1OUT
-     - DAC Channel1 Output
-     - AD1835A, AD1836A, AD1838A
-   * - DAC2OUT
-     - DAC Channel2 Output
-     - AD1835A, AD1836A, AD1838A
-   * - DAC3OUT
-     - DAC Channel3 Output
-     - AD1835A, AD1836A, AD1838A
-   * - DAC4OUT
-     - DAC Channel4 Output
-     - AD1835A
-   * - ADC1IN
-     - ADC Channel1 Input
-     - AD1835A, AD1836A, AD1838A
-   * - ADC2IN
-     - ADC Channel2 Input
-     - AD1836A
-
-ALSA Controls
-~~~~~~~~~~~~~
-
-.. list-table::
-   :header-rows: 1
-
-   * - Name
-     - Description
-     - Model
-   * - ADC High Pass Filter Switch
-     - Enable/Disable ADC high-pass filter
-     - AD1835A, AD1836A, AD1838A
-   * - Playback Deemphasis
-     - Select playback de-emphasis. Possible Values: ``None``, ``44.1kHz``,
-       ``32kHz``, ``48kHz``
-     - AD1835A, AD1836A, AD1838A
-   * - DAC1 Playback Volume
-     - DAC Channel 1 volume
-     - AD1835A, AD1836A, AD1838A
-   * - DAC2 Playback Volume
-     - DAC Channel 2 volume
-     - AD1835A, AD1836A, AD1838A
-   * - DAC3 Playback Volume
-     - DAC Channel 3 volume
-     - AD1835A, AD1836A, AD1838A
-   * - DAC4 Playback Volume
-     - DAC Channel 4 volume
-     - AD1835A
-   * - DAC1 Playback Switch
-     - Mute/Unmute DAC Channel 1
-     - AD1835A, AD1836A, AD1838A
-   * - DAC2 Playback Switch
-     - Mute/Unmute DAC Channel 2
-     - AD1835A, AD1836A, AD1838A
-   * - DAC3 Playback Switch
-     - Mute/Unmute DAC Channel 3
-     - AD1835A, AD1836A, AD1838A
-   * - DAC4 Playback Switch
-     - Mute/Unmute DAC Channel 4
-     - AD1835A
-   * - ADC1 Capture Switch
-     - Mute/Unmute ADC Channel1
-     - AD1835A, AD1836A, AD1838A
-   * - ADC2 Capture Switch
-     - Mute/Unmute ADC Channel2
-     - AD1836A
-   * - ADC2 Capture Volume
-     - Gain for ADC Channel 2
-     - AD1836A
-
-DAI Configuration
-~~~~~~~~~~~~~~~~~
-
-The CODEC driver registers one DAI named depending on the chip model used.
-
-.. list-table::
-   :header-rows: 1
-
-   * - DAI name
-     - Model
-   * - ``ad1835-hifi``
-     - AD1835, AD1837
-   * - ``ad1836-hifi``
-     - AD1836
-   * - ``ad1838-hifi``
-     - AD1838, AD1839
-
-Supported DAI formats
-^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-
-   * - Name
-     - Supported by driver
-     - Description
-   * - SND_SOC_DAIFMT_I2S
-     - no
-     - I2S mode
-   * - SND_SOC_DAIFMT_RIGHT_J
-     - no
-     - Right Justified mode
-   * - SND_SOC_DAIFMT_LEFT_J
-     - no
-     - Left Justified mode
-   * - SND_SOC_DAIFMT_DSP_A
-     - yes
-     - data MSB after FRM LRC
-   * - SND_SOC_DAIFMT_DSP_B
-     - no
-     - data MSB during FRM LRC
-   * - SND_SOC_DAIFMT_AC97
-     - no
-     - AC97 mode
-   * - SND_SOC_DAIFMT_PDM
-     - no
-     - Pulse density modulation
-   * -
-     -
-     -
-   * - SND_SOC_DAIFMT_NB_NF
-     - no
-     - Normal bit- and frameclock
-   * - SND_SOC_DAIFMT_NB_IF
-     - no
-     - Normal bitclock, inverted frameclock
-   * - SND_SOC_DAIFMT_IB_NF
-     - no
-     - Inverted frameclock, normal bitclock
-   * - SND_SOC_DAIFMT_IB_IF
-     - yes
-     - Inverted bit- and frameclock
-   * -
-     -
-     -
-   * - SND_SOC_DAIFMT_CBM_CFM
-     - yes
-     - Codec bit- and frameclock master
-   * - SND_SOC_DAIFMT_CBS_CFM
-     - no
-     - Codec bitclock slave, frameclock master
-   * - SND_SOC_DAIFMT_CBM_CFS
-     - no
-     - Codec bitclock master, frameclock slave
-   * - SND_SOC_DAIFMT_CBS_CFS
-     - no
-     - Codec bit- and frameclock slave
-
-Example DAI Configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. code:: c
-
-   static int bf5xx_ad1836_hw_params(struct snd_pcm_substream *substream,
-       struct snd_pcm_hw_params *params)
-   {
-       struct snd_soc_pcm_runtime *rtd = substream->private_data;
-       struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-       struct snd_soc_dai *codec_dai = rtd->codec_dai;
-       int ret;
-
-       /* set cpu DAI configuration */
-       ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_DSP_A |
-           SND_SOC_DAIFMT_IB_IF | SND_SOC_DAIFMT_CBM_CFM);
-       if (ret < 0)
-           return ret;
-
-       /* set codec DAI configuration */
-       ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_DSP_A |
-           SND_SOC_DAIFMT_IB_IF | SND_SOC_DAIFMT_CBM_CFM);
-       if (ret < 0)
-           return ret;
-
-       return 0;
-   }
-
-   static struct snd_soc_ops bf5xx_ad1836_ops = {
-       .hw_params = bf5xx_ad1836_hw_params,
-   };
-
-   static struct snd_soc_dai_link bf5xx_ad1836_dai = {
-       .name = "ad1836",
-       .stream_name = "AD1836",
-       .cpu_dai_name = "bfin-tdm.0",
-       .codec_dai_name = "ad1836-hifi",
-       .platform_name = "bfin-tdm-pcm-audio",
-       .codec_name = "spi0.4",
-       .ops = &bf5xx_ad1836_ops,
-   };
 
 AD1836 evaluation board driver
-------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Adding Kernel Support - As a module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"""""""""""""""""""""""""""""""""""
 
 To add support for the built-in codec AD183X of BF5XX to the kernel build
 system, a few things must be enabled properly for things to work.The
@@ -319,7 +131,7 @@ inserted automatically when it is needed. You can also build sound driver into
 kernel.
 
 Testing the built in kernel driver
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+''''''''''''''''''''''''''''''''''
 
 If audio is configured as modules, skip this section. If audio is built into
 kernel and you have booted the kernel, there are a few things to check to ensure
@@ -338,7 +150,7 @@ audio is working:
      #0: bf5xx_ad183x (AD183X)
 
 Testing the audio module
-^^^^^^^^^^^^^^^^^^^^^^^^
+''''''''''''''''''''''''
 
 ::
 
@@ -367,7 +179,7 @@ Testing the audio module
    TONE: generating sine wave at 1000 Hz...
 
 Driver testing
-~~~~~~~~~~~~~~
+""""""""""""""
 
 #. Check the output
 
@@ -472,3 +284,214 @@ the speakers anything you put on the line.
 ::
 
    root:~> arecord | aplay
+
+Driver testing
+--------------
+
+Routing and DAPM
+~~~~~~~~~~~~~~~~
+
+ASoC DAPM Widgets
+^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Model
+   * - DAC1OUT
+     - DAC Channel1 Output
+     - AD1835A, AD1836A, AD1838A
+   * - DAC2OUT
+     - DAC Channel2 Output
+     - AD1835A, AD1836A, AD1838A
+   * - DAC3OUT
+     - DAC Channel3 Output
+     - AD1835A, AD1836A, AD1838A
+   * - DAC4OUT
+     - DAC Channel4 Output
+     - AD1835A
+   * - ADC1IN
+     - ADC Channel1 Input
+     - AD1835A, AD1836A, AD1838A
+   * - ADC2IN
+     - ADC Channel2 Input
+     - AD1836A
+
+ALSA controls
+~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Model
+   * - ADC High Pass Filter Switch
+     - Enable/Disable ADC high-pass filter
+     - AD1835A, AD1836A, AD1838A
+   * - Playback Deemphasis
+     - Select playback de-emphasis. Possible Values: ``None``, ``44.1kHz``,
+       ``32kHz``, ``48kHz``
+     - AD1835A, AD1836A, AD1838A
+   * - DAC1 Playback Volume
+     - DAC Channel 1 volume
+     - AD1835A, AD1836A, AD1838A
+   * - DAC2 Playback Volume
+     - DAC Channel 2 volume
+     - AD1835A, AD1836A, AD1838A
+   * - DAC3 Playback Volume
+     - DAC Channel 3 volume
+     - AD1835A, AD1836A, AD1838A
+   * - DAC4 Playback Volume
+     - DAC Channel 4 volume
+     - AD1835A
+   * - DAC1 Playback Switch
+     - Mute/Unmute DAC Channel 1
+     - AD1835A, AD1836A, AD1838A
+   * - DAC2 Playback Switch
+     - Mute/Unmute DAC Channel 2
+     - AD1835A, AD1836A, AD1838A
+   * - DAC3 Playback Switch
+     - Mute/Unmute DAC Channel 3
+     - AD1835A, AD1836A, AD1838A
+   * - DAC4 Playback Switch
+     - Mute/Unmute DAC Channel 4
+     - AD1835A
+   * - ADC1 Capture Switch
+     - Mute/Unmute ADC Channel1
+     - AD1835A, AD1836A, AD1838A
+   * - ADC2 Capture Switch
+     - Mute/Unmute ADC Channel2
+     - AD1836A
+   * - ADC2 Capture Volume
+     - Gain for ADC Channel 2
+     - AD1836A
+
+DAI formats and clocks
+~~~~~~~~~~~~~~~~~~~~~~
+
+DAI Configuration
+^^^^^^^^^^^^^^^^^
+
+The CODEC driver registers one DAI named depending on the chip model used. All
+variants advertise 48 kHz only, with S16_LE, S20_3LE, S24_LE and S32_LE PCM
+formats (S32_LE uses 24-bit codec words). AD1835/AD1837 provide up to eight
+playback and two capture channels; AD1836 provides six playback and four capture
+channels; AD1838/AD1839 provide six playback and two capture channels.
+
+.. list-table::
+   :header-rows: 1
+
+   * - DAI name
+     - Model
+   * - ``ad1835-hifi``
+     - AD1835, AD1837
+   * - ``ad1836-hifi``
+     - AD1836
+   * - ``ad1838-hifi``
+     - AD1838, AD1839
+
+Supported DAI formats
+"""""""""""""""""""""
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Supported by driver
+     - Description
+   * - SND_SOC_DAIFMT_I2S
+     - no
+     - I2S mode
+   * - SND_SOC_DAIFMT_RIGHT_J
+     - no
+     - Right Justified mode
+   * - SND_SOC_DAIFMT_LEFT_J
+     - no
+     - Left Justified mode
+   * - SND_SOC_DAIFMT_DSP_A
+     - yes
+     - data MSB after FRM LRC
+   * - SND_SOC_DAIFMT_DSP_B
+     - no
+     - data MSB during FRM LRC
+   * - SND_SOC_DAIFMT_AC97
+     - no
+     - AC97 mode
+   * - SND_SOC_DAIFMT_PDM
+     - no
+     - Pulse density modulation
+   * -
+     -
+     -
+   * - SND_SOC_DAIFMT_NB_NF
+     - no
+     - Normal bit- and frameclock
+   * - SND_SOC_DAIFMT_NB_IF
+     - no
+     - Normal bitclock, inverted frameclock
+   * - SND_SOC_DAIFMT_IB_NF
+     - no
+     - Inverted frameclock, normal bitclock
+   * - SND_SOC_DAIFMT_IB_IF
+     - yes
+     - Inverted bit- and frameclock
+   * -
+     -
+     -
+   * - SND_SOC_DAIFMT_CBM_CFM
+     - yes
+     - Codec bit- and frameclock master
+   * - SND_SOC_DAIFMT_CBS_CFM
+     - no
+     - Codec bitclock slave, frameclock master
+   * - SND_SOC_DAIFMT_CBM_CFS
+     - no
+     - Codec bitclock master, frameclock slave
+   * - SND_SOC_DAIFMT_CBS_CFS
+     - no
+     - Codec bit- and frameclock slave
+
+Example DAI Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code:: c
+
+   static int bf5xx_ad1836_hw_params(struct snd_pcm_substream *substream,
+       struct snd_pcm_hw_params *params)
+   {
+       struct snd_soc_pcm_runtime *rtd = substream->private_data;
+       struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+       struct snd_soc_dai *codec_dai = rtd->codec_dai;
+       int ret;
+
+       /* set cpu DAI configuration */
+       ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_DSP_A |
+           SND_SOC_DAIFMT_IB_IF | SND_SOC_DAIFMT_CBM_CFM);
+       if (ret < 0)
+           return ret;
+
+       /* set codec DAI configuration */
+       ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_DSP_A |
+           SND_SOC_DAIFMT_IB_IF | SND_SOC_DAIFMT_CBM_CFM);
+       if (ret < 0)
+           return ret;
+
+       return 0;
+   }
+
+   static struct snd_soc_ops bf5xx_ad1836_ops = {
+       .hw_params = bf5xx_ad1836_hw_params,
+   };
+
+   static struct snd_soc_dai_link bf5xx_ad1836_dai = {
+       .name = "ad1836",
+       .stream_name = "AD1836",
+       .cpu_dai_name = "bfin-tdm.0",
+       .codec_dai_name = "ad1836-hifi",
+       .platform_name = "bfin-tdm-pcm-audio",
+       .codec_name = "spi0.4",
+       .ops = &bf5xx_ad1836_ops,
+   };
