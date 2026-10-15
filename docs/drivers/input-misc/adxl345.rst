@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/input-misc/adxl345
 
+
 .. _adxl345:
 
 ADXL345
@@ -14,11 +15,6 @@ Supported Devices
 - :adi:`ADXL346`
 - :adi:`ADXL375`
 
-Reference Circuits
-------------------
-
-- :adi:`CN0133`
-
 Evaluation Boards
 -----------------
 
@@ -26,6 +22,11 @@ Evaluation Boards
 - :adi:`EVAL-ADXL345Z-DB`
 - :adi:`EVAL-ADXL346Z-DB`
 - :adi:`EVAL-ADXL375`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0133`
 
 Description
 -----------
@@ -62,53 +63,11 @@ sensing and active acceleration measurement at extremely low power dissipation.
 
 .. video:: https://www.youtube.com/watch?v=8o_b2DO3d3E
 
-ADXL34x Hardware Features
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-**ADXL345/346:**
-
-- Ultra low power
-- Power consumption scales automatically with bandwidth
-- User selectable fixed 10-bit resolution or 4mg/LSB scale factor in all
-  g-ranges, up to 13-bit resolution at ±16 g
-- 32 level output data FIFO minimizes host processor load
-
-- Built in motion detection functions
-
-  - Tap/Double Tap detection
-  - Activity/Inactivity monitoring
-  - Free-Fall detection
-
-- Supply and I/O voltage range: 1.8 V to 3.6 V (ADXL345) and 1.7 V to 2.75 V
-  (ADXL346)
-- SPI (3 and 4 wire) and I2C digital interfaces
-- Flexible interrupt modes – Any interrupt mappable to either interrupt pin
-- See data sheet for additional features
-
-**ADXL346:**
-
-- 4- and 6-position orientation sensing
-
-Configuration
--------------
-
-**Selectable ADXL34X I2C Device Address:**
-
-.. list-table::
-   :header-rows: 1
-
-   * - SDO
-     - I2C Address
-   * - 0
-     - 0x53
-   * - 1
-     - 0x1D
-
-Software configurable features
-------------------------------
+Driver features and limitations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ADXL34x Linux Driver Features
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 **ADXL345/346:**
 
@@ -148,6 +107,56 @@ ADXL34x Linux Driver Features
 ::
 
    * User selectable Linux Input Event Code for individual positions
+
+ADXL34x Hardware Features
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**ADXL345/346:**
+
+-  Ultra low power
+
+-  Power consumption scales automatically with bandwidth
+
+-  User selectable fixed 10-bit resolution or 4mg/LSB scale factor in all
+   g-ranges, up to 13-bit resolution at ±16 g
+
+-  32 level output data FIFO minimizes host processor load
+
+-  Built in motion detection functions
+
+   -  Tap/Double Tap detection
+
+   -  Activity/Inactivity monitoring
+
+   -  Free-Fall detection
+
+-  Supply voltage VS: 2.0 V to 3.6 V for ADXL345, 1.7 V to 2.75 V for ADXL346.
+   Digital interface supply VDD I/O: 1.7 V to VS.
+
+-  SPI (3 and 4 wire) and I2C digital interfaces
+
+-  Flexible interrupt modes – Any interrupt mappable to either interrupt pin
+
+-  See data sheet for additional features
+
+**ADXL346:**
+
+- 4- and 6-position orientation sensing
+
+Configuration
+~~~~~~~~~~~~~
+
+**Selectable ADXL34X I2C Device Address:**
+
+.. list-table::
+   :header-rows: 1
+
+   * - SDO
+     - I2C Address
+   * - 0
+     - 0x53
+   * - 1
+     - 0x1D
 
 Source Code
 -----------
@@ -190,23 +199,23 @@ your kernel tree.
 If you are using a kernel version **without the threaded irq capabilities (<
 2.6.30) get there driver from here:**
 
-- :git+linux:`adxl34x.c  <main:drivers/input/misc/adxl34x.c>`
+- `drivers/input/misc/adxl34x.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/misc/adxl34x.c>`__
 
   - Copy to linux-2.6.x/drivers/input/misc/adxl34x.c
 
-- :git+linux:`adxl34x.h  <main:drivers/input/misc/adxl34x.h>`
+- `drivers/input/misc/adxl34x.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/misc/adxl34x.h>`__
 
   - Copy to linux-2.6.x/drivers/input/misc/adxl34x.h
 
-- :git+linux:`adxl34x-i2c.c  <main:drivers/input/misc/adxl34x-i2c.c>`
+- `drivers/input/misc/adxl34x-i2c.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/misc/adxl34x-i2c.c>`__
 
   - Copy to linux-2.6.x/drivers/input/misc/adxl34x-i2c.c
 
-- :git+linux:`adxl34x-spi.c  <main:drivers/input/misc/adxl34x-spi.c>`
+- `drivers/input/misc/adxl34x-spi.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/misc/adxl34x-spi.c>`__
 
   - Copy to linux-2.6.x/drivers/input/misc/adxl34x-spi.c
 
-- :git+linux:`adxl34x.h  <main:include/linux/input/adxl34x.h>`
+- `include/linux/input/adxl34x.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/input/adxl34x.h>`__
 - Copy to linux-2.6.x/include/linux/input/adxl34x.h
 
 \**For the latest version of checkout the :dokuwiki:`Files <#Files>` section of
@@ -261,8 +270,154 @@ this document. \*\*
    obj-$(CONFIG_INPUT_ADXL34X_I2C)     += adxl34x-i2c.o
    obj-$(CONFIG_INPUT_ADXL34X_SPI)     += adxl34x-spi.o
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADXL34x driver depends on CONFIG_SPI or CONFIG_I2C.
+
+::
+
+   Input device support
+     -*- Generic input layer (needed for keyboard, mouse, ...)
+     < >   Support for memoryless force-feedback devices
+     < >   Polled input device skeleton
+     < >   Sparse keymap support library
+           *** Userland interfaces ***
+     < >   Mouse interface
+     < >   Joystick interface
+     <*>   Event interface
+     < >   Event debugging
+           *** Input Device Drivers ***
+     [ ]   Keyboards  --->
+     [ ]   Mice  --->
+     [ ]   Joysticks/Gamepads  --->
+     [ ]   Tablets  --->
+     [ ]   Touchscreens  --->
+     [*]   Miscellaneous devices  --->
+        < >   Analog Devices AD714x Capacitance Touch Sensor
+        <*>   Analog Devices ADXL34x Three-Axis Digital Accelerometer
+        <*>     support I2C bus connection (NEW)
+        <*>     support SPI bus connection (NEW)
+           Hardware I/O ports  --->
+
+Driver compiled as a module
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+I2C Interface:
+
+::
+
+   root:~> modprobe evdev
+   root:~> modprobe adxl34x
+   input: ADXL34x accelerometer as /devices/platform/i2c-bfin-twi.1/i2c-adapter/i2c-1/1-0053/input/input1
+   adxl34x 1-0053: ADXL345 accelerometer, irq 140
+
+SPI Interface:
+
+::
+
+   root:~> modprobe evdev
+   root:~> modprobe adxl34x
+   input: ADXL34x accelerometer as /devices/platform/bfin-spi.1/spi1.2/input/input1
+   adxl34x spi1.2: ADXL345 accelerometer, irq 140
+
+Driver compiled into the kernel
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Your kernel startup messages should include something like this
+
+I2C Interface:
+
+::
+
+   input: ADXL34x accelerometer as /devices/platform/i2c-bfin-twi.1/i2c-adapter/i2c-1/1-0053/input/input1
+   adxl34x 1-0053: ADXL345 accelerometer, irq 140
+
+SPI Interface:
+
+::
+
+   input: ADXL34x accelerometer as /devices/platform/bfin-spi.1/spi1.2/input/input1
+   adxl34x spi1.2: ADXL345 accelerometer, irq 140
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Required devicetree properties:
+
+-  compatible: Needs to be ``adi,`` followed by the name of the device. E.g.
+   ``adi,adxl34x``
+
+-  reg: The chipselect number used for the device
+
+-  spi-max-frequency: Maximum SPI clock frequency
+
+-  spi-cpha: Needs to be set for the correct SPI mode
+
+-  spi-cpol: Needs to be set for the correct SPI mode
+
+-  interrupt-parent: Specifies which IRQ controller is used
+
+-  interrupts: The interrupt associated with INT1. Using INT2 instead
+   requires setting ``use_int2`` in ``struct adxl34x_platform_data``; there
+   is no devicetree property for this.
+
+::
+
+   axi_spi_1: spi@42040000 {
+           #address-cells = <1>;
+           #size-cells = <0>;
+           compatible = "xlnx,axi-spi-1.02.a", "xlnx,xps-spi-2.00.a";
+           ...
+
+           adxl345@0 {
+                   compatible = "adi,adxl34x";
+                   reg = <0>;
+                   spi-max-frequency = <1000000>;
+                   spi-cpha;
+                   spi-cpol;
+                   interrupt-parent = <&gic>;
+                   interrupts = < 0 32 4 >;
+           };
+    };
+
+Required devicetree properties:
+
+- compatible: Needs to be ``adi,`` followed by the name of the device. E.g.
+  ``adi,adxl34x``
+- reg: The slave address of the device
+- interrupt-parent: Specifies which IRQ controller is used
+- interrupts: The interrupt associated with INT1
+
+::
+
+   axi_iic_1: i2c@41640000 {
+           #address-cells = <1>;
+           #size-cells = <0>;
+           compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
+           ...
+
+           adxl345@0 {
+                   compatible = "adi,adxl34x";
+                   reg = <0x53>;
+                   interrupt-parent = <&gic>;
+                   interrupts = < 0 32 4 >;
+           };
+    };
+
+Device enumeration
+~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
@@ -272,7 +427,7 @@ Digital Accelerometer characteristics are highly application specific and may
 vary between boards and models. The platform_data for the device’s ``struct
 device`` holds this information.
 
-.. code:: c
+.. code-block:: c
 
    /*
     * include/linux/input/adxl34x.h
@@ -537,7 +692,7 @@ device`` holds this information.
         * watermark:
         * The Watermark feature can be used to reduce the interrupt load
         * of the system. The FIFO fills up to the value stored in watermark
-        * [1..32] and then generates an interrupt.
+        * [1..31] samples.
         * A '0' disables the watermark feature.
         */
 
@@ -632,7 +787,7 @@ device`` holds this information.
    #endif
 
 Example Platform / Board file (SPI Interface Option)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-spi-slave-devices
@@ -641,9 +796,9 @@ Example Platform / Board file (SPI Interface Option)
 These snippets are all from the same file.
 ``arch/blackfin/mach-bf548/boards/ezkit.c``:
 
-.. code:: C
+.. code-block:: C
 
-   #include <linux/spi/adxl34x.h>
+   #include <linux/input/adxl34x.h>
 
 .. code:: c
 
@@ -716,41 +871,8 @@ These snippets are all from the same file.
    }
    arch_initcall(board_init);
 
-Devicetree
-~~~~~~~~~~
-
-Required devicetree properties:
-
-- compatible: Needs to be ``adi,`` followed by the name of the device. E.g.
-  ``adi,adxl34x``
-- reg: The chipselect number used for the device
-- spi-max-frequency: Maximum SPI clock frequency
-- spi-cpha: Needs to be set for the correct SPI mode
-- spi-cpol: Needs to be set for the correct SPI mode
-- interrupt-parent: Specifies which IRQ controller is used
-- interrupts: The interrupt associated with the INT2 pin
-
-::
-
-   axi_spi_1: spi@42040000 {
-           #address-cells = <1>;
-           #size-cells = <0>;
-           compatible = "xlnx,axi-spi-1.02.a", "xlnx,xps-spi-2.00.a";
-           ...
-
-           adxl345@0 {
-                   compatible = "adi,adxl34x";
-                   reg = <0>;
-                   spi-max-frequency = <1000000>;
-                   spi-cpha;
-                   spi-cpol;
-                   interrupt-parent = <&gic>;
-                   interrupts = < 0 32 4 >;
-           };
-    };
-
 Example Platform / Board file (I2C Interface Option)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-i2c-devices
@@ -785,128 +907,11 @@ These snippets are all from the same file.
    }
    arch_initcall(board_init);
 
-Devicetree
-~~~~~~~~~~
-
-Required devicetree properties:
-
-- compatible: Needs to be ``adi,`` followed by the name of the device. E.g.
-  ``adi,adxl34x``
-- reg: The slave address of the device
-- interrupt-parent: Specifies which IRQ controller is used
-- interrupts: The interrupt associated with the INT2 pin
-
-::
-
-   axi_iic_1: i2c@41640000 {
-           #address-cells = <1>;
-           #size-cells = <0>;
-           compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
-           ...
-
-           adxl345@0 {
-                   compatible = "adi,adxl34x";
-                   reg = <0x53>;
-                   interrupt-parent = <&gic>;
-                   interrupts = < 0 32 4 >;
-           };
-    };
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The ADXL34x Driver depends on **CONFIG_SPI** or **CONFIG_I2C**
-
-::
-
-   Input device support
-     -*- Generic input layer (needed for keyboard, mouse, ...)
-     < >   Support for memoryless force-feedback devices
-     < >   Polled input device skeleton
-     < >   Sparse keymap support library
-           *** Userland interfaces ***
-     < >   Mouse interface
-     < >   Joystick interface
-     <*>   Event interface
-     < >   Event debugging
-           *** Input Device Drivers ***
-     [ ]   Keyboards  --->
-     [ ]   Mice  --->
-     [ ]   Joysticks/Gamepads  --->
-     [ ]   Tablets  --->
-     [ ]   Touchscreens  --->
-     [*]   Miscellaneous devices  --->
-        < >   Analog Devices AD714x Capacitance Touch Sensor
-        <*>   Analog Devices ADXL34x Three-Axis Digital Accelerometer
-        <*>     support I2C bus connection (NEW)
-        <*>     support SPI bus connection (NEW)
-           Hardware I/O ports  --->
-
-Hardware configuration
-----------------------
-
 Driver testing
 --------------
 
-Driver compiled as a module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-I2C Interface:
-
-::
-
-   root:~> modprobe evdev
-   root:~> modprobe adxl34x
-   input: ADXL34x accelerometer as /devices/platform/i2c-bfin-twi.1/i2c-adapter/i2c-1/1-0053/input/input1
-   adxl34x 1-0053: ADXL345 accelerometer, irq 140
-
-SPI Interface:
-
-::
-
-   root:~> modprobe evdev
-   root:~> modprobe adxl34x
-   input: ADXL34x accelerometer as /devices/platform/bfin-spi.1/spi1.2/input/input1
-   adxl34x spi1.2: ADXL345 accelerometer, irq 140
-
-Driver compiled into the kernel
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Your kernel startup messages should include something like this
-
-I2C Interface:
-
-::
-
-   input: ADXL34x accelerometer as /devices/platform/i2c-bfin-twi.1/i2c-adapter/i2c-1/1-0053/input/input1
-   adxl34x 1-0053: ADXL345 accelerometer, irq 140
-
-SPI Interface:
-
-::
-
-   input: ADXL34x accelerometer as /devices/platform/bfin-spi.1/spi1.2/input/input1
-   adxl34x spi1.2: ADXL345 accelerometer, irq 140
-
-Common Problems
-~~~~~~~~~~~~~~~
-
-In case you see a message like this
-
-::
-
-   adxl34x spi1.2: Failed to probe ADXL34x accelerometer
-
-This means that the SPI communication and initilaization with the ADXL34x
-failed. **check bus_num and chip_select in your platform device file**
-
-Checking for proper installation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 After the kernel boot your device folder should include at least one device node
 for the accelerometer
@@ -981,8 +986,8 @@ Use the evtest utility to test proper function
 .. tip::
 
    In case you move the accelerometer and don’t receive events, it’s likely that
-   something with your Interrupt is wrong. **check irq number in your platform
-   device file**
+   something with your Interrupt is wrong. Check the IRQ in the board's
+   platform data or devicetree node.
 
 .. tip::
 
@@ -1043,6 +1048,12 @@ ADXL34x Sysfs runtime controls
 
 Device Calibration
 ^^^^^^^^^^^^^^^^^^
+
+Writing 1 to ``calibrate`` zeroes all three axes using the most recently
+received sample (the Z axis is also zeroed, removing the 1 g gravity
+offset). Open an input consumer first so a sample is available. Reading
+``calibrate`` returns the combined hardware and software correction values
+as three comma-separated signed integers (X, Y, Z).
 
 ::
 
@@ -1131,8 +1142,9 @@ See table above for supported sample rates
 Enabling / Disabling the Device
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Writing ‘**1**’ into disable - disables the ADXL34x (low power suspend mode)
-Writing ‘**0**’ into disable - enables the ADXL34x
+Writing 1 into disable prevents measurement; writing 0 allows it. Hardware
+measurement is enabled only while the input device is opened and the system is
+not suspended, so writing 0 with no input consumer does not start sampling.
 
 ::
 
@@ -1153,10 +1165,10 @@ Writing ‘**1**’ into autosleep - enables Autosleep Upon Inactivity Writing
    root:/sys/devices/platform/bfin-spi.1/spi1.2>
 
 ADXL345 on Raspberry Pi - A worked example
-------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Create an SD Card image
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 Download Raspbian ``wheezy`` SD Card Image from here:
 http://www.raspberrypi.org/downloads
@@ -1180,7 +1192,7 @@ http://www.raspberrypi.org/downloads
    Dave@HAL9000:~/devel/pshare/RaspberryPi$
 
 Compile a kernel
-~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^
 
 There are two ways to compile a new Kernel -
 
@@ -1192,7 +1204,7 @@ There are two ways to compile a new Kernel -
    In order to speed things up - we compile the kernel on a foreign host.
 
 Get ARM tools and RaspberryPi kernel source
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""""""""""""""""""""
 
 Create an empty directory
 '''''''''''''''''''''''''
@@ -1303,7 +1315,7 @@ Copy kernel image and modules to SD Card
    Dave@HAL9000:~/devel/git/RaspberryPi/linux$ sudo ARCH=arm make modules_install INSTALL_MOD_PATH=/media/10b4c001-2137-4418-b29e-57b7d15a6cbc
 
 Connect ADXL345 development Board
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""""""""""
 
 .. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/rpi_adxl345.jpg
    :width: 800px
@@ -1313,7 +1325,7 @@ http://elinux.org/RPi_Low-level_peripherals
 Connect ADXL345 SDA, SCL and INT1 to the RaspberryPi GPIO header P1
 
 Power up your Raspberry Pi
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""
 
 Load the I2C Bus driver module
 ''''''''''''''''''''''''''''''
@@ -1427,7 +1439,23 @@ Driver test
    pi@raspberrypi /sys/bus/i2c/devices/1-0053 $
 
 ADXL345/6 Android Acceleration Sensor
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Using this driver under Android as Acceleration Sensor, follow the link here:
 :dokuwiki+deprecated:`ADXL345 Android Sensor </resources/tools-software/android-drivers/sensor-acceleration/adxl345>`
+
+Troubleshooting
+---------------
+
+Common Problems
+~~~~~~~~~~~~~~~
+
+In case you see a message like this
+
+::
+
+   adxl34x spi1.2: Failed to probe ADXL34x accelerometer
+
+This means that the SPI communication and initialization with the ADXL34x
+failed. Check the ``bus_num`` and ``chip_select`` in the board's platform
+data (SPI) or the devicetree node (I2C/SPI).
