@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/ad9371
 
+
 .. _ad9371:
 
 AD9371
@@ -41,20 +42,20 @@ closed-loop gain control (CLGC), and voltage standing wave ratio (VSWR)
 measurement.
 
 Supported Devices
------------------
+~~~~~~~~~~~~~~~~~
 
 - :adi:`AD9371`
 - :adi:`AD9375`
 
 Evaluation Boards
------------------
+~~~~~~~~~~~~~~~~~
 
 - :adi:`ADRV9371-N/PCBZ <EVAL-ADRV9371>`
 - :adi:`ADRV9371-W/PCBZ <EVAL-ADRV9371>`
 - :adi:`ADRV9375-N/PCBZ <ADRV9375>`
 
 Description
------------
+~~~~~~~~~~~
 
 This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
 driver, targeting RF Transceivers. The industrial I/O subsystem provides a
@@ -63,10 +64,10 @@ using a number of different physical interfaces (i2c, spi, etc). See
 :external+system-level:ref:`iio` for more information.
 
 Source Code
------------
+~~~~~~~~~~~
 
 Status
-~~~~~~
+^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -81,7 +82,7 @@ Status
      -
 
 Files
-~~~~~
+^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -102,79 +103,51 @@ Files
      - :git+linux:`main:drivers/iio/adc/mykonos`
      -
 
-Interrelated Device Drivers
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Adding Linux driver support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Receive AXI-ADC driver
-''''''''''''''''''''''
+Kernel configuration
+^^^^^^^^^^^^^^^^^^^^
 
-.. list-table::
-   :header-rows: 1
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
 
-   * - Function
-     - File
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
-     -
-   * - include
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
-     -
+.. note::
 
-Transmit AXI-DAC / DDS driver
-'''''''''''''''''''''''''''''
+   The AD9371 driver depends on **CONFIG_SPI**
 
-.. list-table::
-   :header-rows: 1
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
 
-   * - Function
-     - File
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
-     -
-   * - include
-     - :git+linux:`drivers/iio/frequency/cf_axi_adc.h <main:drivers/iio/frequency/cf_axi_dds.h>`
-     -
+::
 
-AXI JESD204B HDL driver
-'''''''''''''''''''''''
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+           -*-   Enable buffer support within IIO
+           -*-   Enable triggered sampling support
 
-.. list-table::
-   :header-rows: 1
+                 *** Analog to digital converters ***
+           [--snip--]
 
-   * - Function
-     - File
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_rx.c`
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_tx.c`
-     -
+           -*- Analog Devices High-Speed AXI ADC driver core
+           < > Analog Devices AD9361, AD9364 RF Agile Transceiver driver
+           <*> Analog Devices AD9371 RF Transceiver driver
+           < > Analog Devices AD6676 Wideband IF Receiver driver
+           < > Analog Devices AD9467, AD9680, etc. high speed ADCs
+           < > Analog Devices Motor Control (AD-FMCMOTCON) drivers
+           < > Generic FFT driver
+           <*> Generic AXI JESD204B configuration driver
 
-AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+           [--snip--]
 
-.. list-table::
-   :header-rows: 1
+       Frequency Synthesizers DDS/PLL  --->
+               Direct Digital Synthesis  --->
+               <*> Analog Devices CoreFPGA AXI DDS driver
 
-   * - Function
-     - File
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/jesd204/axi_adxcvr.c`
-     -
-
-Device Driver Customization
----------------------------
-
-Please follow the link here for detailed options and examples:
-
-- :ref:`ad9371-customization`
+Devicetree configuration
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 Example Linux Device-Tree Initialization
 ----------------------------------------
@@ -206,55 +179,15 @@ Required devicetree properties:
      - :git+linux:`zynq-zc706-adv7511-adrv9375.dts <main:arch/arm/boot/dts/zynq-zc706-adv7511-adrv9375.dts>`
      -
 
-Enabling Linux driver support
------------------------------
+Device Driver Customization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
+Please follow the link here for detailed options and examples:
 
-.. note::
+- :ref:`ad9371-customization`
 
-   The AD9371 driver depends on **CONFIG_SPI**
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-           -*-   Enable ring buffer support within IIO
-           -*-     Industrial I/O lock free software ring
-           -*-   Enable triggered sampling support
-
-                 *** Analog to digital converters ***
-           [--snip--]
-
-           -*- Analog Devices High-Speed AXI ADC driver core
-           < > Analog Devices AD9361, AD9364 RF Agile Transceiver driver
-           <*> Analog Devices AD9371 RF Transceiver driver
-           < > Analog Devices AD6676 Wideband IF Receiver driver
-           < > Analog Devices AD9467, AD9680, etc. high speed ADCs
-           < > Analog Devices Motor Control (AD-FMCMOTCON) drivers
-           < > Generic FFT driver
-           <*> Generic AXI JESD204B configuration driver
-
-           [--snip--]
-
-       Frequency Synthesizers DDS/PLL  --->
-               Direct Digital Synthesis  --->
-               <*> Analog Devices CoreFPGA AXI DDS driver
-
-Hardware configuration
-----------------------
-
-Driver testing / API
---------------------
+Driver testing
+~~~~~~~~~~~~~~
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-device-files
@@ -497,8 +430,8 @@ Driver testing / API
    -rw-rw-rw- 1 root root  4096 May 31 14:49 out_voltage1_vswr_track_count
    -rw-rw-rw- 1 root root  4096 May 31 14:49 out_voltage1_vswr_tracking_en
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -506,7 +439,7 @@ Show device name
    ad9371-phy
 
 Enable State Machine Controls
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The AD9371 transceiver includes an Enable State Machine (ENSM), allowing real
 time control over the current state of the device. The ENSM has two possible
@@ -527,7 +460,7 @@ control methods – SPI control (writing ensm_mode), and pin control.
    radio_off
 
 Local Oscillator Control (LO)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The AD9371 contains three fractional-N PLLs to generate the RF LOs used by the
 transmitter, receiver, and observation receiver. The tuning range supported by
@@ -552,10 +485,10 @@ this driver covers 300MHz to 6GHz.
    2450000000
 
 Filter and Signal Path Configuration
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Profiles
-^^^^^^^^
+--------
 
 AD9371 uses profiles to designate different device configuration settings for
 the Tx/Rx/ORx/SnRx channels. When selecting a profile, note that Rx1 and Rx2 use
@@ -574,7 +507,7 @@ not described here
 :dokuwiki:`MATLAB Profile/Filter Generator for AD9371 </resources/eval/user-guides/mykonos/software/filters>`.
 
 Loading a Profile
-'''''''''''''''''
+"""""""""""""""""
 
 ::
 
@@ -582,7 +515,7 @@ Loading a Profile
    root@analog:/sys/bus/iio/devices/iio:device3#
 
 RX Signal Path
-^^^^^^^^^^^^^^
+--------------
 
 The AD9371 contains dual receiver channels. Each Rx channel is a direct
 conversion system that contains a programmable attenuator stage, followed by
@@ -598,7 +531,7 @@ sample rate of each digital filter block is adjustable by changing the
 decimation factors to produce the desired output data rate.
 
 Querying the RX Sample Rate and Primary Signal Bandwidth
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 ::
 
@@ -608,7 +541,7 @@ Querying the RX Sample Rate and Primary Signal Bandwidth
    100000000
 
 Observation RX Signal Path
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------
 
 The ORx operates in a similar manner to the main receivers. Each input is
 differential and uses a dedicated mixer. The ORx inputs share a baseband ADC and
@@ -618,7 +551,7 @@ receiver channels. This channel can monitor the Tx channels and implement error
 correction functions. It can also be used as a general-purpose receiver.
 
 Querying the ORx Sample Rate
-''''''''''''''''''''''''''''
+""""""""""""""""""""""""""""
 
 ::
 
@@ -628,7 +561,7 @@ Querying the ORx Sample Rate
    200000000
 
 Setting the Observation Path Source
-'''''''''''''''''''''''''''''''''''
+"""""""""""""""""""""""""""""""""""
 
 When the ARM radio control is in ARM command mode, this attribute allows the
 user to selectively power-up or power-down the desired ObsRx data path.
@@ -667,7 +600,7 @@ user to selectively power-up or power-down the desired ObsRx data path.
    ORX1_TX_LO
 
 TX Signal Path
-^^^^^^^^^^^^^^
+--------------
 
 The AD9371 employs a direct conversion transmitter architecture consisting of
 two identical and independently controlled channels that provide all the digital
@@ -685,7 +618,7 @@ to the output stage. Each transmit chain provides a wide attenuation adjustment
 range with fine granularity to help designers optimize SNR.
 
 Querying the TX Sample Rate and Primary Signal Bandwidth
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 ::
 
@@ -695,7 +628,7 @@ Querying the TX Sample Rate and Primary Signal Bandwidth
    75000000
 
 RX Gain Control
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^
 
 The AD9371 main receivers (Rx1, Rx2) and sniffer receivers (SnRxA, SnRxB, SnRxC)
 feature automatic and manual gain control modes that provide flexible gain
@@ -755,7 +688,7 @@ Example:
   )
 
 Loading a gain table
-^^^^^^^^^^^^^^^^^^^^
+--------------------
 
 ::
 
@@ -765,7 +698,7 @@ Loading a gain table
    root@analog:/sys/bus/iio/devices/iio:device3# cat /lib/firmware/ad9371_std_gaintable > gain_table_config
 
 Gain control modes
-^^^^^^^^^^^^^^^^^^
+------------------
 
 The AD9371 Rx supports three modes of gain control. These modes are described in
 brief below:
@@ -811,7 +744,7 @@ brief below:
    manual automatic hybrid
 
 Querying or Setting a Gain Control Mode
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------------------
 
 ::
 
@@ -827,7 +760,7 @@ Querying or Setting a Gain Control Mode
    automatic
 
 Reading the current Gain
-^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------
 
 Supported in all available Gain control modes
 
@@ -842,7 +775,7 @@ Supported in all available Gain control modes
    30.000000 dB
 
 MGC setting the current Gain
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 Only available in Manual Gain Control Mode (MGC)
 
@@ -870,7 +803,7 @@ Only available in Manual Gain Control Mode (MGC)
    20.000000 dB
 
 Tx Attenuation Control
-~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^
 
 The TX attenuation/gain can be individually controlled for TX1 and TX2. The
 range is from 0 to -41.95 dB in programmable steps sizes. The nomenclature used
@@ -890,7 +823,7 @@ here is gain instead of attenuation, so all values are expressed negative.
    -10.000000 dB
 
 Received Signal Strength Indicator (RSSI)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This attribute will report RSSI - however currently it reports Decimated Power
 instead.
@@ -901,7 +834,7 @@ instead.
    12.75 dB
 
 Calibration Tracking Controls
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Tracking Calibrations: The ARM processor is tasked with ensuring that Quadrature
 Error Correction (QEC) and Local Oscillator Leakage (LOL) corrections are
@@ -946,7 +879,7 @@ corresponding tracking option.
    0
 
 ARM Calibrations
-~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^
 
 Sometimes a certain calibration is not required during power-up, or some other
 external condition must be met. The attributes detailed below allow the user to
@@ -974,7 +907,7 @@ Y.
    root:/sys/bus/iio/devices/iio:device3> echo 1 > calibrate
 
 AuxADC Reading
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 The AD9371 contains an auxiliary ADC that is multiplexed to four input pins
 (AUXADC_0 through AUXADC_3). This block can monitor system voltages without
@@ -1000,7 +933,7 @@ To obtain the reading in mV calculate: *(in_voltage3_raw + in_voltage3_offset)
    in_voltage3_scale:0.775194
 
 AuxDAC Writing
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 The AD9371 contains ten identical auxiliary DACs (AUXDAC_0 to AUXDAC_9) that can
 supply bias voltages, analog control voltages, or other system functionality.
@@ -1022,7 +955,7 @@ Attributes are:
    root:/sys/bus/iio/devices/iio:device3> echo 1000 > out_voltage2_raw
 
 Digital Predistortion Control (DPD) (AD9375 only)
--------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The DPD is a feature available on the :adi:`AD9375` that enables users
 to achieve higher power amplifier (PA) efficiency while still meeting adjacent
@@ -1035,7 +968,7 @@ For more details please consult the **AD9371/AD9375 System Development User
 Guide UG-992**
 
 DPD Tracking Controls
-~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
 This control enabled the DPD tracking calibration. The user must set the ORx
 path source to INTERNALCALS by setting in_voltage2_rf_port_select.
@@ -1058,7 +991,7 @@ corresponding tracking option.
    1
 
 DPD Actuator Control
-~~~~~~~~~~~~~~~~~~~~
+--------------------
 
 This control allows the user to bypass the DPD actuator on a given Tx channel.
 This control can be called in the radioOn state. However, it is recommended that
@@ -1081,7 +1014,7 @@ corresponding tracking option.
    1
 
 DPD Reset Control
-~~~~~~~~~~~~~~~~~
+-----------------
 
 This control allows the user to reset the DPD actuator on a given Tx channel.
 This control can be called in the radioOn state. However, it is recommended that
@@ -1095,16 +1028,16 @@ corresponding tracking option.
 - out_voltage0_dpd_reset_en
 - out_voltage1_dpd_reset_en
 
-::
+.. code-block:: text
 
    root:/sys/bus/iio/devices/iio:device3> cat out_voltage0_dpd_reset_en
    0
    root:/sys/bus/iio/devices/iio:device3> echo 1 > out_voltage0_dpd_reset_en
    root:/sys/bus/iio/devices/iio:device3> cat out_voltage0_dpd_reset_en
-   1
+   0
 
 DPD Status
-~~~~~~~~~~
+----------
 
 This control reads back the DPD calibration status from the ARM processor.
 
@@ -1143,13 +1076,13 @@ This control reads back the DPD calibration status from the ARM processor.
    * - 12
      - Error: ORx QEC Disabled
 
-::
+.. code-block:: text
 
-   root:/sys/bus/iio/devices/iio:device3> cat out_out_voltage0_dpd_status
+   root:/sys/bus/iio/devices/iio:device3> cat out_voltage0_dpd_status
    0
 
 DPD Model Error
-~~~~~~~~~~~~~~~
+---------------
 
 This control reads back the percent error of the PA model ×10 to include 1
 decimal place.
@@ -1163,7 +1096,7 @@ decimal place.
    120
 
 DPD External Path Delay
-~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------
 
 This control reads back the external path delay from Tx output to ORx input, at
 1/16 sample resolution of the ORx sample rate. Calculate true value by dividing
@@ -1178,7 +1111,7 @@ this member.
    2326
 
 DPD Tracking Count
-~~~~~~~~~~~~~~~~~~
+------------------
 
 This control reads back the number of times the DPD has successfully run since
 DPD initialization calibration.
@@ -1192,7 +1125,7 @@ DPD initialization calibration.
    42
 
 Closed-Loop Gain Control (CLGC) (AD9375 only)
----------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The closed-loop gain control (CLGC) feature in the :adi:`AD9375`
 enables a constant gain level to be maintained at the ORx input (total gain from
@@ -1207,7 +1140,7 @@ For more details please consult the **AD9371/AD9375 System Development User
 Guide UG-992**
 
 CLGC Tracking Controls
-~~~~~~~~~~~~~~~~~~~~~~
+----------------------
 
 This control enabled the CLGC tracking calibration. The user must set the ORx
 path source to INTERNALCALS by setting in_voltage2_rf_port_select.
@@ -1230,7 +1163,7 @@ corresponding tracking option.
    1
 
 CLGC Desired Gain
-~~~~~~~~~~~~~~~~~
+-----------------
 
 This control configures the tx1DesiredGain/tx2DesiredGain parameter
 
@@ -1249,7 +1182,7 @@ amplification) from Tx output to ORx input. Desired GaindB = desiredGain/100
    -6000
 
 CLGC Current Gain
-~~~~~~~~~~~~~~~~~
+-----------------
 
 This control returns the
 
@@ -1264,7 +1197,7 @@ Current measured gain in 1/100ths dB scale. Current GaindB = currentGain/100
    -19956
 
 CLGC Tx Gain
-~~~~~~~~~~~~
+------------
 
 This control returns the current Tx attenuation setting for a given channel in
 0.05 dB resolution, as determined by the CLGC algorithm. However, this value is
@@ -1281,7 +1214,7 @@ actions not being synchronous. Tx AttenuationdB = txGain/200
    4050
 
 CLGC RMS Tx digital sample power
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------
 
 This control returns the RMS Tx digital sample power measured at the output of
 the DPD actuator. Measurement resolution is 0.01 dB. Prms dBFS = txRms/100.
@@ -1295,7 +1228,7 @@ the DPD actuator. Measurement resolution is 0.01 dB. Prms dBFS = txRms/100.
    -1225
 
 CLGC RMS ORx digital sample power
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------
 
 This control returns the RMS ORx digital sample power measured within the DPD
 block on the ORx side. Measuremen resolution is 0.01 dB. Prms dBFS = orxRms/100.
@@ -1309,7 +1242,7 @@ block on the ORx side. Measuremen resolution is 0.01 dB. Prms dBFS = orxRms/100.
    -3214
 
 CLGC Status
-~~~~~~~~~~~
+-----------
 
 This control reads back the CLGC calibration status from the ARM processor.
 
@@ -1356,7 +1289,7 @@ This control reads back the CLGC calibration status from the ARM processor.
    0
 
 CLGC Tracking Count
-~~~~~~~~~~~~~~~~~~~
+-------------------
 
 This control reads back the number of times the CLGC has successfully run since
 CLGC initialization calibration.
@@ -1370,7 +1303,7 @@ CLGC initialization calibration.
    42
 
 Voltage Standing Wave Ratio (VSWR) Measurement, (AD9375 only)
--------------------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The voltage standing wave ratio (VSWR) on a transmission line is defined as the
 ratio of the voltage maxima to the voltage minima along the line. The VSWR
@@ -1382,7 +1315,7 @@ For more details please consult the **AD9371/AD9375 System Development User
 Guide UG-992**
 
 VSWR Tracking Controls
-~~~~~~~~~~~~~~~~~~~~~~
+----------------------
 
 This control enables voltage standing wave ratio (VSWR) measurement. The user
 must set the ORx path source to INTERNALCALS by setting
@@ -1406,7 +1339,7 @@ corresponding tracking option.
    1
 
 VSWR Status
-~~~~~~~~~~~
+-----------
 
 This control reads back the VSWR calibration status from the ARM processor.
 
@@ -1447,7 +1380,7 @@ This control reads back the VSWR calibration status from the ARM processor.
    0
 
 VSWR Tracking Count
-~~~~~~~~~~~~~~~~~~~
+-------------------
 
 This control reads back the number of times the VSWR has successfully run since
 VSWR initialization calibration.
@@ -1461,7 +1394,7 @@ VSWR initialization calibration.
    54
 
 VSWR Measurements
-~~~~~~~~~~~~~~~~~
+-----------------
 
 These controls provide various measurements. Elements are only listed for
 out_voltage0 but apply likewise for out_voltage1 as well.
@@ -1509,8 +1442,11 @@ out_voltage0 but apply likewise for out_voltage1 as well.
    root:/sys/bus/iio/devices/iio:device3> cat out_voltage0_vswr_reflected_gain
    123
 
+Troubleshooting
+~~~~~~~~~~~~~~~
+
 Advanced Debug Facilities
--------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The AD9371 driver supports a number of advanced debug controls via the kernel
 `debugfs <https://en.wikipedia.org/wiki/debugfs>`__. How these device
@@ -1519,7 +1455,7 @@ files/controls can be used is described here. The
 directly controls these and adds a user friendly interface.
 
 Runtime Device Driver Customization
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------------
 
 There is a large number of :ref:`ad9371-customization` options available.
 Typically these are supplied via
@@ -1570,7 +1506,7 @@ Change directory to **/sys/kernel/debug**/iio/ iio:deviceX.
    loopback_tx_rx
 
 Example to change from internal to external TX LO
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""""""""""""""""""""""""""
 
 ::
 
@@ -1581,7 +1517,7 @@ Example to change from internal to external TX LO
    root@analog:/sys/kernel/debug/iio/iio:device3# echo 1 > initialize
 
 Build-In Self-Test (BIST)
-~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------
 
 Controling these attribute files directly take effect and therefore don’t
 require the ``initialize`` sequence. Test functionality exposed here is only
@@ -1589,7 +1525,7 @@ meant to route or inject test patterns/data than can be used to validate the
 Digital Interface or functionality of the device.
 
 BIST Tone
-^^^^^^^^^
+"""""""""
 
 Digital numerically controlled oscillator (NCO) to create a CW test tone on the
 Tx1 and Tx2 RF outputs. The TxAttenuation is forced in this function to max
@@ -1621,7 +1557,7 @@ the digital filter does not clip and cause spurs in the tx spectrum.
    root@analog:/sys/kernel/debug/iio/iio:device3# echo 1 3000 5000 > bist_tone
 
 PRBS
-^^^^
+""""
 
 Pseudorandom Binary Sequence
 (`PRBS <https://en.wikipedia.org/wiki/Pseudorandom_binary_sequence>`__) that can
@@ -1654,7 +1590,7 @@ either injected into the RX or OBS path.
    root@analog:/sys/kernel/debug/iio/iio:device3# echo 2 > bist_prbs_rx
 
 BIST Loopback
-^^^^^^^^^^^^^
+"""""""""""""
 
 Allows either to digitally loopback TX data (IQ samples) into the RX or OBS
 path. For this to work correctly, the IQ data rate of the Tx data path must
@@ -1683,7 +1619,7 @@ match the Rx or OBS IQ data rate.
    root@analog:/sys/kernel/debug/iio/iio:device3# echo 1 > loopback_tx_rx
 
 Monitor Output via GPIO
-~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------
 
 This debug attribute configures the monitor output function for the GPIOs
 
@@ -1709,15 +1645,82 @@ should have the proper setup:
    root@analog:/sys/kernel/debug/iio/iio:device3# echo 1 255 > monitor_out
 
 Low level register access via debugfs (direct_reg_access)
----------------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-low-level-register-access-via-debugfs-direct-reg-access
    :end-before: .. end-low-level-register-access-via-debugfs-direct-reg-access
 
 More Information
-----------------
+~~~~~~~~~~~~~~~~
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-pointers
    :end-before: .. end-iio-pointers
+
+Interrelated Device Drivers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Receive AXI-ADC driver
+----------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
+     -
+   * - include
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
+     -
+
+Transmit AXI-DAC / DDS driver
+-----------------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
+     -
+   * - include
+     - :git+linux:`drivers/iio/frequency/cf_axi_adc.h <main:drivers/iio/frequency/cf_axi_dds.h>`
+     -
+
+AXI JESD204B HDL driver
+-----------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_rx.c`
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_tx.c`
+     -
+
+AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)
+---------------------------------------------------------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/jesd204/axi_adxcvr.c`
+     -
