@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7768
 
+
 .. _ad7768:
 
 AD7768
@@ -24,11 +25,11 @@ Evaluation Boards
 Description
 -----------
 
-This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
-driver, targeting single channel serial interface ADCs. The industrial I/O
-subsystem provides a unified framework for drivers for many different types of
-converters and sensors using a number of different physical interfaces (i2c,
-spi, etc). See :external+system-level:ref:`iio` for more information.
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem driver for the
+8-channel AD7768 and 4-channel AD7768-4 simultaneous-sampling ADCs. The
+industrial I/O subsystem provides a unified framework for drivers for many
+different types of converters and sensors using a number of different physical
+interfaces (i2c, spi, etc). See :external+system-level:ref:`iio` for more information.
 
 Source Code
 -----------
@@ -65,19 +66,30 @@ Files
      - :git+hdl:`hdl <projects/ad7768evb+>`
      -
 
+Adding Linux driver support
+---------------------------
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example Linux Device-Tree Initialization
-----------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Required properties:
 
-- compatible: Must be one of ``adi,ad7768``, ``adi,ad7768-4``.
-- reg: SPI chip select number for the device.
-- clocks: phandle to master clock of the device.
-- clock-names: Must be ``mclk``.
-- spi-max-frequency: See Documentation/devicetree/bindings/spi/spi-bus.txt.
-- dmas: DMA specifier, consisting of a phandle to DMA controller node.
-- dma-names: Must be ``rx``.
-- vref-supply: phandle to the regulator for ADC reference voltage.
+-  compatible: Must be one of ``adi,ad7768``, ``adi,ad7768-4``.
+
+-  reg: SPI chip select number for the device.
+
+-  clocks: phandle to master clock of the device.
+
+-  clock-names: Must be ``mclk``.
+
+-  spi-max-frequency: See Documentation/devicetree/bindings/spi/spi-bus.txt.
+
+-  dmas and dma-names="rx": DMA channel used for capture.
+
+-  vref-supply: phandle to the regulator for ADC reference voltage.
 
 Optional properties:
 
@@ -137,19 +149,22 @@ Driver testing
    lrwxrwxrwx 1 root root    0 Apr  2 21:42 subsystem -> ../../../../../../../../bus/iio
    -rw-r--r-- 1 root root 4096 Apr  2 21:42 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/bus/iio/devices/iio:device0> cat name
    ad7768
 
+Basic operation
+~~~~~~~~~~~~~~~
+
 Show scale
 ^^^^^^^^^^
 
-**Description:** scale to be applied to in_voltage0_raw in order to obtain the
-measured voltage in millivolts.
+**Description:** Apply ``in_voltage_scale`` to signed samples acquired through
+the IIO buffer to obtain millivolts. There is no ``in_voltage0_raw`` attribute.
 
 ::
 
