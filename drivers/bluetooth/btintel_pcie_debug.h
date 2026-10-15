@@ -26,6 +26,19 @@
 #define BTINTEL_PCIE_TLV_TYPE_DBG_CONFIG_SET		0x100000A
 #define BTINTEL_PCIE_TLV_TYPE_DBG_PRESET_OVERRIDE	0x100000B
 
+/* Supported TLV type versions */
+#define BTINTEL_PCIE_DBG_INFO_TLV_VERSION	2
+/* Debug Info TLV */
+#define BTINTEL_PCIE_CONFIG_NAME_LEN		64
+#define BTINTEL_PCIE_DOMAIN_BT			0
+#define BTINTEL_PCIE_CORE_TYPE_BT		1
+
+enum btintel_pcie_image_tlv_type {
+	BTINTEL_PCIE_IMAGE_TLV_TYPE_EXTERNAL	= 0x1,
+	BTINTEL_PCIE_IMAGE_TLV_TYPE_INTERNAL	= 0x2,
+	BTINTEL_PCIE_IMAGE_TLV_TYPE_UNKNOWN	= 0xff,
+};
+
 /* TLV header */
 struct btintel_pcie_tlv_hdr {
 	__le32 type;
@@ -45,6 +58,25 @@ struct btintel_pcie_addr_value {
 } __packed;
 
 /*
+ * struct btintel_pcie_tlv_dbg_info - YoYo DEBUG_INFO TLV
+ * @hdr: TLV type and payload length
+ * @dbg_hdr: Debug TLV version and domain
+ * @image_type: Firmware image type
+ * @core_type: Firmware core type
+ * @config_name: Fixed-size name of the firmware configuration
+ *
+ * Describes the firmware image targeted by the YoYo configuration. Fields
+ * are stored in little-endian format in the packed firmware TLV.
+ */
+struct btintel_pcie_tlv_dbg_info {
+	struct btintel_pcie_tlv_hdr hdr;
+	struct btintel_pcie_dbg_hdr dbg_hdr;
+	__le32 image_type;
+	__le32 core_type;
+	u8 config_name[BTINTEL_PCIE_CONFIG_NAME_LEN];
+} __packed;
+
+/*
  * struct btintel_pcie_yoyo_ctx- Runtime state for YoYo debug configuration
  * @enabled: Whether the loaded YoYo configuration passed validation
  * @region_list: Parsed debug-region entries
@@ -58,12 +90,11 @@ struct btintel_pcie_addr_value {
  */
 struct btintel_pcie_yoyo_ctx {
 	bool			 enabled;
-
+	bool			 dbg_info_present;
 	struct list_head	 region_list;
 	struct list_head	 trigger_list;
 	struct list_head	 hcmd_list;
 	struct list_head	 config_set_list;
-
 	struct hci_dev		 *hdev;
 };
 
