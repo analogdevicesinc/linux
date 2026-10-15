@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dds/axi-dac-dds-hdl
 
+
 .. _axi-dac-dds-hdl:
 
 AXI DAC HDL
@@ -7,8 +8,8 @@ AXI DAC HDL
 
 AXI DAC HDL Linux Driver.
 
-Supported Devices
------------------
+Supported IP Cores
+~~~~~~~~~~~~~~~~~~
 
 - :adi:`AD9122`
 - :adi:`AD9136`
@@ -28,8 +29,8 @@ Supported Devices
 - :adi:`AD9739A`
 - :adi:`AD9783`
 
-Supported Boards
-----------------
+Evaluation Boards
+~~~~~~~~~~~~~~~~~
 
 | This driver supports the
 
@@ -49,23 +50,8 @@ Supported Boards
 - :dokuwiki:`AD9171/AD9172/AD9173/AD9174/AD9175/AD9176 Evaluation Board </resources/eval/dpg/eval-ad9172>`
 - :dokuwiki+deprecated:`ADRV9371 FMC Card <resources/eval/user-guides/mykonos>`
 
-Supported HDL Cores
--------------------
-
-- :external+hdl:ref:`axi_dac`
-- :external+hdl:ref:`ad_ip_jesd204_tpl_dac`
-- :external+hdl:ref:`axi_ad9361`
-- :external+hdl:ref:`axi_ad9783`
-- :dokuwiki+deprecated:`/resources/fpga/docs/axi_ad9371`
-- :dokuwiki+deprecated:`/resources/fpga/docs/axi_ad9144`
-
-Sub device Documentation (linked mode)
---------------------------------------
-
-- :ref:`ad9172`
-
 Description
------------
+~~~~~~~~~~~
 
 The AXI DAC DDS HDL driver is the driver for various HDL interface cores which
 are used on different FPGA designs. The driver is implemented as an Linux IIO
@@ -105,10 +91,10 @@ cyclically repeated or used in a streaming fashion.
    :width: 800px
 
 Source Code
------------
+~~~~~~~~~~~
 
 Status
-~~~~~~
+^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -118,12 +104,12 @@ Status
      -
      -
    * - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
-     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/cf_axi_dds.c>`__
+     - No
      -
      -
 
 Files
-~~~~~
+^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -152,6 +138,50 @@ Files
    * - include
      - :git+linux:`drivers/iio/frequency/cf_axi_adc.h <main:drivers/iio/frequency/cf_axi_dds.h>`
      -
+
+Hardware configuration
+~~~~~~~~~~~~~~~~~~~~~~
+
+In case the driver probes successfully and the device gets instantiated. Your
+systems kernel messages should include a line, which may look like the one shown
+below.
+
+::
+
+   cf_axi_dds 79024000.cf-ad9361-dds-core-lpc: Analog Devices CF_AXI_DDS_DDS MASTER (8.00.b) at 0x79024000 mapped to 0xf0998000, probed DDS AD9361
+
+Adding Linux driver support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Kernel configuration
+^^^^^^^^^^^^^^^^^^^^
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AXI DAC HDL driver may depend on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+           -*-   Enable buffer support within IIO
+           -*-   Enable triggered sampling support
+
+                 *** Direct Digital Synthesis ***
+           [--snip--]
+
+           <*>   Analog Devices CoreFPGA AXI DDS driver
+           <*>   Analog Devices AD9122 DAC
+
+           [--snip--]
+
+Devicetree configuration
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 Example platform device initialization
 --------------------------------------
@@ -204,7 +234,7 @@ Optional Parameters:
 
 Example:
 
-::
+.. code-block:: text
 
    &spi0 {
        status = "okay";
@@ -238,12 +268,6 @@ Example:
            interrupts = <0 56 0>;
            clocks = <&clkc 16>;
 
-           dma-channel {
-               adi,source-bus-width = <64>;
-               adi,destination-bus-width = <64>;
-               adi,type = <1>;
-               adi,cyclic;
-           };
        };
 
        cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@79024000 {
@@ -257,53 +281,8 @@ Example:
        };
    };
 
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AXI ADC HDL driver may depend on **CONFIG_SPI**
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-           -*-   Enable ring buffer support within IIO
-           -*-     Industrial I/O lock free software ring
-           -*-   Enable triggered sampling support
-
-                 *** Direct Digital Synthesis ***
-           [--snip--]
-
-           <*>   Analog Devices CoreFPGA AXI DDS driver
-           <*>   Analog Devices AD9122 DAC
-
-           [--snip--]
-
-Hardware configuration
-----------------------
-
-In case the driver probes successfully and the device gets instantiated. Your
-systems kernel messages should include a line, which may look like the one shown
-below.
-
-::
-
-   cf_axi_dds 79024000.cf-ad9361-dds-core-lpc: Analog Devices CF_AXI_DDS_DDS MASTER (8.00.b) at 0x79024000 mapped to 0xf0998000, probed DDS AD9361
-
 Driver testing
---------------
+~~~~~~~~~~~~~~
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-device-files
@@ -376,8 +355,8 @@ associated clock providers.
    -rw-rw-rw- 1 root root 4096 Jan  1 00:00 uevent
    root@analog:/sys/bus/iio/devices/iio:device2#
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -385,7 +364,7 @@ Show device name
    cf-ad9361-dds-core-lpc
 
 Show/Set DDS frequency
-^^^^^^^^^^^^^^^^^^^^^^
+----------------------
 
 Values are in Hz.
 
@@ -398,7 +377,7 @@ Values are in Hz.
    500163
 
 Show/Set DDS Phase
-''''''''''''''''''
+""""""""""""""""""
 
 Values are in milli degrees. ::
 
@@ -409,7 +388,7 @@ Values are in milli degrees. ::
    90995
 
 Enable/Disable DDS Channel
-''''''''''''''''''''''''''
+""""""""""""""""""""""""""
 
 1 for enable, 0 for disable.
 
@@ -419,13 +398,13 @@ need to be understood. In many situations for example when the Buffer mode is
 used, it’s not desirable to write this attribute.
 
 HDL Version < 7.00.a
-''''''''''''''''''''
+""""""""""""""""""""
 
 .. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dds/dds_data_sel_v7-.png
    :width: 500px
 
 HDL Version > 7.00.a
-''''''''''''''''''''
+""""""""""""""""""""
 
 .. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dds/dds_data_sel_v7+.png
    :width: 500px
@@ -436,9 +415,12 @@ HDL Version > 7.00.a
    1
 
 Show/Set DDS Scale
-''''''''''''''''''
+""""""""""""""""""
 
-DDS amplitude: range 0.00 … 1.00 (relative to full scale)
+DDS scale is a signed 1.1.14 fixed-point coefficient in this driver. Negative
+values invert the tone; values above 1 are accepted up to the representable
+magnitude (approximately 1.99994). Keep the combined waveform within the DAC
+full-scale range.
 
 .. tip::
 
@@ -457,7 +439,7 @@ DDS amplitude: range 0.00 … 1.00 (relative to full scale)
    0.250000
 
 DAC internal or external Gain, DC Offset, and Phase adjustments
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 Depending on the platform. These attributes may control converter internal or
 external processing blocks.
@@ -483,7 +465,7 @@ suppression. These features can be controlled via following attributes:
    out_voltage1_phase:0
 
 External synchronization
-''''''''''''''''''''''''
+""""""""""""""""""""""""
 
 The :external+hdl:ref:`ad_ip_jesd204_tpl_dac` core supports the EXT_SYNC
 feature, allowing to synchronize multiple channels within a DAC or across
@@ -512,7 +494,7 @@ while waiting for the external synchronization signal or ‘disarm’ otherwise.
   synthesis parameter is set.
 
 Example:
-''''''''
+""""""""
 
 ::
 
@@ -528,7 +510,7 @@ Example:
    disarm
 
 Buffer management
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -557,15 +539,8 @@ Buffer management
    :start-after: .. start-typical-adc-scan-elements
    :end-before: .. end-typical-adc-scan-elements
 
-Low level register access
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. include:: /include/iio-snippets.rst
-   :start-after: .. start-low-level-register-access-via-debugfs-direct-reg-access
-   :end-before: .. end-low-level-register-access-via-debugfs-direct-reg-access
-
 AD9122 Clocking concept
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 There are three different clocks associated with the DAC.
 
@@ -674,9 +649,34 @@ The available center shift frequencies for a given Interface Clock
    root@linaro-ubuntu-desktop:/sys/bus/iio/devices/iio:device4# echo 61440000 >
    out_altvoltage_interpolation_center_shift_frequency
 
+Troubleshooting
+~~~~~~~~~~~~~~~
+
+Low level register access
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-low-level-register-access-via-debugfs-direct-reg-access
+   :end-before: .. end-low-level-register-access-via-debugfs-direct-reg-access
+
 More Information
-----------------
+~~~~~~~~~~~~~~~~
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-pointers
    :end-before: .. end-iio-pointers
+
+Supported HDL Cores
+^^^^^^^^^^^^^^^^^^^
+
+- :external+hdl:ref:`axi_dac`
+- :external+hdl:ref:`ad_ip_jesd204_tpl_dac`
+- :external+hdl:ref:`axi_ad9361`
+- :external+hdl:ref:`axi_ad9783`
+- :dokuwiki+deprecated:`/resources/fpga/docs/axi_ad9371`
+- :dokuwiki+deprecated:`/resources/fpga/docs/axi_ad9144`
+
+Sub device Documentation (linked mode)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- :ref:`ad9172`
