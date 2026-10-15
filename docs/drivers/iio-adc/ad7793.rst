@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7793
 
+
 .. _ad7793:
 
 AD7793
@@ -20,16 +21,6 @@ Supported Devices
 - :adi:`AD7798`
 - :adi:`AD7799`
 
-Reference Circuits
-------------------
-
-- :adi:`CN0172`
-- :adi:`CN0206`
-- :adi:`CN0234`
-- :adi:`CN0312`
-- :adi:`CN0325`
-- :adi:`CN0326`
-
 Evaluation Boards
 -----------------
 
@@ -42,6 +33,16 @@ Evaluation Boards
 - :adi:`EVAL-AD7797EBZ`
 - :adi:`EVAL-AD7798EBZ`
 - :adi:`EVAL-AD7799EBZ`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0172`
+- :adi:`CN0206`
+- :adi:`CN0234`
+- :adi:`CN0312`
+- :adi:`CN0325`
+- :adi:`CN0326`
 
 Description
 -----------
@@ -83,8 +84,45 @@ Files
    * - include
      - `include/linux/platform_data/ad7793.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/platform_data/ad7793.h>`__
 
+Hardware configuration
+----------------------
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7793_eval_lr.jpg
+   :width: 600px
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD7793 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           ...
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               ...
+               Analog to digital converters  --->
+                   ...
+                   <*>  Analog Devices AD7793 and similar ADCs driver
+                   ...
+               ...
+           ...
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
@@ -245,37 +283,6 @@ the device in question.
    }
    arch_initcall(board_init);
 
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AD7793 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           ...
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-               ...
-               Analog to digital converters  --->
-                   ...
-                   <*>  Analog Devices AD7793 and similar ADCs driver
-                   ...
-               ...
-           ...
-
-Hardware configuration
-----------------------
-
-.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7793_eval_lr.jpg
-   :width: 600px
-
 Driver testing
 --------------
 
@@ -293,14 +300,14 @@ Driver testing
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> ls -l
    drwxr-xr-x    4 root     root             0 Jan  4 09:29 device0:buffer0
-   -rw-r--r--    1 root     root          4096 Jan  4 09:30 in_voltage-in_voltage_scale
-   -r--r--r--    1 root     root          4096 Jan  4 09:30 in_voltage-in_voltage_scale_available
-   -r--r--r--    1 root     root          4096 Jan  4 09:30 in_voltage0-in_voltage0_raw
-   -r--r--r--    1 root     root          4096 Jan  4 09:30 in_voltage0-in_voltage0_shorted_raw
-   -r--r--r--    1 root     root          4096 Jan  4 09:30 in_voltage1-in_voltage1_raw
-   -r--r--r--    1 root     root          4096 Jan  4 09:30 in_voltage2-in_voltage2_raw
-   -r--r--r--    1 root     root          4096 Jan  4 09:30 in_voltage4_supply_raw
-   -rw-r--r--    1 root     root          4096 Jan  4 09:30 in_voltage4_supply_scale
+   -rw-r--r--    1 root     root          4096 Jan  4 09:30 in_voltage-voltage_scale
+   -r--r--r--    1 root     root          4096 Jan  4 09:30 in_voltage-voltage_scale_available
+   -r--r--r--    1 root     root          4096 Jan  4 09:30 in_voltage0-voltage0_raw
+   -r--r--r--    1 root     root          4096 Jan  4 09:30 in_voltage0-voltage0_shorted_raw
+   -r--r--r--    1 root     root          4096 Jan  4 09:30 in_voltage1-voltage1_raw
+   -r--r--r--    1 root     root          4096 Jan  4 09:30 in_voltage2-voltage2_raw
+   -r--r--r--    1 root     root          4096 Jan  4 09:30 in_voltage3_supply_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 09:30 in_voltage_supply_scale
    -r--r--r--    1 root     root          4096 Jan  4 09:30 name
    drwxr-xr-x    2 root     root             0 Jan  4 09:30 power
    -rw-r--r--    1 root     root          4096 Jan  4 09:30 sampling_frequency
@@ -313,16 +320,48 @@ Driver testing
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0>
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat name
    ad7793
 
+Basic operation
+~~~~~~~~~~~~~~~
+
+Show available scales for differential input channels
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Lists all available scales for the differential input pairs. The tables and
+scan-element examples below describe AD7793; AD7794/AD7795 additionally expose
+AIN4, AIN5 and AIN6 with differential channel indices 3, 4 and 5.
+
+.. list-table::
+   :header-rows: 1
+
+   * - ADC Input Pair
+     - Channel name
+   * - AIN1(+) - AIN1(-)
+     - in_voltage0-voltage0_raw
+   * - AIN2(+) - AIN2(-)
+     - in_voltage1-voltage1_raw
+   * - AIN3(+) - AIN3(-)
+     - in_voltage2-voltage2_raw
+   * - AIN1(-) - AIN1(-)
+     - in_voltage0-voltage0_shorted_raw
+
+Setting these directly influences the ADC input range, by altering the GAIN
+amplifier.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat in_voltage-voltage_scale_available
+    0.000149010 0.000074500 0.000037250 0.000018620 0.000009310 0.000004650 0.000002320 0.000001160
+
 Show available sampling frequencies / update rates
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -330,7 +369,7 @@ Show available sampling frequencies / update rates
    470 242 123 62 50 39 33 19 17 16 12 10 8 6 4
 
 Set sampling frequency / update rate
-''''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -342,66 +381,40 @@ Set sampling frequency / update rate
    root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0>
 
 Show supply voltage
-'''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~
 
 **Description:** Shows the AVDD supply voltage
 
 ::
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat in_voltage4_supply_raw
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat in_voltage3_supply_raw
    7817399
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat in_voltage4_supply_scale
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat in_voltage_supply_scale
    0.000418420
 
-**U** = *in_voltage4_supply_raw \* in_voltage4_supply_scale* = 7817399 \*
+**U** = *in_voltage3_supply_raw \* in_voltage_supply_scale* = 7817399 \*
 0.000418420 = **3270.95608958 mV**
 
-Show available scales for differential input channels
-'''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-Lists all available scales for the differential input pairs:
-
-.. list-table::
-   :header-rows: 1
-
-   * - ADC Input Pair
-     - Channel name
-   * - AIN1(+) - AIN1(-)
-     - in_voltage0-in_voltage0_raw
-   * - AIN2(+) - AIN2(-)
-     - in_voltage1-in_voltage1_raw
-   * - AIN3(+) - AIN3(-)
-     - in_voltage1-in_voltage1_raw
-   * - AIN1(-) - AIN1(-)
-     - in_voltage0-in_voltage0_shorted_raw
-
-Setting these directly influences the ADC input range, by altering the GAIN
-amplifier.
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat in_voltage-in_voltage_scale_available
-    0.000149010 0.000074500 0.000037250 0.000018620 0.000009310 0.000004650 0.000002320 0.000001160
-
 Set scale for differential input channels
-'''''''''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Scale to be applied to in_voltage0-in_voltage0_raw, in_voltage1-in_voltage1_raw,
-in_voltage2-in_voltage2_raw in order to obtain the measured voltage in
+Scale to be applied to in_voltage0-voltage0_raw, in_voltage1-voltage1_raw,
+in_voltage2-voltage2_raw in order to obtain the measured voltage in
 millivolts. Allows the user to select one scale out of the available scales. If
-the written scale differs from the current scale. The driver performs full and
-zero offset calibration on all differential input channels.
+the written scale differs from the current scale. The driver runs its fixed
+internal zero/full-scale calibration sequence for AIN1, AIN2 and AIN3 after a
+gain change. This does not cover all six differential pairs on AD7794/AD7795.
 
 ::
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat in_voltage-in_voltage_scale
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat in_voltage-voltage_scale
    0.000149010
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 0.000074500 > in_voltage-in_voltage_scale
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat in_voltage-in_voltage_scale
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 0.000074500 > in_voltage-voltage_scale
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat in_voltage-voltage_scale
    0.000074500
 
-Show channel in_voltage0-in_voltage0 measurement
-''''''''''''''''''''''''''''''''''''''''''''''''
+Show channel in_voltage0-voltage0 measurement
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** Raw unscaled voltage measurement
 
@@ -411,27 +424,24 @@ Show channel in_voltage0-in_voltage0 measurement
    * - ADC Input Pair
      - Channel name
    * - AIN1(+) - AIN1(-)
-     - in_voltage0-in_voltage0_raw
+     - in_voltage0-voltage0_raw
    * - AIN2(+) - AIN2(-)
-     - in_voltage1-in_voltage1_raw
+     - in_voltage1-voltage1_raw
    * - AIN3(+) - AIN3(-)
-     - in_voltage2-in_voltage2_raw
-   * - AIN4(+) - AIN4(-)
-     - in_voltage3-in_voltage3_raw
-   * - AIN5(+) - AIN5(-)
-     - in_voltage4-in_voltage4_raw
-   * - AIN6(+) - AIN6(-)
-     - in_voltage5-in_voltage5_raw
+     - in_voltage2-voltage2_raw
    * - AIN1(-) - AIN1(-)
-     - in_voltage0-in_voltage0_shorted_raw
+     - in_voltage0-voltage0_shorted_raw
 
 ::
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat in_voltage0-in_voltage0_raw
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat in_voltage0-voltage0_raw
    6710665
 
-**U** = *in_voltage0-in_voltage0_raw \* in_voltage-in_voltage_scale* = 6710665
-\* 0.000149010 = **999.95619165 mV**
+Use U_mV = (raw + offset) × scale. The illustrated scale of 0.000149010
+corresponds to a 2.5 V unipolar reference at gain 1, whereas the platform setup
+above selects the internal 1.17 V reference (scale approximately 0.000069730).
+At gain 1, that internal-reference configuration yields about 467.98 mV for
+raw 6710665. After changing gain, reread scale and use the returned value.
 
 Trigger management
 ~~~~~~~~~~~~~~~~~~
@@ -461,13 +471,13 @@ Buffer management
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/device0/scan_elements> ls
-   in_voltage0-in_voltage0_en             in_voltage1-in_voltage1_index          in_voltage4_supply_type
-   in_voltage0-in_voltage0_index          in_voltage1-in_voltage1_type           temp0_en
-   in_voltage0-in_voltage0_shorted_en     in_voltage2-in_voltage2_en             temp0_index
-   in_voltage0-in_voltage0_shorted_index  in_voltage2-in_voltage2_index          temp0_type
-   in_voltage0-in_voltage0_shorted_type   in_voltage2-in_voltage2_type           timestamp_en
-   in_voltage0-in_voltage0_type           in_voltage4_supply_en                  timestamp_index
-   in_voltage1-in_voltage1_en             in_voltage4_supply_index               timestamp_type
+   in_voltage0-voltage0_en             in_voltage1-voltage1_index          in_voltage3_supply_type
+   in_voltage0-voltage0_index          in_voltage1-voltage1_type           in_temp0_en
+   in_voltage0-voltage0_shorted_en     in_voltage2-voltage2_en             in_temp0_index
+   in_voltage0-voltage0_shorted_index  in_voltage2-voltage2_index          in_temp0_type
+   in_voltage0-voltage0_shorted_type   in_voltage2-voltage2_type           in_timestamp_en
+   in_voltage0-voltage0_type           in_voltage3_supply_en                  in_timestamp_index
+   in_voltage1-voltage1_en             in_voltage3_supply_index               in_timestamp_type
    root:/sys/devices/platform/bfin-spi.0/spi0.3/device0/scan_elements>
 
 .. include:: /include/iio-snippets.rst
