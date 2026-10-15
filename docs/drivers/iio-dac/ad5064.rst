@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ad5064
 
+
 .. _ad5064:
 
 AD5064
@@ -43,12 +44,6 @@ Supported Devices
 - :adi:`LTC2627`, (Upstream v4.5+)
 - :adi:`LTC2629`, (Upstream v4.5+)
 
-Reference Circuits
-------------------
-
-- :adi:`CN0182`
-- :adi:`CN0183`
-
 Evaluation Boards
 -----------------
 
@@ -60,6 +55,12 @@ Evaluation Boards
 - :adi:`EVAL-AD5668SDCZ`
 - :adi:`EVAL-AD5669RSDZ`
 - PMOD-DA4
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0182`
+- :adi:`CN0183`
 
 Description
 -----------
@@ -99,17 +100,86 @@ Files
    * - driver
      - `drivers/iio/dac/ad5064.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5064.c>`__
 
+Hardware configuration
+----------------------
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/pmodda4.jpg
+   :width: 300px
+
+.. list-table::
+   :header-rows: 1
+
+   * - BF537-STAMP (P9) SPI header
+     -
+     - PMOD-DA4
+     -
+   * - PIN
+     - Function
+     - PIN
+     - Function
+   * - 2
+     - (+3.3V)
+     - 6
+     - VDD
+   * - 5
+     - SPI_MOSI
+     - 2
+     - DIN
+   * - 8
+     - SPI_SCK
+     - 4
+     - SCLK
+   * - 10
+     - SPI_SS
+     - 1
+     - SYNC
+   * - 20
+     - GND
+     - 5
+     - GND
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD5064 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           ...
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               ...
+               Digital to analog converters  --->
+                   ...
+                   <*>  Analog Devices AD5064 and similar multi-channel DAC driver
+                   ...
+               ...
+           ...
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Specifying reference voltage via the regulator framework
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 Below example specifies a 2.5 Volt reference for the SPI device 3 on SPI-Bus 0.
 (**spi0.3**) In this example all 4 reference voltage are supplied by the same
 regulator.
 
-.. code:: c
+.. code-block:: c
 
    #if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)
    static struct regulator_consumer_supply ad5064_consumer_supplies[] = {
@@ -124,8 +194,8 @@ regulator.
            .name   = "2V5",
            .valid_ops_mask = REGULATOR_CHANGE_STATUS,
        },
-       .consumer_supplies = ad5624_consumer_supplies,
-       .num_consumer_supplies = ARRAY_SIZE(ad5624_consumer_supplies),
+       .consumer_supplies = ad5064_consumer_supplies,
+   .num_consumer_supplies = ARRAY_SIZE(ad5064_consumer_supplies),
    };
 
    static struct fixed_voltage_config stamp_vdd_pdata = {
@@ -176,11 +246,10 @@ accordingly, matching your part name. It may also required to adjust
 max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
 the device in question.
 
-.. code:: c
+.. code-block:: c
 
    static struct spi_board_info board_spi_board_info[] __initdata = {
-   #if defined(CONFIG_AD5064_SPI) || \
-       defined(CONFIG_AD5064_SPI_MODULE)
+   #if IS_ENABLED(CONFIG_AD5064)
        {
            /* the modalias must be the same as spi device driver name */
            .modalias = "ad5064", /* Name of spi_driver for this device */
@@ -205,34 +274,6 @@ the device in question.
        return 0;
    }
    arch_initcall(board_init);
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AD5064 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           ...
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-               ...
-               Digital to analog converters  --->
-                   ...
-                   <*>  Analog Devices AD5064 and similar multi-channel DAC driver
-                   ...
-               ...
-           ...
-
-Hardware configuration
-----------------------
 
 Driver testing
 --------------
@@ -275,13 +316,16 @@ Driver testing
 
 The number of channels depends on the chip model.
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat name
    ad5064
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale
 ^^^^^^^^^^
@@ -298,7 +342,7 @@ in millivolts.
    0.038140
 
 Set channel Y output voltage
-''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw
 
@@ -312,7 +356,7 @@ Raw (unscaled, no bias etc.) output voltage for channel Y.
 **381,14 mV**
 
 List available power down modes
-'''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/iio:deviceX/out_voltage_powerdown_mode_available
 
@@ -324,9 +368,11 @@ List available power down modes
    1kohm_to_gnd 100kohm_to_gnd three_state
 
 Set power down mode
-'''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~
 
-/sys/bus/iio/devices/iio:deviceX/out_voltage_powerdown_mode
+/sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown_mode (for example
+out_voltage0_powerdown_mode). Apply the channel index to both echo and cat
+examples in this section.
 
 **Description:** Specifies the output power down mode. DAC output stage is
 disconnected from the amplifier and
@@ -350,7 +396,7 @@ out_voltage_powerdown_mode_available.
    three_state
 
 Enable power down mode on output Y
-''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown
 
@@ -374,44 +420,6 @@ The PMOD-DA4 is a PMOD board made by Digilent Inc. which features the AD5628
 
 The following example shows how to connect the PMOD-DA4 to a Blackfin
 BF537-STAMP board.
-
-Hardware configuration
-^^^^^^^^^^^^^^^^^^^^^^
-
-.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/pmodda4.jpg
-   :width: 300px
-
-.. list-table::
-   :header-rows: 1
-
-   * - BF537-STAMP (P9) SPI header
-     -
-     - PMOD-DA4
-     -
-   * - PIN
-     - Function
-     - PIN
-     - Function
-   * - 2
-     - (+3.3V)
-     - 6
-     - VDD
-   * - 5
-     - SPI_MOSI
-     - 2
-     - DIN
-   * - 8
-     - SPI_SCK
-     - 4
-     - SCLK
-   * - 10
-     - SPI_SS
-     - 1
-     - SYNC
-   * - 20
-     - GND
-     - 5
-     - GND
 
 More Information
 ----------------
