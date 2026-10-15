@@ -12,10 +12,14 @@
 #include "zynqmp-zcu102-rev10-adrv904x.dts"
 
 &clk0_ad9528 {
-	adi,jesd204-desired-sysref-frequency-hz = <1920000>;
+	adi,jesd204-desired-sysref-frequency-hz = <960000>;
 };
 
 &ad9528_0_c3 {
+	adi,channel-divider = <16>;
+};
+
+&ad9528_0_c1 {
 	adi,channel-divider = <8>;
 };
 
@@ -25,6 +29,7 @@
 
 &trx0_adrv904x {
 	adi,device-config-name = "DeviceProfileTest_122MHz.bin";
+	jesd204-ignore-errors;
 };
 
 &axi_adrv904x_adxcvr_rx {
