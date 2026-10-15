@@ -39,8 +39,8 @@ int x509_load_certificate_list(const u8 cert_list[],
 					   KEY_ALLOC_BUILT_IN |
 					   KEY_ALLOC_BYPASS_RESTRICTION);
 		if (IS_ERR(key)) {
-			pr_err("Problem loading in-kernel X.509 certificate (%ld)\n",
-			       PTR_ERR(key));
+			pr_err("Problem loading in-kernel X.509 certificate (%pe)\n",
+			       key);
 		} else {
 			pr_notice("Loaded X.509 cert '%s'\n",
 				  key_ref_to_ptr(key)->description);
