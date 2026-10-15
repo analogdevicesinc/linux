@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/axi-jesd204b-hdl
 
+
 .. _axi-jesd204b-hdl:
 
 AXI JESD204B HDL
@@ -17,8 +18,8 @@ AXI JESD204B HDL Linux Driver.
    * :ref:`axi_jesd204_tx`
    * :ref:`axi_jesd204_rx`
 
-Supported Devices
------------------
+Supported IP Cores
+------------------
 
 #. deprecated
 
@@ -45,7 +46,7 @@ Status
      -
      -
    * - :git+linux:`main:drivers/iio/jesd204/axi_jesd204b_v51.c`
-     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/jesd204/axi_jesd204b_v51.c>`__
+     - No
      -
      -
 
@@ -65,57 +66,11 @@ Files
      - :git+linux:`main:drivers/iio/jesd204/axi_jesd204b_v51.h`
      -
 
-Example platform device initialization
---------------------------------------
-
-The AXI JESD204B driver is a platform driver and can currently only be
-instantiated via device tree.
-
-Required devicetree properties:
-
-- **compatible**: Should always be ``*xlnx,axi-jesd204b-rx2-1.00.a*`` or
-  ``*xlnx,axi-jesd204b-rx4-1.00.a*``
-- **reg**: Base address and register area size. This parameter expects a
-  register range.
-- **clocks**: Clock provider phandle
-- **clock-name**: Clock input name string
-- **jesd,frames-per-multiframe**: Number of frames per multi-frame
-- **jesd,bytes-per-frame**: Number of bytes (octets) per frame
-- **jesd,lanesync_en**: Enable lane synchronization
-- **jesd,scramble_en**: Enable scrambling
-
-Example:
-
-::
-
-   axi_jesd204b_rx2_0: axi-jesd204b-rx2@77a00000 {
-       compatible = "xlnx,axi-jesd204b-rx2-1.00.a";
-       reg = < 0x77a00000 0x10000 >;
-       clocks = <&ad9250_clkin>;
-       clock-names = "clkin";
-       jesd,lanesync_en;
-       jesd,scramble_en;
-       jesd,frames-per-multiframe = <32>;
-       jesd,bytes-per-frame = <2>;
-       xlnx,cf-buftype = <0x0>;
-       xlnx,dphase-timeout = <0x8>;
-       xlnx,family = "kintex7";
-       xlnx,num-mem = <0x1>;
-       xlnx,num-reg = <0x1>;
-       xlnx,s-axi-min-size = <0x1ff>;
-       xlnx,slv-awidth = <0x20>;
-       xlnx,slv-dwidth = <0x20>;
-       xlnx,use-wstrb = <0x0>;
-   } ;
-
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
 Adding Linux driver support
 ---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
@@ -124,20 +79,60 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 
    Linux Kernel Configuration
        Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-           -*-   Enable ring buffer support within IIO
-           -*-     Industrial I/O lock free software ring
-           -*-   Enable triggered sampling support
-
-                 *** Analog to digital converters ***
            [--snip--]
-
-           <*>   Generic AXI JESD204B configuration driver
-
+           <*> JESD204 High-Speed Serial Interface Framework  --->
            [--snip--]
+           <*> Industrial I/O support  --->
+               [--snip--]
+               <*>   Generic AXI JESD204B configuration driver
+               [--snip--]
 
-Driver Testing
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Example platform device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The AXI JESD204B driver is a platform driver and can currently only be
+instantiated via device tree.
+
+Required devicetree properties:
+
+- **compatible**: ``xlnx,jesd204-5.1``, ``xlnx,jesd204-5.2`` or
+  ``xlnx,jesd204-6.0``, matching the Xilinx JESD204 IP core version
+- **reg**: Base address and register area size
+- **clocks**: Input clock phandle
+- **clock-output-names**: Name of the clock output registered by the driver
+- **xlnx,frames-per-multiframe**: Number of frames per multi-frame
+- **xlnx,bytes-per-frame**: Number of bytes (octets) per frame
+- **xlnx,subclass**: JESD204B subclass
+
+Optional devicetree properties:
+
+- **xlnx,lanesync-enable**: Enable lane synchronization (boolean)
+- **xlnx,scramble-enable**: Enable scrambling (boolean)
+- **xlnx,sysref-always-enable**: Enable SYSREF always mode (boolean)
+- **xlnx,node-is-transmit**: Set to ``<1>`` for a transmit link (u32)
+- **xlnx,lanes**: Number of lanes; read from the core if omitted
+
+Example (adjust the clock provider and link parameters for your board):
+
+::
+
+   axi_jesd204b_rx2_0: axi-jesd204b-rx2@77a00000 {
+       compatible = "xlnx,jesd204-5.1";
+       reg = <0x77a00000 0x10000>;
+       clocks = <&ad9250_clkin>;
+       clock-output-names = "jesd_clk";
+       #clock-cells = <0>;
+       xlnx,frames-per-multiframe = <32>;
+       xlnx,bytes-per-frame = <2>;
+       xlnx,subclass = <1>;
+       xlnx,lanesync-enable;
+       xlnx,scramble-enable;
+   };
+
+Driver testing
 --------------
 
 ::
