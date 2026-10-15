@@ -7398,8 +7398,7 @@ static void dm_test_conn_ac_bind_crtc(struct kunit *test,
 	ctx->crtc_state = kunit_kzalloc(test, sizeof(*ctx->crtc_state), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, ctx->crtc_state);
 
-	ctx->state->crtcs = kunit_kcalloc(test, 1, sizeof(*ctx->state->crtcs),
-					  GFP_KERNEL);
+	ctx->state->crtcs = kunit_kzalloc(test, sizeof(*ctx->state->crtcs), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, ctx->state->crtcs);
 	ctx->state->crtcs[0].ptr = ctx->crtc;
 	ctx->state->crtcs[0].new_state = ctx->crtc_state;

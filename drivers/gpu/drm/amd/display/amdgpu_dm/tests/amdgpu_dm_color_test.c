@@ -1871,7 +1871,7 @@ dm_test_colorop_setup(struct kunit *test, enum drm_colorop_type type)
 	KUNIT_ASSERT_NOT_NULL(test, f.colorop_state);
 	f.colorop_state->colorop = f.colorop;
 
-	colorops = kunit_kcalloc(test, 1, sizeof(*colorops), GFP_KERNEL);
+	colorops = kunit_kzalloc(test, sizeof(*colorops), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, colorops);
 	colorops[0].ptr = f.colorop;
 	colorops[0].new_state = f.colorop_state;
