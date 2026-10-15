@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/sound/adau1372
 
+
 .. _adau1372:
 
 ADAU1372
@@ -36,7 +37,7 @@ Status
      -
 
 Files
-^^^^^
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -57,15 +58,21 @@ Files
      - :git+linux:`asoc-adau1372:sound/soc/codecs/adau1372.h`
      -
 
+Adding Linux driver support
+---------------------------
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example device initialization
------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
    :end-before: .. end-platform-data
 
 I2C
-~~~
+"""
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-i2c-devices
@@ -120,14 +127,20 @@ In this example we assume ADDR0=0 and ADDR1=0.
    arch_initcall(board_init);
 
 SPI
-^^^
+'''
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-spi-slave-devices
    :end-before: .. end-declaring-spi-slave-devices
 
+Driver testing
+--------------
+
+Routing and DAPM
+~~~~~~~~~~~~~~~~
+
 ASoC DAPM Widgets
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 The driver registers a set of input, output and supply DAPM widgets which
 represent the physical input and output signals of the device. For maximum
@@ -160,7 +173,7 @@ to accurately model the external connections of the device.
    * - HPOUTR
      - Right Headphone Output
 
-ALSA Controls
+ALSA controls
 ~~~~~~~~~~~~~
 
 .. list-table::
@@ -386,8 +399,11 @@ ALSA Controls
      - Serial output channel 7 input select. Available settings: See Serial Output 0 Capture Mux
      -
 
+DAI formats and clocks
+~~~~~~~~~~~~~~~~~~~~~~
+
 DAI configuration
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 The codec driver registers one DAI: **adau1372**
 
@@ -396,7 +412,7 @@ synchronous to each other. Which means they have to run in the same
 configuration.
 
 Supported DAI formats
-^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""
 
 .. list-table::
    :header-rows: 1
@@ -457,19 +473,23 @@ Supported DAI formats
      - Codec bit- and frameclock slave
 
 DAI sysclk
-^^^^^^^^^^
+""""""""""
 
 Example DAI configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 TDM configuration
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 The ADAU1372 has TDM support.
 
-- The number of slots can be either 2, 4 or 8.
-- The slot width can be 16 or 32.
-- The slot mask can select any combination of channels on both TX and RX
+-  The number of slots can be either 2, 4 or 8.
+
+-  The slot width can be 16, 24 or 32.
+
+-  tx_mask controls which of the eight serial output channels are enabled. Both
+   masks must fit within eight bits, but rx_mask is only range-checked and is
+   not programmed as an input channel map.
 
 Example TDM configuration:
 
@@ -477,8 +497,8 @@ Example TDM configuration:
 
    ret = snd_soc_dai_set_tdm_slot(codec_dai, 0x3, 0x3, 8, 24);
 
-More information
-~~~~~~~~~~~~~~~~
+More Information
+----------------
 
 .. include:: /include/need-help.rst
    :start-after: .. start-need-help
