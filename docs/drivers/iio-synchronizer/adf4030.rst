@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-synchronizer/adf4030
 
+
 .. _adf4030:
 
 ADF4030
@@ -12,8 +13,8 @@ Supported Devices
 
 - :adi:`ADF4030`
 
-Supported Boards
-----------------
+Evaluation Boards
+-----------------
 
 - :adi:`EVAL-ADF4030`
 
@@ -21,10 +22,10 @@ Description
 -----------
 
 The ADF4030 is a 10-channel precision synchronizer with integrated time-to-
-digital converter (TDC) for high-accuracy clock distribution and alignment.
-It provides sub-picosecond alignment accuracy for JESD204B/C system
-synchronization, making it essential for multi-converter high-speed data
-acquisition systems.
+digital converter (TDC) for high-accuracy clock distribution and alignment. It
+supports JESD204B/C system synchronization, with BSYNC clock-edge alignment to
+less than 5 ps at the device pins relative to the selected reference BSYNC
+channel.
 
 Source Code
 -----------
@@ -40,7 +41,7 @@ Status
      -
      -
    * - :git+linux:`main:drivers/iio/frequency/adf4030.c`
-     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/adf4030.c>`__
+     - No
      -
      -
 
@@ -63,27 +64,67 @@ Files
      - :git+linux:`sysfs-bus-iio-frequency-adf4030 <main:Documentation/ABI/testing/sysfs-bus-iio-frequency-adf4030>`
      -
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADF4030 driver depends on **SPI** and selects **REGMAP_SPI**
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+                    Frequency Synthesizers DDS/PLL --->
+                                *** Phase-Locked Loop (PLL) frequency synthesizers ***
+                                <*> Analog Devices ADF4030 10-Channel Precision Synchronizer
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ADF4030 driver is a SPI bus driver and can be instantiated via device tree.
 
 **Properties:**
 
-- **compatible**: \`adi,adf4030\`
-- **clocks**: Input reference clock (maxItems: 1)
-- **clock-names**: \`refin\`
-- **adi,vco-frequency-hz**: VCO output frequency in Hz
-- **adi,bsync-frequency-hz**: Primary BSync output frequency in Hz
-- **adi,bsync-secondary-frequency-hz**: Secondary BSync output frequency in Hz
-- **adi,bsync-autoalign-reference-channel**: Reference channel number for auto
-  alignment
-- **adi,bsync-autoalign-iteration-count**: Number of iterations for auto
-  alignment
-- **adi,bsync-autoalign-threshold-fs**: Threshold for auto alignment in
-  femtoseconds
-- **clock-output-names**: Names of the clock outputs (minItems: 1, maxItems: 10)
-- **#clock-cells**: 1
+-  **compatible**: \`adi,adf4030\`
+
+-  **clocks**: Input reference clock (maxItems: 1)
+
+-  **clock-names**: \`refin\`
+
+-  **adi,vco-frequency-hz**: VCO output frequency in Hz
+
+-  **adi,bsync-frequency-hz**: Primary BSync output frequency in Hz
+
+-  **adi,bsync-secondary-frequency-hz**: Secondary BSync output frequency in Hz
+
+-  **adi,bsync-autoalign-reference-channel**: Reference channel number for auto
+   alignment
+
+-  **adi,bsync-autoalign-iteration-count**: Number of iterations for auto
+   alignment
+
+-  **adi,bsync-autoalign-threshold-fs**: Threshold for auto alignment in
+   femtoseconds
+
+-  **clock-output-names**: Names of the clock outputs (minItems: 1, maxItems:
+   10)
+
+-  **#clock-cells**: 1
 
 **Pattern Properties:** \* **^channel@[0-9]+$**: ADF4030 channel configuration
 
@@ -177,35 +218,6 @@ The ADF4030 driver is a SPI bus driver and can be instantiated via device tree.
            };
        };
 
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The ADF4030 driver depends on **SPI** and selects **REGMAP_SPI**
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-                    Frequency Synthesizers DDS/PLL --->
-                                *** Phase-Locked Loop (PLL) frequency synthesizers ***
-                                <*> Analog Devices ADF4030 10-Channel Precision Synchronizer
-
-Hardware configuration
-----------------------
-
 Driver testing
 --------------
 
@@ -229,25 +241,21 @@ Driver testing
    -r--r--r--    1 root   root    4096 Jan  1 00:03 label
    -r--r--r--    1 root   root    4096 Jan  1 00:03 name
    lrwxrwxrwx    1 root   root       0 Jan  1 00:03 of_node -> ../../../../../../../../firmware/devicetree/base/amba_pl/spi@44A80000/a4
-   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage0_SYSREF_0_autoalign_enable
    -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage0_SYSREF_0_frequency
    -r--r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage0_SYSREF_0_label
    -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage0_SYSREF_0_output_enable
    -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage0_SYSREF_0_phase
    -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage0_SYSREF_0_reference_channel
-   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage1_SYSREF_1_autoalign_enable
    -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage1_SYSREF_1_frequency
    -r--r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage1_SYSREF_1_label
    -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage1_SYSREF_1_output_enable
    -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage1_SYSREF_1_phase
    -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage1_SYSREF_1_reference_channel
-   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage4_FPGA_SYSREF_0_autoalign_enable
    -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage4_FPGA_SYSREF_0_frequency
    -r--r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage4_FPGA_SYSREF_0_label
    -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage4_FPGA_SYSREF_0_output_enable
    -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage4_FPGA_SYSREF_0_phase
    -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage4_FPGA_SYSREF_0_reference_channel
-   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage8_REF_autoalign_enable
    -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage8_REF_frequency
    -r--r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage8_REF_label
    -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage8_REF_output_enable
@@ -261,8 +269,8 @@ Driver testing
 
    root@analog:/sys/bus/iio/devices/iio:device0#
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -314,8 +322,8 @@ Set reference channel for TDC measurement and BSYNC alignment.
      - BSYNC8
    * - ``9``
      - BSYNC9
-   * - ``26``
-     - REFIN
+   * - ``REFIN (26) is accepted by the DT adi,reference-channel-num property but not by the runtime reference_channel writer, which currently allows only0..9.``
+     -
 
 ::
 
@@ -349,15 +357,18 @@ femtoseconds (fs).
 Start Single-Channel Alignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**What:** ``out_altvoltageX_[<adi,extended-name>]_autoalign_enable``
+Writing the channel's phase attribute sets the requested delay and immediately
+starts alignment against its selected reference channel. There is no separate
+``autoalign_enable`` attribute in this interface.
 
-Writing ``1`` starts the Single-Channel Alignment procedure.
+Run these commands in the device's sysfs directory to request zero delay and
+read back the phase. Use the required delay in femtoseconds instead of zero
+when configuring another alignment target.
 
-::
+.. code-block:: sh
 
-   root@analog:/sys/bus/iio/devices/iio:device0# echo 1 > out_altvoltage0_SYSREF_0_autoalign_enable
-   root@analog:/sys/bus/iio/devices/iio:device0# cat out_altvoltage0_SYSREF_0_phase
-   104
+   echo 0 > out_altvoltage0_SYSREF_0_phase
+   cat out_altvoltage0_SYSREF_0_phase
 
 Channel Direction Control
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -377,34 +388,35 @@ Alignment Cycles Control
 
 **What:** ``out_altvoltage_autoalign_iteration``
 
-Sets the Number of Alignment Cycles (iterations) in the single-channel alignment
-procedures. For best performance set to ``7``
+Sets the actual number of alignment cycles, from 1 through 8. The attribute
+is shared by channel type, so its name omits the channel number and extended
+name. The driver converts this count to the hardware's zero-based encoding.
 
 .. list-table::
    :header-rows: 1
 
    * - Value
      - Mode
-   * - ``0``
-     - Run 1 alignment cycle
    * - ``1``
-     - Run 2 alignment cycles
+     - Run 1 alignment cycle
    * - ``2``
-     - Run 3 alignment cycles
+     - Run 2 alignment cycles
    * - ``3``
-     - Run 4 alignment cycles
+     - Run 3 alignment cycles
    * - ``4``
-     - Run 5 alignment cycles
+     - Run 4 alignment cycles
    * - ``5``
-     - Run 6 alignment cycles
+     - Run 5 alignment cycles
    * - ``6``
-     - Run 7 alignment cycles
+     - Run 6 alignment cycles
    * - ``7``
+     - Run 7 alignment cycles
+   * - ``8``
      - Run 8 alignment cycles
 
-::
+.. code-block:: sh
 
-   root@analog:/sys/bus/iio/devices/iio:device0# echo 7 > out_altvoltage0_SYSREF_0_autoalign_iteration
+   echo 8 > out_altvoltage_autoalign_iteration
 
 Alignment Threshold Control
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -416,9 +428,13 @@ alignment becomes lower than a desired threshold or the alignment cycles reach
 the maximum number of alignment cycles set with
 ``out_altvoltage_autoalign_iteration``. Values are in femtoseconds (fs).
 
-::
+.. code-block:: text
 
-   root@analog:/sys/bus/iio/devices/iio:device0# echo 100 > out_altvoltage_autoalign_threshold
+   echo 100 > out_altvoltage_autoalign_threshold
+   echo 1 > out_altvoltage_autoalign_threshold_en
+
+Threshold checking has a separate enable; setting its value alone does not
+enable it.
 
 Temperature Reading
 ~~~~~~~~~~~~~~~~~~~
