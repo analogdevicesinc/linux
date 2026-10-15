@@ -436,8 +436,7 @@ static struct dc *dm_test_alloc_dc_with_irq_service(struct kunit *test,
 	 * Populate the per-source info table so amdgpu_dm_irq_set()/_ack()
 	 * succeed without touching hardware registers.
 	 */
-	info = kunit_kzalloc(test, sizeof(*info) * DAL_IRQ_SOURCES_NUMBER,
-			     GFP_KERNEL);
+	info = kunit_kcalloc(test, DAL_IRQ_SOURCES_NUMBER, sizeof(*info), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, info);
 	for (i = 0; i < DAL_IRQ_SOURCES_NUMBER; i++)
 		info[i].funcs = &dm_test_irq_src_funcs;

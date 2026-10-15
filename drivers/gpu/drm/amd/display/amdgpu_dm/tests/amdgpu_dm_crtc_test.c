@@ -525,8 +525,7 @@ static void dm_test_crtc_set_vupdate_irq_enable(struct kunit *test)
 	/*
 	 * Populate the per-source info table so amdgpu_dm_irq_set() succeeds.
 	 */
-	info = kunit_kzalloc(test, sizeof(*info) * DAL_IRQ_SOURCES_NUMBER,
-			     GFP_KERNEL);
+	info = kunit_kcalloc(test, DAL_IRQ_SOURCES_NUMBER, sizeof(*info), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, info);
 	for (i = 0; i < DAL_IRQ_SOURCES_NUMBER; i++)
 		info[i].funcs = &dm_test_vupdate_irq_src_funcs;
@@ -1060,8 +1059,7 @@ static void dm_test_crtc_enable_vblank_vupdate_busy(struct kunit *test)
 	/*
 	 * Per-source .set fails so amdgpu_dm_irq_set() reports the source busy.
 	 */
-	info = kunit_kzalloc(test, sizeof(*info) * DAL_IRQ_SOURCES_NUMBER,
-			     GFP_KERNEL);
+	info = kunit_kcalloc(test, DAL_IRQ_SOURCES_NUMBER, sizeof(*info), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, info);
 	for (i = 0; i < DAL_IRQ_SOURCES_NUMBER; i++)
 		info[i].funcs = &dm_test_vupdate_irq_src_busy_funcs;
@@ -1480,7 +1478,7 @@ static void dm_test_count_crtc_active_planes_mixed(struct kunit *test)
 	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state);
 	state->dev = dev;
-	state->planes = kunit_kzalloc(test, sizeof(*state->planes) * 5, GFP_KERNEL);
+	state->planes = kunit_kcalloc(test, 5, sizeof(*state->planes), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state->planes);
 	state->planes[0].new_state = NULL;
 	state->planes[1].new_state = ps_fb;
