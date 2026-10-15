@@ -98,23 +98,30 @@
           <ul>
 <li><a class="reference internal" href="#">AD9208</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
-<li><a class="reference internal" href="#supported-boards">Supported Boards</a></li>
-<li><a class="reference internal" href="#supported-hdl-cores">Supported HDL Cores</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-devicetree-spi-device-initialization">Example devicetree SPI device initialization</a></li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
 <li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
-<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
+<li><a class="reference internal" href="#example-devicetree-spi-device-initialization">Example devicetree SPI device initialization</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#more-information">More Information</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a><ul>
+<li><a class="reference internal" href="#supported-hdl-cores">Supported HDL Cores</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -216,6 +223,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -234,7 +242,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -384,18 +391,11 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD9697" target="_blank">AD9697</a></p></li>
 </ul>
 </section>
-<section id="supported-boards">
-<h2>Supported Boards<a class="headerlink" href="#supported-boards" title="Link to this heading"></a></h2>
+<section id="evaluation-boards">
+<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <p>This driver supports the</p>
 <ul class="simple">
 <li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/ad9208-3000ebz" target="_blank">EVALUATING THE AD9208 / AD9689 ANALOG-TO-DIGITAL CONVERTER</a></p></li>
-</ul>
-</section>
-<section id="supported-hdl-cores">
-<h2>Supported HDL Cores<a class="headerlink" href="#supported-hdl-cores" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/jesd204/ad_ip_jesd204_tpl_adc/#ad-ip-jesd204-tpl-adc" target="_blank" title="(in HDL)"><span>ADC JESD204B/C Transport Peripheral</span></a></p></li>
-<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/ad9208_dual_ebz/ad9208_dual_ebz_hdl" target="_blank">AD9208-DUAL-EBZ HDL reference design</a></p></li>
 </ul>
 </section>
 <section id="description">
@@ -455,7 +455,7 @@ serial port interface (SPI). This product is protected by a U.S. patent.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/ad9208.c" target="_blank">drivers/iio/adc/ad9208.c</a></p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad9208.c" target="_blank">WIP</a></p></td>
+<td><p>No</p></td>
 <td></td>
 <td></td>
 </tr>
@@ -528,13 +528,95 @@ serial port interface (SPI). This product is protected by a U.S. patent.</p>
 </div>
 </section>
 </section>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<p>In case the driver probes and the device instantiates without errors. Your
+systems kernel messages should include some lines, which may look like the one
+shown below.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This specifies the root console running on the target</p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>axi_adxcvr 44a60000.axi-adxcvr-rx: AXI-ADXCVR-RX (17.01.a) using GTY4 at 0x44A60000 mapped to 0xb0110000. Number of lanes: 8.
+axi_adxcvr 44b60000.axi-adxcvr-rx: AXI-ADXCVR-RX (17.01.a) using GTY4 at 0x44B60000 mapped to 0xb0330000. Number of lanes: 8.
+ad9208 spi0.1: AD9208 PLL LOCKED
+ad9208 spi0.1: AD9208 DUAL (MASTER with DMA) Rev. 3 Grade 0 (API 1.0.1) probed
+ad9208 spi0.2: AD9208 PLL LOCKED
+ad9208 spi0.2: AD9208 Rev. 3 Grade 0 (API 1.0.1) probed
+iio_dmaengine_buffer_alloc:227 width 0 (DMA width &gt;= 256-bits ?)
+cf_axi_adc 44a10000.axi-ad9208-0-hpc: ADI AIM (10.01.b) at 0x44A10000 mapped to 0xb0101000, probed ADC AD9208 DUAL (MASTER with DMA) as MASTER
+cf_axi_adc 44b10000.axi-ad9208-1-hpc: ADI AIM (10.01.b) at 0x44B10000 mapped to 0xb010b000, probed ADC AD9208 as MASTER
+</pre></div>
+</div>
+<p><strong>AD9680 using:</strong> <a class="reference internal" href="../../jesd204/jesd204-fsm-framework/#jesd204-fsm-framework"><span class="std std-ref">JESD204 FSM</span></a></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This specifies the root console running on the target</p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_adxcvr</span> <span class="mi">44</span><span class="n">a50000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">rx</span><span class="p">:</span> <span class="n">AXI</span><span class="o">-</span><span class="n">ADXCVR</span><span class="o">-</span><span class="n">RX</span> <span class="p">(</span><span class="mf">17.05</span><span class="o">.</span><span class="n">a</span><span class="p">)</span> <span class="n">using</span> <span class="n">QPLL</span> <span class="n">on</span> <span class="n">GTX2</span> <span class="n">at</span> <span class="mh">0x44A50000</span><span class="o">.</span> <span class="n">Number</span> <span class="n">of</span> <span class="n">lanes</span><span class="p">:</span> <span class="mf">4.</span>
+<span class="n">axi</span><span class="o">-</span><span class="n">jesd204</span><span class="o">-</span><span class="n">rx</span> <span class="mi">44</span><span class="n">aa0000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">jesd204</span><span class="o">-</span><span class="n">rx</span><span class="p">:</span> <span class="n">AXI</span><span class="o">-</span><span class="n">JESD204</span><span class="o">-</span><span class="n">RX</span> <span class="p">(</span><span class="mf">1.07</span><span class="o">.</span><span class="n">a</span><span class="p">)</span> <span class="n">at</span> <span class="mh">0x44AA0000</span><span class="o">.</span> <span class="n">Encoder</span> <span class="mi">8</span><span class="n">b10b</span><span class="p">,</span> <span class="n">width</span> <span class="mi">4</span><span class="o">/</span><span class="mi">4</span><span class="p">,</span> <span class="n">lanes</span> <span class="mi">4</span><span class="p">,</span> <span class="n">jesd204</span><span class="o">-</span><span class="n">fsm</span><span class="o">.</span>
+<span class="n">ad9208</span> <span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">ad9680</span> <span class="n">PLL</span> <span class="n">LOCKED</span>
+<span class="n">ad9208</span> <span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">ad9680</span> <span class="n">Rev</span><span class="o">.</span> <span class="mi">2</span> <span class="n">Grade</span> <span class="mi">10</span> <span class="p">(</span><span class="n">API</span> <span class="mf">1.0.1</span><span class="p">)</span> <span class="n">probed</span>
+<span class="n">cf_axi_adc</span> <span class="mi">44</span><span class="n">a10000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">ad9680</span><span class="o">-</span><span class="n">hpc</span><span class="p">:</span> <span class="n">ADI</span> <span class="n">AIM</span> <span class="p">(</span><span class="mf">10.01</span><span class="o">.</span><span class="n">b</span><span class="p">)</span> <span class="n">at</span> <span class="mh">0x44A10000</span> <span class="n">mapped</span> <span class="n">to</span> <span class="mh">0x7d3c02c1</span><span class="p">,</span> <span class="n">probed</span> <span class="n">ADC</span> <span class="n">AD9680</span> <span class="k">as</span> <span class="n">MASTER</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">initialized</span> <span class="o">-&gt;</span> <span class="n">probed</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">probed</span> <span class="o">-&gt;</span> <span class="n">idle</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">idle</span> <span class="o">-&gt;</span> <span class="n">device_init</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">device_init</span> <span class="o">-&gt;</span> <span class="n">link_init</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">link_init</span> <span class="o">-&gt;</span> <span class="n">link_supported</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">link_supported</span> <span class="o">-&gt;</span> <span class="n">link_pre_setup</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">link_pre_setup</span> <span class="o">-&gt;</span> <span class="n">clk_sync_stage1</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">clk_sync_stage1</span> <span class="o">-&gt;</span> <span class="n">clk_sync_stage2</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">clk_sync_stage2</span> <span class="o">-&gt;</span> <span class="n">clk_sync_stage3</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">clk_sync_stage3</span> <span class="o">-&gt;</span> <span class="n">link_setup</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">link_setup</span> <span class="o">-&gt;</span> <span class="n">opt_setup_stage1</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">opt_setup_stage1</span> <span class="o">-&gt;</span> <span class="n">opt_setup_stage2</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">opt_setup_stage2</span> <span class="o">-&gt;</span> <span class="n">opt_setup_stage3</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">opt_setup_stage3</span> <span class="o">-&gt;</span> <span class="n">opt_setup_stage4</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">opt_setup_stage4</span> <span class="o">-&gt;</span> <span class="n">opt_setup_stage5</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">opt_setup_stage5</span> <span class="o">-&gt;</span> <span class="n">clocks_enable</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">clocks_enable</span> <span class="o">-&gt;</span> <span class="n">link_enable</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">link_enable</span> <span class="o">-&gt;</span> <span class="n">link_running</span>
+<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">link_running</span> <span class="o">-&gt;</span> <span class="n">opt_post_running_stage</span>
+</pre></div>
+</div>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The AD9208 driver depends on <strong>CONFIG_SPI</strong></p>
+</div>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
+        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
+
+              <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+            <span class="o">-*-</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">AXI</span> <span class="n">ADC</span> <span class="n">driver</span> <span class="n">core</span>
+                <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9208</span> <span class="ow">and</span> <span class="n">similar</span> <span class="n">high</span> <span class="n">speed</span> <span class="n">ADCs</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-devicetree-spi-device-initialization">
-<h2>Example devicetree SPI device initialization<a class="headerlink" href="#example-devicetree-spi-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example devicetree SPI device initialization<a class="headerlink" href="#example-devicetree-spi-device-initialization" title="Link to this heading"></a></h4>
 <p><strong>Analog Devices AD9208 (and similar) JESD204B Analog-to-Digital Converter
 (ADC)</strong></p>
 <p><strong>Required properties:</strong></p>
 <ul class="simple">
-<li><p><strong>compatible</strong>: Must be one of <code class="docutils literal notranslate"><span class="pre">adi,ad9208</span></code>, <code class="docutils literal notranslate"><span class="pre">adi,ad9208x2</span></code></p></li>
+<li><p><strong>compatible: One of adi,ad9208, adi,ad9208x2, adi,ad6684, adi,ad6688,
+adi,ad9689, adi,ad9694, adi,ad9695, adi,ad9697 or adi,ad9680.</strong></p></li>
 <li><p><strong>reg</strong>: SPI chip select number for the device</p></li>
 <li><p><strong>#address-cells</strong>: Must be set to 1</p></li>
 <li><p><strong>#size-cells</strong>: Must be set to 0</p></li>
@@ -608,7 +690,8 @@ Complex.</p></li>
 <li><p><strong>adi,decimation</strong>: ADC decimation rate. This value configures the ADC
 decimation mode based on the desired ADC sampling rate (Fs) and the desired
 output sample rate (Fout). Fs/Fout. DCM rate shall be set to the lowest
-Channel DCM value. Range 1-48.</p></li>
+Channel DCM value. Only the decimation ratios supported by the API are
+accepted.</p></li>
 <li><p><strong>adi,nco-mode-select</strong>: Set DDC frequency translation Mode. Each DDC Channel
 supports an NCO for frequency translation. This value enables or disables the
 NCO to achieve Variable IF mode (NCO enabled) or Zero IF Mode (NCO disabled).
@@ -620,74 +703,79 @@ a ramp into the signal path.</p>
 <li><p>2 = Test Mode.</p></li>
 </ul>
 </li>
-<li><p><strong>adi,nco-channel-carrier-frequency-hz</strong>: Set NCO channel carrier frequency in
-Hz for frquency translation.</p></li>
+<li><p><strong>adi,nco-channel-carrier-frequency-hz</strong>: Set NCO channel carrier frequency
+in Hz for frquency translation.</p></li>
 <li><p><strong>adi,nco-channel-phase-offset</strong>: Set NCO Phase Offset.</p></li>
 <li><p><strong>adi,ddc-gain-6dB-enable</strong>: Each DDC Channel contains an independently
 controlled gain stage. Either 0dB or 6dB gain can be applied.</p></li>
 <li><p><strong>fastdetect-a-gpio</strong>: a GPIO spec for the Fastdetect-A pin.</p></li>
-<li><p><strong>fastdetect-a-gpio</strong>: a GPIO spec for the Fastdetect-B pin.</p></li>
+<li><p><strong>fastdetect-b-gpios: GPIO specifier for the Fastdetect-B pin.</strong></p></li>
 <li><p><strong>powerdown-gpio</strong>: a GPIO spec for the Powerdown pin.</p></li>
 </ul>
 <p><strong>Example:</strong></p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="n">spi0</span> <span class="p">{</span>
-    <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="nf">spi0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"okay"</span><span class="p">;</span>
 
-    <span class="n">adc0_ad9208</span><span class="p">:</span> <span class="n">ad9208</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad9208x2"</span><span class="p">;</span>
+<span class="w">    </span><span class="nl">adc0_ad9208</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9208</span><span class="o">@</span><span class="mi">1</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,ad9208x2"</span><span class="p">;</span>
 
-        <span class="n">spi</span><span class="o">-</span><span class="n">cpol</span><span class="p">;</span>
-        <span class="n">spi</span><span class="o">-</span><span class="n">cpha</span><span class="p">;</span>
-        <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">spi-cpol</span><span class="p">;</span>
+<span class="w">        </span><span class="n">spi-cpha</span><span class="p">;</span>
+<span class="w">        </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_ad9208_0_jesd_rx</span><span class="o">&gt;</span><span class="p">,</span>  <span class="o">&lt;&amp;</span><span class="n">hmc7044</span> <span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"jesd_adc_clk"</span><span class="p">,</span> <span class="s2">"adc_clk"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">axi_ad9208_0_jesd_rx</span><span class="o">&gt;</span><span class="p">,</span><span class="w">  </span><span class="o">&lt;&amp;</span><span class="na">hmc7044</span><span class="w"> </span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"jesd_adc_clk"</span><span class="p">,</span><span class="w"> </span><span class="s">"adc_clk"</span><span class="p">;</span>
 
-        <span class="n">adi</span><span class="p">,</span><span class="n">powerdown</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">AD9208_PDN_MODE_POWERDOWN</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">powerdown-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">AD9208_PDN_MODE_POWERDOWN</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="n">adi</span><span class="p">,</span><span class="n">sampling</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">/</span><span class="n">bits</span><span class="o">/</span> <span class="mi">64</span> <span class="o">&lt;</span><span class="mi">3000000000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="nb">input</span><span class="o">-</span><span class="n">clock</span><span class="o">-</span><span class="n">divider</span><span class="o">-</span><span class="n">ratio</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">duty</span><span class="o">-</span><span class="n">cycle</span><span class="o">-</span><span class="n">stabilizer</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">sampling-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="cp">/bits/</span><span class="cm"> </span><span class="cp">64 &lt;3000000000&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">input-clock-divider-ratio</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">duty-cycle-stabilizer-enable</span><span class="p">;</span>
 
-        <span class="n">adi</span><span class="p">,</span><span class="n">analog</span><span class="o">-</span><span class="nb">input</span><span class="o">-</span><span class="n">neg</span><span class="o">-</span><span class="n">buffer</span><span class="o">-</span><span class="n">current</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">AD9208_BUFF_CURR_600_UA</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">analog</span><span class="o">-</span><span class="nb">input</span><span class="o">-</span><span class="n">pos</span><span class="o">-</span><span class="n">buffer</span><span class="o">-</span><span class="n">current</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">AD9208_BUFF_CURR_600_UA</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">analog-input-neg-buffer-current</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">AD9208_BUFF_CURR_600_UA</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">analog-input-pos-buffer-current</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">AD9208_BUFF_CURR_600_UA</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="n">adi</span><span class="p">,</span><span class="n">sysref</span><span class="o">-</span><span class="n">lmfc</span><span class="o">-</span><span class="n">offset</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">sysref</span><span class="o">-</span><span class="n">pos</span><span class="o">-</span><span class="n">window</span><span class="o">-</span><span class="n">skew</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">sysref</span><span class="o">-</span><span class="n">neg</span><span class="o">-</span><span class="n">window</span><span class="o">-</span><span class="n">skew</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">sysref</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">AD9208_SYSREF_ONESHOT</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">sysref</span><span class="o">-</span><span class="n">nshot</span><span class="o">-</span><span class="n">ignore</span><span class="o">-</span><span class="n">count</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">15</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">sysref-lmfc-offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">sysref-pos-window-skew</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">sysref-neg-window-skew</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">sysref-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">AD9208_SYSREF_ONESHOT</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">sysref-nshot-ignore-count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">15</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="o">/*</span> <span class="n">JESD204</span> <span class="n">parameters</span> <span class="o">*/</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">octets</span><span class="o">-</span><span class="n">per</span><span class="o">-</span><span class="n">frame</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">frames</span><span class="o">-</span><span class="n">per</span><span class="o">-</span><span class="n">multiframe</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">32</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">converter</span><span class="o">-</span><span class="n">resolution</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">16</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">bits</span><span class="o">-</span><span class="n">per</span><span class="o">-</span><span class="n">sample</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">16</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">converters</span><span class="o">-</span><span class="n">per</span><span class="o">-</span><span class="n">device</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">control</span><span class="o">-</span><span class="n">bits</span><span class="o">-</span><span class="n">per</span><span class="o">-</span><span class="n">sample</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">lanes</span><span class="o">-</span><span class="n">per</span><span class="o">-</span><span class="n">device</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">subclass</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="cm">/* JESD204 parameters */</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">octets-per-frame</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">frames-per-multiframe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">32</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">converter-resolution</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">16</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">bits-per-sample</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">16</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">converters-per-device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">control-bits-per-sample</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">lanes-per-device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">subclass</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="o">/*</span> <span class="n">DDC</span> <span class="n">setup</span> <span class="o">*/</span>
+<span class="w">        </span><span class="cm">/* DDC setup */</span>
 
-        <span class="n">adi</span><span class="p">,</span><span class="n">ddc</span><span class="o">-</span><span class="n">channel</span><span class="o">-</span><span class="n">number</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">AD9208_FULL_BANDWIDTH_MODE</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">ddc-channel-number</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">AD9208_FULL_BANDWIDTH_MODE</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="c1">#address-cells = &lt;1&gt;;</span>
-        <span class="c1">#size-cells = &lt;0&gt;;</span>
+<span class="w">        </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="n">ad9208_0_ddc0</span><span class="p">:</span> <span class="n">channel</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span> <span class="o">/*</span> <span class="n">Ignored</span> <span class="ow">in</span> <span class="n">AD9208_FULL_BANDWIDTH_MODE</span> <span class="o">*/</span>
-            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">decimation</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">nco</span><span class="o">-</span><span class="n">mode</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">AD9208_NCO_MODE_VIF</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">nco</span><span class="o">-</span><span class="n">channel</span><span class="o">-</span><span class="n">carrier</span><span class="o">-</span><span class="n">frequency</span><span class="o">-</span><span class="n">hz</span> <span class="o">=</span> <span class="o">/</span><span class="n">bits</span><span class="o">/</span> <span class="mi">64</span> <span class="o">&lt;</span><span class="mi">70000000</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">nco</span><span class="o">-</span><span class="n">channel</span><span class="o">-</span><span class="n">phase</span><span class="o">-</span><span class="n">offset</span> <span class="o">=</span> <span class="o">/</span><span class="n">bits</span><span class="o">/</span> <span class="mi">64</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">ddc</span><span class="o">-</span><span class="n">gain</span><span class="o">-</span><span class="mi">6</span><span class="n">dB</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
+<span class="w">        </span><span class="nl">ad9208_0_ddc0</span><span class="p">:</span><span class="w"> </span><span class="nf">channel</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* Still parsed and programmed in AD9208_FULL_BANDWIDTH_MODE */</span>
+<span class="w">            </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">decimation</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">nco-mode-select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">AD9208_NCO_MODE_VIF</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">nco-channel-carrier-frequency-hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="cp">/bits/</span><span class="cm"> </span><span class="cp">64 &lt;70000000&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">nco-channel-phase-offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="cp">/bits/</span><span class="cm"> </span><span class="cp">64 &lt;0&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">ddc-gain-6dB-enable</span><span class="p">;</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">    </span><span class="p">};</span>
 <span class="p">};</span>
 </pre></div>
 </div>
+<p>These properties belong to the DDC channel child node, not the ADC parent. The
+driver parses every child node with a valid <code class="docutils literal notranslate"><span class="pre">reg</span></code> and programs those DDC
+blocks even in full-bandwidth mode; full-bandwidth mode only forces the
+chip-wide decimation to 1. Missing or invalid child properties can therefore
+still fail probe.</p>
 <p><strong>AD9680 Example Using:</strong> <a class="reference internal" href="../../jesd204/jesd204-fsm-framework/#jesd204-fsm-framework"><span class="std std-ref">JESD204 FSM</span></a></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adc0_ad9680</span><span class="p">:</span> <span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span> <span class="p">{</span>
     <span class="c1">#address-cells = &lt;1&gt;;</span>
@@ -746,86 +834,7 @@ controlled gain stage. Either 0dB or 6dB gain can be applied.</p></li>
 </pre></div>
 </div>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The AD9208 driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-        <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
-
-              <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-            <span class="o">-*-</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">AXI</span> <span class="n">ADC</span> <span class="n">driver</span> <span class="n">core</span>
-                <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9208</span> <span class="ow">and</span> <span class="n">similar</span> <span class="n">high</span> <span class="n">speed</span> <span class="n">ADCs</span>
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-</pre></div>
-</div>
-</section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
-<p>In case the driver probes and the device instantiates without errors. Your
-systems kernel messages should include some lines, which may look like the one
-shown below.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This specifies the root console running on the target</p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>axi_adxcvr 44a60000.axi-adxcvr-rx: AXI-ADXCVR-RX (17.01.a) using GTY4 at 0x44A60000 mapped to 0xb0110000. Number of lanes: 8.
-axi_adxcvr 44b60000.axi-adxcvr-rx: AXI-ADXCVR-RX (17.01.a) using GTY4 at 0x44B60000 mapped to 0xb0330000. Number of lanes: 8.
-ad9208 spi0.1: AD9208 PLL LOCKED
-ad9208 spi0.1: AD9208 DUAL (MASTER with DMA) Rev. 3 Grade 0 (API 1.0.1) probed
-ad9208 spi0.2: AD9208 PLL LOCKED
-ad9208 spi0.2: AD9208 Rev. 3 Grade 0 (API 1.0.1) probed
-iio_dmaengine_buffer_alloc:227 width 0 (DMA width &gt;= 256-bits ?)
-cf_axi_adc 44a10000.axi-ad9208-0-hpc: ADI AIM (10.01.b) at 0x44A10000 mapped to 0xb0101000, probed ADC AD9208 DUAL (MASTER with DMA) as MASTER
-cf_axi_adc 44b10000.axi-ad9208-1-hpc: ADI AIM (10.01.b) at 0x44B10000 mapped to 0xb010b000, probed ADC AD9208 as MASTER
-</pre></div>
-</div>
-<p><strong>AD9680 using:</strong> <a class="reference internal" href="../../jesd204/jesd204-fsm-framework/#jesd204-fsm-framework"><span class="std std-ref">JESD204 FSM</span></a></p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This specifies the root console running on the target</p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_adxcvr</span> <span class="mi">44</span><span class="n">a50000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">rx</span><span class="p">:</span> <span class="n">AXI</span><span class="o">-</span><span class="n">ADXCVR</span><span class="o">-</span><span class="n">RX</span> <span class="p">(</span><span class="mf">17.05</span><span class="o">.</span><span class="n">a</span><span class="p">)</span> <span class="n">using</span> <span class="n">QPLL</span> <span class="n">on</span> <span class="n">GTX2</span> <span class="n">at</span> <span class="mh">0x44A50000</span><span class="o">.</span> <span class="n">Number</span> <span class="n">of</span> <span class="n">lanes</span><span class="p">:</span> <span class="mf">4.</span>
-<span class="n">axi</span><span class="o">-</span><span class="n">jesd204</span><span class="o">-</span><span class="n">rx</span> <span class="mi">44</span><span class="n">aa0000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">jesd204</span><span class="o">-</span><span class="n">rx</span><span class="p">:</span> <span class="n">AXI</span><span class="o">-</span><span class="n">JESD204</span><span class="o">-</span><span class="n">RX</span> <span class="p">(</span><span class="mf">1.07</span><span class="o">.</span><span class="n">a</span><span class="p">)</span> <span class="n">at</span> <span class="mh">0x44AA0000</span><span class="o">.</span> <span class="n">Encoder</span> <span class="mi">8</span><span class="n">b10b</span><span class="p">,</span> <span class="n">width</span> <span class="mi">4</span><span class="o">/</span><span class="mi">4</span><span class="p">,</span> <span class="n">lanes</span> <span class="mi">4</span><span class="p">,</span> <span class="n">jesd204</span><span class="o">-</span><span class="n">fsm</span><span class="o">.</span>
-<span class="n">ad9208</span> <span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">ad9680</span> <span class="n">PLL</span> <span class="n">LOCKED</span>
-<span class="n">ad9208</span> <span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">ad9680</span> <span class="n">Rev</span><span class="o">.</span> <span class="mi">2</span> <span class="n">Grade</span> <span class="mi">10</span> <span class="p">(</span><span class="n">API</span> <span class="mf">1.0.1</span><span class="p">)</span> <span class="n">probed</span>
-<span class="n">cf_axi_adc</span> <span class="mi">44</span><span class="n">a10000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">ad9680</span><span class="o">-</span><span class="n">hpc</span><span class="p">:</span> <span class="n">ADI</span> <span class="n">AIM</span> <span class="p">(</span><span class="mf">10.01</span><span class="o">.</span><span class="n">b</span><span class="p">)</span> <span class="n">at</span> <span class="mh">0x44A10000</span> <span class="n">mapped</span> <span class="n">to</span> <span class="mh">0x7d3c02c1</span><span class="p">,</span> <span class="n">probed</span> <span class="n">ADC</span> <span class="n">AD9680</span> <span class="k">as</span> <span class="n">MASTER</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">initialized</span> <span class="o">-&gt;</span> <span class="n">probed</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">probed</span> <span class="o">-&gt;</span> <span class="n">idle</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">idle</span> <span class="o">-&gt;</span> <span class="n">device_init</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">device_init</span> <span class="o">-&gt;</span> <span class="n">link_init</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">link_init</span> <span class="o">-&gt;</span> <span class="n">link_supported</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">link_supported</span> <span class="o">-&gt;</span> <span class="n">link_pre_setup</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">link_pre_setup</span> <span class="o">-&gt;</span> <span class="n">clk_sync_stage1</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">clk_sync_stage1</span> <span class="o">-&gt;</span> <span class="n">clk_sync_stage2</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">clk_sync_stage2</span> <span class="o">-&gt;</span> <span class="n">clk_sync_stage3</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">clk_sync_stage3</span> <span class="o">-&gt;</span> <span class="n">link_setup</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">link_setup</span> <span class="o">-&gt;</span> <span class="n">opt_setup_stage1</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">opt_setup_stage1</span> <span class="o">-&gt;</span> <span class="n">opt_setup_stage2</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">opt_setup_stage2</span> <span class="o">-&gt;</span> <span class="n">opt_setup_stage3</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">opt_setup_stage3</span> <span class="o">-&gt;</span> <span class="n">opt_setup_stage4</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">opt_setup_stage4</span> <span class="o">-&gt;</span> <span class="n">opt_setup_stage5</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">opt_setup_stage5</span> <span class="o">-&gt;</span> <span class="n">clocks_enable</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">clocks_enable</span> <span class="o">-&gt;</span> <span class="n">link_enable</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">link_enable</span> <span class="o">-&gt;</span> <span class="n">link_running</span>
-<span class="n">jesd204</span><span class="p">:</span> <span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">ad9680</span><span class="o">@</span><span class="mi">2</span><span class="p">,</span><span class="n">jesd204</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="n">parent</span><span class="o">=</span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">JESD204</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="n">transition</span> <span class="n">link_running</span> <span class="o">-&gt;</span> <span class="n">opt_post_running_stage</span>
-</pre></div>
-</div>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -870,8 +879,8 @@ associated clock providers.</p>
 </div>
 <p>Documentation for IIO device the subfolders, device and channel attributes can
 be found here: <a class="reference internal" href="../axi-adc-hdl/#axi-adc-hdl"><span class="std std-ref">AXI ADC HDL</span></a></p>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat name</span>
 <span class="n">axi</span><span class="o">-</span><span class="n">ad9208</span><span class="o">-</span><span class="mi">0</span><span class="o">-</span><span class="n">hpc</span>
 </pre></div>
@@ -891,6 +900,13 @@ be found here: <a class="reference internal" href="../axi-adc-hdl/#axi-adc-hdl">
 <li><p><a class="icon link reference external" href="http://video.fosdem.org/2015/devroom-software_defined_radio/iiosdr.mp4" target="_blank">Software Defined Radio using the IIO framework</a></p></li>
 <li><p><a class="icon link reference external" href="https://www.youtube.com/watch?v=p_VntEwUe24" target="_blank">libiio introduction</a></p></li>
 </ul>
+<section id="supported-hdl-cores">
+<h3>Supported HDL Cores<a class="headerlink" href="#supported-hdl-cores" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/jesd204/ad_ip_jesd204_tpl_adc/#ad-ip-jesd204-tpl-adc" target="_blank" title="(in HDL)"><span>ADC JESD204B/C Transport Peripheral</span></a></p></li>
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/ad9208_dual_ebz/ad9208_dual_ebz_hdl" target="_blank">AD9208-DUAL-EBZ HDL reference design</a></p></li>
+</ul>
+</section>
 </section>
 </section>
 

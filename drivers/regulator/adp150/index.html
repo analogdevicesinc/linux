@@ -102,17 +102,24 @@
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#description">Description</a></li>
+<li><a class="reference internal" href="#description">Description</a><ul>
+<li><a class="reference internal" href="#driver-features-and-limitations">Driver features and limitations</a></li>
 <li><a class="reference internal" href="#configuration">Configuration</a></li>
-<li><a class="reference internal" href="#software-configurable-features">Software configurable features</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a></li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
@@ -216,6 +223,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -234,7 +242,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -405,15 +412,18 @@ Content on this topic
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
-<p>The fixed regulator voltage driver can be used to control these chips. Please
-connect the <strong>EN</strong>able switch pin to any available GPIO port on your CPU. This
-driver adapts to voltage and current regulator framework in Linux kernel.</p>
+<p>The generic fixed-voltage regulator driver can model a board-fixed output and
+control its enable GPIO. It does not program an ADP part number, output-voltage
+selector or current limit; the configured voltage must match the physical
+regulator variant or resistor setting. Please connect the <strong>EN</strong>able switch
+pin to any available GPIO port on your CPU. This driver adapts to voltage and
+current regulator framework in Linux kernel.</p>
+<section id="driver-features-and-limitations">
+<h3>Driver features and limitations<a class="headerlink" href="#driver-features-and-limitations" title="Link to this heading"></a></h3>
 </section>
 <section id="configuration">
-<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
+<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h3>
 </section>
-<section id="software-configurable-features">
-<h2>Software configurable features<a class="headerlink" href="#software-configurable-features" title="Link to this heading"></a></h2>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -459,8 +469,30 @@ driver adapts to voltage and current regulator framework in Linux kernel.</p>
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Enable generic GPIO lib in kernel option.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="n">GPIO</span> <span class="n">Support</span>  <span class="o">---&gt;</span>
+</pre></div>
+</div>
+<p>Select voltage and current regulator framework support and enable adp_switch
+driver. Don’t forget to select userspace regulator consumer driver as a module.
+adp_switch driver is initialized after userspace consumer driver, if both are
+built into kernel.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="n">Voltage</span> <span class="ow">and</span> <span class="n">Current</span> <span class="n">Regulator</span> <span class="n">Support</span>  <span class="o">---&gt;</span>
+    <span class="o">&lt;*&gt;</span>   <span class="n">Fixed</span> <span class="n">voltage</span> <span class="n">regulator</span> <span class="n">support</span>
+    <span class="o">&lt;*&gt;</span>   <span class="n">Userspace</span> <span class="n">regulator</span> <span class="n">consumer</span> <span class="n">support</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>The default platform info defined in bf537-stamp board file is for ad122. If you
 want to customize this driver for other switch only regulator, you should revise
 the platform information accordingly.</p>
@@ -479,26 +511,7 @@ the platform information accordingly.</p>
 <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp122_userspace_comsumer_data{}</a>
 <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp122_userspace_consumer_device{}</a></p>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Enable generic GPIO lib in kernel option.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="n">GPIO</span> <span class="n">Support</span>  <span class="o">---&gt;</span>
-</pre></div>
-</div>
-<p>Select voltage and current regulator framework support and enable adp_switch
-driver. Don’t forget to select userspace regulator consumer driver as a module.
-adp_switch driver is initialized after userspace consumer driver, if both are
-built into kernel.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="n">Voltage</span> <span class="ow">and</span> <span class="n">Current</span> <span class="n">Regulator</span> <span class="n">Support</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span>   <span class="n">Fixed</span> <span class="n">voltage</span> <span class="n">regulator</span> <span class="n">support</span>
-    <span class="o">&lt;*&gt;</span>   <span class="n">Userspace</span> <span class="n">regulator</span> <span class="n">consumer</span> <span class="n">support</span>
-</pre></div>
-</div>
 </section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>

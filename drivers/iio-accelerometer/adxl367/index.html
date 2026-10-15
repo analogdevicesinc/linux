@@ -104,23 +104,31 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-scale">Show scale</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-scale">Show scale</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#show-axis-x-measurement">Show axis x measurement</a></li>
 <li><a class="reference internal" href="#set-sampling-frequency">Set sampling frequency</a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li><a class="reference internal" href="#using-the-fifo-buffer">Using the FIFO Buffer</a><ul>
 <li><a class="reference internal" href="#buffer-management">Buffer management</a></li>
 </ul>
 </li>
 </ul>
 </li>
+<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
 <li><a class="reference internal" href="#low-level-register-access-via-debugfs-direct-reg-access">Low level register access via debugfs (direct_reg_access)</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
@@ -223,6 +231,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -241,7 +250,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -459,8 +467,12 @@ Content on this topic
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>Required devicetree properties:</p>
 <ul class="simple">
 <li><p>compatible: Needs to be the name of the device. E.g. <code class="docutils literal notranslate"><span class="pre">adi,adxl367</span></code></p></li>
@@ -489,18 +501,20 @@ Content on this topic
 </pre></div>
 </div>
 <p>Example for a I2C device node:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1">#address-cells = &lt;1&gt;;</span>
-<span class="c1">#size-cells = &lt;0&gt;;</span>
-<span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="kr">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"okay"</span><span class="p">;</span>
 
-<span class="n">adxl367</span><span class="o">@</span><span class="mi">53</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adxl367"</span><span class="p">;</span>
-    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">53</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">25</span> <span class="n">IRQ_TYPE_EDGE_RISING</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="nf">adxl367</span><span class="o">@</span><span class="mi">53</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,adxl367"</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x53</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">interrupt-parent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">gpio</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">interrupts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">25</span><span class="w"> </span><span class="na">IRQ_TYPE_EDGE_RISING</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="p">};</span>
 </pre></div>
 </div>
+</section>
+</section>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -535,12 +549,15 @@ Content on this topic
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">May</span>  <span class="mi">3</span> <span class="mi">16</span><span class="p">:</span><span class="mi">17</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">adxl367</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-scale">
 <h4>Show scale<a class="headerlink" href="#show-scale" title="Link to this heading"></a></h4>
 <p><strong>Description:</strong> scale to be applied to in_accel_*_raw in order to obtain the
@@ -549,8 +566,10 @@ acceleration.</p>
 <span class="mf">0.002394347</span>
 </pre></div>
 </div>
+</section>
+</section>
 <section id="show-axis-x-measurement">
-<h5>Show axis x measurement<a class="headerlink" href="#show-axis-x-measurement" title="Link to this heading"></a></h5>
+<h3>Show axis x measurement<a class="headerlink" href="#show-axis-x-measurement" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> Raw unscaled acceleration measurement on x axis</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_accel_x_raw</span>
 <span class="o">-</span><span class="mi">5</span>
@@ -558,7 +577,7 @@ acceleration.</p>
 </div>
 </section>
 <section id="set-sampling-frequency">
-<h5>Set sampling frequency<a class="headerlink" href="#set-sampling-frequency" title="Link to this heading"></a></h5>
+<h3>Set sampling frequency<a class="headerlink" href="#set-sampling-frequency" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">sampling_frequency_available</span>
 <span class="mf">12.500000</span> <span class="mf">25.000000</span> <span class="mf">50.000000</span> <span class="mf">100.000000</span> <span class="mf">200.000000</span> <span class="mf">400.000000</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">sampling_frequency</span>
@@ -568,8 +587,6 @@ acceleration.</p>
 <span class="mf">400.000000</span>
 </pre></div>
 </div>
-</section>
-</section>
 </section>
 <section id="using-the-fifo-buffer">
 <h3>Using the FIFO Buffer<a class="headerlink" href="#using-the-fifo-buffer" title="Link to this heading"></a></h3>
@@ -635,9 +652,11 @@ data, we need to enable the scan elements:</p></li>
 <ul class="simple">
 <li><p>Set the watermak:</p></li>
 </ul>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/</span><span class="n">buffer</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">512</span> <span class="o">&gt;</span> <span class="n">watermark</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/bus/iio/devices/iio:device0/buffer&gt; echo 170 &gt; watermark
 </pre></div>
 </div>
+<p>For the XYZ scan above, use 170 sample sets. The driver rejects any requested
+watermark above 511; hardware FIFO storage and watermark limits are distinct.</p>
 <ul class="simple">
 <li><p>Enable the buffer:</p></li>
 </ul>
@@ -653,8 +672,10 @@ data, we need to enable the scan elements:</p></li>
 </section>
 </section>
 </section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
 <section id="low-level-register-access-via-debugfs-direct-reg-access">
-<h2>Low level register access via debugfs (direct_reg_access)<a class="headerlink" href="#low-level-register-access-via-debugfs-direct-reg-access" title="Link to this heading"></a></h2>
+<h3>Low level register access via debugfs (direct_reg_access)<a class="headerlink" href="#low-level-register-access-via-debugfs-direct-reg-access" title="Link to this heading"></a></h3>
 <p>Some IIO drivers feature an optional debug facility, allowing users to read or
 write registers directly. Special care needs to be taken when using this
 feature, since you can modify registers on the back of the driver. Accessing
@@ -677,6 +698,7 @@ debugfs requires root privileges.</p>
 <span class="mh">0x80</span>
 </pre></div>
 </div>
+</section>
 </section>
 <section id="more-information">
 <h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>

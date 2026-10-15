@@ -1,21 +1,18 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/input-misc/adxl362
 
+
 .. _adxl362:
 
 ADXL362
 =======
 
-ADXL362 Input 3-Axis Digital Accelerometer Linux Driver.
+The ADXL362 input-subsystem driver is only available on the ``adxl362``
+branch of the ADI Linux kernel tree; it has not been merged into mainline.
 
 Supported Devices
 -----------------
 
 - :adi:`ADXL362`
-
-Reference Circuits
-------------------
-
-- :adi:`CN0274`
 
 Evaluation Boards
 -----------------
@@ -25,15 +22,10 @@ Evaluation Boards
 - :adi:`EVAL-ADXL362Z-MLP`
 - :adi:`EVAL-ADXL362Z-S`
 
-ADXL362: Micropower 3-Axis MEMS Accelerometer: Digital Output, ±2/±4/±8 g Range
--------------------------------------------------------------------------------
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
 
-- :adi:`Product Page <ADXL362>`
-
-The ADXL362 is an ultralow power 3-axis MEMS accelerometer that consumes
-less than 2 µA at 100 Hz output data rate. It provides motion-activated
-sleep/wake functionality and embedded FIFO buffering, making it ideal for
-battery-powered wearable and IoT devices requiring long operational life.
+- :adi:`CN0274`
 
 Source Code
 -----------
@@ -69,8 +61,83 @@ Files
      - :git+linux:`adxl362:include/linux/input/adxl362.h`
      -
 
+Hardware configuration
+----------------------
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/eval-adxl362z.jpg
+   :width: 300px
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADXL362 driver depends on CONFIG_SPI.
+
+::
+
+   Input device support
+     -- Generic input layer (needed for keyboard, mouse, ...)
+     < >   Support for memoryless force-feedback devices
+     < >   Polled input device skeleton
+     < >   Sparse keymap support library
+            Userland interfaces
+     < >   Mouse interface
+     < >   Joystick interface
+     <>   Event interface
+     < >   Event debugging
+            Input Device Drivers
+     [ ]   Keyboards  --->
+     [ ]   Mice  --->
+     [ ]   Joysticks/Gamepads  --->
+     [ ]   Tablets  --->
+     [ ]   Touchscreens  --->
+     []   Miscellaneous devices  --->
+           --- Miscellaneous devices
+           < >   Analog Devices AD714x Capacitance Touch Sensor
+           < >   BMA150/SMB380 acceleration sensor support
+           < >   MMA8450 - Freescale's 3-Axis, 8/12-bit Digital Accelerometer
+           < >   MPU3050 Triaxial gyroscope sensor
+           < >   Sharp GP2AP002A00F I2C Proximity/Opto sensor driver
+           < >   Polled GPIO tilt switch
+           < >   Kionix KXTJ9 tri-axis digital accelerometer
+           < >   User level driver support
+           < >   PCF8574 Keypad input device
+           < >   Rotary encoders connected to GPIO pins
+           < >   Analog Devices ADXL34x Three-Axis Digital Accelerometer
+           <>   Analog Devices ADXL362 Three-Axis Digital Accelerometer
+           < >   VTI CMA3000 Tri-axis accelerometer
+           Hardware I/O ports  --->
+
+Driver compiled as a module
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   root:~> modprobe evdev
+   root:~> modprobe adxl362
+   input: ADXL362 accelerometer as /devices/platform/bfin-spi.0/spi_master/spi0/spi0.1/input/input0
+
+Driver compiled into the kernel
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Your kernel startup messages should include something like this
+
+::
+
+   input: ADXL362 accelerometer as /devices/platform/bfin-spi.0/spi_master/spi0/spi0.1/input/input0
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
@@ -253,92 +320,11 @@ question.
    }
    arch_initcall(board_init);
 
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The ADXL34x Driver depends on **CONFIG_SPI**
-
-::
-
-   Input device support
-     -- Generic input layer (needed for keyboard, mouse, ...)
-     < >   Support for memoryless force-feedback devices
-     < >   Polled input device skeleton
-     < >   Sparse keymap support library
-            Userland interfaces
-     < >   Mouse interface
-     < >   Joystick interface
-     <>   Event interface
-     < >   Event debugging
-            Input Device Drivers
-     [ ]   Keyboards  --->
-     [ ]   Mice  --->
-     [ ]   Joysticks/Gamepads  --->
-     [ ]   Tablets  --->
-     [ ]   Touchscreens  --->
-     []   Miscellaneous devices  --->
-           --- Miscellaneous devices
-           < >   Analog Devices AD714x Capacitance Touch Sensor
-           < >   BMA150/SMB380 acceleration sensor support
-           < >   MMA8450 - Freescale's 3-Axis, 8/12-bit Digital Accelerometer
-           < >   MPU3050 Triaxial gyroscope sensor
-           < >   Sharp GP2AP002A00F I2C Proximity/Opto sensor driver
-           < >   Polled GPIO tilt switch
-           < >   Kionix KXTJ9 tri-axis digital accelerometer
-           < >   User level driver support
-           < >   PCF8574 Keypad input device
-           < >   Rotary encoders connected to GPIO pins
-           < >   Analog Devices ADXL34x Three-Axis Digital Accelerometer
-           <>   Analog Devices ADXL362 Three-Axis Digital Accelerometer
-           < >   VTI CMA3000 Tri-axis accelerometer
-           Hardware I/O ports  --->
-
-Hardware configuration
-----------------------
-
-.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/eval-adxl362z.jpg
-   :width: 300px
-
 Driver testing
 --------------
 
-Driver compiled as a module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-::
-
-   root:~> modprobe evdev
-   root:~> modprobe adxl362
-   input: ADXL362 accelerometer as /devices/platform/bfin-spi.0/spi_master/spi0/spi0.1/input/input0
-
-Driver compiled into the kernel
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Your kernel startup messages should include something like this
-
-::
-
-   input: ADXL362 accelerometer as /devices/platform/bfin-spi.0/spi_master/spi0/spi0.1/input/input0
-
-Common Problems
-~~~~~~~~~~~~~~~
-
-In case you see a message like this
-
-::
-
-   adxl362 spi0.1: Failed to probe (0x00:0x00)
-
-This means that the SPI communication and initilaization with the ADXL362
-failed. **check bus_num and chip_select in your platform device file**
-
-Checking for proper installation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 After the kernel boot your device folder should include at least one device node
 for the accelerometer
@@ -355,6 +341,16 @@ for the accelerometer
 
    root:~> cat /sys/class/input/input0/name
    ADXL362 accelerometer
+
+ADXL362: Micropower 3-Axis MEMS Accelerometer: Digital Output, ±2/±4/±8 g Range
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- :adi:`Product Page <ADXL362>`
+
+The ADXL362 is an ultralow power 3-axis MEMS accelerometer that consumes
+less than 2 µA at 100 Hz output data rate. It provides motion-activated
+sleep/wake functionality and embedded FIFO buffering, making it ideal for
+battery-powered wearable and IoT devices requiring long operational life.
 
 Use the event_test utility to test proper function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -397,8 +393,8 @@ Use the event_test utility to test proper function
 .. tip::
 
    In case you move the accelerometer and don’t receive events, it’s likely that
-   something with your Interrupt is wrong. **check irq number in your platform
-   device file**
+   something with your Interrupt is wrong. Check the IRQ in the board's
+   platform data.
 
 .. tip::
 
@@ -444,8 +440,9 @@ Controlling the Output Data Rate
    * - 12.5
      - 6.25
 
-Writing ‘**Output Data Rate**’ into **rate** sets the desired sample rate
-Reading **rate** returns the current Output Data Rate
+``rate`` takes an integer, clamped to 13-400, and maps it to the nearest
+supported ODR. Since ``rate`` is an integer, the 12.5 Hz setting is written
+as 13 and reads back as 12.
 
 See table above for supported sample rates
 
@@ -471,3 +468,19 @@ ADXL362/6 Android Acceleration Sensor
 
 Using this driver under Android as Acceleration Sensor Follow the link here
 :dokuwiki:`ADXL362 Android Sensor </resources/tools-software/android-drivers/sensor-acceleration/adxl345>`
+
+Troubleshooting
+---------------
+
+Common Problems
+~~~~~~~~~~~~~~~
+
+In case you see a message like this
+
+::
+
+   adxl362 spi0.1: Failed to probe (0x00:0x00)
+
+This means that the SPI communication and initilaization with the ADXL362
+failed. Check the ``bus_num`` and ``chip_select`` in the board's platform
+data.

@@ -97,22 +97,20 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">SPI Engine</a><ul>
-<li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#supported-ip-cores">Supported IP Cores</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
-<li><a class="reference internal" href="#status">Status</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li><a class="reference internal" href="#device-initialization">Device initialization</a><ul>
-<li><a class="reference internal" href="#devicetree-bindings">Devicetree bindings</a><ul>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example">Example</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#more-information">More information</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
 </ul>
@@ -214,6 +212,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -232,7 +231,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -368,8 +366,8 @@ Content on this topic
   <section id="spi-engine">
 <span id="id1"></span><h1>SPI Engine<a class="headerlink" href="#spi-engine" title="Link to this heading"></a></h1>
 <p>SPI Engine Peripheral Linux Driver.</p>
-<section id="supported-devices">
-<h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+<section id="supported-ip-cores">
+<h2>Supported IP Cores<a class="headerlink" href="#supported-ip-cores" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/spi_engine/#spi-engine" target="_blank" title="(in HDL)"><span>SPI Engine</span></a></p></li>
 </ul>
@@ -392,8 +390,9 @@ Content on this topic
 </tbody>
 </table>
 </div>
+</section>
 <section id="files">
-<h4>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h4>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -410,11 +409,10 @@ Content on this topic
 </div>
 </section>
 </section>
-</section>
-<section id="device-initialization">
-<h2>Device initialization<a class="headerlink" href="#device-initialization" title="Link to this heading"></a></h2>
-<section id="devicetree-bindings">
-<h3>Devicetree bindings<a class="headerlink" href="#devicetree-bindings" title="Link to this heading"></a></h3>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <p><strong>Required properties:</strong></p>
 <ul class="simple">
 <li><p><strong>compatible</strong>: Must be <code class="docutils literal notranslate"><span class="pre">adi,axi-spi-engine-1.00.a``</span></code></p></li>
@@ -431,22 +429,23 @@ clock-names and clocks).</p></li>
 They follow the generic SPI bindings as outlined in spi-bus.txt.</p>
 <section id="example">
 <h4>Example<a class="headerlink" href="#example" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">spi</span><span class="o">@@</span><span class="mi">44</span><span class="n">a00000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-spi-engine-1.00.a"</span><span class="p">;</span>
-    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x44a00000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">56</span> <span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clkc</span> <span class="mi">15</span> <span class="o">&amp;</span><span class="n">clkc</span> <span class="mi">15</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"s_axi_aclk"</span><span class="p">,</span> <span class="s2">"spi_clk"</span><span class="p">;</span>
-    <span class="c1">#address-cells = &lt;1&gt;;</span>
-    <span class="c1">#size-cells = &lt;0&gt;;</span>
-    <span class="o">/*</span> <span class="n">SPI</span> <span class="n">devices</span> <span class="o">*/</span>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nf">spi</span><span class="o">@</span><span class="mi">44a00000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-spi-engine-1.00.a"</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x44a00000</span><span class="w"> </span><span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">interrupts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="w"> </span><span class="mi">56</span><span class="w"> </span><span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clkc</span><span class="w"> </span><span class="mi">15</span><span class="w"> </span><span class="o">&amp;</span><span class="na">clkc</span><span class="w"> </span><span class="mi">15</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"s_axi_aclk"</span><span class="p">,</span><span class="w"> </span><span class="s">"spi_clk"</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="cm">/* SPI devices */</span>
 <span class="p">};</span>
 </pre></div>
 </div>
 </section>
 </section>
+</section>
 <section id="more-information">
-<h3>More information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h3>
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/spi_engine/#spi-engine" target="_blank" title="(in HDL)"><span>SPI Engine</span></a></p></li>
 </ul>
@@ -454,7 +453,6 @@ They follow the generic SPI bindings as outlined in spi-bus.txt.</p>
 <ul class="simple">
 <li><p><a class="icon ez reference external" href="https://ez.analog.com/linux-software-drivers" target="_blank">Analog Devices Linux Device Drivers Help Forum</a></p></li>
 </ul>
-</section>
 </section>
 </section>
 

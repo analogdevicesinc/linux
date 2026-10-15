@@ -4,7 +4,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta content="ADP1650 LED Flash Linux Driver." name="description" />
+<meta content="The ADP1650 LED flash driver was never merged into the mainline kernel." name="description" />
 
     <title>ADP1650 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8e8a900e" />
@@ -105,8 +105,14 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
 <li><a class="reference internal" href="#led-handling-under-linux">LED handling under Linux</a><ul>
 <li><a class="reference internal" href="#driver-specific-brightness-interpretation">Driver specific brightness interpretation</a></li>
@@ -224,6 +230,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -242,7 +249,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -377,7 +383,7 @@ Content on this topic
             
   <section id="adp1650">
 <span id="id1"></span><h1>ADP1650<a class="headerlink" href="#adp1650" title="Link to this heading"></a></h1>
-<p>ADP1650 LED Flash Linux Driver.</p>
+<p>The ADP1650 LED flash driver was never merged into the mainline kernel.</p>
 <section id="supported-devices">
 <h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -440,8 +446,32 @@ programmability and hardware strobe input for precise timing control.</p>
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The ADP1650 LED driver depends on I2C.</p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="p">[]</span> <span class="n">LED</span> <span class="n">Support</span>  <span class="o">---&gt;</span>
+        <span class="o">---</span> <span class="n">LED</span> <span class="n">Support</span>
+        <span class="p">[]</span>   <span class="n">LED</span> <span class="n">Class</span> <span class="n">Support</span>
+             <span class="n">LED</span> <span class="n">drivers</span>
+
+        <span class="o">&lt;--</span><span class="n">snip</span><span class="o">--&gt;</span>
+        <span class="o">&lt;&gt;</span>   <span class="n">LED</span> <span class="n">Support</span> <span class="k">for</span> <span class="n">ADP1650</span> <span class="n">I2C</span> <span class="n">chips</span>
+        <span class="o">&lt;--</span><span class="n">snip</span><span class="o">--&gt;</span>
+</pre></div>
+</div>
+</section>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -531,25 +561,7 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 </pre></div>
 </div>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>The ADP1650 LED driver depends on I2C.</p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="p">[]</span> <span class="n">LED</span> <span class="n">Support</span>  <span class="o">---&gt;</span>
-        <span class="o">---</span> <span class="n">LED</span> <span class="n">Support</span>
-        <span class="p">[]</span>   <span class="n">LED</span> <span class="n">Class</span> <span class="n">Support</span>
-             <span class="n">LED</span> <span class="n">drivers</span>
-
-        <span class="o">&lt;--</span><span class="n">snip</span><span class="o">--&gt;</span>
-        <span class="o">&lt;&gt;</span>   <span class="n">LED</span> <span class="n">Support</span> <span class="k">for</span> <span class="n">ADP1650</span> <span class="n">I2C</span> <span class="n">chips</span>
-        <span class="o">&lt;--</span><span class="n">snip</span><span class="o">--&gt;</span>
-</pre></div>
-</div>
+</section>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>

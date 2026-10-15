@@ -100,21 +100,20 @@
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
 <li><a class="reference internal" href="#description">Description</a></li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
-<li><a class="reference internal" href="#driver-setup">Driver setup</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
-<li><a class="reference internal" href="#enabling-the-driver">Enabling the driver</a></li>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#driver-setup">Driver setup</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-channel-scale">Show channel scale</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#show-channel-scale">Show channel scale</a></li>
 <li><a class="reference internal" href="#configure-sampling-rate">Configure sampling rate</a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li><a class="reference internal" href="#buffer-management">Buffer management</a></li>
 <li><a class="reference internal" href="#buffer-example">Buffer Example</a><ul>
 <li><a class="reference internal" href="#data-interpretation">Data interpretation</a></li>
@@ -224,6 +223,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -242,7 +242,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -418,10 +417,12 @@ different physical interfaces (I2C, SPI, etc). See
 <p>See the
 <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/ad400x-eval-board" target="_blank">Evaluating AD400X and ADAQ400X devices</a>
 user guide for instructions on how to setup and evaluate devices supported by
-the ad400x Linux driver.</p>
+the ad4000 Linux driver.</p>
 </section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
 <section id="status">
-<h2>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h2>
+<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -431,8 +432,8 @@ the ad400x Linux driver.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/ad400x.c" target="_blank">git</a></p></td>
-<td><p>[No]</p></td>
+<tr class="row-even"><td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad4000.c" target="_blank">drivers/iio/adc/ad4000.c</a></p></td>
+<td><p>Yes</p></td>
 <td></td>
 </tr>
 </tbody>
@@ -440,7 +441,7 @@ the ad400x Linux driver.</p>
 </div>
 </section>
 <section id="files">
-<h2>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h2>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -451,11 +452,11 @@ the ad400x Linux driver.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/ad400x.c" target="_blank">drivers/iio/adc/ad400x.c</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad4000.c" target="_blank">drivers/iio/adc/ad4000.c</a></p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>devicetree bindings</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/Documentation/devicetree/bindings/iio/adc/adi,ad400x.yaml" target="_blank">Documentation/devicetree/bindings/iio/adc/adi,ad400x.yaml</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/adc/adi,ad4000.yaml" target="_blank">adi,ad4000.yaml</a></p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p>ZedBoard example devicetree</p></td>
@@ -470,187 +471,17 @@ the ad400x Linux driver.</p>
 </table>
 </div>
 </section>
-<section id="driver-setup">
-<h2>Driver setup<a class="headerlink" href="#driver-setup" title="Link to this heading"></a></h2>
-<p>Since AD4003/4007/4011/4020 are high speed analog-to-digital converters with
-speeds up to 2 MSPS, additional components are required to achieve high
-performance. In this scenario, the following HDL components are required:</p>
-<ul class="simple">
-<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/spi_engine/#spi-engine" target="_blank" title="(in HDL)"><span>SPI Engine</span></a></p></li>
-<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_dmac/#axi-dmac" target="_blank" title="(in HDL)"><span>AXI DMAC</span></a></p></li>
-</ul>
-<p>The device will interface with these components and follow the device tree
-bindings.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>properties:
-  compatible:
-    enum:
-      - adi,ad4000
-      - adi,ad4001
-      - adi,ad4002
-      - adi,ad4003
-      - adi,ad4004
-      - adi,ad4005
-      - adi,ad4006
-      - adi,ad4007
-      - adi,ad4008
-      - adi,ad4010
-      - adi,ad4011
-      - adi,ad4020
-      - adi,ad4021
-      - adi,ad4022
-      - adi,adaq4003
-
-  reg: true
-  spi-max-frequency: true
-
-  dmas:
-    description: |
-      DMA specifier, consisting of a phandle to DMA controller node.
-    maxItems: 1
-
-  dma-names:
-    const: rx
-
-  clocks:
-    maxItems: 1
-
-  clock-names:
-    const: ref_clk
-    description: AD400X reference clock name.
-
-  pwms:
-    description: |
-      PWM used as trigger source for the SPI engine, also represents the
-      acquisition rate for the samples.
-    maxItems: 1
-
-  pwm-names:
-    const: cnv
-
-  vref-supply:
-    description: Phandle to the regulator for ADC reference voltage.
-
-  '#address-cells':
-    const: 1
-
-  '#size-cells':
-    const: 0
-
-patternProperties:
-  "^channel@([0-1])$":
-    $ref: adc.yaml
-    type: object
-    description: Represents the external channel connected to the ADC.
-
-    properties:
-      reg:
-        maxItems: 1
-
-      diff-channels: true
-
-    required:
-      - reg
-
-    additionalProperties: false
-
-required:
-  - compatible
-  - reg
-  - dmas
-  - dma-names
-  - vref-supply
-
-allOf:
-  - $ref: /schemas/spi/spi-peripheral-props.yaml#
-
-  - if:
-      properties:
-        compatible:
-          contains:
-            enum:
-              - adi,adaq4003
-
-    then:
-      required:
-        - compatible
-        - reg
-        - dmas
-        - dma-names
-        - clocks
-        - clock-names
-        - pwms
-        - pwm-names
-        - vref-supply
-
-unevaluatedProperties: false
-
-examples:
-  - |
-    spi {
-        #address-cells = &lt;1&gt;;
-        #size-cells = &lt;0&gt;;
-        / Example for a AD400X devices /
-        adc@0 {
-            compatible = "adi,ad4020";
-            reg = &lt;0&gt;;
-            spi-max-frequency = &lt;71000000&gt;;
-            vref-supply = &lt;&amp;vref&gt;;
-
-            dmas = &lt;&amp;rx_dma 0&gt;;
-            dma-names = "rx";
-
-            #address-cells = &lt;1&gt;;
-            #size-cells = &lt;0&gt;;
-
-            channel@0 {
-                reg = &lt;0&gt;;
-                diff-channels = &lt;0 1&gt;;
-            };
-        };
-    };
-  - |
-    spi {
-        #address-cells = &lt;1&gt;;
-        #size-cells = &lt;0&gt;;
-
-        / Example for a ADAQ400X devices /
-        adc@0 {
-            compatible = "adi,adaq4003";
-            reg = &lt;0&gt;;
-            spi-max-frequency = &lt;80000000&gt;;
-            dmas = &lt;&amp;rx_dma 0&gt;;
-            dma-names = "rx";
-            clocks = &lt;&amp;spi_clk&gt;;
-            clock-names = "ref_clk";
-            pwms = &lt;&amp;adc_trigger 0 0&gt;;
-            pwm-names = "cnv";
-            vref-supply = &lt;&amp;vref&gt;;
-
-            #address-cells = &lt;1&gt;;
-            #size-cells = &lt;0&gt;;
-
-            channel@0 {
-                reg = &lt;0&gt;;
-                diff-channels = &lt;0 1&gt;;
-            };
-        };
-    };
-</pre></div>
-</div>
-<p>See the
-<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/ad400x-eval-board" target="_blank">Evaluating AD400X and ADAQ400X devices</a>
-user guide for examples of device trees used with devices supported by the
-ad400x Linux driver.</p>
 </section>
 <section id="adding-linux-driver-support">
 <h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<section id="enabling-the-driver">
-<h3>Enabling the driver<a class="headerlink" href="#enabling-the-driver" title="Link to this heading"></a></h3>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The AD400x driver depends on <strong>CONFIG_SPI_MASTER</strong></p>
+<p>The driver depends on CONFIG_SPI and selects IIO_BUFFER,
+IIO_BUFFER_DMAENGINE, IIO_TRIGGERED_BUFFER and SPI_OFFLOAD.</p>
 </div>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
     <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
@@ -660,12 +491,66 @@ ad400x Linux driver.</p>
             <span class="o">...</span>
             <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span>  <span class="o">---&gt;</span>
                 <span class="o">...</span>
-                <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD400X</span> <span class="n">ADC</span> <span class="n">Driver</span>
+                <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD4000</span> <span class="n">ADC</span> <span class="n">Driver</span>
                 <span class="o">...</span>
             <span class="o">...</span>
         <span class="o">...</span>
 </pre></div>
 </div>
+</section>
+<section id="driver-setup">
+<h3>Driver setup<a class="headerlink" href="#driver-setup" title="Link to this heading"></a></h3>
+<p>AD4003/AD4007/AD4011/AD4020 are high speed analog-to-digital converters with
+sample rates up to 2 MSPS. On FPGA-based platforms the device is driven
+through the following HDL components:</p>
+<ul class="simple">
+<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/spi_engine/#spi-engine" target="_blank" title="(in HDL)"><span>SPI Engine</span></a></p></li>
+<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_dmac/#axi-dmac" target="_blank" title="(in HDL)"><span>AXI DMAC</span></a></p></li>
+</ul>
+<p>The devicetree binding requires <code class="docutils literal notranslate"><span class="pre">compatible</span></code>, <code class="docutils literal notranslate"><span class="pre">reg</span></code>, <code class="docutils literal notranslate"><span class="pre">vdd-supply</span></code>,
+<code class="docutils literal notranslate"><span class="pre">vio-supply</span></code> and <code class="docutils literal notranslate"><span class="pre">ref-supply</span></code>. <code class="docutils literal notranslate"><span class="pre">adi,sdi-pin</span></code> describes how the ADC SDI
+pin is wired (<code class="docutils literal notranslate"><span class="pre">high</span></code>, <code class="docutils literal notranslate"><span class="pre">low</span></code>, <code class="docutils literal notranslate"><span class="pre">cs</span></code> or <code class="docutils literal notranslate"><span class="pre">sdi</span></code>); <code class="docutils literal notranslate"><span class="pre">cnv-gpios</span></code> gives the
+GPIO connected to the CNV pin when the host drives it directly. ADAQ4001 and
+ADAQ4003 additionally support <code class="docutils literal notranslate"><span class="pre">adi,gain-milli</span></code> to describe the hardware gain
+set by the external resistor network, and <code class="docutils literal notranslate"><span class="pre">adi,high-z-input</span></code> to select
+High-Z input mode (only available when <code class="docutils literal notranslate"><span class="pre">adi,sdi-pin</span></code> is not set, i.e. SDI
+tied to MOSI).</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/gpio/gpio.h&gt;</span>
+<span class="nf">spi</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="nf">adc</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,ad4020"</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">71000000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">vdd-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">supply_1_8v</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">vio-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">supply_1_8v</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">ref-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">supply_5v</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">sdi-pin</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"cs"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">cnv-gpios</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">gpio0</span><span class="w"> </span><span class="mi">88</span><span class="w"> </span><span class="na">GPIO_ACTIVE_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+
+<span class="nf">spi</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="nf">adc</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,adaq4003"</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">80000000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">vdd-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">supply_1_8v</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">vio-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">supply_1_8v</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">ref-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">supply_5v</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">high-z-input</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">gain-milli</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="cp">/bits/</span><span class="cm"> </span><span class="cp">16 &lt;454&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>See the
+<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/ad400x-eval-board" target="_blank">Evaluating AD400X and ADAQ400X devices</a>
+user guide for examples of device trees used with devices supported by the
+ad4000 Linux driver.</p>
 </section>
 </section>
 <section id="driver-testing">
@@ -697,48 +582,49 @@ the numbering is constant and may be known in advance.</p>
 <span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">43</span> <span class="n">buffer</span>
 <span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">43</span> <span class="n">buffer0</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">43</span> <span class="n">dev</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">43</span> <span class="n">in_voltage0_offset</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">43</span> <span class="n">in_voltage0_raw</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">43</span> <span class="n">in_voltage0_scale</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">43</span> <span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_offset</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">43</span> <span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_raw</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">43</span> <span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_scale</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">43</span> <span class="n">name</span>
 <span class="n">lrwxrwxrwx</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">43</span> <span class="n">of_node</span> <span class="o">-&gt;</span> <span class="o">../../../../../../../../</span><span class="n">firmware</span><span class="o">/</span><span class="n">devicetree</span><span class="o">/</span><span class="n">base</span><span class="o">/</span><span class="n">fpga</span><span class="o">-</span><span class="n">axi</span><span class="o">@</span><span class="mi">0</span><span class="o">/</span><span class="n">spi</span><span class="o">@</span><span class="mi">44</span><span class="n">a00000</span><span class="o">/</span><span class="n">adc</span><span class="o">@</span><span class="mi">0</span>
 <span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">43</span> <span class="n">power</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">43</span> <span class="n">sampling_frequency</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">43</span> <span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_sampling_frequency</span>
 <span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">43</span> <span class="n">scan_elements</span>
 <span class="n">lrwxrwxrwx</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">43</span> <span class="n">subsystem</span> <span class="o">-&gt;</span> <span class="o">../../../../../../../../</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">43</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># cat /sys/bus/iio/devices/iio:device1/name</span>
 <span class="n">adaq4003</span>
 </pre></div>
 </div>
+</section>
 <section id="show-channel-scale">
-<h4>Show channel scale<a class="headerlink" href="#show-channel-scale" title="Link to this heading"></a></h4>
-<p><strong>Description:</strong> Scale to be applied to in_voltagex_raw in order to obtain the
-measured voltage in millivolts</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># cat /sys/bus/iio/devices/iio:device1/in_voltage0_scale</span>
+<h3>Show channel scale<a class="headerlink" href="#show-channel-scale" title="Link to this heading"></a></h3>
+<p><strong>Description:</strong> Scale to be applied to in_voltage0-voltage1_raw in order to
+obtain the measured voltage in millivolts</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># cat /sys/bus/iio/devices/iio:device1/in_voltage0-voltage1_scale</span>
 <span class="mf">0.019073486</span>
 </pre></div>
 </div>
+</section>
 <section id="configure-sampling-rate">
-<h5>Configure sampling rate<a class="headerlink" href="#configure-sampling-rate" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/sampling_frequency Configures
-the input sampling rate.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># cat /sys/bus/iio/devices/iio:device1/sampling_frequency</span>
+<h3>Configure sampling rate<a class="headerlink" href="#configure-sampling-rate" title="Link to this heading"></a></h3>
+<p>The sampling-frequency attribute exists only when the ADC is driven through
+SPI offload, and is per channel: <code class="docutils literal notranslate"><span class="pre">in_voltage0-voltage1_sampling_frequency</span></code>
+for differential parts such as AD4003/AD4007/AD4011/AD4020/ADAQ4001/ADAQ4003,
+or <code class="docutils literal notranslate"><span class="pre">in_voltage0_sampling_frequency</span></code> for pseudo-differential parts such as
+AD4000. Without SPI offload, an IIO trigger paces capture and there is no
+sampling-frequency attribute.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># cat /sys/bus/iio/devices/iio:device1/in_voltage0-voltage1_sampling_frequency</span>
 <span class="mi">2000000</span>
-</pre></div>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># echo 1000000 &gt;</span>
-<span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">/</span><span class="n">sampling_frequency</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># cat /sys/bus/iio/devices/iio:device1/sampling_frequency</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># echo 1000000 &gt; /sys/bus/iio/devices/iio:device1/in_voltage0-voltage1_sampling_frequency</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># cat /sys/bus/iio/devices/iio:device1/in_voltage0-voltage1_sampling_frequency</span>
 <span class="mi">1000000</span>
 </pre></div>
 </div>
-</section>
-</section>
 </section>
 <section id="buffer-management">
 <h3>Buffer management<a class="headerlink" href="#buffer-management" title="Link to this heading"></a></h3>
@@ -752,14 +638,17 @@ the input sampling rate.</p>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">3</span> <span class="mi">08</span><span class="p">:</span><span class="mi">11</span> <span class="n">watermark</span>
 </pre></div>
 </div>
-<p>The Industrial I/O subsystem provides support for various ring buffer based
-data acquisition methods. Apart from device specific hardware buffer support,
-the user can chose between two different software ring buffer implementations.
-One is the IIO lock free software ring, and the other is based on Linux kfifo.
-Devices with buffer support feature an additional sub-folder in the
-<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/deviceX/</span></code> folder hierarchy. Called <code class="docutils literal notranslate"><span class="pre">deviceX:bufferY</span></code>,
-where Y defaults to 0, for devices with a single buffer.</p>
-<p>Every buffer implementation features a set of files:</p>
+<p>The Industrial I/O subsystem supports buffered data acquisition. Buffer
+implementation and capabilities depend on the driver. Devices with buffer
+support expose each buffer at
+<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX/bufferY</span></code>, where Y is the buffer index,
+starting at 0. The first buffer is additionally exposed through the legacy
+<code class="docutils literal notranslate"><span class="pre">buffer</span></code> directory, which contains its buffer-control attributes. Its scan
+configuration is exposed through the legacy <code class="docutils literal notranslate"><span class="pre">scan_elements</span></code> directory, while
+multi-buffer systems expose the scan attributes in the corresponding
+<code class="docutils literal notranslate"><span class="pre">bufferY</span></code> directory. Read samples from the device character node
+<code class="docutils literal notranslate"><span class="pre">/dev/iio:deviceX</span></code>; the selected buffer is determined by the active buffer
+configuration.</p>
 <dl class="simple">
 <dt><strong>length</strong></dt><dd><p>Get/set the number of sample sets that may be held by the buffer.</p>
 </dd>
@@ -793,30 +682,27 @@ captured for a single triggered sample set in the buffer.</p>
 </dl>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># ls -l /sys/bus/iio/devices/iio:device1/scan_elements/</span>
 <span class="n">total</span> <span class="mi">0</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">3</span> <span class="mi">08</span><span class="p">:</span><span class="mi">11</span> <span class="n">in_voltage0_en</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">3</span> <span class="mi">08</span><span class="p">:</span><span class="mi">11</span> <span class="n">in_voltage0_index</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">3</span> <span class="mi">08</span><span class="p">:</span><span class="mi">11</span> <span class="n">in_voltage0_type</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">3</span> <span class="mi">08</span><span class="p">:</span><span class="mi">11</span> <span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_en</span>
+<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">3</span> <span class="mi">08</span><span class="p">:</span><span class="mi">11</span> <span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_index</span>
+<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">3</span> <span class="mi">08</span><span class="p">:</span><span class="mi">11</span> <span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_type</span>
 </pre></div>
 </div>
 <dl class="simple">
-<dt><strong>in_voltageX_en / in_voltageX-voltageY_en / timestamp_en:</strong></dt><dd><p>Scan element control for triggered data capture.
+<dt><strong>in_voltageX_en / in_voltageX-voltageY_en / in_timestamp_en:</strong></dt><dd><p>Scan element control for triggered data capture.
 Writing 1 will enable the scan element, writing 0 will disable it</p>
 </dd>
-<dt><strong>in_voltageX_type / in_voltageX-voltageY_type / timestamp_type:</strong></dt><dd><p>Description of the scan element data storage within the buffer
-and therefore in the form in which it is read from user-space.
-Form is [s|u]bits/storage-bits. s or u specifies if signed
-(2’s complement) or unsigned. bits is the number of bits of
-data and storage-bits is the space (after padding) that it
-occupies in the buffer. Note that some devices will have
-additional information in the unused bits so to get a clean
-value, the bits value must be used to mask the buffer output
-value appropriately. The storage-bits value also specifies the
-data alignment. So u12/16 will be a unsigned 12 bit integer
-stored in a 16 bit location aligned to a 16 bit boundary.
-For other storage combinations this attribute will be extended
-appropriately.</p>
+<dt><strong>in_voltageX_type / in_voltageX-voltageY_type / in_timestamp_type:</strong></dt><dd><p>Describes the scan element’s representation in the buffer. The format is
+<code class="docutils literal notranslate"><span class="pre">[be|le]:[s|u]bits/storagebits[Xrepeat]&gt;&gt;shift</span></code>. The prefix gives byte
+order; <code class="docutils literal notranslate"><span class="pre">s</span></code> or <code class="docutils literal notranslate"><span class="pre">u</span></code> specifies signed (two’s complement) or unsigned
+data. <code class="docutils literal notranslate"><span class="pre">bits</span></code> is the number of meaningful bits and <code class="docutils literal notranslate"><span class="pre">storagebits</span></code> is
+the storage width. The optional repeat count describes repeated elements.
+After interpreting byte order, shift the storage value right by <code class="docutils literal notranslate"><span class="pre">shift</span></code>
+and mask it to <code class="docutils literal notranslate"><span class="pre">bits</span></code>; signed values also require sign extension.
+For example, <code class="docutils literal notranslate"><span class="pre">be:u12/16&gt;&gt;1</span></code> describes an unsigned 12-bit value in
+big-endian 16-bit storage, shifted right by one bit. Account for alignment
+padding when combining enabled elements into a complete scan.</p>
 </dd>
-<dt><strong>in_voltageX_index / in_voltageX-voltageY_index / timestamp_index:</strong></dt><dd><p>A single positive integer specifying the position of this
+<dt><strong>in_voltageX_index / in_voltageX-voltageY_index / in_timestamp_index:</strong></dt><dd><p>A nonnegative integer specifying the ordering of this
 scan element in the buffer. Note these are not dependent on
 what is enabled and may not be contiguous. Thus for user-space
 to establish the full layout these must be used in conjunction
@@ -825,23 +711,23 @@ and the relevant _type attributes to establish the data storage
 format.</p>
 </dd>
 </dl>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">/</span><span class="n">scan_elements</span><span class="c1"># grep ""</span>
-<span class="n">in_voltage0_en</span><span class="p">:</span><span class="mi">0</span>
-<span class="n">in_voltage0_index</span><span class="p">:</span><span class="mi">0</span>
-<span class="n">in_voltage0_type</span><span class="p">:</span><span class="n">le</span><span class="p">:</span><span class="n">s18</span><span class="o">/</span><span class="mi">32</span><span class="o">&gt;&gt;</span><span class="mi">0</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">/</span><span class="n">scan_elements</span><span class="c1"># grep "" *</span>
+<span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_en</span><span class="p">:</span><span class="mi">0</span>
+<span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_index</span><span class="p">:</span><span class="mi">0</span>
+<span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_type</span><span class="p">:</span><span class="n">le</span><span class="p">:</span><span class="n">s18</span><span class="o">/</span><span class="mi">32</span><span class="o">&gt;&gt;</span><span class="mi">0</span>
 </pre></div>
 </div>
 </section>
 <section id="buffer-example">
 <h3>Buffer Example<a class="headerlink" href="#buffer-example" title="Link to this heading"></a></h3>
-<p>When the buffer is enabled, the ad400x driver prepares a read transfer and
+<p>When the buffer is enabled, the ad4000 driver prepares a read transfer and
 configures the <a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/spi_engine/spi_engine_offload/#spi-engine-offload" target="_blank" title="(in HDL)"><span>SPI Engine Offload Module</span></a> module to repeat that
-transfer each time the offload module is triggered. Then, the ad400x driver sets
+transfer each time the offload module is triggered. Then, the driver sets
 a PWM device to trigger the offload module at the rate specified by the
 <code class="docutils literal notranslate"><span class="pre">sampling_frequency</span></code> attribute. With that, ADC readings are gathered
 continuously while the buffer remains enabled.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># echo 1 &gt; /sys/bus/iio/devices/iio:device1/scan_elements/in_voltage0_en</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># cat /sys/bus/iio/devices/iio:device1/scan_elements/in_voltage0_en</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># echo 1 &gt; /sys/bus/iio/devices/iio:device1/scan_elements/in_voltage0-voltage1_en</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># cat /sys/bus/iio/devices/iio:device1/scan_elements/in_voltage0-voltage1_en</span>
 <span class="mi">1</span>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># echo 1 &gt; /sys/bus/iio/devices/iio:device1/buffer/enable</span>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># cat /sys/bus/iio/devices/iio:device1/buffer/data_available</span>

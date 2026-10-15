@@ -105,18 +105,16 @@
 </ul>
 </li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-raw-measurement">Show raw measurement</a><ul>
-<li><a class="reference internal" href="#show-scale">Show scale</a></li>
-<li><a class="reference internal" href="#set-sampling-frequency">Set sampling frequency</a></li>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-raw-measurement">Show raw measurement</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#show-scale">Show scale</a></li>
+<li><a class="reference internal" href="#set-sampling-frequency">Set sampling frequency</a></li>
 <li><a class="reference internal" href="#buffer-management">Buffer management</a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li><a class="reference internal" href="#low-level-register-access-via-debugfs-direct-reg-access">Low level register access via debugfs (direct_reg_access)</a></li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
@@ -219,6 +217,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -237,7 +236,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -490,12 +488,15 @@ structure is created under the corresponding IIO device.</p>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Aug</span> <span class="mi">17</span> <span class="mi">09</span><span class="p">:</span><span class="mi">56</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">ad74413r</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-raw-measurement">
 <h4>Show raw measurement<a class="headerlink" href="#show-raw-measurement" title="Link to this heading"></a></h4>
 <p><strong>Description:</strong> Raw measurement of current on channel 0.</p>
@@ -503,32 +504,39 @@ structure is created under the corresponding IIO device.</p>
 <span class="mi">4608</span>
 </pre></div>
 </div>
+</section>
+</section>
 <section id="show-scale">
-<h5>Show scale<a class="headerlink" href="#show-scale" title="Link to this heading"></a></h5>
+<h3>Show scale<a class="headerlink" href="#show-scale" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> Scale to be applied to the raw measurement of current on
-channel 0 in order to obtain the actual current.</p>
+channel 0, together with <code class="docutils literal notranslate"><span class="pre">in_current0_offset</span></code>: current[mA] = (raw + offset)
+* scale.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_current0_scale</span>
 <span class="mf">0.001525902</span>
 </pre></div>
 </div>
 </section>
 <section id="set-sampling-frequency">
-<h5>Set sampling frequency<a class="headerlink" href="#set-sampling-frequency" title="Link to this heading"></a></h5>
+<h3>Set sampling frequency<a class="headerlink" href="#set-sampling-frequency" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> Show available sampling frequencies and select one for channel
 0.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_current0_sampling_frequency_available</span>
-<span class="mi">10</span> <span class="mi">20</span> <span class="mi">1200</span> <span class="mi">4800</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_current0_sampling_frequency</span>
-<span class="mi">20</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">4800</span> <span class="o">&gt;</span> <span class="n">in_current0_sampling_frequency</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_current0_sampling_frequency</span>
-<span class="mi">4800</span>
+<p>On AD74413R, 20 SPS enables 50 Hz/60 Hz rejection and 10 SPS also provides HART
+noise rejection. Selecting 1200 or 4800 SPS disables the 50 Hz/60 Hz rejection.
+Choose the rate for both bandwidth and interference rejection; use the
+model-specific <code class="docutils literal notranslate"><span class="pre">sampling_frequency_available</span></code> values.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/bus/iio/devices/iio:device0&gt; cat in_current0_sampling_frequency_available
+10 20 1200 4800
+root:/sys/bus/iio/devices/iio:device0&gt; cat in_current0_sampling_frequency
+20
+root:/sys/bus/iio/devices/iio:device0&gt; echo 4800 &gt; in_current0_sampling_frequency
+root:/sys/bus/iio/devices/iio:device0&gt; cat in_current0_sampling_frequency
+4800
 </pre></div>
 </div>
-</section>
+<p>These are AD74413R rates. AD74412R exposes only 20 Hz and 4800 Hz.</p>
 </section>
 <section id="buffer-management">
-<h4>Buffer management<a class="headerlink" href="#buffer-management" title="Link to this heading"></a></h4>
+<h3>Buffer management<a class="headerlink" href="#buffer-management" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> The scan_elements directory contains interfaces for elements
 that will be captured for a single triggered sample set in the buffer</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cd</span> <span class="n">scan_elements</span><span class="o">/</span>
@@ -585,38 +593,14 @@ scan elements:</p></li>
 </pre></div>
 </div>
 <ul class="simple">
-<li><p>Read the samples:</p></li>
+<li><p>Read the samples as binary scan data. Each enabled ADC channel is stored as
+big-endian 32 bits, with 16 valid bits shifted by 8 (<code class="docutils literal notranslate"><span class="pre">be:u16/32&gt;&gt;8</span></code>); see
+<code class="docutils literal notranslate"><span class="pre">scan_elements/*_index</span></code> and <code class="docutils literal notranslate"><span class="pre">*_type</span></code>.</p></li>
 </ul>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/</span><span class="n">buffer</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span>
 </pre></div>
 </div>
 </section>
-</section>
-</section>
-<section id="low-level-register-access-via-debugfs-direct-reg-access">
-<h2>Low level register access via debugfs (direct_reg_access)<a class="headerlink" href="#low-level-register-access-via-debugfs-direct-reg-access" title="Link to this heading"></a></h2>
-<p>Some IIO drivers feature an optional debug facility, allowing users to read or
-write registers directly. Special care needs to be taken when using this
-feature, since you can modify registers on the back of the driver. Accessing
-debugfs requires root privileges.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">ls</span> <span class="n">direct_reg_access</span>
-<span class="n">direct_reg_access</span>
-</pre></div>
-</div>
-<p>Reading</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mh">0x45</span> <span class="o">&gt;</span> <span class="n">direct_reg_access</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">direct_reg_access</span>
-<span class="mh">0x00</span>
-</pre></div>
-</div>
-<p>Writing</p>
-<p>Write ADDRESS VALUE</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mh">0x45</span> <span class="mh">0xADAD</span> <span class="o">&gt;</span> <span class="n">direct_reg_access</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">direct_reg_access</span>
-<span class="mh">0xADAD</span>
-</pre></div>
-</div>
 </section>
 <section id="more-information">
 <h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>

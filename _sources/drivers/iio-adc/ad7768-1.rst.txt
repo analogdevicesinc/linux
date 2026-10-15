@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7768-1
 
+
 .. _ad7768-1:
 
 AD7768-1
@@ -37,7 +38,7 @@ Status
 
    * - Source
      - Mainlined?
-   * - :git+linux:`ADI tree <drivers/iio/adc/ad7768-1.c>`
+   * - :git+linux:`ADI tree <main:drivers/iio/adc/ad7768-1.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7768-1.c>`__
 
 Files
@@ -51,21 +52,33 @@ Files
    * - driver
      - `ad7768-1.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7768-1.c>`_
 
-Devicetree
-~~~~~~~~~~
+Adding Linux driver support
+---------------------------
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Required devicetree properties:
 
-- compatible: Needs to be the name of the device. E.g. ``ad7768-1``
-- reg: The chipselect number used for the device
-- spi-max-frequency: Maximum SPI clock frequency.
-- spi-cpol: Needs to be set for the correct SPI mode
-- spi-cpha: Needs to be set for the correct SPI mode
-- vref-supply: Phandle to the fixed regulator
-- clocks: Phandle to the clock signal source
-- interrupts: a list of interrupt specifiers
+-  compatible: adi,ad7768-1
 
-.. code:: dts
+-  clock-names: mclk
+
+-  reg: The chipselect number used for the device
+
+-  spi-max-frequency: Maximum SPI clock frequency.
+
+-  spi-cpol: Needs to be set for the correct SPI mode
+
+-  spi-cpha: Needs to be set for the correct SPI mode
+
+-  vref-supply: Phandle to the fixed regulator
+
+-  clocks: Phandle to the clock signal source
+
+-  interrupts: a list of interrupt specifiers
+
+.. code-block:: dts
 
    adc_vref: fixedregulator@0 {
        compatible = "regulator-fixed";
@@ -87,13 +100,13 @@ Required devicetree properties:
    status = "okay";
 
    ad7768@0 {
-       compatible = "ad7768-1";
+       compatible = "adi,ad7768-1";
        reg = <0>;
        spi-max-frequency = <16000000>;
        spi-cpol;
                spi-cpha;
        #interrupt-cells = <2>;
-       interrupts = <25 0x2>;
+       interrupts = <25 IRQ_TYPE_EDGE_RISING>;
        interrupt-parent = <&gpio>;
        vref-supply = <&adc_vref>;
        clocks = <&ad7768_mclk>;
@@ -127,13 +140,16 @@ Driver testing
    drwxr-xr-x 2 root root    0 Oct 12 22:15 trigger
    -rw-r--r-- 1 root root 4096 Oct 12 22:15 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/bus/iio/devices/iio:device0> cat name
    ad7768-1
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale
 ^^^^^^^^^^
@@ -147,7 +163,7 @@ measured voltage in millivolts.
    0.000488281
 
 Show channel 0 measurement
-''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** Raw unscaled voltage measurement on channel 0
 
@@ -160,7 +176,7 @@ Show channel 0 measurement
 mV**
 
 Set sampling frequency / update rate
-''''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -172,7 +188,14 @@ Set sampling frequency / update rate
    root:/sys/bus/iio/devices/iio:device0>
 
 Show available bandwidths for the current set frequency
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The filter is selected with ``filter_type`` (see ``filter_type_available``:
+sinc5, sinc3, wideband, sinc3+rej60).
+``in_voltage_filter_low_pass_3db_frequency`` is read-only and calculated from
+the filter and sampling rate. At 256000 samples/s the reported cutoff is 52224 Hz for sinc5,
+67072 Hz for sinc3 or sinc3+rej60, and 110848 Hz for wideband. Change
+filter_type/oversampling_ratio and reread sampling_frequency and scale.
 
 ::
 
@@ -183,7 +206,7 @@ Show available bandwidths for the current set frequency
    root:/sys/bus/iio/devices/iio:device0>
 
 Change the bandwidth
-''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -199,9 +222,12 @@ Change the bandwidth
 Trigger management
 ~~~~~~~~~~~~~~~~~~
 
-.. note::
+Note
 
-   This driver only supports it’s own default trigger source **ad7768-1-dev0**
+In the ordinary triggered-buffer path, use the driver’s own data-ready trigger
+(its suffix depends on the IIO device number). With SPI offload, capture instead
+uses the controller’s data-ready trigger and DMA buffer; the current_trigger
+example applies only to the ordinary path.
 
 ::
 
@@ -256,8 +282,11 @@ for user-space to establish the full layout these must be used in conjunction
 with all \_en attributes to establish which channels are present, and the
 relevant \_type attributes to establish the data storage format.
 
+Troubleshooting
+---------------
+
 Low level register access via debugfs (direct_reg_access)
----------------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Some IIO drivers feature an optional debug facility, allowing users to read or
 write registers directly. Special care needs to be taken when using this

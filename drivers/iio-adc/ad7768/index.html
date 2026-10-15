@@ -105,9 +105,16 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-linux-device-tree-initialization">Example Linux Device-Tree Initialization</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
 <li><a class="reference internal" href="#show-scale">Show scale</a></li>
 </ul>
 </li>
@@ -215,6 +222,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -233,7 +241,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -386,11 +393,11 @@ Content on this topic
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
-<p>This is a Linux industrial I/O (<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a>) subsystem
-driver, targeting single channel serial interface ADCs. The industrial I/O
-subsystem provides a unified framework for drivers for many different types of
-converters and sensors using a number of different physical interfaces (i2c,
-spi, etc). See <a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a> for more information.</p>
+<p>This is a Linux industrial I/O (<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a>) subsystem driver for the
+8-channel AD7768 and 4-channel AD7768-4 simultaneous-sampling ADCs. The
+industrial I/O subsystem provides a unified framework for drivers for many
+different types of converters and sensors using a number of different physical
+interfaces (i2c, spi, etc). See <a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a> for more information.</p>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -441,8 +448,12 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-linux-device-tree-initialization">
-<h2>Example Linux Device-Tree Initialization<a class="headerlink" href="#example-linux-device-tree-initialization" title="Link to this heading"></a></h2>
+<h4>Example Linux Device-Tree Initialization<a class="headerlink" href="#example-linux-device-tree-initialization" title="Link to this heading"></a></h4>
 <p>Required properties:</p>
 <ul class="simple">
 <li><p>compatible: Must be one of <code class="docutils literal notranslate"><span class="pre">adi,ad7768</span></code>, <code class="docutils literal notranslate"><span class="pre">adi,ad7768-4</span></code>.</p></li>
@@ -450,8 +461,7 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 <li><p>clocks: phandle to master clock of the device.</p></li>
 <li><p>clock-names: Must be <code class="docutils literal notranslate"><span class="pre">mclk</span></code>.</p></li>
 <li><p>spi-max-frequency: See Documentation/devicetree/bindings/spi/spi-bus.txt.</p></li>
-<li><p>dmas: DMA specifier, consisting of a phandle to DMA controller node.</p></li>
-<li><p>dma-names: Must be <code class="docutils literal notranslate"><span class="pre">rx</span></code>.</p></li>
+<li><p>dmas and dma-names=”rx”: DMA channel used for capture.</p></li>
 <li><p>vref-supply: phandle to the regulator for ADC reference voltage.</p></li>
 </ul>
 <p>Optional properties:</p>
@@ -477,6 +487,8 @@ the number of data lines (DOUTx) on which the ADC conversions are output.</p>
 </tbody>
 </table>
 </div>
+</section>
+</section>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -522,16 +534,19 @@ the numbering is constant and may be known in advance.</p>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">42</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">ad7768</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-scale">
 <h4>Show scale<a class="headerlink" href="#show-scale" title="Link to this heading"></a></h4>
-<p><strong>Description:</strong> scale to be applied to in_voltage0_raw in order to obtain the
-measured voltage in millivolts.</p>
+<p><strong>Description:</strong> Apply <code class="docutils literal notranslate"><span class="pre">in_voltage_scale</span></code> to signed samples acquired through
+the IIO buffer to obtain millivolts. There is no <code class="docutils literal notranslate"><span class="pre">in_voltage0_raw</span></code> attribute.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage_scale</span>
 <span class="mf">0.000488281</span>
 </pre></div>

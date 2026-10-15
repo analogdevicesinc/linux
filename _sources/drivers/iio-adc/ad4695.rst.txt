@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad4695
 
+
 .. _ad4695:
 
 AD469x
@@ -7,9 +8,10 @@ AD469x
 
 AD469x Easy Drive Multiplexed SAR ADC Linux IIO Driver.
 
-Analog Devices :adi:`AD4695` and additional the devices listed below
-devices are compact, high accuracy, low power, 16-channel, 16-bit, multiplexed
-input precision, successive approximation register (SAR) analog-to-digital
+Analog Devices :adi:`AD4695` and additional the devices listed below devices
+are compact, high accuracy, low power, 16-bit multiplexed ADCs:
+:adi:`AD4695`/AD4696 have 16 voltage inputs; AD4697/AD4698 have eight. These
+are input precision, successive approximation register (SAR) analog-to-digital
 converters (ADCs) with Easy Drive features and extensive digital functionality.
 
 This page describes Linux industrial I/O (:external+system-level:ref:`iio`)
@@ -27,8 +29,33 @@ Supported Devices
 - :adi:`AD4697`
 - :adi:`AD4698`
 
+Evaluation Boards
+-----------------
+
+The following evaluation boards have been tested with this driver:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Board
+     - Device tree
+     -
+     -
+   * - :adi:`EVAL-AD4696FMCZ <media/en/technical-documentation/user-guides/eval-ad4696fmcz-ug-1882.pdf>`
+     - :git+linux:`zynq-zed-adv7511-ad4696.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad4696.dts>`
+     -
+     -
+
+If you need to change any jumpers from default on the evaluation board, see the
+:dokuwiki:`ad4695#Devicetree Configuration <ad4695#Devicetree Configuration>`
+section for info on what settings might need to be changed there to account for
+the differences in wiring.
+
+Source Code
+-----------
+
 Status
-------
+~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -44,7 +71,7 @@ as the
 is required.
 
 Files
------
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -60,8 +87,42 @@ Files
 
 Upstream documentation: https://docs.kernel.org/iio/ad4695.html
 
+Hardware configuration
+----------------------
+
+Typical hardware setup
+~~~~~~~~~~~~~~~~~~~~~~
+
+A typical test setup consists of one of the evaluation boards from above
+connected to a
+`ZedBoard <https://www.avnet.com/wps/portal/us/products/avnet-boards/avnet-board-families/zedboard/>`__.
+
+A :adi:`ADALM2000` (also known as M2K) can be used to to generate a
+signal. This will also require coax cable with SMA connectors and appropriate
+adapters to adapt the coax to individual wires on the signal generator.
+
+Adding Linux driver support
+---------------------------
+
+This section explains how to use the ``ad4695`` driver in Linux.
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Pre-compiled kernels (``uImage``) from ADI should have this driver already
+enabled. If building your own kernel, enable it using the ``CONFIG_AD4695``
+option. When using ``make menuconfig`` (or ``xconfig``, etc.), the option can be
+found as follows:
+
+::
+
+   Device Drivers  --->
+     Industrial I/O support  --->
+       Analog to digital converters  --->
+         Analog Devices AD4695 and similar ADCs driver
+
 Devicetree configuration
-------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 The devicetree (``.dts`` file) describes how the chip is wired up. The example
 devicetree linked above is for the evaluation board with the FMCZ connector
@@ -73,7 +134,7 @@ If you change any jumpers on the evaluation board or modify the HDL project, you
 may need to update the ``.dts`` file to reflect the changes in wiring.
 
 SPI Bus
-~~~~~~~
+^^^^^^^
 
 The ADC is represented by a child node of the SPI controller that the ADC is
 attached to. The ``compatible`` property indicates which specific chip is being
@@ -116,13 +177,13 @@ Currently, using more than one SDO line of the chip is not supported by the
 driver.
 
 Standard SPI wiring
-^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""
 
 In this configuration, the CS line of the SPI controller is connected to *both*
 the CS and the CNV pins on the ADC. Therefore, the ``cnv-gpios`` is omitted.
 
 SPI Offload wiring
-''''''''''''''''''
+""""""""""""""""""
 
 In this configuration, the CS line on the SPI controller is only connected to
 the CS pin on the ADC. The CNV pin on the ADC is connected to both a PWM and a
@@ -165,7 +226,7 @@ internal buffer is disabled. If refin-supply is present, then the internal
 buffered reference voltage is used.
 
 External reference
-''''''''''''''''''
+""""""""""""""""""
 
 When using an external reference, provide the ``ref-supply`` property and omit
 the ``refin-supply`` property.
@@ -174,8 +235,9 @@ the ``refin-supply`` property.
 
    ref-supply = <&eval_u3>;
 
-If the application requires the Reference Input High-Z Mode feature to be
-disabled, add the ``adi,no-ref-current-limit`` flag.
+If Reference Input High-Z Mode must be disabled, add adi,no-ref-high-z. The
+distinct adi,no-ref-current-limit property disables reference overvoltage
+reduced-current mode.
 
 ::
 
@@ -189,10 +251,12 @@ disabled, add the ``adi,no-ref-current-limit`` flag.
    adi,no-ref-current-limit;
 
 Internal reference buffer
-'''''''''''''''''''''''''
+"""""""""""""""""""""""""
 
-When using the internal reference buffer, provide the ``refin-supply`` property
-and omit the ``ref-supply`` and ``adi,no-ref-high-z`` properties.
+On AD4695/AD4696, the internal reference buffer is available only in the WLCSP
+package. For that package, provide ``refin-supply`` and omit ``ref-supply`` and
+``adi,no-ref-high-z``. Check the exact device/package before selecting this
+option.
 
 Common mode supplies
 ^^^^^^^^^^^^^^^^^^^^
@@ -208,8 +272,9 @@ For the COM pin, use the ``com-supply`` property.
    /* Not default on FMCZ eval board: requires changing JP6 to A */
    com-supply = <&eval_a8>;
 
-For even numbered INx pins, use the ``inx-supply`` properties where ``x`` is the
-pin number. Typically, these supplies will be 1/2 of the reference voltage.
+For an even input paired with the next odd input, use inX-supply for that odd
+common-mode pin: in1-supply for IN0/IN1, in3-supply for IN2/IN3, and so on.
+Typically, these supplies will be 1/2 of the reference voltage.
 
 ::
 
@@ -296,50 +361,49 @@ signals is not currently supported in the Linux driver.
 GPIO support is not yet implemented, so the ``gpio-controller`` and
 ``#gpio-cells`` properties will be ignored.
 
-Linux Driver
-~~~~~~~~~~~~
+Evaluation-board setup
+~~~~~~~~~~~~~~~~~~~~~~
 
-This section explains how to use the ``ad4695`` driver in Linux.
+Typical ZedBoard software setup
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Enabling the driver
-^^^^^^^^^^^^^^^^^^^
+Install OS on the ZedBoard
+""""""""""""""""""""""""""
 
-Pre-compiled kernels (``uImage``) from ADI should have this driver already
-enabled. If building your own kernel, enable it using the ``CONFIG_AD4695``
-option. When using ``make menuconfig`` (or ``xconfig``, etc.), the option can be
-found as follows:
+ADI provides a :external+system-level:ref:`kuiper` distribution for supported
+evaluation boards. Step by step guides for imaging Kuiper Linux are available
+for
+:dokuwiki:`Linux </resources/tools-software/linux-software/zynq_images/linux_hosts>`
+and
+:dokuwiki:`Windows </resources/tools-software/linux-software/zynq_images/windows_hosts>`.
 
-::
+Driver testing
+--------------
 
-   Device Drivers  --->
-     Industrial I/O support  --->
-       Analog to digital converters  --->
-         Analog Devices AD4695 and similar ADCs driver
-
-Device enumeration
-^^^^^^^^^^^^^^^^^^
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 All IIO devices are represented in ``sysfs`` as an ``iio:deviceY`` where ``Y``
 will depend on how many IIO devices there are and the order in which they were
 registered. You can see which device is which like this:
 
-::
+.. code-block:: text
 
-   root@analog:~# for f in /sys/bus/iio/devices/iio\:device/name; do echo "${f%/name} $(cat $f)"; done
+   for f in /sys/bus/iio/devices/iio:device*/name; do echo "${f%/name} $(cat "$f")"; done
    /sys/bus/iio/devices/iio:device0 xadc
    /sys/bus/iio/devices/iio:device1 ad4695
 
 In this case the driver for the AD4695 chip is at
 ``/sys/bus/iio/devices/iio:device1``.
 
-Sysfs attributes
-^^^^^^^^^^^^^^^^
+Attribute reference
+~~~~~~~~~~~~~~~~~~~
 
 The sysfs attributes are used to get information about the device and also
 configure the device.
 
 Informational
-'''''''''''''
+^^^^^^^^^^^^^
 
 As seen above, reading the ``name`` attribute will return the name of the chip.
 
@@ -349,7 +413,7 @@ As seen above, reading the ``name`` attribute will return the name of the chip.
    ad4696
 
 Channels
-''''''''
+^^^^^^^^
 
 The voltage measurement done by the chip is represented as an IIO channel. These
 attributes start with ``in_voltage``.
@@ -379,7 +443,7 @@ channel. It has similar ``in_temp_scale`` and ``in_temp_offset`` attributes for
 converting the raw value to m℃.
 
 Calibration
-'''''''''''
+^^^^^^^^^^^
 
 This family of chips has a calibration feature that allows for adjusting the
 offset and gain in the ADC to correct manufacturing variations in individual
@@ -410,7 +474,7 @@ Also see the example in the
 :dokuwiki:`#Voltage input calibration <#Voltage input calibration>` section.
 
 Buffers
-'''''''
+^^^^^^^
 
 To efficiently read multiple samples, a buffer interface is provided. The
 controls for this are in the ``buffer0`` directory. (Note: There may also be
@@ -444,26 +508,24 @@ or not.
    * - With SPI offload
      - Without SPI offload
    * - Sample data values are always 32-bit.
-     - Sample data values are 32-bit if oversampling is enabled or 16-bit if
-       oversampling is disabled.
-   * - Sample rate is set using the ``in_voltage0_sampling_frequency``
-       attribute.
-     - A trigger must be configured manually, otherwise attempting to do a
-       buffered read will fail. A ``hrtimer`` trigger can be used to sample at a
-       fixed rate.
+     - Voltage samples use 16-bit storage.
+       Oversampling controls are added only for the SPI-offload path. Read scan
+       metadata for the complete layout, including timestamp alignment where enabled.
+   * - Sample rate is set using the ``in_voltage0_sampling_frequency`` attribute.
+     - A trigger must be configured manually, otherwise attempting to do a buffered
+       read will fail. A ``hrtimer`` trigger can be used to sample at a fixed rate.
    * - Maximum sample rate can be achieved (assuming proper wiring, etc.).
-     - Sample rate is limited by Linux host CPU speed and use by other
-       processes.
-   * - There must always be at least 2 voltages channels enabled in the buffered
-       read or enabling it will return ``EINVAL``. The temperature channel
-       doesn’t count as a voltage channel, so if you want to read temperature,
-       you have to enable 2 voltage channels plus the temperature channel.
+     - Sample rate is limited by Linux host CPU speed and use by other processes.
+   * - There must always be at least 2 voltages channels enabled in the buffered read
+       or enabling it will return ``EINVAL``. The temperature channel doesn’t count as
+       a voltage channel, so if you want to read temperature, you have to enable 2
+       voltage channels plus the temperature channel.
      - No restrictions on which channels have to be enabled.
 
 Here is an example of how to read a few values at a low sample rate for testing
 using a Linux host with SPI offload support:
 
-::
+.. code-block:: text
 
    # set sample rate to 10 kHz
    root@analog:~# echo 10000 > /sys/bus/iio/devices/iio\:device1/in_voltage0_sampling_frequency
@@ -476,7 +538,7 @@ using a Linux host with SPI offload support:
    # enable the buffer
    root@analog:~# echo 1 > /sys/bus/iio/devices/iio\:device1/buffer0/enable
    # read one buffer full of data
-   root@analog:~# hexdump -n $((8 * 2 * 2)) -e'2/4  "%04X " "\n"' /dev/iio\:device1
+   hexdump -n $((8 * 2 * 4)) -e'2/4 "%08X " "n"' /dev/iio:device1
    AC6D 806A
    1DB7 8074
    65C8 805F
@@ -484,60 +546,17 @@ using a Linux host with SPI offload support:
    # disable the buffer
    root@analog:~# echo 0 > /sys/bus/iio/devices/iio\:device1/buffer0/enable
 
-Evaluation boards
-~~~~~~~~~~~~~~~~~
+Eight scans of two offloaded 32-bit channels occupy 64 bytes. These words still
+need the shift/sign interpretation specified by each channel \*_type.
 
-The following evaluation boards have been tested with this driver:
-
-.. list-table::
-   :header-rows: 1
-
-   * - Board
-     - Device tree
-     -
-     -
-   * - :adi:`EVAL-AD4696FMCZ <media/en/technical-documentation/user-guides/eval-ad4696fmcz-ug-1882.pdf>`
-     - :git+linux:`zynq-zed-adv7511-ad4696.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad4696.dts>`
-     -
-     -
-
-If you need to change any jumpers from default on the evaluation board, see the
-:dokuwiki:`ad4695#Devicetree Configuration <ad4695#Devicetree Configuration>`
-section for info on what settings might need to be changed there to account for
-the differences in wiring.
-
-Typical hardware setup
-^^^^^^^^^^^^^^^^^^^^^^
-
-A typical test setup consists of one of the evaluation boards from above
-connected to a
-`ZedBoard <https://www.avnet.com/wps/portal/us/products/avnet-boards/avnet-board-families/zedboard/>`__.
-
-A :adi:`ADALM2000` (also known as M2K) can be used to to generate a
-signal. This will also require coax cable with SMA connectors and appropriate
-adapters to adapt the coax to individual wires on the signal generator.
-
-Typical ZedBoard software setup
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Install OS on the ZedBoard
-''''''''''''''''''''''''''
-
-ADI provides a :external+system-level:ref:`kuiper` distribution for supported
-evaluation boards. Step by step guides for imaging Kuiper Linux are available
-for
-:dokuwiki:`Linux </resources/tools-software/linux-software/zynq_images/linux_hosts>`
-and
-:dokuwiki:`Windows </resources/tools-software/linux-software/zynq_images/windows_hosts>`.
-
-Typical test application software
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Application examples
+~~~~~~~~~~~~~~~~~~~~
 
 ADI provides several open source tools to make it easy to get started with using
 Linux IIO drivers.
 
 IIO Oscilloscope
-''''''''''''''''
+^^^^^^^^^^^^^^^^
 
 This section only describes the bits specific to these chips. For instructions
 on how to obtain IIO Oscilloscope and it’s basic usage, please see the
@@ -545,7 +564,7 @@ on how to obtain IIO Oscilloscope and it’s basic usage, please see the
 page.
 
 Scopy
-'''''
+^^^^^
 
 *Scopy* is the software used with the :adi:`ADALM2000` multi-purpose tool (also
 called ``M2K``). Visit :external+scopy:doc:`index` for instructions on how to
@@ -553,7 +572,7 @@ obtain and install the software. In this case we will be using it for the
 signal generator function.
 
 Examples
-''''''''
+^^^^^^^^
 
 Here are a couple of examples of how to use these tools together to test an ADC
 on an evaluation board connected to a development board running Linux. These
@@ -570,7 +589,7 @@ the devicetree, i.e. a constant 2.5 V DC (1/2 of V\ :sub:`REF`).
    :width: 800px
 
 Measure constant voltage
-''''''''''''''''''''''''
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 A quick way check if the ADC is working correctly is to generate a constant
 voltage on the input and measure it using the DMM feature of the IIO
@@ -591,7 +610,7 @@ should see something like this:
    between IN0 and IN1.
 
 Capture many samples for analysis
-'''''''''''''''''''''''''''''''''
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The *Plot* feature of the *IIO Oscilloscope* app is used to perform a buffered
 read to capture many samples. This data can be saved as a ``.csv`` file for
@@ -644,7 +663,7 @@ additional analysis.
    :width: 800px
 
 Voltage input calibration
-'''''''''''''''''''''''''
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Using the *Plot* and *Debug* features of *IIO Oscilloscope* can be useful for
 calibrating voltage inputs.
@@ -670,8 +689,10 @@ be reading an average of close to 0. So we can enter this number in the
 .. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad4695/osc-debug-voltage3-calibbias.png
    :width: 600px
 
-After writing, this value will be rounded to the nearest 0.25 V since that is
-the step reported by the ``in_voltage3_calibbias_available`` attribute.
+At oversampling ratio 1, calibbias has a 0.25 raw-code step, not a 0.25 V step.
+Convert any voltage error to code units using scale before choosing a
+correction. Read calibbias back after writing; the implementation quantizes with
+integer arithmetic and clamps the register value.
 
 Now we can perform the measurement and calculate the average again.
 
@@ -686,4 +707,4 @@ This time, we can see that the white line exactly lines up with 0.
 And the result of the average is very close to 0 now.
 
 After calibrating the offset, a similar procedure can be done to calibrate the
-scale using the ``in_voltage3_calibgain`` attribute.
+gain using the in_voltage3_calibscale attribute.

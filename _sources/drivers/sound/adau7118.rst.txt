@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/sound/adau7118
 
+
 .. _adau7118:
 
 ADAU7118
@@ -30,8 +31,11 @@ TDM mode, disable/enable inputs, etc… Furthermore, the device can also operate
 in HW only mode where the I2C interface is disabled. In this mode, only TDM mode
 is supported.
 
+Source Code
+-----------
+
 Status
-------
+~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -58,7 +62,7 @@ Status
      -
 
 Files
------
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -82,74 +86,11 @@ Files
      - `Documentation/devicetree/bindings/sound/adi,adau7118.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/sound/adi,adau7118.yaml>`__
      -
 
-Devicetree bindings
--------------------
-
-The ADAU7118 driver is fully devicetree compatible.
-
-**Required properties:**
-
-- **compatible**: Must be ``adi,adau7118``
-- **#sound-dai-cells**: Must be 0
-
-**Optional properties:**
-
-- **reg**: I2C address when the device is used with I2C support.
-- **IOVDD-supply**: Phandle and specifier for the power supply providing the
-  IOVDD supply as covered in
-  Documentation/devicetree/bindings/regulator/regulator.txt. If this property is
-  not present it is assumed that the supply pin is hardwired to always on.
-- **DVDD-supply**: Phandle and specifier for the power supply providing the DVDD
-  supply as covered in
-  Documentation/devicetree/bindings/regulator/regulator.txt. If this property is
-  not present it is assumed that the supply pin is hardwired to always on.
-- **adi,decimation-ratio**: Set’s the decimation ratio of PDM to PCM audio data.
-- **adi,pdm-clk-map**: The ADAU7118 has two PDM clocks for the four Inputs. Each
-  input must be assigned to one of these two clocks. This property set’s the
-  mapping between the clocks and the inputs.
-
-Example device initialization
------------------------------
-
-The ADAU7118 supports I2C interface and can operate in HW only mode (no
-communications with the device). Currently, the devices can only be instantiated
-via device tree.
-
-I2C mode
-~~~~~~~~
-
-::
-
-   i2c0 {
-            #address-cells = <1>;
-            #size-cells = <0>;
-            status = "okay";
-            adau7118_codec: adau7118-codec@14 {
-                    compatible = "adi,adau7118";
-                    reg = <0x14>;
-                    status = "okay";
-                    adi,pdm-clk-map = <1 1 0 0>;
-                    adi,decimation-ratio = <16>;
-            };
-   };
-
-HW mode
-^^^^^^^
-
-::
-
-   / {
-            adau7118_codec: adau7118-codec@14 {
-                    compatible = "adi,adau7118";
-                    reg = <0x14>;
-                    status = "okay";
-                    IOVDD-supply = <&supply>;
-                    DVDD-supply = <&supply2>;
-            };
-   };
+Adding Linux driver support
+---------------------------
 
 Kernel configuration
---------------------
+~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -161,8 +102,87 @@ Kernel configuration
    <*>          Analog Devices ADAU7118 8 Channel PDM-to-I2S/TDM Converter - HW Mode
    <*>          Analog Devices ADAU7118 8 Channel PDM-to-I2S/TDM Converter - I2C
 
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ADAU7118 driver is fully devicetree compatible.
+
+**Required properties:**
+
+- **compatible**: Must be ``adi,adau7118``
+- **#sound-dai-cells**: Must be 0
+- **iovdd-supply**: Regulator phandle for the digital I/O supply.
+- **dvdd-supply**: Regulator phandle for the internal core digital supply.
+
+**Optional properties:**
+
+-  **reg**: I2C address when the device is used with I2C support.
+
+-  **adi,decimation-ratio**: Set’s the decimation ratio of PDM to PCM audio
+   data.
+
+-  **adi,pdm-clk-map**: The ADAU7118 has two PDM clocks for the four Inputs.
+   Each input must be assigned to one of these two clocks. This property set’s
+   the mapping between the clocks and the inputs.
+
+Example device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ADAU7118 supports I2C control and standalone hardware mode. Both examples
+require lowercase ``iovdd-supply`` and ``dvdd-supply`` properties and
+``#sound-dai-cells = <0>``. The board must define the actual ``supply`` and
+``supply2`` regulators; these labels do not imply fixed voltages.
+
+I2C mode
+""""""""
+
+The board must define ``i2c0``. Match the address and interface configuration
+to the connected device.
+
+.. code-block:: dts
+
+   &i2c0 {
+       #address-cells = <1>;
+       #size-cells = <0>;
+       status = "okay";
+
+       adau7118_codec: audio-codec@14 {
+           compatible = "adi,adau7118";
+           reg = <0x14>;
+           #sound-dai-cells = <0>;
+           iovdd-supply = <&supply>;
+           dvdd-supply = <&supply2>;
+           adi,pdm-clk-map = <1 1 0 0>;
+           adi,decimation-ratio = <16>;
+       };
+   };
+
+HW mode
+'''''''
+
+Standalone hardware mode uses an unaddressed platform node, not an I2C
+address or a ``reg`` property. Configure the device's hardware straps for the
+actual board interface.
+
+.. code-block:: dts
+
+   / {
+       adau7118_codec_hw: adau7118-codec-hw {
+           compatible = "adi,adau7118";
+           #sound-dai-cells = <0>;
+           iovdd-supply = <&supply>;
+           dvdd-supply = <&supply2>;
+       };
+   };
+
+Driver testing
+--------------
+
+Routing and DAPM
+~~~~~~~~~~~~~~~~
+
 ASoC DAPM widgets (HW Mode)
----------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -181,7 +201,7 @@ ASoC DAPM widgets (HW Mode)
      - Audio Interface Output
 
 ASoC DAPM widgets (I2C)
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -226,7 +246,7 @@ ASoC DAPM widgets (I2C)
      - Audio Interface Output - Channel 8
 
 ALSA controls
--------------
+~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -242,13 +262,16 @@ ALSA controls
    * - Capture Switch
      - PDM3 input enable
 
+DAI formats and clocks
+~~~~~~~~~~~~~~~~~~~~~~
+
 DAI Configuration
------------------
+^^^^^^^^^^^^^^^^^
 
 The driver registers one DAI called **``adau7118-hifi-capture``**.
 
 Supported DAI formats
-~~~~~~~~~~~~~~~~~~~~~
+"""""""""""""""""""""
 
 .. list-table::
    :header-rows: 1
@@ -313,7 +336,7 @@ bit- and frameclock is supported). In this mode, the I2C SCL and SDA pins are
 used to select different functionality. Check table 11 of the datasheet for more
 details.
 
-More information
+More Information
 ----------------
 
 .. include:: /include/need-help.rst

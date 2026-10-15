@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/sound/ad1936
 
+
 .. _ad1936:
 
 AD1936
@@ -7,7 +8,7 @@ AD1936
 
 AD1936 Sound CODEC Linux Driver.
 
-Supported devices
+Supported Devices
 -----------------
 
 - :adi:`AD1933`
@@ -44,7 +45,7 @@ Status
      -
 
 Files
-^^^^^
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -56,16 +57,23 @@ Files
    * - include
      - `sound/soc/codecs/ad193x.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ad193x.h>`__
 
+Adding Linux driver support
+---------------------------
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example device initialization
------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-spi-slave-devices
    :end-before: .. end-declaring-spi-slave-devices
 
-You need to set the modalias of your SPI info according to your codec. Valid
-values are ``ad1935`` and ``ad1937``, You’ll also have to adjust bus_num and
-chip_select according to your board setup.
+AD1936 and AD1937 use the I2C transport. The SPI transport matches ad193x,
+ad1933, ad1934, ad1938, ad1939 and adau1328. The following SPI example therefore
+applies to an SPI variant (for example ad1938), not AD1936. Select the
+appropriate transport and board address/chip select.
 
 .. code:: c
 
@@ -95,8 +103,46 @@ chip_select according to your board setup.
    }
    arch_initcall(board_init);
 
-ASoC DAPM Widgets
+Board integration
 ~~~~~~~~~~~~~~~~~
+
+AD193X evaluation board driver
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Adding Kernel Support - As a module
+"""""""""""""""""""""""""""""""""""
+
+To add support for the built-in codec AD193X of BF5XX to the kernel build
+system, a few things must be enabled properly for things to work.The
+configuration is as following:
+
+::
+
+   Linux Kernel Configuration
+     Device Drivers  --->
+       Sound  --->
+         <M> Sound card support
+           Advanced Linux Sound Architecture  --->
+             <M> Advanced Linux Sound Architecture
+             < > Sequencer support
+             <M> OSS Mixer API
+             <M> OSS PCM (digital audio) API
+             <M>   ALSA for SoC audio support  --->
+                 <M>   SoC I2S(TDM mode) Audio for the ADI BF5xx chip
+                 <M>   SoC AD193X Audio support for BF5xx
+
+Doing this will create modules (outside the kernel). The modules will be
+inserted automatically when it is needed. You can also build sound driver into
+kernel.
+
+Driver testing
+--------------
+
+Routing and DAPM
+~~~~~~~~~~~~~~~~
+
+ASoC DAPM Widgets
+^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -116,7 +162,7 @@ ASoC DAPM Widgets
    * - ADC2IN
      - ADC Channel2 Input
 
-ALSA Controls
+ALSA controls
 ~~~~~~~~~~~~~
 
 .. list-table::
@@ -150,8 +196,11 @@ ALSA Controls
    * - ADC2 Switch
      - Mute/Unmute ADC Channel2
 
+DAI formats and clocks
+~~~~~~~~~~~~~~~~~~~~~~
+
 DAI Configuration
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -160,7 +209,7 @@ DAI Configuration
    * - ``ad193x-hifi``
 
 Supported DAI formats
-^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""
 
 .. list-table::
    :header-rows: 1
@@ -261,32 +310,3 @@ Example DAI Configuration
        .codec_name = "spi0.4",
        .ops = &bf5xx_ad193x_ops,
    };
-
-AD193X evaluation board driver
-------------------------------
-
-Adding Kernel Support - As a module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-To add support for the built-in codec AD193X of BF5XX to the kernel build
-system, a few things must be enabled properly for things to work.The
-configuration is as following:
-
-::
-
-   Linux Kernel Configuration
-     Device Drivers  --->
-       Sound  --->
-         <M> Sound card support
-           Advanced Linux Sound Architecture  --->
-             <M> Advanced Linux Sound Architecture
-             < > Sequencer support
-             <M> OSS Mixer API
-             <M> OSS PCM (digital audio) API
-             <M>   ALSA for SoC audio support  --->
-                 <M>   SoC I2S(TDM mode) Audio for the ADI BF5xx chip
-                 <M>   SoC AD193X Audio support for BF5xx
-
-Doing this will create modules (outside the kernel). The modules will be
-inserted automatically when it is needed. You can also build sound driver into
-kernel.

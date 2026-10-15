@@ -97,10 +97,13 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">ADRV904x Customization</a><ul>
+<li><a class="reference internal" href="#configuration-and-sequence">Configuration and sequence</a><ul>
 <li><a class="reference internal" href="#clock-settings">Clock Settings</a></li>
 <li><a class="reference internal" href="#adrv904x-phy">ADRV904x PHY</a></li>
 <li><a class="reference internal" href="#axi-fpga">AXI FPGA</a></li>
 <li><a class="reference internal" href="#gpio-settings">GPIO Settings</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -202,6 +205,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -220,7 +224,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -363,8 +366,10 @@ you to set defaults, but can be changed anytime later using the driver API.
 But most of these options don’t need to be changed at all.</p>
 <p>If unsure please see the manual or don’t change!</p>
 </div>
+<section id="configuration-and-sequence">
+<h2>Configuration and sequence<a class="headerlink" href="#configuration-and-sequence" title="Link to this heading"></a></h2>
 <section id="clock-settings">
-<h2>Clock Settings<a class="headerlink" href="#clock-settings" title="Link to this heading"></a></h2>
+<h3>Clock Settings<a class="headerlink" href="#clock-settings" title="Link to this heading"></a></h3>
 <p><a class="reference internal" href="../../iio-pll/ad9528/#ad9528"><span class="std std-ref">AD9528</span></a></p>
 <p>A sample configuration of the AD9528:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">clk0_ad9528</span><span class="p">:</span> <span class="n">ad9528</span><span class="o">-</span><span class="mi">1</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
@@ -484,46 +489,44 @@ But most of these options don’t need to be changed at all.</p>
 </div>
 </section>
 <section id="adrv904x-phy">
-<h2>ADRV904x PHY<a class="headerlink" href="#adrv904x-phy" title="Link to this heading"></a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">trx0_adrv904x</span><span class="p">:</span> <span class="n">adrv904x</span><span class="o">-</span><span class="n">phy</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adrv9040"</span><span class="p">;</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<h3>ADRV904x PHY<a class="headerlink" href="#adrv904x-phy" title="Link to this heading"></a></h3>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">trx0_adrv904x</span><span class="p">:</span><span class="w"> </span><span class="nf">adrv904x-phy</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adrv9040"</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="c1">#address-cells = &lt;1&gt;;</span>
-        <span class="c1">#size-cells = &lt;0&gt;;</span>
+<span class="w">        </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="o">/*</span> <span class="n">SPI</span> <span class="n">Setup</span> <span class="o">*/</span>
-        <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">25000000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="cm">/* SPI Setup */</span>
+<span class="w">        </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">25000000</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">134</span> <span class="n">IRQ_TYPE_EDGE_RISING</span><span class="o">&gt;</span><span class="p">;</span> <span class="o">/*</span> <span class="n">adrv904x_gpint1</span> <span class="o">-</span> <span class="n">CHECK</span> <span class="o">*/</span>
+<span class="w">        </span><span class="n">interrupt-parent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">gpio</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">interrupts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">134</span><span class="w"> </span><span class="na">IRQ_TYPE_EDGE_RISING</span><span class="o">&gt;</span><span class="p">;</span><span class="w"> </span><span class="cm">/* adrv904x_gpint1 - CHECK */</span>
 
-        <span class="o">/*</span> <span class="n">Clocks</span> <span class="o">*/</span>
-        <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clk0_ad9528</span> <span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="cm">/* Clocks */</span>
+<span class="w">        </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clk0_ad9528</span><span class="w"> </span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"dev_clk"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"dev_clk"</span><span class="p">;</span>
 
-        <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"rx_sampl_clk"</span><span class="p">,</span> <span class="s2">"tx_sampl_clk"</span><span class="p">;</span>
-        <span class="c1">#clock-cells = &lt;1&gt;;</span>
+<span class="w">        </span><span class="n">clock-output-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"rx_sampl_clk"</span><span class="p">,</span><span class="w"> </span><span class="s">"tx_sampl_clk"</span><span class="p">;</span>
+<span class="w">        </span><span class="o">#</span><span class="n">clock-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
-        <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
-        <span class="n">jesd204</span><span class="o">-</span><span class="n">top</span><span class="o">-</span><span class="n">device</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span> <span class="o">/*</span> <span class="n">This</span> <span class="ow">is</span> <span class="n">the</span> <span class="n">TOP</span> <span class="n">device</span> <span class="o">*/</span>
-        <span class="n">jesd204</span><span class="o">-</span><span class="n">link</span><span class="o">-</span><span class="n">ids</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">DEFRAMER0_LINK_TX</span> <span class="n">FRAMER0_LINK_RX</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">jesd204-device</span><span class="p">;</span>
+<span class="w">        </span><span class="o">#</span><span class="n">jesd204-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">jesd204-top-device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span><span class="w"> </span><span class="cm">/* This is the TOP device */</span>
+<span class="w">        </span><span class="n">jesd204-link-ids</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">DEFRAMER0_LINK_TX</span><span class="w"> </span><span class="na">FRAMER0_LINK_RX</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span>
-            <span class="o">&lt;&amp;</span><span class="n">axi_adrv904x_rx_jesd</span> <span class="mi">0</span> <span class="n">FRAMER0_LINK_RX</span><span class="o">&gt;</span><span class="p">,</span>
-            <span class="o">&lt;&amp;</span><span class="n">axi_adrv904x_core_tx</span> <span class="mi">0</span> <span class="n">DEFRAMER0_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">jesd204-inputs</span><span class="w"> </span><span class="o">=</span>
+<span class="w">            </span><span class="o">&lt;&amp;</span><span class="na">axi_adrv904x_rx_jesd</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="na">FRAMER0_LINK_RX</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">            </span><span class="o">&lt;&amp;</span><span class="na">axi_adrv904x_core_tx</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="na">DEFRAMER0_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="n">adi</span><span class="p">,</span><span class="n">device</span><span class="o">-</span><span class="n">config</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"DeviceProfileTest.bin"</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">arm</span><span class="o">-</span><span class="n">firmware</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"ADRV9040_FW.bin"</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">arm</span><span class="o">-</span><span class="n">dfe</span><span class="o">-</span><span class="n">firmware</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"ADRV9040_DFE_CALS_FW.bin"</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">stream</span><span class="o">-</span><span class="n">firmware</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"stream_image.bin"</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">rx</span><span class="o">-</span><span class="n">gaintable</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"ADRV9040_RxGainTable.csv"</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">rx</span><span class="o">-</span><span class="n">gaintable</span><span class="o">-</span><span class="n">channel</span><span class="o">-</span><span class="n">masks</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0xFF</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">tx</span><span class="o">-</span><span class="n">attntable</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"ADRV904X_TxAttenTable.csv"</span><span class="p">;</span>
-        <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">tx</span><span class="o">-</span><span class="n">attntable</span><span class="o">-</span><span class="n">channel</span><span class="o">-</span><span class="n">masks</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x0F</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="p">};</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">device-config-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"DeviceProfileTest.bin"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">arm-firmware-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ADRV9040_FW.bin"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">arm-dfe-firmware-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ADRV9040_DFE_CALS_FW.bin"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">stream-firmware-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"stream_image.bin"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">rx-gaintable-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ADRV9040_RxGainTable.csv"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">rx-gaintable-channel-masks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0xFF</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
 </pre></div>
 </div>
 <div class="table-wrapper docutils container">
@@ -563,7 +566,7 @@ But most of these options don’t need to be changed at all.</p>
 </div>
 </section>
 <section id="axi-fpga">
-<h2>AXI FPGA<a class="headerlink" href="#axi-fpga" title="Link to this heading"></a></h2>
+<h3>AXI FPGA<a class="headerlink" href="#axi-fpga" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">fpga_axi</span><span class="p">:</span> <span class="n">fpga</span><span class="o">-</span><span class="n">axi</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
         <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gic</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"simple-bus"</span><span class="p">;</span>
@@ -700,7 +703,7 @@ But most of these options don’t need to be changed at all.</p>
 </div>
 </section>
 <section id="gpio-settings">
-<h2>GPIO Settings<a class="headerlink" href="#gpio-settings" title="Link to this heading"></a></h2>
+<h3>GPIO Settings<a class="headerlink" href="#gpio-settings" title="Link to this heading"></a></h3>
 <p>The GPIO configurations can be done by changing a node’s properties, as the
 following example shows:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="n">trx0_adrv904x</span> <span class="p">{</span>
@@ -718,6 +721,7 @@ following example shows:</p>
 in another node configuration as adi,increment-pin, adi,decrement-pin,
 adi,agc-power-feedback-high-thres-exceeded, etc…</p>
 </div>
+</section>
 </section>
 </section>
 

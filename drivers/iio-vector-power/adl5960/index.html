@@ -103,13 +103,11 @@
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a><ul>
-<li><a class="reference internal" href="#devicetree-properties">Devicetree properties</a></li>
 <li><a class="reference internal" href="#example">Example</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
 <li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a><ul>
 <li><a class="reference internal" href="#lo-frequency">LO Frequency</a><ul>
 <li><a class="reference internal" href="#lo-mode">LO Mode</a><ul>
@@ -126,6 +124,11 @@
 </li>
 </ul>
 </li>
+</ul>
+</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -230,6 +233,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -248,7 +252,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -423,7 +426,7 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </thead>
 <tbody>
 <tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/adl5960.c" target="_blank">git</a></p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/adl5960.c" target="_blank">WIP</a></p></td>
+<td><p>No</p></td>
 <td></td>
 <td></td>
 </tr>
@@ -472,61 +475,6 @@ It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
 <p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>Overview of Linux kernel SPI support</span></a></p>
-<section id="devicetree-properties">
-<h4>Devicetree properties<a class="headerlink" href="#devicetree-properties" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">compatible</span><span class="p">:</span>
-  <span class="n">enum</span><span class="p">:</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">adl5960</span>
-</pre></div>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">reg</span><span class="p">:</span>
-  <span class="n">maxItems</span><span class="p">:</span> <span class="mi">1</span>
-</pre></div>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span><span class="p">:</span>
-  <span class="n">maximum</span><span class="p">:</span> <span class="mi">50000000</span>
-</pre></div>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">clocks</span><span class="p">:</span>
-  <span class="n">description</span><span class="p">:</span>
-    <span class="n">Definition</span> <span class="n">of</span> <span class="n">the</span> <span class="n">external</span> <span class="n">clock</span> <span class="p">(</span><span class="n">see</span> <span class="n">clock</span><span class="o">/</span><span class="n">clock</span><span class="o">-</span><span class="n">bindings</span><span class="o">.</span><span class="n">txt</span><span class="p">)</span>
-  <span class="n">minItems</span><span class="p">:</span> <span class="mi">2</span>
-</pre></div>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">clock</span><span class="o">-</span><span class="n">names</span><span class="p">:</span>
-  <span class="n">items</span><span class="p">:</span>
-    <span class="o">-</span> <span class="n">const</span><span class="p">:</span> <span class="n">lo_in</span>
-    <span class="o">-</span> <span class="n">const</span><span class="p">:</span> <span class="n">offs_in</span>
-  <span class="n">maxItems</span><span class="p">:</span> <span class="mi">2</span>
-</pre></div>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>lo_in-clock-scales:
-  description:
-    The Common Clock Framework max rate is limited by MAX of unsigned long.
-    For ADL5960 device this is a deficiency. If specified, this
-    property allows arbitrary scales. The first element in the array should
-    be the multiplier and the second element should be the divider.
-  $ref: /schemas/types.yaml#/definitions/uint32-array
-  minimum: 1
-</pre></div>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">avcc</span><span class="o">-</span><span class="n">supply</span><span class="p">:</span>
-  <span class="n">description</span><span class="p">:</span>
-    <span class="n">analog</span> <span class="n">voltage</span> <span class="n">regulator</span> <span class="p">(</span><span class="n">see</span> <span class="n">regulator</span><span class="o">/</span><span class="n">regulator</span><span class="o">.</span><span class="n">txt</span><span class="p">)</span>
-</pre></div>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s1">'#clock-cells'</span><span class="p">:</span>
-  <span class="n">const</span><span class="p">:</span> <span class="mi">0</span>
-</pre></div>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">required</span><span class="p">:</span>
-<span class="o">-</span> <span class="n">compatible</span>
-<span class="o">-</span> <span class="n">reg</span>
-<span class="o">-</span> <span class="n">clocks</span>
-<span class="o">-</span> <span class="n">clock</span><span class="o">-</span><span class="n">names</span>
-</pre></div>
-</div>
-</section>
 <section id="example">
 <h4>Example<a class="headerlink" href="#example" title="Link to this heading"></a></h4>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nf">spi</span><span class="cm"> </span><span class="p">{</span>
@@ -545,23 +493,6 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
 </div>
 </section>
 </section>
-</section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The ADL5960 Driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-            <span class="n">RF</span> <span class="n">Font</span><span class="o">-</span><span class="n">Ends</span> <span class="o">---&gt;</span>
-               <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADL5960</span> <span class="n">Vector</span> <span class="n">Network</span> <span class="n">Analyzer</span> <span class="n">Front</span><span class="o">-</span><span class="n">End</span><span class="s2">"</span>
-</pre></div>
-</div>
 </section>
 <section id="hardware-configuration">
 <h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
@@ -632,9 +563,9 @@ the numbering is constant and may be known in advance.</p>
 <section id="lo-frequency">
 <h3>LO Frequency<a class="headerlink" href="#lo-frequency" title="Link to this heading"></a></h3>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX/in_altvoltage0_lo_frequency</span></code></p>
-<p><strong>Description:</strong> Stores the Local Oscillator (LO) frequency in Hz. Reading
-returns the actual frequency in Hz. The values take the in_altvoltage0_lo_mode
-into account.</p>
+<p><strong>Description:</strong> Reads the external LO clock frequency adjusted by the
+selected multiplier/divider. Writing this attribute updates the CT filter
+settings; the LO frequency itself is set through its clock-source driver.</p>
 <section id="lo-mode">
 <h4>LO Mode<a class="headerlink" href="#lo-mode" title="Link to this heading"></a></h4>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX/in_altvoltage0_lo_mode</span></code>
@@ -734,14 +665,19 @@ in_altvoltage1_offset_mode into account.</p>
 <section id="forward-gain">
 <h5>Forward Gain<a class="headerlink" href="#forward-gain" title="Link to this heading"></a></h5>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX/out_voltage0_forward_hardwaregain</span></code>
-<strong>Description:</strong> Stores the gain of the IF amplifier in the Forward path, to the
-(IFFP, IFFM) output, in 6dB steps. Reading returns the actual gain in dB.</p>
+The advertised range is 0 to 48 dB in 6 dB steps: <code class="docutils literal notranslate"><span class="pre">0</span> <span class="pre">6</span> <span class="pre">48</span></code> is the
+minimum/step/maximum representation, not a three-value list. Its settings are
+0, 6, 12, 18, 24, 30, 36, 42 and 48.</p>
+<p>Writes are clamped to 0..127 and stored as the seven-bit FGAIN register code,
+which is also what readback returns. Codes 0..5 select 0 dB, 6..11 select
+6 dB, and so on up to 48..53 for 48 dB.</p>
 </section>
 <section id="reflected-gain">
 <h5>Reflected Gain<a class="headerlink" href="#reflected-gain" title="Link to this heading"></a></h5>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX/out_voltage1_reverse_hardwaregain</span></code>
-<strong>Description:</strong> Stores the gain of the IF amplifier in the Reverse path, to the
-(IFRP, IFRM) output, in 6dB steps. Reading returns the actual gain in dB.</p>
+The reverse path uses the RGAIN register for the IFRP/IFRM output. It has the
+same advertised range, clamped write-code behavior and Table 11 gain mapping
+as the forward path. Readback is the register code, not a measured analog gain.</p>
 </section>
 <section id="if-filter-cutoff-frequency">
 <h5>IF Filter Cutoff Frequency<a class="headerlink" href="#if-filter-cutoff-frequency" title="Link to this heading"></a></h5>
@@ -756,6 +692,81 @@ in_altvoltage1_offset_mode into account.</p>
 Scaled device (die) temperature measurement in milli degrees Celsius.</p>
 </section>
 </section>
+</section>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ADL5960 Driver depends on <strong>CONFIG_SPI</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+            <span class="n">RF</span> <span class="n">Font</span><span class="o">-</span><span class="n">Ends</span> <span class="o">---&gt;</span>
+               <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADL5960</span> <span class="n">Vector</span> <span class="n">Network</span> <span class="n">Analyzer</span> <span class="n">Front</span><span class="o">-</span><span class="n">End</span><span class="s2">"</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">compatible</span><span class="p">:</span>
+  <span class="n">enum</span><span class="p">:</span>
+    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">adl5960</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">reg</span><span class="p">:</span>
+  <span class="n">maxItems</span><span class="p">:</span> <span class="mi">1</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span><span class="p">:</span>
+  <span class="n">maximum</span><span class="p">:</span> <span class="mi">50000000</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">clocks</span><span class="p">:</span>
+  <span class="n">description</span><span class="p">:</span>
+    <span class="n">Definition</span> <span class="n">of</span> <span class="n">the</span> <span class="n">external</span> <span class="n">clock</span> <span class="p">(</span><span class="n">see</span> <span class="n">clock</span><span class="o">/</span><span class="n">clock</span><span class="o">-</span><span class="n">bindings</span><span class="o">.</span><span class="n">txt</span><span class="p">)</span>
+  <span class="n">minItems</span><span class="p">:</span> <span class="mi">2</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">clock</span><span class="o">-</span><span class="n">names</span><span class="p">:</span>
+  <span class="n">items</span><span class="p">:</span>
+    <span class="o">-</span> <span class="n">const</span><span class="p">:</span> <span class="n">lo_in</span>
+    <span class="o">-</span> <span class="n">const</span><span class="p">:</span> <span class="n">offs_in</span>
+  <span class="n">maxItems</span><span class="p">:</span> <span class="mi">2</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>lo_in-clock-scales:
+  description:
+    The Common Clock Framework max rate is limited by MAX of unsigned long.
+    For ADL5960 device this is a deficiency. If specified, this
+    property allows arbitrary scales. The first element in the array should
+    be the multiplier and the second element should be the divider.
+  $ref: /schemas/types.yaml#/definitions/uint32-array
+  minimum: 1
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">avcc</span><span class="o">-</span><span class="n">supply</span><span class="p">:</span>
+  <span class="n">description</span><span class="p">:</span>
+    <span class="n">analog</span> <span class="n">voltage</span> <span class="n">regulator</span> <span class="p">(</span><span class="n">see</span> <span class="n">regulator</span><span class="o">/</span><span class="n">regulator</span><span class="o">.</span><span class="n">txt</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s1">'#clock-cells'</span><span class="p">:</span>
+  <span class="n">const</span><span class="p">:</span> <span class="mi">0</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">required</span><span class="p">:</span>
+<span class="o">-</span> <span class="n">compatible</span>
+<span class="o">-</span> <span class="n">reg</span>
+<span class="o">-</span> <span class="n">clocks</span>
+<span class="o">-</span> <span class="n">clock</span><span class="o">-</span><span class="n">names</span>
+</pre></div>
+</div>
 </section>
 </section>
 <section id="more-information">

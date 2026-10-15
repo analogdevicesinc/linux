@@ -98,33 +98,42 @@
           <ul>
 <li><a class="reference internal" href="#">AD7192</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#device-tree-support">Device tree support</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
 <li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a></li>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
+<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#set-sampling-frequency-update-rate">Set sampling frequency / update rate</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
 <li><a class="reference internal" href="#show-available-scales-for-differential-input-channels">Show available scales for differential input channels</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#set-sampling-frequency-update-rate">Set sampling frequency / update rate</a><ul>
+<li><a class="reference internal" href="#bride-power-down-switch-control">Bride power-down switch control</a></li>
+<li><a class="reference internal" href="#ac-excitation-control-ad7195-only">AC excitation control (AD7195 only)</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#show-available-scales-for-pseudo-differential-input-channels">Show available scales for pseudo-differential input channels</a></li>
 <li><a class="reference internal" href="#set-scale-for-differential-input-channels">Set scale for differential input channels</a></li>
 <li><a class="reference internal" href="#show-channel-in-voltage1-measurement">Show channel in_voltage1 measurement</a></li>
 <li><a class="reference internal" href="#show-channel-in-voltage1-in-voltage2-measurement">Show channel in_voltage1-in_voltage2 measurement</a></li>
 <li><a class="reference internal" href="#show-internal-temperature">Show internal temperature</a></li>
-<li><a class="reference internal" href="#bride-power-down-switch-control">Bride power-down switch control</a></li>
-<li><a class="reference internal" href="#ac-excitation-control-ad7195-only">AC excitation control (AD7195 only)</a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li><a class="reference internal" href="#trigger-management">Trigger management</a></li>
 <li><a class="reference internal" href="#buffer-management">Buffer management</a></li>
 </ul>
@@ -231,6 +240,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -249,7 +259,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -395,8 +404,17 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD7195" target="_blank">AD7195</a></p></li>
 </ul>
 </section>
+<section id="evaluation-boards">
+<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7190EBZ" target="_blank">EVAL-AD7190EBZ</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7192EBZ" target="_blank">EVAL-AD7192EBZ</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7193EBZ" target="_blank">EVAL-AD7193EBZ</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7194EBZ" target="_blank">EVAL-AD7194EBZ</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7195EBZ" target="_blank">EVAL-AD7195EBZ</a></p></li>
+</ul>
 <section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/CN0119" target="_blank">CN0119</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/CN0102" target="_blank">CN0102</a></p></li>
@@ -407,15 +425,6 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/CN0371" target="_blank">CN0371</a></p></li>
 </ul>
 </section>
-<section id="evaluation-boards">
-<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7190EBZ" target="_blank">EVAL-AD7190EBZ</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7192EBZ" target="_blank">EVAL-AD7192EBZ</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7193EBZ" target="_blank">EVAL-AD7193EBZ</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7194EBZ" target="_blank">EVAL-AD7194EBZ</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7195EBZ" target="_blank">EVAL-AD7195EBZ</a></p></li>
-</ul>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -469,8 +478,111 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </div>
 </section>
 </section>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7192_eval_lr.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7192_eval_lr.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7192_eval_lr.jpg" style="width: 600px;" />
+</a>
+</figure>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The AD7192 Driver depends on <strong>CONFIG_SPI</strong></p>
+</div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Linux Kernel Configuration
+    Device Drivers  ---&gt;
+        &lt;*&gt;     Industrial I/O support ---&gt;
+            --- Industrial I/O support
+            -*-   Enable buffer support within IIO
+            -*-   Enable triggered sampling support
+                  Analog to digital converters  ---&gt;
+                      [--snip--]
+                      &lt;*&gt;   Analog Devices AD7192 and similar ADC driver
+                      [--snip--]
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<p>Device tree is the new method for describing non-discoverable hardware in Linux.
+This replaces former structure based method. For configuring a device using this
+drivers please follow the example bellow:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">/</span><span class="n">dts</span><span class="o">-</span><span class="n">v1</span><span class="o">/</span><span class="p">;</span>
+<span class="o">/</span><span class="n">plugin</span><span class="o">/</span><span class="p">;</span>
+
+<span class="o">/</span> <span class="p">{</span>
+
+    <span class="n">fragment</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
+        <span class="n">target</span><span class="o">-</span><span class="n">path</span> <span class="o">=</span> <span class="s2">"/"</span><span class="p">;</span>
+        <span class="n">dvdd</span><span class="p">:</span> <span class="n">fixedregulator</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
+            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
+            <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"fixed-supply"</span><span class="p">;</span>
+            <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3300000</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3300000</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">regulator</span><span class="o">-</span><span class="n">boot</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
+        <span class="p">};</span>
+    <span class="p">};</span>
+
+    <span class="n">fragment</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
+        <span class="n">target</span><span class="o">-</span><span class="n">path</span> <span class="o">=</span> <span class="s2">"/"</span><span class="p">;</span>
+        <span class="n">avdd</span><span class="p">:</span> <span class="n">fixedregulator</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
+            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
+            <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"fixed-supply2"</span><span class="p">;</span>
+            <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3300000</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3300000</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">regulator</span><span class="o">-</span><span class="n">boot</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
+        <span class="p">};</span>
+    <span class="p">};</span>
+
+    <span class="n">fragment</span><span class="o">@</span><span class="mi">3</span> <span class="p">{</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">spi0</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="c1">#address-cells = &lt;1&gt;;</span>
+            <span class="c1">#size-cells = &lt;0&gt;;</span>
+            <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
+
+        <span class="n">ad7190</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
+            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad7190"</span><span class="p">;</span>
+            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">spi</span><span class="o">-</span><span class="n">cpol</span><span class="p">;</span>
+            <span class="n">spi</span><span class="o">-</span><span class="n">cpha</span><span class="p">;</span>
+            <span class="c1">#interrupt-cells = &lt;2&gt;;</span>
+            <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">25</span> <span class="mh">0x2</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">dvdd</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">dvdd</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">avdd</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">avdd</span><span class="o">&gt;</span><span class="p">;</span>
+
+            <span class="n">adi</span><span class="p">,</span><span class="n">reference</span><span class="o">-</span><span class="n">voltage</span><span class="o">-</span><span class="n">mv</span> <span class="o">=</span> <span class="o">/</span><span class="n">bits</span><span class="o">/</span> <span class="mi">16</span>  <span class="o">&lt;</span><span class="mi">3300</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">adi</span><span class="p">,</span><span class="n">clock</span><span class="o">-</span><span class="n">source</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="p">[</span><span class="mi">02</span><span class="p">];</span>
+            <span class="n">adi</span><span class="p">,</span><span class="n">refin2</span><span class="o">-</span><span class="n">pins</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
+            <span class="n">adi</span><span class="p">,</span><span class="n">rejection</span><span class="o">-</span><span class="mi">60</span><span class="o">-</span><span class="n">Hz</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
+            <span class="n">adi</span><span class="p">,</span><span class="n">chop</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
+            <span class="n">adi</span><span class="p">,</span><span class="n">buffer</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
+            <span class="n">adi</span><span class="p">,</span><span class="n">burnout</span><span class="o">-</span><span class="n">currents</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
+            <span class="n">adi</span><span class="p">,</span><span class="n">sinc3</span><span class="o">-</span><span class="nb">filter</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
+            <span class="n">adi</span><span class="p">,</span><span class="n">unipolar</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
+        <span class="p">};</span>
+    <span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Interrupt pin connection - interrupts = &lt;25 0x2&gt;; this line means that gpio
+pin 25 is used for the interrupt and it must be connect to the DOUT/RDY pin
+of AD7192 along with the SPI MISO.</p>
+</div>
+</section>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -480,8 +592,9 @@ describing devices and how they are connected to the SoC. This can include
 available ports, chip variants, preferred modes, default initialization,
 additional pin roles, and so on. This shrinks the board-support packages (BSPs)
 and minimizes board and application specific #ifdefs in drivers.</p>
-<p>The reference voltage may vary between boards and models. The platform_data for
-the device’s <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code> holds this information.</p>
+<p>The driver obtains its reference voltage from <code class="docutils literal notranslate"><span class="pre">vref-supply</span></code> or AVDD,
+clocks from firmware clock properties, and configuration from the properties
+described by <code class="docutils literal notranslate"><span class="pre">adi,ad7192.yaml</span></code>.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cm">/**</span>
 <span class="cm"> * struct ad7192_platform_data - platform/board specific information</span>
 <span class="cm"> * @vref_mv:        the external reference voltage in millivolt</span>
@@ -573,109 +686,7 @@ the device in question.</p>
 </pre></div>
 </div>
 </section>
-<section id="device-tree-support">
-<h2>Device tree support<a class="headerlink" href="#device-tree-support" title="Link to this heading"></a></h2>
-<p>Device tree is the new method for describing non-discoverable hardware in Linux.
-This replaces former structure based method. For configuring a device using this
-drivers please follow the example bellow:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">/</span><span class="n">dts</span><span class="o">-</span><span class="n">v1</span><span class="o">/</span><span class="p">;</span>
-<span class="o">/</span><span class="n">plugin</span><span class="o">/</span><span class="p">;</span>
-
-<span class="o">/</span> <span class="p">{</span>
-
-    <span class="n">fragment</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">target</span><span class="o">-</span><span class="n">path</span> <span class="o">=</span> <span class="s2">"/"</span><span class="p">;</span>
-        <span class="n">dvdd</span><span class="p">:</span> <span class="n">fixedregulator</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
-            <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"fixed-supply"</span><span class="p">;</span>
-            <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3300000</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3300000</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">regulator</span><span class="o">-</span><span class="n">boot</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
-
-    <span class="n">fragment</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
-        <span class="n">target</span><span class="o">-</span><span class="n">path</span> <span class="o">=</span> <span class="s2">"/"</span><span class="p">;</span>
-        <span class="n">avdd</span><span class="p">:</span> <span class="n">fixedregulator</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
-            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
-            <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"fixed-supply2"</span><span class="p">;</span>
-            <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3300000</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3300000</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">regulator</span><span class="o">-</span><span class="n">boot</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
-
-    <span class="n">fragment</span><span class="o">@</span><span class="mi">3</span> <span class="p">{</span>
-        <span class="n">target</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">spi0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="c1">#address-cells = &lt;1&gt;;</span>
-            <span class="c1">#size-cells = &lt;0&gt;;</span>
-            <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
-
-        <span class="n">ad7190</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad7190"</span><span class="p">;</span>
-            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">spi</span><span class="o">-</span><span class="n">cpol</span><span class="p">;</span>
-            <span class="n">spi</span><span class="o">-</span><span class="n">cpha</span><span class="p">;</span>
-            <span class="c1">#interrupt-cells = &lt;2&gt;;</span>
-            <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">25</span> <span class="mh">0x2</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">dvdd</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">dvdd</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">avdd</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">avdd</span><span class="o">&gt;</span><span class="p">;</span>
-
-            <span class="n">adi</span><span class="p">,</span><span class="n">reference</span><span class="o">-</span><span class="n">voltage</span><span class="o">-</span><span class="n">mv</span> <span class="o">=</span> <span class="o">/</span><span class="n">bits</span><span class="o">/</span> <span class="mi">16</span>  <span class="o">&lt;</span><span class="mi">3300</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">clock</span><span class="o">-</span><span class="n">source</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="p">[</span><span class="mi">02</span><span class="p">];</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">refin2</span><span class="o">-</span><span class="n">pins</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">rejection</span><span class="o">-</span><span class="mi">60</span><span class="o">-</span><span class="n">Hz</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">chop</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">buffer</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">burnout</span><span class="o">-</span><span class="n">currents</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">sinc3</span><span class="o">-</span><span class="nb">filter</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">unipolar</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-<div class="admonition important">
-<p class="admonition-title">Important</p>
-<p>Interrupt pin connection - interrupts = &lt;25 0x2&gt;; this line means that gpio
-pin 25 is used for the interrupt and it must be connect to the DOUT/RDY pin
-of AD7192 along with the SPI MISO.</p>
-</div>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The AD7192 Driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="n">Staging</span> <span class="n">drivers</span>  <span class="o">---&gt;</span>
-            <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-                <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-                <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-                <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
-                <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
-
-                      <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
-                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-
-                <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD7190</span> <span class="n">AD7192</span> <span class="n">AD7195</span> <span class="n">ADC</span> <span class="n">driver</span>
-
-                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-</pre></div>
-</div>
-</section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
-<figure class="align-default">
-<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7192_eval_lr.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7192_eval_lr.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7192_eval_lr.jpg" style="width: 600px;" />
-</a>
-</figure>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -719,24 +730,17 @@ the numbering is constant and may be known in advance.</p>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">ad7192</span>
 </pre></div>
 </div>
-<section id="set-sampling-frequency-update-rate">
-<h4>Set sampling frequency / update rate<a class="headerlink" href="#set-sampling-frequency-update-rate" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">sampling_frequency</span>
-<span class="mi">10</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">50</span> <span class="o">&gt;</span> <span class="n">sampling_frequency</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">sampling_frequency</span>
-<span class="mi">50</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span>
-</pre></div>
-</div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-available-scales-for-differential-input-channels">
-<h5>Show available scales for differential input channels<a class="headerlink" href="#show-available-scales-for-differential-input-channels" title="Link to this heading"></a></h5>
+<h4>Show available scales for differential input channels<a class="headerlink" href="#show-available-scales-for-differential-input-channels" title="Link to this heading"></a></h4>
 <p>Lists all available scales for the differential input pairs:</p>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
@@ -765,8 +769,42 @@ amplifier.</p>
 </pre></div>
 </div>
 </section>
+</section>
+<section id="set-sampling-frequency-update-rate">
+<h3>Set sampling frequency / update rate<a class="headerlink" href="#set-sampling-frequency-update-rate" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">sampling_frequency</span>
+<span class="mi">10</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">50</span> <span class="o">&gt;</span> <span class="n">sampling_frequency</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">sampling_frequency</span>
+<span class="mi">50</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<section id="bride-power-down-switch-control">
+<h4>Bride power-down switch control<a class="headerlink" href="#bride-power-down-switch-control" title="Link to this heading"></a></h4>
+<p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/bridge_switch_en Writing 1
+closes the bridge switch.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">bridge_switch_en</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">bridge_switch_en</span>
+<span class="mi">1</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">0</span> <span class="o">&gt;</span> <span class="n">bridge_switch_en</span>
+</pre></div>
+</div>
+</section>
+<section id="ac-excitation-control-ad7195-only">
+<h4>AC excitation control (AD7195 only)<a class="headerlink" href="#ac-excitation-control-ad7195-only" title="Link to this heading"></a></h4>
+<p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/ac_excitation_en Writing 1
+enables AC excitation on the AD7195 ACX strobes.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">ac_excitation_en</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">ac_excitation_en</span>
+<span class="mi">1</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">0</span> <span class="o">&gt;</span> <span class="n">ac_excitation_en</span>
+</pre></div>
+</div>
+</section>
+</section>
 <section id="show-available-scales-for-pseudo-differential-input-channels">
-<h5>Show available scales for pseudo-differential input channels<a class="headerlink" href="#show-available-scales-for-pseudo-differential-input-channels" title="Link to this heading"></a></h5>
+<h3>Show available scales for pseudo-differential input channels<a class="headerlink" href="#show-available-scales-for-pseudo-differential-input-channels" title="Link to this heading"></a></h3>
 <p>Lists all available scales for the differential input pairs:</p>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
@@ -799,7 +837,7 @@ amplifier.</p>
 </div>
 </section>
 <section id="set-scale-for-differential-input-channels">
-<h5>Set scale for differential input channels<a class="headerlink" href="#set-scale-for-differential-input-channels" title="Link to this heading"></a></h5>
+<h3>Set scale for differential input channels<a class="headerlink" href="#set-scale-for-differential-input-channels" title="Link to this heading"></a></h3>
 <p>Scale to be applied to in1-in2_raw, in2-in3_raw in order to obtain the measured
 voltage in millivolts. Allows the user to select one scale out of the available
 scales. If the written scale differs from the current scale. The driver performs
@@ -813,7 +851,7 @@ full and zero offset calibration on all differential input channels.</p>
 </div>
 </section>
 <section id="show-channel-in-voltage1-measurement">
-<h5>Show channel in_voltage1 measurement<a class="headerlink" href="#show-channel-in-voltage1-measurement" title="Link to this heading"></a></h5>
+<h3>Show channel in_voltage1 measurement<a class="headerlink" href="#show-channel-in-voltage1-measurement" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> Raw unscaled voltage measurement on channel in_voltage1</p>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
@@ -851,52 +889,31 @@ full and zero offset calibration on all differential input channels.</p>
 <span class="o">-</span><span class="mi">1</span>
 </pre></div>
 </div>
-<p><strong>U</strong> = <em>in_voltage1_raw * in_voltage_scale</em> = 3983772* 0.000393390 =
-<strong>1567.17606708 mV</strong></p>
+<p>The voltage is U_mV = (in_voltage1_raw + in_voltage_offset) ×
+in_voltage_scale. In pseudo-differential mode, the offset also accounts for
+AINCOM when its voltage is supplied.</p>
 </section>
 <section id="show-channel-in-voltage1-in-voltage2-measurement">
-<h5>Show channel in_voltage1-in_voltage2 measurement<a class="headerlink" href="#show-channel-in-voltage1-in-voltage2-measurement" title="Link to this heading"></a></h5>
+<h3>Show channel in_voltage1-in_voltage2 measurement<a class="headerlink" href="#show-channel-in-voltage1-in-voltage2-measurement" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> Raw unscaled voltage measurement on channel
 in_voltage1-in_voltage2</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage1</span><span class="o">-</span><span class="n">in_voltage2_raw</span>
 <span class="o">-</span><span class="mi">1</span>
 </pre></div>
 </div>
-<p><strong>U</strong> = <em>in_voltage1-in_voltage3_raw * in_voltage-in_voltage_scale</em> = -1 *
-0.000393390 = <strong>-0.000393390 mV</strong></p>
+<p>For a differential channel, U_mV = (raw + offset) × scale, using for example
+<code class="docutils literal notranslate"><span class="pre">in_voltage1-voltage2_raw</span></code>, <code class="docutils literal notranslate"><span class="pre">in_voltage-voltage_offset</span></code> and
+<code class="docutils literal notranslate"><span class="pre">in_voltage-voltage_scale</span></code>. In bipolar mode the raw data is offset binary
+and the offset is -8388608.</p>
 </section>
 <section id="show-internal-temperature">
-<h5>Show internal temperature<a class="headerlink" href="#show-internal-temperature" title="Link to this heading"></a></h5>
+<h3>Show internal temperature<a class="headerlink" href="#show-internal-temperature" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/in_temp0_raw Shows raw
 unscaled temperature.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_temp0_raw</span>
 <span class="o">-</span><span class="mi">175</span>
 </pre></div>
 </div>
-</section>
-<section id="bride-power-down-switch-control">
-<h5>Bride power-down switch control<a class="headerlink" href="#bride-power-down-switch-control" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/bridge_switch_en Writing 1
-closes the bridge switch.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">bridge_switch_en</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">bridge_switch_en</span>
-<span class="mi">1</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">0</span> <span class="o">&gt;</span> <span class="n">bridge_switch_en</span>
-</pre></div>
-</div>
-</section>
-<section id="ac-excitation-control-ad7195-only">
-<h5>AC excitation control (AD7195 only)<a class="headerlink" href="#ac-excitation-control-ad7195-only" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/ac_excitation_en Writing 1
-enables AC excitation on the AD7195 ACX strobes.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">ac_excitation_en</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">ac_excitation_en</span>
-<span class="mi">1</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">0</span> <span class="o">&gt;</span> <span class="n">ac_excitation_en</span>
-</pre></div>
-</div>
-</section>
-</section>
 </section>
 <section id="trigger-management">
 <h3>Trigger management<a class="headerlink" href="#trigger-management" title="Link to this heading"></a></h3>
@@ -915,14 +932,17 @@ enables AC excitation on the AD7195 ACX strobes.</p>
 <span class="n">enable</span>           <span class="n">length</span>
 </pre></div>
 </div>
-<p>The Industrial I/O subsystem provides support for various ring buffer based
-data acquisition methods. Apart from device specific hardware buffer support,
-the user can chose between two different software ring buffer implementations.
-One is the IIO lock free software ring, and the other is based on Linux kfifo.
-Devices with buffer support feature an additional sub-folder in the
-<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/deviceX/</span></code> folder hierarchy. Called <code class="docutils literal notranslate"><span class="pre">deviceX:bufferY</span></code>,
-where Y defaults to 0, for devices with a single buffer.</p>
-<p>Every buffer implementation features a set of files:</p>
+<p>The Industrial I/O subsystem supports buffered data acquisition. Buffer
+implementation and capabilities depend on the driver. Devices with buffer
+support expose each buffer at
+<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX/bufferY</span></code>, where Y is the buffer index,
+starting at 0. The first buffer is additionally exposed through the legacy
+<code class="docutils literal notranslate"><span class="pre">buffer</span></code> directory, which contains its buffer-control attributes. Its scan
+configuration is exposed through the legacy <code class="docutils literal notranslate"><span class="pre">scan_elements</span></code> directory, while
+multi-buffer systems expose the scan attributes in the corresponding
+<code class="docutils literal notranslate"><span class="pre">bufferY</span></code> directory. Read samples from the device character node
+<code class="docutils literal notranslate"><span class="pre">/dev/iio:deviceX</span></code>; the selected buffer is determined by the active buffer
+configuration.</p>
 <dl class="simple">
 <dt><strong>length</strong></dt><dd><p>Get/set the number of sample sets that may be held by the buffer.</p>
 </dd>
@@ -968,24 +988,21 @@ captured for a single triggered sample set in the buffer.</p>
 </pre></div>
 </div>
 <dl class="simple">
-<dt><strong>in_voltageX_en / in_voltageX-voltageY_en / timestamp_en:</strong></dt><dd><p>Scan element control for triggered data capture.
+<dt><strong>in_voltageX_en / in_voltageX-voltageY_en / in_timestamp_en:</strong></dt><dd><p>Scan element control for triggered data capture.
 Writing 1 will enable the scan element, writing 0 will disable it</p>
 </dd>
-<dt><strong>in_voltageX_type / in_voltageX-voltageY_type / timestamp_type:</strong></dt><dd><p>Description of the scan element data storage within the buffer
-and therefore in the form in which it is read from user-space.
-Form is [s|u]bits/storage-bits. s or u specifies if signed
-(2’s complement) or unsigned. bits is the number of bits of
-data and storage-bits is the space (after padding) that it
-occupies in the buffer. Note that some devices will have
-additional information in the unused bits so to get a clean
-value, the bits value must be used to mask the buffer output
-value appropriately. The storage-bits value also specifies the
-data alignment. So u12/16 will be a unsigned 12 bit integer
-stored in a 16 bit location aligned to a 16 bit boundary.
-For other storage combinations this attribute will be extended
-appropriately.</p>
+<dt><strong>in_voltageX_type / in_voltageX-voltageY_type / in_timestamp_type:</strong></dt><dd><p>Describes the scan element’s representation in the buffer. The format is
+<code class="docutils literal notranslate"><span class="pre">[be|le]:[s|u]bits/storagebits[Xrepeat]&gt;&gt;shift</span></code>. The prefix gives byte
+order; <code class="docutils literal notranslate"><span class="pre">s</span></code> or <code class="docutils literal notranslate"><span class="pre">u</span></code> specifies signed (two’s complement) or unsigned
+data. <code class="docutils literal notranslate"><span class="pre">bits</span></code> is the number of meaningful bits and <code class="docutils literal notranslate"><span class="pre">storagebits</span></code> is
+the storage width. The optional repeat count describes repeated elements.
+After interpreting byte order, shift the storage value right by <code class="docutils literal notranslate"><span class="pre">shift</span></code>
+and mask it to <code class="docutils literal notranslate"><span class="pre">bits</span></code>; signed values also require sign extension.
+For example, <code class="docutils literal notranslate"><span class="pre">be:u12/16&gt;&gt;1</span></code> describes an unsigned 12-bit value in
+big-endian 16-bit storage, shifted right by one bit. Account for alignment
+padding when combining enabled elements into a complete scan.</p>
 </dd>
-<dt><strong>in_voltageX_index / in_voltageX-voltageY_index / timestamp_index:</strong></dt><dd><p>A single positive integer specifying the position of this
+<dt><strong>in_voltageX_index / in_voltageX-voltageY_index / in_timestamp_index:</strong></dt><dd><p>A nonnegative integer specifying the ordering of this
 scan element in the buffer. Note these are not dependent on
 what is enabled and may not be contiguous. Thus for user-space
 to establish the full layout these must be used in conjunction

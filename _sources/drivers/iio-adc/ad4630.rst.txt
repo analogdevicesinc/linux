@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad4630
 
+
 .. _ad4630:
 
 AD4630
@@ -22,8 +23,20 @@ Evaluation Boards
 
 - :adi:`EVAL-AD4630-24 <en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/EVAL-AD4630-24.html>`
 
+Description
+-----------
+
+The :adi:`ad4030-24`, :adi:`ad4630-16`, and `ad4630-24 are SAR ADCs
+configurable at up to 2 MSPS. AD4630-16 has 16-bit resolution; AD4030-24 and
+AD4630-24 have 24-bit resolution. They are highly
+configurable <https://www.analog.com/en/products/ad4630-24.html>`__ through an
+extensive configuration register list.
+
+Source Code
+-----------
+
 Status
-------
+~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -36,7 +49,7 @@ Status
      -
 
 Files
------
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -57,15 +70,11 @@ Files
      - :git+linux:`main:arch/arm/boot/dts/zynq-zed-adv7511-adaq4224-24.dts`
      -
 
-Overview
---------
+Adding Linux driver support
+---------------------------
 
-The :adi:`ad4030-24`, :adi:`ad4630-16`, and
-:adi:`ad4630-24` are 24-bit, 2 MSPS SAR ADCs highly configurable
-through an extensive configuration register list.
-
-Enabling the driver
--------------------
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
@@ -89,33 +98,10 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
                ...
            ...
 
-Adding a device tree entry
---------------------------
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-Required properties
-~~~~~~~~~~~~~~~~~~~
-
-- **compatible**: Must be one of ``adi,ad7091r2``, ``adi,ad7091r4``,
-  ``adi,ad7091r8``.
-- **reg**: number of SPI chip select id for the device.
-- **clocks**: reference clock phandle
-- **clock-names**: name for the reference clock
-- **dmas**: phandle for dma-engine
-- **dma-names**: name for the dma-engine
-- **pwms**: phandles for the PWM device used as conversion start trigger.
-- **pwm-names**: name for PWM devices
-
-Optional properties
-~~~~~~~~~~~~~~~~~~~
-
-- **vref-supply**: phandle + specifier to a regulator for the external VREF
-  supply. If no external VREF is supplied this attribute should be omitted.
-  see: Documentation/devicetree/bindings/regulator/regulator.txt
-
-Device tree example
-~~~~~~~~~~~~~~~~~~~
-
-::
+.. code-block:: dts
 
    // SPDX-License-Identifier: GPL-2.0
    /*
@@ -221,7 +207,7 @@ Device tree example
            #size-cells = <0x0>;
 
            ad463x: ad463x@0 {
-               compatible = "adi,ad463x";
+               compatible = "adi,ad4630-24";
                reg = <0>;
                vdd-supply = <&vref>;
                vdd_1_8-supply = <&vdd_1_8>;
@@ -243,6 +229,36 @@ Device tree example
        };
    };
 
+Required properties
+^^^^^^^^^^^^^^^^^^^
+
+-  **compatible: Use the actual supported part, for example "adi,ad4630-24",
+   "adi,ad4630-16", "adi,ad4030-24" or "adi,adaq4224". The complete match table
+   also includes AD4032-24, AD4632-16/-20/-24, AD4630-20 and ADAQ4216/4220.**
+
+-  **reg**: number of SPI chip select id for the device.
+
+-  **clocks**: reference clock phandle
+
+-  **clock-names**: name for the reference clock
+
+-  **dmas**: phandle for dma-engine
+
+-  **dma-names**: name for the dma-engine
+
+-  **pwms**: phandles for the PWM device used as conversion start trigger.
+
+-  **pwm-names**: name for PWM devices
+
+Optional properties
+^^^^^^^^^^^^^^^^^^^
+
+-  **vref-supply: external unbuffered reference supply. If it is omitted,
+   provide vrefin-supply for the internal buffered reference path; the driver
+   still requires a usable reference supply. Also describe vdd-supply,
+   vdd_1_8-supply and vio-supply for the actual board.** see:
+   Documentation/devicetree/bindings/regulator/regulator.txt
+
 Driver testing
 --------------
 
@@ -257,19 +273,22 @@ Driver testing
 
    - :external+system-level:ref:`iio-oscilloscope`
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root@analog:~ $ cat /sys/bus/iio/devices/iio\:device0/name
    adaq4224
 
+Basic operation
+~~~~~~~~~~~~~~~
+
 Show channel scale
 ^^^^^^^^^^^^^^^^^^
 
-**Description:** Scale to be applied to in_voltageX_raw in order to obtain the
-measured voltage in millivolts
+**Description:** Scale to apply to signed samples obtained from the IIO DMA
+buffer, in millivolts/code. There is no ``in_voltageX_raw`` attribute.
 
 ::
 
@@ -277,7 +296,7 @@ measured voltage in millivolts
    0.000196695
 
 Show channel list of available scales
-'''''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** List of available scales to be applied to in_voltageX_raw in
 order to obtain the measured voltage in millivolts. This affects the gain
@@ -290,7 +309,7 @@ ADAQ devices only.
    0.000196695 0.000333786 0.001323223 0.003975629
 
 Show channel calibration offset
-'''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** Hardware applied calibration offset (calibbias). This is a
 hardware supported offset that can be applied to compensate for variation
@@ -302,7 +321,7 @@ between different instances of the part.
    0
 
 Show channel calibration scale
-''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** Hardware applied calibration scale factor.
 

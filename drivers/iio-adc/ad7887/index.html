@@ -98,28 +98,34 @@
           <ul>
 <li><a class="reference internal" href="#">AD7887</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a><ul>
 <li><a class="reference internal" href="#specifying-reference-voltage-via-the-regulator-framework">Specifying reference voltage via the regulator framework</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-scale">Show scale</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-scale">Show scale</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#show-channel-0-measurement">Show channel 0 measurement</a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li><a class="reference internal" href="#trigger-management">Trigger management</a><ul>
 <li><a class="reference internal" href="#available-standalone-trigger-drivers">Available standalone trigger drivers</a></li>
 </ul>
@@ -229,6 +235,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -247,7 +254,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -389,18 +395,18 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD7887" target="_blank">AD7887</a></p></li>
 </ul>
 </section>
-<section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0150" target="_blank">CN0150</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0189" target="_blank">CN0189</a></p></li>
-</ul>
-</section>
 <section id="evaluation-boards">
 <h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7887CBZ" target="_blank">EVAL-AD7887CBZ</a></p></li>
 </ul>
+<section id="reference-circuits">
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0150" target="_blank">CN0150</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0189" target="_blank">CN0189</a></p></li>
+</ul>
+</section>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -454,8 +460,35 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The AD7887 Driver depends on <strong>CONFIG_SPI</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="o">...</span>
+        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+            <span class="o">...</span>
+            <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span>  <span class="o">---&gt;</span>
+                <span class="o">...</span>
+                <span class="o">&lt;*&gt;</span>  <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD7887</span> <span class="n">ADC</span> <span class="n">driver</span>
+                <span class="o">...</span>
+            <span class="o">...</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+</section>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -465,32 +498,29 @@ describing devices and how they are connected to the SoC. This can include
 available ports, chip variants, preferred modes, default initialization,
 additional pin roles, and so on. This shrinks the board-support packages (BSPs)
 and minimizes board and application specific #ifdefs in drivers.</p>
-<p>The reference voltage may vary between boards and models. The platform_data for
-the device’s <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code> holds this information.</p>
+<p>The platform_data for the device’s <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code> only selects single or
+dual channel mode. The reference is not configured through platform data: if a
+<code class="docutils literal notranslate"><span class="pre">vref</span></code> regulator is supplied its voltage is used for the scale, otherwise the
+driver uses the 2500 mV internal reference value.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cm">/**</span>
 <span class="cm"> * struct ad7887_platform_data - AD7887 ADC driver platform data</span>
 <span class="cm"> * @en_dual: Whether to use dual channel mode. If set to true AIN1 becomes the</span>
 <span class="cm"> *  second input channel, and Vref is internally connected to Vdd. If set to</span>
 <span class="cm"> *  false the device is used in single channel mode and AIN1/Vref is used as</span>
 <span class="cm"> *  VREF input.</span>
-<span class="cm"> * @use_onchip_ref: Whether to use the on-chip reference. If set to true the</span>
-<span class="cm"> *  internal 2.5V reference is used. If set to false a external reference is</span>
-<span class="cm"> *  used.</span>
 <span class="cm"> */</span>
 <span class="k">struct</span><span class="w"> </span><span class="nc">ad7887_platform_data</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">en_dual</span><span class="p">;</span>
-<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">use_onchip_ref</span><span class="p">;</span>
 <span class="p">};</span>
 </pre></div>
 </div>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">ad7887_platform_data</span><span class="w"> </span><span class="n">ad7887_pdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="p">.</span><span class="n">en_dual</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">use_onchip_ref</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
 <span class="p">};</span>
 </pre></div>
 </div>
 <section id="specifying-reference-voltage-via-the-regulator-framework">
-<h3>Specifying reference voltage via the regulator framework<a class="headerlink" href="#specifying-reference-voltage-via-the-regulator-framework" title="Link to this heading"></a></h3>
+<h5>Specifying reference voltage via the regulator framework<a class="headerlink" href="#specifying-reference-voltage-via-the-regulator-framework" title="Link to this heading"></a></h5>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>This driver supports also an alternative way of specifying the reference
@@ -500,7 +530,7 @@ voltage, by using the Linux regulator framework.</p>
 (<strong>spi0.3</strong>)</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)</span>
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">regulator_consumer_supply</span><span class="w"> </span><span class="n">ad7887_consumer_supplies</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">REGULATOR_SUPPLY</span><span class="p">(</span><span class="s">"vcc"</span><span class="p">,</span><span class="w"> </span><span class="s">"spi0.3"</span><span class="p">),</span>
+<span class="w">    </span><span class="n">REGULATOR_SUPPLY</span><span class="p">(</span><span class="s">"vref"</span><span class="p">,</span><span class="w"> </span><span class="s">"spi0.3"</span><span class="p">),</span>
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">regulator_init_data</span><span class="w"> </span><span class="n">stamp_avdd_reg_init_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
@@ -597,31 +627,7 @@ the device in question.</p>
 </div>
 </section>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The AD7887 Driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="o">...</span>
-        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-            <span class="o">...</span>
-            <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span>  <span class="o">---&gt;</span>
-                <span class="o">...</span>
-                <span class="o">&lt;*&gt;</span>  <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD7887</span> <span class="n">ADC</span> <span class="n">driver</span>
-                <span class="o">...</span>
-            <span class="o">...</span>
-        <span class="o">...</span>
-</pre></div>
-</div>
 </section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -650,12 +656,15 @@ the numbering is constant and may be known in advance.</p>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">00</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">ad7887</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-scale">
 <h4>Show scale<a class="headerlink" href="#show-scale" title="Link to this heading"></a></h4>
 <p><strong>Description:</strong> scale to be applied to in0_raw in order to obtain the measured
@@ -664,21 +673,26 @@ voltage in millivolts.</p>
 <span class="mf">0.610</span>
 </pre></div>
 </div>
+</section>
+</section>
 <section id="show-channel-0-measurement">
-<h5>Show channel 0 measurement<a class="headerlink" href="#show-channel-0-measurement" title="Link to this heading"></a></h5>
+<h3>Show channel 0 measurement<a class="headerlink" href="#show-channel-0-measurement" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> Raw unscaled voltage measurement on channel 0</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage0_raw</span>
 <span class="mi">1492</span>
 </pre></div>
 </div>
-<p><strong>U</strong> = <em>in0_raw * in_scale</em> = 1492 * 0.610 = <strong>910.12 mV</strong></p>
-</section>
-</section>
+<p>The nominal conversion is
+<code class="docutils literal notranslate"><span class="pre">U_mV</span> <span class="pre">=</span> <span class="pre">in_voltage0_raw</span> <span class="pre">×</span> <span class="pre">in_voltage_scale</span></code>. With a 2.5 V reference,
+scale = 2500/4096 ≈ 0.610351562 mV/code, so 1492 codes correspond to
+approximately 910.644531 mV. Use the actual reference and reported scale for
+your device. Timestamp scan attributes are <code class="docutils literal notranslate"><span class="pre">in_timestamp_en</span></code>,
+<code class="docutils literal notranslate"><span class="pre">in_timestamp_index</span></code> and <code class="docutils literal notranslate"><span class="pre">in_timestamp_type</span></code>.</p>
 </section>
 <section id="trigger-management">
 <h3>Trigger management<a class="headerlink" href="#trigger-management" title="Link to this heading"></a></h3>
 <p>If deviceX supports triggered sampling, it’s a so called trigger consumer and
-there will be an additional folder <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/device/iio:deviceX/trigger</span></code>.
+there will be an additional folder <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX/trigger</span></code>.
 In this folder there is a file called <code class="docutils literal notranslate"><span class="pre">current_trigger</span></code>, allowing controlling
 and viewing the current trigger source connected to deviceX. Available trigger
 sources can be identified by reading the name file
@@ -688,9 +702,8 @@ from a number of sensors, converters, etc.</p>
 <div class="admonition hint">
 <p class="admonition-title">Hint</p>
 <p><strong>Trigger Consumers:</strong></p>
-<p>Currently triggers are only used for the filling of software ring
-buffers and as such any device supporting INDIO_RING_TRIGGERED has the
-consumer interface automatically created.</p>
+<p>Triggers are used to fill buffers, and any device supporting
+INDIO_BUFFER_TRIGGERED has the consumer interface automatically created.</p>
 </div>
 <p><strong>Description:</strong> Read name of triggerY</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/triggerY$
@@ -753,14 +766,17 @@ IRQ), to current trigger of deviceX</p>
 <span class="n">enable</span>                  <span class="n">length</span>
 </pre></div>
 </div>
-<p>The Industrial I/O subsystem provides support for various ring buffer based
-data acquisition methods. Apart from device specific hardware buffer support,
-the user can chose between two different software ring buffer implementations.
-One is the IIO lock free software ring, and the other is based on Linux kfifo.
-Devices with buffer support feature an additional sub-folder in the
-<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/deviceX/</span></code> folder hierarchy. Called <code class="docutils literal notranslate"><span class="pre">deviceX:bufferY</span></code>,
-where Y defaults to 0, for devices with a single buffer.</p>
-<p>Every buffer implementation features a set of files:</p>
+<p>The Industrial I/O subsystem supports buffered data acquisition. Buffer
+implementation and capabilities depend on the driver. Devices with buffer
+support expose each buffer at
+<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX/bufferY</span></code>, where Y is the buffer index,
+starting at 0. The first buffer is additionally exposed through the legacy
+<code class="docutils literal notranslate"><span class="pre">buffer</span></code> directory, which contains its buffer-control attributes. Its scan
+configuration is exposed through the legacy <code class="docutils literal notranslate"><span class="pre">scan_elements</span></code> directory, while
+multi-buffer systems expose the scan attributes in the corresponding
+<code class="docutils literal notranslate"><span class="pre">bufferY</span></code> directory. Read samples from the device character node
+<code class="docutils literal notranslate"><span class="pre">/dev/iio:deviceX</span></code>; the selected buffer is determined by the active buffer
+configuration.</p>
 <dl class="simple">
 <dt><strong>length</strong></dt><dd><p>Get/set the number of sample sets that may be held by the buffer.</p>
 </dd>
@@ -798,24 +814,21 @@ captured for a single triggered sample set in the buffer.</p>
 </pre></div>
 </div>
 <dl class="simple">
-<dt><strong>in_voltageX_en / in_voltageX-voltageY_en / timestamp_en:</strong></dt><dd><p>Scan element control for triggered data capture.
+<dt><strong>in_voltageX_en / in_voltageX-voltageY_en / in_timestamp_en:</strong></dt><dd><p>Scan element control for triggered data capture.
 Writing 1 will enable the scan element, writing 0 will disable it</p>
 </dd>
-<dt><strong>in_voltageX_type / in_voltageX-voltageY_type / timestamp_type:</strong></dt><dd><p>Description of the scan element data storage within the buffer
-and therefore in the form in which it is read from user-space.
-Form is [s|u]bits/storage-bits. s or u specifies if signed
-(2’s complement) or unsigned. bits is the number of bits of
-data and storage-bits is the space (after padding) that it
-occupies in the buffer. Note that some devices will have
-additional information in the unused bits so to get a clean
-value, the bits value must be used to mask the buffer output
-value appropriately. The storage-bits value also specifies the
-data alignment. So u12/16 will be a unsigned 12 bit integer
-stored in a 16 bit location aligned to a 16 bit boundary.
-For other storage combinations this attribute will be extended
-appropriately.</p>
+<dt><strong>in_voltageX_type / in_voltageX-voltageY_type / in_timestamp_type:</strong></dt><dd><p>Describes the scan element’s representation in the buffer. The format is
+<code class="docutils literal notranslate"><span class="pre">[be|le]:[s|u]bits/storagebits[Xrepeat]&gt;&gt;shift</span></code>. The prefix gives byte
+order; <code class="docutils literal notranslate"><span class="pre">s</span></code> or <code class="docutils literal notranslate"><span class="pre">u</span></code> specifies signed (two’s complement) or unsigned
+data. <code class="docutils literal notranslate"><span class="pre">bits</span></code> is the number of meaningful bits and <code class="docutils literal notranslate"><span class="pre">storagebits</span></code> is
+the storage width. The optional repeat count describes repeated elements.
+After interpreting byte order, shift the storage value right by <code class="docutils literal notranslate"><span class="pre">shift</span></code>
+and mask it to <code class="docutils literal notranslate"><span class="pre">bits</span></code>; signed values also require sign extension.
+For example, <code class="docutils literal notranslate"><span class="pre">be:u12/16&gt;&gt;1</span></code> describes an unsigned 12-bit value in
+big-endian 16-bit storage, shifted right by one bit. Account for alignment
+padding when combining enabled elements into a complete scan.</p>
 </dd>
-<dt><strong>in_voltageX_index / in_voltageX-voltageY_index / timestamp_index:</strong></dt><dd><p>A single positive integer specifying the position of this
+<dt><strong>in_voltageX_index / in_voltageX-voltageY_index / in_timestamp_index:</strong></dt><dd><p>A nonnegative integer specifying the ordering of this
 scan element in the buffer. Note these are not dependent on
 what is enabled and may not be contiguous. Thus for user-space
 to establish the full layout these must be used in conjunction

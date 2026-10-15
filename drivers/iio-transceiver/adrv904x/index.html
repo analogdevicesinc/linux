@@ -99,26 +99,19 @@
 <li><a class="reference internal" href="#">ADRV904x</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
-<li><a class="reference internal" href="#overview">Overview</a><ul>
+<li><a class="reference internal" href="#description">Description</a><ul>
 <li><a class="reference internal" href="#applications">Applications</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
-<li><a class="reference internal" href="#files">Files</a><ul>
-<li><a class="reference internal" href="#interrelated-device-drivers">Interrelated Device Drivers</a><ul>
-<li><a class="reference internal" href="#receive-axi-adc-driver">Receive AXI-ADC driver</a></li>
-<li><a class="reference internal" href="#transmit-axi-dac-dds-driver">Transmit AXI-DAC / DDS driver</a></li>
-<li><a class="reference internal" href="#axi-jesd204b-hdl-driver">AXI JESD204B HDL driver</a></li>
-<li><a class="reference internal" href="#axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel">AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)</a></li>
+<li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-</ul>
-</li>
-</ul>
-</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
 <li><a class="reference internal" href="#device-driver-customization">Device Driver Customization</a></li>
+<li><a class="reference internal" href="#firmware-and-profiles">Firmware and profiles</a><ul>
 <li><a class="reference internal" href="#processors">Processors</a><ul>
 <li><a class="reference internal" href="#stream-processor">Stream Processor</a><ul>
 <li><a class="reference internal" href="#slice-and-core-stream-processors">Slice and Core Stream Processors</a></li>
@@ -133,14 +126,16 @@
 <li><a class="reference internal" href="#id3">Platform File</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#gain-tables">Gain Tables</a></li>
 <li><a class="reference internal" href="#profile-binary">Profile Binary</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#driver-testing-api">Driver testing / API</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a></li>
+<li><a class="reference internal" href="#gain-tables">Gain Tables</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
 <li><a class="reference internal" href="#show-device-temperature">Show device temperature</a></li>
 <li><a class="reference internal" href="#channel-enable-powerdown-controls">Channel Enable/Powerdown Controls</a></li>
 <li><a class="reference internal" href="#local-oscillator-control-lo">Local Oscillator Control (LO)</a></li>
@@ -157,6 +152,9 @@
 </li>
 </ul>
 </li>
+</ul>
+</li>
+<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
 <li><a class="reference internal" href="#advanced-debug-facilities">Advanced Debug Facilities</a><ul>
 <li><a class="reference internal" href="#runtime-device-driver-customization">Runtime Device Driver Customization</a></li>
 <li><a class="reference internal" href="#build-in-self-test-bist">Build-In Self-Test (BIST)</a><ul>
@@ -165,14 +163,26 @@
 <li><a class="reference internal" href="#bist-tone">BIST Tone</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#low-level-register-access-via-debugfs-direct-reg-access">Low level register access via debugfs (direct_reg_access)</a></li>
 </ul>
 </li>
-</ul>
-</li>
+<li><a class="reference internal" href="#low-level-register-access-via-debugfs-direct-reg-access">Low level register access via debugfs (direct_reg_access)</a><ul>
 <li><a class="reference internal" href="#reading">Reading</a></li>
 <li><a class="reference internal" href="#writing">Writing</a></li>
 <li><a class="reference internal" href="#accessing-hdl-core-registers">Accessing HDL CORE registers</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a><ul>
+<li><a class="reference internal" href="#interrelated-device-drivers">Interrelated Device Drivers</a><ul>
+<li><a class="reference internal" href="#receive-axi-adc-driver">Receive AXI-ADC driver</a></li>
+<li><a class="reference internal" href="#transmit-axi-dac-dds-driver">Transmit AXI-DAC / DDS driver</a></li>
+<li><a class="reference internal" href="#axi-jesd204b-hdl-driver">AXI JESD204B HDL driver</a></li>
+<li><a class="reference internal" href="#axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel">AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)</a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -274,6 +284,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -292,7 +303,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -448,8 +458,8 @@ stations.</p>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/EVAL-ADRV9026.html" target="_blank">ADRV904x-HB/PCBZ</a></p></li>
 </ul>
 </section>
-<section id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<section id="description">
+<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
 <p>The ADRV9040 is a highly integrated, system on chip (SoC) radio frequency (RF)
 agile transceiver with integrated digital front end (DFE). The SoC contains
 eight transmitters, two observation receivers for monitoring transmitter
@@ -505,20 +515,17 @@ transparent to the baseband processor.</p>
 controlled via a standard SPI serial port. Comprehensive power-down modes are
 included to minimize power consumption in normal use. The device is packaged in
 a 27 mm × 20 mm, 736-ball grid array.</p>
+<p>This is a Linux industrial I/O (<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a>) subsystem
+driver, targeting RF Transceivers. The industrial I/O subsystem provides a
+unified framework for drivers for many different types of converters and sensors
+using a number of different physical interfaces (i2c, spi, etc). See
+<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a> for more information.</p>
 <section id="applications">
 <h3>Applications<a class="headerlink" href="#applications" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p>3G/4G/5G TDD/FDD small cell, massive MIMO and macro base stations</p></li>
 </ul>
 </section>
-</section>
-<section id="description">
-<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
-<p>This is a Linux industrial I/O (<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a>) subsystem
-driver, targeting RF Transceivers. The industrial I/O subsystem provides a
-unified framework for drivers for many different types of converters and sensors
-using a number of different physical interfaces (i2c, spi, etc). See
-<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a> for more information.</p>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -564,110 +571,79 @@ using a number of different physical interfaces (i2c, spi, etc). See
 </tbody>
 </table>
 </div>
-<section id="interrelated-device-drivers">
-<h4>Interrelated Device Drivers<a class="headerlink" href="#interrelated-device-drivers" title="Link to this heading"></a></h4>
-<ul class="simple">
-<li><p><a class="reference internal" href="../../jesd204/jesd204-fsm-framework/#jesd204-fsm-framework"><span class="std std-ref">JESD204 FSM</span></a></p></li>
-<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/jesd204/#jesd204" target="_blank" title="(in HDL)"><span>JESD204 Interface Framework</span></a></p></li>
-</ul>
-<section id="receive-axi-adc-driver">
-<h5>Receive AXI-ADC driver<a class="headerlink" href="#receive-axi-adc-driver" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
-</tr>
-<tr class="row-odd"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></td>
-</tr>
-<tr class="row-even"><td><p>include</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></td>
-</tr>
-</tbody>
-</table>
+</section>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ADRV904x driver depends on <strong>CONFIG_SPI</strong></p>
 </div>
-</section>
-<section id="transmit-axi-dac-dds-driver">
-<h5>Transmit AXI-DAC / DDS driver<a class="headerlink" href="#transmit-axi-dac-dds-driver" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.c" target="_blank">drivers/iio/frequency/cf_axi_dds.c</a></p></td>
-</tr>
-<tr class="row-odd"><td><p>include</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.h" target="_blank">drivers/iio/frequency/cf_axi_adc.h</a></p></td>
-</tr>
-</tbody>
-</table>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
+        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
+
+              <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+
+        <span class="o">-*-</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">AXI</span> <span class="n">ADC</span> <span class="n">driver</span> <span class="n">core</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9361</span><span class="p">,</span> <span class="n">AD9364</span> <span class="n">RF</span> <span class="n">Agile</span> <span class="n">Transceiver</span> <span class="n">driver</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9371</span> <span class="n">RF</span> <span class="n">Transceiver</span> <span class="n">driver</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADRV9009</span><span class="o">/</span><span class="n">ADRV9008</span> <span class="n">RF</span> <span class="n">Transceiver</span> <span class="n">driver</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADRV9025</span><span class="o">/</span><span class="n">ADRV9026</span><span class="o">/</span><span class="n">ADRV9029</span> <span class="n">RF</span> <span class="n">Transceiver</span> <span class="n">driver</span>
+                <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADRV904X</span><span class="o">/</span><span class="n">ADRV9040</span> <span class="n">RF</span> <span class="n">Transceiver</span> <span class="n">driver</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD6676</span> <span class="n">Wideband</span> <span class="n">IF</span> <span class="n">Receiver</span> <span class="n">driver</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9467</span><span class="p">,</span> <span class="n">AD9680</span><span class="p">,</span> <span class="n">etc</span><span class="o">.</span> <span class="n">high</span> <span class="n">speed</span> <span class="n">ADCs</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">Motor</span> <span class="n">Control</span> <span class="p">(</span><span class="n">AD</span><span class="o">-</span><span class="n">FMCMOTCON</span><span class="p">)</span> <span class="n">drivers</span>
+
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+
+    <span class="n">Frequency</span> <span class="n">Synthesizers</span> <span class="n">DDS</span><span class="o">/</span><span class="n">PLL</span>  <span class="o">---&gt;</span>
+            <span class="n">Direct</span> <span class="n">Digital</span> <span class="n">Synthesis</span>  <span class="o">---&gt;</span>
+            <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">CoreFPGA</span> <span class="n">AXI</span> <span class="n">DDS</span> <span class="n">driver</span>
+        <span class="n">Clock</span> <span class="n">Generator</span><span class="o">/</span><span class="n">Distribution</span>  <span class="o">---&gt;</span>
+            <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9508</span> <span class="n">Clock</span> <span class="n">Fanout</span> <span class="n">Buffer</span>
+            <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9523</span> <span class="n">Low</span> <span class="n">Jitter</span> <span class="n">Clock</span> <span class="n">Generator</span>
+            <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9528</span> <span class="n">Low</span> <span class="n">Jitter</span> <span class="n">Clock</span> <span class="n">Generator</span>
+            <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9548</span> <span class="n">Network</span> <span class="n">Clock</span> <span class="n">Generator</span><span class="o">/</span><span class="n">Synchronizer</span>
+            <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9517</span> <span class="mi">12</span><span class="o">-</span><span class="n">Output</span> <span class="n">Clock</span> <span class="n">Generator</span>
+
+    <span class="o">&lt;*&gt;</span>   <span class="n">JESD204</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">Serial</span> <span class="n">Interface</span> <span class="n">Support</span>  <span class="o">---&gt;</span>
+        <span class="o">---</span> <span class="n">JESD204</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">Serial</span> <span class="n">Interface</span> <span class="n">Support</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Altera</span> <span class="n">Arria10</span> <span class="n">JESD204</span> <span class="n">PHY</span> <span class="n">Support</span>
+        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AXI</span> <span class="n">ADXCVR</span> <span class="n">PHY</span> <span class="n">Support</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Generic</span> <span class="n">AXI</span> <span class="n">JESD204B</span> <span class="n">configuration</span> <span class="n">driver</span>
+        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AXI</span> <span class="n">JESD204B</span> <span class="n">TX</span> <span class="n">Support</span>
+        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AXI</span> <span class="n">JESD204B</span> <span class="n">RX</span> <span class="n">Support</span>
+</pre></div>
 </div>
-</section>
-<section id="axi-jesd204b-hdl-driver">
-<h5>AXI JESD204B HDL driver<a class="headerlink" href="#axi-jesd204b-hdl-driver" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_rx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_rx.c</a></p></td>
-</tr>
-<tr class="row-odd"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_tx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_tx.c</a></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel">
-<h5>AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)<a class="headerlink" href="#axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_adxcvr.c" target="_blank">drivers/iio/jesd204/axi_adxcvr.c</a></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-</section>
-</section>
 </section>
 <section id="device-driver-customization">
-<h2>Device Driver Customization<a class="headerlink" href="#device-driver-customization" title="Link to this heading"></a></h2>
+<h3>Device Driver Customization<a class="headerlink" href="#device-driver-customization" title="Link to this heading"></a></h3>
 <p>Please follow the link here for detailed options and examples:</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="../adrv904x-customization/#adrv904x-customization"><span class="std std-ref">ADRV904x Customization</span></a></p></li>
 </ul>
 </section>
+<section id="firmware-and-profiles">
+<h3>Firmware and profiles<a class="headerlink" href="#firmware-and-profiles" title="Link to this heading"></a></h3>
 <section id="processors">
-<h2>Processors<a class="headerlink" href="#processors" title="Link to this heading"></a></h2>
+<h4>Processors<a class="headerlink" href="#processors" title="Link to this heading"></a></h4>
 <p>The ADRV904x contains dedicated signal processing blocks, ADCs, DACs, two ARM
 processor cores and a co-processor called the stream processor. The firmware for
 the ARM cores is a pre-compiled binary. The stream co-processor binary is user
 generated.</p>
 <section id="stream-processor">
-<h3>Stream Processor<a class="headerlink" href="#stream-processor" title="Link to this heading"></a></h3>
+<h5>Stream Processor<a class="headerlink" href="#stream-processor" title="Link to this heading"></a></h5>
 <p>A stream processor is a processor within the transceiver tasked with performing
 a series of configuration tasks based on some event. After a request from the
 user, the stream processor performs a series of predefined actions that are
@@ -710,7 +686,7 @@ responsible for the execution of some dedicated functionality within the device.
 These can be divided into two broad categories: slice stream processors and the
 core stream processor.</p>
 <section id="slice-and-core-stream-processors">
-<h4>Slice and Core Stream Processors<a class="headerlink" href="#slice-and-core-stream-processors" title="Link to this heading"></a></h4>
+<h6>Slice and Core Stream Processors<a class="headerlink" href="#slice-and-core-stream-processors" title="Link to this heading"></a></h6>
 <p>There are eighteen slice stream processors, one each for the eight Tx, Rx
 datapaths, and two for the ORx datapaths. These ORx datapaths are not shared
 with the internal Tx channel loopback paths that facilitate data collection
@@ -726,7 +702,7 @@ processor services GPIO pin-based streams and any custom streams that are cross
 domain.</p>
 </section>
 <section id="platform-file">
-<h4>Platform File<a class="headerlink" href="#platform-file" title="Link to this heading"></a></h4>
+<h6>Platform File<a class="headerlink" href="#platform-file" title="Link to this heading"></a></h6>
 <p>The stream binary <code class="docutils literal notranslate"><span class="pre">stream_image.bin</span></code> must be stored in the /lib/firmware
 folder, or compiled into the kernel using the CONFIG_FIRMWARE_IN_KERNEL,
 CONFIG_EXTRA_FIRMWARE config options. Multiple stream binaries can be added.
@@ -753,7 +729,7 @@ probe can be specified using following device tree property:</p>
 </section>
 </section>
 <section id="arm-processor">
-<h3>ARM Processor<a class="headerlink" href="#arm-processor" title="Link to this heading"></a></h3>
+<h5>ARM Processor<a class="headerlink" href="#arm-processor" title="Link to this heading"></a></h5>
 <p>The transceiver is equipped with two ARM M4 processors, CPU0 and CPU1, for Radio
 functionality. There is a separate A55 processor dedicated DFE features, like
 DPD, CLGC, VSWR. This section outlines ARM processor used for Radio features.
@@ -764,7 +740,7 @@ configuring the transceiver for the selected use case, performing initial
 calibrations of the signal paths and maintaining device performance over time
 through tracking calibrations.</p>
 <section id="id2">
-<h4>Platform File<a class="headerlink" href="#id2" title="Link to this heading"></a></h4>
+<h6>Platform File<a class="headerlink" href="#id2" title="Link to this heading"></a></h6>
 <p>The fimware loaded during driver probe are specified using following device tree
 property:</p>
 <p>adi,arm-firmware-name = <code class="docutils literal notranslate"><span class="pre">ADRV9040_FW.bin</span></code>;</p>
@@ -791,11 +767,11 @@ ADRV904x software package.</p>
 </section>
 </section>
 <section id="dfe-processor">
-<h3>DFE Processor<a class="headerlink" href="#dfe-processor" title="Link to this heading"></a></h3>
+<h5>DFE Processor<a class="headerlink" href="#dfe-processor" title="Link to this heading"></a></h5>
 <p>The DFE processor is an ARM A55 quad-core processor for implementing DFE
 application software such as DPD, CLGC and VSWR algorithms.</p>
 <section id="id3">
-<h4>Platform File<a class="headerlink" href="#id3" title="Link to this heading"></a></h4>
+<h6>Platform File<a class="headerlink" href="#id3" title="Link to this heading"></a></h6>
 <p>The firmware files for these processors must be stored in the /lib/firmware
 folder, or compiled into the kernel using the CONFIG_FIRMWARE_IN_KERNEL,
 CONFIG_EXTRA_FIRMWARE config options. The fimware loaded during driver probe is
@@ -822,33 +798,8 @@ DFE algorithms such as DPD, CLGC and VSWR.</p>
 </div>
 </section>
 </section>
-<section id="gain-tables">
-<h3>Gain Tables<a class="headerlink" href="#gain-tables" title="Link to this heading"></a></h3>
-<p>The Gain table for the RX path must also be loaded during boot/setup phase. This
-is also loaded using the firmware framework.</p>
-<p>This is the front end gain look up tables for the ADRV904x receiver. It is a
-default table delivered as part of ADRV904x software package. User can also
-generate custom gain tables.</p>
-<p>adi,rx-gaintable-names = <code class="docutils literal notranslate"><span class="pre">ADRV9040_RxGainTable.csv</span></code>;</p>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>RX Gain Correction table</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/koror_dev/firmware/ADRV9040_RxGainTable.csv" target="_blank">firmware/ADRV9040_RxGainTable.csv</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
 <section id="profile-binary">
-<h3>Profile Binary<a class="headerlink" href="#profile-binary" title="Link to this heading"></a></h3>
+<h5>Profile Binary<a class="headerlink" href="#profile-binary" title="Link to this heading"></a></h5>
 <p>The ADRV904x’s configuration for a particular use case is programmed through the
 profile binary. The profile consists of the filter coefficients, clock rates,
 signal blocks, DFE resources to enable/disable for a particular use case.</p>
@@ -873,64 +824,35 @@ Evaluation System User Guide for steps to generate the profile binary.</p>
 </div>
 </section>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>).</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The ADRV904x driver depends on <strong>CONFIG_SPI</strong></p>
+<section id="gain-tables">
+<h4>Gain Tables<a class="headerlink" href="#gain-tables" title="Link to this heading"></a></h4>
+<p>The Gain table for the RX path must also be loaded during boot/setup phase. This
+is also loaded using the firmware framework.</p>
+<p>This is the front end gain look up tables for the ADRV904x receiver. It is a
+default table delivered as part of ADRV904x software package. User can also
+generate custom gain tables.</p>
+<p>adi,rx-gaintable-names = <code class="docutils literal notranslate"><span class="pre">ADRV9040_RxGainTable.csv</span></code>;</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>RX Gain Correction table</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/koror_dev/firmware/ADRV9040_RxGainTable.csv" target="_blank">firmware/ADRV9040_RxGainTable.csv</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
 </div>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-        <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
-
-              <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-
-        <span class="o">-*-</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">AXI</span> <span class="n">ADC</span> <span class="n">driver</span> <span class="n">core</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9361</span><span class="p">,</span> <span class="n">AD9364</span> <span class="n">RF</span> <span class="n">Agile</span> <span class="n">Transceiver</span> <span class="n">driver</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9371</span> <span class="n">RF</span> <span class="n">Transceiver</span> <span class="n">driver</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADRV9009</span><span class="o">/</span><span class="n">ADRV9008</span> <span class="n">RF</span> <span class="n">Transceiver</span> <span class="n">driver</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADRV9025</span><span class="o">/</span><span class="n">ADRV9026</span><span class="o">/</span><span class="n">ADRV9029</span> <span class="n">RF</span> <span class="n">Transceiver</span> <span class="n">driver</span>
-                <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADRV904X</span><span class="o">/</span><span class="n">ADRV9040</span> <span class="n">RF</span> <span class="n">Transceiver</span> <span class="n">driver</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD6676</span> <span class="n">Wideband</span> <span class="n">IF</span> <span class="n">Receiver</span> <span class="n">driver</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9467</span><span class="p">,</span> <span class="n">AD9680</span><span class="p">,</span> <span class="n">etc</span><span class="o">.</span> <span class="n">high</span> <span class="n">speed</span> <span class="n">ADCs</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">Motor</span> <span class="n">Control</span> <span class="p">(</span><span class="n">AD</span><span class="o">-</span><span class="n">FMCMOTCON</span><span class="p">)</span> <span class="n">drivers</span>
-
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-
-    <span class="n">Frequency</span> <span class="n">Synthesizers</span> <span class="n">DDS</span><span class="o">/</span><span class="n">PLL</span>  <span class="o">---&gt;</span>
-            <span class="n">Direct</span> <span class="n">Digital</span> <span class="n">Synthesis</span>  <span class="o">---&gt;</span>
-            <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">CoreFPGA</span> <span class="n">AXI</span> <span class="n">DDS</span> <span class="n">driver</span>
-        <span class="n">Clock</span> <span class="n">Generator</span><span class="o">/</span><span class="n">Distribution</span>  <span class="o">---&gt;</span>
-            <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9508</span> <span class="n">Clock</span> <span class="n">Fanout</span> <span class="n">Buffer</span>
-            <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9523</span> <span class="n">Low</span> <span class="n">Jitter</span> <span class="n">Clock</span> <span class="n">Generator</span>
-            <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9528</span> <span class="n">Low</span> <span class="n">Jitter</span> <span class="n">Clock</span> <span class="n">Generator</span>
-            <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9548</span> <span class="n">Network</span> <span class="n">Clock</span> <span class="n">Generator</span><span class="o">/</span><span class="n">Synchronizer</span>
-            <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9517</span> <span class="mi">12</span><span class="o">-</span><span class="n">Output</span> <span class="n">Clock</span> <span class="n">Generator</span>
-
-    <span class="o">&lt;*&gt;</span>   <span class="n">JESD204</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">Serial</span> <span class="n">Interface</span> <span class="n">Support</span>  <span class="o">---&gt;</span>
-        <span class="o">---</span> <span class="n">JESD204</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">Serial</span> <span class="n">Interface</span> <span class="n">Support</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Altera</span> <span class="n">Arria10</span> <span class="n">JESD204</span> <span class="n">PHY</span> <span class="n">Support</span>
-        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AXI</span> <span class="n">ADXCVR</span> <span class="n">PHY</span> <span class="n">Support</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Generic</span> <span class="n">AXI</span> <span class="n">JESD204B</span> <span class="n">configuration</span> <span class="n">driver</span>
-        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AXI</span> <span class="n">JESD204B</span> <span class="n">TX</span> <span class="n">Support</span>
-        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AXI</span> <span class="n">JESD204B</span> <span class="n">RX</span> <span class="n">Support</span>
-</pre></div>
-</div>
 </section>
-<section id="driver-testing-api">
-<h2>Driver testing / API<a class="headerlink" href="#driver-testing-api" title="Link to this heading"></a></h2>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <p>Each and every IIO device, typically a hardware chip, has a device folder under
 <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX</span></code>. Where X is the IIO index of the device. Under
 every of these directory folders reside a set of files, depending on the
@@ -1125,8 +1047,8 @@ the numbering is constant and may be known in advance.</p>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="c1">#</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="c1"># cat name</span>
 <span class="n">adrv904x</span><span class="o">-</span><span class="n">phy</span>
 </pre></div>
@@ -1273,6 +1195,9 @@ to control the attenuation of the Rx front-end.</p>
 </section>
 </section>
 </section>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
 <section id="advanced-debug-facilities">
 <h3>Advanced Debug Facilities<a class="headerlink" href="#advanced-debug-facilities" title="Link to this heading"></a></h3>
 <p>The ADRV904x driver supports advanced debug controls via the kernel
@@ -1430,7 +1355,7 @@ into the TX path. Tx7 channel is selected.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p>Signed frequency in Hz of the desired Tx tone</p></td>
+<tr class="row-even"><td><p>Unsigned frequency in kHz of the desired TX7 test tone.</p></td>
 </tr>
 </tbody>
 </table>
@@ -1476,14 +1401,16 @@ into the TX path. Tx7 channel is selected.</p>
 </tbody>
 </table>
 </div>
-<p><strong>Example</strong>: Inject a 12 dB tone at 30 MHz into TX (all channels enabled)</p>
+<p>Example: enable the TX7 test NCO at 30 MHz with 12 dB attenuation
+(attenuation code 2). The table values are attenuation magnitudes.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="c1"># echo 1 30000 2 &gt; bist_tone</span>
 </pre></div>
 </div>
 </section>
 </section>
+</section>
 <section id="low-level-register-access-via-debugfs-direct-reg-access">
-<h4>Low level register access via debugfs (direct_reg_access)<a class="headerlink" href="#low-level-register-access-via-debugfs-direct-reg-access" title="Link to this heading"></a></h4>
+<h3>Low level register access via debugfs (direct_reg_access)<a class="headerlink" href="#low-level-register-access-via-debugfs-direct-reg-access" title="Link to this heading"></a></h3>
 <p>Some IIO drivers feature an optional debug facility, allowing users to read or
 write registers directly. Special care needs to be taken when using this
 feature, since you can modify registers on the back of the driver.</p>
@@ -1528,11 +1455,8 @@ first need to identify the IIO device number.</p>
 <div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>direct_reg_access
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div></section>
-</section>
-</section>
-<section id="reading">
-<h2>Reading<a class="headerlink" href="#reading" title="Link to this heading"></a></h2>
+<div class="clear-left"></div></div></div><section id="reading">
+<h4>Reading<a class="headerlink" href="#reading" title="Link to this heading"></a></h4>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/iio/iio:device1$
 </pre></div>
 </div>
@@ -1550,7 +1474,7 @@ first need to identify the IIO device number.</p>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="writing">
-<h2>Writing<a class="headerlink" href="#writing" title="Link to this heading"></a></h2>
+<h4>Writing<a class="headerlink" href="#writing" title="Link to this heading"></a></h4>
 <p>Write ADDRESS VALUE:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/iio/iio:device1$
 </pre></div>
@@ -1569,7 +1493,7 @@ first need to identify the IIO device number.</p>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="accessing-hdl-core-registers">
-<h2>Accessing HDL CORE registers<a class="headerlink" href="#accessing-hdl-core-registers" title="Link to this heading"></a></h2>
+<h4>Accessing HDL CORE registers<a class="headerlink" href="#accessing-hdl-core-registers" title="Link to this heading"></a></h4>
 <p>Special ADI device driver convention for devices that have both:</p>
 <ul class="simple">
 <li><p>a SPI/I2C control interface</p></li>
@@ -1594,6 +1518,98 @@ first need to identify the IIO device number.</p>
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div></section>
+</section>
+</section>
+<section id="more-information">
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
+<section id="interrelated-device-drivers">
+<h3>Interrelated Device Drivers<a class="headerlink" href="#interrelated-device-drivers" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="reference internal" href="../../jesd204/jesd204-fsm-framework/#jesd204-fsm-framework"><span class="std std-ref">JESD204 FSM</span></a></p></li>
+<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/jesd204/#jesd204" target="_blank" title="(in HDL)"><span>JESD204 Interface Framework</span></a></p></li>
+</ul>
+<section id="receive-axi-adc-driver">
+<h4>Receive AXI-ADC driver<a class="headerlink" href="#receive-axi-adc-driver" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
+</tr>
+<tr class="row-odd"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></td>
+</tr>
+<tr class="row-even"><td><p>include</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="transmit-axi-dac-dds-driver">
+<h4>Transmit AXI-DAC / DDS driver<a class="headerlink" href="#transmit-axi-dac-dds-driver" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.c" target="_blank">drivers/iio/frequency/cf_axi_dds.c</a></p></td>
+</tr>
+<tr class="row-odd"><td><p>include</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.h" target="_blank">drivers/iio/frequency/cf_axi_adc.h</a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="axi-jesd204b-hdl-driver">
+<h4>AXI JESD204B HDL driver<a class="headerlink" href="#axi-jesd204b-hdl-driver" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_rx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_rx.c</a></p></td>
+</tr>
+<tr class="row-odd"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_tx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_tx.c</a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel">
+<h4>AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)<a class="headerlink" href="#axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_adxcvr.c" target="_blank">drivers/iio/jesd204/axi_adxcvr.c</a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+</section>
 </section>
 
 

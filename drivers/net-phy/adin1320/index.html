@@ -97,11 +97,20 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">ADIN1320</a><ul>
+<li><a class="reference internal" href="#prerequisites">Prerequisites</a><ul>
 <li><a class="reference internal" href="#hardware-requirements">Hardware requirements</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#configuration-and-sequence">Configuration and sequence</a><ul>
 <li><a class="reference internal" href="#eval-board-setup">Eval board setup</a></li>
 <li><a class="reference internal" href="#sd-card-setup">SD card setup</a></li>
-<li><a class="reference internal" href="#testing-the-adin1320ebz-u1">Testing the ADIN1320EBZ-U1</a></li>
 <li><a class="reference internal" href="#compiling-the-linux-driver-for-adin1320">Compiling the Linux driver for ADIN1320</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#verification-and-diagnostics">Verification and diagnostics</a><ul>
+<li><a class="reference internal" href="#testing-the-adin1320ebz-u1">Testing the ADIN1320EBZ-U1</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -203,6 +212,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -221,7 +231,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -360,8 +369,10 @@ Content on this topic
 <p>In this guide, we’ll provide the steps you need to follow in order to connect
 the ADIN1320EBZ-U1 to a development board running Linux, and use the ADIN1320 as
 a PHY for one of the network interfaces.</p>
+<section id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h2>
 <section id="hardware-requirements">
-<h2>Hardware requirements<a class="headerlink" href="#hardware-requirements" title="Link to this heading"></a></h2>
+<h3>Hardware requirements<a class="headerlink" href="#hardware-requirements" title="Link to this heading"></a></h3>
 <p>For this setup you will need the following boards or hardware accessories:</p>
 <ul class="simple">
 <li><p>ADIN1320EBZ-U1</p></li>
@@ -373,8 +384,11 @@ a PHY for one of the network interfaces.</p>
 <li><p>SD card</p></li>
 </ul>
 </section>
+</section>
+<section id="configuration-and-sequence">
+<h2>Configuration and sequence<a class="headerlink" href="#configuration-and-sequence" title="Link to this heading"></a></h2>
 <section id="eval-board-setup">
-<h2>Eval board setup<a class="headerlink" href="#eval-board-setup" title="Link to this heading"></a></h2>
+<h3>Eval board setup<a class="headerlink" href="#eval-board-setup" title="Link to this heading"></a></h3>
 <p>The following jumpers and switches will need to be configured on the
 ADIN1320EBZ-U1 board:</p>
 <div class="table-wrapper docutils container">
@@ -496,7 +510,7 @@ cross check their position with the following setup:</p>
 </figure>
 </section>
 <section id="sd-card-setup">
-<h2>SD card setup<a class="headerlink" href="#sd-card-setup" title="Link to this heading"></a></h2>
+<h3>SD card setup<a class="headerlink" href="#sd-card-setup" title="Link to this heading"></a></h3>
 <p>The next step is to flash a Linux distribution image to an SD card. For this,
 you can use
 <a class="icon adi reference external" href="https://www.analog.com/en/resources/evaluation-hardware-and-software/software/kuiper-linux.html" target="_blank">Kuiper Linux</a>,
@@ -538,8 +552,47 @@ press enter, since the board may have already booted.</p></li>
 </ul>
 <p>You may now switch off the board.</p>
 </section>
+<section id="compiling-the-linux-driver-for-adin1320">
+<h3>Compiling the Linux driver for ADIN1320<a class="headerlink" href="#compiling-the-linux-driver-for-adin1320" title="Link to this heading"></a></h3>
+<p>For this step you will need a PC running a Linux distribution. We’ll use the ADI
+Linux kernel fork.</p>
+<p>Before compiling the custom kernel, you’ll need to install the following
+dependencies:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">install</span> <span class="n">git</span> <span class="n">fakeroot</span> <span class="n">build</span><span class="o">-</span><span class="n">essential</span> <span class="n">ncurses</span><span class="o">-</span><span class="n">dev</span> <span class="n">xz</span><span class="o">-</span><span class="n">utils</span> <span class="n">libssl</span><span class="o">-</span><span class="n">dev</span> <span class="n">bc</span> <span class="n">flex</span> <span class="n">libelf</span><span class="o">-</span><span class="n">dev</span> <span class="n">bison</span> <span class="n">openssl</span> <span class="n">device</span><span class="o">-</span><span class="n">tree</span><span class="o">-</span><span class="n">compiler</span> <span class="n">gcc</span><span class="o">-</span><span class="n">arm</span><span class="o">-</span><span class="n">linux</span><span class="o">-</span><span class="n">gnueabihf</span> <span class="n">u</span><span class="o">-</span><span class="n">boot</span><span class="o">-</span><span class="n">tools</span>
+</pre></div>
+</div>
+<p>Clone the ADI Linux repository:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/analogdevicesinc/linux.git
+cd linux
+git checkout 6705fadc27d33a6a10958eee5227af0b5b1bdd0d
+</pre></div>
+</div>
+<p>These instructions apply to the dev/adin1320 branch at the commit above; main
+does not support the ADIN1320.</p>
+<p>Compile the kernel for the Zedboard:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>export ARCH=arm
+export CROSS_COMPILE=arm-linux-gnueabihf-
+make zynq_xcomm_adv7511_defconfig
+scripts/config --enable ADIN_PHY
+make olddefconfig
+make -j4 UIMAGE_LOADADDR=0x8000 uImage modules
+sudo make modules_install INSTALL_MOD_PATH=/media/$USER/rootfs
+</pre></div>
+</div>
+<p>After the build is done, insert the SD card in your PC and copy the kernel image
+to the BOOT partition:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>cp arch/arm/boot/uImage /media/$USER/BOOT/
+sync
+</pre></div>
+</div>
+<p>Insert the SD card back in the Zedboard and follow the same process described in
+the <strong>Testing the ADIN1320EBZ-U1</strong> section.</p>
+</section>
+</section>
+<section id="verification-and-diagnostics">
+<h2>Verification and diagnostics<a class="headerlink" href="#verification-and-diagnostics" title="Link to this heading"></a></h2>
 <section id="testing-the-adin1320ebz-u1">
-<h2>Testing the ADIN1320EBZ-U1<a class="headerlink" href="#testing-the-adin1320ebz-u1" title="Link to this heading"></a></h2>
+<h3>Testing the ADIN1320EBZ-U1<a class="headerlink" href="#testing-the-adin1320ebz-u1" title="Link to this heading"></a></h3>
 <p>At this point we can connect the ADIN1320EBZ-U1 to the development board and
 start testing. The pinout between the ADIN1320 board and the FMC extender should
 be the following:</p>
@@ -646,37 +699,6 @@ checker counters, MDI/MDIX settings with ethtool), you don’t need the ADIN1320
 Linux driver. For more details on various ways to test the driver you can check
 out the <strong>Driver testing</strong> section in <a class="reference internal" href="../adin/#adin"><span class="std std-ref">ADIN1300/ADIN1200</span></a>.</p>
 </section>
-<section id="compiling-the-linux-driver-for-adin1320">
-<h2>Compiling the Linux driver for ADIN1320<a class="headerlink" href="#compiling-the-linux-driver-for-adin1320" title="Link to this heading"></a></h2>
-<p>For this step you will need a PC running a Linux distribution. We’ll use the ADI
-Linux kernel fork.</p>
-<p>Before compiling the custom kernel, you’ll need to install the following
-dependencies:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">install</span> <span class="n">git</span> <span class="n">fakeroot</span> <span class="n">build</span><span class="o">-</span><span class="n">essential</span> <span class="n">ncurses</span><span class="o">-</span><span class="n">dev</span> <span class="n">xz</span><span class="o">-</span><span class="n">utils</span> <span class="n">libssl</span><span class="o">-</span><span class="n">dev</span> <span class="n">bc</span> <span class="n">flex</span> <span class="n">libelf</span><span class="o">-</span><span class="n">dev</span> <span class="n">bison</span> <span class="n">openssl</span> <span class="n">device</span><span class="o">-</span><span class="n">tree</span><span class="o">-</span><span class="n">compiler</span> <span class="n">gcc</span><span class="o">-</span><span class="n">arm</span><span class="o">-</span><span class="n">linux</span><span class="o">-</span><span class="n">gnueabihf</span> <span class="n">u</span><span class="o">-</span><span class="n">boot</span><span class="o">-</span><span class="n">tools</span>
-</pre></div>
-</div>
-<p>Clone the ADI Linux repository:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>git clone :git+linux.git
-cd linux
-git checkout dev:`adin1320+`
-</pre></div>
-</div>
-<p>Compile the kernel for the Zedboard:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>export ARCH=arm
-export CROSS_COMPILE=arm-linux-gnueabihf-
-make zynq_xcomm_adv7511_defconfig -j4
-make -j4 UIMAGE_LOADADDR=0x8000 uImage
-sudo make modules_install INSTALL_MOD_PATH=/media/$USER/rootfs
-</pre></div>
-</div>
-<p>After the build is done, insert the SD card in your PC and copy the kernel image
-to the BOOT partition:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>cp arch/arm/boot/uImage /media/$USER/BOOT/
-sync
-</pre></div>
-</div>
-<p>Insert the SD card back in the Zedboard and follow the same process described in
-the <strong>Testing the ADIN1320EBZ-U1</strong> section.</p>
 </section>
 </section>
 

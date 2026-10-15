@@ -13,29 +13,6 @@ Linux Driver.
    A mainlined alternative driver is available at :ref:`ad4030`. This page documents
    the out-of-tree driver (ad4630.c).
 
-Description
------------
-
-The AD4630-24 is a two-channel, low-noise, 2 MSPS successive approximation
-register (SAR) analog-to-digital converter (ADC). The AD4030-24 is the single
-channel version. Both have a guaranteed maximum ±0.9 ppm INL and no missing
-codes at 24-bits, and achieve unparalleled precision from −40°C to +125°C. The
-AD4630-16 is a 16-bit, two-channel version.
-
-Operating from 5V and 1.8 V supplies, the AD4630-24, AD4630-16 and AD4030-24 has
-a ±(65/64 ·V\ :sub:`REF`) differential input range with V\ :sub:`REF` ranging
-from 4.096V to 5V. The input common mode is not restricted – each polarity input
-may be anywhere from - 1/128 ·V\ :sub:`REF` to 129/128 ·V\ :sub:`REF`,
-simplifying analog signal conditioning requirements and system calibration. A
-low drift, precision reference buffer makes it easy to share a voltage reference
-with other circuitry.
-
-The versatile Flexi-SPI serial interface is simple to use. A wide data window,
-multiple SDO lanes, and optional DDR data can reduce the serial clock to 10 MHz
-at 2 MSPS. Echo-clock and ADC clock-master modes relax the timing requirements
-and simplify the use of digital isolators. The parts are compatible with 1.2V to
-1.8V logic, using the separate VIO supply.
-
 Supported Devices
 -----------------
 
@@ -61,6 +38,29 @@ Evaluation Boards
    * - :xilinx:`Zedboard <products/boards-and-kits/1-8dyf-11.html>`
      - :adi:`EVAL-AD4030-24 <en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/EVAL-AD4030-24.html>`
      - :dokuwiki:`AD4030-24 user guide </resources/eval/ad4030-24-eval-board>`
+
+Description
+-----------
+
+The AD4630-24 is a two-channel, low-noise, 2 MSPS successive approximation
+register (SAR) analog-to-digital converter (ADC). The AD4030-24 is the single
+channel version. Both have a guaranteed maximum ±0.9 ppm INL and no missing
+codes at 24-bits, and achieve unparalleled precision from −40°C to +125°C. The
+AD4630-16 is a 16-bit, two-channel version.
+
+Operating from 5V and 1.8 V supplies, the AD4630-24, AD4630-16 and AD4030-24 has
+a ±(65/64 ·V\ :sub:`REF`) differential input range with V\ :sub:`REF` ranging
+from 4.096V to 5V. The input common mode is not restricted – each polarity input
+may be anywhere from - 1/128 ·V\ :sub:`REF` to 129/128 ·V\ :sub:`REF`,
+simplifying analog signal conditioning requirements and system calibration. A
+low drift, precision reference buffer makes it easy to share a voltage reference
+with other circuitry.
+
+The versatile Flexi-SPI serial interface is simple to use. A wide data window,
+multiple SDO lanes, and optional DDR data can reduce the serial clock to 10 MHz
+at 2 MSPS. Echo-clock and ADC clock-master modes relax the timing requirements
+and simplify the use of digital isolators. The parts are compatible with 1.2V to
+1.8V logic, using the separate VIO supply.
 
 Source Code
 -----------
@@ -183,18 +183,18 @@ The following custom attributes are available:
    The ``spi-max-frequency`` must be a multiple of a 40MHz clock and the
    ``dmas`` handle should use a 64-bit wide data bus.
 
-::
+.. code-block:: dts
 
    &spi{
        ad463x: ad463x@0 {
-           compatible = "adi,ad463x";
+           compatible = "adi,ad4630-24";
            reg = <0>;
            vref-supply = <&vref>;
            spi-max-frequency = <80000000>;
-           adi,lane-mode = "four-lanes-per-ch";
-           adi,clock-mode = "echo-clock";
-           adi,data-rate-mode = "dual";
-           adi,out-data-mode = "24diff-8com";
+           adi,lane-mode = <2>;
+           adi,clock-mode = <1>;
+           adi,dual-data-rate;
+           adi,out-data-mode = <2>;
            reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
            clocks = <&cnv_ext_clk>;
            clock-names = "trigger_clock";
@@ -206,11 +206,19 @@ The following custom attributes are available:
        };
    };
 
-Usage
-~~~~~
+``adi,lane-mode`` is 0 for one lane per channel, 1 for two, 2 for four, or 3
+for interleaved lanes on SDO0. ``adi,clock-mode`` is 0 for SPI-compatible
+clocking, 1 for echo-clock, or 2 for host clock mode. ``adi,out-data-mode`` is
+0 for native (16/20/24-bit depending on part) differential data, 1 for 16-bit
+differential plus 8-bit common mode, 2 for 24-bit differential plus 8-bit
+common mode, or 3 for 30-bit averaged differential data; which values are
+valid depends on the specific part.
+
+Adding Linux driver support
+---------------------------
 
 Kernel configuration
-^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~
 
 This device depends on a PWM based trigger used to start the sampling procedure.
 The first step is to enable the support for AXI_PWMGEN.
@@ -272,37 +280,18 @@ And finally, enable support for the AD4630 device family.
 </blockquote>
 
 Driver testing
-^^^^^^^^^^^^^^
+--------------
 
 This device can be found under */sys/bus/iio/devices/*
 
-One way to check if the device and driver are present is using **iio_info**:
+Each channel is a plain indexed voltage channel (not a differential pair in
+the IIO sense), with its own ``calibbias`` and ``calibscale`` attributes.
+``in_voltage_scale`` and ``sampling_frequency`` are shared by all channels. In
+the 30-bit averaged output mode (``adi,out-data-mode = <3>``), channels also
+expose ``in_voltage_oversampling_ratio`` and
+``in_voltage_oversampling_ratio_available``.
 
-::
-
-   root@analog# iio_info
-       iio:device0: ad4630-24 (buffer capable)
-           2 channels found:
-               voltage0: differential_0 (input, index: 0, format: le:s30/32>>0)
-               2 channel-specific attributes found:
-                   attr  0: hardwaregain value: 1.000000
-                   attr  1: offset value: 0
-               voltage1: differential_1 (input, index: 1, format: le:s30/32>>0)
-               2 channel-specific attributes found:
-                   attr  0: hardwaregain value: 1.000000
-                   attr  1: offset value: 0
-           6 device-specific attributes found:
-                   attr  0: operating_mode value: normal_operating_mode
-                   attr  1: operating_mode_available value: normal_operating_mode low_power_mode
-                   attr  2: sample_averaging value: 64
-                   attr  3: sample_averaging_available value: OFF 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536
-                   attr  4: sampling_frequency value: 1000000
-                   attr  5: sampling_frequency_available value: 10000 50000 100000 200000 500000 1000000 1750000 2000000
-           3 buffer-specific attributes found:
-                   attr  0: data_available value: 0
-                   attr  1: length_align_bytes value: 8
-                   attr  2: watermark value: 2048
-           No trigger on this device
+Use ``iio_info`` to list the channels and attributes of the device.
 
 You can go to the device folder using:
 
@@ -310,77 +299,19 @@ You can go to the device folder using:
 
    root@analog# cd $(grep -rw /sys/bus/iio/devices//name -e "ad4630-24" -l | xargs dirname)
 
-.. important::
+Power management
+~~~~~~~~~~~~~~~~
 
-   As specified in the devicetree section, the device supports multiple
-   out-data-modes.
-
-   This example describes the steps for the 30-bit averaged differential output
-   mode.
-
-In the folder there are several files that can set specific device attributes:
-
-::
-
-   root@analog:/sys/bus/iio/devices/iio:device0# ls -l
-   total 0
-   drwxr-xr-x 2 root root    0 Dec 13 08:54 buffer
-   -r--r--r-- 1 root root 4096 Dec 13 08:54 dev
-   -rw-r--r-- 1 root root 4096 Dec 13 08:54 in_voltage0_differential0_hardwaregain
-   -rw-r--r-- 1 root root 4096 Dec 13 08:54 in_voltage0_differential0_offset
-   -rw-r--r-- 1 root root 4096 Dec 13 08:54 in_voltage1_differential1_hardwaregain
-   -rw-r--r-- 1 root root 4096 Dec 13 08:54 in_voltage1_differential1_offset
-   -r--r--r-- 1 root root 4096 Dec 13 08:54 name
-   lrwxrwxrwx 1 root root    0 Dec 13 08:54 of_node -> ../../../../../../../../firmware/devicetree/base/fpga-axi@0/spi@44a00000/ad4630-24@0
-   -rw-r--r-- 1 root root 4096 Dec 13 08:54 operating_mode
-   -r--r--r-- 1 root root 4096 Dec 13 08:54 operating_mode_available
-   drwxr-xr-x 2 root root    0 Dec 13 08:54 power
-   -rw-r--r-- 1 root root 4096 Dec 13 08:54 sample_averaging
-   -r--r--r-- 1 root root 4096 Dec 13 08:54 sample_averaging_available
-   -rw-r--r-- 1 root root 4096 Dec 13 08:54 sampling_frequency
-   -r--r--r-- 1 root root 4096 Dec 13 08:54 sampling_frequency_available
-   drwxr-xr-x 2 root root    0 Dec 13 08:54 scan_elements
-   lrwxrwxrwx 1 root root    0 Dec 13 08:54 subsystem -> ../../../../../../../../bus/iio
-   -rw-r--r-- 1 root root 4096 Dec 13 08:54 uevent
-
-Operating Mode
-''''''''''''''
-
-The device an operate in normal and low power mode. This attribute displays the
-following possible values:
-
-::
-
-   root@analog:/sys/bus/iio/devices/iio:device0# cat operating_mode_available
-   normal_operating_mode low_power_mode
-
-Display current operating mode:
-
-::
-
-   root@analog:/sys/bus/iio/devices/iio:device0# cat operating_mode
-   normal_operating_mode
-
-Change operating mode:
-
-::
-
-   root@analog:/sys/bus/iio/devices/iio:device0# echo low_power_mode > operating_mode
-   root@analog:/sys/bus/iio/devices/iio:device0# cat operating_mode
-   low_power_mode
+The driver uses runtime power management; power transitions are handled by
+its runtime suspend and resume callbacks.
 
 Sampling frequency
-''''''''''''''''''
+~~~~~~~~~~~~~~~~~~
 
-The ad4630 device driver supports a variable sampling rate, that can be
-configured up to 2MSPS.
-
-Display all available sampling rates:
-
-::
-
-   root@analog:/sys/bus/iio/devices/iio:device0# cat sampling_frequency_available
-   10000 50000 100000 200000 500000 1000000 1750000 2000000
+The AD4630 driver supports a variable sampling rate, up to 2 MSPS depending on
+the part and output data mode. ``sampling_frequency`` accepts any positive
+integer rate up to the device maximum and programs the CNV PWM accordingly;
+there is no ``sampling_frequency_available`` attribute.
 
 See current sampling rate:
 
@@ -398,99 +329,96 @@ Change the sampling rate:
    2000000
 
 Sample average mode
-'''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~
 
-The ad4630 device family has support for a sample averaging mode that’s
-configurable as a power of 2, up to a maximum of 2\ :sup:`16`.
-
-.. important::
-
-   The average mode works only with the output data mode set to 30-bit average
-
-Display all available number(in samples) of averaging operations on the buffer:
-
-::
-
-   root@analog:/sys/bus/iio/devices/iio:device0# cat sample_averaging_available
-   OFF 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536
-
-Display current sample averaging count:
+The AD4630 family supports averaging samples in powers of 2, up to 65536,
+when the output data mode is 30-bit averaged (``adi,out-data-mode = <3>``).
+This is controlled through ``in_voltage_oversampling_ratio`` and
+``in_voltage_oversampling_ratio_available``; after probe the driver sets an
+averaging count of 2 as its default. Increasing the averaging count lengthens
+the internal fetch period relative to the conversion trigger, so buffer read
+timeouts may need to be increased accordingly.
 
 ::
 
-   root@analog:/sys/bus/iio/devices/iio:device0# cat sample_averaging
-   64
+   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage_oversampling_ratio_available
+   1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536
 
-Change the sample averaging count:
+Display current averaging count:
 
 ::
 
-   root@analog:/sys/bus/iio/devices/iio:device0# echo 2048 > sample_averaging
-   root@analog:/sys/bus/iio/devices/iio:device0# cat sample_averaging
+   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage_oversampling_ratio
+   2
+
+Change the averaging count:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 2048 > in_voltage_oversampling_ratio
+   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage_oversampling_ratio
    2048
 
-.. important::
-
-   Please note that averaging on low sampling rates will timeout if the default
-   buffer wait time is not modified
-
 Channel hardware gain
-'''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~
 
-The hardware gain can be changed for each channel with a value from 0.0001 to
-1.99997. This gain is applied to each sample value. Each ADC channel has an
-independent hardware gain attribute.
+Each channel has an independent ``calibscale`` attribute for gain correction,
+accepting values from 0 up to 1.99997 in steps of 1/32768. This gain
+correction is separate from ``in_voltage_scale``, which converts raw codes to
+a voltage.
 
 ::
 
-   root@analog:/sys/bus/iio/devices/iio:device0# ls | grep hardwaregain
-   in_voltage0_differential0_hardwaregain
-   in_voltage1_differential1_hardwaregain
+   root@analog:/sys/bus/iio/devices/iio:device0# ls | grep calibscale
+   in_voltage0_calibscale
+   in_voltage1_calibscale
 
 Read the gain for channel 0:
 
 ::
 
-   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage0_differential0_hardwaregain
+   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage0_calibscale
    1.000000
 
 Set the gain for channel 1:
 
 ::
 
-   root@analog:/sys/bus/iio/devices/iio:device0# echo 0.25 > in_voltage1_differential1_hardwaregain
-   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage1_differential1_hardwaregain
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 0.25 > in_voltage1_calibscale
+   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage1_calibscale
    0.250000
 
 Channel offset
-''''''''''''''
+~~~~~~~~~~~~~~
 
-The offset can be changed for each channel with a value from -2\ :sup:`23`-1 to
-+2\ :sup:`23`-1.
+Each channel has an independent ``calibbias`` attribute. For a 24-bit part the
+accepted range is -2\ :sup:`23` to 2\ :sup:`23`-1; 16-bit and 20-bit parts use
+the corresponding signed range for their bit width. Calibration writes require
+the device to be in direct (non-buffered) mode.
 
 ::
 
-   root@analog:/sys/bus/iio/devices/iio:device0# ls | grep offset
-   in_voltage0_differential_0_offset
-   in_voltage1_differential_1_offset
+   root@analog:/sys/bus/iio/devices/iio:device0# ls | grep calibbias
+   in_voltage0_calibbias
+   in_voltage1_calibbias
 
 Read the offset for channel 0:
 
 ::
 
-   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage0_differential0_offset
+   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage0_calibbias
    0
 
 Set the offset for channel 1:
 
 ::
 
-   root@analog:/sys/bus/iio/devices/iio:device0# echo 256 > in_voltage1_differential1_offset
-   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage1_differential1_offset
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 256 > in_voltage1_calibbias
+   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage1_calibbias
    256
 
 Data acquisition
-''''''''''''''''
+~~~~~~~~~~~~~~~~
 
 The data acquisition is performed using a buffer system:
 
@@ -499,8 +427,8 @@ The data acquisition is performed using a buffer system:
    root@analog:/sys/bus/iio/devices/iio:device0/# ls buffer
    data_available  enable  length  length_align_bytes  watermark
    root@analog:/sys/bus/iio/devices/iio:device0# ls scan_elements/
-   in_voltage0_differential0_en      in_voltage0_differential0_type  in_voltage1_differential1_index
-   in_voltage0_differential0_index  in_voltage1_differential1_en    in_voltage1_differential1_type
+   in_voltage0_en      in_voltage0_type  in_voltage1_index
+   in_voltage0_index   in_voltage1_en    in_voltage1_type
 
 Every buffer implementation features a set of files:
 
@@ -509,15 +437,17 @@ buffer: length Get/set the number of sample sets that may be held by the buffer.
 buffer: enable Enables/disables the buffer. This file should be written last,
 after length and selection of scan elements
 
-scan_elements: in_voltageX_differentialX_en Enable/disables the channel output
-so the data won’t be buffered for that specific channel.
+scan_elements: in_voltageX_en Enable/disables the channel output so the data
+won't be buffered for that specific channel.
 
-Enable and read 400 samples from both channels:
+Each scan is 32 bits per enabled channel. With both channels enabled, 400
+scans require 3200 bytes; the ``hexdump -n 400`` below therefore only reads
+the first 50 scans.
 
 ::
 
-   root@analog:/sys/bus/iio/devices/iio:device0# echo 1 > scan_elements/in_voltage0_differential0_en
-   root@analog:/sys/bus/iio/devices/iio:device0# echo 1 > scan_elements/in_voltage1_differential1_en
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 1 > scan_elements/in_voltage0_en
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 1 > scan_elements/in_voltage1_en
    root@analog:/sys/bus/iio/devices/iio:device0# echo 400 > buffer/length
    root@analog:/sys/bus/iio/devices/iio:device0# echo 1 > buffer/enable
    root@analog:/sys/bus/iio/devices/iio:device0# hexdump -n 400 /dev/iio\:device0
@@ -550,7 +480,7 @@ Enable and read 400 samples from both channels:
    root@analog:/sys/bus/iio/devices/iio:device0/# echo 0 > buffer/enable
 
 Debug mode
-''''''''''
+~~~~~~~~~~
 
 You can write and read the ADC registers using debugfs. Here we will read and
 write the scratchpad register:

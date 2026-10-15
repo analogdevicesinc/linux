@@ -1,11 +1,12 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/leds/adp1650
 
+
 .. _adp1650:
 
 ADP1650
 =======
 
-ADP1650 LED Flash Linux Driver.
+The ADP1650 LED flash driver was never merged into the mainline kernel.
 
 Supported Devices
 -----------------
@@ -54,8 +55,36 @@ Files
    * - include
      - `include/linux/i2c/adp1650.h <http://blackfin.uclinux.org/git/?p=linux-kernel;a=blob_plain;f=include/linux/i2c/adp1650.h;hb=HEAD>`__
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. tip::
+
+   The ADP1650 LED driver depends on I2C.
+
+::
+
+   Device Drivers  --->
+       [] LED Support  --->
+           --- LED Support
+           []   LED Class Support
+                LED drivers
+
+           <--snip-->
+           <>   LED Support for ADP1650 I2C chips
+           <--snip-->
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
@@ -133,28 +162,6 @@ Example platform device initialization
        return 0;
    }
    arch_initcall(board_init);
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. tip::
-
-   The ADP1650 LED driver depends on I2C.
-
-::
-
-   Device Drivers  --->
-       [] LED Support  --->
-           --- LED Support
-           []   LED Class Support
-                LED drivers
-
-           <--snip-->
-           <>   LED Support for ADP1650 I2C chips
-           <--snip-->
 
 Driver testing
 --------------
@@ -277,7 +284,7 @@ Example LED usage
    -rw-r--r--    1 root     root          4096 Jan  5 08:23 uevent
 
 Enable TORCH/Assist Light (Intensity 100mA)
-'''''''''''''''''''''''''''''''''''''''''''
+"""""""""""""""""""""""""""""""""""""""""""
 
 .. note::
 
@@ -288,7 +295,7 @@ Enable TORCH/Assist Light (Intensity 100mA)
    root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0030/leds/adp1650> echo 4 > brightness
 
 Prepare TORCH/Assist Light for an GPIO1 enable trigger (Intensity 100mA)
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 .. note::
 
@@ -299,21 +306,21 @@ Prepare TORCH/Assist Light for an GPIO1 enable trigger (Intensity 100mA)
    root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0030/leds/adp1650> echo 12 > brightness
 
 Initiate FLASH (Intensity set by I_FL)
-''''''''''''''''''''''''''''''''''''''
+""""""""""""""""""""""""""""""""""""""
 
 ::
 
    root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0030/leds/adp1650> echo 254 > brightness
 
 Prepare FLASH for an STROBE triggered enable (Intensity set by I_FL)
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 ::
 
    root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0030/leds/adp1650> echo 255 > brightness
 
 Disable all LED activity
-''''''''''''''''''''''''
+""""""""""""""""""""""""
 
 ::
 

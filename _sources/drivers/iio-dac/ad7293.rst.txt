@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ad7293
 
+
 .. _ad7293:
 
 AD7293
@@ -80,7 +81,7 @@ properties
 
 **spi-max-frequency:**
 
-- minimum: 1000000
+-  maximum: 1000000
 
 **required:**
 
@@ -92,10 +93,9 @@ properties
 Example
 ^^^^^^^
 
-.. code:: dts
+.. code-block:: dts
 
    spi {
-         spi {
          #address-cells = <1>;
          #size-cells = <0>;
          ad7293@0 {
@@ -107,25 +107,6 @@ Example
            reset-gpios = <&gpio 10 0>;
          };
        };
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AD7293 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-                   Digital to analog converters --->
-                       <*> Analog Devices AD7293 Power Amplifier Current Controller
 
 Hardware configuration
 ----------------------
@@ -199,46 +180,39 @@ Hardware configuration
    lrwxrwxrwx 1 root root    0 Dec 14 11:48 subsystem -> ../../../../../../../../bus/iio
    -rw-r--r-- 1 root root 4096 Dec 14 11:48 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD7293 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+                   Digital to analog converters --->
+                       <*> Analog Devices AD7293 Power Amplifier Current Controller
+
+Driver testing
+--------------
+
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/> cd /sys/bus/iio/devices/iio\:device0/
    root:/> cat name
    ad7293
-
-Set ChannelY Current offset value
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-/sys/bus/iio/devices/iio:deviceX/in_currentY_offset
-
-Set offset value for the corresponding current sensor channel.
-
-::
-
-   root:/> cat in_current0_offset
-   0
-
-   root:/> echo 20 > in_current0_offset
-   root:/> cat in_current0_offset
-   20
-
-Set ChannelY Current gain value
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-/sys/bus/iio/devices/iio:deviceX/in_currentY_scale
-
-Set gain value for the corresponding current sensor channel.
-
-::
-
-   root:/> cat in_current0_scale
-   0
-
-   root:/> echo 2 > in_current0_scale
-   root:/> cat in_current0_scale
-   2
 
 Get Current gain available values
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -264,22 +238,6 @@ Read raw value for the current sensor channel.
    root:/> cat in_current0_raw
    2177
 
-Set ChannelY Temperature offset value
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-/sys/bus/iio/devices/iio:deviceX/in_tempY_offset
-
-Set offset value for the corresponding temperature sensor channel.
-
-::
-
-   root:/> cat in_temp0_offset
-   0
-
-   root:/> echo 20 > in_temp0_offset
-   root:/> cat in_temp0_offset
-   20
-
 Get ChannelY Temperature raw value
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -291,38 +249,6 @@ Read raw value for the temperature sensor channel.
 
    root:/> cat in_temp0_raw
    3977
-
-Set ChannelY ADC offset value
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-/sys/bus/iio/devices/iio:deviceX/in_voltageY_offset
-
-Set offset value for the corresponding ADC channel.
-
-::
-
-   root:/> cat in_voltage0_offset
-   0
-
-   root:/> echo 20 > in_voltage0_offset
-   root:/> cat in_voltage0_offset
-   20
-
-Set ChannelY ADC range value
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-/sys/bus/iio/devices/iio:deviceX/in_voltageY_scale
-
-Set VIN range value for the corresponding ADC channel.
-
-::
-
-   root:/> cat in_voltage0_scale
-   0
-
-   root:/> echo 2 > in_voltage0_scale
-   root:/> cat in_voltage0_scale
-   2
 
 Get ADC range available values
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -347,22 +273,6 @@ Read raw value for the ADC channel.
 
    root:/> cat in_voltage0_raw
    4095
-
-Set ChannelY DAC offset value
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-/sys/bus/iio/devices/iio:deviceX/out_voltageY_offset
-
-Set offset value for the corresponding ADC channel.
-
-::
-
-   root:/> cat out_voltage0_offset
-   0
-
-   root:/> echo 2 > out_voltage0_offset
-   root:/> cat out_voltage0_offset
-   2
 
 Get DAC offset available values
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -392,8 +302,107 @@ Read raw value for the DAC channel.
    root:/> cat out_voltage0_raw
    2000
 
+Set ChannelY Current offset value
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+/sys/bus/iio/devices/iio:deviceX/in_currentY_offset
+
+Set offset value for the corresponding current sensor channel.
+
+::
+
+   root:/> cat in_current0_offset
+   0
+
+   root:/> echo 20 > in_current0_offset
+   root:/> cat in_current0_offset
+   20
+
+Set ChannelY Current gain value
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+/sys/bus/iio/devices/iio:deviceX/in_currentY_scale
+
+Set gain value for the corresponding current sensor channel.
+
+::
+
+   root:/> cat in_current0_scale
+   0
+
+   root:/> echo 2 > in_current0_scale
+   root:/> cat in_current0_scale
+   2
+
+Set ChannelY Temperature offset value
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+/sys/bus/iio/devices/iio:deviceX/in_tempY_offset
+
+Set offset value for the corresponding temperature sensor channel.
+
+::
+
+   root:/> cat in_temp0_offset
+   0
+
+   root:/> echo 20 > in_temp0_offset
+   root:/> cat in_temp0_offset
+   20
+
+Set ChannelY ADC offset value
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+/sys/bus/iio/devices/iio:deviceX/in_voltageY_offset
+
+Set offset value for the corresponding ADC channel.
+
+::
+
+   root:/> cat in_voltage0_offset
+   0
+
+   root:/> echo 20 > in_voltage0_offset
+   root:/> cat in_voltage0_offset
+   20
+
+Set ChannelY ADC range value
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+/sys/bus/iio/devices/iio:deviceX/in_voltageY_scale
+
+Set VIN range value for the corresponding ADC channel.
+
+::
+
+   root:/> cat in_voltage0_scale
+   0
+
+   root:/> echo 2 > in_voltage0_scale
+   root:/> cat in_voltage0_scale
+   2
+
+Set ChannelY DAC offset value
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+/sys/bus/iio/devices/iio:deviceX/out_voltageY_offset
+
+Set the DAC output-offset selector (0, 1 or 2) for the corresponding DAC channel.
+
+::
+
+   root:/> cat out_voltage0_offset
+   0
+
+   root:/> echo 2 > out_voltage0_offset
+   root:/> cat out_voltage0_offset
+   2
+
+Troubleshooting
+---------------
+
 Low level register access via debugfs (direct_reg_access)
----------------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Some IIO drivers feature an optional debug facility, allowing users to read or
 write registers directly. Special care needs to be taken when using this

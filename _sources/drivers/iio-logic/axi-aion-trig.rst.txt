@@ -1,3 +1,4 @@
+
 .. _axi-aion-trig:
 
 AXI AION Trigger
@@ -22,30 +23,8 @@ Supported IP Cores
 
 - AXI AION Trigger IP v1.0.a
 
-Status
-------
-
-.. list-table::
-   :header-rows: 1
-
-   * - Source
-     - Mainlined?
-   * - :git+linux:`drivers/iio/logic/axi-aion-trig.c <main:drivers/iio/logic/axi-aion-trig.c>`
-     - No
-
-Files
------
-
-.. list-table::
-   :header-rows: 1
-
-   * - Function
-     - File
-   * - driver
-     - :git+linux:`drivers/iio/logic/axi-aion-trig.c <main:drivers/iio/logic/axi-aion-trig.c>`
-
-Overview
---------
+Description
+-----------
 
 The AXI AION Trigger IP core works in conjunction with the ADF4030 precision
 synchronizer and AD9084/AD9088 MxFE data converters to achieve sub-10ps
@@ -56,11 +35,88 @@ The IP core provides 8 independent trigger channels, each with programmable
 phase offset, allowing precise control over trigger timing relative to the
 BSYNC synchronization signal.
 
+Theory of operation
+~~~~~~~~~~~~~~~~~~~
+
+BSYNC Time-of-Flight calibration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The AXI AION Trigger performs Time-of-Flight (ToF) calibration during JESD204
+initialization to compensate for PCB trace delays and achieve precise
+multi-chip synchronization. The calibration runs only when the optional
+``bsync`` IIO channel is available; otherwise the callback returns successfully
+without performing the sequence below:
+
+#. **Reset and Configure**: The IP core is reset and configured to receive BSYNC
+   from the ADF4030 precision synchronizer.
+
+#. **BSYNC Detection**: The IP waits for BSYNC edges to be detected and captured
+   by the internal state machine.
+
+#. **Direction Switch**: The ADF4030 BSYNC output is disabled, the internal
+   FPGA BSYNC is enabled and the FPGA is switched to output mode, then the
+   driver waits for BSYNC ready.
+
+#. **Phase Measurement**: The driver reads the ADF4030 TDC phase, in
+   femtoseconds, after the direction switch.
+
+#. **Phase Compensation**: The negative of the measured phase is applied to the
+   ADF4030 to compensate for the path delay, ensuring BSYNC arrives at the
+   converters at the correct time.
+
+#. **Channel Enable**: The trigger channels are enabled with their configured
+   phase offsets.
+
+State machines
+^^^^^^^^^^^^^^
+
+The IP core implements two state machines:
+
+**Trigger State Machine**:
+
+- ``idle``: Waiting for trigger event
+- ``trig_edge``: Trigger edge detected
+- ``phase_read``: Reading phase value
+- ``trig_adjust``: Adjusting trigger timing
+
+**BSYNC State Machine**:
+
+- ``idle``: Waiting for BSYNC
+- ``bsync_edge``: BSYNC edge detected
+- ``calib``: Calibration in progress
+- ``bsync_gen``: Generating BSYNC output
+- ``bsync_alignment_error``: Alignment error detected
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+   * - :git+linux:`drivers/iio/logic/axi-aion-trig.c <main:drivers/iio/logic/axi-aion-trig.c>`
+     - No
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - :git+linux:`drivers/iio/logic/axi-aion-trig.c <main:drivers/iio/logic/axi-aion-trig.c>`
+
 Adding Linux driver support
 ---------------------------
 
-Enabling the driver
-~~~~~~~~~~~~~~~~~~~
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig``:
 
@@ -76,28 +132,8 @@ Configure kernel with ``make menuconfig``:
                Logic analyzers  --->
                    <*>   Analog Devices AXI AION Trigger driver
 
-Adding a device tree entry
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Required properties
-^^^^^^^^^^^^^^^^^^^
-
-- ``compatible``: Must be ``"adi,axi-aion-trig-1.0.a"``
-- ``reg``: Physical base address and size of the IP core registers
-- ``clocks``: Reference to the device clock
-- ``clock-names``: Must be ``"device_clk"``
-
-Optional properties
-^^^^^^^^^^^^^^^^^^^
-
-- ``io-channels``: Reference to ADF4030 IIO channel for BSYNC phase control
-- ``io-channel-names``: Must be ``"bsync"`` when io-channels is specified
-- ``jesd204-device``: JESD204 device marker
-- ``#jesd204-cells``: Number of JESD204 cells (typically 2)
-- ``jesd204-inputs``: JESD204 topology connections
-
-Device tree example
-^^^^^^^^^^^^^^^^^^^
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Basic configuration with JESD204 integration::
 
@@ -131,6 +167,23 @@ With JESD204 topology connections::
         io-channels = <&adf4030 8>;
         io-channel-names = "bsync";
     };
+
+Required properties
+^^^^^^^^^^^^^^^^^^^
+
+- ``compatible``: Must be ``"adi,axi-aion-trig-1.0.a"``
+- ``reg``: Physical base address and size of the IP core registers
+- ``clocks``: Reference to the device clock
+- ``clock-names``: Must be ``"device_clk"``
+
+Optional properties
+^^^^^^^^^^^^^^^^^^^
+
+- ``io-channels``: Reference to ADF4030 IIO channel for BSYNC phase control
+- ``io-channel-names``: Must be ``"bsync"`` when io-channels is specified
+- ``jesd204-device``: JESD204 device marker
+- ``#jesd204-cells``: Number of JESD204 cells (typically 2)
+- ``jesd204-inputs``: JESD204 topology connections
 
 Driver testing
 --------------
@@ -194,21 +247,23 @@ Shared attributes
 ^^^^^^^^^^^^^^^^^
 
 **in_voltage_output_enable** (read/write)
-    Enable/disable BSYNC output mode. When enabled (1), the IP core generates
-    BSYNC output. When disabled (0), the IP core receives external BSYNC.
+   Enable/disable BSYNC output mode. When enabled (1), the IP core generates
+   BSYNC output. When disabled (0), the IP core receives external BSYNC.
 
 **in_voltage_internal_bsync_enable** (read/write)
-    Enable/disable internal BSYNC generation.
+   Enable/disable internal BSYNC generation.
 
 **in_voltage_frequency** (read-only)
-    Current BSYNC frequency in Hz, calculated from the device clock and
-    BSYNC ratio.
+   Current BSYNC frequency in Hz, calculated from the device clock and BSYNC
+   ratio.
 
 **in_voltage_trigger_select_gpio_enable** (read/write)
-    Enable/disable GPIO-based trigger selection.
+   Enable/disable GPIO-based trigger selection.
 
 **in_voltage_trigger_now** (read/write)
-    Write 1 to issue a manual trigger. Reading always returns 0 (self-clearing).
+   Write 1 to issue a manual trigger. Reads return the hardware register, which
+   is expected to clear to 0; the driver does not force the return value to
+   zero.
 
 .. shell::
 
@@ -238,58 +293,11 @@ Direct register access::
    $ cat direct_reg_access
    0x3FC
 
-Theory of operation
--------------------
-
-BSYNC Time-of-Flight calibration
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The AXI AION Trigger performs Time-of-Flight (ToF) calibration during JESD204
-initialization to compensate for PCB trace delays and achieve precise
-multi-chip synchronization:
-
-1. **Reset and Configure**: The IP core is reset and configured to receive
-   BSYNC from the ADF4030 precision synchronizer.
-
-2. **BSYNC Detection**: The IP waits for BSYNC edges to be detected and
-   captured by the internal state machine.
-
-3. **Phase Measurement**: Using the IIO consumer interface, the driver reads
-   the phase from the ADF4030 TDC (Time-to-Digital Converter) which represents
-   the propagation delay in femtoseconds.
-
-4. **Direction Switch**: The BSYNC direction is switched to output mode so
-   the FPGA generates BSYNC for the AD9084/AD9088 converters.
-
-5. **Phase Compensation**: The negative of the measured phase is applied to
-   the ADF4030 to compensate for the path delay, ensuring BSYNC arrives at
-   the converters at the correct time.
-
-6. **Channel Enable**: The trigger channels are enabled with their configured
-   phase offsets.
-
-State machines
-~~~~~~~~~~~~~~
-
-The IP core implements two state machines:
-
-**Trigger State Machine**:
-
-- ``idle``: Waiting for trigger event
-- ``trig_edge``: Trigger edge detected
-- ``phase_read``: Reading phase value
-- ``trig_adjust``: Adjusting trigger timing
-
-**BSYNC State Machine**:
-
-- ``idle``: Waiting for BSYNC
-- ``bsync_edge``: BSYNC edge detected
-- ``calib``: Calibration in progress
-- ``bsync_gen``: Generating BSYNC output
-- ``bsync_alignment_error``: Alignment error detected
+More Information
+----------------
 
 Register map
-------------
+~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -309,7 +317,7 @@ Register map
      - Debug/status register
    * - 0x0018
      - MANUAL_TRIGGER
-     - Manual trigger (self-clearing)
+     - Manual trigger (expected to self-clear; reads return hardware state)
    * - 0x001C
      - TRIG_CH0_PHASE
      - Channel 0 phase offset
@@ -336,7 +344,7 @@ Register map
      - Channel 7 phase offset
 
 Control register bits
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -371,7 +379,7 @@ Control register bits
      - Enable misalignment checking
 
 Related drivers
----------------
+~~~~~~~~~~~~~~~
 
 - :ref:`adf4030` - Precision synchronizer driver
 - :ref:`ad9088` - MxFE data converter driver

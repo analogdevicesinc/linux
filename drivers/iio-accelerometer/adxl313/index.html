@@ -105,17 +105,22 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-scale">Show scale</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-scale">Show scale</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#show-axis-x-measurement">Show axis x measurement</a></li>
 <li><a class="reference internal" href="#set-sampling-frequency">Set sampling frequency</a></li>
 <li><a class="reference internal" href="#set-calibbias-for-the-z-channel">Set calibbias for the Z channel</a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -220,6 +225,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -238,7 +244,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -453,8 +458,12 @@ and sensors using a number of different physical interfaces (i2c, spi, etc). See
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>Required devicetree properties:</p>
 <ul class="simple">
 <li><p>compatible: Needs to be the name of the device. E.g. <code class="docutils literal notranslate"><span class="pre">adi,adxl313</span></code>,
@@ -467,7 +476,9 @@ and sensors using a number of different physical interfaces (i2c, spi, etc). See
 </ul>
 <p>Optional properties:</p>
 <ul class="simple">
-<li><p>interrupts: a list of interrupt specifiers</p></li>
+<li><p>interrupts: optional board wiring description. This driver uses direct
+register reads; it does not install an interrupt handler or provide a
+triggered buffer.</p></li>
 </ul>
 <p>Example for a SPI device node:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1">#include &lt;dt-bindings/gpio/gpio.h&gt;</span>
@@ -507,6 +518,8 @@ and sensors using a number of different physical interfaces (i2c, spi, etc). See
 </pre></div>
 </div>
 </section>
+</section>
+</section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># cd /sys/bus/iio/devices/</span>
@@ -532,12 +545,15 @@ and sensors using a number of different physical interfaces (i2c, spi, etc). See
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Sep</span> <span class="mi">23</span> <span class="mi">14</span><span class="p">:</span><span class="mi">33</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat name</span>
 <span class="n">adxl313</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-scale">
 <h4>Show scale<a class="headerlink" href="#show-scale" title="Link to this heading"></a></h4>
 <p><strong>Description:</strong> scale to be applied to in_accel_*_raw in order to obtain the
@@ -546,8 +562,10 @@ acceleration.</p>
 <span class="mf">0.009576806</span>
 </pre></div>
 </div>
+</section>
+</section>
 <section id="show-axis-x-measurement">
-<h5>Show axis x measurement<a class="headerlink" href="#show-axis-x-measurement" title="Link to this heading"></a></h5>
+<h3>Show axis x measurement<a class="headerlink" href="#show-axis-x-measurement" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> Raw unscaled acceleration measurement on x axis</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat in_accel_x_raw</span>
 <span class="o">-</span><span class="mi">14</span>
@@ -555,7 +573,12 @@ acceleration.</p>
 </div>
 </section>
 <section id="set-sampling-frequency">
-<h5>Set sampling frequency<a class="headerlink" href="#set-sampling-frequency" title="Link to this heading"></a></h5>
+<h3>Set sampling frequency<a class="headerlink" href="#set-sampling-frequency" title="Link to this heading"></a></h3>
+<p>For ADXL313, the datasheet recommends 1600 Hz and 3200 Hz output rates only with
+SPI clocks of at least 2 MHz. An 800 Hz output rate requires at least 400 kHz
+communication; lower rates scale proportionally (for example, 200 Hz at 100
+kHz). The I2C interface supports up to 400 kHz. Select the output rate to suit
+the actual bus speed even when a higher rate appears in the available list.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat in_accel_sampling_frequency_available</span>
 <span class="mf">6.250000</span> <span class="mf">12.500000</span> <span class="mf">25.000000</span> <span class="mf">50.000000</span> <span class="mf">100.000000</span> <span class="mf">200.000000</span> <span class="mf">400.000000</span> <span class="mf">800.000000</span> <span class="mf">1600.000000</span> <span class="mf">3200.000000</span>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat in_accel_sampling_frequency</span>
@@ -567,7 +590,7 @@ acceleration.</p>
 </div>
 </section>
 <section id="set-calibbias-for-the-z-channel">
-<h5>Set calibbias for the Z channel<a class="headerlink" href="#set-calibbias-for-the-z-channel" title="Link to this heading"></a></h5>
+<h3>Set calibbias for the Z channel<a class="headerlink" href="#set-calibbias-for-the-z-channel" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat in_accel_z_calibbias</span>
 <span class="mi">0</span>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 4 &gt; in_accel_z_calibbias</span>
@@ -575,8 +598,6 @@ acceleration.</p>
 <span class="mi">4</span>
 </pre></div>
 </div>
-</section>
-</section>
 </section>
 </section>
 <section id="more-information">

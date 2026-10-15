@@ -98,31 +98,32 @@
           <ul>
 <li><a class="reference internal" href="#">AD6676</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
-<li><a class="reference internal" href="#files">Files</a><ul>
-<li><a class="reference internal" href="#related-device-drivers">Related Device Drivers</a></li>
+<li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-</ul>
-</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-linux-device-tree-initialization">Example Linux Device-Tree Initialization</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#device-driver-customization">Device Driver Customization</a></li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
-<li><a class="reference internal" href="#driver-testing-api">Driver testing / API</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
 <li><a class="reference internal" href="#adc-frequency-fadc-in-voltage-adc-frequency">ADC frequency FADC (in_voltage_adc_frequency)</a></li>
 <li><a class="reference internal" href="#complex-iq-data-rate-in-voltage-sampling-frequency">Complex IQ Data Rate (in_voltage_sampling_frequency)</a></li>
 <li><a class="reference internal" href="#if-intermediate-frequency-in-voltage-intermediate-frequency">IF intermediate frequency (in_voltage_intermediate_frequency)</a></li>
 <li><a class="reference internal" href="#bandwidth-in-voltage-bandwidth">Bandwidth (in_voltage_bandwidth)</a></li>
 <li><a class="reference internal" href="#bandwidth-margins-in-voltage-bw-margin-low-high">Bandwidth Margins (in_voltage_bw_margin_[low|high])</a></li>
-</ul>
-</li>
 <li><a class="reference internal" href="#bandwidth-margin-if-in-voltage-bw-margin-if">Bandwidth Margin IF (in_voltage_bw_margin_if)</a><ul>
 <li><a class="reference internal" href="#full-scale-in-voltage-scale">Full-Scale (in_voltage_scale)</a></li>
 <li><a class="reference internal" href="#attenuation-control-in-voltage-hardwaregain">Attenuation Control (in_voltage_hardwaregain)</a></li>
@@ -132,7 +133,12 @@
 <li><a class="reference internal" href="#jesd204b-interface-testing">JESD204B Interface Testing</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#more-information">More Information</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a><ul>
+<li><a class="reference internal" href="#related-device-drivers">Related Device Drivers</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -234,6 +240,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -252,7 +259,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -397,18 +403,18 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD6676" target="_blank">AD6676</a></p></li>
 </ul>
 </section>
-<section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/AD6676EBZ" target="_blank">AD6676-EBZ</a></p></li>
-</ul>
-</section>
 <section id="evaluation-boards">
 <h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD6676EBZ" target="_blank">AD6676-EBZ</a></p></li>
 <li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/ad6676-wideband_rx_subsystem_ad6676ebz" target="_blank">AD6676 : Design Tools and Startup Guide for the AD6676 evaluation board, a high dynamic range, Wideband Receiver</a></p></li>
 </ul>
+<section id="reference-circuits">
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/AD6676EBZ" target="_blank">AD6676-EBZ</a></p></li>
+</ul>
+</section>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -463,37 +469,41 @@ using a number of different physical interfaces (i2c, spi, etc). See
 </tbody>
 </table>
 </div>
-<section id="related-device-drivers">
-<h4>Related Device Drivers<a class="headerlink" href="#related-device-drivers" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></td>
-<td></td>
-</tr>
-<tr class="row-even"><td><p>include</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
+</section>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The AD6676 driver depends on <strong>CONFIG_SPI</strong></p>
 </div>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Linux Kernel Configuration
+    Device Drivers  ---&gt;
+    &lt;*&gt;     Industrial I/O support ---&gt;
+        --- Industrial I/O support
+        -*-   Enable buffer support within IIO
+        -*-   Enable triggered sampling support
+
+              *** Analog to digital converters ***
+        [--snip--]
+
+        &lt;*&gt;   Analog Devices AD6676 Wideband IF Receiver driver (CONFIG_AD6676)
+
+        [--snip--]
+</pre></div>
+</div>
+<p>CONFIG_AD6676 selects CF_AXI_ADC for the capture backend.</p>
 </section>
-</section>
-</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-linux-device-tree-initialization">
-<h2>Example Linux Device-Tree Initialization<a class="headerlink" href="#example-linux-device-tree-initialization" title="Link to this heading"></a></h2>
+<h4>Example Linux Device-Tree Initialization<a class="headerlink" href="#example-linux-device-tree-initialization" title="Link to this heading"></a></h4>
 <p>The AD6676 driver is a spi-bus driver and can currently only be instantiated via
 device tree.</p>
 <p>Required devicetree properties:</p>
@@ -516,8 +526,9 @@ device tree.</p>
 </table>
 </div>
 </section>
+</section>
 <section id="device-driver-customization">
-<h2>Device Driver Customization<a class="headerlink" href="#device-driver-customization" title="Link to this heading"></a></h2>
+<h3>Device Driver Customization<a class="headerlink" href="#device-driver-customization" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -551,13 +562,13 @@ device tree.</p>
 <td><p>Initial bandwidth in Hz</p></td>
 </tr>
 <tr class="row-even"><td><p>adi,bandwidth-margin-low-mhz</p></td>
-<td><p>Initial bandwidth margin low in Hz</p></td>
+<td><p>Initial bandwidth margin low in MHz</p></td>
 </tr>
 <tr class="row-odd"><td><p>adi,bandwidth-margin-high-mhz</p></td>
-<td><p>Initial bandwidth margin high in Hz</p></td>
+<td><p>Initial bandwidth margin high in MHz</p></td>
 </tr>
 <tr class="row-even"><td><p>adi,bandwidth-margin-if-mhz</p></td>
-<td><p>Initial bandwidth margin IF in Hz</p></td>
+<td><p>Initial bandwidth margin IF in MHz</p></td>
 </tr>
 <tr class="row-odd"><td><p>adi,external-inductance-l-nh</p></td>
 <td><p>The inductance of the external inductors in nH</p></td>
@@ -593,41 +604,9 @@ device tree.</p>
 </table>
 </div>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The AD6676 driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-        <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
-
-              <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-
-        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9467</span> <span class="n">AD9643</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">AXI</span> <span class="n">ADC</span> <span class="n">driver</span>
-
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-</pre></div>
-</div>
-</section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
-</section>
-<section id="driver-testing-api">
-<h2>Driver testing / API<a class="headerlink" href="#driver-testing-api" title="Link to this heading"></a></h2>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <p>Each and every IIO device, typically a hardware chip, has a device folder under
 <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX</span></code>. Where X is the IIO index of the device. Under
 every of these directory folders reside a set of files, depending on the
@@ -683,8 +662,8 @@ the numbering is constant and may be known in advance.</p>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1">#</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">axi</span><span class="o">-</span><span class="n">ad6676</span><span class="o">-</span><span class="n">hpc</span>
 </pre></div>
@@ -703,21 +682,17 @@ synthesizer [2.925,3.2] GHz in Hz</p>
 <span class="o">-</span><span class="n">bash</span><span class="p">:</span> <span class="n">echo</span><span class="p">:</span> <span class="n">write</span> <span class="n">error</span><span class="p">:</span> <span class="n">Invalid</span> <span class="n">argument</span>
 </pre></div>
 </div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>If writing this attribute returns <code class="docutils literal notranslate"><span class="pre">Invalid</span> <span class="pre">argument</span></code> (-EINVAL) this means
-that the underlying HDL or Hardware’s JESD204B Core and Gigabit Transceiver
-(GT) doesn’t support changing the JESD204B Lane Rate.</p>
-</div>
+<p>Tip</p>
+<p>ADC-frequency writes return -EINVAL when <code class="docutils literal notranslate"><span class="pre">adi,adc-frequency-fixed-enable</span></code> is
+set.</p>
 </section>
 <section id="complex-iq-data-rate-in-voltage-sampling-frequency">
 <h3>Complex IQ Data Rate (in_voltage_sampling_frequency)<a class="headerlink" href="#complex-iq-data-rate-in-voltage-sampling-frequency" title="Link to this heading"></a></h3>
 <p>The complex (I/Q) data rate in SPS. The AD6676 supports decimation factors (DFs)
 of 12, 16, 24 and 32. The complex (I/Q) data rate at the JESD204B outputs is
 FADC / DF.</p>
-<p>In case the underlying HDL or Hardware’s JESD204B Core and Gigabit Transceiver
-(GT) support arbitrary JESD204B Lane Rates. This attribute can be writable. And
-it will select the appropriate AD6676 supported DFs.</p>
+<p><code class="docutils literal notranslate"><span class="pre">in_voltage_sampling_frequency</span></code> is read-only. It reports FADC divided by the
+decimation factor configured in the devicetree.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_sampling_frequency</span>
 <span class="mi">200000000</span>
 </pre></div>
@@ -778,9 +753,8 @@ wideband operation in order to optimize the noise profile of the ADC.</p>
 </pre></div>
 </div>
 </section>
-</section>
 <section id="bandwidth-margin-if-in-voltage-bw-margin-if">
-<h2>Bandwidth Margin IF (in_voltage_bw_margin_if)<a class="headerlink" href="#bandwidth-margin-if-in-voltage-bw-margin-if" title="Link to this heading"></a></h2>
+<h3>Bandwidth Margin IF (in_voltage_bw_margin_if)<a class="headerlink" href="#bandwidth-margin-if-in-voltage-bw-margin-if" title="Link to this heading"></a></h3>
 <p>Displacement of the resonance frequency (F1Shift) of the first resonator within
 the ADC from band-center. Typically 0 is appropriate, but in the widest
 bandwidth modes positive shifts can be used to reduce the noise density near the
@@ -792,7 +766,7 @@ upper edge of the passband.</p>
 </pre></div>
 </div>
 <section id="full-scale-in-voltage-scale">
-<h3>Full-Scale (in_voltage_scale)<a class="headerlink" href="#full-scale-in-voltage-scale" title="Link to this heading"></a></h3>
+<h4>Full-Scale (in_voltage_scale)<a class="headerlink" href="#full-scale-in-voltage-scale" title="Link to this heading"></a></h4>
 <p>One of the convenient features of the AD6676 is that the full-scale of its ADC
 is relatively small and adjustable over a 12-dB range [1.00 .. 0.25] The dynamic
 range of the ADC is highest at the maximum full-scale setting but the noise
@@ -809,7 +783,7 @@ by 12 dB.</p>
 </div>
 </section>
 <section id="attenuation-control-in-voltage-hardwaregain">
-<h3>Attenuation Control (in_voltage_hardwaregain)<a class="headerlink" href="#attenuation-control-in-voltage-hardwaregain" title="Link to this heading"></a></h3>
+<h4>Attenuation Control (in_voltage_hardwaregain)<a class="headerlink" href="#attenuation-control-in-voltage-hardwaregain" title="Link to this heading"></a></h4>
 <p>The AD6676 contains a 50-ohm input attenuator programmable in 1-dB steps. Use
 this device attribute to set the attenuator’s attenuation. The dynamic range of
 the system increases somewhat with moderate attenuation settings of 6-12 dB, at
@@ -824,7 +798,7 @@ gain instead of attenuation, so all values are expressed negative.</p>
 </div>
 </section>
 <section id="shuffle-control-in-voltage-shuffler-control">
-<h3>Shuffle Control (in_voltage_shuffler_control)<a class="headerlink" href="#shuffle-control-in-voltage-shuffler-control" title="Link to this heading"></a></h3>
+<h4>Shuffle Control (in_voltage_shuffler_control)<a class="headerlink" href="#shuffle-control-in-voltage-shuffler-control" title="Link to this heading"></a></h4>
 <p>The AD6676 includes dynamic reordering of the comparators within the ADC in
 order to break up the spurious tones and distortion products associated with a
 fixed ordering. The Shuffle Control device attribute allows the user to
@@ -848,7 +822,7 @@ shuffling can be disabled by selecting the <strong>disable</strong> option.</p>
 </div>
 </section>
 <section id="shuffle-threshold-in-voltage-shuffler-thresh">
-<h3>Shuffle Threshold (in_voltage_shuffler_thresh)<a class="headerlink" href="#shuffle-threshold-in-voltage-shuffler-thresh" title="Link to this heading"></a></h3>
+<h4>Shuffle Threshold (in_voltage_shuffler_thresh)<a class="headerlink" href="#shuffle-threshold-in-voltage-shuffler-thresh" title="Link to this heading"></a></h4>
 <p>In order to obtain the spur-reduction benefits of shuffling at large signal
 levels while retaining the low noise of not shuffling when the signal is small,
 the AD6676 supports dynamic shuffle control via the Shuffle Threshold attribute.
@@ -867,7 +841,7 @@ enabled.</p>
 </div>
 </section>
 <section id="test-modes-in-voltage-test-mode">
-<h3>Test Modes (in_voltage_test_mode)<a class="headerlink" href="#test-modes-in-voltage-test-mode" title="Link to this heading"></a></h3>
+<h4>Test Modes (in_voltage_test_mode)<a class="headerlink" href="#test-modes-in-voltage-test-mode" title="Link to this heading"></a></h4>
 <p>Interface test modes supported by the AD6676.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_test_mode_available</span>
 <span class="n">off</span> <span class="n">checkerboard</span> <span class="n">one_zero_toggle</span> <span class="n">pn23</span> <span class="n">pn9</span> <span class="n">rep_user_pat</span> <span class="n">sing_user_pat</span> <span class="n">ramp</span> <span class="n">mod_rpat</span> <span class="n">jspat</span> <span class="n">jtspat</span>
@@ -879,7 +853,7 @@ enabled.</p>
 </div>
 </section>
 <section id="jesd204b-interface-testing">
-<h3>JESD204B Interface Testing<a class="headerlink" href="#jesd204b-interface-testing" title="Link to this heading"></a></h3>
+<h4>JESD204B Interface Testing<a class="headerlink" href="#jesd204b-interface-testing" title="Link to this heading"></a></h4>
 <p>Below Eyes were captured on a Xilinx ZC706 after &gt; 4 hours of operation:</p>
 <p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/jesd_eye_scan" target="_blank">JESD204B Eye Scan</a></p>
 <figure class="align-default">
@@ -890,6 +864,7 @@ enabled.</p>
 <a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad6676_lane1_9.54e-08bert.png"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad6676_lane1_9.54e-08bert.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad6676_lane1_9.54e-08bert.png" style="width: 300px;" />
 </a>
 </figure>
+</section>
 </section>
 </section>
 <section id="more-information">
@@ -905,6 +880,33 @@ enabled.</p>
 <li><p><a class="icon link reference external" href="http://video.fosdem.org/2015/devroom-software_defined_radio/iiosdr.mp4" target="_blank">Software Defined Radio using the IIO framework</a></p></li>
 <li><p><a class="icon link reference external" href="https://www.youtube.com/watch?v=p_VntEwUe24" target="_blank">libiio introduction</a></p></li>
 </ul>
+<section id="related-device-drivers">
+<h3>Related Device Drivers<a class="headerlink" href="#related-device-drivers" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>include</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
 </section>
 </section>
 

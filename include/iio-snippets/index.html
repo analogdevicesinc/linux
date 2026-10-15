@@ -213,6 +213,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../drivers/iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../drivers/iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../drivers/iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../drivers/iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../drivers/iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../drivers/iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../drivers/iio-dac/ad5380/">AD5380</a></li>
@@ -231,7 +232,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../drivers/iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../drivers/iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../drivers/iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../drivers/iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../drivers/iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../drivers/iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../drivers/iio-dds/ad9172/">AD9172</a></li>
@@ -380,7 +380,7 @@ the numbering is constant and may be known in advance.</p>
 <section id="iio-devices-with-trigger-consumer-interface">
 <h1>IIO devices with trigger consumer interface<a class="headerlink" href="#iio-devices-with-trigger-consumer-interface" title="Link to this heading"></a></h1>
 <p>If deviceX supports triggered sampling, it’s a so called trigger consumer and
-there will be an additional folder <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/device/iio:deviceX/trigger</span></code>.
+there will be an additional folder <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX/trigger</span></code>.
 In this folder there is a file called <code class="docutils literal notranslate"><span class="pre">current_trigger</span></code>, allowing controlling
 and viewing the current trigger source connected to deviceX. Available trigger
 sources can be identified by reading the name file
@@ -390,9 +390,8 @@ from a number of sensors, converters, etc.</p>
 <div class="admonition hint">
 <p class="admonition-title">Hint</p>
 <p><strong>Trigger Consumers:</strong></p>
-<p>Currently triggers are only used for the filling of software ring
-buffers and as such any device supporting INDIO_RING_TRIGGERED has the
-consumer interface automatically created.</p>
+<p>Triggers are used to fill buffers, and any device supporting
+INDIO_BUFFER_TRIGGERED has the consumer interface automatically created.</p>
 </div>
 <p><strong>Description:</strong> Read name of triggerY</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/triggerY$
@@ -451,14 +450,17 @@ IRQ), to current trigger of deviceX</p>
 </section>
 <section id="buffer-management">
 <h1>Buffer management<a class="headerlink" href="#buffer-management" title="Link to this heading"></a></h1>
-<p>The Industrial I/O subsystem provides support for various ring buffer based
-data acquisition methods. Apart from device specific hardware buffer support,
-the user can chose between two different software ring buffer implementations.
-One is the IIO lock free software ring, and the other is based on Linux kfifo.
-Devices with buffer support feature an additional sub-folder in the
-<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/deviceX/</span></code> folder hierarchy. Called <code class="docutils literal notranslate"><span class="pre">deviceX:bufferY</span></code>,
-where Y defaults to 0, for devices with a single buffer.</p>
-<p>Every buffer implementation features a set of files:</p>
+<p>The Industrial I/O subsystem supports buffered data acquisition. Buffer
+implementation and capabilities depend on the driver. Devices with buffer
+support expose each buffer at
+<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX/bufferY</span></code>, where Y is the buffer index,
+starting at 0. The first buffer is additionally exposed through the legacy
+<code class="docutils literal notranslate"><span class="pre">buffer</span></code> directory, which contains its buffer-control attributes. Its scan
+configuration is exposed through the legacy <code class="docutils literal notranslate"><span class="pre">scan_elements</span></code> directory, while
+multi-buffer systems expose the scan attributes in the corresponding
+<code class="docutils literal notranslate"><span class="pre">bufferY</span></code> directory. Read samples from the device character node
+<code class="docutils literal notranslate"><span class="pre">/dev/iio:deviceX</span></code>; the selected buffer is determined by the active buffer
+configuration.</p>
 <dl class="simple">
 <dt><strong>length</strong></dt><dd><p>Get/set the number of sample sets that may be held by the buffer.</p>
 </dd>
@@ -494,24 +496,21 @@ captured for a single triggered sample set in the buffer.</p>
 <section id="typical-adc-scan-elements">
 <h1>Typical ADC scan elements<a class="headerlink" href="#typical-adc-scan-elements" title="Link to this heading"></a></h1>
 <dl class="simple">
-<dt><strong>in_voltageX_en / in_voltageX-voltageY_en / timestamp_en:</strong></dt><dd><p>Scan element control for triggered data capture.
+<dt><strong>in_voltageX_en / in_voltageX-voltageY_en / in_timestamp_en:</strong></dt><dd><p>Scan element control for triggered data capture.
 Writing 1 will enable the scan element, writing 0 will disable it</p>
 </dd>
-<dt><strong>in_voltageX_type / in_voltageX-voltageY_type / timestamp_type:</strong></dt><dd><p>Description of the scan element data storage within the buffer
-and therefore in the form in which it is read from user-space.
-Form is [s|u]bits/storage-bits. s or u specifies if signed
-(2’s complement) or unsigned. bits is the number of bits of
-data and storage-bits is the space (after padding) that it
-occupies in the buffer. Note that some devices will have
-additional information in the unused bits so to get a clean
-value, the bits value must be used to mask the buffer output
-value appropriately. The storage-bits value also specifies the
-data alignment. So u12/16 will be a unsigned 12 bit integer
-stored in a 16 bit location aligned to a 16 bit boundary.
-For other storage combinations this attribute will be extended
-appropriately.</p>
+<dt><strong>in_voltageX_type / in_voltageX-voltageY_type / in_timestamp_type:</strong></dt><dd><p>Describes the scan element’s representation in the buffer. The format is
+<code class="docutils literal notranslate"><span class="pre">[be|le]:[s|u]bits/storagebits[Xrepeat]&gt;&gt;shift</span></code>. The prefix gives byte
+order; <code class="docutils literal notranslate"><span class="pre">s</span></code> or <code class="docutils literal notranslate"><span class="pre">u</span></code> specifies signed (two’s complement) or unsigned
+data. <code class="docutils literal notranslate"><span class="pre">bits</span></code> is the number of meaningful bits and <code class="docutils literal notranslate"><span class="pre">storagebits</span></code> is
+the storage width. The optional repeat count describes repeated elements.
+After interpreting byte order, shift the storage value right by <code class="docutils literal notranslate"><span class="pre">shift</span></code>
+and mask it to <code class="docutils literal notranslate"><span class="pre">bits</span></code>; signed values also require sign extension.
+For example, <code class="docutils literal notranslate"><span class="pre">be:u12/16&gt;&gt;1</span></code> describes an unsigned 12-bit value in
+big-endian 16-bit storage, shifted right by one bit. Account for alignment
+padding when combining enabled elements into a complete scan.</p>
 </dd>
-<dt><strong>in_voltageX_index / in_voltageX-voltageY_index / timestamp_index:</strong></dt><dd><p>A single positive integer specifying the position of this
+<dt><strong>in_voltageX_index / in_voltageX-voltageY_index / in_timestamp_index:</strong></dt><dd><p>A nonnegative integer specifying the ordering of this
 scan element in the buffer. Note these are not dependent on
 what is enabled and may not be contiguous. Thus for user-space
 to establish the full layout these must be used in conjunction

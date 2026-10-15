@@ -18,8 +18,20 @@ Evaluation Boards
 
 - :adi:`MAX14001PMB <en/resources/evaluation-hardware-and-software/evaluation-boards-kits/max14001pmb.html>`
 
+Description
+-----------
+
+The MAX14001/MAX14002 are isolated, single-channel analog-to-digital converters
+(ADCs) with programmable voltage comparators and inrush current control
+optimized for configurable binary input applications. The inrush threshold,
+current magnitude, and duration are programmable on MAX14001 and fixed on
+MAX14002.
+
+Source Code
+-----------
+
 Status
-------
+~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -29,12 +41,12 @@ Status
      -
      -
    * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/max14001.c>`__
-     - `Not yet <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/max14001.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/max14001.c>`__
      -
      -
 
 Files
------
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -51,13 +63,6 @@ Files
    * - rpi5 devicetree overlay
      - `arch/arm/boot/dts/overlays/rpi-max14001-overlay.dts <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/arch/arm/boot/dts/overlays/rpi-max14001-overlay.dts>`__
      -
-
-Overview
---------
-
-The MAX14001/MAX14002 are isolated, single-channel analog-to-digital converters
-(ADCs) with programmable voltage comparators and inrush current control
-optimized for configurable binary input applications.
 
 Hardware configuration
 ----------------------
@@ -143,8 +148,8 @@ overlay .dtbo file to the overlays directory.
 Adding Linux driver support
 ---------------------------
 
-Enabling the driver
-~~~~~~~~~~~~~~~~~~~
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
@@ -168,19 +173,8 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
                ...
            ...
 
-Adding a device tree entry
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Required properties
-^^^^^^^^^^^^^^^^^^^
-
-- **compatible**: Must be one of ``adi,max14001``, ``adi,max14002``.
-- **reg**: number of SPI chip select id for the device.
-- **vdd-supply**: Isolated DC-DC power supply input voltage..
-- **vddl-supply**: Logic power supply..
-
-Device tree generic example
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -198,10 +192,7 @@ Device tree generic example
      };
    };
 
-Device tree overlay example (rpi SPI1)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-::
+.. code-block:: dts
 
    // SPDX-License-Identifier: GPL-2.0-only
    /*
@@ -274,8 +265,8 @@ Device tree overlay example (rpi SPI1)
            spi-max-frequency = <1000>;
            vdd-supply = <&vdd>;
            vddl-supply = <&vddl>;
-           vrefin-supply = <&vrefin>;
-           #io-channel-cells = <1>;
+           refin-supply = <&vrefin>;
+
            status = "okay";
        };
        /* The second ADC measures voltage */
@@ -285,7 +276,7 @@ Device tree overlay example (rpi SPI1)
            spi-max-frequency = <1000>;
            vdd-supply = <&vdd>;
            vddl-supply = <&vddl>;
-           vrefin-supply = <&vrefin>;
+           refin-supply = <&vrefin>;
            #io-channel-cells = <1>;
            status = "okay";
        };
@@ -299,8 +290,24 @@ Device tree overlay example (rpi SPI1)
        status = "disabled";
    };
 
+The second ADC sets ``#io-channel-cells`` because it is referenced by the IIO
+consumer above. ``refin-supply`` is optional; without it the driver uses the
+internal 1.25 V reference.
+
+Required properties
+^^^^^^^^^^^^^^^^^^^^
+
+- ``compatible``: ``"adi,max14001", "adi,max14002"`` for MAX14001, or
+  ``"adi,max14002"`` for MAX14002.
+- ``reg``: SPI chip select number for the device.
+- ``vdd-supply``: Isolated DC-DC power supply input voltage.
+- ``vddl-supply``: Logic power supply.
+
 Driver testing
 --------------
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-device-files
@@ -308,13 +315,12 @@ Driver testing
 
 .. tip::
 
-   An example program whiroot@analog:/sys/bus/iio/devices# ls -lch uses the
-   interface can be found here:
+   An example program which uses the interface can be found here:
 
    - :external+system-level:ref:`iio-oscilloscope`
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -332,15 +338,17 @@ measured voltage in millivolts
    marcelo@rpi5:~ $ cat /sys/bus/iio/devices/iio\:device0/in_voltage0_scale
    1.220703125
 
-Example test single-shot readings through IIO device sysfs interface.
+The driver only exposes read-only ``in_voltage0_raw`` and ``in_voltage0_scale``
+attributes; there is no IIO buffer, trigger or event support, and the
+comparator and inrush-current hardware features are not exposed through IIO.
 
-::
+.. code-block:: text
 
    root@rpi5:~# ls -l /sys/bus/iio/devices/iio\:device0/
    total 0
-   -rw-r--r-- 1 root root 16384 Oct  4 12:19 in_voltage0_mean_raw
-   -rw-r--r-- 1 root root 16384 Oct  4 12:19 in_voltage0_raw
-   -rw-r--r-- 1 root root 16384 Oct  4 12:19 in_voltage0_scale
+
+   -r--r--r-- 1 root root 16384 Oct  4 12:19 in_voltage0_raw
+   -r--r--r-- 1 root root 16384 Oct  4 12:19 in_voltage0_scale
    -r--r--r-- 1 root root 16384 Oct  4 12:19 name
    lrwxrwxrwx 1 root root     0 Oct  4 12:19 of_node -> ../../../../../../../../../firmware/devicetree/base/axi/pcie@1000120000/rp1/spi@54000/max14001@1
    drwxr-xr-x 2 root root     0 Oct  4 12:19 power
@@ -350,6 +358,10 @@ Example test single-shot readings through IIO device sysfs interface.
 
    marcelo@rpi5:~ $ cat /sys/bus/iio/devices/iio\:device0/in_voltage0_raw
    517
+
+``in_voltage0_scale`` is the reference voltage in millivolts divided by 1024
+(the ADC resolution), using either the internal 1.25 V reference or the
+voltage on ``refin-supply``.
 
 More Information
 ----------------

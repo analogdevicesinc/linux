@@ -100,18 +100,31 @@
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
-<li><a class="reference internal" href="#status">Status</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-</ul>
-</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-device-initialization">Example device initialization</a><ul>
 <li><a class="reference internal" href="#i2c">I2C</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#routing-and-dapm">Routing and DAPM</a><ul>
 <li><a class="reference internal" href="#asoc-dapm-widgets">ASoC DAPM Widgets</a></li>
-<li><a class="reference internal" href="#alsa-controls">ALSA Controls</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#alsa-controls">ALSA controls</a></li>
+<li><a class="reference internal" href="#dai-formats-and-clocks">DAI formats and clocks</a><ul>
 <li><a class="reference internal" href="#dai-configuration">DAI configuration</a><ul>
 <li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -217,6 +230,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -235,7 +249,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -405,8 +418,9 @@ Content on this topic
 </tbody>
 </table>
 </div>
+</section>
 <section id="files">
-<h4>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h4>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -441,12 +455,15 @@ Content on this topic
 </div>
 </section>
 </section>
-</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-device-initialization">
-<h2>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h4>
 <p>YAML example Placeholder</p>
 <section id="i2c">
-<h3>I2C<a class="headerlink" href="#i2c" title="Link to this heading"></a></h3>
+<h5>I2C<a class="headerlink" href="#i2c" title="Link to this heading"></a></h5>
 <p>The I2C device id depends on the ADDR0 and ADDR1 pin settings and needs to be
 set according to your board setup.</p>
 <div class="table-wrapper docutils container">
@@ -479,8 +496,15 @@ set according to your board setup.</p>
 </div>
 <p>In this example we assume ADDR0=0 and ADDR1=0.</p>
 </section>
+</section>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="routing-and-dapm">
+<h3>Routing and DAPM<a class="headerlink" href="#routing-and-dapm" title="Link to this heading"></a></h3>
 <section id="asoc-dapm-widgets">
-<h3>ASoC DAPM Widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h3>
+<h4>ASoC DAPM Widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -542,8 +566,9 @@ set according to your board setup.</p>
 </table>
 </div>
 </section>
+</section>
 <section id="alsa-controls">
-<h3>ALSA Controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
+<h3>ALSA controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -562,7 +587,7 @@ set according to your board setup.</p>
 <td></td>
 </tr>
 <tr class="row-even"><td><p>ADC2 Capture Volume</p></td>
-<td><p>ADC Channel 0 digital gain control</p></td>
+<td><p>ADC Channel 2 digital gain control</p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>ADC0 Capture Switch</p></td>
@@ -577,15 +602,15 @@ set according to your board setup.</p>
 <td><p>ADC Channel 2 Mute/Unmute</p></td>
 <td></td>
 </tr>
-<tr class="row-even"><td><p>ADC0 HPF</p></td>
+<tr class="row-even"><td><p>ADC0 HPF Capture Switch</p></td>
 <td><p>ADC Channel 0 High pass filter control</p></td>
 <td><p>Values: ‘Off’ ‘1Hz’ ‘4Hz’ ‘8Hz’</p></td>
 </tr>
-<tr class="row-odd"><td><p>ADC1 HPF</p></td>
+<tr class="row-odd"><td><p>ADC1 HPF Capture Switch</p></td>
 <td><p>ADC Channel 1 High pass filter control</p></td>
 <td><p>Values: ‘Off’ ‘1Hz’ ‘4Hz’ ‘8Hz’</p></td>
 </tr>
-<tr class="row-even"><td><p>ADC2 HPF</p></td>
+<tr class="row-even"><td><p>ADC2 HPF Capture Switch</p></td>
 <td><p>ADC Channel 2 High pass filter control</p></td>
 <td><p>Values: ‘Off’ ‘1Hz’ ‘4Hz’ ‘8Hz’</p></td>
 </tr>
@@ -726,15 +751,17 @@ read the current state of <em>DMIC0 Capture Volume</em> control one can use:</p>
 <p>To set one control value the following command can be executed:</p>
 <p><code class="docutils literal notranslate"><span class="pre">amixer</span> <span class="pre">-c</span> <span class="pre">ADAU1860</span> <span class="pre">cset</span> <span class="pre">name=‘DMIC0</span> <span class="pre">Capture</span> <span class="pre">Volume’</span> <span class="pre">191</span></code></p>
 </section>
+<section id="dai-formats-and-clocks">
+<h3>DAI formats and clocks<a class="headerlink" href="#dai-formats-and-clocks" title="Link to this heading"></a></h3>
 <section id="dai-configuration">
-<h3>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h3>
+<h4>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h4>
 <p>The codec driver registers two DAIs:</p>
 <ul class="simple">
 <li><p>adau1860-sai0</p></li>
 <li><p>adau1860-sai1</p></li>
 </ul>
 <section id="supported-dai-formats">
-<h4>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h4>
+<h5>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h5>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -835,6 +862,7 @@ read the current state of <em>DMIC0 Capture Volume</em> control one can use:</p>
 </tbody>
 </table>
 </div>
+</section>
 </section>
 </section>
 </section>

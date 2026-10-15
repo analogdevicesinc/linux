@@ -97,12 +97,11 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">ADRV9009</a><ul>
+<li><a class="reference internal" href="#configuration-and-sequence">Configuration and sequence</a><ul>
 <li><a class="reference internal" href="#agc-settings">AGC Settings</a></li>
-<li><a class="reference internal" href="#gain-control-settings">Gain Control Settings</a><ul>
+<li><a class="reference internal" href="#gain-control-settings">Gain Control Settings</a></li>
 <li><a class="reference internal" href="#rx">RX</a></li>
 <li><a class="reference internal" href="#orx">ORX</a></li>
-</ul>
-</li>
 <li><a class="reference internal" href="#auxillary-dac-settings">Auxillary DAC Settings</a></li>
 <li><a class="reference internal" href="#jesd204b-settings">JESD204B Settings</a><ul>
 <li><a class="reference internal" href="#framer-a">FRAMER A</a></li>
@@ -124,6 +123,8 @@
 <li><a class="reference internal" href="#pa-protection-settings">PA Protection Settings</a></li>
 <li><a class="reference internal" href="#profile-settings">Profile Settings</a><ul>
 <li><a class="reference internal" href="#clocks">Clocks</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#id1">RX</a></li>
 <li><a class="reference internal" href="#id2">ORX</a></li>
 <li><a class="reference internal" href="#tx">TX</a></li>
@@ -230,6 +231,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -248,7 +250,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -394,8 +395,10 @@ But most of these options don’t need to be changed at all.</p>
 <p>The Linux platform allows you to examine and determine optimal settings for your
 target application: See here:
 <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin" target="_blank">ADRV9009/ADRV9008 Advanced Plugin</a></p>
+<section id="configuration-and-sequence">
+<h2>Configuration and sequence<a class="headerlink" href="#configuration-and-sequence" title="Link to this heading"></a></h2>
 <section id="agc-settings">
-<h2>AGC Settings<a class="headerlink" href="#agc-settings" title="Link to this heading"></a></h2>
+<h3>AGC Settings<a class="headerlink" href="#agc-settings" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -717,7 +720,8 @@ recovery.</p></td>
 </div>
 </section>
 <section id="gain-control-settings">
-<h2>Gain Control Settings<a class="headerlink" href="#gain-control-settings" title="Link to this heading"></a></h2>
+<h3>Gain Control Settings<a class="headerlink" href="#gain-control-settings" title="Link to this heading"></a></h3>
+</section>
 <section id="rx">
 <h3>RX<a class="headerlink" href="#rx" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
@@ -808,9 +812,8 @@ control</p></td>
 </table>
 </div>
 </section>
-</section>
 <section id="auxillary-dac-settings">
-<h2>Auxillary DAC Settings<a class="headerlink" href="#auxillary-dac-settings" title="Link to this heading"></a></h2>
+<h3>Auxillary DAC Settings<a class="headerlink" href="#auxillary-dac-settings" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -992,7 +995,7 @@ elements, the next consecutive array elements correspond to the two
 </div>
 </section>
 <section id="jesd204b-settings">
-<h2>JESD204B Settings<a class="headerlink" href="#jesd204b-settings" title="Link to this heading"></a></h2>
+<h3>JESD204B Settings<a class="headerlink" href="#jesd204b-settings" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -1038,7 +1041,7 @@ CMOS input pad</p></td>
 </table>
 </div>
 <section id="framer-a">
-<h3>FRAMER A<a class="headerlink" href="#framer-a" title="Link to this heading"></a></h3>
+<h4>FRAMER A<a class="headerlink" href="#framer-a" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -1139,7 +1142,7 @@ CMOS input pad</p></td>
 </div>
 </section>
 <section id="framer-b">
-<h3>FRAMER B<a class="headerlink" href="#framer-b" title="Link to this heading"></a></h3>
+<h4>FRAMER B<a class="headerlink" href="#framer-b" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -1240,7 +1243,7 @@ CMOS input pad</p></td>
 </div>
 </section>
 <section id="deframer-a">
-<h3>DEFRAMER A<a class="headerlink" href="#deframer-a" title="Link to this heading"></a></h3>
+<h4>DEFRAMER A<a class="headerlink" href="#deframer-a" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -1332,7 +1335,7 @@ set, ‘0’ = not set</p></td>
 </div>
 </section>
 <section id="deframer-b">
-<h3>DEFRAMER B<a class="headerlink" href="#deframer-b" title="Link to this heading"></a></h3>
+<h4>DEFRAMER B<a class="headerlink" href="#deframer-b" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -1425,7 +1428,7 @@ set, ‘0’ = not set</p></td>
 </section>
 </section>
 <section id="arm-gpio-settings">
-<h2>ARM GPIO Settings<a class="headerlink" href="#arm-gpio-settings" title="Link to this heading"></a></h2>
+<h3>ARM GPIO Settings<a class="headerlink" href="#arm-gpio-settings" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -1520,7 +1523,7 @@ source</p></td>
 </div>
 </section>
 <section id="gpio-3v3-settings">
-<h2>GPIO 3v3 Settings<a class="headerlink" href="#gpio-3v3-settings" title="Link to this heading"></a></h2>
+<h3>GPIO 3v3 Settings<a class="headerlink" href="#gpio-3v3-settings" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -1553,7 +1556,7 @@ output. The value mask is being set during initialization.</p></td>
 </div>
 </section>
 <section id="frequency-hopping-mode-settings">
-<h2>Frequency Hopping Mode Settings<a class="headerlink" href="#frequency-hopping-mode-settings" title="Link to this heading"></a></h2>
+<h3>Frequency Hopping Mode Settings<a class="headerlink" href="#frequency-hopping-mode-settings" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -1596,19 +1599,18 @@ Frequency hopping</p></td>
 </tr>
 <tr class="row-odd"><td><p>adi,fhm-mode-enable-mcs-sync</p></td>
 <td><p>0</p></td>
-<td><p>0 - Disables MCS Synchronization on FHM enable, 1 - Enables MCS
-Synchronization on FHM enable. Ignored if fhmEnable = 0</p></td>
+<td><p>0 - Disables MCS Synchronization on FHM enable, 1 - Enables MCS Synchronization
+on FHM enable. Ignored if fhmEnable = 0</p></td>
 </tr>
 <tr class="row-even"><td><p>adi,fhm-mode-fhm-trigger-mode</p></td>
 <td><p>0</p></td>
 <td><p>TAL_FHM_GPIO_MODE - Frequency Hop triggered via GPIO low to high pulse
 TAL_FHM_NON_GPIO_MODE - Frequency Hop triggered via ARM command</p></td>
 </tr>
-<tr class="row-odd"><td><p>adi,fhm-mode-fhm-exit-mode</p></td>
-<td><p>0</p></td>
-<td><p>TAL_FHM_QUICK_EXIT = quick exit on frequency hopping disable,
-TAL_FHM_FULL_EXIT = Full exit on frequency hopping disable. This is
-ignored if fhmEnable = 1</p></td>
+<tr class="row-odd"><td><p>adi,fhm-mode-fhm-exit-mode 1</p></td>
+<td></td>
+<td><p>TAL_FHM_QUICK_EXIT = quick exit on frequency hopping disable, TAL_FHM_FULL_EXIT
+= Full exit on frequency hopping disable. This is ignored if fhmEnable = 1</p></td>
 </tr>
 <tr class="row-even"><td><p>adi,fhm-mode-fhm-init-frequency_hz</p></td>
 <td><p>2450000000</p></td>
@@ -1619,9 +1621,9 @@ ignored if fhmEnable = 1</p></td>
 </div>
 </section>
 <section id="gain-and-attenuation-control-pin-settings">
-<h2>Gain and Attenuation Control Pin Settings<a class="headerlink" href="#gain-and-attenuation-control-pin-settings" title="Link to this heading"></a></h2>
+<h3>Gain and Attenuation Control Pin Settings<a class="headerlink" href="#gain-and-attenuation-control-pin-settings" title="Link to this heading"></a></h3>
 <section id="rx1">
-<h3>RX1<a class="headerlink" href="#rx1" title="Link to this heading"></a></h3>
+<h4>RX1<a class="headerlink" href="#rx1" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -1660,7 +1662,7 @@ Rx2 : TAL_GPIO_04 or TAL_GPIO_14</p></td>
 </div>
 </section>
 <section id="rx2">
-<h3>RX2<a class="headerlink" href="#rx2" title="Link to this heading"></a></h3>
+<h4>RX2<a class="headerlink" href="#rx2" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -1699,7 +1701,7 @@ Rx2 : TAL_GPIO_04 or TAL_GPIO_14</p></td>
 </div>
 </section>
 <section id="tx1">
-<h3>TX1<a class="headerlink" href="#tx1" title="Link to this heading"></a></h3>
+<h4>TX1<a class="headerlink" href="#tx1" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -1734,7 +1736,7 @@ Tx2 : TAL_GPIO_06 or TAL_GPIO_14</p></td>
 </div>
 </section>
 <section id="tx2">
-<h3>TX2<a class="headerlink" href="#tx2" title="Link to this heading"></a></h3>
+<h4>TX2<a class="headerlink" href="#tx2" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -1770,7 +1772,7 @@ Tx2 : TAL_GPIO_06 or TAL_GPIO_14</p></td>
 </section>
 </section>
 <section id="pa-protection-settings">
-<h2>PA Protection Settings<a class="headerlink" href="#pa-protection-settings" title="Link to this heading"></a></h2>
+<h3>PA Protection Settings<a class="headerlink" href="#pa-protection-settings" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -1824,9 +1826,9 @@ round(128 * 10^(tx2PeakThreshold_dBFS / 10))</p></td>
 </div>
 </section>
 <section id="profile-settings">
-<h2>Profile Settings<a class="headerlink" href="#profile-settings" title="Link to this heading"></a></h2>
+<h3>Profile Settings<a class="headerlink" href="#profile-settings" title="Link to this heading"></a></h3>
 <section id="clocks">
-<h3>Clocks<a class="headerlink" href="#clocks" title="Link to this heading"></a></h3>
+<h4>Clocks<a class="headerlink" href="#clocks" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -1862,6 +1864,7 @@ when PLL frequency changed. See enum for options</p></td>
 </tbody>
 </table>
 </div>
+</section>
 </section>
 <section id="id1">
 <h3>RX<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>

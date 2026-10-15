@@ -14,8 +14,8 @@ AXI JESD204B GT HDL Linux Driver.
 
    Please see here instead: :ref:`axi_adxcvr`
 
-Supported Devices
------------------
+Supported IP Cores
+------------------
 
 This driver supports the
 
@@ -47,7 +47,7 @@ Status
      -
      -
    * - :git+linux:`main:drivers/iio/jesd204/axi_jesd204b_gt.c`
-     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/jesd204/axi_jesd204b_gt.c>`__
+     - No
      -
      -
 
@@ -67,35 +67,75 @@ Files
      - :git+linux:`main:drivers/iio/jesd204/axi_jesd204b_gt.h`
      -
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           [--snip--]
+           <*> JESD204 High-Speed Serial Interface Framework  --->
+           [--snip--]
+           <*> Industrial I/O support  --->
+               [--snip--]
+               <*>   Generic AXI JESD204B configuration driver
+               [--snip--]
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The AXI JESD204B driver is a platform driver and can currently only be
 instantiated via device tree. Depending on which HDL Version (PCORE_VERSION) the
 HDL supports two links, one receive and one transmit, depending on
 [rx|tx]-[sys|out]-clk-select is given both or not.
 
-Starting with PCORE_VERSION > 7.0.0, the HDL and driver supports multiple links.
-And the setup is done per lane basis. The device tree entry then features
-multiple per link child nodes.
+Starting with major version 7 (including 7.0.0), the driver uses per-lane
+register addressing. The DT parser selects legacy mode when the node has no
+child nodes, and per-link mode when child nodes exist. Setup is then done on
+a per-lane basis, with the device tree entry featuring multiple per-link
+child nodes.
 
 Required devicetree properties (legacy (flat) mode & PCORE_VERSION < 7.0.0):
 
-- **compatible**: Should always be ``*xlnx,axi-jesd-gt-1.0*`` or
-  ``*adi,axi-jesd-gt-1.0*``
-- **reg**: Base address and register area size. This parameter expects a
-  register range.
-- **clocks**: Clock provider phandle
-- **clock-name**: Clock input name string
-- **adi,lanes**: Number of JESD lanes used
-- **adi,rx-sys-clk-select**: RX SYS Clock Select
-- **adi,rx-out-clk-select**: RX OUT Clock Select
-- **adi,tx-sys-clk-select**: TX SYS Clock Select
-- **adi,tx-out-clk-select**: TX OUT Clock Select
-- **adi,use-cpll-enable**: Use CPLL, if not enabled driver defaults to QPLL
-- **adi,use-lpm-enable**: Use LPM mode, if not enabled driver defaults to DFE
-- **adi,sysref-external-enable**: Use external sysref, if not enabled driver
-  defaults to internal.
+-  **compatible**: Should always be ``*xlnx,axi-jesd-gt-1.0*`` or
+   ``*adi,axi-jesd-gt-1.0*``
+
+-  **reg**: Base address and register area size. This parameter expects a
+   register range.
+
+-  **clocks**: Clock provider phandle
+
+-  **clock-names**: Input clock names. Legacy mode uses ``adc_clk``/``adc_sysref``
+   and ``dac_clk``/``dac_sysref``; per-link nodes use ``conv`` and optionally
+   ``sysref``/``div40``. ``clock-output-names`` provides the name(s) for the
+   clock(s) exported by the selected mode.
+
+-  **adi,lanes**: Number of JESD lanes used
+
+-  **adi,rx-sys-clk-select**: RX SYS Clock Select
+
+-  **adi,rx-out-clk-select**: RX OUT Clock Select
+
+-  **adi,tx-sys-clk-select**: TX SYS Clock Select
+
+-  **adi,tx-out-clk-select**: TX OUT Clock Select
+
+-  **adi,use-cpll-enable**: Use CPLL, if not enabled driver defaults to QPLL
+
+-  **adi,use-lpm-enable**: Use LPM mode, if not enabled driver defaults to DFE
+
+-  **adi,sysref-external-enable**: Use external sysref, if not enabled driver
+   defaults to internal.
 
 Required devicetree properties (PCORE_VERSION > 7.0.0):
 
@@ -156,7 +196,7 @@ Required devicetree properties (PCORE_VERSION > 7.0.0):
 
 **Example (legacy mode):**
 
-::
+.. code-block:: dts
 
    axi_daq2_gt: axi-jesd-gt-rx-tx@44a60000 {
        #clock-cells = <1>;
@@ -164,7 +204,7 @@ Required devicetree properties (PCORE_VERSION > 7.0.0):
        reg = < 0x44a60000 0x10000 >;
 
        clocks = <&clk0_ad9523 1>, <&clk0_ad9523 6>, <&clk0_ad9523 7>, <&clk0_ad9523 13>;
-       clock-names = "adc_clk", "adc_sysref", "dac_sysref", "dac_clk";
+       clock-names = "adc_clk", "adc_sysref", "dac_clk", "dac_sysref";
        clock-output-names = "adc_gt_clk", "dac_gt_clk";
 
        adi,rx-sys-clk-select = <3>;
@@ -176,39 +216,10 @@ Required devicetree properties (PCORE_VERSION > 7.0.0):
        adi,use-lpm-enable;
    } ;
 
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-           -*-   Enable ring buffer support within IIO
-           -*-     Industrial I/O lock free software ring
-           -*-   Enable triggered sampling support
-
-                 *** Analog to digital converters ***
-           [--snip--]
-
-           <*>   Generic AXI JESD204B configuration driver
-
-           [--snip--]
-
-Driver Testing
+Driver testing
 --------------
 
-::
+.. code-block:: text
 
    # cd 44a60000.axi-jesd-gt/
 
@@ -228,4 +239,8 @@ Driver Testing
    -rw-r--r--    1 root     root          4096 Jan  1 00:24 uevent
 
    # cat info
-   x65,y255 CDRDW: 40
+   x65,y255 CDRDW: 40 LPM: 1
+
+Dimensions depend on the selected link. enable accepts a lane number and starts
+an eye scan; it is not a boolean link-enable switch. Read eye_data after
+initiating a scan; its read waits for completion.

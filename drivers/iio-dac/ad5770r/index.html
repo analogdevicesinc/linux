@@ -102,21 +102,23 @@
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
-<li><a class="reference internal" href="#devicetree">Devicetree</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-scale">Show scale</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-scale">Show scale</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#set-channel-y-output-current">Set channel Y output current</a></li>
 <li><a class="reference internal" href="#enable-power-down-mode-for-the-device">Enable power down mode for the device</a></li>
 <li><a class="reference internal" href="#show-available-filter-frequencies">Show available filter frequencies</a></li>
 <li><a class="reference internal" href="#set-channel-y-filter-frequency">Set channel Y filter frequency</a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -221,6 +223,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5380/">AD5380</a></li>
@@ -239,7 +242,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -415,72 +417,11 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </table>
 </div>
 </section>
-<section id="devicetree">
-<h3>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h3>
-<p>Required devicetree properties for the AD5770R:</p>
-<ul class="simple">
-<li><p>compatible: Must be <code class="docutils literal notranslate"><span class="pre">adi,ad5770r</span></code></p></li>
-<li><p>reg: SPI chip select number for the device</p></li>
-<li><p>spi-max-frequency: Max SPI frequency to use (&lt; 10000000)</p></li>
-<li><p>child nodes: Each child node represents one channel.</p></li>
-</ul>
-<p>Optional properties:</p>
-<ul class="simple">
-<li><p>vref: Specify the voltage of the external reference used.</p></li>
-<li><p>reset-gpios: GPIO spec for the RESET pin. If specified, it will be asserted
-during driver probe.</p></li>
-</ul>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ad5770r</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-          <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"ad5770r"</span><span class="p">;</span>
-          <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-          <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
-          <span class="n">vref</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">vref</span><span class="o">&gt;</span><span class="p">;</span>
-
-          <span class="n">reset</span><span class="o">-</span><span class="n">gpios</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio</span> <span class="mi">22</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-
-          <span class="n">channel</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-                  <span class="n">num</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-                  <span class="n">adi</span><span class="p">,</span><span class="nb">range</span><span class="o">-</span><span class="n">microamp</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">300000</span><span class="o">&gt;</span><span class="p">;</span>
-          <span class="p">};</span>
-
-          <span class="n">channel</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
-                  <span class="n">num</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-                  <span class="n">adi</span><span class="p">,</span><span class="nb">range</span><span class="o">-</span><span class="n">microamp</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">140000</span><span class="o">&gt;</span><span class="p">;</span>
-          <span class="p">};</span>
-
-          <span class="n">channel</span><span class="o">@</span><span class="mi">2</span> <span class="p">{</span>
-                  <span class="n">num</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
-                  <span class="n">adi</span><span class="p">,</span><span class="nb">range</span><span class="o">-</span><span class="n">microamp</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">55000</span><span class="o">&gt;</span><span class="p">;</span>
-          <span class="p">};</span>
-
-          <span class="n">channel</span><span class="o">@</span><span class="mi">3</span> <span class="p">{</span>
-                  <span class="n">num</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3</span><span class="o">&gt;</span><span class="p">;</span>
-                  <span class="n">adi</span><span class="p">,</span><span class="nb">range</span><span class="o">-</span><span class="n">microamp</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">45000</span><span class="o">&gt;</span><span class="p">;</span>
-          <span class="p">};</span>
-
-          <span class="n">channel</span><span class="o">@</span><span class="mi">4</span> <span class="p">{</span>
-                  <span class="n">num</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
-                  <span class="n">adi</span><span class="p">,</span><span class="nb">range</span><span class="o">-</span><span class="n">microamp</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">45000</span><span class="o">&gt;</span><span class="p">;</span>
-          <span class="p">};</span>
-
-          <span class="n">channel</span><span class="o">@</span><span class="mi">5</span> <span class="p">{</span>
-                  <span class="n">num</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">5</span><span class="o">&gt;</span><span class="p">;</span>
-                  <span class="n">adi</span><span class="p">,</span><span class="nb">range</span><span class="o">-</span><span class="n">microamp</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">45000</span><span class="o">&gt;</span><span class="p">;</span>
-          <span class="p">};</span>
- <span class="p">};</span>
-
- <span class="n">vref</span><span class="p">:</span> <span class="n">fixedregulator</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-          <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
-          <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"fixed-supply"</span><span class="p">;</span>
-          <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1250000</span><span class="o">&gt;</span><span class="p">;</span>
-          <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1250000</span><span class="o">&gt;</span><span class="p">;</span>
- <span class="p">};</span>
-</pre></div>
-</div>
-</section>
 </section>
 <section id="adding-linux-driver-support">
 <h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
@@ -497,6 +438,83 @@ during driver probe.</p></li>
         <span class="o">...</span>
 </pre></div>
 </div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<p>Required devicetree properties for the AD5770R:</p>
+<ul class="simple">
+<li><p>compatible: Must be <code class="docutils literal notranslate"><span class="pre">adi,ad5770r</span></code></p></li>
+<li><p>reg: SPI chip select number for the device</p></li>
+<li><p>spi-max-frequency: Max SPI frequency to use (&lt; 10000000)</p></li>
+<li><p>Child nodes: Exactly six child nodes are required, one per channel. Each
+needs <code class="docutils literal notranslate"><span class="pre">reg</span> <span class="pre">=</span> <span class="pre">&lt;channel-number&gt;</span></code> and
+<code class="docutils literal notranslate"><span class="pre">adi,range-microamp</span> <span class="pre">=</span> <span class="pre">&lt;minimum</span> <span class="pre">maximum&gt;</span></code>. The DAC parent uses
+<code class="docutils literal notranslate"><span class="pre">#address-cells</span> <span class="pre">=</span> <span class="pre">&lt;1&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">#size-cells</span> <span class="pre">=</span> <span class="pre">&lt;0&gt;</span></code>.</p></li>
+</ul>
+<p>Optional properties:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">vref-supply</span></code>: Regulator phandle for the external reference, if used.</p></li>
+<li><p>reset-gpios: GPIO spec for the RESET pin. If specified, it will be asserted
+during driver probe.</p></li>
+</ul>
+<p>The board must define <code class="docutils literal notranslate"><span class="pre">spi0</span></code> and the <code class="docutils literal notranslate"><span class="pre">gpio</span></code> controller used by this
+fragment. Adapt the reset GPIO and reference regulator to the actual board.</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="nf">spi0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">   </span><span class="nf">ad5770r</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">             </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,ad5770r"</span><span class="p">;</span>
+<span class="w">             </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">             </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">             </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">             </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">             </span><span class="n">vref-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">vref</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">             </span><span class="n">reset-gpios</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">gpio</span><span class="w"> </span><span class="mi">22</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">             </span><span class="nf">channel</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                     </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                     </span><span class="n">adi</span><span class="p">,</span><span class="n">range-microamp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="w"> </span><span class="mi">300000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">             </span><span class="p">};</span>
+
+<span class="w">             </span><span class="nf">channel</span><span class="o">@</span><span class="mi">1</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                     </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                     </span><span class="n">adi</span><span class="p">,</span><span class="n">range-microamp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="w"> </span><span class="mi">140000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">             </span><span class="p">};</span>
+
+<span class="w">             </span><span class="nf">channel</span><span class="o">@</span><span class="mi">2</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                     </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                     </span><span class="n">adi</span><span class="p">,</span><span class="n">range-microamp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="w"> </span><span class="mi">55000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">             </span><span class="p">};</span>
+
+<span class="w">             </span><span class="nf">channel</span><span class="o">@</span><span class="mi">3</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                     </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">3</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                     </span><span class="n">adi</span><span class="p">,</span><span class="n">range-microamp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="w"> </span><span class="mi">45000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">             </span><span class="p">};</span>
+
+<span class="w">             </span><span class="nf">channel</span><span class="o">@</span><span class="mi">4</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                     </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                     </span><span class="n">adi</span><span class="p">,</span><span class="n">range-microamp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="w"> </span><span class="mi">45000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">             </span><span class="p">};</span>
+
+<span class="w">             </span><span class="nf">channel</span><span class="o">@</span><span class="mi">5</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                     </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">5</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                     </span><span class="n">adi</span><span class="p">,</span><span class="n">range-microamp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="w"> </span><span class="mi">45000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">             </span><span class="p">};</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+
+<span class="nf">/</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">   </span><span class="nl">vref</span><span class="p">:</span><span class="w"> </span><span class="nf">regulator-vref</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">             </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"regulator-fixed"</span><span class="p">;</span>
+<span class="w">             </span><span class="n">regulator-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"fixed-supply"</span><span class="p">;</span>
+<span class="w">             </span><span class="n">regulator-min-microvolt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1250000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">             </span><span class="n">regulator-max-microvolt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1250000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -548,12 +566,15 @@ lrwxrwxrwx 1 root root    0 Jul 18 12:12 subsystem -&gt; ../../../../../../../..
 -rw-r--r-- 1 root root 4096 Jul 18 12:12 uevent
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>pi@raspberrypi:/sys/bus/iio/devices/iio:device0 $ cat name
 ad5770r
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-scale">
 <h4>Show scale<a class="headerlink" href="#show-scale" title="Link to this heading"></a></h4>
 <p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/out_currentY_scale</p>
@@ -563,18 +584,20 @@ in milliamps.</p>
 <span class="mf">0.018310546</span>
 </pre></div>
 </div>
+</section>
+</section>
 <section id="set-channel-y-output-current">
-<h5>Set channel Y output current<a class="headerlink" href="#set-channel-y-output-current" title="Link to this heading"></a></h5>
+<h3>Set channel Y output current<a class="headerlink" href="#set-channel-y-output-current" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/out_currentY_raw</p>
 <p>Raw (unscaled, no bias etc.) output current for channel Y.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@raspberrypi</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 5000 &gt; out_current0_raw</span>
 </pre></div>
 </div>
-<p><strong>I</strong> = <em>out_current0_raw * out_current0_scale</em> = 5000 * 0,018310546 =
-<strong>91,55273 mA</strong></p>
+<p><strong>I</strong> = <em>out_current0_raw * out_current0_scale</em> = <strong>91.55273 mA</strong> for the
+shown 0–300 mA range.</p>
 </section>
 <section id="enable-power-down-mode-for-the-device">
-<h5>Enable power down mode for the device<a class="headerlink" href="#enable-power-down-mode-for-the-device" title="Link to this heading"></a></h5>
+<h3>Enable power down mode for the device<a class="headerlink" href="#enable-power-down-mode-for-the-device" title="Link to this heading"></a></h3>
 <p>/sys/bus/iio/devices/iio:deviceX/out_currentY_powerdown</p>
 <p><strong>Description:</strong> Writing 1 causes channel Y to enter power down mode. Clearing
 returns to normal operation.</p>
@@ -588,7 +611,7 @@ returns to normal operation.</p>
 </div>
 </section>
 <section id="show-available-filter-frequencies">
-<h5>Show available filter frequencies<a class="headerlink" href="#show-available-filter-frequencies" title="Link to this heading"></a></h5>
+<h3>Show available filter frequencies<a class="headerlink" href="#show-available-filter-frequencies" title="Link to this heading"></a></h3>
 <p>/sys/bus/iio/devices/iio:deviceX/out_current_filter_low_pass_3db_frequency_available</p>
 <p><strong>Description:</strong> Contains available filter frequencies.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@raspberrypi</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat out_current_filter_low_pass_3db_frequency_available</span>
@@ -597,7 +620,7 @@ returns to normal operation.</p>
 </div>
 </section>
 <section id="set-channel-y-filter-frequency">
-<h5>Set channel Y filter frequency<a class="headerlink" href="#set-channel-y-filter-frequency" title="Link to this heading"></a></h5>
+<h3>Set channel Y filter frequency<a class="headerlink" href="#set-channel-y-filter-frequency" title="Link to this heading"></a></h3>
 <p>/sys/bus/iio/devices/iio:deviceX/out_current0_filter_low_pass_3db_frequency</p>
 <p><strong>Description:</strong> Write filter value to channel Y.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@raspberrypi</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat out_current0_filter_low_pass_3db_frequency</span>
@@ -607,8 +630,6 @@ returns to normal operation.</p>
 <span class="mi">1400</span>
 </pre></div>
 </div>
-</section>
-</section>
 </section>
 </section>
 <section id="more-information">

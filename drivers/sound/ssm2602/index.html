@@ -98,30 +98,27 @@
           <ul>
 <li><a class="reference internal" href="#">SSM2602</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
-<li><a class="reference internal" href="#status">Status</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-</ul>
-</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
 <li><a class="reference internal" href="#example-device-initialization">Example device initialization</a><ul>
 <li><a class="reference internal" href="#spi">SPI</a><ul>
 <li><a class="reference internal" href="#i2c">I2C</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#asoc-dapm-widgets">ASoC DAPM Widgets</a></li>
-<li><a class="reference internal" href="#alsa-controls">ALSA Controls</a></li>
-<li><a class="reference internal" href="#dai-configuration">DAI configuration</a><ul>
-<li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a></li>
-<li><a class="reference internal" href="#supported-sysclk-rates">Supported SYSCLK rates</a></li>
-<li><a class="reference internal" href="#example-dai-configuration">Example DAI configuration</a></li>
 </ul>
 </li>
 </ul>
 </li>
+<li><a class="reference internal" href="#board-integration">Board integration</a><ul>
 <li><a class="reference internal" href="#ssm2604-evaluation-board-driver">SSM2604 evaluation board driver</a><ul>
 <li><a class="reference internal" href="#source">Source</a><ul>
 <li><a class="reference internal" href="#id2">Status</a></li>
@@ -131,6 +128,27 @@
 <li><a class="reference internal" href="#testing-the-built-in-kernel-driver">Testing the built in kernel driver</a></li>
 <li><a class="reference internal" href="#testing-the-audio-module">Testing the audio module</a></li>
 <li><a class="reference internal" href="#testing-audio">Testing Audio</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#routing-and-dapm">Routing and DAPM</a><ul>
+<li><a class="reference internal" href="#asoc-dapm-widgets">ASoC DAPM Widgets</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#alsa-controls">ALSA controls</a></li>
+<li><a class="reference internal" href="#dai-formats-and-clocks">DAI formats and clocks</a><ul>
+<li><a class="reference internal" href="#dai-configuration">DAI configuration</a><ul>
+<li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a></li>
+<li><a class="reference internal" href="#supported-sysclk-rates">Supported SYSCLK rates</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#example-dai-configuration">Example DAI configuration</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -234,6 +252,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -252,7 +271,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -402,12 +420,12 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/SSM2603-EVALZ" target="_blank">SSM2603-EVALZ</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/SSM2604-EVALZ" target="_blank">SSM2604-EVALZ</a></p></li>
 </ul>
-</section>
 <section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/CN0282" target="_blank">CN0282</a></p></li>
 </ul>
+</section>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -421,14 +439,15 @@ Content on this topic
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/sound/soc/codecs/ssm2602.c" target="_blank">ADI tree</a></p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ssm2602.c" target="_blank">Yes</a></p></td>
+<tr class="row-even"><td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ssm2602.c" target="_blank">Upstream tree</a></p></td>
+<td><p>Yes</p></td>
 </tr>
 </tbody>
 </table>
 </div>
+</section>
 <section id="files">
-<h4>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h4>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -448,9 +467,12 @@ Content on this topic
 </div>
 </section>
 </section>
-</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
 <section id="example-device-initialization">
-<h2>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -461,7 +483,7 @@ available ports, chip variants, preferred modes, default initialization,
 additional pin roles, and so on. This shrinks the board-support packages (BSPs)
 and minimizes board and application specific #ifdefs in drivers.</p>
 <section id="spi">
-<h3>SPI<a class="headerlink" href="#spi" title="Link to this heading"></a></h3>
+<h5>SPI<a class="headerlink" href="#spi" title="Link to this heading"></a></h5>
 <p>SPI can be used for the SSM2602 if in SPI mode (MODE pin set to 1).</p>
 <p>Unlike PCI or USB devices, SPI devices are not enumerated at the hardware level.
 Instead, the software must know which devices are connected on each SPI bus
@@ -501,7 +523,7 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
 </pre></div>
 </div>
 <section id="i2c">
-<h4>I2C<a class="headerlink" href="#i2c" title="Link to this heading"></a></h4>
+<h6>I2C<a class="headerlink" href="#i2c" title="Link to this heading"></a></h6>
 <p>I2C can be used for the SSM2602, SSM2603, SSM2604. For the SSM2602 make sure
 that it is in I2C mode (MODE pin set to 0).</p>
 <p>Unlike PCI or USB devices, I2C devices are not enumerated at the hardware level.
@@ -542,8 +564,199 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 </div>
 </section>
 </section>
+</section>
+</section>
+<section id="board-integration">
+<h3>Board integration<a class="headerlink" href="#board-integration" title="Link to this heading"></a></h3>
+<section id="ssm2604-evaluation-board-driver">
+<h4>SSM2604 evaluation board driver<a class="headerlink" href="#ssm2604-evaluation-board-driver" title="Link to this heading"></a></h4>
+<p>This Blackfin board integration is historical. Upstream removed the board
+driver in commit <code class="docutils literal notranslate"><span class="pre">6ca1118551ca5bb267e75faa6b944679ca195423</span></code>; the source
+link below points to the last version before the removal. The codec driver
+itself remains upstream.</p>
+<section id="source">
+<h5>Source<a class="headerlink" href="#source" title="Link to this heading"></a></h5>
+<section id="id2">
+<h6>Status<a class="headerlink" href="#id2" title="Link to this heading"></a></h6>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Source</p></th>
+<th class="head"><p>Mainlined?</p></th>
+<th class="head"></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bf5xx-ssm2602.c?id=03a0ddeda7ebafea8e99078581a50d856e3587a4" target="_blank">Archived source</a></p></td>
+<td><p>Deprecated</p></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="as-a-module">
+<h5>As a Module<a class="headerlink" href="#as-a-module" title="Link to this heading"></a></h5>
+<p>To add support for the built-in codec SSM2602 of BF52xC to the kernel build
+system, a few things must be enabled properly for things to work. The
+configuration is as following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+  <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+      <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">Sound</span> <span class="n">card</span> <span class="n">support</span> <span class="o">---&gt;</span>
+        <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">Advanced</span> <span class="n">Linux</span> <span class="n">Sound</span> <span class="n">Architecture</span>  <span class="o">---&gt;</span>
+          <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Sequencer</span> <span class="n">support</span>
+          <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">OSS</span> <span class="n">Mixer</span> <span class="n">API</span>
+          <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">OSS</span> <span class="n">PCM</span> <span class="p">(</span><span class="n">digital</span> <span class="n">audio</span><span class="p">)</span> <span class="n">API</span>
+          <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">ALSA</span> <span class="k">for</span> <span class="n">SoC</span> <span class="n">audio</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+            <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">SoC</span> <span class="n">I2S</span> <span class="n">Audio</span> <span class="k">for</span> <span class="n">the</span> <span class="n">ADI</span> <span class="n">BF5xx</span> <span class="n">chip</span>
+              <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">SoC</span> <span class="n">SSM2602</span> <span class="n">Audio</span> <span class="n">support</span> <span class="k">for</span> <span class="n">BF52x</span> <span class="n">ezkit</span>
+            <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">SoC</span> <span class="n">AC97</span> <span class="n">Audio</span> <span class="n">support</span> <span class="k">for</span> <span class="n">BF5xx</span>
+            <span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="n">Set</span> <span class="n">a</span> <span class="n">SPORT</span> <span class="k">for</span> <span class="n">Sound</span> <span class="n">chip</span>
+</pre></div>
+</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>I2C bus is used to configure the codec. So, if the audio driver is built into
+kernel, the I2c driver is also built into kernel automatically. But if the
+audio driver is built as module, then make sure that the I2C driver is loaded
+before the audio module.</p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+  <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="o">&lt;*&gt;</span> <span class="n">I2C</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+      <span class="o">---</span> <span class="n">I2C</span> <span class="n">support</span>
+          <span class="n">I2C</span> <span class="n">Hardware</span> <span class="n">Bus</span> <span class="n">Support</span> <span class="o">---&gt;</span>
+            <span class="o">&lt;*&gt;</span> <span class="n">Blackfin</span> <span class="n">TWI</span> <span class="n">I2C</span> <span class="n">support</span>
+</pre></div>
+</div>
+<p>Doing this will create modules (outside the kernel). The modules will be
+inserted automatically when it is needed. You can also build sound driver into
+kernel.</p>
+</section>
+<section id="testing-the-built-in-kernel-driver">
+<h5>Testing the built in kernel driver<a class="headerlink" href="#testing-the-built-in-kernel-driver" title="Link to this heading"></a></h5>
+<p>If audio is configured as modules, skip this section. If audio is built into
+kernel and you have booted the kernel, there are a few things to check to ensure
+audio is working:</p>
+<ol class="arabic">
+<li><p>Check the boot messages to see if you have booted the correct kernel. During
+kernel boot, it should print out:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Advanced</span> <span class="n">Linux</span> <span class="n">Sound</span> <span class="n">Architecture</span> <span class="n">Driver</span> <span class="n">Version</span> <span class="mf">1.0.12</span><span class="n">rc1</span> <span class="p">(</span><span class="n">Thu</span> <span class="n">Jun</span> <span class="mi">22</span> <span class="mi">13</span><span class="p">:</span><span class="mi">55</span><span class="p">:</span><span class="mi">50</span> <span class="mi">2006</span> <span class="n">UTC</span><span class="p">)</span><span class="o">.</span>
+<span class="n">ASoC</span> <span class="n">version</span> <span class="mf">0.13.1</span>
+<span class="n">dma</span> <span class="n">rx</span><span class="p">:</span><span class="mi">3</span> <span class="n">tx</span><span class="p">:</span><span class="mi">4</span><span class="p">,</span> <span class="n">err</span> <span class="n">irq</span><span class="p">:</span><span class="mi">15</span><span class="p">,</span> <span class="n">regs</span><span class="p">:</span><span class="n">ffc00800</span>
+<span class="n">ssm2602</span> <span class="n">Audio</span> <span class="n">Codec</span> <span class="mf">0.1</span><span class="o">&lt;</span><span class="mi">6</span><span class="o">&gt;</span><span class="n">dma_alloc_init</span><span class="p">:</span> <span class="n">dma_page</span> <span class="o">@</span> <span class="mh">0x03011000</span> <span class="o">-</span> <span class="mi">512</span> <span class="n">pages</span> <span class="n">at</span> <span class="mh">0x03e00000</span>
+<span class="n">asoc</span><span class="p">:</span> <span class="n">SSM2602</span> <span class="o">&lt;-&gt;</span> <span class="n">bf5xx</span><span class="o">-</span><span class="n">i2s</span><span class="o">-</span><span class="mi">0</span> <span class="n">mapping</span> <span class="n">ok</span>
+<span class="n">ALSA</span> <span class="n">device</span> <span class="nb">list</span><span class="p">:</span>
+  <span class="c1">#0: bf5xx_ssm2602 (SSM2602)</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="testing-the-audio-module">
+<h5>Testing the audio module<a class="headerlink" href="#testing-the-audio-module" title="Link to this heading"></a></h5>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">snd</span><span class="o">-</span><span class="n">ssm2602</span>
+<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">snd</span><span class="o">-</span><span class="n">pcm</span><span class="o">-</span><span class="n">oss</span>
+<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">lsmod</span>
+<span class="n">Module</span>                  <span class="n">Size</span>  <span class="n">Used</span> <span class="n">by</span>
+<span class="n">snd_pcm_oss</span>            <span class="mi">31968</span>  <span class="mi">0</span>
+<span class="n">snd_mixer_oss</span>          <span class="mi">11360</span>  <span class="mi">1</span> <span class="n">snd_pcm_oss</span>
+<span class="n">snd_ssm2602</span>             <span class="mi">1412</span>  <span class="mi">0</span>
+<span class="n">snd_soc_ssm2602</span>         <span class="mi">8528</span>  <span class="mi">1</span> <span class="n">snd_ssm2602</span>
+<span class="n">snd_soc_bf5xx</span>           <span class="mi">2784</span>  <span class="mi">1</span> <span class="n">snd_ssm2602</span>
+<span class="n">snd_soc_bf5xx_i2s</span>      <span class="mi">10916</span>  <span class="mi">2</span> <span class="n">snd_ssm2602</span><span class="p">,</span><span class="n">snd_soc_bf5xx</span>
+<span class="n">snd_soc_core</span>           <span class="mi">17120</span>  <span class="mi">3</span> <span class="n">snd_ssm2602</span><span class="p">,</span><span class="n">snd_soc_ssm2602</span><span class="p">,</span><span class="n">snd_soc_bf5xx</span>
+<span class="n">snd_pcm</span>                <span class="mi">48356</span>  <span class="mi">3</span> <span class="n">snd_pcm_oss</span><span class="p">,</span><span class="n">snd_soc_bf5xx</span><span class="p">,</span><span class="n">snd_soc_core</span>
+<span class="n">snd_page_alloc</span>          <span class="mi">4232</span>  <span class="mi">1</span> <span class="n">snd_pcm</span>
+<span class="n">snd_timer</span>              <span class="mi">13796</span>  <span class="mi">1</span> <span class="n">snd_pcm</span>
+<span class="n">snd</span>                    <span class="mi">31092</span>  <span class="mi">6</span> <span class="n">snd_pcm_oss</span><span class="p">,</span><span class="n">snd_mixer_oss</span><span class="p">,</span><span class="n">snd_soc_ssm2602</span><span class="p">,</span><span class="n">snd_soc_core</span><span class="p">,</span><span class="n">snd_pcm</span><span class="p">,</span><span class="n">snd_timer</span>
+<span class="n">soundcore</span>               <span class="mi">3940</span>  <span class="mi">1</span> <span class="n">snd</span>
+
+<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">tone</span>
+<span class="n">TONE</span><span class="p">:</span> <span class="n">generating</span> <span class="n">sine</span> <span class="n">wave</span> <span class="n">at</span> <span class="mi">1000</span> <span class="n">Hz</span><span class="o">...</span>
+</pre></div>
+</div>
+</section>
+<section id="testing-audio">
+<h5>Testing Audio<a class="headerlink" href="#testing-audio" title="Link to this heading"></a></h5>
+<ol class="arabic">
+<li><p>Check the output</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">tone</span>
+<span class="n">TONE</span><span class="p">:</span> <span class="n">generating</span> <span class="n">sine</span> <span class="n">wave</span> <span class="n">at</span> <span class="mi">1000</span> <span class="n">Hz</span><span class="o">...</span>
+</pre></div>
+</div>
+<p>You should hear something out of the headphone Jack on the top of J8.</p>
+</li>
+<li><p>Set the audio mixer to Mic (the default is Line, assuming you have built ALSA
+utils):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">amixer</span> <span class="n">sset</span> <span class="s1">'Input Mux'</span> <span class="s1">'Mic'</span>
+<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">'Input Mux'</span><span class="p">,</span><span class="mi">0</span>
+  <span class="n">Capabilities</span><span class="p">:</span> <span class="n">enum</span>
+  <span class="n">Items</span><span class="p">:</span> <span class="s1">'Line'</span> <span class="s1">'Mic'</span>
+  <span class="n">Item0</span><span class="p">:</span> <span class="s1">'Mic'</span>
+</pre></div>
+</div>
+<p>Also you can run <code class="docutils literal notranslate"><span class="pre">alsamixer</span></code> to get graphic configuration interface,
+OSS-based <code class="docutils literal notranslate"><span class="pre">mixer</span></code> can work too.</p>
+</li>
+<li><p>Check to make sure mp3s work (assuming you have built mp3play),</p>
+<ol class="arabic">
+<li><p>The first step is to download a mp3 file onto the platform. The <code class="docutils literal notranslate"><span class="pre">wget</span></code>
+command assumes that networking is properly configured (you have an IP
+number, the default gateway is set, and DNS servers can be accessed), and
+working.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cd</span> <span class="o">/</span><span class="n">var</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">var</span><span class="o">&gt;</span> <span class="n">wget</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">www</span><span class="o">.</span><span class="n">radiocrazy</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">shows</span><span class="o">/</span><span class="n">A</span><span class="o">/</span><span class="n">AbbottCostello</span><span class="o">/</span><span class="n">ABCOWhosOnFirstclip</span><span class="o">.</span><span class="n">mp3</span>
+</pre></div>
+</div>
+</li>
+<li><p>Next, play it with mp3play:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">var</span><span class="o">&gt;</span> <span class="n">mp3play</span> <span class="n">ABCOWhosOnFirstclip</span><span class="o">.</span><span class="n">mp3</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</li>
+<li><p>You can play it in one step with:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">mp3play</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">www</span><span class="o">.</span><span class="n">radiocrazy</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">shows</span><span class="o">/</span><span class="n">A</span><span class="o">/</span><span class="n">AbbottCostello</span><span class="o">/</span><span class="n">ABCOWhosOnFirstclip</span><span class="o">.</span><span class="n">mp3</span>
+<span class="o">%%</span><span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">www</span><span class="o">.</span><span class="n">radiocrazy</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">shows</span><span class="o">/</span><span class="n">A</span><span class="o">/</span><span class="n">AbbottCostello</span><span class="o">/</span><span class="n">ABCOWhosOnFirstclip</span><span class="o">.</span><span class="n">mp3</span><span class="p">:</span> <span class="n">MPEG2</span><span class="o">-</span><span class="n">III</span> <span class="p">(</span><span class="mi">0</span> <span class="n">ms</span><span class="p">)</span><span class="o">%%</span>
+</pre></div>
+</div>
+</li>
+<li><p>Optionally check to make sure the Line and headphone are working properly:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">amixer</span> <span class="n">sset</span> <span class="s1">'Input Mux'</span> <span class="s1">'Line'</span>
+<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">'Input Mux'</span><span class="p">,</span><span class="mi">0</span>
+  <span class="n">Capabilities</span><span class="p">:</span> <span class="n">enum</span>
+  <span class="n">Items</span><span class="p">:</span> <span class="s1">'Line'</span> <span class="s1">'Mic'</span>
+  <span class="n">Item0</span><span class="p">:</span> <span class="s1">'Line'</span>
+<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">arecord</span> <span class="o">-</span><span class="n">d</span> <span class="mi">10</span> <span class="n">test</span><span class="o">.</span><span class="n">wav</span>
+<span class="n">Recording</span> <span class="n">WAVE</span> <span class="s2">"test.wav"</span> <span class="p">:</span> <span class="n">Unsigned</span> <span class="mi">8</span> <span class="n">bit</span><span class="p">,</span> <span class="n">Rate</span> <span class="mi">8000</span> <span class="n">Hz</span><span class="p">,</span> <span class="n">Mono</span>
+<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">aplay</span> <span class="n">test</span><span class="o">.</span><span class="n">wav</span>
+</pre></div>
+</div>
+<p>This should record 10 seconds of whatever is on the Line, and then play it
+back over the output.</p>
+</li>
+<li><p>You should also be able to do a <code class="docutils literal notranslate"><span class="pre">talkthrough</span></code>, and hear on the speakers
+anything you put on the line.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">arecord</span> <span class="o">|</span> <span class="n">aplay</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+</section>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="routing-and-dapm">
+<h3>Routing and DAPM<a class="headerlink" href="#routing-and-dapm" title="Link to this heading"></a></h3>
 <section id="asoc-dapm-widgets">
-<h3>ASoC DAPM Widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h3>
+<h4>ASoC DAPM Widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -585,8 +798,9 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 </table>
 </div>
 </section>
+</section>
 <section id="alsa-controls">
-<h3>ALSA Controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
+<h3>ALSA controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -613,8 +827,8 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 <td><p>SSM2602, SSM2603, SSM2604</p></td>
 </tr>
 <tr class="row-even"><td><p>Playback De-emphasis</p></td>
-<td><p>Select playback de-emphasis. Possible values: <code class="docutils literal notranslate"><span class="pre">None</span></code>, <code class="docutils literal notranslate"><span class="pre">32Khz</span></code>,
-<code class="docutils literal notranslate"><span class="pre">44.1Khz</span></code>, <code class="docutils literal notranslate"><span class="pre">48Khz</span></code></p></td>
+<td><p>Select playback de-emphasis. Possible values: <code class="docutils literal notranslate"><span class="pre">None</span></code>, <code class="docutils literal notranslate"><span class="pre">32Khz</span></code>, <code class="docutils literal notranslate"><span class="pre">44.1Khz</span></code>,
+<code class="docutils literal notranslate"><span class="pre">48Khz</span></code></p></td>
 <td><p>SSM2602, SSM2603, SSM2604</p></td>
 </tr>
 <tr class="row-odd"><td><p>Master Playback Volume</p></td>
@@ -653,7 +867,7 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 <td><p>Mix Microphone signal into the output signal</p></td>
 <td><p>SSM2602, SSM2603</p></td>
 </tr>
-<tr class="row-even"><td><p>Input Select</p></td>
+<tr class="row-even"><td><p>Input Mux</p></td>
 <td><p>Select the ADC input signal. Possible values: <code class="docutils literal notranslate"><span class="pre">Line</span></code>, <code class="docutils literal notranslate"><span class="pre">Mic</span></code></p></td>
 <td><p>SSM2602, SSM2603</p></td>
 </tr>
@@ -661,11 +875,13 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 </table>
 </div>
 </section>
+<section id="dai-formats-and-clocks">
+<h3>DAI formats and clocks<a class="headerlink" href="#dai-formats-and-clocks" title="Link to this heading"></a></h3>
 <section id="dai-configuration">
-<h3>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h3>
+<h4>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h4>
 <p>The codec driver registers one DAI named <strong>``ssm2602-hifi``</strong>.</p>
 <section id="supported-dai-formats">
-<h4>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h4>
+<h5>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h5>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -748,7 +964,7 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 </div>
 </section>
 <section id="supported-sysclk-rates">
-<h4>Supported SYSCLK rates<a class="headerlink" href="#supported-sysclk-rates" title="Link to this heading"></a></h4>
+<h5>Supported SYSCLK rates<a class="headerlink" href="#supported-sysclk-rates" title="Link to this heading"></a></h5>
 <p>The codecs system clock can be configured for various input rates. When
 configuring the codec system clock use SSM2602_SYSCLK for the clock id.</p>
 <p>The following list contains the supported system clock rates and their resulting
@@ -779,6 +995,7 @@ sample-rates.</p>
 </tbody>
 </table>
 </div>
+</section>
 </section>
 <section id="example-dai-configuration">
 <h4>Example DAI configuration<a class="headerlink" href="#example-dai-configuration" title="Link to this heading"></a></h4>
@@ -828,183 +1045,6 @@ sample-rates.</p>
 </pre></div>
 </div>
 </section>
-</section>
-</section>
-<section id="ssm2604-evaluation-board-driver">
-<h2>SSM2604 evaluation board driver<a class="headerlink" href="#ssm2604-evaluation-board-driver" title="Link to this heading"></a></h2>
-<section id="source">
-<h3>Source<a class="headerlink" href="#source" title="Link to this heading"></a></h3>
-<section id="id2">
-<h4>Status<a class="headerlink" href="#id2" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Source</p></th>
-<th class="head"><p>Mainlined?</p></th>
-<th class="head"></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/2018_R1/sound/soc/blackfin/bf5xx-ssm2602.c" target="_blank">git</a></p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bf5xx-ssm2602.c" target="_blank">Yes</a></p></td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-</section>
-<section id="as-a-module">
-<h3>As a Module<a class="headerlink" href="#as-a-module" title="Link to this heading"></a></h3>
-<p>To add support for the built-in codec SSM2602 of BF52xC to the kernel build
-system, a few things must be enabled properly for things to work. The
-configuration is as following:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-  <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-      <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">Sound</span> <span class="n">card</span> <span class="n">support</span> <span class="o">---&gt;</span>
-        <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">Advanced</span> <span class="n">Linux</span> <span class="n">Sound</span> <span class="n">Architecture</span>  <span class="o">---&gt;</span>
-          <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Sequencer</span> <span class="n">support</span>
-          <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">OSS</span> <span class="n">Mixer</span> <span class="n">API</span>
-          <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">OSS</span> <span class="n">PCM</span> <span class="p">(</span><span class="n">digital</span> <span class="n">audio</span><span class="p">)</span> <span class="n">API</span>
-          <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">ALSA</span> <span class="k">for</span> <span class="n">SoC</span> <span class="n">audio</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-            <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">SoC</span> <span class="n">I2S</span> <span class="n">Audio</span> <span class="k">for</span> <span class="n">the</span> <span class="n">ADI</span> <span class="n">BF5xx</span> <span class="n">chip</span>
-              <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">SoC</span> <span class="n">SSM2602</span> <span class="n">Audio</span> <span class="n">support</span> <span class="k">for</span> <span class="n">BF52x</span> <span class="n">ezkit</span>
-            <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">SoC</span> <span class="n">AC97</span> <span class="n">Audio</span> <span class="n">support</span> <span class="k">for</span> <span class="n">BF5xx</span>
-            <span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="n">Set</span> <span class="n">a</span> <span class="n">SPORT</span> <span class="k">for</span> <span class="n">Sound</span> <span class="n">chip</span>
-</pre></div>
-</div>
-<div class="admonition important">
-<p class="admonition-title">Important</p>
-<p>I2C bus is used to configure the codec. So, if the audio driver is built into
-kernel, the I2c driver is also built into kernel automatically. But if the
-audio driver is built as module, then make sure that the I2C driver is loaded
-before the audio module.</p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-  <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span> <span class="n">I2C</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-      <span class="o">---</span> <span class="n">I2C</span> <span class="n">support</span>
-          <span class="n">I2C</span> <span class="n">Hardware</span> <span class="n">Bus</span> <span class="n">Support</span> <span class="o">---&gt;</span>
-            <span class="o">&lt;*&gt;</span> <span class="n">Blackfin</span> <span class="n">TWI</span> <span class="n">I2C</span> <span class="n">support</span>
-</pre></div>
-</div>
-<p>Doing this will create modules (outside the kernel). The modules will be
-inserted automatically when it is needed. You can also build sound driver into
-kernel.</p>
-</section>
-<section id="testing-the-built-in-kernel-driver">
-<h3>Testing the built in kernel driver<a class="headerlink" href="#testing-the-built-in-kernel-driver" title="Link to this heading"></a></h3>
-<p>If audio is configured as modules, skip this section. If audio is built into
-kernel and you have booted the kernel, there are a few things to check to ensure
-audio is working:</p>
-<ol class="arabic">
-<li><p>Check the boot messages to see if you have booted the correct kernel. During
-kernel boot, it should print out:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Advanced</span> <span class="n">Linux</span> <span class="n">Sound</span> <span class="n">Architecture</span> <span class="n">Driver</span> <span class="n">Version</span> <span class="mf">1.0.12</span><span class="n">rc1</span> <span class="p">(</span><span class="n">Thu</span> <span class="n">Jun</span> <span class="mi">22</span> <span class="mi">13</span><span class="p">:</span><span class="mi">55</span><span class="p">:</span><span class="mi">50</span> <span class="mi">2006</span> <span class="n">UTC</span><span class="p">)</span><span class="o">.</span>
-<span class="n">ASoC</span> <span class="n">version</span> <span class="mf">0.13.1</span>
-<span class="n">dma</span> <span class="n">rx</span><span class="p">:</span><span class="mi">3</span> <span class="n">tx</span><span class="p">:</span><span class="mi">4</span><span class="p">,</span> <span class="n">err</span> <span class="n">irq</span><span class="p">:</span><span class="mi">15</span><span class="p">,</span> <span class="n">regs</span><span class="p">:</span><span class="n">ffc00800</span>
-<span class="n">ssm2602</span> <span class="n">Audio</span> <span class="n">Codec</span> <span class="mf">0.1</span><span class="o">&lt;</span><span class="mi">6</span><span class="o">&gt;</span><span class="n">dma_alloc_init</span><span class="p">:</span> <span class="n">dma_page</span> <span class="o">@</span> <span class="mh">0x03011000</span> <span class="o">-</span> <span class="mi">512</span> <span class="n">pages</span> <span class="n">at</span> <span class="mh">0x03e00000</span>
-<span class="n">asoc</span><span class="p">:</span> <span class="n">SSM2602</span> <span class="o">&lt;-&gt;</span> <span class="n">bf5xx</span><span class="o">-</span><span class="n">i2s</span><span class="o">-</span><span class="mi">0</span> <span class="n">mapping</span> <span class="n">ok</span>
-<span class="n">ALSA</span> <span class="n">device</span> <span class="nb">list</span><span class="p">:</span>
-  <span class="c1">#0: bf5xx_ssm2602 (SSM2602)</span>
-</pre></div>
-</div>
-</li>
-</ol>
-</section>
-<section id="testing-the-audio-module">
-<h3>Testing the audio module<a class="headerlink" href="#testing-the-audio-module" title="Link to this heading"></a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">snd</span><span class="o">-</span><span class="n">ssm2602</span>
-<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">snd</span><span class="o">-</span><span class="n">pcm</span><span class="o">-</span><span class="n">oss</span>
-<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">lsmod</span>
-<span class="n">Module</span>                  <span class="n">Size</span>  <span class="n">Used</span> <span class="n">by</span>
-<span class="n">snd_pcm_oss</span>            <span class="mi">31968</span>  <span class="mi">0</span>
-<span class="n">snd_mixer_oss</span>          <span class="mi">11360</span>  <span class="mi">1</span> <span class="n">snd_pcm_oss</span>
-<span class="n">snd_ssm2602</span>             <span class="mi">1412</span>  <span class="mi">0</span>
-<span class="n">snd_soc_ssm2602</span>         <span class="mi">8528</span>  <span class="mi">1</span> <span class="n">snd_ssm2602</span>
-<span class="n">snd_soc_bf5xx</span>           <span class="mi">2784</span>  <span class="mi">1</span> <span class="n">snd_ssm2602</span>
-<span class="n">snd_soc_bf5xx_i2s</span>      <span class="mi">10916</span>  <span class="mi">2</span> <span class="n">snd_ssm2602</span><span class="p">,</span><span class="n">snd_soc_bf5xx</span>
-<span class="n">snd_soc_core</span>           <span class="mi">17120</span>  <span class="mi">3</span> <span class="n">snd_ssm2602</span><span class="p">,</span><span class="n">snd_soc_ssm2602</span><span class="p">,</span><span class="n">snd_soc_bf5xx</span>
-<span class="n">snd_pcm</span>                <span class="mi">48356</span>  <span class="mi">3</span> <span class="n">snd_pcm_oss</span><span class="p">,</span><span class="n">snd_soc_bf5xx</span><span class="p">,</span><span class="n">snd_soc_core</span>
-<span class="n">snd_page_alloc</span>          <span class="mi">4232</span>  <span class="mi">1</span> <span class="n">snd_pcm</span>
-<span class="n">snd_timer</span>              <span class="mi">13796</span>  <span class="mi">1</span> <span class="n">snd_pcm</span>
-<span class="n">snd</span>                    <span class="mi">31092</span>  <span class="mi">6</span> <span class="n">snd_pcm_oss</span><span class="p">,</span><span class="n">snd_mixer_oss</span><span class="p">,</span><span class="n">snd_soc_ssm2602</span><span class="p">,</span><span class="n">snd_soc_core</span><span class="p">,</span><span class="n">snd_pcm</span><span class="p">,</span><span class="n">snd_timer</span>
-<span class="n">soundcore</span>               <span class="mi">3940</span>  <span class="mi">1</span> <span class="n">snd</span>
-
-<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">tone</span>
-<span class="n">TONE</span><span class="p">:</span> <span class="n">generating</span> <span class="n">sine</span> <span class="n">wave</span> <span class="n">at</span> <span class="mi">1000</span> <span class="n">Hz</span><span class="o">...</span>
-</pre></div>
-</div>
-</section>
-<section id="testing-audio">
-<h3>Testing Audio<a class="headerlink" href="#testing-audio" title="Link to this heading"></a></h3>
-<ol class="arabic">
-<li><p>Check the output</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">tone</span>
-<span class="n">TONE</span><span class="p">:</span> <span class="n">generating</span> <span class="n">sine</span> <span class="n">wave</span> <span class="n">at</span> <span class="mi">1000</span> <span class="n">Hz</span><span class="o">...</span>
-</pre></div>
-</div>
-<p>You should hear something out of the headphone Jack on the top of J8.</p>
-</li>
-<li><p>Set the audio mixer to Mic (the default is Line, assuming you have built ALSA
-utils):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">amixer</span> <span class="n">sset</span> <span class="s1">'Input Mux'</span> <span class="s1">'Mic'</span>
-<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">'Input Mux'</span><span class="p">,</span><span class="mi">0</span>
-  <span class="n">Capabilities</span><span class="p">:</span> <span class="n">enum</span>
-  <span class="n">Items</span><span class="p">:</span> <span class="s1">'Line'</span> <span class="s1">'Mic'</span>
-  <span class="n">Item0</span><span class="p">:</span> <span class="s1">'Mic'</span>
-</pre></div>
-</div>
-<p>Also you can run <code class="docutils literal notranslate"><span class="pre">alsamixer</span></code> to get graphic configuration interface,
-OSS-based <code class="docutils literal notranslate"><span class="pre">mixer</span></code> can work too.</p>
-</li>
-<li><p>Check to make sure mp3s work (assuming you have built mp3play),</p>
-<ol class="arabic">
-<li><p>The first step is to download a mp3 file onto the platform. The <code class="docutils literal notranslate"><span class="pre">wget</span></code>
-command assumes that networking is properly configured (you have an IP
-number, the default gateway is set, and DNS servers can be accessed), and
-working.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cd</span> <span class="o">/</span><span class="n">var</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">var</span><span class="o">&gt;</span> <span class="n">wget</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">www</span><span class="o">.</span><span class="n">radiocrazy</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">shows</span><span class="o">/</span><span class="n">A</span><span class="o">/</span><span class="n">AbbottCostello</span><span class="o">/</span><span class="n">ABCOWhosOnFirstclip</span><span class="o">.</span><span class="n">mp3</span>
-</pre></div>
-</div>
-</li>
-<li><p>Next, play it with mp3play:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">var</span><span class="o">&gt;</span> <span class="n">mp3play</span> <span class="n">ABCOWhosOnFirstclip</span><span class="o">.</span><span class="n">mp3</span>
-</pre></div>
-</div>
-</li>
-</ol>
-</li>
-<li><p>You can play it in one step with:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">mp3play</span> <span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">www</span><span class="o">.</span><span class="n">radiocrazy</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">shows</span><span class="o">/</span><span class="n">A</span><span class="o">/</span><span class="n">AbbottCostello</span><span class="o">/</span><span class="n">ABCOWhosOnFirstclip</span><span class="o">.</span><span class="n">mp3</span>
-<span class="o">%%</span><span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">www</span><span class="o">.</span><span class="n">radiocrazy</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">shows</span><span class="o">/</span><span class="n">A</span><span class="o">/</span><span class="n">AbbottCostello</span><span class="o">/</span><span class="n">ABCOWhosOnFirstclip</span><span class="o">.</span><span class="n">mp3</span><span class="p">:</span> <span class="n">MPEG2</span><span class="o">-</span><span class="n">III</span> <span class="p">(</span><span class="mi">0</span> <span class="n">ms</span><span class="p">)</span><span class="o">%%</span>
-</pre></div>
-</div>
-</li>
-<li><p>Optionally check to make sure the Line and headphone are working properly:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">amixer</span> <span class="n">sset</span> <span class="s1">'Input Mux'</span> <span class="s1">'Line'</span>
-<span class="n">Simple</span> <span class="n">mixer</span> <span class="n">control</span> <span class="s1">'Input Mux'</span><span class="p">,</span><span class="mi">0</span>
-  <span class="n">Capabilities</span><span class="p">:</span> <span class="n">enum</span>
-  <span class="n">Items</span><span class="p">:</span> <span class="s1">'Line'</span> <span class="s1">'Mic'</span>
-  <span class="n">Item0</span><span class="p">:</span> <span class="s1">'Line'</span>
-<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">arecord</span> <span class="o">-</span><span class="n">d</span> <span class="mi">10</span> <span class="n">test</span><span class="o">.</span><span class="n">wav</span>
-<span class="n">Recording</span> <span class="n">WAVE</span> <span class="s2">"test.wav"</span> <span class="p">:</span> <span class="n">Unsigned</span> <span class="mi">8</span> <span class="n">bit</span><span class="p">,</span> <span class="n">Rate</span> <span class="mi">8000</span> <span class="n">Hz</span><span class="p">,</span> <span class="n">Mono</span>
-<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">aplay</span> <span class="n">test</span><span class="o">.</span><span class="n">wav</span>
-</pre></div>
-</div>
-<p>This should record 10 seconds of whatever is on the Line, and then play it
-back over the output.</p>
-</li>
-<li><p>You should also be able to do a <code class="docutils literal notranslate"><span class="pre">talkthrough</span></code>, and hear on the speakers
-anything you put on the line.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">arecord</span> <span class="o">|</span> <span class="n">aplay</span>
-</pre></div>
-</div>
-</li>
-</ol>
 </section>
 </section>
 </section>

@@ -98,29 +98,7 @@
           <ul>
 <li><a class="reference internal" href="#">AXI TDD</a><ul>
 <li><a class="reference internal" href="#supported-ip-cores">Supported IP Cores</a></li>
-<li><a class="reference internal" href="#status">Status</a></li>
-<li><a class="reference internal" href="#files">Files</a></li>
-<li><a class="reference internal" href="#overview">Overview</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
-<li><a class="reference internal" href="#enabling-the-driver">Enabling the driver</a></li>
-<li><a class="reference internal" href="#adding-a-device-tree-entry">Adding a device tree entry</a><ul>
-<li><a class="reference internal" href="#required-properties">Required properties</a></li>
-<li><a class="reference internal" href="#device-tree-example">Device tree example</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#sysfs-interface">Sysfs interface</a><ul>
-<li><a class="reference internal" href="#core-attributes">Core attributes</a></li>
-<li><a class="reference internal" href="#control-attributes">Control attributes</a></li>
-<li><a class="reference internal" href="#timing-attributes">Timing attributes</a></li>
-<li><a class="reference internal" href="#per-channel-attributes-n-0-31">Per-channel attributes (N = 0..31)</a></li>
-<li><a class="reference internal" href="#example-sysfs-usage">Example sysfs usage</a></li>
-</ul>
-</li>
-</ul>
-</li>
+<li><a class="reference internal" href="#description">Description</a><ul>
 <li><a class="reference internal" href="#theory-of-operation">Theory of operation</a><ul>
 <li><a class="reference internal" href="#frame-generation">Frame generation</a></li>
 <li><a class="reference internal" href="#fsm-states">FSM states</a></li>
@@ -129,7 +107,35 @@
 <li><a class="reference internal" href="#register-update-restrictions">Register update restrictions</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#references">References</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
+<li><a class="reference internal" href="#files">Files</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
+<li><a class="reference internal" href="#required-properties">Required properties</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#example-sysfs-usage">Example sysfs usage</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#core-attributes">Core attributes</a></li>
+<li><a class="reference internal" href="#control-attributes">Control attributes</a></li>
+<li><a class="reference internal" href="#timing-attributes">Timing attributes</a><ul>
+<li><a class="reference internal" href="#per-channel-attributes-n-0-channel-count-1-up-to-31">Per-channel attributes (N = 0..channel_count - 1, up to 31)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
 </ul>
@@ -231,6 +237,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -249,7 +256,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -396,7 +402,12 @@ receiving multiple frames of data through multiple buffers.</p>
 <li><p>Configurable frame length and burst count</p></li>
 <li><p>Initial startup delay before waveform generation</p></li>
 <li><p>Three synchronization sources: external, internal, and software-generated</p></li>
-<li><p>Timing values in both raw clock cycles and milliseconds</p></li>
+<li><p>Timing values in raw register counts and milliseconds. For frame length,
+startup delay, and internal sync period, a nonzero raw value R is displayed
+in milliseconds as (R + 1) clock cycles; raw zero is displayed as zero.
+Millisecond writes round to clock cycles and subtract one for a nonzero
+result. Channel on/off offsets use direct cycle counts without this
+adjustment.</p></li>
 <li><p>Dynamic clock rate tracking via clock notifiers</p></li>
 </ul>
 <section id="supported-ip-cores">
@@ -405,8 +416,158 @@ receiving multiple frames of data through multiple buffers.</p>
 <li><p>AXI TDD IP v2.0.a</p></li>
 </ul>
 </section>
+<section id="description">
+<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
+<p>The AXI TDD controller is a generic waveform generator developed for use in
+Analog Devices HDL reference designs. Unlike previous TDD engines, this core
+operates only in standalone mode and is not embedded into other devices.</p>
+<p>Each output channel has independently configurable on and off times relative to
+the start of a frame. The controller generates repeating frames of a
+configurable length, with an optional startup delay before the first frame.
+Multiple frames can be grouped into a burst, or the controller can run
+continuously until disabled.</p>
+<p>Synchronization can be triggered from three sources:</p>
+<ul class="simple">
+<li><p><strong>Software sync</strong>: A one-shot trigger via the <code class="docutils literal notranslate"><span class="pre">sync_soft</span></code> attribute</p></li>
+<li><p><strong>Internal sync</strong>: A periodic trigger generated by an internal counter with
+a configurable period</p></li>
+<li><p><strong>External sync</strong>: A trigger from an external signal, optionally synchronized
+into the core clock domain via a CDC (Clock Domain Crossing) circuit</p></li>
+</ul>
+<section id="theory-of-operation">
+<h3>Theory of operation<a class="headerlink" href="#theory-of-operation" title="Link to this heading"></a></h3>
+<section id="frame-generation">
+<h4>Frame generation<a class="headerlink" href="#frame-generation" title="Link to this heading"></a></h4>
+<p>The central idea of the TDD controller is “frame”-based operation: all timing
+defined for individual channels is relative to the beginning of a frame. The
+<code class="docutils literal notranslate"><span class="pre">frame_length</span></code> value controls the length of a single frame, while
+<code class="docutils literal notranslate"><span class="pre">burst_count</span></code> controls how many frames should be played after enabling the
+device (a value of 0 means frames repeat indefinitely). Before the start of a
+burst, an optional startup delay is inserted, defined by <code class="docutils literal notranslate"><span class="pre">startup_delay</span></code> in
+clock cycles.</p>
+<p>The TDD core generates timing waveforms organized into frames:</p>
+<ol class="arabic simple">
+<li><p>When enabled, the core enters the ARMED state and waits for a sync event</p></li>
+<li><p>After sync, it transitions to the WAITING state and the startup delay
+counter runs (if configured)</p></li>
+<li><p>The core enters the RUNNING state and the frame counter begins, cycling
+through the configured frame length</p></li>
+<li><p>Each channel output is asserted at its <code class="docutils literal notranslate"><span class="pre">on</span></code> time and de-asserted at its
+<code class="docutils literal notranslate"><span class="pre">off</span></code> time within the frame</p></li>
+<li><p>After the frame completes, the next frame begins</p></li>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">burst_count</span></code> is non-zero, the core stops after that many frames and
+returns to IDLE; otherwise it runs continuously until disabled</p></li>
+</ol>
+</section>
+<section id="fsm-states">
+<h4>FSM states<a class="headerlink" href="#fsm-states" title="Link to this heading"></a></h4>
+<p>The peripheral transitions between four states. The current state can be read
+via the <code class="docutils literal notranslate"><span class="pre">state</span></code> sysfs attribute, which returns the numeric value:</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%" />
+<col style="width: 20.0%" />
+<col style="width: 65.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Value</p></th>
+<th class="head"><p>State</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>IDLE</p></td>
+<td><p>The core is disabled or has completed its burst</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>ARMED</p></td>
+<td><p>The core is enabled and waiting for a synchronization event</p></td>
+</tr>
+<tr class="row-even"><td><p>2</p></td>
+<td><p>WAITING</p></td>
+<td><p>A sync has been received; the startup delay is counting down</p></td>
+</tr>
+<tr class="row-odd"><td><p>3</p></td>
+<td><p>RUNNING</p></td>
+<td><p>Frames are actively being generated</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="synchronization">
+<h4>Synchronization<a class="headerlink" href="#synchronization" title="Link to this heading"></a></h4>
+<p>Software sync is available; internal and external sync depend on synthesis-time
+support; their attributes are present even when the core does not implement
+them. Enabled sources can be combined when supported by the core:</p>
+<ul class="simple">
+<li><p><strong>Software</strong> (<code class="docutils literal notranslate"><span class="pre">sync_soft</span></code>): Write-only, generates a single pulse. Useful
+for triggering operation at an arbitrary point in time.</p></li>
+<li><p><strong>Internal</strong> (<code class="docutils literal notranslate"><span class="pre">sync_internal</span></code>): Periodic trigger from an internal counter.
+The period is configured via <code class="docutils literal notranslate"><span class="pre">internal_sync_period_raw</span></code>/<code class="docutils literal notranslate"><span class="pre">_ms</span></code>.</p></li>
+<li><p><strong>External</strong> (<code class="docutils literal notranslate"><span class="pre">sync_external</span></code>): An external signal input, optionally
+processed through a CDC circuit (synthesis-time configuration). This allows
+alignment of frames between multiple devices in different locations, for
+example using a GPSDO 1 PPS output.</p></li>
+</ul>
+<p>If a synchronization signal is received while the TDD core is already running,
+the <code class="docutils literal notranslate"><span class="pre">sync_reset</span></code> attribute controls whether the internal counter is reset to
+zero. This can alter the counter value in both the WAITING and RUNNING states.</p>
+</section>
+<section id="channel-output">
+<h4>Channel output<a class="headerlink" href="#channel-output" title="Link to this heading"></a></h4>
+<p>The TDD controller can have up to 32 output channels. Each channel produces a
+single-bit output signal with unique <code class="docutils literal notranslate"><span class="pre">on</span></code> and <code class="docutils literal notranslate"><span class="pre">off</span></code> values that are
+continuously compared to the internal counter while the core is RUNNING.</p>
+<p>Within a frame:</p>
+<ul class="simple">
+<li><p>The output is asserted (set to active level) at the <code class="docutils literal notranslate"><span class="pre">on</span></code> time</p></li>
+<li><p>The output is de-asserted (set to inactive level) at the <code class="docutils literal notranslate"><span class="pre">off</span></code> time</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">polarity</span></code> attribute inverts the active level for a channel</p></li>
+</ul>
+<p>Every bit in <code class="docutils literal notranslate"><span class="pre">CHANNEL_ENABLE</span></code> / <code class="docutils literal notranslate"><span class="pre">CHANNEL_POLARITY</span></code> corresponds to a
+specific channel. The bit position is correlated to the channel index: the LSB
+is associated with channel 0 and the MSB with channel 31.</p>
+<p>Timing values can be specified in raw clock cycles or milliseconds. The
+millisecond values are converted to clock cycles using the <code class="docutils literal notranslate"><span class="pre">intf_clk</span></code> rate,
+which is tracked dynamically via clock notifiers.</p>
+</section>
+<section id="register-update-restrictions">
+<h4>Register update restrictions<a class="headerlink" href="#register-update-restrictions" title="Link to this heading"></a></h4>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Most configuration registers cannot be modified while the TDD core is
+enabled. Any writes to these registers while the peripheral is enabled
+will be ignored.</p>
+</div>
+<p>The following attributes must be configured <strong>before</strong> enabling the peripheral:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">burst_count</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">startup_delay_raw</span></code> / <code class="docutils literal notranslate"><span class="pre">startup_delay_ms</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">frame_length_raw</span></code> / <code class="docutils literal notranslate"><span class="pre">frame_length_ms</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">internal_sync_period_raw</span></code> / <code class="docutils literal notranslate"><span class="pre">internal_sync_period_ms</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">out_channelN_polarity</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">out_channelN_on_raw</span></code> / <code class="docutils literal notranslate"><span class="pre">out_channelN_on_ms</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">out_channelN_off_raw</span></code> / <code class="docutils literal notranslate"><span class="pre">out_channelN_off_ms</span></code></p></li>
+</ul>
+<p>Exceptions:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">out_channelN_enable</span></code> can be modified on-the-fly. The new value takes
+effect when the core enters the ARMED state or at the end of the current
+frame.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">enable</span></code>, <code class="docutils literal notranslate"><span class="pre">sync_soft</span></code>, <code class="docutils literal notranslate"><span class="pre">sync_external</span></code>, <code class="docutils literal notranslate"><span class="pre">sync_internal</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">sync_reset</span></code> (the <code class="docutils literal notranslate"><span class="pre">CONTROL</span></code> register) can be modified on-the-fly with
+immediate effect.</p></li>
+</ul>
+</section>
+</section>
+</section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
 <section id="status">
-<h2>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h2>
+<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -423,7 +584,7 @@ receiving multiple frames of data through multiple buffers.</p>
 </div>
 </section>
 <section id="files">
-<h2>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h2>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -451,29 +612,11 @@ receiving multiple frames of data through multiple buffers.</p>
 </table>
 </div>
 </section>
-<section id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
-<p>The AXI TDD controller is a generic waveform generator developed for use in
-Analog Devices HDL reference designs. Unlike previous TDD engines, this core
-operates only in standalone mode and is not embedded into other devices.</p>
-<p>Each output channel has independently configurable on and off times relative to
-the start of a frame. The controller generates repeating frames of a
-configurable length, with an optional startup delay before the first frame.
-Multiple frames can be grouped into a burst, or the controller can run
-continuously until disabled.</p>
-<p>Synchronization can be triggered from three sources:</p>
-<ul class="simple">
-<li><p><strong>Software sync</strong>: A one-shot trigger via the <code class="docutils literal notranslate"><span class="pre">sync_soft</span></code> attribute</p></li>
-<li><p><strong>Internal sync</strong>: A periodic trigger generated by an internal counter with
-a configurable period</p></li>
-<li><p><strong>External sync</strong>: A trigger from an external signal, optionally synchronized
-into the core clock domain via a CDC (Clock Domain Crossing) circuit</p></li>
-</ul>
 </section>
 <section id="adding-linux-driver-support">
 <h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<section id="enabling-the-driver">
-<h3>Enabling the driver<a class="headerlink" href="#enabling-the-driver" title="Link to this heading"></a></h3>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
     <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
@@ -482,19 +625,8 @@ into the core clock domain via a CDC (Clock Domain Crossing) circuit</p></li>
 </pre></div>
 </div>
 </section>
-<section id="adding-a-device-tree-entry">
-<h3>Adding a device tree entry<a class="headerlink" href="#adding-a-device-tree-entry" title="Link to this heading"></a></h3>
-<section id="required-properties">
-<h4>Required properties<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h4>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">compatible</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;adi,axi-tdd&quot;</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">reg</span></code>: Physical base address and size of the IP core registers</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">clocks</span></code>: References to the system clock and the TDD core clock</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">clock-names</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;s_axi_aclk&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;intf_clk&quot;</span></code></p></li>
-</ul>
-</section>
-<section id="device-tree-example">
-<h4>Device tree example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h4>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <p>Basic TDD core instance:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">tdd</span><span class="o">@</span><span class="mi">84</span><span class="n">a00000</span> <span class="p">{</span>
     <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-tdd"</span><span class="p">;</span>
@@ -513,188 +645,24 @@ into the core clock domain via a CDC (Clock Domain Crossing) circuit</p></li>
 <span class="p">};</span>
 </pre></div>
 </div>
+<section id="required-properties">
+<h4>Required properties<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">compatible</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;adi,axi-tdd&quot;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">reg</span></code>: Physical base address and size of the IP core registers</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clocks</span></code>: References to the system clock and the TDD core clock</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clock-names</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;s_axi_aclk&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;intf_clk&quot;</span></code></p></li>
+</ul>
 </section>
 </section>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <p>The TDD driver exposes a sysfs interface for configuration and monitoring.</p>
-<section id="sysfs-interface">
-<h3>Sysfs interface<a class="headerlink" href="#sysfs-interface" title="Link to this heading"></a></h3>
 <p>The driver creates sysfs attributes under
 <code class="docutils literal notranslate"><span class="pre">/sys/bus/platform/drivers/adi-axi-tdd/&lt;device&gt;/</span></code>.</p>
-<section id="core-attributes">
-<h4>Core attributes<a class="headerlink" href="#core-attributes" title="Link to this heading"></a></h4>
-<div class="table-wrapper colwidths-given docutils container">
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 30.0%" />
-<col style="width: 15.0%" />
-<col style="width: 55.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Attribute</p></th>
-<th class="head"><p>Access</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">version</span></code></p></td>
-<td><p>RO</p></td>
-<td><p>IP core version (semantic versioning)</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">core_id</span></code></p></td>
-<td><p>RO</p></td>
-<td><p>ID configuration parameter value</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">magic</span></code></p></td>
-<td><p>RO</p></td>
-<td><p>Identification code (0x5444444E = ‘T’,’D’,’D’,’N’)</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">scratch</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Scratch register for testing register access</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">state</span></code></p></td>
-<td><p>RO</p></td>
-<td><p>Current state of the peripheral FSM</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="control-attributes">
-<h4>Control attributes<a class="headerlink" href="#control-attributes" title="Link to this heading"></a></h4>
-<div class="table-wrapper colwidths-given docutils container">
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 30.0%" />
-<col style="width: 15.0%" />
-<col style="width: 55.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Attribute</p></th>
-<th class="head"><p>Access</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">enable</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Enable or disable the TDD module</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sync_soft</span></code></p></td>
-<td><p>WO</p></td>
-<td><p>Trigger one software sync pulse</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">sync_external</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Enable or disable the external sync trigger</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sync_internal</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Enable or disable the internal sync trigger</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">sync_reset</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Reset the internal counter on sync event</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="timing-attributes">
-<h4>Timing attributes<a class="headerlink" href="#timing-attributes" title="Link to this heading"></a></h4>
-<div class="table-wrapper colwidths-given docutils container">
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 30.0%" />
-<col style="width: 15.0%" />
-<col style="width: 55.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Attribute</p></th>
-<th class="head"><p>Access</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">burst_count</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Number of frames per burst (0 = continuous)</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">startup_delay_raw</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Initial delay before first frame (clock cycles)</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">startup_delay_ms</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Initial delay before first frame (milliseconds)</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">frame_length_raw</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Frame length (clock cycles)</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">frame_length_ms</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Frame length (milliseconds)</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">internal_sync_period_raw</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Internal sync generator period (clock cycles)</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">internal_sync_period_ms</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Internal sync generator period (milliseconds)</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="per-channel-attributes-n-0-31">
-<h4>Per-channel attributes (N = 0..31)<a class="headerlink" href="#per-channel-attributes-n-0-31" title="Link to this heading"></a></h4>
-<div class="table-wrapper colwidths-given docutils container">
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 30.0%" />
-<col style="width: 15.0%" />
-<col style="width: 55.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Attribute</p></th>
-<th class="head"><p>Access</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_enable</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Enable or disable output channel N</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_polarity</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Set the polarity of output channel N</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_on_raw</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Channel N assertion offset from frame start (clock cycles)</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_off_raw</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Channel N de-assertion offset from frame start (clock cycles)</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_on_ms</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Channel N assertion offset from frame start (milliseconds)</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_off_ms</span></code></p></td>
-<td><p>RW</p></td>
-<td><p>Channel N de-assertion offset from frame start (milliseconds)</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="example-sysfs-usage">
 <h4>Example sysfs usage<a class="headerlink" href="#example-sysfs-usage" title="Link to this heading"></a></h4>
 <p>The following example configures a burst of 2 pulses on channel 0, triggered
@@ -805,136 +773,181 @@ the configured sync event.</p></li>
 </ul>
 </section>
 </section>
-</section>
-<section id="theory-of-operation">
-<h2>Theory of operation<a class="headerlink" href="#theory-of-operation" title="Link to this heading"></a></h2>
-<section id="frame-generation">
-<h3>Frame generation<a class="headerlink" href="#frame-generation" title="Link to this heading"></a></h3>
-<p>The central idea of the TDD controller is “frame”-based operation: all timing
-defined for individual channels is relative to the beginning of a frame. The
-<code class="docutils literal notranslate"><span class="pre">frame_length</span></code> value controls the length of a single frame, while
-<code class="docutils literal notranslate"><span class="pre">burst_count</span></code> controls how many frames should be played after enabling the
-device (a value of 0 means frames repeat indefinitely). Before the start of a
-burst, an optional startup delay is inserted, defined by <code class="docutils literal notranslate"><span class="pre">startup_delay</span></code> in
-clock cycles.</p>
-<p>The TDD core generates timing waveforms organized into frames:</p>
-<ol class="arabic simple">
-<li><p>When enabled, the core enters the ARMED state and waits for a sync event</p></li>
-<li><p>After sync, it transitions to the WAITING state and the startup delay
-counter runs (if configured)</p></li>
-<li><p>The core enters the RUNNING state and the frame counter begins, cycling
-through the configured frame length</p></li>
-<li><p>Each channel output is asserted at its <code class="docutils literal notranslate"><span class="pre">on</span></code> time and de-asserted at its
-<code class="docutils literal notranslate"><span class="pre">off</span></code> time within the frame</p></li>
-<li><p>After the frame completes, the next frame begins</p></li>
-<li><p>If <code class="docutils literal notranslate"><span class="pre">burst_count</span></code> is non-zero, the core stops after that many frames and
-returns to IDLE; otherwise it runs continuously until disabled</p></li>
-</ol>
-</section>
-<section id="fsm-states">
-<h3>FSM states<a class="headerlink" href="#fsm-states" title="Link to this heading"></a></h3>
-<p>The peripheral transitions between four states. The current state can be read
-via the <code class="docutils literal notranslate"><span class="pre">state</span></code> sysfs attribute, which returns the numeric value:</p>
+<section id="core-attributes">
+<h3>Core attributes<a class="headerlink" href="#core-attributes" title="Link to this heading"></a></h3>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
 <colgroup>
+<col style="width: 30.0%" />
 <col style="width: 15.0%" />
-<col style="width: 20.0%" />
-<col style="width: 65.0%" />
+<col style="width: 55.0%" />
 </colgroup>
 <thead>
-<tr class="row-odd"><th class="head"><p>Value</p></th>
-<th class="head"><p>State</p></th>
+<tr class="row-odd"><th class="head"><p>Attribute</p></th>
+<th class="head"><p>Access</p></th>
 <th class="head"><p>Description</p></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p>0</p></td>
-<td><p>IDLE</p></td>
-<td><p>The core is disabled or has completed its burst</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">version</span></code></p></td>
+<td><p>RO</p></td>
+<td><p>IP core version (semantic versioning)</p></td>
 </tr>
-<tr class="row-odd"><td><p>1</p></td>
-<td><p>ARMED</p></td>
-<td><p>The core is enabled and waiting for a synchronization event</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">core_id</span></code></p></td>
+<td><p>RO</p></td>
+<td><p>ID configuration parameter value</p></td>
 </tr>
-<tr class="row-even"><td><p>2</p></td>
-<td><p>WAITING</p></td>
-<td><p>A sync has been received; the startup delay is counting down</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">magic</span></code></p></td>
+<td><p>RO</p></td>
+<td><p>Identification code (0x5444444E = ‘T’,’D’,’D’,’N’)</p></td>
 </tr>
-<tr class="row-odd"><td><p>3</p></td>
-<td><p>RUNNING</p></td>
-<td><p>Frames are actively being generated</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">scratch</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Scratch register for testing register access</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">state</span></code></p></td>
+<td><p>RO</p></td>
+<td><p>Current state of the peripheral FSM</p></td>
 </tr>
 </tbody>
 </table>
 </div>
 </section>
-<section id="synchronization">
-<h3>Synchronization<a class="headerlink" href="#synchronization" title="Link to this heading"></a></h3>
-<p>Three sync sources are available and can be enabled simultaneously:</p>
-<ul class="simple">
-<li><p><strong>Software</strong> (<code class="docutils literal notranslate"><span class="pre">sync_soft</span></code>): Write-only, generates a single pulse. Useful
-for triggering operation at an arbitrary point in time.</p></li>
-<li><p><strong>Internal</strong> (<code class="docutils literal notranslate"><span class="pre">sync_internal</span></code>): Periodic trigger from an internal counter.
-The period is configured via <code class="docutils literal notranslate"><span class="pre">internal_sync_period_raw</span></code>/<code class="docutils literal notranslate"><span class="pre">_ms</span></code>.</p></li>
-<li><p><strong>External</strong> (<code class="docutils literal notranslate"><span class="pre">sync_external</span></code>): An external signal input, optionally
-processed through a CDC circuit (synthesis-time configuration). This allows
-alignment of frames between multiple devices in different locations, for
-example using a GPSDO 1 PPS output.</p></li>
-</ul>
-<p>If a synchronization signal is received while the TDD core is already running,
-the <code class="docutils literal notranslate"><span class="pre">sync_reset</span></code> attribute controls whether the internal counter is reset to
-zero. This can alter the counter value in both the WAITING and RUNNING states.</p>
-</section>
-<section id="channel-output">
-<h3>Channel output<a class="headerlink" href="#channel-output" title="Link to this heading"></a></h3>
-<p>The TDD controller can have up to 32 output channels. Each channel produces a
-single-bit output signal with unique <code class="docutils literal notranslate"><span class="pre">on</span></code> and <code class="docutils literal notranslate"><span class="pre">off</span></code> values that are
-continuously compared to the internal counter while the core is RUNNING.</p>
-<p>Within a frame:</p>
-<ul class="simple">
-<li><p>The output is asserted (set to active level) at the <code class="docutils literal notranslate"><span class="pre">on</span></code> time</p></li>
-<li><p>The output is de-asserted (set to inactive level) at the <code class="docutils literal notranslate"><span class="pre">off</span></code> time</p></li>
-<li><p>The <code class="docutils literal notranslate"><span class="pre">polarity</span></code> attribute inverts the active level for a channel</p></li>
-</ul>
-<p>Every bit in <code class="docutils literal notranslate"><span class="pre">CHANNEL_ENABLE</span></code> / <code class="docutils literal notranslate"><span class="pre">CHANNEL_POLARITY</span></code> corresponds to a
-specific channel. The bit position is correlated to the channel index: the LSB
-is associated with channel 0 and the MSB with channel 31.</p>
-<p>Timing values can be specified in raw clock cycles or milliseconds. The
-millisecond values are converted to clock cycles using the <code class="docutils literal notranslate"><span class="pre">intf_clk</span></code> rate,
-which is tracked dynamically via clock notifiers.</p>
-</section>
-<section id="register-update-restrictions">
-<h3>Register update restrictions<a class="headerlink" href="#register-update-restrictions" title="Link to this heading"></a></h3>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Most configuration registers cannot be modified while the TDD core is
-enabled. Any writes to these registers while the peripheral is enabled
-will be ignored.</p>
+<section id="control-attributes">
+<h3>Control attributes<a class="headerlink" href="#control-attributes" title="Link to this heading"></a></h3>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Attribute</p></th>
+<th class="head"><p>Access</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">enable</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Enable or disable the TDD module</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sync_soft</span></code></p></td>
+<td><p>WO</p></td>
+<td><p>Trigger one software sync pulse</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">sync_external</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Enable or disable the external sync trigger</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sync_internal</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Enable or disable the internal sync trigger</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">sync_reset</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Reset the internal counter on sync event</p></td>
+</tr>
+</tbody>
+</table>
 </div>
-<p>The following attributes must be configured <strong>before</strong> enabling the peripheral:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">burst_count</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">startup_delay_raw</span></code> / <code class="docutils literal notranslate"><span class="pre">startup_delay_ms</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">frame_length_raw</span></code> / <code class="docutils literal notranslate"><span class="pre">frame_length_ms</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">internal_sync_period_raw</span></code> / <code class="docutils literal notranslate"><span class="pre">internal_sync_period_ms</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">out_channelN_polarity</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">out_channelN_on_raw</span></code> / <code class="docutils literal notranslate"><span class="pre">out_channelN_on_ms</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">out_channelN_off_raw</span></code> / <code class="docutils literal notranslate"><span class="pre">out_channelN_off_ms</span></code></p></li>
-</ul>
-<p>Exceptions:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">out_channelN_enable</span></code> can be modified on-the-fly. The new value takes
-effect when the core enters the ARMED state or at the end of the current
-frame.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">enable</span></code>, <code class="docutils literal notranslate"><span class="pre">sync_soft</span></code>, <code class="docutils literal notranslate"><span class="pre">sync_external</span></code>, <code class="docutils literal notranslate"><span class="pre">sync_internal</span></code>, and
-<code class="docutils literal notranslate"><span class="pre">sync_reset</span></code> (the <code class="docutils literal notranslate"><span class="pre">CONTROL</span></code> register) can be modified on-the-fly with
-immediate effect.</p></li>
-</ul>
+</section>
+<section id="timing-attributes">
+<h3>Timing attributes<a class="headerlink" href="#timing-attributes" title="Link to this heading"></a></h3>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Attribute</p></th>
+<th class="head"><p>Access</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">burst_count</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Number of frames per burst (0 = continuous)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">startup_delay_raw</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Initial delay before first frame (clock cycles)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">startup_delay_ms</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Initial delay before first frame (milliseconds)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">frame_length_raw</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Frame length (clock cycles)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">frame_length_ms</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Frame length (milliseconds)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">internal_sync_period_raw</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Internal sync generator period (clock cycles)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">internal_sync_period_ms</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Internal sync generator period (milliseconds)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="per-channel-attributes-n-0-channel-count-1-up-to-31">
+<h4>Per-channel attributes (N = 0..channel_count - 1, up to 31)<a class="headerlink" href="#per-channel-attributes-n-0-channel-count-1-up-to-31" title="Link to this heading"></a></h4>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Attribute</p></th>
+<th class="head"><p>Access</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_enable</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Enable or disable output channel N</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_polarity</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Set the polarity of output channel N</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_on_raw</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Channel N assertion offset from frame start (clock cycles)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_off_raw</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Channel N de-assertion offset from frame start (clock cycles)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_on_ms</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Channel N assertion offset from frame start (milliseconds)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_off_ms</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Channel N de-assertion offset from frame start (milliseconds)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 </section>
 </section>
-<section id="references">
-<h2>References<a class="headerlink" href="#references" title="Link to this heading"></a></h2>
+</section>
+<section id="more-information">
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/fpga/docs/axi_tdd" target="_blank">Generic Time-Division Duplexing Controller on wiki</a></p></li>
 </ul>

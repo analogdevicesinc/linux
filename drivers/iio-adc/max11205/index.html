@@ -106,8 +106,11 @@
 </ul>
 </li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a></li>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
 <li><a class="reference internal" href="#show-raw-measurement">Show raw measurement</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#show-scale">Show scale</a></li>
 <li><a class="reference internal" href="#show-sampling-frequency">Show sampling frequency</a></li>
 <li><a class="reference internal" href="#trigger-management">Trigger management</a></li>
@@ -216,6 +219,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -234,7 +238,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -448,8 +451,8 @@ MAX11205 operates over the -40°C to +85°C temperature range.</p>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
-<p>When configured with channel 0 as voltage output the following structure is
-created under the corresponding IIO device.</p>
+<p>The driver exposes one voltage input channel. The following example uses
+MAX11205A; MAX11205B has a different fixed sample rate.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="c1"># ls</span>
 <span class="n">iio</span><span class="p">:</span><span class="n">device0</span>  <span class="n">iio_sysfs_trigger</span>  <span class="n">trigger0</span>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="c1"># cd iio:device0</span>
@@ -469,15 +472,17 @@ created under the corresponding IIO device.</p>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Sep</span>  <span class="mi">6</span> <span class="mi">08</span><span class="p">:</span><span class="mi">17</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat name</span>
 <span class="n">max11205a</span>
 </pre></div>
 </div>
 </section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-raw-measurement">
-<h3>Show raw measurement<a class="headerlink" href="#show-raw-measurement" title="Link to this heading"></a></h3>
+<h4>Show raw measurement<a class="headerlink" href="#show-raw-measurement" title="Link to this heading"></a></h4>
 <p><strong>Description:</strong> Raw measurement of voltage on channel 0.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat in_voltage0_raw</span>
 <span class="mi">20137</span>
@@ -485,6 +490,7 @@ created under the corresponding IIO device.</p>
 </div>
 <p>U = in_voltage0_raw * in_voltage0_scale = 20137 * 0.097656250 = 1966.50390625
 mV</p>
+</section>
 </section>
 <section id="show-scale">
 <h3>Show scale<a class="headerlink" href="#show-scale" title="Link to this heading"></a></h3>
@@ -497,7 +503,10 @@ channel 0 in order to obtain the actual voltage.</p>
 </section>
 <section id="show-sampling-frequency">
 <h3>Show sampling frequency<a class="headerlink" href="#show-sampling-frequency" title="Link to this heading"></a></h3>
-<p><strong>Description:</strong> The sampling frequency of the device.</p>
+<p><strong>Description:</strong> Fixed sample rate reported by the driver: 116 Hz for
+MAX11205A and 13 Hz for MAX11205B. The driver implements no write callback, so
+writing this attribute fails; select the rate by using the correct
+<code class="docutils literal notranslate"><span class="pre">maxim,max11205a</span></code> or <code class="docutils literal notranslate"><span class="pre">maxim,max11205b</span></code> compatible.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat in_voltage0_sampling_frequency</span>
 <span class="mi">116</span>
 </pre></div>
@@ -512,14 +521,17 @@ channel 0 in order to obtain the actual voltage.</p>
 </section>
 <section id="buffer-management">
 <h3>Buffer management<a class="headerlink" href="#buffer-management" title="Link to this heading"></a></h3>
-<p>The Industrial I/O subsystem provides support for various ring buffer based
-data acquisition methods. Apart from device specific hardware buffer support,
-the user can chose between two different software ring buffer implementations.
-One is the IIO lock free software ring, and the other is based on Linux kfifo.
-Devices with buffer support feature an additional sub-folder in the
-<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/deviceX/</span></code> folder hierarchy. Called <code class="docutils literal notranslate"><span class="pre">deviceX:bufferY</span></code>,
-where Y defaults to 0, for devices with a single buffer.</p>
-<p>Every buffer implementation features a set of files:</p>
+<p>The Industrial I/O subsystem supports buffered data acquisition. Buffer
+implementation and capabilities depend on the driver. Devices with buffer
+support expose each buffer at
+<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX/bufferY</span></code>, where Y is the buffer index,
+starting at 0. The first buffer is additionally exposed through the legacy
+<code class="docutils literal notranslate"><span class="pre">buffer</span></code> directory, which contains its buffer-control attributes. Its scan
+configuration is exposed through the legacy <code class="docutils literal notranslate"><span class="pre">scan_elements</span></code> directory, while
+multi-buffer systems expose the scan attributes in the corresponding
+<code class="docutils literal notranslate"><span class="pre">bufferY</span></code> directory. Read samples from the device character node
+<code class="docutils literal notranslate"><span class="pre">/dev/iio:deviceX</span></code>; the selected buffer is determined by the active buffer
+configuration.</p>
 <dl class="simple">
 <dt><strong>length</strong></dt><dd><p>Get/set the number of sample sets that may be held by the buffer.</p>
 </dd>
@@ -556,24 +568,21 @@ captured for a single triggered sample set in the buffer.</p>
 </pre></div>
 </div>
 <dl class="simple">
-<dt><strong>in_voltageX_en / in_voltageX-voltageY_en / timestamp_en:</strong></dt><dd><p>Scan element control for triggered data capture.
+<dt><strong>in_voltageX_en / in_voltageX-voltageY_en / in_timestamp_en:</strong></dt><dd><p>Scan element control for triggered data capture.
 Writing 1 will enable the scan element, writing 0 will disable it</p>
 </dd>
-<dt><strong>in_voltageX_type / in_voltageX-voltageY_type / timestamp_type:</strong></dt><dd><p>Description of the scan element data storage within the buffer
-and therefore in the form in which it is read from user-space.
-Form is [s|u]bits/storage-bits. s or u specifies if signed
-(2’s complement) or unsigned. bits is the number of bits of
-data and storage-bits is the space (after padding) that it
-occupies in the buffer. Note that some devices will have
-additional information in the unused bits so to get a clean
-value, the bits value must be used to mask the buffer output
-value appropriately. The storage-bits value also specifies the
-data alignment. So u12/16 will be a unsigned 12 bit integer
-stored in a 16 bit location aligned to a 16 bit boundary.
-For other storage combinations this attribute will be extended
-appropriately.</p>
+<dt><strong>in_voltageX_type / in_voltageX-voltageY_type / in_timestamp_type:</strong></dt><dd><p>Describes the scan element’s representation in the buffer. The format is
+<code class="docutils literal notranslate"><span class="pre">[be|le]:[s|u]bits/storagebits[Xrepeat]&gt;&gt;shift</span></code>. The prefix gives byte
+order; <code class="docutils literal notranslate"><span class="pre">s</span></code> or <code class="docutils literal notranslate"><span class="pre">u</span></code> specifies signed (two’s complement) or unsigned
+data. <code class="docutils literal notranslate"><span class="pre">bits</span></code> is the number of meaningful bits and <code class="docutils literal notranslate"><span class="pre">storagebits</span></code> is
+the storage width. The optional repeat count describes repeated elements.
+After interpreting byte order, shift the storage value right by <code class="docutils literal notranslate"><span class="pre">shift</span></code>
+and mask it to <code class="docutils literal notranslate"><span class="pre">bits</span></code>; signed values also require sign extension.
+For example, <code class="docutils literal notranslate"><span class="pre">be:u12/16&gt;&gt;1</span></code> describes an unsigned 12-bit value in
+big-endian 16-bit storage, shifted right by one bit. Account for alignment
+padding when combining enabled elements into a complete scan.</p>
 </dd>
-<dt><strong>in_voltageX_index / in_voltageX-voltageY_index / timestamp_index:</strong></dt><dd><p>A single positive integer specifying the position of this
+<dt><strong>in_voltageX_index / in_voltageX-voltageY_index / in_timestamp_index:</strong></dt><dd><p>A nonnegative integer specifying the ordering of this
 scan element in the buffer. Note these are not dependent on
 what is enabled and may not be contiguous. Thus for user-space
 to establish the full layout these must be used in conjunction

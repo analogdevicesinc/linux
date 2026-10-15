@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/demo/pmod-ad1-da1-demo
 
+
 .. _pmod-ad1-da1-demo:
 
 PmodAD1 - PmodDA1
@@ -7,14 +8,14 @@ PmodAD1 - PmodDA1
 
 PmodAD1IIO Oscilloscope Demo.
 
-Introduction
-------------
+Purpose
+-------
 
 The ADI IIO Oscilloscope is a example application, which demonstrates how to
 interface to the ADI evaluation boards from within a Linux system.
 
-Quick Start Guide
------------------
+Prerequisites
+-------------
 
 Required Hardware
 ~~~~~~~~~~~~~~~~~
@@ -23,14 +24,20 @@ Required Hardware
 - `PmodAD1 <https://digilent.com/reference/pmod/pmodad1/start>`__
 - `PmodDA1 <https://digilent.com/reference/pmod/pmodda1/start>`__
 
+Configuration and sequence
+--------------------------
+
+Quick Start Guide
+~~~~~~~~~~~~~~~~~
+
 Prepare the SD Card
-~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^
 
 Please use the image/description from
 :dokuwiki:`Create SD Image for Zynq Boards <resources/tools-software/linux-software/zynq_images>`.
 
 Hardware Setup
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 - The PmodAD1 has to be connected to the PMOD JA1 connector (upper row - see the
   image below).
@@ -46,10 +53,10 @@ Hardware Setup
 - Power up the ZedBoard.
 
 Software Setup
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 Launching the application
-~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To start the IIO Oscilloscope open up the start menu of your system search for
 ``IIO Oscilloscope``. E.g. if you are using a Ubuntu Linux system move your
@@ -59,8 +66,11 @@ mouse cursor to the left side of your screen and ``Dash home`` button and type
 .. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/demo/launching_osc.png
    :width: 600px
 
+References
+----------
+
 IIO Oscilloscope Users Guide
-----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Open the **Settings** menu and select **Impulse generator** submenu. A popup
 window will appear and allow you to select an impulse generator (a high

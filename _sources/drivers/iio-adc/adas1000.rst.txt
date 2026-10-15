@@ -19,7 +19,7 @@ Evaluation Boards
 - :adi:`EVAL-ADAS1000SDZ`
 
 Reference Circuits
-------------------
+~~~~~~~~~~~~~~~~~~
 
 - :adi:`CN0308`
 
@@ -66,8 +66,37 @@ Files
      - :git+linux:`adas1000:include/linux/platform_data/adas1000.h`
      -
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADAS1000 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               [--snip--]
+               Analog to digital converters  --->
+                   *** Analog to digital converters ***
+                   [--snip--]
+                   <*> Analog Devices ADAS1000 ECG driver
+                   [--snip--]
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
@@ -93,15 +122,15 @@ Example platform device initialization
        bool high_performance;
    };
 
-.. code:: c
+.. code-block:: c
 
-   static struct adas1000_platform_data pdata {
+   static struct adas1000_platform_data adas1000_pdata = {
        .enable_vref_buffer = true,
        .high_performance = true,
    };
 
-If no platform data is provided the driver will use the device’s default setting
-for all registers.
+Without platform data, setup resets ECGCTL and sets FRMCTL_DATAFMT; it then
+leaves the remaining platform-configurable settings at reset defaults.
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-spi-slave-devices
@@ -139,34 +168,12 @@ the device in question.
    }
    arch_initcall(board_init);
 
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The ADAS1000 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-               [--snip--]
-               Analog to digital converters  --->
-                   *** Analog to digital converters ***
-                   [--snip--]
-                   <*> Analog Devices ADAS1000 ECG driver
-                   [--snip--]
-
-Hardware configuration
-----------------------
-
 Driver testing
 --------------
+
+Disable the IIO buffer before accessing register-backed configuration or
+readback attributes; the driver rejects register accesses with ``-EBUSY``
+while buffering.
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-device-files
@@ -227,8 +234,8 @@ Driver testing
 
    root:/sys/devices/platform/bfin-spi.0/spi0.12/iio:device0>
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -238,22 +245,180 @@ Show device name
 Contains the device name, this will always be ``adas1000`` for the adas1000
 driver.
 
+Basic operation
+~~~~~~~~~~~~~~~
+
+Show calibration DAC scale
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Description:** out_voltage6_calibration_scale
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat out_voltage6_calibration_scale
+   0.002346
+
+Vout = (out_voltage6_calibration_offset + out_voltage6_calibration_raw) \*
+out_voltage6_calibration_scale
+
 List available low filter frequencies
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** in_voltage-voltage_filter_low_pass_3db_frequency_available
 
 Lists all available low pass filter frequencies, which may be set by writing to
 in_voltage-voltage_filter_low_pass_3db_frequency.
 
-::
+.. code-block:: text
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat in_voltage-voltage_filter_low_pass_3db_frequency_available
    40 150 250 400
    root:/sys/devices/platform/bfin-spi.0/spi0.3/device0>
 
+Select Right Leg drive output electrode
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Description:** rld_out_select
+
+Set the Right Leg drive output electrode.
+
+.. code-block:: text
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo rl > rld_out_select
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat rld_out_select
+   rl
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0>
+
+Enable/Disable Right Leg drive output
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Description:** rld_powerdown
+
+Enable or disable the Right Leg drive output. Writing a ‘0’ to this file will
+enable the Right Leg drive; writing a ‘1’ disables the Right Leg drive.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat rld_powerdown
+   1
+   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> echo 0 > rld_powerdown
+   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat rld_powerdown
+   0
+
+Setup Right Leg drive summing junction configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Description:** rld_summing_junction_ce_en rld_summing_junction_la_en
+rld_summing_junction_ll_en rld_summing_junction_ra_en rld_summing_junction_v1_en
+rld_summing_junction_v2_en
+
+Writing a ‘1’ to a file will add the respective channel to the Right Leg driver
+summing junction, writing a ‘0’ will remove it.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat rld_summing_junction_la_en
+   1
+   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> echo 1 > rld_summing_junction_v2_en
+   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat rld_summing_junction_v2_en
+   1
+
+Setup VCM summing junction configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Description:** vcm_summing_junction_ce_en vcm_summing_junction_la_en
+vcm_summing_junction_ll_en vcm_summing_junction_ra_en vcm_summing_junction_v1_en
+vcm_summing_junction_v2_en
+
+Writing a ‘1’ to a file will add the respective channel to the VCM summing
+junction, writing a ‘0’ will remove it.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat vcm_summing_junction_ra_en
+   0
+   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> echo 1 > vcm_summing_junction_ra_en
+   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat vcm_summing_junction_ra_en
+   1
+
+Enable/Disable shield driver
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Description:** shield_driver_powerdown
+
+Enable or disable the shield driver. Writing a ‘0’ to this file will enable the
+shield driver; writing a ‘1’ disables the shield driver.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat shield_driver_powerdown
+   1
+   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> echo 0 > shield_driver_powerdown
+   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat shield_driver_powerdown
+   0
+
+out_voltage6_calibration_offset
+
+Enable/Disable calibration DAC
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Description:** out_voltage6_calibration_powerdown
+
+Enable or disable the calibration DAC. Writing a ‘0’ to this file will enable
+the calibration DAC, writing a ‘1’ to this file will disable the calibration
+DAC.
+
+.. code-block:: text
+
+   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat out_voltage6_calibration_powerdown
+   1
+   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> echo 0 > out_voltage6_calibration_powerdown
+   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat out_voltage6_calibration_powerdown
+   0
+
+Direct register read and write acccess
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Description:** direct_reg_access
+
+Allows direct register access to the device. To write to a register write the
+register address and the register value seperated by a space to the file.
+
+::
+
+   root:/sys/kernel/debug/iio/iio:device0> echo 0x12 0x17 > direct_reg_access
+
+To read a register value, first write the register address to the file followed
+by a read.
+
+::
+
+   root:/sys/kernel/debug/iio/iio:device0> echo 0x05 > direct_reg_access
+   root:/sys/kernel/debug/iio/iio:device0> cat direct_reg_access
+
+Check fuse CRC status
+^^^^^^^^^^^^^^^^^^^^^
+
+**Description:** fuse_crc_failure
+
+‘1’ if a fuse CRC failure has been detected, ‘0’ otherwise.
+
+Check fuse status
+^^^^^^^^^^^^^^^^^
+
+**Description:** fuse_status
+
+‘0’ if the fuse bits have been read, ‘1’ otherwise.
+
+Check PLL status
+^^^^^^^^^^^^^^^^
+
+**Description:** pll_locked
+
+‘1’ if the PLL is locked, ‘0’ otherwise.
+
 Set and show low filter frequency
-'''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** in_voltage-voltage_filter_low_pass_3db_frequency
 
@@ -293,7 +458,7 @@ in_voltage-voltage_sampling_frequency.
    decimation filter.
 
 Set and show filter frequency
-'''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** in_voltage-voltage_sampling_frequency
 
@@ -316,7 +481,7 @@ Setting a new sampling frequency can be done by writing to the file.
    root:/sys/devices/platform/bfin-spi.0/spi0.3/device0>
 
 List available ADC gain values
-''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** in_voltage-voltage_scale_available
 
@@ -330,12 +495,13 @@ in_voltage-voltage_scale.
    root:/sys/devices/platform/bfin-spi.0/spi0.3/device0>
 
 Set and ADC gain value
-''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** in_voltage-voltage_scale
 
-Scale to be applied to in_voltageY-voltageZ_raw in order to obtain the measured
-voltage in millivolts.
+Apply this scale to decoded ECG samples obtained through the IIO buffer to
+obtain millivolts. The ECG channel definitions do not expose
+in_voltageY-voltageZ_raw direct-read attributes.
 
 ::
 
@@ -347,7 +513,7 @@ voltage in millivolts.
    root:/sys/devices/platform/bfin-spi.0/spi0.3/device0>
 
 Set ADC calibration gain
-''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** in_voltage0-voltage2_calibscale in_voltage0-voltage5_calibscale
 in_voltage1-voltage0_calibscale in_voltage1-voltage2_calibscale
@@ -373,7 +539,7 @@ calibration gain for the respective channel. Valid values are in the range of
    the same set of calibration data.
 
 List available Right Leg drive outputs
-''''''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** rld_out_select_available
 
@@ -385,110 +551,8 @@ List available values for the rld_out_select file.
    rl la ll ra v1 v2
    root:/sys/devices/platform/bfin-spi.0/spi0.3/device0>
 
-Select Right Leg drive output electrode
-'''''''''''''''''''''''''''''''''''''''
-
-**Description:** rld_out_select
-
-Set the Right Leg drive output electrode.
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo rl > rld_out_select_available
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat rld_out_select
-   rl
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0>
-
-Enable/Disable Right Leg drive output
-'''''''''''''''''''''''''''''''''''''
-
-**Description:** rld_powerdown
-
-Enable or disable the Right Leg drive output. Writing a ‘0’ to this file will
-enable the Right Leg drive, writing a ‘1’ to this file will enable the Right Leg
-drive.
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat rld_powerdown
-   1
-   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> echo 0 > rld_powerdown
-   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat rld_powerdown
-   0
-
-Setup Right Leg drive summing junction configuration
-''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-**Description:** rld_summing_junction_ce_en rld_summing_junction_la_en
-rld_summing_junction_ll_en rld_summing_junction_ra_en rld_summing_junction_v1_en
-rld_summing_junction_v2_en
-
-Writing a ‘1’ to a file will add the respective channel to the Right Leg driver
-summing junction, writing a ‘0’ will remove it.
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat rld_summing_junction_la_en
-   1
-   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> echo 1 > rld_summing_junction_v2_en
-   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat rld_summing_junction_v2_en
-   1
-
-Setup VCM summing junction configuration
-''''''''''''''''''''''''''''''''''''''''
-
-**Description:** vcm_summing_junction_ce_en vcm_summing_junction_la_en
-vcm_summing_junction_ll_en vcm_summing_junction_ra_en vcm_summing_junction_v1_en
-vcm_summing_junction_v2_en
-
-Writing a ‘1’ to a file will add the respective channel to the VCM summing
-junction, writing a ‘0’ will remove it.
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat vcm_summing_junction_ra_en
-   0
-   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> echo 1 > vcm_summing_junction_ra_en
-   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat vcm_summing_junction_ra_en
-   1
-
-Enable/Disable shield driver
-''''''''''''''''''''''''''''
-
-**Description:** shield_driver_powerdown
-
-Enable or disable the shield driver. Writing a ‘0’ to this file will enable the
-shild driver, writing a ‘1’ to this file will enable the shield driver.
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat shield_driver_powerdown
-   1
-   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> echo 0 > shield_driver_powerdown
-   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat shield_driver_powerdown
-   0
-
-out_voltage6_calibration_offset
-
-Enable/Disable calibration DAC
-''''''''''''''''''''''''''''''
-
-**Description:** out_voltage6_calibration_powerdown
-
-Enable or disable the calibration DAC. Writing a ‘0’ to this file will enable
-the calibration DAC, writing a ‘1’ to this file will disable the calibration
-DAC.
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat out_voltage6_calibration_raw
-   1
-   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> echo 0 > out_voltage6_calibration_powerdown
-   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat out_voltage6_calibration_raw
-   0
-
 Set calibration DAC output value
-''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** out_voltage6_calibration_raw
 
@@ -500,74 +564,8 @@ Sets the calibration DAC output value. Valid values are in the range of 0-1023.
    root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat out_voltage6_calibration_raw
    100
 
-Show calibration DAC scale
-''''''''''''''''''''''''''
-
-**Description:** out_voltage6_calibration_scale
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0> cat out_voltage6_calibration_scale
-   0.002346
-
-Vout = (out_voltage6_calibration_offset + out_voltage6_calibration_raw) \*
-out_voltage6_calibration_scale
-
-Debugfs
-'''''''
-
-The adas1000 driver exposes also some files, which are meant for debugging
-purposes, in debugfs. These files can be used to read the OPSTAT register and to
-configure the testtone generator.
-
-root:/sys/kernel/debug/iio/iio:device0> ls direct_reg_access pll_locked
-testtone_la_en testtone_v1_en fuse_crc_failure testtone_en testtone_ll_en
-testtone_v2_en fuse_status testtone_frequency testtone_out_en pll_lock_lost
-testtone_internal testtone_ra_en root:/sys/kernel/debug/iio/iio:device0>
-
-Direct register read and write acccess
-''''''''''''''''''''''''''''''''''''''
-
-**Description:** direct_reg_access
-
-Allows direct register access to the device. To write to a register write the
-register address and the register value seperated by a space to the file.
-
-::
-
-   root:/sys/kernel/debug/iio/iio:device0> echo 0x12 0x17 > direct_reg_access
-
-To read a register value, first write the register address to the file followed
-by a read.
-
-::
-
-   root:/sys/kernel/debug/iio/iio:device0> echo 0x05 > direct_reg_access
-   root:/sys/kernel/debug/iio/iio:device0> cat direct_reg_access
-
-Check fuse CRC status
-'''''''''''''''''''''
-
-**Description:** fuse_crc_failure
-
-‘1’ if a fuse CRC failure has been detected, ‘0’ otherwise.
-
-Check fuse status
-'''''''''''''''''
-
-**Description:** fuse_status
-
-‘0’ if the fuse bits have been read, ‘1’ otherwise.
-
-Check PLL status
-''''''''''''''''
-
-**Description:** pll_locked
-
-‘1’ if the PLL is locked, ‘0’ otherwise.
-
 Enable testtone
-'''''''''''''''
+~~~~~~~~~~~~~~~
 
 **Description:** testtone_en
 
@@ -579,7 +577,7 @@ Enable the testtone generator.
    take precedence.
 
 Set testtone frequnecy
-''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** testtone_frequency
 
@@ -592,14 +590,14 @@ Valid values are:
 - 150: 150 Hz sine wave
 
 Enable internal testtone routing
-''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** testtone_internal
 
 Route the testtone signal internally ECG channels.
 
 Enable external testtone output
-'''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** testtone_out_en
 
@@ -611,7 +609,7 @@ Enables or disables testtone output to the external CAL_DAC_IO pin.
    if internal routing is enabled this switch will have an effect.
 
 Enable testtone routing to individual ECG channels
-''''''''''''''''''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** testtone_la_en testtone_ll_en testtone_ra_en testtone_v1_en
 testtone_v2_en
@@ -621,9 +619,10 @@ Enables the internal testtone routing to the individual ECG channels.
 Trigger management
 ~~~~~~~~~~~~~~~~~~
 
-The adas1000 driver will register a IIO trigger for the device. The trigger will
-be hooked up to the devices DATARDY IRQ. Normally you would want to use this
-trigger as the trigger for the device.
+The driver registers its DATARDY IIO trigger only when the SPI device has a
+valid IRQ. Add the board-specific DATARDY IRQ to the spi_board_info example
+(.irq = <mapped IRQ>). Select the resulting adas1000-devX trigger, using the
+actual registered name.
 
 ::
 
@@ -683,6 +682,21 @@ selected and vice versa.
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-typical-adc-scan-elements
    :end-before: .. end-typical-adc-scan-elements
+
+Troubleshooting
+---------------
+
+Debugfs
+~~~~~~~
+
+The adas1000 driver exposes also some files, which are meant for debugging
+purposes, in debugfs. These files can be used to read the OPSTAT register and to
+configure the testtone generator.
+
+root:/sys/kernel/debug/iio/iio:device0> ls direct_reg_access pll_locked
+testtone_la_en testtone_v1_en fuse_crc_failure testtone_en testtone_ll_en
+testtone_v2_en fuse_status testtone_frequency testtone_out_en pll_lock_lost
+testtone_internal testtone_ra_en root:/sys/kernel/debug/iio/iio:device0>
 
 More Information
 ----------------

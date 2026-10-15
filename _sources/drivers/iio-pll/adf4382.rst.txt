@@ -1,3 +1,4 @@
+
 .. _adf4382:
 
 ADF4382
@@ -6,8 +7,14 @@ ADF4382
 The :adi:`ADF4382` is a high performance, ultralow jitter, dual output integer-N
 and fractional-N phase-locked loop (PLL) with an integrated voltage controlled
 oscillator (VCO). The ADF4382 operates with a VCO frequency range of 11 GHz
-to 22 GHz (ADF4382A supports 11.5 GHz to 21 GHz), with output frequencies
-from 687.5 MHz to 22 GHz via configurable output dividers.
+to 22 GHz and supports output frequencies from 687.5 MHz to 22 GHz through
+configurable output dividers.
+
+The ADF4382A has a different VCO range, 11.5 GHz to 21 GHz, and supports
+output dividers of 1, 2 and 4. Its output bands are 11.5–21 GHz,
+5.75–10.5 GHz and 2.875–5.25 GHz, respectively. The gaps between these bands
+are not supported; the ADF4382's continuous output range does not apply to
+the ADF4382A.
 
 The ADF4382 is commonly used as the sampling clock source for high-speed data
 converters such as the AD9084/AD9088 MxFE devices, providing the precision
@@ -19,8 +26,92 @@ Supported Devices
 - :adi:`ADF4382`
 - :adi:`ADF4382A`
 
+Description
+-----------
+
+The ADF4382 driver provides:
+
+-  ADF4382 frequency synthesis from 687.5 MHz to 22 GHz, using output
+   dividers of 1, 2, 4, 8 or 16.
+
+-  ADF4382A frequency synthesis within the three output bands above, using
+   output dividers of 1, 2 or 4. A requested frequency must map to a VCO
+   frequency within the matched device's limits; reference-clock and PLL
+   configuration constraints also apply.
+
+-  Dual differential outputs with independent enable control
+
+-  Integrated clock provider for downstream consumers
+
+-  Phase adjustment for multi-chip synchronization
+
+-  Auto-alignment support for precision timing applications
+
+-  Temperature monitoring
+
+Theory of operation
+~~~~~~~~~~~~~~~~~~~
+
+Frequency synthesis
+^^^^^^^^^^^^^^^^^^^
+
+The ADF4382 uses a fractional-N PLL architecture:
+
+#. Reference clock is optionally doubled and divided by R
+
+#. Phase-frequency detector compares reference to feedback
+
+#. VCO range: 11–22 GHz for ADF4382; 11.5–21 GHz for ADF4382A.
+
+#. Output dividers provide final output frequency
+
+The output frequency is calculated as:
+
+fVCO = fREF × D × N / R
+
+| f\ :sub:`REF` is the reference frequency.
+| D is the reference doubler.
+| R is the reference divider.
+| O is the output divider.
+| N is the feedback divider and is given by the following:
+
+.. math::
+
+   N = N_{INT} + \frac{FRAC1WORD + \frac{FRAC2WORD}{MOD2WORD}}{MOD1WORD}
+
+| f\ :sub:`PFD` is given by the following:
+
+.. math::
+
+   f_{PFD} = \frac{f_{REF} * D}{R}
+
+The output frequency, f\ :sub:`RFOUT`, produced at the output of the output
+divider is given by the following:
+
+.. math::
+
+   f_{RFOUT} = \frac{VCO}{O}
+
+An example for the calculation procedure is described at "Output Frequency
+Calculation Procedure" in the :adi:`datasheet <media/en/technical-documentation/data-sheets/adf4382.pdf>`.
+
+Multi-chip synchronization
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When used with AD9084/AD9088 MxFE devices and the ADF4030 precision
+synchronizer, the ADF4382 supports auto-alignment mode:
+
+1. Enable auto-alignment via ``en_auto_align`` attribute
+2. Write phase offset via ``phase`` attribute
+3. The PLL adjusts its phase to align with the BSYNC signal from ADF4030
+
+This enables ±10ps multi-chip synchronization across multiple converters.
+
+Source Code
+-----------
+
 Status
-------
+~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -31,7 +122,7 @@ Status
      - No
 
 Files
------
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -41,23 +132,11 @@ Files
    * - driver
      - :git+linux:`drivers/iio/frequency/adf4382.c <main:drivers/iio/frequency/adf4382.c>`
 
-Overview
---------
-
-The ADF4382 driver provides:
-
-- Frequency synthesis from 687.5 MHz to 22.9 GHz
-- Dual differential outputs with independent enable control
-- Integrated clock provider for downstream consumers
-- Phase adjustment for multi-chip synchronization
-- Auto-alignment support for precision timing applications
-- Temperature monitoring
-
 Adding Linux driver support
 ---------------------------
 
-Enabling the driver
-~~~~~~~~~~~~~~~~~~~
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig``:
 
@@ -73,34 +152,8 @@ Configure kernel with ``make menuconfig``:
                Frequency Synthesizers DDS/PLL  --->
                    <*>   Analog Devices ADF4382 Wideband Synthesizer
 
-Adding a device tree entry
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Required properties
-^^^^^^^^^^^^^^^^^^^
-
-- ``compatible``: Must be ``"adi,adf4382"`` or ``"adi,adf4382a"``
-- ``reg``: SPI chip select number
-- ``clocks``: Reference to the reference clock input
-- ``clock-names``: Must be ``"ref_clk"``
-
-Optional properties
-^^^^^^^^^^^^^^^^^^^
-
-- ``adi,power-up-frequency``: Initial output frequency in Hz (64-bit)
-- ``adi,ref-divider``: Reference divider value
-- ``adi,charge-pump-microamp``: Charge pump current in microamps
-- ``adi,bleed-word``: Bleed current configuration word
-- ``adi,output-power-value``: Output power level setting
-- ``adi,spi-3wire-enable``: Enable 3-wire SPI mode
-- ``adi,ref-doubler-en``: Enable reference frequency doubler
-- ``adi,cmos-3v3``: Use 3.3V CMOS output levels
-- ``#clock-cells``: Set to ``<1>`` to act as clock provider
-- ``clock-output-names``: Name for the output clock
-- ``#io-channel-cells``: Set to ``<1>`` to act as IIO provider
-
-Device tree example
-^^^^^^^^^^^^^^^^^^^
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Basic configuration as clock source for AD9084::
 
@@ -133,6 +186,29 @@ Consumer example (AD9084 using ADF4382 as clock source)::
         io-channel-names = "bsync", "clk";
     };
 
+Required properties
+^^^^^^^^^^^^^^^^^^^
+
+- ``compatible``: Must be ``"adi,adf4382"`` or ``"adi,adf4382a"``
+- ``reg``: SPI chip select number
+- ``clocks``: Reference to the reference clock input
+- ``clock-names``: Must be ``"ref_clk"``
+
+Optional properties
+^^^^^^^^^^^^^^^^^^^
+
+- ``adi,power-up-frequency``: Initial output frequency in Hz (64-bit)
+- ``adi,ref-divider``: Reference divider value
+- ``adi,charge-pump-microamp``: Charge pump current in microamps
+- ``adi,bleed-word``: Bleed current configuration word
+- ``adi,output-power-value``: Output power level setting
+- ``adi,spi-3wire-enable``: Enable 3-wire SPI mode
+- ``adi,ref-doubler-en``: Enable reference frequency doubler
+- ``adi,cmos-3v3``: Use 3.3V CMOS output levels
+- ``#clock-cells``: Set to ``<1>`` to act as clock provider
+- ``clock-output-names``: Name for the output clock
+- ``#io-channel-cells``: Set to ``<1>`` to act as IIO provider
+
 Driver testing
 --------------
 
@@ -162,16 +238,17 @@ Output channels (altvoltage0, altvoltage1)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 **out_altvoltageX_en** (read/write)
-    Enable/disable the output channel.
+   Enable/disable the output channel.
 
 **out_altvoltageX_hardwaregain** (read/write)
-    Output power level setting.
+   Output power level setting.
 
 **out_altvoltage_phase** (read/write)
-    Phase offset in millidegrees (shared by all channels).
+   Signed phase adjustment in femtoseconds (shared by both output channels).
+   Read back the quantized result.
 
 **out_altvoltage_frequency** (read/write)
-    Output frequency in Hz (shared by all channels).
+   Output frequency in Hz (shared by all channels).
 
 .. shell::
 
@@ -198,10 +275,10 @@ Temperature channel (temp0)
 **in_temp0_input** (read-only)
     Die temperature in millidegrees Celsius.
 
-.. shell::
+.. code-block:: text
 
-    $ cat in_temp0_input
-      45200
+   $ cat in_temp0_input
+     45000
 
 Clock provider interface
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -214,66 +291,11 @@ reference it directly via devicetree:
     /* In AD9084 devicetree node */
     clocks = <&adf4382 0>;
 
-Theory of operation
--------------------
-
-Frequency synthesis
-~~~~~~~~~~~~~~~~~~~
-
-The ADF4382 uses a fractional-N PLL architecture:
-
-1. Reference clock is optionally doubled and divided by R
-2. Phase-frequency detector compares reference to feedback
-3. VCO generates frequency from 11.5 to 22.9 GHz
-4. Output dividers provide final output frequency
-
-The output frequency is calculated as:
-
-.. math::
-
-    f_{VCO} = f_{REF} * \frac{D * N * O}{R}
-
-| f\ :sub:`REF` is the reference frequency.
-| D is the reference doubler.
-| R is the reference divider.
-| O is the output divider.
-| N is the feedback divider and is given by the following:
-
-.. math::
-
-   N = N_{INT} + \frac{FRAC1WORD + \frac{FRAC2WORD}{MOD2WORD}}{MOD1WORD}
-
-| f\ :sub:`PFD` is given by the following:
-
-.. math::
-
-   f_{PFD} = \frac{f_{REF} * D}{R}
-
-The output frequency, f\ :sub:`RFOUT`, produced at the output of the output
-divider is given by the following:
-
-.. math::
-
-   f_{RFOUT} = \frac{VCO}{O}
-
-An example for the calculation procedure is described at "Output Frequency
-Calculation Procedure" in the :adi:`datasheet <media/en/technical-documentation/data-sheets/adf4382.pdf>`.
-
-
-Multi-chip synchronization
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When used with AD9084/AD9088 MxFE devices and the ADF4030 precision
-synchronizer, the ADF4382 supports auto-alignment mode:
-
-1. Enable auto-alignment via ``en_auto_align`` attribute
-2. Write phase offset via ``phase`` attribute
-3. The PLL adjusts its phase to align with the BSYNC signal from ADF4030
-
-This enables ±10ps multi-chip synchronization across multiple converters.
+More Information
+----------------
 
 Related drivers
----------------
+~~~~~~~~~~~~~~~
 
 - :ref:`adf4030` - Precision synchronizer for BSYNC generation
 - :ref:`axi-aion-trig` - FPGA trigger IP for synchronization

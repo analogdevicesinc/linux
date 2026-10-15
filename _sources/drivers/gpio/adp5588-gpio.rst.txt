@@ -1,11 +1,17 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/gpio/adp5588-gpio
 
+
 .. _adp5588-gpio:
 
 ADP5588 GPIO
 ============
 
-ADP5588 GPIO Linux Driver.
+The standalone ``gpio-adp5588`` driver was removed from the kernel. ADP5588
+GPIO support is now provided by ``drivers/input/keyboard/adp5588-keys.c``
+(``CONFIG_KEYBOARD_ADP5588``). For GPIO-only operation, use
+``compatible = "adi,adp5588"`` (or ``"adi,adp5587"``), ``gpio-controller``
+and ``#gpio-cells = <2>``, and omit ``keypad,num-rows`` and
+``keypad,num-columns``.
 
 Supported Devices
 -----------------
@@ -24,13 +30,10 @@ Description
 -----------
 
 Configuration
--------------
+~~~~~~~~~~~~~
 
 .. figure:: https://wiki.analog.com/_media/software/driver/linux/adp5588_typ_op.png
    :width: 600px
-
-Software configurable features
-------------------------------
 
 Source Code
 -----------
@@ -62,64 +65,6 @@ Files
      - `drivers/gpio/gpio-adp5588.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/gpio/gpio-adp5588.c>`__
    * - include
      - `include/linux/i2c/adp5588.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/i2c/adp5588.h>`__
-
-Example platform device initialization
---------------------------------------
-
-.. include:: /include/platform-and-bus-model.rst
-   :start-after: .. start-platform-data
-   :end-before: .. end-platform-data
-
-:git+linux:`/i2c_board_info/-EOF <main:include/linux/i2c/adp5588.h>`
-
-:git+linux:`adp5588_gpio_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
-
-.. include:: /include/platform-and-bus-model.rst
-   :start-after: .. start-declaring-i2c-devices
-   :end-before: .. end-declaring-i2c-devices
-
-.. code:: C
-
-   static struct i2c_board_info __initdata bfin_i2c_board_info[] = {
-   #if defined(CONFIG_GPIO_ADP5588) || defined(CONFIG_GPIO_ADP5588_MODULE)
-       {
-           I2C_BOARD_INFO("adp5588-gpio", 0x34),
-           .irq = IRQ_PG0,
-           .platform_data = (void *)&adp5588_gpio_data,
-       },
-   #endif
-   }
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The ADP5588 Driver depends on **CONFIG_I2C** IRQ-Chip interrupt controller
-   support is not available in case this driver is build as Module
-
-::
-
-   Device Drivers  --->
-   [*] GPIO Support  --->
-
-       --- GPIO Support
-       [ ]   Debug GPIO calls
-       [*]   /sys/class/gpio/... (sysfs interface)
-             *** Memory mapped GPIO expanders: ***
-       < >   IT8761E GPIO support
-             *** I2C GPIO expanders: ***
-       < >   Maxim MAX7300 GPIO expander
-       < >   MAX7319, MAX7320-7327 I2C Port Expanders
-       < >   PCA953x, PCA955x, TCA64xx, and MAX7310 I/O ports
-       < >   PCF857x, PCA{85,96}7x, and MAX732[89] I2C GPIO expanders
-       [ ]   Semtech SX150x I2C GPIO expander
-       < >   GPIO Support for ADP5520 PMIC
-       <*>   ADP5588 I2C GPIO expander
-       [*]     Interrupt controller support for ADP5588
 
 Hardware configuration
 ----------------------
@@ -164,16 +109,63 @@ It can be easily wired to the Blackfin STAMP TWI/I2C header.
    Blackfin might see an additional falling edge interrupt on the rising edge of
    /INTB.
 
-Driver testing
---------------
+Adding Linux driver support
+---------------------------
 
-When the driver is loaded, you should see positive output that it found the
-ADP5588 GPIO device.
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
 
 ::
 
-   root:/> modprobe adp5588-gpio
-   adp5588-gpio 0-0034: gpios 50..67 on a adp5588-gpio Rev. 4
+   Device Drivers  --->
+   [*] GPIO Support  --->
+
+       --- GPIO Support
+       [ ]   Debug GPIO calls
+       [*]   /sys/class/gpio/... (sysfs interface)
+             *** Memory mapped GPIO expanders: ***
+       < >   IT8761E GPIO support
+             *** I2C GPIO expanders: ***
+       < >   Maxim MAX7300 GPIO expander
+       < >   MAX7319, MAX7320-7327 I2C Port Expanders
+       < >   PCA953x, PCA955x, TCA64xx, and MAX7310 I/O ports
+       < >   PCF857x, PCA{85,96}7x, and MAX732[89] I2C GPIO expanders
+       [ ]   Semtech SX150x I2C GPIO expander
+       < >   GPIO Support for ADP5520 PMIC
+       <*>   ADP5588 I2C GPIO expander
+       [*]     Interrupt controller support for ADP5588
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+For GPIO-only operation, declare the device with ``gpio-controller`` and
+``#gpio-cells = <2>`` and without ``keypad,num-rows``/``keypad,num-columns``:
+
+.. code-block:: dts
+
+   #include <dt-bindings/gpio/gpio.h>
+
+   &i2c0 {
+       #address-cells = <1>;
+       #size-cells = <0>;
+
+       gpio@34 {
+           compatible = "adi,adp5588";
+           reg = <0x34>;
+           #gpio-cells = <2>;
+           gpio-controller;
+       };
+   };
+
+Driver testing
+--------------
+
+When the ``adp5588-keys`` driver probes, the ADP5588 GPIOs are registered as
+a gpiochip. The examples below use the sysfs GPIO interface
+(``CONFIG_GPIO_SYSFS``); GPIO numbers depend on the system.
 
 For more information see also here:
 :external+upstream:doc:`userspace-api/gpio/sysfs`

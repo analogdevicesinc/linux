@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/adf4159
 
+
 .. _adf4159:
 
 ADF4159
@@ -13,8 +14,8 @@ Supported Devices
 - :adi:`ADF4159`
 - :adi:`ADF4169`
 
-Supported Boards
-----------------
+Evaluation Boards
+-----------------
 
 | This driver supports the
 
@@ -31,7 +32,7 @@ modulus, allowing subhertz frequency resolution.
 The ADF4159 consists of a low noise digital phase frequency detector (PFD), a
 precision charge pump, and a programmable reference divider. The Σ-Δ-based
 fractional interpolator allows programmable fractional-N division. The INT and
-FRAC registers define an overall N divider as N = INT + (FRAC/225).
+FRAC registers define an overall N divider as N = INT + FRAC / 2^25.
 
 The ADF4159 can be used to implement frequency shift keying (FSK) and phase
 shift keying (PSK) modulation. Frequency sweep modes are also available to
@@ -66,7 +67,7 @@ Status
      - Mainlined?
      -
    * - :git+linux:`main:drivers/iio/frequency/adf4159.c`
-     - WIP
+     - No
      -
 
 Files
@@ -100,8 +101,37 @@ Example device tree
      - :git+linux:`rpi-adf4159-overlay.dts <rpi-5.4.y:arch/arm/boot/dts/overlays/rpi-adf4159-overlay.dts>`
      -
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The adf4159 driver depends on **SPI** and selects **REGMAP_SPI**
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+                    Frequency Synthesizers DDS/PLL --->
+                                *** Phase-Locked Loop (PLL) frequency synthesizers ***
+                                <*> Analog Devices ADF4159/ADF4169 Waveform Generating Synthesizers
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The adf4159 driver is a SPI bus driver and can be instantiated via device tree.
 
@@ -117,11 +147,14 @@ The adf4159 driver is a SPI bus driver and can be instantiated via device tree.
 - **clocks**: a list of phandle, one for each entry in clock-names.
 - **clock-names**: Must include the following entry: ``clkin``
 
-::
+The board must define ``spi0`` and the ``clkin`` reference clock. Adapt
+those labels and the device settings to the connected hardware.
 
-   Example:
+.. code-block:: dts
 
-   spi0 {
+   #include <dt-bindings/iio/frequency/adf4159.h>
+
+   &spi0 {
            #address-cells = <1>;
            #size-cells = <0>;
            adf4159@0 {
@@ -179,35 +212,7 @@ The adf4159 driver is a SPI bus driver and can be instantiated via device tree.
                //adi,txdata-trigger-delay-enable;
                //adi,txdata-trigger-enable;
            };
-
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The adf4159 driver depends on **SPI** and selects **REGMAP_SPI**
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-                    Frequency Synthesizers DDS/PLL --->
-                                *** Phase-Locked Loop (PLL) frequency synthesizers ***
-                                <*> Analog Devices ADF4159/ADF4169 Waveform Generating Synthesizers
-
-Hardware configuration
-----------------------
+   };
 
 Driver testing
 --------------
@@ -243,8 +248,8 @@ Driver testing
    -rw-rw-rw- 1 root root 4096 Jan  1 00:00 uevent
    root@analog:/sys/bus/iio/devices/iio:device1#
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -345,6 +350,9 @@ This attribute sets the ``deviation_time`` in us.
    root@analog:/sys/bus/iio/devices/iio:device1# echo 10000 > out_altvoltage0_frequency_deviation_time
    root@analog:/sys/bus/iio/devices/iio:device1# cat out_altvoltage0_frequency_deviation_time
    10020
+
+Troubleshooting
+---------------
 
 Full device control via IIO debugfs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

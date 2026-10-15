@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009-customization
 
+
 .. _adrv9009-customization:
 
 ADRV9009
@@ -19,8 +20,11 @@ The Linux platform allows you to examine and determine optimal settings for your
 target application: See here:
 :dokuwiki:`ADRV9009/ADRV9008 Advanced Plugin </resources/tools-software/linux-software/adrv9009_advanced_plugin>`
 
+Configuration and sequence
+--------------------------
+
 AGC Settings
-------------
+~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -267,7 +271,7 @@ AGC Settings
        recovery.
 
 Gain Control Settings
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
 RX
 ~~
@@ -336,7 +340,7 @@ ORX
      - Min gain index for the currently loaded ORx2 Gain table
 
 Auxillary DAC Settings
-----------------------
+~~~~~~~~~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -480,7 +484,7 @@ Auxillary DAC Settings
        12-bit DAC values
 
 JESD204B Settings
------------------
+~~~~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -515,7 +519,7 @@ JESD204B Settings
      - 0 - sysref LVDS PN is not inverted, 1 - sysref LVDS PN is inverted
 
 FRAMER A
-~~~~~~~~
+^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -593,7 +597,7 @@ FRAMER A
        (use serializerLaneCrossbar value with no checking)
 
 FRAMER B
-~~~~~~~~
+^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -671,7 +675,7 @@ FRAMER B
        (use serializerLaneCrossbar value with no checking)
 
 DEFRAMER A
-~~~~~~~~~~
+^^^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -740,7 +744,7 @@ DEFRAMER A
        (use deserializerLaneCrossbar value with no checking)
 
 DEFRAMER B
-~~~~~~~~~~
+^^^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -809,7 +813,7 @@ DEFRAMER B
        (use deserializerLaneCrossbar value with no checking)
 
 ARM GPIO Settings
------------------
+~~~~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -882,7 +886,7 @@ ARM GPIO Settings
      - TAL_GPIO_INVALID = disable pin mode, GPIO0-15 valid
 
 GPIO 3v3 Settings
------------------
+~~~~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -907,7 +911,7 @@ GPIO 3v3 Settings
        output. The value mask is being set during initialization.
 
 Frequency Hopping Mode Settings
--------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -939,26 +943,25 @@ Frequency Hopping Mode Settings
      - 0 - Disables Frequency Hopping, 1 - Enables Frequency Hopping
    * - adi,fhm-mode-enable-mcs-sync
      - 0
-     - 0 - Disables MCS Synchronization on FHM enable, 1 - Enables MCS
-       Synchronization on FHM enable. Ignored if fhmEnable = 0
+     - 0 - Disables MCS Synchronization on FHM enable, 1 - Enables MCS Synchronization
+       on FHM enable. Ignored if fhmEnable = 0
    * - adi,fhm-mode-fhm-trigger-mode
      - 0
      - TAL_FHM_GPIO_MODE - Frequency Hop triggered via GPIO low to high pulse
        TAL_FHM_NON_GPIO_MODE - Frequency Hop triggered via ARM command
-   * - adi,fhm-mode-fhm-exit-mode
-     - 0
-     - TAL_FHM_QUICK_EXIT = quick exit on frequency hopping disable,
-       TAL_FHM_FULL_EXIT = Full exit on frequency hopping disable. This is
-       ignored if fhmEnable = 1
+   * - adi,fhm-mode-fhm-exit-mode 1
+     -
+     - TAL_FHM_QUICK_EXIT = quick exit on frequency hopping disable, TAL_FHM_FULL_EXIT
+       = Full exit on frequency hopping disable. This is ignored if fhmEnable = 1
    * - adi,fhm-mode-fhm-init-frequency_hz
      - 2450000000
      - First hop frequency that Rf Pll is configured to on enabling FHM
 
 Gain and Attenuation Control Pin Settings
------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 RX1
-~~~
+^^^
 
 .. list-table::
    :header-rows: 1
@@ -987,7 +990,7 @@ RX1
      - Enable (1) or disable (0) the gain pin control
 
 RX2
-~~~
+^^^
 
 .. list-table::
    :header-rows: 1
@@ -1016,7 +1019,7 @@ RX2
      - Enable (1) or disable (0) the gain pin control
 
 TX1
-~~~
+^^^
 
 .. list-table::
    :header-rows: 1
@@ -1042,7 +1045,7 @@ TX1
      - Enable (1) or disable (0) the attenuation pin control
 
 TX2
-~~~
+^^^
 
 .. list-table::
    :header-rows: 1
@@ -1068,7 +1071,7 @@ TX2
      - Enable (1) or disable (0) the attenuation pin control
 
 PA Protection Settings
-----------------------
+~~~~~~~~~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -1110,10 +1113,10 @@ PA Protection Settings
        round(128 \* 10^(tx2PeakThreshold_dBFS / 10))
 
 Profile Settings
-----------------
+~~~~~~~~~~~~~~~~
 
 Clocks
-~~~~~~
+^^^^^^
 
 .. list-table::
    :header-rows: 1

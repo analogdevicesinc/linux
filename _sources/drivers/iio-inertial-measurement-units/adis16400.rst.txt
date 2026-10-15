@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-inertial-measurement-units/adis16400
 
+
 .. _adis16400:
 
 ADIS16400
@@ -65,8 +66,8 @@ Status
      - Mainlined?
      -
      -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400_core.c>`__
-     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400_core.c>`__
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400.c>`__
      -
      -
 
@@ -79,13 +80,13 @@ Files
    * - Function
      - File
    * - driver
-     - `drivers/iio/imu/adis16400_core.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400_core.c>`__
-   * - driver
-     - `drivers/iio/imu/adis16400_ring.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400_ring.c>`__
-   * - driver
-     - `drivers/iio/imu/adis16400_trigger.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400_trigger.c>`__
+     - `drivers/iio/imu/adis16400.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400.c>`__
+   * - shared ADIS support
+     - `drivers/iio/imu/adis.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis.c>`__
+   * - shared buffer support
+     - `drivers/iio/imu/adis_buffer.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis_buffer.c>`__
    * - include
-     - `drivers/iio/imu/adis16400.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400.h>`__
+     - `include/linux/iio/imu/adis.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/iio/imu/adis.h>`__
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-spi-slave-devices
@@ -131,6 +132,9 @@ the device in question.
 Adding Linux driver support
 ---------------------------
 
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
@@ -148,9 +152,6 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
                [--snip--]
                    <*>   Analog Devices ADIS16400 and similar IMU SPI driver
                [--snip--]
-
-Hardware configuration
-----------------------
 
 Driver testing
 --------------
@@ -206,8 +207,19 @@ Driver testing
    -rw-r--r--    1 root     root          4096 Jan  4 00:03 uevent
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0>
 
+Identify the device
+~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat name
+   adis16400
+
+Attribute reference
+~~~~~~~~~~~~~~~~~~~
+
 ADIS16400 device attributes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For a detailed description please see:
 `Documentation/ABI/testing/sysfs-bus-iio <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio>`__
@@ -296,16 +308,8 @@ For a detailed description please see:
    * - sampling_frequency
      - Currently selected sample rate.
 
-Show device name
-^^^^^^^^^^^^^^^^
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat name
-   adis16400
-
 Set sampling frequency
-^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""
 
 The sampling frequency of the device can be set by writing the desired value to
 the ``sampling_frequency`` file. The driver will automatically round up to the
@@ -320,7 +324,7 @@ nearest supported sampling frequency.
    546.135
 
 Show channel value
-^^^^^^^^^^^^^^^^^^
+""""""""""""""""""
 
 A channel value can be read from its ``_raw`` attribute. The value returned by
 the ``_raw`` attribute is the raw value as reported by the device. To get the
@@ -350,7 +354,7 @@ The units by the IIO framework are:
 = 9.81 m/s^2``
 
 Set channel bandwidth
-^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""
 
 The channels bandwidth can be set by writing the desired value to the channels
 ``_filter_low_pass_3db_frequency`` attribute. The driver will automatically
@@ -363,13 +367,22 @@ sampling frequency will scale the low pass filter frequency accordingly. E.g.
 reducing the sampling frequency by a factor of two will also reduce the
 bandwidth by a factor of two.
 
-**Example:** ::
+**Example:**
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat in_anglvel_filter_low_pass_3db_frequency
-   409.600000
-   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> echo 150 > in_anglvel_filter_low_pass_3db_frequency
-   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat in_anglvel_filter_low_pass_3db_frequency
-   163.840400
+The selected bandwidth depends on the current sampling frequency, so read
+back the attribute after writing it.
+
+.. code-block:: bash
+
+   set -eu
+   cat sampling_frequency
+   cat in_anglvel_filter_low_pass_3db_frequency
+   echo 150 > in_anglvel_filter_low_pass_3db_frequency
+   cat in_anglvel_filter_low_pass_3db_frequency
+
+At 819.202 Hz sampling, a 150 Hz request selects 409.601 Hz bypass bandwidth.
+After the earlier 546 Hz sampling-frequency write, the corresponding readback is
+273.067 Hz.
 
 Trigger management
 ~~~~~~~~~~~~~~~~~~
@@ -395,22 +408,22 @@ Buffer management
    :start-after: .. start-buffer-management
    :end-before: .. end-buffer-management
 
-::
+.. code-block:: text
 
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0/scan_elements>ls
-   in_accel_x_en             in_gyro_y_index           in_magn_z_type
-   in_accel_x_index          in_gyro_y_type            in_temp0_en
-   in_accel_x_type           in_gyro_z_en              in_temp0_index
-   in_accel_y_en             in_gyro_z_index           in_temp0_type
-   in_accel_y_index          in_gyro_z_type            in_timestamp_en
+   in_accel_x_en             in_anglvel_y_index           in_magn_z_type
+   in_accel_x_index          in_anglvel_y_type            in_temp0_en
+   in_accel_x_type           in_anglvel_z_en              in_temp0_index
+   in_accel_y_en             in_anglvel_z_index           in_temp0_type
+   in_accel_y_index          in_anglvel_z_type            in_timestamp_en
    in_accel_y_type           in_magn_x_en              in_timestamp_index
    in_accel_z_en             in_magn_x_index           in_timestamp_type
    in_accel_z_index          in_magn_x_type            in_voltage0_supply_en
    in_accel_z_type           in_magn_y_en              in_voltage0_supply_index
-   in_gyro_x_en              in_magn_y_index           in_voltage0_supply_type
-   in_gyro_x_index           in_magn_y_type            in_voltage1_en
-   in_gyro_x_type            in_magn_z_en              in_voltage1_index
-   in_gyro_y_en              in_magn_z_index           in_voltage1_type
+   in_anglvel_x_en              in_magn_y_index           in_voltage0_supply_type
+   in_anglvel_x_index           in_magn_y_type            in_voltage1_en
+   in_anglvel_x_type            in_magn_z_en              in_voltage1_index
+   in_anglvel_y_en              in_magn_z_index           in_voltage1_type
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0/scan_elements>
 
 .. include:: /include/iio-snippets.rst

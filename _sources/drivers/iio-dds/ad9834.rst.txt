@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dds/ad9834
 
+
 .. _ad9834:
 
 AD9834
@@ -15,11 +16,6 @@ Supported Devices
 - :adi:`AD9837`
 - :adi:`AD9838`
 
-Reference Circuits
-------------------
-
-- :adi:`CN0156`
-
 Evaluation Boards
 -----------------
 
@@ -27,6 +23,11 @@ Evaluation Boards
 - :adi:`EVAL-AD9834SDZ`
 - :adi:`EVAL-AD9837SDZ`
 - :adi:`EVAL-AD9838SDZ`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0156`
 
 Description
 -----------
@@ -68,14 +69,47 @@ Files
    * - include
      - `drivers/staging/iio/frequency/ad9834.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/frequency/ad9834.h>`__
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD9834 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           [*] Staging drivers  --->
+               <*>     Industrial I/O support --->
+                   --- Industrial I/O support
+                   -*-   Enable buffer support within IIO
+                   -*-   Enable triggered sampling support
+
+                         *** Direct Digital Synthesis ***
+                   [--snip--]
+
+                   <*>   Analog Devices ad9833/4/ driver
+
+                   [--snip--]
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example device-tree
--------------------
+^^^^^^^^^^^^^^^^^^^
 
 In the example below, it’s assumed that **spi0** is the SPI controller to which
 the AD983X is attached to. Typically, these are defined in the board device-tree
 where the AD983X is attached to.
 
-.. code:: dts
+.. code-block:: dts
 
    &spi0 {
        #address-cells = <1>;
@@ -89,13 +123,14 @@ where the AD983X is attached to.
            spi-max-frequency = <1000000>;
            spi-cpol;
            clocks = <&osc>;
-           vcc-supply = <&vcc>;
+           avdd-supply = <&vcc>;
        };
    };
 
-This example also references a regulator (vcc-supply) and a clock (osc). These
-can be left out, in which case it’s assumed they are somehow hard-wired on the
-board to a proper voltage supply and clock source.
+This example also references a regulator (vcc-supply) and a clock (osc). The
+clock must be described to the clock framework even when physically fixed: probe
+requires it and frequency programming uses its rate. Describe the supply as
+avdd-supply.
 
 The **compabtible** string can be any of the following:
 
@@ -132,39 +167,14 @@ example below:
 This assumes that the board has the chips & drivers to generate voltages like
 this & clock frequencies.
 
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AD9834 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           [*] Staging drivers  --->
-               <*>     Industrial I/O support --->
-                   --- Industrial I/O support
-                   -*-   Enable ring buffer support within IIO
-                   -*-     Industrial I/O lock free software ring
-                   -*-   Enable triggered sampling support
-
-                         *** Direct Digital Synthesis ***
-                   [--snip--]
-
-                   <*>   Analog Devices ad9833/4/ driver
-
-                   [--snip--]
-
-Hardware configuration
-----------------------
-
 Driver testing
 --------------
+
+Use the device directory under ``/sys/bus/iio/devices/iio:deviceX``. AD9834 exposes
+frequency and phase registers as ``out_altvoltage0_frequency``,
+``out_altvoltage1_frequency``, ``out_altvoltage0_phase`` and
+``out_altvoltage1_phase``. The shared IIO scale is 1; phase codes represent
+``2*pi/4096`` radians and have no separate phase-scale attribute.
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-device-files
@@ -178,33 +188,35 @@ Driver testing
    root:/sys/bus/iio/devices> cd device0
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> ls -l
-   --w-------    1 root     root          4096 Jan  3 14:06 dds0_freq0
-   --w-------    1 root     root          4096 Jan  3 14:06 dds0_freq1
-   -r--r--r--    1 root     root          4096 Jan  3 14:06 dds0_freq_scale
-   --w-------    1 root     root          4096 Jan  3 14:06 dds0_freqsymbol
-   --w-------    1 root     root          4096 Jan  3 14:06 dds0_out0_wavetype
-   -r--r--r--    1 root     root          4096 Jan  3 14:06 dds0_out0_wavetype_available
-   --w-------    1 root     root          4096 Jan  3 14:06 dds0_out1_enable
-   --w-------    1 root     root          4096 Jan  3 14:06 dds0_out1_wavetype
-   -r--r--r--    1 root     root          4096 Jan  3 14:06 dds0_out1_wavetype_available
-   --w-------    1 root     root          4096 Jan  3 14:06 dds0_out_enable
-   --w-------    1 root     root          4096 Jan  3 14:06 dds0_phase0
-   --w-------    1 root     root          4096 Jan  3 14:06 dds0_phase1
-   -r--r--r--    1 root     root          4096 Jan  3 14:06 dds0_phase_scale
-   --w-------    1 root     root          4096 Jan  3 14:06 dds0_phasesymbol
-   --w-------    1 root     root          4096 Jan  3 14:06 dds0_pincontrol_en
+   --w-------    1 root     root          4096 Jan  3 14:06 out_altvoltage0_frequency
+   --w-------    1 root     root          4096 Jan  3 14:06 out_altvoltage1_frequency
+   -r--r--r--    1 root     root          4096 Jan  3 14:06 out_altvoltage_scale
+   --w-------    1 root     root          4096 Jan  3 14:06 out_altvoltage0_frequencysymbol
+   --w-------    1 root     root          4096 Jan  3 14:06 out_altvoltage0_out0_wavetype
+   -r--r--r--    1 root     root          4096 Jan  3 14:06 out_altvoltage0_out0_wavetype_available
+   --w-------    1 root     root          4096 Jan  3 14:06 out_altvoltage0_out1_enable
+   --w-------    1 root     root          4096 Jan  3 14:06 out_altvoltage0_out1_wavetype
+   -r--r--r--    1 root     root          4096 Jan  3 14:06 out_altvoltage0_out1_wavetype_available
+   --w-------    1 root     root          4096 Jan  3 14:06 out_altvoltage0_out_enable
+   --w-------    1 root     root          4096 Jan  3 14:06 out_altvoltage0_phase
+   --w-------    1 root     root          4096 Jan  3 14:06 out_altvoltage1_phase
+   --w-------    1 root     root          4096 Jan  3 14:06 out_altvoltage0_phasesymbol
+   --w-------    1 root     root          4096 Jan  3 14:06 out_altvoltage0_pincontrol_en
    -r--r--r--    1 root     root          4096 Jan  3 14:06 name
    drwxr-xr-x    2 root     root             0 Jan  3 14:06 power
    lrwxrwxrwx    1 root     root             0 Jan  3 14:06 subsystem -> ../../../../../bus/iio
    -rw-r--r--    1 root     root          4096 Jan  3 14:06 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat name
    ad9834
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show frequency scale
 ^^^^^^^^^^^^^^^^^^^^
@@ -217,11 +229,26 @@ not present if shared across all channels.
 
 ::
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat dds0_freq_scale
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat out_altvoltage_scale
    1
 
+Switch between frequency symbol 0/1
+"""""""""""""""""""""""""""""""""""
+
+/sys/bus/iio/devices/…/ddsX_freqsymbol
+
+Specifies the active output frequency tuning word. The value corresponds to the
+Y in ddsX_freqY. To exit this mode the user can write ddsX_pincontrol_freq_en or
+ddsX_out_enable file.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 1 > out_altvoltage0_frequencysymbol
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 0 > out_altvoltage0_frequencysymbol
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0>
+
 Set frequency symbol 0/1
-''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/…/ddsX_freqY
 
@@ -230,30 +257,24 @@ file, which allows for pin controlled FSK Frequency Shift Keying
 (ddsX_pincontrol_freq_en is active) or the user can control the desired active
 tuning word by writing Y to the ddsX_freqsymbol file.
 
-::
+.. code-block:: text
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 1000000 > dds0_freq0
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 500000 > dds0_freq0
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 1000000 > out_altvoltage0_frequency
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 500000 > out_altvoltage1_frequency
 
-**freq0** = *ddsX_freq0 \* dds0_freq_scale* = 1000000 \* 1 = **1 MHz** **freq1**
-= *ddsX_freq1 \* dds0_freq_scale* = 500000 \* 1 = **500 kHz**
+**freq0** = *out_altvoltage0_frequency \* out_altvoltage_scale* = 1000000 \* 1 = **1 MHz** **freq1**
+= *out_altvoltage1_frequency \* out_altvoltage_scale* = 500000 \* 1 = **500 kHz**
 
-Show phase scale
-''''''''''''''''
+Phase code interpretation
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-/sys/bus/iio/devices/…/ddsX_phaseY_scale
-
-Scale to be applied to ddsX_phaseY in order to obtain the desired value in rad.
-If shared across all phase registers Y is not present. It is also possible X is
-not present if shared across all channels.
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat dds0_phase_scale
-   0.0015339808
+The phase register is a 12-bit code. A code of 4096 would represent one full
+turn, so convert accepted codes 0 through 4095 to radians as
+``code * 2*pi/4096``. The shared IIO scale attribute is 1; it is not a
+phase-to-radians multiplier and there is no separate phase-scale file.
 
 Set phase symbol 0/1
-''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/…/ddsX_phaseY
 
@@ -262,17 +283,17 @@ for pin controlled PSK Phase Shift Keying (ddsX_pincontrol_phase_en is active)
 or the user can control the desired phase Y which is added to the phase
 accumulator output by writing Y to the en_phase file.
 
-::
+.. code-block:: text
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 512 > dds0_phase0
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 2048 > dds0_phase0
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 512 > out_altvoltage0_phase
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 2048 > out_altvoltage1_phase
 
-**phase0** = *dds0_phase0 \* ddsX_phaseY_scale* = 512 \* 0.0015339808 =
-**0.7853981696 rad** **phase1** = *dds0_phase1 \* ddsX_phaseY_scale* = 2048 \*
+**phase0** = *out_altvoltage0_phase \* (2*pi/4096)* = 512 \* 0.0015339808 =
+**0.7853981696 rad** **phase1** = *out_altvoltage1_phase \* (2*pi/4096)* = 2048 \*
 0.0015339808 = PI = **3.1415926 rad**
 
 List available wavetypes
-''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/…/ddsX_outY_wavetype_available
 
@@ -280,11 +301,11 @@ Lists all available output waveform options.
 
 ::
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat dds0_out0_wavetype_available
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat out_altvoltage0_out0_wavetype_available
    sine triangle
 
 Set wavetype
-''''''''''''
+~~~~~~~~~~~~
 
 /sys/bus/iio/devices/…/ddsX_outY_wavetype
 
@@ -293,10 +314,10 @@ available output waveform options read available_output_modes.
 
 ::
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo sine > dds0_out0_wavetype
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo sine > out_altvoltage0_out0_wavetype
 
 Disable FSK/PSK pincontrol
-''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/…/ddsX_pincontrol_en
 
@@ -307,10 +328,10 @@ allows to independent controls, then there are dedicated files
 
 ::
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 0 > dds0_pincontrol_en
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 0 > out_altvoltage0_pincontrol_en
 
 Enable output 0
-'''''''''''''''
+~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/…/ddsX_out_enable /sys/bus/iio/devices/…/ddsX_outY_enable
 
@@ -319,22 +340,7 @@ suppressed if all channels are controlled together.
 
 ::
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 1 > dds0_out_enable
-
-Switch between frequency symbol 0/1
-'''''''''''''''''''''''''''''''''''
-
-/sys/bus/iio/devices/…/ddsX_freqsymbol
-
-Specifies the active output frequency tuning word. The value corresponds to the
-Y in ddsX_freqY. To exit this mode the user can write ddsX_pincontrol_freq_en or
-ddsX_out_enable file.
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 1 > dds0_freqsymbol
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 0 > dds0_freqsymbol
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0>
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> echo 1 > out_altvoltage0_out_enable
 
 More Information
 ----------------

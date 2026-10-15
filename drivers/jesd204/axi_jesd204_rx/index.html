@@ -97,23 +97,27 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">AXI JESD204B RX</a><ul>
-<li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#supported-ip-cores">Supported IP Cores</a></li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-device-tree-initialization">Example platform device / device tree initialization</a><ul>
 <li><a class="reference internal" href="#deprecated-non-jesd204-fsm-mode">Deprecated Non-jesd204-fsm mode</a></li>
 <li><a class="reference internal" href="#jesd204-fsm-mode">jesd204-fsm mode</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
-<li><a class="reference internal" href="#sysfs-interface">Sysfs Interface</a><ul>
-<li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a></li>
+<li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
 </ul>
@@ -215,6 +219,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -233,7 +238,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -369,8 +373,8 @@ Content on this topic
   <section id="axi-jesd204b-rx">
 <span id="axi-jesd204-rx"></span><h1>AXI JESD204B RX<a class="headerlink" href="#axi-jesd204b-rx" title="Link to this heading"></a></h1>
 <p>ADI JESD204B/C Receive Peripheral Linux Driver.</p>
-<section id="supported-devices">
-<h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+<section id="supported-ip-cores">
+<h2>Supported IP Cores<a class="headerlink" href="#supported-ip-cores" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/jesd204/axi_jesd204_rx/#axi-jesd204-rx" target="_blank" title="(in HDL)"><span>JESD204B/C Link Receive Peripheral</span></a></p></li>
 </ul>
@@ -426,19 +430,41 @@ this case JESD204B link configuration is provided by the JESD204-FSM framework.<
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+        <span class="o">&lt;*&gt;</span> <span class="n">JESD204</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">Serial</span> <span class="n">Interface</span> <span class="n">Framework</span>  <span class="o">---&gt;</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+        <span class="o">&lt;*&gt;</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+            <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AXI</span> <span class="n">JESD204B</span> <span class="n">RX</span> <span class="n">Support</span>
+            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-device-tree-initialization">
-<h2>Example platform device / device tree initialization<a class="headerlink" href="#example-platform-device-device-tree-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device / device tree initialization<a class="headerlink" href="#example-platform-device-device-tree-initialization" title="Link to this heading"></a></h4>
 <p>The AXI JESD204B driver is a platform driver and can currently only be
 instantiated via device tree.</p>
 <section id="deprecated-non-jesd204-fsm-mode">
-<h3>Deprecated Non-jesd204-fsm mode<a class="headerlink" href="#deprecated-non-jesd204-fsm-mode" title="Link to this heading"></a></h3>
+<h5>Deprecated Non-jesd204-fsm mode<a class="headerlink" href="#deprecated-non-jesd204-fsm-mode" title="Link to this heading"></a></h5>
 <p>Required devicetree properties:</p>
 <ul class="simple">
-<li><p><strong>compatible</strong>: Must always be <code class="docutils literal notranslate"><span class="pre">adi,axi-jesd204-rx-1.00.a</span></code></p></li>
+<li><p><strong>compatible</strong>: Must be <code class="docutils literal notranslate"><span class="pre">adi,axi-jesd204-rx-1.0</span></code> or
+<code class="docutils literal notranslate"><span class="pre">adi,axi-jesd204-rx-1.3</span></code>.</p></li>
 <li><p><strong>reg</strong>: Base address and register area size. This parameter expects a
 register range.</p></li>
 <li><p><strong>interrupts</strong>: Property with a value describing the interrupt number.</p></li>
-<li><p><strong>clock-names</strong>: List of input clock names - <code class="docutils literal notranslate"><span class="pre">s_axi_aclk</span></code>, <code class="docutils literal notranslate"><span class="pre">device_clk</span></code></p></li>
+<li><p><strong>clock-names</strong>: Include <code class="docutils literal notranslate"><span class="pre">s_axi_aclk</span></code>, <code class="docutils literal notranslate"><span class="pre">device_clk</span></code> and <code class="docutils literal notranslate"><span class="pre">lane_clk</span></code>
+in both modes, with matching clock specifiers in <code class="docutils literal notranslate"><span class="pre">clocks</span></code>.</p></li>
 <li><p><strong>clocks</strong>: Clock phandles and specifiers (See clock bindings for details on
 clock-names and clocks).</p></li>
 <li><p><strong>adi,frames-per-multiframe</strong>: Number of frames per multi-frame (<code class="docutils literal notranslate"><span class="pre">K</span></code>)</p></li>
@@ -451,27 +477,31 @@ density (<code class="docutils literal notranslate"><span class="pre">HD</span><
 <li><p><strong>adi,subclass</strong>: The JESD204B subclass.</p></li>
 </ul>
 <p>Example:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">jesd204b</span><span class="o">-</span><span class="n">rx</span><span class="o">@</span><span class="mi">77</span><span class="n">b00000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-jesd204-rx-1.00.a"</span><span class="p">;</span>
-    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x77b00000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">56</span> <span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
+<p>The board must define the clock and interrupt providers used by this
+fragment. Here <code class="docutils literal notranslate"><span class="pre">lane_clk</span></code> denotes a board-defined zero-cell lane-clock
+provider; substitute the actual provider and specifier for the design.</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nf">jesd204b-rx</span><span class="o">@</span><span class="mi">77b00000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-jesd204-rx-1.0"</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x77b00000</span><span class="w"> </span><span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">interrupts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="w"> </span><span class="mi">56</span><span class="w"> </span><span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
 
-    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"s_axi_aclk"</span><span class="p">,</span> <span class="s2">"device_clk"</span><span class="p">;</span>
-    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clkc</span> <span class="mi">14</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">ad9528</span> <span class="mi">13</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"s_axi_aclk"</span><span class="p">,</span><span class="w"> </span><span class="s">"device_clk"</span><span class="p">,</span><span class="w"> </span><span class="s">"lane_clk"</span><span class="p">;</span>
+<span class="w">    </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clkc</span><span class="w"> </span><span class="mi">14</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">ad9528</span><span class="w"> </span><span class="mi">13</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">lane_clk</span><span class="o">&gt;</span><span class="p">;</span>
 
-    <span class="n">adi</span><span class="p">,</span><span class="n">octets</span><span class="o">-</span><span class="n">per</span><span class="o">-</span><span class="n">frame</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">32</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">adi</span><span class="p">,</span><span class="n">frames</span><span class="o">-</span><span class="n">per</span><span class="o">-</span><span class="n">multiframe</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">octets-per-frame</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">32</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">frames-per-multiframe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="p">};</span>
 </pre></div>
 </div>
 </section>
 <section id="jesd204-fsm-mode">
-<h3>jesd204-fsm mode<a class="headerlink" href="#jesd204-fsm-mode" title="Link to this heading"></a></h3>
+<h5>jesd204-fsm mode<a class="headerlink" href="#jesd204-fsm-mode" title="Link to this heading"></a></h5>
 <p>When using the <a class="reference internal" href="../jesd204-fsm-framework/#jesd204-fsm-framework"><span class="std std-ref">JESD204 FSM</span></a> the JESD link parameters are
 broadcasted by the framework to all link components.</p>
 <p>Required devicetree properties:</p>
 <ul class="simple">
-<li><p><strong>compatible</strong>: Must always be <code class="docutils literal notranslate"><span class="pre">adi,axi-jesd204-rx-1.00.a</span></code></p></li>
+<li><p><strong>compatible</strong>: Must be <code class="docutils literal notranslate"><span class="pre">adi,axi-jesd204-rx-1.0</span></code> or
+<code class="docutils literal notranslate"><span class="pre">adi,axi-jesd204-rx-1.3</span></code></p></li>
 <li><p><strong>reg</strong>: Base address and register area size. This parameter expects a
 register range.</p></li>
 <li><p><strong>interrupts</strong>: Property with a value describing the interrupt number.</p></li>
@@ -513,27 +543,10 @@ rate and state must be in sync with the main conv clk.</p></li>
 </div>
 </section>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-        <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
-
-            <span class="o">&lt;*&gt;</span>   <span class="n">JESD204</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">Serial</span> <span class="n">Interface</span> <span class="n">Support</span>  <span class="o">---&gt;</span>
-            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AXI</span> <span class="n">JESD204B</span> <span class="n">RX</span> <span class="n">Support</span>
-            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-</pre></div>
-</div>
 </section>
-<section id="sysfs-interface">
-<h2>Sysfs Interface<a class="headerlink" href="#sysfs-interface" title="Link to this heading"></a></h2>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <p>This driver provides advanced diagnostics, status and via
 <a class="icon link reference external" href="https://en.wikipedia.org/wiki/sysfs" target="_blank">sysfs</a>. A brief summary is with
 examples are provided below.</p>
@@ -674,12 +687,12 @@ examples are provided below.</p>
 <span class="n">FC</span><span class="p">:</span> <span class="mi">15000000</span>
 </pre></div>
 </div>
+</section>
 <section id="more-information">
-<h3>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h3>
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/jesd204/#jesd204" target="_blank" title="(in HDL)"><span>JESD204 Interface Framework</span></a></p></li>
 </ul>
-</section>
 </section>
 </section>
 

@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-accelerometer/adxl313
 
+
 .. _adxl313:
 
 ADXL312
@@ -69,8 +70,14 @@ Files
      - `adi,adxl313.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/accel/adi,adxl313.yaml>`_
      -
 
+Adding Linux driver support
+---------------------------
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Required devicetree properties:
 
@@ -84,7 +91,9 @@ Required properties for SPI bus usage:
 
 Optional properties:
 
-- interrupts: a list of interrupt specifiers
+-  interrupts: optional board wiring description. This driver uses direct
+   register reads; it does not install an interrupt handler or provide a
+   triggered buffer.
 
 Example for a SPI device node:
 
@@ -154,13 +163,16 @@ Driver testing
    lrwxrwxrwx 1 root root    0 Sep 23 14:33 subsystem -> ../../../../../../../../bus/iio
    -rw-r--r-- 1 root root 4096 Sep 23 14:33 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root@analog:/sys/bus/iio/devices/iio:device0# cat name
    adxl313
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale
 ^^^^^^^^^^
@@ -174,7 +186,7 @@ acceleration.
    0.009576806
 
 Show axis x measurement
-'''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** Raw unscaled acceleration measurement on x axis
 
@@ -184,7 +196,13 @@ Show axis x measurement
    -14
 
 Set sampling frequency
-''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~
+
+For ADXL313, the datasheet recommends 1600 Hz and 3200 Hz output rates only with
+SPI clocks of at least 2 MHz. An 800 Hz output rate requires at least 400 kHz
+communication; lower rates scale proportionally (for example, 200 Hz at 100
+kHz). The I2C interface supports up to 400 kHz. Select the output rate to suit
+the actual bus speed even when a higher rate appears in the available list.
 
 ::
 
@@ -197,7 +215,7 @@ Set sampling frequency
    12.500000
 
 Set calibbias for the Z channel
-'''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 

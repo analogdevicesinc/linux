@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/sound/adau1373
 
+
 .. _adau1373:
 
 ADAU1373
@@ -50,15 +51,21 @@ Files
    * - include
      - `include/sound/adau1373.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/sound/adau1373.h>`__
 
+Adding Linux driver support
+---------------------------
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example device initialization
------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
    :end-before: .. end-platform-data
 
 I2C
-~~~
+"""
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-i2c-devices
@@ -88,8 +95,138 @@ I2C
    }
    arch_initcall(board_init);
 
+Board integration
+~~~~~~~~~~~~~~~~~
+
+ADAU1373 evaluation board driver
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+There is no dedicated Blackfin STAMP evaluation board for the ADAU1373. During
+test and driver development we used the :adi:`EVAL-ADAU1373`
+board.
+
+It can be easily wired to the Blackfin STAMP SPORT header.
+
+Source
+""""""
+
+Status
+''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adau1373.c>`__
+     - `yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adau1373.c>`__
+     -
+     -
+
+Files
+'''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `sound/soc/blackfin/bfin-eval-adau1373.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adau1373.c>`__
+
+Kernel configuration
+""""""""""""""""""""
+
+::
+
+   Device Drivers  --->
+   [*] I2C support  --->
+   [*]   I2C Hardware Bus support  --->
+   ***     I2C system bus drivers (mostly embedded / system-on-chip) ***
+   <*>       Blackfin TWI I2C support
+   (100)     Blackfin TWI I2C clock (kHz)
+
+Enable ALSA SoC evaluation board driver:
+
+::
+
+   Device Drivers  --->
+   <M> Sound card support  --->
+   <M>   Advanced Linux Sound Architecture  --->
+   <M>     ALSA for SoC audio support  --->
+   <M>       Support for the EVAL-ADAU1373 boards on Blackfin eval boards
+
+Hardware configuration
+""""""""""""""""""""""
+
+Connect the STAMP SPORT 0 port (P6) to the EVAL-ADAU1373 J23 and J28 headers.
+
+Note that the SPORT has separate signals for the capture and playback clocks,
+while the ADAU1373 uses the same clock signals for both, so the EVAL-ADU1373
+clock signal pins need to be connected to two STAMP pins each.
+
+.. list-table::
+   :header-rows: 1
+
+   * - STAMP pin
+     - EVAL-ADAU1373 pin
+     - Function
+   * - P6-26 (SPORT 0 - PJ2_SCL)
+     - J23-1
+     - I2C SCL
+   * - P6-24 (SPORT 0 - PJ3_SDA)
+     - J23-3
+     - I2C SDA
+   * - P6-6 (SPORT 0 - PJ9_TSCLK0), P6-16 (SPORT 0 - PJ6_RSCLK0)
+     - J28-6 (A_BCLK)
+     - BCLK
+   * - P6-11 (SPORT 0 - PJ10_TFS0), P6-7 (SPORT 0 - PJ7_RFS0)
+     - J28-8 (A_LRC)
+     - LRCLK
+   * - P6-14 (SPORT 0 - PJ11_DT0PRI
+     - J28-10 (A_DACDAT)
+     - Playback data
+   * - P6-8 (SPORT 0 - PJ8_DR0PRI)
+     - J28-12 (A_ADCDAT)
+     - Captrue data
+   * - P6-33
+     - J28-1
+     - GND
+
+Driver testing
+""""""""""""""
+
+Load the driver and make sure the sound card is properly instantiated.
+
+::
+
+   root:/> modprobe snd-bf5xx-i2s
+   root:/> modprobe snd-soc-bf5xx-i2s
+   root:/> modprobe snd-soc-adau1373
+   root:/> modprobe snd-soc-bfin-eval-adau1373
+   dma rx:3 tx:4, err irq:45, regs:ffc00800
+   asoc: ADAU1373 <-> bf5xx-i2s mapping ok
+
+::
+
+   root:/> modprobe snd-pcm-oss
+   root:/> tone
+   TONE: generating sine wave at 1000 Hz...
+
+   root:/> arecord -f cd | aplay
+   Recording WAVE 'stdin' : Signed 16 bit Little Endian, Rate 44100 Hz, Stereo
+   Playing WAVE 'stdin' : Signed 16 bit Little Endian, Rate 44100 Hz, Stereo
+
+Driver testing
+--------------
+
+Routing and DAPM
+~~~~~~~~~~~~~~~~
+
 ASoC DAPM Widgets
------------------
+^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -139,8 +276,8 @@ ASoC DAPM Widgets
    * - MICBIAS2
      - Micbias 2 supply
 
-ALSA Controls
--------------
+ALSA controls
+~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -227,10 +364,10 @@ ALSA Controls
      - Digital Audio Interface C Playback Gain (+6dB)
      -
    * - AIF1 Boost Capture Volume
-     - Digital Audio Interface C Recording Gain (+6dB)
+     - Digital Audio Interface A Recording Gain (+6dB)
      -
    * - AIF2 Boost Capture Volume
-     - Digital Audio Interface C Recording Gain (+6dB)
+     - Digital Audio Interface B Recording Gain (+6dB)
      -
    * - AIF3 Boost Capture Volume
      - Digital Audio Interface C Recording Gain (+6dB)
@@ -245,46 +382,46 @@ ALSA Controls
      - DAC1 Playback Gain (+6dB)
      -
    * - DAC2 Boost Playback Volume
-     - DAC1 Playback Gain (+6dB)
+     - DAC2 Playback Gain (+6dB)
      -
    * - Speaker Boost Playback Volume
      - Speaker Output Gain
      -
    * - Lineout1 LR Mux
-     - Lineout1 Left-Right Mux (Mono Stereo Control)
-       Valid values: ``Mute``, ``Right Channel (L+R)``, ``Left Channel (L+R)``, ``Stereo``
+     - Lineout1 Left-Right Mux (Mono Stereo Control) Valid values: ``Mute``,
+       ``Right Channel (L+R)``, ``Left Channel (L+R)``, ``Stereo``
      -
    * - Lineout2 LR Mux
-     - Lineout2 Left-Right Mux (Mono Stereo Control)
-       Valid values: ``Mute``, ``Right Channel (L+R)``, ``Left Channel (L+R)``,
-       ``Stereo``
+     - Lineout2 Left-Right Mux (Mono Stereo Control) Valid values: ``Mute``,
+       ``Right Channel (L+R)``, ``Left Channel (L+R)``, ``Stereo``
      - Single-ended lineout
    * - Speaker LR Mux
-     - Speaker Left-Right Mux (Mono Stereo Control)
-       Valid values: ``Mute``, ``Right Channel (L+R)``, ``Left Channel (L+R)``, ``Stereo``
+     - Speaker Left-Right Mux (Mono Stereo Control) Valid values: ``Mute``,
+       ``Right Channel (L+R)``, ``Left Channel (L+R)``, ``Stereo``
      -
    * - HPF Cutoff
-     - High-pass-filter cutoff frequency.
-       Valid values: ``3.7Hz``, ``50Hz``, ``100Hz``, … steps of 50Hz …, ``800Hz``
+     - High-pass-filter cutoff frequency. Valid values: ``3.7Hz``, ``50Hz``, ``100Hz``,
+       … steps of 50Hz …, ``800Hz``
      -
    * - HPF Switch
      - Enable/Disable High-pass-filter
      -
    * - HPF Channel
-     - Hight-pass-filter channel.
-       Valid values: ``Channel1``, ``Channel2``, ``Channel3``, ``Channel4``, ``Channel5``
+     - Hight-pass-filter channel. Valid values: None, Channel 1, Channel 2, Channel 3,
+       Channel 4, Channel 5. Use these exact labels for HPF Channel, Bass Channel, 3D
+       Channel and the DRC channel controls.
      -
    * - Bass HPF Cutoff
-     - Bass High-pass-filter cutoff frequency.
-       Valid values: ``158Hz``, ``232Hz``, ``347Hz``, ``520Hz``
+     - Bass High-pass-filter cutoff frequency. Valid values: ``158Hz``, ``232Hz``,
+       ``347Hz``, ``520Hz``
      -
    * - Bass Clip Level Threshold
-     - Signal Extend Density (Clip Level). Overdrive level for bass enhancement.
-       Valid values: ``0.125``, ``0.250``, ``0.370``, ``0.500``, ``0.625``, ``0.750``, ``0.875``
+     - Signal Extend Density (Clip Level). Overdrive level for bass enhancement. Valid
+       values: ``0.125``, ``0.250``, ``0.370``, ``0.500``, ``0.625``, ``0.750``,
+       ``0.875``
      -
    * - Bass LPF Cutoff
-     - Bass Low-pass-filter cutoff frequency.
-       Valid values: ``801Hz``, ``1001Hz``
+     - Bass Low-pass-filter cutoff frequency. Valid values: ``801Hz``, ``1001Hz``
      -
    * - Bass Playback Switch
      - Enable/Disable Bass Enhancement
@@ -293,18 +430,20 @@ ALSA Controls
      - Bass Enhancement Gain
      -
    * - Bass Channel
-     - Bass Enhancement Channel.
-       Valid values: ``Channel1``, ``Channel2``, ``Channel3``, ``Channel4``, ``Channel5``
+     - Bass Enhancement Channel. Valid values: ``Channel1``, ``Channel2``,
+       ``Channel3``, ``Channel4``, ``Channel5``
      -
    * - 3D Freq
-     - 3D Enhancement cutoff frequency (relative to the sampling rate).
-       Valid values: ``No 3D``, ``0.03125 fs``, ``0.04583 fs``, ``0.075 fs``, ``0.11458 fs``, ``0.16875 fs``, ``0.27083 fs``
+     - 3D Enhancement cutoff frequency (relative to the sampling rate). Valid values:
+       ``No 3D``, ``0.03125 fs``, ``0.04583 fs``, ``0.075 fs``, ``0.11458 fs``,
+       ``0.16875 fs``, ``0.27083 fs``
      -
    * - 3D Level
-     - 3D Enhancement effect level.
-       Valid values: ``0%``, ``6.67%``, ``13.33%``, ``20%``, ``26.67%``,
-       ``33.33%``, ``40%``, ``46.67%``, ``53.33%``,
-       ``60%``, ``66.67%``, ``73.33%``, ``80%``, ``86.67``, ``93.33%``, ``100%``
+     - 3D Enhancement effect level. Valid values: ``0%``, ``6.67%``, ``13.33%``,
+       ``20%``, ``26.67%``, ``33.33%``, ``40%``, ``46.67%``, ``53.33%``, ``60%``,
+       ``66.67%``, ``73.33%``, ``80%``, ``86.67``,
+       ``99.33% (the literal driver label; verify the apparent label typo before treating it as a physical percentage)``,
+       ``100%``
      -
    * - 3D Playback Switch
      - Enable/Disable 3D Enhancement
@@ -313,27 +452,33 @@ ALSA Controls
      - 3D Enhancement Gain
      -
    * - 3D Channel
-     - 3D Enhancement Channel.
-       Valid values: ``Channel1``, ``Channel2``, ``Channel3``, ``Channel4``, ``Channel5``
+     - 3D Enhancement Channel. Valid values: ``Channel1``, ``Channel2``, ``Channel3``,
+       ``Channel4``, ``Channel5``
      -
    * - Zero Cross Switch
      - Enable/Disable Zero-Cross-Detection for volume updates
      -
    * - DRC1 Channel
-     - Dynamic Range Control 1 Channel.
-       Valid values: ``Channel1``, ``Channel2``, ``Channel3``, ``Channel4``, ``Channel5``
+     - Dynamic Range Control 1 Channel. DRC controls are registered only for the number
+       of DRC blocks supplied in platform data (num_drc): 1 adds DRC1, 2 adds DRC1/2,
+       and 3 adds all three. With no platform data, none of these three controls is
+       created. Valid values: ``Channel1``, ``Channel2``, ``Channel3``, ``Channel4``,
+       ``Channel5``
      -
    * - DRC2 Channel
-     - Dynamic Range Control 2 Channel.
-       Valid values: ``Channel1``, ``Channel2``, ``Channel3``, ``Channel4``, ``Channel5``
+     - Dynamic Range Control 2 Channel. Valid values: ``Channel1``, ``Channel2``,
+       ``Channel3``, ``Channel4``, ``Channel5``
      -
    * - DRC3 Channel
-     - Dynamic Range Control 3 Channel.
-       Valid values: ``Channel1``, ``Channel2``, ``Channel3``, ``Channel4``, ``Channel5``
+     - Dynamic Range Control 3 Channel. Valid values: ``Channel1``, ``Channel2``,
+       ``Channel3``, ``Channel4``, ``Channel5``
      -
 
+DAI formats and clocks
+~~~~~~~~~~~~~~~~~~~~~~
+
 PLL Configuration
------------------
+^^^^^^^^^^^^^^^^^
 
 The ADAU1373 features two PLLs:
 
@@ -372,7 +517,7 @@ rate you’d normally choose 49152000 Hz for the PLL output frequncey and for a
 44100 Hz based sample rate 45158400 Hz.
 
 DAI configuration
------------------
+^^^^^^^^^^^^^^^^^
 
 The codec driver registers three DAIs:
 
@@ -381,7 +526,7 @@ The codec driver registers three DAIs:
 - ``adau1373-aif3`` (Digital Audio Interface C)
 
 Supported DAI formats
-~~~~~~~~~~~~~~~~~~~~~
+"""""""""""""""""""""
 
 .. list-table::
    :header-rows: 1
@@ -442,7 +587,7 @@ Supported DAI formats
      - Codec bit- and frameclock slave
 
 DAI sysclk
-~~~~~~~~~~
+""""""""""
 
 The DAIs can either use PLL1 or PLL2 as source. When configuring a DAI its rate
 should be set to the rate of the source PLL.
@@ -455,7 +600,7 @@ should be set to the rate of the source PLL.
    };
 
 Example DAI configuration
-~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code:: c
 
@@ -540,124 +685,3 @@ Example DAI configuration
        .ops = &bfin_eval_adau1373_ops,
        .init = bfin_eval_adau1373_codec_init,
    };
-
-ADAU1373 evaluation board driver
---------------------------------
-
-There is no dedicated Blackfin STAMP evaluation board for the ADAU1373. During
-test and driver development we used the :adi:`EVAL-ADAU1373`
-board.
-
-It can be easily wired to the Blackfin STAMP SPORT header.
-
-Source
-~~~~~~
-
-Status
-^^^^^^
-
-.. list-table::
-   :header-rows: 1
-
-   * - Source
-     - Mainlined?
-     -
-     -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adau1373.c>`__
-     - `yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adau1373.c>`__
-     -
-     -
-
-Files
-^^^^^
-
-.. list-table::
-   :header-rows: 1
-
-   * - Function
-     - File
-   * - driver
-     - `sound/soc/blackfin/bfin-eval-adau1373.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adau1373.c>`__
-
-Kernel configuration
-~~~~~~~~~~~~~~~~~~~~
-
-::
-
-   Device Drivers  --->
-   [*] I2C support  --->
-   [*]   I2C Hardware Bus support  --->
-   ***     I2C system bus drivers (mostly embedded / system-on-chip) ***
-   <*>       Blackfin TWI I2C support
-   (100)     Blackfin TWI I2C clock (kHz)
-
-Enable ALSA SoC evaluation board driver:
-
-::
-
-   Device Drivers  --->
-   <M> Sound card support  --->
-   <M>   Advanced Linux Sound Architecture  --->
-   <M>     ALSA for SoC audio support  --->
-   <M>       Support for the EVAL-ADAU1373 boards on Blackfin eval boards
-
-Hardware configuration
-~~~~~~~~~~~~~~~~~~~~~~
-
-Connect the STAMP SPORT 0 port (P6) to the EVAL-ADAU1373 J23 and J28 headers.
-
-Note that the SPORT has separate signals for the capture and playback clocks,
-while the ADAU1373 uses the same clock signals for both, so the EVAL-ADU1373
-clock signal pins need to be connected to two STAMP pins each.
-
-.. list-table::
-   :header-rows: 1
-
-   * - STAMP pin
-     - EVAL-ADAU1373 pin
-     - Function
-   * - P6-26 (SPORT 0 - PJ2_SCL)
-     - J23-1
-     - I2C SCL
-   * - P6-24 (SPORT 0 - PJ3_SDA)
-     - J23-3
-     - I2C SDA
-   * - P6-6 (SPORT 0 - PJ9_TSCLK0), P6-16 (SPORT 0 - PJ6_RSCLK0)
-     - J28-6 (A_BCLK)
-     - BCLK
-   * - P6-11 (SPORT 0 - PJ10_TFS0), P6-7 (SPORT 0 - PJ7_RFS0)
-     - J28-8 (A_LRC)
-     - LRCLK
-   * - P6-14 (SPORT 0 - PJ11_DT0PRI
-     - J28-10 (A_DACDAT)
-     - Playback data
-   * - P6-8 (SPORT 0 - PJ8_DR0PRI)
-     - J28-12 (A_ADCDAT)
-     - Captrue data
-   * - P6-33
-     - J28-1
-     - GND
-
-Driver testing
-~~~~~~~~~~~~~~
-
-Load the driver and make sure the sound card is properly instantiated.
-
-::
-
-   root:/> modprobe snd-bf5xx-i2s
-   root:/> modprobe snd-soc-bf5xx-i2s
-   root:/> modprobe snd-soc-adau1373
-   root:/> modprobe snd-soc-bfin-eval-adau1373
-   dma rx:3 tx:4, err irq:45, regs:ffc00800
-   asoc: ADAU1373 <-> bf5xx-i2s mapping ok
-
-::
-
-   root:/> modprobe snd-pcm-oss
-   root:/> tone
-   TONE: generating sine wave at 1000 Hz...
-
-   root:/> arecord -f cd | aplay
-   Recording WAVE 'stdin' : Signed 16 bit Little Endian, Rate 44100 Hz, Stereo
-   Playing WAVE 'stdin' : Signed 16 bit Little Endian, Rate 44100 Hz, Stereo

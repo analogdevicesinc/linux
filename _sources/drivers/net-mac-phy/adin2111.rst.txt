@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/net-mac-phy/adin2111
 
+
 .. _adin2111:
 
 ADIN2111
@@ -12,8 +13,8 @@ Supported Devices
 
 - :adi:`ADIN2111`
 
-Supported Boards
-----------------
+Evaluation Boards
+-----------------
 
 Description
 -----------
@@ -55,8 +56,11 @@ Files
    * - driver
      - `drivers/net/ethernet/adi/adin1110.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ethernet/adi>`_
 
-Enabling Linux driver support
------------------------------
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
@@ -68,7 +72,7 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 #. Press 1 (the key), then hit Enter
 #. You should see the location + dependencies for enabling the driver
 
-::
+.. code-block:: text
 
    Linux Kernel Configuration
    Symbol: ADIN1110 [=y]
@@ -80,8 +84,40 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
             -> Ethernet driver support (ETHERNET [=y])
       (1)     -> Analog Devices devices (NET_VENDOR_ADI [=y])
       Defined at drivers/net/ethernet/adi/Kconfig:20
-      Depends on: NETDEVICES [=y] && ETHERNET [=y] && NET_VENDOR_ADI [=y] && SPI [=y]
-      Selects: CRC8 [=y]
+      Depends on: NETDEVICES [=y] && ETHERNET [=y] && NET_VENDOR_ADI [=y] && SPI [=y] && NET_SWITCHDEV [=y]
+      Selects: CRC8 [=y] && PHYLIB [=y]
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+ADIN2111 probes via devicetree.
+
+.. code-block:: dts
+
+   ethernet@0 {
+       compatible = "adi,adin2111";
+
+           /* SPI CS number */
+           reg = <0>;
+
+           /* generic SPI: datasheet specifies 25 MHz for full-duplex 10 Mbps Ethernet */
+       spi-max-frequency = <1000000>;
+
+           /* match Generic SPI with CRC hardware straps: SPI_CFG1=1, SPI_CFG0=0 */
+       adi,spi-crc;
+
+       #address-cells = <1>;
+       #size-cells = <0>;
+
+           /* an IRQ is required, INT_N pin is configured to signal RX/TX frames */
+       interrupt-parent = <&gpio>;
+       interrupts = <25 IRQ_TYPE_LEVEL_LOW>; /* include dt-bindings/interrupt-controller/irq.h */
+
+           /* This is the host MAC address, by default ADIN2111 will also accept broadcast frames */
+       mac-address = [ CA 2F B7 10 23 63 ];
+
+       /* Internal PHYs are discovered on the driver-created MDIO bus. */
+   };
 
 Driver testing
 --------------
@@ -90,54 +126,14 @@ This requires that another 10BASE-T1L PHY be connected to the other end of the
 network cable, or that a media converter be used to convert to normal
 twisted-pair ethernet that standard ethernet cables use.
 
-ADIN2111 communicates with the host via SPI. For 10 Mbps bandwidth, SPI
-frequency needs to be around 23 MHz. Lower SPI frequencies are supported but
-will result in a lower bandwidth. At 1 MHz the MAC will provide aprox. 0.4 Mbps
-of bandwidth.
+ADIN2111 communicates with the host using the generic SPI protocol, which is
+half duplex. The datasheet specifies a 25 MHz SCLK for full-duplex 10 Mbps
+Ethernet traffic. Lower SPI rates reduce host-link capacity; actual throughput
+also depends on frame sizes, transfer overhead and host scheduling.
 
 Connect to host the SCLK, CS_N, SDI, SDO and INT_N. (The INT_N is mandatory, see
 DT bindings). RX frames and sent TX frames are signaled to the host by INT_N IRQ
 pin.
-
-Device Tree
-~~~~~~~~~~~
-
-ADIN2111 probes via devicetree.
-
-::
-
-   ethernet@0 {
-       compatible = "adi,adin2111";
-
-           /* SPI CS number */
-           reg = <0>;
-
-           /* will need 23 MHz for 10 Mbps, lower speeds will result in lower bandwidth */
-       spi-max-frequency = <1000000>;
-
-           /* optional, will check all control read/writes over SPI */
-       adi,spi-crc;
-
-       #address-cells = <1>;
-       #size-cells = <0>;
-
-           /* an IRQ is required, INT_N pin is configured to signal RX/TX frames */
-       interrupt-parent = <&gpio>;
-       interrupts = <25 2>;
-
-           /* This is the host MAC address, by default ADIN2111 will also accept broadcast frames */
-       mac-address = [ CA 2F B7 10 23 63 ];
-
-       phy@0 {
-           compatible = "ethernet-phy-id0283.bca1";
-           reg = <0x0>;
-       };
-
-       phy@1 {
-           compatible = "ethernet-phy-id0283.bca1";
-           reg = <0x1>;
-       };
-   };
 
 Renaming ethernet interfaces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -180,12 +176,12 @@ bridged:
    ip link set br0 up
    ip route add 192.168.160.0/24 dev br0
 
-.. important::
+Important
 
-   Default behavior of ADIN2111 will be to forward to the host only frames with
-   the destination MAC address of the interface and broadcast address (Multicast
-   only if enabled). Other frames are not seen by the SPI host and will be
-   forwarded to the other port.
+Hardware inter-port forwarding is enabled only when both ports belong to the
+same Linux bridge and both are in the forwarding state. Leaving the bridge or
+blocking a port disables this offload. Host delivery is separately controlled by
+the receive filters.
 
 Printing the forwarding database
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -400,8 +396,11 @@ On the other host check the hash
    sha256sum test.data
    <SHA256-hash-of-data> == should be identical with the first hash
 
+More Information
+----------------
+
 Ethernet pointers
------------------
+~~~~~~~~~~~~~~~~~
 
 - netdev mailing list: netdev@vger.kernel.org
 - `Ethernet Controller bindings doc <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/net/ethernet-controller.yaml>`__

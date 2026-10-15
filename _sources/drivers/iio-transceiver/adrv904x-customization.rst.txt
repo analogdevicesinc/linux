@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv904x-customization
 
+
 .. _adrv904x-customization:
 
 ADRV904x Customization
@@ -15,8 +16,11 @@ ADRV904x Device Driver Customization.
 
    If unsure please see the manual or don’t change!
 
+Configuration and sequence
+--------------------------
+
 Clock Settings
---------------
+~~~~~~~~~~~~~~
 
 :ref:`ad9528`
 
@@ -139,9 +143,9 @@ A sample configuration of the AD9528:
    };
 
 ADRV904x PHY
-------------
+~~~~~~~~~~~~
 
-::
+.. code-block:: dts
 
    trx0_adrv904x: adrv904x-phy@0 {
            compatible = "adrv9040";
@@ -179,8 +183,6 @@ ADRV904x PHY
            adi,stream-firmware-name = "stream_image.bin";
            adi,rx-gaintable-names = "ADRV9040_RxGainTable.csv";
            adi,rx-gaintable-channel-masks = <0xFF>;
-           //adi,tx-attntable-names = "ADRV904X_TxAttenTable.csv";
-           //adi,tx-attntable-channel-masks = <0x0F>;
        };
 
 .. list-table::
@@ -206,7 +208,7 @@ ADRV904x PHY
      - Channel mask for TX attenuation values
 
 AXI FPGA
---------
+~~~~~~~~
 
 ::
 
@@ -344,7 +346,7 @@ AXI FPGA
        };
 
 GPIO Settings
--------------
+~~~~~~~~~~~~~
 
 The GPIO configurations can be done by changing a node’s properties, as the
 following example shows:

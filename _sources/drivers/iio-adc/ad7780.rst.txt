@@ -15,15 +15,6 @@ Supported Devices
 - :adi:`AD7780`
 - :adi:`AD7781`
 
-Reference Circuits
-------------------
-
-- :adi:`CN0107`
-- :adi:`CN0108`
-- :adi:`CN0188`
-- :adi:`CN0218`
-- :adi:`CN0240`
-
 Evaluation Boards
 -----------------
 
@@ -31,6 +22,15 @@ Evaluation Boards
 - :adi:`EVAL-AD7171EBZ`
 - :adi:`EVAL-AD7780EBZ`
 - :adi:`EVAL-AD7781EBZ`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0107`
+- :adi:`CN0108`
+- :adi:`CN0188`
+- :adi:`CN0218`
+- :adi:`CN0240`
 
 Description
 -----------
@@ -54,8 +54,8 @@ Status
      - Mainlined?
      -
      -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/adc/ad7780.c>`__
-     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/adc/ad7780.c>`__
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7780.c>`__
+     - Yes
      -
      -
 
@@ -68,28 +68,47 @@ Files
    * - Function
      - File
    * - driver
-     - `drivers/staging/iio/adc/ad7780.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/adc/ad7780.c>`__
-   * - include
-     - `drivers/staging/iio/adc/ad7780.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/adc/ad7780.h>`__
+     - `drivers/iio/adc/ad7780.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7780.c>`__
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD7780 driver depends on **CONFIG_SPI** and **CONFIG_GPIOLIB**
+   (or **CONFIG_COMPILE_TEST**) and selects **CONFIG_AD_SIGMA_DELTA**.
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*> Industrial I/O support --->
+               Analog to digital converters --->
+                   <*> Analog Devices AD7780 and similar ADCs driver
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
    :end-before: .. end-platform-data
 
-The reference voltage may vary between boards and models. The platform_data for
-the device’s ``struct device`` holds this information.
-
-:git+linux:`ad7780_platform_data{} <main:drivers/staging/iio/adc/ad7780.h>`
-
-.. code:: c
-
-   static struct ad7780_platform_data __initdata ad7780_pdata = {
-       .vref_mv    = 2500,
-       .gpio_pdrst = GPIO_PF10,
-   };
+The driver obtains reference/supply voltage from the ``avdd`` regulator and
+GPIOs by descriptor lookup (``powerdown``, ``adi,gain`` and ``adi,filter``).
+It does not use an ``ad7780_platform_data`` structure.
+For a board-file configuration, register GPIO descriptor lookup mappings for
+the SPI device as required by the connected hardware. The examples below show
+regulator and SPI registration only; they do not specify board-specific GPIO
+mappings.
 
 .. note::
 
@@ -103,12 +122,10 @@ the device’s ``struct device`` holds this information.
    to an interrupt capable GPIO.
 
 Specifying reference voltage via the regulator framework
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-.. tip::
-
-   This driver supports also an alternative way of specifying the reference
-   voltage, by using the Linux regulator framework.
+The driver requires an ``avdd`` regulator. Register the board's actual supply
+with that consumer name.
 
 Below example specifies a 3.3 Volt reference for the SPI device 3 on SPI-Bus 0.
 (**spi0.3**)
@@ -117,7 +134,7 @@ Below example specifies a 3.3 Volt reference for the SPI device 3 on SPI-Bus 0.
 
    #if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)
    static struct regulator_consumer_supply ad7780_consumer_supplies[] = {
-       REGULATOR_SUPPLY("vcc", "spi0.3"),
+       REGULATOR_SUPPLY("avdd", "spi0.3"),
    };
 
    static struct regulator_init_data stamp_avdd_reg_init_data = {
@@ -188,7 +205,6 @@ the device in question.
            .max_speed_hz = 1000000,     /* max spi clock (SCK) speed in HZ */
            .bus_num = 0, /* Framework bus number */
            .chip_select = 3, /* Framework chip select */
-           .platform_data = &ad7780_pdata,
            .irq = IRQ_PF6,
            .mode = SPI_MODE_0,
        },
@@ -208,37 +224,6 @@ the device in question.
        return 0;
    }
    arch_initcall(board_init);
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AD7780 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           [*] Staging drivers  --->
-               <*>     Industrial I/O support --->
-                   --- Industrial I/O support
-                   -*-   Enable ring buffer support within IIO
-                   -*-     Industrial I/O lock free software ring
-                   -*-   Enable triggered sampling support
-
-                         *** Analog to digital converters ***
-                   [--snip--]
-
-                   <*>   Analog Devices AD7780 AD7781 ADC driver
-
-                   [--snip--]
-
-Hardware configuration
-----------------------
 
 Driver testing
 --------------
@@ -261,13 +246,16 @@ Driver testing
    lrwxrwxrwx    1 root     root             0 Jan  3 12:41 subsystem -> ../../../../../bus/iio
    -rw-r--r--    1 root     root          4096 Jan  3 12:41 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat name
    ad7780
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale
 ^^^^^^^^^^
@@ -281,7 +269,7 @@ measured voltage in millivolts.
    0.00029
 
 Show channel 0 measurement
-''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** Raw unscaled voltage measurement on channel 0
 
@@ -290,7 +278,8 @@ Show channel 0 measurement
    root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat in0_raw
    -1
 
-**U** = *in_voltage0_raw \* in_scale* = -1 \* 0.00029 = **-0.00029 mV**
+The raw value is unsigned offset binary, so U_mV = (in_voltage0_raw +
+in_voltage0_offset) × in_voltage_scale, with an offset of -8388608.
 
 More Information
 ----------------

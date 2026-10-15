@@ -3,6 +3,7 @@
    Apollo MxFE Quad, 16-Bit, 28GSPS RF DAC and Quad, 12-Bit, 20 GSPS RF ADC
    Linux driver.
 
+
 .. _ad9088:
 
 AD9084/AD9088
@@ -11,17 +12,18 @@ AD9084/AD9088
 The Apollo mixed signal front-end (MxFE®) is a highly integrated device with a
 16-bit, 28/16 GSPS maximum sample rate, RF digital-to-analog converter (DAC)
 core, and 12-bit, 20/8 GSPS maximum sample rate, RF analog-to-digital converter
-(ADC) core. The :adi:`AD9084`/:adi:`AD9088` supports eight transmit channels
-and eight receive channels. The :adi:`AD9084`/:adi:`AD9088` is well suited for
-applications requiring both wideband ADCs and DACs to process signal(s) having
-wide instantaneous bandwidth. The device features a 48 lane, 28.1/32.51 Gbps
-JESD204C or 16/20 Gbps JESD204B data transceiver port, an on-chip clock
-multiplier, and a digital signal processing (DSP) capability targeted at either
-wideband or multi-band, direct to RF applications. The
-:adi:`AD9084`/:adi:`AD9088` also features a bypass mode that allows the full
-bandwidth capability of the ADC and/or DAC cores to bypass the DSP datapaths.
-The device also features low latency loopback and frequency hopping modes
-targeted at phased array radar systems and electronic warfare applications.
+(ADC) core. The :adi:`AD9084` supports four transmit channels and four
+receive channels; the :adi:`AD9088` supports eight of each. The
+:adi:`AD9084`/:adi:`AD9088` is well suited for applications requiring
+both wideband ADCs and DACs to process signal(s) having wide instantaneous
+bandwidth. The device features a 48 lane, 28.1/32.51 Gbps JESD204C or 16/20 Gbps
+JESD204B data transceiver port, an on-chip clock multiplier, and a digital
+signal processing (DSP) capability targeted at either wideband or multi-band,
+direct to RF applications. The :adi:`AD9084`/:adi:`AD9088` also features
+a bypass mode that allows the full bandwidth capability of the ADC and/or DAC
+cores to bypass the DSP datapaths. The device also features low latency loopback
+and frequency hopping modes targeted at phased array radar systems and
+electronic warfare applications.
 
 Supported Devices
 -----------------
@@ -36,6 +38,16 @@ Evaluation Boards
 
 * | :adi:`EVAL-AD9084`
   | :adi:`User Guide (UG-2326) <media/en/technical-documentation/user-guides/eval-ad9084-ad9088-ug-2326.pdf>`
+
+Description
+-----------
+
+During normal device initialization, the AD9088 performs extensive calibration of ADCs, SERDES transceivers, and clock conditioning. This process can take considerable time. The calibration data management feature allows you to:
+
+* Save all calibration data to a binary file
+* Restore calibration data from file during driver probe
+* Skip time-consuming calibration procedures on subsequent boots
+* Maintain factory or field calibration data
 
 Source Code
 -----------
@@ -74,186 +86,17 @@ API:
 * :git+linux:`private <main:drivers/iio/trx-rf/ad9088/private>`
 * :git+linux:`public <main:drivers/iio/trx-rf/ad9088/public>`
 
-Interrelated Device Drivers
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Calibration-related source files:
 
-These are drivers that are connected to or is a dependency of ``ad9088.c``.
+* :git+linux:`ad9088_cal.c <main:drivers/iio/trx-rf/ad9088/ad9088_cal.c>` - Calibration save/restore implementation
+* :git+linux:`ad9088_cal.h <main:drivers/iio/trx-rf/ad9088/ad9088.h>` - Calibration data structures
+* :git+linux:`ad9088_cal_dump.c <main:tools/iio/ad9088_cal_dump.c>` - Calibration dump tool
 
-* :dokuwiki:`JESD204 (FSM) Interface Linux Kernel Framework <resources/tools-software/linux-drivers/jesd204/jesd204-fsm-framework>`
-* :dokuwiki:`JESD204 Interface Framework <resources/fpga/peripherals/jesd204>`
+Adding Linux driver support
+---------------------------
 
-* :ref:`axi-aion-trig` - FPGA trigger IP for BSYNC ToF synchronization
-* :ref:`axi-hsci` - High-speed communication interface for register access
-* :ref:`adf4382` - Wideband synthesizer (sampling clock source)
-* :ref:`adf4030` - Precision synchronizer for BSYNC generation
-* :ref:`hmc7044` - Clock distribution
-* :ref:`ltc6952` - Clock distribution
-
-* Transport Layer Receive AXI-ADC driver
-
-  * Sources:
-
-    * :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
-    * :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
-    * :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
-
-  * Documentation:
-
-    * :dokuwiki:`AXI ADC HDL Linux Driver <resources/tools-software/linux-drivers/iio-adc/axi-adc-hdl>`
-
-* Transport Layer Transmit AXI-DAC / DDS driver
-
-  * Sources:
-
-    * :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
-    * :git+linux:`main:drivers/iio/frequency/cf_axi_adc.h`
-
-  * Documentation:
-
-    * :dokuwiki:`AXI DAC HDL Linux Driver <resources/tools-software/linux-drivers/iio-dds/axi-dac-dds-hdl>`
-
-* Link Layer AXI JESD204B HDL driver
-
-  * Sources:
-
-    * :git+linux:`main:drivers/iio/jesd204/axi_jesd204_rx.c`
-    * :git+linux:`main:drivers/iio/jesd204/axi_jesd204_tx.c`
-
-  * Documentation:
-
-    * :dokuwiki:`JESD204B/C Transmit Linux Driver <resources/tools-software/linux-drivers/jesd204/axi_jesd204_tx>`
-    * :dokuwiki:`JESD204B/C Receive Linux Driver <resources/tools-software/linux-drivers/jesd204/axi_jesd204_rx>`
-
-* PHY Layer AXI JESD204B GT (Gigabit Transceiver) HDL driver (XILINX/ALTERA-INTEL)
-
-  * Sources:
-
-    * :git+linux:`main:drivers/iio/jesd204/axi_adxcvr.c`
-
-  * Documentation:
-
-    * :dokuwiki:`JESD204B/C AXI_ADXCVR Highspeed Transceivers Linux Driver <resources/tools-software/linux-drivers/jesd204/axi_adxcvr>`
-
-.. Add cfir pfir to docs
-
-
-Devicetree
-----------
-
-The following example devicetrees are provided:
-
-* :git+linux:`AD9084-VCU118 RevB <main:arch/microblaze/boot/dts/vcu118_quad_ad9084_revB.dts>`: vcu118_quad_ad9084_revB.dts
-* :git+linux:`AD9084-VCU118 26p4 RevB Ext <main:arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB_ext.dts>`: vcu118_quad_ad9084_26p4_revB_ext.dts
-* :git+linux:`AD9084-VCU118 26p4 RevB <main:arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB.dts>`: vcu118_quad_ad9084_26p4_revB.dts
-* :git+linux:`AD9084-VCU118 204C_M4_L8_NP12_16p2_6x1 <main:arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts>`: vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts
-* :git+linux:`AD9084-VCU118 ad9084 <main:arch/microblaze/boot/dts/vcu118_ad9084.dts>`: vcu118_ad9084.dts
-* :git+linux:`AD9084-VCU118 RevB Ext <main:arch/microblaze/boot/dts/vcu118_quad_ad9084_revB_ext.dts>`: vcu118_quad_ad9084_revB_ext.dts
-* :git+linux:`AD9084-VCU118 204C_M4_L8_NP16_20p0_4x4 <main:arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts>`: vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts
-* :git+linux:`AD9084-VCK190 <main:arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084.dts>`: versal-vck190-reva-ad9084.dts
-* :git+linux:`AD9084-VCK190 204C_M4_L4_NP16_20p0_4x4 <main:arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts>`: versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts
-
-Profile
-~~~~~~~
-
-* ``adi,device-profile-fw-name``: Set the profile firmware to use.
-
-See :ref:`apollo profile` for more information.
-
-Calibration
-~~~~~~~~~~~
-
-* ``adi,device-calibration-data-name``: Set the calibration data firmware file
-  to load during driver probe. This enables automatic calibration restore from
-  a previously saved calibration file, significantly reducing boot time.
-
-If not present, the driver performs normal initialization with full calibration.
-See :ref:`calibration data management` for more information.
-
-Bring-up
-~~~~~~~~~
-
-* ``adi,delayed-serdes-jrx-cal-en``: Run SERDES calculation during the
-  "link running" phase instead of the earlier "clocks enable" phase.
-
-Format
-~~~~~~
-
-* ``adi,rx-real-channel-en``: Disable complex Q/I samples for RX path.
-* ``adi,tx-real-channel-en``:  Disable complex Q/I samples for RX path.
-
-In practice, doesn't set the channel modifier, treating each channel as
-independent real channel.
-If not present, even number are I samples, and odd Q samples.
-
-Trigger
-~~~~~~~
-
-* ``adi,trigger-sync-en``: Enable trigger synchronization.
-* ``adi,trig-req-gpio``: Set the GPIO that trigger Enable trigger synchronization.
-  If not provided, the SPI trigger will be used for trigger synchronization.
-
-If the option is enabled and no trigger is provided, the synchronization will
-time out.
-
-Detailed topics
-~~~~~~~~~~~~~~~
-
-.. toctree::
-   :caption: The following sections describe these topics:
-   :titlesonly:
-
-   mcs
-   gpio
-   fsrc
-
-Topology
-~~~~~~~~
-
-* ``adi,side-b-use-seperate-tpl-en``: Set side B to use own transport layer.
-* ``adi,standalone-enable``: Allocate own IIO device to device.
-  Top device always allocates IIO device through ``axiadc_converter``,
-  therefore has no effect on it.
-* ``adi,multidevice-instance-count``: Define the **total** number of devices in
-  the system on the main device.
-  Only present if the subordinates uses ``adi,standalone-enable``.
-
-``adi,multidevice-instance-count`` is a companion of the ``adi,standalone-enable``
-attribute.
-For a topology of 4 devices, the main device has it set to 4, and the 3 subordinates
-contain the latter attribute.
-
-SPI
-~~~
-
-* ``adi,spi-3wire-enable``: Use 3-wire SPI for SPI0.
-
-HSCI
-~~~~
-
-A few options are available to tune the HSCI interface.
-
-* ``adi,axi-hsci-connected``: Sets the HSCI controller for the HSCI interface.
-  If absent, only SPI is used to communicate with the device, considerably slower.
-* ``adi,hsci-auto-linkup-mode-en``: Enable HSCI auto-linkup mode.
-* ``adi,hsci-disable-after-boot-en``: Use SPI as the interface after initial device initialization.
-
-GPIO
-~~~~
-
-* ``adi,gpio-exports``: Expose a list of the 30s device GPIOs into a GPIO controller.
-
-A more detailed usage is provided :ref:`here <ad9088 gpio>`.
-
-Spectrum Sniffer
-~~~~~~~~~~~~~~~~
-
-* ``interrupt-names``: ``fft_done_A"`` and ``fft_done_B`` for the spectrum
-  sniffer interrupt signal for side a and b, respectively.
-
-A more detailed usage is provided :ref:`here <apollo fft>`.
-
-Compile the driver
-------------------
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig``
 (alternatively use ``make xconfig`` or ``make qconfig``).
@@ -304,76 +147,127 @@ Configure kernel with ``make menuconfig``
            <*>   Analog Devices AXI JESD204B TX Support
            <*>   Analog Devices AXI JESD204B RX Support
 
-.. _apollo profile:
 
-Device profile
---------------
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-The device profiles can be generated with the profile generator tool that is
-part of the :adi:`ACE` Evaluation Software. Profile modifications can be done
-through :external+pyadi-jif:doc:`pyadi-jif <index>`.
-In particular, the a Python Jupyter Notebook at :git+pyadi-jif:`examples/triton/triton_vcu118.ipynb`
-guides you through the profile generation and modification, with sample files
-at the :git+pyadi-jif:`directory of the notebook <examples/triton>`.
-During runtime, some profile options are reconfigured, such as
-:ref:`apollo ffh`.
+The following example devicetrees are provided:
 
-With the device profile generated, compile into the kernel by adding it to the
-*firmware* folder and appending too the ``CONFIG_EXTRA_FIRMWARE`` kernel
-symbol. The *firmware* folder is set by the symbol
-``CONFIG_EXTRA_FIRMWARE_DIR``, if it is set to something else, add to that path
-instead. Then, update devicetree property ``adi,device-profile-fw-name``.
+* :git+linux:`AD9084-VCU118 RevB <main:arch/microblaze/boot/dts/vcu118_quad_ad9084_revB.dts>`: vcu118_quad_ad9084_revB.dts
+* :git+linux:`AD9084-VCU118 26p4 RevB Ext <main:arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB_ext.dts>`: vcu118_quad_ad9084_26p4_revB_ext.dts
+* :git+linux:`AD9084-VCU118 26p4 RevB <main:arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB.dts>`: vcu118_quad_ad9084_26p4_revB.dts
+* :git+linux:`AD9084-VCU118 204C_M4_L8_NP12_16p2_6x1 <main:arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts>`: vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts
+* :git+linux:`AD9084-VCU118 ad9084 <main:arch/microblaze/boot/dts/vcu118_ad9084.dts>`: vcu118_ad9084.dts
+* :git+linux:`AD9084-VCU118 RevB Ext <main:arch/microblaze/boot/dts/vcu118_quad_ad9084_revB_ext.dts>`: vcu118_quad_ad9084_revB_ext.dts
+* :git+linux:`AD9084-VCU118 204C_M4_L8_NP16_20p0_4x4 <main:arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts>`: vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts
+* :git+linux:`AD9084-VCK190 <main:arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084.dts>`: versal-vck190-reva-ad9084.dts
+* :git+linux:`AD9084-VCK190 204C_M4_L4_NP16_20p0_4x4 <main:arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts>`: versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts
 
-You can have multiple profiles compiled into the kernel image by passing
-multiple profile paths, however only one set in the devicetree property.
-Consider using devicetree overlays to swapping profiles.
+Profile
+^^^^^^^
 
-Usage
------
+* ``adi,device-profile-fw-name``: Set the profile firmware to use.
 
-General IIO and driver conventions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+See :ref:`apollo profile` for more information.
 
-Controlling the MxFE is done via the IIO sysfs interface. For convenience users
-can use :external+system-level:ref:`libiio` and its various programming
-languages bindings.
+Calibration
+^^^^^^^^^^^
 
-The MxFE IIO device under /sys/bus/iio/devices/iio:deviceX features a set of
-channels and device attributes, which are explained here. Some basic, but
-important concepts are explained in the bullet list below:
+* ``adi,device-calibration-data-name``: Set the calibration data firmware file
+  to load during driver probe. This enables automatic calibration restore from
+  a previously saved calibration file, significantly reducing boot time.
 
-* Channels prefixed with ``**in_**voltageX`` apply to Receive (RX) ADC data paths.
-* Channels prefixed with ``**out**_voltageX`` apply to Transmit (TX) DAC data paths.
-* Each channel has a complex modifier ``in_voltageX_**i**`` and
-  ``in_voltageX_**q**`` or ``out_voltageX_**i**`` and ``out_voltageX_**q**``.
-  Controlling a channel attribute for the ``i`` modified channel will
-  simultaneously control the ``q`` modified channel and vice versa. So,
-  writing/reading only needs to happen once, since they are mirrored. The
-  complex IQ modifiers are only important for the data buffers, sine I & Q are
-  individual data components.
-* IIO channels ``[in|out]_voltageX`` apply to the channelizer data paths (Fine DDC/DUC).
+If not present, the driver performs normal initialization with full calibration.
+See :ref:`calibration data management` for more information.
 
-  - Each IIO channel has some ``[in|out]_voltageX_[i|q]_**channel**_[attributes]``
-  - In case the channelizer data paths (Fine DDC/DUC) are bypassed
-    (decimation=1 or interpolation=1), the X still applies to a data path.
+Bring-up
+^^^^^^^^
 
-* Each channelizer data path (FDDC, FDUC) connects at least to one Coarse
-  DDC/DUC (CDDC/CDUC), which maps then to one or more ADCs/DACs depending on
-  configuration. These are called main data paths and are controlled via the
-  ``[in|out]_voltageX_[i|q]_**main**_[attributes]`` attributes.
+* ``adi,delayed-serdes-jrx-cal-en``: Run SERDES calculation during the
+  "link running" phase instead of the earlier "clocks enable" phase.
 
-  - Be aware, since multiple channels can map to the same main data path
-    (CDDC/CDUC), changing a main attribute of one channel will also update same
-    attribute of any other channel that maps to the same main data path
-    (CDDC/CDUC).
-  - The crossbar mapping between Fine and Coarse Digital Up/Down Converters,
-    ADCs/DACs is defined in the device tree.
+Format
+^^^^^^
 
-* Device attributes (without ``**in_**voltageX``or ``**out_**voltageX`` prefix)
-  apply to the entire device.
+* ``adi,rx-real-channel-en``: Disable complex Q/I samples for RX path.
+* ``adi,tx-real-channel-en``:  Disable complex Q/I samples for RX path.
+
+In practice, doesn't set the channel modifier, treating each channel as
+independent real channel.
+If not present, even number are I samples, and odd Q samples.
+
+Trigger
+^^^^^^^
+
+* ``adi,trigger-sync-en``: Enable trigger synchronization.
+* ``adi,trig-req-gpio``: Set the GPIO that trigger Enable trigger synchronization.
+  If not provided, the SPI trigger will be used for trigger synchronization.
+
+If the option is enabled and no trigger is provided, the synchronization will
+time out.
+
+Detailed topics
+^^^^^^^^^^^^^^^
+
+
+.. toctree::
+   :caption: The following sections describe these topics:
+   :titlesonly:
+
+   mcs
+   gpio
+   fsrc
+
+Topology
+^^^^^^^^
+
+* ``adi,side-b-use-seperate-tpl-en``: Set side B to use own transport layer.
+* ``adi,standalone-enable``: Allocate own IIO device to device.
+  Top device always allocates IIO device through ``axiadc_converter``,
+  therefore has no effect on it.
+* ``adi,multidevice-instance-count``: Define the **total** number of devices in
+  the system on the main device.
+  Only present if the subordinates uses ``adi,standalone-enable``.
+
+``adi,multidevice-instance-count`` is a companion of the ``adi,standalone-enable``
+attribute.
+For a topology of 4 devices, the main device has it set to 4, and the 3 subordinates
+contain the latter attribute.
+
+SPI
+^^^
+
+* ``adi,spi-3wire-enable``: Use 3-wire SPI for SPI0.
+
+HSCI
+^^^^
+
+A few options are available to tune the HSCI interface.
+
+* ``adi,axi-hsci-connected``: Sets the HSCI controller for the HSCI interface.
+  If absent, only SPI is used to communicate with the device, considerably slower.
+* ``adi,hsci-auto-linkup-mode-en``: Enable HSCI auto-linkup mode.
+* ``adi,hsci-disable-after-boot-en``: Use SPI as the interface after initial device initialization.
+
+GPIO
+^^^^
+
+* ``adi,gpio-exports``: Expose a list of the 30s device GPIOs into a GPIO controller.
+
+A more detailed usage is provided :ref:`here <ad9088 gpio>`.
+
+.. _apollo fft:
+
+Spectrum Sniffer
+^^^^^^^^^^^^^^^^
+
+* ``interrupt-names``: ``fft_done_A"`` and ``fft_done_B`` for the spectrum
+  sniffer interrupt signal for side a and b, respectively.
+
+A more detailed usage is provided :ref:`here <apollo fft>`.
 
 Driver testing
-~~~~~~~~~~~~~~
+--------------
 
 This device can be found under */sys/bus/iio/devices/*
 
@@ -562,8 +456,79 @@ You can go to the device folder using:
        -rw-r--r-- 1 root root 4096 Feb 11 15:17 uevent
        -r--r--r-- 1 root root 4096 Feb 11 15:17 waiting_for_supplier
 
+Calibration data is accessed via a binary sysfs attribute:
+
+.. code:: text
+
+   /sys/bus/iio/devices/iio:deviceX/calibration_data
+
+.. _apollo profile:
+
+Device profile
+~~~~~~~~~~~~~~
+
+The device profiles can be generated with the profile generator tool that is
+part of the :adi:`ACE` Evaluation Software. Profile modifications can be done
+through :external+pyadi-jif:doc:`pyadi-jif <index>`.
+In particular, the a Python Jupyter Notebook at :git+pyadi-jif:`examples/triton/triton_vcu118.ipynb`
+guides you through the profile generation and modification, with sample files
+at the :git+pyadi-jif:`directory of the notebook <examples/triton>`.
+During runtime, some profile options are reconfigured, such as
+:ref:`apollo ffh`.
+
+With the device profile generated, compile into the kernel by adding it to the
+*firmware* folder and appending too the ``CONFIG_EXTRA_FIRMWARE`` kernel
+symbol. The *firmware* folder is set by the symbol
+``CONFIG_EXTRA_FIRMWARE_DIR``, if it is set to something else, add to that path
+instead. Then, update devicetree property ``adi,device-profile-fw-name``.
+
+You can have multiple profiles compiled into the kernel image by passing
+multiple profile paths, however only one set in the devicetree property.
+Consider using devicetree overlays to swapping profiles.
+
+General IIO and driver conventions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Controlling the MxFE is done via the IIO sysfs interface. For convenience users
+can use :external+system-level:ref:`libiio` and its various programming
+languages bindings.
+
+The MxFE IIO device under /sys/bus/iio/devices/iio:deviceX features a set of
+channels and device attributes, which are explained here. Some basic, but
+important concepts are explained in the bullet list below:
+
+* Channels prefixed with ``**in_**voltageX`` apply to Receive (RX) ADC data paths.
+* Channels prefixed with ``**out**_voltageX`` apply to Transmit (TX) DAC data paths.
+* Each channel has a complex modifier ``in_voltageX_**i**`` and
+  ``in_voltageX_**q**`` or ``out_voltageX_**i**`` and ``out_voltageX_**q**``.
+  Controlling a channel attribute for the ``i`` modified channel will
+  simultaneously control the ``q`` modified channel and vice versa. So,
+  writing/reading only needs to happen once, since they are mirrored. The
+  complex IQ modifiers are only important for the data buffers, sine I & Q are
+  individual data components.
+* IIO channels ``[in|out]_voltageX`` apply to the channelizer data paths (Fine DDC/DUC).
+
+  - Each IIO channel has some ``[in|out]_voltageX_[i|q]_**channel**_[attributes]``
+  - In case the channelizer data paths (Fine DDC/DUC) are bypassed
+    (decimation=1 or interpolation=1), the X still applies to a data path.
+
+* Each channelizer data path (FDDC, FDUC) connects at least to one Coarse
+  DDC/DUC (CDDC/CDUC), which maps then to one or more ADCs/DACs depending on
+  configuration. These are called main data paths and are controlled via the
+  ``[in|out]_voltageX_[i|q]_**main**_[attributes]`` attributes.
+
+  - Be aware, since multiple channels can map to the same main data path
+    (CDDC/CDUC), changing a main attribute of one channel will also update same
+    attribute of any other channel that maps to the same main data path
+    (CDDC/CDUC).
+  - The crossbar mapping between Fine and Coarse Digital Up/Down Converters,
+    ADCs/DACs is defined in the device tree.
+
+* Device attributes (without ``**in_**voltageX``or ``**out_**voltageX`` prefix)
+  apply to the entire device.
+
 Show channel name
-^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~
 
 The channel label contains the data path and it is shown with:
 
@@ -574,7 +539,7 @@ The channel label contains the data path and it is shown with:
     Side-B:FDDC0->CDDC0->ADC0
 
 ADC Rate
-^^^^^^^^
+~~~~~~~~
 
 What: ``in_voltage_adc_frequency``
 
@@ -587,7 +552,7 @@ Read only attribute which returns the RX ADC rate Hz.
     4000000000
 
 RX Sample Rate
-^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~
 
 What: ``in_voltage_sampling_frequency``
 
@@ -605,7 +570,7 @@ in_voltage_sampling_frequency = :math:`in\_voltage\_adc\_frequency / (Main\_deci
     250000000
 
 DAC Rate
-^^^^^^^^
+~~~~~~~~
 
 What: ``out_voltage_dac_frequency``
 
@@ -618,7 +583,7 @@ Read only attribute which returns the TX DAC rate Hz.
     20000000000
 
 TX Sample Rate
-^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~
 
 What: ``out_voltage_sampling_frequency``
 
@@ -637,10 +602,10 @@ out_voltage_sampling_frequency = :math:`f_{DAC} / ({Main\_interpolation} * {Chan
     250000000
 
 NCO Frequency Control
-^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~
 
 Main Data Path
-++++++++++++++
+^^^^^^^^^^^^^^
 
 What: ``[in|out]_voltageX_[i|q]_main_nco_frequency``
 
@@ -664,7 +629,7 @@ Sets the main data path (CDDC/CDUC) NCO frequency (f\ :sub:`Carrier`) in Hz
     300000000
 
 Channel Data Path
-+++++++++++++++++
+^^^^^^^^^^^^^^^^^
 
 What: ``[in|out]_voltageX_[i|q]_channel_nco_frequency``
 
@@ -697,10 +662,10 @@ Sets the channel data path (FDDC/FDUC) NCO frequency (f\ :sub:`Carrier`) in Hz
     300000000
 
 NCO Phase Control
-^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~
 
 Main Data Path
-++++++++++++++++
+^^^^^^^^^^^^^^
 
 What: ``[in|out]_voltageX_[i|q]_main_nco_phase``
 
@@ -723,7 +688,7 @@ Range is: −180° ≤ Degrees Offset ≤ +180° (Values are in milli degrees.)
     -42000
 
 Channel Data Path
-+++++++++++++++++
+^^^^^^^^^^^^^^^^^
 
 What: ``[in|out]_voltageX_[i|q]_channel_nco_phase``
 
@@ -739,7 +704,7 @@ Range is: −180° ≤ Degrees Offset ≤ +180° (Values are in milli degrees.)
     13123
 
 TX NCO Channel Digital Gain
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 What: ``out_voltageX_[i|q]_channel_nco_gain_scale``
 
@@ -760,7 +725,7 @@ Range is: :math:`0 ≤ Gain ≤ 1.999 (−∞ dB < dBGain ≤ +6.018 dB)`
     0.707
 
 NCO Mixer Mode
-^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~
 
 What: ``[in|out]_voltageX_[i|q]_[main|channel]_nco_mixer_mode``
 
@@ -786,7 +751,7 @@ attribute:
     var_IF
 
 NCO Test Tone
-^^^^^^^^^^^^^
+~~~~~~~~~~~~~
 
 What: ``[in|out]_voltageX_[i|q]_[main|channel]_nco_test_tone_scale``
 
@@ -802,7 +767,7 @@ point scale factor.
     0.500000000
 
 BMEM Sample Delay
-^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~
 
 What: ``in_voltageX_[i|q]_[main|channel]_bmem_sample_delay``
 
@@ -818,7 +783,7 @@ samples to the buffer memory.
     10
 
 Sampling Mode
-^^^^^^^^^^^^^
+~~~~~~~~~~~~~
 
 What: ``in_voltageX_[i|q]_sampling_mode``
 
@@ -838,7 +803,7 @@ the ``in_voltage_sampling_mode_available`` attribute:
     random
 
 Temperature Sensor
-^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~
 
 What: ``in_temp0_input``, ``in_temp0_label``
 
@@ -855,7 +820,7 @@ read in millidegrees Celsius via the ``in_temp0_input`` attribute. The
     53000
 
 Calibration Data
-^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~
 
 What: ``calibration_data``
 
@@ -864,7 +829,7 @@ data. This can be used to save and restore calibration across power cycles.
 See :ref:`calibration data management` for detailed usage.
 
 PFILT
-^^^^^
+~~~~~
 
 The PFILT (Programmable FIR) is a 32-tap full-rate filter sitting in the
 wideband DSP stage ahead of the CDDC/CDUC mixers (UG "Transmit/Receive
@@ -878,7 +843,7 @@ in the kernel-doc above :c:func:`ad9088_parse_pfilt` in
 ``drivers/iio/trx-rf/ad9088/ad9088.c``; a summary follows.
 
 General format
-++++++++++++++
+^^^^^^^^^^^^^^
 
 Lines are processed in order. Lines starting with ``#`` are comments.
 Each directive may appear once and in any order; only the first
@@ -903,7 +868,7 @@ mandatory.
    <coeffN>
 
 Directives
-++++++++++
+^^^^^^^^^^
 
 **dest**
   - ``<terminal>`` — ``rx`` or ``tx``
@@ -1000,18 +965,18 @@ Ready-made example blobs live in the ``iio-oscilloscope`` tree under
 ``filters/ad9084/`` (``pfilt_hp_rx.txt``, ``pfilt_off_rx.txt``).
 
 CFIR
-^^^^
+~~~~
 
-The CFIR configuration is defined by enabling ``[in|out]_voltage<index>_[i|q]_cfir_profile_sel``,
-profile selection ``[in|out]_voltage<index>_[i|q]_cfir_profile_sel``
-and the configuration ``cfir_config`` (write-only).
+Enable CFIR with ``[in|out]_voltage<index>_[i|q]_cfir_en``; profile selection
+``[in|out]_voltage<index>_[i|q]_cfir_profile_sel`` and the configuration
+``cfir_config`` (write-only).
 
 The full parser grammar, including every directive's value set, is
 documented in the kernel-doc block above :c:func:`ad9088_parse_cfilt` in
 ``drivers/iio/trx-rf/ad9088/ad9088.c``. A summary follows.
 
 General format
-++++++++++++++
+^^^^^^^^^^^^^^
 
 Lines are processed in order. Lines starting with ``#`` are comments.
 Each directive may appear once and in any order; only the first
@@ -1050,7 +1015,7 @@ Values:
   vs. GPIO, direct vs. timestamp-triggered).
 
 Normal-mode coefficient block
-+++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When ``sparse_filt_en`` is 0 (default), the coefficient block consists
 of up to 16 ``<i> <q>`` lines (u16, decimal or ``0x``-hex):
@@ -1063,7 +1028,7 @@ of up to 16 ``<i> <q>`` lines (u16, decimal or ``0x``-hex):
    ...
 
 Sparse-mode coefficient block
-+++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The CFIR block supports a sparse mode where the 16-tap filter is
 virtually expanded across a 128-sample delay line, keeping only 16
@@ -1147,7 +1112,7 @@ Ready-made example blobs live in the ``iio-oscilloscope`` tree under
 One main use case of CFIR is to equalize the RF carriers independent of PFILT.
 
 Loopback
-^^^^^^^^
+~~~~~~~~
 
 The four loopback modes are available as channel attributes.
 The value is always written to a side: A or B, so
@@ -1179,10 +1144,9 @@ If the ADC and DAC does not have the same sampling frequency, writing will
 fail with -EINVAL.
 Consult the User Guide for all configuration requirements before enabling the loopback.
 
-.. _apollo fft:
 
 Spectrum Sniffer
-^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~
 
 The Spectrum Sniffer provides users information with fast indications of where
 the strong and weak signals are within the digitized signal bandwidth.
@@ -1236,150 +1200,8 @@ and the fft properties are exposed as properties and debug properties.
 
 - ``adc_select_available``: Returns all valid ADC selections for the device.
 
-Debugfs Attributes
-++++++++++++++++++
-
-Advanced configuration is available through debugfs. These attributes allow
-fine-tuning of the FFT sniffer behavior and are primarily intended for
-debugging and development.
-
-.. shell::
-
-   $cd /sys/kernel/debug/iio/iio:device6
-   $ls
-    adc                   direct_reg_access  min_threshold
-    adc_sampling_rate_Hz  dither_enable      real_mode
-    alpha_factor          fft_enable_sel     run_fft_engine_background
-    bottom_fft_enable     fft_hold_sel       sort_enable
-    continuous_mode       low_power_enable   window_enable
-    delay_capture_ms      max_threshold
-
-**Initialization Parameters:**
-
-- ``adc``: ADC to configure and use for FFT capture. This is a bitmask value.
-
-  | Default: ``ADI_APOLLO_ADC_0``
-
-- ``fft_hold_sel``: Control the Sniffer ``fft_hold`` bit by SPI operation
-  (via API function) or GPIO to hold overwriting of data to registers.
-
-  | ``0``: Select GPIO control.
-  | ``1``: Select registers control.
-  | Default: ``0``
-
-- ``fft_enable_sel``: Control the Sniffer ``fft_enable`` bit by SPI operation
-  (via API function) or GPIO to enable the FFT Engine.
-
-  | ``0``: Select GPIO control.
-  | ``1``: Select registers control.
-  | Default: ``1``
-
-- ``real_mode``: Select between real and complex FFT operation.
-
-  | ``0``: Select Complex FFT. Pair of converters used for I and Q sampling.
-  | ``1``: Select Real FFT.
-  | Default: ``0``
-
-- ``max_threshold``: Maximum threshold for comparison with magnitude output
-  from FFT Engine. Same as the device property.
-
-  | Default: ``255``
-  | Range: ``0-255``
-
-- ``min_threshold``: Minimum threshold for comparison with magnitude Output
-  from FFT Engine.
-
-  | Default: ``0``
-  | Range: ``0-255``
-
-**FFT Processing Parameters:**
-
-- ``sort_enable``: Incoming magnitude data is sorted from least to greatest
-  before it is stored. When sorting is disabled, magnitude data is left
-  unsorted and is ordered by its bin number. Sorting is only available in
-  magnitude mode.
-
-  | ``0``: Disable.
-  | ``1``: Enable.
-  | Default: ``1``
-
-- ``continuous_mode``: In continuous mode, the sniffer continuously stores new
-  data, guaranteeing that the latest data is stored. In single mode data is
-  only stored once between the time that ``fft_hold`` is set to low, and the
-  data is obtained. Hence, the user may miss critical data during this period
-  in single mode. Continuous mode is only supported in magnitude mode.
-
-  | ``0``: Single mode.
-  | ``1``: Continuous mode.
-  | Default: ``0``
-
-- ``bottom_fft_enable``: Each sniffer instance has one top and one bottom FFT
-  engine that are 50% overlapped and compute in parallel. With this feature,
-  the top and bottom FFT engine results are averaged and assist in avoiding
-  critical time domain events
-
-  | ``0``: Disable.
-  | ``1``: Enable.
-  | Default: ``0``
-
-- ``window_enable``: A hard-coded frequency domain Hamming window is applied to
-  and is optimized for narrow spectral peaks to optimize the resolution
-  bandwidth. in I/Q output mode, windowing will deemphasize data towards the
-  edges of the 512-bin spectrum boundary, and thus the threshold may not be
-  reached resulting in data not being captured.
-
-  | ``0``: Disable.
-  | ``1``: Enable.
-  | Default: ``1``
-
-- ``low_power_enable``: Low power mode disables continuous mode and exponential
-  averaging. The expected power savings for this mode is 600mW.
-
-  | ``0``: Disable.
-  | ``1``: Enable.
-  | Default: ``1``
-
-- ``dither_enable``: Dither is added to input samples to reduce spurs across
-  the spectrum.
-
-  | ``0``: Disable.
-  | ``1``: Enable.
-  | Default: ``1``
-
-**Averaging and Signal Processing:**
-
-- ``alpha_factor``: Exponential averaging is enabled by setting the
-  alpha_factor between 1 and 8 and disabled when set to 0. The alpha factor
-  sets :math:`\alpha` in the equation
-  :math:`y[n] = 2^{-\alpha}x[n]+(1-2^{-\alpha}y[n-1])`
-  and directly controls the weight of the previous sample. The average is reset
-  to zero when data is stored or if FFT computation is stopped. Exponential
-  averaging is only available in single mode and magnitude mode.
-
-  | ``0``: Disable.
-  | ``1-8``: Enable with specified alpha value.
-  | Default: ``0``
-
-**Capture Control:**
-
-- ``run_fft_engine_background``: Set to 1 for GPIO control, to skip writing
-  the ``fft_enable`` register.
-
-  | ``0``: Disable.
-  | ``1``: Enable.
-  | Default: ``0``
-
-- ``delay_capture_ms``: Delay capture by an amount of time.
-
-  | Default: ``100``
-  | Unit: ``ms``
-
-- ``adc_sampling_rate_Hz``: Read the ADC sampling rate (read-only).
-
-The acquired data is pushed to the device's IIO buffer.
-
 Feature Availability by Mode
-++++++++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The following table shows which features are available in each sniffer mode:
 
@@ -1439,7 +1261,7 @@ The following table shows which features are available in each sniffer mode:
      - 512
 
 Modes of Operation
-++++++++++++++++++
+^^^^^^^^^^^^^^^^^^
 
 The spectrum sniffer supports four distinct modes of operation, determined by
 the combination of ``mode`` setting and channel selection (IQ vs Magnitude):
@@ -1470,7 +1292,7 @@ the combination of ``mode`` setting and channel selection (IQ vs Magnitude):
    mode, while enabling I/Q channels selects IQ mode.
 
 IIO Channels
-++++++++++++
+^^^^^^^^^^^^
 
 The FFT sniffer exposes the following IIO channels:
 
@@ -1487,7 +1309,7 @@ The FFT sniffer exposes the following IIO channels:
   ``in_magn0_en=1``)
 
 Data Format
-+++++++++++
+^^^^^^^^^^^
 
 **Magnitude Mode** (real FFT, 256 bins):
 
@@ -1507,7 +1329,7 @@ Each sample contains:
 All values are packed into 16-bit little-endian format.
 
 Example Usage
-+++++++++++++
+^^^^^^^^^^^^^
 
 **Capture Magnitude Spectrum:**
 
@@ -1549,14 +1371,15 @@ Example Usage
    $cat /dev/iio:device6 | head -c 3072 > iq_spectrum.bin
 
 Since the buffer length must match apollo's value, starting from
-:git+linux:`33ff0 <commit/33ff0128121f27de9bd23d6a7ca997577c288663+>`, the buffer
+the buffer
 length is set at the buffer pre-enable stage, and writing ``buffer0/length``
 has no effect.
+
 
 .. _apollo ffh:
 
 Fast Frequency Hopping
-^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~
 
 The NCO frequency and phase settings can be stored as a set of up-to 32
 profiles, each with a 32-bit FTW and 16-bit phase offset word, to be
@@ -1564,7 +1387,7 @@ selectively assigned to the NCO during runtime. This allows to quickly change
 (hop) the NCO frequency, known as Fast Frequency Hopping (FFH).
 
 Tx FFH FNCO
-+++++++++++
+^^^^^^^^^^^
 
 The user configures the NCO FFH frequency by writing the index (0 to 31) to
 ``out_voltageX_[i|q]_ffh_fnco_index`` followed by the frequency value to
@@ -1576,14 +1399,11 @@ The user configures the NCO FFH frequency by writing the index (0 to 31) to
    $echo 1 > out_voltage0_i_ffh_fnco_index
    $echo $((16#20000000)) > out_voltage0_i_ffh_fnco_frequency
 
-Then hop to the desired frequency writing the index to
-``out_voltageX_[i|q]_ffh_fnco_select``, and write -1 to disable the feature;
-for example:
-
-.. important::
-
-   If the trigger mode is not set to 4 (``ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP``),
-   the method will return -EINVAL;
+Select a profile by writing its index (0 to 31) to
+``out_voltageX_[i|q]_ffh_fnco_select``. Write ``-1`` to disable hopping.
+Register-based profile selection supports mode 1
+(``ADI_APOLLO_NCO_CHAN_SEL_TRIG_REGMAP``) and mode 4
+(``ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP``).
 
 .. shell::
 
@@ -1591,17 +1411,17 @@ for example:
    $echo 1 > out_voltage0_i_ffh_fnco_select
 
 Tx FFH CNCO
-+++++++++++
+^^^^^^^^^^^
 
 The user configures the NCO FFH frequency by writing the index (0 to 15) to
 ``out_voltageX_[i|q]_ffh_cnco_index`` followed by the frequency value to
 ``out_voltageX_[i|q]_ffh_cnco_frequency``, for example:
 
-.. shell::
+.. code-block:: text
 
    /sys/bus/iio/devices/iio:device8
    $echo 1 > out_voltage0_i_ffh_cnco_index
-   $echo $((16#20000000)) > out_voltage0_ffh_cnco_frequency
+   $echo $((16#20000000)) > out_voltage0_i_ffh_cnco_frequency
 
 Then hop to the desired frequency writing the index to
 ``out_voltageX_[i|q]_ffh_cnco_select``, for example:
@@ -1615,7 +1435,7 @@ Then hop to the desired frequency writing the index to
 ``in_voltage0_i_main_nco_frequency``
 
 Trigger mode
-++++++++++++
+^^^^^^^^^^^^
 
 By default, the profile will hop on the register access for the profile set call.
 Other options are available and configurable with
@@ -1639,7 +1459,7 @@ For example:
 See :ref:`ad9088 gpio ffh` for how to trigger with GPIO.
 
 Rx FFH FNCO
-+++++++++++
+^^^^^^^^^^^
 
 The RX path also supports Fast Frequency Hopping. The user configures the
 NCO FFH frequency by writing the index (0 to 31) to
@@ -1652,8 +1472,8 @@ NCO FFH frequency by writing the index (0 to 31) to
    $echo 1 > in_voltage0_i_ffh_fnco_index
    $echo 500000000 > in_voltage0_i_ffh_fnco_frequency
 
-Then hop to the desired frequency writing the index to
-``in_voltageX_[i|q]_ffh_fnco_select``, and write -1 to disable the feature:
+Select an RX profile by writing its index (0 to 31) to
+``in_voltageX_[i|q]_ffh_fnco_select``. Write ``-1`` to disable hopping:
 
 .. shell::
 
@@ -1663,10 +1483,10 @@ Then hop to the desired frequency writing the index to
 The trigger mode is configured via ``in_voltageX_[i|q]_ffh_fnco_mode``.
 
 Rx FFH CNCO
-+++++++++++
+^^^^^^^^^^^
 
-The user configures the coarse NCO FFH frequency by writing the index (0 to 31) to
-``in_voltageX_[i|q]_ffh_cnco_index`` followed by the frequency value to
+The user configures the coarse NCO FFH frequency by writing the index (0 to 15)
+to ``in_voltageX_[i|q]_ffh_cnco_index`` followed by the frequency value to
 ``in_voltageX_[i|q]_ffh_cnco_frequency``:
 
 .. shell::
@@ -1685,10 +1505,11 @@ Then hop to the desired frequency writing the index to
 
 The trigger mode is configured via ``in_voltageX_[i|q]_ffh_cnco_mode``.
 
+
 .. _apollo bmem:
 
 Buffer Memory (BMEM) Interface
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The AD9088 contains on-chip buffer memory (BMEM) that can be used for data
 capture and playback. The driver exposes a separate IIO device for BMEM
@@ -1736,7 +1557,7 @@ Each BMEM channel exposes the following sysfs attributes:
     scan_elements/
 
 BMEM Channel Attributes
-+++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^^
 
 **Sample Delay Configuration:**
 
@@ -1825,20 +1646,19 @@ can be cycled through or selected via GPIO.
       2949120000
 
 BMEM Buffer Operations
-++++++++++++++++++++++
+^^^^^^^^^^^^^^^^^^^^^^
 
 The BMEM device supports IIO buffer operations for capturing ADC samples.
 
 **Enabling Capture:**
 
-.. shell::
-   :no-path:
+.. code-block:: text
 
    # Enable channels for capture
    $echo 1 > /sys/bus/iio/devices/iio:device9/scan_elements/in_voltage0_en
    $echo 1 > /sys/bus/iio/devices/iio:device9/scan_elements/in_voltage1_en
 
-   # Set buffer length (samples per channel)
+   # Set buffer length
    $echo 8192 > /sys/bus/iio/devices/iio:device9/buffer/length
 
    # Enable buffer to start capture
@@ -1856,7 +1676,7 @@ Captured samples are 16-bit signed values in little-endian format. When multiple
 channels are enabled, samples are interleaved in channel order.
 
 Debug system
-^^^^^^^^^^^^
+~~~~~~~~~~~~
 
 An additional debug interface is provided through debugfs:
 
@@ -1877,7 +1697,7 @@ An additional debug interface is provided through debugfs:
     hsci_enable                 mcs_dt_restore              uuid
 
 JESD204 Link Status
-^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~
 
 Get link statuses:
 
@@ -1919,7 +1739,7 @@ Get link statuses:
         PLL locked, PHASE established, MODE valid
 
 Communication Protocol
-^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~
 
 - ``hsci_enable``: Select communication protocol for register access.
 
@@ -1936,7 +1756,7 @@ Communication Protocol
     0
 
 MCS Calibration
-^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~
 
 Multi-Chip Synchronization (MCS) calibration is used for synchronizing multiple
 AD9088 devices to achieve ±10ps alignment accuracy. The MCS flow uses BSYNC
@@ -2167,7 +1987,7 @@ The following example shows the complete MCS sequence for a single Apollo device
    $echo 0 > mcs_bg_track_cal_run
 
 Device Information
-^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~
 
 Attributes for reading device identification and version information.
 
@@ -2204,7 +2024,7 @@ Attributes for reading device identification and version information.
       334d0b28248a328c8e4abc27eb592153
 
 Temperature Monitoring
-^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~
 
 - ``temperature_status``: Read detailed temperature measurements from all
   on-chip thermal sensors.
@@ -2225,7 +2045,7 @@ Temperature Monitoring
   * ``avg mask``: Bitmask indicating which sensors are included in the average
 
 Clock Power Status
-^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~
 
 - ``clk_pwr_stat``: Read clock input power detection status.
 
@@ -2239,7 +2059,7 @@ Clock Power Status
   Status values: ``GOOD``, ``UNUSED``, or power-related status indicators.
 
 JESD204 BIST (Built-In Self-Test)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The BIST subsystem provides PRBS (Pseudo-Random Binary Sequence) testing
 for JESD204 link integrity verification.
@@ -2321,7 +2141,7 @@ for JESD204 link integrity verification.
       ...
 
 JTX Lane Configuration
-^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~
 
 Configure JESD204 transmit lane signal integrity parameters. Each attribute
 takes three space-separated values: ``<link_side_mask> <lane> <value>``.
@@ -2375,14 +2195,14 @@ takes three space-separated values: ``<link_side_mask> <lane> <value>``.
      $echo "4 7 2" > jtx_lane_post_emphasis
 
 JRX Phase Adjustment
-^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~
 
 - ``jrx_phase_adjust_calc``: Trigger JRX phase adjustment calculation for
   JESD204 link synchronization. Write any value to trigger calculation;
   read returns the calculated phase adjustment value.
 
 Pseudorandom Error Check
-^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``pseudorandom_err_check``: Read the pseudorandom number (PN) sequence
   checker status for all digital channels. Used to verify data path integrity.
@@ -2417,7 +2237,7 @@ Pseudorandom Error Check
   * Error status (PN Error / OK)
 
 Miscellaneous
-^^^^^^^^^^^^^
+~~~~~~~~~~~~~
 
 - ``misc``: General-purpose miscellaneous register for debug operations.
 
@@ -2432,25 +2252,16 @@ Miscellaneous
      $cat direct_reg_access
       0xF0
 
+
 .. _calibration data management:
 
 Calibration Data Management
-----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The AD9088 driver provides a comprehensive calibration data management system that allows you to save and restore device calibration across power cycles. This significantly reduces boot time and maintains consistent performance.
 
-Overview
-~~~~~~~~
-
-During normal device initialization, the AD9088 performs extensive calibration of ADCs, SERDES transceivers, and clock conditioning. This process can take considerable time. The calibration data management feature allows you to:
-
-* Save all calibration data to a binary file
-* Restore calibration data from file during driver probe
-* Skip time-consuming calibration procedures on subsequent boots
-* Maintain factory or field calibration data
-
 Calibration Data Components
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The calibration system saves the following data:
 
@@ -2459,7 +2270,7 @@ The calibration system saves the following data:
 * **Clock Conditioning Calibration**: Clock conditioning calibration for both sides
 
 File Format
-~~~~~~~~~~~
+^^^^^^^^^^^
 
 Calibration data is stored in a structured binary format with:
 
@@ -2469,59 +2280,8 @@ Calibration data is stored in a structured binary format with:
 * **Section Headers**: Offsets and sizes for each calibration component
 * **CRC32 Checksum**: Data integrity validation
 
-Sysfs Interface
-~~~~~~~~~~~~~~~
-
-Calibration data is accessed via a binary sysfs attribute:
-
-.. code:: text
-
-   /sys/bus/iio/devices/iio:deviceX/calibration_data
-
-Saving Calibration Data
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-After device initialization and calibration, save the calibration data:
-
-.. shell::
-   :no-path:
-
-   $cat /sys/bus/iio/devices/iio:device8/calibration_data > /lib/firmware/ad9088_cal.bin
-   $ls -lh /lib/firmware/ad9088_cal.bin
-    -rw-r--r-- 1 root root 100K Feb 11 15:30 /lib/firmware/ad9088_cal.bin
-
-The save operation:
-
-1. Freezes ADC and SERDES background calibration
-2. Updates firmware CRC
-3. Reads all calibration data (ADC, SERDES RX, Clock Conditioning)
-4. Builds binary file with header and CRC32
-5. Unfreezes background calibration
-
-Restoring Calibration Data
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-To manually restore calibration data:
-
-.. shell::
-   :no-path:
-
-   $cat /lib/firmware/ad9088_cal.bin > /sys/bus/iio/devices/iio:device8/calibration_data
-
-The restore operation validates:
-
-* Magic number and file format version
-* Chip ID matches current device
-* Device configuration (4T4R/8T8R) matches
-* CRC32 integrity
-
-.. note::
-
-   Large calibration files are automatically handled via multi-write accumulation
-   (kernel typically splits large writes into 4KB chunks).
-
 Automatic Calibration Load
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For automatic calibration restore during driver probe, add the calibration
 firmware property to your device tree:
@@ -2557,16 +2317,17 @@ If the property is not present, the driver performs normal initialization with f
    * Calibration data is loaded after firmware but before other HW configuration
    * Calibration data must match the device (same chip ID and configuration)
 
+
 .. _ad9088 fast-boot:
 
 Fast Boot
-~~~~~~~~~
+^^^^^^^^^
 
 Fast boot stores a previous calibration data to use in subsequent reboots or
 driver probes.
 
 Capture Calibration
-^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""
 
 #. Probe the driver without calibration restore:
 
@@ -2613,7 +2374,7 @@ Capture Calibration
         [time] ad9088 spi0.0: Calibration data restored successfully
 
 Use stored calibration data
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""""
 
 #. Update device tree to restore the calibration data on probe:
 
@@ -2636,7 +2397,7 @@ driver will:
 This allows the device driver to probe in ~15 seconds, instead of ~80 seconds.
 
 Calibration Dump Tool
-~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 A utility ``ad9088_cal_dump`` is provided for inspecting calibration files:
 
@@ -2684,10 +2445,10 @@ The tool inspects:
 * Warnings for uninitialized or corrupted data
 
 Error Handling
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 Common Errors
-^^^^^^^^^^^^^
+"""""""""""""
 
 .. list-table::
    :header-rows: 1
@@ -2716,7 +2477,7 @@ Common Errors
      - Check file was completely written
 
 Debugging
-^^^^^^^^^
+"""""""""
 
 Enable kernel debug messages:
 
@@ -2744,7 +2505,6 @@ Successful save output:
    ad9088 spi1.0: Reading clock conditioning calibration data...
    ad9088 spi1.0: Calibration data saved: 60708 bytes (ADC: 58624, SERDES RX: 1760, Clk Cond: 240)
 
-
 Successful restore output:
 
 .. code:: text
@@ -2758,9 +2518,8 @@ Successful restore output:
    ad9088 spi1.0: Restoring clock conditioning calibration data...
    ad9088 spi1.0: Calibration data restored successfully
 
-
 Best Practices
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 1. **Verify Saved Data**: Always verify the saved file can be restored before
    relying on it in production
@@ -2781,20 +2540,261 @@ Best Practices
       $echo "Config: $(dmesg | grep 'is_8t8r')" >> /lib/firmware/ad9088_cal.txt
 
 Security Considerations
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 * The ``calibration_data`` sysfs attribute has 0600 permissions (root read/write only)
 * Calibration data is device-specific and cannot be shared between different chip instances
 * CRC32 validation ensures data integrity
 * No sensitive information is stored in calibration data
 
-Source Code
-~~~~~~~~~~~
+Saving Calibration Data
+~~~~~~~~~~~~~~~~~~~~~~~
 
-Calibration-related source files:
+After device initialization and calibration, save the calibration data:
 
-* :git+linux:`ad9088_cal.c <main:drivers/iio/trx-rf/ad9088/ad9088_cal.c>` - Calibration save/restore implementation
-* :git+linux:`ad9088_cal.h <main:drivers/iio/trx-rf/ad9088/ad9088.h>` - Calibration data structures
-* :git+linux:`ad9088_cal_dump.c <main:tools/iio/ad9088_cal_dump.c>` - Calibration dump tool
+.. shell::
+   :no-path:
 
+   $cat /sys/bus/iio/devices/iio:device8/calibration_data > /lib/firmware/ad9088_cal.bin
+   $ls -lh /lib/firmware/ad9088_cal.bin
+    -rw-r--r-- 1 root root 100K Feb 11 15:30 /lib/firmware/ad9088_cal.bin
 
+The save operation:
+
+1. Freezes ADC and SERDES background calibration
+2. Updates firmware CRC
+3. Reads all calibration data (ADC, SERDES RX, Clock Conditioning)
+4. Builds binary file with header and CRC32
+5. Unfreezes background calibration
+
+Restoring Calibration Data
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To manually restore calibration data:
+
+.. shell::
+   :no-path:
+
+   $cat /lib/firmware/ad9088_cal.bin > /sys/bus/iio/devices/iio:device8/calibration_data
+
+The restore operation validates:
+
+* Magic number and file format version
+* Chip ID matches current device
+* Device configuration (4T4R/8T8R) matches
+* CRC32 integrity
+
+.. note::
+
+   Large calibration files are automatically handled via multi-write accumulation
+   (kernel typically splits large writes into 4KB chunks).
+
+Troubleshooting
+---------------
+
+Debugfs Attributes
+~~~~~~~~~~~~~~~~~~
+
+Advanced configuration is available through debugfs. These attributes allow
+fine-tuning of the FFT sniffer behavior and are primarily intended for
+debugging and development.
+
+.. shell::
+
+   $cd /sys/kernel/debug/iio/iio:device6
+   $ls
+    adc                   direct_reg_access  min_threshold
+    adc_sampling_rate_Hz  dither_enable      real_mode
+    alpha_factor          fft_enable_sel     run_fft_engine_background
+    bottom_fft_enable     fft_hold_sel       sort_enable
+    continuous_mode       low_power_enable   window_enable
+    delay_capture_ms      max_threshold
+
+**Initialization Parameters:**
+
+- ``adc``: ADC to configure and use for FFT capture. This is a bitmask value.
+
+  | Default: ``ADI_APOLLO_ADC_0``
+
+- ``fft_hold_sel``: Control the Sniffer ``fft_hold`` bit by SPI operation
+  (via API function) or GPIO to hold overwriting of data to registers.
+
+  | ``0``: Select GPIO control.
+  | ``1``: Select registers control.
+  | Default: ``0``
+
+- ``fft_enable_sel``: Control the Sniffer ``fft_enable`` bit by SPI operation
+  (via API function) or GPIO to enable the FFT Engine.
+
+  | ``0``: Select GPIO control.
+  | ``1``: Select registers control.
+  | Default: ``1``
+
+- ``real_mode``: Select between real and complex FFT operation.
+
+  | ``0``: Select Complex FFT. Pair of converters used for I and Q sampling.
+  | ``1``: Select Real FFT.
+  | Default: ``0``
+
+- ``max_threshold``: Maximum threshold for comparison with magnitude output
+  from FFT Engine. Same as the device property.
+
+  | Default: ``255``
+  | Range: ``0-255``
+
+- ``min_threshold``: Minimum threshold for comparison with magnitude Output
+  from FFT Engine.
+
+  | Default: ``0``
+  | Range: ``0-255``
+
+**FFT Processing Parameters:**
+
+- ``sort_enable``: Incoming magnitude data is sorted from least to greatest
+  before it is stored. When sorting is disabled, magnitude data is left
+  unsorted and is ordered by its bin number. Sorting is only available in
+  magnitude mode.
+
+  | ``0``: Disable.
+  | ``1``: Enable.
+  | Default: ``1``
+
+- ``continuous_mode``: In continuous mode, the sniffer continuously stores new
+  data, guaranteeing that the latest data is stored. In single mode data is
+  only stored once between the time that ``fft_hold`` is set to low, and the
+  data is obtained. Hence, the user may miss critical data during this period
+  in single mode. Continuous mode is only supported in magnitude mode.
+
+  | ``0``: Single mode.
+  | ``1``: Continuous mode.
+  | Default: ``0``
+
+- ``bottom_fft_enable``: Each sniffer instance has one top and one bottom FFT
+  engine that are 50% overlapped and compute in parallel. With this feature,
+  the top and bottom FFT engine results are averaged and assist in avoiding
+  critical time domain events
+
+  | ``0``: Disable.
+  | ``1``: Enable.
+  | Default: ``0``
+
+- ``window_enable``: A hard-coded frequency domain Hamming window is applied to
+  and is optimized for narrow spectral peaks to optimize the resolution
+  bandwidth. in I/Q output mode, windowing will deemphasize data towards the
+  edges of the 512-bin spectrum boundary, and thus the threshold may not be
+  reached resulting in data not being captured.
+
+  | ``0``: Disable.
+  | ``1``: Enable.
+  | Default: ``1``
+
+- ``low_power_enable``: Low power mode disables continuous mode and exponential
+  averaging. The expected power savings for this mode is 600mW.
+
+  | ``0``: Disable.
+  | ``1``: Enable.
+  | Default: ``1``
+
+- ``dither_enable``: Dither is added to input samples to reduce spurs across
+  the spectrum.
+
+  | ``0``: Disable.
+  | ``1``: Enable.
+  | Default: ``1``
+
+**Averaging and Signal Processing:**
+
+- ``alpha_factor``: Exponential averaging is enabled by setting the
+  alpha_factor between 1 and 8 and disabled when set to 0. The alpha factor
+  sets :math:`\alpha` in the equation
+  :math:`y[n] = 2^{-\alpha}x[n]+(1-2^{-\alpha}y[n-1])`
+  and directly controls the weight of the previous sample. The average is reset
+  to zero when data is stored or if FFT computation is stopped. Exponential
+  averaging is only available in single mode and magnitude mode.
+
+  | ``0``: Disable.
+  | ``1-8``: Enable with specified alpha value.
+  | Default: ``0``
+
+**Capture Control:**
+
+- ``run_fft_engine_background``: Set to 1 for GPIO control, to skip writing
+  the ``fft_enable`` register.
+
+  | ``0``: Disable.
+  | ``1``: Enable.
+  | Default: ``0``
+
+- ``delay_capture_ms``: Delay capture by an amount of time.
+
+  | Default: ``100``
+  | Unit: ``ms``
+
+- ``adc_sampling_rate_Hz``: Read the ADC sampling rate (read-only).
+
+The acquired data is pushed to the device's IIO buffer.
+
+More Information
+----------------
+
+Interrelated Device Drivers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These are drivers that are connected to or is a dependency of ``ad9088.c``.
+
+* :dokuwiki:`JESD204 (FSM) Interface Linux Kernel Framework <resources/tools-software/linux-drivers/jesd204/jesd204-fsm-framework>`
+* :dokuwiki:`JESD204 Interface Framework <resources/fpga/peripherals/jesd204>`
+
+* :ref:`axi-aion-trig` - FPGA trigger IP for BSYNC ToF synchronization
+* :ref:`axi-hsci` - High-speed communication interface for register access
+* :ref:`adf4382` - Wideband synthesizer (sampling clock source)
+* :ref:`adf4030` - Precision synchronizer for BSYNC generation
+* :ref:`hmc7044` - Clock distribution
+* :ref:`ltc6952` - Clock distribution
+
+* Transport Layer Receive AXI-ADC driver
+
+  * Sources:
+
+    * :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
+    * :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
+    * :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
+
+  * Documentation:
+
+    * :dokuwiki:`AXI ADC HDL Linux Driver <resources/tools-software/linux-drivers/iio-adc/axi-adc-hdl>`
+
+* Transport Layer Transmit AXI-DAC / DDS driver
+
+  * Sources:
+
+    * :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
+    * :git+linux:`main:drivers/iio/frequency/cf_axi_adc.h`
+
+  * Documentation:
+
+    * :dokuwiki:`AXI DAC HDL Linux Driver <resources/tools-software/linux-drivers/iio-dds/axi-dac-dds-hdl>`
+
+* Link Layer AXI JESD204B HDL driver
+
+  * Sources:
+
+    * :git+linux:`main:drivers/iio/jesd204/axi_jesd204_rx.c`
+    * :git+linux:`main:drivers/iio/jesd204/axi_jesd204_tx.c`
+
+  * Documentation:
+
+    * :dokuwiki:`JESD204B/C Transmit Linux Driver <resources/tools-software/linux-drivers/jesd204/axi_jesd204_tx>`
+    * :dokuwiki:`JESD204B/C Receive Linux Driver <resources/tools-software/linux-drivers/jesd204/axi_jesd204_rx>`
+
+* PHY Layer AXI JESD204B GT (Gigabit Transceiver) HDL driver (XILINX/ALTERA-INTEL)
+
+  * Sources:
+
+    * :git+linux:`main:drivers/iio/jesd204/axi_adxcvr.c`
+
+  * Documentation:
+
+    * :dokuwiki:`JESD204B/C AXI_ADXCVR Highspeed Transceivers Linux Driver <resources/tools-software/linux-drivers/jesd204/axi_adxcvr>`
+
+.. Add cfir pfir to docs

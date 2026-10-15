@@ -105,24 +105,33 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-device-tree">Example device tree</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a><ul>
 <li><a class="reference internal" href="#specifying-reference-voltage-via-the-regulator-framework">Specifying reference voltage via the regulator framework</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
 <li><a class="reference internal" href="#show-scale">Show scale</a><ul>
-<li><a class="reference internal" href="#set-channel-y-output-voltage">Set channel Y output voltage</a></li>
 <li><a class="reference internal" href="#calibrate-channel-y-gain">Calibrate channel Y gain</a></li>
 <li><a class="reference internal" href="#calibrate-channel-y-offset">Calibrate channel Y offset</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#set-channel-y-output-voltage">Set channel Y output voltage</a></li>
 <li><a class="reference internal" href="#enable-power-down-mode-for-the-device">Enable power down mode for the device</a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -227,6 +236,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5064/">AD5064</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5380/">AD5380</a></li>
@@ -245,7 +255,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -456,8 +465,35 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The AD5360 Driver depends on <strong>CONFIG_SPI</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="o">...</span>
+        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+            <span class="o">...</span>
+            <span class="n">Digital</span> <span class="n">to</span> <span class="n">analog</span> <span class="n">converters</span>  <span class="o">---&gt;</span>
+                <span class="o">...</span>
+                <span class="o">&lt;*&gt;</span>  <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD5360</span><span class="o">/</span><span class="mi">61</span><span class="o">/</span><span class="mi">62</span><span class="o">/</span><span class="mi">63</span><span class="o">/</span><span class="mi">70</span><span class="o">/</span><span class="mi">71</span><span class="o">/</span><span class="mi">73</span> <span class="n">DAC</span> <span class="n">driver</span>
+                <span class="o">...</span>
+            <span class="o">...</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-device-tree">
-<h2>Example device tree<a class="headerlink" href="#example-device-tree" title="Link to this heading"></a></h2>
+<h4>Example device tree<a class="headerlink" href="#example-device-tree" title="Link to this heading"></a></h4>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nf">fragment</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
 <span class="w">    </span><span class="n">target-path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"/"</span><span class="p">;</span>
 <span class="w">    </span><span class="nf">__overlay__</span><span class="cm"> </span><span class="p">{</span>
@@ -498,13 +534,15 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </pre></div>
 </div>
 </section>
+</section>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <section id="specifying-reference-voltage-via-the-regulator-framework">
-<h3>Specifying reference voltage via the regulator framework<a class="headerlink" href="#specifying-reference-voltage-via-the-regulator-framework" title="Link to this heading"></a></h3>
+<h5>Specifying reference voltage via the regulator framework<a class="headerlink" href="#specifying-reference-voltage-via-the-regulator-framework" title="Link to this heading"></a></h5>
 <p>Below example specifies a 2.5 Volt reference for the SPI device 3 on SPI-Bus 0.
-(<strong>spi0.3</strong>) In this example all 4 reference voltage are supplied by the same
-regulator.</p>
+(<strong>spi0.3</strong>). In this example the reference supplies share the same regulator.</p>
 <p>Except for the AD5371 devices expect two supplies named <code class="docutils literal notranslate"><span class="pre">vref0</span></code> and <code class="docutils literal notranslate"><span class="pre">vref1</span></code>.
 The AD5371 expects a third supply named <code class="docutils literal notranslate"><span class="pre">vref2</span></code>.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)</span>
@@ -577,8 +615,7 @@ accordingly, matching your part name. It may also required to adjust
 max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
 the device in question.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">board_spi_board_info</span><span class="p">[]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="cp">#if defined(CONFIG_AD5360_SPI) || \</span>
-<span class="cp">    defined(CONFIG_AD5360_SPI_MODULE)</span>
+<span class="cp">#if IS_ENABLED(CONFIG_AD5360)</span>
 <span class="w">    </span><span class="p">{</span>
 <span class="w">        </span><span class="cm">/* the modalias must be the same as spi device driver name */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad5360"</span><span class="p">,</span><span class="w"> </span><span class="cm">/* Name of spi_driver for this device */</span>
@@ -606,31 +643,7 @@ the device in question.</p>
 </div>
 </section>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The AD5360 Driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="o">...</span>
-        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-            <span class="o">...</span>
-            <span class="n">Digital</span> <span class="n">to</span> <span class="n">analog</span> <span class="n">converters</span>  <span class="o">---&gt;</span>
-                <span class="o">...</span>
-                <span class="o">&lt;*&gt;</span>  <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD5360</span><span class="o">/</span><span class="mi">61</span><span class="o">/</span><span class="mi">62</span><span class="o">/</span><span class="mi">63</span><span class="o">/</span><span class="mi">70</span><span class="o">/</span><span class="mi">71</span><span class="o">/</span><span class="mi">73</span> <span class="n">DAC</span> <span class="n">driver</span>
-                <span class="o">...</span>
-            <span class="o">...</span>
-        <span class="o">...</span>
-</pre></div>
-</div>
 </section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -669,12 +682,15 @@ the numbering is constant and may be known in advance.</p>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">54</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">ad5360</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-scale">
 <h4>Show scale<a class="headerlink" href="#show-scale" title="Link to this heading"></a></h4>
 <div class="line-block">
@@ -683,40 +699,51 @@ the numbering is constant and may be known in advance.</p>
 </div>
 <p>scale to be applied to out_voltage0_raw in order to obtain the measured voltage
 in millivolts.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_voltage0_scale</span>
-<span class="mf">0.038140</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0&gt; cat out_voltage0_scale
+0.152587890
 </pre></div>
 </div>
+<p>For a 2.5 V reference and 16-bit part, scale = 4 * 2500 / 65536 mV/code.
+Include out_voltageY_offset when converting raw code to output voltage; it is
+shared by all channels in the same reference group.</p>
+<section id="calibrate-channel-y-gain">
+<h5>Calibrate channel Y gain<a class="headerlink" href="#calibrate-channel-y-gain" title="Link to this heading"></a></h5>
+<p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/out_voltageY_calibscale</p>
+<p>Each channel has an adjustable gain which can be used to calibrate the channel’s
+scale and compensate for full-scale errors. For 16-bit devices the nominal
+maximum gain code is 65535; 14-bit devices accept gain writes from 0 through
+16383. Calibration reads return the unshifted register word, while writes are
+shifted by 16 minus the resolution; on 14-bit devices a read does not return
+the value written.</p>
+<p>These attributes expose calibration register codes.</p>
+</section>
+<section id="calibrate-channel-y-offset">
+<h5>Calibrate channel Y offset<a class="headerlink" href="#calibrate-channel-y-offset" title="Link to this heading"></a></h5>
+<p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/out_voltageY_calibbias</p>
+<p>Each channel has an adjustable calibration register for zero-scale errors.
+The driver accepts unsigned bias write codes from 0 through 65535 for 16-bit
+parts and 0 through 16383 for 14-bit parts; reads return the unshifted register
+word. This is a register code, not a signed voltage offset.</p>
+<p>The separate <code class="docutils literal notranslate"><span class="pre">out_voltageY_offset</span></code> attribute reports the reference-group
+conversion offset. A voltage calculation with nondefault calibration still
+requires the device-specific transfer function; no general calibrated-voltage
+equation is asserted here.</p>
+</section>
+</section>
+</section>
 <section id="set-channel-y-output-voltage">
-<h5>Set channel Y output voltage<a class="headerlink" href="#set-channel-y-output-voltage" title="Link to this heading"></a></h5>
+<h3>Set channel Y output voltage<a class="headerlink" href="#set-channel-y-output-voltage" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw</p>
 <p>Raw (unscaled, no bias etc.) output voltage for channel Y.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">10000</span> <span class="o">&gt;</span> <span class="n">out_voltage0_raw</span>
 </pre></div>
 </div>
-<p><strong>U</strong> = <em>out_voltage0_raw * out_voltage0_scale</em> = 10000 * 0,038140 <em>mV</em> =
-<strong>381,14 mV</strong></p>
-</section>
-<section id="calibrate-channel-y-gain">
-<h5>Calibrate channel Y gain<a class="headerlink" href="#calibrate-channel-y-gain" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/out_voltageY_calibscale</p>
-<p>Each channel has an adjustable gain which can be used to calibrate the channel’s
-scale and compensate for full-scale errors. The default value is 65535.</p>
-<p>If scale calibration is used the following formula can be used calculate the
-output voltage: <strong>U</strong> = <em>( ( out_voltageY_raw * ( out_voltageY_calibscale + 1 )
-) / 2^16 - out_voltageY_calibbias ) * out_voltageY_scale</em></p>
-</section>
-<section id="calibrate-channel-y-offset">
-<h5>Calibrate channel Y offset<a class="headerlink" href="#calibrate-channel-y-offset" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/out_voltageY_calibbias</p>
-<p>Each channel has an adjustable offset which can be used to calibrate the
-channel’s offset and compensate for zero-scale errors. The default value is 0.</p>
-<p>If offset calibration is used the following formula can be used calculate the
-output voltage: <strong>U</strong> = <em>( ( out_voltageY_raw * ( out_voltageY_calibscale + 1 )
-) / 2^16 - out_voltageY_calibbias ) * out_voltageY_scale</em></p>
+<p>With nominal gain and bias calibration, calculate the voltage in millivolts as
+<code class="docutils literal notranslate"><span class="pre">(out_voltage0_raw</span> <span class="pre">+</span> <span class="pre">out_voltage0_offset)</span> <span class="pre">*</span> <span class="pre">out_voltage0_scale</span></code>; the offset
+depends on the reference group.</p>
 </section>
 <section id="enable-power-down-mode-for-the-device">
-<h5>Enable power down mode for the device<a class="headerlink" href="#enable-power-down-mode-for-the-device" title="Link to this heading"></a></h5>
+<h3>Enable power down mode for the device<a class="headerlink" href="#enable-power-down-mode-for-the-device" title="Link to this heading"></a></h3>
 <p>/sys/bus/iio/devices/iio:deviceX/out_voltage_powerdown</p>
 <p><strong>Description:</strong> Writing 1 causes the device to enter power down mode. Clearing
 returns to normal operation.</p>
@@ -728,8 +755,6 @@ returns to normal operation.</p>
 <span class="mi">0</span>
 </pre></div>
 </div>
-</section>
-</section>
 </section>
 </section>
 <section id="more-information">

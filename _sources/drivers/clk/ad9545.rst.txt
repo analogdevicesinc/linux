@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/clk/adi/clk-ad9545/c
 
+
 .. _ad9545:
 
 AD9545
@@ -72,8 +73,31 @@ Files
      - :git+linux:`main:drivers/clk/adi/clk-ad9545.h`
      -
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or ``make qconfig``). .. note::
+
+   The AD9545 SPI driver depends **CONFIG_SPI** and the AD9545 I2C driver depends on **CONFIG_I2C**.
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Device Drivers > Search (COMMON_CLK) > Analog Devices Clock Drivers
+
+       -*- Analog Devices AD9545 via I2C
+       -*- Analog Devices AD9545 via SPI
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example I2C & SPI device initialization
----------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The AD9545 supports both I2C and SPI interfaces, so one of the drivers can be
 used depending on which kind of device is instantiated. Currently, the devices
@@ -81,12 +105,21 @@ can only be instantiated via device tree.
 
 Required devicetree properties:
 
-- **compatible**: Must be always one of these:
+-  **compatible**: Must be always one of these:
 
-  - adi,ad9545
+   -  adi,ad9545
 
-- **reg**: Must be either the I2C device address or the SPI device chip select
-  number.
+- **reg**: The I2C device address or SPI chip-select number.
+- **adi,ref-frequency-hz**: Required frequency in Hz of the system-clock
+  reference connected to XOA/XOB. Probe fails if this property is missing.
+- **#clock-cells**: Use 2 when providing clocks to consumers; the cells identify
+  clock type and address.
+
+The snippets below illustrate bus placement and assume the 52 MHz crystal
+used in the binding example. Replace this frequency and ``adi,ref-crystal``
+with the actual XOA/XOB source description. These are not complete board clock
+plans: also add the reference, PLL/profile and output child nodes required by
+the design, following the binding example.
 
 Example SPI:
 
@@ -100,6 +133,9 @@ Example SPI:
                    compatible = "adi,ad9545";
                    reg = <0>;
                    spi-max-frequency = <100000>;
+                   adi,ref-crystal;
+                   adi,ref-frequency-hz = <52000000>;
+                   #clock-cells = <2>;
            };
    };
 
@@ -114,39 +150,30 @@ Example I2C:
            ad9545_i2c: ad9545@4a {
                    compatible = "adi,ad9545";
                    reg = <0x4a>;
+                   adi,ref-crystal;
+                   adi,ref-frequency-hz = <52000000>;
+                   #clock-cells = <2>;
            };
    };
 
 For more supported devicetree properties take a look to
 :git+linux:`dt-bindings <main:Documentation/devicetree/bindings/clock/clk-ad9545.yaml>`.
 
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or ``make qconfig``). .. note::
-
-   The AD9545 SPI driver depends **CONFIG_SPI** and the AD9545 I2C driver depends on **CONFIG_I2C**.
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Device Drivers > Search (COMMON_CLK) > Analog Devices Clock Drivers
-
-       -*- Analog Devices AD9545 via I2C
-       -*- Analog Devices AD9545 via SPI
-
 Driver testing
 --------------
 
-CLOCK device files
-~~~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
-Common Clock Framework provides debugfs files for each clock registered:
+CLOCK device files
+^^^^^^^^^^^^^^^^^^
+
+With CONFIG_DEBUG_FS enabled and debugfs mounted, the Common Clock Framework
+provides debug files for registered clocks. The transcript below is from one
+configured system: only enabled reference/PLL/output/NCO/TDC nodes are
+registered by this driver, and unrelated clocks in the listing belong to other
+devices. Clock names, parent relationships and rates depend on the board
+configuration.
 
 ::
 
@@ -262,7 +289,7 @@ More Information
 ----------------
 
 CLOCK pointers
---------------
+~~~~~~~~~~~~~~
 
 - CLOCK mailing list: linux-clk@vger.kernel.org
 - `CLOCK Linux Kernel Documentation <https://www.kernel.org/doc/Documentation/clk.txt>`__

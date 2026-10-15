@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/drm/hdl-axi-hdmi
 
+
 .. _hdl-axi-hdmi:
 
 AXI HDMI HDL
@@ -7,8 +8,8 @@ AXI HDMI HDL
 
 AXI HDMI HDL Linux Driver.
 
-Supported Devices
------------------
+Supported IP Cores
+------------------
 
 This driver supports the :external+hdl:ref:`adv7511`
 
@@ -32,8 +33,8 @@ Status
      - Mainlined?
      -
      -
-   * - :git+linux:`drivers/gpu/drm/analog/analog_drm_drv.c <main:drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.c>`
-     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/gpu/drm/adi/axi_hdmi_drv.c>`__
+   * - :git+linux:`drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.c <main:drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.c>`
+     - No
      -
      -
 
@@ -47,74 +48,23 @@ Files
      - File
      -
    * - driver
-     - :git+linux:`drivers/gpu/drm/adi/axi_hdmi_drv.c <main:drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.c>`
+     - :git+linux:`drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.c <main:drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.c>`
      -
    * - driver
-     - :git+linux:`drivers/gpu/drm/adi/axi_hdmi_drv.h <main:drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.h>`
+     - :git+linux:`drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.h <main:drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.h>`
      -
    * - driver
-     - :git+linux:`drivers/gpu/drm/adi/axi_hdmi_crtc.c <main:drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_crtc.c>`
+     - :git+linux:`drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_crtc.c <main:drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_crtc.c>`
      -
    * - driver
-     - :git+linux:`drivers/gpu/drm/adi/axi_hdmi_encoder.c <main:drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_encoder.c>`
+     - :git+linux:`drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_encoder.c <main:drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_encoder.c>`
      -
 
-Example platform device initialization
---------------------------------------
+Adding Linux driver support
+---------------------------
 
-The AXI HDMI driver is a platform driver and can currently only be instantiated
-via device tree.
-
-Required devicetree properties:
-
-- compatible: Should always be ``adi,cf-adv7x11-core-1.00.a``
-- reg: Base address and register area size. This parameter expects two register
-  ranges. The first for the axi-hdmi core’s registers and the second for the
-  axi-clockgen core’s registers.
-- slave_adapter: Phandle to the I2C device on which the ADV7511 can be found
-- dma-request: Phandle to the Xilinx VDMA device
-
-Example:
-
-::
-
-   axi_iic_0: i2c@41600000 {
-       compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
-       interrupt-parent = <&gic>;
-       interrupts = <0 56 0x4>;
-       reg = <0x41600000 0x10000>;
-
-       #size-cells = <0>;
-       #address-cells = <1>;
-   };
-
-   axi_vdma_0: axivdma@43000000 {
-       #address-cells = <1>;
-       #size-cells = <1>;
-       #dma-cells = <1>;
-       compatible = "xlnx,axi-vdma";
-       reg = <0x43000000 0x1000>;
-       xlnx,include-sg = <0x0>;
-       xlnx,num-fstores = <0x3>;
-       dma-channel@7e200000 {
-           compatible = "xlnx,axi-vdma-mm2s-channel";
-           interrupts = <0 59 0x4>;
-           xlnx,datawidth = <0x40>;
-           xlnx,genlock-mode = <0x0>;
-           xlnx,include-dre = <0x0>;
-       };
-   };
-
-   axi-hdmi@6c000000 {
-       compatible = "adi,cf-axi-hdmi-1.00.a";
-       reg = <0x6c000000 0x10000
-              0x66000000 0x10000>;
-       slave_adapter = <&axi_iic_0>;
-       dma-request = <&axi_vdma_0 0>;
-   };
-
-Enabling Linux driver support
------------------------------
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
@@ -130,7 +80,31 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
            Graphics support  --->
                <*> Direct Rendering Manager (XFree86 4.1.0 and higher DRI support)  --->
                ...
-               <*> DRM Support for Analog FPGA platforms
+               <*> DRM Support for Analog Devices HDMI FPGA platforms
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Example platform device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The AXI HDMI driver is a platform driver and can currently only be instantiated
+via device tree.
+
+Required device-tree configuration:
+
+- ``compatible = "adi,axi-hdmi-tx-1.00.a"``.
+- ``reg``: One AXI HDMI register range. The clock generator is a separate
+  clock provider, not a second register range.
+- ``clocks``: The pixel-clock provider.
+- ``dmas`` and ``dma-names = "video"``: The display DMA channel. Its controller
+  must support interleaved transfers.
+- An output graph endpoint connected to the ADV7511 input endpoint, or the
+  ``encoder-slave`` phandle pointing to the ADV7511 I2C device node,
+  not to its I2C bus.
+
+The optional ``adi,is-rgb`` property selects RGB handling. Supply addresses,
+clock and DMA references, interrupts and graph wiring from the actual board.
 
 Driver testing
 --------------
@@ -197,7 +171,7 @@ display graphics on the HDMI output. This for example includes
 `DirectFB <http://directfb.org/>`__, `mplayer <http://www.mplayerhq.hu/>`__ and
 `SDL <http://www.libsdl.org/>`__.
 
-More information
+More Information
 ----------------
 
 -

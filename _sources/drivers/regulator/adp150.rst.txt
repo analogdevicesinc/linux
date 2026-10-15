@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/regulator/adp150
 
+
 .. _adp150:
 
 ADP150
@@ -40,15 +41,18 @@ Reference Circuits
 Description
 -----------
 
-The fixed regulator voltage driver can be used to control these chips. Please
-connect the **EN**\ able switch pin to any available GPIO port on your CPU. This
-driver adapts to voltage and current regulator framework in Linux kernel.
+The generic fixed-voltage regulator driver can model a board-fixed output and
+control its enable GPIO. It does not program an ADP part number, output-voltage
+selector or current limit; the configured voltage must match the physical
+regulator variant or resistor setting. Please connect the **EN**\ able switch
+pin to any available GPIO port on your CPU. This driver adapts to voltage and
+current regulator framework in Linux kernel.
+
+Driver features and limitations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Configuration
--------------
-
-Software configurable features
-------------------------------
+~~~~~~~~~~~~~
 
 Source Code
 -----------
@@ -81,29 +85,11 @@ Files
    * - include
      - `include/linux/regulator/fixed.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/regulator/fixed.h>`__
 
-Example platform device initialization
---------------------------------------
-
-The default platform info defined in bf537-stamp board file is for ad122. If you
-want to customize this driver for other switch only regulator, you should revise
-the platform information accordingly.
-
-- Define device supply name exported by the adp_switch driver.
-
-:git+linux:`adp122_consumers{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
-
-- Define regulator init data of this supply.
-
-:git+linux:`adp_switch_regulator_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
-
-- Add new userspace consumer platform device for this supply.
-
-:git+linux:`adp122_bulk_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
-:git+linux:`adp122_userspace_comsumer_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
-:git+linux:`adp122_userspace_consumer_device{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
-
 Adding Linux driver support
 ---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Enable generic GPIO lib in kernel option.
 
@@ -124,8 +110,29 @@ built into kernel.
        <*>   Fixed voltage regulator support
        <*>   Userspace regulator consumer support
 
-Hardware configuration
-----------------------
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Example platform device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The default platform info defined in bf537-stamp board file is for ad122. If you
+want to customize this driver for other switch only regulator, you should revise
+the platform information accordingly.
+
+- Define device supply name exported by the adp_switch driver.
+
+:git+linux:`adp122_consumers{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
+
+- Define regulator init data of this supply.
+
+:git+linux:`adp_switch_regulator_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
+
+- Add new userspace consumer platform device for this supply.
+
+:git+linux:`adp122_bulk_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`adp122_userspace_comsumer_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`adp122_userspace_consumer_device{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
 
 Driver testing
 --------------

@@ -105,7 +105,8 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#devicetree">Devicetree</a><ul>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#spi-bus">SPI Bus</a></li>
 <li><a class="reference internal" href="#power-supplies">Power supplies</a></li>
 <li><a class="reference internal" href="#reference-supplies">Reference supplies</a></li>
@@ -113,15 +114,16 @@
 <li><a class="reference internal" href="#additional-properties">Additional properties</a></li>
 </ul>
 </li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-scale">Show scale</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-scale">Show scale</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#show-offset">Show offset</a></li>
 <li><a class="reference internal" href="#show-channel-0-measurement">Show channel 0 measurement</a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li><a class="reference internal" href="#trigger-management">Trigger management</a><ul>
 <li><a class="reference internal" href="#spi-offload-trigger">SPI offload trigger</a><ul>
 <li><a class="reference internal" href="#conventional-iio-trigger">Conventional IIO trigger</a></li>
@@ -236,6 +238,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -254,7 +257,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -442,7 +444,7 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/2019_R2/drivers/iio/adc/ad738x.c" target="_blank">ADI tree</a></p></td>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/ad7380.c" target="_blank">ADI tree</a></p></td>
 <td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7380.c" target="_blank">Yes</a></p></td>
 </tr>
 </tbody>
@@ -473,8 +475,10 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </div>
 </section>
 </section>
-<section id="devicetree">
-<h2>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h2>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <p>The devicetree (:linux.github:<code class="docutils literal notranslate"><span class="pre">.dts</span></code> file) describes how the chip is wired up.
 A complete example
 <cite>devicetree for EVAL-AD7380FMCZ evaluation board &lt;main/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7380.dts&gt;</cite>
@@ -483,7 +487,7 @@ evaluation boards by changing the <code class="docutils literal notranslate"><sp
 <p>If you change any jumpers on the evaluation board or modify the HDL project, you
 may need to update the <code class="docutils literal notranslate"><span class="pre">.dts</span></code> file to reflect the changes in wiring.</p>
 <section id="spi-bus">
-<h3>SPI Bus<a class="headerlink" href="#spi-bus" title="Link to this heading"></a></h3>
+<h4>SPI Bus<a class="headerlink" href="#spi-bus" title="Link to this heading"></a></h4>
 <p>The ADC is represented by a child node of the SPI controller that the ADC is
 attached to. The <code class="docutils literal notranslate"><span class="pre">compatible</span></code> property indicates which specific chip is being
 used. The <code class="docutils literal notranslate"><span class="pre">reg</span></code> property indicates the chip select line of the SPI controller
@@ -510,17 +514,25 @@ the clock polarity.</p>
 <span class="n">spi</span><span class="o">-</span><span class="n">cpol</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>Currently, the mainline Linux kernel doesn‘t support one SDO line of the chip.
-The ADI Linux kernel does support this. In this case you will need to add a
-’‘adi,num-sdi’’ property that corresponds to the <code class="docutils literal notranslate"><span class="pre">NUM_OF_SDI</span></code> compile option
-that was used when compiling the FPGA bitstream from the
-<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/ad738x_fmc/#ad738x-fmc" target="_blank" title="(in HDL)"><span>AD738x_FMC HDL project</span></a>.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adi</span><span class="p">,</span><span class="n">num</span><span class="o">-</span><span class="n">sdi</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<p>The driver takes the number of SDO lines from the SPI receive-lane
+configuration (<code class="docutils literal notranslate"><span class="pre">spi-rx-bus-width</span></code>), not from <code class="docutils literal notranslate"><span class="pre">adi,num-sdi</span></code>. Configure the
+receive lanes to match the controller and FPGA wiring; the number must be
+between one and the device’s simultaneous channel count. The controller must
+also support the selected receive width. Match this property to the
+<code class="docutils literal notranslate"><span class="pre">NUM_OF_SDI</span></code> compile option used for the FPGA bitstream from the
+<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/ad738x_fmc/#ad738x-fmc" target="_blank" title="(in HDL)"><span>AD738X_FMC HDL project</span></a>.</p>
+<p>The SPI core counts the elements of <code class="docutils literal notranslate"><span class="pre">spi-rx-bus-width</span></code> to determine the number
+of receive lanes; each element specifies that lane’s width. For two
+independent single-bit SDO lanes supported by the controller:</p>
+<div class="highlight-devicetree notranslate"><div class="highlight"><pre><span></span><span class="n">spi-rx-bus-width</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="w"> </span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
 </pre></div>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">&lt;2&gt;</span></code> would instead describe one dual-bit lane. The
+default receive-lane map is the identity map; if the board uses a different
+mapping, set <code class="docutils literal notranslate"><span class="pre">spi-rx-lane-map</span></code> to match its controller wiring.</p>
 </section>
 <section id="power-supplies">
-<h3>Power supplies<a class="headerlink" href="#power-supplies" title="Link to this heading"></a></h3>
+<h4>Power supplies<a class="headerlink" href="#power-supplies" title="Link to this heading"></a></h4>
 <p>Power supplies should be described. Typically these will link to a <code class="docutils literal notranslate"><span class="pre">compatible</span>
 <span class="pre">=</span> <span class="pre">``regulator-fixed</span></code>;`` node describing the power supply. See the full example
 devictree linked above for the complete example. These need to reflect what is
@@ -531,7 +543,7 @@ actually wired to the chip. For the FMCZ evaluation board, this is the default:<
 </div>
 </section>
 <section id="reference-supplies">
-<h3>Reference supplies<a class="headerlink" href="#reference-supplies" title="Link to this heading"></a></h3>
+<h4>Reference supplies<a class="headerlink" href="#reference-supplies" title="Link to this heading"></a></h4>
 <p>The default of the evaluation boards is to use a 3.3V external reference wired
 to the REFIO pin. This is described with:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">refio</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">eval_u3</span><span class="o">&gt;</span><span class="p">;</span>
@@ -547,7 +559,7 @@ but still requires an extra supply that is connected to the REFIN pin.</p>
 properties are always omitted.</p>
 </section>
 <section id="common-mode-supplies">
-<h3>Common mode supplies<a class="headerlink" href="#common-mode-supplies" title="Link to this heading"></a></h3>
+<h4>Common mode supplies<a class="headerlink" href="#common-mode-supplies" title="Link to this heading"></a></h4>
 <p>Some chips in this series are pseudo-differential ADCs. In this case, a voltage
 supply is needed for each negative input on the chip.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">aina</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">signal_generator_1</span><span class="o">&gt;</span><span class="p">;</span>
@@ -557,7 +569,7 @@ supply is needed for each negative input on the chip.</p>
 <p>These properties are omitted on single-ended and fully differential chips.</p>
 </section>
 <section id="additional-properties">
-<h3>Additional properties<a class="headerlink" href="#additional-properties" title="Link to this heading"></a></h3>
+<h4>Additional properties<a class="headerlink" href="#additional-properties" title="Link to this heading"></a></h4>
 <p>The <code class="docutils literal notranslate"><span class="pre">interrupts</span></code> property for the ALERT signals is not currently supported in
 the Linux driver.</p>
 <p>ADAQ chips have a resistor network for each input that determines the amplifier
@@ -574,6 +586,7 @@ channel is assumed to be 1.0.</p>
 <span class="p">};</span>
 </pre></div>
 </div>
+</section>
 </section>
 </section>
 <section id="driver-testing">
@@ -599,12 +612,15 @@ channel is assumed to be 1.0.</p>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Sep</span> <span class="mi">12</span> <span class="mi">20</span><span class="p">:</span><span class="mi">11</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">ad7380</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-scale">
 <h4>Show scale<a class="headerlink" href="#show-scale" title="Link to this heading"></a></h4>
 <p><strong>Description:</strong> scale to be applied to in_voltage0_raw in order to obtain the
@@ -613,8 +629,10 @@ measured voltage in millivolts.</p>
 <span class="mf">0.076293945</span>
 </pre></div>
 </div>
+</section>
+</section>
 <section id="show-offset">
-<h5>Show offset<a class="headerlink" href="#show-offset" title="Link to this heading"></a></h5>
+<h3>Show offset<a class="headerlink" href="#show-offset" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> offset to be applied to in_voltage0_raw in order to obtain the
 measured voltage in millivolts.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage0_offset</span>
@@ -626,7 +644,7 @@ on single-ended or fully differential chips. The value comes from the
 <code class="docutils literal notranslate"><span class="pre">inx-supply</span></code> voltage.</p>
 </section>
 <section id="show-channel-0-measurement">
-<h5>Show channel 0 measurement<a class="headerlink" href="#show-channel-0-measurement" title="Link to this heading"></a></h5>
+<h3>Show channel 0 measurement<a class="headerlink" href="#show-channel-0-measurement" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> Raw unscaled voltage measurement on channel 0</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage0_raw</span>
 <span class="mi">28583</span>
@@ -635,15 +653,13 @@ on single-ended or fully differential chips. The value comes from the
 <p><strong>U</strong> = <em>in_voltage0_raw * in_voltage_scale</em> = 28583 * 0.076293945 = <strong>2180.70
 mV</strong></p>
 </section>
-</section>
-</section>
 <section id="trigger-management">
 <span id="ad738x-trigger-management"></span><h3>Trigger management<a class="headerlink" href="#trigger-management" title="Link to this heading"></a></h3>
 <p>This driver can be used in two different ways. In order to be able to achieve
 the maximum sample rate (e.g. 4 MSPS), it needs to be used with a specialized
 SPI controller that supports offloading. And example of such a SPI controller
 can be found in the
-example <a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/ad738x_fmc/#ad738x-fmc" target="_blank" title="(in HDL)"><span>AD738x_FMC HDL project</span></a>.
+example <a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/ad738x_fmc/#ad738x-fmc" target="_blank" title="(in HDL)"><span>AD738X_FMC HDL project</span></a>.
 It can also be used with conventional SPI controllers, but sampling rate will be
 limited by the software and hardware capabilities of the system it is running
 on.</p>
@@ -790,12 +806,14 @@ reading thinking it has a different binary format.</p>
 <section id="alert-output">
 <h3>Alert output<a class="headerlink" href="#alert-output" title="Link to this heading"></a></h3>
 <p>The thresholds that drive the ALERT output on the chip are accessed via the
-<code class="docutils literal notranslate"><span class="pre">events/in_thresh_falling_value</span></code> (low) and <code class="docutils literal notranslate"><span class="pre">events/in_thresh_falling_value</span></code>
-(high) attributes.</p>
+<code class="docutils literal notranslate"><span class="pre">events/in_thresh_falling_value</span> <span class="pre">(low)</span> <span class="pre">and</span> <span class="pre">events/in_thresh_rising_value</span> <span class="pre">(high)</span> <span class="pre">attributes.</span></code></p>
 <p>These values are in raw units, so to set a specific voltage, the values of the
 <code class="docutils literal notranslate"><span class="pre">scale</span></code> attribute (and <code class="docutils literal notranslate"><span class="pre">offset</span></code> if present) needs to be taken into account.</p>
-<p>For example, if the reference voltage is 3.3V, the scale will be 0.050354003
-which makes the default rising threshold 32768 * 0.050354003 = 1650 mV.</p>
+<p>For a 16-bit pseudo-differential part with 3.3 V reference and no resolution
+boost, scale is approximately 0.050354003 mV/code; apply its common-mode offset
+before scaling. A fully differential 16-bit part instead has scale approximately
+0.100708007 mV/code. Always read the current scale and offset, since
+oversampling with resolution boost and hardware gain also affect conversion.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">events/thresh_either_en</span></code> attribute is used to enable or disable the
 /ALERT output pin on the chip. (If all SDO lines are being used, this will have
 no effect.)</p>

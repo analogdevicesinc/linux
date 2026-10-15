@@ -103,7 +103,12 @@
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
-<li><a class="reference internal" href="#devicetree">Devicetree</a><ul>
+</ul>
+</li>
+<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#required-properties-for-the-adis16480">Required properties for the ADIS16480:</a></li>
 <li><a class="reference internal" href="#optional-properties">Optional properties</a></li>
 <li><a class="reference internal" href="#example">Example</a></li>
@@ -111,14 +116,15 @@
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#attribute-reference">Attribute reference</a><ul>
 <li><a class="reference internal" href="#adis16480-device-attributes">ADIS16480 device attributes</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a></li>
 <li><a class="reference internal" href="#set-sampling-frequency">Set sampling frequency</a></li>
 <li><a class="reference internal" href="#show-channel-value">Show channel value</a></li>
 <li><a class="reference internal" href="#set-channel-bandwidth">Set channel bandwidth</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#trigger-management">Trigger management</a></li>
@@ -230,6 +236,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -248,7 +255,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -466,8 +472,7 @@ accordingly, matching your part name. It may also required to adjust
 max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
 the device in question.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">board_spi_board_info</span><span class="p">[]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="cp">#if defined(CONFIG_adis16480) \</span>
-<span class="cp">    || defined(CONFIG_adis16480_MODULE)</span>
+<span class="cp">#if defined(CONFIG_ADIS16480) || defined(CONFIG_ADIS16480_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
 <span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adis16480"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2000000</span><span class="p">,</span><span class="w">     </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
@@ -496,8 +501,53 @@ the device in question.</p>
 </pre></div>
 </div>
 </section>
-<section id="devicetree">
-<h3>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h3>
+</section>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<p>The <a class="icon adi reference external" href="https://www.analog.com/EVAL-ADIS16IMU1" target="_blank">ADIS16IMU1/PCBZ</a> is the primary breakout board for
+the ADIS1649x products. This breakout board simplifies the process of connecting
+an ADIS1649x IMU to an embedded processor system using a 16-pin, 1mm ribbon
+cable. For a detailed description, please see:
+<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/inertial-mems/imu/adis1649x" target="_blank">/resources/eval/user-guides/inertial-mems/imu/adis1649x</a>
+Here is an example of basic connection from the ADIS1649X interface connector to
+the host (microprocessor):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>ADIS1649X       HOST MICROPROCESSOR
+* DIO2 ———————&gt; IRQ GPIO
+* CS   &lt;——————— SPI_SEL
+* SCLK &lt;——————— SPI_SCLK
+* DIN  &lt;——————— SPI_MOSI
+* DOUT ———————&gt; SPI_MISO
+</pre></div>
+</div>
+<p>Note: IRQ GPIO can be connected to any DIOx pin. See the Devicetree section.</p>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The adis16480 driver depends on <strong>CONFIG_SPI_MASTER</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+            <span class="p">[</span><span class="o">*</span><span class="p">]</span>   <span class="n">Enable</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
+            <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">buffering</span> <span class="n">based</span> <span class="n">on</span> <span class="n">kfifo</span>
+            <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
+            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+            <span class="n">Inertial</span> <span class="n">measurement</span> <span class="n">units</span>  <span class="o">---&gt;</span>
+                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+                <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADIS16480</span> <span class="ow">and</span> <span class="n">similar</span> <span class="n">IMU</span> <span class="n">driver</span>
+                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <p>Analog Devices ADIS16480 and similar IMUs</p>
 <section id="required-properties-for-the-adis16480">
 <h4>Required properties for the ADIS16480:<a class="headerlink" href="#required-properties-for-the-adis16480" title="Link to this heading"></a></h4>
@@ -522,16 +572,21 @@ the device in question.</p>
 Documentation/devicetree/bindings/spi/spi-bus.txt</p></li>
 <li><p>spi-cpha: See Documentation/devicetree/bindings/spi/spi-bus.txt</p></li>
 <li><p>spi-cpol: See Documentation/devicetree/bindings/spi/spi-bus.txt</p></li>
-<li><p>interrupts: interrupt mapping for IRQ, accepted values are:</p></li>
-<li><p>IRQF_TRIGGER_RISING</p></li>
-<li><p>IRQF_TRIGGER_FALLING</p></li>
+<li><p>interrupts: Interrupt mapping for IRQ. Edge flags from
+<code class="docutils literal notranslate"><span class="pre">&lt;dt-bindings/interrupt-controller/irq.h&gt;</span></code> are:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">IRQ_TYPE_EDGE_RISING</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">IRQ_TYPE_EDGE_FALLING</span></code></p></li>
+</ul>
+</li>
 </ul>
 </section>
 <section id="optional-properties">
 <h4>Optional properties<a class="headerlink" href="#optional-properties" title="Link to this heading"></a></h4>
 <ul class="simple">
-<li><p>interrupt-names: Data ready line selection. If this field is left empty, the
-factory default assigns DIO2 as data ready signal. Valid values are:</p>
+<li><p>interrupt-names: Data-ready line selection. If absent, the driver selects
+DIO1 for compatibility, overriding the device’s factory default of DIO2.
+An explicit name selects the corresponding DIO1..DIO4 pin. Valid values are:</p>
 <ul>
 <li><p>DIO1</p></li>
 <li><p>DIO2</p></li>
@@ -545,8 +600,8 @@ is active low, it should be marked GPIO_ACTIVE_LOW.</p></li>
 <code class="docutils literal notranslate"><span class="pre">clock-names</span></code>. If this field is left empty, the internal clock is used.</p></li>
 <li><p>clock-names: The name of the external clock to be used. Valid values are:</p>
 <ul>
-<li><p>sync: In sync mode, the internal clock is disabled and the frequency of the
-external clock signal establishes the rate of data collection and
+<li><p>sync: In sync mode, the internal clock is disabled and the frequency of
+the external clock signal establishes the rate of data collection and
 processing. The clock-frequency must be:</p>
 <ul>
 <li><p>3000 to 4500 Hz for adis1649x devices.</p></li>
@@ -555,8 +610,8 @@ processing. The clock-frequency must be:</p>
 </li>
 <li><p>pps: In Pulse Per Second (PPS) Mode, the rate of data collection and
 production is equal to the product of the external clock frequency and the
-scale factor in the SYNC_SCALE register, see Table 154 in the datasheet. The
-clock-frequency must be:</p>
+scale factor in the SYNC_SCALE register, see Table 154 in the datasheet.
+The clock-frequency must be:</p>
 <ul>
 <li><p>1 to 128 Hz for adis1649x devices.</p></li>
 <li><p>This mode is not supported by adis1648x devices. If this field is left
@@ -583,65 +638,25 @@ empty, DIO2 is assigned as default external clock input pin.</p>
 </section>
 <section id="example">
 <h4>Example<a class="headerlink" href="#example" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">imu</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adis16495-1"</span><span class="p">;</span>
-    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3200000</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">spi</span><span class="o">-</span><span class="n">cpol</span><span class="p">;</span>
-    <span class="n">spi</span><span class="o">-</span><span class="n">cpha</span><span class="p">;</span>
-    <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">25</span> <span class="n">IRQF_TRIGGER_FALLING</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">interrupt</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"DIO2"</span><span class="p">;</span>
-    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">adis16495_sync</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"sync"</span><span class="p">;</span>
-    <span class="n">adi</span><span class="p">,</span><span class="n">ext</span><span class="o">-</span><span class="n">clk</span><span class="o">-</span><span class="n">pin</span> <span class="o">=</span> <span class="s2">"DIO1"</span><span class="p">;</span>
-   <span class="p">};</span>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/interrupt-controller/irq.h&gt;</span>
+
+<span class="nf">imu</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,adis16495-1"</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">3200000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">spi-cpol</span><span class="p">;</span>
+<span class="w">    </span><span class="n">spi-cpha</span><span class="p">;</span>
+<span class="w">    </span><span class="n">interrupts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">25</span><span class="w"> </span><span class="na">IRQ_TYPE_EDGE_FALLING</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">interrupt-parent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">gpio</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">interrupt-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"DIO2"</span><span class="p">;</span>
+<span class="w">    </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">adis16495_sync</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"sync"</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">ext-clk-pin</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"DIO1"</span><span class="p">;</span>
+<span class="w">   </span><span class="p">};</span>
 </pre></div>
 </div>
 </section>
 </section>
-</section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The adis16480 driver depends on <strong>CONFIG_SPI_MASTER</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-            <span class="p">[</span><span class="o">*</span><span class="p">]</span>   <span class="n">Enable</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-            <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">buffering</span> <span class="n">based</span> <span class="n">on</span> <span class="n">kfifo</span>
-            <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
-            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-            <span class="n">Inertial</span> <span class="n">measurement</span> <span class="n">units</span>  <span class="o">---&gt;</span>
-                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-                <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADIS16480</span> <span class="ow">and</span> <span class="n">similar</span> <span class="n">IMU</span> <span class="n">driver</span>
-                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-</pre></div>
-</div>
-</section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
-<p>The <a class="icon adi reference external" href="https://www.analog.com/EVAL-ADIS16IMU1" target="_blank">ADIS16IMU1/PCBZ</a> is the primary breakout board for
-the ADIS1649x products. This breakout board simplifies the process of connecting
-an ADIS1649x IMU to an embedded processor system using a 16-pin, 1mm ribbon
-cable. For a detailed description, please see:
-<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/inertial-mems/imu/adis1649x" target="_blank">/resources/eval/user-guides/inertial-mems/imu/adis1649x</a>
-Here is an example of basic connection from the ADIS1649X interface connector to
-the host (microprocessor):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>ADIS1649X       HOST MICROPROCESSOR
-* DIO2 ———————&gt; IRQ GPIO
-* CS   &lt;——————— SPI_SEL
-* SCLK &lt;——————— SPI_SCLK
-* DIN  &lt;——————— SPI_MOSI
-* DOUT ———————&gt; SPI_MISO
-</pre></div>
-</div>
-<p>Note: IRQ GPIO can be connected to any DIOx pin. See the Devicetree section.</p>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -661,50 +676,60 @@ the numbering is constant and may be known in advance.</p>
 <li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/software/iio-oscilloscope/#iio-oscilloscope" target="_blank" title="(in System Level Documentation)"><span>IIO Oscilloscope</span></a></p></li>
 </ul>
 </div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cd</span> <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">&gt;</span> <span class="n">ls</span>
-<span class="n">iio</span><span class="p">:</span><span class="n">device0</span>  <span class="n">trigger0</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/&gt; cd /sys/bus/iio/devices/
+root:/sys/bus/iio/devices&gt; ls
+iio:device0  trigger0
 
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">&gt;</span> <span class="n">cd</span> <span class="n">iio</span><span class="p">:</span><span class="n">device0</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">ls</span> <span class="o">-</span><span class="n">l</span>
-<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span>    <span class="mi">2</span> <span class="n">root</span>     <span class="n">root</span>             <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">buffer</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">dev</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_accel_filter_low_pass_3db_frequency</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_accel_scale</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_accel_x_calibbias</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_accel_x_raw</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_accel_y_calibbias</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_accel_y_raw</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_accel_z_calibbias</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_accel_z_raw</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_anglvel_filter_low_pass_3db_frequency</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_anglvel_scale</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_anglvel_x_calibbias</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_anglvel_x_raw</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_anglvel_y_calibbias</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_anglvel_y_raw</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_anglvel_z_calibbias</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_anglvel_z_raw</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_magn_filter_low_pass_3db_frequency</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_magn_scale</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_magn_x_raw</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_magn_y_raw</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_magn_z_raw</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_temp0_offset</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_temp0_raw</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_temp0_scale</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">name</span>
-<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span>    <span class="mi">2</span> <span class="n">root</span>     <span class="n">root</span>             <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">power</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">sampling_frequency</span>
-<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span>    <span class="mi">2</span> <span class="n">root</span>     <span class="n">root</span>             <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">scan_elements</span>
-<span class="n">lrwxrwxrwx</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>             <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">subsystem</span> <span class="o">-&gt;</span> <span class="o">../../../../../</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span>
-<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span>    <span class="mi">2</span> <span class="n">root</span>     <span class="n">root</span>             <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">trigger</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">uevent</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span>
+root:/sys/bus/iio/devices&gt; cd iio:device0
+root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0&gt; ls -l
+drwxr-xr-x    2 root     root             0 Jan  4 00:03 buffer
+-r--r--r--    1 root     root          4096 Jan  4 00:03 dev
+-rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_x_filter_low_pass_3db_frequency
+-rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_scale
+-rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_x_calibbias
+-r--r--r--    1 root     root          4096 Jan  4 00:03 in_accel_x_raw
+-rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_y_calibbias
+-r--r--r--    1 root     root          4096 Jan  4 00:03 in_accel_y_raw
+-rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_z_calibbias
+-r--r--r--    1 root     root          4096 Jan  4 00:03 in_accel_z_raw
+-rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_x_filter_low_pass_3db_frequency
+-rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_scale
+-rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_x_calibbias
+-r--r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_x_raw
+-rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_y_calibbias
+-r--r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_y_raw
+-rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_z_calibbias
+-r--r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_z_raw
+-rw-r--r--    1 root     root          4096 Jan  4 00:03 in_magn_x_filter_low_pass_3db_frequency
+-rw-r--r--    1 root     root          4096 Jan  4 00:03 in_magn_scale
+-r--r--r--    1 root     root          4096 Jan  4 00:03 in_magn_x_raw
+-r--r--r--    1 root     root          4096 Jan  4 00:03 in_magn_y_raw
+-r--r--r--    1 root     root          4096 Jan  4 00:03 in_magn_z_raw
+-rw-r--r--    1 root     root          4096 Jan  4 00:03 in_temp0_offset
+-r--r--r--    1 root     root          4096 Jan  4 00:03 in_temp0_raw
+-rw-r--r--    1 root     root          4096 Jan  4 00:03 in_temp0_scale
+-r--r--r--    1 root     root          4096 Jan  4 00:03 name
+drwxr-xr-x    2 root     root             0 Jan  4 00:03 power
+-rw-r--r--    1 root     root          4096 Jan  4 00:03 sampling_frequency
+drwxr-xr-x    2 root     root             0 Jan  4 00:03 scan_elements
+lrwxrwxrwx    1 root     root             0 Jan  4 00:03 subsystem -&gt; ../../../../../bus/iio
+drwxr-xr-x    2 root     root             0 Jan  4 00:03 trigger
+-rw-r--r--    1 root     root          4096 Jan  4 00:03 uevent
+root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0&gt;
 </pre></div>
 </div>
+<p>Use the corresponding y/z attributes when selecting another axis.</p>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
+<span class="n">adis16480</span>
+</pre></div>
+</div>
+</section>
+<section id="attribute-reference">
+<h3>Attribute reference<a class="headerlink" href="#attribute-reference" title="Link to this heading"></a></h3>
 <section id="adis16480-device-attributes">
-<h3>ADIS16480 device attributes<a class="headerlink" href="#adis16480-device-attributes" title="Link to this heading"></a></h3>
+<h4>ADIS16480 device attributes<a class="headerlink" href="#adis16480-device-attributes" title="Link to this heading"></a></h4>
 <p>For a detailed description please see:
 <a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio" target="_blank">Documentation/ABI/testing/sysfs-bus-iio</a></p>
 <div class="table-wrapper docutils container">
@@ -817,30 +842,23 @@ the numbering is constant and may be known in advance.</p>
 </tbody>
 </table>
 </div>
-<section id="show-device-name">
-<h4>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
-<span class="n">adis16480</span>
-</pre></div>
-</div>
-</section>
 <section id="set-sampling-frequency">
-<h4>Set sampling frequency<a class="headerlink" href="#set-sampling-frequency" title="Link to this heading"></a></h4>
-<p>The sampling frequency of the device can be set by writing the desired value to
-the <code class="docutils literal notranslate"><span class="pre">sampling_frequency</span></code> file. The driver will automatically round up to the
-nearest supported sampling frequency.</p>
-<p><strong>Example:</strong></p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">sampling_frequency</span>
-<span class="mf">4250.000000</span>
-<span class="n">pi</span><span class="nd">@raspberrypi</span><span class="p">:</span><span class="o">/</span><span class="n">s</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">2000</span> <span class="o">&gt;</span> <span class="n">sampling_frequency</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">sampling_frequency</span>
-<span class="mf">2125.000000</span>
+<h5>Set sampling frequency<a class="headerlink" href="#set-sampling-frequency" title="Link to this heading"></a></h5>
+<p>Write the desired rate in Hz to <code class="docutils literal notranslate"><span class="pre">sampling_frequency</span></code>. The driver chooses
+a nearest-integer decimation divisor and clamps it to the device’s supported
+range; it does not simply round the requested output rate upward. Read the
+attribute back to obtain the selected rate.</p>
+<p>The ADIS16480 internal base rate is 2460 Hz; other variants and external-clock
+configurations use different base rates.</p>
+<p>Run this request/readback sequence in the identified device’s sysfs directory:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>sampling_frequency
+<span class="nb">echo</span><span class="w"> </span><span class="m">2000</span><span class="w"> </span>&gt;<span class="w"> </span>sampling_frequency
+cat<span class="w"> </span>sampling_frequency
 </pre></div>
 </div>
 </section>
 <section id="show-channel-value">
-<h4>Show channel value<a class="headerlink" href="#show-channel-value" title="Link to this heading"></a></h4>
+<h5>Show channel value<a class="headerlink" href="#show-channel-value" title="Link to this heading"></a></h5>
 <p>A channel value can be read from its <code class="docutils literal notranslate"><span class="pre">_raw</span></code> attribute. The value returned by
 the <code class="docutils literal notranslate"><span class="pre">_raw</span></code> attribute is the raw value as reported by the device. To get the
 processed value of the channel in a standardized unit add the channels
@@ -853,36 +871,37 @@ offset.</p>
 <li><p>Acceleration: Meter per Second squared</p></li>
 <li><p>Angular velocity: Rad per second</p></li>
 <li><p>Pressure: kilo Pascal</p></li>
-<li><p>Magnetometer: milli Gauss</p></li>
+<li><p>Magnetometer: gauss</p></li>
 <li><p>Temperature: milli Degree Celsius</p></li>
 </ul>
 <p><strong>Example:</strong></p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_accel_z_raw</span>
-<span class="mi">265126938</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_accel_scale</span>
-<span class="mf">0.002451731</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0&gt; cat in_accel_z_raw
+265126938
+root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0&gt; cat in_accel_scale
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">Z-axis</span> <span class="pre">acceleration</span> <span class="pre">=</span> <span class="pre">in_accel_z_raw</span> <span class="pre">*</span> <span class="pre">in_accel_scale</span> <span class="pre">=</span> <span class="pre">265126938</span> <span class="pre">*</span>
-<span class="pre">0.002451731</span> <span class="pre">m/s^2</span> <span class="pre">=</span> <span class="pre">650019.932</span> <span class="pre">m/s^2</span></code></p>
+<p>The driver exposes a 32-bit acceleration raw value. Read <code class="docutils literal notranslate"><span class="pre">in_accel_scale</span></code>
+from the same device and calculate acceleration in m/s² as
+<code class="docutils literal notranslate"><span class="pre">in_accel_z_raw</span> <span class="pre">*</span> <span class="pre">in_accel_scale</span></code>. Do not use a scale for a narrower raw
+format with this value; the scale depends on the device variant.</p>
 </section>
 <section id="set-channel-bandwidth">
-<h4>Set channel bandwidth<a class="headerlink" href="#set-channel-bandwidth" title="Link to this heading"></a></h4>
+<h5>Set channel bandwidth<a class="headerlink" href="#set-channel-bandwidth" title="Link to this heading"></a></h5>
 <p>The channels bandwidth can be set by writing the desired value to the channels
 <code class="docutils literal notranslate"><span class="pre">_filter_low_pass_3db_frequency</span></code> attribute. The driver will automatically
 round up to the nearest supported bandwidth.</p>
-<p>Note that the low pass filter frequency depends on the sampling frequency, so
-changing the sampling frequency will scale the low pass filter frequency
-accordingly. E.g. reducing the sampling frequency by a factor of two will also
-reduce the bandwidth by a factor of two.</p>
-<p><strong>Example:</strong></p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_anglvel_filter_low_pass_3db_frequency</span>
-<span class="n">TDB</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="n">TBD</span> <span class="o">&gt;</span> <span class="n">in_anglvel_filter_low_pass_3db_frequency</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_anglvel_filter_low_pass_3db_frequency</span>
-<span class="n">TBD</span>
+<p>The driver reports fixed filter-bank labels per variant: 55, 63, 275 and
+310 Hz for the older family, or 100 and 300 Hz for ADIS1649x. It does not
+rescale these sysfs values when decimation changes. Writing 0 disables the
+filter.</p>
+<p>For ADIS16480, run these commands in the device’s sysfs directory to request
+55 Hz and read back the selected setting:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">55</span><span class="w"> </span>&gt;<span class="w"> </span>in_anglvel_x_filter_low_pass_3db_frequency
+cat<span class="w"> </span>in_anglvel_x_filter_low_pass_3db_frequency
 </pre></div>
 </div>
+<p>Use the corresponding y/z attributes when selecting another axis.</p>
+</section>
 </section>
 </section>
 <section id="trigger-management">
@@ -909,14 +928,17 @@ reduce the bandwidth by a factor of two.</p>
 <span class="n">enable</span>           <span class="n">length</span>
 </pre></div>
 </div>
-<p>The Industrial I/O subsystem provides support for various ring buffer based
-data acquisition methods. Apart from device specific hardware buffer support,
-the user can chose between two different software ring buffer implementations.
-One is the IIO lock free software ring, and the other is based on Linux kfifo.
-Devices with buffer support feature an additional sub-folder in the
-<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/deviceX/</span></code> folder hierarchy. Called <code class="docutils literal notranslate"><span class="pre">deviceX:bufferY</span></code>,
-where Y defaults to 0, for devices with a single buffer.</p>
-<p>Every buffer implementation features a set of files:</p>
+<p>The Industrial I/O subsystem supports buffered data acquisition. Buffer
+implementation and capabilities depend on the driver. Devices with buffer
+support expose each buffer at
+<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX/bufferY</span></code>, where Y is the buffer index,
+starting at 0. The first buffer is additionally exposed through the legacy
+<code class="docutils literal notranslate"><span class="pre">buffer</span></code> directory, which contains its buffer-control attributes. Its scan
+configuration is exposed through the legacy <code class="docutils literal notranslate"><span class="pre">scan_elements</span></code> directory, while
+multi-buffer systems expose the scan attributes in the corresponding
+<code class="docutils literal notranslate"><span class="pre">bufferY</span></code> directory. Read samples from the device character node
+<code class="docutils literal notranslate"><span class="pre">/dev/iio:deviceX</span></code>; the selected buffer is determined by the active buffer
+configuration.</p>
 <dl class="simple">
 <dt><strong>length</strong></dt><dd><p>Get/set the number of sample sets that may be held by the buffer.</p>
 </dd>
@@ -948,38 +970,33 @@ the alignment requirements associated with a device through the
 captured for a single triggered sample set in the buffer.</p>
 </dd>
 </dl>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/</span><span class="n">scan_elements</span><span class="o">&gt;</span> <span class="n">ls</span>
-<span class="n">TBD</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/</span><span class="n">scan_elements</span><span class="o">&gt;</span>
+<p>The scan layout differs between variants. Inspect it on the device (replace X
+with the device number identified by reading <code class="docutils literal notranslate"><span class="pre">name</span></code>):</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="nv">DEV</span><span class="o">=</span>/sys/bus/iio/devices/iio:deviceX
+<span class="k">for</span><span class="w"> </span>attr<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="s2">"</span><span class="nv">$DEV</span><span class="s2">"</span>/scan_elements/*_index<span class="w"> </span><span class="s2">"</span><span class="nv">$DEV</span><span class="s2">"</span>/scan_elements/*_type<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<span class="w">    </span><span class="o">[</span><span class="w"> </span>-f<span class="w"> </span><span class="s2">"</span><span class="nv">$attr</span><span class="s2">"</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="k">continue</span>
+<span class="w">    </span><span class="nb">printf</span><span class="w"> </span><span class="s1">'%s: '</span><span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">attr</span><span class="p">##*/</span><span class="si">}</span><span class="s2">"</span>
+<span class="w">    </span>cat<span class="w"> </span><span class="s2">"</span><span class="nv">$attr</span><span class="s2">"</span>
+<span class="k">done</span>
 </pre></div>
 </div>
-<dl class="simple">
-<dt><strong>in_voltageX_en / in_voltageX-voltageY_en / timestamp_en:</strong></dt><dd><p>Scan element control for triggered data capture.
-Writing 1 will enable the scan element, writing 0 will disable it</p>
-</dd>
-<dt><strong>in_voltageX_type / in_voltageX-voltageY_type / timestamp_type:</strong></dt><dd><p>Description of the scan element data storage within the buffer
-and therefore in the form in which it is read from user-space.
-Form is [s|u]bits/storage-bits. s or u specifies if signed
-(2’s complement) or unsigned. bits is the number of bits of
-data and storage-bits is the space (after padding) that it
-occupies in the buffer. Note that some devices will have
-additional information in the unused bits so to get a clean
-value, the bits value must be used to mask the buffer output
-value appropriately. The storage-bits value also specifies the
-data alignment. So u12/16 will be a unsigned 12 bit integer
-stored in a 16 bit location aligned to a 16 bit boundary.
-For other storage combinations this attribute will be extended
-appropriately.</p>
-</dd>
-<dt><strong>in_voltageX_index / in_voltageX-voltageY_index / timestamp_index:</strong></dt><dd><p>A single positive integer specifying the position of this
-scan element in the buffer. Note these are not dependent on
-what is enabled and may not be contiguous. Thus for user-space
-to establish the full layout these must be used in conjunction
-with all _en attributes to establish which channels are present,
-and the relevant _type attributes to establish the data storage
-format.</p>
-</dd>
-</dl>
+<p>Each enabled channel’s <code class="docutils literal notranslate"><span class="pre">_index</span></code> determines scan order. Its <code class="docutils literal notranslate"><span class="pre">_type</span></code> records
+endianness, signedness, valid bits, storage bits and any right shift. The
+buffer record also includes alignment padding and, when enabled, a software
+timestamp.</p>
+<p>With the kernel <code class="docutils literal notranslate"><span class="pre">iio_generic_buffer</span></code> tool installed, the device idle, and
+its data-ready interrupt and trigger working, a bounded capture can be run as:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>iio_generic_buffer<span class="w"> </span>-N<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">DEV</span><span class="p">##*iio:</span><span class="nv">device</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span>-a<span class="w"> </span>-c<span class="w"> </span><span class="m">10</span>
+</pre></div>
+</div>
+<p>The tool uses the device’s channel metadata and normally finds its trigger
+automatically. If necessary, select the actual registered trigger with <code class="docutils literal notranslate"><span class="pre">-t</span></code>
+or <code class="docutils literal notranslate"><span class="pre">-T</span></code>. The <code class="docutils literal notranslate"><span class="pre">-a</span></code> option enables available channels when none are already
+enabled; it does not override an existing channel selection. This command is
+an example to run on hardware, not a captured result.</p>
+<p>For a physical measurement channel, use its exported scale and offset, where
+present, to convert the decoded raw code according to the IIO ABI. Status and
+CRC-failure channels are flags, not scaled physical measurements.</p>
 </section>
 </section>
 <section id="more-information">

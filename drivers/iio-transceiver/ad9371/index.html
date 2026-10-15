@@ -102,25 +102,20 @@
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
-<li><a class="reference internal" href="#files">Files</a><ul>
-<li><a class="reference internal" href="#interrelated-device-drivers">Interrelated Device Drivers</a><ul>
-<li><a class="reference internal" href="#receive-axi-adc-driver">Receive AXI-ADC driver</a></li>
-<li><a class="reference internal" href="#transmit-axi-dac-dds-driver">Transmit AXI-DAC / DDS driver</a></li>
-<li><a class="reference internal" href="#axi-jesd204b-hdl-driver">AXI JESD204B HDL driver</a></li>
-<li><a class="reference internal" href="#axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel">AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)</a></li>
+<li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-</ul>
-</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
+<li><a class="reference internal" href="#example-linux-device-tree-initialization">Example Linux Device-Tree Initialization</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#device-driver-customization">Device Driver Customization</a></li>
-<li><a class="reference internal" href="#example-linux-device-tree-initialization">Example Linux Device-Tree Initialization</a></li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
-<li><a class="reference internal" href="#driver-testing-api">Driver testing / API</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
 <li><a class="reference internal" href="#enable-state-machine-controls">Enable State Machine Controls</a></li>
 <li><a class="reference internal" href="#local-oscillator-control-lo">Local Oscillator Control (LO)</a></li>
 <li><a class="reference internal" href="#filter-and-signal-path-configuration">Filter and Signal Path Configuration</a><ul>
@@ -157,8 +152,6 @@
 <li><a class="reference internal" href="#arm-calibrations">ARM Calibrations</a></li>
 <li><a class="reference internal" href="#auxadc-reading">AuxADC Reading</a></li>
 <li><a class="reference internal" href="#auxdac-writing">AuxDAC Writing</a></li>
-</ul>
-</li>
 <li><a class="reference internal" href="#digital-predistortion-control-dpd-ad9375-only">Digital Predistortion Control (DPD) (AD9375 only)</a><ul>
 <li><a class="reference internal" href="#dpd-tracking-controls">DPD Tracking Controls</a></li>
 <li><a class="reference internal" href="#dpd-actuator-control">DPD Actuator Control</a></li>
@@ -187,6 +180,9 @@
 <li><a class="reference internal" href="#vswr-measurements">VSWR Measurements</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
 <li><a class="reference internal" href="#advanced-debug-facilities">Advanced Debug Facilities</a><ul>
 <li><a class="reference internal" href="#runtime-device-driver-customization">Runtime Device Driver Customization</a><ul>
 <li><a class="reference internal" href="#example-to-change-from-internal-to-external-tx-lo">Example to change from internal to external TX LO</a></li>
@@ -201,11 +197,24 @@
 <li><a class="reference internal" href="#monitor-output-via-gpio">Monitor Output via GPIO</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#low-level-register-access-via-debugfs-direct-reg-access">Low level register access via debugfs (direct_reg_access)</a></li>
+<li><a class="reference internal" href="#low-level-register-access-via-debugfs-direct-reg-access">Low level register access via debugfs (direct_reg_access)</a><ul>
 <li><a class="reference internal" href="#reading">Reading</a></li>
 <li><a class="reference internal" href="#writing">Writing</a></li>
 <li><a class="reference internal" href="#accessing-hdl-core-registers">Accessing HDL CORE registers</a></li>
-<li><a class="reference internal" href="#more-information">More Information</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a><ul>
+<li><a class="reference internal" href="#interrelated-device-drivers">Interrelated Device Drivers</a><ul>
+<li><a class="reference internal" href="#receive-axi-adc-driver">Receive AXI-ADC driver</a></li>
+<li><a class="reference internal" href="#transmit-axi-dac-dds-driver">Transmit AXI-DAC / DDS driver</a></li>
+<li><a class="reference internal" href="#axi-jesd204b-hdl-driver">AXI JESD204B HDL driver</a></li>
+<li><a class="reference internal" href="#axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel">AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)</a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -307,6 +316,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -325,7 +335,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -569,112 +578,51 @@ using a number of different physical interfaces (i2c, spi, etc). See
 </tbody>
 </table>
 </div>
-<section id="interrelated-device-drivers">
-<h4>Interrelated Device Drivers<a class="headerlink" href="#interrelated-device-drivers" title="Link to this heading"></a></h4>
-<section id="receive-axi-adc-driver">
-<h5>Receive AXI-ADC driver<a class="headerlink" href="#receive-axi-adc-driver" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></td>
-<td></td>
-</tr>
-<tr class="row-even"><td><p>include</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
+</section>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The AD9371 driver depends on <strong>CONFIG_SPI</strong></p>
+</div>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
+        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
+
+              <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+
+        <span class="o">-*-</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">AXI</span> <span class="n">ADC</span> <span class="n">driver</span> <span class="n">core</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9361</span><span class="p">,</span> <span class="n">AD9364</span> <span class="n">RF</span> <span class="n">Agile</span> <span class="n">Transceiver</span> <span class="n">driver</span>
+        <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9371</span> <span class="n">RF</span> <span class="n">Transceiver</span> <span class="n">driver</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD6676</span> <span class="n">Wideband</span> <span class="n">IF</span> <span class="n">Receiver</span> <span class="n">driver</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9467</span><span class="p">,</span> <span class="n">AD9680</span><span class="p">,</span> <span class="n">etc</span><span class="o">.</span> <span class="n">high</span> <span class="n">speed</span> <span class="n">ADCs</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">Motor</span> <span class="n">Control</span> <span class="p">(</span><span class="n">AD</span><span class="o">-</span><span class="n">FMCMOTCON</span><span class="p">)</span> <span class="n">drivers</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Generic</span> <span class="n">FFT</span> <span class="n">driver</span>
+        <span class="o">&lt;*&gt;</span> <span class="n">Generic</span> <span class="n">AXI</span> <span class="n">JESD204B</span> <span class="n">configuration</span> <span class="n">driver</span>
+
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+
+    <span class="n">Frequency</span> <span class="n">Synthesizers</span> <span class="n">DDS</span><span class="o">/</span><span class="n">PLL</span>  <span class="o">---&gt;</span>
+            <span class="n">Direct</span> <span class="n">Digital</span> <span class="n">Synthesis</span>  <span class="o">---&gt;</span>
+            <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">CoreFPGA</span> <span class="n">AXI</span> <span class="n">DDS</span> <span class="n">driver</span>
+</pre></div>
 </div>
 </section>
-<section id="transmit-axi-dac-dds-driver">
-<h5>Transmit AXI-DAC / DDS driver<a class="headerlink" href="#transmit-axi-dac-dds-driver" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.c" target="_blank">drivers/iio/frequency/cf_axi_dds.c</a></p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>include</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.h" target="_blank">drivers/iio/frequency/cf_axi_adc.h</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="axi-jesd204b-hdl-driver">
-<h5>AXI JESD204B HDL driver<a class="headerlink" href="#axi-jesd204b-hdl-driver" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_rx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_rx.c</a></p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_tx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_tx.c</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel">
-<h5>AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)<a class="headerlink" href="#axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_adxcvr.c" target="_blank">drivers/iio/jesd204/axi_adxcvr.c</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-</section>
-</section>
-</section>
-<section id="device-driver-customization">
-<h2>Device Driver Customization<a class="headerlink" href="#device-driver-customization" title="Link to this heading"></a></h2>
-<p>Please follow the link here for detailed options and examples:</p>
-<ul class="simple">
-<li><p><a class="reference internal" href="../ad9371-customization/#ad9371-customization"><span class="std std-ref">AD9371</span></a></p></li>
-</ul>
-</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-linux-device-tree-initialization">
-<h2>Example Linux Device-Tree Initialization<a class="headerlink" href="#example-linux-device-tree-initialization" title="Link to this heading"></a></h2>
+<h4>Example Linux Device-Tree Initialization<a class="headerlink" href="#example-linux-device-tree-initialization" title="Link to this heading"></a></h4>
 <p>The AD9371 driver is a spi-bus driver and can currently only be instantiated via
 device tree.</p>
 <p>Required devicetree properties:</p>
@@ -711,52 +659,17 @@ device tree.</p>
 </table>
 </div>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The AD9371 driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-        <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
-
-              <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-
-        <span class="o">-*-</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">AXI</span> <span class="n">ADC</span> <span class="n">driver</span> <span class="n">core</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9361</span><span class="p">,</span> <span class="n">AD9364</span> <span class="n">RF</span> <span class="n">Agile</span> <span class="n">Transceiver</span> <span class="n">driver</span>
-        <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9371</span> <span class="n">RF</span> <span class="n">Transceiver</span> <span class="n">driver</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD6676</span> <span class="n">Wideband</span> <span class="n">IF</span> <span class="n">Receiver</span> <span class="n">driver</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9467</span><span class="p">,</span> <span class="n">AD9680</span><span class="p">,</span> <span class="n">etc</span><span class="o">.</span> <span class="n">high</span> <span class="n">speed</span> <span class="n">ADCs</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">Motor</span> <span class="n">Control</span> <span class="p">(</span><span class="n">AD</span><span class="o">-</span><span class="n">FMCMOTCON</span><span class="p">)</span> <span class="n">drivers</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Generic</span> <span class="n">FFT</span> <span class="n">driver</span>
-        <span class="o">&lt;*&gt;</span> <span class="n">Generic</span> <span class="n">AXI</span> <span class="n">JESD204B</span> <span class="n">configuration</span> <span class="n">driver</span>
-
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-
-    <span class="n">Frequency</span> <span class="n">Synthesizers</span> <span class="n">DDS</span><span class="o">/</span><span class="n">PLL</span>  <span class="o">---&gt;</span>
-            <span class="n">Direct</span> <span class="n">Digital</span> <span class="n">Synthesis</span>  <span class="o">---&gt;</span>
-            <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">CoreFPGA</span> <span class="n">AXI</span> <span class="n">DDS</span> <span class="n">driver</span>
-</pre></div>
-</div>
+<section id="device-driver-customization">
+<h3>Device Driver Customization<a class="headerlink" href="#device-driver-customization" title="Link to this heading"></a></h3>
+<p>Please follow the link here for detailed options and examples:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="../ad9371-customization/#ad9371-customization"><span class="std std-ref">AD9371</span></a></p></li>
+</ul>
 </section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
 </section>
-<section id="driver-testing-api">
-<h2>Driver testing / API<a class="headerlink" href="#driver-testing-api" title="Link to this heading"></a></h2>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <p>Each and every IIO device, typically a hardware chip, has a device folder under
 <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX</span></code>. Where X is the IIO index of the device. Under
 every of these directory folders reside a set of files, depending on the
@@ -1030,8 +943,8 @@ the numbering is constant and may be known in advance.</p>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">rw</span><span class="o">-</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span>  <span class="mi">4096</span> <span class="n">May</span> <span class="mi">31</span> <span class="mi">14</span><span class="p">:</span><span class="mi">49</span> <span class="n">out_voltage1_vswr_tracking_en</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device3</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">ad9371</span><span class="o">-</span><span class="n">phy</span>
 </pre></div>
@@ -1522,9 +1435,8 @@ TheAuxiliary DACs can be accessed like any other IIO DAC.</p>
 </pre></div>
 </div>
 </section>
-</section>
 <section id="digital-predistortion-control-dpd-ad9375-only">
-<h2>Digital Predistortion Control (DPD) (AD9375 only)<a class="headerlink" href="#digital-predistortion-control-dpd-ad9375-only" title="Link to this heading"></a></h2>
+<h3>Digital Predistortion Control (DPD) (AD9375 only)<a class="headerlink" href="#digital-predistortion-control-dpd-ad9375-only" title="Link to this heading"></a></h3>
 <p>The DPD is a feature available on the <a class="icon adi reference external" href="https://www.analog.com/AD9375" target="_blank">AD9375</a> that enables users
 to achieve higher power amplifier (PA) efficiency while still meeting adjacent
 channel leakage ratio (ACLR) requirements in the Tx signal chain for compliance
@@ -1534,7 +1446,7 @@ the Tx data to cancel distortion caused by PA compression.</p>
 <p>For more details please consult the <strong>AD9371/AD9375 System Development User
 Guide UG-992</strong></p>
 <section id="dpd-tracking-controls">
-<h3>DPD Tracking Controls<a class="headerlink" href="#dpd-tracking-controls" title="Link to this heading"></a></h3>
+<h4>DPD Tracking Controls<a class="headerlink" href="#dpd-tracking-controls" title="Link to this heading"></a></h4>
 <p>This control enabled the DPD tracking calibration. The user must set the ORx
 path source to INTERNALCALS by setting in_voltage2_rf_port_select.</p>
 <p>Also see:
@@ -1554,7 +1466,7 @@ corresponding tracking option.</p>
 </div>
 </section>
 <section id="dpd-actuator-control">
-<h3>DPD Actuator Control<a class="headerlink" href="#dpd-actuator-control" title="Link to this heading"></a></h3>
+<h4>DPD Actuator Control<a class="headerlink" href="#dpd-actuator-control" title="Link to this heading"></a></h4>
 <p>This control allows the user to bypass the DPD actuator on a given Tx channel.
 This control can be called in the radioOn state. However, it is recommended that
 the user suspend (pause) the DPD calibration before using this control to
@@ -1575,7 +1487,7 @@ corresponding tracking option.</p>
 </div>
 </section>
 <section id="dpd-reset-control">
-<h3>DPD Reset Control<a class="headerlink" href="#dpd-reset-control" title="Link to this heading"></a></h3>
+<h4>DPD Reset Control<a class="headerlink" href="#dpd-reset-control" title="Link to this heading"></a></h4>
 <p>This control allows the user to reset the DPD actuator on a given Tx channel.
 This control can be called in the radioOn state. However, it is recommended that
 the user suspend (pause) the DPD calibration before using this control to
@@ -1587,16 +1499,16 @@ corresponding tracking option.</p>
 <li><p>out_voltage0_dpd_reset_en</p></li>
 <li><p>out_voltage1_dpd_reset_en</p></li>
 </ul>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device3</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_voltage0_dpd_reset_en</span>
-<span class="mi">0</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device3</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">out_voltage0_dpd_reset_en</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device3</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_voltage0_dpd_reset_en</span>
-<span class="mi">1</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/bus/iio/devices/iio:device3&gt; cat out_voltage0_dpd_reset_en
+0
+root:/sys/bus/iio/devices/iio:device3&gt; echo 1 &gt; out_voltage0_dpd_reset_en
+root:/sys/bus/iio/devices/iio:device3&gt; cat out_voltage0_dpd_reset_en
+0
 </pre></div>
 </div>
 </section>
 <section id="dpd-status">
-<h3>DPD Status<a class="headerlink" href="#dpd-status" title="Link to this heading"></a></h3>
+<h4>DPD Status<a class="headerlink" href="#dpd-status" title="Link to this heading"></a></h4>
 <p>This control reads back the DPD calibration status from the ARM processor.</p>
 <ul class="simple">
 <li><p>out_voltage0_dpd_status</p></li>
@@ -1652,13 +1564,13 @@ corresponding tracking option.</p>
 </tbody>
 </table>
 </div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device3</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_out_voltage0_dpd_status</span>
-<span class="mi">0</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/bus/iio/devices/iio:device3&gt; cat out_voltage0_dpd_status
+0
 </pre></div>
 </div>
 </section>
 <section id="dpd-model-error">
-<h3>DPD Model Error<a class="headerlink" href="#dpd-model-error" title="Link to this heading"></a></h3>
+<h4>DPD Model Error<a class="headerlink" href="#dpd-model-error" title="Link to this heading"></a></h4>
 <p>This control reads back the percent error of the PA model ×10 to include 1
 decimal place.</p>
 <ul class="simple">
@@ -1671,7 +1583,7 @@ decimal place.</p>
 </div>
 </section>
 <section id="dpd-external-path-delay">
-<h3>DPD External Path Delay<a class="headerlink" href="#dpd-external-path-delay" title="Link to this heading"></a></h3>
+<h4>DPD External Path Delay<a class="headerlink" href="#dpd-external-path-delay" title="Link to this heading"></a></h4>
 <p>This control reads back the external path delay from Tx output to ORx input, at
 1/16 sample resolution of the ORx sample rate. Calculate true value by dividing
 this member.</p>
@@ -1685,7 +1597,7 @@ this member.</p>
 </div>
 </section>
 <section id="dpd-tracking-count">
-<h3>DPD Tracking Count<a class="headerlink" href="#dpd-tracking-count" title="Link to this heading"></a></h3>
+<h4>DPD Tracking Count<a class="headerlink" href="#dpd-tracking-count" title="Link to this heading"></a></h4>
 <p>This control reads back the number of times the DPD has successfully run since
 DPD initialization calibration.</p>
 <ul class="simple">
@@ -1699,7 +1611,7 @@ DPD initialization calibration.</p>
 </section>
 </section>
 <section id="closed-loop-gain-control-clgc-ad9375-only">
-<h2>Closed-Loop Gain Control (CLGC) (AD9375 only)<a class="headerlink" href="#closed-loop-gain-control-clgc-ad9375-only" title="Link to this heading"></a></h2>
+<h3>Closed-Loop Gain Control (CLGC) (AD9375 only)<a class="headerlink" href="#closed-loop-gain-control-clgc-ad9375-only" title="Link to this heading"></a></h3>
 <p>The closed-loop gain control (CLGC) feature in the <a class="icon adi reference external" href="https://www.analog.com/AD9375" target="_blank">AD9375</a>
 enables a constant gain level to be maintained at the ORx input (total gain from
 Tx output to ORx input) which translates to a constant output power (POUT) at
@@ -1711,7 +1623,7 @@ enabled to establish the total desired loop gain in the system.</p>
 <p>For more details please consult the <strong>AD9371/AD9375 System Development User
 Guide UG-992</strong></p>
 <section id="clgc-tracking-controls">
-<h3>CLGC Tracking Controls<a class="headerlink" href="#clgc-tracking-controls" title="Link to this heading"></a></h3>
+<h4>CLGC Tracking Controls<a class="headerlink" href="#clgc-tracking-controls" title="Link to this heading"></a></h4>
 <p>This control enabled the CLGC tracking calibration. The user must set the ORx
 path source to INTERNALCALS by setting in_voltage2_rf_port_select.</p>
 <p>Also see:
@@ -1731,7 +1643,7 @@ corresponding tracking option.</p>
 </div>
 </section>
 <section id="clgc-desired-gain">
-<h3>CLGC Desired Gain<a class="headerlink" href="#clgc-desired-gain" title="Link to this heading"></a></h3>
+<h4>CLGC Desired Gain<a class="headerlink" href="#clgc-desired-gain" title="Link to this heading"></a></h4>
 <p>This control configures the tx1DesiredGain/tx2DesiredGain parameter</p>
 <p>Desired loop gain (can be negative if total attenuation is greater than
 amplification) from Tx output to ORx input. Desired GaindB = desiredGain/100</p>
@@ -1748,7 +1660,7 @@ amplification) from Tx output to ORx input. Desired GaindB = desiredGain/100</p>
 </div>
 </section>
 <section id="clgc-current-gain">
-<h3>CLGC Current Gain<a class="headerlink" href="#clgc-current-gain" title="Link to this heading"></a></h3>
+<h4>CLGC Current Gain<a class="headerlink" href="#clgc-current-gain" title="Link to this heading"></a></h4>
 <p>This control returns the</p>
 <p>Current measured gain in 1/100ths dB scale. Current GaindB = currentGain/100</p>
 <ul class="simple">
@@ -1761,7 +1673,7 @@ amplification) from Tx output to ORx input. Desired GaindB = desiredGain/100</p>
 </div>
 </section>
 <section id="clgc-tx-gain">
-<h3>CLGC Tx Gain<a class="headerlink" href="#clgc-tx-gain" title="Link to this heading"></a></h3>
+<h4>CLGC Tx Gain<a class="headerlink" href="#clgc-tx-gain" title="Link to this heading"></a></h4>
 <p>This control returns the current Tx attenuation setting for a given channel in
 0.05 dB resolution, as determined by the CLGC algorithm. However, this value is
 written to by the CLGC algorithm and may differ slightly from Tx attenuation
@@ -1777,7 +1689,7 @@ actions not being synchronous. Tx AttenuationdB = txGain/200</p>
 </div>
 </section>
 <section id="clgc-rms-tx-digital-sample-power">
-<h3>CLGC RMS Tx digital sample power<a class="headerlink" href="#clgc-rms-tx-digital-sample-power" title="Link to this heading"></a></h3>
+<h4>CLGC RMS Tx digital sample power<a class="headerlink" href="#clgc-rms-tx-digital-sample-power" title="Link to this heading"></a></h4>
 <p>This control returns the RMS Tx digital sample power measured at the output of
 the DPD actuator. Measurement resolution is 0.01 dB. Prms dBFS = txRms/100.</p>
 <ul class="simple">
@@ -1790,7 +1702,7 @@ the DPD actuator. Measurement resolution is 0.01 dB. Prms dBFS = txRms/100.</p>
 </div>
 </section>
 <section id="clgc-rms-orx-digital-sample-power">
-<h3>CLGC RMS ORx digital sample power<a class="headerlink" href="#clgc-rms-orx-digital-sample-power" title="Link to this heading"></a></h3>
+<h4>CLGC RMS ORx digital sample power<a class="headerlink" href="#clgc-rms-orx-digital-sample-power" title="Link to this heading"></a></h4>
 <p>This control returns the RMS ORx digital sample power measured within the DPD
 block on the ORx side. Measuremen resolution is 0.01 dB. Prms dBFS = orxRms/100.</p>
 <ul class="simple">
@@ -1803,7 +1715,7 @@ block on the ORx side. Measuremen resolution is 0.01 dB. Prms dBFS = orxRms/100.
 </div>
 </section>
 <section id="clgc-status">
-<h3>CLGC Status<a class="headerlink" href="#clgc-status" title="Link to this heading"></a></h3>
+<h4>CLGC Status<a class="headerlink" href="#clgc-status" title="Link to this heading"></a></h4>
 <p>This control reads back the CLGC calibration status from the ARM processor.</p>
 <ul class="simple">
 <li><p>out_voltage0_clgc_status</p></li>
@@ -1868,7 +1780,7 @@ block on the ORx side. Measuremen resolution is 0.01 dB. Prms dBFS = orxRms/100.
 </div>
 </section>
 <section id="clgc-tracking-count">
-<h3>CLGC Tracking Count<a class="headerlink" href="#clgc-tracking-count" title="Link to this heading"></a></h3>
+<h4>CLGC Tracking Count<a class="headerlink" href="#clgc-tracking-count" title="Link to this heading"></a></h4>
 <p>This control reads back the number of times the CLGC has successfully run since
 CLGC initialization calibration.</p>
 <ul class="simple">
@@ -1882,7 +1794,7 @@ CLGC initialization calibration.</p>
 </section>
 </section>
 <section id="voltage-standing-wave-ratio-vswr-measurement-ad9375-only">
-<h2>Voltage Standing Wave Ratio (VSWR) Measurement, (AD9375 only)<a class="headerlink" href="#voltage-standing-wave-ratio-vswr-measurement-ad9375-only" title="Link to this heading"></a></h2>
+<h3>Voltage Standing Wave Ratio (VSWR) Measurement, (AD9375 only)<a class="headerlink" href="#voltage-standing-wave-ratio-vswr-measurement-ad9375-only" title="Link to this heading"></a></h3>
 <p>The voltage standing wave ratio (VSWR) on a transmission line is defined as the
 ratio of the voltage maxima to the voltage minima along the line. The VSWR
 measurement feature in the <a class="icon adi reference external" href="https://www.analog.com/AD9375" target="_blank">AD9375</a> facilitates the computation of
@@ -1891,7 +1803,7 @@ both the forward and reflected voltages.</p>
 <p>For more details please consult the <strong>AD9371/AD9375 System Development User
 Guide UG-992</strong></p>
 <section id="vswr-tracking-controls">
-<h3>VSWR Tracking Controls<a class="headerlink" href="#vswr-tracking-controls" title="Link to this heading"></a></h3>
+<h4>VSWR Tracking Controls<a class="headerlink" href="#vswr-tracking-controls" title="Link to this heading"></a></h4>
 <p>This control enables voltage standing wave ratio (VSWR) measurement. The user
 must set the ORx path source to INTERNALCALS by setting
 in_voltage2_rf_port_select.</p>
@@ -1912,7 +1824,7 @@ corresponding tracking option.</p>
 </div>
 </section>
 <section id="vswr-status">
-<h3>VSWR Status<a class="headerlink" href="#vswr-status" title="Link to this heading"></a></h3>
+<h4>VSWR Status<a class="headerlink" href="#vswr-status" title="Link to this heading"></a></h4>
 <p>This control reads back the VSWR calibration status from the ARM processor.</p>
 <ul class="simple">
 <li><p>out_voltage0_vswr_status</p></li>
@@ -1968,7 +1880,7 @@ corresponding tracking option.</p>
 </div>
 </section>
 <section id="vswr-tracking-count">
-<h3>VSWR Tracking Count<a class="headerlink" href="#vswr-tracking-count" title="Link to this heading"></a></h3>
+<h4>VSWR Tracking Count<a class="headerlink" href="#vswr-tracking-count" title="Link to this heading"></a></h4>
 <p>This control reads back the number of times the VSWR has successfully run since
 VSWR initialization calibration.</p>
 <ul class="simple">
@@ -1981,7 +1893,7 @@ VSWR initialization calibration.</p>
 </div>
 </section>
 <section id="vswr-measurements">
-<h3>VSWR Measurements<a class="headerlink" href="#vswr-measurements" title="Link to this heading"></a></h3>
+<h4>VSWR Measurements<a class="headerlink" href="#vswr-measurements" title="Link to this heading"></a></h4>
 <p>These controls provide various measurements. Elements are only listed for
 out_voltage0 but apply likewise for out_voltage1 as well.</p>
 <div class="table-wrapper docutils container">
@@ -2043,15 +1955,18 @@ reported by the CLGC. Prms dBFS = txRms/100 +21 dB</p></td>
 </div>
 </section>
 </section>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
 <section id="advanced-debug-facilities">
-<h2>Advanced Debug Facilities<a class="headerlink" href="#advanced-debug-facilities" title="Link to this heading"></a></h2>
+<h3>Advanced Debug Facilities<a class="headerlink" href="#advanced-debug-facilities" title="Link to this heading"></a></h3>
 <p>The AD9371 driver supports a number of advanced debug controls via the kernel
 <a class="icon link reference external" href="https://en.wikipedia.org/wiki/debugfs" target="_blank">debugfs</a>. How these device
 files/controls can be used is described here. The
 <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/ad9371_advanced_plugin" target="_blank">AD9371 Advanced Plugin</a>
 directly controls these and adds a user friendly interface.</p>
 <section id="runtime-device-driver-customization">
-<h3>Runtime Device Driver Customization<a class="headerlink" href="#runtime-device-driver-customization" title="Link to this heading"></a></h3>
+<h4>Runtime Device Driver Customization<a class="headerlink" href="#runtime-device-driver-customization" title="Link to this heading"></a></h4>
 <p>There is a large number of <a class="reference internal" href="../ad9371-customization/#ad9371-customization"><span class="std std-ref">AD9371</span></a> options available.
 Typically these are supplied via
 <a class="icon link reference external" href="https://en.wikipedia.org/wiki/device_tree" target="_blank">Devicetree</a>. However for debug
@@ -2096,7 +2011,7 @@ device</p>
 </pre></div>
 </div>
 <section id="example-to-change-from-internal-to-external-tx-lo">
-<h4>Example to change from internal to external TX LO<a class="headerlink" href="#example-to-change-from-internal-to-external-tx-lo" title="Link to this heading"></a></h4>
+<h5>Example to change from internal to external TX LO<a class="headerlink" href="#example-to-change-from-internal-to-external-tx-lo" title="Link to this heading"></a></h5>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device3</span><span class="c1"># cat adi,tx-settings-tx-pll-use-external-lo</span>
 <span class="mi">0</span>
 
@@ -2107,13 +2022,13 @@ device</p>
 </section>
 </section>
 <section id="build-in-self-test-bist">
-<h3>Build-In Self-Test (BIST)<a class="headerlink" href="#build-in-self-test-bist" title="Link to this heading"></a></h3>
+<h4>Build-In Self-Test (BIST)<a class="headerlink" href="#build-in-self-test-bist" title="Link to this heading"></a></h4>
 <p>Controling these attribute files directly take effect and therefore don’t
 require the <code class="docutils literal notranslate"><span class="pre">initialize</span></code> sequence. Test functionality exposed here is only
 meant to route or inject test patterns/data than can be used to validate the
 Digital Interface or functionality of the device.</p>
 <section id="bist-tone">
-<h4>BIST Tone<a class="headerlink" href="#bist-tone" title="Link to this heading"></a></h4>
+<h5>BIST Tone<a class="headerlink" href="#bist-tone" title="Link to this heading"></a></h5>
 <p>Digital numerically controlled oscillator (NCO) to create a CW test tone on the
 Tx1 and Tx2 RF outputs. The TxAttenuation is forced in this function to max
 analog output power, but the digital attenuation is backed off 6dB to make sure
@@ -2147,7 +2062,7 @@ the digital filter does not clip and cause spurs in the tx spectrum.</p>
 </div>
 </section>
 <section id="prbs">
-<h4>PRBS<a class="headerlink" href="#prbs" title="Link to this heading"></a></h4>
+<h5>PRBS<a class="headerlink" href="#prbs" title="Link to this heading"></a></h5>
 <p>Pseudorandom Binary Sequence
 (<a class="icon link reference external" href="https://en.wikipedia.org/wiki/Pseudorandom_binary_sequence" target="_blank">PRBS</a>) that can
 either injected into the RX or OBS path.</p>
@@ -2185,7 +2100,7 @@ either injected into the RX or OBS path.</p>
 </div>
 </section>
 <section id="bist-loopback">
-<h4>BIST Loopback<a class="headerlink" href="#bist-loopback" title="Link to this heading"></a></h4>
+<h5>BIST Loopback<a class="headerlink" href="#bist-loopback" title="Link to this heading"></a></h5>
 <p>Allows either to digitally loopback TX data (IQ samples) into the RX or OBS
 path. For this to work correctly, the IQ data rate of the Tx data path must
 match the Rx or OBS IQ data rate.</p>
@@ -2218,7 +2133,7 @@ match the Rx or OBS IQ data rate.</p>
 </section>
 </section>
 <section id="monitor-output-via-gpio">
-<h3>Monitor Output via GPIO<a class="headerlink" href="#monitor-output-via-gpio" title="Link to this heading"></a></h3>
+<h4>Monitor Output via GPIO<a class="headerlink" href="#monitor-output-via-gpio" title="Link to this heading"></a></h4>
 <p>This debug attribute configures the monitor output function for the GPIOs</p>
 <p>The monitor outputs are grouped in set of nibbles, the user can set individual
 nibbles for having the monitor output function across the available GPIO. In
@@ -2238,7 +2153,7 @@ should have the proper setup:</p>
 </section>
 </section>
 <section id="low-level-register-access-via-debugfs-direct-reg-access">
-<h2>Low level register access via debugfs (direct_reg_access)<a class="headerlink" href="#low-level-register-access-via-debugfs-direct-reg-access" title="Link to this heading"></a></h2>
+<h3>Low level register access via debugfs (direct_reg_access)<a class="headerlink" href="#low-level-register-access-via-debugfs-direct-reg-access" title="Link to this heading"></a></h3>
 <p>Some IIO drivers feature an optional debug facility, allowing users to read or
 write registers directly. Special care needs to be taken when using this
 feature, since you can modify registers on the back of the driver.</p>
@@ -2283,9 +2198,8 @@ first need to identify the IIO device number.</p>
 <div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>direct_reg_access
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div></section>
-<section id="reading">
-<h2>Reading<a class="headerlink" href="#reading" title="Link to this heading"></a></h2>
+<div class="clear-left"></div></div></div><section id="reading">
+<h4>Reading<a class="headerlink" href="#reading" title="Link to this heading"></a></h4>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/iio/iio:device1$
 </pre></div>
 </div>
@@ -2303,7 +2217,7 @@ first need to identify the IIO device number.</p>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="writing">
-<h2>Writing<a class="headerlink" href="#writing" title="Link to this heading"></a></h2>
+<h4>Writing<a class="headerlink" href="#writing" title="Link to this heading"></a></h4>
 <p>Write ADDRESS VALUE:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/iio/iio:device1$
 </pre></div>
@@ -2322,7 +2236,7 @@ first need to identify the IIO device number.</p>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="accessing-hdl-core-registers">
-<h2>Accessing HDL CORE registers<a class="headerlink" href="#accessing-hdl-core-registers" title="Link to this heading"></a></h2>
+<h4>Accessing HDL CORE registers<a class="headerlink" href="#accessing-hdl-core-registers" title="Link to this heading"></a></h4>
 <p>Special ADI device driver convention for devices that have both:</p>
 <ul class="simple">
 <li><p>a SPI/I2C control interface</p></li>
@@ -2347,6 +2261,8 @@ first need to identify the IIO device number.</p>
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div></section>
+</section>
+</section>
 <section id="more-information">
 <h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -2360,6 +2276,101 @@ first need to identify the IIO device number.</p>
 <li><p><a class="icon link reference external" href="http://video.fosdem.org/2015/devroom-software_defined_radio/iiosdr.mp4" target="_blank">Software Defined Radio using the IIO framework</a></p></li>
 <li><p><a class="icon link reference external" href="https://www.youtube.com/watch?v=p_VntEwUe24" target="_blank">libiio introduction</a></p></li>
 </ul>
+<section id="interrelated-device-drivers">
+<h3>Interrelated Device Drivers<a class="headerlink" href="#interrelated-device-drivers" title="Link to this heading"></a></h3>
+<section id="receive-axi-adc-driver">
+<h4>Receive AXI-ADC driver<a class="headerlink" href="#receive-axi-adc-driver" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>include</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="transmit-axi-dac-dds-driver">
+<h4>Transmit AXI-DAC / DDS driver<a class="headerlink" href="#transmit-axi-dac-dds-driver" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.c" target="_blank">drivers/iio/frequency/cf_axi_dds.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>include</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.h" target="_blank">drivers/iio/frequency/cf_axi_adc.h</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="axi-jesd204b-hdl-driver">
+<h4>AXI JESD204B HDL driver<a class="headerlink" href="#axi-jesd204b-hdl-driver" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_rx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_rx.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_tx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_tx.c</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel">
+<h4>AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)<a class="headerlink" href="#axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_adxcvr.c" target="_blank">drivers/iio/jesd204/axi_adxcvr.c</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
 </section>
 </section>
 

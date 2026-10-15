@@ -98,16 +98,19 @@
           <ul>
 <li><a class="reference internal" href="#">ADIN1110</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
-<li><a class="reference internal" href="#supported-boards">Supported Boards</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#device-tree">Device Tree</a></li>
 <li><a class="reference internal" href="#ifconfig">ifconfig</a></li>
 <li><a class="reference internal" href="#ethtool">ethtool</a><ul>
 <li><a class="reference internal" href="#example-seeing-mac-phy-info">Example: Seeing MAC &amp; PHY info</a></li>
@@ -120,7 +123,10 @@
 <li><a class="reference internal" href="#data-integrity-testing">Data integrity testing</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#more-information">More Information</a><ul>
 <li><a class="reference internal" href="#ethernet-pointers">Ethernet pointers</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -222,6 +228,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -240,7 +247,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -382,8 +388,8 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/ADIN1110" target="_blank">ADIN1110</a></p></li>
 </ul>
 </section>
-<section id="supported-boards">
-<h2>Supported Boards<a class="headerlink" href="#supported-boards" title="Link to this heading"></a></h2>
+<section id="evaluation-boards">
+<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -432,8 +438,10 @@ processor.</p>
 </div>
 </section>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <ol class="arabic simple">
@@ -444,67 +452,65 @@ available in your kernel tree, please use
 <li><p>Press 1 (the key), then hit Enter</p></li>
 <li><p>You should see the location + dependencies for enabling the driver</p></li>
 </ol>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-<span class="n">Symbol</span><span class="p">:</span> <span class="n">ADIN1110</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">]</span>
-<span class="n">Type</span>  <span class="p">:</span> <span class="n">tristate</span>
-<span class="n">Prompt</span><span class="p">:</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADIN1110</span> <span class="n">MAC</span><span class="o">-</span><span class="n">PHY</span>
-   <span class="n">Location</span><span class="p">:</span>
-     <span class="o">-&gt;</span> <span class="n">Device</span> <span class="n">Drivers</span>
-       <span class="o">-&gt;</span> <span class="n">Network</span> <span class="n">device</span> <span class="n">support</span> <span class="p">(</span><span class="n">NETDEVICES</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">])</span>
-         <span class="o">-&gt;</span> <span class="n">Ethernet</span> <span class="n">driver</span> <span class="n">support</span> <span class="p">(</span><span class="n">ETHERNET</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">])</span>
-   <span class="p">(</span><span class="mi">1</span><span class="p">)</span>     <span class="o">-&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">devices</span> <span class="p">(</span><span class="n">NET_VENDOR_ADI</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">])</span>
-   <span class="n">Defined</span> <span class="n">at</span> <span class="n">drivers</span><span class="o">/</span><span class="n">net</span><span class="o">/</span><span class="n">ethernet</span><span class="o">/</span><span class="n">adi</span><span class="o">/</span><span class="n">Kconfig</span><span class="p">:</span><span class="mi">20</span>
-   <span class="n">Depends</span> <span class="n">on</span><span class="p">:</span> <span class="n">NETDEVICES</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">]</span> <span class="o">&amp;&amp;</span> <span class="n">ETHERNET</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">]</span> <span class="o">&amp;&amp;</span> <span class="n">NET_VENDOR_ADI</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">]</span> <span class="o">&amp;&amp;</span> <span class="n">SPI</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">]</span>
-   <span class="n">Selects</span><span class="p">:</span> <span class="n">CRC8</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">]</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Linux Kernel Configuration
+Symbol: ADIN1110 [=y]
+Type  : tristate
+Prompt: Analog Devices ADIN1110 MAC-PHY
+   Location:
+     -&gt; Device Drivers
+       -&gt; Network device support (NETDEVICES [=y])
+         -&gt; Ethernet driver support (ETHERNET [=y])
+   (1)     -&gt; Analog Devices devices (NET_VENDOR_ADI [=y])
+   Defined at drivers/net/ethernet/adi/Kconfig:20
+   Depends on: NETDEVICES [=y] &amp;&amp; ETHERNET [=y] &amp;&amp; NET_VENDOR_ADI [=y] &amp;&amp; SPI [=y] &amp;&amp; NET_SWITCHDEV [=y]
+   Selects: CRC8 [=y] &amp;&amp; PHYLIB [=y]
 </pre></div>
 </div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<p>ADIN1110 probes via devicetree.</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nf">ethernet</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,adin1110"</span><span class="p">;</span>
+
+<span class="w">        </span><span class="cm">/* SPI CS number */</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="cm">/* generic SPI: datasheet specifies 25 MHz for full-duplex 10 Mbps Ethernet */</span>
+<span class="w">    </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="cm">/* match Generic SPI with CRC hardware straps: SPI_CFG1=1, SPI_CFG0=0 */</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">spi-crc</span><span class="p">;</span>
+
+<span class="w">    </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="cm">/* an IRQ is required, INT_N pin is configured to signal RX/TX frames */</span>
+<span class="w">    </span><span class="n">interrupt-parent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">gpio</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">interrupts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">25</span><span class="w"> </span><span class="na">IRQ_TYPE_LEVEL_LOW</span><span class="o">&gt;</span><span class="p">;</span><span class="w"> </span><span class="cm">/* include dt-bindings/interrupt-controller/irq.h */</span>
+
+<span class="w">        </span><span class="cm">/* This is the host MAC address, by default ADIN1110 will also accept broadcast frames */</span>
+<span class="w">    </span><span class="n">mac-address</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="mh">CA</span><span class="w"> </span><span class="mh">2F</span><span class="w"> </span><span class="mh">B7</span><span class="w"> </span><span class="mh">10</span><span class="w"> </span><span class="mh">23</span><span class="w"> </span><span class="mh">63</span><span class="w"> </span><span class="p">];</span>
+
+<span class="w">    </span><span class="cm">/* Internal PHYs are discovered on the driver-created MDIO bus. */</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <p>This requires that another 10BASE-T1L PHY be connected to the other end of the
 network cable, or that a media converter be used to convert to normal
 twisted-pair ethernet that standard ethernet cables use.</p>
-<p>ADIN1110 communicates with the host via SPI. For 10 Mbps bandwidth, SPI
-frequency needs to be around 23 MHz. Lower SPI frequencies are supported but
-will result in a lower bandwidth. At 1 MHz the MAC will provide aprox. 0.4 Mbps
-of bandwidth.</p>
+<p>ADIN1110 communicates with the host using the generic SPI protocol, which is
+half duplex. The datasheet specifies a 25 MHz SCLK for full-duplex 10 Mbps
+Ethernet traffic. Lower SPI rates reduce host-link capacity; actual throughput
+also depends on frame sizes, transfer overhead and host scheduling.</p>
 <p>Connect to host the SCLK, CS_N, SDI, SDO and INT_N. (The INT_N is mandatory, see
 DT bindings). RX frames and sent TX frames are signaled to the host by INT_N IRQ
 pin.</p>
 <p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/quick-start/adin1110_linux_quick_start_guide" target="_blank">ADIN1110 Quick Start Guide</a></p>
-<section id="device-tree">
-<h3>Device Tree<a class="headerlink" href="#device-tree" title="Link to this heading"></a></h3>
-<p>ADIN1110 probes via devicetree.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ethernet</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adin1110"</span><span class="p">;</span>
-
-        <span class="o">/*</span> <span class="n">SPI</span> <span class="n">CS</span> <span class="n">number</span> <span class="o">*/</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-
-        <span class="o">/*</span> <span class="n">will</span> <span class="n">need</span> <span class="mi">23</span> <span class="n">MHz</span> <span class="k">for</span> <span class="mi">10</span> <span class="n">Mbps</span><span class="p">,</span> <span class="n">lower</span> <span class="n">speeds</span> <span class="n">will</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">lower</span> <span class="n">bandwidth</span> <span class="o">*/</span>
-    <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
-
-        <span class="o">/*</span> <span class="n">optional</span><span class="p">,</span> <span class="n">will</span> <span class="n">check</span> <span class="nb">all</span> <span class="n">control</span> <span class="n">read</span><span class="o">/</span><span class="n">writes</span> <span class="n">over</span> <span class="n">SPI</span> <span class="o">*/</span>
-    <span class="n">adi</span><span class="p">,</span><span class="n">spi</span><span class="o">-</span><span class="n">crc</span><span class="p">;</span>
-
-    <span class="c1">#address-cells = &lt;1&gt;;</span>
-    <span class="c1">#size-cells = &lt;0&gt;;</span>
-
-        <span class="o">/*</span> <span class="n">an</span> <span class="n">IRQ</span> <span class="ow">is</span> <span class="n">required</span><span class="p">,</span> <span class="n">INT_N</span> <span class="n">pin</span> <span class="ow">is</span> <span class="n">configured</span> <span class="n">to</span> <span class="n">signal</span> <span class="n">RX</span><span class="o">/</span><span class="n">TX</span> <span class="n">frames</span> <span class="o">*/</span>
-    <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">25</span> <span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
-
-        <span class="o">/*</span> <span class="n">This</span> <span class="ow">is</span> <span class="n">the</span> <span class="n">host</span> <span class="n">MAC</span> <span class="n">address</span><span class="p">,</span> <span class="n">by</span> <span class="n">default</span> <span class="n">ADIN1110</span> <span class="n">will</span> <span class="n">also</span> <span class="n">accept</span> <span class="n">broadcast</span> <span class="n">frames</span> <span class="o">*/</span>
-    <span class="n">mac</span><span class="o">-</span><span class="n">address</span> <span class="o">=</span> <span class="p">[</span> <span class="n">CA</span> <span class="mi">2</span><span class="n">F</span> <span class="n">B7</span> <span class="mi">10</span> <span class="mi">23</span> <span class="mi">63</span> <span class="p">];</span>
-
-    <span class="n">phy</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"ethernet-phy-id0283.bc91"</span><span class="p">;</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-</section>
 <section id="ifconfig">
 <h3>ifconfig<a class="headerlink" href="#ifconfig" title="Link to this heading"></a></h3>
 <p>This tool will display the general status of the available network interfaces.
@@ -586,8 +592,9 @@ done by adding a udev rule. Check:</p>
 <span class="n">SUBSYSTEM</span><span class="o">==</span><span class="s2">"net"</span><span class="p">,</span> <span class="n">ACTION</span><span class="o">==</span><span class="s2">"add"</span><span class="p">,</span> <span class="n">ATTR</span><span class="p">{</span><span class="n">phys_switch_id</span><span class="p">}</span><span class="o">==</span><span class="s2">"6164696e313131302d30"</span><span class="p">,</span> <span class="n">ATTR</span><span class="p">{</span><span class="n">phys_port_name</span><span class="p">}</span><span class="o">!=</span><span class="s2">""</span><span class="p">,</span> <span class="n">NAME</span><span class="o">=</span><span class="s2">"adin1110-$attr</span><span class="si">{phys_port_name}</span><span class="s2">"</span>
 </pre></div>
 </div>
-<p>phys_switch_id can differ from device to device. It is a unique identifier for
-each device on that specific system.</p>
+<p>phys_switch_id is derived from the model name and SPI chip-select number. It is
+not guaranteed unique across different SPI controllers with the same
+chip-select; include the device path in persistent naming rules when necessary.</p>
 </section>
 <section id="example-changing-link-autonegotiation">
 <h4>Example: changing link autonegotiation<a class="headerlink" href="#example-changing-link-autonegotiation" title="Link to this heading"></a></h4>
@@ -660,8 +667,10 @@ achieves expected results, others should too</p>
 </div>
 </section>
 </section>
+<section id="more-information">
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <section id="ethernet-pointers">
-<h2>Ethernet pointers<a class="headerlink" href="#ethernet-pointers" title="Link to this heading"></a></h2>
+<h3>Ethernet pointers<a class="headerlink" href="#ethernet-pointers" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p>netdev mailing list: <a class="reference external" href="mailto:netdev&#37;&#52;&#48;vger&#46;kernel&#46;org">netdev<span>&#64;</span>vger<span>&#46;</span>kernel<span>&#46;</span>org</a></p></li>
 <li><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/net/ethernet-controller.yaml" target="_blank">Ethernet Controller bindings doc</a></p></li>
@@ -671,6 +680,7 @@ achieves expected results, others should too</p>
 <ul class="simple">
 <li><p><a class="icon ez reference external" href="https://ez.analog.com/linux-software-drivers" target="_blank">Analog Devices Linux Device Drivers Help Forum</a></p></li>
 </ul>
+</section>
 </section>
 </section>
 

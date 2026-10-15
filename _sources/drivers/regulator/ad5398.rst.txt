@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/regulator/ad5398
 
+
 .. _ad5398:
 
 AD5398
@@ -58,6 +59,9 @@ Files
 Adding Linux driver support
 ---------------------------
 
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
@@ -81,7 +85,7 @@ earlier and find supply in AD5398 driver is not available.
            <*>   Analog Devices AD5398/AD5821 regulators
 
 Customize Device Parameters
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The platform info defined in bf537-stamp board file is for ad5398 and ad5821
 only. If you want to customize this driver for other compatible current
@@ -105,8 +109,8 @@ regulator DAC, you should revise the platform information accordingly.
 :git+linux:`ad5398_userspace_comsumer_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
 :git+linux:`ad5398_userspace_consumer_device{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
 
-Driver Testing
-^^^^^^^^^^^^^^
+Driver testing
+--------------
 
 Check regulator driver initialization information at kernel booting.
 
@@ -198,8 +202,10 @@ Insert user space consumer driver module and check usability.
    root:/> cat sys/devices/platform/reg-userspace-consumer.0/state
    enabled
 
-.. tip::
+Tip
 
-   To control ADC to output a given current, you only need to set the value to
-   sysfs entry min_microamps in virtual consumer platform device. The driver
-   adjusts the output according to the min current value received.
+To request a current from this DAC, configure a nonzero max_microamps and a
+min_microamps no greater than that maximum on the virtual consumer. The DAC
+rounds the minimum upward to a representable code and rejects a code above the
+allowed maximum. With 1024 codes over the nominal 120000 µA span, the highest
+10-bit code reports 119882 µA.

@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad4134
 
+
 .. _ad4134:
 
 AD4134
@@ -10,8 +11,9 @@ AD4134 ADC Linux Driver.
 Supported Devices
 -----------------
 
-- :adi:`AD4134`
-- :adi:`AD7134`
+-  :adi:`AD4134`
+
+-  :adi:`AD7134` (``eval-ad7134fmcz-review`` branch)
 
 Evaluation Boards
 -----------------
@@ -21,19 +23,22 @@ Evaluation Boards
 - :adi:`CN0561 <en/design-center/reference-designs/circuits-from-the-lab/cn0561.html>`
 
 HDL Reference Designs
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
 - :dokuwiki:`EVAL-AD4134FMCZ HDL Reference Design </resources/eval/user-guides/ad4134/hdl>`
 - :dokuwiki:`EVAL-AD7134FMCZ HDL Reference Design </resources/eval/user-guides/ad713x/hdl>`
 - :dokuwiki:`CN0561 HDL Reference Design </resources/eval/user-guides/cn0561/hdl>`
 
 Supported FPGA carriers
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 - `Zedboard <https://www.avnet.com/wps/portal/us/products/avnet-boards/avnet-board-families/zedboard/>`__
 
+Source Code
+-----------
+
 Status
-------
+~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -44,7 +49,7 @@ Status
      - [No]
 
 Files
------
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -89,11 +94,39 @@ Files
      - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-cn0561-24.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-cn0561-24.dts>`
      -
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD4134 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           ...
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               ...
+               Analog to digital converters  --->
+                   ...
+                   <*>   Analog Devices AD4134 ADC driver
+                   ...
+               ...
+           ...
+
 Quick Start Guide
------------------
+~~~~~~~~~~~~~~~~~
 
 Flash Kuiper Linux to the SD card
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Install Kuiper Linux to the SD card. Step by step guides for imaging
 :external+system-level:ref:`kuiper` are available for
@@ -102,10 +135,11 @@ and
 :dokuwiki:`Windows </resources/tools-software/linux-software/zynq_images/windows_hosts>`.
 
 Configuring the SD Card
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
-Use the boot files below or follow the next subsections to get BOOT.BIN, uImage,
-and devicetree.dtb files.
+The boot-file matrix below applies to the ``eval-ad7134fmcz-review`` branch.
+The main driver supports four parallel channels with 24-bit+CRC packets only.
+Use kernel, devicetree and HDL artifacts from the same release.
 
 .. list-table::
    :header-rows: 1
@@ -194,7 +228,7 @@ Copy the following files onto the BOOT partition to configure the SD card:
   functionality.
 
 Get BOOT.BIN from HDL project
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""""""
 
 To achieve high performance with AD4134 and similar ADCs, the hardware platform
 must have an integrated FPGA. To configure the FPGA to properly support them,
@@ -207,41 +241,13 @@ Follow the build instructions on the :external+hdl:ref:`build_hdl` page to build
 the appropriate HDL project and generate a BOOT.BIN file from that.
 
 Get uImage and devicetree.dtb from Linux project
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""""""""""""""""""""""""
 
 Follow the
 :dokuwiki:`Linux build guide </resources/tools-software/linux-build/generic/zynq>`
 to build a new Linux kernel image and devicetree blob. After that, replace
 Kuiper Linux image with the newly built *uImage* and copy the proper .dtb file
 your platform to the BOOT partition as *devicetree.dtb*.
-
-Adding Linux driver support
----------------------------
-
-Enabling the driver
-~~~~~~~~~~~~~~~~~~~
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AD4134 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           ...
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-               ...
-               Analog to digital converters  --->
-                   ...
-                   <*>   Analog Devices AD4134 ADC driver
-                   ...
-               ...
-           ...
 
 Driver testing
 --------------
@@ -257,42 +263,47 @@ Driver testing
 
    - :external+system-level:ref:`iio-oscilloscope`
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
-::
+.. code-block:: text
 
    root@analog:~# cat /sys/bus/iio/devices/iio:device0/name
-   adc
+   ad4134
+
+Show channel scale
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show channel scale
 ^^^^^^^^^^^^^^^^^^
 
-**Description:** Scale to be applied to in_voltageX_raw in order to obtain the
-measured voltage in millivolts
+**Description:** Scale for signed 24-bit samples from the IIO buffer, in
+millivolts/code. There is no ``in_voltageX_raw`` attribute.
 
 ::
 
    root@analog:~# cat /sys/bus/iio/devices/iio:device0/in_voltage_scale
    0.000488281
 
-Inspect IIO device sysfs interface.
+Inspect the IIO device sysfs interface. The driver exposes only the shared
+``in_voltage_scale``, ``in_voltage_sampling_frequency`` and
+``in_voltage_sampling_frequency_available`` channel attributes. The sampling
+frequency range is ``[10 1 1496000]`` Hz and defaults to 300000 Hz; stop the
+buffer before changing it (writes fail while buffered capture is enabled).
 
 ::
 
    root@analog:~# ls -l /sys/bus/iio/devices/iio:device0/
    total 0
-   -rw-r--r-- 1 root root 4096 Feb 27 09:10 ad7134_sync
    drwxr-xr-x 2 root root    0 Feb 27 11:39 buffer
    drwxr-xr-x 2 root root    0 Feb 27 11:39 buffer0
    -r--r--r-- 1 root root 4096 Feb 27 11:39 dev
-   -rw-r--r-- 1 root root 4096 Feb 27 11:39 filter_type
-   -r--r--r-- 1 root root 4096 Feb 27 11:39 filter_type_available
    -rw-r--r-- 1 root root 4096 Feb 27 14:11 in_voltage_sampling_frequency
    -r--r--r-- 1 root root 4096 Feb 27 11:39 in_voltage_sampling_frequency_available
    -rw-r--r-- 1 root root 4096 Feb 27 11:39 in_voltage_scale
    -r--r--r-- 1 root root 4096 Feb 27 11:39 name
-   -rw-r--r-- 1 root root 4096 Feb 27 14:08 odr_set_freq
    lrwxrwxrwx 1 root root    0 Feb 27 11:39 of_node -> ../../../../../../../../firmware/devicetree/base/axi/spi@e0006000/adc@0
    drwxr-xr-x 2 root root    0 Feb 27 11:39 power
    drwxr-xr-x 2 root root    0 Feb 27 11:39 scan_elements

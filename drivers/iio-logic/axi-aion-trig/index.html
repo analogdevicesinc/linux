@@ -98,15 +98,24 @@
           <ul>
 <li><a class="reference internal" href="#">AXI AION Trigger</a><ul>
 <li><a class="reference internal" href="#supported-ip-cores">Supported IP Cores</a></li>
+<li><a class="reference internal" href="#description">Description</a><ul>
+<li><a class="reference internal" href="#theory-of-operation">Theory of operation</a><ul>
+<li><a class="reference internal" href="#bsync-time-of-flight-calibration">BSYNC Time-of-Flight calibration</a></li>
+<li><a class="reference internal" href="#state-machines">State machines</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
-<li><a class="reference internal" href="#overview">Overview</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
-<li><a class="reference internal" href="#enabling-the-driver">Enabling the driver</a></li>
-<li><a class="reference internal" href="#adding-a-device-tree-entry">Adding a device tree entry</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#required-properties">Required properties</a></li>
 <li><a class="reference internal" href="#optional-properties">Optional properties</a></li>
-<li><a class="reference internal" href="#device-tree-example">Device tree example</a></li>
 </ul>
 </li>
 </ul>
@@ -120,16 +129,14 @@
 <li><a class="reference internal" href="#debug-attributes">Debug attributes</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#theory-of-operation">Theory of operation</a><ul>
-<li><a class="reference internal" href="#bsync-time-of-flight-calibration">BSYNC Time-of-Flight calibration</a></li>
-<li><a class="reference internal" href="#state-machines">State machines</a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#more-information">More Information</a><ul>
 <li><a class="reference internal" href="#register-map">Register map</a><ul>
 <li><a class="reference internal" href="#control-register-bits">Control register bits</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#related-drivers">Related drivers</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -231,6 +238,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -249,7 +257,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -403,8 +410,66 @@ to provide:</p>
 <li><p>AXI AION Trigger IP v1.0.a</p></li>
 </ul>
 </section>
+<section id="description">
+<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
+<p>The AXI AION Trigger IP core works in conjunction with the ADF4030 precision
+synchronizer and AD9084/AD9088 MxFE data converters to achieve sub-10ps
+multi-chip synchronization. During system initialization, the driver performs
+Time-of-Flight calibration to measure and compensate for PCB trace delays.</p>
+<p>The IP core provides 8 independent trigger channels, each with programmable
+phase offset, allowing precise control over trigger timing relative to the
+BSYNC synchronization signal.</p>
+<section id="theory-of-operation">
+<h3>Theory of operation<a class="headerlink" href="#theory-of-operation" title="Link to this heading"></a></h3>
+<section id="bsync-time-of-flight-calibration">
+<h4>BSYNC Time-of-Flight calibration<a class="headerlink" href="#bsync-time-of-flight-calibration" title="Link to this heading"></a></h4>
+<p>The AXI AION Trigger performs Time-of-Flight (ToF) calibration during JESD204
+initialization to compensate for PCB trace delays and achieve precise
+multi-chip synchronization. The calibration runs only when the optional
+<code class="docutils literal notranslate"><span class="pre">bsync</span></code> IIO channel is available; otherwise the callback returns successfully
+without performing the sequence below:</p>
+<ol class="arabic simple">
+<li><p><strong>Reset and Configure</strong>: The IP core is reset and configured to receive BSYNC
+from the ADF4030 precision synchronizer.</p></li>
+<li><p><strong>BSYNC Detection</strong>: The IP waits for BSYNC edges to be detected and captured
+by the internal state machine.</p></li>
+<li><p><strong>Direction Switch</strong>: The ADF4030 BSYNC output is disabled, the internal
+FPGA BSYNC is enabled and the FPGA is switched to output mode, then the
+driver waits for BSYNC ready.</p></li>
+<li><p><strong>Phase Measurement</strong>: The driver reads the ADF4030 TDC phase, in
+femtoseconds, after the direction switch.</p></li>
+<li><p><strong>Phase Compensation</strong>: The negative of the measured phase is applied to the
+ADF4030 to compensate for the path delay, ensuring BSYNC arrives at the
+converters at the correct time.</p></li>
+<li><p><strong>Channel Enable</strong>: The trigger channels are enabled with their configured
+phase offsets.</p></li>
+</ol>
+</section>
+<section id="state-machines">
+<h4>State machines<a class="headerlink" href="#state-machines" title="Link to this heading"></a></h4>
+<p>The IP core implements two state machines:</p>
+<p><strong>Trigger State Machine</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">idle</span></code>: Waiting for trigger event</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trig_edge</span></code>: Trigger edge detected</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">phase_read</span></code>: Reading phase value</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trig_adjust</span></code>: Adjusting trigger timing</p></li>
+</ul>
+<p><strong>BSYNC State Machine</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">idle</span></code>: Waiting for BSYNC</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bsync_edge</span></code>: BSYNC edge detected</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">calib</span></code>: Calibration in progress</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bsync_gen</span></code>: Generating BSYNC output</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bsync_alignment_error</span></code>: Alignment error detected</p></li>
+</ul>
+</section>
+</section>
+</section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
 <section id="status">
-<h2>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h2>
+<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -421,7 +486,7 @@ to provide:</p>
 </div>
 </section>
 <section id="files">
-<h2>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h2>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -437,20 +502,11 @@ to provide:</p>
 </table>
 </div>
 </section>
-<section id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
-<p>The AXI AION Trigger IP core works in conjunction with the ADF4030 precision
-synchronizer and AD9084/AD9088 MxFE data converters to achieve sub-10ps
-multi-chip synchronization. During system initialization, the driver performs
-Time-of-Flight calibration to measure and compensate for PCB trace delays.</p>
-<p>The IP core provides 8 independent trigger channels, each with programmable
-phase offset, allowing precise control over trigger timing relative to the
-BSYNC synchronization signal.</p>
 </section>
 <section id="adding-linux-driver-support">
 <h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<section id="enabling-the-driver">
-<h3>Enabling the driver<a class="headerlink" href="#enabling-the-driver" title="Link to this heading"></a></h3>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code>:</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -464,29 +520,8 @@ BSYNC synchronization signal.</p>
 </pre></div>
 </div>
 </section>
-<section id="adding-a-device-tree-entry">
-<h3>Adding a device tree entry<a class="headerlink" href="#adding-a-device-tree-entry" title="Link to this heading"></a></h3>
-<section id="required-properties">
-<h4>Required properties<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h4>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">compatible</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;adi,axi-aion-trig-1.0.a&quot;</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">reg</span></code>: Physical base address and size of the IP core registers</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">clocks</span></code>: Reference to the device clock</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">clock-names</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;device_clk&quot;</span></code></p></li>
-</ul>
-</section>
-<section id="optional-properties">
-<h4>Optional properties<a class="headerlink" href="#optional-properties" title="Link to this heading"></a></h4>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">io-channels</span></code>: Reference to ADF4030 IIO channel for BSYNC phase control</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">io-channel-names</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;bsync&quot;</span></code> when io-channels is specified</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">jesd204-device</span></code>: JESD204 device marker</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">#jesd204-cells</span></code>: Number of JESD204 cells (typically 2)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">jesd204-inputs</span></code>: JESD204 topology connections</p></li>
-</ul>
-</section>
-<section id="device-tree-example">
-<h4>Device tree example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h4>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <p>Basic configuration with JESD204 integration:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_aion_trig</span><span class="p">:</span> <span class="n">axi_aion_trig</span><span class="o">@</span><span class="mi">7</span><span class="n">c600000</span> <span class="p">{</span>
     <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-aion-trig-1.0.a"</span><span class="p">;</span>
@@ -520,6 +555,24 @@ BSYNC synchronization signal.</p>
 <span class="p">};</span>
 </pre></div>
 </div>
+<section id="required-properties">
+<h4>Required properties<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">compatible</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;adi,axi-aion-trig-1.0.a&quot;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">reg</span></code>: Physical base address and size of the IP core registers</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clocks</span></code>: Reference to the device clock</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clock-names</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;device_clk&quot;</span></code></p></li>
+</ul>
+</section>
+<section id="optional-properties">
+<h4>Optional properties<a class="headerlink" href="#optional-properties" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">io-channels</span></code>: Reference to ADF4030 IIO channel for BSYNC phase control</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">io-channel-names</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;bsync&quot;</span></code> when io-channels is specified</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">jesd204-device</span></code>: JESD204 device marker</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">#jesd204-cells</span></code>: Number of JESD204 cells (typically 2)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">jesd204-inputs</span></code>: JESD204 topology connections</p></li>
+</ul>
 </section>
 </section>
 </section>
@@ -615,12 +668,14 @@ BSYNC output. When disabled (0), the IP core receives external BSYNC.</p>
 </dd>
 <dt><strong>in_voltage_internal_bsync_enable</strong> (read/write)</dt><dd><p>Enable/disable internal BSYNC generation.</p>
 </dd>
-<dt><strong>in_voltage_frequency</strong> (read-only)</dt><dd><p>Current BSYNC frequency in Hz, calculated from the device clock and
-BSYNC ratio.</p>
+<dt><strong>in_voltage_frequency</strong> (read-only)</dt><dd><p>Current BSYNC frequency in Hz, calculated from the device clock and BSYNC
+ratio.</p>
 </dd>
 <dt><strong>in_voltage_trigger_select_gpio_enable</strong> (read/write)</dt><dd><p>Enable/disable GPIO-based trigger selection.</p>
 </dd>
-<dt><strong>in_voltage_trigger_now</strong> (read/write)</dt><dd><p>Write 1 to issue a manual trigger. Reading always returns 0 (self-clearing).</p>
+<dt><strong>in_voltage_trigger_now</strong> (read/write)</dt><dd><p>Write 1 to issue a manual trigger. Reads return the hardware register, which
+is expected to clear to 0; the driver does not force the return value to
+zero.</p>
 </dd>
 </dl>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
@@ -655,52 +710,10 @@ $ cat direct_reg_access
 </div>
 </section>
 </section>
-<section id="theory-of-operation">
-<h2>Theory of operation<a class="headerlink" href="#theory-of-operation" title="Link to this heading"></a></h2>
-<section id="bsync-time-of-flight-calibration">
-<h3>BSYNC Time-of-Flight calibration<a class="headerlink" href="#bsync-time-of-flight-calibration" title="Link to this heading"></a></h3>
-<p>The AXI AION Trigger performs Time-of-Flight (ToF) calibration during JESD204
-initialization to compensate for PCB trace delays and achieve precise
-multi-chip synchronization:</p>
-<ol class="arabic simple">
-<li><p><strong>Reset and Configure</strong>: The IP core is reset and configured to receive
-BSYNC from the ADF4030 precision synchronizer.</p></li>
-<li><p><strong>BSYNC Detection</strong>: The IP waits for BSYNC edges to be detected and
-captured by the internal state machine.</p></li>
-<li><p><strong>Phase Measurement</strong>: Using the IIO consumer interface, the driver reads
-the phase from the ADF4030 TDC (Time-to-Digital Converter) which represents
-the propagation delay in femtoseconds.</p></li>
-<li><p><strong>Direction Switch</strong>: The BSYNC direction is switched to output mode so
-the FPGA generates BSYNC for the AD9084/AD9088 converters.</p></li>
-<li><p><strong>Phase Compensation</strong>: The negative of the measured phase is applied to
-the ADF4030 to compensate for the path delay, ensuring BSYNC arrives at
-the converters at the correct time.</p></li>
-<li><p><strong>Channel Enable</strong>: The trigger channels are enabled with their configured
-phase offsets.</p></li>
-</ol>
-</section>
-<section id="state-machines">
-<h3>State machines<a class="headerlink" href="#state-machines" title="Link to this heading"></a></h3>
-<p>The IP core implements two state machines:</p>
-<p><strong>Trigger State Machine</strong>:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">idle</span></code>: Waiting for trigger event</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">trig_edge</span></code>: Trigger edge detected</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">phase_read</span></code>: Reading phase value</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">trig_adjust</span></code>: Adjusting trigger timing</p></li>
-</ul>
-<p><strong>BSYNC State Machine</strong>:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">idle</span></code>: Waiting for BSYNC</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">bsync_edge</span></code>: BSYNC edge detected</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">calib</span></code>: Calibration in progress</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">bsync_gen</span></code>: Generating BSYNC output</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">bsync_alignment_error</span></code>: Alignment error detected</p></li>
-</ul>
-</section>
-</section>
+<section id="more-information">
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <section id="register-map">
-<h2>Register map<a class="headerlink" href="#register-map" title="Link to this heading"></a></h2>
+<h3>Register map<a class="headerlink" href="#register-map" title="Link to this heading"></a></h3>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
 <colgroup>
@@ -729,7 +742,7 @@ phase offsets.</p></li>
 </tr>
 <tr class="row-odd"><td><p>0x0018</p></td>
 <td><p>MANUAL_TRIGGER</p></td>
-<td><p>Manual trigger (self-clearing)</p></td>
+<td><p>Manual trigger (expected to self-clear; reads return hardware state)</p></td>
 </tr>
 <tr class="row-even"><td><p>0x001C</p></td>
 <td><p>TRIG_CH0_PHASE</p></td>
@@ -767,7 +780,7 @@ phase offsets.</p></li>
 </table>
 </div>
 <section id="control-register-bits">
-<h3>Control register bits<a class="headerlink" href="#control-register-bits" title="Link to this heading"></a></h3>
+<h4>Control register bits<a class="headerlink" href="#control-register-bits" title="Link to this heading"></a></h4>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
 <colgroup>
@@ -820,11 +833,12 @@ phase offsets.</p></li>
 </section>
 </section>
 <section id="related-drivers">
-<h2>Related drivers<a class="headerlink" href="#related-drivers" title="Link to this heading"></a></h2>
+<h3>Related drivers<a class="headerlink" href="#related-drivers" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p><a class="reference internal" href="../../iio-synchronizer/adf4030/#adf4030"><span class="std std-ref">ADF4030</span></a> - Precision synchronizer driver</p></li>
 <li><p><a class="reference internal" href="../../iio-trx-rf/ad9088/#ad9088"><span class="std std-ref">AD9084/AD9088</span></a> - MxFE data converter driver</p></li>
 </ul>
+</section>
 </section>
 </section>
 

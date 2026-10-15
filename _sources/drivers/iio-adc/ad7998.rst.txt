@@ -19,12 +19,6 @@ Supported Devices
 - :adi:`AD7998`
 - :adi:`AD7999`
 
-Reference Circuits
-------------------
-
-- :adi:`CN0288`
-- :adi:`CN0301`
-
 Evaluation Boards
 -----------------
 
@@ -35,6 +29,12 @@ Evaluation Boards
 - :adi:`EVAL-AD7995EBZ`
 - :adi:`EVAL-AD7997EBZ`
 - :adi:`EVAL-AD7998EBZ`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0288`
+- :adi:`CN0301`
 
 Description
 -----------
@@ -74,78 +74,99 @@ Files
    * - driver
      - `drivers/iio/adc/ad799x.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad799x.c>`__
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD7998 Driver depends on **CONFIG_I2C**
+
+.. code-block:: text
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+               <*>     Industrial I/O support --->
+                   --- Industrial I/O support
+
+                         *** Analog to digital converters ***
+                   [--snip--]
+
+                   <*>   Analog Devices AD799x ADC driver
+
+                   [--snip--]
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Required devicetree properties:
+
+-  compatible: Needs to be ``adi,`` followed by the name of the device, e.g.
+   ``adi,ad7998``
+
+-  reg: The slave address used for the device
+
+-  vcc-supply: Phandle to the supply regulator
+
+::
+
+   adc_supply: fixedregulator {
+           compatible = "regulator-fixed";
+           regulator-name = "fixed-supply";
+           regulator-min-microvolt = <3300000>;
+           regulator-max-microvolt = <3300000>;
+   };
+
+   i2c: i2c@e0007000 {
+           #address-cells = <1>;
+           #size-cells = <0>;
+           compatible = "xlnx,xps-iic-2.00.a";
+           ...
+
+           adc@24 {
+                   compatible = "adi,ad7998";
+                   reg = <0x24>;
+                   vcc-supply = <&adc_supply>;
+           };
+    };
+
+AD7991, AD7995 and AD7999 can also use an external reference through
+``vref-supply``; other variants, including AD7998, only use ``vcc-supply``.
+
+Device enumeration
+~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
    :end-before: .. end-platform-data
 
 Specifying reference voltage via the regulator framework
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-.. tip::
+Provide a ``vcc`` regulator for every part. Only AD7991/AD7995/AD7999 use
+the optional ``vref`` regulator as an external reference. Other supported
+variants, including AD7998, use ``vcc`` for their scale.
 
-   In case the AD799x on-chip reference is not used, this driver requires
-   specifying the reference voltage, by using the Linux regulator framework.
+For devicetree-based AD7998 configuration, the device node's supply property
+is:
 
-Below example specifies a 2.5 Volt reference for the I2C device 0-0024 on
-I2C-Bus 0. (**0-0024**)
+.. code-block:: devicetree
 
-.. code:: c
+   vcc-supply = <&board_vcc>;
 
-   #if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)
-   static struct regulator_consumer_supply ad7998_consumer_supplies[] = {
-       REGULATOR_SUPPLY("vref", "0-0024"),
-   };
-
-   static struct regulator_init_data board_avdd_reg_init_data = {
-       .constraints    = {
-           .name   = "2V5",
-           .valid_ops_mask = REGULATOR_CHANGE_STATUS,
-       },
-       .consumer_supplies = ad7998_consumer_supplies,
-       .num_consumer_supplies = ARRAY_SIZE(ad7998_consumer_supplies),
-   };
-
-   static struct fixed_voltage_config board_vref_pdata = {
-       .supply_name    = "board-2V5",
-       .microvolts = 2500000,
-       .gpio       = -EINVAL,
-       .enabled_at_boot = 0,
-       .init_data  = &board_avdd_reg_init_data,
-   };
-   static struct platform_device brd_voltage_regulator = {
-       .name       = "reg-fixed-voltage",
-       .id     = -1,
-       .num_resources  = 0,
-       .dev        = {
-           .platform_data  = &board_vref_pdata,
-       },
-   };
-   #endif
-
-.. code:: c
-
-   static struct platform_device *board_devices[] __initdata = {
-   #if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)
-       &brd_voltage_regulator
-   #endif
-   };
-
-.. code:: c
-
-   static int __init board_init(void)
-   {
-       [--snip--]
-
-       platform_add_devices(board_devices, ARRAY_SIZE(board_devices));
-
-       [--snip--]
-
-       return 0;
-   }
-   arch_initcall(board_init);
+``board_vcc`` must identify the regulator actually powering the device, with
+voltage and constraints suitable for that part. Do not supply an AD7998
+reference using ``vref-supply``: this driver does not acquire that consumer
+for AD7998. For board-file registration, the corresponding regulator consumer
+name is ``vcc`` for the I2C device, not ``vref``.
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-i2c-devices
@@ -160,7 +181,6 @@ accordingly, matching your part name.
    #if defined(CONFIG_AD799X) || defined(CONFIG_AD799X_MODULE)
        {
            I2C_BOARD_INFO("ad7998", 0x24),
-           .platform_data = &ad799x_pdata,
            .irq = IRQ_PG0,
        },
    #endif
@@ -179,78 +199,6 @@ accordingly, matching your part name.
        return 0;
    }
    arch_initcall(board_init);
-
-Devicetree
-~~~~~~~~~~
-
-Required devicetree properties:
-
-- compatible: Needs to be ``adi,`` followed by the name of the device. E.g.
-  ``adi,ad7798``
-- reg: The slave address used for the device
-- vcc-supply: Phandle to the supply regulator
-
-::
-
-   adc_supply: fixedregulator {
-           compatible = "regulator-fixed";
-           regulator-name = "fixed-supply";
-           regulator-min-microvolt = <3300000>;
-           regulator-max-microvolt = <3300000>;
-   };
-
-   adc_vref: fixedregulator {
-           compatible = "regulator-fixed";
-           regulator-name = "fixed-supply";
-           regulator-min-microvolt = <2500000>;
-           regulator-max-microvolt = <2500000>;
-   };
-
-   i2c: i2c@e0007000 {
-           #address-cells = <1>;
-           #size-cells = <0>;
-           compatible = "xlnx,xps-iic-2.00.a";
-           ...
-
-           ad7798@24 {
-                   compatible = "adi,ad7798";
-                   reg = <0x24>;
-                   vcc-supply = <&adc_supply>;
-                   vref-supply = <&adc_vref>;
-           };
-    };
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AD7998 Driver depends on **CONFIG_I2C**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           [*] Staging drivers  --->
-               <*>     Industrial I/O support --->
-                   --- Industrial I/O support
-                   -*-   Enable ring buffer support within IIO
-                   -*-     Industrial I/O lock free software ring
-                   -*-   Enable triggered sampling support
-
-                         *** Analog to digital converters ***
-                   [--snip--]
-
-                   <*>   Analog Devices AD799x ADC driver
-                   -*-     Analog Devices AD799x: use ring buffer
-
-                   [--snip--]
-
-Hardware configuration
-----------------------
 
 Driver testing
 --------------
@@ -284,13 +232,16 @@ Driver testing
    drwxr-xr-x    2 root     root             0 Jan  1 00:00 trigger
    -rw-r--r--    1 root     root          4096 Jan  1 00:00 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0024/iio:device0> cat name
    ad7998
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale
 ^^^^^^^^^^
@@ -304,7 +255,7 @@ measured voltage in millivolts.
    1.000
 
 Show channel 0 measurement
-''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** Raw unscaled voltage measurement on channel 0
 
@@ -313,7 +264,8 @@ Show channel 0 measurement
    root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0024/iio:device0> cat in_voltage0_raw
    1491
 
-**U** = *in_voltage0_raw \* in_voltage_scale* = 1491 \* 1.000 = **1491,00 mV**
+With a 3.3 V vcc, ``in_voltage_scale`` is 3300/4096 ≈ 0.805664062 mV/code,
+so a raw value of 1491 is approximately 1201.245 mV.
 
 Trigger management
 ~~~~~~~~~~~~~~~~~~

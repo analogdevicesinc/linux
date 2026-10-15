@@ -97,12 +97,21 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">AD73322</a><ul>
-<li><a class="reference internal" href="#adding-kernel-support">Adding Kernel Support</a><ul>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
+<li><a class="reference internal" href="#files">Files</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a><ul>
 <li><a class="reference internal" href="#testing-the-built-in-kernel-driver">Testing the built in kernel driver</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
 <li><a class="reference internal" href="#usage-notes">Usage notes</a></li>
-<li><a class="reference internal" href="#driver-souce-code-note">Driver Souce code note</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -204,6 +213,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -222,7 +232,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -360,8 +369,23 @@ Content on this topic
 <p>This driver is written for a custome board which has 4 cascaded AD73322s,but
 since there is a macro(NUM_DEVICES_CHAIN)to decide how many DAC/ADC pairs are
 connected,so it should be a generic driver for <a class="icon adi reference external" href="https://www.analog.com/AD73322" target="_blank">AD73322</a>.</p>
-<section id="adding-kernel-support">
-<h2>Adding Kernel Support<a class="headerlink" href="#adding-kernel-support" title="Link to this heading"></a></h2>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
+<section id="files">
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
+<p>As mentioned above this driver is written for a customer board( with 4 cascaded
+AD73322 on it),and there are wrong mappings between the input Jacks and and
+input data lines on the board,so a function named get_cap_slotindex is
+implemented to correct it.Normally,it is not necessary and just get the
+slot_index by NUM_DEVICE_CHAN-(index+1),please refer to playback side
+functions.Also please feel free to tell the author if you find that something
+need be changed for your card,Since we want it to be more generic.</p>
+</section>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>To add support for the AD73322 to the kernel build system, a few things must be
 enabled properly for things to work. The configuration is as following:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
@@ -387,7 +411,7 @@ and SPORT1 then input 2.</p></li>
 you need either disable that device or select another one.</p></li>
 </ol>
 <section id="testing-the-built-in-kernel-driver">
-<h3>Testing the built in kernel driver<a class="headerlink" href="#testing-the-built-in-kernel-driver" title="Link to this heading"></a></h3>
+<h4>Testing the built in kernel driver<a class="headerlink" href="#testing-the-built-in-kernel-driver" title="Link to this heading"></a></h4>
 <p>If audio is configured as modules, skip this section. If audio is built into
 kernel and you have booted the kernel, you need to check if audio is working:
 Check the boot messages to see if you have booted the correct kernel. During
@@ -402,8 +426,11 @@ both SPORT0 and SPORT1 in this case):</p>
 </div>
 </section>
 </section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <section id="usage-notes">
-<h2>Usage notes<a class="headerlink" href="#usage-notes" title="Link to this heading"></a></h2>
+<h3>Usage notes<a class="headerlink" href="#usage-notes" title="Link to this heading"></a></h3>
 <p><strong>Configure file:</strong></p>
 <p>Since AD73322 card has at least two pairs of ADC/DAC(also called input/output
 devices, and index of device is mapped to index of ADC/DAC in cascade mode),a
@@ -480,15 +507,6 @@ pcm.!plughw {
 </pre></div>
 </div>
 </section>
-<section id="driver-souce-code-note">
-<h2>Driver Souce code note<a class="headerlink" href="#driver-souce-code-note" title="Link to this heading"></a></h2>
-<p>As mentioned above this driver is written for a customer board( with 4 cascaded
-AD73322 on it),and there are wrong mappings between the input Jacks and and
-input data lines on the board,so a function named get_cap_slotindex is
-implemented to correct it.Normally,it is not necessary and just get the
-slot_index by NUM_DEVICE_CHAN-(index+1),please refer to playback side
-functions.Also please feel free to tell the author if you find that something
-need be changed for your card,Since we want it to be more generic.</p>
 </section>
 </section>
 

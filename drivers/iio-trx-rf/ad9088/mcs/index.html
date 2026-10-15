@@ -97,7 +97,8 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">Multi-Chip Synchronization</a><ul>
-<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#purpose">Purpose</a></li>
+<li><a class="reference internal" href="#prerequisites">Prerequisites</a><ul>
 <li><a class="reference internal" href="#system-architecture">System Architecture</a><ul>
 <li><a class="reference internal" href="#hardware-topology">Hardware Topology</a></li>
 <li><a class="reference internal" href="#multi-device-configuration">Multi-Device Configuration</a></li>
@@ -110,6 +111,9 @@
 <li><a class="reference internal" href="#iio-channel-relationships">IIO Channel Relationships</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li><a class="reference internal" href="#configuration-and-sequence">Configuration and sequence</a><ul>
 <li><a class="reference internal" href="#jesd204-state-machine-integration">JESD204 State Machine Integration</a><ul>
 <li><a class="reference internal" href="#fsm-stage-execution-order">FSM Stage Execution Order</a></li>
 <li><a class="reference internal" href="#ad9088-jesd204-callbacks">AD9088 JESD204 Callbacks</a></li>
@@ -136,6 +140,9 @@
 <li><a class="reference internal" href="#key-device-tree-properties-for-mcs">Key Device Tree Properties for MCS</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li><a class="reference internal" href="#verification-and-diagnostics">Verification and diagnostics</a><ul>
 <li><a class="reference internal" href="#debugfs-interface">Debugfs Interface</a><ul>
 <li><a class="reference internal" href="#mcs-attributes">MCS Attributes</a></li>
 <li><a class="reference internal" href="#example-usage">Example Usage</a></li>
@@ -144,6 +151,8 @@
 <li><a class="reference internal" href="#error-handling-and-diagnostics">Error Handling and Diagnostics</a><ul>
 <li><a class="reference internal" href="#driver-validation-checks">Driver Validation Checks</a></li>
 <li><a class="reference internal" href="#kernel-log-messages">Kernel Log Messages</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#references">References</a></li>
@@ -248,6 +257,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5380/">AD5380</a></li>
@@ -266,7 +276,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dds/ad9172/">AD9172</a></li>
@@ -404,8 +413,8 @@ Content on this topic
 <p>This document describes the Multi-Chip Synchronization (MCS) architecture
 for AD9084/AD9088 Apollo devices, including driver interactions, signal
 flows, and the complete synchronization process.</p>
-<section id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<section id="purpose">
+<h2>Purpose<a class="headerlink" href="#purpose" title="Link to this heading"></a></h2>
 <p>Multi-Chip Synchronization (MCS) enables multiple AD9084/AD9088 devices to
 achieve ±10ps alignment accuracy. This is critical for phased array radar,
 electronic warfare, and other applications requiring precise timing across
@@ -420,10 +429,12 @@ Converter) for path delay measurement</p></li>
 phase alignment capability</p></li>
 </ol>
 </section>
+<section id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h2>
 <section id="system-architecture">
-<h2>System Architecture<a class="headerlink" href="#system-architecture" title="Link to this heading"></a></h2>
+<h3>System Architecture<a class="headerlink" href="#system-architecture" title="Link to this heading"></a></h3>
 <section id="hardware-topology">
-<h3>Hardware Topology<a class="headerlink" href="#hardware-topology" title="Link to this heading"></a></h3>
+<h4>Hardware Topology<a class="headerlink" href="#hardware-topology" title="Link to this heading"></a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>+------------------+
 |    Reference     |
 |    Clock Source  |
@@ -461,7 +472,7 @@ phase alignment capability</p></li>
 </div>
 </section>
 <section id="multi-device-configuration">
-<h3>Multi-Device Configuration<a class="headerlink" href="#multi-device-configuration" title="Link to this heading"></a></h3>
+<h4>Multi-Device Configuration<a class="headerlink" href="#multi-device-configuration" title="Link to this heading"></a></h4>
 <p>In a multi-device system, each Apollo device has its own dedicated ADF4382
 and receives BSYNC from the ADF4030 through separate output channels.
 Each Apollo controls its ADF4382 via GPIO-driven DELADJ (delay adjust)
@@ -494,7 +505,7 @@ and DELSTR (delay strobe) signals for phase correction:</p>
 </div>
 </section>
 <section id="adf4382-phase-control-via-apollo-gpio">
-<h3>ADF4382 Phase Control via Apollo GPIO<a class="headerlink" href="#adf4382-phase-control-via-apollo-gpio" title="Link to this heading"></a></h3>
+<h4>ADF4382 Phase Control via Apollo GPIO<a class="headerlink" href="#adf4382-phase-control-via-apollo-gpio" title="Link to this heading"></a></h4>
 <p>Each Apollo device controls its dedicated ADF4382’s phase adjustment through
 two GPIO-driven strobe signals:</p>
 <ul class="simple">
@@ -525,9 +536,9 @@ other environmental factors without software intervention.</p>
 </section>
 </section>
 <section id="linux-driver-architecture">
-<h2>Linux Driver Architecture<a class="headerlink" href="#linux-driver-architecture" title="Link to this heading"></a></h2>
+<h3>Linux Driver Architecture<a class="headerlink" href="#linux-driver-architecture" title="Link to this heading"></a></h3>
 <section id="driver-stack">
-<h3>Driver Stack<a class="headerlink" href="#driver-stack" title="Link to this heading"></a></h3>
+<h4>Driver Stack<a class="headerlink" href="#driver-stack" title="Link to this heading"></a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">+----------------------------------------------------------+</span>
 <span class="o">|</span>                    <span class="n">User</span> <span class="n">Space</span>                             <span class="o">|</span>
 <span class="o">|</span>  <span class="p">(</span><span class="n">iio</span><span class="o">-</span><span class="n">oscilloscope</span><span class="p">,</span> <span class="n">libiio</span> <span class="n">applications</span><span class="p">)</span>                  <span class="o">|</span>
@@ -565,7 +576,7 @@ other environmental factors without software intervention.</p>
 </div>
 </section>
 <section id="driver-file-organization">
-<h3>Driver File Organization<a class="headerlink" href="#driver-file-organization" title="Link to this heading"></a></h3>
+<h4>Driver File Organization<a class="headerlink" href="#driver-file-organization" title="Link to this heading"></a></h4>
 <p><strong>AD9088 (Apollo) Driver:</strong></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>drivers/iio/adc/apollo/
 ├── ad9088.c              # Main driver, IIO interface
@@ -589,7 +600,7 @@ drivers/iio/logic/
 </div>
 </section>
 <section id="iio-channel-relationships">
-<h3>IIO Channel Relationships<a class="headerlink" href="#iio-channel-relationships" title="Link to this heading"></a></h3>
+<h4>IIO Channel Relationships<a class="headerlink" href="#iio-channel-relationships" title="Link to this heading"></a></h4>
 <p>The AD9088 driver connects to ADF4030 and ADF4382 via IIO consumer channels
 defined in the device tree:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Device Tree:
@@ -619,12 +630,15 @@ API Usage in ad9088_jesd204_fsm.c:
 </div>
 </section>
 </section>
+</section>
+<section id="configuration-and-sequence">
+<h2>Configuration and sequence<a class="headerlink" href="#configuration-and-sequence" title="Link to this heading"></a></h2>
 <section id="jesd204-state-machine-integration">
-<h2>JESD204 State Machine Integration<a class="headerlink" href="#jesd204-state-machine-integration" title="Link to this heading"></a></h2>
+<h3>JESD204 State Machine Integration<a class="headerlink" href="#jesd204-state-machine-integration" title="Link to this heading"></a></h3>
 <p>The MCS calibration is integrated into the JESD204 FSM framework, which
 coordinates initialization across all devices in the JESD204 link.</p>
 <section id="fsm-stage-execution-order">
-<h3>FSM Stage Execution Order<a class="headerlink" href="#fsm-stage-execution-order" title="Link to this heading"></a></h3>
+<h4>FSM Stage Execution Order<a class="headerlink" href="#fsm-stage-execution-order" title="Link to this heading"></a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>JESD204 State Machine Stages (simplified):
 
 ┌──────────────────────────────────────────────────────────────┐
@@ -678,7 +692,7 @@ coordinates initialization across all devices in the JESD204 link.</p>
 </div>
 </section>
 <section id="ad9088-jesd204-callbacks">
-<h3>AD9088 JESD204 Callbacks<a class="headerlink" href="#ad9088-jesd204-callbacks" title="Link to this heading"></a></h3>
+<h4>AD9088 JESD204 Callbacks<a class="headerlink" href="#ad9088-jesd204-callbacks" title="Link to this heading"></a></h4>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">jesd204_dev_data</span><span class="w"> </span><span class="n">ad9088_jesd204_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="p">.</span><span class="n">state_ops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="p">[</span><span class="n">JESD204_OP_OPT_POST_SETUP_STAGE1</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
@@ -700,11 +714,11 @@ coordinates initialization across all devices in the JESD204 link.</p>
 </section>
 </section>
 <section id="bsync-time-of-flight-measurement">
-<h2>BSYNC Time-of-Flight Measurement<a class="headerlink" href="#bsync-time-of-flight-measurement" title="Link to this heading"></a></h2>
+<h3>BSYNC Time-of-Flight Measurement<a class="headerlink" href="#bsync-time-of-flight-measurement" title="Link to this heading"></a></h3>
 <p>The ToF measurement determines the propagation delay between ADF4030 and
 Apollo, allowing precise phase compensation.</p>
 <section id="measurement-principle">
-<h3>Measurement Principle<a class="headerlink" href="#measurement-principle" title="Link to this heading"></a></h3>
+<h4>Measurement Principle<a class="headerlink" href="#measurement-principle" title="Link to this heading"></a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>┌─────────────────────────────────────────────────────────────────┐
 │                    Delta-T0 Measurement                         │
 │                  (ADF4030 drives BSYNC)                         │
@@ -738,7 +752,7 @@ Apollo, allowing precise phase compensation.</p>
 </div>
 </section>
 <section id="path-delay-calculation">
-<h3>Path Delay Calculation<a class="headerlink" href="#path-delay-calculation" title="Link to this heading"></a></h3>
+<h4>Path Delay Calculation<a class="headerlink" href="#path-delay-calculation" title="Link to this heading"></a></h4>
 <p>The path delay is calculated from the four TDC measurements:</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="c1">// From ad9088_jesd204_fsm.c</span>
 <span class="n">calc_delay</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">adf4030_delta_t0</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">adf4030_delta_t1</span><span class="p">)</span>
@@ -778,7 +792,7 @@ Solving for round-trip delay:
 </section>
 </section>
 <section id="complete-mcs-flow-sequence">
-<h2>Complete MCS Flow Sequence<a class="headerlink" href="#complete-mcs-flow-sequence" title="Link to this heading"></a></h2>
+<h3>Complete MCS Flow Sequence<a class="headerlink" href="#complete-mcs-flow-sequence" title="Link to this heading"></a></h3>
 <p>The complete MCS flow executed in <code class="docutils literal notranslate"><span class="pre">ad9088_jesd204_post_setup_stage1()</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>┌─────────────────────────────────────────────────────────────────┐
 │                     MCS Calibration Flow                        │
@@ -878,11 +892,11 @@ Solving for round-trip delay:
 </div>
 </section>
 <section id="tracking-calibration">
-<h2>Tracking Calibration<a class="headerlink" href="#tracking-calibration" title="Link to this heading"></a></h2>
+<h3>Tracking Calibration<a class="headerlink" href="#tracking-calibration" title="Link to this heading"></a></h3>
 <p>Tracking calibration maintains synchronization over time as temperature
 and other environmental factors cause phase drift.</p>
 <section id="adf4382-bleed-current-adjustment">
-<h3>ADF4382 Bleed Current Adjustment<a class="headerlink" href="#adf4382-bleed-current-adjustment" title="Link to this heading"></a></h3>
+<h4>ADF4382 Bleed Current Adjustment<a class="headerlink" href="#adf4382-bleed-current-adjustment" title="Link to this heading"></a></h4>
 <p>The ADF4382 PLL uses a bleed current DAC to make fine phase adjustments.
 Each Apollo controls its dedicated ADF4382 via GPIO-driven DELADJ and DELSTR
 strobe signals:</p>
@@ -910,7 +924,7 @@ strobe signals:</p>
 </div>
 </section>
 <section id="tracking-cal-validation">
-<h3>Tracking Cal Validation<a class="headerlink" href="#tracking-cal-validation" title="Link to this heading"></a></h3>
+<h4>Tracking Cal Validation<a class="headerlink" href="#tracking-cal-validation" title="Link to this heading"></a></h4>
 <p>The <code class="docutils literal notranslate"><span class="pre">mcs_track_cal_validate</span></code> debugfs attribute compares Apollo firmware
 values with ADF4382 hardware values:</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="c1">// From ad9088_mcs.c</span>
@@ -946,10 +960,10 @@ values with ADF4382 hardware values:</p>
 </section>
 </section>
 <section id="single-vs-dual-clock-mode">
-<h2>Single vs Dual Clock Mode<a class="headerlink" href="#single-vs-dual-clock-mode" title="Link to this heading"></a></h2>
+<h3>Single vs Dual Clock Mode<a class="headerlink" href="#single-vs-dual-clock-mode" title="Link to this heading"></a></h3>
 <p>The AD9084/AD9088 supports two clocking configurations:</p>
 <section id="single-clock-mode">
-<h3>Single Clock Mode<a class="headerlink" href="#single-clock-mode" title="Link to this heading"></a></h3>
+<h4>Single Clock Mode<a class="headerlink" href="#single-clock-mode" title="Link to this heading"></a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>┌─────────────────────────────────────────────────────────────────┐
 │                    Single Clock Mode                            │
 ├─────────────────────────────────────────────────────────────────┤
@@ -980,7 +994,7 @@ values with ADF4382 hardware values:</p>
 </div>
 </section>
 <section id="dual-clock-mode">
-<h3>Dual Clock Mode<a class="headerlink" href="#dual-clock-mode" title="Link to this heading"></a></h3>
+<h4>Dual Clock Mode<a class="headerlink" href="#dual-clock-mode" title="Link to this heading"></a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>┌─────────────────────────────────────────────────────────────────┐
 │                     Dual Clock Mode                             │
 ├─────────────────────────────────────────────────────────────────┤
@@ -1009,9 +1023,9 @@ values with ADF4382 hardware values:</p>
 </section>
 </section>
 <section id="device-tree-configuration">
-<h2>Device Tree Configuration<a class="headerlink" href="#device-tree-configuration" title="Link to this heading"></a></h2>
+<h3>Device Tree Configuration<a class="headerlink" href="#device-tree-configuration" title="Link to this heading"></a></h3>
 <section id="complete-example">
-<h3>Complete Example<a class="headerlink" href="#complete-example" title="Link to this heading"></a></h3>
+<h4>Complete Example<a class="headerlink" href="#complete-example" title="Link to this heading"></a></h4>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cm">/* ADF4030 - SYSREF/BSYNC Generator */</span>
 <span class="nl">adf4030</span><span class="p">:</span><span class="w"> </span><span class="nf">adf4030</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
 <span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,adf4030"</span><span class="p">;</span>
@@ -1074,7 +1088,7 @@ values with ADF4382 hardware values:</p>
 </div>
 </section>
 <section id="key-device-tree-properties-for-mcs">
-<h3>Key Device Tree Properties for MCS<a class="headerlink" href="#key-device-tree-properties-for-mcs" title="Link to this heading"></a></h3>
+<h4>Key Device Tree Properties for MCS<a class="headerlink" href="#key-device-tree-properties-for-mcs" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -1085,20 +1099,16 @@ values with ADF4382 hardware values:</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">io-channels</span></code></p></td>
-<td><p>phandle
-array</p></td>
-<td><p>References to ADF4030 (bsync)
-and ADF4382 (clk) channels</p></td>
+<td><p>phandle array</p></td>
+<td><p>References to ADF4030 (bsync) and ADF4382 (clk) channels</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">io-channel-names</span></code></p></td>
-<td><p>string
-array</p></td>
+<td><p>string array</p></td>
 <td><p>Must be “bsync”, “clk”</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,mcs-track-decimation</span></code></p></td>
-<td><p>u16</p></td>
-<td><p>TDC decimation rate (1-32767)
-Default: 1023</p></td>
+<td><p>u32</p></td>
+<td><p>TDC decimation; default 1023. For gapped periodic SYSREF, keep below 32768.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,trigger-sync-en</span></code></p></td>
 <td><p>bool</p></td>
@@ -1109,10 +1119,13 @@ Default: 1023</p></td>
 </div>
 </section>
 </section>
+</section>
+<section id="verification-and-diagnostics">
+<h2>Verification and diagnostics<a class="headerlink" href="#verification-and-diagnostics" title="Link to this heading"></a></h2>
 <section id="debugfs-interface">
-<h2>Debugfs Interface<a class="headerlink" href="#debugfs-interface" title="Link to this heading"></a></h2>
+<h3>Debugfs Interface<a class="headerlink" href="#debugfs-interface" title="Link to this heading"></a></h3>
 <section id="mcs-attributes">
-<h3>MCS Attributes<a class="headerlink" href="#mcs-attributes" title="Link to this heading"></a></h3>
+<h4>MCS Attributes<a class="headerlink" href="#mcs-attributes" title="Link to this heading"></a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/iio/iio:deviceX/
 ├── mcs_init                  # Initialize MCS config (write 1)
 ├── mcs_dt0_measurement       # Delta-T0 measurement (write 1, read value)
@@ -1130,7 +1143,7 @@ Default: 1023</p></td>
 </div>
 </section>
 <section id="example-usage">
-<h3>Example Usage<a class="headerlink" href="#example-usage" title="Link to this heading"></a></h3>
+<h4>Example Usage<a class="headerlink" href="#example-usage" title="Link to this heading"></a></h4>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Check MCS init calibration status</span>
 cat<span class="w"> </span>/sys/kernel/debug/iio/iio:device0/mcs_init_cal_status
 
@@ -1146,9 +1159,9 @@ cat<span class="w"> </span>/sys/kernel/debug/iio/iio:device0/mcs_track_cal_valid
 </section>
 </section>
 <section id="error-handling-and-diagnostics">
-<h2>Error Handling and Diagnostics<a class="headerlink" href="#error-handling-and-diagnostics" title="Link to this heading"></a></h2>
+<h3>Error Handling and Diagnostics<a class="headerlink" href="#error-handling-and-diagnostics" title="Link to this heading"></a></h3>
 <section id="driver-validation-checks">
-<h3>Driver Validation Checks<a class="headerlink" href="#driver-validation-checks" title="Link to this heading"></a></h3>
+<h4>Driver Validation Checks<a class="headerlink" href="#driver-validation-checks" title="Link to this heading"></a></h4>
 <p>The driver performs several validation checks during MCS calibration:</p>
 <ol class="arabic simple">
 <li><p><strong>MCS Init Cal Failure</strong></p>
@@ -1165,13 +1178,6 @@ cat<span class="w"> </span>/sys/kernel/debug/iio/iio:device0/mcs_track_cal_valid
 <li><p>Log: <code class="docutils literal notranslate"><span class="pre">Trigger</span> <span class="pre">phase</span> <span class="pre">X</span> <span class="pre">outside</span> <span class="pre">safe</span> <span class="pre">margin</span> <span class="pre">[Y,</span> <span class="pre">Z]</span></code></p></li>
 </ul>
 </li>
-<li><p><strong>Path Delay Sanity</strong></p>
-<ul class="simple">
-<li><p>Condition: calc_delay &gt; 2x period or path_delay at extremes</p></li>
-<li><p>Action: Warning logged, continues operation</p></li>
-<li><p>Log: <code class="docutils literal notranslate"><span class="pre">Path</span> <span class="pre">delay</span> <span class="pre">X</span> <span class="pre">fs</span> <span class="pre">is</span> <span class="pre">very</span> <span class="pre">small</span></code></p></li>
-</ul>
-</li>
 <li><p><strong>Tracking Cal Mismatch</strong></p>
 <ul class="simple">
 <li><p>Condition: Apollo FW values != ADF4382 HW values</p></li>
@@ -1182,7 +1188,7 @@ cat<span class="w"> </span>/sys/kernel/debug/iio/iio:device0/mcs_track_cal_valid
 </ol>
 </section>
 <section id="kernel-log-messages">
-<h3>Kernel Log Messages<a class="headerlink" href="#kernel-log-messages" title="Link to this heading"></a></h3>
+<h4>Kernel Log Messages<a class="headerlink" href="#kernel-log-messages" title="Link to this heading"></a></h4>
 <p>Normal operation:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ad9088</span> <span class="n">spi0</span><span class="mf">.0</span><span class="p">:</span> <span class="n">Total</span> <span class="n">BSYNC</span> <span class="n">path</span> <span class="n">delay</span> <span class="mi">12345678</span> <span class="n">fs</span>
 <span class="n">ad9088</span> <span class="n">spi0</span><span class="mf">.0</span><span class="p">:</span> <span class="n">MCS</span> <span class="n">Initcal</span> <span class="n">Status</span><span class="p">:</span> <span class="n">Passed</span>
@@ -1199,6 +1205,7 @@ cat<span class="w"> </span>/sys/kernel/debug/iio/iio:device0/mcs_track_cal_valid
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ad9088</span> <span class="n">spi0</span><span class="mf">.0</span><span class="p">:</span> <span class="n">Dual</span> <span class="n">clock</span> <span class="n">mode</span><span class="p">:</span> <span class="n">skipping</span> <span class="n">MCS</span> <span class="n">tracking</span> <span class="n">calibration</span>
 </pre></div>
 </div>
+</section>
 </section>
 </section>
 <section id="references">

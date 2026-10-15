@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7944
 
+
 .. _ad7944:
 
 AD7944/AD7985/AD7986
@@ -27,8 +28,37 @@ Supported Devices
 Also see :dokuwiki:`ad7944#Evaluation Boards <ad7944#Evaluation Boards>` section
 for supported evaluation boards.
 
+Evaluation Boards
+-----------------
+
+The following evaluation boards have been tested with this driver:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Board
+     - Device tree
+     -
+   * - :adi:`EVAL-AD7944FMCZ <EVAL-AD7944>`
+     - :git+linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts>`
+     -
+   * - :adi:`EVAL-AD7985FMCZ <EVAL-AD7985>`
+     - :git+linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7985.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad7985.dts>`
+     -
+   * - :adi:`EVAL-AD7986FMCZ <EVAL-AD7986>`
+     - :git+linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7986.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad7986.dts>`
+     -
+
+If you need to change any jumpers from default on the evaluation board, see the
+:dokuwiki:`ad7944#Devicetree Configuration <ad7944#Devicetree Configuration>`
+section for info on what settings might need to be changed there to account for
+the differences in wiring.
+
+Source Code
+-----------
+
 Status
-------
+~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -44,7 +74,7 @@ as the
 is required. This feature is not yet supported in mainline Linux.
 
 Files
------
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -60,8 +90,45 @@ Files
 
 Upstream documentation: https://docs.kernel.org/iio/ad7944.html
 
+Hardware configuration
+----------------------
+
+Typical hardware setup
+~~~~~~~~~~~~~~~~~~~~~~
+
+A typical test setup consists of one of the evaluation boards from above
+connected to a
+`ZedBoard <https://www.avnet.com/wps/portal/us/products/avnet-boards/avnet-board-families/zedboard/>`__.
+
+A :adi:`ADALM2000` (also known as M2K) can be used to to generate a
+signal. This will also require coax cable with SMA connectors and appropriate
+adapters to adapt the coax to individual wires on the signal generator.
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7944/zedboard-eval-ad7985fmcz-m2k.jpg
+   :width: 600px
+
+Adding Linux driver support
+---------------------------
+
+This section explains how to use the ``ad7944`` driver in Linux.
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Pre-compiled kernels from ADI should have this driver already enable. If
+building your own kernel, enable it using the ``CONFIG_AD7944`` option. When
+using ``make menuconfig`` (or ``xconfig``, etc.), the option can be found as
+follows:
+
+::
+
+   Device Drivers  --->
+     Industrial I/O support  --->
+       Analog to digital converters  --->
+         Analog Devices AD7944 and similar ADCs driver
+
 Devicetree configuration
-------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 The devicetree (``.dts`` file) describes how the chip is wired up. The example
 devicetree linked above is for the evaluation board with the FMCZ connector
@@ -73,7 +140,7 @@ If you change any jumpers on the evaluation board or modify the HDL project, you
 may need to update the ``.dts`` file to reflect the changes in wiring.
 
 SPI Bus
-~~~~~~~
+^^^^^^^
 
 The ADC is represented by a child node of the SPI controller that the ADC is
 attached to. The ``compatible`` property indicates which specific chip is being
@@ -108,7 +175,7 @@ calls these ``3-wire mode``, ``4-wire mode`` and ``daisy chain mode``. Set
 the maximum sample rate.
 
 3-wire mode
-^^^^^^^^^^^
+"""""""""""
 
 In this mode, the CS line of the SPI controller is connected to the CNV pin of
 the ADC. The SDI line of the SPI controller is connected to the SDO pin of the
@@ -162,10 +229,14 @@ all of the ADCs. The SDI line of the SPI controller is connected to the SDO pin
 of the ADC. The SDI pin of the ADC is connected to the SDO pin of the next ADC
 in the chain. The SDI pin of the last ADC in the chain is hard-wired low.
 
-::
+.. code-block:: text
 
    adi,spi-mode = "chain";
    #daisy-chained-devices = <1>;
+   spi-cs-high;
+
+Do not set spi-cpol for chain mode. Keep TURBO disabled and use an appropriate
+chain-mode SCLK (binding maximum 90909090 Hz).
 
 Change ``#daisy-chained-devices`` to the actual number of devices in the chain.
 
@@ -185,6 +256,27 @@ the devicetree to pull the SDI pin low.
            output-low;
        };
    };
+
+Turbo pin
+"""""""""
+
+In order to achieve the max sample rate, TURBO has to be enabled. Disabling
+TURBO can save power.
+
+If the TURBO pin is connected to a GPIO, it must be specified. This is the
+default of the Pulsar ADC HDL project.
+
+::
+
+   turbo-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>;
+
+If the TURBO pin is hard-wired high, instead use the ``adi,always-turbo`` flag.
+
+::
+
+   adi,always-turbo;
+
+If the TURBO pin is hard-wired low, omit both properties.
 
 Power supplies
 ^^^^^^^^^^^^^^
@@ -208,14 +300,14 @@ There are 3 ways to supply a reference voltage. The default of the evaluation
 boards is to use a 5V external reference.
 
 Internal reference
-''''''''''''''''''
+""""""""""""""""""
 
 If using the internal reference of the ADC chip (PDREF pin is wired low, REF and
 REFIN pins act as outputs) omit both the ``ref-supply`` and ``refin-supply``
 properties.
 
 External reference with internal buffer
-'''''''''''''''''''''''''''''''''''''''
+"""""""""""""""""""""""""""""""""""""""
 
 If using an external 1.2 V reference and internal buffer (PDREF is wired high,
 1.2 V supply connected to REFIN, REF acts as output), specify only
@@ -226,7 +318,7 @@ If using an external 1.2 V reference and internal buffer (PDREF is wired high,
    refin-supply = <&eval_u13>;
 
 External reference
-''''''''''''''''''
+""""""""""""""""""
 
 If using an external reference (PDREF is wired high, REFIN is wired low, REF is
 connected to same voltage as BVDD), specify only ``ref-supply`` and omit
@@ -251,77 +343,55 @@ supplied.
        };
    };
 
-Turbo pin
-^^^^^^^^^
-
-In order to achieve the max sample rate, TURBO has to be enabled. Disabling
-TURBO can save power.
-
-If the TURBO pin is connected to a GPIO, it must be specified. This is the
-default of the Pulsar ADC HDL project.
-
-::
-
-   turbo-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>;
-
-If the TURBO pin is hard-wired high, instead use the ``adi,always-turbo`` flag.
-
-::
-
-   adi,always-turbo;
-
-If the TURBO pin is hard-wired low, omit both properties.
-
 Additional properties
 ^^^^^^^^^^^^^^^^^^^^^
 
 The ``interrupts`` property for the BUSY signal is not currently supported in
 the Linux driver.
 
-Linux Driver
-~~~~~~~~~~~~
+Evaluation-board setup
+~~~~~~~~~~~~~~~~~~~~~~
 
-This section explains how to use the ``ad7944`` driver in Linux.
+Typical ZedBoard software setup
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Enabling the driver
-^^^^^^^^^^^^^^^^^^^
+Install OS on the ZedBoard
+""""""""""""""""""""""""""
 
-Pre-compiled kernels from ADI should have this driver already enable. If
-building your own kernel, enable it using the ``CONFIG_AD7944`` option. When
-using ``make menuconfig`` (or ``xconfig``, etc.), the option can be found as
-follows:
+ADI provides a :external+system-level:ref:`kuiper` distribution for supported
+evaluation boards. Step by step guides for imaging Kuiper Linux are available
+for
+:dokuwiki:`Linux </resources/tools-software/linux-software/zynq_images/linux_hosts>`
+and
+:dokuwiki:`Windows </resources/tools-software/linux-software/zynq_images/windows_hosts>`.
 
-::
+Driver testing
+--------------
 
-   Device Drivers  --->
-     Industrial I/O support  --->
-       Analog to digital converters  --->
-         Analog Devices AD7944 and similar ADCs driver
-
-Device enumeration
-^^^^^^^^^^^^^^^^^^
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 All IIO devices are represented in ``sysfs`` as an ``iio:deviceY`` where ``Y``
 will depend on how many IIO devices there are and the order in which they were
 registered. You can see which device is which like this:
 
-::
+.. code-block:: text
 
-   root@analog:~# for f in /sys/bus/iio/devices/iio\:device/name; do echo "${f%/name} $(cat $f)"; done
+   root@analog:~# for f in /sys/bus/iio/devices/iio:device*/name; do echo "${f%/name} $(cat $f)"; done
    /sys/bus/iio/devices/iio:device0 xadc
    /sys/bus/iio/devices/iio:device1 ad7944
 
 In this case the driver for the AD7944 chip is at
 ``/sys/bus/iio/devices/iio:device1``.
 
-Sysfs attributes
-^^^^^^^^^^^^^^^^
+Attribute reference
+~~~~~~~~~~~~~~~~~~~
 
 The sysfs attributes are used to get information about the device and also
 configure the device.
 
 Informational
-'''''''''''''
+^^^^^^^^^^^^^
 
 As seen above, reading the ``name`` attribute will return the name of the chip.
 
@@ -331,7 +401,7 @@ As seen above, reading the ``name`` attribute will return the name of the chip.
    ad7985
 
 Channels
-''''''''
+^^^^^^^^
 
 The voltage measurement done by the chip is represented as an IIO channel. These
 attributes start with ``in_voltage0``.
@@ -358,10 +428,13 @@ In this example, the voltage measured was: <m>raw \* scale = 1229 \* 0.076293945
 approx 93.765~mV</m>
 
 Sampling frequency
-''''''''''''''''''
+^^^^^^^^^^^^^^^^^^
 
-When using a SPI controller with SPI offload support, there is also an
-additional attribute for controlling the sample rate.
+SPI offload is supported only in 3-wire single mode. If a controller provides
+offload but the ADC is configured in the default 4-wire or chain mode, probe
+fails. With compatible offload configuration,
+per-channel sampling_frequency and sampling_frequency_available attributes
+control the periodic trigger.
 
 ::
 
@@ -384,7 +457,7 @@ If not using SPI offload, a ``hrtimer`` trigger can be used to provide a
 periodic sample rate. See :ref:`ad738x trigger-management`.
 
 Buffers
-'''''''
+^^^^^^^
 
 To efficiently read multiple samples, a buffer interface is provided. The
 controls for this are in the ``buffer0`` directory. (Note: There may also be
@@ -448,67 +521,14 @@ using a Linux host with SPI offload support:
    # disable the buffer
    root@analog:~# echo 0 > /sys/bus/iio/devices/iio\:device1/buffer0/enable
 
-Evaluation boards
-~~~~~~~~~~~~~~~~~
-
-The following evaluation boards have been tested with this driver:
-
-.. list-table::
-   :header-rows: 1
-
-   * - Board
-     - Device tree
-     -
-   * - :adi:`EVAL-AD7944FMCZ <EVAL-AD7944>`
-     - :git+linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts>`
-     -
-   * - :adi:`EVAL-AD7985FMCZ <EVAL-AD7985>`
-     - :git+linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7985.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad7985.dts>`
-     -
-   * - :adi:`EVAL-AD7986FMCZ <EVAL-AD7986>`
-     - :git+linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7986.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad7986.dts>`
-     -
-
-If you need to change any jumpers from default on the evaluation board, see the
-:dokuwiki:`ad7944#Devicetree Configuration <ad7944#Devicetree Configuration>`
-section for info on what settings might need to be changed there to account for
-the differences in wiring.
-
-Typical hardware setup
-^^^^^^^^^^^^^^^^^^^^^^
-
-A typical test setup consists of one of the evaluation boards from above
-connected to a
-`ZedBoard <https://www.avnet.com/wps/portal/us/products/avnet-boards/avnet-board-families/zedboard/>`__.
-
-A :adi:`ADALM2000` (also known as M2K) can be used to to generate a
-signal. This will also require coax cable with SMA connectors and appropriate
-adapters to adapt the coax to individual wires on the signal generator.
-
-.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7944/zedboard-eval-ad7985fmcz-m2k.jpg
-   :width: 600px
-
-Typical ZedBoard software setup
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Install OS on the ZedBoard
-''''''''''''''''''''''''''
-
-ADI provides a :external+system-level:ref:`kuiper` distribution for supported
-evaluation boards. Step by step guides for imaging Kuiper Linux are available
-for
-:dokuwiki:`Linux </resources/tools-software/linux-software/zynq_images/linux_hosts>`
-and
-:dokuwiki:`Windows </resources/tools-software/linux-software/zynq_images/windows_hosts>`.
-
-Typical test application software
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Application examples
+~~~~~~~~~~~~~~~~~~~~
 
 ADI provides several open source tools to make it easy to get started with using
 Linux IIO drivers.
 
 IIO Oscilloscope
-''''''''''''''''
+^^^^^^^^^^^^^^^^
 
 This section only describes the bits specific to these chips. For instructions
 on how to obtain IIO Oscilloscope and it’s basic usage, please see the
@@ -516,7 +536,7 @@ on how to obtain IIO Oscilloscope and it’s basic usage, please see the
 page.
 
 Scopy
-'''''
+^^^^^
 
 *Scopy* is the software used with the :adi:`ADALM2000` multi-purpose tool (also
 called ``M2K``). Visit :external+scopy:doc:`index` for instructions on how to
@@ -524,13 +544,13 @@ obtain and install the software. In this case we will be using it for the
 signal generator function.
 
 Examples
-''''''''
+^^^^^^^^
 
 Here are a couple of example of how to use these tools together to test an ADC
 on an evaluation board connected to a development board running Linux.
 
 Measure constant voltage
-''''''''''''''''''''''''
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 A quick way check if the ADC is working correctly is to generate a constant
 voltage on the input and measure it using the DMM feature of the IIO
@@ -544,7 +564,7 @@ see something like this:
    :width: 600px
 
 Capture many samples for analysis
-'''''''''''''''''''''''''''''''''
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The *Plot* feature of the *IIO Oscilloscope* app is used to perform a buffered
 read to capture many samples. This data can be saved as a ``.csv`` file for
@@ -565,13 +585,15 @@ the *Write* button.
    :width: 600px
 
 Then you will need to set up a signal generator to generate an appropriate
-signal. This family of chips has unipolar inputs (voltage can’t go below 0V) so
-an offset will need to be configured in the signal generator. The maximum
-allowable voltage is the same as the reference voltage. The default on the
-evaluation boards is 5V. Typically, the offset will be configured to 1/2 of the
-reference voltage, in this case, 2.5 V. A 1 kHz sine wave with peak-to-peak
-voltage of something a bit smaller than the full measurable range is a
-reasonable place to start.
+signal. AD7944/AD7985 expose unsigned unipolar sample codes. AD7986 instead
+exposes a signed differential channel: its differential result may be negative
+even though each physical input must obey its allowed input/common-mode range.
+Set up the waveform and common-mode voltage for the specific part; the following
+single-ended example applies to AD7944/AD7985. The maximum allowable voltage is
+the same as the reference voltage. The default on the evaluation boards is 5V.
+Typically, the offset will be configured to 1/2 of the reference voltage, in
+this case, 2.5 V. A 1 kHz sine wave with peak-to-peak voltage of something a bit
+smaller than the full measurable range is a reasonable place to start.
 
 .. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7944/scopy-sine-4v-p-p-2.5v-offset-1khz-const-0v.png
    :width: 800px

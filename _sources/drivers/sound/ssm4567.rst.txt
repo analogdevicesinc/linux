@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/sound/ssm4567
 
+
 .. _ssm4567:
 
 SSM4567
@@ -28,11 +29,11 @@ Status
 
    * - Source
      - Mainlined?
-   * - :git+linux:`git <main:sound/soc/codecs/ssm4567.c>`
+   * - :git+linux:`ADI tree <main:sound/soc/codecs/ssm4567.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ssm4567.c>`__
 
 Files
-^^^^^
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -40,12 +41,36 @@ Files
    * - Function
      - File
    * - driver
-     - :git+linux:`main:sound/soc/codecs/ssm4567.c`
+     - `sound/soc/codecs/ssm4567.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ssm4567.c>`__
    * - include
      - :git+linux:`main:sound/soc/codecs/ssm4567.h`
 
+Adding Linux driver support
+---------------------------
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   i2s: i2c@41600000 {
+       compatible = "...;
+       ...
+
+       #size-cells = <0>;
+       #address-cells = <1>;
+
+       ssm4567: ssm4567@34 {
+           compatible = "adi,ssm4567";
+           reg = <0x34>;
+       };
+   };
+
+Device enumeration
+~~~~~~~~~~~~~~~~~~
+
 Example device initialization
------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
@@ -91,26 +116,14 @@ The I2C address of the SSM4567 depends on the setting of the ADDR pin.
    }
    arch_initcall(board_init);
 
-Devicetree
-~~~~~~~~~~
+Driver testing
+--------------
 
-::
-
-   i2s: i2c@41600000 {
-       compatible = "...;
-       ...
-
-       #size-cells = <0>;
-       #address-cells = <1>;
-
-       ssm4567: ssm4567@34 {
-           compatible = "adi,ssm4567";
-           reg = <0x34>;
-       };
-   };
+Routing and DAPM
+~~~~~~~~~~~~~~~~
 
 ASoC DAPM Widgets
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -120,7 +133,7 @@ ASoC DAPM Widgets
    * - OUT
      - Class-D Amplifier Output
 
-ALSA Controls
+ALSA controls
 ~~~~~~~~~~~~~
 
 .. list-table::
@@ -130,31 +143,24 @@ ALSA Controls
      - Description
    * - DAC High Pass Filter Switch
      - Enables/Disables the high-pass filter for the DAC
-   * - DAC Low Power Switch
+   * - DAC Low Power Mode Switch
      - Enables/Disables low-power mode of the DAC
    * - Master Playback Volume
      - Digital output volume control.
-   * - Low-EMI Switch
-     - Enables/Disables low EMI mode.
-   * - Limiter Mode
-     - Mode the output limiter is using.
-   * - Limiter Attack Rate
-     - Attack rate of the output limiter.
-   * - Limiter Release Rate
-     - Release rate of the output limiter.
-   * - Limiter Attack Threshold
-     - Attack threshold for the output limiter.
    * - Amplifier Boost Switch
      - Enables/Disables the output amplifier booster
 
+DAI formats and clocks
+~~~~~~~~~~~~~~~~~~~~~~
+
 DAI configuration
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 The amplifier driver registers one DAIs, one for each serial port. The DAI is
 named **``ssm4567-hifi``**
 
 Supported DAI formats
-^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""
 
 .. list-table::
    :header-rows: 1
@@ -214,79 +220,8 @@ Supported DAI formats
      - yes
      - Codec bit- and frameclock slave
 
-TDM configuration
-^^^^^^^^^^^^^^^^^
-
-If you want to use the SSM4567 in TDM mode you can configure it using
-snd_soc_dai_set_tdm_slot() from you ASoC board driver.
-
-The following restrictions apply to the parameters of
-snd_soc_dai_set_tdm_slot().
-
-- **tx_mask** specifies the output channel mapping for the serial port. This
-  must either be 0, or the same as rx_mask.
-- **rx_mask** specifies the input channel mapping for the serial port. There
-  must be exactly one bit set in this mask which selects the slot that is used.
-- **slots** should be between 1 and 8
-- **width** must be either 32, 48, 64
-
-Example:
-
-.. code:: c
-
-   static int ssm4567_link_init(struct snd_soc_pcm_runtime *rtd)
-   {
-       int ret;
-
-       ret = snd_soc_dai_set_tdm_slot(rtd->codec_dai, 0x01, 0x01, 8, 32);
-       if (ret < 0)
-           return ret;
-
-       return 0;
-   }
-
-   static struct snd_soc_dai_link ssm4567_dai_link = {
-       ...,
-       .init = ssm4567_link_init,
-   };
-
-Example DAI configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. code:: c
-
-   static const struct snd_soc_dapm_widget ssm4567_zed_widgets[] = {
-       SND_SOC_DAPM_SPK("Speaker", NULL),
-   };
-
-   static const struct snd_soc_dapm_route ssm4567_zed_routes[] = {
-       { "Speaker", NULL, "OUT" },
-   };
-
-   static struct snd_soc_dai_link ssm4567_zed_dai_link = {
-       .name = "ssm4567",
-       .stream_name = "ssm4567",
-       .codec_dai_name = "ssm4567-hifi",
-       .dai_fmt = SND_SOC_DAIFMT_DSP_A |
-               SND_SOC_DAIFMT_NB_NF |
-               SND_SOC_DAIFMT_CBS_CFS,
-       .init = ssm4567_zed_init,
-   };
-
-   static struct snd_soc_card ssm4567_zed_card = {
-       .name = "ZED SSM4567",
-       .owner = THIS_MODULE,
-       .dai_link = &zed_ssm4567_dai_link,
-       .num_links = 1,
-       .dapm_widgets = zed_ssm4567_widgets,
-       .num_dapm_widgets = ARRAY_SIZE(zed_ssm4567_widgets),
-       .dapm_routes = zed_ssm4567_routes,
-       .num_dapm_routes = ARRAY_SIZE(zed_ssm4567_routes),
-       .fully_routed = true,
-   };
-
 Multi SSM4567 Example configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""""""""""""
 
 This example shows how to setup a ASoC board driver for a system with two
 SSM4567, one driving the left speaker and the other driving the right speaker.
@@ -296,18 +231,18 @@ SSM4567 is at I2S address 0x35 (ADDR=1).
 Note support for multiple CODECs on a single DAI link requires Linux v3.17 or
 higher.
 
-.. code:: c
+.. code-block:: c
 
    static int ssm4567_link_init(struct snd_soc_pcm_runtime *rtd)
    {
        int ret;
 
        /* Slot 0 for left */
-       ret = snd_soc_dai_set_tdm_slot(rtd->codec_dais[0], 0x01, 0x01, 2, 32);
+       ret = snd_soc_dai_set_tdm_slot(snd_soc_rtd_to_codec(rtd, 0), 0x01, 0x01, 2, 32);
        if (ret < 0)
            return ret;
 
-       /* Slot 2 for right */
+       /* Slot 1 for right (zero-based index; mask 0x02) */
        ret = snd_soc_dai_set_tdm_slot(rtd->codec_dais[1], 0x02, 0x02, 2, 32);
        if (ret < 0)
            return ret;
@@ -376,8 +311,80 @@ higher.
        .fully_routed = true,
    };
 
-More information
-~~~~~~~~~~~~~~~~
+TDM configuration
+^^^^^^^^^^^^^^^^^
+
+If you want to use the SSM4567 in TDM mode you can configure it using
+snd_soc_dai_set_tdm_slot() from you ASoC board driver.
+
+The following restrictions apply to the parameters of
+snd_soc_dai_set_tdm_slot().
+
+-  **tx_mask** must have exactly one bit set.
+
+-  **rx_mask** must be zero or equal to tx_mask.
+
+-  **slots** should be between 1 and 8
+
+-  **width** must be either 32, 48, 64
+
+Example:
+
+.. code:: c
+
+   static int ssm4567_link_init(struct snd_soc_pcm_runtime *rtd)
+   {
+       int ret;
+
+       ret = snd_soc_dai_set_tdm_slot(rtd->codec_dai, 0x01, 0x01, 8, 32);
+       if (ret < 0)
+           return ret;
+
+       return 0;
+   }
+
+   static struct snd_soc_dai_link ssm4567_dai_link = {
+       ...,
+       .init = ssm4567_link_init,
+   };
+
+Example DAI configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code:: c
+
+   static const struct snd_soc_dapm_widget ssm4567_zed_widgets[] = {
+       SND_SOC_DAPM_SPK("Speaker", NULL),
+   };
+
+   static const struct snd_soc_dapm_route ssm4567_zed_routes[] = {
+       { "Speaker", NULL, "OUT" },
+   };
+
+   static struct snd_soc_dai_link ssm4567_zed_dai_link = {
+       .name = "ssm4567",
+       .stream_name = "ssm4567",
+       .codec_dai_name = "ssm4567-hifi",
+       .dai_fmt = SND_SOC_DAIFMT_DSP_A |
+               SND_SOC_DAIFMT_NB_NF |
+               SND_SOC_DAIFMT_CBS_CFS,
+       .init = ssm4567_zed_init,
+   };
+
+   static struct snd_soc_card ssm4567_zed_card = {
+       .name = "ZED SSM4567",
+       .owner = THIS_MODULE,
+       .dai_link = &zed_ssm4567_dai_link,
+       .num_links = 1,
+       .dapm_widgets = zed_ssm4567_widgets,
+       .num_dapm_widgets = ARRAY_SIZE(zed_ssm4567_widgets),
+       .dapm_routes = zed_ssm4567_routes,
+       .num_dapm_routes = ARRAY_SIZE(zed_ssm4567_routes),
+       .fully_routed = true,
+   };
+
+More Information
+----------------
 
 -  :ref:`SSM4329`
 

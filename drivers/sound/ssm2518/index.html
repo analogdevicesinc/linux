@@ -98,30 +98,43 @@
           <ul>
 <li><a class="reference internal" href="#">SSM2518</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
-<li><a class="reference internal" href="#status">Status</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a></li>
+<li><a class="reference internal" href="#device-enumeration">Device enumeration</a><ul>
+<li><a class="reference internal" href="#example-device-initialization">Example device initialization</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-device-initialization">Example device initialization</a><ul>
-<li><a class="reference internal" href="#devicetree">Devicetree</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#routing-and-dapm">Routing and DAPM</a><ul>
 <li><a class="reference internal" href="#asoc-dapm-widgets">ASoC DAPM Widgets</a></li>
-<li><a class="reference internal" href="#alsa-controls">ALSA Controls</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#alsa-controls">ALSA controls</a></li>
+<li><a class="reference internal" href="#dai-formats-and-clocks">DAI formats and clocks</a><ul>
 <li><a class="reference internal" href="#dai-configuration">DAI configuration</a><ul>
 <li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a></li>
 <li><a class="reference internal" href="#supported-sysclk-rates">Supported SYSCLK rates</a></li>
 <li><a class="reference internal" href="#sysclk-configuration">SYSCLK configuration</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#tdm-configuration">TDM configuration</a></li>
 <li><a class="reference internal" href="#example-dai-configuration">Example DAI configuration</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#more-information">More information</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
 </ul>
@@ -223,6 +236,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -241,7 +255,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -383,18 +396,18 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/SSM2518" target="_blank">SSM2518</a></p></li>
 </ul>
 </section>
-<section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0296" target="_blank">CN0296</a></p></li>
-</ul>
-</section>
 <section id="evaluation-boards">
 <h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-SSM2518Z" target="_blank">EVAL-SSM2518Z</a></p></li>
 <li><p><a class="icon link reference external" href="https://digilent.com/reference/pmod/pmodamp3/start" target="_blank">PMOD-AMP3 (Digilent)</a></p></li>
 </ul>
+<section id="reference-circuits">
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0296" target="_blank">CN0296</a></p></li>
+</ul>
+</section>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -418,8 +431,9 @@ Content on this topic
 </tbody>
 </table>
 </div>
+</section>
 <section id="files">
-<h4>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h4>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -442,9 +456,30 @@ Content on this topic
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">i2s</span><span class="p">:</span> <span class="n">i2c</span><span class="o">@</span><span class="mi">41600000</span> <span class="p">{</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"...;</span>
+    <span class="o">...</span>
+
+    <span class="c1">#size-cells = &lt;0&gt;;</span>
+    <span class="c1">#address-cells = &lt;1&gt;;</span>
+
+    <span class="n">ssm2518</span><span class="p">:</span> <span class="n">ssm2518</span><span class="o">@</span><span class="mi">34</span> <span class="p">{</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ssm2518"</span><span class="p">;</span>
+        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x34</span><span class="o">&gt;</span><span class="p">;</span>
+        <span class="n">gpios</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio</span> <span class="mi">5</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
 </section>
+<section id="device-enumeration">
+<h3>Device enumeration<a class="headerlink" href="#device-enumeration" title="Link to this heading"></a></h3>
 <section id="example-device-initialization">
-<h2>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -508,26 +543,15 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 <span class="n">arch_initcall</span><span class="p">(</span><span class="n">board_init</span><span class="p">);</span>
 </pre></div>
 </div>
-<section id="devicetree">
-<h3>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">i2s</span><span class="p">:</span> <span class="n">i2c</span><span class="o">@</span><span class="mi">41600000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"...;</span>
-    <span class="o">...</span>
-
-    <span class="c1">#size-cells = &lt;0&gt;;</span>
-    <span class="c1">#address-cells = &lt;1&gt;;</span>
-
-    <span class="n">ssm2518</span><span class="p">:</span> <span class="n">ssm2518</span><span class="o">@</span><span class="mi">34</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ssm2518"</span><span class="p">;</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x34</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">gpios</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio</span> <span class="mi">5</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-</pre></div>
-</div>
 </section>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="routing-and-dapm">
+<h3>Routing and DAPM<a class="headerlink" href="#routing-and-dapm" title="Link to this heading"></a></h3>
 <section id="asoc-dapm-widgets">
-<h3>ASoC DAPM Widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h3>
+<h4>ASoC DAPM Widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -546,8 +570,9 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 </table>
 </div>
 </section>
+</section>
 <section id="alsa-controls">
-<h3>ALSA Controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
+<h3>ALSA controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -642,11 +667,13 @@ level that is compared to the DRC thresholds</p></td>
 </table>
 </div>
 </section>
+<section id="dai-formats-and-clocks">
+<h3>DAI formats and clocks<a class="headerlink" href="#dai-formats-and-clocks" title="Link to this heading"></a></h3>
 <section id="dai-configuration">
-<h3>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h3>
+<h4>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h4>
 <p>The codec driver registers one DAI named <strong>``ssm2518-hifi``</strong>.</p>
 <section id="supported-dai-formats">
-<h4>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h4>
+<h5>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h5>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -729,7 +756,7 @@ level that is compared to the DRC thresholds</p></td>
 </div>
 </section>
 <section id="supported-sysclk-rates">
-<h4>Supported SYSCLK rates<a class="headerlink" href="#supported-sysclk-rates" title="Link to this heading"></a></h4>
+<h5>Supported SYSCLK rates<a class="headerlink" href="#supported-sysclk-rates" title="Link to this heading"></a></h5>
 <p>The CODECs system clock can be configured for various input rates. When
 configuring the codec system clock use SSM2518_SYSCLK for the clock id.</p>
 <p>The following list contains the supported system clock rates and their resulting
@@ -760,7 +787,7 @@ sample-rates.</p>
 </div>
 </section>
 <section id="sysclk-configuration">
-<h4>SYSCLK configuration<a class="headerlink" href="#sysclk-configuration" title="Link to this heading"></a></h4>
+<h5>SYSCLK configuration<a class="headerlink" href="#sysclk-configuration" title="Link to this heading"></a></h5>
 <p>To configure the devices sysclk the <code class="docutils literal notranslate"><span class="pre">snd_soc_codec_set_sysclk()</span></code> function can
 be used. It needs to be called at least once before playback starts. The
 <code class="docutils literal notranslate"><span class="pre">clk_id</span></code> parameter must always be <code class="docutils literal notranslate"><span class="pre">SSM2518_SYSCLK</span></code> and the <code class="docutils literal notranslate"><span class="pre">dir</span></code> parameter
@@ -785,6 +812,7 @@ as the system clock source the <code class="docutils literal notranslate"><span 
 removed. Instead <code class="docutils literal notranslate"><span class="pre">snd_soc_component_set_sysclk</span></code> should be used</p>
 </div>
 </section>
+</section>
 <section id="tdm-configuration">
 <h4>TDM configuration<a class="headerlink" href="#tdm-configuration" title="Link to this heading"></a></h4>
 <p>If you want to use the SSM2518 in TDM mode you can configure it using
@@ -792,10 +820,11 @@ snd_soc_dai_set_tdm_slot() from you ASoC board driver.</p>
 <p>The following restrictions apply to the parameters of
 snd_soc_dai_set_tdm_slot().</p>
 <ul class="simple">
-<li><p><strong>tx_mask</strong> must have exactly two bits set. The most upper bit will be the
-slot of right channel, the most lower bit will be the slot left channel. E.g.
-0x3 means the left channel will be at slot 0 and the right channel will be at
-slot 1 in the TDM stream.</p></li>
+<li><p><strong>tx_mask accepts one or two bits set. A single bit routes the same slot to
+both channels (for slots = 1 the mask must be 1). With two bits, the most
+upper bit will be the</strong> slot of right channel, the most lower bit will be the
+slot left channel. E.g. 0x3 means the left channel will be at slot 0 and the
+right channel will be at slot 1 in the TDM stream.</p></li>
 <li><p><strong>rx_mask</strong> must be 0.</p></li>
 <li><p><strong>slots</strong> must be either 1, 2, 4, 8 or 16</p></li>
 <li><p><strong>width</strong> must be either 16, 24, 32</p></li>
@@ -825,7 +854,7 @@ slot 1 in the TDM stream.</p></li>
 
 <span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">pmod_amp3_init</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_pcm_runtime</span><span class="w"> </span><span class="o">*</span><span class="n">rtd</span><span class="p">)</span>
 <span class="p">{</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">snd_soc_codec_set_sysclk</span><span class="p">(</span><span class="n">rtd</span><span class="o">-&gt;</span><span class="n">codec</span><span class="p">,</span><span class="w"> </span><span class="n">SSM2518_SYSCLK</span><span class="p">,</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">snd_soc_component_set_sysclk</span><span class="p">(</span><span class="n">snd_soc_rtd_to_codec</span><span class="p">(</span><span class="n">rtd</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">component</span><span class="p">,</span><span class="w"> </span><span class="n">SSM2518_SYSCLK</span><span class="p">,</span>
 <span class="w">                </span><span class="n">SSM2518_SYSCLK_SRC_MCLK</span><span class="p">,</span><span class="w"> </span><span class="mi">12288000</span><span class="p">,</span><span class="w"> </span><span class="n">SND_SOC_CLOCK_IN</span><span class="p">);</span>
 <span class="p">}</span>
 
@@ -863,13 +892,13 @@ slot 1 in the TDM stream.</p></li>
 </div>
 </section>
 </section>
+</section>
 <section id="more-information">
-<h3>More information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h3>
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <p><em>Need Help?</em></p>
 <ul class="simple">
 <li><p><a class="icon ez reference external" href="https://ez.analog.com/linux-software-drivers" target="_blank">Analog Devices Linux Device Drivers Help Forum</a></p></li>
 </ul>
-</section>
 </section>
 </section>
 

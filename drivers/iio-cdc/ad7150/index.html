@@ -105,24 +105,26 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
 <li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-channel-cin1-measurement">Show channel CIN1(+) measurement</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-channel-cin1-measurement">Show channel CIN1(+) measurement</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#show-channel-cin1-average-measurement">Show channel CIN1(+) average measurement</a></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-</li>
-<li><a class="reference internal" href="#hardware-events">Hardware Events</a></li>
+<li><a class="reference internal" href="#hardware-events">Hardware Events</a><ul>
 <li><a class="reference internal" href="#threshold-events">Threshold Events</a></li>
 <li><a class="reference internal" href="#rate-of-change-events">Rate of Change Events</a></li>
 <li><a class="reference internal" href="#magnitude-events">Magnitude Events</a></li>
-<li><a class="reference internal" href="#temporal-conditions">Temporal Conditions</a><ul>
+<li><a class="reference internal" href="#temporal-conditions">Temporal Conditions</a></li>
 <li><a class="reference internal" href="#supported-events">Supported Events</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -227,6 +229,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -245,7 +248,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -504,8 +506,17 @@ accordingly, matching your part name.</p>
 </div>
 </section>
 </section>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7150_eval_lr.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7150_eval_lr.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7150_eval_lr.jpg" style="width: 600px;" />
+</a>
+</figure>
+</section>
 <section id="adding-linux-driver-support">
 <h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="admonition note">
@@ -517,26 +528,18 @@ accordingly, matching your part name.</p>
         <span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="n">Staging</span> <span class="n">drivers</span>  <span class="o">---&gt;</span>
             <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
                 <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-                <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-                <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
+                <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
                 <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
 
                 <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
 
-                <span class="o">***</span>
- <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
+                <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
                 <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD7150</span><span class="o">/</span><span class="mi">1</span><span class="o">/</span><span class="mi">6</span> <span class="n">capacitive</span> <span class="n">sensor</span> <span class="n">driver</span>
 
                 <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
 </pre></div>
 </div>
 </section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
-<figure class="align-default">
-<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7150_eval_lr.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7150_eval_lr.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7150_eval_lr.jpg" style="width: 600px;" />
-</a>
-</figure>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -567,12 +570,15 @@ the numbering is constant and may be known in advance.</p>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">3</span> <span class="mi">04</span><span class="p">:</span><span class="mi">21</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">0048</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">ad7150</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-channel-cin1-measurement">
 <h4>Show channel CIN1(+) measurement<a class="headerlink" href="#show-channel-cin1-measurement" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
@@ -605,12 +611,16 @@ the numbering is constant and may be known in advance.</p>
 </div>
 <p><strong>Description:</strong> Raw unscaled capacitance measurement on channel
 in_capacitance0_raw</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">0048</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_capacitance0_raw</span>
-<span class="mi">26640</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0048/iio:device0&gt; cat in_capacitance0_raw
+1665
 </pre></div>
 </div>
+<p>1665 is the 26640 register value shifted right by four. <code class="docutils literal notranslate"><span class="pre">mean_raw</span></code> returns
+the unshifted average register.</p>
+</section>
+</section>
 <section id="show-channel-cin1-average-measurement">
-<h5>Show channel CIN1(+) average measurement<a class="headerlink" href="#show-channel-cin1-average-measurement" title="Link to this heading"></a></h5>
+<h3>Show channel CIN1(+) average measurement<a class="headerlink" href="#show-channel-cin1-average-measurement" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> Raw unscaled capacitance measurement on channel
 in_capacitance0_mean_raw</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">0048</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_capacitance0_mean_raw</span>
@@ -618,11 +628,8 @@ in_capacitance0_mean_raw</p>
 </pre></div>
 </div>
 </section>
-</section>
-</section>
-</section>
 <section id="hardware-events">
-<h2>Hardware Events<a class="headerlink" href="#hardware-events" title="Link to this heading"></a></h2>
+<h3>Hardware Events<a class="headerlink" href="#hardware-events" title="Link to this heading"></a></h3>
 <p>The Industrial I/O subsystem provides support for passing hardware generated
 events up to userspace.</p>
 <p>In IIO events are not used for passing normal readings from the sensing devices
@@ -669,9 +676,8 @@ than just that it happened.)</p></li>
 to user-space.</p>
 </dd>
 </dl>
-</section>
 <section id="threshold-events">
-<h2>Threshold Events<a class="headerlink" href="#threshold-events" title="Link to this heading"></a></h2>
+<h4>Threshold Events<a class="headerlink" href="#threshold-events" title="Link to this heading"></a></h4>
 <dl class="simple">
 <dt><strong>&lt;type&gt;Z[_name]_thresh[_rising|falling]_en</strong></dt><dd><p>Event generated when channel passes a threshold in the specified
 (_rising|_falling) direction. If the direction is not specified,
@@ -704,7 +710,7 @@ and _input do on sysfs direct channel read attributes).</p>
 </dl>
 </section>
 <section id="rate-of-change-events">
-<h2>Rate of Change Events<a class="headerlink" href="#rate-of-change-events" title="Link to this heading"></a></h2>
+<h4>Rate of Change Events<a class="headerlink" href="#rate-of-change-events" title="Link to this heading"></a></h4>
 <dl class="simple">
 <dt><strong>&lt;type&gt;[Z][_name]_roc[_rising|falling]_en</strong></dt><dd><p>Event generated when channel passes a threshold on the rate of
 change (1st differential) in the specified (_rising|_falling)
@@ -738,7 +744,7 @@ and _input do on sysfs direct channel read attributes).</p>
 </dl>
 </section>
 <section id="magnitude-events">
-<h2>Magnitude Events<a class="headerlink" href="#magnitude-events" title="Link to this heading"></a></h2>
+<h4>Magnitude Events<a class="headerlink" href="#magnitude-events" title="Link to this heading"></a></h4>
 <dl class="simple">
 <dt><strong>&lt;type&gt;Z[_name]_mag[_rising|falling]_en</strong></dt><dd><p>Similar to <code class="docutils literal notranslate"><span class="pre">in_accel_x_thresh[_rising|_falling]_en</span></code>, but here the
 magnitude of the channel is compared to the threshold, not its
@@ -751,15 +757,20 @@ this type.</p>
 </dl>
 </section>
 <section id="temporal-conditions">
-<h2>Temporal Conditions<a class="headerlink" href="#temporal-conditions" title="Link to this heading"></a></h2>
+<h4>Temporal Conditions<a class="headerlink" href="#temporal-conditions" title="Link to this heading"></a></h4>
 <dl class="simple">
 <dt><strong>&lt;type&gt;[Z][_name][_thresh|_roc][_rising|falling]_period</strong></dt><dd><p>Period of time (in seconds) for which the condition must be
 met before an event is generated. If direction is not
 specified then this period applies to both directions.</p>
 </dd>
 </dl>
+</section>
 <section id="supported-events">
-<h3>Supported Events<a class="headerlink" href="#supported-events" title="Link to this heading"></a></h3>
+<h4>Supported Events<a class="headerlink" href="#supported-events" title="Link to this heading"></a></h4>
+<p>The driver exposes fixed and adaptive threshold events, with rising and
+falling directions. Magnitude-adaptive events are not registered. Events require
+firmware IRQs; two-channel devices need both IRQs. Event type and direction
+are shared across channels, with channel-specific IRQ enable state.</p>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -768,18 +779,6 @@ specified then this period applies to both directions.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>Channel 1</p></td>
-</tr>
-<tr class="row-odd"><td><p>in_capacitance0_mag_adaptive_falling_en</p></td>
-</tr>
-<tr class="row-even"><td><p>in_capacitance0_mag_adaptive_falling_timeout</p></td>
-</tr>
-<tr class="row-odd"><td><p>in_capacitance0_mag_adaptive_falling_value</p></td>
-</tr>
-<tr class="row-even"><td><p>in_capacitance0_mag_adaptive_rising_en</p></td>
-</tr>
-<tr class="row-odd"><td><p>in_capacitance0_mag_adaptive_rising_timeout</p></td>
-</tr>
-<tr class="row-even"><td><p>in_capacitance0_mag_adaptive_rising_value</p></td>
 </tr>
 <tr class="row-odd"><td><p>in_capacitance0_thresh_adaptive_falling_en</p></td>
 </tr>
@@ -802,18 +801,6 @@ specified then this period applies to both directions.</p>
 <tr class="row-even"><td><p>in_capacitance0_thresh_rising_value</p></td>
 </tr>
 <tr class="row-odd"><td><p>Channel 2</p></td>
-</tr>
-<tr class="row-even"><td><p>in_capacitance1_mag_adaptive_falling_en</p></td>
-</tr>
-<tr class="row-odd"><td><p>in_capacitance1_mag_adaptive_falling_timeout</p></td>
-</tr>
-<tr class="row-even"><td><p>in_capacitance1_mag_adaptive_falling_value</p></td>
-</tr>
-<tr class="row-odd"><td><p>in_capacitance1_mag_adaptive_rising_en</p></td>
-</tr>
-<tr class="row-even"><td><p>in_capacitance1_mag_adaptive_rising_timeout</p></td>
-</tr>
-<tr class="row-odd"><td><p>in_capacitance1_mag_adaptive_rising_value</p></td>
 </tr>
 <tr class="row-even"><td><p>in_capacitance1_thresh_adaptive_falling_en</p></td>
 </tr>
@@ -838,6 +825,7 @@ specified then this period applies to both directions.</p>
 </tbody>
 </table>
 </div>
+</section>
 </section>
 </section>
 <section id="more-information">

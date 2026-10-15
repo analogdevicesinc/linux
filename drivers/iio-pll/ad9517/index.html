@@ -107,11 +107,9 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#enabling-the-driver">Enabling the driver</a><ul>
-<li><a class="reference internal" href="#adding-a-device-tree-entry">Adding a device tree entry</a><ul>
-<li><a class="reference internal" href="#device-tree-example">Device tree example</a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a></li>
 </ul>
 </li>
 </ul>
@@ -215,6 +213,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -233,7 +232,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -448,14 +446,14 @@ firmware subsystem.</p>
 </div>
 </section>
 </section>
-<section id="enabling-the-driver">
-<h2>Enabling the driver<a class="headerlink" href="#enabling-the-driver" title="Link to this heading"></a></h2>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The ad9517 Driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
+<p>Note</p>
+<p>The ad9517 Driver depends on CONFIG_SPI and CONFIG_COMMON_CLK</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
     <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
     <span class="o">&lt;*&gt;</span>  <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
@@ -464,10 +462,9 @@ firmware subsystem.</p>
                  <span class="o">&lt;*&gt;</span>  <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9517</span> <span class="mi">12</span><span class="o">-</span><span class="n">Output</span> <span class="n">Clock</span> <span class="n">Generator</span>
 </pre></div>
 </div>
-<section id="adding-a-device-tree-entry">
-<h3>Adding a device tree entry<a class="headerlink" href="#adding-a-device-tree-entry" title="Link to this heading"></a></h3>
-<section id="device-tree-example">
-<h4>Device tree example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h4>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <p>The following example instantiates the ad9517 driver for a ad9517-3 device
 connected on the SPI bus to the chip-select line 1.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="n">spi0</span> <span class="p">{</span>
@@ -488,7 +485,6 @@ connected on the SPI bus to the chip-select line 1.</p>
 <span class="p">};</span>
 </pre></div>
 </div>
-</section>
 </section>
 </section>
 </section>

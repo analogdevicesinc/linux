@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/sound/ssm4329
 
+
 .. _ssm4329:
 
 SSM4329
@@ -25,7 +26,7 @@ Status
      - No
 
 Files
-^^^^^
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -37,8 +38,33 @@ Files
    * - include
      - :git+linux:`asoc-ssm4329:sound/soc/codecs/ssm4329.h`
 
+Adding Linux driver support
+---------------------------
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   i2s: i2c@41600000 {
+       compatible = "...;
+       ...
+
+       #size-cells = <0>;
+       #address-cells = <1>;
+
+       ssm4329: ssm4329@34 {
+           compatible = "adi,ssm4329";
+           reg = <0x34>;
+           gpios = <&gpio 5 0>;
+       };
+   };
+
+Device enumeration
+~~~~~~~~~~~~~~~~~~
+
 Example device initialization
------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
@@ -94,27 +120,26 @@ pins
    }
    arch_initcall(board_init);
 
-Devicetree
-~~~~~~~~~~
+Firmware
+~~~~~~~~
 
-::
+SigmaDSP Firmware
+^^^^^^^^^^^^^^^^^
 
-   i2s: i2c@41600000 {
-       compatible = "...;
-       ...
+In order to use the SigmaDSP core of the SSM4329 you need to provide a firmware
+file. Please refer to the
+:dokuwiki:`SigmaDSP Firmware Utility for Linux <resources/tools-software/linux-software/sigmadsp_genfirmware>`
+page on how to generate a firmware file. The firmware file for SSM4329 driver
+has to be named **ssm4329.bin**.
 
-       #size-cells = <0>;
-       #address-cells = <1>;
+Driver testing
+--------------
 
-       ssm4329: ssm4329@34 {
-           compatible = "adi,ssm4329";
-           reg = <0x34>;
-           gpios = <&gpio 5 0>;
-       };
-   };
+Routing and DAPM
+~~~~~~~~~~~~~~~~
 
 ASoC DAPM Widgets
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -126,7 +151,7 @@ ASoC DAPM Widgets
    * - AIN
      - Mono ADC Input
 
-ALSA Controls
+ALSA controls
 ~~~~~~~~~~~~~
 
 .. list-table::
@@ -138,23 +163,23 @@ ALSA Controls
      - Mutes/Unmutes the DAC path
    * - DAC Playback Volume
      - Configures the digital Volume of the DAC
-   * - DAC Clip Point Volume
+   * - DAC Clip Point Playback Volume
      - Configures the cliping point of the DAC
    * - Interpolator Playback Volume
      - Configures the digital Volume of the Interpolator
-   * - Interpolator Clip Point Volume
+   * - Interpolator Clip Point Playback Volume
      - Configures the cliping point of the DAC
-   * - ADC Playback Switch
+   * - ADC Capture Switch
      - Mutes/Unmutes the ADC path
    * - ADC Capture Volume
      - Configures the digital Volume of the ADC
-   * - DAC High Pass Filter Switch
+   * - DAC High Pass Filter Playback Switch
      - Enables/Disables the High Pass Filter for the DAC
-   * - DAC Low-power Switch
+   * - DAC Low-power Playback Switch
      - Enables/Disables Low-power mode for the DAC
-   * - ADC High Pass Filter Switch
+   * - ADC High Pass Filter Capture Switch
      - Enables/Disables the High Pass Filter for the ADC
-   * - ADC Low-power Switch
+   * - ADC Low-power Capture Switch
      - Enables/Disables Low-power mode for the DAC
    * - Interpolator Playback Switch
      - Mute/Unmutes the Interpolator path
@@ -169,55 +194,45 @@ ALSA Controls
      - Selects the audio source for the Interpolator path. Possible values:
        ``Serial Port 1``, ``Serial Port 2``, ``DSP``, ``ADC``.
    * - Serial Port 1 Channel 1 Output Mux
-     - Selects the audio source for serial port 1 channel 1. Possible values:
-       ``ADC``, ``AEC``, ``DSP``, ``SRC``, ``Voltage Sense``, ``Current Sense``,
-       ``VBAT``, ``Voltage Sense/VBAT``, ``Current Sense/VBAT``,
-       ``Interpolator``
+     - Selects the audio source for serial port 1 channel 1. Possible values: ``ADC``,
+       ``AEC``, ``DSP``, ``SRC``, ``Voltage Sense``, ``Current Sense``, ``VBAT``,
+       ``Voltage Sense/VBAT``, ``Current Sense/VBAT``, ``Interpolator``
    * - Serial Port 1 Channel 2 Output Mux
-     - Selects the audio source for serial port 1 channel 1. Possible values:
-       ``ADC``, ``AEC``, ``DSP``, ``SRC``, ``Voltage Sense``, ``Current Sense``,
-       ``VBAT``, ``Voltage Sense/VBAT``, ``Current Sense/VBAT``,
-       ``Interpolator``
+     - Selects the audio source for serial port 1 channel 1. Possible values: ``ADC``,
+       ``AEC``, ``DSP``, ``SRC``, ``Voltage Sense``, ``Current Sense``, ``VBAT``,
+       ``Voltage Sense/VBAT``, ``Current Sense/VBAT``, ``Interpolator``
    * - Serial Port 1 Channel 3 Output Mux
-     - Selects the audio source for serial port 1 channel 1. Possible values:
-       ``ADC``, ``AEC``, ``DSP``, ``SRC``, ``Voltage Sense``, ``Current Sense``,
-       ``VBAT``, ``Voltage Sense/VBAT``, ``Current Sense/VBAT``,
-       ``Interpolator``
+     - Selects the audio source for serial port 1 channel 1. Possible values: ``ADC``,
+       ``AEC``, ``DSP``, ``SRC``, ``Voltage Sense``, ``Current Sense``, ``VBAT``,
+       ``Voltage Sense/VBAT``, ``Current Sense/VBAT``, ``Interpolator``
    * - Serial Port 1 Channel 4 Output Mux
-     - Selects the audio source for serial port 1 channel 1. Possible values:
-       ``ADC``, ``AEC``, ``DSP``, ``SRC``, ``Voltage Sense``, ``Current Sense``,
-       ``VBAT``, ``Voltage Sense/VBAT``, ``Current Sense/VBAT``,
-       ``Interpolator``
+     - Selects the audio source for serial port 1 channel 1. Possible values: ``ADC``,
+       ``AEC``, ``DSP``, ``SRC``, ``Voltage Sense``, ``Current Sense``, ``VBAT``,
+       ``Voltage Sense/VBAT``, ``Current Sense/VBAT``, ``Interpolator``
    * - Serial Port 2 Channel 1 Output Mux
-     - Selects the audio source for serial port 1 channel 1. Possible values:
-       ``ADC``, ``AEC``, ``DSP``, ``SRC``, ``Voltage Sense``, ``Current Sense``,
-       ``VBAT``, ``Voltage Sense/VBAT``, ``Current Sense/VBAT``,
-       ``Interpolator``
+     - Selects the audio source for serial port 1 channel 1. Possible values: ``ADC``,
+       ``AEC``, ``DSP``, ``SRC``, ``Voltage Sense``, ``Current Sense``, ``VBAT``,
+       ``Voltage Sense/VBAT``, ``Current Sense/VBAT``, ``Interpolator``
    * - Serial Port 2 Channel 2 Output Mux
-     - Selects the audio source for serial port 1 channel 1. Possible values:
-       ``ADC``, ``AEC``, ``DSP``, ``SRC``, ``Voltage Sense``, ``Current Sense``,
-       ``VBAT``, ``Voltage Sense/VBAT``, ``Current Sense/VBAT``,
-       ``Interpolator``
+     - Selects the audio source for serial port 1 channel 1. Possible values: ``ADC``,
+       ``AEC``, ``DSP``, ``SRC``, ``Voltage Sense``, ``Current Sense``, ``VBAT``,
+       ``Voltage Sense/VBAT``, ``Current Sense/VBAT``, ``Interpolator``
    * - Serial Port 2 Channel 3 Output Mux
-     - Selects the audio source for serial port 1 channel 1. Possible values:
-       ``ADC``, ``AEC``, ``DSP``, ``SRC``, ``Voltage Sense``, ``Current Sense``,
-       ``VBAT``, ``Voltage Sense/VBAT``, ``Current Sense/VBAT``,
-       ``Interpolator``
+     - Selects the audio source for serial port 1 channel 1. Possible values: ``ADC``,
+       ``AEC``, ``DSP``, ``SRC``, ``Voltage Sense``, ``Current Sense``, ``VBAT``,
+       ``Voltage Sense/VBAT``, ``Current Sense/VBAT``, ``Interpolator``
    * - Serial Port 2 Channel 4 Output Mux
-     - Selects the audio source for serial port 1 channel 1. Possible values:
-       ``ADC``, ``AEC``, ``DSP``, ``SRC``, ``Voltage Sense``, ``Current Sense``,
-       ``VBAT``, ``Voltage Sense/VBAT``, ``Current Sense/VBAT``,
-       ``Interpolator``
+     - Selects the audio source for serial port 1 channel 1. Possible values: ``ADC``,
+       ``AEC``, ``DSP``, ``SRC``, ``Voltage Sense``, ``Current Sense``, ``VBAT``,
+       ``Voltage Sense/VBAT``, ``Current Sense/VBAT``, ``Interpolator``
    * - Input SRC Channel 1 Mux
      - Select the audio source for the sample-rate-converter channel 1. Possible
        values: ``Serial Port 1 Channel 1``, ``Serial Port 1 Channel 3``,
-       ``Serial Port 2 Channel 1``, ``Serial Port 2 Channel 3``, ``ADC``,
-       ``DSP``.
+       ``Serial Port 2 Channel 1``, ``Serial Port 2 Channel 3``, ``ADC``, ``DSP``.
    * - Input SRC Channel 2 Mux
-     - Select the audio source for the input sample-rate-converter channel 2.
-       Possible values: ``Serial Port 1 Channel 2``, ``Serial Port 1 Channel
-       4``, ``Serial Port 2 Channel 2``, ``Serial Port 2 Channel 4``, ``ADC``,
-       ``DSP``.
+     - Select the audio source for the input sample-rate-converter channel 2. Possible
+       values: ``Serial Port 1 Channel 2``, ``Serial Port 1 Channel 4``,
+       ``Serial Port 2 Channel 2``, ``Serial Port 2 Channel 4``, ``ADC``, ``DSP``.
    * - Output SRC Channel 1 Mux
      - Selects the audio source for the output sample-rate converter channel 1.
        Possible values: ``DSP``, ``AEC``, ``Input SRC``, ``ADC``.
@@ -225,24 +240,18 @@ ALSA Controls
      - Selects the audio source for the output sample-rate converter channel 2.
        Possible values: ``DSP``, ``AEC``, ``Input SRC``, ``ADC``.
 
-SigmaDSP Firmware
-~~~~~~~~~~~~~~~~~
-
-In order to use the SigmaDSP core of the SSM4329 you need to provide a firmware
-file. Please refer to the
-:dokuwiki:`SigmaDSP Firmware Utility for Linux <resources/tools-software/linux-software/sigmadsp_genfirmware>`
-page on how to generate a firmware file. The firmware file for SSM4329 driver
-has to be named **ssm4329.bin**.
+DAI formats and clocks
+~~~~~~~~~~~~~~~~~~~~~~
 
 PLL configuration
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 To configure the PLL of the device the ``snd_soc_codec_set_pll()`` function can
 be used. It should be used to configure the internal PLL correctly depending on
 the external clock source and the desired sampling rate. The ``clk_id``
 parameter must always be ``SSM4329_PLL``. The ``source`` parameter must be one
 of the input clock source constants listed below. The freq_in parameter must be
-in the range of 8000 to 2700000, this needs to match the frequency of the
+in the range of 8000 to 27000000 Hz, this needs to match the frequency of the
 selected input clock source. The freq_out parameter should typically be
 98304000.
 
@@ -257,13 +266,13 @@ selected input clock source. The freq_out parameter should typically be
    #define SSM4329_PLL_SRC_BCLK2   4
 
 DAI configuration
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 The codec driver registers two DAIs, one for each serial port. The DAIs are
 named **``ssm4329-sp0``** and **``ssm4329-sp1``**.
 
 Supported DAI formats
-^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""
 
 .. list-table::
    :header-rows: 1
@@ -332,14 +341,19 @@ snd_soc_dai_set_tdm_slot() from you ASoC board driver.
 The following restrictions apply to the parameters of
 snd_soc_dai_set_tdm_slot().
 
-- **tx_mask** specifies the output channel mapping for the serial port. The
-  first set bit specifies the slot for the first channel, the second set bit the
-  slot for the second channel and so on.
-- **rx_mask** specifies the input channel mapping for the serial port. The first
-  set bit specifies the slot for the first channel, the second set bit the slot
-  for the second channel and so on.
-- **slots** must be between 1 and 16
-- **width** must be either 16, 24, 32
+-  **tx_mask** specifies the output channel mapping for the serial port. The
+   first set bit specifies the slot for the first channel, the second set bit
+   the slot for the second channel and so on.
+
+-  **rx_mask** specifies the input channel mapping for the serial port. The
+   first set bit specifies the slot for the first channel, the second set bit
+   the slot for the second channel and so on.
+
+-  **slots** must be between 1 and 16
+
+-  **width is normally 16, 24 or 32. When supplying BCLK, slots × width must be
+   64, 128, 256 or 512 bits. Special TDMC operation on serial port 2 requires
+   DSP_A, normal polarity, one 64-bit slot and codec-provided BCLK.**
 
 Example:
 
@@ -406,8 +420,8 @@ Example DAI configuration
        .fully_routed = true,
    };
 
-More information
-~~~~~~~~~~~~~~~~
+More Information
+----------------
 
 - :dokuwiki:`SigmaStudio <resources/tools-software/sigmastudio>`
 - :dokuwiki:`SigmaDSP Firmware Utility for Linux <resources/tools-software/linux-software/sigmadsp_genfirmware>`

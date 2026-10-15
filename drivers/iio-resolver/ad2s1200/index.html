@@ -105,8 +105,11 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#driver-usage">Driver Usage</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a></li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
@@ -209,6 +212,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -227,7 +231,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -402,8 +405,8 @@ and sensors using a number of different physical interfaces (i2c, spi, etc). See
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/resolver/ad2s1200.c" target="_blank">git</a></p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/resolver/ad2s1200.c" target="_blank">Yes</a></p></td>
+<tr class="row-even"><td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/resolver/ad2s1200.c" target="_blank">git</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/resolver/ad2s1200.c" target="_blank">Yes</a></p></td>
 <td></td>
 <td></td>
 </tr>
@@ -422,7 +425,7 @@ and sensors using a number of different physical interfaces (i2c, spi, etc). See
 </thead>
 <tbody>
 <tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/resolver/ad2s1200.c" target="_blank">drivers/staging/iio/resolver/ad2s1200.c</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/resolver/ad2s1200.c" target="_blank">drivers/iio/resolver/ad2s1200.c</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -431,65 +434,29 @@ and sensors using a number of different physical interfaces (i2c, spi, etc). See
 </section>
 <section id="adding-linux-driver-support">
 <h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The Driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="n">Staging</span> <span class="n">drivers</span>  <span class="o">---&gt;</span>
-            <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-                <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-                <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-                <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
-                <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
-
-                      <span class="o">***</span> <span class="n">Resolver</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
-                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-
-                <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD2S120x</span> <span class="n">driver</span>
-
-                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+<p>Enable <code class="docutils literal notranslate"><span class="pre">CONFIG_AD2S1200</span></code> with <code class="docutils literal notranslate"><span class="pre">CONFIG_SPI</span></code> and <code class="docutils literal notranslate"><span class="pre">CONFIG_GPIOLIB</span></code> on
+a real target (<code class="docutils literal notranslate"><span class="pre">COMPILE_TEST</span></code> also satisfies the Kconfig GPIO dependency).
+The module is <code class="docutils literal notranslate"><span class="pre">ad2s1200</span></code>.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Device Drivers
+  Industrial I/O support
+    Resolver to digital converters
+      &lt;*&gt; Analog Devices ad2s1200/ad2s1205 driver
 </pre></div>
 </div>
 </section>
-<section id="driver-usage">
-<h2>Driver Usage<a class="headerlink" href="#driver-usage" title="Link to this heading"></a></h2>
-<p>The device file path may looks like,</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">device0</span><span class="o">/</span><span class="n">ad2s120x</span><span class="o">&gt;</span>
-</pre></div>
-</div>
-<p>There are two files:</p>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>File Name</p></th>
-<th class="head"><p>Permission</p></th>
-<th class="head"><p>Usage</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>pos_vel</p></td>
-<td><p>read only</p></td>
-<td><p>12 bits unsigned angular value and 12 bits signed velocity value</p></td>
-</tr>
-<tr class="row-odd"><td><p>pos</p></td>
-<td><p>read only</p></td>
-<td><p>12 bits unsigned angular value</p></td>
-</tr>
-<tr class="row-even"><td><p>vel</p></td>
-<td><p>read only</p></td>
-<td><p>12 bits signed velocity value</p></td>
-</tr>
-<tr class="row-odd"><td><p>description</p></td>
-<td><p>read only</p></td>
-<td><p>description about this chip</p></td>
-</tr>
-</tbody>
-</table>
-</div>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<p>Identify the device by reading <code class="docutils literal notranslate"><span class="pre">name</span></code> under
+<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX/</span></code>; the number X depends on probe order.</p>
+<p>The device exposes separate position and velocity attributes:
+<code class="docutils literal notranslate"><span class="pre">in_angl0_raw</span></code>/<code class="docutils literal notranslate"><span class="pre">in_angl_scale</span></code> for position, and
+<code class="docutils literal notranslate"><span class="pre">in_anglvel0_raw</span></code>/<code class="docutils literal notranslate"><span class="pre">in_anglvel_scale</span></code> for velocity. Position is an unsigned
+12-bit code; velocity is a signed 12-bit code.</p>
 </section>
 <section id="more-information">
 <h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>

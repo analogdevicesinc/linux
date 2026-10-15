@@ -97,9 +97,9 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">AXI DMAC</a><ul>
-<li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#supported-ip-cores">Supported IP Cores</a></li>
 <li><a class="reference internal" href="#description">Description</a><ul>
-<li><a class="reference internal" href="#features">Features</a></li>
+<li><a class="reference internal" href="#driver-features-and-limitations">Driver features and limitations</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
@@ -107,11 +107,15 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a><ul>
-<li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
 </ul>
@@ -213,6 +217,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -231,7 +236,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -367,8 +371,8 @@ Content on this topic
   <section id="axi-dmac">
 <span id="id1"></span><h1>AXI DMAC<a class="headerlink" href="#axi-dmac" title="Link to this heading"></a></h1>
 <p>Analog Device AXI-DMAC DMA Controller Linux Driver.</p>
-<section id="supported-devices">
-<h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+<section id="supported-ip-cores">
+<h2>Supported IP Cores<a class="headerlink" href="#supported-ip-cores" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_dmac/#axi-dmac" target="_blank" title="(in HDL)"><span>AXI DMAC</span></a></p></li>
 </ul>
@@ -378,8 +382,8 @@ Content on this topic
 <p>The AXI DMAC is a high-speed, high-throughput, general purpose DMA controller
 intended to be used to transfer data between system memory and other peripherals
 like high-speed converters.</p>
-<section id="features">
-<h3>Features<a class="headerlink" href="#features" title="Link to this heading"></a></h3>
+<section id="driver-features-and-limitations">
+<h3>Driver features and limitations<a class="headerlink" href="#driver-features-and-limitations" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p>Supports multiple interface types</p>
 <ul>
@@ -439,7 +443,7 @@ like high-speed converters.</p>
 <td></td>
 </tr>
 <tr class="row-even"><td><p>Documentation</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/Documentation/devicetree/bindings/dma/adi,axi-dmac.txt" target="_blank">Documentation/devicetree/bindings/dma/adi,axi-dmac.txt</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/dma/adi,axi-dmac.yaml" target="_blank">Documentation/devicetree/bindings/dma/adi,axi-dmac.yaml</a></p></td>
 <td></td>
 </tr>
 </tbody>
@@ -447,8 +451,27 @@ like high-speed converters.</p>
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="o">&lt;*&gt;</span>    <span class="n">DMA</span> <span class="o">---&gt;</span>
+
+            <span class="o">&lt;*&gt;</span>   <span class="n">DMA</span> <span class="n">Engine</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AXI</span><span class="o">-</span><span class="n">DMAC</span> <span class="n">DMA</span> <span class="n">support</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>The AXI-DMAC driver is a platform driver and can currently only be instantiated
 via device tree.</p>
 <p><strong>Required properties:</strong></p>
@@ -459,7 +482,9 @@ via device tree.</p>
 <li><p>clocks: Phandle and specifier to the controllers AXI interface clock</p></li>
 <li><p>#dma-cells: Must be 1.</p></li>
 </ul>
-<p><strong>Required sub-nodes:</strong></p>
+<p>Legacy-core sub-nodes (HDL before 4.3.a). Newer cores discover the
+source/destination configuration from the interface-description register and
+do not require <code class="docutils literal notranslate"><span class="pre">adi,channels</span></code>. The driver exposes one DMA channel, index 0.</p>
 <ul class="simple">
 <li><p>adi,channels: This sub-node must contain a sub-node for each DMA channel. For
 the channel sub-nodes the following bindings apply. They must match then
@@ -473,7 +498,6 @@ configuration options of the peripheral as it was instantiated.</p></li>
 <p><strong>Required channel sub-node properties:</strong></p>
 <ul class="simple">
 <li><p>reg: Which channel this node refers to.</p></li>
-<li><p>adi,length-width: Width of the DMA transfer length register.</p></li>
 <li><p>adi,source-bus-width, adi,destination-bus-width: Width of the source or
 destination bus in bits.</p></li>
 <li><p>adi,source-bus-type, adi,destination-bus-type: Type of the source or
@@ -482,58 +506,56 @@ destination bus. Must be one of the following:</p></li>
 <li><p>1 (AXI_DMAC_TYPE_AXI_STREAM): Streaming AXI interface</p></li>
 <li><p>2 (AXI_DMAC_TYPE_AXI_FIFO): FIFO interface</p></li>
 </ul>
-<p><strong>Optional channel properties:</strong></p>
-<ul class="simple">
-<li><p>adi,cyclic: Must be set if the channel supports hardware cyclic DMA transfers.</p></li>
-<li><p>adi,2d: Must be set if the channel supports hardware 2D DMA transfers.</p></li>
-</ul>
+<p>Transfer-length width, hardware cyclic support and 2D support are detected
+from hardware. This driver does not parse <code class="docutils literal notranslate"><span class="pre">adi,length-width</span></code>, <code class="docutils literal notranslate"><span class="pre">adi,cyclic</span></code>
+or <code class="docutils literal notranslate"><span class="pre">adi,2d</span></code> as channel configuration properties, including for legacy cores.
+Only the legacy bus-description properties above are needed for HDL before
+4.3.a; newer cores discover the interface configuration from hardware.</p>
 <p>DMA clients connected to the AXI-DMAC DMA controller must use the format
 described in the dma.txt file using a one cell specifier. The value of the
 specifier refers to the DMA channel index.</p>
 <p>Example:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dma</span><span class="p">:</span> <span class="n">dma</span><span class="o">@</span><span class="mi">7</span><span class="n">c420000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-dmac-1.00.a"</span><span class="p">;</span>
-    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x7c420000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">57</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clkc</span> <span class="mi">16</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="c1">#dma-cells = &lt;1&gt;;</span>
+<p>Legacy-core example (HDL before 4.3.a), for a parent bus with one address and
+one size cell. Replace the MMIO address, interrupt controller/SPI number, clock
+provider/index and bus widths with the synthesized design’s values. The
+interrupt is level-high. Newer cores discover the channel configuration from
+hardware.</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/dma/axi-dmac.h&gt;</span>
+<span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/interrupt-controller/irq.h&gt;</span>
 
-    <span class="n">adi</span><span class="p">,</span><span class="n">channels</span> <span class="p">{</span>
-        <span class="c1">#size-cells = &lt;0&gt;;</span>
-        <span class="c1">#address-cells = &lt;1&gt;;</span>
+<span class="nf">/</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nl">dma</span><span class="p">:</span><span class="w"> </span><span class="nf">dma</span><span class="o">@</span><span class="mi">7c420000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-dmac-1.00.a"</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x7c420000</span><span class="w"> </span><span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">interrupt-parent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">gic</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">interrupts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="w"> </span><span class="mi">57</span><span class="w"> </span><span class="na">IRQ_TYPE_LEVEL_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clkc</span><span class="w"> </span><span class="mi">16</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="o">#</span><span class="n">dma-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="n">dma</span><span class="o">-</span><span class="n">channel</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">source</span><span class="o">-</span><span class="n">bus</span><span class="o">-</span><span class="n">width</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">32</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">source</span><span class="o">-</span><span class="n">bus</span><span class="o">-</span><span class="nb">type</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">ADI_AXI_DMAC_TYPE_MM_AXI</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">destination</span><span class="o">-</span><span class="n">bus</span><span class="o">-</span><span class="n">width</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">64</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">destination</span><span class="o">-</span><span class="n">bus</span><span class="o">-</span><span class="nb">type</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">ADI_AXI_DMAC_TYPE_FIFO</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
+<span class="w">        </span><span class="nf">adi,channels</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">            </span><span class="nf">dma-channel</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="n">adi</span><span class="p">,</span><span class="n">source-bus-width</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">32</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="n">adi</span><span class="p">,</span><span class="n">source-bus-type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">AXI_DMAC_BUS_TYPE_AXI_MM</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="n">adi</span><span class="p">,</span><span class="n">destination-bus-width</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">64</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="n">adi</span><span class="p">,</span><span class="n">destination-bus-type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">AXI_DMAC_BUS_TYPE_FIFO</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="p">};</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">    </span><span class="p">};</span>
 <span class="p">};</span>
 </pre></div>
 </div>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span>    <span class="n">DMA</span> <span class="o">---&gt;</span>
-
-            <span class="o">&lt;*&gt;</span>   <span class="n">DMA</span> <span class="n">Engine</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AXI</span><span class="o">-</span><span class="n">DMAC</span> <span class="n">DMA</span> <span class="n">support</span>
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-</pre></div>
-</div>
+</section>
+</section>
 <section id="more-information">
-<h3>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h3>
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon link reference external" href="https://www.kernel.org/doc/html/latest/driver-api/dmaengine/index.html" target="_blank">Linux DMAEngine documentation</a></p></li>
 </ul>
-</section>
 </section>
 </section>
 

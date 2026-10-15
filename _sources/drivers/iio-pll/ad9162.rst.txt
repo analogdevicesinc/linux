@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/ad9162
 
+
 .. _ad9162:
 
 AD9162
@@ -22,12 +23,6 @@ Evaluation Boards
 - :adi:`AD-FMCOMMS11-EBZ`
 - :adi:`EVAL-AD916x`
 - :adi:`EVAL-AD9166`
-
-HDL Support
------------
-
-- :dokuwiki:`AD-DAC-FMC-EBZ reference HDL design </resources/eval/user-guides/ad-dac-fmc-ebz>`
-- :external+hdl:ref:`ad_ip_jesd204_tpl_dac`
 
 Description
 -----------
@@ -53,7 +48,7 @@ Status
      -
      -
    * - :git+linux:`main:drivers/iio/frequency/ad9162.c`
-     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/ad9162.c>`__
+     - No
      -
      -
 
@@ -115,19 +110,11 @@ Example device trees
      - :git+linux:`zynq-zc706-adv7511-fmcomms11-RevA.dts <main:arch/arm/boot/dts/zynq-zc706-adv7511-fmcomms11-RevA.dts>`
      -
 
-Example platform device initialization
---------------------------------------
+Adding Linux driver support
+---------------------------
 
-The AD9162 driver is a SPI bus driver and can be instantiated via device tree.
-
-For detailed information about the required/optional devicetree properties look
-at
-:git+linux:`ad916x.yaml <main:Documentation/devicetree/bindings/iio/frequency/ad916x.yaml>`
-and
-:git+linux:`ad916x-amp.yaml <main:Documentation/devicetree/bindings/iio/amplifiers/ad916x-amp.yaml>`.
-
-Enabling Linux driver support
------------------------------
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
@@ -135,9 +122,6 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 .. note::
 
    The AD9162 driver depends on **CONFIG_SPI** and **CONFIG_CF_AXI_DDS**
-
-Adding Linux driver support
----------------------------
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
@@ -148,8 +132,7 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
        Device Drivers  --->
        <*>     Industrial I/O support --->
            --- Industrial I/O support
-           -*-   Enable ring buffer support within IIO
-           -*-     Industrial I/O lock free software ring
+           -*-   Enable buffer support within IIO
            -*-   Enable triggered sampling support
 
                  *** Direct Digital Synthesis ***
@@ -160,6 +143,20 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 
            [--snip--]
 
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Example platform device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The AD9162 driver is a SPI bus driver and can be instantiated via device tree.
+
+For detailed information about the required/optional devicetree properties look
+at
+:git+linux:`ad916x.yaml <main:Documentation/devicetree/bindings/iio/frequency/ad916x.yaml>`
+and
+:git+linux:`ad916x-amp.yaml <main:Documentation/devicetree/bindings/iio/amplifiers/ad916x-amp.yaml>`.
+
 Driver testing
 --------------
 
@@ -167,15 +164,15 @@ Driver testing
    :start-after: .. start-iio-device-files
    :end-before: .. end-iio-device-files
 
-The driver has two main ways of functioning depending on the
-:git+linux:`adi,standalone-probe <main:Documentation/devicetree/bindings/iio/frequency/ad916x.yaml#L49>`
+The driver has two main ways of functioning depending on the :git+linux:`adi,standalone-probe <main:Documentation/devicetree/bindings/iio/frequency/ad916x.yaml#L49>`
 devicetree property. If set, the driver will probe in standalone mode which
-means that it won’t link with the :ref:`axi-dac-dds-hdl`. This means that
-different attributes will be seen depending on the working mode. The next ABI is
-the same independent of the working mode.
+means that it won’t link with the :ref:`axi-dac-dds-hdl`. This means that different
+attributes will be seen depending on the working mode. The NCO ABI differs by
+working mode: standalone uses ``out_altvoltage0_nco_frequency``; attached mode
+uses ``out_altvoltage4_frequency_nco``.
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -183,14 +180,16 @@ Show device name
    ad9166
 
 Change NCO Frequency
-^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~
 
-What: **out_voltageX_nco_frequency**
+What: **out_altvoltage0_nco_frequency** (standalone) or
+**out_altvoltage4_frequency_nco** (attached)
 
 Set channel NCO frequency (fCARRIER) in Hz
 
-Range is: −fclk/2 ≤ fCARRIER < +fclk/2 or 0 ≤ fCARRIER < fclk if FIR85 is
-enabled
+Standalone NCO input is signed and supports the API range −fclk/2 ≤ fCARRIER <
++fclk/2 (or 0 ≤ fCARRIER < fclk with FIR85). In attached mode, the attribute
+accepts non-negative values only.
 
 ::
 
@@ -261,7 +260,11 @@ Read Temperature
 
 What: **in_tempX_input**
 
-To get the temperature already processed in milli degrees °C: ::
+After valid temperature calibration, read the processed temperature in
+millidegrees Celsius. Without a nonzero calibration code the read returns
+EOPNOTSUPP.
+
+::
 
    analog@analog:/sys/bus/iio/devices/iio:device2 $ cat in_temp0_input
    75000
@@ -292,7 +295,7 @@ Attached Mode
 As said, in this mode the driver is used in conjunction with the
 :ref:`axi-dac-dds-hdl`.
 
-::
+.. code-block:: text
 
    analog@analog:~$ cd /sys/bus/iio/devices/iio\:device6
    analog@analog:/sys/bus/iio/devices/iio:device6$
@@ -313,7 +316,7 @@ As said, in this mode the driver is used in conjunction with the
    -rw-r--r-- 1 root root 4096 Apr 27 16:20 out_altvoltage1_1B_phase
    -rw-r--r-- 1 root root 4096 Apr 27 16:20 out_altvoltage1_1B_raw
    -rw-r--r-- 1 root root 4096 Apr 27 16:20 out_altvoltage1_1B_scale
-   -rw-r--r-- 1 root root 4096 Apr 27 16:20 out_altvoltage2_frequency_nco
+   -rw-r--r-- 1 root root 4096 Apr 27 16:20 out_altvoltage4_frequency_nco
    -rw-r--r-- 1 root root 4096 Apr 27 16:20 out_altvoltage_sampling_frequency
    -rw-r--r-- 1 root root 4096 Apr 27 16:20 out_voltage0_calibphase
    -rw-r--r-- 1 root root 4096 Apr 27 16:20 out_voltage0_calibscale
@@ -361,7 +364,7 @@ Documentation for following subfolders and channel attributes can be found here:
 - scan_elements
 
 AD9166 Amplifier
-----------------
+~~~~~~~~~~~~~~~~
 
 The AD9166 comes with an integrated differential to single-ended output buffer
 amplifier, matched to a 50Ω load up to 10 GHz. This amplifier has it’s own SPI
@@ -373,3 +376,9 @@ More Information
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-pointers
    :end-before: .. end-iio-pointers
+
+HDL Support
+~~~~~~~~~~~
+
+- :dokuwiki:`AD-DAC-FMC-EBZ reference HDL design </resources/eval/user-guides/ad-dac-fmc-ebz>`
+- :external+hdl:ref:`ad_ip_jesd204_tpl_dac`

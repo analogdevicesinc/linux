@@ -100,16 +100,18 @@
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
 <li><a class="reference internal" href="#description">Description</a></li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-channel-scale-and-offset">Show channel scale and offset</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-channel-scale-and-offset">Show channel scale and offset</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#set-sampling-frequency">Set sampling frequency</a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -214,6 +216,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -232,7 +235,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -385,14 +387,17 @@ Content on this topic
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
-<p>This is a Linux industrial I/O (<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a>) subsystem
-driver, targeting single channel serial interface ADCs. The industrial I/O
-subsystem provides a unified framework for drivers for many different types of
-converters and sensors using a number of different physical interfaces (i2c,
-spi, etc). See <a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a> for more information.</p>
+<p>This is a Linux industrial I/O (<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a>) subsystem driver for the
+AD7124-4 and AD7124-8 multiplexed sigma-delta ADCs. Voltage channels are
+configured from devicetree channel nodes. The industrial I/O subsystem provides
+a unified framework for drivers for many different types of converters and
+sensors using a number of different physical interfaces (i2c, spi, etc). See
+<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a> for more information.</p>
 </section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
 <section id="status">
-<h2>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h2>
+<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -413,7 +418,7 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </div>
 </section>
 <section id="files">
-<h2>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h2>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -434,6 +439,7 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </tbody>
 </table>
 </div>
+</section>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -487,12 +493,15 @@ the numbering is constant and may be known in advance.</p>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jun</span> <span class="mi">23</span> <span class="mi">21</span><span class="p">:</span><span class="mi">46</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">ad7124</span><span class="o">-</span><span class="mi">4</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-channel-scale-and-offset">
 <h4>Show channel scale and offset<a class="headerlink" href="#show-channel-scale-and-offset" title="Link to this heading"></a></h4>
 <p><strong>Description:</strong> Scales and offsets to be applied to in_voltagex_voltagey_raw in
@@ -505,28 +514,30 @@ order to obdatin the measured voltage in millivolts</p>
 <span class="mi">2679470</span>
 </pre></div>
 </div>
-<p><strong>Description:</strong> Channel Ainp0-Ainm1 is configured as unipolar, with a gain of 1
-<strong>U</strong> = //in_voltage0-voltage1_raw * in_voltage0-voltage1_scale -
-in_voltage0-voltage1_offset // = 2679470 * 0.000149011 - 0 = <strong>399.27 mV</strong></p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage2</span><span class="o">-</span><span class="n">voltage3_scale</span>
-<span class="mf">0.000298023</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage2</span><span class="o">-</span><span class="n">voltage3_offset</span>
-<span class="o">-</span><span class="mi">2500</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage2</span><span class="o">-</span><span class="n">voltage3_raw</span>
-<span class="mi">9716211</span>
+<p><strong>Description:</strong> Channel Ainp0-Ainm1 is configured as unipolar, with a gain of
+1: U_mV = (raw + offset) × scale = (2679470 + 0) × 0.000149011 ≈ 399.27 mV.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/bus/iio/devices/iio:device0&gt; cat in_voltage2-voltage3_scale
+0.000298023
+root:/sys/bus/iio/devices/iio:device0&gt; cat in_voltage2-voltage3_offset
+-8388608
+root:/sys/bus/iio/devices/iio:device0&gt; cat in_voltage2-voltage3_raw
+9716211
 </pre></div>
 </div>
-<p><strong>Description:</strong> Channel Ainp2-Ainm3 is configured as bipolar, with a gain of 1
-<strong>U</strong> = //in_voltage2-voltage3_raw * in_voltage2-voltage3_scale -
-in_voltage2-voltage3_offset // = 9716211* 0.000298023 - 2500= <strong>395.65 mV</strong></p>
+<p><strong>Description:</strong> Channel Ainp2-Ainm3 is configured as bipolar, with a gain of
+1: U_mV = (raw + offset) × scale = (9716211 - 8388608) × 0.000298023 ≈
+395.66 mV.</p>
+</section>
+</section>
 <section id="set-sampling-frequency">
-<h5>Set sampling frequency<a class="headerlink" href="#set-sampling-frequency" title="Link to this heading"></a></h5>
+<h3>Set sampling frequency<a class="headerlink" href="#set-sampling-frequency" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> The output data rate depends on the master clock frequency
 (fclk) which in turn determines the power mode:</p>
 <ul class="simple">
-<li><p>Full power (fCLK = 614.4 kHz): 9.38 SPS to 19,200 SPS</p></li>
-<li><p>Mid power (fCLK = 153.6 kHz): 2.34 SPS to 4800 SPS</p></li>
-<li><p>Low power (fCLK = 76.8 kHz): 1.17 SPS to 2400 SPS</p></li>
+<li><p>The sampling frequency depends on the filter and clock: fCLK/(32 × N × FS),
+with N = 3 for sinc3, N = 4 for sinc4, additional averaging for sinc1
+combinations, and FS clamped to 1..2047. Post filters have fixed rates.
+Read <code class="docutils literal notranslate"><span class="pre">sampling_frequency</span></code> back after writing it.</p></li>
 </ul>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_sampling_frequency</span>
 <span class="mi">10</span>
@@ -540,8 +551,6 @@ in_voltage2-voltage3_offset // = 9716211* 0.000298023 - 2500= <strong>395.65 mV<
 <span class="mi">4800</span>
 </pre></div>
 </div>
-</section>
-</section>
 </section>
 </section>
 <section id="more-information">

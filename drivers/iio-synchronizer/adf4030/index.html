@@ -98,19 +98,23 @@
           <ul>
 <li><a class="reference internal" href="#">ADF4030</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
-<li><a class="reference internal" href="#supported-boards">Supported Boards</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a></li>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
 <li><a class="reference internal" href="#read-bsync-frequency">Read BSYNC frequency</a></li>
 <li><a class="reference internal" href="#set-reference-channel">Set Reference Channel</a></li>
 <li><a class="reference internal" href="#read-tdc-measurement">Read TDC Measurement</a></li>
@@ -224,6 +228,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -242,7 +247,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -384,8 +388,8 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/ADF4030" target="_blank">ADF4030</a></p></li>
 </ul>
 </section>
-<section id="supported-boards">
-<h2>Supported Boards<a class="headerlink" href="#supported-boards" title="Link to this heading"></a></h2>
+<section id="evaluation-boards">
+<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADF4030" target="_blank">EVAL-ADF4030</a></p></li>
 </ul>
@@ -393,10 +397,10 @@ Content on this topic
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
 <p>The ADF4030 is a 10-channel precision synchronizer with integrated time-to-
-digital converter (TDC) for high-accuracy clock distribution and alignment.
-It provides sub-picosecond alignment accuracy for JESD204B/C system
-synchronization, making it essential for multi-converter high-speed data
-acquisition systems.</p>
+digital converter (TDC) for high-accuracy clock distribution and alignment. It
+supports JESD204B/C system synchronization, with BSYNC clock-edge alignment to
+less than 5 ps at the device pins relative to the selected reference BSYNC
+channel.</p>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -413,7 +417,7 @@ acquisition systems.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/adf4030.c" target="_blank">drivers/iio/frequency/adf4030.c</a></p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/adf4030.c" target="_blank">WIP</a></p></td>
+<td><p>No</p></td>
 <td></td>
 <td></td>
 </tr>
@@ -449,8 +453,32 @@ acquisition systems.</p>
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ADF4030 driver depends on <strong>SPI</strong> and selects <strong>REGMAP_SPI</strong></p>
+</div>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+                 <span class="n">Frequency</span> <span class="n">Synthesizers</span> <span class="n">DDS</span><span class="o">/</span><span class="n">PLL</span> <span class="o">---&gt;</span>
+                             <span class="o">***</span> <span class="n">Phase</span><span class="o">-</span><span class="n">Locked</span> <span class="n">Loop</span> <span class="p">(</span><span class="n">PLL</span><span class="p">)</span> <span class="n">frequency</span> <span class="n">synthesizers</span> <span class="o">***</span>
+                             <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADF4030</span> <span class="mi">10</span><span class="o">-</span><span class="n">Channel</span> <span class="n">Precision</span> <span class="n">Synchronizer</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>The ADF4030 driver is a SPI bus driver and can be instantiated via device tree.</p>
 <p><strong>Properties:</strong></p>
 <ul class="simple">
@@ -466,7 +494,8 @@ alignment</p></li>
 alignment</p></li>
 <li><p><strong>adi,bsync-autoalign-threshold-fs</strong>: Threshold for auto alignment in
 femtoseconds</p></li>
-<li><p><strong>clock-output-names</strong>: Names of the clock outputs (minItems: 1, maxItems: 10)</p></li>
+<li><p><strong>clock-output-names</strong>: Names of the clock outputs (minItems: 1, maxItems:
+10)</p></li>
 <li><p><strong>#clock-cells</strong>: 1</p></li>
 </ul>
 <p><strong>Pattern Properties:</strong> * <strong>^channel&#64;[0-9]+$</strong>: ADF4030 channel configuration</p>
@@ -562,31 +591,7 @@ channel</p></li>
 </pre></div>
 </div>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The ADF4030 driver depends on <strong>SPI</strong> and selects <strong>REGMAP_SPI</strong></p>
-</div>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-                 <span class="n">Frequency</span> <span class="n">Synthesizers</span> <span class="n">DDS</span><span class="o">/</span><span class="n">PLL</span> <span class="o">---&gt;</span>
-                             <span class="o">***</span> <span class="n">Phase</span><span class="o">-</span><span class="n">Locked</span> <span class="n">Loop</span> <span class="p">(</span><span class="n">PLL</span><span class="p">)</span> <span class="n">frequency</span> <span class="n">synthesizers</span> <span class="o">***</span>
-                             <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADF4030</span> <span class="mi">10</span><span class="o">-</span><span class="n">Channel</span> <span class="n">Precision</span> <span class="n">Synchronizer</span>
-</pre></div>
-</div>
-</section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -613,25 +618,21 @@ the numbering is constant and may be known in advance.</p>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">label</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">name</span>
 <span class="n">lrwxrwxrwx</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>       <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">of_node</span> <span class="o">-&gt;</span> <span class="o">../../../../../../../../</span><span class="n">firmware</span><span class="o">/</span><span class="n">devicetree</span><span class="o">/</span><span class="n">base</span><span class="o">/</span><span class="n">amba_pl</span><span class="o">/</span><span class="n">spi</span><span class="o">@</span><span class="mi">44</span><span class="n">A80000</span><span class="o">/</span><span class="n">a4</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage0_SYSREF_0_autoalign_enable</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage0_SYSREF_0_frequency</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage0_SYSREF_0_label</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage0_SYSREF_0_output_enable</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage0_SYSREF_0_phase</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage0_SYSREF_0_reference_channel</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage1_SYSREF_1_autoalign_enable</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage1_SYSREF_1_frequency</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage1_SYSREF_1_label</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage1_SYSREF_1_output_enable</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage1_SYSREF_1_phase</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage1_SYSREF_1_reference_channel</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage4_FPGA_SYSREF_0_autoalign_enable</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage4_FPGA_SYSREF_0_frequency</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage4_FPGA_SYSREF_0_label</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage4_FPGA_SYSREF_0_output_enable</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage4_FPGA_SYSREF_0_phase</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage4_FPGA_SYSREF_0_reference_channel</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage8_REF_autoalign_enable</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage8_REF_frequency</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage8_REF_label</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>   <span class="n">root</span>    <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">out_altvoltage8_REF_output_enable</span>
@@ -646,8 +647,8 @@ the numbering is constant and may be known in advance.</p>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1">#</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat name</span>
 <span class="n">adf4030</span>
 </pre></div>
@@ -705,8 +706,8 @@ the numbering is constant and may be known in advance.</p>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">9</span></code></p></td>
 <td><p>BSYNC9</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">26</span></code></p></td>
-<td><p>REFIN</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">REFIN</span> <span class="pre">(26)</span> <span class="pre">is</span> <span class="pre">accepted</span> <span class="pre">by</span> <span class="pre">the</span> <span class="pre">DT</span> <span class="pre">adi,reference-channel-num</span> <span class="pre">property</span> <span class="pre">but</span> <span class="pre">not</span> <span class="pre">by</span> <span class="pre">the</span> <span class="pre">runtime</span> <span class="pre">reference_channel</span> <span class="pre">writer,</span> <span class="pre">which</span> <span class="pre">currently</span> <span class="pre">allows</span> <span class="pre">only0..9.</span></code></p></td>
+<td></td>
 </tr>
 </tbody>
 </table>
@@ -736,11 +737,14 @@ femtoseconds (fs).</p>
 </section>
 <section id="start-single-channel-alignment">
 <h3>Start Single-Channel Alignment<a class="headerlink" href="#start-single-channel-alignment" title="Link to this heading"></a></h3>
-<p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">out_altvoltageX_[&lt;adi,extended-name&gt;]_autoalign_enable</span></code></p>
-<p>Writing <code class="docutils literal notranslate"><span class="pre">1</span></code> starts the Single-Channel Alignment procedure.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 1 &gt; out_altvoltage0_SYSREF_0_autoalign_enable</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat out_altvoltage0_SYSREF_0_phase</span>
-<span class="mi">104</span>
+<p>Writing the channel’s phase attribute sets the requested delay and immediately
+starts alignment against its selected reference channel. There is no separate
+<code class="docutils literal notranslate"><span class="pre">autoalign_enable</span></code> attribute in this interface.</p>
+<p>Run these commands in the device’s sysfs directory to request zero delay and
+read back the phase. Use the required delay in femtoseconds instead of zero
+when configuring another alignment target.</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>&gt;<span class="w"> </span>out_altvoltage0_SYSREF_0_phase
+cat<span class="w"> </span>out_altvoltage0_SYSREF_0_phase
 </pre></div>
 </div>
 </section>
@@ -757,8 +761,9 @@ both ends drive the signal.</p>
 <section id="alignment-cycles-control">
 <h3>Alignment Cycles Control<a class="headerlink" href="#alignment-cycles-control" title="Link to this heading"></a></h3>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">out_altvoltage_autoalign_iteration</span></code></p>
-<p>Sets the Number of Alignment Cycles (iterations) in the single-channel alignment
-procedures. For best performance set to <code class="docutils literal notranslate"><span class="pre">7</span></code></p>
+<p>Sets the actual number of alignment cycles, from 1 through 8. The attribute
+is shared by channel type, so its name omits the channel number and extended
+name. The driver converts this count to the hardware’s zero-based encoding.</p>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -767,34 +772,34 @@ procedures. For best performance set to <code class="docutils literal notranslat
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>Run 1 alignment cycle</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
 <td><p>Run 2 alignment cycles</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
 <td><p>Run 3 alignment cycles</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">4</span></code></p></td>
 <td><p>Run 4 alignment cycles</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">4</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
 <td><p>Run 5 alignment cycles</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">6</span></code></p></td>
 <td><p>Run 6 alignment cycles</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">6</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">7</span></code></p></td>
 <td><p>Run 7 alignment cycles</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">7</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">8</span></code></p></td>
 <td><p>Run 8 alignment cycles</p></td>
 </tr>
 </tbody>
 </table>
 </div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 7 &gt; out_altvoltage0_SYSREF_0_autoalign_iteration</span>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">8</span><span class="w"> </span>&gt;<span class="w"> </span>out_altvoltage_autoalign_iteration
 </pre></div>
 </div>
 </section>
@@ -805,9 +810,12 @@ procedures. For best performance set to <code class="docutils literal notranslat
 alignment becomes lower than a desired threshold or the alignment cycles reach
 the maximum number of alignment cycles set with
 <code class="docutils literal notranslate"><span class="pre">out_altvoltage_autoalign_iteration</span></code>. Values are in femtoseconds (fs).</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 100 &gt; out_altvoltage_autoalign_threshold</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>echo 100 &gt; out_altvoltage_autoalign_threshold
+echo 1 &gt; out_altvoltage_autoalign_threshold_en
 </pre></div>
 </div>
+<p>Threshold checking has a separate enable; setting its value alone does not
+enable it.</p>
 </section>
 <section id="temperature-reading">
 <h3>Temperature Reading<a class="headerlink" href="#temperature-reading" title="Link to this heading"></a></h3>

@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/net-phy/adin1100
 
+
 .. _adin1100:
 
 ADIN1100
@@ -12,8 +13,8 @@ Supported Devices
 
 - :adi:`ADIN1100`
 
-Supported Boards
-----------------
+Evaluation Boards
+-----------------
 
 Description
 -----------
@@ -27,9 +28,12 @@ well as the MAC interface and control logic to manage the reset and clock
 control and pin configuration.
 
 The PHY core supports the 1.0 V pk-pk operating mode and the 2.4 V pk-pk
-operating mode defined in the standard and can operate from a single power
-supply rail of 1.8V or 3.3V, with the lower voltage option supporting the 1.0 V
-pk-pk transmit voltage level.
+operating mode defined in the standard. The optional PHY property
+phy-10base-t1l-2.4vpp controls the transmit-level policy: zero disables 2.4 Vpp
+and a nonzero value requests it, subject to hardware capability. The forced-mode
+path defaults to 1.0 Vpp unless 2.4 Vpp is explicitly requested. and can operate
+from a single power supply rail of 1.8V or 3.3V, with the lower voltage option
+supporting the 1.0 V pk-pk transmit voltage level.
 
 The 1.0 V pk-pk operating mode, external termination resistors and independent
 Rx/Tx pins make the ADIN1100 suited to intrinsic safety applications.
@@ -70,8 +74,39 @@ Files
    * - driver
      - `adin1100.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/phy/adin1100.c>`_
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+#. Hit the search button (typically the slash ``/`` key)
+#. Type ADIN1100, then hit Enter; if nothing shows up, the driver is not
+   available in your kernel tree, please use :git+linux:`/`
+#. Press 1 (the key), then hit Enter
+#. You should see the location + dependencies for enabling the driver
+
+::
+
+   Linux Kernel Configuration
+   Symbol: ADIN1100_PHY [=y]
+   Type  : tristate
+   Prompt: Analog Devices Industrial Ethernet 10BASE-T1L PHYs
+      Location:
+        -> Device Drivers
+          -> Network device support (NETDEVICES [=y])│
+    (1)     -> PHY Device support and infrastructure (PHYLIB [=y])
+      Defined at drivers/net/phy/Kconfig:208
+      Depends on: NETDEVICES [=y] && PHYLIB [=y]
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ADIN 10BASE-T1L PHY driver instantiates via Linux’s phylib framework, which
 is typically enabled on most systems.
@@ -113,31 +148,6 @@ configured via HW pins
                reg = <1>;
            };
        };
-
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-#. Hit the search button (typically the slash ``/`` key)
-#. Type ADIN1100, then hit Enter; if nothing shows up, the driver is not
-   available in your kernel tree, please use :git+linux:`/`
-#. Press 1 (the key), then hit Enter
-#. You should see the location + dependencies for enabling the driver
-
-::
-
-   Linux Kernel Configuration
-   Symbol: ADIN1100_PHY [=y]
-   Type  : tristate
-   Prompt: Analog Devices Industrial Ethernet 10BASE-T1L PHYs
-      Location:
-        -> Device Drivers
-          -> Network device support (NETDEVICES [=y])│
-    (1)     -> PHY Device support and infrastructure (PHYLIB [=y])
-      Defined at drivers/net/phy/Kconfig:208
-      Depends on: NETDEVICES [=y] && PHYLIB [=y]
 
 Driver testing
 --------------
@@ -406,8 +416,11 @@ On the other host check the hash
    sha256sum test.data
    <SHA256-hash-of-data> == should be identical with the first hash
 
+More Information
+----------------
+
 Ethernet pointers
------------------
+~~~~~~~~~~~~~~~~~
 
 - netdev mailing list: netdev@vger.kernel.org
 - `Ethernet Controller bindings doc <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/net/ethernet-controller.yaml>`__

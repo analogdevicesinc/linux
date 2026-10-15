@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/input-touchscreen/ad7873
 
+
 .. _ad7873:
 
 AD7873
@@ -36,11 +37,11 @@ direct battery and touch-pressure measurement.
 
 *See also:* :ref:`ad7877` *See also:* :ref:`ad7879`
 
-Configuration
--------------
+Driver features and limitations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Software configurable features
-------------------------------
+Configuration
+~~~~~~~~~~~~~
 
 Source Code
 -----------
@@ -73,76 +74,18 @@ Files
    * - include
      - `include/linux/spi/ads7846.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/spi/ads7846.h>`__
 
-Example platform device initialization
---------------------------------------
-
-.. include:: /include/platform-and-bus-model.rst
-   :start-after: .. start-platform-data
-   :end-before: .. end-platform-data
-
-Touchscreen characteristics vary between boards and models. The platform_data
-for the device’s ``struct device`` holds this information.
-
-<source trunk/include/linux/spi/ads7846.h c linux-kernel>
-
-These snippets are all from the same file.
-``arch/blackfin/mach-bf537/boards/stamp.c``:
-
-.. code:: C
-
-   #if defined(CONFIG_TOUCHSCREEN_ADS7846) || defined(CONFIG_TOUCHSCREEN_ADS7846_MODULE)
-   #include <linux/spi/ads7846.h>
-   static struct bfin5xx_spi_chip ad7873_spi_chip_info = {
-       .bits_per_word  = 8,
-   };
-
-   static int ads7873_get_pendown_state(void)
-   {
-       return gpio_get_value(GPIO_PF6);
-   }
-
-   static struct ads7846_platform_data __initdata ad7873_pdata = {
-       .model      = 7873,     /* AD7873 */
-       .x_max      = 0xfff,
-       .y_max      = 0xfff,
-       .x_plate_ohms   = 620,
-       .debounce_max   = 1,
-       .debounce_rep   = 0,
-       .debounce_tol   = (~0),
-       .get_pendown_state = ads7873_get_pendown_state,
-   };
-   #endif
-
-.. include:: /include/platform-and-bus-model.rst
-   :start-after: .. start-declaring-spi-slave-devices
-   :end-before: .. end-declaring-spi-slave-devices
-
-.. code:: C
-
-   static struct spi_board_info bfin_spi_board_info[] __initdata = {
-   #if defined(CONFIG_TOUCHSCREEN_ADS7846) || defined(CONFIG_TOUCHSCREEN_ADS7846_MODULE)
-       {
-           .modalias = "ads7846",
-           .max_speed_hz = 2000000,     /* max spi clock (SCK) speed in HZ */
-           .bus_num = 0,
-           .irq = IRQ_PF6,
-           .chip_select = GPIO_PF10 + MAX_CTRL_CS, /* GPIO controlled SSEL */
-           .controller_data = &ad7873_spi_chip_info, /* needed only on Blackfin */
-           .platform_data = &ad7873_pdata,
-           .mode = SPI_MODE_0,
-       },
-   #endif
-   };
-
 Adding Linux driver support
 ---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
 .. note::
 
-   The AD7873 Driver depends on **CONFIG_SPI**
+   The AD7873 driver depends on CONFIG_SPI.
 
 ::
 
@@ -171,14 +114,8 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
      [ ]   Miscellaneous devices  --->
          Hardware I/O ports  --->
 
-Hardware configuration
-----------------------
-
-Driver testing
---------------
-
 Driver compiled as a module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -188,7 +125,7 @@ Driver compiled as a module
    input: ADS7873 Touchscreen as /devices/platform/bfin-spi.0/spi0.18/input/input0
 
 Driver compiled into the kernel
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Your kernel startup messages should include something like this
 
@@ -197,8 +134,48 @@ Your kernel startup messages should include something like this
    ads7846 spi0.18: touchscreen, irq 56
    input: ADS7873 Touchscreen as /devices/platform/bfin-spi.0/spi0.18/input/input0
 
-Checking for proper installation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Example platform device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-platform-data
+   :end-before: .. end-platform-data
+
+AD7873 and AD7843 are handled by the shared ``ads7846`` driver. The
+devicetree ``compatible`` string selects the model: ``ti,ads7873`` for the
+AD7873, ``ti,ads7843`` for the AD7843 (the driver also supports
+``ti,ads7846``, ``ti,ads7845`` and ``ti,tsc2046`` for the related TI parts).
+Required devicetree properties are ``compatible`` and ``reg``. The PENIRQ
+line is described with ``interrupts`` and ``pendown-gpio``. Optional properties include the ``vcc``
+regulator supply, ``ti,x-plate-ohms``, ``ti,debounce-rep``,
+``ti,debounce-tol``, ``ti,settle-delay-usec`` and ``touchscreen-swapped-x-y``.
+
+.. code-block:: dts
+
+   &spi0 {
+       #address-cells = <1>;
+       #size-cells = <0>;
+
+       touchscreen@0 {
+           compatible = "ti,ads7873";
+           reg = <0>;
+           spi-max-frequency = <2000000>;
+           interrupt-parent = <&gpio1>;
+           interrupts = <6 IRQ_TYPE_EDGE_FALLING>;
+           pendown-gpio = <&gpio1 6 GPIO_ACTIVE_LOW>;
+           vcc-supply = <&vcc>;
+           ti,x-plate-ohms = /bits/ 16 <620>;
+       };
+   };
+
+Driver testing
+--------------
+
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 After the kernel boot your device folder should include at least one device node
 for the touchscreen
@@ -273,5 +250,5 @@ Use the event_test utility to test proper function
 .. tip::
 
    In case you touch the surface and don’t receive events, it’s likely that
-   something with your /PENIRQ Interrupt is wrong. **check irq number in your
-   platform device file**
+   something with your /PENIRQ Interrupt is wrong. Check the IRQ and
+   pendown-gpio in the devicetree node.

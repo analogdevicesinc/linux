@@ -99,19 +99,20 @@
 <li><a class="reference internal" href="#">AD4030/AD4630/ADAQ4216/ADAQ4224</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+<li><a class="reference internal" href="#description">Description</a></li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
-<li><a class="reference internal" href="#overview">Overview</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
-<li><a class="reference internal" href="#enabling-the-driver">Enabling the driver</a></li>
-<li><a class="reference internal" href="#adding-a-device-tree-entry">Adding a device tree entry</a><ul>
-<li><a class="reference internal" href="#device-tree-example">Device tree example</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
 <li><a class="reference internal" href="#show-channel-scale">Show channel scale</a></li>
 </ul>
 </li>
@@ -220,6 +221,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -238,7 +240,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -403,8 +404,18 @@ An alternative out-of-tree driver is documented at <a class="reference internal"
 <li><p><a class="icon adi reference external" href="https://www.analog.com/en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/eval-adaq4224-fmcz.html" target="_blank">EVAL-ADAQ4224-FMCZ</a></p></li>
 </ul>
 </section>
+<section id="description">
+<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
+<p>The <a class="icon adi reference external" href="https://www.analog.com/ad4030-24" target="_blank">ad4030-24</a>, <a class="icon adi reference external" href="https://www.analog.com/ad4630-24" target="_blank">ad4630-24</a>, and similar ADCs are low noise, low
+power, high speed, 2 MSPS or 500 kSPS SAR ADCs. The digital features include
+offset correction, gain adjustment, and averaging, which offload the host
+processor. The user can configure the device for one of several output code
+formats.</p>
+</section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
 <section id="status">
-<h2>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h2>
+<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -425,7 +436,7 @@ An alternative out-of-tree driver is documented at <a class="reference internal"
 </div>
 </section>
 <section id="files">
-<h2>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h2>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -451,26 +462,19 @@ An alternative out-of-tree driver is documented at <a class="reference internal"
 </table>
 </div>
 </section>
-<section id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
-<p>The <a class="icon adi reference external" href="https://www.analog.com/ad4030-24" target="_blank">ad4030-24</a>, <a class="icon adi reference external" href="https://www.analog.com/ad4630-24" target="_blank">ad4630-24</a>, and similar ADCs are low noise, low
-power, high speed, 2 MSPS or 500 kSPS SAR ADCs. The digital features include
-offset correction, gain adjustment, and averaging, which offload the host
-processor. The user can configure the device for one of several output code
-formats.</p>
 </section>
 <section id="adding-linux-driver-support">
 <h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<section id="enabling-the-driver">
-<h3>Enabling the driver<a class="headerlink" href="#enabling-the-driver" title="Link to this heading"></a></h3>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The AD4030 driver depends on <strong>CONFIG_SPI</strong>, <strong>CONFIG_GPIOLIB</strong>,
-<strong>CONFIG_PWM, CONFIG_REGMAP, CONFIG_IIO_BUFFER, CONFIG_IIO_BUFFER_DMA,
-CONFIG_IIO_BUFFER_DMAENGINE, CONFIG_IIO_TRIGGERED_BUFFER</strong>,
-<strong>CONFIG_SPI_OFFLOAD</strong>, and <strong>CONFIG_SPI_OFFLOAD_TRIGGER_PWM</strong></p>
+<p>The AD4030 driver depends on <strong>CONFIG_SPI</strong>, <strong>CONFIG_GPIOLIB</strong> and
+<strong>CONFIG_PWM</strong>, and selects <strong>CONFIG_REGMAP</strong>, <strong>CONFIG_IIO_BUFFER</strong>,
+<strong>CONFIG_IIO_BUFFER_DMA</strong>, <strong>CONFIG_IIO_BUFFER_DMAENGINE</strong>,
+<strong>CONFIG_IIO_TRIGGERED_BUFFER</strong> and <strong>CONFIG_SPI_OFFLOAD</strong>.</p>
 </div>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
     <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
@@ -487,10 +491,8 @@ CONFIG_IIO_BUFFER_DMAENGINE, CONFIG_IIO_TRIGGERED_BUFFER</strong>,
 </pre></div>
 </div>
 </section>
-<section id="adding-a-device-tree-entry">
-<h3>Adding a device tree entry<a class="headerlink" href="#adding-a-device-tree-entry" title="Link to this heading"></a></h3>
-<section id="device-tree-example">
-<h4>Device tree example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h4>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">//</span> <span class="n">SPDX</span><span class="o">-</span><span class="n">License</span><span class="o">-</span><span class="n">Identifier</span><span class="p">:</span> <span class="n">GPL</span><span class="o">-</span><span class="mf">2.0</span>
 <span class="o">/*</span>
  <span class="o">*</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADAQ4216</span> <span class="n">without</span> <span class="n">isolated</span> <span class="n">power</span> <span class="n">supply</span>
@@ -625,7 +627,6 @@ CONFIG_IIO_BUFFER_DMAENGINE, CONFIG_IIO_TRIGGERED_BUFFER</strong>,
 </div>
 </section>
 </section>
-</section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <p>Each and every IIO device, typically a hardware chip, has a device folder under
@@ -645,12 +646,15 @@ interface can be found here:</p>
 <li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/software/iio-oscilloscope/#iio-oscilloscope" target="_blank" title="(in System Level Documentation)"><span>IIO Oscilloscope</span></a></p></li>
 </ul>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># cat /sys/bus/iio/devices/iio:device0/name</span>
 <span class="n">adaq4216</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-channel-scale">
 <h4>Show channel scale<a class="headerlink" href="#show-channel-scale" title="Link to this heading"></a></h4>
 <p><strong>Description:</strong> Scale to be applied to in_voltageX_raw in order to obtain the
@@ -660,40 +664,44 @@ measured voltage in millivolts</p>
 </pre></div>
 </div>
 <p>Example test single-shot readings through IIO device sysfs interface.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># ls -l /sys/bus/iio/devices/iio:device0/</span>
-<span class="n">total</span> <span class="mi">0</span>
-<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">buffer</span>
-<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">buffer0</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">dev</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_calibbias</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_calibbias_available</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_calibscale</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_calibscale_available</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_label</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_raw</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_scale</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">in_voltage0</span><span class="o">-</span><span class="n">voltage1_scale_available</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">name</span>
-<span class="n">lrwxrwxrwx</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">of_node</span> <span class="o">-&gt;</span> <span class="o">../../../../../../../../</span><span class="n">firmware</span><span class="o">/</span><span class="n">devicetree</span><span class="o">/</span><span class="n">base</span><span class="o">/</span><span class="n">fpga</span><span class="o">-</span><span class="n">axi</span><span class="o">@</span><span class="mi">0</span><span class="o">/</span><span class="n">spi</span><span class="o">@</span><span class="mi">44</span><span class="n">a00000</span><span class="o">/</span><span class="n">adaq4216</span><span class="o">@</span><span class="mi">0</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">oversampling_ratio</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">oversampling_ratio_available</span>
-<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">power</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">sampling_frequency</span>
-<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">scan_elements</span>
-<span class="n">lrwxrwxrwx</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">subsystem</span> <span class="o">-&gt;</span> <span class="o">../../../../../../../../</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">uevent</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span>  <span class="mi">4</span> <span class="mi">19</span><span class="p">:</span><span class="mi">03</span> <span class="n">waiting_for_supplier</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root@analog:~# ls -l /sys/bus/iio/devices/iio:device0/
+total 0
+drwxr-xr-x 2 root root    0 Feb  4 19:03 buffer
+drwxr-xr-x 2 root root    0 Feb  4 19:03 buffer0
+-r--r--r-- 1 root root 4096 Feb  4 19:03 dev
+-rw-r--r-- 1 root root 4096 Feb  4 19:03 in_voltage0-voltage1_calibbias
+-r--r--r-- 1 root root 4096 Feb  4 19:03 in_voltage0-voltage1_calibbias_available
+-rw-r--r-- 1 root root 4096 Feb  4 19:03 in_voltage0-voltage1_calibscale
+-r--r--r-- 1 root root 4096 Feb  4 19:03 in_voltage0-voltage1_calibscale_available
+-r--r--r-- 1 root root 4096 Feb  4 19:03 in_voltage0-voltage1_label
+-rw-r--r-- 1 root root 4096 Feb  4 19:03 in_voltage0-voltage1_raw
+-rw-r--r-- 1 root root 4096 Feb  4 19:03 in_voltage0-voltage1_scale
+-r--r--r-- 1 root root 4096 Feb  4 19:03 name
+lrwxrwxrwx 1 root root    0 Feb  4 19:03 of_node -&gt; ../../../../../../../../firmware/devicetree/base/fpga-axi@0/spi@44a00000/adaq4216@0
+-rw-r--r-- 1 root root 4096 Feb  4 19:03 oversampling_ratio
+-r--r--r-- 1 root root 4096 Feb  4 19:03 oversampling_ratio_available
+drwxr-xr-x 2 root root    0 Feb  4 19:03 power
+
+drwxr-xr-x 2 root root    0 Feb  4 19:03 scan_elements
+lrwxrwxrwx 1 root root    0 Feb  4 19:03 subsystem -&gt; ../../../../../../../../bus/iio
+-rw-r--r-- 1 root root 4096 Feb  4 19:03 uevent
+-r--r--r-- 1 root root 4096 Feb  4 19:03 waiting_for_supplier
 </pre></div>
 </div>
+<p>The driver has no <code class="docutils literal notranslate"><span class="pre">sampling_frequency</span></code> attribute; capture pacing comes from
+the selected IIO trigger. The scale is read-only and has no <code class="docutils literal notranslate"><span class="pre">scale_available</span></code>
+attribute. Calibration bias/scale and oversampling ratio are supported;
+reading <code class="docutils literal notranslate"><span class="pre">raw</span></code> and reading or writing calibration and oversampling attributes
+fail while the buffer is enabled.</p>
 </section>
 </section>
 <section id="application-software">
 <h3>Application Software<a class="headerlink" href="#application-software" title="Link to this heading"></a></h3>
-<p>Analog Devices <a class="icon adi reference external" href="https://www.analog.com/ADAQ4003" target="_blank">ADAQ4003</a> can be easily managed with
-<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/software/iio-oscilloscope/#iio-oscilloscope" target="_blank" title="(in System Level Documentation)"><span>IIO Oscilloscope</span></a> which has interfaces for
-configuring and retrieving data from IIO devices. After installing IIO
-Oscilloscope in the host computer, open the application and connect to the IIO
-context provided by the Kuiper Linux installation running on the ZedBoard.</p>
+<p>A supported ADC bound to ad4030 can be managed with <a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/software/iio-oscilloscope/#iio-oscilloscope" target="_blank" title="(in System Level Documentation)"><span>IIO Oscilloscope</span></a> which has
+interfaces for configuring and retrieving data from IIO devices. After
+installing IIO Oscilloscope in the host computer, open the application and
+connect to the IIO context provided by the Kuiper Linux installation running on
+the ZedBoard.</p>
 <p>The example below shows ADAQ4216 running a 125 kSPS data capture of a test sine
 wave. 1000 samples were kept for the plot.</p>
 <figure class="align-default">

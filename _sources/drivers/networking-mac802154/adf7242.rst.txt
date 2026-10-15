@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/networking-mac802154/adf7242
 
+
 .. _adf7242:
 
 ADF7242
@@ -37,7 +38,7 @@ Status
    * - Source
      - Mainlined?
    * - :git+linux:`ADI tree <main:drivers/net/ieee802154/adf7242.c>`
-     - `Yes <https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ieee802154/adf7242.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ieee802154/adf7242.c>`__
 
 Files
 ~~~~~
@@ -55,6 +56,11 @@ Files
 Firmware for Automatic IEEE 802.15.4 Operating Modes (AN-1082)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Firmware for Automatic IEEE 802.15.4 Operating Modes (AN-1082) Install the
+converted binary as /lib/firmware/adf7242_firmware.bin (or embed it through the
+kernel firmware mechanism). Probe requests that exact name, uploads it and
+verifies it; missing or invalid firmware prevents registration.
+
 - :download:`https://wiki.analog.com/_media/resources/tools-software/linux-drivers/networking-mac802154/ram_lab_7242_2_0_ieee15dot4_full_r5.zip`
 
 - :download:`https://wiki.analog.com/_media/resources/tools-software/linux-drivers/networking-mac802154/ram_lab_7242_2_0_ieee15dot4_full_r6.zip`
@@ -65,103 +71,24 @@ device driver.
 
 - :download:`https://wiki.analog.com/_media/resources/tools-software/linux-drivers/networking-mac802154/adf7242_do_firmware.zip`
 
-Example platform device initialization
---------------------------------------
+Hardware configuration
+----------------------
 
-.. include:: /include/platform-and-bus-model.rst
-   :start-after: .. start-platform-data
-   :end-before: .. end-platform-data
-
-Example Platform / Board file
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. include:: /include/platform-and-bus-model.rst
-   :start-after: .. start-declaring-spi-slave-devices
-   :end-before: .. end-declaring-spi-slave-devices
-
-.. code:: C
-
-   #include <linux/spi/adf7242.h>
-
-   static const struct adf7242_platform_data adf7242_pdata = {
-
-       .mode = ADF_IEEE802154_AUTO_CSMA_CA | ADF_IEEE802154_HW_AACK,
-   /*
-    * Specifies number of attempts to
-    * retransmit unacknowledged
-    * frames while in automatic CSMA-CA
-    * Tx mode.
-    */
-       .max_frame_retries = 4,
-   /*
-    * Specifies number of attempts to
-    * repeat CSMA-CA algorithm prior to
-    * cancellation of RC_TX command.
-    * Valid range is 0 to 5;
-    * 7: CSMA-CA algorithm is off
-    */
-       .max_cca_retries = 4,
-   /*
-    * Specifies the maximum back-off
-    * exponent used in the CSMA-CA
-    * algorithm; valid range is 4 to 8
-    *
-    */
-       .max_csma_be = 6,
-   /*
-    * Specifies the minimum back-off
-    * exponent used in the CSMA-CA
-    * algorithm; valid range is 0 to
-    * csma_max_be
-    */
-       .min_csma_be = 1,
-   };
-
-.. code:: C
-
-   static struct spi_board_info bfin_spi_board_info[] __initdata = {
-   #if defined(CONFIG_IEEE802154_ADF7242) || defined(CONFIG_IEEE802154_ADF7242_MODULE)
-       {
-           .modalias = "adf7242",
-           .max_speed_hz = 10000000,     /* max spi clock (SCK) speed in HZ */
-           .irq = IRQ_PF6,
-           .bus_num = 0,
-           .chip_select = 0,   /* GPIO controlled SSEL */
-           .controller_data = &adf7242_spi_chip_info, /* Blackfin only */
-           .platform_data = &adf7242_pdata,
-           .mode = SPI_MODE_0,
-       },
-   #endif
-   };
-
-Alternatively, it is possible to declare the SPI devices from a DeviceTree file.
-Read the
-`documentation <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/net/ieee802154/adf7242.txt>`_
-for more details.
-
-Example:
-
-::
-
-   adf7242@0 {
-       compatible = "adi,adf7242";
-       reg = <0>;
-       spi-max-frequency = <10000000>;
-       interrupts = <0x62 IRQ_TYPE_LEVEL_HIGH>;
-
-       adi,hw-aack-mode-enable;
-       adi,auto-csma-ca-mode-enable;
-   };
+See :dokuwiki:`/resources/eval/user-guides/circuits-from-the-lab/adf7242-pmod`.
 
 Adding Linux driver support
 ---------------------------
 
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
-.. note::
+Note
 
-   The ADF7242 Driver depends on **CONFIG_SPI** and **CONFIG_IEEE802154**
+The ADF7242 driver depends on CONFIG_SPI, CONFIG_IEEE802154_DRIVERS and
+CONFIG_MAC802154 (with the IEEE 802.15.4 networking stack enabled).
 
 ::
 
@@ -180,10 +107,99 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
                  --- IEEE 802.15.4 drivers
                   <M>   ADF7242 transceiver driver
 
-Hardware configuration
-----------------------
+Device enumeration
+~~~~~~~~~~~~~~~~~~
 
-See :dokuwiki:`/resources/eval/user-guides/circuits-from-the-lab/adf7242-pmod`.
+Example platform device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-platform-data
+   :end-before: .. end-platform-data
+
+Example Platform / Board file
+"""""""""""""""""""""""""""""
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+CSMA and retry parameters are configured through mac802154. With wpan-tools
+installed, run the following as root for the intended interface. Bring down
+dependent lowpan interfaces first:
+
+.. code-block:: bash
+
+   set -eu
+   iface=wpan0 # Use the interface reported by iwpan dev.
+   ip link set dev "$iface" down
+   iwpan dev "$iface" set backoff_exponents 1 6
+   iwpan dev "$iface" set max_csma_backoffs 4
+   iwpan dev "$iface" set max_frame_retries 4
+   iwpan dev "$iface" info
+
+The interface is left down so that the board/network configuration can be
+completed before bringing it up; these settings cannot be changed while the
+interface is running. Supported ranges are minimum backoff exponent 0–8,
+maximum exponent 3–8, CSMA backoffs 0–5 and frame retries 0–15; the minimum
+exponent must not exceed the maximum.
+
+For a non-Device-Tree board, this built-in board-initialization helper registers
+one SPI device. Call it before the SPI controller is registered, passing the
+actual bus number, chip select and a positive Linux IRQ number with its trigger
+configured for the board. Use either this registration or the Device Tree
+example below, not both:
+
+.. code-block:: C
+
+   #include <linux/errno.h>
+   #include <linux/init.h>
+   #include <linux/spi/spi.h>
+
+   static int __init adf7242_register_board(unsigned int bus,
+                                          unsigned int chip_select, int irq)
+   {
+       struct spi_board_info device = {
+           .modalias = "adf7242",
+           .max_speed_hz = 10000000,
+           .mode = SPI_MODE_0,
+           .bus_num = bus,
+           .chip_select = chip_select,
+           .irq = irq,
+       };
+
+       if (irq <= 0)
+           return -EINVAL;
+       return spi_register_board_info(&device, 1);
+   }
+
+Alternatively, it is possible to declare the SPI devices from a DeviceTree file.
+Read the
+`documentation <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/net/ieee802154/adf7242.txt>`_
+for more details.
+
+Example:
+
+Device Tree alternative: use the board’s SPI controller and interrupt-controller
+labels. ACK and CSMA behavior is managed by the driver and mac802154.
+
+.. code-block:: dts
+
+   #include <dt-bindings/interrupt-controller/irq.h>
+
+   &spi0 {
+       #address-cells = <1>;
+       #size-cells = <0>;
+       status = "okay";
+
+       adf7242@0 {
+           compatible = "adi,adf7242";
+           reg = <0>;
+           spi-max-frequency = <10000000>;
+           interrupt-parent = <&gpio>;
+           interrupts = <98 IRQ_TYPE_LEVEL_HIGH>;
+       };
+   };
 
 Driver testing
 --------------

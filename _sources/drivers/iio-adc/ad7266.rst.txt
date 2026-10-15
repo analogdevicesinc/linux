@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7266
 
+
 .. _ad7266:
 
 AD7266
@@ -13,16 +14,16 @@ Supported Devices
 - :adi:`AD7265`
 - :adi:`AD7266`
 
-Reference Circuits
-------------------
-
-- :adi:`CN0187`
-
 Evaluation Boards
 -----------------
 
 - :adi:`EVAL-AD7265EDZ`
 - :adi:`EVAL-AD7266EDZ`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0187`
 
 Description
 -----------
@@ -64,8 +65,39 @@ Files
    * - include
      - `include/linux/platform_data/ad7266.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/platform_data/ad7266.h>`__
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD7266 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           ...
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               ...
+               Analog to digital converters  --->
+                   ...
+                   <*>  Analog Devices AD7265/AD7266 ADC driver
+                   ...
+               ...
+           ...
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
@@ -78,7 +110,7 @@ the AD (address) pins of the chip are hook up to GPIOs to be able to change the
 sampled inputs at runtime the GPIOs can be specified via the platform data as
 well. If GPIOs are used the \`fixed_addr\` field must be set to false.
 
-.. code:: c
+.. code-block:: c
 
    /*
     * ad7266_range - AD7266 reference voltage range
@@ -119,7 +151,7 @@ well. If GPIOs are used the \`fixed_addr\` field must be set to false.
        enum ad7266_range range;
        enum ad7266_mode mode;
        bool fixed_addr;
-       unsigned int addr_gpios[3];
+       /* GPIO descriptors named ad0, ad1 and ad2 are supplied through GPIO lookup mappings. */
    };
 
 .. code:: c
@@ -178,34 +210,6 @@ the device in question.
    }
    arch_initcall(board_init);
 
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AD7266 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           ...
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-               ...
-               Analog to digital converters  --->
-                   ...
-                   <*>  Analog Devices AD7265/AD7266 ADC driver
-                   ...
-               ...
-           ...
-
-Hardware configuration
-----------------------
-
 Driver testing
 --------------
 
@@ -240,13 +244,16 @@ Driver testing
 
    root:/sys/devices/platform/bfin-spi.0/spi0.12/iio:device0>
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.12/iio:device0> cat name
    ad7266
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale for differential input channels
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -263,7 +270,7 @@ voltage in millivolts.
    root:/sys/devices/platform/bfin-spi.0/spi0.3/device0>
 
 Show differential channel measurement
-'''''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** in_voltageY-voltageZ_raw
 
@@ -274,17 +281,17 @@ Raw unscaled voltage measurement on channel pair X-Z in differential mode
 
    * - ADC Input Pair
      - Channel name
-   * - V\ :sub:`A1` - V\ :sub:`A2`
+   * - V\ ``A1`` - V\ ``A2``
      - in_voltage0-voltage1_raw
-   * - V\ :sub:`B1` - V\ :sub:`B2`
+   * - V\ ``B1`` - V\ ``B2``
      - in_voltage2-voltage3_raw
-   * - V\ :sub:`A2` - V\ :sub:`A3`
+   * - V\ ``A2`` - V\ ``A3``
      - in_voltage4-voltage5_raw
-   * - V\ :sub:`B2` - V\ :sub:`B3`
-     - in_voltage7-voltage7_raw
-   * - V\ :sub:`A4` - V\ :sub:`A5`
+   * - V\ ``B2`` - V\ ``B3``
+     - in_voltage6-voltage7_raw
+   * - V\ ``A4`` - V\ ``A5``
      - in_voltage8-voltage9_raw
-   * - V\ :sub:`B4` - V\ :sub:`B5`
+   * - V\ ``B4`` - V\ ``B5``
      - in_voltage10-voltage11_raw
 
 ::
@@ -296,7 +303,7 @@ Raw unscaled voltage measurement on channel pair X-Z in differential mode
 = **61.035 mV**
 
 Show scale for single-ended input channels
-''''''''''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** in_voltage_scale
 
@@ -310,7 +317,7 @@ millivolts.
    root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0>
 
 Show single-ended channel measurement
-'''''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** in_voltageY_raw
 
@@ -321,7 +328,10 @@ Raw unscaled voltage measurement on channel in single ended mode
    root:/sys/devices/platform/bfin-spi.0/spi0.12/iio:device0> cat in_voltage0_raw
    100
 
-**U** = *in_voltage0 \* in_voltage_scale* = 100 \* 0.610350 = **61.035 mV**
+The voltage is U_mV = (in_voltage0_raw + in_voltage_offset) ×
+in_voltage_scale. In the single-ended or pseudo-differential 2×VREF range the
+offset is 2048 codes, otherwise zero. The scale depends on the selected mode
+and range.
 
 Trigger management
 ~~~~~~~~~~~~~~~~~~

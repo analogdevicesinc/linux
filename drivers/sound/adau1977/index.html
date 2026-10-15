@@ -100,34 +100,41 @@
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
-<li><a class="reference internal" href="#status">Status</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
+<li><a class="reference internal" href="#i2c">I2C</a></li>
+<li><a class="reference internal" href="#spi">SPI</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-device-initialization">Example device initialization</a><ul>
+<li><a class="reference internal" href="#device-enumeration">Device enumeration</a><ul>
 <li><a class="reference internal" href="#voltage-supplies">Voltage Supplies</a></li>
-<li><a class="reference internal" href="#devicetree-bindings">Devicetree bindings</a></li>
-<li><a class="reference internal" href="#i2c">I2C</a><ul>
-<li><a class="reference internal" href="#devicetree">Devicetree</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#spi">SPI</a><ul>
-<li><a class="reference internal" href="#id2">Devicetree</a></li>
+<li><a class="reference internal" href="#id2">I2C</a></li>
 </ul>
 </li>
 </ul>
 </li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#routing-and-dapm">Routing and DAPM</a><ul>
 <li><a class="reference internal" href="#asoc-dapm-widgets">ASoC DAPM Widgets</a></li>
-<li><a class="reference internal" href="#alsa-controls">ALSA Controls</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#alsa-controls">ALSA controls</a></li>
+<li><a class="reference internal" href="#dai-formats-and-clocks">DAI formats and clocks</a><ul>
 <li><a class="reference internal" href="#dai-configuration">DAI configuration</a><ul>
 <li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a></li>
 <li><a class="reference internal" href="#system-clock-configuration">System clock configuration</a></li>
-<li><a class="reference internal" href="#tdm-configuration">TDM configuration</a></li>
 <li><a class="reference internal" href="#example-machine-driver-configuration">Example machine driver configuration</a><ul>
 <li><a class="reference internal" href="#fixed-mclk">Fixed MCLK</a></li>
 <li><a class="reference internal" href="#configurable-mclk">Configurable MCLK</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#tdm-configuration">TDM configuration</a></li>
 </ul>
 </li>
 </ul>
@@ -233,6 +240,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -251,7 +259,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -423,8 +430,9 @@ Content on this topic
 </tbody>
 </table>
 </div>
+</section>
 <section id="files">
-<h4>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h4>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -459,130 +467,10 @@ Content on this topic
 </div>
 </section>
 </section>
-</section>
-<section id="example-device-initialization">
-<h2>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h2>
-<p>For compile time configuration, it’s common Linux practice to keep board- and
-application-specific configuration out of the main driver file, instead putting
-it into the board support file.</p>
-<p>For devices on custom boards, as typical of embedded and SoC-(system-on-chip)
-based hardware, Linux uses <code class="docutils literal notranslate"><span class="pre">platform_data</span></code> to point to board-specific structures
-describing devices and how they are connected to the SoC. This can include
-available ports, chip variants, preferred modes, default initialization,
-additional pin roles, and so on. This shrinks the board-support packages (BSPs)
-and minimizes board and application specific #ifdefs in drivers.</p>
-<p>The platform data for the ADAU1977 allow to specify the MICBIAS pin voltage. If
-no platform data is specified (i.e. set to NULL) the default voltage of 8.5 V
-will be used.</p>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cm">/**</span>
-<span class="cm"> * enum adau1977_micbias - ADAU1977 MICBIAS pin voltage setting</span>
-<span class="cm"> * @ADAU1977_MICBIAS_5V0: MICBIAS is set to 5.0 V</span>
-<span class="cm"> * @ADAU1977_MICBIAS_5V5: MICBIAS is set to 5.5 V</span>
-<span class="cm"> * @ADAU1977_MICBIAS_6V0: MICBIAS is set to 6.0 V</span>
-<span class="cm"> * @ADAU1977_MICBIAS_6V5: MICBIAS is set to 6.5 V</span>
-<span class="cm"> * @ADAU1977_MICBIAS_7V0: MICBIAS is set to 7.0 V</span>
-<span class="cm"> * @ADAU1977_MICBIAS_7V5: MICBIAS is set to 7.5 V</span>
-<span class="cm"> * @ADAU1977_MICBIAS_8V0: MICBIAS is set to 8.0 V</span>
-<span class="cm"> * @ADAU1977_MICBIAS_8V5: MICBIAS is set to 8.5 V</span>
-<span class="cm"> * @ADAU1977_MICBIAS_9V0: MICBIAS is set to 9.0 V</span>
-<span class="cm"> */</span>
-<span class="k">enum</span><span class="w"> </span><span class="n">adau1977_micbias</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">ADAU1977_MICBIAS_5V0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x0</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADAU1977_MICBIAS_5V5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x1</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADAU1977_MICBIAS_6V0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x2</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADAU1977_MICBIAS_6V5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x3</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADAU1977_MICBIAS_7V0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x4</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADAU1977_MICBIAS_7V5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x5</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADAU1977_MICBIAS_8V0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x6</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADAU1977_MICBIAS_8V5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x7</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADAU1977_MICBIAS_9V0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x8</span><span class="p">,</span>
-<span class="p">};</span>
-
-<span class="cm">/**</span>
-<span class="cm"> * struct adau1977_platform_data - Platform configuration data for the ADAU1977</span>
-<span class="cm"> * @micbias: Specifies the voltage for the MICBIAS pin</span>
-<span class="cm"> */</span>
-<span class="k">struct</span><span class="w"> </span><span class="nc">adau1977_platform_data</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">enum</span><span class="w"> </span><span class="n">adau1977_micbias</span><span class="w"> </span><span class="n">micbias</span><span class="p">;</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-<section id="voltage-supplies">
-<h3>Voltage Supplies<a class="headerlink" href="#voltage-supplies" title="Link to this heading"></a></h3>
-<p>The ADAU1977 driver expects a regulator supply for the AVDD voltage to be
-specified. This allows the driver to disable the supply when not needed, which
-helps to conserve power. Additionally the driver optionally accepts a supply for
-the DVDD voltage. If a supply for the DVDD voltage is specified the driver will
-use that regulator and disable the internal LDO.</p>
-<p>When using machine board files to register the device the regulators can be
-specified in the board file.</p>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">regulator_consumer_supply</span><span class="w"> </span><span class="n">adau1977_avdd_consumer_supplies</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">REGULATOR_SUPPLY</span><span class="p">(</span><span class="s">"AVDD"</span><span class="p">,</span><span class="w"> </span><span class="s">"spi0.1"</span><span class="p">),</span>
-<span class="p">};</span>
-
-<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">regulator_init_data</span><span class="w"> </span><span class="n">adau1977_avdd_reg_init_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">constraints</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">name</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s">"3V3"</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">valid_ops_mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">REGULATOR_CHANGE_STATUS</span><span class="p">,</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="p">.</span><span class="n">consumer_supplies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">adau1977_avdd_consumer_supplies</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">num_consumer_supplies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">adau1977_avdd_consumer_supplies</span><span class="p">),</span>
-<span class="p">};</span>
-
-<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">fixed_voltage_config</span><span class="w"> </span><span class="n">adau1977_avdd_pdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">supply_name</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="s">"board-3V3"</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">microvolts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3300000</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">gpio</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">EINVAL</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">enabled_at_boot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">init_data</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">adau1977_avdd_reg_init_data</span><span class="p">,</span>
-<span class="p">};</span>
-
-<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">platform_device</span><span class="w"> </span><span class="n">adau1977_avdd_voltage_regulator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="s">"reg-fixed-voltage"</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">id</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">dev</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">adau1977_avdd_pdata</span><span class="p">,</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="p">};</span>
-
-<span class="cm">/* Optional */</span>
-<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">regulator_consumer_supply</span><span class="w"> </span><span class="n">adau1977_dvdd_consumer_supplies</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">REGULATOR_SUPPLY</span><span class="p">(</span><span class="s">"DVDD"</span><span class="p">,</span><span class="w"> </span><span class="s">"spi0.1"</span><span class="p">),</span>
-<span class="p">};</span>
-
-<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">regulator_init_data</span><span class="w"> </span><span class="n">adau1977_dvdd_reg_init_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">constraints</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">name</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s">"1V8"</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">valid_ops_mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">REGULATOR_CHANGE_STATUS</span><span class="p">,</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="p">.</span><span class="n">consumer_supplies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">adau1977_dvdd_consumer_supplies</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">num_consumer_supplies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">adau1977_dvdd_consumer_supplies</span><span class="p">),</span>
-<span class="p">};</span>
-
-<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">fixed_voltage_config</span><span class="w"> </span><span class="n">adau1977_dvdd_pdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">supply_name</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="s">"board-1V8"</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">microvolts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1800000</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">gpio</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">EINVAL</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">enabled_at_boot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">init_data</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">adau1977_dvdd_reg_init_data</span><span class="p">,</span>
-<span class="p">};</span>
-
-<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">platform_device</span><span class="w"> </span><span class="n">adau1977_dvdd_voltage_regulator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="s">"reg-fixed-voltage"</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">id</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">dev</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">adau1977_dvdd_pdata</span><span class="p">,</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-<p>When using devicetree the regulators should be specified in the devicetree. For
-more on how to specify the regulators using devicetree see the
-<a class="icon link reference external" href="http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/regulator/regulator.txt" target="_blank">regulator devicetree bindings documentation</a>
-and the devicetree examples below in the SPI and I2C sections.</p>
-</section>
-<section id="devicetree-bindings">
-<h3>Devicetree bindings<a class="headerlink" href="#devicetree-bindings" title="Link to this heading"></a></h3>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <p>The ADAU1977 driver is fully devicetree compatible. Depending on the bus type
 the device is connected to different properties must/can be specified.</p>
 <p><strong>Shared required properties:</strong></p>
@@ -619,83 +507,8 @@ the ADAU1977. Valid values for this property are:</p></li>
 <li><p><strong>reg</strong>: The SPI chipselect signal of the SPI master associated with this chip</p></li>
 <li><p><strong>spi-max-frequency</strong>: Maximum spi frequency to use.</p></li>
 </ul>
-</section>
 <section id="i2c">
-<h3>I2C<a class="headerlink" href="#i2c" title="Link to this heading"></a></h3>
-<p>Unlike PCI or USB devices, I2C devices are not enumerated at the hardware level.
-Instead, the software must know which devices are connected on each I2C bus
-segment, and what address these devices are using. For this reason, the kernel
-code must instantiate I2C devices explicitly. There are different ways to
-achieve this, depending on the context and requirements. However the most
-common method is to declare the I2C devices by bus number.</p>
-<p>This method is appropriate when the I2C bus is a system bus, as in many
-embedded systems, wherein each I2C bus has a number which is known in advance.
-It is thus possible to pre-declare the I2C devices that inhabit this bus. This
-is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">i2c_board_info</span></code>, which is registered by
-calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
-<p>So, to enable such a driver one need only edit the board support file by adding
-an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>How to instantiate I2C devices</span></a></p>
-<p>The I2C device id depends on the ADDR0 and ADDR1 pin settings and needs to be
-set according to your board setup.</p>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>ADDR1</p></th>
-<th class="head"><p>ADDR0</p></th>
-<th class="head"><p>I2C device id</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>0</p></td>
-<td><p>0</p></td>
-<td><p>0x11</p></td>
-</tr>
-<tr class="row-odd"><td><p>0</p></td>
-<td><p>1</p></td>
-<td><p>0x31</p></td>
-</tr>
-<tr class="row-even"><td><p>1</p></td>
-<td><p>0</p></td>
-<td><p>0x51</p></td>
-</tr>
-<tr class="row-odd"><td><p>1</p></td>
-<td><p>1</p></td>
-<td><p>0x71</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p>In this example we assume ADDR0=0 and ADDR1=0.</p>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">adau1977_platform_data</span><span class="w"> </span><span class="n">adau1977_pdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">micbias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADAU1977_MICBIAS_6V5</span><span class="p">,</span>
-<span class="p">};</span>
-
-<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">i2c_board_info</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">bfin_i2c_board_info</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-
-<span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-<span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"adau1977"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x11</span><span class="p">),</span>
-<span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">adau1977_pdata</span><span class="p">,</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">stamp_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
-<span class="p">{</span>
-<span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-<span class="w">    </span><span class="n">i2c_register_board_info</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">bfin_i2c_board_info</span><span class="p">,</span>
-<span class="w">                </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">bfin_i2c_board_info</span><span class="p">));</span>
-<span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="n">arch_initcall</span><span class="p">(</span><span class="n">board_init</span><span class="p">);</span>
-</pre></div>
-</div>
-<section id="devicetree">
-<h4>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h4>
+<h4>I2C<a class="headerlink" href="#i2c" title="Link to this heading"></a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">codec_supply</span><span class="p">:</span> <span class="n">fixedregulator</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
     <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
     <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"AVDD"</span><span class="p">;</span>
@@ -720,53 +533,8 @@ set according to your board setup.</p>
 </pre></div>
 </div>
 </section>
-</section>
 <section id="spi">
-<h3>SPI<a class="headerlink" href="#spi" title="Link to this heading"></a></h3>
-<p>Unlike PCI or USB devices, SPI devices are not enumerated at the hardware level.
-Instead, the software must know which devices are connected on each SPI bus
-segment, and what slave selects these devices are using. For this reason, the
-kernel code must instantiate SPI devices explicitly. The most common method is
-to declare the SPI devices by bus number.</p>
-<p>This method is appropriate when the SPI bus is a system bus, as in many
-embedded systems, wherein each SPI bus has a number which is known in advance.
-It is thus possible to pre-declare the SPI devices that inhabit this bus. This
-is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
-calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>Overview of Linux kernel SPI support</span></a></p>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">adau1977_platform_data</span><span class="w"> </span><span class="n">adau1977_pdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">micbias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADAU1977_MICBIAS_7V5</span><span class="p">,</span>
-<span class="p">};</span>
-
-<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">board_spi_board_info</span><span class="p">[]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-<span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adau1977"</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10000000</span><span class="p">,</span><span class="w">     </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
-<span class="w">        </span><span class="p">.</span><span class="n">bus_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">chip_select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">GPIO_PF10</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">MAX_CTRL_CS</span><span class="p">,</span><span class="w"> </span><span class="cm">/* CS, change it for your board */</span>
-<span class="w">        </span><span class="p">.</span><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SPI_MODE_0</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">adau1977_pdata</span><span class="p">,</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">board_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
-<span class="p">{</span>
-<span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-
-<span class="w">    </span><span class="n">spi_register_board_info</span><span class="p">(</span><span class="n">board_spi_board_info</span><span class="p">,</span><span class="w"> </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">board_spi_board_info</span><span class="p">));</span>
-
-<span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<span class="p">}</span>
-<span class="n">arch_initcall</span><span class="p">(</span><span class="n">board_init</span><span class="p">);</span>
-</pre></div>
-</div>
-<section id="id2">
-<h4>Devicetree<a class="headerlink" href="#id2" title="Link to this heading"></a></h4>
+<h4>SPI<a class="headerlink" href="#spi" title="Link to this heading"></a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">codec_supply</span><span class="p">:</span> <span class="n">fixedregulator</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
     <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
     <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"AVDD"</span><span class="p">;</span>
@@ -794,9 +562,58 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
 </div>
 </section>
 </section>
+<section id="device-enumeration">
+<h3>Device enumeration<a class="headerlink" href="#device-enumeration" title="Link to this heading"></a></h3>
+<p>The driver reads <code class="docutils literal notranslate"><span class="pre">adi,micbias</span></code> from firmware. Values 0 through 8 select
+5.0 V through 9.0 V in 0.5 V steps; if the property is omitted, the driver
+selects 8.5 V.</p>
+<section id="voltage-supplies">
+<h4>Voltage Supplies<a class="headerlink" href="#voltage-supplies" title="Link to this heading"></a></h4>
+<p>The AVDD regulator is required. DVDD is optional; when it is supplied, the
+driver uses the external regulator and disables the internal LDO. See the
+<a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/regulator/regulator.yaml" target="_blank">regulator devicetree bindings documentation</a>
+and the devicetree examples above.</p>
 </section>
+<section id="id2">
+<h4>I2C<a class="headerlink" href="#id2" title="Link to this heading"></a></h4>
+<p>The I2C address depends on the ADDR0 and ADDR1 pin settings:</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>ADDR1</p></th>
+<th class="head"><p>ADDR0</p></th>
+<th class="head"><p>I2C address</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>0</p></td>
+<td><p>0x11</p></td>
+</tr>
+<tr class="row-odd"><td><p>0</p></td>
+<td><p>1</p></td>
+<td><p>0x31</p></td>
+</tr>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>0</p></td>
+<td><p>0x51</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>1</p></td>
+<td><p>0x71</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="routing-and-dapm">
+<h3>Routing and DAPM<a class="headerlink" href="#routing-and-dapm" title="Link to this heading"></a></h3>
 <section id="asoc-dapm-widgets">
-<h2>ASoC DAPM Widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h2>
+<h4>ASoC DAPM Widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -834,8 +651,9 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
 </table>
 </div>
 </section>
+</section>
 <section id="alsa-controls">
-<h2>ALSA Controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h2>
+<h3>ALSA controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -868,27 +686,29 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
 <tr class="row-odd"><td><p>ADC4 Highpass-Filter Capture Switch</p></td>
 <td><p>Enables/disables the highpass-filter for channel 4</p></td>
 </tr>
-<tr class="row-even"><td><p>ADC1 DC Substraction Capture Switch</p></td>
+<tr class="row-even"><td><p>ADC1 DC Subtraction Capture Switch</p></td>
 <td><p>Enables/disables DC offset subtraction for channel 1</p></td>
 </tr>
-<tr class="row-odd"><td><p>ADC2 DC Substraction Capture Switch</p></td>
+<tr class="row-odd"><td><p>ADC2 DC Subtraction Capture Switch</p></td>
 <td><p>Enables/disables DC offset subtraction for channel 2</p></td>
 </tr>
-<tr class="row-even"><td><p>ADC3 DC Substraction Capture Switch</p></td>
+<tr class="row-even"><td><p>ADC3 DC Subtraction Capture Switch</p></td>
 <td><p>Enables/disables DC offset subtraction for channel 3</p></td>
 </tr>
-<tr class="row-odd"><td><p>ADC4 DC Substraction Capture Switch</p></td>
+<tr class="row-odd"><td><p>ADC4 DC Subtraction Capture Switch</p></td>
 <td><p>Enables/disables DC offset subtraction for channel 4</p></td>
 </tr>
 </tbody>
 </table>
 </div>
 </section>
+<section id="dai-formats-and-clocks">
+<h3>DAI formats and clocks<a class="headerlink" href="#dai-formats-and-clocks" title="Link to this heading"></a></h3>
 <section id="dai-configuration">
-<h2>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h2>
+<h4>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h4>
 <p>The codec driver registers one DAI: <strong>adau1977-hifi</strong></p>
 <section id="supported-dai-formats">
-<h3>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h3>
+<h5>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h5>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -989,7 +809,7 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
 </div>
 </section>
 <section id="system-clock-configuration">
-<h3>System clock configuration<a class="headerlink" href="#system-clock-configuration" title="Link to this heading"></a></h3>
+<h5>System clock configuration<a class="headerlink" href="#system-clock-configuration" title="Link to this heading"></a></h5>
 <p>The sysclk can either be provided by the internal PLL derived from the MCLK
 signal or by the LRCLK signal.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">enum</span><span class="w"> </span><span class="n">adau1977_clk_id</span><span class="w"> </span><span class="p">{</span>
@@ -1002,56 +822,28 @@ signal or by the LRCLK signal.</p>
 <span class="p">};</span>
 </pre></div>
 </div>
-<p>If the MCLK is used the supported sampling rates of the device is constraint to
-those sample rates that can be derived from the the MCLK. The constraints are
-setup in the CODEC driver’s startup routine. This means that the sysclk needs to
-be configured before the CODEC’s startup callback is called. This can either be
-done from the machine driver’s startup or init callback.</p>
+<p>When MCLK is used, the supported sampling rates are constrained to those
+that can be derived from it. The codec applies its rate-constraint list in
+startup, so configure sysclk before the codec’s startup callback, for example
+from the machine driver’s startup or init callback.</p>
+<p>The 44.1 kHz sampling-rate family includes 11.025, 22.05, 44.1, 88.2 and
+176.4 kHz. Select an MCLK frequency compatible with the required sampling rate.</p>
 <p>For some hardware configurations it might be possible to change the MCLK
 frequency at runtime (e.g. to support both 44.1kHz and 48kHz based sample
-rates). In this case in order for the CODEC driver to not set any sample rate
-constraints the sysclk frequency should be set to 0 until it has been decided
-which MCLK frequency is used. This can for example be implemented by setting the
-sysclk to 0 in the machine driver’s startup callback and setting it to the
-actual frequency in the hw_params callback.</p>
-</section>
-<section id="tdm-configuration">
-<h3>TDM configuration<a class="headerlink" href="#tdm-configuration" title="Link to this heading"></a></h3>
-<p>The TDM mode of the ADAU1977 can be configured using the
-snd_soc_dai_set_tdm_slot() function.</p>
-<ul class="simple">
-<li><p>The number of slots can be either 2, 4, 8 or 16. If the number of slots is set
-to 0 the device will go to I2S mode.</p></li>
-<li><p>The slot width can be 16, 24, 32 bits per slot (In master mode only 16 and 32
-bits per slot are supported)</p></li>
-<li><p>tx_mask must always be 0.</p></li>
-<li><p>Each slot can hold the data sample of one channel. Which slot holds which
-channel is configured by rx_mask. The first bit that is set in rx_mask is the
-slot that holds the first channel, the second bit the slot that holds the
-second channel and so on. If less then 4 bits are set the channels for which
-no slot has been provided are disabled. (E.g. 0x33, configures channel 0 to
-slot 0, channel 1 to slot 1, channel 2 to slot 4 and channel 3 to slot 4).</p></li>
-</ul>
-<p>Example TDM configuration:</p>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">snd_soc_dai_set_tdm_slot</span><span class="p">(</span><span class="n">codec_dai</span><span class="p">,</span><span class="w"> </span><span class="mh">0x00</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0f</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">);</span>
-</pre></div>
-</div>
-<p>To configure whether the unused TDM slots should be tristated or actively driven
-low the snd_soc_dai_set_tristate() function is used. By default they are driven
-low.</p>
-<p>Example tristate configuration:</p>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">snd_soc_dai_set_tristate</span><span class="p">(</span><span class="n">codec_dai</span><span class="p">,</span><span class="w"> </span><span class="nb">true</span><span class="p">);</span>
-</pre></div>
-</div>
+rates). Setting the MCLK sysclk frequency to 0 until the desired frequency is
+known avoids restricting startup to one MCLK-derived rate family. Set sysclk to 0 in the machine driver’s
+startup callback, then set the actual frequency in hw_params before the codec
+configures the stream.</p>
 </section>
 <section id="example-machine-driver-configuration">
-<h3>Example machine driver configuration<a class="headerlink" href="#example-machine-driver-configuration" title="Link to this heading"></a></h3>
+<h5>Example machine driver configuration<a class="headerlink" href="#example-machine-driver-configuration" title="Link to this heading"></a></h5>
 <section id="fixed-mclk">
-<h4>Fixed MCLK<a class="headerlink" href="#fixed-mclk" title="Link to this heading"></a></h4>
+<h6>Fixed MCLK<a class="headerlink" href="#fixed-mclk" title="Link to this heading"></a></h6>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">eval_adau1977_init</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_pcm_runtime</span><span class="w"> </span><span class="o">*</span><span class="n">rtd</span><span class="p">)</span>
 <span class="p">{</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">snd_snd_soc_codec_set_sysclk_set_sysclk</span><span class="p">(</span><span class="n">rtd</span><span class="o">-&gt;</span><span class="n">codec</span><span class="p">,</span><span class="w"> </span><span class="n">ADAU1977_SYSCLK</span><span class="p">,</span>
-<span class="w">            </span><span class="n">ADAU1977_SYSCLK_SRC_MCLK</span><span class="p">,</span><span class="w"> </span><span class="mi">1228000</span><span class="p">,</span><span class="w"> </span><span class="n">SND_SOC_CLOCK_IN</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">snd_soc_component_set_sysclk</span><span class="p">(</span>
+<span class="w">        </span><span class="n">snd_soc_rtd_to_codec</span><span class="p">(</span><span class="n">rtd</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">component</span><span class="p">,</span><span class="w"> </span><span class="n">ADAU1977_SYSCLK</span><span class="p">,</span>
+<span class="w">        </span><span class="n">ADAU1977_SYSCLK_SRC_MCLK</span><span class="p">,</span><span class="w"> </span><span class="mi">12288000</span><span class="p">,</span><span class="w"> </span><span class="n">SND_SOC_CLOCK_IN</span><span class="p">);</span>
 <span class="p">}</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">eval_adau1977_dai</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
@@ -1070,32 +862,46 @@ low.</p>
 </div>
 </section>
 <section id="configurable-mclk">
-<h4>Configurable MCLK<a class="headerlink" href="#configurable-mclk" title="Link to this heading"></a></h4>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">eval_adau1977_init</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_pcm_runtime</span><span class="w"> </span><span class="o">*</span><span class="n">rtd</span><span class="p">)</span>
+<h6>Configurable MCLK<a class="headerlink" href="#configurable-mclk" title="Link to this heading"></a></h6>
+<p>The machine driver must obtain and enable the actual board MCLK during probe,
+store it in the private data below, and attach that data to the card with
+<code class="docutils literal notranslate"><span class="pre">snd_soc_card_set_drvdata()</span></code>.</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">eval_adau1977_priv</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">clk</span><span class="w"> </span><span class="o">*</span><span class="n">mclk</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">eval_adau1977_init</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_pcm_runtime</span><span class="w"> </span><span class="o">*</span><span class="n">rtd</span><span class="p">)</span>
 <span class="p">{</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">snd_snd_soc_codec_set_sysclk_set_sysclk</span><span class="p">(</span><span class="n">rtd</span><span class="o">-&gt;</span><span class="n">codec</span><span class="p">,</span><span class="w"> </span><span class="n">ADAU1977_SYSCLK</span><span class="p">,</span>
-<span class="w">            </span><span class="n">ADAU1977_SYSCLK_SRC_MCLK</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">SND_SOC_CLOCK_IN</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">snd_soc_component_set_sysclk</span><span class="p">(</span>
+<span class="w">        </span><span class="n">snd_soc_rtd_to_codec</span><span class="p">(</span><span class="n">rtd</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">component</span><span class="p">,</span><span class="w"> </span><span class="n">ADAU1977_SYSCLK</span><span class="p">,</span>
+<span class="w">        </span><span class="n">ADAU1977_SYSCLK_SRC_MCLK</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">SND_SOC_CLOCK_IN</span><span class="p">);</span>
 <span class="p">}</span>
 
 <span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">eval_adau1977_hw_params</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_pcm_substream</span><span class="w"> </span><span class="o">*</span><span class="n">substream</span><span class="p">,</span>
 <span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_pcm_hw_params</span><span class="w"> </span><span class="o">*</span><span class="n">params</span><span class="p">)</span>
 <span class="p">{</span>
 <span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_pcm_runtime</span><span class="w"> </span><span class="o">*</span><span class="n">rtd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">substream</span><span class="o">-&gt;</span><span class="n">private_data</span><span class="p">;</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">eval_adau1977_priv</span><span class="w"> </span><span class="o">*</span><span class="n">priv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">snd_soc_card_get_drvdata</span><span class="p">(</span><span class="n">rtd</span><span class="o">-&gt;</span><span class="n">card</span><span class="p">);</span>
+<span class="w">    </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">long</span><span class="w"> </span><span class="n">mclk_rate</span><span class="p">;</span>
 <span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
 
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">params_rate</span><span class="p">(</span><span class="n">params</span><span class="p">)</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">441000</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">params_rate</span><span class="p">(</span><span class="n">params</span><span class="p">)</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">11025</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
 <span class="w">        </span><span class="n">mclk_rate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">11289600</span><span class="p">;</span>
 <span class="w">    </span><span class="k">else</span>
 <span class="w">        </span><span class="n">mclk_rate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">12288000</span><span class="p">;</span>
 
-<span class="w">    </span><span class="n">clk_set_rate</span><span class="p">(</span><span class="n">mclk</span><span class="p">,</span><span class="w"> </span><span class="n">mclk_rate</span><span class="p">);</span>
+<span class="w">    </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">clk_set_rate</span><span class="p">(</span><span class="n">priv</span><span class="o">-&gt;</span><span class="n">mclk</span><span class="p">,</span><span class="w"> </span><span class="n">mclk_rate</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+<span class="w">    </span><span class="n">mclk_rate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">clk_get_rate</span><span class="p">(</span><span class="n">priv</span><span class="o">-&gt;</span><span class="n">mclk</span><span class="p">);</span>
 
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">snd_snd_soc_codec_set_sysclk_set_sysclk</span><span class="p">(</span><span class="n">rtd</span><span class="o">-&gt;</span><span class="n">codec</span><span class="p">,</span><span class="w"> </span><span class="n">ADAU1977_SYSCLK</span><span class="p">,</span>
-<span class="w">            </span><span class="n">ADAU1977_SYSCLK_SRC_MCLK</span><span class="p">,</span><span class="w"> </span><span class="n">mclk_rate</span><span class="p">,</span><span class="w"> </span><span class="n">SND_SOC_CLOCK_IN</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">snd_soc_component_set_sysclk</span><span class="p">(</span>
+<span class="w">        </span><span class="n">snd_soc_rtd_to_codec</span><span class="p">(</span><span class="n">rtd</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">component</span><span class="p">,</span><span class="w"> </span><span class="n">ADAU1977_SYSCLK</span><span class="p">,</span>
+<span class="w">        </span><span class="n">ADAU1977_SYSCLK_SRC_MCLK</span><span class="p">,</span><span class="w"> </span><span class="n">mclk_rate</span><span class="p">,</span><span class="w"> </span><span class="n">SND_SOC_CLOCK_IN</span><span class="p">);</span>
 <span class="p">}</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_ops</span><span class="w"> </span><span class="n">eval_adau1977_ops</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">hw_params</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bfin_eval_adau1x61_hw_params</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">hw_params</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">eval_adau1977_hw_params</span><span class="p">,</span>
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">eval_adau1977_dai</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
@@ -1117,6 +923,37 @@ low.</p>
 <ul class="simple">
 <li><p><a class="icon ez reference external" href="https://ez.analog.com/linux-software-drivers" target="_blank">Analog Devices Linux Device Drivers Help Forum</a></p></li>
 </ul>
+</section>
+</section>
+</section>
+<section id="tdm-configuration">
+<h4>TDM configuration<a class="headerlink" href="#tdm-configuration" title="Link to this heading"></a></h4>
+<p>The TDM mode of the ADAU1977 can be configured using the
+snd_soc_dai_set_tdm_slot() function.</p>
+<ul class="simple">
+<li><p>The number of slots can be either 2, 4, 8 or 16. If the number of slots is
+set to 0 the device will go to I2S mode.</p></li>
+<li><p>The slot width can be 16, 24, 32 bits per slot (In master mode only 16 and 32
+bits per slot are supported)</p></li>
+<li><p>tx_mask must always be 0.</p></li>
+<li><p>Each slot can hold the data sample of one channel. Which slot holds which
+channel is configured by rx_mask. The first bit that is set in rx_mask is the
+slot that holds the first channel, the second bit the slot that holds the
+second channel and so on. If less then 4 bits are set the channels for which
+no slot has been provided are disabled. (E.g. 0x33, configures channel 0 to
+slot 0, channel 1 to slot 1, channel 2 to slot 4 and channel 3 to slot 5).</p></li>
+</ul>
+<p>Example TDM configuration:</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">snd_soc_dai_set_tdm_slot</span><span class="p">(</span><span class="n">codec_dai</span><span class="p">,</span><span class="w"> </span><span class="mh">0x00</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0f</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>To configure whether the unused TDM slots should be tristated or actively driven
+low the snd_soc_dai_set_tristate() function is used. By default they are driven
+low.</p>
+<p>Example tristate configuration:</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">snd_soc_dai_set_tristate</span><span class="p">(</span><span class="n">codec_dai</span><span class="p">,</span><span class="w"> </span><span class="nb">true</span><span class="p">);</span>
+</pre></div>
+</div>
 </section>
 </section>
 </section>

@@ -99,27 +99,41 @@
 <li><a class="reference internal" href="#">SSM4329</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
-<li><a class="reference internal" href="#status">Status</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a></li>
+<li><a class="reference internal" href="#device-enumeration">Device enumeration</a><ul>
+<li><a class="reference internal" href="#example-device-initialization">Example device initialization</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-device-initialization">Example device initialization</a><ul>
-<li><a class="reference internal" href="#devicetree">Devicetree</a></li>
-<li><a class="reference internal" href="#asoc-dapm-widgets">ASoC DAPM Widgets</a></li>
-<li><a class="reference internal" href="#alsa-controls">ALSA Controls</a></li>
+<li><a class="reference internal" href="#firmware">Firmware</a><ul>
 <li><a class="reference internal" href="#sigmadsp-firmware">SigmaDSP Firmware</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#routing-and-dapm">Routing and DAPM</a><ul>
+<li><a class="reference internal" href="#asoc-dapm-widgets">ASoC DAPM Widgets</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#alsa-controls">ALSA controls</a></li>
+<li><a class="reference internal" href="#dai-formats-and-clocks">DAI formats and clocks</a><ul>
 <li><a class="reference internal" href="#pll-configuration">PLL configuration</a></li>
 <li><a class="reference internal" href="#dai-configuration">DAI configuration</a><ul>
 <li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#tdm-configuration">TDM configuration</a></li>
 <li><a class="reference internal" href="#example-dai-configuration">Example DAI configuration</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#more-information">More information</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
 </ul>
@@ -221,6 +235,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -239,7 +254,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -396,8 +410,9 @@ Content on this topic
 </tbody>
 </table>
 </div>
+</section>
 <section id="files">
-<h4>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h4>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -417,9 +432,30 @@ Content on this topic
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">i2s</span><span class="p">:</span> <span class="n">i2c</span><span class="o">@</span><span class="mi">41600000</span> <span class="p">{</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"...;</span>
+    <span class="o">...</span>
+
+    <span class="c1">#size-cells = &lt;0&gt;;</span>
+    <span class="c1">#address-cells = &lt;1&gt;;</span>
+
+    <span class="n">ssm4329</span><span class="p">:</span> <span class="n">ssm4329</span><span class="o">@</span><span class="mi">34</span> <span class="p">{</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ssm4329"</span><span class="p">;</span>
+        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x34</span><span class="o">&gt;</span><span class="p">;</span>
+        <span class="n">gpios</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio</span> <span class="mi">5</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
 </section>
+<section id="device-enumeration">
+<h3>Device enumeration<a class="headerlink" href="#device-enumeration" title="Link to this heading"></a></h3>
 <section id="example-device-initialization">
-<h2>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -495,26 +531,26 @@ pins</p>
 <span class="n">arch_initcall</span><span class="p">(</span><span class="n">board_init</span><span class="p">);</span>
 </pre></div>
 </div>
-<section id="devicetree">
-<h3>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">i2s</span><span class="p">:</span> <span class="n">i2c</span><span class="o">@</span><span class="mi">41600000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"...;</span>
-    <span class="o">...</span>
-
-    <span class="c1">#size-cells = &lt;0&gt;;</span>
-    <span class="c1">#address-cells = &lt;1&gt;;</span>
-
-    <span class="n">ssm4329</span><span class="p">:</span> <span class="n">ssm4329</span><span class="o">@</span><span class="mi">34</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ssm4329"</span><span class="p">;</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x34</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">gpios</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio</span> <span class="mi">5</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-</pre></div>
-</div>
 </section>
+</section>
+<section id="firmware">
+<h3>Firmware<a class="headerlink" href="#firmware" title="Link to this heading"></a></h3>
+<section id="sigmadsp-firmware">
+<h4>SigmaDSP Firmware<a class="headerlink" href="#sigmadsp-firmware" title="Link to this heading"></a></h4>
+<p>In order to use the SigmaDSP core of the SSM4329 you need to provide a firmware
+file. Please refer to the
+<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/sigmadsp_genfirmware" target="_blank">SigmaDSP Firmware Utility for Linux</a>
+page on how to generate a firmware file. The firmware file for SSM4329 driver
+has to be named <strong>ssm4329.bin</strong>.</p>
+</section>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="routing-and-dapm">
+<h3>Routing and DAPM<a class="headerlink" href="#routing-and-dapm" title="Link to this heading"></a></h3>
 <section id="asoc-dapm-widgets">
-<h3>ASoC DAPM Widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h3>
+<h4>ASoC DAPM Widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -533,8 +569,9 @@ pins</p>
 </table>
 </div>
 </section>
+</section>
 <section id="alsa-controls">
-<h3>ALSA Controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
+<h3>ALSA controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -549,31 +586,31 @@ pins</p>
 <tr class="row-odd"><td><p>DAC Playback Volume</p></td>
 <td><p>Configures the digital Volume of the DAC</p></td>
 </tr>
-<tr class="row-even"><td><p>DAC Clip Point Volume</p></td>
+<tr class="row-even"><td><p>DAC Clip Point Playback Volume</p></td>
 <td><p>Configures the cliping point of the DAC</p></td>
 </tr>
 <tr class="row-odd"><td><p>Interpolator Playback Volume</p></td>
 <td><p>Configures the digital Volume of the Interpolator</p></td>
 </tr>
-<tr class="row-even"><td><p>Interpolator Clip Point Volume</p></td>
+<tr class="row-even"><td><p>Interpolator Clip Point Playback Volume</p></td>
 <td><p>Configures the cliping point of the DAC</p></td>
 </tr>
-<tr class="row-odd"><td><p>ADC Playback Switch</p></td>
+<tr class="row-odd"><td><p>ADC Capture Switch</p></td>
 <td><p>Mutes/Unmutes the ADC path</p></td>
 </tr>
 <tr class="row-even"><td><p>ADC Capture Volume</p></td>
 <td><p>Configures the digital Volume of the ADC</p></td>
 </tr>
-<tr class="row-odd"><td><p>DAC High Pass Filter Switch</p></td>
+<tr class="row-odd"><td><p>DAC High Pass Filter Playback Switch</p></td>
 <td><p>Enables/Disables the High Pass Filter for the DAC</p></td>
 </tr>
-<tr class="row-even"><td><p>DAC Low-power Switch</p></td>
+<tr class="row-even"><td><p>DAC Low-power Playback Switch</p></td>
 <td><p>Enables/Disables Low-power mode for the DAC</p></td>
 </tr>
-<tr class="row-odd"><td><p>ADC High Pass Filter Switch</p></td>
+<tr class="row-odd"><td><p>ADC High Pass Filter Capture Switch</p></td>
 <td><p>Enables/Disables the High Pass Filter for the ADC</p></td>
 </tr>
-<tr class="row-even"><td><p>ADC Low-power Switch</p></td>
+<tr class="row-even"><td><p>ADC Low-power Capture Switch</p></td>
 <td><p>Enables/Disables Low-power mode for the DAC</p></td>
 </tr>
 <tr class="row-odd"><td><p>Interpolator Playback Switch</p></td>
@@ -594,64 +631,54 @@ pins</p>
 <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">2</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">ADC</span></code>.</p></td>
 </tr>
 <tr class="row-even"><td><p>Serial Port 1 Channel 1 Output Mux</p></td>
-<td><p>Selects the audio source for serial port 1 channel 1. Possible values:
-<code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>,
-<code class="docutils literal notranslate"><span class="pre">VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
+<td><p>Selects the audio source for serial port 1 channel 1. Possible values: <code class="docutils literal notranslate"><span class="pre">ADC</span></code>,
+<code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">VBAT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>Serial Port 1 Channel 2 Output Mux</p></td>
-<td><p>Selects the audio source for serial port 1 channel 1. Possible values:
-<code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>,
-<code class="docutils literal notranslate"><span class="pre">VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
+<td><p>Selects the audio source for serial port 1 channel 1. Possible values: <code class="docutils literal notranslate"><span class="pre">ADC</span></code>,
+<code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">VBAT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>Serial Port 1 Channel 3 Output Mux</p></td>
-<td><p>Selects the audio source for serial port 1 channel 1. Possible values:
-<code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>,
-<code class="docutils literal notranslate"><span class="pre">VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
+<td><p>Selects the audio source for serial port 1 channel 1. Possible values: <code class="docutils literal notranslate"><span class="pre">ADC</span></code>,
+<code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">VBAT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>Serial Port 1 Channel 4 Output Mux</p></td>
-<td><p>Selects the audio source for serial port 1 channel 1. Possible values:
-<code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>,
-<code class="docutils literal notranslate"><span class="pre">VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
+<td><p>Selects the audio source for serial port 1 channel 1. Possible values: <code class="docutils literal notranslate"><span class="pre">ADC</span></code>,
+<code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">VBAT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>Serial Port 2 Channel 1 Output Mux</p></td>
-<td><p>Selects the audio source for serial port 1 channel 1. Possible values:
-<code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>,
-<code class="docutils literal notranslate"><span class="pre">VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
+<td><p>Selects the audio source for serial port 1 channel 1. Possible values: <code class="docutils literal notranslate"><span class="pre">ADC</span></code>,
+<code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">VBAT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>Serial Port 2 Channel 2 Output Mux</p></td>
-<td><p>Selects the audio source for serial port 1 channel 1. Possible values:
-<code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>,
-<code class="docutils literal notranslate"><span class="pre">VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
+<td><p>Selects the audio source for serial port 1 channel 1. Possible values: <code class="docutils literal notranslate"><span class="pre">ADC</span></code>,
+<code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">VBAT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>Serial Port 2 Channel 3 Output Mux</p></td>
-<td><p>Selects the audio source for serial port 1 channel 1. Possible values:
-<code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>,
-<code class="docutils literal notranslate"><span class="pre">VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
+<td><p>Selects the audio source for serial port 1 channel 1. Possible values: <code class="docutils literal notranslate"><span class="pre">ADC</span></code>,
+<code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">VBAT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p>Serial Port 2 Channel 4 Output Mux</p></td>
-<td><p>Selects the audio source for serial port 1 channel 1. Possible values:
-<code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>,
-<code class="docutils literal notranslate"><span class="pre">VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
+<td><p>Selects the audio source for serial port 1 channel 1. Possible values: <code class="docutils literal notranslate"><span class="pre">ADC</span></code>,
+<code class="docutils literal notranslate"><span class="pre">AEC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>, <code class="docutils literal notranslate"><span class="pre">SRC</span></code>, <code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense</span></code>, <code class="docutils literal notranslate"><span class="pre">VBAT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Voltage</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Current</span> <span class="pre">Sense/VBAT</span></code>, <code class="docutils literal notranslate"><span class="pre">Interpolator</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p>Input SRC Channel 1 Mux</p></td>
 <td><p>Select the audio source for the sample-rate-converter channel 1. Possible
 values: <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">1</span> <span class="pre">Channel</span> <span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">1</span> <span class="pre">Channel</span> <span class="pre">3</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">2</span> <span class="pre">Channel</span> <span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">2</span> <span class="pre">Channel</span> <span class="pre">3</span></code>, <code class="docutils literal notranslate"><span class="pre">ADC</span></code>,
-<code class="docutils literal notranslate"><span class="pre">DSP</span></code>.</p></td>
+<code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">2</span> <span class="pre">Channel</span> <span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">2</span> <span class="pre">Channel</span> <span class="pre">3</span></code>, <code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p>Input SRC Channel 2 Mux</p></td>
-<td><p>Select the audio source for the input sample-rate-converter channel 2.
-Possible values: <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">1</span> <span class="pre">Channel</span> <span class="pre">2</span></code>, <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">1</span> <span class="pre">Channel</span>
-<span class="pre">4</span></code>, <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">2</span> <span class="pre">Channel</span> <span class="pre">2</span></code>, <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">2</span> <span class="pre">Channel</span> <span class="pre">4</span></code>, <code class="docutils literal notranslate"><span class="pre">ADC</span></code>,
-<code class="docutils literal notranslate"><span class="pre">DSP</span></code>.</p></td>
+<td><p>Select the audio source for the input sample-rate-converter channel 2. Possible
+values: <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">1</span> <span class="pre">Channel</span> <span class="pre">2</span></code>, <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">1</span> <span class="pre">Channel</span> <span class="pre">4</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">2</span> <span class="pre">Channel</span> <span class="pre">2</span></code>, <code class="docutils literal notranslate"><span class="pre">Serial</span> <span class="pre">Port</span> <span class="pre">2</span> <span class="pre">Channel</span> <span class="pre">4</span></code>, <code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">DSP</span></code>.</p></td>
 </tr>
 <tr class="row-even"><td><p>Output SRC Channel 1 Mux</p></td>
 <td><p>Selects the audio source for the output sample-rate converter channel 1.
@@ -665,22 +692,16 @@ Possible values: <code class="docutils literal notranslate"><span class="pre">DS
 </table>
 </div>
 </section>
-<section id="sigmadsp-firmware">
-<h3>SigmaDSP Firmware<a class="headerlink" href="#sigmadsp-firmware" title="Link to this heading"></a></h3>
-<p>In order to use the SigmaDSP core of the SSM4329 you need to provide a firmware
-file. Please refer to the
-<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/sigmadsp_genfirmware" target="_blank">SigmaDSP Firmware Utility for Linux</a>
-page on how to generate a firmware file. The firmware file for SSM4329 driver
-has to be named <strong>ssm4329.bin</strong>.</p>
-</section>
+<section id="dai-formats-and-clocks">
+<h3>DAI formats and clocks<a class="headerlink" href="#dai-formats-and-clocks" title="Link to this heading"></a></h3>
 <section id="pll-configuration">
-<h3>PLL configuration<a class="headerlink" href="#pll-configuration" title="Link to this heading"></a></h3>
+<h4>PLL configuration<a class="headerlink" href="#pll-configuration" title="Link to this heading"></a></h4>
 <p>To configure the PLL of the device the <code class="docutils literal notranslate"><span class="pre">snd_soc_codec_set_pll()</span></code> function can
 be used. It should be used to configure the internal PLL correctly depending on
 the external clock source and the desired sampling rate. The <code class="docutils literal notranslate"><span class="pre">clk_id</span></code>
 parameter must always be <code class="docutils literal notranslate"><span class="pre">SSM4329_PLL</span></code>. The <code class="docutils literal notranslate"><span class="pre">source</span></code> parameter must be one
 of the input clock source constants listed below. The freq_in parameter must be
-in the range of 8000 to 2700000, this needs to match the frequency of the
+in the range of 8000 to 27000000 Hz, this needs to match the frequency of the
 selected input clock source. The freq_out parameter should typically be
 98304000.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#define SSM4329_PLL 0</span>
@@ -694,11 +715,11 @@ selected input clock source. The freq_out parameter should typically be
 </div>
 </section>
 <section id="dai-configuration">
-<h3>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h3>
+<h4>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h4>
 <p>The codec driver registers two DAIs, one for each serial port. The DAIs are
 named <strong>``ssm4329-sp0``</strong> and <strong>``ssm4329-sp1``</strong>.</p>
 <section id="supported-dai-formats">
-<h4>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h4>
+<h5>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h5>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -780,6 +801,7 @@ named <strong>``ssm4329-sp0``</strong> and <strong>``ssm4329-sp1``</strong>.</p>
 </table>
 </div>
 </section>
+</section>
 <section id="tdm-configuration">
 <h4>TDM configuration<a class="headerlink" href="#tdm-configuration" title="Link to this heading"></a></h4>
 <p>If you want to use the SSM4329 in TDM mode you can configure it using
@@ -788,13 +810,15 @@ snd_soc_dai_set_tdm_slot() from you ASoC board driver.</p>
 snd_soc_dai_set_tdm_slot().</p>
 <ul class="simple">
 <li><p><strong>tx_mask</strong> specifies the output channel mapping for the serial port. The
-first set bit specifies the slot for the first channel, the second set bit the
-slot for the second channel and so on.</p></li>
-<li><p><strong>rx_mask</strong> specifies the input channel mapping for the serial port. The first
-set bit specifies the slot for the first channel, the second set bit the slot
-for the second channel and so on.</p></li>
+first set bit specifies the slot for the first channel, the second set bit
+the slot for the second channel and so on.</p></li>
+<li><p><strong>rx_mask</strong> specifies the input channel mapping for the serial port. The
+first set bit specifies the slot for the first channel, the second set bit
+the slot for the second channel and so on.</p></li>
 <li><p><strong>slots</strong> must be between 1 and 16</p></li>
-<li><p><strong>width</strong> must be either 16, 24, 32</p></li>
+<li><p><strong>width is normally 16, 24 or 32. When supplying BCLK, slots × width must be
+64, 128, 256 or 512 bits. Special TDMC operation on serial port 2 requires
+DSP_A, normal polarity, one 64-bit slot and codec-provided BCLK.</strong></p></li>
 </ul>
 <p>Example:</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">ssm4329_link_init</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_pcm_runtime</span><span class="w"> </span><span class="o">*</span><span class="n">rtd</span><span class="p">)</span>
@@ -860,8 +884,9 @@ for the second channel and so on.</p></li>
 </div>
 </section>
 </section>
+</section>
 <section id="more-information">
-<h3>More information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h3>
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/sigmastudio" target="_blank">SigmaStudio</a></p></li>
 <li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/sigmadsp_genfirmware" target="_blank">SigmaDSP Firmware Utility for Linux</a></p></li>
@@ -871,7 +896,6 @@ for the second channel and so on.</p></li>
 <ul class="simple">
 <li><p><a class="icon ez reference external" href="https://ez.analog.com/linux-software-drivers" target="_blank">Analog Devices Linux Device Drivers Help Forum</a></p></li>
 </ul>
-</section>
 </section>
 </section>
 

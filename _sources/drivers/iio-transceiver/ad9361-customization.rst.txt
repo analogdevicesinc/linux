@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/ad9361-customization
 
+
 .. _ad9361-customization:
 
 AD9361
@@ -21,8 +22,11 @@ target application: See here:
 
 --------------
 
+Configuration and sequence
+--------------------------
+
 Linux/No-OS device driver comparison
-------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -44,12 +48,14 @@ Linux/No-OS device driver comparison
      -
    * - adi,1rx-1tx-mode-use-rx-num
      - one_rx_one_tx_mode_use_rx_num
-     - Valid only in 1Rx1Tx mode for AD9361 and AD9363, Selects which RX channel is used
+     - Valid only in 1Rx1Tx mode for AD9361 and AD9363, Selects which RX channel is
+       used
      -
      -
    * - adi,1rx-1tx-mode-use-tx-num
      - one_rx_one_tx_mode_use_tx_num
-     - Valid only in 1Rx1Tx mode for AD9361 and AD9363, Selects which TX channel is used
+     - Valid only in 1Rx1Tx mode for AD9361 and AD9363, Selects which TX channel is
+       used
      -
      -
    * - adi,frequency-division-duplex-mode-enable
@@ -84,7 +90,8 @@ Linux/No-OS device driver comparison
      -
    * - adi,frequency-division-duplex-independent-mode-enable
      - frequency_division_duplex_independent_mode_enable
-     - Use independent FDD mode - allows individual control over RX and TX (Pin Mode Only)
+     - Use independent FDD mode - allows individual control over RX and TX (Pin Mode
+       Only)
      -
      -
    * - LO Control
@@ -104,12 +111,12 @@ Linux/No-OS device driver comparison
      -
    * - adi,tx-fastlock-delay-ns
      - tx_fastlock_delay_ns
-     - TX fastlock delay in ns
+     - TX fastlock delay in ns.
      -
      -
    * - adi,rx-fastlock-delay-ns
      - rx_fastlock_delay_ns
-     - RX fastlock delay in ns
+     - RX fastlock delay in ns.
      -
      -
    * - adi,rx-fastlock-pincontrol-enable
@@ -124,7 +131,8 @@ Linux/No-OS device driver comparison
      -
    * - adi,trx-synthesizer-target-fref-overwrite-hz
      - trx_synthesizer_target_fref_overwrite_hz
-     - This allows forcing a lower F_REF window (worse phase noise, better fractional spurs)
+     - This allows forcing a lower F_REF window (worse phase noise, better fractional
+       spurs)
      -
      -
    * - adi,external-tx-lo-enable
@@ -219,27 +227,39 @@ Linux/No-OS device driver comparison
      -
    * - adi,dc-offset-tracking-update-event-mask
      - dc_offset_tracking_update_event_mask
-     - BIT(0) Apply a new tracking word when a gain change occurs. BIT(1) Apply a new tracking word when the received signal is less than the SOI Threshold. BIT(2) Apply a new tracking word after the device exits the receive state
+     - BIT(0) Apply a new tracking word when a gain change occurs. BIT(1) Apply a new
+       tracking word when the received signal is less than the SOI Threshold. BIT(2)
+       Apply a new tracking word after the device exits the receive state
      -
      -
    * - adi,dc-offset-attenuation-high-range
      - dc_offset_attenuation_high_range
-     - RX LO > 4 GHz: These bits control the attenuator for the initialization and tracking RF DC offset calibrations. The integrated data shifts by this twos complement value and ranges from -16 to +15.
+     - RX LO > 4 GHz: These bits control the attenuator for the initialization and
+       tracking RF DC offset calibrations. The integrated data shifts by this twos
+       complement value and ranges from -16 to +15.
      -
      -
    * - adi,dc-offset-attenuation-low-range
      - dc_offset_attenuation_low_range
-     - RX LO < 4 GHz: These bits control the attenuator for the initialization and tracking RF DC offset calibrations. The integrated data shifts by this twos complement value and ranges from -16 to +15.
+     - RX LO < 4 GHz: These bits control the attenuator for the initialization and
+       tracking RF DC offset calibrations. The integrated data shifts by this twos
+       complement value and ranges from -16 to +15.
      -
      -
    * - adi,dc-offset-count-high-range
      - dc_offset_count_high_range
-     - RX LO > 4 GHz: This value affects both RF DC offset initialization and tracking and it sets the number of integrated samples and the loop gain. The number of samples equals 256 × RF DC Offset Count[7:0] in ClkRF cycles. Increasing this value increases loop gain.
+     - RX LO > 4 GHz: This value affects both RF DC offset initialization and tracking
+       and it sets the number of integrated samples and the loop gain. The number of
+       samples equals 256 × RF DC Offset Count[7:0] in ClkRF cycles. Increasing this
+       value increases loop gain.
      -
      -
    * - adi,dc-offset-count-low-range
      - dc_offset_count_low_range
-     - RX LO < 4 GHz: This value affects both RF DC offset initialization and tracking and it sets the number of integrated samples and the loop gain. The number of samples equals 256 × RF DC Offset Count[7:0] in ClkRF cycles. Increasing this value increases loop gain.
+     - RX LO < 4 GHz: This value affects both RF DC offset initialization and tracking
+       and it sets the number of integrated samples and the loop gain. The number of
+       samples equals 256 × RF DC Offset Count[7:0] in ClkRF cycles. Increasing this
+       value increases loop gain.
      -
      -
    * - adi,qec-tracking-slow-mode-enable
@@ -259,12 +279,14 @@ Linux/No-OS device driver comparison
      -
    * - adi,gc-rx1-mode
      - gc_rx1_mode
-     - RX1 Gain control operation: Manual gain (0); Fast attack AGC (1); Slow attack AGC (2); Hybrid AGC (3). See register 0x0FA, bits [D4], [D1:D0].
+     - RX1 Gain control operation: Manual gain (0); Fast attack AGC (1); Slow attack
+       AGC (2); Hybrid AGC (3). See register 0x0FA, bits [D4], [D1:D0].
      -
      -
    * - adi,gc-rx2-mode
      - gc_rx2_mode
-     - RX2 Gain control operation: Manual gain (0); Fast attack AGC (1); Slow attack AGC (2); Hybrid AGC (3). See register 0x0FA, bits [D4], [D3:D2].
+     - RX2 Gain control operation: Manual gain (0); Fast attack AGC (1); Slow attack
+       AGC (2); Hybrid AGC (3). See register 0x0FA, bits [D4], [D3:D2].
      -
      -
    * - adi,gc-adc-large-overload-thresh
@@ -274,7 +296,9 @@ Linux/No-OS device driver comparison
      -
    * - adi,gc-adc-ovr-sample-size
      - gc_adc_ovr_sample_size
-     - This attribute equals the number of ADC output samples used to determine an ADC overload. See register 0x0FC, bits [D2:D0]. This data is processed by the driver.
+     - This attribute equals the number of ADC output samples used to determine an ADC
+       overload. See register 0x0FC, bits [D2:D0]. This data is processed by the
+       driver.
      -
      -
    * - adi,gc-adc-small-overload-thresh
@@ -284,37 +308,45 @@ Linux/No-OS device driver comparison
      -
    * - adi,gc-dec-pow-measurement-duration
      - gc_dec_pow_measurement_duration
-     - The power measurement duration used by the gain control algorithm. See register 0x15C, bits [D3:D0]. This data is processed by the driver.
+     - The power measurement duration used by the gain control algorithm. See register
+       0x15C, bits [D3:D0]. This data is processed by the driver.
      -
      -
    * - adi,gc-use-rx-fir-out-for-dec-pwr-meas-enable
      - gc_use_rx_fir_out_for_dec_pwr_meas_enable
-     - Set to use the RX FIR output for power measurements. Default/Clear to use the HB1 output. See register 0x15C, bits [D6].
+     - Set to use the RX FIR output for power measurements. Default/Clear to use the
+       HB1 output. See register 0x15C, bits [D6].
      -
      -
    * - adi,gc-dig-gain-enable
      - gc_dig_gain_enable
-     - This attribute is used in split table mode to enable the digital gain pointer. See register 0x0FB, bit D2.
+     - This attribute is used in split table mode to enable the digital gain pointer.
+       See register 0x0FB, bit D2.
      -
      -
    * - adi,gc-lmt-overload-high-thresh
      - gc_lmt_overload_high_thresh
-     - This attribute sets the large LMT overload threshold. See register 0x108. This data is processed by the driver.
+     - This attribute sets the large LMT overload threshold. See register 0x108. This
+       data is processed by the driver.
      -
      -
    * - adi,gc-lmt-overload-low-thresh
      - gc_lmt_overload_low_thresh
-     - This attribute sets the small LMT overload threshold. See register 0x107. This data is processed by the driver.
+     - This attribute sets the small LMT overload threshold. See register 0x107. This
+       data is processed by the driver.
      -
      -
    * - adi,gc-low-power-thresh
      - gc_low_power_thresh
-     - This threshold is used by the fast AGC to determine if the gain should be increased. It can also be used to trigger a CTRL_OUT signal transition in MGC mode. See register 0x114, bits [D6:D0]. This data is processed by the driver.
+     - This threshold is used by the fast AGC to determine if the gain should be
+       increased. It can also be used to trigger a CTRL_OUT signal transition in MGC
+       mode. See register 0x114, bits [D6:D0]. This data is processed by the driver.
      -
      -
    * - adi,gc-max-dig-gain
      - gc_max_dig_gain
-     - This attribute equals the maximum allowable digital gain, and applies to all gain control modes. See register 0x100, bits [D4:D0].
+     - This attribute equals the maximum allowable digital gain, and applies to all
+       gain control modes. See register 0x100, bits [D4:D0].
      -
      -
    * - Gain MGC Control
@@ -324,27 +356,34 @@ Linux/No-OS device driver comparison
      -
    * - adi,mgc-dec-gain-step
      - mgc_dec_gain_step
-     - This attribute applies if the CTRL_IN signals control gain. The gain index decreases by this value when certain CTRL_IN signals transition high. See register 0x0FE, bits [D7:D5]. This data is processed by the driver.
+     - This attribute applies if the CTRL_IN signals control gain. The gain index
+       decreases by this value when certain CTRL_IN signals transition high. See
+       register 0x0FE, bits [D7:D5]. This data is processed by the driver.
      -
      -
    * - adi,mgc-inc-gain-step
      - mgc_inc_gain_step
-     - This attribute applies if the CTRL_IN signals control gain. The gain index increases by this value when certain CTRL_IN signals transition high. See register 0x0FC, bits [D7:D5]. This data is processed by the driver.
+     - This attribute applies if the CTRL_IN signals control gain. The gain index
+       increases by this value when certain CTRL_IN signals transition high. See
+       register 0x0FC, bits [D7:D5]. This data is processed by the driver.
      -
      -
    * - adi,mgc-rx1-ctrl-inp-enable
      - mgc_rx1_ctrl_inp_enable
-     - If this attribute is clear, SPI writes change the RX1 gain. When this attribute is set, control input pins control the gain. See register 0x0FB, bit [D0].
+     - If this attribute is clear, SPI writes change the RX1 gain. When this attribute
+       is set, control input pins control the gain. See register 0x0FB, bit [D0].
      -
      -
    * - adi,mgc-rx2-ctrl-inp-enable
      - mgc_rx2_ctrl_inp_enable
-     - If this attribute is clear, SPI writes change the RX2 gain. When this attribute is set, control input pins control the gain. See register 0x0FB, bit [D1].
+     - If this attribute is clear, SPI writes change the RX2 gain. When this attribute
+       is set, control input pins control the gain. See register 0x0FB, bit [D1].
      -
      -
    * - adi,mgc-split-table-ctrl-inp-gain-mode
      - mgc_split_table_ctrl_inp_gain_mode
-     - AGC determine this (0); Only in LPF(1); Only in LMT (2). See register 0x0FC, bits [D4], [D3].
+     - AGC determine this (0); Only in LPF(1); Only in LMT (2). See register 0x0FC,
+       bits [D4], [D3].
      -
      -
    * - Gain AGC Control
@@ -354,112 +393,140 @@ Linux/No-OS device driver comparison
      -
    * - adi,agc-adc-large-overload-exceed-counter
      - agc_adc_large_overload_exceed_counter
-     - This counter specifies the number of large ADC overloads that must occur before the gain will decrease by the large ADC overload gain step. See register 0x122, bits [D7:D4].
+     - This counter specifies the number of large ADC overloads that must occur before
+       the gain will decrease by the large ADC overload gain step. See register 0x122,
+       bits [D7:D4].
      -
      -
    * - adi,agc-adc-large-overload-inc-steps
      - agc_adc_large_overload_inc_steps
-     - This attribute applies to AGC and determine how much the gain changes for large LPF in split tablemode or the large LMT and large ADC overloads in full table mode. See register 0x106, bits [D3:D0] (Name is misleading should be dec-steps )
+     - This attribute applies to AGC and determine how much the gain changes for large
+       LPF in split tablemode or the large LMT and large ADC overloads in full table
+       mode. See register 0x106, bits [D3:D0] (Name is misleading should be dec-steps )
      -
      -
    * - adi,agc-adc-lmt-small-overload-prevent-gain-inc-enable
      - agc_adc_lmt_small_overload_prevent_gain_inc_enable
-     - This attribute set the slow AGC inner low window threshold. See register 0x120, bits [D6:D0].
+     - This attribute set the slow AGC inner low window threshold. See register 0x120,
+       bits [D6:D0].
      -
      -
    * - adi,agc-adc-small-overload-exceed-counter
      - agc_adc_small_overload_exceed_counter
-     - This counter specifies the number of small ADC overloads that must occur to prevent a gain increase. See register 0x122, bits [D3:D0].
+     - This counter specifies the number of small ADC overloads that must occur to
+       prevent a gain increase. See register 0x122, bits [D3:D0].
      -
      -
    * - adi,agc-attack-delay-extra-margin-us
      - agc_attack_delay_extra_margin_us
-     - The AGC Attack Delay prevents the AGC from starting its algorithm until the receive path has settled. The delay counter starts when the ENSM enters the Rx state. See register 0x022, bits [D5:D0]. This data is processed by the driver.
+     - The AGC Attack Delay prevents the AGC from starting its algorithm until the
+       receive path has settled. The delay counter starts when the ENSM enters the Rx
+       state. See register 0x022, bits [D5:D0]. This data is processed by the driver.
      -
      -
    * - adi,agc-dig-gain-step-size
      - agc_dig_gain_step_size
-     - If digital saturation occurs, digital gain reduces by this value. See register 0x100, bits [D7:D5].
+     - If digital saturation occurs, digital gain reduces by this value. See register
+       0x100, bits [D7:D5].
      -
      -
    * - adi,agc-dig-saturation-exceed-counter
      - agc_dig_saturation_exceed_counter
-     - This counter specifies the number of digital saturation events that much occur to prevent a gain increase. See register 0x128, bits [D3:D0].
+     - This counter specifies the number of digital saturation events that much occur
+       to prevent a gain increase. See register 0x128, bits [D3:D0].
      -
      -
    * - adi,agc-immed-gain-change-if-large-adc-overload-enable
      - agc_immed_gain_change_if_large_adc_overload_enable
-     - Set this attribute to allow large ADC overload to reduce gain immediately. See register 0x123, bit D3.
+     - Set this attribute to allow large ADC overload to reduce gain immediately. See
+       register 0x123, bit D3.
      -
      -
    * - adi,agc-immed-gain-change-if-large-lmt-overload-enable
      - agc_immed_gain_change_if_large_lmt_overload_enable
-     - Set this attribute to allow large LMT overloads to reduce gain immediately. See register 0x123, bit D7.
+     - Set this attribute to allow large LMT overloads to reduce gain immediately. See
+       register 0x123, bit D7.
      -
      -
    * - adi,agc-inner-thresh-high
      - agc_inner_thresh_high
-     - Applies to AGC. This attribute specifies the fast AGC lock level or specifies the slow AGC inner high threshold. Resolution is −1 dBFS/LSB. See register 0x101 [D6:D0]).
+     - Applies to AGC. This attribute specifies the fast AGC lock level or specifies
+       the slow AGC inner high threshold. Resolution is −1 dBFS/LSB. See register 0x101
+       [D6:D0]).
      -
      -
    * - adi,agc-inner-thresh-high-dec-steps
      - agc_inner_thresh_high_dec_steps
-     - This attribute sets the gain decrease amount when the inner high threshold is exceeded. See register 0x123, bits [D6:D4].
+     - This attribute sets the gain decrease amount when the inner high threshold is
+       exceeded. See register 0x123, bits [D6:D4].
      -
      -
    * - adi,agc-inner-thresh-low
      - agc_inner_thresh_low
-     - This attribute sets the slow AGC inner low window threshold. See register 0x120, bits [D6:D0].
+     - This attribute sets the slow AGC inner low window threshold. See register 0x120,
+       bits [D6:D0].
      -
      -
    * - adi,agc-inner-thresh-low-inc-steps
      - agc_inner_thresh_low_inc_steps
-     - This attribute sets the increase amount used when the gain goes under the inner low threshold. See register 0x123, bits [D2:D0].
+     - This attribute sets the increase amount used when the gain goes under the inner
+       low threshold. See register 0x123, bits [D2:D0].
      -
      -
    * - adi,agc-dig-sat-ovrg-enable
      - agc_dig_sat_ovrg_enable
-     - Applies to the fast AGC and full gain table. When clear, digital saturation does not cause a gain decrease. When set, digital saturation will cause a gain decrease. See register 0x101, bit D7.
+     - Applies to the fast AGC and full gain table. When clear, digital saturation does
+       not cause a gain decrease. When set, digital saturation will cause a gain
+       decrease. See register 0x101, bit D7.
      -
      -
    * - adi,agc-lmt-overload-large-exceed-counter
      - agc_lmt_overload_large_exceed_counter
-     - This counter specifies the number of large LMT overloads that must occur before gain decreases by the LMT Gain Step. See register 0x121, bits [D7:D4].
+     - This counter specifies the number of large LMT overloads that must occur before
+       gain decreases by the LMT Gain Step. See register 0x121, bits [D7:D4].
      -
      -
    * - adi,agc-lmt-overload-large-inc-steps
      - agc_lmt_overload_large_inc_steps
-     - This attribute determines how much the gain changes for large LMT in split tablemode or the small ADC overload for the full table. See register 0x103, bits [D4:D2].
+     - This attribute determines how much the gain changes for large LMT in split
+       tablemode or the small ADC overload for the full table. See register 0x103, bits
+       [D4:D2].
      -
      -
    * - adi,agc-lmt-overload-small-exceed-counter
      - agc_lmt_overload_small_exceed_counter
-     - This counter specifies the number of small LMT overloads that much occur to prevent a gain increase. See register 0x121, bits [D3:D0].
+     - This counter specifies the number of small LMT overloads that much occur to
+       prevent a gain increase. See register 0x121, bits [D3:D0].
      -
      -
    * - adi,agc-outer-thresh-high
      - agc_outer_thresh_high
-     - The outer high threshold equals the inner high threshold plus this value. See register 0x129, bits [D7:D4]. This data is processed by the driver.
+     - The outer high threshold equals the inner high threshold plus this value. See
+       register 0x129, bits [D7:D4]. This data is processed by the driver.
      -
      -
    * - adi,agc-outer-thresh-high-dec-steps
      - agc_outer_thresh_high_dec_steps
-     - The slow AGC changes gain by this amount when the outer high threshold is exceeded. See register 0x12A, bits [D7:D4].
+     - The slow AGC changes gain by this amount when the outer high threshold is
+       exceeded. See register 0x12A, bits [D7:D4].
      -
      -
    * - adi,agc-outer-thresh-low
      - agc_outer_thresh_low
-     - The outer low threshold equals the inner low threshold plus this value. See register 0x129, bits [D3:D0]. This data is processed by the driver.
+     - The outer low threshold equals the inner low threshold plus this value. See
+       register 0x129, bits [D3:D0]. This data is processed by the driver.
      -
      -
    * - adi,agc-outer-thresh-low-inc-steps
      - agc_outer_thresh_low_inc_steps
-     - The slow AGC changes gain by this amount when the outer low threshold is exceeded. See register 0x12A, bits [D3:D0].
+     - The slow AGC changes gain by this amount when the outer low threshold is
+       exceeded. See register 0x12A, bits [D3:D0].
      -
      -
    * - adi,agc-sync-for-gain-counter-enable
      - agc_sync_for_gain_counter_enable
-     - If this attribute is set, CTRL_IN2 transitioning high resets the counter.See register 0x128, bit D4.
+     - If this attribute is set, CTRL_IN2 transitioning high resets the counter.See
+       register 0x128, bit D4.
      -
      -
    * - Fast AGC
@@ -469,17 +536,22 @@ Linux/No-OS device driver comparison
      -
    * - adi,fagc-dec-pow-measurement-duration
      - fagc_dec_pow_measuremnt_duration
-     - The power measurement duration used by the gain control algorithm. See register 0x15C, bits [D3:D0]. This data is processed by the driver.
+     - The power measurement duration used by the gain control algorithm. See register
+       0x15C, bits [D3:D0]. This data is processed by the driver.
      -
      -
    * - adi,fagc-state-wait-time-ns
      - fagc_state_wait_time_ns
-     - The fast AGC delays moving from State 1 to State 2 until no peak overloads are detected for the value of this counter; measured in ClkRF cycles. See register 0x117, bits [D4:D0]. This data is processed by the driver.
+     - The fast AGC delays moving from State 1 to State 2 until no peak overloads are
+       detected for the value of this counter; measured in ClkRF cycles. See register
+       0x117, bits [D4:D0]. This data is processed by the driver.
      -
      -
    * - adi,fagc-adc-large-overload-inc-steps
      - f_agc_large_overload_inc_steps
-     - Fast Attack Only. Decrement Step Size for: Small LPF Gain Change / Full Table Case #2 <2:0>. See register 0x106, bits [D4:D6] (Name is misleading should be dec-steps!)
+     - Fast Attack Only. Decrement Step Size for: Small LPF Gain Change / Full Table
+       Case #2 <2:0>. See register 0x106, bits [D4:D6] (Name is misleading should be
+       dec-steps!)
      -
      -
    * - Fast AGC - Low Power
@@ -489,17 +561,23 @@ Linux/No-OS device driver comparison
      -
    * - adi,fagc-allow-agc-gain-increase-enable
      - fagc_allow_agc_gain_increase
-     - Setting this attribute allows the fast AGC to increase the gain while optimizing the gain index. Clearing it prevents the gain from increasing in any condition. See register 0x110, bit D0.
+     - Setting this attribute allows the fast AGC to increase the gain while optimizing
+       the gain index. Clearing it prevents the gain from increasing in any condition.
+       See register 0x110, bit D0.
      -
      -
    * - adi,fagc-lp-thresh-increment-time
      - fagc_lp_thresh_increment_time
-     - This attribute sets the time that the signal power must remain below the Low Power Threshold before the fast AGC will change gain. Also can be used by the MGC. See register 0x11B, bits [D7:D0].
+     - This attribute sets the time that the signal power must remain below the Low
+       Power Threshold before the fast AGC will change gain. Also can be used by the
+       MGC. See register 0x11B, bits [D7:D0].
      -
      -
    * - adi,fagc-lp-thresh-increment-steps
      - fagc_lp_thresh_increment_steps
-     - The Fast AGC will increase the gain index by this amount if signal power decreases below the Low Power Threshold and only if the Enable Incr Gain is enabled. See register 0x117, bits [D7:D5]. This data is processed by the driver.
+     - The Fast AGC will increase the gain index by this amount if signal power
+       decreases below the Low Power Threshold and only if the Enable Incr Gain is
+       enabled. See register 0x117, bits [D7:D5]. This data is processed by the driver.
      -
      -
    * - Fast AGC - Lock Level (Lock Level is set via slow AGC inner high threshold)
@@ -509,12 +587,14 @@ Linux/No-OS device driver comparison
      -
    * - adi,fagc-lock-level-lmt-gain-increase-enable
      - fagc_lock_level_lmt_gain_increase_en
-     - Set this attribute to allow the AGC to use LMT gain if the gain index needs to increase when moving to the AGC Lock Level. See register 0x111, bit D6.
+     - Set this attribute to allow the AGC to use LMT gain if the gain index needs to
+       increase when moving to the AGC Lock Level. See register 0x111, bit D6.
      -
      -
    * - adi,fagc-lock-level-gain-increase-upper-limit
      - fagc_lock_level_gain_increase_upper_limit
-     - This attribute sets the maximum gain index increase that the fast AGC can use for the lock level adjustment. See register 0x118, bits [D5:D0].
+     - This attribute sets the maximum gain index increase that the fast AGC can use
+       for the lock level adjustment. See register 0x118, bits [D5:D0].
      -
      -
    * - Fast AGC - Peak Detectors and Final Settling
@@ -524,7 +604,12 @@ Linux/No-OS device driver comparison
      -
    * - adi,fagc-lpf-final-settling-steps
      - fagc_lpf_final_settling_steps
-     - This attribute sets the reduction to the gain index if a large LMT or large ADC overload occurs after Lock Level but before fast AGC state 5. If the number of overloads exceeds the Final Overrange Count (fagc_final_overrange_count), the AGC algorithm restarts. Depending on various conditions if a split table is used, the gain may reduce in in the LPF or the LMT (fagc_lmt_final_settling_steps). See register 0x112, bits [D7:D6].
+     - This attribute sets the reduction to the gain index if a large LMT or large ADC
+       overload occurs after Lock Level but before fast AGC state 5. If the number of
+       overloads exceeds the Final Overrange Count (fagc_final_overrange_count), the
+       AGC algorithm restarts. Depending on various conditions if a split table is
+       used, the gain may reduce in in the LPF or the LMT
+       (fagc_lmt_final_settling_steps). See register 0x112, bits [D7:D6].
      -
      -
    * - adi,fagc-lmt-final-settling-steps
@@ -544,7 +629,9 @@ Linux/No-OS device driver comparison
      -
    * - adi,fagc-gain-increase-after-gain-lock-enable
      - fagc_gain_increase_after_gain_lock_en
-     - Set this attribute to allow gain increases after the gain has locked but before State 5. Signal power must be lower than the low power threshold for longer than the increment time duration register. See register 0x110, bit D7.
+     - Set this attribute to allow gain increases after the gain has locked but before
+       State 5. Signal power must be lower than the low power threshold for longer than
+       the increment time duration register. See register 0x110, bit D7.
      -
      -
    * - Fast AGC - Unlocking the Gain
@@ -554,42 +641,58 @@ Linux/No-OS device driver comparison
      -
    * - adi,fagc-gain-index-type-after-exit-rx-mode
      - fagc_gain_index_type_after_exit_rx_mode
-     - MAX Gain (0); Optimized Gain (1); Set Gain (2). See register 0x110, bits D4,D2. This data is processed by the driver.
+     - MAX Gain (0); Optimized Gain (1); Set Gain (2). See register 0x110, bits D4,D2.
+       This data is processed by the driver.
      -
      -
    * - adi,fagc-use-last-lock-level-for-set-gain-enable
      - fagc_use_last_lock_level_for_set_gain_en
-     - Set this attribute to use the last gain index of the previous frame for set gain. Clear to use the first gain index of the previous frame. See register 0x111, bit D7.
+     - Set this attribute to use the last gain index of the previous frame for set
+       gain. Clear to use the first gain index of the previous frame. See register
+       0x111, bit D7.
      -
      -
    * - adi,fagc-rst-gla-stronger-sig-thresh-exceeded-enable
      - fagc_rst_gla_stronger_sig_thresh_exceeded_en
-     - If this attribute is set and the fast AGC is in State 5, the gain will not change even if the signal power increase by more than the Stronger Signal Threshold. See register 0x115, bit D7.
+     - If this attribute is set and the fast AGC is in State 5, the gain will not
+       change even if the signal power increase by more than the Stronger Signal
+       Threshold. See register 0x115, bit D7.
      -
      -
    * - adi,fagc-optimized-gain-offset
      - fagc_optimized_gain_offset
-     - The offset added to the last gain lock level of the previous frame. The result is the optimize gain index. See register 0x116, bits [D3:D0].
+     - The offset added to the last gain lock level of the previous frame. The result
+       is the optimize gain index. See register 0x116, bits [D3:D0].
      -
      -
    * - adi,fagc-rst-gla-stronger-sig-thresh-above-ll
      - fagc_rst_gla_stronger_sig_thresh_above_ll
-     - If the signal power increases by this threshold and the signal power remains at this level or higher for a duration that is twice the Gain Lock Exit Count, the gain may unlock, depending on other AGC configuration bits. See register 0x113, bits [D5:D0].
+     - If the signal power increases by this threshold and the signal power remains at
+       this level or higher for a duration that is twice the Gain Lock Exit Count, the
+       gain may unlock, depending on other AGC configuration bits. See register 0x113,
+       bits [D5:D0].
      -
      -
    * - adi,fagc-rst-gla-engergy-lost-sig-thresh-exceeded-enable
      - fagc_rst_gla_engergy_lost_sig_thresh_exceeded_en
-     - If this attribute is set and the fast AGC is in State 5, the gain will not change even if the average signal power decreases more than the Energy Lost Threshold register. See register 0x110, bit D3.
+     - If this attribute is set and the fast AGC is in State 5, the gain will not
+       change even if the average signal power decreases more than the Energy Lost
+       Threshold register. See register 0x110, bit D3.
      -
      -
    * - adi,fagc-rst-gla-engergy-lost-goto-optim-gain-enable
      - fagc_rst_gla_engergy_lost_goto_optim_gain_en
-     - If this attribute is set and the fast AGC is in State 5, the gain index will go to the optimize gain value if an energy lost state occurs or when the EN_AGC signal goes high. See register 0x110, bit D6.
+     - If this attribute is set and the fast AGC is in State 5, the gain index will go
+       to the optimize gain value if an energy lost state occurs or when the EN_AGC
+       signal goes high. See register 0x110, bit D6.
      -
      -
    * - adi,fagc-rst-gla-engergy-lost-sig-thresh-below-ll
      - fagc_rst_gla_engergy_lost_sig_thresh_below_ll
-     - If the signal power decreases by this threshold and the signal power remains at this level or lower for a duration that is twice the Gain Lock Exit Count, the gain may unlock, depending on other AGC configuration bits. See register 0x112, bits [D5:D0].
+     - If the signal power decreases by this threshold and the signal power remains at
+       this level or lower for a duration that is twice the Gain Lock Exit Count, the
+       gain may unlock, depending on other AGC configuration bits. See register 0x112,
+       bits [D5:D0].
      -
      -
    * - adi,fagc-energy-lost-stronger-sig-gain-lock-exit-cnt
@@ -599,7 +702,8 @@ Linux/No-OS device driver comparison
      -
    * - adi,fagc-rst-gla-large-adc-overload-enable
      - fagc_rst_gla_large_adc_overload_en
-     - Unlock gain if ADC Ovrg, Lg ADC or LMT Ovrg. See register 0x110, bit D1 and register 0x114, bit D7. This data is processed by the driver.
+     - Unlock gain if ADC Ovrg, Lg ADC or LMT Ovrg. See register 0x110, bit D1 and
+       register 0x114, bit D7. This data is processed by the driver.
      -
      -
    * - adi,fagc-rst-gla-large-lmt-overload-enable
@@ -609,17 +713,20 @@ Linux/No-OS device driver comparison
      -
    * - adi,fagc-rst-gla-en-agc-pulled-high-enable
      - fagc_rst_gla_en_agc_pulled_high_en
-     - See fagc_rst_gla_if_en_agc_pulled_high_mode. This data is processed by the driver.
+     - See fagc_rst_gla_if_en_agc_pulled_high_mode. This data is processed by the
+       driver.
      -
      -
    * - adi,fagc-rst-gla-if-en-agc-pulled-high-mode
      - fagc_rst_gla_if_en_agc_pulled_high_mode
-     - MAX Gain (0); Optimized Gain (1); Set Gain (2), No gain change. See registers 0x110, 0x111
+     - MAX Gain (0); Optimized Gain (1); Set Gain (2), No gain change. See registers
+       0x110, 0x111
      -
      -
    * - adi,fagc-power-measurement-duration-in-state5
      - fagc_power_measurement_duration_in_state5
-     - The power measurement duration used by the gain control algorithm for State 5 (gain lock) - fast AGC. See register 0x109, bit D7 and 0x10a, bits [D7:D5].
+     - The power measurement duration used by the gain control algorithm for State 5
+       (gain lock) - fast AGC. See register 0x109, bit D7 and 0x10a, bits [D7:D5].
      -
      -
    * - RSSI Control
@@ -653,18 +760,20 @@ Linux/No-OS device driver comparison
      -
      -
    * - adi,rssi-gain-step-lna-error-table
-     - -
+     -
      - RSSI Gain Step LNA error table values
      -
      -
    * - adi,rssi-gain-step-mixer-error-table
-     - -
+     -
      - RSSI Gain Step Mixer error table values
      -
      -
    * - adi,rssi-gain-step-calibration-register-values
-     - -
-     - Maximum LNA Gain, LNA Gain difference word for Index 0, LNA Gain difference word for Index 1, LNA Gain difference word for Index 2, LNA Gain difference word for Index 3
+     -
+     - Maximum LNA Gain, LNA Gain difference word for Index 0, LNA Gain difference word
+       for Index 1, LNA Gain difference word for Index 2, LNA Gain difference word for
+       Index 3
      -
      -
    * - Aux ADC Control
@@ -674,12 +783,14 @@ Linux/No-OS device driver comparison
      -
    * - adi,aux-adc-decimation
      - aux_adc_decimation
-     - This sets the AuxADC decimation, See register 0x01D, bits [D3:D1]. This data is processed by the driver.
+     - This sets the AuxADC decimation, See register 0x01D, bits [D3:D1]. This data is
+       processed by the driver.
      -
      -
    * - adi,aux-adc-rate
      - aux_adc_rate
-     - This sets the AuxADC clock frequency in Hz. See register 0x01C, bits [D5:D0]. This data is processed by the driver.
+     - This sets the AuxADC clock frequency in Hz. See register 0x01C, bits [D5:D0].
+       This data is processed by the driver.
      -
      -
    * - Temperature Sensor Control
@@ -689,7 +800,8 @@ Linux/No-OS device driver comparison
      -
    * - adi,temp-sense-decimation
      - temp_sense_decimation
-     - Decimation of the AuxADC used to derive the temperature. This data is processed by the driver.
+     - Decimation of the AuxADC used to derive the temperature. This data is processed
+       by the driver.
      -
      -
    * - adi,temp-sense-measurement-interval-ms
@@ -784,17 +896,20 @@ Linux/No-OS device driver comparison
      -
    * - adi,gpo-manual-mode-enable
      -
-     - Enables GPO manual mode, this will conflict with automatic ENSM slave and eLNA mode
+     - Enables GPO manual mode, this will conflict with automatic ENSM slave and eLNA
+       mode
      -
      -
    * - adi,gpo-manual-mode-enable-mask
      -
-     - Enable bit mask, setting or clearing bits will change the level of the corresponding output. Bit0 -> GPO, Bit1 -> GPO1, Bit2 -> GPO2, Bit3 -> GP03
+     - Enable bit mask, setting or clearing bits will change the level of the
+       corresponding output. Bit0 -> GPO, Bit1 -> GPO1, Bit2 -> GPO2, Bit3 -> GP03
      -
      -
    * - adi,gpo0-inactive-state-high-enable
      - gpo0_inactive_state_high_enable
-     - When clear, the GPOs are logic low in the Sleep, Wait, and Alert States and when set, the GPOs are logic high in the Alert state.
+     - When clear, the GPOs are logic low in the Sleep, Wait, and Alert States and when
+       set, the GPOs are logic high in the Alert state.
      -
      -
    * - adi,gpo0-slave-rx-enable
@@ -809,17 +924,20 @@ Linux/No-OS device driver comparison
      -
    * - adi,gpo0-rx-delay-us
      - gpo0_rx_delay_us
-     - This value set the delay from an ENSM state change of Alert to RX to the time that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.
+     - This value set the delay from an ENSM state change of Alert to RX to the time
+       that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.
      -
      -
    * - adi,gpo0-tx-delay-us
      - gpo0_tx_delay_us
-     - This value set the delay from an ENSM state change of Alert to TX to the time that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.
+     - This value set the delay from an ENSM state change of Alert to TX to the time
+       that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.
      -
      -
    * - adi,gpo1-inactive-state-high-enable
      - gpo1_inactive_state_high_enable
-     - When clear, the GPOs are logic low in the Sleep, Wait, and Alert States and when set, the GPOs are logic high in the Alert state.
+     - When clear, the GPOs are logic low in the Sleep, Wait, and Alert States and when
+       set, the GPOs are logic high in the Alert state.
      -
      -
    * - adi,gpo1-slave-rx-enable
@@ -834,17 +952,20 @@ Linux/No-OS device driver comparison
      -
    * - adi,gpo1-rx-delay-us
      - gpo1_rx_delay_us
-     - This value set the delay from an ENSM state change of Alert to RX to the time that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.
+     - This value set the delay from an ENSM state change of Alert to RX to the time
+       that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.
      -
      -
    * - adi,gpo1-tx-delay-us
      - gpo1_tx_delay_us
-     - This value set the delay from an ENSM state change of Alert to TX to the time that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.
+     - This value set the delay from an ENSM state change of Alert to TX to the time
+       that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.
      -
      -
    * - adi,gpo2-inactive-state-high-enable
      - gpo2_inactive_state_high_enable
-     - When clear, the GPOs are logic low in the Sleep, Wait, and Alert States and when set, the GPOs are logic high in the Alert state.
+     - When clear, the GPOs are logic low in the Sleep, Wait, and Alert States and when
+       set, the GPOs are logic high in the Alert state.
      -
      -
    * - adi,gpo2-slave-rx-enable
@@ -859,17 +980,20 @@ Linux/No-OS device driver comparison
      -
    * - adi,gpo2-rx-delay-us
      - gpo2_rx_delay_us
-     - This value set the delay from an ENSM state change of Alert to RX to the time that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.
+     - This value set the delay from an ENSM state change of Alert to RX to the time
+       that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.
      -
      -
    * - adi,gpo2-tx-delay-us
      - gpo2_tx_delay_us
-     - This value set the delay from an ENSM state change of Alert to TX to the time that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.
+     - This value set the delay from an ENSM state change of Alert to TX to the time
+       that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.
      -
      -
    * - adi,gpo3-inactive-state-high-enable
      - gpo3_inactive_state_high_enable
-     - When clear, the GPOs are logic low in the Sleep, Wait, and Alert States and when set, the GPOs are logic high in the Alert state.
+     - When clear, the GPOs are logic low in the Sleep, Wait, and Alert States and when
+       set, the GPOs are logic high in the Alert state.
      -
      -
    * - adi,gpo3-slave-rx-enable
@@ -884,12 +1008,14 @@ Linux/No-OS device driver comparison
      -
    * - adi,gpo3-rx-delay-us
      - gpo3_rx_delay_us
-     - This value set the delay from an ENSM state change of Alert to RX to the time that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.
+     - This value set the delay from an ENSM state change of Alert to RX to the time
+       that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.
      -
      -
    * - adi,gpo3-tx-delay-us
      - gpo3_tx_delay_us
-     - This value set the delay from an ENSM state change of Alert to TX to the time that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.
+     - This value set the delay from an ENSM state change of Alert to TX to the time
+       that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.
      -
      -
    * - Control Out Setup
@@ -929,7 +1055,16 @@ Linux/No-OS device driver comparison
      -
    * - adi,elna-gain-mdB
      - elna_gain_mdB
-     - These options must have non-zero values only if (1) an external LNA is used and (2) the ``Ext LNA ctrl`` bits in the Gain Table have been programmed. For a fixed-gain LNA, set elna-gain-mdB to the gain of the LNA and leave register elna-bypass-loss-mdB at its default of 0. For an external LNA with a bypass mode, program elna-gain-mdB with the ``high gain`` (non-bypass) value and program elna-bypass-loss-mdB with the ``low gain`` (bypass) value. The part considers both values to represent positive gain in the front end prior to the AD9361. Both registers range from 0 to 31500mdB in 500mdB steps. See elna-rx[1|2]-gpo[0|1]-control-enable to route the external LNA gain table bits to the GPO pins.
+     - These options must have non-zero values only if (1) an external LNA is used and
+       (2) the ``Ext LNA ctrl`` bits in the Gain Table have been programmed. For a
+       fixed-gain LNA, set elna-gain-mdB to the gain of the LNA and leave register
+       elna-bypass-loss-mdB at its default of 0. For an external LNA with a bypass
+       mode, program elna-gain-mdB with the ``high gain`` (non-bypass) value and
+       program elna-bypass-loss-mdB with the ``low gain`` (bypass) value. The part
+       considers both values to represent positive gain in the front end prior to the
+       AD9361. Both registers range from 0 to 31500mdB in 500mdB steps. See
+       elna-rx[1|2]-gpo[0|1]-control-enable to route the external LNA gain table bits
+       to the GPO pins.
      -
      -
    * - adi,elna-bypass-loss-mdB
@@ -1019,7 +1154,9 @@ Linux/No-OS device driver comparison
      -
    * - adi,digital-interface-tune-skip-mode
      - digital_interface_tune_skip_mode
-     - Allows skipping the digital interface tune 0=don’t skip, 1=skip TX tuning, 2=skip RX and TX and use rx-data-clock-delay, adi,rx-data-delay, adi,tx-fb-clock-delay, adi,tx-data-delay instead
+     - Allows skipping the digital interface tune 0=don’t skip, 1=skip TX tuning,
+       2=skip RX and TX and use rx-data-clock-delay, adi,rx-data-delay,
+       adi,tx-fb-clock-delay, adi,tx-data-delay instead
      -
      -
 
@@ -1155,7 +1292,7 @@ Linux/No-OS device driver comparison
      -
 
 RF Port Select
---------------
+~~~~~~~~~~~~~~
 
 .. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/ad9361_fbl.png
    :width: 300px
@@ -1173,10 +1310,11 @@ RF Port Select
      - tx_rf_port_input_select
      - RF Port Output Select
 
+
 .. _ad9361-customization rf-port-input-select:
 
 RF Port Input Select
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -1212,10 +1350,11 @@ RF Port Input Select
      - RX1C_P and RX2C_P enabled
      - unbalanced
 
+
 .. _ad9361-customization rf-port-output-select:
 
 RF Port Output Select
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -1228,7 +1367,7 @@ RF Port Output Select
      - TX1B, TX2B
 
 RSSI Setup
-----------
+~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -1259,7 +1398,7 @@ RSSI Setup
        RSSI and waiting ``RSSI Wait`` to measure RSSI
 
 RSSI Restart Modes
-~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -1287,7 +1426,7 @@ RSSI Restart Modes
      - FDD
 
 RSSI Restart Mode 0
-^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""
 
 .. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/rssi_restart_mode0.png
 
@@ -1317,7 +1456,7 @@ RSSI Restart Mode 5
 .. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/rssi_restart_mode5.png
 
 Example
-^^^^^^^
+"""""""
 
 ::
 
@@ -1338,7 +1477,7 @@ Example
 --------------
 
 Control Output Setup
---------------------
+~~~~~~~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -1663,7 +1802,7 @@ Control Output Setup
      -
 
 Clock Output Setup
-------------------
+~~~~~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1

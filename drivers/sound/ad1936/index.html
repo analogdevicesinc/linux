@@ -97,27 +97,41 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">AD1936</a><ul>
-<li><a class="reference internal" href="#supported-devices">Supported devices</a></li>
+<li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
-<li><a class="reference internal" href="#status">Status</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
+<li><a class="reference internal" href="#example-device-initialization">Example device initialization</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-device-initialization">Example device initialization</a><ul>
+<li><a class="reference internal" href="#board-integration">Board integration</a><ul>
+<li><a class="reference internal" href="#ad193x-evaluation-board-driver">AD193X evaluation board driver</a><ul>
+<li><a class="reference internal" href="#adding-kernel-support-as-a-module">Adding Kernel Support - As a module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#routing-and-dapm">Routing and DAPM</a><ul>
 <li><a class="reference internal" href="#asoc-dapm-widgets">ASoC DAPM Widgets</a></li>
-<li><a class="reference internal" href="#alsa-controls">ALSA Controls</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#alsa-controls">ALSA controls</a></li>
+<li><a class="reference internal" href="#dai-formats-and-clocks">DAI formats and clocks</a><ul>
 <li><a class="reference internal" href="#dai-configuration">DAI Configuration</a><ul>
 <li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#example-dai-configuration">Example DAI Configuration</a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li><a class="reference internal" href="#ad193x-evaluation-board-driver">AD193X evaluation board driver</a><ul>
-<li><a class="reference internal" href="#adding-kernel-support-as-a-module">Adding Kernel Support - As a module</a></li>
 </ul>
 </li>
 </ul>
@@ -221,6 +235,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -239,7 +254,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -376,7 +390,7 @@ Content on this topic
 <span id="id1"></span><h1>AD1936<a class="headerlink" href="#ad1936" title="Link to this heading"></a></h1>
 <p>AD1936 Sound CODEC Linux Driver.</p>
 <section id="supported-devices">
-<h2>Supported devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+<h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD1933" target="_blank">AD1933</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD1934" target="_blank">AD1934</a></p></li>
@@ -417,8 +431,9 @@ Content on this topic
 </tbody>
 </table>
 </div>
+</section>
 <section id="files">
-<h4>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h4>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -438,9 +453,12 @@ Content on this topic
 </div>
 </section>
 </section>
-</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
 <section id="example-device-initialization">
-<h2>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h4>
 <p>Unlike PCI or USB devices, SPI devices are not enumerated at the hardware level.
 Instead, the software must know which devices are connected on each SPI bus
 segment, and what slave selects these devices are using. For this reason, the
@@ -452,9 +470,10 @@ It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
 <p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>Overview of Linux kernel SPI support</span></a></p>
-<p>You need to set the modalias of your SPI info according to your codec. Valid
-values are <code class="docutils literal notranslate"><span class="pre">ad1935</span></code> and <code class="docutils literal notranslate"><span class="pre">ad1937</span></code>, You’ll also have to adjust bus_num and
-chip_select according to your board setup.</p>
+<p>AD1936 and AD1937 use the I2C transport. The SPI transport matches ad193x,
+ad1933, ad1934, ad1938, ad1939 and adau1328. The following SPI example therefore
+applies to an SPI variant (for example ad1938), not AD1936. Select the
+appropriate transport and board address/chip select.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">board_spi_board_info</span><span class="p">[]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
 <span class="w">    </span><span class="p">{</span>
@@ -481,8 +500,44 @@ chip_select according to your board setup.</p>
 <span class="n">arch_initcall</span><span class="p">(</span><span class="n">board_init</span><span class="p">);</span>
 </pre></div>
 </div>
+</section>
+</section>
+<section id="board-integration">
+<h3>Board integration<a class="headerlink" href="#board-integration" title="Link to this heading"></a></h3>
+<section id="ad193x-evaluation-board-driver">
+<h4>AD193X evaluation board driver<a class="headerlink" href="#ad193x-evaluation-board-driver" title="Link to this heading"></a></h4>
+<section id="adding-kernel-support-as-a-module">
+<h5>Adding Kernel Support - As a module<a class="headerlink" href="#adding-kernel-support-as-a-module" title="Link to this heading"></a></h5>
+<p>To add support for the built-in codec AD193X of BF5XX to the kernel build
+system, a few things must be enabled properly for things to work.The
+configuration is as following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+  <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="n">Sound</span>  <span class="o">---&gt;</span>
+      <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">Sound</span> <span class="n">card</span> <span class="n">support</span>
+        <span class="n">Advanced</span> <span class="n">Linux</span> <span class="n">Sound</span> <span class="n">Architecture</span>  <span class="o">---&gt;</span>
+          <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">Advanced</span> <span class="n">Linux</span> <span class="n">Sound</span> <span class="n">Architecture</span>
+          <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Sequencer</span> <span class="n">support</span>
+          <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">OSS</span> <span class="n">Mixer</span> <span class="n">API</span>
+          <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">OSS</span> <span class="n">PCM</span> <span class="p">(</span><span class="n">digital</span> <span class="n">audio</span><span class="p">)</span> <span class="n">API</span>
+          <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">ALSA</span> <span class="k">for</span> <span class="n">SoC</span> <span class="n">audio</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+              <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">SoC</span> <span class="n">I2S</span><span class="p">(</span><span class="n">TDM</span> <span class="n">mode</span><span class="p">)</span> <span class="n">Audio</span> <span class="k">for</span> <span class="n">the</span> <span class="n">ADI</span> <span class="n">BF5xx</span> <span class="n">chip</span>
+              <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">SoC</span> <span class="n">AD193X</span> <span class="n">Audio</span> <span class="n">support</span> <span class="k">for</span> <span class="n">BF5xx</span>
+</pre></div>
+</div>
+<p>Doing this will create modules (outside the kernel). The modules will be
+inserted automatically when it is needed. You can also build sound driver into
+kernel.</p>
+</section>
+</section>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="routing-and-dapm">
+<h3>Routing and DAPM<a class="headerlink" href="#routing-and-dapm" title="Link to this heading"></a></h3>
 <section id="asoc-dapm-widgets">
-<h3>ASoC DAPM Widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h3>
+<h4>ASoC DAPM Widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -513,8 +568,9 @@ chip_select according to your board setup.</p>
 </table>
 </div>
 </section>
+</section>
 <section id="alsa-controls">
-<h3>ALSA Controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
+<h3>ALSA controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -564,8 +620,10 @@ chip_select according to your board setup.</p>
 </table>
 </div>
 </section>
+<section id="dai-formats-and-clocks">
+<h3>DAI formats and clocks<a class="headerlink" href="#dai-formats-and-clocks" title="Link to this heading"></a></h3>
 <section id="dai-configuration">
-<h3>DAI Configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h3>
+<h4>DAI Configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -579,7 +637,7 @@ chip_select according to your board setup.</p>
 </table>
 </div>
 <section id="supported-dai-formats">
-<h4>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h4>
+<h5>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h5>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -661,6 +719,7 @@ chip_select according to your board setup.</p>
 </table>
 </div>
 </section>
+</section>
 <section id="example-dai-configuration">
 <h4>Example DAI Configuration<a class="headerlink" href="#example-dai-configuration" title="Link to this heading"></a></h4>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">bf5xx_ad193x_hw_params</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_pcm_substream</span><span class="w"> </span><span class="o">*</span><span class="n">substream</span><span class="p">,</span>
@@ -702,32 +761,6 @@ chip_select according to your board setup.</p>
 </pre></div>
 </div>
 </section>
-</section>
-</section>
-<section id="ad193x-evaluation-board-driver">
-<h2>AD193X evaluation board driver<a class="headerlink" href="#ad193x-evaluation-board-driver" title="Link to this heading"></a></h2>
-<section id="adding-kernel-support-as-a-module">
-<h3>Adding Kernel Support - As a module<a class="headerlink" href="#adding-kernel-support-as-a-module" title="Link to this heading"></a></h3>
-<p>To add support for the built-in codec AD193X of BF5XX to the kernel build
-system, a few things must be enabled properly for things to work.The
-configuration is as following:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-  <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="n">Sound</span>  <span class="o">---&gt;</span>
-      <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">Sound</span> <span class="n">card</span> <span class="n">support</span>
-        <span class="n">Advanced</span> <span class="n">Linux</span> <span class="n">Sound</span> <span class="n">Architecture</span>  <span class="o">---&gt;</span>
-          <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">Advanced</span> <span class="n">Linux</span> <span class="n">Sound</span> <span class="n">Architecture</span>
-          <span class="o">&lt;</span> <span class="o">&gt;</span> <span class="n">Sequencer</span> <span class="n">support</span>
-          <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">OSS</span> <span class="n">Mixer</span> <span class="n">API</span>
-          <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span> <span class="n">OSS</span> <span class="n">PCM</span> <span class="p">(</span><span class="n">digital</span> <span class="n">audio</span><span class="p">)</span> <span class="n">API</span>
-          <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">ALSA</span> <span class="k">for</span> <span class="n">SoC</span> <span class="n">audio</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-              <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">SoC</span> <span class="n">I2S</span><span class="p">(</span><span class="n">TDM</span> <span class="n">mode</span><span class="p">)</span> <span class="n">Audio</span> <span class="k">for</span> <span class="n">the</span> <span class="n">ADI</span> <span class="n">BF5xx</span> <span class="n">chip</span>
-              <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">SoC</span> <span class="n">AD193X</span> <span class="n">Audio</span> <span class="n">support</span> <span class="k">for</span> <span class="n">BF5xx</span>
-</pre></div>
-</div>
-<p>Doing this will create modules (outside the kernel). The modules will be
-inserted automatically when it is needed. You can also build sound driver into
-kernel.</p>
 </section>
 </section>
 </section>

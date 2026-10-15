@@ -98,50 +98,61 @@
           <ul>
 <li><a class="reference internal" href="#">ADAS1000</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-calibration-dac-scale">Show calibration DAC scale</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#list-available-low-filter-frequencies">List available low filter frequencies</a><ul>
-<li><a class="reference internal" href="#set-and-show-low-filter-frequency">Set and show low filter frequency</a></li>
-<li><a class="reference internal" href="#set-and-show-filter-frequency">Set and show filter frequency</a></li>
-<li><a class="reference internal" href="#list-available-adc-gain-values">List available ADC gain values</a></li>
-<li><a class="reference internal" href="#set-and-adc-gain-value">Set and ADC gain value</a></li>
-<li><a class="reference internal" href="#set-adc-calibration-gain">Set ADC calibration gain</a></li>
-<li><a class="reference internal" href="#list-available-right-leg-drive-outputs">List available Right Leg drive outputs</a></li>
 <li><a class="reference internal" href="#select-right-leg-drive-output-electrode">Select Right Leg drive output electrode</a></li>
 <li><a class="reference internal" href="#enable-disable-right-leg-drive-output">Enable/Disable Right Leg drive output</a></li>
 <li><a class="reference internal" href="#setup-right-leg-drive-summing-junction-configuration">Setup Right Leg drive summing junction configuration</a></li>
 <li><a class="reference internal" href="#setup-vcm-summing-junction-configuration">Setup VCM summing junction configuration</a></li>
 <li><a class="reference internal" href="#enable-disable-shield-driver">Enable/Disable shield driver</a></li>
 <li><a class="reference internal" href="#enable-disable-calibration-dac">Enable/Disable calibration DAC</a></li>
-<li><a class="reference internal" href="#set-calibration-dac-output-value">Set calibration DAC output value</a></li>
-<li><a class="reference internal" href="#show-calibration-dac-scale">Show calibration DAC scale</a></li>
-<li><a class="reference internal" href="#debugfs">Debugfs</a></li>
 <li><a class="reference internal" href="#direct-register-read-and-write-acccess">Direct register read and write acccess</a></li>
 <li><a class="reference internal" href="#check-fuse-crc-status">Check fuse CRC status</a></li>
 <li><a class="reference internal" href="#check-fuse-status">Check fuse status</a></li>
 <li><a class="reference internal" href="#check-pll-status">Check PLL status</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#set-and-show-low-filter-frequency">Set and show low filter frequency</a></li>
+<li><a class="reference internal" href="#set-and-show-filter-frequency">Set and show filter frequency</a></li>
+<li><a class="reference internal" href="#list-available-adc-gain-values">List available ADC gain values</a></li>
+<li><a class="reference internal" href="#set-and-adc-gain-value">Set and ADC gain value</a></li>
+<li><a class="reference internal" href="#set-adc-calibration-gain">Set ADC calibration gain</a></li>
+<li><a class="reference internal" href="#list-available-right-leg-drive-outputs">List available Right Leg drive outputs</a></li>
+<li><a class="reference internal" href="#set-calibration-dac-output-value">Set calibration DAC output value</a></li>
 <li><a class="reference internal" href="#enable-testtone">Enable testtone</a></li>
 <li><a class="reference internal" href="#set-testtone-frequnecy">Set testtone frequnecy</a></li>
 <li><a class="reference internal" href="#enable-internal-testtone-routing">Enable internal testtone routing</a></li>
 <li><a class="reference internal" href="#enable-external-testtone-output">Enable external testtone output</a></li>
 <li><a class="reference internal" href="#enable-testtone-routing-to-individual-ecg-channels">Enable testtone routing to individual ECG channels</a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li><a class="reference internal" href="#trigger-management">Trigger management</a></li>
 <li><a class="reference internal" href="#buffer-management">Buffer management</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
+<li><a class="reference internal" href="#debugfs">Debugfs</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -246,6 +257,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -264,7 +276,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -412,12 +423,12 @@ Linux Driver.</p>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADAS1000SDZ" target="_blank">EVAL-ADAS1000SDZ</a></p></li>
 </ul>
-</section>
 <section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/CN0308" target="_blank">CN0308</a></p></li>
 </ul>
+</section>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -474,8 +485,33 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ADAS1000 Driver depends on <strong>CONFIG_SPI</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+            <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span>  <span class="o">---&gt;</span>
+                <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
+                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+                <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADAS1000</span> <span class="n">ECG</span> <span class="n">driver</span>
+                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -504,14 +540,14 @@ and minimizes board and application specific #ifdefs in drivers.</p>
 <span class="p">};</span>
 </pre></div>
 </div>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">adas1000_platform_data</span><span class="w"> </span><span class="n">pdata</span><span class="w"> </span><span class="p">{</span>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">adas1000_platform_data</span><span class="w"> </span><span class="n">adas1000_pdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="p">.</span><span class="n">enable_vref_buffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">high_performance</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">,</span>
 <span class="p">};</span>
 </pre></div>
 </div>
-<p>If no platform data is provided the driver will use the device’s default setting
-for all registers.</p>
+<p>Without platform data, setup resets ECGCTL and sets FRMCTL_DATAFMT; it then
+leaves the remaining platform-configurable settings at reset defaults.</p>
 <p>Unlike PCI or USB devices, SPI devices are not enumerated at the hardware level.
 Instead, the software must know which devices are connected on each SPI bus
 segment, and what slave selects these devices are using. For this reason, the
@@ -553,32 +589,13 @@ the device in question.</p>
 </pre></div>
 </div>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The ADAS1000 Driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-            <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span>  <span class="o">---&gt;</span>
-                <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
-                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-                <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADAS1000</span> <span class="n">ECG</span> <span class="n">driver</span>
-                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-</pre></div>
-</div>
 </section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<p>Disable the IIO buffer before accessing register-backed configuration or
+readback attributes; the driver rejects register accesses with <code class="docutils literal notranslate"><span class="pre">-EBUSY</span></code>
+while buffering.</p>
 <p>Each and every IIO device, typically a hardware chip, has a device folder under
 <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX</span></code>. Where X is the IIO index of the device. Under
 every of these directory folders reside a set of files, depending on the
@@ -642,26 +659,153 @@ the numbering is constant and may be known in advance.</p>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.12</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">adas1000</span>
 </pre></div>
 </div>
 <p>Contains the device name, this will always be <code class="docutils literal notranslate"><span class="pre">adas1000</span></code> for the adas1000
 driver.</p>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
+<section id="show-calibration-dac-scale">
+<h4>Show calibration DAC scale<a class="headerlink" href="#show-calibration-dac-scale" title="Link to this heading"></a></h4>
+<p><strong>Description:</strong> out_voltage6_calibration_scale</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_voltage6_calibration_scale</span>
+<span class="mf">0.002346</span>
+</pre></div>
+</div>
+<p>Vout = (out_voltage6_calibration_offset + out_voltage6_calibration_raw) *
+out_voltage6_calibration_scale</p>
+</section>
+</section>
 <section id="list-available-low-filter-frequencies">
-<h4>List available low filter frequencies<a class="headerlink" href="#list-available-low-filter-frequencies" title="Link to this heading"></a></h4>
+<h3>List available low filter frequencies<a class="headerlink" href="#list-available-low-filter-frequencies" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> in_voltage-voltage_filter_low_pass_3db_frequency_available</p>
 <p>Lists all available low pass filter frequencies, which may be set by writing to
 in_voltage-voltage_filter_low_pass_3db_frequency.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage</span><span class="o">-</span><span class="n">voltage_filter_low_pass_3db_frequency_available</span>
-<span class="mi">40</span> <span class="mi">150</span> <span class="mi">250</span> <span class="mi">400</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">device0</span><span class="o">&gt;</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/devices/platform/bfin-spi.0/spi0.3/device0&gt; cat in_voltage-voltage_filter_low_pass_3db_frequency_available
+40 150 250 400
+root:/sys/devices/platform/bfin-spi.0/spi0.3/device0&gt;
 </pre></div>
 </div>
+<section id="select-right-leg-drive-output-electrode">
+<h4>Select Right Leg drive output electrode<a class="headerlink" href="#select-right-leg-drive-output-electrode" title="Link to this heading"></a></h4>
+<p><strong>Description:</strong> rld_out_select</p>
+<p>Set the Right Leg drive output electrode.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/devices/platform/bfin-spi.0/spi0.3/device0&gt; echo rl &gt; rld_out_select
+root:/sys/devices/platform/bfin-spi.0/spi0.3/device0&gt; cat rld_out_select
+rl
+root:/sys/devices/platform/bfin-spi.0/spi0.3/device0&gt;
+</pre></div>
+</div>
+</section>
+<section id="enable-disable-right-leg-drive-output">
+<h4>Enable/Disable Right Leg drive output<a class="headerlink" href="#enable-disable-right-leg-drive-output" title="Link to this heading"></a></h4>
+<p><strong>Description:</strong> rld_powerdown</p>
+<p>Enable or disable the Right Leg drive output. Writing a ‘0’ to this file will
+enable the Right Leg drive; writing a ‘1’ disables the Right Leg drive.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">rld_powerdown</span>
+<span class="mi">1</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">0</span> <span class="o">&gt;</span> <span class="n">rld_powerdown</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">rld_powerdown</span>
+<span class="mi">0</span>
+</pre></div>
+</div>
+</section>
+<section id="setup-right-leg-drive-summing-junction-configuration">
+<h4>Setup Right Leg drive summing junction configuration<a class="headerlink" href="#setup-right-leg-drive-summing-junction-configuration" title="Link to this heading"></a></h4>
+<p><strong>Description:</strong> rld_summing_junction_ce_en rld_summing_junction_la_en
+rld_summing_junction_ll_en rld_summing_junction_ra_en rld_summing_junction_v1_en
+rld_summing_junction_v2_en</p>
+<p>Writing a ‘1’ to a file will add the respective channel to the Right Leg driver
+summing junction, writing a ‘0’ will remove it.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">rld_summing_junction_la_en</span>
+<span class="mi">1</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">rld_summing_junction_v2_en</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">rld_summing_junction_v2_en</span>
+<span class="mi">1</span>
+</pre></div>
+</div>
+</section>
+<section id="setup-vcm-summing-junction-configuration">
+<h4>Setup VCM summing junction configuration<a class="headerlink" href="#setup-vcm-summing-junction-configuration" title="Link to this heading"></a></h4>
+<p><strong>Description:</strong> vcm_summing_junction_ce_en vcm_summing_junction_la_en
+vcm_summing_junction_ll_en vcm_summing_junction_ra_en vcm_summing_junction_v1_en
+vcm_summing_junction_v2_en</p>
+<p>Writing a ‘1’ to a file will add the respective channel to the VCM summing
+junction, writing a ‘0’ will remove it.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">vcm_summing_junction_ra_en</span>
+<span class="mi">0</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">vcm_summing_junction_ra_en</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">vcm_summing_junction_ra_en</span>
+<span class="mi">1</span>
+</pre></div>
+</div>
+</section>
+<section id="enable-disable-shield-driver">
+<h4>Enable/Disable shield driver<a class="headerlink" href="#enable-disable-shield-driver" title="Link to this heading"></a></h4>
+<p><strong>Description:</strong> shield_driver_powerdown</p>
+<p>Enable or disable the shield driver. Writing a ‘0’ to this file will enable the
+shield driver; writing a ‘1’ disables the shield driver.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">shield_driver_powerdown</span>
+<span class="mi">1</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">0</span> <span class="o">&gt;</span> <span class="n">shield_driver_powerdown</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">shield_driver_powerdown</span>
+<span class="mi">0</span>
+</pre></div>
+</div>
+<p>out_voltage6_calibration_offset</p>
+</section>
+<section id="enable-disable-calibration-dac">
+<h4>Enable/Disable calibration DAC<a class="headerlink" href="#enable-disable-calibration-dac" title="Link to this heading"></a></h4>
+<p><strong>Description:</strong> out_voltage6_calibration_powerdown</p>
+<p>Enable or disable the calibration DAC. Writing a ‘0’ to this file will enable
+the calibration DAC, writing a ‘1’ to this file will disable the calibration
+DAC.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0&gt; cat out_voltage6_calibration_powerdown
+1
+root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0&gt; echo 0 &gt; out_voltage6_calibration_powerdown
+root:/sys/devices/platform/bfin-spi.0/spi_master/spi0/spi0.18/iio:device0&gt; cat out_voltage6_calibration_powerdown
+0
+</pre></div>
+</div>
+</section>
+<section id="direct-register-read-and-write-acccess">
+<h4>Direct register read and write acccess<a class="headerlink" href="#direct-register-read-and-write-acccess" title="Link to this heading"></a></h4>
+<p><strong>Description:</strong> direct_reg_access</p>
+<p>Allows direct register access to the device. To write to a register write the
+register address and the register value seperated by a space to the file.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mh">0x12</span> <span class="mh">0x17</span> <span class="o">&gt;</span> <span class="n">direct_reg_access</span>
+</pre></div>
+</div>
+<p>To read a register value, first write the register address to the file followed
+by a read.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mh">0x05</span> <span class="o">&gt;</span> <span class="n">direct_reg_access</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">direct_reg_access</span>
+</pre></div>
+</div>
+</section>
+<section id="check-fuse-crc-status">
+<h4>Check fuse CRC status<a class="headerlink" href="#check-fuse-crc-status" title="Link to this heading"></a></h4>
+<p><strong>Description:</strong> fuse_crc_failure</p>
+<p>‘1’ if a fuse CRC failure has been detected, ‘0’ otherwise.</p>
+</section>
+<section id="check-fuse-status">
+<h4>Check fuse status<a class="headerlink" href="#check-fuse-status" title="Link to this heading"></a></h4>
+<p><strong>Description:</strong> fuse_status</p>
+<p>‘0’ if the fuse bits have been read, ‘1’ otherwise.</p>
+</section>
+<section id="check-pll-status">
+<h4>Check PLL status<a class="headerlink" href="#check-pll-status" title="Link to this heading"></a></h4>
+<p><strong>Description:</strong> pll_locked</p>
+<p>‘1’ if the PLL is locked, ‘0’ otherwise.</p>
+</section>
+</section>
 <section id="set-and-show-low-filter-frequency">
-<h5>Set and show low filter frequency<a class="headerlink" href="#set-and-show-low-filter-frequency" title="Link to this heading"></a></h5>
+<h3>Set and show low filter frequency<a class="headerlink" href="#set-and-show-low-filter-frequency" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> in_voltage-voltage_filter_low_pass_3db_frequency</p>
 <p>Writing to this file will set the low pass filter frequency, reading from this
 file will show the currently selected low pass filter.</p>
@@ -695,7 +839,7 @@ decimation filter.</p>
 </div>
 </section>
 <section id="set-and-show-filter-frequency">
-<h5>Set and show filter frequency<a class="headerlink" href="#set-and-show-filter-frequency" title="Link to this heading"></a></h5>
+<h3>Set and show filter frequency<a class="headerlink" href="#set-and-show-filter-frequency" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> in_voltage-voltage_sampling_frequency</p>
 <p>Writing to this file will set the sampling frequency, reading from the file will
 return the currently selected sampling frequency.</p>
@@ -713,7 +857,7 @@ return the currently selected sampling frequency.</p>
 </div>
 </section>
 <section id="list-available-adc-gain-values">
-<h5>List available ADC gain values<a class="headerlink" href="#list-available-adc-gain-values" title="Link to this heading"></a></h5>
+<h3>List available ADC gain values<a class="headerlink" href="#list-available-adc-gain-values" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> in_voltage-voltage_scale_available</p>
 <p>List the available ADC gain settings, which can be set using
 in_voltage-voltage_scale.</p>
@@ -724,10 +868,11 @@ in_voltage-voltage_scale.</p>
 </div>
 </section>
 <section id="set-and-adc-gain-value">
-<h5>Set and ADC gain value<a class="headerlink" href="#set-and-adc-gain-value" title="Link to this heading"></a></h5>
+<h3>Set and ADC gain value<a class="headerlink" href="#set-and-adc-gain-value" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> in_voltage-voltage_scale</p>
-<p>Scale to be applied to in_voltageY-voltageZ_raw in order to obtain the measured
-voltage in millivolts.</p>
+<p>Apply this scale to decoded ECG samples obtained through the IIO buffer to
+obtain millivolts. The ECG channel definitions do not expose
+in_voltageY-voltageZ_raw direct-read attributes.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage</span><span class="o">-</span><span class="n">voltage_scale</span>
 <span class="mf">0.000019618</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mf">0.000006539</span> <span class="o">&gt;</span> <span class="n">in_voltage</span><span class="o">-</span><span class="n">voltage_scale</span>
@@ -738,7 +883,7 @@ voltage in millivolts.</p>
 </div>
 </section>
 <section id="set-adc-calibration-gain">
-<h5>Set ADC calibration gain<a class="headerlink" href="#set-adc-calibration-gain" title="Link to this heading"></a></h5>
+<h3>Set ADC calibration gain<a class="headerlink" href="#set-adc-calibration-gain" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> in_voltage0-voltage2_calibscale in_voltage0-voltage5_calibscale
 in_voltage1-voltage0_calibscale in_voltage1-voltage2_calibscale
 in_voltage1-voltage5_calibscale in_voltage2-voltage5_calibscale
@@ -761,7 +906,7 @@ the same set of calibration data.</p>
 </div>
 </section>
 <section id="list-available-right-leg-drive-outputs">
-<h5>List available Right Leg drive outputs<a class="headerlink" href="#list-available-right-leg-drive-outputs" title="Link to this heading"></a></h5>
+<h3>List available Right Leg drive outputs<a class="headerlink" href="#list-available-right-leg-drive-outputs" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> rld_out_select_available</p>
 <p>List available values for the rld_out_select file.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">rld_out_select_available</span>
@@ -770,91 +915,8 @@ the same set of calibration data.</p>
 </pre></div>
 </div>
 </section>
-<section id="select-right-leg-drive-output-electrode">
-<h5>Select Right Leg drive output electrode<a class="headerlink" href="#select-right-leg-drive-output-electrode" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> rld_out_select</p>
-<p>Set the Right Leg drive output electrode.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="n">rl</span> <span class="o">&gt;</span> <span class="n">rld_out_select_available</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">rld_out_select</span>
-<span class="n">rl</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">device0</span><span class="o">&gt;</span>
-</pre></div>
-</div>
-</section>
-<section id="enable-disable-right-leg-drive-output">
-<h5>Enable/Disable Right Leg drive output<a class="headerlink" href="#enable-disable-right-leg-drive-output" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> rld_powerdown</p>
-<p>Enable or disable the Right Leg drive output. Writing a ‘0’ to this file will
-enable the Right Leg drive, writing a ‘1’ to this file will enable the Right Leg
-drive.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">rld_powerdown</span>
-<span class="mi">1</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">0</span> <span class="o">&gt;</span> <span class="n">rld_powerdown</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">rld_powerdown</span>
-<span class="mi">0</span>
-</pre></div>
-</div>
-</section>
-<section id="setup-right-leg-drive-summing-junction-configuration">
-<h5>Setup Right Leg drive summing junction configuration<a class="headerlink" href="#setup-right-leg-drive-summing-junction-configuration" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> rld_summing_junction_ce_en rld_summing_junction_la_en
-rld_summing_junction_ll_en rld_summing_junction_ra_en rld_summing_junction_v1_en
-rld_summing_junction_v2_en</p>
-<p>Writing a ‘1’ to a file will add the respective channel to the Right Leg driver
-summing junction, writing a ‘0’ will remove it.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">rld_summing_junction_la_en</span>
-<span class="mi">1</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">rld_summing_junction_v2_en</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">rld_summing_junction_v2_en</span>
-<span class="mi">1</span>
-</pre></div>
-</div>
-</section>
-<section id="setup-vcm-summing-junction-configuration">
-<h5>Setup VCM summing junction configuration<a class="headerlink" href="#setup-vcm-summing-junction-configuration" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> vcm_summing_junction_ce_en vcm_summing_junction_la_en
-vcm_summing_junction_ll_en vcm_summing_junction_ra_en vcm_summing_junction_v1_en
-vcm_summing_junction_v2_en</p>
-<p>Writing a ‘1’ to a file will add the respective channel to the VCM summing
-junction, writing a ‘0’ will remove it.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">vcm_summing_junction_ra_en</span>
-<span class="mi">0</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">vcm_summing_junction_ra_en</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">vcm_summing_junction_ra_en</span>
-<span class="mi">1</span>
-</pre></div>
-</div>
-</section>
-<section id="enable-disable-shield-driver">
-<h5>Enable/Disable shield driver<a class="headerlink" href="#enable-disable-shield-driver" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> shield_driver_powerdown</p>
-<p>Enable or disable the shield driver. Writing a ‘0’ to this file will enable the
-shild driver, writing a ‘1’ to this file will enable the shield driver.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">shield_driver_powerdown</span>
-<span class="mi">1</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">0</span> <span class="o">&gt;</span> <span class="n">shield_driver_powerdown</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">shield_driver_powerdown</span>
-<span class="mi">0</span>
-</pre></div>
-</div>
-<p>out_voltage6_calibration_offset</p>
-</section>
-<section id="enable-disable-calibration-dac">
-<h5>Enable/Disable calibration DAC<a class="headerlink" href="#enable-disable-calibration-dac" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> out_voltage6_calibration_powerdown</p>
-<p>Enable or disable the calibration DAC. Writing a ‘0’ to this file will enable
-the calibration DAC, writing a ‘1’ to this file will disable the calibration
-DAC.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_voltage6_calibration_raw</span>
-<span class="mi">1</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">0</span> <span class="o">&gt;</span> <span class="n">out_voltage6_calibration_powerdown</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_voltage6_calibration_raw</span>
-<span class="mi">0</span>
-</pre></div>
-</div>
-</section>
 <section id="set-calibration-dac-output-value">
-<h5>Set calibration DAC output value<a class="headerlink" href="#set-calibration-dac-output-value" title="Link to this heading"></a></h5>
+<h3>Set calibration DAC output value<a class="headerlink" href="#set-calibration-dac-output-value" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> out_voltage6_calibration_raw</p>
 <p>Sets the calibration DAC output value. Valid values are in the range of 0-1023.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">100</span> <span class="o">&gt;</span> <span class="n">out_voltage6_calibration_raw</span>
@@ -863,58 +925,8 @@ DAC.</p>
 </pre></div>
 </div>
 </section>
-<section id="show-calibration-dac-scale">
-<h5>Show calibration DAC scale<a class="headerlink" href="#show-calibration-dac-scale" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> out_voltage6_calibration_scale</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_voltage6_calibration_scale</span>
-<span class="mf">0.002346</span>
-</pre></div>
-</div>
-<p>Vout = (out_voltage6_calibration_offset + out_voltage6_calibration_raw) *
-out_voltage6_calibration_scale</p>
-</section>
-<section id="debugfs">
-<h5>Debugfs<a class="headerlink" href="#debugfs" title="Link to this heading"></a></h5>
-<p>The adas1000 driver exposes also some files, which are meant for debugging
-purposes, in debugfs. These files can be used to read the OPSTAT register and to
-configure the testtone generator.</p>
-<p>root:/sys/kernel/debug/iio/iio:device0&gt; ls direct_reg_access pll_locked
-testtone_la_en testtone_v1_en fuse_crc_failure testtone_en testtone_ll_en
-testtone_v2_en fuse_status testtone_frequency testtone_out_en pll_lock_lost
-testtone_internal testtone_ra_en root:/sys/kernel/debug/iio/iio:device0&gt;</p>
-</section>
-<section id="direct-register-read-and-write-acccess">
-<h5>Direct register read and write acccess<a class="headerlink" href="#direct-register-read-and-write-acccess" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> direct_reg_access</p>
-<p>Allows direct register access to the device. To write to a register write the
-register address and the register value seperated by a space to the file.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mh">0x12</span> <span class="mh">0x17</span> <span class="o">&gt;</span> <span class="n">direct_reg_access</span>
-</pre></div>
-</div>
-<p>To read a register value, first write the register address to the file followed
-by a read.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mh">0x05</span> <span class="o">&gt;</span> <span class="n">direct_reg_access</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">direct_reg_access</span>
-</pre></div>
-</div>
-</section>
-<section id="check-fuse-crc-status">
-<h5>Check fuse CRC status<a class="headerlink" href="#check-fuse-crc-status" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> fuse_crc_failure</p>
-<p>‘1’ if a fuse CRC failure has been detected, ‘0’ otherwise.</p>
-</section>
-<section id="check-fuse-status">
-<h5>Check fuse status<a class="headerlink" href="#check-fuse-status" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> fuse_status</p>
-<p>‘0’ if the fuse bits have been read, ‘1’ otherwise.</p>
-</section>
-<section id="check-pll-status">
-<h5>Check PLL status<a class="headerlink" href="#check-pll-status" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> pll_locked</p>
-<p>‘1’ if the PLL is locked, ‘0’ otherwise.</p>
-</section>
 <section id="enable-testtone">
-<h5>Enable testtone<a class="headerlink" href="#enable-testtone" title="Link to this heading"></a></h5>
+<h3>Enable testtone<a class="headerlink" href="#enable-testtone" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> testtone_en</p>
 <p>Enable the testtone generator.</p>
 <div class="admonition note">
@@ -924,7 +936,7 @@ take precedence.</p>
 </div>
 </section>
 <section id="set-testtone-frequnecy">
-<h5>Set testtone frequnecy<a class="headerlink" href="#set-testtone-frequnecy" title="Link to this heading"></a></h5>
+<h3>Set testtone frequnecy<a class="headerlink" href="#set-testtone-frequnecy" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> testtone_frequency</p>
 <p>Select the testtone frequency and waveform.</p>
 <p>Valid values are:</p>
@@ -935,12 +947,12 @@ take precedence.</p>
 </ul>
 </section>
 <section id="enable-internal-testtone-routing">
-<h5>Enable internal testtone routing<a class="headerlink" href="#enable-internal-testtone-routing" title="Link to this heading"></a></h5>
+<h3>Enable internal testtone routing<a class="headerlink" href="#enable-internal-testtone-routing" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> testtone_internal</p>
 <p>Route the testtone signal internally ECG channels.</p>
 </section>
 <section id="enable-external-testtone-output">
-<h5>Enable external testtone output<a class="headerlink" href="#enable-external-testtone-output" title="Link to this heading"></a></h5>
+<h3>Enable external testtone output<a class="headerlink" href="#enable-external-testtone-output" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> testtone_out_en</p>
 <p>Enables or disables testtone output to the external CAL_DAC_IO pin.</p>
 <div class="admonition note">
@@ -950,18 +962,17 @@ if internal routing is enabled this switch will have an effect.</p>
 </div>
 </section>
 <section id="enable-testtone-routing-to-individual-ecg-channels">
-<h5>Enable testtone routing to individual ECG channels<a class="headerlink" href="#enable-testtone-routing-to-individual-ecg-channels" title="Link to this heading"></a></h5>
+<h3>Enable testtone routing to individual ECG channels<a class="headerlink" href="#enable-testtone-routing-to-individual-ecg-channels" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> testtone_la_en testtone_ll_en testtone_ra_en testtone_v1_en
 testtone_v2_en</p>
 <p>Enables the internal testtone routing to the individual ECG channels.</p>
 </section>
-</section>
-</section>
 <section id="trigger-management">
 <h3>Trigger management<a class="headerlink" href="#trigger-management" title="Link to this heading"></a></h3>
-<p>The adas1000 driver will register a IIO trigger for the device. The trigger will
-be hooked up to the devices DATARDY IRQ. Normally you would want to use this
-trigger as the trigger for the device.</p>
+<p>The driver registers its DATARDY IIO trigger only when the SPI device has a
+valid IRQ. Add the board-specific DATARDY IRQ to the spi_board_info example
+(.irq = &lt;mapped IRQ&gt;). Select the resulting adas1000-devX trigger, using the
+actual registered name.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/&gt;</span> <span class="n">echo</span> <span class="n">adas1000</span><span class="o">-</span><span class="n">dev0</span> <span class="o">&gt;</span> <span class="n">trigger</span><span class="o">/</span><span class="n">current_trigger</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/&gt;</span> <span class="n">cat</span> <span class="n">trigger</span><span class="o">/</span><span class="n">current_trigger</span>
 <span class="n">adas1000</span><span class="o">-</span><span class="n">dev0</span>
@@ -970,14 +981,17 @@ trigger as the trigger for the device.</p>
 </section>
 <section id="buffer-management">
 <h3>Buffer management<a class="headerlink" href="#buffer-management" title="Link to this heading"></a></h3>
-<p>The Industrial I/O subsystem provides support for various ring buffer based
-data acquisition methods. Apart from device specific hardware buffer support,
-the user can chose between two different software ring buffer implementations.
-One is the IIO lock free software ring, and the other is based on Linux kfifo.
-Devices with buffer support feature an additional sub-folder in the
-<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/deviceX/</span></code> folder hierarchy. Called <code class="docutils literal notranslate"><span class="pre">deviceX:bufferY</span></code>,
-where Y defaults to 0, for devices with a single buffer.</p>
-<p>Every buffer implementation features a set of files:</p>
+<p>The Industrial I/O subsystem supports buffered data acquisition. Buffer
+implementation and capabilities depend on the driver. Devices with buffer
+support expose each buffer at
+<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX/bufferY</span></code>, where Y is the buffer index,
+starting at 0. The first buffer is additionally exposed through the legacy
+<code class="docutils literal notranslate"><span class="pre">buffer</span></code> directory, which contains its buffer-control attributes. Its scan
+configuration is exposed through the legacy <code class="docutils literal notranslate"><span class="pre">scan_elements</span></code> directory, while
+multi-buffer systems expose the scan attributes in the corresponding
+<code class="docutils literal notranslate"><span class="pre">bufferY</span></code> directory. Read samples from the device character node
+<code class="docutils literal notranslate"><span class="pre">/dev/iio:deviceX</span></code>; the selected buffer is determined by the active buffer
+configuration.</p>
 <dl class="simple">
 <dt><strong>length</strong></dt><dd><p>Get/set the number of sample sets that may be held by the buffer.</p>
 </dd>
@@ -1062,24 +1076,21 @@ mode, otherwise it will operate in single-end mode. If channels from the first
 three channels are selected channels from the second three channels can not be
 selected and vice versa.</p>
 <dl class="simple">
-<dt><strong>in_voltageX_en / in_voltageX-voltageY_en / timestamp_en:</strong></dt><dd><p>Scan element control for triggered data capture.
+<dt><strong>in_voltageX_en / in_voltageX-voltageY_en / in_timestamp_en:</strong></dt><dd><p>Scan element control for triggered data capture.
 Writing 1 will enable the scan element, writing 0 will disable it</p>
 </dd>
-<dt><strong>in_voltageX_type / in_voltageX-voltageY_type / timestamp_type:</strong></dt><dd><p>Description of the scan element data storage within the buffer
-and therefore in the form in which it is read from user-space.
-Form is [s|u]bits/storage-bits. s or u specifies if signed
-(2’s complement) or unsigned. bits is the number of bits of
-data and storage-bits is the space (after padding) that it
-occupies in the buffer. Note that some devices will have
-additional information in the unused bits so to get a clean
-value, the bits value must be used to mask the buffer output
-value appropriately. The storage-bits value also specifies the
-data alignment. So u12/16 will be a unsigned 12 bit integer
-stored in a 16 bit location aligned to a 16 bit boundary.
-For other storage combinations this attribute will be extended
-appropriately.</p>
+<dt><strong>in_voltageX_type / in_voltageX-voltageY_type / in_timestamp_type:</strong></dt><dd><p>Describes the scan element’s representation in the buffer. The format is
+<code class="docutils literal notranslate"><span class="pre">[be|le]:[s|u]bits/storagebits[Xrepeat]&gt;&gt;shift</span></code>. The prefix gives byte
+order; <code class="docutils literal notranslate"><span class="pre">s</span></code> or <code class="docutils literal notranslate"><span class="pre">u</span></code> specifies signed (two’s complement) or unsigned
+data. <code class="docutils literal notranslate"><span class="pre">bits</span></code> is the number of meaningful bits and <code class="docutils literal notranslate"><span class="pre">storagebits</span></code> is
+the storage width. The optional repeat count describes repeated elements.
+After interpreting byte order, shift the storage value right by <code class="docutils literal notranslate"><span class="pre">shift</span></code>
+and mask it to <code class="docutils literal notranslate"><span class="pre">bits</span></code>; signed values also require sign extension.
+For example, <code class="docutils literal notranslate"><span class="pre">be:u12/16&gt;&gt;1</span></code> describes an unsigned 12-bit value in
+big-endian 16-bit storage, shifted right by one bit. Account for alignment
+padding when combining enabled elements into a complete scan.</p>
 </dd>
-<dt><strong>in_voltageX_index / in_voltageX-voltageY_index / timestamp_index:</strong></dt><dd><p>A single positive integer specifying the position of this
+<dt><strong>in_voltageX_index / in_voltageX-voltageY_index / in_timestamp_index:</strong></dt><dd><p>A nonnegative integer specifying the ordering of this
 scan element in the buffer. Note these are not dependent on
 what is enabled and may not be contiguous. Thus for user-space
 to establish the full layout these must be used in conjunction
@@ -1088,6 +1099,19 @@ and the relevant _type attributes to establish the data storage
 format.</p>
 </dd>
 </dl>
+</section>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
+<section id="debugfs">
+<h3>Debugfs<a class="headerlink" href="#debugfs" title="Link to this heading"></a></h3>
+<p>The adas1000 driver exposes also some files, which are meant for debugging
+purposes, in debugfs. These files can be used to read the OPSTAT register and to
+configure the testtone generator.</p>
+<p>root:/sys/kernel/debug/iio/iio:device0&gt; ls direct_reg_access pll_locked
+testtone_la_en testtone_v1_en fuse_crc_failure testtone_en testtone_ll_en
+testtone_v2_en fuse_status testtone_frequency testtone_out_en pll_lock_lost
+testtone_internal testtone_ra_en root:/sys/kernel/debug/iio/iio:device0&gt;</p>
 </section>
 </section>
 <section id="more-information">

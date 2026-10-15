@@ -97,10 +97,13 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">ADRV9025 Customization</a><ul>
+<li><a class="reference internal" href="#configuration-and-sequence">Configuration and sequence</a><ul>
 <li><a class="reference internal" href="#clock-settings">Clock Settings</a></li>
 <li><a class="reference internal" href="#adrv9025-phy">ADRV9025 PHY</a></li>
 <li><a class="reference internal" href="#axi-fpga">AXI FPGA</a></li>
 <li><a class="reference internal" href="#gpio-settings">GPIO Settings</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -202,6 +205,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -220,7 +224,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -363,8 +366,10 @@ you to set defaults, but can be changed anytime later using the driver API.
 But most of these options don’t need to be changed at all.</p>
 <p>If unsure please see the manual or don’t change!</p>
 </div>
+<section id="configuration-and-sequence">
+<h2>Configuration and sequence<a class="headerlink" href="#configuration-and-sequence" title="Link to this heading"></a></h2>
 <section id="clock-settings">
-<h2>Clock Settings<a class="headerlink" href="#clock-settings" title="Link to this heading"></a></h2>
+<h3>Clock Settings<a class="headerlink" href="#clock-settings" title="Link to this heading"></a></h3>
 <p><a class="reference internal" href="../../iio-pll/ad9528/#ad9528"><span class="std std-ref">AD9528</span></a></p>
 <p>A sample configuration of the AD9528:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">clk0_ad9528</span><span class="p">:</span> <span class="n">ad9528</span><span class="o">-</span><span class="mi">1</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
@@ -472,7 +477,7 @@ But most of these options don’t need to be changed at all.</p>
 </div>
 </section>
 <section id="adrv9025-phy">
-<h2>ADRV9025 PHY<a class="headerlink" href="#adrv9025-phy" title="Link to this heading"></a></h2>
+<h3>ADRV9025 PHY<a class="headerlink" href="#adrv9025-phy" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">trx0_adrv9025</span><span class="p">:</span> <span class="n">adrv9025</span><span class="o">-</span><span class="n">phy</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
         <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adrv9025"</span><span class="p">;</span>
         <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
@@ -551,146 +556,146 @@ But most of these options don’t need to be changed at all.</p>
 </div>
 </section>
 <section id="axi-fpga">
-<h2>AXI FPGA<a class="headerlink" href="#axi-fpga" title="Link to this heading"></a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">fpga_axi</span><span class="p">:</span> <span class="n">fpga</span><span class="o">-</span><span class="n">axi</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gic</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"simple-bus"</span><span class="p">;</span>
-        <span class="c1">#address-cells = &lt;0x1&gt;;</span>
-        <span class="c1">#size-cells = &lt;0x1&gt;;</span>
-        <span class="n">ranges</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">0</span> <span class="mi">0</span> <span class="mh">0xffffffff</span><span class="o">&gt;</span><span class="p">;</span>
+<h3>AXI FPGA<a class="headerlink" href="#axi-fpga" title="Link to this heading"></a></h3>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">fpga_axi</span><span class="p">:</span><span class="w"> </span><span class="nf">fpga-axi</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">interrupt-parent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">gic</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"simple-bus"</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">ranges</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="mh">0xffffffff</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="n">rx_dma</span><span class="p">:</span> <span class="n">dma</span><span class="o">@</span><span class="mi">9</span><span class="n">c400000</span> <span class="p">{</span>
-            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-dmac-1.00.a"</span><span class="p">;</span>
-            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x9c400000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="c1">#dma-cells = &lt;1&gt;;</span>
-            <span class="c1">#clock-cells = &lt;0&gt;;</span>
-            <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">110</span> <span class="n">IRQ_TYPE_LEVEL_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">zynqmp_clk</span> <span class="mi">73</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="p">};</span>
+<span class="w">        </span><span class="nl">rx_dma</span><span class="p">:</span><span class="w"> </span><span class="nf">dma</span><span class="o">@</span><span class="mi">9c400000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-dmac-1.00.a"</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x9c400000</span><span class="w"> </span><span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="o">#</span><span class="n">dma-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="o">#</span><span class="n">clock-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">interrupts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="w"> </span><span class="mi">110</span><span class="w"> </span><span class="na">IRQ_TYPE_LEVEL_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">zynqmp_clk</span><span class="w"> </span><span class="mi">73</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="p">};</span>
 
-        <span class="n">tx_dma</span><span class="p">:</span> <span class="n">dma</span><span class="o">@</span><span class="mi">9</span><span class="n">c420000</span>  <span class="p">{</span>
-            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-dmac-1.00.a"</span><span class="p">;</span>
-            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x9c420000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="c1">#dma-cells = &lt;1&gt;;</span>
-            <span class="c1">#clock-cells = &lt;0&gt;;</span>
-            <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">109</span> <span class="n">IRQ_TYPE_LEVEL_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">zynqmp_clk</span> <span class="mi">73</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="p">};</span>
+<span class="w">        </span><span class="nl">tx_dma</span><span class="p">:</span><span class="w"> </span><span class="nf">dma</span><span class="o">@</span><span class="mi">9c420000</span><span class="cm">  </span><span class="p">{</span>
+<span class="w">            </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-dmac-1.00.a"</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x9c420000</span><span class="w"> </span><span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="o">#</span><span class="n">dma-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="o">#</span><span class="n">clock-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">interrupts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="w"> </span><span class="mi">109</span><span class="w"> </span><span class="na">IRQ_TYPE_LEVEL_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">zynqmp_clk</span><span class="w"> </span><span class="mi">73</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="p">};</span>
 
-        <span class="n">axi_adrv9025_core_rx</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">adrv9025</span><span class="o">-</span><span class="n">rx</span><span class="o">-</span><span class="n">hpc</span><span class="o">@</span><span class="mi">84</span><span class="n">a00000</span> <span class="p">{</span>
-            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-adc-10.0.a"</span><span class="p">;</span>
-            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x84a00000</span> <span class="mh">0x8000</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">dmas</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">rx_dma</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">dma</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"rx"</span><span class="p">;</span>
-            <span class="n">spibus</span><span class="o">-</span><span class="n">connected</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">trx0_adrv9025</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="p">};</span>
+<span class="w">        </span><span class="nl">axi_adrv9025_core_rx</span><span class="p">:</span><span class="w"> </span><span class="nf">axi-adrv9025-rx-hpc</span><span class="o">@</span><span class="mi">84a00000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-adc-10.0.a"</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x84a00000</span><span class="w"> </span><span class="mh">0x8000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">dmas</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">rx_dma</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">dma-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"rx"</span><span class="p">;</span>
+<span class="w">            </span><span class="n">spibus-connected</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">trx0_adrv9025</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="p">};</span>
 
-        <span class="n">axi_adrv9025_core_tx</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">adrv9025</span><span class="o">-</span><span class="n">tx</span><span class="o">-</span><span class="n">hpc</span><span class="o">@</span><span class="mi">84</span><span class="n">a04000</span> <span class="p">{</span>
-            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-adrv9025-tx-1.0"</span><span class="p">;</span>
-            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x84a04000</span> <span class="mh">0x4000</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">dmas</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">tx_dma</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">dma</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"tx"</span><span class="p">;</span>
-            <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">trx0_adrv9025</span> <span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"sampl_clk"</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">axi</span><span class="o">-</span><span class="n">pl</span><span class="o">-</span><span class="n">fifo</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
+<span class="w">        </span><span class="nl">axi_adrv9025_core_tx</span><span class="p">:</span><span class="w"> </span><span class="nf">axi-adrv9025-tx-hpc</span><span class="o">@</span><span class="mi">84a04000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-adrv9025-tx-1.0"</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x84a04000</span><span class="w"> </span><span class="mh">0x4000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">dmas</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">tx_dma</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">dma-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"tx"</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">trx0_adrv9025</span><span class="w"> </span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"sampl_clk"</span><span class="p">;</span>
+<span class="w">            </span><span class="c1">//adi,axi-pl-fifo-enable;</span>
 
-            <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
-            <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
-            <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_adrv9025_tx_jesd</span> <span class="mi">0</span> <span class="n">DEFRAMER0_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="p">};</span>
+<span class="w">            </span><span class="n">jesd204-device</span><span class="p">;</span>
+<span class="w">            </span><span class="o">#</span><span class="n">jesd204-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">jesd204-inputs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">axi_adrv9025_tx_jesd</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="na">DEFRAMER0_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="p">};</span>
 
-        <span class="n">axi_adrv9025_rx_jesd</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">jesd204</span><span class="o">-</span><span class="n">rx</span><span class="o">@</span><span class="mi">84</span><span class="n">aa0000</span> <span class="p">{</span>
-            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-jesd204-rx-1.0"</span><span class="p">;</span>
-            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x84aa0000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="nl">axi_adrv9025_rx_jesd</span><span class="p">:</span><span class="w"> </span><span class="nf">axi-jesd204-rx</span><span class="o">@</span><span class="mi">84aa0000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-jesd204-rx-1.0"</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x84aa0000</span><span class="w"> </span><span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
 
-            <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">107</span> <span class="n">IRQ_TYPE_LEVEL_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">interrupts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="w"> </span><span class="mi">107</span><span class="w"> </span><span class="na">IRQ_TYPE_LEVEL_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
 
-            <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">zynqmp_clk</span> <span class="mi">71</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">clk0_ad9528</span> <span class="mi">3</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">axi_adrv9025_adxcvr_rx</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"s_axi_aclk"</span><span class="p">,</span> <span class="s2">"device_clk"</span><span class="p">,</span> <span class="s2">"lane_clk"</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">zynqmp_clk</span><span class="w"> </span><span class="mi">71</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clk0_ad9528</span><span class="w"> </span><span class="mi">3</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">axi_adrv9025_adxcvr_rx</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"s_axi_aclk"</span><span class="p">,</span><span class="w"> </span><span class="s">"device_clk"</span><span class="p">,</span><span class="w"> </span><span class="s">"lane_clk"</span><span class="p">;</span>
 
-            <span class="c1">#clock-cells = &lt;0&gt;;</span>
-            <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"jesd_rx_lane_clk"</span><span class="p">;</span>
+<span class="w">            </span><span class="o">#</span><span class="n">clock-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clock-output-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"jesd_rx_lane_clk"</span><span class="p">;</span>
 
-            <span class="n">adi</span><span class="p">,</span><span class="n">octets</span><span class="o">-</span><span class="n">per</span><span class="o">-</span><span class="n">frame</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">frames</span><span class="o">-</span><span class="n">per</span><span class="o">-</span><span class="n">multiframe</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">32</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">octets-per-frame</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">frames-per-multiframe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">32</span><span class="o">&gt;</span><span class="p">;</span>
 
-            <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
-            <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
-            <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_adrv9025_adxcvr_rx</span> <span class="mi">0</span> <span class="n">FRAMER0_LINK_RX</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="p">};</span>
+<span class="w">            </span><span class="n">jesd204-device</span><span class="p">;</span>
+<span class="w">            </span><span class="o">#</span><span class="n">jesd204-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">jesd204-inputs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">axi_adrv9025_adxcvr_rx</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="na">FRAMER0_LINK_RX</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="p">};</span>
 
-        <span class="n">axi_adrv9025_tx_jesd</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">jesd204</span><span class="o">-</span><span class="n">tx</span><span class="o">@</span><span class="mi">84</span><span class="n">a90000</span> <span class="p">{</span>
-            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-jesd204-tx-1.0"</span><span class="p">;</span>
-            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x84a90000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="nl">axi_adrv9025_tx_jesd</span><span class="p">:</span><span class="w"> </span><span class="nf">axi-jesd204-tx</span><span class="o">@</span><span class="mi">84a90000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-jesd204-tx-1.0"</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x84a90000</span><span class="w"> </span><span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
 
-            <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">106</span> <span class="n">IRQ_TYPE_LEVEL_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">interrupts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="w"> </span><span class="mi">106</span><span class="w"> </span><span class="na">IRQ_TYPE_LEVEL_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
 
-            <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">zynqmp_clk</span> <span class="mi">71</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">clk0_ad9528</span> <span class="mi">3</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">axi_adrv9025_adxcvr_tx</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"s_axi_aclk"</span><span class="p">,</span> <span class="s2">"device_clk"</span><span class="p">,</span> <span class="s2">"lane_clk"</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">zynqmp_clk</span><span class="w"> </span><span class="mi">71</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clk0_ad9528</span><span class="w"> </span><span class="mi">3</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">axi_adrv9025_adxcvr_tx</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"s_axi_aclk"</span><span class="p">,</span><span class="w"> </span><span class="s">"device_clk"</span><span class="p">,</span><span class="w"> </span><span class="s">"lane_clk"</span><span class="p">;</span>
 
-            <span class="c1">#clock-cells = &lt;0&gt;;</span>
-            <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"jesd_tx_lane_clk"</span><span class="p">;</span>
+<span class="w">            </span><span class="o">#</span><span class="n">clock-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clock-output-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"jesd_tx_lane_clk"</span><span class="p">;</span>
 
-            <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
-            <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
-            <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_adrv9025_adxcvr_tx</span> <span class="mi">0</span> <span class="n">DEFRAMER0_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">jesd204-device</span><span class="p">;</span>
+<span class="w">            </span><span class="o">#</span><span class="n">jesd204-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">jesd204-inputs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">axi_adrv9025_adxcvr_tx</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="na">DEFRAMER0_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="p">};</span>
+<span class="w">        </span><span class="p">};</span>
 
-        <span class="n">axi_adrv9025_adxcvr_rx</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">rx</span><span class="o">@</span><span class="mi">84</span><span class="n">a60000</span> <span class="p">{</span>
-            <span class="c1">#address-cells = &lt;1&gt;;</span>
-            <span class="c1">#size-cells = &lt;0&gt;;</span>
-            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-adxcvr-1.0"</span><span class="p">;</span>
-            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x84a60000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="nl">axi_adrv9025_adxcvr_rx</span><span class="p">:</span><span class="w"> </span><span class="nf">axi-adxcvr-rx</span><span class="o">@</span><span class="mi">84a60000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-adxcvr-1.0"</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x84a60000</span><span class="w"> </span><span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
 
-            <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clk0_ad9528</span> <span class="mi">13</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"conv"</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clk0_ad9528</span><span class="w"> </span><span class="mi">13</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"conv"</span><span class="p">;</span>
 
-            <span class="c1">#clock-cells = &lt;1&gt;;</span>
-            <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"rx_gt_clk"</span><span class="p">,</span> <span class="s2">"rx_out_clk"</span><span class="p">;</span>
+<span class="w">            </span><span class="o">#</span><span class="n">clock-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clock-output-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"rx_gt_clk"</span><span class="p">,</span><span class="w"> </span><span class="s">"rx_out_clk"</span><span class="p">;</span>
 
-            <span class="n">adi</span><span class="p">,</span><span class="n">sys</span><span class="o">-</span><span class="n">clk</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">XCVR_CPLL</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">out</span><span class="o">-</span><span class="n">clk</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">XCVR_REFCLK</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">use</span><span class="o">-</span><span class="n">lpm</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">use</span><span class="o">-</span><span class="n">cpll</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">sys-clk-select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">XCVR_CPLL</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">out-clk-select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">XCVR_REFCLK</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">use-lpm-enable</span><span class="p">;</span>
+<span class="w">            </span><span class="cm">/* CPLL is selected by adi,sys-clk-select = &lt;XCVR_CPLL&gt;; no adi,use-cpll-enable property is needed. */</span>
 
-            <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
-            <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
-            <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span>  <span class="o">&lt;&amp;</span><span class="n">clk0_ad9528</span> <span class="mi">0</span> <span class="n">FRAMER0_LINK_RX</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">jesd204-device</span><span class="p">;</span>
+<span class="w">            </span><span class="o">#</span><span class="n">jesd204-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">jesd204-inputs</span><span class="w"> </span><span class="o">=</span><span class="w">  </span><span class="o">&lt;&amp;</span><span class="na">clk0_ad9528</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="na">FRAMER0_LINK_RX</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="p">};</span>
+<span class="w">        </span><span class="p">};</span>
 
-        <span class="n">axi_adrv9025_adxcvr_tx</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">tx</span><span class="o">@</span><span class="mi">84</span><span class="n">a80000</span> <span class="p">{</span>
-            <span class="c1">#address-cells = &lt;1&gt;;</span>
-            <span class="c1">#size-cells = &lt;0&gt;;</span>
-            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-adxcvr-1.0"</span><span class="p">;</span>
-            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x84a80000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="nl">axi_adrv9025_adxcvr_tx</span><span class="p">:</span><span class="w"> </span><span class="nf">axi-adxcvr-tx</span><span class="o">@</span><span class="mi">84a80000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-adxcvr-1.0"</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x84a80000</span><span class="w"> </span><span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
 
-            <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clk0_ad9528</span> <span class="mi">13</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"conv"</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clk0_ad9528</span><span class="w"> </span><span class="mi">13</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"conv"</span><span class="p">;</span>
 
-            <span class="c1">#clock-cells = &lt;1&gt;;</span>
-            <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"tx_gt_clk"</span><span class="p">,</span> <span class="s2">"tx_out_clk"</span><span class="p">;</span>
+<span class="w">            </span><span class="o">#</span><span class="n">clock-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clock-output-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"tx_gt_clk"</span><span class="p">,</span><span class="w"> </span><span class="s">"tx_out_clk"</span><span class="p">;</span>
 
-            <span class="n">adi</span><span class="p">,</span><span class="n">sys</span><span class="o">-</span><span class="n">clk</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">XCVR_QPLL</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">out</span><span class="o">-</span><span class="n">clk</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">XCVR_REFCLK</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">sys-clk-select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">XCVR_QPLL</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">out-clk-select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">XCVR_REFCLK</span><span class="o">&gt;</span><span class="p">;</span>
 
-            <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
-            <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
-            <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span>  <span class="o">&lt;&amp;</span><span class="n">clk0_ad9528</span> <span class="mi">0</span> <span class="n">DEFRAMER0_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">jesd204-device</span><span class="p">;</span>
+<span class="w">            </span><span class="o">#</span><span class="n">jesd204-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">jesd204-inputs</span><span class="w"> </span><span class="o">=</span><span class="w">  </span><span class="o">&lt;&amp;</span><span class="na">clk0_ad9528</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="na">DEFRAMER0_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
 
-        <span class="p">};</span>
+<span class="w">        </span><span class="p">};</span>
 
-        <span class="n">axi_sysid_0</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">sysid</span><span class="o">-</span><span class="mi">0</span><span class="o">@</span><span class="mi">85000000</span> <span class="p">{</span>
-            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-sysid-1.00.a"</span><span class="p">;</span>
-            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x85000000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
+<span class="w">        </span><span class="nl">axi_sysid_0</span><span class="p">:</span><span class="w"> </span><span class="nf">axi-sysid-0</span><span class="o">@</span><span class="mi">85000000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-sysid-1.00.a"</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x85000000</span><span class="w"> </span><span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">    </span><span class="p">};</span>
 </pre></div>
 </div>
 </section>
 <section id="gpio-settings">
-<h2>GPIO Settings<a class="headerlink" href="#gpio-settings" title="Link to this heading"></a></h2>
+<h3>GPIO Settings<a class="headerlink" href="#gpio-settings" title="Link to this heading"></a></h3>
 <p>The GPIO configurations can be done by changing a node’s properties, as the
 following example shows:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="n">trx0_adrv9025</span> <span class="p">{</span>
@@ -705,6 +710,7 @@ following example shows:</p>
 in another node configuration as adi,increment-pin, adi,decrement-pin,
 adi,agc-power-feedback-high-thres-exceeded, etc…</p>
 </div>
+</section>
 </section>
 </section>
 

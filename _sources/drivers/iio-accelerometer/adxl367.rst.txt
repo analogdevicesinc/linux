@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-accelerometer/adxl367
 
+
 .. _adxl367:
 
 ADXL367
@@ -65,8 +66,14 @@ Example device tree
      - :git+linux:`rpi-adxl367-overlay.dts <rpi-4.19.y:arch/arm/boot/dts/overlays/rpi-adxl367-overlay.dts>`
      -
 
+Adding Linux driver support
+---------------------------
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Required devicetree properties:
 
@@ -99,7 +106,7 @@ Example for a SPI device node:
 
 Example for a I2C device node:
 
-::
+.. code-block:: dts
 
    #address-cells = <1>;
    #size-cells = <0>;
@@ -107,7 +114,7 @@ Example for a I2C device node:
 
    adxl367@53 {
        compatible = "adi,adxl367";
-       reg = <53>;
+       reg = <0x53>;
        interrupt-parent = <&gpio>;
        interrupts = <25 IRQ_TYPE_EDGE_RISING>;
    };
@@ -147,13 +154,16 @@ Driver testing
    lrwxrwxrwx 1 root root    0 May  3 16:17 subsystem -> ../../../../../../../../bus/iio
    -rw-r--r-- 1 root root 4096 May  3 16:17 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/bus/iio/devices/iio:device0> cat name
    adxl367
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale
 ^^^^^^^^^^
@@ -167,7 +177,7 @@ acceleration.
    0.002394347
 
 Show axis x measurement
-'''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** Raw unscaled acceleration measurement on x axis
 
@@ -177,7 +187,7 @@ Show axis x measurement
    -5
 
 Set sampling frequency
-''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -258,9 +268,12 @@ Before enabling the buffer, a few steps need to be completed.
 
 - Set the watermak:
 
-::
+.. code-block:: text
 
-   root:/sys/bus/iio/devices/iio:device0/buffer> echo 512 > watermark
+   root:/sys/bus/iio/devices/iio:device0/buffer> echo 170 > watermark
+
+For the XYZ scan above, use 170 sample sets. The driver rejects any requested
+watermark above 511; hardware FIFO storage and watermark limits are distinct.
 
 - Enable the buffer:
 
@@ -274,8 +287,11 @@ Before enabling the buffer, a few steps need to be completed.
 
    root:/sys/bus/iio/devices/iio:device0/buffer> cat /dev/iio:device0
 
+Troubleshooting
+---------------
+
 Low level register access via debugfs (direct_reg_access)
----------------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Some IIO drivers feature an optional debug facility, allowing users to read or
 write registers directly. Special care needs to be taken when using this

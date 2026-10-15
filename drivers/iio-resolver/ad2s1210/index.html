@@ -98,30 +98,35 @@
           <ul>
 <li><a class="reference internal" href="#">AD2S1210</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#driver-usage">Driver Usage</a><ul>
-<li><a class="reference internal" href="#interfacing-with-the-ad2s1210-via-iio-attr">Interfacing With the AD2S1210 via iio_attr</a></li>
-<li><a class="reference internal" href="#interfacing-with-the-ad2s1210-via-sys-bus">Interfacing With the AD2S1210 via /sys/bus</a></li>
-<li><a class="reference internal" href="#triggered-buffer">Triggered buffer</a></li>
-<li><a class="reference internal" href="#reading-iio-events">Reading IIO Events</a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a></li>
 <li><a class="reference internal" href="#usage-with-the-eval-ad2s1210sdz-evaluation-board">Usage With the EVAL-AD2S1210SDZ Evaluation Board</a><ul>
 <li><a class="reference internal" href="#interfacing-with-a-raspberry-pi">Interfacing With a Raspberry Pi</a><ul>
 <li><a class="reference internal" href="#wiring">Wiring</a></li>
-<li><a class="reference internal" href="#device-tree">Device Tree</a></li>
 <li><a class="reference internal" href="#sample-images">Sample Images</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#zedboard">Zedboard</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#interfacing-with-the-ad2s1210-via-iio-attr">Interfacing With the AD2S1210 via iio_attr</a></li>
+<li><a class="reference internal" href="#interfacing-with-the-ad2s1210-via-sys-bus">Interfacing With the AD2S1210 via /sys/bus</a></li>
+<li><a class="reference internal" href="#triggered-buffer">Triggered buffer</a></li>
+<li><a class="reference internal" href="#reading-iio-events">Reading IIO Events</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -226,6 +231,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -244,7 +250,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -391,14 +396,14 @@ Content on this topic
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD2S1210SDZ" target="_blank">EVAL-AD2S1210SDZ</a></p></li>
 </ul>
-</section>
 <section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/CN0192" target="_blank">CN0192</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/CN0276" target="_blank">CN0276</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/CN0317" target="_blank">CN0317</a></p></li>
 </ul>
+</section>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -457,32 +462,244 @@ ABI.</p>
 </section>
 <section id="adding-linux-driver-support">
 <h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The Driver depends on <strong>CONFIG_SPI</strong></p>
+<p>The driver depends on <strong>CONFIG_SPI</strong> and <strong>CONFIG_COMMON_CLK</strong>, and on
+<strong>CONFIG_GPIOLIB</strong> (or <strong>CONFIG_COMPILE_TEST</strong>). It selects <strong>CONFIG_REGMAP</strong>
+and the IIO triggered-buffer support.</p>
 </div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="n">Staging</span> <span class="n">drivers</span>  <span class="o">---&gt;</span>
-            <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-                <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-                <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-                <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
-                <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Linux Kernel Configuration
+    Device Drivers  ---&gt;
+        &lt;*&gt;     Industrial I/O support ---&gt;
+            --- Industrial I/O support
+            -*-   Enable buffer support within IIO
+            -*-   Enable triggered sampling support
 
-                      <span class="o">***</span> <span class="n">Resolver</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
-                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+                  *** Resolver to digital converters ***
+            [--snip--]
 
-                <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD2S1210</span> <span class="n">driver</span>
+            &lt;*&gt;   Analog Devices ad2s1210 driver
 
-                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+            [--snip--]
 </pre></div>
 </div>
 </section>
-<section id="driver-usage">
-<h2>Driver Usage<a class="headerlink" href="#driver-usage" title="Link to this heading"></a></h2>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<p>Add <code class="docutils literal notranslate"><span class="pre">dtoverlay=ad2s1210</span></code> to <code class="docutils literal notranslate"><span class="pre">/boot/config.txt</span></code>.</p>
+<p>Overlay:
+<a class="icon link reference external" href="https://raw.githubusercontent.com/analogdevicesinc/linux/rpi-6.1.y/arch/arm/boot/dts/overlays/ad2s1210-overlay.dts" target="_blank">ad2s1210-overlay.dts</a></p>
+</section>
+<section id="usage-with-the-eval-ad2s1210sdz-evaluation-board">
+<h3>Usage With the EVAL-AD2S1210SDZ Evaluation Board<a class="headerlink" href="#usage-with-the-eval-ad2s1210sdz-evaluation-board" title="Link to this heading"></a></h3>
+<section id="interfacing-with-a-raspberry-pi">
+<h4>Interfacing With a Raspberry Pi<a class="headerlink" href="#interfacing-with-a-raspberry-pi" title="Link to this heading"></a></h4>
+<section id="wiring">
+<h5>Wiring<a class="headerlink" href="#wiring" title="Link to this heading"></a></h5>
+<p>The Raspberry Pi 3.3 V connection to J704 supplies VDRIVE only. Power the
+evaluation board separately, for example with its supplied 9 V adapter at J702
+and the onboard supply links LK701, LK702 and LK501 in position A. Keep LK703 in
+position B for the external 3.3 V VDRIVE connection shown below. If using
+external supply rails instead of the adapter, follow the AVDD, DVDD and
+excitation-driver supply requirements in UG-709.</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>AD2S1210 Pin</p></th>
+<th class="head"><p>Eval Board Pin</p></th>
+<th class="head"><p>RPi Header Pin</p></th>
+<th class="head"><p>RPi Function</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>RES0</p></td>
+<td><p>LK6</p></td>
+<td><p>15</p></td>
+<td><p>GPIO22</p></td>
+<td><p>There aren’t J4 pins for RES0/1 so have to use jumper pins. It is also
+possible to hard-wire resolution pins RES0/1, but device tree would need
+to be changed accordingly.</p></td>
+</tr>
+<tr class="row-odd"><td><p>RES1</p></td>
+<td><p>LK7</p></td>
+<td><p>16</p></td>
+<td><p>GPIO23</p></td>
+<td><p>There aren’t J4 pins for RES0/1 so have to use jumper pins. It is also
+possible to hard-wire resolution pins RES0/1, but device tree would need
+to be changed accordingly.</p></td>
+</tr>
+<tr class="row-even"><td><p>A0</p></td>
+<td><p>J4-12</p></td>
+<td><p>18</p></td>
+<td><p>GPIO24</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>A1</p></td>
+<td><p>J4-11</p></td>
+<td><p>22</p></td>
+<td><p>GPIO25</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>WR/FSYNC</p></td>
+<td><p>J4-4</p></td>
+<td><p>24</p></td>
+<td><p>SPI0 CE0</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>SAMPLE</p></td>
+<td><p>J4-1</p></td>
+<td><p>12</p></td>
+<td><p>GPIO18</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>VDRIVE</p></td>
+<td><p>J704-1</p></td>
+<td><p>1</p></td>
+<td><p>3.3V</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>DGND</p></td>
+<td><p>J704-2</p></td>
+<td><p>9</p></td>
+<td><p>GND</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>SCLK</p></td>
+<td><p>J4-10</p></td>
+<td><p>23</p></td>
+<td><p>SPI0 SCLK</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>SDI</p></td>
+<td><p>J4-9</p></td>
+<td><p>19</p></td>
+<td><p>SPI0 MOSI</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>SDO</p></td>
+<td><p>J4-8</p></td>
+<td><p>21</p></td>
+<td><p>SPI0 MISO</p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>AD2S1210 Pin</p></th>
+<th class="head"><p>Eval Board Pins (Jumpered)</p></th>
+<th class="head"><p>Eval Board Signal</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>RD</p></td>
+<td><p>J4-3, J4-7</p></td>
+<td><p>VDRIVE</p></td>
+</tr>
+<tr class="row-odd"><td><p>CS</p></td>
+<td><p>J4-2, J4-6</p></td>
+<td><p>DGND</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Eval Board Signal</p></th>
+<th class="head"><p>Eval Board Jumper</p></th>
+<th class="head"><p>Position</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>SAMPLE</p></td>
+<td><p>LK1</p></td>
+<td><p>B</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>CS</p></td>
+<td><p>LK2</p></td>
+<td><p>C</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>RD</p></td>
+<td><p>LK3</p></td>
+<td><p>C</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>A0</p></td>
+<td><p>LK 4</p></td>
+<td><p>C</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>A1</p></td>
+<td><p>LK5</p></td>
+<td><p>C</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>RES0</p></td>
+<td><p>LK6</p></td>
+<td><p>C</p></td>
+<td><p>There aren’t J4 pins for RES0/1 so have to use jumper pins. It is also
+possible to hard-wire resolution pins RES0/1, but device tree would need
+to be changed accordingly.</p></td>
+</tr>
+<tr class="row-even"><td><p>RES1</p></td>
+<td><p>LK7</p></td>
+<td><p>C</p></td>
+<td><p>There aren’t J4 pins for RES0/1 so have to use jumper pins. It is also
+possible to hard-wire resolution pins RES0/1, but device tree would need
+to be changed accordingly.</p></td>
+</tr>
+<tr class="row-odd"><td><p>SOE</p></td>
+<td><p>LK9</p></td>
+<td><p>B</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>VDRIVE</p></td>
+<td><p>LK703</p></td>
+<td><p>B</p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="sample-images">
+<h5>Sample Images<a class="headerlink" href="#sample-images" title="Link to this heading"></a></h5>
+<p>Eval board connections:</p>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231206_135017785_hdr.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231206_135017785_hdr.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231206_135017785_hdr.jpg" style="width: 400px;" />
+</a>
+</figure>
+<p>Raspberry Pi connections:</p>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231206_135039086.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231206_135039086.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231206_135039086.jpg" style="width: 400px;" />
+</a>
+</figure>
+</section>
+</section>
+<section id="zedboard">
+<h4>Zedboard<a class="headerlink" href="#zedboard" title="Link to this heading"></a></h4>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231207_080341.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231207_080341.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231207_080341.jpg" style="width: 400px;" />
+</a>
+</figure>
+<p>See <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/ad2s1210_sdz" target="_blank">ad2s1210_sdz</a> for a
+detailed setup guide</p>
+</section>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <p>To configure the chip, use the attributes according to the device register to
 IIO ABI mapping below:</p>
 <div class="table-wrapper docutils container">
@@ -766,7 +983,7 @@ WARNING: High-speed mode not enabled
 <div class="admonition important">
 <p class="admonition-title">Important</p>
 <p>using the -t option to specify the trigger with iio_readdev resets the
-sampling rate of the hrtimer trigger back to 100Hz!</p>
+sampling rate of the hrtimer trigger back to 100 Hz.</p>
 </div>
 <p>For other apps, we probably want a high sample rate. You can change the rate
 like this:</p>
@@ -780,7 +997,11 @@ like this:</p>
 <p>See
 <a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/tools/iio/iio_event_monitor.c" target="_blank">iio_event_monitor</a>
 for an example of a program designed to read IIO events.</p>
-<p>Fault to event mapping:</p>
+<p>Fault to event mapping: Fault events are generated when direct or buffered
+acquisitions read the fault flags. The driver does not register a standalone
+fault IRQ, so running iio_event_monitor alone does not initiate polling.
+Repeated asserted flags are suppressed until a subsequent read observes them
+clear.</p>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -853,209 +1074,6 @@ will also be an event on the altvoltage2 channel.</p></td>
 </tbody>
 </table>
 </div>
-</section>
-</section>
-<section id="usage-with-the-eval-ad2s1210sdz-evaluation-board">
-<h2>Usage With the EVAL-AD2S1210SDZ Evaluation Board<a class="headerlink" href="#usage-with-the-eval-ad2s1210sdz-evaluation-board" title="Link to this heading"></a></h2>
-<section id="interfacing-with-a-raspberry-pi">
-<h3>Interfacing With a Raspberry Pi<a class="headerlink" href="#interfacing-with-a-raspberry-pi" title="Link to this heading"></a></h3>
-<section id="wiring">
-<h4>Wiring<a class="headerlink" href="#wiring" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>AD2S1210 Pin</p></th>
-<th class="head"><p>Eval Board Pin</p></th>
-<th class="head"><p>RPi Header Pin</p></th>
-<th class="head"><p>RPi Function</p></th>
-<th class="head"><p>Notes</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>RES0</p></td>
-<td><p>LK6</p></td>
-<td><p>15</p></td>
-<td><p>GPIO22</p></td>
-<td><p>There aren’t J4 pins for RES0/1 so have to use jumper pins. It is also
-possible to hard-wire resolution pins RES0/1, but device tree would need
-to be changed accordingly.</p></td>
-</tr>
-<tr class="row-odd"><td><p>RES1</p></td>
-<td><p>LK7</p></td>
-<td><p>16</p></td>
-<td><p>GPIO23</p></td>
-<td><p>There aren’t J4 pins for RES0/1 so have to use jumper pins. It is also
-possible to hard-wire resolution pins RES0/1, but device tree would need
-to be changed accordingly.</p></td>
-</tr>
-<tr class="row-even"><td><p>A0</p></td>
-<td><p>J4-12</p></td>
-<td><p>18</p></td>
-<td><p>GPIO24</p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>A1</p></td>
-<td><p>J4-11</p></td>
-<td><p>22</p></td>
-<td><p>GPIO25</p></td>
-<td></td>
-</tr>
-<tr class="row-even"><td><p>WR/FSYNC</p></td>
-<td><p>J4-4</p></td>
-<td><p>24</p></td>
-<td><p>SPI0 CE0</p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>SAMPLE</p></td>
-<td><p>J4-1</p></td>
-<td><p>12</p></td>
-<td><p>GPIO18</p></td>
-<td></td>
-</tr>
-<tr class="row-even"><td><p>VDRIVE</p></td>
-<td><p>J704-1</p></td>
-<td><p>1</p></td>
-<td><p>3.3V</p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>DGND</p></td>
-<td><p>J704-2</p></td>
-<td><p>9</p></td>
-<td><p>GND</p></td>
-<td></td>
-</tr>
-<tr class="row-even"><td><p>SCLK</p></td>
-<td><p>J4-10</p></td>
-<td><p>23</p></td>
-<td><p>SPI0 SCLK</p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>SDI</p></td>
-<td><p>J4-9</p></td>
-<td><p>19</p></td>
-<td><p>SPI0 MOSI</p></td>
-<td></td>
-</tr>
-<tr class="row-even"><td><p>SDO</p></td>
-<td><p>J4-8</p></td>
-<td><p>21</p></td>
-<td><p>SPI0 MISO</p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>AD2S1210 Pin</p></th>
-<th class="head"><p>Eval Board Pins (Jumpered)</p></th>
-<th class="head"><p>Eval Board Signal</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>RD</p></td>
-<td><p>J4-3, J4-7</p></td>
-<td><p>VDRIVE</p></td>
-</tr>
-<tr class="row-odd"><td><p>CS</p></td>
-<td><p>J4-2, J4-6</p></td>
-<td><p>DGND</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Eval Board Signal</p></th>
-<th class="head"><p>Eval Board Jumper</p></th>
-<th class="head"><p>Position</p></th>
-<th class="head"><p>Notes</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>SAMPLE</p></td>
-<td><p>LK1</p></td>
-<td><p>B</p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>CS</p></td>
-<td><p>LK2</p></td>
-<td><p>C</p></td>
-<td></td>
-</tr>
-<tr class="row-even"><td><p>RD</p></td>
-<td><p>LK3</p></td>
-<td><p>C</p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>A0</p></td>
-<td><p>LK 4</p></td>
-<td><p>C</p></td>
-<td></td>
-</tr>
-<tr class="row-even"><td><p>A1</p></td>
-<td><p>LK5</p></td>
-<td><p>C</p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>RES0</p></td>
-<td><p>LK6</p></td>
-<td><p>C</p></td>
-<td><p>There aren’t J4 pins for RES0/1 so have to use jumper pins. It is also
-possible to hard-wire resolution pins RES0/1, but device tree would need
-to be changed accordingly.</p></td>
-</tr>
-<tr class="row-even"><td><p>RES1</p></td>
-<td><p>LK7</p></td>
-<td><p>C</p></td>
-<td><p>There aren’t J4 pins for RES0/1 so have to use jumper pins. It is also
-possible to hard-wire resolution pins RES0/1, but device tree would need
-to be changed accordingly.</p></td>
-</tr>
-<tr class="row-odd"><td><p>SOE</p></td>
-<td><p>LK9</p></td>
-<td><p>B</p></td>
-<td></td>
-</tr>
-<tr class="row-even"><td><p>VDRIVE</p></td>
-<td><p>LK703</p></td>
-<td><p>B</p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="device-tree">
-<h4>Device Tree<a class="headerlink" href="#device-tree" title="Link to this heading"></a></h4>
-<p>Add <code class="docutils literal notranslate"><span class="pre">dtoverlay=ad2s1210</span></code> to <code class="docutils literal notranslate"><span class="pre">/boot/config.txt</span></code>.</p>
-<p>Overlay:
-<a class="icon link reference external" href="https://raw.githubusercontent.com/analogdevicesinc/linux/rpi-6.1.y/arch/arm/boot/dts/overlays/ad2s1210-overlay.dts" target="_blank">ad2s1210-overlay.dts</a></p>
-</section>
-<section id="sample-images">
-<h4>Sample Images<a class="headerlink" href="#sample-images" title="Link to this heading"></a></h4>
-<p>Eval board connections:</p>
-<figure class="align-default">
-<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231206_135017785_hdr.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231206_135017785_hdr.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231206_135017785_hdr.jpg" style="width: 400px;" />
-</a>
-</figure>
-<p>Raspberry Pi connections:</p>
-<figure class="align-default">
-<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231206_135039086.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231206_135039086.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231206_135039086.jpg" style="width: 400px;" />
-</a>
-</figure>
-</section>
-</section>
-<section id="zedboard">
-<h3>Zedboard<a class="headerlink" href="#zedboard" title="Link to this heading"></a></h3>
-<figure class="align-default">
-<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231207_080341.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231207_080341.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231207_080341.jpg" style="width: 400px;" />
-</a>
-</figure>
-<p>See <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/ad2s1210_sdz" target="_blank">ad2s1210_sdz</a> for a
-detailed setup guide</p>
 </section>
 </section>
 <section id="more-information">

@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/hwmon/axi_fan_control
 
+
 .. _axi_fan_control:
 
 AXI Fan Control
@@ -7,18 +8,18 @@ AXI Fan Control
 
 AXI Fan Control HDL CORE Linux driver.
 
-Supported Devices
------------------
+Supported IP Cores
+------------------
 
 :external+hdl:ref:`axi_fan_control`
 
-Supported boards
-~~~~~~~~~~~~~~~~
+Evaluation Boards
+-----------------
 
 :dokuwiki:`ADRV9009-ZU11EG RF System-on-Module </resources/eval/user-guides/adrv9009-zu11eg?s[]=zu11eg>`
 
 Description
-^^^^^^^^^^^
+-----------
 
 This is a Hardware Monitor subsystem driver. The Hwmon subsystem provides a
 unified framework for drivers doing hardware monitoring. It exposes a set of
@@ -38,8 +39,8 @@ Status
      - Mainlined?
      -
      -
-   * - :git+linux:`main:drivers/hwmon/axi_fan_control.c`
-     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/axi_fan_control.c>`__
+   * - `drivers/hwmon/axi-fan-control.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/axi-fan-control.c>`__
+     - Yes
      -
      -
 
@@ -53,46 +54,14 @@ Files
      - File
      -
    * - driver
-     - :git+linux:`main:drivers/hwmon/axi_fan_control.c`
+     - `drivers/hwmon/axi-fan-control.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/axi-fan-control.c>`__
      -
-
-Example platform device initialization
---------------------------------------
-
-The AXI FAN CONTROL driver is a platform driver and can currently only be
-instantiated via device tree.
-
-Required devicetree properties:
-
-- **compatible**: Should always be one of these:
-
-  - adi,axi-fan-control-1.00.a
-
-- **reg**: Base address and register area size. This parameter expects a
-  register range.
-- **clocks**: Reference clock.
-- **interrupts**: Interrupt line.
-- **adi,pulses-per-revolution**: Number of pulses per revolution
-
-::
-
-   &fpga_axi {
-       axi_fan_control: axi-fan-control@80000000 {
-           compatible = "adi,axi-fan-control-1.00.a";
-           reg = <0x0 0x80000000 0x10000>;
-           clocks = <&clk 71>;
-           interrupts = <0 110 0>;
-           adi,pulses-per-revolution = <2>;
-   };
-
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
 
 Adding Linux driver support
 ---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
@@ -107,14 +76,54 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
                <*> Analog Devices FAN Control HDL Core driver
            [--snip--]
 
-Hardware configuration
-----------------------
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Example platform device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The AXI FAN CONTROL driver is a platform driver and can currently only be
+instantiated via device tree.
+
+Required devicetree properties:
+
+-  **compatible**: Should always be one of these:
+
+   -  adi,axi-fan-control-1.00.a
+
+-  **reg**: Base address and register area size. This parameter expects a
+   register range.
+
+-  **clocks**: Reference clock.
+
+-  **interrupts**: Interrupt line.
+
+-  **pulses-per-revolution**: Number of pulses per revolution
+
+::
+
+   &fpga_axi {
+       axi_fan_control: axi-fan-control@80000000 {
+           compatible = "adi,axi-fan-control-1.00.a";
+           reg = <0x0 0x80000000 0x10000>;
+           clocks = <&clk 71>;
+           interrupts = <0 110 0>;
+           adi,pulses-per-revolution = <2>;
+   };
 
 Driver testing
 --------------
 
+Identify the device
+~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/class/hwmon/hwmon0> cat name
+   axi_fan_control
+
 HWMON device files
-~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
 
 Each and every HWMON device has a device folder under /sys/class/hwmon/hwmonX,
 where X is the hwmon device index. Under every of these directory folders there
@@ -150,16 +159,8 @@ which hardware chip, the user can read the name file under
 For more information on the files format and accepted values, take a look to
 `sysfs-interface <https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface>`__.
 
-Show device name
-^^^^^^^^^^^^^^^^
-
-::
-
-   root:/sys/class/hwmon/hwmon0> cat name
-   axi_fan_control
-
 Show FAN input (in RPM)
-^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""
 
 ::
 
@@ -167,15 +168,15 @@ Show FAN input (in RPM)
    3600
 
 Show FAN label
-^^^^^^^^^^^^^^
+""""""""""""""
 
-::
+.. code-block:: text
 
    root:/sys/class/hwmon/hwmon0> cat fan1_label
-   SOM FAN
+   FAN
 
 Show PWM input
-^^^^^^^^^^^^^^
+""""""""""""""
 
 ::
 
@@ -183,7 +184,7 @@ Show PWM input
    200
 
 Show Temperature input (in milliC)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""""""""""
 
 ::
 
@@ -191,7 +192,7 @@ Show Temperature input (in milliC)
    32000
 
 Show Temperature label
-^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""
 
 ::
 
@@ -199,11 +200,11 @@ Show Temperature label
    SYSMON4
 
 Show fault
-^^^^^^^^^^
+""""""""""
 
-When reading **fan1_fault** returns 1, that means that either the FAN is
-physically not working/broken or the tacho signal fails to stay within its
-designated frequency interval.
+fan1_fault reports a latched tachometer-error interrupt. Reading this attribute
+clears the software latch; a subsequent zero does not by itself establish that
+the underlying fault has disappeared.
 
 ::
 
@@ -211,7 +212,7 @@ designated frequency interval.
    0
 
 Set PWM value
-^^^^^^^^^^^^^
+"""""""""""""
 
 ::
 
@@ -221,7 +222,7 @@ More Information
 ----------------
 
 HWMON pointers
---------------
+~~~~~~~~~~~~~~
 
 - HWMON mailing list: linux-hwmon@vger.kernel.org
 - `HWMON Linux Kernel Documentation <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/hwmon>`__

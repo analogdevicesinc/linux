@@ -98,26 +98,36 @@
           <ul>
 <li><a class="reference internal" href="#">AD7877</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
-<li><a class="reference internal" href="#description">Description</a></li>
-<li><a class="reference internal" href="#software-configurable-features">Software configurable features</a></li>
+<li><a class="reference internal" href="#description">Description</a><ul>
+<li><a class="reference internal" href="#driver-features-and-limitations">Driver features and limitations</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
 <li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
-<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a><ul>
 <li><a class="reference internal" href="#driver-compiled-as-a-module">Driver compiled as a module</a></li>
 <li><a class="reference internal" href="#driver-compiled-into-the-kernel">Driver compiled into the kernel</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
 <li><a class="reference internal" href="#use-the-evtest-event-test-utility-to-test-proper-function">Use the evtest/event_test utility to test proper function</a></li>
-<li><a class="reference internal" href="#common-problems">Common Problems</a></li>
 <li><a class="reference internal" href="#testing">Testing</a><ul>
 <li><a class="reference internal" href="#interrupt">Interrupt</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#aux-functions">Aux functions</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
+<li><a class="reference internal" href="#common-problems">Common Problems</a></li>
 </ul>
 </li>
 </ul>
@@ -221,6 +231,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -239,7 +250,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -405,9 +415,8 @@ includes a shutdown mode that reduces its current consumption to less than 1 μA
 </figure>
 <p><em>See also:</em> <a class="icon link reference external" href="https://github.com/libts/tslib" target="_blank">tslib - Touchscreen Access Library</a></p>
 <p><em>See also:</em> <a class="reference internal" href="../ad7879/#ad7879"><span class="std std-ref">AD7879</span></a></p>
-</section>
-<section id="software-configurable-features">
-<h2>Software configurable features<a class="headerlink" href="#software-configurable-features" title="Link to this heading"></a></h2>
+<section id="driver-features-and-limitations">
+<h3>Driver features and limitations<a class="headerlink" href="#driver-features-and-limitations" title="Link to this heading"></a></h3>
 <p><strong>Software configurable:</strong></p>
 <ul class="simple">
 <li><p>STOPACQ Polarity (LOW, HIGH)</p></li>
@@ -416,6 +425,7 @@ includes a shutdown mode that reduces its current consumption to less than 1 μA
 <li><p>Number of Averages (1,4,8,16)</p></li>
 <li><p>Pen Down Acquisition Interval Timer (convert once, every 0.5ms, 1ms, 8ms)</p></li>
 </ul>
+</section>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -461,42 +471,23 @@ includes a shutdown mode that reduces its current consumption to less than 1 μA
 </div>
 </section>
 </section>
-<section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
-<p>For compile time configuration, it’s common Linux practice to keep board- and
-application-specific configuration out of the main driver file, instead putting
-it into the board support file.</p>
-<p>For devices on custom boards, as typical of embedded and SoC-(system-on-chip)
-based hardware, Linux uses <code class="docutils literal notranslate"><span class="pre">platform_data</span></code> to point to board-specific structures
-describing devices and how they are connected to the SoC. This can include
-available ports, chip variants, preferred modes, default initialization,
-additional pin roles, and so on. This shrinks the board-support packages (BSPs)
-and minimizes board and application specific #ifdefs in drivers.</p>
-<p>Touchscreen characteristics vary between boards and models. The platform_data
-for the device’s <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code> holds this information.</p>
-<p>&lt;source trunk/include/linux/spi/ad7877.h c linux-kernel&gt;</p>
-<p>These snippets are all from the same file.
-<code class="docutils literal notranslate"><span class="pre">arch/blackfin/mach-bf537/boards/pnav10.c</span></code>:</p>
-<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/spi/ad7877.h&gt;</span>
-</pre></div>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The AD7877 Linux Driver only uses the /DAV Data Available Interrupt. /PENIRQ
+is not used. STOPACQ can be used to reduce the effect of noise from an LCD
+screen on the touch screen measurements.</p>
 </div>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/pnav10.c" target="_blank">spi_ad7877_chip_info{}</a>
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/pnav10.c" target="_blank">bfin_ad7877_ts_info{}</a></p>
-<p>Unlike PCI or USB devices, SPI devices are not enumerated at the hardware level.
-Instead, the software must know which devices are connected on each SPI bus
-segment, and what slave selects these devices are using. For this reason, the
-kernel code must instantiate SPI devices explicitly. The most common method is
-to declare the SPI devices by bus number.</p>
-<p>This method is appropriate when the SPI bus is a system bus, as in many
-embedded systems, wherein each SPI bus has a number which is known in advance.
-It is thus possible to pre-declare the SPI devices that inhabit this bus. This
-is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
-calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>Overview of Linux kernel SPI support</span></a></p>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/pnav10.c" target="_blank">bfin_spi_board_info[]</a></p>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/software/driver/linux/ad7877_example_schematic.png"><img alt="https://wiki.analog.com/_media/software/driver/linux/ad7877_example_schematic.png" src="https://wiki.analog.com/_media/software/driver/linux/ad7877_example_schematic.png" style="width: 800px;" />
+</a>
+</figure>
 </section>
 <section id="adding-linux-driver-support">
 <h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="admonition note">
@@ -529,24 +520,8 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
       <span class="n">Hardware</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">ports</span>  <span class="o">---&gt;</span>
 </pre></div>
 </div>
-</section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>The AD7877 Linux Driver only uses the /DAV Data Available Interrupt. /PENIRQ
-is not used. STOPACQ can be used to reduce the effect of noise from an LCD
-screen on the touch screen measurements.</p>
-</div>
-<figure class="align-default">
-<a class="reference internal image-reference" href="https://wiki.analog.com/_media/software/driver/linux/ad7877_example_schematic.png"><img alt="https://wiki.analog.com/_media/software/driver/linux/ad7877_example_schematic.png" src="https://wiki.analog.com/_media/software/driver/linux/ad7877_example_schematic.png" style="width: 800px;" />
-</a>
-</figure>
-</section>
-<section id="driver-testing">
-<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <section id="driver-compiled-as-a-module">
-<h3>Driver compiled as a module<a class="headerlink" href="#driver-compiled-as-a-module" title="Link to this heading"></a></h3>
+<h4>Driver compiled as a module<a class="headerlink" href="#driver-compiled-as-a-module" title="Link to this heading"></a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">evdev</span>
 <span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">ad7877</span>
 <span class="nb">input</span><span class="p">:</span> <span class="n">AD7877</span> <span class="n">Touchscreen</span> <span class="k">as</span> <span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input2</span>
@@ -555,12 +530,42 @@ screen on the touch screen measurements.</p>
 </div>
 </section>
 <section id="driver-compiled-into-the-kernel">
-<h3>Driver compiled into the kernel<a class="headerlink" href="#driver-compiled-into-the-kernel" title="Link to this heading"></a></h3>
+<h4>Driver compiled into the kernel<a class="headerlink" href="#driver-compiled-into-the-kernel" title="Link to this heading"></a></h4>
 <p>Your kernel startup messages should include something like this</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">input</span><span class="p">:</span> <span class="n">AD7877</span> <span class="n">Touchscreen</span> <span class="k">as</span> <span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input2</span>
 </pre></div>
 </div>
 </section>
+</section>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
+<p>The AD7877 driver has no devicetree binding; it is configured entirely
+through <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ad7877_platform_data</span></code> (<code class="docutils literal notranslate"><span class="pre">include/linux/spi/ad7877.h</span></code>),
+supplied as the SPI device’s platform data:</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">ad7877_platform_data</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">u16</span><span class="w"> </span><span class="n">model</span><span class="p">;</span><span class="w">                  </span><span class="cm">/* 7877 */</span>
+<span class="w">    </span><span class="n">u16</span><span class="w"> </span><span class="n">vref_delay_usecs</span><span class="p">;</span><span class="w">       </span><span class="cm">/* 0 for external vref; etc */</span>
+<span class="w">    </span><span class="n">u16</span><span class="w"> </span><span class="n">x_plate_ohms</span><span class="p">;</span>
+<span class="w">    </span><span class="n">u16</span><span class="w"> </span><span class="n">y_plate_ohms</span><span class="p">;</span>
+<span class="w">    </span><span class="n">u16</span><span class="w"> </span><span class="n">x_min</span><span class="p">,</span><span class="w"> </span><span class="n">x_max</span><span class="p">;</span>
+<span class="w">    </span><span class="n">u16</span><span class="w"> </span><span class="n">y_min</span><span class="p">,</span><span class="w"> </span><span class="n">y_max</span><span class="p">;</span>
+<span class="w">    </span><span class="n">u16</span><span class="w"> </span><span class="n">pressure_min</span><span class="p">,</span><span class="w"> </span><span class="n">pressure_max</span><span class="p">;</span>
+<span class="w">    </span><span class="n">u8</span><span class="w">  </span><span class="n">stopacq_polarity</span><span class="p">;</span><span class="w">       </span><span class="cm">/* 1 = active high, 0 = active low */</span>
+<span class="w">    </span><span class="n">u8</span><span class="w">  </span><span class="n">first_conversion_delay</span><span class="p">;</span><span class="w"> </span><span class="cm">/* 0 = 0.5us, 1 = 128us, 2 = 1ms, 3 = 8ms */</span>
+<span class="w">    </span><span class="n">u8</span><span class="w">  </span><span class="n">acquisition_time</span><span class="p">;</span><span class="w">       </span><span class="cm">/* 0 = 2us, 1 = 4us, 2 = 8us, 3 = 16us */</span>
+<span class="w">    </span><span class="n">u8</span><span class="w">  </span><span class="n">averaging</span><span class="p">;</span><span class="w">              </span><span class="cm">/* 0 = 1, 1 = 4, 2 = 8, 3 = 16 */</span>
+<span class="w">    </span><span class="n">u8</span><span class="w">  </span><span class="n">pen_down_acc_interval</span><span class="p">;</span><span class="w">  </span><span class="cm">/* 0 = convert once, 1 = every 0.5ms,</span>
+<span class="cm">                                   2 = every 1ms, 3 = every 8ms */</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>The board code registers the SPI device with a pointer to this structure in
+<code class="docutils literal notranslate"><span class="pre">spi_board_info.platform_data</span></code>, together with the IRQ, chip select and bus
+number.</p>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <section id="use-the-evtest-event-test-utility-to-test-proper-function">
 <h3>Use the evtest/event_test utility to test proper function<a class="headerlink" href="#use-the-evtest-event-test-utility-to-test-proper-function" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">event_test</span> <span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">event2</span>
@@ -606,29 +611,6 @@ screen on the touch screen measurements.</p>
 </pre></div>
 </div>
 </section>
-<section id="common-problems">
-<h3>Common Problems<a class="headerlink" href="#common-problems" title="Link to this heading"></a></h3>
-<p>In case you see a message like this</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">Failed</span> <span class="n">to</span> <span class="n">probe</span> <span class="n">AD7877</span> <span class="n">Touchscreen</span>
-</pre></div>
-</div>
-<p>This means that the SPI communication and initilaization with the AD7877
-touchscreen controller/digitizer failed. <strong>check bus_num and chip_select in your
-platform device file</strong></p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1">#if defined(CONFIG_TOUCHSCREEN_AD7877) || defined(CONFIG_TOUCHSCREEN_AD7877_MODULE)</span>
-<span class="p">{</span>
-    <span class="o">.</span><span class="n">modalias</span>       <span class="o">=</span> <span class="s2">"ad7877"</span><span class="p">,</span>
-    <span class="o">.</span><span class="n">platform_data</span>      <span class="o">=</span> <span class="o">&amp;</span><span class="n">bfin_ad7877_ts_info</span><span class="p">,</span>
-    <span class="o">.</span><span class="n">irq</span>            <span class="o">=</span> <span class="n">IRQ_PJ11</span><span class="p">,</span>
-    <span class="o">.</span><span class="n">max_speed_hz</span>       <span class="o">=</span> <span class="mi">12500000</span><span class="p">,</span>     <span class="o">/*</span> <span class="nb">max</span> <span class="n">spi</span> <span class="n">clock</span> <span class="p">(</span><span class="n">SCK</span><span class="p">)</span> <span class="n">speed</span> <span class="ow">in</span> <span class="n">HZ</span> <span class="o">*/</span>
-    <span class="o">.</span><span class="n">bus_num</span>        <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
-    <span class="o">.</span><span class="n">chip_select</span>        <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
-    <span class="o">.</span><span class="n">controller_data</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">spi_ad7877_chip_info</span><span class="p">,</span>
-<span class="p">},</span>
-<span class="c1">#endif</span>
-</pre></div>
-</div>
-</section>
 <section id="testing">
 <h3>Testing<a class="headerlink" href="#testing" title="Link to this heading"></a></h3>
 <p>See the <a class="icon link reference external" href="https://github.com/libts/tslib" target="_blank">tslib - Touchscreen Access Library</a>
@@ -643,8 +625,8 @@ page for information on testing the touchscreen from userspace.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>In case you touch the surface and don’t receive events, it’s likely that
-something with your /DAV Interrupt is wrong. <strong>check irq number in your
-platform device file</strong></p>
+something with your /DAV Interrupt is wrong. Check the IRQ in the
+board’s platform data.</p>
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
@@ -655,8 +637,11 @@ you have not install the necessary modules</p>
 </section>
 <section id="aux-functions">
 <h3>Aux functions<a class="headerlink" href="#aux-functions" title="Link to this heading"></a></h3>
-<p>Under the device folder there are auxiliary functions such as temperature, GPIO,
-DAC and ADC read backs and controls.</p>
+<p>Under the device folder, temp1/temp2, aux1/aux2/aux3 and bat1/bat2 return raw
+ADC conversion codes, not degrees Celsius or millivolts. The dac file accepts an
+unsigned decimal value and writes its low eight bits (use 0–255). gpio4 is
+available; the gpio3 module option replaces aux3 with gpio3. disable controls
+touchscreen IRQ handling.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input2</span><span class="o">&gt;</span> <span class="n">cd</span> <span class="n">device</span><span class="o">/</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">ls</span> <span class="o">-</span><span class="n">al</span>
 <span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span>    <span class="mi">3</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="o">.</span>
@@ -691,6 +676,29 @@ DAC and ADC read backs and controls.</p>
 <span class="mi">1929</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">aux1</span>
 <span class="mi">1929</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
+<section id="common-problems">
+<h3>Common Problems<a class="headerlink" href="#common-problems" title="Link to this heading"></a></h3>
+<p>In case you see a message like this</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">Failed</span> <span class="n">to</span> <span class="n">probe</span> <span class="n">AD7877</span> <span class="n">Touchscreen</span>
+</pre></div>
+</div>
+<p>This means that the SPI communication and initialization with the AD7877
+touchscreen controller/digitizer failed. Check the <code class="docutils literal notranslate"><span class="pre">bus_num</span></code> and
+<code class="docutils literal notranslate"><span class="pre">chip_select</span></code> in the board’s <code class="docutils literal notranslate"><span class="pre">spi_board_info</span></code> entry:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="o">.</span><span class="n">modalias</span>     <span class="o">=</span> <span class="s2">"ad7877"</span><span class="p">,</span>
+    <span class="o">.</span><span class="n">platform_data</span>    <span class="o">=</span> <span class="o">&amp;</span><span class="n">ad7877_ts_info</span><span class="p">,</span>
+    <span class="o">.</span><span class="n">irq</span>          <span class="o">=</span> <span class="n">irq</span><span class="p">,</span>
+    <span class="o">.</span><span class="n">max_speed_hz</span>     <span class="o">=</span> <span class="mi">12500000</span><span class="p">,</span>  <span class="o">/*</span> <span class="nb">max</span> <span class="n">spi</span> <span class="n">clock</span> <span class="p">(</span><span class="n">SCK</span><span class="p">)</span> <span class="n">speed</span> <span class="ow">in</span> <span class="n">HZ</span> <span class="o">*/</span>
+    <span class="o">.</span><span class="n">bus_num</span>      <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="o">.</span><span class="n">chip_select</span>      <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+<span class="p">},</span>
 </pre></div>
 </div>
 </section>

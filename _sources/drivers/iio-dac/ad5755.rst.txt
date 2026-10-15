@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ad5755
 
+
 .. _ad5755:
 
 AD5755
@@ -16,18 +17,18 @@ Supported Devices
 - :adi:`AD5755-1`
 - :adi:`AD5757`
 
-Reference Circuits
-------------------
-
-- :adi:`CN0198`
-- :adi:`CN0328`
-
 Evaluation Boards
 -----------------
 
 - :adi:`EVAL-AD5755SDZ`
 - :adi:`EVAL-AD5755-1SDZ`
 - :adi:`EVAL-AD5757SDZ`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0198`
+- :adi:`CN0328`
 
 Description
 -----------
@@ -67,8 +68,39 @@ Files
    * - driver
      - `drivers/iio/dac/ad5755.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5755.c>`__
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD5755 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           ...
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               ...
+               Digital to analog converters  --->
+                   ...
+                   <*>  Analog Devices AD5755/AD5755-1/AD5757/AD5735/AD5737 DAC driver
+                   ...
+               ...
+           ...
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-spi-slave-devices
@@ -79,11 +111,10 @@ accordingly, matching your part name. It may also required to adjust
 max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
 the device in question.
 
-.. code:: c
+.. code-block:: c
 
    static struct spi_board_info board_spi_board_info[] __initdata = {
-   #if defined(CONFIG_AD5755_SPI) || \
-       defined(CONFIG_AD5755_SPI_MODULE)
+   #if IS_ENABLED(CONFIG_AD5755)
        {
            /* the modalias must be the same as spi device driver name */
            .modalias = "ad5755", /* Name of spi_driver for this device */
@@ -109,36 +140,14 @@ the device in question.
    }
    arch_initcall(board_init);
 
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AD5755 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           ...
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-               ...
-               Digital to analog converters  --->
-                   ...
-                   <*>  Analog Devices AD5755/AD5755-1/AD5757/AD5735/AD5737 DAC driver
-                   ...
-               ...
-           ...
-
-Hardware configuration
-----------------------
-
 Driver testing
 --------------
+
+The mixed current/voltage channel transcript below requires explicit firmware
+channel configuration. With no firmware configuration, the driver defaults all
+four channels to 4–20 mA current mode; ``out_voltage2_*`` and
+``out_voltage3_*`` then do not exist. Inspect the registered channel types and
+configured output ranges before using the examples.
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-device-files
@@ -184,13 +193,16 @@ Driver testing
    lrwxrwxrwx    1 root     root             0 Jan  2 21:54 subsystem -> ../../../../../bus/iio
    -rw-r--r--    1 root     root          4096 Jan  2 21:54 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat name
    ad5755
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale
 ^^^^^^^^^^
@@ -198,81 +210,62 @@ Show scale
 **Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_scale
 /sys/bus/iio/devices/iio:deviceX/out_currentY_scale
 
-scale to be applied to out_voltageY_raw/out_currentY_raw in order to obtain the
-measured voltage in millivolts.
+Apply the relevant offset before scale. Voltage channels produce millivolts;
+current channels produce milliamps. The offset attributes are
+out_voltageY_offset or out_currentY_offset, not out_offsetY_raw.
 
-::
+Read the scale for a channel that actually exists; replace ``X`` with the
+IIO device index and select the registered voltage or current channel:
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage2_scale
-   TBD
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_current0_scale
-   0.000244100
+.. code-block:: sh
+
+   DEV=/sys/bus/iio/devices/iio:deviceX
+   cat "$DEV/out_current0_scale"
+   # Only if channel 2 is configured for voltage output:
+   cat "$DEV/out_voltage2_scale"
+
+
+Calibration controls
+""""""""""""""""""""
+
+The per-channel ``out_voltageY_calibscale`` or ``out_currentY_calibscale``
+attribute accesses the hardware gain register. For AD5755/AD5757, the driver
+accepts integer gain codes from 0 to 65535.
+
+The corresponding ``out_voltageY_calibbias`` or ``out_currentY_calibbias``
+attribute accesses the hardware offset-calibration register. For AD5755/AD5757,
+the driver adds 32768 before writing the register, accepting signed codes
+from -32768 to 32767. This calibration control is distinct from the nominal
+IIO ``*_offset`` conversion attribute.
+
+The AD5735/AD5737 use an additional four-bit shift for calibration-register
+access, so their calibration codes differ from the AD5755/AD5757 codes.
 
 Show offset
-'''''''''''
+~~~~~~~~~~~
 
-| **Description:**
-| /sys/bus/iio/devices/iio:deviceX/out_offsetY_raw
+The attributes are ``out_voltageY_offset`` and ``out_currentY_offset``.
+They express the nominal conversion offset in raw-code units, applied before
+the corresponding voltage or current scale:
 
-Raw offset to be applied to out_voltageY_raw in order to obtain the measured
-voltage in millivolts. The offset is applied before scale is applied.
+.. code-block:: sh
 
-::
+   cat "$DEV/out_current0_offset"
+   # Only if channel 2 is configured for voltage output:
+   cat "$DEV/out_voltage2_offset"
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage2_offset
-   -TBD
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_current0_offset
-   16384
+Set channel Y output code
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Set channel Y output voltage
-''''''''''''''''''''''''''''
+Write an unscaled DAC code to the registered ``out_voltageY_raw`` or
+``out_currentY_raw`` attribute.
 
-**Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw
-/sys/bus/iio/devices/iio:deviceX/out_currentY_raw
-
-Raw (unscaled, no bias etc.) output voltage/current for channel Y.
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 10000 > out_voltage2_raw
-
-**U** = *(out_voltage2_raw + out_voltage2_offset) \* out_voltage2_scale* =
-(10000 - TBD) \* 0,038140 *mV* = **TBD mV** **I** = *(out_current0_raw +
-out_current0_offset) \* out_current0_scale* = (10000 + 16384) \* 0,000244100
-*mV* = **6.4403344 mA**
-
-Calibrate channel Y gain
-''''''''''''''''''''''''
-
-**Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_calibscale
-/sys/bus/iio/devices/iio:deviceX/out_currentY_calibscale
-
-Each channel has an adjustable gain which can be used to calibrate the channel’s
-scale and compensate for full-scale errors. The default value is 65535, minium
-value is 0, maximum value is 65535.
-
-If scale calibration is used the following formula can be used calculate the
-output voltage: **U** = *( ( ( out_voltageY_raw + out_voltageY_offset ) \* (
-out_voltageY_calibscale + 1 ) ) / 2^16 + out_voltageY_calibbias ) \*
-out_voltageY_scale*
-
-Calibrate channel Y offset
-''''''''''''''''''''''''''
-
-**Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_calibbias
-/sys/bus/iio/devices/iio:deviceX/out_currentY_calibbias
-
-Each channel has an adjustable offset which can be used to calibrate the
-channel’s offset and compensate for zero-scale errors. The default value is 0,
-minium value is -32768, maximum value is 32767.
-
-If offset calibration is used the following formula can be used calculate the
-output voltage: **U** = *( ( ( out_voltageY_raw + out_voltageY_offset ) \* (
-out_voltageY_calibscale + 1 ) ) / 2^16 + out_voltageY_calibbias ) \*
-out_voltageY_scale*
+Without calibration correction, the output is
+``voltage_mV = (raw + offset) × scale`` for a voltage channel, or
+``current_mA = (raw + offset) × scale`` for a current channel.
 
 Enable power down mode for the device
-'''''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown
 /sys/bus/iio/devices/iio:deviceX/out_currentY_powerdown

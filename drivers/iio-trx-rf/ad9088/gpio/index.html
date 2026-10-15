@@ -97,8 +97,11 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">GPIO usage</a><ul>
+<li><a class="reference internal" href="#configuration-and-sequence">Configuration and sequence</a><ul>
 <li><a class="reference internal" href="#gpio-fast-frequency-hopping">GPIO Fast Frequency Hopping</a></li>
 <li><a class="reference internal" href="#gpio-chip">GPIO chip</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -200,6 +203,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5380/">AD5380</a></li>
@@ -218,7 +222,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../iio-dds/ad9172/">AD9172</a></li>
@@ -356,8 +359,6 @@ Content on this topic
 <p>This document describes the General Purpose Input Output (GPIO) architecture
 for AD9084/AD9088 Apollo devices, including driver interactions, signals,
 and flows.</p>
-<p>The device contains 30 general-purpose GPIOs that can be used to trigger
-various changes.</p>
 <div class="admonition important">
 <p class="admonition-title">Important</p>
 <p>GPIOs serve multiple roles, and mapping them properly can be tricky.
@@ -387,8 +388,10 @@ You can inspect the GPIO consumers with:</p>
 interfacing with the device GPIOs. This section uses the
 <a class="icon git reference external" href="https://github.com/analogdevicesinc/hdl/tree/main/projects/ad9084_ebz/vck190" target="_blank">AD9084-EBZ/VCK190</a> reference
 design as an example.</p>
+<section id="configuration-and-sequence">
+<h2>Configuration and sequence<a class="headerlink" href="#configuration-and-sequence" title="Link to this heading"></a></h2>
 <section id="gpio-fast-frequency-hopping">
-<span id="ad9088-gpio-ffh"></span><h2>GPIO Fast Frequency Hopping<a class="headerlink" href="#gpio-fast-frequency-hopping" title="Link to this heading"></a></h2>
+<span id="ad9088-gpio-ffh"></span><h3>GPIO Fast Frequency Hopping<a class="headerlink" href="#gpio-fast-frequency-hopping" title="Link to this heading"></a></h3>
 <p>The relevant devicetree options for FFH with GPIOs are:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">adi,gpio-hop-terminal</span></code>: sets the pins for <code class="docutils literal notranslate"><span class="pre">profile_tx_rxn[1:0]</span></code></p></li>
@@ -397,7 +400,7 @@ design as an example.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">adi,gpio-hop-block</span></code>: sets the pins for <code class="docutils literal notranslate"><span class="pre">profile_fcn_sel[3:0]</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">adi,gpio-hop-profile</span></code>: sets the pins for <code class="docutils literal notranslate"><span class="pre">profile[4:0]</span></code></p></li>
 </ul>
-<p>These override the quick configuration profile pin assignments.</p>
+<p>These properties override the corresponding quick-configuration pin assignments.</p>
 <p>In particular, for Profile 1, <code class="docutils literal notranslate"><span class="pre">profile_fcn_sel[3]</span></code> lands on GPIO31.
 However, the AD9084-EBZ/VCK190 only routes AD9084 GPIO15..GPIO30,
 so the hop block selector cannot be fully driven with the default
@@ -415,8 +418,8 @@ Profile 1. Instead, modify <code class="docutils literal notranslate"><span clas
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>With this devicetree configuration, and for TX side A, slice 0, FNCO block, and
-profile selected by GPIOs, the feature can be tested as described below:</p>
+<p>The following example selects profiles through GPIOs for TX side A, slice 0
+and the FNCO block with this board-specific devicetree configuration:</p>
 <p>Set <code class="docutils literal notranslate"><span class="pre">ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO</span></code>:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
 </pre></div>
@@ -473,7 +476,7 @@ profile selected by GPIOs, the feature can be tested as described below:</p>
  gpiochip2 [pmc_gpio] (116 lines)
 </pre></div>
 </div>
-<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># AD9084 offset -15 (profile[4] 26 -&gt; 11)</span>
+<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Board mapping: subtract 15 (profile[0] on GPIO26 -&gt; gpiochip0 line 11)</span>
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
@@ -587,7 +590,7 @@ profile selected by GPIOs, the feature can be tested as described below:</p>
 <code class="docutils literal notranslate"><span class="pre">profile_fcn_sel[3:0]=ADI_APOLLO_GPIO_BLOCK_CNCO</span></code>.</p>
 </section>
 <section id="gpio-chip">
-<h2>GPIO chip<a class="headerlink" href="#gpio-chip" title="Link to this heading"></a></h2>
+<h3>GPIO chip<a class="headerlink" href="#gpio-chip" title="Link to this heading"></a></h3>
 <p>The GPIOs can be exported into a <a class="icon link reference external" href="https://docs.kernel.org/driver-api/gpio/index.html#c.gpio_chip" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><code class="xref c c-struct docutils literal notranslate"><span class="pre">gpio_chip</span></code></a>
 using the <code class="docutils literal notranslate"><span class="pre">adi,gpio-exports</span></code> devicetree property:</p>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">trx0_ad9084</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9084</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
@@ -607,7 +610,7 @@ input options.</p>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nf">my_driver</span><span class="cm"> </span><span class="p">{</span>
 <span class="w">     </span><span class="cm">/* ... */</span>
 <span class="w">     </span><span class="n">provider-gpios</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">axi_gpio</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="na">GPIO_ACTIVE_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="w">     </span><span class="n">consumer-gpios</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">tx0_ad9084</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="na">GPIO_ACTIVE_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">     </span><span class="n">consumer-gpios</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">trx0_ad9084</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="na">GPIO_ACTIVE_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -649,6 +652,7 @@ input options.</p>
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div></section>
+</section>
 </section>
 
 

@@ -98,15 +98,20 @@
           <ul>
 <li><a class="reference internal" href="#">AD5791</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#creating-a-devicetree-dts">Creating a devicetree .dts</a><ul>
+<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#the-dac-node">The DAC node</a><ul>
 <li><a class="reference internal" href="#power-supplies-and-reference-voltages">Power supplies and reference voltages</a></li>
 <li><a class="reference internal" href="#output-buffer-configuration">Output buffer configuration</a></li>
@@ -116,19 +121,18 @@
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-scale">Show scale</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-scale">Show scale</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#set-channel-y-output-voltage">Set channel Y output voltage</a></li>
 <li><a class="reference internal" href="#list-available-power-down-modes">List available power down modes</a></li>
 <li><a class="reference internal" href="#set-power-down-mode">Set power down mode</a></li>
 <li><a class="reference internal" href="#enable-power-down-mode-on-output-y">Enable power down mode on output Y</a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li><a class="reference internal" href="#spi-offload-usage">SPI offload usage</a></li>
 </ul>
 </li>
@@ -234,6 +238,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5380/">AD5380</a></li>
@@ -252,7 +257,6 @@ Content on this topic
 <li class="toctree-l2 current"><a class="current reference internal" href="#">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -398,17 +402,6 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD5791" target="_blank">AD5791</a></p></li>
 </ul>
 </section>
-<section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0177" target="_blank">CN0177</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0191" target="_blank">CN0191</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0200" target="_blank">CN0200</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0257" target="_blank">CN0257</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0278" target="_blank">CN0278</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0318" target="_blank">CN0318</a></p></li>
-</ul>
-</section>
 <section id="evaluation-boards">
 <h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -421,6 +414,17 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD5790SDZ" target="_blank">EVAL-AD5790SDZ</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD5791SDZ" target="_blank">EVAL-AD5791SDZ</a></p></li>
 </ul>
+<section id="reference-circuits">
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0177" target="_blank">CN0177</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0191" target="_blank">CN0191</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0200" target="_blank">CN0200</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0257" target="_blank">CN0257</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0278" target="_blank">CN0278</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0318" target="_blank">CN0318</a></p></li>
+</ul>
+</section>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -479,14 +483,50 @@ tree if needed</p></li>
 </div>
 </section>
 </section>
-<section id="creating-a-devicetree-dts">
-<h2>Creating a devicetree .dts<a class="headerlink" href="#creating-a-devicetree-dts" title="Link to this heading"></a></h2>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/ad5791/test-with-de10-nano.png"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/ad5791/test-with-de10-nano.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/ad5791/test-with-de10-nano.png" style="width: 600px;" />
+</a>
+</figure>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/software/driver/linux/ad5791_eval_lr.jpg"><img alt="https://wiki.analog.com/_media/software/driver/linux/ad5791_eval_lr.jpg" src="https://wiki.analog.com/_media/software/driver/linux/ad5791_eval_lr.jpg" style="width: 600px;" />
+</a>
+</figure>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The AD5791 Driver depends on <strong>CONFIG_SPI</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="o">...</span>
+        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+            <span class="o">...</span>
+            <span class="n">Digital</span> <span class="n">to</span> <span class="n">analog</span> <span class="n">converters</span>  <span class="o">---&gt;</span>
+                <span class="o">...</span>
+                <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD5760</span><span class="o">/</span><span class="n">AD5780</span><span class="o">/</span><span class="n">AD5781</span><span class="o">/</span><span class="n">AD5790</span><span class="o">/</span><span class="n">AD5791</span> <span class="n">DAC</span> <span class="n">SPI</span> <span class="n">driver</span>
+                <span class="o">...</span>
+            <span class="o">...</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <p>Devicetree is used to describe how the chip is wired up. The driver uses this to
 configure the device based on what it is connected to.</p>
 <p>An example .dts file for the EVAL-AD5791ARDZ board can be found
 <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/intel/socfpga/socfpga_cyclone5_de10_nano_ad5791.dts" target="_blank">here</a>.</p>
 <section id="the-dac-node">
-<h3>The DAC node<a class="headerlink" href="#the-dac-node" title="Link to this heading"></a></h3>
+<h4>The DAC node<a class="headerlink" href="#the-dac-node" title="Link to this heading"></a></h4>
 <p>Since the DAC communicates to the MCU via a SPI bus, the DAC node is a SPI
 peripheral node, meaning that it is a child node of the SPI controller it is
 connected to.</p>
@@ -509,7 +549,7 @@ connected to.</p>
 <p>DAC‘s are always given the node name of ’‘dac’‘. The ’‘0’’ in <code class="docutils literal notranslate"><span class="pre">&#64;0</span></code> and
 <code class="docutils literal notranslate"><span class="pre">reg</span> <span class="pre">=</span> <span class="pre">&lt;0&gt;</span></code> is the chip select number from the SPI controller.</p>
 <section id="power-supplies-and-reference-voltages">
-<h4>Power supplies and reference voltages<a class="headerlink" href="#power-supplies-and-reference-voltages" title="Link to this heading"></a></h4>
+<h5>Power supplies and reference voltages<a class="headerlink" href="#power-supplies-and-reference-voltages" title="Link to this heading"></a></h5>
 <p>Chips need power to work, so they will always have power supplies wired up to
 them. In most cases, the supplies are not connected to the MCU, so in the device
 tree, we just use a <code class="docutils literal notranslate"><span class="pre">``regulator-fixed``</span></code> to represent this.</p>
@@ -529,34 +569,34 @@ this (at the top level of the devicetree):</p>
 <span class="n">iovcc</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">vcc3p3</span><span class="o">&gt;</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>Voltage supplies that are providing a reference voltage will also need to
-specify what the voltage output is. These are the supplies connected to the VDD
-and VSS pins. Here is an example of how to write the U5 ADP7118ARDZ chip on the
-EVAL board.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dac_vdd</span><span class="p">:</span> <span class="n">regulator</span><span class="o">-</span><span class="n">vdd</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
-    <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"EVAL VDD (U5)"</span><span class="p">;</span>
-    <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">4096000</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">4096000</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">regulator</span><span class="o">-</span><span class="n">always</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
+<p>The reference pins VREFPF/VREFPS and VREFNF/VREFNS are distinct from the
+VDD/VSS analog power pins. Connect <code class="docutils literal notranslate"><span class="pre">vdd-supply</span></code> and <code class="docutils literal notranslate"><span class="pre">vss-supply</span></code> to the
+analog power regulators, and <code class="docutils literal notranslate"><span class="pre">vrefp-supply</span></code> and <code class="docutils literal notranslate"><span class="pre">vrefn-supply</span></code> to the
+positive and negative reference providers. The reference levels determine the
+DAC’s nominal output span and conversion scale/offset.</p>
+<p>For a board whose DAC node is labeled <code class="docutils literal notranslate"><span class="pre">dac</span></code>, reference the regulators
+actually connected to these pins:</p>
+<div class="highlight-devicetree notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="nf">dac</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">vdd-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">dac_vdd</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">vss-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">dac_vss</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">vrefp-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">dac_vrefp</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">vrefn-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">dac_vrefn</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="p">};</span>
 </pre></div>
 </div>
-<p>These get referenced in the DAC node like this:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">vdd</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">dac_vdd</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="n">vss</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">dac_vss</span><span class="o">&gt;</span><span class="p">;</span>
-</pre></div>
-</div>
+<p>Define these providers in the board’s devicetree with the correct supply and
+reference levels, and retain its separate <code class="docutils literal notranslate"><span class="pre">vcc-supply</span></code>, <code class="docutils literal notranslate"><span class="pre">iovcc-supply</span></code>
+and SPI configuration.</p>
 </section>
 <section id="output-buffer-configuration">
-<h4>Output buffer configuration<a class="headerlink" href="#output-buffer-configuration" title="Link to this heading"></a></h4>
+<h5>Output buffer configuration<a class="headerlink" href="#output-buffer-configuration" title="Link to this heading"></a></h5>
 <p>The output of the DAC can be wired to an amplifier with unity gain or a gain of
 two (using the RFB and INV pins). If the chip is wired in the gain of two
 configuration, supply the <code class="docutils literal notranslate"><span class="pre">adi,rbuf-gain2-en;</span></code> property in the .dts file,
 otherwise omit it.</p>
 </section>
 <section id="gpios">
-<h4>GPIOs<a class="headerlink" href="#gpios" title="Link to this heading"></a></h4>
+<h5>GPIOs<a class="headerlink" href="#gpios" title="Link to this heading"></a></h5>
 <p>Several of the pins on the DAC can be connected to GPIOs on the MCU, namely
 /RESET, /CLR and /LDAC. All of these are active low signals, so that needs to be
 specified as well.</p>
@@ -567,7 +607,7 @@ specified as well.</p>
 </div>
 </section>
 <section id="spi-offload-support">
-<h4>SPI offload support<a class="headerlink" href="#spi-offload-support" title="Link to this heading"></a></h4>
+<h5>SPI offload support<a class="headerlink" href="#spi-offload-support" title="Link to this heading"></a></h5>
 <p>Specialized SPI controllers such as the AXI SPI Engine can be used to stream
 data from DMA to the DAC with high speed and precise timing compared to
 traditional SPI controllers.</p>
@@ -585,39 +625,6 @@ to the SPI controller node (not the DAC peripheral node).</p>
 </section>
 </section>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The AD5791 Driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="o">...</span>
-        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-            <span class="o">...</span>
-            <span class="n">Digital</span> <span class="n">to</span> <span class="n">analog</span> <span class="n">converters</span>  <span class="o">---&gt;</span>
-                <span class="o">...</span>
-                <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD5760</span><span class="o">/</span><span class="n">AD5780</span><span class="o">/</span><span class="n">AD5781</span><span class="o">/</span><span class="n">AD5790</span><span class="o">/</span><span class="n">AD5791</span> <span class="n">DAC</span> <span class="n">SPI</span> <span class="n">driver</span>
-                <span class="o">...</span>
-            <span class="o">...</span>
-        <span class="o">...</span>
-</pre></div>
-</div>
-</section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
-<figure class="align-default">
-<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/ad5791/test-with-de10-nano.png"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/ad5791/test-with-de10-nano.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/ad5791/test-with-de10-nano.png" style="width: 600px;" />
-</a>
-</figure>
-<figure class="align-default">
-<a class="reference internal image-reference" href="https://wiki.analog.com/_media/software/driver/linux/ad5791_eval_lr.jpg"><img alt="https://wiki.analog.com/_media/software/driver/linux/ad5791_eval_lr.jpg" src="https://wiki.analog.com/_media/software/driver/linux/ad5791_eval_lr.jpg" style="width: 600px;" />
-</a>
-</figure>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -649,12 +656,15 @@ the numbering is constant and may be known in advance.</p>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">4</span> <span class="mi">12</span><span class="p">:</span><span class="mi">28</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">ad5791</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-scale">
 <h4>Show scale<a class="headerlink" href="#show-scale" title="Link to this heading"></a></h4>
 <p><strong>Description:</strong> scale to be applied to out_voltage0_raw in order to obtain the
@@ -663,23 +673,44 @@ measured voltage in millivolts.</p>
 <span class="mf">0.019</span>
 </pre></div>
 </div>
+</section>
+</section>
 <section id="set-channel-y-output-voltage">
-<h5>Set channel Y output voltage<a class="headerlink" href="#set-channel-y-output-voltage" title="Link to this heading"></a></h5>
+<h3>Set channel Y output voltage<a class="headerlink" href="#set-channel-y-output-voltage" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw</p>
 <p>Raw (unscaled, no bias etc.) output voltage for channel Y.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">131579</span> <span class="o">&gt;</span> <span class="n">out_voltage0_raw</span>
 </pre></div>
 </div>
-<p><strong>U</strong> = <em>out_voltage0_raw * out_voltage_scale</em> = 131579 * 0.019 = <strong>2500.001
-mV</strong></p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="o">-</span><span class="mi">131579</span> <span class="o">&gt;</span> <span class="n">out_voltage0_raw</span>
+<p>Use <code class="docutils literal notranslate"><span class="pre">U_mV</span> <span class="pre">=</span> <span class="pre">(out_voltage0_raw</span> <span class="pre">+</span> <span class="pre">out_voltage_offset)</span> <span class="pre">*</span> <span class="pre">out_voltage_scale</span></code>.
+Read both attributes for the configured references: scale is
+<code class="docutils literal notranslate"><span class="pre">(VREFP</span> <span class="pre">+</span> <span class="pre">|VREFN|)</span> <span class="pre">/</span> <span class="pre">(2^N</span> <span class="pre">-</span> <span class="pre">1)</span></code>, and offset is
+<code class="docutils literal notranslate"><span class="pre">-floor(|VREFN|</span> <span class="pre">*</span> <span class="pre">2^N</span> <span class="pre">/</span> <span class="pre">(VREFP</span> <span class="pre">+</span> <span class="pre">|VREFN|))</span></code>. The displayed scale of 0.019
+is too coarsely rounded for an exact voltage calculation.</p>
+<p>For AD5791, calculate an unsigned 20-bit code from the actual
+reference-dependent scale and offset. This example requests −2500 mV. Run inside
+the correct device directory after configuring the references and output power
+state:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">set</span><span class="w"> </span>-eu
+<span class="nv">scale</span><span class="o">=</span><span class="k">$(</span>cat<span class="w"> </span>out_voltage_scale<span class="k">)</span>
+<span class="nv">offset</span><span class="o">=</span><span class="k">$(</span>cat<span class="w"> </span>out_voltage_offset<span class="k">)</span>
+<span class="nv">raw</span><span class="o">=</span><span class="k">$(</span>awk<span class="w"> </span>-v<span class="w"> </span><span class="nv">scale</span><span class="o">=</span><span class="s2">"</span><span class="nv">$scale</span><span class="s2">"</span><span class="w"> </span>-v<span class="w"> </span><span class="nv">offset</span><span class="o">=</span><span class="s2">"</span><span class="nv">$offset</span><span class="s2">"</span><span class="w"> </span><span class="s1">'BEGIN {</span>
+<span class="s1">    if (scale &lt;= 0) exit 1</span>
+<span class="s1">    code = -2500 / scale - offset</span>
+<span class="s1">    if (code &lt; 0 || code &gt; 1048575) exit 1</span>
+<span class="s1">    printf "%.0f", code</span>
+<span class="s1">}'</span><span class="k">)</span>
+<span class="nb">printf</span><span class="w"> </span><span class="s1">'%s\n'</span><span class="w"> </span><span class="s2">"</span><span class="nv">$raw</span><span class="s2">"</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_raw
+cat<span class="w"> </span>out_voltage0_raw
 </pre></div>
 </div>
-<p><strong>U</strong> = <em>out_voltage0_raw * out_voltage_scale</em> = -131579 * 0.019 = <strong>-2500.001
-mV</strong></p>
+<p>After writing the calculated code, reread raw, scale and offset and use
+<code class="docutils literal notranslate"><span class="pre">(raw</span> <span class="pre">+</span> <span class="pre">offset)</span> <span class="pre">*</span> <span class="pre">scale</span></code> to calculate the requested output in millivolts.
+The code is unsigned; a negative requested voltage is represented through the
+reference-dependent offset, not by assuming a signed DAC code.</p>
 </section>
 <section id="list-available-power-down-modes">
-<h5>List available power down modes<a class="headerlink" href="#list-available-power-down-modes" title="Link to this heading"></a></h5>
+<h3>List available power down modes<a class="headerlink" href="#list-available-power-down-modes" title="Link to this heading"></a></h3>
 <p>/sys/bus/iio/devices/iio:deviceX/out_voltage_powerdown_mode_available</p>
 <p><strong>Description:</strong> Lists all available output power down modes.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_voltage_powerdown_mode_available</span>
@@ -688,7 +719,7 @@ mV</strong></p>
 </div>
 </section>
 <section id="set-power-down-mode">
-<h5>Set power down mode<a class="headerlink" href="#set-power-down-mode" title="Link to this heading"></a></h5>
+<h3>Set power down mode<a class="headerlink" href="#set-power-down-mode" title="Link to this heading"></a></h3>
 <p>/sys/bus/iio/devices/iio:deviceX/out_voltage_powerdown_mode</p>
 <p><strong>Description:</strong> Specifies the output power down mode. DAC output stage is
 disconnected from the amplifier and</p>
@@ -713,7 +744,7 @@ out_voltage_powerdown_mode_available.</p>
 </div>
 </section>
 <section id="enable-power-down-mode-on-output-y">
-<h5>Enable power down mode on output Y<a class="headerlink" href="#enable-power-down-mode-on-output-y" title="Link to this heading"></a></h5>
+<h3>Enable power down mode on output Y<a class="headerlink" href="#enable-power-down-mode-on-output-y" title="Link to this heading"></a></h3>
 <p>/sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown</p>
 <p><strong>Description:</strong> Writing 1 causes output Y to enter the power down mode
 specified by the corresponding out_voltageY_powerdown_mode. Clearing returns to
@@ -726,8 +757,6 @@ normal operation. Y may be suppressed if all outputs are controlled together.</p
 <span class="mi">0</span>
 </pre></div>
 </div>
-</section>
-</section>
 </section>
 <section id="spi-offload-usage">
 <h3>SPI offload usage<a class="headerlink" href="#spi-offload-usage" title="Link to this heading"></a></h3>

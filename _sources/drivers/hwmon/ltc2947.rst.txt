@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/hwmon/ltc2947
 
+
 .. _ltc2947:
 
 LTC2947
@@ -70,8 +71,35 @@ Files
      - `drivers/hwmon/ltc2947.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon//ltc2947.h>`__
      -
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``).
+
+.. note::
+
+   The LTC2947 SPI driver depends **CONFIG_SPI** and the LTC2947 I2C driver depends on **CONFIG_I2C**.
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Hardware Monitoring support --->
+               --- Hardware Monitoring support
+           [--snip--]
+               <*> Analog Devices LTC2947 High Precision Power and Energy Monitor over I2C
+               <*> Analog Devices LTC2947 High Precision Power and Energy Monitor over SPI
+           [--snip--]
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example I2C & SPI device initialization
----------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The LTC2947 supports both I2C and SPI interfaces, so one of the drivers can be
 used depending on which kind of device is instantiated. Currently, the devices
@@ -118,38 +146,19 @@ Example I2C:
 For more supported devicetree properties take a look to
 `dt-bindings <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/hwmon/adi,ltc2947.yaml>`_.
 
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or ``make qconfig``). .. note::
-
-   The LTC2947 SPI driver depends **CONFIG_SPI** and the LTC2947 I2C driver depends on **CONFIG_I2C**.
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           <*>     Hardware Monitoring support --->
-               --- Hardware Monitoring support
-           [--snip--]
-               <*> Analog Devices LTC2947 High Precision Power and Energy Monitor over I2C
-               <*> Analog Devices LTC2947 High Precision Power and Energy Monitor over SPI
-           [--snip--]
-
-Hardware configuration
-----------------------
-
 Driver testing
 --------------
 
+Identify the device
+~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/class/hwmon/hwmon1> cat name
+   ltc2947
+
 HWMON device files
-~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
 
 Each and every HWMON device has a device folder under /sys/class/hwmon/hwmonX,
 where X is the hwmon device index. Under every of these directory folders there
@@ -168,7 +177,6 @@ which hardware chip, the user can read the name file under
 
    root:/sys/class/hwmon/hwmon1> ls -l
    total 0
-   -r--r--r-- 1 root root 4096 Nov 16 09:25 curr1_fault
    -r--r--r-- 1 root root 4096 Nov 16 09:25 curr1_highest
    -r--r--r-- 1 root root 4096 Nov 16 09:25 curr1_input
    -r--r--r-- 1 root root 4096 Nov 16 09:25 curr1_label
@@ -179,21 +187,8 @@ which hardware chip, the user can read the name file under
    -r--r--r-- 1 root root 4096 Nov 16 09:25 curr1_min_alarm
    --w------- 1 root root 4096 Nov 16 09:25 curr1_reset_history
    lrwxrwxrwx 1 root root    0 Nov 16 09:25 device -> ../../../spi0.0
-   -r--r--r-- 1 root root 4096 Nov 16 09:25 energy1_fault
    -r--r--r-- 1 root root 4096 Nov 16 09:25 energy1_input
-   -rw-r--r-- 1 root root 4096 Nov 16 09:25 energy1_max
-   -r--r--r-- 1 root root 4096 Nov 16 09:25 energy1_max_alarm
-   -rw-r--r-- 1 root root 4096 Nov 16 09:25 energy1_min
-   -r--r--r-- 1 root root 4096 Nov 16 09:25 energy1_min_alarm
-   -r--r--r-- 1 root root 4096 Nov 16 09:25 energy1_overflow_alarm
-   -r--r--r-- 1 root root 4096 Nov 16 09:25 energy2_fault
    -r--r--r-- 1 root root 4096 Nov 16 09:25 energy2_input
-   -rw-r--r-- 1 root root 4096 Nov 16 09:25 energy2_max
-   -r--r--r-- 1 root root 4096 Nov 16 09:25 energy2_max_alarm
-   -rw-r--r-- 1 root root 4096 Nov 16 09:25 energy2_min
-   -r--r--r-- 1 root root 4096 Nov 16 09:25 energy2_min_alarm
-   -r--r--r-- 1 root root 4096 Nov 16 09:25 energy2_overflow_alarm
-   -r--r--r-- 1 root root 4096 Nov 16 09:25 in0_fault
    -r--r--r-- 1 root root 4096 Nov 16 09:25 in0_highest
    -r--r--r-- 1 root root 4096 Nov 16 09:25 in0_input
    -r--r--r-- 1 root root 4096 Nov 16 09:25 in0_label
@@ -203,7 +198,6 @@ which hardware chip, the user can read the name file under
    -rw-r--r-- 1 root root 4096 Nov 16 09:25 in0_min
    -r--r--r-- 1 root root 4096 Nov 16 09:25 in0_min_alarm
    --w------- 1 root root 4096 Nov 16 09:25 in0_reset_history
-   -r--r--r-- 1 root root 4096 Nov 16 09:25 in1_fault
    -r--r--r-- 1 root root 4096 Nov 16 09:25 in1_highest
    -r--r--r-- 1 root root 4096 Nov 16 09:25 in1_input
    -r--r--r-- 1 root root 4096 Nov 16 09:25 in1_label
@@ -216,7 +210,6 @@ which hardware chip, the user can read the name file under
    -r--r--r-- 1 root root 4096 Nov 16 09:21 name
    lrwxrwxrwx 1 root root    0 Nov 16 09:25 of_node -> ../../../../../../../../../firmware/devicetree/base/soc/spi@7e204000/ltc2947@0
    drwxr-xr-x 2 root root    0 Nov 16 09:25 power
-   -r--r--r-- 1 root root 4096 Nov 16 09:25 power1_fault
    -r--r--r-- 1 root root 4096 Nov 16 09:25 power1_input
    -r--r--r-- 1 root root 4096 Nov 16 09:25 power1_input_highest
    -r--r--r-- 1 root root 4096 Nov 16 09:25 power1_input_lowest
@@ -227,7 +220,6 @@ which hardware chip, the user can read the name file under
    -r--r--r-- 1 root root 4096 Nov 16 09:25 power1_min_alarm
    --w------- 1 root root 4096 Nov 16 09:25 power1_reset_history
    lrwxrwxrwx 1 root root    0 Nov 16 09:25 subsystem -> ../../../../../../../../../class/hwmon
-   -r--r--r-- 1 root root 4096 Nov 16 09:25 temp1_fault
    -r--r--r-- 1 root root 4096 Nov 16 09:25 temp1_highest
    -r--r--r-- 1 root root 4096 Nov 16 09:25 temp1_input
    -r--r--r-- 1 root root 4096 Nov 16 09:25 temp1_label
@@ -246,25 +238,18 @@ which hardware chip, the user can read the name file under
    root:/sys/class/hwmon/hwmon1>
 
 For each type of monitored value (current, power), the file will look like
-**${type}\_${monitored_value}\_${channel}**, where **${monitored_value}** can be
-the current value, the high threshold, etc… The channel is the index when, for
-example, a device can monitor more than one voltage. For more information on the
-files format, take a look to
+**${type}${channel}\_${attribute} (for example in0_input or curr1_max)**, where
+**${monitored_value}** can be the current value, the high threshold, etc… The
+channel is the index when, for example, a device can monitor more than one
+voltage. For more information on the files format, take a look to
 `sysfs-interface <https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface>`__.
 
-Show device name
-^^^^^^^^^^^^^^^^
-
-::
-
-   root:/sys/class/hwmon/hwmon1> cat name
-   ltc2947
-
 Show current values
-^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""
 
-The device supports readings of current, voltage, power, temperature and energy.
-To get, for example, the value of the monitored voltage:
+The driver exposes current in mA, voltage in mV, power in µW, temperature in
+m°C, and two accumulated energy readings in µJ (``energy1_input`` and
+``energy2_input``). To get the monitored voltage:
 
 ::
 
@@ -272,7 +257,7 @@ To get, for example, the value of the monitored voltage:
    4910
 
 Show highest read value
-^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""
 
 ::
 
@@ -280,7 +265,7 @@ Show highest read value
    5026
 
 Show lowest read value
-^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""
 
 ::
 
@@ -288,7 +273,7 @@ Show lowest read value
    4754
 
 Show high threshold
-^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""
 
 ::
 
@@ -296,7 +281,7 @@ Show high threshold
    5500
 
 Show low threshold
-^^^^^^^^^^^^^^^^^^
+""""""""""""""""""
 
 ::
 
@@ -304,7 +289,7 @@ Show low threshold
    4500
 
 Show high threshold alarm
-^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""
 
 ::
 
@@ -312,27 +297,15 @@ Show high threshold alarm
    0
 
 Show low threshold alarm
-^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""
 
 ::
 
    root:/sys/class/hwmon/hwmon1> cat in0_min_alarm
    0
 
-Show fault
-^^^^^^^^^^
-
-When the **${type}\_${channel}_fault** files are present, the user can read
-these files to look for faulty cases. If reading this file returns 1, then the
-readings for that channel are invalid and should be discarded…
-
-::
-
-   root:/sys/class/hwmon/hwmon1> cat in0_fault
-   0
-
 Show label
-^^^^^^^^^^
+""""""""""
 
 Some channels, support a label attribute which specifies the name of the channel
 being monitored.
@@ -342,34 +315,22 @@ being monitored.
    root:/sys/class/hwmon/hwmon1> cat in1_label
    DVCC
 
-Show Overflow alarm
-^^^^^^^^^^^^^^^^^^^
-
-These properties are custom and not part of the sysfs-hwmon interface. However,
-the device set’s an alarm when register overflow is near for accumulated values
-(in this case, energy).
-
-::
-
-   root:/sys/class/hwmon/hwmon1> cat energy1_overflow_alarm
-   0
-
 Set High threshold
-^^^^^^^^^^^^^^^^^^
+""""""""""""""""""
 
 ::
 
    root:/sys/class/hwmon/hwmon1> echo 5500 > in0_max
 
 Set Low threshold
-^^^^^^^^^^^^^^^^^
+"""""""""""""""""
 
 ::
 
    root:/sys/class/hwmon/hwmon1> echo 4500 > in0_min
 
 Reset History
-^^^^^^^^^^^^^
+"""""""""""""
 
 ::
 
@@ -379,7 +340,7 @@ More Information
 ----------------
 
 HWMON pointers
---------------
+~~~~~~~~~~~~~~
 
 - HWMON mailing list: linux-hwmon@vger.kernel.org
 - `HWMON Linux Kernel Documentation <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/hwmon>`__

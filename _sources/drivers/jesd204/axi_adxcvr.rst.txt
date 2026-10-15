@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/axi_adxcvr
 
+
 .. _axi_adxcvr:
 
 AXI ADXCVR
@@ -7,8 +8,8 @@ AXI ADXCVR
 
 ADI JESD204B/C AXI_ADXCVR Highspeed Transceivers Linux Driver.
 
-Supported Devices
------------------
+Supported IP Cores
+------------------
 
 - :external+hdl:ref:`axi_adxcvr`
 
@@ -93,34 +94,64 @@ Files Intel / Altera
      - :git+linux:`main:drivers/iio/jesd204/altera_a10_cdr_pll.c`
      -
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           [--snip--]
+           <*> JESD204 High-Speed Serial Interface Framework  --->
+           [--snip--]
+           <*> Industrial I/O support  --->
+               [--snip--]
+               <*>   Analog Devices AXI ADXCVR PHY Support
+               [--snip--]
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The AXI JESD204B driver is a platform driver and can currently only be
 instantiated via device tree.
 
 Deprecated Non-jesd204-fsm mode
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"""""""""""""""""""""""""""""""
 
 Required devicetree properties:
 
-- **compatible**: Must always be ``adi,axi-adxcvr-1.00``
-- **reg**: Base address and register area size. This parameter expects a
-  register range
-- **clock-names**: List of input clock names - ``s_axi_aclk``, ``conv``,
-  ``div40``
-- **clocks**: Clock phandles and specifiers (See clock bindings for details on
-  clock-names and clocks)
-- **clock-output-names**: Generated clocks
-- **adi,sys-clk-select**: 2 bit variable. For ultrascale, it selects the PLL
-  reference clock source to be forwarded to the OUTCLK MUX: 0-CPLL, 3-QPLL0.
-  Check RX/TXSYSCLKSEL parameter in the transceiver documentation for the FPGA
-  you’re using. See section \"Software Guidelines\" at
-  :external+hdl:ref:`axi_adxcvr`
-- **adi,out-clk-select**: 3 bit variable. Controls the OUTCLKSEL multiplexer,
-  controlling what will be forwarded to OUTCLK pin. Check RX/TXOUTCLKSEL
-  parameter in the transceiver documentation for the FPGA you’re using See
-  section \"Software Guidelines\" at :external+hdl:ref:`axi_adxcvr`
+-  **compatible**: Must always be
+   ``adi,axi-adxcvr-1.0``
+
+-  **reg**: Base address and register area size. This parameter expects a
+   register range
+
+-  **clock-names**: List of input clock names - ``s_axi_aclk``, ``conv``,
+   ``div40``
+
+-  **clocks**: Clock phandles and specifiers (See clock bindings for details on
+   clock-names and clocks)
+
+-  **clock-output-names**: Generated clocks
+
+-  **adi,sys-clk-select**: 2 bit variable. For ultrascale, it selects the PLL
+   reference clock source to be forwarded to the OUTCLK MUX: 0-CPLL, 3-QPLL0.
+   Check RX/TXSYSCLKSEL parameter in the transceiver documentation for the FPGA
+   you’re using. See section "Software Guidelines" at :external+hdl:ref:`axi_adxcvr`
+
+-  **adi,out-clk-select**: 3 bit variable. Controls the OUTCLKSEL multiplexer,
+   controlling what will be forwarded to OUTCLK pin. Check RX/TXOUTCLKSEL
+   parameter in the transceiver documentation for the FPGA you’re using See
+   section "Software Guidelines" at :external+hdl:ref:`axi_adxcvr`
 
 Optional devicetree properties:
 
@@ -173,14 +204,14 @@ Example:
            };
 
 jesd204-fsm mode
-~~~~~~~~~~~~~~~~
+""""""""""""""""
 
 When using the :ref:`jesd204-fsm-framework` the div40 or Link/Device clock is
 handled by the Link Layer Peripheral Linux device driver.
 
 Required devicetree properties:
 
-- **compatible**: Must always be ``adi,axi-adxcvr-1.00``
+- **compatible**: Must always be ``adi,axi-adxcvr-1.0``
 - **reg**: Base address and register area size. This parameter expects a
   register range
 - **clock-names**: List of input clock names - ``s_axi_aclk``, ``conv``
@@ -252,99 +283,13 @@ Example:
                jesd204-inputs =  <&hmc7044 0 DEFRAMER_LINK_TX>;
            };
 
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-           -*-   Enable ring buffer support within IIO
-           -*-     Industrial I/O lock free software ring
-           -*-   Enable triggered sampling support
-
-               <*>   JESD204 High-Speed Serial Interface Support  --->
-           [--snip--]
-           <*>   Analog Devices AXI ADXCVR PHY Support
-           [--snip--]
-
-Sysfs Interface
----------------
+Driver testing
+--------------
 
 This driver provides advanced diagnostics, status and control via
 `sysfs <https://en.wikipedia.org/wiki/sysfs>`__. Depending on the direction (RX
 vs. TX) the provided sysfs attributes vary. A brief summary is with examples are
 provided below.
-
-Low level register access via reg_access
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-This device driver features an optional debug facility, allowing users to read
-or write registers directly. Special care needs to be taken when using this
-feature, since you can modify registers on the back of the driver.
-
-The DEBUG register access sysfs attribute ``reg_access`` allows access to the
-the AXI HDL Core register space as well as to the Dynamic Reconfiguration Port
-(DRP) interfaces. Accessing this sysfs attribute requires root privileges.
-
-AXI register access
-^^^^^^^^^^^^^^^^^^^
-
-- See section \"Register map\" at :external+hdl:ref:`axi_adxcvr`
-
-**Format:**
-
-::
-
-   axi <REGISTER ADDRESS> [<WRITE VAL>]
-
-Example reading AXI register at offset 0 (REG_VERSION) ::
-
-   root@analog:/sys/bus/platform/devices/84a60000.axi-adxcvr-rx# echo axi 0x0 >
-   reg_access
-   root@analog:/sys/bus/platform/devices/84a60000.axi-adxcvr-rx# cat reg_access
-   0x110261
-
-Example writing AXI register at offset 8 (REG_SCRATCH) ::
-
-   root@analog:/sys/bus/platform/devices/84a60000.axi-adxcvr-rx# echo axi 0x8 0x1234 > reg_access
-   root@analog:/sys/bus/platform/devices/84a60000.axi-adxcvr-rx# cat reg_access
-   0x1234
-
-DRP register access
-^^^^^^^^^^^^^^^^^^^
-
-**Please see Transceiver User Guides for further details**
-
-- :xilinx:`7 Series FPGAs GTX/GTH Transceivers User Guide - Xilinx <support/documentation/user_guides/ug476_7Series_Transceivers.pdf>`
-- :xilinx:`Ultrascale Architecture GTH Transceivers User Guide - Xilinx <support/documentation/user_guides/ug576-ultrascale-gth-transceivers.pdf>`
-
-**Format:**
-
-::
-
-   drp <DRP PORT> <REGISTER ADDRESS> [<WRITE VAL>]
-
-.. list-table::
-   :header-rows: 1
-
-   * - DRP Port
-     - Comment
-   * - 0
-     - Common register space
-   * - 0x100 + Lane
-     - Channel register space
-
-**Example reading OUT_DIV:** ::
-
-   root@analog:/sys/bus/platform/devices/84a60000.axi-adxcvr-rx# echo drp 0x101 0x88 > reg_access
-   root@analog:/sys/bus/platform/devices/84a60000.axi-adxcvr-rx# cat reg_access
-   0x2AA
 
 axi-adxcvr-rx
 ~~~~~~~~~~~~~
@@ -373,6 +318,7 @@ axi-adxcvr-rx
    -rw-r--r--  1 root root    4096 Feb  6 13:42 reg_access
    lrwxrwxrwx  1 root root       0 Feb  6 13:41 subsystem -> ../../../../bus/platform
    -rw-r--r--  1 root root    4096 Feb  6 13:41 uevent
+
 
 .. _axi_adxcvr prbs-select:
 
@@ -574,8 +520,76 @@ Writing 1 injects a series of errors´(used for testing)
    root@analog:/sys/bus/platform/devices/84b60000.axi-adxcvr-tx# echo 1 > prbs_error_inject
    root@analog:/sys/bus/platform/devices/84b60000.axi-adxcvr-tx#
 
+Troubleshooting
+---------------
+
+Low level register access via reg_access
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This device driver features an optional debug facility, allowing users to read
+or write registers directly. Special care needs to be taken when using this
+feature, since you can modify registers on the back of the driver.
+
+The DEBUG register access sysfs attribute ``reg_access`` allows access to the
+the AXI HDL Core register space as well as to the Dynamic Reconfiguration Port
+(DRP) interfaces. Accessing this sysfs attribute requires root privileges.
+
+AXI register access
+^^^^^^^^^^^^^^^^^^^
+
+- See section \"Register map\" at :external+hdl:ref:`axi_adxcvr`
+
+**Format:**
+
+::
+
+   axi <REGISTER ADDRESS> [<WRITE VAL>]
+
+Example reading AXI register at offset 0 (REG_VERSION) ::
+
+   root@analog:/sys/bus/platform/devices/84a60000.axi-adxcvr-rx# echo axi 0x0 >
+   reg_access
+   root@analog:/sys/bus/platform/devices/84a60000.axi-adxcvr-rx# cat reg_access
+   0x110261
+
+Example writing AXI register at offset 8 (REG_SCRATCH) ::
+
+   root@analog:/sys/bus/platform/devices/84a60000.axi-adxcvr-rx# echo axi 0x8 0x1234 > reg_access
+   root@analog:/sys/bus/platform/devices/84a60000.axi-adxcvr-rx# cat reg_access
+   0x1234
+
+DRP register access
+^^^^^^^^^^^^^^^^^^^
+
+**Please see Transceiver User Guides for further details**
+
+- :xilinx:`7 Series FPGAs GTX/GTH Transceivers User Guide - Xilinx <support/documentation/user_guides/ug476_7Series_Transceivers.pdf>`
+- :xilinx:`Ultrascale Architecture GTH Transceivers User Guide - Xilinx <support/documentation/user_guides/ug576-ultrascale-gth-transceivers.pdf>`
+
+**Format:**
+
+::
+
+   drp <DRP PORT> <REGISTER ADDRESS> [<WRITE VAL>]
+
+.. list-table::
+   :header-rows: 1
+
+   * - DRP Port
+     - Comment
+   * - 0
+     - Common register space
+   * - 0x100 + Lane
+     - Channel register space
+
+**Example reading OUT_DIV:** ::
+
+   root@analog:/sys/bus/platform/devices/84a60000.axi-adxcvr-rx# echo drp 0x101 0x88 > reg_access
+   root@analog:/sys/bus/platform/devices/84a60000.axi-adxcvr-rx# cat reg_access
+   0x2AA
+
 More Information
-~~~~~~~~~~~~~~~~
+----------------
 
 - :external+hdl:ref:`jesd204`
 - :ref:`jesd204-fsm-framework`

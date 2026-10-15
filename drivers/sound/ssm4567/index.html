@@ -100,26 +100,37 @@
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
-<li><a class="reference internal" href="#status">Status</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a></li>
+<li><a class="reference internal" href="#device-enumeration">Device enumeration</a><ul>
+<li><a class="reference internal" href="#example-device-initialization">Example device initialization</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-device-initialization">Example device initialization</a><ul>
-<li><a class="reference internal" href="#devicetree">Devicetree</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#routing-and-dapm">Routing and DAPM</a><ul>
 <li><a class="reference internal" href="#asoc-dapm-widgets">ASoC DAPM Widgets</a></li>
-<li><a class="reference internal" href="#alsa-controls">ALSA Controls</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#alsa-controls">ALSA controls</a></li>
+<li><a class="reference internal" href="#dai-formats-and-clocks">DAI formats and clocks</a><ul>
 <li><a class="reference internal" href="#dai-configuration">DAI configuration</a><ul>
 <li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a></li>
-<li><a class="reference internal" href="#tdm-configuration">TDM configuration</a></li>
-<li><a class="reference internal" href="#example-dai-configuration">Example DAI configuration</a></li>
 <li><a class="reference internal" href="#multi-ssm4567-example-configuration">Multi SSM4567 Example configuration</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#more-information">More information</a></li>
+<li><a class="reference internal" href="#tdm-configuration">TDM configuration</a></li>
+<li><a class="reference internal" href="#example-dai-configuration">Example DAI configuration</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
 </ul>
@@ -221,6 +232,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -239,7 +251,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -399,14 +410,15 @@ Content on this topic
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/sound/soc/codecs/ssm4567.c" target="_blank">git</a></p></td>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/sound/soc/codecs/ssm4567.c" target="_blank">ADI tree</a></p></td>
 <td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ssm4567.c" target="_blank">Yes</a></p></td>
 </tr>
 </tbody>
 </table>
 </div>
+</section>
 <section id="files">
-<h4>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h4>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -416,7 +428,7 @@ Content on this topic
 </thead>
 <tbody>
 <tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/sound/soc/codecs/ssm4567.c" target="_blank">sound/soc/codecs/ssm4567.c</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ssm4567.c" target="_blank">sound/soc/codecs/ssm4567.c</a></p></td>
 </tr>
 <tr class="row-odd"><td><p>include</p></td>
 <td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/sound/soc/codecs/ssm4567.h" target="_blank">sound/soc/codecs/ssm4567.h</a></p></td>
@@ -426,9 +438,29 @@ Content on this topic
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">i2s</span><span class="p">:</span> <span class="n">i2c</span><span class="o">@</span><span class="mi">41600000</span> <span class="p">{</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"...;</span>
+    <span class="o">...</span>
+
+    <span class="c1">#size-cells = &lt;0&gt;;</span>
+    <span class="c1">#address-cells = &lt;1&gt;;</span>
+
+    <span class="n">ssm4567</span><span class="p">:</span> <span class="n">ssm4567</span><span class="o">@</span><span class="mi">34</span> <span class="p">{</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ssm4567"</span><span class="p">;</span>
+        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x34</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
 </section>
+<section id="device-enumeration">
+<h3>Device enumeration<a class="headerlink" href="#device-enumeration" title="Link to this heading"></a></h3>
 <section id="example-device-initialization">
-<h2>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -492,25 +524,15 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 <span class="n">arch_initcall</span><span class="p">(</span><span class="n">board_init</span><span class="p">);</span>
 </pre></div>
 </div>
-<section id="devicetree">
-<h3>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">i2s</span><span class="p">:</span> <span class="n">i2c</span><span class="o">@</span><span class="mi">41600000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"...;</span>
-    <span class="o">...</span>
-
-    <span class="c1">#size-cells = &lt;0&gt;;</span>
-    <span class="c1">#address-cells = &lt;1&gt;;</span>
-
-    <span class="n">ssm4567</span><span class="p">:</span> <span class="n">ssm4567</span><span class="o">@</span><span class="mi">34</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ssm4567"</span><span class="p">;</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x34</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-</pre></div>
-</div>
 </section>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="routing-and-dapm">
+<h3>Routing and DAPM<a class="headerlink" href="#routing-and-dapm" title="Link to this heading"></a></h3>
 <section id="asoc-dapm-widgets">
-<h3>ASoC DAPM Widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h3>
+<h4>ASoC DAPM Widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -526,8 +548,9 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 </table>
 </div>
 </section>
+</section>
 <section id="alsa-controls">
-<h3>ALSA Controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
+<h3>ALSA controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -539,40 +562,27 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 <tr class="row-even"><td><p>DAC High Pass Filter Switch</p></td>
 <td><p>Enables/Disables the high-pass filter for the DAC</p></td>
 </tr>
-<tr class="row-odd"><td><p>DAC Low Power Switch</p></td>
+<tr class="row-odd"><td><p>DAC Low Power Mode Switch</p></td>
 <td><p>Enables/Disables low-power mode of the DAC</p></td>
 </tr>
 <tr class="row-even"><td><p>Master Playback Volume</p></td>
 <td><p>Digital output volume control.</p></td>
 </tr>
-<tr class="row-odd"><td><p>Low-EMI Switch</p></td>
-<td><p>Enables/Disables low EMI mode.</p></td>
-</tr>
-<tr class="row-even"><td><p>Limiter Mode</p></td>
-<td><p>Mode the output limiter is using.</p></td>
-</tr>
-<tr class="row-odd"><td><p>Limiter Attack Rate</p></td>
-<td><p>Attack rate of the output limiter.</p></td>
-</tr>
-<tr class="row-even"><td><p>Limiter Release Rate</p></td>
-<td><p>Release rate of the output limiter.</p></td>
-</tr>
-<tr class="row-odd"><td><p>Limiter Attack Threshold</p></td>
-<td><p>Attack threshold for the output limiter.</p></td>
-</tr>
-<tr class="row-even"><td><p>Amplifier Boost Switch</p></td>
+<tr class="row-odd"><td><p>Amplifier Boost Switch</p></td>
 <td><p>Enables/Disables the output amplifier booster</p></td>
 </tr>
 </tbody>
 </table>
 </div>
 </section>
+<section id="dai-formats-and-clocks">
+<h3>DAI formats and clocks<a class="headerlink" href="#dai-formats-and-clocks" title="Link to this heading"></a></h3>
 <section id="dai-configuration">
-<h3>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h3>
+<h4>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h4>
 <p>The amplifier driver registers one DAIs, one for each serial port. The DAI is
 named <strong>``ssm4567-hifi``</strong></p>
 <section id="supported-dai-formats">
-<h4>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h4>
+<h5>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h5>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -654,75 +664,8 @@ named <strong>``ssm4567-hifi``</strong></p>
 </table>
 </div>
 </section>
-<section id="tdm-configuration">
-<h4>TDM configuration<a class="headerlink" href="#tdm-configuration" title="Link to this heading"></a></h4>
-<p>If you want to use the SSM4567 in TDM mode you can configure it using
-snd_soc_dai_set_tdm_slot() from you ASoC board driver.</p>
-<p>The following restrictions apply to the parameters of
-snd_soc_dai_set_tdm_slot().</p>
-<ul class="simple">
-<li><p><strong>tx_mask</strong> specifies the output channel mapping for the serial port. This
-must either be 0, or the same as rx_mask.</p></li>
-<li><p><strong>rx_mask</strong> specifies the input channel mapping for the serial port. There
-must be exactly one bit set in this mask which selects the slot that is used.</p></li>
-<li><p><strong>slots</strong> should be between 1 and 8</p></li>
-<li><p><strong>width</strong> must be either 32, 48, 64</p></li>
-</ul>
-<p>Example:</p>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">ssm4567_link_init</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_pcm_runtime</span><span class="w"> </span><span class="o">*</span><span class="n">rtd</span><span class="p">)</span>
-<span class="p">{</span>
-<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
-
-<span class="w">    </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">snd_soc_dai_set_tdm_slot</span><span class="p">(</span><span class="n">rtd</span><span class="o">-&gt;</span><span class="n">codec_dai</span><span class="p">,</span><span class="w"> </span><span class="mh">0x01</span><span class="p">,</span><span class="w"> </span><span class="mh">0x01</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">);</span>
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
-
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
-<span class="p">}</span>
-
-<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">ssm4567_dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">...,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">init</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssm4567_link_init</span><span class="p">,</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-</section>
-<section id="example-dai-configuration">
-<h4>Example DAI configuration<a class="headerlink" href="#example-dai-configuration" title="Link to this heading"></a></h4>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dapm_widget</span><span class="w"> </span><span class="n">ssm4567_zed_widgets</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">SND_SOC_DAPM_SPK</span><span class="p">(</span><span class="s">"Speaker"</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">),</span>
-<span class="p">};</span>
-
-<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dapm_route</span><span class="w"> </span><span class="n">ssm4567_zed_routes</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="s">"Speaker"</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="s">"OUT"</span><span class="w"> </span><span class="p">},</span>
-<span class="p">};</span>
-
-<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">ssm4567_zed_dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4567"</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">stream_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4567"</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4567-hifi"</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">dai_fmt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SND_SOC_DAIFMT_DSP_A</span><span class="w"> </span><span class="o">|</span>
-<span class="w">            </span><span class="n">SND_SOC_DAIFMT_NB_NF</span><span class="w"> </span><span class="o">|</span>
-<span class="w">            </span><span class="n">SND_SOC_DAIFMT_CBS_CFS</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">init</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssm4567_zed_init</span><span class="p">,</span>
-<span class="p">};</span>
-
-<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_card</span><span class="w"> </span><span class="n">ssm4567_zed_card</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ZED SSM4567"</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">owner</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">THIS_MODULE</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">zed_ssm4567_dai_link</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">num_links</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">dapm_widgets</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">zed_ssm4567_widgets</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">num_dapm_widgets</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">zed_ssm4567_widgets</span><span class="p">),</span>
-<span class="w">    </span><span class="p">.</span><span class="n">dapm_routes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">zed_ssm4567_routes</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">num_dapm_routes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">zed_ssm4567_routes</span><span class="p">),</span>
-<span class="w">    </span><span class="p">.</span><span class="n">fully_routed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">,</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-</section>
 <section id="multi-ssm4567-example-configuration">
-<h4>Multi SSM4567 Example configuration<a class="headerlink" href="#multi-ssm4567-example-configuration" title="Link to this heading"></a></h4>
+<h5>Multi SSM4567 Example configuration<a class="headerlink" href="#multi-ssm4567-example-configuration" title="Link to this heading"></a></h5>
 <p>This example shows how to setup a ASoC board driver for a system with two
 SSM4567, one driving the left speaker and the other driving the right speaker.
 In this example the left SSM4567 is at I2C address 0x34 (ADDR=0) and the right
@@ -734,11 +677,11 @@ higher.</p>
 <span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
 
 <span class="w">    </span><span class="cm">/* Slot 0 for left */</span>
-<span class="w">    </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">snd_soc_dai_set_tdm_slot</span><span class="p">(</span><span class="n">rtd</span><span class="o">-&gt;</span><span class="n">codec_dais</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="mh">0x01</span><span class="p">,</span><span class="w"> </span><span class="mh">0x01</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">);</span>
+<span class="w">    </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">snd_soc_dai_set_tdm_slot</span><span class="p">(</span><span class="n">snd_soc_rtd_to_codec</span><span class="p">(</span><span class="n">rtd</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">),</span><span class="w"> </span><span class="mh">0x01</span><span class="p">,</span><span class="w"> </span><span class="mh">0x01</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">);</span>
 <span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
 <span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
 
-<span class="w">    </span><span class="cm">/* Slot 2 for right */</span>
+<span class="w">    </span><span class="cm">/* Slot 1 for right (zero-based index; mask 0x02) */</span>
 <span class="w">    </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">snd_soc_dai_set_tdm_slot</span><span class="p">(</span><span class="n">rtd</span><span class="o">-&gt;</span><span class="n">codec_dais</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="mh">0x02</span><span class="p">,</span><span class="w"> </span><span class="mh">0x02</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">);</span>
 <span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
 <span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
@@ -810,8 +753,75 @@ higher.</p>
 </div>
 </section>
 </section>
+<section id="tdm-configuration">
+<h4>TDM configuration<a class="headerlink" href="#tdm-configuration" title="Link to this heading"></a></h4>
+<p>If you want to use the SSM4567 in TDM mode you can configure it using
+snd_soc_dai_set_tdm_slot() from you ASoC board driver.</p>
+<p>The following restrictions apply to the parameters of
+snd_soc_dai_set_tdm_slot().</p>
+<ul class="simple">
+<li><p><strong>tx_mask</strong> must have exactly one bit set.</p></li>
+<li><p><strong>rx_mask</strong> must be zero or equal to tx_mask.</p></li>
+<li><p><strong>slots</strong> should be between 1 and 8</p></li>
+<li><p><strong>width</strong> must be either 32, 48, 64</p></li>
+</ul>
+<p>Example:</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="nf">ssm4567_link_init</span><span class="p">(</span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_pcm_runtime</span><span class="w"> </span><span class="o">*</span><span class="n">rtd</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">snd_soc_dai_set_tdm_slot</span><span class="p">(</span><span class="n">rtd</span><span class="o">-&gt;</span><span class="n">codec_dai</span><span class="p">,</span><span class="w"> </span><span class="mh">0x01</span><span class="p">,</span><span class="w"> </span><span class="mh">0x01</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ret</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">ret</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">ssm4567_dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">...,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">init</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssm4567_link_init</span><span class="p">,</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
+<section id="example-dai-configuration">
+<h4>Example DAI configuration<a class="headerlink" href="#example-dai-configuration" title="Link to this heading"></a></h4>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dapm_widget</span><span class="w"> </span><span class="n">ssm4567_zed_widgets</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">SND_SOC_DAPM_SPK</span><span class="p">(</span><span class="s">"Speaker"</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">),</span>
+<span class="p">};</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dapm_route</span><span class="w"> </span><span class="n">ssm4567_zed_routes</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="s">"Speaker"</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="s">"OUT"</span><span class="w"> </span><span class="p">},</span>
+<span class="p">};</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">ssm4567_zed_dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4567"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">stream_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4567"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ssm4567-hifi"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">dai_fmt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SND_SOC_DAIFMT_DSP_A</span><span class="w"> </span><span class="o">|</span>
+<span class="w">            </span><span class="n">SND_SOC_DAIFMT_NB_NF</span><span class="w"> </span><span class="o">|</span>
+<span class="w">            </span><span class="n">SND_SOC_DAIFMT_CBS_CFS</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">init</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ssm4567_zed_init</span><span class="p">,</span>
+<span class="p">};</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_card</span><span class="w"> </span><span class="n">ssm4567_zed_card</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ZED SSM4567"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">owner</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">THIS_MODULE</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">zed_ssm4567_dai_link</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">num_links</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">dapm_widgets</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">zed_ssm4567_widgets</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">num_dapm_widgets</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">zed_ssm4567_widgets</span><span class="p">),</span>
+<span class="w">    </span><span class="p">.</span><span class="n">dapm_routes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">zed_ssm4567_routes</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">num_dapm_routes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">zed_ssm4567_routes</span><span class="p">),</span>
+<span class="w">    </span><span class="p">.</span><span class="n">fully_routed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">,</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
 <section id="more-information">
-<h3>More information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h3>
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="../ssm4329/#ssm4329"><span class="std std-ref">SSM4329</span></a></p></li>
 </ul>
@@ -819,7 +829,6 @@ higher.</p>
 <ul class="simple">
 <li><p><a class="icon ez reference external" href="https://ez.analog.com/linux-software-drivers" target="_blank">Analog Devices Linux Device Drivers Help Forum</a></p></li>
 </ul>
-</section>
 </section>
 </section>
 

@@ -104,14 +104,14 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#enabling-the-driver">Enabling the driver</a><ul>
-<li><a class="reference internal" href="#adding-a-device-tree-entry">Adding a device tree entry</a><ul>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#available-properties">Available properties</a><ul>
 <li><a class="reference internal" href="#required-properties">Required properties:</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#adding-channels">Adding channels</a></li>
-<li><a class="reference internal" href="#device-tree-example">Device tree example</a></li>
 </ul>
 </li>
 </ul>
@@ -217,6 +217,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -235,7 +236,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -438,8 +438,10 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </div>
 </section>
 </section>
-<section id="enabling-the-driver">
-<h2>Enabling the driver<a class="headerlink" href="#enabling-the-driver" title="Link to this heading"></a></h2>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="admonition note">
@@ -454,42 +456,10 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
                  <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">LTC6952</span> <span class="n">Clock</span> <span class="n">Ultralow</span> <span class="n">Jitter</span> <span class="k">with</span> <span class="n">JESD204B</span><span class="o">/</span><span class="n">C</span>
 </pre></div>
 </div>
-<section id="adding-a-device-tree-entry">
-<h3>Adding a device tree entry<a class="headerlink" href="#adding-a-device-tree-entry" title="Link to this heading"></a></h3>
-<section id="available-properties">
-<h4>Available properties<a class="headerlink" href="#available-properties" title="Link to this heading"></a></h4>
-<section id="required-properties">
-<h5>Required properties:<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h5>
-<ul class="simple">
-<li><p><strong>compatible</strong>: Should be <code class="docutils literal notranslate"><span class="pre">adi,ltc6952</span></code>.</p></li>
-<li><p><strong>reg</strong>: SPI chip select number.</p></li>
-<li><p><strong>spi-max-frequency</strong>: Max SPI frequency to use (&lt;= 20000000).</p></li>
-<li><p><strong>adi,vco-frequency-hz</strong>: The frequency of the VCO.</p></li>
-<li><p><strong>adi,ref-frequency-hz</strong>: Reference input frequency. This is fed in the
-reference divider.</p></li>
-<li><p><strong>clock-output-names</strong>: An array of 11 elements, representing the names of the
-output clocks.</p></li>
-</ul>
 </section>
-</section>
-<section id="adding-channels">
-<h4>Adding channels<a class="headerlink" href="#adding-channels" title="Link to this heading"></a></h4>
-<p>Channels can be specified using child nodes. The following properties are
-applicable to them:</p>
-<ul class="simple">
-<li><p><strong>reg</strong>: The identifier of the channel.</p></li>
-<li><p><strong>adi,extended-name</strong>: Descriptive channel name.</p></li>
-<li><p><strong>adi,divider</strong>: Channel divider. This divides the incoming VCO frequency.</p></li>
-<li><p><strong>adi,digital-delay</strong>: Each output divider can have the start time of the
-output delayed by integer multiples of half of the VCO period after a
-synchronization event.</p></li>
-<li><p><strong>adi,analog-delay</strong>: Each output has a fine analog delay feature to further
-adjust its output delay time (tADELx) in small steps.</p></li>
-</ul>
-</section>
-<section id="device-tree-example">
-<h4>Device tree example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h4>
-<p>The following example instantiates the LTC6962 driver for a LTC6962 device
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<p>The following example instantiates the LTC6952 driver for an LTC6952 device
 connected on the SPI bus to the chip-select line 0.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ltc6952</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ltc6952"</span><span class="p">;</span>
@@ -518,6 +488,39 @@ connected on the SPI bus to the chip-select line 0.</p>
      <span class="p">};</span>
 </pre></div>
 </div>
+<section id="available-properties">
+<h4>Available properties<a class="headerlink" href="#available-properties" title="Link to this heading"></a></h4>
+<section id="required-properties">
+<h5>Required properties:<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h5>
+<ul class="simple">
+<li><p><strong>compatible: Use adi,ltc6952 or adi,ltc6953 for the fitted device. The
+reference/PLL requirements shown here describe LTC6952; LTC6953 uses the
+follower configuration.</strong></p></li>
+<li><p><strong>reg</strong>: SPI chip select number.</p></li>
+<li><p><strong>spi-max-frequency</strong>: Max SPI frequency to use (&lt;= 20000000).</p></li>
+<li><p><strong>adi,vco-frequency-hz</strong>: The frequency of the VCO.</p></li>
+<li><p><strong>adi,ref-frequency-hz</strong>: Reference input frequency. This is fed in the
+reference divider.</p></li>
+<li><p><strong>clock-output-names</strong>: An array of 11 elements, representing the names of
+the output clocks.</p></li>
+</ul>
+</section>
+</section>
+<section id="adding-channels">
+<h4>Adding channels<a class="headerlink" href="#adding-channels" title="Link to this heading"></a></h4>
+<p>Channels can be specified using child nodes. The following properties are
+applicable to them:</p>
+<ul class="simple">
+<li><p><strong>reg</strong>: The identifier of the channel.</p></li>
+<li><p><strong>adi,extended-name</strong>: Descriptive channel name.</p></li>
+<li><p><strong>adi,divider</strong>: Divides the incoming VCO frequency; default 4. Accepted
+values are 1..32 and n×2^m, where n = 17..32 and m = 1..6.</p></li>
+<li><p><strong>adi,digital-delay</strong>: Each output divider can have the start time of the
+output delayed by integer multiples of half of the VCO period after a
+synchronization event.</p></li>
+<li><p><strong>adi,analog-delay</strong>: Each output has a fine analog delay feature to further
+adjust its output delay time (tADELx) in small steps.</p></li>
+</ul>
 </section>
 </section>
 </section>

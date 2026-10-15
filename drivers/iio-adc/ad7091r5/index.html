@@ -102,11 +102,10 @@
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
 <li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
-<li><a class="reference internal" href="#enabling-the-driver">Enabling the driver</a></li>
-<li><a class="reference internal" href="#adding-a-device-tree-entry">Adding a device tree entry</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#required-properties">Required properties</a></li>
 <li><a class="reference internal" href="#optional-properties">Optional properties</a></li>
-<li><a class="reference internal" href="#device-tree-example">Device tree example</a></li>
 </ul>
 </li>
 </ul>
@@ -212,6 +211,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -230,7 +230,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -396,8 +395,8 @@ approximation analog-to-digital converter (ADC).</p>
 </section>
 <section id="adding-linux-driver-support">
 <h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<section id="enabling-the-driver">
-<h3>Enabling the driver<a class="headerlink" href="#enabling-the-driver" title="Link to this heading"></a></h3>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="admonition note">
@@ -419,8 +418,16 @@ approximation analog-to-digital converter (ADC).</p>
 </pre></div>
 </div>
 </section>
-<section id="adding-a-device-tree-entry">
-<h3>Adding a device tree entry<a class="headerlink" href="#adding-a-device-tree-entry" title="Link to this heading"></a></h3>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nf">adc</span><span class="o">@</span><span class="mi">2f</span><span class="cm"> </span><span class="p">{</span>
+<span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,ad7091r5"</span><span class="p">;</span>
+<span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x2f</span><span class="o">&gt;</span><span class="p">;</span>
+
+
+<span class="p">};</span>
+</pre></div>
+</div>
 <section id="required-properties">
 <h4>Required properties<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h4>
 <ul class="simple">
@@ -435,15 +442,6 @@ approximation analog-to-digital converter (ADC).</p>
 supply. If no external VREF is supplied this attribute should be omitted.
 see: Documentation/devicetree/bindings/regulator/regulator.txt</p></li>
 </ul>
-</section>
-<section id="device-tree-example">
-<h4>Device tree example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adc</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-    <span class="n">compatible</span><span class="p">:</span> <span class="s2">"adi,ad7091r5"</span><span class="p">;</span>
-    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x2F</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="p">};</span>
-</pre></div>
-</div>
 </section>
 </section>
 </section>

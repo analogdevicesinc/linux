@@ -98,14 +98,19 @@
           <ul>
 <li><a class="reference internal" href="#">ADV7511</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a><ul>
 <li><a class="reference internal" href="#drm">DRM</a><ul>
 <li><a class="reference internal" href="#example-configuration">Example Configuration</a></li>
@@ -113,7 +118,7 @@
 </li>
 <li><a class="reference internal" href="#asoc">ASoC</a></li>
 <li><a class="reference internal" href="#dai-configuration">DAI configuration</a><ul>
-<li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a><ul>
+<li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a></li>
 <li><a class="reference internal" href="#example-dai-configuration">Example DAI configuration</a></li>
 </ul>
 </li>
@@ -121,8 +126,9 @@
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
-<li><a class="reference internal" href="#more-information">More information</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
 </ul>
@@ -224,6 +230,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -242,7 +249,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -388,12 +394,6 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/ADV7535" target="_blank">ADV7535</a></p></li>
 </ul>
 </section>
-<section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0224" target="_blank">CN0224</a></p></li>
-</ul>
-</section>
 <section id="evaluation-boards">
 <h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -403,14 +403,20 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADV7842" target="_blank">EVAL-ADV7842</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADV7842-7511" target="_blank">EVAL-ADV7842-7511</a></p></li>
 </ul>
+<section id="reference-circuits">
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0224" target="_blank">CN0224</a></p></li>
+</ul>
+</section>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
-<p>The ADV7511 driver is implemented as a DRM encoder slave driver. In a typical
-board design the ADV7511 is not used as a standalone component but rather as a
-HDMI encoder fronted for some other devices with a graphics core, like a SoC or
-a FPGA. Implementing the ADV7511 driver as a DRM encoder slave driver allows to
-reuse the driver between different platforms which use the ADV7511.</p>
+<p>The ADV7511 driver is implemented as a DRM bridge driver. In a typical board
+design the ADV7511 is not used as a standalone component but rather as a HDMI
+encoder fronted for some other devices with a graphics core, like a SoC or a
+FPGA. Implementing the ADV7511 driver as a DRM bridge driver allows to reuse the
+driver between different platforms which use the ADV7511.</p>
 <p>For an example implementation of a DRM driver using the ADV7511 please refer to
 Linux driver for the Analog Devices example HDL design for the Xilinx Zync plus
 ADV7511 designs.</p>
@@ -472,266 +478,142 @@ This again allows to reuse the driver for a varieties of different platforms.</p
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ADV7511 Driver depends on <strong>CONFIG_DRM</strong> and <strong>CONFIG_I2C</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="n">Graphics</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+            <span class="o">&lt;*&gt;</span> <span class="n">Direct</span> <span class="n">Rendering</span> <span class="n">Manager</span> <span class="p">(</span><span class="n">XFree86</span> <span class="mf">4.1.0</span> <span class="ow">and</span> <span class="n">higher</span> <span class="n">DRI</span> <span class="n">support</span><span class="p">)</span>  <span class="o">---&gt;</span>
+            <span class="o">...</span>
+            <span class="o">&lt;*&gt;</span> <span class="n">AV7511</span> <span class="n">encoder</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <section id="drm">
-<h3>DRM<a class="headerlink" href="#drm" title="Link to this heading"></a></h3>
-<p>Usually the DRM encoder slave will be instantiated by a DRM encoder driver.
-After the encoder slave has been instantiated it needs to be configured by the
-DRM encoder driver. The configuration includes settings like physical connection
-to the host graphics core as well as the output video format. If necessary the
-configuration can be changed at runtime, e.g. to change the output format if a
-HDMI sink with different capabilities is connected.</p>
-<p>Configuration for the ADV7511 is done through the adv7511_video_input_config
-which should be passed to the slave encoder’s set_config callback function.</p>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cm">/**</span>
-<span class="cm"> * enum adv7511_input_style - Selects the input format style</span>
-<span class="cm"> * ADV7511_INPUT_STYLE1: Use input style 1</span>
-<span class="cm"> * ADV7511_INPUT_STYLE2: Use input style 2</span>
-<span class="cm"> * ADV7511_INPUT_STYLE3: Use input style 3</span>
-<span class="cm"> **/</span>
-<span class="k">enum</span><span class="w"> </span><span class="n">adv7511_input_style</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_STYLE1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_STYLE2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_STYLE3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<h5>DRM<a class="headerlink" href="#drm" title="Link to this heading"></a></h5>
+<p>Instantiate ADV7511, ADV7511W or ADV7513 as an I2C device in Device Tree, and
+connect its input graph endpoint to the upstream display controller. Configure
+the physical bus with <code class="docutils literal notranslate"><span class="pre">adi,input-depth</span></code>, <code class="docutils literal notranslate"><span class="pre">adi,input-colorspace</span></code> and
+<code class="docutils literal notranslate"><span class="pre">adi,input-clock</span></code>. For YUV422 input, or a clock mode other than 1x, also
+specify <code class="docutils literal notranslate"><span class="pre">adi,input-style</span></code> and <code class="docutils literal notranslate"><span class="pre">adi,input-justification</span></code>. <code class="docutils literal notranslate"><span class="pre">adi,clock-delay</span></code>
+is in picoseconds; <code class="docutils literal notranslate"><span class="pre">adi,embedded-sync</span></code> selects embedded synchronization when
+the hardware uses it.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">adi,input-clock</span></code> values are <code class="docutils literal notranslate"><span class="pre">1x</span></code> (one clock cycle per pixel), <code class="docutils literal notranslate"><span class="pre">2x</span></code>
+(two clock cycles per pixel) and <code class="docutils literal notranslate"><span class="pre">ddr</span></code> (data driven on both clock edges).</p>
+<p>The DRM bridge configures output conversion and HDMI/DVI operation as part of
+mode setting. It does not use the old <code class="docutils literal notranslate"><span class="pre">adv7511_video_input_config</span></code> structure
+or encoder-slave <code class="docutils literal notranslate"><span class="pre">set_config</span></code> callback. ADV7533 and ADV7535 have a separate
+DSI configuration path.</p>
+<p>The following fragment declares the transmitter, its supplies and the video
+graph. Include it together with the input-bus configuration in the next section;
+both fragments are needed for the complete example.</p>
+<p>The board must already define <code class="docutils literal notranslate"><span class="pre">i2c0</span></code> (the actual I2C bus or mux channel),
+<code class="docutils literal notranslate"><span class="pre">display_out</span></code> (the upstream video endpoint), and <code class="docutils literal notranslate"><span class="pre">v1v8</span></code>/<code class="docutils literal notranslate"><span class="pre">v3v3</span></code> (the
+supplies connected to the transmitter pins). The labels, I2C address, and connector type are board-specific. The input endpoint must link
+back to <code class="docutils literal notranslate"><span class="pre">adv7511_in</span></code>, as shown. Configure the display controller and its
+clocks/pin multiplexing in its own board node.</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cm">/* Board supplies and the display controller endpoint are defined elsewhere. */</span>
+<span class="o">&amp;</span><span class="nf">i2c0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"okay"</span><span class="p">;</span>
+
+<span class="w">    </span><span class="nl">adv7511</span><span class="p">:</span><span class="w"> </span><span class="nf">hdmi</span><span class="o">@</span><span class="mi">39</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,adv7511"</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x39</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="n">avdd-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">v1v8</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">dvdd-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">v1v8</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">pvdd-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">v1v8</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">dvdd-3v-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">v3v3</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">bgvdd-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">v1v8</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="nf">ports</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">            </span><span class="nf">port</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="nl">adv7511_in</span><span class="p">:</span><span class="w"> </span><span class="nf">endpoint</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="n">remote-endpoint</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">display_out</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="p">};</span>
+<span class="w">            </span><span class="p">};</span>
+
+<span class="w">            </span><span class="nf">port</span><span class="o">@</span><span class="mi">1</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="nl">adv7511_out</span><span class="p">:</span><span class="w"> </span><span class="nf">endpoint</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="n">remote-endpoint</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">hdmi_connector_in</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="p">};</span>
+<span class="w">            </span><span class="p">};</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">    </span><span class="p">};</span>
 <span class="p">};</span>
 
-<span class="cm">/**</span>
-<span class="cm"> * enum adv7511_input_id - Selects the input format id</span>
-<span class="cm"> * @ADV7511_INPUT_ID_24BIT_RGB444_YCbCr444: Input pixel format is 24-bit 444 RGB</span>
-<span class="cm"> *                      or 444 YCbCR with separate syncs</span>
-<span class="cm"> * @ADV7511_INPUT_ID_16_20_24BIT_YCbCr422_SEPARATE_SYNC:</span>
-<span class="cm"> * @ADV7511_INPUT_ID_16_20_24BIT_YCbCr422_EMBEDDED_SYNC:</span>
-<span class="cm"> * @ADV7511_INPUT_ID_8_10_12BIT_YCbCr422_SEPARATE_SYNC:</span>
-<span class="cm"> * @ADV7511_INPUT_ID_8_10_12BIT_YCbCr422_EMBEDDED_SYNC:</span>
-<span class="cm"> * @ADV7511_INPUT_ID_12_15_16BIT_RGB444_YCbCr444:</span>
-<span class="cm"> **/</span>
-<span class="k">enum</span><span class="w"> </span><span class="n">adv7511_input_id</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_ID_24BIT_RGB444_YCbCr444</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_ID_16_20_24BIT_YCbCr422_SEPARATE_SYNC</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_ID_16_20_24BIT_YCbCr422_EMBEDDED_SYNC</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_ID_8_10_12BIT_YCbCr422_SEPARATE_SYNC</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_ID_8_10_12BIT_YCbCr422_EMBEDDED_SYNC</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_ID_12_15_16BIT_RGB444_YCbCr444</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<span class="o">&amp;</span><span class="nf">display_out</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">remote-endpoint</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">adv7511_in</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="p">};</span>
 
-<span class="cm">/**</span>
-<span class="cm"> * enum adv7511_input_bit_justifiction - Selects the input format bit justifiction</span>
-<span class="cm"> * ADV7511_INPUT_BIT_JUSTIFICATION_EVENLY: Input bits are evenly distributed</span>
-<span class="cm"> * ADV7511_INPUT_BIT_JUSTIFICATION_RIGHT: Input bit signals have right justification</span>
-<span class="cm"> * ADV7511_INPUT_BIT_JUSTIFICATION_LEFT: Input bit signals have left justification</span>
-<span class="cm"> **/</span>
-<span class="k">enum</span><span class="w"> </span><span class="n">adv7511_input_bit_justifiction</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_BIT_JUSTIFICATION_EVENLY</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_BIT_JUSTIFICATION_RIGHT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_BIT_JUSTIFICATION_LEFT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="p">};</span>
+<span class="nf">/</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nf">hdmi-connector</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"hdmi-connector"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"a"</span><span class="p">;</span>
 
-<span class="cm">/**</span>
-<span class="cm"> * enum adv7511_input_color_depth - Selects the input format color depth</span>
-<span class="cm"> * @ADV7511_INPUT_COLOR_DEPTH_8BIT: Input format color depth is 8 bits per channel</span>
-<span class="cm"> * @ADV7511_INPUT_COLOR_DEPTH_10BIT: Input format color dpeth is 10 bits per channel</span>
-<span class="cm"> * @ADV7511_INPUT_COLOR_DEPTH_12BIT: Input format color depth is 12 bits per channel</span>
-<span class="cm"> **/</span>
-<span class="k">enum</span><span class="w"> </span><span class="n">adv7511_input_color_depth</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_COLOR_DEPTH_8BIT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_COLOR_DEPTH_10BIT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_COLOR_DEPTH_12BIT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="p">};</span>
-
-<span class="cm">/**</span>
-<span class="cm"> * enum adv7511_input_sync_pulse - Selects the sync pulse</span>
-<span class="cm"> * @ADV7511_INPUT_SYNC_PULSE_DE: Use the DE signal as sync pulse</span>
-<span class="cm"> * @ADV7511_INPUT_SYNC_PULSE_HSYNC: Use the HSYNC signal as sync pulse</span>
-<span class="cm"> * @ADV7511_INPUT_SYNC_PULSE_VSYNC: Use the VSYNC signal as sync pulse</span>
-<span class="cm"> * @ADV7511_INPUT_SYNC_PULSE_NONE: No external sync pulse signal</span>
-<span class="cm"> **/</span>
-<span class="k">enum</span><span class="w"> </span><span class="n">adv7511_input_sync_pulse</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_SYNC_PULSE_DE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_SYNC_PULSE_HSYNC</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_SYNC_PULSE_VSYNC</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_SYNC_PULSE_NONE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<span class="p">};</span>
-
-<span class="cm">/**</span>
-<span class="cm"> * enum adv7511_input_clock_delay - Delay for the video data input clock</span>
-<span class="cm"> * @ADV7511_INPUT_CLOCK_DELAY_MINUS_1200PS: -1200 pico seconds delay</span>
-<span class="cm"> * @ADV7511_INPUT_CLOCK_DELAY_MINUS_800PS: -800 pico seconds delay</span>
-<span class="cm"> * @ADV7511_INPUT_CLOCK_DELAY_MINUS_400PS: -400 pico seconds delay</span>
-<span class="cm"> * @ADV7511_INPUT_CLOCK_DELAY_NONE: No delay</span>
-<span class="cm"> * @ADV7511_INPUT_CLOCK_DELAY_PLUS_400PS: 400 pico seconds delay</span>
-<span class="cm"> * @ADV7511_INPUT_CLOCK_DELAY_PLUS_800PS: 800 pico seconds delay</span>
-<span class="cm"> * @ADV7511_INPUT_CLOCK_DELAY_PLUS_1200PS: 1200 pico seconds delay</span>
-<span class="cm"> * @ADV7511_INPUT_CLOCK_DELAY_PLUS_1600PS: 1600 pico seconds delay</span>
-<span class="cm"> **/</span>
-<span class="k">enum</span><span class="w"> </span><span class="n">adv7511_input_clock_delay</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_CLOCK_DELAY_MINUS_1200PS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_CLOCK_DELAY_MINUS_800PS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_CLOCK_DELAY_MINUS_400PS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_CLOCK_DELAY_NONE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_CLOCK_DELAY_PLUS_400PS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_CLOCK_DELAY_PLUS_800PS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_CLOCK_DELAY_PLUS_1200PS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_INPUT_CLOCK_DELAY_PLUS_1600PS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
-<span class="p">};</span>
-
-<span class="cm">/**</span>
-<span class="cm"> * enum adv7511_csc_scaling - HDMI videostream format</span>
-<span class="cm"> * @ADV7511_OUTPUT_FORMAT_RGB_444: Output format is RGB 444</span>
-<span class="cm"> * @ADV7511_OUTPUT_FORMAT_YCBCR_422: Output format is YCbCr 422</span>
-<span class="cm"> * @ADV7511_OUTPUT_FORMAT_YCBCR_444: Output format is YCbCr 444</span>
-<span class="cm"> **/</span>
-<span class="k">enum</span><span class="w"> </span><span class="n">adv7511_output_format</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">ADV7511_OUTPUT_FORMAT_RGB_444</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_OUTPUT_FORMAT_YCBCR_422</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_OUTPUT_FORMAT_YCBCR_444</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="p">};</span>
-
-<span class="cm">/**</span>
-<span class="cm"> * enum adv7511_sync_polarity - Polarity for the input sync signals</span>
-<span class="cm"> * ADV7511_SYNC_POLARITY_PASSTHROUGH:  Sync polarity matches that of the currently</span>
-<span class="cm"> *                  configured mode.</span>
-<span class="cm"> * ADV7511_SYNC_POLARITY_LOW:       Sync polarity is low</span>
-<span class="cm"> * ADV7511_SYNC_POLARITY_HIGH:      Sync polarity is high</span>
-<span class="cm"> *</span>
-<span class="cm"> * If the polarity is set to either ADV7511_SYNC_POLARITY_LOW or</span>
-<span class="cm"> * ADV7511_SYNC_POLARITY_HIGH the ADV7511 will internally invert the signal if</span>
-<span class="cm"> * it is required to match the sync polarity setting for the currently selected</span>
-<span class="cm"> * mode. If the polarity is set to ADV7511_SYNC_POLARITY_PASSTHROUGH, the ADV7511</span>
-<span class="cm"> * will route the signal unchanged, this is useful if the upstream graphics core</span>
-<span class="cm"> * will already generate the sync singals with the correct polarity.</span>
-<span class="cm"> **/</span>
-<span class="k">enum</span><span class="w"> </span><span class="n">adv7511_sync_polarity</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">ADV7511_SYNC_POLARITY_PASSTHROUGH</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_SYNC_POLARITY_LOW</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_SYNC_POLARITY_HIGH</span><span class="p">,</span>
-<span class="p">};</span>
-
-<span class="cm">/**</span>
-<span class="cm"> * enum adv7511_csc_scaling - Scaling factor for the ADV7511 CSC</span>
-<span class="cm"> * @ADV7511_CSC_SCALING_1: CSC results are not scaled</span>
-<span class="cm"> * @ADV7511_CSC_SCALING_2: CSC results are scaled by a factor of two</span>
-<span class="cm"> * @ADV7511_CSC_SCALING_4: CSC results are scalled by a factor of four</span>
-<span class="cm"> **/</span>
-<span class="k">enum</span><span class="w"> </span><span class="n">adv7511_csc_scaling</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">ADV7511_CSC_SCALING_1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_CSC_SCALING_2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_CSC_SCALING_4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="p">};</span>
-
-<span class="cm">/**</span>
-<span class="cm"> * enum adv7511_timing_gen_seq - Selects the order in which timing adjustments are performed</span>
-<span class="cm"> * @ADV7511_TIMING_GEN_SEQ_SYN_ADJ_FIRST: Sync adjustment first, then DE generation</span>
-<span class="cm"> * @ADV7511_TIMING_GEN_SEQ_DE_GEN_FIRST: DE generation first, then sync adjustment</span>
-<span class="cm"> *</span>
-<span class="cm"> * This setting is only relevant if both DE generation and sync adjustment are</span>
-<span class="cm"> * active.</span>
-<span class="cm"> **/</span>
-<span class="k">enum</span><span class="w"> </span><span class="n">adv7511_timing_gen_seq</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">ADV7511_TIMING_GEN_SEQ_SYN_ADJ_FIRST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_TIMING_GEN_SEQ_DE_GEN_FIRST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="p">};</span>
-
-<span class="cm">/**</span>
-<span class="cm"> * enum adv7511_up_conversion - Selects the upscaling conversion method</span>
-<span class="cm"> * @ADV7511_UP_CONVERSION_ZERO_ORDER: Use zero order up conversion</span>
-<span class="cm"> * @ADV7511_UP_CONVERSION_FIRST_ORDER: Use first order up conversion</span>
-<span class="cm"> *</span>
-<span class="cm"> * This used when converting from a 4:2:2 format to a 4:4:4 format.</span>
-<span class="cm"> **/</span>
-<span class="k">enum</span><span class="w"> </span><span class="n">adv7511_up_conversion</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">ADV7511_UP_CONVERSION_ZERO_ORDER</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">    </span><span class="n">ADV7511_UP_CONVERSION_FIRST_ORDER</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="p">};</span>
-
-<span class="cm">/**</span>
-<span class="cm"> * struct adv7511_video_input_config - Describes adv7511 hardware configuration</span>
-<span class="cm"> * @id:             Video input format id</span>
-<span class="cm"> * @input_style:        Video input format style</span>
-<span class="cm"> * @sync_pulse:         Select the sync pulse</span>
-<span class="cm"> * @clock_delay:        Clock delay for the input clock</span>
-<span class="cm"> * @reverse_bitorder:       Reverse video input signal bitorder</span>
-<span class="cm"> * @bit_justification:      Video input format bit justification</span>
-<span class="cm"> * @up_conversion:      Selects the upscaling conversion method</span>
-<span class="cm"> * @input_color_depth:      Input video format color depth</span>
-<span class="cm"> * @tmds_clock_inversion:   Whether to invert the TDMS clock</span>
-<span class="cm"> * @vsync_polartity:        vsync input signal configuration</span>
-<span class="cm"> * @hsync_polartity:        hsync input signal configuration</span>
-<span class="cm"> * @csc_enable:         Whether to enable color space conversion</span>
-<span class="cm"> * @csc_scaling_factor:     Color space conversion scaling factor</span>
-<span class="cm"> * @csc_coefficents:        Color space conversion coefficents</span>
-<span class="cm"> * @output_format:      Video output format</span>
-<span class="cm"> * @timing_gen_seq:     Selects the order in which sync DE generation</span>
-<span class="cm"> *              and sync adjustment are performt.</span>
-<span class="cm"> * @hdmi_mode:          Whether to use HDMI or DVI output mode</span>
-<span class="cm"> **/</span>
-<span class="k">struct</span><span class="w"> </span><span class="nc">adv7511_video_input_config</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">enum</span><span class="w"> </span><span class="n">adv7511_input_id</span><span class="w"> </span><span class="n">id</span><span class="p">;</span>
-<span class="w">    </span><span class="k">enum</span><span class="w"> </span><span class="n">adv7511_input_style</span><span class="w"> </span><span class="n">input_style</span><span class="p">;</span>
-<span class="w">    </span><span class="k">enum</span><span class="w"> </span><span class="n">adv7511_input_sync_pulse</span><span class="w"> </span><span class="n">sync_pulse</span><span class="p">;</span>
-<span class="w">    </span><span class="k">enum</span><span class="w"> </span><span class="n">adv7511_input_clock_delay</span><span class="w"> </span><span class="n">clock_delay</span><span class="p">;</span>
-<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">reverse_bitorder</span><span class="p">;</span>
-<span class="w">    </span><span class="k">enum</span><span class="w"> </span><span class="n">adv7511_input_bit_justifiction</span><span class="w"> </span><span class="n">bit_justification</span><span class="p">;</span>
-<span class="w">    </span><span class="k">enum</span><span class="w"> </span><span class="n">adv7511_up_conversion</span><span class="w"> </span><span class="n">up_conversion</span><span class="p">;</span>
-<span class="w">    </span><span class="k">enum</span><span class="w"> </span><span class="n">adv7511_input_color_depth</span><span class="w"> </span><span class="n">input_color_depth</span><span class="p">;</span>
-<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">tmds_clock_inversion</span><span class="p">;</span>
-
-<span class="w">    </span><span class="k">enum</span><span class="w"> </span><span class="n">adv7511_sync_polarity</span><span class="w"> </span><span class="n">vsync_polarity</span><span class="p">;</span>
-<span class="w">    </span><span class="k">enum</span><span class="w"> </span><span class="n">adv7511_sync_polarity</span><span class="w"> </span><span class="n">hsync_polarity</span><span class="p">;</span>
-
-<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">csc_enable</span><span class="p">;</span>
-<span class="w">    </span><span class="k">enum</span><span class="w"> </span><span class="n">adv7511_csc_scaling</span><span class="w"> </span><span class="n">csc_scaling_factor</span><span class="p">;</span>
-<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="kt">uint16_t</span><span class="w"> </span><span class="o">*</span><span class="n">csc_coefficents</span><span class="p">;</span>
-
-<span class="w">    </span><span class="k">enum</span><span class="w"> </span><span class="n">adv7511_output_format</span><span class="w"> </span><span class="n">output_format</span><span class="p">;</span>
-<span class="w">    </span><span class="k">enum</span><span class="w"> </span><span class="n">adv7511_timing_gen_seq</span><span class="w"> </span><span class="n">timing_gen_seq</span><span class="p">;</span>
-<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">hdmi_mode</span><span class="p">;</span>
+<span class="w">        </span><span class="nf">port</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nl">hdmi_connector_in</span><span class="p">:</span><span class="w"> </span><span class="nf">endpoint</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                </span><span class="n">remote-endpoint</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">adv7511_out</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="p">};</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">    </span><span class="p">};</span>
 <span class="p">};</span>
 </pre></div>
 </div>
 <section id="example-configuration">
-<h4>Example Configuration<a class="headerlink" href="#example-configuration" title="Link to this heading"></a></h4>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">uint16_t</span><span class="w"> </span><span class="n">adv7511_csc_ycbcr_to_rgb</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="mh">0x0734</span><span class="p">,</span><span class="w"> </span><span class="mh">0x04ad</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0000</span><span class="p">,</span><span class="w"> </span><span class="mh">0x1c1b</span><span class="p">,</span>
-<span class="w">    </span><span class="mh">0x1ddc</span><span class="p">,</span><span class="w"> </span><span class="mh">0x04ad</span><span class="p">,</span><span class="w"> </span><span class="mh">0x1f24</span><span class="p">,</span><span class="w"> </span><span class="mh">0x0135</span><span class="p">,</span>
-<span class="w">    </span><span class="mh">0x0000</span><span class="p">,</span><span class="w"> </span><span class="mh">0x04ad</span><span class="p">,</span><span class="w"> </span><span class="mh">0x087c</span><span class="p">,</span><span class="w"> </span><span class="mh">0x1b77</span><span class="p">,</span>
+<h6>Example Configuration<a class="headerlink" href="#example-configuration" title="Link to this heading"></a></h6>
+<p>This fragment configures the <code class="docutils literal notranslate"><span class="pre">adv7511</span></code> node declared above for 8-bit-component
+YUV422, input style 1, right justification, a 1x input clock and separate sync
+signals. Include it after the declaration in the same board Device Tree. Use
+these physical bus settings only when they match the upstream display controller
+and board wiring.</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="nf">adv7511</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">input-depth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">input-colorspace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"yuv422"</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">input-clock</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"1x"</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">input-style</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">input-justification</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"right"</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">clock-delay</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="p">};</span>
-
-<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">adv7511_video_input_config</span><span class="w"> </span><span class="n">adv7511_config_zc702</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADV7511_INPUT_ID_16_20_24BIT_YCbCr422_SEPARATE_SYNC</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">input_style</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADV7511_INPUT_STYLE1</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">sync_pulse</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADV7511_INPUT_SYNC_PULSE_NONE</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">clock_delay</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADV7511_INPUT_CLOCK_DELAY_NONE</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">reverse_bitorder</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">vsync_polarity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADV7511_SYNC_POLARITY_HIGH</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">hsync_polarity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADV7511_SYNC_POLARITY_HIGH</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">up_conversion</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADV7511_UP_CONVERSION_ZERO_ORDER</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">input_color_depth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADV7511_INPUT_COLOR_DEPTH_8BIT</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">output_format</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADV7511_OUTPUT_FORMAT_RGB_444</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">csc_enable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">csc_coefficents</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">adv7511_csc_ycbcr_to_rgb</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">csc_scaling_factor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADV7511_CSC_SCALING_4</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">bit_justification</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADV7511_INPUT_BIT_JUSTIFICATION_RIGHT</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">tmds_clock_inversion</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">,</span>
-<span class="p">};</span>
-
-<span class="p">[...]</span>
-<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">drm_encoder_slave_funcs</span><span class="w"> </span><span class="o">*</span><span class="n">sfuncs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_slave_funcs</span><span class="p">(</span><span class="n">encoder</span><span class="p">);</span>
-
-<span class="w">    </span><span class="n">sfuncs</span><span class="o">-&gt;</span><span class="n">set_config</span><span class="p">(</span><span class="n">encoder</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">adv7511_config_zc702</span><span class="p">);</span>
-<span class="p">[...]</span>
 </pre></div>
 </div>
+<p>Only the main I2C address is set here; the other register pages use their
+default addresses. If the board changes those addresses, specify the extra
+<code class="docutils literal notranslate"><span class="pre">reg</span></code> entries with the binding’s <code class="docutils literal notranslate"><span class="pre">reg-names</span></code>. Add board-specific interrupt
+and power-down GPIO properties when applicable. This fragment shows the video
+path; audio needs its own sound-card integration.</p>
 </section>
 </section>
 <section id="asoc">
-<h3>ASoC<a class="headerlink" href="#asoc" title="Link to this heading"></a></h3>
+<h5>ASoC<a class="headerlink" href="#asoc" title="Link to this heading"></a></h5>
 </section>
 <section id="dai-configuration">
-<h3>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h3>
-<p>The codec driver registers one DAI: <strong>adau-hifi</strong></p>
+<h5>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h5>
+<p>With CONFIG_DRM_I2C_ADV7511_AUDIO enabled, the driver creates an
+hdmi-audio-codec child. The generic HDMI codec registers i2s-hifi and spdif-hifi
+DAIs; ADV7511 configures a maximum of two I2S channels. Link the sound card to
+the appropriate child DAI, not adau-hifi or adv7511.</p>
 <section id="supported-dai-formats">
-<h4>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h4>
+<h6>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h6>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -773,68 +655,35 @@ which should be passed to the slave encoder’s set_config callback function.</p
 <td><p>yes</p></td>
 <td><p>SPDIF</p></td>
 </tr>
-<tr class="row-even"><td></td>
-<td></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>SND_SOC_DAIFMT_NB_NF</p></td>
-<td><p>yes</p></td>
-<td><p>Normal bit- and frameclock</p></td>
-</tr>
-<tr class="row-even"><td><p>SND_SOC_DAIFMT_NB_IF</p></td>
-<td><p>no</p></td>
-<td><p>Normal bitclock, inverted frameclock</p></td>
-</tr>
-<tr class="row-odd"><td><p>SND_SOC_DAIFMT_IB_NF</p></td>
-<td><p>yes</p></td>
-<td><p>Inverted frameclock, normal bitclock</p></td>
-</tr>
-<tr class="row-even"><td><p>SND_SOC_DAIFMT_IB_IF</p></td>
-<td><p>no</p></td>
-<td><p>Inverted bit- and frameclock</p></td>
-</tr>
-<tr class="row-odd"><td></td>
-<td></td>
-<td></td>
-</tr>
-<tr class="row-even"><td><p>SND_SOC_DAIFMT_CBM_CFM</p></td>
-<td><p>no</p></td>
-<td><p>Codec bit- and frameclock master</p></td>
-</tr>
-<tr class="row-odd"><td><p>SND_SOC_DAIFMT_CBS_CFM</p></td>
-<td><p>no</p></td>
-<td><p>Codec bitclock slave, frameclock master</p></td>
-</tr>
-<tr class="row-even"><td><p>SND_SOC_DAIFMT_CBM_CFS</p></td>
-<td><p>no</p></td>
-<td><p>Codec bitclock master, frameclock slave</p></td>
-</tr>
-<tr class="row-odd"><td><p>SND_SOC_DAIFMT_CBS_CFS</p></td>
-<td><p>yes</p></td>
-<td><p>Codec bit- and frameclock slave</p></td>
-</tr>
 </tbody>
 </table>
 </div>
+<p>The ADV7511 audio callback programs bit-clock inversion from
+<code class="docutils literal notranslate"><span class="pre">bit_clk_inv</span></code>. It does not configure frame-clock inversion or bit/frame-clock
+provider flags.</p>
+</section>
 <section id="example-dai-configuration">
-<h5>Example DAI configuration<a class="headerlink" href="#example-dai-configuration" title="Link to this heading"></a></h5>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">hdmi_dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"HDMI"</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">stream_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"HDMI"</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">cpu_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"75c00000.axi-spdif-tx"</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">platform_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"xilinx_pcm_audio.2"</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">codec_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adv7511.0-0039"</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">codec_dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adv7511"</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">dai_fmt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SND_SOC_DAIFMT_SPDIF</span><span class="w"> </span><span class="o">|</span>
-<span class="w">            </span><span class="n">SND_SOC_DAIFMT_NB_NF</span><span class="w"> </span><span class="o">|</span>
-<span class="w">            </span><span class="n">SND_SOC_DAIFMT_CBS_CFS</span><span class="p">,</span>
+<h6>Example DAI configuration<a class="headerlink" href="#example-dai-configuration" title="Link to this heading"></a></h6>
+<p>Select the actual registered <code class="docutils literal notranslate"><span class="pre">hdmi-audio-codec</span></code> child component and its
+<code class="docutils literal notranslate"><span class="pre">spdif-hifi</span></code> DAI for SPDIF, or <code class="docutils literal notranslate"><span class="pre">i2s-hifi</span></code> for I2S. The component’s automatic
+instance number is not fixed by the I2C address. In the partial SPDIF link below, N is the registered child instance number; supply
+the CPU and platform component arrays from the machine driver. It is not a
+complete board registration example.</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link_component</span><span class="w"> </span><span class="n">hdmi_codecs</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"hdmi-audio-codec.N.auto"</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">dai_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"spdif-hifi"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span>
 <span class="p">};</span>
 
-<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_card</span><span class="w"> </span><span class="n">hdmi_card</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"HDMI monitor"</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">owner</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">THIS_MODULE</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">hdmi_dai_link</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">num_links</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">hdmi_dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"HDMI"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">stream_name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"HDMI"</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">codecs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hdmi_codecs</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">num_codecs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">hdmi_codecs</span><span class="p">),</span>
+<span class="w">    </span><span class="p">.</span><span class="n">dai_fmt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SND_SOC_DAIFMT_SPDIF</span><span class="w"> </span><span class="o">|</span>
+<span class="w">               </span><span class="n">SND_SOC_DAIFMT_NB_NF</span><span class="w"> </span><span class="o">|</span>
+<span class="w">               </span><span class="n">SND_SOC_DAIFMT_CBC_CFC</span><span class="p">,</span>
 <span class="p">};</span>
 </pre></div>
 </div>
@@ -842,25 +691,9 @@ which should be passed to the slave encoder’s set_config callback function.</p
 </section>
 </section>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The ADV7511 Driver depends on <strong>CONFIG_DRM</strong> and <strong>CONFIG_I2C</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="n">Graphics</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-            <span class="o">&lt;*&gt;</span> <span class="n">Direct</span> <span class="n">Rendering</span> <span class="n">Manager</span> <span class="p">(</span><span class="n">XFree86</span> <span class="mf">4.1.0</span> <span class="ow">and</span> <span class="n">higher</span> <span class="n">DRI</span> <span class="n">support</span><span class="p">)</span>  <span class="o">---&gt;</span>
-            <span class="o">...</span>
-            <span class="o">&lt;*&gt;</span> <span class="n">AV7511</span> <span class="n">encoder</span>
-</pre></div>
-</div>
 </section>
 <section id="more-information">
-<h2>More information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="../hdl-axi-hdmi/#hdl-axi-hdmi"><span class="std std-ref">AXI HDMI HDL</span></a></p></li>
 <li><p><a class="reference internal" href="../../sound/hdl-axi-spidf/#hdl-axi-spidf"><span class="std std-ref">HDL AXI SPIDF</span></a></p></li>

@@ -99,17 +99,25 @@
 <li><a class="reference internal" href="#">ADP5588 Input</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
-<li><a class="reference internal" href="#description">Description</a></li>
+<li><a class="reference internal" href="#description">Description</a><ul>
+<li><a class="reference internal" href="#driver-features-and-limitations">Driver features and limitations</a></li>
 <li><a class="reference internal" href="#configuration">Configuration</a></li>
-<li><a class="reference internal" href="#software-configurable-features">Software configurable features</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
 <li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
+<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a></li>
 </ul>
 </li>
@@ -212,6 +220,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -230,7 +239,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -390,26 +398,24 @@ Content on this topic
 <p>The driver supports multiple key press detection and resolution. It
 independently delivers key press and key release events in chronological order
 to the Linux input device system.</p>
-<p>This allows <strong>SHIFT + ANYKEY</strong>, <strong>ALT + F1</strong> or <strong>CTRL + ALT + DEL</strong> sequences.</p>
-<div class="line-block">
-<div class="line">Since the ADP5588 buffers events in its internal FIFO,</div>
-<div class="line">it’s unlikely that events are lost due to heavy system</div>
-<div class="line">load and interrupt latencies.</div>
-</div>
-</section>
-<section id="configuration">
-<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
-</section>
-<section id="software-configurable-features">
-<h2>Software configurable features<a class="headerlink" href="#software-configurable-features" title="Link to this heading"></a></h2>
+<p>This allows SHIFT + ANYKEY, ALT + F1 or CTRL + ALT + DEL sequences.</p>
+<p>The ADP5588 FIFO buffers up to 10 key events, including separate key-press and
+key-release events.</p>
+<section id="driver-features-and-limitations">
+<h3>Driver features and limitations<a class="headerlink" href="#driver-features-and-limitations" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p>Configurable keypad size matrix (rows, columns).</p></li>
-<li><p>Support for switch events.</p></li>
+<li><p>Unused row/column pins can be used as GPIO interrupt sources (threaded,
+nested IRQs).</p></li>
 <li><p>Enabling and disabling automatic key repeat feature.</p></li>
 <li><p>Lock/Unlock key feature.</p></li>
 <li><p>Unused row and column pins are exported general-purpose inputs/outputs to
 GPIOLIB</p></li>
 </ul>
+</section>
+<section id="configuration">
+<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h3>
+</section>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -454,89 +460,6 @@ GPIOLIB</p></li>
 </table>
 </div>
 </section>
-</section>
-<section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
-<p>For compile time configuration, it’s common Linux practice to keep board- and
-application-specific configuration out of the main driver file, instead putting
-it into the board support file.</p>
-<p>For devices on custom boards, as typical of embedded and SoC-(system-on-chip)
-based hardware, Linux uses <code class="docutils literal notranslate"><span class="pre">platform_data</span></code> to point to board-specific structures
-describing devices and how they are connected to the SoC. This can include
-available ports, chip variants, preferred modes, default initialization,
-additional pin roles, and so on. This shrinks the board-support packages (BSPs)
-and minimizes board and application specific #ifdefs in drivers.</p>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/include/linux/i2c/adp5588.h" target="_blank">/i2c_board_info/-EOF</a></p>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp5588_keymap[]</a>
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp5588_kpad_data{}</a></p>
-<p>Unlike PCI or USB devices, I2C devices are not enumerated at the hardware level.
-Instead, the software must know which devices are connected on each I2C bus
-segment, and what address these devices are using. For this reason, the kernel
-code must instantiate I2C devices explicitly. There are different ways to
-achieve this, depending on the context and requirements. However the most
-common method is to declare the I2C devices by bus number.</p>
-<p>This method is appropriate when the I2C bus is a system bus, as in many
-embedded systems, wherein each I2C bus has a number which is known in advance.
-It is thus possible to pre-declare the I2C devices that inhabit this bus. This
-is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">i2c_board_info</span></code>, which is registered by
-calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
-<p>So, to enable such a driver one need only edit the board support file by adding
-an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>How to instantiate I2C devices</span></a></p>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">i2c_board_info</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">bfin_i2c_board_info</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="cp">#if defined(CONFIG_KEYBOARD_ADP5585) || defined(CONFIG_KEYBOARD_ADP5585_MODULE)</span>
-<span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"adp5585-keys"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x34</span><span class="p">),</span>
-<span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PG0</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">adp5585_kpad_data</span><span class="p">,</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="cp">#endif</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The ADP5588 Driver depends on <strong>CONFIG_I2C</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">---</span> <span class="n">Input</span> <span class="n">Device</span> <span class="n">Support</span>
-<span class="o">&lt;&gt;</span> <span class="n">Generic</span> <span class="nb">input</span> <span class="n">layer</span> <span class="p">(</span><span class="n">needed</span> <span class="k">for</span> <span class="n">keyboard</span><span class="p">,</span> <span class="n">mouse</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
-<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Support</span> <span class="k">for</span> <span class="n">memoryless</span> <span class="n">force</span><span class="o">-</span><span class="n">feedback</span> <span class="n">devices</span>
-<span class="o">---</span>   <span class="n">Userland</span> <span class="n">interfaces</span>
-<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Mouse</span> <span class="n">interface</span>
-<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Joystick</span> <span class="n">interface</span>
-<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Touchscreen</span> <span class="n">interface</span>
-<span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">Event</span> <span class="n">interface</span>
-<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Event</span> <span class="n">debugging</span>
-<span class="o">---</span>   <span class="n">Input</span> <span class="n">Device</span> <span class="n">Drivers</span>
-<span class="p">[]</span>   <span class="n">Keyboards</span>  <span class="o">---&gt;</span>
-
-    <span class="o">---</span> <span class="n">Keyboards</span>
-    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">AT</span> <span class="n">keyboard</span>
-    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Sun</span> <span class="n">Type</span> <span class="mi">4</span> <span class="ow">and</span> <span class="n">Type</span> <span class="mi">5</span> <span class="n">keyboard</span>
-    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">DECstation</span><span class="o">/</span><span class="n">VAXstation</span> <span class="n">LK201</span><span class="o">/</span><span class="n">LK401</span> <span class="n">keyboard</span>
-    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">XT</span> <span class="n">keyboard</span>
-    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Newton</span> <span class="n">keyboard</span>
-    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Stowaway</span> <span class="n">keyboard</span>
-    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">GPIO</span> <span class="n">Buttons</span>
-    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">OpenCores</span> <span class="n">Keyboard</span> <span class="n">Controller</span>
-    <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">ADP5588</span> <span class="n">I2C</span> <span class="n">QWERTY</span> <span class="n">Keypad</span> <span class="ow">and</span> <span class="n">IO</span> <span class="n">Expander</span>
-
-<span class="p">[</span> <span class="p">]</span>   <span class="n">Mouse</span>  <span class="o">---&gt;</span>
-<span class="p">[</span> <span class="p">]</span>   <span class="n">Joysticks</span>  <span class="o">---&gt;</span>
-<span class="p">[</span> <span class="p">]</span>   <span class="n">Touchscreens</span>  <span class="o">---&gt;</span>
-<span class="p">[</span> <span class="p">]</span>   <span class="n">Miscellaneous</span> <span class="n">devices</span>  <span class="o">---&gt;</span>
-    <span class="n">Hardware</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">ports</span>  <span class="o">---&gt;</span>
-</pre></div>
-</div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>Make sure the I2C SCL Clock is in the range of 60-400 kHz!</p>
-</div>
 </section>
 <section id="hardware-configuration">
 <h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
@@ -590,6 +513,108 @@ test and driver development we used the ADP5588 Demo Mother/Daughter Board.</p>
 Blackfin might see an additional falling edge interrupt on the rising edge of
 /INTB.</p>
 </div>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ADP5588 driver depends on CONFIG_I2C.</p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">---</span> <span class="n">Input</span> <span class="n">Device</span> <span class="n">Support</span>
+<span class="o">&lt;&gt;</span> <span class="n">Generic</span> <span class="nb">input</span> <span class="n">layer</span> <span class="p">(</span><span class="n">needed</span> <span class="k">for</span> <span class="n">keyboard</span><span class="p">,</span> <span class="n">mouse</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Support</span> <span class="k">for</span> <span class="n">memoryless</span> <span class="n">force</span><span class="o">-</span><span class="n">feedback</span> <span class="n">devices</span>
+<span class="o">---</span>   <span class="n">Userland</span> <span class="n">interfaces</span>
+<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Mouse</span> <span class="n">interface</span>
+<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Joystick</span> <span class="n">interface</span>
+<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Touchscreen</span> <span class="n">interface</span>
+<span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">Event</span> <span class="n">interface</span>
+<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Event</span> <span class="n">debugging</span>
+<span class="o">---</span>   <span class="n">Input</span> <span class="n">Device</span> <span class="n">Drivers</span>
+<span class="p">[]</span>   <span class="n">Keyboards</span>  <span class="o">---&gt;</span>
+
+    <span class="o">---</span> <span class="n">Keyboards</span>
+    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">AT</span> <span class="n">keyboard</span>
+    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Sun</span> <span class="n">Type</span> <span class="mi">4</span> <span class="ow">and</span> <span class="n">Type</span> <span class="mi">5</span> <span class="n">keyboard</span>
+    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">DECstation</span><span class="o">/</span><span class="n">VAXstation</span> <span class="n">LK201</span><span class="o">/</span><span class="n">LK401</span> <span class="n">keyboard</span>
+    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">XT</span> <span class="n">keyboard</span>
+    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Newton</span> <span class="n">keyboard</span>
+    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Stowaway</span> <span class="n">keyboard</span>
+    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">GPIO</span> <span class="n">Buttons</span>
+    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">OpenCores</span> <span class="n">Keyboard</span> <span class="n">Controller</span>
+    <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">ADP5588</span> <span class="n">I2C</span> <span class="n">QWERTY</span> <span class="n">Keypad</span> <span class="ow">and</span> <span class="n">IO</span> <span class="n">Expander</span>
+
+<span class="p">[</span> <span class="p">]</span>   <span class="n">Mouse</span>  <span class="o">---&gt;</span>
+<span class="p">[</span> <span class="p">]</span>   <span class="n">Joysticks</span>  <span class="o">---&gt;</span>
+<span class="p">[</span> <span class="p">]</span>   <span class="n">Touchscreens</span>  <span class="o">---&gt;</span>
+<span class="p">[</span> <span class="p">]</span>   <span class="n">Miscellaneous</span> <span class="n">devices</span>  <span class="o">---&gt;</span>
+    <span class="n">Hardware</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">ports</span>  <span class="o">---&gt;</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Make sure the I2C SCL Clock is in the range of 60-400 kHz!</p>
+</div>
+</section>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
+<section id="example-platform-device-initialization">
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
+<p>For compile time configuration, it’s common Linux practice to keep board- and
+application-specific configuration out of the main driver file, instead putting
+it into the board support file.</p>
+<p>For devices on custom boards, as typical of embedded and SoC-(system-on-chip)
+based hardware, Linux uses <code class="docutils literal notranslate"><span class="pre">platform_data</span></code> to point to board-specific structures
+describing devices and how they are connected to the SoC. This can include
+available ports, chip variants, preferred modes, default initialization,
+additional pin roles, and so on. This shrinks the board-support packages (BSPs)
+and minimizes board and application specific #ifdefs in drivers.</p>
+<p>Unlike PCI or USB devices, I2C devices are not enumerated at the hardware level.
+Instead, the software must know which devices are connected on each I2C bus
+segment, and what address these devices are using. For this reason, the kernel
+code must instantiate I2C devices explicitly. There are different ways to
+achieve this, depending on the context and requirements. However the most
+common method is to declare the I2C devices by bus number.</p>
+<p>This method is appropriate when the I2C bus is a system bus, as in many
+embedded systems, wherein each I2C bus has a number which is known in advance.
+It is thus possible to pre-declare the I2C devices that inhabit this bus. This
+is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">i2c_board_info</span></code>, which is registered by
+calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
+<p>So, to enable such a driver one need only edit the board support file by adding
+an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>How to instantiate I2C devices</span></a></p>
+<p>The driver is configured through devicetree properties (<code class="docutils literal notranslate"><span class="pre">adi,adp5588.yaml</span></code>
+binding). Required properties are <code class="docutils literal notranslate"><span class="pre">compatible</span></code> (<code class="docutils literal notranslate"><span class="pre">adi,adp5587</span></code> or
+<code class="docutils literal notranslate"><span class="pre">adi,adp5588</span></code>) and <code class="docutils literal notranslate"><span class="pre">reg</span></code>. Optional properties include <code class="docutils literal notranslate"><span class="pre">vcc-supply</span></code>,
+<code class="docutils literal notranslate"><span class="pre">reset-gpios</span></code>, <code class="docutils literal notranslate"><span class="pre">interrupts</span></code>, <code class="docutils literal notranslate"><span class="pre">gpio-controller</span></code>/<code class="docutils literal notranslate"><span class="pre">#gpio-cells</span></code> (when the
+keypad uses fewer than 8 rows or 10 columns), <code class="docutils literal notranslate"><span class="pre">interrupt-controller</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">adi,unlock-keys</span></code>. <code class="docutils literal notranslate"><span class="pre">keypad,num-rows</span></code>, <code class="docutils literal notranslate"><span class="pre">keypad,num-columns</span></code> and
+<code class="docutils literal notranslate"><span class="pre">linux,keymap</span></code> are required together if the device is used as a keypad:</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/input/input.h&gt;</span>
+<span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/interrupt-controller/irq.h&gt;</span>
+
+<span class="o">&amp;</span><span class="nf">i2c0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="nf">keys</span><span class="o">@</span><span class="mi">34</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,adp5588"</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x34</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">vcc-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">vcc</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">interrupt-parent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">gpio</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">interrupts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">21</span><span class="w"> </span><span class="na">IRQ_TYPE_EDGE_FALLING</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">keypad</span><span class="p">,</span><span class="n">num-rows</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">keypad</span><span class="p">,</span><span class="n">num-columns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">linux</span><span class="p">,</span><span class="n">keymap</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">MATRIX_KEY</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="na">KEY_ENTER</span><span class="p">)</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
+</section>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>

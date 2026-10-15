@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ltc2672
 
+
 .. _ltc2672:
 
 LTC2672
@@ -34,11 +35,11 @@ Evaluation Boards
 Description
 -----------
 
-This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
-driver, targeting single-channel serial interface DACs. The industrial I/O
-subsystem provides a unified framework for drivers for many different types of
-converters and sensors using a number of different physical interfaces (i2c,
-spi, etc). See :external+system-level:ref:`iio` for more information.
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem driver, targeting
+the five-channel LTC2672 current-output DAC family. The industrial I/O subsystem
+provides a unified framework for drivers for many different types of converters
+and sensors using a number of different physical interfaces (i2c, spi, etc). See
+:external+system-level:ref:`iio` for more information.
 
 Source Code
 -----------
@@ -67,11 +68,47 @@ Files
    * - dt-bindings
      - `Documentation/devicetree/bindings/iio/dac/adi,ltc2672.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/dac/adi,ltc2672.yaml>`_
 
-Example platform device initialization
---------------------------------------
+Hardware configuration
+----------------------
 
-Devicetree
-~~~~~~~~~~
+**Using:**
+
+- :adi:`DC2903A` LTC2672-16 Demo Board
+- Raspberry Pi 4
+
+**Wiring/Connection**
+
+Disconnect the SDP-K1 board before connecting an external controller to the PMOD
+interface. Follow the evaluation guide for the separate analog supplies; the
+digital-interface connection alone does not power the current-output stage.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Demo Board
+     - RPI4
+   * - SCK
+     - SCLK SPI0
+   * - SDO
+     - MISO SPI0
+   * - SDI
+     - MOSI SPIO
+   * - CS
+     - CE SPIO
+   * - VCC
+     - 5V
+   * - GND
+     - GND
+   * - LDAC
+     - 5V
+   * - TGP
+     - 5V
+
+Adding Linux driver support
+---------------------------
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Required devicetree properties:
 
@@ -120,6 +157,9 @@ Optional devicetree properties:
      - File
    * - Overlay
      - :git+linux:`rpi-6.1.y?arch/arm/boot/dts/overlays/rpi-ltc2672-overlay.dts <rpi-6.1.y:arch/arm/boot/dts/overlays/rpi-ltc2672-overlay.dts>`
+
+Example platform device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Driver testing
 --------------
@@ -257,19 +297,22 @@ Driver testing
                    No trigger on this device
    root@analog:~#
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root@analog:/sys/bus/iio/devices/iio:device0> cat name
    ltc2672
 
+Basic operation
+~~~~~~~~~~~~~~~
+
 Show scale
 ^^^^^^^^^^
 
 **Description:** Scale to be applied to out_currentY_raw in order to obtain the
-measured current in microamps.
+output current in microamps.
 
 ::
 
@@ -277,10 +320,17 @@ measured current in microamps.
    4.577636718
 
 Show offset
-'''''''''''
+~~~~~~~~~~~
 
-| **Description:**
-| /sys/bus/iio/devices/iio:deviceX/out_offset_raw
+.. container::
+
+   .. container::
+
+      **Description:**
+
+   .. container::
+
+      /sys/bus/iio/devices/iio:deviceX/out_currentY_offset
 
 Raw offset to be applied to out_currentY_raw in order to obtain the measured
 current in microamps. The offset is applied before scale is applied.
@@ -291,7 +341,7 @@ current in microamps. The offset is applied before scale is applied.
    0
 
 Set channel Y output current
-''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** /sys/bus/iio/devices/iio:deviceX/out_currentY_raw
 
@@ -305,7 +355,7 @@ Raw (unscaled, no bias etc.) output current for channel Y.
 (10000 - 0) \* 4.577636718\ *μA* = **45,776.367 μA**
 
 Enable power down mode on output Y
-''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/iio:deviceX/out_currentY_powerdown
 
@@ -320,38 +370,6 @@ Clearing returns to normal operation.
    root@analog:/sys/bus/iio/devices/iio:device0> echo 0 > out_current0_powerdown
    root@analog:/sys/bus/iio/devices/iio:device0> cat out_current0_powerdown
    0
-
-Hardware Interface
-------------------
-
-**Using:**
-
-- :adi:`DC2903A` LTC2672-16 Demo Board
-- Raspberry Pi 4
-
-**Wiring/Connection**
-
-.. list-table::
-   :header-rows: 1
-
-   * - Demo Board
-     - RPI4
-   * - SCK
-     - SCLK SPI0
-   * - SDO
-     - MISO SPI0
-   * - SDI
-     - MOSI SPIO
-   * - CS
-     - CE SPIO
-   * - VCC
-     - 5V
-   * - GND
-     - GND
-   * - LDAC
-     - 5V
-   * - TGP
-     - 5V
 
 More Information
 ----------------

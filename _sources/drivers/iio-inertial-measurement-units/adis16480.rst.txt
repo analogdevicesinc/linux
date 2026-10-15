@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-inertial-measurement-units/adis16480
 
+
 .. _adis16480:
 
 ADIS16480
@@ -71,11 +72,10 @@ accordingly, matching your part name. It may also required to adjust
 max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
 the device in question.
 
-.. code:: c
+.. code-block:: c
 
    static struct spi_board_info board_spi_board_info[] __initdata = {
-   #if defined(CONFIG_adis16480) \
-       || defined(CONFIG_adis16480_MODULE)
+   #if defined(CONFIG_ADIS16480) || defined(CONFIG_ADIS16480_MODULE)
        {
            .modalias = "adis16480",
            .max_speed_hz = 2000000,     /* max spi clock (SCK) speed in HZ */
@@ -103,8 +103,58 @@ the device in question.
    }
    arch_initcall(board_init);
 
-Devicetree
-~~~~~~~~~~
+Hardware configuration
+----------------------
+
+The :adi:`ADIS16IMU1/PCBZ <EVAL-ADIS16IMU1>` is the primary breakout board for
+the ADIS1649x products. This breakout board simplifies the process of connecting
+an ADIS1649x IMU to an embedded processor system using a 16-pin, 1mm ribbon
+cable. For a detailed description, please see:
+:dokuwiki:`/resources/eval/user-guides/inertial-mems/imu/adis1649x </resources/eval/user-guides/inertial-mems/imu/adis1649x>`
+Here is an example of basic connection from the ADIS1649X interface connector to
+the host (microprocessor):
+
+::
+
+   ADIS1649X       HOST MICROPROCESSOR
+   * DIO2 ———————> IRQ GPIO
+   * CS   <——————— SPI_SEL
+   * SCLK <——————— SPI_SCLK
+   * DIN  <——————— SPI_MOSI
+   * DOUT ———————> SPI_MISO
+
+Note: IRQ GPIO can be connected to any DIOx pin. See the Devicetree section.
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The adis16480 driver depends on **CONFIG_SPI_MASTER**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               [*]   Enable buffer support within IIO
+               -*-     Industrial I/O buffering based on kfifo
+               -*-   Enable triggered sampling support
+               [--snip--]
+               Inertial measurement units  --->
+                   [--snip--]
+                   <*> Analog Devices ADIS16480 and similar IMU driver
+                   [--snip--]
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Analog Devices ADIS16480 and similar IMUs
 
@@ -130,51 +180,63 @@ Required properties for the ADIS16480:
   Documentation/devicetree/bindings/spi/spi-bus.txt
 - spi-cpha: See Documentation/devicetree/bindings/spi/spi-bus.txt
 - spi-cpol: See Documentation/devicetree/bindings/spi/spi-bus.txt
-- interrupts: interrupt mapping for IRQ, accepted values are:
-- IRQF_TRIGGER_RISING
-- IRQF_TRIGGER_FALLING
+- interrupts: Interrupt mapping for IRQ. Edge flags from
+  ``<dt-bindings/interrupt-controller/irq.h>`` are:
+
+  - ``IRQ_TYPE_EDGE_RISING``
+  - ``IRQ_TYPE_EDGE_FALLING``
 
 Optional properties
 ^^^^^^^^^^^^^^^^^^^
 
-- interrupt-names: Data ready line selection. If this field is left empty, the
-  factory default assigns DIO2 as data ready signal. Valid values are:
+-  interrupt-names: Data-ready line selection. If absent, the driver selects
+   DIO1 for compatibility, overriding the device's factory default of DIO2.
+   An explicit name selects the corresponding DIO1..DIO4 pin. Valid values are:
 
-  - DIO1
-  - DIO2
-  - DIO3
-  - DIO4
+   -  DIO1
 
-- reset-gpios: must be the device tree identifier of the RESET pin. As the line
-  is active low, it should be marked GPIO_ACTIVE_LOW.
+   -  DIO2
 
-- clocks: phandle to the external clock. Should be set according to
-  ``clock-names``. If this field is left empty, the internal clock is used.
-- clock-names: The name of the external clock to be used. Valid values are:
+   -  DIO3
 
-  - sync: In sync mode, the internal clock is disabled and the frequency of the
-    external clock signal establishes the rate of data collection and
-    processing. The clock-frequency must be:
+   -  DIO4
 
-    - 3000 to 4500 Hz for adis1649x devices.
-    - 700 to 2400 Hz for adis1648x devices.
+-  reset-gpios: must be the device tree identifier of the RESET pin. As the line
+   is active low, it should be marked GPIO_ACTIVE_LOW.
 
-  - pps: In Pulse Per Second (PPS) Mode, the rate of data collection and
-    production is equal to the product of the external clock frequency and the
-    scale factor in the SYNC_SCALE register, see Table 154 in the datasheet. The
-    clock-frequency must be:
+-  clocks: phandle to the external clock. Should be set according to
+   ``clock-names``. If this field is left empty, the internal clock is used.
 
-    - 1 to 128 Hz for adis1649x devices.
-    - This mode is not supported by adis1648x devices. If this field is left
-      empty, the internal clock is used.
+-  clock-names: The name of the external clock to be used. Valid values are:
 
-- adi,ext-clk-pin: The DIOx line to be used as an external clock input. Valid
-  values are:
+   -  sync: In sync mode, the internal clock is disabled and the frequency of
+      the external clock signal establishes the rate of data collection and
+      processing. The clock-frequency must be:
 
-  - DIO1
-  - DIO2
-  - DIO3
-  - DIO4
+      -  3000 to 4500 Hz for adis1649x devices.
+
+      -  700 to 2400 Hz for adis1648x devices.
+
+   -  pps: In Pulse Per Second (PPS) Mode, the rate of data collection and
+      production is equal to the product of the external clock frequency and the
+      scale factor in the SYNC_SCALE register, see Table 154 in the datasheet.
+      The clock-frequency must be:
+
+      -  1 to 128 Hz for adis1649x devices.
+
+      -  This mode is not supported by adis1648x devices. If this field is left
+         empty, the internal clock is used.
+
+-  adi,ext-clk-pin: The DIOx line to be used as an external clock input. Valid
+   values are:
+
+   -  DIO1
+
+   -  DIO2
+
+   -  DIO3
+
+   -  DIO4
 
 Each DIOx pin supports only one function at a time (data ready line selection or
 external clock input). When a single pin has two assignments, the enable bit for
@@ -185,7 +247,9 @@ empty, DIO2 is assigned as default external clock input pin.
 Example
 ^^^^^^^
 
-::
+.. code-block:: dts
+
+   #include <dt-bindings/interrupt-controller/irq.h>
 
    imu@0 {
        compatible = "adi,adis16495-1";
@@ -193,60 +257,13 @@ Example
        spi-max-frequency = <3200000>;
        spi-cpol;
        spi-cpha;
-       interrupts = <25 IRQF_TRIGGER_FALLING>;
+       interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
        interrupt-parent = <&gpio>;
        interrupt-names = "DIO2";
        clocks = <&adis16495_sync>;
        clock-names = "sync";
        adi,ext-clk-pin = "DIO1";
       };
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The adis16480 driver depends on **CONFIG_SPI_MASTER**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-               [*]   Enable buffer support within IIO
-               -*-     Industrial I/O buffering based on kfifo
-               -*-   Enable triggered sampling support
-               [--snip--]
-               Inertial measurement units  --->
-                   [--snip--]
-                   <*> Analog Devices ADIS16480 and similar IMU driver
-                   [--snip--]
-
-Hardware configuration
-----------------------
-
-The :adi:`ADIS16IMU1/PCBZ <EVAL-ADIS16IMU1>` is the primary breakout board for
-the ADIS1649x products. This breakout board simplifies the process of connecting
-an ADIS1649x IMU to an embedded processor system using a 16-pin, 1mm ribbon
-cable. For a detailed description, please see:
-:dokuwiki:`/resources/eval/user-guides/inertial-mems/imu/adis1649x </resources/eval/user-guides/inertial-mems/imu/adis1649x>`
-Here is an example of basic connection from the ADIS1649X interface connector to
-the host (microprocessor):
-
-::
-
-   ADIS1649X       HOST MICROPROCESSOR
-   * DIO2 ———————> IRQ GPIO
-   * CS   <——————— SPI_SEL
-   * SCLK <——————— SPI_SCLK
-   * DIN  <——————— SPI_MOSI
-   * DOUT ———————> SPI_MISO
-
-Note: IRQ GPIO can be connected to any DIOx pin. See the Devicetree section.
 
 Driver testing
 --------------
@@ -261,7 +278,7 @@ Driver testing
 
    - :external+system-level:ref:`iio-oscilloscope`
 
-::
+.. code-block:: text
 
    root:/> cd /sys/bus/iio/devices/
    root:/sys/bus/iio/devices> ls
@@ -271,7 +288,7 @@ Driver testing
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> ls -l
    drwxr-xr-x    2 root     root             0 Jan  4 00:03 buffer
    -r--r--r--    1 root     root          4096 Jan  4 00:03 dev
-   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_filter_low_pass_3db_frequency
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_x_filter_low_pass_3db_frequency
    -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_scale
    -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_x_calibbias
    -r--r--r--    1 root     root          4096 Jan  4 00:03 in_accel_x_raw
@@ -279,7 +296,7 @@ Driver testing
    -r--r--r--    1 root     root          4096 Jan  4 00:03 in_accel_y_raw
    -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_z_calibbias
    -r--r--r--    1 root     root          4096 Jan  4 00:03 in_accel_z_raw
-   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_filter_low_pass_3db_frequency
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_x_filter_low_pass_3db_frequency
    -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_scale
    -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_x_calibbias
    -r--r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_x_raw
@@ -287,7 +304,7 @@ Driver testing
    -r--r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_y_raw
    -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_z_calibbias
    -r--r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_z_raw
-   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_magn_filter_low_pass_3db_frequency
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_magn_x_filter_low_pass_3db_frequency
    -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_magn_scale
    -r--r--r--    1 root     root          4096 Jan  4 00:03 in_magn_x_raw
    -r--r--r--    1 root     root          4096 Jan  4 00:03 in_magn_y_raw
@@ -304,8 +321,21 @@ Driver testing
    -rw-r--r--    1 root     root          4096 Jan  4 00:03 uevent
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0>
 
+Use the corresponding y/z attributes when selecting another axis.
+
+Identify the device
+~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat name
+   adis16480
+
+Attribute reference
+~~~~~~~~~~~~~~~~~~~
+
 ADIS16480 device attributes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For a detailed description please see:
 `Documentation/ABI/testing/sysfs-bus-iio <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio>`__
@@ -382,32 +412,27 @@ For a detailed description please see:
    * - sampling_frequency
      - Currently selected sample rate.
 
-Show device name
-^^^^^^^^^^^^^^^^
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat name
-   adis16480
-
 Set sampling frequency
-^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""
 
-The sampling frequency of the device can be set by writing the desired value to
-the ``sampling_frequency`` file. The driver will automatically round up to the
-nearest supported sampling frequency.
+Write the desired rate in Hz to ``sampling_frequency``. The driver chooses
+a nearest-integer decimation divisor and clamps it to the device's supported
+range; it does not simply round the requested output rate upward. Read the
+attribute back to obtain the selected rate.
 
-**Example:** ::
+The ADIS16480 internal base rate is 2460 Hz; other variants and external-clock
+configurations use different base rates.
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat sampling_frequency
-   4250.000000
-   pi@raspberrypi:/s
-   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> echo 2000 > sampling_frequency
-   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat sampling_frequency
-   2125.000000
+Run this request/readback sequence in the identified device's sysfs directory:
+
+.. code-block:: sh
+
+   cat sampling_frequency
+   echo 2000 > sampling_frequency
+   cat sampling_frequency
 
 Show channel value
-^^^^^^^^^^^^^^^^^^
+""""""""""""""""""
 
 A channel value can be read from its ``_raw`` attribute. The value returned by
 the ``_raw`` attribute is the raw value as reported by the device. To get the
@@ -420,41 +445,50 @@ offset.
 
 The units by the IIO framework are:
 
-- Acceleration: Meter per Second squared
-- Angular velocity: Rad per second
-- Pressure: kilo Pascal
-- Magnetometer: milli Gauss
-- Temperature: milli Degree Celsius
+-  Acceleration: Meter per Second squared
 
-**Example:** ::
+-  Angular velocity: Rad per second
+
+-  Pressure: kilo Pascal
+
+-  Magnetometer: gauss
+
+-  Temperature: milli Degree Celsius
+
+**Example:**
+
+.. code-block:: text
 
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat in_accel_z_raw
    265126938
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat in_accel_scale
-   0.002451731
 
-``Z-axis acceleration = in_accel_z_raw * in_accel_scale = 265126938 *
-0.002451731 m/s^2 = 650019.932 m/s^2``
+The driver exposes a 32-bit acceleration raw value. Read ``in_accel_scale``
+from the same device and calculate acceleration in m/s² as
+``in_accel_z_raw * in_accel_scale``. Do not use a scale for a narrower raw
+format with this value; the scale depends on the device variant.
 
 Set channel bandwidth
-^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""
 
 The channels bandwidth can be set by writing the desired value to the channels
 ``_filter_low_pass_3db_frequency`` attribute. The driver will automatically
 round up to the nearest supported bandwidth.
 
-Note that the low pass filter frequency depends on the sampling frequency, so
-changing the sampling frequency will scale the low pass filter frequency
-accordingly. E.g. reducing the sampling frequency by a factor of two will also
-reduce the bandwidth by a factor of two.
+The driver reports fixed filter-bank labels per variant: 55, 63, 275 and
+310 Hz for the older family, or 100 and 300 Hz for ADIS1649x. It does not
+rescale these sysfs values when decimation changes. Writing 0 disables the
+filter.
 
-**Example:** ::
+For ADIS16480, run these commands in the device's sysfs directory to request
+55 Hz and read back the selected setting:
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat in_anglvel_filter_low_pass_3db_frequency
-   TDB
-   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> echo TBD > in_anglvel_filter_low_pass_3db_frequency
-   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat in_anglvel_filter_low_pass_3db_frequency
-   TBD
+.. code-block:: sh
+
+   echo 55 > in_anglvel_x_filter_low_pass_3db_frequency
+   cat in_anglvel_x_filter_low_pass_3db_frequency
+
+Use the corresponding y/z attributes when selecting another axis.
 
 Trigger management
 ~~~~~~~~~~~~~~~~~~
@@ -488,15 +522,39 @@ Buffer management
    :start-after: .. start-buffer-management
    :end-before: .. end-buffer-management
 
-::
+The scan layout differs between variants. Inspect it on the device (replace X
+with the device number identified by reading ``name``):
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0/scan_elements> ls
-   TBD
-   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0/scan_elements>
+.. code-block:: sh
 
-.. include:: /include/iio-snippets.rst
-   :start-after: .. start-typical-adc-scan-elements
-   :end-before: .. end-typical-adc-scan-elements
+   DEV=/sys/bus/iio/devices/iio:deviceX
+   for attr in "$DEV"/scan_elements/*_index "$DEV"/scan_elements/*_type; do
+       [ -f "$attr" ] || continue
+       printf '%s: ' "${attr##*/}"
+       cat "$attr"
+   done
+
+Each enabled channel's ``_index`` determines scan order. Its ``_type`` records
+endianness, signedness, valid bits, storage bits and any right shift. The
+buffer record also includes alignment padding and, when enabled, a software
+timestamp.
+
+With the kernel ``iio_generic_buffer`` tool installed, the device idle, and
+its data-ready interrupt and trigger working, a bounded capture can be run as:
+
+.. code-block:: sh
+
+   iio_generic_buffer -N "${DEV##*iio:device}" -a -c 10
+
+The tool uses the device's channel metadata and normally finds its trigger
+automatically. If necessary, select the actual registered trigger with ``-t``
+or ``-T``. The ``-a`` option enables available channels when none are already
+enabled; it does not override an existing channel selection. This command is
+an example to run on hardware, not a captured result.
+
+For a physical measurement channel, use its exported scale and offset, where
+present, to convert the decoded raw code according to the IIO ABI. Status and
+CRC-failure channels are flags, not scaled physical measurements.
 
 More Information
 ----------------

@@ -98,29 +98,32 @@
           <ul>
 <li><a class="reference internal" href="#">ADF4350</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a></li>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#devicetree-bindings">Devicetree bindings</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#set-output-frequency">Set Output Frequency</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#set-output-frequency">Set Output Frequency</a></li>
 <li><a class="reference internal" href="#set-frequency-resolution-channel-spacing">Set frequency resolution/channel spacing</a></li>
 <li><a class="reference internal" href="#set-reference-frequency">Set reference frequency</a></li>
 <li><a class="reference internal" href="#enable-power-down">Enable Power-Down</a></li>
 <li><a class="reference internal" href="#query-lock-detect">Query Lock Detect</a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -225,6 +228,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -243,7 +247,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -386,8 +389,14 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/ADF4351" target="_blank">ADF4351</a></p></li>
 </ul>
 </section>
+<section id="evaluation-boards">
+<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADF4350EB1Z" target="_blank">ADF4350 Eval Board</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADF4351EB1Z" target="_blank">ADF4351 Eval Board</a></p></li>
+</ul>
 <section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/CN0134" target="_blank">CN0134</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/CN0144" target="_blank">CN0144</a></p></li>
@@ -401,12 +410,6 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/CN0360" target="_blank">CN0360</a></p></li>
 </ul>
 </section>
-<section id="evaluation-boards">
-<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADF4350EB1Z" target="_blank">ADF4350 Eval Board</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADF4351EB1Z" target="_blank">ADF4351 Eval Board</a></p></li>
-</ul>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -466,8 +469,124 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ADF4350 Driver depends on <strong>CONFIG_SPI</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+            <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
+            <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
+
+                      <span class="o">***</span> <span class="n">Phase</span><span class="o">-</span><span class="n">Locked</span> <span class="n">Loop</span> <span class="p">(</span><span class="n">PLL</span><span class="p">)</span> <span class="n">frequency</span> <span class="n">synthesizers</span> <span class="o">***</span>
+
+            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+                <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADF4350</span><span class="o">/</span><span class="n">ADF4351</span> <span class="n">Wideband</span> <span class="n">Synthesizers</span>
+            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Required properties:
+    - compatible: Should be one of
+        * "adi,adf4350": When using the ADF4350 device
+        * "adi,adf4351": When using the ADF4351 device
+    - reg: SPI chip select numbert for the device
+    - spi-max-frequency: Max SPI frequency to use (&lt; 20000000)
+    - clocks: From common clock binding. Clock is phandle to clock for
+        ADF435x Reference Clock (CLKIN).
+
+Optional properties:
+    - gpios:     GPIO Lock detect - If set with a valid phandle and GPIO number,
+            pll lock state is tested upon read.
+    - adi,channel-spacing: Channel spacing in Hz (influences MODULUS).
+    - adi,power-up-frequency:   If set in Hz the PLL tunes to
+            the desired frequency on probe.
+    - adi,reference-div-factor: If set the driver skips dynamic calculation
+            and uses this default value instead.
+    - adi,reference-doubler-enable: Enables reference doubler.
+    - adi,reference-div2-enable: Enables reference divider.
+    - adi,phase-detector-polarity-positive-enable: Enables positive phase
+            detector polarity. Default = negative.
+    - adi,lock-detect-precision-6ns-enable: Enables 6ns lock detect precision.
+            Default = 10ns.
+    - adi,lock-detect-function-integer-n-enable: Enables lock detect
+            for integer-N mode. Default = factional-N mode.
+    - adi,charge-pump-current: Charge pump current in microamps.
+Default = 2500 microamps (2.5 mA).
+    - adi,muxout-select: On chip multiplexer output selection.
+            Valid values for the multiplexer output are:
+            0: Three-State Output (default)
+            1: DVDD
+            2: DGND
+            3: R-Counter output
+            4: N-Divider output
+            5: Analog lock detect
+            6: Digital lock detect
+    - adi,low-spur-mode-enable: Enables low spur mode.
+            Default = Low noise mode.
+    - adi,cycle-slip-reduction-enable: Enables cycle slip reduction.
+    - adi,charge-cancellation-enable: Enabled charge pump
+            charge cancellation for integer-N modes.
+    - adi,anti-backlash-3ns-enable: Enables 3ns antibacklash pulse width
+             for integer-N modes.
+    - adi,band-select-clock-mode-high-enable: Enables faster band
+            selection logic.
+    - adi,12bit-clk-divider: Clock divider value used when
+            adi,clk-divider-mode != 0
+    - adi,clk-divider-mode:
+            Valid values for the clkdiv mode are:
+            0: Clock divider off (default)
+            1: Fast lock enable
+            2: Phase resync enable
+    - adi,aux-output-enable: Enables auxiliary RF output.
+    - adi,aux-output-fundamental-enable: Selects fundamental VCO output on
+            the auxiliary RF output. Default = Output of RF dividers.
+    - adi,mute-till-lock-enable: Enables Mute-Till-Lock-Detect function.
+    - adi,output-power: Output power selection.
+            Valid values for the power mode are:
+            0: -4dBm (default)
+            1: -1dBm
+            2: +2dBm
+            3: +5dBm
+    - adi,aux-output-power: Auxiliary output power selection.
+            Valid values for the power mode are:
+            0: -4dBm (default)
+            1: -1dBm
+            2: +2dBm
+            3: +5dBm
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Example</span><span class="p">:</span>
+        <span class="n">lo_pll0_rx_adf4351</span><span class="p">:</span> <span class="n">adf4351</span><span class="o">-</span><span class="n">rx</span><span class="o">-</span><span class="n">lpc</span><span class="o">@</span><span class="mi">4</span> <span class="p">{</span>
+            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adf4351"</span><span class="p">;</span>
+            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clk0_ad9523</span> <span class="mi">9</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"clkin"</span><span class="p">;</span>
+            <span class="n">adi</span><span class="p">,</span><span class="n">channel</span><span class="o">-</span><span class="n">spacing</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">10000</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">adi</span><span class="p">,</span><span class="n">power</span><span class="o">-</span><span class="n">up</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2400000000</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">adi</span><span class="p">,</span><span class="n">phase</span><span class="o">-</span><span class="n">detector</span><span class="o">-</span><span class="n">polarity</span><span class="o">-</span><span class="n">positive</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
+            <span class="n">adi</span><span class="p">,</span><span class="n">charge</span><span class="o">-</span><span class="n">pump</span><span class="o">-</span><span class="n">current</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2500</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">adi</span><span class="p">,</span><span class="n">output</span><span class="o">-</span><span class="n">power</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">adi</span><span class="p">,</span><span class="n">mute</span><span class="o">-</span><span class="n">till</span><span class="o">-</span><span class="n">lock</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
+        <span class="p">};</span>
+</pre></div>
+</div>
+</section>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -516,7 +635,7 @@ platform_data for the device’s <code class="docutils literal notranslate"><spa
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">adf4350_platform_data</span><span class="w"> </span><span class="n">adf4351_pdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="p">.</span><span class="n">clkin</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10000000</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">channel_spacing</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10000</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">r2_user_settings</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADF4350_REG2_PD_POLARITY_POS</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">r2_user_settings</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADF4350_REG2_PD_POLARITY_POS</span><span class="w"> </span><span class="o">|</span>
 <span class="w">                </span><span class="n">ADF4350_REG2_CHARGE_PUMP_CURR_uA</span><span class="p">(</span><span class="mi">2500</span><span class="p">),</span>
 <span class="w">    </span><span class="p">.</span><span class="n">r3_user_settings</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADF4350_REG3_12BIT_CLKDIV_MODE</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
 <span class="w">    </span><span class="p">.</span><span class="n">r4_user_settings</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADF4350_REG4_OUTPUT_PWR</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">|</span>
@@ -568,121 +687,7 @@ question.</p>
 </pre></div>
 </div>
 </section>
-<section id="devicetree-bindings">
-<h2>Devicetree bindings<a class="headerlink" href="#devicetree-bindings" title="Link to this heading"></a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Required</span> <span class="n">properties</span><span class="p">:</span>
-    <span class="o">-</span> <span class="n">compatible</span><span class="p">:</span> <span class="n">Should</span> <span class="n">be</span> <span class="n">one</span> <span class="n">of</span>
-        <span class="o">*</span> <span class="s2">"adi,adf4350"</span><span class="p">:</span> <span class="n">When</span> <span class="n">using</span> <span class="n">the</span> <span class="n">ADF4350</span> <span class="n">device</span>
-        <span class="o">*</span> <span class="s2">"adi,adf4351"</span><span class="p">:</span> <span class="n">When</span> <span class="n">using</span> <span class="n">the</span> <span class="n">ADF4351</span> <span class="n">device</span>
-    <span class="o">-</span> <span class="n">reg</span><span class="p">:</span> <span class="n">SPI</span> <span class="n">chip</span> <span class="n">select</span> <span class="n">numbert</span> <span class="k">for</span> <span class="n">the</span> <span class="n">device</span>
-    <span class="o">-</span> <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span><span class="p">:</span> <span class="n">Max</span> <span class="n">SPI</span> <span class="n">frequency</span> <span class="n">to</span> <span class="n">use</span> <span class="p">(</span><span class="o">&lt;</span> <span class="mi">20000000</span><span class="p">)</span>
-    <span class="o">-</span> <span class="n">clocks</span><span class="p">:</span> <span class="n">From</span> <span class="n">common</span> <span class="n">clock</span> <span class="n">binding</span><span class="o">.</span> <span class="n">Clock</span> <span class="ow">is</span> <span class="n">phandle</span> <span class="n">to</span> <span class="n">clock</span> <span class="k">for</span>
-        <span class="n">ADF435x</span> <span class="n">Reference</span> <span class="n">Clock</span> <span class="p">(</span><span class="n">CLKIN</span><span class="p">)</span><span class="o">.</span>
-
-<span class="n">Optional</span> <span class="n">properties</span><span class="p">:</span>
-    <span class="o">-</span> <span class="n">gpios</span><span class="p">:</span>     <span class="n">GPIO</span> <span class="n">Lock</span> <span class="n">detect</span> <span class="o">-</span> <span class="n">If</span> <span class="nb">set</span> <span class="k">with</span> <span class="n">a</span> <span class="n">valid</span> <span class="n">phandle</span> <span class="ow">and</span> <span class="n">GPIO</span> <span class="n">number</span><span class="p">,</span>
-            <span class="n">pll</span> <span class="n">lock</span> <span class="n">state</span> <span class="ow">is</span> <span class="n">tested</span> <span class="n">upon</span> <span class="n">read</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">channel</span><span class="o">-</span><span class="n">spacing</span><span class="p">:</span> <span class="n">Channel</span> <span class="n">spacing</span> <span class="ow">in</span> <span class="n">Hz</span> <span class="p">(</span><span class="n">influences</span> <span class="n">MODULUS</span><span class="p">)</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">power</span><span class="o">-</span><span class="n">up</span><span class="o">-</span><span class="n">frequency</span><span class="p">:</span>   <span class="n">If</span> <span class="nb">set</span> <span class="ow">in</span> <span class="n">Hz</span> <span class="n">the</span> <span class="n">PLL</span> <span class="n">tunes</span> <span class="n">to</span>
-            <span class="n">the</span> <span class="n">desired</span> <span class="n">frequency</span> <span class="n">on</span> <span class="n">probe</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">reference</span><span class="o">-</span><span class="n">div</span><span class="o">-</span><span class="n">factor</span><span class="p">:</span> <span class="n">If</span> <span class="nb">set</span> <span class="n">the</span> <span class="n">driver</span> <span class="n">skips</span> <span class="n">dynamic</span> <span class="n">calculation</span>
-            <span class="ow">and</span> <span class="n">uses</span> <span class="n">this</span> <span class="n">default</span> <span class="n">value</span> <span class="n">instead</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">reference</span><span class="o">-</span><span class="n">doubler</span><span class="o">-</span><span class="n">enable</span><span class="p">:</span> <span class="n">Enables</span> <span class="n">reference</span> <span class="n">doubler</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">reference</span><span class="o">-</span><span class="n">div2</span><span class="o">-</span><span class="n">enable</span><span class="p">:</span> <span class="n">Enables</span> <span class="n">reference</span> <span class="n">divider</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">phase</span><span class="o">-</span><span class="n">detector</span><span class="o">-</span><span class="n">polarity</span><span class="o">-</span><span class="n">positive</span><span class="o">-</span><span class="n">enable</span><span class="p">:</span> <span class="n">Enables</span> <span class="n">positive</span> <span class="n">phase</span>
-            <span class="n">detector</span> <span class="n">polarity</span><span class="o">.</span> <span class="n">Default</span> <span class="o">=</span> <span class="n">negative</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">lock</span><span class="o">-</span><span class="n">detect</span><span class="o">-</span><span class="n">precision</span><span class="o">-</span><span class="mi">6</span><span class="n">ns</span><span class="o">-</span><span class="n">enable</span><span class="p">:</span> <span class="n">Enables</span> <span class="mi">6</span><span class="n">ns</span> <span class="n">lock</span> <span class="n">detect</span> <span class="n">precision</span><span class="o">.</span>
-            <span class="n">Default</span> <span class="o">=</span> <span class="mi">10</span><span class="n">ns</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">lock</span><span class="o">-</span><span class="n">detect</span><span class="o">-</span><span class="n">function</span><span class="o">-</span><span class="n">integer</span><span class="o">-</span><span class="n">n</span><span class="o">-</span><span class="n">enable</span><span class="p">:</span> <span class="n">Enables</span> <span class="n">lock</span> <span class="n">detect</span>
-            <span class="k">for</span> <span class="n">integer</span><span class="o">-</span><span class="n">N</span> <span class="n">mode</span><span class="o">.</span> <span class="n">Default</span> <span class="o">=</span> <span class="n">factional</span><span class="o">-</span><span class="n">N</span> <span class="n">mode</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">charge</span><span class="o">-</span><span class="n">pump</span><span class="o">-</span><span class="n">current</span><span class="p">:</span> <span class="n">Charge</span> <span class="n">pump</span> <span class="n">current</span> <span class="ow">in</span> <span class="n">mA</span><span class="o">.</span>
-            <span class="n">Default</span> <span class="o">=</span> <span class="mi">2500</span><span class="n">mA</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">muxout</span><span class="o">-</span><span class="n">select</span><span class="p">:</span> <span class="n">On</span> <span class="n">chip</span> <span class="n">multiplexer</span> <span class="n">output</span> <span class="n">selection</span><span class="o">.</span>
-            <span class="n">Valid</span> <span class="n">values</span> <span class="k">for</span> <span class="n">the</span> <span class="n">multiplexer</span> <span class="n">output</span> <span class="n">are</span><span class="p">:</span>
-            <span class="mi">0</span><span class="p">:</span> <span class="n">Three</span><span class="o">-</span><span class="n">State</span> <span class="n">Output</span> <span class="p">(</span><span class="n">default</span><span class="p">)</span>
-            <span class="mi">1</span><span class="p">:</span> <span class="n">DVDD</span>
-            <span class="mi">2</span><span class="p">:</span> <span class="n">DGND</span>
-            <span class="mi">3</span><span class="p">:</span> <span class="n">R</span><span class="o">-</span><span class="n">Counter</span> <span class="n">output</span>
-            <span class="mi">4</span><span class="p">:</span> <span class="n">N</span><span class="o">-</span><span class="n">Divider</span> <span class="n">output</span>
-            <span class="mi">5</span><span class="p">:</span> <span class="n">Analog</span> <span class="n">lock</span> <span class="n">detect</span>
-            <span class="mi">6</span><span class="p">:</span> <span class="n">Digital</span> <span class="n">lock</span> <span class="n">detect</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">low</span><span class="o">-</span><span class="n">spur</span><span class="o">-</span><span class="n">mode</span><span class="o">-</span><span class="n">enable</span><span class="p">:</span> <span class="n">Enables</span> <span class="n">low</span> <span class="n">spur</span> <span class="n">mode</span><span class="o">.</span>
-            <span class="n">Default</span> <span class="o">=</span> <span class="n">Low</span> <span class="n">noise</span> <span class="n">mode</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">cycle</span><span class="o">-</span><span class="n">slip</span><span class="o">-</span><span class="n">reduction</span><span class="o">-</span><span class="n">enable</span><span class="p">:</span> <span class="n">Enables</span> <span class="n">cycle</span> <span class="n">slip</span> <span class="n">reduction</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">charge</span><span class="o">-</span><span class="n">cancellation</span><span class="o">-</span><span class="n">enable</span><span class="p">:</span> <span class="n">Enabled</span> <span class="n">charge</span> <span class="n">pump</span>
-            <span class="n">charge</span> <span class="n">cancellation</span> <span class="k">for</span> <span class="n">integer</span><span class="o">-</span><span class="n">N</span> <span class="n">modes</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">anti</span><span class="o">-</span><span class="n">backlash</span><span class="o">-</span><span class="mi">3</span><span class="n">ns</span><span class="o">-</span><span class="n">enable</span><span class="p">:</span> <span class="n">Enables</span> <span class="mi">3</span><span class="n">ns</span> <span class="n">antibacklash</span> <span class="n">pulse</span> <span class="n">width</span>
-             <span class="k">for</span> <span class="n">integer</span><span class="o">-</span><span class="n">N</span> <span class="n">modes</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">band</span><span class="o">-</span><span class="n">select</span><span class="o">-</span><span class="n">clock</span><span class="o">-</span><span class="n">mode</span><span class="o">-</span><span class="n">high</span><span class="o">-</span><span class="n">enable</span><span class="p">:</span> <span class="n">Enables</span> <span class="n">faster</span> <span class="n">band</span>
-            <span class="n">selection</span> <span class="n">logic</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="mi">12</span><span class="n">bit</span><span class="o">-</span><span class="n">clk</span><span class="o">-</span><span class="n">divider</span><span class="p">:</span> <span class="n">Clock</span> <span class="n">divider</span> <span class="n">value</span> <span class="n">used</span> <span class="n">when</span>
-            <span class="n">adi</span><span class="p">,</span><span class="mi">12</span><span class="n">bit</span><span class="o">-</span><span class="n">clkdiv</span><span class="o">-</span><span class="n">mode</span> <span class="o">!=</span> <span class="mi">0</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">clk</span><span class="o">-</span><span class="n">divider</span><span class="o">-</span><span class="n">mode</span><span class="p">:</span>
-            <span class="n">Valid</span> <span class="n">values</span> <span class="k">for</span> <span class="n">the</span> <span class="n">clkdiv</span> <span class="n">mode</span> <span class="n">are</span><span class="p">:</span>
-            <span class="mi">0</span><span class="p">:</span> <span class="n">Clock</span> <span class="n">divider</span> <span class="n">off</span> <span class="p">(</span><span class="n">default</span><span class="p">)</span>
-            <span class="mi">1</span><span class="p">:</span> <span class="n">Fast</span> <span class="n">lock</span> <span class="n">enable</span>
-            <span class="mi">2</span><span class="p">:</span> <span class="n">Phase</span> <span class="n">resync</span> <span class="n">enable</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">aux</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">enable</span><span class="p">:</span> <span class="n">Enables</span> <span class="n">auxiliary</span> <span class="n">RF</span> <span class="n">output</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">aux</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">fundamental</span><span class="o">-</span><span class="n">enable</span><span class="p">:</span> <span class="n">Selects</span> <span class="n">fundamental</span> <span class="n">VCO</span> <span class="n">output</span> <span class="n">on</span>
-            <span class="n">the</span> <span class="n">auxiliary</span> <span class="n">RF</span> <span class="n">output</span><span class="o">.</span> <span class="n">Default</span> <span class="o">=</span> <span class="n">Output</span> <span class="n">of</span> <span class="n">RF</span> <span class="n">dividers</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">mute</span><span class="o">-</span><span class="n">till</span><span class="o">-</span><span class="n">lock</span><span class="o">-</span><span class="n">enable</span><span class="p">:</span> <span class="n">Enables</span> <span class="n">Mute</span><span class="o">-</span><span class="n">Till</span><span class="o">-</span><span class="n">Lock</span><span class="o">-</span><span class="n">Detect</span> <span class="n">function</span><span class="o">.</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">output</span><span class="o">-</span><span class="n">power</span><span class="p">:</span> <span class="n">Output</span> <span class="n">power</span> <span class="n">selection</span><span class="o">.</span>
-            <span class="n">Valid</span> <span class="n">values</span> <span class="k">for</span> <span class="n">the</span> <span class="n">power</span> <span class="n">mode</span> <span class="n">are</span><span class="p">:</span>
-            <span class="mi">0</span><span class="p">:</span> <span class="o">-</span><span class="mi">4</span><span class="n">dBm</span> <span class="p">(</span><span class="n">default</span><span class="p">)</span>
-            <span class="mi">1</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="n">dBm</span>
-            <span class="mi">2</span><span class="p">:</span> <span class="o">+</span><span class="mi">2</span><span class="n">dBm</span>
-            <span class="mi">3</span><span class="p">:</span> <span class="o">+</span><span class="mi">5</span><span class="n">dBm</span>
-    <span class="o">-</span> <span class="n">adi</span><span class="p">,</span><span class="n">aux</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">power</span><span class="p">:</span> <span class="n">Auxiliary</span> <span class="n">output</span> <span class="n">power</span> <span class="n">selection</span><span class="o">.</span>
-            <span class="n">Valid</span> <span class="n">values</span> <span class="k">for</span> <span class="n">the</span> <span class="n">power</span> <span class="n">mode</span> <span class="n">are</span><span class="p">:</span>
-            <span class="mi">0</span><span class="p">:</span> <span class="o">-</span><span class="mi">4</span><span class="n">dBm</span> <span class="p">(</span><span class="n">default</span><span class="p">)</span>
-            <span class="mi">1</span><span class="p">:</span> <span class="o">-</span><span class="mi">1</span><span class="n">dBm</span>
-            <span class="mi">2</span><span class="p">:</span> <span class="o">+</span><span class="mi">2</span><span class="n">dBm</span>
-            <span class="mi">3</span><span class="p">:</span> <span class="o">+</span><span class="mi">5</span><span class="n">dBm</span>
-</pre></div>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Example</span><span class="p">:</span>
-        <span class="n">lo_pll0_rx_adf4351</span><span class="p">:</span> <span class="n">adf4351</span><span class="o">-</span><span class="n">rx</span><span class="o">-</span><span class="n">lpc</span><span class="o">@</span><span class="mi">4</span> <span class="p">{</span>
-            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adf4351"</span><span class="p">;</span>
-            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clk0_ad9523</span> <span class="mi">9</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"clkin"</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">channel</span><span class="o">-</span><span class="n">spacing</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">10000</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">power</span><span class="o">-</span><span class="n">up</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2400000000</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">phase</span><span class="o">-</span><span class="n">detector</span><span class="o">-</span><span class="n">polarity</span><span class="o">-</span><span class="n">positive</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">charge</span><span class="o">-</span><span class="n">pump</span><span class="o">-</span><span class="n">current</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2500</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">output</span><span class="o">-</span><span class="n">power</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">mute</span><span class="o">-</span><span class="n">till</span><span class="o">-</span><span class="n">lock</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-        <span class="p">};</span>
-</pre></div>
-</div>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The ADF4350 Driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-            <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-            <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
-            <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
-
-                      <span class="o">***</span> <span class="n">Phase</span><span class="o">-</span><span class="n">Locked</span> <span class="n">Loop</span> <span class="p">(</span><span class="n">PLL</span><span class="p">)</span> <span class="n">frequency</span> <span class="n">synthesizers</span> <span class="o">***</span>
-
-            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-                <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADF4350</span><span class="o">/</span><span class="n">ADF4351</span> <span class="n">Wideband</span> <span class="n">Synthesizers</span>
-            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-</pre></div>
-</div>
-</section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -705,7 +710,6 @@ the numbering is constant and may be known in advance.</p>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">01</span> <span class="n">name</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">01</span> <span class="n">out_altvoltage0_frequency</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">01</span> <span class="n">out_altvoltage0_frequency_resolution</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">01</span> <span class="n">out_altvoltage0_locked</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">01</span> <span class="n">out_altvoltage0_powerdown</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">01</span> <span class="n">out_altvoltage0_refin_frequency</span>
 <span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span>    <span class="mi">2</span> <span class="n">root</span>     <span class="n">root</span>             <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">01</span> <span class="n">power</span>
@@ -713,72 +717,69 @@ the numbering is constant and may be known in advance.</p>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">01</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">adf4350</span>
 </pre></div>
 </div>
+</section>
 <section id="set-output-frequency">
-<h4>Set Output Frequency<a class="headerlink" href="#set-output-frequency" title="Link to this heading"></a></h4>
-<p>/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_frequency</p>
-<p>Stores PLL Y frequency in Hz. Reading returns the actual frequency in Hz. When
-setting a new frequency, the PLL requires some time to lock. If available, the
-user can read out_altvoltageY_locked in order to check whether the PLL has
-locked or not.</p>
+<h3>Set Output Frequency<a class="headerlink" href="#set-output-frequency" title="Link to this heading"></a></h3>
+<p>/sys/bus/iio/devices/iio:deviceX/out_altvoltage0_frequency</p>
+<p>Stores the PLL frequency in Hz. Reading returns the actual frequency in Hz.
+After a frequency change, allow time for the PLL to lock. If a lock-detect
+GPIO is configured, the frequency read returns EBUSY while the PLL is unlocked.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">144825000</span> <span class="o">&gt;</span> <span class="n">out_altvoltage0_frequency</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_altvoltage0_frequency</span>
 <span class="mi">144825000</span>
 </pre></div>
 </div>
+</section>
 <section id="set-frequency-resolution-channel-spacing">
-<h5>Set frequency resolution/channel spacing<a class="headerlink" href="#set-frequency-resolution-channel-spacing" title="Link to this heading"></a></h5>
-<p>/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_freq_resolution</p>
+<h3>Set frequency resolution/channel spacing<a class="headerlink" href="#set-frequency-resolution-channel-spacing" title="Link to this heading"></a></h3>
+<p>/sys/bus/iio/devices/iio:deviceX/out_altvoltage0_frequency_resolution</p>
 <p>Stores PLL Y frequency resolution/channel spacing in Hz. The value given
 directly influences the MODULUS used by the fractional-N PLL. It is assumed that
 the algorithm that is used to compute the various dividers, is able to generate
 proper values for multiples of channel spacing.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">10000</span> <span class="o">&gt;</span> <span class="n">out_altvoltageY_refin_freq</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_altvoltageY_refin_frequency</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">10000</span> <span class="o">&gt;</span> <span class="n">out_altvoltage0_frequency_resolution</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_altvoltage0_frequency_resolution</span>
 <span class="mi">10000</span>
 </pre></div>
 </div>
 </section>
 <section id="set-reference-frequency">
-<h5>Set reference frequency<a class="headerlink" href="#set-reference-frequency" title="Link to this heading"></a></h5>
-<p>/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_refin_frequency</p>
+<h3>Set reference frequency<a class="headerlink" href="#set-reference-frequency" title="Link to this heading"></a></h3>
+<p>/sys/bus/iio/devices/iio:deviceX/out_altvoltage0_refin_frequency</p>
 <p>Sets PLL Y REFin frequency in Hz. In some clock chained applications, the
 reference frequency used by the PLL may change during runtime. This attribute
-allows the user to adjust the reference frequency accordingly. The value written
-has no effect until out_altvoltageY_freq is updated.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">10000000</span> <span class="o">&gt;</span> <span class="n">out_altvoltageY_refin_frequency</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_altvoltageY_refin_frequency</span>
+allows the user to adjust the reference frequency accordingly. The write updates
+the reference clock (when supplied through the clock framework) and immediately
+retunes the PLL to the previously requested output frequency. Use channel 0 in
+the commands below.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">10000000</span> <span class="o">&gt;</span> <span class="n">out_altvoltage0_refin_frequency</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_altvoltage0_frequency_resolution</span>
 <span class="mi">10000000</span>
 </pre></div>
 </div>
 </section>
 <section id="enable-power-down">
-<h5>Enable Power-Down<a class="headerlink" href="#enable-power-down" title="Link to this heading"></a></h5>
-<p>/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_powerdown</p>
+<h3>Enable Power-Down<a class="headerlink" href="#enable-power-down" title="Link to this heading"></a></h3>
+<p>/sys/bus/iio/devices/iio:deviceX/out_altvoltage0_powerdown</p>
 <p>If available, this attribute allows the user to power down the PLL and it’s
 RFOut buffers. This is in particular useful during REFin changes.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">out_altvoltageY_powerdown</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_altvoltageY_powerdown</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">out_altvoltage0_powerdown</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_altvoltage0_powerdown</span>
 <span class="mi">1</span>
 </pre></div>
 </div>
 </section>
 <section id="query-lock-detect">
-<h5>Query Lock Detect<a class="headerlink" href="#query-lock-detect" title="Link to this heading"></a></h5>
-<p>/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_locked</p>
-<p>If available, this attribute allows the user to determine whether the PLL has
-locked by reading ‘1’ or not ‘0’.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.18</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_altvoltageY_locked</span>
-<span class="mi">1</span>
-</pre></div>
-</div>
-</section>
-</section>
+<h3>Query Lock Detect<a class="headerlink" href="#query-lock-detect" title="Link to this heading"></a></h3>
+<p>When a lock-detect GPIO is configured, read <code class="docutils literal notranslate"><span class="pre">out_altvoltage0_frequency</span></code> to
+check whether the PLL has locked: the read fails with EBUSY while unlocked.
+Without that GPIO, the read does not reflect the lock status.</p>
 </section>
 </section>
 <section id="more-information">

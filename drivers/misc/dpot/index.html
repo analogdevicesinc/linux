@@ -98,24 +98,29 @@
           <ul>
 <li><a class="reference internal" href="#">Digital Potentiometer</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
-<li><a class="reference internal" href="#description">Description</a><ul>
+</ul>
+</li>
+<li><a class="reference internal" href="#description">Description</a></li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#source-code">Source Code</a><ul>
-<li><a class="reference internal" href="#status">Status</a></li>
-<li><a class="reference internal" href="#id1">Files</a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a><ul>
 <li><a class="reference internal" href="#example-platform-board-file-i2c-interface">Example Platform / Board file (I2C Interface)</a></li>
 <li><a class="reference internal" href="#example-platform-board-file-spi-interface">Example Platform / Board file (SPI Interface)</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a></li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
@@ -219,6 +224,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -237,7 +243,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -425,13 +430,6 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/ADN2860" target="_blank">ADN2860</a></p></li>
 </ul>
 </section>
-<section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0287" target="_blank">CN0287</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0357" target="_blank">CN0357</a></p></li>
-</ul>
-</section>
 <section id="evaluation-boards">
 <h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -464,6 +462,13 @@ Content on this topic
 <li><p>PMOD-DPOT</p></li>
 </ul>
 <p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/misc/ad525x_dpot.c" target="_blank">/DEVID/-/Documentation/</a></p>
+<section id="reference-circuits">
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0287" target="_blank">CN0287</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0357" target="_blank">CN0357</a></p></li>
+</ul>
+</section>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -472,18 +477,6 @@ with the immediate resistance settings as well as update the saved startup
 settings. Access to the factory programmed tolerance is also provided, but
 interpretation of this settings is required by the end application according to
 the specific part in use.</p>
-<section id="files">
-<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
-<p>Each dpot device will have a set of <strong>eeprom</strong>, <strong>rdac</strong>, and <strong>tolerance</strong>
-files. How many depends on the actual part you have, as will the range of
-allowed values.</p>
-<p>The <strong>eeprom</strong> files are used to program the startup value of the device.</p>
-<p>The <strong>rdac</strong> files are used to program the immediate value of the device.</p>
-<p>The <strong>tolerance</strong> files are the read-only factory programmed tolerance settings
-and may vary greatly on a part-by-part basis. For exact interpretation of this
-field, please consult the datasheet for your part. This is presented as a hex
-file for easier parsing.</p>
-</section>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -508,8 +501,27 @@ file for easier parsing.</p>
 </table>
 </div>
 </section>
-<section id="id1">
-<h3>Files<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<section id="files">
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
+<p>Every supported wiper gets an rdacN file. eepromN exists only on parts flagged
+for EEPROM commands, toleranceN only on parts with factory tolerance readback,
+and otpN/otpNen only on OTP-capable parts. Some parts also expose inc_all,
+dec_all, inc_all_6db and dec_all_6db. Wiper indices follow the part-specific
+mask and need not start at zero or be contiguous.</p>
+<p>The <strong>eeprom</strong> files program the nonvolatile startup value on devices that
+provide EEPROM. Use <strong>rdac</strong> for repeated runtime adjustments: EEPROM write
+endurance is limited (e.g. AD5259 is qualified to 100,000 cycles). OTP and
+50-TP parts use separate one-time/limited-time programming mechanisms with
+their own endurance limits.</p>
+<p>The rdac files program the immediate wiper code as unsigned decimal. Values
+above the part-specific maximum are clamped to that maximum. On write-only
+parts, reads return a software cache initialized to midscale, not a hardware
+readback. The write handlers do not propagate bus-write failures, so a
+successful shell write alone does not verify programming.</p>
+<p>The <strong>tolerance</strong> files are the read-only factory programmed tolerance settings
+and may vary greatly on a part-by-part basis. For exact interpretation of this
+field, please consult the datasheet for your part. This is presented as a hex
+file for easier parsing.</p>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -535,8 +547,35 @@ file for easier parsing.</p>
 </div>
 </section>
 </section>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/misc/pmoddpot_lr.png"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/misc/pmoddpot_lr.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/misc/pmoddpot_lr.png" style="width: 600px;" />
+</a>
+</figure>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ad525x_dpot driver depends on CONFIG_SPI or CONFIG_I2C.</p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="n">Misc</span> <span class="n">devices</span>  <span class="o">---&gt;</span>
+    <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">Digital</span> <span class="n">Potentiometers</span>
+    <span class="o">&lt;*&gt;</span>     <span class="n">support</span> <span class="n">I2C</span> <span class="n">bus</span> <span class="n">connection</span>
+    <span class="o">&lt;*&gt;</span>     <span class="n">support</span> <span class="n">SPI</span> <span class="n">bus</span> <span class="n">connection</span>
+</pre></div>
+</div>
+</section>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -547,7 +586,7 @@ available ports, chip variants, preferred modes, default initialization,
 additional pin roles, and so on. This shrinks the board-support packages (BSPs)
 and minimizes board and application specific #ifdefs in drivers.</p>
 <section id="example-platform-board-file-i2c-interface">
-<h3>Example Platform / Board file (I2C Interface)<a class="headerlink" href="#example-platform-board-file-i2c-interface" title="Link to this heading"></a></h3>
+<h5>Example Platform / Board file (I2C Interface)<a class="headerlink" href="#example-platform-board-file-i2c-interface" title="Link to this heading"></a></h5>
 <p>Unlike PCI or USB devices, I2C devices are not enumerated at the hardware level.
 Instead, the software must know which devices are connected on each I2C bus
 segment, and what address these devices are using. For this reason, the kernel
@@ -576,7 +615,7 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 </div>
 </section>
 <section id="example-platform-board-file-spi-interface">
-<h3>Example Platform / Board file (SPI Interface)<a class="headerlink" href="#example-platform-board-file-spi-interface" title="Link to this heading"></a></h3>
+<h5>Example Platform / Board file (SPI Interface)<a class="headerlink" href="#example-platform-board-file-spi-interface" title="Link to this heading"></a></h5>
 <p>Unlike PCI or USB devices, SPI devices are not enumerated at the hardware level.
 Instead, the software must know which devices are connected on each SPI bus
 segment, and what slave selects these devices are using. For this reason, the
@@ -600,47 +639,9 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
 <span class="p">};</span>
 </pre></div>
 </div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p><em>Old Method</em></p>
-<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">bfin_spi_board_info</span><span class="p">[]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="cp">#if defined(CONFIG_AD525X_DPOT) || defined(CONFIG_AD525X_DPOT_MODULE)</span>
-<span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad_dpot"</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad5291"</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5000000</span><span class="p">,</span><span class="w">     </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
-<span class="w">        </span><span class="p">.</span><span class="n">bus_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">chip_select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="cp">#endif</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-</div>
 </section>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The ad525x_dpot driver depends on <strong>CONFIG_SPI</strong> or <strong>CONFIG_I2C</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-  <span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="n">Misc</span> <span class="n">devices</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">Digital</span> <span class="n">Potentiometers</span>
-    <span class="o">&lt;*&gt;</span>     <span class="n">support</span> <span class="n">I2C</span> <span class="n">bus</span> <span class="n">connection</span>
-    <span class="o">&lt;*&gt;</span>     <span class="n">support</span> <span class="n">SPI</span> <span class="n">bus</span> <span class="n">connection</span>
-</pre></div>
-</div>
 </section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
-<figure class="align-default">
-<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/misc/pmoddpot_lr.png"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/misc/pmoddpot_lr.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/misc/pmoddpot_lr.png" style="width: 600px;" />
-</a>
-</figure>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>

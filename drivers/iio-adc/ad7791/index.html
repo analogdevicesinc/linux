@@ -98,27 +98,34 @@
           <ul>
 <li><a class="reference internal" href="#">AD7791</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
 <li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
+<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-available-sampling-frequencies-update-rates">Show available sampling frequencies / update rates</a><ul>
-<li><a class="reference internal" href="#set-sampling-frequency-update-rate">Set sampling frequency / update rate</a></li>
-<li><a class="reference internal" href="#show-supply-voltage">Show supply voltage</a></li>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
 <li><a class="reference internal" href="#show-in-voltage0-voltage0-raw-measurement">Show in_voltage0-voltage0_raw measurement</a></li>
 </ul>
 </li>
-</ul>
-</li>
+<li><a class="reference internal" href="#show-available-sampling-frequencies-update-rates">Show available sampling frequencies / update rates</a></li>
+<li><a class="reference internal" href="#set-sampling-frequency-update-rate">Set sampling frequency / update rate</a></li>
+<li><a class="reference internal" href="#show-supply-voltage">Show supply voltage</a></li>
 <li><a class="reference internal" href="#trigger-management">Trigger management</a></li>
 <li><a class="reference internal" href="#buffer-management">Buffer management</a></li>
 </ul>
@@ -225,6 +232,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -243,7 +251,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -389,19 +396,19 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD7791" target="_blank">AD7791</a></p></li>
 </ul>
 </section>
+<section id="evaluation-boards">
+<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7791EBZ" target="_blank">EVAL-AD7791EBZ</a></p></li>
+</ul>
 <section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/CN0216" target="_blank">CN0216</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/CN0271" target="_blank">CN0271</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/CN0354" target="_blank">CN0354</a></p></li>
 </ul>
 </section>
-<section id="evaluation-boards">
-<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7791EBZ" target="_blank">EVAL-AD7791EBZ</a></p></li>
-</ul>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -455,8 +462,48 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </div>
 </section>
 </section>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7791_eval_lr.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7791_eval_lr.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7791_eval_lr.jpg" style="width: 600px;" />
+</a>
+</figure>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The AD7791 Driver depends on <strong>CONFIG_SPI</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="o">...</span>
+        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+            <span class="o">...</span>
+            <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span>  <span class="o">---&gt;</span>
+                <span class="o">...</span>
+                <span class="o">&lt;*&gt;</span>  <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD7791</span> <span class="n">ADC</span> <span class="n">driver</span>
+                <span class="o">...</span>
+            <span class="o">...</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+</section>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
+<p>Example platform device initialization Provide a refin regulator consumer and a
+data-ready IRQ; probe requires both. Platform-data buffered enables the analog
+input buffer, independently of IIO buffered capture. For DT, the equivalent
+properties are adi,buffered-mode-enable, adi,burnout-current-enable and
+adi,unipolar-mode-enable; omitted booleans are false, unlike the non-DT fallback
+buffered=true.</p>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -469,7 +516,8 @@ and minimizes board and application specific #ifdefs in drivers.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cm">/**</span>
 <span class="cm"> * struct ad7791_platform_data - AD7791 device platform data</span>
 <span class="cm"> * @buffered: If set to true configure the device for buffered input mode.</span>
-<span class="cm"> * @burnout_current: If set to true the 100mA burnout current is enabled.</span>
+<span class="cm"> * @burnout_current: If true, enable the 100 nA burnout current sources.</span>
+<span class="cm"> *      Burnout detection requires buffered input mode.</span>
 <span class="cm"> * @unipolar: If set to true sample in unipolar mode, if set to false sample in</span>
 <span class="cm"> *      bipolar mode.</span>
 <span class="cm"> */</span>
@@ -529,35 +577,7 @@ the device in question.</p>
 </pre></div>
 </div>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The AD7791 Driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="o">...</span>
-        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-            <span class="o">...</span>
-            <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span>  <span class="o">---&gt;</span>
-                <span class="o">...</span>
-                <span class="o">&lt;*&gt;</span>  <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD7791</span> <span class="n">ADC</span> <span class="n">driver</span>
-                <span class="o">...</span>
-            <span class="o">...</span>
-        <span class="o">...</span>
-</pre></div>
-</div>
 </section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
-<figure class="align-default">
-<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7791_eval_lr.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7791_eval_lr.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7791_eval_lr.jpg" style="width: 600px;" />
-</a>
-</figure>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -600,43 +620,17 @@ the numbering is constant and may be known in advance.</p>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">ad7791</span>
 </pre></div>
 </div>
-<section id="show-available-sampling-frequencies-update-rates">
-<h4>Show available sampling frequencies / update rates<a class="headerlink" href="#show-available-sampling-frequencies-update-rates" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">sampling_frequency_available</span>
-<span class="mi">120</span> <span class="mi">100</span> <span class="mf">33.3</span> <span class="mi">20</span> <span class="mf">16.7</span> <span class="mf">16.6</span> <span class="mf">13.3</span> <span class="mf">9.5</span>
-</pre></div>
-</div>
-<section id="set-sampling-frequency-update-rate">
-<h5>Set sampling frequency / update rate<a class="headerlink" href="#set-sampling-frequency-update-rate" title="Link to this heading"></a></h5>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">sampling_frequency</span>
-<span class="mf">16.6</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">100</span> <span class="o">&gt;</span> <span class="n">sampling_frequency</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">sampling_frequency</span>
-<span class="mi">100</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span>
-</pre></div>
-</div>
 </section>
-<section id="show-supply-voltage">
-<h5>Show supply voltage<a class="headerlink" href="#show-supply-voltage" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> Shows the AVDD supply voltage</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage1_supply_raw</span>
-<span class="mi">7817399</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage_supply_scale</span>
-<span class="mf">0.000697374</span>
-</pre></div>
-</div>
-<p><strong>U</strong> = <em>(in_voltage1_supply_raw + in_voltage1_supply_offset) *
-in_voltage_supply_scale</em> = 7817399 * 0.000697374 = <strong>3270.95608958 mV</strong></p>
-</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-in-voltage0-voltage0-raw-measurement">
-<h5>Show in_voltage0-voltage0_raw measurement<a class="headerlink" href="#show-in-voltage0-voltage0-raw-measurement" title="Link to this heading"></a></h5>
+<h4>Show in_voltage0-voltage0_raw measurement<a class="headerlink" href="#show-in-voltage0-voltage0-raw-measurement" title="Link to this heading"></a></h4>
 <p><strong>Description:</strong> Raw unscaled voltage measurement on channel 0</p>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
@@ -662,10 +656,42 @@ in_voltage_supply_scale</em> = 7817399 * 0.000697374 = <strong>3270.95608958 mV<
 <span class="mi">6710665</span>
 </pre></div>
 </div>
-<p><strong>U</strong> = <em>(in_voltage0-voltage0_raw + in_voltage0-voltage0_offset) *
-in_voltage-voltage_scale</em> = 6710665 * 0.000596046 = <strong>999.95619165 mV</strong></p>
+<p>In this bipolar setup, U_mV = (6710665 - 8388608) × 0.000596046 ≈ -1000.13 mV.</p>
 </section>
 </section>
+<section id="show-available-sampling-frequencies-update-rates">
+<h3>Show available sampling frequencies / update rates<a class="headerlink" href="#show-available-sampling-frequencies-update-rates" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">sampling_frequency_available</span>
+<span class="mi">120</span> <span class="mi">100</span> <span class="mf">33.3</span> <span class="mi">20</span> <span class="mf">16.7</span> <span class="mf">16.6</span> <span class="mf">13.3</span> <span class="mf">9.5</span>
+</pre></div>
+</div>
+</section>
+<section id="set-sampling-frequency-update-rate">
+<h3>Set sampling frequency / update rate<a class="headerlink" href="#set-sampling-frequency-update-rate" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">sampling_frequency</span>
+<span class="mf">16.6</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">100</span> <span class="o">&gt;</span> <span class="n">sampling_frequency</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">sampling_frequency</span>
+<span class="mi">100</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+</section>
+<section id="show-supply-voltage">
+<h3>Show supply voltage<a class="headerlink" href="#show-supply-voltage" title="Link to this heading"></a></h3>
+<p><strong>Description:</strong> Shows the AVDD supply voltage</p>
+<p>AD7791 registers the supply input as channel 1. Read its raw value and offset,
+and the shared supply scale, from the device. Calculate the voltage in
+millivolts as <code class="docutils literal notranslate"><span class="pre">(raw</span> <span class="pre">+</span> <span class="pre">offset)</span> <span class="pre">*</span> <span class="pre">scale</span></code>; do not omit the offset in bipolar mode.</p>
+<p>The following commands run from the device’s sysfs directory and calculate the
+voltage:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="nv">raw</span><span class="o">=</span><span class="k">$(</span>cat<span class="w"> </span>in_voltage1_supply_raw<span class="k">)</span>
+<span class="nv">offset</span><span class="o">=</span><span class="k">$(</span>cat<span class="w"> </span>in_voltage1_supply_offset<span class="k">)</span>
+<span class="nv">scale</span><span class="o">=</span><span class="k">$(</span>cat<span class="w"> </span>in_voltage_supply_scale<span class="k">)</span>
+awk<span class="w"> </span>-v<span class="w"> </span><span class="nv">raw</span><span class="o">=</span><span class="s2">"</span><span class="nv">$raw</span><span class="s2">"</span><span class="w"> </span>-v<span class="w"> </span><span class="nv">offset</span><span class="o">=</span><span class="s2">"</span><span class="nv">$offset</span><span class="s2">"</span><span class="w"> </span>-v<span class="w"> </span><span class="nv">scale</span><span class="o">=</span><span class="s2">"</span><span class="nv">$scale</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s1">'BEGIN { printf "%.6f mV\n", (raw + offset) * scale }'</span>
+</pre></div>
+</div>
 </section>
 <section id="trigger-management">
 <h3>Trigger management<a class="headerlink" href="#trigger-management" title="Link to this heading"></a></h3>
@@ -680,14 +706,17 @@ in_voltage-voltage_scale</em> = 6710665 * 0.000596046 = <strong>999.95619165 mV<
 </section>
 <section id="buffer-management">
 <h3>Buffer management<a class="headerlink" href="#buffer-management" title="Link to this heading"></a></h3>
-<p>The Industrial I/O subsystem provides support for various ring buffer based
-data acquisition methods. Apart from device specific hardware buffer support,
-the user can chose between two different software ring buffer implementations.
-One is the IIO lock free software ring, and the other is based on Linux kfifo.
-Devices with buffer support feature an additional sub-folder in the
-<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/deviceX/</span></code> folder hierarchy. Called <code class="docutils literal notranslate"><span class="pre">deviceX:bufferY</span></code>,
-where Y defaults to 0, for devices with a single buffer.</p>
-<p>Every buffer implementation features a set of files:</p>
+<p>The Industrial I/O subsystem supports buffered data acquisition. Buffer
+implementation and capabilities depend on the driver. Devices with buffer
+support expose each buffer at
+<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX/bufferY</span></code>, where Y is the buffer index,
+starting at 0. The first buffer is additionally exposed through the legacy
+<code class="docutils literal notranslate"><span class="pre">buffer</span></code> directory, which contains its buffer-control attributes. Its scan
+configuration is exposed through the legacy <code class="docutils literal notranslate"><span class="pre">scan_elements</span></code> directory, while
+multi-buffer systems expose the scan attributes in the corresponding
+<code class="docutils literal notranslate"><span class="pre">bufferY</span></code> directory. Read samples from the device character node
+<code class="docutils literal notranslate"><span class="pre">/dev/iio:deviceX</span></code>; the selected buffer is determined by the active buffer
+configuration.</p>
 <dl class="simple">
 <dt><strong>length</strong></dt><dd><p>Get/set the number of sample sets that may be held by the buffer.</p>
 </dd>
@@ -731,24 +760,21 @@ captured for a single triggered sample set in the buffer.</p>
 </pre></div>
 </div>
 <dl class="simple">
-<dt><strong>in_voltageX_en / in_voltageX-voltageY_en / timestamp_en:</strong></dt><dd><p>Scan element control for triggered data capture.
+<dt><strong>in_voltageX_en / in_voltageX-voltageY_en / in_timestamp_en:</strong></dt><dd><p>Scan element control for triggered data capture.
 Writing 1 will enable the scan element, writing 0 will disable it</p>
 </dd>
-<dt><strong>in_voltageX_type / in_voltageX-voltageY_type / timestamp_type:</strong></dt><dd><p>Description of the scan element data storage within the buffer
-and therefore in the form in which it is read from user-space.
-Form is [s|u]bits/storage-bits. s or u specifies if signed
-(2’s complement) or unsigned. bits is the number of bits of
-data and storage-bits is the space (after padding) that it
-occupies in the buffer. Note that some devices will have
-additional information in the unused bits so to get a clean
-value, the bits value must be used to mask the buffer output
-value appropriately. The storage-bits value also specifies the
-data alignment. So u12/16 will be a unsigned 12 bit integer
-stored in a 16 bit location aligned to a 16 bit boundary.
-For other storage combinations this attribute will be extended
-appropriately.</p>
+<dt><strong>in_voltageX_type / in_voltageX-voltageY_type / in_timestamp_type:</strong></dt><dd><p>Describes the scan element’s representation in the buffer. The format is
+<code class="docutils literal notranslate"><span class="pre">[be|le]:[s|u]bits/storagebits[Xrepeat]&gt;&gt;shift</span></code>. The prefix gives byte
+order; <code class="docutils literal notranslate"><span class="pre">s</span></code> or <code class="docutils literal notranslate"><span class="pre">u</span></code> specifies signed (two’s complement) or unsigned
+data. <code class="docutils literal notranslate"><span class="pre">bits</span></code> is the number of meaningful bits and <code class="docutils literal notranslate"><span class="pre">storagebits</span></code> is
+the storage width. The optional repeat count describes repeated elements.
+After interpreting byte order, shift the storage value right by <code class="docutils literal notranslate"><span class="pre">shift</span></code>
+and mask it to <code class="docutils literal notranslate"><span class="pre">bits</span></code>; signed values also require sign extension.
+For example, <code class="docutils literal notranslate"><span class="pre">be:u12/16&gt;&gt;1</span></code> describes an unsigned 12-bit value in
+big-endian 16-bit storage, shifted right by one bit. Account for alignment
+padding when combining enabled elements into a complete scan.</p>
 </dd>
-<dt><strong>in_voltageX_index / in_voltageX-voltageY_index / timestamp_index:</strong></dt><dd><p>A single positive integer specifying the position of this
+<dt><strong>in_voltageX_index / in_voltageX-voltageY_index / in_timestamp_index:</strong></dt><dd><p>A nonnegative integer specifying the ordering of this
 scan element in the buffer. Note these are not dependent on
 what is enabled and may not be contiguous. Thus for user-space
 to establish the full layout these must be used in conjunction

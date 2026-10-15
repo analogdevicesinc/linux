@@ -98,11 +98,18 @@
           <ul>
 <li><a class="reference internal" href="#">AD4134</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#hdl-reference-designs">HDL Reference Designs</a></li>
 <li><a class="reference internal" href="#supported-fpga-carriers">Supported FPGA carriers</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
 <li><a class="reference internal" href="#quick-start-guide">Quick Start Guide</a><ul>
 <li><a class="reference internal" href="#flash-kuiper-linux-to-the-sd-card">Flash Kuiper Linux to the SD card</a></li>
 <li><a class="reference internal" href="#configuring-the-sd-card">Configuring the SD Card</a><ul>
@@ -112,12 +119,11 @@
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
-<li><a class="reference internal" href="#enabling-the-driver">Enabling the driver</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
 <li><a class="reference internal" href="#show-channel-scale">Show channel scale</a></li>
 </ul>
 </li>
@@ -225,6 +231,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -243,7 +250,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -383,7 +389,7 @@ Content on this topic
 <h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD4134" target="_blank">AD4134</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/AD7134" target="_blank">AD7134</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/AD7134" target="_blank">AD7134</a> (<code class="docutils literal notranslate"><span class="pre">eval-ad7134fmcz-review</span></code> branch)</p></li>
 </ul>
 </section>
 <section id="evaluation-boards">
@@ -393,9 +399,8 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/eval-ad7134fmcz" target="_blank">eval-ad7134fmcz</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/en/design-center/reference-designs/circuits-from-the-lab/cn0561.html" target="_blank">CN0561</a></p></li>
 </ul>
-</section>
 <section id="hdl-reference-designs">
-<h2>HDL Reference Designs<a class="headerlink" href="#hdl-reference-designs" title="Link to this heading"></a></h2>
+<h3>HDL Reference Designs<a class="headerlink" href="#hdl-reference-designs" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/ad4134/hdl" target="_blank">EVAL-AD4134FMCZ HDL Reference Design</a></p></li>
 <li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/ad713x/hdl" target="_blank">EVAL-AD7134FMCZ HDL Reference Design</a></p></li>
@@ -403,13 +408,16 @@ Content on this topic
 </ul>
 </section>
 <section id="supported-fpga-carriers">
-<h2>Supported FPGA carriers<a class="headerlink" href="#supported-fpga-carriers" title="Link to this heading"></a></h2>
+<h3>Supported FPGA carriers<a class="headerlink" href="#supported-fpga-carriers" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p><a class="icon link reference external" href="https://www.avnet.com/wps/portal/us/products/avnet-boards/avnet-board-families/zedboard/" target="_blank">Zedboard</a></p></li>
 </ul>
 </section>
+</section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
 <section id="status">
-<h2>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h2>
+<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -426,7 +434,7 @@ Content on this topic
 </div>
 </section>
 <section id="files">
-<h2>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h2>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -488,10 +496,36 @@ Content on this topic
 </table>
 </div>
 </section>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The AD4134 Driver depends on <strong>CONFIG_SPI</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="o">...</span>
+        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+            <span class="o">...</span>
+            <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span>  <span class="o">---&gt;</span>
+                <span class="o">...</span>
+                <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD4134</span> <span class="n">ADC</span> <span class="n">driver</span>
+                <span class="o">...</span>
+            <span class="o">...</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+</section>
 <section id="quick-start-guide">
-<h2>Quick Start Guide<a class="headerlink" href="#quick-start-guide" title="Link to this heading"></a></h2>
+<h3>Quick Start Guide<a class="headerlink" href="#quick-start-guide" title="Link to this heading"></a></h3>
 <section id="flash-kuiper-linux-to-the-sd-card">
-<h3>Flash Kuiper Linux to the SD card<a class="headerlink" href="#flash-kuiper-linux-to-the-sd-card" title="Link to this heading"></a></h3>
+<h4>Flash Kuiper Linux to the SD card<a class="headerlink" href="#flash-kuiper-linux-to-the-sd-card" title="Link to this heading"></a></h4>
 <p>Install Kuiper Linux to the SD card. Step by step guides for imaging
 <a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/kuiper/#kuiper" target="_blank" title="(in System Level Documentation)"><span>Kuiper</span></a> are available for
 <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/zynq_images/linux_hosts" target="_blank">Linux</a>
@@ -499,9 +533,10 @@ and
 <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/zynq_images/windows_hosts" target="_blank">Windows</a>.</p>
 </section>
 <section id="configuring-the-sd-card">
-<h3>Configuring the SD Card<a class="headerlink" href="#configuring-the-sd-card" title="Link to this heading"></a></h3>
-<p>Use the boot files below or follow the next subsections to get BOOT.BIN, uImage,
-and devicetree.dtb files.</p>
+<h4>Configuring the SD Card<a class="headerlink" href="#configuring-the-sd-card" title="Link to this heading"></a></h4>
+<p>The boot-file matrix below applies to the <code class="docutils literal notranslate"><span class="pre">eval-ad7134fmcz-review</span></code> branch.
+The main driver supports four parallel channels with 24-bit+CRC packets only.
+Use kernel, devicetree and HDL artifacts from the same release.</p>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -602,7 +637,7 @@ is present in the system.</p></li>
 functionality.</p></li>
 </ul>
 <section id="get-boot-bin-from-hdl-project">
-<h4>Get BOOT.BIN from HDL project<a class="headerlink" href="#get-boot-bin-from-hdl-project" title="Link to this heading"></a></h4>
+<h5>Get BOOT.BIN from HDL project<a class="headerlink" href="#get-boot-bin-from-hdl-project" title="Link to this heading"></a></h5>
 <p>To achieve high performance with AD4134 and similar ADCs, the hardware platform
 must have an integrated FPGA. To configure the FPGA to properly support them,
 ADI engineers provide <a class="icon git reference external" href="https://github.com/analogdevicesinc/hdl/tree/main/" target="_blank">HDL reference projects</a> from which one may
@@ -613,7 +648,7 @@ use <a class="icon git reference external" href="https://github.com/analogdevice
 the appropriate HDL project and generate a BOOT.BIN file from that.</p>
 </section>
 <section id="get-uimage-and-devicetree-dtb-from-linux-project">
-<h4>Get uImage and devicetree.dtb from Linux project<a class="headerlink" href="#get-uimage-and-devicetree-dtb-from-linux-project" title="Link to this heading"></a></h4>
+<h5>Get uImage and devicetree.dtb from Linux project<a class="headerlink" href="#get-uimage-and-devicetree-dtb-from-linux-project" title="Link to this heading"></a></h5>
 <p>Follow the
 <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-build/generic/zynq" target="_blank">Linux build guide</a>
 to build a new Linux kernel image and devicetree blob. After that, replace
@@ -621,31 +656,6 @@ Kuiper Linux image with the newly built <em>uImage</em> and copy the proper .dtb
 your platform to the BOOT partition as <em>devicetree.dtb</em>.</p>
 </section>
 </section>
-</section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<section id="enabling-the-driver">
-<h3>Enabling the driver<a class="headerlink" href="#enabling-the-driver" title="Link to this heading"></a></h3>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The AD4134 Driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="o">...</span>
-        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-            <span class="o">...</span>
-            <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span>  <span class="o">---&gt;</span>
-                <span class="o">...</span>
-                <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD4134</span> <span class="n">ADC</span> <span class="n">driver</span>
-                <span class="o">...</span>
-            <span class="o">...</span>
-        <span class="o">...</span>
-</pre></div>
-</div>
 </section>
 </section>
 <section id="driver-testing">
@@ -667,34 +677,38 @@ interface can be found here:</p>
 <li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/software/iio-oscilloscope/#iio-oscilloscope" target="_blank" title="(in System Level Documentation)"><span>IIO Oscilloscope</span></a></p></li>
 </ul>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># cat /sys/bus/iio/devices/iio:device0/name</span>
-<span class="n">adc</span>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root@analog:~# cat /sys/bus/iio/devices/iio:device0/name
+ad4134
 </pre></div>
 </div>
+<p>Show channel scale</p>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-channel-scale">
 <h4>Show channel scale<a class="headerlink" href="#show-channel-scale" title="Link to this heading"></a></h4>
-<p><strong>Description:</strong> Scale to be applied to in_voltageX_raw in order to obtain the
-measured voltage in millivolts</p>
+<p><strong>Description:</strong> Scale for signed 24-bit samples from the IIO buffer, in
+millivolts/code. There is no <code class="docutils literal notranslate"><span class="pre">in_voltageX_raw</span></code> attribute.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># cat /sys/bus/iio/devices/iio:device0/in_voltage_scale</span>
 <span class="mf">0.000488281</span>
 </pre></div>
 </div>
-<p>Inspect IIO device sysfs interface.</p>
+<p>Inspect the IIO device sysfs interface. The driver exposes only the shared
+<code class="docutils literal notranslate"><span class="pre">in_voltage_scale</span></code>, <code class="docutils literal notranslate"><span class="pre">in_voltage_sampling_frequency</span></code> and
+<code class="docutils literal notranslate"><span class="pre">in_voltage_sampling_frequency_available</span></code> channel attributes. The sampling
+frequency range is <code class="docutils literal notranslate"><span class="pre">[10</span> <span class="pre">1</span> <span class="pre">1496000]</span></code> Hz and defaults to 300000 Hz; stop the
+buffer before changing it (writes fail while buffered capture is enabled).</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># ls -l /sys/bus/iio/devices/iio:device0/</span>
 <span class="n">total</span> <span class="mi">0</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span> <span class="mi">27</span> <span class="mi">09</span><span class="p">:</span><span class="mi">10</span> <span class="n">ad7134_sync</span>
 <span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Feb</span> <span class="mi">27</span> <span class="mi">11</span><span class="p">:</span><span class="mi">39</span> <span class="n">buffer</span>
 <span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Feb</span> <span class="mi">27</span> <span class="mi">11</span><span class="p">:</span><span class="mi">39</span> <span class="n">buffer0</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span> <span class="mi">27</span> <span class="mi">11</span><span class="p">:</span><span class="mi">39</span> <span class="n">dev</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span> <span class="mi">27</span> <span class="mi">11</span><span class="p">:</span><span class="mi">39</span> <span class="n">filter_type</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span> <span class="mi">27</span> <span class="mi">11</span><span class="p">:</span><span class="mi">39</span> <span class="n">filter_type_available</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span> <span class="mi">27</span> <span class="mi">14</span><span class="p">:</span><span class="mi">11</span> <span class="n">in_voltage_sampling_frequency</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span> <span class="mi">27</span> <span class="mi">11</span><span class="p">:</span><span class="mi">39</span> <span class="n">in_voltage_sampling_frequency_available</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span> <span class="mi">27</span> <span class="mi">11</span><span class="p">:</span><span class="mi">39</span> <span class="n">in_voltage_scale</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span> <span class="mi">27</span> <span class="mi">11</span><span class="p">:</span><span class="mi">39</span> <span class="n">name</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Feb</span> <span class="mi">27</span> <span class="mi">14</span><span class="p">:</span><span class="mi">08</span> <span class="n">odr_set_freq</span>
 <span class="n">lrwxrwxrwx</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Feb</span> <span class="mi">27</span> <span class="mi">11</span><span class="p">:</span><span class="mi">39</span> <span class="n">of_node</span> <span class="o">-&gt;</span> <span class="o">../../../../../../../../</span><span class="n">firmware</span><span class="o">/</span><span class="n">devicetree</span><span class="o">/</span><span class="n">base</span><span class="o">/</span><span class="n">axi</span><span class="o">/</span><span class="n">spi</span><span class="nd">@e0006000</span><span class="o">/</span><span class="n">adc</span><span class="o">@</span><span class="mi">0</span>
 <span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Feb</span> <span class="mi">27</span> <span class="mi">11</span><span class="p">:</span><span class="mi">39</span> <span class="n">power</span>
 <span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Feb</span> <span class="mi">27</span> <span class="mi">11</span><span class="p">:</span><span class="mi">39</span> <span class="n">scan_elements</span>

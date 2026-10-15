@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ltc2387
 
+
 .. _ltc2387:
 
 LTC2387
@@ -10,9 +11,12 @@ LTC2387 SAR ADC IIO.
 Supported Devices
 -----------------
 
-- :adi:`LTC2387-16`
-- :adi:`LTC2387-18`
-- :adi:`ADAQ23876`
+-  :adi:`LTC2387-16`
+
+-  :adi:`LTC2387-18`
+
+-  `ADAQ23875 ADAQ23876
+   ADAQ23878 <https://www.analog.com/en/products/adaq23876.html>`__
 
 Evaluation Boards
 -----------------
@@ -23,14 +27,17 @@ Evaluation Boards
 Description
 -----------
 
-This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
-driver, targeting multi channel serial interface ADCs. The industrial I/O
-subsystem provides a unified framework for drivers for many different types of
-converters and sensors using a number of different physical interfaces (i2c,
-spi, etc). See :external+system-level:ref:`iio` for more information.
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem driver, targeting
+single-channel differential SAR ADCs with a serial LVDS data interface. The
+industrial I/O subsystem provides a unified framework for drivers for many
+different types of converters and sensors using a number of different physical
+interfaces (i2c, spi, etc). See :external+system-level:ref:`iio` for more information.
+
+Source Code
+-----------
 
 Status
-------
+~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -43,7 +50,7 @@ Status
      -
 
 Files
------
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -87,8 +94,8 @@ Driver testing
 
    root@analog:/sys/bus/iio/devices/iio:device0#
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -97,6 +104,9 @@ Show device name
 
 Get/Set sampling frequency
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The attribute reports the requested rate; the actual rate is quantized to the
+PWM reference clock.
 
 ::
 

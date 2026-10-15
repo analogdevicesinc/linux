@@ -98,8 +98,10 @@
           <ul>
 <li><a class="reference internal" href="#">AD5593R</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
@@ -108,18 +110,16 @@
 </li>
 <li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
 <li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
-<li><a class="reference internal" href="#enabling-the-driver">Enabling the driver</a></li>
-<li><a class="reference internal" href="#adding-a-device-tree-entry">Adding a device tree entry</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#required-properties">Required properties</a></li>
 <li><a class="reference internal" href="#optional-properties">Optional properties</a></li>
-<li><a class="reference internal" href="#device-tree-example">Device tree example</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#driver-testing">Driver testing</a></li>
-<li><a class="reference internal" href="#iio-sysfs-interface">IIO sysfs interface</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a></li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
 <li><a class="reference internal" href="#scales">Scales</a><ul>
 <li><a class="reference internal" href="#show-current-scale">Show current scale</a></li>
 <li><a class="reference internal" href="#show-available-scales">Show available scales</a></li>
@@ -233,6 +233,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5380/">AD5380</a></li>
@@ -251,7 +252,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -393,17 +393,17 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD5593R" target="_blank">AD5593R</a></p></li>
 </ul>
 </section>
-<section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0229" target="_blank">CN0229</a></p></li>
-</ul>
-</section>
 <section id="evaluation-boards">
 <h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD5593R" target="_blank">EVAL-AD5593R</a></p></li>
 </ul>
+<section id="reference-circuits">
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0229" target="_blank">CN0229</a></p></li>
+</ul>
+</section>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -421,10 +421,10 @@ throughput rate of 400 kSPS. The I/Ox pins can also be configured as digital,
 general-purpose input or output (GPIO) pins. The state of the GPIO pins can be
 set or read back by accessing the GPIO write data register or the GPIO read
 configuration register, respectively, via an I2C write or read operation. The
-AD5593R have an integrated 2.5 V, 25 ppm/°C reference, which is turned off by
-default, and an integrated temperature indicator, which gives an indication of
-the die temperature. The temperature value is read back as part of an ADC read
-sequence.</p>
+AD5593R have an integrated 2.5 V, 20 ppm/°C reference, which is turned
+off by default, and an integrated temperature indicator, which gives an
+indication of the die temperature. The temperature value is read back as part of
+an ADC read sequence.</p>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -468,7 +468,7 @@ sequence.</p>
 <td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/dt-bindings/iio/adi,ad5592r.h" target="_blank">adi,ad5592r.h</a></p></td>
 </tr>
 <tr class="row-even"><td><p>Documentation</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/Documentation/devicetree/bindings/iio/dac/ad5592r.txt" target="_blank">Documentation/devicetree/bindings/iio/dac/ad5592r.txt</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/dac/adi,ad5592r.yaml" target="_blank">Documentation/devicetree/bindings/iio/dac/adi,ad5592r.yaml</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -484,8 +484,8 @@ sequence.</p>
 </section>
 <section id="adding-linux-driver-support">
 <h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<section id="enabling-the-driver">
-<h3>Enabling the driver<a class="headerlink" href="#enabling-the-driver" title="Link to this heading"></a></h3>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="admonition note">
@@ -507,74 +507,18 @@ sequence.</p>
 </pre></div>
 </div>
 </section>
-<section id="adding-a-device-tree-entry">
-<h3>Adding a device tree entry<a class="headerlink" href="#adding-a-device-tree-entry" title="Link to this heading"></a></h3>
-<section id="required-properties">
-<h4>Required properties<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h4>
-<ul class="simple">
-<li><p><strong>compatible</strong>: Must be one of:</p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,ad5593r</span></code></p></li>
-</ul>
-</li>
-<li><p><strong>reg</strong>: I2C address of the chip (generally 0x10).</p></li>
-<li><p><strong>#address-cells</strong>: Should be 1.</p></li>
-<li><p><strong>#size-cells</strong>: Should be 0.</p></li>
-<li><p><strong>channel nodes</strong>:</p>
-<ul>
-<li><p>Each child node represents one channel and has the following</p></li>
-<li><p><strong>Required properties</strong>:</p></li>
-<li><p><strong>reg</strong>: Pin on which this channel is connected to.</p></li>
-<li><p><strong>adi,mode</strong>: Mode or function of this channel. Macros specifying the valid
-values can be found in &lt;dt-bindings/iio/adi,ad5592r.h&gt;. The following values
-are currently supported:</p>
-<ul>
-<li><p>CH_MODE_UNUSED (the pin is unused)</p></li>
-<li><p>CH_MODE_ADC (the pin is ADC input)</p></li>
-<li><p>CH_MODE_DAC (the pin is DAC output)</p></li>
-<li><p>CH_MODE_DAC_AND_ADC (the pin is DAC output but can be monitored by an ADC,
-since there is no disadvantage this this should be considered as the
-preferred DAC mode)</p></li>
-<li><p>CH_MODE_GPIO (the pin is registered with GPIOLIB)</p></li>
-</ul>
-</li>
-</ul>
-</li>
-<li><p><strong>Optional properties</strong>:</p></li>
-<li><p><strong>adi,off-state</strong>: State of this channel when unused or the device is removed.
-Macros specifying the valid values can be found in
-&lt;dt-bindings/iio/adi,ad5592r.h&gt;.</p>
-<ul>
-<li><p>CH_OFFSTATE_PULLDOWN (the pin is pulled down)</p></li>
-<li><p>CH_OFFSTATE_OUT_LOW (the pin is output low)</p></li>
-<li><p>CH_OFFSTATE_OUT_HIGH (the pin is output high)</p></li>
-<li><p>CH_OFFSTATE_OUT_TRISTATE (the pin is tristated output)</p></li>
-</ul>
-</li>
-</ul>
-</section>
-<section id="optional-properties">
-<h4>Optional properties<a class="headerlink" href="#optional-properties" title="Link to this heading"></a></h4>
-<ul class="simple">
-<li><p><strong>vref-supply</strong>: Phandle to the external reference voltage supply. This should
-only be set if there is an external reference voltage connected to the VREF
-pin. If the property is not set the internal 2.5V reference is used.</p></li>
-<li><p><strong>reset-gpios</strong> : GPIO spec for the RESET pin. If specified, it will be
-asserted during driver probe.</p></li>
-<li><p><strong>gpio-controller</strong>: Marks the device node as a GPIO controller.</p></li>
-<li><p><strong>#gpio-cells</strong>: Should be 2. The first cell is the GPIO number and the second
-cell specifies GPIO flags, as defined in &lt;dt-bindings/gpio/gpio.h&gt;.</p></li>
-</ul>
-</section>
-<section id="device-tree-example">
-<h4>Device tree example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h4>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <p>The following example instanciates the ad5593r driver for a AD5593R device
 connected on a I2C bus. It sets the I/O0 port as a DAC, the I/O1 port as ADC.
-I/O2 and I/O3 are configured for primary function DAC the additional ADC can
-measure the voltage being provided by the DAC. This feature can monitor the
-output voltage to detect short circuits or overload conditions. I/O4 is
-connected to the ground with a pull-down resistor. The other I/Os are registered
-with the Linux GPIO subsystem.</p>
+The shown tree configures I/O2 as DAC plus ADC and I/O6 as GPIO. I/O3, I/O4,
+I/O5 and I/O7 are omitted and remain unused with the default pull-down
+off-state. It creates five IIO channels: voltage0 output, voltage1 input,
+voltage2 output and input, and temperature. The seven-channel transcript below
+was captured with a configuration that also enables I/O3. This feature can
+monitor the output voltage to detect short circuits or overload conditions. I/O4
+is connected to the ground with a pull-down resistor. The other I/Os are
+registered with the Linux GPIO subsystem.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1">#include &lt;dt-bindings/iio/adi,ad5592r.h&gt;</span>
 
 <span class="n">vref</span><span class="p">:</span> <span class="n">regulator</span><span class="o">-</span><span class="n">vref</span> <span class="p">{</span>
@@ -625,13 +569,72 @@ with the Linux GPIO subsystem.</p>
 <span class="p">};</span>
 </pre></div>
 </div>
+<section id="required-properties">
+<h4>Required properties<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><strong>compatible</strong>: Must be one of:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,ad5593r</span></code></p></li>
+</ul>
+</li>
+<li><p><strong>reg</strong>: I2C address of the chip (generally 0x10).</p></li>
+<li><p><strong>#address-cells</strong>: Should be 1.</p></li>
+<li><p><strong>#size-cells</strong>: Should be 0.</p></li>
+<li><p><strong>channel nodes</strong>:</p>
+<ul>
+<li><p>Each child node represents one channel and has the following</p></li>
+<li><p><strong>Required properties</strong>:</p></li>
+<li><p><strong>reg</strong>: Pin on which this channel is connected to.</p></li>
+<li><p><strong>adi,mode</strong>: Mode or function of this channel. Macros specifying the valid
+values can be found in &lt;dt-bindings/iio/adi,ad5592r.h&gt;. The following values
+are currently supported:</p>
+<ul>
+<li><p>CH_MODE_UNUSED (the pin is unused)</p></li>
+<li><p>CH_MODE_ADC (the pin is ADC input)</p></li>
+<li><p>CH_MODE_DAC (the pin is DAC output)</p></li>
+<li><p>CH_MODE_DAC_AND_ADC (the pin is DAC output but can be monitored by an ADC,
+since there is no disadvantage this this should be considered as the
+preferred DAC mode)</p></li>
+<li><p>CH_MODE_GPIO (the pin is registered with GPIOLIB)</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>Optional properties</strong>:</p></li>
+<li><p><strong>adi,off-state</strong>: State of this channel when unused or the device is removed.
+Macros specifying the valid values can be found in
+&lt;dt-bindings/iio/adi,ad5592r.h&gt;.</p>
+<ul>
+<li><p>CH_OFFSTATE_PULLDOWN (the pin is pulled down)</p></li>
+<li><p>CH_OFFSTATE_OUT_LOW (the pin is output low)</p></li>
+<li><p>CH_OFFSTATE_OUT_HIGH (the pin is output high)</p></li>
+<li><p>CH_OFFSTATE_OUT_TRISTATE (the pin is tristated output)</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="optional-properties">
+<h4>Optional properties<a class="headerlink" href="#optional-properties" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><strong>vref-supply</strong>: Phandle to the external reference voltage supply. This should
+only be set if there is an external reference voltage connected to the VREF
+pin. If the property is not set the internal 2.5 V reference is used.</p></li>
+<li><p><strong>reset-gpios</strong> : GPIO spec for the RESET pin. If specified, it will be
+asserted during driver probe.</p></li>
+<li><p><strong>gpio-controller</strong>: Marks the device node as a GPIO controller.</p></li>
+<li><p><strong>#gpio-cells</strong>: Should be 2. The first cell is the GPIO number and the second
+cell specifies GPIO flags, as defined in &lt;dt-bindings/gpio/gpio.h&gt;.</p></li>
+</ul>
 </section>
 </section>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
-<p>If the driver correctly detected the device, the <code class="docutils literal notranslate"><span class="pre">iio_info</span></code> program should
-inform us about the available channels:</p>
+<p>If the driver detected the device, iio_info lists the configured channels. The
+following transcripts were captured with a different reference than the
+3.3 V regulator above. With that regulator, the available voltage scales are
+<code class="docutils literal notranslate"><span class="pre">0.805664062</span></code> and <code class="docutils literal notranslate"><span class="pre">1.611328124</span></code> mV/code. With no external regulator, they
+are <code class="docutils literal notranslate"><span class="pre">0.610351562</span></code> and <code class="docutils literal notranslate"><span class="pre">1.220703124</span></code> mV/code.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@linaro</span><span class="o">-</span><span class="n">ubuntu</span><span class="o">-</span><span class="n">desktop</span><span class="p">:</span><span class="o">~</span><span class="c1"># iio_info</span>
 <span class="n">IIO</span> <span class="n">context</span> <span class="n">created</span><span class="p">:</span> <span class="n">local</span>
 <span class="n">IIO</span> <span class="n">context</span> <span class="n">has</span> <span class="mi">3</span> <span class="n">devices</span><span class="p">:</span>
@@ -674,9 +677,6 @@ inform us about the available channels:</p>
                                 <span class="n">attr</span> <span class="mi">2</span><span class="p">:</span> <span class="n">scale</span> <span class="n">value</span><span class="p">:</span> <span class="mf">452.147700000</span>
 </pre></div>
 </div>
-</section>
-<section id="iio-sysfs-interface">
-<h2>IIO sysfs interface<a class="headerlink" href="#iio-sysfs-interface" title="Link to this heading"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@linaro</span><span class="o">-</span><span class="n">ubuntu</span><span class="o">-</span><span class="n">desktop</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="c1"># ls -al</span>
 <span class="n">total</span> <span class="mi">0</span>
 <span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">3</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span>  <span class="mi">1970</span> <span class="o">.</span>
@@ -728,8 +728,8 @@ inform us about the available channels:</p>
 <span class="n">uevent</span><span class="p">:</span><span class="n">OF_COMPATIBLE_N</span><span class="o">=</span><span class="mi">1</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@linaro</span><span class="o">-</span><span class="n">ubuntu</span><span class="o">-</span><span class="n">desktop</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="c1"># cat name</span>
 <span class="n">ad5593r</span>
 </pre></div>
@@ -739,12 +739,12 @@ inform us about the available channels:</p>
 <h3>Scales<a class="headerlink" href="#scales" title="Link to this heading"></a></h3>
 <p>The output range of the DAC is 0 V to VREF or 0 V to 2 × VREF.
 <strong>out_voltage_scale</strong> is used to select the high or low range. Without external
-reference the driver selects the internal 2500mV VREF reference. So the scale
-computes as 2500mV/2^12 = 0.610351562 or 5000mV/2^12 = 1.220703124.</p>
+reference the driver selects the internal 2500 mV VREF reference. So the scale
+computes as 2500 mV/2^12 = 0.610351562 or 5000 mV/2^12 = 1.220703124.</p>
 <p>The input range of the ADC is 0 V to VREF or 0 V to 2 × VREF.
 <strong>in_voltage_scale</strong> is used to select the high or low range. Without external
-reference the driver selects the internal 2500mV VREF reference. So the scale
-computes as 2500mV/2^12 = 0.610351562 or 5000mV/2^12 = 1.220703124.</p>
+reference the driver selects the internal 2500 mV VREF reference. So the scale
+computes as 2500 mV/2^12 = 0.610351562 or 5000 mV/2^12 = 1.220703124.</p>
 <section id="show-current-scale">
 <h4>Show current scale<a class="headerlink" href="#show-current-scale" title="Link to this heading"></a></h4>
 <p><strong>Description:</strong> scale to be applied to out_voltageY_raw/in_voltageY_raw in
@@ -802,12 +802,14 @@ mV</strong></p>
 </section>
 <section id="gpio-testing">
 <h3>GPIO Testing<a class="headerlink" href="#gpio-testing" title="Link to this heading"></a></h3>
-<p>The GPIO sysfs interface allows users to manipulate any GPIO from userspace.
-Userspace utilizes a sysfs control interface to dynamically request and release
-individual GPIOs. Once a GPIO has been requested, writing to the newly created
-path allows you to control the direction and the data while reading from it
-returns the GPIO data (which usually corresponds to a 0 or 1 which represents
-the signal level).</p>
+<p>The GPIO interface allows users to request only pins configured as CH_MODE_GPIO.
+GPIO numbers are assigned dynamically; use the actual gpiochip base plus a
+permitted pin offset. With only channel 6 configured as GPIO, the valid
+offset is 6. Userspace utilizes a sysfs control interface to dynamically request
+and release individual GPIOs. Once a GPIO has been requested, writing to the
+newly created path allows you to control the direction and the data while
+reading from it returns the GPIO data (which usually corresponds to a 0 or 1
+which represents the signal level).</p>
 <p>For more information see also here:
 <a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/gpio/sysfs.txt" target="_blank">GPIO Kernel Documentation</a></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@linaro</span><span class="o">-</span><span class="n">ubuntu</span><span class="o">-</span><span class="n">desktop</span><span class="p">:</span><span class="o">~</span><span class="c1"># cd /sys/class/gpio/</span>

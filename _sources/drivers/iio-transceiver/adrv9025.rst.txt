@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9025
 
+
 .. _adrv9025:
 
 ADRV9026
@@ -18,7 +19,7 @@ applications, including multi-standard base stations, massive MIMO, and small
 cells.
 
 Supported Devices
------------------
+~~~~~~~~~~~~~~~~~
 
 - :adi:`ADRV9026 <en/products/adrv9026.html>`
 - :adi:`ADRV9029 <en/products/adrv9029.html>`
@@ -27,12 +28,12 @@ Note that the baseline device, ADRV9025, is used within this Wiki with
 functions/properties that are common to both devices.
 
 Evaluation Boards
------------------
+~~~~~~~~~~~~~~~~~
 
 - :adi:`EVAL-ADRV9026/ADRV9029 <en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/EVAL-ADRV9026.html>`
 
-Overview
---------
+Description
+~~~~~~~~~~~
 
 The :adi:`ADRV9026 <en/products/adrv9026.html>` is a highly integrated, radio
 frequency (RF) agile transceiver offering four independently controlled
@@ -52,33 +53,30 @@ transceiver solution. The device provides the performance demanded by cellular
 infrastructure applications, such as small cell base station radios, macro
 3G/4G/5G systems, and massive multiple in/multiple out (MIMO) base stations.
 
-Applications
-~~~~~~~~~~~~
-
-- Macro base stations
-- Massive MIMO
-- Small cells
-
-Markets and Technologies
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-- Aerospace and Defense
-- Communications
-
-Description
------------
-
 This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
 driver, targeting RF Transceivers. The industrial I/O subsystem provides a
 unified framework for drivers for many different types of converters and sensors
 using a number of different physical interfaces (i2c, spi, etc). See
 :external+system-level:ref:`iio` for more information.
 
+Applications
+^^^^^^^^^^^^
+
+- Macro base stations
+- Massive MIMO
+- Small cells
+
+Markets and Technologies
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Aerospace and Defense
+- Communications
+
 Source Code
------------
+~~~~~~~~~~~
 
 Status
-~~~~~~
+^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -93,7 +91,7 @@ Status
      -
 
 Files
-~~~~~
+^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -114,88 +112,78 @@ Files
      - :git+linux:`main:drivers/iio/adc/adrv902x`
      -
 
-Interrelated Device Drivers
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Adding Linux driver support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- :ref:`jesd204-fsm-framework`
-- :external+hdl:ref:`jesd204`
+Kernel configuration
+^^^^^^^^^^^^^^^^^^^^
 
-Receive AXI-ADC driver
-''''''''''''''''''''''
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``).
 
-.. list-table::
-   :header-rows: 1
+.. note::
 
-   * - Function
-     - File
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
-     -
-   * - include
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
-     -
+   The ADRV9025 driver depends on **CONFIG_SPI**
 
-Transmit AXI-DAC / DDS driver
-'''''''''''''''''''''''''''''
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
 
-.. list-table::
-   :header-rows: 1
+::
 
-   * - Function
-     - File
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
-     -
-   * - include
-     - :git+linux:`drivers/iio/frequency/cf_axi_adc.h <main:drivers/iio/frequency/cf_axi_dds.h>`
-     -
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+           -*-   Enable buffer support within IIO
+           -*-   Enable triggered sampling support
 
-AXI JESD204B HDL driver
-'''''''''''''''''''''''
+                 *** Analog to digital converters ***
+           [--snip--]
 
-.. list-table::
-   :header-rows: 1
+           -*- Analog Devices High-Speed AXI ADC driver core
+           < > Analog Devices AD9361, AD9364 RF Agile Transceiver driver
+           < > Analog Devices AD9371 RF Transceiver driver
+           < > Analog Devices ADRV9009/ADRV9008 RF Transceiver driver
+           <*> Analog Devices ADRV9025/ADRV9026/ADRV9029 RF Transceiver driver
+           < > Analog Devices AD6676 Wideband IF Receiver driver
+           < > Analog Devices AD9467, AD9680, etc. high speed ADCs
+           < > Analog Devices Motor Control (AD-FMCMOTCON) drivers
 
-   * - Function
-     - File
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_rx.c`
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_tx.c`
-     -
+           [--snip--]
 
-AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+       Frequency Synthesizers DDS/PLL  --->
+               Direct Digital Synthesis  --->
+               <*> Analog Devices CoreFPGA AXI DDS driver
+           Clock Generator/Distribution  --->
+               < > Analog Devices AD9508 Clock Fanout Buffer
+               < > Analog Devices AD9523 Low Jitter Clock Generator
+               <*> Analog Devices AD9528 Low Jitter Clock Generator
+               < > Analog Devices AD9548 Network Clock Generator/Synchronizer
+               < > Analog Devices AD9517 12-Output Clock Generator
 
-.. list-table::
-   :header-rows: 1
-
-   * - Function
-     - File
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/jesd204/axi_adxcvr.c`
-     -
+       <*>   JESD204 High-Speed Serial Interface Support  --->
+           --- JESD204 High-Speed Serial Interface Support
+           < >   Altera Arria10 JESD204 PHY Support
+           <*>   Analog Devices AXI ADXCVR PHY Support
+           < >   Generic AXI JESD204B configuration driver
+           <*>   Analog Devices AXI JESD204B TX Support
+           <*>   Analog Devices AXI JESD204B RX Support
 
 Device Driver Customization
----------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Please follow the link here for detailed options and examples:
 
 - :ref:`adrv9025-customization`
 
+Firmware and profiles
+^^^^^^^^^^^^^^^^^^^^^
+
 Processors
 ----------
 
 Stream Processor
-~~~~~~~~~~~~~~~~
+""""""""""""""""
 
 A stream processor is a processor within the transceiver tasked with performing
 a series of configuration tasks based on some event. After a request from the
@@ -257,7 +245,7 @@ standard ``stream_image_6E3E00EFB74FE7D465FA88A171B81B8F.bin`` file.
      -
 
 ARM Processor
-~~~~~~~~~~~~~
+"""""""""""""
 
 The transceiver is equipped with a built in ARM M4 processor. The firmware for
 this ARM processor is loaded during the initialization process. The firmware
@@ -274,7 +262,7 @@ configuration settings or commands (instructions), such as performing the
 initial calibrations or enabling tracking calibrations.
 
 DFE Processor
-~~~~~~~~~~~~~
+"""""""""""""
 
 There is a dual core embedded ARM processor in which the DPD and CLGC algorithms
 reside. One of the dual core ARM processors is a control processor (ARM-C),
@@ -302,7 +290,7 @@ arm-firmware-name = ``ADRV9025_FW.bin;ADRV9025_DPDCORE_FW.bin``;
      -
 
 Gain Tables
-~~~~~~~~~~~
+-----------
 
 The Gain tables for the RX and TX paths must also be loaded during boot/setup
 phase. They are also loaded using the firmware framework.
@@ -320,66 +308,8 @@ phase. They are also loaded using the firmware framework.
      - :git+linux:`main:firmware/ADRV9025_TxAttenTable.csv`
      -
 
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``).
-
-.. note::
-
-   The ADRV9025 driver depends on **CONFIG_SPI**
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-           -*-   Enable ring buffer support within IIO
-           -*-     Industrial I/O lock free software ring
-           -*-   Enable triggered sampling support
-
-                 *** Analog to digital converters ***
-           [--snip--]
-
-           -*- Analog Devices High-Speed AXI ADC driver core
-           < > Analog Devices AD9361, AD9364 RF Agile Transceiver driver
-           < > Analog Devices AD9371 RF Transceiver driver
-           < > Analog Devices ADRV9009/ADRV9008 RF Transceiver driver
-           <*> Analog Devices ADRV9025/ADRV9026/ADRV9029 RF Transceiver driver
-           < > Analog Devices AD6676 Wideband IF Receiver driver
-           < > Analog Devices AD9467, AD9680, etc. high speed ADCs
-           < > Analog Devices Motor Control (AD-FMCMOTCON) drivers
-
-           [--snip--]
-
-       Frequency Synthesizers DDS/PLL  --->
-               Direct Digital Synthesis  --->
-               <*> Analog Devices CoreFPGA AXI DDS driver
-           Clock Generator/Distribution  --->
-               < > Analog Devices AD9508 Clock Fanout Buffer
-               < > Analog Devices AD9523 Low Jitter Clock Generator
-               <*> Analog Devices AD9528 Low Jitter Clock Generator
-               < > Analog Devices AD9548 Network Clock Generator/Synchronizer
-               < > Analog Devices AD9517 12-Output Clock Generator
-
-       <*>   JESD204 High-Speed Serial Interface Support  --->
-           --- JESD204 High-Speed Serial Interface Support
-           < >   Altera Arria10 JESD204 PHY Support
-           <*>   Analog Devices AXI ADXCVR PHY Support
-           < >   Generic AXI JESD204B configuration driver
-           <*>   Analog Devices AXI JESD204B TX Support
-           <*>   Analog Devices AXI JESD204B RX Support
-
-Driver testing / API
---------------------
+Driver testing
+~~~~~~~~~~~~~~
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-device-files
@@ -533,8 +463,8 @@ Driver testing / API
    -r--r--r-- 1 root root 4096 Nov 22 11:04 waiting_for_supplier
    root@analog:/sys/bus/iio/devices/iio:device2#
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -542,7 +472,7 @@ Show device name
    adrv9025-phy
 
 Show device temperature
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -550,7 +480,7 @@ Show device temperature
    66000
 
 Channel Enable/Powerdown Controls
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For use cases where pin control mode is not used or required, these attributes
 can be used to enable/disable the Rx/Tx signal paths while in the ENSM radio_on
@@ -574,27 +504,25 @@ state.
    0
 
 Local Oscillator Control (LO)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The device contains two RF PLLs. Each RF PLL uses the PLL block common to all
 synthesizers in the device and employ a 4 core VCO block which provides a 6dB
 phase noise improvement over the single core VCO. The tuneable range of the RF
-LO is 30-6000 MHz.It is possible to set the LO frequency independently for each
-port.
+LO is 30–6000 MHz. RX and TX paths share the RF synthesizers; device
+configuration determines which synthesizer supplies each path.
 
 .. list-table::
    :header-rows: 1
 
    * - Attribute
-     - Port
-   * - out_altvoltage0_RX1_LO_frequency
-     - RX1
-   * - out_altvoltage1_RX2_LO_frequency
-     - RX2
-   * - out_altvoltage2_TX1_LO_frequency
-     - TX1
-   * - out_altvoltage3_TX2_LO_frequency
-     - TX2
+     - Synthesizer
+   * - ``out_altvoltage0_LO1_frequency``
+     - LO1
+   * - ``out_altvoltage1_LO2_frequency``
+     - LO2
+   * - ``out_altvoltage2_AUX_LO_frequency``
+     - Auxiliary LO
 
 ::
 
@@ -606,19 +534,17 @@ port.
 
 .. important::
 
-   Some care is needed for correctly handle carrier configuration. Note that the
-   driver exposes 4 controls giving the idea that we can, independently, control
-   all 4 ports. That is not true because, as stated above, the device only has 2
-   PLLs. Hence, applications have to be careful. For an example on how this can
-   be handled and for more details, look at this
-   :git+iio-oscilloscope:`commit <commit/6f77f19f055543c780598529ecdf5f3ed078cbfc+>`
-   on the IIO Oscilloscope plugin.
+   These attributes control synthesizers, not four independent RX/TX port
+   oscillators. Carrier configuration must account for the configured LO routing:
+   changing a shared LO affects the paths that use it. For an example of
+   carrier-configuration handling, see this IIO Oscilloscope plugin
+   :git+iio-oscilloscope:`commit <commit/6f77f19f055543c780598529ecdf5f3ed078cbfc+>`.
 
 Signal Path Configuration
-~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 TX Signal Path
-^^^^^^^^^^^^^^
+--------------
 
 The ADRV9026 transmitter section consists of four identical and independently
 controlled channels that provide all the digital processing, mixed-signal, and
@@ -637,7 +563,7 @@ chain provides a wide attenuation adjustment range with fine granularity to help
 designers optimize signal-to-noise ratio (SNR).
 
 Properties
-''''''''''
+""""""""""
 
 The following settings are available for each TX channel: ::
 
@@ -649,7 +575,7 @@ The following settings are available for each TX channel: ::
    -rw-r--r-- 1 root root 4096 Nov 22 12:17 out_voltage0_rf_bandwidth
 
 Primary Signal Bandwidth
-''''''''''''''''''''''''
+""""""""""""""""""""""""
 
 To query TX Primary Signal Bandwidth: ::
 
@@ -657,7 +583,7 @@ To query TX Primary Signal Bandwidth: ::
    450000000
 
 Hardware Gain
-'''''''''''''
+"""""""""""""
 
 To query and modify TX Hardware Gain: ::
 
@@ -668,7 +594,7 @@ To query and modify TX Hardware Gain: ::
    -12.000000 dB
 
 RX Signal Path
-^^^^^^^^^^^^^^
+--------------
 
 The ADRV9026 provides four independent receiver channels. Each channel contains
 all the blocks necessary to receive RF signals and convert these signals to
@@ -698,7 +624,7 @@ output data rate. All receiver outputs are connected to the SERDES block, where
 the data is formatted and serialized for transmission to the baseband processor.
 
 Properties
-''''''''''
+""""""""""
 
 The following settings are available for each RX channel: ::
 
@@ -713,8 +639,11 @@ The following settings are available for each RX channel: ::
    -rw-r--r-- 1 root root 4096 Nov 22 12:17 in_voltage1_rf_bandwidth
    -rw-r--r-- 1 root root 4096 Nov 22 12:17 in_voltage1_rssi
 
+Troubleshooting
+~~~~~~~~~~~~~~~
+
 Advanced Debug Facilities
-~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ADRV9025 driver supports advanced debug controls via the kernel
 `debugfs <https://en.wikipedia.org/wiki/debugfs>`__. These controls are mostly
@@ -722,7 +651,7 @@ to debug which settings are currently configured in the device. How these device
 files/controls can be used is described here.
 
 Runtime Device Driver Customization
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------------
 
 Through these controls, the user can run and configure BIST tests. In order to
 identify if the IIO device in question (adrv9025-phy) you first need to identify
@@ -751,7 +680,7 @@ Change directory to **/sys/kernel/debug**/iio/ iio:deviceX. ::
    root@analog:/sys/kernel/debug/iio/iio:device2#
 
 Build-In Self-Test (BIST)
-^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------
 
 Controlling these attribute files directly take effect and therefore don’t
 require the ``initialize`` sequence. Test functionality exposed here is only
@@ -759,7 +688,7 @@ meant to route or inject test patterns/data than can be used to validate the
 Digital Interface or functionality of the device.
 
 PRBS
-''''
+""""
 
 Pseudorandom Binary Sequence
 (`PRBS <https://en.wikipedia.org/wiki/Pseudorandom_binary_sequence>`__) to
@@ -806,7 +735,7 @@ SYNTAX:
    root@analog:/sys/kernel/debug/iio/iio:device2# echo 8 > bist_framer_0_prbs
 
 BIST Loopback
-'''''''''''''
+"""""""""""""
 
 Allows to digitally loopback framer data into the deframer.
 
@@ -831,14 +760,14 @@ Allows to digitally loopback framer data into the deframer.
    root@analog:/sys/kernel/debug/iio/iio:device2# echo 1 > bist_framer_loopback
 
 BIST Tone
-'''''''''
+"""""""""
 
-User selectable tone (with frequency and gain selection), that can be injected
-into the TX path. All Tx channels are selected.
+Inject a user-selected frequency into the TX path on all Tx channels.
+The tone gain is 0 dB.
 
 SYNTAX:
 
-**bist_tone** *<Enable> <Tone Frequency> <Tone Gain>*
+``bist_tone <Enable> <Tone Frequency in Hz>``
 
 .. list-table::
    :header-rows: 1
@@ -858,27 +787,11 @@ SYNTAX:
    * - Tone Frequency
    * - Signed frequency in Hz of the desired Tx tone
 
-.. list-table::
-   :header-rows: 1
-
-   * - Tone Gain (Optional)
-     -
-   * - Value
-     - Function
-   * - 0
-     - Nco gain -18 dB
-   * - 1
-     - Nco gain -12 dB
-   * - 2
-     - Nco gain -6 dB
-   * - 3
-     - Nco gain 0 dB
-
 **Example**: Inject 0 dB tone at 3 MHz into TX (all channels enabled)
 
-::
+.. code-block:: text
 
-   root@analog:/sys/kernel/debug/iio/iio:device2# echo 1 3000 > bist_tone
+   root@analog:/sys/kernel/debug/iio/iio:device2# echo 1 3000000 > bist_tone
 
 Low level register access via debugfs (direct_reg_access)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -886,3 +799,76 @@ Low level register access via debugfs (direct_reg_access)
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-low-level-register-access-via-debugfs-direct-reg-access
    :end-before: .. end-low-level-register-access-via-debugfs-direct-reg-access
+
+More Information
+~~~~~~~~~~~~~~~~
+
+Interrelated Device Drivers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- :ref:`jesd204-fsm-framework`
+- :external+hdl:ref:`jesd204`
+
+Receive AXI-ADC driver
+----------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
+     -
+   * - include
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
+     -
+
+Transmit AXI-DAC / DDS driver
+-----------------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
+     -
+   * - include
+     - :git+linux:`drivers/iio/frequency/cf_axi_adc.h <main:drivers/iio/frequency/cf_axi_dds.h>`
+     -
+
+AXI JESD204B HDL driver
+-----------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_rx.c`
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_tx.c`
+     -
+
+AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)
+---------------------------------------------------------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/jesd204/axi_adxcvr.c`
+     -

@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-resolver/ad2s1210
 
+
 .. _ad2s1210:
 
 AD2S1210
@@ -18,7 +19,7 @@ Evaluation Boards
 - :adi:`EVAL-AD2S1210SDZ`
 
 Reference Circuits
-------------------
+~~~~~~~~~~~~~~~~~~
 
 - :adi:`CN0192`
 - :adi:`CN0276`
@@ -70,33 +71,211 @@ Files
 Adding Linux driver support
 ---------------------------
 
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
 .. note::
 
-   The Driver depends on **CONFIG_SPI**
+   The driver depends on **CONFIG_SPI** and **CONFIG_COMMON_CLK**, and on
+   **CONFIG_GPIOLIB** (or **CONFIG_COMPILE_TEST**). It selects **CONFIG_REGMAP**
+   and the IIO triggered-buffer support.
 
-::
+.. code-block:: text
 
    Linux Kernel Configuration
        Device Drivers  --->
-           [*] Staging drivers  --->
-               <*>     Industrial I/O support --->
-                   --- Industrial I/O support
-                   -*-   Enable ring buffer support within IIO
-                   -*-     Industrial I/O lock free software ring
-                   -*-   Enable triggered sampling support
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               -*-   Enable buffer support within IIO
+               -*-   Enable triggered sampling support
 
-                         *** Resolver to digital converters ***
-                   [--snip--]
+                     *** Resolver to digital converters ***
+               [--snip--]
 
-                   <*>   Analog Devices AD2S1210 driver
+               <*>   Analog Devices ad2s1210 driver
 
-                   [--snip--]
+               [--snip--]
 
-Driver Usage
-------------
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Add ``dtoverlay=ad2s1210`` to ``/boot/config.txt``.
+
+Overlay:
+`ad2s1210-overlay.dts <https://raw.githubusercontent.com/analogdevicesinc/linux/rpi-6.1.y/arch/arm/boot/dts/overlays/ad2s1210-overlay.dts>`__
+
+Usage With the EVAL-AD2S1210SDZ Evaluation Board
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Interfacing With a Raspberry Pi
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Wiring
+""""""
+
+The Raspberry Pi 3.3 V connection to J704 supplies VDRIVE only. Power the
+evaluation board separately, for example with its supplied 9 V adapter at J702
+and the onboard supply links LK701, LK702 and LK501 in position A. Keep LK703 in
+position B for the external 3.3 V VDRIVE connection shown below. If using
+external supply rails instead of the adapter, follow the AVDD, DVDD and
+excitation-driver supply requirements in UG-709.
+
+.. list-table::
+   :header-rows: 1
+
+   * - AD2S1210 Pin
+     - Eval Board Pin
+     - RPi Header Pin
+     - RPi Function
+     - Notes
+   * - RES0
+     - LK6
+     - 15
+     - GPIO22
+     - There aren’t J4 pins for RES0/1 so have to use jumper pins. It is also
+       possible to hard-wire resolution pins RES0/1, but device tree would need
+       to be changed accordingly.
+   * - RES1
+     - LK7
+     - 16
+     - GPIO23
+     - There aren’t J4 pins for RES0/1 so have to use jumper pins. It is also
+       possible to hard-wire resolution pins RES0/1, but device tree would need
+       to be changed accordingly.
+   * - A0
+     - J4-12
+     - 18
+     - GPIO24
+     -
+   * - A1
+     - J4-11
+     - 22
+     - GPIO25
+     -
+   * - WR/FSYNC
+     - J4-4
+     - 24
+     - SPI0 CE0
+     -
+   * - SAMPLE
+     - J4-1
+     - 12
+     - GPIO18
+     -
+   * - VDRIVE
+     - J704-1
+     - 1
+     - 3.3V
+     -
+   * - DGND
+     - J704-2
+     - 9
+     - GND
+     -
+   * - SCLK
+     - J4-10
+     - 23
+     - SPI0 SCLK
+     -
+   * - SDI
+     - J4-9
+     - 19
+     - SPI0 MOSI
+     -
+   * - SDO
+     - J4-8
+     - 21
+     - SPI0 MISO
+     -
+
+.. list-table::
+   :header-rows: 1
+
+   * - AD2S1210 Pin
+     - Eval Board Pins (Jumpered)
+     - Eval Board Signal
+   * - RD
+     - J4-3, J4-7
+     - VDRIVE
+   * - CS
+     - J4-2, J4-6
+     - DGND
+
+.. list-table::
+   :header-rows: 1
+
+   * - Eval Board Signal
+     - Eval Board Jumper
+     - Position
+     - Notes
+   * - SAMPLE
+     - LK1
+     - B
+     -
+   * - CS
+     - LK2
+     - C
+     -
+   * - RD
+     - LK3
+     - C
+     -
+   * - A0
+     - LK 4
+     - C
+     -
+   * - A1
+     - LK5
+     - C
+     -
+   * - RES0
+     - LK6
+     - C
+     - There aren’t J4 pins for RES0/1 so have to use jumper pins. It is also
+       possible to hard-wire resolution pins RES0/1, but device tree would need
+       to be changed accordingly.
+   * - RES1
+     - LK7
+     - C
+     - There aren’t J4 pins for RES0/1 so have to use jumper pins. It is also
+       possible to hard-wire resolution pins RES0/1, but device tree would need
+       to be changed accordingly.
+   * - SOE
+     - LK9
+     - B
+     -
+   * - VDRIVE
+     - LK703
+     - B
+     -
+
+Sample Images
+"""""""""""""
+
+Eval board connections:
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231206_135017785_hdr.jpg
+   :width: 400px
+
+Raspberry Pi connections:
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231206_135039086.jpg
+   :width: 400px
+
+Zedboard
+^^^^^^^^
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231207_080341.jpg
+   :width: 400px
+
+See :dokuwiki:`ad2s1210_sdz </resources/eval/user-guides/ad2s1210_sdz>` for a
+detailed setup guide
+
+Driver testing
+--------------
 
 To configure the chip, use the attributes according to the device register to
 IIO ABI mapping below:
@@ -378,7 +557,7 @@ create an hrtimer trigger and test it by retrieving samples like this:
 .. important::
 
    using the -t option to specify the trigger with iio_readdev resets the
-   sampling rate of the hrtimer trigger back to 100Hz!
+   sampling rate of the hrtimer trigger back to 100 Hz.
 
 For other apps, we probably want a high sample rate. You can change the rate
 like this:
@@ -395,7 +574,11 @@ See
 `iio_event_monitor <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/tools/iio/iio_event_monitor.c>`__
 for an example of a program designed to read IIO events.
 
-Fault to event mapping:
+Fault to event mapping: Fault events are generated when direct or buffered
+acquisitions read the fault flags. The driver does not register a standalone
+fault IRQ, so running iio_event_monitor alone does not initiate polling.
+Repeated asserted flags are suppressed until a subsequent read observes them
+clear.
 
 .. list-table::
    :header-rows: 1
@@ -455,174 +638,6 @@ Fault to event mapping:
      -
      -
      -
-
-Usage With the EVAL-AD2S1210SDZ Evaluation Board
-------------------------------------------------
-
-Interfacing With a Raspberry Pi
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Wiring
-^^^^^^
-
-.. list-table::
-   :header-rows: 1
-
-   * - AD2S1210 Pin
-     - Eval Board Pin
-     - RPi Header Pin
-     - RPi Function
-     - Notes
-   * - RES0
-     - LK6
-     - 15
-     - GPIO22
-     - There aren’t J4 pins for RES0/1 so have to use jumper pins. It is also
-       possible to hard-wire resolution pins RES0/1, but device tree would need
-       to be changed accordingly.
-   * - RES1
-     - LK7
-     - 16
-     - GPIO23
-     - There aren’t J4 pins for RES0/1 so have to use jumper pins. It is also
-       possible to hard-wire resolution pins RES0/1, but device tree would need
-       to be changed accordingly.
-   * - A0
-     - J4-12
-     - 18
-     - GPIO24
-     -
-   * - A1
-     - J4-11
-     - 22
-     - GPIO25
-     -
-   * - WR/FSYNC
-     - J4-4
-     - 24
-     - SPI0 CE0
-     -
-   * - SAMPLE
-     - J4-1
-     - 12
-     - GPIO18
-     -
-   * - VDRIVE
-     - J704-1
-     - 1
-     - 3.3V
-     -
-   * - DGND
-     - J704-2
-     - 9
-     - GND
-     -
-   * - SCLK
-     - J4-10
-     - 23
-     - SPI0 SCLK
-     -
-   * - SDI
-     - J4-9
-     - 19
-     - SPI0 MOSI
-     -
-   * - SDO
-     - J4-8
-     - 21
-     - SPI0 MISO
-     -
-
-.. list-table::
-   :header-rows: 1
-
-   * - AD2S1210 Pin
-     - Eval Board Pins (Jumpered)
-     - Eval Board Signal
-   * - RD
-     - J4-3, J4-7
-     - VDRIVE
-   * - CS
-     - J4-2, J4-6
-     - DGND
-
-.. list-table::
-   :header-rows: 1
-
-   * - Eval Board Signal
-     - Eval Board Jumper
-     - Position
-     - Notes
-   * - SAMPLE
-     - LK1
-     - B
-     -
-   * - CS
-     - LK2
-     - C
-     -
-   * - RD
-     - LK3
-     - C
-     -
-   * - A0
-     - LK 4
-     - C
-     -
-   * - A1
-     - LK5
-     - C
-     -
-   * - RES0
-     - LK6
-     - C
-     - There aren’t J4 pins for RES0/1 so have to use jumper pins. It is also
-       possible to hard-wire resolution pins RES0/1, but device tree would need
-       to be changed accordingly.
-   * - RES1
-     - LK7
-     - C
-     - There aren’t J4 pins for RES0/1 so have to use jumper pins. It is also
-       possible to hard-wire resolution pins RES0/1, but device tree would need
-       to be changed accordingly.
-   * - SOE
-     - LK9
-     - B
-     -
-   * - VDRIVE
-     - LK703
-     - B
-     -
-
-Device Tree
-^^^^^^^^^^^
-
-Add ``dtoverlay=ad2s1210`` to ``/boot/config.txt``.
-
-Overlay:
-`ad2s1210-overlay.dts <https://raw.githubusercontent.com/analogdevicesinc/linux/rpi-6.1.y/arch/arm/boot/dts/overlays/ad2s1210-overlay.dts>`__
-
-Sample Images
-^^^^^^^^^^^^^
-
-Eval board connections:
-
-.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231206_135017785_hdr.jpg
-   :width: 400px
-
-Raspberry Pi connections:
-
-.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231206_135039086.jpg
-   :width: 400px
-
-Zedboard
-~~~~~~~~
-
-.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-resolver/img_20231207_080341.jpg
-   :width: 400px
-
-See :dokuwiki:`ad2s1210_sdz </resources/eval/user-guides/ad2s1210_sdz>` for a
-detailed setup guide
 
 More Information
 ----------------

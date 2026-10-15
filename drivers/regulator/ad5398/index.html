@@ -106,12 +106,13 @@
 </ul>
 </li>
 <li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
-<li><a class="reference internal" href="#customize-device-parameters">Customize Device Parameters</a><ul>
-<li><a class="reference internal" href="#driver-testing">Driver Testing</a></li>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a><ul>
+<li><a class="reference internal" href="#customize-device-parameters">Customize Device Parameters</a></li>
 </ul>
 </li>
 </ul>
 </li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a></li>
 </ul>
 </li>
 </ul>
@@ -213,6 +214,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -231,7 +233,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -430,6 +431,8 @@ framework in Linux kernel.</p>
 </section>
 <section id="adding-linux-driver-support">
 <h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="admonition note">
@@ -450,7 +453,7 @@ earlier and find supply in AD5398 driver is not available.</p>
 </pre></div>
 </div>
 <section id="customize-device-parameters">
-<h3>Customize Device Parameters<a class="headerlink" href="#customize-device-parameters" title="Link to this heading"></a></h3>
+<h4>Customize Device Parameters<a class="headerlink" href="#customize-device-parameters" title="Link to this heading"></a></h4>
 <p>The platform info defined in bf537-stamp board file is for ad5398 and ad5821
 only. If you want to customize this driver for other compatible current
 regulator DAC, you should revise the platform information accordingly.</p>
@@ -472,8 +475,11 @@ regulator DAC, you should revise the platform information accordingly.</p>
 <p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">ad5398_bulk_data{}</a>
 <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">ad5398_userspace_comsumer_data{}</a>
 <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">ad5398_userspace_consumer_device{}</a></p>
+</section>
+</section>
+</section>
 <section id="driver-testing">
-<h4>Driver Testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h4>
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <p>Check regulator driver initialization information at kernel booting.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">regulator</span><span class="p">:</span> <span class="n">core</span> <span class="n">version</span> <span class="mf">0.5</span>
 <span class="n">i2c</span> <span class="o">/</span><span class="n">dev</span> <span class="n">entries</span> <span class="n">driver</span>
@@ -556,14 +562,12 @@ regulator DAC, you should revise the platform information accordingly.</p>
 <span class="n">enabled</span>
 </pre></div>
 </div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>To control ADC to output a given current, you only need to set the value to
-sysfs entry min_microamps in virtual consumer platform device. The driver
-adjusts the output according to the min current value received.</p>
-</div>
-</section>
-</section>
+<p>Tip</p>
+<p>To request a current from this DAC, configure a nonzero max_microamps and a
+min_microamps no greater than that maximum on the virtual consumer. The DAC
+rounds the minimum upward to a representable code and rejects a code above the
+allowed maximum. With 1024 codes over the nominal 120000 µA span, the highest
+10-bit code reports 119882 µA.</p>
 </section>
 </section>
 

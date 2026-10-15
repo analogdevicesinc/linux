@@ -105,15 +105,25 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-i2c-spi-device-initialization">Example I2C &amp; SPI device initialization</a></li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a><ul>
 <li><a class="reference internal" href="#clock-device-files">CLOCK device files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#more-information">More Information</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a><ul>
 <li><a class="reference internal" href="#clock-pointers">CLOCK pointers</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -215,6 +225,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -233,7 +244,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -453,8 +463,27 @@ implementation by using regmap.</p>
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>). .. note:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">The</span> <span class="n">AD9545</span> <span class="n">SPI</span> <span class="n">driver</span> <span class="n">depends</span> <span class="o">**</span><span class="n">CONFIG_SPI</span><span class="o">**</span> <span class="ow">and</span> <span class="n">the</span> <span class="n">AD9545</span> <span class="n">I2C</span> <span class="n">driver</span> <span class="n">depends</span> <span class="n">on</span> <span class="o">**</span><span class="n">CONFIG_I2C</span><span class="o">**.</span>
+</pre></div>
+</div>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span> <span class="o">&gt;</span> <span class="n">Search</span> <span class="p">(</span><span class="n">COMMON_CLK</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">Clock</span> <span class="n">Drivers</span>
+
+    <span class="o">-*-</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9545</span> <span class="n">via</span> <span class="n">I2C</span>
+    <span class="o">-*-</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9545</span> <span class="n">via</span> <span class="n">SPI</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-i2c-spi-device-initialization">
-<h2>Example I2C &amp; SPI device initialization<a class="headerlink" href="#example-i2c-spi-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example I2C &amp; SPI device initialization<a class="headerlink" href="#example-i2c-spi-device-initialization" title="Link to this heading"></a></h4>
 <p>The AD9545 supports both I2C and SPI interfaces, so one of the drivers can be
 used depending on which kind of device is instantiated. Currently, the devices
 can only be instantiated via device tree.</p>
@@ -465,9 +494,17 @@ can only be instantiated via device tree.</p>
 <li><p>adi,ad9545</p></li>
 </ul>
 </li>
-<li><p><strong>reg</strong>: Must be either the I2C device address or the SPI device chip select
-number.</p></li>
+<li><p><strong>reg</strong>: The I2C device address or SPI chip-select number.</p></li>
+<li><p><strong>adi,ref-frequency-hz</strong>: Required frequency in Hz of the system-clock
+reference connected to XOA/XOB. Probe fails if this property is missing.</p></li>
+<li><p><strong>#clock-cells</strong>: Use 2 when providing clocks to consumers; the cells identify
+clock type and address.</p></li>
 </ul>
+<p>The snippets below illustrate bus placement and assume the 52 MHz crystal
+used in the binding example. Replace this frequency and <code class="docutils literal notranslate"><span class="pre">adi,ref-crystal</span></code>
+with the actual XOA/XOB source description. These are not complete board clock
+plans: also add the reference, PLL/profile and output child nodes required by
+the design, following the binding example.</p>
 <p>Example SPI:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="n">spi0</span> <span class="p">{</span>
         <span class="c1">#address-cells = &lt;1&gt;;</span>
@@ -477,6 +514,9 @@ number.</p></li>
                 <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad9545"</span><span class="p">;</span>
                 <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
                 <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">100000</span><span class="o">&gt;</span><span class="p">;</span>
+                <span class="n">adi</span><span class="p">,</span><span class="n">ref</span><span class="o">-</span><span class="n">crystal</span><span class="p">;</span>
+                <span class="n">adi</span><span class="p">,</span><span class="n">ref</span><span class="o">-</span><span class="n">frequency</span><span class="o">-</span><span class="n">hz</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">52000000</span><span class="o">&gt;</span><span class="p">;</span>
+                <span class="c1">#clock-cells = &lt;2&gt;;</span>
         <span class="p">};</span>
 <span class="p">};</span>
 </pre></div>
@@ -489,6 +529,9 @@ number.</p></li>
         <span class="n">ad9545_i2c</span><span class="p">:</span> <span class="n">ad9545</span><span class="o">@</span><span class="mi">4</span><span class="n">a</span> <span class="p">{</span>
                 <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad9545"</span><span class="p">;</span>
                 <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x4a</span><span class="o">&gt;</span><span class="p">;</span>
+                <span class="n">adi</span><span class="p">,</span><span class="n">ref</span><span class="o">-</span><span class="n">crystal</span><span class="p">;</span>
+                <span class="n">adi</span><span class="p">,</span><span class="n">ref</span><span class="o">-</span><span class="n">frequency</span><span class="o">-</span><span class="n">hz</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">52000000</span><span class="o">&gt;</span><span class="p">;</span>
+                <span class="c1">#clock-cells = &lt;2&gt;;</span>
         <span class="p">};</span>
 <span class="p">};</span>
 </pre></div>
@@ -496,29 +539,20 @@ number.</p></li>
 <p>For more supported devicetree properties take a look to
 <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/Documentation/devicetree/bindings/clock/clk-ad9545.yaml" target="_blank">dt-bindings</a>.</p>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>). .. note:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">The</span> <span class="n">AD9545</span> <span class="n">SPI</span> <span class="n">driver</span> <span class="n">depends</span> <span class="o">**</span><span class="n">CONFIG_SPI</span><span class="o">**</span> <span class="ow">and</span> <span class="n">the</span> <span class="n">AD9545</span> <span class="n">I2C</span> <span class="n">driver</span> <span class="n">depends</span> <span class="n">on</span> <span class="o">**</span><span class="n">CONFIG_I2C</span><span class="o">**.</span>
-</pre></div>
-</div>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span> <span class="o">&gt;</span> <span class="n">Search</span> <span class="p">(</span><span class="n">COMMON_CLK</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">Clock</span> <span class="n">Drivers</span>
-
-    <span class="o">-*-</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9545</span> <span class="n">via</span> <span class="n">I2C</span>
-    <span class="o">-*-</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9545</span> <span class="n">via</span> <span class="n">SPI</span>
-</pre></div>
-</div>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <section id="clock-device-files">
-<h3>CLOCK device files<a class="headerlink" href="#clock-device-files" title="Link to this heading"></a></h3>
-<p>Common Clock Framework provides debugfs files for each clock registered:</p>
+<h4>CLOCK device files<a class="headerlink" href="#clock-device-files" title="Link to this heading"></a></h4>
+<p>With CONFIG_DEBUG_FS enabled and debugfs mounted, the Common Clock Framework
+provides debug files for registered clocks. The transcript below is from one
+configured system: only enabled reference/PLL/output/NCO/TDC nodes are
+registered by this driver, and unrelated clocks in the listing belong to other
+devices. Clock names, parent relationships and rates depend on the board
+configuration.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">clk</span><span class="c1"># ls</span>
 <span class="mi">108</span><span class="n">MHz</span><span class="o">-</span><span class="n">clock</span>    <span class="n">HMC</span><span class="o">-</span><span class="n">REF_CLKIN2</span>  <span class="n">HMC7044_OUT12</span>  <span class="n">HMC7044_OUT6</span>  <span class="n">Ref</span><span class="o">-</span><span class="n">A</span>  <span class="n">aux_spi2</span>  <span class="n">clk_orphan_dump</span>     <span class="n">dsi0p</span>   <span class="n">fw</span><span class="o">-</span><span class="n">clk</span><span class="o">-</span><span class="n">core</span>  <span class="n">h264</span>  <span class="n">pcm</span>     <span class="n">pllc</span>        <span class="n">plld_core</span>  <span class="n">slim</span>   <span class="n">vec</span>
 <span class="n">AUX_DPLL</span>    <span class="n">HMC</span><span class="o">-</span><span class="n">REF_CLKIN3</span>  <span class="n">HMC7044_OUT13</span>  <span class="n">HMC7044_OUT7</span>  <span class="n">Ref</span><span class="o">-</span><span class="n">A</span><span class="o">-</span><span class="n">Div</span>  <span class="n">aux_uart</span>  <span class="n">clk_orphan_summary</span>  <span class="n">dsi1e</span>   <span class="n">fw</span><span class="o">-</span><span class="n">clk</span><span class="o">-</span><span class="n">m2mc</span>  <span class="n">hsm</span>   <span class="n">peri_image</span>  <span class="n">pllc_core0</span>  <span class="n">plld_dsi0</span>  <span class="n">smi</span>    <span class="n">vpu</span>
@@ -626,11 +660,11 @@ such as rate, phase, parent etc. :</p>
 </div>
 </section>
 </section>
+</section>
 <section id="more-information">
 <h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
-</section>
 <section id="clock-pointers">
-<h2>CLOCK pointers<a class="headerlink" href="#clock-pointers" title="Link to this heading"></a></h2>
+<h3>CLOCK pointers<a class="headerlink" href="#clock-pointers" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p>CLOCK mailing list: <a class="reference external" href="mailto:linux-clk&#37;&#52;&#48;vger&#46;kernel&#46;org">linux-clk<span>&#64;</span>vger<span>&#46;</span>kernel<span>&#46;</span>org</a></p></li>
 <li><p><a class="icon link reference external" href="https://www.kernel.org/doc/Documentation/clk.txt" target="_blank">CLOCK Linux Kernel Documentation</a></p></li>
@@ -639,6 +673,7 @@ such as rate, phase, parent etc. :</p>
 <ul class="simple">
 <li><p><a class="icon ez reference external" href="https://ez.analog.com/linux-software-drivers" target="_blank">Analog Devices Linux Device Drivers Help Forum</a></p></li>
 </ul>
+</section>
 </section>
 </section>
 

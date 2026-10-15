@@ -97,9 +97,9 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">AD4630</a><ul>
-<li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+<li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a><ul>
@@ -109,20 +109,20 @@
 <li><a class="reference internal" href="#adc-node">ADC node</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#usage">Usage</a><ul>
+</ul>
+</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
 <li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#operating-mode">Operating Mode</a></li>
+<li><a class="reference internal" href="#power-management">Power management</a></li>
 <li><a class="reference internal" href="#sampling-frequency">Sampling frequency</a></li>
 <li><a class="reference internal" href="#sample-average-mode">Sample average mode</a></li>
 <li><a class="reference internal" href="#channel-hardware-gain">Channel hardware gain</a></li>
 <li><a class="reference internal" href="#channel-offset">Channel offset</a></li>
 <li><a class="reference internal" href="#data-acquisition">Data acquisition</a></li>
 <li><a class="reference internal" href="#debug-mode">Debug mode</a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -227,6 +227,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -245,7 +246,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -387,26 +387,6 @@ Linux Driver.</p>
 <p>A mainlined alternative driver is available at <a class="reference internal" href="../ad4030/#ad4030"><span class="std std-ref">AD4030/AD4630/ADAQ4216/ADAQ4224</span></a>. This page documents
 the out-of-tree driver (ad4630.c).</p>
 </div>
-<section id="description">
-<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
-<p>The AD4630-24 is a two-channel, low-noise, 2 MSPS successive approximation
-register (SAR) analog-to-digital converter (ADC). The AD4030-24 is the single
-channel version. Both have a guaranteed maximum ±0.9 ppm INL and no missing
-codes at 24-bits, and achieve unparalleled precision from −40°C to +125°C. The
-AD4630-16 is a 16-bit, two-channel version.</p>
-<p>Operating from 5V and 1.8 V supplies, the AD4630-24, AD4630-16 and AD4030-24 has
-a ±(65/64 ·V<sub>REF</sub>) differential input range with V<sub>REF</sub> ranging
-from 4.096V to 5V. The input common mode is not restricted – each polarity input
-may be anywhere from - 1/128 ·V<sub>REF</sub> to 129/128 ·V<sub>REF</sub>,
-simplifying analog signal conditioning requirements and system calibration. A
-low drift, precision reference buffer makes it easy to share a voltage reference
-with other circuitry.</p>
-<p>The versatile Flexi-SPI serial interface is simple to use. A wide data window,
-multiple SDO lanes, and optional DDR data can reduce the serial clock to 10 MHz
-at 2 MSPS. Echo-clock and ADC clock-master modes relax the timing requirements
-and simplify the use of digital isolators. The parts are compatible with 1.2V to
-1.8V logic, using the separate VIO supply.</p>
-</section>
 <section id="supported-devices">
 <h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -441,6 +421,26 @@ and simplify the use of digital isolators. The parts are compatible with 1.2V to
 </tbody>
 </table>
 </div>
+</section>
+<section id="description">
+<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
+<p>The AD4630-24 is a two-channel, low-noise, 2 MSPS successive approximation
+register (SAR) analog-to-digital converter (ADC). The AD4030-24 is the single
+channel version. Both have a guaranteed maximum ±0.9 ppm INL and no missing
+codes at 24-bits, and achieve unparalleled precision from −40°C to +125°C. The
+AD4630-16 is a 16-bit, two-channel version.</p>
+<p>Operating from 5V and 1.8 V supplies, the AD4630-24, AD4630-16 and AD4030-24 has
+a ±(65/64 ·V<sub>REF</sub>) differential input range with V<sub>REF</sub> ranging
+from 4.096V to 5V. The input common mode is not restricted – each polarity input
+may be anywhere from - 1/128 ·V<sub>REF</sub> to 129/128 ·V<sub>REF</sub>,
+simplifying analog signal conditioning requirements and system calibration. A
+low drift, precision reference buffer makes it easy to share a voltage reference
+with other circuitry.</p>
+<p>The versatile Flexi-SPI serial interface is simple to use. A wide data window,
+multiple SDO lanes, and optional DDR data can reduce the serial clock to 10 MHz
+at 2 MSPS. Echo-clock and ADC clock-master modes relax the timing requirements
+and simplify the use of digital isolators. The parts are compatible with 1.2V to
+1.8V logic, using the separate VIO supply.</p>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -573,34 +573,42 @@ Output is 32-bit test data pattern</p></td>
 <p>The <code class="docutils literal notranslate"><span class="pre">spi-max-frequency</span></code> must be a multiple of a 40MHz clock and the
 <code class="docutils literal notranslate"><span class="pre">dmas</span></code> handle should use a 64-bit wide data bus.</p>
 </div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="n">spi</span><span class="p">{</span>
-    <span class="n">ad463x</span><span class="p">:</span> <span class="n">ad463x</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad463x"</span><span class="p">;</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">vref</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">vref</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">80000000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">lane</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="s2">"four-lanes-per-ch"</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">clock</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="s2">"echo-clock"</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">data</span><span class="o">-</span><span class="n">rate</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="s2">"dual"</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">out</span><span class="o">-</span><span class="n">data</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="s2">"24diff-8com"</span><span class="p">;</span>
-        <span class="n">reset</span><span class="o">-</span><span class="n">gpios</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio0</span> <span class="mi">86</span> <span class="n">GPIO_ACTIVE_LOW</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">cnv_ext_clk</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"trigger_clock"</span><span class="p">;</span>
-        <span class="n">dmas</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">rx_dma</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">dma</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"rx"</span><span class="p">;</span>
-        <span class="n">pwm</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"spi_trigger"</span><span class="p">,</span> <span class="s2">"cnv"</span><span class="p">;</span>
-        <span class="n">pwms</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_pwm_gen</span> <span class="mi">0</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span>
-               <span class="o">&lt;&amp;</span><span class="n">axi_pwm_gen</span> <span class="mi">1</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="p">};</span>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="nf">spi</span><span class="p">{</span>
+<span class="w">    </span><span class="nl">ad463x</span><span class="p">:</span><span class="w"> </span><span class="nf">ad463x</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,ad4630-24"</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">vref-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">vref</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">80000000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">lane-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">clock-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">dual-data-rate</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">out-data-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">reset-gpios</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">gpio0</span><span class="w"> </span><span class="mi">86</span><span class="w"> </span><span class="na">GPIO_ACTIVE_LOW</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">cnv_ext_clk</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"trigger_clock"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">dmas</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">rx_dma</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">dma-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"rx"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">pwm-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"spi_trigger"</span><span class="p">,</span><span class="w"> </span><span class="s">"cnv"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">pwms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">axi_pwm_gen</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">               </span><span class="o">&lt;&amp;</span><span class="na">axi_pwm_gen</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
 <span class="p">};</span>
 </pre></div>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">adi,lane-mode</span></code> is 0 for one lane per channel, 1 for two, 2 for four, or 3
+for interleaved lanes on SDO0. <code class="docutils literal notranslate"><span class="pre">adi,clock-mode</span></code> is 0 for SPI-compatible
+clocking, 1 for echo-clock, or 2 for host clock mode. <code class="docutils literal notranslate"><span class="pre">adi,out-data-mode</span></code> is
+0 for native (16/20/24-bit depending on part) differential data, 1 for 16-bit
+differential plus 8-bit common mode, 2 for 24-bit differential plus 8-bit
+common mode, or 3 for 30-bit averaged differential data; which values are
+valid depends on the specific part.</p>
 </section>
 </section>
-<section id="usage">
-<h3>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h3>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
 <section id="kernel-configuration">
-<h4>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h4>
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>This device depends on a PWM based trigger used to start the sampling procedure.
 The first step is to enable the support for AXI_PWMGEN.</p>
 <p>&lt;blockquote&gt;</p>
@@ -649,98 +657,32 @@ of SPI timing requirements that are supported by the SPI_ENGINE IP.</p>
 </div>
 <p>&lt;/blockquote&gt;</p>
 </section>
+</section>
 <section id="driver-testing">
-<h4>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h4>
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <p>This device can be found under <em>/sys/bus/iio/devices/</em></p>
-<p>One way to check if the device and driver are present is using <strong>iio_info</strong>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="c1"># iio_info</span>
-    <span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="p">:</span> <span class="n">ad4630</span><span class="o">-</span><span class="mi">24</span> <span class="p">(</span><span class="n">buffer</span> <span class="n">capable</span><span class="p">)</span>
-        <span class="mi">2</span> <span class="n">channels</span> <span class="n">found</span><span class="p">:</span>
-            <span class="n">voltage0</span><span class="p">:</span> <span class="n">differential_0</span> <span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="n">le</span><span class="p">:</span><span class="n">s30</span><span class="o">/</span><span class="mi">32</span><span class="o">&gt;&gt;</span><span class="mi">0</span><span class="p">)</span>
-            <span class="mi">2</span> <span class="n">channel</span><span class="o">-</span><span class="n">specific</span> <span class="n">attributes</span> <span class="n">found</span><span class="p">:</span>
-                <span class="n">attr</span>  <span class="mi">0</span><span class="p">:</span> <span class="n">hardwaregain</span> <span class="n">value</span><span class="p">:</span> <span class="mf">1.000000</span>
-                <span class="n">attr</span>  <span class="mi">1</span><span class="p">:</span> <span class="n">offset</span> <span class="n">value</span><span class="p">:</span> <span class="mi">0</span>
-            <span class="n">voltage1</span><span class="p">:</span> <span class="n">differential_1</span> <span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="n">le</span><span class="p">:</span><span class="n">s30</span><span class="o">/</span><span class="mi">32</span><span class="o">&gt;&gt;</span><span class="mi">0</span><span class="p">)</span>
-            <span class="mi">2</span> <span class="n">channel</span><span class="o">-</span><span class="n">specific</span> <span class="n">attributes</span> <span class="n">found</span><span class="p">:</span>
-                <span class="n">attr</span>  <span class="mi">0</span><span class="p">:</span> <span class="n">hardwaregain</span> <span class="n">value</span><span class="p">:</span> <span class="mf">1.000000</span>
-                <span class="n">attr</span>  <span class="mi">1</span><span class="p">:</span> <span class="n">offset</span> <span class="n">value</span><span class="p">:</span> <span class="mi">0</span>
-        <span class="mi">6</span> <span class="n">device</span><span class="o">-</span><span class="n">specific</span> <span class="n">attributes</span> <span class="n">found</span><span class="p">:</span>
-                <span class="n">attr</span>  <span class="mi">0</span><span class="p">:</span> <span class="n">operating_mode</span> <span class="n">value</span><span class="p">:</span> <span class="n">normal_operating_mode</span>
-                <span class="n">attr</span>  <span class="mi">1</span><span class="p">:</span> <span class="n">operating_mode_available</span> <span class="n">value</span><span class="p">:</span> <span class="n">normal_operating_mode</span> <span class="n">low_power_mode</span>
-                <span class="n">attr</span>  <span class="mi">2</span><span class="p">:</span> <span class="n">sample_averaging</span> <span class="n">value</span><span class="p">:</span> <span class="mi">64</span>
-                <span class="n">attr</span>  <span class="mi">3</span><span class="p">:</span> <span class="n">sample_averaging_available</span> <span class="n">value</span><span class="p">:</span> <span class="n">OFF</span> <span class="mi">2</span> <span class="mi">4</span> <span class="mi">8</span> <span class="mi">16</span> <span class="mi">32</span> <span class="mi">64</span> <span class="mi">128</span> <span class="mi">256</span> <span class="mi">512</span> <span class="mi">1024</span> <span class="mi">2048</span> <span class="mi">4096</span> <span class="mi">8192</span> <span class="mi">16384</span> <span class="mi">32768</span> <span class="mi">65536</span>
-                <span class="n">attr</span>  <span class="mi">4</span><span class="p">:</span> <span class="n">sampling_frequency</span> <span class="n">value</span><span class="p">:</span> <span class="mi">1000000</span>
-                <span class="n">attr</span>  <span class="mi">5</span><span class="p">:</span> <span class="n">sampling_frequency_available</span> <span class="n">value</span><span class="p">:</span> <span class="mi">10000</span> <span class="mi">50000</span> <span class="mi">100000</span> <span class="mi">200000</span> <span class="mi">500000</span> <span class="mi">1000000</span> <span class="mi">1750000</span> <span class="mi">2000000</span>
-        <span class="mi">3</span> <span class="n">buffer</span><span class="o">-</span><span class="n">specific</span> <span class="n">attributes</span> <span class="n">found</span><span class="p">:</span>
-                <span class="n">attr</span>  <span class="mi">0</span><span class="p">:</span> <span class="n">data_available</span> <span class="n">value</span><span class="p">:</span> <span class="mi">0</span>
-                <span class="n">attr</span>  <span class="mi">1</span><span class="p">:</span> <span class="n">length_align_bytes</span> <span class="n">value</span><span class="p">:</span> <span class="mi">8</span>
-                <span class="n">attr</span>  <span class="mi">2</span><span class="p">:</span> <span class="n">watermark</span> <span class="n">value</span><span class="p">:</span> <span class="mi">2048</span>
-        <span class="n">No</span> <span class="n">trigger</span> <span class="n">on</span> <span class="n">this</span> <span class="n">device</span>
-</pre></div>
-</div>
+<p>Each channel is a plain indexed voltage channel (not a differential pair in
+the IIO sense), with its own <code class="docutils literal notranslate"><span class="pre">calibbias</span></code> and <code class="docutils literal notranslate"><span class="pre">calibscale</span></code> attributes.
+<code class="docutils literal notranslate"><span class="pre">in_voltage_scale</span></code> and <code class="docutils literal notranslate"><span class="pre">sampling_frequency</span></code> are shared by all channels. In
+the 30-bit averaged output mode (<code class="docutils literal notranslate"><span class="pre">adi,out-data-mode</span> <span class="pre">=</span> <span class="pre">&lt;3&gt;</span></code>), channels also
+expose <code class="docutils literal notranslate"><span class="pre">in_voltage_oversampling_ratio</span></code> and
+<code class="docutils literal notranslate"><span class="pre">in_voltage_oversampling_ratio_available</span></code>.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">iio_info</span></code> to list the channels and attributes of the device.</p>
 <p>You can go to the device folder using:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="c1"># cd $(grep -rw /sys/bus/iio/devices//name -e "ad4630-24" -l | xargs dirname)</span>
 </pre></div>
 </div>
-<div class="admonition important">
-<p class="admonition-title">Important</p>
-<p>As specified in the devicetree section, the device supports multiple
-out-data-modes.</p>
-<p>This example describes the steps for the 30-bit averaged differential output
-mode.</p>
-</div>
-<p>In the folder there are several files that can set specific device attributes:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># ls -l</span>
-<span class="n">total</span> <span class="mi">0</span>
-<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">buffer</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">dev</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">in_voltage0_differential0_hardwaregain</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">in_voltage0_differential0_offset</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">in_voltage1_differential1_hardwaregain</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">in_voltage1_differential1_offset</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">name</span>
-<span class="n">lrwxrwxrwx</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">of_node</span> <span class="o">-&gt;</span> <span class="o">../../../../../../../../</span><span class="n">firmware</span><span class="o">/</span><span class="n">devicetree</span><span class="o">/</span><span class="n">base</span><span class="o">/</span><span class="n">fpga</span><span class="o">-</span><span class="n">axi</span><span class="o">@</span><span class="mi">0</span><span class="o">/</span><span class="n">spi</span><span class="o">@</span><span class="mi">44</span><span class="n">a00000</span><span class="o">/</span><span class="n">ad4630</span><span class="o">-</span><span class="mi">24</span><span class="o">@</span><span class="mi">0</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">operating_mode</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">operating_mode_available</span>
-<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">power</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">sample_averaging</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">sample_averaging_available</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">sampling_frequency</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">sampling_frequency_available</span>
-<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">scan_elements</span>
-<span class="n">lrwxrwxrwx</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">subsystem</span> <span class="o">-&gt;</span> <span class="o">../../../../../../../../</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Dec</span> <span class="mi">13</span> <span class="mi">08</span><span class="p">:</span><span class="mi">54</span> <span class="n">uevent</span>
-</pre></div>
-</div>
-<section id="operating-mode">
-<h5>Operating Mode<a class="headerlink" href="#operating-mode" title="Link to this heading"></a></h5>
-<p>The device an operate in normal and low power mode. This attribute displays the
-following possible values:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat operating_mode_available</span>
-<span class="n">normal_operating_mode</span> <span class="n">low_power_mode</span>
-</pre></div>
-</div>
-<p>Display current operating mode:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat operating_mode</span>
-<span class="n">normal_operating_mode</span>
-</pre></div>
-</div>
-<p>Change operating mode:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo low_power_mode &gt; operating_mode</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat operating_mode</span>
-<span class="n">low_power_mode</span>
-</pre></div>
-</div>
+<section id="power-management">
+<h3>Power management<a class="headerlink" href="#power-management" title="Link to this heading"></a></h3>
+<p>The driver uses runtime power management; power transitions are handled by
+its runtime suspend and resume callbacks.</p>
 </section>
 <section id="sampling-frequency">
-<h5>Sampling frequency<a class="headerlink" href="#sampling-frequency" title="Link to this heading"></a></h5>
-<p>The ad4630 device driver supports a variable sampling rate, that can be
-configured up to 2MSPS.</p>
-<p>Display all available sampling rates:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat sampling_frequency_available</span>
-<span class="mi">10000</span> <span class="mi">50000</span> <span class="mi">100000</span> <span class="mi">200000</span> <span class="mi">500000</span> <span class="mi">1000000</span> <span class="mi">1750000</span> <span class="mi">2000000</span>
-</pre></div>
-</div>
+<h3>Sampling frequency<a class="headerlink" href="#sampling-frequency" title="Link to this heading"></a></h3>
+<p>The AD4630 driver supports a variable sampling rate, up to 2 MSPS depending on
+the part and output data mode. <code class="docutils literal notranslate"><span class="pre">sampling_frequency</span></code> accepts any positive
+integer rate up to the device maximum and programs the CNV PWM accordingly;
+there is no <code class="docutils literal notranslate"><span class="pre">sampling_frequency_available</span></code> attribute.</p>
 <p>See current sampling rate:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat sampling_frequency</span>
 <span class="mi">1000000</span>
@@ -754,97 +696,97 @@ configured up to 2MSPS.</p>
 </div>
 </section>
 <section id="sample-average-mode">
-<h5>Sample average mode<a class="headerlink" href="#sample-average-mode" title="Link to this heading"></a></h5>
-<p>The ad4630 device family has support for a sample averaging mode that’s
-configurable as a power of 2, up to a maximum of 2<sup>16</sup>.</p>
-<div class="admonition important">
-<p class="admonition-title">Important</p>
-<p>The average mode works only with the output data mode set to 30-bit average</p>
-</div>
-<p>Display all available number(in samples) of averaging operations on the buffer:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat sample_averaging_available</span>
-<span class="n">OFF</span> <span class="mi">2</span> <span class="mi">4</span> <span class="mi">8</span> <span class="mi">16</span> <span class="mi">32</span> <span class="mi">64</span> <span class="mi">128</span> <span class="mi">256</span> <span class="mi">512</span> <span class="mi">1024</span> <span class="mi">2048</span> <span class="mi">4096</span> <span class="mi">8192</span> <span class="mi">16384</span> <span class="mi">32768</span> <span class="mi">65536</span>
+<h3>Sample average mode<a class="headerlink" href="#sample-average-mode" title="Link to this heading"></a></h3>
+<p>The AD4630 family supports averaging samples in powers of 2, up to 65536,
+when the output data mode is 30-bit averaged (<code class="docutils literal notranslate"><span class="pre">adi,out-data-mode</span> <span class="pre">=</span> <span class="pre">&lt;3&gt;</span></code>).
+This is controlled through <code class="docutils literal notranslate"><span class="pre">in_voltage_oversampling_ratio</span></code> and
+<code class="docutils literal notranslate"><span class="pre">in_voltage_oversampling_ratio_available</span></code>; after probe the driver sets an
+averaging count of 2 as its default. Increasing the averaging count lengthens
+the internal fetch period relative to the conversion trigger, so buffer read
+timeouts may need to be increased accordingly.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat in_voltage_oversampling_ratio_available</span>
+<span class="mi">1</span> <span class="mi">2</span> <span class="mi">4</span> <span class="mi">8</span> <span class="mi">16</span> <span class="mi">32</span> <span class="mi">64</span> <span class="mi">128</span> <span class="mi">256</span> <span class="mi">512</span> <span class="mi">1024</span> <span class="mi">2048</span> <span class="mi">4096</span> <span class="mi">8192</span> <span class="mi">16384</span> <span class="mi">32768</span> <span class="mi">65536</span>
 </pre></div>
 </div>
-<p>Display current sample averaging count:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat sample_averaging</span>
-<span class="mi">64</span>
+<p>Display current averaging count:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat in_voltage_oversampling_ratio</span>
+<span class="mi">2</span>
 </pre></div>
 </div>
-<p>Change the sample averaging count:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 2048 &gt; sample_averaging</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat sample_averaging</span>
+<p>Change the averaging count:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 2048 &gt; in_voltage_oversampling_ratio</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat in_voltage_oversampling_ratio</span>
 <span class="mi">2048</span>
 </pre></div>
 </div>
-<div class="admonition important">
-<p class="admonition-title">Important</p>
-<p>Please note that averaging on low sampling rates will timeout if the default
-buffer wait time is not modified</p>
-</div>
 </section>
 <section id="channel-hardware-gain">
-<h5>Channel hardware gain<a class="headerlink" href="#channel-hardware-gain" title="Link to this heading"></a></h5>
-<p>The hardware gain can be changed for each channel with a value from 0.0001 to
-1.99997. This gain is applied to each sample value. Each ADC channel has an
-independent hardware gain attribute.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># ls | grep hardwaregain</span>
-<span class="n">in_voltage0_differential0_hardwaregain</span>
-<span class="n">in_voltage1_differential1_hardwaregain</span>
+<h3>Channel hardware gain<a class="headerlink" href="#channel-hardware-gain" title="Link to this heading"></a></h3>
+<p>Each channel has an independent <code class="docutils literal notranslate"><span class="pre">calibscale</span></code> attribute for gain correction,
+accepting values from 0 up to 1.99997 in steps of 1/32768. This gain
+correction is separate from <code class="docutils literal notranslate"><span class="pre">in_voltage_scale</span></code>, which converts raw codes to
+a voltage.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># ls | grep calibscale</span>
+<span class="n">in_voltage0_calibscale</span>
+<span class="n">in_voltage1_calibscale</span>
 </pre></div>
 </div>
 <p>Read the gain for channel 0:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat in_voltage0_differential0_hardwaregain</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat in_voltage0_calibscale</span>
 <span class="mf">1.000000</span>
 </pre></div>
 </div>
 <p>Set the gain for channel 1:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 0.25 &gt; in_voltage1_differential1_hardwaregain</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat in_voltage1_differential1_hardwaregain</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 0.25 &gt; in_voltage1_calibscale</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat in_voltage1_calibscale</span>
 <span class="mf">0.250000</span>
 </pre></div>
 </div>
 </section>
 <section id="channel-offset">
-<h5>Channel offset<a class="headerlink" href="#channel-offset" title="Link to this heading"></a></h5>
-<p>The offset can be changed for each channel with a value from -2<sup>23</sup>-1 to
-+2<sup>23</sup>-1.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># ls | grep offset</span>
-<span class="n">in_voltage0_differential_0_offset</span>
-<span class="n">in_voltage1_differential_1_offset</span>
+<h3>Channel offset<a class="headerlink" href="#channel-offset" title="Link to this heading"></a></h3>
+<p>Each channel has an independent <code class="docutils literal notranslate"><span class="pre">calibbias</span></code> attribute. For a 24-bit part the
+accepted range is -2<sup>23</sup> to 2<sup>23</sup>-1; 16-bit and 20-bit parts use
+the corresponding signed range for their bit width. Calibration writes require
+the device to be in direct (non-buffered) mode.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># ls | grep calibbias</span>
+<span class="n">in_voltage0_calibbias</span>
+<span class="n">in_voltage1_calibbias</span>
 </pre></div>
 </div>
 <p>Read the offset for channel 0:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat in_voltage0_differential0_offset</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat in_voltage0_calibbias</span>
 <span class="mi">0</span>
 </pre></div>
 </div>
 <p>Set the offset for channel 1:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 256 &gt; in_voltage1_differential1_offset</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat in_voltage1_differential1_offset</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 256 &gt; in_voltage1_calibbias</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat in_voltage1_calibbias</span>
 <span class="mi">256</span>
 </pre></div>
 </div>
 </section>
 <section id="data-acquisition">
-<h5>Data acquisition<a class="headerlink" href="#data-acquisition" title="Link to this heading"></a></h5>
+<h3>Data acquisition<a class="headerlink" href="#data-acquisition" title="Link to this heading"></a></h3>
 <p>The data acquisition is performed using a buffer system:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/</span><span class="c1"># ls buffer</span>
 <span class="n">data_available</span>  <span class="n">enable</span>  <span class="n">length</span>  <span class="n">length_align_bytes</span>  <span class="n">watermark</span>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># ls scan_elements/</span>
-<span class="n">in_voltage0_differential0_en</span>      <span class="n">in_voltage0_differential0_type</span>  <span class="n">in_voltage1_differential1_index</span>
-<span class="n">in_voltage0_differential0_index</span>  <span class="n">in_voltage1_differential1_en</span>    <span class="n">in_voltage1_differential1_type</span>
+<span class="n">in_voltage0_en</span>      <span class="n">in_voltage0_type</span>  <span class="n">in_voltage1_index</span>
+<span class="n">in_voltage0_index</span>   <span class="n">in_voltage1_en</span>    <span class="n">in_voltage1_type</span>
 </pre></div>
 </div>
 <p>Every buffer implementation features a set of files:</p>
 <p>buffer: length Get/set the number of sample sets that may be held by the buffer.</p>
 <p>buffer: enable Enables/disables the buffer. This file should be written last,
 after length and selection of scan elements</p>
-<p>scan_elements: in_voltageX_differentialX_en Enable/disables the channel output
-so the data won’t be buffered for that specific channel.</p>
-<p>Enable and read 400 samples from both channels:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 1 &gt; scan_elements/in_voltage0_differential0_en</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 1 &gt; scan_elements/in_voltage1_differential1_en</span>
+<p>scan_elements: in_voltageX_en Enable/disables the channel output so the data
+won’t be buffered for that specific channel.</p>
+<p>Each scan is 32 bits per enabled channel. With both channels enabled, 400
+scans require 3200 bytes; the <code class="docutils literal notranslate"><span class="pre">hexdump</span> <span class="pre">-n</span> <span class="pre">400</span></code> below therefore only reads
+the first 50 scans.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 1 &gt; scan_elements/in_voltage0_en</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 1 &gt; scan_elements/in_voltage1_en</span>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 400 &gt; buffer/length</span>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 1 &gt; buffer/enable</span>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># hexdump -n 400 /dev/iio\:device0</span>
@@ -879,7 +821,7 @@ so the data won’t be buffered for that specific channel.</p>
 </div>
 </section>
 <section id="debug-mode">
-<h5>Debug mode<a class="headerlink" href="#debug-mode" title="Link to this heading"></a></h5>
+<h3>Debug mode<a class="headerlink" href="#debug-mode" title="Link to this heading"></a></h3>
 <p>You can write and read the ADC registers using debugfs. Here we will read and
 write the scratchpad register:</p>
 <p>First go to the device debug folder:</p>
@@ -898,8 +840,6 @@ write the scratchpad register:</p>
 <span class="mh">0x5F</span>
 </pre></div>
 </div>
-</section>
-</section>
 </section>
 </section>
 <section id="more-information">

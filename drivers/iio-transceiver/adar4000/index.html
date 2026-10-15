@@ -105,24 +105,29 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-linux-device-tree-initialization">Example Linux Device-Tree Initialization</a></li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#driver-testing-api">Driver testing / API</a><ul>
-<li><a class="reference internal" href="#channel-attributes">Channel attributes</a><ul>
-<li><a class="reference internal" href="#device-attributes">Device attributes</a><ul>
-<li><a class="reference internal" href="#beam-components">Beam components</a></li>
-<li><a class="reference internal" href="#show-device-name">Show device name</a></li>
-<li><a class="reference internal" href="#read-write-register">Read/Write Register</a></li>
-<li><a class="reference internal" href="#beamstate-mode">Beamstate Mode</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#channel-attributes">Channel attributes</a><ul>
 <li><a class="reference internal" href="#direct-mode">Direct Mode</a><ul>
 <li><a class="reference internal" href="#writing-beamstate-in-direct-mode">Writing beamstate in direct mode:</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#ram">RAM</a></li>
 <li><a class="reference internal" href="#fifo">FIFO</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#attribute-reference">Attribute reference</a><ul>
+<li><a class="reference internal" href="#beam-components">Beam components</a></li>
+<li><a class="reference internal" href="#read-write-register">Read/Write Register</a></li>
+<li><a class="reference internal" href="#beamstate-mode">Beamstate Mode</a></li>
 </ul>
 </li>
 </ul>
@@ -229,6 +234,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -247,7 +253,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -386,10 +391,10 @@ Content on this topic
 <p>The ADAR4000 and ADAR4001 are wideband beamformer ICs operating from 2 GHz to 18
 GHz, designed for transmit and receive phased array applications, respectively.
 Both feature a true time delay core for beam-squint free operation, with
-configurable delays up to 508 ps and fine resolution down to 2 ps. Each path
-includes a 31.5 dB digital step attenuator with 0.5 dB steps. They support SPI
-control for up to 16 devices and include on-chip RAM and FIFO for storing and
-sequencing beamstates.</p>
+configurable delays of 0 to 254 ps in 2 ps steps, or 0 to 508 ps in 4 ps steps.
+Each path includes a 31.5 dB digital step attenuator with 0.5 dB steps. They
+support SPI control for up to 16 devices and include on-chip RAM and FIFO for
+storing and sequencing beamstates.</p>
 <section id="supported-devices">
 <h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -452,8 +457,38 @@ using a number of different physical interfaces (i2c, spi, etc). See
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ADAR4000 driver depends on <strong>CONFIG_SPI</strong></p>
+</div>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
+        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
+
+              <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+
+        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADAR4000</span> <span class="ow">and</span> <span class="n">ADR4001</span> <span class="n">Beamformer</span> <span class="n">driver</span>
+
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-linux-device-tree-initialization">
-<h2>Example Linux Device-Tree Initialization<a class="headerlink" href="#example-linux-device-tree-initialization" title="Link to this heading"></a></h2>
+<h4>Example Linux Device-Tree Initialization<a class="headerlink" href="#example-linux-device-tree-initialization" title="Link to this heading"></a></h4>
 <p>The ADAR4000 driver is a spi-bus driver and can currently only be instantiated
 via device tree.</p>
 <p>Required devicetree properties:</p>
@@ -480,38 +515,10 @@ via device tree.</p>
 </table>
 </div>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The ADAR4000 driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-        <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
-
-              <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-
-        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADAR4000</span> <span class="ow">and</span> <span class="n">ADR4001</span> <span class="n">Beamformer</span> <span class="n">driver</span>
-
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-</pre></div>
-</div>
 </section>
-<section id="driver-testing-api">
-<h2>Driver testing / API<a class="headerlink" href="#driver-testing-api" title="Link to this heading"></a></h2>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <div class="admonition important">
 <p class="admonition-title">Important</p>
 <p>SPI writes and reads for certain attributes are delayed because of how the
@@ -617,6 +624,13 @@ the numbering is constant and may be known in advance.</p>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1">#</span>
 </pre></div>
 </div>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
+<span class="n">adar4000</span>
+</pre></div>
+</div>
+</section>
 <section id="channel-attributes">
 <h3>Channel attributes<a class="headerlink" href="#channel-attributes" title="Link to this heading"></a></h3>
 <ul class="simple">
@@ -625,84 +639,6 @@ the numbering is constant and may be known in advance.</p>
 <li><p>delay = raw * scale</p></li>
 <li><p>gain = raw * scale</p></li>
 </ul>
-<section id="device-attributes">
-<h4>Device attributes<a class="headerlink" href="#device-attributes" title="Link to this heading"></a></h4>
-<ul class="simple">
-<li><p>active_device – Select device for multiple connected devices</p></li>
-<li><p>beam0_fifo_rd - FIFO read pointer</p></li>
-<li><p>beam0_fifo_wr - FIFO write pointer</p></li>
-<li><p>beam0_mode - Beam operation mode</p></li>
-<li><p>beam0_mode_available - Possible values: direct memory fifo instant_direct
-reset mute</p></li>
-<li><p>beam0_ram_index - Starting position in memory for saving beamstates</p></li>
-<li><p>beam0_ram_start - Start beamstate in memory. Default: 0</p></li>
-<li><p>beam0_ram_stop - Stop beamstate in memory. Default: 63</p></li>
-<li><p>beam0_update - Update beamstate</p></li>
-<li><p>beamstate_ram – Beamstate data for RAM mode, can be in table format or echo
-command</p></li>
-<li><p>beamstate_fifo – Beamstate data for FIFO mode</p></li>
-<li><p>amp_bias_mute_ELxA</p></li>
-<li><p>amp_bias_operational_ELxA</p></li>
-<li><p>amp_bias_operational_ELxA</p></li>
-<li><p>amp_bias_reset_ELxA</p></li>
-<li><p>amp_bias_sleep_ELxA</p></li>
-<li><p>amp_bias_sleep_ELxA</p></li>
-<li><p>amp_en_mute_ELx</p></li>
-<li><p>amp_en_operational_ELx</p></li>
-<li><p>amp_en_operational_ELx</p></li>
-<li><p>amp_en_reset_ELx</p></li>
-<li><p>amp_en_sleep_ELx</p></li>
-<li><p>amp_en_sleep_ELx</p></li>
-</ul>
-<section id="beam-components">
-<h5>Beam components<a class="headerlink" href="#beam-components" title="Link to this heading"></a></h5>
-<ul class="simple">
-<li><p>Beam0: power0, phase0, power1, phase1, power2, phase2, power3, phase3</p></li>
-</ul>
-</section>
-<section id="show-device-name">
-<h5>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h5>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
-<span class="n">adar4000</span>
-</pre></div>
-</div>
-</section>
-<section id="read-write-register">
-<h5>Read/Write Register<a class="headerlink" href="#read-write-register" title="Link to this heading"></a></h5>
-<p>Read scratchpad:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># iio_reg adar4000 0x0a</span>
-<span class="mh">0x0</span>
-</pre></div>
-</div>
-<p>Write scratchpad:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># iio_reg adar4000 0x0a 0x12</span>
-</pre></div>
-</div>
-</section>
-<section id="beamstate-mode">
-<h5>Beamstate Mode<a class="headerlink" href="#beamstate-mode" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong></p>
-<ul class="simple">
-<li><p>beam0_mode - Specifies the mode corresponding to where the values are saved.
-The device can be configured into one of the following modes:</p></li>
-<li><p>Direct: Data will be saved into registers corresponding to the <code class="docutils literal notranslate"><span class="pre">direct</span></code>
-mode.</p></li>
-<li><p>RAM: Data will be saved into RAM, allowing for temporary storage and faster
-access.</p></li>
-<li><p>FIFO: Data will be saved into a First-In-First-Out queue, ensuring that the
-first data entered is the first to be processed.</p></li>
-<li><p>Reset: The device will reset, clearing any stored data, and returning to its
-initial state.</p></li>
-<li><p>Mute: The device will enter a mute state, where no data is processed or saved.</p></li>
-</ul>
-<p>When configuring beam0_mode to mute or reset this will set the commanded beam to
-a user predefined beamstate and bias setting for the amplifiers.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat beam0_mode_available</span>
-<span class="n">direct</span> <span class="n">ram</span> <span class="n">fifo</span> <span class="n">instant_direct</span> <span class="n">mute</span> <span class="n">reset</span>
-</pre></div>
-</div>
-</section>
-</section>
 <section id="direct-mode">
 <h4>Direct Mode<a class="headerlink" href="#direct-mode" title="Link to this heading"></a></h4>
 <p>Write:</p>
@@ -818,7 +754,9 @@ beamstate data into the VAPs.</p>
 </pre></div>
 </div>
 <p>Alternatively, beamstate data can be applied directly using echo command. Example:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 0, 1, 32, 28 &gt; beamstate_ram</span>
+<p>Write one complete four-element beamstate in a single sysfs write. Elements must
+be ordered 0, 1, 2, 3; writing only element 1 does not commit a beamstate.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>printf '0, 0, 12, 23\n0, 1, 32, 28\n0, 2, 34, 7\n0, 3, 29, 18\n' &gt; beamstate_ram
 </pre></div>
 </div>
 </section>
@@ -833,6 +771,78 @@ beamstate data into the VAPs.</p>
 <p>Write 1 to beam0_update to dequeue the next beamstate in the FIFO and load it
 into the VAPs.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 1 &gt; beam0_update</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="attribute-reference">
+<h3>Attribute reference<a class="headerlink" href="#attribute-reference" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>active_device – Select device for multiple connected devices</p></li>
+<li><p>beam0_fifo_rd - FIFO read pointer</p></li>
+<li><p>beam0_fifo_wr - FIFO write pointer</p></li>
+<li><p>beam0_mode - Beam operation mode</p></li>
+<li><p>beam0_mode_available - Possible values: direct ram fifo instant_direct mute
+reset</p></li>
+<li><p>beam0_ram_index - Starting position in memory for saving beamstates</p></li>
+<li><p>beam0_ram_start - Start beamstate in memory. Default: 0</p></li>
+<li><p>beam0_ram_stop - Stop beamstate in memory. Default: 63</p></li>
+<li><p>beam0_update - Update beamstate</p></li>
+<li><p>beamstate_ram – Beamstate data for RAM mode, can be in table format or echo
+command</p></li>
+<li><p>beamstate_fifo – Beamstate data for FIFO mode</p></li>
+<li><p>amp_bias_mute_ELxA</p></li>
+<li><p>amp_bias_operational_ELxA</p></li>
+<li><p>amp_bias_operational_ELxA</p></li>
+<li><p>amp_bias_reset_ELxA</p></li>
+<li><p>amp_bias_sleep_ELxA</p></li>
+<li><p>amp_bias_sleep_ELxA</p></li>
+<li><p>amp_en_mute_ELx</p></li>
+<li><p>amp_en_operational_ELx</p></li>
+<li><p>amp_en_operational_ELx</p></li>
+<li><p>amp_en_reset_ELx</p></li>
+<li><p>amp_en_sleep_ELx</p></li>
+<li><p>amp_en_sleep_ELx</p></li>
+</ul>
+<section id="beam-components">
+<h4>Beam components<a class="headerlink" href="#beam-components" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p>Beam0: power0, phase0, power1, phase1, power2, phase2, power3, phase3</p></li>
+</ul>
+</section>
+<section id="read-write-register">
+<h4>Read/Write Register<a class="headerlink" href="#read-write-register" title="Link to this heading"></a></h4>
+<p>Read scratchpad:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># iio_reg adar4000 0x0a</span>
+<span class="mh">0x0</span>
+</pre></div>
+</div>
+<p>Write scratchpad:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># iio_reg adar4000 0x0a 0x12</span>
+</pre></div>
+</div>
+</section>
+<section id="beamstate-mode">
+<h4>Beamstate Mode<a class="headerlink" href="#beamstate-mode" title="Link to this heading"></a></h4>
+<p><strong>Description:</strong></p>
+<ul class="simple">
+<li><p>beam0_mode - Specifies the mode corresponding to where the values are saved.
+The device can be configured into one of the following modes:</p></li>
+<li><p>Direct: Data will be saved into registers corresponding to the <code class="docutils literal notranslate"><span class="pre">direct</span></code>
+mode.</p></li>
+<li><p>RAM: Data will be saved into RAM, allowing for temporary storage and faster
+access.</p></li>
+<li><p>FIFO: Data will be saved into a First-In-First-Out queue, ensuring that the
+first data entered is the first to be processed.</p></li>
+<li><p>Reset: Select the predefined reset beamstate and amplifier-bias settings.
+This beam mode is not a device software reset and does not clear all RAM.</p></li>
+<li><p>Mute: The device will enter a mute state, where no data is processed or
+saved.</p></li>
+</ul>
+<p>When configuring beam0_mode to mute or reset this will set the commanded beam to
+a user predefined beamstate and bias setting for the amplifiers.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat beam0_mode_available</span>
+<span class="n">direct</span> <span class="n">ram</span> <span class="n">fifo</span> <span class="n">instant_direct</span> <span class="n">mute</span> <span class="n">reset</span>
 </pre></div>
 </div>
 </section>

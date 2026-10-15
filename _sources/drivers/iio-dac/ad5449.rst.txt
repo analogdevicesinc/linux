@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ad5449
 
+
 .. _ad5449:
 
 AD5449
@@ -18,12 +19,6 @@ Supported Devices
 - :adi:`AD5443`
 - :adi:`AD5449`
 
-Reference Circuits
-------------------
-
-- :adi:`CN0143`
-- :adi:`CN0151`
-
 Evaluation Boards
 -----------------
 
@@ -32,11 +27,17 @@ Evaluation Boards
 - :adi:`EVAL-AD5443SDZ <EVAL-AD5443>`
 - :adi:`EVAL-AD5449SDZ <EVAL-AD5449>`
 
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0143`
+- :adi:`CN0151`
+
 Description
 -----------
 
 This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
-driver, targeting single channel serial interface DACs. The industrial I/O
+driver, targeting single- and dual-channel serial-interface DACs. The industrial I/O
 subsystem provides a unified framework for drivers for many different types of
 converters and sensors using a number of different physical interfaces (i2c,
 spi, etc). See :external+system-level:ref:`iio` for more information.
@@ -72,20 +73,53 @@ Files
    * - include
      - `include/linux/platform_data/ad5449.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/platform_data/ad5449.h>`__
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD5449 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       ...
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+           ...
+           Digital to analog converters  --->
+               ...
+               <*>  Analog Devices AD5449 and similar DACs drive
+               ...
+           ...
+       ...
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Specifying reference voltage via the regulator framework
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 Below example specifies a 2.5 Volt reference for the SPI device 3 on SPI-Bus 0.
 (**spi0.3**)
 
-.. code:: c
+.. code-block:: c
 
    #if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)
    static struct regulator_consumer_supply ad5449_consumer_supplies[] = {
-       REGULATOR_SUPPLY("vcc", "spi0.3"),
+       REGULATOR_SUPPLY("VREFA", "spi0.3"),
+   REGULATOR_SUPPLY("VREFB", "spi0.3"),
+   /* Single-channel models instead request "VREF". */
    };
 
    static struct regulator_init_data stamp_avdd_reg_init_data = {
@@ -175,31 +209,6 @@ maximum spi clock supported by the device in question.
    }
    arch_initcall(board_init);
 
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AD5449 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-       ...
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-           ...
-           Digital to analog converters  --->
-               ...
-               <*>  Analog Devices AD5449 and similar DACs drive
-               ...
-           ...
-       ...
-
 Driver testing
 --------------
 
@@ -231,27 +240,36 @@ Driver testing
    For DACs with only one output channel there will be no out_voltage1_raw and
    out_voltage1_scale files
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat name
    ad5449
 
+Basic operation
+~~~~~~~~~~~~~~~
+
 Show scale
 ^^^^^^^^^^
 
-**Description:** scale to be applied to out_voltage0_raw in order to obtain the
-measured voltage in millivolts.
+**Description:** scale for converting the programmed DAC code to its
+reference-based nominal value. For the current-output multiplying DACs in this
+family, the actual output voltage and polarity also depend on the external
+current-to-voltage amplifier and feedback configuration. Verify the board
+transfer function before interpreting raw × scale as a measured output voltage.
 
-::
+.. code-block:: text
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage_scale
-   0.152
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage0_scale
+   0.610351562
+
+For AD5449 with a 2.5 V reference, 1234 codes correspond to about 753.174 mV.
+Use ``out_voltage0_scale`` in the following equation.
 
 Set channel 0
-'''''''''''''
+~~~~~~~~~~~~~
 
 **Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw
 

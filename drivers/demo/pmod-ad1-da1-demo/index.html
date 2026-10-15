@@ -97,16 +97,25 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">PmodAD1 - PmodDA1</a><ul>
-<li><a class="reference internal" href="#introduction">Introduction</a></li>
-<li><a class="reference internal" href="#quick-start-guide">Quick Start Guide</a><ul>
+<li><a class="reference internal" href="#purpose">Purpose</a></li>
+<li><a class="reference internal" href="#prerequisites">Prerequisites</a><ul>
 <li><a class="reference internal" href="#required-hardware">Required Hardware</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#configuration-and-sequence">Configuration and sequence</a><ul>
+<li><a class="reference internal" href="#quick-start-guide">Quick Start Guide</a><ul>
 <li><a class="reference internal" href="#prepare-the-sd-card">Prepare the SD Card</a></li>
 <li><a class="reference internal" href="#hardware-setup">Hardware Setup</a></li>
 <li><a class="reference internal" href="#software-setup">Software Setup</a></li>
 <li><a class="reference internal" href="#launching-the-application">Launching the application</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li><a class="reference internal" href="#references">References</a><ul>
 <li><a class="reference internal" href="#iio-oscilloscope-users-guide">IIO Oscilloscope Users Guide</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -208,6 +217,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -226,7 +236,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -362,13 +371,13 @@ Content on this topic
   <section id="pmodad1-pmodda1">
 <span id="pmod-ad1-da1-demo"></span><h1>PmodAD1 - PmodDA1<a class="headerlink" href="#pmodad1-pmodda1" title="Link to this heading"></a></h1>
 <p>PmodAD1IIO Oscilloscope Demo.</p>
-<section id="introduction">
-<h2>Introduction<a class="headerlink" href="#introduction" title="Link to this heading"></a></h2>
+<section id="purpose">
+<h2>Purpose<a class="headerlink" href="#purpose" title="Link to this heading"></a></h2>
 <p>The ADI IIO Oscilloscope is a example application, which demonstrates how to
 interface to the ADI evaluation boards from within a Linux system.</p>
 </section>
-<section id="quick-start-guide">
-<h2>Quick Start Guide<a class="headerlink" href="#quick-start-guide" title="Link to this heading"></a></h2>
+<section id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h2>
 <section id="required-hardware">
 <h3>Required Hardware<a class="headerlink" href="#required-hardware" title="Link to this heading"></a></h3>
 <ul class="simple">
@@ -377,13 +386,18 @@ interface to the ADI evaluation boards from within a Linux system.</p>
 <li><p><a class="icon link reference external" href="https://digilent.com/reference/pmod/pmodda1/start" target="_blank">PmodDA1</a></p></li>
 </ul>
 </section>
+</section>
+<section id="configuration-and-sequence">
+<h2>Configuration and sequence<a class="headerlink" href="#configuration-and-sequence" title="Link to this heading"></a></h2>
+<section id="quick-start-guide">
+<h3>Quick Start Guide<a class="headerlink" href="#quick-start-guide" title="Link to this heading"></a></h3>
 <section id="prepare-the-sd-card">
-<h3>Prepare the SD Card<a class="headerlink" href="#prepare-the-sd-card" title="Link to this heading"></a></h3>
+<h4>Prepare the SD Card<a class="headerlink" href="#prepare-the-sd-card" title="Link to this heading"></a></h4>
 <p>Please use the image/description from
 <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/zynq_images" target="_blank">Create SD Image for Zynq Boards</a>.</p>
 </section>
 <section id="hardware-setup">
-<h3>Hardware Setup<a class="headerlink" href="#hardware-setup" title="Link to this heading"></a></h3>
+<h4>Hardware Setup<a class="headerlink" href="#hardware-setup" title="Link to this heading"></a></h4>
 <ul class="simple">
 <li><p>The PmodAD1 has to be connected to the PMOD JA1 connector (upper row - see the
 image below).</p></li>
@@ -402,10 +416,10 @@ below).</p></li>
 </ul>
 </section>
 <section id="software-setup">
-<h3>Software Setup<a class="headerlink" href="#software-setup" title="Link to this heading"></a></h3>
+<h4>Software Setup<a class="headerlink" href="#software-setup" title="Link to this heading"></a></h4>
 </section>
 <section id="launching-the-application">
-<h3>Launching the application<a class="headerlink" href="#launching-the-application" title="Link to this heading"></a></h3>
+<h4>Launching the application<a class="headerlink" href="#launching-the-application" title="Link to this heading"></a></h4>
 <p>To start the IIO Oscilloscope open up the start menu of your system search for
 <code class="docutils literal notranslate"><span class="pre">IIO</span> <span class="pre">Oscilloscope</span></code>. E.g. if you are using a Ubuntu Linux system move your
 mouse cursor to the left side of your screen and <code class="docutils literal notranslate"><span class="pre">Dash</span> <span class="pre">home</span></code> button and type
@@ -416,8 +430,11 @@ mouse cursor to the left side of your screen and <code class="docutils literal n
 </figure>
 </section>
 </section>
+</section>
+<section id="references">
+<h2>References<a class="headerlink" href="#references" title="Link to this heading"></a></h2>
 <section id="iio-oscilloscope-users-guide">
-<h2>IIO Oscilloscope Users Guide<a class="headerlink" href="#iio-oscilloscope-users-guide" title="Link to this heading"></a></h2>
+<h3>IIO Oscilloscope Users Guide<a class="headerlink" href="#iio-oscilloscope-users-guide" title="Link to this heading"></a></h3>
 <p>Open the <strong>Settings</strong> menu and select <strong>Impulse generator</strong> submenu. A popup
 window will appear and allow you to select an impulse generator (a high
 resolution timer) and its frequency. The conversions for both the ADC and the
@@ -444,6 +461,7 @@ sampling by clicking the same button again.</p>
 <a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/demo/adc_panel.png"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/demo/adc_panel.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/demo/adc_panel.png" style="width: 500px;" />
 </a>
 </figure>
+</section>
 </section>
 </section>
 

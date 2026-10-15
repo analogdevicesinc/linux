@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/mux/adgs1408
 
+
 .. _adgs1408:
 
 ADGS1408
@@ -21,10 +22,11 @@ Evaluation Boards
 Description
 -----------
 
-This is a mux controller subsystem driver, with an interface for accessing mux
-controllers. This is done in such a way that several consumers can independently
-access the same mux controller if one controller controls several multiplexers,
-thus allowing sharing.
+The driver registers one mux controller. ADGS1408 provides eight states and
+ADGS1409 provides four states; the two ADGS1409 paths share the same selection.
+Consumers coordinate access through the mux framework. Optional idle-state
+selects the idle state; by default the mux retains its last selection, after
+being disabled at probe.
 
 Source Code
 -----------
@@ -38,8 +40,8 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git+linux:`git <rpi-4.14.y:drivers/mux/adgs140x.c>`
-     - [No]
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/mux/adgs1408.c>`__
+     - Yes
      -
 
 Files
@@ -52,11 +54,42 @@ Files
      - File
      -
    * - driver
-     - :git+linux:`rpi-4.14.y:drivers/mux/adgs140x.c`
+     - `drivers/mux/adgs1408.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/mux/adgs1408.c>`__
      -
 
-Devicetree
-~~~~~~~~~~
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   If the multiplexer is used to select a signal that is fed to an IIO device,
+   then you must enable IIO multiplexer driver
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           ...
+           <*>     Industrial I/O support --->
+               ...
+               Multiplexers --->
+                   <*> IIO multiplexer driver
+               ...
+           --- Industrial I/O support
+           Multiplexer drivers --->
+               ...
+               <*> Analog Devices ADGS1408/ADGS1409 Multiplexers
+               ...
+           ...
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Required devicetree properties:
 
@@ -116,37 +149,6 @@ the selected channels is represented by :
 
 in this case voltage0 from ad7298 is the channels multiplexed in IIO.
 
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   If the multiplexer is used to select a signal that is fed to an IIO device,
-   then you must enable IIO multiplexer driver
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           ...
-           <*>     Industrial I/O support --->
-               ...
-               Multiplexers --->
-                   <*> IIO multiplexer driver
-               ...
-           --- Industrial I/O support
-           Multiplexer drivers --->
-               ...
-               <*> Analog Devices ADGS1408/ADGS1409 Multiplexers
-               ...
-           ...
-
-Hardware configuration
-----------------------
-
 Driver testing
 --------------
 
@@ -184,13 +186,16 @@ folder in /sys/bus/iio/devices/iio:deviceX with the name adc-mux@3.
    lrwxrwxrwx 1 root root    0 Jul 17 13:21 subsystem -> ../../../../bus/iio
    -rw-r--r-- 1 root root 4096 Jul 17 13:21 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root@raspberrypi:/sys/bus/iio/devices/iio:device1# cat name
    adc-mux@3
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Get Voltage on channel Y
 ^^^^^^^^^^^^^^^^^^^^^^^^

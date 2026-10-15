@@ -105,20 +105,25 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-scale">Show scale</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-scale">Show scale</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#show-axis-x-measurement">Show axis x measurement</a></li>
 <li><a class="reference internal" href="#set-sampling-frequency">Set sampling frequency</a></li>
 <li><a class="reference internal" href="#show-available-bandwidths-for-the-current-set-frequency">Show available bandwidths for the current set frequency</a></li>
-<li><a class="reference internal" href="#change-the-bandwidth">Change the bandwidth</a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#change-the-high-pass-cutoff">Change the high-pass cutoff</a></li>
 <li><a class="reference internal" href="#trigger-management">Trigger management</a></li>
 <li><a class="reference internal" href="#buffer-management">Buffer management</a></li>
-</ul>
-</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -223,6 +228,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -241,7 +247,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -453,8 +458,12 @@ and sensors using a number of different physical interfaces (i2c, spi, etc). See
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>Required devicetree properties:</p>
 <ul class="simple">
 <li><p>compatible: Needs to be the name of the device. E.g. <code class="docutils literal notranslate"><span class="pre">adi,adxl355</span></code></p></li>
@@ -501,6 +510,8 @@ and sensors using a number of different physical interfaces (i2c, spi, etc). See
 </pre></div>
 </div>
 </section>
+</section>
+</section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cd</span> <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span>
@@ -535,12 +546,15 @@ and sensors using a number of different physical interfaces (i2c, spi, etc). See
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>  <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">11</span> <span class="mi">15</span><span class="p">:</span><span class="mi">44</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">adxl355</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-scale">
 <h4>Show scale<a class="headerlink" href="#show-scale" title="Link to this heading"></a></h4>
 <p><strong>Description:</strong> scale to be applied to in_accel_*_raw in order to obtain the
@@ -549,8 +563,10 @@ acceleration.</p>
 <span class="mf">0.000038245</span>
 </pre></div>
 </div>
+</section>
+</section>
 <section id="show-axis-x-measurement">
-<h5>Show axis x measurement<a class="headerlink" href="#show-axis-x-measurement" title="Link to this heading"></a></h5>
+<h3>Show axis x measurement<a class="headerlink" href="#show-axis-x-measurement" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> Raw unscaled acceleration measurement on x axis</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_accel_x_raw</span>
 <span class="o">-</span><span class="mi">33631</span>
@@ -558,48 +574,47 @@ acceleration.</p>
 </div>
 </section>
 <section id="set-sampling-frequency">
-<h5>Set sampling frequency<a class="headerlink" href="#set-sampling-frequency" title="Link to this heading"></a></h5>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_accel_sampling_frequency_available</span>
-<span class="mf">4000.000000</span> <span class="mf">2000.000000</span> <span class="mf">1000.000000</span> <span class="mf">500.000000</span> <span class="mf">250.000000</span> <span class="mf">125.000000</span> <span class="mf">62.500000</span> <span class="mf">31.250000</span> <span class="mf">15.625000</span> <span class="mf">7.813000</span> <span class="mf">3.906000</span>
+<h3>Set sampling frequency<a class="headerlink" href="#set-sampling-frequency" title="Link to this heading"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/bus/iio/devices/iio:device0&gt; cat in_accel_sampling_frequency_available
+4000.000000 2000.000000 1000.000000 500.000000 250.000000 125.000000 62.500000 31.250000 15.625000 7.813000 3.906000
 
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_accel_sampling_frequency</span>
-<span class="mi">6400</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">4000</span> <span class="o">&gt;</span> <span class="n">in_accel_sampling_frequency</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_accel_sampling_frequency</span>
-<span class="mf">4000.000000</span>
+root:/sys/bus/iio/devices/iio:device0&gt; cat in_accel_sampling_frequency
+4000.000000
+root:/sys/bus/iio/devices/iio:device0&gt; echo 4000 &gt; in_accel_sampling_frequency
+root:/sys/bus/iio/devices/iio:device0&gt; cat in_accel_sampling_frequency
+4000.000000
 </pre></div>
 </div>
 </section>
 <section id="show-available-bandwidths-for-the-current-set-frequency">
-<h5>Show available bandwidths for the current set frequency<a class="headerlink" href="#show-available-bandwidths-for-the-current-set-frequency" title="Link to this heading"></a></h5>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_accel_filter_low_pass_3db_frequency_available</span>
-<span class="mf">0.000000</span> <span class="mf">9.880000</span> <span class="mf">2.483360</span> <span class="mf">0.621800</span> <span class="mf">0.154480</span> <span class="mf">0.038160</span> <span class="mf">0.009520</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span>
+<h3>Show available bandwidths for the current set frequency<a class="headerlink" href="#show-available-bandwidths-for-the-current-set-frequency" title="Link to this heading"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/bus/iio/devices/iio:device0&gt; cat in_accel_filter_high_pass_3db_frequency_available
+0.000000 9.880000 2.483360 0.621800 0.154480 0.038160 0.009520
+root:/sys/bus/iio/devices/iio:device0&gt;
 </pre></div>
 </div>
 </section>
-<section id="change-the-bandwidth">
-<h5>Change the bandwidth<a class="headerlink" href="#change-the-bandwidth" title="Link to this heading"></a></h5>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_accel_filter_low_pass_3db_frequency_available</span>
-<span class="mf">0.000000</span> <span class="mf">9.880000</span> <span class="mf">2.483360</span> <span class="mf">0.621800</span> <span class="mf">0.154480</span> <span class="mf">0.038160</span> <span class="mf">0.009520</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_accel_filter_low_pass_3db_frequency</span>
-<span class="mi">0</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mf">0.621800</span> <span class="o">&gt;</span> <span class="n">in_accel_filter_low_pass_3db_frequency</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_accel_filter_low_pass_3db_frequency</span>
-<span class="mf">0.621800</span>
+<section id="change-the-high-pass-cutoff">
+<h3>Change the high-pass cutoff<a class="headerlink" href="#change-the-high-pass-cutoff" title="Link to this heading"></a></h3>
+<p>The driver exposes a high-pass filter attribute; there is no low-pass filter
+attribute. Available cutoff values depend on the sampling frequency.</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>in_accel_filter_high_pass_3db_frequency_available
+cat<span class="w"> </span>in_accel_filter_high_pass_3db_frequency
+<span class="nb">echo</span><span class="w"> </span><span class="m">0</span>.621800<span class="w"> </span>&gt;<span class="w"> </span>in_accel_filter_high_pass_3db_frequency
+cat<span class="w"> </span>in_accel_filter_high_pass_3db_frequency
 </pre></div>
 </div>
-</section>
 </section>
 <section id="trigger-management">
-<h4>Trigger management<a class="headerlink" href="#trigger-management" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">trigger</span><span class="o">/</span><span class="n">current_trigger</span>
-<span class="n">adxl355</span><span class="o">-</span><span class="n">dev</span><span class="o">-</span>
+<h3>Trigger management<a class="headerlink" href="#trigger-management" title="Link to this heading"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/bus/iio/devices/iio:device0&gt; cat trigger/current_trigger
+adxl355-dev0
 </pre></div>
 </div>
+<p>The suffix is the IIO device number; discover it on the running system.</p>
 </section>
 <section id="buffer-management">
-<h4>Buffer management<a class="headerlink" href="#buffer-management" title="Link to this heading"></a></h4>
+<h3>Buffer management<a class="headerlink" href="#buffer-management" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> The scan_elements directory contains interfaces for elements
 that will be captured for a single triggered sample set in the buffer</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/</span><span class="n">scan_elements</span><span class="o">&gt;</span> <span class="n">ls</span> <span class="o">-</span><span class="n">l</span>
@@ -633,7 +648,10 @@ that will be captured for a single triggered sample set in the buffer</p>
 </pre></div>
 </div>
 <ul class="simple">
-<li><p>Enable the buffer:</p></li>
+<li><p>Enable the desired scan elements before enabling the buffer, for example from
+the device directory: echo 1 &gt; scan_elements/in_accel_x_en echo 1 &gt;
+scan_elements/in_accel_y_en echo 1 &gt; scan_elements/in_accel_z_en Enable the
+buffer:</p></li>
 </ul>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/</span><span class="n">buffer</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">enable</span>
 </pre></div>
@@ -642,7 +660,6 @@ that will be captured for a single triggered sample set in the buffer</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/</span><span class="n">buffer</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span>
 </pre></div>
 </div>
-</section>
 </section>
 </section>
 <section id="more-information">

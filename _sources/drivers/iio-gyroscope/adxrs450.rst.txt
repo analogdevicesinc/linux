@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-gyroscope/adxrs450
 
+
 .. _adxrs450:
 
 ADXRS450
@@ -34,32 +35,11 @@ linear acceleration, enabling accurate rate sensing in harsh environments.
 ADXRS453: ±300°/sec High Vibration Immunity Digital Gyro
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ADXRS453 provides the same quad sensor design as the ADXRS450 with
-enhanced performance specifications. It offers improved bias stability and
-sensitivity, making it suitable for precision navigation and motion sensing
-applications requiring high accuracy and vibration immunity.
+The ADXRS453 provides ±300°/sec angular rate sensing and specifies 16°/hour
+typical null bias stability. Both the ADXRS450 and ADXRS453 have a nominal
+sensitivity of 80 LSB/(°/sec).
 
 - :adi:`Product Page <ADXRS453>`
-
-Adding ADXRS450 to the Kernel
------------------------------
-
-To add support for the ADXRS450 to the kernel build system, a few things must be
-enabled properly for things to work.The configuration is as following:
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The ADXRS450 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-     Device Drivers  --->
-           <*>     Industrial I/O support  --->
-             <M>   Analog Devices ADXRS450/3 Digital Output Gyroscope SPI driver
 
 Source Code
 -----------
@@ -90,8 +70,43 @@ Files
    * - driver
      - `drivers/iio/gyro/adxrs450.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/gyro/adxrs450.c>`__
 
+Hardware configuration
+----------------------
+
+.. figure:: https://wiki.analog.com/_media/software/driver/linux/adxrs450_eval_lr.jpg
+   :width: 600px
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-gyroscope/pmodgyro2_lr.jpg
+   :width: 600px
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+To add support for the ADXRS450 to the kernel build system, a few things must be
+enabled properly for things to work.The configuration is as following:
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADXRS450 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+     Device Drivers  --->
+           <*>     Industrial I/O support  --->
+             <M>   Analog Devices ADXRS450/3 Digital Output Gyroscope SPI driver
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Below is an example which is used on Blackfin board file.
 
@@ -128,17 +143,47 @@ Below is an example which is used on Blackfin board file.
    }
    arch_initcall(board_init);
 
-Hardware configuration
-----------------------
-
-.. figure:: https://wiki.analog.com/_media/software/driver/linux/adxrs450_eval_lr.jpg
-   :width: 600px
-
-.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-gyroscope/pmodgyro2_lr.jpg
-   :width: 600px
-
 Driver testing
 --------------
+
+Identify the device
+~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat name
+   adxrs450
+
+Rotate in positive direction
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0 > cat in_anglvel_z_raw
+   42
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0 > cat in_anglvel_z_raw
+   1456
+
+Rotate in negative direction
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0 > cat in_anglvel_z_raw
+   -1657
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0 > cat in_anglvel_z_raw
+   -17215
+
+Basic operation
+~~~~~~~~~~~~~~~
+
+Show angular rate scale
+^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat in_anglvel_z_scale
+   0.000218166
 
 Module loading
 ~~~~~~~~~~~~~~
@@ -173,50 +218,14 @@ Module loading
    lrwxrwxrwx    1 root     root             0 Jan  3 16:24 subsystem -> ../../../../../bus/iio
    -rw-r--r--    1 root     root          4096 Jan  3 16:24 uevent
 
-Show device name
-^^^^^^^^^^^^^^^^
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat name
-   adxrs450
-
-Show angular rate scale
-'''''''''''''''''''''''
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat in_anglvel_z_scale
-   0.000218166
-
 Show angular rate
-'''''''''''''''''
+~~~~~~~~~~~~~~~~~
 
 Rotate the device and read angular rate sampling values from sysfs nodes like
 this:
 
-Rotate in positive direction
-''''''''''''''''''''''''''''
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0 > cat in_anglvel_z_raw
-   42
-   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0 > cat in_anglvel_z_raw
-   1456
-
-Rotate in negative direction
-''''''''''''''''''''''''''''
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0 > cat in_anglvel_z_raw
-   -1657
-   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0 > cat in_anglvel_z_raw
-   -17215
-
 Show quadrature correction
-''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This attribute is used to read the amount of quadrature error present in the
 device at a given time.
@@ -227,15 +236,15 @@ device at a given time.
    9
 
 Set dynamic null correction
-'''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This attribute is used to make small adjustments to the rateout of the device.
 This 10-bit value allows the user to adjust the static rateout of the device by
 up to ±6.4°/sec.
 
-::
+.. code-block:: text
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0 > cat in_gyro_z_raw
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0 > cat in_anglvel_z_raw
    40
 
    root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0 > echo 40 > in_anglvel_z_calibbias
@@ -244,7 +253,7 @@ up to ±6.4°/sec.
    1
 
 Show temperature
-''''''''''''''''
+~~~~~~~~~~~~~~~~
 
 ::
 

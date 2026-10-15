@@ -14,7 +14,7 @@
     <link rel="index" title="Index" href="../../../genindex/" />
     <link rel="search" title="Search" href="../../../search/" />
     <link rel="next" title="LTC2672" href="../ltc2672/" />
-    <link rel="prev" title="AD3552R" href="../axi-ad3552r/" />
+    <link rel="prev" title="AD7303" href="../ad7303/" />
    
   
   
@@ -105,23 +105,25 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a><ul>
-<li><a class="reference internal" href="#devicetree">Devicetree</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
+<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-scale">Show scale</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-scale">Show scale</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#show-offset">Show offset</a></li>
 <li><a class="reference internal" href="#set-channel-y-output-voltage">Set channel Y output voltage</a></li>
 <li><a class="reference internal" href="#enable-power-down-mode-on-output-y">Enable power down mode on output Y</a></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-</li>
 <li><a class="reference internal" href="#test-example">Test example</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
@@ -224,6 +226,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5380/">AD5380</a></li>
@@ -242,7 +245,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -403,8 +405,8 @@ low as 1.71V at clock rates up to 50MHz.</p>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
-<p>This is a Linux industrial I/O (<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a>) subsystem
-driver, targeting single-channel serial interface DACs. The industrial I/O
+<p>This is a Linux industrial I/O (<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a>) subsystem driver, targeting
+the four-channel LTC2664 serial-interface DAC family. The industrial I/O
 subsystem provides a unified framework for drivers for many different types of
 converters and sensors using a number of different physical interfaces (i2c,
 spi, etc). See <a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a> for more information.</p>
@@ -449,26 +451,27 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </div>
 </section>
 </section>
-<section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
-<section id="devicetree">
-<h3>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h3>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <p>Required devicetree properties:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">compatible</span></code>: Needs to be <code class="docutils literal notranslate"><span class="pre">adi,</span></code> followed by the name of the device. E.g.
 <code class="docutils literal notranslate"><span class="pre">adi,ltc2664</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">reg</span></code>: The chipselect number used for the device</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">spi-max-frequency</span></code>: Maximum SPI clock frequency</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">Vdd-supply</span></code>: VDD voltage supply regulator</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">vcc-supply</span></code>: Analog supply.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">v-neg-supply</span></code>: Negative analog supply.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">iovcc-supply</span></code>: Digital Input/Output Supply Voltage.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">adi,manual-span-operation-config</span></code>:</p></li>
-<li><p>Channel nodes with <code class="docutils literal notranslate"><span class="pre">reg</span></code>, <code class="docutils literal notranslate"><span class="pre">adi,manual-span-operation-config</span></code> and
-optionally <code class="docutils literal notranslate"><span class="pre">adi,toggle-mode</span></code> properties.</p></li>
+<li><p>Channel nodes use <code class="docutils literal notranslate"><span class="pre">reg</span></code>, <code class="docutils literal notranslate"><span class="pre">output-range-microvolt</span></code> and optional
+<code class="docutils literal notranslate"><span class="pre">adi,toggle-mode</span></code>. Manual-span configuration belongs to the parent.</p></li>
 </ul>
 <p>Optional devicetree properties:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">vref-supply</span></code>: external reference voltage supply regulator. This should only
-be set if there is an external reference voltage connected to the REF pin.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ref-supply</span></code>: External reference voltage supply regulator. Set this only
+when an external reference voltage is connected to the REF pin.</p></li>
 </ul>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adi</span><span class="p">,</span><span class="n">manual</span><span class="o">-</span><span class="n">span</span><span class="o">-</span><span class="n">operation</span><span class="o">-</span><span class="n">config</span><span class="p">:</span>
   <span class="n">description</span><span class="p">:</span>
@@ -517,28 +520,31 @@ be set if there is an external reference voltage connected to the REF pin.</p></
 
         <span class="n">channel</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
             <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">output</span><span class="o">-</span><span class="nb">range</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="p">(</span><span class="o">-</span><span class="mi">10000000</span><span class="p">)</span> <span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">output</span><span class="o">-</span><span class="nb">range</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="p">(</span><span class="o">-</span><span class="mi">10000000</span><span class="p">)</span> <span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="p">};</span>
 
         <span class="n">channel</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
             <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">output</span><span class="o">-</span><span class="nb">range</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="p">(</span><span class="o">-</span><span class="mi">10000000</span><span class="p">)</span> <span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">output</span><span class="o">-</span><span class="nb">range</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="p">(</span><span class="o">-</span><span class="mi">10000000</span><span class="p">)</span> <span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
             <span class="n">adi</span><span class="p">,</span><span class="n">toggle</span><span class="o">-</span><span class="n">mode</span><span class="p">;</span>
         <span class="p">};</span>
 
         <span class="n">channel</span><span class="o">@</span><span class="mi">2</span> <span class="p">{</span>
             <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">output</span><span class="o">-</span><span class="nb">range</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="p">(</span><span class="o">-</span><span class="mi">10000000</span><span class="p">)</span> <span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">output</span><span class="o">-</span><span class="nb">range</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="p">(</span><span class="o">-</span><span class="mi">10000000</span><span class="p">)</span> <span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="p">};</span>
 
         <span class="n">channel</span><span class="o">@</span><span class="mi">3</span> <span class="p">{</span>
             <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">output</span><span class="o">-</span><span class="nb">range</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="p">(</span><span class="o">-</span><span class="mi">10000000</span><span class="p">)</span> <span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
+            <span class="n">output</span><span class="o">-</span><span class="nb">range</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="p">(</span><span class="o">-</span><span class="mi">10000000</span><span class="p">)</span> <span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
         <span class="p">};</span>
     <span class="p">};</span>
 <span class="p">};</span>
 </pre></div>
 </div>
+<section id="example-platform-device-initialization">
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
+</section>
 </section>
 </section>
 <section id="driver-testing">
@@ -660,22 +666,30 @@ the numbering is constant and may be known in advance.</p>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1">#</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">ltc2664</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-scale">
 <h4>Show scale<a class="headerlink" href="#show-scale" title="Link to this heading"></a></h4>
 <p><strong>Description:</strong> scale to be applied to out_voltage0_raw and out_voltage1_raw in
 order to obtain the measured voltage in millivolts.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_voltage_scale</span>
-<span class="mf">0.305175781</span>
+<p>Run in the correct device directory. Scale and offset are per-channel: replace 0
+with the selected channel. Toggle-enabled channel 1 uses raw0/raw1 instead of
+raw.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>cat out_voltage0_scale
+cat out_voltage0_offset
 </pre></div>
 </div>
+</section>
+</section>
 <section id="show-offset">
-<h5>Show offset<a class="headerlink" href="#show-offset" title="Link to this heading"></a></h5>
+<h3>Show offset<a class="headerlink" href="#show-offset" title="Link to this heading"></a></h3>
 <div class="line-block">
 <div class="line"><strong>Description:</strong></div>
 <div class="line">/sys/bus/iio/devices/iio:deviceX/out_offset_raw</div>
@@ -688,7 +702,7 @@ voltage in millivolts. The offset is applied before scale is applied.</p>
 </div>
 </section>
 <section id="set-channel-y-output-voltage">
-<h5>Set channel Y output voltage<a class="headerlink" href="#set-channel-y-output-voltage" title="Link to this heading"></a></h5>
+<h3>Set channel Y output voltage<a class="headerlink" href="#set-channel-y-output-voltage" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw</p>
 <p>Raw (unscaled, no bias etc.) output voltage for channel Y.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">10000</span> <span class="o">&gt;</span> <span class="n">out_voltage0_raw</span>
@@ -698,7 +712,7 @@ voltage in millivolts. The offset is applied before scale is applied.</p>
 (10000 - 32768) * 0.305175781<em>mV</em> = <strong>-6948.24 mV</strong></p>
 </section>
 <section id="enable-power-down-mode-on-output-y">
-<h5>Enable power down mode on output Y<a class="headerlink" href="#enable-power-down-mode-on-output-y" title="Link to this heading"></a></h5>
+<h3>Enable power down mode on output Y<a class="headerlink" href="#enable-power-down-mode-on-output-y" title="Link to this heading"></a></h3>
 <p>/sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown</p>
 <p><strong>Description:</strong> Writing 1 causes output Y to enter the power down mode.
 Clearing returns to normal operation.</p>
@@ -711,11 +725,8 @@ Clearing returns to normal operation.</p>
 </pre></div>
 </div>
 </section>
-</section>
-</section>
-</section>
 <section id="test-example">
-<h2>Test example<a class="headerlink" href="#test-example" title="Link to this heading"></a></h2>
+<h3>Test example<a class="headerlink" href="#test-example" title="Link to this heading"></a></h3>
 <p><strong>Using:</strong></p>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/DC2376A-A" target="_blank">DC2376A-A</a> LTC2664-16 Demo Board</p></li>
@@ -753,6 +764,7 @@ part of the Libiio package.</p></li>
 </pre></div>
 </div>
 </section>
+</section>
 <section id="more-information">
 <h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -773,7 +785,7 @@ part of the Libiio package.</p></li>
           </div>
               <div class="related">
                 &nbsp;
-    <a href="../axi-ad3552r/" title="Previous document (Alt+Shift+LeftArrow)" class="prev">AD3552R</a>
+    <a href="../ad7303/" title="Previous document (Alt+Shift+LeftArrow)" class="prev">AD7303</a>
     <a href="../ltc2672/" title="Next document (Alt+Shift+RightArrow)" class="next">LTC2672</a>
               </div>
           

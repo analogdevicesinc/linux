@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/misc/dpot
 
+
 .. _dpot:
 
 Digital Potentiometer
@@ -58,12 +59,6 @@ Supported Devices
 - :adi:`ADN2850`
 - :adi:`ADN2860`
 
-Reference Circuits
-------------------
-
-- :adi:`CN0287`
-- :adi:`CN0357`
-
 Evaluation Boards
 -----------------
 
@@ -97,6 +92,12 @@ Evaluation Boards
 
 `/DEVID/-/Documentation/ <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/misc/ad525x_dpot.c>`_
 
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0287`
+- :adi:`CN0357`
+
 Description
 -----------
 
@@ -105,22 +106,6 @@ with the immediate resistance settings as well as update the saved startup
 settings. Access to the factory programmed tolerance is also provided, but
 interpretation of this settings is required by the end application according to
 the specific part in use.
-
-Files
-~~~~~
-
-Each dpot device will have a set of **eeprom**, **rdac**, and **tolerance**
-files. How many depends on the actual part you have, as will the range of
-allowed values.
-
-The **eeprom** files are used to program the startup value of the device.
-
-The **rdac** files are used to program the immediate value of the device.
-
-The **tolerance** files are the read-only factory programmed tolerance settings
-and may vary greatly on a part-by-part basis. For exact interpretation of this
-field, please consult the datasheet for your part. This is presented as a hex
-file for easier parsing.
 
 Source Code
 -----------
@@ -143,6 +128,29 @@ Status
 Files
 ~~~~~
 
+Every supported wiper gets an rdacN file. eepromN exists only on parts flagged
+for EEPROM commands, toleranceN only on parts with factory tolerance readback,
+and otpN/otpNen only on OTP-capable parts. Some parts also expose inc_all,
+dec_all, inc_all_6db and dec_all_6db. Wiper indices follow the part-specific
+mask and need not start at zero or be contiguous.
+
+The **eeprom** files program the nonvolatile startup value on devices that
+provide EEPROM. Use **rdac** for repeated runtime adjustments: EEPROM write
+endurance is limited (e.g. AD5259 is qualified to 100,000 cycles). OTP and
+50-TP parts use separate one-time/limited-time programming mechanisms with
+their own endurance limits.
+
+The rdac files program the immediate wiper code as unsigned decimal. Values
+above the part-specific maximum are clamped to that maximum. On write-only
+parts, reads return a software cache initialized to midscale, not a hardware
+readback. The write handlers do not propagate bus-write failures, so a
+successful shell write alone does not verify programming.
+
+The **tolerance** files are the read-only factory programmed tolerance settings
+and may vary greatly on a part-by-part basis. For exact interpretation of this
+field, please consult the datasheet for your part. This is presented as a hex
+file for easier parsing.
+
 .. list-table::
    :header-rows: 1
 
@@ -157,15 +165,45 @@ Files
    * - include
      - `drivers/misc/ad525x_dpot.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/misc/ad525x_dpot.h>`__
 
+Hardware configuration
+----------------------
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/misc/pmoddpot_lr.png
+   :width: 600px
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ad525x_dpot driver depends on CONFIG_SPI or CONFIG_I2C.
+
+::
+
+   Device Drivers  --->
+     [*] Misc devices  --->
+       <*>   Analog Devices Digital Potentiometers
+       <*>     support I2C bus connection
+       <*>     support SPI bus connection
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
    :end-before: .. end-platform-data
 
 Example Platform / Board file (I2C Interface)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"""""""""""""""""""""""""""""""""""""""""""""
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-i2c-devices
@@ -185,7 +223,7 @@ Example Platform / Board file (I2C Interface)
    }
 
 Example Platform / Board file (SPI Interface)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"""""""""""""""""""""""""""""""""""""""""""""
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-spi-slave-devices
@@ -203,48 +241,6 @@ Example Platform / Board file (SPI Interface)
        },
    #endif
    };
-
-.. tip::
-
-   *Old Method*
-
-   .. code:: C
-
-      static struct spi_board_info bfin_spi_board_info[] __initdata = {
-      #if defined(CONFIG_AD525X_DPOT) || defined(CONFIG_AD525X_DPOT_MODULE)
-          {
-              .modalias = "ad_dpot",
-              .platform_data = "ad5291",
-              .max_speed_hz = 5000000,     /* max spi clock (SCK) speed in HZ */
-              .bus_num = 0,
-              .chip_select = 1,
-          },
-      #endif
-      };
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The ad525x_dpot driver depends on **CONFIG_SPI** or **CONFIG_I2C**
-
-::
-
-   Device Drivers  --->
-     [*] Misc devices  --->
-       <*>   Analog Devices Digital Potentiometers
-       <*>     support I2C bus connection
-       <*>     support SPI bus connection
-
-Hardware configuration
-----------------------
-
-.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/misc/pmoddpot_lr.png
-   :width: 600px
 
 Driver testing
 --------------

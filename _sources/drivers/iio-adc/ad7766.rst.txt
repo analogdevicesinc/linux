@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7766
 
+
 .. _ad7766:
 
 AD7766
@@ -63,20 +64,52 @@ Files
      - `drivers/iio/adc/ad7766.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7766.c>`__
      -
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD7766 Driver depends on **CONFIG_SPI_MASTER**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           -*- Industrial I/O support  --->
+                   --- Industrial I/O support
+                   -*-   Enable buffer support within IIO
+                   -*-   Enable triggered sampling support
+
+                         *** Analog to digital converters ***
+                       [--snip--]
+                           <*>   Analog Devices AD7766/AD7767 ADC driver
+                       [--snip--]
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
    :end-before: .. end-platform-data
 
 Specifying reference voltage via the regulator framework
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-.. tip::
+Tip
 
-   This driver supports also an alternative way of specifying the reference
-   voltage, by using the Linux regulator framework.
+This driver obtains vref through the regulator framework. It also requires avdd
+and dvdd regulator consumers and a clock named mclk. The example below supplies
+only vref; add the two power-supply mappings and mclk lookup for a complete
+board configuration.
 
 Below example specifies a 5 Volt reference for the SPI device 3 on SPI-Bus 0.
 (**spi0.3**)
@@ -170,31 +203,6 @@ the device in question.
    }
    arch_initcall(board_init);
 
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AD7766 Driver depends on **CONFIG_SPI_MASTER**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           -*- Industrial I/O support  --->
-                   --- Industrial I/O support
-                   -*-   Enable ring buffer support within IIO
-                   -*-     Industrial I/O lock free software ring
-                   -*-   Enable triggered sampling support
-
-                         *** Analog to digital converters ***
-                       [--snip--]
-                           <*>   Analog Devices AD7766/AD7767 ADC driver
-                       [--snip--]
-
 Driver testing
 --------------
 
@@ -233,13 +241,16 @@ Driver testing
    /sys/bus/iio/devices/iio:device0> ls -l trigger
    -rw-rw-rw- 1 root root 4096 Jan  1  1970 current_trigger
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    /sys/bus/iio/devices/iio:device0> cat name
    ad7766
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale
 ^^^^^^^^^^
@@ -253,9 +264,10 @@ obtain the measured voltage in millivolts.
    0.000298023
 
 Show data output rate
-'''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~
 
-**Description:** Shows the data output rate of the converter in Hz.
+**Description:** Read-only output rate in Hz, calculated as mclk/8 for
+AD7766/AD7767, mclk/16 for -1 parts, or mclk/32 for -2 parts.
 
 ::
 

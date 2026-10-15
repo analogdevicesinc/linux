@@ -1,3 +1,4 @@
+
 .. _axi-tdd:
 
 AXI TDD
@@ -11,51 +12,32 @@ receiving multiple frames of data through multiple buffers.
 
 The driver implements:
 
-- Up to 32 independent output channels with configurable on/off timing
-- Per-channel enable and polarity control
-- Configurable frame length and burst count
-- Initial startup delay before waveform generation
-- Three synchronization sources: external, internal, and software-generated
-- Timing values in both raw clock cycles and milliseconds
-- Dynamic clock rate tracking via clock notifiers
+-  Up to 32 independent output channels with configurable on/off timing
+
+-  Per-channel enable and polarity control
+
+-  Configurable frame length and burst count
+
+-  Initial startup delay before waveform generation
+
+-  Three synchronization sources: external, internal, and software-generated
+
+-  Timing values in raw register counts and milliseconds. For frame length,
+   startup delay, and internal sync period, a nonzero raw value R is displayed
+   in milliseconds as (R + 1) clock cycles; raw zero is displayed as zero.
+   Millisecond writes round to clock cycles and subtract one for a nonzero
+   result. Channel on/off offsets use direct cycle counts without this
+   adjustment.
+
+-  Dynamic clock rate tracking via clock notifiers
 
 Supported IP Cores
 ------------------
 
 - AXI TDD IP v2.0.a
 
-Status
-------
-
-.. list-table::
-   :header-rows: 1
-
-   * - Source
-     - Mainlined?
-   * - :git+linux:`drivers/misc/adi-axi-tdd.c <main:drivers/misc/adi-axi-tdd.c>`
-     - No
-
-Files
------
-
-.. list-table::
-   :header-rows: 1
-
-   * - Function
-     - File
-   * - driver
-     - :git+linux:`drivers/misc/adi-axi-tdd.c <main:drivers/misc/adi-axi-tdd.c>`
-   * - devicetree
-     - :git+linux:`Documentation/devicetree/bindings/misc/adi,axi-tdd.yaml <main:Documentation/devicetree/bindings/misc/adi,axi-tdd.yaml>`
-   * - sysfs ABI
-     - :git+linux:`Documentation/ABI/testing/sysfs-bus-platform-drivers-adi-axi-tdd <main:Documentation/ABI/testing/sysfs-bus-platform-drivers-adi-axi-tdd>`
-   * - HDL documentation
-     - :external+hdl:ref:`axi_tdd`
-   * - HDL IP core source code
-     - :git-hdl:`library/axi_tdd`
-
-Overview
---------
+Description
+-----------
 
 The AXI TDD controller is a generic waveform generator developed for use in
 Analog Devices HDL reference designs. Unlike previous TDD engines, this core
@@ -75,11 +57,166 @@ Synchronization can be triggered from three sources:
 - **External sync**: A trigger from an external signal, optionally synchronized
   into the core clock domain via a CDC (Clock Domain Crossing) circuit
 
+Theory of operation
+~~~~~~~~~~~~~~~~~~~
+
+Frame generation
+^^^^^^^^^^^^^^^^
+
+The central idea of the TDD controller is "frame"-based operation: all timing
+defined for individual channels is relative to the beginning of a frame. The
+``frame_length`` value controls the length of a single frame, while
+``burst_count`` controls how many frames should be played after enabling the
+device (a value of 0 means frames repeat indefinitely). Before the start of a
+burst, an optional startup delay is inserted, defined by ``startup_delay`` in
+clock cycles.
+
+The TDD core generates timing waveforms organized into frames:
+
+1. When enabled, the core enters the ARMED state and waits for a sync event
+2. After sync, it transitions to the WAITING state and the startup delay
+   counter runs (if configured)
+3. The core enters the RUNNING state and the frame counter begins, cycling
+   through the configured frame length
+4. Each channel output is asserted at its ``on`` time and de-asserted at its
+   ``off`` time within the frame
+5. After the frame completes, the next frame begins
+6. If ``burst_count`` is non-zero, the core stops after that many frames and
+   returns to IDLE; otherwise it runs continuously until disabled
+
+FSM states
+^^^^^^^^^^
+
+The peripheral transitions between four states. The current state can be read
+via the ``state`` sysfs attribute, which returns the numeric value:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 20 65
+
+   * - Value
+     - State
+     - Description
+   * - 0
+     - IDLE
+     - The core is disabled or has completed its burst
+   * - 1
+     - ARMED
+     - The core is enabled and waiting for a synchronization event
+   * - 2
+     - WAITING
+     - A sync has been received; the startup delay is counting down
+   * - 3
+     - RUNNING
+     - Frames are actively being generated
+
+Synchronization
+^^^^^^^^^^^^^^^
+
+Software sync is available; internal and external sync depend on synthesis-time
+support; their attributes are present even when the core does not implement
+them. Enabled sources can be combined when supported by the core:
+
+- **Software** (``sync_soft``): Write-only, generates a single pulse. Useful
+  for triggering operation at an arbitrary point in time.
+- **Internal** (``sync_internal``): Periodic trigger from an internal counter.
+  The period is configured via ``internal_sync_period_raw``/``_ms``.
+- **External** (``sync_external``): An external signal input, optionally
+  processed through a CDC circuit (synthesis-time configuration). This allows
+  alignment of frames between multiple devices in different locations, for
+  example using a GPSDO 1 PPS output.
+
+If a synchronization signal is received while the TDD core is already running,
+the ``sync_reset`` attribute controls whether the internal counter is reset to
+zero. This can alter the counter value in both the WAITING and RUNNING states.
+
+Channel output
+^^^^^^^^^^^^^^
+
+The TDD controller can have up to 32 output channels. Each channel produces a
+single-bit output signal with unique ``on`` and ``off`` values that are
+continuously compared to the internal counter while the core is RUNNING.
+
+Within a frame:
+
+- The output is asserted (set to active level) at the ``on`` time
+- The output is de-asserted (set to inactive level) at the ``off`` time
+- The ``polarity`` attribute inverts the active level for a channel
+
+Every bit in ``CHANNEL_ENABLE`` / ``CHANNEL_POLARITY`` corresponds to a
+specific channel. The bit position is correlated to the channel index: the LSB
+is associated with channel 0 and the MSB with channel 31.
+
+Timing values can be specified in raw clock cycles or milliseconds. The
+millisecond values are converted to clock cycles using the ``intf_clk`` rate,
+which is tracked dynamically via clock notifiers.
+
+Register update restrictions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. warning::
+
+   Most configuration registers cannot be modified while the TDD core is
+   enabled. Any writes to these registers while the peripheral is enabled
+   will be ignored.
+
+The following attributes must be configured **before** enabling the peripheral:
+
+- ``burst_count``
+- ``startup_delay_raw`` / ``startup_delay_ms``
+- ``frame_length_raw`` / ``frame_length_ms``
+- ``internal_sync_period_raw`` / ``internal_sync_period_ms``
+- ``out_channelN_polarity``
+- ``out_channelN_on_raw`` / ``out_channelN_on_ms``
+- ``out_channelN_off_raw`` / ``out_channelN_off_ms``
+
+Exceptions:
+
+- ``out_channelN_enable`` can be modified on-the-fly. The new value takes
+  effect when the core enters the ARMED state or at the end of the current
+  frame.
+- ``enable``, ``sync_soft``, ``sync_external``, ``sync_internal``, and
+  ``sync_reset`` (the ``CONTROL`` register) can be modified on-the-fly with
+  immediate effect.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+   * - :git+linux:`drivers/misc/adi-axi-tdd.c <main:drivers/misc/adi-axi-tdd.c>`
+     - No
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - :git+linux:`drivers/misc/adi-axi-tdd.c <main:drivers/misc/adi-axi-tdd.c>`
+   * - devicetree
+     - :git+linux:`Documentation/devicetree/bindings/misc/adi,axi-tdd.yaml <main:Documentation/devicetree/bindings/misc/adi,axi-tdd.yaml>`
+   * - sysfs ABI
+     - :git+linux:`Documentation/ABI/testing/sysfs-bus-platform-drivers-adi-axi-tdd <main:Documentation/ABI/testing/sysfs-bus-platform-drivers-adi-axi-tdd>`
+   * - HDL documentation
+     - :external+hdl:ref:`axi_tdd`
+   * - HDL IP core source code
+     - :git-hdl:`library/axi_tdd`
+
 Adding Linux driver support
 ---------------------------
 
-Enabling the driver
-~~~~~~~~~~~~~~~~~~~
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig``:
 
@@ -90,19 +227,8 @@ Configure kernel with ``make menuconfig``:
            Misc devices  --->
                <*>   Analog Devices TDD Engine support
 
-Adding a device tree entry
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Required properties
-^^^^^^^^^^^^^^^^^^^
-
-- ``compatible``: Must be ``"adi,axi-tdd"``
-- ``reg``: Physical base address and size of the IP core registers
-- ``clocks``: References to the system clock and the TDD core clock
-- ``clock-names``: Must be ``"s_axi_aclk"``, ``"intf_clk"``
-
-Device tree example
-^^^^^^^^^^^^^^^^^^^
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Basic TDD core instance:
 
@@ -126,129 +252,24 @@ TDD core with external clock source (e.g. HMC7044):
         clock-names = "s_axi_aclk", "intf_clk";
     };
 
+Required properties
+^^^^^^^^^^^^^^^^^^^
+
+- ``compatible``: Must be ``"adi,axi-tdd"``
+- ``reg``: Physical base address and size of the IP core registers
+- ``clocks``: References to the system clock and the TDD core clock
+- ``clock-names``: Must be ``"s_axi_aclk"``, ``"intf_clk"``
+
 Driver testing
 --------------
 
 The TDD driver exposes a sysfs interface for configuration and monitoring.
 
-Sysfs interface
-~~~~~~~~~~~~~~~
-
 The driver creates sysfs attributes under
 ``/sys/bus/platform/drivers/adi-axi-tdd/<device>/``.
 
-Core attributes
-^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 30 15 55
-
-   * - Attribute
-     - Access
-     - Description
-   * - ``version``
-     - RO
-     - IP core version (semantic versioning)
-   * - ``core_id``
-     - RO
-     - ID configuration parameter value
-   * - ``magic``
-     - RO
-     - Identification code (0x5444444E = 'T','D','D','N')
-   * - ``scratch``
-     - RW
-     - Scratch register for testing register access
-   * - ``state``
-     - RO
-     - Current state of the peripheral FSM
-
-Control attributes
-^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 30 15 55
-
-   * - Attribute
-     - Access
-     - Description
-   * - ``enable``
-     - RW
-     - Enable or disable the TDD module
-   * - ``sync_soft``
-     - WO
-     - Trigger one software sync pulse
-   * - ``sync_external``
-     - RW
-     - Enable or disable the external sync trigger
-   * - ``sync_internal``
-     - RW
-     - Enable or disable the internal sync trigger
-   * - ``sync_reset``
-     - RW
-     - Reset the internal counter on sync event
-
-Timing attributes
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 30 15 55
-
-   * - Attribute
-     - Access
-     - Description
-   * - ``burst_count``
-     - RW
-     - Number of frames per burst (0 = continuous)
-   * - ``startup_delay_raw``
-     - RW
-     - Initial delay before first frame (clock cycles)
-   * - ``startup_delay_ms``
-     - RW
-     - Initial delay before first frame (milliseconds)
-   * - ``frame_length_raw``
-     - RW
-     - Frame length (clock cycles)
-   * - ``frame_length_ms``
-     - RW
-     - Frame length (milliseconds)
-   * - ``internal_sync_period_raw``
-     - RW
-     - Internal sync generator period (clock cycles)
-   * - ``internal_sync_period_ms``
-     - RW
-     - Internal sync generator period (milliseconds)
-
-Per-channel attributes (N = 0..31)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-   :widths: 30 15 55
-
-   * - Attribute
-     - Access
-     - Description
-   * - ``out_channelN_enable``
-     - RW
-     - Enable or disable output channel N
-   * - ``out_channelN_polarity``
-     - RW
-     - Set the polarity of output channel N
-   * - ``out_channelN_on_raw``
-     - RW
-     - Channel N assertion offset from frame start (clock cycles)
-   * - ``out_channelN_off_raw``
-     - RW
-     - Channel N de-assertion offset from frame start (clock cycles)
-   * - ``out_channelN_on_ms``
-     - RW
-     - Channel N assertion offset from frame start (milliseconds)
-   * - ``out_channelN_off_ms``
-     - RW
-     - Channel N de-assertion offset from frame start (milliseconds)
+Basic operation
+~~~~~~~~~~~~~~~
 
 Example sysfs usage
 ^^^^^^^^^^^^^^^^^^^
@@ -297,127 +318,120 @@ Explanation of the configuration:
 - ``enable = 1``: Arms the TDD core; it enters the ARMED state and waits for
   the configured sync event.
 
-Theory of operation
--------------------
-
-Frame generation
-~~~~~~~~~~~~~~~~
-
-The central idea of the TDD controller is "frame"-based operation: all timing
-defined for individual channels is relative to the beginning of a frame. The
-``frame_length`` value controls the length of a single frame, while
-``burst_count`` controls how many frames should be played after enabling the
-device (a value of 0 means frames repeat indefinitely). Before the start of a
-burst, an optional startup delay is inserted, defined by ``startup_delay`` in
-clock cycles.
-
-The TDD core generates timing waveforms organized into frames:
-
-1. When enabled, the core enters the ARMED state and waits for a sync event
-2. After sync, it transitions to the WAITING state and the startup delay
-   counter runs (if configured)
-3. The core enters the RUNNING state and the frame counter begins, cycling
-   through the configured frame length
-4. Each channel output is asserted at its ``on`` time and de-asserted at its
-   ``off`` time within the frame
-5. After the frame completes, the next frame begins
-6. If ``burst_count`` is non-zero, the core stops after that many frames and
-   returns to IDLE; otherwise it runs continuously until disabled
-
-FSM states
-~~~~~~~~~~
-
-The peripheral transitions between four states. The current state can be read
-via the ``state`` sysfs attribute, which returns the numeric value:
+Core attributes
+~~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
-   :widths: 15 20 65
+   :widths: 30 15 55
 
-   * - Value
-     - State
+   * - Attribute
+     - Access
      - Description
-   * - 0
-     - IDLE
-     - The core is disabled or has completed its burst
-   * - 1
-     - ARMED
-     - The core is enabled and waiting for a synchronization event
-   * - 2
-     - WAITING
-     - A sync has been received; the startup delay is counting down
-   * - 3
-     - RUNNING
-     - Frames are actively being generated
+   * - ``version``
+     - RO
+     - IP core version (semantic versioning)
+   * - ``core_id``
+     - RO
+     - ID configuration parameter value
+   * - ``magic``
+     - RO
+     - Identification code (0x5444444E = 'T','D','D','N')
+   * - ``scratch``
+     - RW
+     - Scratch register for testing register access
+   * - ``state``
+     - RO
+     - Current state of the peripheral FSM
 
-Synchronization
-~~~~~~~~~~~~~~~
+Control attributes
+~~~~~~~~~~~~~~~~~~
 
-Three sync sources are available and can be enabled simultaneously:
+.. list-table::
+   :header-rows: 1
+   :widths: 30 15 55
 
-- **Software** (``sync_soft``): Write-only, generates a single pulse. Useful
-  for triggering operation at an arbitrary point in time.
-- **Internal** (``sync_internal``): Periodic trigger from an internal counter.
-  The period is configured via ``internal_sync_period_raw``/``_ms``.
-- **External** (``sync_external``): An external signal input, optionally
-  processed through a CDC circuit (synthesis-time configuration). This allows
-  alignment of frames between multiple devices in different locations, for
-  example using a GPSDO 1 PPS output.
+   * - Attribute
+     - Access
+     - Description
+   * - ``enable``
+     - RW
+     - Enable or disable the TDD module
+   * - ``sync_soft``
+     - WO
+     - Trigger one software sync pulse
+   * - ``sync_external``
+     - RW
+     - Enable or disable the external sync trigger
+   * - ``sync_internal``
+     - RW
+     - Enable or disable the internal sync trigger
+   * - ``sync_reset``
+     - RW
+     - Reset the internal counter on sync event
 
-If a synchronization signal is received while the TDD core is already running,
-the ``sync_reset`` attribute controls whether the internal counter is reset to
-zero. This can alter the counter value in both the WAITING and RUNNING states.
+Timing attributes
+~~~~~~~~~~~~~~~~~
 
-Channel output
-~~~~~~~~~~~~~~
+.. list-table::
+   :header-rows: 1
+   :widths: 30 15 55
 
-The TDD controller can have up to 32 output channels. Each channel produces a
-single-bit output signal with unique ``on`` and ``off`` values that are
-continuously compared to the internal counter while the core is RUNNING.
+   * - Attribute
+     - Access
+     - Description
+   * - ``burst_count``
+     - RW
+     - Number of frames per burst (0 = continuous)
+   * - ``startup_delay_raw``
+     - RW
+     - Initial delay before first frame (clock cycles)
+   * - ``startup_delay_ms``
+     - RW
+     - Initial delay before first frame (milliseconds)
+   * - ``frame_length_raw``
+     - RW
+     - Frame length (clock cycles)
+   * - ``frame_length_ms``
+     - RW
+     - Frame length (milliseconds)
+   * - ``internal_sync_period_raw``
+     - RW
+     - Internal sync generator period (clock cycles)
+   * - ``internal_sync_period_ms``
+     - RW
+     - Internal sync generator period (milliseconds)
 
-Within a frame:
+Per-channel attributes (N = 0..channel\_count - 1, up to 31)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- The output is asserted (set to active level) at the ``on`` time
-- The output is de-asserted (set to inactive level) at the ``off`` time
-- The ``polarity`` attribute inverts the active level for a channel
+.. list-table::
+   :header-rows: 1
+   :widths: 30 15 55
 
-Every bit in ``CHANNEL_ENABLE`` / ``CHANNEL_POLARITY`` corresponds to a
-specific channel. The bit position is correlated to the channel index: the LSB
-is associated with channel 0 and the MSB with channel 31.
+   * - Attribute
+     - Access
+     - Description
+   * - ``out_channelN_enable``
+     - RW
+     - Enable or disable output channel N
+   * - ``out_channelN_polarity``
+     - RW
+     - Set the polarity of output channel N
+   * - ``out_channelN_on_raw``
+     - RW
+     - Channel N assertion offset from frame start (clock cycles)
+   * - ``out_channelN_off_raw``
+     - RW
+     - Channel N de-assertion offset from frame start (clock cycles)
+   * - ``out_channelN_on_ms``
+     - RW
+     - Channel N assertion offset from frame start (milliseconds)
+   * - ``out_channelN_off_ms``
+     - RW
+     - Channel N de-assertion offset from frame start (milliseconds)
 
-Timing values can be specified in raw clock cycles or milliseconds. The
-millisecond values are converted to clock cycles using the ``intf_clk`` rate,
-which is tracked dynamically via clock notifiers.
-
-Register update restrictions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. warning::
-
-   Most configuration registers cannot be modified while the TDD core is
-   enabled. Any writes to these registers while the peripheral is enabled
-   will be ignored.
-
-The following attributes must be configured **before** enabling the peripheral:
-
-- ``burst_count``
-- ``startup_delay_raw`` / ``startup_delay_ms``
-- ``frame_length_raw`` / ``frame_length_ms``
-- ``internal_sync_period_raw`` / ``internal_sync_period_ms``
-- ``out_channelN_polarity``
-- ``out_channelN_on_raw`` / ``out_channelN_on_ms``
-- ``out_channelN_off_raw`` / ``out_channelN_off_ms``
-
-Exceptions:
-
-- ``out_channelN_enable`` can be modified on-the-fly. The new value takes
-  effect when the core enters the ARMED state or at the end of the current
-  frame.
-- ``enable``, ``sync_soft``, ``sync_external``, ``sync_internal``, and
-  ``sync_reset`` (the ``CONTROL`` register) can be modified on-the-fly with
-  immediate effect.
-
-References
-----------
+More Information
+----------------
 
 - :dokuwiki:`Generic Time-Division Duplexing Controller on wiki <resources/fpga/docs/axi_tdd>`

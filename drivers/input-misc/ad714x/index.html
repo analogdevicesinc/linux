@@ -100,20 +100,25 @@
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
 <li><a class="reference internal" href="#description">Description</a><ul>
+<li><a class="reference internal" href="#driver-features-and-limitations">Driver features and limitations</a></li>
 <li><a class="reference internal" href="#capacitance-touch-sensors">Capacitance Touch Sensors</a></li>
-<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#configuration">Configuration</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#configuration">Configuration</a></li>
-<li><a class="reference internal" href="#software-configurable-features">Software configurable features</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
 <li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
+<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a></li>
 </ul>
 </li>
@@ -216,6 +221,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -234,7 +240,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -389,23 +394,6 @@ Content on this topic
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
-<section id="capacitance-touch-sensors">
-<h3>Capacitance Touch Sensors<a class="headerlink" href="#capacitance-touch-sensors" title="Link to this heading"></a></h3>
-<p>Capacitance sensors detect a change in capacitance when something or someone
-approaches or touches the sensor. The technique has been used in industrial
-applications for many years to measure liquid levels, humidity, and material
-composition. A newer application, coming into widespread use, is in
-human-to-machine interfaces. Mechanical buttons, switches, and jog wheels have
-long been used as the interface between the user and the machine. Because of
-their many drawbacks, however, interface designers have been increasingly
-looking for more reliable solutions. Capacitive sensors can be used in the same
-manner as buttons, but they also can function with greater versatility, for
-example, when implementing a 128-position scroll bar.</p>
-<p>For more info on how these types of sensors work, take a peek at the
-<a class="icon adi reference external" href="https://www.analog.com/library/analogDialogue/archives/40-10/cap_sensors.html" target="_blank">ADI web site</a>.</p>
-</section>
-<section id="overview">
-<h3>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h3>
 <p>Implementing a capacitive touch sensor solution using the AD714x requires three
 components:</p>
 <ul class="simple">
@@ -446,13 +434,27 @@ the type of sensors required. The AD7142 has 14 capacitance input pins and 12
 conversion channels, the AD7143 and AD7148 have 8 capacitance input pins and 8
 conversion channels, and the AD7147 and AD7147A have 13 capacitance input pins
 and 12 conversion channels.</p>
+<section id="driver-features-and-limitations">
+<h3>Driver features and limitations<a class="headerlink" href="#driver-features-and-limitations" title="Link to this heading"></a></h3>
 </section>
+<section id="capacitance-touch-sensors">
+<h3>Capacitance Touch Sensors<a class="headerlink" href="#capacitance-touch-sensors" title="Link to this heading"></a></h3>
+<p>Capacitance sensors detect a change in capacitance when something or someone
+approaches or touches the sensor. The technique has been used in industrial
+applications for many years to measure liquid levels, humidity, and material
+composition. A newer application, coming into widespread use, is in
+human-to-machine interfaces. Mechanical buttons, switches, and jog wheels have
+long been used as the interface between the user and the machine. Because of
+their many drawbacks, however, interface designers have been increasingly
+looking for more reliable solutions. Capacitive sensors can be used in the same
+manner as buttons, but they also can function with greater versatility, for
+example, when implementing a 128-position scroll bar.</p>
+<p>For more info on how these types of sensors work, take a peek at the
+<a class="icon adi reference external" href="https://www.analog.com/library/analogDialogue/archives/40-10/cap_sensors.html" target="_blank">ADI web site</a>.</p>
 </section>
 <section id="configuration">
-<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
+<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h3>
 </section>
-<section id="software-configurable-features">
-<h2>Software configurable features<a class="headerlink" href="#software-configurable-features" title="Link to this heading"></a></h2>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -514,8 +516,38 @@ AD7147 demo board. Note that this code is covered under the GPL - if you want
 non-GPL source, have a look at ADI’s Web site.</p>
 </section>
 </section>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/software/driver/linux/ad7142_schematic.jpg"><img alt="https://wiki.analog.com/_media/software/driver/linux/ad7142_schematic.jpg" src="https://wiki.analog.com/_media/software/driver/linux/ad7142_schematic.jpg" style="width: 800px;" />
+</a>
+</figure>
+<p>We connected the AD7142 demo board to the TWI/I2C connector and AD7147 demo
+board to the SPI connector on the BF537 STAMP board.</p>
+<figure class="align-default">
+<img alt="https://wiki.analog.com/_media/software/driver/linux/ad7142_stamp537.jpg" src="https://wiki.analog.com/_media/software/driver/linux/ad7142_stamp537.jpg" />
+</figure>
+<p>For BF537 STAMP board, please set SW5-3 off as the interrupt input.</p>
+<p>And For AD7147 eval-board, please set S4-2 on and other positions off.</p>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>To select it from menuconfig:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+  <span class="n">Input</span> <span class="n">device</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+   <span class="p">[</span><span class="o">*</span><span class="p">]</span>   <span class="n">Miscellaneous</span> <span class="n">devices</span>  <span class="o">---&gt;</span>
+    <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD714x</span> <span class="n">Capacitance</span> <span class="n">Touch</span> <span class="n">Sensor</span>
+       <span class="o">&lt;*&gt;</span>     <span class="n">support</span> <span class="n">I2C</span> <span class="n">bus</span> <span class="n">connection</span>
+       <span class="o">&lt;*&gt;</span>     <span class="n">support</span> <span class="n">SPI</span> <span class="n">bus</span> <span class="n">connection</span>
+</pre></div>
+</div>
+</section>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -525,7 +557,12 @@ describing devices and how they are connected to the SoC. This can include
 available ports, chip variants, preferred modes, default initialization,
 additional pin roles, and so on. This shrinks the board-support packages (BSPs)
 and minimizes board and application specific #ifdefs in drivers.</p>
-<p>platform data, defines how the PCB info is implemented.</p>
+<p>Platform data is mandatory and defines the sensor layout, stage/system register
+values, button keycodes and slider/wheel/touchpad coordinate ranges. An IRQ is
+also required. The driver registers one input device per configured sensor
+type: <code class="docutils literal notranslate"><span class="pre">ad714x_captouch_button</span></code> (all buttons share one input device),
+<code class="docutils literal notranslate"><span class="pre">ad714x_captouch_slider</span></code>, <code class="docutils literal notranslate"><span class="pre">ad714x_captouch_wheel</span></code> and
+<code class="docutils literal notranslate"><span class="pre">ad714x_captouch_pad</span></code>.</p>
 <p>Unlike PCI or USB devices, I2C devices are not enumerated at the hardware level.
 Instead, the software must know which devices are connected on each I2C bus
 segment, and what address these devices are using. For this reason, the kernel
@@ -559,73 +596,12 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
 <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">ad7147_spi_button_plat{}</a>
 <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">ad7147_spi_platform_data{}</a></p>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>To select it from menuconfig:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-  <span class="n">Input</span> <span class="n">device</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-   <span class="p">[</span><span class="o">*</span><span class="p">]</span>   <span class="n">Miscellaneous</span> <span class="n">devices</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD714x</span> <span class="n">Capacitance</span> <span class="n">Touch</span> <span class="n">Sensor</span>
-       <span class="o">&lt;*&gt;</span>     <span class="n">support</span> <span class="n">I2C</span> <span class="n">bus</span> <span class="n">connection</span>
-       <span class="o">&lt;*&gt;</span>     <span class="n">support</span> <span class="n">SPI</span> <span class="n">bus</span> <span class="n">connection</span>
-</pre></div>
-</div>
 </section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
-<figure class="align-default">
-<a class="reference internal image-reference" href="https://wiki.analog.com/_media/software/driver/linux/ad7142_schematic.jpg"><img alt="https://wiki.analog.com/_media/software/driver/linux/ad7142_schematic.jpg" src="https://wiki.analog.com/_media/software/driver/linux/ad7142_schematic.jpg" style="width: 800px;" />
-</a>
-</figure>
-<p>We connected the AD7142 demo board to the TWI/I2C connector and AD7147 demo
-board to the SPI connector on the BF537 STAMP board.</p>
-<figure class="align-default">
-<img alt="https://wiki.analog.com/_media/software/driver/linux/ad7142_stamp537.jpg" src="https://wiki.analog.com/_media/software/driver/linux/ad7142_stamp537.jpg" />
-</figure>
-<p>For BF537 STAMP board, please set SW5-3 off as the interrupt input.</p>
-<p>And For AD7147 eval-board, please set S4-2 on and other positions off.</p>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
-<p>Some testing output from the event_test application:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">ad7142</span><span class="o">.</span><span class="n">ko</span>
-<span class="nb">input</span><span class="p">:</span> <span class="n">ad7142</span> <span class="n">joystick</span> <span class="k">as</span> <span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input0</span>
-<span class="n">ad7142_js_attach</span><span class="p">:</span> <span class="n">at</span> <span class="mh">0x58</span>
-<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">event_test</span> <span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">event0</span>
-<span class="n">Input</span> <span class="n">driver</span> <span class="n">version</span> <span class="ow">is</span> <span class="mf">1.0.0</span>
-<span class="n">Input</span> <span class="n">device</span> <span class="n">ID</span><span class="p">:</span> <span class="n">bus</span> <span class="mh">0x18</span> <span class="n">vendor</span> <span class="mh">0x1</span> <span class="n">product</span> <span class="mh">0x1</span> <span class="n">version</span> <span class="mh">0x100</span>
-<span class="n">Input</span> <span class="n">device</span> <span class="n">name</span><span class="p">:</span> <span class="s2">"ad7142 joystick"</span>
-<span class="n">Supported</span> <span class="n">events</span><span class="p">:</span>
-  <span class="n">Event</span> <span class="nb">type</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">)</span>
-    <span class="n">Event</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">)</span>
-    <span class="n">Event</span> <span class="n">code</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Key</span><span class="p">)</span>
-  <span class="n">Event</span> <span class="nb">type</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Key</span><span class="p">)</span>
-    <span class="n">Event</span> <span class="n">code</span> <span class="mi">103</span> <span class="p">(</span><span class="n">Up</span><span class="p">)</span>
-    <span class="n">Event</span> <span class="n">code</span> <span class="mi">105</span> <span class="p">(</span><span class="n">Left</span><span class="p">)</span>
-    <span class="n">Event</span> <span class="n">code</span> <span class="mi">106</span> <span class="p">(</span><span class="n">Right</span><span class="p">)</span>
-    <span class="n">Event</span> <span class="n">code</span> <span class="mi">108</span> <span class="p">(</span><span class="n">Down</span><span class="p">)</span>
-    <span class="n">Event</span> <span class="n">code</span> <span class="mi">294</span> <span class="p">(</span><span class="n">BaseBtn</span><span class="p">)</span>
-    <span class="n">Event</span> <span class="n">code</span> <span class="mi">295</span> <span class="p">(</span><span class="n">BaseBtn2</span><span class="p">)</span>
-    <span class="n">Event</span> <span class="n">code</span> <span class="mi">296</span> <span class="p">(</span><span class="n">BaseBtn3</span><span class="p">)</span>
-    <span class="n">Event</span> <span class="n">code</span> <span class="mi">297</span> <span class="p">(</span><span class="n">BaseBtn4</span><span class="p">)</span>
-<span class="n">Testing</span> <span class="o">...</span> <span class="p">(</span><span class="n">interrupt</span> <span class="n">to</span> <span class="n">exit</span><span class="p">)</span>
-<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">398.520833</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">value</span> <span class="mi">0</span>
-<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">400.734865</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Key</span><span class="p">),</span> <span class="n">code</span> <span class="mi">108</span> <span class="p">(</span><span class="n">Down</span><span class="p">),</span> <span class="n">value</span> <span class="mi">1</span>
-<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">400.734874</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">value</span> <span class="mi">0</span>
-<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">400.853353</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Key</span><span class="p">),</span> <span class="n">code</span> <span class="mi">108</span> <span class="p">(</span><span class="n">Down</span><span class="p">),</span> <span class="n">value</span> <span class="mi">0</span>
-<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">400.853360</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">value</span> <span class="mi">0</span>
-<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">400.930182</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Key</span><span class="p">),</span> <span class="n">code</span> <span class="mi">103</span> <span class="p">(</span><span class="n">Up</span><span class="p">),</span> <span class="n">value</span> <span class="mi">1</span>
-<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">400.931390</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">value</span> <span class="mi">0</span>
-<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">401.046258</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Key</span><span class="p">),</span> <span class="n">code</span> <span class="mi">103</span> <span class="p">(</span><span class="n">Up</span><span class="p">),</span> <span class="n">value</span> <span class="mi">0</span>
-<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">401.047461</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">value</span> <span class="mi">0</span>
-<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">402.361193</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Key</span><span class="p">),</span> <span class="n">code</span> <span class="mi">294</span> <span class="p">(</span><span class="n">BaseBtn</span><span class="p">),</span> <span class="n">value</span> <span class="mi">1</span>
-<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">402.362403</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">value</span> <span class="mi">0</span>
-<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">402.555558</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Key</span><span class="p">),</span> <span class="n">code</span> <span class="mi">294</span> <span class="p">(</span><span class="n">BaseBtn</span><span class="p">),</span> <span class="n">value</span> <span class="mi">0</span>
-<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">402.556760</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">value</span> <span class="mi">0</span>
-<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">402.942508</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Key</span><span class="p">),</span> <span class="n">code</span> <span class="mi">295</span> <span class="p">(</span><span class="n">BaseBtn2</span><span class="p">),</span> <span class="n">value</span> <span class="mi">1</span>
-<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">402.942516</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">value</span> <span class="mi">0</span>
-</pre></div>
-</div>
+<p>Load the bus driver (<code class="docutils literal notranslate"><span class="pre">ad714x-i2c</span></code> or <code class="docutils literal notranslate"><span class="pre">ad714x-spi</span></code>) and test the input
+device with an event-test tool such as <code class="docutils literal notranslate"><span class="pre">evtest</span></code>.</p>
 </section>
 </section>
 

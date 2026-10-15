@@ -98,25 +98,33 @@
           <ul>
 <li><a class="reference internal" href="#">AD9361</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
-<li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
-<li><a class="reference internal" href="#description">Description</a></li>
-<li><a class="reference internal" href="#source-code">Source Code</a><ul>
-<li><a class="reference internal" href="#status">Status</a></li>
-<li><a class="reference internal" href="#files">Files</a><ul>
-<li><a class="reference internal" href="#related-device-drivers">Related Device Drivers</a></li>
+<li><a class="reference internal" href="#description">Description</a><ul>
+<li><a class="reference internal" href="#driver-features-and-limitations">Driver features and limitations</a><ul>
+<li><a class="reference internal" href="#choose-the-correct-iio-device">Choose the correct IIO device</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
+<li><a class="reference internal" href="#files">Files</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
+<li><a class="reference internal" href="#example-linux-device-tree-initialization">Example Linux Device-Tree Initialization</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#device-driver-customization">Device Driver Customization</a></li>
-<li><a class="reference internal" href="#example-linux-device-tree-initialization">Example Linux Device-Tree Initialization</a></li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
-<li><a class="reference internal" href="#driver-testing-api">Driver testing / API</a><ul>
+<li><a class="reference internal" href="#external-rf-band-control">External RF-band control</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a></li>
 <li><a class="reference internal" href="#general-attribute-naming-convention">General attribute naming convention:</a></li>
-<li><a class="reference internal" href="#show-device-name">Show device name</a></li>
 <li><a class="reference internal" href="#enable-state-machine-controls">Enable State Machine Controls</a></li>
 <li><a class="reference internal" href="#local-oscillator-control-lo">Local Oscillator Control (LO)</a><ul>
 <li><a class="reference internal" href="#local-oscillator-power-down">Local Oscillator Power-down</a></li>
@@ -189,6 +197,8 @@
 <li><a class="reference internal" href="#rssi-gain-step-calibration">RSSI Gain Step Calibration</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
+<li><a class="reference internal" href="#control-access-works-but-samples-are-missing">Control access works but samples are missing</a></li>
 <li><a class="reference internal" href="#advanced-debug-facilities">Advanced Debug Facilities</a><ul>
 <li><a class="reference internal" href="#runtime-device-driver-customization">Runtime Device Driver Customization</a><ul>
 <li><a class="reference internal" href="#example-to-change-the-driver-from-fdd-into-tdd-mode-operation">Example to change the driver from FDD into TDD mode operation</a></li>
@@ -205,11 +215,18 @@
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#low-level-register-access-via-debugfs-direct-reg-access">Low level register access via debugfs (direct_reg_access)</a></li>
+<li><a class="reference internal" href="#low-level-register-access-via-debugfs-direct-reg-access">Low level register access via debugfs (direct_reg_access)</a><ul>
 <li><a class="reference internal" href="#reading">Reading</a></li>
 <li><a class="reference internal" href="#writing">Writing</a></li>
 <li><a class="reference internal" href="#accessing-hdl-core-registers">Accessing HDL CORE registers</a></li>
-<li><a class="reference internal" href="#more-information">More Information</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a><ul>
+<li><a class="reference internal" href="#related-device-drivers">Related Device Drivers</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -311,6 +328,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -329,7 +347,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -478,15 +495,6 @@ design-in by providing a configurable digital interface to a processor.</p>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD9364" target="_blank">AD9364</a></p></li>
 </ul>
 </section>
-<section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/AD-FMCOMMS2-EBZ" target="_blank">AD-FMCOMMS2-EBZ</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/AD-FMCOMMS3-EBZ" target="_blank">AD-FMCOMMS3-EBZ</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/AD-FMCOMMS4-EBZ" target="_blank">AD-FMCOMMS4-EBZ</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/AD-FMCOMMS5-EBZ" target="_blank">AD-FMCOMMS5-EBZ</a></p></li>
-</ul>
-</section>
 <section id="evaluation-boards">
 <h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -503,6 +511,40 @@ driver, targeting RF Transceivers. The industrial I/O subsystem provides a
 unified framework for drivers for many different types of converters and sensors
 using a number of different physical interfaces (i2c, spi, etc). See
 <a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a> for more information.</p>
+<section id="driver-features-and-limitations">
+<h3>Driver features and limitations<a class="headerlink" href="#driver-features-and-limitations" title="Link to this heading"></a></h3>
+<section id="choose-the-correct-iio-device">
+<h4>Choose the correct IIO device<a class="headerlink" href="#choose-the-correct-iio-device" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Task</p></th>
+<th class="head"><p>Interface</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>LO frequency, RF bandwidth, gain, calibration and tracking</p></td>
+<td><p>The <code class="docutils literal notranslate"><span class="pre">ad9361-phy</span></code> control device, accessed through SPI</p></td>
+</tr>
+<tr class="row-odd"><td><p>Buffered receive samples</p></td>
+<td><p>The companion AXI ADC IIO device in the FPGA reference design</p></td>
+</tr>
+<tr class="row-even"><td><p>Buffered transmit samples or DDS generation</p></td>
+<td><p>The companion AXI DDS/DAC IIO device</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The PHY does not own an IIO sample buffer. Sample data travels through the
+CMOS/LVDS digital interface; changing a PHY attribute is not a capture or
+playback operation. Discover the control and sample devices separately rather
+than assuming adjacent IIO device numbers.</p>
+<p>RX gain, TX attenuation, RF-port selection, sample-rate/filter controls and
+calibration are available through the PHY. Channel availability depends on the
+part and configured receive/transmit mode; a second channel must not be assumed
+on a single-channel variant.</p>
+</section>
+</section>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -557,64 +599,44 @@ using a number of different physical interfaces (i2c, spi, etc). See
 </tbody>
 </table>
 </div>
-<section id="related-device-drivers">
-<h4>Related Device Drivers<a class="headerlink" href="#related-device-drivers" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></td>
-<td></td>
-</tr>
-<tr class="row-even"><td><p>include</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
+</section>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<p>Configure kernel support first, then select the devicetree for the target
+platform. Keep board-specific customization with that setup rather than mixing
+it into runtime control examples.</p>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The AD9361 driver depends on <strong>CONFIG_SPI</strong></p>
 </div>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.c" target="_blank">drivers/iio/frequency/cf_axi_dds.c</a></p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>include</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.h" target="_blank">drivers/iio/frequency/cf_axi_dds.h</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
+        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
+
+              <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+
+        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9467</span> <span class="n">AD9643</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">AXI</span> <span class="n">ADC</span> <span class="n">driver</span>
+
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+</pre></div>
 </div>
 </section>
-</section>
-</section>
-<section id="device-driver-customization">
-<h2>Device Driver Customization<a class="headerlink" href="#device-driver-customization" title="Link to this heading"></a></h2>
-<p>Please follow the link here for detailed options and examples:</p>
-<ul class="simple">
-<li><p><a class="reference internal" href="../ad9361-customization/#ad9361-customization"><span class="std std-ref">AD9361</span></a></p></li>
-</ul>
-</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<p>Start with the reference design for the board and variant being used. The
+example links below belong to specific FMCOMMS platforms; consult the binding
+and customization page when adapting the design.</p>
 <section id="example-linux-device-tree-initialization">
-<h2>Example Linux Device-Tree Initialization<a class="headerlink" href="#example-linux-device-tree-initialization" title="Link to this heading"></a></h2>
+<h4>Example Linux Device-Tree Initialization<a class="headerlink" href="#example-linux-device-tree-initialization" title="Link to this heading"></a></h4>
 <p>The AD9361 driver is a spi-bus driver and can currently only be instantiated via
 device tree.</p>
 <p>Required devicetree properties:</p>
@@ -643,41 +665,25 @@ device tree.</p>
 </table>
 </div>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The AD9361 driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-        <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
-
-              <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-
-        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9467</span> <span class="n">AD9643</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">AXI</span> <span class="n">ADC</span> <span class="n">driver</span>
-
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-</pre></div>
-</div>
+<section id="device-driver-customization">
+<h3>Device Driver Customization<a class="headerlink" href="#device-driver-customization" title="Link to this heading"></a></h3>
+<p>Please follow the link here for detailed options and examples:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="../ad9361-customization/#ad9361-customization"><span class="std std-ref">AD9361</span></a></p></li>
+</ul>
 </section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<section id="external-rf-band-control">
+<span id="ad9361-external-rf-band-control"></span><h3>External RF-band control<a class="headerlink" href="#external-rf-band-control" title="Link to this heading"></a></h3>
+<p>Boards with GPIO-controlled external RF filters can use
+<code class="docutils literal notranslate"><span class="pre">CONFIG_AD9361_EXT_BAND_CONTROL</span></code> together with the external-band-control
+devicetree configuration. The driver selects the corresponding RX or TX band
+settings when the LO changes.</p>
+<p>This support is optional and requires external band-control hardware.</p>
 </section>
-<section id="driver-testing-api">
-<h2>Driver testing / API<a class="headerlink" href="#driver-testing-api" title="Link to this heading"></a></h2>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <p>Each and every IIO device, typically a hardware chip, has a device folder under
 <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX</span></code>. Where X is the IIO index of the device. Under
 every of these directory folders reside a set of files, depending on the
@@ -695,6 +701,37 @@ the numbering is constant and may be known in advance.</p>
 <li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/fmcomms2_plugin" target="_blank">AD936X Plugin Description</a></p></li>
 </ul>
 </div>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
+<p>Locate the transceiver control device by name before using the commands below.
+Device numbers can change between systems.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>for d in /sys/bus/iio/devices/iio:device*; do
+    [ "$(cat "$d/name" 2&gt;/dev/null)" = "ad9361-phy" ] &amp;&amp; printf '%s\n' "$d"
+done
+</pre></div>
+</div>
+<p>The existing examples use <code class="docutils literal notranslate"><span class="pre">iio:device1</span></code>. Substitute the discovered
+control-device path.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
+<span class="n">ad9361</span><span class="o">-</span><span class="n">phy</span>
+</pre></div>
+</div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
+<p>Begin with read-only checks of the control device. For an instance discovered as
+<code class="docutils literal notranslate"><span class="pre">iio:device1</span></code>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>cd /sys/bus/iio/devices/iio:device1
+cat name
+cat ensm_mode
+cat in_voltage_sampling_frequency
+cat out_voltage_sampling_frequency
+</pre></div>
+</div>
+<p>The sample-frequency attributes report rates in hertz. Follow the individual
+task sections below to change settings and read back the resulting
+configuration. These control checks do not capture or transmit sample buffers.</p>
+</section>
 <section id="general-attribute-naming-convention">
 <h3>General attribute naming convention:<a class="headerlink" href="#general-attribute-naming-convention" title="Link to this heading"></a></h3>
 <ul class="simple">
@@ -793,13 +830,6 @@ provided for convenience.</p>
 </pre></div>
 </div>
 </section>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
-<span class="n">ad9361</span><span class="o">-</span><span class="n">phy</span>
-</pre></div>
-</div>
-</section>
 <section id="enable-state-machine-controls">
 <h3>Enable State Machine Controls<a class="headerlink" href="#enable-state-machine-controls" title="Link to this heading"></a></h3>
 <p>The AD9361 transceiver includes an Enable State Machine (ENSM), allowing real
@@ -847,10 +877,17 @@ go via ALERT. (Recent driver releases - do this now automatically…)</p>
 </section>
 <section id="local-oscillator-control-lo">
 <h3>Local Oscillator Control (LO)<a class="headerlink" href="#local-oscillator-control-lo" title="Link to this heading"></a></h3>
+<p>An RX LO change reloads the receive gain table for the new frequency. A TX LO
+change can schedule quadrature recalibration when automatic calibration is
+enabled and the frequency-change threshold is exceeded. Include gain and
+calibration state in a retuning check. For boards with external filter
+switching, see <a class="reference internal" href="#ad9361-external-rf-band-control"><span class="std std-ref">External RF-band control</span></a>.</p>
 <p>The AD9361 transceiver contains two identical RFPLL synthesizers to generate the
 required LO signals. One is programmed for the RX channel and the other for the
-TX channel. The tuning range supported by this driver covers 70MHz to 6GHz
-(AD9363: 325-3800 MHz) with 2Hz tuning granularity.</p>
+TX channel. For AD9361/AD9364, the driver enforces a 70 MHz RX minimum and a
+46,875,001 Hz TX minimum, with a 6 GHz maximum. AD9363 retains its narrower
+device limits. Query each LO frequency_available attribute for the
+driver-advertised bounds; board RF performance is a separate constraint.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span> <span class="n">cat</span> <span class="n">out_altvoltage0_RX_LO_frequency</span>
 <span class="mi">2400000000</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">2450000000</span> <span class="o">&gt;</span>
@@ -1080,9 +1117,11 @@ function.</p>
 <p>The high level out_voltage_sampling_frequency attribute effectively controls the
 BBPLL frequency the ADC Sample clock, the DAC clock and all following
 interpolation filter blocks except the FIR block which is handled upon user
-configuration. This IIO device attribute allows the user to control the Baseband
-(BB) Sample Rate in Hz granularity in the range from 218KSPS up to 61.44MSPS,
-also depending on the FIR filter decimation chosen.
+configuration. This IIO device attribute controls the baseband sample rate in
+Hz. The advertised minimum is derived from MIN_ADC_CLK / (12 × TX FIR
+interpolation), with a maximum of 61.44 MSPS, subject to the clock-chain and
+RX/TX ratio constraints. With the 25 MHz ADC minimum and interpolation by four,
+the advertised integer minimum is 520833 samples/s.
 out_voltage_sampling_frequency as well as in_voltage_sampling_frequency are not
 entirely independent, by default the both need to match unless
 adi,fdd-rx-rate-2tx-enable is set. Then RX rate can be twice the TX rate,
@@ -1099,11 +1138,11 @@ here:<a class="icon link reference external" href="https://github.com/analogdevi
 </div>
 <section id="setting-querying-the-tx-sample-rate">
 <h4>Setting / Querying the TX Sample Rate<a class="headerlink" href="#setting-querying-the-tx-sample-rate" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_voltage_sampling_frequency</span>
-<span class="mi">30720000</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">10000000</span> <span class="o">&gt;</span>  <span class="n">out</span> <span class="n">_voltage_sampling_frequency</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out</span> <span class="n">_voltage_sampling_frequency</span>
-<span class="mi">10000000</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/bus/iio/devices/iio:device1&gt; cat out_voltage_sampling_frequency
+30720000
+root:/sys/bus/iio/devices/iio:device1&gt; echo 10000000 &gt; out_voltage_sampling_frequency
+root:/sys/bus/iio/devices/iio:device1&gt; cat out_voltage_sampling_frequency
+10000000
 </pre></div>
 </div>
 </section>
@@ -1180,6 +1219,25 @@ is always a good option.</p>
 </section>
 <section id="digital-fir-filter-controls">
 <h3>Digital FIR Filter controls<a class="headerlink" href="#digital-fir-filter-controls" title="Link to this heading"></a></h3>
+<p>FIR decimation/interpolation, RX/TX sample rates and analog bandwidth share
+configuration dependencies. A sample-rate change reconfigures the clock chain
+and reapplies RF bandwidth settings; use a FIR configuration designed for the
+intended rate and bandwidth.</p>
+<p>After the filter-loading and enable operations below, read back the resulting
+configuration from the PHY directory:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>cat in_voltage_sampling_frequency
+cat out_voltage_sampling_frequency
+cat rx_path_rates
+cat tx_path_rates
+cat in_voltage_rf_bandwidth
+cat out_voltage_rf_bandwidth
+cat in_voltage_filter_fir_en
+cat out_voltage_filter_fir_en
+</pre></div>
+</div>
+<p>Query <code class="docutils literal notranslate"><span class="pre">in_voltage_sampling_frequency_available</span></code> and
+<code class="docutils literal notranslate"><span class="pre">out_voltage_sampling_frequency_available</span></code> for the active configuration when
+selecting rates.</p>
 <p>The last/first digital filter in the RX/TX signal path is a programmable
 poly-phase FIR filter. The RX/TX FIR filter can decimate/interpolate by a factor
 of 1, 2, or 4, or it can be bypassed if not needed. The filter taps are
@@ -1187,9 +1245,11 @@ configurable in groups of 16 between a minimum of 16 and a maximum of 128 taps.
 The RX FIR also has a programmable gain of -12dB, -6dB, 0dB, or +6dB. The filter
 provides a fixed +6dB gain to maximize dynamic range, so the programmable gain
 is typically set to -6dB to produce a net gain of 0dB. The TX FIR also has a
-programmable gain setting of 0dB or -6dB. Be aware there are some limitations in
-terms of the maximum number of taps supported by the different clock ratios,
-please consult the AD9361 manual for more details. The AD9361 device driver will
+programmable gain setting of 0dB or -6dB. The available tap count also depends
+on the filter clock-to-data-rate ratio. In addition, TX FIR interpolation by 1
+limits the filter to 64 taps; interpolation by 2 or 4 can support up to 128 taps
+when the clock ratio permits. The RX FIR can use 128 taps at any supported
+decimation factor when its clock ratio permits. The AD9361 device driver will
 warn if a programmed filter doesn’t match the limits.</p>
 <p>In general the filters are either created using the:</p>
 <ol class="arabic simple">
@@ -1510,6 +1570,9 @@ of the signal arrives.</p></td>
 </section>
 <section id="querying-or-setting-a-gain-control-mode">
 <h4>Querying or Setting a Gain Control Mode<a class="headerlink" href="#querying-or-setting-a-gain-control-mode" title="Link to this heading"></a></h4>
+<p>Before using the manual-gain write example, select <code class="docutils literal notranslate"><span class="pre">manual</span></code> for the same RX
+channel with the mode-setting commands below. Record the original mode and
+restore it after a temporary manual-gain experiment.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage0_gain_control_mode</span>
 <span class="n">slow_attack</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="n">manual</span> <span class="o">&gt;</span> <span class="n">in_voltage0_gain_control_mode</span>
@@ -1607,6 +1670,9 @@ RSSI measurements.</p>
 </section>
 <section id="calibration-mode-controls">
 <span id="ad9361-calibration-mode-controls"></span><h3>Calibration Mode Controls<a class="headerlink" href="#calibration-mode-controls" title="Link to this heading"></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">calib_mode</span></code> options below control calibration policy or request an
+individual calibration. Selecting <code class="docutils literal notranslate"><span class="pre">manual</span></code> disables automatic calibration
+policy; it does not disable the separate RX tracking controls.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">calib_mode_available</span>
 <span class="n">auto</span> <span class="n">manual</span> <span class="n">manual_tx_quad</span> <span class="n">tx_quad</span> <span class="n">rf_dc_offs</span> <span class="n">rssi_gain_step</span>
 </pre></div>
@@ -1669,6 +1735,9 @@ is done, <strong>calib_mode</strong> will be automatically set to its previous v
 </section>
 <section id="calibration-tracking-controls">
 <h4>Calibration Tracking Controls<a class="headerlink" href="#calibration-tracking-controls" title="Link to this heading"></a></h4>
+<p>RX quadrature tracking operates on received data and begins in RX or FDD state,
+as described in UG-570. An enabled tracking attribute therefore does not
+establish that an idle receiver has completed a fresh correction.</p>
 <p>Writing 0, N or 1, Y to the below attributes either disables or enables the
 corresponding tracking option.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage_quadrature_tracking_en</span>
@@ -1880,15 +1949,29 @@ Index 2, LNA Gain difference word for Index 3).</p>
 </div>
 </section>
 </section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
+<section id="control-access-works-but-samples-are-missing">
+<h3>Control access works but samples are missing<a class="headerlink" href="#control-access-works-but-samples-are-missing" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>Confirm that the device being used for capture is the AXI receive device, not
+<code class="docutils literal notranslate"><span class="pre">ad9361-phy</span></code>.</p></li>
+<li><p>Check the active PHY RX rate, RF port, LO and ENSM state using the normal
+attributes.</p></li>
+<li><p>Check scan-element and buffer configuration on the sample device.</p></li>
+<li><p>Use the existing BIST, loopback and digital-interface timing procedures below
+to investigate the data path.</p></li>
+</ol>
+</section>
 <section id="advanced-debug-facilities">
-<h2>Advanced Debug Facilities<a class="headerlink" href="#advanced-debug-facilities" title="Link to this heading"></a></h2>
+<h3>Advanced Debug Facilities<a class="headerlink" href="#advanced-debug-facilities" title="Link to this heading"></a></h3>
 <p>The AD9361 driver supports a number of advanced debug controls via the kernel
 <a class="icon link reference external" href="https://en.wikipedia.org/wiki/debugfs" target="_blank">debugfs</a>. How these device
 files/controls can be used is described here. The
 <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/fmcomms2_advanced_plugin" target="_blank">AD936X Advanced Plugin</a>
 directly controls these and adds a user friendly interface.</p>
 <section id="runtime-device-driver-customization">
-<h3>Runtime Device Driver Customization<a class="headerlink" href="#runtime-device-driver-customization" title="Link to this heading"></a></h3>
+<h4>Runtime Device Driver Customization<a class="headerlink" href="#runtime-device-driver-customization" title="Link to this heading"></a></h4>
 <p>There is a large number of <a class="reference internal" href="../ad9361-customization/#ad9361-customization"><span class="std std-ref">AD9361</span></a> options available.
 Typically these are supplied via
 <a class="icon link reference external" href="https://en.wikipedia.org/wiki/device_tree" target="_blank">Devicetree</a>. However for debug
@@ -1940,7 +2023,7 @@ device</p>
 </pre></div>
 </div>
 <section id="example-to-change-the-driver-from-fdd-into-tdd-mode-operation">
-<h4>Example to change the driver from FDD into TDD mode operation<a class="headerlink" href="#example-to-change-the-driver-from-fdd-into-tdd-mode-operation" title="Link to this heading"></a></h4>
+<h5>Example to change the driver from FDD into TDD mode operation<a class="headerlink" href="#example-to-change-the-driver-from-fdd-into-tdd-mode-operation" title="Link to this heading"></a></h5>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat adi,frequency-division-duplex-mode-enable</span>
 <span class="mi">1</span>
 
@@ -1957,7 +2040,7 @@ device</p>
 </section>
 </section>
 <section id="gpo-manual-control">
-<h3>GPO Manual Control<a class="headerlink" href="#gpo-manual-control" title="Link to this heading"></a></h3>
+<h4>GPO Manual Control<a class="headerlink" href="#gpo-manual-control" title="Link to this heading"></a></h4>
 <p>This attribute allows controlling the GPO[0..3] via debugfs. In order to use
 these pins, <code class="docutils literal notranslate"><span class="pre">adi,gpo-manual-mode-enable</span></code> must be enabled.</p>
 <div class="admonition warning">
@@ -2002,13 +2085,13 @@ these pins, <code class="docutils literal notranslate"><span class="pre">adi,gpo
 </div>
 </section>
 <section id="build-in-self-test-bist">
-<h3>Build-In Self-Test (BIST)<a class="headerlink" href="#build-in-self-test-bist" title="Link to this heading"></a></h3>
+<h4>Build-In Self-Test (BIST)<a class="headerlink" href="#build-in-self-test-bist" title="Link to this heading"></a></h4>
 <p>Controling these attribute files directly take effect and therefore don’t
 require the <code class="docutils literal notranslate"><span class="pre">initialize</span></code> sequence. Test functionality exposed here is only
 meant to route or inject test patterns/data than can be used to validate the
 Digital Interface or functionality of the device.</p>
 <section id="bist-tone">
-<h4>BIST Tone<a class="headerlink" href="#bist-tone" title="Link to this heading"></a></h4>
+<h5>BIST Tone<a class="headerlink" href="#bist-tone" title="Link to this heading"></a></h5>
 <p>User selectable tone (with frequency and level selection), that can either
 injected into the RX or TX path. A MASK can be supplied to disable certain
 channels. A masked channel (box check) is not driving any data.</p>
@@ -2125,7 +2208,7 @@ match</p></td>
 </div>
 </section>
 <section id="prbs">
-<h4>PRBS<a class="headerlink" href="#prbs" title="Link to this heading"></a></h4>
+<h5>PRBS<a class="headerlink" href="#prbs" title="Link to this heading"></a></h5>
 <p>Pseudorandom Binary Sequence
 (<a class="icon link reference external" href="https://en.wikipedia.org/wiki/Pseudorandom_binary_sequence" target="_blank">PRBS</a>) that can
 either injected into the RX or TX path.</p>
@@ -2160,7 +2243,7 @@ either injected into the RX or TX path.</p>
 </div>
 </section>
 <section id="bist-loopback">
-<h4>BIST Loopback<a class="headerlink" href="#bist-loopback" title="Link to this heading"></a></h4>
+<h5>BIST Loopback<a class="headerlink" href="#bist-loopback" title="Link to this heading"></a></h5>
 <p>Allows either to digitally loopback TX data into the RX path or vice versa.</p>
 <ul class="simple">
 <li><p>Digital TX -&gt; Digital RX loopback : The loopback happens inside the AD9361/4
@@ -2200,19 +2283,19 @@ effect the transmission.</p></li>
 </div>
 </section>
 <section id="bist-timing-analysis">
-<h4>BIST Timing Analysis<a class="headerlink" href="#bist-timing-analysis" title="Link to this heading"></a></h4>
+<h5>BIST Timing Analysis<a class="headerlink" href="#bist-timing-analysis" title="Link to this heading"></a></h5>
 <p><strong>bist_timing_analysis</strong>: See here:
 <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms2-ebz/interface_timing_validation" target="_blank">Digital Interface Timing Verification</a></p>
 </section>
 <section id="digital-tune">
-<h4>Digital Tune<a class="headerlink" href="#digital-tune" title="Link to this heading"></a></h4>
+<h5>Digital Tune<a class="headerlink" href="#digital-tune" title="Link to this heading"></a></h5>
 <p><strong>digital_tune</strong>: See here:
 <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms2-ebz/interface_timing_validation" target="_blank">Digital Interface Timing Verification</a></p>
 </section>
 </section>
 </section>
 <section id="low-level-register-access-via-debugfs-direct-reg-access">
-<h2>Low level register access via debugfs (direct_reg_access)<a class="headerlink" href="#low-level-register-access-via-debugfs-direct-reg-access" title="Link to this heading"></a></h2>
+<h3>Low level register access via debugfs (direct_reg_access)<a class="headerlink" href="#low-level-register-access-via-debugfs-direct-reg-access" title="Link to this heading"></a></h3>
 <p>Some IIO drivers feature an optional debug facility, allowing users to read or
 write registers directly. Special care needs to be taken when using this
 feature, since you can modify registers on the back of the driver.</p>
@@ -2257,9 +2340,8 @@ first need to identify the IIO device number.</p>
 <div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>direct_reg_access
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div></section>
-<section id="reading">
-<h2>Reading<a class="headerlink" href="#reading" title="Link to this heading"></a></h2>
+<div class="clear-left"></div></div></div><section id="reading">
+<h4>Reading<a class="headerlink" href="#reading" title="Link to this heading"></a></h4>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/iio/iio:device1$
 </pre></div>
 </div>
@@ -2277,7 +2359,7 @@ first need to identify the IIO device number.</p>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="writing">
-<h2>Writing<a class="headerlink" href="#writing" title="Link to this heading"></a></h2>
+<h4>Writing<a class="headerlink" href="#writing" title="Link to this heading"></a></h4>
 <p>Write ADDRESS VALUE:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/iio/iio:device1$
 </pre></div>
@@ -2296,7 +2378,7 @@ first need to identify the IIO device number.</p>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="accessing-hdl-core-registers">
-<h2>Accessing HDL CORE registers<a class="headerlink" href="#accessing-hdl-core-registers" title="Link to this heading"></a></h2>
+<h4>Accessing HDL CORE registers<a class="headerlink" href="#accessing-hdl-core-registers" title="Link to this heading"></a></h4>
 <p>Special ADI device driver convention for devices that have both:</p>
 <ul class="simple">
 <li><p>a SPI/I2C control interface</p></li>
@@ -2321,6 +2403,8 @@ first need to identify the IIO device number.</p>
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div></section>
+</section>
+</section>
 <section id="more-information">
 <h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -2334,6 +2418,53 @@ first need to identify the IIO device number.</p>
 <li><p><a class="icon link reference external" href="http://video.fosdem.org/2015/devroom-software_defined_radio/iiosdr.mp4" target="_blank">Software Defined Radio using the IIO framework</a></p></li>
 <li><p><a class="icon link reference external" href="https://www.youtube.com/watch?v=p_VntEwUe24" target="_blank">libiio introduction</a></p></li>
 </ul>
+<section id="related-device-drivers">
+<h3>Related Device Drivers<a class="headerlink" href="#related-device-drivers" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>include</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.c" target="_blank">drivers/iio/frequency/cf_axi_dds.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>include</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.h" target="_blank">drivers/iio/frequency/cf_axi_dds.h</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
 </section>
 </section>
 

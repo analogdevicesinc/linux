@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ltc2499
 
+
 .. _ltc2499:
 
 LTC2499
@@ -59,9 +60,9 @@ Example device tree
 Driver testing
 --------------
 
-When configured with channel 0 as voltage output, channel 1 as current output,
-channel 2 as voltage input and channel 3 as current input, the following
-structure is created under the corresponding IIO device.
+The driver exposes 16 single-ended voltage inputs and eight differential input
+pairs in both polarities. All channels are ADC inputs; there are no current
+channels or DAC outputs. The following is an example sysfs listing.
 
 ::
 
@@ -108,18 +109,21 @@ structure is created under the corresponding IIO device.
    lrwxrwxrwx 1 root root    0 Sep 22 15:17 subsystem -> ../../../../../../../bus/iio
    -rw-r--r-- 1 root root 4096 Sep 22 15:17 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root@analog:/sys/bus/iio/devices/iio:device0# cat name
    ltc2499
 
+Basic operation
+~~~~~~~~~~~~~~~
+
 Show raw measurement
 ^^^^^^^^^^^^^^^^^^^^
 
-**Description:** Raw measurement of current on channel 0.
+**Description: Raw ADC code for voltage input channel 0.**
 
 ::
 
@@ -127,10 +131,11 @@ Show raw measurement
    16777216
 
 Show scale
-''''''''''
+~~~~~~~~~~
 
-**Description:** Scale to be applied to the raw measurement of current on
-channel 0 in order to obtain the actual current.
+**Description:** Multiply the raw code by ``in_voltage_scale`` to obtain
+millivolts. The scale is VREF_mV / 2^(resolution + 1), with a resolution of 24
+for LTC2499 and 16 for LTC2497.
 
 ::
 

@@ -98,12 +98,27 @@
           <ul>
 <li><a class="reference internal" href="#">AD9083</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
-<li><a class="reference internal" href="#supported-boards">Supported Boards</a></li>
-<li><a class="reference internal" href="#supported-hdl-cores">Supported HDL Cores</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
-<li><a class="reference internal" href="#files">Files</a><ul>
+<li><a class="reference internal" href="#files">Files</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-device-trees">Example device trees</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a></li>
+<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
+<li><a class="reference internal" href="#low-level-register-access-via-debugfs-direct-reg-access">Low level register access via debugfs (direct_reg_access)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a><ul>
+<li><a class="reference internal" href="#supported-hdl-cores">Supported HDL Cores</a></li>
 <li><a class="reference internal" href="#interrelated-device-drivers">Interrelated Device Drivers</a><ul>
 <li><a class="reference internal" href="#transport-layer-receive-axi-adc-driver">Transport Layer Receive AXI-ADC driver</a></li>
 <li><a class="reference internal" href="#link-layer-axi-jesd204b-hdl-driver">Link Layer AXI JESD204B HDL driver</a></li>
@@ -112,16 +127,6 @@
 </li>
 </ul>
 </li>
-</ul>
-</li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
-<li><a class="reference internal" href="#device-tree-example">Device Tree Example</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#driver-testing">Driver testing</a></li>
-<li><a class="reference internal" href="#low-level-register-access-via-debugfs-direct-reg-access">Low level register access via debugfs (direct_reg_access)</a></li>
-<li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
 </ul>
@@ -223,6 +228,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -241,7 +247,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -383,16 +388,10 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD9083" target="_blank">AD9083</a></p></li>
 </ul>
 </section>
-<section id="supported-boards">
-<h2>Supported Boards<a class="headerlink" href="#supported-boards" title="Link to this heading"></a></h2>
+<section id="evaluation-boards">
+<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD9083" target="_blank">EVAL-AD9083</a></p></li>
-</ul>
-</section>
-<section id="supported-hdl-cores">
-<h2>Supported HDL Cores<a class="headerlink" href="#supported-hdl-cores" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/ad9083/ad9083_evb_reference_hdl" target="_blank">AD9083 FMC Card HDL Reference Design</a></p></li>
 </ul>
 </section>
 <section id="description">
@@ -444,153 +443,41 @@ temperature range.</p>
 </tbody>
 </table>
 </div>
-<section id="example-device-trees">
-<h4>Example device trees<a class="headerlink" href="#example-device-trees" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>dtsi</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm64/boot/dts/xilinx/adi-ad9083-fmc-ebz.dtsi" target="_blank">adi-ad9083-fmc-ebz.dtsi</a></p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>dts</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-ad9083-fmc-ebz.dts" target="_blank">zynqmp-zcu102-rev10-ad9083-fmc-ebz.dts</a></p></td>
-<td></td>
-</tr>
-<tr class="row-even"><td><p>Documentation</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/Documentation/devicetree/bindings/iio/adc/adi,ad9083.yaml" target="_blank">adi,ad9083.yaml</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="interrelated-device-drivers">
-<h4>Interrelated Device Drivers<a class="headerlink" href="#interrelated-device-drivers" title="Link to this heading"></a></h4>
-<ul class="simple">
-<li><p><a class="reference internal" href="../../jesd204/jesd204-fsm-framework/#jesd204-fsm-framework"><span class="std std-ref">JESD204 FSM</span></a></p></li>
-<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/jesd204/#jesd204" target="_blank" title="(in HDL)"><span>JESD204 Interface Framework</span></a></p></li>
-</ul>
-<section id="transport-layer-receive-axi-adc-driver">
-<h5>Transport Layer Receive AXI-ADC driver<a class="headerlink" href="#transport-layer-receive-axi-adc-driver" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></td>
-<td></td>
-</tr>
-<tr class="row-even"><td><p>include</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p><strong>Documentation:</strong> <a class="reference internal" href="../axi-adc-hdl/#axi-adc-hdl"><span class="std std-ref">AXI ADC HDL</span></a></p>
-</section>
-<section id="link-layer-axi-jesd204b-hdl-driver">
-<h5>Link Layer AXI JESD204B HDL driver<a class="headerlink" href="#link-layer-axi-jesd204b-hdl-driver" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_rx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_rx.c</a></p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_tx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_tx.c</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p><strong>Documentation:</strong></p>
-<ul class="simple">
-<li><p><a class="reference internal" href="../../jesd204/axi_jesd204_tx/#axi-jesd204-tx"><span class="std std-ref">AXI JESD204 TX</span></a></p></li>
-<li><p><a class="reference internal" href="../../jesd204/axi_jesd204_rx/#axi-jesd204-rx"><span class="std std-ref">AXI JESD204B RX</span></a></p></li>
-</ul>
-</section>
-<section id="phy-layer-axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel">
-<h5>PHY Layer AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)<a class="headerlink" href="#phy-layer-axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_adxcvr.c" target="_blank">drivers/iio/jesd204/axi_adxcvr.c</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p><strong>Documentation:</strong></p>
-<ul class="simple">
-<li><p><a class="reference internal" href="../../jesd204/axi_adxcvr/#axi-adxcvr"><span class="std std-ref">AXI ADXCVR</span></a></p></li>
-</ul>
 </section>
 </section>
-</section>
-</section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The AD9083 driver depends on <strong>CONFIG_SPI</strong></p>
 </div>
-</section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-        <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Linux Kernel Configuration
+    Device Drivers  ---&gt;
+    &lt;*&gt;     Industrial I/O support ---&gt;
+        --- Industrial I/O support
+        -*-   Enable buffer support within IIO
+        -*-   Enable triggered sampling support
 
-              <span class="o">***</span> <span class="n">Direct</span> <span class="n">Digital</span> <span class="n">Synthesis</span> <span class="o">***</span>
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+              * Analog to digital converters *
+        [--snip--]
 
-        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">CoreFPGA</span> <span class="n">AXI</span> <span class="n">DDS</span> <span class="n">driver</span>
-        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9083</span> <span class="mi">16</span><span class="o">-</span><span class="n">Channel</span><span class="p">,</span> <span class="mi">125</span> <span class="n">MHz</span> <span class="n">Bandwidth</span><span class="p">,</span> <span class="n">JESD204B</span> <span class="n">ADC</span>
+        &lt;*&gt;   Analog Devices CoreFPGA AXI DDS driver
+        &lt;*&gt;   Analog Devices AD9083 16-Channel, 125 MHz Bandwidth, JESD204B ADC
 
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+        [--snip--]
 </pre></div>
 </div>
-<section id="device-tree-example">
-<h3>Device Tree Example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h3>
+<p>Enable CONFIG_AD9083; it selects CF_AXI_ADC. The CoreFPGA AXI DDS driver shown
+below is not required for this receive-only ADC.</p>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/iio/adc/adi,ad9083.h&gt;</span>
 <span class="o">&amp;</span><span class="nf">spi0</span><span class="cm"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nl">adc0_ad9083</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9083</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
@@ -638,10 +525,43 @@ temperature range.</p>
 <span class="p">};</span>
 </pre></div>
 </div>
+<p>Despite the <code class="docutils literal notranslate"><span class="pre">-uv</span></code> suffix, the value is passed unchanged to the device API,
+which accepts 500–2000.</p>
+<section id="example-device-trees">
+<h4>Example device trees<a class="headerlink" href="#example-device-trees" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>dtsi</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm64/boot/dts/xilinx/adi-ad9083-fmc-ebz.dtsi" target="_blank">adi-ad9083-fmc-ebz.dtsi</a></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>dts</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-ad9083-fmc-ebz.dts" target="_blank">zynqmp-zcu102-rev10-ad9083-fmc-ebz.dts</a></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>Documentation</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/Documentation/devicetree/bindings/iio/adc/adi,ad9083.yaml" target="_blank">adi,ad9083.yaml</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
 </section>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<p>The capture sampling frequency is the ADC frequency divided by the total
+datapath decimation, both configured in the devicetree; the sampling frequency
+is read-only. Complex datapaths additionally expose three output altvoltage
+NCO-frequency controls, quantized to the 8-bit tuning word.</p>
 <p>In case the driver probes successfully and the device gets instantiated. Your
 systems kernel messages should include some line, which may look like the one
 shown below.</p>
@@ -681,8 +601,10 @@ the numbering is constant and may be known in advance.</p>
 </pre></div>
 </div>
 </section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
 <section id="low-level-register-access-via-debugfs-direct-reg-access">
-<h2>Low level register access via debugfs (direct_reg_access)<a class="headerlink" href="#low-level-register-access-via-debugfs-direct-reg-access" title="Link to this heading"></a></h2>
+<h3>Low level register access via debugfs (direct_reg_access)<a class="headerlink" href="#low-level-register-access-via-debugfs-direct-reg-access" title="Link to this heading"></a></h3>
 <p>Some IIO drivers feature an optional debug facility, allowing users to read or
 write registers directly. Special care needs to be taken when using this
 feature, since you can modify registers on the back of the driver. Accessing
@@ -722,6 +644,7 @@ direct_reg_access file exists.</p>
 </pre></div>
 </div>
 </section>
+</section>
 <section id="more-information">
 <h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -735,6 +658,98 @@ direct_reg_access file exists.</p>
 <li><p><a class="icon link reference external" href="http://video.fosdem.org/2015/devroom-software_defined_radio/iiosdr.mp4" target="_blank">Software Defined Radio using the IIO framework</a></p></li>
 <li><p><a class="icon link reference external" href="https://www.youtube.com/watch?v=p_VntEwUe24" target="_blank">libiio introduction</a></p></li>
 </ul>
+<section id="supported-hdl-cores">
+<h3>Supported HDL Cores<a class="headerlink" href="#supported-hdl-cores" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/ad9083/ad9083_evb_reference_hdl" target="_blank">AD9083 FMC Card HDL Reference Design</a></p></li>
+</ul>
+</section>
+<section id="interrelated-device-drivers">
+<h3>Interrelated Device Drivers<a class="headerlink" href="#interrelated-device-drivers" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="reference internal" href="../../jesd204/jesd204-fsm-framework/#jesd204-fsm-framework"><span class="std std-ref">JESD204 FSM</span></a></p></li>
+<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/jesd204/#jesd204" target="_blank" title="(in HDL)"><span>JESD204 Interface Framework</span></a></p></li>
+</ul>
+<section id="transport-layer-receive-axi-adc-driver">
+<h4>Transport Layer Receive AXI-ADC driver<a class="headerlink" href="#transport-layer-receive-axi-adc-driver" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>include</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Documentation:</strong> <a class="reference internal" href="../axi-adc-hdl/#axi-adc-hdl"><span class="std std-ref">AXI ADC HDL</span></a></p>
+</section>
+<section id="link-layer-axi-jesd204b-hdl-driver">
+<h4>Link Layer AXI JESD204B HDL driver<a class="headerlink" href="#link-layer-axi-jesd204b-hdl-driver" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_rx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_rx.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_tx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_tx.c</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Documentation:</strong></p>
+<ul class="simple">
+<li><p><a class="reference internal" href="../../jesd204/axi_jesd204_tx/#axi-jesd204-tx"><span class="std std-ref">AXI JESD204 TX</span></a></p></li>
+<li><p><a class="reference internal" href="../../jesd204/axi_jesd204_rx/#axi-jesd204-rx"><span class="std std-ref">AXI JESD204B RX</span></a></p></li>
+</ul>
+</section>
+<section id="phy-layer-axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel">
+<h4>PHY Layer AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)<a class="headerlink" href="#phy-layer-axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_adxcvr.c" target="_blank">drivers/iio/jesd204/axi_adxcvr.c</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Documentation:</strong></p>
+<ul class="simple">
+<li><p><a class="reference internal" href="../../jesd204/axi_adxcvr/#axi-adxcvr"><span class="std std-ref">AXI ADXCVR</span></a></p></li>
+</ul>
+</section>
+</section>
 </section>
 </section>
 

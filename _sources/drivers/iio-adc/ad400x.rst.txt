@@ -48,10 +48,13 @@ different physical interfaces (I2C, SPI, etc). See
 See the
 :dokuwiki:`Evaluating AD400X and ADAQ400X devices </resources/eval/ad400x-eval-board>`
 user guide for instructions on how to setup and evaluate devices supported by
-the ad400x Linux driver.
+the ad4000 Linux driver.
+
+Source Code
+-----------
 
 Status
-------
+~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -59,12 +62,12 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git+linux:`git <main:drivers/iio/adc/ad400x.c>`
-     - [No]
+   * - `drivers/iio/adc/ad4000.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad4000.c>`__
+     - Yes
      -
 
 Files
------
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -73,10 +76,10 @@ Files
      - File
      -
    * - driver
-     - :git+linux:`main:drivers/iio/adc/ad400x.c`
+     - `drivers/iio/adc/ad4000.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad4000.c>`__
      -
    * - devicetree bindings
-     - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,ad400x.yaml`
+     - `adi,ad4000.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/adc/adi,ad4000.yaml>`__
      -
    * - ZedBoard example devicetree
      - :git+linux:`main:arch/arm/boot/dts/zynq-zed-adv7511-ad4020.dts`
@@ -85,193 +88,19 @@ Files
      - :git+linux:`main:arch/arm/boot/dts/zynq-coraz7s-adaq4003.dts`
      -
 
-Driver setup
-------------
-
-Since AD4003/4007/4011/4020 are high speed analog-to-digital converters with
-speeds up to 2 MSPS, additional components are required to achieve high
-performance. In this scenario, the following HDL components are required:
-
-- :external+hdl:ref:`spi_engine`
-- :external+hdl:ref:`axi_dmac`
-
-The device will interface with these components and follow the device tree
-bindings.
-
-::
-
-   properties:
-     compatible:
-       enum:
-         - adi,ad4000
-         - adi,ad4001
-         - adi,ad4002
-         - adi,ad4003
-         - adi,ad4004
-         - adi,ad4005
-         - adi,ad4006
-         - adi,ad4007
-         - adi,ad4008
-         - adi,ad4010
-         - adi,ad4011
-         - adi,ad4020
-         - adi,ad4021
-         - adi,ad4022
-         - adi,adaq4003
-
-     reg: true
-     spi-max-frequency: true
-
-     dmas:
-       description: |
-         DMA specifier, consisting of a phandle to DMA controller node.
-       maxItems: 1
-
-     dma-names:
-       const: rx
-
-     clocks:
-       maxItems: 1
-
-     clock-names:
-       const: ref_clk
-       description: AD400X reference clock name.
-
-     pwms:
-       description: |
-         PWM used as trigger source for the SPI engine, also represents the
-         acquisition rate for the samples.
-       maxItems: 1
-
-     pwm-names:
-       const: cnv
-
-     vref-supply:
-       description: Phandle to the regulator for ADC reference voltage.
-
-     '#address-cells':
-       const: 1
-
-     '#size-cells':
-       const: 0
-
-   patternProperties:
-     "^channel@([0-1])$":
-       $ref: adc.yaml
-       type: object
-       description: Represents the external channel connected to the ADC.
-
-       properties:
-         reg:
-           maxItems: 1
-
-         diff-channels: true
-
-       required:
-         - reg
-
-       additionalProperties: false
-
-   required:
-     - compatible
-     - reg
-     - dmas
-     - dma-names
-     - vref-supply
-
-   allOf:
-     - $ref: /schemas/spi/spi-peripheral-props.yaml#
-
-     - if:
-         properties:
-           compatible:
-             contains:
-               enum:
-                 - adi,adaq4003
-
-       then:
-         required:
-           - compatible
-           - reg
-           - dmas
-           - dma-names
-           - clocks
-           - clock-names
-           - pwms
-           - pwm-names
-           - vref-supply
-
-   unevaluatedProperties: false
-
-   examples:
-     - |
-       spi {
-           #address-cells = <1>;
-           #size-cells = <0>;
-           / Example for a AD400X devices /
-           adc@0 {
-               compatible = "adi,ad4020";
-               reg = <0>;
-               spi-max-frequency = <71000000>;
-               vref-supply = <&vref>;
-
-               dmas = <&rx_dma 0>;
-               dma-names = "rx";
-
-               #address-cells = <1>;
-               #size-cells = <0>;
-
-               channel@0 {
-                   reg = <0>;
-                   diff-channels = <0 1>;
-               };
-           };
-       };
-     - |
-       spi {
-           #address-cells = <1>;
-           #size-cells = <0>;
-
-           / Example for a ADAQ400X devices /
-           adc@0 {
-               compatible = "adi,adaq4003";
-               reg = <0>;
-               spi-max-frequency = <80000000>;
-               dmas = <&rx_dma 0>;
-               dma-names = "rx";
-               clocks = <&spi_clk>;
-               clock-names = "ref_clk";
-               pwms = <&adc_trigger 0 0>;
-               pwm-names = "cnv";
-               vref-supply = <&vref>;
-
-               #address-cells = <1>;
-               #size-cells = <0>;
-
-               channel@0 {
-                   reg = <0>;
-                   diff-channels = <0 1>;
-               };
-           };
-       };
-
-See the
-:dokuwiki:`Evaluating AD400X and ADAQ400X devices </resources/eval/ad400x-eval-board>`
-user guide for examples of device trees used with devices supported by the
-ad400x Linux driver.
-
 Adding Linux driver support
 ---------------------------
 
-Enabling the driver
-~~~~~~~~~~~~~~~~~~~
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
 .. note::
 
-   The AD400x driver depends on **CONFIG_SPI_MASTER**
+   The driver depends on CONFIG_SPI and selects IIO_BUFFER,
+   IIO_BUFFER_DMAENGINE, IIO_TRIGGERED_BUFFER and SPI_OFFLOAD.
 
 ::
 
@@ -283,10 +112,67 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
                ...
                Analog to digital converters  --->
                    ...
-                   <*>   Analog Devices AD400X ADC Driver
+                   <*>   Analog Devices AD4000 ADC Driver
                    ...
                ...
            ...
+
+Driver setup
+~~~~~~~~~~~~
+
+AD4003/AD4007/AD4011/AD4020 are high speed analog-to-digital converters with
+sample rates up to 2 MSPS. On FPGA-based platforms the device is driven
+through the following HDL components:
+
+- :external+hdl:ref:`spi_engine`
+- :external+hdl:ref:`axi_dmac`
+
+The devicetree binding requires ``compatible``, ``reg``, ``vdd-supply``,
+``vio-supply`` and ``ref-supply``. ``adi,sdi-pin`` describes how the ADC SDI
+pin is wired (``high``, ``low``, ``cs`` or ``sdi``); ``cnv-gpios`` gives the
+GPIO connected to the CNV pin when the host drives it directly. ADAQ4001 and
+ADAQ4003 additionally support ``adi,gain-milli`` to describe the hardware gain
+set by the external resistor network, and ``adi,high-z-input`` to select
+High-Z input mode (only available when ``adi,sdi-pin`` is not set, i.e. SDI
+tied to MOSI).
+
+.. code-block:: dts
+
+   #include <dt-bindings/gpio/gpio.h>
+   spi {
+       #address-cells = <1>;
+       #size-cells = <0>;
+       adc@0 {
+           compatible = "adi,ad4020";
+           reg = <0>;
+           spi-max-frequency = <71000000>;
+           vdd-supply = <&supply_1_8v>;
+           vio-supply = <&supply_1_8v>;
+           ref-supply = <&supply_5v>;
+           adi,sdi-pin = "cs";
+           cnv-gpios = <&gpio0 88 GPIO_ACTIVE_HIGH>;
+       };
+   };
+
+   spi {
+       #address-cells = <1>;
+       #size-cells = <0>;
+       adc@0 {
+           compatible = "adi,adaq4003";
+           reg = <0>;
+           spi-max-frequency = <80000000>;
+           vdd-supply = <&supply_1_8v>;
+           vio-supply = <&supply_1_8v>;
+           ref-supply = <&supply_5v>;
+           adi,high-z-input;
+           adi,gain-milli = /bits/ 16 <454>;
+       };
+   };
+
+See the
+:dokuwiki:`Evaluating AD400X and ADAQ400X devices </resources/eval/ad400x-eval-board>`
+user guide for examples of device trees used with devices supported by the
+ad4000 Linux driver.
 
 Driver testing
 --------------
@@ -314,19 +200,19 @@ Driver testing
    drwxr-xr-x 2 root root    0 Apr  2 21:43 buffer
    drwxr-xr-x 2 root root    0 Apr  2 21:43 buffer0
    -r--r--r-- 1 root root 4096 Apr  2 21:43 dev
-   -rw-r--r-- 1 root root 4096 Apr  2 21:43 in_voltage0_offset
-   -rw-r--r-- 1 root root 4096 Apr  2 21:43 in_voltage0_raw
-   -rw-r--r-- 1 root root 4096 Apr  2 21:43 in_voltage0_scale
+   -rw-r--r-- 1 root root 4096 Apr  2 21:43 in_voltage0-voltage1_offset
+   -rw-r--r-- 1 root root 4096 Apr  2 21:43 in_voltage0-voltage1_raw
+   -rw-r--r-- 1 root root 4096 Apr  2 21:43 in_voltage0-voltage1_scale
    -r--r--r-- 1 root root 4096 Apr  2 21:43 name
    lrwxrwxrwx 1 root root    0 Apr  2 21:43 of_node -> ../../../../../../../../firmware/devicetree/base/fpga-axi@0/spi@44a00000/adc@0
    drwxr-xr-x 2 root root    0 Apr  2 21:43 power
-   -rw-r--r-- 1 root root 4096 Apr  2 21:43 sampling_frequency
+   -rw-r--r-- 1 root root 4096 Apr  2 21:43 in_voltage0-voltage1_sampling_frequency
    drwxr-xr-x 2 root root    0 Apr  2 21:43 scan_elements
    lrwxrwxrwx 1 root root    0 Apr  2 21:43 subsystem -> ../../../../../../../../bus/iio
    -rw-r--r-- 1 root root 4096 Apr  2 21:43 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -334,32 +220,32 @@ Show device name
    adaq4003
 
 Show channel scale
-^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~
 
-**Description:** Scale to be applied to in_voltagex_raw in order to obtain the
-measured voltage in millivolts
+**Description:** Scale to be applied to in_voltage0-voltage1_raw in order to
+obtain the measured voltage in millivolts
 
 ::
 
-   root@analog:~# cat /sys/bus/iio/devices/iio:device1/in_voltage0_scale
+   root@analog:~# cat /sys/bus/iio/devices/iio:device1/in_voltage0-voltage1_scale
    0.019073486
 
 Configure sampling rate
-'''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~
 
-**Description:** /sys/bus/iio/devices/iio:deviceX/sampling_frequency Configures
-the input sampling rate.
+The sampling-frequency attribute exists only when the ADC is driven through
+SPI offload, and is per channel: ``in_voltage0-voltage1_sampling_frequency``
+for differential parts such as AD4003/AD4007/AD4011/AD4020/ADAQ4001/ADAQ4003,
+or ``in_voltage0_sampling_frequency`` for pseudo-differential parts such as
+AD4000. Without SPI offload, an IIO trigger paces capture and there is no
+sampling-frequency attribute.
 
 ::
 
-   root@analog:~# cat /sys/bus/iio/devices/iio:device1/sampling_frequency
+   root@analog:~# cat /sys/bus/iio/devices/iio:device1/in_voltage0-voltage1_sampling_frequency
    2000000
-
-::
-
-   root@analog:~# echo 1000000 >
-   /sys/bus/iio/devices/iio:device1/sampling_frequency
-   root@analog:~# cat /sys/bus/iio/devices/iio:device1/sampling_frequency
+   root@analog:~# echo 1000000 > /sys/bus/iio/devices/iio:device1/in_voltage0-voltage1_sampling_frequency
+   root@analog:~# cat /sys/bus/iio/devices/iio:device1/in_voltage0-voltage1_sampling_frequency
    1000000
 
 Buffer management
@@ -384,9 +270,9 @@ Buffer management
 
    root@analog:~# ls -l /sys/bus/iio/devices/iio:device1/scan_elements/
    total 0
-   -rw-r--r-- 1 root root 4096 Apr  3 08:11 in_voltage0_en
-   -r--r--r-- 1 root root 4096 Apr  3 08:11 in_voltage0_index
-   -r--r--r-- 1 root root 4096 Apr  3 08:11 in_voltage0_type
+   -rw-r--r-- 1 root root 4096 Apr  3 08:11 in_voltage0-voltage1_en
+   -r--r--r-- 1 root root 4096 Apr  3 08:11 in_voltage0-voltage1_index
+   -r--r--r-- 1 root root 4096 Apr  3 08:11 in_voltage0-voltage1_type
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-typical-adc-scan-elements
@@ -394,25 +280,25 @@ Buffer management
 
 ::
 
-   root@analog:/sys/bus/iio/devices/iio:device1/scan_elements# grep ""
-   in_voltage0_en:0
-   in_voltage0_index:0
-   in_voltage0_type:le:s18/32>>0
+   root@analog:/sys/bus/iio/devices/iio:device1/scan_elements# grep "" *
+   in_voltage0-voltage1_en:0
+   in_voltage0-voltage1_index:0
+   in_voltage0-voltage1_type:le:s18/32>>0
 
 Buffer Example
 ~~~~~~~~~~~~~~
 
-When the buffer is enabled, the ad400x driver prepares a read transfer and
+When the buffer is enabled, the ad4000 driver prepares a read transfer and
 configures the :external+hdl:ref:`spi_engine offload` module to repeat that
-transfer each time the offload module is triggered. Then, the ad400x driver sets
+transfer each time the offload module is triggered. Then, the driver sets
 a PWM device to trigger the offload module at the rate specified by the
 ``sampling_frequency`` attribute. With that, ADC readings are gathered
 continuously while the buffer remains enabled.
 
 ::
 
-   root@analog:~# echo 1 > /sys/bus/iio/devices/iio:device1/scan_elements/in_voltage0_en
-   root@analog:~# cat /sys/bus/iio/devices/iio:device1/scan_elements/in_voltage0_en
+   root@analog:~# echo 1 > /sys/bus/iio/devices/iio:device1/scan_elements/in_voltage0-voltage1_en
+   root@analog:~# cat /sys/bus/iio/devices/iio:device1/scan_elements/in_voltage0-voltage1_en
    1
    root@analog:~# echo 1 > /sys/bus/iio/devices/iio:device1/buffer/enable
    root@analog:~# cat /sys/bus/iio/devices/iio:device1/buffer/data_available

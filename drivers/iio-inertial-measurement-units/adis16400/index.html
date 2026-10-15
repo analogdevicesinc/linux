@@ -105,14 +105,19 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#attribute-reference">Attribute reference</a><ul>
 <li><a class="reference internal" href="#adis16400-device-attributes">ADIS16400 device attributes</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a></li>
 <li><a class="reference internal" href="#set-sampling-frequency">Set sampling frequency</a></li>
 <li><a class="reference internal" href="#show-channel-value">Show channel value</a></li>
 <li><a class="reference internal" href="#set-channel-bandwidth">Set channel bandwidth</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#trigger-management">Trigger management</a></li>
@@ -224,6 +229,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -242,7 +248,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -438,8 +443,8 @@ information.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400_core.c" target="_blank">git</a></p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400_core.c" target="_blank">Yes</a></p></td>
+<tr class="row-even"><td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400.c" target="_blank">git</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400.c" target="_blank">Yes</a></p></td>
 <td></td>
 <td></td>
 </tr>
@@ -458,16 +463,16 @@ information.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400_core.c" target="_blank">drivers/iio/imu/adis16400_core.c</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400.c" target="_blank">drivers/iio/imu/adis16400.c</a></p></td>
 </tr>
-<tr class="row-odd"><td><p>driver</p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400_ring.c" target="_blank">drivers/iio/imu/adis16400_ring.c</a></p></td>
+<tr class="row-odd"><td><p>shared ADIS support</p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis.c" target="_blank">drivers/iio/imu/adis.c</a></p></td>
 </tr>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400_trigger.c" target="_blank">drivers/iio/imu/adis16400_trigger.c</a></p></td>
+<tr class="row-even"><td><p>shared buffer support</p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis_buffer.c" target="_blank">drivers/iio/imu/adis_buffer.c</a></p></td>
 </tr>
 <tr class="row-odd"><td><p>include</p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16400.h" target="_blank">drivers/iio/imu/adis16400.h</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/iio/imu/adis.h" target="_blank">include/linux/iio/imu/adis.h</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -521,6 +526,8 @@ the device in question.</p>
 </section>
 <section id="adding-linux-driver-support">
 <h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="admonition note">
@@ -538,8 +545,6 @@ the device in question.</p>
 </pre></div>
 </div>
 </section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -598,8 +603,17 @@ the numbering is constant and may be known in advance.</p>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span>
 </pre></div>
 </div>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
+<span class="n">adis16400</span>
+</pre></div>
+</div>
+</section>
+<section id="attribute-reference">
+<h3>Attribute reference<a class="headerlink" href="#attribute-reference" title="Link to this heading"></a></h3>
 <section id="adis16400-device-attributes">
-<h3>ADIS16400 device attributes<a class="headerlink" href="#adis16400-device-attributes" title="Link to this heading"></a></h3>
+<h4>ADIS16400 device attributes<a class="headerlink" href="#adis16400-device-attributes" title="Link to this heading"></a></h4>
 <p>For a detailed description please see:
 <a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio" target="_blank">Documentation/ABI/testing/sysfs-bus-iio</a></p>
 <div class="table-wrapper docutils container">
@@ -730,15 +744,8 @@ the numbering is constant and may be known in advance.</p>
 </tbody>
 </table>
 </div>
-<section id="show-device-name">
-<h4>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
-<span class="n">adis16400</span>
-</pre></div>
-</div>
-</section>
 <section id="set-sampling-frequency">
-<h4>Set sampling frequency<a class="headerlink" href="#set-sampling-frequency" title="Link to this heading"></a></h4>
+<h5>Set sampling frequency<a class="headerlink" href="#set-sampling-frequency" title="Link to this heading"></a></h5>
 <p>The sampling frequency of the device can be set by writing the desired value to
 the <code class="docutils literal notranslate"><span class="pre">sampling_frequency</span></code> file. The driver will automatically round up to the
 nearest supported sampling frequency.</p>
@@ -752,7 +759,7 @@ nearest supported sampling frequency.</p>
 </div>
 </section>
 <section id="show-channel-value">
-<h4>Show channel value<a class="headerlink" href="#show-channel-value" title="Link to this heading"></a></h4>
+<h5>Show channel value<a class="headerlink" href="#show-channel-value" title="Link to this heading"></a></h5>
 <p>A channel value can be read from its <code class="docutils literal notranslate"><span class="pre">_raw</span></code> attribute. The value returned by
 the <code class="docutils literal notranslate"><span class="pre">_raw</span></code> attribute is the raw value as reported by the device. To get the
 processed value of the channel in a standardized unit add the channels
@@ -779,7 +786,7 @@ offset.</p>
 <span class="pre">=</span> <span class="pre">9.81</span> <span class="pre">m/s^2</span></code></p>
 </section>
 <section id="set-channel-bandwidth">
-<h4>Set channel bandwidth<a class="headerlink" href="#set-channel-bandwidth" title="Link to this heading"></a></h4>
+<h5>Set channel bandwidth<a class="headerlink" href="#set-channel-bandwidth" title="Link to this heading"></a></h5>
 <p>The channels bandwidth can be set by writing the desired value to the channels
 <code class="docutils literal notranslate"><span class="pre">_filter_low_pass_3db_frequency</span></code> attribute. The driver will automatically
 round up to the nearest supported bandwidth.</p>
@@ -790,13 +797,19 @@ sampling frequency will scale the low pass filter frequency accordingly. E.g.
 reducing the sampling frequency by a factor of two will also reduce the
 bandwidth by a factor of two.</p>
 <p><strong>Example:</strong></p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_anglvel_filter_low_pass_3db_frequency</span>
-<span class="mf">409.600000</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">150</span> <span class="o">&gt;</span> <span class="n">in_anglvel_filter_low_pass_3db_frequency</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_anglvel_filter_low_pass_3db_frequency</span>
-<span class="mf">163.840400</span>
+<p>The selected bandwidth depends on the current sampling frequency, so read
+back the attribute after writing it.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">set</span><span class="w"> </span>-eu
+cat<span class="w"> </span>sampling_frequency
+cat<span class="w"> </span>in_anglvel_filter_low_pass_3db_frequency
+<span class="nb">echo</span><span class="w"> </span><span class="m">150</span><span class="w"> </span>&gt;<span class="w"> </span>in_anglvel_filter_low_pass_3db_frequency
+cat<span class="w"> </span>in_anglvel_filter_low_pass_3db_frequency
 </pre></div>
 </div>
+<p>At 819.202 Hz sampling, a 150 Hz request selects 409.601 Hz bypass bandwidth.
+After the earlier 546 Hz sampling-frequency write, the corresponding readback is
+273.067 Hz.</p>
+</section>
 </section>
 </section>
 <section id="trigger-management">
@@ -816,14 +829,17 @@ bandwidth by a factor of two.</p>
 <span class="n">enable</span>           <span class="n">length</span>
 </pre></div>
 </div>
-<p>The Industrial I/O subsystem provides support for various ring buffer based
-data acquisition methods. Apart from device specific hardware buffer support,
-the user can chose between two different software ring buffer implementations.
-One is the IIO lock free software ring, and the other is based on Linux kfifo.
-Devices with buffer support feature an additional sub-folder in the
-<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/deviceX/</span></code> folder hierarchy. Called <code class="docutils literal notranslate"><span class="pre">deviceX:bufferY</span></code>,
-where Y defaults to 0, for devices with a single buffer.</p>
-<p>Every buffer implementation features a set of files:</p>
+<p>The Industrial I/O subsystem supports buffered data acquisition. Buffer
+implementation and capabilities depend on the driver. Devices with buffer
+support expose each buffer at
+<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX/bufferY</span></code>, where Y is the buffer index,
+starting at 0. The first buffer is additionally exposed through the legacy
+<code class="docutils literal notranslate"><span class="pre">buffer</span></code> directory, which contains its buffer-control attributes. Its scan
+configuration is exposed through the legacy <code class="docutils literal notranslate"><span class="pre">scan_elements</span></code> directory, while
+multi-buffer systems expose the scan attributes in the corresponding
+<code class="docutils literal notranslate"><span class="pre">bufferY</span></code> directory. Read samples from the device character node
+<code class="docutils literal notranslate"><span class="pre">/dev/iio:deviceX</span></code>; the selected buffer is determined by the active buffer
+configuration.</p>
 <dl class="simple">
 <dt><strong>length</strong></dt><dd><p>Get/set the number of sample sets that may be held by the buffer.</p>
 </dd>
@@ -855,42 +871,39 @@ the alignment requirements associated with a device through the
 captured for a single triggered sample set in the buffer.</p>
 </dd>
 </dl>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/</span><span class="n">scan_elements</span><span class="o">&gt;</span><span class="n">ls</span>
-<span class="n">in_accel_x_en</span>             <span class="n">in_gyro_y_index</span>           <span class="n">in_magn_z_type</span>
-<span class="n">in_accel_x_index</span>          <span class="n">in_gyro_y_type</span>            <span class="n">in_temp0_en</span>
-<span class="n">in_accel_x_type</span>           <span class="n">in_gyro_z_en</span>              <span class="n">in_temp0_index</span>
-<span class="n">in_accel_y_en</span>             <span class="n">in_gyro_z_index</span>           <span class="n">in_temp0_type</span>
-<span class="n">in_accel_y_index</span>          <span class="n">in_gyro_z_type</span>            <span class="n">in_timestamp_en</span>
-<span class="n">in_accel_y_type</span>           <span class="n">in_magn_x_en</span>              <span class="n">in_timestamp_index</span>
-<span class="n">in_accel_z_en</span>             <span class="n">in_magn_x_index</span>           <span class="n">in_timestamp_type</span>
-<span class="n">in_accel_z_index</span>          <span class="n">in_magn_x_type</span>            <span class="n">in_voltage0_supply_en</span>
-<span class="n">in_accel_z_type</span>           <span class="n">in_magn_y_en</span>              <span class="n">in_voltage0_supply_index</span>
-<span class="n">in_gyro_x_en</span>              <span class="n">in_magn_y_index</span>           <span class="n">in_voltage0_supply_type</span>
-<span class="n">in_gyro_x_index</span>           <span class="n">in_magn_y_type</span>            <span class="n">in_voltage1_en</span>
-<span class="n">in_gyro_x_type</span>            <span class="n">in_magn_z_en</span>              <span class="n">in_voltage1_index</span>
-<span class="n">in_gyro_y_en</span>              <span class="n">in_magn_z_index</span>           <span class="n">in_voltage1_type</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/</span><span class="n">scan_elements</span><span class="o">&gt;</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0/scan_elements&gt;ls
+in_accel_x_en             in_anglvel_y_index           in_magn_z_type
+in_accel_x_index          in_anglvel_y_type            in_temp0_en
+in_accel_x_type           in_anglvel_z_en              in_temp0_index
+in_accel_y_en             in_anglvel_z_index           in_temp0_type
+in_accel_y_index          in_anglvel_z_type            in_timestamp_en
+in_accel_y_type           in_magn_x_en              in_timestamp_index
+in_accel_z_en             in_magn_x_index           in_timestamp_type
+in_accel_z_index          in_magn_x_type            in_voltage0_supply_en
+in_accel_z_type           in_magn_y_en              in_voltage0_supply_index
+in_anglvel_x_en              in_magn_y_index           in_voltage0_supply_type
+in_anglvel_x_index           in_magn_y_type            in_voltage1_en
+in_anglvel_x_type            in_magn_z_en              in_voltage1_index
+in_anglvel_y_en              in_magn_z_index           in_voltage1_type
+root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0/scan_elements&gt;
 </pre></div>
 </div>
 <dl class="simple">
-<dt><strong>in_voltageX_en / in_voltageX-voltageY_en / timestamp_en:</strong></dt><dd><p>Scan element control for triggered data capture.
+<dt><strong>in_voltageX_en / in_voltageX-voltageY_en / in_timestamp_en:</strong></dt><dd><p>Scan element control for triggered data capture.
 Writing 1 will enable the scan element, writing 0 will disable it</p>
 </dd>
-<dt><strong>in_voltageX_type / in_voltageX-voltageY_type / timestamp_type:</strong></dt><dd><p>Description of the scan element data storage within the buffer
-and therefore in the form in which it is read from user-space.
-Form is [s|u]bits/storage-bits. s or u specifies if signed
-(2’s complement) or unsigned. bits is the number of bits of
-data and storage-bits is the space (after padding) that it
-occupies in the buffer. Note that some devices will have
-additional information in the unused bits so to get a clean
-value, the bits value must be used to mask the buffer output
-value appropriately. The storage-bits value also specifies the
-data alignment. So u12/16 will be a unsigned 12 bit integer
-stored in a 16 bit location aligned to a 16 bit boundary.
-For other storage combinations this attribute will be extended
-appropriately.</p>
+<dt><strong>in_voltageX_type / in_voltageX-voltageY_type / in_timestamp_type:</strong></dt><dd><p>Describes the scan element’s representation in the buffer. The format is
+<code class="docutils literal notranslate"><span class="pre">[be|le]:[s|u]bits/storagebits[Xrepeat]&gt;&gt;shift</span></code>. The prefix gives byte
+order; <code class="docutils literal notranslate"><span class="pre">s</span></code> or <code class="docutils literal notranslate"><span class="pre">u</span></code> specifies signed (two’s complement) or unsigned
+data. <code class="docutils literal notranslate"><span class="pre">bits</span></code> is the number of meaningful bits and <code class="docutils literal notranslate"><span class="pre">storagebits</span></code> is
+the storage width. The optional repeat count describes repeated elements.
+After interpreting byte order, shift the storage value right by <code class="docutils literal notranslate"><span class="pre">shift</span></code>
+and mask it to <code class="docutils literal notranslate"><span class="pre">bits</span></code>; signed values also require sign extension.
+For example, <code class="docutils literal notranslate"><span class="pre">be:u12/16&gt;&gt;1</span></code> describes an unsigned 12-bit value in
+big-endian 16-bit storage, shifted right by one bit. Account for alignment
+padding when combining enabled elements into a complete scan.</p>
 </dd>
-<dt><strong>in_voltageX_index / in_voltageX-voltageY_index / timestamp_index:</strong></dt><dd><p>A single positive integer specifying the position of this
+<dt><strong>in_voltageX_index / in_voltageX-voltageY_index / in_timestamp_index:</strong></dt><dd><p>A nonnegative integer specifying the ordering of this
 scan element in the buffer. Note these are not dependent on
 what is enabled and may not be contiguous. Thus for user-space
 to establish the full layout these must be used in conjunction

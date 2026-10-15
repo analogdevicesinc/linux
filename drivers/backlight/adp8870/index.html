@@ -99,15 +99,9 @@
 <li><a class="reference internal" href="#">ADP8870</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
-<li><a class="reference internal" href="#description">Description</a></li>
-<li><a class="reference internal" href="#configuration">Configuration</a></li>
-<li><a class="reference internal" href="#software-configurable-features">Software configurable features</a></li>
-<li><a class="reference internal" href="#source-code">Source Code</a><ul>
-<li><a class="reference internal" href="#status">Status</a></li>
-<li><a class="reference internal" href="#files">Files</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#instructions-theory-of-operation">Instructions / Theory of operation</a><ul>
+<li><a class="reference internal" href="#description">Description</a><ul>
+<li><a class="reference internal" href="#driver-features-and-limitations">Driver features and limitations</a></li>
+<li><a class="reference internal" href="#theory-of-operation">Theory of operation</a><ul>
 <li><a class="reference internal" href="#backlight-control">Backlight control</a><ul>
 <li><a class="reference internal" href="#adp8870-specific-backlight-controls">ADP8870 Specific Backlight controls</a></li>
 </ul>
@@ -115,28 +109,41 @@
 <li><a class="reference internal" href="#led-handling-under-linux">LED handling under Linux</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
+<li><a class="reference internal" href="#files">Files</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a><ul>
+<li><a class="reference internal" href="#driver-compiled-as-a-module">Driver compiled as a module</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
+<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#driver-compiled-as-a-module">Driver compiled as a module</a><ul>
 <li><a class="reference internal" href="#example-backlight-usage">Example Backlight usage</a><ul>
+<li><a class="reference internal" href="#adjust-intensity-for-ambient-light-zone-4-indoor">Adjust Intensity for Ambient Light Zone 4 (indoor)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#example-led-usage">Example LED usage</a><ul>
+<li><a class="reference internal" href="#turn-led-off">Turn LED OFF</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#set-backlight-intensity">Set Backlight Intensity</a></li>
 <li><a class="reference internal" href="#query-backlight-intensity">Query Backlight Intensity</a></li>
 <li><a class="reference internal" href="#enable-ambient-light-sensing-feature">Enable Ambient Light Sensing Feature</a></li>
 <li><a class="reference internal" href="#query-ambient-light-level">Query Ambient Light Level</a></li>
 <li><a class="reference internal" href="#query-ambient-light-zone">Query Ambient Light Zone</a></li>
-<li><a class="reference internal" href="#adjust-intensity-for-ambient-light-zone-4-indoor">Adjust Intensity for Ambient Light Zone 4 (indoor)</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#example-led-usage">Example LED usage</a><ul>
 <li><a class="reference internal" href="#set-intensity">Set Intensity</a></li>
-<li><a class="reference internal" href="#turn-led-off">Turn LED OFF</a></li>
 <li><a class="reference internal" href="#query-max-brightness">Query Max Brightness</a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -241,6 +248,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -259,7 +267,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -412,12 +419,8 @@ Content on this topic
 <figure class="align-default">
 <img alt="https://wiki.analog.com/_media/software/driver/linux/adp8870_typical_operating_circuit.jpg" src="https://wiki.analog.com/_media/software/driver/linux/adp8870_typical_operating_circuit.jpg" />
 </figure>
-</section>
-<section id="configuration">
-<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
-</section>
-<section id="software-configurable-features">
-<h2>Software configurable features<a class="headerlink" href="#software-configurable-features" title="Link to this heading"></a></h2>
+<section id="driver-features-and-limitations">
+<h3>Driver features and limitations<a class="headerlink" href="#driver-features-and-limitations" title="Link to this heading"></a></h3>
 <p>Backlight:</p>
 <ul class="simple">
 <li><p>Ambient Light Sensor Support (ALS)</p></li>
@@ -438,6 +441,63 @@ or all, of the LEDs (PWM input scales the LED output current)</p></li>
 <li><p>Configurable Fade Law functions</p></li>
 <li><p>Configurable Brightness/Intensity in 128 steps from [0..255]</p></li>
 </ul>
+</section>
+<section id="theory-of-operation">
+<h3>Theory of operation<a class="headerlink" href="#theory-of-operation" title="Link to this heading"></a></h3>
+<section id="backlight-control">
+<h4>Backlight control<a class="headerlink" href="#backlight-control" title="Link to this heading"></a></h4>
+<p>With the ADP8870 driver installed, you will find sysfs files in the
+/sys/class/backlight/adp8870_bl/ directory. You will be able to query and set
+the current screen brightness:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>; **brightness** : get/set screen brightness (an integer between 0 and 126)\\ writing 127 enables automatic ambient adjustment only when en_ambl_sens was enabled in platform data (and the variant supports ALS). Otherwise 127 is a manual brightness value.
+; **actual_brightness** : returns the driver’s cached current_brightness request; it does not read measured LED brightness or the ALS-selected hardware output.
+; **max_brightness** : the maximum brightness value.
+; **bl_power** : Current FB Power mode (0: full on, 1..3: power saving modes; 4: full off).
+</pre></div>
+</div>
+<section id="adp8870-specific-backlight-controls">
+<h5>ADP8870 Specific Backlight controls<a class="headerlink" href="#adp8870-specific-backlight-controls" title="Link to this heading"></a></h5>
+<p>The ADP8870 features 5 individually programmable Ambient Light Sensing Zones:
+These device-specific sysfs attributes are registered only when ambient sensing
+is enabled in platform data.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">;</span> <span class="o">**</span><span class="n">l1_daylight_dim</span><span class="o">**</span> <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Daylight</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">DIM</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">,</span> <span class="n">typically</span> <span class="nb">set</span> <span class="n">to</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span>
+<span class="p">;</span> <span class="o">**</span><span class="n">l1_daylight_max</span><span class="o">**</span> <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Daylight</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">)</span><span class="o">.</span>
+<span class="p">;</span> <span class="o">**</span><span class="n">l2_bright_dim</span><span class="o">**</span> <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Bright</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">DIM</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">,</span> <span class="n">typically</span> <span class="nb">set</span> <span class="n">to</span> <span class="mi">0</span><span class="p">)</span>
+<span class="p">;</span> <span class="o">**</span><span class="n">l2_bright_max</span><span class="o">**</span> <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Bright</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">)</span>
+<span class="p">;</span> <span class="o">**</span><span class="n">l3_office_dim</span><span class="o">**</span> <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Office</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">DIM</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">,</span> <span class="n">typically</span> <span class="nb">set</span> <span class="n">to</span> <span class="mi">0</span><span class="p">)</span>
+<span class="p">;</span> <span class="o">**</span><span class="n">l3_office_max</span><span class="o">**</span> <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Office</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">)</span>
+<span class="p">;</span> <span class="o">**</span><span class="n">l4_indoor_dim</span><span class="o">**</span> <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Indoor</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">DIM</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">,</span> <span class="n">typically</span> <span class="nb">set</span> <span class="n">to</span> <span class="mi">0</span><span class="p">)</span>
+<span class="p">;</span> <span class="o">**</span><span class="n">l4_indoor_max</span><span class="o">**</span> <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Indoor</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">)</span>
+<span class="p">;</span> <span class="o">**</span><span class="n">l5_dark_dim</span><span class="o">**</span>  <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Dark</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">DIM</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">,</span> <span class="n">typically</span> <span class="nb">set</span> <span class="n">to</span> <span class="mi">0</span><span class="p">)</span>
+<span class="p">;</span> <span class="o">**</span><span class="n">l5_dark_max</span><span class="o">**</span>  <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Dark</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>; **ambient_light_level** : Get conversion value of the first light sensor.
+This value is updated every 80 ms \\ (when the light sensor is enabled).
+Returns the raw 13-bit first-sensor conversion code (0–8191); the driver applies no lux conversion or clamp to 8000.
+; **ambient_light_zone** : Get/Set current Ambient Light Zone. Reading
+returns integer between 1..5 \\ (1 = Daylight, 2 = bright, ..., 5 = dark).
+Writing a value between 1..5 forces the Backlight controller \\ to enter the
+corresponding Ambient Light Zone. Writing 0 returns to normal operation.
+</pre></div>
+</div>
+</section>
+</section>
+<section id="led-handling-under-linux">
+<h4>LED handling under Linux<a class="headerlink" href="#led-handling-under-linux" title="Link to this heading"></a></h4>
+<p>LEDs not assigned to the Backlight are optionally exposed to the Linux LEDs
+Class.</p>
+<p>The LED class allows control of LEDs from userspace. LEDs appear in
+/sys/class/leds/. The brightness file will set the brightness of the LED (taking
+a value 0-255). The LEDS class also introduces the optional concept of an LED
+trigger. A trigger is a kernel based source of led events, such as ide-disk or
+backlight control. For more information, read <a class="icon link reference external" href="https://docs.kernel.org/leds/leds-class.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>LED handling under Linux</span></a>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">;</span> <span class="o">**</span><span class="n">brightness</span><span class="o">**</span> <span class="p">:</span> <span class="n">get</span><span class="o">/</span><span class="nb">set</span> <span class="n">LED</span> <span class="n">brightness</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">255</span><span class="p">)</span>
+<span class="p">;</span> <span class="o">**</span><span class="n">max_brightness</span><span class="o">**</span> <span class="p">:</span> <span class="n">the</span> <span class="n">maximum</span> <span class="n">brightness</span> <span class="n">value</span><span class="o">.</span>
+</pre></div>
+</div>
+</section>
+</section>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -482,123 +542,6 @@ or all, of the LEDs (PWM input scales the LED output current)</p></li>
 </table>
 </div>
 </section>
-</section>
-<section id="instructions-theory-of-operation">
-<h2>Instructions / Theory of operation<a class="headerlink" href="#instructions-theory-of-operation" title="Link to this heading"></a></h2>
-<section id="backlight-control">
-<h3>Backlight control<a class="headerlink" href="#backlight-control" title="Link to this heading"></a></h3>
-<p>With the ADP8870 driver installed, you will find sysfs files in the
-/sys/class/backlight/adp8870_bl/ directory. You will be able to query and set
-the current screen brightness:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">;</span> <span class="o">**</span><span class="n">brightness</span><span class="o">**</span> <span class="p">:</span> <span class="n">get</span><span class="o">/</span><span class="nb">set</span> <span class="n">screen</span> <span class="n">brightness</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">126</span><span class="p">)</span>\\ <span class="n">writing</span> <span class="mi">127</span> <span class="n">will</span> <span class="n">enable</span> <span class="n">the</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Sensor</span><span class="o">.</span>
-<span class="p">;</span> <span class="o">**</span><span class="n">actual_brightness</span><span class="o">**</span> <span class="p">:</span> <span class="n">reading</span> <span class="kn">from</span><span class="w"> </span><span class="nn">this</span> <span class="n">file</span> <span class="n">will</span> <span class="n">query</span> <span class="n">the</span> <span class="n">HW</span> <span class="n">to</span> <span class="n">get</span> <span class="n">real</span> <span class="n">brightness</span> <span class="n">value</span><span class="o">.</span>
-<span class="p">;</span> <span class="o">**</span><span class="n">max_brightness</span><span class="o">**</span> <span class="p">:</span> <span class="n">the</span> <span class="n">maximum</span> <span class="n">brightness</span> <span class="n">value</span><span class="o">.</span>
-<span class="p">;</span> <span class="o">**</span><span class="n">bl_power</span><span class="o">**</span> <span class="p">:</span> <span class="n">Current</span> <span class="n">FB</span> <span class="n">Power</span> <span class="n">mode</span> <span class="p">(</span><span class="mi">0</span><span class="p">:</span> <span class="n">full</span> <span class="n">on</span><span class="p">,</span> <span class="mf">1..3</span><span class="p">:</span> <span class="n">power</span> <span class="n">saving</span> <span class="n">modes</span><span class="p">;</span> <span class="mi">4</span><span class="p">:</span> <span class="n">full</span> <span class="n">off</span><span class="p">)</span><span class="o">.</span>
-</pre></div>
-</div>
-<section id="adp8870-specific-backlight-controls">
-<h4>ADP8870 Specific Backlight controls<a class="headerlink" href="#adp8870-specific-backlight-controls" title="Link to this heading"></a></h4>
-<p>The ADP8870 features 5 individually programmable Ambient Light Sensing Zones:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">;</span> <span class="o">**</span><span class="n">l1_daylight_dim</span><span class="o">**</span> <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Daylight</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">DIM</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">,</span> <span class="n">typically</span> <span class="nb">set</span> <span class="n">to</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span>
-<span class="p">;</span> <span class="o">**</span><span class="n">l1_daylight_max</span><span class="o">**</span> <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Daylight</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">)</span><span class="o">.</span>
-<span class="p">;</span> <span class="o">**</span><span class="n">l2_bright_dim</span><span class="o">**</span> <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Bright</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">DIM</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">,</span> <span class="n">typically</span> <span class="nb">set</span> <span class="n">to</span> <span class="mi">0</span><span class="p">)</span>
-<span class="p">;</span> <span class="o">**</span><span class="n">l2_bright_max</span><span class="o">**</span> <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Bright</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">)</span>
-<span class="p">;</span> <span class="o">**</span><span class="n">l3_office_dim</span><span class="o">**</span> <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Office</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">DIM</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">,</span> <span class="n">typically</span> <span class="nb">set</span> <span class="n">to</span> <span class="mi">0</span><span class="p">)</span>
-<span class="p">;</span> <span class="o">**</span><span class="n">l3_office_max</span><span class="o">**</span> <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Office</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">)</span>
-<span class="p">;</span> <span class="o">**</span><span class="n">l4_indoor_dim</span><span class="o">**</span> <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Indoor</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">DIM</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">,</span> <span class="n">typically</span> <span class="nb">set</span> <span class="n">to</span> <span class="mi">0</span><span class="p">)</span>
-<span class="p">;</span> <span class="o">**</span><span class="n">l4_indoor_max</span><span class="o">**</span> <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Indoor</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">)</span>
-<span class="p">;</span> <span class="o">**</span><span class="n">l5_dark_dim</span><span class="o">**</span>  <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Dark</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">DIM</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">,</span> <span class="n">typically</span> <span class="nb">set</span> <span class="n">to</span> <span class="mi">0</span><span class="p">)</span>
-<span class="p">;</span> <span class="o">**</span><span class="n">l5_dark_max</span><span class="o">**</span>  <span class="p">:</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span> <span class="n">Dark</span><span class="p">:</span> <span class="n">Backlight</span> <span class="n">Intensity</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">127</span><span class="p">)</span>
-</pre></div>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">;</span> <span class="o">**</span><span class="n">ambient_light_level</span><span class="o">**</span> <span class="p">:</span> <span class="n">Get</span> <span class="n">conversion</span> <span class="n">value</span> <span class="n">of</span> <span class="n">the</span> <span class="n">first</span> <span class="n">light</span> <span class="n">sensor</span><span class="o">.</span>
-<span class="n">This</span> <span class="n">value</span> <span class="ow">is</span> <span class="n">updated</span> <span class="n">every</span> <span class="mi">80</span> <span class="n">ms</span> \\ <span class="p">(</span><span class="n">when</span> <span class="n">the</span> <span class="n">light</span> <span class="n">sensor</span> <span class="ow">is</span> <span class="n">enabled</span><span class="p">)</span><span class="o">.</span>
-<span class="n">Returns</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="p">(</span><span class="n">dark</span><span class="p">)</span> <span class="ow">and</span> <span class="mi">8000</span> <span class="p">(</span><span class="nb">max</span> <span class="n">ambient</span> <span class="n">brightness</span><span class="p">)</span>
-<span class="p">;</span> <span class="o">**</span><span class="n">ambient_light_zone</span><span class="o">**</span> <span class="p">:</span> <span class="n">Get</span><span class="o">/</span><span class="n">Set</span> <span class="n">current</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span><span class="o">.</span> <span class="n">Reading</span>
-<span class="n">returns</span> <span class="n">integer</span> <span class="n">between</span> <span class="mf">1..5</span> \\ <span class="p">(</span><span class="mi">1</span> <span class="o">=</span> <span class="n">Daylight</span><span class="p">,</span> <span class="mi">2</span> <span class="o">=</span> <span class="n">bright</span><span class="p">,</span> <span class="o">...</span><span class="p">,</span> <span class="mi">5</span> <span class="o">=</span> <span class="n">dark</span><span class="p">)</span><span class="o">.</span>
-<span class="n">Writing</span> <span class="n">a</span> <span class="n">value</span> <span class="n">between</span> <span class="mf">1..5</span> <span class="n">forces</span> <span class="n">the</span> <span class="n">Backlight</span> <span class="n">controller</span> \\ <span class="n">to</span> <span class="n">enter</span> <span class="n">the</span>
-<span class="n">corresponding</span> <span class="n">Ambient</span> <span class="n">Light</span> <span class="n">Zone</span><span class="o">.</span> <span class="n">Writing</span> <span class="mi">0</span> <span class="n">returns</span> <span class="n">to</span> <span class="n">normal</span> <span class="n">operation</span><span class="o">.</span>
-</pre></div>
-</div>
-</section>
-</section>
-<section id="led-handling-under-linux">
-<h3>LED handling under Linux<a class="headerlink" href="#led-handling-under-linux" title="Link to this heading"></a></h3>
-<p>LEDs not assigned to the Backlight are optionally exposed to the Linux LEDs
-Class.</p>
-<p>The LED class allows control of LEDs from userspace. LEDs appear in
-/sys/class/leds/. The brightness file will set the brightness of the LED (taking
-a value 0-255). The LEDS class also introduces the optional concept of an LED
-trigger. A trigger is a kernel based source of led events, such as ide-disk or
-backlight control. For more information, read <a class="icon link reference external" href="https://docs.kernel.org/leds/leds-class.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>LED handling under Linux</span></a>.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">;</span> <span class="o">**</span><span class="n">brightness</span><span class="o">**</span> <span class="p">:</span> <span class="n">get</span><span class="o">/</span><span class="nb">set</span> <span class="n">LED</span> <span class="n">brightness</span> <span class="p">(</span><span class="n">an</span> <span class="n">integer</span> <span class="n">between</span> <span class="mi">0</span> <span class="ow">and</span> <span class="mi">255</span><span class="p">)</span>
-<span class="p">;</span> <span class="o">**</span><span class="n">max_brightness</span><span class="o">**</span> <span class="p">:</span> <span class="n">the</span> <span class="n">maximum</span> <span class="n">brightness</span> <span class="n">value</span><span class="o">.</span>
-</pre></div>
-</div>
-</section>
-</section>
-<section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
-<p>For compile time configuration, it’s common Linux practice to keep board- and
-application-specific configuration out of the main driver file, instead putting
-it into the board support file.</p>
-<p>For devices on custom boards, as typical of embedded and SoC-(system-on-chip)
-based hardware, Linux uses <code class="docutils literal notranslate"><span class="pre">platform_data</span></code> to point to board-specific structures
-describing devices and how they are connected to the SoC. This can include
-available ports, chip variants, preferred modes, default initialization,
-additional pin roles, and so on. This shrinks the board-support packages (BSPs)
-and minimizes board and application specific #ifdefs in drivers.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p><strong>platform_data: Platform data specific to the ADP8870 device.</strong> Includes
-what LEDs are available, feature selections and default initialization.</p>
-</div>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/i2c/adp8870.h&gt;</span>
-</pre></div>
-</div>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp8870_leds{}</a>
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp8870_pdata{}</a></p>
-<p>Unlike PCI or USB devices, I2C devices are not enumerated at the hardware level.
-Instead, the software must know which devices are connected on each I2C bus
-segment, and what address these devices are using. For this reason, the kernel
-code must instantiate I2C devices explicitly. There are different ways to
-achieve this, depending on the context and requirements. However the most
-common method is to declare the I2C devices by bus number.</p>
-<p>This method is appropriate when the I2C bus is a system bus, as in many
-embedded systems, wherein each I2C bus has a number which is known in advance.
-It is thus possible to pre-declare the I2C devices that inhabit this bus. This
-is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">i2c_board_info</span></code>, which is registered by
-calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
-<p>So, to enable such a driver one need only edit the board support file by adding
-an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>How to instantiate I2C devices</span></a></p>
-<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">i2c_board_info</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">bfin_i2c_board_info</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="cp">#if defined(CONFIG_BACKLIGHT_ADP8870) || defined(CONFIG_BACKLIGHT_ADP8870_MODULE)</span>
-<span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"adp8870"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x2B</span><span class="p">),</span>
-<span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">adp8870_pdata</span><span class="p">,</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="cp">#endif</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>The ADP8870 Backlight driver depends on I2C. It therefore requires selected
-I2C support to show up during kernel configuration.</p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="n">Graphics</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-        <span class="p">[]</span> <span class="n">Backlight</span> <span class="o">&amp;</span> <span class="n">LCD</span> <span class="n">device</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-            <span class="o">&lt;&gt;</span>   <span class="n">Lowlevel</span> <span class="n">Backlight</span> <span class="n">controls</span>
-            <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">Backlight</span> <span class="n">Driver</span> <span class="k">for</span> <span class="n">ADP8870</span> <span class="n">using</span> <span class="n">WLED</span>
-</pre></div>
-</div>
 </section>
 <section id="hardware-configuration">
 <h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
@@ -650,10 +593,26 @@ port just to power Vin, Vddio, and Vboard. Of course, if you want, you can power
 these supplies from a lab bench power supply. In that case, move LK1, 2, and 3
 to the <code class="docutils literal notranslate"><span class="pre">EXT</span></code> position and apply the signals to J29.</p>
 </section>
-<section id="driver-testing">
-<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The ADP8870 Backlight driver depends on I2C. It therefore requires selected
+I2C support to show up during kernel configuration.</p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="n">Graphics</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+        <span class="p">[]</span> <span class="n">Backlight</span> <span class="o">&amp;</span> <span class="n">LCD</span> <span class="n">device</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+            <span class="o">&lt;&gt;</span>   <span class="n">Lowlevel</span> <span class="n">Backlight</span> <span class="n">controls</span>
+            <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">Backlight</span> <span class="n">Driver</span> <span class="k">for</span> <span class="n">ADP8870</span> <span class="n">using</span> <span class="n">WLED</span>
+</pre></div>
+</div>
 <section id="driver-compiled-as-a-module">
-<h3>Driver compiled as a module<a class="headerlink" href="#driver-compiled-as-a-module" title="Link to this heading"></a></h3>
+<h4>Driver compiled as a module<a class="headerlink" href="#driver-compiled-as-a-module" title="Link to this heading"></a></h4>
 <p><strong>ADP8870 driver is build as a module</strong></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">modprobe</span> <span class="n">adp8870_bl</span>
 <span class="n">adp8870_bl</span> <span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="p">:</span> <span class="n">Rev</span><span class="mf">.0</span> <span class="n">Backlight</span>
@@ -661,8 +620,62 @@ to the <code class="docutils literal notranslate"><span class="pre">EXT</span></
 <span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span>
 </pre></div>
 </div>
+</section>
+</section>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
+<section id="example-platform-device-initialization">
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
+<p>For compile time configuration, it’s common Linux practice to keep board- and
+application-specific configuration out of the main driver file, instead putting
+it into the board support file.</p>
+<p>For devices on custom boards, as typical of embedded and SoC-(system-on-chip)
+based hardware, Linux uses <code class="docutils literal notranslate"><span class="pre">platform_data</span></code> to point to board-specific structures
+describing devices and how they are connected to the SoC. This can include
+available ports, chip variants, preferred modes, default initialization,
+additional pin roles, and so on. This shrinks the board-support packages (BSPs)
+and minimizes board and application specific #ifdefs in drivers.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>platform_data: Platform data specific to the ADP8870 device.</strong> Includes
+what LEDs are available, feature selections and default initialization.</p>
+</div>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/platform_data/adp8870.h&gt;</span>
+</pre></div>
+</div>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp8870_leds{}</a>
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp8870_pdata{}</a></p>
+<p>Unlike PCI or USB devices, I2C devices are not enumerated at the hardware level.
+Instead, the software must know which devices are connected on each I2C bus
+segment, and what address these devices are using. For this reason, the kernel
+code must instantiate I2C devices explicitly. There are different ways to
+achieve this, depending on the context and requirements. However the most
+common method is to declare the I2C devices by bus number.</p>
+<p>This method is appropriate when the I2C bus is a system bus, as in many
+embedded systems, wherein each I2C bus has a number which is known in advance.
+It is thus possible to pre-declare the I2C devices that inhabit this bus. This
+is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">i2c_board_info</span></code>, which is registered by
+calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
+<p>So, to enable such a driver one need only edit the board support file by adding
+an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>How to instantiate I2C devices</span></a></p>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">i2c_board_info</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">bfin_i2c_board_info</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="cp">#if defined(CONFIG_BACKLIGHT_ADP8870) || defined(CONFIG_BACKLIGHT_ADP8870_MODULE)</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"adp8870"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x2B</span><span class="p">),</span>
+<span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">adp8870_pdata</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="cp">#endif</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <section id="example-backlight-usage">
-<h4>Example Backlight usage<a class="headerlink" href="#example-backlight-usage" title="Link to this heading"></a></h4>
+<h3>Example Backlight usage<a class="headerlink" href="#example-backlight-usage" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cd</span> <span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">backlight</span><span class="o">/</span><span class="n">adp8870_bl</span><span class="o">/</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">backlight</span><span class="o">/</span><span class="n">adp8870_bl</span><span class="o">&gt;</span> <span class="n">ls</span> <span class="o">-</span><span class="n">l</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">03</span><span class="p">:</span><span class="mi">29</span> <span class="n">actual_brightness</span>
@@ -688,41 +701,8 @@ to the <code class="docutils literal notranslate"><span class="pre">EXT</span></
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">backlight</span><span class="o">/</span><span class="n">adp8870_bl</span><span class="o">&gt;</span>
 </pre></div>
 </div>
-<section id="set-backlight-intensity">
-<h5>Set Backlight Intensity<a class="headerlink" href="#set-backlight-intensity" title="Link to this heading"></a></h5>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">backlight</span><span class="o">/</span><span class="n">adp8870_bl</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">42</span> <span class="o">&gt;</span> <span class="n">brightness</span>
-</pre></div>
-</div>
-</section>
-<section id="query-backlight-intensity">
-<h5>Query Backlight Intensity<a class="headerlink" href="#query-backlight-intensity" title="Link to this heading"></a></h5>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">backlight</span><span class="o">/</span><span class="n">adp8870_bl</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">brightness</span>
-<span class="mi">42</span>
-</pre></div>
-</div>
-</section>
-<section id="enable-ambient-light-sensing-feature">
-<h5>Enable Ambient Light Sensing Feature<a class="headerlink" href="#enable-ambient-light-sensing-feature" title="Link to this heading"></a></h5>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">backlight</span><span class="o">/</span><span class="n">adp8870_bl</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">127</span> <span class="o">&gt;</span> <span class="n">brightness</span>
-</pre></div>
-</div>
-</section>
-<section id="query-ambient-light-level">
-<h5>Query Ambient Light Level<a class="headerlink" href="#query-ambient-light-level" title="Link to this heading"></a></h5>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">backlight</span><span class="o">/</span><span class="n">adp8870_bl</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">ambient_light_level</span>
-<span class="mi">1276</span>
-</pre></div>
-</div>
-</section>
-<section id="query-ambient-light-zone">
-<h5>Query Ambient Light Zone<a class="headerlink" href="#query-ambient-light-zone" title="Link to this heading"></a></h5>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">backlight</span><span class="o">/</span><span class="n">adp8870_bl</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">ambient_light_zone</span>
-<span class="mi">4</span>
-</pre></div>
-</div>
-</section>
 <section id="adjust-intensity-for-ambient-light-zone-4-indoor">
-<h5>Adjust Intensity for Ambient Light Zone 4 (indoor)<a class="headerlink" href="#adjust-intensity-for-ambient-light-zone-4-indoor" title="Link to this heading"></a></h5>
+<h4>Adjust Intensity for Ambient Light Zone 4 (indoor)<a class="headerlink" href="#adjust-intensity-for-ambient-light-zone-4-indoor" title="Link to this heading"></a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">backlight</span><span class="o">/</span><span class="n">adp8870_bl</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">22</span> <span class="o">&gt;</span> <span class="n">l4_indoor_max</span>
 <span class="mi">22</span>
 </pre></div>
@@ -734,7 +714,7 @@ to the <code class="docutils literal notranslate"><span class="pre">EXT</span></
 </section>
 </section>
 <section id="example-led-usage">
-<h4>Example LED usage<a class="headerlink" href="#example-led-usage" title="Link to this heading"></a></h4>
+<h3>Example LED usage<a class="headerlink" href="#example-led-usage" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cd</span> <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">leds</span><span class="o">/</span><span class="n">adp8870</span><span class="o">-</span><span class="n">led7</span><span class="o">/</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">leds</span><span class="o">/</span><span class="n">adp8870</span><span class="o">-</span><span class="n">led7</span><span class="o">&gt;</span> <span class="n">ls</span> <span class="o">-</span><span class="n">l</span>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">03</span><span class="p">:</span><span class="mi">29</span> <span class="n">brightness</span>
@@ -744,27 +724,59 @@ to the <code class="docutils literal notranslate"><span class="pre">EXT</span></
 <span class="n">lrwxrwxrwx</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">03</span><span class="p">:</span><span class="mi">29</span> <span class="n">subsystem</span> <span class="o">-&gt;</span> <span class="o">../../../../../../../../</span><span class="n">class</span><span class="o">/</span><span class="n">leds</span>
 </pre></div>
 </div>
-<section id="set-intensity">
-<h5>Set Intensity<a class="headerlink" href="#set-intensity" title="Link to this heading"></a></h5>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">leds</span><span class="o">/</span><span class="n">adp8870</span><span class="o">-</span><span class="n">led7</span><span class="o">&gt;</span><span class="n">echo</span> <span class="mi">99</span> <span class="o">&gt;</span> <span class="n">brightness</span>
-</pre></div>
-</div>
-</section>
 <section id="turn-led-off">
-<h5>Turn LED OFF<a class="headerlink" href="#turn-led-off" title="Link to this heading"></a></h5>
+<h4>Turn LED OFF<a class="headerlink" href="#turn-led-off" title="Link to this heading"></a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">leds</span><span class="o">/</span><span class="n">adp8870</span><span class="o">-</span><span class="n">led7</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">0</span> <span class="o">&gt;</span> <span class="n">brightness</span>
 </pre></div>
 </div>
 </section>
+</section>
+<section id="set-backlight-intensity">
+<h3>Set Backlight Intensity<a class="headerlink" href="#set-backlight-intensity" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">backlight</span><span class="o">/</span><span class="n">adp8870_bl</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">42</span> <span class="o">&gt;</span> <span class="n">brightness</span>
+</pre></div>
+</div>
+</section>
+<section id="query-backlight-intensity">
+<h3>Query Backlight Intensity<a class="headerlink" href="#query-backlight-intensity" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">backlight</span><span class="o">/</span><span class="n">adp8870_bl</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">brightness</span>
+<span class="mi">42</span>
+</pre></div>
+</div>
+</section>
+<section id="enable-ambient-light-sensing-feature">
+<h3>Enable Ambient Light Sensing Feature<a class="headerlink" href="#enable-ambient-light-sensing-feature" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">backlight</span><span class="o">/</span><span class="n">adp8870_bl</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">127</span> <span class="o">&gt;</span> <span class="n">brightness</span>
+</pre></div>
+</div>
+</section>
+<section id="query-ambient-light-level">
+<h3>Query Ambient Light Level<a class="headerlink" href="#query-ambient-light-level" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">backlight</span><span class="o">/</span><span class="n">adp8870_bl</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">ambient_light_level</span>
+<span class="mi">1276</span>
+</pre></div>
+</div>
+</section>
+<section id="query-ambient-light-zone">
+<h3>Query Ambient Light Zone<a class="headerlink" href="#query-ambient-light-zone" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">backlight</span><span class="o">/</span><span class="n">adp8870_bl</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">ambient_light_zone</span>
+<span class="mi">4</span>
+</pre></div>
+</div>
+</section>
+<section id="set-intensity">
+<h3>Set Intensity<a class="headerlink" href="#set-intensity" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">leds</span><span class="o">/</span><span class="n">adp8870</span><span class="o">-</span><span class="n">led7</span><span class="o">&gt;</span><span class="n">echo</span> <span class="mi">99</span> <span class="o">&gt;</span> <span class="n">brightness</span>
+</pre></div>
+</div>
+</section>
 <section id="query-max-brightness">
-<h5>Query Max Brightness<a class="headerlink" href="#query-max-brightness" title="Link to this heading"></a></h5>
+<h3>Query Max Brightness<a class="headerlink" href="#query-max-brightness" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">leds</span><span class="o">/</span><span class="n">adp8870</span><span class="o">-</span><span class="n">led7</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">max_brightness</span>
 <span class="mi">255</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.0</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="o">-</span><span class="mi">002</span><span class="n">b</span><span class="o">/</span><span class="n">leds</span><span class="o">/</span><span class="n">adp8870</span><span class="o">-</span><span class="n">led7</span><span class="o">&gt;</span>
 </pre></div>
 </div>
-</section>
-</section>
 </section>
 </section>
 <section id="more-information">

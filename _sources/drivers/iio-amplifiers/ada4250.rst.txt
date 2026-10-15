@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-amplifiers/ada4250
 
+
 .. _ada4250:
 
 ADA4250
@@ -100,25 +101,6 @@ Example
      };
    };
 
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The ADA4250 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-                   Amplifiers  --->
-                       <*> Analog Devices ADA4250 Instrumentation Amplifier
-
 Hardware configuration
 ----------------------
 
@@ -144,8 +126,33 @@ Hardware configuration
    lrwxrwxrwx 1 root root    0 May  6 12:20 subsystem -> ../../../../../../../../bus/iio
    -rw-r--r-- 1 root root 4096 May  6 12:20 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADA4250 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+                   Amplifiers  --->
+                       <*> Analog Devices ADA4250 Instrumentation Amplifier
+
+Driver testing
+--------------
+
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -154,37 +161,38 @@ Show device name
    ada4250
 
 Set ChannelY Gain
-^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/iio:deviceX/out_voltageY_hardwaregain
 
 Hardware applied gain factor. If shared across all channels, <type>_hardwaregain
 is used.
 
-::
+.. code-block:: text
 
    root:/> cat out_voltage0_hardwaregain_available
-   0 1 2 3 4 5 6 7
+   1 2 4 8 16 32 64 128
 
    root:/> cat out_voltage0_hardwaregain
    0
 
-   root:/> echo 1 > out_voltage0_hardwaregain
+   root:/> echo 2 > out_voltage0_hardwaregain
+   # Readback: 2. A gain above 1 is required for the offset-calibration example below.
    root:/> cat out_voltage0_hardwaregain
    1
 
 Set ChannelY Current Bias Set
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/iio:deviceX/out_voltageY_calibbias
 
 Current bias for different ranges of the sensor offset calibration. If shared
 across all channels, <type>_calibbias is used.
 
-::
+.. code-block:: text
 
    root:/> cat out_voltage0_calibbias_available
-   0 1 2 3
+   0 1 2
 
    root:/> cat out_voltage0_calibbias
    0
@@ -194,21 +202,24 @@ across all channels, <type>_calibbias is used.
    2
 
 Set ChannelY Offset value
-^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/iio:deviceX/out_voltageY_offset
 
 Sensor offset calibration value in uV. If shared across all channels,
 <type>_offset is used.
 
-::
+.. code-block:: text
 
    root:/> cat out_voltage0_offset
    0
 
    root:/> echo -32000 > out_voltage0_offset
    root:/> cat out_voltage0_offset
-   -31752
+
+Read back the quantized offset after choosing a supported gain and bias. The
+result depends on AVDD (for AVDD bias), gain and the requested offset; do not
+promise -31752 uV without specifying those prerequisites.
 
 More Information
 ----------------

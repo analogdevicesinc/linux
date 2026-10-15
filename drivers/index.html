@@ -196,6 +196,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-dac/ad5380/">AD5380</a></li>
@@ -214,7 +215,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-dds/ad9172/">AD9172</a></li>
@@ -374,7 +374,12 @@ Content on this topic
 <p>AXI HDMI HDL Linux Driver.</p>
 </li>
 <li><p><a class="reference internal" href="gpio/adp5588-gpio/">ADP5588 GPIO</a></p>
-<p>ADP5588 GPIO Linux Driver.</p>
+<p>The standalone gpio-adp5588 driver was removed from the kernel. ADP5588
+GPIO support is now provided by drivers/input/keyboard/adp5588-keys.c
+(CONFIG_KEYBOARD_ADP5588). For GPIO-only operation, use
+compatible = &quot;adi,adp5588&quot; (or &quot;adi,adp5587&quot;), gpio-controller
+and #gpio-cells = &lt;2&gt;, and omit keypad,num-rows and
+keypad,num-columns.</p>
 </li>
 <li><p><a class="reference internal" href="hwmon/axi_fan_control/">AXI Fan Control</a></p>
 <p>AXI Fan Control HDL CORE Linux driver.</p>
@@ -565,6 +570,9 @@ Linux Driver.</p>
 <li><p><a class="reference internal" href="iio-dac/ad3530r/">AD3530R/AD3530</a></p>
 <p>AD3530R/AD3530 IIO DAC Linux Driver.</p>
 </li>
+<li><p><a class="reference internal" href="iio-dac/ad3552r-hs/">AD3552R High Speed</a></p>
+<p>AD3552R Dual Channel, 16-Bit, 33 MUPS, Multispan, Multi-IO SPI DAC Linux device driver.</p>
+</li>
 <li><p><a class="reference internal" href="iio-dac/ad5064/">AD5064</a></p>
 <p>AD5064 IIO Quad-Channel DAC Linux Driver.</p>
 </li>
@@ -620,9 +628,6 @@ and Current Sensors.</p>
 <li><p><a class="reference internal" href="iio-dac/ad7303/">AD7303</a></p>
 <p>AD7303 IIO DAC Linux Driver.</p>
 </li>
-<li><p><a class="reference internal" href="iio-dac/axi-ad3552r/">AD3552R</a></p>
-<p>AD3552R Dual Channel, 16-Bit, 33 MUPS, Multispan, Multi-IO SPI DAC Linux device driver.</p>
-</li>
 <li><p><a class="reference internal" href="iio-dac/ltc2664/">LTC2664</a></p>
 <p>LTC2664 IIO DAC Linux Driver.</p>
 </li>
@@ -645,7 +650,8 @@ and Current Sensors.</p>
 <p>ADMV8818 2GHz to 18GHz, Digitally Tunable High-Pass and Low-PASS Filter Linux Driver.</p>
 </li>
 <li><p><a class="reference internal" href="iio-gyroscope/adis16060/">ADIS16060</a></p>
-<p>ADIS16060 IIO Yaw Rate Gyroscope.</p>
+<p>The ADIS16060 driver was removed from the kernel in v4.19 (commit
+adca2d68d7041, “staging: iio: Drop ADIS16060 driver from staging”).</p>
 </li>
 <li><p><a class="reference internal" href="iio-gyroscope/adis16080/">ADIS16080</a></p>
 <p>ADIS16080 IIO Yaw Rate Gyroscope.</p>
@@ -715,8 +721,8 @@ Driver.</p>
 <p>The ADF4382 is a high performance, ultralow jitter, dual output integer-N
 and fractional-N phase-locked loop (PLL) with an integrated voltage controlled
 oscillator (VCO). The ADF4382 operates with a VCO frequency range of 11 GHz
-to 22 GHz (ADF4382A supports 11.5 GHz to 21 GHz), with output frequencies
-from 687.5 MHz to 22 GHz via configurable output dividers.</p>
+to 22 GHz and supports output frequencies from 687.5 MHz to 22 GHz through
+configurable output dividers.</p>
 </li>
 <li><p><a class="reference internal" href="iio-pll/adf5355/">ADF5355</a></p>
 <p>ADF5355 IIO Wideband Synthesizer Linux Driver.</p>
@@ -816,7 +822,8 @@ Driver.</p>
 <p>ADXL345 Input 3-Axis Digital Accelerometer Linux Driver.</p>
 </li>
 <li><p><a class="reference internal" href="input-misc/adxl362/">ADXL362</a></p>
-<p>ADXL362 Input 3-Axis Digital Accelerometer Linux Driver.</p>
+<p>The ADXL362 input-subsystem driver is only available on the adxl362
+branch of the ADI Linux kernel tree; it has not been merged into mainline.</p>
 </li>
 <li><p><a class="reference internal" href="input-touchscreen/ad7873/">AD7873</a></p>
 <p>AD7873 Input Touch Screen Digitizer Linux Driver.</p>
@@ -840,7 +847,7 @@ Driver.</p>
 <p>JESD204 FSM Interface Linux Kernel Framework.</p>
 </li>
 <li><p><a class="reference internal" href="leds/adp1650/">ADP1650</a></p>
-<p>ADP1650 LED Flash Linux Driver.</p>
+<p>The ADP1650 LED flash driver was never merged into the mainline kernel.</p>
 </li>
 <li><p><a class="reference internal" href="misc/axi-hsci/">AXI HSCI</a></p>
 <p>The AXI HSCI (High-Speed Communication Interface) is an FPGA IP core driver
@@ -871,7 +878,11 @@ receiving multiple frames of data through multiple buffers.</p>
 <p>ADIN2111 10BASE-T1L 2-Port Ethernet Switch Linux Driver.</p>
 </li>
 <li><p><a class="reference internal" href="net-mac-phy/open_alliance/">TC6-10BASE-T1x</a></p>
-<p>Open Alliance TC6-10BASE-T1x MAC-PHY Serial Interface Linux Driver.</p>
+<p>Open Alliance TC6-10BASE-T1x MAC-PHY Serial Interface Linux Driver. This page
+describes the adin1110-open-alliance development branch (commit
+a0adc643b9c570f8af594d27f1e76b0c9f8bcf13). Its open-alliance properties and
+chunk statistics are branch-specific; the main ADIN1110/ADIN2111 driver uses
+the generic SPI protocol.</p>
 </li>
 <li><p><a class="reference internal" href="net-phy/adin/">ADIN1300/ADIN1200</a></p>
 <p>ADIN1300/ADIN1200 PHY Linux Driver.</p>

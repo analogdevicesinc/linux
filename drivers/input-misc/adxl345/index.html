@@ -98,15 +98,17 @@
           <ul>
 <li><a class="reference internal" href="#">ADXL345</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
-<li><a class="reference internal" href="#description">Description</a><ul>
-<li><a class="reference internal" href="#adxl34x-hardware-features">ADXL34x Hardware Features</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#configuration">Configuration</a></li>
-<li><a class="reference internal" href="#software-configurable-features">Software configurable features</a><ul>
+<li><a class="reference internal" href="#description">Description</a><ul>
+<li><a class="reference internal" href="#driver-features-and-limitations">Driver features and limitations</a><ul>
 <li><a class="reference internal" href="#adxl34x-linux-driver-features">ADXL34x Linux Driver Features</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#adxl34x-hardware-features">ADXL34x Hardware Features</a></li>
+<li><a class="reference internal" href="#configuration">Configuration</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
@@ -115,20 +117,25 @@
 <li><a class="reference internal" href="#adxl345-6-driver-porting">ADXL345/6 driver porting</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a><ul>
-<li><a class="reference internal" href="#example-platform-board-file-spi-interface-option">Example Platform / Board file (SPI Interface Option)</a></li>
-<li><a class="reference internal" href="#devicetree">Devicetree</a></li>
-<li><a class="reference internal" href="#example-platform-board-file-i2c-interface-option">Example Platform / Board file (I2C Interface Option)</a></li>
-<li><a class="reference internal" href="#id2">Devicetree</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
-<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a><ul>
 <li><a class="reference internal" href="#driver-compiled-as-a-module">Driver compiled as a module</a></li>
 <li><a class="reference internal" href="#driver-compiled-into-the-kernel">Driver compiled into the kernel</a></li>
-<li><a class="reference internal" href="#common-problems">Common Problems</a></li>
-<li><a class="reference internal" href="#checking-for-proper-installation">Checking for proper installation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a></li>
+<li><a class="reference internal" href="#device-enumeration">Device enumeration</a><ul>
+<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a><ul>
+<li><a class="reference internal" href="#example-platform-board-file-spi-interface-option">Example Platform / Board file (SPI Interface Option)</a></li>
+<li><a class="reference internal" href="#example-platform-board-file-i2c-interface-option">Example Platform / Board file (I2C Interface Option)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
 <li><a class="reference internal" href="#use-the-evtest-utility-to-test-proper-function">Use the evtest utility to test proper function</a></li>
 <li><a class="reference internal" href="#visualizing-linux-input-events-using-df-input-example-from-directfb">Visualizing Linux Input Events using df_input example from DirectFB</a></li>
 <li><a class="reference internal" href="#adxl34x-sysfs-runtime-controls">ADXL34x Sysfs runtime controls</a><ul>
@@ -136,8 +143,6 @@
 <li><a class="reference internal" href="#controlling-the-output-data-rate">Controlling the Output Data Rate</a></li>
 <li><a class="reference internal" href="#enabling-disabling-the-device">Enabling / Disabling the Device</a></li>
 <li><a class="reference internal" href="#enabling-disabling-autosleep-upon-inactivity">Enabling / Disabling Autosleep Upon Inactivity</a></li>
-</ul>
-</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#adxl345-on-raspberry-pi-a-worked-example">ADXL345 on Raspberry Pi - A worked example</a><ul>
@@ -165,6 +170,12 @@
 </ul>
 </li>
 <li><a class="reference internal" href="#adxl345-6-android-acceleration-sensor">ADXL345/6 Android Acceleration Sensor</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
+<li><a class="reference internal" href="#common-problems">Common Problems</a></li>
 </ul>
 </li>
 </ul>
@@ -268,6 +279,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -286,7 +298,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -430,12 +441,6 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/ADXL375" target="_blank">ADXL375</a></p></li>
 </ul>
 </section>
-<section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0133" target="_blank">CN0133</a></p></li>
-</ul>
-</section>
 <section id="evaluation-boards">
 <h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -444,6 +449,12 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADXL346Z-DB" target="_blank">EVAL-ADXL346Z-DB</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADXL375" target="_blank">EVAL-ADXL375</a></p></li>
 </ul>
+<section id="reference-circuits">
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0133" target="_blank">CN0133</a></p></li>
+</ul>
+</section>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -476,59 +487,10 @@ sensing and active acceleration measurement at extremely low power dissipation.<
 <div class="iframe-video"><iframe class="only-screen" src="https://www.youtube-nocookie.com/embed/8o_b2DO3d3E"></iframe><div class="only-screen"><p><a class="icon link reference external" href="https://www.youtube.com/watch?v=8o_b2DO3d3E" target="_blank"></a></p>
 </div><div class="admonition video only-print"><div><p class="admonition-title">Video</p>
 </div><p><a class="icon link reference external" href="https://www.youtube.com/watch?v=8o_b2DO3d3E" target="_blank"></a></p>
-</div></div><section id="adxl34x-hardware-features">
-<h3>ADXL34x Hardware Features<a class="headerlink" href="#adxl34x-hardware-features" title="Link to this heading"></a></h3>
-<p><strong>ADXL345/346:</strong></p>
-<ul class="simple">
-<li><p>Ultra low power</p></li>
-<li><p>Power consumption scales automatically with bandwidth</p></li>
-<li><p>User selectable fixed 10-bit resolution or 4mg/LSB scale factor in all
-g-ranges, up to 13-bit resolution at ±16 g</p></li>
-<li><p>32 level output data FIFO minimizes host processor load</p></li>
-<li><p>Built in motion detection functions</p>
-<ul>
-<li><p>Tap/Double Tap detection</p></li>
-<li><p>Activity/Inactivity monitoring</p></li>
-<li><p>Free-Fall detection</p></li>
-</ul>
-</li>
-<li><p>Supply and I/O voltage range: 1.8 V to 3.6 V (ADXL345) and 1.7 V to 2.75 V
-(ADXL346)</p></li>
-<li><p>SPI (3 and 4 wire) and I2C digital interfaces</p></li>
-<li><p>Flexible interrupt modes – Any interrupt mappable to either interrupt pin</p></li>
-<li><p>See data sheet for additional features</p></li>
-</ul>
-<p><strong>ADXL346:</strong></p>
-<ul class="simple">
-<li><p>4- and 6-position orientation sensing</p></li>
-</ul>
-</section>
-</section>
-<section id="configuration">
-<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
-<p><strong>Selectable ADXL34X I2C Device Address:</strong></p>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>SDO</p></th>
-<th class="head"><p>I2C Address</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>0</p></td>
-<td><p>0x53</p></td>
-</tr>
-<tr class="row-odd"><td><p>1</p></td>
-<td><p>0x1D</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="software-configurable-features">
-<h2>Software configurable features<a class="headerlink" href="#software-configurable-features" title="Link to this heading"></a></h2>
+</div></div><section id="driver-features-and-limitations">
+<h3>Driver features and limitations<a class="headerlink" href="#driver-features-and-limitations" title="Link to this heading"></a></h3>
 <section id="adxl34x-linux-driver-features">
-<h3>ADXL34x Linux Driver Features<a class="headerlink" href="#adxl34x-linux-driver-features" title="Link to this heading"></a></h3>
+<h4>ADXL34x Linux Driver Features<a class="headerlink" href="#adxl34x-linux-driver-features" title="Link to this heading"></a></h4>
 <p><strong>ADXL345/346:</strong></p>
 <ul class="simple">
 <li><p>Driver supports both SPI (3 and 4 wire) and I2C digital interface</p>
@@ -570,6 +532,55 @@ automatically switch to sleep mode during periods of inactivity.</p></li>
 </ul>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">*</span> <span class="n">User</span> <span class="n">selectable</span> <span class="n">Linux</span> <span class="n">Input</span> <span class="n">Event</span> <span class="n">Code</span> <span class="k">for</span> <span class="n">individual</span> <span class="n">positions</span>
 </pre></div>
+</div>
+</section>
+</section>
+<section id="adxl34x-hardware-features">
+<h3>ADXL34x Hardware Features<a class="headerlink" href="#adxl34x-hardware-features" title="Link to this heading"></a></h3>
+<p><strong>ADXL345/346:</strong></p>
+<ul class="simple">
+<li><p>Ultra low power</p></li>
+<li><p>Power consumption scales automatically with bandwidth</p></li>
+<li><p>User selectable fixed 10-bit resolution or 4mg/LSB scale factor in all
+g-ranges, up to 13-bit resolution at ±16 g</p></li>
+<li><p>32 level output data FIFO minimizes host processor load</p></li>
+<li><p>Built in motion detection functions</p>
+<ul>
+<li><p>Tap/Double Tap detection</p></li>
+<li><p>Activity/Inactivity monitoring</p></li>
+<li><p>Free-Fall detection</p></li>
+</ul>
+</li>
+<li><p>Supply voltage VS: 2.0 V to 3.6 V for ADXL345, 1.7 V to 2.75 V for ADXL346.
+Digital interface supply VDD I/O: 1.7 V to VS.</p></li>
+<li><p>SPI (3 and 4 wire) and I2C digital interfaces</p></li>
+<li><p>Flexible interrupt modes – Any interrupt mappable to either interrupt pin</p></li>
+<li><p>See data sheet for additional features</p></li>
+</ul>
+<p><strong>ADXL346:</strong></p>
+<ul class="simple">
+<li><p>4- and 6-position orientation sensing</p></li>
+</ul>
+</section>
+<section id="configuration">
+<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h3>
+<p><strong>Selectable ADXL34X I2C Device Address:</strong></p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>SDO</p></th>
+<th class="head"><p>I2C Address</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>0x53</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>0x1D</p></td>
+</tr>
+</tbody>
+</table>
 </div>
 </section>
 </section>
@@ -626,27 +637,27 @@ your kernel tree.</p>
 <p>If you are using a kernel version <strong>without the threaded irq capabilities (&lt;
 2.6.30) get there driver from here:</strong></p>
 <ul class="simple">
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/input/misc/adxl34x.c" target="_blank">adxl34x.c</a></p>
+<li><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/misc/adxl34x.c" target="_blank">drivers/input/misc/adxl34x.c</a></p>
 <ul>
 <li><p>Copy to linux-2.6.x/drivers/input/misc/adxl34x.c</p></li>
 </ul>
 </li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/input/misc/adxl34x.h" target="_blank">adxl34x.h</a></p>
+<li><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/misc/adxl34x.h" target="_blank">drivers/input/misc/adxl34x.h</a></p>
 <ul>
 <li><p>Copy to linux-2.6.x/drivers/input/misc/adxl34x.h</p></li>
 </ul>
 </li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/input/misc/adxl34x-i2c.c" target="_blank">adxl34x-i2c.c</a></p>
+<li><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/misc/adxl34x-i2c.c" target="_blank">drivers/input/misc/adxl34x-i2c.c</a></p>
 <ul>
 <li><p>Copy to linux-2.6.x/drivers/input/misc/adxl34x-i2c.c</p></li>
 </ul>
 </li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/input/misc/adxl34x-spi.c" target="_blank">adxl34x-spi.c</a></p>
+<li><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/misc/adxl34x-spi.c" target="_blank">drivers/input/misc/adxl34x-spi.c</a></p>
 <ul>
 <li><p>Copy to linux-2.6.x/drivers/input/misc/adxl34x-spi.c</p></li>
 </ul>
 </li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/include/linux/input/adxl34x.h" target="_blank">adxl34x.h</a></p></li>
+<li><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/input/adxl34x.h" target="_blank">include/linux/input/adxl34x.h</a></p></li>
 <li><p>Copy to linux-2.6.x/include/linux/input/adxl34x.h</p></li>
 </ul>
 <p>**For the latest version of checkout the <a class="icon dokuwiki reference external" href="https://wiki.analog.com/#Files" target="_blank">Files</a> section of
@@ -698,8 +709,133 @@ obj-$(CONFIG_INPUT_ADXL34X_SPI)     += adxl34x-spi.o
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ADXL34x driver depends on CONFIG_SPI or CONFIG_I2C.</p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Input</span> <span class="n">device</span> <span class="n">support</span>
+  <span class="o">-*-</span> <span class="n">Generic</span> <span class="nb">input</span> <span class="n">layer</span> <span class="p">(</span><span class="n">needed</span> <span class="k">for</span> <span class="n">keyboard</span><span class="p">,</span> <span class="n">mouse</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Support</span> <span class="k">for</span> <span class="n">memoryless</span> <span class="n">force</span><span class="o">-</span><span class="n">feedback</span> <span class="n">devices</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Polled</span> <span class="nb">input</span> <span class="n">device</span> <span class="n">skeleton</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Sparse</span> <span class="n">keymap</span> <span class="n">support</span> <span class="n">library</span>
+        <span class="o">***</span> <span class="n">Userland</span> <span class="n">interfaces</span> <span class="o">***</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Mouse</span> <span class="n">interface</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Joystick</span> <span class="n">interface</span>
+  <span class="o">&lt;*&gt;</span>   <span class="n">Event</span> <span class="n">interface</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Event</span> <span class="n">debugging</span>
+        <span class="o">***</span> <span class="n">Input</span> <span class="n">Device</span> <span class="n">Drivers</span> <span class="o">***</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Keyboards</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Mice</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Joysticks</span><span class="o">/</span><span class="n">Gamepads</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Tablets</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Touchscreens</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span><span class="o">*</span><span class="p">]</span>   <span class="n">Miscellaneous</span> <span class="n">devices</span>  <span class="o">---&gt;</span>
+     <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD714x</span> <span class="n">Capacitance</span> <span class="n">Touch</span> <span class="n">Sensor</span>
+     <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADXL34x</span> <span class="n">Three</span><span class="o">-</span><span class="n">Axis</span> <span class="n">Digital</span> <span class="n">Accelerometer</span>
+     <span class="o">&lt;*&gt;</span>     <span class="n">support</span> <span class="n">I2C</span> <span class="n">bus</span> <span class="n">connection</span> <span class="p">(</span><span class="n">NEW</span><span class="p">)</span>
+     <span class="o">&lt;*&gt;</span>     <span class="n">support</span> <span class="n">SPI</span> <span class="n">bus</span> <span class="n">connection</span> <span class="p">(</span><span class="n">NEW</span><span class="p">)</span>
+        <span class="n">Hardware</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">ports</span>  <span class="o">---&gt;</span>
+</pre></div>
+</div>
+<section id="driver-compiled-as-a-module">
+<h4>Driver compiled as a module<a class="headerlink" href="#driver-compiled-as-a-module" title="Link to this heading"></a></h4>
+<p>I2C Interface:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">evdev</span>
+<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">adxl34x</span>
+<span class="nb">input</span><span class="p">:</span> <span class="n">ADXL34x</span> <span class="n">accelerometer</span> <span class="k">as</span> <span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.1</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">1</span><span class="o">/</span><span class="mi">1</span><span class="o">-</span><span class="mi">0053</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input1</span>
+<span class="n">adxl34x</span> <span class="mi">1</span><span class="o">-</span><span class="mi">0053</span><span class="p">:</span> <span class="n">ADXL345</span> <span class="n">accelerometer</span><span class="p">,</span> <span class="n">irq</span> <span class="mi">140</span>
+</pre></div>
+</div>
+<p>SPI Interface:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">evdev</span>
+<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">adxl34x</span>
+<span class="nb">input</span><span class="p">:</span> <span class="n">ADXL34x</span> <span class="n">accelerometer</span> <span class="k">as</span> <span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input1</span>
+<span class="n">adxl34x</span> <span class="n">spi1</span><span class="mf">.2</span><span class="p">:</span> <span class="n">ADXL345</span> <span class="n">accelerometer</span><span class="p">,</span> <span class="n">irq</span> <span class="mi">140</span>
+</pre></div>
+</div>
+</section>
+<section id="driver-compiled-into-the-kernel">
+<h4>Driver compiled into the kernel<a class="headerlink" href="#driver-compiled-into-the-kernel" title="Link to this heading"></a></h4>
+<p>Your kernel startup messages should include something like this</p>
+<p>I2C Interface:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">input</span><span class="p">:</span> <span class="n">ADXL34x</span> <span class="n">accelerometer</span> <span class="k">as</span> <span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.1</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">1</span><span class="o">/</span><span class="mi">1</span><span class="o">-</span><span class="mi">0053</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input1</span>
+<span class="n">adxl34x</span> <span class="mi">1</span><span class="o">-</span><span class="mi">0053</span><span class="p">:</span> <span class="n">ADXL345</span> <span class="n">accelerometer</span><span class="p">,</span> <span class="n">irq</span> <span class="mi">140</span>
+</pre></div>
+</div>
+<p>SPI Interface:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">input</span><span class="p">:</span> <span class="n">ADXL34x</span> <span class="n">accelerometer</span> <span class="k">as</span> <span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input1</span>
+<span class="n">adxl34x</span> <span class="n">spi1</span><span class="mf">.2</span><span class="p">:</span> <span class="n">ADXL345</span> <span class="n">accelerometer</span><span class="p">,</span> <span class="n">irq</span> <span class="mi">140</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<p>Required devicetree properties:</p>
+<ul class="simple">
+<li><p>compatible: Needs to be <code class="docutils literal notranslate"><span class="pre">adi,</span></code> followed by the name of the device. E.g.
+<code class="docutils literal notranslate"><span class="pre">adi,adxl34x</span></code></p></li>
+<li><p>reg: The chipselect number used for the device</p></li>
+<li><p>spi-max-frequency: Maximum SPI clock frequency</p></li>
+<li><p>spi-cpha: Needs to be set for the correct SPI mode</p></li>
+<li><p>spi-cpol: Needs to be set for the correct SPI mode</p></li>
+<li><p>interrupt-parent: Specifies which IRQ controller is used</p></li>
+<li><p>interrupts: The interrupt associated with INT1. Using INT2 instead
+requires setting <code class="docutils literal notranslate"><span class="pre">use_int2</span></code> in <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">adxl34x_platform_data</span></code>; there
+is no devicetree property for this.</p></li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_spi_1</span><span class="p">:</span> <span class="n">spi</span><span class="o">@</span><span class="mi">42040000</span> <span class="p">{</span>
+        <span class="c1">#address-cells = &lt;1&gt;;</span>
+        <span class="c1">#size-cells = &lt;0&gt;;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-spi-1.02.a"</span><span class="p">,</span> <span class="s2">"xlnx,xps-spi-2.00.a"</span><span class="p">;</span>
+        <span class="o">...</span>
+
+        <span class="n">adxl345</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
+                <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adxl34x"</span><span class="p">;</span>
+                <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+                <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
+                <span class="n">spi</span><span class="o">-</span><span class="n">cpha</span><span class="p">;</span>
+                <span class="n">spi</span><span class="o">-</span><span class="n">cpol</span><span class="p">;</span>
+                <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gic</span><span class="o">&gt;</span><span class="p">;</span>
+                <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="mi">32</span> <span class="mi">4</span> <span class="o">&gt;</span><span class="p">;</span>
+        <span class="p">};</span>
+ <span class="p">};</span>
+</pre></div>
+</div>
+<p>Required devicetree properties:</p>
+<ul class="simple">
+<li><p>compatible: Needs to be <code class="docutils literal notranslate"><span class="pre">adi,</span></code> followed by the name of the device. E.g.
+<code class="docutils literal notranslate"><span class="pre">adi,adxl34x</span></code></p></li>
+<li><p>reg: The slave address of the device</p></li>
+<li><p>interrupt-parent: Specifies which IRQ controller is used</p></li>
+<li><p>interrupts: The interrupt associated with INT1</p></li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_iic_1</span><span class="p">:</span> <span class="n">i2c</span><span class="o">@</span><span class="mi">41640000</span> <span class="p">{</span>
+        <span class="c1">#address-cells = &lt;1&gt;;</span>
+        <span class="c1">#size-cells = &lt;0&gt;;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-iic-1.02.a"</span><span class="p">,</span> <span class="s2">"xlnx,xps-iic-2.00.a"</span><span class="p">;</span>
+        <span class="o">...</span>
+
+        <span class="n">adxl345</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
+                <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adxl34x"</span><span class="p">;</span>
+                <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x53</span><span class="o">&gt;</span><span class="p">;</span>
+                <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gic</span><span class="o">&gt;</span><span class="p">;</span>
+                <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="mi">32</span> <span class="mi">4</span> <span class="o">&gt;</span><span class="p">;</span>
+        <span class="p">};</span>
+ <span class="p">};</span>
+</pre></div>
+</div>
+</section>
+<section id="device-enumeration">
+<h3>Device enumeration<a class="headerlink" href="#device-enumeration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -975,7 +1111,7 @@ vary between boards and models. The platform_data for the device’s <code class
 <span class="cm">     * watermark:</span>
 <span class="cm">     * The Watermark feature can be used to reduce the interrupt load</span>
 <span class="cm">     * of the system. The FIFO fills up to the value stored in watermark</span>
-<span class="cm">     * [1..32] and then generates an interrupt.</span>
+<span class="cm">     * [1..31] samples.</span>
 <span class="cm">     * A '0' disables the watermark feature.</span>
 <span class="cm">     */</span>
 
@@ -1071,7 +1207,7 @@ vary between boards and models. The platform_data for the device’s <code class
 </pre></div>
 </div>
 <section id="example-platform-board-file-spi-interface-option">
-<h3>Example Platform / Board file (SPI Interface Option)<a class="headerlink" href="#example-platform-board-file-spi-interface-option" title="Link to this heading"></a></h3>
+<h5>Example Platform / Board file (SPI Interface Option)<a class="headerlink" href="#example-platform-board-file-spi-interface-option" title="Link to this heading"></a></h5>
 <p>Unlike PCI or USB devices, SPI devices are not enumerated at the hardware level.
 Instead, the software must know which devices are connected on each SPI bus
 segment, and what slave selects these devices are using. For this reason, the
@@ -1085,7 +1221,7 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
 <p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>Overview of Linux kernel SPI support</span></a></p>
 <p>These snippets are all from the same file.
 <code class="docutils literal notranslate"><span class="pre">arch/blackfin/mach-bf548/boards/ezkit.c</span></code>:</p>
-<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/spi/adxl34x.h&gt;</span>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/input/adxl34x.h&gt;</span>
 </pre></div>
 </div>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#if defined(CONFIG_INPUT_ADXL34X) || defined(CONFIG_INPUT_ADXL34X_MODULE)</span>
@@ -1157,40 +1293,8 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
 </pre></div>
 </div>
 </section>
-<section id="devicetree">
-<h3>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h3>
-<p>Required devicetree properties:</p>
-<ul class="simple">
-<li><p>compatible: Needs to be <code class="docutils literal notranslate"><span class="pre">adi,</span></code> followed by the name of the device. E.g.
-<code class="docutils literal notranslate"><span class="pre">adi,adxl34x</span></code></p></li>
-<li><p>reg: The chipselect number used for the device</p></li>
-<li><p>spi-max-frequency: Maximum SPI clock frequency</p></li>
-<li><p>spi-cpha: Needs to be set for the correct SPI mode</p></li>
-<li><p>spi-cpol: Needs to be set for the correct SPI mode</p></li>
-<li><p>interrupt-parent: Specifies which IRQ controller is used</p></li>
-<li><p>interrupts: The interrupt associated with the INT2 pin</p></li>
-</ul>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_spi_1</span><span class="p">:</span> <span class="n">spi</span><span class="o">@</span><span class="mi">42040000</span> <span class="p">{</span>
-        <span class="c1">#address-cells = &lt;1&gt;;</span>
-        <span class="c1">#size-cells = &lt;0&gt;;</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-spi-1.02.a"</span><span class="p">,</span> <span class="s2">"xlnx,xps-spi-2.00.a"</span><span class="p">;</span>
-        <span class="o">...</span>
-
-        <span class="n">adxl345</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-                <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adxl34x"</span><span class="p">;</span>
-                <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="n">spi</span><span class="o">-</span><span class="n">cpha</span><span class="p">;</span>
-                <span class="n">spi</span><span class="o">-</span><span class="n">cpol</span><span class="p">;</span>
-                <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gic</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="mi">32</span> <span class="mi">4</span> <span class="o">&gt;</span><span class="p">;</span>
-        <span class="p">};</span>
- <span class="p">};</span>
-</pre></div>
-</div>
-</section>
 <section id="example-platform-board-file-i2c-interface-option">
-<h3>Example Platform / Board file (I2C Interface Option)<a class="headerlink" href="#example-platform-board-file-i2c-interface-option" title="Link to this heading"></a></h3>
+<h5>Example Platform / Board file (I2C Interface Option)<a class="headerlink" href="#example-platform-board-file-i2c-interface-option" title="Link to this heading"></a></h5>
 <p>Unlike PCI or USB devices, I2C devices are not enumerated at the hardware level.
 Instead, the software must know which devices are connected on each I2C bus
 segment, and what address these devices are using. For this reason, the kernel
@@ -1232,113 +1336,13 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 </pre></div>
 </div>
 </section>
-<section id="id2">
-<h3>Devicetree<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
-<p>Required devicetree properties:</p>
-<ul class="simple">
-<li><p>compatible: Needs to be <code class="docutils literal notranslate"><span class="pre">adi,</span></code> followed by the name of the device. E.g.
-<code class="docutils literal notranslate"><span class="pre">adi,adxl34x</span></code></p></li>
-<li><p>reg: The slave address of the device</p></li>
-<li><p>interrupt-parent: Specifies which IRQ controller is used</p></li>
-<li><p>interrupts: The interrupt associated with the INT2 pin</p></li>
-</ul>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_iic_1</span><span class="p">:</span> <span class="n">i2c</span><span class="o">@</span><span class="mi">41640000</span> <span class="p">{</span>
-        <span class="c1">#address-cells = &lt;1&gt;;</span>
-        <span class="c1">#size-cells = &lt;0&gt;;</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-iic-1.02.a"</span><span class="p">,</span> <span class="s2">"xlnx,xps-iic-2.00.a"</span><span class="p">;</span>
-        <span class="o">...</span>
-
-        <span class="n">adxl345</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-                <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adxl34x"</span><span class="p">;</span>
-                <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x53</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gic</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="mi">32</span> <span class="mi">4</span> <span class="o">&gt;</span><span class="p">;</span>
-        <span class="p">};</span>
- <span class="p">};</span>
-</pre></div>
-</div>
 </section>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The ADXL34x Driver depends on <strong>CONFIG_SPI</strong> or <strong>CONFIG_I2C</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Input</span> <span class="n">device</span> <span class="n">support</span>
-  <span class="o">-*-</span> <span class="n">Generic</span> <span class="nb">input</span> <span class="n">layer</span> <span class="p">(</span><span class="n">needed</span> <span class="k">for</span> <span class="n">keyboard</span><span class="p">,</span> <span class="n">mouse</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
-  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Support</span> <span class="k">for</span> <span class="n">memoryless</span> <span class="n">force</span><span class="o">-</span><span class="n">feedback</span> <span class="n">devices</span>
-  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Polled</span> <span class="nb">input</span> <span class="n">device</span> <span class="n">skeleton</span>
-  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Sparse</span> <span class="n">keymap</span> <span class="n">support</span> <span class="n">library</span>
-        <span class="o">***</span> <span class="n">Userland</span> <span class="n">interfaces</span> <span class="o">***</span>
-  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Mouse</span> <span class="n">interface</span>
-  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Joystick</span> <span class="n">interface</span>
-  <span class="o">&lt;*&gt;</span>   <span class="n">Event</span> <span class="n">interface</span>
-  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Event</span> <span class="n">debugging</span>
-        <span class="o">***</span> <span class="n">Input</span> <span class="n">Device</span> <span class="n">Drivers</span> <span class="o">***</span>
-  <span class="p">[</span> <span class="p">]</span>   <span class="n">Keyboards</span>  <span class="o">---&gt;</span>
-  <span class="p">[</span> <span class="p">]</span>   <span class="n">Mice</span>  <span class="o">---&gt;</span>
-  <span class="p">[</span> <span class="p">]</span>   <span class="n">Joysticks</span><span class="o">/</span><span class="n">Gamepads</span>  <span class="o">---&gt;</span>
-  <span class="p">[</span> <span class="p">]</span>   <span class="n">Tablets</span>  <span class="o">---&gt;</span>
-  <span class="p">[</span> <span class="p">]</span>   <span class="n">Touchscreens</span>  <span class="o">---&gt;</span>
-  <span class="p">[</span><span class="o">*</span><span class="p">]</span>   <span class="n">Miscellaneous</span> <span class="n">devices</span>  <span class="o">---&gt;</span>
-     <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD714x</span> <span class="n">Capacitance</span> <span class="n">Touch</span> <span class="n">Sensor</span>
-     <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADXL34x</span> <span class="n">Three</span><span class="o">-</span><span class="n">Axis</span> <span class="n">Digital</span> <span class="n">Accelerometer</span>
-     <span class="o">&lt;*&gt;</span>     <span class="n">support</span> <span class="n">I2C</span> <span class="n">bus</span> <span class="n">connection</span> <span class="p">(</span><span class="n">NEW</span><span class="p">)</span>
-     <span class="o">&lt;*&gt;</span>     <span class="n">support</span> <span class="n">SPI</span> <span class="n">bus</span> <span class="n">connection</span> <span class="p">(</span><span class="n">NEW</span><span class="p">)</span>
-        <span class="n">Hardware</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">ports</span>  <span class="o">---&gt;</span>
-</pre></div>
-</div>
-</section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
-<section id="driver-compiled-as-a-module">
-<h3>Driver compiled as a module<a class="headerlink" href="#driver-compiled-as-a-module" title="Link to this heading"></a></h3>
-<p>I2C Interface:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">evdev</span>
-<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">adxl34x</span>
-<span class="nb">input</span><span class="p">:</span> <span class="n">ADXL34x</span> <span class="n">accelerometer</span> <span class="k">as</span> <span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.1</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">1</span><span class="o">/</span><span class="mi">1</span><span class="o">-</span><span class="mi">0053</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input1</span>
-<span class="n">adxl34x</span> <span class="mi">1</span><span class="o">-</span><span class="mi">0053</span><span class="p">:</span> <span class="n">ADXL345</span> <span class="n">accelerometer</span><span class="p">,</span> <span class="n">irq</span> <span class="mi">140</span>
-</pre></div>
-</div>
-<p>SPI Interface:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">evdev</span>
-<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">adxl34x</span>
-<span class="nb">input</span><span class="p">:</span> <span class="n">ADXL34x</span> <span class="n">accelerometer</span> <span class="k">as</span> <span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input1</span>
-<span class="n">adxl34x</span> <span class="n">spi1</span><span class="mf">.2</span><span class="p">:</span> <span class="n">ADXL345</span> <span class="n">accelerometer</span><span class="p">,</span> <span class="n">irq</span> <span class="mi">140</span>
-</pre></div>
-</div>
-</section>
-<section id="driver-compiled-into-the-kernel">
-<h3>Driver compiled into the kernel<a class="headerlink" href="#driver-compiled-into-the-kernel" title="Link to this heading"></a></h3>
-<p>Your kernel startup messages should include something like this</p>
-<p>I2C Interface:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">input</span><span class="p">:</span> <span class="n">ADXL34x</span> <span class="n">accelerometer</span> <span class="k">as</span> <span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.1</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">1</span><span class="o">/</span><span class="mi">1</span><span class="o">-</span><span class="mi">0053</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input1</span>
-<span class="n">adxl34x</span> <span class="mi">1</span><span class="o">-</span><span class="mi">0053</span><span class="p">:</span> <span class="n">ADXL345</span> <span class="n">accelerometer</span><span class="p">,</span> <span class="n">irq</span> <span class="mi">140</span>
-</pre></div>
-</div>
-<p>SPI Interface:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">input</span><span class="p">:</span> <span class="n">ADXL34x</span> <span class="n">accelerometer</span> <span class="k">as</span> <span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input1</span>
-<span class="n">adxl34x</span> <span class="n">spi1</span><span class="mf">.2</span><span class="p">:</span> <span class="n">ADXL345</span> <span class="n">accelerometer</span><span class="p">,</span> <span class="n">irq</span> <span class="mi">140</span>
-</pre></div>
-</div>
-</section>
-<section id="common-problems">
-<h3>Common Problems<a class="headerlink" href="#common-problems" title="Link to this heading"></a></h3>
-<p>In case you see a message like this</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adxl34x</span> <span class="n">spi1</span><span class="mf">.2</span><span class="p">:</span> <span class="n">Failed</span> <span class="n">to</span> <span class="n">probe</span> <span class="n">ADXL34x</span> <span class="n">accelerometer</span>
-</pre></div>
-</div>
-<p>This means that the SPI communication and initilaization with the ADXL34x
-failed. <strong>check bus_num and chip_select in your platform device file</strong></p>
-</section>
-<section id="checking-for-proper-installation">
-<h3>Checking for proper installation<a class="headerlink" href="#checking-for-proper-installation" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <p>After the kernel boot your device folder should include at least one device node
 for the accelerometer</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">ls</span> <span class="o">-</span><span class="n">al</span> <span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span>
@@ -1406,8 +1410,8 @@ for the accelerometer</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>In case you move the accelerometer and don’t receive events, it’s likely that
-something with your Interrupt is wrong. <strong>check irq number in your platform
-device file</strong></p>
+something with your Interrupt is wrong. Check the IRQ in the board’s
+platform data or devicetree node.</p>
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
@@ -1467,6 +1471,11 @@ you have not install the necessary modules</p>
 </div>
 <section id="device-calibration">
 <h4>Device Calibration<a class="headerlink" href="#device-calibration" title="Link to this heading"></a></h4>
+<p>Writing 1 to <code class="docutils literal notranslate"><span class="pre">calibrate</span></code> zeroes all three axes using the most recently
+received sample (the Z axis is also zeroed, removing the 1 g gravity
+offset). Open an input consumer first so a sample is available. Reading
+<code class="docutils literal notranslate"><span class="pre">calibrate</span></code> returns the combined hardware and software correction values
+as three comma-separated signed integers (X, Y, Z).</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">calibrate</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">calibrate</span>
 <span class="mi">2</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="o">-</span><span class="mi">204</span>
@@ -1570,8 +1579,9 @@ SPI interface.</p>
 </section>
 <section id="enabling-disabling-the-device">
 <h4>Enabling / Disabling the Device<a class="headerlink" href="#enabling-disabling-the-device" title="Link to this heading"></a></h4>
-<p>Writing ‘<strong>1</strong>’ into disable - disables the ADXL34x (low power suspend mode)
-Writing ‘<strong>0</strong>’ into disable - enables the ADXL34x</p>
+<p>Writing 1 into disable prevents measurement; writing 0 allows it. Hardware
+measurement is enabled only while the input device is opened and the system is
+not suspended, so writing 0 with no input consumer does not start sampling.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">disable</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">0</span> <span class="o">&gt;</span> <span class="n">disable</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">&gt;</span>
@@ -1589,11 +1599,10 @@ Writing ‘<strong>0</strong>’ into disable - enables the ADXL34x</p>
 </div>
 </section>
 </section>
-</section>
 <section id="adxl345-on-raspberry-pi-a-worked-example">
-<h2>ADXL345 on Raspberry Pi - A worked example<a class="headerlink" href="#adxl345-on-raspberry-pi-a-worked-example" title="Link to this heading"></a></h2>
+<h3>ADXL345 on Raspberry Pi - A worked example<a class="headerlink" href="#adxl345-on-raspberry-pi-a-worked-example" title="Link to this heading"></a></h3>
 <section id="create-an-sd-card-image">
-<h3>Create an SD Card image<a class="headerlink" href="#create-an-sd-card-image" title="Link to this heading"></a></h3>
+<h4>Create an SD Card image<a class="headerlink" href="#create-an-sd-card-image" title="Link to this heading"></a></h4>
 <p>Download Raspbian <code class="docutils literal notranslate"><span class="pre">wheezy</span></code> SD Card Image from here:
 <a class="icon link reference external" href="http://www.raspberrypi.org/downloads" target="_blank">http://www.raspberrypi.org/downloads</a></p>
 <div class="admonition note">
@@ -1615,7 +1624,7 @@ Dave@HAL9000:~/devel/pshare/RaspberryPi$
 </div>
 </section>
 <section id="compile-a-kernel">
-<h3>Compile a kernel<a class="headerlink" href="#compile-a-kernel" title="Link to this heading"></a></h3>
+<h4>Compile a kernel<a class="headerlink" href="#compile-a-kernel" title="Link to this heading"></a></h4>
 <p>There are two ways to compile a new Kernel -</p>
 <ul class="simple">
 <li><p>On the target itself</p></li>
@@ -1626,16 +1635,16 @@ Dave@HAL9000:~/devel/pshare/RaspberryPi$
 <p>In order to speed things up - we compile the kernel on a foreign host.</p>
 </div>
 <section id="get-arm-tools-and-raspberrypi-kernel-source">
-<h4>Get ARM tools and RaspberryPi kernel source<a class="headerlink" href="#get-arm-tools-and-raspberrypi-kernel-source" title="Link to this heading"></a></h4>
+<h5>Get ARM tools and RaspberryPi kernel source<a class="headerlink" href="#get-arm-tools-and-raspberrypi-kernel-source" title="Link to this heading"></a></h5>
 <section id="create-an-empty-directory">
-<h5>Create an empty directory<a class="headerlink" href="#create-an-empty-directory" title="Link to this heading"></a></h5>
+<h6>Create an empty directory<a class="headerlink" href="#create-an-empty-directory" title="Link to this heading"></a></h6>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Dave@HAL9000:~/devel/git$ mkdir RaspberryPi
 Dave@HAL9000:~/devel/git$ cd RaspberryPi
 </pre></div>
 </div>
 </section>
 <section id="get-tools">
-<h5>Get tools<a class="headerlink" href="#get-tools" title="Link to this heading"></a></h5>
+<h6>Get tools<a class="headerlink" href="#get-tools" title="Link to this heading"></a></h6>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Dave@HAL9000:~/devel/git/RaspberryPi$ git clone https:%%//%%github.com/raspberrypi/tools.git
 Initialized empty Git repository in /home/michael/devel/git/RaspberryPi/tools/.git/
 remote: Counting objects: 11148, done.
@@ -1648,7 +1657,7 @@ Checking out files: 100% (10692/10692), done.
 </div>
 </section>
 <section id="get-kernel-source">
-<h5>Get Kernel Source<a class="headerlink" href="#get-kernel-source" title="Link to this heading"></a></h5>
+<h6>Get Kernel Source<a class="headerlink" href="#get-kernel-source" title="Link to this heading"></a></h6>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Dave@HAL9000:~/devel/git/RaspberryPi$ git clone https:%%//%%github.com/raspberrypi/linux.git
 Initialized empty Git repository in /home/michael/devel/git/RaspberryPi/linux/.git/
 remote: Counting objects: 2287525, done.
@@ -1666,7 +1675,7 @@ Dave@HAL9000:~/devel/git/RaspberryPi$
 </div>
 </section>
 <section id="download-and-apply-patches">
-<h5>Download and apply patches<a class="headerlink" href="#download-and-apply-patches" title="Link to this heading"></a></h5>
+<h6>Download and apply patches<a class="headerlink" href="#download-and-apply-patches" title="Link to this heading"></a></h6>
 <p>Get patch files here:</p>
 <ul class="simple">
 <li><p><a class="icon reference download external" download="" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/adxl34x_raspberrypi_patches.zip"><code class="xref download docutils literal notranslate"><span class="pre">https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/adxl34x_raspberrypi_patches.zip</span></code></a></p></li>
@@ -1695,7 +1704,7 @@ Dave@HAL9000:~/devel/git/RaspberryPi/linux$
 </div>
 </section>
 <section id="add-arm-toolchain-to-the-path-variable-and-set-arch-and-cross-compile">
-<h5>Add ARM toolchain to the PATH variable and set ARCH and CROSS_COMPILE<a class="headerlink" href="#add-arm-toolchain-to-the-path-variable-and-set-arch-and-cross-compile" title="Link to this heading"></a></h5>
+<h6>Add ARM toolchain to the PATH variable and set ARCH and CROSS_COMPILE<a class="headerlink" href="#add-arm-toolchain-to-the-path-variable-and-set-arch-and-cross-compile" title="Link to this heading"></a></h6>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Dave@HAL9000:~/devel/git/RaspberryPi/linux$ export PATH=/home/michael/devel/git/RaspberryPi/tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian/bin/:$PATH
 Dave@HAL9000:~/devel/git/RaspberryPi/linux$ export ARCH=arm
 Dave@HAL9000:~/devel/git/RaspberryPi/linux$ export CROSS_COMPILE=arm-linux-gnueabihf-
@@ -1703,7 +1712,7 @@ Dave@HAL9000:~/devel/git/RaspberryPi/linux$ export CROSS_COMPILE=arm-linux-gnuea
 </div>
 </section>
 <section id="load-kernel-config-for-bcmrpi">
-<h5>Load kernel config for bcmrpi<a class="headerlink" href="#load-kernel-config-for-bcmrpi" title="Link to this heading"></a></h5>
+<h6>Load kernel config for bcmrpi<a class="headerlink" href="#load-kernel-config-for-bcmrpi" title="Link to this heading"></a></h6>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Dave@HAL9000:~/devel/git/RaspberryPi/linux$ make bcmrpi_defconfig
 #
 # configuration written to .config
@@ -1712,13 +1721,13 @@ Dave@HAL9000:~/devel/git/RaspberryPi/linux$ export CROSS_COMPILE=arm-linux-gnuea
 </div>
 </section>
 <section id="now-build-your-kernel">
-<h5>Now build your kernel<a class="headerlink" href="#now-build-your-kernel" title="Link to this heading"></a></h5>
+<h6>Now build your kernel<a class="headerlink" href="#now-build-your-kernel" title="Link to this heading"></a></h6>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Dave@HAL9000:~/devel/git/RaspberryPi/linux$ make -j5
 </pre></div>
 </div>
 </section>
 <section id="copy-kernel-image-and-modules-to-sd-card">
-<h5>Copy kernel image and modules to SD Card<a class="headerlink" href="#copy-kernel-image-and-modules-to-sd-card" title="Link to this heading"></a></h5>
+<h6>Copy kernel image and modules to SD Card<a class="headerlink" href="#copy-kernel-image-and-modules-to-sd-card" title="Link to this heading"></a></h6>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Dave@HAL9000:~/devel/git/RaspberryPi/linux$ cp arch/arm/boot/zImage /media/A1B1-918F/kernel.img
 Dave@HAL9000:~/devel/git/RaspberryPi/linux$ sudo ARCH=arm make modules_install INSTALL_MOD_PATH=/media/10b4c001-2137-4418-b29e-57b7d15a6cbc
 </pre></div>
@@ -1726,7 +1735,7 @@ Dave@HAL9000:~/devel/git/RaspberryPi/linux$ sudo ARCH=arm make modules_install I
 </section>
 </section>
 <section id="connect-adxl345-development-board">
-<h4>Connect ADXL345 development Board<a class="headerlink" href="#connect-adxl345-development-board" title="Link to this heading"></a></h4>
+<h5>Connect ADXL345 development Board<a class="headerlink" href="#connect-adxl345-development-board" title="Link to this heading"></a></h5>
 <figure class="align-default">
 <a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/rpi_adxl345.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/rpi_adxl345.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/rpi_adxl345.jpg" style="width: 800px;" />
 </a>
@@ -1735,15 +1744,15 @@ Dave@HAL9000:~/devel/git/RaspberryPi/linux$ sudo ARCH=arm make modules_install I
 <p>Connect ADXL345 SDA, SCL and INT1 to the RaspberryPi GPIO header P1</p>
 </section>
 <section id="power-up-your-raspberry-pi">
-<h4>Power up your Raspberry Pi<a class="headerlink" href="#power-up-your-raspberry-pi" title="Link to this heading"></a></h4>
+<h5>Power up your Raspberry Pi<a class="headerlink" href="#power-up-your-raspberry-pi" title="Link to this heading"></a></h5>
 <section id="load-the-i2c-bus-driver-module">
-<h5>Load the I2C Bus driver module<a class="headerlink" href="#load-the-i2c-bus-driver-module" title="Link to this heading"></a></h5>
+<h6>Load the I2C Bus driver module<a class="headerlink" href="#load-the-i2c-bus-driver-module" title="Link to this heading"></a></h6>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>pi@raspberrypi ~ $ sudo modprobe i2c-bcm2708
 </pre></div>
 </div>
 </section>
 <section id="check-if-adxl345-was-successfully-probed-instantiated">
-<h5>Check if ADXL345 was successfully probed / instantiated<a class="headerlink" href="#check-if-adxl345-was-successfully-probed-instantiated" title="Link to this heading"></a></h5>
+<h6>Check if ADXL345 was successfully probed / instantiated<a class="headerlink" href="#check-if-adxl345-was-successfully-probed-instantiated" title="Link to this heading"></a></h6>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>pi@raspberrypi ~ $ dmesg | grep ADXL
 [   44.858034] input: ADXL34x accelerometer as /devices/platform/bcm2708_i2c.1/i2c-1/1-0053/input/input2
 pi@raspberrypi ~ $
@@ -1751,13 +1760,13 @@ pi@raspberrypi ~ $
 </div>
 </section>
 <section id="get-evtest-tool">
-<h5>Get evtest tool<a class="headerlink" href="#get-evtest-tool" title="Link to this heading"></a></h5>
+<h6>Get evtest tool<a class="headerlink" href="#get-evtest-tool" title="Link to this heading"></a></h6>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>pi@raspberrypi ~ $ sudo apt-get install evtest
 </pre></div>
 </div>
 </section>
 <section id="driver-test">
-<h5>Driver test<a class="headerlink" href="#driver-test" title="Link to this heading"></a></h5>
+<h6>Driver test<a class="headerlink" href="#driver-test" title="Link to this heading"></a></h6>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>pi@raspberrypi ~ $ evtest /dev/input/event2
 Input driver version is 1.0.1
 Input device ID: bus 0x18 vendor 0x0 product 0x159 version 0x0
@@ -1844,9 +1853,23 @@ pi@raspberrypi /sys/bus/i2c/devices/1-0053 $
 </section>
 </section>
 <section id="adxl345-6-android-acceleration-sensor">
-<h3>ADXL345/6 Android Acceleration Sensor<a class="headerlink" href="#adxl345-6-android-acceleration-sensor" title="Link to this heading"></a></h3>
+<h4>ADXL345/6 Android Acceleration Sensor<a class="headerlink" href="#adxl345-6-android-acceleration-sensor" title="Link to this heading"></a></h4>
 <p>Using this driver under Android as Acceleration Sensor, follow the link here:
 <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/android-drivers/sensor-acceleration/adxl345" target="_blank">ADXL345 Android Sensor</a></p>
+</section>
+</section>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
+<section id="common-problems">
+<h3>Common Problems<a class="headerlink" href="#common-problems" title="Link to this heading"></a></h3>
+<p>In case you see a message like this</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adxl34x</span> <span class="n">spi1</span><span class="mf">.2</span><span class="p">:</span> <span class="n">Failed</span> <span class="n">to</span> <span class="n">probe</span> <span class="n">ADXL34x</span> <span class="n">accelerometer</span>
+</pre></div>
+</div>
+<p>This means that the SPI communication and initialization with the ADXL34x
+failed. Check the <code class="docutils literal notranslate"><span class="pre">bus_num</span></code> and <code class="docutils literal notranslate"><span class="pre">chip_select</span></code> in the board’s platform
+data (SPI) or the devicetree node (I2C/SPI).</p>
 </section>
 </section>
 </section>

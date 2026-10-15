@@ -98,15 +98,21 @@
           <ul>
 <li><a class="reference internal" href="#">ADIN1300/ADIN1200</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
-<li><a class="reference internal" href="#supported-boards">Supported Boards</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
 <li><a class="reference internal" href="#ifconfig">ifconfig</a></li>
 <li><a class="reference internal" href="#ethtool">ethtool</a><ul>
@@ -123,7 +129,6 @@
 </ul>
 </li>
 <li><a class="reference internal" href="#adintool-sh-convenience-phytool-wrapper">adintool.sh - convenience phytool wrapper</a><ul>
-<li><a class="reference internal" href="#usage">Usage</a></li>
 <li><a class="reference internal" href="#first-setup">First setup</a></li>
 <li><a class="reference internal" href="#dump-regs">dump_regs</a></li>
 <li><a class="reference internal" href="#cable-diagnostics">cable_diagnostics</a></li>
@@ -133,7 +138,10 @@
 <li><a class="reference internal" href="#data-integrity-testing">Data integrity testing</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#more-information">More Information</a><ul>
 <li><a class="reference internal" href="#ethernet-pointers">Ethernet pointers</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -235,6 +243,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -253,7 +262,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -396,8 +404,8 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/ADIN1300" target="_blank">ADIN1300</a></p></li>
 </ul>
 </section>
-<section id="supported-boards">
-<h2>Supported Boards<a class="headerlink" href="#supported-boards" title="Link to this heading"></a></h2>
+<section id="evaluation-boards">
+<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -479,8 +487,37 @@ more difficult to configure it entirely from software</p>
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<ol class="arabic simple">
+<li><p>Hit the search button (typically the slash <code class="docutils literal notranslate"><span class="pre">/</span></code> key)</p></li>
+<li><p>Type ADIN_PHY, then hit Enter; if nothing shows up, the driver is not
+available in your kernel tree, please use
+<a class="icon link reference external" href="https://github.com/analogdevicesinc/linux/" target="_blank">the ADI linux tree</a></p></li>
+<li><p>Press 1 (the key), then hit Enter</p></li>
+<li><p>You should see the location + dependencies for enabling the driver</p></li>
+</ol>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Linux Kernel Configuration
+Symbol: ADIN_PHY [=y]
+Type  : tristate
+Prompt: Analog Devices Industrial Ethernet PHYs
+   Location:
+     -&gt; Device Drivers
+       -&gt; Network device support (NETDEVICES [=y])│
+ (1)     -&gt; PHY Device support and infrastructure (PHYLIB [=y])
+   Defined at drivers/net/phy/Kconfig:208
+   Depends on: NETDEVICES [=y] &amp;&amp; PHYLIB [=y]
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>The ADIN PHY driver instantiates via Linux’s phylib framework, which is
 typically enabled on most systems.</p>
 <p>Depending on the MAC driver that is used and the operating mode (MII, RGMII,
@@ -540,30 +577,7 @@ the FIFO depth. <strong>Accepted values:</strong> 4, 8, 12, 16, 20, 24, <strong>
 </pre></div>
 </div>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<ol class="arabic simple">
-<li><p>Hit the search button (typically the slash <code class="docutils literal notranslate"><span class="pre">/</span></code> key)</p></li>
-<li><p>Type ADIN_PHY, then hit Enter; if nothing shows up, the driver is not
-available in your kernel tree, please use
-<a class="icon link reference external" href="https://github.com/analogdevicesinc/linux/" target="_blank">the ADI linux tree</a></p></li>
-<li><p>Press 1 (the key), then hit Enter</p></li>
-<li><p>You should see the location + dependencies for enabling the driver</p></li>
-</ol>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Linux Kernel Configuration
-Symbol: ADIN_PHY [=y]
-Type  : tristate
-Prompt: Analog Devices Industrial Ethernet PHYs
-   Location:
-     -&gt; Device Drivers
-       -&gt; Network device support (NETDEVICES [=y])│
- (1)     -&gt; PHY Device support and infrastructure (PHYLIB [=y])
-   Defined at drivers/net/phy/Kconfig:208
-   Depends on: NETDEVICES [=y] &amp;&amp; PHYLIB [=y]
-</pre></div>
-</div>
+</section>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -578,6 +592,18 @@ instance that handles this automatically.</p>
 <p>If NetworkManager isn’t running, it sometimes works to obtain a DHCP lease
 via <strong>dhclient eth0</strong> [or <strong>eth1</strong> or <strong>eth2</strong>, depending which MAC is
 attached to the ADIN PHY].</p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Usage</span><span class="p">:</span> <span class="n">adintool</span><span class="o">.</span><span class="n">sh</span> <span class="o">&lt;</span><span class="n">command</span><span class="o">&gt;</span> <span class="p">[</span><span class="n">args</span><span class="p">]</span>
+  <span class="n">setup</span> <span class="o">-</span> <span class="n">setup</span> <span class="n">phytool</span> <span class="ow">and</span> <span class="n">ethtool</span> <span class="n">required</span> <span class="k">for</span> <span class="n">demo</span>
+          <span class="n">WARNING</span><span class="p">:</span> <span class="n">will</span> <span class="n">override</span> <span class="n">system</span> <span class="n">tools</span>
+  <span class="n">dump_regs</span> <span class="o">&lt;</span><span class="n">eth</span><span class="o">&gt;</span> <span class="o">-</span> <span class="n">show</span> <span class="nb">all</span> <span class="n">reg</span> <span class="n">values</span>
+                    <span class="n">WARNING</span><span class="p">:</span> <span class="n">some</span> <span class="n">registers</span> <span class="n">will</span> <span class="n">be</span> <span class="n">cleared</span> <span class="n">on</span> <span class="n">read</span>
+  <span class="n">phy_read_mmd</span> <span class="o">&lt;</span><span class="n">eth</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">reg</span><span class="o">-</span><span class="n">addr</span><span class="o">&gt;</span> <span class="o">-</span> <span class="n">read</span> <span class="n">value</span> <span class="kn">from</span><span class="w"> </span><span class="nn">a</span> <span class="n">MMD</span> <span class="n">register</span>
+  <span class="n">phy_write_mmd</span> <span class="o">&lt;</span><span class="n">eth</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">reg</span><span class="o">-</span><span class="n">addr</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">val</span><span class="o">&gt;</span> <span class="o">-</span> <span class="n">write</span> <span class="n">value</span> <span class="n">to</span> <span class="n">MMD</span> <span class="n">register</span>
+  <span class="n">cable_diagnostics</span> <span class="o">&lt;</span><span class="n">eth</span><span class="o">&gt;</span> <span class="o">-</span> <span class="n">run</span> <span class="n">cable</span> <span class="n">diagnostics</span> <span class="n">on</span> <span class="n">cable</span>
+                            <span class="n">WARNING</span><span class="p">:</span> <span class="n">puts</span> <span class="n">device</span> <span class="n">into</span> <span class="n">special</span> <span class="n">mode</span><span class="o">.</span>
+                                     <span class="n">device</span> <span class="n">won</span><span class="s1">'t send data during this mode</span>
+</pre></div>
 </div>
 <section id="ifconfig">
 <h3>ifconfig<a class="headerlink" href="#ifconfig" title="Link to this heading"></a></h3>
@@ -779,21 +805,6 @@ with the attached MAC.</p>
 </div>
 <p>Link: <a class="icon git reference external" href="https://github.com/analogdevicesinc/wiki-scripts/tree/main/linux/adintool.sh" target="_blank">linux/adintool.sh</a></p>
 <p>When downloading, make sure the script is made executable.</p>
-<section id="usage">
-<h4>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Usage</span><span class="p">:</span> <span class="n">adintool</span><span class="o">.</span><span class="n">sh</span> <span class="o">&lt;</span><span class="n">command</span><span class="o">&gt;</span> <span class="p">[</span><span class="n">args</span><span class="p">]</span>
-  <span class="n">setup</span> <span class="o">-</span> <span class="n">setup</span> <span class="n">phytool</span> <span class="ow">and</span> <span class="n">ethtool</span> <span class="n">required</span> <span class="k">for</span> <span class="n">demo</span>
-          <span class="n">WARNING</span><span class="p">:</span> <span class="n">will</span> <span class="n">override</span> <span class="n">system</span> <span class="n">tools</span>
-  <span class="n">dump_regs</span> <span class="o">&lt;</span><span class="n">eth</span><span class="o">&gt;</span> <span class="o">-</span> <span class="n">show</span> <span class="nb">all</span> <span class="n">reg</span> <span class="n">values</span>
-                    <span class="n">WARNING</span><span class="p">:</span> <span class="n">some</span> <span class="n">registers</span> <span class="n">will</span> <span class="n">be</span> <span class="n">cleared</span> <span class="n">on</span> <span class="n">read</span>
-  <span class="n">phy_read_mmd</span> <span class="o">&lt;</span><span class="n">eth</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">reg</span><span class="o">-</span><span class="n">addr</span><span class="o">&gt;</span> <span class="o">-</span> <span class="n">read</span> <span class="n">value</span> <span class="kn">from</span><span class="w"> </span><span class="nn">a</span> <span class="n">MMD</span> <span class="n">register</span>
-  <span class="n">phy_write_mmd</span> <span class="o">&lt;</span><span class="n">eth</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">reg</span><span class="o">-</span><span class="n">addr</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">val</span><span class="o">&gt;</span> <span class="o">-</span> <span class="n">write</span> <span class="n">value</span> <span class="n">to</span> <span class="n">MMD</span> <span class="n">register</span>
-  <span class="n">cable_diagnostics</span> <span class="o">&lt;</span><span class="n">eth</span><span class="o">&gt;</span> <span class="o">-</span> <span class="n">run</span> <span class="n">cable</span> <span class="n">diagnostics</span> <span class="n">on</span> <span class="n">cable</span>
-                            <span class="n">WARNING</span><span class="p">:</span> <span class="n">puts</span> <span class="n">device</span> <span class="n">into</span> <span class="n">special</span> <span class="n">mode</span><span class="o">.</span>
-                                     <span class="n">device</span> <span class="n">won</span><span class="s1">'t send data during this mode</span>
-</pre></div>
-</div>
-</section>
 <section id="first-setup">
 <h4>First setup<a class="headerlink" href="#first-setup" title="Link to this heading"></a></h4>
 <p>Needs be run the first time. Make sure that there is internet connectivity and
@@ -816,13 +827,9 @@ example).</p>
 </section>
 <section id="cable-diagnostics">
 <h4>cable_diagnostics<a class="headerlink" href="#cable-diagnostics" title="Link to this heading"></a></h4>
-<p>This runs a sequence of register changes to put the PHY into diagnostics mode,
-which interrupts normal operation.</p>
-<p>Then a diagnostics will be run on the cable and the results of the registers
-will be read back.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">./</span><span class="n">adintool</span><span class="o">.</span><span class="n">sh</span> <span class="n">cable_diagnostics</span> <span class="n">eth0</span>
-</pre></div>
-</div>
+<p>Use <code class="docutils literal notranslate"><span class="pre">ethtool</span> <span class="pre">--cable-test</span> <span class="pre">eth0</span></code>. The PHY driver reports pair faults and fault
+lengths through the ethtool cable-test interface. The test interrupts normal
+link operation.</p>
 </section>
 </section>
 <section id="throughput-testing-iperf">
@@ -864,8 +871,10 @@ achieves expected results, others should too</p>
 </div>
 </section>
 </section>
+<section id="more-information">
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <section id="ethernet-pointers">
-<h2>Ethernet pointers<a class="headerlink" href="#ethernet-pointers" title="Link to this heading"></a></h2>
+<h3>Ethernet pointers<a class="headerlink" href="#ethernet-pointers" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p>netdev mailing list: <a class="reference external" href="mailto:netdev&#37;&#52;&#48;vger&#46;kernel&#46;org">netdev<span>&#64;</span>vger<span>&#46;</span>kernel<span>&#46;</span>org</a></p></li>
 <li><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/net/ethernet-controller.yaml" target="_blank">Ethernet Controller bindings doc</a></p></li>
@@ -875,6 +884,7 @@ achieves expected results, others should too</p>
 <ul class="simple">
 <li><p><a class="icon ez reference external" href="https://ez.analog.com/linux-software-drivers" target="_blank">Analog Devices Linux Device Drivers Help Forum</a></p></li>
 </ul>
+</section>
 </section>
 </section>
 

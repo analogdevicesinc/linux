@@ -98,11 +98,21 @@
           <ul>
 <li><a class="reference internal" href="#">AD469x</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a><ul>
+<li><a class="reference internal" href="#typical-hardware-setup">Typical hardware setup</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
 <li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#spi-bus">SPI Bus</a><ul>
-<li><a class="reference internal" href="#standard-spi-wiring">Standard SPI wiring</a><ul>
+<li><a class="reference internal" href="#standard-spi-wiring">Standard SPI wiring</a></li>
 <li><a class="reference internal" href="#spi-offload-wiring">SPI Offload wiring</a></li>
 </ul>
 </li>
@@ -118,33 +128,31 @@
 <li><a class="reference internal" href="#additional-properties">Additional properties</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#linux-driver">Linux Driver</a><ul>
-<li><a class="reference internal" href="#enabling-the-driver">Enabling the driver</a></li>
-<li><a class="reference internal" href="#device-enumeration">Device enumeration</a></li>
-<li><a class="reference internal" href="#sysfs-attributes">Sysfs attributes</a><ul>
+<li><a class="reference internal" href="#evaluation-board-setup">Evaluation-board setup</a><ul>
+<li><a class="reference internal" href="#typical-zedboard-software-setup">Typical ZedBoard software setup</a><ul>
+<li><a class="reference internal" href="#install-os-on-the-zedboard">Install OS on the ZedBoard</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#attribute-reference">Attribute reference</a><ul>
 <li><a class="reference internal" href="#informational">Informational</a></li>
 <li><a class="reference internal" href="#channels">Channels</a></li>
 <li><a class="reference internal" href="#calibration">Calibration</a></li>
 <li><a class="reference internal" href="#buffers">Buffers</a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation boards</a><ul>
-<li><a class="reference internal" href="#typical-hardware-setup">Typical hardware setup</a></li>
-<li><a class="reference internal" href="#typical-zedboard-software-setup">Typical ZedBoard software setup</a><ul>
-<li><a class="reference internal" href="#install-os-on-the-zedboard">Install OS on the ZedBoard</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#typical-test-application-software">Typical test application software</a><ul>
+<li><a class="reference internal" href="#application-examples">Application examples</a><ul>
 <li><a class="reference internal" href="#iio-oscilloscope">IIO Oscilloscope</a></li>
 <li><a class="reference internal" href="#scopy">Scopy</a></li>
 <li><a class="reference internal" href="#examples">Examples</a></li>
 <li><a class="reference internal" href="#measure-constant-voltage">Measure constant voltage</a></li>
 <li><a class="reference internal" href="#capture-many-samples-for-analysis">Capture many samples for analysis</a></li>
 <li><a class="reference internal" href="#voltage-input-calibration">Voltage input calibration</a></li>
-</ul>
-</li>
 </ul>
 </li>
 </ul>
@@ -250,6 +258,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -268,7 +277,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -404,9 +412,10 @@ Content on this topic
   <section id="ad469x">
 <span id="ad4695"></span><h1>AD469x<a class="headerlink" href="#ad469x" title="Link to this heading"></a></h1>
 <p>AD469x Easy Drive Multiplexed SAR ADC Linux IIO Driver.</p>
-<p>Analog Devices <a class="icon adi reference external" href="https://www.analog.com/AD4695" target="_blank">AD4695</a> and additional the devices listed below
-devices are compact, high accuracy, low power, 16-channel, 16-bit, multiplexed
-input precision, successive approximation register (SAR) analog-to-digital
+<p>Analog Devices <a class="icon adi reference external" href="https://www.analog.com/AD4695" target="_blank">AD4695</a> and additional the devices listed below devices
+are compact, high accuracy, low power, 16-bit multiplexed ADCs:
+<a class="icon adi reference external" href="https://www.analog.com/AD4695" target="_blank">AD4695</a>/AD4696 have 16 voltage inputs; AD4697/AD4698 have eight. These
+are input precision, successive approximation register (SAR) analog-to-digital
 converters (ADCs) with Easy Drive features and extensive digital functionality.</p>
 <p>This page describes Linux industrial I/O (<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a>)
 subsystem driver, targeting single channel SPI interface <a class="icon adi reference external" href="https://www.analog.com/AD4695" target="_blank">AD4695</a>
@@ -423,8 +432,36 @@ number of different physical interfaces (I2C, SPI, etc). See
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD4698" target="_blank">AD4698</a></p></li>
 </ul>
 </section>
+<section id="evaluation-boards">
+<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
+<p>The following evaluation boards have been tested with this driver:</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Board</p></th>
+<th class="head"><p>Device tree</p></th>
+<th class="head"></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="icon adi reference external" href="https://www.analog.com/media/en/technical-documentation/user-guides/eval-ad4696fmcz-ug-1882.pdf" target="_blank">EVAL-AD4696FMCZ</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad4696.dts" target="_blank">zynq-zed-adv7511-ad4696.dts</a></p></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>If you need to change any jumpers from default on the evaluation board, see the
+<a class="icon dokuwiki reference external" href="https://wiki.analog.com/ad4695#Devicetree Configuration" target="_blank">ad4695#Devicetree Configuration</a>
+section for info on what settings might need to be changed there to account for
+the differences in wiring.</p>
+</section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
 <section id="status">
-<h2>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h2>
+<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -445,7 +482,7 @@ as the
 is required.</p>
 </section>
 <section id="files">
-<h2>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h2>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -468,8 +505,37 @@ is required.</p>
 </div>
 <p>Upstream documentation: <a class="icon link reference external" href="https://docs.kernel.org/iio/ad4695.html" target="_blank">https://docs.kernel.org/iio/ad4695.html</a></p>
 </section>
+</section>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<section id="typical-hardware-setup">
+<h3>Typical hardware setup<a class="headerlink" href="#typical-hardware-setup" title="Link to this heading"></a></h3>
+<p>A typical test setup consists of one of the evaluation boards from above
+connected to a
+<a class="icon link reference external" href="https://www.avnet.com/wps/portal/us/products/avnet-boards/avnet-board-families/zedboard/" target="_blank">ZedBoard</a>.</p>
+<p>A <a class="icon adi reference external" href="https://www.analog.com/ADALM2000" target="_blank">ADALM2000</a> (also known as M2K) can be used to to generate a
+signal. This will also require coax cable with SMA connectors and appropriate
+adapters to adapt the coax to individual wires on the signal generator.</p>
+</section>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<p>This section explains how to use the <code class="docutils literal notranslate"><span class="pre">ad4695</span></code> driver in Linux.</p>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Pre-compiled kernels (<code class="docutils literal notranslate"><span class="pre">uImage</span></code>) from ADI should have this driver already
+enabled. If building your own kernel, enable it using the <code class="docutils literal notranslate"><span class="pre">CONFIG_AD4695</span></code>
+option. When using <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (or <code class="docutils literal notranslate"><span class="pre">xconfig</span></code>, etc.), the option can be
+found as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+  <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+    <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span>  <span class="o">---&gt;</span>
+      <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD4695</span> <span class="ow">and</span> <span class="n">similar</span> <span class="n">ADCs</span> <span class="n">driver</span>
+</pre></div>
+</div>
+</section>
 <section id="devicetree-configuration">
-<h2>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h2>
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <p>The devicetree (<code class="docutils literal notranslate"><span class="pre">.dts</span></code> file) describes how the chip is wired up. The example
 devicetree linked above is for the evaluation board with the FMCZ connector
 using the default jumper positions and the
@@ -478,7 +544,7 @@ compiled with <code class="docutils literal notranslate"><span class="pre">make<
 <p>If you change any jumpers on the evaluation board or modify the HDL project, you
 may need to update the <code class="docutils literal notranslate"><span class="pre">.dts</span></code> file to reflect the changes in wiring.</p>
 <section id="spi-bus">
-<h3>SPI Bus<a class="headerlink" href="#spi-bus" title="Link to this heading"></a></h3>
+<h4>SPI Bus<a class="headerlink" href="#spi-bus" title="Link to this heading"></a></h4>
 <p>The ADC is represented by a child node of the SPI controller that the ADC is
 attached to. The <code class="docutils literal notranslate"><span class="pre">compatible</span></code> property indicates which specific chip is being
 used. The <code class="docutils literal notranslate"><span class="pre">reg</span></code> property indicates the chip select line of the SPI controller
@@ -513,9 +579,10 @@ achieve the maximum sample rate.</p>
 <p>Currently, using more than one SDO line of the chip is not supported by the
 driver.</p>
 <section id="standard-spi-wiring">
-<h4>Standard SPI wiring<a class="headerlink" href="#standard-spi-wiring" title="Link to this heading"></a></h4>
+<h5>Standard SPI wiring<a class="headerlink" href="#standard-spi-wiring" title="Link to this heading"></a></h5>
 <p>In this configuration, the CS line of the SPI controller is connected to <em>both</em>
 the CS and the CNV pins on the ADC. Therefore, the <code class="docutils literal notranslate"><span class="pre">cnv-gpios</span></code> is omitted.</p>
+</section>
 <section id="spi-offload-wiring">
 <h5>SPI Offload wiring<a class="headerlink" href="#spi-offload-wiring" title="Link to this heading"></a></h5>
 <p>In this configuration, the CS line on the SPI controller is only connected to
@@ -559,8 +626,9 @@ the <code class="docutils literal notranslate"><span class="pre">refin-supply</s
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ref</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">eval_u3</span><span class="o">&gt;</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>If the application requires the Reference Input High-Z Mode feature to be
-disabled, add the <code class="docutils literal notranslate"><span class="pre">adi,no-ref-current-limit</span></code> flag.</p>
+<p>If Reference Input High-Z Mode must be disabled, add adi,no-ref-high-z. The
+distinct adi,no-ref-current-limit property disables reference overvoltage
+reduced-current mode.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adi</span><span class="p">,</span><span class="n">no</span><span class="o">-</span><span class="n">ref</span><span class="o">-</span><span class="n">high</span><span class="o">-</span><span class="n">z</span><span class="p">;</span>
 </pre></div>
 </div>
@@ -572,8 +640,10 @@ disabled, add the <code class="docutils literal notranslate"><span class="pre">a
 </section>
 <section id="internal-reference-buffer">
 <h5>Internal reference buffer<a class="headerlink" href="#internal-reference-buffer" title="Link to this heading"></a></h5>
-<p>When using the internal reference buffer, provide the <code class="docutils literal notranslate"><span class="pre">refin-supply</span></code> property
-and omit the <code class="docutils literal notranslate"><span class="pre">ref-supply</span></code> and <code class="docutils literal notranslate"><span class="pre">adi,no-ref-high-z</span></code> properties.</p>
+<p>On AD4695/AD4696, the internal reference buffer is available only in the WLCSP
+package. For that package, provide <code class="docutils literal notranslate"><span class="pre">refin-supply</span></code> and omit <code class="docutils literal notranslate"><span class="pre">ref-supply</span></code> and
+<code class="docutils literal notranslate"><span class="pre">adi,no-ref-high-z</span></code>. Check the exact device/package before selecting this
+option.</p>
 </section>
 </section>
 <section id="common-mode-supplies">
@@ -586,8 +656,9 @@ voltage need to be provided.</p>
 <span class="n">com</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">eval_a8</span><span class="o">&gt;</span><span class="p">;</span>
 </pre></div>
 </div>
-<p>For even numbered INx pins, use the <code class="docutils literal notranslate"><span class="pre">inx-supply</span></code> properties where <code class="docutils literal notranslate"><span class="pre">x</span></code> is the
-pin number. Typically, these supplies will be 1/2 of the reference voltage.</p>
+<p>For an even input paired with the next odd input, use inX-supply for that odd
+common-mode pin: in1-supply for IN0/IN1, in3-supply for IN2/IN3, and so on.
+Typically, these supplies will be 1/2 of the reference voltage.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">in1</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">signal_gen_neg</span><span class="o">&gt;</span><span class="p">;</span>
 </pre></div>
 </div>
@@ -663,41 +734,43 @@ signals is not currently supported in the Linux driver.</p>
 <code class="docutils literal notranslate"><span class="pre">#gpio-cells</span></code> properties will be ignored.</p>
 </section>
 </section>
-<section id="linux-driver">
-<h3>Linux Driver<a class="headerlink" href="#linux-driver" title="Link to this heading"></a></h3>
-<p>This section explains how to use the <code class="docutils literal notranslate"><span class="pre">ad4695</span></code> driver in Linux.</p>
-<section id="enabling-the-driver">
-<h4>Enabling the driver<a class="headerlink" href="#enabling-the-driver" title="Link to this heading"></a></h4>
-<p>Pre-compiled kernels (<code class="docutils literal notranslate"><span class="pre">uImage</span></code>) from ADI should have this driver already
-enabled. If building your own kernel, enable it using the <code class="docutils literal notranslate"><span class="pre">CONFIG_AD4695</span></code>
-option. When using <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (or <code class="docutils literal notranslate"><span class="pre">xconfig</span></code>, etc.), the option can be
-found as follows:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-  <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-    <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span>  <span class="o">---&gt;</span>
-      <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD4695</span> <span class="ow">and</span> <span class="n">similar</span> <span class="n">ADCs</span> <span class="n">driver</span>
-</pre></div>
-</div>
+<section id="evaluation-board-setup">
+<h3>Evaluation-board setup<a class="headerlink" href="#evaluation-board-setup" title="Link to this heading"></a></h3>
+<section id="typical-zedboard-software-setup">
+<h4>Typical ZedBoard software setup<a class="headerlink" href="#typical-zedboard-software-setup" title="Link to this heading"></a></h4>
+<section id="install-os-on-the-zedboard">
+<h5>Install OS on the ZedBoard<a class="headerlink" href="#install-os-on-the-zedboard" title="Link to this heading"></a></h5>
+<p>ADI provides a <a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/kuiper/#kuiper" target="_blank" title="(in System Level Documentation)"><span>Kuiper</span></a> distribution for supported
+evaluation boards. Step by step guides for imaging Kuiper Linux are available
+for
+<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/zynq_images/linux_hosts" target="_blank">Linux</a>
+and
+<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/zynq_images/windows_hosts" target="_blank">Windows</a>.</p>
 </section>
-<section id="device-enumeration">
-<h4>Device enumeration<a class="headerlink" href="#device-enumeration" title="Link to this heading"></a></h4>
+</section>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <p>All IIO devices are represented in <code class="docutils literal notranslate"><span class="pre">sysfs</span></code> as an <code class="docutils literal notranslate"><span class="pre">iio:deviceY</span></code> where <code class="docutils literal notranslate"><span class="pre">Y</span></code>
 will depend on how many IIO devices there are and the order in which they were
 registered. You can see which device is which like this:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># for f in /sys/bus/iio/devices/iio\:device/name; do echo "${f%/name} $(cat $f)"; done</span>
-<span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span> <span class="n">xadc</span>
-<span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span> <span class="n">ad4695</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>for f in /sys/bus/iio/devices/iio:device*/name; do echo "${f%/name} $(cat "$f")"; done
+/sys/bus/iio/devices/iio:device0 xadc
+/sys/bus/iio/devices/iio:device1 ad4695
 </pre></div>
 </div>
 <p>In this case the driver for the AD4695 chip is at
 <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:device1</span></code>.</p>
 </section>
-<section id="sysfs-attributes">
-<h4>Sysfs attributes<a class="headerlink" href="#sysfs-attributes" title="Link to this heading"></a></h4>
+<section id="attribute-reference">
+<h3>Attribute reference<a class="headerlink" href="#attribute-reference" title="Link to this heading"></a></h3>
 <p>The sysfs attributes are used to get information about the device and also
 configure the device.</p>
 <section id="informational">
-<h5>Informational<a class="headerlink" href="#informational" title="Link to this heading"></a></h5>
+<h4>Informational<a class="headerlink" href="#informational" title="Link to this heading"></a></h4>
 <p>As seen above, reading the <code class="docutils literal notranslate"><span class="pre">name</span></code> attribute will return the name of the chip.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># cat /sys/bus/iio/devices/iio\:device1/name</span>
 <span class="n">ad4696</span>
@@ -705,7 +778,7 @@ configure the device.</p>
 </div>
 </section>
 <section id="channels">
-<h5>Channels<a class="headerlink" href="#channels" title="Link to this heading"></a></h5>
+<h4>Channels<a class="headerlink" href="#channels" title="Link to this heading"></a></h4>
 <p>The voltage measurement done by the chip is represented as an IIO channel. These
 attributes start with <code class="docutils literal notranslate"><span class="pre">in_voltage</span></code>.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># cat /sys/bus/iio/devices/iio\:device1/in_voltage0_scale</span>
@@ -728,7 +801,7 @@ channel. It has similar <code class="docutils literal notranslate"><span class="
 converting the raw value to m℃.</p>
 </section>
 <section id="calibration">
-<h5>Calibration<a class="headerlink" href="#calibration" title="Link to this heading"></a></h5>
+<h4>Calibration<a class="headerlink" href="#calibration" title="Link to this heading"></a></h4>
 <p>This family of chips has a calibration feature that allows for adjusting the
 offset and gain in the ADC to correct manufacturing variations in individual
 chips. This is done on a per-channel basis using the <code class="docutils literal notranslate"><span class="pre">in_voltage0_calibbias</span></code>
@@ -754,7 +827,7 @@ will always be the same.</p>
 <a class="icon dokuwiki reference external" href="https://wiki.analog.com/#Voltage input calibration" target="_blank">#Voltage input calibration</a> section.</p>
 </section>
 <section id="buffers">
-<h5>Buffers<a class="headerlink" href="#buffers" title="Link to this heading"></a></h5>
+<h4>Buffers<a class="headerlink" href="#buffers" title="Link to this heading"></a></h4>
 <p>To efficiently read multiple samples, a buffer interface is provided. The
 controls for this are in the <code class="docutils literal notranslate"><span class="pre">buffer0</span></code> directory. (Note: There may also be
 <code class="docutils literal notranslate"><span class="pre">buffer</span></code> and <code class="docutils literal notranslate"><span class="pre">scan_elements</span></code> directories present. These are provided for
@@ -787,23 +860,21 @@ or not.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>Sample data values are always 32-bit.</p></td>
-<td><p>Sample data values are 32-bit if oversampling is enabled or 16-bit if
-oversampling is disabled.</p></td>
+<td><p>Voltage samples use 16-bit storage.
+Oversampling controls are added only for the SPI-offload path. Read scan
+metadata for the complete layout, including timestamp alignment where enabled.</p></td>
 </tr>
-<tr class="row-odd"><td><p>Sample rate is set using the <code class="docutils literal notranslate"><span class="pre">in_voltage0_sampling_frequency</span></code>
-attribute.</p></td>
-<td><p>A trigger must be configured manually, otherwise attempting to do a
-buffered read will fail. A <code class="docutils literal notranslate"><span class="pre">hrtimer</span></code> trigger can be used to sample at a
-fixed rate.</p></td>
+<tr class="row-odd"><td><p>Sample rate is set using the <code class="docutils literal notranslate"><span class="pre">in_voltage0_sampling_frequency</span></code> attribute.</p></td>
+<td><p>A trigger must be configured manually, otherwise attempting to do a buffered
+read will fail. A <code class="docutils literal notranslate"><span class="pre">hrtimer</span></code> trigger can be used to sample at a fixed rate.</p></td>
 </tr>
 <tr class="row-even"><td><p>Maximum sample rate can be achieved (assuming proper wiring, etc.).</p></td>
-<td><p>Sample rate is limited by Linux host CPU speed and use by other
-processes.</p></td>
+<td><p>Sample rate is limited by Linux host CPU speed and use by other processes.</p></td>
 </tr>
-<tr class="row-odd"><td><p>There must always be at least 2 voltages channels enabled in the buffered
-read or enabling it will return <code class="docutils literal notranslate"><span class="pre">EINVAL</span></code>. The temperature channel
-doesn’t count as a voltage channel, so if you want to read temperature,
-you have to enable 2 voltage channels plus the temperature channel.</p></td>
+<tr class="row-odd"><td><p>There must always be at least 2 voltages channels enabled in the buffered read
+or enabling it will return <code class="docutils literal notranslate"><span class="pre">EINVAL</span></code>. The temperature channel doesn’t count as
+a voltage channel, so if you want to read temperature, you have to enable 2
+voltage channels plus the temperature channel.</p></td>
 <td><p>No restrictions on which channels have to be enabled.</p></td>
 </tr>
 </tbody>
@@ -811,95 +882,50 @@ you have to enable 2 voltage channels plus the temperature channel.</p></td>
 </div>
 <p>Here is an example of how to read a few values at a low sample rate for testing
 using a Linux host with SPI offload support:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># set sample rate to 10 kHz</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># echo 10000 &gt; /sys/bus/iio/devices/iio\:device1/in_voltage0_sampling_frequency</span>
-<span class="c1"># set buffer to receive 8 samples at a time</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># echo 8 &gt; /sys/bus/iio/devices/iio\:device1/buffer0/length</span>
-<span class="c1"># enable the first voltage channel</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># echo 1 &gt; /sys/bus/iio/devices/iio\:device1/buffer0/in_voltage0_en</span>
-<span class="c1"># enable the second voltage channel</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># echo 1 &gt; /sys/bus/iio/devices/iio\:device1/buffer0/in_voltage1_en</span>
-<span class="c1"># enable the buffer</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># echo 1 &gt; /sys/bus/iio/devices/iio\:device1/buffer0/enable</span>
-<span class="c1"># read one buffer full of data</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># hexdump -n $((8 * 2 * 2)) -e'2/4  "%04X " "\n"' /dev/iio\:device1</span>
-<span class="n">AC6D</span> <span class="mi">806</span><span class="n">A</span>
-<span class="mi">1</span><span class="n">DB7</span> <span class="mi">8074</span>
-<span class="mi">65</span><span class="n">C8</span> <span class="mi">805</span><span class="n">F</span>
-<span class="mi">2102</span> <span class="mi">8069</span>
-<span class="c1"># disable the buffer</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># echo 0 &gt; /sys/bus/iio/devices/iio\:device1/buffer0/enable</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span># set sample rate to 10 kHz
+root@analog:~# echo 10000 &gt; /sys/bus/iio/devices/iio\:device1/in_voltage0_sampling_frequency
+# set buffer to receive 8 samples at a time
+root@analog:~# echo 8 &gt; /sys/bus/iio/devices/iio\:device1/buffer0/length
+# enable the first voltage channel
+root@analog:~# echo 1 &gt; /sys/bus/iio/devices/iio\:device1/buffer0/in_voltage0_en
+# enable the second voltage channel
+root@analog:~# echo 1 &gt; /sys/bus/iio/devices/iio\:device1/buffer0/in_voltage1_en
+# enable the buffer
+root@analog:~# echo 1 &gt; /sys/bus/iio/devices/iio\:device1/buffer0/enable
+# read one buffer full of data
+hexdump -n $((8 * 2 * 4)) -e'2/4 "%08X " "n"' /dev/iio:device1
+AC6D 806A
+1DB7 8074
+65C8 805F
+2102 8069
+# disable the buffer
+root@analog:~# echo 0 &gt; /sys/bus/iio/devices/iio\:device1/buffer0/enable
 </pre></div>
 </div>
+<p>Eight scans of two offloaded 32-bit channels occupy 64 bytes. These words still
+need the shift/sign interpretation specified by each channel *_type.</p>
 </section>
 </section>
-</section>
-<section id="evaluation-boards">
-<h3>Evaluation boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h3>
-<p>The following evaluation boards have been tested with this driver:</p>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Board</p></th>
-<th class="head"><p>Device tree</p></th>
-<th class="head"></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><a class="icon adi reference external" href="https://www.analog.com/media/en/technical-documentation/user-guides/eval-ad4696fmcz-ug-1882.pdf" target="_blank">EVAL-AD4696FMCZ</a></p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad4696.dts" target="_blank">zynq-zed-adv7511-ad4696.dts</a></p></td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p>If you need to change any jumpers from default on the evaluation board, see the
-<a class="icon dokuwiki reference external" href="https://wiki.analog.com/ad4695#Devicetree Configuration" target="_blank">ad4695#Devicetree Configuration</a>
-section for info on what settings might need to be changed there to account for
-the differences in wiring.</p>
-<section id="typical-hardware-setup">
-<h4>Typical hardware setup<a class="headerlink" href="#typical-hardware-setup" title="Link to this heading"></a></h4>
-<p>A typical test setup consists of one of the evaluation boards from above
-connected to a
-<a class="icon link reference external" href="https://www.avnet.com/wps/portal/us/products/avnet-boards/avnet-board-families/zedboard/" target="_blank">ZedBoard</a>.</p>
-<p>A <a class="icon adi reference external" href="https://www.analog.com/ADALM2000" target="_blank">ADALM2000</a> (also known as M2K) can be used to to generate a
-signal. This will also require coax cable with SMA connectors and appropriate
-adapters to adapt the coax to individual wires on the signal generator.</p>
-</section>
-<section id="typical-zedboard-software-setup">
-<h4>Typical ZedBoard software setup<a class="headerlink" href="#typical-zedboard-software-setup" title="Link to this heading"></a></h4>
-<section id="install-os-on-the-zedboard">
-<h5>Install OS on the ZedBoard<a class="headerlink" href="#install-os-on-the-zedboard" title="Link to this heading"></a></h5>
-<p>ADI provides a <a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/kuiper/#kuiper" target="_blank" title="(in System Level Documentation)"><span>Kuiper</span></a> distribution for supported
-evaluation boards. Step by step guides for imaging Kuiper Linux are available
-for
-<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/zynq_images/linux_hosts" target="_blank">Linux</a>
-and
-<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/zynq_images/windows_hosts" target="_blank">Windows</a>.</p>
-</section>
-</section>
-<section id="typical-test-application-software">
-<h4>Typical test application software<a class="headerlink" href="#typical-test-application-software" title="Link to this heading"></a></h4>
+<section id="application-examples">
+<h3>Application examples<a class="headerlink" href="#application-examples" title="Link to this heading"></a></h3>
 <p>ADI provides several open source tools to make it easy to get started with using
 Linux IIO drivers.</p>
 <section id="iio-oscilloscope">
-<h5>IIO Oscilloscope<a class="headerlink" href="#iio-oscilloscope" title="Link to this heading"></a></h5>
+<h4>IIO Oscilloscope<a class="headerlink" href="#iio-oscilloscope" title="Link to this heading"></a></h4>
 <p>This section only describes the bits specific to these chips. For instructions
 on how to obtain IIO Oscilloscope and it’s basic usage, please see the
 <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/IIO Oscilloscope" target="_blank">IIO Oscilloscope</a>
 page.</p>
 </section>
 <section id="scopy">
-<h5>Scopy<a class="headerlink" href="#scopy" title="Link to this heading"></a></h5>
+<h4>Scopy<a class="headerlink" href="#scopy" title="Link to this heading"></a></h4>
 <p><em>Scopy</em> is the software used with the <a class="icon adi reference external" href="https://www.analog.com/ADALM2000" target="_blank">ADALM2000</a> multi-purpose tool (also
 called <code class="docutils literal notranslate"><span class="pre">M2K</span></code>). Visit <a class="icon link reference external" href="https://analogdevicesinc.github.io/scopy/index.html" target="_blank" title="(in Scopy main)"><span>Scopy</span></a> for instructions on how to
 obtain and install the software. In this case we will be using it for the
 signal generator function.</p>
 </section>
 <section id="examples">
-<h5>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h5>
+<h4>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h4>
 <p>Here are a couple of examples of how to use these tools together to test an ADC
 on an evaluation board connected to a development board running Linux. These
 examples are using the EVAL-AD4696FMCZ evaluation board in conjunction with a
@@ -917,7 +943,7 @@ the devicetree, i.e. a constant 2.5 V DC (1/2 of V<sub>REF</sub>).</p>
 </figure>
 </section>
 <section id="measure-constant-voltage">
-<h5>Measure constant voltage<a class="headerlink" href="#measure-constant-voltage" title="Link to this heading"></a></h5>
+<h4>Measure constant voltage<a class="headerlink" href="#measure-constant-voltage" title="Link to this heading"></a></h4>
 <p>A quick way check if the ADC is working correctly is to generate a constant
 voltage on the input and measure it using the DMM feature of the IIO
 Oscilloscope. For example, if you generate a constant 3.5 V DC signal, you
@@ -939,7 +965,7 @@ between IN0 and IN1.</p>
 </div>
 </section>
 <section id="capture-many-samples-for-analysis">
-<h5>Capture many samples for analysis<a class="headerlink" href="#capture-many-samples-for-analysis" title="Link to this heading"></a></h5>
+<h4>Capture many samples for analysis<a class="headerlink" href="#capture-many-samples-for-analysis" title="Link to this heading"></a></h4>
 <p>The <em>Plot</em> feature of the <em>IIO Oscilloscope</em> app is used to perform a buffered
 read to capture many samples. This data can be saved as a <code class="docutils literal notranslate"><span class="pre">.csv</span></code> file for
 analysis in other applications.</p>
@@ -988,7 +1014,7 @@ channel have to be enabled.</p>
 </figure>
 </section>
 <section id="voltage-input-calibration">
-<h5>Voltage input calibration<a class="headerlink" href="#voltage-input-calibration" title="Link to this heading"></a></h5>
+<h4>Voltage input calibration<a class="headerlink" href="#voltage-input-calibration" title="Link to this heading"></a></h4>
 <p>Using the <em>Plot</em> and <em>Debug</em> features of <em>IIO Oscilloscope</em> can be useful for
 calibrating voltage inputs.</p>
 <p>First, to calibrate the offset, generate a 0 V signal and use the <em>Plot</em> window
@@ -1012,8 +1038,10 @@ be reading an average of close to 0. So we can enter this number in the
 <a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad4695/osc-debug-voltage3-calibbias.png"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad4695/osc-debug-voltage3-calibbias.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad4695/osc-debug-voltage3-calibbias.png" style="width: 600px;" />
 </a>
 </figure>
-<p>After writing, this value will be rounded to the nearest 0.25 V since that is
-the step reported by the <code class="docutils literal notranslate"><span class="pre">in_voltage3_calibbias_available</span></code> attribute.</p>
+<p>At oversampling ratio 1, calibbias has a 0.25 raw-code step, not a 0.25 V step.
+Convert any voltage error to code units using scale before choosing a
+correction. Read calibbias back after writing; the implementation quantizes with
+integer arithmetic and clamps the register value.</p>
 <p>Now we can perform the measurement and calculate the average again.</p>
 <figure class="align-default">
 <a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad4695/osc-plot-calibration-after.png"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad4695/osc-plot-calibration-after.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad4695/osc-plot-calibration-after.png" style="width: 800px;" />
@@ -1026,8 +1054,7 @@ the step reported by the <code class="docutils literal notranslate"><span class=
 </figure>
 <p>And the result of the average is very close to 0 now.</p>
 <p>After calibrating the offset, a similar procedure can be done to calibrate the
-scale using the <code class="docutils literal notranslate"><span class="pre">in_voltage3_calibgain</span></code> attribute.</p>
-</section>
+gain using the in_voltage3_calibscale attribute.</p>
 </section>
 </section>
 </section>

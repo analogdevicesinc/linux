@@ -106,12 +106,18 @@
 <li><a class="reference internal" href="#firmware-for-automatic-ieee-802-15-4-operating-modes-an-1082">Firmware for Automatic IEEE 802.15.4 Operating Modes (AN-1082)</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#device-enumeration">Device enumeration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a><ul>
 <li><a class="reference internal" href="#example-platform-board-file">Example Platform / Board file</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
 <li><a class="reference internal" href="#userspace-tools-for-linux-ieee-802-15-4-stack">Userspace tools for Linux IEEE 802.15.4 stack</a></li>
 <li><a class="reference internal" href="#configuration-of-the-ieee-802-15-4-layer">Configuration of the IEEE 802.15.4 layer</a><ul>
@@ -233,6 +239,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -251,7 +258,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -419,7 +425,7 @@ for operation in the global 2.4 GHz ISM band.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/net/ieee802154/adf7242.c" target="_blank">ADI tree</a></p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ieee802154/adf7242.c" target="_blank">Yes</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ieee802154/adf7242.c" target="_blank">Yes</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -447,6 +453,10 @@ for operation in the global 2.4 GHz ISM band.</p>
 </section>
 <section id="firmware-for-automatic-ieee-802-15-4-operating-modes-an-1082">
 <h3>Firmware for Automatic IEEE 802.15.4 Operating Modes (AN-1082)<a class="headerlink" href="#firmware-for-automatic-ieee-802-15-4-operating-modes-an-1082" title="Link to this heading"></a></h3>
+<p>Firmware for Automatic IEEE 802.15.4 Operating Modes (AN-1082) Install the
+converted binary as /lib/firmware/adf7242_firmware.bin (or embed it through the
+kernel firmware mechanism). Probe requests that exact name, uploads it and
+verifies it; missing or invalid firmware prevents registration.</p>
 <ul class="simple">
 <li><p><a class="icon reference download external" download="" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/networking-mac802154/ram_lab_7242_2_0_ieee15dot4_full_r5.zip"><code class="xref download docutils literal notranslate"><span class="pre">https://wiki.analog.com/_media/resources/tools-software/linux-drivers/networking-mac802154/ram_lab_7242_2_0_ieee15dot4_full_r5.zip</span></code></a></p></li>
 <li><p><a class="icon reference download external" download="" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/networking-mac802154/ram_lab_7242_2_0_ieee15dot4_full_r6.zip"><code class="xref download docutils literal notranslate"><span class="pre">https://wiki.analog.com/_media/resources/tools-software/linux-drivers/networking-mac802154/ram_lab_7242_2_0_ieee15dot4_full_r6.zip</span></code></a></p></li>
@@ -459,109 +469,19 @@ device driver.</p>
 </ul>
 </section>
 </section>
-<section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
-<p>For compile time configuration, it’s common Linux practice to keep board- and
-application-specific configuration out of the main driver file, instead putting
-it into the board support file.</p>
-<p>For devices on custom boards, as typical of embedded and SoC-(system-on-chip)
-based hardware, Linux uses <code class="docutils literal notranslate"><span class="pre">platform_data</span></code> to point to board-specific structures
-describing devices and how they are connected to the SoC. This can include
-available ports, chip variants, preferred modes, default initialization,
-additional pin roles, and so on. This shrinks the board-support packages (BSPs)
-and minimizes board and application specific #ifdefs in drivers.</p>
-<section id="example-platform-board-file">
-<h3>Example Platform / Board file<a class="headerlink" href="#example-platform-board-file" title="Link to this heading"></a></h3>
-<p>Unlike PCI or USB devices, SPI devices are not enumerated at the hardware level.
-Instead, the software must know which devices are connected on each SPI bus
-segment, and what slave selects these devices are using. For this reason, the
-kernel code must instantiate SPI devices explicitly. The most common method is
-to declare the SPI devices by bus number.</p>
-<p>This method is appropriate when the SPI bus is a system bus, as in many
-embedded systems, wherein each SPI bus has a number which is known in advance.
-It is thus possible to pre-declare the SPI devices that inhabit this bus. This
-is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
-calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>Overview of Linux kernel SPI support</span></a></p>
-<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/spi/adf7242.h&gt;</span>
-
-<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">adf7242_platform_data</span><span class="w"> </span><span class="n">adf7242_pdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-
-<span class="w">    </span><span class="p">.</span><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADF_IEEE802154_AUTO_CSMA_CA</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADF_IEEE802154_HW_AACK</span><span class="p">,</span>
-<span class="cm">/*</span>
-<span class="cm"> * Specifies number of attempts to</span>
-<span class="cm"> * retransmit unacknowledged</span>
-<span class="cm"> * frames while in automatic CSMA-CA</span>
-<span class="cm"> * Tx mode.</span>
-<span class="cm"> */</span>
-<span class="w">    </span><span class="p">.</span><span class="n">max_frame_retries</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-<span class="cm">/*</span>
-<span class="cm"> * Specifies number of attempts to</span>
-<span class="cm"> * repeat CSMA-CA algorithm prior to</span>
-<span class="cm"> * cancellation of RC_TX command.</span>
-<span class="cm"> * Valid range is 0 to 5;</span>
-<span class="cm"> * 7: CSMA-CA algorithm is off</span>
-<span class="cm"> */</span>
-<span class="w">    </span><span class="p">.</span><span class="n">max_cca_retries</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-<span class="cm">/*</span>
-<span class="cm"> * Specifies the maximum back-off</span>
-<span class="cm"> * exponent used in the CSMA-CA</span>
-<span class="cm"> * algorithm; valid range is 4 to 8</span>
-<span class="cm"> *</span>
-<span class="cm"> */</span>
-<span class="w">    </span><span class="p">.</span><span class="n">max_csma_be</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span>
-<span class="cm">/*</span>
-<span class="cm"> * Specifies the minimum back-off</span>
-<span class="cm"> * exponent used in the CSMA-CA</span>
-<span class="cm"> * algorithm; valid range is 0 to</span>
-<span class="cm"> * csma_max_be</span>
-<span class="cm"> */</span>
-<span class="w">    </span><span class="p">.</span><span class="n">min_csma_be</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">bfin_spi_board_info</span><span class="p">[]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="cp">#if defined(CONFIG_IEEE802154_ADF7242) || defined(CONFIG_IEEE802154_ADF7242_MODULE)</span>
-<span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adf7242"</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10000000</span><span class="p">,</span><span class="w">     </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
-<span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PF6</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">bus_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">chip_select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w">   </span><span class="cm">/* GPIO controlled SSEL */</span>
-<span class="w">        </span><span class="p">.</span><span class="n">controller_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">adf7242_spi_chip_info</span><span class="p">,</span><span class="w"> </span><span class="cm">/* Blackfin only */</span>
-<span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">adf7242_pdata</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SPI_MODE_0</span><span class="p">,</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="cp">#endif</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-<p>Alternatively, it is possible to declare the SPI devices from a DeviceTree file.
-Read the
-<a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/net/ieee802154/adf7242.txt" target="_blank">documentation</a>
-for more details.</p>
-<p>Example:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adf7242</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adf7242"</span><span class="p">;</span>
-    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x62</span> <span class="n">IRQ_TYPE_LEVEL_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
-
-    <span class="n">adi</span><span class="p">,</span><span class="n">hw</span><span class="o">-</span><span class="n">aack</span><span class="o">-</span><span class="n">mode</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-    <span class="n">adi</span><span class="p">,</span><span class="n">auto</span><span class="o">-</span><span class="n">csma</span><span class="o">-</span><span class="n">ca</span><span class="o">-</span><span class="n">mode</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-</section>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<p>See <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/circuits-from-the-lab/adf7242-pmod" target="_blank">adf7242-pmod</a>.</p>
 </section>
 <section id="adding-linux-driver-support">
 <h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The ADF7242 Driver depends on <strong>CONFIG_SPI</strong> and <strong>CONFIG_IEEE802154</strong></p>
-</div>
+<p>Note</p>
+<p>The ADF7242 driver depends on CONFIG_SPI, CONFIG_IEEE802154_DRIVERS and
+CONFIG_MAC802154 (with the IEEE 802.15.4 networking stack enabled).</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-------------------</span> <span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span> <span class="o">----------------------</span>
 
   <span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="n">Networking</span> <span class="n">support</span>  <span class="o">---&gt;</span>
@@ -579,9 +499,103 @@ for more details.</p>
 </pre></div>
 </div>
 </section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
-<p>See <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/circuits-from-the-lab/adf7242-pmod" target="_blank">adf7242-pmod</a>.</p>
+<section id="device-enumeration">
+<h3>Device enumeration<a class="headerlink" href="#device-enumeration" title="Link to this heading"></a></h3>
+<section id="example-platform-device-initialization">
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
+<p>For compile time configuration, it’s common Linux practice to keep board- and
+application-specific configuration out of the main driver file, instead putting
+it into the board support file.</p>
+<p>For devices on custom boards, as typical of embedded and SoC-(system-on-chip)
+based hardware, Linux uses <code class="docutils literal notranslate"><span class="pre">platform_data</span></code> to point to board-specific structures
+describing devices and how they are connected to the SoC. This can include
+available ports, chip variants, preferred modes, default initialization,
+additional pin roles, and so on. This shrinks the board-support packages (BSPs)
+and minimizes board and application specific #ifdefs in drivers.</p>
+<section id="example-platform-board-file">
+<h5>Example Platform / Board file<a class="headerlink" href="#example-platform-board-file" title="Link to this heading"></a></h5>
+<p>Unlike PCI or USB devices, SPI devices are not enumerated at the hardware level.
+Instead, the software must know which devices are connected on each SPI bus
+segment, and what slave selects these devices are using. For this reason, the
+kernel code must instantiate SPI devices explicitly. The most common method is
+to declare the SPI devices by bus number.</p>
+<p>This method is appropriate when the SPI bus is a system bus, as in many
+embedded systems, wherein each SPI bus has a number which is known in advance.
+It is thus possible to pre-declare the SPI devices that inhabit this bus. This
+is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
+calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p>CSMA and retry parameters are configured through mac802154. With wpan-tools
+installed, run the following as root for the intended interface. Bring down
+dependent lowpan interfaces first:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">set</span><span class="w"> </span>-eu
+<span class="nv">iface</span><span class="o">=</span>wpan0<span class="w"> </span><span class="c1"># Use the interface reported by iwpan dev.</span>
+ip<span class="w"> </span>link<span class="w"> </span><span class="nb">set</span><span class="w"> </span>dev<span class="w"> </span><span class="s2">"</span><span class="nv">$iface</span><span class="s2">"</span><span class="w"> </span>down
+iwpan<span class="w"> </span>dev<span class="w"> </span><span class="s2">"</span><span class="nv">$iface</span><span class="s2">"</span><span class="w"> </span><span class="nb">set</span><span class="w"> </span>backoff_exponents<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="m">6</span>
+iwpan<span class="w"> </span>dev<span class="w"> </span><span class="s2">"</span><span class="nv">$iface</span><span class="s2">"</span><span class="w"> </span><span class="nb">set</span><span class="w"> </span>max_csma_backoffs<span class="w"> </span><span class="m">4</span>
+iwpan<span class="w"> </span>dev<span class="w"> </span><span class="s2">"</span><span class="nv">$iface</span><span class="s2">"</span><span class="w"> </span><span class="nb">set</span><span class="w"> </span>max_frame_retries<span class="w"> </span><span class="m">4</span>
+iwpan<span class="w"> </span>dev<span class="w"> </span><span class="s2">"</span><span class="nv">$iface</span><span class="s2">"</span><span class="w"> </span>info
+</pre></div>
+</div>
+<p>The interface is left down so that the board/network configuration can be
+completed before bringing it up; these settings cannot be changed while the
+interface is running. Supported ranges are minimum backoff exponent 0–8,
+maximum exponent 3–8, CSMA backoffs 0–5 and frame retries 0–15; the minimum
+exponent must not exceed the maximum.</p>
+<p>For a non-Device-Tree board, this built-in board-initialization helper registers
+one SPI device. Call it before the SPI controller is registered, passing the
+actual bus number, chip select and a positive Linux IRQ number with its trigger
+configured for the board. Use either this registration or the Device Tree
+example below, not both:</p>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/errno.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/init.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/spi/spi.h&gt;</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">adf7242_register_board</span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">bus</span><span class="p">,</span>
+<span class="w">                                       </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">chip_select</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">irq</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adf7242"</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10000000</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SPI_MODE_0</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">bus_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bus</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">chip_select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">chip_select</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">irq</span><span class="p">,</span>
+<span class="w">    </span><span class="p">};</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">irq</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EINVAL</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">spi_register_board_info</span><span class="p">(</span><span class="o">&amp;</span><span class="n">device</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Alternatively, it is possible to declare the SPI devices from a DeviceTree file.
+Read the
+<a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/net/ieee802154/adf7242.txt" target="_blank">documentation</a>
+for more details.</p>
+<p>Example:</p>
+<p>Device Tree alternative: use the board’s SPI controller and interrupt-controller
+labels. ACK and CSMA behavior is managed by the driver and mac802154.</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/interrupt-controller/irq.h&gt;</span>
+
+<span class="o">&amp;</span><span class="nf">spi0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"okay"</span><span class="p">;</span>
+
+<span class="w">    </span><span class="nf">adf7242</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,adf7242"</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">interrupt-parent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">gpio</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">interrupts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">98</span><span class="w"> </span><span class="na">IRQ_TYPE_LEVEL_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>

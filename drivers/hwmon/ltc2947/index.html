@@ -105,13 +105,17 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-i2c-spi-device-initialization">Example I2C &amp; SPI device initialization</a></li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a><ul>
 <li><a class="reference internal" href="#hwmon-device-files">HWMON device files</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a></li>
 <li><a class="reference internal" href="#show-current-values">Show current values</a></li>
 <li><a class="reference internal" href="#show-highest-read-value">Show highest read value</a></li>
 <li><a class="reference internal" href="#show-lowest-read-value">Show lowest read value</a></li>
@@ -119,9 +123,7 @@
 <li><a class="reference internal" href="#show-low-threshold">Show low threshold</a></li>
 <li><a class="reference internal" href="#show-high-threshold-alarm">Show high threshold alarm</a></li>
 <li><a class="reference internal" href="#show-low-threshold-alarm">Show low threshold alarm</a></li>
-<li><a class="reference internal" href="#show-fault">Show fault</a></li>
 <li><a class="reference internal" href="#show-label">Show label</a></li>
-<li><a class="reference internal" href="#show-overflow-alarm">Show Overflow alarm</a></li>
 <li><a class="reference internal" href="#set-high-threshold">Set High threshold</a></li>
 <li><a class="reference internal" href="#set-low-threshold">Set Low threshold</a></li>
 <li><a class="reference internal" href="#reset-history">Reset History</a></li>
@@ -129,8 +131,12 @@
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#more-information">More Information</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a><ul>
 <li><a class="reference internal" href="#hwmon-pointers">HWMON pointers</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -232,6 +238,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -250,7 +257,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -468,8 +474,31 @@ hardware monitoring. It exposes a set of sysfs file that should follow the
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The LTC2947 SPI driver depends <strong>CONFIG_SPI</strong> and the LTC2947 I2C driver depends on <strong>CONFIG_I2C</strong>.</p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="o">&lt;*&gt;</span>     <span class="n">Hardware</span> <span class="n">Monitoring</span> <span class="n">support</span> <span class="o">---&gt;</span>
+            <span class="o">---</span> <span class="n">Hardware</span> <span class="n">Monitoring</span> <span class="n">support</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+            <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">LTC2947</span> <span class="n">High</span> <span class="n">Precision</span> <span class="n">Power</span> <span class="ow">and</span> <span class="n">Energy</span> <span class="n">Monitor</span> <span class="n">over</span> <span class="n">I2C</span>
+            <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">LTC2947</span> <span class="n">High</span> <span class="n">Precision</span> <span class="n">Power</span> <span class="ow">and</span> <span class="n">Energy</span> <span class="n">Monitor</span> <span class="n">over</span> <span class="n">SPI</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-i2c-spi-device-initialization">
-<h2>Example I2C &amp; SPI device initialization<a class="headerlink" href="#example-i2c-spi-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example I2C &amp; SPI device initialization<a class="headerlink" href="#example-i2c-spi-device-initialization" title="Link to this heading"></a></h4>
 <p>The LTC2947 supports both I2C and SPI interfaces, so one of the drivers can be
 used depending on which kind of device is instantiated. Currently, the devices
 can only be instantiated via device tree.</p>
@@ -511,35 +540,18 @@ number.</p></li>
 <p>For more supported devicetree properties take a look to
 <a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/hwmon/adi,ltc2947.yaml" target="_blank">dt-bindings</a>.</p>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>). .. note:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">The</span> <span class="n">LTC2947</span> <span class="n">SPI</span> <span class="n">driver</span> <span class="n">depends</span> <span class="o">**</span><span class="n">CONFIG_SPI</span><span class="o">**</span> <span class="ow">and</span> <span class="n">the</span> <span class="n">LTC2947</span> <span class="n">I2C</span> <span class="n">driver</span> <span class="n">depends</span> <span class="n">on</span> <span class="o">**</span><span class="n">CONFIG_I2C</span><span class="o">**.</span>
-</pre></div>
-</div>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="o">&lt;*&gt;</span>     <span class="n">Hardware</span> <span class="n">Monitoring</span> <span class="n">support</span> <span class="o">---&gt;</span>
-            <span class="o">---</span> <span class="n">Hardware</span> <span class="n">Monitoring</span> <span class="n">support</span>
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-            <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">LTC2947</span> <span class="n">High</span> <span class="n">Precision</span> <span class="n">Power</span> <span class="ow">and</span> <span class="n">Energy</span> <span class="n">Monitor</span> <span class="n">over</span> <span class="n">I2C</span>
-            <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">LTC2947</span> <span class="n">High</span> <span class="n">Precision</span> <span class="n">Power</span> <span class="ow">and</span> <span class="n">Energy</span> <span class="n">Monitor</span> <span class="n">over</span> <span class="n">SPI</span>
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-</pre></div>
-</div>
-</section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">hwmon</span><span class="o">/</span><span class="n">hwmon1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
+<span class="n">ltc2947</span>
+</pre></div>
+</div>
 <section id="hwmon-device-files">
-<h3>HWMON device files<a class="headerlink" href="#hwmon-device-files" title="Link to this heading"></a></h3>
+<h4>HWMON device files<a class="headerlink" href="#hwmon-device-files" title="Link to this heading"></a></h4>
 <p>Each and every HWMON device has a device folder under /sys/class/hwmon/hwmonX,
 where X is the hwmon device index. Under every of these directory folders there
 are a set of files, depending on what kind of hardware monitoring is supported
@@ -554,7 +566,6 @@ which hardware chip, the user can read the name file under
 
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">hwmon</span><span class="o">/</span><span class="n">hwmon1</span><span class="o">&gt;</span> <span class="n">ls</span> <span class="o">-</span><span class="n">l</span>
 <span class="n">total</span> <span class="mi">0</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">curr1_fault</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">curr1_highest</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">curr1_input</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">curr1_label</span>
@@ -565,21 +576,8 @@ which hardware chip, the user can read the name file under
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">curr1_min_alarm</span>
 <span class="o">--</span><span class="n">w</span><span class="o">-------</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">curr1_reset_history</span>
 <span class="n">lrwxrwxrwx</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">device</span> <span class="o">-&gt;</span> <span class="o">../../../</span><span class="n">spi0</span><span class="mf">.0</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">energy1_fault</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">energy1_input</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">energy1_max</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">energy1_max_alarm</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">energy1_min</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">energy1_min_alarm</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">energy1_overflow_alarm</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">energy2_fault</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">energy2_input</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">energy2_max</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">energy2_max_alarm</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">energy2_min</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">energy2_min_alarm</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">energy2_overflow_alarm</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">in0_fault</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">in0_highest</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">in0_input</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">in0_label</span>
@@ -589,7 +587,6 @@ which hardware chip, the user can read the name file under
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">in0_min</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">in0_min_alarm</span>
 <span class="o">--</span><span class="n">w</span><span class="o">-------</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">in0_reset_history</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">in1_fault</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">in1_highest</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">in1_input</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">in1_label</span>
@@ -602,7 +599,6 @@ which hardware chip, the user can read the name file under
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">21</span> <span class="n">name</span>
 <span class="n">lrwxrwxrwx</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">of_node</span> <span class="o">-&gt;</span> <span class="o">../../../../../../../../../</span><span class="n">firmware</span><span class="o">/</span><span class="n">devicetree</span><span class="o">/</span><span class="n">base</span><span class="o">/</span><span class="n">soc</span><span class="o">/</span><span class="n">spi</span><span class="o">@</span><span class="mf">7e204000</span><span class="o">/</span><span class="n">ltc2947</span><span class="o">@</span><span class="mi">0</span>
 <span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">power</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">power1_fault</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">power1_input</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">power1_input_highest</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">power1_input_lowest</span>
@@ -613,7 +609,6 @@ which hardware chip, the user can read the name file under
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">power1_min_alarm</span>
 <span class="o">--</span><span class="n">w</span><span class="o">-------</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">power1_reset_history</span>
 <span class="n">lrwxrwxrwx</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">subsystem</span> <span class="o">-&gt;</span> <span class="o">../../../../../../../../../</span><span class="n">class</span><span class="o">/</span><span class="n">hwmon</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">temp1_fault</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">temp1_highest</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">temp1_input</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">16</span> <span class="mi">09</span><span class="p">:</span><span class="mi">25</span> <span class="n">temp1_label</span>
@@ -633,81 +628,65 @@ which hardware chip, the user can read the name file under
 </pre></div>
 </div>
 <p>For each type of monitored value (current, power), the file will look like
-<strong>${type}_${monitored_value}_${channel}</strong>, where <strong>${monitored_value}</strong> can be
-the current value, the high threshold, etc… The channel is the index when, for
-example, a device can monitor more than one voltage. For more information on the
-files format, take a look to
+<strong>${type}${channel}_${attribute} (for example in0_input or curr1_max)</strong>, where
+<strong>${monitored_value}</strong> can be the current value, the high threshold, etc… The
+channel is the index when, for example, a device can monitor more than one
+voltage. For more information on the files format, take a look to
 <a class="icon link reference external" href="https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface" target="_blank">sysfs-interface</a>.</p>
-<section id="show-device-name">
-<h4>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">hwmon</span><span class="o">/</span><span class="n">hwmon1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
-<span class="n">ltc2947</span>
-</pre></div>
-</div>
-</section>
 <section id="show-current-values">
-<h4>Show current values<a class="headerlink" href="#show-current-values" title="Link to this heading"></a></h4>
-<p>The device supports readings of current, voltage, power, temperature and energy.
-To get, for example, the value of the monitored voltage:</p>
+<h5>Show current values<a class="headerlink" href="#show-current-values" title="Link to this heading"></a></h5>
+<p>The driver exposes current in mA, voltage in mV, power in µW, temperature in
+m°C, and two accumulated energy readings in µJ (<code class="docutils literal notranslate"><span class="pre">energy1_input</span></code> and
+<code class="docutils literal notranslate"><span class="pre">energy2_input</span></code>). To get the monitored voltage:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">hwmon</span><span class="o">/</span><span class="n">hwmon1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in0_input</span>
 <span class="mi">4910</span>
 </pre></div>
 </div>
 </section>
 <section id="show-highest-read-value">
-<h4>Show highest read value<a class="headerlink" href="#show-highest-read-value" title="Link to this heading"></a></h4>
+<h5>Show highest read value<a class="headerlink" href="#show-highest-read-value" title="Link to this heading"></a></h5>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">hwmon</span><span class="o">/</span><span class="n">hwmon1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in0_highest</span>
 <span class="mi">5026</span>
 </pre></div>
 </div>
 </section>
 <section id="show-lowest-read-value">
-<h4>Show lowest read value<a class="headerlink" href="#show-lowest-read-value" title="Link to this heading"></a></h4>
+<h5>Show lowest read value<a class="headerlink" href="#show-lowest-read-value" title="Link to this heading"></a></h5>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">hwmon</span><span class="o">/</span><span class="n">hwmon1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in0_lowest</span>
 <span class="mi">4754</span>
 </pre></div>
 </div>
 </section>
 <section id="show-high-threshold">
-<h4>Show high threshold<a class="headerlink" href="#show-high-threshold" title="Link to this heading"></a></h4>
+<h5>Show high threshold<a class="headerlink" href="#show-high-threshold" title="Link to this heading"></a></h5>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">hwmon</span><span class="o">/</span><span class="n">hwmon1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in0_max</span>
 <span class="mi">5500</span>
 </pre></div>
 </div>
 </section>
 <section id="show-low-threshold">
-<h4>Show low threshold<a class="headerlink" href="#show-low-threshold" title="Link to this heading"></a></h4>
+<h5>Show low threshold<a class="headerlink" href="#show-low-threshold" title="Link to this heading"></a></h5>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">hwmon</span><span class="o">/</span><span class="n">hwmon1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in0_min</span>
 <span class="mi">4500</span>
 </pre></div>
 </div>
 </section>
 <section id="show-high-threshold-alarm">
-<h4>Show high threshold alarm<a class="headerlink" href="#show-high-threshold-alarm" title="Link to this heading"></a></h4>
+<h5>Show high threshold alarm<a class="headerlink" href="#show-high-threshold-alarm" title="Link to this heading"></a></h5>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">hwmon</span><span class="o">/</span><span class="n">hwmon1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in0_max_alarm</span>
 <span class="mi">0</span>
 </pre></div>
 </div>
 </section>
 <section id="show-low-threshold-alarm">
-<h4>Show low threshold alarm<a class="headerlink" href="#show-low-threshold-alarm" title="Link to this heading"></a></h4>
+<h5>Show low threshold alarm<a class="headerlink" href="#show-low-threshold-alarm" title="Link to this heading"></a></h5>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">hwmon</span><span class="o">/</span><span class="n">hwmon1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in0_min_alarm</span>
 <span class="mi">0</span>
 </pre></div>
 </div>
 </section>
-<section id="show-fault">
-<h4>Show fault<a class="headerlink" href="#show-fault" title="Link to this heading"></a></h4>
-<p>When the <strong>${type}_${channel}_fault</strong> files are present, the user can read
-these files to look for faulty cases. If reading this file returns 1, then the
-readings for that channel are invalid and should be discarded…</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">hwmon</span><span class="o">/</span><span class="n">hwmon1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in0_fault</span>
-<span class="mi">0</span>
-</pre></div>
-</div>
-</section>
 <section id="show-label">
-<h4>Show label<a class="headerlink" href="#show-label" title="Link to this heading"></a></h4>
+<h5>Show label<a class="headerlink" href="#show-label" title="Link to this heading"></a></h5>
 <p>Some channels, support a label attribute which specifies the name of the channel
 being monitored.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">hwmon</span><span class="o">/</span><span class="n">hwmon1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in1_label</span>
@@ -715,41 +694,31 @@ being monitored.</p>
 </pre></div>
 </div>
 </section>
-<section id="show-overflow-alarm">
-<h4>Show Overflow alarm<a class="headerlink" href="#show-overflow-alarm" title="Link to this heading"></a></h4>
-<p>These properties are custom and not part of the sysfs-hwmon interface. However,
-the device set’s an alarm when register overflow is near for accumulated values
-(in this case, energy).</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">hwmon</span><span class="o">/</span><span class="n">hwmon1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">energy1_overflow_alarm</span>
-<span class="mi">0</span>
-</pre></div>
-</div>
-</section>
 <section id="set-high-threshold">
-<h4>Set High threshold<a class="headerlink" href="#set-high-threshold" title="Link to this heading"></a></h4>
+<h5>Set High threshold<a class="headerlink" href="#set-high-threshold" title="Link to this heading"></a></h5>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">hwmon</span><span class="o">/</span><span class="n">hwmon1</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">5500</span> <span class="o">&gt;</span> <span class="n">in0_max</span>
 </pre></div>
 </div>
 </section>
 <section id="set-low-threshold">
-<h4>Set Low threshold<a class="headerlink" href="#set-low-threshold" title="Link to this heading"></a></h4>
+<h5>Set Low threshold<a class="headerlink" href="#set-low-threshold" title="Link to this heading"></a></h5>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">hwmon</span><span class="o">/</span><span class="n">hwmon1</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">4500</span> <span class="o">&gt;</span> <span class="n">in0_min</span>
 </pre></div>
 </div>
 </section>
 <section id="reset-history">
-<h4>Reset History<a class="headerlink" href="#reset-history" title="Link to this heading"></a></h4>
+<h5>Reset History<a class="headerlink" href="#reset-history" title="Link to this heading"></a></h5>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">hwmon</span><span class="o">/</span><span class="n">hwmon1</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">in0_reset_history</span>
 </pre></div>
 </div>
 </section>
 </section>
 </section>
+</section>
 <section id="more-information">
 <h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
-</section>
 <section id="hwmon-pointers">
-<h2>HWMON pointers<a class="headerlink" href="#hwmon-pointers" title="Link to this heading"></a></h2>
+<h3>HWMON pointers<a class="headerlink" href="#hwmon-pointers" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p>HWMON mailing list: <a class="reference external" href="mailto:linux-hwmon&#37;&#52;&#48;vger&#46;kernel&#46;org">linux-hwmon<span>&#64;</span>vger<span>&#46;</span>kernel<span>&#46;</span>org</a></p></li>
 <li><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/hwmon" target="_blank">HWMON Linux Kernel Documentation</a></p></li>
@@ -759,6 +728,7 @@ the device set’s an alarm when register overflow is near for accumulated value
 <ul class="simple">
 <li><p><a class="icon ez reference external" href="https://ez.analog.com/linux-software-drivers" target="_blank">Analog Devices Linux Device Drivers Help Forum</a></p></li>
 </ul>
+</section>
 </section>
 </section>
 

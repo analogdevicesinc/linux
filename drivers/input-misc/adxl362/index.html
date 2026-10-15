@@ -4,7 +4,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta content="ADXL362 Input 3-Axis Digital Accelerometer Linux Driver." name="description" />
+<meta content="The ADXL362 input-subsystem driver is only available on the adxl362 branch of the ADI Linux kernel tree; it has not been merged into mainline." name="description" />
 
     <title>ADXL362 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8e8a900e" />
@@ -98,22 +98,31 @@
           <ul>
 <li><a class="reference internal" href="#">ADXL362</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
-<li><a class="reference internal" href="#adxl362-micropower-3-axis-mems-accelerometer-digital-output-2-4-8-g-range">ADXL362: Micropower 3-Axis MEMS Accelerometer: Digital Output, ±2/±4/±8 g Range</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
 <li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
-<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a><ul>
 <li><a class="reference internal" href="#driver-compiled-as-a-module">Driver compiled as a module</a></li>
 <li><a class="reference internal" href="#driver-compiled-into-the-kernel">Driver compiled into the kernel</a></li>
-<li><a class="reference internal" href="#common-problems">Common Problems</a></li>
-<li><a class="reference internal" href="#checking-for-proper-installation">Checking for proper installation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
+<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#adxl362-micropower-3-axis-mems-accelerometer-digital-output-2-4-8-g-range">ADXL362: Micropower 3-Axis MEMS Accelerometer: Digital Output, ±2/±4/±8 g Range</a></li>
 <li><a class="reference internal" href="#use-the-event-test-utility-to-test-proper-function">Use the event_test utility to test proper function</a></li>
 <li><a class="reference internal" href="#adxl34x-sysfs-runtime-controls">ADXL34x Sysfs runtime controls</a><ul>
 <li><a class="reference internal" href="#controlling-the-output-data-rate">Controlling the Output Data Rate</a></li>
@@ -121,6 +130,10 @@
 </ul>
 </li>
 <li><a class="reference internal" href="#adxl362-6-android-acceleration-sensor">ADXL362/6 Android Acceleration Sensor</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
+<li><a class="reference internal" href="#common-problems">Common Problems</a></li>
 </ul>
 </li>
 </ul>
@@ -224,6 +237,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -242,7 +256,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -377,17 +390,12 @@ Content on this topic
             
   <section id="adxl362">
 <span id="id1"></span><h1>ADXL362<a class="headerlink" href="#adxl362" title="Link to this heading"></a></h1>
-<p>ADXL362 Input 3-Axis Digital Accelerometer Linux Driver.</p>
+<p>The ADXL362 input-subsystem driver is only available on the <code class="docutils literal notranslate"><span class="pre">adxl362</span></code>
+branch of the ADI Linux kernel tree; it has not been merged into mainline.</p>
 <section id="supported-devices">
 <h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/ADXL362" target="_blank">ADXL362</a></p></li>
-</ul>
-</section>
-<section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0274" target="_blank">CN0274</a></p></li>
 </ul>
 </section>
 <section id="evaluation-boards">
@@ -398,16 +406,12 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADXL362Z-MLP" target="_blank">EVAL-ADXL362Z-MLP</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADXL362Z-S" target="_blank">EVAL-ADXL362Z-S</a></p></li>
 </ul>
-</section>
-<section id="adxl362-micropower-3-axis-mems-accelerometer-digital-output-2-4-8-g-range">
-<h2>ADXL362: Micropower 3-Axis MEMS Accelerometer: Digital Output, ±2/±4/±8 g Range<a class="headerlink" href="#adxl362-micropower-3-axis-mems-accelerometer-digital-output-2-4-8-g-range" title="Link to this heading"></a></h2>
+<section id="reference-circuits">
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
 <ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/ADXL362" target="_blank">Product Page</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0274" target="_blank">CN0274</a></p></li>
 </ul>
-<p>The ADXL362 is an ultralow power 3-axis MEMS accelerometer that consumes
-less than 2 µA at 100 Hz output data rate. It provides motion-activated
-sleep/wake functionality and embedded FIFO buffering, making it ideal for
-battery-powered wearable and IoT devices requiring long operational life.</p>
+</section>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -456,8 +460,77 @@ battery-powered wearable and IoT devices requiring long operational life.</p>
 </div>
 </section>
 </section>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/eval-adxl362z.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/eval-adxl362z.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/eval-adxl362z.jpg" style="width: 300px;" />
+</a>
+</figure>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ADXL362 driver depends on CONFIG_SPI.</p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Input</span> <span class="n">device</span> <span class="n">support</span>
+  <span class="o">--</span> <span class="n">Generic</span> <span class="nb">input</span> <span class="n">layer</span> <span class="p">(</span><span class="n">needed</span> <span class="k">for</span> <span class="n">keyboard</span><span class="p">,</span> <span class="n">mouse</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Support</span> <span class="k">for</span> <span class="n">memoryless</span> <span class="n">force</span><span class="o">-</span><span class="n">feedback</span> <span class="n">devices</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Polled</span> <span class="nb">input</span> <span class="n">device</span> <span class="n">skeleton</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Sparse</span> <span class="n">keymap</span> <span class="n">support</span> <span class="n">library</span>
+         <span class="n">Userland</span> <span class="n">interfaces</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Mouse</span> <span class="n">interface</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Joystick</span> <span class="n">interface</span>
+  <span class="o">&lt;&gt;</span>   <span class="n">Event</span> <span class="n">interface</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Event</span> <span class="n">debugging</span>
+         <span class="n">Input</span> <span class="n">Device</span> <span class="n">Drivers</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Keyboards</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Mice</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Joysticks</span><span class="o">/</span><span class="n">Gamepads</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Tablets</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Touchscreens</span>  <span class="o">---&gt;</span>
+  <span class="p">[]</span>   <span class="n">Miscellaneous</span> <span class="n">devices</span>  <span class="o">---&gt;</span>
+        <span class="o">---</span> <span class="n">Miscellaneous</span> <span class="n">devices</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD714x</span> <span class="n">Capacitance</span> <span class="n">Touch</span> <span class="n">Sensor</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">BMA150</span><span class="o">/</span><span class="n">SMB380</span> <span class="n">acceleration</span> <span class="n">sensor</span> <span class="n">support</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">MMA8450</span> <span class="o">-</span> <span class="n">Freescale</span><span class="s1">'s 3-Axis, 8/12-bit Digital Accelerometer</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">MPU3050</span> <span class="n">Triaxial</span> <span class="n">gyroscope</span> <span class="n">sensor</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Sharp</span> <span class="n">GP2AP002A00F</span> <span class="n">I2C</span> <span class="n">Proximity</span><span class="o">/</span><span class="n">Opto</span> <span class="n">sensor</span> <span class="n">driver</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Polled</span> <span class="n">GPIO</span> <span class="n">tilt</span> <span class="n">switch</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Kionix</span> <span class="n">KXTJ9</span> <span class="n">tri</span><span class="o">-</span><span class="n">axis</span> <span class="n">digital</span> <span class="n">accelerometer</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">User</span> <span class="n">level</span> <span class="n">driver</span> <span class="n">support</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">PCF8574</span> <span class="n">Keypad</span> <span class="nb">input</span> <span class="n">device</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Rotary</span> <span class="n">encoders</span> <span class="n">connected</span> <span class="n">to</span> <span class="n">GPIO</span> <span class="n">pins</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADXL34x</span> <span class="n">Three</span><span class="o">-</span><span class="n">Axis</span> <span class="n">Digital</span> <span class="n">Accelerometer</span>
+        <span class="o">&lt;&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADXL362</span> <span class="n">Three</span><span class="o">-</span><span class="n">Axis</span> <span class="n">Digital</span> <span class="n">Accelerometer</span>
+        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">VTI</span> <span class="n">CMA3000</span> <span class="n">Tri</span><span class="o">-</span><span class="n">axis</span> <span class="n">accelerometer</span>
+        <span class="n">Hardware</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">ports</span>  <span class="o">---&gt;</span>
+</pre></div>
+</div>
+<section id="driver-compiled-as-a-module">
+<h4>Driver compiled as a module<a class="headerlink" href="#driver-compiled-as-a-module" title="Link to this heading"></a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">evdev</span>
+<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">adxl362</span>
+<span class="nb">input</span><span class="p">:</span> <span class="n">ADXL362</span> <span class="n">accelerometer</span> <span class="k">as</span> <span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input0</span>
+</pre></div>
+</div>
+</section>
+<section id="driver-compiled-into-the-kernel">
+<h4>Driver compiled into the kernel<a class="headerlink" href="#driver-compiled-into-the-kernel" title="Link to this heading"></a></h4>
+<p>Your kernel startup messages should include something like this</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">input</span><span class="p">:</span> <span class="n">ADXL362</span> <span class="n">accelerometer</span> <span class="k">as</span> <span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input0</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -646,84 +719,12 @@ question.</p>
 </pre></div>
 </div>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The ADXL34x Driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Input</span> <span class="n">device</span> <span class="n">support</span>
-  <span class="o">--</span> <span class="n">Generic</span> <span class="nb">input</span> <span class="n">layer</span> <span class="p">(</span><span class="n">needed</span> <span class="k">for</span> <span class="n">keyboard</span><span class="p">,</span> <span class="n">mouse</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
-  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Support</span> <span class="k">for</span> <span class="n">memoryless</span> <span class="n">force</span><span class="o">-</span><span class="n">feedback</span> <span class="n">devices</span>
-  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Polled</span> <span class="nb">input</span> <span class="n">device</span> <span class="n">skeleton</span>
-  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Sparse</span> <span class="n">keymap</span> <span class="n">support</span> <span class="n">library</span>
-         <span class="n">Userland</span> <span class="n">interfaces</span>
-  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Mouse</span> <span class="n">interface</span>
-  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Joystick</span> <span class="n">interface</span>
-  <span class="o">&lt;&gt;</span>   <span class="n">Event</span> <span class="n">interface</span>
-  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Event</span> <span class="n">debugging</span>
-         <span class="n">Input</span> <span class="n">Device</span> <span class="n">Drivers</span>
-  <span class="p">[</span> <span class="p">]</span>   <span class="n">Keyboards</span>  <span class="o">---&gt;</span>
-  <span class="p">[</span> <span class="p">]</span>   <span class="n">Mice</span>  <span class="o">---&gt;</span>
-  <span class="p">[</span> <span class="p">]</span>   <span class="n">Joysticks</span><span class="o">/</span><span class="n">Gamepads</span>  <span class="o">---&gt;</span>
-  <span class="p">[</span> <span class="p">]</span>   <span class="n">Tablets</span>  <span class="o">---&gt;</span>
-  <span class="p">[</span> <span class="p">]</span>   <span class="n">Touchscreens</span>  <span class="o">---&gt;</span>
-  <span class="p">[]</span>   <span class="n">Miscellaneous</span> <span class="n">devices</span>  <span class="o">---&gt;</span>
-        <span class="o">---</span> <span class="n">Miscellaneous</span> <span class="n">devices</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD714x</span> <span class="n">Capacitance</span> <span class="n">Touch</span> <span class="n">Sensor</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">BMA150</span><span class="o">/</span><span class="n">SMB380</span> <span class="n">acceleration</span> <span class="n">sensor</span> <span class="n">support</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">MMA8450</span> <span class="o">-</span> <span class="n">Freescale</span><span class="s1">'s 3-Axis, 8/12-bit Digital Accelerometer</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">MPU3050</span> <span class="n">Triaxial</span> <span class="n">gyroscope</span> <span class="n">sensor</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Sharp</span> <span class="n">GP2AP002A00F</span> <span class="n">I2C</span> <span class="n">Proximity</span><span class="o">/</span><span class="n">Opto</span> <span class="n">sensor</span> <span class="n">driver</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Polled</span> <span class="n">GPIO</span> <span class="n">tilt</span> <span class="n">switch</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Kionix</span> <span class="n">KXTJ9</span> <span class="n">tri</span><span class="o">-</span><span class="n">axis</span> <span class="n">digital</span> <span class="n">accelerometer</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">User</span> <span class="n">level</span> <span class="n">driver</span> <span class="n">support</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">PCF8574</span> <span class="n">Keypad</span> <span class="nb">input</span> <span class="n">device</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Rotary</span> <span class="n">encoders</span> <span class="n">connected</span> <span class="n">to</span> <span class="n">GPIO</span> <span class="n">pins</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADXL34x</span> <span class="n">Three</span><span class="o">-</span><span class="n">Axis</span> <span class="n">Digital</span> <span class="n">Accelerometer</span>
-        <span class="o">&lt;&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADXL362</span> <span class="n">Three</span><span class="o">-</span><span class="n">Axis</span> <span class="n">Digital</span> <span class="n">Accelerometer</span>
-        <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">VTI</span> <span class="n">CMA3000</span> <span class="n">Tri</span><span class="o">-</span><span class="n">axis</span> <span class="n">accelerometer</span>
-        <span class="n">Hardware</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">ports</span>  <span class="o">---&gt;</span>
-</pre></div>
-</div>
 </section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
-<figure class="align-default">
-<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/eval-adxl362z.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/eval-adxl362z.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/eval-adxl362z.jpg" style="width: 300px;" />
-</a>
-</figure>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
-<section id="driver-compiled-as-a-module">
-<h3>Driver compiled as a module<a class="headerlink" href="#driver-compiled-as-a-module" title="Link to this heading"></a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">evdev</span>
-<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">adxl362</span>
-<span class="nb">input</span><span class="p">:</span> <span class="n">ADXL362</span> <span class="n">accelerometer</span> <span class="k">as</span> <span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input0</span>
-</pre></div>
-</div>
-</section>
-<section id="driver-compiled-into-the-kernel">
-<h3>Driver compiled into the kernel<a class="headerlink" href="#driver-compiled-into-the-kernel" title="Link to this heading"></a></h3>
-<p>Your kernel startup messages should include something like this</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">input</span><span class="p">:</span> <span class="n">ADXL362</span> <span class="n">accelerometer</span> <span class="k">as</span> <span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input0</span>
-</pre></div>
-</div>
-</section>
-<section id="common-problems">
-<h3>Common Problems<a class="headerlink" href="#common-problems" title="Link to this heading"></a></h3>
-<p>In case you see a message like this</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adxl362</span> <span class="n">spi0</span><span class="mf">.1</span><span class="p">:</span> <span class="n">Failed</span> <span class="n">to</span> <span class="n">probe</span> <span class="p">(</span><span class="mh">0x00</span><span class="p">:</span><span class="mh">0x00</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>This means that the SPI communication and initilaization with the ADXL362
-failed. <strong>check bus_num and chip_select in your platform device file</strong></p>
-</section>
-<section id="checking-for-proper-installation">
-<h3>Checking for proper installation<a class="headerlink" href="#checking-for-proper-installation" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <p>After the kernel boot your device folder should include at least one device node
 for the accelerometer</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">ls</span> <span class="o">-</span><span class="n">al</span> <span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span>
@@ -737,6 +738,16 @@ for the accelerometer</p>
 <span class="n">ADXL362</span> <span class="n">accelerometer</span>
 </pre></div>
 </div>
+</section>
+<section id="adxl362-micropower-3-axis-mems-accelerometer-digital-output-2-4-8-g-range">
+<h3>ADXL362: Micropower 3-Axis MEMS Accelerometer: Digital Output, ±2/±4/±8 g Range<a class="headerlink" href="#adxl362-micropower-3-axis-mems-accelerometer-digital-output-2-4-8-g-range" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/ADXL362" target="_blank">Product Page</a></p></li>
+</ul>
+<p>The ADXL362 is an ultralow power 3-axis MEMS accelerometer that consumes
+less than 2 µA at 100 Hz output data rate. It provides motion-activated
+sleep/wake functionality and embedded FIFO buffering, making it ideal for
+battery-powered wearable and IoT devices requiring long operational life.</p>
 </section>
 <section id="use-the-event-test-utility-to-test-proper-function">
 <h3>Use the event_test utility to test proper function<a class="headerlink" href="#use-the-event-test-utility-to-test-proper-function" title="Link to this heading"></a></h3>
@@ -777,8 +788,8 @@ for the accelerometer</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>In case you move the accelerometer and don’t receive events, it’s likely that
-something with your Interrupt is wrong. <strong>check irq number in your platform
-device file</strong></p>
+something with your Interrupt is wrong. Check the IRQ in the board’s
+platform data.</p>
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
@@ -833,8 +844,9 @@ you have not install the necessary modules</p>
 </tbody>
 </table>
 </div>
-<p>Writing ‘<strong>Output Data Rate</strong>’ into <strong>rate</strong> sets the desired sample rate
-Reading <strong>rate</strong> returns the current Output Data Rate</p>
+<p><code class="docutils literal notranslate"><span class="pre">rate</span></code> takes an integer, clamped to 13-400, and maps it to the nearest
+supported ODR. Since <code class="docutils literal notranslate"><span class="pre">rate</span></code> is an integer, the 12.5 Hz setting is written
+as 13 and reads back as 12.</p>
 <p>See table above for supported sample rates</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">400</span> <span class="o">&gt;</span> <span class="n">rate</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi_master</span><span class="o">/</span><span class="n">spi0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">rate</span>
@@ -856,6 +868,19 @@ Reading <strong>rate</strong> returns the current Output Data Rate</p>
 <h3>ADXL362/6 Android Acceleration Sensor<a class="headerlink" href="#adxl362-6-android-acceleration-sensor" title="Link to this heading"></a></h3>
 <p>Using this driver under Android as Acceleration Sensor Follow the link here
 <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/android-drivers/sensor-acceleration/adxl345" target="_blank">ADXL362 Android Sensor</a></p>
+</section>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
+<section id="common-problems">
+<h3>Common Problems<a class="headerlink" href="#common-problems" title="Link to this heading"></a></h3>
+<p>In case you see a message like this</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adxl362</span> <span class="n">spi0</span><span class="mf">.1</span><span class="p">:</span> <span class="n">Failed</span> <span class="n">to</span> <span class="n">probe</span> <span class="p">(</span><span class="mh">0x00</span><span class="p">:</span><span class="mh">0x00</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This means that the SPI communication and initilaization with the ADXL362
+failed. Check the <code class="docutils literal notranslate"><span class="pre">bus_num</span></code> and <code class="docutils literal notranslate"><span class="pre">chip_select</span></code> in the board’s platform
+data.</p>
 </section>
 </section>
 </section>

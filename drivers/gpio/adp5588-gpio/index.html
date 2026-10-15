@@ -4,7 +4,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta content="ADP5588 GPIO Linux Driver." name="description" />
+<meta content="The standalone gpio-adp5588 driver was removed from the kernel. ADP5588 GPIO support is now provided by drivers/input/keyboard/adp5588-keys.c (CONFIG_KEYBOARD_ADP5588). For GPIO-only operation, use compatible = &quot;adi,adp5588&quot; (or &quot;adi,adp5587&quot;), gpio-controller and #gpio-cells = &lt;2&gt;, and omit keypad,num-rows and keypad,num-columns." name="description" />
 
     <title>ADP5588 GPIO &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8e8a900e" />
@@ -99,17 +99,21 @@
 <li><a class="reference internal" href="#">ADP5588 GPIO</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
-<li><a class="reference internal" href="#description">Description</a></li>
+<li><a class="reference internal" href="#description">Description</a><ul>
 <li><a class="reference internal" href="#configuration">Configuration</a></li>
-<li><a class="reference internal" href="#software-configurable-features">Software configurable features</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
 <li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a></li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
@@ -213,6 +217,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -231,7 +236,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -366,7 +370,12 @@ Content on this topic
             
   <section id="adp5588-gpio">
 <span id="id1"></span><h1>ADP5588 GPIO<a class="headerlink" href="#adp5588-gpio" title="Link to this heading"></a></h1>
-<p>ADP5588 GPIO Linux Driver.</p>
+<p>The standalone <code class="docutils literal notranslate"><span class="pre">gpio-adp5588</span></code> driver was removed from the kernel. ADP5588
+GPIO support is now provided by <code class="docutils literal notranslate"><span class="pre">drivers/input/keyboard/adp5588-keys.c</span></code>
+(<code class="docutils literal notranslate"><span class="pre">CONFIG_KEYBOARD_ADP5588</span></code>). For GPIO-only operation, use
+<code class="docutils literal notranslate"><span class="pre">compatible</span> <span class="pre">=</span> <span class="pre">&quot;adi,adp5588&quot;</span></code> (or <code class="docutils literal notranslate"><span class="pre">&quot;adi,adp5587&quot;</span></code>), <code class="docutils literal notranslate"><span class="pre">gpio-controller</span></code>
+and <code class="docutils literal notranslate"><span class="pre">#gpio-cells</span> <span class="pre">=</span> <span class="pre">&lt;2&gt;</span></code>, and omit <code class="docutils literal notranslate"><span class="pre">keypad,num-rows</span></code> and
+<code class="docutils literal notranslate"><span class="pre">keypad,num-columns</span></code>.</p>
 <section id="supported-devices">
 <h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -384,16 +393,13 @@ Content on this topic
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
-</section>
 <section id="configuration">
-<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
+<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h3>
 <figure class="align-default">
 <a class="reference internal image-reference" href="https://wiki.analog.com/_media/software/driver/linux/adp5588_typ_op.png"><img alt="https://wiki.analog.com/_media/software/driver/linux/adp5588_typ_op.png" src="https://wiki.analog.com/_media/software/driver/linux/adp5588_typ_op.png" style="width: 600px;" />
 </a>
 </figure>
 </section>
-<section id="software-configurable-features">
-<h2>Software configurable features<a class="headerlink" href="#software-configurable-features" title="Link to this heading"></a></h2>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -438,74 +444,6 @@ Content on this topic
 </table>
 </div>
 </section>
-</section>
-<section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
-<p>For compile time configuration, it’s common Linux practice to keep board- and
-application-specific configuration out of the main driver file, instead putting
-it into the board support file.</p>
-<p>For devices on custom boards, as typical of embedded and SoC-(system-on-chip)
-based hardware, Linux uses <code class="docutils literal notranslate"><span class="pre">platform_data</span></code> to point to board-specific structures
-describing devices and how they are connected to the SoC. This can include
-available ports, chip variants, preferred modes, default initialization,
-additional pin roles, and so on. This shrinks the board-support packages (BSPs)
-and minimizes board and application specific #ifdefs in drivers.</p>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/include/linux/i2c/adp5588.h" target="_blank">/i2c_board_info/-EOF</a></p>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp5588_gpio_data{}</a></p>
-<p>Unlike PCI or USB devices, I2C devices are not enumerated at the hardware level.
-Instead, the software must know which devices are connected on each I2C bus
-segment, and what address these devices are using. For this reason, the kernel
-code must instantiate I2C devices explicitly. There are different ways to
-achieve this, depending on the context and requirements. However the most
-common method is to declare the I2C devices by bus number.</p>
-<p>This method is appropriate when the I2C bus is a system bus, as in many
-embedded systems, wherein each I2C bus has a number which is known in advance.
-It is thus possible to pre-declare the I2C devices that inhabit this bus. This
-is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">i2c_board_info</span></code>, which is registered by
-calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
-<p>So, to enable such a driver one need only edit the board support file by adding
-an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>How to instantiate I2C devices</span></a></p>
-<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">i2c_board_info</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">bfin_i2c_board_info</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="cp">#if defined(CONFIG_GPIO_ADP5588) || defined(CONFIG_GPIO_ADP5588_MODULE)</span>
-<span class="w">    </span><span class="p">{</span>
-<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"adp5588-gpio"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x34</span><span class="p">),</span>
-<span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PG0</span><span class="p">,</span>
-<span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">adp5588_gpio_data</span><span class="p">,</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="cp">#endif</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The ADP5588 Driver depends on <strong>CONFIG_I2C</strong> IRQ-Chip interrupt controller
-support is not available in case this driver is build as Module</p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="n">GPIO</span> <span class="n">Support</span>  <span class="o">---&gt;</span>
-
-    <span class="o">---</span> <span class="n">GPIO</span> <span class="n">Support</span>
-    <span class="p">[</span> <span class="p">]</span>   <span class="n">Debug</span> <span class="n">GPIO</span> <span class="n">calls</span>
-    <span class="p">[</span><span class="o">*</span><span class="p">]</span>   <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">gpio</span><span class="o">/...</span> <span class="p">(</span><span class="n">sysfs</span> <span class="n">interface</span><span class="p">)</span>
-          <span class="o">***</span> <span class="n">Memory</span> <span class="n">mapped</span> <span class="n">GPIO</span> <span class="n">expanders</span><span class="p">:</span> <span class="o">***</span>
-    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">IT8761E</span> <span class="n">GPIO</span> <span class="n">support</span>
-          <span class="o">***</span> <span class="n">I2C</span> <span class="n">GPIO</span> <span class="n">expanders</span><span class="p">:</span> <span class="o">***</span>
-    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Maxim</span> <span class="n">MAX7300</span> <span class="n">GPIO</span> <span class="n">expander</span>
-    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">MAX7319</span><span class="p">,</span> <span class="n">MAX7320</span><span class="o">-</span><span class="mi">7327</span> <span class="n">I2C</span> <span class="n">Port</span> <span class="n">Expanders</span>
-    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">PCA953x</span><span class="p">,</span> <span class="n">PCA955x</span><span class="p">,</span> <span class="n">TCA64xx</span><span class="p">,</span> <span class="ow">and</span> <span class="n">MAX7310</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">ports</span>
-    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">PCF857x</span><span class="p">,</span> <span class="n">PCA</span><span class="p">{</span><span class="mi">85</span><span class="p">,</span><span class="mi">96</span><span class="p">}</span><span class="mi">7</span><span class="n">x</span><span class="p">,</span> <span class="ow">and</span> <span class="n">MAX732</span><span class="p">[</span><span class="mi">89</span><span class="p">]</span> <span class="n">I2C</span> <span class="n">GPIO</span> <span class="n">expanders</span>
-    <span class="p">[</span> <span class="p">]</span>   <span class="n">Semtech</span> <span class="n">SX150x</span> <span class="n">I2C</span> <span class="n">GPIO</span> <span class="n">expander</span>
-    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">GPIO</span> <span class="n">Support</span> <span class="k">for</span> <span class="n">ADP5520</span> <span class="n">PMIC</span>
-    <span class="o">&lt;*&gt;</span>   <span class="n">ADP5588</span> <span class="n">I2C</span> <span class="n">GPIO</span> <span class="n">expander</span>
-    <span class="p">[</span><span class="o">*</span><span class="p">]</span>     <span class="n">Interrupt</span> <span class="n">controller</span> <span class="n">support</span> <span class="k">for</span> <span class="n">ADP5588</span>
-</pre></div>
-</div>
 </section>
 <section id="hardware-configuration">
 <h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
@@ -560,14 +498,58 @@ Blackfin might see an additional falling edge interrupt on the rising edge of
 /INTB.</p>
 </div>
 </section>
-<section id="driver-testing">
-<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
-<p>When the driver is loaded, you should see positive output that it found the
-ADP5588 GPIO device.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">modprobe</span> <span class="n">adp5588</span><span class="o">-</span><span class="n">gpio</span>
-<span class="n">adp5588</span><span class="o">-</span><span class="n">gpio</span> <span class="mi">0</span><span class="o">-</span><span class="mi">0034</span><span class="p">:</span> <span class="n">gpios</span> <span class="mf">50..67</span> <span class="n">on</span> <span class="n">a</span> <span class="n">adp5588</span><span class="o">-</span><span class="n">gpio</span> <span class="n">Rev</span><span class="o">.</span> <span class="mi">4</span>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+<span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="n">GPIO</span> <span class="n">Support</span>  <span class="o">---&gt;</span>
+
+    <span class="o">---</span> <span class="n">GPIO</span> <span class="n">Support</span>
+    <span class="p">[</span> <span class="p">]</span>   <span class="n">Debug</span> <span class="n">GPIO</span> <span class="n">calls</span>
+    <span class="p">[</span><span class="o">*</span><span class="p">]</span>   <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">gpio</span><span class="o">/...</span> <span class="p">(</span><span class="n">sysfs</span> <span class="n">interface</span><span class="p">)</span>
+          <span class="o">***</span> <span class="n">Memory</span> <span class="n">mapped</span> <span class="n">GPIO</span> <span class="n">expanders</span><span class="p">:</span> <span class="o">***</span>
+    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">IT8761E</span> <span class="n">GPIO</span> <span class="n">support</span>
+          <span class="o">***</span> <span class="n">I2C</span> <span class="n">GPIO</span> <span class="n">expanders</span><span class="p">:</span> <span class="o">***</span>
+    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Maxim</span> <span class="n">MAX7300</span> <span class="n">GPIO</span> <span class="n">expander</span>
+    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">MAX7319</span><span class="p">,</span> <span class="n">MAX7320</span><span class="o">-</span><span class="mi">7327</span> <span class="n">I2C</span> <span class="n">Port</span> <span class="n">Expanders</span>
+    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">PCA953x</span><span class="p">,</span> <span class="n">PCA955x</span><span class="p">,</span> <span class="n">TCA64xx</span><span class="p">,</span> <span class="ow">and</span> <span class="n">MAX7310</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">ports</span>
+    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">PCF857x</span><span class="p">,</span> <span class="n">PCA</span><span class="p">{</span><span class="mi">85</span><span class="p">,</span><span class="mi">96</span><span class="p">}</span><span class="mi">7</span><span class="n">x</span><span class="p">,</span> <span class="ow">and</span> <span class="n">MAX732</span><span class="p">[</span><span class="mi">89</span><span class="p">]</span> <span class="n">I2C</span> <span class="n">GPIO</span> <span class="n">expanders</span>
+    <span class="p">[</span> <span class="p">]</span>   <span class="n">Semtech</span> <span class="n">SX150x</span> <span class="n">I2C</span> <span class="n">GPIO</span> <span class="n">expander</span>
+    <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">GPIO</span> <span class="n">Support</span> <span class="k">for</span> <span class="n">ADP5520</span> <span class="n">PMIC</span>
+    <span class="o">&lt;*&gt;</span>   <span class="n">ADP5588</span> <span class="n">I2C</span> <span class="n">GPIO</span> <span class="n">expander</span>
+    <span class="p">[</span><span class="o">*</span><span class="p">]</span>     <span class="n">Interrupt</span> <span class="n">controller</span> <span class="n">support</span> <span class="k">for</span> <span class="n">ADP5588</span>
 </pre></div>
 </div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<p>For GPIO-only operation, declare the device with <code class="docutils literal notranslate"><span class="pre">gpio-controller</span></code> and
+<code class="docutils literal notranslate"><span class="pre">#gpio-cells</span> <span class="pre">=</span> <span class="pre">&lt;2&gt;</span></code> and without <code class="docutils literal notranslate"><span class="pre">keypad,num-rows</span></code>/<code class="docutils literal notranslate"><span class="pre">keypad,num-columns</span></code>:</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/gpio/gpio.h&gt;</span>
+
+<span class="o">&amp;</span><span class="nf">i2c0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="nf">gpio</span><span class="o">@</span><span class="mi">34</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,adp5588"</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x34</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="o">#</span><span class="n">gpio-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">gpio-controller</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<p>When the <code class="docutils literal notranslate"><span class="pre">adp5588-keys</span></code> driver probes, the ADP5588 GPIOs are registered as
+a gpiochip. The examples below use the sysfs GPIO interface
+(<code class="docutils literal notranslate"><span class="pre">CONFIG_GPIO_SYSFS</span></code>); GPIO numbers depend on the system.</p>
 <p>For more information see also here:
 <a class="icon link reference external" href="https://docs.kernel.org/userspace-api/gpio/sysfs.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>GPIO Sysfs Interface for Userspace</span></a></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">echo</span> <span class="mi">67</span> <span class="o">&gt;</span> <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">gpio</span><span class="o">/</span><span class="n">export</span>

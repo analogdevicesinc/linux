@@ -98,32 +98,38 @@
           <ul>
 <li><a class="reference internal" href="#">AD5446</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a></li>
+<li><a class="reference internal" href="#device-enumeration">Device enumeration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a><ul>
 <li><a class="reference internal" href="#specifying-reference-voltage-via-the-regulator-framework">Specifying reference voltage via the regulator framework</a></li>
-<li><a class="reference internal" href="#devicetree">Devicetree</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-scale">Show scale</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-scale">Show scale</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#set-channel-0">Set channel 0</a></li>
 <li><a class="reference internal" href="#list-available-power-down-modes">List available power down modes</a></li>
 <li><a class="reference internal" href="#set-power-down-mode">Set power down mode</a></li>
 <li><a class="reference internal" href="#enable-power-down-mode-on-output-y">Enable power down mode on output Y</a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -228,6 +234,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5380/">AD5380</a></li>
@@ -246,7 +253,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -426,22 +432,6 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD5662" target="_blank">AD5662</a></p></li>
 </ul>
 </section>
-<section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0009" target="_blank">CN0009</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0143" target="_blank">CN0143</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0151" target="_blank">CN0151</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0156" target="_blank">CN0156</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0169" target="_blank">CN0169</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0179" target="_blank">CN0179</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0181" target="_blank">CN0181</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0202" target="_blank">CN0202</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0203" target="_blank">CN0203</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0204" target="_blank">CN0204</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0348" target="_blank">CN0348</a></p></li>
-</ul>
-</section>
 <section id="evaluation-boards">
 <h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -456,6 +446,22 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD5660EBZ" target="_blank">EVAL-AD5660EBZ</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD5662EBZ" target="_blank">EVAL-AD5662EBZ</a></p></li>
 </ul>
+<section id="reference-circuits">
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0009" target="_blank">CN0009</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0143" target="_blank">CN0143</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0151" target="_blank">CN0151</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0156" target="_blank">CN0156</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0169" target="_blank">CN0169</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0179" target="_blank">CN0179</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0181" target="_blank">CN0181</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0202" target="_blank">CN0202</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0203" target="_blank">CN0203</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0204" target="_blank">CN0204</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0348" target="_blank">CN0348</a></p></li>
+</ul>
+</section>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -509,10 +515,96 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The AD5446 Driver depends on <strong>CONFIG_SPI</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="o">&lt;*&gt;</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+            <span class="o">***</span> <span class="n">Digital</span> <span class="n">to</span> <span class="n">analog</span> <span class="n">convertors</span> <span class="o">***</span>
+                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+                <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD5446</span> <span class="ow">and</span> <span class="n">similar</span> <span class="n">single</span> <span class="n">channel</span> <span class="n">DACs</span> <span class="n">driver</span>
+                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<p>Required devicetree properties SPI:</p>
+<ul class="simple">
+<li><p>compatible: Needs to be <code class="docutils literal notranslate"><span class="pre">adi,</span></code> followed by the name of the device. E.g.
+<code class="docutils literal notranslate"><span class="pre">adi,ad5446</span></code></p></li>
+<li><p>reg: The chipselect number used for the device</p></li>
+<li><p>spi-max-frequency: Maximum SPI clock frequency</p></li>
+<li><p>vcc-supply: VCC voltage supply regulator</p></li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dac_vcc</span><span class="p">:</span> <span class="n">fixedregulator</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
+       <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
+       <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"fixed-supply"</span><span class="p">;</span>
+       <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2500000</span><span class="o">&gt;</span><span class="p">;</span>
+       <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2500000</span><span class="o">&gt;</span><span class="p">;</span>
+       <span class="n">regulator</span><span class="o">-</span><span class="n">boot</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="n">axi_spi_1</span><span class="p">:</span> <span class="n">spi</span><span class="o">@</span><span class="mi">42040000</span> <span class="p">{</span>
+       <span class="c1">#address-cells = &lt;1&gt;;</span>
+       <span class="c1">#size-cells = &lt;0&gt;;</span>
+       <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-spi-1.02.a"</span><span class="p">,</span> <span class="s2">"xlnx,xps-spi-2.00.a"</span><span class="p">;</span>
+        <span class="o">...</span>
+       <span class="n">ad5446</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
+              <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad5446"</span><span class="p">;</span>
+              <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+              <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
+              <span class="n">spi</span><span class="o">-</span><span class="n">cpha</span><span class="p">;</span>
+              <span class="n">spi</span><span class="o">-</span><span class="n">cpol</span><span class="p">;</span>
+              <span class="n">vcc</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">dac_vcc</span><span class="o">&gt;</span><span class="p">;</span>
+       <span class="p">};</span>
+ <span class="p">};</span>
+</pre></div>
+</div>
+<p>Required devicetree properties I2C:</p>
+<ul class="simple">
+<li><p>compatible: Name of the device. E.g. <code class="docutils literal notranslate"><span class="pre">ad5301</span></code></p></li>
+<li><p>reg: i2c address of the device</p></li>
+<li><p>vcc-supply: VCC voltage supply regulator</p></li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dac_vcc</span><span class="p">:</span> <span class="n">fixedregulator</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
+       <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
+       <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"fixed-supply"</span><span class="p">;</span>
+       <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2500000</span><span class="o">&gt;</span><span class="p">;</span>
+       <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2500000</span><span class="o">&gt;</span><span class="p">;</span>
+       <span class="n">regulator</span><span class="o">-</span><span class="n">boot</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="n">i2c</span> <span class="p">{</span>
+       <span class="c1">#address-cells = &lt;1&gt;;</span>
+       <span class="c1">#size-cells = &lt;0&gt;;</span>
+
+        <span class="o">...</span>
+       <span class="n">ad5301</span><span class="o">@</span><span class="mi">15</span> <span class="p">{</span>
+              <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"ad5301"</span><span class="p">;</span>
+              <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">15</span><span class="o">&gt;</span><span class="p">;</span>
+              <span class="n">vcc</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">dac_vcc</span><span class="o">&gt;</span><span class="p">;</span>
+       <span class="p">};</span>
+ <span class="p">};</span>
+</pre></div>
+</div>
+</section>
+<section id="device-enumeration">
+<h3>Device enumeration<a class="headerlink" href="#device-enumeration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <section id="specifying-reference-voltage-via-the-regulator-framework">
-<h3>Specifying reference voltage via the regulator framework<a class="headerlink" href="#specifying-reference-voltage-via-the-regulator-framework" title="Link to this heading"></a></h3>
+<h5>Specifying reference voltage via the regulator framework<a class="headerlink" href="#specifying-reference-voltage-via-the-regulator-framework" title="Link to this heading"></a></h5>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>For chip variants with build in references such as the: ad5620-2500
@@ -632,91 +724,8 @@ calling <code class="docutils literal notranslate"><span class="pre">i2c_registe
 an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
 <p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>How to instantiate I2C devices</span></a></p>
 </section>
-<section id="devicetree">
-<h3>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h3>
-<p>Required devicetree properties SPI:</p>
-<ul class="simple">
-<li><p>compatible: Needs to be <code class="docutils literal notranslate"><span class="pre">adi,</span></code> followed by the name of the device. E.g.
-<code class="docutils literal notranslate"><span class="pre">adi,ad5446</span></code></p></li>
-<li><p>reg: The chipselect number used for the device</p></li>
-<li><p>spi-max-frequency: Maximum SPI clock frequency</p></li>
-<li><p>vcc-supply: VCC voltage supply regulator</p></li>
-</ul>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dac_vcc</span><span class="p">:</span> <span class="n">fixedregulator</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
-       <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
-       <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"fixed-supply"</span><span class="p">;</span>
-       <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2500000</span><span class="o">&gt;</span><span class="p">;</span>
-       <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2500000</span><span class="o">&gt;</span><span class="p">;</span>
-       <span class="n">regulator</span><span class="o">-</span><span class="n">boot</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
-<span class="p">};</span>
-
-<span class="n">axi_spi_1</span><span class="p">:</span> <span class="n">spi</span><span class="o">@</span><span class="mi">42040000</span> <span class="p">{</span>
-       <span class="c1">#address-cells = &lt;1&gt;;</span>
-       <span class="c1">#size-cells = &lt;0&gt;;</span>
-       <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-spi-1.02.a"</span><span class="p">,</span> <span class="s2">"xlnx,xps-spi-2.00.a"</span><span class="p">;</span>
-        <span class="o">...</span>
-       <span class="n">ad5446</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-              <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad5446"</span><span class="p">;</span>
-              <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-              <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
-              <span class="n">spi</span><span class="o">-</span><span class="n">cpha</span><span class="p">;</span>
-              <span class="n">spi</span><span class="o">-</span><span class="n">cpol</span><span class="p">;</span>
-              <span class="n">vcc</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">dac_vcc</span><span class="o">&gt;</span><span class="p">;</span>
-       <span class="p">};</span>
- <span class="p">};</span>
-</pre></div>
-</div>
-<p>Required devicetree properties I2C:</p>
-<ul class="simple">
-<li><p>compatible: Name of the device. E.g. <code class="docutils literal notranslate"><span class="pre">ad5301</span></code></p></li>
-<li><p>reg: i2c address of the device</p></li>
-<li><p>vcc-supply: VCC voltage supply regulator</p></li>
-</ul>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">dac_vcc</span><span class="p">:</span> <span class="n">fixedregulator</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
-       <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
-       <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"fixed-supply"</span><span class="p">;</span>
-       <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2500000</span><span class="o">&gt;</span><span class="p">;</span>
-       <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2500000</span><span class="o">&gt;</span><span class="p">;</span>
-       <span class="n">regulator</span><span class="o">-</span><span class="n">boot</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
-<span class="p">};</span>
-
-<span class="n">i2c</span> <span class="p">{</span>
-       <span class="c1">#address-cells = &lt;1&gt;;</span>
-       <span class="c1">#size-cells = &lt;0&gt;;</span>
-
-        <span class="o">...</span>
-       <span class="n">ad5301</span><span class="o">@</span><span class="mi">15</span> <span class="p">{</span>
-              <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"ad5301"</span><span class="p">;</span>
-              <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">15</span><span class="o">&gt;</span><span class="p">;</span>
-              <span class="n">vcc</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">dac_vcc</span><span class="o">&gt;</span><span class="p">;</span>
-       <span class="p">};</span>
- <span class="p">};</span>
-</pre></div>
-</div>
 </section>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The AD5446 Driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="o">&lt;*&gt;</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-            <span class="o">***</span> <span class="n">Digital</span> <span class="n">to</span> <span class="n">analog</span> <span class="n">convertors</span> <span class="o">***</span>
-                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-                <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD5446</span> <span class="ow">and</span> <span class="n">similar</span> <span class="n">single</span> <span class="n">channel</span> <span class="n">DACs</span> <span class="n">driver</span>
-                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-</pre></div>
-</div>
-</section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -749,12 +758,15 @@ the numbering is constant and may be known in advance.</p>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">2</span> <span class="mi">21</span><span class="p">:</span><span class="mi">23</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">ad5446</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-scale">
 <h4>Show scale<a class="headerlink" href="#show-scale" title="Link to this heading"></a></h4>
 <p><strong>Description:</strong> scale to be applied to out_voltage0_raw in order to obtain the
@@ -763,8 +775,10 @@ measured voltage in millivolts.</p>
 <span class="mf">0.152</span>
 </pre></div>
 </div>
+</section>
+</section>
 <section id="set-channel-0">
-<h5>Set channel 0<a class="headerlink" href="#set-channel-0" title="Link to this heading"></a></h5>
+<h3>Set channel 0<a class="headerlink" href="#set-channel-0" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw</p>
 <p>Raw (unscaled, no bias etc.) output voltage for channel Y.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1234</span> <span class="o">&gt;</span> <span class="n">out_voltage0_raw</span>
@@ -772,10 +786,13 @@ measured voltage in millivolts.</p>
 </div>
 <p><strong>U</strong> = <em>out_voltage0_raw * out_voltage_scale</em> = 1234 * 0.152 mV = <strong>187.568
 mV</strong></p>
-<hr class="docutils" />
-<div class="admonition important">
-<p class="admonition-title">Important</p>
-<p>Output power down modes described below only exist on:</p>
+<p>Important</p>
+<p>Powerdown controls are available on the variants with AD5446_CHANNEL_POWERDOWN,
+including AD5300/AD5310/AD5320,
+<a class="icon adi reference external" href="https://www.analog.com/AD5601" target="_blank">AD5601</a>/<a class="icon adi reference external" href="https://www.analog.com/AD5611" target="_blank">AD5611</a>/<a class="icon adi reference external" href="https://www.analog.com/AD5621" target="_blank">AD5621</a>/AD5641,
+<a class="icon adi reference external" href="https://www.analog.com/AD5620" target="_blank">AD5620</a>/<a class="icon adi reference external" href="https://www.analog.com/AD5640" target="_blank">AD5640</a>/<a class="icon adi reference external" href="https://www.analog.com/AD5660" target="_blank">AD5660</a> reference variants,
+AD5662 and the supported AD5602/AD5612/AD5622 I2C variants. The AD5446 itself
+has no powerdown attributes, so remove those entries from its example listing.</p>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD5601" target="_blank">AD5601</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD5611" target="_blank">AD5611</a></p></li>
@@ -784,10 +801,9 @@ mV</strong></p>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD5640" target="_blank">AD5640</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD5660" target="_blank">AD5660</a></p></li>
 </ul>
-</div>
 </section>
 <section id="list-available-power-down-modes">
-<h5>List available power down modes<a class="headerlink" href="#list-available-power-down-modes" title="Link to this heading"></a></h5>
+<h3>List available power down modes<a class="headerlink" href="#list-available-power-down-modes" title="Link to this heading"></a></h3>
 <p>/sys/bus/iio/devices/iio:deviceX/out_voltage_powerdown_mode_available</p>
 <p><strong>Description:</strong> Lists all available output power down modes.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_voltage_powerdown_mode_available</span>
@@ -796,8 +812,9 @@ mV</strong></p>
 </div>
 </section>
 <section id="set-power-down-mode">
-<h5>Set power down mode<a class="headerlink" href="#set-power-down-mode" title="Link to this heading"></a></h5>
-<p>/sys/bus/iio/devices/iio:deviceX/out_voltage_powerdown_mode</p>
+<h3>Set power down mode<a class="headerlink" href="#set-power-down-mode" title="Link to this heading"></a></h3>
+<p>/sys/bus/iio/devices/iio:deviceX/out_voltage0_powerdown_mode. Use this indexed
+name in the echo/cat commands too.</p>
 <p><strong>Description:</strong> Specifies the output power down mode. DAC output stage is
 disconnected from the amplifier and</p>
 <div class="table-wrapper docutils container">
@@ -824,7 +841,7 @@ outX_powerdown_mode_available.</p>
 </div>
 </section>
 <section id="enable-power-down-mode-on-output-y">
-<h5>Enable power down mode on output Y<a class="headerlink" href="#enable-power-down-mode-on-output-y" title="Link to this heading"></a></h5>
+<h3>Enable power down mode on output Y<a class="headerlink" href="#enable-power-down-mode-on-output-y" title="Link to this heading"></a></h3>
 <p>/sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown</p>
 <p><strong>Description:</strong> Writing 1 causes output Y to enter the power down mode
 specified by the corresponding out_voltageY_powerdown_mode. Clearing returns to
@@ -837,8 +854,6 @@ normal operation. Y may be suppressed if all outputs are controlled together.</p
 <span class="mi">0</span>
 </pre></div>
 </div>
-</section>
-</section>
 </section>
 </section>
 <section id="more-information">

@@ -99,37 +99,45 @@
 <li><a class="reference internal" href="#">ADP5520</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
-<li><a class="reference internal" href="#description">Description</a></li>
+<li><a class="reference internal" href="#description">Description</a><ul>
+<li><a class="reference internal" href="#driver-features-and-limitations">Driver features and limitations</a></li>
 <li><a class="reference internal" href="#core">Core</a></li>
 <li><a class="reference internal" href="#resources">Resources</a></li>
 <li><a class="reference internal" href="#configuration">Configuration</a></li>
-<li><a class="reference internal" href="#software-configurable-features">Software configurable features</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a><ul>
-<li><a class="reference internal" href="#backlight">Backlight</a><ul>
+<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a><ul>
+<li><a class="reference internal" href="#adp5520-mfd-core-support">ADP5520 MFD Core Support</a><ul>
+<li><a class="reference internal" href="#backlight">Backlight</a></li>
 <li><a class="reference internal" href="#led">LED</a></li>
 <li><a class="reference internal" href="#gpio">GPIO</a></li>
 <li><a class="reference internal" href="#keypad">Keypad</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
+<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a><ul>
+<li><a class="reference internal" href="#id4">Backlight</a><ul>
+<li><a class="reference internal" href="#id5">LED</a></li>
+<li><a class="reference internal" href="#id6">GPIO</a></li>
+<li><a class="reference internal" href="#id7">Keypad</a></li>
 <li><a class="reference internal" href="#adp5520-adp5501-mfd-core-support">ADP5520/ADP5501 MFD Core Support</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
-<li><a class="reference internal" href="#adp5520-mfd-core-support">ADP5520 MFD Core Support</a><ul>
-<li><a class="reference internal" href="#id4">Backlight</a></li>
-<li><a class="reference internal" href="#id5">LED</a></li>
-<li><a class="reference internal" href="#id6">GPIO</a></li>
-<li><a class="reference internal" href="#id7">Keypad</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
 <li><a class="reference internal" href="#id8">Backlight</a><ul>
 <li><a class="reference internal" href="#id9">LED</a></li>
@@ -240,6 +248,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -258,7 +267,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -419,39 +427,15 @@ ADP5520_BACKLIGHT [shape=box] ADP5520_GPIO[shape=box] ADP5520_LED [shape=box]
 ADP5520_KEYPAD [shape=box] ADP5520_MFD_CORE -&gt; ADP5520_BACKLIGHT [dir=none];
 ADP5520_MFD_CORE -&gt; ADP5520_LED [dir=none]; ADP5520_MFD_CORE -&gt; ADP5520_GPIO
 [dir=none]; ADP5520_MFD_CORE -&gt; ADP5520_KEYPAD [dir=none]; } &lt;/graphviz&gt;</p>
-</section>
-<section id="core">
-<h2>Core<a class="headerlink" href="#core" title="Link to this heading"></a></h2>
-<p>The ADP5520/01 core driver in drivers/mfd provides common services for the
-subsystem drivers. These services include register access, control and shared
-interrupt management.</p>
-<p>The core registers/enumerates platform devices for the various subsystems via
-the platform device and driver system.</p>
-<p>When a platform driver for one of the subsystems is instantiated, the core
-initializes the chip (which may be specified by the platform data).</p>
-<p>The ADP5520/01 platform drivers follow the standard driver model convention,
-where discovery/enumeration is handled outside the drivers, and drivers provide
-probe() and remove() methods.</p>
-</section>
-<section id="resources">
-<h2>Resources<a class="headerlink" href="#resources" title="Link to this heading"></a></h2>
-<p>Each peripheral (subsystem device) has a view of the device which is implicitly
-narrowed to the specific set of resources that peripheral requires in order to
-function correctly.</p>
-</section>
-<section id="configuration">
-<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
-<p>The device driver uses a set of platform data to pass configurations through to
-the core and the subsidiary drivers so that there can be support for multiple
-ADP5520/01 devices built into a single kernel image.</p>
-</section>
-<section id="software-configurable-features">
-<h2>Software configurable features<a class="headerlink" href="#software-configurable-features" title="Link to this heading"></a></h2>
+<section id="driver-features-and-limitations">
+<h3>Driver features and limitations<a class="headerlink" href="#driver-features-and-limitations" title="Link to this heading"></a></h3>
 <p>Backlight:</p>
 <ul class="simple">
 <li><p>Ambient Light Sensor Support</p></li>
 <li><p>Configurable Fade On/Off times</p></li>
-<li><p>Configurable Brightness/Intensity in 127 steps</p></li>
+<li><p>Backlight brightness codes 0–127 (128 values). With ambient sensing
+configured, 127 selects automatic adjustment; 1–126 select manual brightness.
+Zero requests dim/off behavior according to the programmed dim current.</p></li>
 </ul>
 <p>LED:</p>
 <ul class="simple">
@@ -470,6 +454,32 @@ ADP5520/01 devices built into a single kernel image.</p>
 <li><p>Configurable number of dedicated GPIOs, up to 8 GPIOs</p></li>
 <li><p>Configurable Pull-Ups</p></li>
 </ul>
+</section>
+<section id="core">
+<h3>Core<a class="headerlink" href="#core" title="Link to this heading"></a></h3>
+<p>The ADP5520/01 core driver in drivers/mfd provides common services for the
+subsystem drivers. These services include register access, control and shared
+interrupt management.</p>
+<p>The core registers/enumerates platform devices for the various subsystems via
+the platform device and driver system.</p>
+<p>When a platform driver for one of the subsystems is instantiated, the core
+initializes the chip (which may be specified by the platform data).</p>
+<p>The ADP5520/01 platform drivers follow the standard driver model convention,
+where discovery/enumeration is handled outside the drivers, and drivers provide
+probe() and remove() methods.</p>
+</section>
+<section id="resources">
+<h3>Resources<a class="headerlink" href="#resources" title="Link to this heading"></a></h3>
+<p>Each peripheral (subsystem device) has a view of the device which is implicitly
+narrowed to the specific set of resources that peripheral requires in order to
+function correctly.</p>
+</section>
+<section id="configuration">
+<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h3>
+<p>The device driver uses a set of platform data to pass configurations through to
+the core and the subsidiary drivers so that there can be support for multiple
+ADP5520/01 devices built into a single kernel image.</p>
+</section>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -514,10 +524,10 @@ ADP5520/01 devices built into a single kernel image.</p>
 <td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/video/backlight/adp5520_bl.c" target="_blank">drivers/video/backlight/adp5520_bl.c</a></p></td>
 </tr>
 <tr class="row-odd"><td><p>LED</p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/led/leds-adp5520.c" target="_blank">drivers/led/leds-adp5520.c</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/leds/leds-adp5520.c" target="_blank">drivers/leds/leds-adp5520.c</a></p></td>
 </tr>
 <tr class="row-even"><td><p>GPIO</p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/gpio/adp5520-gpio.c" target="_blank">drivers/gpio/adp5520-gpio.c</a><a class="footnote-reference brackets" href="#id12" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/gpio/gpio-adp5520.c" target="_blank">drivers/gpio/gpio-adp5520.c</a><a class="footnote-reference brackets" href="#id12" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p>KEYPAD</p></td>
 <td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/keyboard/adp5520-keys.c" target="_blank">drivers/input/keyboard/adp5520-keys.c</a><a class="footnote-reference brackets" href="#id13" id="id3" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a></p></td>
@@ -527,8 +537,114 @@ ADP5520/01 devices built into a single kernel image.</p>
 </div>
 </section>
 </section>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/software/driver/linux/adp5520_brd.jpg"><img alt="https://wiki.analog.com/_media/software/driver/linux/adp5520_brd.jpg" src="https://wiki.analog.com/_media/software/driver/linux/adp5520_brd.jpg" style="width: 800px;" />
+</a>
+</figure>
+<p>There is no dedicated Blackfin STAMP evaluation board for the ADP5520. During
+test and driver development we used the ADP5520 Demo Mother/Daughter Board.
+Connect the ADP5520 Demo Mother to an USB port.</p>
+<p>It can be easily wired to the Blackfin STAMP TWI/I2C header.</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>BF537-STAMP (P10) TWI/I2C header</p></th>
+<th class="head"></th>
+<th class="head"><p>ADP5520 Daughter Board</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>PIN</p></td>
+<td><p>Function</p></td>
+<td><p>PIN/Function</p></td>
+</tr>
+<tr class="row-odd"><td><p>5</p></td>
+<td><p>SCL</p></td>
+<td><p>SCL</p></td>
+</tr>
+<tr class="row-even"><td><p>6</p></td>
+<td><p>SDA</p></td>
+<td><p>SDA</p></td>
+</tr>
+<tr class="row-odd"><td><p>10</p></td>
+<td><p>GPIO_PG0</p></td>
+<td><p>nINT</p></td>
+</tr>
+<tr class="row-even"><td><p>20</p></td>
+<td><p>GND</p></td>
+<td><p>GND</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Fist of all you need to enable i2c support followed by the ADP5520 MFD Core
+Driver. Then you may select individual components like LCD backlight, LEDs,
+GPIOs and Keypad under the corresponding menus.</p>
+<section id="adp5520-mfd-core-support">
+<h4>ADP5520 MFD Core Support<a class="headerlink" href="#adp5520-mfd-core-support" title="Link to this heading"></a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="o">&lt;&gt;</span> <span class="n">I2C</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+        <span class="o">&lt;&gt;</span> <span class="n">Blackfin</span> <span class="n">TWI</span> <span class="n">I2C</span> <span class="n">support</span>
+        <span class="n">Or</span><span class="p">:</span>
+        <span class="o">&lt;&gt;</span> <span class="n">GPIO</span><span class="o">-</span><span class="n">based</span> <span class="n">bitbanging</span> <span class="n">I2C</span>
+
+<span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="n">Multifunction</span> <span class="n">device</span> <span class="n">drivers</span>  <span class="o">---&gt;</span>
+        <span class="p">[]</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADP5520</span><span class="o">/</span><span class="mi">01</span> <span class="n">MFD</span> <span class="n">PMIC</span> <span class="n">Core</span> <span class="n">Support</span>
+</pre></div>
+</div>
+<section id="backlight">
+<h5>Backlight<a class="headerlink" href="#backlight" title="Link to this heading"></a></h5>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="n">Graphics</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+        <span class="p">[]</span> <span class="n">Backlight</span> <span class="o">&amp;</span> <span class="n">LCD</span> <span class="n">device</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+            <span class="o">&lt;&gt;</span>   <span class="n">Lowlevel</span> <span class="n">Backlight</span> <span class="n">controls</span>
+            <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>     <span class="n">Backlight</span> <span class="n">Driver</span> <span class="k">for</span> <span class="n">ADP5520</span><span class="o">/</span><span class="n">ADP5501</span> <span class="n">using</span> <span class="n">WLED</span>
+</pre></div>
+</div>
+</section>
+<section id="led">
+<h5>LED<a class="headerlink" href="#led" title="Link to this heading"></a></h5>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="p">[]</span> <span class="n">LED</span> <span class="n">Support</span>  <span class="o">---&gt;</span>
+        <span class="o">&lt;&gt;</span>   <span class="n">LED</span> <span class="n">Class</span> <span class="n">Support</span>
+        <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">LED</span> <span class="n">Support</span> <span class="k">for</span> <span class="n">ADP5520</span><span class="o">/</span><span class="n">ADP5501</span> <span class="n">PMIC</span>
+</pre></div>
+</div>
+</section>
+<section id="gpio">
+<h5>GPIO<a class="headerlink" href="#gpio" title="Link to this heading"></a></h5>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="p">[]</span> <span class="n">GPIO</span> <span class="n">Support</span>  <span class="o">---&gt;</span>
+        <span class="p">[]</span>   <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">gpio</span><span class="o">/...</span> <span class="p">(</span><span class="n">sysfs</span> <span class="n">interface</span><span class="p">)</span>
+        <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">GPIO</span> <span class="n">Support</span> <span class="k">for</span> <span class="n">ADP5520</span> <span class="n">PMIC</span>
+</pre></div>
+</div>
+</section>
+<section id="keypad">
+<h5>Keypad<a class="headerlink" href="#keypad" title="Link to this heading"></a></h5>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="n">Input</span> <span class="n">device</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+        <span class="o">&lt;&gt;</span> <span class="n">Generic</span> <span class="nb">input</span> <span class="n">layer</span> <span class="p">(</span><span class="n">needed</span> <span class="k">for</span> <span class="n">keyboard</span><span class="p">,</span> <span class="n">mouse</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+        <span class="o">&lt;&gt;</span>   <span class="n">Event</span> <span class="n">interface</span>
+        <span class="p">[]</span>   <span class="n">Keyboards</span>  <span class="o">---&gt;</span>
+            <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">Keypad</span> <span class="n">Support</span> <span class="k">for</span> <span class="n">ADP5520</span> <span class="n">PMIC</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -597,25 +713,25 @@ avoid double configurations. Please refer to the table below.</p>
 <a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/mfd/adp5520.h" target="_blank">include/linux/mfd/adp5520.h</a>
 for detailed configuration defines.</p>
 </div>
-<section id="backlight">
-<h3>Backlight<a class="headerlink" href="#backlight" title="Link to this heading"></a></h3>
+<section id="id4">
+<h5>Backlight<a class="headerlink" href="#id4" title="Link to this heading"></a></h5>
 <p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp5520_backlight_data{}</a></p>
-<section id="led">
-<h4>LED<a class="headerlink" href="#led" title="Link to this heading"></a></h4>
+<section id="id5">
+<h6>LED<a class="headerlink" href="#id5" title="Link to this heading"></a></h6>
 <p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp5520_leds[]</a></p>
 <p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp5520_leds_data{}</a></p>
 </section>
-<section id="gpio">
-<h4>GPIO<a class="headerlink" href="#gpio" title="Link to this heading"></a></h4>
+<section id="id6">
+<h6>GPIO<a class="headerlink" href="#id6" title="Link to this heading"></a></h6>
 <p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp5520_gpio_data{}</a></p>
 </section>
-<section id="keypad">
-<h4>Keypad<a class="headerlink" href="#keypad" title="Link to this heading"></a></h4>
+<section id="id7">
+<h6>Keypad<a class="headerlink" href="#id7" title="Link to this heading"></a></h6>
 <p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp5520_keymap[]</a>
 <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp5520_keys_data{}</a></p>
 </section>
 <section id="adp5520-adp5501-mfd-core-support">
-<h4>ADP5520/ADP5501 MFD Core Support<a class="headerlink" href="#adp5520-adp5501-mfd-core-support" title="Link to this heading"></a></h4>
+<h6>ADP5520/ADP5501 MFD Core Support<a class="headerlink" href="#adp5520-adp5501-mfd-core-support" title="Link to this heading"></a></h6>
 <p>Unlike PCI or USB devices, I2C devices are not enumerated at the hardware level.
 Instead, the software must know which devices are connected on each I2C bus
 segment, and what address these devices are using. For this reason, the kernel
@@ -640,107 +756,7 @@ interface, you don’t need to specify an IRQ in bfin_i2c_board_info.</p>
 </section>
 </section>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Fist of all you need to enable i2c support followed by the ADP5520 MFD Core
-Driver. Then you may select individual components like LCD backlight, LEDs,
-GPIOs and Keypad under the corresponding menus.</p>
-<section id="adp5520-mfd-core-support">
-<h3>ADP5520 MFD Core Support<a class="headerlink" href="#adp5520-mfd-core-support" title="Link to this heading"></a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;&gt;</span> <span class="n">I2C</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-        <span class="o">&lt;&gt;</span> <span class="n">Blackfin</span> <span class="n">TWI</span> <span class="n">I2C</span> <span class="n">support</span>
-        <span class="n">Or</span><span class="p">:</span>
-        <span class="o">&lt;&gt;</span> <span class="n">GPIO</span><span class="o">-</span><span class="n">based</span> <span class="n">bitbanging</span> <span class="n">I2C</span>
-
-<span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="n">Multifunction</span> <span class="n">device</span> <span class="n">drivers</span>  <span class="o">---&gt;</span>
-        <span class="p">[]</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADP5520</span><span class="o">/</span><span class="mi">01</span> <span class="n">MFD</span> <span class="n">PMIC</span> <span class="n">Core</span> <span class="n">Support</span>
-</pre></div>
-</div>
-<section id="id4">
-<h4>Backlight<a class="headerlink" href="#id4" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="n">Graphics</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-        <span class="p">[]</span> <span class="n">Backlight</span> <span class="o">&amp;</span> <span class="n">LCD</span> <span class="n">device</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-            <span class="o">&lt;&gt;</span>   <span class="n">Lowlevel</span> <span class="n">Backlight</span> <span class="n">controls</span>
-            <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>     <span class="n">Backlight</span> <span class="n">Driver</span> <span class="k">for</span> <span class="n">ADP5520</span><span class="o">/</span><span class="n">ADP5501</span> <span class="n">using</span> <span class="n">WLED</span>
-</pre></div>
-</div>
 </section>
-<section id="id5">
-<h4>LED<a class="headerlink" href="#id5" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="p">[]</span> <span class="n">LED</span> <span class="n">Support</span>  <span class="o">---&gt;</span>
-        <span class="o">&lt;&gt;</span>   <span class="n">LED</span> <span class="n">Class</span> <span class="n">Support</span>
-        <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">LED</span> <span class="n">Support</span> <span class="k">for</span> <span class="n">ADP5520</span><span class="o">/</span><span class="n">ADP5501</span> <span class="n">PMIC</span>
-</pre></div>
-</div>
-</section>
-<section id="id6">
-<h4>GPIO<a class="headerlink" href="#id6" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="p">[]</span> <span class="n">GPIO</span> <span class="n">Support</span>  <span class="o">---&gt;</span>
-        <span class="p">[]</span>   <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">gpio</span><span class="o">/...</span> <span class="p">(</span><span class="n">sysfs</span> <span class="n">interface</span><span class="p">)</span>
-        <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">GPIO</span> <span class="n">Support</span> <span class="k">for</span> <span class="n">ADP5520</span> <span class="n">PMIC</span>
-</pre></div>
-</div>
-</section>
-<section id="id7">
-<h4>Keypad<a class="headerlink" href="#id7" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="n">Input</span> <span class="n">device</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-        <span class="o">&lt;&gt;</span> <span class="n">Generic</span> <span class="nb">input</span> <span class="n">layer</span> <span class="p">(</span><span class="n">needed</span> <span class="k">for</span> <span class="n">keyboard</span><span class="p">,</span> <span class="n">mouse</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
-        <span class="o">&lt;&gt;</span>   <span class="n">Event</span> <span class="n">interface</span>
-        <span class="p">[]</span>   <span class="n">Keyboards</span>  <span class="o">---&gt;</span>
-            <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">Keypad</span> <span class="n">Support</span> <span class="k">for</span> <span class="n">ADP5520</span> <span class="n">PMIC</span>
-</pre></div>
-</div>
-</section>
-</section>
-</section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
-<figure class="align-default">
-<a class="reference internal image-reference" href="https://wiki.analog.com/_media/software/driver/linux/adp5520_brd.jpg"><img alt="https://wiki.analog.com/_media/software/driver/linux/adp5520_brd.jpg" src="https://wiki.analog.com/_media/software/driver/linux/adp5520_brd.jpg" style="width: 800px;" />
-</a>
-</figure>
-<p>There is no dedicated Blackfin STAMP evaluation board for the ADP5520. During
-test and driver development we used the ADP5520 Demo Mother/Daughter Board.
-Connect the ADP5520 Demo Mother to an USB port.</p>
-<p>It can be easily wired to the Blackfin STAMP TWI/I2C header.</p>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>BF537-STAMP (P10) TWI/I2C header</p></th>
-<th class="head"></th>
-<th class="head"><p>ADP5520 Daughter Board</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>PIN</p></td>
-<td><p>Function</p></td>
-<td><p>PIN/Function</p></td>
-</tr>
-<tr class="row-odd"><td><p>5</p></td>
-<td><p>SCL</p></td>
-<td><p>SCL</p></td>
-</tr>
-<tr class="row-even"><td><p>6</p></td>
-<td><p>SDA</p></td>
-<td><p>SDA</p></td>
-</tr>
-<tr class="row-odd"><td><p>10</p></td>
-<td><p>GPIO_PG0</p></td>
-<td><p>nINT</p></td>
-</tr>
-<tr class="row-even"><td><p>20</p></td>
-<td><p>GND</p></td>
-<td><p>GND</p></td>
-</tr>
-</tbody>
-</table>
-</div>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -803,17 +819,17 @@ Connect the ADP5520 Demo Mother to an USB port.</p>
 </section>
 <section id="id10">
 <h4>GPIO<a class="headerlink" href="#id10" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">modprobe</span> <span class="n">adp5520</span><span class="o">-</span><span class="n">gpio</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cd</span> <span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">gpio</span><span class="o">/</span><span class="n">gpiochip50</span><span class="o">/</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">virtual</span><span class="o">/</span><span class="n">gpio</span><span class="o">/</span><span class="n">gpiochip50</span><span class="o">&gt;</span> <span class="n">ls</span> <span class="o">-</span><span class="n">l</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">12</span> <span class="mi">10</span><span class="p">:</span><span class="mi">37</span> <span class="n">base</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">12</span> <span class="mi">10</span><span class="p">:</span><span class="mi">37</span> <span class="n">label</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">12</span> <span class="mi">10</span><span class="p">:</span><span class="mi">37</span> <span class="n">ngpio</span>
-<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span>    <span class="mi">2</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Nov</span> <span class="mi">12</span> <span class="mi">10</span><span class="p">:</span><span class="mi">37</span> <span class="n">power</span>
-<span class="n">lrwxrwxrwx</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Nov</span> <span class="mi">12</span> <span class="mi">10</span><span class="p">:</span><span class="mi">37</span> <span class="n">subsystem</span> <span class="o">-&gt;</span> <span class="o">../../../../</span><span class="n">class</span><span class="o">/</span><span class="n">gpio</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Nov</span> <span class="mi">12</span> <span class="mi">10</span><span class="p">:</span><span class="mi">37</span> <span class="n">uevent</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">virtual</span><span class="o">/</span><span class="n">gpio</span><span class="o">/</span><span class="n">gpiochip50</span><span class="o">&gt;</span> <span class="n">cd</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/&gt; modprobe gpio-adp5520
+root:/&gt; cd sys/class/gpio/gpiochip50/
+root:/sys/devices/virtual/gpio/gpiochip50&gt; ls -l
+-r--r--r--    1 root     root         4096 Nov 12 10:37 base
+-r--r--r--    1 root     root         4096 Nov 12 10:37 label
+-r--r--r--    1 root     root         4096 Nov 12 10:37 ngpio
+drwxr-xr-x    2 root     root            0 Nov 12 10:37 power
+lrwxrwxrwx    1 root     root            0 Nov 12 10:37 subsystem -&gt; ../../../../class/gpio
+-rw-r--r--    1 root     root         4096 Nov 12 10:37 uevent
+root:/sys/devices/virtual/gpio/gpiochip50&gt; cd
+root:/&gt;
 </pre></div>
 </div>
 <p>Note that you will have to enable the event_test utility under <code class="docutils literal notranslate"><span class="pre">Blackfin</span> <span class="pre">test</span>

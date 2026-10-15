@@ -104,11 +104,11 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#enabling-the-driver">Enabling the driver</a><ul>
-<li><a class="reference internal" href="#adding-a-device-tree-entry">Adding a device tree entry</a><ul>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#available-properties">Available properties</a></li>
 <li><a class="reference internal" href="#adding-channels">Adding channels</a></li>
-<li><a class="reference internal" href="#device-tree-example">Device tree example</a></li>
 </ul>
 </li>
 </ul>
@@ -214,6 +214,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -232,7 +233,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -387,12 +387,12 @@ requirements necessary to achieve acceptable performance. The on-chip VCO tunes
 from 3.450 GHz to 4.025 GHz. The integrated SYSREF generator outputs single
 shot, N-shot, or continuous signals synchronous to the PLL1 and PLL2 outputs to
 time align multiple devices</p>
-<p>The AD9528 generates two outputs (Output 1 and Output 2) with a maximum
-frequency of 1.25 GHz, and 12 outputs up to 1 GHz. Each output can be configured
-to output directly from PLL1, PLL2, or the internal SYSREF generator. Each of
-the 14 output channels contains a divider with coarse digital phase adjustment
-and an analog fine phase delay block that allows complete flexibility in timing
-alignment across all 14 outputs.</p>
+<p>The AD9528 generates six outputs (Output 0 to Output 3, Output 12, and Output
+13) with a maximum frequency of 1.25 GHz, and eight outputs up to 1 GHz. Each
+output can be configured to output directly from PLL1, PLL2, or the internal
+SYSREF generator. Each of the 14 output channels contains a divider with coarse
+digital phase adjustment and an analog fine phase delay block that allows
+complete flexibility in timing alignment across all 14 outputs.</p>
 <p>Please see also here:
 <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/rf-trx-vcxo-and-profiles" target="_blank">Changing the VCXO frequency</a></p>
 <figure class="align-default">
@@ -449,14 +449,14 @@ alignment across all 14 outputs.</p>
 </div>
 </section>
 </section>
-<section id="enabling-the-driver">
-<h2>Enabling the driver<a class="headerlink" href="#enabling-the-driver" title="Link to this heading"></a></h2>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The AD9528 Driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
+<p>Note</p>
+<p>The AD9528 Driver depends on CONFIG_SPI and CONFIG_COMMON_CLK</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
     <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
     <span class="o">&lt;*&gt;</span>  <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
@@ -465,8 +465,83 @@ alignment across all 14 outputs.</p>
                  <span class="o">&lt;*&gt;</span>  <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9528</span> <span class="n">Low</span> <span class="n">Jitter</span> <span class="n">Clock</span> <span class="n">Generator</span>
 </pre></div>
 </div>
-<section id="adding-a-device-tree-entry">
-<h3>Adding a device tree entry<a class="headerlink" href="#adding-a-device-tree-entry" title="Link to this heading"></a></h3>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<p>The following example instanciates the ad9528 driver for a AD9528 device
+connected on the SPI bus to the chip-select line 0.</p>
+<p>The various macros used are defined in the header file:
+&lt;dt-bindings/iio/frequency/ad9528.h&gt;</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/iio/frequency/ad9528.h&gt;</span>
+
+<span class="o">&amp;</span><span class="nf">fmc_spi</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nl">clk0_ad9528</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9528</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="o">#</span><span class="n">clock-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad9528"</span><span class="p">;</span>
+
+<span class="w">        </span><span class="n">spi-cpol</span><span class="p">;</span>
+<span class="w">        </span><span class="n">spi-cpha</span><span class="p">;</span>
+<span class="w">        </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">spi-3wire-enable</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="n">clock-output-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad9528_out0"</span><span class="p">,</span><span class="w"> </span><span class="s">"ad9528_out1"</span><span class="p">,</span><span class="w"> </span><span class="s">"ad9528_out2"</span><span class="p">,</span><span class="w"> </span><span class="s">"ad9528_out3"</span><span class="p">,</span><span class="w"> </span><span class="s">"ad9528_out4"</span><span class="p">,</span><span class="w"> </span><span class="s">"ad9528_out5"</span><span class="p">,</span><span class="w"> </span><span class="s">"ad9528_out6"</span><span class="p">,</span><span class="w"> </span><span class="s">"ad9528_out7"</span><span class="p">,</span><span class="w"> </span><span class="s">"ad9528_out8"</span><span class="p">,</span><span class="w"> </span><span class="s">"ad9528_out9"</span><span class="p">,</span><span class="w"> </span><span class="s">"ad9528_out10"</span><span class="p">,</span><span class="w"> </span><span class="s">"ad9528_out11"</span><span class="p">,</span><span class="w"> </span><span class="s">"ad9528_out12"</span><span class="p">,</span><span class="w"> </span><span class="s">"ad9528_out13"</span><span class="p">;</span>
+
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">vcxo-freq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">80000000</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="cm">/* PLL1 config */</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">ref-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">REF_MODE_STAY_ON_REFB</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">refa-enable</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">refa-diff-rcv-enable</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">refa-r-div</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">refb-r-div</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">pll1-feedback-src-vcxo</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">pll1-feedback-div</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">osc-in-cmos-neg-inp-enable</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">pll1-charge-pump-current-nA</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">10000</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="cm">/* PLL2 config */</span>
+
+<span class="w">        </span><span class="cm">/* Valid ranges based on VCO locking range:</span>
+<span class="cm">        *   1150.000 MHz - 1341.666 MHz</span>
+<span class="cm">        *    862.500 MHz - 1006.250 MHz</span>
+<span class="cm">        *    690.000 MHz -  805.000 MHz</span>
+<span class="cm">        */</span>
+
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">pll2-m1-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1000000000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">pll2-charge-pump-current-nA</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">805000</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="cm">/* SYSREF config */</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">sysref-src</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">SYSREF_SRC_INTERNAL</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">sysref-k-div</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">20</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">rpole2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">RPOLE2_900_OHM</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">rzero</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">RZERO_3250_OHM</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">cpole1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">CPOLE1_16_PF</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="nl">ad9528_0_c8</span><span class="p">:</span><span class="w"> </span><span class="nf">channel</span><span class="o">@</span><span class="mi">8</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">extended-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ADC1"</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">driver-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">DRIVER_MODE_LVDS</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">divider-phase</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">channel-divider</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">signal-source</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">SOURCE_VCO</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="p">};</span>
+
+<span class="w">        </span><span class="nl">ad9528_0_c9</span><span class="p">:</span><span class="w"> </span><span class="nf">channel</span><span class="o">@</span><span class="mi">9</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">9</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">extended-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ADC1-sysref"</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">driver-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">DRIVER_MODE_LVDS</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">divider-phase</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">channel-divider</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">signal-source</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">SOURCE_SYSREF_VCO</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
 <section id="available-properties">
 <h4>Available properties<a class="headerlink" href="#available-properties" title="Link to this heading"></a></h4>
 <ul class="simple">
@@ -487,8 +562,8 @@ alignment across all 14 outputs.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">REF_MODE_REVERT_TO_REFA</span></code>: Revert to REFA</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">REF_MODE_SELECT_REFA</span></code>: Select REFA</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">REF_MODE_SELECT_REFB</span></code>: Select REFB</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">REF_MODE_EXT_REF</span></code>: Select REFB if the REF_SEL pin is low, select REFA if
-the REF_SEL pin is high.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">REF_MODE_EXT_REF</span></code>: Select REFB if the REF_SEL pin is low, select REFA
+if the REF_SEL pin is high.</p></li>
 </ul>
 </li>
 <li><p><strong>adi,refa-enable</strong>: Enable REFA input</p></li>
@@ -497,21 +572,23 @@ the REF_SEL pin is high.</p></li>
 (default: single-ended receiver mode)</p></li>
 <li><p><strong>adi,refb-diff-rcv-enable</strong>: Enable differential receiver mode for REFB
 (default: single-ended receiver mode)</p></li>
-<li><p><strong>adi,osc-diff-rcv-enable</strong>: Enable differential receiver mode for the VCXO
+<li><p><strong>adi,osc-in-diff-enable</strong>: Enable differential receiver mode for the VCXO
 (default: single-ended receiver mode)</p></li>
-<li><p><strong>adi,refa-in-cmos-neg-inp-enable</strong> (CMOS mode + single-ended receiver mode):
+<li><p><strong>adi,refa-cmos-neg-inp-enable</strong> (CMOS mode + single-ended receiver mode):
 Use the inverted REFA input pin</p></li>
-<li><p><strong>adi,refb-in-cmos-neg-inp-enable</strong> (CMOS mode + single-ended receiver mode):
+<li><p><strong>adi,refb-cmos-neg-inp-enable</strong> (CMOS mode + single-ended receiver mode):
 Use the inverted REFB input pin</p></li>
 <li><p><strong>adi,osc-in-cmos-neg-inp-enable</strong> (CMOS mode + single-ended receiver mode):
 Use the inverted VCXO input pin</p></li>
 <li><p><strong>adi,refa-r-div</strong>: PLL1 10-bit REFA R divider</p></li>
 <li><p><strong>adi,refb-r-div</strong>: PLL1 10-bit REFB R divider</p></li>
 <li><p><strong>adi,pll1-feedback-div</strong>: PLL1 10-bit Feedback N divider</p></li>
-<li><p><strong>adi,pll1-feedback-src-vcxo</strong>: PLL1 Feedback source is VCXO (default: VCO)</p></li>
+<li><p><strong>adi,pll1-feedback-src-vcxo: A u32 selection, defaulting to 1 (VCXO). Use
+&lt;1&gt; for VCXO or &lt;0&gt; for the alternative source; omit the property to retain
+the VCXO default.</strong></p></li>
 <li><p><strong>adi,pll1-charge-pump-current-nA</strong>: Magnitude of PLL1 charge pump current
 (nA)</p></li>
-<li><p><strong>adi,pll1-bypass-en</strong>: Bypass PLL1</p></li>
+<li><p><strong>adi,pll1-bypass-enable</strong>: Bypass PLL1</p></li>
 <li><p><strong>adi,sysref-src</strong>: SYSREF Pattern Generator clock source</p></li>
 <li><p><strong>adi,sysref-k-div</strong>: SYSREF Pattern Generator K divider</p></li>
 <li><p><strong>adi,pll2-charge-pump-current-nA</strong>: Magnitude of PLL2 charge pump current
@@ -522,11 +599,11 @@ adi,pll2-vco-div-m1)</p></li>
 <li><p><strong>adi,pll2-freq-doubler-enable</strong>: Enable frequency doubler</p></li>
 <li><p><strong>adi,pll2-r1-div</strong>: PLL2 R1 divider (range 1..31)</p></li>
 <li><p><strong>adi,pll2-n2-div</strong>: PLL2 N2 divider (range 1..256)</p></li>
-<li><p><strong>adi,pll2_vco_diff_m1</strong>: PLL2 VCO1 divider (range 3..5)</p></li>
+<li><p><strong>adi,pll2-vco-div-m1</strong>: PLL2 VCO1 divider (range 3..5)</p></li>
 <li><p><strong>adi,rpole2</strong>: PLL2 loop filter Rpole resistor value</p></li>
 <li><p><strong>adi,rzero</strong>: PLL2 loop filter Rzero resistor value</p></li>
 <li><p><strong>adi,cpole1</strong>: PLL2 loop filter Cpole1 capacitor value</p></li>
-<li><p><strong>adi,rzero-bypass-en</strong>: Bypass Rzero</p></li>
+<li><p><strong>adi,rzero-bypass-enable</strong>: Bypass Rzero</p></li>
 </ul>
 </section>
 <section id="adding-channels">
@@ -556,83 +633,6 @@ applicable to them:</p>
 </ul>
 </li>
 </ul>
-</section>
-<section id="device-tree-example">
-<h4>Device tree example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h4>
-<p>The following example instanciates the ad9528 driver for a AD9528 device
-connected on the SPI bus to the chip-select line 0.</p>
-<p>The various macros used are defined in the header file:
-&lt;dt-bindings/iio/frequency/ad9528.h&gt;</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1">#include &lt;dt-bindings/iio/frequency/ad9528.h&gt;</span>
-
-<span class="o">&amp;</span><span class="n">fmc_spi</span> <span class="p">{</span>
-    <span class="n">clk0_ad9528</span><span class="p">:</span> <span class="n">ad9528</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="c1">#address-cells = &lt;1&gt;;</span>
-        <span class="c1">#size-cells = &lt;0&gt;;</span>
-        <span class="c1">#clock-cells = &lt;1&gt;;</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"ad9528"</span><span class="p">;</span>
-
-        <span class="n">spi</span><span class="o">-</span><span class="n">cpol</span><span class="p">;</span>
-        <span class="n">spi</span><span class="o">-</span><span class="n">cpha</span><span class="p">;</span>
-        <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">spi</span><span class="o">-</span><span class="mi">3</span><span class="n">wire</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-
-        <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"ad9528_out0"</span><span class="p">,</span> <span class="s2">"ad9528_out1"</span><span class="p">,</span> <span class="s2">"ad9528_out2"</span><span class="p">,</span> <span class="s2">"ad9528_out3"</span><span class="p">,</span> <span class="s2">"ad9528_out4"</span><span class="p">,</span> <span class="s2">"ad9528_out5"</span><span class="p">,</span> <span class="s2">"ad9528_out6"</span><span class="p">,</span> <span class="s2">"ad9528_out7"</span><span class="p">,</span> <span class="s2">"ad9528_out8"</span><span class="p">,</span> <span class="s2">"ad9528_out9"</span><span class="p">,</span> <span class="s2">"ad9528_out10"</span><span class="p">,</span> <span class="s2">"ad9528_out11"</span><span class="p">,</span> <span class="s2">"ad9528_out12"</span><span class="p">,</span> <span class="s2">"ad9528_out13"</span><span class="p">;</span>
-
-        <span class="n">adi</span><span class="p">,</span><span class="n">vcxo</span><span class="o">-</span><span class="n">freq</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">80000000</span><span class="o">&gt;</span><span class="p">;</span>
-
-        <span class="o">/*</span> <span class="n">PLL1</span> <span class="n">config</span> <span class="o">*/</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">ref</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">REF_MODE_STAY_ON_REFB</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">refa</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">refa</span><span class="o">-</span><span class="n">diff</span><span class="o">-</span><span class="n">rcv</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">refa</span><span class="o">-</span><span class="n">r</span><span class="o">-</span><span class="n">div</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">refb</span><span class="o">-</span><span class="n">r</span><span class="o">-</span><span class="n">div</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">pll1</span><span class="o">-</span><span class="n">feedback</span><span class="o">-</span><span class="n">src</span><span class="o">-</span><span class="n">vcxo</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">pll1</span><span class="o">-</span><span class="n">feedback</span><span class="o">-</span><span class="n">div</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">osc</span><span class="o">-</span><span class="ow">in</span><span class="o">-</span><span class="n">cmos</span><span class="o">-</span><span class="n">neg</span><span class="o">-</span><span class="n">inp</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">pll1</span><span class="o">-</span><span class="n">charge</span><span class="o">-</span><span class="n">pump</span><span class="o">-</span><span class="n">current</span><span class="o">-</span><span class="n">nA</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">10000</span><span class="o">&gt;</span><span class="p">;</span>
-
-        <span class="o">/*</span> <span class="n">PLL2</span> <span class="n">config</span> <span class="o">*/</span>
-
-        <span class="o">*</span> <span class="n">Valid</span> <span class="n">ranges</span> <span class="n">based</span> <span class="n">on</span> <span class="n">VCO</span> <span class="n">locking</span> <span class="nb">range</span><span class="p">:</span>
-        <span class="o">*</span>   <span class="mf">1150.000</span> <span class="n">MHz</span> <span class="o">-</span> <span class="mf">1341.666</span> <span class="n">MHz</span>
-        <span class="o">*</span>    <span class="mf">862.500</span> <span class="n">MHz</span> <span class="o">-</span> <span class="mf">1006.250</span> <span class="n">MHz</span>
-        <span class="o">*</span>    <span class="mf">690.000</span> <span class="n">MHz</span> <span class="o">-</span>  <span class="mf">805.000</span> <span class="n">MHz</span>
-        <span class="o">*/</span>
-
-            <span class="n">adi</span><span class="p">,</span><span class="n">pll2</span><span class="o">-</span><span class="n">m1</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">pll2</span><span class="o">-</span><span class="n">charge</span><span class="o">-</span><span class="n">pump</span><span class="o">-</span><span class="n">current</span><span class="o">-</span><span class="n">nA</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">805000</span><span class="o">&gt;</span><span class="p">;</span>
-
-        <span class="o">/*</span> <span class="n">SYSREF</span> <span class="n">config</span> <span class="o">*/</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">sysref</span><span class="o">-</span><span class="n">src</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">SYSREF_SRC_INTERNAL</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">sysref</span><span class="o">-</span><span class="n">k</span><span class="o">-</span><span class="n">div</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">20</span><span class="o">&gt;</span><span class="p">;</span>
-
-        <span class="n">adi</span><span class="p">,</span><span class="n">rpole2</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">RPOLE2_900_OHM</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">rzero</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">RZERO_3250_OHM</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">cpole1</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">CPOLE1_16_PF</span><span class="o">&gt;</span><span class="p">;</span>
-
-        <span class="n">ad9528_0_c8</span><span class="p">:</span> <span class="n">channel</span><span class="o">@</span><span class="mi">8</span> <span class="p">{</span>
-            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"ADC1"</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">driver</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">DRIVER_MODE_LVDS</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">divider</span><span class="o">-</span><span class="n">phase</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">channel</span><span class="o">-</span><span class="n">divider</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">signal</span><span class="o">-</span><span class="n">source</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">SOURCE_VCO</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="p">};</span>
-
-        <span class="n">ad9528_0_c9</span><span class="p">:</span> <span class="n">channel</span><span class="o">@</span><span class="mi">9</span> <span class="p">{</span>
-            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">9</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"ADC1-sysref"</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">driver</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">DRIVER_MODE_LVDS</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">divider</span><span class="o">-</span><span class="n">phase</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">channel</span><span class="o">-</span><span class="n">divider</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">signal</span><span class="o">-</span><span class="n">source</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">SOURCE_SYSREF_VCO</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-</pre></div>
-</div>
 </section>
 </section>
 </section>

@@ -100,29 +100,42 @@
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
-<li><a class="reference internal" href="#status">Status</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-</ul>
-</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
 <li><a class="reference internal" href="#example-device-initialization">Example device initialization</a><ul>
 <li><a class="reference internal" href="#i2c">I2C</a><ul>
 <li><a class="reference internal" href="#spi">SPI</a></li>
 </ul>
 </li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#routing-and-dapm">Routing and DAPM</a><ul>
 <li><a class="reference internal" href="#asoc-dapm-widgets">ASoC DAPM Widgets</a></li>
-<li><a class="reference internal" href="#alsa-controls">ALSA Controls</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#alsa-controls">ALSA controls</a></li>
+<li><a class="reference internal" href="#dai-formats-and-clocks">DAI formats and clocks</a><ul>
 <li><a class="reference internal" href="#dai-configuration">DAI configuration</a><ul>
 <li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a></li>
 <li><a class="reference internal" href="#dai-sysclk">DAI sysclk</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#example-dai-configuration">Example DAI configuration</a></li>
-</ul>
-</li>
 <li><a class="reference internal" href="#tdm-configuration">TDM configuration</a></li>
-<li><a class="reference internal" href="#more-information">More information</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
 </ul>
@@ -224,6 +237,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -242,7 +256,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -412,8 +425,9 @@ Content on this topic
 </tbody>
 </table>
 </div>
+</section>
 <section id="files">
-<h4>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h4>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -444,9 +458,12 @@ Content on this topic
 </div>
 </section>
 </section>
-</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
 <section id="example-device-initialization">
-<h2>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -457,7 +474,7 @@ available ports, chip variants, preferred modes, default initialization,
 additional pin roles, and so on. This shrinks the board-support packages (BSPs)
 and minimizes board and application specific #ifdefs in drivers.</p>
 <section id="i2c">
-<h3>I2C<a class="headerlink" href="#i2c" title="Link to this heading"></a></h3>
+<h5>I2C<a class="headerlink" href="#i2c" title="Link to this heading"></a></h5>
 <p>Unlike PCI or USB devices, I2C devices are not enumerated at the hardware level.
 Instead, the software must know which devices are connected on each I2C bus
 segment, and what address these devices are using. For this reason, the kernel
@@ -526,7 +543,7 @@ set according to your board setup.</p>
 </pre></div>
 </div>
 <section id="spi">
-<h4>SPI<a class="headerlink" href="#spi" title="Link to this heading"></a></h4>
+<h6>SPI<a class="headerlink" href="#spi" title="Link to this heading"></a></h6>
 <p>Unlike PCI or USB devices, SPI devices are not enumerated at the hardware level.
 Instead, the software must know which devices are connected on each SPI bus
 segment, and what slave selects these devices are using. For this reason, the
@@ -540,8 +557,15 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
 <p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.3.0-rc7)"><span>Overview of Linux kernel SPI support</span></a></p>
 </section>
 </section>
+</section>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="routing-and-dapm">
+<h3>Routing and DAPM<a class="headerlink" href="#routing-and-dapm" title="Link to this heading"></a></h3>
 <section id="asoc-dapm-widgets">
-<h3>ASoC DAPM Widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h3>
+<h4>ASoC DAPM Widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h4>
 <p>The driver registers a set of input, output and supply DAPM widgets which
 represent the physical input and output signals of the device. For maximum
 power-saving these are widgets should be used in the machine driver DAPM routing
@@ -588,8 +612,9 @@ to accurately model the external connections of the device.</p>
 </table>
 </div>
 </section>
+</section>
 <section id="alsa-controls">
-<h3>ALSA Controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
+<h3>ALSA controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -869,14 +894,16 @@ settings:
 </table>
 </div>
 </section>
+<section id="dai-formats-and-clocks">
+<h3>DAI formats and clocks<a class="headerlink" href="#dai-formats-and-clocks" title="Link to this heading"></a></h3>
 <section id="dai-configuration">
-<h3>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h3>
+<h4>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h4>
 <p>The codec driver registers one DAI: <strong>adau1372</strong></p>
 <p>This DAI has a capture and a playback interface which share the clocking and are
 synchronous to each other. Which means they have to run in the same
 configuration.</p>
 <section id="supported-dai-formats">
-<h4>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h4>
+<h5>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h5>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -959,32 +986,35 @@ configuration.</p>
 </div>
 </section>
 <section id="dai-sysclk">
-<h4>DAI sysclk<a class="headerlink" href="#dai-sysclk" title="Link to this heading"></a></h4>
+<h5>DAI sysclk<a class="headerlink" href="#dai-sysclk" title="Link to this heading"></a></h5>
+</section>
 </section>
 <section id="example-dai-configuration">
 <h4>Example DAI configuration<a class="headerlink" href="#example-dai-configuration" title="Link to this heading"></a></h4>
 </section>
-</section>
 <section id="tdm-configuration">
-<h3>TDM configuration<a class="headerlink" href="#tdm-configuration" title="Link to this heading"></a></h3>
+<h4>TDM configuration<a class="headerlink" href="#tdm-configuration" title="Link to this heading"></a></h4>
 <p>The ADAU1372 has TDM support.</p>
 <ul class="simple">
 <li><p>The number of slots can be either 2, 4 or 8.</p></li>
-<li><p>The slot width can be 16 or 32.</p></li>
-<li><p>The slot mask can select any combination of channels on both TX and RX</p></li>
+<li><p>The slot width can be 16, 24 or 32.</p></li>
+<li><p>tx_mask controls which of the eight serial output channels are enabled. Both
+masks must fit within eight bits, but rx_mask is only range-checked and is
+not programmed as an input channel map.</p></li>
 </ul>
 <p>Example TDM configuration:</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="n">ret</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">snd_soc_dai_set_tdm_slot</span><span class="p">(</span><span class="n">codec_dai</span><span class="p">,</span><span class="w"> </span><span class="mh">0x3</span><span class="p">,</span><span class="w"> </span><span class="mh">0x3</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">24</span><span class="p">);</span>
 </pre></div>
 </div>
 </section>
+</section>
+</section>
 <section id="more-information">
-<h3>More information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h3>
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <p><em>Need Help?</em></p>
 <ul class="simple">
 <li><p><a class="icon ez reference external" href="https://ez.analog.com/linux-software-drivers" target="_blank">Analog Devices Linux Device Drivers Help Forum</a></p></li>
 </ul>
-</section>
 </section>
 </section>
 

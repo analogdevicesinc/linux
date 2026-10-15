@@ -109,14 +109,16 @@
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
+<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
 <li><a class="reference internal" href="#set-channely-gain">Set ChannelY Gain</a></li>
 <li><a class="reference internal" href="#set-channely-current-bias-set">Set ChannelY Current Bias Set</a></li>
 <li><a class="reference internal" href="#set-channely-offset-value">Set ChannelY Offset value</a></li>
-</ul>
-</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -221,6 +223,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -239,7 +242,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -488,23 +490,6 @@ calling <code class="docutils literal notranslate"><span class="pre">spi_registe
 </section>
 </section>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The ADA4250 Driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-                <span class="n">Amplifiers</span>  <span class="o">---&gt;</span>
-                    <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADA4250</span> <span class="n">Instrumentation</span> <span class="n">Amplifier</span>
-</pre></div>
-</div>
-</section>
 <section id="hardware-configuration">
 <h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
 <p>Each and every IIO device, typically a hardware chip, has a device folder under
@@ -533,61 +518,87 @@ the numbering is constant and may be known in advance.</p>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">May</span>  <span class="mi">6</span> <span class="mi">12</span><span class="p">:</span><span class="mi">20</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ADA4250 Driver depends on <strong>CONFIG_SPI</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+                <span class="n">Amplifiers</span>  <span class="o">---&gt;</span>
+                    <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADA4250</span> <span class="n">Instrumentation</span> <span class="n">Amplifier</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cd</span> <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span>\<span class="p">:</span><span class="n">device0</span><span class="o">/</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">ada4250</span>
 </pre></div>
 </div>
+</section>
 <section id="set-channely-gain">
-<h4>Set ChannelY Gain<a class="headerlink" href="#set-channely-gain" title="Link to this heading"></a></h4>
+<h3>Set ChannelY Gain<a class="headerlink" href="#set-channely-gain" title="Link to this heading"></a></h3>
 <p>/sys/bus/iio/devices/iio:deviceX/out_voltageY_hardwaregain</p>
 <p>Hardware applied gain factor. If shared across all channels, &lt;type&gt;_hardwaregain
 is used.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cat</span> <span class="n">out_voltage0_hardwaregain_available</span>
-<span class="mi">0</span> <span class="mi">1</span> <span class="mi">2</span> <span class="mi">3</span> <span class="mi">4</span> <span class="mi">5</span> <span class="mi">6</span> <span class="mi">7</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/&gt; cat out_voltage0_hardwaregain_available
+1 2 4 8 16 32 64 128
 
-<span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cat</span> <span class="n">out_voltage0_hardwaregain</span>
-<span class="mi">0</span>
+root:/&gt; cat out_voltage0_hardwaregain
+0
 
-<span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">out_voltage0_hardwaregain</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cat</span> <span class="n">out_voltage0_hardwaregain</span>
-<span class="mi">1</span>
+root:/&gt; echo 2 &gt; out_voltage0_hardwaregain
+# Readback: 2. A gain above 1 is required for the offset-calibration example below.
+root:/&gt; cat out_voltage0_hardwaregain
+1
 </pre></div>
 </div>
 </section>
 <section id="set-channely-current-bias-set">
-<h4>Set ChannelY Current Bias Set<a class="headerlink" href="#set-channely-current-bias-set" title="Link to this heading"></a></h4>
+<h3>Set ChannelY Current Bias Set<a class="headerlink" href="#set-channely-current-bias-set" title="Link to this heading"></a></h3>
 <p>/sys/bus/iio/devices/iio:deviceX/out_voltageY_calibbias</p>
 <p>Current bias for different ranges of the sensor offset calibration. If shared
 across all channels, &lt;type&gt;_calibbias is used.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cat</span> <span class="n">out_voltage0_calibbias_available</span>
-<span class="mi">0</span> <span class="mi">1</span> <span class="mi">2</span> <span class="mi">3</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/&gt; cat out_voltage0_calibbias_available
+0 1 2
 
-<span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cat</span> <span class="n">out_voltage0_calibbias</span>
-<span class="mi">0</span>
+root:/&gt; cat out_voltage0_calibbias
+0
 
-<span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">echo</span> <span class="mi">2</span> <span class="o">&gt;</span> <span class="n">out_voltage0_calibbias</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cat</span> <span class="n">out_voltage0_calibbias</span>
-<span class="mi">2</span>
+root:/&gt; echo 2 &gt; out_voltage0_calibbias
+root:/&gt; cat out_voltage0_calibbias
+2
 </pre></div>
 </div>
 </section>
 <section id="set-channely-offset-value">
-<h4>Set ChannelY Offset value<a class="headerlink" href="#set-channely-offset-value" title="Link to this heading"></a></h4>
+<h3>Set ChannelY Offset value<a class="headerlink" href="#set-channely-offset-value" title="Link to this heading"></a></h3>
 <p>/sys/bus/iio/devices/iio:deviceX/out_voltageY_offset</p>
 <p>Sensor offset calibration value in uV. If shared across all channels,
 &lt;type&gt;_offset is used.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cat</span> <span class="n">out_voltage0_offset</span>
-<span class="mi">0</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/&gt; cat out_voltage0_offset
+0
 
-<span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">echo</span> <span class="o">-</span><span class="mi">32000</span> <span class="o">&gt;</span> <span class="n">out_voltage0_offset</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cat</span> <span class="n">out_voltage0_offset</span>
-<span class="o">-</span><span class="mi">31752</span>
+root:/&gt; echo -32000 &gt; out_voltage0_offset
+root:/&gt; cat out_voltage0_offset
 </pre></div>
 </div>
-</section>
+<p>Read back the quantized offset after choosing a supported gain and bias. The
+result depends on AVDD (for AVDD bias), gain and the requested offset; do not
+promise -31752 uV without specifying those prerequisites.</p>
 </section>
 </section>
 <section id="more-information">

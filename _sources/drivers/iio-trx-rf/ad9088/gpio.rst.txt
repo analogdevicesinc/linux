@@ -1,14 +1,11 @@
 .. _ad9088 gpio:
 
 GPIO usage
-""""""""""
+==========
 
 This document describes the General Purpose Input Output (GPIO) architecture
 for AD9084/AD9088 Apollo devices, including driver interactions, signals,
 and flows.
-
-The device contains 30 general-purpose GPIOs that can be used to trigger
-various changes.
 
 .. important::
 
@@ -37,10 +34,14 @@ interfacing with the device GPIOs. This section uses the
 :git+hdl:`AD9084-EBZ/VCK190 <projects/ad9084_ebz/vck190>` reference
 design as an example.
 
+
+Configuration and sequence
+--------------------------
+
 .. _ad9088 gpio ffh:
 
 GPIO Fast Frequency Hopping
-===========================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The relevant devicetree options for FFH with GPIOs are:
 
@@ -50,7 +51,7 @@ The relevant devicetree options for FFH with GPIOs are:
 * ``adi,gpio-hop-block``: sets the pins for ``profile_fcn_sel[3:0]``
 * ``adi,gpio-hop-profile``: sets the pins for ``profile[4:0]``
 
-These override the quick configuration profile pin assignments.
+These properties override the corresponding quick-configuration pin assignments.
 
 In particular, for Profile 1, ``profile_fcn_sel[3]`` lands on GPIO31.
 However, the AD9084-EBZ/VCK190 only routes AD9084 GPIO15..GPIO30,
@@ -71,8 +72,8 @@ Profile 1. Instead, modify ``profile_fcn_sel[3]`` to GPIO 15:
       adi,gpio-hop-profile = <26 27 28 29 30>; // profile[4:0]
    }
 
-With this devicetree configuration, and for TX side A, slice 0, FNCO block, and
-profile selected by GPIOs, the feature can be tested as described below:
+The following example selects profiles through GPIOs for TX side A, slice 0
+and the FNCO block with this board-specific devicetree configuration:
 
 Set ``ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO``:
 
@@ -103,7 +104,7 @@ Set the GPIO outputs to select the profile:
      gpiochip1 [versal_gpio] (58 lines)
      gpiochip2 [pmc_gpio] (116 lines)
 
-   # AD9084 offset -15 (profile[4] 26 -> 11)
+   # Board mapping: subtract 15 (profile[0] on GPIO26 -> gpiochip0 line 11)
    $ ADDR="0=0 2=0 3=0 4=0 5=0 6=0 7=0 8=0 9=0 10=0"
    # Profile 0
    $ gpioset -c /dev/gpiochip0 $ADDR 11=0 12=0 13=0 14=0 15=0
@@ -135,7 +136,7 @@ To configure and use the CNCO instead of FNCO, replace ``_fnco_`` with
 ``profile_fcn_sel[3:0]=ADI_APOLLO_GPIO_BLOCK_CNCO``.
 
 GPIO chip
-=========
+~~~~~~~~~
 
 The GPIOs can be exported into a :external+upstream:c:struct:`gpio_chip`
 using the ``adi,gpio-exports`` devicetree property:
@@ -156,12 +157,12 @@ the Apollo and axi_gpio GPIOs can be attached to other drivers in the device tre
    HDL design for the routes between Apollo GPIOs, axi_gpio GPIOs, and other
    input options.
 
-.. code:: dts
+.. code-block:: dts
 
    my_driver {
         /* ... */
         provider-gpios = <&axi_gpio 0 GPIO_ACTIVE_HIGH>;
-        consumer-gpios = <&tx0_ad9084 0 GPIO_ACTIVE_HIGH>;
+        consumer-gpios = <&trx0_ad9084 0 GPIO_ACTIVE_HIGH>;
    }
 
 Or from user space through `gpiod <https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/>`__:

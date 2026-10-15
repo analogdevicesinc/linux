@@ -97,7 +97,7 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">AXI ADXCVR</a><ul>
-<li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#supported-ip-cores">Supported IP Cores</a></li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
@@ -105,18 +105,19 @@
 <li><a class="reference internal" href="#files-intel-altera">Files Intel / Altera</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a><ul>
 <li><a class="reference internal" href="#deprecated-non-jesd204-fsm-mode">Deprecated Non-jesd204-fsm mode</a></li>
 <li><a class="reference internal" href="#jesd204-fsm-mode">jesd204-fsm mode</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
-<li><a class="reference internal" href="#sysfs-interface">Sysfs Interface</a><ul>
-<li><a class="reference internal" href="#low-level-register-access-via-reg-access">Low level register access via reg_access</a><ul>
-<li><a class="reference internal" href="#axi-register-access">AXI register access</a></li>
-<li><a class="reference internal" href="#drp-register-access">DRP register access</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
 <li><a class="reference internal" href="#axi-adxcvr-rx">axi-adxcvr-rx</a><ul>
 <li><a class="reference internal" href="#prbs-select">PRBS Select</a></li>
 <li><a class="reference internal" href="#prbs-status">prbs_status</a></li>
@@ -130,9 +131,17 @@
 <li><a class="reference internal" href="#prbs-error-inject">prbs_error_inject</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
+<li><a class="reference internal" href="#low-level-register-access-via-reg-access">Low level register access via reg_access</a><ul>
+<li><a class="reference internal" href="#axi-register-access">AXI register access</a></li>
+<li><a class="reference internal" href="#drp-register-access">DRP register access</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
 </ul>
@@ -234,6 +243,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -252,7 +262,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -388,8 +397,8 @@ Content on this topic
   <section id="axi-adxcvr">
 <span id="id1"></span><h1>AXI ADXCVR<a class="headerlink" href="#axi-adxcvr" title="Link to this heading"></a></h1>
 <p>ADI JESD204B/C AXI_ADXCVR Highspeed Transceivers Linux Driver.</p>
-<section id="supported-devices">
-<h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+<section id="supported-ip-cores">
+<h2>Supported IP Cores<a class="headerlink" href="#supported-ip-cores" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_adxcvr/#axi-adxcvr" target="_blank" title="(in HDL)"><span>AXI ADXCVR</span></a></p></li>
 </ul>
@@ -499,15 +508,36 @@ framework.</p>
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+        <span class="o">&lt;*&gt;</span> <span class="n">JESD204</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">Serial</span> <span class="n">Interface</span> <span class="n">Framework</span>  <span class="o">---&gt;</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+        <span class="o">&lt;*&gt;</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+            <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AXI</span> <span class="n">ADXCVR</span> <span class="n">PHY</span> <span class="n">Support</span>
+            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>The AXI JESD204B driver is a platform driver and can currently only be
 instantiated via device tree.</p>
 <section id="deprecated-non-jesd204-fsm-mode">
-<h3>Deprecated Non-jesd204-fsm mode<a class="headerlink" href="#deprecated-non-jesd204-fsm-mode" title="Link to this heading"></a></h3>
+<h5>Deprecated Non-jesd204-fsm mode<a class="headerlink" href="#deprecated-non-jesd204-fsm-mode" title="Link to this heading"></a></h5>
 <p>Required devicetree properties:</p>
 <ul class="simple">
-<li><p><strong>compatible</strong>: Must always be <code class="docutils literal notranslate"><span class="pre">adi,axi-adxcvr-1.00</span></code></p></li>
+<li><p><strong>compatible</strong>: Must always be
+<code class="docutils literal notranslate"><span class="pre">adi,axi-adxcvr-1.0</span></code></p></li>
 <li><p><strong>reg</strong>: Base address and register area size. This parameter expects a
 register range</p></li>
 <li><p><strong>clock-names</strong>: List of input clock names - <code class="docutils literal notranslate"><span class="pre">s_axi_aclk</span></code>, <code class="docutils literal notranslate"><span class="pre">conv</span></code>,
@@ -518,12 +548,11 @@ clock-names and clocks)</p></li>
 <li><p><strong>adi,sys-clk-select</strong>: 2 bit variable. For ultrascale, it selects the PLL
 reference clock source to be forwarded to the OUTCLK MUX: 0-CPLL, 3-QPLL0.
 Check RX/TXSYSCLKSEL parameter in the transceiver documentation for the FPGA
-you’re using. See section &quot;Software Guidelines&quot; at
-<a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_adxcvr/#axi-adxcvr" target="_blank" title="(in HDL)"><span>AXI ADXCVR</span></a></p></li>
+you’re using. See section “Software Guidelines” at <a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_adxcvr/#axi-adxcvr" target="_blank" title="(in HDL)"><span>AXI ADXCVR</span></a></p></li>
 <li><p><strong>adi,out-clk-select</strong>: 3 bit variable. Controls the OUTCLKSEL multiplexer,
 controlling what will be forwarded to OUTCLK pin. Check RX/TXOUTCLKSEL
 parameter in the transceiver documentation for the FPGA you’re using See
-section &quot;Software Guidelines&quot; at <a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_adxcvr/#axi-adxcvr" target="_blank" title="(in HDL)"><span>AXI ADXCVR</span></a></p></li>
+section “Software Guidelines” at <a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_adxcvr/#axi-adxcvr" target="_blank" title="(in HDL)"><span>AXI ADXCVR</span></a></p></li>
 </ul>
 <p>Optional devicetree properties:</p>
 <ul class="simple">
@@ -575,12 +604,12 @@ rate and state must be in sync with the main conv clk.</p></li>
 </div>
 </section>
 <section id="jesd204-fsm-mode">
-<h3>jesd204-fsm mode<a class="headerlink" href="#jesd204-fsm-mode" title="Link to this heading"></a></h3>
+<h5>jesd204-fsm mode<a class="headerlink" href="#jesd204-fsm-mode" title="Link to this heading"></a></h5>
 <p>When using the <a class="reference internal" href="../jesd204-fsm-framework/#jesd204-fsm-framework"><span class="std std-ref">JESD204 FSM</span></a> the div40 or Link/Device clock is
 handled by the Link Layer Peripheral Linux device driver.</p>
 <p>Required devicetree properties:</p>
 <ul class="simple">
-<li><p><strong>compatible</strong>: Must always be <code class="docutils literal notranslate"><span class="pre">adi,axi-adxcvr-1.00</span></code></p></li>
+<li><p><strong>compatible</strong>: Must always be <code class="docutils literal notranslate"><span class="pre">adi,axi-adxcvr-1.0</span></code></p></li>
 <li><p><strong>reg</strong>: Base address and register area size. This parameter expects a
 register range</p></li>
 <li><p><strong>clock-names</strong>: List of input clock names - <code class="docutils literal notranslate"><span class="pre">s_axi_aclk</span></code>, <code class="docutils literal notranslate"><span class="pre">conv</span></code></p></li>
@@ -652,98 +681,14 @@ Otherwise, will be used in DFE mode. See transceiver documentation for details</
 </div>
 </section>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-        <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
-
-            <span class="o">&lt;*&gt;</span>   <span class="n">JESD204</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">Serial</span> <span class="n">Interface</span> <span class="n">Support</span>  <span class="o">---&gt;</span>
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AXI</span> <span class="n">ADXCVR</span> <span class="n">PHY</span> <span class="n">Support</span>
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-</pre></div>
-</div>
 </section>
-<section id="sysfs-interface">
-<h2>Sysfs Interface<a class="headerlink" href="#sysfs-interface" title="Link to this heading"></a></h2>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <p>This driver provides advanced diagnostics, status and control via
 <a class="icon link reference external" href="https://en.wikipedia.org/wiki/sysfs" target="_blank">sysfs</a>. Depending on the direction (RX
 vs. TX) the provided sysfs attributes vary. A brief summary is with examples are
 provided below.</p>
-<section id="low-level-register-access-via-reg-access">
-<h3>Low level register access via reg_access<a class="headerlink" href="#low-level-register-access-via-reg-access" title="Link to this heading"></a></h3>
-<p>This device driver features an optional debug facility, allowing users to read
-or write registers directly. Special care needs to be taken when using this
-feature, since you can modify registers on the back of the driver.</p>
-<p>The DEBUG register access sysfs attribute <code class="docutils literal notranslate"><span class="pre">reg_access</span></code> allows access to the
-the AXI HDL Core register space as well as to the Dynamic Reconfiguration Port
-(DRP) interfaces. Accessing this sysfs attribute requires root privileges.</p>
-<section id="axi-register-access">
-<h4>AXI register access<a class="headerlink" href="#axi-register-access" title="Link to this heading"></a></h4>
-<ul class="simple">
-<li><p>See section &quot;Register map&quot; at <a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_adxcvr/#axi-adxcvr" target="_blank" title="(in HDL)"><span>AXI ADXCVR</span></a></p></li>
-</ul>
-<p><strong>Format:</strong></p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi</span> <span class="o">&lt;</span><span class="n">REGISTER</span> <span class="n">ADDRESS</span><span class="o">&gt;</span> <span class="p">[</span><span class="o">&lt;</span><span class="n">WRITE</span> <span class="n">VAL</span><span class="o">&gt;</span><span class="p">]</span>
-</pre></div>
-</div>
-<p>Example reading AXI register at offset 0 (REG_VERSION)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="mi">84</span><span class="n">a60000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">rx</span><span class="c1"># echo axi 0x0 &gt;</span>
-<span class="n">reg_access</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="mi">84</span><span class="n">a60000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">rx</span><span class="c1"># cat reg_access</span>
-<span class="mh">0x110261</span>
-</pre></div>
-</div>
-<p>Example writing AXI register at offset 8 (REG_SCRATCH)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="mi">84</span><span class="n">a60000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">rx</span><span class="c1"># echo axi 0x8 0x1234 &gt; reg_access</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="mi">84</span><span class="n">a60000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">rx</span><span class="c1"># cat reg_access</span>
-<span class="mh">0x1234</span>
-</pre></div>
-</div>
-</section>
-<section id="drp-register-access">
-<h4>DRP register access<a class="headerlink" href="#drp-register-access" title="Link to this heading"></a></h4>
-<p><strong>Please see Transceiver User Guides for further details</strong></p>
-<ul class="simple">
-<li><p><a class="icon link reference external" href="https://www.xilinx.com/support/documentation/user_guides/ug476_7Series_Transceivers.pdf" target="_blank">7 Series FPGAs GTX/GTH Transceivers User Guide - Xilinx</a></p></li>
-<li><p><a class="icon link reference external" href="https://www.xilinx.com/support/documentation/user_guides/ug576-ultrascale-gth-transceivers.pdf" target="_blank">Ultrascale Architecture GTH Transceivers User Guide - Xilinx</a></p></li>
-</ul>
-<p><strong>Format:</strong></p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">drp</span> <span class="o">&lt;</span><span class="n">DRP</span> <span class="n">PORT</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">REGISTER</span> <span class="n">ADDRESS</span><span class="o">&gt;</span> <span class="p">[</span><span class="o">&lt;</span><span class="n">WRITE</span> <span class="n">VAL</span><span class="o">&gt;</span><span class="p">]</span>
-</pre></div>
-</div>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>DRP Port</p></th>
-<th class="head"><p>Comment</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>0</p></td>
-<td><p>Common register space</p></td>
-</tr>
-<tr class="row-odd"><td><p>0x100 + Lane</p></td>
-<td><p>Channel register space</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p><strong>Example reading OUT_DIV:</strong></p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="mi">84</span><span class="n">a60000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">rx</span><span class="c1"># echo drp 0x101 0x88 &gt; reg_access</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="mi">84</span><span class="n">a60000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">rx</span><span class="c1"># cat reg_access</span>
-<span class="mh">0x2AA</span>
-</pre></div>
-</div>
-</section>
-</section>
 <section id="axi-adxcvr-rx">
 <h3>axi-adxcvr-rx<a class="headerlink" href="#axi-adxcvr-rx" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># cd /sys/bus/platform/devices/84a60000.axi-adxcvr-rx</span>
@@ -982,14 +927,84 @@ the GT architecture). Reading returns the selected type.</p>
 </div>
 </section>
 </section>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
+<section id="low-level-register-access-via-reg-access">
+<h3>Low level register access via reg_access<a class="headerlink" href="#low-level-register-access-via-reg-access" title="Link to this heading"></a></h3>
+<p>This device driver features an optional debug facility, allowing users to read
+or write registers directly. Special care needs to be taken when using this
+feature, since you can modify registers on the back of the driver.</p>
+<p>The DEBUG register access sysfs attribute <code class="docutils literal notranslate"><span class="pre">reg_access</span></code> allows access to the
+the AXI HDL Core register space as well as to the Dynamic Reconfiguration Port
+(DRP) interfaces. Accessing this sysfs attribute requires root privileges.</p>
+<section id="axi-register-access">
+<h4>AXI register access<a class="headerlink" href="#axi-register-access" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p>See section &quot;Register map&quot; at <a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_adxcvr/#axi-adxcvr" target="_blank" title="(in HDL)"><span>AXI ADXCVR</span></a></p></li>
+</ul>
+<p><strong>Format:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi</span> <span class="o">&lt;</span><span class="n">REGISTER</span> <span class="n">ADDRESS</span><span class="o">&gt;</span> <span class="p">[</span><span class="o">&lt;</span><span class="n">WRITE</span> <span class="n">VAL</span><span class="o">&gt;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Example reading AXI register at offset 0 (REG_VERSION)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="mi">84</span><span class="n">a60000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">rx</span><span class="c1"># echo axi 0x0 &gt;</span>
+<span class="n">reg_access</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="mi">84</span><span class="n">a60000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">rx</span><span class="c1"># cat reg_access</span>
+<span class="mh">0x110261</span>
+</pre></div>
+</div>
+<p>Example writing AXI register at offset 8 (REG_SCRATCH)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="mi">84</span><span class="n">a60000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">rx</span><span class="c1"># echo axi 0x8 0x1234 &gt; reg_access</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="mi">84</span><span class="n">a60000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">rx</span><span class="c1"># cat reg_access</span>
+<span class="mh">0x1234</span>
+</pre></div>
+</div>
+</section>
+<section id="drp-register-access">
+<h4>DRP register access<a class="headerlink" href="#drp-register-access" title="Link to this heading"></a></h4>
+<p><strong>Please see Transceiver User Guides for further details</strong></p>
+<ul class="simple">
+<li><p><a class="icon link reference external" href="https://www.xilinx.com/support/documentation/user_guides/ug476_7Series_Transceivers.pdf" target="_blank">7 Series FPGAs GTX/GTH Transceivers User Guide - Xilinx</a></p></li>
+<li><p><a class="icon link reference external" href="https://www.xilinx.com/support/documentation/user_guides/ug576-ultrascale-gth-transceivers.pdf" target="_blank">Ultrascale Architecture GTH Transceivers User Guide - Xilinx</a></p></li>
+</ul>
+<p><strong>Format:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">drp</span> <span class="o">&lt;</span><span class="n">DRP</span> <span class="n">PORT</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">REGISTER</span> <span class="n">ADDRESS</span><span class="o">&gt;</span> <span class="p">[</span><span class="o">&lt;</span><span class="n">WRITE</span> <span class="n">VAL</span><span class="o">&gt;</span><span class="p">]</span>
+</pre></div>
+</div>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>DRP Port</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>Common register space</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x100 + Lane</p></td>
+<td><p>Channel register space</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Example reading OUT_DIV:</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="mi">84</span><span class="n">a60000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">rx</span><span class="c1"># echo drp 0x101 0x88 &gt; reg_access</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="mi">84</span><span class="n">a60000</span><span class="o">.</span><span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">rx</span><span class="c1"># cat reg_access</span>
+<span class="mh">0x2AA</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
 <section id="more-information">
-<h3>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h3>
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/jesd204/#jesd204" target="_blank" title="(in HDL)"><span>JESD204 Interface Framework</span></a></p></li>
 <li><p><a class="reference internal" href="../jesd204-fsm-framework/#jesd204-fsm-framework"><span class="std std-ref">JESD204 FSM</span></a></p></li>
 <li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/jesd_status" target="_blank">JESD204B Status Utility</a></p></li>
 </ul>
-</section>
 </section>
 </section>
 

@@ -97,18 +97,20 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">ADRV9002 Customization</a><ul>
+<li><a class="reference internal" href="#configuration-and-sequence">Configuration and sequence</a><ul>
 <li><a class="reference internal" href="#rx-and-tx-channels">RX and TX Channels</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#rx">RX</a><ul>
-<li><a class="reference internal" href="#base-settings">Base Settings</a></li>
+<li><a class="reference internal" href="#base-settings">Base Settings</a><ul>
+<li><a class="reference internal" href="#attenuation-pin-control-settings">Attenuation PIN Control Settings</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#agc-settings">AGC Settings</a><ul>
 <li><a class="reference internal" href="#gain-pin-control-settings">Gain PIN Control Settings</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#tx">TX</a></li>
-<li><a class="reference internal" href="#id2">Base Settings</a><ul>
-<li><a class="reference internal" href="#attenuation-pin-control-settings">Attenuation PIN Control Settings</a></li>
-</ul>
-</li>
 <li><a class="reference internal" href="#gpio-settings">GPIO Settings</a></li>
 </ul>
 </li>
@@ -213,6 +215,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -231,7 +234,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -374,8 +376,10 @@ you to set defaults, but can be changed anytime later using the driver API.
 But most of these options don’t need to be changed at all.</p>
 <p>If unsure please see the manual or don’t change!</p>
 </div>
+<section id="configuration-and-sequence">
+<h2>Configuration and sequence<a class="headerlink" href="#configuration-and-sequence" title="Link to this heading"></a></h2>
 <section id="rx-and-tx-channels">
-<h2>RX and TX Channels<a class="headerlink" href="#rx-and-tx-channels" title="Link to this heading"></a></h2>
+<h3>RX and TX Channels<a class="headerlink" href="#rx-and-tx-channels" title="Link to this heading"></a></h3>
 <p>ADRV9002 can operate different RX and TX channels at different rates due to the
 flexibility of the hardware. Making it possible to run four channels
 (TX1,TX2,RX1,RX2) all at different rates. However, this will require a specific
@@ -392,6 +396,7 @@ transfers between channels are not required to by synchronous.</p>
 <li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/e2d92f9152d49473a887aad70486855e5843faa5/arch/arm64/boot/dts/xilinx" target="_blank">MIMO (combined) mode</a></p></li>
 <li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/e2d92f9152d49473a887aad70486855e5843faa5/arch/arm64/boot/dts/xilinx" target="_blank">Split mode</a></p></li>
 </ul>
+</section>
 </section>
 <section id="rx">
 <h2>RX<a class="headerlink" href="#rx" title="Link to this heading"></a></h2>
@@ -463,344 +468,6 @@ one. Both RXs must be under adi,channels node as can be seen in the example:</p>
 </tbody>
 </table>
 </div>
-</section>
-<section id="agc-settings">
-<span id="adrv9002-customization-agc-settings"></span><h3>AGC Settings<a class="headerlink" href="#agc-settings" title="Link to this heading"></a></h3>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Devicetree property</p></th>
-<th class="head"><p>Default</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>adi,peak-wait-time</p></td>
-<td><p>4</p></td>
-<td><p>AGC peak wait time. Valid range is from 0 to 31.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,gain-update-counter</p></td>
-<td><p>11520</p></td>
-<td><p>AGC gain update time denominated in AGC clock cycles; Valid range is from
-0 to 4194303.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,attack-delax-us</p></td>
-<td><p>10</p></td>
-<td><p>Delay time, denominated in microseconds, before starting AGC, after
-starting Rx. Valid range is from 0 to 63.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,slow-loop-settling-delay</p></td>
-<td><p>16</p></td>
-<td><p>On any gain change, the AGC waits for the time (range 0 to 127) specified
-in AGC clock cycles to allow gain transients to flow through the Rx path
-before starting any measurements.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,low-threshold-prevent-gain-inc</p></td>
-<td><p>0</p></td>
-<td><p>Prevent gain index from incrementing while peak thresholds are exceeded.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,change-gain-threshold-high</p></td>
-<td><p>3</p></td>
-<td><p>Enable immediate gain change if high threshold counter is exceeded.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,agc-mode</p></td>
-<td><p>1</p></td>
-<td><p>AGC mode can be either power and peak or only peak.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,reset-on-rx-on</p></td>
-<td><p>0</p></td>
-<td><p>Reset the AGC slow loop state machine to max gain when the Rx Enable is
-taken low.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,reset-on-rx-on-gain-index</p></td>
-<td><p>255</p></td>
-<td><p>AGC Reset On gain index. Valid range is from minGainIndex to
-maxGainIndex.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,sync-pulse-gain-counter-en</p></td>
-<td><p>0</p></td>
-<td><p>Enable the AGC gain update counter to be sync’ed to a time-slot boundary.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,fast-recovery-loop-en</p></td>
-<td><p>0</p></td>
-<td><p>Enable multiple time constants in AGC loop for fast attack and fast
-recovery.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,no-power-measurement-en</p></td>
-<td><p>1</p></td>
-<td><p>Disable the Rx power measurement block</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,power-under-range-high-threshold</p></td>
-<td><p>4</p></td>
-<td><p>Threshold which defines the lower boundary on the stable region of the
-power detect gain control mode. Valid Range from 0 to 127.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,power-under-range-low-threshold</p></td>
-<td><p>0</p></td>
-<td><p>Offset from adi,power-under-range-high-threshold which defines the outer
-boundary of the power based AGC convergence. Valid offset from 0 to 15</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,power-under-range-high-gain-step-recovery</p></td>
-<td><p>4</p></td>
-<td><p>The number of indices that the gain index pointer should be increased
-(gain increase) in the event of the power measurement being less than
-adi,power-under-range-high-threshold but greater than
-adi,power-under-range-low-threshold. Valid range from 0 to 31.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,power-under-range-low-gain-step-recovery</p></td>
-<td><p>4</p></td>
-<td><p>The number of indices that the gain index pointer should be increased
-(gain increase) in the event of the power measurement being less than
-adi,power-under-range-low-threshold. Valid range from 0 to 31.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,power-measurement-duration</p></td>
-<td><p>10</p></td>
-<td><p>Average power measurement duration = 8*2^powerMeasurementDuration. Valid
-range from 0 to 31.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,power-measurement-delay</p></td>
-<td><p>3</p></td>
-<td><p>Average power measurement delay between sucessive measurement. Valid
-range from 0 to 255.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,power-rx-tdd-measurement-duration</p></td>
-<td><p>0</p></td>
-<td><p>Measurement duration to detect power for specific slice of the gain
-update counter. Valid range from 0 to 65535.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,power-rx-tdd-measurement-delay</p></td>
-<td><p>92</p></td>
-<td><p>Measurement delay to detect power for specific slice of the gain update
-counter. Valid range from 0 to 65535.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,power-over-range-high-threshold</p></td>
-<td><p>0</p></td>
-<td><p>Offset from threshold adi,power-over-range-low-threshold which defines
-the outer boundary on the stable region of the power detect gain control
-mode. Valid range from 0 to 15.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,power-over-range-low-threshold</p></td>
-<td><p>1</p></td>
-<td><p>Threshold which defines the upper boundary on the stable region of the
-power detect gain control mode. Valid range from 0 to 127.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,power-over-range-high-gain-step-attack</p></td>
-<td><p>4</p></td>
-<td><p>The number of indices that the gain index pointer should be decreased
-(gain reduction) in the event of the power measurement being greater than
-adi,power-over-range-high-threshold. Valid range from 0 to 31.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,power-over-range-low-gain-step-attack</p></td>
-<td><p>4</p></td>
-<td><p>The number of indices that the gain index pointer should be decreased
-(gain decrease) in the event of the power measurement being less than
-adi,power-over-range-high-threshold but greater than
-adi,power-over-range-low-threshold. Valid range from 0 to 31</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,agc-power-feedback-high-thres-exceeded</p></td>
-<td><p>0</p></td>
-<td><p>A pair of DGPIO pins to retrieve the gain change information and power
-detector inner low threshold not exceeded status. Valid range from 0 to
-9.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,agc-power-feedback-low-thres-gain-change</p></td>
-<td><p>0</p></td>
-<td><p>A pair of DGPIO pins to retrieve the power detector inner high threshold
-exceeded status and apd high threshold counter exceeded status. Valid
-range from 0 to 9.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,peak-agc-under-range-low-interval</p></td>
-<td><p>50</p></td>
-<td><p>Update interval for AGC loop mode in AGC clock cycles. Valid range is 0
-to 65535.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,peak-agc-under-range-mid-interval</p></td>
-<td><p>2</p></td>
-<td><p>2nd update interval for multiple time constant AGC mode. Calculated as
-(adi,peak-agc-under-range-mid-interval+1)*adi,peak-agc-under-range-low-interval_ns. Valid range is 0 to 63.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,peak-agc-under-range-high-interval</p></td>
-<td><p>4</p></td>
-<td><p>3rd update interval for multiple time constant AGC mode. Calculated as
-(adi,peak-agc-under-range-high-interval+1)*2nd update interval. Valid
-range is 0 to 63.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,peak-apd-high-threshold</p></td>
-<td><p>38</p></td>
-<td><p>AGC APD high threshold. Valid range is 0 to 63.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,peak-apd-low-threshold</p></td>
-<td><p>27</p></td>
-<td><p>AGC APD low threshold. Valid range is 0 to 63. Recommended to be 3dB
-below adi,peak-apd-high-threshol.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,peak-apd-upper-threshold-exceeded-count</p></td>
-<td><p>6</p></td>
-<td><p>AGC APD peak detect upper threshold count. Valid range is 0 to 255.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,peak-apd-lower-threshold-exceeded-count</p></td>
-<td><p>3</p></td>
-<td><p>AGC APD peak detect lower threshold count. Valid range is 0 to 255.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,peak-apd-gain-step-attack</p></td>
-<td><p>4</p></td>
-<td><p>AGC APD peak detect attack gain step. Valid range is 0 to 31.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,peak-apd-gain-step-recovery</p></td>
-<td><p>0</p></td>
-<td><p>AGC APD gain index step size for recovery. Valid range is 0 to 31.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,no-peak-hb-overload-en</p></td>
-<td><p>1</p></td>
-<td><p>Disable the HB overload detector.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,peak-hb-overload-duration-count</p></td>
-<td><p>1</p></td>
-<td><p>Sets the window of clock cycles (at the HB output rate) to meet the
-overload count. (0 = 2 cycles, 1 = 4 cycles, 2 = 8 cycles, 3 = 12 cycles,
-4 = 16 cycles, 5 = 24 cycles, 6 = 32 cycles).</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,peak-hb-overload-threshold-count</p></td>
-<td><p>1</p></td>
-<td><p>Sets the number of actual overloads required to trigger the overload
-signal. Valid range from 1 to 15.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,peak-hb-high-threshold</p></td>
-<td><p>255</p></td>
-<td><p>AGC HB output high threshold. Valid range from 0 to 16383.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,peak-hb-under-range-low-threshold</p></td>
-<td><p>61</p></td>
-<td><p>AGC HB output low threshold. Valid range from 0 to 16383</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,peak-hb-under-range-mid-threshold</p></td>
-<td><p>114</p></td>
-<td><p>AGC HB output low threshold for 2nd interval for multiple time constant
-AGC mode. Valid range from 0 to 16383.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,peak-hb-under-range-high-threshold</p></td>
-<td><p>161</p></td>
-<td><p>AGC HB output low threshold for 3rd interval for multiple time constant
-AGC mode. Valid range from 0 to 16383.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,peak-hb-upper-threshold-exceeded-count</p></td>
-<td><p>6</p></td>
-<td><p>AGC HB output upper threshold count. Valid range from 0 to 255.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,peak-hb-under-range-high-threshold-exceeded-count</p></td>
-<td><p>3</p></td>
-<td><p>AGC HB output lower threshold count. Valid range from 0 to 255.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,peak-hb-gain-step-high-recovery</p></td>
-<td><p>4</p></td>
-<td><p>AGC HB gain index step size. Valid range from 0 to 31.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,peak-hb-gain-step-low-recovery</p></td>
-<td><p>6</p></td>
-<td><p>AGC HB gain index step size, when the HB Low Overrange interval 2
-triggers. Valid range from 0 to 31.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,peak-hb-gain-step-mid-recovery</p></td>
-<td><p>4</p></td>
-<td><p>AGC HB gain index step size, when the HB Low Overrange interval 3
-triggers. Valid range from 0 to 31.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,peak-hb-gain-step-attack</p></td>
-<td><p>4</p></td>
-<td><p>AGC HB output attack gain step. Valid range from 0 to 31.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,peak-hb-overload-power-mode</p></td>
-<td><p>0</p></td>
-<td><p>Select magnitude measurements or power mearurements. 0 = enable peak mode
-1 = enable I2 + Q2 power mode.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,peak-hb-under-range-mid-threshold-exceeded-count</p></td>
-<td><p>3</p></td>
-<td><p>AGC HB output upper threshold count. Valid range from 0 to 255.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,peak-hb-under-range-low-threshold-exceeded-count</p></td>
-<td><p>3</p></td>
-<td><p>AGC HB output lower threshold count. Valid range from 0 to 255.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,agc-peak-feedback-high-thres-counter-exceeded</p></td>
-<td><p>0</p></td>
-<td><p>A pair of DGPIO pins to retrieve the hb low threshold counter exceeded
-status and apd low threshold counter exceeded status. Valid range from 0
-to 9.</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,agc-peak-feedback-low-thres-counter-exceeded</p></td>
-<td><p>0</p></td>
-<td><p>A pair of DGPIO pins to retrieve the hb high threshold counter exceeded
-status and apd high threshold counter exceeded status. Valid range from 0
-to 9.</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<section id="gain-pin-control-settings">
-<span id="adrv9002-customization-gain-pin-control-settings"></span><h4>Gain PIN Control Settings<a class="headerlink" href="#gain-pin-control-settings" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Devicetree property</p></th>
-<th class="head"><p>Default</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>adi,increment-step-size</p></td>
-<td><p>1</p></td>
-<td><p>Number of indices to increase gain on rising edge on incrementPin (Range:
-1 to 7)</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,decrement-step-size</p></td>
-<td><p>1</p></td>
-<td><p>Number of indices to decrease gain on rising edge on decrementPin (Range:
-1 to 7)</p></td>
-</tr>
-<tr class="row-even"><td><p>adi,increment-pin</p></td>
-<td><p>NA</p></td>
-<td><p>A rising edge on this pin will increment gain by adi,increment-step-size.
-Valid range from 0 to 15. Mandatory property in this node.</p></td>
-</tr>
-<tr class="row-odd"><td><p>adi,decrement-pin</p></td>
-<td><p>NA</p></td>
-<td><p>A rising edge on this pin will decrement gain by adi,decrement-step-size.
-Valid range from 0 to 15. Mandatory property in this node.</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-</section>
-<section id="tx">
-<h3>TX<a class="headerlink" href="#tx" title="Link to this heading"></a></h3>
-<p>The following attributes are valid for both TX1 and TX2. The user needs to
-define a valid devicetree node for each TX to apply changes separately to each
-one. Both TXs must be under adi,channels node as can be seen in the example:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adi</span><span class="p">,</span><span class="n">channels</span> <span class="p">{</span>
-    <span class="c1">#address-cells = &lt;1&gt;;</span>
-    <span class="c1">#size-cells = &lt;0&gt;;</span>
-
-        <span class="o">...</span>
-
-    <span class="n">tx</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">port</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">pinctrl</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">tx_pinctrl0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="p">};</span>
-
-    <span class="n">tx</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">port</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">pinctrl</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">tx_pinctrl1</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-</section>
-<section id="id2">
-<h3>Base Settings<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -867,6 +534,337 @@ this node.</p></td>
 </table>
 </div>
 </section>
+</section>
+<section id="agc-settings">
+<span id="adrv9002-customization-agc-settings"></span><h3>AGC Settings<a class="headerlink" href="#agc-settings" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Devicetree property</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>adi,peak-wait-time</p></td>
+<td><p>4</p></td>
+<td><p>AGC peak wait time. Valid range is from 0 to 31.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gain-update-counter</p></td>
+<td><p>11520</p></td>
+<td><p>AGC gain update time denominated in AGC clock cycles; Valid range is from 0 to
+4194303.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,attack-delax-us</p></td>
+<td><p>10</p></td>
+<td><p>Delay time, denominated in microseconds, before starting AGC, after starting Rx.
+Valid range is from 0 to 63.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,slow-loop-settling-delay</p></td>
+<td><p>16</p></td>
+<td><p>On any gain change, the AGC waits for the time (range 0 to 127) specified in AGC
+clock cycles to allow gain transients to flow through the Rx path before
+starting any measurements.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,low-threshold-prevent-gain-inc</p></td>
+<td><p>0</p></td>
+<td><p>Prevent gain index from incrementing while peak thresholds are exceeded.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,change-gain-threshold-high</p></td>
+<td><p>3</p></td>
+<td><p>Enable immediate gain change if high threshold counter is exceeded.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,agc-mode</p></td>
+<td><p>1</p></td>
+<td><p>AGC mode can be either power and peak or only peak.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,reset-on-rx-on</p></td>
+<td><p>0</p></td>
+<td><p>Reset the AGC slow loop state machine to max gain when the Rx Enable is taken
+low.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,reset-on-rx-on-gain-index</p></td>
+<td><p>255</p></td>
+<td><p>AGC Reset On gain index. Valid range is from minGainIndex to maxGainIndex.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,sync-pulse-gain-counter-en</p></td>
+<td><p>0</p></td>
+<td><p>Enable the AGC gain update counter to be sync’ed to a time-slot boundary.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,fast-recovery-loop-en</p></td>
+<td><p>0</p></td>
+<td><p>Enable multiple time constants in AGC loop for fast attack and fast recovery.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,no-power-measurement-en</p></td>
+<td><p>1</p></td>
+<td><p>Disable the Rx power measurement block</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,power-under-range-high-threshold</p></td>
+<td><p>10</p></td>
+<td><p>Threshold which defines the lower boundary on the stable region of the power
+detect gain control mode. Valid Range from 0 to 127.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,power-under-range-low-threshold</p></td>
+<td><p>4</p></td>
+<td><p>Offset from adi,power-under-range-high-threshold which defines the outer
+boundary of the power based AGC convergence. Valid offset from 0 to 15</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,power-under-range-high-gain-step-recovery</p></td>
+<td><p>2</p></td>
+<td><p>The number of indices that the gain index pointer should be increased (gain
+increase) in the event of the power measurement being less than
+adi,power-under-range-high-threshold but greater than
+adi,power-under-range-low-threshold. Valid range from 0 to 31.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,power-under-range-low-gain-step-recovery</p></td>
+<td><p>4</p></td>
+<td><p>The number of indices that the gain index pointer should be increased (gain
+increase) in the event of the power measurement being less than
+adi,power-under-range-low-threshold. Valid range from 0 to 31.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,power-measurement-duration</p></td>
+<td><p>10</p></td>
+<td><p>Average power measurement duration = 8*2^powerMeasurementDuration. Valid range
+from 0 to 31.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,power-measurement-delay</p></td>
+<td><p>2</p></td>
+<td><p>Average power measurement delay between sucessive measurement. Valid range from
+0 to 255.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,power-rx-tdd-measurement-duration</p></td>
+<td><p>0</p></td>
+<td><p>Measurement duration to detect power for specific slice of the gain update
+counter. Valid range from 0 to 65535.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,power-rx-tdd-measurement-delay</p></td>
+<td><p>0</p></td>
+<td><p>Measurement delay to detect power for specific slice of the gain update counter.
+Valid range from 0 to 65535.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,power-over-range-high-threshold</p></td>
+<td><p>0</p></td>
+<td><p>Offset from threshold adi,power-over-range-low-threshold which defines the outer
+boundary on the stable region of the power detect gain control mode. Valid range
+from 0 to 15.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,power-over-range-low-threshold</p></td>
+<td><p>7</p></td>
+<td><p>Threshold which defines the upper boundary on the stable region of the power
+detect gain control mode. Valid range from 0 to 127.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,power-over-range-high-gain-step-attack</p></td>
+<td><p>4</p></td>
+<td><p>The number of indices that the gain index pointer should be decreased (gain
+reduction) in the event of the power measurement being greater than
+adi,power-over-range-high-threshold. Valid range from 0 to 31.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,power-over-range-low-gain-step-attack</p></td>
+<td><p>4</p></td>
+<td><p>The number of indices that the gain index pointer should be decreased (gain
+decrease) in the event of the power measurement being less than
+adi,power-over-range-high-threshold but greater than
+adi,power-over-range-low-threshold. Valid range from 0 to 31</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,agc-power-feedback-high-thres-exceeded</p></td>
+<td><p>0</p></td>
+<td><p>A pair of DGPIO pins to retrieve the gain change information and power detector
+inner low threshold not exceeded status. Valid range from 0 to 9.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,agc-power-feedback-low-thres-gain-change</p></td>
+<td><p>0</p></td>
+<td><p>A pair of DGPIO pins to retrieve the power detector inner high threshold
+exceeded status and apd high threshold counter exceeded status. Valid range from
+0 to 9.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,peak-agc-under-range-low-interval</p></td>
+<td><p>50</p></td>
+<td><p>Update interval for AGC loop mode in AGC clock cycles. Valid range is 0 to
+65535.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,peak-agc-under-range-mid-interval</p></td>
+<td><p>2</p></td>
+<td><p>2nd update interval for multiple time constant AGC mode. Calculated as
+(adi,peak-agc-under-range-mid-interval+1)*adi,peak-agc-under-range-low-interval_ns.
+Valid range is 0 to 63.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,peak-agc-under-range-high-interval</p></td>
+<td><p>4</p></td>
+<td><p>3rd update interval for multiple time constant AGC mode. Calculated as
+(adi,peak-agc-under-range-high-interval+1)*2nd update interval. Valid range is 0
+to 63.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,peak-apd-high-threshold</p></td>
+<td><p>21</p></td>
+<td><p>AGC APD high threshold. Valid range is 0 to 63.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,peak-apd-low-threshold</p></td>
+<td><p>12</p></td>
+<td><p>AGC APD low threshold. Valid range is 0 to 63. Recommended to be 3dB below
+adi,peak-apd-high-threshol.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,peak-apd-upper-threshold-exceeded-count</p></td>
+<td><p>6</p></td>
+<td><p>AGC APD peak detect upper threshold count. Valid range is 0 to 255.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,peak-apd-lower-threshold-exceeded-count</p></td>
+<td><p>3</p></td>
+<td><p>AGC APD peak detect lower threshold count. Valid range is 0 to 255.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,peak-apd-gain-step-attack</p></td>
+<td><p>2</p></td>
+<td><p>AGC APD peak detect attack gain step. Valid range is 0 to 31.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,peak-apd-gain-step-recovery</p></td>
+<td><p>0</p></td>
+<td><p>AGC APD gain index step size for recovery. Valid range is 0 to 31.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,no-peak-hb-overload-en</p></td>
+<td><p>1</p></td>
+<td><p>Disable the HB overload detector.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,peak-hb-overload-duration-count</p></td>
+<td><p>1</p></td>
+<td><p>Sets the window of clock cycles (at the HB output rate) to meet the overload
+count. (0 = 2 cycles, 1 = 4 cycles, 2 = 8 cycles, 3 = 12 cycles, 4 = 16 cycles,
+5 = 24 cycles, 6 = 32 cycles).</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,peak-hb-overload-threshold-count</p></td>
+<td><p>1</p></td>
+<td><p>Sets the number of actual overloads required to trigger the overload signal.
+Valid range from 1 to 15.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,peak-hb-high-threshold</p></td>
+<td><p>13044</p></td>
+<td><p>AGC HB output high threshold. Valid range from 0 to 16383.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,peak-hb-under-range-low-threshold</p></td>
+<td><p>5826</p></td>
+<td><p>AGC HB output low threshold. Valid range from 0 to 16383</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,peak-hb-under-range-mid-threshold</p></td>
+<td><p>8230</p></td>
+<td><p>AGC HB output low threshold for 2nd interval for multiple time constant AGC
+mode. Valid range from 0 to 16383.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,peak-hb-under-range-high-threshold</p></td>
+<td><p>7335</p></td>
+<td><p>AGC HB output low threshold for 3rd interval for multiple time constant AGC
+mode. Valid range from 0 to 16383.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,peak-hb-upper-threshold-exceeded-count</p></td>
+<td><p>6</p></td>
+<td><p>AGC HB output upper threshold count. Valid range from 0 to 255.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,peak-hb-under-range-high-threshold-exceeded-count</p></td>
+<td><p>3</p></td>
+<td><p>AGC HB output lower threshold count. Valid range from 0 to 255.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,peak-hb-gain-step-high-recover</p></td>
+<td><p>2</p></td>
+<td><p>AGC HB gain index step size. Valid range from 0 to 31.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,peak-hb-gain-step-low-recovery</p></td>
+<td><p>6</p></td>
+<td><p>AGC HB gain index step size, when the HB Low Overrange interval 2 triggers.
+Valid range from 0 to 31.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,peak-hb-gain-step-mid-recovery</p></td>
+<td><p>4</p></td>
+<td><p>AGC HB gain index step size, when the HB Low Overrange interval 3 triggers.
+Valid range from 0 to 31.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,peak-hb-gain-step-attack</p></td>
+<td><p>2</p></td>
+<td><p>AGC HB output attack gain step. Valid range from 0 to 31.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,peak-hb-overload-power-mode</p></td>
+<td><p>0</p></td>
+<td><p>Select magnitude measurements or power mearurements. 0 = enable peak mode 1 =
+enable I2 + Q2 power mode.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,peak-hb-under-range-mid-threshold-exceeded-count</p></td>
+<td><p>3</p></td>
+<td><p>AGC HB output upper threshold count. Valid range from 0 to 255.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,peak-hb-under-range-low-threshold-exceeded-count</p></td>
+<td><p>3</p></td>
+<td><p>AGC HB output lower threshold count. Valid range from 0 to 255.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,agc-peak-feedback-high-thres-counter-exceeded</p></td>
+<td><p>0</p></td>
+<td><p>A pair of DGPIO pins to retrieve the hb low threshold counter exceeded status
+and apd low threshold counter exceeded status. Valid range from 0 to 9.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,agc-peak-feedback-low-thres-counter-exceeded</p></td>
+<td><p>0</p></td>
+<td><p>A pair of DGPIO pins to retrieve the hb high threshold counter exceeded status
+and apd high threshold counter exceeded status. Valid range from 0 to 9.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="gain-pin-control-settings">
+<span id="adrv9002-customization-gain-pin-control-settings"></span><h4>Gain PIN Control Settings<a class="headerlink" href="#gain-pin-control-settings" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Devicetree property</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>adi,increment-step-size</p></td>
+<td><p>1</p></td>
+<td><p>Number of indices to increase gain on rising edge on incrementPin (Range:
+1 to 7)</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,decrement-step-size</p></td>
+<td><p>1</p></td>
+<td><p>Number of indices to decrease gain on rising edge on decrementPin (Range:
+1 to 7)</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,increment-pin</p></td>
+<td><p>NA</p></td>
+<td><p>A rising edge on this pin will increment gain by adi,increment-step-size.
+Valid range from 0 to 15. Mandatory property in this node.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,decrement-pin</p></td>
+<td><p>NA</p></td>
+<td><p>A rising edge on this pin will decrement gain by adi,decrement-step-size.
+Valid range from 0 to 15. Mandatory property in this node.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="tx">
+<h3>TX<a class="headerlink" href="#tx" title="Link to this heading"></a></h3>
+<p>The following attributes are valid for both TX1 and TX2. The user needs to
+define a valid devicetree node for each TX to apply changes separately to each
+one. Both TXs must be under adi,channels node as can be seen in the example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adi</span><span class="p">,</span><span class="n">channels</span> <span class="p">{</span>
+    <span class="c1">#address-cells = &lt;1&gt;;</span>
+    <span class="c1">#size-cells = &lt;0&gt;;</span>
+
+        <span class="o">...</span>
+
+    <span class="n">tx</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
+        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+        <span class="n">adi</span><span class="p">,</span><span class="n">port</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+        <span class="n">adi</span><span class="p">,</span><span class="n">pinctrl</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">tx_pinctrl0</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="p">};</span>
+
+    <span class="n">tx</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
+        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+        <span class="n">adi</span><span class="p">,</span><span class="n">port</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+        <span class="n">adi</span><span class="p">,</span><span class="n">pinctrl</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">tx_pinctrl1</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
 </section>
 <section id="gpio-settings">
 <h3>GPIO Settings<a class="headerlink" href="#gpio-settings" title="Link to this heading"></a></h3>

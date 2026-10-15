@@ -98,19 +98,23 @@
           <ul>
 <li><a class="reference internal" href="#">ADF4159</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
-<li><a class="reference internal" href="#supported-boards">Supported Boards</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a></li>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
 <li><a class="reference internal" href="#read-output-frequency">Read output frequency</a></li>
 <li><a class="reference internal" href="#set-output-frequency">Set output frequency</a></li>
 <li><a class="reference internal" href="#output-power-down">Output power down</a></li>
@@ -118,6 +122,9 @@
 <li><a class="reference internal" href="#ramp-mode-deviation-step">Ramp mode deviation step</a></li>
 <li><a class="reference internal" href="#ramp-mode-deviation-range">Ramp mode deviation range</a></li>
 <li><a class="reference internal" href="#ramp-mode-deviation-time">Ramp mode deviation time</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
 <li><a class="reference internal" href="#full-device-control-via-iio-debugfs">Full device control via IIO debugfs</a></li>
 </ul>
 </li>
@@ -223,6 +230,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -241,7 +249,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -384,8 +391,8 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/ADF4169" target="_blank">ADF4169</a></p></li>
 </ul>
 </section>
-<section id="supported-boards">
-<h2>Supported Boards<a class="headerlink" href="#supported-boards" title="Link to this heading"></a></h2>
+<section id="evaluation-boards">
+<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <div class="line-block">
 <div class="line">This driver supports the</div>
 </div>
@@ -402,7 +409,7 @@ modulus, allowing subhertz frequency resolution.</p>
 <p>The ADF4159 consists of a low noise digital phase frequency detector (PFD), a
 precision charge pump, and a programmable reference divider. The Σ-Δ-based
 fractional interpolator allows programmable fractional-N division. The INT and
-FRAC registers define an overall N divider as N = INT + (FRAC/225).</p>
+FRAC registers define an overall N divider as N = INT + FRAC / 2^25.</p>
 <p>The ADF4159 can be used to implement frequency shift keying (FSK) and phase
 shift keying (PSK) modulation. Frequency sweep modes are also available to
 generate various waveforms in the frequency domain, for example, sawtooth and
@@ -436,7 +443,7 @@ down when not in use.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/adf4159.c" target="_blank">drivers/iio/frequency/adf4159.c</a></p></td>
-<td><p>WIP</p></td>
+<td><p>No</p></td>
 <td></td>
 </tr>
 </tbody>
@@ -488,8 +495,32 @@ down when not in use.</p>
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The adf4159 driver depends on <strong>SPI</strong> and selects <strong>REGMAP_SPI</strong></p>
+</div>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+                 <span class="n">Frequency</span> <span class="n">Synthesizers</span> <span class="n">DDS</span><span class="o">/</span><span class="n">PLL</span> <span class="o">---&gt;</span>
+                             <span class="o">***</span> <span class="n">Phase</span><span class="o">-</span><span class="n">Locked</span> <span class="n">Loop</span> <span class="p">(</span><span class="n">PLL</span><span class="p">)</span> <span class="n">frequency</span> <span class="n">synthesizers</span> <span class="o">***</span>
+                             <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADF4159</span><span class="o">/</span><span class="n">ADF4169</span> <span class="n">Waveform</span> <span class="n">Generating</span> <span class="n">Synthesizers</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>The adf4159 driver is a SPI bus driver and can be instantiated via device tree.</p>
 <p><strong>Required properties:</strong></p>
 <ul class="simple">
@@ -504,94 +535,73 @@ down when not in use.</p>
 <li><p><strong>clocks</strong>: a list of phandle, one for each entry in clock-names.</p></li>
 <li><p><strong>clock-names</strong>: Must include the following entry: <code class="docutils literal notranslate"><span class="pre">clkin</span></code></p></li>
 </ul>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Example</span><span class="p">:</span>
+<p>The board must define <code class="docutils literal notranslate"><span class="pre">spi0</span></code> and the <code class="docutils literal notranslate"><span class="pre">clkin</span></code> reference clock. Adapt
+those labels and the device settings to the connected hardware.</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/iio/frequency/adf4159.h&gt;</span>
 
-<span class="n">spi0</span> <span class="p">{</span>
-        <span class="c1">#address-cells = &lt;1&gt;;</span>
-        <span class="c1">#size-cells = &lt;0&gt;;</span>
-        <span class="n">adf4159</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adf4159"</span><span class="p">;</span>
-            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">12500000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="o">&amp;</span><span class="nf">spi0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="nf">adf4159</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,adf4159"</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">12500000</span><span class="o">&gt;</span><span class="p">;</span>
 
-            <span class="o">/*</span> <span class="n">Clocks</span> <span class="o">*/</span>
-            <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clkin</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"clkin"</span><span class="p">;</span>
-            <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"rf_out"</span><span class="p">;</span>
-            <span class="c1">#clock-cells = &lt;0&gt;;</span>
+<span class="w">            </span><span class="cm">/* Clocks */</span>
+<span class="w">            </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clkin</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"clkin"</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clock-output-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"rf_out"</span><span class="p">;</span>
+<span class="w">            </span><span class="o">#</span><span class="n">clock-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
 
-            <span class="n">adi</span><span class="p">,</span><span class="n">power</span><span class="o">-</span><span class="n">up</span><span class="o">-</span><span class="n">frequency</span><span class="o">-</span><span class="n">hz</span> <span class="o">=</span> <span class="o">/</span><span class="n">bits</span><span class="o">/</span> <span class="mi">64</span> <span class="o">&lt;</span><span class="mi">6000000000</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">charge</span><span class="o">-</span><span class="n">pump</span><span class="o">-</span><span class="n">current</span><span class="o">-</span><span class="n">microamp</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">900</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">charge</span><span class="o">-</span><span class="n">pump</span><span class="o">-</span><span class="n">negative</span><span class="o">-</span><span class="n">bleed</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">clk1</span><span class="o">-</span><span class="n">div</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">100</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">clk2</span><span class="o">-</span><span class="n">timer</span><span class="o">-</span><span class="n">div</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">clk2</span><span class="o">-</span><span class="n">timer</span><span class="o">-</span><span class="n">div</span><span class="o">-</span><span class="mi">2</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">clk</span><span class="o">-</span><span class="n">div</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">cycle</span><span class="o">-</span><span class="n">slip</span><span class="o">-</span><span class="n">reduction</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">delay</span><span class="o">-</span><span class="n">clk</span><span class="o">-</span><span class="n">sel</span><span class="o">-</span><span class="n">pfd</span><span class="o">-</span><span class="n">x</span><span class="o">-</span><span class="n">clk1</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">delay</span><span class="o">-</span><span class="n">start</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">delay</span><span class="o">-</span><span class="n">start</span><span class="o">-</span><span class="n">word</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">deviation</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">deviation</span><span class="o">-</span><span class="mi">2</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">deviation</span><span class="o">-</span><span class="n">offset</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">dual</span><span class="o">-</span><span class="n">ramp</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">fast</span><span class="o">-</span><span class="n">ramp</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">fsk</span><span class="o">-</span><span class="n">modulation</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">fsk</span><span class="o">-</span><span class="n">ramp</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">interrupt</span><span class="o">-</span><span class="n">mode</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">le</span><span class="o">-</span><span class="n">sync</span><span class="o">-</span><span class="n">refin</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">lock</span><span class="o">-</span><span class="n">detect</span><span class="o">-</span><span class="n">precision</span><span class="o">-</span><span class="mi">6</span><span class="n">ns</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">muxout</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">MUXOUT_READBACK_TO_MUXOUT</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">negative</span><span class="o">-</span><span class="n">bleed</span><span class="o">-</span><span class="n">current</span><span class="o">-</span><span class="n">microamp</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">parabolic</span><span class="o">-</span><span class="n">ramp</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">phase</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">phase</span><span class="o">-</span><span class="n">detector</span><span class="o">-</span><span class="n">polarity</span><span class="o">-</span><span class="n">positive</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">powerdown</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">psk</span><span class="o">-</span><span class="n">modulation</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">ramp</span><span class="o">-</span><span class="n">dealy</span><span class="o">-</span><span class="n">fl</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">ramp</span><span class="o">-</span><span class="n">delay</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">ramp</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">ramp</span><span class="o">-</span><span class="n">mode</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">ramp</span><span class="o">-</span><span class="n">status</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">RAMP_STATUS_RAMP_COMPLETE_TO_MUXOUT</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">reference</span><span class="o">-</span><span class="n">div2</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">reference</span><span class="o">-</span><span class="n">div</span><span class="o">-</span><span class="n">factor</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">reference</span><span class="o">-</span><span class="n">doubler</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">single</span><span class="o">-</span><span class="n">full</span><span class="o">-</span><span class="n">triangle</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">step</span><span class="o">-</span><span class="n">word</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">step</span><span class="o">-</span><span class="n">word</span><span class="o">-</span><span class="mi">2</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">txdata</span><span class="o">-</span><span class="n">invert</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">txdata</span><span class="o">-</span><span class="n">ramp</span><span class="o">-</span><span class="n">clk</span><span class="o">-</span><span class="n">txdata</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">txdata</span><span class="o">-</span><span class="n">trigger</span><span class="o">-</span><span class="n">delay</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-            <span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">txdata</span><span class="o">-</span><span class="n">trigger</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-        <span class="p">};</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">power-up-frequency-hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="cp">/bits/</span><span class="cm"> </span><span class="cp">64 &lt;6000000000&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">charge-pump-current-microamp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">900</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="c1">//adi,charge-pump-negative-bleed-enable;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">clk1-div</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">100</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">clk2-timer-div</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">clk2-timer-div-2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">clk-div-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="c1">//adi,cycle-slip-reduction-enable;</span>
+<span class="w">            </span><span class="c1">//adi,delay-clk-sel-pfd-x-clk1-enable;</span>
+<span class="w">            </span><span class="c1">//adi,delay-start-enable;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">delay-start-word</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">deviation</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">deviation-2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">deviation-offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="c1">//adi,dual-ramp-enable;</span>
+<span class="w">            </span><span class="c1">//adi,fast-ramp-enable;</span>
+<span class="w">            </span><span class="c1">//adi,fsk-modulation-enable;</span>
+<span class="w">            </span><span class="c1">//adi,fsk-ramp-enable;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">interrupt-mode-select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="c1">//adi,le-sync-refin-enable;</span>
+<span class="w">            </span><span class="c1">//adi,lock-detect-precision-6ns-enable;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">muxout-select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">MUXOUT_READBACK_TO_MUXOUT</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">negative-bleed-current-microamp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="c1">//adi,parabolic-ramp-enable;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">phase</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="c1">//adi,phase-detector-polarity-positive-enable;</span>
+<span class="w">            </span><span class="c1">//adi,powerdown-enable;</span>
+<span class="w">            </span><span class="c1">//adi,psk-modulation-enable;</span>
+<span class="w">            </span><span class="c1">//adi,ramp-dealy-fl-enable;</span>
+<span class="w">            </span><span class="c1">//adi,ramp-delay-enable;</span>
+<span class="w">            </span><span class="c1">//adi,ramp-enable;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">ramp-mode-select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">ramp-status-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="na">RAMP_STATUS_RAMP_COMPLETE_TO_MUXOUT</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="c1">//adi,reference-div2-enable;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">reference-div-factor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="c1">//adi,reference-doubler-enable;</span>
+<span class="w">            </span><span class="c1">//adi,single-full-triangle-enable;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">step-word</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">step-word-2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="c1">//adi,txdata-invert-enable;</span>
+<span class="w">            </span><span class="c1">//adi,txdata-ramp-clk-txdata-enable;</span>
+<span class="w">            </span><span class="c1">//adi,txdata-trigger-delay-enable;</span>
+<span class="w">            </span><span class="c1">//adi,txdata-trigger-enable;</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="p">};</span>
 </pre></div>
 </div>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The adf4159 driver depends on <strong>SPI</strong> and selects <strong>REGMAP_SPI</strong></p>
-</div>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-                 <span class="n">Frequency</span> <span class="n">Synthesizers</span> <span class="n">DDS</span><span class="o">/</span><span class="n">PLL</span> <span class="o">---&gt;</span>
-                             <span class="o">***</span> <span class="n">Phase</span><span class="o">-</span><span class="n">Locked</span> <span class="n">Loop</span> <span class="p">(</span><span class="n">PLL</span><span class="p">)</span> <span class="n">frequency</span> <span class="n">synthesizers</span> <span class="o">***</span>
-                             <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADF4159</span><span class="o">/</span><span class="n">ADF4169</span> <span class="n">Waveform</span> <span class="n">Generating</span> <span class="n">Synthesizers</span>
-</pre></div>
-</div>
-</section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -630,8 +640,8 @@ the numbering is constant and may be known in advance.</p>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1">#</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat name</span>
 <span class="n">adf4159</span>
 </pre></div>
@@ -722,6 +732,9 @@ negative. Negative values result in a ramp down.</p>
 </pre></div>
 </div>
 </section>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
 <section id="full-device-control-via-iio-debugfs">
 <h3>Full device control via IIO debugfs<a class="headerlink" href="#full-device-control-via-iio-debugfs" title="Link to this heading"></a></h3>
 <p>This device features an additional debugfs ABI, allowing the user to control

@@ -4,7 +4,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta content="Open Alliance TC6-10BASE-T1x MAC-PHY Serial Interface Linux Driver." name="description" />
+<meta content="Open Alliance TC6-10BASE-T1x MAC-PHY Serial Interface Linux Driver. This page describes the adin1110-open-alliance development branch (commit a0adc643b9c570f8af594d27f1e76b0c9f8bcf13). Its open-alliance properties and chunk statistics are branch-specific; the main ADIN1110/ADIN2111 driver uses the generic SPI protocol." name="description" />
 
     <title>TC6-10BASE-T1x &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8e8a900e" />
@@ -98,16 +98,19 @@
           <ul>
 <li><a class="reference internal" href="#">TC6-10BASE-T1x</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
-<li><a class="reference internal" href="#supported-boards">Supported Boards</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#device-tree">Device Tree</a></li>
 <li><a class="reference internal" href="#ifconfig">ifconfig</a></li>
 <li><a class="reference internal" href="#ethtool">ethtool</a><ul>
 <li><a class="reference internal" href="#example-seeing-mac-phy-info">Example: Seeing MAC &amp; PHY info</a></li>
@@ -216,6 +219,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -234,7 +238,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -369,7 +372,11 @@ Content on this topic
             
   <section id="tc6-10base-t1x">
 <span id="open-alliance"></span><h1>TC6-10BASE-T1x<a class="headerlink" href="#tc6-10base-t1x" title="Link to this heading"></a></h1>
-<p>Open Alliance TC6-10BASE-T1x MAC-PHY Serial Interface Linux Driver.</p>
+<p>Open Alliance TC6-10BASE-T1x MAC-PHY Serial Interface Linux Driver. This page
+describes the adin1110-open-alliance development branch (commit
+a0adc643b9c570f8af594d27f1e76b0c9f8bcf13). Its open-alliance properties and
+chunk statistics are branch-specific; the main ADIN1110/ADIN2111 driver uses
+the generic SPI protocol.</p>
 <section id="supported-devices">
 <h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -377,8 +384,8 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/ADIN2111" target="_blank">ADIN2111</a></p></li>
 </ul>
 </section>
-<section id="supported-boards">
-<h2>Supported Boards<a class="headerlink" href="#supported-boards" title="Link to this heading"></a></h2>
+<section id="evaluation-boards">
+<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -458,8 +465,10 @@ existing low-end microcontrollers which do not integrate a MAC controller.</p>
 </div>
 </section>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <ol class="arabic simple">
@@ -470,75 +479,82 @@ available in your kernel tree, please use
 <li><p>Press 1 (the key), then hit Enter</p></li>
 <li><p>You should see the location + dependencies for enabling the driver</p></li>
 </ol>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">CONFIG_OPEN_ALLIANCE</span><span class="p">:</span>
-<span class="n">The</span> <span class="n">Open</span> <span class="n">Alliance</span> <span class="n">SPI</span> <span class="n">protocol</span> <span class="ow">is</span> <span class="n">used</span> <span class="n">on</span> <span class="mi">10</span><span class="n">BASE</span><span class="o">-</span><span class="n">T1x</span>
-<span class="n">MACPHY</span> <span class="n">Serial</span> <span class="n">Interface</span> <span class="k">for</span> <span class="n">communication</span>
-<span class="k">with</span> <span class="n">the</span> <span class="n">host</span> <span class="n">controller</span><span class="o">.</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>CONFIG_OPEN_ALLIANCE:
+The Open Alliance SPI protocol is used on 10BASE-T1x
+MACPHY Serial Interface for communication
+with the host controller.
 
-<span class="n">Say</span> <span class="n">Y</span> <span class="n">to</span> <span class="n">include</span> <span class="n">support</span> <span class="k">for</span> <span class="n">the</span> <span class="n">OPEN_ALLIANCE</span><span class="o">.</span>
-<span class="n">To</span> <span class="nb">compile</span> <span class="n">this</span> <span class="n">driver</span> <span class="k">as</span> <span class="n">a</span> <span class="n">module</span><span class="p">,</span> <span class="n">choose</span> <span class="n">M</span> <span class="n">here</span><span class="p">:</span> <span class="n">the</span> <span class="n">module</span>
-<span class="n">will</span> <span class="n">be</span> <span class="n">called</span> <span class="n">dnet</span><span class="o">.</span>
+Say Y to include support for the OPEN_ALLIANCE.
+To compile this driver as a module, choose M here: the module
+will be called open_alliance.
 
-<span class="n">Symbol</span><span class="p">:</span> <span class="n">OPEN_ALLIANCE</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">]</span>
-<span class="n">Type</span>  <span class="p">:</span> <span class="n">tristate</span>
-<span class="n">Defined</span> <span class="n">at</span> <span class="n">drivers</span><span class="o">/</span><span class="n">net</span><span class="o">/</span><span class="n">ethernet</span><span class="o">/</span><span class="n">Kconfig</span><span class="p">:</span><span class="mi">147</span>
-    <span class="n">Prompt</span><span class="p">:</span> <span class="n">Open</span> <span class="n">Alliance</span> <span class="mi">10</span><span class="n">BASE</span><span class="o">-</span><span class="n">T1x</span> <span class="n">support</span><span class="o">.</span>
-    <span class="n">Depends</span> <span class="n">on</span><span class="p">:</span> <span class="n">NETDEVICES</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">]</span> <span class="o">&amp;&amp;</span> <span class="n">ETHERNET</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">]</span> <span class="o">&amp;&amp;</span> <span class="n">SPI</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">]</span>
-    <span class="n">Location</span><span class="p">:</span>
-        <span class="o">-&gt;</span> <span class="n">Device</span> <span class="n">Drivers</span>
-            <span class="o">-&gt;</span> <span class="n">Network</span> <span class="n">device</span> <span class="n">support</span> <span class="p">(</span><span class="n">NETDEVICES</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">])</span>
-                <span class="o">-&gt;</span> <span class="n">Ethernet</span> <span class="n">driver</span> <span class="n">support</span> <span class="p">(</span><span class="n">ETHERNET</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">])</span>
-    <span class="n">Selects</span><span class="p">:</span> <span class="n">CRC8</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">]</span>
+Symbol: OPEN_ALLIANCE [=y]
+Type  : tristate
+Defined at drivers/net/ethernet/Kconfig:147
+    Prompt: Open Alliance 10BASE-T1x support.
+    Depends on: NETDEVICES [=y] &amp;&amp; ETHERNET [=y] &amp;&amp; SPI [=y]
+    Location:
+        -&gt; Device Drivers
+            -&gt; Network device support (NETDEVICES [=y])
+                -&gt; Ethernet driver support (ETHERNET [=y])
+    Selects: CRC8 [=y]
 </pre></div>
 </div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<p>ADIN1110 probes via devicetree.</p>
+<p>The ADIN1110 datasheet’s SPI protocol table requires <code class="docutils literal notranslate"><span class="pre">SPI_CFG1</span> <span class="pre">=</span> <span class="pre">0</span></code> for
+Open Alliance mode. <code class="docutils literal notranslate"><span class="pre">SPI_CFG0</span> <span class="pre">=</span> <span class="pre">0</span></code> selects protected transfers, while
+<code class="docutils literal notranslate"><span class="pre">SPI_CFG0</span> <span class="pre">=</span> <span class="pre">1</span></code> selects unprotected transfers. The ADIN2111 table specifies
+the same combinations. Match these hardware straps to the software’s
+<code class="docutils literal notranslate"><span class="pre">open-alliance</span></code> and <code class="docutils literal notranslate"><span class="pre">open-alliance-protected</span></code> settings; the Device Tree
+properties do not configure the physical straps.</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nf">ethernet</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,adin1110"</span><span class="p">;</span>
+
+<span class="w">        </span><span class="cm">/* SPI CS number */</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="cm">/* will need 13.5 MHz for 10 Mbps, lower speeds will result in lower bandwidth */</span>
+<span class="w">    </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">13500000</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="cm">/* select the OA driver mode; hardware must also be strapped for OA SPI */</span>
+<span class="w">        </span><span class="n">open-alliance</span><span class="p">;</span>
+
+<span class="w">        </span><span class="cm">/* optional, will check all control read/writes over SPI */</span>
+<span class="w">        </span><span class="n">open-alliance-protected</span><span class="p">;</span>
+
+<span class="w">    </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="cm">/* an IRQ is required, INT_N pin is configured to signal RX/TX frames */</span>
+<span class="w">    </span><span class="n">interrupt-parent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">gpio</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">interrupts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">25</span><span class="w"> </span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">mac-address</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="mh">CA</span><span class="w"> </span><span class="mh">2F</span><span class="w"> </span><span class="mh">B7</span><span class="w"> </span><span class="mh">10</span><span class="w"> </span><span class="mh">23</span><span class="w"> </span><span class="mh">63</span><span class="w"> </span><span class="p">];</span>
+
+<span class="w">    </span><span class="nf">phy</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ethernet-phy-id0283.bc91"</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <p>This requires that another 10BASE-T1L PHY be connected to the other end of the
 network cable, or that a media converter be used to convert to normal
 twisted-pair ethernet that standard ethernet cables use.</p>
-<p>ADIN1110 communicates with the host via SPI. For 10 Mbps bandwidth, SPI
-frequency needs to be around 23 MHz. Lower SPI frequencies are supported but
-will result in a lower bandwidth. At 1 MHz the MAC will provide aprox. 0.4 Mbps
-of bandwidth.</p>
+<p>The OPEN Alliance SPI protocol transfers data in full duplex. The ADIN1110 and
+ADIN2111 datasheets describe 10 Mbps bidirectional frame transfers with SPI
+clocks in the region of 12 MHz to 16 MHz or greater; the example below uses
+13.5 MHz.</p>
 <p>Connect to host the SCLK, CS_N, SDI, SDO and INT_N. (The INT_N is mandatory, see
 DT bindings). RX frames and sent TX frames are signaled to the host by INT_N IRQ
 pin.</p>
-<section id="device-tree">
-<h3>Device Tree<a class="headerlink" href="#device-tree" title="Link to this heading"></a></h3>
-<p>ADIN1110 probes via devicetree.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ethernet</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adin1110"</span><span class="p">;</span>
-
-        <span class="o">/*</span> <span class="n">SPI</span> <span class="n">CS</span> <span class="n">number</span> <span class="o">*/</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-
-        <span class="o">/*</span> <span class="n">will</span> <span class="n">need</span> <span class="mf">13.5</span> <span class="n">MHz</span> <span class="k">for</span> <span class="mi">10</span> <span class="n">Mbps</span><span class="p">,</span> <span class="n">lower</span> <span class="n">speeds</span> <span class="n">will</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">lower</span> <span class="n">bandwidth</span> <span class="o">*/</span>
-    <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">13500000</span><span class="o">&gt;</span><span class="p">;</span>
-
-        <span class="o">/*</span> <span class="n">Enables</span> <span class="n">Open</span> <span class="n">Alliance</span> <span class="n">Mode</span> <span class="o">*/</span>
-        <span class="nb">open</span><span class="o">-</span><span class="n">alliance</span><span class="p">;</span>
-
-        <span class="o">/*</span> <span class="n">optional</span><span class="p">,</span> <span class="n">will</span> <span class="n">check</span> <span class="nb">all</span> <span class="n">control</span> <span class="n">read</span><span class="o">/</span><span class="n">writes</span> <span class="n">over</span> <span class="n">SPI</span> <span class="o">*/</span>
-        <span class="nb">open</span><span class="o">-</span><span class="n">alliance</span><span class="o">-</span><span class="n">protected</span><span class="p">;</span>
-
-    <span class="c1">#address-cells = &lt;1&gt;;</span>
-    <span class="c1">#size-cells = &lt;0&gt;;</span>
-
-        <span class="o">/*</span> <span class="n">an</span> <span class="n">IRQ</span> <span class="ow">is</span> <span class="n">required</span><span class="p">,</span> <span class="n">INT_N</span> <span class="n">pin</span> <span class="ow">is</span> <span class="n">configured</span> <span class="n">to</span> <span class="n">signal</span> <span class="n">RX</span><span class="o">/</span><span class="n">TX</span> <span class="n">frames</span> <span class="o">*/</span>
-    <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">25</span> <span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
-
-    <span class="n">mac</span><span class="o">-</span><span class="n">address</span> <span class="o">=</span> <span class="p">[</span> <span class="n">CA</span> <span class="mi">2</span><span class="n">F</span> <span class="n">B7</span> <span class="mi">10</span> <span class="mi">23</span> <span class="mi">63</span> <span class="p">];</span>
-
-    <span class="n">phy</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"ethernet-phy-id0283.bc91"</span><span class="p">;</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-</section>
 <section id="ifconfig">
 <h3>ifconfig<a class="headerlink" href="#ifconfig" title="Link to this heading"></a></h3>
 <p>This tool will display the general status of the available network interfaces.

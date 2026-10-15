@@ -100,21 +100,26 @@
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
 <li><a class="reference internal" href="#description">Description</a><ul>
+<li><a class="reference internal" href="#driver-features-and-limitations">Driver features and limitations</a></li>
 <li><a class="reference internal" href="#id2">ADP5589</a></li>
 <li><a class="reference internal" href="#adp5585">ADP5585</a></li>
-<li><a class="reference internal" href="#id3">Description</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#configuration">Configuration</a></li>
-<li><a class="reference internal" href="#software-configurable-features">Software configurable features</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
 <li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
+<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#software-configuration">Software configuration</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
 <li><a class="reference internal" href="#driver-loading">Driver loading</a></li>
 <li><a class="reference internal" href="#keypad-test">Keypad test</a><ul>
@@ -125,13 +130,7 @@
 <li><a class="reference internal" href="#access-using-the-sysfs-interface-for-userspace">Access using the sysfs interface for userspace</a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li><a class="reference internal" href="#pmod-ioxp">PMOD-IOXP</a><ul>
-<li><a class="reference internal" href="#id4">Hardware configuration</a><ul>
-<li><a class="reference internal" href="#software-configuration">Software configuration</a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#pmod-ioxp">PMOD-IOXP</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -236,6 +235,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -254,7 +254,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -407,35 +406,16 @@ Content on this topic
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
-<section id="id2">
-<h3>ADP5589<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
-<p>The ADP5589 is a programmable I/O port expander and keypad matrix decoder
-with an I2C interface. It supports up to 11 × 8 keypad matrix with FIFO
-buffering, and unused pins can be configured as general-purpose I/O, making
-it ideal for portable devices requiring flexible input interfaces.</p>
-</section>
-<section id="adp5585">
-<h3>ADP5585<a class="headerlink" href="#adp5585" title="Link to this heading"></a></h3>
-<p>The ADP5585 is a compact I/O port expander and keypad controller supporting
-up to 5 × 5 keypad matrix. It provides similar functionality to the ADP5589
-in a smaller package, with configurable GPIOs, interrupt support, and
-hardware reset generation for space-constrained applications.</p>
-</section>
-<section id="id3">
-<h3>Description<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
 <p>The driver supports multiple key press detection and resolution. It
 independently delivers key press and key release events in chronological order
 to the Linux input device system.</p>
 <p>This allows <strong>SHIFT + ANYKEY</strong>, <strong>ALT + F1</strong> or <strong>CTRL + ALT + DEL</strong> sequences.</p>
-<p>Since the ADP5589 buffers events in its internal FIFO, it’s unlikely that events
-are lost due to heavy system load and interrupt latencies.</p>
-</section>
-</section>
-<section id="configuration">
-<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
-</section>
-<section id="software-configurable-features">
-<h2>Software configurable features<a class="headerlink" href="#software-configurable-features" title="Link to this heading"></a></h2>
+<p>The ADP5589 FIFO buffers up to 16 events, including separate key-press and
+key-release events. This absorbs short host delays, but events can be lost if
+the FIFO fills before the host drains it; FIFO buffering does not guarantee
+lossless input under sustained interrupt latency.</p>
+<section id="driver-features-and-limitations">
+<h3>Driver features and limitations<a class="headerlink" href="#driver-features-and-limitations" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p>Configurable keypad size matrix up to 11 × 8 (columns, rows).</p></li>
 <li><p>Support for switch events.</p></li>
@@ -449,6 +429,25 @@ configuration on all configurable I/Os.</p></li>
 <li><p>Unused row and column pins are exported as general-purpose inputs/outputs to
 GPIOLIB</p></li>
 </ul>
+</section>
+<section id="id2">
+<h3>ADP5589<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
+<p>The ADP5589 is a programmable I/O port expander and keypad matrix decoder
+with an I2C interface. It supports up to 11 × 8 keypad matrix with FIFO
+buffering, and unused pins can be configured as general-purpose I/O, making
+it ideal for portable devices requiring flexible input interfaces.</p>
+</section>
+<section id="adp5585">
+<h3>ADP5585<a class="headerlink" href="#adp5585" title="Link to this heading"></a></h3>
+<p>The ADP5585 is a compact I/O port expander and keypad controller supporting a 5
+× 5 keypad matrix, or 6 × 5 on the ROW5-capable hardware option. The datasheet
+lists the ROW5-capable ordering codes with suffix -01; the driver names its
+ROW5-capable variant adp5585-02-keys. Check the populated ordering code and
+select the corresponding driver variant; the driver identifier is not the
+datasheet ordering suffix. It provides similar functionality to the ADP5589 in a
+smaller package, with configurable GPIOs, interrupt support, and hardware reset
+generation for space-constrained applications.</p>
+</section>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -494,8 +493,146 @@ GPIOLIB</p></li>
 </div>
 </section>
 </section>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/software/driver/linux/adp5589_demo_brd_and_stamp.jpg"><img alt="https://wiki.analog.com/_media/software/driver/linux/adp5589_demo_brd_and_stamp.jpg" src="https://wiki.analog.com/_media/software/driver/linux/adp5589_demo_brd_and_stamp.jpg" style="width: 600px;" />
+</a>
+</figure>
+<p>There is no dedicated Blackfin STAMP evaluation board for the ADP5589. During
+test and driver development we used the ADP5589 Demo Mother/Daughter Board.</p>
+<p>It can be easily wired to the Blackfin STAMP TWI/I2C header.</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>BF537-STAMP (P10) TWI/I2C header</p></th>
+<th class="head"></th>
+<th class="head"><p>ADP5589 Daughter Board</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>PIN</p></td>
+<td><p>Function</p></td>
+<td><p>PIN/Function</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>(+3.3V)</p></td>
+<td><p>VDD</p></td>
+</tr>
+<tr class="row-even"><td><p>5</p></td>
+<td><p>SCL</p></td>
+<td><p>SCL</p></td>
+</tr>
+<tr class="row-odd"><td><p>6</p></td>
+<td><p>SDA</p></td>
+<td><p>SDA</p></td>
+</tr>
+<tr class="row-even"><td><p>10</p></td>
+<td><p>PORTG0</p></td>
+<td><p>/INT</p></td>
+</tr>
+<tr class="row-odd"><td><p>20</p></td>
+<td><p>GND</p></td>
+<td><p>GND</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-keyboard/pmodioxp.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-keyboard/pmodioxp.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-keyboard/pmodioxp.jpg" style="width: 300px;" />
+</a>
+</figure>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>BF537-STAMP (P10) TWI/I2C header</p></th>
+<th class="head"></th>
+<th class="head"><p>PMOD-IOXP</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>PIN</p></td>
+<td><p>Function</p></td>
+<td><p>PIN/Function</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>(+3.3V)</p></td>
+<td><p>VDD</p></td>
+</tr>
+<tr class="row-even"><td><p>5</p></td>
+<td><p>SCL</p></td>
+<td><p>SCL</p></td>
+</tr>
+<tr class="row-odd"><td><p>6</p></td>
+<td><p>SDA</p></td>
+<td><p>SDA</p></td>
+</tr>
+<tr class="row-even"><td><p>10</p></td>
+<td><p>PORTG0</p></td>
+<td><p>/INT</p></td>
+</tr>
+<tr class="row-odd"><td><p>20</p></td>
+<td><p>GND</p></td>
+<td><p>GND</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ADP5589 Driver depends on <strong>CONFIG_I2C</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">---</span> <span class="n">Input</span> <span class="n">Device</span> <span class="n">Support</span>
+<span class="o">&lt;&gt;</span> <span class="n">Generic</span> <span class="nb">input</span> <span class="n">layer</span> <span class="p">(</span><span class="n">needed</span> <span class="k">for</span> <span class="n">keyboard</span><span class="p">,</span> <span class="n">mouse</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Support</span> <span class="k">for</span> <span class="n">memoryless</span> <span class="n">force</span><span class="o">-</span><span class="n">feedback</span> <span class="n">devices</span>
+<span class="o">---</span>   <span class="n">Userland</span> <span class="n">interfaces</span>
+<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Mouse</span> <span class="n">interface</span>
+<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Joystick</span> <span class="n">interface</span>
+<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Touchscreen</span> <span class="n">interface</span>
+<span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">Event</span> <span class="n">interface</span>
+<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Event</span> <span class="n">debugging</span>
+<span class="o">---</span>   <span class="n">Input</span> <span class="n">Device</span> <span class="n">Drivers</span>
+<span class="p">[]</span>   <span class="n">Keyboards</span>  <span class="o">---&gt;</span>
+
+    <span class="o">---</span> <span class="n">Keyboards</span>
+      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">ADP5588</span><span class="o">/</span><span class="mi">87</span> <span class="n">I2C</span> <span class="n">QWERTY</span> <span class="n">Keypad</span> <span class="ow">and</span> <span class="n">IO</span> <span class="n">Expander</span>
+      <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">ADP5589</span> <span class="n">ADP5585</span> <span class="n">I2C</span> <span class="n">QWERTY</span> <span class="n">Keypad</span> <span class="ow">and</span> <span class="n">IO</span> <span class="n">Expander</span>
+      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">AT</span> <span class="n">keyboard</span>
+      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Atmel</span> <span class="n">AT42QT1070</span> <span class="n">Touch</span> <span class="n">Sensor</span> <span class="n">Chip</span>
+      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Atmel</span> <span class="n">AT42QT2160</span> <span class="n">Touch</span> <span class="n">Sensor</span> <span class="n">Chip</span>
+      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">DECstation</span><span class="o">/</span><span class="n">VAXstation</span> <span class="n">LK201</span><span class="o">/</span><span class="n">LK401</span> <span class="n">keyboard</span>
+      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">GPIO</span> <span class="n">Buttons</span>
+      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Polled</span> <span class="n">GPIO</span> <span class="n">buttons</span>
+      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">TCA6416</span><span class="o">/</span><span class="n">TCA6408A</span> <span class="n">Keypad</span> <span class="n">Support</span>
+      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">GPIO</span> <span class="n">driven</span> <span class="n">matrix</span> <span class="n">keypad</span> <span class="n">support</span>
+      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Maxim</span> <span class="n">MAX7359</span> <span class="n">Key</span> <span class="n">Switch</span> <span class="n">Controller</span>
+      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">MELFAS</span> <span class="n">MCS</span> <span class="n">Touchkey</span>
+      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Freescale</span> <span class="n">MPR121</span> <span class="n">Touchkey</span>
+      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Newton</span> <span class="n">keyboard</span>
+      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">OpenCores</span> <span class="n">Keyboard</span> <span class="n">Controller</span>
+      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Stowaway</span> <span class="n">keyboard</span>
+      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Sun</span> <span class="n">Type</span> <span class="mi">4</span> <span class="ow">and</span> <span class="n">Type</span> <span class="mi">5</span> <span class="n">keyboard</span>
+      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">XT</span> <span class="n">keyboard</span>
+
+<span class="p">[</span> <span class="p">]</span>   <span class="n">Mouse</span>  <span class="o">---&gt;</span>
+<span class="p">[</span> <span class="p">]</span>   <span class="n">Joysticks</span>  <span class="o">---&gt;</span>
+<span class="p">[</span> <span class="p">]</span>   <span class="n">Touchscreens</span>  <span class="o">---&gt;</span>
+<span class="p">[</span> <span class="p">]</span>   <span class="n">Miscellaneous</span> <span class="n">devices</span>  <span class="o">---&gt;</span>
+    <span class="n">Hardware</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">ports</span>  <span class="o">---&gt;</span>
+</pre></div>
+</div>
+</section>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -516,7 +653,7 @@ and minimizes board and application specific #ifdefs in drivers.</p>
 <span class="w">    </span><span class="p">[</span><span class="mi">11</span><span class="p">]</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_4</span><span class="p">,</span>
 <span class="w">    </span><span class="p">[</span><span class="mi">12</span><span class="p">]</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_5</span><span class="p">,</span>
 <span class="w">    </span><span class="p">[</span><span class="mi">13</span><span class="p">]</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_6</span><span class="p">,</span>
-<span class="w">    </span><span class="p">[</span><span class="mi">15</span><span class="p">]</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_DOT</span><span class="p">,</span>
+<span class="w">    </span><span class="p">[</span><span class="mi">14</span><span class="p">]</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_DOT</span><span class="p">,</span>
 <span class="w">    </span><span class="p">[</span><span class="mi">22</span><span class="p">]</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_7</span><span class="p">,</span>
 <span class="w">    </span><span class="p">[</span><span class="mi">23</span><span class="p">]</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_8</span><span class="p">,</span>
 <span class="w">    </span><span class="p">[</span><span class="mi">24</span><span class="p">]</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_9</span><span class="p">,</span>
@@ -635,99 +772,74 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 </pre></div>
 </div>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The ADP5589 Driver depends on <strong>CONFIG_I2C</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">---</span> <span class="n">Input</span> <span class="n">Device</span> <span class="n">Support</span>
-<span class="o">&lt;&gt;</span> <span class="n">Generic</span> <span class="nb">input</span> <span class="n">layer</span> <span class="p">(</span><span class="n">needed</span> <span class="k">for</span> <span class="n">keyboard</span><span class="p">,</span> <span class="n">mouse</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
-<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Support</span> <span class="k">for</span> <span class="n">memoryless</span> <span class="n">force</span><span class="o">-</span><span class="n">feedback</span> <span class="n">devices</span>
-<span class="o">---</span>   <span class="n">Userland</span> <span class="n">interfaces</span>
-<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Mouse</span> <span class="n">interface</span>
-<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Joystick</span> <span class="n">interface</span>
-<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Touchscreen</span> <span class="n">interface</span>
-<span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">Event</span> <span class="n">interface</span>
-<span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Event</span> <span class="n">debugging</span>
-<span class="o">---</span>   <span class="n">Input</span> <span class="n">Device</span> <span class="n">Drivers</span>
-<span class="p">[]</span>   <span class="n">Keyboards</span>  <span class="o">---&gt;</span>
+</section>
+<section id="software-configuration">
+<h3>Software configuration<a class="headerlink" href="#software-configuration" title="Link to this heading"></a></h3>
+<p>Built-in board-file example for a 4×4 keypad. Call adp5589_register_board during
+board initialization with the actual I2C bus and Linux IRQ number. The keymap
+uses the driver’s 11-column stride; every configured reset key is present in the
+map.</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/input.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/i2c.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/init.h&gt;</span>
 
-    <span class="o">---</span> <span class="n">Keyboards</span>
-      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">ADP5588</span><span class="o">/</span><span class="mi">87</span> <span class="n">I2C</span> <span class="n">QWERTY</span> <span class="n">Keypad</span> <span class="ow">and</span> <span class="n">IO</span> <span class="n">Expander</span>
-      <span class="o">&lt;</span><span class="n">M</span><span class="o">&gt;</span>   <span class="n">ADP5589</span> <span class="n">ADP5585</span> <span class="n">I2C</span> <span class="n">QWERTY</span> <span class="n">Keypad</span> <span class="ow">and</span> <span class="n">IO</span> <span class="n">Expander</span>
-      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">AT</span> <span class="n">keyboard</span>
-      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Atmel</span> <span class="n">AT42QT1070</span> <span class="n">Touch</span> <span class="n">Sensor</span> <span class="n">Chip</span>
-      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Atmel</span> <span class="n">AT42QT2160</span> <span class="n">Touch</span> <span class="n">Sensor</span> <span class="n">Chip</span>
-      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">DECstation</span><span class="o">/</span><span class="n">VAXstation</span> <span class="n">LK201</span><span class="o">/</span><span class="n">LK401</span> <span class="n">keyboard</span>
-      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">GPIO</span> <span class="n">Buttons</span>
-      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Polled</span> <span class="n">GPIO</span> <span class="n">buttons</span>
-      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">TCA6416</span><span class="o">/</span><span class="n">TCA6408A</span> <span class="n">Keypad</span> <span class="n">Support</span>
-      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">GPIO</span> <span class="n">driven</span> <span class="n">matrix</span> <span class="n">keypad</span> <span class="n">support</span>
-      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Maxim</span> <span class="n">MAX7359</span> <span class="n">Key</span> <span class="n">Switch</span> <span class="n">Controller</span>
-      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">MELFAS</span> <span class="n">MCS</span> <span class="n">Touchkey</span>
-      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Freescale</span> <span class="n">MPR121</span> <span class="n">Touchkey</span>
-      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Newton</span> <span class="n">keyboard</span>
-      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">OpenCores</span> <span class="n">Keyboard</span> <span class="n">Controller</span>
-      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Stowaway</span> <span class="n">keyboard</span>
-      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Sun</span> <span class="n">Type</span> <span class="mi">4</span> <span class="ow">and</span> <span class="n">Type</span> <span class="mi">5</span> <span class="n">keyboard</span>
-      <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">XT</span> <span class="n">keyboard</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/input/adp5589.h&gt;</span>
+<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">short</span><span class="w"> </span><span class="n">adp5589_keymap</span><span class="p">[</span><span class="n">ADP5589_KEYMAPSIZE</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">       </span><span class="p">[</span><span class="mi">0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">11</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_D</span><span class="p">,</span>
+<span class="w">       </span><span class="p">[</span><span class="mi">0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">11</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_C</span><span class="p">,</span>
+<span class="w">       </span><span class="p">[</span><span class="mi">0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">11</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">2</span><span class="p">]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_B</span><span class="p">,</span>
+<span class="w">       </span><span class="p">[</span><span class="mi">0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">11</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_A</span><span class="p">,</span>
 
-<span class="p">[</span> <span class="p">]</span>   <span class="n">Mouse</span>  <span class="o">---&gt;</span>
-<span class="p">[</span> <span class="p">]</span>   <span class="n">Joysticks</span>  <span class="o">---&gt;</span>
-<span class="p">[</span> <span class="p">]</span>   <span class="n">Touchscreens</span>  <span class="o">---&gt;</span>
-<span class="p">[</span> <span class="p">]</span>   <span class="n">Miscellaneous</span> <span class="n">devices</span>  <span class="o">---&gt;</span>
-    <span class="n">Hardware</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">ports</span>  <span class="o">---&gt;</span>
+<span class="w">       </span><span class="p">[</span><span class="mi">1</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">11</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">0</span><span class="p">]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_E</span><span class="p">,</span>
+<span class="w">       </span><span class="p">[</span><span class="mi">1</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">11</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_9</span><span class="p">,</span>
+<span class="w">       </span><span class="p">[</span><span class="mi">1</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">11</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">2</span><span class="p">]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_6</span><span class="p">,</span>
+<span class="w">       </span><span class="p">[</span><span class="mi">1</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">11</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_3</span><span class="p">,</span>
+
+<span class="w">       </span><span class="p">[</span><span class="mi">2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">11</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">0</span><span class="p">]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_F</span><span class="p">,</span>
+<span class="w">       </span><span class="p">[</span><span class="mi">2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">11</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_8</span><span class="p">,</span>
+<span class="w">       </span><span class="p">[</span><span class="mi">2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">11</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">2</span><span class="p">]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_5</span><span class="p">,</span>
+<span class="w">       </span><span class="p">[</span><span class="mi">2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">11</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_2</span><span class="p">,</span>
+
+<span class="w">       </span><span class="p">[</span><span class="mi">3</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">11</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">0</span><span class="p">]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_0</span><span class="p">,</span>
+<span class="w">       </span><span class="p">[</span><span class="mi">3</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">11</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_7</span><span class="p">,</span>
+<span class="w">       </span><span class="p">[</span><span class="mi">3</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">11</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">2</span><span class="p">]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_4</span><span class="p">,</span>
+<span class="w">       </span><span class="p">[</span><span class="mi">3</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">11</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_1</span><span class="p">,</span>
+<span class="p">};</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">adp5589_kpad_platform_data</span><span class="w"> </span><span class="n">adp5589_kpad_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">       </span><span class="cm">/* KEYPAD Config */</span>
+<span class="w">       </span><span class="p">.</span><span class="n">keypad_en_mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="w"> </span><span class="o">|</span>
+<span class="w">                         </span><span class="n">ADP_ROW</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_ROW</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_ROW</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_ROW</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span>
+<span class="w">       </span><span class="p">.</span><span class="n">keymap</span><span class="w">         </span><span class="o">=</span><span class="w"> </span><span class="n">adp5589_keymap</span><span class="p">,</span>
+<span class="w">       </span><span class="p">.</span><span class="n">keymapsize</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">adp5589_keymap</span><span class="p">),</span>
+<span class="w">       </span><span class="p">.</span><span class="n">repeat</span><span class="w">         </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
+<span class="w">       </span><span class="p">.</span><span class="n">scan_cycle_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADP5589_SCAN_CYCLE_10ms</span><span class="p">,</span>
+<span class="w">       </span><span class="cm">/* PULL Config */</span>
+<span class="w">       </span><span class="p">.</span><span class="n">pullup_en_300k</span><span class="w"> </span><span class="o">=</span><span class="w">  </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span><span class="w"> </span><span class="o">|</span>
+<span class="w">                          </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">9</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="w"> </span><span class="o">|</span>
+<span class="w">                          </span><span class="n">ADP_ROW</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_ROW</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_ROW</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_ROW</span><span class="p">(</span><span class="mi">7</span><span class="p">),</span>
+<span class="w">       </span><span class="cm">/* RESET 1 Config */</span>
+<span class="w">       </span><span class="p">.</span><span class="n">reset_cfg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">RESET_PULSE_WIDTH_10ms</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">RESET_TRIG_TIME_2000ms</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">RESET1_POL_LOW</span><span class="p">,</span>
+<span class="w">       </span><span class="p">.</span><span class="n">reset1_key_1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_1</span><span class="p">,</span>
+<span class="w">       </span><span class="p">.</span><span class="n">reset1_key_2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_2</span><span class="p">,</span>
+<span class="w">       </span><span class="p">.</span><span class="n">reset1_key_3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_3</span><span class="p">,</span>
+<span class="p">};</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">adp5589_register_board</span><span class="p">(</span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">bus</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">irq</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="k">struct</span><span class="w"> </span><span class="nc">i2c_board_info</span><span class="w"> </span><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"adp5589-keys"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x34</span><span class="p">),</span>
+<span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">adp5589_kpad_data</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">irq</span><span class="p">,</span>
+<span class="w">    </span><span class="p">};</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">irq</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="o">-</span><span class="n">EINVAL</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">i2c_register_board_info</span><span class="p">(</span><span class="n">bus</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">device</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
-<figure class="align-default">
-<a class="reference internal image-reference" href="https://wiki.analog.com/_media/software/driver/linux/adp5589_demo_brd_and_stamp.jpg"><img alt="https://wiki.analog.com/_media/software/driver/linux/adp5589_demo_brd_and_stamp.jpg" src="https://wiki.analog.com/_media/software/driver/linux/adp5589_demo_brd_and_stamp.jpg" style="width: 600px;" />
-</a>
-</figure>
-<p>There is no dedicated Blackfin STAMP evaluation board for the ADP5589. During
-test and driver development we used the ADP5589 Demo Mother/Daughter Board.</p>
-<p>It can be easily wired to the Blackfin STAMP TWI/I2C header.</p>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>BF537-STAMP (P10) TWI/I2C header</p></th>
-<th class="head"></th>
-<th class="head"><p>ADP5589 Daughter Board</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>PIN</p></td>
-<td><p>Function</p></td>
-<td><p>PIN/Function</p></td>
-</tr>
-<tr class="row-odd"><td><p>2</p></td>
-<td><p>(+3.3V)</p></td>
-<td><p>VDD</p></td>
-</tr>
-<tr class="row-even"><td><p>5</p></td>
-<td><p>SCL</p></td>
-<td><p>SCL</p></td>
-</tr>
-<tr class="row-odd"><td><p>6</p></td>
-<td><p>SDA</p></td>
-<td><p>SDA</p></td>
-</tr>
-<tr class="row-even"><td><p>10</p></td>
-<td><p>PORTG0</p></td>
-<td><p>/INT</p></td>
-</tr>
-<tr class="row-odd"><td><p>20</p></td>
-<td><p>GND</p></td>
-<td><p>GND</p></td>
-</tr>
-</tbody>
-</table>
-</div>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -837,108 +949,11 @@ information read
 </div>
 </section>
 </section>
-</section>
 <section id="pmod-ioxp">
-<h2>PMOD-IOXP<a class="headerlink" href="#pmod-ioxp" title="Link to this heading"></a></h2>
+<h3>PMOD-IOXP<a class="headerlink" href="#pmod-ioxp" title="Link to this heading"></a></h3>
 <p>The PMOD-IOXP is an PMOD board made by Digilent Inc. which features the ADP5589.</p>
 <p>The following example shows how to connect the PMOD-IOXP to a Blackfin
 BF537-STAMP board and a PMOD-KYPD. Also</p>
-<section id="id4">
-<h3>Hardware configuration<a class="headerlink" href="#id4" title="Link to this heading"></a></h3>
-<figure class="align-default">
-<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-keyboard/pmodioxp.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-keyboard/pmodioxp.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-keyboard/pmodioxp.jpg" style="width: 300px;" />
-</a>
-</figure>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>BF537-STAMP (P10) TWI/I2C header</p></th>
-<th class="head"></th>
-<th class="head"><p>PMOD-IOXP</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>PIN</p></td>
-<td><p>Function</p></td>
-<td><p>PIN/Function</p></td>
-</tr>
-<tr class="row-odd"><td><p>2</p></td>
-<td><p>(+3.3V)</p></td>
-<td><p>VDD</p></td>
-</tr>
-<tr class="row-even"><td><p>5</p></td>
-<td><p>SCL</p></td>
-<td><p>SCL</p></td>
-</tr>
-<tr class="row-odd"><td><p>6</p></td>
-<td><p>SDA</p></td>
-<td><p>SDA</p></td>
-</tr>
-<tr class="row-even"><td><p>10</p></td>
-<td><p>PORTG0</p></td>
-<td><p>/INT</p></td>
-</tr>
-<tr class="row-odd"><td><p>20</p></td>
-<td><p>GND</p></td>
-<td><p>GND</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<section id="software-configuration">
-<h4>Software configuration<a class="headerlink" href="#software-configuration" title="Link to this heading"></a></h4>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/input/adp5589.h&gt;</span>
-<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">unsigned</span><span class="w"> </span><span class="kt">short</span><span class="w"> </span><span class="n">adp5589_keymap</span><span class="p">[</span><span class="n">ADP5589_KEYMAPSIZE</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">       </span><span class="p">[</span><span class="n">ADP5589_KEY</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_D</span><span class="p">,</span>
-<span class="w">       </span><span class="p">[</span><span class="n">ADP5589_KEY</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_C</span><span class="p">,</span>
-<span class="w">       </span><span class="p">[</span><span class="n">ADP5589_KEY</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_B</span><span class="p">,</span>
-<span class="w">       </span><span class="p">[</span><span class="n">ADP5589_KEY</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">)]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_A</span><span class="p">,</span>
-
-<span class="w">       </span><span class="p">[</span><span class="n">ADP5589_KEY</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_E</span><span class="p">,</span>
-<span class="w">       </span><span class="p">[</span><span class="n">ADP5589_KEY</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_9</span><span class="p">,</span>
-<span class="w">       </span><span class="p">[</span><span class="n">ADP5589_KEY</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_6</span><span class="p">,</span>
-<span class="w">       </span><span class="p">[</span><span class="n">ADP5589_KEY</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">)]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_3</span><span class="p">,</span>
-
-<span class="w">       </span><span class="p">[</span><span class="n">ADP5589_KEY</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_F</span><span class="p">,</span>
-<span class="w">       </span><span class="p">[</span><span class="n">ADP5589_KEY</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_8</span><span class="p">,</span>
-<span class="w">       </span><span class="p">[</span><span class="n">ADP5589_KEY</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_5</span><span class="p">,</span>
-<span class="w">       </span><span class="p">[</span><span class="n">ADP5589_KEY</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">)]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_2</span><span class="p">,</span>
-
-<span class="w">       </span><span class="p">[</span><span class="n">ADP5589_KEY</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_0</span><span class="p">,</span>
-<span class="w">       </span><span class="p">[</span><span class="n">ADP5589_KEY</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_7</span><span class="p">,</span>
-<span class="w">       </span><span class="p">[</span><span class="n">ADP5589_KEY</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_4</span><span class="p">,</span>
-<span class="w">       </span><span class="p">[</span><span class="n">ADP5589_KEY</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">)]</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_1</span><span class="p">,</span>
-<span class="p">};</span>
-
-<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">adp5589_kpad_platform_data</span><span class="w"> </span><span class="n">adp5589_kpad_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">       </span><span class="cm">/* KEYPAD Config */</span>
-<span class="w">       </span><span class="p">.</span><span class="n">keypad_en_mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="w"> </span><span class="o">|</span>
-<span class="w">                         </span><span class="n">ADP_ROW</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_ROW</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_ROW</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_ROW</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span>
-<span class="w">       </span><span class="p">.</span><span class="n">keymap</span><span class="w">         </span><span class="o">=</span><span class="w"> </span><span class="n">adp5589_keymap</span><span class="p">,</span>
-<span class="w">       </span><span class="p">.</span><span class="n">keymapsize</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">adp5589_keymap</span><span class="p">),</span>
-<span class="w">       </span><span class="p">.</span><span class="n">repeat</span><span class="w">         </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">,</span>
-<span class="w">       </span><span class="p">.</span><span class="n">scan_cycle_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADP5589_SCAN_CYCLE_10ms</span><span class="p">,</span>
-<span class="w">       </span><span class="cm">/* PULL Config */</span>
-<span class="w">       </span><span class="p">.</span><span class="n">pullup_en_300k</span><span class="w"> </span><span class="o">=</span><span class="w">  </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span><span class="w"> </span><span class="o">|</span>
-<span class="w">                          </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">9</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_COL</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span><span class="w"> </span><span class="o">|</span>
-<span class="w">                          </span><span class="n">ADP_ROW</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_ROW</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_ROW</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADP_ROW</span><span class="p">(</span><span class="mi">7</span><span class="p">),</span>
-<span class="w">       </span><span class="cm">/* RESET 1 Config */</span>
-<span class="w">       </span><span class="p">.</span><span class="n">reset_cfg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">RESET_PULSE_WIDTH_10ms</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">RESET_TRIG_TIME_2000ms</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">RESET1_POL_LOW</span><span class="p">,</span>
-<span class="w">       </span><span class="p">.</span><span class="n">reset1_key_1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_1</span><span class="p">,</span>
-<span class="w">       </span><span class="p">.</span><span class="n">reset1_key_2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_2</span><span class="p">,</span>
-<span class="w">       </span><span class="p">.</span><span class="n">reset1_key_3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">KEY_ESC</span><span class="p">,</span>
-<span class="p">};</span>
-
-<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">i2c_board_info</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">bfin_i2c_board_info</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">       </span><span class="p">{</span>
-<span class="w">               </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">"adp5589-keys"</span><span class="p">,</span><span class="w"> </span><span class="mh">0x34</span><span class="p">),</span>
-<span class="w">               </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">adp5589_kpad_data</span><span class="p">,</span>
-<span class="w">               </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PG0</span><span class="p">,</span>
-<span class="w">       </span><span class="p">},</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</section>
 </section>
 </section>
 <section id="more-information">

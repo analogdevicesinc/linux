@@ -98,32 +98,28 @@
           <ul>
 <li><a class="reference internal" href="#">AD9081</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
-<li><a class="reference internal" href="#supported-boards">Supported Boards</a><ul>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#user-guides">User Guides</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#supported-hdl-cores">Supported HDL Cores</a></li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
-<li><a class="reference internal" href="#files">Files</a><ul>
+<li><a class="reference internal" href="#files">Files</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-device-trees">Example device trees</a></li>
-<li><a class="reference internal" href="#interrelated-device-drivers">Interrelated Device Drivers</a><ul>
-<li><a class="reference internal" href="#transport-layer-receive-axi-adc-driver">Transport Layer Receive AXI-ADC driver</a></li>
-<li><a class="reference internal" href="#transport-layer-transmit-axi-dac-dds-driver">Transport Layer Transmit AXI-DAC / DDS driver</a></li>
-<li><a class="reference internal" href="#link-layer-axi-jesd204b-hdl-driver">Link Layer AXI JESD204B HDL driver</a></li>
-<li><a class="reference internal" href="#phy-layer-axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel">PHY Layer AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)</a></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-</li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
 <li><a class="reference internal" href="#device-tree-customization">Device tree customization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
 <li><a class="reference internal" href="#ad9081-mixed-signal-front-end-mxfe-device-tree-bindings">AD9081 Mixed-Signal Front End (MxFE) Device Tree Bindings</a><ul>
-<li><a class="reference internal" href="#overview">Overview</a></li>
 <li><a class="reference internal" href="#compatible-devices">Compatible Devices</a></li>
 <li><a class="reference internal" href="#required-properties">Required Properties</a></li>
 <li><a class="reference internal" href="#optional-properties">Optional Properties</a><ul>
@@ -180,11 +176,9 @@
 </ul>
 </li>
 <li><a class="reference internal" href="#notes">Notes</a></li>
-<li><a class="reference internal" href="#device-tree-example">Device Tree Example</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#general-iio-and-driver-conventions">General IIO and driver conventions</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a></li>
 <li><a class="reference internal" href="#adc-rate">ADC Rate</a></li>
 <li><a class="reference internal" href="#rx-sample-rate">RX Sample Rate</a></li>
 <li><a class="reference internal" href="#dac-rate">DAC Rate</a></li>
@@ -221,6 +215,9 @@
 </ul>
 </li>
 <li><a class="reference internal" href="#on-die-temperature-reading">On-Die Temperature Reading</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
 <li><a class="reference internal" href="#low-level-debug-functions-via-debugfs">Low level debug functions via debugfs</a><ul>
 <li><a class="reference internal" href="#jesd-link-status">JESD Link Status</a><ul>
 <li><a class="reference internal" href="#dac-full-scale-current-ua">dac-full-scale-current-ua</a></li>
@@ -237,16 +234,29 @@
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#low-level-register-access-via-debugfs-direct-reg-access">Low level register access via debugfs (direct_reg_access)</a></li>
+<li><a class="reference internal" href="#low-level-register-access-via-debugfs-direct-reg-access">Low level register access via debugfs (direct_reg_access)</a><ul>
 <li><a class="reference internal" href="#reading">Reading</a></li>
 <li><a class="reference internal" href="#writing">Writing</a></li>
-<li><a class="reference internal" href="#accessing-hdl-core-registers">Accessing HDL CORE registers</a><ul>
+<li><a class="reference internal" href="#accessing-hdl-core-registers">Accessing HDL CORE registers</a></li>
 <li><a class="reference internal" href="#special-access-modes">Special Access Modes</a><ul>
 <li><a class="reference internal" href="#page-mask-register-access">2. Page Mask Register Access</a><ul>
 <li><a class="reference internal" href="#cbus-jrx-serdes-ctle-register-access">3. CBUS JRX (SerDes/CTLE) Register Access</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#summary-table">Summary Table</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a><ul>
+<li><a class="reference internal" href="#supported-hdl-cores">Supported HDL Cores</a></li>
+<li><a class="reference internal" href="#interrelated-device-drivers">Interrelated Device Drivers</a><ul>
+<li><a class="reference internal" href="#transport-layer-receive-axi-adc-driver">Transport Layer Receive AXI-ADC driver</a></li>
+<li><a class="reference internal" href="#transport-layer-transmit-axi-dac-dds-driver">Transport Layer Transmit AXI-DAC / DDS driver</a></li>
+<li><a class="reference internal" href="#link-layer-axi-jesd204b-hdl-driver">Link Layer AXI JESD204B HDL driver</a></li>
+<li><a class="reference internal" href="#phy-layer-axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel">PHY Layer AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)</a></li>
 </ul>
 </li>
 </ul>
@@ -352,6 +362,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -370,7 +381,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -518,8 +528,8 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD9209" target="_blank">AD9209</a></p></li>
 </ul>
 </section>
-<section id="supported-boards">
-<h2>Supported Boards<a class="headerlink" href="#supported-boards" title="Link to this heading"></a></h2>
+<section id="evaluation-boards">
+<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD9081-FMCA-EBZ" target="_blank">AD9081-FMCA-EBZ</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD9082-FMCA-EBZ" target="_blank">AD9082-FMCA-EBZ</a></p></li>
@@ -534,12 +544,6 @@ Content on this topic
 <li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/quadmxfe" target="_blank">Quad-MxFE Prototyping Platform User Guide</a></p></li>
 </ul>
 </section>
-</section>
-<section id="supported-hdl-cores">
-<h2>Supported HDL Cores<a class="headerlink" href="#supported-hdl-cores" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/ad9081_fmca_ebz/ad9081_fmca_ebz_hdl" target="_blank">AD9081-FMCA-EBZ (Single MxFE) HDL Reference Design</a></p></li>
-</ul>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -563,6 +567,12 @@ latency loop back and frequency hopping modes targeted at phase array radar
 system and electronic warfare jammer applications.</p>
 <p>For more information about the AD9081 or AD9082, contact Analog Devices, Inc.,
 at: <a class="reference external" href="mailto:MxFEsupport&#37;&#52;&#48;analog&#46;com">MxFEsupport<span>&#64;</span>analog<span>&#46;</span>com</a></p>
+<p>The AD9081 is a high-performance, single-chip, mixed-signal front end (MxFE)
+integrating:</p>
+<ul class="simple">
+<li><p><strong>Four 16-bit, 12 GSPS RF DAC cores</strong></p></li>
+<li><p><strong>Four 12-bit, 4 GSPS RF ADC cores</strong></p></li>
+</ul>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -602,137 +612,18 @@ at: <a class="reference external" href="mailto:MxFEsupport&#37;&#52;&#48;analog&
 </tbody>
 </table>
 </div>
-<section id="example-device-trees">
-<h4>Example device trees<a class="headerlink" href="#example-device-trees" title="Link to this heading"></a></h4>
-<p>See for:</p>
-<ul class="simple">
-<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/ad9081_fmca_ebz/quickstart/zynq" target="_blank">zynq</a>, section “Example Device Trees”.</p></li>
-<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/ad9081_fmca_ebz/quickstart/microamperes" target="_blank">microblaze</a>, section “Example Device Trees”.</p></li>
-</ul>
-</section>
-<section id="interrelated-device-drivers">
-<h4>Interrelated Device Drivers<a class="headerlink" href="#interrelated-device-drivers" title="Link to this heading"></a></h4>
-<ul class="simple">
-<li><p><a class="reference internal" href="../../jesd204/jesd204-fsm-framework/#jesd204-fsm-framework"><span class="std std-ref">JESD204 FSM</span></a></p></li>
-<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/jesd204/#jesd204" target="_blank" title="(in HDL)"><span>JESD204 Interface Framework</span></a></p></li>
-</ul>
-<section id="transport-layer-receive-axi-adc-driver">
-<h5>Transport Layer Receive AXI-ADC driver<a class="headerlink" href="#transport-layer-receive-axi-adc-driver" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></td>
-<td></td>
-</tr>
-<tr class="row-even"><td><p>include</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p><strong>Documentation:</strong> <a class="reference internal" href="../../iio-adc/axi-adc-hdl/#axi-adc-hdl"><span class="std std-ref">AXI ADC HDL</span></a></p>
-</section>
-<section id="transport-layer-transmit-axi-dac-dds-driver">
-<h5>Transport Layer Transmit AXI-DAC / DDS driver<a class="headerlink" href="#transport-layer-transmit-axi-dac-dds-driver" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.c" target="_blank">drivers/iio/frequency/cf_axi_dds.c</a></p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>include</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.h" target="_blank">drivers/iio/frequency/cf_axi_adc.h</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p><strong>Documentation:</strong> <a class="reference internal" href="../../iio-dds/axi-dac-dds-hdl/#axi-dac-dds-hdl"><span class="std std-ref">AXI DAC HDL</span></a></p>
-</section>
-<section id="link-layer-axi-jesd204b-hdl-driver">
-<h5>Link Layer AXI JESD204B HDL driver<a class="headerlink" href="#link-layer-axi-jesd204b-hdl-driver" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_rx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_rx.c</a></p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_tx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_tx.c</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p><strong>Documentation:</strong></p>
-<ul class="simple">
-<li><p><a class="reference internal" href="../../jesd204/axi_jesd204_tx/#axi-jesd204-tx"><span class="std std-ref">AXI JESD204 TX</span></a></p></li>
-<li><p><a class="reference internal" href="../../jesd204/axi_jesd204_rx/#axi-jesd204-rx"><span class="std std-ref">AXI JESD204B RX</span></a></p></li>
-</ul>
-</section>
-<section id="phy-layer-axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel">
-<h5>PHY Layer AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)<a class="headerlink" href="#phy-layer-axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_adxcvr.c" target="_blank">drivers/iio/jesd204/axi_adxcvr.c</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p><strong>Documentation:</strong></p>
-<ul class="simple">
-<li><p><a class="reference internal" href="../../jesd204/axi_adxcvr/#axi-adxcvr"><span class="std std-ref">AXI ADXCVR</span></a></p></li>
-</ul>
 </section>
 </section>
-</section>
-</section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The ADRV9009 driver depends on <strong>CONFIG_SPI</strong></p>
 </div>
-</section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
@@ -740,8 +631,7 @@ at: <a class="reference external" href="mailto:MxFEsupport&#37;&#52;&#48;analog&
         <span class="o">&lt;*&gt;</span> <span class="n">JESD204</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">Serial</span> <span class="n">Interface</span> <span class="n">Framework</span>
     <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
         <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-        <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
+        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
         <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
 
               <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
@@ -780,1056 +670,8 @@ at: <a class="reference external" href="mailto:MxFEsupport&#37;&#52;&#48;analog&
 </pre></div>
 </div>
 </section>
-<section id="device-tree-customization">
-<h2>Device tree customization<a class="headerlink" href="#device-tree-customization" title="Link to this heading"></a></h2>
-<p>The AD9081 Linux IIO device driver is configured and customized using device
-tree, a simple tree structure of nodes and properties. Properties are key-value
-pairs, and node may contain both properties and child nodes. The top device node
-of the AD9081/82 contains common and device specific attributes. Under the top
-node, there are two child-nodes (<code class="docutils literal notranslate"><span class="pre">adi,tx-dacs</span></code> and <code class="docutils literal notranslate"><span class="pre">adi,rx-adcs</span></code>). In case
-of DAC or ADC only operation, both nodes are required and must contain at least
-the <code class="docutils literal notranslate"><span class="pre">adi,dac-frequency-hz</span></code> and respectively the <code class="docutils literal notranslate"><span class="pre">adi,adc-frequency-hz</span></code>
-property. However omitting the child nodes will disable this ADC/DAC data path.</p>
-<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="nf">spi</span><span class="cm"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nl">trx0_ad9081</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9081</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
-
-<span class="w">        </span><span class="c1">// Device common properties</span>
-
-<span class="w">        </span><span class="nf">adi,tx-dacs</span><span class="cm"> </span><span class="p">{</span>
-<span class="w">            </span><span class="c1">// Tx/DAC properties and child-nodes</span>
-
-<span class="w">        </span><span class="p">};</span>
-
-<span class="w">        </span><span class="nf">adi,rx-adcs</span><span class="cm"> </span><span class="p">{</span>
-<span class="w">            </span><span class="c1">// Rx/ADC properties and child-nodes</span>
-<span class="w">        </span><span class="p">};</span>
-<span class="w">    </span><span class="p">};</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-<p>Each of these child nodes handle certain aspects of either the digital-to-analog
-converter core side or the analog-to-digital converter side of the Mixed Signal
-Frontend (MxFE®) These child-nodes again contain ADC or DAC side common
-attributes. Such as the ADC/DAC frequency. But also, three child-nodes to
-customize the main data paths, the channelizers and the serial JESD204
-interfaces.</p>
-<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nf">adi,rx-adcs</span><span class="cm"> </span><span class="p">{</span>
-
-<span class="w">    </span><span class="nf">adi,main-data-paths</span><span class="cm"> </span><span class="p">{</span>
-
-<span class="w">    </span><span class="p">};</span>
-
-<span class="w">    </span><span class="nf">adi,channelizer-paths</span><span class="cm"> </span><span class="p">{</span>
-
-<span class="w">    </span><span class="p">};</span>
-
-<span class="w">    </span><span class="nf">adi,jesd-links</span><span class="cm"> </span><span class="p">{</span>
-
-<span class="w">    </span><span class="p">};</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-<ul class="simple">
-<li><p>The <code class="docutils literal notranslate"><span class="pre">adi,main-data-paths</span></code> node iterates the used ADCs or DACs together with
-its default/dedicated CDDCs and CDUCs. Each of these nodes have in return
-again properties to configure the default NCO frequencies, modes, decimation,
-etc. (A list of supported properties/attributes can be found below.)</p></li>
-<li><p>The second mandatory node is the <code class="docutils literal notranslate"><span class="pre">adi,channelizer-paths</span></code> node. The utilized
-channelizers FDDCs and FDUCs are described in here, which are always related
-to the main data paths. Therefore, the main data path child-nodes contain a
-property (<code class="docutils literal notranslate"><span class="pre">adi,crossbar-select</span></code>) of a device node containing a phandle to
-the FDUC or FDDC that it is attached to.</p></li>
-<li><p>The last mandatory child-node is the <code class="docutils literal notranslate"><span class="pre">adi,jesd-links</span></code> node. This node
-contains up to two (single/dual link) child-nodes, one for each link.</p></li>
-</ul>
-<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="nf">adi,main-data-paths</span><span class="cm"> </span><span class="p">{</span>
-
-<span class="w">    </span><span class="nl">ad9081_dac0</span><span class="p">:</span><span class="w"> </span><span class="nf">dac</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
-
-<span class="w">    </span><span class="p">};</span>
-<span class="w">    </span><span class="nl">ad9081_dac1</span><span class="p">:</span><span class="w"> </span><span class="nf">dac</span><span class="o">@</span><span class="mi">1</span><span class="cm"> </span><span class="p">{</span>
-
-<span class="w">    </span><span class="p">};</span>
-<span class="w">    </span><span class="nl">ad9081_dac2</span><span class="p">:</span><span class="w"> </span><span class="nf">dac</span><span class="o">@</span><span class="mi">2</span><span class="cm"> </span><span class="p">{</span>
-
-<span class="w">    </span><span class="p">};</span>
-<span class="w">    </span><span class="nl">ad9081_dac3</span><span class="p">:</span><span class="w"> </span><span class="nf">dac</span><span class="o">@</span><span class="mi">3</span><span class="cm"> </span><span class="p">{</span>
-
-<span class="w">    </span><span class="p">};</span>
-<span class="p">};</span>
-
-<span class="nf">adi,channelizer-paths</span><span class="cm"> </span><span class="p">{</span>
-
-<span class="w">    </span><span class="nl">ad9081_tx_fddc_chan0</span><span class="p">:</span><span class="w"> </span><span class="nf">channel</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
-
-<span class="w">    </span><span class="p">};</span>
-<span class="w">    </span><span class="nl">ad9081_tx_fddc_chan1</span><span class="p">:</span><span class="w"> </span><span class="nf">channel</span><span class="o">@</span><span class="mi">1</span><span class="cm"> </span><span class="p">{</span>
-
-<span class="w">    </span><span class="p">};</span>
-<span class="p">};</span>
-
-<span class="nf">adi,jesd-links</span><span class="cm"> </span><span class="p">{</span>
-
-<span class="w">    </span><span class="nl">ad9081_tx_jesd_l0</span><span class="p">:</span><span class="w"> </span><span class="nf">link</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
-
-<span class="w">    </span><span class="p">};</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-</section>
-<section id="ad9081-mixed-signal-front-end-mxfe-device-tree-bindings">
-<h2>AD9081 Mixed-Signal Front End (MxFE) Device Tree Bindings<a class="headerlink" href="#ad9081-mixed-signal-front-end-mxfe-device-tree-bindings" title="Link to this heading"></a></h2>
-<section id="overview">
-<h3>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h3>
-<p>The AD9081 is a high-performance, single-chip, mixed-signal front end (MxFE)
-integrating:</p>
-<ul class="simple">
-<li><p><strong>Four 16-bit, 12 GSPS RF DAC cores</strong></p></li>
-<li><p><strong>Four 12-bit, 4 GSPS RF ADC cores</strong></p></li>
-</ul>
-</section>
-<section id="compatible-devices">
-<h3>Compatible Devices<a class="headerlink" href="#compatible-devices" title="Link to this heading"></a></h3>
-<p>The following devices are supported by this driver:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,ad9081</span></code> - AD9081 MxFE</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,ad9082</span></code> - AD9082 MxFE</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,ad9988</span></code> - AD9988 MxFE</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,ad9986</span></code> - AD9986 MxFE</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,ad9177</span></code> - AD9177 Quad DAC</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,ad9207</span></code> - AD9207 Dual ADC</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,ad9209</span></code> - AD9209 Quad ADC</p></li>
-</ul>
-</section>
-<section id="required-properties">
-<h3>Required Properties<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h3>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">compatible</span></code></p></td>
-<td><p>string</p></td>
-<td><p>One of the supported device strings listed above</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">reg</span></code></p></td>
-<td><p>integer</p></td>
-<td><p>SPI chip select number</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">clocks</span></code></p></td>
-<td><p>phandle</p></td>
-<td><p>Reference to device clock</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">clock-names</span></code></p></td>
-<td><p>string</p></td>
-<td><p>Must be <code class="docutils literal notranslate"><span class="pre">dev_clk</span></code></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="optional-properties">
-<h3>Optional Properties<a class="headerlink" href="#optional-properties" title="Link to this heading"></a></h3>
-<section id="basic-configuration">
-<h4>Basic Configuration<a class="headerlink" href="#basic-configuration" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Range/Values</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">spi-max-frequency</span></code></p></td>
-<td><p>integer</p></td>
-<td><p>≤ 25000000</p></td>
-<td><p>Maximum SPI frequency in Hz</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">reset-gpios</span></code></p></td>
-<td><p>phandle</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>GPIO for hardware reset</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">interrupts</span></code></p></td>
-<td><p>interrupt</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>Device interrupt line</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="standalone-and-multi-device-setup">
-<h4>Standalone and Multi-Device Setup<a class="headerlink" href="#standalone-and-multi-device-setup" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,standalone-enable</span></code></p></td>
-<td><p>boolean</p></td>
-<td><p>Enable standalone mode for the device</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,multidevice-instance-count</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>Number of devices in multidevice synchronization setup</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,dual-link-use-separate-tpl-enable</span></code></p></td>
-<td><p>boolean</p></td>
-<td><p>Enable separate TPL for dual-link mode</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="jesd-synchronization">
-<h4>JESD Synchronization<a class="headerlink" href="#jesd-synchronization" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,jesd-sync-pins-01-swap-enable</span></code></p></td>
-<td><p>boolean</p></td>
-<td><p>Swap JESD sync pins 0 and 1</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,jesd-sync-pin-0a-cmos-enable</span></code></p></td>
-<td><p>boolean</p></td>
-<td><p>Enable CMOS mode for JESD sync pin 0A</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,lmfc-delay-dac-clk-cycles</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>LMFC delay in DAC clock cycles</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="nco-synchronization">
-<h4>NCO Synchronization<a class="headerlink" href="#nco-synchronization" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Range</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-sync-ms-extra-lmfc-num</span></code></p></td>
-<td><p>u32</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>Extra LMFC cycles for NCO sync in master-slave mode</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-sync-direct-sysref-mode-enable</span></code></p></td>
-<td><p>boolean</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>Enable direct SYSREF mode for NCO synchronization</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="sysref-configuration">
-<h4>SYSREF Configuration<a class="headerlink" href="#sysref-configuration" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Range</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,sysref-average-cnt-exp</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-15</p></td>
-<td><p>SYSREF averaging count exponent (2</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,sysref-ac-coupling-enable</span></code></p></td>
-<td><p>boolean</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>Enable AC coupling for SYSREF</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,sysref-cmos-input-enable</span></code></p></td>
-<td><p>boolean</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>Enable CMOS input mode for SYSREF</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,sysref-single-end-pos-termination</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-3</p></td>
-<td><p>Termination resistance for positive single-ended SYSREF</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,sysref-single-end-neg-termination</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-3</p></td>
-<td><p>Termination resistance for negative single-ended SYSREF</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,continuous-sysref-mode-disable</span></code></p></td>
-<td><p>boolean</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>Disable continuous SYSREF mode</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="loopback-and-gpio">
-<h4>Loopback and GPIO<a class="headerlink" href="#loopback-and-gpio" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Range</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,direct-loopback-mode-dac-adc-mapping</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-255</p></td>
-<td><p>Mapping for direct loopback between DAC and ADC</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,master-slave-sync-gpio-num</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-15</p></td>
-<td><p>GPIO number for master-slave synchronization</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-</section>
-<section id="tx-dac-configuration-adi-tx-dacs">
-<h3>TX DAC Configuration (adi,tx-dacs)<a class="headerlink" href="#tx-dac-configuration-adi-tx-dacs" title="Link to this heading"></a></h3>
-<p>The TX DAC configuration is specified in a sub-node with the following
-structure:</p>
-<section id="dac-global-properties">
-<h4>DAC Global Properties<a class="headerlink" href="#dac-global-properties" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,dac-frequency-hz</span></code></p></td>
-<td><p>u64</p></td>
-<td><p>DAC operating frequency in Hz (use <code class="docutils literal notranslate"><span class="pre">/bits/</span> <span class="pre">64</span></code>)</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,ffh-hopf-via-gpio-enable</span></code></p></td>
-<td><p>boolean</p></td>
-<td><p>Enable FFH HOPF via GPIO</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="pa-protection-global-settings">
-<h4>PA Protection Global Settings<a class="headerlink" href="#pa-protection-global-settings" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-gpio-as-pa-enable</span></code></p></td>
-<td><p>boolean</p></td>
-<td><p>Configure GPIO pins 0-3 as PA enable outputs</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-rotation-mode</span></code></p></td>
-<td><p>u32 (0-3)</p></td>
-<td><p>Rotation mode configuration (see header file for bitmask values)</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="main-data-paths-adi-main-data-paths">
-<h4>Main Data Paths (adi,main-data-paths)<a class="headerlink" href="#main-data-paths-adi-main-data-paths" title="Link to this heading"></a></h4>
-<p>Contains configuration for up to 4 DACs (dac&#64;0 through dac&#64;3).</p>
-<section id="global-main-path-properties">
-<h5>Global Main Path Properties<a class="headerlink" href="#global-main-path-properties" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Values</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,interpolation</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>1,2,3,4,6,8,12</p></td>
-<td><p>Interpolation factor for main data paths</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="per-dac-properties-dac-n">
-<h5>Per-DAC Properties (dac&#64;N)<a class="headerlink" href="#per-dac-properties-dac-n" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Range/Values</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">reg</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-3</p></td>
-<td><p>DAC channel index</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-frequency-shift-hz</span></code></p></td>
-<td><p>u64</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>NCO frequency shift in Hz</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,full-scale-current-ua</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>7750-40320</p></td>
-<td><p>Full-scale current in microamperes</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,maindp-dac-1x-non1x-crossbar-select</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-3</p></td>
-<td><p>Crossbar selection for 1x/non-1x mode</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,crossbar-select</span></code></p></td>
-<td><p>phandle</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>Reference to channelizer path</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="pa-protection-per-dac-properties">
-<h5>PA Protection Per-DAC Properties<a class="headerlink" href="#pa-protection-per-dac-properties" title="Link to this heading"></a></h5>
-</section>
-<section id="soft-off-on-control">
-<h5>Soft-Off/On Control<a class="headerlink" href="#soft-off-on-control" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Range</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-soft-off-enable</span></code></p></td>
-<td><p>boolean</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>Enable soft-off gain control</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-soft-off-new-gain-enable</span></code></p></td>
-<td><p>boolean</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>Enable new soft-off gain block</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-soft-off-ramp-rate</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-15</p></td>
-<td><p>Soft-off gain ramp rate (32 steps over 2^(code+8) DAC clocks)</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-soft-off-triggers</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>bitmask</p></td>
-<td><p>Soft-off triggers (see header file)</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-soft-on-triggers</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>bitmask</p></td>
-<td><p>Soft-on triggers (see header file)</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="power-averaging">
-<h5>Power Averaging<a class="headerlink" href="#power-averaging" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Range</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-long-avg-enable</span></code></p></td>
-<td><p>boolean</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>Enable long averaging power calculation</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-long-avg-time</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-255</p></td>
-<td><p>Time for long averaging</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-long-avg-threshold</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-65535</p></td>
-<td><p>Long average power threshold (I² + Q²)</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-short-avg-enable</span></code></p></td>
-<td><p>boolean</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>Enable short averaging power calculation</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-short-avg-time</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-255</p></td>
-<td><p>Time for short averaging</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-short-avg-threshold</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-65535</p></td>
-<td><p>Short average power threshold (I² + Q²)</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="digital-step-attenuator-dsa">
-<h5>Digital Step Attenuator (DSA)<a class="headerlink" href="#digital-step-attenuator-dsa" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Range</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-dsa-enable</span></code></p></td>
-<td><p>boolean</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>Enable DSA for this DAC</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-dsa-code</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-235</p></td>
-<td><p>DSA attenuation code (0=no attenuation, 235=47dB)</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-dsa-cutover</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-255</p></td>
-<td><p>DSA cutover threshold</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-dsa-boost</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-15</p></td>
-<td><p>DSA boost setting above 26mA baseline</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-dsa-gain</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-4095</p></td>
-<td><p>12-bit DSA digital gain value</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-</section>
-<section id="channelizer-paths-adi-channelizer-paths">
-<h4>Channelizer Paths (adi,channelizer-paths)<a class="headerlink" href="#channelizer-paths-adi-channelizer-paths" title="Link to this heading"></a></h4>
-<p>Contains configuration for up to 8 channels (channel&#64;0 through channel&#64;7).</p>
-<section id="global-channelizer-properties">
-<h5>Global Channelizer Properties<a class="headerlink" href="#global-channelizer-properties" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Values</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,interpolation</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>1,2,3,4,6,8</p></td>
-<td><p>Interpolation factor for channelizer paths</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="per-channel-properties-channel-n">
-<h5>Per-Channel Properties (channel&#64;N)<a class="headerlink" href="#per-channel-properties-channel-n" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Range</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">reg</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-7</p></td>
-<td><p>Channelizer index</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-frequency-shift-hz</span></code></p></td>
-<td><p>u64</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>NCO frequency shift in Hz</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-phase-offset</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-65535</p></td>
-<td><p>NCO phase offset</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,gain</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-4095</p></td>
-<td><p>Channel gain (12-bit)</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-</section>
-<section id="jesd-links-adi-jesd-links">
-<h4>JESD Links (adi,jesd-links)<a class="headerlink" href="#jesd-links-adi-jesd-links" title="Link to this heading"></a></h4>
-<p>Contains configuration for up to 2 JESD links (link&#64;0 and link&#64;1).</p>
-<section id="per-link-properties-link-n">
-<h5>Per-Link Properties (link&#64;N)<a class="headerlink" href="#per-link-properties-link-n" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Range/Values</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">reg</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-1</p></td>
-<td><p>JESD204 link index</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,logical-lane-mapping</span></code></p></td>
-<td><p>u8-array</p></td>
-<td><p>1-8 lanes</p></td>
-<td><p>Logical lane mapping</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,link-mode</span></code></p></td>
-<td><p>u32</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>JESD quick configuration mode</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,subclass</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0,1,2</p></td>
-<td><p>JESD subclass</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,version</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0,1,2</p></td>
-<td><p>JESD version (0=204A, 1=204B, 2=204C)</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,dual-link</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0,1</p></td>
-<td><p>Dual link mode</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,tpl-phase-adjust</span></code></p></td>
-<td><p>u32</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>TPL phase adjustment value</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="jesd204-parameters">
-<h5>JESD204 Parameters<a class="headerlink" href="#jesd204-parameters" title="Link to this heading"></a></h5>
-<p>Standard JESD204 parameters with both <code class="docutils literal notranslate"><span class="pre">adi,</span></code> and <code class="docutils literal notranslate"><span class="pre">jesd204-</span></code> prefixes
-supported:</p>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Parameter</p></th>
-<th class="head"><p>Property</p></th>
-<th class="head"><p>Range</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>M</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">converters-per-device</span></code></p></td>
-<td><p>1-16</p></td>
-<td><p>Number of converters</p></td>
-</tr>
-<tr class="row-odd"><td><p>F</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">octets-per-frame</span></code></p></td>
-<td><p>1-256</p></td>
-<td><p>Octets per frame</p></td>
-</tr>
-<tr class="row-even"><td><p>K</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">frames-per-multiframe</span></code></p></td>
-<td><p>1-32</p></td>
-<td><p>Frames per multiframe</p></td>
-</tr>
-<tr class="row-odd"><td><p>N</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">converter-resolution</span></code></p></td>
-<td><p>1-32</p></td>
-<td><p>Converter resolution bits</p></td>
-</tr>
-<tr class="row-even"><td><p>N’</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">bits-per-sample</span></code></p></td>
-<td><p>1-32</p></td>
-<td><p>Bits per sample</p></td>
-</tr>
-<tr class="row-odd"><td><p>CS</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">control-bits-per-sample</span></code></p></td>
-<td><p>0-3</p></td>
-<td><p>Control bits per sample</p></td>
-</tr>
-<tr class="row-even"><td><p>L</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">lanes-per-device</span></code></p></td>
-<td><p>1-8</p></td>
-<td><p>Lanes per device</p></td>
-</tr>
-<tr class="row-odd"><td><p>S</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">samples-per-converter-per-frame</span></code></p></td>
-<td><p>1-32</p></td>
-<td><p>Samples per converter per frame</p></td>
-</tr>
-<tr class="row-even"><td><p>HD</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">high-density</span></code></p></td>
-<td><p>0,1</p></td>
-<td><p>High density mode</p></td>
-</tr>
-<tr class="row-odd"><td><p>DID</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">device-id</span></code></p></td>
-<td><p>0-255</p></td>
-<td><p>Device ID</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-</section>
-</section>
-<section id="rx-adc-configuration-adi-rx-adcs">
-<h3>RX ADC Configuration (adi,rx-adcs)<a class="headerlink" href="#rx-adc-configuration-adi-rx-adcs" title="Link to this heading"></a></h3>
-<p>The RX ADC configuration follows a similar structure to TX DACs.</p>
-<section id="adc-global-properties">
-<h4>ADC Global Properties<a class="headerlink" href="#adc-global-properties" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Values</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,adc-frequency-hz</span></code></p></td>
-<td><p>u64</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>ADC operating frequency in Hz</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nyquist-zone</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0,1</p></td>
-<td><p>Global Nyquist zone (0=odd, 1=even), default: 0</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="id2">
-<h4>Main Data Paths (adi,main-data-paths)<a class="headerlink" href="#id2" title="Link to this heading"></a></h4>
-<p>Contains configuration for up to 4 ADCs (adc&#64;0 through adc&#64;3).</p>
-<section id="per-adc-properties-adc-n">
-<h5>Per-ADC Properties (adc&#64;N)<a class="headerlink" href="#per-adc-properties-adc-n" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Range/Values</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">reg</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-3</p></td>
-<td><p>ADC channel index</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,decimation</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>1,2,3,4,6,8,12</p></td>
-<td><p>Decimation factor</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-frequency-shift-hz</span></code></p></td>
-<td><p>i64</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>NCO frequency shift (can be negative)</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-mixer-mode</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-3</p></td>
-<td><p>NCO mixer mode (see below)</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nyquist-zone</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0,1</p></td>
-<td><p>Per-ADC Nyquist zone override</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,crossbar-select</span></code></p></td>
-<td><p>phandle-array</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>References to channelizer paths</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p><strong>NCO Mixer Modes:</strong></p>
-<ul class="simple">
-<li><p>0: Variable IF Mode (AD9081_ADC_NCO_VIF)</p></li>
-<li><p>1: Zero IF Mode (AD9081_ADC_NCO_ZIF)</p></li>
-<li><p>2: Fs/4 Hz IF Mode (AD9081_ADC_NCO_FS_4_IF)</p></li>
-<li><p>3: Test Mode (AD9081_ADC_NCO_TEST)</p></li>
-</ul>
-</section>
-</section>
-<section id="id3">
-<h4>Channelizer Paths (adi,channelizer-paths)<a class="headerlink" href="#id3" title="Link to this heading"></a></h4>
-<p>Contains configuration for up to 8 channels (channel&#64;0 through channel&#64;7).</p>
-<section id="id4">
-<h5>Per-Channel Properties (channel&#64;N)<a class="headerlink" href="#id4" title="Link to this heading"></a></h5>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Range</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">reg</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-7</p></td>
-<td><p>Channelizer index</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,decimation</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>1,2,3,4,6,8</p></td>
-<td><p>Decimation factor</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,gain</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-4095</p></td>
-<td><p>Channel gain (12-bit)</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-frequency-shift-hz</span></code></p></td>
-<td><p>i64</p></td>
-<td><ul class="simple">
-<li></li>
-</ul>
-</td>
-<td><p>NCO frequency shift</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-phase-offset</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0-65535</p></td>
-<td><p>NCO phase offset</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,6db-gain-enable</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0,1</p></td>
-<td><p>Enable 6dB gain</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,complex-to-real-enable</span></code></p></td>
-<td><p>u32</p></td>
-<td><p>0,1</p></td>
-<td><p>Enable complex-to-real conversion</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-</section>
-<section id="id5">
-<h4>JESD Links (adi,jesd-links)<a class="headerlink" href="#id5" title="Link to this heading"></a></h4>
-<p>RX JESD links follow the same structure as TX links with additional:</p>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Property</p></th>
-<th class="head"><p>Type</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,converter-select</span></code></p></td>
-<td><p>phandle-array</p></td>
-<td><p>References to converters with FDDC_I/Q selection</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-</section>
-<section id="header-file-constants">
-<h3>Header File Constants<a class="headerlink" href="#header-file-constants" title="Link to this heading"></a></h3>
-<p>Include the header file for PA protection trigger constants:</p>
-<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/iio/adc/adi,ad9081.h&gt;</span>
-</pre></div>
-</div>
-<section id="pa-protection-rotation-mode-flags">
-<h4>PA Protection Rotation Mode Flags<a class="headerlink" href="#pa-protection-rotation-mode-flags" title="Link to this heading"></a></h4>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_PA_ROTATION_JESD_AUTO</span></code> - Enable JESD auto off/on during rotation</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_PA_ROTATION_DATAPATH_AUTO</span></code> - Enable datapath auto soft off/on during
-rotation</p></li>
-</ul>
-</section>
-<section id="pa-protection-soft-off-triggers">
-<h4>PA Protection Soft-Off Triggers<a class="headerlink" href="#pa-protection-soft-off-triggers" title="Link to this heading"></a></h4>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_PA_SOFT_OFF_SPI</span></code> - Trigger via SPI command</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_PA_SOFT_OFF_TXEN</span></code> - Trigger via TXEN pin</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_PA_SOFT_OFF_JESD_ERR</span></code> - Trigger on JESD error</p></li>
-<li><p>Additional triggers available in header file</p></li>
-</ul>
-</section>
-<section id="pa-protection-soft-on-triggers">
-<h4>PA Protection Soft-On Triggers<a class="headerlink" href="#pa-protection-soft-on-triggers" title="Link to this heading"></a></h4>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_PA_SOFT_ON_SPI</span></code> - Trigger via SPI command</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_PA_SOFT_ON_TXEN</span></code> - Trigger via TXEN pin</p></li>
-<li><p>Additional triggers available in header file</p></li>
-</ul>
-</section>
-<section id="nco-mixer-modes-adc">
-<h4>NCO Mixer Modes (ADC)<a class="headerlink" href="#nco-mixer-modes-adc" title="Link to this heading"></a></h4>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_ADC_NCO_VIF</span></code> - Variable IF Mode</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_ADC_NCO_ZIF</span></code> - Zero IF Mode</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_ADC_NCO_FS_4_IF</span></code> - Fs/4 Hz IF Mode</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_ADC_NCO_TEST</span></code> - Test Mode</p></li>
-</ul>
-</section>
-</section>
-<section id="notes">
-<h3>Notes<a class="headerlink" href="#notes" title="Link to this heading"></a></h3>
-<ol class="arabic simple">
-<li><p><strong>64-bit Values</strong>: Properties exceeding 4GHz require <code class="docutils literal notranslate"><span class="pre">/bits/</span> <span class="pre">64</span></code> prefix</p></li>
-<li><p><strong>Negative Frequencies</strong>: NCO frequency shifts can be negative (use
-parentheses in DTS)</p></li>
-<li><p><strong>PA Protection</strong>: When using PA protection features, ensure all required
-properties for enabled features are specified</p></li>
-<li><p><strong>Phandle References</strong>: Use for linking DACs to channelizers and ADCs to
-channelizers</p></li>
-</ol>
-</section>
-<section id="device-tree-example">
-<h3>Device Tree Example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h3>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/iio/adc/adi,ad9081.h&gt;</span>
 <span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/gpio/gpio.h&gt;</span>
 
@@ -2017,10 +859,1070 @@ channelizers</p></li>
 <span class="p">};</span>
 </pre></div>
 </div>
+<section id="example-device-trees">
+<h4>Example device trees<a class="headerlink" href="#example-device-trees" title="Link to this heading"></a></h4>
+<p>See for:</p>
+<ul class="simple">
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/ad9081_fmca_ebz/quickstart/zynq" target="_blank">zynq</a>, section “Example Device Trees”.</p></li>
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/ad9081_fmca_ebz/quickstart/microamperes" target="_blank">microblaze</a>, section “Example Device Trees”.</p></li>
+</ul>
+</section>
+<section id="device-tree-customization">
+<h4>Device tree customization<a class="headerlink" href="#device-tree-customization" title="Link to this heading"></a></h4>
+<p>The AD9081 Linux IIO device driver is configured and customized using device
+tree, a simple tree structure of nodes and properties. Properties are key-value
+pairs, and node may contain both properties and child nodes. The top device node
+of the AD9081/82 contains common and device specific attributes. Under the top
+node, there are two child-nodes (<code class="docutils literal notranslate"><span class="pre">adi,tx-dacs</span></code> and <code class="docutils literal notranslate"><span class="pre">adi,rx-adcs</span></code>). In case
+of DAC or ADC only operation, both nodes are required and must contain at least
+the <code class="docutils literal notranslate"><span class="pre">adi,dac-frequency-hz</span></code> and respectively the <code class="docutils literal notranslate"><span class="pre">adi,adc-frequency-hz</span></code>
+property. However omitting the child nodes will disable this ADC/DAC data path.</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="nf">spi</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nl">trx0_ad9081</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9081</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+
+<span class="w">        </span><span class="c1">// Device common properties</span>
+
+<span class="w">        </span><span class="nf">adi,tx-dacs</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="c1">// Tx/DAC properties and child-nodes</span>
+
+<span class="w">        </span><span class="p">};</span>
+
+<span class="w">        </span><span class="nf">adi,rx-adcs</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="c1">// Rx/ADC properties and child-nodes</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>Each of these child nodes handle certain aspects of either the digital-to-analog
+converter core side or the analog-to-digital converter side of the Mixed Signal
+Frontend (MxFE®) These child-nodes again contain ADC or DAC side common
+attributes. Such as the ADC/DAC frequency. But also, three child-nodes to
+customize the main data paths, the channelizers and the serial JESD204
+interfaces.</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nf">adi,rx-adcs</span><span class="cm"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="nf">adi,main-data-paths</span><span class="cm"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="p">};</span>
+
+<span class="w">    </span><span class="nf">adi,channelizer-paths</span><span class="cm"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="p">};</span>
+
+<span class="w">    </span><span class="nf">adi,jesd-links</span><span class="cm"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>The <code class="docutils literal notranslate"><span class="pre">adi,main-data-paths</span></code> node iterates the used ADCs or DACs together with
+its default/dedicated CDDCs and CDUCs. Each of these nodes have in return
+again properties to configure the default NCO frequencies, modes, decimation,
+etc. (A list of supported properties/attributes can be found below.)</p></li>
+<li><p>The second mandatory node is the <code class="docutils literal notranslate"><span class="pre">adi,channelizer-paths</span></code> node. The utilized
+channelizers FDDCs and FDUCs are described in here, which are always related
+to the main data paths. Therefore, the main data path child-nodes contain a
+property (<code class="docutils literal notranslate"><span class="pre">adi,crossbar-select</span></code>) of a device node containing a phandle to
+the FDUC or FDDC that it is attached to.</p></li>
+<li><p>The last mandatory child-node is the <code class="docutils literal notranslate"><span class="pre">adi,jesd-links</span></code> node. This node
+contains up to two (single/dual link) child-nodes, one for each link.</p></li>
+</ul>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="nf">adi,main-data-paths</span><span class="cm"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="nl">ad9081_dac0</span><span class="p">:</span><span class="w"> </span><span class="nf">dac</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="p">};</span>
+<span class="w">    </span><span class="nl">ad9081_dac1</span><span class="p">:</span><span class="w"> </span><span class="nf">dac</span><span class="o">@</span><span class="mi">1</span><span class="cm"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="p">};</span>
+<span class="w">    </span><span class="nl">ad9081_dac2</span><span class="p">:</span><span class="w"> </span><span class="nf">dac</span><span class="o">@</span><span class="mi">2</span><span class="cm"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="p">};</span>
+<span class="w">    </span><span class="nl">ad9081_dac3</span><span class="p">:</span><span class="w"> </span><span class="nf">dac</span><span class="o">@</span><span class="mi">3</span><span class="cm"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+
+<span class="nf">adi,channelizer-paths</span><span class="cm"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="nl">ad9081_tx_fddc_chan0</span><span class="p">:</span><span class="w"> </span><span class="nf">channel</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="p">};</span>
+<span class="w">    </span><span class="nl">ad9081_tx_fddc_chan1</span><span class="p">:</span><span class="w"> </span><span class="nf">channel</span><span class="o">@</span><span class="mi">1</span><span class="cm"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+
+<span class="nf">adi,jesd-links</span><span class="cm"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="nl">ad9081_tx_jesd_l0</span><span class="p">:</span><span class="w"> </span><span class="nf">link</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
+<span class="n">axi</span><span class="o">-</span><span class="n">ad9081</span><span class="o">-</span><span class="n">rx</span><span class="o">-</span><span class="n">hpc</span>
+</pre></div>
+</div>
+</section>
+<section id="ad9081-mixed-signal-front-end-mxfe-device-tree-bindings">
+<h3>AD9081 Mixed-Signal Front End (MxFE) Device Tree Bindings<a class="headerlink" href="#ad9081-mixed-signal-front-end-mxfe-device-tree-bindings" title="Link to this heading"></a></h3>
+<section id="compatible-devices">
+<h4>Compatible Devices<a class="headerlink" href="#compatible-devices" title="Link to this heading"></a></h4>
+<p>The following devices are supported by this driver:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,ad9081</span></code> - AD9081 MxFE</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,ad9082</span></code> - AD9082 MxFE</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,ad9988</span></code> - AD9988 MxFE</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,ad9986</span></code> - AD9986 MxFE</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,ad9177</span></code> - AD9177 Quad DAC</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,ad9207</span></code> - AD9207 Dual ADC</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,ad9209</span></code> - AD9209 Quad ADC</p></li>
+</ul>
+</section>
+<section id="required-properties">
+<h4>Required Properties<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">compatible</span></code></p></td>
+<td><p>string</p></td>
+<td><p>One of the supported device strings listed above</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">reg</span></code></p></td>
+<td><p>integer</p></td>
+<td><p>SPI chip select number</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">clocks</span></code></p></td>
+<td><p>phandle</p></td>
+<td><p>Reference to device clock</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">clock-names</span></code></p></td>
+<td><p>string</p></td>
+<td><p>Must be <code class="docutils literal notranslate"><span class="pre">dev_clk</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="optional-properties">
+<h4>Optional Properties<a class="headerlink" href="#optional-properties" title="Link to this heading"></a></h4>
+<section id="basic-configuration">
+<h5>Basic Configuration<a class="headerlink" href="#basic-configuration" title="Link to this heading"></a></h5>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Range/Values</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">spi-max-frequency</span></code></p></td>
+<td><p>integer</p></td>
+<td><p>≤ 25000000</p></td>
+<td><p>Maximum SPI frequency in Hz</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">reset-gpios</span></code></p></td>
+<td><p>phandle</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>GPIO for hardware reset</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">interrupts</span></code></p></td>
+<td><p>interrupt</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>Device interrupt line</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="standalone-and-multi-device-setup">
+<h5>Standalone and Multi-Device Setup<a class="headerlink" href="#standalone-and-multi-device-setup" title="Link to this heading"></a></h5>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,standalone-enable</span></code></p></td>
+<td><p>boolean</p></td>
+<td><p>Enable standalone mode for the device</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,multidevice-instance-count</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>Number of devices in multidevice synchronization setup</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,dual-link-use-separate-tpl-enable</span></code></p></td>
+<td><p>boolean</p></td>
+<td><p>Enable separate TPL for dual-link mode</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="jesd-synchronization">
+<h5>JESD Synchronization<a class="headerlink" href="#jesd-synchronization" title="Link to this heading"></a></h5>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,jesd-sync-pins-01-swap-enable</span></code></p></td>
+<td><p>boolean</p></td>
+<td><p>Swap JESD sync pins 0 and 1</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,jesd-sync-pin-0a-cmos-enable</span></code></p></td>
+<td><p>boolean</p></td>
+<td><p>Enable CMOS mode for JESD sync pin 0A</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,lmfc-delay-dac-clk-cycles</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>LMFC delay in DAC clock cycles</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="nco-synchronization">
+<h5>NCO Synchronization<a class="headerlink" href="#nco-synchronization" title="Link to this heading"></a></h5>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Range</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-sync-ms-extra-lmfc-num</span></code></p></td>
+<td><p>u32</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>Extra LMFC cycles for NCO sync in master-slave mode</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-sync-direct-sysref-mode-enable</span></code></p></td>
+<td><p>boolean</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>Enable direct SYSREF mode for NCO synchronization</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="sysref-configuration">
+<h5>SYSREF Configuration<a class="headerlink" href="#sysref-configuration" title="Link to this heading"></a></h5>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Range</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,sysref-average-cnt-exp</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-15</p></td>
+<td><p>SYSREF averaging count exponent (2</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,sysref-ac-coupling-enable</span></code></p></td>
+<td><p>boolean</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>Enable AC coupling for SYSREF</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,sysref-cmos-input-enable</span></code></p></td>
+<td><p>boolean</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>Enable CMOS input mode for SYSREF</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,sysref-single-end-pos-termination</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-3</p></td>
+<td><p>Termination resistance for positive single-ended SYSREF</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,sysref-single-end-neg-termination</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-3</p></td>
+<td><p>Termination resistance for negative single-ended SYSREF</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,continuous-sysref-mode-disable</span></code></p></td>
+<td><p>boolean</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>Disable continuous SYSREF mode</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="loopback-and-gpio">
+<h5>Loopback and GPIO<a class="headerlink" href="#loopback-and-gpio" title="Link to this heading"></a></h5>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Range</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,direct-loopback-mode-dac-adc-mapping</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-255</p></td>
+<td><p>Mapping for direct loopback between DAC and ADC</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,master-slave-sync-gpio-num</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-15</p></td>
+<td><p>GPIO number for master-slave synchronization</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="tx-dac-configuration-adi-tx-dacs">
+<h4>TX DAC Configuration (adi,tx-dacs)<a class="headerlink" href="#tx-dac-configuration-adi-tx-dacs" title="Link to this heading"></a></h4>
+<p>The TX DAC configuration is specified in a sub-node with the following
+structure:</p>
+<section id="dac-global-properties">
+<h5>DAC Global Properties<a class="headerlink" href="#dac-global-properties" title="Link to this heading"></a></h5>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,dac-frequency-hz</span></code></p></td>
+<td><p>u64</p></td>
+<td><p>DAC operating frequency in Hz (use <code class="docutils literal notranslate"><span class="pre">/bits/</span> <span class="pre">64</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,ffh-hopf-via-gpio-enable</span></code></p></td>
+<td><p>boolean</p></td>
+<td><p>Enable FFH HOPF via GPIO</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="pa-protection-global-settings">
+<h5>PA Protection Global Settings<a class="headerlink" href="#pa-protection-global-settings" title="Link to this heading"></a></h5>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-gpio-as-pa-enable</span></code></p></td>
+<td><p>boolean</p></td>
+<td><p>Configure GPIO pins 0-3 as PA enable outputs</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-rotation-mode</span></code></p></td>
+<td><p>u32 (0-3)</p></td>
+<td><p>Rotation mode configuration (see header file for bitmask values)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="main-data-paths-adi-main-data-paths">
+<h5>Main Data Paths (adi,main-data-paths)<a class="headerlink" href="#main-data-paths-adi-main-data-paths" title="Link to this heading"></a></h5>
+<p>Contains configuration for up to 4 DACs (dac&#64;0 through dac&#64;3).</p>
+<section id="global-main-path-properties">
+<h6>Global Main Path Properties<a class="headerlink" href="#global-main-path-properties" title="Link to this heading"></a></h6>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Values</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,interpolation</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>1,2,3,4,6,8,12</p></td>
+<td><p>Interpolation factor for main data paths</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="per-dac-properties-dac-n">
+<h6>Per-DAC Properties (dac&#64;N)<a class="headerlink" href="#per-dac-properties-dac-n" title="Link to this heading"></a></h6>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Range/Values</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">reg</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-3</p></td>
+<td><p>DAC channel index</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-frequency-shift-hz</span></code></p></td>
+<td><p>u64</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>NCO frequency shift in Hz</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,full-scale-current-ua</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>7750-40320</p></td>
+<td><p>Full-scale current in microamperes</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,maindp-dac-1x-non1x-crossbar-select</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-3</p></td>
+<td><p>Crossbar selection for 1x/non-1x mode</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,crossbar-select</span></code></p></td>
+<td><p>phandle</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>Reference to channelizer path</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="pa-protection-per-dac-properties">
+<h6>PA Protection Per-DAC Properties<a class="headerlink" href="#pa-protection-per-dac-properties" title="Link to this heading"></a></h6>
+</section>
+<section id="soft-off-on-control">
+<h6>Soft-Off/On Control<a class="headerlink" href="#soft-off-on-control" title="Link to this heading"></a></h6>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Range</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-soft-off-enable</span></code></p></td>
+<td><p>boolean</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>Enable soft-off gain control</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-soft-off-new-gain-enable</span></code></p></td>
+<td><p>boolean</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>Enable new soft-off gain block</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-soft-off-ramp-rate</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-15</p></td>
+<td><p>Soft-off gain ramp rate (32 steps over 2^(code+8) DAC clocks)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-soft-off-triggers</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>bitmask</p></td>
+<td><p>Soft-off triggers (see header file)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-soft-on-triggers</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>bitmask</p></td>
+<td><p>Soft-on triggers (see header file)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="power-averaging">
+<h6>Power Averaging<a class="headerlink" href="#power-averaging" title="Link to this heading"></a></h6>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Range</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-long-avg-enable</span></code></p></td>
+<td><p>boolean</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>Enable long averaging power calculation</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-long-avg-time</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-255</p></td>
+<td><p>Time for long averaging</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-long-avg-threshold</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-65535</p></td>
+<td><p>Long average power threshold (I² + Q²)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-short-avg-enable</span></code></p></td>
+<td><p>boolean</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>Enable short averaging power calculation</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-short-avg-time</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-255</p></td>
+<td><p>Time for short averaging</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-short-avg-threshold</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-65535</p></td>
+<td><p>Short average power threshold (I² + Q²)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="digital-step-attenuator-dsa">
+<h6>Digital Step Attenuator (DSA)<a class="headerlink" href="#digital-step-attenuator-dsa" title="Link to this heading"></a></h6>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Range</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-dsa-enable</span></code></p></td>
+<td><p>boolean</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>Enable DSA for this DAC</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-dsa-code</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-235</p></td>
+<td><p>DSA attenuation code (0=no attenuation, 235=47dB)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-dsa-cutover</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-255</p></td>
+<td><p>DSA cutover threshold</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-dsa-boost</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-15</p></td>
+<td><p>DSA boost setting above 26mA baseline</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,pa-protection-dsa-gain</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-4095</p></td>
+<td><p>12-bit DSA digital gain value</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="channelizer-paths-adi-channelizer-paths">
+<h5>Channelizer Paths (adi,channelizer-paths)<a class="headerlink" href="#channelizer-paths-adi-channelizer-paths" title="Link to this heading"></a></h5>
+<p>Contains configuration for up to 8 channels (channel&#64;0 through channel&#64;7).</p>
+<section id="global-channelizer-properties">
+<h6>Global Channelizer Properties<a class="headerlink" href="#global-channelizer-properties" title="Link to this heading"></a></h6>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Values</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,interpolation</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>1,2,3,4,6,8</p></td>
+<td><p>Interpolation factor for channelizer paths</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="per-channel-properties-channel-n">
+<h6>Per-Channel Properties (channel&#64;N)<a class="headerlink" href="#per-channel-properties-channel-n" title="Link to this heading"></a></h6>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Range</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">reg</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-7</p></td>
+<td><p>Channelizer index</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-frequency-shift-hz</span></code></p></td>
+<td><p>u64</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>NCO frequency shift in Hz</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-phase-offset</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-65535</p></td>
+<td><p>NCO phase offset</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,gain</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-4095</p></td>
+<td><p>Channel gain (12-bit)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="jesd-links-adi-jesd-links">
+<h5>JESD Links (adi,jesd-links)<a class="headerlink" href="#jesd-links-adi-jesd-links" title="Link to this heading"></a></h5>
+<p>Contains configuration for up to 2 JESD links (link&#64;0 and link&#64;1).</p>
+<section id="per-link-properties-link-n">
+<h6>Per-Link Properties (link&#64;N)<a class="headerlink" href="#per-link-properties-link-n" title="Link to this heading"></a></h6>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Range/Values</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">reg</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-1</p></td>
+<td><p>JESD204 link index</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,logical-lane-mapping</span></code></p></td>
+<td><p>u8-array</p></td>
+<td><p>1-8 lanes</p></td>
+<td><p>Logical lane mapping</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,link-mode</span></code></p></td>
+<td><p>u32</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>JESD quick configuration mode</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,subclass</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0,1,2</p></td>
+<td><p>JESD subclass</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,version</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0,1,2</p></td>
+<td><p>JESD version (0=204A, 1=204B, 2=204C)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,dual-link</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0,1</p></td>
+<td><p>Dual link mode</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,tpl-phase-adjust</span></code></p></td>
+<td><p>u32</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>TPL phase adjustment value</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="jesd204-parameters">
+<h6>JESD204 Parameters<a class="headerlink" href="#jesd204-parameters" title="Link to this heading"></a></h6>
+<p>Standard JESD204 parameters with both <code class="docutils literal notranslate"><span class="pre">adi,</span></code> and <code class="docutils literal notranslate"><span class="pre">jesd204-</span></code> prefixes
+supported:</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Property</p></th>
+<th class="head"><p>Range</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>M</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">converters-per-device</span></code></p></td>
+<td><p>1-16</p></td>
+<td><p>Number of converters</p></td>
+</tr>
+<tr class="row-odd"><td><p>F</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">octets-per-frame</span></code></p></td>
+<td><p>1-256</p></td>
+<td><p>Octets per frame</p></td>
+</tr>
+<tr class="row-even"><td><p>K</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">frames-per-multiframe</span></code></p></td>
+<td><p>1-32</p></td>
+<td><p>Frames per multiframe</p></td>
+</tr>
+<tr class="row-odd"><td><p>N</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">converter-resolution</span></code></p></td>
+<td><p>1-32</p></td>
+<td><p>Converter resolution bits</p></td>
+</tr>
+<tr class="row-even"><td><p>N’</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">bits-per-sample</span></code></p></td>
+<td><p>1-32</p></td>
+<td><p>Bits per sample</p></td>
+</tr>
+<tr class="row-odd"><td><p>CS</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">control-bits-per-sample</span></code></p></td>
+<td><p>0-3</p></td>
+<td><p>Control bits per sample</p></td>
+</tr>
+<tr class="row-even"><td><p>L</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lanes-per-device</span></code></p></td>
+<td><p>1-8</p></td>
+<td><p>Lanes per device</p></td>
+</tr>
+<tr class="row-odd"><td><p>S</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">samples-per-converter-per-frame</span></code></p></td>
+<td><p>1-32</p></td>
+<td><p>Samples per converter per frame</p></td>
+</tr>
+<tr class="row-even"><td><p>HD</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">high-density</span></code></p></td>
+<td><p>0,1</p></td>
+<td><p>High density mode</p></td>
+</tr>
+<tr class="row-odd"><td><p>DID</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">device-id</span></code></p></td>
+<td><p>0-255</p></td>
+<td><p>Device ID</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+</section>
+<section id="rx-adc-configuration-adi-rx-adcs">
+<h4>RX ADC Configuration (adi,rx-adcs)<a class="headerlink" href="#rx-adc-configuration-adi-rx-adcs" title="Link to this heading"></a></h4>
+<p>The RX ADC configuration follows a similar structure to TX DACs.</p>
+<section id="adc-global-properties">
+<h5>ADC Global Properties<a class="headerlink" href="#adc-global-properties" title="Link to this heading"></a></h5>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Values</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,adc-frequency-hz</span></code></p></td>
+<td><p>u64</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>ADC operating frequency in Hz</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nyquist-zone</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0,1</p></td>
+<td><p>Global Nyquist zone (0=odd, 1=even), default: 0</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="id2">
+<h5>Main Data Paths (adi,main-data-paths)<a class="headerlink" href="#id2" title="Link to this heading"></a></h5>
+<p>Contains configuration for up to 4 ADCs (adc&#64;0 through adc&#64;3).</p>
+<section id="per-adc-properties-adc-n">
+<h6>Per-ADC Properties (adc&#64;N)<a class="headerlink" href="#per-adc-properties-adc-n" title="Link to this heading"></a></h6>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Range/Values</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">reg</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-3</p></td>
+<td><p>ADC channel index</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,decimation</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>1,2,3,4,6,8,12</p></td>
+<td><p>Decimation factor</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-frequency-shift-hz</span></code></p></td>
+<td><p>i64</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>NCO frequency shift (can be negative)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-mixer-mode</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-3</p></td>
+<td><p>NCO mixer mode (see below)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nyquist-zone</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0,1</p></td>
+<td><p>Per-ADC Nyquist zone override</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,crossbar-select</span></code></p></td>
+<td><p>phandle-array</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>References to channelizer paths</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>NCO Mixer Modes:</strong></p>
+<ul class="simple">
+<li><p>0: Variable IF Mode (AD9081_ADC_NCO_VIF)</p></li>
+<li><p>1: Zero IF Mode (AD9081_ADC_NCO_ZIF)</p></li>
+<li><p>2: Fs/4 Hz IF Mode (AD9081_ADC_NCO_FS_4_IF)</p></li>
+<li><p>3: Test Mode (AD9081_ADC_NCO_TEST)</p></li>
+</ul>
+</section>
+</section>
+<section id="id3">
+<h5>Channelizer Paths (adi,channelizer-paths)<a class="headerlink" href="#id3" title="Link to this heading"></a></h5>
+<p>Contains configuration for up to 8 channels (channel&#64;0 through channel&#64;7).</p>
+<section id="id4">
+<h6>Per-Channel Properties (channel&#64;N)<a class="headerlink" href="#id4" title="Link to this heading"></a></h6>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Range</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">reg</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-7</p></td>
+<td><p>Channelizer index</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,decimation</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>1,2,3,4,6,8</p></td>
+<td><p>Decimation factor</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,gain</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-4095</p></td>
+<td><p>Channel gain (12-bit)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-frequency-shift-hz</span></code></p></td>
+<td><p>i64</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>NCO frequency shift</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,nco-phase-offset</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0-65535</p></td>
+<td><p>NCO phase offset</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adi,6db-gain-enable</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0,1</p></td>
+<td><p>Enable 6dB gain</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,complex-to-real-enable</span></code></p></td>
+<td><p>u32</p></td>
+<td><p>0,1</p></td>
+<td><p>Enable complex-to-real conversion</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="id5">
+<h5>JESD Links (adi,jesd-links)<a class="headerlink" href="#id5" title="Link to this heading"></a></h5>
+<p>RX JESD links follow the same structure as TX links with additional:</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adi,converter-select</span></code></p></td>
+<td><p>phandle-array</p></td>
+<td><p>References to converters with FDDC_I/Q selection</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="header-file-constants">
+<h4>Header File Constants<a class="headerlink" href="#header-file-constants" title="Link to this heading"></a></h4>
+<p>Include the header file for PA protection trigger constants:</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/iio/adc/adi,ad9081.h&gt;</span>
+</pre></div>
+</div>
+<section id="pa-protection-rotation-mode-flags">
+<h5>PA Protection Rotation Mode Flags<a class="headerlink" href="#pa-protection-rotation-mode-flags" title="Link to this heading"></a></h5>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_PA_ROTATION_JESD_AUTO</span></code> - Enable JESD auto off/on during rotation</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_PA_ROTATION_DATAPATH_AUTO</span></code> - Enable datapath auto soft off/on during
+rotation</p></li>
+</ul>
+</section>
+<section id="pa-protection-soft-off-triggers">
+<h5>PA Protection Soft-Off Triggers<a class="headerlink" href="#pa-protection-soft-off-triggers" title="Link to this heading"></a></h5>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_PA_SOFT_OFF_SPI</span></code> - Trigger via SPI command</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_PA_SOFT_OFF_TXEN</span></code> - Trigger via TXEN pin</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_PA_SOFT_OFF_JESD_ERR</span></code> - Trigger on JESD error</p></li>
+<li><p>Additional triggers available in header file</p></li>
+</ul>
+</section>
+<section id="pa-protection-soft-on-triggers">
+<h5>PA Protection Soft-On Triggers<a class="headerlink" href="#pa-protection-soft-on-triggers" title="Link to this heading"></a></h5>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_PA_SOFT_ON_SPI</span></code> - Trigger via SPI command</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_PA_SOFT_ON_TXEN</span></code> - Trigger via TXEN pin</p></li>
+<li><p>Additional triggers available in header file</p></li>
+</ul>
+</section>
+<section id="nco-mixer-modes-adc">
+<h5>NCO Mixer Modes (ADC)<a class="headerlink" href="#nco-mixer-modes-adc" title="Link to this heading"></a></h5>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_ADC_NCO_VIF</span></code> - Variable IF Mode</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_ADC_NCO_ZIF</span></code> - Zero IF Mode</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_ADC_NCO_FS_4_IF</span></code> - Fs/4 Hz IF Mode</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AD9081_ADC_NCO_TEST</span></code> - Test Mode</p></li>
+</ul>
+</section>
+</section>
+<section id="notes">
+<h4>Notes<a class="headerlink" href="#notes" title="Link to this heading"></a></h4>
+<ol class="arabic simple">
+<li><p><strong>64-bit Values: Properties read as u64, including adi,dac-frequency-hz,
+adi,adc-frequency-hz and adi,nco-frequency-shift-hz, require 64-bit DT
+encoding even when the value is below 4 GHz. Use /bits/ 64 &lt;value&gt; (and
+parenthesized negative values where applicable).</strong></p></li>
+<li><p><strong>Negative Frequencies</strong>: NCO frequency shifts can be negative (use
+parentheses in DTS)</p></li>
+<li><p><strong>PA Protection</strong>: When using PA protection features, ensure all required
+properties for enabled features are specified</p></li>
+<li><p><strong>Phandle References</strong>: Use for linking DACs to channelizers and ADCs to
+channelizers</p></li>
+</ol>
 </section>
 </section>
 <section id="general-iio-and-driver-conventions">
-<h2>General IIO and driver conventions<a class="headerlink" href="#general-iio-and-driver-conventions" title="Link to this heading"></a></h2>
+<h3>General IIO and driver conventions<a class="headerlink" href="#general-iio-and-driver-conventions" title="Link to this heading"></a></h3>
 <p>Controlling the MxFE is done via the IIO sysfs interface. For convenience users
 can use <a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/libiio" target="_blank">libiio</a> and
 its various programming langue bindings. The MxFE IIO device under
@@ -2344,15 +2246,8 @@ to the entire device.</p></li>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Mar</span> <span class="mi">28</span> <span class="mi">12</span><span class="p">:</span><span class="mi">44</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
-<span class="n">axi</span><span class="o">-</span><span class="n">ad9081</span><span class="o">-</span><span class="n">rx</span><span class="o">-</span><span class="n">hpc</span>
-</pre></div>
-</div>
-</section>
 <section id="adc-rate">
-<h3>ADC Rate<a class="headerlink" href="#adc-rate" title="Link to this heading"></a></h3>
+<h4>ADC Rate<a class="headerlink" href="#adc-rate" title="Link to this heading"></a></h4>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">in_voltage_adc_frequency</span></code></p>
 <p>Read only attribute which returns the RX ADC rate Hz.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage_adc_frequency</span>
@@ -2361,7 +2256,7 @@ to the entire device.</p></li>
 </div>
 </section>
 <section id="rx-sample-rate">
-<h3>RX Sample Rate<a class="headerlink" href="#rx-sample-rate" title="Link to this heading"></a></h3>
+<h4>RX Sample Rate<a class="headerlink" href="#rx-sample-rate" title="Link to this heading"></a></h4>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">in_voltage_sampling_frequency</span></code></p>
 <p>Read only attribute which returns the RX digital IQ base-band rate in Hz. This
 must not be confused with the ADC rate, which is (MAIN_decimation *
@@ -2375,7 +2270,7 @@ CHANNEL_decimation)</p>
 </div>
 </section>
 <section id="dac-rate">
-<h3>DAC Rate<a class="headerlink" href="#dac-rate" title="Link to this heading"></a></h3>
+<h4>DAC Rate<a class="headerlink" href="#dac-rate" title="Link to this heading"></a></h4>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">out_voltage_dac_frequency</span></code></p>
 <p>Read only attribute which returns the TX DAC rate Hz.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_voltage_dac_frequency</span>
@@ -2384,7 +2279,7 @@ CHANNEL_decimation)</p>
 </div>
 </section>
 <section id="tx-sample-rate">
-<h3>TX Sample Rate<a class="headerlink" href="#tx-sample-rate" title="Link to this heading"></a></h3>
+<h4>TX Sample Rate<a class="headerlink" href="#tx-sample-rate" title="Link to this heading"></a></h4>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">out_voltage_sampling_frequency</span></code></p>
 <p>Read only attribute which returns the TX digital IQ base-band rate in Hz. This
 must not be confused with the DAC rate, which is (MAIN_interpolation *
@@ -2398,7 +2293,7 @@ CHANNEL_interpolation)</p>
 </div>
 </section>
 <section id="adc-nyquist-zone-control">
-<h3>ADC Nyquist Zone Control<a class="headerlink" href="#adc-nyquist-zone-control" title="Link to this heading"></a></h3>
+<h4>ADC Nyquist Zone Control<a class="headerlink" href="#adc-nyquist-zone-control" title="Link to this heading"></a></h4>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">in_voltageX_nyquist_zone</span></code> <strong>What:</strong>
 <code class="docutils literal notranslate"><span class="pre">in_voltage_nyquist_zone_available</span></code></p>
 <p>Calibration is used to reduce residual spurious artifacts that are common among
@@ -2418,18 +2313,18 @@ Specifying Nyquist Zone in UG-1578)</p>
 </figure>
 <p>The current Nyquist Zone can be queried and controlled via the
 <code class="docutils literal notranslate"><span class="pre">in_voltage_nyquist_zone</span></code> attribute.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage_nyquist_zone_available</span>
-<span class="n">odd</span> <span class="n">even</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="n">even</span> <span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage0_i_nyquist_zone</span>
-<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">cat</span> <span class="n">in_voltage0_i_nyquist_zone</span>
-<span class="n">even</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/bus/iio/devices/iio:device2&gt; cat in_voltage_nyquist_zone_available
+odd even
+root:/sys/bus/iio/devices/iio:device2&gt; echo even &gt; in_voltage0_i_nyquist_zone
+root:/sys/bus/iio/devices/iio:device2&gt; cat in_voltage0_i_nyquist_zone
+even
 </pre></div>
 </div>
 </section>
 <section id="nco-frequency-control">
-<span id="ad9081-nco-frequency-control"></span><h3>NCO Frequency Control<a class="headerlink" href="#nco-frequency-control" title="Link to this heading"></a></h3>
+<span id="ad9081-nco-frequency-control"></span><h4>NCO Frequency Control<a class="headerlink" href="#nco-frequency-control" title="Link to this heading"></a></h4>
 <section id="main-data-path">
-<h4>Main Data Path<a class="headerlink" href="#main-data-path" title="Link to this heading"></a></h4>
+<h5>Main Data Path<a class="headerlink" href="#main-data-path" title="Link to this heading"></a></h5>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_main_nco_frequency</span></code></p>
 <p>Sets the main data path (CDDC/CDUC) NCO frequency (fCARRIER) in Hz</p>
 <p><strong>out_voltageX_i_main_nco_frequency Range is:</strong> −fDAC/2 ≤ fCARRIER &lt; +fDAC/2
@@ -2445,7 +2340,7 @@ Specifying Nyquist Zone in UG-1578)</p>
 </div>
 </section>
 <section id="channel-data-path">
-<h4>Channel Data Path<a class="headerlink" href="#channel-data-path" title="Link to this heading"></a></h4>
+<h5>Channel Data Path<a class="headerlink" href="#channel-data-path" title="Link to this heading"></a></h5>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_channel_nco_frequency</span></code></p>
 <p>Sets the channel data path (FDDC/FDUC) NCO frequency (fCARRIER) in Hz</p>
 <p><strong>out_voltageX_i_channel_nco_frequency Range is:</strong> −(fDAC/MAIN_interpolation)/2
@@ -2463,9 +2358,9 @@ Range is:</strong> −(fADC/MAIN_decimation)/2 ≤ fCARRIER &lt; +(fADC/MAIN_dec
 </section>
 </section>
 <section id="nco-phase-control">
-<h3>NCO Phase Control<a class="headerlink" href="#nco-phase-control" title="Link to this heading"></a></h3>
+<h4>NCO Phase Control<a class="headerlink" href="#nco-phase-control" title="Link to this heading"></a></h4>
 <section id="id6">
-<h4>Main Data Path<a class="headerlink" href="#id6" title="Link to this heading"></a></h4>
+<h5>Main Data Path<a class="headerlink" href="#id6" title="Link to this heading"></a></h5>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_main_nco_phase</span></code></p>
 <p>Sets the main data path (CDDC/CDUC) NCO phase offset in milli degrees</p>
 <p><strong>Range is</strong>: −180° ≤ Degrees Offset ≤ +180° (Values are in milli degrees.)</p>
@@ -2480,7 +2375,7 @@ Range is:</strong> −(fADC/MAIN_decimation)/2 ≤ fCARRIER &lt; +(fADC/MAIN_dec
 </div>
 </section>
 <section id="id7">
-<h4>Channel Data Path<a class="headerlink" href="#id7" title="Link to this heading"></a></h4>
+<h5>Channel Data Path<a class="headerlink" href="#id7" title="Link to this heading"></a></h5>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_channel_nco_phase</span></code></p>
 <p>Sets the channel data path (FDDC/FDUC) NCO phase offset in milli degrees</p>
 <p><strong>Range is</strong>: −180° ≤ Degrees Offset ≤ +180° (Values are in milli degrees.)</p>
@@ -2496,7 +2391,7 @@ Range is:</strong> −(fADC/MAIN_decimation)/2 ≤ fCARRIER &lt; +(fADC/MAIN_dec
 </section>
 </section>
 <section id="tx-nco-channel-digital-gain">
-<h3>TX NCO Channel Digital Gain<a class="headerlink" href="#tx-nco-channel-digital-gain" title="Link to this heading"></a></h3>
+<h4>TX NCO Channel Digital Gain<a class="headerlink" href="#tx-nco-channel-digital-gain" title="Link to this heading"></a></h4>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_channel_nco_gain_scale</span></code></p>
 <p>The input data into each channelizer stage can be rescaled prior to additional
 processing. This feature is useful in multiband applications to prevent digital
@@ -2509,7 +2404,7 @@ main datapath to produce a multiband band signal. The gain/scale is set via
 </div>
 </section>
 <section id="tx-nco-test-tone-modes">
-<h3>TX NCO Test Tone Modes<a class="headerlink" href="#tx-nco-test-tone-modes" title="Link to this heading"></a></h3>
+<h4>TX NCO Test Tone Modes<a class="headerlink" href="#tx-nco-test-tone-modes" title="Link to this heading"></a></h4>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_[channel|main]_nco_test_tone_en</span></code> <strong>What:</strong>
 <code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_[channel|main]_nco_test_tone_scale</span></code></p>
 <p>The Test Tone Mode can be enabled using the
@@ -2532,7 +2427,7 @@ feature available on the main datapath NCOs.
 </div>
 </section>
 <section id="fast-frequency-hopping-control">
-<h3>Fast Frequency Hopping Control<a class="headerlink" href="#fast-frequency-hopping-control" title="Link to this heading"></a></h3>
+<h4>Fast Frequency Hopping Control<a class="headerlink" href="#fast-frequency-hopping-control" title="Link to this heading"></a></h4>
 <p>The complex NCOs used in both the transmit and receive datapaths support FFH
 mode. In the transmit datapath, each main datapath NCO consists of a bank of 31
 NCOs. In the receive main and channelizer datapaths, each NCO consists of a bank
@@ -2541,7 +2436,7 @@ controlled via GPIOx pins or the SPI register (IIO sysfs attributes).
 Asynchronous trigger hop mode is an additional mode only supported on the
 receive path.</p>
 <section id="transmit-main-path-ffh-nco-mode">
-<h4>Transmit Main Path FFH NCO Mode<a class="headerlink" href="#transmit-main-path-ffh-nco-mode" title="Link to this heading"></a></h4>
+<h5>Transmit Main Path FFH NCO Mode<a class="headerlink" href="#transmit-main-path-ffh-nco-mode" title="Link to this heading"></a></h5>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_main_nco_ffh_frequency</span></code> <strong>What:</strong>
 <code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_main_nco_ffh_index</span></code> <strong>What:</strong>
 <code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_main_nco_ffh_select</span></code> <strong>What:</strong>
@@ -2565,7 +2460,7 @@ can be controlled using the <code class="docutils literal notranslate"><span cla
 Allowed options are phase_continuous, phase_incontinuous, and phase_coherent.</p>
 </section>
 <section id="receive-main-path-ffh-nco-mode">
-<h4>Receive Main Path FFH NCO Mode<a class="headerlink" href="#receive-main-path-ffh-nco-mode" title="Link to this heading"></a></h4>
+<h5>Receive Main Path FFH NCO Mode<a class="headerlink" href="#receive-main-path-ffh-nco-mode" title="Link to this heading"></a></h5>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">in_voltageX_[i|q]_main_nco_frequency</span></code> <strong>What:</strong>
 <code class="docutils literal notranslate"><span class="pre">in_voltageX_[i|q]_main_nco_phase</span></code> <strong>What:</strong>
 <code class="docutils literal notranslate"><span class="pre">in_voltageX_[i|q]_main_nco_ffh_index</span></code> <strong>What:</strong>
@@ -2592,7 +2487,7 @@ the mode switches between the mode set in the devicetree using
 </section>
 </section>
 <section id="programmable-fir-filter">
-<h3>Programmable FIR Filter<a class="headerlink" href="#programmable-fir-filter" title="Link to this heading"></a></h3>
+<h4>Programmable FIR Filter<a class="headerlink" href="#programmable-fir-filter" title="Link to this heading"></a></h4>
 <p>What: <code class="docutils literal notranslate"><span class="pre">filter_fir_config</span></code></p>
 <p>Both the AD9081 and AD9082 provide a hardware FIR filter that can be programmed
 with up to 192 taps, and runs at the full converter rate of 4 or 6 GS/s
@@ -2611,7 +2506,7 @@ and onwards of the
 </pre></div>
 </div>
 <section id="configuration-file-format">
-<h4>Configuration File Format<a class="headerlink" href="#configuration-file-format" title="Link to this heading"></a></h4>
+<h5>Configuration File Format<a class="headerlink" href="#configuration-file-format" title="Link to this heading"></a></h5>
 <p>A filter configuration file is an ASCII textfile with LF line-endings, and
 supports the following directives:</p>
 <ul class="simple">
@@ -2675,7 +2570,7 @@ are required when <code class="docutils literal notranslate"><span class="pre">I
 <p>The parser can be found here:
 <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/ad9081.c#L2430-L2647" target="_blank">ad9081_parse_fir</a></p>
 <section id="examples">
-<h5>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h5>
+<h6>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h6>
 <p>The iio-oscilloscope project provides some samples which can be used as a
 reference:</p>
 <ul class="simple">
@@ -2689,11 +2584,11 @@ reference:</p>
 </section>
 </section>
 <section id="loopback-modes">
-<h3>Loopback Modes<a class="headerlink" href="#loopback-modes" title="Link to this heading"></a></h3>
+<h4>Loopback Modes<a class="headerlink" href="#loopback-modes" title="Link to this heading"></a></h4>
 <p>The AD9081/AD9082 supports two methods to loopback the samples from the receive
 (ADC) path to the transmit (DAC) path.</p>
 <section id="jesd-loopback-rx-tx">
-<h4>JESD Loopback RX-&gt;TX<a class="headerlink" href="#jesd-loopback-rx-tx" title="Link to this heading"></a></h4>
+<h5>JESD Loopback RX-&gt;TX<a class="headerlink" href="#jesd-loopback-rx-tx" title="Link to this heading"></a></h5>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">loopback_mode</span></code></p>
 <p>The <strong>indirect loopback</strong> path loops the ADC outputs through the receive and
 transmit datapaths to take advantage of the signal processing capability. The
@@ -2737,7 +2632,7 @@ back to DAC</p></td>
 </section>
 </section>
 <section id="on-die-temperature-reading">
-<h2>On-Die Temperature Reading<a class="headerlink" href="#on-die-temperature-reading" title="Link to this heading"></a></h2>
+<h3>On-Die Temperature Reading<a class="headerlink" href="#on-die-temperature-reading" title="Link to this heading"></a></h3>
 <p><strong>What:</strong> <code class="docutils literal notranslate"><span class="pre">in_temp0_input</span></code></p>
 <p>The device contains a Temperature Monitoring Unit (TMU) that functions as a
 digital thermometer. The TMU is comprised of four sensors placed at different
@@ -2750,8 +2645,11 @@ the sensor with the <strong>highest</strong> temperature can be read from the
 </pre></div>
 </div>
 </section>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
 <section id="low-level-debug-functions-via-debugfs">
-<h2>Low level debug functions via debugfs<a class="headerlink" href="#low-level-debug-functions-via-debugfs" title="Link to this heading"></a></h2>
+<h3>Low level debug functions via debugfs<a class="headerlink" href="#low-level-debug-functions-via-debugfs" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="c1"># ls -al</span>
 <span class="n">total</span> <span class="mi">0</span>
 <span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span>  <span class="mi">1970</span> <span class="o">.</span>
@@ -2768,7 +2666,7 @@ the sensor with the <strong>highest</strong> temperature can be read from the
 </pre></div>
 </div>
 <section id="jesd-link-status">
-<h3>JESD Link Status<a class="headerlink" href="#jesd-link-status" title="Link to this heading"></a></h3>
+<h4>JESD Link Status<a class="headerlink" href="#jesd-link-status" title="Link to this heading"></a></h4>
 <p>Reading <code class="docutils literal notranslate"><span class="pre">status</span></code> returns a status string.</p>
 <p><strong>Example:</strong></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device2</span><span class="c1"># cat status</span>
@@ -2779,7 +2677,7 @@ the sensor with the <strong>highest</strong> temperature can be read from the
 </pre></div>
 </div>
 <section id="dac-full-scale-current-ua">
-<h4>dac-full-scale-current-ua<a class="headerlink" href="#dac-full-scale-current-ua" title="Link to this heading"></a></h4>
+<h5>dac-full-scale-current-ua<a class="headerlink" href="#dac-full-scale-current-ua" title="Link to this heading"></a></h5>
 <p>Writing <code class="docutils literal notranslate"><span class="pre">dac-full-scale-current-ua</span></code> controls the DAC full scale current in uA.
 Recommended range is 7000…40000 (7mA - 40mA)</p>
 <p><strong>Example:</strong></p>
@@ -2789,7 +2687,7 @@ Recommended range is 7000…40000 (7mA - 40mA)</p>
 </div>
 </section>
 <section id="bist-prbs-select-jrx">
-<h4>bist_prbs_select_jrx<a class="headerlink" href="#bist-prbs-select-jrx" title="Link to this heading"></a></h4>
+<h5>bist_prbs_select_jrx<a class="headerlink" href="#bist-prbs-select-jrx" title="Link to this heading"></a></h5>
 <p>Writing <code class="docutils literal notranslate"><span class="pre">bist_prbs_select_jrx</span></code> selects the
 <a class="icon link reference external" href="https://en.wikipedia.org/wiki/PRBS" target="_blank">PRBS</a> type. (accepted values depend on
 the GT architecture). Reading returns the selected type.</p>
@@ -2839,7 +2737,7 @@ configured with a matching PRBS.</p>
 </div>
 </section>
 <section id="bist-prbs-error-counters-jrx">
-<h4>bist_prbs_error_counters_jrx<a class="headerlink" href="#bist-prbs-error-counters-jrx" title="Link to this heading"></a></h4>
+<h5>bist_prbs_error_counters_jrx<a class="headerlink" href="#bist-prbs-error-counters-jrx" title="Link to this heading"></a></h5>
 <p>Reading <code class="docutils literal notranslate"><span class="pre">bist_prbs_error_counters_jrx</span></code> returns the PRBS error counters for all
 lanes.</p>
 <div class="table-wrapper docutils container">
@@ -2891,7 +2789,7 @@ lanes.</p>
 </div>
 </section>
 <section id="bist-prbs-select-jtx">
-<h4>bist_prbs_select_jtx<a class="headerlink" href="#bist-prbs-select-jtx" title="Link to this heading"></a></h4>
+<h5>bist_prbs_select_jtx<a class="headerlink" href="#bist-prbs-select-jtx" title="Link to this heading"></a></h5>
 <p>Writing <code class="docutils literal notranslate"><span class="pre">bist_prbs_select_jtx</span></code> selects the
 <a class="icon link reference external" href="https://en.wikipedia.org/wiki/PRBS" target="_blank">PRBS</a> type. (accepted values depend on
 the GT architecture). Reading returns the selected type.</p>
@@ -2926,7 +2824,7 @@ the GT architecture). Reading returns the selected type.</p>
 </div>
 </section>
 <section id="bist-spo-sweep-jrx">
-<h4>bist_spo_sweep_jrx<a class="headerlink" href="#bist-spo-sweep-jrx" title="Link to this heading"></a></h4>
+<h5>bist_spo_sweep_jrx<a class="headerlink" href="#bist-spo-sweep-jrx" title="Link to this heading"></a></h5>
 <p>Writing following 3 values to <code class="docutils literal notranslate"><span class="pre">bist_spo_sweep_jrx</span></code> performs a horizontal sweep
 of the <code class="docutils literal notranslate"><span class="pre">static</span> <span class="pre">phase</span> <span class="pre">offset</span></code> (SPO) codes and checking for PRBS errors as
 described in the JESD204B/C Receiver PHY PRBS Testing section of the User Guide.
@@ -2971,7 +2869,7 @@ configured with a matching PRBS.</p>
 </div>
 </section>
 <section id="bist-spo-set-jrx">
-<h4>bist_spo_set_jrx<a class="headerlink" href="#bist-spo-set-jrx" title="Link to this heading"></a></h4>
+<h5>bist_spo_set_jrx<a class="headerlink" href="#bist-spo-set-jrx" title="Link to this heading"></a></h5>
 <p>Writing <code class="docutils literal notranslate"><span class="pre">bist_spo_set_jrx</span></code> sets the SPO offset. Range depends on the
 deserializer mode. Reading returns the written value. This feature can be used
 to implement 2D eye scan externally.</p>
@@ -3003,7 +2901,7 @@ to implement 2D eye scan externally.</p>
 </div>
 </section>
 <section id="bist-2d-eyescan-jrx">
-<h4>bist_2d_eyescan_jrx<a class="headerlink" href="#bist-2d-eyescan-jrx" title="Link to this heading"></a></h4>
+<h5>bist_2d_eyescan_jrx<a class="headerlink" href="#bist-2d-eyescan-jrx" title="Link to this heading"></a></h5>
 <p>The device has built in comparator circuits that enables the ability to
 reproduce an eye diagram estimate at the output of the CTLE circuit inside the
 JESD204B/C receiver core.</p>
@@ -3088,7 +2986,7 @@ configured with a matching PRBS.</p>
 </pre></div>
 </div>
 <section id="example-eye-diagram-created-from-half-rate-eye-scan-data">
-<h5>Example Eye Diagram Created from Half Rate Eye Scan Data<a class="headerlink" href="#example-eye-diagram-created-from-half-rate-eye-scan-data" title="Link to this heading"></a></h5>
+<h6>Example Eye Diagram Created from Half Rate Eye Scan Data<a class="headerlink" href="#example-eye-diagram-created-from-half-rate-eye-scan-data" title="Link to this heading"></a></h6>
 <p>Example from: <a class="icon git reference external" href="https://github.com/analogdevicesinc/pyadi-iio/tree/main/" target="_blank">ADI PyADI-IIO repository</a></p>
 <figure class="align-default">
 <a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-mxfe/screenshot_from_2024-01-19_14-15-55.png"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-mxfe/screenshot_from_2024-01-19_14-15-55.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-mxfe/screenshot_from_2024-01-19_14-15-55.png" style="width: 400px;" />
@@ -3099,7 +2997,7 @@ configured with a matching PRBS.</p>
 </section>
 </section>
 <section id="low-level-register-access-via-debugfs-direct-reg-access">
-<h2>Low level register access via debugfs (direct_reg_access)<a class="headerlink" href="#low-level-register-access-via-debugfs-direct-reg-access" title="Link to this heading"></a></h2>
+<h3>Low level register access via debugfs (direct_reg_access)<a class="headerlink" href="#low-level-register-access-via-debugfs-direct-reg-access" title="Link to this heading"></a></h3>
 <p>Some IIO drivers feature an optional debug facility, allowing users to read or
 write registers directly. Special care needs to be taken when using this
 feature, since you can modify registers on the back of the driver.</p>
@@ -3144,9 +3042,8 @@ first need to identify the IIO device number.</p>
 <div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>direct_reg_access
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div></section>
-<section id="reading">
-<h2>Reading<a class="headerlink" href="#reading" title="Link to this heading"></a></h2>
+<div class="clear-left"></div></div></div><section id="reading">
+<h4>Reading<a class="headerlink" href="#reading" title="Link to this heading"></a></h4>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/iio/iio:device1$
 </pre></div>
 </div>
@@ -3164,7 +3061,7 @@ first need to identify the IIO device number.</p>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="writing">
-<h2>Writing<a class="headerlink" href="#writing" title="Link to this heading"></a></h2>
+<h4>Writing<a class="headerlink" href="#writing" title="Link to this heading"></a></h4>
 <p>Write ADDRESS VALUE:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/iio/iio:device1$
 </pre></div>
@@ -3183,7 +3080,7 @@ first need to identify the IIO device number.</p>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="accessing-hdl-core-registers">
-<h2>Accessing HDL CORE registers<a class="headerlink" href="#accessing-hdl-core-registers" title="Link to this heading"></a></h2>
+<h4>Accessing HDL CORE registers<a class="headerlink" href="#accessing-hdl-core-registers" title="Link to this heading"></a></h4>
 <p>Special ADI device driver convention for devices that have both:</p>
 <ul class="simple">
 <li><p>a SPI/I2C control interface</p></li>
@@ -3207,10 +3104,11 @@ first need to identify the IIO device number.</p>
 <div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> 0x80062
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div><section id="special-access-modes">
-<h3>Special Access Modes<a class="headerlink" href="#special-access-modes" title="Link to this heading"></a></h3>
+<div class="clear-left"></div></div></div></section>
+<section id="special-access-modes">
+<h4>Special Access Modes<a class="headerlink" href="#special-access-modes" title="Link to this heading"></a></h4>
 <section id="page-mask-register-access">
-<h4>2. Page Mask Register Access<a class="headerlink" href="#page-mask-register-access" title="Link to this heading"></a></h4>
+<h5>2. Page Mask Register Access<a class="headerlink" href="#page-mask-register-access" title="Link to this heading"></a></h5>
 <p><strong>Condition:</strong> <code class="docutils literal notranslate"><span class="pre">reg</span> <span class="pre">&amp;</span> <span class="pre">0x40000000</span> <span class="pre">==</span> <span class="pre">0</span></code> and <code class="docutils literal notranslate"><span class="pre">reg</span> <span class="pre">&amp;</span> <span class="pre">0x3F000000</span> <span class="pre">!=</span> <span class="pre">0</span></code> This mode
 allows setting a page mask register before performing the actual register
 access. This is useful for accessing paged/banked registers where a page
@@ -3266,7 +3164,7 @@ performs the read/write on the target register.</p>
 </pre></div>
 </div>
 <section id="cbus-jrx-serdes-ctle-register-access">
-<h5>3. CBUS JRX (SerDes/CTLE) Register Access<a class="headerlink" href="#cbus-jrx-serdes-ctle-register-access" title="Link to this heading"></a></h5>
+<h6>3. CBUS JRX (SerDes/CTLE) Register Access<a class="headerlink" href="#cbus-jrx-serdes-ctle-register-access" title="Link to this heading"></a></h6>
 <p><strong>Condition:</strong> <code class="docutils literal notranslate"><span class="pre">reg</span> <span class="pre">&amp;</span> <span class="pre">0x40000000</span> <span class="pre">!=</span> <span class="pre">0</span></code> (bit 30 set) This mode provides access
 to the JESD204 receiver (JRX) CBUS registers, which include the SerDes lane
 configuration and CTLE (Continuous Time Linear Equalizer) settings.</p>
@@ -3363,7 +3261,7 @@ configuration and CTLE (Continuous Time Linear Equalizer) settings.</p>
 </section>
 </section>
 <section id="summary-table">
-<h4>Summary Table<a class="headerlink" href="#summary-table" title="Link to this heading"></a></h4>
+<h5>Summary Table<a class="headerlink" href="#summary-table" title="Link to this heading"></a></h5>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -3392,6 +3290,126 @@ configuration and CTLE (Continuous Time Linear Equalizer) settings.</p>
 </tbody>
 </table>
 </div>
+</section>
+</section>
+</section>
+</section>
+<section id="more-information">
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
+<section id="supported-hdl-cores">
+<h3>Supported HDL Cores<a class="headerlink" href="#supported-hdl-cores" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/ad9081_fmca_ebz/ad9081_fmca_ebz_hdl" target="_blank">AD9081-FMCA-EBZ (Single MxFE) HDL Reference Design</a></p></li>
+</ul>
+</section>
+<section id="interrelated-device-drivers">
+<h3>Interrelated Device Drivers<a class="headerlink" href="#interrelated-device-drivers" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="reference internal" href="../../jesd204/jesd204-fsm-framework/#jesd204-fsm-framework"><span class="std std-ref">JESD204 FSM</span></a></p></li>
+<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/jesd204/#jesd204" target="_blank" title="(in HDL)"><span>JESD204 Interface Framework</span></a></p></li>
+</ul>
+<section id="transport-layer-receive-axi-adc-driver">
+<h4>Transport Layer Receive AXI-ADC driver<a class="headerlink" href="#transport-layer-receive-axi-adc-driver" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>include</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Documentation:</strong> <a class="reference internal" href="../../iio-adc/axi-adc-hdl/#axi-adc-hdl"><span class="std std-ref">AXI ADC HDL</span></a></p>
+</section>
+<section id="transport-layer-transmit-axi-dac-dds-driver">
+<h4>Transport Layer Transmit AXI-DAC / DDS driver<a class="headerlink" href="#transport-layer-transmit-axi-dac-dds-driver" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.c" target="_blank">drivers/iio/frequency/cf_axi_dds.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>include</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.h" target="_blank">drivers/iio/frequency/cf_axi_adc.h</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Documentation:</strong> <a class="reference internal" href="../../iio-dds/axi-dac-dds-hdl/#axi-dac-dds-hdl"><span class="std std-ref">AXI DAC HDL</span></a></p>
+</section>
+<section id="link-layer-axi-jesd204b-hdl-driver">
+<h4>Link Layer AXI JESD204B HDL driver<a class="headerlink" href="#link-layer-axi-jesd204b-hdl-driver" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_rx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_rx.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_tx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_tx.c</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Documentation:</strong></p>
+<ul class="simple">
+<li><p><a class="reference internal" href="../../jesd204/axi_jesd204_tx/#axi-jesd204-tx"><span class="std std-ref">AXI JESD204 TX</span></a></p></li>
+<li><p><a class="reference internal" href="../../jesd204/axi_jesd204_rx/#axi-jesd204-rx"><span class="std std-ref">AXI JESD204B RX</span></a></p></li>
+</ul>
+</section>
+<section id="phy-layer-axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel">
+<h4>PHY Layer AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)<a class="headerlink" href="#phy-layer-axi-jesd204b-gt-gigabit-tranceiver-hdl-driver-xilinx-altera-intel" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_adxcvr.c" target="_blank">drivers/iio/jesd204/axi_adxcvr.c</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Documentation:</strong></p>
+<ul class="simple">
+<li><p><a class="reference internal" href="../../jesd204/axi_adxcvr/#axi-adxcvr"><span class="std std-ref">AXI ADXCVR</span></a></p></li>
+</ul>
 </section>
 </section>
 </section>

@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-gyroscope/adis16130
 
+
 .. _adis16130:
 
 ADIS16130
@@ -34,13 +35,15 @@ Status
      - Mainlined?
      -
      -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16130_core.c>`__
-     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16130_core.c>`__
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/gyro/adis16130.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/gyro/adis16130.c>`__
      -
      -
 
 Files
 ~~~~~
+
+The SPI device driver is implemented in ``drivers/iio/gyro/adis16130.c``.
 
 .. list-table::
    :header-rows: 1
@@ -48,7 +51,7 @@ Files
    * - Function
      - File
    * - driver
-     - `drivers/staging/iio/accel/adis16130_core.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16130_core.c>`__
+     - `drivers/iio/gyro/adis16130.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/gyro/adis16130.c>`__
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-spi-slave-devices
@@ -92,6 +95,9 @@ the device in question.
 Adding Linux driver support
 ---------------------------
 
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
@@ -99,15 +105,14 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 
    The ADIS16130 Driver depends on **CONFIG_SPI**
 
-::
+.. code-block:: text
 
    Linux Kernel Configuration
        Device Drivers  --->
-           [*] Staging drivers  --->
+           Industrial I/O support → Gyroscopes → CONFIG_ADIS16130
                <*>     Industrial I/O support --->
                    --- Industrial I/O support
-                   -*-   Enable ring buffer support within IIO
-                   -*-     Industrial I/O lock free software ring
+                   -*-   Enable buffer support within IIO
                    -*-   Enable triggered sampling support
 
                          *** Digital gyroscope sensors ***
@@ -117,9 +122,6 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 
                    [--snip--]
 
-Hardware configuration
-----------------------
-
 Driver testing
 --------------
 
@@ -127,16 +129,16 @@ Driver testing
    :start-after: .. start-iio-device-files
    :end-before: .. end-iio-device-files
 
-::
+.. code-block:: text
 
    root:/> cd /sys/bus/iio/devices/
    root:/sys/bus/iio/devices> ls
-   iio:device0  trigger0
+   iio:device0
 
    root:/sys/bus/iio/devices> cd iio:device0
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> ls -l
    -r--r--r--    1 root     root          4096 Jan  3 20:40 dev
-   -r--r--r--    1 root     root          4096 Jan  3 20:40 in_gyro_z_raw
+   -r--r--r--    1 root     root          4096 Jan  3 20:40 in_anglvel_z_raw
    -r--r--r--    1 root     root          4096 Jan  3 20:40 in_temp0_raw
    -r--r--r--    1 root     root          4096 Jan  3 20:40 name
    drwxr-xr-x    2 root     root             0 Jan  3 20:40 power
@@ -144,13 +146,19 @@ Driver testing
    -rw-r--r--    1 root     root          4096 Jan  3 20:40 uevent
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0>
 
-Show device name
-~~~~~~~~~~~~~~~~
+ADIS16130 uses direct-mode reads and does not register a sampling trigger or
+buffer.
+
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat name
    adis16130
+
+Attribute reference
+~~~~~~~~~~~~~~~~~~~
 
 ADIS16130 device attributes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -162,7 +170,7 @@ For a detailed description please see:
    :header-rows: 1
 
    * - Device files
-   * - in_gyro_z_raw
+   * - in_anglvel_z_raw
    * - in_temp0_raw
    * - name
 

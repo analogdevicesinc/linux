@@ -98,28 +98,34 @@
           <ul>
 <li><a class="reference internal" href="#">AD7780</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a><ul>
 <li><a class="reference internal" href="#specifying-reference-voltage-via-the-regulator-framework">Specifying reference voltage via the regulator framework</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-scale">Show scale</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-scale">Show scale</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#show-channel-0-measurement">Show channel 0 measurement</a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -224,6 +230,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -242,7 +249,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -387,16 +393,6 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD7781" target="_blank">AD7781</a></p></li>
 </ul>
 </section>
-<section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0107" target="_blank">CN0107</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0108" target="_blank">CN0108</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0188" target="_blank">CN0188</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0218" target="_blank">CN0218</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0240" target="_blank">CN0240</a></p></li>
-</ul>
-</section>
 <section id="evaluation-boards">
 <h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -405,6 +401,16 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7780EBZ" target="_blank">EVAL-AD7780EBZ</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7781EBZ" target="_blank">EVAL-AD7781EBZ</a></p></li>
 </ul>
+<section id="reference-circuits">
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0107" target="_blank">CN0107</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0108" target="_blank">CN0108</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0188" target="_blank">CN0188</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0218" target="_blank">CN0218</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0240" target="_blank">CN0240</a></p></li>
+</ul>
+</section>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -428,8 +434,8 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/adc/ad7780.c" target="_blank">git</a></p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/adc/ad7780.c" target="_blank">Yes</a></p></td>
+<tr class="row-even"><td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7780.c" target="_blank">git</a></p></td>
+<td><p>Yes</p></td>
 <td></td>
 <td></td>
 </tr>
@@ -448,18 +454,36 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </thead>
 <tbody>
 <tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/adc/ad7780.c" target="_blank">drivers/staging/iio/adc/ad7780.c</a></p></td>
-</tr>
-<tr class="row-odd"><td><p>include</p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/adc/ad7780.h" target="_blank">drivers/staging/iio/adc/ad7780.h</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7780.c" target="_blank">drivers/iio/adc/ad7780.c</a></p></td>
 </tr>
 </tbody>
 </table>
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The AD7780 driver depends on <strong>CONFIG_SPI</strong> and <strong>CONFIG_GPIOLIB</strong>
+(or <strong>CONFIG_COMPILE_TEST</strong>) and selects <strong>CONFIG_AD_SIGMA_DELTA</strong>.</p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="o">&lt;*&gt;</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+            <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">---&gt;</span>
+                <span class="o">&lt;*&gt;</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD7780</span> <span class="ow">and</span> <span class="n">similar</span> <span class="n">ADCs</span> <span class="n">driver</span>
+</pre></div>
+</div>
+</section>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -469,15 +493,13 @@ describing devices and how they are connected to the SoC. This can include
 available ports, chip variants, preferred modes, default initialization,
 additional pin roles, and so on. This shrinks the board-support packages (BSPs)
 and minimizes board and application specific #ifdefs in drivers.</p>
-<p>The reference voltage may vary between boards and models. The platform_data for
-the device’s <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code> holds this information.</p>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/staging/iio/adc/ad7780.h" target="_blank">ad7780_platform_data{}</a></p>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">ad7780_platform_data</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">ad7780_pdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="p">.</span><span class="n">vref_mv</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mi">2500</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">gpio_pdrst</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">GPIO_PF10</span><span class="p">,</span>
-<span class="p">};</span>
-</pre></div>
-</div>
+<p>The driver obtains reference/supply voltage from the <code class="docutils literal notranslate"><span class="pre">avdd</span></code> regulator and
+GPIOs by descriptor lookup (<code class="docutils literal notranslate"><span class="pre">powerdown</span></code>, <code class="docutils literal notranslate"><span class="pre">adi,gain</span></code> and <code class="docutils literal notranslate"><span class="pre">adi,filter</span></code>).
+It does not use an <code class="docutils literal notranslate"><span class="pre">ad7780_platform_data</span></code> structure.
+For a board-file configuration, register GPIO descriptor lookup mappings for
+the SPI device as required by the connected hardware. The examples below show
+regulator and SPI registration only; they do not specify board-specific GPIO
+mappings.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The AD7780 doesn’t feature a dedicated SPI chip select, in addition it
@@ -489,17 +511,14 @@ combined with a dedicated GPIO to control the power down reset signal
 to an interrupt capable GPIO.</p>
 </div>
 <section id="specifying-reference-voltage-via-the-regulator-framework">
-<h3>Specifying reference voltage via the regulator framework<a class="headerlink" href="#specifying-reference-voltage-via-the-regulator-framework" title="Link to this heading"></a></h3>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>This driver supports also an alternative way of specifying the reference
-voltage, by using the Linux regulator framework.</p>
-</div>
+<h5>Specifying reference voltage via the regulator framework<a class="headerlink" href="#specifying-reference-voltage-via-the-regulator-framework" title="Link to this heading"></a></h5>
+<p>The driver requires an <code class="docutils literal notranslate"><span class="pre">avdd</span></code> regulator. Register the board’s actual supply
+with that consumer name.</p>
 <p>Below example specifies a 3.3 Volt reference for the SPI device 3 on SPI-Bus 0.
 (<strong>spi0.3</strong>)</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)</span>
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">regulator_consumer_supply</span><span class="w"> </span><span class="n">ad7780_consumer_supplies</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="n">REGULATOR_SUPPLY</span><span class="p">(</span><span class="s">"vcc"</span><span class="p">,</span><span class="w"> </span><span class="s">"spi0.3"</span><span class="p">),</span>
+<span class="w">    </span><span class="n">REGULATOR_SUPPLY</span><span class="p">(</span><span class="s">"avdd"</span><span class="p">,</span><span class="w"> </span><span class="s">"spi0.3"</span><span class="p">),</span>
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">regulator_init_data</span><span class="w"> </span><span class="n">stamp_avdd_reg_init_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
@@ -573,7 +592,6 @@ the device in question.</p>
 <span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1000000</span><span class="p">,</span><span class="w">     </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">bus_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="cm">/* Framework bus number */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">chip_select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="cm">/* Framework chip select */</span>
-<span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">ad7780_pdata</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_PF6</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SPI_MODE_0</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
@@ -596,34 +614,7 @@ the device in question.</p>
 </div>
 </section>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The AD7780 Driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="n">Staging</span> <span class="n">drivers</span>  <span class="o">---&gt;</span>
-            <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-                <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-                <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-                <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
-                <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
-
-                      <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
-                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-
-                <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD7780</span> <span class="n">AD7781</span> <span class="n">ADC</span> <span class="n">driver</span>
-
-                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-</pre></div>
-</div>
 </section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -649,12 +640,15 @@ the numbering is constant and may be known in advance.</p>
 <span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">3</span> <span class="mi">12</span><span class="p">:</span><span class="mi">41</span> <span class="n">uevent</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">ad7780</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-scale">
 <h4>Show scale<a class="headerlink" href="#show-scale" title="Link to this heading"></a></h4>
 <p><strong>Description:</strong> scale to be applied to in_voltage0_raw in order to obtain the
@@ -663,16 +657,17 @@ measured voltage in millivolts.</p>
 <span class="mf">0.00029</span>
 </pre></div>
 </div>
+</section>
+</section>
 <section id="show-channel-0-measurement">
-<h5>Show channel 0 measurement<a class="headerlink" href="#show-channel-0-measurement" title="Link to this heading"></a></h5>
+<h3>Show channel 0 measurement<a class="headerlink" href="#show-channel-0-measurement" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> Raw unscaled voltage measurement on channel 0</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in0_raw</span>
 <span class="o">-</span><span class="mi">1</span>
 </pre></div>
 </div>
-<p><strong>U</strong> = <em>in_voltage0_raw * in_scale</em> = -1 * 0.00029 = <strong>-0.00029 mV</strong></p>
-</section>
-</section>
+<p>The raw value is unsigned offset binary, so U_mV = (in_voltage0_raw +
+in_voltage0_offset) × in_voltage_scale, with an offset of -8388608.</p>
 </section>
 </section>
 <section id="more-information">

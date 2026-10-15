@@ -4,7 +4,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta content="The ADF4382 is a high performance, ultralow jitter, dual output integer-N and fractional-N phase-locked loop (PLL) with an integrated voltage controlled oscillator (VCO). The ADF4382 operates with a VCO frequency range of 11 GHz to 22 GHz (ADF4382A supports 11.5 GHz to 21 GHz), with output frequencies from 687.5 MHz to 22 GHz via configurable output dividers." name="description" />
+<meta content="The ADF4382 is a high performance, ultralow jitter, dual output integer-N and fractional-N phase-locked loop (PLL) with an integrated voltage controlled oscillator (VCO). The ADF4382 operates with a VCO frequency range of 11 GHz to 22 GHz and supports output frequencies from 687.5 MHz to 22 GHz through configurable output dividers." name="description" />
 
     <title>ADF4382 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8e8a900e" />
@@ -99,15 +99,24 @@
           <ul>
 <li><a class="reference internal" href="#">ADF4382</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#description">Description</a><ul>
+<li><a class="reference internal" href="#theory-of-operation">Theory of operation</a><ul>
+<li><a class="reference internal" href="#frequency-synthesis">Frequency synthesis</a></li>
+<li><a class="reference internal" href="#multi-chip-synchronization">Multi-chip synchronization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
-<li><a class="reference internal" href="#overview">Overview</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
-<li><a class="reference internal" href="#enabling-the-driver">Enabling the driver</a></li>
-<li><a class="reference internal" href="#adding-a-device-tree-entry">Adding a device tree entry</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#required-properties">Required properties</a></li>
 <li><a class="reference internal" href="#optional-properties">Optional properties</a></li>
-<li><a class="reference internal" href="#device-tree-example">Device tree example</a></li>
 </ul>
 </li>
 </ul>
@@ -121,12 +130,10 @@
 <li><a class="reference internal" href="#clock-provider-interface">Clock provider interface</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#theory-of-operation">Theory of operation</a><ul>
-<li><a class="reference internal" href="#frequency-synthesis">Frequency synthesis</a></li>
-<li><a class="reference internal" href="#multi-chip-synchronization">Multi-chip synchronization</a></li>
+<li><a class="reference internal" href="#more-information">More Information</a><ul>
+<li><a class="reference internal" href="#related-drivers">Related drivers</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#related-drivers">Related drivers</a></li>
 </ul>
 </li>
 </ul>
@@ -228,6 +235,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -246,7 +254,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -384,8 +391,13 @@ Content on this topic
 <p>The <a class="icon adi reference external" href="https://www.analog.com/ADF4382" target="_blank">ADF4382</a> is a high performance, ultralow jitter, dual output integer-N
 and fractional-N phase-locked loop (PLL) with an integrated voltage controlled
 oscillator (VCO). The ADF4382 operates with a VCO frequency range of 11 GHz
-to 22 GHz (ADF4382A supports 11.5 GHz to 21 GHz), with output frequencies
-from 687.5 MHz to 22 GHz via configurable output dividers.</p>
+to 22 GHz and supports output frequencies from 687.5 MHz to 22 GHz through
+configurable output dividers.</p>
+<p>The ADF4382A has a different VCO range, 11.5 GHz to 21 GHz, and supports
+output dividers of 1, 2 and 4. Its output bands are 11.5–21 GHz,
+5.75–10.5 GHz and 2.875–5.25 GHz, respectively. The gaps between these bands
+are not supported; the ADF4382’s continuous output range does not apply to
+the ADF4382A.</p>
 <p>The ADF4382 is commonly used as the sampling clock source for high-speed data
 converters such as the AD9084/AD9088 MxFE devices, providing the precision
 timing required for multi-chip synchronization.</p>
@@ -396,8 +408,79 @@ timing required for multi-chip synchronization.</p>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/ADF4382A" target="_blank">ADF4382A</a></p></li>
 </ul>
 </section>
+<section id="description">
+<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
+<p>The ADF4382 driver provides:</p>
+<ul class="simple">
+<li><p>ADF4382 frequency synthesis from 687.5 MHz to 22 GHz, using output
+dividers of 1, 2, 4, 8 or 16.</p></li>
+<li><p>ADF4382A frequency synthesis within the three output bands above, using
+output dividers of 1, 2 or 4. A requested frequency must map to a VCO
+frequency within the matched device’s limits; reference-clock and PLL
+configuration constraints also apply.</p></li>
+<li><p>Dual differential outputs with independent enable control</p></li>
+<li><p>Integrated clock provider for downstream consumers</p></li>
+<li><p>Phase adjustment for multi-chip synchronization</p></li>
+<li><p>Auto-alignment support for precision timing applications</p></li>
+<li><p>Temperature monitoring</p></li>
+</ul>
+<section id="theory-of-operation">
+<h3>Theory of operation<a class="headerlink" href="#theory-of-operation" title="Link to this heading"></a></h3>
+<section id="frequency-synthesis">
+<h4>Frequency synthesis<a class="headerlink" href="#frequency-synthesis" title="Link to this heading"></a></h4>
+<p>The ADF4382 uses a fractional-N PLL architecture:</p>
+<ol class="arabic simple">
+<li><p>Reference clock is optionally doubled and divided by R</p></li>
+<li><p>Phase-frequency detector compares reference to feedback</p></li>
+<li><p>VCO range: 11–22 GHz for ADF4382; 11.5–21 GHz for ADF4382A.</p></li>
+<li><p>Output dividers provide final output frequency</p></li>
+</ol>
+<p>The output frequency is calculated as:</p>
+<p>fVCO = fREF × D × N / R</p>
+<div class="line-block">
+<div class="line">f<sub>REF</sub> is the reference frequency.</div>
+<div class="line">D is the reference doubler.</div>
+<div class="line">R is the reference divider.</div>
+<div class="line">O is the output divider.</div>
+<div class="line">N is the feedback divider and is given by the following:</div>
+</div>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[N = N_{INT} + \frac{FRAC1WORD + \frac{FRAC2WORD}{MOD2WORD}}{MOD1WORD}\]</div>
+</div>
+<div class="line-block">
+<div class="line">f<sub>PFD</sub> is given by the following:</div>
+</div>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f_{PFD} = \frac{f_{REF} * D}{R}\]</div>
+</div>
+<p>The output frequency, f<sub>RFOUT</sub>, produced at the output of the output
+divider is given by the following:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f_{RFOUT} = \frac{VCO}{O}\]</div>
+</div>
+<p>An example for the calculation procedure is described at “Output Frequency
+Calculation Procedure” in the <a class="icon adi reference external" href="https://www.analog.com/media/en/technical-documentation/data-sheets/adf4382.pdf" target="_blank">datasheet</a>.</p>
+</section>
+<section id="multi-chip-synchronization">
+<h4>Multi-chip synchronization<a class="headerlink" href="#multi-chip-synchronization" title="Link to this heading"></a></h4>
+<p>When used with AD9084/AD9088 MxFE devices and the ADF4030 precision
+synchronizer, the ADF4382 supports auto-alignment mode:</p>
+<ol class="arabic simple">
+<li><p>Enable auto-alignment via <code class="docutils literal notranslate"><span class="pre">en_auto_align</span></code> attribute</p></li>
+<li><p>Write phase offset via <code class="docutils literal notranslate"><span class="pre">phase</span></code> attribute</p></li>
+<li><p>The PLL adjusts its phase to align with the BSYNC signal from ADF4030</p></li>
+</ol>
+<p>This enables ±10ps multi-chip synchronization across multiple converters.</p>
+</section>
+</section>
+</section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
 <section id="status">
-<h2>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h2>
+<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -414,7 +497,7 @@ timing required for multi-chip synchronization.</p>
 </div>
 </section>
 <section id="files">
-<h2>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h2>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -430,22 +513,11 @@ timing required for multi-chip synchronization.</p>
 </table>
 </div>
 </section>
-<section id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
-<p>The ADF4382 driver provides:</p>
-<ul class="simple">
-<li><p>Frequency synthesis from 687.5 MHz to 22.9 GHz</p></li>
-<li><p>Dual differential outputs with independent enable control</p></li>
-<li><p>Integrated clock provider for downstream consumers</p></li>
-<li><p>Phase adjustment for multi-chip synchronization</p></li>
-<li><p>Auto-alignment support for precision timing applications</p></li>
-<li><p>Temperature monitoring</p></li>
-</ul>
 </section>
 <section id="adding-linux-driver-support">
 <h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<section id="enabling-the-driver">
-<h3>Enabling the driver<a class="headerlink" href="#enabling-the-driver" title="Link to this heading"></a></h3>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code>:</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -459,35 +531,8 @@ timing required for multi-chip synchronization.</p>
 </pre></div>
 </div>
 </section>
-<section id="adding-a-device-tree-entry">
-<h3>Adding a device tree entry<a class="headerlink" href="#adding-a-device-tree-entry" title="Link to this heading"></a></h3>
-<section id="required-properties">
-<h4>Required properties<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h4>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">compatible</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;adi,adf4382&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;adi,adf4382a&quot;</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">reg</span></code>: SPI chip select number</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">clocks</span></code>: Reference to the reference clock input</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">clock-names</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;ref_clk&quot;</span></code></p></li>
-</ul>
-</section>
-<section id="optional-properties">
-<h4>Optional properties<a class="headerlink" href="#optional-properties" title="Link to this heading"></a></h4>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,power-up-frequency</span></code>: Initial output frequency in Hz (64-bit)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,ref-divider</span></code>: Reference divider value</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,charge-pump-microamp</span></code>: Charge pump current in microamps</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,bleed-word</span></code>: Bleed current configuration word</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,output-power-value</span></code>: Output power level setting</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,spi-3wire-enable</span></code>: Enable 3-wire SPI mode</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,ref-doubler-en</span></code>: Enable reference frequency doubler</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,cmos-3v3</span></code>: Use 3.3V CMOS output levels</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">#clock-cells</span></code>: Set to <code class="docutils literal notranslate"><span class="pre">&lt;1&gt;</span></code> to act as clock provider</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">clock-output-names</span></code>: Name for the output clock</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">#io-channel-cells</span></code>: Set to <code class="docutils literal notranslate"><span class="pre">&lt;1&gt;</span></code> to act as IIO provider</p></li>
-</ul>
-</section>
-<section id="device-tree-example">
-<h4>Device tree example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h4>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <p>Basic configuration as clock source for AD9084:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adf4382</span><span class="p">:</span> <span class="n">adf4382</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
     <span class="c1">#clock-cells = &lt;1&gt;;</span>
@@ -519,6 +564,30 @@ timing required for multi-chip synchronization.</p>
 <span class="p">};</span>
 </pre></div>
 </div>
+<section id="required-properties">
+<h4>Required properties<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">compatible</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;adi,adf4382&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;adi,adf4382a&quot;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">reg</span></code>: SPI chip select number</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clocks</span></code>: Reference to the reference clock input</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clock-names</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;ref_clk&quot;</span></code></p></li>
+</ul>
+</section>
+<section id="optional-properties">
+<h4>Optional properties<a class="headerlink" href="#optional-properties" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,power-up-frequency</span></code>: Initial output frequency in Hz (64-bit)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,ref-divider</span></code>: Reference divider value</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,charge-pump-microamp</span></code>: Charge pump current in microamps</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,bleed-word</span></code>: Bleed current configuration word</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,output-power-value</span></code>: Output power level setting</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,spi-3wire-enable</span></code>: Enable 3-wire SPI mode</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,ref-doubler-en</span></code>: Enable reference frequency doubler</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,cmos-3v3</span></code>: Use 3.3V CMOS output levels</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">#clock-cells</span></code>: Set to <code class="docutils literal notranslate"><span class="pre">&lt;1&gt;</span></code> to act as clock provider</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clock-output-names</span></code>: Name for the output clock</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">#io-channel-cells</span></code>: Set to <code class="docutils literal notranslate"><span class="pre">&lt;1&gt;</span></code> to act as IIO provider</p></li>
+</ul>
 </section>
 </section>
 </section>
@@ -555,7 +624,8 @@ timing required for multi-chip synchronization.</p>
 </dd>
 <dt><strong>out_altvoltageX_hardwaregain</strong> (read/write)</dt><dd><p>Output power level setting.</p>
 </dd>
-<dt><strong>out_altvoltage_phase</strong> (read/write)</dt><dd><p>Phase offset in millidegrees (shared by all channels).</p>
+<dt><strong>out_altvoltage_phase</strong> (read/write)</dt><dd><p>Signed phase adjustment in femtoseconds (shared by both output channels).
+Read back the quantized result.</p>
 </dd>
 <dt><strong>out_altvoltage_frequency</strong> (read/write)</dt><dd><p>Output frequency in Hz (shared by all channels).</p>
 </dd>
@@ -593,16 +663,11 @@ with ADF4030 and AD9084/AD9088.</p>
 <dt><strong>in_temp0_input</strong> (read-only)</dt><dd><p>Die temperature in millidegrees Celsius.</p>
 </dd>
 </dl>
-<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ cat in_temp0_input
+  45000
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>in_temp0_input
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> 45200
-</pre></div>
-</div>
-<div class="clear-left"></div></div></div></section>
+</section>
 </section>
 <section id="clock-provider-interface">
 <h3>Clock provider interface<a class="headerlink" href="#clock-provider-interface" title="Link to this heading"></a></h3>
@@ -614,69 +679,17 @@ reference it directly via devicetree:</p>
 </div>
 </section>
 </section>
-<section id="theory-of-operation">
-<h2>Theory of operation<a class="headerlink" href="#theory-of-operation" title="Link to this heading"></a></h2>
-<section id="frequency-synthesis">
-<h3>Frequency synthesis<a class="headerlink" href="#frequency-synthesis" title="Link to this heading"></a></h3>
-<p>The ADF4382 uses a fractional-N PLL architecture:</p>
-<ol class="arabic simple">
-<li><p>Reference clock is optionally doubled and divided by R</p></li>
-<li><p>Phase-frequency detector compares reference to feedback</p></li>
-<li><p>VCO generates frequency from 11.5 to 22.9 GHz</p></li>
-<li><p>Output dividers provide final output frequency</p></li>
-</ol>
-<p>The output frequency is calculated as:</p>
-<div class="math-wrapper docutils container">
-<div class="math notranslate nohighlight">
-\[f_{VCO} = f_{REF} * \frac{D * N * O}{R}\]</div>
-</div>
-<div class="line-block">
-<div class="line">f<sub>REF</sub> is the reference frequency.</div>
-<div class="line">D is the reference doubler.</div>
-<div class="line">R is the reference divider.</div>
-<div class="line">O is the output divider.</div>
-<div class="line">N is the feedback divider and is given by the following:</div>
-</div>
-<div class="math-wrapper docutils container">
-<div class="math notranslate nohighlight">
-\[N = N_{INT} + \frac{FRAC1WORD + \frac{FRAC2WORD}{MOD2WORD}}{MOD1WORD}\]</div>
-</div>
-<div class="line-block">
-<div class="line">f<sub>PFD</sub> is given by the following:</div>
-</div>
-<div class="math-wrapper docutils container">
-<div class="math notranslate nohighlight">
-\[f_{PFD} = \frac{f_{REF} * D}{R}\]</div>
-</div>
-<p>The output frequency, f<sub>RFOUT</sub>, produced at the output of the output
-divider is given by the following:</p>
-<div class="math-wrapper docutils container">
-<div class="math notranslate nohighlight">
-\[f_{RFOUT} = \frac{VCO}{O}\]</div>
-</div>
-<p>An example for the calculation procedure is described at “Output Frequency
-Calculation Procedure” in the <a class="icon adi reference external" href="https://www.analog.com/media/en/technical-documentation/data-sheets/adf4382.pdf" target="_blank">datasheet</a>.</p>
-</section>
-<section id="multi-chip-synchronization">
-<h3>Multi-chip synchronization<a class="headerlink" href="#multi-chip-synchronization" title="Link to this heading"></a></h3>
-<p>When used with AD9084/AD9088 MxFE devices and the ADF4030 precision
-synchronizer, the ADF4382 supports auto-alignment mode:</p>
-<ol class="arabic simple">
-<li><p>Enable auto-alignment via <code class="docutils literal notranslate"><span class="pre">en_auto_align</span></code> attribute</p></li>
-<li><p>Write phase offset via <code class="docutils literal notranslate"><span class="pre">phase</span></code> attribute</p></li>
-<li><p>The PLL adjusts its phase to align with the BSYNC signal from ADF4030</p></li>
-</ol>
-<p>This enables ±10ps multi-chip synchronization across multiple converters.</p>
-</section>
-</section>
+<section id="more-information">
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <section id="related-drivers">
-<h2>Related drivers<a class="headerlink" href="#related-drivers" title="Link to this heading"></a></h2>
+<h3>Related drivers<a class="headerlink" href="#related-drivers" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p><a class="reference internal" href="../../iio-synchronizer/adf4030/#adf4030"><span class="std std-ref">ADF4030</span></a> - Precision synchronizer for BSYNC generation</p></li>
 <li><p><a class="reference internal" href="../../iio-logic/axi-aion-trig/#axi-aion-trig"><span class="std std-ref">AXI AION Trigger</span></a> - FPGA trigger IP for synchronization</p></li>
 <li><p><a class="reference internal" href="../../iio-trx-rf/ad9088/#ad9088"><span class="std std-ref">AD9084/AD9088</span></a> - MxFE data converter (clock consumer)</p></li>
 <li><p><a class="reference internal" href="../hmc7044/#hmc7044"><span class="std std-ref">HMC7044</span></a> - Clock distribution</p></li>
 </ul>
+</section>
 </section>
 </section>
 

@@ -99,26 +99,30 @@
 <li><a class="reference internal" href="#">AD4630</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+<li><a class="reference internal" href="#description">Description</a></li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
-<li><a class="reference internal" href="#overview">Overview</a></li>
-<li><a class="reference internal" href="#enabling-the-driver">Enabling the driver</a></li>
-<li><a class="reference internal" href="#adding-a-device-tree-entry">Adding a device tree entry</a><ul>
+</ul>
+</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#required-properties">Required properties</a></li>
 <li><a class="reference internal" href="#optional-properties">Optional properties</a></li>
-<li><a class="reference internal" href="#device-tree-example">Device tree example</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-channel-scale">Show channel scale</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-channel-scale">Show channel scale</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#show-channel-list-of-available-scales">Show channel list of available scales</a></li>
 <li><a class="reference internal" href="#show-channel-calibration-offset">Show channel calibration offset</a></li>
 <li><a class="reference internal" href="#show-channel-calibration-scale">Show channel calibration scale</a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -223,6 +227,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -241,7 +246,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -394,8 +398,18 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/EVAL-AD4630-24.html" target="_blank">EVAL-AD4630-24</a></p></li>
 </ul>
 </section>
+<section id="description">
+<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
+<p>The <a class="icon adi reference external" href="https://www.analog.com/ad4030-24" target="_blank">ad4030-24</a>, <a class="icon adi reference external" href="https://www.analog.com/ad4630-16" target="_blank">ad4630-16</a>, and <a class="icon link reference external" href="https://www.analog.com/en/products/ad4630-24.html" target="_blank">ad4630-24 are SAR ADCs
+configurable at up to 2 MSPS. AD4630-16 has 16-bit resolution; AD4030-24 and
+AD4630-24 have 24-bit resolution. They are highly
+configurable</a> through an
+extensive configuration register list.</p>
+</section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
 <section id="status">
-<h2>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h2>
+<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -414,7 +428,7 @@ Content on this topic
 </div>
 </section>
 <section id="files">
-<h2>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h2>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -444,14 +458,11 @@ Content on this topic
 </table>
 </div>
 </section>
-<section id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
-<p>The <a class="icon adi reference external" href="https://www.analog.com/ad4030-24" target="_blank">ad4030-24</a>, <a class="icon adi reference external" href="https://www.analog.com/ad4630-16" target="_blank">ad4630-16</a>, and
-<a class="icon adi reference external" href="https://www.analog.com/ad4630-24" target="_blank">ad4630-24</a> are 24-bit, 2 MSPS SAR ADCs highly configurable
-through an extensive configuration register list.</p>
 </section>
-<section id="enabling-the-driver">
-<h2>Enabling the driver<a class="headerlink" href="#enabling-the-driver" title="Link to this heading"></a></h2>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="admonition note">
@@ -473,13 +484,141 @@ through an extensive configuration register list.</p>
 </pre></div>
 </div>
 </section>
-<section id="adding-a-device-tree-entry">
-<h2>Adding a device tree entry<a class="headerlink" href="#adding-a-device-tree-entry" title="Link to this heading"></a></h2>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="c1">// SPDX-License-Identifier: GPL-2.0</span>
+<span class="cm">/*</span>
+<span class="cm"> * Analog Devices AD4630-24</span>
+<span class="cm"> *</span>
+<span class="cm"> * hdl_project: &lt;ad4630_fmc/zed&gt;</span>
+<span class="cm"> * board_revision: &lt;B&gt;</span>
+<span class="cm"> *</span>
+<span class="cm"> * Copyright (C) 2022 Analog Devices Inc.</span>
+<span class="cm"> */</span>
+<span class="cp">/dts-v1/</span><span class="p">;</span>
+
+<span class="cp">#include</span><span class="cm"> </span><span class="cpf">"zynq-zed.dtsi"</span>
+<span class="cp">#include</span><span class="cm"> </span><span class="cpf">"zynq-zed-adv7511.dtsi"</span>
+<span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/gpio/gpio.h&gt;</span>
+<span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/pwm/pwm.h&gt;</span>
+
+<span class="nf">/</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nl">vref</span><span class="p">:</span><span class="w"> </span><span class="nf">regulator-vref</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"regulator-fixed"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">regulator-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"fixed-supply"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">regulator-min-microvolt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">5000000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">regulator-max-microvolt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">5000000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">regulator-always-on</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+
+<span class="w">    </span><span class="nl">vdd_1_8</span><span class="p">:</span><span class="w"> </span><span class="nf">regulator-vdd-1-8</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"regulator-fixed"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">regulator-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"fixed-supply"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">regulator-min-microvolt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1800000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">regulator-max-microvolt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1800000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">regulator-always-on</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+
+<span class="w">    </span><span class="nl">vio</span><span class="p">:</span><span class="w"> </span><span class="nf">regulator-vio</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"regulator-fixed"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">regulator-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"fixed-supply"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">regulator-min-microvolt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1800000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">regulator-max-microvolt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1800000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">regulator-always-on</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+
+<span class="w">    </span><span class="nf">clocks</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nl">cnv_ext_clk</span><span class="p">:</span><span class="w"> </span><span class="nf">ext-clk</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="o">#</span><span class="n">clock-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"fixed-clock"</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clock-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">100000000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clock-output-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"cnv_ext_clk"</span><span class="p">;</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="nf">fpga_axi</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nl">rx_dma</span><span class="p">:</span><span class="w"> </span><span class="nf">rx-dmac</span><span class="o">@</span><span class="mi">44a30000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-dmac-1.00.a"</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x44a30000</span><span class="w"> </span><span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="o">#</span><span class="n">dma-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">interrupts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="w"> </span><span class="mi">57</span><span class="w"> </span><span class="na">IRQ_TYPE_LEVEL_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clkc</span><span class="w"> </span><span class="mi">15</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="nf">adi,channels</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">            </span><span class="nf">dma-channel</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="n">adi</span><span class="p">,</span><span class="n">source-bus-width</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">64</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="n">adi</span><span class="p">,</span><span class="n">source-bus-type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="n">adi</span><span class="p">,</span><span class="n">destination-bus-width</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">64</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="n">adi</span><span class="p">,</span><span class="n">destination-bus-type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="p">};</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">    </span><span class="p">};</span>
+
+<span class="w">    </span><span class="nl">spi_clk</span><span class="p">:</span><span class="w"> </span><span class="nf">axi-clkgen</span><span class="o">@</span><span class="mi">0x44a70000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-clkgen-2.00.a"</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x44a70000</span><span class="w"> </span><span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="o">#</span><span class="n">clock-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clkc</span><span class="w"> </span><span class="mi">15</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clkc</span><span class="w"> </span><span class="mi">15</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"s_axi_aclk"</span><span class="p">,</span><span class="w"> </span><span class="s">"clkin1"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">clock-output-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"spi_clk"</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+
+<span class="w">    </span><span class="nl">axi_pwm_gen</span><span class="p">:</span><span class="w"> </span><span class="nf">axi-pwm-gen</span><span class="o">@</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-pwmgen"</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x44b00000</span><span class="w"> </span><span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad463x_cnv"</span><span class="p">;</span>
+<span class="w">        </span><span class="o">#</span><span class="n">pwm-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">cnv_ext_clk</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="p">};</span>
+
+<span class="w">    </span><span class="nl">axi_spi_engine</span><span class="p">:</span><span class="w"> </span><span class="nf">spi</span><span class="o">@</span><span class="mi">44a00000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-spi-engine-1.00.a"</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x44a00000</span><span class="w"> </span><span class="mh">0x1FF</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">interrupt-parent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">intc</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">interrupts</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="w"> </span><span class="mi">56</span><span class="w"> </span><span class="na">IRQ_TYPE_LEVEL_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clkc</span><span class="w"> </span><span class="mi">15</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">spi_clk</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"s_axi_aclk"</span><span class="p">,</span><span class="w"> </span><span class="s">"spi_clk"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">num-cs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">        </span><span class="nl">ad463x</span><span class="p">:</span><span class="w"> </span><span class="nf">ad463x</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,ad4630-24"</span><span class="p">;</span>
+<span class="w">            </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">vdd-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">vref</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">vdd_1_8-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">vdd_1_8</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">vio-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">vio</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">vref-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">vref</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">80000000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">reset-gpios</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">gpio0</span><span class="w"> </span><span class="mi">86</span><span class="w"> </span><span class="na">GPIO_ACTIVE_LOW</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">lane-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">clock-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">out-data-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">adi</span><span class="p">,</span><span class="n">spi-trigger</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">cnv_ext_clk</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"trigger_clock"</span><span class="p">;</span>
+<span class="w">            </span><span class="n">dmas</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">rx_dma</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">dma-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"rx"</span><span class="p">;</span>
+<span class="w">            </span><span class="n">pwm-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"spi_trigger"</span><span class="p">,</span><span class="w"> </span><span class="s">"cnv"</span><span class="p">;</span>
+<span class="w">            </span><span class="n">pwms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">axi_pwm_gen</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">axi_pwm_gen</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
 <section id="required-properties">
-<h3>Required properties<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h3>
+<h4>Required properties<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h4>
 <ul class="simple">
-<li><p><strong>compatible</strong>: Must be one of <code class="docutils literal notranslate"><span class="pre">adi,ad7091r2</span></code>, <code class="docutils literal notranslate"><span class="pre">adi,ad7091r4</span></code>,
-<code class="docutils literal notranslate"><span class="pre">adi,ad7091r8</span></code>.</p></li>
+<li><p><strong>compatible: Use the actual supported part, for example “adi,ad4630-24”,
+“adi,ad4630-16”, “adi,ad4030-24” or “adi,adaq4224”. The complete match table
+also includes AD4032-24, AD4632-16/-20/-24, AD4630-20 and ADAQ4216/4220.</strong></p></li>
 <li><p><strong>reg</strong>: number of SPI chip select id for the device.</p></li>
 <li><p><strong>clocks</strong>: reference clock phandle</p></li>
 <li><p><strong>clock-names</strong>: name for the reference clock</p></li>
@@ -490,142 +629,15 @@ through an extensive configuration register list.</p>
 </ul>
 </section>
 <section id="optional-properties">
-<h3>Optional properties<a class="headerlink" href="#optional-properties" title="Link to this heading"></a></h3>
+<h4>Optional properties<a class="headerlink" href="#optional-properties" title="Link to this heading"></a></h4>
 <ul class="simple">
-<li><p><strong>vref-supply</strong>: phandle + specifier to a regulator for the external VREF
-supply. If no external VREF is supplied this attribute should be omitted.
-see: Documentation/devicetree/bindings/regulator/regulator.txt</p></li>
+<li><p><strong>vref-supply: external unbuffered reference supply. If it is omitted,
+provide vrefin-supply for the internal buffered reference path; the driver
+still requires a usable reference supply. Also describe vdd-supply,
+vdd_1_8-supply and vio-supply for the actual board.</strong> see:
+Documentation/devicetree/bindings/regulator/regulator.txt</p></li>
 </ul>
 </section>
-<section id="device-tree-example">
-<h3>Device tree example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">//</span> <span class="n">SPDX</span><span class="o">-</span><span class="n">License</span><span class="o">-</span><span class="n">Identifier</span><span class="p">:</span> <span class="n">GPL</span><span class="o">-</span><span class="mf">2.0</span>
-<span class="o">/*</span>
- <span class="o">*</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD4630</span><span class="o">-</span><span class="mi">24</span>
- <span class="o">*</span>
- <span class="o">*</span> <span class="n">hdl_project</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">ad4630_fmc</span><span class="o">/</span><span class="n">zed</span><span class="o">&gt;</span>
- <span class="o">*</span> <span class="n">board_revision</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">B</span><span class="o">&gt;</span>
- <span class="o">*</span>
- <span class="o">*</span> <span class="n">Copyright</span> <span class="p">(</span><span class="n">C</span><span class="p">)</span> <span class="mi">2022</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">Inc</span><span class="o">.</span>
- <span class="o">*/</span>
-<span class="o">/</span><span class="n">dts</span><span class="o">-</span><span class="n">v1</span><span class="o">/</span><span class="p">;</span>
-
-<span class="c1">#include "zynq-zed.dtsi"</span>
-<span class="c1">#include "zynq-zed-adv7511.dtsi"</span>
-<span class="c1">#include &lt;dt-bindings/gpio/gpio.h&gt;</span>
-<span class="c1">#include &lt;dt-bindings/pwm/pwm.h&gt;</span>
-
-<span class="o">/</span> <span class="p">{</span>
-    <span class="n">vref</span><span class="p">:</span> <span class="n">regulator</span><span class="o">-</span><span class="n">vref</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
-        <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"fixed-supply"</span><span class="p">;</span>
-        <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">5000000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">5000000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">regulator</span><span class="o">-</span><span class="n">always</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
-    <span class="p">};</span>
-
-    <span class="n">vdd_1_8</span><span class="p">:</span> <span class="n">regulator</span><span class="o">-</span><span class="n">vdd</span><span class="o">-</span><span class="mi">1</span><span class="o">-</span><span class="mi">8</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
-        <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"fixed-supply"</span><span class="p">;</span>
-        <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1800000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1800000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">regulator</span><span class="o">-</span><span class="n">always</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
-    <span class="p">};</span>
-
-    <span class="n">vio</span><span class="p">:</span> <span class="n">regulator</span><span class="o">-</span><span class="n">vio</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"regulator-fixed"</span><span class="p">;</span>
-        <span class="n">regulator</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"fixed-supply"</span><span class="p">;</span>
-        <span class="n">regulator</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1800000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">regulator</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">microvolt</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1800000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">regulator</span><span class="o">-</span><span class="n">always</span><span class="o">-</span><span class="n">on</span><span class="p">;</span>
-    <span class="p">};</span>
-
-    <span class="n">clocks</span> <span class="p">{</span>
-        <span class="n">cnv_ext_clk</span><span class="p">:</span> <span class="n">ext</span><span class="o">-</span><span class="n">clk</span> <span class="p">{</span>
-            <span class="c1">#clock-cells = &lt;0x0&gt;;</span>
-            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"fixed-clock"</span><span class="p">;</span>
-            <span class="n">clock</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">100000000</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"cnv_ext_clk"</span><span class="p">;</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-
-<span class="o">&amp;</span><span class="n">fpga_axi</span> <span class="p">{</span>
-    <span class="n">rx_dma</span><span class="p">:</span> <span class="n">rx</span><span class="o">-</span><span class="n">dmac</span><span class="o">@</span><span class="mi">44</span><span class="n">a30000</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-dmac-1.00.a"</span><span class="p">;</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x44a30000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="c1">#dma-cells = &lt;1&gt;;</span>
-        <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">57</span> <span class="n">IRQ_TYPE_LEVEL_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clkc</span> <span class="mi">15</span><span class="o">&gt;</span><span class="p">;</span>
-
-        <span class="n">adi</span><span class="p">,</span><span class="n">channels</span> <span class="p">{</span>
-            <span class="c1">#size-cells = &lt;0&gt;;</span>
-            <span class="c1">#address-cells = &lt;1&gt;;</span>
-
-            <span class="n">dma</span><span class="o">-</span><span class="n">channel</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-                <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="n">adi</span><span class="p">,</span><span class="n">source</span><span class="o">-</span><span class="n">bus</span><span class="o">-</span><span class="n">width</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">64</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="n">adi</span><span class="p">,</span><span class="n">source</span><span class="o">-</span><span class="n">bus</span><span class="o">-</span><span class="nb">type</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="n">adi</span><span class="p">,</span><span class="n">destination</span><span class="o">-</span><span class="n">bus</span><span class="o">-</span><span class="n">width</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">64</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="n">adi</span><span class="p">,</span><span class="n">destination</span><span class="o">-</span><span class="n">bus</span><span class="o">-</span><span class="nb">type</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="p">};</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
-
-    <span class="n">spi_clk</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">clkgen</span><span class="o">@</span><span class="mh">0x44a70000</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-clkgen-2.00.a"</span><span class="p">;</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x44a70000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="c1">#clock-cells = &lt;0&gt;;</span>
-        <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clkc</span> <span class="mi">15</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">clkc</span> <span class="mi">15</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"s_axi_aclk"</span><span class="p">,</span> <span class="s2">"clkin1"</span><span class="p">;</span>
-        <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"spi_clk"</span><span class="p">;</span>
-    <span class="p">};</span>
-
-    <span class="n">axi_pwm_gen</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">pwm</span><span class="o">-</span><span class="n">gen</span><span class="o">@</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-pwmgen"</span><span class="p">;</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x44b00000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">label</span> <span class="o">=</span> <span class="s2">"ad463x_cnv"</span><span class="p">;</span>
-        <span class="c1">#pwm-cells = &lt;2&gt;;</span>
-        <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">cnv_ext_clk</span><span class="o">&gt;</span><span class="p">;</span>
-
-    <span class="p">};</span>
-
-    <span class="n">axi_spi_engine</span><span class="p">:</span> <span class="n">spi</span><span class="o">@</span><span class="mi">44</span><span class="n">a00000</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-spi-engine-1.00.a"</span><span class="p">;</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x44a00000</span> <span class="mh">0x1FF</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">intc</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">56</span> <span class="n">IRQ_TYPE_LEVEL_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clkc</span> <span class="mi">15</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">spi_clk</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"s_axi_aclk"</span><span class="p">,</span> <span class="s2">"spi_clk"</span><span class="p">;</span>
-        <span class="n">num</span><span class="o">-</span><span class="n">cs</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-
-        <span class="c1">#address-cells = &lt;0x1&gt;;</span>
-        <span class="c1">#size-cells = &lt;0x0&gt;;</span>
-
-        <span class="n">ad463x</span><span class="p">:</span> <span class="n">ad463x</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-            <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad463x"</span><span class="p">;</span>
-            <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">vdd</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">vref</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">vdd_1_8</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">vdd_1_8</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">vio</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">vio</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">vref</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">vref</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">80000000</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">reset</span><span class="o">-</span><span class="n">gpios</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio0</span> <span class="mi">86</span> <span class="n">GPIO_ACTIVE_LOW</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">lane</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">clock</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">out</span><span class="o">-</span><span class="n">data</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">adi</span><span class="p">,</span><span class="n">spi</span><span class="o">-</span><span class="n">trigger</span><span class="p">;</span>
-            <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">cnv_ext_clk</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"trigger_clock"</span><span class="p">;</span>
-            <span class="n">dmas</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">rx_dma</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-            <span class="n">dma</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"rx"</span><span class="p">;</span>
-            <span class="n">pwm</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"spi_trigger"</span><span class="p">,</span> <span class="s2">"cnv"</span><span class="p">;</span>
-            <span class="n">pwms</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_pwm_gen</span> <span class="mi">0</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">axi_pwm_gen</span> <span class="mi">1</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="p">};</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-</pre></div>
-</div>
 </section>
 </section>
 <section id="driver-testing">
@@ -647,22 +659,27 @@ interface can be found here:</p>
 <li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/software/iio-oscilloscope/#iio-oscilloscope" target="_blank" title="(in System Level Documentation)"><span>IIO Oscilloscope</span></a></p></li>
 </ul>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>root@analog:~ $ cat /sys/bus/iio/devices/iio\:device0/name
 adaq4224
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-channel-scale">
 <h4>Show channel scale<a class="headerlink" href="#show-channel-scale" title="Link to this heading"></a></h4>
-<p><strong>Description:</strong> Scale to be applied to in_voltageX_raw in order to obtain the
-measured voltage in millivolts</p>
+<p><strong>Description:</strong> Scale to apply to signed samples obtained from the IIO DMA
+buffer, in millivolts/code. There is no <code class="docutils literal notranslate"><span class="pre">in_voltageX_raw</span></code> attribute.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>root@analog:~ $ cat /sys/bus/iio/devices/iio\:device0/in_voltage0_scale
 0.000196695
 </pre></div>
 </div>
+</section>
+</section>
 <section id="show-channel-list-of-available-scales">
-<h5>Show channel list of available scales<a class="headerlink" href="#show-channel-list-of-available-scales" title="Link to this heading"></a></h5>
+<h3>Show channel list of available scales<a class="headerlink" href="#show-channel-list-of-available-scales" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> List of available scales to be applied to in_voltageX_raw in
 order to obtain the measured voltage in millivolts. This affects the gain
 applied to the input signal before ADC sampling. This attribute is available for
@@ -673,7 +690,7 @@ ADAQ devices only.</p>
 </div>
 </section>
 <section id="show-channel-calibration-offset">
-<h5>Show channel calibration offset<a class="headerlink" href="#show-channel-calibration-offset" title="Link to this heading"></a></h5>
+<h3>Show channel calibration offset<a class="headerlink" href="#show-channel-calibration-offset" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> Hardware applied calibration offset (calibbias). This is a
 hardware supported offset that can be applied to compensate for variation
 between different instances of the part.</p>
@@ -683,14 +700,12 @@ between different instances of the part.</p>
 </div>
 </section>
 <section id="show-channel-calibration-scale">
-<h5>Show channel calibration scale<a class="headerlink" href="#show-channel-calibration-scale" title="Link to this heading"></a></h5>
+<h3>Show channel calibration scale<a class="headerlink" href="#show-channel-calibration-scale" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> Hardware applied calibration scale factor.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>root@analog:~ $ cat /sys/bus/iio/devices/iio\:device0/in_voltage0_calibscale
 1.000000
 </pre></div>
 </div>
-</section>
-</section>
 </section>
 </section>
 <section id="more-information">

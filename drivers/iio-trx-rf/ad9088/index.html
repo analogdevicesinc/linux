@@ -100,11 +100,11 @@
 <li><a class="reference internal" href="#">AD9084/AD9088</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
-<li><a class="reference internal" href="#source-code">Source Code</a><ul>
-<li><a class="reference internal" href="#interrelated-device-drivers">Interrelated Device Drivers</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#devicetree">Devicetree</a><ul>
+<li><a class="reference internal" href="#description">Description</a></li>
+<li><a class="reference internal" href="#source-code">Source Code</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#profile">Profile</a></li>
 <li><a class="reference internal" href="#calibration">Calibration</a></li>
 <li><a class="reference internal" href="#bring-up">Bring-up</a></li>
@@ -118,11 +118,11 @@
 <li><a class="reference internal" href="#spectrum-sniffer">Spectrum Sniffer</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#compile-the-driver">Compile the driver</a></li>
-<li><a class="reference internal" href="#device-profile">Device profile</a></li>
-<li><a class="reference internal" href="#usage">Usage</a><ul>
-<li><a class="reference internal" href="#general-iio-and-driver-conventions">General IIO and driver conventions</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#device-profile">Device profile</a></li>
+<li><a class="reference internal" href="#general-iio-and-driver-conventions">General IIO and driver conventions</a></li>
 <li><a class="reference internal" href="#show-channel-name">Show channel name</a></li>
 <li><a class="reference internal" href="#adc-rate">ADC Rate</a></li>
 <li><a class="reference internal" href="#rx-sample-rate">RX Sample Rate</a></li>
@@ -157,8 +157,7 @@
 </ul>
 </li>
 <li><a class="reference internal" href="#loopback">Loopback</a></li>
-<li><a class="reference internal" href="#apollo-fft">Spectrum Sniffer</a><ul>
-<li><a class="reference internal" href="#debugfs-attributes">Debugfs Attributes</a></li>
+<li><a class="reference internal" href="#id4">Spectrum Sniffer</a><ul>
 <li><a class="reference internal" href="#feature-availability-by-mode">Feature Availability by Mode</a></li>
 <li><a class="reference internal" href="#modes-of-operation">Modes of Operation</a></li>
 <li><a class="reference internal" href="#iio-channels">IIO Channels</a></li>
@@ -191,19 +190,9 @@
 <li><a class="reference internal" href="#jrx-phase-adjustment">JRX Phase Adjustment</a></li>
 <li><a class="reference internal" href="#pseudorandom-error-check">Pseudorandom Error Check</a></li>
 <li><a class="reference internal" href="#miscellaneous">Miscellaneous</a></li>
-</ul>
-</li>
-</ul>
-</li>
 <li><a class="reference internal" href="#calibration-data-management">Calibration Data Management</a><ul>
-<li><a class="reference internal" href="#overview">Overview</a></li>
 <li><a class="reference internal" href="#calibration-data-components">Calibration Data Components</a></li>
 <li><a class="reference internal" href="#file-format">File Format</a></li>
-<li><a class="reference internal" href="#sysfs-interface">Sysfs Interface</a><ul>
-<li><a class="reference internal" href="#saving-calibration-data">Saving Calibration Data</a></li>
-<li><a class="reference internal" href="#restoring-calibration-data">Restoring Calibration Data</a></li>
-</ul>
-</li>
 <li><a class="reference internal" href="#automatic-calibration-load">Automatic Calibration Load</a></li>
 <li><a class="reference internal" href="#fast-boot">Fast Boot</a><ul>
 <li><a class="reference internal" href="#capture-calibration">Capture Calibration</a></li>
@@ -218,7 +207,18 @@
 </li>
 <li><a class="reference internal" href="#best-practices">Best Practices</a></li>
 <li><a class="reference internal" href="#security-considerations">Security Considerations</a></li>
-<li><a class="reference internal" href="#id6">Source Code</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#saving-calibration-data">Saving Calibration Data</a></li>
+<li><a class="reference internal" href="#restoring-calibration-data">Restoring Calibration Data</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
+<li><a class="reference internal" href="#debugfs-attributes">Debugfs Attributes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a><ul>
+<li><a class="reference internal" href="#interrelated-device-drivers">Interrelated Device Drivers</a></li>
 </ul>
 </li>
 </ul>
@@ -322,6 +322,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -340,7 +341,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -478,17 +478,18 @@ Content on this topic
 <p>The Apollo mixed signal front-end (MxFE®) is a highly integrated device with a
 16-bit, 28/16 GSPS maximum sample rate, RF digital-to-analog converter (DAC)
 core, and 12-bit, 20/8 GSPS maximum sample rate, RF analog-to-digital converter
-(ADC) core. The <a class="icon adi reference external" href="https://www.analog.com/AD9084" target="_blank">AD9084</a>/<a class="icon adi reference external" href="https://www.analog.com/AD9088" target="_blank">AD9088</a> supports eight transmit channels
-and eight receive channels. The <a class="icon adi reference external" href="https://www.analog.com/AD9084" target="_blank">AD9084</a>/<a class="icon adi reference external" href="https://www.analog.com/AD9088" target="_blank">AD9088</a> is well suited for
-applications requiring both wideband ADCs and DACs to process signal(s) having
-wide instantaneous bandwidth. The device features a 48 lane, 28.1/32.51 Gbps
-JESD204C or 16/20 Gbps JESD204B data transceiver port, an on-chip clock
-multiplier, and a digital signal processing (DSP) capability targeted at either
-wideband or multi-band, direct to RF applications. The
-<a class="icon adi reference external" href="https://www.analog.com/AD9084" target="_blank">AD9084</a>/<a class="icon adi reference external" href="https://www.analog.com/AD9088" target="_blank">AD9088</a> also features a bypass mode that allows the full
-bandwidth capability of the ADC and/or DAC cores to bypass the DSP datapaths.
-The device also features low latency loopback and frequency hopping modes
-targeted at phased array radar systems and electronic warfare applications.</p>
+(ADC) core. The <a class="icon adi reference external" href="https://www.analog.com/AD9084" target="_blank">AD9084</a> supports four transmit channels and four
+receive channels; the <a class="icon adi reference external" href="https://www.analog.com/AD9088" target="_blank">AD9088</a> supports eight of each. The
+<a class="icon adi reference external" href="https://www.analog.com/AD9084" target="_blank">AD9084</a>/<a class="icon adi reference external" href="https://www.analog.com/AD9088" target="_blank">AD9088</a> is well suited for applications requiring
+both wideband ADCs and DACs to process signal(s) having wide instantaneous
+bandwidth. The device features a 48 lane, 28.1/32.51 Gbps JESD204C or 16/20 Gbps
+JESD204B data transceiver port, an on-chip clock multiplier, and a digital
+signal processing (DSP) capability targeted at either wideband or multi-band,
+direct to RF applications. The <a class="icon adi reference external" href="https://www.analog.com/AD9084" target="_blank">AD9084</a>/<a class="icon adi reference external" href="https://www.analog.com/AD9088" target="_blank">AD9088</a> also features
+a bypass mode that allows the full bandwidth capability of the ADC and/or DAC
+cores to bypass the DSP datapaths. The device also features low latency loopback
+and frequency hopping modes targeted at phased array radar systems and
+electronic warfare applications.</p>
 <section id="supported-devices">
 <h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -506,6 +507,16 @@ targeted at phased array radar systems and electronic warfare applications.</p>
 <div class="line"><a class="icon adi reference external" href="https://www.analog.com/media/en/technical-documentation/user-guides/eval-ad9084-ad9088-ug-2326.pdf" target="_blank">User Guide (UG-2326)</a></div>
 </div>
 </li>
+</ul>
+</section>
+<section id="description">
+<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
+<p>During normal device initialization, the AD9088 performs extensive calibration of ADCs, SERDES transceivers, and clock conditioning. This process can take considerable time. The calibration data management feature allows you to:</p>
+<ul class="simple">
+<li><p>Save all calibration data to a binary file</p></li>
+<li><p>Restore calibration data from file during driver probe</p></li>
+<li><p>Skip time-consuming calibration procedures on subsequent boots</p></li>
+<li><p>Maintain factory or field calibration data</p></li>
 </ul>
 </section>
 <section id="source-code">
@@ -542,201 +553,17 @@ page.</p>
 <li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/trx-rf/ad9088/private" target="_blank">private</a></p></li>
 <li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/trx-rf/ad9088/public" target="_blank">public</a></p></li>
 </ul>
-<section id="interrelated-device-drivers">
-<h3>Interrelated Device Drivers<a class="headerlink" href="#interrelated-device-drivers" title="Link to this heading"></a></h3>
-<p>These are drivers that are connected to or is a dependency of <code class="docutils literal notranslate"><span class="pre">ad9088.c</span></code>.</p>
+<p>Calibration-related source files:</p>
 <ul class="simple">
-<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/jesd204-fsm-framework" target="_blank">JESD204 (FSM) Interface Linux Kernel Framework</a></p></li>
-<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/fpga/peripherals/jesd204" target="_blank">JESD204 Interface Framework</a></p></li>
-<li><p><a class="reference internal" href="../../iio-logic/axi-aion-trig/#axi-aion-trig"><span class="std std-ref">AXI AION Trigger</span></a> - FPGA trigger IP for BSYNC ToF synchronization</p></li>
-<li><p><a class="reference internal" href="../../misc/axi-hsci/#axi-hsci"><span class="std std-ref">AXI HSCI</span></a> - High-speed communication interface for register access</p></li>
-<li><p><a class="reference internal" href="../../iio-pll/adf4382/#adf4382"><span class="std std-ref">ADF4382</span></a> - Wideband synthesizer (sampling clock source)</p></li>
-<li><p><a class="reference internal" href="../../iio-synchronizer/adf4030/#adf4030"><span class="std std-ref">ADF4030</span></a> - Precision synchronizer for BSYNC generation</p></li>
-<li><p><a class="reference internal" href="../../iio-pll/hmc7044/#hmc7044"><span class="std std-ref">HMC7044</span></a> - Clock distribution</p></li>
-<li><p><a class="reference internal" href="../../iio-pll/ltc6952/#ltc6952"><span class="std std-ref">LTC6952</span></a> - Clock distribution</p></li>
-<li><p>Transport Layer Receive AXI-ADC driver</p>
-<ul>
-<li><p>Sources:</p>
-<ul>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></li>
-</ul>
-</li>
-<li><p>Documentation:</p>
-<ul>
-<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/axi-adc-hdl" target="_blank">AXI ADC HDL Linux Driver</a></p></li>
-</ul>
-</li>
-</ul>
-</li>
-<li><p>Transport Layer Transmit AXI-DAC / DDS driver</p>
-<ul>
-<li><p>Sources:</p>
-<ul>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.c" target="_blank">drivers/iio/frequency/cf_axi_dds.c</a></p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_adc.h" target="_blank">drivers/iio/frequency/cf_axi_adc.h</a></p></li>
-</ul>
-</li>
-<li><p>Documentation:</p>
-<ul>
-<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dds/axi-dac-dds-hdl" target="_blank">AXI DAC HDL Linux Driver</a></p></li>
-</ul>
-</li>
-</ul>
-</li>
-<li><p>Link Layer AXI JESD204B HDL driver</p>
-<ul>
-<li><p>Sources:</p>
-<ul>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_rx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_rx.c</a></p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_tx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_tx.c</a></p></li>
-</ul>
-</li>
-<li><p>Documentation:</p>
-<ul>
-<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/axi_jesd204_tx" target="_blank">JESD204B/C Transmit Linux Driver</a></p></li>
-<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/axi_jesd204_rx" target="_blank">JESD204B/C Receive Linux Driver</a></p></li>
-</ul>
-</li>
-</ul>
-</li>
-<li><p>PHY Layer AXI JESD204B GT (Gigabit Transceiver) HDL driver (XILINX/ALTERA-INTEL)</p>
-<ul>
-<li><p>Sources:</p>
-<ul>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_adxcvr.c" target="_blank">drivers/iio/jesd204/axi_adxcvr.c</a></p></li>
-</ul>
-</li>
-<li><p>Documentation:</p>
-<ul>
-<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/axi_adxcvr" target="_blank">JESD204B/C AXI_ADXCVR Highspeed Transceivers Linux Driver</a></p></li>
-</ul>
-</li>
-</ul>
-</li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/trx-rf/ad9088/ad9088_cal.c" target="_blank">ad9088_cal.c</a> - Calibration save/restore implementation</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/trx-rf/ad9088/ad9088.h" target="_blank">ad9088_cal.h</a> - Calibration data structures</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/tools/iio/ad9088_cal_dump.c" target="_blank">ad9088_cal_dump.c</a> - Calibration dump tool</p></li>
 </ul>
 </section>
-</section>
-<section id="devicetree">
-<h2>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h2>
-<p>The following example devicetrees are provided:</p>
-<ul class="simple">
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_quad_ad9084_revB.dts" target="_blank">AD9084-VCU118 RevB</a>: vcu118_quad_ad9084_revB.dts</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB_ext.dts" target="_blank">AD9084-VCU118 26p4 RevB Ext</a>: vcu118_quad_ad9084_26p4_revB_ext.dts</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB.dts" target="_blank">AD9084-VCU118 26p4 RevB</a>: vcu118_quad_ad9084_26p4_revB.dts</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts" target="_blank">AD9084-VCU118 204C_M4_L8_NP12_16p2_6x1</a>: vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_ad9084.dts" target="_blank">AD9084-VCU118 ad9084</a>: vcu118_ad9084.dts</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_quad_ad9084_revB_ext.dts" target="_blank">AD9084-VCU118 RevB Ext</a>: vcu118_quad_ad9084_revB_ext.dts</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts" target="_blank">AD9084-VCU118 204C_M4_L8_NP16_20p0_4x4</a>: vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084.dts" target="_blank">AD9084-VCK190</a>: versal-vck190-reva-ad9084.dts</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts" target="_blank">AD9084-VCK190 204C_M4_L4_NP16_20p0_4x4</a>: versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts</p></li>
-</ul>
-<section id="profile">
-<h3>Profile<a class="headerlink" href="#profile" title="Link to this heading"></a></h3>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,device-profile-fw-name</span></code>: Set the profile firmware to use.</p></li>
-</ul>
-<p>See <a class="reference internal" href="#apollo-profile"><span class="std std-ref">Device profile</span></a> for more information.</p>
-</section>
-<section id="calibration">
-<h3>Calibration<a class="headerlink" href="#calibration" title="Link to this heading"></a></h3>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,device-calibration-data-name</span></code>: Set the calibration data firmware file
-to load during driver probe. This enables automatic calibration restore from
-a previously saved calibration file, significantly reducing boot time.</p></li>
-</ul>
-<p>If not present, the driver performs normal initialization with full calibration.
-See <a class="reference internal" href="#calibration-data-management"><span class="std std-ref">Calibration Data Management</span></a> for more information.</p>
-</section>
-<section id="bring-up">
-<h3>Bring-up<a class="headerlink" href="#bring-up" title="Link to this heading"></a></h3>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,delayed-serdes-jrx-cal-en</span></code>: Run SERDES calculation during the
-“link running” phase instead of the earlier “clocks enable” phase.</p></li>
-</ul>
-</section>
-<section id="format">
-<h3>Format<a class="headerlink" href="#format" title="Link to this heading"></a></h3>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,rx-real-channel-en</span></code>: Disable complex Q/I samples for RX path.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,tx-real-channel-en</span></code>:  Disable complex Q/I samples for RX path.</p></li>
-</ul>
-<p>In practice, doesn’t set the channel modifier, treating each channel as
-independent real channel.
-If not present, even number are I samples, and odd Q samples.</p>
-</section>
-<section id="trigger">
-<h3>Trigger<a class="headerlink" href="#trigger" title="Link to this heading"></a></h3>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,trigger-sync-en</span></code>: Enable trigger synchronization.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,trig-req-gpio</span></code>: Set the GPIO that trigger Enable trigger synchronization.
-If not provided, the SPI trigger will be used for trigger synchronization.</p></li>
-</ul>
-<p>If the option is enabled and no trigger is provided, the synchronization will
-time out.</p>
-</section>
-<section id="detailed-topics">
-<h3>Detailed topics<a class="headerlink" href="#detailed-topics" title="Link to this heading"></a></h3>
-<div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">The following sections describe these topics:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="mcs/">Multi-Chip Synchronization</a></li>
-<li class="toctree-l1"><a class="reference internal" href="gpio/">GPIO usage</a></li>
-<li class="toctree-l1"><a class="reference internal" href="fsrc/">Fractional Sample Rate Converter</a></li>
-</ul>
-</div>
-</section>
-<section id="topology">
-<h3>Topology<a class="headerlink" href="#topology" title="Link to this heading"></a></h3>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,side-b-use-seperate-tpl-en</span></code>: Set side B to use own transport layer.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,standalone-enable</span></code>: Allocate own IIO device to device.
-Top device always allocates IIO device through <code class="docutils literal notranslate"><span class="pre">axiadc_converter</span></code>,
-therefore has no effect on it.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,multidevice-instance-count</span></code>: Define the <strong>total</strong> number of devices in
-the system on the main device.
-Only present if the subordinates uses <code class="docutils literal notranslate"><span class="pre">adi,standalone-enable</span></code>.</p></li>
-</ul>
-<p><code class="docutils literal notranslate"><span class="pre">adi,multidevice-instance-count</span></code> is a companion of the <code class="docutils literal notranslate"><span class="pre">adi,standalone-enable</span></code>
-attribute.
-For a topology of 4 devices, the main device has it set to 4, and the 3 subordinates
-contain the latter attribute.</p>
-</section>
-<section id="spi">
-<h3>SPI<a class="headerlink" href="#spi" title="Link to this heading"></a></h3>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,spi-3wire-enable</span></code>: Use 3-wire SPI for SPI0.</p></li>
-</ul>
-</section>
-<section id="hsci">
-<h3>HSCI<a class="headerlink" href="#hsci" title="Link to this heading"></a></h3>
-<p>A few options are available to tune the HSCI interface.</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,axi-hsci-connected</span></code>: Sets the HSCI controller for the HSCI interface.
-If absent, only SPI is used to communicate with the device, considerably slower.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,hsci-auto-linkup-mode-en</span></code>: Enable HSCI auto-linkup mode.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,hsci-disable-after-boot-en</span></code>: Use SPI as the interface after initial device initialization.</p></li>
-</ul>
-</section>
-<section id="gpio">
-<h3>GPIO<a class="headerlink" href="#gpio" title="Link to this heading"></a></h3>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">adi,gpio-exports</span></code>: Expose a list of the 30s device GPIOs into a GPIO controller.</p></li>
-</ul>
-<p>A more detailed usage is provided <a class="reference internal" href="gpio/#ad9088-gpio"><span class="std std-ref">here</span></a>.</p>
-</section>
-<section id="spectrum-sniffer">
-<h3>Spectrum Sniffer<a class="headerlink" href="#spectrum-sniffer" title="Link to this heading"></a></h3>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">interrupt-names</span></code>: <code class="docutils literal notranslate"><span class="pre">fft_done_A&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">fft_done_B</span></code> for the spectrum
-sniffer interrupt signal for side a and b, respectively.</p></li>
-</ul>
-<p>A more detailed usage is provided <a class="reference internal" href="#apollo-fft"><span class="std std-ref">here</span></a>.</p>
-</section>
-</section>
-<section id="compile-the-driver">
-<h2>Compile the driver<a class="headerlink" href="#compile-the-driver" title="Link to this heading"></a></h2>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code>
 (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>).</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Linux Kernel Configuration
@@ -785,71 +612,126 @@ sniffer interrupt signal for side a and b, respectively.</p></li>
 </pre></div>
 </div>
 </section>
-<section id="device-profile">
-<span id="apollo-profile"></span><h2>Device profile<a class="headerlink" href="#device-profile" title="Link to this heading"></a></h2>
-<p>The device profiles can be generated with the profile generator tool that is
-part of the <a class="icon adi reference external" href="https://www.analog.com/ACE" target="_blank">ACE</a> Evaluation Software. Profile modifications can be done
-through <a class="icon link reference external" href="https://analogdevicesinc.github.io/pyadi-jif/" target="_blank" title="(in pyadi-jif)"><span class="xref std std-doc">pyadi-jif</span></a>.
-In particular, the a Python Jupyter Notebook at <a class="icon git reference external" href="https://github.com/analogdevicesinc/pyadi-jif/tree/main/examples/triton/triton_vcu118.ipynb" target="_blank">examples/triton/triton_vcu118.ipynb</a>
-guides you through the profile generation and modification, with sample files
-at the <a class="icon git reference external" href="https://github.com/analogdevicesinc/pyadi-jif/tree/main/examples/triton" target="_blank">directory of the notebook</a>.
-During runtime, some profile options are reconfigured, such as
-<a class="reference internal" href="#apollo-ffh"><span class="std std-ref">Fast Frequency Hopping</span></a>.</p>
-<p>With the device profile generated, compile into the kernel by adding it to the
-<em>firmware</em> folder and appending too the <code class="docutils literal notranslate"><span class="pre">CONFIG_EXTRA_FIRMWARE</span></code> kernel
-symbol. The <em>firmware</em> folder is set by the symbol
-<code class="docutils literal notranslate"><span class="pre">CONFIG_EXTRA_FIRMWARE_DIR</span></code>, if it is set to something else, add to that path
-instead. Then, update devicetree property <code class="docutils literal notranslate"><span class="pre">adi,device-profile-fw-name</span></code>.</p>
-<p>You can have multiple profiles compiled into the kernel image by passing
-multiple profile paths, however only one set in the devicetree property.
-Consider using devicetree overlays to swapping profiles.</p>
-</section>
-<section id="usage">
-<h2>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h2>
-<section id="general-iio-and-driver-conventions">
-<h3>General IIO and driver conventions<a class="headerlink" href="#general-iio-and-driver-conventions" title="Link to this heading"></a></h3>
-<p>Controlling the MxFE is done via the IIO sysfs interface. For convenience users
-can use <a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/software/libiio/#libiio" target="_blank" title="(in System Level Documentation)"><span>Libiio</span></a> and its various programming
-languages bindings.</p>
-<p>The MxFE IIO device under /sys/bus/iio/devices/iio:deviceX features a set of
-channels and device attributes, which are explained here. Some basic, but
-important concepts are explained in the bullet list below:</p>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<p>The following example devicetrees are provided:</p>
 <ul class="simple">
-<li><p>Channels prefixed with <code class="docutils literal notranslate"><span class="pre">**in_**voltageX</span></code> apply to Receive (RX) ADC data paths.</p></li>
-<li><p>Channels prefixed with <code class="docutils literal notranslate"><span class="pre">**out**_voltageX</span></code> apply to Transmit (TX) DAC data paths.</p></li>
-<li><p>Each channel has a complex modifier <code class="docutils literal notranslate"><span class="pre">in_voltageX_**i**</span></code> and
-<code class="docutils literal notranslate"><span class="pre">in_voltageX_**q**</span></code> or <code class="docutils literal notranslate"><span class="pre">out_voltageX_**i**</span></code> and <code class="docutils literal notranslate"><span class="pre">out_voltageX_**q**</span></code>.
-Controlling a channel attribute for the <code class="docutils literal notranslate"><span class="pre">i</span></code> modified channel will
-simultaneously control the <code class="docutils literal notranslate"><span class="pre">q</span></code> modified channel and vice versa. So,
-writing/reading only needs to happen once, since they are mirrored. The
-complex IQ modifiers are only important for the data buffers, sine I &amp; Q are
-individual data components.</p></li>
-<li><p>IIO channels <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX</span></code> apply to the channelizer data paths (Fine DDC/DUC).</p>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_quad_ad9084_revB.dts" target="_blank">AD9084-VCU118 RevB</a>: vcu118_quad_ad9084_revB.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB_ext.dts" target="_blank">AD9084-VCU118 26p4 RevB Ext</a>: vcu118_quad_ad9084_26p4_revB_ext.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB.dts" target="_blank">AD9084-VCU118 26p4 RevB</a>: vcu118_quad_ad9084_26p4_revB.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts" target="_blank">AD9084-VCU118 204C_M4_L8_NP12_16p2_6x1</a>: vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_ad9084.dts" target="_blank">AD9084-VCU118 ad9084</a>: vcu118_ad9084.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_quad_ad9084_revB_ext.dts" target="_blank">AD9084-VCU118 RevB Ext</a>: vcu118_quad_ad9084_revB_ext.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts" target="_blank">AD9084-VCU118 204C_M4_L8_NP16_20p0_4x4</a>: vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084.dts" target="_blank">AD9084-VCK190</a>: versal-vck190-reva-ad9084.dts</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts" target="_blank">AD9084-VCK190 204C_M4_L4_NP16_20p0_4x4</a>: versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts</p></li>
+</ul>
+<section id="profile">
+<h4>Profile<a class="headerlink" href="#profile" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,device-profile-fw-name</span></code>: Set the profile firmware to use.</p></li>
+</ul>
+<p>See <a class="reference internal" href="#apollo-profile"><span class="std std-ref">Device profile</span></a> for more information.</p>
+</section>
+<section id="calibration">
+<h4>Calibration<a class="headerlink" href="#calibration" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,device-calibration-data-name</span></code>: Set the calibration data firmware file
+to load during driver probe. This enables automatic calibration restore from
+a previously saved calibration file, significantly reducing boot time.</p></li>
+</ul>
+<p>If not present, the driver performs normal initialization with full calibration.
+See <a class="reference internal" href="#calibration-data-management"><span class="std std-ref">Calibration Data Management</span></a> for more information.</p>
+</section>
+<section id="bring-up">
+<h4>Bring-up<a class="headerlink" href="#bring-up" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,delayed-serdes-jrx-cal-en</span></code>: Run SERDES calculation during the
+“link running” phase instead of the earlier “clocks enable” phase.</p></li>
+</ul>
+</section>
+<section id="format">
+<h4>Format<a class="headerlink" href="#format" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,rx-real-channel-en</span></code>: Disable complex Q/I samples for RX path.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,tx-real-channel-en</span></code>:  Disable complex Q/I samples for RX path.</p></li>
+</ul>
+<p>In practice, doesn’t set the channel modifier, treating each channel as
+independent real channel.
+If not present, even number are I samples, and odd Q samples.</p>
+</section>
+<section id="trigger">
+<h4>Trigger<a class="headerlink" href="#trigger" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,trigger-sync-en</span></code>: Enable trigger synchronization.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,trig-req-gpio</span></code>: Set the GPIO that trigger Enable trigger synchronization.
+If not provided, the SPI trigger will be used for trigger synchronization.</p></li>
+</ul>
+<p>If the option is enabled and no trigger is provided, the synchronization will
+time out.</p>
+</section>
+<section id="detailed-topics">
+<h4>Detailed topics<a class="headerlink" href="#detailed-topics" title="Link to this heading"></a></h4>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">The following sections describe these topics:</span></p>
 <ul>
-<li><p>Each IIO channel has some <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_**channel**_[attributes]</span></code></p></li>
-<li><p>In case the channelizer data paths (Fine DDC/DUC) are bypassed
-(decimation=1 or interpolation=1), the X still applies to a data path.</p></li>
+<li class="toctree-l1"><a class="reference internal" href="mcs/">Multi-Chip Synchronization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gpio/">GPIO usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fsrc/">Fractional Sample Rate Converter</a></li>
 </ul>
-</li>
-<li><p>Each channelizer data path (FDDC, FDUC) connects at least to one Coarse
-DDC/DUC (CDDC/CDUC), which maps then to one or more ADCs/DACs depending on
-configuration. These are called main data paths and are controlled via the
-<code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_**main**_[attributes]</span></code> attributes.</p>
-<ul>
-<li><p>Be aware, since multiple channels can map to the same main data path
-(CDDC/CDUC), changing a main attribute of one channel will also update same
-attribute of any other channel that maps to the same main data path
-(CDDC/CDUC).</p></li>
-<li><p>The crossbar mapping between Fine and Coarse Digital Up/Down Converters,
-ADCs/DACs is defined in the device tree.</p></li>
+</div>
+</section>
+<section id="topology">
+<h4>Topology<a class="headerlink" href="#topology" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,side-b-use-seperate-tpl-en</span></code>: Set side B to use own transport layer.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,standalone-enable</span></code>: Allocate own IIO device to device.
+Top device always allocates IIO device through <code class="docutils literal notranslate"><span class="pre">axiadc_converter</span></code>,
+therefore has no effect on it.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,multidevice-instance-count</span></code>: Define the <strong>total</strong> number of devices in
+the system on the main device.
+Only present if the subordinates uses <code class="docutils literal notranslate"><span class="pre">adi,standalone-enable</span></code>.</p></li>
 </ul>
-</li>
-<li><p>Device attributes (without <code class="docutils literal notranslate"><span class="pre">**in_**voltageX``or</span> <span class="pre">``**out_**voltageX</span></code> prefix)
-apply to the entire device.</p></li>
+<p><code class="docutils literal notranslate"><span class="pre">adi,multidevice-instance-count</span></code> is a companion of the <code class="docutils literal notranslate"><span class="pre">adi,standalone-enable</span></code>
+attribute.
+For a topology of 4 devices, the main device has it set to 4, and the 3 subordinates
+contain the latter attribute.</p>
+</section>
+<section id="spi">
+<h4>SPI<a class="headerlink" href="#spi" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,spi-3wire-enable</span></code>: Use 3-wire SPI for SPI0.</p></li>
 </ul>
+</section>
+<section id="hsci">
+<h4>HSCI<a class="headerlink" href="#hsci" title="Link to this heading"></a></h4>
+<p>A few options are available to tune the HSCI interface.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,axi-hsci-connected</span></code>: Sets the HSCI controller for the HSCI interface.
+If absent, only SPI is used to communicate with the device, considerably slower.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,hsci-auto-linkup-mode-en</span></code>: Enable HSCI auto-linkup mode.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,hsci-disable-after-boot-en</span></code>: Use SPI as the interface after initial device initialization.</p></li>
+</ul>
+</section>
+<section id="gpio">
+<h4>GPIO<a class="headerlink" href="#gpio" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,gpio-exports</span></code>: Expose a list of the 30s device GPIOs into a GPIO controller.</p></li>
+</ul>
+<p>A more detailed usage is provided <a class="reference internal" href="gpio/#ad9088-gpio"><span class="std std-ref">here</span></a>.</p>
+</section>
+<section id="spectrum-sniffer">
+<span id="apollo-fft"></span><h4>Spectrum Sniffer<a class="headerlink" href="#spectrum-sniffer" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">interrupt-names</span></code>: <code class="docutils literal notranslate"><span class="pre">fft_done_A&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">fft_done_B</span></code> for the spectrum
+sniffer interrupt signal for side a and b, respectively.</p></li>
+</ul>
+<p>A more detailed usage is provided <a class="reference internal" href="#apollo-fft"><span class="std std-ref">here</span></a>.</p>
+</section>
+</section>
 </section>
 <section id="driver-testing">
-<h3>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h3>
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <p>This device can be found under <em>/sys/bus/iio/devices/</em></p>
 <p>One way to check if the device and driver are present is using <strong>iio_info</strong>:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
@@ -1043,8 +925,73 @@ lrwxrwxrwx 1 root root    0 Feb 11 15:17 subsystem -&gt; ../../../../../bus/iio
 </div>
 <div class="clear-left"></div></div></div></div>
 </div>
-</div><section id="show-channel-name">
-<h4>Show channel name<a class="headerlink" href="#show-channel-name" title="Link to this heading"></a></h4>
+</div><p>Calibration data is accessed via a binary sysfs attribute:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:deviceX/calibration_data
+</pre></div>
+</div>
+<section id="device-profile">
+<span id="apollo-profile"></span><h3>Device profile<a class="headerlink" href="#device-profile" title="Link to this heading"></a></h3>
+<p>The device profiles can be generated with the profile generator tool that is
+part of the <a class="icon adi reference external" href="https://www.analog.com/ACE" target="_blank">ACE</a> Evaluation Software. Profile modifications can be done
+through <a class="icon link reference external" href="https://analogdevicesinc.github.io/pyadi-jif/" target="_blank" title="(in pyadi-jif)"><span class="xref std std-doc">pyadi-jif</span></a>.
+In particular, the a Python Jupyter Notebook at <a class="icon git reference external" href="https://github.com/analogdevicesinc/pyadi-jif/tree/main/examples/triton/triton_vcu118.ipynb" target="_blank">examples/triton/triton_vcu118.ipynb</a>
+guides you through the profile generation and modification, with sample files
+at the <a class="icon git reference external" href="https://github.com/analogdevicesinc/pyadi-jif/tree/main/examples/triton" target="_blank">directory of the notebook</a>.
+During runtime, some profile options are reconfigured, such as
+<a class="reference internal" href="#apollo-ffh"><span class="std std-ref">Fast Frequency Hopping</span></a>.</p>
+<p>With the device profile generated, compile into the kernel by adding it to the
+<em>firmware</em> folder and appending too the <code class="docutils literal notranslate"><span class="pre">CONFIG_EXTRA_FIRMWARE</span></code> kernel
+symbol. The <em>firmware</em> folder is set by the symbol
+<code class="docutils literal notranslate"><span class="pre">CONFIG_EXTRA_FIRMWARE_DIR</span></code>, if it is set to something else, add to that path
+instead. Then, update devicetree property <code class="docutils literal notranslate"><span class="pre">adi,device-profile-fw-name</span></code>.</p>
+<p>You can have multiple profiles compiled into the kernel image by passing
+multiple profile paths, however only one set in the devicetree property.
+Consider using devicetree overlays to swapping profiles.</p>
+</section>
+<section id="general-iio-and-driver-conventions">
+<h3>General IIO and driver conventions<a class="headerlink" href="#general-iio-and-driver-conventions" title="Link to this heading"></a></h3>
+<p>Controlling the MxFE is done via the IIO sysfs interface. For convenience users
+can use <a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/software/libiio/#libiio" target="_blank" title="(in System Level Documentation)"><span>Libiio</span></a> and its various programming
+languages bindings.</p>
+<p>The MxFE IIO device under /sys/bus/iio/devices/iio:deviceX features a set of
+channels and device attributes, which are explained here. Some basic, but
+important concepts are explained in the bullet list below:</p>
+<ul class="simple">
+<li><p>Channels prefixed with <code class="docutils literal notranslate"><span class="pre">**in_**voltageX</span></code> apply to Receive (RX) ADC data paths.</p></li>
+<li><p>Channels prefixed with <code class="docutils literal notranslate"><span class="pre">**out**_voltageX</span></code> apply to Transmit (TX) DAC data paths.</p></li>
+<li><p>Each channel has a complex modifier <code class="docutils literal notranslate"><span class="pre">in_voltageX_**i**</span></code> and
+<code class="docutils literal notranslate"><span class="pre">in_voltageX_**q**</span></code> or <code class="docutils literal notranslate"><span class="pre">out_voltageX_**i**</span></code> and <code class="docutils literal notranslate"><span class="pre">out_voltageX_**q**</span></code>.
+Controlling a channel attribute for the <code class="docutils literal notranslate"><span class="pre">i</span></code> modified channel will
+simultaneously control the <code class="docutils literal notranslate"><span class="pre">q</span></code> modified channel and vice versa. So,
+writing/reading only needs to happen once, since they are mirrored. The
+complex IQ modifiers are only important for the data buffers, sine I &amp; Q are
+individual data components.</p></li>
+<li><p>IIO channels <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX</span></code> apply to the channelizer data paths (Fine DDC/DUC).</p>
+<ul>
+<li><p>Each IIO channel has some <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_**channel**_[attributes]</span></code></p></li>
+<li><p>In case the channelizer data paths (Fine DDC/DUC) are bypassed
+(decimation=1 or interpolation=1), the X still applies to a data path.</p></li>
+</ul>
+</li>
+<li><p>Each channelizer data path (FDDC, FDUC) connects at least to one Coarse
+DDC/DUC (CDDC/CDUC), which maps then to one or more ADCs/DACs depending on
+configuration. These are called main data paths and are controlled via the
+<code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_**main**_[attributes]</span></code> attributes.</p>
+<ul>
+<li><p>Be aware, since multiple channels can map to the same main data path
+(CDDC/CDUC), changing a main attribute of one channel will also update same
+attribute of any other channel that maps to the same main data path
+(CDDC/CDUC).</p></li>
+<li><p>The crossbar mapping between Fine and Coarse Digital Up/Down Converters,
+ADCs/DACs is defined in the device tree.</p></li>
+</ul>
+</li>
+<li><p>Device attributes (without <code class="docutils literal notranslate"><span class="pre">**in_**voltageX``or</span> <span class="pre">``**out_**voltageX</span></code> prefix)
+apply to the entire device.</p></li>
+</ul>
+</section>
+<section id="show-channel-name">
+<h3>Show channel name<a class="headerlink" href="#show-channel-name" title="Link to this heading"></a></h3>
 <p>The channel label contains the data path and it is shown with:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
 </pre></div>
@@ -1057,7 +1004,7 @@ lrwxrwxrwx 1 root root    0 Feb 11 15:17 subsystem -&gt; ../../../../../bus/iio
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="adc-rate">
-<h4>ADC Rate<a class="headerlink" href="#adc-rate" title="Link to this heading"></a></h4>
+<h3>ADC Rate<a class="headerlink" href="#adc-rate" title="Link to this heading"></a></h3>
 <p>What: <code class="docutils literal notranslate"><span class="pre">in_voltage_adc_frequency</span></code></p>
 <p>Read only attribute which returns the RX ADC rate Hz.</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
@@ -1071,7 +1018,7 @@ lrwxrwxrwx 1 root root    0 Feb 11 15:17 subsystem -&gt; ../../../../../bus/iio
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="rx-sample-rate">
-<h4>RX Sample Rate<a class="headerlink" href="#rx-sample-rate" title="Link to this heading"></a></h4>
+<h3>RX Sample Rate<a class="headerlink" href="#rx-sample-rate" title="Link to this heading"></a></h3>
 <p>What: <code class="docutils literal notranslate"><span class="pre">in_voltage_sampling_frequency</span></code></p>
 <p>Read only attribute which returns the RX digital IQ base-band rate in
 Hz. This must not be confused with the ADC rate, which is
@@ -1089,7 +1036,7 @@ Channel_decimation are defined in the device tree.</p>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="dac-rate">
-<h4>DAC Rate<a class="headerlink" href="#dac-rate" title="Link to this heading"></a></h4>
+<h3>DAC Rate<a class="headerlink" href="#dac-rate" title="Link to this heading"></a></h3>
 <p>What: <code class="docutils literal notranslate"><span class="pre">out_voltage_dac_frequency</span></code></p>
 <p>Read only attribute which returns the TX DAC rate Hz.</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device2$
@@ -1103,7 +1050,7 @@ Channel_decimation are defined in the device tree.</p>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="tx-sample-rate">
-<h4>TX Sample Rate<a class="headerlink" href="#tx-sample-rate" title="Link to this heading"></a></h4>
+<h3>TX Sample Rate<a class="headerlink" href="#tx-sample-rate" title="Link to this heading"></a></h3>
 <p>What: <code class="docutils literal notranslate"><span class="pre">out_voltage_sampling_frequency</span></code></p>
 <p>Read only attribute which returns the TX digital IQ baseband rate in
 Hz. This must not be confused with the DAC rate, which is
@@ -1122,9 +1069,9 @@ tree.</p>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="nco-frequency-control">
-<h4>NCO Frequency Control<a class="headerlink" href="#nco-frequency-control" title="Link to this heading"></a></h4>
+<h3>NCO Frequency Control<a class="headerlink" href="#nco-frequency-control" title="Link to this heading"></a></h3>
 <section id="main-data-path">
-<h5>Main Data Path<a class="headerlink" href="#main-data-path" title="Link to this heading"></a></h5>
+<h4>Main Data Path<a class="headerlink" href="#main-data-path" title="Link to this heading"></a></h4>
 <p>What: <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_main_nco_frequency</span></code></p>
 <p>Sets the main data path (CDDC/CDUC) NCO frequency (f<sub>Carrier</sub>) in Hz</p>
 <ul class="simple">
@@ -1163,7 +1110,7 @@ tree.</p>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="channel-data-path">
-<h5>Channel Data Path<a class="headerlink" href="#channel-data-path" title="Link to this heading"></a></h5>
+<h4>Channel Data Path<a class="headerlink" href="#channel-data-path" title="Link to this heading"></a></h4>
 <p>What: <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_channel_nco_frequency</span></code></p>
 <p>Sets the channel data path (FDDC/FDUC) NCO frequency (f<sub>Carrier</sub>) in Hz</p>
 <p><code class="docutils literal notranslate"><span class="pre">out_voltageX_i_channel_nco_frequency</span></code> range is:</p>
@@ -1211,9 +1158,9 @@ tree.</p>
 <div class="clear-left"></div></div></div></section>
 </section>
 <section id="nco-phase-control">
-<h4>NCO Phase Control<a class="headerlink" href="#nco-phase-control" title="Link to this heading"></a></h4>
+<h3>NCO Phase Control<a class="headerlink" href="#nco-phase-control" title="Link to this heading"></a></h3>
 <section id="id1">
-<h5>Main Data Path<a class="headerlink" href="#id1" title="Link to this heading"></a></h5>
+<h4>Main Data Path<a class="headerlink" href="#id1" title="Link to this heading"></a></h4>
 <p>What: <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_main_nco_phase</span></code></p>
 <p>Sets the main data path (CDDC/CDUC) NCO phase offset in milli degrees</p>
 <p>Range is: −180° ≤ Degrees Offset ≤ +180° (Values are in milli degrees.)</p>
@@ -1249,7 +1196,7 @@ tree.</p>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="id2">
-<h5>Channel Data Path<a class="headerlink" href="#id2" title="Link to this heading"></a></h5>
+<h4>Channel Data Path<a class="headerlink" href="#id2" title="Link to this heading"></a></h4>
 <p>What: <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_channel_nco_phase</span></code></p>
 <p>Sets the channel data path (FDDC/FDUC) NCO phase offset in milli degrees</p>
 <p>Range is: −180° ≤ Degrees Offset ≤ +180° (Values are in milli degrees.)</p>
@@ -1271,7 +1218,7 @@ tree.</p>
 <div class="clear-left"></div></div></div></section>
 </section>
 <section id="tx-nco-channel-digital-gain">
-<h4>TX NCO Channel Digital Gain<a class="headerlink" href="#tx-nco-channel-digital-gain" title="Link to this heading"></a></h4>
+<h3>TX NCO Channel Digital Gain<a class="headerlink" href="#tx-nco-channel-digital-gain" title="Link to this heading"></a></h3>
 <p>What: <code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_channel_nco_gain_scale</span></code></p>
 <p>The input data into each channelizer stage can be rescaled prior to
 additional processing. This feature is useful in multiband applications
@@ -1297,7 +1244,7 @@ The gain/scale is set via <code class="docutils literal notranslate"><span class
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="nco-mixer-mode">
-<h4>NCO Mixer Mode<a class="headerlink" href="#nco-mixer-mode" title="Link to this heading"></a></h4>
+<h3>NCO Mixer Mode<a class="headerlink" href="#nco-mixer-mode" title="Link to this heading"></a></h3>
 <p>What: <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_[main|channel]_nco_mixer_mode</span></code></p>
 <p>Configures the NCO mixer mode for the main (CDDC/CDUC) or channel (FDDC/FDUC)
 data path. The mixer mode controls how the NCO frequency is applied to the
@@ -1336,7 +1283,7 @@ attribute:</p>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="nco-test-tone">
-<h4>NCO Test Tone<a class="headerlink" href="#nco-test-tone" title="Link to this heading"></a></h4>
+<h3>NCO Test Tone<a class="headerlink" href="#nco-test-tone" title="Link to this heading"></a></h3>
 <p>What: <code class="docutils literal notranslate"><span class="pre">[in|out]_voltageX_[i|q]_[main|channel]_nco_test_tone_scale</span></code></p>
 <p>Sets the NCO test tone scale for path testing. The test tone scale controls
 the amplitude of the internally generated test tone. The value is a floating
@@ -1358,7 +1305,7 @@ point scale factor.</p>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="bmem-sample-delay">
-<h4>BMEM Sample Delay<a class="headerlink" href="#bmem-sample-delay" title="Link to this heading"></a></h4>
+<h3>BMEM Sample Delay<a class="headerlink" href="#bmem-sample-delay" title="Link to this heading"></a></h3>
 <p>What: <code class="docutils literal notranslate"><span class="pre">in_voltageX_[i|q]_[main|channel]_bmem_sample_delay</span></code></p>
 <p>Sets the buffer memory (BMEM) sample delay for the main (CDDC) or channel
 (FDDC) data path. This delay is used to align data paths when capturing
@@ -1380,7 +1327,7 @@ samples to the buffer memory.</p>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="sampling-mode">
-<h4>Sampling Mode<a class="headerlink" href="#sampling-mode" title="Link to this heading"></a></h4>
+<h3>Sampling Mode<a class="headerlink" href="#sampling-mode" title="Link to this heading"></a></h3>
 <p>What: <code class="docutils literal notranslate"><span class="pre">in_voltageX_[i|q]_sampling_mode</span></code></p>
 <p>Configures the RX channel sampling mode. Available modes can be read from
 the <code class="docutils literal notranslate"><span class="pre">in_voltage_sampling_mode_available</span></code> attribute:</p>
@@ -1414,7 +1361,7 @@ the <code class="docutils literal notranslate"><span class="pre">in_voltage_samp
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="temperature-sensor">
-<h4>Temperature Sensor<a class="headerlink" href="#temperature-sensor" title="Link to this heading"></a></h4>
+<h3>Temperature Sensor<a class="headerlink" href="#temperature-sensor" title="Link to this heading"></a></h3>
 <p>What: <code class="docutils literal notranslate"><span class="pre">in_temp0_input</span></code>, <code class="docutils literal notranslate"><span class="pre">in_temp0_label</span></code></p>
 <p>The AD9088 includes an internal temperature sensor. The temperature can be
 read in millidegrees Celsius via the <code class="docutils literal notranslate"><span class="pre">in_temp0_input</span></code> attribute. The
@@ -1439,14 +1386,14 @@ read in millidegrees Celsius via the <code class="docutils literal notranslate">
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="calibration-data">
-<h4>Calibration Data<a class="headerlink" href="#calibration-data" title="Link to this heading"></a></h4>
+<h3>Calibration Data<a class="headerlink" href="#calibration-data" title="Link to this heading"></a></h3>
 <p>What: <code class="docutils literal notranslate"><span class="pre">calibration_data</span></code></p>
 <p>The <code class="docutils literal notranslate"><span class="pre">calibration_data</span></code> attribute provides access to the device calibration
 data. This can be used to save and restore calibration across power cycles.
 See <a class="reference internal" href="#calibration-data-management"><span class="std std-ref">Calibration Data Management</span></a> for detailed usage.</p>
 </section>
 <section id="pfilt">
-<h4>PFILT<a class="headerlink" href="#pfilt" title="Link to this heading"></a></h4>
+<h3>PFILT<a class="headerlink" href="#pfilt" title="Link to this heading"></a></h3>
 <p>The PFILT (Programmable FIR) is a 32-tap full-rate filter sitting in the
 wideband DSP stage ahead of the CDDC/CDUC mixers (UG “Transmit/Receive
 Programmable Filter (PFILT)”). Each side has 2 PFILT instances and each
@@ -1457,7 +1404,7 @@ sysfs bin attribute (write-only). The full parser grammar is documented
 in the kernel-doc above <code class="xref c c-func docutils literal notranslate"><span class="pre">ad9088_parse_pfilt()</span></code> in
 <code class="docutils literal notranslate"><span class="pre">drivers/iio/trx-rf/ad9088/ad9088.c</span></code>; a summary follows.</p>
 <section id="general-format">
-<h5>General format<a class="headerlink" href="#general-format" title="Link to this heading"></a></h5>
+<h4>General format<a class="headerlink" href="#general-format" title="Link to this heading"></a></h4>
 <p>Lines are processed in order. Lines starting with <code class="docutils literal notranslate"><span class="pre">#</span></code> are comments.
 Each directive may appear once and in any order; only the first
 occurrence takes effect. Unknown lines are ignored. <code class="docutils literal notranslate"><span class="pre">dest:</span></code> is
@@ -1480,7 +1427,7 @@ mandatory.</p>
 </div>
 </section>
 <section id="directives">
-<h5>Directives<a class="headerlink" href="#directives" title="Link to this heading"></a></h5>
+<h4>Directives<a class="headerlink" href="#directives" title="Link to this heading"></a></h4>
 <dl>
 <dt><strong>dest</strong></dt><dd><ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">&lt;terminal&gt;</span></code> — <code class="docutils literal notranslate"><span class="pre">rx</span></code> or <code class="docutils literal notranslate"><span class="pre">tx</span></code></p></li>
@@ -1570,15 +1517,15 @@ live.</p>
 </section>
 </section>
 <section id="cfir">
-<h4>CFIR<a class="headerlink" href="#cfir" title="Link to this heading"></a></h4>
-<p>The CFIR configuration is defined by enabling <code class="docutils literal notranslate"><span class="pre">[in|out]_voltage&lt;index&gt;_[i|q]_cfir_profile_sel</span></code>,
-profile selection <code class="docutils literal notranslate"><span class="pre">[in|out]_voltage&lt;index&gt;_[i|q]_cfir_profile_sel</span></code>
-and the configuration <code class="docutils literal notranslate"><span class="pre">cfir_config</span></code> (write-only).</p>
+<h3>CFIR<a class="headerlink" href="#cfir" title="Link to this heading"></a></h3>
+<p>Enable CFIR with <code class="docutils literal notranslate"><span class="pre">[in|out]_voltage&lt;index&gt;_[i|q]_cfir_en</span></code>; profile selection
+<code class="docutils literal notranslate"><span class="pre">[in|out]_voltage&lt;index&gt;_[i|q]_cfir_profile_sel</span></code> and the configuration
+<code class="docutils literal notranslate"><span class="pre">cfir_config</span></code> (write-only).</p>
 <p>The full parser grammar, including every directive’s value set, is
 documented in the kernel-doc block above <code class="xref c c-func docutils literal notranslate"><span class="pre">ad9088_parse_cfilt()</span></code> in
 <code class="docutils literal notranslate"><span class="pre">drivers/iio/trx-rf/ad9088/ad9088.c</span></code>. A summary follows.</p>
 <section id="id3">
-<h5>General format<a class="headerlink" href="#id3" title="Link to this heading"></a></h5>
+<h4>General format<a class="headerlink" href="#id3" title="Link to this heading"></a></h4>
 <p>Lines are processed in order. Lines starting with <code class="docutils literal notranslate"><span class="pre">#</span></code> are comments.
 Each directive may appear once and in any order; only the first
 occurrence takes effect.</p>
@@ -1615,7 +1562,7 @@ vs. GPIO, direct vs. timestamp-triggered).</p></li>
 </ul>
 </section>
 <section id="normal-mode-coefficient-block">
-<h5>Normal-mode coefficient block<a class="headerlink" href="#normal-mode-coefficient-block" title="Link to this heading"></a></h5>
+<h4>Normal-mode coefficient block<a class="headerlink" href="#normal-mode-coefficient-block" title="Link to this heading"></a></h4>
 <p>When <code class="docutils literal notranslate"><span class="pre">sparse_filt_en</span></code> is 0 (default), the coefficient block consists
 of up to 16 <code class="docutils literal notranslate"><span class="pre">&lt;i&gt;</span> <span class="pre">&lt;q&gt;</span></code> lines (u16, decimal or <code class="docutils literal notranslate"><span class="pre">0x</span></code>-hex):</p>
 <div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="c1"># &lt;i&gt; &lt;q&gt;</span>
@@ -1626,7 +1573,7 @@ of up to 16 <code class="docutils literal notranslate"><span class="pre">&lt;i&g
 </div>
 </section>
 <section id="sparse-mode-coefficient-block">
-<h5>Sparse-mode coefficient block<a class="headerlink" href="#sparse-mode-coefficient-block" title="Link to this heading"></a></h5>
+<h4>Sparse-mode coefficient block<a class="headerlink" href="#sparse-mode-coefficient-block" title="Link to this heading"></a></h4>
 <p>The CFIR block supports a sparse mode where the 16-tap filter is
 virtually expanded across a 128-sample delay line, keeping only 16
 non-zero taps. This lets the filter compensate long-delay echoes (cable
@@ -1717,7 +1664,7 @@ out_voltage3_q_cfir_profile_sel
 </section>
 </section>
 <section id="loopback">
-<h4>Loopback<a class="headerlink" href="#loopback" title="Link to this heading"></a></h4>
+<h3>Loopback<a class="headerlink" href="#loopback" title="Link to this heading"></a></h3>
 <p>The four loopback modes are available as channel attributes.
 The value is always written to a side: A or B, so
 enabling loopback for in_voltage0 will also enable for in_voltage1.</p>
@@ -1769,8 +1716,8 @@ loopback1_blend_side_b
 fail with -EINVAL.
 Consult the User Guide for all configuration requirements before enabling the loopback.</p>
 </section>
-<section id="apollo-fft">
-<span id="id4"></span><h4>Spectrum Sniffer<a class="headerlink" href="#apollo-fft" title="Link to this heading"></a></h4>
+<section id="id4">
+<h3>Spectrum Sniffer<a class="headerlink" href="#id4" title="Link to this heading"></a></h3>
 <p>The Spectrum Sniffer provides users information with fast indications of where
 the strong and weak signals are within the digitized signal bandwidth.</p>
 <p>The interrupt-names <code class="docutils literal notranslate"><span class="pre">fft_done_A</span></code> and <code class="docutils literal notranslate"><span class="pre">fft_done_B</span></code> maps the spectrum
@@ -1832,179 +1779,12 @@ Magnitude modes.</p>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">adc_select_available</span></code>: Returns all valid ADC selections for the device.</p></li>
 </ul>
-<section id="debugfs-attributes">
-<h5>Debugfs Attributes<a class="headerlink" href="#debugfs-attributes" title="Link to this heading"></a></h5>
-<p>Advanced configuration is available through debugfs. These attributes allow
-fine-tuning of the FFT sniffer behavior and are primarily intended for
-debugging and development.</p>
-<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>/sys/kernel/debug/iio/iio:device6
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/iio/iio:device6$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ls
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>adc                   direct_reg_access  min_threshold
-adc_sampling_rate_Hz  dither_enable      real_mode
-alpha_factor          fft_enable_sel     run_fft_engine_background
-bottom_fft_enable     fft_hold_sel       sort_enable
-continuous_mode       low_power_enable   window_enable
-delay_capture_ms      max_threshold
-</pre></div>
-</div>
-<div class="clear-left"></div></div></div><p><strong>Initialization Parameters:</strong></p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">adc</span></code>: ADC to configure and use for FFT capture. This is a bitmask value.</p>
-<div class="line-block">
-<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">ADI_APOLLO_ADC_0</span></code></div>
-</div>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">fft_hold_sel</span></code>: Control the Sniffer <code class="docutils literal notranslate"><span class="pre">fft_hold</span></code> bit by SPI operation
-(via API function) or GPIO to hold overwriting of data to registers.</p>
-<div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Select GPIO control.</div>
-<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Select registers control.</div>
-<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
-</div>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">fft_enable_sel</span></code>: Control the Sniffer <code class="docutils literal notranslate"><span class="pre">fft_enable</span></code> bit by SPI operation
-(via API function) or GPIO to enable the FFT Engine.</p>
-<div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Select GPIO control.</div>
-<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Select registers control.</div>
-<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></div>
-</div>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">real_mode</span></code>: Select between real and complex FFT operation.</p>
-<div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Select Complex FFT. Pair of converters used for I and Q sampling.</div>
-<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Select Real FFT.</div>
-<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
-</div>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">max_threshold</span></code>: Maximum threshold for comparison with magnitude output
-from FFT Engine. Same as the device property.</p>
-<div class="line-block">
-<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">255</span></code></div>
-<div class="line">Range: <code class="docutils literal notranslate"><span class="pre">0-255</span></code></div>
-</div>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">min_threshold</span></code>: Minimum threshold for comparison with magnitude Output
-from FFT Engine.</p>
-<div class="line-block">
-<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
-<div class="line">Range: <code class="docutils literal notranslate"><span class="pre">0-255</span></code></div>
-</div>
-</li>
-</ul>
-<p><strong>FFT Processing Parameters:</strong></p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">sort_enable</span></code>: Incoming magnitude data is sorted from least to greatest
-before it is stored. When sorting is disabled, magnitude data is left
-unsorted and is ordered by its bin number. Sorting is only available in
-magnitude mode.</p>
-<div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
-<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
-<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></div>
-</div>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">continuous_mode</span></code>: In continuous mode, the sniffer continuously stores new
-data, guaranteeing that the latest data is stored. In single mode data is
-only stored once between the time that <code class="docutils literal notranslate"><span class="pre">fft_hold</span></code> is set to low, and the
-data is obtained. Hence, the user may miss critical data during this period
-in single mode. Continuous mode is only supported in magnitude mode.</p>
-<div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Single mode.</div>
-<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Continuous mode.</div>
-<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
-</div>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">bottom_fft_enable</span></code>: Each sniffer instance has one top and one bottom FFT
-engine that are 50% overlapped and compute in parallel. With this feature,
-the top and bottom FFT engine results are averaged and assist in avoiding
-critical time domain events</p>
-<div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
-<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
-<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
-</div>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">window_enable</span></code>: A hard-coded frequency domain Hamming window is applied to
-and is optimized for narrow spectral peaks to optimize the resolution
-bandwidth. in I/Q output mode, windowing will deemphasize data towards the
-edges of the 512-bin spectrum boundary, and thus the threshold may not be
-reached resulting in data not being captured.</p>
-<div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
-<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
-<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></div>
-</div>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">low_power_enable</span></code>: Low power mode disables continuous mode and exponential
-averaging. The expected power savings for this mode is 600mW.</p>
-<div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
-<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
-<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></div>
-</div>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">dither_enable</span></code>: Dither is added to input samples to reduce spurs across
-the spectrum.</p>
-<div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
-<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
-<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></div>
-</div>
-</li>
-</ul>
-<p><strong>Averaging and Signal Processing:</strong></p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">alpha_factor</span></code>: Exponential averaging is enabled by setting the
-alpha_factor between 1 and 8 and disabled when set to 0. The alpha factor
-sets <span class="math notranslate nohighlight">\(\alpha\)</span> in the equation
-<span class="math notranslate nohighlight">\(y[n] = 2^{-\alpha}x[n]+(1-2^{-\alpha}y[n-1])\)</span>
-and directly controls the weight of the previous sample. The average is reset
-to zero when data is stored or if FFT computation is stopped. Exponential
-averaging is only available in single mode and magnitude mode.</p>
-<div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
-<div class="line"><code class="docutils literal notranslate"><span class="pre">1-8</span></code>: Enable with specified alpha value.</div>
-<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
-</div>
-</li>
-</ul>
-<p><strong>Capture Control:</strong></p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">run_fft_engine_background</span></code>: Set to 1 for GPIO control, to skip writing
-the <code class="docutils literal notranslate"><span class="pre">fft_enable</span></code> register.</p>
-<div class="line-block">
-<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
-<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
-<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
-</div>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">delay_capture_ms</span></code>: Delay capture by an amount of time.</p>
-<div class="line-block">
-<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">100</span></code></div>
-<div class="line">Unit: <code class="docutils literal notranslate"><span class="pre">ms</span></code></div>
-</div>
-</li>
-<li><p><code class="docutils literal notranslate"><span class="pre">adc_sampling_rate_Hz</span></code>: Read the ADC sampling rate (read-only).</p></li>
-</ul>
-<p>The acquired data is pushed to the device’s IIO buffer.</p>
-</section>
 <section id="feature-availability-by-mode">
-<h5>Feature Availability by Mode<a class="headerlink" href="#feature-availability-by-mode" title="Link to this heading"></a></h5>
+<h4>Feature Availability by Mode<a class="headerlink" href="#feature-availability-by-mode" title="Link to this heading"></a></h4>
 <p>The following table shows which features are available in each sniffer mode:</p>
-<div class="table-wrapper colwidths-given docutils container" id="id7">
-<table class="docutils align-default" id="id7">
-<caption><span class="caption-text">FFT Sniffer Feature Matrix</span><a class="headerlink" href="#id7" title="Link to this table"></a></caption>
+<div class="table-wrapper colwidths-given docutils container" id="id6">
+<table class="docutils align-default" id="id6">
+<caption><span class="caption-text">FFT Sniffer Feature Matrix</span><a class="headerlink" href="#id6" title="Link to this table"></a></caption>
 <colgroup>
 <col style="width: 33.3%" />
 <col style="width: 16.7%" />
@@ -2080,7 +1860,7 @@ the <code class="docutils literal notranslate"><span class="pre">fft_enable</spa
 </div>
 </section>
 <section id="modes-of-operation">
-<h5>Modes of Operation<a class="headerlink" href="#modes-of-operation" title="Link to this heading"></a></h5>
+<h4>Modes of Operation<a class="headerlink" href="#modes-of-operation" title="Link to this heading"></a></h4>
 <p>The spectrum sniffer supports four distinct modes of operation, determined by
 the combination of <code class="docutils literal notranslate"><span class="pre">mode</span></code> setting and channel selection (IQ vs Magnitude):</p>
 <p><strong>Magnitude Modes</strong> (enable <code class="docutils literal notranslate"><span class="pre">in_magn0_en</span></code> channel):</p>
@@ -2108,7 +1888,7 @@ mode, while enabling I/Q channels selects IQ mode.</p>
 </div>
 </section>
 <section id="iio-channels">
-<h5>IIO Channels<a class="headerlink" href="#iio-channels" title="Link to this heading"></a></h5>
+<h4>IIO Channels<a class="headerlink" href="#iio-channels" title="Link to this heading"></a></h4>
 <p>The FFT sniffer exposes the following IIO channels:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">in_index</span></code>: FFT bin index (0-255 for real mode, 0-511 for complex mode)</p></li>
@@ -2125,7 +1905,7 @@ mode, while enabling I/Q channels selects IQ mode.</p>
 </ul>
 </section>
 <section id="data-format">
-<h5>Data Format<a class="headerlink" href="#data-format" title="Link to this heading"></a></h5>
+<h4>Data Format<a class="headerlink" href="#data-format" title="Link to this heading"></a></h4>
 <p><strong>Magnitude Mode</strong> (real FFT, 256 bins):</p>
 <p>Each sample contains:</p>
 <ul class="simple">
@@ -2142,7 +1922,7 @@ mode, while enabling I/Q channels selects IQ mode.</p>
 <p>All values are packed into 16-bit little-endian format.</p>
 </section>
 <section id="example-usage">
-<h5>Example Usage<a class="headerlink" href="#example-usage" title="Link to this heading"></a></h5>
+<h4>Example Usage<a class="headerlink" href="#example-usage" title="Link to this heading"></a></h4>
 <p><strong>Capture Magnitude Spectrum:</strong></p>
 <div class="code-shell"><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Configure for magnitude mode with sorting</span>
 </pre></div>
@@ -2278,19 +2058,19 @@ mode, while enabling I/Q channels selects IQ mode.</p>
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><p>Since the buffer length must match apollo’s value, starting from
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/commit/33ff0128121f27de9bd23d6a7ca997577c288663" target="_blank">33ff0</a>, the buffer
+the buffer
 length is set at the buffer pre-enable stage, and writing <code class="docutils literal notranslate"><span class="pre">buffer0/length</span></code>
 has no effect.</p>
 </section>
 </section>
 <section id="fast-frequency-hopping">
-<span id="apollo-ffh"></span><h4>Fast Frequency Hopping<a class="headerlink" href="#fast-frequency-hopping" title="Link to this heading"></a></h4>
+<span id="apollo-ffh"></span><h3>Fast Frequency Hopping<a class="headerlink" href="#fast-frequency-hopping" title="Link to this heading"></a></h3>
 <p>The NCO frequency and phase settings can be stored as a set of up-to 32
 profiles, each with a 32-bit FTW and 16-bit phase offset word, to be
 selectively assigned to the NCO during runtime. This allows to quickly change
 (hop) the NCO frequency, known as Fast Frequency Hopping (FFH).</p>
 <section id="tx-ffh-fnco">
-<h5>Tx FFH FNCO<a class="headerlink" href="#tx-ffh-fnco" title="Link to this heading"></a></h5>
+<h4>Tx FFH FNCO<a class="headerlink" href="#tx-ffh-fnco" title="Link to this heading"></a></h4>
 <p>The user configures the NCO FFH frequency by writing the index (0 to 31) to
 <code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_ffh_fnco_index</span></code> followed by the frequency value to
 <code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_ffh_fnco_frequency</span></code>, for example:</p>
@@ -2306,14 +2086,11 @@ selectively assigned to the NCO during runtime. This allows to quickly change
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="k">$((</span><span class="m">16#20000000</span><span class="k">))</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_i_ffh_fnco_frequency
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div><p>Then hop to the desired frequency writing the index to
-<code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_ffh_fnco_select</span></code>, and write -1 to disable the feature;
-for example:</p>
-<div class="admonition important">
-<p class="admonition-title">Important</p>
-<p>If the trigger mode is not set to 4 (<code class="docutils literal notranslate"><span class="pre">ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP</span></code>),
-the method will return -EINVAL;</p>
-</div>
+<div class="clear-left"></div></div></div><p>Select a profile by writing its index (0 to 31) to
+<code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_ffh_fnco_select</span></code>. Write <code class="docutils literal notranslate"><span class="pre">-1</span></code> to disable hopping.
+Register-based profile selection supports mode 1
+(<code class="docutils literal notranslate"><span class="pre">ADI_APOLLO_NCO_CHAN_SEL_TRIG_REGMAP</span></code>) and mode 4
+(<code class="docutils literal notranslate"><span class="pre">ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP</span></code>).</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
 </pre></div>
 </div>
@@ -2322,23 +2099,16 @@ the method will return -EINVAL;</p>
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="tx-ffh-cnco">
-<h5>Tx FFH CNCO<a class="headerlink" href="#tx-ffh-cnco" title="Link to this heading"></a></h5>
+<h4>Tx FFH CNCO<a class="headerlink" href="#tx-ffh-cnco" title="Link to this heading"></a></h4>
 <p>The user configures the NCO FFH frequency by writing the index (0 to 15) to
 <code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_ffh_cnco_index</span></code> followed by the frequency value to
 <code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_ffh_cnco_frequency</span></code>, for example:</p>
-<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8
+$echo 1 &gt; out_voltage0_i_ffh_cnco_index
+$echo $((16#20000000)) &gt; out_voltage0_i_ffh_cnco_frequency
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_i_ffh_cnco_index
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="k">$((</span><span class="m">16#20000000</span><span class="k">))</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_ffh_cnco_frequency
-</pre></div>
-</div>
-<div class="clear-left"></div></div></div><p>Then hop to the desired frequency writing the index to
+<p>Then hop to the desired frequency writing the index to
 <code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_ffh_cnco_select</span></code>, for example:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
 </pre></div>
@@ -2350,7 +2120,7 @@ the method will return -EINVAL;</p>
 <code class="docutils literal notranslate"><span class="pre">in_voltage0_i_main_nco_frequency</span></code></p>
 </section>
 <section id="trigger-mode">
-<h5>Trigger mode<a class="headerlink" href="#trigger-mode" title="Link to this heading"></a></h5>
+<h4>Trigger mode<a class="headerlink" href="#trigger-mode" title="Link to this heading"></a></h4>
 <p>By default, the profile will hop on the register access for the profile set call.
 Other options are available and configurable with
 <code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_ffh_fnco_mode</span></code>.</p>
@@ -2372,7 +2142,7 @@ Other options are available and configurable with
 <div class="clear-left"></div></div></div><p>See <a class="reference internal" href="gpio/#ad9088-gpio-ffh"><span class="std std-ref">GPIO Fast Frequency Hopping</span></a> for how to trigger with GPIO.</p>
 </section>
 <section id="rx-ffh-fnco">
-<h5>Rx FFH FNCO<a class="headerlink" href="#rx-ffh-fnco" title="Link to this heading"></a></h5>
+<h4>Rx FFH FNCO<a class="headerlink" href="#rx-ffh-fnco" title="Link to this heading"></a></h4>
 <p>The RX path also supports Fast Frequency Hopping. The user configures the
 NCO FFH frequency by writing the index (0 to 31) to
 <code class="docutils literal notranslate"><span class="pre">in_voltageX_[i|q]_ffh_fnco_index</span></code> followed by the frequency value to
@@ -2389,8 +2159,8 @@ NCO FFH frequency by writing the index (0 to 31) to
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">500000000</span><span class="w"> </span>&gt;<span class="w"> </span>in_voltage0_i_ffh_fnco_frequency
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div><p>Then hop to the desired frequency writing the index to
-<code class="docutils literal notranslate"><span class="pre">in_voltageX_[i|q]_ffh_fnco_select</span></code>, and write -1 to disable the feature:</p>
+<div class="clear-left"></div></div></div><p>Select an RX profile by writing its index (0 to 31) to
+<code class="docutils literal notranslate"><span class="pre">in_voltageX_[i|q]_ffh_fnco_select</span></code>. Write <code class="docutils literal notranslate"><span class="pre">-1</span></code> to disable hopping:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
 </pre></div>
 </div>
@@ -2400,9 +2170,9 @@ NCO FFH frequency by writing the index (0 to 31) to
 <div class="clear-left"></div></div></div><p>The trigger mode is configured via <code class="docutils literal notranslate"><span class="pre">in_voltageX_[i|q]_ffh_fnco_mode</span></code>.</p>
 </section>
 <section id="rx-ffh-cnco">
-<h5>Rx FFH CNCO<a class="headerlink" href="#rx-ffh-cnco" title="Link to this heading"></a></h5>
-<p>The user configures the coarse NCO FFH frequency by writing the index (0 to 31) to
-<code class="docutils literal notranslate"><span class="pre">in_voltageX_[i|q]_ffh_cnco_index</span></code> followed by the frequency value to
+<h4>Rx FFH CNCO<a class="headerlink" href="#rx-ffh-cnco" title="Link to this heading"></a></h4>
+<p>The user configures the coarse NCO FFH frequency by writing the index (0 to 15)
+to <code class="docutils literal notranslate"><span class="pre">in_voltageX_[i|q]_ffh_cnco_index</span></code> followed by the frequency value to
 <code class="docutils literal notranslate"><span class="pre">in_voltageX_[i|q]_ffh_cnco_frequency</span></code>:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
 </pre></div>
@@ -2428,7 +2198,7 @@ NCO FFH frequency by writing the index (0 to 31) to
 </section>
 </section>
 <section id="buffer-memory-bmem-interface">
-<span id="apollo-bmem"></span><h4>Buffer Memory (BMEM) Interface<a class="headerlink" href="#buffer-memory-bmem-interface" title="Link to this heading"></a></h4>
+<span id="apollo-bmem"></span><h3>Buffer Memory (BMEM) Interface<a class="headerlink" href="#buffer-memory-bmem-interface" title="Link to this heading"></a></h3>
 <p>The AD9088 contains on-chip buffer memory (BMEM) that can be used for data
 capture and playback. The driver exposes a separate IIO device for BMEM
 operations, named <code class="docutils literal notranslate"><span class="pre">ad9088-bmem</span></code> (or with a device-specific label suffix).</p>
@@ -2479,7 +2249,7 @@ scan_elements/
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><section id="bmem-channel-attributes">
-<h5>BMEM Channel Attributes<a class="headerlink" href="#bmem-channel-attributes" title="Link to this heading"></a></h5>
+<h4>BMEM Channel Attributes<a class="headerlink" href="#bmem-channel-attributes" title="Link to this heading"></a></h4>
 <p><strong>Sample Delay Configuration:</strong></p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">in_voltageX_delay_sample</span></code>: Set the sample delay value directly. This is a
@@ -2603,79 +2373,33 @@ channel (read-only). Value is in Hz.</p>
 </ul>
 </section>
 <section id="bmem-buffer-operations">
-<h5>BMEM Buffer Operations<a class="headerlink" href="#bmem-buffer-operations" title="Link to this heading"></a></h5>
+<h4>BMEM Buffer Operations<a class="headerlink" href="#bmem-buffer-operations" title="Link to this heading"></a></h4>
 <p>The BMEM device supports IIO buffer operations for capturing ADC samples.</p>
 <p><strong>Enabling Capture:</strong></p>
-<div class="code-shell"><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Enable channels for capture</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span># Enable channels for capture
+$echo 1 &gt; /sys/bus/iio/devices/iio:device9/scan_elements/in_voltage0_en
+$echo 1 &gt; /sys/bus/iio/devices/iio:device9/scan_elements/in_voltage1_en
+
+# Set buffer length
+$echo 8192 &gt; /sys/bus/iio/devices/iio:device9/buffer/length
+
+# Enable buffer to start capture
+$echo 1 &gt; /sys/bus/iio/devices/iio:device9/buffer/enable
+
+# Read captured data
+$cat /dev/iio:device9 &gt; captured_data.bin
+
+# Disable buffer
+$echo 0 &gt; /sys/bus/iio/devices/iio:device9/buffer/enable
 </pre></div>
 </div>
-<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>/sys/bus/iio/devices/iio:device9/scan_elements/in_voltage0_en
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>/sys/bus/iio/devices/iio:device9/scan_elements/in_voltage1_en
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Set buffer length (samples per channel)</span>
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">8192</span><span class="w"> </span>&gt;<span class="w"> </span>/sys/bus/iio/devices/iio:device9/buffer/length
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Enable buffer to start capture</span>
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>/sys/bus/iio/devices/iio:device9/buffer/enable
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Read captured data</span>
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>/dev/iio:device9<span class="w"> </span>&gt;<span class="w"> </span>captured_data.bin
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Disable buffer</span>
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>&gt;<span class="w"> </span>/sys/bus/iio/devices/iio:device9/buffer/enable
-</pre></div>
-</div>
-<div class="clear-left"></div></div></div><p><strong>Data Format:</strong></p>
+<p><strong>Data Format:</strong></p>
 <p>Captured samples are 16-bit signed values in little-endian format. When multiple
 channels are enabled, samples are interleaved in channel order.</p>
 </section>
 </section>
 <section id="debug-system">
-<h4>Debug system<a class="headerlink" href="#debug-system" title="Link to this heading"></a></h4>
+<h3>Debug system<a class="headerlink" href="#debug-system" title="Link to this heading"></a></h3>
 <p>An additional debug interface is provided through debugfs:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
@@ -2706,7 +2430,7 @@ hsci_enable                 mcs_dt_restore              uuid
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="jesd204-link-status">
-<h4>JESD204 Link Status<a class="headerlink" href="#jesd204-link-status" title="Link to this heading"></a></h4>
+<h3>JESD204 Link Status<a class="headerlink" href="#jesd204-link-status" title="Link to this heading"></a></h3>
 <p>Get link statuses:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
 </pre></div>
@@ -2750,7 +2474,7 @@ JTX ADI_APOLLO_LINK_B0: JESD204C Subclass=1 L=4 M=4 F=2 S=1 Np=16 CS=0 link_en=E
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="communication-protocol">
-<h4>Communication Protocol<a class="headerlink" href="#communication-protocol" title="Link to this heading"></a></h4>
+<h3>Communication Protocol<a class="headerlink" href="#communication-protocol" title="Link to this heading"></a></h3>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">hsci_enable</span></code>: Select communication protocol for register access.</p>
 <div class="line-block">
@@ -2785,7 +2509,7 @@ JTX ADI_APOLLO_LINK_B0: JESD204C Subclass=1 L=4 M=4 F=2 S=1 Np=16 CS=0 link_en=E
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="mcs-calibration">
-<h4>MCS Calibration<a class="headerlink" href="#mcs-calibration" title="Link to this heading"></a></h4>
+<h3>MCS Calibration<a class="headerlink" href="#mcs-calibration" title="Link to this heading"></a></h3>
 <p>Multi-Chip Synchronization (MCS) calibration is used for synchronizing multiple
 AD9088 devices to achieve ±10ps alignment accuracy. The MCS flow uses BSYNC
 Time-of-Flight (ToF) measurements to compensate for path delays between the
@@ -2999,7 +2723,7 @@ cat<span class="w"> </span><span class="nv">$APOLLO</span>/mcs_track_cal_validat
 </div>
 <div class="clear-left"></div></div></div></section>
 <section id="device-information">
-<h4>Device Information<a class="headerlink" href="#device-information" title="Link to this heading"></a></h4>
+<h3>Device Information<a class="headerlink" href="#device-information" title="Link to this heading"></a></h3>
 <p>Attributes for reading device identification and version information.</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">api_version</span></code>: Read the Apollo API version.</p>
@@ -3049,7 +2773,7 @@ cat<span class="w"> </span><span class="nv">$APOLLO</span>/mcs_track_cal_validat
 </ul>
 </section>
 <section id="temperature-monitoring">
-<h4>Temperature Monitoring<a class="headerlink" href="#temperature-monitoring" title="Link to this heading"></a></h4>
+<h3>Temperature Monitoring<a class="headerlink" href="#temperature-monitoring" title="Link to this heading"></a></h3>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">temperature_status</span></code>: Read detailed temperature measurements from all
 on-chip thermal sensors.</p>
@@ -3075,7 +2799,7 @@ on-chip thermal sensors.</p>
 </ul>
 </section>
 <section id="clock-power-status">
-<h4>Clock Power Status<a class="headerlink" href="#clock-power-status" title="Link to this heading"></a></h4>
+<h3>Clock Power Status<a class="headerlink" href="#clock-power-status" title="Link to this heading"></a></h3>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">clk_pwr_stat</span></code>: Read clock input power detection status.</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
@@ -3093,7 +2817,7 @@ Clock input power detection B: UNUSED
 </ul>
 </section>
 <section id="jesd204-bist-built-in-self-test">
-<h4>JESD204 BIST (Built-In Self-Test)<a class="headerlink" href="#jesd204-bist-built-in-self-test" title="Link to this heading"></a></h4>
+<h3>JESD204 BIST (Built-In Self-Test)<a class="headerlink" href="#jesd204-bist-built-in-self-test" title="Link to this heading"></a></h3>
 <p>The BIST subsystem provides PRBS (Pseudo-Random Binary Sequence) testing
 for JESD204 link integrity verification.</p>
 <p><strong>PRBS Pattern Selection:</strong></p>
@@ -3212,7 +2936,7 @@ Write lane parameters to initiate the scan; read returns eye diagram data.</p>
 </ul>
 </section>
 <section id="jtx-lane-configuration">
-<h4>JTX Lane Configuration<a class="headerlink" href="#jtx-lane-configuration" title="Link to this heading"></a></h4>
+<h3>JTX Lane Configuration<a class="headerlink" href="#jtx-lane-configuration" title="Link to this heading"></a></h3>
 <p>Configure JESD204 transmit lane signal integrity parameters. Each attribute
 takes three space-separated values: <code class="docutils literal notranslate"><span class="pre">&lt;link_side_mask&gt;</span> <span class="pre">&lt;lane&gt;</span> <span class="pre">&lt;value&gt;</span></code>.</p>
 <p><strong>Link side mask values:</strong></p>
@@ -3278,7 +3002,7 @@ for high-frequency signal loss.</p>
 </ul>
 </section>
 <section id="jrx-phase-adjustment">
-<h4>JRX Phase Adjustment<a class="headerlink" href="#jrx-phase-adjustment" title="Link to this heading"></a></h4>
+<h3>JRX Phase Adjustment<a class="headerlink" href="#jrx-phase-adjustment" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">jrx_phase_adjust_calc</span></code>: Trigger JRX phase adjustment calculation for
 JESD204 link synchronization. Write any value to trigger calculation;
@@ -3286,7 +3010,7 @@ read returns the calculated phase adjustment value.</p></li>
 </ul>
 </section>
 <section id="pseudorandom-error-check">
-<h4>Pseudorandom Error Check<a class="headerlink" href="#pseudorandom-error-check" title="Link to this heading"></a></h4>
+<h3>Pseudorandom Error Check<a class="headerlink" href="#pseudorandom-error-check" title="Link to this heading"></a></h3>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">pseudorandom_err_check</span></code>: Read the pseudorandom number (PN) sequence
 checker status for all digital channels. Used to verify data path integrity.</p>
@@ -3326,7 +3050,7 @@ CH16 : UNDEF : In Sync : PN Error
 </ul>
 </section>
 <section id="miscellaneous">
-<h4>Miscellaneous<a class="headerlink" href="#miscellaneous" title="Link to this heading"></a></h4>
+<h3>Miscellaneous<a class="headerlink" href="#miscellaneous" title="Link to this heading"></a></h3>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">misc</span></code>: General-purpose miscellaneous register for debug operations.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">direct_reg_access</span></code>: Standard IIO debugfs attribute for direct SPI
@@ -3352,23 +3076,11 @@ register read/write access. Useful for low-level debugging.</p>
 <div class="clear-left"></div></div></div></li>
 </ul>
 </section>
-</section>
-</section>
 <section id="calibration-data-management">
-<span id="id5"></span><h2>Calibration Data Management<a class="headerlink" href="#calibration-data-management" title="Link to this heading"></a></h2>
+<span id="id5"></span><h3>Calibration Data Management<a class="headerlink" href="#calibration-data-management" title="Link to this heading"></a></h3>
 <p>The AD9088 driver provides a comprehensive calibration data management system that allows you to save and restore device calibration across power cycles. This significantly reduces boot time and maintains consistent performance.</p>
-<section id="overview">
-<h3>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h3>
-<p>During normal device initialization, the AD9088 performs extensive calibration of ADCs, SERDES transceivers, and clock conditioning. This process can take considerable time. The calibration data management feature allows you to:</p>
-<ul class="simple">
-<li><p>Save all calibration data to a binary file</p></li>
-<li><p>Restore calibration data from file during driver probe</p></li>
-<li><p>Skip time-consuming calibration procedures on subsequent boots</p></li>
-<li><p>Maintain factory or field calibration data</p></li>
-</ul>
-</section>
 <section id="calibration-data-components">
-<h3>Calibration Data Components<a class="headerlink" href="#calibration-data-components" title="Link to this heading"></a></h3>
+<h4>Calibration Data Components<a class="headerlink" href="#calibration-data-components" title="Link to this heading"></a></h4>
 <p>The calibration system saves the following data:</p>
 <ul class="simple">
 <li><p><strong>ADC Calibration</strong>: Sequential and random mode calibration for all ADCs</p></li>
@@ -3377,7 +3089,7 @@ register read/write access. Useful for low-level debugging.</p>
 </ul>
 </section>
 <section id="file-format">
-<h3>File Format<a class="headerlink" href="#file-format" title="Link to this heading"></a></h3>
+<h4>File Format<a class="headerlink" href="#file-format" title="Link to this heading"></a></h4>
 <p>Calibration data is stored in a structured binary format with:</p>
 <ul class="simple">
 <li><p><strong>Magic Number</strong>: <code class="docutils literal notranslate"><span class="pre">0x41443930</span></code> (“AD90”) for file identification</p></li>
@@ -3387,64 +3099,8 @@ register read/write access. Useful for low-level debugging.</p>
 <li><p><strong>CRC32 Checksum</strong>: Data integrity validation</p></li>
 </ul>
 </section>
-<section id="sysfs-interface">
-<h3>Sysfs Interface<a class="headerlink" href="#sysfs-interface" title="Link to this heading"></a></h3>
-<p>Calibration data is accessed via a binary sysfs attribute:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:deviceX/calibration_data
-</pre></div>
-</div>
-<section id="saving-calibration-data">
-<h4>Saving Calibration Data<a class="headerlink" href="#saving-calibration-data" title="Link to this heading"></a></h4>
-<p>After device initialization and calibration, save the calibration data:</p>
-<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>/sys/bus/iio/devices/iio:device8/calibration_data<span class="w"> </span>&gt;<span class="w"> </span>/lib/firmware/ad9088_cal.bin
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ls<span class="w"> </span>-lh<span class="w"> </span>/lib/firmware/ad9088_cal.bin
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>-rw-r--r-- 1 root root 100K Feb 11 15:30 /lib/firmware/ad9088_cal.bin
-</pre></div>
-</div>
-<div class="clear-left"></div></div></div><p>The save operation:</p>
-<ol class="arabic simple">
-<li><p>Freezes ADC and SERDES background calibration</p></li>
-<li><p>Updates firmware CRC</p></li>
-<li><p>Reads all calibration data (ADC, SERDES RX, Clock Conditioning)</p></li>
-<li><p>Builds binary file with header and CRC32</p></li>
-<li><p>Unfreezes background calibration</p></li>
-</ol>
-</section>
-<section id="restoring-calibration-data">
-<h4>Restoring Calibration Data<a class="headerlink" href="#restoring-calibration-data" title="Link to this heading"></a></h4>
-<p>To manually restore calibration data:</p>
-<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>/lib/firmware/ad9088_cal.bin<span class="w"> </span>&gt;<span class="w"> </span>/sys/bus/iio/devices/iio:device8/calibration_data
-</pre></div>
-</div>
-<div class="clear-left"></div></div></div><p>The restore operation validates:</p>
-<ul class="simple">
-<li><p>Magic number and file format version</p></li>
-<li><p>Chip ID matches current device</p></li>
-<li><p>Device configuration (4T4R/8T8R) matches</p></li>
-<li><p>CRC32 integrity</p></li>
-</ul>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Large calibration files are automatically handled via multi-write accumulation
-(kernel typically splits large writes into 4KB chunks).</p>
-</div>
-</section>
-</section>
 <section id="automatic-calibration-load">
-<h3>Automatic Calibration Load<a class="headerlink" href="#automatic-calibration-load" title="Link to this heading"></a></h3>
+<h4>Automatic Calibration Load<a class="headerlink" href="#automatic-calibration-load" title="Link to this heading"></a></h4>
 <p>For automatic calibration restore during driver probe, add the calibration
 firmware property to your device tree:</p>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="nf">spi0</span><span class="cm"> </span><span class="p">{</span>
@@ -3480,11 +3136,11 @@ firmware property to your device tree:</p>
 </div>
 </section>
 <section id="fast-boot">
-<span id="ad9088-fast-boot"></span><h3>Fast Boot<a class="headerlink" href="#fast-boot" title="Link to this heading"></a></h3>
+<span id="ad9088-fast-boot"></span><h4>Fast Boot<a class="headerlink" href="#fast-boot" title="Link to this heading"></a></h4>
 <p>Fast boot stores a previous calibration data to use in subsequent reboots or
 driver probes.</p>
 <section id="capture-calibration">
-<h4>Capture Calibration<a class="headerlink" href="#capture-calibration" title="Link to this heading"></a></h4>
+<h5>Capture Calibration<a class="headerlink" href="#capture-calibration" title="Link to this heading"></a></h5>
 <ol class="arabic">
 <li><p>Probe the driver without calibration restore:</p>
 <div class="admonition attention">
@@ -3562,7 +3218,7 @@ this enable the calibration restore.</p>
 </ol>
 </section>
 <section id="use-stored-calibration-data">
-<h4>Use stored calibration data<a class="headerlink" href="#use-stored-calibration-data" title="Link to this heading"></a></h4>
+<h5>Use stored calibration data<a class="headerlink" href="#use-stored-calibration-data" title="Link to this heading"></a></h5>
 <ol class="arabic">
 <li><p>Update device tree to restore the calibration data on probe:</p>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">trx0_ad9084</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9084</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
@@ -3585,7 +3241,7 @@ driver will:</p>
 </section>
 </section>
 <section id="calibration-dump-tool">
-<h3>Calibration Dump Tool<a class="headerlink" href="#calibration-dump-tool" title="Link to this heading"></a></h3>
+<h4>Calibration Dump Tool<a class="headerlink" href="#calibration-dump-tool" title="Link to this heading"></a></h4>
 <p>A utility <code class="docutils literal notranslate"><span class="pre">ad9088_cal_dump</span></code> is provided for inspecting calibration files:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
@@ -3646,9 +3302,9 @@ driver will:</p>
 </ul>
 </section>
 <section id="error-handling">
-<h3>Error Handling<a class="headerlink" href="#error-handling" title="Link to this heading"></a></h3>
+<h4>Error Handling<a class="headerlink" href="#error-handling" title="Link to this heading"></a></h4>
 <section id="common-errors">
-<h4>Common Errors<a class="headerlink" href="#common-errors" title="Link to this heading"></a></h4>
+<h5>Common Errors<a class="headerlink" href="#common-errors" title="Link to this heading"></a></h5>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
 <colgroup>
@@ -3692,7 +3348,7 @@ driver will:</p>
 </div>
 </section>
 <section id="debugging">
-<h4>Debugging<a class="headerlink" href="#debugging" title="Link to this heading"></a></h4>
+<h5>Debugging<a class="headerlink" href="#debugging" title="Link to this heading"></a></h5>
 <p>Enable kernel debug messages:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
 </pre></div>
@@ -3741,7 +3397,7 @@ ad9088 spi1.0: Calibration data restored successfully
 </section>
 </section>
 <section id="best-practices">
-<h3>Best Practices<a class="headerlink" href="#best-practices" title="Link to this heading"></a></h3>
+<h4>Best Practices<a class="headerlink" href="#best-practices" title="Link to this heading"></a></h4>
 <ol class="arabic">
 <li><p><strong>Verify Saved Data</strong>: Always verify the saved file can be restored before
 relying on it in production</p></li>
@@ -3775,7 +3431,7 @@ relying on it in production</p></li>
 </ol>
 </section>
 <section id="security-considerations">
-<h3>Security Considerations<a class="headerlink" href="#security-considerations" title="Link to this heading"></a></h3>
+<h4>Security Considerations<a class="headerlink" href="#security-considerations" title="Link to this heading"></a></h4>
 <ul class="simple">
 <li><p>The <code class="docutils literal notranslate"><span class="pre">calibration_data</span></code> sysfs attribute has 0600 permissions (root read/write only)</p></li>
 <li><p>Calibration data is device-specific and cannot be shared between different chip instances</p></li>
@@ -3783,13 +3439,302 @@ relying on it in production</p></li>
 <li><p>No sensitive information is stored in calibration data</p></li>
 </ul>
 </section>
-<section id="id6">
-<h3>Source Code<a class="headerlink" href="#id6" title="Link to this heading"></a></h3>
-<p>Calibration-related source files:</p>
+</section>
+<section id="saving-calibration-data">
+<h3>Saving Calibration Data<a class="headerlink" href="#saving-calibration-data" title="Link to this heading"></a></h3>
+<p>After device initialization and calibration, save the calibration data:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>/sys/bus/iio/devices/iio:device8/calibration_data<span class="w"> </span>&gt;<span class="w"> </span>/lib/firmware/ad9088_cal.bin
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ls<span class="w"> </span>-lh<span class="w"> </span>/lib/firmware/ad9088_cal.bin
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>-rw-r--r-- 1 root root 100K Feb 11 15:30 /lib/firmware/ad9088_cal.bin
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>The save operation:</p>
+<ol class="arabic simple">
+<li><p>Freezes ADC and SERDES background calibration</p></li>
+<li><p>Updates firmware CRC</p></li>
+<li><p>Reads all calibration data (ADC, SERDES RX, Clock Conditioning)</p></li>
+<li><p>Builds binary file with header and CRC32</p></li>
+<li><p>Unfreezes background calibration</p></li>
+</ol>
+</section>
+<section id="restoring-calibration-data">
+<h3>Restoring Calibration Data<a class="headerlink" href="#restoring-calibration-data" title="Link to this heading"></a></h3>
+<p>To manually restore calibration data:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>/lib/firmware/ad9088_cal.bin<span class="w"> </span>&gt;<span class="w"> </span>/sys/bus/iio/devices/iio:device8/calibration_data
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>The restore operation validates:</p>
 <ul class="simple">
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/trx-rf/ad9088/ad9088_cal.c" target="_blank">ad9088_cal.c</a> - Calibration save/restore implementation</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/trx-rf/ad9088/ad9088.h" target="_blank">ad9088_cal.h</a> - Calibration data structures</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/tools/iio/ad9088_cal_dump.c" target="_blank">ad9088_cal_dump.c</a> - Calibration dump tool</p></li>
+<li><p>Magic number and file format version</p></li>
+<li><p>Chip ID matches current device</p></li>
+<li><p>Device configuration (4T4R/8T8R) matches</p></li>
+<li><p>CRC32 integrity</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Large calibration files are automatically handled via multi-write accumulation
+(kernel typically splits large writes into 4KB chunks).</p>
+</div>
+</section>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
+<section id="debugfs-attributes">
+<h3>Debugfs Attributes<a class="headerlink" href="#debugfs-attributes" title="Link to this heading"></a></h3>
+<p>Advanced configuration is available through debugfs. These attributes allow
+fine-tuning of the FFT sniffer behavior and are primarily intended for
+debugging and development.</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>/sys/kernel/debug/iio/iio:device6
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/iio/iio:device6$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ls
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>adc                   direct_reg_access  min_threshold
+adc_sampling_rate_Hz  dither_enable      real_mode
+alpha_factor          fft_enable_sel     run_fft_engine_background
+bottom_fft_enable     fft_hold_sel       sort_enable
+continuous_mode       low_power_enable   window_enable
+delay_capture_ms      max_threshold
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p><strong>Initialization Parameters:</strong></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">adc</span></code>: ADC to configure and use for FFT capture. This is a bitmask value.</p>
+<div class="line-block">
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">ADI_APOLLO_ADC_0</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fft_hold_sel</span></code>: Control the Sniffer <code class="docutils literal notranslate"><span class="pre">fft_hold</span></code> bit by SPI operation
+(via API function) or GPIO to hold overwriting of data to registers.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Select GPIO control.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Select registers control.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fft_enable_sel</span></code>: Control the Sniffer <code class="docutils literal notranslate"><span class="pre">fft_enable</span></code> bit by SPI operation
+(via API function) or GPIO to enable the FFT Engine.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Select GPIO control.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Select registers control.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">real_mode</span></code>: Select between real and complex FFT operation.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Select Complex FFT. Pair of converters used for I and Q sampling.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Select Real FFT.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_threshold</span></code>: Maximum threshold for comparison with magnitude output
+from FFT Engine. Same as the device property.</p>
+<div class="line-block">
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">255</span></code></div>
+<div class="line">Range: <code class="docutils literal notranslate"><span class="pre">0-255</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">min_threshold</span></code>: Minimum threshold for comparison with magnitude Output
+from FFT Engine.</p>
+<div class="line-block">
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
+<div class="line">Range: <code class="docutils literal notranslate"><span class="pre">0-255</span></code></div>
+</div>
+</li>
+</ul>
+<p><strong>FFT Processing Parameters:</strong></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">sort_enable</span></code>: Incoming magnitude data is sorted from least to greatest
+before it is stored. When sorting is disabled, magnitude data is left
+unsorted and is ordered by its bin number. Sorting is only available in
+magnitude mode.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">continuous_mode</span></code>: In continuous mode, the sniffer continuously stores new
+data, guaranteeing that the latest data is stored. In single mode data is
+only stored once between the time that <code class="docutils literal notranslate"><span class="pre">fft_hold</span></code> is set to low, and the
+data is obtained. Hence, the user may miss critical data during this period
+in single mode. Continuous mode is only supported in magnitude mode.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Single mode.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Continuous mode.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bottom_fft_enable</span></code>: Each sniffer instance has one top and one bottom FFT
+engine that are 50% overlapped and compute in parallel. With this feature,
+the top and bottom FFT engine results are averaged and assist in avoiding
+critical time domain events</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">window_enable</span></code>: A hard-coded frequency domain Hamming window is applied to
+and is optimized for narrow spectral peaks to optimize the resolution
+bandwidth. in I/Q output mode, windowing will deemphasize data towards the
+edges of the 512-bin spectrum boundary, and thus the threshold may not be
+reached resulting in data not being captured.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">low_power_enable</span></code>: Low power mode disables continuous mode and exponential
+averaging. The expected power savings for this mode is 600mW.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dither_enable</span></code>: Dither is added to input samples to reduce spurs across
+the spectrum.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">1</span></code></div>
+</div>
+</li>
+</ul>
+<p><strong>Averaging and Signal Processing:</strong></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">alpha_factor</span></code>: Exponential averaging is enabled by setting the
+alpha_factor between 1 and 8 and disabled when set to 0. The alpha factor
+sets <span class="math notranslate nohighlight">\(\alpha\)</span> in the equation
+<span class="math notranslate nohighlight">\(y[n] = 2^{-\alpha}x[n]+(1-2^{-\alpha}y[n-1])\)</span>
+and directly controls the weight of the previous sample. The average is reset
+to zero when data is stored or if FFT computation is stopped. Exponential
+averaging is only available in single mode and magnitude mode.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1-8</span></code>: Enable with specified alpha value.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
+</div>
+</li>
+</ul>
+<p><strong>Capture Control:</strong></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">run_fft_engine_background</span></code>: Set to 1 for GPIO control, to skip writing
+the <code class="docutils literal notranslate"><span class="pre">fft_enable</span></code> register.</p>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">0</span></code>: Disable.</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">1</span></code>: Enable.</div>
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">0</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">delay_capture_ms</span></code>: Delay capture by an amount of time.</p>
+<div class="line-block">
+<div class="line">Default: <code class="docutils literal notranslate"><span class="pre">100</span></code></div>
+<div class="line">Unit: <code class="docutils literal notranslate"><span class="pre">ms</span></code></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adc_sampling_rate_Hz</span></code>: Read the ADC sampling rate (read-only).</p></li>
+</ul>
+<p>The acquired data is pushed to the device’s IIO buffer.</p>
+</section>
+</section>
+<section id="more-information">
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
+<section id="interrelated-device-drivers">
+<h3>Interrelated Device Drivers<a class="headerlink" href="#interrelated-device-drivers" title="Link to this heading"></a></h3>
+<p>These are drivers that are connected to or is a dependency of <code class="docutils literal notranslate"><span class="pre">ad9088.c</span></code>.</p>
+<ul class="simple">
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/jesd204-fsm-framework" target="_blank">JESD204 (FSM) Interface Linux Kernel Framework</a></p></li>
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/fpga/peripherals/jesd204" target="_blank">JESD204 Interface Framework</a></p></li>
+<li><p><a class="reference internal" href="../../iio-logic/axi-aion-trig/#axi-aion-trig"><span class="std std-ref">AXI AION Trigger</span></a> - FPGA trigger IP for BSYNC ToF synchronization</p></li>
+<li><p><a class="reference internal" href="../../misc/axi-hsci/#axi-hsci"><span class="std std-ref">AXI HSCI</span></a> - High-speed communication interface for register access</p></li>
+<li><p><a class="reference internal" href="../../iio-pll/adf4382/#adf4382"><span class="std std-ref">ADF4382</span></a> - Wideband synthesizer (sampling clock source)</p></li>
+<li><p><a class="reference internal" href="../../iio-synchronizer/adf4030/#adf4030"><span class="std std-ref">ADF4030</span></a> - Precision synchronizer for BSYNC generation</p></li>
+<li><p><a class="reference internal" href="../../iio-pll/hmc7044/#hmc7044"><span class="std std-ref">HMC7044</span></a> - Clock distribution</p></li>
+<li><p><a class="reference internal" href="../../iio-pll/ltc6952/#ltc6952"><span class="std std-ref">LTC6952</span></a> - Clock distribution</p></li>
+<li><p>Transport Layer Receive AXI-ADC driver</p>
+<ul>
+<li><p>Sources:</p>
+<ul>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></li>
+</ul>
+</li>
+<li><p>Documentation:</p>
+<ul>
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/axi-adc-hdl" target="_blank">AXI ADC HDL Linux Driver</a></p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Transport Layer Transmit AXI-DAC / DDS driver</p>
+<ul>
+<li><p>Sources:</p>
+<ul>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_dds.c" target="_blank">drivers/iio/frequency/cf_axi_dds.c</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/cf_axi_adc.h" target="_blank">drivers/iio/frequency/cf_axi_adc.h</a></p></li>
+</ul>
+</li>
+<li><p>Documentation:</p>
+<ul>
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dds/axi-dac-dds-hdl" target="_blank">AXI DAC HDL Linux Driver</a></p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Link Layer AXI JESD204B HDL driver</p>
+<ul>
+<li><p>Sources:</p>
+<ul>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_rx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_rx.c</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204_tx.c" target="_blank">drivers/iio/jesd204/axi_jesd204_tx.c</a></p></li>
+</ul>
+</li>
+<li><p>Documentation:</p>
+<ul>
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/axi_jesd204_tx" target="_blank">JESD204B/C Transmit Linux Driver</a></p></li>
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/axi_jesd204_rx" target="_blank">JESD204B/C Receive Linux Driver</a></p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>PHY Layer AXI JESD204B GT (Gigabit Transceiver) HDL driver (XILINX/ALTERA-INTEL)</p>
+<ul>
+<li><p>Sources:</p>
+<ul>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_adxcvr.c" target="_blank">drivers/iio/jesd204/axi_adxcvr.c</a></p></li>
+</ul>
+</li>
+<li><p>Documentation:</p>
+<ul>
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/axi_adxcvr" target="_blank">JESD204B/C AXI_ADXCVR Highspeed Transceivers Linux Driver</a></p></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </section>
 </section>

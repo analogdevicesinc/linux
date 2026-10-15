@@ -102,30 +102,38 @@
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
-<li><a class="reference internal" href="#files">Files</a><ul>
-<li><a class="reference internal" href="#related-device-drivers">Related Device Drivers</a></li>
+<li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-</ul>
-</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-linux-device-tree-initialization">Example Linux Device-Tree Initialization</a></li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
-<li><a class="reference internal" href="#driver-testing-api">Driver testing / API</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-channel-scale">Show channel scale</a><ul>
-<li><a class="reference internal" href="#show-channel-measurement">Show channel measurement</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#api">API</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-channel-scale">Show channel scale</a></li>
 <li><a class="reference internal" href="#sampling-frequency">Sampling frequency</a></li>
 </ul>
 </li>
-</ul>
-</li>
-</ul>
-</li>
+<li><a class="reference internal" href="#show-channel-measurement">Show channel measurement</a></li>
 <li><a class="reference internal" href="#buffer-management">Buffer management</a><ul>
 <li><a class="reference internal" href="#debug-mode">Debug mode</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#more-information">More Information</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a><ul>
+<li><a class="reference internal" href="#related-device-drivers">Related Device Drivers</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -227,6 +235,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -245,7 +254,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -412,11 +420,11 @@ and the SNR of the ADC.</p>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
-<p>This is a Linux industrial I/O (<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a>) subsystem
-driver, targeting single channel serial interface ADCs. The industrial I/O
-subsystem provides a unified framework for drivers for many different types of
-converters and sensors using a number of different physical interfaces (i2c,
-spi, etc). See <a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a> for more information.</p>
+<p>This is a Linux industrial I/O (<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a>) subsystem driver for
+simultaneous 2-channel LTC2353, 4-channel LTC2357 and 8-channel LTC2358 ADCs.
+The industrial I/O subsystem provides a unified framework for drivers for many
+different types of converters and sensors using a number of different physical
+interfaces (i2c, spi, etc). See <a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a> for more information.</p>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -461,42 +469,48 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </tbody>
 </table>
 </div>
-<section id="related-device-drivers">
-<h4>Related Device Drivers<a class="headerlink" href="#related-device-drivers" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
-<td></td>
-</tr>
-<tr class="row-odd"><td><p>include</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></td>
-<td></td>
-</tr>
-<tr class="row-even"><td><p>hdl</p></td>
-<td><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/dc2677a" target="_blank">DC2677A</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
+</section>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The LTC2358 driver depends on <strong>PWM</strong> and <strong>SPI</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
+        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
+
+              <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+                <span class="o">-*-</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">AXI</span> <span class="n">ADC</span> <span class="n">driver</span> <span class="n">core</span>
+        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">LTC2358</span> <span class="n">ADC</span> <span class="n">driver</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+
+                  <span class="o">***</span> <span class="n">Pulse</span><span class="o">-</span><span class="n">Width</span> <span class="n">Modulation</span> <span class="p">(</span><span class="n">PWM</span><span class="p">)</span> <span class="n">Support</span> <span class="o">***</span>
+            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+                <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AXI</span> <span class="n">PWM</span> <span class="n">generator</span>
+            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+</pre></div>
 </div>
 </section>
-</section>
-</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-linux-device-tree-initialization">
-<h2>Example Linux Device-Tree Initialization<a class="headerlink" href="#example-linux-device-tree-initialization" title="Link to this heading"></a></h2>
+<h4>Example Linux Device-Tree Initialization<a class="headerlink" href="#example-linux-device-tree-initialization" title="Link to this heading"></a></h4>
 <p>The LTC2358 driver is a spi-bus driver and can currently only be instantiated
 via device tree.</p>
 <p><strong>Required properties:</strong></p>
 <ul class="simple">
-<li><p><strong>compatible</strong>: Must be one of <code class="docutils literal notranslate"><span class="pre">adi,ltc2358-18</span></code>.</p></li>
+<li><p><strong>compatible: One of adi,ltc2353-16, adi,ltc2353-18, adi,ltc2357-16,
+adi,ltc2357-18, adi,ltc2358-16 or adi,ltc2358-18.</strong></p></li>
 <li><p><strong>reg</strong>: SPI chip select number for the device</p></li>
 <li><p><strong>#address-cells</strong>: Must be set to 1</p></li>
 <li><p><strong>#size-cells</strong>: Must be set to 0</p></li>
@@ -597,37 +611,12 @@ range is set by the following formula:</p></li>
 </table>
 </div>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The LTC2358 driver depends on <strong>PWM</strong> and <strong>SPI</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-        <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
-
-              <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-                <span class="o">-*-</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">AXI</span> <span class="n">ADC</span> <span class="n">driver</span> <span class="n">core</span>
-        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">LTC2358</span> <span class="n">ADC</span> <span class="n">driver</span>
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-
-                  <span class="o">***</span> <span class="n">Pulse</span><span class="o">-</span><span class="n">Width</span> <span class="n">Modulation</span> <span class="p">(</span><span class="n">PWM</span><span class="p">)</span> <span class="n">Support</span> <span class="o">***</span>
-            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-                <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AXI</span> <span class="n">PWM</span> <span class="n">generator</span>
-            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-</pre></div>
-</div>
 </section>
-<section id="driver-testing-api">
-<h2>Driver testing / API<a class="headerlink" href="#driver-testing-api" title="Link to this heading"></a></h2>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="api">
+<h3>API<a class="headerlink" href="#api" title="Link to this heading"></a></h3>
 <p>Each and every IIO device, typically a hardware chip, has a device folder under
 <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX</span></code>. Where X is the IIO index of the device. Under
 every of these directory folders reside a set of files, depending on the
@@ -676,29 +665,27 @@ the numbering is constant and may be known in advance.</p>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1">#</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h4>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h4>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">axi</span><span class="o">-</span><span class="n">ltc235x</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h4>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h4>
 <section id="show-channel-scale">
-<h4>Show channel scale<a class="headerlink" href="#show-channel-scale" title="Link to this heading"></a></h4>
-<p>Scale to be applied to in_voltagex_raw in order to obtain the measured voltage
-in millivolts.</p>
+<h5>Show channel scale<a class="headerlink" href="#show-channel-scale" title="Link to this heading"></a></h5>
+<p>The driver reports scale = 2 × stored_reference_mV / 2^resolution for every
+channel, independently of its SoftSpan code. It does not implement a
+SoftSpan-dependent IIO scale or offset. Therefore the mixed-SoftSpan
+configuration above cannot be assumed to convert every channel to physical
+millivolts using raw × scale alone; verify the HDL data format and span transfer
+function.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage0_scale</span>
 <span class="mf">0.015625000</span>
 </pre></div>
 </div>
-<section id="show-channel-measurement">
-<h5>Show channel measurement<a class="headerlink" href="#show-channel-measurement" title="Link to this heading"></a></h5>
-<p>Raw unscaled voltage measurement on the channel</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage0_raw</span>
-<span class="mi">96352</span>
-</pre></div>
-</div>
-<p><strong>U</strong> = in_voltage0_raw * in_voltage0_scale = 96352 * 0.015625000 = <strong>1505.50
-mV</strong></p>
 </section>
 <section id="sampling-frequency">
 <h5>Sampling frequency<a class="headerlink" href="#sampling-frequency" title="Link to this heading"></a></h5>
@@ -710,17 +697,28 @@ dependent on the number of channels.</p>
 </pre></div>
 </div>
 <p>Change the sampling rate:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 200000 &gt; sampling_frequency</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat sampling_frequency</span>
-<span class="mi">2000000</span>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root@analog:/sys/bus/iio/devices/iio:device0# echo 200000 &gt; sampling_frequency
+root@analog:/sys/bus/iio/devices/iio:device0# cat sampling_frequency
+200000
 </pre></div>
 </div>
+<p>Valid rates are 100000–200000 Hz for LTC2358, 100000–350000 Hz for LTC2357,
+and 100000–550000 Hz for LTC2353. The buffer must be disabled to change the
+rate.</p>
 </section>
 </section>
-</section>
+<section id="show-channel-measurement">
+<h4>Show channel measurement<a class="headerlink" href="#show-channel-measurement" title="Link to this heading"></a></h4>
+<p>Raw unscaled voltage measurement on the channel</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">in_voltage0_raw</span>
+<span class="mi">96352</span>
+</pre></div>
+</div>
+<p><strong>U</strong> = in_voltage0_raw * in_voltage0_scale = 96352 * 0.015625000 = <strong>1505.50
+mV</strong></p>
 </section>
 <section id="buffer-management">
-<h2>Buffer management<a class="headerlink" href="#buffer-management" title="Link to this heading"></a></h2>
+<h4>Buffer management<a class="headerlink" href="#buffer-management" title="Link to this heading"></a></h4>
 <p>Every buffer implementation features a set of files:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/</span><span class="n">buffer</span><span class="o">&gt;</span> <span class="n">ls</span> <span class="o">-</span><span class="n">l</span>
 <span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Apr</span>  <span class="mi">2</span> <span class="mi">23</span><span class="p">:</span><span class="mi">50</span> <span class="n">data_available</span>
@@ -764,7 +762,11 @@ that will be captured for a single triggered sample set in the buffer.</p>
 <span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">/</span><span class="n">buffer</span><span class="o">&gt;</span>
 </pre></div>
 </div>
-<p>Enable and read 400 samples from both channels:</p>
+<p>Enable channel 0 and read from the buffer. Each enabled channel occupies 32 bits
+of storage per scan, so the <code class="docutils literal notranslate"><span class="pre">hexdump</span> <span class="pre">-n</span></code> byte count is 4 x (enabled channels)
+x (scans). <code class="docutils literal notranslate"><span class="pre">buffer/length</span></code> sets the buffer capacity in scans. The transcript
+below dumps 400 bytes (100 scans of channel 0); use <code class="docutils literal notranslate"><span class="pre">hexdump</span> <span class="pre">-n</span> <span class="pre">1600</span></code> to read
+all 400 scans of one channel, or <code class="docutils literal notranslate"><span class="pre">-n</span> <span class="pre">3200</span></code> with two channels enabled.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 1 &gt; scan_elements/in_voltage0_en</span>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 400 &gt; buffer/length</span>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 1 &gt; buffer/enable</span>
@@ -799,19 +801,23 @@ that will be captured for a single triggered sample set in the buffer.</p>
 </pre></div>
 </div>
 <section id="debug-mode">
-<h3>Debug mode<a class="headerlink" href="#debug-mode" title="Link to this heading"></a></h3>
-<p>You can write and read the ADC registers using debugfs. Here we will read the
-configuration number for softspan code set in channel 0.</p>
+<h5>Debug mode<a class="headerlink" href="#debug-mode" title="Link to this heading"></a></h5>
+<p>You can write and read the AXI ADC HDL core registers (FPGA MMIO) using debugfs.
+Here we will read the SoftSpan code configured for channel 0.</p>
 <p>First go to the device debug folder:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="c1"># cd /sys/kernel/debug/iio/iio:device0</span>
 </pre></div>
 </div>
-<p>Read the 0x0440 register:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 0x0440 &gt; direct_reg_access</span>
+<p>Read the AXI HDL SoftSpan register for channel 0 at 0x0428 (the register for
+channel N is at 0x0428 + 0x40 x N). These are FPGA register accesses, not ADC
+SPI register accesses.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># echo 0x0428 &gt; direct_reg_access</span>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">kernel</span><span class="o">/</span><span class="n">debug</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1"># cat direct_reg_access</span>
 <span class="mh">0x1</span>
 </pre></div>
 </div>
+</section>
+</section>
 </section>
 </section>
 <section id="more-information">
@@ -827,6 +833,33 @@ configuration number for softspan code set in channel 0.</p>
 <li><p><a class="icon link reference external" href="http://video.fosdem.org/2015/devroom-software_defined_radio/iiosdr.mp4" target="_blank">Software Defined Radio using the IIO framework</a></p></li>
 <li><p><a class="icon link reference external" href="https://www.youtube.com/watch?v=p_VntEwUe24" target="_blank">libiio introduction</a></p></li>
 </ul>
+<section id="related-device-drivers">
+<h3>Related Device Drivers<a class="headerlink" href="#related-device-drivers" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>include</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>hdl</p></td>
+<td><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/dc2677a" target="_blank">DC2677A</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
 </section>
 </section>
 

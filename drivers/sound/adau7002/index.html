@@ -105,19 +105,28 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#devicetree-bindings">Devicetree bindings</a></li>
-<li><a class="reference internal" href="#example-device-initialization">Example device initialization</a><ul>
-<li><a class="reference internal" href="#devicetree">Devicetree</a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
 <li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
-<li><a class="reference internal" href="#asoc-dapm-widgets">ASoC DAPM widgets</a></li>
-<li><a class="reference internal" href="#alsa-controls">ALSA controls</a></li>
-<li><a class="reference internal" href="#dai-configuration">DAI Configuration</a><ul>
-<li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
+<li><a class="reference internal" href="#example-device-initialization">Example device initialization</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#more-information">More information</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#routing-and-dapm">Routing and DAPM</a><ul>
+<li><a class="reference internal" href="#asoc-dapm-widgets">ASoC DAPM widgets</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#alsa-controls">ALSA controls</a></li>
+<li><a class="reference internal" href="#dai-formats-and-clocks">DAI formats and clocks</a><ul>
+<li><a class="reference internal" href="#dai-configuration">DAI Configuration</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#hardware-interface-configuration-not-programmable-by-this-driver">Hardware interface configuration (not programmable by this driver)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
 </ul>
@@ -219,6 +228,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -237,7 +247,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -428,15 +437,28 @@ output on a serial audio interface port in either I2S or TDM format.</p>
 <td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adau7002.c" target="_blank">sound/soc/codecs/adau7002.c</a></p></td>
 </tr>
 <tr class="row-odd"><td><p>devicetree</p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/sound/adau7002.txt" target="_blank">Documentation/devicetree/bindings/sound/adau7002.txt</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/sound/adi,adau7002.yaml" target="_blank">Documentation/devicetree/bindings/sound/adi,adau7002.yaml</a></p></td>
 </tr>
 </tbody>
 </table>
 </div>
 </section>
 </section>
-<section id="devicetree-bindings">
-<h2>Devicetree bindings<a class="headerlink" href="#devicetree-bindings" title="Link to this heading"></a></h2>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+<span class="o">&lt;*&gt;</span> <span class="n">Sound</span> <span class="n">card</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+<span class="o">&lt;*&gt;</span>   <span class="n">Advanced</span> <span class="n">Linux</span> <span class="n">Sound</span> <span class="n">Architecture</span>  <span class="o">---&gt;</span>
+<span class="o">&lt;*&gt;</span>     <span class="n">ALSA</span> <span class="k">for</span> <span class="n">SoC</span> <span class="n">audio</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+<span class="o">&lt;*&gt;</span>       <span class="n">CODEC</span> <span class="n">drivers</span>  <span class="o">---&gt;</span>
+<span class="o">&lt;*&gt;</span>          <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADAU7002</span> <span class="n">Stereo</span> <span class="n">PDM</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">I2S</span><span class="o">/</span><span class="n">TDM</span> <span class="n">Converter</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <p>The ADAU7002 driver is fully devicetree compatible.</p>
 <p><strong>Required properties:</strong></p>
 <ul class="simple">
@@ -449,9 +471,14 @@ IOVDD supply as covered in
 Documentation/devicetree/bindings/regulator/regulator.txt If this property is
 not present it is assumed that the supply pin is hardwired to always on.</p></li>
 </ul>
-</section>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adau7002</span><span class="p">:</span> <span class="n">pdm</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">i2s</span> <span class="p">{</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adau7002"</span><span class="p">;</span>
+    <span class="n">IOVDD</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">supply</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
 <section id="example-device-initialization">
-<h2>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h4>
 <p>For compile time configuration, it’s common Linux practice to keep board- and
 application-specific configuration out of the main driver file, instead putting
 it into the board support file.</p>
@@ -461,29 +488,15 @@ describing devices and how they are connected to the SoC. This can include
 available ports, chip variants, preferred modes, default initialization,
 additional pin roles, and so on. This shrinks the board-support packages (BSPs)
 and minimizes board and application specific #ifdefs in drivers.</p>
-<section id="devicetree">
-<h3>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adau7002</span><span class="p">:</span> <span class="n">pdm</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">i2s</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adau7002"</span><span class="p">;</span>
-    <span class="n">IOVDD</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">supply</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="p">};</span>
-</pre></div>
-</div>
 </section>
 </section>
-<section id="kernel-configuration">
-<h2>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-<span class="o">&lt;*&gt;</span> <span class="n">Sound</span> <span class="n">card</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-<span class="o">&lt;*&gt;</span>   <span class="n">Advanced</span> <span class="n">Linux</span> <span class="n">Sound</span> <span class="n">Architecture</span>  <span class="o">---&gt;</span>
-<span class="o">&lt;*&gt;</span>     <span class="n">ALSA</span> <span class="k">for</span> <span class="n">SoC</span> <span class="n">audio</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-<span class="o">&lt;*&gt;</span>       <span class="n">CODEC</span> <span class="n">drivers</span>  <span class="o">---&gt;</span>
-<span class="o">&lt;*&gt;</span>          <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADAU7002</span> <span class="n">Stereo</span> <span class="n">PDM</span><span class="o">-</span><span class="n">to</span><span class="o">-</span><span class="n">I2S</span><span class="o">/</span><span class="n">TDM</span> <span class="n">Converter</span>
-</pre></div>
-</div>
 </section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="routing-and-dapm">
+<h3>Routing and DAPM<a class="headerlink" href="#routing-and-dapm" title="Link to this heading"></a></h3>
 <section id="asoc-dapm-widgets">
-<h2>ASoC DAPM widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h2>
+<h4>ASoC DAPM widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -492,22 +505,27 @@ and minimizes board and application specific #ifdefs in drivers.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p>PDM</p></td>
+<tr class="row-even"><td><p>PDM_DAT</p></td>
 <td><p>PDM signal input</p></td>
 </tr>
 </tbody>
 </table>
 </div>
 </section>
+</section>
 <section id="alsa-controls">
-<h2>ALSA controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h2>
+<h3>ALSA controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
 <p>This device has no controls.</p>
 </section>
+<section id="dai-formats-and-clocks">
+<h3>DAI formats and clocks<a class="headerlink" href="#dai-formats-and-clocks" title="Link to this heading"></a></h3>
 <section id="dai-configuration">
-<h2>DAI Configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h2>
-<p>The driver registers one DAI called <strong>``adau7002``</strong>.</p>
-<section id="supported-dai-formats">
-<h3>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h3>
+<h4>DAI Configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h4>
+<p>The driver registers one capture DAI called ``adau7002-hifi``.</p>
+</section>
+</section>
+<section id="hardware-interface-configuration-not-programmable-by-this-driver">
+<h3>Hardware interface configuration (not programmable by this driver)<a class="headerlink" href="#hardware-interface-configuration-not-programmable-by-this-driver" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -594,7 +612,7 @@ SND_SOC_DAIFMT_DSP_A is supported</p>
 </section>
 </section>
 <section id="more-information">
-<h2>More information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <p><em>Need Help?</em></p>
 <ul class="simple">
 <li><p><a class="icon ez reference external" href="https://ez.analog.com/linux-software-drivers" target="_blank">Analog Devices Linux Device Drivers Help Forum</a></p></li>

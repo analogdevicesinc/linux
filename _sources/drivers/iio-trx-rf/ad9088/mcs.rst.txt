@@ -1,14 +1,15 @@
+
 .. _ad9088 mcs:
 
 Multi-Chip Synchronization
-""""""""""""""""""""""""""
+==========================
 
 This document describes the Multi-Chip Synchronization (MCS) architecture
 for AD9084/AD9088 Apollo devices, including driver interactions, signal
 flows, and the complete synchronization process.
 
-Overview
-========
+Purpose
+-------
 
 Multi-Chip Synchronization (MCS) enables multiple AD9084/AD9088 devices to
 achieve ±10ps alignment accuracy. This is critical for phased array radar,
@@ -24,11 +25,14 @@ The MCS system consists of three main components:
 3. **ADF4382**: Low-noise PLL providing the sampling clock with automatic
    phase alignment capability
 
+Prerequisites
+-------------
+
 System Architecture
-===================
+~~~~~~~~~~~~~~~~~~~
 
 Hardware Topology
------------------
+^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -66,9 +70,8 @@ Hardware Topology
     |  (JESD204 + DMA) |
     +------------------+
 
-
 Multi-Device Configuration
---------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In a multi-device system, each Apollo device has its own dedicated ADF4382
 and receives BSYNC from the ADF4030 through separate output channels.
@@ -102,9 +105,8 @@ and DELSTR (delay strobe) signals for phase correction:
               Sampling               Sampling                Sampling
                Clock                  Clock                   Clock
 
-
 ADF4382 Phase Control via Apollo GPIO
--------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Each Apollo device controls its dedicated ADF4382's phase adjustment through
 two GPIO-driven strobe signals:
@@ -136,12 +138,11 @@ This architecture allows each Apollo to independently maintain phase
 alignment with its clock source, compensating for temperature drift and
 other environmental factors without software intervention.
 
-
 Linux Driver Architecture
-=========================
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Driver Stack
-------------
+^^^^^^^^^^^^
 
 ::
 
@@ -179,9 +180,8 @@ Driver Stack
     |                    Hardware                               |
     +----------------------------------------------------------+
 
-
 Driver File Organization
-------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 **AD9088 (Apollo) Driver:**
 
@@ -208,9 +208,8 @@ Driver File Organization
     drivers/iio/logic/
     └── axi_aion_trig.c       # FPGA trigger/sync controller
 
-
 IIO Channel Relationships
--------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The AD9088 driver connects to ADF4030 and ADF4382 via IIO consumer channels
 defined in the device tree:
@@ -241,15 +240,17 @@ defined in the device tree:
     - iio_read_channel_ext_info()    # Read extended attributes
     - iio_write_channel_ext_info()   # Write extended attributes
 
+Configuration and sequence
+--------------------------
 
 JESD204 State Machine Integration
-=================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The MCS calibration is integrated into the JESD204 FSM framework, which
 coordinates initialization across all devices in the JESD204 link.
 
 FSM Stage Execution Order
--------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -303,9 +304,8 @@ FSM Stage Execution Order
     │    (ad9088_jesd204_post_setup_stage4)                         │
     └──────────────────────────────────────────────────────────────┘
 
-
 AD9088 JESD204 Callbacks
-------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: c
 
@@ -326,15 +326,14 @@ AD9088 JESD204 Callbacks
         },
     };
 
-
 BSYNC Time-of-Flight Measurement
-================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ToF measurement determines the propagation delay between ADF4030 and
 Apollo, allowing precise phase compensation.
 
 Measurement Principle
----------------------
+^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -368,9 +367,8 @@ Measurement Principle
     │                                                                 │
     └─────────────────────────────────────────────────────────────────┘
 
-
 Path Delay Calculation
-----------------------
+^^^^^^^^^^^^^^^^^^^^^^
 
 The path delay is calculated from the four TDC measurements:
 
@@ -412,9 +410,8 @@ The path delay is calculated from the four TDC measurements:
       calc_delay = T_fwd + T_rev = round_trip_delay
       path_delay = round_trip_delay / 2  (assuming symmetric paths)
 
-
 Complete MCS Flow Sequence
-==========================
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The complete MCS flow executed in ``ad9088_jesd204_post_setup_stage1()``:
 
@@ -515,15 +512,14 @@ The complete MCS flow executed in ``ad9088_jesd204_post_setup_stage1()``:
     │                    MCS Calibration Complete                     │
     └─────────────────────────────────────────────────────────────────┘
 
-
 Tracking Calibration
-====================
+~~~~~~~~~~~~~~~~~~~~
 
 Tracking calibration maintains synchronization over time as temperature
 and other environmental factors cause phase drift.
 
 ADF4382 Bleed Current Adjustment
---------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ADF4382 PLL uses a bleed current DAC to make fine phase adjustments.
 Each Apollo controls its dedicated ADF4382 via GPIO-driven DELADJ and DELSTR
@@ -552,9 +548,8 @@ strobe signals:
     │                                                                 │
     └─────────────────────────────────────────────────────────────────┘
 
-
 Tracking Cal Validation
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 The ``mcs_track_cal_validate`` debugfs attribute compares Apollo firmware
 values with ADF4382 hardware values:
@@ -590,14 +585,13 @@ values with ADF4382 hardware values:
         adi_apollo_mcs_cal_bg_tracking_unfreeze(device);
     }
 
-
 Single vs Dual Clock Mode
-=========================
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The AD9084/AD9088 supports two clocking configurations:
 
 Single Clock Mode
------------------
+^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -628,9 +622,8 @@ Single Clock Mode
     │                                                                 │
     └─────────────────────────────────────────────────────────────────┘
 
-
 Dual Clock Mode
----------------
+^^^^^^^^^^^^^^^
 
 ::
 
@@ -658,12 +651,11 @@ Dual Clock Mode
     │                                                                 │
     └─────────────────────────────────────────────────────────────────┘
 
-
 Device Tree Configuration
-=========================
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Complete Example
-----------------
+^^^^^^^^^^^^^^^^
 
 .. code-block:: dts
 
@@ -726,31 +718,36 @@ Complete Example
         /* ... other properties ... */
     };
 
-
 Key Device Tree Properties for MCS
------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-+-------------------------------+--------+----------------------------------+
-| Property                      | Type   | Description                      |
-+===============================+========+==================================+
-| ``io-channels``               | phandle| References to ADF4030 (bsync)    |
-|                               | array  | and ADF4382 (clk) channels       |
-+-------------------------------+--------+----------------------------------+
-| ``io-channel-names``          | string | Must be "bsync", "clk"           |
-|                               | array  |                                  |
-+-------------------------------+--------+----------------------------------+
-| ``adi,mcs-track-decimation``  | u16    | TDC decimation rate (1-32767)    |
-|                               |        | Default: 1023                    |
-+-------------------------------+--------+----------------------------------+
-| ``adi,trigger-sync-en``       | bool   | Enable trigger synchronization   |
-+-------------------------------+--------+----------------------------------+
+.. list-table::
+   :header-rows: 1
 
+   * - Property
+     - Type
+     - Description
+   * - ``io-channels``
+     - phandle array
+     - References to ADF4030 (bsync) and ADF4382 (clk) channels
+   * - ``io-channel-names``
+     - string array
+     - Must be "bsync", "clk"
+   * - ``adi,mcs-track-decimation``
+     - u32
+     - TDC decimation; default 1023. For gapped periodic SYSREF, keep below 32768.
+   * - ``adi,trigger-sync-en``
+     - bool
+     - Enable trigger synchronization
+
+Verification and diagnostics
+----------------------------
 
 Debugfs Interface
-=================
+~~~~~~~~~~~~~~~~~
 
 MCS Attributes
---------------
+^^^^^^^^^^^^^^
 
 ::
 
@@ -768,9 +765,8 @@ MCS Attributes
     ├── mcs_track_status          # Read tracking cal status
     └── mcs_track_cal_validate    # Validate tracking synchronicity (read)
 
-
 Example Usage
--------------
+^^^^^^^^^^^^^
 
 .. code-block:: shell
 
@@ -785,42 +781,40 @@ Example Usage
     # ... perform measurements ...
     echo 0 > /sys/kernel/debug/iio/iio:device0/mcs_bg_track_cal_freeze
 
-
 Error Handling and Diagnostics
-==============================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Driver Validation Checks
-------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 The driver performs several validation checks during MCS calibration:
 
-1. **MCS Init Cal Failure**
+#. **MCS Init Cal Failure**
 
-   - Condition: SYSREF not locked or timing difference > 0.4 cycles
-   - Action: Returns error, stops JESD204 FSM
-   - Log: ``MCS Initcal Status: Failed``
+   -  Condition: SYSREF not locked or timing difference > 0.4 cycles
 
-2. **Trigger Phase Margin**
+   -  Action: Returns error, stops JESD204 FSM
 
-   - Condition: Phase outside 25%-75% of SYSREF period
-   - Action: Warning logged, continues operation
-   - Log: ``Trigger phase X outside safe margin [Y, Z]``
+   -  Log: ``MCS Initcal Status: Failed``
 
-3. **Path Delay Sanity**
+#. **Trigger Phase Margin**
 
-   - Condition: calc_delay > 2x period or path_delay at extremes
-   - Action: Warning logged, continues operation
-   - Log: ``Path delay X fs is very small``
+   -  Condition: Phase outside 25%-75% of SYSREF period
 
-4. **Tracking Cal Mismatch**
+   -  Action: Warning logged, continues operation
 
-   - Condition: Apollo FW values != ADF4382 HW values
-   - Action: Reported via mcs_track_cal_validate
-   - Status: ``MISMATCH - check hardware``
+   -  Log: ``Trigger phase X outside safe margin [Y, Z]``
 
+#. **Tracking Cal Mismatch**
+
+   -  Condition: Apollo FW values != ADF4382 HW values
+
+   -  Action: Reported via mcs_track_cal_validate
+
+   -  Status: ``MISMATCH - check hardware``
 
 Kernel Log Messages
--------------------
+^^^^^^^^^^^^^^^^^^^
 
 Normal operation::
 
@@ -838,9 +832,8 @@ Dual clock mode::
 
     ad9088 spi0.0: Dual clock mode: skipping MCS tracking calibration
 
-
 References
-==========
+----------
 
 - :adi:`AD9084/AD9088 User Guide (UG-2300) <media/en/technical-documentation/user-guides/ad9084-ad9088-device-ug-2300.pdf>`
 - :adi:`ADF4030 Data Sheet <media/en/technical-documentation/data-sheets/adf4030.pdf>`

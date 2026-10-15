@@ -97,17 +97,22 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">AXI JESD204B GT HDL</a><ul>
-<li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#supported-ip-cores">Supported IP Cores</a></li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#driver-testing">Driver Testing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a></li>
 </ul>
 </li>
 </ul>
@@ -209,6 +214,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -227,7 +233,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -369,8 +374,8 @@ Content on this topic
 projects!</p>
 <p>Please see here instead: <a class="reference internal" href="../../jesd204/axi_adxcvr/#axi-adxcvr"><span class="std std-ref">AXI ADXCVR</span></a></p>
 </div>
-<section id="supported-devices">
-<h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+<section id="supported-ip-cores">
+<h2>Supported IP Cores<a class="headerlink" href="#supported-ip-cores" title="Link to this heading"></a></h2>
 <p>This driver supports the</p>
 <ul class="simple">
 <li><p>Deprecated</p></li>
@@ -401,7 +406,7 @@ register map can be found here:
 </thead>
 <tbody>
 <tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/jesd204/axi_jesd204b_gt.c" target="_blank">drivers/iio/jesd204/axi_jesd204b_gt.c</a></p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/jesd204/axi_jesd204b_gt.c" target="_blank">WIP</a></p></td>
+<td><p>No</p></td>
 <td></td>
 <td></td>
 </tr>
@@ -433,15 +438,37 @@ register map can be found here:
 </div>
 </section>
 </section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+        <span class="o">&lt;*&gt;</span> <span class="n">JESD204</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">Serial</span> <span class="n">Interface</span> <span class="n">Framework</span>  <span class="o">---&gt;</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+        <span class="o">&lt;*&gt;</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+            <span class="o">&lt;*&gt;</span>   <span class="n">Generic</span> <span class="n">AXI</span> <span class="n">JESD204B</span> <span class="n">configuration</span> <span class="n">driver</span>
+            <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <p>The AXI JESD204B driver is a platform driver and can currently only be
 instantiated via device tree. Depending on which HDL Version (PCORE_VERSION) the
 HDL supports two links, one receive and one transmit, depending on
 [rx|tx]-[sys|out]-clk-select is given both or not.</p>
-<p>Starting with PCORE_VERSION &gt; 7.0.0, the HDL and driver supports multiple links.
-And the setup is done per lane basis. The device tree entry then features
-multiple per link child nodes.</p>
+<p>Starting with major version 7 (including 7.0.0), the driver uses per-lane
+register addressing. The DT parser selects legacy mode when the node has no
+child nodes, and per-link mode when child nodes exist. Setup is then done on
+a per-lane basis, with the device tree entry featuring multiple per-link
+child nodes.</p>
 <p>Required devicetree properties (legacy (flat) mode &amp; PCORE_VERSION &lt; 7.0.0):</p>
 <ul class="simple">
 <li><p><strong>compatible</strong>: Should always be <code class="docutils literal notranslate"><span class="pre">*xlnx,axi-jesd-gt-1.0*</span></code> or
@@ -449,7 +476,10 @@ multiple per link child nodes.</p>
 <li><p><strong>reg</strong>: Base address and register area size. This parameter expects a
 register range.</p></li>
 <li><p><strong>clocks</strong>: Clock provider phandle</p></li>
-<li><p><strong>clock-name</strong>: Clock input name string</p></li>
+<li><p><strong>clock-names</strong>: Input clock names. Legacy mode uses <code class="docutils literal notranslate"><span class="pre">adc_clk</span></code>/<code class="docutils literal notranslate"><span class="pre">adc_sysref</span></code>
+and <code class="docutils literal notranslate"><span class="pre">dac_clk</span></code>/<code class="docutils literal notranslate"><span class="pre">dac_sysref</span></code>; per-link nodes use <code class="docutils literal notranslate"><span class="pre">conv</span></code> and optionally
+<code class="docutils literal notranslate"><span class="pre">sysref</span></code>/<code class="docutils literal notranslate"><span class="pre">div40</span></code>. <code class="docutils literal notranslate"><span class="pre">clock-output-names</span></code> provides the name(s) for the
+clock(s) exported by the selected mode.</p></li>
 <li><p><strong>adi,lanes</strong>: Number of JESD lanes used</p></li>
 <li><p><strong>adi,rx-sys-clk-select</strong>: RX SYS Clock Select</p></li>
 <li><p><strong>adi,rx-out-clk-select</strong>: RX OUT Clock Select</p></li>
@@ -516,75 +546,54 @@ defaults to internal.</p></li>
 </pre></div>
 </div>
 <p><strong>Example (legacy mode):</strong></p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_daq2_gt</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">jesd</span><span class="o">-</span><span class="n">gt</span><span class="o">-</span><span class="n">rx</span><span class="o">-</span><span class="n">tx</span><span class="o">@</span><span class="mi">44</span><span class="n">a60000</span> <span class="p">{</span>
-    <span class="c1">#clock-cells = &lt;1&gt;;</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-jesd-gt-1.0"</span><span class="p">;</span>
-    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span> <span class="mh">0x44a60000</span> <span class="mh">0x10000</span> <span class="o">&gt;</span><span class="p">;</span>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">axi_daq2_gt</span><span class="p">:</span><span class="w"> </span><span class="nf">axi-jesd-gt-rx-tx</span><span class="o">@</span><span class="mi">44a60000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="o">#</span><span class="n">clock-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"xlnx,axi-jesd-gt-1.0"</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mh">0x44a60000</span><span class="w"> </span><span class="mh">0x10000</span><span class="w"> </span><span class="o">&gt;</span><span class="p">;</span>
 
-    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clk0_ad9523</span> <span class="mi">1</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">clk0_ad9523</span> <span class="mi">6</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">clk0_ad9523</span> <span class="mi">7</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">clk0_ad9523</span> <span class="mi">13</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"adc_clk"</span><span class="p">,</span> <span class="s2">"adc_sysref"</span><span class="p">,</span> <span class="s2">"dac_sysref"</span><span class="p">,</span> <span class="s2">"dac_clk"</span><span class="p">;</span>
-    <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"adc_gt_clk"</span><span class="p">,</span> <span class="s2">"dac_gt_clk"</span><span class="p">;</span>
+<span class="w">    </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clk0_ad9523</span><span class="w"> </span><span class="mi">1</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clk0_ad9523</span><span class="w"> </span><span class="mi">6</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clk0_ad9523</span><span class="w"> </span><span class="mi">7</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clk0_ad9523</span><span class="w"> </span><span class="mi">13</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adc_clk"</span><span class="p">,</span><span class="w"> </span><span class="s">"adc_sysref"</span><span class="p">,</span><span class="w"> </span><span class="s">"dac_clk"</span><span class="p">,</span><span class="w"> </span><span class="s">"dac_sysref"</span><span class="p">;</span>
+<span class="w">    </span><span class="n">clock-output-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adc_gt_clk"</span><span class="p">,</span><span class="w"> </span><span class="s">"dac_gt_clk"</span><span class="p">;</span>
 
-    <span class="n">adi</span><span class="p">,</span><span class="n">rx</span><span class="o">-</span><span class="n">sys</span><span class="o">-</span><span class="n">clk</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">adi</span><span class="p">,</span><span class="n">rx</span><span class="o">-</span><span class="n">out</span><span class="o">-</span><span class="n">clk</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">adi</span><span class="p">,</span><span class="n">tx</span><span class="o">-</span><span class="n">sys</span><span class="o">-</span><span class="n">clk</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">adi</span><span class="p">,</span><span class="n">tx</span><span class="o">-</span><span class="n">out</span><span class="o">-</span><span class="n">clk</span><span class="o">-</span><span class="n">select</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">rx-sys-clk-select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">3</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">rx-out-clk-select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">tx-sys-clk-select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">3</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">tx-out-clk-select</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
 
-    <span class="n">adi</span><span class="p">,</span><span class="n">lanes</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x4</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">adi</span><span class="p">,</span><span class="n">use</span><span class="o">-</span><span class="n">lpm</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
-<span class="p">}</span> <span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">lanes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x4</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">use-lpm-enable</span><span class="p">;</span>
+<span class="p">}</span><span class="w"> </span><span class="p">;</span>
 </pre></div>
 </div>
 </section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
-        <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
-        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
-
-              <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-
-        <span class="o">&lt;*&gt;</span>   <span class="n">Generic</span> <span class="n">AXI</span> <span class="n">JESD204B</span> <span class="n">configuration</span> <span class="n">driver</span>
-
-        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
-</pre></div>
-</div>
 </section>
 <section id="driver-testing">
-<h2>Driver Testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># cd 44a60000.axi-jesd-gt/</span>
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span># cd 44a60000.axi-jesd-gt/
 
-<span class="c1"># ls -al</span>
-<span class="n">total</span> <span class="mi">0</span>
-<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span>    <span class="mi">2</span> <span class="n">root</span>     <span class="n">root</span>             <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">21</span> <span class="o">.</span>
-<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span>   <span class="mi">25</span> <span class="n">root</span>     <span class="n">root</span>             <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">00</span> <span class="o">..</span>
-<span class="n">lrwxrwxrwx</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>             <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">24</span> <span class="n">driver</span> <span class="o">-&gt;</span> <span class="o">../../../</span><span class="n">bus</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">drivers</span><span class="o">/</span><span class="n">cf_axi_jesd204b_gt</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">24</span> <span class="n">driver_override</span>
-<span class="o">--</span><span class="n">w</span><span class="o">-------</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">24</span> <span class="n">enable</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--------</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>        <span class="mi">132600</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">24</span> <span class="n">eye_data</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--------</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">24</span> <span class="n">info</span>
-<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">24</span> <span class="n">modalias</span>
-<span class="o">--</span><span class="n">w</span><span class="o">-------</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">24</span> <span class="n">prescale</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-------</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">24</span> <span class="n">reg_access</span>
-<span class="n">lrwxrwxrwx</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>             <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">24</span> <span class="n">subsystem</span> <span class="o">-&gt;</span> <span class="o">../../../</span><span class="n">bus</span><span class="o">/</span><span class="n">platform</span>
-<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>          <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">24</span> <span class="n">uevent</span>
+# ls -al
+total 0
+drwxr-xr-x    2 root     root             0 Jan  1 00:21 .
+drwxr-xr-x   25 root     root             0 Jan  1 00:00 ..
+lrwxrwxrwx    1 root     root             0 Jan  1 00:24 driver -&gt; ../../../bus/platform/drivers/cf_axi_jesd204b_gt
+-rw-r--r--    1 root     root          4096 Jan  1 00:24 driver_override
+--w-------    1 root     root          4096 Jan  1 00:24 enable
+-r--------    1 root     root        132600 Jan  1 00:24 eye_data
+-r--------    1 root     root          4096 Jan  1 00:24 info
+-r--r--r--    1 root     root          4096 Jan  1 00:24 modalias
+--w-------    1 root     root          4096 Jan  1 00:24 prescale
+-rw-------    1 root     root          4096 Jan  1 00:24 reg_access
+lrwxrwxrwx    1 root     root             0 Jan  1 00:24 subsystem -&gt; ../../../bus/platform
+-rw-r--r--    1 root     root          4096 Jan  1 00:24 uevent
 
-<span class="c1"># cat info</span>
-<span class="n">x65</span><span class="p">,</span><span class="n">y255</span> <span class="n">CDRDW</span><span class="p">:</span> <span class="mi">40</span>
+# cat info
+x65,y255 CDRDW: 40 LPM: 1
 </pre></div>
 </div>
+<p>Dimensions depend on the selected link. enable accepts a lane number and starts
+an eye scan; it is not a boolean link-enable switch. Read eye_data after
+initiating a scan; its read waits for completion.</p>
 </section>
 </section>
 

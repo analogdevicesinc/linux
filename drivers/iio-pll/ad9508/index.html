@@ -104,11 +104,9 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#enabling-the-driver">Enabling the driver</a><ul>
-<li><a class="reference internal" href="#adding-a-device-tree-entry">Adding a device tree entry</a><ul>
-<li><a class="reference internal" href="#device-tree-example">Device tree example</a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a></li>
 </ul>
 </li>
 </ul>
@@ -212,6 +210,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -230,7 +229,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -437,8 +435,10 @@ configurations at power-up without the need for SPI or I2C programming.</p>
 </div>
 </section>
 </section>
-<section id="enabling-the-driver">
-<h2>Enabling the driver<a class="headerlink" href="#enabling-the-driver" title="Link to this heading"></a></h2>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="admonition note">
@@ -453,67 +453,67 @@ configurations at power-up without the need for SPI or I2C programming.</p>
                  <span class="o">&lt;*&gt;</span>  <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9508</span> <span class="n">Clock</span> <span class="n">Fanout</span> <span class="n">Buffer</span>
 </pre></div>
 </div>
-<section id="adding-a-device-tree-entry">
-<h3>Adding a device tree entry<a class="headerlink" href="#adding-a-device-tree-entry" title="Link to this heading"></a></h3>
-<section id="device-tree-example">
-<h4>Device tree example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h4>
-<p>The following example instanciates the ad9508 driver for a ad9508-3 device
-connected on the SPI bus to the chip-select line 1.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1">#include &lt;dt-bindings/iio/frequency/ad9508.h&gt;</span>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<p>The following example instantiates the AD9508 driver on SPI chip-select 3
+(<code class="docutils literal notranslate"><span class="pre">reg</span> <span class="pre">=</span> <span class="pre">&lt;3&gt;</span></code>). The board must provide the input clock named <code class="docutils literal notranslate"><span class="pre">clkin</span></code>;
+the driver enables that clock during probe.</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/iio/frequency/ad9508.h&gt;</span>
 
-<span class="o">&amp;</span><span class="n">spi</span> <span class="p">{</span>
-        <span class="n">clk0_ad9508</span><span class="p">:</span> <span class="n">ad9508</span><span class="o">@</span><span class="mi">3</span> <span class="p">{</span>
-                <span class="c1">#address-cells = &lt;1&gt;;</span>
-                <span class="c1">#size-cells = &lt;0&gt;;</span>
-                <span class="c1">#clock-cells = &lt;1&gt;;</span>
-                <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad9508"</span><span class="p">;</span>
-                <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="n">spi</span><span class="o">-</span><span class="n">cpol</span><span class="p">;</span>
-                <span class="n">spi</span><span class="o">-</span><span class="n">cpha</span><span class="p">;</span>
+<span class="o">&amp;</span><span class="nf">spi</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nl">clk0_ad9508</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9508</span><span class="o">@</span><span class="mi">3</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="o">#</span><span class="n">clock-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,ad9508"</span><span class="p">;</span>
+<span class="w">                </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">3</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="n">spi-cpol</span><span class="p">;</span>
+<span class="w">                </span><span class="n">spi-cpha</span><span class="p">;</span>
 
-                <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">ad9508_clkin</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">ad9508_clkin</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"clkin"</span><span class="p">;</span>
 
-                <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"ad9508-1_out0"</span><span class="p">,</span> <span class="s2">"ad9508-1_out1"</span><span class="p">,</span> <span class="s2">"ad9508-1_out2"</span><span class="p">,</span> <span class="s2">"ad9508-1_out3"</span><span class="p">;</span>
-                <span class="n">adi</span><span class="p">,</span><span class="n">spi</span><span class="o">-</span><span class="mi">3</span><span class="n">wire</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
+<span class="w">                </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="n">clock-output-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad9508-1_out0"</span><span class="p">,</span><span class="w"> </span><span class="s">"ad9508-1_out1"</span><span class="p">,</span><span class="w"> </span><span class="s">"ad9508-1_out2"</span><span class="p">,</span><span class="w"> </span><span class="s">"ad9508-1_out3"</span><span class="p">;</span>
+<span class="w">                </span><span class="n">adi</span><span class="p">,</span><span class="n">spi-3wire-enable</span><span class="p">;</span>
 
-                <span class="n">ad9508_0_c0</span><span class="p">:</span><span class="n">channel</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-                        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-                        <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"SYSREF"</span><span class="p">;</span>
-                        <span class="n">adi</span><span class="p">,</span><span class="n">driver</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="p">(</span><span class="n">DRIVER_PHASE_NORMAL</span> <span class="o">|</span> <span class="n">DRIVER_MODE_HSTL</span><span class="p">)</span><span class="o">&gt;</span><span class="p">;</span>
-                        <span class="n">adi</span><span class="p">,</span><span class="n">divider</span><span class="o">-</span><span class="n">phase</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-                        <span class="n">adi</span><span class="p">,</span><span class="n">channel</span><span class="o">-</span><span class="n">divider</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">32</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="p">};</span>
+<span class="w">                </span><span class="nf">ad9508_0_c0:channel</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                        </span><span class="n">adi</span><span class="p">,</span><span class="n">extended-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"SYSREF"</span><span class="p">;</span>
+<span class="w">                        </span><span class="n">adi</span><span class="p">,</span><span class="n">driver-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="p">(</span><span class="na">DRIVER_PHASE_NORMAL</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="na">DRIVER_MODE_HSTL</span><span class="p">)</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                        </span><span class="n">adi</span><span class="p">,</span><span class="n">divider-phase</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                        </span><span class="n">adi</span><span class="p">,</span><span class="n">channel-divider</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">32</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="p">};</span>
 
-                <span class="n">ad9508_0_c1</span><span class="p">:</span><span class="n">channel</span><span class="o">@</span><span class="mi">1</span> <span class="p">{</span>
-                        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-                        <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"PLL_REF"</span><span class="p">;</span>
-                        <span class="n">adi</span><span class="p">,</span><span class="n">driver</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="p">(</span><span class="n">DRIVER_PHASE_NORMAL</span> <span class="o">|</span> <span class="n">DRIVER_MODE_HSTL</span><span class="p">)</span><span class="o">&gt;</span><span class="p">;</span>
-                        <span class="n">adi</span><span class="p">,</span><span class="n">divider</span><span class="o">-</span><span class="n">phase</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-                        <span class="n">adi</span><span class="p">,</span><span class="n">channel</span><span class="o">-</span><span class="n">divider</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="p">};</span>
+<span class="w">                </span><span class="nf">ad9508_0_c1:channel</span><span class="o">@</span><span class="mi">1</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                        </span><span class="n">adi</span><span class="p">,</span><span class="n">extended-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"PLL_REF"</span><span class="p">;</span>
+<span class="w">                        </span><span class="n">adi</span><span class="p">,</span><span class="n">driver-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="p">(</span><span class="na">DRIVER_PHASE_NORMAL</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="na">DRIVER_MODE_HSTL</span><span class="p">)</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                        </span><span class="n">adi</span><span class="p">,</span><span class="n">divider-phase</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                        </span><span class="n">adi</span><span class="p">,</span><span class="n">channel-divider</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="p">};</span>
 
-                <span class="n">ad9508_0_c2</span><span class="p">:</span><span class="n">channel</span><span class="o">@</span><span class="mi">2</span> <span class="p">{</span>
-                        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
-                        <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"GBTCLK"</span><span class="p">;</span>
-                        <span class="n">adi</span><span class="p">,</span><span class="n">driver</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="p">(</span><span class="n">DRIVER_PHASE_NORMAL</span> <span class="o">|</span> <span class="n">DRIVER_MODE_HSTL</span><span class="p">)</span><span class="o">&gt;</span><span class="p">;</span>
-                        <span class="n">adi</span><span class="p">,</span><span class="n">divider</span><span class="o">-</span><span class="n">phase</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-                        <span class="n">adi</span><span class="p">,</span><span class="n">channel</span><span class="o">-</span><span class="n">divider</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="p">};</span>
+<span class="w">                </span><span class="nf">ad9508_0_c2:channel</span><span class="o">@</span><span class="mi">2</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                        </span><span class="n">adi</span><span class="p">,</span><span class="n">extended-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"GBTCLK"</span><span class="p">;</span>
+<span class="w">                        </span><span class="n">adi</span><span class="p">,</span><span class="n">driver-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="p">(</span><span class="na">DRIVER_PHASE_NORMAL</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="na">DRIVER_MODE_HSTL</span><span class="p">)</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                        </span><span class="n">adi</span><span class="p">,</span><span class="n">divider-phase</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                        </span><span class="n">adi</span><span class="p">,</span><span class="n">channel-divider</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="p">};</span>
 
-                <span class="n">ad9508_0_c3</span><span class="p">:</span><span class="n">channel</span><span class="o">@</span><span class="mi">3</span> <span class="p">{</span>
-                        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3</span><span class="o">&gt;</span><span class="p">;</span>
-                        <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"DIVCLK_FMC"</span><span class="p">;</span>
-                        <span class="n">adi</span><span class="p">,</span><span class="n">driver</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="p">(</span><span class="n">DRIVER_PHASE_NORMAL</span> <span class="o">|</span> <span class="n">DRIVER_MODE_HSTL</span><span class="p">)</span><span class="o">&gt;</span><span class="p">;</span>
-                        <span class="n">adi</span><span class="p">,</span><span class="n">divider</span><span class="o">-</span><span class="n">phase</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-                        <span class="n">adi</span><span class="p">,</span><span class="n">channel</span><span class="o">-</span><span class="n">divider</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-                <span class="p">};</span>
+<span class="w">                </span><span class="nf">ad9508_0_c3:channel</span><span class="o">@</span><span class="mi">3</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">                        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">3</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                        </span><span class="n">adi</span><span class="p">,</span><span class="n">extended-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"DIVCLK_FMC"</span><span class="p">;</span>
+<span class="w">                        </span><span class="n">adi</span><span class="p">,</span><span class="n">driver-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="p">(</span><span class="na">DRIVER_PHASE_NORMAL</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="na">DRIVER_MODE_HSTL</span><span class="p">)</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                        </span><span class="n">adi</span><span class="p">,</span><span class="n">divider-phase</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                        </span><span class="n">adi</span><span class="p">,</span><span class="n">channel-divider</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">                </span><span class="p">};</span>
 
-        <span class="p">};</span>
+<span class="w">        </span><span class="p">};</span>
 <span class="p">};</span>
 </pre></div>
 </div>
-</section>
 </section>
 </section>
 </section>

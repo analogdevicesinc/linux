@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ad3530
 
+
 .. _ad3530:
 
 AD3530R/AD3530
@@ -8,11 +9,12 @@ AD3530R/AD3530
 AD3530R/AD3530 IIO DAC Linux Driver.
 
 The AD3530R/AD3530 are low power, 8-channel, 16-bit, buffered voltage output,
-digital-to-analog converters (DACs) that include a 2.5 V, TBD ppm/°C internal
-reference (disabled by default), and a gain bit field, resulting in a full-scale
-output span of 2.5 V (gain = 1) or 5 V (gain = 2) for a reference voltage of 2.5
-V. These devices operate from a single, 2.7 V to 5.5 V supply range and are
-guaranteed monotonic by design.
+digital-to-analog converters (DACs). The AD3530R includes a 2.5 V internal
+reference with 5 ppm/°C typical drift, disabled by default; the AD3530 uses an
+external reference. Both devices have a gain bit field, resulting in a
+full-scale output span of 2.5 V (gain = 1) or 5 V (gain = 2) for a reference
+voltage of 2.5 V. These devices operate from a single, 2.7 V to 5.5 V supply
+range and are guaranteed monotonic by design.
 
 Supported Devices
 -----------------
@@ -27,11 +29,12 @@ Evaluation Boards
 Description
 -----------
 
-This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
-driver, targeting single-channel serial interface DACs. The industrial I/O
-subsystem provides a unified framework for drivers for many different types of
-converters and sensors using a number of different physical interfaces (i2c,
-spi, etc). See :external+system-level:ref:`iio` for more information.
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem driver, targeting
+multi-channel serial interface DACs (eight channels for AD3530/AD3530R and four
+for AD3531/AD3531R). The industrial I/O subsystem provides a unified framework
+for drivers for many different types of converters and sensors using a number of
+different physical interfaces (i2c, spi, etc). See :external+system-level:ref:`iio` for more
+information.
 
 Source Code
 -----------
@@ -56,15 +59,52 @@ Files
    * - Function
      - Status
    * - `driver <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad3530r.c>`_
-     - 
+     -
    * - `dt-bindings <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/dac/adi,ad3530r.yaml>`_
-     - 
+     -
 
-Example platform device initialization
---------------------------------------
+Hardware configuration
+----------------------
 
-Devicetree
-~~~~~~~~~~
+**Using:**
+
+- :adi:`EVAL-AD3530RARDZ` AD3530R Evaluation Board
+- Raspberry Pi 4
+
+**Wiring/Connection**
+
+Disconnect the SDP-K1 controller before connecting an external controller to the
+PMOD interface. Supply the evaluation board from its external USB-C connector or
+terminal block when using this interface.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Evaluation Board
+     - RPI4
+   * - P4 PIN 6/SCK
+     - SCLK SPI0
+   * - P4 PIN 5/SDO
+     - MISO SPI0
+   * - P4 PIN 4/SDI
+     - MOSI SPI0
+   * - P4 PIN 3/CS
+     - CE SPI0
+   * - P2 PIN 2/IOREF
+     - 3.3V
+   * - P7 PIN 1/EXT_VDD
+     - 5V
+   * - P7 PIN 2/PGND
+     - GND
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/ad3530r_wiring2.png
+   :width: 600px
+
+Adding Linux driver support
+---------------------------
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Required device tree properties:
 
@@ -72,26 +112,38 @@ Required device tree properties:
   ``adi,ad3530r``
 - ``reg``: The chipselect number used for the device
 - ``spi-max-frequency``: Maximum SPI clock frequency
+- ``vdd-supply``: Phandle to the analog power supply regulator.
+- ``iovdd-supply``: Phandle to the digital I/O power supply regulator.
+- ``ref-supply``: Required external reference regulator for non-R models
+  (AD3530/AD3531). Optional for R models, which use the internal 2.5 V
+  reference when it is absent.
 
 Optional device tree properties:
 
-- ``ref-supply``: Reference Input/Output. The voltage at the REF pin sets the
-  full-scale range of all channels. If not provided the internal reference is
-  used and also provided on the VREF pin.
-- ``reset-gpios``: Active low signal that is falling edge sensitive. When it is
-  deasserted, the digital core initialization is performed and all DAC registers
-  except the Interface Configuration A register are reset to their default
-  values.
-- ``ldac-gpios``: LDAC pin to be used as a hardware trigger to update the DAC
-  channels. If not present, the DAC channels are updated by Software LDAC.
-- ``adi,double-output-range``: Configure the output range for all channels. If
-  the property is present, the output will range from 0V to 2Vref. If the
-  property is not present, the output will range from 0V to Vref.
+-  ``reset-gpios``: Active low signal that is falling edge sensitive. When it is
+   deasserted, the digital core initialization is performed and all DAC
+   registers except the Interface Configuration A register are reset to their
+   default values.
+
+-  ``ldac-gpios``: LDAC pin to be used as a hardware trigger to update the DAC
+   channels. If not present, the DAC channels are updated by Software LDAC.
+
+-  ``adi,range-double``: Configure the output range for all channels. If the
+   property is present, the output will range from 0V to 2Vref. If the property
+   is not present, the output will range from 0V to Vref.
+
+Example platform device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Example Overlay
-~~~~~~~~~~~~~~~
+"""""""""""""""
 
-::
+This AD3530R fragment uses the internal reference. The board must define
+``spi0`` and the ``vdd`` and ``iovdd`` regulator labels for the supplies
+connected to the device. Adapt these labels to the actual board; non-R
+models also require an external reference supplied through ``ref-supply``.
+
+.. code-block:: dts
 
    &spi0 {
        #address-cells = <1>;
@@ -102,9 +154,9 @@ Example Overlay
            compatible = "adi,ad3530r";
            reg = <0>;
            spi-max-frequency = <1000000>;
-
-           #address-cells = <1>;
-           #size-cells = <0>;
+           vdd-supply = <&vdd>;
+           iovdd-supply = <&iovdd>;
+       };
    };
 
 Driver testing
@@ -175,13 +227,16 @@ Driver testing
    -r--r--r-- 1 root root 4096 Dec 17 09:31 waiting_for_supplier
    root@analog:/sys/bus/iio/devices/iio:device0#
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root@analog:/sys/bus/iio/devices/iio:device0> cat name
    ad3530r
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale
 ^^^^^^^^^^
@@ -196,21 +251,8 @@ in millivolts.
    root@analog:/sys/bus/iio/devices/iio:device0> cat out_voltage0_scale
    0.038146972
 
-Show offset
-'''''''''''
-
-**Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_offset
-
-Raw offset to be applied to out_voltageY_raw in order to obtain the measured
-voltage in millivolts. The offset is applied before scale is applied.
-
-::
-
-   root@analog:/sys/bus/iio/devices/iio:device0> cat out_voltage0_offset
-   0
-
 Set channel Y output voltage
-''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw
 
@@ -224,7 +266,7 @@ Raw (unscaled, no bias etc.) output voltage for channel Y.
 (10000 - 0) \* 0.038146972 = \*\* 381.46972 *mV*\ \*\*
 
 Enable power down mode on output Y
-''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown
 
@@ -239,53 +281,6 @@ normal operation.
    root@analog:/sys/bus/iio/devices/iio:device0> echo 0 > out_voltage0_powerdown
    root@analog:/sys/bus/iio/devices/iio:device0> cat out_voltage0_powerdown
    0
-
-Muxout Select
-'''''''''''''
-
-**Description:** Selects which of the multiplexer’s input signals will be
-monitored on the MUX_OUT pin.
-
-::
-
-   root@analog:/sys/bus/iio/devices/iio:device0> cat muxout_select_available
-   powered_down vout0 iout0_source iout0_sink vout1 iout1_source iout1_sink vout2 iout2_source iout2_sink vout3 iout3_source iout3_sink vout4 iout4_source iout4_sink vout5 iout5_source iout5_sink vout6 iout6_source iout6_sink vout7 iout7_source iout7_sink die_temp agnd
-   root@analog:/sys/bus/iio/devices/iio:device0> echo vout0 > muxout_select
-   root@analog:/sys/bus/iio/devices/iio:device0> cat muxout_select
-   vout0
-
-Hardware Interface
-------------------
-
-**Using:**
-
-- :adi:`EVAL-AD3530RARDZ` AD3530R Evaluation Board
-- Raspberry Pi 4
-
-**Wiring/Connection**
-
-.. list-table::
-   :header-rows: 1
-
-   * - Evaluation Board
-     - RPI4
-   * - P4 PIN 6/SCK
-     - SCLK SPI0
-   * - P4 PIN 5/SDO
-     - MISO SPI0
-   * - P4 PIN 4/SDI
-     - MOSI SPI0
-   * - P4 PIN 3/CS
-     - CE SPI0
-   * - P2 PIN 2/IOREF
-     - 3.3V
-   * - P7 PIN 1/EXT_VDD
-     - 5V
-   * - P7 PIN 2/PGND
-     - GND
-
-.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/ad3530r_wiring2.png
-   :width: 600px
 
 More Information
 ----------------

@@ -97,32 +97,38 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">HDL AXI SPIDF</a><ul>
-<li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#supported-ip-cores">Supported IP Cores</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
-<li><a class="reference internal" href="#status">Status</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
+<li><a class="reference internal" href="#example-device-initialization">Example device initialization</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-device-initialization">Example device initialization</a><ul>
+<li><a class="reference internal" href="#board-integration">Board integration</a><ul>
+<li><a class="reference internal" href="#adv7511-hdmi-spdif-sound-card">ADV7511 HDMI + SPDIF sound card</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#id2">Example device initialization</a></li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a></li>
+<li><a class="reference internal" href="#more-information">More information</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id3">Driver testing</a><ul>
+<li><a class="reference internal" href="#dai-formats-and-clocks">DAI formats and clocks</a><ul>
 <li><a class="reference internal" href="#dai-configuration">DAI configuration</a><ul>
 <li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#example-dai-configuration">Example DAI configuration</a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li><a class="reference internal" href="#adv7511-hdmi-spdif-board-driver">ADV7511 HDMI + SPDIF board driver</a><ul>
-<li><a class="reference internal" href="#source">Source</a><ul>
-<li><a class="reference internal" href="#id2">Status</a></li>
-<li><a class="reference internal" href="#id3">Files</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
-<li><a class="reference internal" href="#id4">Example device initialization</a></li>
-<li><a class="reference internal" href="#driver-testing">Driver testing</a></li>
-<li><a class="reference internal" href="#more-information">More information</a></li>
 </ul>
 </li>
 </ul>
@@ -226,6 +232,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -244,7 +251,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -380,8 +386,8 @@ Content on this topic
   <section id="hdl-axi-spidf">
 <span id="id1"></span><h1>HDL AXI SPIDF<a class="headerlink" href="#hdl-axi-spidf" title="Link to this heading"></a></h1>
 <p>HDL AXI SPIDF Linux Driver.</p>
-<section id="supported-devices">
-<h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+<section id="supported-ip-cores">
+<h2>Supported IP Cores<a class="headerlink" href="#supported-ip-cores" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p>HDL AXI SPDIF</p></li>
 </ul>
@@ -408,8 +414,9 @@ Content on this topic
 </tbody>
 </table>
 </div>
+</section>
 <section id="files">
-<h4>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h4>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -428,30 +435,174 @@ Content on this topic
 </div>
 </section>
 </section>
-</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-device-initialization">
-<h2>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h4>
 <p>The AXI SPDIF driver is a platform driver and can currently only be instantiated
 via device tree.</p>
 <p>Required devicetree properties:</p>
 <ul class="simple">
 <li><p>compatible: Should always be <code class="docutils literal notranslate"><span class="pre">adi,axi-spdif-tx-1.00.a</span></code></p></li>
 <li><p>reg: Base address and register area size</p></li>
-<li><p>clock-frequency: Clock frequency applied at the spdif_data_clk pin in HZ</p></li>
+<li><p>clocks: AXI bus clock and reference clock.</p></li>
+<li><p>clock-names: <code class="docutils literal notranslate"><span class="pre">axi</span></code> and <code class="docutils literal notranslate"><span class="pre">ref</span></code>, respectively.</p></li>
+<li><p>dmas: Transmit DMA channel.</p></li>
+<li><p>dma-names: <code class="docutils literal notranslate"><span class="pre">tx</span></code>.</p></li>
 </ul>
 <p>Example:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_spdif_tx_0</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">spdif</span><span class="o">-</span><span class="n">tx</span><span class="o">@</span><span class="mi">75</span><span class="n">c00000</span> <span class="p">{</span>
     <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-spdif-tx-1.00.a"</span><span class="p">;</span>
     <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x75c00000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">clock</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">12288000</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clkc</span> <span class="mi">15</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">audio_clock</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"axi"</span><span class="p">,</span> <span class="s2">"ref"</span><span class="p">;</span>
+    <span class="n">dmas</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">dmac_s</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">dma</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"tx"</span><span class="p">;</span>
 <span class="p">};</span>
 </pre></div>
 </div>
+</section>
+</section>
+<section id="board-integration">
+<h3>Board integration<a class="headerlink" href="#board-integration" title="Link to this heading"></a></h3>
+<section id="adv7511-hdmi-spdif-sound-card">
+<h4>ADV7511 HDMI + SPDIF sound card<a class="headerlink" href="#adv7511-hdmi-spdif-sound-card" title="Link to this heading"></a></h4>
+<p>The HDL AXI SPDIF core is used in conjunction with the ADV7511 HDMI transmitter
+on various FPGA platforms. The sound card is described with the generic
+<code class="docutils literal notranslate"><span class="pre">simple-audio-card</span></code> binding, linking the AXI SPDIF CPU DAI with the ADV7511
+HDMI audio codec DAI.</p>
+<section id="kernel-configuration">
+<h5>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h5>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="o">&lt;*&gt;</span> <span class="n">Sound</span> <span class="n">card</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+        <span class="o">&lt;*&gt;</span>   <span class="n">Advanced</span> <span class="n">Linux</span> <span class="n">Sound</span> <span class="n">Architecture</span>  <span class="o">---&gt;</span>
+            <span class="o">&lt;*&gt;</span>     <span class="n">ALSA</span> <span class="k">for</span> <span class="n">SoC</span> <span class="n">audio</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+                <span class="o">&lt;*&gt;</span>   <span class="n">Audio</span> <span class="n">support</span> <span class="k">for</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">reference</span> <span class="n">designs</span>
+                <span class="o">&lt;*&gt;</span>     <span class="n">AXI</span><span class="o">-</span><span class="n">SPDIF</span> <span class="n">support</span>
+                <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+                <span class="o">&lt;*&gt;</span>   <span class="n">ASoC</span> <span class="n">Simple</span> <span class="n">sound</span> <span class="n">card</span> <span class="n">support</span>
+    <span class="n">Graphics</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+        <span class="n">Display</span> <span class="n">Interface</span> <span class="n">Bridges</span>  <span class="o">---&gt;</span>
+            <span class="o">&lt;*&gt;</span> <span class="n">ADV7511</span> <span class="n">encoder</span>
+            <span class="p">[</span><span class="o">*</span><span class="p">]</span>   <span class="n">ADV7511</span> <span class="n">HDMI</span> <span class="n">Audio</span> <span class="n">driver</span>
+</pre></div>
+</div>
+</section>
+<section id="id2">
+<h5>Example device initialization<a class="headerlink" href="#id2" title="Link to this heading"></a></h5>
+<p>Required properties:</p>
+<ul class="simple">
+<li><p>The AXI SPDIF node must define <code class="docutils literal notranslate"><span class="pre">#sound-dai-cells</span> <span class="pre">=</span> <span class="pre">&lt;0&gt;</span></code>.</p></li>
+<li><p>The ADV7511 node must define <code class="docutils literal notranslate"><span class="pre">#sound-dai-cells</span> <span class="pre">=</span> <span class="pre">&lt;1&gt;</span></code>; DAI index <code class="docutils literal notranslate"><span class="pre">1</span></code>
+selects its SPDIF audio input.</p></li>
+</ul>
+<p>Example (from <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/xilinx/zynq-zed-adv7511.dtsi" target="_blank">arch/arm/boot/dts/xilinx/zynq-zed-adv7511.dtsi</a>):</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">axi_spdif_tx_0</span><span class="p">:</span><span class="w"> </span><span class="nf">axi-spdif-tx</span><span class="o">@</span><span class="mi">75c00000</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,axi-spdif-tx-1.00.a"</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x75c00000</span><span class="w"> </span><span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">dmas</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">dmac_s</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">dma-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"tx"</span><span class="p">;</span>
+<span class="w">    </span><span class="n">clocks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">clkc</span><span class="w"> </span><span class="mi">15</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">audio_clock</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">clock-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"axi"</span><span class="p">,</span><span class="w"> </span><span class="s">"ref"</span><span class="p">;</span>
+
+<span class="w">    </span><span class="o">#</span><span class="n">sound-dai-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="nf">adv7511_hdmi_snd</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"simple-audio-card"</span><span class="p">;</span>
+<span class="w">    </span><span class="n">simple-audio-card</span><span class="p">,</span><span class="kr">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"HDMI monitor"</span><span class="p">;</span>
+<span class="w">    </span><span class="n">simple-audio-card</span><span class="p">,</span><span class="n">widgets</span><span class="w"> </span><span class="o">=</span>
+<span class="w">        </span><span class="s">"Speaker"</span><span class="p">,</span><span class="w"> </span><span class="s">"Speaker"</span><span class="p">;</span>
+<span class="w">    </span><span class="n">simple-audio-card</span><span class="p">,</span><span class="n">routing</span><span class="w"> </span><span class="o">=</span>
+<span class="w">        </span><span class="s">"Speaker"</span><span class="p">,</span><span class="w"> </span><span class="s">"TX"</span><span class="p">;</span>
+
+<span class="w">    </span><span class="nf">simple-audio-card,dai-link</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nf">cpu</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">sound-dai</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">axi_spdif_tx_0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">            </span><span class="n">frame-master</span><span class="p">;</span>
+<span class="w">            </span><span class="n">bitclock-master</span><span class="p">;</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">        </span><span class="nf">codec</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">sound-dai</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">adv7511</span><span class="w"> </span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="p">};</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
+<section id="driver-testing">
+<h5>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h5>
+<p>Make sure the sound card is properly instantiated.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">aplay</span> <span class="o">-</span><span class="n">l</span>
+<span class="n">card</span> <span class="mi">0</span><span class="p">:</span> <span class="n">monitor</span> <span class="p">[</span><span class="n">HDMI</span> <span class="n">monitor</span><span class="p">],</span> <span class="n">device</span> <span class="mi">0</span><span class="p">:</span> <span class="n">HDMI</span> <span class="n">adv7511</span><span class="o">-</span><span class="mi">0</span> <span class="p">[]</span>
+  <span class="n">Subdevices</span><span class="p">:</span> <span class="mi">1</span><span class="o">/</span><span class="mi">1</span>
+  <span class="n">Subdevice</span> <span class="c1">#0: subdevice #0</span>
+</pre></div>
+</div>
+<p>To test audio playback you can use the <em>speaker-test</em> utility, which allows to
+playback several different test patterns. For a extensive description on the
+<em>speaker-test</em> utility and the different options it supports please refer to the
+<a class="icon link reference external" href="http://linux.die.net/man/1/speaker-test" target="_blank">speaker-test man page</a>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">speaker</span><span class="o">-</span><span class="n">test</span> <span class="o">-</span><span class="n">c</span> <span class="mi">2</span>
+<span class="n">speaker</span><span class="o">-</span><span class="n">test</span> <span class="mf">1.0.24.2</span>
+
+<span class="n">Playback</span> <span class="n">device</span> <span class="ow">is</span> <span class="n">default</span>
+<span class="n">Stream</span> <span class="n">parameters</span> <span class="n">are</span> <span class="mi">48000</span><span class="n">Hz</span><span class="p">,</span> <span class="n">S16_LE</span><span class="p">,</span> <span class="mi">2</span> <span class="n">channels</span>
+<span class="n">Using</span> <span class="mi">16</span> <span class="n">octaves</span> <span class="n">of</span> <span class="n">pink</span> <span class="n">noise</span>
+<span class="n">Rate</span> <span class="nb">set</span> <span class="n">to</span> <span class="mi">48000</span><span class="n">Hz</span> <span class="p">(</span><span class="n">requested</span> <span class="mi">48000</span><span class="n">Hz</span><span class="p">)</span>
+<span class="n">Buffer</span> <span class="n">size</span> <span class="nb">range</span> <span class="kn">from</span><span class="w"> </span><span class="mi">512</span> <span class="n">to</span> <span class="mi">2097152</span>
+<span class="n">Period</span> <span class="n">size</span> <span class="nb">range</span> <span class="kn">from</span><span class="w"> </span><span class="mi">256</span> <span class="n">to</span> <span class="mi">262143</span>
+<span class="n">Requested</span> <span class="n">buffer</span> <span class="n">time</span> <span class="mi">20000</span> <span class="n">us</span>
+<span class="n">Periods</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">was</span> <span class="nb">set</span> <span class="n">period_size</span> <span class="o">=</span> <span class="mi">320</span>
+<span class="n">was</span> <span class="nb">set</span> <span class="n">buffer_size</span> <span class="o">=</span> <span class="mi">960</span>
+ <span class="mi">0</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Left</span>
+ <span class="mi">1</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Right</span>
+<span class="o">....</span>
+</pre></div>
+</div>
+<p>This AXI SPDIF driver provides stereo S16_LE playback only. The following
+arecord and record-to-playback loopback examples require a separate capture
+device and do not test capture through this transmitter.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">arecord</span> <span class="o">-</span><span class="n">f</span> <span class="n">S16</span> <span class="o">-</span><span class="n">r</span> <span class="mi">48000</span> <span class="o">-</span><span class="n">c</span> <span class="mi">2</span> <span class="o">&gt;</span> <span class="n">test</span><span class="o">.</span><span class="n">wav</span>
+<span class="o">...</span>
+</pre></div>
+</div>
+<p>To playback a wav file you can use the <em>aplay</em> utility. You can also create a
+audio loop-back by sending the output of <em>arecord</em> to <em>aplay</em>. This will send
+the incoming audio stream back via the outgoing audio stream.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">arecord</span> <span class="o">-</span><span class="n">f</span> <span class="n">S16</span> <span class="o">-</span><span class="n">r</span> <span class="mi">48000</span> <span class="o">-</span><span class="n">c</span> <span class="mi">2</span> <span class="o">|</span> <span class="n">aplay</span>
+<span class="o">...</span>
+</pre></div>
+</div>
+<p>For more information on the the <em>aplay</em> and <em>arecord</em> utilities please refer to
+the <a class="icon link reference external" href="http://linux.die.net/man/1/arecord" target="_blank">aplay and arecord man page</a>.</p>
+</section>
+<section id="more-information">
+<h5>More information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h5>
+<ul class="simple">
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/fpga/xilinx/fmc/ad-fmcomms1-ebz" target="_blank">AD-FMCOMMS1-EBZ Reference Design</a></p></li>
+<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/kernel/zynq/#linux-kernel-zynq" target="_blank" title="(in System Level Documentation)"><span>Build Zynq Linux kernel and devicetree</span></a></p></li>
+</ul>
+<p><em>Need Help?</em></p>
+<ul class="simple">
+<li><p><a class="icon ez reference external" href="https://ez.analog.com/linux-software-drivers" target="_blank">Analog Devices Linux Device Drivers Help Forum</a></p></li>
+</ul>
+</section>
+</section>
+</section>
+</section>
+<section id="id3">
+<h2>Driver testing<a class="headerlink" href="#id3" title="Link to this heading"></a></h2>
+<section id="dai-formats-and-clocks">
+<h3>DAI formats and clocks<a class="headerlink" href="#dai-formats-and-clocks" title="Link to this heading"></a></h3>
 <section id="dai-configuration">
-<h3>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h3>
+<h4>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h4>
 <p>The driver will register one CPU-DAI named after the device itself.</p>
 <section id="supported-dai-formats">
-<h4>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h4>
+<h5>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h5>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -537,6 +688,7 @@ via device tree.</p>
 </table>
 </div>
 </section>
+</section>
 <section id="example-dai-configuration">
 <h4>Example DAI configuration<a class="headerlink" href="#example-dai-configuration" title="Link to this heading"></a></h4>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">hdmi_dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
@@ -560,177 +712,6 @@ via device tree.</p>
 </pre></div>
 </div>
 </section>
-</section>
-</section>
-<section id="adv7511-hdmi-spdif-board-driver">
-<h2>ADV7511 HDMI + SPDIF board driver<a class="headerlink" href="#adv7511-hdmi-spdif-board-driver" title="Link to this heading"></a></h2>
-<p>The HDL AXI SPDIF driver is currently used in conjunction with the ADV7511 HDMI
-transmitter on various FPGA platforms. For these platforms there exist a ASoC
-board driver which provides the necessary information on how both device are
-interconnected, so that a ALSA sound card can be instantiated.</p>
-<section id="source">
-<h3>Source<a class="headerlink" href="#source" title="Link to this heading"></a></h3>
-<section id="id2">
-<h4>Status<a class="headerlink" href="#id2" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Source</p></th>
-<th class="head"><p>Mainlined?</p></th>
-<th class="head"></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/sound/soc/adi/adv7511_hdmi.c" target="_blank">In progress</a></p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/adi/adv7511_hdmi.c" target="_blank">In progress</a></p></td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="id3">
-<h4>Files<a class="headerlink" href="#id3" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/sound/soc/adi/adv7511_hdmi.c" target="_blank">sound/soc/adi/adv7511_hdmi.c</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-</section>
-<section id="kernel-configuration">
-<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
-<p>Enable ALSA SoC evaluation board driver:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-<span class="o">&lt;*&gt;</span> <span class="n">Sound</span> <span class="n">card</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-<span class="o">&lt;*&gt;</span>   <span class="n">Advanced</span> <span class="n">Linux</span> <span class="n">Sound</span> <span class="n">Architecture</span>  <span class="o">---&gt;</span>
-<span class="o">&lt;*&gt;</span>     <span class="n">ALSA</span> <span class="k">for</span> <span class="n">SoC</span> <span class="n">audio</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-<span class="o">&lt;*&gt;</span>       <span class="n">SoC</span> <span class="n">Audio</span> <span class="k">for</span> <span class="n">Xilinx</span> <span class="n">based</span> <span class="n">boards</span>
-<span class="o">&lt;*&gt;</span>       <span class="n">ADV7511</span> <span class="n">HDMI</span> <span class="n">transmitter</span> <span class="n">sound</span> <span class="n">support</span>
-</pre></div>
-</div>
-</section>
-<section id="id4">
-<h3>Example device initialization<a class="headerlink" href="#id4" title="Link to this heading"></a></h3>
-<p>The ADV7511 HDMI sound board driver is a platform driver and can currently only
-be instantiated via device tree.</p>
-<p>Required devicetree properties:</p>
-<ul class="simple">
-<li><p>compatible: Should always be <code class="docutils literal notranslate"><span class="pre">adv7511-hdmi-snd</span></code></p></li>
-<li><p>cpu-dai: Phandle to the SPDIF device devicetree entry</p></li>
-<li><p>pcm: Phandle to the PCM device devicetree entry</p></li>
-</ul>
-<p>Example:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_dma_0</span><span class="p">:</span> <span class="n">axidma</span><span class="o">@</span><span class="mi">40400000</span> <span class="p">{</span>
-    <span class="c1">#address-cells = &lt;1&gt;;</span>
-    <span class="c1">#size-cells = &lt;1&gt;;</span>
-    <span class="c1">#dma-cells = &lt;1&gt;;</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-dma"</span><span class="p">;</span>
-    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x40400000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">xlnx</span><span class="p">,</span><span class="n">sg</span><span class="o">-</span><span class="n">include</span><span class="o">-</span><span class="n">stscntrl</span><span class="o">-</span><span class="n">strm</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">dma</span><span class="o">-</span><span class="n">channel</span><span class="o">@</span><span class="mi">40400000</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-dma-mm2s-channel"</span><span class="p">;</span>
-        <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">58</span> <span class="mh">0x4</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">xlnx</span><span class="p">,</span><span class="n">datawidth</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x20</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">xlnx</span><span class="p">,</span><span class="n">include</span><span class="o">-</span><span class="n">dre</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-
-<span class="n">xilinx_pcm_audio</span><span class="p">:</span> <span class="n">xilinx_pcm_audio</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xilinx-pcm-audio"</span><span class="p">;</span>
-    <span class="c1">#size-cells = &lt;0&gt;;</span>
-    <span class="c1">#address-cells = &lt;1&gt;;</span>
-
-    <span class="n">playback</span><span class="p">:</span> <span class="n">stream</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">dma</span><span class="o">-</span><span class="n">request</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_dma_0</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-
-<span class="n">axi_spdif_tx_0</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">spdif</span><span class="o">-</span><span class="n">tx</span><span class="o">@</span><span class="mh">0x75c00000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-spdif-tx-1.00.a"</span><span class="p">;</span>
-    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x75c00000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">clock</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">12288000</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="p">};</span>
-
-<span class="n">adv7511_hdmi_snd</span><span class="p">:</span> <span class="n">adv7511_hdmi_snd</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adv7511-hdmi-snd"</span><span class="p">;</span>
-    <span class="n">cpu</span><span class="o">-</span><span class="n">dai</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_spdif_tx_0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">pcm</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">xilinx_pcm_audio</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-</section>
-<section id="driver-testing">
-<h3>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h3>
-<p>Make sure the sound card is properly instantiated.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">aplay</span> <span class="o">-</span><span class="n">l</span>
-<span class="n">card</span> <span class="mi">0</span><span class="p">:</span> <span class="n">monitor</span> <span class="p">[</span><span class="n">HDMI</span> <span class="n">monitor</span><span class="p">],</span> <span class="n">device</span> <span class="mi">0</span><span class="p">:</span> <span class="n">HDMI</span> <span class="n">adv7511</span><span class="o">-</span><span class="mi">0</span> <span class="p">[]</span>
-  <span class="n">Subdevices</span><span class="p">:</span> <span class="mi">1</span><span class="o">/</span><span class="mi">1</span>
-  <span class="n">Subdevice</span> <span class="c1">#0: subdevice #0</span>
-</pre></div>
-</div>
-<p>To test audio playback you can use the <em>speaker-test</em> utility, which allows to
-playback several different test patterns. For a extensive description on the
-<em>speaker-test</em> utility and the different options it supports please refer to the
-<a class="icon link reference external" href="http://linux.die.net/man/1/speaker-test" target="_blank">speaker-test man page</a>.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">speaker</span><span class="o">-</span><span class="n">test</span> <span class="o">-</span><span class="n">c</span> <span class="mi">2</span>
-<span class="n">speaker</span><span class="o">-</span><span class="n">test</span> <span class="mf">1.0.24.2</span>
-
-<span class="n">Playback</span> <span class="n">device</span> <span class="ow">is</span> <span class="n">default</span>
-<span class="n">Stream</span> <span class="n">parameters</span> <span class="n">are</span> <span class="mi">48000</span><span class="n">Hz</span><span class="p">,</span> <span class="n">S16_LE</span><span class="p">,</span> <span class="mi">2</span> <span class="n">channels</span>
-<span class="n">Using</span> <span class="mi">16</span> <span class="n">octaves</span> <span class="n">of</span> <span class="n">pink</span> <span class="n">noise</span>
-<span class="n">Rate</span> <span class="nb">set</span> <span class="n">to</span> <span class="mi">48000</span><span class="n">Hz</span> <span class="p">(</span><span class="n">requested</span> <span class="mi">48000</span><span class="n">Hz</span><span class="p">)</span>
-<span class="n">Buffer</span> <span class="n">size</span> <span class="nb">range</span> <span class="kn">from</span><span class="w"> </span><span class="mi">512</span> <span class="n">to</span> <span class="mi">2097152</span>
-<span class="n">Period</span> <span class="n">size</span> <span class="nb">range</span> <span class="kn">from</span><span class="w"> </span><span class="mi">256</span> <span class="n">to</span> <span class="mi">262143</span>
-<span class="n">Requested</span> <span class="n">buffer</span> <span class="n">time</span> <span class="mi">20000</span> <span class="n">us</span>
-<span class="n">Periods</span> <span class="o">=</span> <span class="mi">4</span>
-<span class="n">was</span> <span class="nb">set</span> <span class="n">period_size</span> <span class="o">=</span> <span class="mi">320</span>
-<span class="n">was</span> <span class="nb">set</span> <span class="n">buffer_size</span> <span class="o">=</span> <span class="mi">960</span>
- <span class="mi">0</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Left</span>
- <span class="mi">1</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Right</span>
-<span class="o">....</span>
-</pre></div>
-</div>
-<p>To test audio record you can use the <em>arecord</em> utility. <em>arecord</em> will record
-the incoming audio signal and write it to a wav file.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">arecord</span> <span class="o">-</span><span class="n">f</span> <span class="n">S16</span> <span class="o">-</span><span class="n">r</span> <span class="mi">48000</span> <span class="o">-</span><span class="n">c</span> <span class="mi">2</span> <span class="o">&gt;</span> <span class="n">test</span><span class="o">.</span><span class="n">wav</span>
-<span class="o">...</span>
-</pre></div>
-</div>
-<p>To playback a wav file you can use the <em>aplay</em> utility. You can also create a
-audio loop-back by sending the output of <em>arecord</em> to <em>aplay</em>. This will send
-the incoming audio stream back via the outgoing audio stream.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">arecord</span> <span class="o">-</span><span class="n">f</span> <span class="n">S16</span> <span class="o">-</span><span class="n">r</span> <span class="mi">48000</span> <span class="o">-</span><span class="n">c</span> <span class="mi">2</span> <span class="o">|</span> <span class="n">aplay</span>
-<span class="o">...</span>
-</pre></div>
-</div>
-<p>For more information on the the <em>aplay</em> and <em>arecord</em> utilities please refer to
-the <a class="icon link reference external" href="http://linux.die.net/man/1/arecord" target="_blank">aplay and arecord man page</a>.</p>
-</section>
-<section id="more-information">
-<h3>More information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h3>
-<ul class="simple">
-<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/fpga/xilinx/fmc/ad-fmcomms1-ebz" target="_blank">AD-FMCOMMS1-EBZ Reference Design</a></p></li>
-<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/kernel/zynq/#linux-kernel-zynq" target="_blank" title="(in System Level Documentation)"><span>Build Zynq Linux kernel and devicetree</span></a></p></li>
-</ul>
-<p><em>Need Help?</em></p>
-<ul class="simple">
-<li><p><a class="icon ez reference external" href="https://ez.analog.com/linux-software-drivers" target="_blank">Analog Devices Linux Device Drivers Help Forum</a></p></li>
-</ul>
 </section>
 </section>
 </section>

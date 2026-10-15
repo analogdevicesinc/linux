@@ -1,11 +1,16 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/net-mac-phy/open_alliance
 
+
 .. _open_alliance:
 
 TC6-10BASE-T1x
 ==============
 
-Open Alliance TC6-10BASE-T1x MAC-PHY Serial Interface Linux Driver.
+Open Alliance TC6-10BASE-T1x MAC-PHY Serial Interface Linux Driver. This page
+describes the adin1110-open-alliance development branch (commit
+a0adc643b9c570f8af594d27f1e76b0c9f8bcf13). Its open-alliance properties and
+chunk statistics are branch-specific; the main ADIN1110/ADIN2111 driver uses
+the generic SPI protocol.
 
 Supported Devices
 -----------------
@@ -13,8 +18,8 @@ Supported Devices
 - :adi:`ADIN1110`
 - :adi:`ADIN2111`
 
-Supported Boards
-----------------
+Evaluation Boards
+-----------------
 
 Description
 -----------
@@ -83,8 +88,11 @@ Files
      - :git+linux:`drivers/net/ethernet/adi/adin1110.c <adin1110-open-alliance:drivers/net/ethernet/adi/>`
      -
 
-Enabling Linux driver support
------------------------------
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
@@ -96,7 +104,7 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 #. Press 1 (the key), then hit Enter
 #. You should see the location + dependencies for enabling the driver
 
-::
+.. code-block:: text
 
    CONFIG_OPEN_ALLIANCE:
    The Open Alliance SPI protocol is used on 10BASE-T1x
@@ -105,7 +113,7 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 
    Say Y to include support for the OPEN_ALLIANCE.
    To compile this driver as a module, choose M here: the module
-   will be called dnet.
+   will be called open_alliance.
 
    Symbol: OPEN_ALLIANCE [=y]
    Type  : tristate
@@ -118,28 +126,19 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
                    -> Ethernet driver support (ETHERNET [=y])
        Selects: CRC8 [=y]
 
-Driver testing
---------------
-
-This requires that another 10BASE-T1L PHY be connected to the other end of the
-network cable, or that a media converter be used to convert to normal
-twisted-pair ethernet that standard ethernet cables use.
-
-ADIN1110 communicates with the host via SPI. For 10 Mbps bandwidth, SPI
-frequency needs to be around 23 MHz. Lower SPI frequencies are supported but
-will result in a lower bandwidth. At 1 MHz the MAC will provide aprox. 0.4 Mbps
-of bandwidth.
-
-Connect to host the SCLK, CS_N, SDI, SDO and INT_N. (The INT_N is mandatory, see
-DT bindings). RX frames and sent TX frames are signaled to the host by INT_N IRQ
-pin.
-
-Device Tree
-~~~~~~~~~~~
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 ADIN1110 probes via devicetree.
 
-::
+The ADIN1110 datasheet's SPI protocol table requires ``SPI_CFG1 = 0`` for
+Open Alliance mode. ``SPI_CFG0 = 0`` selects protected transfers, while
+``SPI_CFG0 = 1`` selects unprotected transfers. The ADIN2111 table specifies
+the same combinations. Match these hardware straps to the software's
+``open-alliance`` and ``open-alliance-protected`` settings; the Device Tree
+properties do not configure the physical straps.
+
+.. code-block:: dts
 
    ethernet@0 {
        compatible = "adi,adin1110";
@@ -150,7 +149,7 @@ ADIN1110 probes via devicetree.
            /* will need 13.5 MHz for 10 Mbps, lower speeds will result in lower bandwidth */
        spi-max-frequency = <13500000>;
 
-           /* Enables Open Alliance Mode */
+           /* select the OA driver mode; hardware must also be strapped for OA SPI */
            open-alliance;
 
            /* optional, will check all control read/writes over SPI */
@@ -170,6 +169,22 @@ ADIN1110 probes via devicetree.
            reg = <0x0>;
        };
    };
+
+Driver testing
+--------------
+
+This requires that another 10BASE-T1L PHY be connected to the other end of the
+network cable, or that a media converter be used to convert to normal
+twisted-pair ethernet that standard ethernet cables use.
+
+The OPEN Alliance SPI protocol transfers data in full duplex. The ADIN1110 and
+ADIN2111 datasheets describe 10 Mbps bidirectional frame transfers with SPI
+clocks in the region of 12 MHz to 16 MHz or greater; the example below uses
+13.5 MHz.
+
+Connect to host the SCLK, CS_N, SDI, SDO and INT_N. (The INT_N is mandatory, see
+DT bindings). RX frames and sent TX frames are signaled to the host by INT_N IRQ
+pin.
 
 ifconfig
 ~~~~~~~~

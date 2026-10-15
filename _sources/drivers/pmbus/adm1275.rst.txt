@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/pmbus/adm1275
 
+
 .. _adm1275:
 
 ADM1275
@@ -81,27 +82,60 @@ Files
    * - driver
      - `drivers/hwmon/pmbus/adm1275.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/pmbus/adm1275.c>`__
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``).
+
+.. note::
+
+   The ADM1xxxx I2C driver depends on **CONFIG_I2C**, **SENSORS_PMBUS**, and on **SENSORS_ADM1275**.
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Hardware Monitoring support --->
+               --- Hardware Monitoring support
+           [--snip--]
+               <*> Analog Devices ADM1275 Digital Power Monitor and Hot Swap Controller over I2C
+           [--snip--]
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example I2C device initialization
----------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ADM1xxx uses an I2C interface. Currently, the devices can only be
 instantiated via device tree.
 
 Required devicetree properties:
 
-- **compatible**: Must be always one of these:
+-  **compatible**: Must be always one of these:
 
-  - adi,adm1075
-  - adi,adm1271
-  - adi,adm1272
-  - adi,adm1275
-  - adi,adm1278
-  - adi,adm1281
-  - adi,adm1293
-  - adi,adm1294
+   -  adi,adm1075
 
-- **reg**: Must be either the I2C device address (refer to device datasheet
-  address table).
+   -  adi,adm1273 adi,adm1276
+
+   -  adi,adm1272
+
+   -  adi,adm1275
+
+   -  adi,adm1278
+
+   -  adi,adm1281
+
+   -  adi,adm1293
+
+   -  adi,adm1294
+
+-  **reg**: Must be either the I2C device address (refer to device datasheet
+   address table).
 
 Example I2C:
 
@@ -120,37 +154,19 @@ Example I2C:
 For more supported devicetree properties take a look to
 `dt-bindings <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/hwmon/adi,adm1275.yaml>`_.
 
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or ``make qconfig``). .. note::
-
-   The ADM1xxxx I2C driver depends on **CONFIG_I2C**, **SENSORS_PMBUS**, and on **SENSORS_ADM1275**.
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           <*>     Hardware Monitoring support --->
-               --- Hardware Monitoring support
-           [--snip--]
-               <*> Analog Devices ADM1275 Digital Power Monitor and Hot Swap Controller over I2C
-           [--snip--]
-
-Hardware configuration
-----------------------
-
 Driver testing
 --------------
 
+Identify the device
+~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root@raspberrypi:/sys/class/hwmon/hwmon2# cat name
+   adm1281
+
 HWMON device files
-~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
 
 Each and every HWMON device has a device folder under /sys/class/hwmon/hwmonX,
 where X is the hwmon device index. Under every of these directory folders there
@@ -222,19 +238,14 @@ example, a device can monitor more than one voltage. For more information on the
 files format, take a look to
 `sysfs-interface <https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface>`__.
 
-Show device name
-^^^^^^^^^^^^^^^^
-
-::
-
-   root@raspberrypi:/sys/class/hwmon/hwmon2# cat name
-   adm1281
-
 Show current values
-^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""
 
-The device supports readings of current, voltage, power, temperature and energy.
-To get, for example, the value of the monitored voltage:
+Supported measurements depend on the part and its monitor configuration. The
+ADM1281 example exposes current, voltage, power and temperature. This driver
+does not register energy readings. Configure shunt-resistor-micro-ohms to the
+actual sense resistor value; the default is 1000 µΩ and affects current/power
+scaling. To get, for example, the value of the monitored voltage:
 
 ::
 
@@ -242,7 +253,7 @@ To get, for example, the value of the monitored voltage:
    15199
 
 Show highest read value
-^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""
 
 ::
 
@@ -250,7 +261,7 @@ Show highest read value
    15199
 
 Show high threshold
-^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""
 
 ::
 
@@ -258,7 +269,7 @@ Show high threshold
    20893
 
 Show low threshold
-^^^^^^^^^^^^^^^^^^
+""""""""""""""""""
 
 ::
 
@@ -266,7 +277,7 @@ Show low threshold
    0
 
 Show high threshold alarm
-^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""
 
 ::
 
@@ -274,7 +285,7 @@ Show high threshold alarm
    0
 
 Show low threshold alarm
-^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""
 
 ::
 
@@ -282,7 +293,7 @@ Show low threshold alarm
    0
 
 Show label
-^^^^^^^^^^
+""""""""""
 
 Some channels, support a label attribute which specifies the name of the channel
 being monitored.
@@ -293,7 +304,7 @@ being monitored.
    vin
 
 Set High threshold
-^^^^^^^^^^^^^^^^^^
+""""""""""""""""""
 
 ::
 
@@ -303,7 +314,7 @@ Set High threshold
    root@raspberrypi:/sys/class/hwmon/hwmon2#
 
 Set Low threshold
-^^^^^^^^^^^^^^^^^
+"""""""""""""""""
 
 ::
 
@@ -313,7 +324,7 @@ Set Low threshold
    root@raspberrypi:/sys/class/hwmon/hwmon2#
 
 Reset History
-^^^^^^^^^^^^^
+"""""""""""""
 
 ::
 
@@ -328,7 +339,7 @@ More Information
 ----------------
 
 HWMON pointers
---------------
+~~~~~~~~~~~~~~
 
 - HWMON mailing list: linux-hwmon@vger.kernel.org
 - `HWMON Linux Kernel Documentation <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/hwmon>`__

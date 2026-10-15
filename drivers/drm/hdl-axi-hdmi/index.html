@@ -97,15 +97,21 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">AXI HDMI HDL</a><ul>
-<li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#supported-ip-cores">Supported IP Cores</a></li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
-<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
 <li><a class="reference internal" href="#using-the-framebuffer-console">Using the framebuffer console</a></li>
 <li><a class="reference internal" href="#using-xorg">Using Xorg</a><ul>
@@ -116,7 +122,7 @@
 <li><a class="reference internal" href="#others">Others</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#more-information">More information</a></li>
+<li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
 </ul>
@@ -218,6 +224,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -236,7 +243,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -372,8 +378,8 @@ Content on this topic
   <section id="axi-hdmi-hdl">
 <span id="hdl-axi-hdmi"></span><h1>AXI HDMI HDL<a class="headerlink" href="#axi-hdmi-hdl" title="Link to this heading"></a></h1>
 <p>AXI HDMI HDL Linux Driver.</p>
-<section id="supported-devices">
-<h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+<section id="supported-ip-cores">
+<h2>Supported IP Cores<a class="headerlink" href="#supported-ip-cores" title="Link to this heading"></a></h2>
 <p>This driver supports the <a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/projects/adv7511/#adv7511" target="_blank" title="(in HDL)"><span>ADV7511 HDL project</span></a></p>
 </section>
 <section id="description">
@@ -396,8 +402,8 @@ implemented as a DRM KMS driver.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.c" target="_blank">drivers/gpu/drm/analog/analog_drm_drv.c</a></p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/gpu/drm/adi/axi_hdmi_drv.c" target="_blank">WIP</a></p></td>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.c" target="_blank">drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.c</a></p></td>
+<td><p>No</p></td>
 <td></td>
 <td></td>
 </tr>
@@ -417,19 +423,19 @@ implemented as a DRM KMS driver.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.c" target="_blank">drivers/gpu/drm/adi/axi_hdmi_drv.c</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.c" target="_blank">drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.c</a></p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.h" target="_blank">drivers/gpu/drm/adi/axi_hdmi_drv.h</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.h" target="_blank">drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.h</a></p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_crtc.c" target="_blank">drivers/gpu/drm/adi/axi_hdmi_crtc.c</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_crtc.c" target="_blank">drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_crtc.c</a></p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_encoder.c" target="_blank">drivers/gpu/drm/adi/axi_hdmi_encoder.c</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_encoder.c" target="_blank">drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_encoder.c</a></p></td>
 <td></td>
 </tr>
 </tbody>
@@ -437,59 +443,10 @@ implemented as a DRM KMS driver.</p>
 </div>
 </section>
 </section>
-<section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
-<p>The AXI HDMI driver is a platform driver and can currently only be instantiated
-via device tree.</p>
-<p>Required devicetree properties:</p>
-<ul class="simple">
-<li><p>compatible: Should always be <code class="docutils literal notranslate"><span class="pre">adi,cf-adv7x11-core-1.00.a</span></code></p></li>
-<li><p>reg: Base address and register area size. This parameter expects two register
-ranges. The first for the axi-hdmi core’s registers and the second for the
-axi-clockgen core’s registers.</p></li>
-<li><p>slave_adapter: Phandle to the I2C device on which the ADV7511 can be found</p></li>
-<li><p>dma-request: Phandle to the Xilinx VDMA device</p></li>
-</ul>
-<p>Example:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_iic_0</span><span class="p">:</span> <span class="n">i2c</span><span class="o">@</span><span class="mi">41600000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-iic-1.01.b"</span><span class="p">,</span> <span class="s2">"xlnx,xps-iic-2.00.a"</span><span class="p">;</span>
-    <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gic</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">56</span> <span class="mh">0x4</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x41600000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
-
-    <span class="c1">#size-cells = &lt;0&gt;;</span>
-    <span class="c1">#address-cells = &lt;1&gt;;</span>
-<span class="p">};</span>
-
-<span class="n">axi_vdma_0</span><span class="p">:</span> <span class="n">axivdma</span><span class="o">@</span><span class="mi">43000000</span> <span class="p">{</span>
-    <span class="c1">#address-cells = &lt;1&gt;;</span>
-    <span class="c1">#size-cells = &lt;1&gt;;</span>
-    <span class="c1">#dma-cells = &lt;1&gt;;</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-vdma"</span><span class="p">;</span>
-    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x43000000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">xlnx</span><span class="p">,</span><span class="n">include</span><span class="o">-</span><span class="n">sg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">xlnx</span><span class="p">,</span><span class="n">num</span><span class="o">-</span><span class="n">fstores</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x3</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">dma</span><span class="o">-</span><span class="n">channel</span><span class="o">@</span><span class="mf">7e200000</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-vdma-mm2s-channel"</span><span class="p">;</span>
-        <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">59</span> <span class="mh">0x4</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">xlnx</span><span class="p">,</span><span class="n">datawidth</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x40</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">xlnx</span><span class="p">,</span><span class="n">genlock</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">xlnx</span><span class="p">,</span><span class="n">include</span><span class="o">-</span><span class="n">dre</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-
-<span class="n">axi</span><span class="o">-</span><span class="n">hdmi</span><span class="o">@</span><span class="mi">6</span><span class="n">c000000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,cf-axi-hdmi-1.00.a"</span><span class="p">;</span>
-    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x6c000000</span> <span class="mh">0x10000</span>
-           <span class="mh">0x66000000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">slave_adapter</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_iic_0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">dma</span><span class="o">-</span><span class="n">request</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_vdma_0</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-</section>
-<section id="enabling-linux-driver-support">
-<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="admonition note">
@@ -501,9 +458,32 @@ axi-clockgen core’s registers.</p></li>
         <span class="n">Graphics</span> <span class="n">support</span>  <span class="o">---&gt;</span>
             <span class="o">&lt;*&gt;</span> <span class="n">Direct</span> <span class="n">Rendering</span> <span class="n">Manager</span> <span class="p">(</span><span class="n">XFree86</span> <span class="mf">4.1.0</span> <span class="ow">and</span> <span class="n">higher</span> <span class="n">DRI</span> <span class="n">support</span><span class="p">)</span>  <span class="o">---&gt;</span>
             <span class="o">...</span>
-            <span class="o">&lt;*&gt;</span> <span class="n">DRM</span> <span class="n">Support</span> <span class="k">for</span> <span class="n">Analog</span> <span class="n">FPGA</span> <span class="n">platforms</span>
+            <span class="o">&lt;*&gt;</span> <span class="n">DRM</span> <span class="n">Support</span> <span class="k">for</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">HDMI</span> <span class="n">FPGA</span> <span class="n">platforms</span>
 </pre></div>
 </div>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<section id="example-platform-device-initialization">
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
+<p>The AXI HDMI driver is a platform driver and can currently only be instantiated
+via device tree.</p>
+<p>Required device-tree configuration:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">compatible</span> <span class="pre">=</span> <span class="pre">&quot;adi,axi-hdmi-tx-1.00.a&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">reg</span></code>: One AXI HDMI register range. The clock generator is a separate
+clock provider, not a second register range.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clocks</span></code>: The pixel-clock provider.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dmas</span></code> and <code class="docutils literal notranslate"><span class="pre">dma-names</span> <span class="pre">=</span> <span class="pre">&quot;video&quot;</span></code>: The display DMA channel. Its controller
+must support interleaved transfers.</p></li>
+<li><p>An output graph endpoint connected to the ADV7511 input endpoint, or the
+<code class="docutils literal notranslate"><span class="pre">encoder-slave</span></code> phandle pointing to the ADV7511 I2C device node,
+not to its I2C bus.</p></li>
+</ul>
+<p>The optional <code class="docutils literal notranslate"><span class="pre">adi,is-rgb</span></code> property selects RGB handling. Supply addresses,
+clock and DMA references, interrupts and graph wiring from the actual board.</p>
+</section>
+</section>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -562,7 +542,7 @@ display graphics on the HDMI output. This for example includes
 </section>
 </section>
 <section id="more-information">
-<h2>More information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/fpga/xilinx/fmc/ad-fmcomms1-ebz" target="_blank">AD-FMCOMMS1-EBZ Reference Design</a></p></li>
 <li><p><a class="reference internal" href="../adv7511/#adv7511"><span class="std std-ref">ADV7511</span></a></p></li>

@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-temperature/ltc2983
 
+
 .. _ltc2983:
 
 LTC2983
@@ -64,16 +65,16 @@ Files
      - `adi,ltc2983.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/temperature/adi,ltc2983.yaml>`__
      -
 
-Example SPI device initialization
----------------------------------
-
-The devices can only be instantiated via device tree, along with all the sensors
-attached to it.
-
 Adding Linux driver support
 ---------------------------
 
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or ``make qconfig``). .. note::
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``).
+
+.. note::
 
    The LTC2983 driver depends **CONFIG_SPI**.
 
@@ -90,8 +91,14 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
                System
            [--snip--]
 
-Hardware configuration
-----------------------
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Example SPI device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The devices can only be instantiated via device tree, along with all the sensors
+attached to it.
 
 Driver testing
 --------------
@@ -100,7 +107,7 @@ Driver testing
    :start-after: .. start-iio-device-files
    :end-before: .. end-iio-device-files
 
-::
+.. code-block:: text
 
    root:/> cd /sys/bus/iio/devices/
    root:/sys/bus/iio/devices> ls
@@ -108,13 +115,13 @@ Driver testing
    root:/sys/bus/iio/devices> cd iio:device0
    root:/sys/bus/iio/devices/iio:device0> ls -l
    -r--r--r-- 1 root root 4096 Nov 16 11:17 dev
-   -rw-r--r-- 1 root root 4096 Nov 16 11:17 in_temp0_thermistor_raw
-   -rw-r--r-- 1 root root 4096 Nov 16 11:17 in_temp1_rtd_raw
-   -rw-r--r-- 1 root root 4096 Nov 16 11:17 in_temp2_diode_raw
-   -rw-r--r-- 1 root root 4096 Nov 16 11:17 in_temp3_thermocouple_raw
-   -rw-r--r-- 1 root root 4096 Nov 16 11:17 in_temp_scale
-   -rw-r--r-- 1 root root 4096 Nov 16 11:17 in_voltage0_direct_adc_raw
-   -rw-r--r-- 1 root root 4096 Nov 16 11:17 in_voltage_scale
+   -r--r--r-- 1 root root 4096 Nov 16 11:17 in_temp0_raw
+   -r--r--r-- 1 root root 4096 Nov 16 11:17 in_temp1_raw
+   -r--r--r-- 1 root root 4096 Nov 16 11:17 in_temp2_raw
+   -r--r--r-- 1 root root 4096 Nov 16 11:17 in_temp3_raw
+   -r--r--r-- 1 root root 4096 Nov 16 11:17 in_temp_scale
+   -r--r--r-- 1 root root 4096 Nov 16 11:17 in_voltage0_raw
+   -r--r--r-- 1 root root 4096 Nov 16 11:17 in_voltage_scale
    -r--r--r-- 1 root root 4096 Nov 16 11:17 name
    lrwxrwxrwx 1 root root    0 Nov 16 11:17 of_node -> ../../../../../../../../firmware/devicetree/base/soc/spi@7e204000/ltc2983@0
    drwxr-xr-x 2 root root    0 Nov 16 11:17 power
@@ -122,51 +129,59 @@ Driver testing
    -rw-r--r-- 1 root root 4096 Nov 16 11:17 uevent
    root:/sys/bus/iio/devices/iio:device0>
 
-Show device name
-~~~~~~~~~~~~~~~~
+The driver registers indexed ``in_tempN_raw`` and ``in_voltageN_raw``
+attributes; the channel numbering depends on the configured sensors.
+
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/bus/iio/devices/iio:device0> cat name
    ltc2983
 
-Show temperature
-^^^^^^^^^^^^^^^^
-
-::
-
-   root:/sys/bus/iio/devices/iio:device0> cat in_temp0_thermistor_raw
-   1048576
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show temperature scale
-''''''''''''''''''''''
+^^^^^^^^^^^^^^^^^^^^^^
 
-**Description:** scale to be applied to in_tempX\_${sensor_type}_raw in order to
-obtain the measured temperature in °C or °F (depending on chip configuration).
+**Description:** Multiply ``in_tempN_raw`` by ``in_temp_scale`` to obtain
+millidegrees Celsius when the device is configured for Celsius; divide by 1000
+for °C. The driver reports a scale of ``1000/1024``.
 
-::
+The driver does not change the temperature-unit setting and has no
+Celsius/Fahrenheit selector.
+
+.. code-block:: text
 
    root:/sys/bus/iio/devices/iio:device0> cat in_temp_scale
-   0.000976562
+   0.976562500
+
+Show temperature
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat in_temp0_raw
 
 Show voltage
-''''''''''''
+~~~~~~~~~~~~
 
 ::
 
-   root:/sys/bus/iio/devices/iio:device0> cat in_voltage0_direct_adc_raw
-   2621440
+   root:/sys/bus/iio/devices/iio:device0> cat in_voltage0_raw
 
 Show Voltage scale
-''''''''''''''''''
+~~~~~~~~~~~~~~~~~~
 
-**Description:** scale to be applied to in_voltageX_direct_adc_raw in order to
-obtain the measured voltage in Volts
+**Description:** Multiply ``in_voltageN_raw`` by ``in_voltage_scale`` to obtain
+millivolts; divide by 1000 for volts. The driver reports ``1000/2^21`` mV/code.
 
-::
+.. code-block:: text
 
    root:/sys/bus/iio/devices/iio:device0> cat in_voltage_scale
-   0.000000476
+   0.000476837
 
 More Information
 ----------------

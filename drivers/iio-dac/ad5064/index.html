@@ -14,7 +14,7 @@
     <link rel="index" title="Index" href="../../../genindex/" />
     <link rel="search" title="Search" href="../../../search/" />
     <link rel="next" title="AD5360" href="../ad5360/" />
-    <link rel="prev" title="AD3530R/AD3530" href="../ad3530r/" />
+    <link rel="prev" title="AD3552R High Speed" href="../ad3552r-hs/" />
    
   
   
@@ -98,35 +98,39 @@
           <ul>
 <li><a class="reference internal" href="#">AD5064</a><ul>
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#description">Description</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#platform-data-configuration">Platform-data configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a><ul>
 <li><a class="reference internal" href="#specifying-reference-voltage-via-the-regulator-framework">Specifying reference voltage via the regulator framework</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
-<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-scale">Show scale</a><ul>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-scale">Show scale</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#set-channel-y-output-voltage">Set channel Y output voltage</a></li>
 <li><a class="reference internal" href="#list-available-power-down-modes">List available power down modes</a></li>
 <li><a class="reference internal" href="#set-power-down-mode">Set power down mode</a></li>
 <li><a class="reference internal" href="#enable-power-down-mode-on-output-y">Enable power down mode on output Y</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li><a class="reference internal" href="#pmod-da4">PMOD-DA4</a><ul>
-<li><a class="reference internal" href="#id2">Hardware configuration</a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#pmod-da4">PMOD-DA4</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
@@ -231,6 +235,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5380/">AD5380</a></li>
@@ -249,7 +254,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -422,13 +426,6 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/LTC2629" target="_blank">LTC2629</a>, (Upstream v4.5+)</p></li>
 </ul>
 </section>
-<section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0182" target="_blank">CN0182</a></p></li>
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0183" target="_blank">CN0183</a></p></li>
-</ul>
-</section>
 <section id="evaluation-boards">
 <h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -441,6 +438,13 @@ Content on this topic
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD5669RSDZ" target="_blank">EVAL-AD5669RSDZ</a></p></li>
 <li><p>PMOD-DA4</p></li>
 </ul>
+<section id="reference-circuits">
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0182" target="_blank">CN0182</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0183" target="_blank">CN0183</a></p></li>
+</ul>
+</section>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
@@ -491,10 +495,87 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </div>
 </section>
 </section>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/pmodda4.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/pmodda4.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/pmodda4.jpg" style="width: 300px;" />
+</a>
+</figure>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>BF537-STAMP (P9) SPI header</p></th>
+<th class="head"></th>
+<th class="head"><p>PMOD-DA4</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>PIN</p></td>
+<td><p>Function</p></td>
+<td><p>PIN</p></td>
+<td><p>Function</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>(+3.3V)</p></td>
+<td><p>6</p></td>
+<td><p>VDD</p></td>
+</tr>
+<tr class="row-even"><td><p>5</p></td>
+<td><p>SPI_MOSI</p></td>
+<td><p>2</p></td>
+<td><p>DIN</p></td>
+</tr>
+<tr class="row-odd"><td><p>8</p></td>
+<td><p>SPI_SCK</p></td>
+<td><p>4</p></td>
+<td><p>SCLK</p></td>
+</tr>
+<tr class="row-even"><td><p>10</p></td>
+<td><p>SPI_SS</p></td>
+<td><p>1</p></td>
+<td><p>SYNC</p></td>
+</tr>
+<tr class="row-odd"><td><p>20</p></td>
+<td><p>GND</p></td>
+<td><p>5</p></td>
+<td><p>GND</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The AD5064 Driver depends on <strong>CONFIG_SPI</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="o">...</span>
+        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+            <span class="o">...</span>
+            <span class="n">Digital</span> <span class="n">to</span> <span class="n">analog</span> <span class="n">converters</span>  <span class="o">---&gt;</span>
+                <span class="o">...</span>
+                <span class="o">&lt;*&gt;</span>  <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD5064</span> <span class="ow">and</span> <span class="n">similar</span> <span class="n">multi</span><span class="o">-</span><span class="n">channel</span> <span class="n">DAC</span> <span class="n">driver</span>
+                <span class="o">...</span>
+            <span class="o">...</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+</section>
+<section id="platform-data-configuration">
+<h3>Platform-data configuration<a class="headerlink" href="#platform-data-configuration" title="Link to this heading"></a></h3>
 <section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <section id="specifying-reference-voltage-via-the-regulator-framework">
-<h3>Specifying reference voltage via the regulator framework<a class="headerlink" href="#specifying-reference-voltage-via-the-regulator-framework" title="Link to this heading"></a></h3>
+<h5>Specifying reference voltage via the regulator framework<a class="headerlink" href="#specifying-reference-voltage-via-the-regulator-framework" title="Link to this heading"></a></h5>
 <p>Below example specifies a 2.5 Volt reference for the SPI device 3 on SPI-Bus 0.
 (<strong>spi0.3</strong>) In this example all 4 reference voltage are supplied by the same
 regulator.</p>
@@ -511,8 +592,8 @@ regulator.</p>
 <span class="w">        </span><span class="p">.</span><span class="n">name</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="s">"2V5"</span><span class="p">,</span>
 <span class="w">        </span><span class="p">.</span><span class="n">valid_ops_mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">REGULATOR_CHANGE_STATUS</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="p">.</span><span class="n">consumer_supplies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ad5624_consumer_supplies</span><span class="p">,</span>
-<span class="w">    </span><span class="p">.</span><span class="n">num_consumer_supplies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">ad5624_consumer_supplies</span><span class="p">),</span>
+<span class="w">    </span><span class="p">.</span><span class="n">consumer_supplies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ad5064_consumer_supplies</span><span class="p">,</span>
+<span class="p">.</span><span class="n">num_consumer_supplies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">ad5064_consumer_supplies</span><span class="p">),</span>
 <span class="p">};</span>
 
 <span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">fixed_voltage_config</span><span class="w"> </span><span class="n">stamp_vdd_pdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
@@ -569,8 +650,7 @@ accordingly, matching your part name. It may also required to adjust
 max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
 the device in question.</p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">board_spi_board_info</span><span class="p">[]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="cp">#if defined(CONFIG_AD5064_SPI) || \</span>
-<span class="cp">    defined(CONFIG_AD5064_SPI_MODULE)</span>
+<span class="cp">#if IS_ENABLED(CONFIG_AD5064)</span>
 <span class="w">    </span><span class="p">{</span>
 <span class="w">        </span><span class="cm">/* the modalias must be the same as spi device driver name */</span>
 <span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"ad5064"</span><span class="p">,</span><span class="w"> </span><span class="cm">/* Name of spi_driver for this device */</span>
@@ -598,31 +678,7 @@ the device in question.</p>
 </div>
 </section>
 </section>
-<section id="adding-linux-driver-support">
-<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
-<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
-<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The AD5064 Driver depends on <strong>CONFIG_SPI</strong></p>
-</div>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
-    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-        <span class="o">...</span>
-        <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
-            <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
-            <span class="o">...</span>
-            <span class="n">Digital</span> <span class="n">to</span> <span class="n">analog</span> <span class="n">converters</span>  <span class="o">---&gt;</span>
-                <span class="o">...</span>
-                <span class="o">&lt;*&gt;</span>  <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD5064</span> <span class="ow">and</span> <span class="n">similar</span> <span class="n">multi</span><span class="o">-</span><span class="n">channel</span> <span class="n">DAC</span> <span class="n">driver</span>
-                <span class="o">...</span>
-            <span class="o">...</span>
-        <span class="o">...</span>
-</pre></div>
-</div>
 </section>
-<section id="hardware-configuration">
-<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
 </section>
 <section id="driver-testing">
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
@@ -667,12 +723,15 @@ the numbering is constant and may be known in advance.</p>
 </pre></div>
 </div>
 <p>The number of channels depends on the chip model.</p>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">ad5064</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-scale">
 <h4>Show scale<a class="headerlink" href="#show-scale" title="Link to this heading"></a></h4>
 <div class="line-block">
@@ -685,8 +744,10 @@ in millivolts.</p>
 <span class="mf">0.038140</span>
 </pre></div>
 </div>
+</section>
+</section>
 <section id="set-channel-y-output-voltage">
-<h5>Set channel Y output voltage<a class="headerlink" href="#set-channel-y-output-voltage" title="Link to this heading"></a></h5>
+<h3>Set channel Y output voltage<a class="headerlink" href="#set-channel-y-output-voltage" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw</p>
 <p>Raw (unscaled, no bias etc.) output voltage for channel Y.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">10000</span> <span class="o">&gt;</span> <span class="n">out_voltage0_raw</span>
@@ -696,7 +757,7 @@ in millivolts.</p>
 <strong>381,14 mV</strong></p>
 </section>
 <section id="list-available-power-down-modes">
-<h5>List available power down modes<a class="headerlink" href="#list-available-power-down-modes" title="Link to this heading"></a></h5>
+<h3>List available power down modes<a class="headerlink" href="#list-available-power-down-modes" title="Link to this heading"></a></h3>
 <p>/sys/bus/iio/devices/iio:deviceX/out_voltage_powerdown_mode_available</p>
 <p><strong>Description:</strong> Lists all available output power down modes.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.3</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_voltage_powerdown_mode_available</span>
@@ -705,8 +766,10 @@ in millivolts.</p>
 </div>
 </section>
 <section id="set-power-down-mode">
-<h5>Set power down mode<a class="headerlink" href="#set-power-down-mode" title="Link to this heading"></a></h5>
-<p>/sys/bus/iio/devices/iio:deviceX/out_voltage_powerdown_mode</p>
+<h3>Set power down mode<a class="headerlink" href="#set-power-down-mode" title="Link to this heading"></a></h3>
+<p>/sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown_mode (for example
+out_voltage0_powerdown_mode). Apply the channel index to both echo and cat
+examples in this section.</p>
 <p><strong>Description:</strong> Specifies the output power down mode. DAC output stage is
 disconnected from the amplifier and</p>
 <div class="table-wrapper docutils container">
@@ -733,7 +796,7 @@ out_voltage_powerdown_mode_available.</p>
 </div>
 </section>
 <section id="enable-power-down-mode-on-output-y">
-<h5>Enable power down mode on output Y<a class="headerlink" href="#enable-power-down-mode-on-output-y" title="Link to this heading"></a></h5>
+<h3>Enable power down mode on output Y<a class="headerlink" href="#enable-power-down-mode-on-output-y" title="Link to this heading"></a></h3>
 <p>/sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown</p>
 <p><strong>Description:</strong> Writing 1 causes output Y to enter the power down mode
 specified by the corresponding out_voltageY_powerdown_mode. Clearing returns to
@@ -747,63 +810,11 @@ normal operation.</p>
 </pre></div>
 </div>
 </section>
-</section>
-</section>
 <section id="pmod-da4">
 <h3>PMOD-DA4<a class="headerlink" href="#pmod-da4" title="Link to this heading"></a></h3>
 <p>The PMOD-DA4 is a PMOD board made by Digilent Inc. which features the AD5628</p>
 <p>The following example shows how to connect the PMOD-DA4 to a Blackfin
 BF537-STAMP board.</p>
-<section id="id2">
-<h4>Hardware configuration<a class="headerlink" href="#id2" title="Link to this heading"></a></h4>
-<figure class="align-default">
-<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/pmodda4.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/pmodda4.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/pmodda4.jpg" style="width: 300px;" />
-</a>
-</figure>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>BF537-STAMP (P9) SPI header</p></th>
-<th class="head"></th>
-<th class="head"><p>PMOD-DA4</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>PIN</p></td>
-<td><p>Function</p></td>
-<td><p>PIN</p></td>
-<td><p>Function</p></td>
-</tr>
-<tr class="row-odd"><td><p>2</p></td>
-<td><p>(+3.3V)</p></td>
-<td><p>6</p></td>
-<td><p>VDD</p></td>
-</tr>
-<tr class="row-even"><td><p>5</p></td>
-<td><p>SPI_MOSI</p></td>
-<td><p>2</p></td>
-<td><p>DIN</p></td>
-</tr>
-<tr class="row-odd"><td><p>8</p></td>
-<td><p>SPI_SCK</p></td>
-<td><p>4</p></td>
-<td><p>SCLK</p></td>
-</tr>
-<tr class="row-even"><td><p>10</p></td>
-<td><p>SPI_SS</p></td>
-<td><p>1</p></td>
-<td><p>SYNC</p></td>
-</tr>
-<tr class="row-odd"><td><p>20</p></td>
-<td><p>GND</p></td>
-<td><p>5</p></td>
-<td><p>GND</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
 </section>
 </section>
 <section id="more-information">
@@ -826,7 +837,7 @@ BF537-STAMP board.</p>
           </div>
               <div class="related">
                 &nbsp;
-    <a href="../ad3530r/" title="Previous document (Alt+Shift+LeftArrow)" class="prev">AD3530R/AD3530</a>
+    <a href="../ad3552r-hs/" title="Previous document (Alt+Shift+LeftArrow)" class="prev">AD3552R High Speed</a>
     <a href="../ad5360/" title="Next document (Alt+Shift+RightArrow)" class="next">AD5360</a>
               </div>
           

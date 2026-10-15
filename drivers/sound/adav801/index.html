@@ -97,23 +97,26 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">ADAV80X</a><ul>
-<li><a class="reference internal" href="#supported-devices">Supported devices</a></li>
+<li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a><ul>
 <li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
-<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
-<li><a class="reference internal" href="#source-code">Source Code</a><ul>
-<li><a class="reference internal" href="#status">Status</a><ul>
-<li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li><a class="reference internal" href="#supported-features">Supported Features</a><ul>
-<li><a class="reference internal" href="#asoc-dapm-widgets">ASoC DAPM widgets</a></li>
-<li><a class="reference internal" href="#alsa-controls">ALSA controls</a></li>
+<li><a class="reference internal" href="#description">Description</a><ul>
+<li><a class="reference internal" href="#driver-features-and-limitations">Driver features and limitations</a><ul>
 <li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a></li>
 <li><a class="reference internal" href="#currently-unsupported-features">Currently unsupported features</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
+<li><a class="reference internal" href="#files">Files</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#board-integration">Board integration</a><ul>
 <li><a class="reference internal" href="#adav80x-evaluation-board-driver">ADAV80X evaluation board driver</a><ul>
 <li><a class="reference internal" href="#id1">Source Code</a><ul>
 <li><a class="reference internal" href="#id2">Status</a></li>
@@ -123,6 +126,18 @@
 <li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
 <li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id4">Driver testing</a><ul>
+<li><a class="reference internal" href="#routing-and-dapm">Routing and DAPM</a><ul>
+<li><a class="reference internal" href="#asoc-dapm-widgets">ASoC DAPM widgets</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#alsa-controls">ALSA controls</a></li>
 </ul>
 </li>
 </ul>
@@ -226,6 +241,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -244,7 +260,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -381,7 +396,7 @@ Content on this topic
 <span id="adav801"></span><h1>ADAV80X<a class="headerlink" href="#adav80x" title="Link to this heading"></a></h1>
 <p>ADAV80X Sound CODEC Linux Driver.</p>
 <section id="supported-devices">
-<h2>Supported devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+<h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/ADAV801" target="_blank">ADAV801</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/ADAV803" target="_blank">ADAV803</a></p></li>
@@ -389,136 +404,25 @@ Content on this topic
 <p>ADAV801 and ADAV803 differs in serial interface. ADAV801 uses SPI, while ADAV803
 uses I2C.</p>
 </section>
-<section id="reference-circuits">
-<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0219" target="_blank">CN0219</a></p></li>
-</ul>
-</section>
 <section id="evaluation-boards">
 <h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADAV801EBZ" target="_blank">EVAL-ADAV801EBZ</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADAV803EBZ" target="_blank">EVAL-ADAV803EBZ</a></p></li>
 </ul>
-</section>
-<section id="source-code">
-<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
-<section id="status">
-<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Source</p></th>
-<th class="head"><p>Mainlined?</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/sound/soc/codecs/adav80x.c" target="_blank">ADI tree</a></p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav80x.c" target="_blank">Yes</a></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<section id="files">
-<h4>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav80x.c" target="_blank">sound/soc/codecs/adav80x.c</a></p></td>
-</tr>
-<tr class="row-odd"><td><p>include</p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav80x.h" target="_blank">sound/soc/codecs/adav80x.h</a></p></td>
-</tr>
-</tbody>
-</table>
-</div>
+<section id="reference-circuits">
+<h3>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0219" target="_blank">CN0219</a></p></li>
+</ul>
 </section>
 </section>
-</section>
-<section id="supported-features">
-<h2>Supported Features<a class="headerlink" href="#supported-features" title="Link to this heading"></a></h2>
-<section id="asoc-dapm-widgets">
-<h3>ASoC DAPM widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h3>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Name</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>VINL</p></td>
-<td><p>Left Analog Input</p></td>
-</tr>
-<tr class="row-odd"><td><p>VINR</p></td>
-<td><p>Right Analog Input</p></td>
-</tr>
-<tr class="row-even"><td><p>VOUTL</p></td>
-<td><p>Left Analog Output</p></td>
-</tr>
-<tr class="row-odd"><td><p>VOUTR</p></td>
-<td><p>Right Analog Output</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="alsa-controls">
-<h3>ALSA controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Name</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>Master Playback Volume</p></td>
-<td><p>DAC Volume</p></td>
-</tr>
-<tr class="row-odd"><td><p>Master Playback Switch</p></td>
-<td><p>Mute/Unmute DAC output</p></td>
-</tr>
-<tr class="row-even"><td><p>Master Capture Switch</p></td>
-<td><p>ADC Volume</p></td>
-</tr>
-<tr class="row-odd"><td><p>Master Capture Volume</p></td>
-<td><p>Mute/Unmute ADC input</p></td>
-</tr>
-<tr class="row-even"><td><p>PGA Capture Volume</p></td>
-<td><p>Input PGA gain</p></td>
-</tr>
-<tr class="row-odd"><td><p>ADC High Pass Filter Switch</p></td>
-<td><p>Enable/Disable ADC high-pass filter</p></td>
-</tr>
-<tr class="row-even"><td><p>Playback De-emphasis Switch</p></td>
-<td><p>Enable/Disable playback de-emphassis</p></td>
-</tr>
-<tr class="row-odd"><td><p>Capture Select</p></td>
-<td><p>Select the serial port capture source. Possible values: <code class="docutils literal notranslate"><span class="pre">ADC</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Playback</span></code>, <code class="docutils literal notranslate"><span class="pre">Aux</span> <span class="pre">Playback</span></code></p></td>
-</tr>
-<tr class="row-even"><td><p>Aux Capture Select</p></td>
-<td><p>Select the auxiliary serial port capture source. Possible values:
-<code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">Playback</span></code>, <code class="docutils literal notranslate"><span class="pre">Aux</span> <span class="pre">Playback</span></code></p></td>
-</tr>
-<tr class="row-odd"><td><p>DAC Select</p></td>
-<td><p>Select the DAC signal source. Possible values: <code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">Playback</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Aux</span> <span class="pre">Playback</span></code></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
+<section id="description">
+<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
+<section id="driver-features-and-limitations">
+<h3>Driver features and limitations<a class="headerlink" href="#driver-features-and-limitations" title="Link to this heading"></a></h3>
 <section id="supported-dai-formats">
-<h3>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h3>
+<h4>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -601,7 +505,7 @@ uses I2C.</p>
 </div>
 </section>
 <section id="currently-unsupported-features">
-<h3>Currently unsupported features<a class="headerlink" href="#currently-unsupported-features" title="Link to this heading"></a></h3>
+<h4>Currently unsupported features<a class="headerlink" href="#currently-unsupported-features" title="Link to this heading"></a></h4>
 <ul class="simple">
 <li><p>Automatic level control</p></li>
 <li><p>on-chip sample rate converter (Both serial ports have to use the same sample
@@ -610,15 +514,71 @@ rate)</p></li>
 </ul>
 </section>
 </section>
+</section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
+<section id="status">
+<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Source</p></th>
+<th class="head"><p>Mainlined?</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav80x.c" target="_blank">Upstream tree</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav80x.c" target="_blank">Yes</a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="files">
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>shared codec</p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav80x.c" target="_blank">sound/soc/codecs/adav80x.c</a></p></td>
+</tr>
+<tr class="row-odd"><td><p>ADAV801 SPI driver</p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav801.c" target="_blank">sound/soc/codecs/adav801.c</a></p></td>
+</tr>
+<tr class="row-even"><td><p>ADAV803 I2C driver</p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav803.c" target="_blank">sound/soc/codecs/adav803.c</a></p></td>
+</tr>
+<tr class="row-odd"><td><p>include</p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav80x.h" target="_blank">sound/soc/codecs/adav80x.h</a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="board-integration">
+<h3>Board integration<a class="headerlink" href="#board-integration" title="Link to this heading"></a></h3>
 <section id="adav80x-evaluation-board-driver">
-<h2>ADAV80X evaluation board driver<a class="headerlink" href="#adav80x-evaluation-board-driver" title="Link to this heading"></a></h2>
+<h4>ADAV80X evaluation board driver<a class="headerlink" href="#adav80x-evaluation-board-driver" title="Link to this heading"></a></h4>
+<p>The following Blackfin board integration and configuration instructions are
+historical. Upstream removed the board driver in commit
+<code class="docutils literal notranslate"><span class="pre">6ca1118551ca5bb267e75faa6b944679ca195423</span></code>; the source link below points to
+the last version before the removal. The ADAV80X codec and its ADAV801/ADAV803
+bus drivers remain upstream.</p>
 <p>There is no dedicated Blackfin STAMP evaluation board for the ADAV80X. During
 test and driver development we used the EVAL-ADAV801/ADAV803 board.</p>
 <p>It can be easily wired to the Blackfin STAMP SPORT header.</p>
 <section id="id1">
-<h3>Source Code<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<h5>Source Code<a class="headerlink" href="#id1" title="Link to this heading"></a></h5>
 <section id="id2">
-<h4>Status<a class="headerlink" href="#id2" title="Link to this heading"></a></h4>
+<h6>Status<a class="headerlink" href="#id2" title="Link to this heading"></a></h6>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -629,8 +589,8 @@ test and driver development we used the EVAL-ADAV801/ADAV803 board.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/2018_R1/sound/soc/blackfin/bfin-eval-adav80x.c" target="_blank">git</a></p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adav80x.c" target="_blank">Yes</a></p></td>
+<tr class="row-even"><td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adav80x.c?id=03a0ddeda7ebafea8e99078581a50d856e3587a4" target="_blank">git</a></p></td>
+<td><p>Deprecated</p></td>
 <td></td>
 <td></td>
 </tr>
@@ -639,7 +599,7 @@ test and driver development we used the EVAL-ADAV801/ADAV803 board.</p>
 </div>
 </section>
 <section id="id3">
-<h4>Files<a class="headerlink" href="#id3" title="Link to this heading"></a></h4>
+<h6>Files<a class="headerlink" href="#id3" title="Link to this heading"></a></h6>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -649,7 +609,7 @@ test and driver development we used the EVAL-ADAV801/ADAV803 board.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adav80x.c" target="_blank">sound/soc/blackfin/bfin-eval-adav80x.c</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adav80x.c?id=03a0ddeda7ebafea8e99078581a50d856e3587a4" target="_blank">sound/soc/blackfin/bfin-eval-adav80x.c</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -657,7 +617,7 @@ test and driver development we used the EVAL-ADAV801/ADAV803 board.</p>
 </section>
 </section>
 <section id="kernel-configuration">
-<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
+<h5>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h5>
 <p>For ADAV801, enable SPI:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
 <span class="p">[</span><span class="o">*</span><span class="p">]</span> <span class="n">SPI</span> <span class="n">support</span>  <span class="o">---&gt;</span>
@@ -684,7 +644,7 @@ test and driver development we used the EVAL-ADAV801/ADAV803 board.</p>
 </div>
 </section>
 <section id="hardware-configuration">
-<h3>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h3>
+<h5>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h5>
 <p>Default setting for the 12-way DIP switch: from SW11 to SW0 - 110001110001. Keep
 all switch and jumpers as default value defined in the manual, except:</p>
 <ul class="simple">
@@ -699,7 +659,7 @@ corresponding pins STAMP. Also, please make sure to connect the <strong>GND</str
 two boards together to get better signal.</p>
 </section>
 <section id="driver-testing">
-<h3>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h3>
+<h5>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h5>
 <p>Load the driver and make sure the sound card is properly instantiated.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">modprobe</span> <span class="n">snd</span><span class="o">-</span><span class="n">bf5xx</span><span class="o">-</span><span class="n">i2s</span>
 <span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">modprobe</span> <span class="n">snd</span><span class="o">-</span><span class="n">soc</span><span class="o">-</span><span class="n">bf5xx</span><span class="o">-</span><span class="n">i2s</span>
@@ -717,6 +677,87 @@ two boards together to get better signal.</p>
 <span class="n">Recording</span> <span class="n">WAVE</span> <span class="s1">'stdin'</span> <span class="p">:</span> <span class="n">Signed</span> <span class="mi">16</span> <span class="n">bit</span> <span class="n">Little</span> <span class="n">Endian</span><span class="p">,</span> <span class="n">Rate</span> <span class="mi">44100</span> <span class="n">Hz</span><span class="p">,</span> <span class="n">Stereo</span>
 <span class="n">Playing</span> <span class="n">WAVE</span> <span class="s1">'stdin'</span> <span class="p">:</span> <span class="n">Signed</span> <span class="mi">16</span> <span class="n">bit</span> <span class="n">Little</span> <span class="n">Endian</span><span class="p">,</span> <span class="n">Rate</span> <span class="mi">44100</span> <span class="n">Hz</span><span class="p">,</span> <span class="n">Stereo</span>
 </pre></div>
+</div>
+</section>
+</section>
+</section>
+</section>
+<section id="id4">
+<h2>Driver testing<a class="headerlink" href="#id4" title="Link to this heading"></a></h2>
+<section id="routing-and-dapm">
+<h3>Routing and DAPM<a class="headerlink" href="#routing-and-dapm" title="Link to this heading"></a></h3>
+<section id="asoc-dapm-widgets">
+<h4>ASoC DAPM widgets<a class="headerlink" href="#asoc-dapm-widgets" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>VINL</p></td>
+<td><p>Left Analog Input</p></td>
+</tr>
+<tr class="row-odd"><td><p>VINR</p></td>
+<td><p>Right Analog Input</p></td>
+</tr>
+<tr class="row-even"><td><p>VOUTL</p></td>
+<td><p>Left Analog Output</p></td>
+</tr>
+<tr class="row-odd"><td><p>VOUTR</p></td>
+<td><p>Right Analog Output</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="alsa-controls">
+<h3>ALSA controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Master Playback Volume</p></td>
+<td><p>DAC Volume</p></td>
+</tr>
+<tr class="row-odd"><td><p>Master Playback Switch</p></td>
+<td><p>Mute/Unmute DAC output</p></td>
+</tr>
+<tr class="row-even"><td><p>Master Capture Switch</p></td>
+<td><p>Mute/Unmute ADC input</p></td>
+</tr>
+<tr class="row-odd"><td><p>Master Capture Volume</p></td>
+<td><p>ADC digital volume</p></td>
+</tr>
+<tr class="row-even"><td><p>PGA Capture Volume</p></td>
+<td><p>Input PGA gain</p></td>
+</tr>
+<tr class="row-odd"><td><p>ADC High Pass Filter Switch</p></td>
+<td><p>Enable/Disable ADC high-pass filter</p></td>
+</tr>
+<tr class="row-even"><td><p>Playback De-emphasis Switch</p></td>
+<td><p>Enable/Disable playback de-emphassis</p></td>
+</tr>
+<tr class="row-odd"><td><p>Capture Select</p></td>
+<td><p>Select the serial port capture source. Possible values: <code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">Playback</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Aux</span> <span class="pre">Playback</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Aux Capture Select</p></td>
+<td><p>Select the auxiliary serial port capture source. Possible values: <code class="docutils literal notranslate"><span class="pre">ADC</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Playback</span></code>, <code class="docutils literal notranslate"><span class="pre">Aux</span> <span class="pre">Playback</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>DAC Select</p></td>
+<td><p>Select the DAC signal source. Possible values: <code class="docutils literal notranslate"><span class="pre">ADC</span></code>, <code class="docutils literal notranslate"><span class="pre">Playback</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Aux</span> <span class="pre">Playback</span></code></p></td>
+</tr>
+</tbody>
+</table>
 </div>
 </section>
 </section>

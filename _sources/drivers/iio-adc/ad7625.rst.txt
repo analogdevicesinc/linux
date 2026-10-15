@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7625
 
+
 .. _ad7625:
 
 AD7625
@@ -15,6 +16,33 @@ Supported Devices
 #. :adi:`AD7960`
 #. :adi:`AD7961`
 
+Evaluation Boards
+-----------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Board
+     - Devicetree
+     -
+     -
+   * - :adi:`EVAL-AD7625FMCZ <EVAL-AD7625>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7625.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts>`
+     -
+     -
+   * - :adi:`EVAL-AD7626FMCZ <EVAL-AD7626>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7625.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts>`
+     -
+     -
+   * - :adi:`EVAL-AD7960FMCZ <EVAL-AD7960>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7960.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts>`
+     -
+     -
+   * - :adi:`EVAL-AD7961FMCZ <EVAL-AD7961>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7960.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts>`
+     -
+     -
+
 Description
 -----------
 
@@ -27,10 +55,14 @@ spi, etc). See :external+system-level:ref:`iio` for more information.
 The AD762x and AD796x are charge redistribution successive approximation
 register (SAR) based architecture analog-to-digital converters (ADCs). All
 converted results are available on a single LVDS self-clocked or echoed-clock
-serial interface, reducing external hardware connections.
+serial interface, reducing external hardware connections. The Linux driver
+supports echoed-clock mode only.
+
+Source Code
+-----------
 
 Status
-------
+~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -41,7 +73,7 @@ Status
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7625.c>`__
 
 Files
------
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -59,8 +91,58 @@ Files
 
 Upstream documentation: https://docs.kernel.org/iio/ad7625.html
 
-Devicetree Configuration
-------------------------
+Hardware configuration
+----------------------
+
+Typical hardware setup
+~~~~~~~~~~~~~~~~~~~~~~
+
+A typical test setup consists of one of the evaluation boards from above
+connected to a
+`ZedBoard <https://www.avnet.com/wps/portal/us/products/avnet-boards/avnet-board-families/zedboard/>`__.
+
+A :adi:`ADALM2000` (also known as M2K) or a signal generator of your
+choice can be used to to generate a signal. This will also require coax cable
+with SMA connectors and appropriate adapters to adapt the coax to individual
+wires on the signal generator.
+
+The example image below shows an :adi:`EVAL-AD7960` board attached
+to a Zedboard, with a signal generator producing 100kHz, 4Vpp, 2.5V DC offset
+antiphase waveforms connected to the inputs, and a USB cable (attached to a hub)
+connected to the J14 console port.
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/20241122_164534.jpg
+   :width: 800px
+
+Adding Linux driver support
+---------------------------
+
+This section explains how to use the ``ad7625`` driver in Linux.
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Precompiled kernels from ADI should have this driver already enabled. If
+building your own kernel, enable it using the CONFIG_AD7625 option. When using
+make menuconfig (or xconfig, etc.), the option can be found as follows:
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+                   *** Analog to digital converters ***
+                   [--snip--]
+
+                   <*>   Analog Devices AD7625/AD7626 High-Speed ADC driver
+
+                   [--snip--]
+
+Note that the driver depends on CONFIG_PWM.
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 The devicetree (``.dts`` file) describes how the chip is wired up. The examples
 linked above are for evaluation boards connected to a Zedboard and using the
@@ -87,7 +169,7 @@ neither ``adi,enX-always-on`` nor ``enX-gpios`` is specified, the assumption is
 that the respective pins are hard-wired to GND.
 
 AD7625/AD7626 Options
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 The AD762x parts have multiple methods for generating the 4.096V reference
 voltage required for conversion, controlled by the EN1 and EN0 pins. These are
@@ -128,7 +210,7 @@ indicated in the devicetree as follows:
      - Omit ``enX-always-on``
 
 AD7960/AD7961 Options
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 The AD796x requires one and only one of REF and REFIN to be connected, as the
 device either operates using only an external reference input to REF (options B,
@@ -207,11 +289,12 @@ Additionally, EN2 and EN3 provide the following functionality:
        be useful for driving the common mode of the input amplifiers.
 
 As with EN1 and EN0, these can be indicated to be hard-wired to VIO with
-``en3-always-on`` and ``en2-always-on``, or configurable with ``en3-gpios`` and
-``en2-gpios``; otherwise, they are assumed hard-wired to GND.
+``adi,en3-always-on`` and ``adi,en2-always-on``,
+or configurable with ``en3-gpios`` and ``en2-gpios``; otherwise, they are
+assumed hard-wired to GND.
 
 Special Modes (AD7960/AD7961)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""""""
 
 .. list-table::
    :header-rows: 1
@@ -234,7 +317,7 @@ Special Modes (AD7960/AD7961)
      - Invalid mode.
 
 System Clock and PWMs
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 This device family requires the use of a clock signal connected to the CLK pins,
 along two PWM signals with phase offset capability. These PWM signals must be
@@ -244,7 +327,7 @@ triggering conversions. The second (``clk_gate``), gates the clock signal
 connected to the CLK pins for transferring data to the host.
 
 Examples
-~~~~~~~~
+^^^^^^^^
 
 The AD7625 devicetree
 :git+linux:`example <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts>`
@@ -326,38 +409,33 @@ and
 :external+hdl:ref:`axi_pwm_gen`
 drivers are used, respectively.
 
-Linux Driver
-------------
+Evaluation-board setup
+~~~~~~~~~~~~~~~~~~~~~~
 
-This section explains how to use the ``ad7625`` driver in Linux.
+Typical ZedBoard software setup
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Enabling the Driver
+Install OS on the ZedBoard
+""""""""""""""""""""""""""
+
+ADI provides a :external+system-level:ref:`kuiper` distribution for supported
+evaluation boards. Step by step guides for imaging Kuiper Linux are available
+for
+:dokuwiki:`Linux </resources/tools-software/linux-software/zynq_images/linux_hosts>`
+and
+:dokuwiki:`Windows </resources/tools-software/linux-software/zynq_images/windows_hosts>`.
+
+Install evaluation-board specific boot files
+""""""""""""""""""""""""""""""""""""""""""""
+
+Copy the ``uImage``, ``devicetree.dtb`` and ``BOOT.BIN`` from the appropriate
+zip file above to the boot partition on the SD card.
+
+Driver testing
+--------------
+
+Attribute reference
 ~~~~~~~~~~~~~~~~~~~
-
-Precompiled kernels from ADI should have this driver already enabled. If
-building your own kernel, enable it using the CONFIG_AD7625 option. When using
-make menuconfig (or xconfig, etc.), the option can be found as follows:
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-                   *** Analog to digital converters ***
-                   [--snip--]
-
-                   <*>   Analog Devices AD7625/AD7626 High-Speed ADC driver
-
-                   [--snip--]
-
-Note that the driver depends on CONFIG_PWM.
-
-Driver Usage
-------------
-
-Sysfs Attributes
-~~~~~~~~~~~~~~~~
 
 These can be found at ``/sys/bus/iio/devices/iio:deviceX/``, where ``X`` is the
 index corresponding to the ADC.
@@ -416,77 +494,12 @@ Set sampling frequency:
    root@zed-tg:~# iio_attr -d ad7625 sampling_frequency 2000000
    2008032
 
-**Description:** The actual rounded sample rate will depend on the master clock
-frequency (fclk) of the system.
+The ``sampling_frequency`` readback is fclk / round(fclk / requested_rate).
+The PWM period is clamped to 100–10000 ns and rounded separately, so the
+actual conversion rate can differ from the readback.
 
-Evaluation Boards
------------------
-
-.. list-table::
-   :header-rows: 1
-
-   * - Board
-     - Devicetree
-     -
-     -
-   * - :adi:`EVAL-AD7625FMCZ <EVAL-AD7625>`
-     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7625.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts>`
-     -
-     -
-   * - :adi:`EVAL-AD7626FMCZ <EVAL-AD7626>`
-     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7625.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts>`
-     -
-     -
-   * - :adi:`EVAL-AD7960FMCZ <EVAL-AD7960>`
-     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7960.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts>`
-     -
-     -
-   * - :adi:`EVAL-AD7961FMCZ <EVAL-AD7961>`
-     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7960.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts>`
-     -
-     -
-
-Typical hardware setup
-~~~~~~~~~~~~~~~~~~~~~~
-
-A typical test setup consists of one of the evaluation boards from above
-connected to a
-`ZedBoard <https://www.avnet.com/wps/portal/us/products/avnet-boards/avnet-board-families/zedboard/>`__.
-
-A :adi:`ADALM2000` (also known as M2K) or a signal generator of your
-choice can be used to to generate a signal. This will also require coax cable
-with SMA connectors and appropriate adapters to adapt the coax to individual
-wires on the signal generator.
-
-The example image below shows an :adi:`EVAL-AD7960` board attached
-to a Zedboard, with a signal generator producing 100kHz, 4Vpp, 2.5V DC offset
-antiphase waveforms connected to the inputs, and a USB cable (attached to a hub)
-connected to the J14 console port.
-
-.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/20241122_164534.jpg
-   :width: 800px
-
-Typical ZedBoard software setup
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Install OS on the ZedBoard
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-ADI provides a :external+system-level:ref:`kuiper` distribution for supported
-evaluation boards. Step by step guides for imaging Kuiper Linux are available
-for
-:dokuwiki:`Linux </resources/tools-software/linux-software/zynq_images/linux_hosts>`
-and
-:dokuwiki:`Windows </resources/tools-software/linux-software/zynq_images/windows_hosts>`.
-
-Install evaluation-board specific boot files
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Copy the ``uImage``, ``devicetree.dtb`` and ``BOOT.BIN`` from the appropriate
-zip file above to the boot partition on the SD card.
-
-Typical test application software
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Application examples
+~~~~~~~~~~~~~~~~~~~~
 
 ADI provides several open source tools to make it easy to get started with using
 Linux IIO drivers.
@@ -508,7 +521,7 @@ on how to obtain IIO Oscilloscope and its basic usage, please see the
 page.
 
 Example: Capture many samples for analysis
-''''''''''''''''''''''''''''''''''''''''''
+""""""""""""""""""""""""""""""""""""""""""
 
 The *Plot* feature of the *IIO Oscilloscope* app is used to perform a buffered
 read to capture many samples. This data can be saved as a ``.csv`` file for

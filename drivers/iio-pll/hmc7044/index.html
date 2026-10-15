@@ -104,15 +104,15 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#enabling-the-driver">Enabling the driver</a><ul>
-<li><a class="reference internal" href="#adding-a-device-tree-entry">Adding a device tree entry</a><ul>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#available-properties">Available properties</a><ul>
 <li><a class="reference internal" href="#required-properties">Required properties:</a></li>
 <li><a class="reference internal" href="#optional-properties">Optional properties:</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#adding-channels">Adding channels</a></li>
-<li><a class="reference internal" href="#device-tree-example">Device tree example</a></li>
 </ul>
 </li>
 </ul>
@@ -218,6 +218,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -236,7 +237,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -439,8 +439,10 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </div>
 </section>
 </section>
-<section id="enabling-the-driver">
-<h2>Enabling the driver<a class="headerlink" href="#enabling-the-driver" title="Link to this heading"></a></h2>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="kernel-configuration">
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
 <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
 <div class="admonition note">
@@ -455,14 +457,74 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
                  <span class="o">&lt;*&gt;</span>  <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">HMC7044</span><span class="p">,</span> <span class="n">HMC7043</span> <span class="n">Clock</span> <span class="n">Jitter</span> <span class="n">Attenuator</span> <span class="k">with</span> <span class="n">JESD204B</span>
 </pre></div>
 </div>
-<section id="adding-a-device-tree-entry">
-<h3>Adding a device tree entry<a class="headerlink" href="#adding-a-device-tree-entry" title="Link to this heading"></a></h3>
+</section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<p>The following example instanciates the hmc7044 driver for a HMC7044 device
+connected on the SPI bus to the chip-select line 0.</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">hmc7044</span><span class="p">:</span><span class="w"> </span><span class="nf">hmc7044</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,hmc7044"</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">pll1-clkin-frequencies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">122880000</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">pll1-loop-bandwidth-hz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">200</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">vcxo-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">122880000</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">pll2-output-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2949120000</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">sysref-timer-divider</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1024</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">pulse-generator-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">clkin0-buffer-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x15</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">oscin-buffer-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x15</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">gpi-controls</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x00</span><span class="w"> </span><span class="mh">0x00</span><span class="w"> </span><span class="mh">0x00</span><span class="w"> </span><span class="mh">0x00</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">gpo-controls</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x1f</span><span class="w"> </span><span class="mh">0x2b</span><span class="w"> </span><span class="mh">0x00</span><span class="w"> </span><span class="mh">0x00</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">clock-output-names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"hmc7044_out0"</span><span class="p">,</span><span class="w"> </span><span class="s">"hmc7044_out1"</span><span class="p">,</span><span class="w"> </span><span class="s">"hmc7044_out2"</span><span class="p">,</span>
+<span class="w">                 </span><span class="s">"hmc7044_out3"</span><span class="p">,</span><span class="w"> </span><span class="s">"hmc7044_out4"</span><span class="p">,</span><span class="w"> </span><span class="s">"hmc7044_out5"</span><span class="p">,</span>
+<span class="w">                 </span><span class="s">"hmc7044_out6"</span><span class="p">,</span><span class="w"> </span><span class="s">"hmc7044_out7"</span><span class="p">,</span><span class="w"> </span><span class="s">"hmc7044_out8"</span><span class="p">,</span>
+<span class="w">                 </span><span class="s">"hmc7044_out9"</span><span class="p">,</span><span class="w"> </span><span class="s">"hmc7044_out10"</span><span class="p">,</span><span class="w"> </span><span class="s">"hmc7044_out11"</span><span class="p">,</span>
+<span class="w">                 </span><span class="s">"hmc7044_out12"</span><span class="p">,</span><span class="w"> </span><span class="s">"hmc7044_out13"</span><span class="p">;</span>
+
+<span class="w">    </span><span class="nl">hmc7044_c2</span><span class="p">:</span><span class="w"> </span><span class="nf">channel</span><span class="o">@</span><span class="mi">2</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">extended-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"DAC_CLK"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">divider</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">driver-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">    </span><span class="nl">hmc7044_c3</span><span class="p">:</span><span class="w"> </span><span class="nf">channel</span><span class="o">@</span><span class="mi">3</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">3</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">extended-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"DAC_SYSREF"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">divider</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">512</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">driver-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">    </span><span class="nl">hmc7044_c12</span><span class="p">:</span><span class="w"> </span><span class="nf">channel</span><span class="o">@</span><span class="mi">12</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">12</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">extended-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"FPGA_CLK"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">divider</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">driver-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">    </span><span class="nl">hmc7044_c13</span><span class="p">:</span><span class="w"> </span><span class="nf">channel</span><span class="o">@</span><span class="mi">13</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">13</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">extended-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"FPGA_SYSREF"</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">divider</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">512</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">driver-mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
 <section id="available-properties">
 <h4>Available properties<a class="headerlink" href="#available-properties" title="Link to this heading"></a></h4>
 <section id="required-properties">
 <h5>Required properties:<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h5>
 <ul class="simple">
-<li><p><strong>compatible</strong>: Should be <code class="docutils literal notranslate"><span class="pre">adi,hmc7044</span></code>.</p></li>
+<li><p><strong>compatible: Use adi,hmc7044 or adi,hmc7043 for the fitted part. The
+PLL1/VCXO/PLL2 property requirements below describe HMC7044; HMC7043 is a
+distribution-only device and follows a different setup path.</strong></p></li>
 <li><p><strong>reg</strong>: SPI chip select number.</p></li>
 <li><p><strong>spi-max-frequency</strong>: Max SPI frequency to use (&lt;= 10000000).</p></li>
 <li><p><strong>adi,pll1-clkin-frequencies</strong>: An array of 4 elements, each representing the
@@ -477,8 +539,8 @@ GPI2, GPI3 and GPI4, respectively), representing the GPI selection (Bits
 GPO2, GPO3 and GPO4, respectively), representing the GPO selection (Bits
 [7:2]), the GPO mode (Bit [1]) and the GPO enable bit ([0]) - see registers
 0x0050, 0x0051, 0x0052, 0x0053.</p></li>
-<li><p><strong>clock-output-names</strong>: An array of 14 elements, representing the names of the
-output clocks.</p></li>
+<li><p><strong>clock-output-names</strong>: An array of 14 elements, representing the names of
+the output clocks.</p></li>
 </ul>
 </section>
 <section id="optional-properties">
@@ -489,7 +551,7 @@ specified, 200 will be used by default.</p></li>
 <li><p><strong>adi,sysref-timer-divider</strong>: This sets the internal beat frequency of the
 master timer, which controls synchronization and pulse generator events. It
 should be set to a submultiple of the lowest output SYSREF frequency, no
-faster than 4 MHz. If this is not specified, 1024 will be used by default.</p></li>
+faster than 4 MHz. If this is not specified, 256 will be used by default.</p></li>
 <li><p><strong>adi,pulse-generator-mode</strong>: Pulse Generator Mode Selection [Bits 2:0] - see
 register 0x005A. If this is not specified, 0 will be used by default.</p></li>
 <li><p><strong>adi,clkin0-buffer-mode</strong>: CLKIN0 Input Buffer Control, for specifying the
@@ -545,66 +607,6 @@ delay steps. Step size = 25 ps.</p></li>
 </ul>
 </li>
 </ul>
-</section>
-<section id="device-tree-example">
-<h4>Device tree example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h4>
-<p>The following example instanciates the hmc7044 driver for a HMC7044 device
-connected on the SPI bus to the chip-select line 0.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">hmc7044</span><span class="p">:</span> <span class="n">hmc7044</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,hmc7044"</span><span class="p">;</span>
-    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">10000000</span><span class="o">&gt;</span><span class="p">;</span>
-
-    <span class="n">adi</span><span class="p">,</span><span class="n">pll1</span><span class="o">-</span><span class="n">clkin</span><span class="o">-</span><span class="n">frequencies</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">122880000</span> <span class="mi">0</span> <span class="mi">0</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-
-    <span class="n">adi</span><span class="p">,</span><span class="n">pll1</span><span class="o">-</span><span class="n">loop</span><span class="o">-</span><span class="n">bandwidth</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">200</span><span class="o">&gt;</span><span class="p">;</span>
-
-    <span class="n">adi</span><span class="p">,</span><span class="n">vcxo</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">122880000</span><span class="o">&gt;</span><span class="p">;</span>
-
-    <span class="n">adi</span><span class="p">,</span><span class="n">pll2</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2949120000</span><span class="o">&gt;</span><span class="p">;</span>
-
-    <span class="n">adi</span><span class="p">,</span><span class="n">sysref</span><span class="o">-</span><span class="n">timer</span><span class="o">-</span><span class="n">divider</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1024</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">adi</span><span class="p">,</span><span class="n">pulse</span><span class="o">-</span><span class="n">generator</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-
-    <span class="n">adi</span><span class="p">,</span><span class="n">clkin0</span><span class="o">-</span><span class="n">buffer</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x15</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">adi</span><span class="p">,</span><span class="n">oscin</span><span class="o">-</span><span class="n">buffer</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x15</span><span class="o">&gt;</span><span class="p">;</span>
-
-    <span class="n">adi</span><span class="p">,</span><span class="n">gpi</span><span class="o">-</span><span class="n">controls</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x00</span> <span class="mh">0x00</span> <span class="mh">0x00</span> <span class="mh">0x00</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">adi</span><span class="p">,</span><span class="n">gpo</span><span class="o">-</span><span class="n">controls</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x1f</span> <span class="mh">0x2b</span> <span class="mh">0x00</span> <span class="mh">0x00</span><span class="o">&gt;</span><span class="p">;</span>
-
-    <span class="n">clock</span><span class="o">-</span><span class="n">output</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"hmc7044_out0"</span><span class="p">,</span> <span class="s2">"hmc7044_out1"</span><span class="p">,</span> <span class="s2">"hmc7044_out2"</span><span class="p">,</span>
-                 <span class="s2">"hmc7044_out3"</span><span class="p">,</span> <span class="s2">"hmc7044_out4"</span><span class="p">,</span> <span class="s2">"hmc7044_out5"</span><span class="p">,</span>
-                 <span class="s2">"hmc7044_out6"</span><span class="p">,</span> <span class="s2">"hmc7044_out7"</span><span class="p">,</span> <span class="s2">"hmc7044_out8"</span><span class="p">,</span>
-                 <span class="s2">"hmc7044_out9"</span><span class="p">,</span> <span class="s2">"hmc7044_out10"</span><span class="p">,</span> <span class="s2">"hmc7044_out11"</span><span class="p">,</span>
-                 <span class="s2">"hmc7044_out12"</span><span class="p">,</span> <span class="s2">"hmc7044_out13"</span><span class="p">;</span>
-
-    <span class="n">hmc7044_c2</span><span class="p">:</span> <span class="n">channel</span><span class="o">@</span><span class="mi">2</span> <span class="p">{</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"DAC_CLK"</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">divider</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">driver</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="p">};</span>
-    <span class="n">hmc7044_c3</span><span class="p">:</span> <span class="n">channel</span><span class="o">@</span><span class="mi">3</span> <span class="p">{</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"DAC_SYSREF"</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">divider</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">512</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">driver</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="p">};</span>
-    <span class="n">hmc7044_c12</span><span class="p">:</span> <span class="n">channel</span><span class="o">@</span><span class="mi">12</span> <span class="p">{</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">12</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"FPGA_CLK"</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">divider</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">driver</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="p">};</span>
-    <span class="n">hmc7044_c13</span><span class="p">:</span> <span class="n">channel</span><span class="o">@</span><span class="mi">13</span> <span class="p">{</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">13</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">extended</span><span class="o">-</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"FPGA_SYSREF"</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">divider</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">512</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">adi</span><span class="p">,</span><span class="n">driver</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-</pre></div>
-</div>
 </section>
 </section>
 </section>

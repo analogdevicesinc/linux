@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ltc2358
 
+
 .. _ltc2358:
 
 LTC2358
@@ -39,11 +40,11 @@ Evaluation Boards
 Description
 -----------
 
-This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
-driver, targeting single channel serial interface ADCs. The industrial I/O
-subsystem provides a unified framework for drivers for many different types of
-converters and sensors using a number of different physical interfaces (i2c,
-spi, etc). See :external+system-level:ref:`iio` for more information.
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem driver for
+simultaneous 2-channel LTC2353, 4-channel LTC2357 and 8-channel LTC2358 ADCs.
+The industrial I/O subsystem provides a unified framework for drivers for many
+different types of converters and sensors using a number of different physical
+interfaces (i2c, spi, etc). See :external+system-level:ref:`iio` for more information.
 
 Source Code
 -----------
@@ -77,45 +78,71 @@ Files
      - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,ltc2358.yaml`
      -
 
-Related Device Drivers
-^^^^^^^^^^^^^^^^^^^^^^
+Adding Linux driver support
+---------------------------
 
-.. list-table::
-   :header-rows: 1
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
-   * - Function
-     - File
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
-     -
-   * - include
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
-     -
-   * - hdl
-     - :dokuwiki:`DC2677A </resources/eval/user-guides/dc2677a>`
-     -
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The LTC2358 driver depends on **PWM** and **SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+           -*-   Enable buffer support within IIO
+           -*-   Enable triggered sampling support
+
+                 *** Analog to digital converters ***
+           [--snip--]
+                   -*- Analog Devices High-Speed AXI ADC driver core
+           <*>   Analog Devices LTC2358 ADC driver
+           [--snip--]
+
+                     *** Pulse-Width Modulation (PWM) Support ***
+               [--snip--]
+                   <*>   Analog Devices AXI PWM generator
+               [--snip--]
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Example Linux Device-Tree Initialization
-----------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The LTC2358 driver is a spi-bus driver and can currently only be instantiated
 via device tree.
 
 **Required properties:**
 
-- **compatible**: Must be one of ``adi,ltc2358-18``.
-- **reg**: SPI chip select number for the device
-- **#address-cells**: Must be set to 1
-- **#size-cells**: Must be set to 0
-- **clocks**: define reference clock See
-  Documentation/devicetree/bindings/clock/clock-bindings.txt
-- **clock-names**: See
-  Documentation/devicetree/bindings/clock/clock-bindings.txt
-- **pwms**: define PWM generator controller See
-  Documentation/devicetree/bindings/clock/clock-bindings.txt
-- **pwm-names**: See Documentation/devicetree/bindings/clock/clock-bindings.txt
-- **spi-max-frequency**: See Documentation/devicetree/bindings/spi/spi-bus.txt
+-  **compatible: One of adi,ltc2353-16, adi,ltc2353-18, adi,ltc2357-16,
+   adi,ltc2357-18, adi,ltc2358-16 or adi,ltc2358-18.**
+
+-  **reg**: SPI chip select number for the device
+
+-  **#address-cells**: Must be set to 1
+
+-  **#size-cells**: Must be set to 0
+
+-  **clocks**: define reference clock See
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+
+-  **clock-names**: See
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+
+-  **pwms**: define PWM generator controller See
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+
+-  **pwm-names**: See Documentation/devicetree/bindings/clock/clock-bindings.txt
+
+-  **spi-max-frequency**: See Documentation/devicetree/bindings/spi/spi-bus.txt
 
 **Optional properties:**
 
@@ -200,39 +227,11 @@ via device tree.
    * - DC2677A Device Tree
      - :git+linux:`socfpga_cyclone5_sockit_dc2677a.dts <main:arch/arm/boot/dts/socfpga_cyclone5_sockit_dc2677a.dts>`
 
-Enabling Linux driver support
------------------------------
+Driver testing
+--------------
 
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The LTC2358 driver depends on **PWM** and **SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-           -*-   Enable ring buffer support within IIO
-           -*-     Industrial I/O lock free software ring
-           -*-   Enable triggered sampling support
-
-                 *** Analog to digital converters ***
-           [--snip--]
-                   -*- Analog Devices High-Speed AXI ADC driver core
-           <*>   Analog Devices LTC2358 ADC driver
-           [--snip--]
-
-                     *** Pulse-Width Modulation (PWM) Support ***
-               [--snip--]
-                   <*>   Analog Devices AXI PWM generator
-               [--snip--]
-
-Driver testing / API
---------------------
+API
+~~~
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-device-files
@@ -279,40 +278,34 @@ This device can be found under **/sys/bus/iio/devices/**
 
    root:/sys/bus/iio/devices/iio:device0#
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+^^^^^^^^^^^^^^^^^^^
 
 ::
 
    root:/sys/bus/iio/devices/iio:device0> cat name
    axi-ltc235x
 
-Show channel scale
-^^^^^^^^^^^^^^^^^^
+Basic operation
+^^^^^^^^^^^^^^^
 
-Scale to be applied to in_voltagex_raw in order to obtain the measured voltage
-in millivolts.
+Show channel scale
+""""""""""""""""""
+
+The driver reports scale = 2 × stored_reference_mV / 2^resolution for every
+channel, independently of its SoftSpan code. It does not implement a
+SoftSpan-dependent IIO scale or offset. Therefore the mixed-SoftSpan
+configuration above cannot be assumed to convert every channel to physical
+millivolts using raw × scale alone; verify the HDL data format and span transfer
+function.
 
 ::
 
    root:/sys/bus/iio/devices/iio:device0> cat in_voltage0_scale
    0.015625000
 
-Show channel measurement
-''''''''''''''''''''''''
-
-Raw unscaled voltage measurement on the channel
-
-::
-
-   root:/sys/bus/iio/devices/iio:device0> cat in_voltage0_raw
-   96352
-
-**U** = in_voltage0_raw \* in_voltage0_scale = 96352 \* 0.015625000 = **1505.50
-mV**
-
 Sampling frequency
-''''''''''''''''''
+""""""""""""""""""
 
 The LTC2358 ADC driver supports a variable sampling rate, that can be configured
 dependent on the number of channels.
@@ -326,14 +319,31 @@ See current sampling rate:
 
 Change the sampling rate:
 
-::
+.. code-block:: text
 
    root@analog:/sys/bus/iio/devices/iio:device0# echo 200000 > sampling_frequency
    root@analog:/sys/bus/iio/devices/iio:device0# cat sampling_frequency
-   2000000
+   200000
+
+Valid rates are 100000–200000 Hz for LTC2358, 100000–350000 Hz for LTC2357,
+and 100000–550000 Hz for LTC2353. The buffer must be disabled to change the
+rate.
+
+Show channel measurement
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Raw unscaled voltage measurement on the channel
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat in_voltage0_raw
+   96352
+
+**U** = in_voltage0_raw \* in_voltage0_scale = 96352 \* 0.015625000 = **1505.50
+mV**
 
 Buffer management
------------------
+^^^^^^^^^^^^^^^^^
 
 Every buffer implementation features a set of files:
 
@@ -384,7 +394,11 @@ that will be captured for a single triggered sample set in the buffer.
    -r--r--r-- 1 root root 4096 Apr  2 23:50 in_voltage7_type
    root:/sys/bus/iio/devices/iio:device0/buffer>
 
-Enable and read 400 samples from both channels:
+Enable channel 0 and read from the buffer. Each enabled channel occupies 32 bits
+of storage per scan, so the ``hexdump -n`` byte count is 4 x (enabled channels)
+x (scans). ``buffer/length`` sets the buffer capacity in scans. The transcript
+below dumps 400 bytes (100 scans of channel 0); use ``hexdump -n 1600`` to read
+all 400 scans of one channel, or ``-n 3200`` with two channels enabled.
 
 ::
 
@@ -421,10 +435,10 @@ Enable and read 400 samples from both channels:
    root@analog:/sys/bus/iio/devices/iio:device0/# echo 0 > buffer/enable
 
 Debug mode
-~~~~~~~~~~
+""""""""""
 
-You can write and read the ADC registers using debugfs. Here we will read the
-configuration number for softspan code set in channel 0.
+You can write and read the AXI ADC HDL core registers (FPGA MMIO) using debugfs.
+Here we will read the SoftSpan code configured for channel 0.
 
 First go to the device debug folder:
 
@@ -432,11 +446,13 @@ First go to the device debug folder:
 
    root@analog# cd /sys/kernel/debug/iio/iio:device0
 
-Read the 0x0440 register:
+Read the AXI HDL SoftSpan register for channel 0 at 0x0428 (the register for
+channel N is at 0x0428 + 0x40 x N). These are FPGA register accesses, not ADC
+SPI register accesses.
 
 ::
 
-   root@analog:/sys/kernel/debug/iio/iio:device0# echo 0x0440 > direct_reg_access
+   root@analog:/sys/kernel/debug/iio/iio:device0# echo 0x0428 > direct_reg_access
    root@analog:/sys/kernel/debug/iio/iio:device0# cat direct_reg_access
    0x1
 
@@ -446,3 +462,22 @@ More Information
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-pointers
    :end-before: .. end-iio-pointers
+
+Related Device Drivers
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
+     -
+   * - include
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
+     -
+   * - hdl
+     - :dokuwiki:`DC2677A </resources/eval/user-guides/dc2677a>`
+     -

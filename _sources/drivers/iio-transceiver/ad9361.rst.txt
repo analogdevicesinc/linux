@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/ad9361
 
+
 .. _ad9361:
 
 AD9361
@@ -14,22 +15,14 @@ mixed-signal baseband section and integrated frequency synthesizers, simplifying
 design-in by providing a configurable digital interface to a processor.
 
 Supported Devices
------------------
+~~~~~~~~~~~~~~~~~
 
 - :adi:`AD9361`
 - :adi:`AD9363`
 - :adi:`AD9364`
 
-Reference Circuits
-------------------
-
-- :adi:`AD-FMCOMMS2-EBZ`
-- :adi:`AD-FMCOMMS3-EBZ`
-- :adi:`AD-FMCOMMS4-EBZ`
-- :adi:`AD-FMCOMMS5-EBZ`
-
 Evaluation Boards
------------------
+~~~~~~~~~~~~~~~~~
 
 - :adi:`AD-FMCOMMS2-EBZ`
 - :adi:`AD-FMCOMMS3-EBZ`
@@ -37,7 +30,7 @@ Evaluation Boards
 - :adi:`AD-FMCOMMS5-EBZ`
 
 Description
------------
+~~~~~~~~~~~
 
 This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
 driver, targeting RF Transceivers. The industrial I/O subsystem provides a
@@ -45,11 +38,39 @@ unified framework for drivers for many different types of converters and sensors
 using a number of different physical interfaces (i2c, spi, etc). See
 :external+system-level:ref:`iio` for more information.
 
+Driver features and limitations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Choose the correct IIO device
+-----------------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Task
+     - Interface
+   * - LO frequency, RF bandwidth, gain, calibration and tracking
+     - The ``ad9361-phy`` control device, accessed through SPI
+   * - Buffered receive samples
+     - The companion AXI ADC IIO device in the FPGA reference design
+   * - Buffered transmit samples or DDS generation
+     - The companion AXI DDS/DAC IIO device
+
+The PHY does not own an IIO sample buffer. Sample data travels through the
+CMOS/LVDS digital interface; changing a PHY attribute is not a capture or
+playback operation. Discover the control and sample devices separately rather
+than assuming adjacent IIO device numbers.
+
+RX gain, TX attenuation, RF-port selection, sample-rate/filter controls and
+calibration are available through the PHY. Channel availability depends on the
+part and configured receive/transmit mode; a second channel must not be assumed
+on a single-channel variant.
+
 Source Code
------------
+~~~~~~~~~~~
 
 Status
-~~~~~~
+^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -64,7 +85,7 @@ Status
      -
 
 Files
-~~~~~
+^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -85,44 +106,45 @@ Files
      - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,ad9361.txt`
      -
 
-Related Device Drivers
-^^^^^^^^^^^^^^^^^^^^^^
+Adding Linux driver support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. list-table::
-   :header-rows: 1
+Configure kernel support first, then select the devicetree for the target
+platform. Keep board-specific customization with that setup rather than mixing
+it into runtime control examples.
 
-   * - Function
-     - File
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
-     -
-   * - include
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
-     -
+Kernel configuration
+^^^^^^^^^^^^^^^^^^^^
 
-.. list-table::
-   :header-rows: 1
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
 
-   * - Function
-     - File
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
-     -
-   * - include
-     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.h`
-     -
+.. note::
 
-Device Driver Customization
----------------------------
+   The AD9361 driver depends on **CONFIG_SPI**
 
-Please follow the link here for detailed options and examples:
+::
 
-- :ref:`ad9361-customization`
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+           -*-   Enable buffer support within IIO
+           -*-   Enable triggered sampling support
+
+                 *** Analog to digital converters ***
+           [--snip--]
+
+           <*>   Analog Devices AD9467 AD9643 High-Speed AXI ADC driver
+
+           [--snip--]
+
+Devicetree configuration
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Start with the reference design for the board and variant being used. The
+example links below belong to specific FMCOMMS platforms; consult the binding
+and customization page when adapting the design.
 
 Example Linux Device-Tree Initialization
 ----------------------------------------
@@ -147,44 +169,27 @@ Required devicetree properties:
    * - FMCOMMS5 Device Tree
      - :git+linux:`adi-fmcomms5.dtsi <main:arch/arm/boot/dts/adi-fmcomms5.dtsi>`
 
-Enabling Linux driver support
------------------------------
+Device Driver Customization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
+Please follow the link here for detailed options and examples:
 
-.. note::
+- :ref:`ad9361-customization`
 
-   The AD9361 driver depends on **CONFIG_SPI**
+.. _ad9361-external-rf-band-control:
 
-Adding Linux driver support
----------------------------
+External RF-band control
+^^^^^^^^^^^^^^^^^^^^^^^^
 
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
+Boards with GPIO-controlled external RF filters can use
+``CONFIG_AD9361_EXT_BAND_CONTROL`` together with the external-band-control
+devicetree configuration. The driver selects the corresponding RX or TX band
+settings when the LO changes.
 
-::
+This support is optional and requires external band-control hardware.
 
-   Linux Kernel Configuration
-       Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-           -*-   Enable ring buffer support within IIO
-           -*-     Industrial I/O lock free software ring
-           -*-   Enable triggered sampling support
-
-                 *** Analog to digital converters ***
-           [--snip--]
-
-           <*>   Analog Devices AD9467 AD9643 High-Speed AXI ADC driver
-
-           [--snip--]
-
-Hardware configuration
-----------------------
-
-Driver testing / API
---------------------
+Driver testing
+~~~~~~~~~~~~~~
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-device-files
@@ -197,8 +202,46 @@ Driver testing / API
    - :external+system-level:ref:`iio-oscilloscope`
    - :dokuwiki:`AD936X Plugin Description </resources/tools-software/linux-software/fmcomms2_plugin>`
 
+Identify the device
+^^^^^^^^^^^^^^^^^^^
+
+Locate the transceiver control device by name before using the commands below.
+Device numbers can change between systems.
+
+.. code-block:: text
+
+   for d in /sys/bus/iio/devices/iio:device*; do
+       [ "$(cat "$d/name" 2>/dev/null)" = "ad9361-phy" ] && printf '%s\n' "$d"
+   done
+
+The existing examples use ``iio:device1``. Substitute the discovered
+control-device path.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device1> cat name
+   ad9361-phy
+
+Basic operation
+^^^^^^^^^^^^^^^
+
+Begin with read-only checks of the control device. For an instance discovered as
+``iio:device1``:
+
+.. code-block:: text
+
+   cd /sys/bus/iio/devices/iio:device1
+   cat name
+   cat ensm_mode
+   cat in_voltage_sampling_frequency
+   cat out_voltage_sampling_frequency
+
+The sample-frequency attributes report rates in hertz. Follow the individual
+task sections below to change settings and read back the resulting
+configuration. These control checks do not capture or transmit sample buffers.
+
 General attribute naming convention:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - ``in_voltage0_[…]``: targets RX1
 - ``in_voltage1_[…]``: targets RX2 (AD9361 in 2RX2TX mode only)
@@ -295,16 +338,8 @@ General attribute naming convention:
 
    root:/sys/bus/iio/devices/iio:device1#
 
-Show device name
-~~~~~~~~~~~~~~~~
-
-::
-
-   root:/sys/bus/iio/devices/iio:device1> cat name
-   ad9361-phy
-
 Enable State Machine Controls
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The AD9361 transceiver includes an Enable State Machine (ENSM), allowing real
 time control over the current state of the device. The ENSM has two possible
@@ -353,12 +388,20 @@ operation depending on the configuration.
    :git+linux_image_ADI-scripts:`test_ensm_pinctrl.sh <test_ensm_pinctrl.sh+>`
 
 Local Oscillator Control (LO)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+An RX LO change reloads the receive gain table for the new frequency. A TX LO
+change can schedule quadrature recalibration when automatic calibration is
+enabled and the frequency-change threshold is exceeded. Include gain and
+calibration state in a retuning check. For boards with external filter
+switching, see :ref:`External RF-band control <ad9361-external-rf-band-control>`.
 
 The AD9361 transceiver contains two identical RFPLL synthesizers to generate the
 required LO signals. One is programmed for the RX channel and the other for the
-TX channel. The tuning range supported by this driver covers 70MHz to 6GHz
-(AD9363: 325-3800 MHz) with 2Hz tuning granularity.
+TX channel. For AD9361/AD9364, the driver enforces a 70 MHz RX minimum and a
+46,875,001 Hz TX minimum, with a 6 GHz maximum. AD9363 retains its narrower
+device limits. Query each LO frequency_available attribute for the
+driver-advertised bounds; board RF performance is a separate constraint.
 
 ::
 
@@ -370,7 +413,7 @@ TX channel. The tuning range supported by this driver covers 70MHz to 6GHz
   2450000000
 
 Local Oscillator Power-down
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------
 
 If both, the TX and RX Local Oscillators (LO) are set to the same frequency or
 very close to each other. The TX LO may leak into the RX path. Usually this is
@@ -391,7 +434,7 @@ calibration to fail.
    1
 
 External LO Support
-^^^^^^^^^^^^^^^^^^^
+-------------------
 
 The driver allows switching between external and internal LO on the fly. Writing
 1 into out_altvoltage0_RX_LO_external/out_altvoltage1_TX_LO_external switches to
@@ -428,7 +471,7 @@ Example:
   1
 
 FASTLOCK MODE
-^^^^^^^^^^^^^
+-------------
 
 The device includes a Fast Lock mode that makes it possible to achieve faster
 than normal frequency changes by storing sets of synthesizer programming
@@ -447,7 +490,7 @@ can be defined at any convenient time.
    :git+linux_image_ADI-scripts:`test_tx_fastlock_pinctrl.sh <test_tx_fastlock_pinctrl.sh+>`
 
 Create Profile
-''''''''''''''
+""""""""""""""
 
 To create a profile tune the synthesizer and then write the target profile
 number into out_altvoltageX_fastlock_store.
@@ -460,7 +503,7 @@ Valid profile range is from 0..7
    root:/sys/bus/iio/devices/iio:device1> echo 0 > out_altvoltage0_RX_LO_fastlock_store
 
 Recall Profile
-''''''''''''''
+""""""""""""""
 
 To recall a profile write the target profile number into
 out_altvoltageX_fastlock_recall. Valid profile range is from 0..7.
@@ -477,7 +520,7 @@ This will moves the device into fastlock mode.
    root:/sys/bus/iio/devices/iio:device1> echo 0 > out_altvoltage0_RX_LO_fastlock_recall
 
 Saving a Profile
-''''''''''''''''
+""""""""""""""""
 
 In order to use more than 8 Profiles – an existing profile can be read back and
 stored by the user application.
@@ -491,7 +534,7 @@ The format is: Profile# val0,val1,val2,…,val15
    0 240,0,202,204,12,80,24,16,187,255,60,238,113,233,93,174
 
 Loading a Profile
-'''''''''''''''''
+"""""""""""""""""
 
 A previously saved profile can be loaded in any of the 8 available slots. Write
 the profile string into out_altvoltageX_fastlock_load
@@ -503,7 +546,7 @@ The format is: Profile# val0,val1,val2,…,val15
    root:/sys/bus/iio/devices/iio:device1>  echo 0 240,0,202,204,12,80,24,16,187,255,60,238,113,233,93,174 > out_altvoltage0_RX_LO_fastlock_load
 
 RX Signal Path
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 The AD9361 RX signal path passes downconverted signals (I and Q) to the baseband
 receiver section. The baseband RX signal path is composed of two programmable
@@ -537,7 +580,7 @@ twice the TX rate.
    here:`filters <https://github.com/analogdevicesinc/iio-oscilloscope/tree/master/filters>`__
 
 Setting / Querying the RX Sample Rate
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------------
 
 ::
 
@@ -548,7 +591,7 @@ Setting / Querying the RX Sample Rate
    10000000
 
 List chosen RX Path Rates
-^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------
 
 This attribute lists the current rates in the various digital blocks.
 
@@ -583,7 +626,7 @@ This attribute lists the current rates in the various digital blocks.
    BBPLL:983040000 ADC:245760000 R2:122880000 R1:61440000 RF:30720000 RXSAMP:30720000
 
 TX Signal Path
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 The AD9361 TX signal path receives 12-bit 2s complement data in I-Q format from
 the AD9361 digital interface, and each channel (I and Q) passes this data
@@ -606,9 +649,11 @@ function.
 The high level out_voltage_sampling_frequency attribute effectively controls the
 BBPLL frequency the ADC Sample clock, the DAC clock and all following
 interpolation filter blocks except the FIR block which is handled upon user
-configuration. This IIO device attribute allows the user to control the Baseband
-(BB) Sample Rate in Hz granularity in the range from 218KSPS up to 61.44MSPS,
-also depending on the FIR filter decimation chosen.
+configuration. This IIO device attribute controls the baseband sample rate in
+Hz. The advertised minimum is derived from MIN_ADC_CLK / (12 × TX FIR
+interpolation), with a maximum of 61.44 MSPS, subject to the clock-chain and
+RX/TX ratio constraints. With the 25 MHz ADC minimum and interpolation by four,
+the advertised integer minimum is 520833 samples/s.
 out_voltage_sampling_frequency as well as in_voltage_sampling_frequency are not
 entirely independent, by default the both need to match unless
 adi,fdd-rx-rate-2tx-enable is set. Then RX rate can be twice the TX rate,
@@ -626,18 +671,18 @@ feedback clock must be externally divided.
    here:`filters <https://github.com/analogdevicesinc/iio-oscilloscope/tree/master/filters>`__
 
 Setting / Querying the TX Sample Rate
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------------
 
-::
+.. code-block:: text
 
    root:/sys/bus/iio/devices/iio:device1> cat out_voltage_sampling_frequency
    30720000
-   root:/sys/bus/iio/devices/iio:device1> echo 10000000 >  out _voltage_sampling_frequency
-   root:/sys/bus/iio/devices/iio:device1> cat out _voltage_sampling_frequency
+   root:/sys/bus/iio/devices/iio:device1> echo 10000000 > out_voltage_sampling_frequency
+   root:/sys/bus/iio/devices/iio:device1> cat out_voltage_sampling_frequency
    10000000
 
 List chosen TX Path Rates
-^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------
 
 This attribute lists the current rates in the various digital blocks.
 
@@ -672,7 +717,7 @@ This attribute lists the current rates in the various digital blocks.
    BBPLL:983040000 DAC:122880000 T2:122880000 T1:61440000 TF:30720000 TXSAMP:30720000
 
 Rate Governors
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 The rate governor option allows the user to influence the ADC sample rate and
 decimation/interpolation rates chosen in the followed digital blocks. It mainly
@@ -682,7 +727,7 @@ necessarily produce higher performance. Therefore the default setting of Nominal
 is always a good option.
 
 List available Rate Governors
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------
 
 ::
 
@@ -690,7 +735,7 @@ List available Rate Governors
    nominal highest_osr
 
 Selecting Rate Governor
-^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------
 
 ::
 
@@ -701,7 +746,30 @@ Selecting Rate Governor
    nominal
 
 Digital FIR Filter controls
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+FIR decimation/interpolation, RX/TX sample rates and analog bandwidth share
+configuration dependencies. A sample-rate change reconfigures the clock chain
+and reapplies RF bandwidth settings; use a FIR configuration designed for the
+intended rate and bandwidth.
+
+After the filter-loading and enable operations below, read back the resulting
+configuration from the PHY directory:
+
+.. code-block:: text
+
+   cat in_voltage_sampling_frequency
+   cat out_voltage_sampling_frequency
+   cat rx_path_rates
+   cat tx_path_rates
+   cat in_voltage_rf_bandwidth
+   cat out_voltage_rf_bandwidth
+   cat in_voltage_filter_fir_en
+   cat out_voltage_filter_fir_en
+
+Query ``in_voltage_sampling_frequency_available`` and
+``out_voltage_sampling_frequency_available`` for the active configuration when
+selecting rates.
 
 The last/first digital filter in the RX/TX signal path is a programmable
 poly-phase FIR filter. The RX/TX FIR filter can decimate/interpolate by a factor
@@ -710,9 +778,11 @@ configurable in groups of 16 between a minimum of 16 and a maximum of 128 taps.
 The RX FIR also has a programmable gain of -12dB, -6dB, 0dB, or +6dB. The filter
 provides a fixed +6dB gain to maximize dynamic range, so the programmable gain
 is typically set to -6dB to produce a net gain of 0dB. The TX FIR also has a
-programmable gain setting of 0dB or -6dB. Be aware there are some limitations in
-terms of the maximum number of taps supported by the different clock ratios,
-please consult the AD9361 manual for more details. The AD9361 device driver will
+programmable gain setting of 0dB or -6dB. The available tap count also depends
+on the filter clock-to-data-rate ratio. In addition, TX FIR interpolation by 1
+limits the filter to 64 taps; interpolation by 2 or 4 can support up to 128 taps
+when the clock ratio permits. The RX FIR can use 128 taps at any supported
+decimation factor when its clock ratio permits. The AD9361 device driver will
 warn if a programmed filter doesn’t match the limits.
 
 In general the filters are either created using the:
@@ -724,7 +794,7 @@ Some per-generated examples can be found here:
 :git+iio-oscilloscope:`AD936x example filters <filters+>`
 
 Query current filter Configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------------
 
 ::
 
@@ -735,7 +805,7 @@ Return Value: **Rx** <Num Taps>,<Decimation factor> **Tx** <Num
 Taps>,<Interpolation factor>
 
 Load a Filter
-^^^^^^^^^^^^^
+-------------
 
 Query current filter Configuration
 
@@ -754,7 +824,7 @@ Each file requires a short header:
 - Syntax and examples shown below
 
 Syntax
-''''''
+""""""
 
 ::
 
@@ -770,7 +840,7 @@ Syntax
    <tx-coefN-1, rx-coefN-1>
 
 Examples
-''''''''
+""""""""
 
 ::
 
@@ -808,7 +878,7 @@ Examples
    --snip--
 
 Filter Enable / Disable
-'''''''''''''''''''''''
+"""""""""""""""""""""""
 
 To enable or disable the RX or TX path filters simply write 0,N or 1,Y to one of
 below control files. Combo attribute in_out_voltage_filter_fir_en allows to
@@ -835,10 +905,10 @@ chosen.
    0
 
 RF Bandwidth Analog Filter Control
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 RX RF Bandwidth Control
-^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------
 
 The AD9361 features several Rx Analog Filter Blocks (RX TIA LPF, RX BB LPF)
 Analog filtering before the ADC reduces spurious signal levels by removing mixer
@@ -859,7 +929,7 @@ These filters can be set by writing a single device attribute
    9000000
 
 TX RF Bandwidth Control
-^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------
 
 The AD9361 features several Tx Analog Filter Blocks (TX BB LPF, TX Secondary
 LPF) Analog filtering after the DAC reduces spurious outputs by removing
@@ -880,7 +950,7 @@ These filters can be set by writing a single device attribute
    9000000
 
 RX Gain Control
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^
 
 The versatile and highly configurable AD9361 transceiver has several gain
 control modes that enable its use in a variety of applications. Fully automatic
@@ -960,7 +1030,7 @@ Example:
   the moment default is always RX1 and RX2)
 
 Loading a gain table
-^^^^^^^^^^^^^^^^^^^^
+--------------------
 
 ::
 
@@ -970,7 +1040,7 @@ Loading a gain table
    root@analog:/sys/bus/iio/devices/iio:device1# cat /lib/firmware/ad9361_std_gaintable > gain_table_config
 
 Reading a gain table
-^^^^^^^^^^^^^^^^^^^^
+--------------------
 
 Reading the gain_table_config attribute returns the current gain table that is
 loaded into the transceiver IC. The printed format matches the format used in
@@ -1009,7 +1079,7 @@ Reading the gain table only displays the gain table that will be used with the c
    </gaintable>
 
 Gain control modes
-^^^^^^^^^^^^^^^^^^
+------------------
 
 ::
 
@@ -1048,7 +1118,11 @@ Gain control modes
        of the signal arrives.
 
 Querying or Setting a Gain Control Mode
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------------------
+
+Before using the manual-gain write example, select ``manual`` for the same RX
+channel with the mode-setting commands below. Record the original mode and
+restore it after a temporary manual-gain experiment.
 
 ::
 
@@ -1064,7 +1138,7 @@ Querying or Setting a Gain Control Mode
    slow_attack
 
 Reading the current Gain
-^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------
 
 Supported in all available Gain control modes
 
@@ -1079,7 +1153,7 @@ Supported in all available Gain control modes
    71.000000 dB
 
 MGC setting the current Gain
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 Only available in Manual Gain Control Mode (MGC)
 
@@ -1090,7 +1164,7 @@ Only available in Manual Gain Control Mode (MGC)
    42.000000 dB
 
 Tx Attenuation Control
-~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^
 
 The TX attenuation/gain can be individually controlled for TX1 and TX2. The
 range is from 0 to -89.75 dB in 0.25dB steps. The nomenclature used here is gain
@@ -1110,7 +1184,7 @@ instead of attenuation, so all values are expressed negative.
    -10.000000 dB
 
 Received Strength Signal Indicator (RSSI)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Given the wide variety of applications for which the AD9361 is suited, the
 received strength signal indicator (RSSI) may be setup in one of several
@@ -1136,7 +1210,7 @@ injected signal level at the antenna port.
    116.75 dB
 
 TX Received Strength Signal Indicator (TX RSSI)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Recognizing that in TDD systems the receiver and transmitter are not operating
 simultaneously, the AD9361 provides the ability to reuse the receiver circuitry
@@ -1160,10 +1234,15 @@ RSSI measurements.
    root:/sys/bus/iio/devices/iio:device1> cat out_voltage1_rssi
    0.00 dB
 
+
 .. _ad9361 calibration-mode-controls:
 
 Calibration Mode Controls
-~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``calib_mode`` options below control calibration policy or request an
+individual calibration. Selecting ``manual`` disables automatic calibration
+policy; it does not disable the separate RX tracking controls.
 
 ::
 
@@ -1205,7 +1284,7 @@ Calibration Mode Controls
    root:/sys/bus/iio/devices/iio:device1> echo tx_quad > calib_mode
 
 With optional calibration phase offset value
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------------------------
 
 :ez:`Please see the FAQ for more information <docs/DOC-3143>`
 
@@ -1214,14 +1293,18 @@ With optional calibration phase offset value
    root:/sys/bus/iio/devices/iio:device1> echo tx_quad 14 > calib_mode
 
 Force tx quad phase search
-''''''''''''''''''''''''''
+""""""""""""""""""""""""""
 
 ::
 
    root:/sys/bus/iio/devices/iio:device1> echo tx_quad -2 > calib_mode
 
 Calibration Tracking Controls
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------
+
+RX quadrature tracking operates on received data and begins in RX or FDD state,
+as described in UG-570. An enabled tracking attribute therefore does not
+establish that an idle receiver has completed a fresh correction.
 
 Writing 0, N or 1, Y to the below attributes either disables or enables the
 corresponding tracking option.
@@ -1246,7 +1329,7 @@ corresponding tracking option.
    1
 
 RF Port Selection
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 Each receive channel has 3 differential or 6 single ended inputs that can be
 multiplexed to the signal chain, likewise each transmitter has 2 differential
@@ -1295,7 +1378,7 @@ outputs that can be chosen from.
    root:/sys/bus/iio/devices/iio:device1> echo B_BALANCED > in_voltage0_rf_port_select
 
 DCXO Tuning (digital controlled crystal oscillator)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The AD9361 can either be clocked from an external clock source or a local
 `crystal oscillator <https://en.wikipedia.org/wiki/Crystal_oscillator>`__ (XO).
@@ -1348,7 +1431,7 @@ The DCXO can be tuned using the coarse and fine tune attributes detailed below.
    5930
 
 XO Correction
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 
 For systems that are using single ended crystal oscillators, or an external
 clock source and driving it into the XTALN pin, some correction may be
@@ -1376,7 +1459,7 @@ LO, or sample rates)
    40000005
 
 Die Temperature Reading
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 For accurate results this read back requires a one-point factory calibration.
 Determine the offset between this readback in millidegree Celsius and the known
@@ -1399,7 +1482,7 @@ Example:
    29825
 
 AuxADC Reading
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 There is an Auxiliary ADC on the chip - that can be read like any other IIO ADC.
 
@@ -1420,7 +1503,7 @@ To obtain the reading in mV calculate: *(in_voltage2_raw + in_voltage2_offset)
    in_voltage2_scale:0.305250
 
 AuxDAC Writing
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 There are 2 Auxiliary DACs on the chip.
 
@@ -1441,7 +1524,7 @@ Attributes are:
    root:/sys/bus/iio/devices/iio:device1> echo 1000 > out_voltage2_raw
 
 RSSI Gain Step Calibration
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The RSSI gain step calibration can be run by setting **calib_mode** to
 **rssi_gain_step** (See: :ref:`ad9361 calibration-mode-controls`).
@@ -1460,8 +1543,22 @@ Index 2, LNA Gain difference word for Index 3).
    mixer_error: 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 0
    gain_step_calib_reg_val: 192 44 16 6 0
 
+Troubleshooting
+~~~~~~~~~~~~~~~
+
+Control access works but samples are missing
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+#. Confirm that the device being used for capture is the AXI receive device, not
+   ``ad9361-phy``.
+#. Check the active PHY RX rate, RF port, LO and ENSM state using the normal
+   attributes.
+#. Check scan-element and buffer configuration on the sample device.
+#. Use the existing BIST, loopback and digital-interface timing procedures below
+   to investigate the data path.
+
 Advanced Debug Facilities
--------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The AD9361 driver supports a number of advanced debug controls via the kernel
 `debugfs <https://en.wikipedia.org/wiki/debugfs>`__. How these device
@@ -1470,7 +1567,7 @@ files/controls can be used is described here. The
 directly controls these and adds a user friendly interface.
 
 Runtime Device Driver Customization
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------------
 
 There is a large number of :ref:`ad9361-customization` options available.
 Typically these are supplied via
@@ -1528,7 +1625,7 @@ Change directory to **/sys/kernel/debug**/iio/ iio:deviceX.
    loopback
 
 Example to change the driver from FDD into TDD mode operation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 ::
 
@@ -1545,7 +1642,7 @@ Example to change the driver from FDD into TDD mode operation
    sleep wait alert rx tx pinctrl
 
 GPO Manual Control
-~~~~~~~~~~~~~~~~~~
+------------------
 
 This attribute allows controlling the GPO[0..3] via debugfs. In order to use
 these pins, ``adi,gpo-manual-mode-enable`` must be enabled.
@@ -1588,7 +1685,7 @@ GPOs can be addressed individual 0..3 or altogether using 0xF as Identifier.
    # echo 0xF 0 > gpo_set
 
 Build-In Self-Test (BIST)
-~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------
 
 Controling these attribute files directly take effect and therefore don’t
 require the ``initialize`` sequence. Test functionality exposed here is only
@@ -1596,7 +1693,7 @@ meant to route or inject test patterns/data than can be used to validate the
 Digital Interface or functionality of the device.
 
 BIST Tone
-^^^^^^^^^
+"""""""""
 
 User selectable tone (with frequency and level selection), that can either
 injected into the RX or TX path. A MASK can be supplied to disable certain
@@ -1678,7 +1775,7 @@ SYNTAX:
    root@analog:/sys/kernel/debug/iio/iio:device1# echo 2 0 6 0 > bist_tone
 
 PRBS
-^^^^
+""""
 
 Pseudorandom Binary Sequence
 (`PRBS <https://en.wikipedia.org/wiki/Pseudorandom_binary_sequence>`__) that can
@@ -1709,7 +1806,7 @@ SYNTAX:
    root@analog:/sys/kernel/debug/iio/iio:device1# echo 2 > bist_prbs
 
 BIST Loopback
-^^^^^^^^^^^^^
+"""""""""""""
 
 Allows either to digitally loopback TX data into the RX path or vice versa.
 
@@ -1745,27 +1842,59 @@ Allows either to digitally loopback TX data into the RX path or vice versa.
    root@analog:/sys/kernel/debug/iio/iio:device1# echo 1 > loopback
 
 BIST Timing Analysis
-^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""
 
 **bist_timing_analysis**: See here:
 :dokuwiki:`Digital Interface Timing Verification </resources/eval/user-guides/ad-fmcomms2-ebz/interface_timing_validation>`
 
 Digital Tune
-^^^^^^^^^^^^
+""""""""""""
 
 **digital_tune**: See here:
 :dokuwiki:`Digital Interface Timing Verification </resources/eval/user-guides/ad-fmcomms2-ebz/interface_timing_validation>`
 
 Low level register access via debugfs (direct_reg_access)
----------------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-low-level-register-access-via-debugfs-direct-reg-access
    :end-before: .. end-low-level-register-access-via-debugfs-direct-reg-access
 
 More Information
-----------------
+~~~~~~~~~~~~~~~~
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-pointers
    :end-before: .. end-iio-pointers
+
+Related Device Drivers
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
+     -
+   * - include
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
+     -
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
+     -
+   * - include
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.h`
+     -

@@ -100,9 +100,14 @@
 <li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
 <li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
 <li><a class="reference internal" href="#description">Description</a></li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
-<li><a class="reference internal" href="#devicetree-bindings">Devicetree bindings</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-device-initialization">Example device initialization</a><ul>
 <li><a class="reference internal" href="#i2c-mode">I2C mode</a><ul>
 <li><a class="reference internal" href="#hw-mode">HW mode</a></li>
@@ -110,15 +115,27 @@
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#kernel-configuration">Kernel configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#routing-and-dapm">Routing and DAPM</a><ul>
 <li><a class="reference internal" href="#asoc-dapm-widgets-hw-mode">ASoC DAPM widgets (HW Mode)</a></li>
 <li><a class="reference internal" href="#asoc-dapm-widgets-i2c">ASoC DAPM widgets (I2C)</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#alsa-controls">ALSA controls</a></li>
+<li><a class="reference internal" href="#dai-formats-and-clocks">DAI formats and clocks</a><ul>
 <li><a class="reference internal" href="#dai-configuration">DAI Configuration</a><ul>
 <li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#more-information">More information</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
 </ul>
@@ -220,6 +237,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -238,7 +256,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -398,8 +415,10 @@ TDM mode, disable/enable inputs, etc… Furthermore, the device can also operate
 in HW only mode where the I2C interface is disabled. In this mode, only TDM mode
 is supported.</p>
 </section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
 <section id="status">
-<h2>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h2>
+<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -435,7 +454,7 @@ is supported.</p>
 </div>
 </section>
 <section id="files">
-<h2>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h2>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -469,70 +488,11 @@ is supported.</p>
 </table>
 </div>
 </section>
-<section id="devicetree-bindings">
-<h2>Devicetree bindings<a class="headerlink" href="#devicetree-bindings" title="Link to this heading"></a></h2>
-<p>The ADAU7118 driver is fully devicetree compatible.</p>
-<p><strong>Required properties:</strong></p>
-<ul class="simple">
-<li><p><strong>compatible</strong>: Must be <code class="docutils literal notranslate"><span class="pre">adi,adau7118</span></code></p></li>
-<li><p><strong>#sound-dai-cells</strong>: Must be 0</p></li>
-</ul>
-<p><strong>Optional properties:</strong></p>
-<ul class="simple">
-<li><p><strong>reg</strong>: I2C address when the device is used with I2C support.</p></li>
-<li><p><strong>IOVDD-supply</strong>: Phandle and specifier for the power supply providing the
-IOVDD supply as covered in
-Documentation/devicetree/bindings/regulator/regulator.txt. If this property is
-not present it is assumed that the supply pin is hardwired to always on.</p></li>
-<li><p><strong>DVDD-supply</strong>: Phandle and specifier for the power supply providing the DVDD
-supply as covered in
-Documentation/devicetree/bindings/regulator/regulator.txt. If this property is
-not present it is assumed that the supply pin is hardwired to always on.</p></li>
-<li><p><strong>adi,decimation-ratio</strong>: Set’s the decimation ratio of PDM to PCM audio data.</p></li>
-<li><p><strong>adi,pdm-clk-map</strong>: The ADAU7118 has two PDM clocks for the four Inputs. Each
-input must be assigned to one of these two clocks. This property set’s the
-mapping between the clocks and the inputs.</p></li>
-</ul>
 </section>
-<section id="example-device-initialization">
-<h2>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h2>
-<p>The ADAU7118 supports I2C interface and can operate in HW only mode (no
-communications with the device). Currently, the devices can only be instantiated
-via device tree.</p>
-<section id="i2c-mode">
-<h3>I2C mode<a class="headerlink" href="#i2c-mode" title="Link to this heading"></a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">i2c0</span> <span class="p">{</span>
-         <span class="c1">#address-cells = &lt;1&gt;;</span>
-         <span class="c1">#size-cells = &lt;0&gt;;</span>
-         <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
-         <span class="n">adau7118_codec</span><span class="p">:</span> <span class="n">adau7118</span><span class="o">-</span><span class="n">codec</span><span class="o">@</span><span class="mi">14</span> <span class="p">{</span>
-                 <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adau7118"</span><span class="p">;</span>
-                 <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x14</span><span class="o">&gt;</span><span class="p">;</span>
-                 <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
-                 <span class="n">adi</span><span class="p">,</span><span class="n">pdm</span><span class="o">-</span><span class="n">clk</span><span class="o">-</span><span class="nb">map</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span> <span class="mi">1</span> <span class="mi">0</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-                 <span class="n">adi</span><span class="p">,</span><span class="n">decimation</span><span class="o">-</span><span class="n">ratio</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">16</span><span class="o">&gt;</span><span class="p">;</span>
-         <span class="p">};</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-<section id="hw-mode">
-<h4>HW mode<a class="headerlink" href="#hw-mode" title="Link to this heading"></a></h4>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">/</span> <span class="p">{</span>
-         <span class="n">adau7118_codec</span><span class="p">:</span> <span class="n">adau7118</span><span class="o">-</span><span class="n">codec</span><span class="o">@</span><span class="mi">14</span> <span class="p">{</span>
-                 <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adau7118"</span><span class="p">;</span>
-                 <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x14</span><span class="o">&gt;</span><span class="p">;</span>
-                 <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
-                 <span class="n">IOVDD</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">supply</span><span class="o">&gt;</span><span class="p">;</span>
-                 <span class="n">DVDD</span><span class="o">-</span><span class="n">supply</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">supply2</span><span class="o">&gt;</span><span class="p">;</span>
-         <span class="p">};</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-</section>
-</section>
-</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
 <section id="kernel-configuration">
-<h2>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h2>
+<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
 <span class="o">&lt;*&gt;</span> <span class="n">Sound</span> <span class="n">card</span> <span class="n">support</span>  <span class="o">---&gt;</span>
 <span class="o">&lt;*&gt;</span>   <span class="n">Advanced</span> <span class="n">Linux</span> <span class="n">Sound</span> <span class="n">Architecture</span>  <span class="o">---&gt;</span>
@@ -543,8 +503,78 @@ via device tree.</p>
 </pre></div>
 </div>
 </section>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
+<p>The ADAU7118 driver is fully devicetree compatible.</p>
+<p><strong>Required properties:</strong></p>
+<ul class="simple">
+<li><p><strong>compatible</strong>: Must be <code class="docutils literal notranslate"><span class="pre">adi,adau7118</span></code></p></li>
+<li><p><strong>#sound-dai-cells</strong>: Must be 0</p></li>
+<li><p><strong>iovdd-supply</strong>: Regulator phandle for the digital I/O supply.</p></li>
+<li><p><strong>dvdd-supply</strong>: Regulator phandle for the internal core digital supply.</p></li>
+</ul>
+<p><strong>Optional properties:</strong></p>
+<ul class="simple">
+<li><p><strong>reg</strong>: I2C address when the device is used with I2C support.</p></li>
+<li><p><strong>adi,decimation-ratio</strong>: Set’s the decimation ratio of PDM to PCM audio
+data.</p></li>
+<li><p><strong>adi,pdm-clk-map</strong>: The ADAU7118 has two PDM clocks for the four Inputs.
+Each input must be assigned to one of these two clocks. This property set’s
+the mapping between the clocks and the inputs.</p></li>
+</ul>
+<section id="example-device-initialization">
+<h4>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h4>
+<p>The ADAU7118 supports I2C control and standalone hardware mode. Both examples
+require lowercase <code class="docutils literal notranslate"><span class="pre">iovdd-supply</span></code> and <code class="docutils literal notranslate"><span class="pre">dvdd-supply</span></code> properties and
+<code class="docutils literal notranslate"><span class="pre">#sound-dai-cells</span> <span class="pre">=</span> <span class="pre">&lt;0&gt;</span></code>. The board must define the actual <code class="docutils literal notranslate"><span class="pre">supply</span></code> and
+<code class="docutils literal notranslate"><span class="pre">supply2</span></code> regulators; these labels do not imply fixed voltages.</p>
+<section id="i2c-mode">
+<h5>I2C mode<a class="headerlink" href="#i2c-mode" title="Link to this heading"></a></h5>
+<p>The board must define <code class="docutils literal notranslate"><span class="pre">i2c0</span></code>. Match the address and interface configuration
+to the connected device.</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="nf">i2c0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"okay"</span><span class="p">;</span>
+
+<span class="w">    </span><span class="nl">adau7118_codec</span><span class="p">:</span><span class="w"> </span><span class="nf">audio-codec</span><span class="o">@</span><span class="mi">14</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,adau7118"</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mh">0x14</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="o">#</span><span class="n">sound-dai-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">iovdd-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">supply</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">dvdd-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">supply2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">pdm-clk-map</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">adi</span><span class="p">,</span><span class="n">decimation-ratio</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">16</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<section id="hw-mode">
+<h6>HW mode<a class="headerlink" href="#hw-mode" title="Link to this heading"></a></h6>
+<p>Standalone hardware mode uses an unaddressed platform node, not an I2C
+address or a <code class="docutils literal notranslate"><span class="pre">reg</span></code> property. Configure the device’s hardware straps for the
+actual board interface.</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nf">/</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nl">adau7118_codec_hw</span><span class="p">:</span><span class="w"> </span><span class="nf">adau7118-codec-hw</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,adau7118"</span><span class="p">;</span>
+<span class="w">        </span><span class="o">#</span><span class="n">sound-dai-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">iovdd-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">supply</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">dvdd-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">supply2</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="routing-and-dapm">
+<h3>Routing and DAPM<a class="headerlink" href="#routing-and-dapm" title="Link to this heading"></a></h3>
 <section id="asoc-dapm-widgets-hw-mode">
-<h2>ASoC DAPM widgets (HW Mode)<a class="headerlink" href="#asoc-dapm-widgets-hw-mode" title="Link to this heading"></a></h2>
+<h4>ASoC DAPM widgets (HW Mode)<a class="headerlink" href="#asoc-dapm-widgets-hw-mode" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -573,7 +603,7 @@ via device tree.</p>
 </div>
 </section>
 <section id="asoc-dapm-widgets-i2c">
-<h2>ASoC DAPM widgets (I2C)<a class="headerlink" href="#asoc-dapm-widgets-i2c" title="Link to this heading"></a></h2>
+<h4>ASoC DAPM widgets (I2C)<a class="headerlink" href="#asoc-dapm-widgets-i2c" title="Link to this heading"></a></h4>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -640,8 +670,9 @@ via device tree.</p>
 </table>
 </div>
 </section>
+</section>
 <section id="alsa-controls">
-<h2>ALSA controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h2>
+<h3>ALSA controls<a class="headerlink" href="#alsa-controls" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -666,11 +697,13 @@ via device tree.</p>
 </table>
 </div>
 </section>
+<section id="dai-formats-and-clocks">
+<h3>DAI formats and clocks<a class="headerlink" href="#dai-formats-and-clocks" title="Link to this heading"></a></h3>
 <section id="dai-configuration">
-<h2>DAI Configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h2>
+<h4>DAI Configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h4>
 <p>The driver registers one DAI called <strong>``adau7118-hifi-capture``</strong>.</p>
 <section id="supported-dai-formats">
-<h3>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h3>
+<h5>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h5>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -757,8 +790,10 @@ used to select different functionality. Check table 11 of the datasheet for more
 details.</p>
 </section>
 </section>
+</section>
+</section>
 <section id="more-information">
-<h2>More information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
 <p><em>Need Help?</em></p>
 <ul class="simple">
 <li><p><a class="icon ez reference external" href="https://ez.analog.com/linux-software-drivers" target="_blank">Analog Devices Linux Device Drivers Help Forum</a></p></li>

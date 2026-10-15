@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad4030
 
+
 .. _ad4030:
 
 AD4030/AD4630/ADAQ4216/ADAQ4224
@@ -15,13 +16,19 @@ AD4030/AD4630/ADAQ4216/ADAQ4224 ADC Linux Driver.
 Supported Devices
 -----------------
 
-- :adi:`AD4030-24`
-- :adi:`AD4630-16`
-- :adi:`AD4630-24`
-- :adi:`AD4632-16`
-- :adi:`AD4632-24`
-- :adi:`ADAQ4216`
-- :adi:`ADAQ4224`
+-  :adi:`AD4030-24`
+
+-  :adi:`AD4630-16`
+
+-  :adi:`AD4630-24`
+
+-  :adi:`AD4632-16`
+
+-  :adi:`AD4632-24`
+
+-  :adi:`ADAQ4216`
+
+-  :adi:`ADAQ4224`
 
 Evaluation Boards
 -----------------
@@ -34,8 +41,20 @@ Evaluation Boards
 - :adi:`EVAL-ADAQ4216-FMCZ <en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/eval-adaq4216-fmcz.html>`
 - :adi:`EVAL-ADAQ4224-FMCZ <en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/eval-adaq4224-fmcz.html>`
 
+Description
+-----------
+
+The :adi:`ad4030-24`, :adi:`ad4630-24`, and similar ADCs are low noise, low
+power, high speed, 2 MSPS or 500 kSPS SAR ADCs. The digital features include
+offset correction, gain adjustment, and averaging, which offload the host
+processor. The user can configure the device for one of several output code
+formats.
+
+Source Code
+-----------
+
 Status
-------
+~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -50,7 +69,7 @@ Status
      -
 
 Files
------
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -68,30 +87,21 @@ Files
      - `Documentation/iio/ad4030.rst <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/iio/ad4030.rst>`__
      -
 
-Overview
---------
-
-The :adi:`ad4030-24`, :adi:`ad4630-24`, and similar ADCs are low noise, low
-power, high speed, 2 MSPS or 500 kSPS SAR ADCs. The digital features include
-offset correction, gain adjustment, and averaging, which offload the host
-processor. The user can configure the device for one of several output code
-formats.
-
 Adding Linux driver support
 ---------------------------
 
-Enabling the driver
-~~~~~~~~~~~~~~~~~~~
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
 .. note::
 
-   The AD4030 driver depends on **CONFIG_SPI**, **CONFIG_GPIOLIB**,
-   **CONFIG_PWM, CONFIG_REGMAP, CONFIG_IIO_BUFFER, CONFIG_IIO_BUFFER_DMA,
-   CONFIG_IIO_BUFFER_DMAENGINE, CONFIG_IIO_TRIGGERED_BUFFER**,
-   **CONFIG_SPI_OFFLOAD**, and **CONFIG_SPI_OFFLOAD_TRIGGER_PWM**
+   The AD4030 driver depends on **CONFIG_SPI**, **CONFIG_GPIOLIB** and
+   **CONFIG_PWM**, and selects **CONFIG_REGMAP**, **CONFIG_IIO_BUFFER**,
+   **CONFIG_IIO_BUFFER_DMA**, **CONFIG_IIO_BUFFER_DMAENGINE**,
+   **CONFIG_IIO_TRIGGERED_BUFFER** and **CONFIG_SPI_OFFLOAD**.
 
 ::
 
@@ -108,11 +118,8 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
                ...
            ...
 
-Adding a device tree entry
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Device tree example
-^^^^^^^^^^^^^^^^^^^
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -261,13 +268,16 @@ Driver testing
 
    - :external+system-level:ref:`iio-oscilloscope`
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root@analog:~# cat /sys/bus/iio/devices/iio:device0/name
    adaq4216
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show channel scale
 ^^^^^^^^^^^^^^^^^^
@@ -282,7 +292,7 @@ measured voltage in millivolts
 
 Example test single-shot readings through IIO device sysfs interface.
 
-::
+.. code-block:: text
 
    root@analog:~# ls -l /sys/bus/iio/devices/iio:device0/
    total 0
@@ -296,26 +306,31 @@ Example test single-shot readings through IIO device sysfs interface.
    -r--r--r-- 1 root root 4096 Feb  4 19:03 in_voltage0-voltage1_label
    -rw-r--r-- 1 root root 4096 Feb  4 19:03 in_voltage0-voltage1_raw
    -rw-r--r-- 1 root root 4096 Feb  4 19:03 in_voltage0-voltage1_scale
-   -r--r--r-- 1 root root 4096 Feb  4 19:03 in_voltage0-voltage1_scale_available
    -r--r--r-- 1 root root 4096 Feb  4 19:03 name
    lrwxrwxrwx 1 root root    0 Feb  4 19:03 of_node -> ../../../../../../../../firmware/devicetree/base/fpga-axi@0/spi@44a00000/adaq4216@0
    -rw-r--r-- 1 root root 4096 Feb  4 19:03 oversampling_ratio
    -r--r--r-- 1 root root 4096 Feb  4 19:03 oversampling_ratio_available
    drwxr-xr-x 2 root root    0 Feb  4 19:03 power
-   -rw-r--r-- 1 root root 4096 Feb  4 19:03 sampling_frequency
+
    drwxr-xr-x 2 root root    0 Feb  4 19:03 scan_elements
    lrwxrwxrwx 1 root root    0 Feb  4 19:03 subsystem -> ../../../../../../../../bus/iio
    -rw-r--r-- 1 root root 4096 Feb  4 19:03 uevent
    -r--r--r-- 1 root root 4096 Feb  4 19:03 waiting_for_supplier
 
+The driver has no ``sampling_frequency`` attribute; capture pacing comes from
+the selected IIO trigger. The scale is read-only and has no ``scale_available``
+attribute. Calibration bias/scale and oversampling ratio are supported;
+reading ``raw`` and reading or writing calibration and oversampling attributes
+fail while the buffer is enabled.
+
 Application Software
 ~~~~~~~~~~~~~~~~~~~~
 
-Analog Devices :adi:`ADAQ4003` can be easily managed with
-:external+system-level:ref:`iio-oscilloscope` which has interfaces for
-configuring and retrieving data from IIO devices. After installing IIO
-Oscilloscope in the host computer, open the application and connect to the IIO
-context provided by the Kuiper Linux installation running on the ZedBoard.
+A supported ADC bound to ad4030 can be managed with :external+system-level:ref:`iio-oscilloscope` which has
+interfaces for configuring and retrieving data from IIO devices. After
+installing IIO Oscilloscope in the host computer, open the application and
+connect to the IIO context provided by the Kuiper Linux installation running on
+the ZedBoard.
 
 The example below shows ADAQ4216 running a 125 kSPS data capture of a test sine
 wave. 1000 samples were kept for the plot.

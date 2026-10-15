@@ -13,7 +13,7 @@
     <link rel="icon" href="../../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../../genindex/" />
     <link rel="search" title="Search" href="../../../search/" />
-    <link rel="next" title="AD5064" href="../ad5064/" />
+    <link rel="next" title="AD3552R High Speed" href="../ad3552r-hs/" />
     <link rel="prev" title="AD3530R/AD3530" href="../ad3530/" />
    
   
@@ -105,25 +105,27 @@
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
 <li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a><ul>
-<li><a class="reference internal" href="#devicetree">Devicetree</a></li>
 <li><a class="reference internal" href="#example-overlay">Example Overlay</a></li>
 </ul>
 </li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
-<li><a class="reference internal" href="#show-device-name">Show device name</a><ul>
-<li><a class="reference internal" href="#show-scale">Show scale</a><ul>
-<li><a class="reference internal" href="#show-offset">Show offset</a></li>
+<li><a class="reference internal" href="#identify-the-device">Identify the device</a></li>
+<li><a class="reference internal" href="#basic-operation">Basic operation</a><ul>
+<li><a class="reference internal" href="#show-scale">Show scale</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#set-channel-y-output-voltage">Set channel Y output voltage</a></li>
 <li><a class="reference internal" href="#enable-power-down-mode-on-output-y">Enable power down mode on output Y</a></li>
-<li><a class="reference internal" href="#muxout-select">Muxout Select</a></li>
 </ul>
 </li>
-</ul>
-</li>
-</ul>
-</li>
-<li><a class="reference internal" href="#hardware-interface">Hardware Interface</a></li>
 <li><a class="reference internal" href="#more-information">More Information</a></li>
 </ul>
 </li>
@@ -226,6 +228,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad5380/">AD5380</a></li>
@@ -244,7 +247,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -381,11 +383,12 @@ Content on this topic
 <span id="ad3530r"></span><h1>AD3530R/AD3530<a class="headerlink" href="#ad3530r-ad3530" title="Link to this heading"></a></h1>
 <p>AD3530R/AD3530 IIO DAC Linux Driver.</p>
 <p>The AD3530R/AD3530 are low power, 8-channel, 16-bit, buffered voltage output,
-digital-to-analog converters (DACs) that include a 2.5 V, TBD ppm/°C internal
-reference (disabled by default), and a gain bit field, resulting in a full-scale
-output span of 2.5 V (gain = 1) or 5 V (gain = 2) for a reference voltage of 2.5
-V. These devices operate from a single, 2.7 V to 5.5 V supply range and are
-guaranteed monotonic by design.</p>
+digital-to-analog converters (DACs). The AD3530R includes a 2.5 V internal
+reference with 5 ppm/°C typical drift, disabled by default; the AD3530 uses an
+external reference. Both devices have a gain bit field, resulting in a
+full-scale output span of 2.5 V (gain = 1) or 5 V (gain = 2) for a reference
+voltage of 2.5 V. These devices operate from a single, 2.7 V to 5.5 V supply
+range and are guaranteed monotonic by design.</p>
 <section id="supported-devices">
 <h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -404,11 +407,12 @@ guaranteed monotonic by design.</p>
 </section>
 <section id="description">
 <h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
-<p>This is a Linux industrial I/O (<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a>) subsystem
-driver, targeting single-channel serial interface DACs. The industrial I/O
-subsystem provides a unified framework for drivers for many different types of
-converters and sensors using a number of different physical interfaces (i2c,
-spi, etc). See <a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a> for more information.</p>
+<p>This is a Linux industrial I/O (<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a>) subsystem driver, targeting
+multi-channel serial interface DACs (eight channels for AD3530/AD3530R and four
+for AD3531/AD3531R). The industrial I/O subsystem provides a unified framework
+for drivers for many different types of converters and sensors using a number of
+different physical interfaces (i2c, spi, etc). See <a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/drivers/iio/#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a> for more
+information.</p>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -422,7 +426,7 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/dac/ad3530r.c" target="_blank">ADI tree</a></p></td>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/dac/ad3530r.c" target="_blank">ADI tree</a></p></td>
 <td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad3530r.c" target="_blank">Yes</a></p></td>
 </tr>
 </tbody>
@@ -453,50 +457,107 @@ spi, etc). See <a class="icon link reference external" href="https://analogdevic
 </div>
 </section>
 </section>
-<section id="example-platform-device-initialization">
-<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
-<section id="devicetree">
-<h3>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h3>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<p><strong>Using:</strong></p>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD3530R" target="_blank">EVAL-AD3530R</a> AD3530R Evaluation Board</p></li>
+<li><p>Raspberry Pi 4</p></li>
+</ul>
+<p><strong>Wiring/Connection</strong></p>
+<p>Disconnect the SDP-K1 controller before connecting an external controller to the
+PMOD interface. Supply the evaluation board from its external USB-C connector or
+terminal block when using this interface.</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Evaluation Board</p></th>
+<th class="head"><p>RPI4</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>P4 PIN 6/SCK</p></td>
+<td><p>SCLK SPI0</p></td>
+</tr>
+<tr class="row-odd"><td><p>P4 PIN 5/SDO</p></td>
+<td><p>MISO SPI0</p></td>
+</tr>
+<tr class="row-even"><td><p>P4 PIN 4/SDI</p></td>
+<td><p>MOSI SPI0</p></td>
+</tr>
+<tr class="row-odd"><td><p>P4 PIN 3/CS</p></td>
+<td><p>CE SPI0</p></td>
+</tr>
+<tr class="row-even"><td><p>P2 PIN 2/IOREF</p></td>
+<td><p>3.3V</p></td>
+</tr>
+<tr class="row-odd"><td><p>P7 PIN 1/EXT_VDD</p></td>
+<td><p>5V</p></td>
+</tr>
+<tr class="row-even"><td><p>P7 PIN 2/PGND</p></td>
+<td><p>GND</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/ad3530r_wiring2.png"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/ad3530r_wiring2.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/ad3530r_wiring2.png" style="width: 600px;" />
+</a>
+</figure>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <p>Required device tree properties:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">compatible</span></code>: Needs to be <code class="docutils literal notranslate"><span class="pre">adi,</span></code> followed by the name of the device. E.g.
 <code class="docutils literal notranslate"><span class="pre">adi,ad3530r</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">reg</span></code>: The chipselect number used for the device</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">spi-max-frequency</span></code>: Maximum SPI clock frequency</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">vdd-supply</span></code>: Phandle to the analog power supply regulator.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">iovdd-supply</span></code>: Phandle to the digital I/O power supply regulator.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ref-supply</span></code>: Required external reference regulator for non-R models
+(AD3530/AD3531). Optional for R models, which use the internal 2.5 V
+reference when it is absent.</p></li>
 </ul>
 <p>Optional device tree properties:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">ref-supply</span></code>: Reference Input/Output. The voltage at the REF pin sets the
-full-scale range of all channels. If not provided the internal reference is
-used and also provided on the VREF pin.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">reset-gpios</span></code>: Active low signal that is falling edge sensitive. When it is
-deasserted, the digital core initialization is performed and all DAC registers
-except the Interface Configuration A register are reset to their default
-values.</p></li>
+deasserted, the digital core initialization is performed and all DAC
+registers except the Interface Configuration A register are reset to their
+default values.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">ldac-gpios</span></code>: LDAC pin to be used as a hardware trigger to update the DAC
 channels. If not present, the DAC channels are updated by Software LDAC.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">adi,range-double</span></code>: Configure the output range for all channels. If the
 property is present, the output will range from 0V to 2Vref. If the property
 is not present, the output will range from 0V to Vref.</p></li>
 </ul>
-</section>
+<section id="example-platform-device-initialization">
+<h4>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h4>
 <section id="example-overlay">
-<h3>Example Overlay<a class="headerlink" href="#example-overlay" title="Link to this heading"></a></h3>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="n">spi0</span> <span class="p">{</span>
-    <span class="c1">#address-cells = &lt;1&gt;;</span>
-    <span class="c1">#size-cells = &lt;0&gt;;</span>
-    <span class="n">status</span> <span class="o">=</span> <span class="s2">"okay"</span><span class="p">;</span>
+<h5>Example Overlay<a class="headerlink" href="#example-overlay" title="Link to this heading"></a></h5>
+<p>This AD3530R fragment uses the internal reference. The board must define
+<code class="docutils literal notranslate"><span class="pre">spi0</span></code> and the <code class="docutils literal notranslate"><span class="pre">vdd</span></code> and <code class="docutils literal notranslate"><span class="pre">iovdd</span></code> regulator labels for the supplies
+connected to the device. Adapt these labels to the actual board; non-R
+models also require an external reference supplied through <code class="docutils literal notranslate"><span class="pre">ref-supply</span></code>.</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="nf">spi0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="kr">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"okay"</span><span class="p">;</span>
 
-    <span class="n">ad3530r</span><span class="p">:</span> <span class="n">ad3530r</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,ad3530r"</span><span class="p">;</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
-        <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
-
-        <span class="c1">#address-cells = &lt;1&gt;;</span>
-        <span class="c1">#size-cells = &lt;0&gt;;</span>
+<span class="w">    </span><span class="nl">ad3530r</span><span class="p">:</span><span class="w"> </span><span class="nf">ad3530r</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kr">compatible</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"adi,ad3530r"</span><span class="p">;</span>
+<span class="w">        </span><span class="kr">reg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">spi-max-frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">vdd-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">vdd</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">        </span><span class="n">iovdd-supply</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">iovdd</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">};</span>
 <span class="p">};</span>
 </pre></div>
 </div>
+</section>
+</section>
 </section>
 </section>
 <section id="driver-testing">
@@ -570,12 +631,15 @@ the numbering is constant and may be known in advance.</p>
 <span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="c1">#</span>
 </pre></div>
 </div>
-<section id="show-device-name">
-<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<section id="identify-the-device">
+<h3>Identify the device<a class="headerlink" href="#identify-the-device" title="Link to this heading"></a></h3>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
 <span class="n">ad3530r</span>
 </pre></div>
 </div>
+</section>
+<section id="basic-operation">
+<h3>Basic operation<a class="headerlink" href="#basic-operation" title="Link to this heading"></a></h3>
 <section id="show-scale">
 <h4>Show scale<a class="headerlink" href="#show-scale" title="Link to this heading"></a></h4>
 <p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/out_voltageY_scale</p>
@@ -585,18 +649,10 @@ in millivolts.</p>
 <span class="mf">0.038146972</span>
 </pre></div>
 </div>
-<section id="show-offset">
-<h5>Show offset<a class="headerlink" href="#show-offset" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/out_voltageY_offset</p>
-<p>Raw offset to be applied to out_voltageY_raw in order to obtain the measured
-voltage in millivolts. The offset is applied before scale is applied.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">out_voltage0_offset</span>
-<span class="mi">0</span>
-</pre></div>
-</div>
+</section>
 </section>
 <section id="set-channel-y-output-voltage">
-<h5>Set channel Y output voltage<a class="headerlink" href="#set-channel-y-output-voltage" title="Link to this heading"></a></h5>
+<h3>Set channel Y output voltage<a class="headerlink" href="#set-channel-y-output-voltage" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw</p>
 <p>Raw (unscaled, no bias etc.) output voltage for channel Y.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">10000</span> <span class="o">&gt;</span> <span class="n">out_voltage0_raw</span>
@@ -606,7 +662,7 @@ voltage in millivolts. The offset is applied before scale is applied.</p>
 (10000 - 0) * 0.038146972 = ** 381.46972 <em>mV</em>**</p>
 </section>
 <section id="enable-power-down-mode-on-output-y">
-<h5>Enable power down mode on output Y<a class="headerlink" href="#enable-power-down-mode-on-output-y" title="Link to this heading"></a></h5>
+<h3>Enable power down mode on output Y<a class="headerlink" href="#enable-power-down-mode-on-output-y" title="Link to this heading"></a></h3>
 <p><strong>Description:</strong> /sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown</p>
 <p>Writing 1 causes output Y to enter the power down mode. Clearing returns to
 normal operation.</p>
@@ -619,65 +675,6 @@ normal operation.</p>
 </pre></div>
 </div>
 </section>
-<section id="muxout-select">
-<h5>Muxout Select<a class="headerlink" href="#muxout-select" title="Link to this heading"></a></h5>
-<p><strong>Description:</strong> Selects which of the multiplexer’s input signals will be
-monitored on the MUX_OUT pin.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">muxout_select_available</span>
-<span class="n">powered_down</span> <span class="n">vout0</span> <span class="n">iout0_source</span> <span class="n">iout0_sink</span> <span class="n">vout1</span> <span class="n">iout1_source</span> <span class="n">iout1_sink</span> <span class="n">vout2</span> <span class="n">iout2_source</span> <span class="n">iout2_sink</span> <span class="n">vout3</span> <span class="n">iout3_source</span> <span class="n">iout3_sink</span> <span class="n">vout4</span> <span class="n">iout4_source</span> <span class="n">iout4_sink</span> <span class="n">vout5</span> <span class="n">iout5_source</span> <span class="n">iout5_sink</span> <span class="n">vout6</span> <span class="n">iout6_source</span> <span class="n">iout6_sink</span> <span class="n">vout7</span> <span class="n">iout7_source</span> <span class="n">iout7_sink</span> <span class="n">die_temp</span> <span class="n">agnd</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="n">vout0</span> <span class="o">&gt;</span> <span class="n">muxout_select</span>
-<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device0</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">muxout_select</span>
-<span class="n">vout0</span>
-</pre></div>
-</div>
-</section>
-</section>
-</section>
-</section>
-<section id="hardware-interface">
-<h2>Hardware Interface<a class="headerlink" href="#hardware-interface" title="Link to this heading"></a></h2>
-<p><strong>Using:</strong></p>
-<ul class="simple">
-<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD3530R" target="_blank">EVAL-AD3530R</a> AD3530R Evaluation Board</p></li>
-<li><p>Raspberry Pi 4</p></li>
-</ul>
-<p><strong>Wiring/Connection</strong></p>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Evaluation Board</p></th>
-<th class="head"><p>RPI4</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>P4 PIN 6/SCK</p></td>
-<td><p>SCLK SPI0</p></td>
-</tr>
-<tr class="row-odd"><td><p>P4 PIN 5/SDO</p></td>
-<td><p>MISO SPI0</p></td>
-</tr>
-<tr class="row-even"><td><p>P4 PIN 4/SDI</p></td>
-<td><p>MOSI SPI0</p></td>
-</tr>
-<tr class="row-odd"><td><p>P4 PIN 3/CS</p></td>
-<td><p>CE SPI0</p></td>
-</tr>
-<tr class="row-even"><td><p>P2 PIN 2/IOREF</p></td>
-<td><p>3.3V</p></td>
-</tr>
-<tr class="row-odd"><td><p>P7 PIN 1/EXT_VDD</p></td>
-<td><p>5V</p></td>
-</tr>
-<tr class="row-even"><td><p>P7 PIN 2/PGND</p></td>
-<td><p>GND</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<figure class="align-default">
-<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/ad3530r_wiring2.png"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/ad3530r_wiring2.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/ad3530r_wiring2.png" style="width: 600px;" />
-</a>
-</figure>
 </section>
 <section id="more-information">
 <h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
@@ -700,7 +697,7 @@ monitored on the MUX_OUT pin.</p>
               <div class="related">
                 &nbsp;
     <a href="../ad3530/" title="Previous document (Alt+Shift+LeftArrow)" class="prev">AD3530R/AD3530</a>
-    <a href="../ad5064/" title="Next document (Alt+Shift+RightArrow)" class="next">AD5064</a>
+    <a href="../ad3552r-hs/" title="Next document (Alt+Shift+RightArrow)" class="next">AD3552R High Speed</a>
               </div>
           
         </div>

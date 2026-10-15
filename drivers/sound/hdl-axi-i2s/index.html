@@ -97,22 +97,18 @@
         <nav>
           <ul>
 <li><a class="reference internal" href="#">HDL AXI I2S</a><ul>
-<li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#supported-ip-cores">Supported IP Cores</a></li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
-<li><a class="reference internal" href="#status">Status</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#devicetree-configuration">Devicetree configuration</a><ul>
+<li><a class="reference internal" href="#example-device-initialization">Example device initialization</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#example-device-initialization">Example device initialization</a><ul>
-<li><a class="reference internal" href="#dai-configuration">DAI configuration</a><ul>
-<li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a></li>
-<li><a class="reference internal" href="#example-dai-configuration">Example DAI configuration</a></li>
-</ul>
-</li>
-</ul>
-</li>
+<li><a class="reference internal" href="#board-integration">Board integration</a><ul>
 <li><a class="reference internal" href="#i2s-adau1761-zed-board-driver">I2S + ADAU1761 ZED board driver</a><ul>
 <li><a class="reference internal" href="#source">Source</a><ul>
 <li><a class="reference internal" href="#id2">Status</a></li>
@@ -123,6 +119,21 @@
 <li><a class="reference internal" href="#id4">Example device initialization</a></li>
 <li><a class="reference internal" href="#driver-testing">Driver testing</a></li>
 <li><a class="reference internal" href="#more-information">More information</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id5">Driver testing</a><ul>
+<li><a class="reference internal" href="#dai-formats-and-clocks">DAI formats and clocks</a><ul>
+<li><a class="reference internal" href="#dai-configuration">DAI configuration</a><ul>
+<li><a class="reference internal" href="#supported-dai-formats">Supported DAI formats</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#example-dai-configuration">Example DAI configuration</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -226,6 +237,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-cdc/ad7745/">AD7746</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530/">AD3530R/AD3530</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3530r/">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad3552r-hs/">AD3552R High Speed</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5064/">AD5064</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5360/">AD5360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5380/">AD5380</a></li>
@@ -244,7 +256,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad5791/">AD5791</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7293/">AD7293</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ad7303/">AD7303</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-dac/axi-ad3552r/">AD3552R</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2664/">LTC2664</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dac/ltc2672/">LTC2672</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-dds/ad9172/">AD9172</a></li>
@@ -380,8 +391,8 @@ Content on this topic
   <section id="hdl-axi-i2s">
 <span id="id1"></span><h1>HDL AXI I2S<a class="headerlink" href="#hdl-axi-i2s" title="Link to this heading"></a></h1>
 <p>HDL AXI I2S Linux Driver.</p>
-<section id="supported-devices">
-<h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+<section id="supported-ip-cores">
+<h2>Supported IP Cores<a class="headerlink" href="#supported-ip-cores" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p>HDL AXI I2S</p></li>
 </ul>
@@ -408,8 +419,9 @@ Content on this topic
 </tbody>
 </table>
 </div>
+</section>
 <section id="files">
-<h4>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h4>
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -428,9 +440,12 @@ Content on this topic
 </div>
 </section>
 </section>
-</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="devicetree-configuration">
+<h3>Devicetree configuration<a class="headerlink" href="#devicetree-configuration" title="Link to this heading"></a></h3>
 <section id="example-device-initialization">
-<h2>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h2>
+<h4>Example device initialization<a class="headerlink" href="#example-device-initialization" title="Link to this heading"></a></h4>
 <p>The AXI I2S driver is a platform driver and can currently only be instantiated
 via device tree.</p>
 <p>Required devicetree properties:</p>
@@ -440,9 +455,9 @@ via device tree.</p>
 <li><p>clocks : Clock specifier providing a handle to the controllers clocks. The
 controller expects two clocks, the clock used for the AXI interface and the
 clock used for the sample rate base frequency.</p></li>
-<li><p>clock-names : <code class="docutils literal notranslate"><span class="pre">axi</span></code> for the clock to the AXI interface, <code class="docutils literal notranslate"><span class="pre">i2s</span></code> for the
+<li><p>clock-names : <code class="docutils literal notranslate"><span class="pre">axi</span></code> for the clock to the AXI interface, <code class="docutils literal notranslate"><span class="pre">ref</span></code> for the
 sample rate base clock.</p></li>
-<li><p>dma : Specifiers for the DMA channels that are used by the core.</p></li>
+<li><p>dmas : Specifiers for the DMA channels that are used by the core.</p></li>
 <li><p>dma-names : <code class="docutils literal notranslate"><span class="pre">tx</span></code> for the transmit channel, <code class="docutils literal notranslate"><span class="pre">rx</span></code> for the receive channel.</p></li>
 </ul>
 <p>Example:</p>
@@ -456,11 +471,182 @@ sample rate base clock.</p></li>
 <span class="p">};</span>
 </pre></div>
 </div>
+</section>
+</section>
+<section id="board-integration">
+<h3>Board integration<a class="headerlink" href="#board-integration" title="Link to this heading"></a></h3>
+<section id="i2s-adau1761-zed-board-driver">
+<h4>I2S + ADAU1761 ZED board driver<a class="headerlink" href="#i2s-adau1761-zed-board-driver" title="Link to this heading"></a></h4>
+<p>The HDL I2S SPDIF driver is currently used in conjunction with the ADAU1761
+audio codec on the <a class="icon link reference external" href="http://zedboard.org/content/overview" target="_blank">ZED board</a>. For
+this platform there exist a ASoC board driver which provides the necessary
+information on how both device are interconnected, so that a ALSA sound card can
+be instantiated.</p>
+<section id="source">
+<h5>Source<a class="headerlink" href="#source" title="Link to this heading"></a></h5>
+<section id="id2">
+<h6>Status<a class="headerlink" href="#id2" title="Link to this heading"></a></h6>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Source</p></th>
+<th class="head"><p>Mainlined?</p></th>
+<th class="head"></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/sound/soc/adi/zed_adau1761.c" target="_blank">git</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/adi/zed_adau1761.c" target="_blank">In progress</a></p></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="id3">
+<h6>Files<a class="headerlink" href="#id3" title="Link to this heading"></a></h6>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/sound/soc/adi/zed_adau1761.c" target="_blank">sound/soc/adi/zed_adau1761.c</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="kernel-configuration">
+<h5>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h5>
+<p>Enable ALSA SoC evaluation board driver:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+<span class="o">&lt;*&gt;</span> <span class="n">Sound</span> <span class="n">card</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+<span class="o">&lt;*&gt;</span>   <span class="n">Advanced</span> <span class="n">Linux</span> <span class="n">Sound</span> <span class="n">Architecture</span>  <span class="o">---&gt;</span>
+<span class="o">&lt;*&gt;</span>     <span class="n">ALSA</span> <span class="k">for</span> <span class="n">SoC</span> <span class="n">audio</span> <span class="n">support</span>  <span class="o">---&gt;</span>
+<span class="o">&lt;*&gt;</span>       <span class="n">Audio</span> <span class="n">support</span> <span class="k">for</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">reference</span> <span class="n">designs</span>
+<span class="o">&lt;*&gt;</span>         <span class="n">ZED</span> <span class="n">board</span> <span class="n">sound</span> <span class="n">support</span>
+</pre></div>
+</div>
+</section>
+<section id="id4">
+<h5>Example device initialization<a class="headerlink" href="#id4" title="Link to this heading"></a></h5>
+<p>The ZED board ADAU1761 sound board driver is a platform driver and can currently
+only be instantiated via device tree.</p>
+<p>Required devicetree properties:</p>
+<ul class="simple">
+<li><p>compatible: Should always be <code class="docutils literal notranslate"><span class="pre">adv7511-hdmi-snd</span></code></p></li>
+<li><p>audio-codec: Phandle to the ADAU1761 device devicetree entry</p></li>
+<li><p>cpu-dai: Phandle to the I2S device devicetree entry</p></li>
+</ul>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_iic_0</span><span class="p">:</span> <span class="n">i2c</span><span class="o">@</span><span class="mi">41600000</span> <span class="p">{</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-iic-1.01.b"</span><span class="p">,</span> <span class="s2">"xlnx,xps-iic-2.00.a"</span><span class="p">;</span>
+    <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gic</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">57</span> <span class="mh">0x4</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x41600000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
+
+    <span class="c1">#size-cells = &lt;0&gt;;</span>
+    <span class="c1">#address-cells = &lt;1&gt;;</span>
+
+    <span class="n">adau1761</span><span class="p">:</span> <span class="n">adau1761</span><span class="o">@</span><span class="mi">3</span><span class="n">b</span> <span class="p">{</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adau1761"</span><span class="p">;</span>
+        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x3b</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="p">};</span>
+<span class="p">};</span>
+
+<span class="n">axi_i2s</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">i2s</span><span class="o">@</span><span class="mh">0x77600000</span> <span class="p">{</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-i2s-1.00.a"</span><span class="p">;</span>
+    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x77600000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">fpga_clock</span> <span class="o">&amp;</span><span class="n">audio_clock</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"axi"</span><span class="p">,</span> <span class="s2">"ref"</span><span class="p">;</span>
+    <span class="n">dmas</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">ps7_dma</span> <span class="mi">0</span> <span class="o">&amp;</span><span class="n">ps7_dma</span> <span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">dma</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"tx"</span><span class="p">,</span> <span class="s2">"rx"</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="n">zed_adau1761_snd</span><span class="p">:</span> <span class="n">zed_adau1761_snd</span> <span class="p">{</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"zed-adau1761-snd"</span><span class="p">;</span>
+    <span class="n">audio</span><span class="o">-</span><span class="n">codec</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">adau1761</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">cpu</span><span class="o">-</span><span class="n">dai</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_i2s</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
+<section id="driver-testing">
+<h5>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h5>
+<p>Make sure the sound card is properly instantiated.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">aplay</span> <span class="o">-</span><span class="n">l</span>
+<span class="n">card</span> <span class="mi">0</span><span class="p">:</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>To test audio playback you can use the speaker test utility, which allows to
+playback several different test patterns. For a extensive description on the
+speaker-test utility and the different options it supports please refer to the
+<a class="icon link reference external" href="http://linux.die.net/man/1/speaker-test" target="_blank">speaker-test man page</a>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">speakertest</span> <span class="o">-</span><span class="n">c</span> <span class="mi">2</span>
+<span class="n">speaker</span><span class="o">-</span><span class="n">test</span> <span class="mf">1.0.24.2</span>
+
+<span class="n">Playback</span> <span class="n">device</span> <span class="ow">is</span> <span class="n">default</span>
+<span class="n">Stream</span> <span class="n">parameters</span> <span class="n">are</span> <span class="mi">48000</span><span class="n">Hz</span><span class="p">,</span> <span class="n">S32_LE</span><span class="p">,</span> <span class="mi">2</span> <span class="n">channels</span>
+<span class="n">Using</span> <span class="mi">16</span> <span class="n">octaves</span> <span class="n">of</span> <span class="n">pink</span> <span class="n">noise</span>
+<span class="n">Rate</span> <span class="nb">set</span> <span class="n">to</span> <span class="mi">48000</span><span class="n">Hz</span> <span class="p">(</span><span class="n">requested</span> <span class="mi">48000</span><span class="n">Hz</span><span class="p">)</span>
+<span class="n">Buffer</span> <span class="n">size</span> <span class="nb">range</span> <span class="kn">from</span><span class="w"> </span><span class="mi">512</span> <span class="n">to</span> <span class="mi">2097152</span>
+<span class="n">Period</span> <span class="n">size</span> <span class="nb">range</span> <span class="kn">from</span><span class="w"> </span><span class="mi">256</span> <span class="n">to</span> <span class="mi">262143</span>
+<span class="n">Requested</span> <span class="n">buffer</span> <span class="n">time</span> <span class="mi">20000</span> <span class="n">us</span>
+<span class="n">Periods</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">was</span> <span class="nb">set</span> <span class="n">period_size</span> <span class="o">=</span> <span class="mi">320</span>
+<span class="n">was</span> <span class="nb">set</span> <span class="n">buffer_size</span> <span class="o">=</span> <span class="mi">960</span>
+ <span class="mi">0</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Left</span>
+ <span class="mi">1</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Right</span>
+<span class="o">....</span>
+</pre></div>
+</div>
+<p>To test audio record you can use the <em>arecord</em> utility. <em>arecord</em> will record
+the incoming audio signal and write it to a wav file.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">arecord</span> <span class="o">-</span><span class="n">f</span> <span class="n">S32</span> <span class="o">-</span><span class="n">r</span> <span class="mi">48000</span> <span class="o">-</span><span class="n">c</span> <span class="mi">2</span> <span class="o">&gt;</span> <span class="n">test</span><span class="o">.</span><span class="n">wav</span>
+<span class="o">...</span>
+</pre></div>
+</div>
+<p>To playback a wav file you can use the <em>aplay</em> utility. You can also create a
+audio loop-back by sending the output of <em>arecord</em> to <em>aplay</em>. This will send
+the incoming audio stream back via the outgoing audio stream.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">arecord</span> <span class="o">-</span><span class="n">f</span> <span class="n">S32</span> <span class="o">-</span><span class="n">r</span> <span class="mi">48000</span> <span class="o">-</span><span class="n">c</span> <span class="mi">2</span> <span class="o">|</span> <span class="n">aplay</span>
+<span class="o">...</span>
+</pre></div>
+</div>
+<p>For more information on the the <em>aplay</em> and <em>arecord</em> utilities please refer to
+the <a class="icon link reference external" href="http://linux.die.net/man/1/arecord" target="_blank">aplay and arecord man page</a>.</p>
+</section>
+<section id="more-information">
+<h5>More information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h5>
+<p><em>Need Help?</em></p>
+<ul class="simple">
+<li><p><a class="icon ez reference external" href="https://ez.analog.com/linux-software-drivers" target="_blank">Analog Devices Linux Device Drivers Help Forum</a></p></li>
+</ul>
+</section>
+</section>
+</section>
+</section>
+<section id="id5">
+<h2>Driver testing<a class="headerlink" href="#id5" title="Link to this heading"></a></h2>
+<section id="dai-formats-and-clocks">
+<h3>DAI formats and clocks<a class="headerlink" href="#dai-formats-and-clocks" title="Link to this heading"></a></h3>
 <section id="dai-configuration">
-<h3>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h3>
-<p>The driver will register one CPU-DAI named after the device itself.</p>
+<h4>DAI configuration<a class="headerlink" href="#dai-configuration" title="Link to this heading"></a></h4>
+<p>The driver registers one CPU DAI named after the device. A tx DMA entry enables
+stereo playback; an rx DMA entry enables stereo capture. Both use S32_LE or
+U32_LE samples. Full-duplex streams share the sample rate. The reference clock
+constrains the available sample rates.</p>
 <section id="supported-dai-formats">
-<h4>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h4>
+<h5>Supported DAI formats<a class="headerlink" href="#supported-dai-formats" title="Link to this heading"></a></h5>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
@@ -546,6 +732,7 @@ sample rate base clock.</p></li>
 </table>
 </div>
 </section>
+</section>
 <section id="example-dai-configuration">
 <h4>Example DAI configuration<a class="headerlink" href="#example-dai-configuration" title="Link to this heading"></a></h4>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">snd_soc_dai_link</span><span class="w"> </span><span class="n">zed_adau1761_dai_link</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
@@ -572,164 +759,6 @@ sample rate base clock.</p></li>
 </pre></div>
 </div>
 </section>
-</section>
-</section>
-<section id="i2s-adau1761-zed-board-driver">
-<h2>I2S + ADAU1761 ZED board driver<a class="headerlink" href="#i2s-adau1761-zed-board-driver" title="Link to this heading"></a></h2>
-<p>The HDL I2S SPDIF driver is currently used in conjunction with the ADAU1761
-audio codec on the <a class="icon link reference external" href="http://zedboard.org/content/overview" target="_blank">ZED board</a>. For
-this platform there exist a ASoC board driver which provides the necessary
-information on how both device are interconnected, so that a ALSA sound card can
-be instantiated.</p>
-<section id="source">
-<h3>Source<a class="headerlink" href="#source" title="Link to this heading"></a></h3>
-<section id="id2">
-<h4>Status<a class="headerlink" href="#id2" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Source</p></th>
-<th class="head"><p>Mainlined?</p></th>
-<th class="head"></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/sound/soc/adi/zed_adau1761.c" target="_blank">git</a></p></td>
-<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/adi/zed_adau1761.c" target="_blank">In progress</a></p></td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-<section id="id3">
-<h4>Files<a class="headerlink" href="#id3" title="Link to this heading"></a></h4>
-<div class="table-wrapper docutils container">
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Function</p></th>
-<th class="head"><p>File</p></th>
-<th class="head"></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/sound/soc/adi/zed_adau1761.c" target="_blank">sound/soc/adi/zed_adau1761.c</a></p></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
-</section>
-<section id="kernel-configuration">
-<h3>Kernel configuration<a class="headerlink" href="#kernel-configuration" title="Link to this heading"></a></h3>
-<p>Enable ALSA SoC evaluation board driver:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
-<span class="o">&lt;*&gt;</span> <span class="n">Sound</span> <span class="n">card</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-<span class="o">&lt;*&gt;</span>   <span class="n">Advanced</span> <span class="n">Linux</span> <span class="n">Sound</span> <span class="n">Architecture</span>  <span class="o">---&gt;</span>
-<span class="o">&lt;*&gt;</span>     <span class="n">ALSA</span> <span class="k">for</span> <span class="n">SoC</span> <span class="n">audio</span> <span class="n">support</span>  <span class="o">---&gt;</span>
-<span class="o">&lt;*&gt;</span>       <span class="n">Audio</span> <span class="n">support</span> <span class="k">for</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">reference</span> <span class="n">designs</span>
-<span class="o">&lt;*&gt;</span>         <span class="n">ZED</span> <span class="n">board</span> <span class="n">sound</span> <span class="n">support</span>
-</pre></div>
-</div>
-</section>
-<section id="id4">
-<h3>Example device initialization<a class="headerlink" href="#id4" title="Link to this heading"></a></h3>
-<p>The ZED board ADAU1761 sound board driver is a platform driver and can currently
-only be instantiated via device tree.</p>
-<p>Required devicetree properties:</p>
-<ul class="simple">
-<li><p>compatible: Should always be <code class="docutils literal notranslate"><span class="pre">adv7511-hdmi-snd</span></code></p></li>
-<li><p>audio-codec: Phandle to the ADAU1761 device devicetree entry</p></li>
-<li><p>cpu-dai: Phandle to the I2S device devicetree entry</p></li>
-</ul>
-<p>Example:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_iic_0</span><span class="p">:</span> <span class="n">i2c</span><span class="o">@</span><span class="mi">41600000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"xlnx,axi-iic-1.01.b"</span><span class="p">,</span> <span class="s2">"xlnx,xps-iic-2.00.a"</span><span class="p">;</span>
-    <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gic</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">57</span> <span class="mh">0x4</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x41600000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
-
-    <span class="c1">#size-cells = &lt;0&gt;;</span>
-    <span class="c1">#address-cells = &lt;1&gt;;</span>
-
-    <span class="n">adau1761</span><span class="p">:</span> <span class="n">adau1761</span><span class="o">@</span><span class="mi">3</span><span class="n">b</span> <span class="p">{</span>
-        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,adau1761"</span><span class="p">;</span>
-        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x3b</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="p">};</span>
-<span class="p">};</span>
-
-<span class="n">axi_i2s</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">i2s</span><span class="o">@</span><span class="mh">0x77600000</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"adi,axi-i2s-1.00.a"</span><span class="p">;</span>
-    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x77600000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">fpga_clock</span> <span class="o">&amp;</span><span class="n">audio_clock</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"axi"</span><span class="p">,</span> <span class="s2">"ref"</span><span class="p">;</span>
-    <span class="n">dmas</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">ps7_dma</span> <span class="mi">0</span> <span class="o">&amp;</span><span class="n">ps7_dma</span> <span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">dma</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">"tx"</span><span class="p">,</span> <span class="s2">"rx"</span><span class="p">;</span>
-<span class="p">};</span>
-
-<span class="n">zed_adau1761_snd</span><span class="p">:</span> <span class="n">zed_adau1761_snd</span> <span class="p">{</span>
-    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">"zed-adau1761-snd"</span><span class="p">;</span>
-    <span class="n">audio</span><span class="o">-</span><span class="n">codec</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">adau1761</span><span class="o">&gt;</span><span class="p">;</span>
-    <span class="n">cpu</span><span class="o">-</span><span class="n">dai</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_i2s</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-</section>
-<section id="driver-testing">
-<h3>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h3>
-<p>Make sure the sound card is properly instantiated.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">aplay</span> <span class="o">-</span><span class="n">l</span>
-<span class="n">card</span> <span class="mi">0</span><span class="p">:</span> <span class="o">...</span>
-</pre></div>
-</div>
-<p>To test audio playback you can use the speaker test utility, which allows to
-playback several different test patterns. For a extensive description on the
-speaker-test utility and the different options it supports please refer to the
-<a class="icon link reference external" href="http://linux.die.net/man/1/speaker-test" target="_blank">speaker-test man page</a>.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">speakertest</span> <span class="o">-</span><span class="n">c</span> <span class="mi">2</span>
-<span class="n">speaker</span><span class="o">-</span><span class="n">test</span> <span class="mf">1.0.24.2</span>
-
-<span class="n">Playback</span> <span class="n">device</span> <span class="ow">is</span> <span class="n">default</span>
-<span class="n">Stream</span> <span class="n">parameters</span> <span class="n">are</span> <span class="mi">48000</span><span class="n">Hz</span><span class="p">,</span> <span class="n">S32_LE</span><span class="p">,</span> <span class="mi">2</span> <span class="n">channels</span>
-<span class="n">Using</span> <span class="mi">16</span> <span class="n">octaves</span> <span class="n">of</span> <span class="n">pink</span> <span class="n">noise</span>
-<span class="n">Rate</span> <span class="nb">set</span> <span class="n">to</span> <span class="mi">48000</span><span class="n">Hz</span> <span class="p">(</span><span class="n">requested</span> <span class="mi">48000</span><span class="n">Hz</span><span class="p">)</span>
-<span class="n">Buffer</span> <span class="n">size</span> <span class="nb">range</span> <span class="kn">from</span><span class="w"> </span><span class="mi">512</span> <span class="n">to</span> <span class="mi">2097152</span>
-<span class="n">Period</span> <span class="n">size</span> <span class="nb">range</span> <span class="kn">from</span><span class="w"> </span><span class="mi">256</span> <span class="n">to</span> <span class="mi">262143</span>
-<span class="n">Requested</span> <span class="n">buffer</span> <span class="n">time</span> <span class="mi">20000</span> <span class="n">us</span>
-<span class="n">Periods</span> <span class="o">=</span> <span class="mi">4</span>
-<span class="n">was</span> <span class="nb">set</span> <span class="n">period_size</span> <span class="o">=</span> <span class="mi">320</span>
-<span class="n">was</span> <span class="nb">set</span> <span class="n">buffer_size</span> <span class="o">=</span> <span class="mi">960</span>
- <span class="mi">0</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Left</span>
- <span class="mi">1</span> <span class="o">-</span> <span class="n">Front</span> <span class="n">Right</span>
-<span class="o">....</span>
-</pre></div>
-</div>
-<p>To test audio record you can use the <em>arecord</em> utility. <em>arecord</em> will record
-the incoming audio signal and write it to a wav file.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">arecord</span> <span class="o">-</span><span class="n">f</span> <span class="n">S32</span> <span class="o">-</span><span class="n">r</span> <span class="mi">48000</span> <span class="o">-</span><span class="n">c</span> <span class="mi">2</span> <span class="o">&gt;</span> <span class="n">test</span><span class="o">.</span><span class="n">wav</span>
-<span class="o">...</span>
-</pre></div>
-</div>
-<p>To playback a wav file you can use the <em>aplay</em> utility. You can also create a
-audio loop-back by sending the output of <em>arecord</em> to <em>aplay</em>. This will send
-the incoming audio stream back via the outgoing audio stream.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">arecord</span> <span class="o">-</span><span class="n">f</span> <span class="n">S32</span> <span class="o">-</span><span class="n">r</span> <span class="mi">48000</span> <span class="o">-</span><span class="n">c</span> <span class="mi">2</span> <span class="o">|</span> <span class="n">aplay</span>
-<span class="o">...</span>
-</pre></div>
-</div>
-<p>For more information on the the <em>aplay</em> and <em>arecord</em> utilities please refer to
-the <a class="icon link reference external" href="http://linux.die.net/man/1/arecord" target="_blank">aplay and arecord man page</a>.</p>
-</section>
-<section id="more-information">
-<h3>More information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h3>
-<p><em>Need Help?</em></p>
-<ul class="simple">
-<li><p><a class="icon ez reference external" href="https://ez.analog.com/linux-software-drivers" target="_blank">Analog Devices Linux Device Drivers Help Forum</a></p></li>
-</ul>
 </section>
 </section>
 </section>
