@@ -43,6 +43,7 @@ struct xe_device_desc {
 	u8 has_device_uid:1;
 	u8 has_drm_ras:1;
 	u8 has_fan_control:1;
+	u8 has_fixed_vram_channels:1;
 	u8 has_flat_ccs:1;
 	u8 has_gsc_nvm:1;
 	u8 has_heci_gscfi:1;
