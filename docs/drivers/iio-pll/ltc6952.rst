@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/ltc6952
 
+
 .. _ltc6952:
 
 LTC6952
@@ -63,8 +64,11 @@ Files
      - :git+linux:`main:Documentation/devicetree/bindings/iio/frequency/adi,ltc6952.yaml`
      -
 
-Enabling the driver
--------------------
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
@@ -82,43 +86,10 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
                     Clock Generator/Distribution  --->
                     <*> Analog Devices LTC6952 Clock Ultralow Jitter with JESD204B/C
 
-Adding a device tree entry
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-Available properties
-^^^^^^^^^^^^^^^^^^^^
-
-Required properties:
-''''''''''''''''''''
-
-- **compatible**: Should be ``adi,ltc6952``.
-- **reg**: SPI chip select number.
-- **spi-max-frequency**: Max SPI frequency to use (<= 20000000).
-- **adi,vco-frequency-hz**: The frequency of the VCO.
-- **adi,ref-frequency-hz**: Reference input frequency. This is fed in the
-  reference divider.
-- **clock-output-names**: An array of 11 elements, representing the names of the
-  output clocks.
-
-Adding channels
-^^^^^^^^^^^^^^^
-
-Channels can be specified using child nodes. The following properties are
-applicable to them:
-
-- **reg**: The identifier of the channel.
-- **adi,extended-name**: Descriptive channel name.
-- **adi,divider**: Channel divider. This divides the incoming VCO frequency.
-- **adi,digital-delay**: Each output divider can have the start time of the
-  output delayed by integer multiples of half of the VCO period after a
-  synchronization event.
-- **adi,analog-delay**: Each output has a fine analog delay feature to further
-  adjust its output delay time (tADELx) in small steps.
-
-Device tree example
-^^^^^^^^^^^^^^^^^^^
-
-The following example instantiates the LTC6962 driver for a LTC6962 device
+The following example instantiates the LTC6952 driver for an LTC6952 device
 connected on the SPI bus to the chip-select line 0.
 
 ::
@@ -148,3 +119,45 @@ connected on the SPI bus to the chip-select line 0.
             adi,divider = <10>;
           };
         };
+
+Available properties
+^^^^^^^^^^^^^^^^^^^^
+
+Required properties:
+""""""""""""""""""""
+
+-  **compatible: Use adi,ltc6952 or adi,ltc6953 for the fitted device. The
+   reference/PLL requirements shown here describe LTC6952; LTC6953 uses the
+   follower configuration.**
+
+-  **reg**: SPI chip select number.
+
+-  **spi-max-frequency**: Max SPI frequency to use (<= 20000000).
+
+-  **adi,vco-frequency-hz**: The frequency of the VCO.
+
+-  **adi,ref-frequency-hz**: Reference input frequency. This is fed in the
+   reference divider.
+
+-  **clock-output-names**: An array of 11 elements, representing the names of
+   the output clocks.
+
+Adding channels
+^^^^^^^^^^^^^^^
+
+Channels can be specified using child nodes. The following properties are
+applicable to them:
+
+-  **reg**: The identifier of the channel.
+
+-  **adi,extended-name**: Descriptive channel name.
+
+-  **adi,divider**: Divides the incoming VCO frequency; default 4. Accepted
+   values are 1..32 and n×2^m, where n = 17..32 and m = 1..6.
+
+-  **adi,digital-delay**: Each output divider can have the start time of the
+   output delayed by integer multiples of half of the VCO period after a
+   synchronization event.
+
+-  **adi,analog-delay**: Each output has a fine analog delay feature to further
+   adjust its output delay time (tADELx) in small steps.
