@@ -184,7 +184,7 @@ static int fill_write_buffer(struct configfs_buffer *buffer,
 	int copied;
 
 	if (!buffer->page)
-		buffer->page = kmalloc(PAGE_SIZE, GFP_KERNEL);
+		buffer->page = kzalloc(PAGE_SIZE, GFP_KERNEL);
 	if (!buffer->page)
 		return -ENOMEM;
 
