@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-vector-power/adl5960
 
+
 .. _adl5960:
 
 ADL5960
@@ -45,7 +46,7 @@ Status
      -
      -
    * - :git+linux:`git <main:drivers/iio/frequency/adl5960.c>`
-     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/adl5960.c>`__
+     - No
      -
      -
 
@@ -75,70 +76,6 @@ Files
    :start-after: .. start-declaring-spi-slave-devices
    :end-before: .. end-declaring-spi-slave-devices
 
-Devicetree properties
-^^^^^^^^^^^^^^^^^^^^^
-
-::
-
-   compatible:
-     enum:
-       - adi,adl5960
-
-::
-
-   reg:
-     maxItems: 1
-
-::
-
-   spi-max-frequency:
-     maximum: 50000000
-
-::
-
-   clocks:
-     description:
-       Definition of the external clock (see clock/clock-bindings.txt)
-     minItems: 2
-
-::
-
-   clock-names:
-     items:
-       - const: lo_in
-       - const: offs_in
-     maxItems: 2
-
-::
-
-   lo_in-clock-scales:
-     description:
-       The Common Clock Framework max rate is limited by MAX of unsigned long.
-       For ADL5960 device this is a deficiency. If specified, this
-       property allows arbitrary scales. The first element in the array should
-       be the multiplier and the second element should be the divider.
-     $ref: /schemas/types.yaml#/definitions/uint32-array
-     minimum: 1
-
-::
-
-   avcc-supply:
-     description:
-       analog voltage regulator (see regulator/regulator.txt)
-
-::
-
-   '#clock-cells':
-     const: 0
-
-::
-
-   required:
-   - compatible
-   - reg
-   - clocks
-   - clock-names
-
 Example
 ^^^^^^^
 
@@ -156,25 +93,6 @@ Example
        label = "adl5960-1";
      };
    };
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The ADL5960 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-               RF Font-Ends --->
-                  <*> Analog Devices ADL5960 Vector Network Analyzer Front-End"
 
 Hardware configuration
 ----------------------
@@ -244,9 +162,9 @@ LO Frequency
 
 **What:** ``/sys/bus/iio/devices/iio:deviceX/in_altvoltage0_lo_frequency``
 
-**Description:** Stores the Local Oscillator (LO) frequency in Hz. Reading
-returns the actual frequency in Hz. The values take the in_altvoltage0_lo_mode
-into account.
+**Description:** Reads the external LO clock frequency adjusted by the
+selected multiplier/divider. Writing this attribute updates the CT filter
+settings; the LO frequency itself is set through its clock-source driver.
 
 LO Mode
 ^^^^^^^
@@ -261,7 +179,7 @@ This attribute Configures the LO path multiplier/divider or bypass. Reading
 returns the actual mode.
 
 Available LO Modes
-''''''''''''''''''
+""""""""""""""""""
 
 **What:** ``/sys/bus/iio/devices/iio:deviceX/in_altvoltage0_lo_mode_available``
 **Description:** Reading this returns the valid values that can be written to
@@ -284,7 +202,7 @@ the in_altvoltage0_lo_mode attribute:
      - The external applied LO frequency is divided and passed into the mixer
 
 Offset Frequency
-''''''''''''''''
+""""""""""""""""
 
 **What:** ``/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_offset_frequency``
 **Description:** Stores the Offset frequency applied to the OFP, OFM inputs in
@@ -292,14 +210,14 @@ Hz. Reading returns the actual frequency in Hz. The values do not take the
 in_altvoltage1_offset_mode into account. Please see in_altvoltage1_if_frequency.
 
 Offset Frequency Modes
-''''''''''''''''''''''
+""""""""""""""""""""""
 
 **What:** ``/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_offset_mode``
 **Description:** This attribute Configures the Offset path divider and modes.
 Reading returns the actual mode.
 
 Available Offset Frequency Modes
-''''''''''''''''''''''''''''''''
+""""""""""""""""""""""""""""""""
 
 **What:**
 ``/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_offset_mode_available``
@@ -325,7 +243,7 @@ the in_altvoltage1_offset_mode attribute:
        mixer
 
 IF Frequency
-''''''''''''
+""""""""""""
 
 **What:** ``/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_if_frequency``
 **Description:** Stores the IF frequency applied to IF frequency offset mixer in
@@ -333,21 +251,27 @@ Hz. Reading returns the actual frequency in Hz. The values take the
 in_altvoltage1_offset_mode into account.
 
 Forward Gain
-''''''''''''
+""""""""""""
 
 **What:** ``/sys/bus/iio/devices/iio:deviceX/out_voltage0_forward_hardwaregain``
-**Description:** Stores the gain of the IF amplifier in the Forward path, to the
-(IFFP, IFFM) output, in 6dB steps. Reading returns the actual gain in dB.
+The advertised range is 0 to 48 dB in 6 dB steps: ``0 6 48`` is the
+minimum/step/maximum representation, not a three-value list. Its settings are
+0, 6, 12, 18, 24, 30, 36, 42 and 48.
+
+Writes are clamped to 0..127 and stored as the seven-bit FGAIN register code,
+which is also what readback returns. Codes 0..5 select 0 dB, 6..11 select
+6 dB, and so on up to 48..53 for 48 dB.
 
 Reflected Gain
-''''''''''''''
+""""""""""""""
 
 **What:** ``/sys/bus/iio/devices/iio:deviceX/out_voltage1_reverse_hardwaregain``
-**Description:** Stores the gain of the IF amplifier in the Reverse path, to the
-(IFRP, IFRM) output, in 6dB steps. Reading returns the actual gain in dB.
+The reverse path uses the RGAIN register for the IFRP/IFRM output. It has the
+same advertised range, clamped write-code behavior and Table 11 gain mapping
+as the forward path. Readback is the register code, not a measured analog gain.
 
 IF Filter Cutoff Frequency
-''''''''''''''''''''''''''
+""""""""""""""""""""""""""
 
 **What:**
 ``/sys/bus/iio/devices/iio:deviceX/out_voltage_filter_low_pass_3db_frequency``
@@ -355,10 +279,96 @@ IF Filter Cutoff Frequency
 (CIF1) bandwidth IF filter in Hz. Reading returns the actual frequency in Hz.
 
 Device Temperature
-''''''''''''''''''
+""""""""""""""""""
 
 **What:** ``/sys/bus/iio/devices/iio:deviceX/in_temp0_input`` **Description:**
 Scaled device (die) temperature measurement in milli degrees Celsius.
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADL5960 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               RF Font-Ends --->
+                  <*> Analog Devices ADL5960 Vector Network Analyzer Front-End"
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   compatible:
+     enum:
+       - adi,adl5960
+
+::
+
+   reg:
+     maxItems: 1
+
+::
+
+   spi-max-frequency:
+     maximum: 50000000
+
+::
+
+   clocks:
+     description:
+       Definition of the external clock (see clock/clock-bindings.txt)
+     minItems: 2
+
+::
+
+   clock-names:
+     items:
+       - const: lo_in
+       - const: offs_in
+     maxItems: 2
+
+::
+
+   lo_in-clock-scales:
+     description:
+       The Common Clock Framework max rate is limited by MAX of unsigned long.
+       For ADL5960 device this is a deficiency. If specified, this
+       property allows arbitrary scales. The first element in the array should
+       be the multiplier and the second element should be the divider.
+     $ref: /schemas/types.yaml#/definitions/uint32-array
+     minimum: 1
+
+::
+
+   avcc-supply:
+     description:
+       analog voltage regulator (see regulator/regulator.txt)
+
+::
+
+   '#clock-cells':
+     const: 0
+
+::
+
+   required:
+   - compatible
+   - reg
+   - clocks
+   - clock-names
 
 More Information
 ----------------
