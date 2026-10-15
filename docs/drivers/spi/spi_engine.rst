@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/spi/spi_engine
 
+
 .. _spi_engine:
 
 SPI Engine
@@ -7,8 +8,8 @@ SPI Engine
 
 SPI Engine Peripheral Linux Driver.
 
-Supported Devices
------------------
+Supported IP Cores
+------------------
 
 - :external+hdl:ref:`spi_engine`
 
@@ -27,7 +28,7 @@ Status
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/spi/spi-axi-spi-engine.c>`__
 
 Files
-^^^^^
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -37,11 +38,11 @@ Files
    * - driver
      - `spi-axi-spi-engine.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/spi/spi-axi-spi-engine.c>`_
 
-Device initialization
----------------------
+Adding Linux driver support
+---------------------------
 
-Devicetree bindings
-~~~~~~~~~~~~~~~~~~~
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Required properties:**
 
@@ -62,9 +63,9 @@ They follow the generic SPI bindings as outlined in spi-bus.txt.
 Example
 ^^^^^^^
 
-::
+.. code-block:: dts
 
-   spi@@44a00000 {
+   spi@44a00000 {
        compatible = "adi,axi-spi-engine-1.00.a";
        reg = <0x44a00000 0x1000>;
        interrupts = <0 56 4>;
@@ -75,8 +76,8 @@ Example
        /* SPI devices */
    };
 
-More information
-~~~~~~~~~~~~~~~~
+More Information
+----------------
 
 -  :external+hdl:ref:`spi_engine`
 
