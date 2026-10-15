@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7091r8
 
+
 .. _ad7091r8:
 
 AD7091R
@@ -19,45 +20,8 @@ Evaluation Boards
 
 - :adi:`EVAL-AD7091R-2 <en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/eval-ad7091r-2.html>`
 
-Status
-------
-
-.. list-table::
-   :header-rows: 1
-
-   * - Source
-     - Mainlined?
-     -
-     -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7091r8.c>`__
-     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7091r8.c>`__
-     -
-     -
-
-Files
------
-
-.. list-table::
-   :header-rows: 1
-
-   * - Function
-     - File
-     -
-   * - header
-     - `drivers/iio/adc/ad7091r-base.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7091r-base.h>`__
-     -
-   * - base driver
-     - `drivers/iio/adc/ad7091r-base.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7091r-base.c>`__
-     -
-   * - chip driver
-     - `drivers/iio/adc/ad7091r8.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7091r8.c>`__
-     -
-   * - devicetree bindings
-     - `Documentation/devicetree/bindings/iio/adc/adi,ad7091r5.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/adc/adi,ad7091r5.yaml>`__
-     -
-
-Overview
---------
+Description
+-----------
 
 The :adi:`ad7091r-2`, :adi:`ad7091r-4`, and
 :adi:`AD7091r-8` are 2-/4-/8-channel, ultra lowpower power
@@ -77,6 +41,46 @@ The conversion process and data acquisition are controlled using the CONVST pin,
 which is pulsed on every read to the conversion result register. Writing and
 reading to registers other than the conversion result register will not trigger
 a pulse on the CONVST line.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7091r8.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7091r8.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - header
+     - `drivers/iio/adc/ad7091r-base.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7091r-base.h>`__
+     -
+   * - base driver
+     - `drivers/iio/adc/ad7091r-base.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7091r-base.c>`__
+     -
+   * - chip driver
+     - `drivers/iio/adc/ad7091r8.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7091r8.c>`__
+     -
+   * - devicetree bindings
+     - `Documentation/devicetree/bindings/iio/adc/adi,ad7091r5.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/adc/adi,ad7091r5.yaml>`__
+     -
 
 Hardware configuration
 ----------------------
@@ -190,8 +194,8 @@ description in case of doubt.
 Adding Linux driver support
 ---------------------------
 
-Enabling the driver
-~~~~~~~~~~~~~~~~~~~
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
@@ -215,27 +219,8 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
                ...
            ...
 
-Adding a device tree entry
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Required properties
-^^^^^^^^^^^^^^^^^^^
-
-- **compatible**: Must be one of ``adi,ad7091r2``, ``adi,ad7091r4``,
-  ``adi,ad7091r8``.
-- **reg**: number of SPI chip select id for the device.
-- **adi,conversion-start-gpios**: Device tree identifier of the CONVST pin.
-- **reset-gpios**: Device tree identifier of the RESET pin.
-
-Optional properties
-^^^^^^^^^^^^^^^^^^^
-
-- **vref-supply**: phandle + specifier to a regulator for the external VREF
-  supply. If no external VREF is supplied this attribute should be omitted.
-  see: Documentation/devicetree/bindings/regulator/regulator.txt
-
-Device tree generic example
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -256,9 +241,6 @@ Device tree generic example
                interrupt-parent = <&gpio>;
        };
    };
-
-Device tree overlay example
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -307,6 +289,24 @@ Device tree overlay example
        status = "disabled";
    };
 
+Required properties
+^^^^^^^^^^^^^^^^^^^
+
+-  **compatible**: Must be one of ``adi,ad7091r2``, ``adi,ad7091r4``,
+   ``adi,ad7091r8``.
+
+-  **reg**: number of SPI chip select id for the device.
+
+-  **convst-gpios: Required GPIO connected to CONVST. reset-gpios: Optional GPIO
+   connected to RESET; omit it when RESET is not controlled by Linux.**
+
+Optional properties
+^^^^^^^^^^^^^^^^^^^
+
+- **vref-supply**: phandle + specifier to a regulator for the external VREF
+  supply. If no external VREF is supplied this attribute should be omitted.
+  see: Documentation/devicetree/bindings/regulator/regulator.txt
+
 Driver testing
 --------------
 
@@ -321,13 +321,16 @@ Driver testing
 
    - :external+system-level:ref:`iio-oscilloscope`
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    marcelo@raspberrypi:~ $ cat /sys/bus/iio/devices/iio\:device0/name
    ad7091r-8
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show channel scale
 ^^^^^^^^^^^^^^^^^^
@@ -378,16 +381,20 @@ Example test single-shot readings through IIO device sysfs interface.
    1
 
 Play with IIO events
-''''''''''''''''''''
+""""""""""""""""""""
 
 **Description:** IIO events are a way for the IIO subsystem to notify
 applications when some event of importance happens.
 
-Example monitoring IIO events and being notified when ADC readings fall above or
-below the limit registers. The voltage supplied to channel 6 is roughly 1.63V
-throughout the example. Two shells/terminals are used. First, in one of the
-shells, run ``iio_event_monitor`` to catch IIO events. Then, on the other shell,
-configure device low limit and high limit registers and experiment with them.
+Event examples require AD7091R-4 or AD7091R-8 with ALERT wired and an interrupt
+configured. AD7091R-2 has no event-capable channel table. A raw read initiates
+conversions; an event monitor by itself does not continuously sample the input.
+The voltage supplied to channel 6 is roughly 1.63V throughout the example. Two
+shells/terminals are used. First, in one of the shells, run
+``iio_event_monitor`` to catch IIO events. Then, on the other shell, Configure
+the low and high limits and enable the requested event. Disabling a rising event
+overwrites its high limit with the disabled sentinel; disabling a falling event
+overwrites its low limit. Reprogram the desired threshold when enabling again.
 The commands and output on the device shell are shown first followed by the
 commands and output on the shell monitoring IIO events.
 
