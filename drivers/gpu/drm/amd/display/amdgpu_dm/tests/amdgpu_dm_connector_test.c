@@ -1799,7 +1799,7 @@ static void dm_test_atomic_dup_state_copies_fields(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, new_dm_state->vcpi_slots, 4);
 	KUNIT_EXPECT_EQ(test, (int)new_dm_state->pbn, 1234);
 
-	kfree(new_dm_state);
+	connector->funcs->atomic_destroy_state(connector, new_state);
 }
 
 /* Tests for amdgpu_dm_fill_hdr_info_packet() */
