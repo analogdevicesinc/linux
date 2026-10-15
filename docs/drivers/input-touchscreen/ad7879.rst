@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/input-touchscreen/ad7879
 
+
 .. _ad7879:
 
 AD7879
@@ -29,8 +30,7 @@ serial interface and low on-resistance switches for driving 4-wire resistive
 touch screens. The AD7879 works with a very low power supply, a single 1.6 V to
 3.6V, and features throughput rates of 105 kSPS.
 
-The device includes a shutdown mode, which reduces its current consumption to
-less than 5 uA.
+The device includes a low-power shutdown mode.
 
 To reduce the effects of noise from LCDs and other sources, the AD7879 contains
 a preprocessing block. The preprocessing function consists of a median and an
@@ -52,15 +52,33 @@ interrupt to signal when new data is available INT, as an interrupt to indicate
 when limits are exceeded, or as a pen down interrupt when the screen is touched,
 PENIRQ. The AD7879 offers temperature and touch-pressure measurement.
 
-It is available in various packages. It has either an*\* SPI (AD7879)(AD7889)*\*
-or **I2C (AD7879-1)(AD7889-1)** interface.
+It is available in various packages, with either an SPI (AD7879, AD7889) or
+I2C (AD7879-1, AD7889-1) interface.
 
 *See also:* `tslib - Touchscreen Access Library <https://github.com/libts/tslib>`__
 
 *See also:* :ref:`ad7877`
 
+Driver features and limitations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Software configurable:
+
+-  First Conversion Delay: codes 0-12 are 128 us steps starting at 128 us,
+   codes 13/14/15 are 2.560/3.584/4.096 ms.
+
+-  Acquisition Time (2 us, 4 us, 8 us, 16 us)
+
+-  Average Filter (2, 4, 8, 16)
+
+-  Median Filter (0, 4, 8, 16)
+
+-  Pen Down Acquisition Interval Timer (515 us..9.44 ms in steps of 35 us)
+
+-  Auxiliary GPIO can be exported to GPIOLIB, and therefore used system-wide
+
 Configuration
--------------
+~~~~~~~~~~~~~
 
 **AD7879-1/AD7889-1 I2C Device Address options:**
 
@@ -82,18 +100,6 @@ Configuration
    * - 1
      - 1
      - 0x2F
-
-Software configurable features
-------------------------------
-
-**Software configurable:**
-
-- First Conversion Delay (128us..4.096ms in steps up 128us)
-- Acquisition Time (2us, 4us, 8us, 16us)
-- Average Filter (2,4,8,16)
-- Median Filter (0,4,8,16)
-- Pen Down Acquisition Interval Timer (550us..9.44ms in steps of 35us)
-- Auxiliary GPIO can be exported to GPIOLIB, and therefore used system-wide
 
 Source Code
 -----------
@@ -124,109 +130,26 @@ Files
    * - spi bus support
      - `drivers/input/touchscreen/ad7879-spi.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/touchscreen/ad7879-spi.c>`__
    * - include
-     - `include/linux/spi/ad7879.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/spi/ad7879.h>`__
+     - `drivers/input/touchscreen/ad7879.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/touchscreen/ad7879.h>`__
 
-Example platform device initialization
---------------------------------------
+Hardware configuration
+----------------------
 
-.. include:: /include/platform-and-bus-model.rst
-   :start-after: .. start-platform-data
-   :end-before: .. end-platform-data
-
-Touchscreen characteristics vary between boards and models. The platform_data
-for the device’s ``struct device`` holds this information.
-
-Example Platform / Board file (SPI Interface Version)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. include:: /include/platform-and-bus-model.rst
-   :start-after: .. start-declaring-spi-slave-devices
-   :end-before: .. end-declaring-spi-slave-devices
-
-These snippets are all from the same file.
-``arch/blackfin/mach-bf537/boards/stamp.c``:
-
-.. code:: C
-
-   #include <linux/spi/ad7879.h>
-
-   static const struct ad7879_platform_data bfin_ad7879_ts_info = {
-       .model          = 7879, /* Model = AD7879 */
-       .x_plate_ohms       = 620,  /* 620 Ohm from the touch datasheet */
-       .pressure_max       = 10000,
-       .pressure_min       = 0,
-       .first_conversion_delay = 3,    /* wait 512us before do a first conversion */
-       .acquisition_time   = 1,    /* 4us acquisition time per sample */
-       .median         = 2,    /* do 8 measurements */
-       .averaging      = 1,    /* take the average of 4 middle samples */
-       .pen_down_acc_interval  = 255,  /* 9.4 ms */
-       .gpio_export        = 1,    /* Export GPIO to gpiolib */
-       .gpio_base      = -1,   /* Dynamic allocation */
-   };
-
-.. code:: C
-
-   static struct spi_board_info bfin_spi_board_info[] __initdata = {
-   #if defined(CONFIG_TOUCHSCREEN_AD7879_SPI) || defined(CONFIG_TOUCHSCREEN_AD7879_SPI_MODULE)
-       {
-           .modalias = "ad7879",
-           .platform_data = &bfin_ad7879_ts_info,
-           .irq = IRQ_PF7,
-           .max_speed_hz = 5000000,     /* max spi clock (SCK) speed in HZ */
-           .bus_num = 0,
-           .chip_select = 1,
-           .controller_data = &spi_ad7879_chip_info, /* only needed on Blackfin */
-           .mode = SPI_CPHA | SPI_CPOL,
-       },
-   #endif
-   };
-
-Example Platform / Board file (I2C Interface Version)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. include:: /include/platform-and-bus-model.rst
-   :start-after: .. start-declaring-i2c-devices
-   :end-before: .. end-declaring-i2c-devices
-
-.. code:: C
-
-   #include <linux/spi/ad7879.h>
-
-   static const struct ad7879_platform_data bfin_ad7879_ts_info = {
-       .model          = 7879, /* Model = AD7879 */
-       .x_plate_ohms       = 620,  /* 620 Ohm from the touch datasheet */
-       .pressure_max       = 10000,
-       .pressure_min       = 0,
-       .first_conversion_delay = 3,    /* wait 512us before do a first conversion */
-       .acquisition_time   = 1,    /* 4us acquisition time per sample */
-       .median         = 2,    /* do 8 measurements */
-       .averaging      = 1,    /* take the average of 4 middle samples */
-       .pen_down_acc_interval  = 255,  /* 9.4 ms */
-       .gpio_export        = 1,    /* Export GPIO to gpiolib */
-       .gpio_base      = -1,   /* Dynamic allocation */
-   };
-
-.. code:: C
-
-   static struct i2c_board_info __initdata bfin_i2c_board_info[] = {
-   #if defined(CONFIG_TOUCHSCREEN_AD7879_I2C) || defined(CONFIG_TOUCHSCREEN_AD7879_I2C_MODULE)
-       {
-           I2C_BOARD_INFO("ad7879", 0x2F),
-           .irq = IRQ_PG5,
-           .platform_data = (void *)&bfin_ad7879_ts_info,
-       },
-   #endif
-   }
+.. figure:: https://wiki.analog.com/_media/software/driver/linux/ad7879_example_schematic.png
+   :width: 800px
 
 Adding Linux driver support
 ---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
 .. note::
 
-   The AD7879 Driver depends on **CONFIG_SPI** or **CONFIG_I2C**
+   The AD7879 driver depends on CONFIG_SPI or CONFIG_I2C.
 
 ::
 
@@ -257,27 +180,18 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
      [ ]   Miscellaneous devices  --->
          Hardware I/O ports  --->
 
-Hardware configuration
-----------------------
-
-.. figure:: https://wiki.analog.com/_media/software/driver/linux/ad7879_example_schematic.png
-   :width: 800px
-
-Driver testing
---------------
-
 Driver compiled as a module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-::
+.. code-block:: text
 
    root:~> modprobe evdev
-   root:~> modprobe ad7879
+   root:~> modprobe ad7879-spi   # use ad7879-i2c for the I2C variant
    input: AD7879 Touchscreen as /class/input/input0
    ad7879 spi0.1: touchscreen, irq 57
 
 Driver compiled into the kernel
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Your kernel startup messages should include something like this
 
@@ -286,46 +200,95 @@ Your kernel startup messages should include something like this
    input: AD7879 Touchscreen as /class/input/input0
    ad7879 spi0.1: touchscreen, irq 57
 
-Common Problems
-~~~~~~~~~~~~~~~
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-In case you see a message like this
+The driver reads its configuration from devicetree properties. Required
+properties are ``compatible`` (``adi,ad7879`` for SPI, ``adi,ad7879-1`` for
+I2C), ``reg``, ``touchscreen-max-pressure`` and ``adi,resistance-plate-x``;
+the last two set the pressure range and X-plate resistance used for the
+pressure calculation. The conversion settings ``adi,first-conversion-delay``,
+``adi,acquisition-time``, ``adi,median-filter-size``, ``adi,averaging`` and
+``adi,conversion-interval`` are ``u8`` properties, written with
+``/bits/ 8``. ``gpio-controller`` and ``#gpio-cells = <1>`` export the
+auxiliary pin as a one-line GPIO chip. See
+``Documentation/devicetree/bindings/input/touchscreen/adi,ad7879.yaml``.
 
-::
+SPI example:
 
-   spi0.1: Failed to probe AD7879 Touchscreen
+.. code-block:: dts
 
-This means that the SPI communication and initialization with the AD7879
-touchscreen controller/digitizer failed. **check bus_num and chip_select in your
-platform device file**
+   #include <dt-bindings/interrupt-controller/irq.h>
 
-Checking for proper installation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   &spi0 {
+       #address-cells = <1>;
+       #size-cells = <0>;
 
-After the kernel boot your device folder should include at least one device node
-for the touchscreen
+       touchscreen@1 {
+           compatible = "adi,ad7879";
+           reg = <1>;
+           spi-max-frequency = <5000000>;
+           gpio-controller;
+           #gpio-cells = <1>;
+           interrupt-parent = <&gpio1>;
+           interrupts = <13 IRQ_TYPE_EDGE_FALLING>;
+           touchscreen-max-pressure = <4096>;
+           adi,resistance-plate-x = <120>;
+           adi,first-conversion-delay = /bits/ 8 <3>;
+           adi,acquisition-time = /bits/ 8 <1>;
+           adi,median-filter-size = /bits/ 8 <2>;
+           adi,averaging = /bits/ 8 <1>;
+           adi,conversion-interval = /bits/ 8 <255>;
+       };
+   };
 
-::
+I2C example:
 
-   root:/> ls -al /dev/input/
-   drw-r--r--    2 root     root            0 Jan  1 00:03 .
-   drwxr-xr-x    5 root     root            0 Jan  1 00:03 ..
-   crw-rw-r--    1 root     root      13,  64 Jan  1 00:03 event0
-   crw-rw-r--    1 root     root      13,  65 Jan  1 00:03 event1
-   crw-rw-r--    1 root     root      13,  66 Jan  1 00:03 event2
-   root:/>
+.. code-block:: dts
 
-Check that the interrupt is registered.
+   #include <dt-bindings/interrupt-controller/irq.h>
 
-::
+   &i2c0 {
+       #address-cells = <1>;
+       #size-cells = <0>;
 
-   root:~> cat /proc/interrupts | grep ad7879
-   57:          0   ad7879
+       touchscreen@2c {
+           compatible = "adi,ad7879-1";
+           reg = <0x2c>;
+           interrupt-parent = <&gpio1>;
+           interrupts = <13 IRQ_TYPE_EDGE_FALLING>;
+           touchscreen-max-pressure = <4096>;
+           adi,resistance-plate-x = <120>;
+           adi,first-conversion-delay = /bits/ 8 <3>;
+           adi,acquisition-time = /bits/ 8 <1>;
+           adi,median-filter-size = /bits/ 8 <2>;
+           adi,averaging = /bits/ 8 <1>;
+           adi,conversion-interval = /bits/ 8 <255>;
+       };
+   };
 
-::
+Driver testing
+--------------
 
-   root:~> cat /sys/class/input/input0/name
-   AD7879 Touchscreen
+Identify the device
+~~~~~~~~~~~~~~~~~~~
+
+After boot, identify the touchscreen by reading the input-event device names.
+Event numbers depend on the other input devices and are not fixed by the
+AD7879 driver:
+
+.. code-block:: sh
+
+   for name in /sys/class/input/event*/device/name; do
+       [ -f "$name" ] || continue
+       printf '%s: ' "${name%/device/name}"
+       cat "$name"
+   done
+
+Use the ``/dev/input/eventX`` node corresponding to the AD7879 Touchscreen
+name for the event tests below. If diagnosing interrupt delivery, inspect
+``/proc/interrupts`` using the actual board's registered interrupt; do not
+assume a fixed IRQ or that the touchscreen is always ``input0``.
 
 Use the event_test utility to test proper function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -376,8 +339,8 @@ Use the event_test utility to test proper function
 .. tip::
 
    In case you touch the surface and don’t receive events, it’s likely that
-   something with your /DAV Interrupt is wrong. **check irq number in your
-   platform device file**
+   something with your /DAV Interrupt is wrong. Check the IRQ number in the
+   devicetree node.
 
 .. tip::
 
@@ -397,43 +360,13 @@ Use the event_test utility to test proper function
    Err:          0
    root:/>
 
-Find Input by name
-~~~~~~~~~~~~~~~~~~
+Device-specific sysfs attributes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In case you like to find out which input/event interface is connected to your
-touchscreen, use the sysfs entries
-
-::
-
-   root:/sys/class/input> for i in `find /sys/class/input/ -name name` ; do echo -n %%"$i : "%%; cat $i; done
-   ./input2/name : Logitech USB Receive
-   ./input1/name : Logitech USB Receiver
-   ./input0/name : AD7879 Touchscreen
-
-Under the device folder there are auxiliary functions such as GPIO and disable controls
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-::
-
-   root:/> cd sys/class/input/input0/device/
-   root:/sys/devices/platform/bfin-spi.0/spi0.1> ls -al
-   drwxr-xr-x    3 root     root            0 Jan  3 13:02 .
-   drwxr-xr-x    5 root     root            0 Jan  3 13:02 ..
-   lrwxrwxrwx    1 root     root            0 Jan  3 13:04 bus -> ../../../../bus/spi
-   -rw-rw-r--    1 root     root         4096 Jan  3 13:04 disable
-   lrwxrwxrwx    1 root     root            0 Jan  3 13:04 driver -> ../../../../bus/spi/drivers/ad7879
-   -rw-rw-r--    1 root     root         4096 Jan  3 13:04 gpio
-   lrwxrwxrwx    1 root     root            0 Jan  3 13:04 input:input0 -> ../../../../class/input/input0
-   -r--r--r--    1 root     root         4096 Jan  3 13:04 modalias
-   drwxr-xr-x    2 root     root            0 Jan  3 13:04 power
-   lrwxrwxrwx    1 root     root            0 Jan  3 13:04 subsystem -> ../../../../bus/spi
-   -rw-r--r--    1 root     root         4096 Jan  3 13:04 uevent
-   root:/sys/devices/platform/bfin-spi.0/spi0.1> cat gpio
-   0
-   root:/sys/devices/platform/bfin-spi.0/spi0.1> echo 1 > gpio
-   root:/sys/devices/platform/bfin-spi.0/spi0.1> cat gpio
-   1
-   root:/sys/devices/platform/bfin-spi.0/spi0.1>
+The device exports a single sysfs attribute, ``disable``, under its bus
+device directory (e.g. ``/sys/bus/spi/devices/spi0.1/disable``). Writing 1
+disables the touchscreen; writing 0 re-enables it. The auxiliary GPIO, when
+``gpio-controller`` is set, is registered as a gpiolib GPIO controller.
 
 Touchscreen calibration
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -568,3 +501,19 @@ Most people should not care about the driver source - it just works as a normal
 Linux input device. If you are interested, you can look at the driver source:
 
 `ad7879_report() <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/touchscreen/ad7879.c>`_
+
+Troubleshooting
+---------------
+
+Common Problems
+~~~~~~~~~~~~~~~
+
+In case you see a message like this
+
+::
+
+   spi0.1: Failed to probe AD7879 Touchscreen
+
+This means that the SPI communication and initialization with the AD7879
+touchscreen controller/digitizer failed. Check the SPI chip select and bus
+number in the devicetree node.
