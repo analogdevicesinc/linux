@@ -1169,6 +1169,8 @@ static inline int __do_essa(struct kvm_vcpu *vcpu, const int orc)
 	entries = (vcpu->arch.sie_block->cbrlo & ~PAGE_MASK) >> 3;
 
 	nappended = dat_perform_essa(vcpu->arch.gmap->asce, gfn, orc, &state, &dirtied);
+	if (nappended == PGM_ADDRESSING)
+		return kvm_s390_inject_program_int(vcpu, PGM_ADDRESSING);
 	vcpu->run->s.regs.gprs[r1] = state.val;
 	if (nappended < 0)
 		return 0;
