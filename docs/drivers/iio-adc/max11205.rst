@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/max11205
 
+
 .. _max11205:
 
 MAX11205
@@ -72,8 +73,8 @@ Files
 Driver testing
 --------------
 
-When configured with channel 0 as voltage output the following structure is
-created under the corresponding IIO device.
+The driver exposes one voltage input channel. The following example uses
+MAX11205A; MAX11205B has a different fixed sample rate.
 
 ::
 
@@ -95,16 +96,19 @@ created under the corresponding IIO device.
    drwxr-xr-x 2 root root    0 Sep  6 08:17 trigger
    -rw-r--r-- 1 root root 4096 Sep  6 08:17 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root@analog:/sys/bus/iio/devices/iio:device0# cat name
    max11205a
 
+Basic operation
+~~~~~~~~~~~~~~~
+
 Show raw measurement
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
 
 **Description:** Raw measurement of voltage on channel 0.
 
@@ -130,7 +134,10 @@ channel 0 in order to obtain the actual voltage.
 Show sampling frequency
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-**Description:** The sampling frequency of the device.
+**Description:** Fixed sample rate reported by the driver: 116 Hz for
+MAX11205A and 13 Hz for MAX11205B. The driver implements no write callback, so
+writing this attribute fails; select the rate by using the correct
+``maxim,max11205a`` or ``maxim,max11205b`` compatible.
 
 ::
 
