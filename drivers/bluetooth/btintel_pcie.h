@@ -468,6 +468,7 @@ struct rxq {
  */
 struct btintel_pcie_dbgc {
 	u16		count;
+	u32		buf_size;
 
 	void		*frag_v_addr;
 	dma_addr_t	frag_p_addr;
@@ -479,7 +480,12 @@ struct btintel_pcie_dbgc {
 };
 
 struct btintel_pcie_mdbgc {
-	u32		count;
+	u32		buf1_count;
+	u32		buf1_size;
+	u32		buf2_count;
+	u32		buf2_size;
+	u32		buf3_count;
+	u32		buf3_size;
 
 	void		*frag_v_addr;
 	dma_addr_t	frag_p_addr;

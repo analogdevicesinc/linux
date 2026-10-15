@@ -64,6 +64,76 @@ static int btintel_pcie_yoyo_parse_dbg_info(struct btintel_pcie_yoyo_ctx *ctx,
 	return 0;
 }
 
+static int btintel_pcie_yoyo_parse_buf_alloc(struct btintel_pcie_yoyo_ctx *ctx,
+					     const struct btintel_pcie_tlv_buf_alloc *tlv,
+					     u32 len)
+{
+	u32 alloc_id, buf_location, domain, idx, max_num_frags, min_buf_size;
+	u32 req_buf_size, version;
+
+	if (len != sizeof(*tlv) - sizeof(struct btintel_pcie_tlv_hdr)) {
+		BT_WARN("YoYo: unexpected buf alloc TLV length %u", len);
+		return -EBADMSG;
+	}
+
+	domain = get_unaligned_le32(&tlv->dbg_hdr.domain);
+	version = get_unaligned_le32(&tlv->dbg_hdr.tlv_data_version);
+	if (domain != BTINTEL_PCIE_DOMAIN_BT ||
+	    version != BTINTEL_PCIE_BUF_ALLOC_TLV_VERSION) {
+		BT_WARN("YoYo: unsupported buf allocation domain/version (%u/%u)",
+			domain, version);
+		return -EINVAL;
+	}
+
+	alloc_id = get_unaligned_le32(&tlv->alloc_id);
+	if (alloc_id < BTINTEL_PCIE_ALLOC_ID_DBGC1 ||
+	    alloc_id > BTINTEL_PCIE_ALLOC_ID_DBGC3) {
+		BT_WARN("YoYo: invalid buf allocation id %u", alloc_id);
+		return -EINVAL;
+	}
+
+	idx = alloc_id - BTINTEL_PCIE_ALLOC_ID_DBGC1;
+	buf_location = get_unaligned_le32(&tlv->buf_location);
+	max_num_frags = get_unaligned_le32(&tlv->max_num_frags);
+	min_buf_size = get_unaligned_le32(&tlv->min_buf_size);
+	req_buf_size = get_unaligned_le32(&tlv->req_buf_size);
+
+	if (buf_location != BTINTEL_PCIE_BUF_LOC_DRAM) {
+		BT_WARN("YoYo: buf allocation id=%u unsupported buffer location %u",
+			alloc_id, buf_location);
+		return -EINVAL;
+	}
+
+	if (!max_num_frags || max_num_frags > BTINTEL_PCIE_MAX_BUF_FRAGS ||
+	    min_buf_size < BTINTEL_PCIE_MIN_BUF_SIZE ||
+	    min_buf_size > BTINTEL_PCIE_MAX_BUF_SIZE ||
+	    req_buf_size > BTINTEL_PCIE_MAX_BUF_SIZE ||
+	    req_buf_size % max_num_frags ||
+	    req_buf_size / max_num_frags < min_buf_size) {
+		BT_WARN("YoYo: buf allocation id=%u req size=%u max frags=%u min size=%u",
+			alloc_id, req_buf_size, max_num_frags, min_buf_size);
+		return -EINVAL;
+	}
+
+	ctx->buf_alloc[idx].alloc_id = alloc_id;
+	ctx->buf_alloc[idx].buf_location = buf_location;
+	ctx->buf_alloc[idx].req_buf_size = req_buf_size;
+	ctx->buf_alloc[idx].max_num_frags = max_num_frags;
+	ctx->buf_alloc[idx].min_buf_size = min_buf_size;
+	ctx->buf_alloc[idx].present = true;
+
+	if (idx + 1 > ctx->num_buf_allocs)
+		ctx->num_buf_allocs = idx + 1;
+
+	BT_DBG("YoYo: buf allocation id=%u loc=%u req size=%u max frags=%u min size=%u",
+	       alloc_id, ctx->buf_alloc[idx].buf_location,
+	       ctx->buf_alloc[idx].req_buf_size,
+	       ctx->buf_alloc[idx].max_num_frags,
+	       ctx->buf_alloc[idx].min_buf_size);
+
+	return 0;
+}
+
 /*
  * Parse the optional YoYo firmware TLV stream and validate each record.
  * This is the entry point for the runtime debug configuration payload.
@@ -98,14 +168,16 @@ static int btintel_pcie_yoyo_parse_tlv_buffer(struct btintel_pcie_yoyo_ctx *ctx,
 							       (const void *)tlv, len);
 			if (ret) {
 				ctx->dbg_info_present = false;
-				return ret;
 			}
+			break;
+		case BTINTEL_PCIE_TLV_TYPE_DBG_BUF_ALLOC:
+			ret = btintel_pcie_yoyo_parse_buf_alloc(ctx,
+								(const void *)tlv, len);
 			break;
 		case BTINTEL_PCIE_TLV_TYPE_DBG_REGION:
 		case BTINTEL_PCIE_TLV_TYPE_DBG_TRIGGER:
 		case BTINTEL_PCIE_TLV_TYPE_DBG_HCMD:
 		case BTINTEL_PCIE_TLV_TYPE_DBG_CONFIG_SET:
-		case BTINTEL_PCIE_TLV_TYPE_DBG_BUF_ALLOC:
 		case BTINTEL_PCIE_TLV_TYPE_DBG_PRESET_OVERRIDE:
 			BT_DBG("YoYo: valid tlv type 0x%x len=%u", type, len);
 			break;
@@ -116,12 +188,22 @@ static int btintel_pcie_yoyo_parse_tlv_buffer(struct btintel_pcie_yoyo_ctx *ctx,
 
 		ptr += tlv_size;
 		remaining -= tlv_size;
+
+		if (ret) {
+			BT_ERR("YoYo: error parsing tlv type 0x%x (ret=%d)", type, ret);
+			return ret;
+		}
+
 		count++;
 	}
 
 	/* If no TLVs were parsed, the YoYo binary is considered invalid */
 	if (remaining || count == 0) {
 		BT_ERR("YoYo: trailing %zu bytes after tlv stream", remaining);
+		return -EBADMSG;
+	}
+	if (!ctx->num_buf_allocs) {
+		BT_ERR("YoYo: mandatory buffer allocation TLV missing");
 		return -EBADMSG;
 	}
 
@@ -162,6 +244,8 @@ void btintel_pcie_yoyo_cleanup(struct btintel_pcie_yoyo_ctx *ctx)
 
 	ctx->enabled = false;
 	ctx->dbg_info_present = false;
+	ctx->num_buf_allocs = 0;
+	memset(ctx->buf_alloc, 0, sizeof(ctx->buf_alloc));
 }
 EXPORT_SYMBOL_GPL(btintel_pcie_yoyo_cleanup);
 
@@ -217,6 +301,31 @@ int btintel_pcie_yoyo_load_and_parse(struct btintel_pcie_yoyo_ctx *ctx,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(btintel_pcie_yoyo_load_and_parse);
+
+/**
+ * btintel_pcie_yoyo_get_buf_alloc - Query buffer allocation config for a DBGC
+ * @ctx: YoYo context
+ * @alloc_id: Allocation ID (1=DBGC1, 2=DBGC2, 3=DBGC3)
+ *
+ * Return the parsed configuration, or NULL if no matching TLV was present.
+ */
+const struct btintel_pcie_buf_alloc *
+btintel_pcie_yoyo_get_buf_alloc(struct btintel_pcie_yoyo_ctx *ctx, u32 alloc_id)
+{
+	u32 idx;
+
+	if (!ctx || !ctx->enabled ||
+	    alloc_id < BTINTEL_PCIE_ALLOC_ID_DBGC1 ||
+	    alloc_id > BTINTEL_PCIE_ALLOC_ID_DBGC3)
+		return NULL;
+
+	idx = alloc_id - BTINTEL_PCIE_ALLOC_ID_DBGC1;
+	if (!ctx->buf_alloc[idx].present)
+		return NULL;
+
+	return &ctx->buf_alloc[idx];
+}
+EXPORT_SYMBOL_GPL(btintel_pcie_yoyo_get_buf_alloc);
 
 MODULE_DESCRIPTION("Intel Bluetooth yoyo debug framework");
 MODULE_LICENSE("GPL");
