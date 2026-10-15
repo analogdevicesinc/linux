@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad738x
 
+
 .. _ad738x:
 
 AD738x
@@ -57,7 +58,7 @@ Status
 
    * - Source
      - Mainlined?
-   * - :git+linux:`ADI tree <2019_R2:drivers/iio/adc/ad738x.c>`
+   * - :git+linux:`ADI tree <main:drivers/iio/adc/ad7380.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7380.c>`__
 
 Files
@@ -75,8 +76,11 @@ Files
    * - documentation
      - `Documentation/iio/ad7380.rst <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/iio/ad7380.rst>`__ (`html <https://docs.kernel.org/iio/ad7380.html>`__)
 
-Devicetree
-----------
+Adding Linux driver support
+---------------------------
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 The devicetree (:linux.github:``.dts`` file) describes how the chip is wired up.
 A complete example
@@ -88,7 +92,7 @@ If you change any jumpers on the evaluation board or modify the HDL project, you
 may need to update the ``.dts`` file to reflect the changes in wiring.
 
 SPI Bus
-~~~~~~~
+^^^^^^^
 
 The ADC is represented by a child node of the SPI controller that the ADC is
 attached to. The ``compatible`` property indicates which specific chip is being
@@ -121,18 +125,28 @@ the clock polarity.
    spi-max-frequency = <80000000>; /* 12.5 ns period */
    spi-cpol;
 
-Currently, the mainline Linux kernel doesn‘t support one SDO line of the chip.
-The ADI Linux kernel does support this. In this case you will need to add a
-’‘adi,num-sdi’’ property that corresponds to the ``NUM_OF_SDI`` compile option
-that was used when compiling the FPGA bitstream from the
+The driver takes the number of SDO lines from the SPI receive-lane
+configuration (``spi-rx-bus-width``), not from ``adi,num-sdi``. Configure the
+receive lanes to match the controller and FPGA wiring; the number must be
+between one and the device's simultaneous channel count. The controller must
+also support the selected receive width. Match this property to the
+``NUM_OF_SDI`` compile option used for the FPGA bitstream from the
 :external+hdl:ref:`ad738x_fmc`.
 
-::
+The SPI core counts the elements of ``spi-rx-bus-width`` to determine the number
+of receive lanes; each element specifies that lane's width. For two
+independent single-bit SDO lanes supported by the controller:
 
-   adi,num-sdi = <2>;
+.. code-block:: devicetree
+
+   spi-rx-bus-width = <1 1>;
+
+``<2>`` would instead describe one dual-bit lane. The
+default receive-lane map is the identity map; if the board uses a different
+mapping, set ``spi-rx-lane-map`` to match its controller wiring.
 
 Power supplies
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 Power supplies should be described. Typically these will link to a ``compatible
 = ``regulator-fixed``;`` node describing the power supply. See the full example
@@ -145,7 +159,7 @@ actually wired to the chip. For the FMCZ evaluation board, this is the default:
    vlogic-supply = <&eval_u6>;
 
 Reference supplies
-~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
 
 The default of the evaluation boards is to use a 3.3V external reference wired
 to the REFIO pin. This is described with:
@@ -167,7 +181,7 @@ AD7389-4 is another exception. It only has an internal reference, so both
 properties are always omitted.
 
 Common mode supplies
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
 
 Some chips in this series are pseudo-differential ADCs. In this case, a voltage
 supply is needed for each negative input on the chip.
@@ -180,7 +194,7 @@ supply is needed for each negative input on the chip.
 These properties are omitted on single-ended and fully differential chips.
 
 Additional properties
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 The ``interrupts`` property for the ALERT signals is not currently supported in
 the Linux driver.
@@ -226,13 +240,16 @@ Driver testing
    drwxr-xr-x 2 root root    0 Sep 12 20:11 trigger
    -rw-r--r-- 1 root root 4096 Sep 12 20:11 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/bus/iio/devices/iio:device0> cat name
    ad7380
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale
 ^^^^^^^^^^
@@ -246,7 +263,7 @@ measured voltage in millivolts.
    0.076293945
 
 Show offset
-'''''''''''
+~~~~~~~~~~~
 
 **Description:** offset to be applied to in_voltage0_raw in order to obtain the
 measured voltage in millivolts.
@@ -261,7 +278,7 @@ on single-ended or fully differential chips. The value comes from the
 ``inx-supply`` voltage.
 
 Show channel 0 measurement
-''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** Raw unscaled voltage measurement on channel 0
 
@@ -272,6 +289,7 @@ Show channel 0 measurement
 
 **U** = *in_voltage0_raw \* in_voltage_scale* = 28583 \* 0.076293945 = **2180.70
 mV**
+
 
 .. _ad738x trigger-management:
 
@@ -311,7 +329,7 @@ rate.
    ’‘in_voltage_sampling_frequency’’.
 
 Conventional IIO trigger
-''''''''''''''''''''''''
+""""""""""""""""""""""""
 
 If deviceX supports triggered sampling, it’s a so called trigger consumer and
 there will be an additional folder /sys/bus/iio/device/iio:deviceX/trigger. In
@@ -462,14 +480,16 @@ Alert output
 ~~~~~~~~~~~~
 
 The thresholds that drive the ALERT output on the chip are accessed via the
-``events/in_thresh_falling_value`` (low) and ``events/in_thresh_falling_value``
-(high) attributes.
+``events/in_thresh_falling_value (low) and events/in_thresh_rising_value (high) attributes.``
 
 These values are in raw units, so to set a specific voltage, the values of the
 ``scale`` attribute (and ``offset`` if present) needs to be taken into account.
 
-For example, if the reference voltage is 3.3V, the scale will be 0.050354003
-which makes the default rising threshold 32768 \* 0.050354003 = 1650 mV.
+For a 16-bit pseudo-differential part with 3.3 V reference and no resolution
+boost, scale is approximately 0.050354003 mV/code; apply its common-mode offset
+before scaling. A fully differential 16-bit part instead has scale approximately
+0.100708007 mV/code. Always read the current scale and offset, since
+oversampling with resolution boost and hardware gain also affect conversion.
 
 The ``events/thresh_either_en`` attribute is used to enable or disable the
 /ALERT output pin on the chip. (If all SDO lines are being used, this will have
