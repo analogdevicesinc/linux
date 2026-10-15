@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-accelerometer/adis16209
 
+
 .. _adis16209:
 
 ADIS16209
@@ -40,13 +41,15 @@ Status
      - Mainlined?
      -
      -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16209_core.c>`__
-     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16209_core.c>`__
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adis16209.c>`__
+     - Yes
      -
      -
 
 Files
 ~~~~~
+
+The device driver uses the shared ADIS support under ``drivers/iio/imu/``.
 
 .. list-table::
    :header-rows: 1
@@ -54,13 +57,9 @@ Files
    * - Function
      - File
    * - driver
-     - `drivers/staging/iio/accel/adis16209_core.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16209_core.c>`__
-   * - driver
-     - `drivers/staging/iio/accel/adis16209_ring.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16209_ring.c>`__
-   * - driver
-     - `drivers/staging/iio/accel/adis16209_trigger.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16209_trigger.c>`__
-   * - include
-     - `drivers/staging/iio/accel/adis16209.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16209.h>`__
+     - `drivers/iio/accel/adis16209.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adis16209.c>`__
+   * - shared declarations
+     - `include/linux/iio/imu/adis.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/iio/imu/adis.h>`__
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-spi-slave-devices
@@ -106,6 +105,9 @@ the device in question.
 Adding Linux driver support
 ---------------------------
 
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
@@ -113,15 +115,14 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 
    The ADIS16209 Driver depends on **CONFIG_SPI**
 
-::
+.. code-block:: text
 
    Linux Kernel Configuration
        Device Drivers  --->
-           [*] Staging drivers  --->
+           Industrial I/O support → Accelerometers → CONFIG_ADIS16209
                <*>     Industrial I/O support --->
                    --- Industrial I/O support
-                   -*-   Enable ring buffer support within IIO
-                   -*-     Industrial I/O lock free software ring
+                   -*-   Enable buffer support within IIO
                    -*-   Enable triggered sampling support
 
                          *** Accelerometers ***
@@ -131,9 +132,6 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 
                    [--snip--]
 
-Hardware configuration
-----------------------
-
 Driver testing
 --------------
 
@@ -141,7 +139,7 @@ Driver testing
    :start-after: .. start-iio-device-files
    :end-before: .. end-iio-device-files
 
-::
+.. code-block:: text
 
    root:/> cd /sys/bus/iio/devices/
    root:/sys/bus/iio/devices> ls
@@ -153,37 +151,37 @@ Driver testing
    -r--r--r--    1 root     root          4096 Jan  4 02:58 dev
    -rw-r--r--    1 root     root          4096 Jan  4 02:58 in_accel_x_calibbias
    -r--r--r--    1 root     root          4096 Jan  4 02:58 in_accel_x_raw
-   -rw-r--r--    1 root     root          4096 Jan  4 02:58 in_accel_x_scale
+   -rw-r--r--    1 root     root          4096 Jan  4 02:58 in_accel_scale
+   -rw-r--r--    1 root     root          4096 Jan  4 02:58 in_incli_scale
    -rw-r--r--    1 root     root          4096 Jan  4 02:58 in_accel_y_calibbias
    -r--r--r--    1 root     root          4096 Jan  4 02:58 in_accel_y_raw
-   -rw-r--r--    1 root     root          4096 Jan  4 02:58 in_accel_y_scale
    -r--r--r--    1 root     root          4096 Jan  4 02:58 in_incli_x_raw
-   -rw-r--r--    1 root     root          4096 Jan  4 02:58 in_incli_x_scale
    -r--r--r--    1 root     root          4096 Jan  4 02:58 in_incli_y_raw
-   -rw-r--r--    1 root     root          4096 Jan  4 02:58 in_incli_y_scale
-   -r--r--r--    1 root     root          4096 Jan  4 02:58 in_rot0_raw
+   -r--r--r--    1 root     root          4096 Jan  4 02:58 in_rot_x_raw
    -rw-r--r--    1 root     root          4096 Jan  4 02:58 in_temp0_offset
    -r--r--r--    1 root     root          4096 Jan  4 02:58 in_temp0_raw
    -rw-r--r--    1 root     root          4096 Jan  4 02:58 in_temp0_scale
-   -r--r--r--    1 root     root          4096 Jan  4 02:58 in_voltage0_raw
-   -rw-r--r--    1 root     root          4096 Jan  4 02:58 in_voltage0_scale
+   -r--r--r--    1 root     root          4096 Jan  4 02:58 in_voltage0_supply_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 02:58 in_voltage0_supply_scale
    -r--r--r--    1 root     root          4096 Jan  4 02:58 in_voltage1_raw
    -rw-r--r--    1 root     root          4096 Jan  4 02:58 in_voltage1_scale
    -r--r--r--    1 root     root          4096 Jan  4 02:58 name
    drwxr-xr-x    2 root     root             0 Jan  4 02:58 power
-   --w-------    1 root     root          4096 Jan  4 02:58 reset
    drwxr-xr-x    2 root     root             0 Jan  4 02:58 scan_elements
    lrwxrwxrwx    1 root     root             0 Jan  4 02:58 subsystem -> ../../../../../bus/iio
    drwxr-xr-x    2 root     root             0 Jan  4 02:58 trigger
    -rw-r--r--    1 root     root          4096 Jan  4 02:58 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.5/iio:device0> cat name
    adis16209
+
+Attribute reference
+~~~~~~~~~~~~~~~~~~~
 
 ADIS16209 device attributes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -197,24 +195,24 @@ For a detailed description please see:
    * - Device files
    * - in_accel_x_calibbias
    * - in_accel_x_raw
-   * - in_accel_x_scale
+   * - in_accel_scale
    * - in_accel_y_calibbias
    * - in_accel_y_raw
-   * - in_accel_y_scale
    * - in_incli_x_raw
-   * - in_incli_x_scale
+   * - in_incli_scale
    * - in_incli_y_raw
-   * - in_incli_y_scale
-   * - in_rot0_raw
+   * - in_rot_x_raw
    * - in_temp0_offset
    * - in_temp0_raw
    * - in_temp0_scale
-   * - in_voltage0_raw
-   * - in_voltage0_scale
+   * - in_voltage0_supply_raw
+   * - in_voltage0_supply_scale
    * - in_voltage1_raw
    * - in_voltage1_scale
    * - name
-   * - reset
+
+Reset is performed internally during startup; this driver does not register a
+user-facing reset attribute.
 
 Trigger management
 ~~~~~~~~~~~~~~~~~~
@@ -231,10 +229,13 @@ Trigger management
 Buffer management
 ~~~~~~~~~~~~~~~~~
 
-::
+.. code-block:: text
 
    root:/sys/devices/platform/bfin-spi.0/spi0.5/iio:device0/buffer> ls
-   bytes_per_datum  enable           length
+   enable  length  watermark
+
+Determine scan layout from scan_elements/\*_type and \*_index. The old
+bytes_per_datum sysfs file is not part of the current buffer attribute group.
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-buffer-management
@@ -243,13 +244,13 @@ Buffer management
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.5/iio:device0/scan_elements>ls
-   in_accel_x_en       in_incli_x_index    in_rot0_type        in_voltage0_en
-   in_accel_x_index    in_incli_x_type     in_temp0_en         in_voltage0_index
-   in_accel_x_type     in_incli_y_en       in_temp0_index      in_voltage0_type
+   in_accel_x_en       in_incli_x_index    in_rot_x_type        in_voltage0_supply_en
+   in_accel_x_index    in_incli_x_type     in_temp0_en         in_voltage0_supply_index
+   in_accel_x_type     in_incli_y_en       in_temp0_index      in_voltage0_supply_type
    in_accel_y_en       in_incli_y_index    in_temp0_type       in_voltage1_en
    in_accel_y_index    in_incli_y_type     in_timestamp_en     in_voltage1_index
-   in_accel_y_type     in_rot0_en          in_timestamp_index  in_voltage1_type
-   in_incli_x_en       in_rot0_index       in_timestamp_type
+   in_accel_y_type     in_rot_x_en          in_timestamp_index  in_voltage1_type
+   in_incli_x_en       in_rot_x_index       in_timestamp_type
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-typical-adc-scan-elements
