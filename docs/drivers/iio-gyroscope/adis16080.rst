@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-gyroscope/adis16080
 
+
 .. _adis16080:
 
 ADIS16080
@@ -98,6 +99,9 @@ the device in question.
 Adding Linux driver support
 ---------------------------
 
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
@@ -111,16 +115,13 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
        Device Drivers  --->
            <*>     Industrial I/O support --->
                --- Industrial I/O support
-               -*-   Enable ring buffer support within IIO
+               -*-   Enable buffer support within IIO
                *** Digital gyroscope sensors ***
                [--snip--]
 
                <*>   Analog Devices ADIS16080/100 Yaw Rate Gyroscope with SPI driver
 
                [--snip--]
-
-Hardware configuration
-----------------------
 
 Driver testing
 --------------
@@ -129,16 +130,16 @@ Driver testing
    :start-after: .. start-iio-device-files
    :end-before: .. end-iio-device-files
 
-::
+.. code-block:: text
 
    root:/> cd /sys/bus/iio/devices/
    root:/sys/bus/iio/devices> ls
-   iio:device0  trigger0
+   iio:device0
 
    root:/sys/bus/iio/devices> cd iio:device0
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> ls -l
    -r--r--r--    1 root     root          4096 Jan  3 20:35 dev
-   -r--r--r--    1 root     root          4096 Jan  3 20:35 in_gyro_z_raw
+   -r--r--r--    1 root     root          4096 Jan  3 20:35 in_anglvel_z_raw
    -r--r--r--    1 root     root          4096 Jan  3 20:35 in_temp0_raw
    -r--r--r--    1 root     root          4096 Jan  3 20:35 in_voltage0_raw
    -r--r--r--    1 root     root          4096 Jan  3 20:35 in_voltage1_raw
@@ -148,13 +149,19 @@ Driver testing
    -rw-r--r--    1 root     root          4096 Jan  3 20:35 uevent
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0>
 
-Show device name
-~~~~~~~~~~~~~~~~
+This driver registers a direct-mode IIO device, without a buffer or trigger. An
+unrelated trigger elsewhere in sysfs is not supplied by this driver.
+
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat name
    adis16080
+
+Attribute reference
+~~~~~~~~~~~~~~~~~~~
 
 ADIS16080 device attributes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
