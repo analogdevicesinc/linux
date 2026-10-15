@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7791
 
+
 .. _ad7791:
 
 AD7791
@@ -16,17 +17,17 @@ Supported Devices
 - :adi:`AD7790`
 - :adi:`AD7791`
 
-Reference Circuits
-------------------
-
-- :adi:`CN0216`
-- :adi:`CN0271`
-- :adi:`CN0354`
-
 Evaluation Boards
 -----------------
 
 - :adi:`EVAL-AD7791EBZ`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0216`
+- :adi:`CN0271`
+- :adi:`CN0354`
 
 Description
 -----------
@@ -68,19 +69,64 @@ Files
    * - include
      - `include/linux/platform_data/ad7791.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/platform_data/ad7791.h>`__
 
+Hardware configuration
+----------------------
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7791_eval_lr.jpg
+   :width: 600px
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD7791 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           ...
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               ...
+               Analog to digital converters  --->
+                   ...
+                   <*>  Analog Devices AD7791 ADC driver
+                   ...
+               ...
+           ...
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Example platform device initialization Provide a refin regulator consumer and a
+data-ready IRQ; probe requires both. Platform-data buffered enables the analog
+input buffer, independently of IIO buffered capture. For DT, the equivalent
+properties are adi,buffered-mode-enable, adi,burnout-current-enable and
+adi,unipolar-mode-enable; omitted booleans are false, unlike the non-DT fallback
+buffered=true.
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
    :end-before: .. end-platform-data
 
-.. code:: c
+.. code-block:: c
 
    /**
     * struct ad7791_platform_data - AD7791 device platform data
     * @buffered: If set to true configure the device for buffered input mode.
-    * @burnout_current: If set to true the 100mA burnout current is enabled.
+    * @burnout_current: If true, enable the 100 nA burnout current sources.
+    *      Burnout detection requires buffered input mode.
     * @unipolar: If set to true sample in unipolar mode, if set to false sample in
     *      bipolar mode.
     */
@@ -135,37 +181,6 @@ the device in question.
    }
    arch_initcall(board_init);
 
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AD7791 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           ...
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-               ...
-               Analog to digital converters  --->
-                   ...
-                   <*>  Analog Devices AD7791 ADC driver
-                   ...
-               ...
-           ...
-
-Hardware configuration
-----------------------
-
-.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7791_eval_lr.jpg
-   :width: 600px
-
 Driver testing
 --------------
 
@@ -204,51 +219,19 @@ Driver testing
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0>
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat name
    ad7791
 
-Show available sampling frequencies / update rates
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat sampling_frequency_available
-   120 100 33.3 20 16.7 16.6 13.3 9.5
-
-Set sampling frequency / update rate
-''''''''''''''''''''''''''''''''''''
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat sampling_frequency
-   16.6
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 100 > sampling_frequency
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat sampling_frequency
-   100
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0>
-
-Show supply voltage
-'''''''''''''''''''
-
-**Description:** Shows the AVDD supply voltage
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat in_voltage1_supply_raw
-   7817399
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat in_voltage_supply_scale
-   0.000697374
-
-**U** = *(in_voltage1_supply_raw + in_voltage1_supply_offset) \*
-in_voltage_supply_scale* = 7817399 \* 0.000697374 = **3270.95608958 mV**
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show in_voltage0-voltage0_raw measurement
-'''''''''''''''''''''''''''''''''''''''''
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 **Description:** Raw unscaled voltage measurement on channel 0
 
@@ -269,8 +252,47 @@ Show in_voltage0-voltage0_raw measurement
    root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat in_voltage0-voltage0_raw
    6710665
 
-**U** = *(in_voltage0-voltage0_raw + in_voltage0-voltage0_offset) \*
-in_voltage-voltage_scale* = 6710665 \* 0.000596046 = **999.95619165 mV**
+In this bipolar setup, U_mV = (6710665 - 8388608) × 0.000596046 ≈ -1000.13 mV.
+
+Show available sampling frequencies / update rates
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat sampling_frequency_available
+   120 100 33.3 20 16.7 16.6 13.3 9.5
+
+Set sampling frequency / update rate
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat sampling_frequency
+   16.6
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 100 > sampling_frequency
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat sampling_frequency
+   100
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0>
+
+Show supply voltage
+~~~~~~~~~~~~~~~~~~~
+
+**Description:** Shows the AVDD supply voltage
+
+AD7791 registers the supply input as channel 1. Read its raw value and offset,
+and the shared supply scale, from the device. Calculate the voltage in
+millivolts as ``(raw + offset) * scale``; do not omit the offset in bipolar mode.
+
+The following commands run from the device's sysfs directory and calculate the
+voltage:
+
+.. code-block:: sh
+
+   raw=$(cat in_voltage1_supply_raw)
+   offset=$(cat in_voltage1_supply_offset)
+   scale=$(cat in_voltage_supply_scale)
+   awk -v raw="$raw" -v offset="$offset" -v scale="$scale" \
+       'BEGIN { printf "%.6f mV\n", (raw + offset) * scale }'
 
 Trigger management
 ~~~~~~~~~~~~~~~~~~
