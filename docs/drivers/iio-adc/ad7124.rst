@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7124
 
+
 .. _ad7124:
 
 AD7124
@@ -24,14 +25,18 @@ Evaluation Boards
 Description
 -----------
 
-This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
-driver, targeting single channel serial interface ADCs. The industrial I/O
-subsystem provides a unified framework for drivers for many different types of
-converters and sensors using a number of different physical interfaces (i2c,
-spi, etc). See :external+system-level:ref:`iio` for more information.
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem driver for the
+AD7124-4 and AD7124-8 multiplexed sigma-delta ADCs. Voltage channels are
+configured from devicetree channel nodes. The industrial I/O subsystem provides
+a unified framework for drivers for many different types of converters and
+sensors using a number of different physical interfaces (i2c, spi, etc). See
+:external+system-level:ref:`iio` for more information.
+
+Source Code
+-----------
 
 Status
-------
+~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -46,7 +51,7 @@ Status
      -
 
 Files
------
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -109,13 +114,16 @@ Driver testing
    drwxr-xr-x 2 root root    0 Jun 23 21:46 trigger
    -rw-r--r-- 1 root root 4096 Jun 23 21:46 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/bus/iio/devices/iio:device0> cat name
    ad7124-4
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show channel scale and offset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -132,32 +140,32 @@ order to obdatin the measured voltage in millivolts
    root:/sys/bus/iio/devices/iio:device0> cat in_voltage0-voltage1_raw
    2679470
 
-**Description:** Channel Ainp0-Ainm1 is configured as unipolar, with a gain of 1
-**U** = //in_voltage0-voltage1_raw \* in_voltage0-voltage1_scale -
-in_voltage0-voltage1_offset // = 2679470 \* 0.000149011 - 0 = **399.27 mV**
+**Description:** Channel Ainp0-Ainm1 is configured as unipolar, with a gain of
+1: U_mV = (raw + offset) × scale = (2679470 + 0) × 0.000149011 ≈ 399.27 mV.
 
-::
+.. code-block:: text
 
    root:/sys/bus/iio/devices/iio:device0> cat in_voltage2-voltage3_scale
    0.000298023
    root:/sys/bus/iio/devices/iio:device0> cat in_voltage2-voltage3_offset
-   -2500
+   -8388608
    root:/sys/bus/iio/devices/iio:device0> cat in_voltage2-voltage3_raw
    9716211
 
-**Description:** Channel Ainp2-Ainm3 is configured as bipolar, with a gain of 1
-**U** = //in_voltage2-voltage3_raw \* in_voltage2-voltage3_scale -
-in_voltage2-voltage3_offset // = 9716211\* 0.000298023 - 2500= **395.65 mV**
+**Description:** Channel Ainp2-Ainm3 is configured as bipolar, with a gain of
+1: U_mV = (raw + offset) × scale = (9716211 - 8388608) × 0.000298023 ≈
+395.66 mV.
 
 Set sampling frequency
-''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** The output data rate depends on the master clock frequency
 (fclk) which in turn determines the power mode:
 
-- Full power (fCLK = 614.4 kHz): 9.38 SPS to 19,200 SPS
-- Mid power (fCLK = 153.6 kHz): 2.34 SPS to 4800 SPS
-- Low power (fCLK = 76.8 kHz): 1.17 SPS to 2400 SPS
+-  The sampling frequency depends on the filter and clock: fCLK/(32 × N × FS),
+   with N = 3 for sinc3, N = 4 for sinc4, additional averaging for sinc1
+   combinations, and FS clamped to 1..2047. Post filters have fixed rates.
+   Read ``sampling_frequency`` back after writing it.
 
 ::
 
