@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-accelerometer/adis16240
 
+
 .. _adis16240:
 
 ADIS16240
@@ -39,13 +40,18 @@ Status
      - Mainlined?
      -
      -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16240_core.c>`__
-     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16240_core.c>`__
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16240.c?id=08808b3ef384974b1eaf4975de707f93f8cda62d>`__
+     - `Deprecated (removed in v6.15) <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=21ce1ce04350fd46807622269018f9e2c09b7ac1>`__
      -
      -
 
 Files
 ~~~~~
+
+The ADIS16240 driver was removed from the kernel in v6.15 (commit
+21ce1ce04350f, "staging: iio: accel: adis16240: Drop driver for this impact
+sensor"). The driver is a single source file; buffer and trigger support
+come from the shared ADIS library.
 
 .. list-table::
    :header-rows: 1
@@ -53,13 +59,15 @@ Files
    * - Function
      - File
    * - driver
-     - `drivers/staging/iio/accel/adis16240_core.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16240_core.c>`__
-   * - driver
-     - `drivers/staging/iio/accel/adis16240_ring.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16240_ring.c>`__
-   * - driver
-     - `drivers/staging/iio/accel/adis16240_trigger.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16240_trigger.c>`__
+     - `drivers/staging/iio/accel/adis16240.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16240.c?id=08808b3ef384974b1eaf4975de707f93f8cda62d>`__
+   * - ADIS library core
+     - `drivers/iio/imu/adis.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis.c?id=08808b3ef384974b1eaf4975de707f93f8cda62d>`__
+   * - ADIS buffer support
+     - `drivers/iio/imu/adis_buffer.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis_buffer.c?id=08808b3ef384974b1eaf4975de707f93f8cda62d>`__
+   * - ADIS trigger support
+     - `drivers/iio/imu/adis_trigger.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis_trigger.c?id=08808b3ef384974b1eaf4975de707f93f8cda62d>`__
    * - include
-     - `drivers/staging/iio/accel/adis16240.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16240.h>`__
+     - `include/linux/iio/imu/adis.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/iio/imu/adis.h?id=08808b3ef384974b1eaf4975de707f93f8cda62d>`__
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-spi-slave-devices
@@ -104,6 +112,9 @@ the device in question.
 Adding Linux driver support
 ---------------------------
 
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
@@ -118,8 +129,7 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
            [*] Staging drivers  --->
                <*>     Industrial I/O support --->
                    --- Industrial I/O support
-                   -*-   Enable ring buffer support within IIO
-                   -*-     Industrial I/O lock free software ring
+                   -*-   Enable buffer support within IIO
                    -*-   Enable triggered sampling support
 
                          *** Accelerometers ***
@@ -129,9 +139,6 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 
                    [--snip--]
 
-Hardware configuration
-----------------------
-
 Driver testing
 --------------
 
@@ -139,7 +146,7 @@ Driver testing
    :start-after: .. start-iio-device-files
    :end-before: .. end-iio-device-files
 
-::
+.. code-block:: text
 
    root:/> cd /sys/bus/iio/devices/
    root:/sys/bus/iio/devices> ls
@@ -147,18 +154,16 @@ Driver testing
 
    root:/sys/bus/iio/devices> cd iio:device0
    root:/sys/devices/platform/bfin-spi.0/spi0.5/iio:device0> ls -l
-   -r--r--r--    1 root     root          4096 Jan  4 04:15 accel_xyz_squared_peak_raw
+   -r--r--r--    1 root     root          4096 Jan  4 04:15 in_accel_xyz_squared_peak_raw
    drwxr-xr-x    2 root     root             0 Jan  4 04:15 buffer
    -r--r--r--    1 root     root          4096 Jan  4 04:15 dev
    -rw-r--r--    1 root     root          4096 Jan  4 04:15 in_accel_x_calibbias
    -r--r--r--    1 root     root          4096 Jan  4 04:15 in_accel_x_raw
-   -rw-r--r--    1 root     root          4096 Jan  4 04:15 in_accel_x_scale
+   -rw-r--r--    1 root     root          4096 Jan  4 04:15 in_accel_scale
    -rw-r--r--    1 root     root          4096 Jan  4 04:15 in_accel_y_calibbias
    -r--r--r--    1 root     root          4096 Jan  4 04:15 in_accel_y_raw
-   -rw-r--r--    1 root     root          4096 Jan  4 04:15 in_accel_y_scale
    -rw-r--r--    1 root     root          4096 Jan  4 04:15 in_accel_z_calibbias
    -r--r--r--    1 root     root          4096 Jan  4 04:15 in_accel_z_raw
-   -rw-r--r--    1 root     root          4096 Jan  4 04:15 in_accel_z_scale
    -r--r--r--    1 root     root          4096 Jan  4 04:15 in_temp0_raw
    -rw-r--r--    1 root     root          4096 Jan  4 04:15 in_temp0_scale
    -r--r--r--    1 root     root          4096 Jan  4 04:15 in_voltage0_supply_raw
@@ -166,20 +171,22 @@ Driver testing
    -r--r--r--    1 root     root          4096 Jan  4 04:15 in_voltage1_raw
    -r--r--r--    1 root     root          4096 Jan  4 04:15 name
    drwxr-xr-x    2 root     root             0 Jan  4 04:15 power
-   --w-------    1 root     root          4096 Jan  4 04:15 reset
    -r--r--r--    1 root     root          4096 Jan  4 04:15 sampling_frequency_available
    drwxr-xr-x    2 root     root             0 Jan  4 04:15 scan_elements
    lrwxrwxrwx    1 root     root             0 Jan  4 04:15 subsystem -> ../../../../../bus/iio
    drwxr-xr-x    2 root     root             0 Jan  4 04:15 trigger
    -rw-r--r--    1 root     root          4096 Jan  4 04:15 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.5/iio:device0> cat name
    adis16240
+
+Attribute reference
+~~~~~~~~~~~~~~~~~~~
 
 ADIS16240 device attributes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -191,24 +198,24 @@ For a detailed description please see:
    :header-rows: 1
 
    * - Device files
-   * - accel_xyz_squared_peak_raw
+   * - in_accel_xyz_squared_peak_raw
    * - in_accel_x_calibbias
    * - in_accel_x_raw
-   * - in_accel_x_scale
+   * - in_accel_scale
    * - in_accel_y_calibbias
    * - in_accel_y_raw
-   * - in_accel_y_scale
    * - in_accel_z_calibbias
    * - in_accel_z_raw
-   * - in_accel_z_scale
    * - in_temp0_raw
    * - in_temp0_scale
    * - in_voltage0_supply_raw
    * - in_voltage0_supply_scale
    * - in_voltage1_raw
    * - name
-   * - reset
    * - sampling_frequency_available
+
+Reset is performed internally during startup; this driver does not register a
+user-facing reset attribute.
 
 Trigger management
 ~~~~~~~~~~~~~~~~~~
@@ -225,10 +232,13 @@ Trigger management
 Buffer management
 ~~~~~~~~~~~~~~~~~
 
-::
+.. code-block:: text
 
    root:/sys/devices/platform/bfin-spi.0/spi0.5/iio:device0/buffer> ls
-   bytes_per_datum  enable           length
+   enable  length  watermark
+
+Determine scan layout from scan_elements/\*_type and \*_index. The old
+bytes_per_datum sysfs file is not part of the current buffer attribute group.
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-buffer-management
