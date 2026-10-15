@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad6676
 
+
 .. _ad6676:
 
 AD6676
@@ -16,16 +17,16 @@ Supported Devices
 
 - :adi:`AD6676`
 
-Reference Circuits
-------------------
-
-- :adi:`AD6676-EBZ <AD6676EBZ>`
-
 Evaluation Boards
 -----------------
 
 - :adi:`AD6676-EBZ <AD6676EBZ>`
 - :dokuwiki:`AD6676 : Design Tools and Startup Guide for the AD6676 evaluation board, a high dynamic range, Wideband Receiver </resources/eval/ad6676-wideband_rx_subsystem_ad6676ebz>`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`AD6676-EBZ <AD6676EBZ>`
 
 Description
 -----------
@@ -70,27 +71,45 @@ Files
      - :git+linux:`main:drivers/iio/adc/ad6676.h`
      -
 
-Related Device Drivers
-^^^^^^^^^^^^^^^^^^^^^^
+Adding Linux driver support
+---------------------------
 
-.. list-table::
-   :header-rows: 1
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
-   * - Function
-     - File
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
-     -
-   * - include
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
-     -
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD6676 driver depends on **CONFIG_SPI**
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. code-block:: text
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+           -*-   Enable buffer support within IIO
+           -*-   Enable triggered sampling support
+
+                 *** Analog to digital converters ***
+           [--snip--]
+
+           <*>   Analog Devices AD6676 Wideband IF Receiver driver (CONFIG_AD6676)
+
+           [--snip--]
+
+CONFIG_AD6676 selects CF_AXI_ADC for the capture backend.
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Example Linux Device-Tree Initialization
-----------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The AD6676 driver is a spi-bus driver and can currently only be instantiated via
 device tree.
@@ -109,7 +128,7 @@ Required devicetree properties:
      - :git+linux:`zynq-zc706-adv7511-ad6676-fmc.dts <main:arch/arm/boot/dts/zynq-zc706-adv7511-ad6676-fmc.dts>`
 
 Device Driver Customization
----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -133,11 +152,11 @@ Device Driver Customization
    * - adi,bandwidth-hz
      - Initial bandwidth in Hz
    * - adi,bandwidth-margin-low-mhz
-     - Initial bandwidth margin low in Hz
+     - Initial bandwidth margin low in MHz
    * - adi,bandwidth-margin-high-mhz
-     - Initial bandwidth margin high in Hz
+     - Initial bandwidth margin high in MHz
    * - adi,bandwidth-margin-if-mhz
-     - Initial bandwidth margin IF in Hz
+     - Initial bandwidth margin IF in MHz
    * - adi,external-inductance-l-nh
      - The inductance of the external inductors in nH
    * - adi,idac1-fullscale-adjust
@@ -159,44 +178,8 @@ Device Driver Customization
    * - adi,spi-3wire-enable
      - Enables SPI 3-WIRE mode
 
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AD6676 driver depends on **CONFIG_SPI**
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-           -*-   Enable ring buffer support within IIO
-           -*-     Industrial I/O lock free software ring
-           -*-   Enable triggered sampling support
-
-                 *** Analog to digital converters ***
-           [--snip--]
-
-           <*>   Analog Devices AD9467 AD9643 High-Speed AXI ADC driver
-
-           [--snip--]
-
-Hardware configuration
-----------------------
-
-Driver testing / API
---------------------
+Driver testing
+--------------
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-device-files
@@ -247,8 +230,8 @@ Driver testing / API
 
    root:/sys/bus/iio/devices/iio:device1#
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -272,11 +255,10 @@ synthesizer [2.925,3.2] GHz in Hz
    root@analog:/sys/bus/iio/devices/iio:device1# echo 3000000000 > in_voltage_adc_frequency
    -bash: echo: write error: Invalid argument
 
-.. tip::
+Tip
 
-   If writing this attribute returns ``Invalid argument`` (-EINVAL) this means
-   that the underlying HDL or Hardware’s JESD204B Core and Gigabit Transceiver
-   (GT) doesn’t support changing the JESD204B Lane Rate.
+ADC-frequency writes return -EINVAL when ``adi,adc-frequency-fixed-enable`` is
+set.
 
 Complex IQ Data Rate (in_voltage_sampling_frequency)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -285,9 +267,8 @@ The complex (I/Q) data rate in SPS. The AD6676 supports decimation factors (DFs)
 of 12, 16, 24 and 32. The complex (I/Q) data rate at the JESD204B outputs is
 FADC / DF.
 
-In case the underlying HDL or Hardware’s JESD204B Core and Gigabit Transceiver
-(GT) support arbitrary JESD204B Lane Rates. This attribute can be writable. And
-it will select the appropriate AD6676 supported DFs.
+``in_voltage_sampling_frequency`` is read-only. It reports FADC divided by the
+decimation factor configured in the devicetree.
 
 ::
 
@@ -362,7 +343,7 @@ Typical range [0,30] MHz in MHz
    5
 
 Bandwidth Margin IF (in_voltage_bw_margin_if)
----------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Displacement of the resonance frequency (F1Shift) of the first resonator within
 the ADC from band-center. Typically 0 is appropriate, but in the widest
@@ -378,7 +359,7 @@ Typical range [-30,30] MHz in MHz
    -1
 
 Full-Scale (in_voltage_scale)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 One of the convenient features of the AD6676 is that the full-scale of its ADC
 is relatively small and adjustable over a 12-dB range [1.00 .. 0.25] The dynamic
@@ -398,7 +379,7 @@ by 12 dB.
    0.250000
 
 Attenuation Control (in_voltage_hardwaregain)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The AD6676 contains a 50-ohm input attenuator programmable in 1-dB steps. Use
 this device attribute to set the attenuator’s attenuation. The dynamic range of
@@ -416,7 +397,7 @@ gain instead of attenuation, so all values are expressed negative.
    -10.000000 dB
 
 Shuffle Control (in_voltage_shuffler_control)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The AD6676 includes dynamic reordering of the comparators within the ADC in
 order to break up the spurious tones and distortion products associated with a
@@ -442,7 +423,7 @@ shuffling can be disabled by selecting the **disable** option.
    disable
 
 Shuffle Threshold (in_voltage_shuffler_thresh)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In order to obtain the spur-reduction benefits of shuffling at large signal
 levels while retaining the low noise of not shuffling when the signal is small,
@@ -464,7 +445,7 @@ The supported range is from 0..8
    4
 
 Test Modes (in_voltage_test_mode)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Interface test modes supported by the AD6676.
 
@@ -478,7 +459,7 @@ Interface test modes supported by the AD6676.
    ramp
 
 JESD204B Interface Testing
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Below Eyes were captured on a Xilinx ZC706 after > 4 hours of operation:
 
@@ -496,3 +477,22 @@ More Information
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-pointers
    :end-before: .. end-iio-pointers
+
+Related Device Drivers
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
+     -
+   * - include
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
+     -
