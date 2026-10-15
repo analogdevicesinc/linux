@@ -7710,6 +7710,8 @@ static void dm_test_update_after_detect_connect_edid(struct kunit *test)
 	KUNIT_EXPECT_PTR_EQ(test, ctx->aconnector->dc_sink, sink);
 	KUNIT_EXPECT_NOT_NULL(test, ctx->aconnector->timing_requested);
 
+	drm_edid_free(ctx->aconnector->drm_edid);
+	ctx->aconnector->drm_edid = NULL;
 	kfree(ctx->aconnector->timing_requested);
 	ctx->aconnector->timing_requested = NULL;
 }
@@ -7744,6 +7746,9 @@ static void dm_test_update_after_detect_replace_no_edid(struct kunit *test)
 	KUNIT_EXPECT_PTR_EQ(test, ctx->aconnector->dc_sink, new_sink);
 	KUNIT_EXPECT_EQ(test, (int)new_sink->sink_signal,
 			(int)SIGNAL_TYPE_HDMI_FRL);
+
+	kfree(ctx->aconnector->timing_requested);
+	ctx->aconnector->timing_requested = NULL;
 }
 
 /**
