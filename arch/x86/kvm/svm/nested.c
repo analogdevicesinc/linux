@@ -119,11 +119,6 @@ static void nested_svm_init_mmu_context(struct kvm_vcpu *vcpu)
 	vcpu->arch.ngpa_walk.inject_page_fault = nested_svm_inject_npf_exit;
 }
 
-static void nested_svm_uninit_mmu_context(struct kvm_vcpu *vcpu)
-{
-	vcpu->arch.mmu = &vcpu->arch.root_mmu;
-}
-
 static bool nested_vmcb_needs_vls_intercept(struct vcpu_svm *svm)
 {
 	if (!guest_cpu_cap_has(&svm->vcpu, X86_FEATURE_V_VMSAVE_VMLOAD))
@@ -1440,8 +1435,6 @@ void nested_svm_vmexit(struct vcpu_svm *svm)
 
 	nested_svm_transition_tlb_flush(vcpu);
 
-	nested_svm_uninit_mmu_context(vcpu);
-
 	if (nested_svm_load_cr3(vcpu, vmcb01->save.cr3, false, true))
 		kvm_make_request(KVM_REQ_TRIPLE_FAULT, vcpu);
 
@@ -1558,7 +1551,6 @@ void svm_leave_nested(struct kvm_vcpu *vcpu)
 
 		svm_switch_vmcb(svm, &svm->vmcb01);
 
-		nested_svm_uninit_mmu_context(vcpu);
 		vmcb_mark_all_dirty(svm->vmcb);
 
 		svm_set_gif(svm, true);

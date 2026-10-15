@@ -525,11 +525,6 @@ static void nested_ept_init_mmu_context(struct kvm_vcpu *vcpu)
 	vcpu->arch.ngpa_walk.inject_page_fault = nested_ept_inject_page_fault;
 }
 
-static void nested_ept_uninit_mmu_context(struct kvm_vcpu *vcpu)
-{
-	vcpu->arch.mmu = &vcpu->arch.root_mmu;
-}
-
 static bool nested_vmx_is_page_fault_vmexit(struct vmcs12 *vmcs12,
 					    u16 error_code)
 {
@@ -3770,10 +3765,8 @@ vmentry_fail_vmexit_guest_mode:
 vmentry_fail_vmexit:
 	vmx_switch_vmcs(vcpu, &vmx->vmcs01);
 
-	if (!from_vmentry) {
-		nested_ept_uninit_mmu_context(vcpu);
+	if (!from_vmentry)
 		return NVMX_VMENTRY_VMEXIT;
-	}
 
 	nested_put_vmcs12_pages(vcpu);
 
@@ -4833,8 +4826,6 @@ static void load_vmcs12_host_state(struct kvm_vcpu *vcpu,
 	vcpu->arch.cr4_guest_owned_bits = ~vmcs_readl(CR4_GUEST_HOST_MASK);
 	vmx_set_cr4(vcpu, vmcs12->host_cr4);
 
-	nested_ept_uninit_mmu_context(vcpu);
-
 	/*
 	 * Only PDPTE load can fail as the value of cr3 was checked on entry and
 	 * couldn't have changed.
@@ -4998,7 +4989,6 @@ static void nested_vmx_restore_host_state(struct kvm_vcpu *vcpu)
 	vcpu->arch.cr4_guest_owned_bits = ~vmcs_readl(CR4_GUEST_HOST_MASK);
 	vmx_set_cr4(vcpu, vmcs_readl(CR4_READ_SHADOW));
 
-	nested_ept_uninit_mmu_context(vcpu);
 	vcpu->arch.cr3 = vmx->nested.pre_vmenter_cr3;
 	kvm_register_mark_available(vcpu, VCPU_REG_CR3);
 

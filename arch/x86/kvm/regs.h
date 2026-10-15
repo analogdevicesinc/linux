@@ -462,6 +462,8 @@ static inline void enter_guest_mode(struct kvm_vcpu *vcpu)
 
 static inline void leave_guest_mode(struct kvm_vcpu *vcpu)
 {
+	vcpu->arch.mmu = &vcpu->arch.root_mmu;
+
 	vcpu->arch.hflags &= ~HF_GUEST_MASK;
 
 	if (vcpu->arch.load_eoi_exitmap_pending) {
