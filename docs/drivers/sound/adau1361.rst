@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/sound/adau1361
 
+
 .. _adau1361:
 
 ADAU1361
@@ -15,17 +16,17 @@ Supported Devices
 - :adi:`ADAU1761`
 - :adi:`ADAU1961`
 
-Reference Circuits
-------------------
-
-- :adi:`CN0219`
-- :adi:`CN0296`
-
 Evaluation Boards
 -----------------
 
 - :adi:`EVAL-ADAU1361Z`
 - :adi:`EVAL-ADAU1761Z`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0219`
+- :adi:`CN0296`
 
 Source Code
 -----------
@@ -46,7 +47,7 @@ Status
      -
 
 Files
-^^^^^
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -67,15 +68,21 @@ Files
      - `include/linux/platform_data/adau17x1.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/platform_data/adau17x1.h>`__
      -
 
+Adding Linux driver support
+---------------------------
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example device initialization
------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
    :end-before: .. end-platform-data
 
 I2C
-~~~
+"""
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-i2c-devices
@@ -129,8 +136,173 @@ In this example we assume ADDR0=0 and ADDR1=0.
    }
    arch_initcall(board_init);
 
-ASoC DAPM Widgets
+Firmware
+~~~~~~~~
+
+SigmaDSP Firmware
+^^^^^^^^^^^^^^^^^
+
+In order to use the SigmaDSP core of the ADAU1761 you need to provide a firmware
+file. Please refer to the
+:dokuwiki:`SigmaDSP Firmware Utility for Linux <resources/tools-software/linux-software/sigmadsp_genfirmware>`
+page on how to generate a firmware file. The firmware file for ADAU1761 driver
+has to be named **adau1761.bin**.
+
+Board integration
 ~~~~~~~~~~~~~~~~~
+
+ADAU1X61 evaluation board driver
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+There is no dedicated Blackfin STAMP evaluation board for the ADAU1361 or
+ADAU1761. During test and driver development we used the
+:adi:`EVAL-ADAU1361Z` and
+:adi:`EVAL-ADAU1761Z` boards.
+
+It can be easily wired to the Blackfin STAMP SPORT header.
+
+Source
+""""""
+
+Status
+''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adau1x61.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adau1x61.c>`__
+     -
+     -
+
+Files
+'''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `sound/soc/blackfin/bfin-eval-adau1x61.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adau1x61.c>`__
+
+Kernel configuration
+""""""""""""""""""""
+
+::
+
+   Device Drivers  --->
+   [*] I2C support  --->
+   [*]   I2C Hardware Bus support  --->
+   ***     I2C system bus drivers (mostly embedded / system-on-chip) ***
+   <*>       Blackfin TWI I2C support
+   (100)     Blackfin TWI I2C clock (kHz)
+
+Enable ALSA SoC evaluation board driver:
+
+::
+
+   Device Drivers  --->
+   <M> Sound card support  --->
+   <M>   Advanced Linux Sound Architecture  --->
+   <M>     ALSA for SoC audio support  --->
+   <M>       Support for the EVAL-ADAU1X61 boards on Blackfin eval boards
+
+Hardware configuration
+""""""""""""""""""""""
+
+Connect the STAMP SPORT 0 port (P6) to the EVAL-ADAU1X61 J1 and J6 headers.
+
+Note that the SPORT has separate signals for the capture and playback clocks,
+while the ADAU1361 uses the same clock signals for both, so the EVAL-ADAU1X61
+clock signal pins need to be connected to two STAMP pins each.
+
+.. list-table::
+   :header-rows: 1
+
+   * - STAMP pin
+     - EVAL-ADAU1X61 pin
+     - Function
+   * - P6-26 (SPORT 0 - PJ2_SCL)
+     - J1-1
+     - I2C SCL
+   * - P6-24 (SPORT 0 - PJ3_SDA)
+     - J1-3
+     - I2C SDA
+   * - P6-6 (SPORT 0 - PJ9_TSCLK0), P6-16 (SPORT 0 - PJ6_RSCLK0)
+     - J6-6
+     - BCLK
+   * - P6-11 (SPORT 0 - PJ10_TFS0), P6-7 (SPORT 0 - PJ7_RFS0)
+     - J6-8
+     - LRCLK
+   * - P6-14 (SPORT 0 - PJ11_DT0PRI
+     - J6-4
+     - Playback data
+   * - P6-8 (SPORT 0 - PJ8_DR0PRI)
+     - J6-2
+     - Captrue data
+   * - P6-33
+     - J6-1
+     - GND
+
+Driver testing
+""""""""""""""
+
+Load the driver and make sure the sound card is properly instantiated.
+
+::
+
+   root:/> modprobe snd-bf5xx-i2s
+   root:/> modprobe snd-soc-bf5xx-i2s
+   root:/> modprobe snd-soc-adau1761
+   root:/> modprobe snd-soc-bfin-eval-adau1x61
+   bfin-i2s bfin-i2s.0: dma rx:3 tx:4, err irq:45, regs:ffc00800
+   dma_alloc_init: dma_page @ 0x02791000 - 256 pages at 0x03f00000
+   asoc: adau-hifi <-> bfin-i2s.0 mapping ok
+   ALSA device list:
+     #0: bfin-eval-adau1x61
+
+::
+
+   root:/> modprobe snd-pcm-oss
+   root:/> tone
+   TONE: generating sine wave at 1000 Hz...
+
+   root:/> arecord -f cd | aplay
+   Recording WAVE 'stdin' : Signed 16 bit Little Endian, Rate 44100 Hz, Stereo
+   Playing WAVE 'stdin' : Signed 16 bit Little Endian, Rate 44100 Hz, Stereo
+
+.. important::
+
+   If you do not hear any sound during testing make sure you have enabled the
+   necessary Switches and Volumes. E.g. for playback on the Headphone output you
+   need to enable the ``Left Playback Mixer Left DAC``, ``Right Playback Mixer
+   Right DAC`` and the ``Headphone Playback`` switches and set the ``DAC
+   Playback Mux`` to ``AIFIN``.
+
+More information
+""""""""""""""""
+
+- :dokuwiki:`SigmaStudio <resources/tools-software/sigmastudio>`
+- :dokuwiki:`SigmaDSP Firmware Utility for Linux <resources/tools-software/linux-software/sigmadsp_genfirmware>`
+- :dokuwiki:`SigmaStudio Network Utility for Linux <resources/tools-software/linux-software/sigmatcp>`
+
+.. include:: /include/need-help.rst
+   :start-after: .. start-need-help
+   :end-before: .. end-need-help
+
+Driver testing
+--------------
+
+Routing and DAPM
+~~~~~~~~~~~~~~~~
+
+ASoC DAPM Widgets
+^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -178,7 +350,7 @@ ASoC DAPM Widgets
      - Bias Voltage for Electret Microphone
      -
 
-ALSA Controls
+ALSA controls
 ~~~~~~~~~~~~~
 
 .. list-table::
@@ -188,7 +360,8 @@ ALSA Controls
      - Description
      - Configuration
    * - Digital Capture Volume
-     - Digital volume attenuation for input from either the ADC or the digital microphone input.
+     - Digital volume attenuation for input from either the ADC or the digital
+       microphone input.
      -
    * - Digital Playback Volume
      - Digital volume attenuation for output from the DAC
@@ -196,28 +369,27 @@ ALSA Controls
    * - ADC High Pass Filter Switch
      - Enable/Disable ADC high-pass-filter
      -
-   * - Playback De-emphasis
+   * - Playback De-emphasis Switch
      - Enable/Disable Playback de-empahsis
      -
    * - Capture Boost
-     - Mixer amplifier bias boost
-       Valid values: ``Normal operation``, ``Boost Level 1``, ``Boost Level 2``, ``Boost Level 3``
+     - Mixer amplifier bias boost Valid values: ``Normal operation``,
+       ``Boost Level 1``, ``Boost Level 2``, ``Boost Level 3``
      -
    * - Mic Bias Mode
-     - Microphone bias.
-       Valid values: ``Normal operation``, ``High performance``
+     - Microphone bias. Valid values: ``Normal operation``, ``High performance``
      -
-   * - DAC Mono Stereo
-     - DAC mono mode.
-       Valid values: ``Stereo``, ``Mono Left Channel (L+R)``, ``Mono Right Channel (L+R)``, ``Mono (L+R)``
+   * - DAC Mono-Stereo-Mode
+     - DAC mono mode. Valid values: ``Stereo``, ``Mono Left Channel (L+R)``,
+       ``Mono Right Channel (L+R)``, ``Mono (L+R)``
      -
    * - Capture Mux
-     - Selects the source for the capture I2S audio data stream, can either be
-       the DSP or the ADC/DMIC
-     - ADAU1761 only
+     - Selects the source for the capture I2S audio data stream, can either be the DSP
+       or the ADC/DMIC
+     - ADAU1761/ADAU1461 (DSP-enabled device type)
    * - DAC Playback Mux
-     - Selects the source for the DACs, can either be from the I2S audio
-       interface or the DSP
+     - Selects the source for the DACs, can either be from the I2S audio interface or
+       the DSP
      - ADAU1761 only
    * - Input 1 Capture Volume
      - Gain for single-ended input from the LINP pin
@@ -256,24 +428,24 @@ ALSA Controls
      - Mute/Unmute Lineout signal
      -
    * - ADC Bias
-     - ADC bias.
-       Valid values: ``Normal operation``, ``Extreme powersaving``, ``Enhanced performance``, ``Power saving``
+     - ADC bias. Valid values: ``Normal operation``, ``Extreme powersaving``,
+       ``Enhanced performance``, ``Power saving``
      -
    * - DAC Bias
-     - DAC bias.
-       Valid values: ``Normal operation``, ``Extreme powersaving``, ``Enhanced performance``, ``Power saving``
+     - DAC bias. Valid values: ``Normal operation``, ``Extreme powersaving``,
+       ``Enhanced performance``, ``Power saving``
      -
    * - Capture Bias
-     - Record path bias.
-       Valid values: ``Normal operation``, ``Enhanced performance``, ``Power saving``
+     - Record path bias. Valid values: ``Normal operation``, ``Enhanced performance``,
+       ``Power saving``
      -
    * - Playback Bias
-     - Playback path bias.
-       Valid values: ``Normal operation``, ``Enhanced performance``, ``Power saving``
+     - Playback path bias. Valid values: ``Normal operation``,
+       ``Enhanced performance``, ``Power saving``
      -
    * - Headphone Bias
-     - Headphone bias.
-       Valid values: ``Normal operation``, ``Extreme powersaving``, ``Enhanced performance``, ``Power saving``
+     - Headphone bias. Valid values: ``Normal operation``, ``Extreme powersaving``,
+       ``Enhanced performance``, ``Power saving``
      -
    * - Right LR Playback Mixer Left Volume
      - Left Playback Mixer gain to the Right LR Playback Mixer
@@ -321,16 +493,18 @@ ALSA Controls
      - Mute/Unmute Mono out signal
      - Headphone mode not capless
    * - Input Select
-     - Select capture path source.
-       Valid values: ``ADC``, ``DMIC``
+     - Select capture path source. Valid values: ``ADC``, ``DMIC``
      - DMIC/JACKDETECT pin configured as DMIC
-   * - Jack Detect Switch
-     - Enable/Disable Jack insertion detection. If enable the Lineout signals
-       are muted if a headphone is inserted.
+   * - Speaker Auto-mute Switch
+     - Enable/Disable Jack insertion detection. If enable the Lineout signals are muted
+       if a headphone is inserted.
      - DMIC/JACKDETECT pin configured as JACKDETECT
 
+DAI formats and clocks
+~~~~~~~~~~~~~~~~~~~~~~
+
 PLL configuration
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 The ADAU1761 features one PLL:
 
@@ -348,21 +522,24 @@ The PLL input signal is the MCLK signal.
        ADAU17X1_PLL_SRC_MCLK,
    };
 
-(The input frequency must configured to be between 8000000 and 27000000 Hz (8MHz
-- 27MHz). The output frequency must be configured to be between 45158000 and
-49152000. Configuring the PLL with other input or output frequency will fail.)
+The driver checks that the PLL input frequency is 8 MHz to 27 MHz. It then
+validates whether the requested output is representable by the PLL divider
+fields; it does not enforce an explicit 45.158–49.152 MHz output-range check.
+Use a hardware-valid clock plan, normally 45.1584 MHz or 49.152 MHz for the
+sample-rate families below. Driver acceptance alone does not validate electrical
+limits.
 
 The PLL runs at 1024 times the base sample rate. So for a 48000 Hz based sample
 rate you’d normally choose 49152000 Hz for the PLL output frequncey and for a
 44100 Hz based sample rate 45158400 Hz.
 
 DAI configuration
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 The codec driver registers one DAI: **adau-hifi**
 
 Supported DAI formats
-^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""
 
 .. list-table::
    :header-rows: 1
@@ -423,7 +600,7 @@ Supported DAI formats
      - Codec bit- and frameclock slave
 
 DAI sysclk
-^^^^^^^^^^
+""""""""""
 
 The DAIs can either use the PLL or the MCLK signal as source.
 
@@ -510,170 +687,22 @@ Example DAI configuration
    };
 
 TDM configuration
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 The ADAU1361 and ADAU1761 chips have basic TDM support.
 
-- The number of slots can be either 2, 4 or 8 (ADAU1761 only).
-- The slot width can be 32 (ADAU1361 only), 64, 48, 128 or 256 (ADAU1761 only)
-- The slot mask must be either 0x03 (slot 0 and 1), 0x0c (slot 2 and 3), 0x30
-  (slot 4 and 5), 0xc0 (slot 6 and 7)
+-  The number of slots can be either 2, 4 or 8 (ADAU1761 only).
+
+-  The total frame length (slots \* slot_width), not the per-slot width, must be
+   32, 48, 64, 128 or 256 bits. The driver rejects 32-bit frames for ADAU1761
+   (including ADAU1361 compatibility mode), and rejects 256-bit frames for
+   ADAU1361.
+
+-  The slot mask must be either 0x03 (slot 0 and 1), 0x0c (slot 2 and 3), 0x30
+   (slot 4 and 5), 0xc0 (slot 6 and 7)
 
 Example TDM configuration:
 
-.. code:: c
+.. code-block:: c
 
-   ret = snd_soc_dai_set_tdm_slot(codec_dai, 0x30, 0x0c, 8, 64);
-
-SigmaDSP Firmware
------------------
-
-In order to use the SigmaDSP core of the ADAU1761 you need to provide a firmware
-file. Please refer to the
-:dokuwiki:`SigmaDSP Firmware Utility for Linux <resources/tools-software/linux-software/sigmadsp_genfirmware>`
-page on how to generate a firmware file. The firmware file for ADAU1761 driver
-has to be named **adau1761.bin**.
-
-ADAU1X61 evaluation board driver
---------------------------------
-
-There is no dedicated Blackfin STAMP evaluation board for the ADAU1361 or
-ADAU1761. During test and driver development we used the
-:adi:`EVAL-ADAU1361Z` and
-:adi:`EVAL-ADAU1761Z` boards.
-
-It can be easily wired to the Blackfin STAMP SPORT header.
-
-Source
-~~~~~~
-
-Status
-^^^^^^
-
-.. list-table::
-   :header-rows: 1
-
-   * - Source
-     - Mainlined?
-     -
-     -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adau1x61.c>`__
-     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adau1x61.c>`__
-     -
-     -
-
-Files
-^^^^^
-
-.. list-table::
-   :header-rows: 1
-
-   * - Function
-     - File
-   * - driver
-     - `sound/soc/blackfin/bfin-eval-adau1x61.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adau1x61.c>`__
-
-Kernel configuration
-~~~~~~~~~~~~~~~~~~~~
-
-::
-
-   Device Drivers  --->
-   [*] I2C support  --->
-   [*]   I2C Hardware Bus support  --->
-   ***     I2C system bus drivers (mostly embedded / system-on-chip) ***
-   <*>       Blackfin TWI I2C support
-   (100)     Blackfin TWI I2C clock (kHz)
-
-Enable ALSA SoC evaluation board driver:
-
-::
-
-   Device Drivers  --->
-   <M> Sound card support  --->
-   <M>   Advanced Linux Sound Architecture  --->
-   <M>     ALSA for SoC audio support  --->
-   <M>       Support for the EVAL-ADAU1X61 boards on Blackfin eval boards
-
-Hardware configuration
-~~~~~~~~~~~~~~~~~~~~~~
-
-Connect the STAMP SPORT 0 port (P6) to the EVAL-ADAU1X61 J1 and J6 headers.
-
-Note that the SPORT has separate signals for the capture and playback clocks,
-while the ADAU1361 uses the same clock signals for both, so the EVAL-ADAU1X61
-clock signal pins need to be connected to two STAMP pins each.
-
-.. list-table::
-   :header-rows: 1
-
-   * - STAMP pin
-     - EVAL-ADAU1X61 pin
-     - Function
-   * - P6-26 (SPORT 0 - PJ2_SCL)
-     - J1-1
-     - I2C SCL
-   * - P6-24 (SPORT 0 - PJ3_SDA)
-     - J1-3
-     - I2C SDA
-   * - P6-6 (SPORT 0 - PJ9_TSCLK0), P6-16 (SPORT 0 - PJ6_RSCLK0)
-     - J6-6
-     - BCLK
-   * - P6-11 (SPORT 0 - PJ10_TFS0), P6-7 (SPORT 0 - PJ7_RFS0)
-     - J6-8
-     - LRCLK
-   * - P6-14 (SPORT 0 - PJ11_DT0PRI
-     - J6-4
-     - Playback data
-   * - P6-8 (SPORT 0 - PJ8_DR0PRI)
-     - J6-2
-     - Captrue data
-   * - P6-33
-     - J6-1
-     - GND
-
-Driver testing
-~~~~~~~~~~~~~~
-
-Load the driver and make sure the sound card is properly instantiated.
-
-::
-
-   root:/> modprobe snd-bf5xx-i2s
-   root:/> modprobe snd-soc-bf5xx-i2s
-   root:/> modprobe snd-soc-adau1761
-   root:/> modprobe snd-soc-bfin-eval-adau1x61
-   bfin-i2s bfin-i2s.0: dma rx:3 tx:4, err irq:45, regs:ffc00800
-   dma_alloc_init: dma_page @ 0x02791000 - 256 pages at 0x03f00000
-   asoc: adau-hifi <-> bfin-i2s.0 mapping ok
-   ALSA device list:
-     #0: bfin-eval-adau1x61
-
-::
-
-   root:/> modprobe snd-pcm-oss
-   root:/> tone
-   TONE: generating sine wave at 1000 Hz...
-
-   root:/> arecord -f cd | aplay
-   Recording WAVE 'stdin' : Signed 16 bit Little Endian, Rate 44100 Hz, Stereo
-   Playing WAVE 'stdin' : Signed 16 bit Little Endian, Rate 44100 Hz, Stereo
-
-.. important::
-
-   If you do not hear any sound during testing make sure you have enabled the
-   necessary Switches and Volumes. E.g. for playback on the Headphone output you
-   need to enable the ``Left Playback Mixer Left DAC``, ``Right Playback Mixer
-   Right DAC`` and the ``Headphone Playback`` switches and set the ``DAC
-   Playback Mux`` to ``AIFIN``.
-
-More information
-~~~~~~~~~~~~~~~~
-
-- :dokuwiki:`SigmaStudio <resources/tools-software/sigmastudio>`
-- :dokuwiki:`SigmaDSP Firmware Utility for Linux <resources/tools-software/linux-software/sigmadsp_genfirmware>`
-- :dokuwiki:`SigmaStudio Network Utility for Linux <resources/tools-software/linux-software/sigmatcp>`
-
-.. include:: /include/need-help.rst
-   :start-after: .. start-need-help
-   :end-before: .. end-need-help
+   ret = snd_soc_dai_set_tdm_slot(codec_dai, 0x30, 0x0c, 8, 32);
