@@ -4460,14 +4460,6 @@ static int gfx_v7_0_sw_fini(struct amdgpu_ip_block *ip_block)
 	amdgpu_gfx_mqd_sw_fini(adev, 0);
 	amdgpu_gfx_rlc_fini(adev);
 	gfx_v7_0_mec_fini(adev);
-	amdgpu_bo_free_kernel(&adev->gfx.rlc.clear_state_obj,
-				&adev->gfx.rlc.clear_state_gpu_addr,
-				(void **)&adev->gfx.rlc.cs_ptr);
-	if (adev->gfx.rlc.cp_table_size) {
-		amdgpu_bo_free_kernel(&adev->gfx.rlc.cp_table_obj,
-				&adev->gfx.rlc.cp_table_gpu_addr,
-				(void **)&adev->gfx.rlc.cp_table_ptr);
-	}
 	gfx_v7_0_free_microcode(adev);
 
 	return 0;
