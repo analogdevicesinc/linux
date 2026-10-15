@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ad5421
 
+
 .. _ad5421:
 
 AD5421
@@ -12,17 +13,17 @@ Supported Devices
 
 - :adi:`AD5421`
 
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD5421SDZ`
+
 Reference Circuits
 ~~~~~~~~~~~~~~~~~~
 
 - :adi:`CN0267`
 - :adi:`CN0278`
 - :adi:`CN0382`
-
-Evaluation Boards
------------------
-
-- :adi:`EVAL-AD5421SDZ`
 
 Description
 -----------
@@ -62,8 +63,39 @@ Files
    * - driver
      - `drivers/iio/dac/ad5421.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5421.c>`__
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ad5421 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           ...
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               ...
+               Digital to analog converters  --->
+                   ...
+                   <*>  Analog Devices AD5421 DAC driver
+                   ...
+               ...
+           ...
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
@@ -101,9 +133,9 @@ specific board.
 If no platform data is given, the driver will assume an internal reference
 voltage and a current range of 4 mA to 20 mA.
 
-.. code:: c
+.. code-block:: c
 
-   struct ad5421_platform_data ad5421_pdata {
+   struct ad5421_platform_data ad5421_pdata = {
        .external_vref = true,
        .current_range = AD5421_CURRENT_RANGE_3mA2_24mA,
    };
@@ -124,11 +156,10 @@ voltage and a current range of 4 mA to 20 mA.
    :start-after: .. start-declaring-spi-slave-devices
    :end-before: .. end-declaring-spi-slave-devices
 
-.. code:: c
+.. code-block:: c
 
    static struct spi_board_info board_spi_board_info[] __initdata = {
-   #if defined(CONFIG_AD5421_SPI) || \
-       defined(CONFIG_AD5421_SPI_MODULE)
+   #if IS_ENABLED(CONFIG_AD5421)
        {
            /* the modalias must be the same as spi device driver name */
            .modalias = "ad5421", /* Name of spi_driver for this device */
@@ -141,34 +172,6 @@ voltage and a current range of 4 mA to 20 mA.
        },
    #endif
    };
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The ad5421 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           ...
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-               ...
-               Digital to analog converters  --->
-                   ...
-                   <*>  Analog Devices AD5421 DAC driver
-                   ...
-               ...
-           ...
-
-Hardware configuration
-----------------------
 
 Driver testing
 --------------
@@ -197,13 +200,16 @@ Driver testing
    lrwxrwxrwx    1 root     root             0 Jan  1 00:03 subsystem -> ../../../../../bus/iio
    -rw-r--r--    1 root     root          4096 Jan  1 00:03 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat name
    ad5421
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale
 ^^^^^^^^^^
@@ -219,8 +225,36 @@ in milliampere.
    root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_current_scale
    0.000244
 
+Calibrate channel Y gain
+""""""""""""""""""""""""
+
+**Description:** /sys/bus/iio/devices/iio:deviceX/out_currentY_calibscale
+
+Each channel has an adjustable gain which can be used to calibrate the channel’s
+scale and compensate for full-scale errors. The default value is 65535.
+
+If scale calibration is used the following formula can be used calculate the
+output current:
+
+**I** = *( ( out_currentY_raw \* ( out_currentY_calibscale + 1 ) ) / 2^16 +
+out_currentY_calibbias + out_current_offset ) \* out_current_scale*
+
+Calibrate channel Y offset
+""""""""""""""""""""""""""
+
+**Description:** /sys/bus/iio/devices/iio:deviceX/out_currentY_calibbias
+
+Each channel has an adjustable offset which can be used to calibrate the
+channel’s offset and compensate for zero-scale errors. The default value is 0.
+
+If offset calibration is used the following formula can be used calculate the
+output current:
+
+**I** = *( ( out_currentY_raw \* ( out_currentY_calibscale + 1 ) ) / 2^16 +
+out_currentY_calibbias + out_current_offset ) \* out_current_scale*
+
 Show offset
-'''''''''''
+~~~~~~~~~~~
 
 | **Description:**
 | /sys/bus/iio/devices/iio:deviceX/out_current_offset
@@ -234,7 +268,7 @@ current in milliampere.
    16384
 
 Set channel Y output current
-''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** /sys/bus/iio/devices/iio:deviceX/out_currentY_raw
 
@@ -246,34 +280,6 @@ Raw (unscaled, no bias etc.) output current for channel Y.
 
 **I** = *( out_current0_raw + out_current_offset ) \* out_current_scale* =
 (10000 + 16384) \* 0.000244 *mA* = **6.437696 mA**
-
-Calibrate channel Y gain
-''''''''''''''''''''''''
-
-**Description:** /sys/bus/iio/devices/iio:deviceX/out_currentY_calibscale
-
-Each channel has an adjustable gain which can be used to calibrate the channel’s
-scale and compensate for full-scale errors. The default value is 65535.
-
-If scale calibration is used the following formula can be used calculate the
-output current:
-
-**I** = *( ( out_currentY_raw \* ( out_currentY_calibscale + 1 ) ) / 2^16 +
-out_currentY_calibbias + out_current_offset ) \* out_currentY_scale*
-
-Calibrate channel Y offset
-''''''''''''''''''''''''''
-
-**Description:** /sys/bus/iio/devices/iio:deviceX/out_currentY_calibbias
-
-Each channel has an adjustable offset which can be used to calibrate the
-channel’s offset and compensate for zero-scale errors. The default value is 0.
-
-If offset calibration is used the following formula can be used calculate the
-output current:
-
-**I** = *( ( out_currentY_raw \* ( out_currentY_calibscale + 1 ) ) / 2^16 +
-out_currentY_calibbias + out_current_offset ) \* out_currentY_scale*
 
 More Information
 ----------------
