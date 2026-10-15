@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7192
 
+
 .. _ad7192:
 
 AD7192
@@ -16,17 +17,6 @@ Supported Devices
 - :adi:`AD7194`
 - :adi:`AD7195`
 
-Reference Circuits
-------------------
-
-- :adi:`CN0119`
-- :adi:`CN0102`
-- :adi:`CN0155`
-- :adi:`CN0209`
-- :adi:`CN0251`
-- :adi:`CN0287`
-- :adi:`CN0371`
-
 Evaluation Boards
 -----------------
 
@@ -35,6 +25,17 @@ Evaluation Boards
 - :adi:`EVAL-AD7193EBZ`
 - :adi:`EVAL-AD7194EBZ`
 - :adi:`EVAL-AD7195EBZ`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0119`
+- :adi:`CN0102`
+- :adi:`CN0155`
+- :adi:`CN0209`
+- :adi:`CN0251`
+- :adi:`CN0287`
+- :adi:`CN0371`
 
 Description
 -----------
@@ -76,15 +77,124 @@ Files
    * - include
      - `drivers/staging/iio/adc/ad7192.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/adc/ad7192.h>`__
 
+Hardware configuration
+----------------------
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7192_eval_lr.jpg
+   :width: 600px
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD7192 Driver depends on **CONFIG_SPI**
+
+.. code-block:: text
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               -*-   Enable buffer support within IIO
+               -*-   Enable triggered sampling support
+                     Analog to digital converters  --->
+                         [--snip--]
+                         <*>   Analog Devices AD7192 and similar ADC driver
+                         [--snip--]
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Device tree is the new method for describing non-discoverable hardware in Linux.
+This replaces former structure based method. For configuring a device using this
+drivers please follow the example bellow:
+
+::
+
+   /dts-v1/;
+   /plugin/;
+
+   / {
+
+       fragment@0 {
+           target-path = "/";
+           dvdd: fixedregulator@0 {
+               compatible = "regulator-fixed";
+               regulator-name = "fixed-supply";
+               regulator-min-microvolt = <3300000>;
+               regulator-max-microvolt = <3300000>;
+               regulator-boot-on;
+           };
+       };
+
+       fragment@1 {
+           target-path = "/";
+           avdd: fixedregulator@1 {
+               compatible = "regulator-fixed";
+               regulator-name = "fixed-supply2";
+               regulator-min-microvolt = <3300000>;
+               regulator-max-microvolt = <3300000>;
+               regulator-boot-on;
+           };
+       };
+
+       fragment@3 {
+           target = <&spi0>;
+               #address-cells = <1>;
+               #size-cells = <0>;
+               status = "okay";
+
+           ad7190@0 {
+               compatible = "adi,ad7190";
+               reg = <0>;
+               spi-max-frequency = <1000000>;
+               spi-cpol;
+               spi-cpha;
+               #interrupt-cells = <2>;
+               interrupts = <25 0x2>;
+               interrupt-parent = <&gpio>;
+               dvdd-supply = <&dvdd>;
+               avdd-supply = <&avdd>;
+
+               adi,reference-voltage-mv = /bits/ 16  <3300>;
+               adi,clock-source-select = [02];
+               adi,refin2-pins-enable;
+               adi,rejection-60-Hz-enable;
+               adi,chop-enable;
+               adi,buffer-enable;
+               adi,burnout-currents-enable;
+               adi,sinc3-filter-enable;
+               adi,unipolar-enable;
+           };
+       };
+   };
+
+.. important::
+
+   Interrupt pin connection - interrupts = <25 0x2>; this line means that gpio
+   pin 25 is used for the interrupt and it must be connect to the DOUT/RDY pin
+   of AD7192 along with the SPI MISO.
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
    :end-before: .. end-platform-data
 
-The reference voltage may vary between boards and models. The platform_data for
-the device’s ``struct device`` holds this information.
+The driver obtains its reference voltage from ``vref-supply`` or AVDD,
+clocks from firmware clock properties, and configuration from the properties
+described by ``adi,ad7192.yaml``.
 
 .. code:: c
 
@@ -174,113 +284,6 @@ the device in question.
    }
    arch_initcall(board_init);
 
-Device tree support
--------------------
-
-Device tree is the new method for describing non-discoverable hardware in Linux.
-This replaces former structure based method. For configuring a device using this
-drivers please follow the example bellow:
-
-::
-
-   /dts-v1/;
-   /plugin/;
-
-   / {
-
-       fragment@0 {
-           target-path = "/";
-           dvdd: fixedregulator@0 {
-               compatible = "regulator-fixed";
-               regulator-name = "fixed-supply";
-               regulator-min-microvolt = <3300000>;
-               regulator-max-microvolt = <3300000>;
-               regulator-boot-on;
-           };
-       };
-
-       fragment@1 {
-           target-path = "/";
-           avdd: fixedregulator@1 {
-               compatible = "regulator-fixed";
-               regulator-name = "fixed-supply2";
-               regulator-min-microvolt = <3300000>;
-               regulator-max-microvolt = <3300000>;
-               regulator-boot-on;
-           };
-       };
-
-       fragment@3 {
-           target = <&spi0>;
-               #address-cells = <1>;
-               #size-cells = <0>;
-               status = "okay";
-
-           ad7190@0 {
-               compatible = "adi,ad7190";
-               reg = <0>;
-               spi-max-frequency = <1000000>;
-               spi-cpol;
-               spi-cpha;
-               #interrupt-cells = <2>;
-               interrupts = <25 0x2>;
-               interrupt-parent = <&gpio>;
-               dvdd-supply = <&dvdd>;
-               avdd-supply = <&avdd>;
-
-               adi,reference-voltage-mv = /bits/ 16  <3300>;
-               adi,clock-source-select = [02];
-               adi,refin2-pins-enable;
-               adi,rejection-60-Hz-enable;
-               adi,chop-enable;
-               adi,buffer-enable;
-               adi,burnout-currents-enable;
-               adi,sinc3-filter-enable;
-               adi,unipolar-enable;
-           };
-       };
-   };
-
-.. important::
-
-   Interrupt pin connection - interrupts = <25 0x2>; this line means that gpio
-   pin 25 is used for the interrupt and it must be connect to the DOUT/RDY pin
-   of AD7192 along with the SPI MISO.
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AD7192 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           [*] Staging drivers  --->
-               <*>     Industrial I/O support --->
-                   --- Industrial I/O support
-                   -*-   Enable ring buffer support within IIO
-                   -*-     Industrial I/O lock free software ring
-                   -*-   Enable triggered sampling support
-
-                         *** Analog to digital converters ***
-                   [--snip--]
-
-                   <*>   Analog Devices AD7190 AD7192 AD7195 ADC driver
-
-                   [--snip--]
-
-Hardware configuration
-----------------------
-
-.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7192_eval_lr.jpg
-   :width: 600px
-
 Driver testing
 --------------
 
@@ -320,28 +323,19 @@ Driver testing
    -rw-r--r--    1 root     root          4096 Jan  4 16:59 uevent
    root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0>
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat name
    ad7192
 
-Set sampling frequency / update rate
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat sampling_frequency
-   10
-   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> echo 50 > sampling_frequency
-   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat sampling_frequency
-   50
-   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0>
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show available scales for differential input channels
-'''''''''''''''''''''''''''''''''''''''''''''''''''''
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Lists all available scales for the differential input pairs:
 
@@ -365,8 +359,46 @@ amplifier.
    root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat in_voltage-in_voltage_scale_available
    0.000393390 0.000196690 0.000098340 0.000049170 0.000024580 0.000012290 0.000006140 0.000003070
 
+Set sampling frequency / update rate
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat sampling_frequency
+   10
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> echo 50 > sampling_frequency
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat sampling_frequency
+   50
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0>
+
+Bride power-down switch control
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Description:** /sys/bus/iio/devices/iio:deviceX/bridge_switch_en Writing 1
+closes the bridge switch.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> echo 1 > bridge_switch_en
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat bridge_switch_en
+   1
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> echo 0 > bridge_switch_en
+
+AC excitation control (AD7195 only)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Description:** /sys/bus/iio/devices/iio:deviceX/ac_excitation_en Writing 1
+enables AC excitation on the AD7195 ACX strobes.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> echo 1 > ac_excitation_en
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat ac_excitation_en
+   1
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> echo 0 > ac_excitation_en
+
 Show available scales for pseudo-differential input channels
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Lists all available scales for the differential input pairs:
 
@@ -393,7 +425,7 @@ amplifier.
    0.000393390 0.000196690 0.000098340 0.000049170 0.000024580 0.000012290 0.000006140 0.000003070
 
 Set scale for differential input channels
-'''''''''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Scale to be applied to in1-in2_raw, in2-in3_raw in order to obtain the measured
 voltage in millivolts. Allows the user to select one scale out of the available
@@ -409,7 +441,7 @@ full and zero offset calibration on all differential input channels.
    0.000196690
 
 Show channel in_voltage1 measurement
-''''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** Raw unscaled voltage measurement on channel in_voltage1
 
@@ -438,11 +470,12 @@ Show channel in_voltage1 measurement
    root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat in1_raw
    -1
 
-**U** = *in_voltage1_raw \* in_voltage_scale* = 3983772\* 0.000393390 =
-**1567.17606708 mV**
+The voltage is U_mV = (in_voltage1_raw + in_voltage_offset) ×
+in_voltage_scale. In pseudo-differential mode, the offset also accounts for
+AINCOM when its voltage is supplied.
 
 Show channel in_voltage1-in_voltage2 measurement
-''''''''''''''''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** Raw unscaled voltage measurement on channel
 in_voltage1-in_voltage2
@@ -452,11 +485,13 @@ in_voltage1-in_voltage2
    root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat in_voltage1-in_voltage2_raw
    -1
 
-**U** = *in_voltage1-in_voltage3_raw \* in_voltage-in_voltage_scale* = -1 \*
-0.000393390 = **-0.000393390 mV**
+For a differential channel, U_mV = (raw + offset) × scale, using for example
+``in_voltage1-voltage2_raw``, ``in_voltage-voltage_offset`` and
+``in_voltage-voltage_scale``. In bipolar mode the raw data is offset binary
+and the offset is -8388608.
 
 Show internal temperature
-'''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** /sys/bus/iio/devices/iio:deviceX/in_temp0_raw Shows raw
 unscaled temperature.
@@ -465,32 +500,6 @@ unscaled temperature.
 
    root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat in_temp0_raw
    -175
-
-Bride power-down switch control
-'''''''''''''''''''''''''''''''
-
-**Description:** /sys/bus/iio/devices/iio:deviceX/bridge_switch_en Writing 1
-closes the bridge switch.
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> echo 1 > bridge_switch_en
-   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat bridge_switch_en
-   1
-   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> echo 0 > bridge_switch_en
-
-AC excitation control (AD7195 only)
-'''''''''''''''''''''''''''''''''''
-
-**Description:** /sys/bus/iio/devices/iio:deviceX/ac_excitation_en Writing 1
-enables AC excitation on the AD7195 ACX strobes.
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> echo 1 > ac_excitation_en
-   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> cat ac_excitation_en
-   1
-   root:/sys/devices/platform/bfin-spi.0/spi0.18/iio:device0> echo 0 > ac_excitation_en
 
 Trigger management
 ~~~~~~~~~~~~~~~~~~
