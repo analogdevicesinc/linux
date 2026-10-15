@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/ad9528
 
+
 .. _ad9528:
 
 AD9528
@@ -28,12 +29,12 @@ from 3.450 GHz to 4.025 GHz. The integrated SYSREF generator outputs single
 shot, N-shot, or continuous signals synchronous to the PLL1 and PLL2 outputs to
 time align multiple devices
 
-The AD9528 generates two outputs (Output 1 and Output 2) with a maximum
-frequency of 1.25 GHz, and 12 outputs up to 1 GHz. Each output can be configured
-to output directly from PLL1, PLL2, or the internal SYSREF generator. Each of
-the 14 output channels contains a divider with coarse digital phase adjustment
-and an analog fine phase delay block that allows complete flexibility in timing
-alignment across all 14 outputs.
+The AD9528 generates six outputs (Output 0 to Output 3, Output 12, and Output
+13) with a maximum frequency of 1.25 GHz, and eight outputs up to 1 GHz. Each
+output can be configured to output directly from PLL1, PLL2, or the internal
+SYSREF generator. Each of the 14 output channels contains a divider with coarse
+digital phase adjustment and an analog fine phase delay block that allows
+complete flexibility in timing alignment across all 14 outputs.
 
 Please see also here:
 :dokuwiki:`Changing the VCXO frequency </resources/eval/user-guides/rf-trx-vcxo-and-profiles>`
@@ -76,15 +77,18 @@ Files
      - :git+linux:`main:include/dt-bindings/iio/frequency/ad9528.h`
      -
 
-Enabling the driver
--------------------
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
-.. note::
+Note
 
-   The AD9528 Driver depends on **CONFIG_SPI**
+The AD9528 Driver depends on CONFIG_SPI and CONFIG_COMMON_CLK
 
 ::
 
@@ -95,95 +99,8 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
                     Clock Generator/Distribution  --->
                     <*>  Analog Devices AD9528 Low Jitter Clock Generator
 
-Adding a device tree entry
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Available properties
-^^^^^^^^^^^^^^^^^^^^
-
-- **compatible**: Must be one of:
-
-  - ``adi,ad9528``
-
-- **reg**: SPI chip select number for the device
-- **spi-max-frequency**: Max SPI frequency to use (< 30000000)
-- **spi-cpol**: The AD9528 requires inverse clock polarity (CPOL) mode
-- **spi-cpha**: The AD9528 requires inverse clock phase (CPHA) mode
-- **adi,spi-3wire-enable**: Use 3-wire SPI
-- **adi,vcxo-freq**: Set the frequency of the input VCXO clock
-- **adi,ref-mode**: Must be one of:
-
-  - ``REF_MODE_STAY_ON_REFB``: Non-revertive: stay on REFB
-  - ``REF_MODE_REVERT_TO_REFA``: Revert to REFA
-  - ``REF_MODE_SELECT_REFA``: Select REFA
-  - ``REF_MODE_SELECT_REFB``: Select REFB
-  - ``REF_MODE_EXT_REF``: Select REFB if the REF_SEL pin is low, select REFA if
-    the REF_SEL pin is high.
-
-- **adi,refa-enable**: Enable REFA input
-- **adi,refb-enable**: Enable REFB input
-- **adi,refa-diff-rcv-enable**: Enable differential receiver mode for REFA
-  (default: single-ended receiver mode)
-- **adi,refb-diff-rcv-enable**: Enable differential receiver mode for REFB
-  (default: single-ended receiver mode)
-- **adi,osc-diff-rcv-enable**: Enable differential receiver mode for the VCXO
-  (default: single-ended receiver mode)
-- **adi,refa-in-cmos-neg-inp-enable** (CMOS mode + single-ended receiver mode):
-  Use the inverted REFA input pin
-- **adi,refb-in-cmos-neg-inp-enable** (CMOS mode + single-ended receiver mode):
-  Use the inverted REFB input pin
-- **adi,osc-in-cmos-neg-inp-enable** (CMOS mode + single-ended receiver mode):
-  Use the inverted VCXO input pin
-- **adi,refa-r-div**: PLL1 10-bit REFA R divider
-- **adi,refb-r-div**: PLL1 10-bit REFB R divider
-- **adi,pll1-feedback-div**: PLL1 10-bit Feedback N divider
-- **adi,pll1-feedback-src-vcxo**: PLL1 Feedback source is VCXO (default: VCO)
-- **adi,pll1-charge-pump-current-nA**: Magnitude of PLL1 charge pump current
-  (nA)
-- **adi,pll1-bypass-en**: Bypass PLL1
-- **adi,sysref-src**: SYSREF Pattern Generator clock source
-- **adi,sysref-k-div**: SYSREF Pattern Generator K divider
-- **adi,pll2-charge-pump-current-nA**: Magnitude of PLL2 charge pump current
-  (nA)
-- **adi,pll2-m1-frequency**: Distribution clock frequency (can skip,
-  adi,pll2-freq-doubler-enable, adi,pll2-n2-div, adi,pll2-r1-div,
-  adi,pll2-vco-div-m1)
-- **adi,pll2-freq-doubler-enable**: Enable frequency doubler
-- **adi,pll2-r1-div**: PLL2 R1 divider (range 1..31)
-- **adi,pll2-n2-div**: PLL2 N2 divider (range 1..256)
-- **adi,pll2_vco_diff_m1**: PLL2 VCO1 divider (range 3..5)
-- **adi,rpole2**: PLL2 loop filter Rpole resistor value
-- **adi,rzero**: PLL2 loop filter Rzero resistor value
-- **adi,cpole1**: PLL2 loop filter Cpole1 capacitor value
-- **adi,rzero-bypass-en**: Bypass Rzero
-
-Adding channels
-^^^^^^^^^^^^^^^
-
-Channels can be specified using child nodes. The following properties are
-applicable to them:
-
-- **reg**: The identifier of the channel
-- **adi,extended-name**: Optional descriptive channel name
-- **adi,driver-mode**: Output driver mode (logic level family). Must be one of:
-
-  - DRIVER_MODE_LVDS,
-  - DRIVER_MODE_LVDS_BOOST,
-  - DRIVER_MODE_HSTL.
-
-- **adi,divider-phase**: Divider initial phase after a sync (range 0..63, LSB =
-  1/2 of a period of the divider input clock)
-- **adi,signal-source**: Source of this channel. Must be one of:
-
-  - SOURCE_VCO,
-  - SOURCE_VCXO,
-  - SOURCE_SYSREF_VCO,
-  - SOURCE_SYSREF_VCXO,
-  - SOURCE_VCXO_INV,
-  - SOURCE_SYSREF_VCXO_INV.
-
-Device tree example
-^^^^^^^^^^^^^^^^^^^
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 The following example instanciates the ad9528 driver for a AD9528 device
 connected on the SPI bus to the chip-select line 0.
@@ -191,7 +108,7 @@ connected on the SPI bus to the chip-select line 0.
 The various macros used are defined in the header file:
 <dt-bindings/iio/frequency/ad9528.h>
 
-::
+.. code-block:: dts
 
    #include <dt-bindings/iio/frequency/ad9528.h>
 
@@ -225,7 +142,7 @@ The various macros used are defined in the header file:
 
            /* PLL2 config */
 
-           * Valid ranges based on VCO locking range:
+           /* Valid ranges based on VCO locking range:
            *   1150.000 MHz - 1341.666 MHz
            *    862.500 MHz - 1006.250 MHz
            *    690.000 MHz -  805.000 MHz
@@ -261,3 +178,124 @@ The various macros used are defined in the header file:
            };
        };
    };
+
+Available properties
+^^^^^^^^^^^^^^^^^^^^
+
+-  **compatible**: Must be one of:
+
+   -  ``adi,ad9528``
+
+-  **reg**: SPI chip select number for the device
+
+-  **spi-max-frequency**: Max SPI frequency to use (< 30000000)
+
+-  **spi-cpol**: The AD9528 requires inverse clock polarity (CPOL) mode
+
+-  **spi-cpha**: The AD9528 requires inverse clock phase (CPHA) mode
+
+-  **adi,spi-3wire-enable**: Use 3-wire SPI
+
+-  **adi,vcxo-freq**: Set the frequency of the input VCXO clock
+
+-  **adi,ref-mode**: Must be one of:
+
+   -  ``REF_MODE_STAY_ON_REFB``: Non-revertive: stay on REFB
+
+   -  ``REF_MODE_REVERT_TO_REFA``: Revert to REFA
+
+   -  ``REF_MODE_SELECT_REFA``: Select REFA
+
+   -  ``REF_MODE_SELECT_REFB``: Select REFB
+
+   -  ``REF_MODE_EXT_REF``: Select REFB if the REF_SEL pin is low, select REFA
+      if the REF_SEL pin is high.
+
+-  **adi,refa-enable**: Enable REFA input
+
+-  **adi,refb-enable**: Enable REFB input
+
+-  **adi,refa-diff-rcv-enable**: Enable differential receiver mode for REFA
+   (default: single-ended receiver mode)
+
+-  **adi,refb-diff-rcv-enable**: Enable differential receiver mode for REFB
+   (default: single-ended receiver mode)
+
+-  **adi,osc-in-diff-enable**: Enable differential receiver mode for the VCXO
+   (default: single-ended receiver mode)
+
+-  **adi,refa-cmos-neg-inp-enable** (CMOS mode + single-ended receiver mode):
+   Use the inverted REFA input pin
+
+-  **adi,refb-cmos-neg-inp-enable** (CMOS mode + single-ended receiver mode):
+   Use the inverted REFB input pin
+
+-  **adi,osc-in-cmos-neg-inp-enable** (CMOS mode + single-ended receiver mode):
+   Use the inverted VCXO input pin
+
+-  **adi,refa-r-div**: PLL1 10-bit REFA R divider
+
+-  **adi,refb-r-div**: PLL1 10-bit REFB R divider
+
+-  **adi,pll1-feedback-div**: PLL1 10-bit Feedback N divider
+
+-  **adi,pll1-feedback-src-vcxo: A u32 selection, defaulting to 1 (VCXO). Use
+   <1> for VCXO or <0> for the alternative source; omit the property to retain
+   the VCXO default.**
+
+-  **adi,pll1-charge-pump-current-nA**: Magnitude of PLL1 charge pump current
+   (nA)
+
+-  **adi,pll1-bypass-enable**: Bypass PLL1
+
+-  **adi,sysref-src**: SYSREF Pattern Generator clock source
+
+-  **adi,sysref-k-div**: SYSREF Pattern Generator K divider
+
+-  **adi,pll2-charge-pump-current-nA**: Magnitude of PLL2 charge pump current
+   (nA)
+
+-  **adi,pll2-m1-frequency**: Distribution clock frequency (can skip,
+   adi,pll2-freq-doubler-enable, adi,pll2-n2-div, adi,pll2-r1-div,
+   adi,pll2-vco-div-m1)
+
+-  **adi,pll2-freq-doubler-enable**: Enable frequency doubler
+
+-  **adi,pll2-r1-div**: PLL2 R1 divider (range 1..31)
+
+-  **adi,pll2-n2-div**: PLL2 N2 divider (range 1..256)
+
+-  **adi,pll2-vco-div-m1**: PLL2 VCO1 divider (range 3..5)
+
+-  **adi,rpole2**: PLL2 loop filter Rpole resistor value
+
+-  **adi,rzero**: PLL2 loop filter Rzero resistor value
+
+-  **adi,cpole1**: PLL2 loop filter Cpole1 capacitor value
+
+-  **adi,rzero-bypass-enable**: Bypass Rzero
+
+Adding channels
+^^^^^^^^^^^^^^^
+
+Channels can be specified using child nodes. The following properties are
+applicable to them:
+
+- **reg**: The identifier of the channel
+- **adi,extended-name**: Optional descriptive channel name
+- **adi,driver-mode**: Output driver mode (logic level family). Must be one of:
+
+  - DRIVER_MODE_LVDS,
+  - DRIVER_MODE_LVDS_BOOST,
+  - DRIVER_MODE_HSTL.
+
+- **adi,divider-phase**: Divider initial phase after a sync (range 0..63, LSB =
+  1/2 of a period of the divider input clock)
+- **adi,signal-source**: Source of this channel. Must be one of:
+
+  - SOURCE_VCO,
+  - SOURCE_VCXO,
+  - SOURCE_SYSREF_VCO,
+  - SOURCE_SYSREF_VCXO,
+  - SOURCE_VCXO_INV,
+  - SOURCE_SYSREF_VCXO_INV.
