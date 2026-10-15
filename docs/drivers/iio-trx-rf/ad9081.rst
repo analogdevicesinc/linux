@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
 
+
 .. _ad9081:
 
 AD9081
@@ -8,7 +9,7 @@ AD9081
 AD9081 AD9081 MxFE Linux Driver.
 
 Supported Devices
------------------
+~~~~~~~~~~~~~~~~~
 
 - :adi:`AD9081`
 - :adi:`AD9082`
@@ -18,8 +19,8 @@ Supported Devices
 - :adi:`AD9207`
 - :adi:`AD9209`
 
-Supported Boards
-----------------
+Evaluation Boards
+~~~~~~~~~~~~~~~~~
 
 - :adi:`AD9081-FMCA-EBZ`
 - :adi:`AD9082-FMCA-EBZ`
@@ -28,18 +29,13 @@ Supported Boards
 - :adi:`Quad-MxFE`
 
 User Guides
-~~~~~~~~~~~
+^^^^^^^^^^^
 
 - :dokuwiki:`AD9081/AD9082 Prototyping Platform User Guide </resources/eval/user-guides/ad9081_fmca_ebz>`
 - :dokuwiki:`Quad-MxFE Prototyping Platform User Guide </resources/eval/user-guides/quadmxfe>`
 
-Supported HDL Cores
--------------------
-
-- :dokuwiki:`AD9081-FMCA-EBZ (Single MxFE) HDL Reference Design </resources/eval/user-guides/ad9081_fmca_ebz/ad9081_fmca_ebz_hdl>`
-
 Description
------------
+~~~~~~~~~~~
 
 The mixed signal front end (MxFE®) is a high integration devicewith a 16-bit, 12
 GSPS maximum sample rate radio frequency (RF) digital-to-analog converter (DAC)
@@ -64,11 +60,17 @@ system and electronic warfare jammer applications.
 For more information about the AD9081 or AD9082, contact Analog Devices, Inc.,
 at: MxFEsupport@analog.com
 
+The AD9081 is a high-performance, single-chip, mixed-signal front end (MxFE)
+integrating:
+
+- **Four 16-bit, 12 GSPS RF DAC cores**
+- **Four 12-bit, 4 GSPS RF ADC cores**
+
 Source Code
------------
+~~~~~~~~~~~
 
 Status
-~~~~~~
+^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -79,7 +81,7 @@ Status
      - No
 
 Files
-~~~~~
+^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -91,99 +93,11 @@ Files
    * - API driver
      - :git+linux:`main:drivers/iio/adc/ad9081`
 
-Example device trees
+Adding Linux driver support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Kernel configuration
 ^^^^^^^^^^^^^^^^^^^^
-
-See for:
-
-* :dokuwiki:`zynq </resources/eval/user-guides/ad9081_fmca_ebz/quickstart/zynq>`, section "Example Device Trees".
-* :dokuwiki:`microblaze </resources/eval/user-guides/ad9081_fmca_ebz/quickstart/microamperes>`, section "Example Device Trees".
-
-Interrelated Device Drivers
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-- :ref:`jesd204-fsm-framework`
-- :external+hdl:ref:`jesd204`
-
-Transport Layer Receive AXI-ADC driver
-''''''''''''''''''''''''''''''''''''''
-
-.. list-table::
-   :header-rows: 1
-
-   * - Function
-     - File
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
-     -
-   * - include
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
-     -
-
-**Documentation:** :ref:`axi-adc-hdl`
-
-Transport Layer Transmit AXI-DAC / DDS driver
-'''''''''''''''''''''''''''''''''''''''''''''
-
-.. list-table::
-   :header-rows: 1
-
-   * - Function
-     - File
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
-     -
-   * - include
-     - :git+linux:`drivers/iio/frequency/cf_axi_adc.h <main:drivers/iio/frequency/cf_axi_dds.h>`
-     -
-
-**Documentation:** :ref:`axi-dac-dds-hdl`
-
-Link Layer AXI JESD204B HDL driver
-''''''''''''''''''''''''''''''''''
-
-.. list-table::
-   :header-rows: 1
-
-   * - Function
-     - File
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_rx.c`
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_tx.c`
-     -
-
-**Documentation:**
-
-- :ref:`axi_jesd204_tx`
-- :ref:`axi_jesd204_rx`
-
-PHY Layer AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-.. list-table::
-   :header-rows: 1
-
-   * - Function
-     - File
-     -
-   * - driver
-     - :git+linux:`main:drivers/iio/jesd204/axi_adxcvr.c`
-     -
-
-**Documentation:**
-
-- :ref:`axi_adxcvr`
-
-Enabling Linux driver support
------------------------------
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
@@ -191,9 +105,6 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 .. note::
 
    The ADRV9009 driver depends on **CONFIG_SPI**
-
-Adding Linux driver support
----------------------------
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
@@ -205,8 +116,7 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
            <*> JESD204 High-Speed Serial Interface Framework
        <*>     Industrial I/O support --->
            --- Industrial I/O support
-           -*-   Enable ring buffer support within IIO
-           -*-     Industrial I/O lock free software ring
+           -*-   Enable buffer support within IIO
            -*-   Enable triggered sampling support
 
                  *** Analog to digital converters ***
@@ -243,807 +153,8 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
            <*>   Analog Devices AXI JESD204B TX Support
            <*>   Analog Devices AXI JESD204B RX Support
 
-Device tree customization
--------------------------
-
-The AD9081 Linux IIO device driver is configured and customized using device
-tree, a simple tree structure of nodes and properties. Properties are key-value
-pairs, and node may contain both properties and child nodes. The top device node
-of the AD9081/82 contains common and device specific attributes. Under the top
-node, there are two child-nodes (``adi,tx-dacs`` and ``adi,rx-adcs``). In case
-of DAC or ADC only operation, both nodes are required and must contain at least
-the ``adi,dac-frequency-hz`` and respectively the ``adi,adc-frequency-hz``
-property. However omitting the child nodes will disable this ADC/DAC data path.
-
-.. code:: dts
-
-   &spi {
-       trx0_ad9081: ad9081@0 {
-
-           // Device common properties
-
-           adi,tx-dacs {
-               // Tx/DAC properties and child-nodes
-
-           };
-
-           adi,rx-adcs {
-               // Rx/ADC properties and child-nodes
-           };
-       };
-   };
-
-Each of these child nodes handle certain aspects of either the digital-to-analog
-converter core side or the analog-to-digital converter side of the Mixed Signal
-Frontend (MxFE®) These child-nodes again contain ADC or DAC side common
-attributes. Such as the ADC/DAC frequency. But also, three child-nodes to
-customize the main data paths, the channelizers and the serial JESD204
-interfaces.
-
-.. code:: dts
-
-   adi,rx-adcs {
-
-       adi,main-data-paths {
-
-       };
-
-       adi,channelizer-paths {
-
-       };
-
-       adi,jesd-links {
-
-       };
-   };
-
-- The ``adi,main-data-paths`` node iterates the used ADCs or DACs together with
-  its default/dedicated CDDCs and CDUCs. Each of these nodes have in return
-  again properties to configure the default NCO frequencies, modes, decimation,
-  etc. (A list of supported properties/attributes can be found below.)
-- The second mandatory node is the ``adi,channelizer-paths`` node. The utilized
-  channelizers FDDCs and FDUCs are described in here, which are always related
-  to the main data paths. Therefore, the main data path child-nodes contain a
-  property (``adi,crossbar-select``) of a device node containing a phandle to
-  the FDUC or FDDC that it is attached to.
-- The last mandatory child-node is the ``adi,jesd-links`` node. This node
-  contains up to two (single/dual link) child-nodes, one for each link.
-
-.. code:: dts
-
-   adi,main-data-paths {
-
-      ad9081_dac0: dac@0 {
-
-      };
-      ad9081_dac1: dac@1 {
-
-      };
-      ad9081_dac2: dac@2 {
-
-      };
-      ad9081_dac3: dac@3 {
-
-      };
-  };
-
-  adi,channelizer-paths {
-
-      ad9081_tx_fddc_chan0: channel@0 {
-
-      };
-      ad9081_tx_fddc_chan1: channel@1 {
-
-      };
-  };
-
-  adi,jesd-links {
-
-      ad9081_tx_jesd_l0: link@0 {
-
-      };
-  };
-
-AD9081 Mixed-Signal Front End (MxFE) Device Tree Bindings
----------------------------------------------------------
-
-Overview
-~~~~~~~~
-
-The AD9081 is a high-performance, single-chip, mixed-signal front end (MxFE)
-integrating:
-
-- **Four 16-bit, 12 GSPS RF DAC cores**
-- **Four 12-bit, 4 GSPS RF ADC cores**
-
-Compatible Devices
-~~~~~~~~~~~~~~~~~~
-
-The following devices are supported by this driver:
-
-- ``adi,ad9081`` - AD9081 MxFE
-- ``adi,ad9082`` - AD9082 MxFE
-- ``adi,ad9988`` - AD9988 MxFE
-- ``adi,ad9986`` - AD9986 MxFE
-- ``adi,ad9177`` - AD9177 Quad DAC
-- ``adi,ad9207`` - AD9207 Dual ADC
-- ``adi,ad9209`` - AD9209 Quad ADC
-
-Required Properties
-~~~~~~~~~~~~~~~~~~~
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Description
-   * - ``compatible``
-     - string
-     - One of the supported device strings listed above
-   * - ``reg``
-     - integer
-     - SPI chip select number
-   * - ``clocks``
-     - phandle
-     - Reference to device clock
-   * - ``clock-names``
-     - string
-     - Must be ``dev_clk``
-
-Optional Properties
-~~~~~~~~~~~~~~~~~~~
-
-Basic Configuration
-^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Range/Values
-     - Description
-   * - ``spi-max-frequency``
-     - integer
-     - ≤ 25000000
-     - Maximum SPI frequency in Hz
-   * - ``reset-gpios``
-     - phandle
-     - -
-     - GPIO for hardware reset
-   * - ``interrupts``
-     - interrupt
-     - -
-     - Device interrupt line
-
-Standalone and Multi-Device Setup
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Description
-   * - ``adi,standalone-enable``
-     - boolean
-     - Enable standalone mode for the device
-   * - ``adi,multidevice-instance-count``
-     - u32
-     - Number of devices in multidevice synchronization setup
-   * - ``adi,dual-link-use-separate-tpl-enable``
-     - boolean
-     - Enable separate TPL for dual-link mode
-
-JESD Synchronization
-^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Description
-   * - ``adi,jesd-sync-pins-01-swap-enable``
-     - boolean
-     - Swap JESD sync pins 0 and 1
-   * - ``adi,jesd-sync-pin-0a-cmos-enable``
-     - boolean
-     - Enable CMOS mode for JESD sync pin 0A
-   * - ``adi,lmfc-delay-dac-clk-cycles``
-     - u32
-     - LMFC delay in DAC clock cycles
-
-NCO Synchronization
-^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Range
-     - Description
-   * - ``adi,nco-sync-ms-extra-lmfc-num``
-     - u32
-     - -
-     - Extra LMFC cycles for NCO sync in master-slave mode
-   * - ``adi,nco-sync-direct-sysref-mode-enable``
-     - boolean
-     - -
-     - Enable direct SYSREF mode for NCO synchronization
-
-SYSREF Configuration
-^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Range
-     - Description
-   * - ``adi,sysref-average-cnt-exp``
-     - u32
-     - 0-15
-     - SYSREF averaging count exponent (2
-   * - ``adi,sysref-ac-coupling-enable``
-     - boolean
-     - -
-     - Enable AC coupling for SYSREF
-   * - ``adi,sysref-cmos-input-enable``
-     - boolean
-     - -
-     - Enable CMOS input mode for SYSREF
-   * - ``adi,sysref-single-end-pos-termination``
-     - u32
-     - 0-3
-     - Termination resistance for positive single-ended SYSREF
-   * - ``adi,sysref-single-end-neg-termination``
-     - u32
-     - 0-3
-     - Termination resistance for negative single-ended SYSREF
-   * - ``adi,continuous-sysref-mode-disable``
-     - boolean
-     - -
-     - Disable continuous SYSREF mode
-
-Loopback and GPIO
-^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Range
-     - Description
-   * - ``adi,direct-loopback-mode-dac-adc-mapping``
-     - u32
-     - 0-255
-     - Mapping for direct loopback between DAC and ADC
-   * - ``adi,master-slave-sync-gpio-num``
-     - u32
-     - 0-15
-     - GPIO number for master-slave synchronization
-
-TX DAC Configuration (adi,tx-dacs)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The TX DAC configuration is specified in a sub-node with the following
-structure:
-
-DAC Global Properties
-^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Description
-   * - ``adi,dac-frequency-hz``
-     - u64
-     - DAC operating frequency in Hz (use ``/bits/ 64``)
-   * - ``adi,ffh-hopf-via-gpio-enable``
-     - boolean
-     - Enable FFH HOPF via GPIO
-
-PA Protection Global Settings
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Description
-   * - ``adi,pa-protection-gpio-as-pa-enable``
-     - boolean
-     - Configure GPIO pins 0-3 as PA enable outputs
-   * - ``adi,pa-protection-rotation-mode``
-     - u32 (0-3)
-     - Rotation mode configuration (see header file for bitmask values)
-
-Main Data Paths (adi,main-data-paths)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Contains configuration for up to 4 DACs (dac@0 through dac@3).
-
-Global Main Path Properties
-'''''''''''''''''''''''''''
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Values
-     - Description
-   * - ``adi,interpolation``
-     - u32
-     - 1,2,3,4,6,8,12
-     - Interpolation factor for main data paths
-
-Per-DAC Properties (dac@N)
-''''''''''''''''''''''''''
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Range/Values
-     - Description
-   * - ``reg``
-     - u32
-     - 0-3
-     - DAC channel index
-   * - ``adi,nco-frequency-shift-hz``
-     - u64
-     - -
-     - NCO frequency shift in Hz
-   * - ``adi,full-scale-current-ua``
-     - u32
-     - 7750-40320
-     - Full-scale current in microamperes
-   * - ``adi,maindp-dac-1x-non1x-crossbar-select``
-     - u32
-     - 0-3
-     - Crossbar selection for 1x/non-1x mode
-   * - ``adi,crossbar-select``
-     - phandle
-     - -
-     - Reference to channelizer path
-
-PA Protection Per-DAC Properties
-''''''''''''''''''''''''''''''''
-
-Soft-Off/On Control
-'''''''''''''''''''
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Range
-     - Description
-   * - ``adi,pa-protection-soft-off-enable``
-     - boolean
-     - -
-     - Enable soft-off gain control
-   * - ``adi,pa-protection-soft-off-new-gain-enable``
-     - boolean
-     - -
-     - Enable new soft-off gain block
-   * - ``adi,pa-protection-soft-off-ramp-rate``
-     - u32
-     - 0-15
-     - Soft-off gain ramp rate (32 steps over 2^(code+8) DAC clocks)
-   * - ``adi,pa-protection-soft-off-triggers``
-     - u32
-     - bitmask
-     - Soft-off triggers (see header file)
-   * - ``adi,pa-protection-soft-on-triggers``
-     - u32
-     - bitmask
-     - Soft-on triggers (see header file)
-
-Power Averaging
-'''''''''''''''
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Range
-     - Description
-   * - ``adi,pa-protection-long-avg-enable``
-     - boolean
-     - -
-     - Enable long averaging power calculation
-   * - ``adi,pa-protection-long-avg-time``
-     - u32
-     - 0-255
-     - Time for long averaging
-   * - ``adi,pa-protection-long-avg-threshold``
-     - u32
-     - 0-65535
-     - Long average power threshold (I² + Q²)
-   * - ``adi,pa-protection-short-avg-enable``
-     - boolean
-     - -
-     - Enable short averaging power calculation
-   * - ``adi,pa-protection-short-avg-time``
-     - u32
-     - 0-255
-     - Time for short averaging
-   * - ``adi,pa-protection-short-avg-threshold``
-     - u32
-     - 0-65535
-     - Short average power threshold (I² + Q²)
-
-Digital Step Attenuator (DSA)
-'''''''''''''''''''''''''''''
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Range
-     - Description
-   * - ``adi,pa-protection-dsa-enable``
-     - boolean
-     - -
-     - Enable DSA for this DAC
-   * - ``adi,pa-protection-dsa-code``
-     - u32
-     - 0-235
-     - DSA attenuation code (0=no attenuation, 235=47dB)
-   * - ``adi,pa-protection-dsa-cutover``
-     - u32
-     - 0-255
-     - DSA cutover threshold
-   * - ``adi,pa-protection-dsa-boost``
-     - u32
-     - 0-15
-     - DSA boost setting above 26mA baseline
-   * - ``adi,pa-protection-dsa-gain``
-     - u32
-     - 0-4095
-     - 12-bit DSA digital gain value
-
-Channelizer Paths (adi,channelizer-paths)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Contains configuration for up to 8 channels (channel@0 through channel@7).
-
-Global Channelizer Properties
-'''''''''''''''''''''''''''''
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Values
-     - Description
-   * - ``adi,interpolation``
-     - u32
-     - 1,2,3,4,6,8
-     - Interpolation factor for channelizer paths
-
-Per-Channel Properties (channel@N)
-''''''''''''''''''''''''''''''''''
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Range
-     - Description
-   * - ``reg``
-     - u32
-     - 0-7
-     - Channelizer index
-   * - ``adi,nco-frequency-shift-hz``
-     - u64
-     - -
-     - NCO frequency shift in Hz
-   * - ``adi,nco-phase-offset``
-     - u32
-     - 0-65535
-     - NCO phase offset
-   * - ``adi,gain``
-     - u32
-     - 0-4095
-     - Channel gain (12-bit)
-
-JESD Links (adi,jesd-links)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Contains configuration for up to 2 JESD links (link@0 and link@1).
-
-Per-Link Properties (link@N)
-''''''''''''''''''''''''''''
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Range/Values
-     - Description
-   * - ``reg``
-     - u32
-     - 0-1
-     - JESD204 link index
-   * - ``adi,logical-lane-mapping``
-     - u8-array
-     - 1-8 lanes
-     - Logical lane mapping
-   * - ``adi,link-mode``
-     - u32
-     - -
-     - JESD quick configuration mode
-   * - ``adi,subclass``
-     - u32
-     - 0,1,2
-     - JESD subclass
-   * - ``adi,version``
-     - u32
-     - 0,1,2
-     - JESD version (0=204A, 1=204B, 2=204C)
-   * - ``adi,dual-link``
-     - u32
-     - 0,1
-     - Dual link mode
-   * - ``adi,tpl-phase-adjust``
-     - u32
-     - -
-     - TPL phase adjustment value
-
-JESD204 Parameters
-''''''''''''''''''
-
-Standard JESD204 parameters with both ``adi,`` and ``jesd204-`` prefixes
-supported:
-
-.. list-table::
-   :header-rows: 1
-
-   * - Parameter
-     - Property
-     - Range
-     - Description
-   * - M
-     - ``converters-per-device``
-     - 1-16
-     - Number of converters
-   * - F
-     - ``octets-per-frame``
-     - 1-256
-     - Octets per frame
-   * - K
-     - ``frames-per-multiframe``
-     - 1-32
-     - Frames per multiframe
-   * - N
-     - ``converter-resolution``
-     - 1-32
-     - Converter resolution bits
-   * - N’
-     - ``bits-per-sample``
-     - 1-32
-     - Bits per sample
-   * - CS
-     - ``control-bits-per-sample``
-     - 0-3
-     - Control bits per sample
-   * - L
-     - ``lanes-per-device``
-     - 1-8
-     - Lanes per device
-   * - S
-     - ``samples-per-converter-per-frame``
-     - 1-32
-     - Samples per converter per frame
-   * - HD
-     - ``high-density``
-     - 0,1
-     - High density mode
-   * - DID
-     - ``device-id``
-     - 0-255
-     - Device ID
-
-RX ADC Configuration (adi,rx-adcs)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The RX ADC configuration follows a similar structure to TX DACs.
-
-ADC Global Properties
-^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Values
-     - Description
-   * - ``adi,adc-frequency-hz``
-     - u64
-     - -
-     - ADC operating frequency in Hz
-   * - ``adi,nyquist-zone``
-     - u32
-     - 0,1
-     - Global Nyquist zone (0=odd, 1=even), default: 0
-
-Main Data Paths (adi,main-data-paths)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Contains configuration for up to 4 ADCs (adc@0 through adc@3).
-
-Per-ADC Properties (adc@N)
-''''''''''''''''''''''''''
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Range/Values
-     - Description
-   * - ``reg``
-     - u32
-     - 0-3
-     - ADC channel index
-   * - ``adi,decimation``
-     - u32
-     - 1,2,3,4,6,8,12
-     - Decimation factor
-   * - ``adi,nco-frequency-shift-hz``
-     - i64
-     - -
-     - NCO frequency shift (can be negative)
-   * - ``adi,nco-mixer-mode``
-     - u32
-     - 0-3
-     - NCO mixer mode (see below)
-   * - ``adi,nyquist-zone``
-     - u32
-     - 0,1
-     - Per-ADC Nyquist zone override
-   * - ``adi,crossbar-select``
-     - phandle-array
-     - -
-     - References to channelizer paths
-
-**NCO Mixer Modes:**
-
-- 0: Variable IF Mode (AD9081_ADC_NCO_VIF)
-- 1: Zero IF Mode (AD9081_ADC_NCO_ZIF)
-- 2: Fs/4 Hz IF Mode (AD9081_ADC_NCO_FS_4_IF)
-- 3: Test Mode (AD9081_ADC_NCO_TEST)
-
-Channelizer Paths (adi,channelizer-paths)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Contains configuration for up to 8 channels (channel@0 through channel@7).
-
-Per-Channel Properties (channel@N)
-''''''''''''''''''''''''''''''''''
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Range
-     - Description
-   * - ``reg``
-     - u32
-     - 0-7
-     - Channelizer index
-   * - ``adi,decimation``
-     - u32
-     - 1,2,3,4,6,8
-     - Decimation factor
-   * - ``adi,gain``
-     - u32
-     - 0-4095
-     - Channel gain (12-bit)
-   * - ``adi,nco-frequency-shift-hz``
-     - i64
-     - -
-     - NCO frequency shift
-   * - ``adi,nco-phase-offset``
-     - u32
-     - 0-65535
-     - NCO phase offset
-   * - ``adi,6db-gain-enable``
-     - u32
-     - 0,1
-     - Enable 6dB gain
-   * - ``adi,complex-to-real-enable``
-     - u32
-     - 0,1
-     - Enable complex-to-real conversion
-
-JESD Links (adi,jesd-links)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-RX JESD links follow the same structure as TX links with additional:
-
-.. list-table::
-   :header-rows: 1
-
-   * - Property
-     - Type
-     - Description
-   * - ``adi,converter-select``
-     - phandle-array
-     - References to converters with FDDC_I/Q selection
-
-Header File Constants
-~~~~~~~~~~~~~~~~~~~~~
-
-Include the header file for PA protection trigger constants:
-
-.. code:: dts
-
-   #include <dt-bindings/iio/adc/adi,ad9081.h>
-
-PA Protection Rotation Mode Flags
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-- ``AD9081_PA_ROTATION_JESD_AUTO`` - Enable JESD auto off/on during rotation
-- ``AD9081_PA_ROTATION_DATAPATH_AUTO`` - Enable datapath auto soft off/on during
-  rotation
-
-PA Protection Soft-Off Triggers
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-- ``AD9081_PA_SOFT_OFF_SPI`` - Trigger via SPI command
-- ``AD9081_PA_SOFT_OFF_TXEN`` - Trigger via TXEN pin
-- ``AD9081_PA_SOFT_OFF_JESD_ERR`` - Trigger on JESD error
-- Additional triggers available in header file
-
-PA Protection Soft-On Triggers
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-- ``AD9081_PA_SOFT_ON_SPI`` - Trigger via SPI command
-- ``AD9081_PA_SOFT_ON_TXEN`` - Trigger via TXEN pin
-- Additional triggers available in header file
-
-NCO Mixer Modes (ADC)
-^^^^^^^^^^^^^^^^^^^^^
-
-- ``AD9081_ADC_NCO_VIF`` - Variable IF Mode
-- ``AD9081_ADC_NCO_ZIF`` - Zero IF Mode
-- ``AD9081_ADC_NCO_FS_4_IF`` - Fs/4 Hz IF Mode
-- ``AD9081_ADC_NCO_TEST`` - Test Mode
-
-Notes
-~~~~~
-
-#. **64-bit Values**: Properties exceeding 4GHz require ``/bits/ 64`` prefix
-#. **Negative Frequencies**: NCO frequency shifts can be negative (use
-   parentheses in DTS)
-#. **PA Protection**: When using PA protection features, ensure all required
-   properties for enabled features are specified
-#. **Phandle References**: Use for linking DACs to channelizers and ADCs to
-   channelizers
-
-Device Tree Example
-~~~~~~~~~~~~~~~~~~~
+Devicetree configuration
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code:: dts
 
@@ -1233,8 +344,823 @@ Device Tree Example
        };
    };
 
-General IIO and driver conventions
+Example device trees
+--------------------
+
+See for:
+
+* :dokuwiki:`zynq </resources/eval/user-guides/ad9081_fmca_ebz/quickstart/zynq>`, section "Example Device Trees".
+* :dokuwiki:`microblaze </resources/eval/user-guides/ad9081_fmca_ebz/quickstart/microamperes>`, section "Example Device Trees".
+
+Device tree customization
+-------------------------
+
+The AD9081 Linux IIO device driver is configured and customized using device
+tree, a simple tree structure of nodes and properties. Properties are key-value
+pairs, and node may contain both properties and child nodes. The top device node
+of the AD9081/82 contains common and device specific attributes. Under the top
+node, there are two child-nodes (``adi,tx-dacs`` and ``adi,rx-adcs``). In case
+of DAC or ADC only operation, both nodes are required and must contain at least
+the ``adi,dac-frequency-hz`` and respectively the ``adi,adc-frequency-hz``
+property. However omitting the child nodes will disable this ADC/DAC data path.
+
+.. code:: dts
+
+   &spi {
+       trx0_ad9081: ad9081@0 {
+
+           // Device common properties
+
+           adi,tx-dacs {
+               // Tx/DAC properties and child-nodes
+
+           };
+
+           adi,rx-adcs {
+               // Rx/ADC properties and child-nodes
+           };
+       };
+   };
+
+Each of these child nodes handle certain aspects of either the digital-to-analog
+converter core side or the analog-to-digital converter side of the Mixed Signal
+Frontend (MxFE®) These child-nodes again contain ADC or DAC side common
+attributes. Such as the ADC/DAC frequency. But also, three child-nodes to
+customize the main data paths, the channelizers and the serial JESD204
+interfaces.
+
+.. code:: dts
+
+   adi,rx-adcs {
+
+       adi,main-data-paths {
+
+       };
+
+       adi,channelizer-paths {
+
+       };
+
+       adi,jesd-links {
+
+       };
+   };
+
+- The ``adi,main-data-paths`` node iterates the used ADCs or DACs together with
+  its default/dedicated CDDCs and CDUCs. Each of these nodes have in return
+  again properties to configure the default NCO frequencies, modes, decimation,
+  etc. (A list of supported properties/attributes can be found below.)
+- The second mandatory node is the ``adi,channelizer-paths`` node. The utilized
+  channelizers FDDCs and FDUCs are described in here, which are always related
+  to the main data paths. Therefore, the main data path child-nodes contain a
+  property (``adi,crossbar-select``) of a device node containing a phandle to
+  the FDUC or FDDC that it is attached to.
+- The last mandatory child-node is the ``adi,jesd-links`` node. This node
+  contains up to two (single/dual link) child-nodes, one for each link.
+
+.. code:: dts
+
+   adi,main-data-paths {
+
+      ad9081_dac0: dac@0 {
+
+      };
+      ad9081_dac1: dac@1 {
+
+      };
+      ad9081_dac2: dac@2 {
+
+      };
+      ad9081_dac3: dac@3 {
+
+      };
+  };
+
+  adi,channelizer-paths {
+
+      ad9081_tx_fddc_chan0: channel@0 {
+
+      };
+      ad9081_tx_fddc_chan1: channel@1 {
+
+      };
+  };
+
+  adi,jesd-links {
+
+      ad9081_tx_jesd_l0: link@0 {
+
+      };
+  };
+
+Driver testing
+~~~~~~~~~~~~~~
+
+Identify the device
+^^^^^^^^^^^^^^^^^^^
+
+::
+
+   root:/sys/bus/iio/devices/iio:device2> cat name
+   axi-ad9081-rx-hpc
+
+AD9081 Mixed-Signal Front End (MxFE) Device Tree Bindings
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Compatible Devices
+------------------
+
+The following devices are supported by this driver:
+
+- ``adi,ad9081`` - AD9081 MxFE
+- ``adi,ad9082`` - AD9082 MxFE
+- ``adi,ad9988`` - AD9988 MxFE
+- ``adi,ad9986`` - AD9986 MxFE
+- ``adi,ad9177`` - AD9177 Quad DAC
+- ``adi,ad9207`` - AD9207 Dual ADC
+- ``adi,ad9209`` - AD9209 Quad ADC
+
+Required Properties
+-------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Description
+   * - ``compatible``
+     - string
+     - One of the supported device strings listed above
+   * - ``reg``
+     - integer
+     - SPI chip select number
+   * - ``clocks``
+     - phandle
+     - Reference to device clock
+   * - ``clock-names``
+     - string
+     - Must be ``dev_clk``
+
+Optional Properties
+-------------------
+
+Basic Configuration
+"""""""""""""""""""
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Range/Values
+     - Description
+   * - ``spi-max-frequency``
+     - integer
+     - ≤ 25000000
+     - Maximum SPI frequency in Hz
+   * - ``reset-gpios``
+     - phandle
+     - -
+     - GPIO for hardware reset
+   * - ``interrupts``
+     - interrupt
+     - -
+     - Device interrupt line
+
+Standalone and Multi-Device Setup
+"""""""""""""""""""""""""""""""""
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Description
+   * - ``adi,standalone-enable``
+     - boolean
+     - Enable standalone mode for the device
+   * - ``adi,multidevice-instance-count``
+     - u32
+     - Number of devices in multidevice synchronization setup
+   * - ``adi,dual-link-use-separate-tpl-enable``
+     - boolean
+     - Enable separate TPL for dual-link mode
+
+JESD Synchronization
+""""""""""""""""""""
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Description
+   * - ``adi,jesd-sync-pins-01-swap-enable``
+     - boolean
+     - Swap JESD sync pins 0 and 1
+   * - ``adi,jesd-sync-pin-0a-cmos-enable``
+     - boolean
+     - Enable CMOS mode for JESD sync pin 0A
+   * - ``adi,lmfc-delay-dac-clk-cycles``
+     - u32
+     - LMFC delay in DAC clock cycles
+
+NCO Synchronization
+"""""""""""""""""""
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Range
+     - Description
+   * - ``adi,nco-sync-ms-extra-lmfc-num``
+     - u32
+     - -
+     - Extra LMFC cycles for NCO sync in master-slave mode
+   * - ``adi,nco-sync-direct-sysref-mode-enable``
+     - boolean
+     - -
+     - Enable direct SYSREF mode for NCO synchronization
+
+SYSREF Configuration
+""""""""""""""""""""
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Range
+     - Description
+   * - ``adi,sysref-average-cnt-exp``
+     - u32
+     - 0-15
+     - SYSREF averaging count exponent (2
+   * - ``adi,sysref-ac-coupling-enable``
+     - boolean
+     - -
+     - Enable AC coupling for SYSREF
+   * - ``adi,sysref-cmos-input-enable``
+     - boolean
+     - -
+     - Enable CMOS input mode for SYSREF
+   * - ``adi,sysref-single-end-pos-termination``
+     - u32
+     - 0-3
+     - Termination resistance for positive single-ended SYSREF
+   * - ``adi,sysref-single-end-neg-termination``
+     - u32
+     - 0-3
+     - Termination resistance for negative single-ended SYSREF
+   * - ``adi,continuous-sysref-mode-disable``
+     - boolean
+     - -
+     - Disable continuous SYSREF mode
+
+Loopback and GPIO
+"""""""""""""""""
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Range
+     - Description
+   * - ``adi,direct-loopback-mode-dac-adc-mapping``
+     - u32
+     - 0-255
+     - Mapping for direct loopback between DAC and ADC
+   * - ``adi,master-slave-sync-gpio-num``
+     - u32
+     - 0-15
+     - GPIO number for master-slave synchronization
+
+TX DAC Configuration (adi,tx-dacs)
 ----------------------------------
+
+The TX DAC configuration is specified in a sub-node with the following
+structure:
+
+DAC Global Properties
+"""""""""""""""""""""
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Description
+   * - ``adi,dac-frequency-hz``
+     - u64
+     - DAC operating frequency in Hz (use ``/bits/ 64``)
+   * - ``adi,ffh-hopf-via-gpio-enable``
+     - boolean
+     - Enable FFH HOPF via GPIO
+
+PA Protection Global Settings
+"""""""""""""""""""""""""""""
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Description
+   * - ``adi,pa-protection-gpio-as-pa-enable``
+     - boolean
+     - Configure GPIO pins 0-3 as PA enable outputs
+   * - ``adi,pa-protection-rotation-mode``
+     - u32 (0-3)
+     - Rotation mode configuration (see header file for bitmask values)
+
+Main Data Paths (adi,main-data-paths)
+"""""""""""""""""""""""""""""""""""""
+
+Contains configuration for up to 4 DACs (dac@0 through dac@3).
+
+Global Main Path Properties
+'''''''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Values
+     - Description
+   * - ``adi,interpolation``
+     - u32
+     - 1,2,3,4,6,8,12
+     - Interpolation factor for main data paths
+
+Per-DAC Properties (dac@N)
+''''''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Range/Values
+     - Description
+   * - ``reg``
+     - u32
+     - 0-3
+     - DAC channel index
+   * - ``adi,nco-frequency-shift-hz``
+     - u64
+     - -
+     - NCO frequency shift in Hz
+   * - ``adi,full-scale-current-ua``
+     - u32
+     - 7750-40320
+     - Full-scale current in microamperes
+   * - ``adi,maindp-dac-1x-non1x-crossbar-select``
+     - u32
+     - 0-3
+     - Crossbar selection for 1x/non-1x mode
+   * - ``adi,crossbar-select``
+     - phandle
+     - -
+     - Reference to channelizer path
+
+PA Protection Per-DAC Properties
+''''''''''''''''''''''''''''''''
+
+Soft-Off/On Control
+'''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Range
+     - Description
+   * - ``adi,pa-protection-soft-off-enable``
+     - boolean
+     - -
+     - Enable soft-off gain control
+   * - ``adi,pa-protection-soft-off-new-gain-enable``
+     - boolean
+     - -
+     - Enable new soft-off gain block
+   * - ``adi,pa-protection-soft-off-ramp-rate``
+     - u32
+     - 0-15
+     - Soft-off gain ramp rate (32 steps over 2^(code+8) DAC clocks)
+   * - ``adi,pa-protection-soft-off-triggers``
+     - u32
+     - bitmask
+     - Soft-off triggers (see header file)
+   * - ``adi,pa-protection-soft-on-triggers``
+     - u32
+     - bitmask
+     - Soft-on triggers (see header file)
+
+Power Averaging
+'''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Range
+     - Description
+   * - ``adi,pa-protection-long-avg-enable``
+     - boolean
+     - -
+     - Enable long averaging power calculation
+   * - ``adi,pa-protection-long-avg-time``
+     - u32
+     - 0-255
+     - Time for long averaging
+   * - ``adi,pa-protection-long-avg-threshold``
+     - u32
+     - 0-65535
+     - Long average power threshold (I² + Q²)
+   * - ``adi,pa-protection-short-avg-enable``
+     - boolean
+     - -
+     - Enable short averaging power calculation
+   * - ``adi,pa-protection-short-avg-time``
+     - u32
+     - 0-255
+     - Time for short averaging
+   * - ``adi,pa-protection-short-avg-threshold``
+     - u32
+     - 0-65535
+     - Short average power threshold (I² + Q²)
+
+Digital Step Attenuator (DSA)
+'''''''''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Range
+     - Description
+   * - ``adi,pa-protection-dsa-enable``
+     - boolean
+     - -
+     - Enable DSA for this DAC
+   * - ``adi,pa-protection-dsa-code``
+     - u32
+     - 0-235
+     - DSA attenuation code (0=no attenuation, 235=47dB)
+   * - ``adi,pa-protection-dsa-cutover``
+     - u32
+     - 0-255
+     - DSA cutover threshold
+   * - ``adi,pa-protection-dsa-boost``
+     - u32
+     - 0-15
+     - DSA boost setting above 26mA baseline
+   * - ``adi,pa-protection-dsa-gain``
+     - u32
+     - 0-4095
+     - 12-bit DSA digital gain value
+
+Channelizer Paths (adi,channelizer-paths)
+"""""""""""""""""""""""""""""""""""""""""
+
+Contains configuration for up to 8 channels (channel@0 through channel@7).
+
+Global Channelizer Properties
+'''''''''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Values
+     - Description
+   * - ``adi,interpolation``
+     - u32
+     - 1,2,3,4,6,8
+     - Interpolation factor for channelizer paths
+
+Per-Channel Properties (channel@N)
+''''''''''''''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Range
+     - Description
+   * - ``reg``
+     - u32
+     - 0-7
+     - Channelizer index
+   * - ``adi,nco-frequency-shift-hz``
+     - u64
+     - -
+     - NCO frequency shift in Hz
+   * - ``adi,nco-phase-offset``
+     - u32
+     - 0-65535
+     - NCO phase offset
+   * - ``adi,gain``
+     - u32
+     - 0-4095
+     - Channel gain (12-bit)
+
+JESD Links (adi,jesd-links)
+"""""""""""""""""""""""""""
+
+Contains configuration for up to 2 JESD links (link@0 and link@1).
+
+Per-Link Properties (link@N)
+''''''''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Range/Values
+     - Description
+   * - ``reg``
+     - u32
+     - 0-1
+     - JESD204 link index
+   * - ``adi,logical-lane-mapping``
+     - u8-array
+     - 1-8 lanes
+     - Logical lane mapping
+   * - ``adi,link-mode``
+     - u32
+     - -
+     - JESD quick configuration mode
+   * - ``adi,subclass``
+     - u32
+     - 0,1,2
+     - JESD subclass
+   * - ``adi,version``
+     - u32
+     - 0,1,2
+     - JESD version (0=204A, 1=204B, 2=204C)
+   * - ``adi,dual-link``
+     - u32
+     - 0,1
+     - Dual link mode
+   * - ``adi,tpl-phase-adjust``
+     - u32
+     - -
+     - TPL phase adjustment value
+
+JESD204 Parameters
+''''''''''''''''''
+
+Standard JESD204 parameters with both ``adi,`` and ``jesd204-`` prefixes
+supported:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Parameter
+     - Property
+     - Range
+     - Description
+   * - M
+     - ``converters-per-device``
+     - 1-16
+     - Number of converters
+   * - F
+     - ``octets-per-frame``
+     - 1-256
+     - Octets per frame
+   * - K
+     - ``frames-per-multiframe``
+     - 1-32
+     - Frames per multiframe
+   * - N
+     - ``converter-resolution``
+     - 1-32
+     - Converter resolution bits
+   * - N’
+     - ``bits-per-sample``
+     - 1-32
+     - Bits per sample
+   * - CS
+     - ``control-bits-per-sample``
+     - 0-3
+     - Control bits per sample
+   * - L
+     - ``lanes-per-device``
+     - 1-8
+     - Lanes per device
+   * - S
+     - ``samples-per-converter-per-frame``
+     - 1-32
+     - Samples per converter per frame
+   * - HD
+     - ``high-density``
+     - 0,1
+     - High density mode
+   * - DID
+     - ``device-id``
+     - 0-255
+     - Device ID
+
+RX ADC Configuration (adi,rx-adcs)
+----------------------------------
+
+The RX ADC configuration follows a similar structure to TX DACs.
+
+ADC Global Properties
+"""""""""""""""""""""
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Values
+     - Description
+   * - ``adi,adc-frequency-hz``
+     - u64
+     - -
+     - ADC operating frequency in Hz
+   * - ``adi,nyquist-zone``
+     - u32
+     - 0,1
+     - Global Nyquist zone (0=odd, 1=even), default: 0
+
+Main Data Paths (adi,main-data-paths)
+"""""""""""""""""""""""""""""""""""""
+
+Contains configuration for up to 4 ADCs (adc@0 through adc@3).
+
+Per-ADC Properties (adc@N)
+''''''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Range/Values
+     - Description
+   * - ``reg``
+     - u32
+     - 0-3
+     - ADC channel index
+   * - ``adi,decimation``
+     - u32
+     - 1,2,3,4,6,8,12
+     - Decimation factor
+   * - ``adi,nco-frequency-shift-hz``
+     - i64
+     - -
+     - NCO frequency shift (can be negative)
+   * - ``adi,nco-mixer-mode``
+     - u32
+     - 0-3
+     - NCO mixer mode (see below)
+   * - ``adi,nyquist-zone``
+     - u32
+     - 0,1
+     - Per-ADC Nyquist zone override
+   * - ``adi,crossbar-select``
+     - phandle-array
+     - -
+     - References to channelizer paths
+
+**NCO Mixer Modes:**
+
+- 0: Variable IF Mode (AD9081_ADC_NCO_VIF)
+- 1: Zero IF Mode (AD9081_ADC_NCO_ZIF)
+- 2: Fs/4 Hz IF Mode (AD9081_ADC_NCO_FS_4_IF)
+- 3: Test Mode (AD9081_ADC_NCO_TEST)
+
+Channelizer Paths (adi,channelizer-paths)
+"""""""""""""""""""""""""""""""""""""""""
+
+Contains configuration for up to 8 channels (channel@0 through channel@7).
+
+Per-Channel Properties (channel@N)
+''''''''''''''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Range
+     - Description
+   * - ``reg``
+     - u32
+     - 0-7
+     - Channelizer index
+   * - ``adi,decimation``
+     - u32
+     - 1,2,3,4,6,8
+     - Decimation factor
+   * - ``adi,gain``
+     - u32
+     - 0-4095
+     - Channel gain (12-bit)
+   * - ``adi,nco-frequency-shift-hz``
+     - i64
+     - -
+     - NCO frequency shift
+   * - ``adi,nco-phase-offset``
+     - u32
+     - 0-65535
+     - NCO phase offset
+   * - ``adi,6db-gain-enable``
+     - u32
+     - 0,1
+     - Enable 6dB gain
+   * - ``adi,complex-to-real-enable``
+     - u32
+     - 0,1
+     - Enable complex-to-real conversion
+
+JESD Links (adi,jesd-links)
+"""""""""""""""""""""""""""
+
+RX JESD links follow the same structure as TX links with additional:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Property
+     - Type
+     - Description
+   * - ``adi,converter-select``
+     - phandle-array
+     - References to converters with FDDC_I/Q selection
+
+Header File Constants
+---------------------
+
+Include the header file for PA protection trigger constants:
+
+.. code:: dts
+
+   #include <dt-bindings/iio/adc/adi,ad9081.h>
+
+PA Protection Rotation Mode Flags
+"""""""""""""""""""""""""""""""""
+
+- ``AD9081_PA_ROTATION_JESD_AUTO`` - Enable JESD auto off/on during rotation
+- ``AD9081_PA_ROTATION_DATAPATH_AUTO`` - Enable datapath auto soft off/on during
+  rotation
+
+PA Protection Soft-Off Triggers
+"""""""""""""""""""""""""""""""
+
+- ``AD9081_PA_SOFT_OFF_SPI`` - Trigger via SPI command
+- ``AD9081_PA_SOFT_OFF_TXEN`` - Trigger via TXEN pin
+- ``AD9081_PA_SOFT_OFF_JESD_ERR`` - Trigger on JESD error
+- Additional triggers available in header file
+
+PA Protection Soft-On Triggers
+""""""""""""""""""""""""""""""
+
+- ``AD9081_PA_SOFT_ON_SPI`` - Trigger via SPI command
+- ``AD9081_PA_SOFT_ON_TXEN`` - Trigger via TXEN pin
+- Additional triggers available in header file
+
+NCO Mixer Modes (ADC)
+"""""""""""""""""""""
+
+- ``AD9081_ADC_NCO_VIF`` - Variable IF Mode
+- ``AD9081_ADC_NCO_ZIF`` - Zero IF Mode
+- ``AD9081_ADC_NCO_FS_4_IF`` - Fs/4 Hz IF Mode
+- ``AD9081_ADC_NCO_TEST`` - Test Mode
+
+Notes
+-----
+
+#. **64-bit Values: Properties read as u64, including adi,dac-frequency-hz,
+   adi,adc-frequency-hz and adi,nco-frequency-shift-hz, require 64-bit DT
+   encoding even when the value is below 4 GHz. Use /bits/ 64 <value> (and
+   parenthesized negative values where applicable).**
+
+#. **Negative Frequencies**: NCO frequency shifts can be negative (use
+   parentheses in DTS)
+
+#. **PA Protection**: When using PA protection features, ensure all required
+   properties for enabled features are specified
+
+#. **Phandle References**: Use for linking DACs to channelizers and ADCs to
+   channelizers
+
+General IIO and driver conventions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Controlling the MxFE is done via the IIO sysfs interface. For convenience users
 can use :dokuwiki:`libiio </resources/tools-software/linux-software/libiio>` and
@@ -1556,16 +1482,8 @@ explained in the bullet list below:
    -r--r--r-- 1 root root 4096 Mar 28 12:44 sync_start_enable_available
    -rw-r--r-- 1 root root 4096 Mar 28 12:44 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
-
-::
-
-   root:/sys/bus/iio/devices/iio:device2> cat name
-   axi-ad9081-rx-hpc
-
 ADC Rate
-~~~~~~~~
+--------
 
 **What:** ``in_voltage_adc_frequency``
 
@@ -1577,7 +1495,7 @@ Read only attribute which returns the RX ADC rate Hz.
    4000000000
 
 RX Sample Rate
-~~~~~~~~~~~~~~
+--------------
 
 **What:** ``in_voltage_sampling_frequency``
 
@@ -1595,7 +1513,7 @@ CHANNEL_decimation)
    250000000
 
 DAC Rate
-~~~~~~~~
+--------
 
 **What:** ``out_voltage_dac_frequency``
 
@@ -1607,7 +1525,7 @@ Read only attribute which returns the TX DAC rate Hz.
    12000000000
 
 TX Sample Rate
-~~~~~~~~~~~~~~
+--------------
 
 **What:** ``out_voltage_sampling_frequency``
 
@@ -1625,7 +1543,7 @@ CHANNEL_interpolation)
    250000000
 
 ADC Nyquist Zone Control
-~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------
 
 **What:** ``in_voltageX_nyquist_zone`` **What:**
 ``in_voltage_nyquist_zone_available``
@@ -1650,21 +1568,21 @@ Specifying Nyquist Zone in UG-1578)
 The current Nyquist Zone can be queried and controlled via the
 ``in_voltage_nyquist_zone`` attribute.
 
-::
+.. code-block:: text
 
    root:/sys/bus/iio/devices/iio:device2> cat in_voltage_nyquist_zone_available
    odd even
-   root:/sys/bus/iio/devices/iio:device2> echo even > cat in_voltage0_i_nyquist_zone
-   root:/sys/bus/iio/devices/iio:device2> cat cat in_voltage0_i_nyquist_zone
+   root:/sys/bus/iio/devices/iio:device2> echo even > in_voltage0_i_nyquist_zone
+   root:/sys/bus/iio/devices/iio:device2> cat in_voltage0_i_nyquist_zone
    even
 
 .. _ad9081 nco-frequency-control:
 
 NCO Frequency Control
-~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
 Main Data Path
-^^^^^^^^^^^^^^
+""""""""""""""
 
 **What:** ``[in|out]_voltageX_[i|q]_main_nco_frequency``
 
@@ -1684,7 +1602,7 @@ Sets the main data path (CDDC/CDUC) NCO frequency (fCARRIER) in Hz
    300000000
 
 Channel Data Path
-^^^^^^^^^^^^^^^^^
+"""""""""""""""""
 
 **What:** ``[in|out]_voltageX_[i|q]_channel_nco_frequency``
 
@@ -1705,10 +1623,10 @@ Range is:** −(fADC/MAIN_decimation)/2 ≤ fCARRIER < +(fADC/MAIN_decimation)/2
    300000000
 
 NCO Phase Control
-~~~~~~~~~~~~~~~~~
+-----------------
 
 Main Data Path
-^^^^^^^^^^^^^^
+""""""""""""""
 
 **What:** ``[in|out]_voltageX_[i|q]_main_nco_phase``
 
@@ -1727,7 +1645,7 @@ Sets the main data path (CDDC/CDUC) NCO phase offset in milli degrees
    -42000
 
 Channel Data Path
-^^^^^^^^^^^^^^^^^
+"""""""""""""""""
 
 **What:** ``[in|out]_voltageX_[i|q]_channel_nco_phase``
 
@@ -1746,7 +1664,7 @@ Sets the channel data path (FDDC/FDUC) NCO phase offset in milli degrees
    13123
 
 TX NCO Channel Digital Gain
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------
 
 **What:** ``out_voltageX_[i|q]_channel_nco_gain_scale``
 
@@ -1763,7 +1681,7 @@ main datapath to produce a multiband band signal. The gain/scale is set via
    root@analog:/sys/bus/iio/devices/iio:device2# echo 0.707 > out_voltage0_i_channel_nco_gain_scale
 
 TX NCO Test Tone Modes
-~~~~~~~~~~~~~~~~~~~~~~
+----------------------
 
 **What:** ``out_voltageX_[i|q]_[channel|main]_nco_test_tone_en`` **What:**
 ``out_voltageX_[i|q]_[channel|main]_nco_test_tone_scale``
@@ -1792,7 +1710,7 @@ feature available on the main datapath NCOs.
    root@analog:/sys/bus/iio/devices/iio:device2# echo 1 > out_voltage0_i_channel_nco_test_tone_en
 
 Fast Frequency Hopping Control
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------
 
 The complex NCOs used in both the transmit and receive datapaths support FFH
 mode. In the transmit datapath, each main datapath NCO consists of a bank of 31
@@ -1803,7 +1721,7 @@ Asynchronous trigger hop mode is an additional mode only supported on the
 receive path.
 
 Transmit Main Path FFH NCO Mode
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""""""""
 
 **What:** ``out_voltageX_[i|q]_main_nco_ffh_frequency`` **What:**
 ``out_voltageX_[i|q]_main_nco_ffh_index`` **What:**
@@ -1830,7 +1748,7 @@ can be controlled using the ``out_voltageX_[i|q]_main_ffh_mode`` attribute.
 Allowed options are phase_continuous, phase_incontinuous, and phase_coherent.
 
 Receive Main Path FFH NCO Mode
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""""""
 
 **What:** ``in_voltageX_[i|q]_main_nco_frequency`` **What:**
 ``in_voltageX_[i|q]_main_nco_phase`` **What:**
@@ -1858,7 +1776,7 @@ the mode switches between the mode set in the devicetree using
 ``in_voltageX_[i|q]_main_nco_ffh_select``.
 
 Programmable FIR Filter
-~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------
 
 What: ``filter_fir_config``
 
@@ -1882,7 +1800,7 @@ Filter configurations can be written as follows:
    root@analog:/sys/bus/iio/devices/iio:device2# cat /root/pfilt.cfg > filter_fir_config
 
 Configuration File Format
-^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""
 
 A filter configuration file is an ASCII textfile with LF line-endings, and
 supports the following directives:
@@ -1948,13 +1866,13 @@ reference:
 - :git+iio-oscilloscope:`ad9081_pfir_FullComplex.cfg <filters/ad9081/ad9081_pfir_FullComplex.cfg+>`
 
 Loopback Modes
-~~~~~~~~~~~~~~
+--------------
 
 The AD9081/AD9082 supports two methods to loopback the samples from the receive
 (ADC) path to the transmit (DAC) path.
 
 JESD Loopback RX->TX
-^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""
 
 **What:** ``loopback_mode``
 
@@ -1991,7 +1909,7 @@ ADC and DAC rates must match.
    root@analog:/sys/bus/iio/devices/iio:device2# echo 1 > loopback_mode
 
 On-Die Temperature Reading
---------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 **What:** ``in_temp0_input``
 
@@ -2007,8 +1925,11 @@ the sensor with the **highest** temperature can be read from the
    root@analog:/sys/bus/iio/devices/iio:device2# cat in_temp0_input
    86120
 
+Troubleshooting
+~~~~~~~~~~~~~~~
+
 Low level debug functions via debugfs
--------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -2027,7 +1948,7 @@ Low level debug functions via debugfs
    -r--r--r-- 1 root root 0 Jan  1  1970 status
 
 JESD Link Status
-~~~~~~~~~~~~~~~~
+----------------
 
 Reading ``status`` returns a status string.
 
@@ -2040,7 +1961,7 @@ Reading ``status`` returns a status string.
    root@analog:/sys/kernel/debug/iio/iio:device2#
 
 dac-full-scale-current-ua
-^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""
 
 Writing ``dac-full-scale-current-ua`` controls the DAC full scale current in uA.
 Recommended range is 7000…40000 (7mA - 40mA)
@@ -2051,7 +1972,7 @@ Recommended range is 7000…40000 (7mA - 40mA)
    root@analog:/sys/kernel/debug/iio/iio:device2#
 
 bist_prbs_select_jrx
-^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""
 
 Writing ``bist_prbs_select_jrx`` selects the
 `PRBS <https://en.wikipedia.org/wiki/PRBS>`__ type. (accepted values depend on
@@ -2093,7 +2014,7 @@ the GT architecture). Reading returns the selected type.
    0/1 0/1 0/1 0/1 0/1 0/1 0/1 0/1
 
 bist_prbs_error_counters_jrx
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""""
 
 Reading ``bist_prbs_error_counters_jrx`` returns the PRBS error counters for all
 lanes.
@@ -2140,7 +2061,7 @@ Format is: <errors>/<pass>
    0/1 0/1 0/1 0/1 0/1 0/1 0/1 0/1
 
 bist_prbs_select_jtx
-^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""
 
 Writing ``bist_prbs_select_jtx`` selects the
 `PRBS <https://en.wikipedia.org/wiki/PRBS>`__ type. (accepted values depend on
@@ -2167,7 +2088,7 @@ the GT architecture). Reading returns the selected type.
    31
 
 bist_spo_sweep_jrx
-^^^^^^^^^^^^^^^^^^
+""""""""""""""""""
 
 Writing following 3 values to ``bist_spo_sweep_jrx`` performs a horizontal sweep
 of the ``static phase offset`` (SPO) codes and checking for PRBS errors as
@@ -2204,7 +2125,7 @@ Reading ``bist_spo_sweep_jrx`` returns the good left and right SPO value.
    l:18 r:20
 
 bist_spo_set_jrx
-^^^^^^^^^^^^^^^^
+""""""""""""""""
 
 Writing ``bist_spo_set_jrx`` sets the SPO offset. Range depends on the
 deserializer mode. Reading returns the written value. This feature can be used
@@ -2230,7 +2151,7 @@ to implement 2D eye scan externally.
    2
 
 bist_2d_eyescan_jrx
-^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""
 
 The device has built in comparator circuits that enables the ability to
 reproduce an eye diagram estimate at the output of the CTLE circuit inside the
@@ -2309,17 +2230,17 @@ Example from: :git+pyadi-iio:`/`
    :width: 400px
 
 Low level register access via debugfs (direct_reg_access)
----------------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-low-level-register-access-via-debugfs-direct-reg-access
    :end-before: .. end-low-level-register-access-via-debugfs-direct-reg-access
 
 Special Access Modes
-~~~~~~~~~~~~~~~~~~~~
+--------------------
 
 2. Page Mask Register Access
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""""
 
 **Condition:** ``reg & 0x40000000 == 0`` and ``reg & 0x3F000000 != 0`` This mode
 allows setting a page mask register before performing the actual register
@@ -2455,7 +2376,7 @@ configuration and CTLE (Continuous Time Linear Equalizer) settings.
    root:/sys/kernel/debug/iio/iio:deviceX> echo 0x40002020 0x0F > direct_reg_access
 
 Summary Table
-^^^^^^^^^^^^^
+"""""""""""""
 
 .. list-table::
    :header-rows: 1
@@ -2476,3 +2397,94 @@ Summary Table
      - 1
      - (unused)
      - SerDes/CTLE lane register access
+
+More Information
+~~~~~~~~~~~~~~~~
+
+Supported HDL Cores
+^^^^^^^^^^^^^^^^^^^
+
+- :dokuwiki:`AD9081-FMCA-EBZ (Single MxFE) HDL Reference Design </resources/eval/user-guides/ad9081_fmca_ebz/ad9081_fmca_ebz_hdl>`
+
+Interrelated Device Drivers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- :ref:`jesd204-fsm-framework`
+- :external+hdl:ref:`jesd204`
+
+Transport Layer Receive AXI-ADC driver
+--------------------------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
+     -
+   * - include
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
+     -
+
+**Documentation:** :ref:`axi-adc-hdl`
+
+Transport Layer Transmit AXI-DAC / DDS driver
+---------------------------------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
+     -
+   * - include
+     - :git+linux:`drivers/iio/frequency/cf_axi_adc.h <main:drivers/iio/frequency/cf_axi_dds.h>`
+     -
+
+**Documentation:** :ref:`axi-dac-dds-hdl`
+
+Link Layer AXI JESD204B HDL driver
+----------------------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_rx.c`
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_tx.c`
+     -
+
+**Documentation:**
+
+- :ref:`axi_jesd204_tx`
+- :ref:`axi_jesd204_rx`
+
+PHY Layer AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)
+-------------------------------------------------------------------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/jesd204/axi_adxcvr.c`
+     -
+
+**Documentation:**
+
+- :ref:`axi_adxcvr`
