@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/input-keyboard/adp5588
 
+
 .. _adp5588:
 
 ADP5588 Input
@@ -30,24 +31,28 @@ The driver supports multiple key press detection and resolution. It
 independently delivers key press and key release events in chronological order
 to the Linux input device system.
 
-This allows **SHIFT + ANYKEY**, **ALT + F1** or **CTRL + ALT + DEL** sequences.
+This allows SHIFT + ANYKEY, ALT + F1 or CTRL + ALT + DEL sequences.
 
-| Since the ADP5588 buffers events in its internal FIFO,
-| it’s unlikely that events are lost due to heavy system
-| load and interrupt latencies.
+The ADP5588 FIFO buffers up to 10 key events, including separate key-press and
+key-release events.
+
+Driver features and limitations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+-  Configurable keypad size matrix (rows, columns).
+
+-  Unused row/column pins can be used as GPIO interrupt sources (threaded,
+   nested IRQs).
+
+-  Enabling and disabling automatic key repeat feature.
+
+-  Lock/Unlock key feature.
+
+-  Unused row and column pins are exported general-purpose inputs/outputs to
+   GPIOLIB
 
 Configuration
--------------
-
-Software configurable features
-------------------------------
-
-- Configurable keypad size matrix (rows, columns).
-- Support for switch events.
-- Enabling and disabling automatic key repeat feature.
-- Lock/Unlock key feature.
-- Unused row and column pins are exported general-purpose inputs/outputs to
-  GPIOLIB
+~~~~~~~~~~~~~
 
 Source Code
 -----------
@@ -79,79 +84,6 @@ Files
      - `drivers/input/keyboard/adp5588-keys.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/keyboard/adp5588-keys.c>`__
    * - include
      - `include/linux/i2c/adp5588.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/i2c/adp5588.h>`__
-
-Example platform device initialization
---------------------------------------
-
-.. include:: /include/platform-and-bus-model.rst
-   :start-after: .. start-platform-data
-   :end-before: .. end-platform-data
-
-:git+linux:`/i2c_board_info/-EOF <main:include/linux/i2c/adp5588.h>`
-
-:git+linux:`adp5588_keymap[] <main:arch/blackfin/mach-bf537/boards/stamp.c>`
-:git+linux:`adp5588_kpad_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
-
-.. include:: /include/platform-and-bus-model.rst
-   :start-after: .. start-declaring-i2c-devices
-   :end-before: .. end-declaring-i2c-devices
-
-.. code:: c
-
-   static struct i2c_board_info __initdata bfin_i2c_board_info[] = {
-   #if defined(CONFIG_KEYBOARD_ADP5585) || defined(CONFIG_KEYBOARD_ADP5585_MODULE)
-       {
-           I2C_BOARD_INFO("adp5585-keys", 0x34),
-           .irq = IRQ_PG0,
-           .platform_data = (void *)&adp5585_kpad_data,
-       },
-   #endif
-   }
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The ADP5588 Driver depends on **CONFIG_I2C**
-
-::
-
-   --- Input Device Support
-   <> Generic input layer (needed for keyboard, mouse, ...)
-   < >   Support for memoryless force-feedback devices
-   ---   Userland interfaces
-   < >   Mouse interface
-   < >   Joystick interface
-   < >   Touchscreen interface
-   <M>   Event interface
-   < >   Event debugging
-   ---   Input Device Drivers
-   []   Keyboards  --->
-
-       --- Keyboards
-       < >   AT keyboard
-       < >   Sun Type 4 and Type 5 keyboard
-       < >   DECstation/VAXstation LK201/LK401 keyboard
-       < >   XT keyboard
-       < >   Newton keyboard
-       < >   Stowaway keyboard
-       < >   GPIO Buttons
-       < >   OpenCores Keyboard Controller
-       <M>   ADP5588 I2C QWERTY Keypad and IO Expander
-
-   [ ]   Mouse  --->
-   [ ]   Joysticks  --->
-   [ ]   Touchscreens  --->
-   [ ]   Miscellaneous devices  --->
-       Hardware I/O ports  --->
-
-.. tip::
-
-   Make sure the I2C SCL Clock is in the range of 60-400 kHz!
 
 Hardware configuration
 ----------------------
@@ -195,6 +127,97 @@ It can be easily wired to the Blackfin STAMP TWI/I2C header.
    /INTB strobe) with a 1-3kOhm resistor. The 10kOhm resistor is too weak -
    Blackfin might see an additional falling edge interrupt on the rising edge of
    /INTB.
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADP5588 driver depends on CONFIG_I2C.
+
+::
+
+   --- Input Device Support
+   <> Generic input layer (needed for keyboard, mouse, ...)
+   < >   Support for memoryless force-feedback devices
+   ---   Userland interfaces
+   < >   Mouse interface
+   < >   Joystick interface
+   < >   Touchscreen interface
+   <M>   Event interface
+   < >   Event debugging
+   ---   Input Device Drivers
+   []   Keyboards  --->
+
+       --- Keyboards
+       < >   AT keyboard
+       < >   Sun Type 4 and Type 5 keyboard
+       < >   DECstation/VAXstation LK201/LK401 keyboard
+       < >   XT keyboard
+       < >   Newton keyboard
+       < >   Stowaway keyboard
+       < >   GPIO Buttons
+       < >   OpenCores Keyboard Controller
+       <M>   ADP5588 I2C QWERTY Keypad and IO Expander
+
+   [ ]   Mouse  --->
+   [ ]   Joysticks  --->
+   [ ]   Touchscreens  --->
+   [ ]   Miscellaneous devices  --->
+       Hardware I/O ports  --->
+
+.. tip::
+
+   Make sure the I2C SCL Clock is in the range of 60-400 kHz!
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Example platform device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-platform-data
+   :end-before: .. end-platform-data
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-i2c-devices
+   :end-before: .. end-declaring-i2c-devices
+
+The driver is configured through devicetree properties (``adi,adp5588.yaml``
+binding). Required properties are ``compatible`` (``adi,adp5587`` or
+``adi,adp5588``) and ``reg``. Optional properties include ``vcc-supply``,
+``reset-gpios``, ``interrupts``, ``gpio-controller``/``#gpio-cells`` (when the
+keypad uses fewer than 8 rows or 10 columns), ``interrupt-controller``, and
+``adi,unlock-keys``. ``keypad,num-rows``, ``keypad,num-columns`` and
+``linux,keymap`` are required together if the device is used as a keypad:
+
+.. code-block:: dts
+
+   #include <dt-bindings/input/input.h>
+   #include <dt-bindings/interrupt-controller/irq.h>
+
+   &i2c0 {
+       #address-cells = <1>;
+       #size-cells = <0>;
+
+       keys@34 {
+           compatible = "adi,adp5588";
+           reg = <0x34>;
+           vcc-supply = <&vcc>;
+           interrupt-parent = <&gpio>;
+           interrupts = <21 IRQ_TYPE_EDGE_FALLING>;
+           keypad,num-rows = <1>;
+           keypad,num-columns = <1>;
+           linux,keymap = <MATRIX_KEY(0, 0, KEY_ENTER)>;
+       };
+   };
 
 Driver testing
 --------------
