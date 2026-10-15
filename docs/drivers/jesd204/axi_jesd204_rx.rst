@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/jesd204/axi_jesd204_rx
 
+
 .. _axi_jesd204_rx:
 
 AXI JESD204B RX
@@ -7,8 +8,8 @@ AXI JESD204B RX
 
 ADI JESD204B/C Receive Peripheral Linux Driver.
 
-Supported Devices
------------------
+Supported IP Cores
+------------------
 
 - :external+hdl:ref:`axi_jesd204_rx`
 
@@ -53,26 +54,58 @@ Files
      - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_rx.c`
      -
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           [--snip--]
+           <*> JESD204 High-Speed Serial Interface Framework  --->
+           [--snip--]
+           <*> Industrial I/O support  --->
+               [--snip--]
+               <*>   Analog Devices AXI JESD204B RX Support
+               [--snip--]
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device / device tree initialization
-----------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The AXI JESD204B driver is a platform driver and can currently only be
 instantiated via device tree.
 
 Deprecated Non-jesd204-fsm mode
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"""""""""""""""""""""""""""""""
 
 Required devicetree properties:
 
-- **compatible**: Must always be ``adi,axi-jesd204-rx-1.00.a``
-- **reg**: Base address and register area size. This parameter expects a
-  register range.
-- **interrupts**: Property with a value describing the interrupt number.
-- **clock-names**: List of input clock names - ``s_axi_aclk``, ``device_clk``
-- **clocks**: Clock phandles and specifiers (See clock bindings for details on
-  clock-names and clocks).
-- **adi,frames-per-multiframe**: Number of frames per multi-frame (``K``)
-- **adi,octets-per-frame**: Number of octets per frame (``F``)
+-  **compatible**: Must be ``adi,axi-jesd204-rx-1.0`` or
+   ``adi,axi-jesd204-rx-1.3``.
+
+-  **reg**: Base address and register area size. This parameter expects a
+   register range.
+
+-  **interrupts**: Property with a value describing the interrupt number.
+
+- **clock-names**: Include ``s_axi_aclk``, ``device_clk`` and ``lane_clk``
+  in both modes, with matching clock specifiers in ``clocks``.
+
+-  **clocks**: Clock phandles and specifiers (See clock bindings for details on
+   clock-names and clocks).
+
+-  **adi,frames-per-multiframe**: Number of frames per multi-frame (``K``)
+
+-  **adi,octets-per-frame**: Number of octets per frame (``F``)
 
 Optional devicetree properties:
 
@@ -82,29 +115,34 @@ Optional devicetree properties:
 
 Example:
 
-::
+The board must define the clock and interrupt providers used by this
+fragment. Here ``lane_clk`` denotes a board-defined zero-cell lane-clock
+provider; substitute the actual provider and specifier for the design.
+
+.. code-block:: dts
 
    jesd204b-rx@77b00000 {
-       compatible = "adi,axi-jesd204-rx-1.00.a";
+       compatible = "adi,axi-jesd204-rx-1.0";
        reg = <0x77b00000 0x10000>;
        interrupts = <0 56 4>;
 
-       clock-names = "s_axi_aclk", "device_clk";
-       clocks = <&clkc 14>, <&ad9528 13>;
+       clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+       clocks = <&clkc 14>, <&ad9528 13>, <&lane_clk>;
 
        adi,octets-per-frame = <32>;
        adi,frames-per-multiframe = <4>;
    };
 
 jesd204-fsm mode
-~~~~~~~~~~~~~~~~
+""""""""""""""""
 
 When using the :ref:`jesd204-fsm-framework` the JESD link parameters are
 broadcasted by the framework to all link components.
 
 Required devicetree properties:
 
-- **compatible**: Must always be ``adi,axi-jesd204-rx-1.00.a``
+- **compatible**: Must be ``adi,axi-jesd204-rx-1.0`` or
+  ``adi,axi-jesd204-rx-1.3``
 - **reg**: Base address and register area size. This parameter expects a
   register range.
 - **interrupts**: Property with a value describing the interrupt number.
@@ -146,29 +184,8 @@ Example:
        jesd204-inputs = <&axi_ad9081_adxcvr_rx 0 FRAMER_LINK0_RX>;
    };
 
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-           -*-   Enable ring buffer support within IIO
-           -*-     Industrial I/O lock free software ring
-           -*-   Enable triggered sampling support
-
-               <*>   JESD204 High-Speed Serial Interface Support  --->
-               [--snip--]
-           <*>   Analog Devices AXI JESD204B RX Support
-               [--snip--]
-
-Sysfs Interface
----------------
+Driver testing
+--------------
 
 This driver provides advanced diagnostics, status and via
 `sysfs <https://en.wikipedia.org/wiki/sysfs>`__. A brief summary is with
@@ -301,6 +318,6 @@ examples are provided below.
    FC: 15000000
 
 More Information
-~~~~~~~~~~~~~~~~
+----------------
 
 - :external+hdl:ref:`jesd204`
