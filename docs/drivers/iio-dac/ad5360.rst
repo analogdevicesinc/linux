@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ad5360
 
+
 .. _ad5360:
 
 AD5360
@@ -69,8 +70,39 @@ Files
    * - driver
      - `drivers/iio/dac/ad5360.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5360.c>`__
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD5360 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           ...
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               ...
+               Digital to analog converters  --->
+                   ...
+                   <*>  Analog Devices Analog Devices AD5360/61/62/63/70/71/73 DAC driver
+                   ...
+               ...
+           ...
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example device tree
--------------------
+^^^^^^^^^^^^^^^^^^^
 
 .. code:: dts
 
@@ -112,15 +144,17 @@ Example device tree
        };
    };
 
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Specifying reference voltage via the regulator framework
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 Below example specifies a 2.5 Volt reference for the SPI device 3 on SPI-Bus 0.
-(**spi0.3**) In this example all 4 reference voltage are supplied by the same
-regulator.
+(**spi0.3**). In this example the reference supplies share the same regulator.
 
 Except for the AD5371 devices expect two supplies named ``vref0`` and ``vref1``.
 The AD5371 expects a third supply named ``vref2``.
@@ -191,11 +225,10 @@ accordingly, matching your part name. It may also required to adjust
 max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
 the device in question.
 
-.. code:: c
+.. code-block:: c
 
    static struct spi_board_info board_spi_board_info[] __initdata = {
-   #if defined(CONFIG_AD5360_SPI) || \
-       defined(CONFIG_AD5360_SPI_MODULE)
+   #if IS_ENABLED(CONFIG_AD5360)
        {
            /* the modalias must be the same as spi device driver name */
            .modalias = "ad5360", /* Name of spi_driver for this device */
@@ -220,34 +253,6 @@ the device in question.
        return 0;
    }
    arch_initcall(board_init);
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AD5360 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           ...
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-               ...
-               Digital to analog converters  --->
-                   ...
-                   <*>  Analog Devices Analog Devices AD5360/61/62/63/70/71/73 DAC driver
-                   ...
-               ...
-           ...
-
-Hardware configuration
-----------------------
 
 Driver testing
 --------------
@@ -283,13 +288,16 @@ Driver testing
    lrwxrwxrwx    1 root     root             0 Jan  2 21:54 subsystem -> ../../../../../bus/iio
    -rw-r--r--    1 root     root          4096 Jan  2 21:54 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat name
    ad5360
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale
 ^^^^^^^^^^
@@ -300,13 +308,46 @@ Show scale
 scale to be applied to out_voltage0_raw in order to obtain the measured voltage
 in millivolts.
 
-::
+.. code-block:: text
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage0_scale
-   0.038140
+   0.152587890
+
+For a 2.5 V reference and 16-bit part, scale = 4 \* 2500 / 65536 mV/code.
+Include out_voltageY_offset when converting raw code to output voltage; it is
+shared by all channels in the same reference group.
+
+Calibrate channel Y gain
+""""""""""""""""""""""""
+
+**Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_calibscale
+
+Each channel has an adjustable gain which can be used to calibrate the channel’s
+scale and compensate for full-scale errors. For 16-bit devices the nominal
+maximum gain code is 65535; 14-bit devices accept gain writes from 0 through
+16383. Calibration reads return the unshifted register word, while writes are
+shifted by 16 minus the resolution; on 14-bit devices a read does not return
+the value written.
+
+These attributes expose calibration register codes.
+
+Calibrate channel Y offset
+""""""""""""""""""""""""""
+
+**Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_calibbias
+
+Each channel has an adjustable calibration register for zero-scale errors.
+The driver accepts unsigned bias write codes from 0 through 65535 for 16-bit
+parts and 0 through 16383 for 14-bit parts; reads return the unshifted register
+word. This is a register code, not a signed voltage offset.
+
+The separate ``out_voltageY_offset`` attribute reports the reference-group
+conversion offset. A voltage calculation with nondefault calibration still
+requires the device-specific transfer function; no general calibrated-voltage
+equation is asserted here.
 
 Set channel Y output voltage
-''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw
 
@@ -316,35 +357,12 @@ Raw (unscaled, no bias etc.) output voltage for channel Y.
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 10000 > out_voltage0_raw
 
-**U** = *out_voltage0_raw \* out_voltage0_scale* = 10000 \* 0,038140 *mV* =
-**381,14 mV**
-
-Calibrate channel Y gain
-''''''''''''''''''''''''
-
-**Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_calibscale
-
-Each channel has an adjustable gain which can be used to calibrate the channel’s
-scale and compensate for full-scale errors. The default value is 65535.
-
-If scale calibration is used the following formula can be used calculate the
-output voltage: **U** = *( ( out_voltageY_raw \* ( out_voltageY_calibscale + 1 )
-) / 2^16 - out_voltageY_calibbias ) \* out_voltageY_scale*
-
-Calibrate channel Y offset
-''''''''''''''''''''''''''
-
-**Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_calibbias
-
-Each channel has an adjustable offset which can be used to calibrate the
-channel’s offset and compensate for zero-scale errors. The default value is 0.
-
-If offset calibration is used the following formula can be used calculate the
-output voltage: **U** = *( ( out_voltageY_raw \* ( out_voltageY_calibscale + 1 )
-) / 2^16 - out_voltageY_calibbias ) \* out_voltageY_scale*
+With nominal gain and bias calibration, calculate the voltage in millivolts as
+``(out_voltage0_raw + out_voltage0_offset) * out_voltage0_scale``; the offset
+depends on the reference group.
 
 Enable power down mode for the device
-'''''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/iio:deviceX/out_voltage_powerdown
 
