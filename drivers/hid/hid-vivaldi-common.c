@@ -39,18 +39,10 @@ void vivaldi_feature_mapping(struct hid_device *hdev,
 	unsigned int offset;
 	u32 report_len;
 	int ret;
+	int i;
 
-	if (field->logical != HID_USAGE_FN_ROW_PHYSMAP ||
-	    (usage->hid & HID_USAGE_PAGE) != HID_UP_ORDINAL ||
-	    usage->usage_index >= field->report_count)
+	if (field->logical != HID_USAGE_FN_ROW_PHYSMAP || usage->usage_index)
 		return;
-
-	fn_key = usage->hid & HID_USAGE;
-	if (fn_key < MIN_FN_ROW_KEY || fn_key > MAX_FN_ROW_KEY)
-		return;
-
-	if (fn_key > data->num_function_row_keys)
-		data->num_function_row_keys = fn_key;
 
 	u8 *buf __free(kfree) = hid_alloc_report_buf(report, GFP_KERNEL);
 	if (!buf)
@@ -74,9 +66,24 @@ void vivaldi_feature_mapping(struct hid_device *hdev,
 		return;
 	}
 
-	offset = field->report_offset + usage->usage_index * field->report_size;
-	data->function_row_physmap[fn_key - MIN_FN_ROW_KEY] =
-		hid_field_extract(hdev, buf + 1, offset, field->report_size);
+	for (i = 0; i < field->maxusage && i < field->report_count; i++) {
+		usage = &field->usage[i];
+
+		if ((usage->hid & HID_USAGE_PAGE) != HID_UP_ORDINAL)
+			continue;
+
+		fn_key = usage->hid & HID_USAGE;
+		if (fn_key < MIN_FN_ROW_KEY || fn_key > MAX_FN_ROW_KEY)
+			continue;
+
+		if (fn_key > data->num_function_row_keys)
+			data->num_function_row_keys = fn_key;
+
+		offset = field->report_offset + i * field->report_size;
+		data->function_row_physmap[fn_key - MIN_FN_ROW_KEY] =
+			hid_field_extract(hdev, buf + 1, offset,
+					  field->report_size);
+	}
 }
 EXPORT_SYMBOL_GPL(vivaldi_feature_mapping);
 
