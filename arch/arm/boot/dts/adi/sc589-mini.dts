@@ -22,6 +22,13 @@
 	aliases {
 	};
 
+	audio_clk: clock-24576000 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24576000>;
+		clock-output-names = "audio_clk";
+	};
+
 	memory@C3000000 {
 		device_type = "memory";
 		reg = <0xC3000000 0xF000000>;
@@ -97,11 +104,50 @@
 			adi,l2-da = <0x20080000 0x200C0000>;
 			adi,rsc-table = <&rsc_tbl1>;
 		};
+	};
 
-		sound {
-			compatible = "adi,sc5xx-asoc-card";
-			adi,cpu-dai = <&i2s0_sport0>;
-			adi,codec = <&adau1761>;
+	sound {
+		compatible = "simple-audio-card";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		simple-audio-card,name = "sound";
+		simple-audio-card,widgets = "Line", "LINE IN",
+					    "Line", "LINE OUT";
+		simple-audio-card,routing = "LINE OUT", "CODEC LOUT",
+					    "LINE OUT", "CODEC ROUT",
+					    "CODEC LINN", "LINE IN",
+					    "CODEC RINN", "LINE IN";
+
+		simple-audio-card,dai-link@0 {
+			reg = <0>;
+			format = "i2s";
+
+			cpu {
+				sound-dai = <&i2s0 0>;
+			};
+
+			codec {
+				sound-dai = <&codec>;
+				frame-master;
+				bitclock-master;
+				playback-only;
+			};
+		};
+
+		simple-audio-card,dai-link@1 {
+			reg = <1>;
+			format = "i2s";
+
+			cpu {
+				sound-dai = <&i2s0 1>;
+			};
+
+			codec {
+				sound-dai = <&codec>;
+				frame-master;
+				bitclock-master;
+				capture-only;
+			};
 		};
 	};
 };
@@ -175,9 +221,14 @@
 &i2c0 {
 	status = "okay";
 
-	adau1761: adau1761@38{
-		compatible = "adi,adau1761";
+	codec: audio-codec@38{
+		/* ADAU1761 with DSP bypass by probing as ADAU1361 */
+		compatible = "adi,adau1361";
 		reg = <0x38>;
+		clock-names = "mclk";
+		clocks = <&audio_clk>;
+		#sound-dai-cells = <0>;
+		sound-name-prefix = "CODEC";
 	};
 };
 
@@ -189,9 +240,11 @@
 	status = "okay";
 };
 
-&i2s0_sport0 {
+&i2s0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&sru_dai0>;
+	sound-name-prefix = "SPORT0";
+
 	status = "okay";
 };
 

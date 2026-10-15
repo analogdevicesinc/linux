@@ -358,7 +358,7 @@ static void get_txn_align(dma_addr_t src, dma_addr_t dst, size_t size,
  * like 0x6002 in dma stat, while too small of burst settings will degrade system
  * performance
  */
-static void get_periph_align(struct adi_dma_channel *adi_chan,
+static int get_periph_align(struct adi_dma_channel *adi_chan,
 	enum dma_transfer_direction direction, dma_addr_t mem, size_t len,
 	u32 *conf, u32 *shift)
 {
@@ -368,12 +368,23 @@ static void get_periph_align(struct adi_dma_channel *adi_chan,
 	u64 tmp_dma_addr;
 
 	if (direction == DMA_DEV_TO_MEM) {
-		pburst = cfg->src_maxburst * cfg->src_addr_width;
-		mburst = cfg->dst_maxburst * cfg->dst_addr_width;
+		pburst = cfg->src_addr_width * (cfg->src_maxburst ?: 1);
+		mburst = cfg->dst_addr_width * (cfg->dst_maxburst ?: 1);
 	} else {
-		pburst = cfg->dst_maxburst * cfg->dst_addr_width;
-		mburst = cfg->src_maxburst * cfg->src_addr_width;
+		pburst = cfg->dst_addr_width * (cfg->dst_maxburst ?: 1);
+		mburst = cfg->src_addr_width * (cfg->src_maxburst ?: 1);
 	}
+
+	// The peripheral bus width must be specified
+	if (!pburst) {
+		dev_err(adi_chan->dma->dev,
+			"%s: invalid peripheral bus width\n", __func__);
+		return -EINVAL;
+	}
+
+	// For unspecified memory config, default to HW maximum and adjust below
+	if (!mburst)
+		mburst = 32;
 
 	// HW limits on maximum burst size in bytes
 	if (pburst > 8)
@@ -445,6 +456,8 @@ static void get_periph_align(struct adi_dma_channel *adi_chan,
 	}
 
 	*conf = lconf;
+
+	return 0;
 }
 
 static dma_cookie_t adi_submit(struct dma_async_tx_descriptor *tx)
@@ -1081,13 +1094,14 @@ static struct dma_async_tx_descriptor *adi_prep_cyclic(struct dma_chan *chan,
 	u32 conf;
 	u32 shift;
 
+	if (get_periph_align(adi_chan, direction, buf, period_len, &conf, &shift))
+		return NULL;
+
 	desc = adi_dma_alloc_descriptor(dma);
 	if (!desc)
 		return NULL;
 
 	dev_dbg(dma->dev, "%s: using desc at %p\n", __func__, desc);
-
-	get_periph_align(adi_chan, direction, buf, period_len, &conf, &shift);
 
 	if (len != ((len / period_len) * period_len)) {
 		dev_warn(dma->dev,
