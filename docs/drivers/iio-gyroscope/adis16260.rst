@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-gyroscope/adis16260
 
+
 .. _adis16260:
 
 ADIS16260
@@ -46,13 +47,15 @@ Status
      - Mainlined?
      -
      -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/gyro/adis16260_core.c>`__
-     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/gyro/adis16260_core.c>`__
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/gyro/adis16260.c>`__
+     - Yes
      -
      -
 
 Files
 ~~~~~
+
+The device driver uses the shared ADIS support under ``drivers/iio/imu/``.
 
 .. list-table::
    :header-rows: 1
@@ -60,15 +63,9 @@ Files
    * - Function
      - File
    * - driver
-     - `drivers/staging/iio/gyro/adis16260_core.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/gyro/adis16260_core.c>`__
-   * - driver
-     - `drivers/staging/iio/gyro/adis16260_ring.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/gyro/adis16260_ring.c>`__
-   * - driver
-     - `drivers/staging/iio/gyro/adis16260_trigger.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/gyro/adis16260_trigger.c>`__
-   * - include
-     - `drivers/staging/iio/gyro/adis16260.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/gyro/adis16260.h>`__
-   * - include
-     - `drivers/staging/iio/gyro/adis16260_platform_data.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/gyro/adis16260_platform_data.h>`__
+     - `drivers/iio/gyro/adis16260.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/gyro/adis16260.c>`__
+   * - shared declarations
+     - `include/linux/iio/imu/adis.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/iio/imu/adis.h>`__
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-spi-slave-devices
@@ -113,6 +110,9 @@ the device in question.
 Adding Linux driver support
 ---------------------------
 
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
@@ -120,26 +120,13 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 
    The ADIS16260 Driver depends on **CONFIG_SPI**
 
-::
+.. code-block:: text
 
    Linux Kernel Configuration
        Device Drivers  --->
-           [*] Staging drivers  --->
-               <*>     Industrial I/O support --->
-                   --- Industrial I/O support
-                   -*-   Enable ring buffer support within IIO
-                   -*-     Industrial I/O lock free software ring
-                   -*-   Enable triggered sampling support
-
-                         *** Digital gyroscope sensors ***
-                   [--snip--]
-
-                   <*>   Analog Devices ADIS16260 Digital Gyroscope Sensor SPI driver
-
-                   [--snip--]
-
-Hardware configuration
-----------------------
+           <*> Industrial I/O support --->
+               Gyroscopes --->
+                   <*> Analog Devices ADIS16260 Digital Gyroscope Sensor SPI driver
 
 Driver testing
 --------------
@@ -148,7 +135,7 @@ Driver testing
    :start-after: .. start-iio-device-files
    :end-before: .. end-iio-device-files
 
-::
+.. code-block:: text
 
    root:/> cd /sys/bus/iio/devices/
    root:/sys/bus/iio/devices> ls
@@ -158,11 +145,11 @@ Driver testing
    root:/sys/devices/platform/bfin-spi.0/spi0.5/iio:device0> ls -l
    drwxr-xr-x    2 root     root             0 Jan  4 06:12 buffer
    -r--r--r--    1 root     root          4096 Jan  4 06:12 dev
-   -r--r--r--    1 root     root          4096 Jan  4 06:12 in_angl_x_raw
-   -rw-r--r--    1 root     root          4096 Jan  4 06:12 in_gyro_x_calibbias
-   -rw-r--r--    1 root     root          4096 Jan  4 06:12 in_gyro_x_calibscale
-   -r--r--r--    1 root     root          4096 Jan  4 06:12 in_gyro_x_raw
-   -rw-r--r--    1 root     root          4096 Jan  4 06:12 in_gyro_x_scale
+   -r--r--r--    1 root     root          4096 Jan  4 06:12 in_incli_x_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 06:12 in_anglvel_x_calibbias
+   -rw-r--r--    1 root     root          4096 Jan  4 06:12 in_anglvel_x_calibscale
+   -r--r--r--    1 root     root          4096 Jan  4 06:12 in_anglvel_x_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 06:12 in_anglvel_scale
    -rw-r--r--    1 root     root          4096 Jan  4 06:12 in_temp0_offset
    -r--r--r--    1 root     root          4096 Jan  4 06:12 in_temp0_raw
    -rw-r--r--    1 root     root          4096 Jan  4 06:12 in_temp0_scale
@@ -172,21 +159,22 @@ Driver testing
    -rw-r--r--    1 root     root          4096 Jan  4 06:12 in_voltage1_scale
    -r--r--r--    1 root     root          4096 Jan  4 06:12 name
    drwxr-xr-x    2 root     root             0 Jan  4 06:12 power
-   --w-------    1 root     root          4096 Jan  4 06:12 reset
    -rw-r--r--    1 root     root          4096 Jan  4 06:12 sampling_frequency
-   -r--r--r--    1 root     root          4096 Jan  4 06:12 sampling_frequency_available
    drwxr-xr-x    2 root     root             0 Jan  4 06:12 scan_elements
    lrwxrwxrwx    1 root     root             0 Jan  4 06:12 subsystem -> ../../../../../bus/iio
    drwxr-xr-x    2 root     root             0 Jan  4 06:12 trigger
    -rw-r--r--    1 root     root          4096 Jan  4 06:12 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.5/iio:device0> cat name
    adis16260
+
+Attribute reference
+~~~~~~~~~~~~~~~~~~~
 
 ADIS16260 device attributes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -199,10 +187,10 @@ For a detailed description please see:
 
    * - Device files
    * - in_angl_x_raw
-   * - in_gyro_x_calibbias
-   * - in_gyro_x_calibscale
-   * - in_gyro_x_raw
-   * - in_gyro_x_scale
+   * - in_anglvel_x_calibbias
+   * - in_anglvel_x_calibscale
+   * - in_anglvel_x_raw
+   * - in_anglvel_scale
    * - in_temp0_offset
    * - in_temp0_raw
    * - in_temp0_scale
@@ -211,9 +199,7 @@ For a detailed description please see:
    * - in_voltage1_raw
    * - in_voltage1_scale
    * - name
-   * - reset
    * - sampling_frequency
-   * - sampling_frequency_available
 
 Trigger management
 ~~~~~~~~~~~~~~~~~~
@@ -230,10 +216,12 @@ Trigger management
 Buffer management
 ~~~~~~~~~~~~~~~~~
 
-::
+.. code-block:: text
 
    root:/sys/devices/platform/bfin-spi.0/spi0.5/iio:device0/buffer> ls
-   bytes_per_datum  enable           length
+   enable  length  watermark
+
+Use scan_elements/\*_type and \*_index to determine the binary layout.
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-buffer-management
@@ -245,9 +233,9 @@ Buffer management
    in_angl_x_en              in_temp0_en               in_voltage0_supply_en
    in_angl_x_index           in_temp0_index            in_voltage0_supply_index
    in_angl_x_type            in_temp0_type             in_voltage0_supply_type
-   in_gyro_x_en              in_timestamp_en           in_voltage1_en
-   in_gyro_x_index           in_timestamp_index        in_voltage1_index
-   in_gyro_x_type            in_timestamp_type         in_voltage1_type
+   in_anglvel_x_en              in_timestamp_en           in_voltage1_en
+   in_anglvel_x_index           in_timestamp_index        in_voltage1_index
+   in_anglvel_x_type            in_timestamp_type         in_voltage1_type
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-typical-adc-scan-elements
