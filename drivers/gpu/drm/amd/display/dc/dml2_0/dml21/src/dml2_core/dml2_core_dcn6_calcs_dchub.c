@@ -260,9 +260,10 @@ static unsigned int calculate_max_mem_size_per_plane_per_dpp(const struct dml2_c
 	odm_slice_pixels = (double)h_active / odm_combine_factor * h_ratio + (odm_combine_factor == 3 ? 2 : 0);
 
 	/* Unaligned copy region dimensions (in pixels / lines) prior to tile alignment.
-	 * Also divide vp_widht/height by NoOfDPP for MPC combine scenarios (i.e., MPC split within an ODM slice). */
-	copy_width = vertical_access ? copy_src_lines : (unsigned int)math_ceil(math_min2(odm_slice_pixels, vp_width / p->NoOfDPP[plane_idx]));
-	copy_height = vertical_access ? (unsigned int)math_ceil(math_min2(odm_slice_pixels, vp_height / p->NoOfDPP[plane_idx])) : copy_src_lines;
+	 * No need to divide vp width/height by NoOfDPP. The entire viewport could be within a single ODM slice if less than the odm slice pixels
+	 * (e.g., multi-plane scenario with ODM combine). */
+	copy_width = vertical_access ? copy_src_lines : (unsigned int)math_ceil(math_min2(odm_slice_pixels, vp_width));
+	copy_height = vertical_access ? (unsigned int)math_ceil(math_min2(odm_slice_pixels, vp_height)) : copy_src_lines;
 
 	return calculate_tile_aligned_size(copy_width, copy_height, tile_width, tile_height, byte_per_pixel);
 }
