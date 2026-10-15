@@ -1,3 +1,4 @@
+
 .. _axi-hsci:
 
 AXI HSCI
@@ -21,32 +22,8 @@ Supported IP Cores
 
 - AXI HSCI IP v1.0.a
 
-Status
-------
-
-.. list-table::
-   :header-rows: 1
-
-   * - Source
-     - Mainlined?
-   * - :git+linux:`drivers/misc/adi-axi-hsci.c <main:drivers/misc/adi-axi-hsci.c>`
-     - No
-
-Files
------
-
-.. list-table::
-   :header-rows: 1
-
-   * - Function
-     - File
-   * - driver
-     - :git+linux:`drivers/misc/adi-axi-hsci.c <main:drivers/misc/adi-axi-hsci.c>`
-   * - header
-     - :git+linux:`drivers/misc/adi-axi-hsci.h <main:drivers/misc/adi-axi-hsci.h>`
-
-Overview
---------
+Description
+-----------
 
 The AXI HSCI interface provides a high-speed alternative to traditional SPI
 for communicating with AD9084/AD9088 MxFE data converters. Operating at up to
@@ -60,11 +37,82 @@ The interface supports:
 - Manual link-up with explicit control over link parameters
 - MISO/MOSI test modes for link verification
 
+Theory of operation
+~~~~~~~~~~~~~~~~~~~
+
+Link establishment
+^^^^^^^^^^^^^^^^^^
+
+The HSCI link can be established in two modes:
+
+**Automatic Link-up Mode**:
+
+1. The master sends training patterns
+2. The slave detects patterns and adjusts clock phase
+3. Both sides exchange alignment tables
+4. Link becomes active when alignment is achieved
+
+**Manual Link-up Mode**:
+
+1. User configures specific link-up word via ``linkup_ctrl``
+2. Clock inversion settings are applied manually
+3. Link is established with fixed parameters
+
+Data transfer
+^^^^^^^^^^^^^
+
+The HSCI interface supports streaming transfers:
+
+1. Configure transfer parameters (address size, data length, target)
+2. Write data to BRAM buffer (for write operations)
+3. Trigger transfer via RUN register
+4. Wait for completion (DONE status)
+5. Read data from BRAM buffer (for read operations)
+
+The driver provides kernel APIs for other drivers to use:
+
+::
+
+   int axi_hsci_readm(struct axi_hsci_state *st, const u8 tx_data[],
+                      u8 rx_data[], u32 num_tx_rx_bytes, u8 addr_len,
+                      u8 data_len, u32 stream_len);
+
+   int axi_hsci_writem(struct axi_hsci_state *st, const u8 tx_data[],
+                       u32 num_tx_rx_bytes, u8 addr_len, u8 data_len,
+                       u32 stream_len);
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+   * - :git+linux:`drivers/misc/adi-axi-hsci.c <main:drivers/misc/adi-axi-hsci.c>`
+     - No
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - :git+linux:`drivers/misc/adi-axi-hsci.c <main:drivers/misc/adi-axi-hsci.c>`
+   * - header
+     - :git+linux:`drivers/misc/adi-axi-hsci.h <main:drivers/misc/adi-axi-hsci.h>`
+
 Adding Linux driver support
 ---------------------------
 
-Enabling the driver
-~~~~~~~~~~~~~~~~~~~
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig``:
 
@@ -75,24 +123,8 @@ Configure kernel with ``make menuconfig``:
            Misc devices  --->
                <*>   Analog Devices AXI HSCI driver
 
-Adding a device tree entry
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Required properties
-^^^^^^^^^^^^^^^^^^^
-
-- ``compatible``: Must be ``"adi,axi-hsci-1.0.a"``
-- ``reg``: Physical base address and size of the IP core registers
-- ``clocks``: Reference to the peripheral clock
-- ``clock-names``: Must be ``"pclk"``
-
-Optional properties
-^^^^^^^^^^^^^^^^^^^
-
-- ``adi,hsci-interface-speed-mhz``: Interface speed in MHz (default: 800)
-
-Device tree example
-^^^^^^^^^^^^^^^^^^^
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Clock generator for HSCI:
 
@@ -119,112 +151,87 @@ HSCI interface:
         adi,hsci-interface-speed-mhz = <800>;
     };
 
+Required properties
+^^^^^^^^^^^^^^^^^^^
+
+- ``compatible``: Must be ``"adi,axi-hsci-1.0.a"``
+- ``reg``: Physical base address and size of the IP core registers
+- ``clocks``: Reference to the peripheral clock
+- ``clock-names``: Must be ``"pclk"``
+
+Optional properties
+^^^^^^^^^^^^^^^^^^^
+
+-  ``adi,hsci-interface-speed-mhz``: Interface speed in MHz: 200, 400, or 800
+   (default: 800). The driver requests pclk at one quarter of this rate.
+
 Connecting to AD9084/AD9088
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The MxFE device references the HSCI interface using the
 ``adi,axi-hsci-connected`` property:
 
-::
+.. code-block:: dts
 
-    ad9084: ad9084@0 {
-        compatible = "adi,ad9084";
-        reg = <0>;
-        spi-max-frequency = <1000000>;
+   ad9084: ad9084@0 {
+       compatible = "adi,ad9084";
+       reg = <0>;
+       spi-max-frequency = <1000000>;
 
-        /* HSCI connection */
-        adi,axi-hsci-connected = <&axi_hsci>;
-        adi,hsci-auto-linkup-mode-en;
+       /* HSCI connection */
+       adi,axi-hsci-connected = <&axi_hsci_0>;
+       adi,hsci-auto-linkup-mode-en;
 
-        /* Optional: disable HSCI after boot for power savings */
-        // adi,hsci-disable-after-boot-en;
+       /* Optional: disable HSCI after boot for power savings */
+       // adi,hsci-disable-after-boot-en;
 
-    };
+   };
 
 Driver testing
 --------------
 
 The HSCI driver exposes a debugfs interface for testing and diagnostics.
 
+Troubleshooting
+---------------
+
 Debugfs interface
 ~~~~~~~~~~~~~~~~~
 
-The driver creates a debugfs directory under ``/sys/kernel/debug/adi-axi-hsci/``
-with the following entries:
+With CONFIG_DEBUG_FS enabled and debugfs mounted, the driver creates
+register-field files under
+/sys/kernel/debug/adi_axi_hsci/<device-tree-node-name>/. The aggregate status,
+linkup_status and statistics files in the old example are not provided.
 
-**status** (read-only)
-    Shows current link status, PHY status, and error counters.
+Manual link-up uses hsci_master_linkup_ctrl_hsci_man_linkup_word and
+hsci_master_linkup_ctrl_hsci_man_linkup. The scratch register file
+hsci_master_scratch_scratch_reg is read-only. There is no debugfs silent file;
+silence is controlled through axi_hsci_silent() in kernel code. Debugfs is
+diagnostic, not a stable ABI.
 
-**linkup_ctrl** (read/write)
-    Manual link-up control register.
+Example debugfs reads; replace axi_hsci_0 with the device-tree node name on the
+board:
 
-**linkup_status** (read-only)
-    Link-up state machine status.
+.. code-block:: bash
 
-**scratch** (read/write)
-    Scratch register for testing register access.
+   set -eu
+   cd /sys/kernel/debug/adi_axi_hsci/axi_hsci_0
+   cat hsci_master_status_master_done
+   cat hsci_master_linkup_status_link_active
+   cat hsci_phy_pll_locked
+   cat stat_read_count
+   cat stat_read_len
+   cat stat_write_count
+   cat stat_write_len
 
-**silent** (read/write)
-    Enable/disable silent mode.
-
-**statistics** (read-only)
-    Read/write transfer statistics.
-
-Example debugfs usage:
-
-.. shell::
-
-   $ cd /sys/kernel/debug/adi-axi-hsci/axi_hsci@bc500000
-   $ cat status
-   $ cat linkup_status
-   $ cat statistics
-
-Theory of operation
--------------------
-
-Link establishment
-~~~~~~~~~~~~~~~~~~
-
-The HSCI link can be established in two modes:
-
-**Automatic Link-up Mode**:
-
-1. The master sends training patterns
-2. The slave detects patterns and adjusts clock phase
-3. Both sides exchange alignment tables
-4. Link becomes active when alignment is achieved
-
-**Manual Link-up Mode**:
-
-1. User configures specific link-up word via ``linkup_ctrl``
-2. Clock inversion settings are applied manually
-3. Link is established with fixed parameters
-
-Data transfer
-~~~~~~~~~~~~~
-
-The HSCI interface supports streaming transfers:
-
-1. Configure transfer parameters (address size, data length, target)
-2. Write data to BRAM buffer (for write operations)
-3. Trigger transfer via RUN register
-4. Wait for completion (DONE status)
-5. Read data from BRAM buffer (for read operations)
-
-The driver provides kernel APIs for other drivers to use:
-
-::
-
-   int axi_hsci_readm(struct axi_hsci_state *st, const u8 tx_data[],
-                      u8 rx_data[], u32 num_tx_rx_bytes, u8 addr_len,
-                      u8 data_len, u32 stream_len);
-
-   int axi_hsci_writem(struct axi_hsci_state *st, const u8 tx_data[],
-                       u32 num_tx_rx_bytes, u8 addr_len, u8 data_len,
-                       u32 stream_len);
+More Information
+----------------
 
 Register map
-------------
+~~~~~~~~~~~~
+
+Addresses below are 32-bit register indices, not byte offsets. Multiply by
+four to obtain the MMIO byte offset.
 
 .. list-table::
    :header-rows: 1
@@ -298,7 +305,7 @@ Register map
      - Scratch register
 
 Related drivers
----------------
+~~~~~~~~~~~~~~~
 
 - :ref:`ad9088` - MxFE data converter driver (consumer of HSCI)
 - :ref:`axi-aion-trig` - Trigger synchronization IP
