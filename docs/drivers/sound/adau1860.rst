@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/sound/adau1860
 
+
 .. _adau1860:
 
 ADAU1860
@@ -36,7 +37,7 @@ Status
      -
 
 Files
-^^^^^
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -60,13 +61,19 @@ Files
      - :git+linux:`adau1860_dev:include/sound/adau1860.h`
      -
 
+Adding Linux driver support
+---------------------------
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example device initialization
------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 YAML example Placeholder
 
 I2C
-~~~
+"""
 
 The I2C device id depends on the ADDR0 and ADDR1 pin settings and needs to be
 set according to your board setup.
@@ -92,8 +99,14 @@ set according to your board setup.
 
 In this example we assume ADDR0=0 and ADDR1=0.
 
+Driver testing
+--------------
+
+Routing and DAPM
+~~~~~~~~~~~~~~~~
+
 ASoC DAPM Widgets
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -138,7 +151,7 @@ ASoC DAPM Widgets
      - Digital Microphone 6 and 7 Input
      - Digital Microphone
 
-ALSA Controls
+ALSA controls
 ~~~~~~~~~~~~~
 
 .. list-table::
@@ -154,7 +167,7 @@ ALSA Controls
      - ADC Channel 1 digital gain control
      -
    * - ADC2 Capture Volume
-     - ADC Channel 0 digital gain control
+     - ADC Channel 2 digital gain control
      -
    * - ADC0 Capture Switch
      - ADC Channel 0 Mute/Unmute
@@ -165,13 +178,13 @@ ALSA Controls
    * - ADC2 Capture Switch
      - ADC Channel 2 Mute/Unmute
      -
-   * - ADC0 HPF
+   * - ADC0 HPF Capture Switch
      - ADC Channel 0 High pass filter control
      - Values: ‘Off’ ‘1Hz’ ‘4Hz’ ‘8Hz’
-   * - ADC1 HPF
+   * - ADC1 HPF Capture Switch
      - ADC Channel 1 High pass filter control
      - Values: ‘Off’ ‘1Hz’ ‘4Hz’ ‘8Hz’
-   * - ADC2 HPF
+   * - ADC2 HPF Capture Switch
      - ADC Channel 2 High pass filter control
      - Values: ‘Off’ ‘1Hz’ ‘4Hz’ ‘8Hz’
    * - DMIC0 Capture Volume
@@ -280,8 +293,11 @@ To set one control value the following command can be executed:
 
 ``amixer -c ADAU1860 cset name=‘DMIC0 Capture Volume’ 191``
 
+DAI formats and clocks
+~~~~~~~~~~~~~~~~~~~~~~
+
 DAI configuration
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 The codec driver registers two DAIs:
 
@@ -289,7 +305,7 @@ The codec driver registers two DAIs:
 - adau1860-sai1
 
 Supported DAI formats
-^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""
 
 .. list-table::
    :header-rows: 1
