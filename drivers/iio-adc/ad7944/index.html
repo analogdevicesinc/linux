@@ -428,8 +428,8 @@ number of different physical interfaces (I2C, SPI, etc). See
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD7985" target="_blank">AD7985</a></p></li>
 <li><p><a class="icon adi reference external" href="https://www.analog.com/AD7986" target="_blank">AD7986</a></p></li>
 </ul>
-<p>Also see <a class="icon dokuwiki reference external" href="https://wiki.analog.com/ad7944#Evaluation Boards" target="_blank">ad7944#Evaluation Boards</a> section
-for supported evaluation boards.</p>
+<p>Also see <a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/solutions/reference-designs/pulsar_adc/eval-ad7944-ad7985-ad7986/#pulsar-adc-eval-ad7944-ad7985-ad7986" target="_blank" title="(in System Level Documentation)"><span>User Guide for the AD7944/AD7985/AD7986</span></a>
+section Evaluation Board Hardware for supported evaluation boards.</p>
 </section>
 <section id="evaluation-boards">
 <h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
@@ -444,24 +444,24 @@ for supported evaluation boards.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7944" target="_blank">EVAL-AD7944FMCZ</a></p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts" target="_blank">main?arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7944.dts" target="_blank">arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts</a></p></td>
 <td></td>
 </tr>
 <tr class="row-odd"><td><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7985" target="_blank">EVAL-AD7985FMCZ</a></p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/zynq-zed-adv7511-ad7985.dts" target="_blank">main?arch/arm/boot/dts/zynq-zed-adv7511-ad7985.dts</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7985.dts" target="_blank">arch/arm/boot/dts/zynq-zed-adv7511-ad7985.dts</a></p></td>
 <td></td>
 </tr>
 <tr class="row-even"><td><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-AD7986" target="_blank">EVAL-AD7986FMCZ</a></p></td>
-<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/zynq-zed-adv7511-ad7986.dts" target="_blank">main?arch/arm/boot/dts/zynq-zed-adv7511-ad7986.dts</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7986.dts" target="_blank">arch/arm/boot/dts/zynq-zed-adv7511-ad7986.dts</a></p></td>
 <td></td>
 </tr>
 </tbody>
 </table>
 </div>
 <p>If you need to change any jumpers from default on the evaluation board, see the
-<a class="icon dokuwiki reference external" href="https://wiki.analog.com/ad7944#Devicetree Configuration" target="_blank">ad7944#Devicetree Configuration</a>
-section for info on what settings might need to be changed there to account for
-the differences in wiring.</p>
+<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/solutions/reference-designs/pulsar_adc/eval-ad7944-ad7985-ad7986/#pulsar-adc-eval-ad7944-ad7985-ad7986" target="_blank" title="(in System Level Documentation)"><span>User Guide for the AD7944/AD7985/AD7986</span></a> section Jumpers,
+Solder Pads and Test Points for info on what settings might need to be changed
+there to account for the differences in wiring.</p>
 </section>
 <section id="source-code">
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
@@ -735,10 +735,7 @@ the Linux driver.</p>
 <h5>Install OS on the ZedBoard<a class="headerlink" href="#install-os-on-the-zedboard" title="Link to this heading"></a></h5>
 <p>ADI provides a <a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/linux/kuiper/#kuiper" target="_blank" title="(in System Level Documentation)"><span>Kuiper</span></a> distribution for supported
 evaluation boards. Step by step guides for imaging Kuiper Linux are available
-for
-<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/zynq_images/linux_hosts" target="_blank">Linux</a>
-and
-<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/zynq_images/windows_hosts" target="_blank">Windows</a>.</p>
+at <a class="icon link reference external" href="https://analogdevicesinc.github.io/kuiper/" target="_blank" title="(in Kuiper latest)"><span>ADI Kuiper Linux</span></a>.</p>
 </section>
 </section>
 </section>
@@ -892,8 +889,7 @@ Linux IIO drivers.</p>
 <h4>IIO Oscilloscope<a class="headerlink" href="#iio-oscilloscope" title="Link to this heading"></a></h4>
 <p>This section only describes the bits specific to these chips. For instructions
 on how to obtain IIO Oscilloscope and it’s basic usage, please see the
-<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/IIO Oscilloscope" target="_blank">IIO Oscilloscope</a>
-page.</p>
+<a class="icon link reference external" href="https://analogdevicesinc.github.io/system-level/software/iio-oscilloscope/#iio-oscilloscope" target="_blank" title="(in System Level Documentation)"><span>IIO Oscilloscope</span></a>.</p>
 </section>
 <section id="scopy">
 <h4>Scopy<a class="headerlink" href="#scopy" title="Link to this heading"></a></h4>

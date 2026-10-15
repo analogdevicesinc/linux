@@ -420,10 +420,7 @@ Install OS on the ZedBoard
 
 ADI provides a :external+system-level:ref:`kuiper` distribution for supported
 evaluation boards. Step by step guides for imaging Kuiper Linux are available
-for
-:dokuwiki:`Linux </resources/tools-software/linux-software/zynq_images/linux_hosts>`
-and
-:dokuwiki:`Windows </resources/tools-software/linux-software/zynq_images/windows_hosts>`.
+at :external+kuiper:doc:`index`.
 
 Install evaluation-board specific boot files
 """"""""""""""""""""""""""""""""""""""""""""
@@ -517,8 +514,7 @@ IIO Oscilloscope
 
 This section only describes the bits specific to these chips. For instructions
 on how to obtain IIO Oscilloscope and its basic usage, please see the
-:dokuwiki:`IIO Oscilloscope </resources/tools-software/linux-software/IIO Oscilloscope>`
-page.
+:external+system-level:ref:`iio-oscilloscope`.
 
 Example: Capture many samples for analysis
 """"""""""""""""""""""""""""""""""""""""""

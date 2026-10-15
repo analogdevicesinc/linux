@@ -129,10 +129,8 @@ Flash Kuiper Linux to the SD card
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Install Kuiper Linux to the SD card. Step by step guides for imaging
-:external+system-level:ref:`kuiper` are available for
-:dokuwiki:`Linux </resources/tools-software/linux-software/zynq_images/linux_hosts>`
-and
-:dokuwiki:`Windows </resources/tools-software/linux-software/zynq_images/windows_hosts>`.
+:external+system-level:ref:`kuiper` are available at
+:external+kuiper:doc:`index`.
 
 Configuring the SD Card
 ^^^^^^^^^^^^^^^^^^^^^^^

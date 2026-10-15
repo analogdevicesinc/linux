@@ -25,8 +25,8 @@ Supported Devices
 - :adi:`AD7985`
 - :adi:`AD7986`
 
-Also see :dokuwiki:`ad7944#Evaluation Boards <ad7944#Evaluation Boards>` section
-for supported evaluation boards.
+Also see :external+system-level:ref:`pulsar-adc eval-ad7944-ad7985-ad7986`
+section Evaluation Board Hardware for supported evaluation boards.
 
 Evaluation Boards
 -----------------
@@ -40,19 +40,19 @@ The following evaluation boards have been tested with this driver:
      - Device tree
      -
    * - :adi:`EVAL-AD7944FMCZ <EVAL-AD7944>`
-     - :git+linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7944.dts>`
      -
    * - :adi:`EVAL-AD7985FMCZ <EVAL-AD7985>`
-     - :git+linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7985.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad7985.dts>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7985.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7985.dts>`
      -
    * - :adi:`EVAL-AD7986FMCZ <EVAL-AD7986>`
-     - :git+linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7986.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad7986.dts>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7986.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7986.dts>`
      -
 
 If you need to change any jumpers from default on the evaluation board, see the
-:dokuwiki:`ad7944#Devicetree Configuration <ad7944#Devicetree Configuration>`
-section for info on what settings might need to be changed there to account for
-the differences in wiring.
+:external+system-level:ref:`pulsar-adc eval-ad7944-ad7985-ad7986` section Jumpers,
+Solder Pads and Test Points for info on what settings might need to be changed
+there to account for the differences in wiring.
 
 Source Code
 -----------
@@ -360,10 +360,7 @@ Install OS on the ZedBoard
 
 ADI provides a :external+system-level:ref:`kuiper` distribution for supported
 evaluation boards. Step by step guides for imaging Kuiper Linux are available
-for
-:dokuwiki:`Linux </resources/tools-software/linux-software/zynq_images/linux_hosts>`
-and
-:dokuwiki:`Windows </resources/tools-software/linux-software/zynq_images/windows_hosts>`.
+at :external+kuiper:doc:`index`.
 
 Driver testing
 --------------
@@ -532,8 +529,7 @@ IIO Oscilloscope
 
 This section only describes the bits specific to these chips. For instructions
 on how to obtain IIO Oscilloscope and it’s basic usage, please see the
-:dokuwiki:`IIO Oscilloscope </resources/tools-software/linux-software/IIO Oscilloscope>`
-page.
+:external+system-level:ref:`iio-oscilloscope`.
 
 Scopy
 ^^^^^
