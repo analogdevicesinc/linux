@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-amplifiers/hmc425a
 
+
 .. _hmc425a:
 
 HMC425A
@@ -59,8 +60,30 @@ Files
    * - Documentation
      - `Documentation/ABI/testing/sysfs-bus-iio <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio>`__
 
-Devicetree
-~~~~~~~~~~
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The HMC425A Driver depends on **CONFIG_GPIOLIB**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+                   Amplifiers  --->
+                       <*> Analog Devices HMC425A DSA
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 properties
 ^^^^^^^^^^
@@ -72,14 +95,16 @@ properties
 
 **vcc-supply:**
 
-- description: digital voltage regulator (see regulator/regulator.txt)
+- description: regulator supplying VCC, acquired by the driver as ``vcc``.
 - maxItems: 1
 
 **ctrl-gpios:**
 
-- description: Must contain an array of 6 GPIO specifiers, referring to the GPIO
-  pins connected to the control pins V1-V6.
-- maxItems: 6
+-  description: For HMC425A, provide six GPIOs connected to V1–V6. HMC540S uses
+   four GPIOs connected to V1–V4. Select adi,hmc540s for that part; the driver
+   validates the count for the matched device.
+
+-  maxItems: 6
 
 **required:**
 
@@ -109,28 +134,6 @@ Example
        };
    }
 
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The HMC425A Driver depends on **CONFIG_GPIOLIB**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-                   Amplifiers  --->
-                       <*> Analog Devices HMC425A DSA
-
-Hardware configuration
-----------------------
-
 Driver testing
 --------------
 
@@ -154,8 +157,8 @@ Driver testing
    lrwxrwxrwx    1 root     root             0 Jan  1 00:00 subsystem -> ../../../../../../../../../bus/iio
    -rw-r--r--    1 root     root          4096 Jan  1 00:00 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -164,7 +167,7 @@ Show device name
    hmc425a
 
 Set ChannelY Gain
-^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/iio:deviceX/out_voltageY_hardwaregain
 
