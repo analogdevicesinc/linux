@@ -166,11 +166,11 @@ static void dm_test_dc_timing_adjust_pending(struct kunit *test)
 	struct dc_stream_state *stream;
 
 	old_state = kunit_kzalloc(test, sizeof(*old_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, old_state);
+	KUNIT_ASSERT_NOT_NULL(test, old_state);
 	new_state = kunit_kzalloc(test, sizeof(*new_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, new_state);
+	KUNIT_ASSERT_NOT_NULL(test, new_state);
 	stream = kunit_kzalloc(test, sizeof(*stream), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, stream);
+	KUNIT_ASSERT_NOT_NULL(test, stream);
 
 	new_state->stream = stream;
 	stream->timing_adjust_pending = 1;
@@ -188,11 +188,11 @@ static void dm_test_dc_timing_adjust_active_fixed(struct kunit *test)
 	struct dc_stream_state *stream;
 
 	old_state = kunit_kzalloc(test, sizeof(*old_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, old_state);
+	KUNIT_ASSERT_NOT_NULL(test, old_state);
 	new_state = kunit_kzalloc(test, sizeof(*new_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, new_state);
+	KUNIT_ASSERT_NOT_NULL(test, new_state);
 	stream = kunit_kzalloc(test, sizeof(*stream), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, stream);
+	KUNIT_ASSERT_NOT_NULL(test, stream);
 
 	new_state->stream = stream;
 	new_state->freesync_config.state = VRR_STATE_ACTIVE_FIXED;
@@ -210,11 +210,11 @@ static void dm_test_dc_timing_adjust_vrr_toggle(struct kunit *test)
 	struct dc_stream_state *stream;
 
 	old_state = kunit_kzalloc(test, sizeof(*old_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, old_state);
+	KUNIT_ASSERT_NOT_NULL(test, old_state);
 	new_state = kunit_kzalloc(test, sizeof(*new_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, new_state);
+	KUNIT_ASSERT_NOT_NULL(test, new_state);
 	stream = kunit_kzalloc(test, sizeof(*stream), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, stream);
+	KUNIT_ASSERT_NOT_NULL(test, stream);
 
 	new_state->stream = stream;
 	old_state->freesync_config.state = VRR_STATE_ACTIVE_VARIABLE;
@@ -233,11 +233,11 @@ static void dm_test_dc_timing_adjust_not_needed(struct kunit *test)
 	struct dc_stream_state *stream;
 
 	old_state = kunit_kzalloc(test, sizeof(*old_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, old_state);
+	KUNIT_ASSERT_NOT_NULL(test, old_state);
 	new_state = kunit_kzalloc(test, sizeof(*new_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, new_state);
+	KUNIT_ASSERT_NOT_NULL(test, new_state);
 	stream = kunit_kzalloc(test, sizeof(*stream), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, stream);
+	KUNIT_ASSERT_NOT_NULL(test, stream);
 
 	new_state->stream = stream;
 	old_state->freesync_config.state = VRR_STATE_INACTIVE;
