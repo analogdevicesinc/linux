@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/adf4377
 
+
 .. _adf4377:
 
 ADF4377
@@ -13,8 +14,8 @@ Supported Devices
 - :adi:`ADF4377`
 - :adi:`ADF4378`
 
-Supported Boards
-----------------
+Evaluation Boards
+-----------------
 
 | This driver supports the
 
@@ -77,27 +78,58 @@ Files
    * - ABI documentation
      - :git+linux:`sysfs-bus-iio-frequency-adf4377 <main:Documentation/ABI/testing/sysfs-bus-iio-frequency-adf4377>`
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADF4377 driver depends on **SPI** and selects **REGMAP_SPI**
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+                    Frequency Synthesizers DDS/PLL --->
+                                *** Phase-Locked Loop (PLL) frequency synthesizers ***
+                                <*> Analog Devices ADF4377 Microwave Wideband Synthesizer
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ADF4377 driver is a SPI bus driver and can be instantiated via device tree.
 
 **Required properties:**
 
-- **compatible**: Should always be one of these:
+-  **compatible**: Should always be one of these:
 
-  - ``adi,adf4377``
-  - ``adi,adf4372``
+   -  ``adi,adf4377``
 
-- **reg**: SPI chip select number.
-- **clocks**: a list of phandle, one for each entry in clock-names.
-- **clock-names**: Must include the following entry: ``ref_in``
+   -  ``adi,adf4378``
+
+-  **reg**: SPI chip select number.
+
+-  **clocks**: a list of phandle, one for each entry in clock-names.
+
+-  **clock-names**: Must include the following entry: ``ref_in``
 
 **Optional properties:**
 
-- **ce-en-gpios**: Gpio that controls the Chip Enable Pin.
-- **enclk1-gpios**: Gpio that controls the Enable Clock 1 Output Buffer Pin.
-- **enclk2-gpios**: Gpio that controls the Enable Clock 2 Output Buffer Pin.
+-  **chip-enable-gpios: chip-enable pin. clk1-enable-gpios: clock 1 output
+   enable. clk2-enable-gpios: clock 2 output enable, ADF4377 only.**
 
 ::
 
@@ -114,35 +146,6 @@ The ADF4377 driver is a SPI bus driver and can be instantiated via device tree.
                clock-names = "ref_in";
            };
        };
-
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The ADF4377 driver depends on **SPI** and selects **REGMAP_SPI**
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-                    Frequency Synthesizers DDS/PLL --->
-                                *** Phase-Locked Loop (PLL) frequency synthesizers ***
-                                <*> Analog Devices ADF4377 Microwave Wideband Synthesizer
-
-Hardware configuration
-----------------------
 
 Driver testing
 --------------
@@ -162,9 +165,7 @@ Driver testing
    root@analog:/sys/bus/iio/devices/iio:device0# ls -l
    total 0
    -r--r--r-- 1 root root 4096 sep  4 14:05 dev
-   -rw-r--r-- 1 root root 4096 sep  4 14:05 frequency
-   -rw-r--r-- 1 root root 4096 sep  4 14:05 muxout_select
-   -rw-r--r-- 1 root root 4096 sep  4 14:05 muxout_select_available
+   -rw-r--r-- 1 root root 4096 sep  4 14:05 out_altvoltage0_frequency
    -r--r--r-- 1 root root 4096 sep  4 14:05 name
    lrwxrwxrwx 1 root root    0 sep  4 14:05 of_node -> ../../../../../../../../firmware/devicetree/base/soc/spi@7e204000/adf4377@0
    drwxr-xr-x 2 root root    0 sep  4 14:05 power
@@ -173,8 +174,8 @@ Driver testing
 
    root@analog:/sys/bus/iio/devices/iio:device0#
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -184,9 +185,9 @@ Show device name
 Read frequency
 ~~~~~~~~~~~~~~
 
-::
+.. code-block:: text
 
-   root@analog:/sys/bus/iio/devices/iio:device0# cat frequency
+   root@analog:/sys/bus/iio/devices/iio:device0# cat out_altvoltage0_frequency
    1000000000
 
 Set frequency
@@ -194,25 +195,17 @@ Set frequency
 
 ::
 
-   root@analog:/sys/bus/iio/devices/iio:device0# echo 1000000000 > frequency
-   root@analog:/sys/bus/iio/devices/iio:device0# cat frequency
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 1000000000 > out_altvoltage0_frequency
+   root@analog:/sys/bus/iio/devices/iio:device0# cat out_altvoltage0_frequency
    1000000000
 
-Muxout Select
-~~~~~~~~~~~~~
+Muxout configuration
+~~~~~~~~~~~~~~~~~~~~
 
-The mux output allows the user to access various internal points on the chip.
-Valid values that can be written:
-
-::
-
-   root@analog:/sys/bus/iio/devices/iio:device0# cat muxout_select_available
-   high_z lock_detect muxout_low f_div_rclk_2 f_div_nclk_2 muxout_high
-   root@analog:/sys/bus/iio/devices/iio:device0# cat muxout_select
-   digital_lock
-   root@analog:/sys/bus/iio/devices/iio:device0# echo lock_detect > muxout_select
-   root@analog:/sys/bus/iio/devices/iio:device0# cat muxout_select
-   lock_detect
+Configure the mux output with the optional ``adi,muxout-select`` Devicetree
+string. Supported values are ``high_z``, ``lock_detect``, ``muxout_low``,
+``f_div_rclk_2``, ``f_div_nclk_2`` and ``muxout_high``; the default is
+``high_z``.
 
 More Information
 ----------------
