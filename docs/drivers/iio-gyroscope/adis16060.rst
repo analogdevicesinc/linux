@@ -5,6 +5,9 @@
 ADIS16060
 =========
 
+The ADIS16060 driver was removed from the kernel in v4.19 (commit
+adca2d68d7041, "staging: iio: Drop ADIS16060 driver from staging").
+
 ADIS16060 IIO Yaw Rate Gyroscope.
 
 Supported Devices
@@ -39,8 +42,8 @@ Status
      - Mainlined?
      -
      -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16060_core.c>`__
-     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16060_core.c>`__
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/gyro/adis16060_core.c?id=4bcc19f1b218983be841a319a3a506f2e446c6b5>`__
+     - `Deprecated (removed in v4.19) <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=adca2d68d70410b4a4266c2879cdfab05874c397>`__
      -
      -
 
@@ -53,7 +56,7 @@ Files
    * - Function
      - File
    * - driver
-     - `drivers/staging/iio/accel/adis16060_core.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/accel/adis16060_core.c>`__
+     - `drivers/staging/iio/gyro/adis16060_core.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/gyro/adis16060_core.c?id=4bcc19f1b218983be841a319a3a506f2e446c6b5>`__
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-spi-slave-devices
@@ -105,6 +108,9 @@ the device in question.
 Adding Linux driver support
 ---------------------------
 
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
@@ -119,8 +125,7 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
            [*] Staging drivers  --->
                <*>     Industrial I/O support --->
                    --- Industrial I/O support
-                   -*-   Enable ring buffer support within IIO
-                   -*-     Industrial I/O lock free software ring
+                   -*-   Enable buffer support within IIO
                    -*-   Enable triggered sampling support
 
                          *** Digital gyroscope sensors ***
@@ -130,9 +135,6 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 
                    [--snip--]
 
-Hardware configuration
-----------------------
-
 Driver testing
 --------------
 
@@ -140,16 +142,16 @@ Driver testing
    :start-after: .. start-iio-device-files
    :end-before: .. end-iio-device-files
 
-::
+.. code-block:: text
 
    root:/> cd /sys/bus/iio/devices/
    root:/sys/bus/iio/devices> ls
-   iio:device0  trigger0
+   iio:device0
 
    root:/sys/bus/iio/devices> cd iio:device0
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> ls -l
    -r--r--r--    1 root     root          4096 Jan  3 19:32 dev
-   -r--r--r--    1 root     root          4096 Jan  3 19:32 in_gyro_z_raw
+   -r--r--r--    1 root     root          4096 Jan  3 19:32 in_anglvel_z_raw
    -rw-r--r--    1 root     root          4096 Jan  3 19:32 in_temp0_offset
    -r--r--r--    1 root     root          4096 Jan  3 19:32 in_temp0_raw
    -rw-r--r--    1 root     root          4096 Jan  3 19:32 in_temp0_scale
@@ -161,13 +163,22 @@ Driver testing
    -rw-r--r--    1 root     root          4096 Jan  3 19:32 uevent
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0>
 
-Show device name
-~~~~~~~~~~~~~~~~
+The driver implements only ``read_raw``: ``in_temp0_offset`` and
+``in_temp0_scale`` return fixed values (-7.461117 and 0.034000). Writes to
+channel attributes fail with ``-EINVAL``, even when their sysfs mode bits
+allow writing. The device operates in direct mode only; no buffer or trigger
+is registered.
+
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat name
    adis16060_r
+
+Attribute reference
+~~~~~~~~~~~~~~~~~~~
 
 ADIS16060 device attributes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -179,7 +190,7 @@ For a detailed description please see:
    :header-rows: 1
 
    * - Device files
-   * - in_gyro_z_raw
+   * - in_anglvel_z_raw
    * - in_temp0_offset
    * - in_temp0_raw
    * - in_temp0_scale
