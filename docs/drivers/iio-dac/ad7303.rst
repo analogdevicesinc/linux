@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ad7303
 
+
 .. _ad7303:
 
 AD7303
@@ -20,11 +21,11 @@ Evaluation Boards
 Description
 -----------
 
-This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
-driver, targeting single-channel serial interface DACs. The industrial I/O
-subsystem provides a unified framework for drivers for many different types of
-converters and sensors using a number of different physical interfaces (i2c,
-spi, etc). See :external+system-level:ref:`iio` for more information.
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem driver, targeting
+the dual-channel 8-bit AD7303 serial-interface DAC. The industrial I/O subsystem
+provides a unified framework for drivers for many different types of converters
+and sensors using a number of different physical interfaces (i2c, spi, etc). See
+:external+system-level:ref:`iio` for more information.
 
 Source Code
 -----------
@@ -55,25 +56,31 @@ Files
    * - driver
      - `drivers/iio/dac/ad7303.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad7303.c>`__
 
-Example platform device initialization
---------------------------------------
+Adding Linux driver support
+---------------------------
 
-Devicetree
-~~~~~~~~~~
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Required devicetree properties:
 
-- compatible: Needs to be ``adi,`` followed by the name of the device. E.g.
-  ``adi,ad5541a``
-- reg: The chipselect number used for the device
-- spi-max-frequency: Maximum SPI clock frequency
-- Vdd-supply: VDD voltage supply regulator
+-  compatible: Needs to be ``adi,`` followed by the name of the device. E.g.
+   ``adi,ad7303``
+
+-  reg: The chipselect number used for the device
+
+-  spi-max-frequency: Maximum SPI clock frequency
+
+-  Vdd-supply: VDD voltage supply regulator
 
 Optional devicetree properties:
 
 - REF-supply: external reference voltage supply regulator. This should only be
   set if there is an external reference voltage connected to the REF pin. If not
   set, Vdd/2 is used as the reference voltage.
+
+Example platform device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -128,13 +135,16 @@ Driver testing
    drwxr-xr-x 2 root root    0 Jul  5 05:10 trigger
    -rw-r--r-- 1 root root 4096 Jan  1  1970 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/bus/iio/devices/iio:device0> cat name
    ad7303
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale
 ^^^^^^^^^^
@@ -148,7 +158,7 @@ order to obtain the measured voltage in millivolts.
    12.890625
 
 Set channel Y output voltage
-''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw
 
@@ -162,7 +172,7 @@ Raw (unscaled, no bias etc.) output voltage for channel Y.
 **1289.0625 mV**
 
 Enable power down mode on output Y
-''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown
 
