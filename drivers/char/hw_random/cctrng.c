@@ -228,7 +228,7 @@ static int cctrng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 		cnt_w = CIRC_CNT(drvdata->circ.head,
 				 drvdata->circ.tail, CCTRNG_DATA_BUF_WORDS);
 		size = min((cnt_w<<2), left);
-		memcpy(data, &(buf[drvdata->circ.tail]), size);
+		memcpy(data + copied, &buf[drvdata->circ.tail], size);
 		copied += size;
 		circ_idx_inc(&drvdata->circ.tail, size);
 	}
