@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/ad9523
 
+
 .. _ad9523:
 
 AD9523
@@ -60,8 +61,36 @@ Files
    * - Documentation
      - `Documentation/ABI/testing/sysfs-bus-iio-frequency-ad9523 <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio-frequency-ad9523>`__
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD9523 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+                   Frequency Synthesizers DDS/PLL  --->
+                       Clock Generator/Distribution  --->
+               [--snip--]
+                   <*> Analog Devices AD9523 Low Jitter Clock Generator
+               [--snip--]
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-platform-data
@@ -327,7 +356,7 @@ Depending on the IC used, you may need to set the modalias accordingly, matching
 your part name. It may also required to adjust max_speed_hz. Please consult the
 datasheet, for maximum spi clock supported by the device in question.
 
-.. code:: c
+.. code-block:: c
 
    static struct spi_board_info board_spi_board_info[] __initdata = {
    #if defined(CONFIG_AD9523) || defined(CONFIG_AD9523_MODULE)
@@ -338,7 +367,10 @@ datasheet, for maximum spi clock supported by the device in question.
            .chip_select = 3,
            .platform_data = &ad9523_pdata_lpc, /* spi_driver specific config */
            .mode = SPI_MODE_0, /* optional set SPI_3WIRE */
-       },
+
+   },
+
+   #endif
    };
 
 .. code:: c
@@ -354,31 +386,6 @@ datasheet, for maximum spi clock supported by the device in question.
        return 0;
    }
    arch_initcall(board_init);
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AD9523 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-                   Frequency Synthesizers DDS/PLL  --->
-                       Clock Generator/Distribution  --->
-               [--snip--]
-                   <*> Analog Devices AD9523 Low Jitter Clock Generator
-               [--snip--]
-
-Hardware configuration
-----------------------
 
 Driver testing
 --------------
@@ -437,8 +444,8 @@ Driver testing
    -rw-r--r--    1 root     root          4096 Jan  1 00:00 uevent
    -r--r--r--    1 root     root          4096 Jan  1 00:00 vcxo_clk_present
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -447,7 +454,7 @@ Show device name
    ad9523-lpc
 
 Set ChannelY Output Frequency
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/iio:deviceX/out_altvoltageY_frequency
 
@@ -462,8 +469,35 @@ unique if the output corresponds to a single channel.
    root:/> cat out_altvoltage1_DAC_CLK_frequency
    245760000
 
+Save Current Device Config to EEPROM
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/sys/bus/iio/devices/iio:deviceX/store_eeprom
+
+Writing ‘1’ stores the current device configuration into on-chip EEPROM. After
+power-up or chip reset the device will automatically load the saved
+configuration.
+
+::
+
+   root:/> echo 1 > store_eeprom
+
+SYNC Device
+^^^^^^^^^^^
+
+/sys/bus/iio/devices/iio:deviceX/sync_dividers
+
+Writing ‘1’ triggers the clock distribution synchronization functionality. All
+dividers are reset and the channels start with their predefined phase offsets
+(out_altvoltageY_phase). Writing this file has the effect as driving the
+external /SYNC pin low.
+
+::
+
+   root:/> echo 1 > sync_dividers
+
 Set ChannelY Output Divider Phase
-'''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/iio:deviceX/out_altvoltageY_phase
 
@@ -472,18 +506,19 @@ another frequency/clock output (out_altvoltageZ) of the device X. The number
 must always be specified and unique if the output corresponds to a single
 channel.
 
-::
+.. code-block:: text
 
    root:/> cat out_altvoltage1_DAC_CLK_phase
    0.000000
    root:/> echo 3.142 >  out_altvoltage1_DAC_CLK_phase
    root:/> cat out_altvoltage1_DAC_CLK_phase
-   3.1415920
+   3.141592
 
 Disable / Power Down ChannelY
-'''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_phase
+Disable / Power Down ChannelY
+/sys/bus/iio/devices/iio:deviceX/out_altvoltageY\_<extended_name>_raw
 
 Writing ‘0’ powers down channelY, while writing any any value > 0 enables the
 channel.
@@ -497,7 +532,7 @@ channel.
    0
 
 Query Device Status
-'''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/iio:deviceX/pll1_locked
 /sys/bus/iio/devices/iio:deviceX/pll1_reference_clk_a_present
@@ -526,33 +561,6 @@ is unlocked.
    pll2_locked:1
    pll2_reference_clk_present:1
    vcxo_clk_present:1
-
-Save Current Device Config to EEPROM
-''''''''''''''''''''''''''''''''''''
-
-/sys/bus/iio/devices/iio:deviceX/store_eeprom
-
-Writing ‘1’ stores the current device configuration into on-chip EEPROM. After
-power-up or chip reset the device will automatically load the saved
-configuration.
-
-::
-
-   root:/> echo 1 > store_eeprom
-
-SYNC Device
-'''''''''''
-
-/sys/bus/iio/devices/iio:deviceX/sync_dividers
-
-Writing ‘1’ triggers the clock distribution synchronization functionality. All
-dividers are reset and the channels start with their predefined phase offsets
-(out_altvoltageY_phase). Writing this file has the effect as driving the
-external /SYNC pin low.
-
-::
-
-   root:/> echo 1 > sync_dividers
 
 More Information
 ----------------
