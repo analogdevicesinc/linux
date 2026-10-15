@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/ad9517
 
+
 .. _ad9517:
 
 AD9517
@@ -75,15 +76,18 @@ Files
      - :git+linux:`main:drivers/iio/frequency/ad9517.c`
      -
 
-Enabling the driver
--------------------
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
 
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
-.. note::
+Note
 
-   The ad9517 Driver depends on **CONFIG_SPI**
+The ad9517 Driver depends on CONFIG_SPI and CONFIG_COMMON_CLK
 
 ::
 
@@ -94,11 +98,8 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
                     Clock Generator/Distribution  --->
                     <*>  Analog Devices AD9517 12-Output Clock Generator
 
-Adding a device tree entry
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Device tree example
-^^^^^^^^^^^^^^^^^^^
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 The following example instantiates the ad9517 driver for a ad9517-3 device
 connected on the SPI bus to the chip-select line 1.
