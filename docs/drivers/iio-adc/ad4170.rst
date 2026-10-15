@@ -28,17 +28,22 @@ subsystem provides a unified framework for drivers for many different types of
 converters and sensors using a number of different physical interfaces (i2c,
 spi, etc). See :external+system-level:ref:`iio` for more information.
 
+Source Code
+-----------
+
 Status
-------
+~~~~~~
 
 .. list-table::
    :header-rows: 1
 
    * - Source
-   * - :git+linux:`dev_ad4170:/`
+     - Mainlined?
+   * - `drivers/iio/adc/ad4170-4.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad4170-4.c>`__
+     - Yes
 
 Files
------
+~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -46,7 +51,75 @@ Files
    * - Function
      - File
    * - driver
-     - :git+linux:`dev_ad4170:drivers/iio/adc/ad4170.c`
+     - `drivers/iio/adc/ad4170-4.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad4170-4.c>`__
+   * - devicetree bindings
+     - `adi,ad4170-4.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/adc/adi,ad4170-4.yaml>`__
+
+Adding Linux driver support
+---------------------------
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The binding requires ``compatible``, ``reg``, ``avdd-supply``, ``iovdd-supply``,
+``spi-cpol`` and ``spi-cpha``. Each channel node uses either ``diff-channels``
+for a differential pair, or ``single-channel`` with ``common-mode-channel``
+for a pseudo-differential input, plus ``adi,reference-select`` to pick the
+reference source. Input numbers 0-8 are the AIN pins; higher numbers select
+internal nodes such as the temperature sensor (17), REFOUT (29) or DGND (24).
+
+.. code-block:: dts
+
+   #include <dt-bindings/interrupt-controller/irq.h>
+   spi {
+       #address-cells = <1>;
+       #size-cells = <0>;
+
+       adc@0 {
+           compatible = "adi,ad4170-4";
+           reg = <0>;
+           spi-max-frequency = <20000000>;
+           spi-cpol;
+           spi-cpha;
+           avdd-supply = <&avdd>;
+           iovdd-supply = <&iovdd>;
+           interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
+           interrupt-names = "dig_aux1";
+           #address-cells = <1>;
+           #size-cells = <0>;
+
+           /* AIN29 (REFOUT) vs AIN24 (DGND) */
+           channel@0 {
+               reg = <0>;
+               diff-channels = <29 24>;
+               adi,reference-select = <2>;
+           };
+
+           /* AIN0 vs AIN24 (DGND) */
+           channel@1 {
+               reg = <1>;
+               diff-channels = <0 24>;
+               bipolar;
+               adi,reference-select = <2>;
+           };
+
+           /* AIN3 vs AIN4 */
+           channel@2 {
+               reg = <2>;
+               diff-channels = <3 4>;
+               bipolar;
+               adi,reference-select = <2>;
+           };
+       };
+   };
+
+Sensor excitation for load cell, RTD and thermocouple setups is described
+with ``adi,sensor-type``, ``adi,excitation-pin-N``,
+``adi,excitation-current-N-microamp`` and ``adi,excitation-ac``; see the
+binding examples for complete weigh-scale, RTD and thermocouple channel
+nodes. Changing a channel's ``filter_type`` can change the set of valid
+output data rates, so read back ``sampling_frequency`` after switching
+filters.
 
 Driver testing
 --------------
@@ -113,39 +186,39 @@ Driver testing
    drwxr-xr-x 2 root root    0 Sep 13 08:09 trigger
    -rw-r--r-- 1 root root 4096 Sep 13 08:09 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/bus/iio/devices/iio:device0> cat name
    ad4170
 
+Basic operation
+~~~~~~~~~~~~~~~
+
 Show channel scale, offset, sampling_frequency, calibbias, calibscale
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-::
+Set ``CHAN`` to the differential channel name reported under the device's
+sysfs directory, e.g. ``in_voltage29-voltage24``.
 
-   Description:
-   Scale, offset, calibbias, calibscale, sampling frequency for the in_voltagex_voltagey channel
-   0.000149011
-   root:/sys/bus/iio/devices/iio:device0> cat in_voltage29-voltage24_offset
-   0
-   root:/sys/bus/iio/devices/iio:device0> cat in_voltage29-voltage24_raw
-   16777216
-   root:/sys/bus/iio/devices/iio:device0> cat in_voltage29-voltage24_calibbias
-   0
-   root:/sys/bus/iio/devices/iio:device0> cat in_voltage29-voltage24_calibscale
-   0
-   root:/sys/bus/iio/devices/iio:device0> cat in_voltage29-voltage24_sampling_frequency
-   125000.000000000
+.. code-block:: sh
 
-**Description:** Channel Ainp29-Ainm24 is configured as unipolar, with a gain of
-1 **U** = //in_voltage29-voltage24_raw \* in_voltage29-voltage24_scale -
-in_voltage29-voltage24_offset // = 16777216\* 0.000149011 - 0 = **2499.98 mV**
+   DEV=/sys/bus/iio/devices/iio:deviceX
+   CHAN=in_voltage29-voltage24
+   cat "$DEV/${CHAN}_scale"
+   cat "$DEV/${CHAN}_offset"
+   cat "$DEV/${CHAN}_raw"
+   cat "$DEV/${CHAN}_calibbias"
+   cat "$DEV/${CHAN}_calibscale"
+   cat "$DEV/${CHAN}_sampling_frequency"
+
+The voltage is ``U_mV = (raw + offset) × scale``; the offset is in raw-code
+units. Bipolar conversion values are sign-extended by the driver.
 
 Show channel scale_available and sampling_frequency_available
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -158,70 +231,12 @@ Show channel scale_available and sampling_frequency_available
    [7.629860220 15.259720441 125000.000000000]
 
 Show filter_type_available
-''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/bus/iio/devices/iio:device0> cat in_voltage-voltage_filter_type_available
    sinc5+avg sinc5 sinc3
-
-Device Tree
-'''''''''''
-
-::
-
-   ad4170@0 {
-               compatible = "adi,ad4170";
-               reg = <0>;
-               avdd-supply = <&avdd>;
-               #address-cells = <1>;
-               #size-cells = <0>;
-
-               spi-max-frequency = <5000000>;
-               interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
-               interrupt-parent = <&gpio>;
-               interrupt-names = "adc_rdy";
-               adi,dig-aux1-function = "rdy";
-
-               //adi,gpio0-power-down-switch;
-               //adi,gpio1-power-down-switch;
-
-               channel@0 {
-                   reg = <0>;
-
-                   adi,reference-select = <AD4170_REFIN_REFOUT>;
-
-                   / REFOUT, DGND /
-                   diff-channels = <29 24>;
-                   adi,chop-iexc = <AD4170_CHOP_IEXC_OFF>;
-                   adi,chop-adc = <AD4170_CHOP_ACX_2PIN>;
-               };
-
-               channel@1 {
-                   reg = <1>;
-
-                   adi,reference-select = <2>;
-
-                   / AIN0, DGND  /
-                   diff-channels = <0 24>;
-                   bipolar;
-               };
-
-               channel@2 {
-                   reg = <2>;
-
-                   adi,reference-select = <2>;
-
-                   / AIN3+, AIN4-  /
-                   diff-channels = <3 4>;
-                   bipolar;
-               };
-   }
-
-The **adi,gpio0-power-down-switch** and **adi,gpio1-power-down-switch**
-properties enable the power down switches on GPIO0 and GPIO1 repectively. AC
-excitation is controlled via **adi,chop_iexc** and **adi,chop_adc** properties
-and can use 2 or 4 gpio pins.
 
 More Information
 ----------------
