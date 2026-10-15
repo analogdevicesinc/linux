@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-accelerometer/adxl355
 
+
 .. _adxl355:
 
 ADXL355
@@ -66,8 +67,14 @@ Files
      - `adi,adxl355.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/accel/adi,adxl355.yaml>`_
      -
 
+Adding Linux driver support
+---------------------------
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Required devicetree properties:
 
@@ -154,13 +161,16 @@ Driver testing
    drwxr-xr-x  2 root root    0 Nov 11 15:44 trigger
    -rw-r--r--  1 root root 4096 Nov 11 15:44 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/bus/iio/devices/iio:device0> cat name
    adxl355
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale
 ^^^^^^^^^^
@@ -174,7 +184,7 @@ acceleration.
    0.000038245
 
 Show axis x measurement
-'''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** Raw unscaled acceleration measurement on x axis
 
@@ -184,51 +194,53 @@ Show axis x measurement
    -33631
 
 Set sampling frequency
-''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~
 
-::
+.. code-block:: text
 
    root:/sys/bus/iio/devices/iio:device0> cat in_accel_sampling_frequency_available
    4000.000000 2000.000000 1000.000000 500.000000 250.000000 125.000000 62.500000 31.250000 15.625000 7.813000 3.906000
 
    root:/sys/bus/iio/devices/iio:device0> cat in_accel_sampling_frequency
-   6400
+   4000.000000
    root:/sys/bus/iio/devices/iio:device0> echo 4000 > in_accel_sampling_frequency
    root:/sys/bus/iio/devices/iio:device0> cat in_accel_sampling_frequency
    4000.000000
 
 Show available bandwidths for the current set frequency
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-::
+.. code-block:: text
 
-   root:/sys/bus/iio/devices/iio:device0> cat in_accel_filter_low_pass_3db_frequency_available
+   root:/sys/bus/iio/devices/iio:device0> cat in_accel_filter_high_pass_3db_frequency_available
    0.000000 9.880000 2.483360 0.621800 0.154480 0.038160 0.009520
    root:/sys/bus/iio/devices/iio:device0>
 
-Change the bandwidth
-''''''''''''''''''''
+Change the high-pass cutoff
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-::
+The driver exposes a high-pass filter attribute; there is no low-pass filter
+attribute. Available cutoff values depend on the sampling frequency.
 
-   root:/sys/bus/iio/devices/iio:device0> cat in_accel_filter_low_pass_3db_frequency_available
-   0.000000 9.880000 2.483360 0.621800 0.154480 0.038160 0.009520
-   root:/sys/bus/iio/devices/iio:device0> cat in_accel_filter_low_pass_3db_frequency
-   0
-   root:/sys/bus/iio/devices/iio:device0> echo 0.621800 > in_accel_filter_low_pass_3db_frequency
-   root:/sys/bus/iio/devices/iio:device0> cat in_accel_filter_low_pass_3db_frequency
-   0.621800
+.. code-block:: sh
+
+   cat in_accel_filter_high_pass_3db_frequency_available
+   cat in_accel_filter_high_pass_3db_frequency
+   echo 0.621800 > in_accel_filter_high_pass_3db_frequency
+   cat in_accel_filter_high_pass_3db_frequency
 
 Trigger management
-^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~
 
-::
+.. code-block:: text
 
    root:/sys/bus/iio/devices/iio:device0> cat trigger/current_trigger
-   adxl355-dev-
+   adxl355-dev0
+
+The suffix is the IIO device number; discover it on the running system.
 
 Buffer management
-^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~
 
 **Description:** The scan_elements directory contains interfaces for elements
 that will be captured for a single triggered sample set in the buffer
@@ -265,7 +277,10 @@ that will be captured for a single triggered sample set in the buffer
 
    root:/sys/bus/iio/devices/iio:device0/buffer> echo 1024 > length
 
-- Enable the buffer:
+-  Enable the desired scan elements before enabling the buffer, for example from
+   the device directory: echo 1 > scan_elements/in_accel_x_en echo 1 >
+   scan_elements/in_accel_y_en echo 1 > scan_elements/in_accel_z_en Enable the
+   buffer:
 
 ::
 
