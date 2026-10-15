@@ -637,7 +637,48 @@ static void cgwb_release_workfn(struct work_struct *work)
 	bdi_put(bdi);
 	WARN_ON_ONCE(!list_empty(&wb->b_attached));
 	WARN_ON_ONCE(work_pending(&wb->switch_work));
+	WARN_ON_ONCE(work_pending(&wb->replaced_work));
 	call_rcu(&wb->rcu, cgwb_free_rcu);
+}
+
+static void cgwb_replaced_workfn(struct work_struct *work)
+{
+	struct bdi_writeback *wb = container_of(work, struct bdi_writeback,
+						replaced_work);
+
+	do {
+		cond_resched_tasks_rcu_qs();
+	} while (switch_replaced_cgwb(wb));
+	wb_put(wb);
+}
+
+static void cgwb_queue_replaced_work(struct bdi_writeback *wb)
+{
+	lockdep_assert_held(&cgwb_lock);
+
+	if (wb_tryget(wb) && !queue_work(system_dfl_wq, &wb->replaced_work))
+		wb_put(wb);
+}
+
+/**
+ * cgwb_kick_replaced - queue @wb's replaced_work if @wb has been replaced
+ * @wb: wb that inodes were just switched to
+ *
+ * An inode switch pins its target wb before the switch lands, and the wb
+ * may be replaced in cgwb_create() and have its replaced_work run in
+ * between.  Kick the work again so that those inodes reach the successor
+ * too.  A dying wb that still owns its slot is left alone: foreign flushes
+ * can reach it, and the work would look up @wb itself.
+ */
+void cgwb_kick_replaced(struct bdi_writeback *wb)
+{
+	if (!wb_dying(wb))
+		return;
+
+	spin_lock_irq(&cgwb_lock);
+	if (radix_tree_lookup(&wb->bdi->cgwb_tree, wb->memcg_css->id) != wb)
+		cgwb_queue_replaced_work(wb);
+	spin_unlock_irq(&cgwb_lock);
 }
 
 static void cgwb_release(struct percpu_ref *refcnt)
@@ -724,6 +765,7 @@ static int cgwb_create(struct backing_dev_info *bdi,
 	INIT_WORK(&wb->switch_work, inode_switch_wbs_work_fn);
 	init_llist_head(&wb->switch_wbs_ctxs);
 	INIT_WORK(&wb->release_work, cgwb_release_workfn);
+	INIT_WORK(&wb->replaced_work, cgwb_replaced_workfn);
 	set_bit(WB_registered, &wb->state);
 	bdi_get(bdi);
 
@@ -748,6 +790,12 @@ static int cgwb_create(struct backing_dev_info *bdi,
 			old_wb = radix_tree_deref_slot_protected(slot, &cgwb_lock);
 			if (wb_dying(old_wb)) {
 				radix_tree_replace_slot(&bdi->cgwb_tree, slot, wb);
+				/*
+				 * @old_wb is out of foreign flushes' reach
+				 * but may still have inodes attached, dirty
+				 * or not.  Switch them over to @wb.
+				 */
+				cgwb_queue_replaced_work(old_wb);
 				ret = 0;
 			} else {
 				ret = -EEXIST;

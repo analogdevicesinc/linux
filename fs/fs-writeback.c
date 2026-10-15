@@ -619,6 +619,8 @@ void inode_switch_wbs_work_fn(struct work_struct *work)
 
 	llist_for_each_entry_safe(isw, next_isw, list, list)
 		process_inode_switch_wbs(new_wb, isw);
+	/* @new_wb may have been replaced while the switches were queued */
+	cgwb_kick_replaced(new_wb);
 	wb_put(new_wb);
 }
 
@@ -814,6 +816,71 @@ bool cleanup_offline_cgwb(struct bdi_writeback *wb)
 	up_read(&wb->bdi->wb_switch_rwsem);
 
 	/* no attached inodes? bail out */
+	if (nr == 0) {
+		atomic_dec(&isw_nr_in_flight);
+		wb_put(new_wb);
+		kfree(isw);
+		return restart;
+	}
+
+	trace_inode_switch_wbs_queue(wb, new_wb, nr);
+	wb_queue_isw(new_wb, isw);
+
+	return restart;
+}
+
+/**
+ * switch_replaced_cgwb - switch a replaced wb's inodes to its successor
+ * @wb: target wb, replaced in bdi->cgwb_tree by another wb of its memcg
+ *
+ * Switch all inodes on @wb's lists, dirty or not, to the wb that foreign
+ * flushes now find for @wb's memcg.  If that one is already gone, fall back
+ * like cleanup_offline_cgwb() does, to the nearest live ancestor's wb or the
+ * root wb.  The switch carries the dirty and writeback page counts, so
+ * nothing needs to be written back first.  Returns %true if not all inodes
+ * were switched and the function has to be restarted.
+ */
+bool switch_replaced_cgwb(struct bdi_writeback *wb)
+{
+	struct cgroup_subsys_state *memcg_css;
+	struct inode_switch_wbs_context *isw;
+	struct bdi_writeback *new_wb;
+	bool restart;
+	int nr = 0;
+
+	new_wb = wb_get_lookup(wb->bdi, wb->memcg_css);
+	for (memcg_css = wb->memcg_css->parent; !new_wb && memcg_css;
+	     memcg_css = memcg_css->parent)
+		new_wb = wb_get_create(wb->bdi, memcg_css, GFP_KERNEL);
+	if (!new_wb)
+		new_wb = &wb->bdi->wb; /* wb_get() is noop for bdi's wb */
+	if (WARN_ON_ONCE(new_wb == wb)) {
+		wb_put(new_wb);
+		return false;
+	}
+
+	isw = kzalloc_flex(*isw, inodes, WB_MAX_INODES_PER_ISW);
+	if (!isw) {
+		wb_put(new_wb);
+		return false;
+	}
+
+	atomic_inc(&isw_nr_in_flight);
+
+	/*
+	 * The scan reorders @wb's lists.  Keep it out of a sync's way, which
+	 * could otherwise miss dirty inodes moved past its cutoff on b_dirty.
+	 */
+	down_read(&wb->bdi->wb_switch_rwsem);
+	spin_lock(&wb->list_lock);
+	restart = isw_prepare_wbs_switch(new_wb, isw, &wb->b_attached, &nr) ||
+		  isw_prepare_wbs_switch(new_wb, isw, &wb->b_dirty, &nr) ||
+		  isw_prepare_wbs_switch(new_wb, isw, &wb->b_io, &nr) ||
+		  isw_prepare_wbs_switch(new_wb, isw, &wb->b_more_io, &nr) ||
+		  isw_prepare_wbs_switch(new_wb, isw, &wb->b_dirty_time, &nr);
+	spin_unlock(&wb->list_lock);
+	up_read(&wb->bdi->wb_switch_rwsem);
+
 	if (nr == 0) {
 		atomic_dec(&isw_nr_in_flight);
 		wb_put(new_wb);
