@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/adf4371
 
+
 .. _adf4371:
 
 ADF4371
@@ -13,8 +14,8 @@ Supported Devices
 - :adi:`ADF4371`
 - :adi:`ADF4372`
 
-Supported Boards
-----------------
+Evaluation Boards
+-----------------
 
 | This driver supports the
 
@@ -84,8 +85,37 @@ Example device tree
    * - dts
      - :git+linux:`rpi-adf4371-overlay.dts <rpi-4.19.y:arch/arm/boot/dts/overlays/rpi-adf4371-overlay.dts>`
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADF4371 driver depends on **SPI** and selects **REGMAP_SPI**
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+                    Frequency Synthesizers DDS/PLL --->
+                                *** Phase-Locked Loop (PLL) frequency synthesizers ***
+                                <*> Analog Devices ADF4371/ADF4372 Wideband Synthesizers
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ADF4371 driver is a SPI bus driver and can be instantiated via device tree.
 
@@ -122,15 +152,18 @@ The ADF4371 driver is a SPI bus driver and can be instantiated via device tree.
 
 **Channel specific optional properties:**
 
-- **reg**: The channel number. It can have up to 3 channels on adf4372 and 4
-  channels on adf4371, numbered from 0 to 3.
-- **adi,output-enable**: If this property is specified, the output channel will
-  be enabled. If left empty, the driver will initialize the defaults (RF8x,
-  channel 0 will be the only one enabled).
-- **adi,power-up-frequency**: Set the frequency after power up for the channel.
-  If this property is specified, it has to be in sync with the power up
-  frequency set on the other channels. This limitation is due to the fact that
-  all the channel frequencies are derived from the VCO fundamental frequency.
+-  **reg**: The channel number. It can have up to 3 channels on adf4372 and 4
+   channels on adf4371, numbered from 0 to 3.
+
+-  **adi,output-enable: Requests output enable for a channel with a nonzero
+   adi,power-up-frequency. A child without a power-up frequency is skipped by
+   the channel configuration loop, so output-enable alone does not enable that
+   output.**
+
+-  **adi,power-up-frequency**: Set the frequency after power up for the channel.
+   If this property is specified, it has to be in sync with the power up
+   frequency set on the other channels. This limitation is due to the fact that
+   all the channel frequencies are derived from the VCO fundamental frequency.
 
 ::
 
@@ -170,35 +203,6 @@ The ADF4371 driver is a SPI bus driver and can be instantiated via device tree.
                    };
            };
        };
-
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The ADF4371 driver depends on **SPI** and selects **REGMAP_SPI**
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-                    Frequency Synthesizers DDS/PLL --->
-                                *** Phase-Locked Loop (PLL) frequency synthesizers ***
-                                <*> Analog Devices ADF4371/ADF4372 Wideband Synthesizers
-
-Hardware configuration
-----------------------
 
 Driver testing
 --------------
@@ -241,8 +245,8 @@ Driver testing
 
    root@analog:/sys/bus/iio/devices/iio:device0#
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
