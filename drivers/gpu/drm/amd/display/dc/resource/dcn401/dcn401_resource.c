@@ -307,19 +307,23 @@ static struct dcn10_link_enc_hpd_registers link_enc_hpd_regs[5];
 
 #define link_regs_init(id, phyid) \
 	LE_DCN401_REG_LIST_RI(id), \
-	LE_DCN60_REG_LIST_RI(id)
+	LE_DCN60_REG_LIST_RI(id), \
+	SRI_ARR(RDPCSTX_PHY_CNTL0, RDPCSTX, id), \
+	SRI_ARR(RDPCSTX_PHY_CNTL3, RDPCSTX, id)
 
 static struct dcn10_link_enc_registers link_enc_regs[4];
 
 
 static const struct dcn10_link_enc_shift le_shift = {
 	LINK_ENCODER_MASK_SH_LIST_DCN401(__SHIFT), \
-	LINK_ENCODER_MASK_SH_LIST_DCN60_ON_DCN401(__SHIFT)
+	LINK_ENCODER_MASK_SH_LIST_DCN60_ON_DCN401(__SHIFT), \
+	LINK_ENCODER_PHY_STATE_MASK_SH_LIST_DCN401(__SHIFT)
 };
 
 static const struct dcn10_link_enc_mask le_mask = {
 	LINK_ENCODER_MASK_SH_LIST_DCN401(_MASK), \
-	LINK_ENCODER_MASK_SH_LIST_DCN60_ON_DCN401(_MASK)
+	LINK_ENCODER_MASK_SH_LIST_DCN60_ON_DCN401(_MASK), \
+	LINK_ENCODER_PHY_STATE_MASK_SH_LIST_DCN401(_MASK)
 };
 
 
