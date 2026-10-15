@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adar1000
 
+
 .. _adar1000:
 
 ADAR1000
@@ -17,17 +18,17 @@ in the radio frequency (RF) path, with 6-bit resolution (less than ≤0.5 dB and
 2.8°, respectively).
 
 Supported Devices
------------------
+~~~~~~~~~~~~~~~~~
 
 - :adi:`ADAR1000`
 
 Evaluation Boards
------------------
+~~~~~~~~~~~~~~~~~
 
 - :adi:`eval-adar1000`
 
 Description
------------
+~~~~~~~~~~~
 
 This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
 driver, targeting RF Transceivers. The industrial I/O subsystem provides a
@@ -36,10 +37,10 @@ using a number of different physical interfaces (i2c, spi, etc). See
 :external+system-level:ref:`iio` for more information.
 
 Source Code
------------
+~~~~~~~~~~~
 
 Status
-~~~~~~
+^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -50,7 +51,7 @@ Status
      - No
 
 Files
-~~~~~
+^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -61,6 +62,41 @@ Files
      - :git+linux:`main:drivers/iio/beamformer/adar1000.c`
    * - devicetree bindings
      - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,adar1000.yaml`
+
+Adding Linux driver support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Kernel configuration
+^^^^^^^^^^^^^^^^^^^^
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADAR1000 driver depends on **CONFIG_SPI**
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+           -*-   Enable buffer support within IIO
+           -*-   Enable triggered sampling support
+
+                 *** Analog to digital converters ***
+           [--snip--]
+
+           <*>   Analog Devices ADAR1000 Beamformer driver
+
+           [--snip--]
+
+Devicetree configuration
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 Example Linux Device-Tree Initialization
 ----------------------------------------
@@ -81,41 +117,8 @@ Required devicetree properties:
    * - RPI Device Tree
      - :git+linux:`rpi-adar1000-overlay.dts <main:arch/arm/boot/dts/overlays/rpi-adar1000-overlay.dts>`
 
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The ADAR1000 driver depends on **CONFIG_SPI**
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-           -*-   Enable ring buffer support within IIO
-           -*-     Industrial I/O lock free software ring
-           -*-   Enable triggered sampling support
-
-                 *** Analog to digital converters ***
-           [--snip--]
-
-           <*>   Analog Devices ADAR1000 Beamformer driver
-
-           [--snip--]
-
-Driver testing / API
---------------------
+Driver testing
+~~~~~~~~~~~~~~
 
 .. important::
 
@@ -232,8 +235,8 @@ out_voltage0\_[…]: targets TX1 out_voltage1\_[…]: targets TX2
    -rw-rw-rw- 1 root root 4096 Oct 27 09:10 uevent
    root:/sys/bus/iio/devices/iio:device0#
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -241,7 +244,7 @@ Show device name
    adar1000
 
 RX/TX Phase Control
-~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^
 
 The default phase control is provided by table 13 of the
 :adi:`ADAR1000 datasheet <media/en/technical-documentation/data-sheets/ADAR1000.pdf>`.
@@ -290,7 +293,7 @@ Example:
 - phase tables must be monotonic
 
 Loading a gain table
-^^^^^^^^^^^^^^^^^^^^
+--------------------
 
 ::
 
@@ -300,11 +303,12 @@ Loading a gain table
    root@analog:/sys/bus/iio/devices/iio:device0# cat /firmware/adar1000_std_phasetable > phase_table_config
 
 Reading a gain table
-^^^^^^^^^^^^^^^^^^^^
+--------------------
 
-Reading the phase_table_config attribute returns the current phase table that is
-loaded into the IC. The printed format matches the format used in the phasetable
-file.
+Reading phase_table_config returns the phase-to-I/Q lookup table held by the
+driver. It is not a readback of an entire hardware phase table; the driver uses
+this table when programming phase registers. The printed format matches the
+format used in the phasetable file.
 
 ::
 
@@ -331,19 +335,19 @@ file.
    </phasetable>
 
 RAM memory access
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 On-chip RAM is provided for storing phase and amplitude settings for up to 121
 beam positions and seven bias settings for both transmit and receive modes.
 
 Save/Load beam position
-^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------
 
 A beam position can be written to ram and loaded afterwards from that memory
 location (index).
 
 Save beam position command
-''''''''''''''''''''''''''
+""""""""""""""""""""""""""
 
 ::
 
@@ -359,7 +363,7 @@ Values for **gain_value** and **phase_value** must be in integer and fractional
 part. **beam_position** can take values from 0 to 120.
 
 Load beam position command
-''''''''''''''''''''''''''
+""""""""""""""""""""""""""
 
 ::
 
@@ -369,17 +373,19 @@ To load a position just write the position number in the load attribute for the
 required channel.
 
 Save/Load bias settings
-^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------
 
 Seven memory locations are also provided for storing bias settings for all the
 transmit and receive channel subcircuits.
 
 Save RX bias settings
-'''''''''''''''''''''
+"""""""""""""""""""""
 
-::
+.. code-block:: text
 
-   echo 0, 1, 2, 3, 4 > in_voltage_bias_set_save
+   echo 1, 1, 2, 3, 4 > in_voltage_bias_set_save
+
+Bias-set indices are 1–7; beam positions separately use 0–120.
 
 The values written here correspond the the following diagram:
 
@@ -389,7 +395,7 @@ The values written here correspond the the following diagram:
    BIAS_CURRENT_RX_LNA
 
 Save TX bias settings
-'''''''''''''''''''''
+"""""""""""""""""""""
 
 ::
 
@@ -404,18 +410,18 @@ The values written here correspond the the following diagram:
    CH4_PA_BIAS_ON, BIAS_CURRENT_TX, BIAS_CURRENT_TX_DRV
 
 Load bias settings
-''''''''''''''''''
+""""""""""""""""""
 
-::
+.. code-block:: text
 
    echo 5 > out_voltage_bias_set_load
-   echo  > in_voltage_bias_set_load
+   echo 5 > in_voltage_bias_set_load
 
 For loading a different bias setting the operations is the same for RX and TX
 channels.
 
 Memory sequencer
-^^^^^^^^^^^^^^^^
+----------------
 
 The beam can be stepped sequentially through the positions stored in memory. To
 use this feature the following steps must be executed:
@@ -433,15 +439,18 @@ use this feature the following steps must be executed:
    echo 1 > sequencer_enable
    echo 1 > gen_clk_cycles
 
+Troubleshooting
+~~~~~~~~~~~~~~~
+
 Low level register access via debugfs (direct_reg_access)
----------------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-low-level-register-access-via-debugfs-direct-reg-access
    :end-before: .. end-low-level-register-access-via-debugfs-direct-reg-access
 
 More Information
-----------------
+~~~~~~~~~~~~~~~~
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-pointers
