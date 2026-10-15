@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9025-customization
 
+
 .. _adrv9025-customization:
 
 ADRV9025 Customization
@@ -15,8 +16,11 @@ ADRV9025 Device Driver Customization.
 
    If unsure please see the manual or don’t change!
 
+Configuration and sequence
+--------------------------
+
 Clock Settings
---------------
+~~~~~~~~~~~~~~
 
 :ref:`ad9528`
 
@@ -127,7 +131,7 @@ A sample configuration of the AD9528:
    };
 
 ADRV9025 PHY
-------------
+~~~~~~~~~~~~
 
 ::
 
@@ -194,9 +198,9 @@ ADRV9025 PHY
      - Channel mask for TX attenuation values
 
 AXI FPGA
---------
+~~~~~~~~
 
-::
+.. code-block:: dts
 
    fpga_axi: fpga-axi@0 {
            interrupt-parent = <&gic>;
@@ -298,7 +302,7 @@ AXI FPGA
                adi,sys-clk-select = <XCVR_CPLL>;
                adi,out-clk-select = <XCVR_REFCLK>;
                adi,use-lpm-enable;
-               adi,use-cpll-enable;
+               /* CPLL is selected by adi,sys-clk-select = <XCVR_CPLL>; no adi,use-cpll-enable property is needed. */
 
                jesd204-device;
                #jesd204-cells = <2>;
@@ -334,7 +338,7 @@ AXI FPGA
        };
 
 GPIO Settings
--------------
+~~~~~~~~~~~~~
 
 The GPIO configurations can be done by changing a node’s properties, as the
 following example shows:
