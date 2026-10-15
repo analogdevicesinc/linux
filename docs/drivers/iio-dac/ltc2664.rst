@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ltc2664
 
+
 .. _ltc2664:
 
 LTC2664
@@ -34,8 +35,8 @@ Evaluation Boards
 Description
 -----------
 
-This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
-driver, targeting single-channel serial interface DACs. The industrial I/O
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem driver, targeting
+the four-channel LTC2664 serial-interface DAC family. The industrial I/O
 subsystem provides a unified framework for drivers for many different types of
 converters and sensors using a number of different physical interfaces (i2c,
 spi, etc). See :external+system-level:ref:`iio` for more information.
@@ -67,28 +68,35 @@ Files
    * - dt-bindings
      - `Documentation/devicetree/bindings/iio/dac/adi,ltc2664.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/dac/adi,ltc2664.yaml>`_
 
-Example platform device initialization
---------------------------------------
+Adding Linux driver support
+---------------------------
 
-Devicetree
-~~~~~~~~~~
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Required devicetree properties:
 
-- ``compatible``: Needs to be ``adi,`` followed by the name of the device. E.g.
-  ``adi,ltc2664``
-- ``reg``: The chipselect number used for the device
-- ``spi-max-frequency``: Maximum SPI clock frequency
-- ``Vdd-supply``: VDD voltage supply regulator
-- ``iovcc-supply``: Digital Input/Output Supply Voltage.
-- ``adi,manual-span-operation-config``:
-- Channel nodes with ``reg``, ``adi,manual-span-operation-config`` and
-  optionally ``adi,toggle-mode`` properties.
+-  ``compatible``: Needs to be ``adi,`` followed by the name of the device. E.g.
+   ``adi,ltc2664``
+
+-  ``reg``: The chipselect number used for the device
+
+-  ``spi-max-frequency``: Maximum SPI clock frequency
+
+- ``vcc-supply``: Analog supply.
+- ``v-neg-supply``: Negative analog supply.
+
+-  ``iovcc-supply``: Digital Input/Output Supply Voltage.
+
+-  ``adi,manual-span-operation-config``:
+
+- Channel nodes use ``reg``, ``output-range-microvolt`` and optional
+  ``adi,toggle-mode``. Manual-span configuration belongs to the parent.
 
 Optional devicetree properties:
 
-- ``vref-supply``: external reference voltage supply regulator. This should only
-  be set if there is an external reference voltage connected to the REF pin.
+- ``ref-supply``: External reference voltage supply regulator. Set this only
+  when an external reference voltage is connected to the REF pin.
 
 ::
 
@@ -140,26 +148,29 @@ Optional devicetree properties:
 
            channel@0 {
                reg = <0>;
-               adi,output-range-microvolt = <(-10000000) 10000000>;
+               output-range-microvolt = <(-10000000) 10000000>;
            };
 
            channel@1 {
                reg = <1>;
-               adi,output-range-microvolt = <(-10000000) 10000000>;
+               output-range-microvolt = <(-10000000) 10000000>;
                adi,toggle-mode;
            };
 
            channel@2 {
                reg = <2>;
-               adi,output-range-microvolt = <(-10000000) 10000000>;
+               output-range-microvolt = <(-10000000) 10000000>;
            };
 
            channel@3 {
                reg = <3>;
-               adi,output-range-microvolt = <(-10000000) 10000000>;
+               output-range-microvolt = <(-10000000) 10000000>;
            };
        };
    };
+
+Example platform device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Driver testing
 --------------
@@ -278,13 +289,16 @@ Driver testing
            No trigger on this device
    root@analog:~#
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root@analog:/sys/bus/iio/devices/iio:device0> cat name
    ltc2664
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale
 ^^^^^^^^^^
@@ -292,13 +306,17 @@ Show scale
 **Description:** scale to be applied to out_voltage0_raw and out_voltage1_raw in
 order to obtain the measured voltage in millivolts.
 
-::
+Run in the correct device directory. Scale and offset are per-channel: replace 0
+with the selected channel. Toggle-enabled channel 1 uses raw0/raw1 instead of
+raw.
 
-   root@analog:/sys/bus/iio/devices/iio:device0> cat out_voltage_scale
-   0.305175781
+.. code-block:: text
+
+   cat out_voltage0_scale
+   cat out_voltage0_offset
 
 Show offset
-'''''''''''
+~~~~~~~~~~~
 
 | **Description:**
 | /sys/bus/iio/devices/iio:deviceX/out_offset_raw
@@ -312,7 +330,7 @@ voltage in millivolts. The offset is applied before scale is applied.
    -32768
 
 Set channel Y output voltage
-''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw
 
@@ -326,7 +344,7 @@ Raw (unscaled, no bias etc.) output voltage for channel Y.
 (10000 - 32768) \* 0.305175781\ *mV* = **-6948.24 mV**
 
 Enable power down mode on output Y
-''''''''''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown
 
@@ -343,7 +361,7 @@ Clearing returns to normal operation.
    0
 
 Test example
-------------
+~~~~~~~~~~~~
 
 **Using:**
 
