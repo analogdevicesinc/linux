@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/axi-adc-hdl
 
+
 .. _axi-adc-hdl:
 
 AXI ADC HDL
@@ -7,8 +8,8 @@ AXI ADC HDL
 
 AXI ADC HDL Linux Driver.
 
-Supported Devices
------------------
+Supported IP Cores
+------------------
 
 - :adi:`AD6676`
 - :adi:`AD9208`
@@ -28,8 +29,8 @@ Supported Devices
 - :adi:`AD9683`
 - :adi:`AD9684`
 
-Supported Boards
-----------------
+Evaluation Boards
+-----------------
 
 This driver supports the
 
@@ -47,11 +48,6 @@ This driver supports the
 - :external+hdl:ref:`fmcjesdadc1`
 - :external+hdl:ref:`ad9265_fmc`
 - :dokuwiki:`ADRV9371 FMC Card <resources/eval/user-guides/mykonos>`
-
-Sub device Documentation (linked mode)
---------------------------------------
-
-- :ref:`ad9208`
 
 Description
 -----------
@@ -116,7 +112,7 @@ Files
    * - driver
      - :git+linux:`main:drivers/iio/adc/ad9208.c`
    * - driver
-     - `ad9467.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad9467.c>`_
+     - `ad9467.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad9467.c>`__
    * - driver
      - :git+linux:`main:drivers/iio/adc/ad9680.c`
    * - driver
@@ -127,47 +123,99 @@ Files
      - :git+linux:`main:drivers/iio/adc/adrv9009_conv.c`
    * - core driver
      - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
-   * - core driver
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
+   * - DMA buffer
+     - :git+linux:`main:drivers/iio/buffer/industrialio-buffer-dmaengine.c`
    * - core include
      - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AXI ADC HDL driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+           -*-   Enable buffer support within IIO
+           -*-   Enable triggered sampling support
+
+                 *** Analog to digital converters ***
+           [--snip--]
+               -*- Analog Devices High-Speed AXI ADC driver core
+                   <*> Analog Devices AD9208 and similar high speed ADCs
+                   <*> Analog Devices AD9371 RF Transceiver driver
+                   <*> Analog Devices ADRV9009/ADRV9008 RF Transceiver driver
+                   <*> Analog Devices AD6676 Wideband IF Receiver driver
+                   <*> Analog Devices AD9467 etc. high speed ADCs
+                   <*> Analog Devices AD9680 and similar high speed ADCs
+           [--snip--]
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The AXI ADC driver is a platform driver and can currently only be instantiated
 via device tree.
 
 Required devicetree properties:
 
-- **compatible**: Should always be one of these:
+-  **compatible**: Should always be one of these:
 
-  - ``xlnx,cf-ad9467-core-1.00.a``
-  - ``xlnx,axi-adc-1c-1.00.a``
-  - ``xlnx,axi-ad9234-1.00.a``
-  - ``xlnx,axi-ad9250-1.00.a``
-  - ``xlnx,axi-ad9434-1.00.a``
-  - ``adi,axi-ad9643-6.00.a``
-  - ``adi,axi-ad9361-6.00.a``
-  - ``adi,axi-ad9371-6.00.a``
-  - ``adi,axi-ad9680-1.0``
-  - ``adi,axi-ad9625-1.0``
-  - ``adi,axi-ad6676-1.0``
-  - ``adi,axi-ad9684-1.0``
-  - ``adi,axi-ad9371-rx-1.0``
-  - ``adi,axi-ad9684-1.0``
-  - ``adi,axi-adrv9009-rx-1.0``
-  - ``adi,axi-ad9208-1.0``
-  - For a complete list see driver source: static const struct of_device_id
-    axiadc_of_match[]
+   -  ``adi,axi-adc-legacy-10.0.a``
 
-- **reg**: Base address and register area size. This parameter expects a
-  register range.
-- **spibus-connected**: Phandle to the SPI device on which the AD9467/AD9643 can
-  be found
-- **dmas**: List of DMA controller phandle. DMA specifiers for tx and rx dma.
-  See the DMA client binding, Documentation/devicetree/bindings/dma/dma.txt
-- **dma-names**: DMA request names should include ``tx`` and ``rx`` if present.
+   -  ``xlnx,axi-ad9234-1.00.a``
+
+   -  ``xlnx,axi-ad9250-1.00.a``
+
+   -  ``xlnx,axi-ad9434-1.00.a``
+
+   -  ``adi,axi-ad9643-6.00.a``
+
+   -  ``adi,axi-ad9361-6.00.a``
+
+   -  ``adi,axi-ad9680-1.0``
+
+   -  ``adi,axi-ad9625-1.0``
+
+   -  ``adi,axi-ad6676-1.0``
+
+   -  ``adi,axi-ad9694-1.0``
+
+   -  ``adi,axi-ad9371-rx-1.0``
+
+   -  ``adi,axi-ad9684-1.0``
+
+   -  ``adi,axi-adrv9009-rx-1.0``
+
+   -  ``adi,axi-ad9208-1.0``
+
+   -  For a complete list see driver source: static const struct of_device_id
+      axiadc_of_match[]
+
+-  **reg**: Base address and register area size. This parameter expects a
+   register range.
+
+-  **spibus-connected**: Phandle to the SPI device on which the AD9467/AD9643
+   can be found
+
+-  **dmas**: Receive DMA controller/channel specifier. The driver creates a DMA
+   buffer only when the HDL instance is the master (ID 0) and ``dmas`` is
+   present.
+
+-  **dma-names**: ``rx``. A ``tx`` DMA entry is not used by this driver.
 
 Example:
 
@@ -177,7 +225,7 @@ Example:
        adc_ad9467: ad9467@0 {
            #address-cells = <1>;
            #size-cells = <0>;
-           compatible = "ad9467";
+           compatible = "adi,ad9467";
            reg = <0>;
            spi-max-frequency = <10000000>;
            clocks = <&clk_ad9517 3>;
@@ -210,7 +258,7 @@ Example:
        };
 
        cf_ad9467_core_0: cf-ad9467-core-lpc@44a00000 {
-           compatible = "xlnx,cf-ad9467-core-1.00.a";
+           compatible = "adi,axi-adc-legacy-10.0.a";
            reg = <0x44A00000 0x10000>;
            dmas = <&rx_dma 0>;
            dma-names = "rx";
@@ -218,46 +266,6 @@ Example:
            spibus-connected = <&adc_ad9467>;
        };
    };
-
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AXI ADC HDL driver depends on **CONFIG_SPI**
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-           -*-   Enable ring buffer support within IIO
-           -*-     Industrial I/O lock free software ring
-           -*-   Enable triggered sampling support
-
-                 *** Analog to digital converters ***
-           [--snip--]
-               -*- Analog Devices High-Speed AXI ADC driver core
-                   <*> Analog Devices AD9208 and similar high speed ADCs
-                   <*> Analog Devices AD9371 RF Transceiver driver
-                   <*> Analog Devices ADRV9009/ADRV9008 RF Transceiver driver
-                   <*> Analog Devices AD6676 Wideband IF Receiver driver
-                   <*> Analog Devices AD9467 etc. high speed ADCs
-                   <*> Analog Devices AD9680 and similar high speed ADCs
-           [--snip--]
-
-Hardware configuration
-----------------------
 
 Driver testing
 --------------
@@ -297,13 +305,16 @@ Driver testing
    -rw-r--r--    1 root     root          4096 Jan  1 00:00 uevent
    root:/sys/bus/iio/devices/iio:device4>
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/bus/iio/devices/iio:device4> cat name
    cf-ad9643-core-lpc
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale
 ^^^^^^^^^^
@@ -316,74 +327,8 @@ measured voltage in millivolts.
    root:/sys/bus/iio/devices/iio:device4> cat in_voltage_scale
    0.026703
 
-Show available scales
-'''''''''''''''''''''
-
-::
-
-   root:/sys/bus/iio/devices/iio:device4> cat in_voltage_scale_available
-   0.031738 0.031403 0.031067 0.030731 0.030396 0.030060 0.029724 0.029388 0.029053 0.028717 0.028381 0.028046 0.027710 0.027374 0.027039 0.026703 0.026367 0.026031 0.025696 0.025360 0.025024 0.024689 0.024353 0.024017 0.023682 0.023346 0.023010 0.022675 0.022339 0.022003 0.021667 0.021332
-
-Set ADC calibration gain
-''''''''''''''''''''''''
-
-**Description:** in_voltage0_calibscale in_voltage1_calibscale
-
-Set the channel calibration gain. Writing to these files will set the
-calibration gain for the respective channel. Valid values are in the range of
-0..1.999999
-
-::
-
-   root:/sys/bus/iio/devices/iio:device4> cat in_voltage0_calibscale
-   1.000000
-
-Set ADC calibration bias
-''''''''''''''''''''''''
-
-**Description:** in_voltage0_calibbias in_voltage1_calibbias
-
-Set the channel calibration bias/offset. Writing to these files will set the
-calibration bias for the respective channel. Valid values are in the range of
-+/- 16384.
-
-::
-
-   root:/sys/bus/iio/devices/iio:device4> cat in_voltage0_calibscale
-   1.0
-
-Show available ADC test modes
-'''''''''''''''''''''''''''''
-
-**Description:**
-
-Show available test modes supported by the underlying ADC. These test modes are
-typically used to test the high speed digital interface between the converter
-and interface adaptor.
-
-::
-
-   root:/sys/bus/iio/devices/iio:device4> cat in_voltage_test_mode_available
-   off midscale_short pos_fullscale neg_fullscale checkerboard pn_long pn_short one_zero_toggle
-
-Set ADC test mode
-'''''''''''''''''
-
-**Description:** in_voltage0_test_mode in_voltage1_test_mode
-
-Enter test modes supported by the underlying ADC. These test modes are typically
-used to test the high speed digital interface between the converter and
-interface adaptor.
-
-::
-
-   root:/sys/bus/iio/devices/iio:device4> echo one_zero_toggle > in_voltage0_test_mode
-   root:/sys/bus/iio/devices/iio:device4> cat in_voltage0_test_mode
-   one_zero_toggle
-   root:/sys/bus/iio/devices/iio:device4> echo off > in_voltage0_test_mode
-
 External Synchronization
-''''''''''''''''''''''''
+""""""""""""""""""""""""
 
 The :external+hdl:ref:`ad_ip_jesd204_tpl_adc` core supports the EXT_SYNC
 feature, allowing to synchronize multiple channels within a ADC or across
@@ -398,21 +343,22 @@ returns the available modes which depend on HDL core synthesis parameters. The
 options are explained below. Reading ‘sync_start_enable’ returns either ‘arm’
 while waiting for the external synchronization signal or ‘disarm’ otherwise.
 
-- ``arm``: Setting this key will arm the trigger mechanism sensitive to an
-  external sync signal. Once the external sync signal goes high it synchronizes
-  channels within a ADC, and across multiple instances. This key has an effect
-  only the EXT_SYNC synthesis parameter is set.
+-  ``arm``: Setting this key will arm the trigger mechanism sensitive to an
+   external sync signal. Once the external sync signal goes high it synchronizes
+   channels within a ADC, and across multiple instances. This key has an effect
+   when EXT_SYNC is present. Without EXT_SYNC, writing arm still sets the legacy
+   ADI_SYNC bit and \_available reports only arm; it is not universally a no-op.
 
-- ``disarm``: Setting this key will disarm the trigger mechanism sensitive to an
-  external sync signal. This key has an effect only the EXT_SYNC synthesis
-  parameter is set.
+-  ``disarm``: Setting this key will disarm the trigger mechanism sensitive to
+   an external sync signal. This key has an effect only the EXT_SYNC synthesis
+   parameter is set.
 
-- ``trigger_manual``: Setting this key will issue an external sync event if it
-  is hooked up inside the fabric. This key has an effect only the EXT_SYNC
-  synthesis parameter is set.
+-  ``trigger_manual``: Setting this key will issue an external sync event if it
+   is hooked up inside the fabric. This key has an effect only the EXT_SYNC
+   synthesis parameter is set.
 
 Example:
-''''''''
+""""""""
 
 ::
 
@@ -426,6 +372,73 @@ Example:
    root@analog:/sys/bus/iio/devices/iio:device3# echo trigger_manual > sync_start_enable
    root@analog:/sys/bus/iio/devices/iio:device3# cat sync_start_enable
    disarm
+
+Show available scales
+~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/bus/iio/devices/iio:device4> cat in_voltage_scale_available
+   0.031738 0.031403 0.031067 0.030731 0.030396 0.030060 0.029724 0.029388 0.029053 0.028717 0.028381 0.028046 0.027710 0.027374 0.027039 0.026703 0.026367 0.026031 0.025696 0.025360 0.025024 0.024689 0.024353 0.024017 0.023682 0.023346 0.023010 0.022675 0.022339 0.022003 0.021667 0.021332
+
+Set ADC calibration gain
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Description:** in_voltage0_calibscale in_voltage1_calibscale
+
+Set the channel calibration gain. Writing to these files will set the
+calibration gain for the respective channel. Valid values are in the range of
+approximately -1.999939..+1.999939, in 1/16384 steps.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device4> cat in_voltage0_calibscale
+   1.000000
+
+Set ADC calibration bias
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Description:** in_voltage0_calibbias in_voltage1_calibbias
+
+Set the channel calibration bias/offset. Writing to these files will set the
+calibration bias for the respective channel. Valid values are in the range of
+-32768..32767 raw-code counts. Larger values are truncated to signed 16 bits
+rather than rejected.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device4> cat in_voltage0_calibbias
+   0
+
+Show available ADC test modes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Description:**
+
+Show available test modes supported by the underlying ADC. These test modes are
+typically used to test the high speed digital interface between the converter
+and interface adaptor.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device4> cat in_voltage_test_mode_available
+   off midscale_short pos_fullscale neg_fullscale checkerboard pn_long pn_short one_zero_toggle
+
+Set ADC test mode
+~~~~~~~~~~~~~~~~~
+
+**Description:** in_voltage0_test_mode in_voltage1_test_mode
+
+Enter test modes supported by the underlying ADC. These test modes are typically
+used to test the high speed digital interface between the converter and
+interface adaptor.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device4> echo one_zero_toggle > in_voltage0_test_mode
+   root:/sys/bus/iio/devices/iio:device4> cat in_voltage0_test_mode
+   one_zero_toggle
+   root:/sys/bus/iio/devices/iio:device4> echo off > in_voltage0_test_mode
 
 Buffer management
 ~~~~~~~~~~~~~~~~~
@@ -462,3 +475,8 @@ More Information
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-pointers
    :end-before: .. end-iio-pointers
+
+Sub device Documentation (linked mode)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- :ref:`ad9208`
