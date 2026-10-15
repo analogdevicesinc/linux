@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/serial/max310x
 
+
 .. _max310x:
 
 MAX310x
@@ -7,7 +8,7 @@ MAX310x
 
 MAX310x Driver.
 
-Supported devices
+Supported Devices
 -----------------
 
 :adi:`MAX3107 <en/products/max3107.html>`
@@ -18,15 +19,15 @@ Supported devices
 
 :adi:`MAX14830 <en/products/max14830.html>`
 
-Evaluation boards
+Evaluation Boards
 -----------------
 
 :adi:`MAX3107EVKIT <en/products/max3107.html#product-evaluationkit>`
 
 :adi:`MAX14830EVKIT <en/products/max14830.html#product-evaluationkit>`
 
-Overview
---------
+Description
+-----------
 
 The MAX310x devices are advanced UART with 128 words each of receive and
 transmit FIFO that can be controlled through I²C or high-speed SPI™. Baud rates
@@ -68,7 +69,7 @@ Files
    * - driver
      - `drivers/tty/serial/max310x.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/tty/serial/max310x.c>`__
    * - Documentation
-     - `Documentation/devicetree/bindings/serial/maxim,max310x.txt <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/serial/maxim,max310x.txt>`__
+     - `Documentation/devicetree/bindings/serial/maxim,max310x.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/serial/maxim,max310x.txt>`__
 
 Example device tree
 
