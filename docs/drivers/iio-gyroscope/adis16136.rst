@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-gyroscope/adis16136
 
+
 .. _adis16136:
 
 ADIS16136
@@ -98,6 +99,9 @@ the device in question.
 Adding Linux driver support
 ---------------------------
 
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
 Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 ``make qconfig``)
 
@@ -119,9 +123,6 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
                    ...
                ...
            ...
-
-Hardware configuration
-----------------------
 
 Driver testing
 --------------
@@ -156,8 +157,22 @@ Driver testing
    -rw-r--r--    1 root     root          4096 Jan  1 01:03 uevent
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0>
 
+Identify the device
+~~~~~~~~~~~~~~~~~~~
+
+The ``name`` file contains the name of the device. This will match the product
+id. E.g. ``adis16136`` for the adis16136.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat name
+   adis16136
+
+Attribute reference
+~~~~~~~~~~~~~~~~~~~
+
 ADIS16136 device attributes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For a detailed description please see:
 `Documentation/ABI/testing/sysfs-bus-iio <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio>`__
@@ -167,7 +182,7 @@ For a detailed description please see:
 
    * - Gyroscope related device files
      - Description
-   * - in_anglvel_filter_low_pass_3db_frequency
+   * - in_anglvel_x_filter_low_pass_3db_frequency
      - Bandwidth for the gyroscope channel.
    * - in_anglvel_scale
      - Scale for the gyroscope channels.
@@ -177,8 +192,9 @@ For a detailed description please see:
      - Raw gyroscope channel value.
    * - Temperature sensor related files
      - Description
-   * - in_temp0_offset
-     - Offset for temperature sensor channel.
+   * - The temperature channel exposes raw and scale only; no in_temp0_offset file is
+       registered.
+     -
    * - in_temp0_raw
      - Raw temperature channel value.
    * - in_temp0_scale
@@ -190,19 +206,8 @@ For a detailed description please see:
    * - sampling_frequency
      - Currently selected sample rate.
 
-Show device name
-^^^^^^^^^^^^^^^^
-
-The ``name`` file contains the name of the device. This will match the product
-id. E.g. ``adis16136`` for the adis16136.
-
-::
-
-   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat name
-   adis16136
-
 Set sampling frequency
-^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""
 
 The sampling frequency of the device can be set by writing the desired value to
 the ``sampling_frequency`` file. The driver will automatically round up to the
@@ -217,7 +222,7 @@ nearest supported sampling frequency.
    504
 
 Show channel value
-^^^^^^^^^^^^^^^^^^
+""""""""""""""""""
 
 A channel value can be read from its ``_raw`` attribute. The value returned by
 the ``_raw`` attribute is the raw value as reported by the device. To get the
@@ -240,11 +245,10 @@ The units by the IIO framework are:
    root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat in_anglvel_scale
    0.000000278
 
-``Z-axis acceleration = in_anglvel_x_raw * in_anglvel_scale = TBD = TBD rad per
-second``
+``X-axis angular velocity = in_anglvel_x_raw × in_anglvel_scale. Using the displayed rounded scale, 898102272 × 0.000000278 ≈ 249.6724 rad/s.``
 
 Set channel bandwidth
-^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""
 
 The channel bandwidth can be set by writing the desired value to the channels
 ``in_anglvel_filter_low_pass_3db_frequency`` attribute. The driver will
