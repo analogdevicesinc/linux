@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9002
 
+
 .. _adrv9002:
 
 ADRV9002
@@ -24,17 +25,17 @@ and GPIOs are integrated to provide additional monitoring and control
 capability.
 
 Supported Devices
------------------
+~~~~~~~~~~~~~~~~~
 
 - :adi:`ADRV9002`
 
 Evaluation Boards
------------------
+~~~~~~~~~~~~~~~~~
 
 - :adi:`eval-adrv9002`
 
 Description
------------
+~~~~~~~~~~~
 
 This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
 driver, targeting RF Transceivers. The industrial I/O subsystem provides a
@@ -43,10 +44,10 @@ using a number of different physical interfaces (i2c, spi, etc). See
 :external+system-level:ref:`iio` for more information.
 
 Source Code
------------
+~~~~~~~~~~~
 
 Status
-------
+^^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -57,7 +58,7 @@ Status
      - No
 
 Files
------
+^^^^^
 
 .. list-table::
    :header-rows: 1
@@ -81,11 +82,67 @@ Files
    * - Navassa API driver
      - :git+linux:`main:drivers/iio/adc/navassa/platforms`
 
-Interrelated Device Drivers
+Hardware configuration
+~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+Adding Linux driver support
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Receive AXI-ADC driver
-^^^^^^^^^^^^^^^^^^^^^^
+Kernel configuration
+^^^^^^^^^^^^^^^^^^^^
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADRV9002 driver depends on **CONFIG_SPI**
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+           -*-   Enable buffer support within IIO
+           -*-   Enable triggered sampling support
+
+                 *** Analog to digital converters ***
+           [--snip--]
+
+           -*- Analog Devices High-Speed AXI ADC driver core
+           < > Analog Devices AD9361, AD9364 RF Agile Transceiver driver
+           < > Analog Devices AD9371 RF Transceiver driver
+           <*> Analog Devices ADRV9001/ADRV9002 RF Transceiver driver
+           < > Analog Devices AD6676 Wideband IF Receiver driver
+           < > Analog Devices AD9467, AD9680, etc. high speed ADCs
+           < > Analog Devices Motor Control (AD-FMCMOTCON) drivers
+
+           [--snip--]
+
+       Frequency Synthesizers DDS/PLL  --->
+               Direct Digital Synthesis  --->
+               <*> Analog Devices CoreFPGA AXI DDS driver
+
+Devicetree configuration
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Example Linux Device-Tree Initialization
+----------------------------------------
+
+The ADRV9002 driver is a spi-bus driver and can currently only be instantiated
+via device tree.
+
+Required devicetree properties:
+
+- compatible: Should always be ``adi,adrv9002`` or ``adi,adrv9002-rx2tx2``
+- reg: SPI slave select number
+- clocks: Device reference clock
 
 .. list-table::
    :header-rows: 1
@@ -93,35 +150,37 @@ Receive AXI-ADC driver
    * - Function
      - File
      -
-   * - driver
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
+   * - ADRV9002 Device Tree
+     - :git+linux:`zynqmp-zcu102-rev10-adrv9002.dts <main:arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-adrv9002.dts>`
      -
-   * - include
-     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
+   * -
+     - :git+linux:`zynq-zed-adv7511-adrv9002.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-adrv9002.dts>`
      -
-   * - driver
-     - :git+linux:`drivers/iio/adc/ad_adc.c <main:drivers/iio/adc/cf_axi_adc_core.c>`
+   * -
+     - :git+linux:`zynq-zc706-adv7511-adrv9002.dts <main:arch/arm/boot/dts/zynq-zc706-adv7511-adrv9002.dts>`
      -
-
-Transmit AXI-DAC / DDS driver
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. list-table::
-   :header-rows: 1
-
-   * - Function
-     - File
-   * - driver
-     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
-   * - include
-     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.h`
+   * - ADRV9002 Device Tree MIMO
+     - :git+linux:`zynqmp-zcu102-rev10-adrv9002-rx2tx2.dts <main:arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-adrv9002-rx2tx2.dts>`
+     -
+   * -
+     - :git+linux:`zynq-zed-adv7511-adrv9002-rx2tx2.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-adrv9002-rx2tx2.dts>`
+     -
+   * -
+     - :git+linux:`zynq-zc706-adv7511-adrv9002-rx2tx2.dts <main:arch/arm/boot/dts/zynq-zc706-adv7511-adrv9002-rx2tx2.dts>`
+     -
+   * -
+     - :git+linux:`socfpga_arria10_socdk_adrv9002_rx2tx2.dts <main:arch/arm/boot/dts/socfpga_arria10_socdk_adrv9002_rx2tx2.dts>`
+     -
 
 Device Driver Customization
----------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Please follow the link here for detailed options and examples:
 
 - :ref:`adrv9002-customization`
+
+Firmware and profiles
+^^^^^^^^^^^^^^^^^^^^^
 
 Stream Processor Configuration
 ------------------------------
@@ -216,121 +275,8 @@ boot/setup phase. They are also loaded using the firmware framework.
      - :git+linux:`main:firmware/TxAttenTable.csv`
      -
 
-Example Linux Device-Tree Initialization
-----------------------------------------
-
-The ADRV9002 driver is a spi-bus driver and can currently only be instantiated
-via device tree.
-
-Required devicetree properties:
-
-- compatible: Should always be ``adi,adrv9002`` or ``adi,adrv9002-rx2tx2``
-- reg: SPI slave select number
-- clocks: Device reference clock
-
-.. list-table::
-   :header-rows: 1
-
-   * - Function
-     - File
-     -
-   * - ADRV9002 Device Tree
-     - :git+linux:`zynqmp-zcu102-rev10-adrv9002.dts <main:arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-adrv9002.dts>`
-     -
-   * -
-     - :git+linux:`zynq-zed-adv7511-adrv9002.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-adrv9002.dts>`
-     -
-   * -
-     - :git+linux:`zynq-zc706-adv7511-adrv9002.dts <main:arch/arm/boot/dts/zynq-zc706-adv7511-adrv9002.dts>`
-     -
-   * - ADRV9002 Device Tree MIMO
-     - :git+linux:`zynqmp-zcu102-rev10-adrv9002-rx2tx2.dts <main:arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-adrv9002-rx2tx2.dts>`
-     -
-   * -
-     - :git+linux:`zynq-zed-adv7511-adrv9002-rx2tx2.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-adrv9002-rx2tx2.dts>`
-     -
-   * -
-     - :git+linux:`zynq-zc706-adv7511-adrv9002-rx2tx2.dts <main:arch/arm/boot/dts/zynq-zc706-adv7511-adrv9002-rx2tx2.dts>`
-     -
-   * -
-     - :git+linux:`socfpga_arria10_socdk_adrv9002_rx2tx2.dts <main:arch/arm/boot/dts/socfpga_arria10_socdk_adrv9002_rx2tx2.dts>`
-     -
-
-Enabling Linux driver support
------------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The ADRV9002 driver depends on **CONFIG_SPI**
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-       <*>     Industrial I/O support --->
-           --- Industrial I/O support
-           -*-   Enable ring buffer support within IIO
-           -*-     Industrial I/O lock free software ring
-           -*-   Enable triggered sampling support
-
-                 *** Analog to digital converters ***
-           [--snip--]
-
-           -*- Analog Devices High-Speed AXI ADC driver core
-           < > Analog Devices AD9361, AD9364 RF Agile Transceiver driver
-           < > Analog Devices AD9371 RF Transceiver driver
-           <*> Analog Devices ADRV9001/ADRV9002 RF Transceiver driver
-           < > Analog Devices AD6676 Wideband IF Receiver driver
-           < > Analog Devices AD9467, AD9680, etc. high speed ADCs
-           < > Analog Devices Motor Control (AD-FMCMOTCON) drivers
-
-           [--snip--]
-
-       Frequency Synthesizers DDS/PLL  --->
-               Direct Digital Synthesis  --->
-               <*> Analog Devices CoreFPGA AXI DDS driver
-
-Hardware configuration
-----------------------
-
-.. _adrv9002 device-modes:
-
-Device Modes
-------------
-
-Depending on the devicetree compatible string used, the driver will behave
-differently in some aspects. There are two main modes of operaton:
-
-.. list-table::
-   :header-rows: 1
-
-   * - compatible
-     - Mode
-   * - adi,adrv9002-rx2tx2
-     - MIMO
-   * - adi,adrv9002
-     - Independent
-
-In ``MIMO`` mode, only one DMA buffer is used and both RX1/RX2 physical ports
-are mapped into the RX1 channel in the hdl axi core. The same happens for TX.
-For the hdl core is as TX2/RX2 don’t exist. As the name implies, this is useful
-for use cases as MIMO/Diversity. Naturally, in this case, both RX1/RX2 must have
-the same baseband sample rate.
-
-In the Independent mode both channels are treated separately by the hdl core,
-each one with it’s own DMA buffer. Useful for TDD applications for example.
-
-Driver testing / API
---------------------
+Driver testing
+~~~~~~~~~~~~~~
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-device-files
@@ -474,16 +420,43 @@ Driver testing / API
    lrwxrwxrwx 1 root root     0 Jun  9 09:06 subsystem -> ../../../../../../../../bus/iio
    -rw-rw-rw- 1 root root  4096 Jun  9 09:04 uevent
 
-Show device name
-----------------
+Identify the device
+^^^^^^^^^^^^^^^^^^^
 
 ::
 
    root:/sys/bus/iio/devices/iio:device1> cat name
    adrv9002-phy
 
+.. _adrv9002 device-modes:
+
+Device Modes
+^^^^^^^^^^^^
+
+Depending on the devicetree compatible string used, the driver will behave
+differently in some aspects. There are two main modes of operaton:
+
+.. list-table::
+   :header-rows: 1
+
+   * - compatible
+     - Mode
+   * - adi,adrv9002-rx2tx2
+     - MIMO
+   * - adi,adrv9002
+     - Independent
+
+In ``MIMO`` mode, only one DMA buffer is used and both RX1/RX2 physical ports
+are mapped into the RX1 channel in the hdl axi core. The same happens for TX.
+For the hdl core is as TX2/RX2 don’t exist. As the name implies, this is useful
+for use cases as MIMO/Diversity. Naturally, in this case, both RX1/RX2 must have
+the same baseband sample rate.
+
+In the Independent mode both channels are treated separately by the hdl core,
+each one with it’s own DMA buffer. Useful for TDD applications for example.
+
 Show device temperature
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -491,7 +464,7 @@ Show device temperature
    58000
 
 Channel Enable/Powerdown Controls
----------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For use cases where pin control mode is not used or required, these attributes
 can be used to enable/disable the Rx/Tx signal paths while in the ENSM radio_on
@@ -511,7 +484,7 @@ state.
    0
 
 Enable State Machine Controls
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------
 
 The ADRV9002 transceiver includes an Enable State Machine (ENSM), allowing real
 time control over the current state of the device. The ENSM has two possible
@@ -539,23 +512,24 @@ the RX/TX channels:
 - [in|out]_voltage[0|1]_ensm_mode_available
 - [in|out]_voltage[0|1]_ensm_mode
 
-::
+.. code-block:: text
 
    root@analog:/sys/bus/iio/devices/iio:device1# cat in_voltage0_ensm_mode_available
    calibrated primed rf_enabled
    root@analog:/sys/bus/iio/devices/iio:device1# cat in_voltage0_ensm_mode
    calibrated
-   root@analog:/sys/bus/iio/devices/iio:device1# echo rf_enabled > in_voltage0_ensm_mod
+   root@analog:/sys/bus/iio/devices/iio:device1# echo rf_enabled > in_voltage0_ensm_mode
    root@analog:/sys/bus/iio/devices/iio:device1# cat in_voltage0_ensm_mode
    rf_enabled
 
-.. important::
+Important
 
-   The above commands will only have any effect if the ``port_en_mode`` is set
-   to spi
+SPI mode supports ENSM transitions through the API. Pin mode also permits
+primed/rf_enabled transitions through ensm_mode when the driver owns the channel
+enable GPIO; calibrated is not supported by that GPIO path.
 
 Local Oscillator Control (LO)
------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The device contains two RF PLLs. Each RF PLL uses the PLL block common to all
 synthesizers in the device and employ a 4 core VCO block which provides a 6dB
@@ -596,10 +570,10 @@ port.
    on the IIO Oscilloscope plugin.
 
 Filter and Signal Path Configuration
-------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Profiles
-~~~~~~~~
+--------
 
 .. warning::
 
@@ -627,12 +601,14 @@ other ADI software tools not described here
 There are some constraints with the loaded profiles due to the architecture of
 the :git+hdl:`reference design <tree/master/projects/adrv9001+>`:
 
-.. warning::
+Warning
 
-   TX cannot be enabled if the corresponding RX is also not enabled (eg: TX2
-   enabled and RX2 disabled). The driver will reject such a profile. The reason
-   is that the TX SSI clock is derived from RX. This applies for all
-   :ref:`adrv9002 device-modes`.
+TX requires its selected RX reference-clock channel only when that TX uses an
+RX-derived SSI clock. A TX with an independent reference is allowed without RX.
+In combined rx2tx2 mode RX2 requires RX1, TX2 requires TX1, and active channels
+must obey the rate checks for their clock source. The driver will reject such a
+profile. The reason is that the TX SSI clock is derived from RX. This applies
+for all :ref:`adrv9002 device-modes`.
 
 .. warning::
 
@@ -640,7 +616,7 @@ the :git+hdl:`reference design <tree/master/projects/adrv9001+>`:
    without RX1!
 
 Loading a Stream Binary
-^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""
 
 For each profile generated, there must be a correspondent stream binary that
 also must be loaded. To load a stream:
@@ -656,7 +632,7 @@ also must be loaded. To load a stream:
    only configured in the device after loading the correspondent profile…
 
 Loading a Profile
-^^^^^^^^^^^^^^^^^
+"""""""""""""""""
 
 ::
 
@@ -671,7 +647,7 @@ Loading a Profile
    tries to access them
 
 RX Signal Path
-~~~~~~~~~~~~~~
+--------------
 
 The ADRV9002 offers dual receive channels. With a minimum number of external
 components, each receive channel could build a complete RF-to-bits signal chain
@@ -691,7 +667,7 @@ programmable 128-tap FIR filter (PFIR), receiver signal strength indicator
 detectors.
 
 Sample Rate and Primary Signal Bandwidth
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""""""""""""""""
 
 To query the RX Sample Rate and Primary Signal Bandwidth: ::
 
@@ -701,7 +677,7 @@ To query the RX Sample Rate and Primary Signal Bandwidth: ::
    10000000
 
 RX Gain Control
-^^^^^^^^^^^^^^^
+"""""""""""""""
 
 The ADRV9002 receivers (Rx1/Rx2) feature automatic and manual gain control modes
 for flexible gain control in a wide array of applications. Automatic Gain
@@ -752,7 +728,7 @@ gain.
    This will only work if **gain_control_mode** is set to spi
 
 Digital Gain Control
-^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""
 
 The digital gain control has two major purposes, one for gain correction which
 is to correct the small step size inaccuracy in analog front-end attenuation and
@@ -773,26 +749,21 @@ noise.
 
    * - Mode
      - Description
-   * - Gain_Correction_manual_control
-     - The digital gain block is used. It applies a small amount of digital
-       gain/attenuation to provide consistent gain steps in a gain table.
-   * - Gain_Compensation_manual_control
-     - In this mode gain compensation is used and the interface gain is
-       determined manually by the user.
-   * - Gain_Correction_automatic_control
-     - Similar to 1 except that the device controls the interface gain
-       automatically.
-   * - Gain_Compensation_automatic_control
-     - Similar to 2 except that the device controls the interface gain
-       automatically
+   * - spi
+     - The user controls interface gain manually through the SPI/API path.
+   * - automatic
+     - The device controls interface gain automatically.
 
-::
+Gain correction versus gain compensation is selected by the loaded profile's
+gain-table type, not by additional sysfs mode strings. Run these commands in
+the device's sysfs directory to select manual interface-gain control and read
+back the selected mode:
 
-   root@analog:/sys/bus/iio/devices/iio:device1# cat in_voltage0_digital_gain_control_mode
-   Gain_Correction_manual_control
-   root@analog:/sys/bus/iio/devices/iio:device1# echo Gain_Compensation_manual_control > in_voltage0_digital_gain_control_mode
-   root@analog:/sys/bus/iio/devices/iio:device1# cat in_voltage0_digital_gain_control_mode
-   Gain_Compensation_manual_control
+.. code-block:: sh
+
+   cat in_voltage0_digital_gain_control_mode_available
+   echo spi > in_voltage0_digital_gain_control_mode
+   cat in_voltage0_digital_gain_control_mode
 
 **Manually change the Interface Gain**
 
@@ -824,12 +795,12 @@ Setting the value: ::
 
 .. warning::
 
-   This will only work if **digital_gain_control_mode** is set to one of the
-   manual options. Furthermore, the port Enable State must be rf_enabled for
+   Manual interface-gain changes require **digital_gain_control_mode** to be
+   set to **spi**. Furthermore, the port Enable State must be rf_enabled for
    this to take effect
 
 RSSI and Decimated power
-^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""
 
 ::
 
@@ -842,7 +813,7 @@ RSSI and Decimated power
    65.535 dB
 
 NCO frequency
-^^^^^^^^^^^^^
+"""""""""""""
 
 In the Rx data chain, a frequency offset correction block is provided as an
 option to further correct small carrier frequency offset in both NB and WB
@@ -857,7 +828,7 @@ modes.
    1200
 
 BBDC
-^^^^
+""""
 
 The main difference between this setting and the bbdc tracking calibration is
 that disabling this setting will completely disable the bbdc algorithm and set
@@ -873,7 +844,7 @@ algorithm but the last used correction value is still applied.
    0
 
 Dynamic ADC switch
-^^^^^^^^^^^^^^^^^^
+""""""""""""""""""
 
 The device provides 2 pairs of ADCs, a pair of high performance ADC’s for high dynamic range and a pair of low performance ADC’s for lower power consumption. This setting enables the dynamic switch between this ADC’s. ::
 
@@ -884,7 +855,7 @@ The device provides 2 pairs of ADCs, a pair of high performance ADC’s for high
    1
 
 TX Signal Path
-~~~~~~~~~~~~~~
+--------------
 
 The ADRV9001 device integrates dual direct-conversion (Zero-IF) transmitters. It
 supports both time division duplexing (TDD) and frequency division duplexing
@@ -898,7 +869,7 @@ quadrature error correction (QEC) and Tx LO leakage handling, before the data is
 passed on to the DACs.
 
 Sample Rate and Primary Signal Bandwidth
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""""""""""""""""
 
 To query the RX Sample Rate and Primary Signal Bandwidth: ::
 
@@ -908,7 +879,7 @@ To query the RX Sample Rate and Primary Signal Bandwidth: ::
    10000000
 
 TX Attenuation Control
-^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""
 
 The Tx attenuation block controls the Tx output power. A Tx gain table with 840
 entries is loaded into the ADRV9002’s memory during initialization. Each entry
@@ -954,7 +925,7 @@ equals a 0.05dB gain step giving a range of 42dB.
    This will only work if **gain_control_mode** is set to spi
 
 NCO frequency
-^^^^^^^^^^^^^
+"""""""""""""
 
 As for the RX signal chain, it is also possible to apply a nco correction
 frequency on TX.
@@ -968,7 +939,7 @@ frequency on TX.
    1200
 
 Tracking calibrations
-~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
 In ADRV9002, to achieve optimal performance, an internal microcontroller
 performs calibrations which can be classified into two categories: initial
@@ -1013,8 +984,11 @@ operational. The following attributes control on the fly tracking calibrations.
    root@analog:/sys/bus/iio/devices/iio:device1# cat in_voltage0_agc_tracking_en
    0
 
+Troubleshooting
+~~~~~~~~~~~~~~~
+
 Advanced Debug Facilities
--------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ADRV9002 driver supports advanced debug controls via the kernel
 `debugfs <https://en.wikipedia.org/wiki/debugfs>`__. These controls are mostly
@@ -1022,7 +996,7 @@ to debug which settings are currently configured in the device. How these device
 files/controls can be used is described here.
 
 Runtime Device Driver Customization
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------------
 
 There’s a large number of options available. Through these controls, the user
 can debug if the device is properly configured with the wanted options or to
@@ -1063,7 +1037,7 @@ Change directory to **/sys/kernel/debug**/iio/ iio:deviceX. ::
    -rw------- 1 root root 0 Jan  1  1970 tx1_nco_frequency_hz
 
 Example of changing AGC
-^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""
 
 All the options available to tweak the automatic gain control are exposed
 through debugfs files for each RX.
@@ -1196,7 +1170,7 @@ The configurations can be read afterwards by reading the file:
    peak.feedback_high_threshold_counter_exceeded: 0
 
 Example of configuring SSI test modes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""""""""""""""
 
 The data mode available can be different depending on whether CMOS or LVDS is
 being used. To check the available modes:
@@ -1234,7 +1208,7 @@ To start the test:
    For TX, the process is identical.
 
 Example of configuring SSI delays
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""""""""""
 
 The available configurations for the SSI delays are:
 
@@ -1272,14 +1246,14 @@ After doing the wanted changes to the previous files, we apply them by:
    Writing on ssi_delays will have effect on all ports
 
 Example of reinitialize the device
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+""""""""""""""""""""""""""""""""""
 
 ::
 
    echo 1 > initialize
 
 Example of reading RX Gain Pin Control settings
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"""""""""""""""""""""""""""""""""""""""""""""""
 
 ::
 
@@ -1292,15 +1266,50 @@ Example of reading RX Gain Pin Control settings
    decrement_pin: dgpio1
 
 Low level register access via debugfs (direct_reg_access)
----------------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-low-level-register-access-via-debugfs-direct-reg-access
    :end-before: .. end-low-level-register-access-via-debugfs-direct-reg-access
 
 More Information
-----------------
+~~~~~~~~~~~~~~~~
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-iio-pointers
    :end-before: .. end-iio-pointers
+
+Interrelated Device Drivers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Receive AXI-ADC driver
+----------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
+     -
+   * - include
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
+     -
+   * - driver
+     - :git+linux:`drivers/iio/adc/ad_adc.c <main:drivers/iio/adc/cf_axi_adc_core.c>`
+     -
+
+Transmit AXI-DAC / DDS driver
+-----------------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
+   * - include
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.h`
