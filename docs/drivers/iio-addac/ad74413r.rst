@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-addac/ad74413r
 
+
 .. _ad74413r:
 
 AD74413R
@@ -107,13 +108,16 @@ structure is created under the corresponding IIO device.
    drwxr-xr-x 2 root root    0 Aug 17 09:56 trigger
    -rw-r--r-- 1 root root 4096 Aug 17 09:56 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/bus/iio/devices/iio:device0> cat name
    ad74413r
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show raw measurement
 ^^^^^^^^^^^^^^^^^^^^
@@ -126,10 +130,11 @@ Show raw measurement
    4608
 
 Show scale
-''''''''''
+~~~~~~~~~~
 
 **Description:** Scale to be applied to the raw measurement of current on
-channel 0 in order to obtain the actual current.
+channel 0, together with ``in_current0_offset``: current[mA] = (raw + offset)
+\* scale.
 
 ::
 
@@ -137,12 +142,17 @@ channel 0 in order to obtain the actual current.
    0.001525902
 
 Set sampling frequency
-''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** Show available sampling frequencies and select one for channel
 0.
 
-::
+On AD74413R, 20 SPS enables 50 Hz/60 Hz rejection and 10 SPS also provides HART
+noise rejection. Selecting 1200 or 4800 SPS disables the 50 Hz/60 Hz rejection.
+Choose the rate for both bandwidth and interference rejection; use the
+model-specific ``sampling_frequency_available`` values.
+
+.. code-block:: text
 
    root:/sys/bus/iio/devices/iio:device0> cat in_current0_sampling_frequency_available
    10 20 1200 4800
@@ -152,8 +162,10 @@ Set sampling frequency
    root:/sys/bus/iio/devices/iio:device0> cat in_current0_sampling_frequency
    4800
 
+These are AD74413R rates. AD74412R exposes only 20 Hz and 4800 Hz.
+
 Buffer management
-^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~
 
 **Description:** The scan_elements directory contains interfaces for elements
 that will be captured for a single triggered sample set in the buffer
@@ -214,43 +226,13 @@ Before enabling the buffer, a few steps need to be completed.
 
    root:/sys/bus/iio/devices/iio:device0/buffer> echo 1 > enable
 
-- Read the samples:
+-  Read the samples as binary scan data. Each enabled ADC channel is stored as
+   big-endian 32 bits, with 16 valid bits shifted by 8 (``be:u16/32>>8``); see
+   ``scan_elements/*_index`` and ``*_type``.
 
 ::
 
    root:/sys/bus/iio/devices/iio:device0/buffer> cat /dev/iio:device0
-
-Low level register access via debugfs (direct_reg_access)
----------------------------------------------------------
-
-Some IIO drivers feature an optional debug facility, allowing users to read or
-write registers directly. Special care needs to be taken when using this
-feature, since you can modify registers on the back of the driver. Accessing
-debugfs requires root privileges.
-
-::
-
-   root:/> /sys/kernel/debug/iio/iio:device0/
-   root:/sys/kernel/debug/iio/iio:device0> ls direct_reg_access
-   direct_reg_access
-
-Reading
-
-::
-
-   root:/sys/kernel/debug/iio/iio:device0> echo 0x45 > direct_reg_access
-   root:/sys/kernel/debug/iio/iio:device0> cat direct_reg_access
-   0x00
-
-Writing
-
-Write ADDRESS VALUE
-
-::
-
-   root@analog:/sys/kernel/debug/iio/iio:device0> echo 0x45 0xADAD > direct_reg_access
-   root@analog:/sys/kernel/debug/iio/iio:device0> cat direct_reg_access
-   0xADAD
 
 More Information
 ----------------
