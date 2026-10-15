@@ -1,5 +1,6 @@
 .. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7476a
 
+
 .. _ad7476a:
 
 AD7476A
@@ -10,70 +11,61 @@ AD7476A IIO Single Channel Serial ADC Linux Driver.
 Supported Devices
 -----------------
 
-- :adi:`AD7091R`
-- :adi:`AD7273`
-- :adi:`AD7274`
-- :adi:`AD7276`
-- :adi:`AD7277`
-- :adi:`AD7278`
-- :adi:`AD7466`
-- :adi:`AD7467`
-- :adi:`AD7468`
-- :adi:`AD7475`
-- :adi:`AD7476`
-- :adi:`AD7476A`
-- :adi:`AD7477`
-- :adi:`AD7477A`
-- :adi:`AD7478`
-- :adi:`AD7478A`
-- :adi:`AD7495`
-- :adi:`AD7680`
-- :adi:`AD7683`
-- :adi:`AD7684`
-- :adi:`AD7685`
-- :adi:`AD7686`
-- :adi:`AD7687`
-- :adi:`AD7688`
-- :adi:`AD7690`
-- :adi:`AD7691`
-- :adi:`AD7693`
-- :adi:`AD7694`
-- :adi:`AD7910`
-- :adi:`AD7920`
-- :adi:`AD7940`
-- :adi:`AD7942`
-- :adi:`AD7946`
-- :adi:`AD7980`
-- :adi:`AD7982`
-- :adi:`AD7984`
-- :adi:`AD7988-1`
-- :adi:`AD7988-5`
-- :adi:`LTC2314-14`
+-  :adi:`AD7091R`
 
-Reference Circuits
-------------------
+-  :adi:`AD7273`
 
-- :adi:`CN0104`
-- :adi:`CN0130`
-- :adi:`CN0178`
-- :adi:`CN0180`
-- :adi:`CN0194`
-- :adi:`CN0213`
-- :adi:`CN0225`
-- :adi:`CN0237`
-- :adi:`CN0241`
-- :adi:`CN0247`
-- :adi:`CN0255`
-- :adi:`CN0260`
-- :adi:`CN0261`
-- :adi:`CN0269`
-- :adi:`CN0305`
-- :adi:`CN0306`
-- :adi:`CN0335`
-- :adi:`CN0336`
-- :adi:`CN0337`
-- :adi:`CN0350`
-- :adi:`CN0366`
+-  :adi:`AD7274`
+
+-  :adi:`AD7276`
+
+-  :adi:`AD7277`
+
+-  :adi:`AD7278`
+
+-  :adi:`AD7466`
+
+-  :adi:`AD7467`
+
+-  :adi:`AD7468`
+
+-  :adi:`AD7475`
+
+-  :adi:`AD7476`
+
+-  :adi:`AD7476A`
+
+-  :adi:`AD7477`
+
+-  :adi:`AD7477A`
+
+-  :adi:`AD7478`
+
+-  :adi:`AD7478A`
+
+-  :adi:`AD7495`
+
+-  :adi:`AD7910`
+
+-  :adi:`AD7920`
+
+-  :adi:`AD7940`
+
+-  :adi:`AD7942`
+
+-  :adi:`AD7946`
+
+-  :adi:`AD7980`
+
+-  :adi:`AD7982`
+
+-  :adi:`AD7984`
+
+-  :adi:`AD7988-1`
+
+-  :adi:`AD7988-5`
+
+-  :adi:`LTC2314-14`
 
 Evaluation Boards
 -----------------
@@ -102,6 +94,31 @@ Evaluation Boards
 - :adi:`EVAL-AD7982SDZ`
 - :adi:`EVAL-AD7984SDZ`
 - :adi:`EVAL-AD7988-5SDZ`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0104`
+- :adi:`CN0130`
+- :adi:`CN0178`
+- :adi:`CN0180`
+- :adi:`CN0194`
+- :adi:`CN0213`
+- :adi:`CN0225`
+- :adi:`CN0237`
+- :adi:`CN0241`
+- :adi:`CN0247`
+- :adi:`CN0255`
+- :adi:`CN0260`
+- :adi:`CN0261`
+- :adi:`CN0269`
+- :adi:`CN0305`
+- :adi:`CN0306`
+- :adi:`CN0335`
+- :adi:`CN0336`
+- :adi:`CN0337`
+- :adi:`CN0350`
+- :adi:`CN0366`
 
 Description
 -----------
@@ -141,11 +158,80 @@ Files
    * - driver
      - `drivers/iio/adc/ad7476.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7476.c>`__
 
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD7476 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           ...
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               ...
+               Analog to digital converters  --->
+                   ...
+                   <*>  Analog Devices AD7476 and similar 1-channel ADCs driver
+                   ...
+               ...
+           ...
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Required devicetree properties:
+
+- compatible: Needs to be ``adi,`` followed by the name of the device. E.g.
+  ``adi,ad7476a``
+- reg: The chipselect number used for the device
+- spi-max-frequency: Maximum SPI clock frequency.
+- spi-cpha: Needs to be set for the correct SPI mode
+- spi-cpol: Needs to be set for the correct SPI mode
+- vcc-supply: Phandle to the supply regulator
+
+::
+
+   adc_supply: fixedregulator {
+           compatible = "regulator-fixed";
+           regulator-name = "fixed-supply";
+           regulator-min-microvolt = <3300000>;
+           regulator-max-microvolt = <3300000>;
+   };
+
+   spi: spi@e0007000 {
+           #address-cells = <1>;
+           #size-cells = <0>;
+           compatible = "xlnx,ps7-spi-1.00.a";
+           ...
+
+           ad7476@0 {
+                   compatible = "adi,ad7476a";
+                   reg = <0>;
+                   spi-max-frequency = <1000000>;
+                   spi-cpha;
+                   spi-cpol;
+                   vcc-supply = <&adc_supply>;
+           };
+    };
+
+Device enumeration
+~~~~~~~~~~~~~~~~~~
+
 Example platform device initialization
---------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Specifying reference voltage via the regulator framework
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 Below example specifies a 3.3 Volt reference for the SPI device 3 on SPI-Bus 0.
 (**spi0.3**)
@@ -244,72 +330,6 @@ the device in question.
    }
    arch_initcall(board_init);
 
-Devicetree
-~~~~~~~~~~
-
-Required devicetree properties:
-
-- compatible: Needs to be ``adi,`` followed by the name of the device. E.g.
-  ``adi,ad7476a``
-- reg: The chipselect number used for the device
-- spi-max-frequency: Maximum SPI clock frequency.
-- spi-cpha: Needs to be set for the correct SPI mode
-- spi-cpol: Needs to be set for the correct SPI mode
-- vcc-supply: Phandle to the supply regulator
-
-::
-
-   adc_supply: fixedregulator {
-           compatible = "regulator-fixed";
-           regulator-name = "fixed-supply";
-           regulator-min-microvolt = <3300000>;
-           regulator-max-microvolt = <3300000>;
-   };
-
-   spi: spi@e0007000 {
-           #address-cells = <1>;
-           #size-cells = <0>;
-           compatible = "xlnx,ps7-spi-1.00.a";
-           ...
-
-           ad7476@0 {
-                   compatible = "adi,ad7476a";
-                   reg = <0>;
-                   spi-max-frequency = <1000000>;
-                   spi-cpha;
-                   spi-cpol;
-                   vcc-supply = <&adc_supply>;
-           };
-    };
-
-Adding Linux driver support
----------------------------
-
-Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
-``make qconfig``)
-
-.. note::
-
-   The AD7476 Driver depends on **CONFIG_SPI**
-
-::
-
-   Linux Kernel Configuration
-       Device Drivers  --->
-           ...
-           <*>     Industrial I/O support --->
-               --- Industrial I/O support
-               ...
-               Analog to digital converters  --->
-                   ...
-                   <*>  Analog Devices AD7476 and similar 1-channel ADCs driver
-                   ...
-               ...
-           ...
-
-Hardware configuration
-----------------------
-
 Driver testing
 --------------
 
@@ -335,13 +355,16 @@ Driver testing
    drwxr-xr-x    2 root     root             0 Jan  1 00:00 trigger
    -rw-r--r--    1 root     root          4096 Jan  1 00:00 uevent
 
-Show device name
-~~~~~~~~~~~~~~~~
+Identify the device
+~~~~~~~~~~~~~~~~~~~
 
 ::
 
    root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat name
    ad7476
+
+Basic operation
+~~~~~~~~~~~~~~~
 
 Show scale
 ^^^^^^^^^^
@@ -355,7 +378,7 @@ measured voltage in millivolts.
    0.805
 
 Show channel 0 measurement
-''''''''''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Description:** Raw unscaled voltage measurement on channel 0
 
@@ -364,7 +387,8 @@ Show channel 0 measurement
    root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat in_voltage0_raw
    2001
 
-**U** = *in_voltage0_raw \* in_voltage_scale* = 2001 \* 0.805 = **1610,805 mV**
+For the 3.3 V, 12-bit example, scale = 3300/4096 ≈ 0.805664062 mV/code, so a
+raw value of 2001 is approximately 1612.13 mV.
 
 Trigger management
 ~~~~~~~~~~~~~~~~~~
@@ -383,24 +407,33 @@ Available standalone trigger drivers
 Buffer management
 ~~~~~~~~~~~~~~~~~
 
-::
+Select the actual IIO device index by reading its ``name`` attribute. Buffer
+controls are under ``/sys/bus/iio/devices/iio:deviceX/buffer`` (or
+``buffer0``), and the default buffer's channel controls are under
+``scan_elements``. Sample data is read through ``/dev/iio:deviceX``.
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0/device0:buffer0> ls
-   bytes_per_datum          enable                   subsystem
-   device0:buffer0:access0  length                   uevent
-   device0:buffer0:event0   scan_elements
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0/device0:buffer0>
+The following commands inspect metadata only; replace ``X`` with your device
+index. They are not a hardware capture transcript:
+
+.. code-block:: sh
+
+   DEV=/sys/bus/iio/devices/iio:deviceX
+   cat "$DEV/name"
+   ls "$DEV/buffer"
+   ls "$DEV/scan_elements"
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-buffer-management
    :end-before: .. end-buffer-management
 
-::
+Read the voltage and timestamp scan metadata before decoding samples:
 
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0/device0:buffer0/scan_elements> ls
-   in0_en           in_type          timestamp_index
-   in0_index        timestamp_en     timestamp_type
-   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0/device0:buffer0/scan_elements>
+.. code-block:: sh
+
+   cat "$DEV/scan_elements/in_voltage0_index"
+   cat "$DEV/scan_elements/in_voltage0_type"
+   cat "$DEV/scan_elements/in_timestamp_index"
+   cat "$DEV/scan_elements/in_timestamp_type"
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-typical-adc-scan-elements
