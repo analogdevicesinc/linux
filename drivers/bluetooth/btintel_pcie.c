@@ -205,6 +205,108 @@ static inline bool btintel_pcie_dbg_to_wifi(struct btintel_pcie_data *data)
 	return data->dbg_path_cache != BTINTEL_PCIE_DRAM;
 }
 
+/* Name of the optional INI file used to override the default dbg_path
+ * (data->dbg_path_cache) and yoyo ini settings.
+ */
+#define BTINTEL_PCIE_DBG_INI_FILE "ibt_bt_dbg_cfg.ini"
+
+/* Loads optional "DBG_PATH=<value>" and ENABLE_INI=<value>
+ * overrides from BTINTEL_PCIE_DBG_INI_FILE
+ * and applies them to data->dbg_path_cache and data->enable_ini.
+ *
+ * DBG_PATH accepts BTINTEL_PCIE_WIFI_DBGC (0x06, default) and
+ * BTINTEL_PCIE_DRAM (0x01, legacy); an invalid or missing entry leaves
+ * the cached value set by the caller unchanged.
+ *
+ * ENABLE_INI accepts 1 (enabled) or 0 (disabled); an invalid or missing
+ * entry leaves data->enable_ini unchanged.
+ */
+static void btintel_pcie_load_dbg_path_from_ini(struct btintel_pcie_data *data)
+{
+	const struct firmware *fw;
+	const char *ini_file = BTINTEL_PCIE_DBG_INI_FILE;
+	char *buf, *cursor, *line;
+	bool dbg_path_applied = false;
+	int err;
+
+	err = request_firmware_direct(&fw, ini_file, &data->pdev->dev);
+	if (err < 0) {
+		BT_DBG("%s not found (%d), using dbg_path=0x%02x",
+		       ini_file, err, data->dbg_path_cache);
+		if (data->dbg_path_cache != BTINTEL_PCIE_DRAM)
+			data->enable_ini = false;
+		return;
+	}
+
+	buf = kmemdup_nul(fw->data, fw->size, GFP_KERNEL);
+	release_firmware(fw);
+	if (!buf)
+		return;
+
+	cursor = buf;
+	while ((line = strsep(&cursor, "\n"))) {
+		char *eq;
+		char *val;
+		uint parsed;
+
+		line = strim(line);
+		if (!line[0] || line[0] == '#' || line[0] == ';')
+			continue;
+
+		eq = strchr(line, '=');
+		if (!eq)
+			continue;
+
+		*eq = '\0';
+		line = strim(line);
+		val = strim(eq + 1);
+
+		/* Accept "DBG_PATH"/"dbg_path"
+		 * case-insensitively as the key.
+		 */
+		if (!strcasecmp(line, "DBG_PATH")) {
+			BT_INFO("Read DBG_PATH from %s: '%s'", ini_file, val);
+
+			/* base 0 lets kstrtouint accept "0x06", "6", etc. */
+			if (kstrtouint(val, 0, &parsed) == 0 &&
+			    (parsed == BTINTEL_PCIE_DRAM ||
+			     parsed == BTINTEL_PCIE_WIFI_DBGC)) {
+				data->dbg_path_cache = parsed;
+				dbg_path_applied = true;
+				BT_INFO("WRT dbg_path accepted: 0x%02x",
+					data->dbg_path_cache);
+			} else {
+				BT_WARN("Invalid DBG_PATH='%s' in %s, using dbg_path=0x%02x",
+					val, ini_file, data->dbg_path_cache);
+			}
+		} else if (!strcasecmp(line, "ENABLE_INI")) {
+			BT_INFO("Read ENABLE_INI from %s: '%s'", ini_file, val);
+
+			if (kstrtouint(val, 0, &parsed) == 0 &&
+			    (parsed == 0 || parsed == 1)) {
+				data->enable_ini = !!parsed;
+				BT_INFO("WRT enable_ini accepted: %u",
+					data->enable_ini);
+			} else {
+				BT_WARN("Invalid ENABLE_INI='%s' in %s, using enable_ini=%u",
+					val, ini_file, data->enable_ini);
+			}
+		}
+	}
+
+	if (data->dbg_path_cache != BTINTEL_PCIE_DRAM)
+		data->enable_ini = false;
+
+	if (dbg_path_applied)
+		BT_DBG("Loaded dbg_path=0x%02x from %s", data->dbg_path_cache, ini_file);
+	else
+		BT_WARN("No valid DBG_PATH in %s, dbg_path=0x%02x", ini_file, data->dbg_path_cache);
+
+	BT_DBG("ENABLE_INI effective state: %u", data->enable_ini);
+
+	kfree(buf);
+}
+
 /* Helper function to allocate and setup a debug buffer group
  * @data: driver data structure
  * @buf: pointer to data_buf array pointer
@@ -3194,6 +3296,8 @@ static int btintel_pcie_alloc(struct btintel_pcie_data *data)
 	/* Initialize the CI */
 	btintel_pcie_init_ci(data, data->ci);
 
+	data->pcie_alloc_init = true;
+
 	return 0;
 
 exit_error_txq:
@@ -3365,6 +3469,31 @@ static void btintel_pcie_synchronize_irqs(struct btintel_pcie_data *data)
 {
 	for (int i = 0; i < data->alloc_vecs; i++)
 		synchronize_irq(data->msix_entries[i].vector);
+}
+
+static void btintel_pcie_probe_cleanup(struct btintel_pcie_data *data)
+{
+	struct pci_dev *pdev = data->pdev;
+
+	btintel_pcie_disable_interrupts(data);
+	btintel_pcie_synchronize_irqs(data);
+
+	disable_work_sync(&data->coredump_work);
+	disable_work_sync(&data->hwexp_work);
+	disable_work_sync(&data->fwtrigger_work);
+	disable_work_sync(&data->mbox_work);
+
+	flush_work(&data->rx_work);
+
+	btintel_pcie_reset_bt(data);
+	for (int i = 0; i < data->alloc_vecs; i++) {
+		struct msix_entry *msix_entry;
+
+		msix_entry = &data->msix_entries[i];
+		devm_free_irq(&pdev->dev, msix_entry->vector, msix_entry);
+	}
+
+	pci_free_irq_vectors(pdev);
 }
 
 static int btintel_pcie_get_debug_info_addr(struct hci_dev *hdev)
@@ -4056,6 +4185,7 @@ static int btintel_pcie_probe(struct pci_dev *pdev,
 			      const struct pci_device_id *ent)
 {
 	int err;
+	bool pcie_configured = false;
 	struct btintel_pcie_data *data;
 
 	if (!pdev)
@@ -4099,15 +4229,30 @@ static int btintel_pcie_probe(struct pci_dev *pdev,
 	data->boot_stage_cache = 0x00;
 	data->img_resp_cache = 0x00;
 	data->dbg_path_cache = BTINTEL_PCIE_WIFI_DBGC;
+	data->pcie_alloc_init = false;
+	data->enable_ini = false;
+	btintel_pcie_yoyo_init(&data->yoyo);
 	/* FLR can be invoked by echoing to debugfs path, so explicitly
 	 * initialized
 	 */
 	data->reset_type = BTINTEL_PCIE_IOSF_PRR_FLR;
+
+	btintel_pcie_load_dbg_path_from_ini(data);
+
 	err = btintel_pcie_config_pcie(pdev, data);
 	if (err)
 		goto exit_error;
 
+	pcie_configured = true;
+
 	pci_set_drvdata(pdev, data);
+	if (data->enable_ini) {
+		err = btintel_pcie_yoyo_load_and_parse(&data->yoyo, &pdev->dev);
+		if (err) {
+			BT_WARN("YoYo is not configured (%d)", err);
+			btintel_pcie_yoyo_cleanup(&data->yoyo);
+		}
+	}
 
 	err = btintel_pcie_alloc(data);
 	if (err)
@@ -4130,15 +4275,22 @@ static int btintel_pcie_probe(struct pci_dev *pdev,
 	if (err)
 		goto exit_error;
 
+	data->yoyo.hdev = data->hdev;
 	bt_dev_dbg(data->hdev, "cnvi: 0x%8.8x cnvr: 0x%8.8x", data->cnvi,
 		   data->cnvr);
 	return 0;
 
 exit_error:
-	/* reset device before exit */
-	btintel_pcie_reset_bt(data);
+	btintel_pcie_yoyo_cleanup(&data->yoyo);
+
+	if (pcie_configured)
+		btintel_pcie_probe_cleanup(data);
+
+	if (data->pcie_alloc_init)
+		btintel_pcie_free(data);
 
 	destroy_workqueue(data->dump_workqueue);
+	destroy_workqueue(data->workqueue);
 
 	pci_clear_master(pdev);
 
@@ -4174,6 +4326,8 @@ static void btintel_pcie_remove(struct pci_dev *pdev)
 	 */
 	if (current_work() != &data->reset_work)
 		disable_work_sync(&data->reset_work);
+
+	btintel_pcie_yoyo_cleanup(&data->yoyo);
 
 	btintel_pcie_disable_interrupts(data);
 
