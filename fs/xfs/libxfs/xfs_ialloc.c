@@ -1564,7 +1564,6 @@ xfs_dialloc_ag(
 	xfs_ino_t			ino;
 	int				error;
 	int				offset;
-	int				i;
 
 	if (!xfs_has_finobt(mp))
 		return xfs_dialloc_ag_inobt(pag, tp, agbp, parent, inop);
@@ -1617,7 +1616,7 @@ xfs_dialloc_ag(
 		if (error)
 			goto error_cur;
 	} else {
-		error = xfs_btree_delete(cur, &i);
+		error = xfs_btree_delete(cur);
 		if (error)
 			goto error_cur;
 	}
@@ -2148,7 +2147,8 @@ xfs_difree_inobt(
 		xfs_trans_mod_sb(tp, XFS_TRANS_SB_ICOUNT, -ilen);
 		xfs_trans_mod_sb(tp, XFS_TRANS_SB_IFREE, -(ilen - 1));
 
-		if ((error = xfs_btree_delete(cur, &i))) {
+		error = xfs_btree_delete(cur);
+		if (error) {
 			xfs_warn(mp, "%s: xfs_btree_delete returned error %d.",
 				__func__, error);
 			goto error0;
@@ -2274,7 +2274,7 @@ xfs_difree_finobt(
 	 */
 	if (rec.ir_free == XFS_INOBT_ALL_FREE &&
 	    mp->m_sb.sb_inopblock <= XFS_INODES_PER_CHUNK) {
-		error = xfs_btree_delete(cur, &i);
+		error = xfs_btree_delete(cur);
 		if (error)
 			goto error;
 	} else {

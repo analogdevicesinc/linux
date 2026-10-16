@@ -676,7 +676,8 @@ xfs_alloc_fixup_trees(
 	/*
 	 * Delete the entry from the by-size btree.
 	 */
-	if ((error = xfs_btree_delete(cnt_cur, &i)))
+	error = xfs_btree_delete(cnt_cur);
+	if (error)
 		return error;
 	/*
 	 * Add new by-size btree entry(s).
@@ -710,7 +711,8 @@ xfs_alloc_fixup_trees(
 		/*
 		 * No remaining freespace, just delete the by-block tree entry.
 		 */
-		if ((error = xfs_btree_delete(bno_cur, &i)))
+		error = xfs_btree_delete(bno_cur);
+		if (error)
 			return error;
 	} else {
 		/*
@@ -2145,7 +2147,8 @@ xfs_free_ag_extent(
 			error = -EFSCORRUPTED;
 			goto error0;
 		}
-		if ((error = xfs_btree_delete(cnt_cur, &i)))
+		error = xfs_btree_delete(cnt_cur);
+		if (error)
 			goto error0;
 		/*
 		 * Delete the old by-size entry on the right.
@@ -2157,12 +2160,14 @@ xfs_free_ag_extent(
 			error = -EFSCORRUPTED;
 			goto error0;
 		}
-		if ((error = xfs_btree_delete(cnt_cur, &i)))
+		error = xfs_btree_delete(cnt_cur);
+		if (error)
 			goto error0;
 		/*
 		 * Delete the old by-block entry for the right block.
 		 */
-		if ((error = xfs_btree_delete(bno_cur, &i)))
+		error = xfs_btree_delete(bno_cur);
+		if (error)
 			goto error0;
 		/*
 		 * Move the by-block cursor back to the left neighbor.
@@ -2219,7 +2224,8 @@ xfs_free_ag_extent(
 			error = -EFSCORRUPTED;
 			goto error0;
 		}
-		if ((error = xfs_btree_delete(cnt_cur, &i)))
+		error = xfs_btree_delete(cnt_cur);
+		if (error)
 			goto error0;
 		/*
 		 * Back up the by-block cursor to the left neighbor, and
@@ -2252,7 +2258,8 @@ xfs_free_ag_extent(
 			error = -EFSCORRUPTED;
 			goto error0;
 		}
-		if ((error = xfs_btree_delete(cnt_cur, &i)))
+		error = xfs_btree_delete(cnt_cur);
+		if (error)
 			goto error0;
 		/*
 		 * Update the starting block and length of the right

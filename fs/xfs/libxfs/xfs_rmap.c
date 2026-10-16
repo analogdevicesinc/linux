@@ -175,7 +175,7 @@ xfs_rmap_delete(
 		goto done;
 	}
 
-	error = xfs_btree_delete(rcur, &i);
+	error = xfs_btree_delete(rcur);
 	if (error)
 		goto done;
 done:
@@ -770,7 +770,7 @@ xfs_rmap_unmap(
 		trace_xfs_rmap_delete(cur, ltrec.rm_startblock,
 				ltrec.rm_blockcount, ltrec.rm_owner,
 				ltrec.rm_offset, ltrec.rm_flags);
-		error = xfs_btree_delete(cur, &i);
+		error = xfs_btree_delete(cur);
 		if (error)
 			goto out_error;
 	} else if (ltrec.rm_startblock == bno) {
@@ -1012,7 +1012,6 @@ xfs_rmap_map(
 	int				have_gt;
 	int				have_lt;
 	int				error = 0;
-	int				i;
 	uint64_t			owner;
 	uint64_t			offset;
 	unsigned int			flags = 0;
@@ -1118,7 +1117,7 @@ xfs_rmap_map(
 			trace_xfs_rmap_delete(cur, gtrec.rm_startblock,
 					gtrec.rm_blockcount, gtrec.rm_owner,
 					gtrec.rm_offset, gtrec.rm_flags);
-			error = xfs_btree_delete(cur, &i);
+			error = xfs_btree_delete(cur);
 			if (error)
 				goto out_error;
 		}
@@ -1395,7 +1394,7 @@ xfs_rmap_convert(
 		trace_xfs_rmap_delete(cur, RIGHT.rm_startblock,
 				RIGHT.rm_blockcount, RIGHT.rm_owner,
 				RIGHT.rm_offset, RIGHT.rm_flags);
-		error = xfs_btree_delete(cur, &i);
+		error = xfs_btree_delete(cur);
 		if (error)
 			goto done;
 		error = xfs_btree_decrement(cur, 0, &i);
@@ -1409,7 +1408,7 @@ xfs_rmap_convert(
 		trace_xfs_rmap_delete(cur, PREV.rm_startblock,
 				PREV.rm_blockcount, PREV.rm_owner,
 				PREV.rm_offset, PREV.rm_flags);
-		error = xfs_btree_delete(cur, &i);
+		error = xfs_btree_delete(cur);
 		if (error)
 			goto done;
 		error = xfs_btree_decrement(cur, 0, &i);
@@ -1435,7 +1434,7 @@ xfs_rmap_convert(
 		trace_xfs_rmap_delete(cur, PREV.rm_startblock,
 				PREV.rm_blockcount, PREV.rm_owner,
 				PREV.rm_offset, PREV.rm_flags);
-		error = xfs_btree_delete(cur, &i);
+		error = xfs_btree_delete(cur);
 		if (error)
 			goto done;
 		error = xfs_btree_decrement(cur, 0, &i);
@@ -1469,7 +1468,7 @@ xfs_rmap_convert(
 		trace_xfs_rmap_delete(cur, RIGHT.rm_startblock,
 				RIGHT.rm_blockcount, RIGHT.rm_owner,
 				RIGHT.rm_offset, RIGHT.rm_flags);
-		error = xfs_btree_delete(cur, &i);
+		error = xfs_btree_delete(cur);
 		if (error)
 			goto done;
 		error = xfs_btree_decrement(cur, 0, &i);

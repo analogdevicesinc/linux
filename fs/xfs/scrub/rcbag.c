@@ -239,7 +239,7 @@ rcbag_remove_ending_at(
 		if (rcbag_rec_next_bno(&bagrec) != next_bno)
 			continue;
 
-		error = xfs_btree_delete(cur, &has);
+		error = xfs_btree_delete(cur);
 		if (error)
 			goto out_cur;
 

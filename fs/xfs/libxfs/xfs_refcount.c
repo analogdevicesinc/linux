@@ -288,8 +288,7 @@ xfs_refcount_insert(
  */
 STATIC int
 xfs_refcount_delete(
-	struct xfs_btree_cur	*cur,
-	int			*i)
+	struct xfs_btree_cur	*cur)
 {
 	struct xfs_refcount_irec	irec;
 	int			found_rec;
@@ -304,7 +303,7 @@ xfs_refcount_delete(
 		goto out_error;
 	}
 	trace_xfs_refcount_delete(cur, &irec);
-	error = xfs_btree_delete(cur, i);
+	error = xfs_btree_delete(cur);
 	if (error)
 		goto out_error;
 	error = xfs_refcount_lookup_ge(cur, irec.rc_domain, irec.rc_startblock,
@@ -497,12 +496,12 @@ xfs_refcount_merge_center_extents(
 		goto out_error;
 	}
 
-	error = xfs_refcount_delete(cur, &found_rec);
+	error = xfs_refcount_delete(cur);
 	if (error)
 		goto out_error;
 
 	if (center->rc_refcount > 1) {
-		error = xfs_refcount_delete(cur, &found_rec);
+		error = xfs_refcount_delete(cur);
 		if (error)
 			goto out_error;
 	}
@@ -561,7 +560,7 @@ xfs_refcount_merge_left_extent(
 			goto out_error;
 		}
 
-		error = xfs_refcount_delete(cur, &found_rec);
+		error = xfs_refcount_delete(cur);
 		if (error)
 			goto out_error;
 	}
@@ -623,7 +622,7 @@ xfs_refcount_merge_right_extent(
 			goto out_error;
 		}
 
-		error = xfs_refcount_delete(cur, &found_rec);
+		error = xfs_refcount_delete(cur);
 		if (error)
 			goto out_error;
 	}
@@ -1209,7 +1208,7 @@ xfs_refcount_adjust_extents(
 			if (error)
 				goto out_error;
 		} else if (ext.rc_refcount == 1) {
-			error = xfs_refcount_delete(cur, &found_rec);
+			error = xfs_refcount_delete(cur);
 			if (error)
 				goto out_error;
 			goto advloop;
@@ -1819,7 +1818,7 @@ xfs_refcount_adjust_cow_extents(
 
 		ext.rc_refcount = 0;
 		trace_xfs_refcount_modify_extent(cur, &ext);
-		error = xfs_refcount_delete(cur, &found_rec);
+		error = xfs_refcount_delete(cur);
 		if (error)
 			goto out_error;
 		break;

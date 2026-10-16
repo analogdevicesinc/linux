@@ -1559,7 +1559,7 @@ xfs_bmap_add_extent_delay_real(
 				error = -EFSCORRUPTED;
 				goto done;
 			}
-			error = xfs_btree_delete(bma->cur, &i);
+			error = xfs_btree_delete(bma->cur);
 			if (error)
 				goto done;
 			error = xfs_btree_decrement(bma->cur, 0, &i);
@@ -2103,7 +2103,8 @@ xfs_bmap_add_extent_unwritten_real(
 				error = -EFSCORRUPTED;
 				goto done;
 			}
-			if ((error = xfs_btree_delete(cur, &i)))
+			error = xfs_btree_delete(cur);
+			if (error)
 				goto done;
 			if ((error = xfs_btree_decrement(cur, 0, &i)))
 				goto done;
@@ -2112,7 +2113,8 @@ xfs_bmap_add_extent_unwritten_real(
 				error = -EFSCORRUPTED;
 				goto done;
 			}
-			if ((error = xfs_btree_delete(cur, &i)))
+			error = xfs_btree_delete(cur);
+			if (error)
 				goto done;
 			if ((error = xfs_btree_decrement(cur, 0, &i)))
 				goto done;
@@ -2150,7 +2152,8 @@ xfs_bmap_add_extent_unwritten_real(
 				error = -EFSCORRUPTED;
 				goto done;
 			}
-			if ((error = xfs_btree_delete(cur, &i)))
+			error = xfs_btree_delete(cur);
+			if (error)
 				goto done;
 			if ((error = xfs_btree_decrement(cur, 0, &i)))
 				goto done;
@@ -2191,7 +2194,8 @@ xfs_bmap_add_extent_unwritten_real(
 				error = -EFSCORRUPTED;
 				goto done;
 			}
-			if ((error = xfs_btree_delete(cur, &i)))
+			error = xfs_btree_delete(cur);
+			if (error)
 				goto done;
 			if ((error = xfs_btree_decrement(cur, 0, &i)))
 				goto done;
@@ -2599,7 +2603,7 @@ xfs_bmap_add_extent_hole_real(
 				error = -EFSCORRUPTED;
 				goto done;
 			}
-			error = xfs_btree_delete(cur, &i);
+			error = xfs_btree_delete(cur);
 			if (error)
 				goto done;
 			error = xfs_btree_decrement(cur, 0, &i);
@@ -4926,7 +4930,8 @@ xfs_bmap_del_extent_real(
 			*logflagsp |= xfs_ilog_fext(whichfork);
 			break;
 		}
-		if ((error = xfs_btree_delete(cur, &i)))
+		error = xfs_btree_delete(cur);
+		if (error)
 			return error;
 		break;
 	case BMAP_LEFT_FILLING:
@@ -5488,7 +5493,7 @@ xfs_bmse_merge(
 		return -EFSCORRUPTED;
 	}
 
-	error = xfs_btree_delete(cur, &i);
+	error = xfs_btree_delete(cur);
 	if (error)
 		return error;
 
