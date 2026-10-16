@@ -99,6 +99,12 @@ static __always_inline const struct vdso_time_data *__arch_get_vdso_u_time_data(
 
 static __always_inline bool vdso_clockid_valid(clockid_t clock)
 {
+	/*
+	 * The callers turn an accepted clockid into a bitmask with
+	 * 1U << clock, so the largest one has to fit into that u32.
+	 */
+	BUILD_BUG_ON(CLOCK_AUX_LAST >= 8 * sizeof(u32));
+
 	/* Check for negative values or invalid clocks */
 	return likely((u32) clock <= CLOCK_AUX_LAST);
 }
