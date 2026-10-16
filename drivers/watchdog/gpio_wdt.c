@@ -139,9 +139,19 @@ static int gpio_wdt_probe(struct platform_device *pdev)
 	ret = device_property_read_u32(dev, "hw_margin_ms", &hw_margin);
 	if (ret)
 		return ret;
-	/* Disallow values lower than 2 and higher than 65535 ms */
-	if (hw_margin < 2 || hw_margin > 65535)
+	/* The core feeds the watchdog at half the hardware margin. */
+	if (hw_margin < 2)
 		return -EINVAL;
+
+	if (device_property_present(dev, "hw-min-interval-ms")) {
+		ret = device_property_read_u32(dev, "hw-min-interval-ms",
+					       &priv->wdd.min_hw_heartbeat_ms);
+		if (ret)
+			return ret;
+		if (!priv->wdd.min_hw_heartbeat_ms ||
+		    priv->wdd.min_hw_heartbeat_ms >= hw_margin)
+			return -EINVAL;
+	}
 
 	priv->always_running = device_property_read_bool(dev, "always-running");
 
