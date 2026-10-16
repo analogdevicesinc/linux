@@ -83,6 +83,24 @@ soc/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/microchip-dt64-7.4
 	marvell/dt
 		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt-7.4-2
+	soc/rockchip/dt64-3
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.4-rockchip-dts64-3
+		contains soc/rockchip/dt64
+	xilinx/zynqmp-dt
+		https://github.com/Xilinx/linux-xlnx tags/zynqmp-dt-for-7.4
+	qcom/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm32-for-7.4
+	qcom/dt64-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-7.4-2
+		contains linux-soc/qcom/dt64
+	fustini/thead-dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/fustini/linux tags/thead-dt-for-v7.4
+	spacemit/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/spacemit/linux tags/spacemit-dt-for-7.4-1
+	sophgo/dt
+		https://github.com/sophgo/linux tags/riscv-sophgo-dt-for-v7.4
+	soc/conor/riscv-dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-dt-for-v7.4
 
 soc/drivers
 	renesas/drivers
