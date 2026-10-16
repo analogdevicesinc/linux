@@ -1599,49 +1599,76 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 				txchan |= (ADI_ADRV9025_TX1 << chan->channel);
 			else
 				txchan &= ~(ADI_ADRV9025_TX1 << chan->channel);
-		} else if (chan->channel >= CHAN_OBS_RX1 &&
-			   adrv9025_orx_dual_4pin(phy)) {
-			/*
-			 * Dual-channel 4-pin mode: the ORx side ENABLE is owned
-			 * by the ORX_CTRL pin (A for side-A/obs1, C for side-B/
-			 * obs2), not the 0x106 SPI enable. _en drives the pin;
-			 * which ORx of the pair is picked by rf_port_select (the
-			 * select pin). Re-assert the split crossbar after the
-			 * enable edge (the stream collapses it on that edge).
-			 */
-			struct gpio_desc *en_gpio =
-				(chan->channel > CHAN_OBS_RX1) ?
-				phy->orx_ctrl_c_gpio : phy->orx_ctrl_a_gpio;
 
-			gpiod_set_value_cansleep(en_gpio, val ? 1 : 0);
-
-			if (val) {
-				ret = adrv9025_orx_xbar_reassert(phy);
-				if (ret)
-					ret = adrv9025_dev_err(phy);
-			}
+			ret = adi_adrv9025_RxTxEnableSet(phy->madDevice, rxchan,
+							 txchan);
+			if (ret)
+				ret = adrv9025_dev_err(phy);
 			break;
-		} else {
-			chan_no = chan->channel;
-			if (chan_no == CHAN_OBS_RX2)
-				chan_no += 1;
-			if (val) {
-				rxchan |= (ADI_ADRV9025_RX1 << chan_no);
-				if (chan_no >= CHAN_OBS_RX1)
+		}
+
+		/* Regular Rx channels always use the SPI enable path. */
+		if (chan->channel < CHAN_OBS_RX1) {
+			if (val)
+				rxchan |= (ADI_ADRV9025_RX1 << chan->channel);
+			else
+				rxchan &= ~(ADI_ADRV9025_RX1 << chan->channel);
+
+			ret = adi_adrv9025_RxTxEnableSet(phy->madDevice, rxchan,
+							 txchan);
+			if (ret)
+				ret = adrv9025_dev_err(phy);
+			break;
+		}
+		/* OBS channel: dispatch on the configured ORx enable mode. */
+		if (chan->channel >= CHAN_OBS_RX1) {
+			switch (adrv9025_orx_get_mode(phy)) {
+			case ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE: {
+				/*
+				 * Dual-channel 4-pin mode: the ORx side ENABLE is
+				 * owned by the ORX_CTRL pin (A for side-A/obs1, C
+				 * for side-B/obs2), not the 0x106 SPI enable. _en
+				 * drives the pin; which ORx of the pair is picked
+				 * by rf_port_select (the select pin). Re-assert the
+				 * split crossbar after the enable edge (the stream
+				 * collapses it on that edge).
+				 */
+				struct gpio_desc *en_gpio =
+					(chan->channel > CHAN_OBS_RX1) ?
+					phy->orx_ctrl_c_gpio :
+					phy->orx_ctrl_a_gpio;
+
+				gpiod_set_value_cansleep(en_gpio, val ? 1 : 0);
+
+				if (val) {
+					ret = adrv9025_orx_xbar_reassert(phy);
+					if (ret)
+						ret = adrv9025_dev_err(phy);
+				}
+				break;
+			}
+			case ADI_ADRV9025_ORX_EN_SPI_MODE:
+				chan_no = chan->channel;
+				if (chan_no == CHAN_OBS_RX2)
+					chan_no += 1;
+				if (val) {
+					rxchan |= (ADI_ADRV9025_RX1 << chan_no);
 					rxchan &= ~(ADI_ADRV9025_RX1 << (chan_no + 1));
-			} else {
-				if (chan_no < CHAN_OBS_RX1) {
-					rxchan &= ~(ADI_ADRV9025_RX1 << chan_no);
 				} else {
 					rxchan &= ~(ADI_ADRV9025_RX1 << chan_no);
 					rxchan &= ~(ADI_ADRV9025_RX1 << (chan_no + 1));
 				}
+
+				ret = adi_adrv9025_RxTxEnableSet(phy->madDevice,
+								 rxchan, txchan);
+				if (ret)
+					ret = adrv9025_dev_err(phy);
+				break;
+			default:
+				ret = -EINVAL;
+				break;
 			}
 		}
-		ret = adi_adrv9025_RxTxEnableSet(phy->madDevice, rxchan,
-						 txchan);
-		if (ret)
-			ret = adrv9025_dev_err(phy);
 		break;
 
 	case IIO_CHAN_INFO_HARDWAREGAIN:
