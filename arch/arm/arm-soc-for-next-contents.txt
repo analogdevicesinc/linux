@@ -17,13 +17,15 @@ soc/arm
 		git://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_maintainer_update_for_v7.4
 	at91/soc
 		https://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-soc-7.4
+	ti/k3-maintainer
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-k3-maintainer-for-v7.4
 
 soc/dt
 	renesas/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v7.4-tag1
 		contains renesas/fixes-2
 		contains renesas/fixes
-	rockchip/dt64
+	rockchip/dts64
 		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.4-rockchip-dts64-1
 	qcom/dt64
 		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-7.4
@@ -85,14 +87,12 @@ soc/dt
 		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt-7.4-2
 	soc/rockchip/dt64-3
 		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.4-rockchip-dts64-3
-		contains soc/rockchip/dt64
 	xilinx/zynqmp-dt
 		https://github.com/Xilinx/linux-xlnx tags/zynqmp-dt-for-7.4
 	qcom/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm32-for-7.4
 	qcom/dt64-2
 		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-7.4-2
-		contains linux-soc/qcom/dt64
 	fustini/thead-dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/fustini/linux tags/thead-dt-for-v7.4
 	spacemit/dt
@@ -101,6 +101,10 @@ soc/dt
 		https://github.com/sophgo/linux tags/riscv-sophgo-dt-for-v7.4
 	soc/conor/riscv-dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-dt-for-v7.4
+	tegra/arm-dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.4-arm-dt
+	tegra/arm64-dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.4-arm64-dt
 
 soc/drivers
 	renesas/drivers
@@ -146,6 +150,16 @@ soc/drivers
 		https://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-soc-7.4
 	chleroy/soc-fsl
 		https://git.kernel.org/pub/scm/linux/kernel/git/chleroy/linux tags/soc_fsl-7.4-1
+	xilinx/soc
+		https://github.com/Xilinx/linux-xlnx tags/zynqmp-soc-for-7.4
+	conor/riscv-firmware
+		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-firmware-for-v7.4
+	conor/riscv-soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-soc-drivers-for-v7.4
+	conor/cache-drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/cache-for-v7.4
+	patch
+		platform: cznic: turris-omnia-mcu: stop button emulation producers
 
 soc/defconfig
 	renesas/defconfig
