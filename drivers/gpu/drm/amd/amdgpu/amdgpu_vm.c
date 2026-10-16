@@ -230,7 +230,7 @@ static void amdgpu_vm_bo_needs_update(struct amdgpu_vm_bo_base *vm_bo)
 	 * idle state.
 	 */
 	lists = amdgpu_vm_bo_lock_lists(vm_bo);
-	if (bo && bo->tbo.type == ttm_bo_type_kernel && !bo->parent) {
+	if (bo == vm_bo->vm->root.bo) {
 		vm_bo->moved = false;
 		list_move(&vm_bo->vm_status, &lists->idle);
 	} else {
