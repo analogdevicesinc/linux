@@ -1197,13 +1197,17 @@ unsigned int cfg80211_classify8021d(struct sk_buff *skb,
 	 * value. See section 4 in RFC8325. Specifically, for the following
 	 * Diffserv Service Classes no update is needed:
 	 * - Standard: DF
-	 * - Low Priority Data: CS1
+	 * - Low Priority Data: CS1 (legacy)
 	 * - Multimedia Conferencing: AF41, AF42, AF43
 	 * - Network Control Traffic: CS7
 	 * - Real-Time Interactive: CS4
 	 * - Signaling: CS5
 	 */
 	switch (dscp >> 2) {
+	case 1:
+		/* Low Priority Data: LE, see section 11 in RFC8622 */
+		ret = 1;
+		break;
 	case 10:
 	case 12:
 	case 14:
