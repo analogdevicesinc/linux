@@ -1482,8 +1482,12 @@ static int adrv9025_phy_read_raw(struct iio_dev *indio_dev,
 					phy->orx_ctrl_c_gpio :
 					phy->orx_ctrl_a_gpio;
 
-				*val = en_gpio ?
-				       !!gpiod_get_value_cansleep(en_gpio) : 0;
+				if (!en_gpio) {
+					ret = -ENODEV;
+					goto out;
+				}
+
+				*val = !!gpiod_get_value_cansleep(en_gpio);
 				break;
 			}
 			case ADI_ADRV9025_ORX_EN_SPI_MODE:
@@ -1637,6 +1641,11 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 					(chan->channel > CHAN_OBS_RX1) ?
 					phy->orx_ctrl_c_gpio :
 					phy->orx_ctrl_a_gpio;
+
+				if (!en_gpio) {
+					ret = -ENODEV;
+					break;
+				}
 
 				gpiod_set_value_cansleep(en_gpio, val ? 1 : 0);
 
