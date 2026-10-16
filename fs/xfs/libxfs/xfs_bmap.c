@@ -1674,11 +1674,6 @@ xfs_bmap_add_extent_delay_real(
 			error = xfs_btree_insert(bma->cur, &i);
 			if (error)
 				goto done;
-			if (XFS_IS_CORRUPT(mp, i != 1)) {
-				xfs_btree_mark_sick(bma->cur);
-				error = -EFSCORRUPTED;
-				goto done;
-			}
 		}
 		ASSERT(da_new <= da_old);
 		break;
@@ -1745,11 +1740,6 @@ xfs_bmap_add_extent_delay_real(
 			error = xfs_btree_insert(bma->cur, &i);
 			if (error)
 				goto done;
-			if (XFS_IS_CORRUPT(mp, i != 1)) {
-				xfs_btree_mark_sick(bma->cur);
-				error = -EFSCORRUPTED;
-				goto done;
-			}
 		}
 
 		if (xfs_bmap_needs_btree(bma->ip, whichfork)) {
@@ -1836,11 +1826,6 @@ xfs_bmap_add_extent_delay_real(
 			error = xfs_btree_insert(bma->cur, &i);
 			if (error)
 				goto done;
-			if (XFS_IS_CORRUPT(mp, i != 1)) {
-				xfs_btree_mark_sick(bma->cur);
-				error = -EFSCORRUPTED;
-				goto done;
-			}
 		}
 
 		if (xfs_bmap_needs_btree(bma->ip, whichfork)) {
@@ -1925,11 +1910,6 @@ xfs_bmap_add_extent_delay_real(
 			error = xfs_btree_insert(bma->cur, &i);
 			if (error)
 				goto done;
-			if (XFS_IS_CORRUPT(mp, i != 1)) {
-				xfs_btree_mark_sick(bma->cur);
-				error = -EFSCORRUPTED;
-				goto done;
-			}
 		}
 
 		if (xfs_bmap_needs_btree(bma->ip, whichfork)) {
@@ -2350,11 +2330,6 @@ xfs_bmap_add_extent_unwritten_real(
 			cur->bc_rec.b = *new;
 			if ((error = xfs_btree_insert(cur, &i)))
 				goto done;
-			if (XFS_IS_CORRUPT(mp, i != 1)) {
-				xfs_btree_mark_sick(cur);
-				error = -EFSCORRUPTED;
-				goto done;
-			}
 		}
 		break;
 
@@ -2436,11 +2411,6 @@ xfs_bmap_add_extent_unwritten_real(
 			}
 			if ((error = xfs_btree_insert(cur, &i)))
 				goto done;
-			if (XFS_IS_CORRUPT(mp, i != 1)) {
-				xfs_btree_mark_sick(cur);
-				error = -EFSCORRUPTED;
-				goto done;
-			}
 		}
 		break;
 
@@ -2486,11 +2456,6 @@ xfs_bmap_add_extent_unwritten_real(
 			cur->bc_rec.b = PREV;
 			if ((error = xfs_btree_insert(cur, &i)))
 				goto done;
-			if (XFS_IS_CORRUPT(mp, i != 1)) {
-				xfs_btree_mark_sick(cur);
-				error = -EFSCORRUPTED;
-				goto done;
-			}
 			/*
 			 * Reset the cursor to the position of the new extent
 			 * we are about to insert as we can't trust it after
@@ -2507,11 +2472,6 @@ xfs_bmap_add_extent_unwritten_real(
 			/* new middle extent - newext */
 			if ((error = xfs_btree_insert(cur, &i)))
 				goto done;
-			if (XFS_IS_CORRUPT(mp, i != 1)) {
-				xfs_btree_mark_sick(cur);
-				error = -EFSCORRUPTED;
-				goto done;
-			}
 		}
 		break;
 
@@ -2767,11 +2727,6 @@ xfs_bmap_add_extent_hole_real(
 			error = xfs_btree_insert(cur, &i);
 			if (error)
 				goto done;
-			if (XFS_IS_CORRUPT(mp, i != 1)) {
-				xfs_btree_mark_sick(cur);
-				error = -EFSCORRUPTED;
-				goto done;
-			}
 		}
 		break;
 	}
@@ -5093,10 +5048,6 @@ xfs_bmap_del_extent_real(
 				*logflagsp = 0;
 				return -ENOSPC;
 			}
-			if (XFS_IS_CORRUPT(mp, i != 1)) {
-				xfs_btree_mark_sick(cur);
-				return -EFSCORRUPTED;
-			}
 		} else
 			*logflagsp |= xfs_ilog_fext(whichfork);
 
@@ -5958,11 +5909,6 @@ xfs_bmap_split_extent(
 		error = xfs_btree_insert(cur, &i);
 		if (error)
 			goto del_cursor;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto del_cursor;
-		}
 	}
 
 	/*

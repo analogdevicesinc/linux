@@ -277,15 +277,6 @@ xfs_refcount_insert(
 
 	error = xfs_btree_insert(cur, i);
 	if (error)
-		goto out_error;
-	if (XFS_IS_CORRUPT(cur->bc_mp, *i != 1)) {
-		xfs_btree_mark_sick(cur);
-		error = -EFSCORRUPTED;
-		goto out_error;
-	}
-
-out_error:
-	if (error)
 		trace_xfs_refcount_insert_error(cur, error, _RET_IP_);
 	return error;
 }
