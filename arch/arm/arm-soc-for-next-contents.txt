@@ -59,6 +59,30 @@ soc/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-dt tags/dt64-cleanup-7.4
 	krzk/dt-cleanup
 		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-dt tags/dt-cleanup-7.4
+	geert/renesas-dts
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v7.4-tag2
+	sven/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-dt-7.4
+	broadcom/dts64
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-7.4/devicetree-arm64
+	tegra/dt-bindings
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.4-dt-bindings
+	ti/k3-dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-k3-dt-for-v7.4
+	ti/keystone-dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-keystone-dt-for-v7.4
+	linusw/ux500-dts
+		git://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-nomadik tags/ux500-dts-for-7.4-2
+	amlogic/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/amlogic/linux tags/amlogic-arm64-dt-for-v7.4
+	sunxi/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-dt-for-7.4
+	nuvoton/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm64-7.4-devicetree-0
+	at91/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/microchip-dt64-7.4
+	marvell/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt-7.4-2
 
 soc/drivers
 	renesas/drivers
