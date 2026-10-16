@@ -7718,6 +7718,15 @@ static struct btrfs_device *handle_missing_device(struct btrfs_fs_info *fs_info,
 	return dev;
 }
 
+static bool is_same_chunk_map(const struct btrfs_chunk_map *map, u64 logical,
+			      u64 length, u64 type, u16 num_stripes)
+{
+	if (map->start != logical || map->chunk_len != length ||
+	    map->on_disk_type != type || map->num_stripes != num_stripes)
+		return false;
+	return true;
+}
+
 static int read_one_chunk(struct btrfs_key *key, struct extent_buffer *leaf,
 			  struct btrfs_chunk *chunk)
 {
@@ -7747,14 +7756,21 @@ static int read_one_chunk(struct btrfs_key *key, struct extent_buffer *leaf,
 	warn_32bit_meta_chunk(fs_info, logical, length, type);
 #endif
 
-	map = btrfs_find_chunk_map(fs_info, logical, 1);
+	map = btrfs_find_chunk_map(fs_info, logical, length);
 
-	/* already mapped? */
-	if (map && map->start <= logical && map->start + map->chunk_len > logical) {
+	/* Already mapped? Check if the existing one matches. */
+	if (map) {
+		if (unlikely(!is_same_chunk_map(map, logical, length,
+						type, num_stripes))) {
+			btrfs_err(fs_info,
+		"existing chunk %llu doesn't match the new one at %llu",
+				  map->start, logical);
+			ret = -EUCLEAN;
+		} else {
+			ret = 0;
+		}
 		btrfs_free_chunk_map(map);
-		return 0;
-	} else if (map) {
-		btrfs_free_chunk_map(map);
+		return ret;
 	}
 
 	map = btrfs_alloc_chunk_map(num_stripes, GFP_NOFS);
