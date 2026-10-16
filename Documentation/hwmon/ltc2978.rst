@@ -207,6 +207,22 @@ Supported chips:
 
     Datasheet: https://www.analog.com/ltm4680
 
+  * Analog Devices LTM4681
+
+    Prefix: 'ltm4681'
+
+    Addresses scanned: -
+
+    Datasheet: https://www.analog.com/ltm4681
+
+  * Analog Devices LTM4682
+
+    Prefix: 'ltm4682'
+
+    Addresses scanned: -
+
+    Datasheet: https://www.analog.com/ltm4682
+
   * Analog Devices LTM4686
 
     Prefix: 'ltm4686'
@@ -310,14 +326,14 @@ in1_reset_history	Reset input voltage history.
 
 in[N]_label		"vout[1-8]".
 
-      			- LT7170, LT7171: N=2
+			- LT7170, LT7171: N=2
 			- LTC2972: N=2-3
 			- LTC2974, LTC2975: N=2-5
 			- LTC2977, LTC2979, LTC2980, LTM2987: N=2-9
 			- LTC2978: N=2-9
 			- LTC3880, LTC3882, LTC3884, LTC23886 LTC3887, LTC3889,
 			  LTC7880, LTM4644, LTM4675, LTM4676, LTM4677, LTM4678,
-			  LTM4680, LTM4700: N=2-3
+			  LTM4680, LTM4681, LTM4682, LTM4700: N=2-3
 			- LTC3883: N=2
 			- LTC7841: N=2
 
@@ -349,7 +365,7 @@ in[N]_reset_history	Reset output voltage history.
 
 temp[N]_input		Measured temperature.
 
-      			- On LT7170 and LT7171, temp1 reports the chip temperature.
+			- On LT7170 and LT7171, temp1 reports the chip temperature.
 			- On LTC2972, temp[1-2] report external temperatures,
 			  and temp 3 reports the chip temperature.
 			- On LTC2974 and LTC2975, temp[1-4] report external
@@ -359,8 +375,9 @@ temp[N]_input		Measured temperature.
 			  reports the chip temperature.
 			- On LTC3880, LTC3882, LTC3886, LTC3887, LTC3889,
 			  LTM4664, LTM4675, LTM4676, LTM4677, LTM4678, LTM4680,
-			  and LTM4700, temp1 and temp2 report external
-			  temperatures, and temp3 reports the chip temperature.
+			  LTM4681, LTM4682, and LTM4700, temp1 and temp2 report
+			  external temperatures, and temp3 reports the chip
+			  temperature.
 			- On LTC3883, temp1 reports an external temperature,
 			  and temp2 reports the chip temperature.
 
@@ -416,7 +433,7 @@ power[N]_label		"pout[1-4]".
 			- LTC2978: Not supported
 			- LTC3880, LTC3882, LTC3884, LTC3886, LTC3887, LTC3889,
 			  LTM4664, LTM4675, LTM4676, LTM4677, LTM4678, LTM4680,
-			  LTM4700: N=1-2
+			  LTM4681, LTM4682, LTM4700: N=1-2
 			- LTC3883: N=2
 
 power[N]_input		Measured output power.
@@ -425,7 +442,7 @@ curr1_label		"iin".
 
 			LT7170, LT7171, LTC3880, LTC3883, LTC3884, LTC3886,
 			LTC3887, LTC3889, LTM4644, LTM4675, LTM4676, LTM4677,
-			LTM4678, LTM4680, and LTM4700 only.
+			LTM4678, LTM4680, LTM4681, LTM4682, and LTM4700 only.
 
 curr1_input		Measured input current.
 
@@ -443,14 +460,14 @@ curr1_reset_history	Reset input current history.
 
 curr[N]_label		"iout[1-4]".
 
-      			- LT7170, LT7171: N=1
+			- LT7170, LT7171: N=1
 			- LTC2972: N-1-2
 			- LTC2974, LTC2975: N=1-4
 			- LTC2977, LTC2979, LTC2980, LTM2987: not supported
 			- LTC2978: not supported
 			- LTC3880, LTC3882, LTC3884, LTC3886, LTC3887, LTC3889,
 			  LTM4664, LTM4675, LTM4676, LTM4677, LTM4678, LTM4680,
-			  LTM4700: N=2-3
+			  LTM4681, LTM4682, LTM4700: N=2-3
 			- LTC3883: N=2
 			- LTC7841: N=2
 
