@@ -464,6 +464,11 @@
 	status = "okay";
 };
 
+&qup_i2c2_default {
+	drive-strength = <2>;
+	bias-disable;
+};
+
 &qup_uart9_rx {
 	drive-strength = <2>;
 	bias-pull-up;
@@ -511,13 +516,6 @@
 
 	touchscreen_pins: ts-pins-gpio-state {
 		pins = "gpio125";
-		function = "gpio";
-		drive-strength = <2>;
-		bias-disable;
-	};
-
-	touchscreen_i2c_pins: qup-i2c2-gpio-state {
-		pins = "gpio27", "gpio28";
 		function = "gpio";
 		drive-strength = <2>;
 		bias-disable;
