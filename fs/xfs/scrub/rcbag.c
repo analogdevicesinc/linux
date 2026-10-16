@@ -105,10 +105,6 @@ rcbag_add(
 		error = rcbagbt_insert(cur, &bagrec, &has);
 		if (error)
 			goto out_cur;
-		if (!has) {
-			error = -EFSCORRUPTED;
-			goto out_cur;
-		}
 	}
 
 	xfs_btree_del_cursor(cur, 0);
