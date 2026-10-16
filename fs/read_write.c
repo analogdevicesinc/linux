@@ -1319,7 +1319,8 @@ static ssize_t do_sendfile(int out_fd, int in_fd, loff_t *ppos,
 	if (!(fd_file(in)->f_mode & FMODE_READ))
 		return -EBADF;
 	if (!ppos) {
-		pos = fd_file(in)->f_pos;
+		/* f_pos is not locked here; racing updates are benign */
+		pos = data_race(fd_file(in)->f_pos);
 	} else {
 		pos = *ppos;
 		if (!(fd_file(in)->f_mode & FMODE_PREAD))
@@ -1341,7 +1342,8 @@ static ssize_t do_sendfile(int out_fd, int in_fd, loff_t *ppos,
 		return -EBADF;
 	in_inode = file_inode(fd_file(in));
 	out_inode = file_inode(fd_file(out));
-	out_pos = fd_file(out)->f_pos;
+	/* see above */
+	out_pos = data_race(fd_file(out)->f_pos);
 
 	if (!max)
 		max = min(in_inode->i_sb->s_maxbytes, out_inode->i_sb->s_maxbytes);
@@ -1382,11 +1384,12 @@ static ssize_t do_sendfile(int out_fd, int in_fd, loff_t *ppos,
 		add_wchar(current, retval);
 		fsnotify_access(fd_file(in));
 		fsnotify_modify(fd_file(out));
-		fd_file(out)->f_pos = out_pos;
+		/* see above */
+		data_race(fd_file(out)->f_pos = out_pos);
 		if (ppos)
 			*ppos = pos;
 		else
-			fd_file(in)->f_pos = pos;
+			data_race(fd_file(in)->f_pos = pos); /* see above */
 	}
 
 	inc_syscr(current);
