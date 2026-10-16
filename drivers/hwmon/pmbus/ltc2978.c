@@ -23,8 +23,8 @@ enum chips {
 	/* Managers */
 	ltc2972, ltc2974, ltc2975, ltc2977, ltc2978, ltc2979, ltc2980,
 	/* Controllers */
-	lt7170, lt7171, ltc3880, ltc3882, ltc3883, ltc3884, ltc3886, ltc3887,
-	ltc3889, ltc7132, ltc7841, ltc7880,
+	lt7170, lt7171, lt7175, lt7176p, ltc3880, ltc3882, ltc3883, ltc3884,
+	ltc3886, ltc3887, ltc3889, ltc7132, ltc7841, ltc7880,
 	/* Modules */
 	ltm2987, ltm4664, ltm4675, ltm4676, ltm4677, ltm4678, ltm4680, ltm4681,
 	ltm4682, ltm4686, ltm4700,
@@ -546,6 +546,10 @@ static int ltc2978_write_word_data(struct i2c_client *client, int page,
 static const struct i2c_device_id ltc2978_id[] = {
 	{"lt7170", lt7170},
 	{"lt7171", lt7171},
+	{"lt7175", lt7175},
+	{"lt7175-1", lt7175},
+	{"lt7176p", lt7176p},
+	{"lt7176p-1", lt7176p},
 	{"ltc2972", ltc2972},
 	{"ltc2974", ltc2974},
 	{"ltc2975", ltc2975},
@@ -655,6 +659,12 @@ static int ltc2978_get_id(struct i2c_client *client)
 		if (!strncmp(buf + 1, "LT7171", 6) ||
 		    !strncmp(buf + 1, "LT7171-1", 8))
 			return lt7171;
+		if (!strncmp(buf + 1, "LT7175", 6) ||
+		    !strncmp(buf + 1, "LT7175-1", 8))
+			return lt7175;
+		if (!strncmp(buf + 1, "LT7176P", 7) ||
+		    !strncmp(buf + 1, "LT7176P-1", 9))
+			return lt7176p;
 
 		return -ENODEV;
 	}
@@ -774,6 +784,8 @@ static int ltc2978_probe(struct i2c_client *client)
 	switch (data->id) {
 	case lt7170:
 	case lt7171:
+	case lt7175:
+	case lt7176p:
 		data->features |= FEAT_CLEAR_PEAKS | FEAT_NEEDS_POLLING;
 		info->read_word_data = ltc3883_read_word_data;
 		info->pages = LTC3883_NUM_PAGES;
@@ -961,6 +973,10 @@ static int ltc2978_probe(struct i2c_client *client)
 static const struct of_device_id ltc2978_of_match[] = {
 	{ .compatible = "lltc,lt7170" },
 	{ .compatible = "lltc,lt7171" },
+	{ .compatible = "lltc,lt7175" },
+	{ .compatible = "lltc,lt7175-1" },
+	{ .compatible = "lltc,lt7176p" },
+	{ .compatible = "lltc,lt7176p-1" },
 	{ .compatible = "lltc,ltc2972" },
 	{ .compatible = "lltc,ltc2974" },
 	{ .compatible = "lltc,ltc2975" },
