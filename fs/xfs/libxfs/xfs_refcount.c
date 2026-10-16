@@ -457,12 +457,8 @@ xfs_refcount_split_extent(
 	error = xfs_refcount_insert(cur, &tmp, &found_rec);
 	if (error)
 		goto out_error;
-	if (XFS_IS_CORRUPT(cur->bc_mp, found_rec != 1)) {
-		xfs_btree_mark_sick(cur);
-		error = -EFSCORRUPTED;
-		goto out_error;
-	}
-	return error;
+
+	return 0;
 
 out_error:
 	trace_xfs_refcount_split_extent_error(cur, error, _RET_IP_);
@@ -1191,12 +1187,6 @@ xfs_refcount_adjust_extents(
 						&found_tmp);
 				if (error)
 					goto out_error;
-				if (XFS_IS_CORRUPT(cur->bc_mp,
-						   found_tmp != 1)) {
-					xfs_btree_mark_sick(cur);
-					error = -EFSCORRUPTED;
-					goto out_error;
-				}
 			} else {
 				error = xrefc_free_extent(cur, &tmp);
 				if (error)
@@ -1841,11 +1831,6 @@ xfs_refcount_adjust_cow_extents(
 				&found_tmp);
 		if (error)
 			goto out_error;
-		if (XFS_IS_CORRUPT(cur->bc_mp, found_tmp != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto out_error;
-		}
 		break;
 	case XFS_REFCOUNT_ADJUST_COW_FREE:
 		/* Removing a CoW reservation, there should be one extent. */
