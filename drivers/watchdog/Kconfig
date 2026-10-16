@@ -1865,13 +1865,6 @@ config JZ4740_WDT
 	help
 	  Hardware driver for the built-in watchdog timer on Ingenic jz4740 SoCs.
 
-config WDT_MTX1
-	tristate "MTX-1 Hardware Watchdog"
-	depends on MIPS_MTX1 || (MIPS && COMPILE_TEST)
-	help
-	  Hardware driver for the MTX-1 boards. This is a watchdog timer that
-	  will reboot the machine after a 100 seconds timer expired.
-
 config SIBYTE_WDOG
 	tristate "Sibyte SoC hardware watchdog"
 	depends on CPU_SB1
