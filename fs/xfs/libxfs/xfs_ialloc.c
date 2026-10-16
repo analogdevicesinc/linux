@@ -186,14 +186,13 @@ xfs_inobt_insert_rec(
 	uint16_t		holemask,
 	uint8_t			count,
 	int32_t			freecount,
-	xfs_inofree_t		free,
-	int			*stat)
+	xfs_inofree_t		free)
 {
 	cur->bc_rec.i.ir_holemask = holemask;
 	cur->bc_rec.i.ir_count = count;
 	cur->bc_rec.i.ir_freecount = freecount;
 	cur->bc_rec.i.ir_free = free;
-	return xfs_btree_insert(cur, stat);
+	return xfs_btree_insert(cur);
 }
 
 /*
@@ -231,7 +230,7 @@ xfs_inobt_insert(
 		error = xfs_inobt_insert_rec(cur, XFS_INOBT_HOLEMASK_FULL,
 					     XFS_INODES_PER_CHUNK,
 					     XFS_INODES_PER_CHUNK,
-					     XFS_INOBT_ALL_FREE, &i);
+					     XFS_INOBT_ALL_FREE);
 		if (error) {
 			xfs_btree_del_cursor(cur, XFS_BTREE_ERROR);
 			return error;
@@ -568,7 +567,7 @@ xfs_inobt_insert_sprec(
 	if (i == 0) {
 		error = xfs_inobt_insert_rec(cur, nrec->ir_holemask,
 					     nrec->ir_count, nrec->ir_freecount,
-					     nrec->ir_free, &i);
+					     nrec->ir_free);
 		if (error)
 			goto error;
 		goto out;
@@ -654,7 +653,7 @@ xfs_finobt_insert_sprec(
 	if (i == 0) {
 		error = xfs_inobt_insert_rec(cur, nrec->ir_holemask,
 					     nrec->ir_count, nrec->ir_freecount,
-					     nrec->ir_free, &i);
+					     nrec->ir_free);
 		if (error)
 			goto error;
 	} else {
@@ -2238,7 +2237,7 @@ xfs_difree_finobt(
 		error = xfs_inobt_insert_rec(cur, ibtrec->ir_holemask,
 					     ibtrec->ir_count,
 					     ibtrec->ir_freecount,
-					     ibtrec->ir_free, &i);
+					     ibtrec->ir_free);
 		if (error)
 			goto error;
 		goto out;

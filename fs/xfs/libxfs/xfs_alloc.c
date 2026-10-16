@@ -692,7 +692,8 @@ xfs_alloc_fixup_trees(
 			xfs_btree_mark_sick(cnt_cur);
 			return -EFSCORRUPTED;
 		}
-		if ((error = xfs_btree_insert(cnt_cur, &i)))
+		error = xfs_btree_insert(cnt_cur);
+		if (error)
 			return error;
 	}
 	if (nfbno2 != NULLAGBLOCK) {
@@ -702,7 +703,8 @@ xfs_alloc_fixup_trees(
 			xfs_btree_mark_sick(cnt_cur);
 			return -EFSCORRUPTED;
 		}
-		if ((error = xfs_btree_insert(cnt_cur, &i)))
+		error = xfs_btree_insert(cnt_cur);
+		if (error)
 			return error;
 	}
 	/*
@@ -735,7 +737,8 @@ xfs_alloc_fixup_trees(
 			xfs_btree_mark_sick(bno_cur);
 			return -EFSCORRUPTED;
 		}
-		if ((error = xfs_btree_insert(bno_cur, &i)))
+		error = xfs_btree_insert(bno_cur);
+		if (error)
 			return error;
 	}
 
@@ -2300,7 +2303,8 @@ xfs_free_ag_extent(
 	else {
 		nbno = bno;
 		nlen = len;
-		if ((error = xfs_btree_insert(bno_cur, &i)))
+		error = xfs_btree_insert(bno_cur);
+		if (error)
 			goto error0;
 	}
 	xfs_btree_del_cursor(bno_cur, XFS_BTREE_NOERROR);
@@ -2322,7 +2326,8 @@ xfs_free_ag_extent(
 	}
 	if (xfs_alloc_cursor_at_lastrec(cnt_cur))
 		fixup_longest = true;
-	if ((error = xfs_btree_insert(cnt_cur, &i)))
+	error = xfs_btree_insert(cnt_cur);
+	if (error)
 		goto error0;
 	if (fixup_longest) {
 		error = xfs_alloc_fixup_longest(cnt_cur);

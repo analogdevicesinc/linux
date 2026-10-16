@@ -1671,7 +1671,7 @@ xfs_bmap_add_extent_delay_real(
 				error = -EFSCORRUPTED;
 				goto done;
 			}
-			error = xfs_btree_insert(bma->cur, &i);
+			error = xfs_btree_insert(bma->cur);
 			if (error)
 				goto done;
 		}
@@ -1737,7 +1737,7 @@ xfs_bmap_add_extent_delay_real(
 				error = -EFSCORRUPTED;
 				goto done;
 			}
-			error = xfs_btree_insert(bma->cur, &i);
+			error = xfs_btree_insert(bma->cur);
 			if (error)
 				goto done;
 		}
@@ -1823,7 +1823,7 @@ xfs_bmap_add_extent_delay_real(
 				error = -EFSCORRUPTED;
 				goto done;
 			}
-			error = xfs_btree_insert(bma->cur, &i);
+			error = xfs_btree_insert(bma->cur);
 			if (error)
 				goto done;
 		}
@@ -1907,7 +1907,7 @@ xfs_bmap_add_extent_delay_real(
 				error = -EFSCORRUPTED;
 				goto done;
 			}
-			error = xfs_btree_insert(bma->cur, &i);
+			error = xfs_btree_insert(bma->cur);
 			if (error)
 				goto done;
 		}
@@ -2328,7 +2328,8 @@ xfs_bmap_add_extent_unwritten_real(
 			if (error)
 				goto done;
 			cur->bc_rec.b = *new;
-			if ((error = xfs_btree_insert(cur, &i)))
+			error = xfs_btree_insert(cur);
+			if (error)
 				goto done;
 		}
 		break;
@@ -2409,7 +2410,8 @@ xfs_bmap_add_extent_unwritten_real(
 				error = -EFSCORRUPTED;
 				goto done;
 			}
-			if ((error = xfs_btree_insert(cur, &i)))
+			error = xfs_btree_insert(cur);
+			if (error)
 				goto done;
 		}
 		break;
@@ -2454,7 +2456,8 @@ xfs_bmap_add_extent_unwritten_real(
 				goto done;
 			/* new left extent - oldext */
 			cur->bc_rec.b = PREV;
-			if ((error = xfs_btree_insert(cur, &i)))
+			error = xfs_btree_insert(cur);
+			if (error)
 				goto done;
 			/*
 			 * Reset the cursor to the position of the new extent
@@ -2470,7 +2473,8 @@ xfs_bmap_add_extent_unwritten_real(
 				goto done;
 			}
 			/* new middle extent - newext */
-			if ((error = xfs_btree_insert(cur, &i)))
+			error = xfs_btree_insert(cur);
+			if (error)
 				goto done;
 		}
 		break;
@@ -2724,7 +2728,7 @@ xfs_bmap_add_extent_hole_real(
 				error = -EFSCORRUPTED;
 				goto done;
 			}
-			error = xfs_btree_insert(cur, &i);
+			error = xfs_btree_insert(cur);
 			if (error)
 				goto done;
 		}
@@ -5013,7 +5017,7 @@ xfs_bmap_del_extent_real(
 			if (error)
 				return error;
 			cur->bc_rec.b = new;
-			error = xfs_btree_insert(cur, &i);
+			error = xfs_btree_insert(cur);
 			if (error && error != -ENOSPC)
 				return error;
 			/*
@@ -5906,7 +5910,7 @@ xfs_bmap_split_extent(
 			error = -EFSCORRUPTED;
 			goto del_cursor;
 		}
-		error = xfs_btree_insert(cur, &i);
+		error = xfs_btree_insert(cur);
 		if (error)
 			goto del_cursor;
 	}

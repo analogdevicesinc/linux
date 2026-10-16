@@ -105,8 +105,7 @@ int xfs_ialloc_has_inodes_at_extent(struct xfs_btree_cur *cur,
 int xfs_ialloc_count_inodes(struct xfs_btree_cur *cur, xfs_agino_t *count,
 		xfs_agino_t *freecount);
 int xfs_inobt_insert_rec(struct xfs_btree_cur *cur, uint16_t holemask,
-		uint8_t count, int32_t freecount, xfs_inofree_t free,
-		int *stat);
+		uint8_t count, int32_t freecount, xfs_inofree_t free);
 
 int xfs_ialloc_cluster_alignment(struct xfs_mount *mp);
 void xfs_ialloc_setup_geometry(struct xfs_mount *mp);

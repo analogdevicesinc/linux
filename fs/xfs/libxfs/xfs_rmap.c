@@ -145,7 +145,7 @@ xfs_rmap_insert(
 	rcur->bc_rec.r.rm_owner = owner;
 	rcur->bc_rec.r.rm_offset = offset;
 	rcur->bc_rec.r.rm_flags = flags;
-	error = xfs_btree_insert(rcur, &i);
+	error = xfs_btree_insert(rcur);
 done:
 	if (error)
 		trace_xfs_rmap_insert_error(rcur, error, _RET_IP_);
@@ -855,7 +855,7 @@ xfs_rmap_unmap(
 				cur->bc_rec.r.rm_owner,
 				cur->bc_rec.r.rm_offset,
 				cur->bc_rec.r.rm_flags);
-		error = xfs_btree_insert(cur, &i);
+		error = xfs_btree_insert(cur);
 		if (error)
 			goto out_error;
 	}
@@ -1175,7 +1175,7 @@ xfs_rmap_map(
 		cur->bc_rec.r.rm_offset = offset;
 		cur->bc_rec.r.rm_flags = flags;
 		trace_xfs_rmap_insert(cur, bno, len, owner, offset, flags);
-		error = xfs_btree_insert(cur, &i);
+		error = xfs_btree_insert(cur);
 		if (error)
 			goto out_error;
 	}
@@ -1577,7 +1577,7 @@ xfs_rmap_convert(
 		NEW.rm_flags = newext;
 		cur->bc_rec.r = NEW;
 		trace_xfs_rmap_insert(cur, bno, len, owner, offset, newext);
-		error = xfs_btree_insert(cur, &i);
+		error = xfs_btree_insert(cur);
 		if (error)
 			goto done;
 		break;
@@ -1630,7 +1630,7 @@ xfs_rmap_convert(
 		NEW.rm_flags = newext;
 		cur->bc_rec.r = NEW;
 		trace_xfs_rmap_insert(cur, bno, len, owner, offset, newext);
-		error = xfs_btree_insert(cur, &i);
+		error = xfs_btree_insert(cur);
 		if (error)
 			goto done;
 		break;
@@ -1658,7 +1658,7 @@ xfs_rmap_convert(
 		trace_xfs_rmap_insert(cur, NEW.rm_startblock,
 				NEW.rm_blockcount, NEW.rm_owner, NEW.rm_offset,
 				NEW.rm_flags);
-		error = xfs_btree_insert(cur, &i);
+		error = xfs_btree_insert(cur);
 		if (error)
 			goto done;
 		/*
@@ -1679,7 +1679,7 @@ xfs_rmap_convert(
 		cur->bc_rec.r.rm_flags &= ~XFS_RMAP_UNWRITTEN;
 		cur->bc_rec.r.rm_flags |= newext;
 		trace_xfs_rmap_insert(cur, bno, len, owner, offset, newext);
-		error = xfs_btree_insert(cur, &i);
+		error = xfs_btree_insert(cur);
 		if (error)
 			goto done;
 		break;

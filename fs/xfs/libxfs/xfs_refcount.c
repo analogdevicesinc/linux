@@ -263,8 +263,7 @@ xfs_refcount_update(
 int
 xfs_refcount_insert(
 	struct xfs_btree_cur		*cur,
-	struct xfs_refcount_irec	*irec,
-	int				*i)
+	struct xfs_refcount_irec	*irec)
 {
 	int				error;
 
@@ -275,7 +274,7 @@ xfs_refcount_insert(
 	cur->bc_rec.rc.rc_refcount = irec->rc_refcount;
 	cur->bc_rec.rc.rc_domain = irec->rc_domain;
 
-	error = xfs_btree_insert(cur, i);
+	error = xfs_btree_insert(cur);
 	if (error)
 		trace_xfs_refcount_insert_error(cur, error, _RET_IP_);
 	return error;
@@ -454,7 +453,7 @@ xfs_refcount_split_extent(
 	/* Insert the left extent. */
 	tmp = rcext;
 	tmp.rc_blockcount = agbno - rcext.rc_startblock;
-	error = xfs_refcount_insert(cur, &tmp, &found_rec);
+	error = xfs_refcount_insert(cur, &tmp);
 	if (error)
 		goto out_error;
 
@@ -1141,7 +1140,7 @@ xfs_refcount_adjust_extents(
 {
 	struct xfs_refcount_irec	ext, tmp;
 	int				error;
-	int				found_rec, found_tmp;
+	int				found_rec;
 
 	/* Merging did all the work already. */
 	if (*aglen == 0)
@@ -1183,8 +1182,7 @@ xfs_refcount_adjust_extents(
 			 */
 			cur->bc_refc.nr_ops++;
 			if (tmp.rc_refcount) {
-				error = xfs_refcount_insert(cur, &tmp,
-						&found_tmp);
+				error = xfs_refcount_insert(cur, &tmp);
 				if (error)
 					goto out_error;
 			} else {
@@ -1784,7 +1782,7 @@ xfs_refcount_adjust_cow_extents(
 {
 	struct xfs_refcount_irec	ext, tmp;
 	int				error;
-	int				found_rec, found_tmp;
+	int				found_rec;
 
 	if (aglen == 0)
 		return 0;
@@ -1827,8 +1825,7 @@ xfs_refcount_adjust_cow_extents(
 
 		trace_xfs_refcount_modify_extent(cur, &tmp);
 
-		error = xfs_refcount_insert(cur, &tmp,
-				&found_tmp);
+		error = xfs_refcount_insert(cur, &tmp);
 		if (error)
 			goto out_error;
 		break;
