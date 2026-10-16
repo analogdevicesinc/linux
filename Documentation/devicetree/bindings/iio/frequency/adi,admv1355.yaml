@@ -1,0 +1,112 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/frequency/adi,admv1355.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ADMV1355 Microwave Upconverter
+
+maintainers:
+  - George Mois <george.mois@analog.com>
+
+description: |
+  The ADMV1355 is a highly integrated microwave upconverter optimized for
+  wideband radio designs operating in the 17.7 GHz to 55 GHz RF range.
+  It provides a compact alternative to traditional multichip solutions,
+  significantly reducing system size, weight, and power consumption.
+
+  The integrated local oscillator (LO) signal chain accepts LO input
+  signals in the 8.85 GHz to 27.5 GHz range with an internal 2x frequency
+  multiplier, programmable harmonic-reject filter, and I/Q phase-adjust
+  circuitry.
+
+  Three frequency translation mixer modes are supported: baseband I/Q
+  differential input (DC to 12 GHz), complex IF input (1 GHz to 12 GHz),
+  and IF hybrid input (8 GHz to 12 GHz).
+
+  The device communicates via a simple SPI interface (3-wire or 4-wire)
+  and is offered in a 120-ball, 6 mm x 6.5 mm, CSP_BGA package.
+
+  Datasheet:
+    https://www.analog.com/admv1355.html
+
+properties:
+  compatible:
+    enum:
+      - adi,admv1355
+
+  reg:
+    maxItems: 1
+
+  spi-max-frequency:
+    maximum: 50000000
+
+  clocks:
+    description:
+      LO input clock, accepted range 8.85 GHz to 27.5 GHz (before
+      the internal 2x multiplier).
+    maxItems: 1
+
+  clock-names:
+    items:
+      - const: lo-input
+
+  clock-scales:
+    description:
+      The Common Clock Framework max rate is limited by MAX of unsigned
+      long. For the ADMV1355 LO input frequencies (up to 27.5 GHz) this
+      is a deficiency. If specified, this property allows arbitrary
+      scales. The first element in the array should be the multiplier
+      and the second element should be the divider.
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItems: 2
+    maxItems: 2
+
+  vcc-supply:
+    description:
+      Main supply voltage regulator (VDD_DRV, 3 V nominal).
+
+  reset-gpios:
+    description:
+      GPIO connected to the active-low RST (chip reset) pin.
+    maxItems: 1
+
+  chip-enable-gpios:
+    description:
+      GPIO connected to the active-high CEN (chip enable) pin. CEN
+      must be held low until all supply voltages are stable and RST
+      has been set high.
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+  - clock-scales
+  - vcc-supply
+
+allOf:
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    spi {
+      #address-cells = <1>;
+      #size-cells = <0>;
+      admv1355@0 {
+        compatible = "adi,admv1355";
+        reg = <0>;
+        spi-max-frequency = <1000000>;
+        vcc-supply = <&admv1355_vcc>;
+        reset-gpios = <&gpio0 88 GPIO_ACTIVE_LOW>;
+        chip-enable-gpios = <&gpio0 89 GPIO_ACTIVE_HIGH>;
+        clocks = <&lo_input_clk>;
+        clock-names = "lo-input";
+        clock-scales = <1 11>;
+      };
+    };
+...
