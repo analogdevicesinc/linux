@@ -188,7 +188,6 @@ struct scrub_ctx {
 	struct btrfs_fs_info	*fs_info;
 	struct btrfs_path	extent_path;
 	struct btrfs_path	csum_path;
-	int			first_free;
 	int			cur_stripe;
 	atomic_t		cancel_req;
 	int			readonly;
@@ -460,7 +459,6 @@ static noinline_for_stack struct scrub_ctx *scrub_setup_ctx(
 			goto nomem;
 		sctx->stripes[i].sctx = sctx;
 	}
-	sctx->first_free = 0;
 	atomic_set(&sctx->cancel_req, 0);
 
 	spin_lock_init(&sctx->stat_lock);
