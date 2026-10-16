@@ -1152,40 +1152,53 @@ static int adrv9025_set_obs_rx_path(struct iio_dev *indio_dev,
 	u32 val = 0;
 	int ret;
 
-	if (adrv9025_orx_dual_4pin(phy)) {
-		struct gpio_desc *sel_gpio = (chan->channel > CHAN_OBS_RX1) ?
-					     phy->orx_ctrl_d_gpio :
-					     phy->orx_ctrl_b_gpio;
+	switch (adrv9025_orx_get_mode(phy)) {
+	case ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE: {
+		struct gpio_desc *sel_gpio = NULL;
+
+		if (chan)
+			sel_gpio = (chan->channel > CHAN_OBS_RX1) ?
+				   phy->orx_ctrl_d_gpio : phy->orx_ctrl_b_gpio;
+
+		if (!sel_gpio)
+			return -ENODEV;
 
 		/* select line: mode 1 = second ORx of the pair => assert */
-		if (sel_gpio)
-			gpiod_set_value_cansleep(sel_gpio, mode ? 1 : 0);
+		gpiod_set_value_cansleep(sel_gpio, mode ? 1 : 0);
 
 		/* selecting changes routing; re-assert the split crossbar */
 		ret = adrv9025_orx_xbar_reassert(phy);
 		if (ret)
 			return adrv9025_dev_err(phy);
 
-		return 0;
+		break;
 	}
 
-	/* Legacy SPI-mode select+enable (boards without ORX_CTRL pins). */
-	ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
-					 &txchan);
-	if (ret)
-		return adrv9025_dev_err(phy);
+	case ADI_ADRV9025_ORX_EN_SPI_MODE:
+		ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
+						 &txchan);
+		if (ret)
+			return adrv9025_dev_err(phy);
 
-	val = ad9371_obs_rx_port_lut[mode];
-	if (chan->channel > CHAN_OBS_RX1) {
-		mask = mask << 2 | 0xF;
-		val <<= 2;
+		val = ad9371_obs_rx_port_lut[mode];
+		if (chan->channel > CHAN_OBS_RX1) {
+			mask = mask << 2 | 0xF;
+			val <<= 2;
+		}
+
+		rxchan = (rxchan & mask) | val;
+
+		ret = adi_adrv9025_RxTxEnableSet(phy->madDevice, rxchan, txchan);
+		if (ret)
+			return adrv9025_dev_err(phy);
+
+		break;
+
+	case ADI_ADRV9025_ORX_EN_INVALID_MODE:
+	default:
+		ret = -EINVAL;
+		break;
 	}
-
-	rxchan = (rxchan & mask) | val;
-
-	ret = adi_adrv9025_RxTxEnableSet(phy->madDevice, rxchan, txchan);
-	if (ret)
-		return adrv9025_dev_err(phy);
 
 	return ret;
 }
@@ -1199,37 +1212,55 @@ static int adrv9025_get_obs_rx_path(struct iio_dev *indio_dev,
 	int pair;
 	int ret;
 
-	/*
-	 * In dual-4-pin mode selection is held by the channel-select pin, so
-	 * read it back directly. The output gpio returns the last value set.
-	 * 0 = first ORx of the pair, 1 = second ORx (matches the 2-item enum).
-	 */
-	if (adrv9025_orx_dual_4pin(phy)) {
-		struct gpio_desc *sel_gpio = (chan->channel > CHAN_OBS_RX1) ?
-					     phy->orx_ctrl_d_gpio :
-					     phy->orx_ctrl_b_gpio;
+	switch (adrv9025_orx_get_mode(phy)) {
+	case ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE: {
+		struct gpio_desc *sel_gpio = NULL;
 
-		return (sel_gpio && gpiod_get_value_cansleep(sel_gpio)) ? 1 : 0;
+		if (chan)
+			sel_gpio = (chan->channel > CHAN_OBS_RX1) ?
+				   phy->orx_ctrl_d_gpio : phy->orx_ctrl_b_gpio;
+
+		if (!sel_gpio)
+			return -ENODEV;
+
+		ret = gpiod_get_value_cansleep(sel_gpio);
+		if (ret < 0)
+			return ret;	/* gpiolib errno, not a MADAPI error */
+
+		ret = !!ret;
+		break;
 	}
 
-	ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
-					 &txchan);
-	if (ret)
-		return adrv9025_dev_err(phy);
+	case ADI_ADRV9025_ORX_EN_SPI_MODE:
+		/* Legacy SPI-mode readback. */
+		ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
+						 &txchan);
+		if (ret)
+			return adrv9025_dev_err(phy);
 
-	if (chan->channel > CHAN_OBS_RX1)
-		shift_right = CHAN_OBS_RX3;
+		if (chan->channel > CHAN_OBS_RX1)
+			shift_right = CHAN_OBS_RX3;
 
-	/*
-	 * Each ORx pair occupies two adjacent enable bits (lower/upper). The
-	 * rf_port_select enum is now SELECT-only with two items: index 0 =
-	 * lower ORx, index 1 = upper ORx. Map the upper enable bit to index 1
-	 * and everything else (lower-on or disabled) to index 0 so the read
-	 * always lands on a valid enum item.
-	 */
-	pair = rxchan >> shift_right & 0x3;
+		/*
+		 * Each ORx pair occupies two adjacent enable bits (lower/
+		 * upper). The rf_port_select enum is SELECT-only with two
+		 * items: index 0 = lower ORx, index 1 = upper ORx. Map the
+		 * upper enable bit to index 1 and everything else (lower-on or
+		 * disabled) to index 0 so the read always lands on a valid
+		 * enum item.
+		 */
+		pair = rxchan >> shift_right & 0x3;
 
-	return (pair & 0x2) ? 1 : 0;
+		ret = (pair & 0x2) ? 1 : 0;
+		break;
+
+	case ADI_ADRV9025_ORX_EN_INVALID_MODE:
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
 }
 
 static const struct iio_enum adrv9025_rf_obs1_rx_port_available = {
@@ -1356,11 +1387,23 @@ static int adrv9025_phy_read_raw(struct iio_dev *indio_dev,
 			break;
 		}
 
-		if (chan->output)
+		if (chan->output) {
 			*val = !!(txchan & (ADI_ADRV9025_TX1 << chan->channel));
-		else
-			if (chan->channel >= CHAN_OBS_RX1 &&
-			    adrv9025_orx_dual_4pin(phy)) {
+			ret = IIO_VAL_INT;
+			break;
+		}
+
+		/* Regular Rx channels always use the SPI enable state. */
+		if (chan->channel < CHAN_OBS_RX1) {
+			*val = !!(rxchan & (ADI_ADRV9025_RX1 << chan->channel));
+			ret = IIO_VAL_INT;
+			break;
+		}
+
+		/* OBS channel: dispatch on the configured ORx enable mode. */
+		if (chan->channel >= CHAN_OBS_RX1) {
+			switch (adrv9025_orx_get_mode(phy)) {
+			case ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE: {
 				/* enable is held by the side ENABLE pin (A/C) */
 				struct gpio_desc *en_gpio =
 					(chan->channel > CHAN_OBS_RX1) ?
@@ -1369,15 +1412,20 @@ static int adrv9025_phy_read_raw(struct iio_dev *indio_dev,
 
 				*val = en_gpio ?
 				       !!gpiod_get_value_cansleep(en_gpio) : 0;
-			} else if (chan->channel >= CHAN_OBS_RX1) {
+				break;
+			}
+			case ADI_ADRV9025_ORX_EN_SPI_MODE:
 				chan_no = chan->channel;
 				if (chan_no == CHAN_OBS_RX2)
 					chan_no += 1;
 				*val = !!(rxchan & (ADI_ADRV9025_RX1 << chan_no) ||
 					  rxchan & (ADI_ADRV9025_RX1 << (chan_no + 1)));
-			} else {
-				*val = !!(rxchan & (ADI_ADRV9025_RX1 << chan->channel));
+				break;
+			default:
+				ret = -EINVAL;
+				goto out;
 			}
+		}
 
 		ret = IIO_VAL_INT;
 		break;
