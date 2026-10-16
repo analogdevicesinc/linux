@@ -305,11 +305,6 @@ xfs_refcount_delete(
 	}
 	trace_xfs_refcount_delete(cur, &irec);
 	error = xfs_btree_delete(cur, i);
-	if (XFS_IS_CORRUPT(cur->bc_mp, *i != 1)) {
-		xfs_btree_mark_sick(cur);
-		error = -EFSCORRUPTED;
-		goto out_error;
-	}
 	if (error)
 		goto out_error;
 	error = xfs_refcount_lookup_ge(cur, irec.rc_domain, irec.rc_startblock,

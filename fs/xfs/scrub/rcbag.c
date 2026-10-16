@@ -242,10 +242,6 @@ rcbag_remove_ending_at(
 		error = xfs_btree_delete(cur, &has);
 		if (error)
 			goto out_cur;
-		if (!has) {
-			error = -EFSCORRUPTED;
-			goto out_cur;
-		}
 
 		bag->nr_items -= bagrec.rbg_refcount;
 	}

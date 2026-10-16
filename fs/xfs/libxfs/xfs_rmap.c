@@ -178,11 +178,6 @@ xfs_rmap_delete(
 	error = xfs_btree_delete(rcur, &i);
 	if (error)
 		goto done;
-	if (XFS_IS_CORRUPT(rcur->bc_mp, i != 1)) {
-		xfs_btree_mark_sick(rcur);
-		error = -EFSCORRUPTED;
-		goto done;
-	}
 done:
 	if (error)
 		trace_xfs_rmap_delete_error(rcur, error, _RET_IP_);
@@ -778,11 +773,6 @@ xfs_rmap_unmap(
 		error = xfs_btree_delete(cur, &i);
 		if (error)
 			goto out_error;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto out_error;
-		}
 	} else if (ltrec.rm_startblock == bno) {
 		/*
 		 * overlap left hand side of extent: move the start, trim the
@@ -1131,11 +1121,6 @@ xfs_rmap_map(
 			error = xfs_btree_delete(cur, &i);
 			if (error)
 				goto out_error;
-			if (XFS_IS_CORRUPT(mp, i != 1)) {
-				xfs_btree_mark_sick(cur);
-				error = -EFSCORRUPTED;
-				goto out_error;
-			}
 		}
 
 		/* point the cursor back to the left record and update */
@@ -1413,11 +1398,6 @@ xfs_rmap_convert(
 		error = xfs_btree_delete(cur, &i);
 		if (error)
 			goto done;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto done;
-		}
 		error = xfs_btree_decrement(cur, 0, &i);
 		if (error)
 			goto done;
@@ -1432,11 +1412,6 @@ xfs_rmap_convert(
 		error = xfs_btree_delete(cur, &i);
 		if (error)
 			goto done;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto done;
-		}
 		error = xfs_btree_decrement(cur, 0, &i);
 		if (error)
 			goto done;
@@ -1463,11 +1438,6 @@ xfs_rmap_convert(
 		error = xfs_btree_delete(cur, &i);
 		if (error)
 			goto done;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto done;
-		}
 		error = xfs_btree_decrement(cur, 0, &i);
 		if (error)
 			goto done;
@@ -1502,11 +1472,6 @@ xfs_rmap_convert(
 		error = xfs_btree_delete(cur, &i);
 		if (error)
 			goto done;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto done;
-		}
 		error = xfs_btree_decrement(cur, 0, &i);
 		if (error)
 			goto done;

@@ -4582,6 +4582,12 @@ xfs_btree_delete(
 		}
 	}
 
+	if (XFS_IS_CORRUPT(cur->bc_mp, i != 1)) {
+		xfs_btree_mark_sick(cur);
+		error = -EFSCORRUPTED;
+		goto error0;
+	}
+
 	*stat = i;
 	return 0;
 error0:

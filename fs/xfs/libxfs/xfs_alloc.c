@@ -678,10 +678,6 @@ xfs_alloc_fixup_trees(
 	 */
 	if ((error = xfs_btree_delete(cnt_cur, &i)))
 		return error;
-	if (XFS_IS_CORRUPT(mp, i != 1)) {
-		xfs_btree_mark_sick(cnt_cur);
-		return -EFSCORRUPTED;
-	}
 	/*
 	 * Add new by-size btree entry(s).
 	 */
@@ -716,10 +712,6 @@ xfs_alloc_fixup_trees(
 		 */
 		if ((error = xfs_btree_delete(bno_cur, &i)))
 			return error;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(bno_cur);
-			return -EFSCORRUPTED;
-		}
 	} else {
 		/*
 		 * Update the by-block entry to start later|be shorter.
@@ -2155,11 +2147,6 @@ xfs_free_ag_extent(
 		}
 		if ((error = xfs_btree_delete(cnt_cur, &i)))
 			goto error0;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cnt_cur);
-			error = -EFSCORRUPTED;
-			goto error0;
-		}
 		/*
 		 * Delete the old by-size entry on the right.
 		 */
@@ -2172,21 +2159,11 @@ xfs_free_ag_extent(
 		}
 		if ((error = xfs_btree_delete(cnt_cur, &i)))
 			goto error0;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cnt_cur);
-			error = -EFSCORRUPTED;
-			goto error0;
-		}
 		/*
 		 * Delete the old by-block entry for the right block.
 		 */
 		if ((error = xfs_btree_delete(bno_cur, &i)))
 			goto error0;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(bno_cur);
-			error = -EFSCORRUPTED;
-			goto error0;
-		}
 		/*
 		 * Move the by-block cursor back to the left neighbor.
 		 */
@@ -2244,11 +2221,6 @@ xfs_free_ag_extent(
 		}
 		if ((error = xfs_btree_delete(cnt_cur, &i)))
 			goto error0;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cnt_cur);
-			error = -EFSCORRUPTED;
-			goto error0;
-		}
 		/*
 		 * Back up the by-block cursor to the left neighbor, and
 		 * update its length.
@@ -2282,11 +2254,6 @@ xfs_free_ag_extent(
 		}
 		if ((error = xfs_btree_delete(cnt_cur, &i)))
 			goto error0;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cnt_cur);
-			error = -EFSCORRUPTED;
-			goto error0;
-		}
 		/*
 		 * Update the starting block and length of the right
 		 * neighbor in the by-block tree.

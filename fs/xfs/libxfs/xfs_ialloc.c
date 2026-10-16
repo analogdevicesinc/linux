@@ -1620,11 +1620,6 @@ xfs_dialloc_ag(
 		error = xfs_btree_delete(cur, &i);
 		if (error)
 			goto error_cur;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto error_cur;
-		}
 	}
 
 	/*
@@ -2158,11 +2153,6 @@ xfs_difree_inobt(
 				__func__, error);
 			goto error0;
 		}
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto error0;
-		}
 
 		error = xfs_difree_inode_chunk(tp, pag, &rec);
 		if (error)
@@ -2287,11 +2277,6 @@ xfs_difree_finobt(
 		error = xfs_btree_delete(cur, &i);
 		if (error)
 			goto error;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto error;
-		}
 	} else {
 		error = xfs_inobt_update(cur, &rec);
 		if (error)
