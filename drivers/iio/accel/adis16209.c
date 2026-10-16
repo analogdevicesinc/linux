@@ -298,16 +298,22 @@ static int adis16209_probe(struct spi_device *spi)
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
+static const struct spi_device_id adis16209_ids[] = {
+	{ .name = "adis16209" },
+	{ }
+};
+MODULE_DEVICE_TABLE(spi, adis16209_ids);
+
 static struct spi_driver adis16209_driver = {
 	.driver = {
 		.name = "adis16209",
 	},
 	.probe = adis16209_probe,
+	.id_table = adis16209_ids,
 };
 module_spi_driver(adis16209_driver);
 
 MODULE_AUTHOR("Barry Song <21cnbao@gmail.com>");
 MODULE_DESCRIPTION("Analog Devices ADIS16209 Dual-Axis Digital Inclinometer and Accelerometer");
 MODULE_LICENSE("GPL v2");
-MODULE_ALIAS("spi:adis16209");
 MODULE_IMPORT_NS("IIO_ADISLIB");
