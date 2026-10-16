@@ -1875,7 +1875,6 @@ static void rt61pci_write_beacon(struct queue_entry *entry,
 	struct rt2x00_dev *rt2x00dev = entry->queue->rt2x00dev;
 	struct queue_entry_priv_mmio *entry_priv = entry->priv_data;
 	unsigned int beacon_base;
-	unsigned int padding_len;
 	u32 orig_reg, reg;
 
 	/*
@@ -1900,10 +1899,9 @@ static void rt61pci_write_beacon(struct queue_entry *entry,
 	/*
 	 * Write entire beacon with descriptor and padding to register.
 	 */
-	padding_len = roundup(entry->skb->len, 4) - entry->skb->len;
-	if (padding_len && skb_pad(entry->skb, padding_len)) {
+	if (skb_put_padto(entry->skb, roundup(entry->skb->len, 4))) {
 		rt2x00_err(rt2x00dev, "Failure padding beacon, aborting\n");
-		/* skb freed by skb_pad() on failure */
+		/* skb freed by skb_put_padto() on failure */
 		entry->skb = NULL;
 		rt2x00mmio_register_write(rt2x00dev, TXRX_CSR9, orig_reg);
 		return;
@@ -1913,8 +1911,7 @@ static void rt61pci_write_beacon(struct queue_entry *entry,
 	rt2x00mmio_register_multiwrite(rt2x00dev, beacon_base,
 				       entry_priv->desc, TXINFO_SIZE);
 	rt2x00mmio_register_multiwrite(rt2x00dev, beacon_base + TXINFO_SIZE,
-				       entry->skb->data,
-				       entry->skb->len + padding_len);
+				       entry->skb->data, entry->skb->len);
 
 	/*
 	 * Enable beaconing again.
