@@ -1789,7 +1789,6 @@ static void amdgpu_vm_bo_insert_map(struct amdgpu_device *adev,
 				    struct amdgpu_bo_va_mapping *mapping)
 {
 	struct amdgpu_vm *vm = bo_va->base.vm;
-	struct amdgpu_bo *bo = bo_va->base.bo;
 
 	mapping->bo_va = bo_va;
 	list_add(&mapping->list, &bo_va->invalids);
@@ -1798,7 +1797,7 @@ static void amdgpu_vm_bo_insert_map(struct amdgpu_device *adev,
 	if (mapping->flags & AMDGPU_VM_PAGE_PRT)
 		amdgpu_vm_prt_get(adev);
 
-	if (amdgpu_vm_is_bo_always_valid(vm, bo) && !bo_va->base.moved)
+	if (!bo_va->base.moved)
 		amdgpu_vm_bo_needs_update(&bo_va->base);
 
 	trace_amdgpu_vm_bo_map(bo_va, mapping);
