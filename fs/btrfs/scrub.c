@@ -356,7 +356,7 @@ static int init_scrub_stripe(struct btrfs_fs_info *fs_info,
 	atomic_set(&stripe->pending_io, 0);
 	spin_lock_init(&stripe->write_error_lock);
 
-	stripe->buffer = kvmalloc(BTRFS_STRIPE_LEN, GFP_NOFS);
+	stripe->buffer = kvmalloc(BTRFS_STRIPE_LEN, GFP_KERNEL);
 	if (!stripe->buffer)
 		goto error;
 
