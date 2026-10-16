@@ -298,6 +298,12 @@ static int adis16209_probe(struct spi_device *spi)
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
+static const struct of_device_id adis16209_of_match[] = {
+	{ .compatible  = "adi,adis16209" },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, adis16209_of_match);
+
 static const struct spi_device_id adis16209_ids[] = {
 	{ .name = "adis16209" },
 	{ }
@@ -307,6 +313,7 @@ MODULE_DEVICE_TABLE(spi, adis16209_ids);
 static struct spi_driver adis16209_driver = {
 	.driver = {
 		.name = "adis16209",
+		.of_match_table = adis16209_of_match,
 	},
 	.probe = adis16209_probe,
 	.id_table = adis16209_ids,
