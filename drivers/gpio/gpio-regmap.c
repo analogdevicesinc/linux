@@ -10,6 +10,7 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/module.h>
+#include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/types.h>
@@ -20,6 +21,8 @@
 struct gpio_regmap {
 	struct device *parent;
 	struct regmap *regmap;
+	struct device *pm_dev;
+
 	struct gpio_chip gpio_chip;
 
 	int reg_stride;
@@ -33,6 +36,10 @@ struct gpio_regmap {
 	int (*reg_mask_xlate)(struct gpio_regmap *gpio, unsigned int base,
 			      unsigned int offset, unsigned int *reg,
 			      unsigned int *mask);
+	int (*reg_mask_xlate_op)(struct gpio_regmap *gpio,
+				 enum gpio_regmap_operation op,
+				 unsigned int base, unsigned int offset,
+				 unsigned int *reg, unsigned int *mask);
 
 	void *driver_data;
 };
@@ -58,6 +65,34 @@ static int gpio_regmap_simple_xlate(struct gpio_regmap *gpio,
 	return 0;
 }
 
+static int gpio_regmap_xlate(struct gpio_regmap *gpio,
+			     enum gpio_regmap_operation op,
+			     unsigned int base, unsigned int offset,
+			     unsigned int *reg, unsigned int *mask)
+{
+	if (gpio->reg_mask_xlate_op)
+		return gpio->reg_mask_xlate_op(gpio, op, base, offset, reg, mask);
+
+	return gpio->reg_mask_xlate(gpio, base, offset, reg, mask);
+}
+
+static int gpio_regmap_runtime_get(struct gpio_regmap *gpio)
+{
+	if (!gpio->pm_dev)
+		return 0;
+
+	return pm_runtime_resume_and_get(gpio->pm_dev);
+}
+
+static void gpio_regmap_runtime_put(struct gpio_regmap *gpio)
+{
+	if (!gpio->pm_dev)
+		return;
+
+	pm_runtime_mark_last_busy(gpio->pm_dev);
+	pm_runtime_put_autosuspend(gpio->pm_dev);
+}
+
 static int gpio_regmap_get(struct gpio_chip *chip, unsigned int offset)
 {
 	struct gpio_regmap *gpio = gpiochip_get_data(chip);
@@ -70,29 +105,63 @@ static int gpio_regmap_get(struct gpio_chip *chip, unsigned int offset)
 	else
 		base = gpio_regmap_addr(gpio->reg_set_base);
 
-	ret = gpio->reg_mask_xlate(gpio, base, offset, &reg, &mask);
+	ret = gpio_regmap_runtime_get(gpio);
 	if (ret)
 		return ret;
 
-	ret = regmap_read(gpio->regmap, reg, &val);
+	ret = gpio_regmap_xlate(gpio, GPIO_REGMAP_GET_OP, base, offset,
+				&reg, &mask);
+	if (ret)
+		goto out;
+
+	if (gpio->reg_dat_base != gpio->reg_set_base) {
+		ret = regmap_test_bits(gpio->regmap, reg, mask);
+		goto out;
+	}
+
+	/* ensure we don't spoil any register cache with pin input values */
+	ret = regmap_read_bypassed(gpio->regmap, reg, &val);
+	if (ret)
+		goto out;
+
+	ret = !!(val & mask);
+
+out:
+	gpio_regmap_runtime_put(gpio);
+	return ret;
+}
+
+static int gpio_regmap_set_value(struct gpio_chip *chip, unsigned int offset,
+				 int val)
+{
+	struct gpio_regmap *gpio = gpiochip_get_data(chip);
+	unsigned int base = gpio_regmap_addr(gpio->reg_set_base);
+	unsigned int reg, mask;
+	int ret;
+
+	ret = gpio_regmap_runtime_get(gpio);
 	if (ret)
 		return ret;
 
-	return !!(val & mask);
+	ret = gpio_regmap_xlate(gpio, GPIO_REGMAP_SET_OP, base, offset,
+				&reg, &mask);
+	if (ret)
+		goto out;
+
+	if (val)
+		ret = regmap_update_bits(gpio->regmap, reg, mask, mask);
+	else
+		ret = regmap_update_bits(gpio->regmap, reg, mask, 0);
+
+out:
+	gpio_regmap_runtime_put(gpio);
+	return ret;
 }
 
 static void gpio_regmap_set(struct gpio_chip *chip, unsigned int offset,
 			    int val)
 {
-	struct gpio_regmap *gpio = gpiochip_get_data(chip);
-	unsigned int base = gpio_regmap_addr(gpio->reg_set_base);
-	unsigned int reg, mask;
-
-	gpio->reg_mask_xlate(gpio, base, offset, &reg, &mask);
-	if (val)
-		regmap_update_bits(gpio->regmap, reg, mask, mask);
-	else
-		regmap_update_bits(gpio->regmap, reg, mask, 0);
+	gpio_regmap_set_value(chip, offset, val);
 }
 
 static void gpio_regmap_set_with_clear(struct gpio_chip *chip,
@@ -100,21 +169,33 @@ static void gpio_regmap_set_with_clear(struct gpio_chip *chip,
 {
 	struct gpio_regmap *gpio = gpiochip_get_data(chip);
 	unsigned int base, reg, mask;
+	int ret;
+
+	ret = gpio_regmap_runtime_get(gpio);
+	if (ret)
+		return;
 
 	if (val)
 		base = gpio_regmap_addr(gpio->reg_set_base);
 	else
 		base = gpio_regmap_addr(gpio->reg_clr_base);
 
-	gpio->reg_mask_xlate(gpio, base, offset, &reg, &mask);
+	ret = gpio_regmap_xlate(gpio, GPIO_REGMAP_SET_OP, base, offset,
+				&reg, &mask);
+	if (ret)
+		goto out;
+
 	regmap_write(gpio->regmap, reg, mask);
+
+out:
+	gpio_regmap_runtime_put(gpio);
 }
 
 static int gpio_regmap_get_direction(struct gpio_chip *chip,
 				     unsigned int offset)
 {
 	struct gpio_regmap *gpio = gpiochip_get_data(chip);
-	unsigned int base, val, reg, mask;
+	unsigned int base, reg, mask;
 	int invert, ret;
 
 	if (gpio->reg_dat_base && !gpio->reg_set_base)
@@ -132,18 +213,27 @@ static int gpio_regmap_get_direction(struct gpio_chip *chip,
 		return -ENOTSUPP;
 	}
 
-	ret = gpio->reg_mask_xlate(gpio, base, offset, &reg, &mask);
+	ret = gpio_regmap_runtime_get(gpio);
 	if (ret)
 		return ret;
 
-	ret = regmap_read(gpio->regmap, reg, &val);
+	ret = gpio_regmap_xlate(gpio, GPIO_REGMAP_GET_DIR_OP, base, offset,
+				&reg, &mask);
 	if (ret)
-		return ret;
+		goto out;
 
-	if (!!(val & mask) ^ invert)
-		return GPIO_LINE_DIRECTION_OUT;
+	ret = regmap_test_bits(gpio->regmap, reg, mask);
+	if (ret < 0)
+		goto out;
+
+	if (ret ^ invert)
+		ret = GPIO_LINE_DIRECTION_OUT;
 	else
-		return GPIO_LINE_DIRECTION_IN;
+		ret = GPIO_LINE_DIRECTION_IN;
+
+out:
+	gpio_regmap_runtime_put(gpio);
+	return ret;
 }
 
 static int gpio_regmap_set_direction(struct gpio_chip *chip,
@@ -163,16 +253,25 @@ static int gpio_regmap_set_direction(struct gpio_chip *chip,
 		return -ENOTSUPP;
 	}
 
-	ret = gpio->reg_mask_xlate(gpio, base, offset, &reg, &mask);
+	ret = gpio_regmap_runtime_get(gpio);
 	if (ret)
 		return ret;
+
+	ret = gpio_regmap_xlate(gpio, GPIO_REGMAP_SET_DIR_OP, base, offset,
+				&reg, &mask);
+	if (ret)
+		goto out;
 
 	if (invert)
 		val = output ? 0 : mask;
 	else
 		val = output ? mask : 0;
 
-	return regmap_update_bits(gpio->regmap, reg, mask, val);
+	ret = regmap_update_bits(gpio->regmap, reg, mask, val);
+
+out:
+	gpio_regmap_runtime_put(gpio);
+	return ret;
 }
 
 static int gpio_regmap_direction_input(struct gpio_chip *chip,
@@ -184,9 +283,23 @@ static int gpio_regmap_direction_input(struct gpio_chip *chip,
 static int gpio_regmap_direction_output(struct gpio_chip *chip,
 					unsigned int offset, int value)
 {
-	gpio_regmap_set(chip, offset, value);
+	struct gpio_regmap *gpio = gpiochip_get_data(chip);
+	int ret;
 
-	return gpio_regmap_set_direction(chip, offset, true);
+	ret = gpio_regmap_runtime_get(gpio);
+	if (ret)
+		return ret;
+
+	ret = gpio_regmap_set_value(chip, offset, value);
+	if (ret)
+		goto out;
+
+	ret = gpio_regmap_set_direction(chip, offset, true);
+
+out:
+	gpio_regmap_runtime_put(gpio);
+
+	return ret;
 }
 
 void *gpio_regmap_get_drvdata(struct gpio_regmap *gpio)
@@ -236,11 +349,13 @@ struct gpio_regmap *gpio_regmap_register(const struct gpio_regmap_config *config
 	gpio->ngpio_per_reg = config->ngpio_per_reg;
 	gpio->reg_stride = config->reg_stride;
 	gpio->reg_mask_xlate = config->reg_mask_xlate;
+	gpio->reg_mask_xlate_op = config->reg_mask_xlate_op;
 	gpio->reg_dat_base = config->reg_dat_base;
 	gpio->reg_set_base = config->reg_set_base;
 	gpio->reg_clr_base = config->reg_clr_base;
 	gpio->reg_dir_in_base = config->reg_dir_in_base;
 	gpio->reg_dir_out_base = config->reg_dir_out_base;
+	gpio->pm_dev = config->pm_dev;
 
 	/* if not set, assume there is only one register */
 	if (!gpio->ngpio_per_reg)
@@ -250,7 +365,7 @@ struct gpio_regmap *gpio_regmap_register(const struct gpio_regmap_config *config
 	if (!gpio->reg_stride)
 		gpio->reg_stride = 1;
 
-	if (!gpio->reg_mask_xlate)
+	if (!gpio->reg_mask_xlate && !gpio->reg_mask_xlate_op)
 		gpio->reg_mask_xlate = gpio_regmap_simple_xlate;
 
 	chip = &gpio->gpio_chip;
@@ -260,7 +375,8 @@ struct gpio_regmap *gpio_regmap_register(const struct gpio_regmap_config *config
 	chip->ngpio = config->ngpio;
 	chip->names = config->names;
 	chip->label = config->label ?: dev_name(config->parent);
-	chip->can_sleep = regmap_might_sleep(config->regmap);
+	chip->can_sleep = config->pm_dev || regmap_might_sleep(config->regmap);
+	chip->init_valid_mask = config->init_valid_mask;
 
 	chip->get = gpio_regmap_get;
 	if (gpio->reg_set_base && gpio->reg_clr_base)
