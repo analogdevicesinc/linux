@@ -2296,7 +2296,7 @@ int btrfs_rmap_block(struct btrfs_fs_info *fs_info, u64 chunk_start,
 	if (IS_ERR(map))
 		return -EIO;
 
-	data_stripe_length = map->stripe_size;
+	data_stripe_length = map->dev_extent_size;
 	io_stripe_size = BTRFS_STRIPE_LEN;
 	chunk_start = map->start;
 
@@ -2890,7 +2890,7 @@ static int insert_dev_extents(struct btrfs_trans_handle *trans,
 		dev_offset = map->stripes[i].physical;
 
 		ret = insert_dev_extent(trans, device, chunk_offset, dev_offset,
-					map->stripe_size);
+					map->dev_extent_size);
 		if (ret)
 			break;
 	}

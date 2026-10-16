@@ -6090,7 +6090,7 @@ static void chunk_map_device_set_bits(struct btrfs_chunk_map *map, unsigned int 
 		struct btrfs_device *device = stripe->dev;
 
 		btrfs_set_extent_bit(&device->alloc_state, stripe->physical,
-				     stripe->physical + map->stripe_size - 1,
+				     stripe->physical + map->dev_extent_size - 1,
 				     bits | EXTENT_NOWAIT, NULL);
 	}
 }
@@ -6102,7 +6102,7 @@ void btrfs_chunk_map_device_clear_bits(struct btrfs_chunk_map *map, unsigned int
 		struct btrfs_device *device = stripe->dev;
 
 		btrfs_clear_extent_bit(&device->alloc_state, stripe->physical,
-				       stripe->physical + map->stripe_size - 1,
+				       stripe->physical + map->dev_extent_size - 1,
 				       bits | EXTENT_NOWAIT, NULL);
 	}
 }
@@ -6199,7 +6199,7 @@ static struct btrfs_block_group *create_chunk(struct btrfs_trans_handle *trans,
 
 	map->start = start;
 	map->chunk_len = ctl->chunk_size;
-	map->stripe_size = ctl->stripe_size;
+	map->dev_extent_size = ctl->stripe_size;
 	map->on_disk_type = type;
 	map->sub_stripes = ctl->sub_stripes;
 	map->num_stripes = ctl->num_stripes;
@@ -7650,7 +7650,7 @@ static void btrfs_report_missing_device(struct btrfs_fs_info *fs_info,
 			      devid, uuid);
 }
 
-u64 btrfs_calc_stripe_length(const struct btrfs_chunk_map *map)
+u64 btrfs_calc_dev_extent_size(const struct btrfs_chunk_map *map)
 {
 	const int data_stripes = calc_data_stripes(map->type, map->num_stripes);
 
@@ -7778,9 +7778,9 @@ static int read_one_chunk(struct btrfs_key *key, struct extent_buffer *leaf,
 	set_real_chunk_type(map);
 
 	if (num_stripes > 0)
-		map->stripe_size = btrfs_calc_stripe_length(map);
+		map->dev_extent_size = btrfs_calc_dev_extent_size(map);
 	else
-		map->stripe_size = 0;
+		map->dev_extent_size = 0;
 
 	for (i = 0; i < num_stripes; i++) {
 		map->stripes[i].physical =
@@ -8673,7 +8673,7 @@ static int verify_one_dev_extent(struct btrfs_fs_info *fs_info,
 	struct btrfs_dev_lookup_args args = { .devid = devid };
 	struct btrfs_chunk_map *map;
 	struct btrfs_device *dev;
-	u64 stripe_len;
+	u64 dev_extent_size;
 	bool found = false;
 	int ret = 0;
 	int i;
@@ -8687,12 +8687,12 @@ static int verify_one_dev_extent(struct btrfs_fs_info *fs_info,
 		goto out;
 	}
 
-	stripe_len = btrfs_calc_stripe_length(map);
-	if (unlikely(physical_len != stripe_len)) {
+	dev_extent_size = btrfs_calc_dev_extent_size(map);
+	if (unlikely(physical_len != dev_extent_size)) {
 		btrfs_err(fs_info,
 "dev extent physical offset %llu on devid %llu length doesn't match chunk %llu, have %llu expect %llu",
 			  physical_offset, devid, map->start, physical_len,
-			  stripe_len);
+			  dev_extent_size);
 		ret = -EUCLEAN;
 		goto out;
 	}

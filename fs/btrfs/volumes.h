@@ -628,7 +628,7 @@ struct btrfs_chunk_map {
 	refcount_t refs;
 	u64 start;
 	u64 chunk_len;
-	u64 stripe_size;
+	u64 dev_extent_size;
 	/*
 	 * The real type that is utilized during logical address mapping.
 	 *
@@ -799,7 +799,7 @@ void btrfs_destroy_dev_replace_tgtdev(struct btrfs_device *tgtdev,
 void btrfs_free_device(struct btrfs_device *device);
 unsigned long btrfs_full_stripe_len(struct btrfs_fs_info *fs_info,
 				    u64 logical);
-u64 btrfs_calc_stripe_length(const struct btrfs_chunk_map *map);
+u64 btrfs_calc_dev_extent_size(const struct btrfs_chunk_map *map);
 int btrfs_nr_parity_stripes(u64 type);
 int btrfs_chunk_alloc_add_chunk_item(struct btrfs_trans_handle *trans,
 				     struct btrfs_block_group *bg);

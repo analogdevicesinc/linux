@@ -2410,7 +2410,7 @@ static noinline_for_stack int scrub_stripe(struct scrub_ctx *sctx,
 	int ret;
 	int ret2;
 	u64 physical = map->stripes[stripe_index].physical;
-	const u64 dev_stripe_len = btrfs_calc_stripe_length(map);
+	const u64 dev_stripe_len = btrfs_calc_dev_extent_size(map);
 	const u64 physical_end = physical + dev_stripe_len;
 	u64 logical;
 	u64 logic_end;
