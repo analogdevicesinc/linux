@@ -236,7 +236,6 @@ xfs_inobt_insert(
 			xfs_btree_del_cursor(cur, XFS_BTREE_ERROR);
 			return error;
 		}
-		ASSERT(i == 1);
 	}
 
 	xfs_btree_del_cursor(cur, XFS_BTREE_NOERROR);
@@ -572,12 +571,6 @@ xfs_inobt_insert_sprec(
 					     nrec->ir_free, &i);
 		if (error)
 			goto error;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto error;
-		}
-
 		goto out;
 	}
 
@@ -647,7 +640,6 @@ xfs_finobt_insert_sprec(
 	struct xfs_buf			*agbp,
 	struct xfs_inobt_rec_incore	*nrec)	/* in/out: new rec. */
 {
-	struct xfs_mount		*mp = pag_mount(pag);
 	struct xfs_btree_cur		*cur;
 	int				error;
 	int				i;
@@ -665,11 +657,6 @@ xfs_finobt_insert_sprec(
 					     nrec->ir_free, &i);
 		if (error)
 			goto error;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto error;
-		}
 	} else {
 		error = xfs_inobt_update(cur, nrec);
 		if (error)
@@ -2254,8 +2241,6 @@ xfs_difree_finobt(
 					     ibtrec->ir_free, &i);
 		if (error)
 			goto error;
-		ASSERT(i == 1);
-
 		goto out;
 	}
 
