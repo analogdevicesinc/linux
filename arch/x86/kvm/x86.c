@@ -9405,6 +9405,17 @@ int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 	struct page *page;
 	int r;
 
+	/*
+	 * The host TSC frequency is unknown, e.g. because TSC calibration failed
+	 * at boot.  KVM cannot virtualize the TSC in this state, and every
+	 * consumer of the frequency ends up needing its own zero check; fail vCPU
+	 * creation instead of handing userspace a vCPU that cannot run.
+	 */
+	if (!tsc_khz) {
+		pr_err_ratelimited("cannot create vCPU, host TSC frequency is unknown\n");
+		return -EIO;
+	}
+
 	vcpu->arch.last_vmentry_cpu = -1;
 	bitmap_fill(vcpu->arch.regs_avail, NR_VCPU_TOTAL_REGS);
 	bitmap_fill(vcpu->arch.regs_dirty, NR_VCPU_TOTAL_REGS);
