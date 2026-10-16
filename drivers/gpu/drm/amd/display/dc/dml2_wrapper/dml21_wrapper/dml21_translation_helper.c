@@ -828,6 +828,9 @@ static void populate_dml21_plane_config_from_plane_state(struct dml2_context *dm
 	plane->composition.rect_out_height_spans_vactive =
 		plane_state->dst_rect.height >= stream->src.height &&
 		stream->dst.height >= (int)stream->timing.v_addressable;
+
+	if (plane_state->ctx->dc->debug.force_mpc_combine)
+		plane->overrides.mpcc_combine_factor = plane_state->ctx->dc->debug.force_mpc_combine;
 }
 
 //TODO : Could be possibly moved to a common helper layer.

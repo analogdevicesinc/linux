@@ -1102,6 +1102,12 @@ struct dc_debug_options {
 	 */
 	enum pipe_split_policy pipe_split_policy;
 	bool force_single_disp_pipe_split;
+	/*
+	 * @force_mpc_combine: Override the DML2.1 per-plane MPC combine
+	 * decision. 0 = auto (default), 1 = force single DPP (no MPC combine),
+	 * 2 = force 2:1 MPC combine.
+	 */
+	uint8_t force_mpc_combine;
 	bool voltage_align_fclk;
 	bool disable_min_fclk;
 
