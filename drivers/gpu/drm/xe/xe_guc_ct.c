@@ -1568,22 +1568,18 @@ static int parse_g2h_event(struct xe_guc_ct *ct, u32 *msg, u32 len)
 	return 0;
 }
 
-static int guc_crash_process_msg(struct xe_guc_ct *ct, u32 action)
+static void guc_handle_crash_dump_msg(struct xe_guc_ct *ct)
 {
-	struct xe_gt *gt = ct_to_gt(ct);
-
-	if (action == XE_GUC_ACTION_NOTIFY_CRASH_DUMP_POSTED)
-		xe_gt_err(gt, "GuC Crash dump notification\n");
-	else if (action == XE_GUC_ACTION_NOTIFY_EXCEPTION)
-		xe_gt_err(gt, "GuC Exception notification\n");
-	else
-		xe_gt_err(gt, "Unknown GuC crash notification: 0x%04X\n", action);
-
+	xe_gt_err(ct_to_gt(ct), "GuC Crash dump notification\n");
 	CT_DEAD(ct, NULL, CRASH);
-
 	kick_reset(ct);
+}
 
-	return 0;
+static void guc_handle_exception_msg(struct xe_guc_ct *ct)
+{
+	xe_gt_err(ct_to_gt(ct), "GuC Exception notification\n");
+	CT_DEAD(ct, NULL, CRASH);
+	kick_reset(ct);
 }
 
 static int parse_g2h_response(struct xe_guc_ct *ct, u32 *msg, u32 len)
@@ -1787,8 +1783,10 @@ static int process_g2h_msg(struct xe_guc_ct *ct, u32 *msg, u32 len)
 		ret = xe_gt_sriov_pf_monitor_process_guc2pf(gt, hxg, hxg_len);
 		break;
 	case XE_GUC_ACTION_NOTIFY_CRASH_DUMP_POSTED:
+		guc_handle_crash_dump_msg(ct);
+		break;
 	case XE_GUC_ACTION_NOTIFY_EXCEPTION:
-		ret = guc_crash_process_msg(ct, action);
+		guc_handle_exception_msg(ct);
 		break;
 #if IS_ENABLED(CONFIG_DRM_XE_KUNIT_TEST)
 	case XE_GUC_ACTION_TEST_G2G_RECV:
