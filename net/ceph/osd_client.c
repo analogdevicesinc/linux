@@ -2482,12 +2482,13 @@ static void account_request(struct ceph_osd_request *req)
 	req->r_flags |= CEPH_OSD_FLAG_ONDISK;
 	atomic_inc(&req->r_osdc->num_requests);
 
-	req->r_start_stamp = jiffies;
 	req->r_start_latency = ktime_get();
 }
 
 static void submit_request(struct ceph_osd_request *req, bool wrlocked)
 {
+	req->r_start_stamp = jiffies;
+
 	ceph_osdc_get_request(req);
 	account_request(req);
 	__submit_request(req, wrlocked);
@@ -3195,11 +3196,11 @@ static void linger_ping_cb(struct ceph_osd_request *req)
 	}
 
 	dout("%s lreq %p linger_id %llu result %d ping_sent %lu last_error %d\n",
-	     __func__, lreq, lreq->linger_id, req->r_result, lreq->ping_sent,
+	     __func__, lreq, lreq->linger_id, req->r_result, req->r_start_stamp,
 	     lreq->last_error);
 	if (lreq->register_gen == req->r_ops[0].watch.gen) {
 		if (!req->r_result) {
-			lreq->watch_valid_thru = lreq->ping_sent;
+			lreq->watch_valid_thru = req->r_start_stamp;
 		} else if (!lreq->last_error) {
 			lreq->last_error = normalize_watch_error(req->r_result);
 			queue_watch_error(lreq);
@@ -3218,6 +3219,7 @@ static void send_linger_ping(struct ceph_osd_linger_request *lreq)
 {
 	struct ceph_osd_client *osdc = lreq->osdc;
 	struct ceph_osd_request *req;
+	unsigned long now = jiffies;
 	int ret;
 
 	if (ceph_osdmap_flag(osdc, CEPH_OSDMAP_PAUSERD)) {
@@ -3225,10 +3227,8 @@ static void send_linger_ping(struct ceph_osd_linger_request *lreq)
 		return;
 	}
 
-	lreq->ping_sent = jiffies;
 	dout("%s lreq %p linger_id %llu ping_sent %lu register_gen %u\n",
-	     __func__, lreq, lreq->linger_id, lreq->ping_sent,
-	     lreq->register_gen);
+	     __func__, lreq, lreq->linger_id, now, lreq->register_gen);
 
 	if (lreq->ping_req) {
 		if (lreq->ping_req->r_osd)
@@ -3250,6 +3250,8 @@ static void send_linger_ping(struct ceph_osd_linger_request *lreq)
 	req->r_priv = linger_get(lreq);
 	req->r_linger = true;
 	lreq->ping_req = req;
+
+	req->r_start_stamp = now;
 
 	ceph_osdc_get_request(req);
 	account_request(req);
