@@ -1141,7 +1141,6 @@ static int adrv9025_orx_xbar_reassert(struct adrv9025_rf_phy *phy)
  * side-B) to pick which ORx of the pair is observed. It does NOT enable the
  * side - enable is owned by the _en attribute (write_raw). mode is the enum
  * index: 0 = first ORx of the pair (sel low), 1 = second ORx (sel high).
- * On boards without the ORX_CTRL pins it falls back to legacy SPI selection.
  */
 static int adrv9025_set_obs_rx_path(struct iio_dev *indio_dev,
 				    const struct iio_chan_spec *chan, u32 mode)
