@@ -804,7 +804,6 @@ void play_dead(void)
 	unsigned int cpu;
 
 	local_irq_disable();
-	idle_task_exit();
 	cpu = smp_processor_id();
 	cpu_death = CPU_DEATH_POWER;
 

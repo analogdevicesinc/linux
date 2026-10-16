@@ -1290,8 +1290,6 @@ void cpu_play_dead(void)
 	int cpu = smp_processor_id();
 	unsigned long pstate;
 
-	idle_task_exit();
-
 	if (tlb_type == hypervisor) {
 		struct trap_per_cpu *tb = &trap_block[cpu];
 
