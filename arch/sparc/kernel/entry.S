@@ -252,7 +252,8 @@ smp4m_ticker:
 	WRITE_PAUSE
 	call	smp4m_percpu_timer_interrupt
 	 add	%sp, STACKFRAME_SZ, %o0
-	wr	%l0, PSR_ET, %psr
+	or	%l0, PSR_PIL, %g2	! keep PIL raised until rett
+	wr	%g2, PSR_ET, %psr
 	WRITE_PAUSE
 	RESTORE_ALL
 
@@ -353,7 +354,8 @@ smp4d_ticker:
 	WRITE_PAUSE
 	call	smp4d_percpu_timer_interrupt
 	 add	%sp, STACKFRAME_SZ, %o0
-	wr	%l0, PSR_ET, %psr
+	or	%l0, PSR_PIL, %g2	! keep PIL raised until rett
+	wr	%g2, PSR_ET, %psr
 	WRITE_PAUSE
 	RESTORE_ALL
 
@@ -407,7 +409,8 @@ smpleon_ipi:
 	WRITE_PAUSE
 	call	leonsmp_ipi_interrupt
 	 add	%sp, STACKFRAME_SZ, %o1 ! pt_regs
-	wr	%l0, PSR_ET, %psr
+	or	%l0, PSR_PIL, %g2	! keep PIL raised until rett
+	wr	%g2, PSR_ET, %psr
 	WRITE_PAUSE
 	RESTORE_ALL
 
