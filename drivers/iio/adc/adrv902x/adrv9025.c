@@ -1093,18 +1093,17 @@ static const u8 ad9371_obs_rx_port_lut[] = {
 };
 
 /*
- * True when the device is configured for dual-channel 4-pin ORx mode
- * (orxEnableMode=4) AND the ORX_CTRL pins are wired in the device tree. In
- * this mode ORx enable/select is driven by the ORX_CTRL pins (A/C = side-A/
- * side-B enable, B/D = side-A/side-B channel select), not the 0x106 SPI
- * enable. The enable mode comes from the init profile cached at probe.
+ * Return the configured ORx enable mode (orxEnableMode) cached from the init
+ * profile at probe. In dual-channel 4-pin mode (ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE)
+ * ORx enable/select is driven by the ORX_CTRL pins (A/C = side-A/side-B enable,
+ * B/D = side-A/side-B channel select) rather than the 0x106 SPI enable; in SPI
+ * mode the 0x106 enable is used instead.
  */
-static bool adrv9025_orx_dual_4pin(struct adrv9025_rf_phy *phy)
+static adi_adrv9025_ORxEnableMode_e
+adrv9025_orx_get_mode(struct adrv9025_rf_phy *phy)
 {
-	return phy->orx_ctrl_a_gpio && phy->orx_ctrl_c_gpio &&
-	       phy->adrv9025PostMcsInitInst.radioCtrlInit.radioCtrlModeCfg
-		       .orxRadioCtrlModeCfg.orxEnableMode ==
-		       ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE;
+	return phy->adrv9025PostMcsInitInst.radioCtrlInit.radioCtrlModeCfg
+		       .orxRadioCtrlModeCfg.orxEnableMode;
 }
 
 /*
