@@ -1384,6 +1384,79 @@ static int adrv9025_gain_to_gainindex(struct adrv9025_rf_phy *phy, int channel,
 	return 0;
 }
 
+/*
+ * Resolve an OBS channel to the physical ORx the gain attributes apply to.
+ * In dual-channel 4-pin mode the selection is held by the channel-select pin
+ * and is read back through adrv9025_get_obs_rx_path() (0 = lower ORx of the
+ * pair, 1 = upper). A gain access must never drive that pin, so the pin is
+ * only read here. In SPI mode the selection is derived from the 0x106 enable
+ * bits, which must have exactly one ORx of the pair enabled.
+ *
+ * Channels that are not OBS channels are passed through unchanged. On success
+ * the physical channel is stored in @out_chan_no and 0 is returned, otherwise
+ * a negative errno.
+ */
+static int adrv9025_resolve_obs_channel(struct iio_dev *indio_dev,
+					const struct iio_chan_spec *chan,
+					int *out_chan_no)
+{
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+	int chan_no = chan->channel;
+	u32 rxchan, txchan;
+	int sel, ret;
+
+	if (chan_no <= CHAN_RX4)
+		goto done;
+
+	switch (adrv9025_orx_get_mode(phy)) {
+	case ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE:
+		sel = adrv9025_get_obs_rx_path(indio_dev, chan);
+		if (sel < 0)
+			return sel;
+
+		if (chan_no == CHAN_OBS_RX1)
+			chan_no = sel ? CHAN_OBS_RX2 : CHAN_OBS_RX1;
+		else if (chan_no == CHAN_OBS_RX2)
+			chan_no = sel ? CHAN_OBS_RX4 : CHAN_OBS_RX3;
+		break;
+
+	case ADI_ADRV9025_ORX_EN_SPI_MODE:
+		ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
+						 &txchan);
+		if (ret)
+			return adrv9025_dev_err(phy);
+
+		if (chan_no == CHAN_OBS_RX1) {
+			if ((rxchan & ADI_ADRV9025_ORX1) &&
+			    !(rxchan & ADI_ADRV9025_ORX2))
+				chan_no = CHAN_OBS_RX1;
+			else if (!(rxchan & ADI_ADRV9025_ORX1) &&
+				 (rxchan & ADI_ADRV9025_ORX2))
+				chan_no = CHAN_OBS_RX2;
+			else
+				return -EINVAL;
+		} else if (chan_no == CHAN_OBS_RX2) {
+			if ((rxchan & ADI_ADRV9025_ORX3) &&
+			    !(rxchan & ADI_ADRV9025_ORX4))
+				chan_no = CHAN_OBS_RX3;
+			else if (!(rxchan & ADI_ADRV9025_ORX3) &&
+				 (rxchan & ADI_ADRV9025_ORX4))
+				chan_no = CHAN_OBS_RX4;
+			else
+				return -EINVAL;
+		}
+		break;
+
+	default:
+		return -EINVAL;
+	}
+
+done:
+	*out_chan_no = chan_no;
+
+	return 0;
+}
+
 static int adrv9025_phy_read_raw(struct iio_dev *indio_dev,
 				 struct iio_chan_spec const *chan, int *val,
 				 int *val2, long m)
@@ -1465,36 +1538,11 @@ static int adrv9025_phy_read_raw(struct iio_dev *indio_dev,
 
 		} else {
 			adi_adrv9025_RxGain_t rxGain;
-			chan_no = chan->channel;
 
-			if (chan_no > CHAN_RX4) {
-				/* For OBS channels, determine which specific channel is enabled */
-				ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan, &txchan);
-				if (ret) {
-					ret = adrv9025_dev_err(phy);
-					break;
-				}
-
-				if (chan_no == CHAN_OBS_RX1) {
-					if ((rxchan & ADI_ADRV9025_ORX1) && !(rxchan & ADI_ADRV9025_ORX2)) {
-						chan_no = CHAN_OBS_RX1;
-					} else if (!(rxchan & ADI_ADRV9025_ORX1) && (rxchan & ADI_ADRV9025_ORX2)) {
-						chan_no = CHAN_OBS_RX2;
-					} else {
-						ret = -EINVAL;
-						break;
-					}
-				} else if (chan_no == CHAN_OBS_RX2) {
-					if ((rxchan & ADI_ADRV9025_ORX3) && !(rxchan & ADI_ADRV9025_ORX4)) {
-						chan_no = CHAN_OBS_RX3;
-					} else if (!(rxchan & ADI_ADRV9025_ORX3) && (rxchan & ADI_ADRV9025_ORX4)) {
-						chan_no = CHAN_OBS_RX4;
-					} else {
-						ret = -EINVAL;
-						break;
-					}
-				}
-			}
+			ret = adrv9025_resolve_obs_channel(indio_dev, chan,
+							   &chan_no);
+			if (ret)
+				goto out;
 
 			ret = adi_adrv9025_RxGainGet(
 				phy->madDevice, 1 << chan_no, &rxGain);
@@ -1663,36 +1711,11 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 
 		} else {
 			adi_adrv9025_RxGain_t rxGain;
-			chan_no = chan->channel;
 
-			if (chan_no > CHAN_RX4) {
-				ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
-								 &txchan);
-				if (ret) {
-					ret = adrv9025_dev_err(phy);
-					goto out;
-				}
-
-				if (chan_no == CHAN_OBS_RX1) {
-					if (rxchan & ADI_ADRV9025_ORX1 && !(rxchan & ADI_ADRV9025_ORX2)) {
-						chan_no = CHAN_OBS_RX1;
-					} else if (!(rxchan & ADI_ADRV9025_ORX1) && (rxchan & ADI_ADRV9025_ORX2)) {
-						chan_no = CHAN_OBS_RX2;
-					} else {
-						ret = -EINVAL;
-						goto out;
-					}
-				} else if (chan_no == CHAN_OBS_RX2) {
-					if (rxchan & ADI_ADRV9025_ORX3 && !(rxchan & ADI_ADRV9025_ORX4)) {
-						chan_no = CHAN_OBS_RX3;
-					} else if (!(rxchan & ADI_ADRV9025_ORX3) && (rxchan & ADI_ADRV9025_ORX4)) {
-						chan_no = CHAN_OBS_RX4;
-					} else {
-						ret = -EINVAL;
-						goto out;
-					}
-				}
-			}
+			ret = adrv9025_resolve_obs_channel(indio_dev, chan,
+							   &chan_no);
+			if (ret)
+				goto out;
 
 			ret = adrv9025_gain_to_gainindex(phy, chan_no,
 							 val, val2, &code);
