@@ -301,13 +301,14 @@ static void jpeg_v1_0_decode_ring_emit_ib(struct amdgpu_ring *ring,
 {
 	struct amdgpu_device *adev = ring->adev;
 	unsigned vmid = AMDGPU_JOB_GET_VMID(job);
+	uint32_t reg;
 
+	reg = vmid << UVD_LMI_JRBC_IB_VMID__IB_WR_VMID__SHIFT;
+	if (!ring->funcs->parse_cs)
+		reg |= (vmid << UVD_LMI_JRBC_IB_VMID__IB_RD_VMID__SHIFT);
 	amdgpu_ring_write(ring,
 		PACKETJ(SOC15_REG_OFFSET(JPEG, 0, mmUVD_LMI_JRBC_IB_VMID), 0, 0, PACKETJ_TYPE0));
-	if (ring->funcs->parse_cs)
-		amdgpu_ring_write(ring, 0);
-	else
-		amdgpu_ring_write(ring, (vmid | (vmid << 4)));
+	amdgpu_ring_write(ring, reg);
 
 	amdgpu_ring_write(ring,
 		PACKETJ(SOC15_REG_OFFSET(JPEG, 0, mmUVD_LMI_JPEG_VMID), 0, 0, PACKETJ_TYPE0));
@@ -668,6 +669,9 @@ static int jpeg_v1_dec_ring_parse_cs(struct amdgpu_cs_parser *parser,
 		case PACKETJ_TYPE3:
 			if (reg != JPEG_V1_REG_SOFT_RESET)
 				ret = -EINVAL;
+			break;
+		case PACKETJ_TYPE4:
+			/* Allow any wait reg */
 			break;
 		case PACKETJ_TYPE6:
 			if (ib->ptr[i] != CP_PACKETJ_NOP)
