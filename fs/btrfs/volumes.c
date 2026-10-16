@@ -5616,7 +5616,7 @@ static int alloc_virtual_chunk(struct btrfs_fs_info *fs_info,
 	const struct btrfs_raid_attr *raid_attr = &btrfs_raid_array[type];
 	struct btrfs_fs_devices *fs_devices = fs_info->fs_devices;
 	struct btrfs_device *device;
-	u64 stripe_size;
+	u64 dev_extent_size;
 	int ndevs = 0;
 
 	lockdep_assert_held(&fs_info->chunk_mutex);
@@ -5673,14 +5673,14 @@ static int alloc_virtual_chunk(struct btrfs_fs_info *fs_info,
 		ndevs = min(ndevs, (int)BTRFS_MAX_DEVS(fs_info));
 
 	/*
-	 * Stripe size will be determined by the device with the least
+	 * Dev extent size will be determined by the device with the least
 	 * unallocated space.
 	 */
-	stripe_size = devices_info[ndevs - 1].total_avail;
+	dev_extent_size = devices_info[ndevs - 1].total_avail;
 
 	for (int i = 0; i < ndevs; i++)
-		devices_info[i].dev->per_profile_allocated += stripe_size;
-	*allocated = div_u64(stripe_size * (ndevs - raid_attr->nparity),
+		devices_info[i].dev->per_profile_allocated += dev_extent_size;
+	*allocated = div_u64(dev_extent_size * (ndevs - raid_attr->nparity),
 			     raid_attr->ncopies);
 	return 0;
 }
@@ -5795,10 +5795,10 @@ struct alloc_chunk_ctl {
 	int ncopies;
 	/* Number of stripes worth of bytes to store parity information */
 	int nparity;
-	u64 max_stripe_size;
 	u64 max_chunk_size;
+	u64 dev_extent_max;
 	u64 dev_extent_min;
-	u64 stripe_size;
+	u64 dev_extent_size;
 	u64 chunk_size;
 	int ndevs;
 	/* Space_info the block group is going to belong. */
@@ -5815,7 +5815,7 @@ static void init_alloc_chunk_ctl_policy_regular(
 	ASSERT(space_info);
 
 	ctl->max_chunk_size = READ_ONCE(space_info->chunk_size);
-	ctl->max_stripe_size = min_t(u64, ctl->max_chunk_size, SZ_1G);
+	ctl->dev_extent_max = min_t(u64, ctl->max_chunk_size, SZ_1G);
 
 	if (ctl->type & BTRFS_BLOCK_GROUP_SYSTEM)
 		ctl->devs_max = min_t(int, ctl->devs_max, BTRFS_MAX_DEVS_SYS_CHUNK);
@@ -5837,14 +5837,14 @@ static void init_alloc_chunk_ctl_policy_zoned(
 	u64 min_chunk_size = min_data_stripes * zone_size;
 	u64 type = ctl->type;
 
-	ctl->max_stripe_size = zone_size;
+	ctl->dev_extent_max = zone_size;
 	if (type & BTRFS_BLOCK_GROUP_DATA) {
 		ctl->max_chunk_size = round_down(BTRFS_MAX_DATA_CHUNK_SIZE,
 						 zone_size);
 	} else if (type & BTRFS_BLOCK_GROUP_METADATA) {
-		ctl->max_chunk_size = ctl->max_stripe_size;
+		ctl->max_chunk_size = ctl->dev_extent_max;
 	} else if (type & BTRFS_BLOCK_GROUP_SYSTEM) {
-		ctl->max_chunk_size = 2 * ctl->max_stripe_size;
+		ctl->max_chunk_size = 2 * ctl->dev_extent_max;
 		ctl->devs_max = min_t(int, ctl->devs_max,
 				      BTRFS_MAX_DEVS_SYS_CHUNK);
 	} else {
@@ -5895,7 +5895,7 @@ static int gather_device_info(struct btrfs_fs_devices *fs_devices,
 	struct btrfs_fs_info *info = fs_devices->fs_info;
 	struct btrfs_device *device;
 	u64 total_avail;
-	u64 dev_extent_want = ctl->max_stripe_size * ctl->dev_stripes;
+	u64 dev_extent_want = ctl->dev_extent_max * ctl->dev_stripes;
 	int ret;
 	int ndevs = 0;
 	u64 max_avail;
@@ -5965,8 +5965,8 @@ static int gather_device_info(struct btrfs_fs_devices *fs_devices,
 	return 0;
 }
 
-static int decide_stripe_size_regular(struct alloc_chunk_ctl *ctl,
-				      struct btrfs_device_info *devices_info)
+static int decide_dev_extent_size_regular(struct alloc_chunk_ctl *ctl,
+					  struct btrfs_device_info *devices_info)
 {
 	/* Number of stripes that count for block group size */
 	int data_stripes;
@@ -5978,8 +5978,8 @@ static int decide_stripe_size_regular(struct alloc_chunk_ctl *ctl,
 	 * The DUP profile stores more than one stripe per device, the
 	 * max_avail is the total size so we have to adjust.
 	 */
-	ctl->stripe_size = div_u64(devices_info[ctl->ndevs - 1].max_avail,
-				   ctl->dev_stripes);
+	ctl->dev_extent_size = div_u64(devices_info[ctl->ndevs - 1].max_avail,
+				       ctl->dev_stripes);
 	ctl->num_stripes = ctl->ndevs * ctl->dev_stripes;
 
 	/* This will have to be fixed for RAID1 and RAID10 over more drives */
@@ -5989,31 +5989,31 @@ static int decide_stripe_size_regular(struct alloc_chunk_ctl *ctl,
 	 * Use the number of data stripes to figure out how big this chunk is
 	 * really going to be in terms of logical address space, and compare
 	 * that answer with the max chunk size. If it's higher, we try to
-	 * reduce stripe_size.
+	 * reduce dev_extent_size.
 	 */
-	if (ctl->stripe_size * data_stripes > ctl->max_chunk_size) {
+	if (ctl->dev_extent_size * data_stripes > ctl->max_chunk_size) {
 		/*
-		 * Reduce stripe_size, round it up to a 16MB boundary again and
+		 * Reduce dev_extent_size, round it up to a 16MB boundary again and
 		 * then use it, unless it ends up being even bigger than the
 		 * previous value we had already.
 		 */
-		ctl->stripe_size = min(round_up(div_u64(ctl->max_chunk_size,
-							data_stripes), SZ_16M),
-				       ctl->stripe_size);
+		ctl->dev_extent_size = min(round_up(div_u64(ctl->max_chunk_size,
+							    data_stripes), SZ_16M),
+					   ctl->dev_extent_size);
 	}
 
-	/* Stripe size should not go beyond 1G. */
-	ctl->stripe_size = min_t(u64, ctl->stripe_size, SZ_1G);
+	/* Dev extent size should not go beyond 1G. */
+	ctl->dev_extent_size = min_t(u64, ctl->dev_extent_size, SZ_1G);
 
 	/* Align to BTRFS_STRIPE_LEN */
-	ctl->stripe_size = round_down(ctl->stripe_size, BTRFS_STRIPE_LEN);
-	ctl->chunk_size = ctl->stripe_size * data_stripes;
+	ctl->dev_extent_size = round_down(ctl->dev_extent_size, BTRFS_STRIPE_LEN);
+	ctl->chunk_size = ctl->dev_extent_size * data_stripes;
 
 	return 0;
 }
 
-static int decide_stripe_size_zoned(struct alloc_chunk_ctl *ctl,
-				    struct btrfs_device_info *devices_info)
+static int decide_dev_extent_size_zoned(struct alloc_chunk_ctl *ctl,
+					struct btrfs_device_info *devices_info)
 {
 	u64 zone_size = devices_info[0].dev->zone_info->zone_size;
 	/* Number of stripes that count for block group size */
@@ -6027,30 +6027,30 @@ static int decide_stripe_size_zoned(struct alloc_chunk_ctl *ctl,
 	       "ndevs=%d max_avail=%llu dev_extent_min=%llu", ctl->ndevs,
 	       devices_info[ctl->ndevs - 1].max_avail, ctl->dev_extent_min);
 
-	ctl->stripe_size = zone_size;
+	ctl->dev_extent_size = zone_size;
 	ctl->num_stripes = ctl->ndevs * ctl->dev_stripes;
 	data_stripes = (ctl->num_stripes - ctl->nparity) / ctl->ncopies;
 
-	/* stripe_size is fixed in zoned filesystem. Reduce ndevs instead. */
-	if (ctl->stripe_size * data_stripes > ctl->max_chunk_size) {
+	/* dev_extent_size is fixed in zoned filesystem. Reduce ndevs instead. */
+	if (ctl->dev_extent_size * data_stripes > ctl->max_chunk_size) {
 		ctl->ndevs = div_u64(div_u64(ctl->max_chunk_size * ctl->ncopies,
-					     ctl->stripe_size) + ctl->nparity,
+					     ctl->dev_extent_size) + ctl->nparity,
 				     ctl->dev_stripes);
 		ctl->num_stripes = ctl->ndevs * ctl->dev_stripes;
 		data_stripes = (ctl->num_stripes - ctl->nparity) / ctl->ncopies;
-		ASSERT(ctl->stripe_size * data_stripes <= ctl->max_chunk_size,
-		       "stripe_size=%llu data_stripes=%d max_chunk_size=%llu",
-		       ctl->stripe_size, data_stripes, ctl->max_chunk_size);
+		ASSERT(ctl->dev_extent_size * data_stripes <= ctl->max_chunk_size,
+		       "dev_extent_size=%llu data_stripes=%d max_chunk_size=%llu",
+		       ctl->dev_extent_size, data_stripes, ctl->max_chunk_size);
 	}
 
-	ctl->chunk_size = ctl->stripe_size * data_stripes;
+	ctl->chunk_size = ctl->dev_extent_size * data_stripes;
 
 	return 0;
 }
 
-static int decide_stripe_size(struct btrfs_fs_devices *fs_devices,
-			      struct alloc_chunk_ctl *ctl,
-			      struct btrfs_device_info *devices_info)
+static int decide_dev_extent_size(struct btrfs_fs_devices *fs_devices,
+				  struct alloc_chunk_ctl *ctl,
+				  struct btrfs_device_info *devices_info)
 {
 	struct btrfs_fs_info *info = fs_devices->fs_info;
 
@@ -6077,9 +6077,9 @@ static int decide_stripe_size(struct btrfs_fs_devices *fs_devices,
 		btrfs_warn_unknown_chunk_allocation(fs_devices->chunk_alloc_policy);
 		fallthrough;
 	case BTRFS_CHUNK_ALLOC_REGULAR:
-		return decide_stripe_size_regular(ctl, devices_info);
+		return decide_dev_extent_size_regular(ctl, devices_info);
 	case BTRFS_CHUNK_ALLOC_ZONED:
-		return decide_stripe_size_zoned(ctl, devices_info);
+		return decide_dev_extent_size_zoned(ctl, devices_info);
 	}
 }
 
@@ -6199,7 +6199,7 @@ static struct btrfs_block_group *create_chunk(struct btrfs_trans_handle *trans,
 
 	map->start = start;
 	map->chunk_len = ctl->chunk_size;
-	map->dev_extent_size = ctl->stripe_size;
+	map->dev_extent_size = ctl->dev_extent_size;
 	map->on_disk_type = type;
 	map->sub_stripes = ctl->sub_stripes;
 	map->num_stripes = ctl->num_stripes;
@@ -6210,7 +6210,7 @@ static struct btrfs_block_group *create_chunk(struct btrfs_trans_handle *trans,
 			int s = i * ctl->dev_stripes + j;
 			map->stripes[s].dev = devices_info[i].dev;
 			map->stripes[s].physical = devices_info[i].dev_offset +
-						   j * ctl->stripe_size;
+						   j * ctl->dev_extent_size;
 		}
 	}
 
@@ -6233,13 +6233,13 @@ static struct btrfs_block_group *create_chunk(struct btrfs_trans_handle *trans,
 		struct btrfs_device *dev = map->stripes[i].dev;
 
 		btrfs_device_set_bytes_used(dev,
-					    dev->bytes_used + ctl->stripe_size);
+					    dev->bytes_used + ctl->dev_extent_size);
 		if (list_empty(&dev->post_commit_list))
 			list_add_tail(&dev->post_commit_list,
 				      &trans->transaction->dev_update_list);
 	}
 
-	atomic64_sub(ctl->stripe_size * map->num_stripes,
+	atomic64_sub(ctl->dev_extent_size * map->num_stripes,
 		     &info->free_chunk_space);
 
 	check_raid56_incompat_flag(info, type);
@@ -6292,7 +6292,7 @@ struct btrfs_block_group *btrfs_create_chunk(struct btrfs_trans_handle *trans,
 	if (ret < 0)
 		return ERR_PTR(ret);
 
-	ret = decide_stripe_size(fs_devices, &ctl, devices_info);
+	ret = decide_dev_extent_size(fs_devices, &ctl, devices_info);
 	if (ret < 0)
 		return ERR_PTR(ret);
 
