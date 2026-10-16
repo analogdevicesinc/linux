@@ -226,12 +226,6 @@ static int __init numa_init(int (*init_func)(void))
 	if (ret < 0)
 		goto out_free_distance;
 
-	if (nodes_empty(numa_nodes_parsed)) {
-		pr_info("No NUMA configuration found\n");
-		ret = -EINVAL;
-		goto out_free_distance;
-	}
-
 	ret = numa_register_nodes();
 	if (ret < 0)
 		goto out_free_distance;
