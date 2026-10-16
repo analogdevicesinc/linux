@@ -37,6 +37,93 @@
 #include "xe_sriov_vf.h"
 #include "xe_trace_guc.h"
 
+/**
+ * DOC: GuC CT Error Codes
+ *
+ * Send path - xe_guc_ct_send(), xe_guc_ct_send_locked(), h2g_write()
+ * ------------------------------------------------------------------
+ *
+ * Channel-state rejections - the message was never queued, nothing is corrupt:
+ *
+ * ``-ENOTRECOVERABLE``: the device is wedged. No CT traffic can make progress
+ *   until the device is recovered.
+ * ``-ECONNABORTED``: the H2G CTB was flagged broken by an earlier corruption
+ *   check, so the driver aborted the channel. It stays unusable until the CT is
+ *   restarted, which clears the flag.
+ * ``-ENODEV``: the CT channel is disabled. Don't retry until it is enabled.
+ * ``-ECANCELED``: the CT channel is stopped or a GT recovery is pending, so the
+ *   message was dropped. Often benign; retry after the reset/recovery completes.
+ *
+ * Internal flow control - never seen by callers, handled by the send helpers:
+ *
+ * ``-EBUSY``: not enough H2G room or G2H credits. Triggers a flush, a wait and
+ *   a retry.
+ * ``-EAGAIN``: the message would wrap the H2G ring, so the tail was NOP-filled
+ *   and reset to 0. The write is reissued immediately.
+ *
+ * Hard failures:
+ *
+ * ``-EPIPE``: H2G descriptor corruption found before writing - non-zero status,
+ *   or head/tail out of range. Marks the CTB broken.
+ * ``-EDEADLK``: H2G credits never recovered after waiting ~1s. An async GT reset
+ *   is requested before this is returned.
+ * ``-EPROTO``: the MMIO CT enable/disable handshake got an unexpected reply.
+ * ``-ENOMEM``: internal allocation failure (fence lookup under GFP_ATOMIC, or the
+ *   G2H workqueue at init). The blocking path retries the allocation with
+ *   GFP_KERNEL.
+ *
+ * Blocking send only (xe_guc_ct_send_recv()) - the H2G went out, the reply is the
+ * problem:
+ *
+ * ``-ETIME``: no G2H response within 1s, even after flushing the G2H worker.
+ * ``-EIO``: the GuC replied RESPONSE_FAILURE; error and hint codes are logged.
+ * ``-ELOOP``: the GuC kept replying NO_RESPONSE_RETRY until the request hit
+ *   GUC_SEND_RETRY_LIMIT. (NO_RESPONSE_BUSY is not an error - the waiter re-arms.)
+ * ``-ECANCELED``: the pending fence was canceled while waiting, because the CT
+ *   was stopped underneath the waiter. Retry after the reset completes.
+ * ``-ENOTRECOVERABLE``: same as above, but the device got wedged in the
+ *   meantime, so there is nothing to retry.
+ *
+ * Receive path - g2h_read(), parse_g2h_msg(), dequeue_one_g2h()
+ * -------------------------------------------------------------
+ *
+ * Channel-state rejections - the same four codes as the send path, checked against
+ * the G2H CTB. g2h_err_is_fatal() treats exactly these as benign; anything else
+ * declares the CT dead and kicks a reset:
+ *
+ * ``-ENOTRECOVERABLE``: device wedged.
+ * ``-ENODEV``: CT disabled.
+ * ``-ECANCELED``: CT stopped.
+ * ``-ECONNABORTED``: G2H CTB already flagged broken.
+ *
+ * Hard failures:
+ *
+ * ``-EPIPE``: G2H descriptor corruption - non-zero status, head/tail out of
+ *   range, or a declared message length larger than the data actually available.
+ * ``-EPROTO``: HXG protocol violation. Either the G2H origin field is not the
+ *   GuC, or a FAST_REQUEST H2G came back rejected. FAST_REQUEST fences aren't
+ *   tracked, so there is no caller to report to and the failure is escalated to a
+ *   reset instead.
+ * ``-EOPNOTSUPP``: G2H carried an HXG type this driver does not handle.
+ *
+ * Reported but not returned
+ * -------------------------
+ *
+ * These never reach a caller: they are detected in a void path or in a G2H
+ * handler whose return value is swallowed. They are reported and the CT is
+ * declared dead, which is the only escalation available:
+ *
+ * ``-EHOSTDOWN``: the GuC sent a crash dump or an exception notification, i.e.
+ *   the firmware itself died. A reset is kicked to reload it.
+ * ``-ETOOMANYREFS``: G2H credit accounting went wrong - a release would push
+ *   the free space past the usable size of the CTB, or there was no outstanding
+ *   G2H to release. Indicates a driver-side bookkeeping bug, not a GuC one.
+ * Any error from a G2H action handler: the handler for a given G2H failed while
+ *   processing it. The code is whatever the handler returned and is reported
+ *   along with the action and the raw message, from both the worker
+ *   (process_g2h_msg()) and the IRQ fast path (g2h_fast_path()).
+ */
+
 static void receive_g2h(struct xe_guc_ct *ct);
 static void g2h_worker_func(struct work_struct *w);
 static void safe_mode_worker_func(struct work_struct *w);
@@ -931,6 +1018,22 @@ static bool vf_action_can_safely_fail(struct xe_device *xe, u32 action)
 		 action == XE_GUC_ACTION_REGISTER_CONTEXT);
 }
 
+static int ct_corrupted(struct xe_guc_ct *ct, struct guc_ctb *ctb,
+			u32 reason_code, const char *msg, ...)
+{
+	struct va_format vaf;
+	va_list va_args;
+
+	va_start(va_args, msg);
+	vaf.fmt = msg;
+	vaf.va  = &va_args;
+	xe_gt_err(ct_to_gt(ct), "GUC: CT: %pV", &vaf);
+	va_end(va_args);
+
+	process_ct_dead(ct, ctb, reason_code);
+	return -EPIPE;
+}
+
 #define H2G_CT_HEADERS (GUC_CTB_HDR_LEN + 1) /* one DW CTB header and one DW HxG header */
 
 static int h2g_write(struct xe_guc_ct *ct, const u32 *action, u32 len,
@@ -955,23 +1058,22 @@ static int h2g_write(struct xe_guc_ct *ct, const u32 *action, u32 len,
 		u32 desc_status;
 
 		desc_status = desc_read(xe, h2g, status);
-		if (desc_status) {
-			xe_gt_err(gt, "CT write: non-zero status: %u\n", desc_status);
-			goto corrupted;
-		}
+		if (desc_status)
+			return ct_corrupted(ct, h2g, ct_error_id(H2G_WRITE),
+					    "write: non-zero status: %u\n", desc_status);
 
 		if (tail > h2g->info.size) {
 			desc_write(xe, h2g, status, desc_status | GUC_CTB_STATUS_OVERFLOW);
-			xe_gt_err(gt, "CT write: tail out of range: %u vs %u\n",
-				  tail, h2g->info.size);
-			goto corrupted;
+			return ct_corrupted(ct, h2g, ct_error_id(H2G_WRITE),
+					    "write: tail out of range: %u vs %u\n",
+					    tail, h2g->info.size);
 		}
 
 		if (desc_head >= h2g->info.size) {
 			desc_write(xe, h2g, status, desc_status | GUC_CTB_STATUS_OVERFLOW);
-			xe_gt_err(gt, "CT write: invalid head offset %u >= %u)\n",
-				  desc_head, h2g->info.size);
-			goto corrupted;
+			return ct_corrupted(ct, h2g, ct_error_id(H2G_WRITE),
+					    "write: invalid head offset %u >= %u)\n",
+					    desc_head, h2g->info.size);
 		}
 	}
 
@@ -1036,10 +1138,6 @@ static int h2g_write(struct xe_guc_ct *ct, const u32 *action, u32 len,
 				     desc_read(xe, h2g, head), h2g->info.tail);
 
 	return 0;
-
-corrupted:
-	CT_DEAD(ct, &ct->ctbs.h2g, H2G_WRITE);
-	return -EPIPE;
 }
 
 static int __guc_ct_send_locked(struct xe_guc_ct *ct, const u32 *action,
@@ -1063,7 +1161,7 @@ static int __guc_ct_send_locked(struct xe_guc_ct *ct, const u32 *action,
 	}
 
 	if (unlikely(ct->ctbs.h2g.info.broken)) {
-		ret = -EPIPE;
+		ret = -ECONNABORTED;
 		goto out;
 	}
 
@@ -1215,7 +1313,7 @@ try_again:
 	return ret;
 
 broken:
-	xe_gt_err(gt, "No forward process on H2G, reset required\n");
+	xe_gt_err(gt, "No forward progress on H2G\n");
 	CT_DEAD(ct, &ct->ctbs.h2g, DEADLOCK);
 
 	return -EDEADLK;
@@ -1250,6 +1348,9 @@ static int guc_ct_send(struct xe_guc_ct *ct, const u32 *action, u32 len,
  *   request cannot make progress until the device is recovered.
  * * -EPIPE: the H2G CTB is marked broken. The channel stays unusable until the
  *   CT is restarted, which clears the broken flag.
+ * * -ECONNABORTED: the H2G CTB is marked broken, so the driver aborted the
+ *   channel. It stays unusable until the CT is restarted, which clears the
+ *   broken flag.
  * * -ENODEV: the CT channel is disabled, messages not expected in this state.
  *   Don't retry until it is enabled again.
  * * -ECANCELED: the CT channel is stopped or a GT recovery is pending; the
@@ -1373,7 +1474,8 @@ int xe_guc_ct_send_g2h_handler(struct xe_guc_ct *ct, const u32 *action, u32 len)
  */
 static bool retry_failure(struct xe_guc_ct *ct, int ret)
 {
-	if (!(ret == -EDEADLK || ret == -EPIPE || ret == -ENODEV))
+	if (!(ret == -EDEADLK || ret == -EPIPE || ret == -ECONNABORTED ||
+	      ret == -ENODEV))
 		return false;
 
 #define ct_alive(ct)	\
@@ -1678,8 +1780,7 @@ static int parse_g2h_msg(struct xe_guc_ct *ct, u32 *msg, u32 len)
 
 	origin = FIELD_GET(GUC_HXG_MSG_0_ORIGIN, hxg[0]);
 	if (unlikely(origin != GUC_HXG_ORIGIN_GUC)) {
-		xe_gt_err(gt, "G2H channel broken on read, origin=%u, reset required\n",
-			  origin);
+		xe_gt_err(gt, "Invalid G2H origin=%u\n", origin);
 		CT_DEAD(ct, &ct->ctbs.g2h, PARSE_G2H_ORIGIN);
 
 		return -EPROTO;
@@ -1697,8 +1798,7 @@ static int parse_g2h_msg(struct xe_guc_ct *ct, u32 *msg, u32 len)
 		ret = parse_g2h_response(ct, msg, len);
 		break;
 	default:
-		xe_gt_err(gt, "G2H channel broken on read, type=%u, reset required\n",
-			  type);
+		xe_gt_err(gt, "Unexpected G2H message type=%u\n", type);
 		CT_DEAD(ct, &ct->ctbs.g2h, PARSE_G2H_TYPE);
 
 		ret = -EOPNOTSUPP;
@@ -1819,6 +1919,7 @@ static int g2h_read(struct xe_guc_ct *ct, u32 *msg, bool fast_path)
 	xe_gt_assert(gt, xe_guc_ct_initialized(ct));
 	lockdep_assert_held(&ct->fast_lock);
 
+	/* Keep in sync with g2h_err_is_fatal() */
 	if (xe_device_wedged(xe))
 		return -ENOTRECOVERABLE;
 
@@ -1829,7 +1930,7 @@ static int g2h_read(struct xe_guc_ct *ct, u32 *msg, bool fast_path)
 		return -ECANCELED;
 
 	if (g2h->info.broken)
-		return -EPIPE;
+		return -ECONNABORTED;
 
 	xe_gt_assert(gt, xe_guc_ct_enabled(ct));
 
@@ -1845,10 +1946,9 @@ static int g2h_read(struct xe_guc_ct *ct, u32 *msg, bool fast_path)
 			desc_status &= ~GUC_CTB_STATUS_DISABLED;
 		}
 
-		if (desc_status) {
-			xe_gt_err(gt, "CT read: non-zero status: %u\n", desc_status);
-			goto corrupted;
-		}
+		if (desc_status)
+			return ct_corrupted(ct, g2h, ct_error_id(G2H_READ),
+					    "read: non-zero status: %u\n", desc_status);
 	}
 
 	if (IS_ENABLED(CONFIG_DRM_XE_DEBUG)) {
@@ -1869,24 +1969,24 @@ static int g2h_read(struct xe_guc_ct *ct, u32 *msg, bool fast_path)
 		 *
 		if (g2h->info.head != desc_head) {
 			desc_write(xe, g2h, status, desc_status | GUC_CTB_STATUS_MISMATCH);
-			xe_gt_err(gt, "CT read: head was modified %u != %u\n",
-				  desc_head, g2h->info.head);
-			goto corrupted;
+			return ct_corrupted(ct, g2h, ct_error_id(G2H_READ),
+					    "read: head was modified %u != %u\n",
+					    desc_head, g2h->info.head);
 		}
 		 */
 
 		if (g2h->info.head > g2h->info.size) {
 			desc_write(xe, g2h, status, desc_status | GUC_CTB_STATUS_OVERFLOW);
-			xe_gt_err(gt, "CT read: head out of range: %u vs %u\n",
-				  g2h->info.head, g2h->info.size);
-			goto corrupted;
+			return ct_corrupted(ct, g2h, ct_error_id(G2H_READ),
+					    "read: head out of range: %u vs %u\n",
+					    g2h->info.head, g2h->info.size);
 		}
 
 		if (desc_tail >= g2h->info.size) {
 			desc_write(xe, g2h, status, desc_status | GUC_CTB_STATUS_OVERFLOW);
-			xe_gt_err(gt, "CT read: invalid tail offset %u >= %u)\n",
-				  desc_tail, g2h->info.size);
-			goto corrupted;
+			return ct_corrupted(ct, g2h, ct_error_id(G2H_READ),
+					    "read: invalid tail offset %u >= %u)\n",
+					    desc_tail, g2h->info.size);
 		}
 	}
 
@@ -1903,11 +2003,10 @@ static int g2h_read(struct xe_guc_ct *ct, u32 *msg, bool fast_path)
 	xe_map_memcpy_from(xe, msg, &g2h->cmds, sizeof(u32) * g2h->info.head,
 			   sizeof(u32));
 	len = FIELD_GET(GUC_CTB_MSG_0_NUM_DWORDS, msg[0]) + GUC_CTB_MSG_MIN_LEN;
-	if (len > avail) {
-		xe_gt_err(gt, "G2H channel broken on read, avail=%d, len=%d, reset required\n",
-			  avail, len);
-		goto corrupted;
-	}
+	if (len > avail)
+		return ct_corrupted(ct, g2h, ct_error_id(G2H_READ),
+				    "G2H channel broken on read, avail=%d, len=%d\n",
+				    avail, len);
 
 	head = (g2h->info.head + 1) % g2h->info.size;
 	avail = len - 1;
@@ -1953,10 +2052,6 @@ static int g2h_read(struct xe_guc_ct *ct, u32 *msg, bool fast_path)
 			     action, len, g2h->info.head, tail);
 
 	return len;
-
-corrupted:
-	CT_DEAD(ct, &ct->ctbs.g2h, G2H_READ);
-	return -EPROTO;
 }
 
 static void g2h_fast_path(struct xe_guc_ct *ct, u32 *msg, u32 len)
@@ -2048,6 +2143,27 @@ static int dequeue_one_g2h(struct xe_guc_ct *ct)
 	return 1;
 }
 
+/*
+ * Errors reported by dequeue_one_g2h() come in two flavours: either the channel
+ * is simply not available right now, which is expected and handled gracefully,
+ * or the channel state or the message itself is inconsistent, in which case the
+ * only way forward is to declare the CT dead and reset the GuC. Since the
+ * former is a short and well known list, check against that and treat anything
+ * else as fatal, so that new error codes don't silently escape the escalation.
+ */
+static bool g2h_err_is_fatal(int err)
+{
+	switch (err) {
+	case -ENOTRECOVERABLE:	/* device wedged */
+	case -ENODEV:		/* CT disabled */
+	case -ECANCELED:	/* CT stopped */
+	case -ECONNABORTED:	/* CT already declared broken */
+		return false;
+	default:
+		return true;
+	}
+}
+
 static void receive_g2h(struct xe_guc_ct *ct)
 {
 	bool ongoing;
@@ -2085,8 +2201,9 @@ static void receive_g2h(struct xe_guc_ct *ct)
 		ret = dequeue_one_g2h(ct);
 		mutex_unlock(&ct->lock);
 
-		if (unlikely(ret == -EPROTO || ret == -EOPNOTSUPP)) {
-			xe_gt_err(ct_to_gt(ct), "CT dequeue failed: %d\n", ret);
+		if (unlikely(ret < 0 && g2h_err_is_fatal(ret))) {
+			xe_gt_err(ct_to_gt(ct), "CT dequeue failed, forcing GT reset(%pe)\n",
+				  ERR_PTR(ret));
 			CT_DEAD(ct, NULL, G2H_RECV);
 			kick_reset(ct);
 		}
