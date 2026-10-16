@@ -500,21 +500,11 @@ xfs_refcount_merge_center_extents(
 	error = xfs_refcount_delete(cur, &found_rec);
 	if (error)
 		goto out_error;
-	if (XFS_IS_CORRUPT(cur->bc_mp, found_rec != 1)) {
-		xfs_btree_mark_sick(cur);
-		error = -EFSCORRUPTED;
-		goto out_error;
-	}
 
 	if (center->rc_refcount > 1) {
 		error = xfs_refcount_delete(cur, &found_rec);
 		if (error)
 			goto out_error;
-		if (XFS_IS_CORRUPT(cur->bc_mp, found_rec != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto out_error;
-		}
 	}
 
 	/* Enlarge the left extent. */
@@ -574,11 +564,6 @@ xfs_refcount_merge_left_extent(
 		error = xfs_refcount_delete(cur, &found_rec);
 		if (error)
 			goto out_error;
-		if (XFS_IS_CORRUPT(cur->bc_mp, found_rec != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto out_error;
-		}
 	}
 
 	/* Enlarge the left extent. */
@@ -641,11 +626,6 @@ xfs_refcount_merge_right_extent(
 		error = xfs_refcount_delete(cur, &found_rec);
 		if (error)
 			goto out_error;
-		if (XFS_IS_CORRUPT(cur->bc_mp, found_rec != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto out_error;
-		}
 	}
 
 	/* Enlarge the right extent. */
@@ -1232,11 +1212,6 @@ xfs_refcount_adjust_extents(
 			error = xfs_refcount_delete(cur, &found_rec);
 			if (error)
 				goto out_error;
-			if (XFS_IS_CORRUPT(cur->bc_mp, found_rec != 1)) {
-				xfs_btree_mark_sick(cur);
-				error = -EFSCORRUPTED;
-				goto out_error;
-			}
 			goto advloop;
 		} else {
 			error = xrefc_free_extent(cur, &ext);
@@ -1847,11 +1822,6 @@ xfs_refcount_adjust_cow_extents(
 		error = xfs_refcount_delete(cur, &found_rec);
 		if (error)
 			goto out_error;
-		if (XFS_IS_CORRUPT(cur->bc_mp, found_rec != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto out_error;
-		}
 		break;
 	default:
 		ASSERT(0);
