@@ -341,7 +341,7 @@ done:
 		 (macsr & LINK_SPEED) == LINK_SPEED_5_0GTS ? "5" : "2.5");
 }
 
-static void rcar_pcie_hw_enable(struct rcar_pcie_host *host)
+static int rcar_pcie_hw_enable(struct rcar_pcie_host *host)
 {
 	struct rcar_pcie *pcie = &host->pcie;
 	struct pci_host_bridge *bridge = pci_host_bridge_from_priv(host);
@@ -358,6 +358,11 @@ static void rcar_pcie_hw_enable(struct rcar_pcie_host *host)
 		if (!res->flags)
 			continue;
 
+		if (i >= RCAR_PCI_MAX_RESOURCES)
+			return dev_err_probe(pcie->dev, -ENOSPC,
+					     "Too many IO/MEM entries in DT 'ranges' property, limit is %d\n",
+					     RCAR_PCI_MAX_RESOURCES);
+
 		switch (resource_type(res)) {
 		case IORESOURCE_IO:
 		case IORESOURCE_MEM:
@@ -366,13 +371,18 @@ static void rcar_pcie_hw_enable(struct rcar_pcie_host *host)
 			break;
 		}
 	}
+
+	return 0;
 }
 
 static int rcar_pcie_enable(struct rcar_pcie_host *host)
 {
 	struct pci_host_bridge *bridge = pci_host_bridge_from_priv(host);
+	int ret;
 
-	rcar_pcie_hw_enable(host);
+	ret = rcar_pcie_hw_enable(host);
+	if (ret)
+		return ret;
 
 	pci_add_flags(PCI_REASSIGN_ALL_BUS);
 
