@@ -41,7 +41,7 @@ void fips_signature_selftest(const char *name,
 
 	pkcs7 = pkcs7_parse_message(sig, sig_len);
 	if (IS_ERR(pkcs7))
-		panic("Certs %s selftest: pkcs7_parse_message() = %d\n", name, ret);
+		panic("Certs %s selftest: pkcs7_parse_message() = %pe\n", name, pkcs7);
 
 	pkcs7_supply_detached_data(pkcs7, data, data_len);
 
