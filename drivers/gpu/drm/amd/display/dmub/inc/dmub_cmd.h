@@ -2621,7 +2621,8 @@ struct dmub_fams2_alternate_stream_dynamic_state {
 	uint16_t vstartup_line;
 	uint16_t vready_line;
 	uint8_t cursor_size[3]; //  Cursor array per plane for now - if we assume a single cursor, then we don't need an array
-	uint8_t pad; // to maintain alignment for below fields - re-arrange structure once all fields are finalized
+	uint8_t disabled_pipe_mask; // bitmask of pipes with RECOUT_HEIGHT == 0 (disabled)
+	struct plane_pipe_rect pipe_viewports[4];
 	/* outputs: */
 	uint16_t subvp_start_line_a[3];
 	uint16_t subvp_height_a[3];
@@ -4800,6 +4801,14 @@ struct dmub_cmd_replay_copy_settings_data {
 	 * @pad: Align structure to 4 byte boundary.
 	 */
 	uint8_t pad[1];
+	/**
+	 * @frame_update_interval: Frame update interval; 0 disabled.
+	 */
+	uint16_t frame_update_interval;
+	/**
+	 * @pad2: Align structure to 4 byte boundary.
+	 */
+	uint8_t pad2[2];
 };
 
 
