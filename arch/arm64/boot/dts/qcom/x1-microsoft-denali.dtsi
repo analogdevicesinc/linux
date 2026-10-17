@@ -957,12 +957,7 @@
 
 	aux-bus {
 		panel: panel {
-			compatible = "edp-panel";
-			enable-gpios = <&pmc8380_3_gpios 4 GPIO_ACTIVE_HIGH>;
 			power-supply = <&vreg_edp_3p3>;
-
-			pinctrl-0 = <&edp_bl_en>;
-			pinctrl-names = "default";
 
 			port {
 				edp_panel_in: endpoint {
