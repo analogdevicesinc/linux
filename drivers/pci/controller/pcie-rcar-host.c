@@ -768,7 +768,7 @@ static int rcar_pcie_enable_msi(struct rcar_pcie_host *host)
 			       rcar_msi_bottom_chip.name, host);
 	if (err < 0) {
 		dev_err(dev, "failed to request IRQ: %d\n", err);
-		goto err;
+		goto err_irq2;
 	}
 
 	/* Disable all MSIs */
@@ -783,6 +783,9 @@ static int rcar_pcie_enable_msi(struct rcar_pcie_host *host)
 
 	return 0;
 
+err_irq2:
+	devm_free_irq(dev, host->msi.irq1, host);
+
 err:
 	rcar_free_domains(msi);
 	return err;
@@ -791,6 +794,7 @@ err:
 static void rcar_pcie_teardown_msi(struct rcar_pcie_host *host)
 {
 	struct rcar_pcie *pcie = &host->pcie;
+	struct device *dev = pcie->dev;
 
 	/* Disable all MSI interrupts */
 	rcar_pci_write_reg(pcie, 0, PCIEMSIIER);
@@ -798,6 +802,8 @@ static void rcar_pcie_teardown_msi(struct rcar_pcie_host *host)
 	/* Disable address decoding of the MSI interrupt, MSIFE */
 	rcar_pci_write_reg(pcie, 0, PCIEMSIALR);
 
+	devm_free_irq(dev, host->msi.irq2, host);
+	devm_free_irq(dev, host->msi.irq1, host);
 	rcar_free_domains(&host->msi);
 }
 
