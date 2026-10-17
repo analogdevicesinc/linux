@@ -8376,6 +8376,12 @@ int vmx_leave_smm(struct kvm_vcpu *vcpu, const union kvm_smram *smram)
 	}
 
 	if (vmx->nested.smm.guest_mode) {
+		/*
+		 * Note, even if RSM ultimately fails (hits SHUTDOWN), the vCPU
+		 * is no longer in SMM with the intent to return to L2.
+		 */
+		vmx->nested.smm.guest_mode = false;
+
 		/* Triple fault if the state is invalid.  */
 		if (nested_vmx_check_restored_vmcs12(vcpu) < 0)
 			return 1;
@@ -8385,7 +8391,6 @@ int vmx_leave_smm(struct kvm_vcpu *vcpu, const union kvm_smram *smram)
 			return 1;
 
 		vcpu->arch.nested_run_pending = KVM_NESTED_RUN_PENDING;
-		vmx->nested.smm.guest_mode = false;
 	}
 	return 0;
 }
