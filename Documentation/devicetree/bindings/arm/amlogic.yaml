@@ -238,6 +238,7 @@ properties:
         items:
           - enum:
               - amlogic,by401
+              - khadas,vim-5
           - const: amlogic,a9
 
       - description: Boards with the Amlogic C3 C302X/C308L SoC
