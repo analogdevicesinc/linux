@@ -634,8 +634,9 @@ unlock:
  * @vm: the VM with the reserved ID
  * @vmhub: the VMHUB which should be used
  *
- * Waits for all work that used the reserved VMID to finish before unbinding
- * its page table, so submissions still in flight don't suddenly fault.
+ * The caller must wait for all work that used the reserved VMID to finish
+ * before, so submissions still in flight don't suddenly fault when its page
+ * table gets unbound.
  */
 void amdgpu_vmid_free_spm(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 			       unsigned vmhub)
@@ -648,9 +649,6 @@ void amdgpu_vmid_free_spm(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 	if (id) {
 		vm->reserved_vmid[vmhub] = NULL;
 		id_mgr->reserved_vmid = false;
-
-		/* Only for kernel queues and kfd/userqueues by pass that */
-		amdgpu_sync_wait(&id->active, false);
 
 		if (adev->vm_manager.spm_vmid && adev->gfxhub.funcs)
 			amdgpu_gmc_bind_vmid(adev, AMDGPU_GFXHUB(0),
