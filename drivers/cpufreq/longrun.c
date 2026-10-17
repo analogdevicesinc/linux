@@ -117,7 +117,7 @@ static int longrun_set_policy(struct cpufreq_policy *policy)
 
 
 /**
- * longrun_verify_poliy - verifies a new CPUFreq policy
+ * longrun_verify_policy - verifies a new CPUFreq policy
  * @policy: the policy to verify
  *
  * Validates a new CPUFreq policy. This function has to be called with
