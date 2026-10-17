@@ -60,6 +60,7 @@ struct dell_uart_backlight {
 	u8 resp_len;
 	u8 resp_max_len;
 	u8 pending_cmd;
+	bool resync_used;
 	int status;
 	int power;
 };
@@ -91,6 +92,7 @@ static int dell_uart_bl_command(struct dell_uart_backlight *dell_bl,
 	dell_bl->resp_len = -1; /* Invalid / unset */
 	dell_bl->resp_max_len = resp_max_len;
 	dell_bl->pending_cmd = cmd[1];
+	dell_bl->resync_used = false;
 
 	/* The TTY buffer should be big enough to take the entire cmd in one go */
 	ret = serdev_device_write_buf(to_serdev_device(dell_bl->dev), cmd, cmd_len);
@@ -245,6 +247,14 @@ static size_t dell_uart_bl_receive_data(struct dell_uart_backlight *dell_bl,
 	csum = dell_uart_checksum(dell_bl->resp, dell_bl->resp_len - 1);
 	if (dell_bl->resp[dell_bl->resp_len - 1] == csum) {
 		dell_bl->status = 0; /* Success */
+	} else if (!dell_bl->resync_used && dell_bl->resp_len > MIN_RESP_LEN) {
+		/* Stray byte after cmd-echo? Drop it, let serdev re-deliver checksum. */
+		dell_bl->resync_used = true;
+		dev_dbg(dell_bl->dev, "Resync: dropping stray byte 0x%02x at offset %d\n",
+			dell_bl->resp[RESP_DATA], RESP_DATA);
+		memmove(&dell_bl->resp[RESP_DATA], &dell_bl->resp[RESP_DATA + 1],
+			dell_bl->resp_len - RESP_DATA - 1);
+		dell_bl->resp_idx = dell_bl->resp_len - 1;
 	} else {
 		dev_err(dell_bl->dev, "Checksum mismatch got 0x%02x expected 0x%02x\n",
 			dell_bl->resp[dell_bl->resp_len - 1], csum);
