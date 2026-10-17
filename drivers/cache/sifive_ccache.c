@@ -262,8 +262,9 @@ static int sifive_ccache_probe(struct platform_device *pdev)
 	quirks = (unsigned long)device_get_match_data(dev);
 
 	intr_num = platform_irq_count(pdev);
-	if (!intr_num)
-		return dev_err_probe(dev, -ENODEV, "No interrupts property\n");
+	if (intr_num <= 0)
+		return dev_err_probe(dev, intr_num ?: -ENODEV,
+				     "No interrupts property\n");
 
 	for (int i = 0; i < intr_num; i++) {
 		if (i == DATA_UNCORR && (quirks & QUIRK_BROKEN_DATA_UNCORR))
