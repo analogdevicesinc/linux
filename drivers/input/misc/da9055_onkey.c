@@ -7,6 +7,7 @@
  * Author: David Dajun Chen <dchen@diasemi.com>
  */
 
+#include <linux/devm-helpers.h>
 #include <linux/input.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -45,7 +46,6 @@ static void da9055_onkey_query(struct da9055_onkey *onkey)
 	 */
 	if (key_stat)
 		schedule_delayed_work(&onkey->work, msecs_to_jiffies(10));
-
 }
 
 static void da9055_onkey_work(struct work_struct *work)
@@ -80,72 +80,43 @@ static int da9055_onkey_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	onkey = devm_kzalloc_obj(&pdev->dev, *onkey);
-	if (!onkey) {
-		dev_err(&pdev->dev, "Failed to allocate memory\n");
+	if (!onkey)
 		return -ENOMEM;
-	}
 
-	input_dev = input_allocate_device();
-	if (!input_dev) {
-		dev_err(&pdev->dev, "Failed to allocate memory\n");
+	input_dev = devm_input_allocate_device(&pdev->dev);
+	if (!input_dev)
 		return -ENOMEM;
-	}
 
 	onkey->input = input_dev;
 	onkey->da9055 = da9055;
 	input_dev->name = "da9055-onkey";
 	input_dev->phys = "da9055-onkey/input0";
-	input_dev->dev.parent = &pdev->dev;
 
-	input_dev->evbit[0] = BIT_MASK(EV_KEY);
-	__set_bit(KEY_POWER, input_dev->keybit);
+	input_set_capability(input_dev, EV_KEY, KEY_POWER);
 
-	INIT_DELAYED_WORK(&onkey->work, da9055_onkey_work);
+	err = devm_delayed_work_autocancel(&pdev->dev, &onkey->work,
+					   da9055_onkey_work);
+	if (err)
+		return err;
 
-	err = request_threaded_irq(irq, NULL, da9055_onkey_irq,
-				   IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
-				   "ONKEY", onkey);
-	if (err < 0) {
-		dev_err(&pdev->dev,
-			"Failed to register ONKEY IRQ %d, error = %d\n",
-			irq, err);
-		goto err_free_input;
-	}
+	err = devm_request_threaded_irq(&pdev->dev, irq, NULL, da9055_onkey_irq,
+					IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+					"ONKEY", onkey);
+	if (err)
+		return err;
 
 	err = input_register_device(input_dev);
 	if (err) {
 		dev_err(&pdev->dev, "Unable to register input device, %d\n",
 			err);
-		goto err_free_irq;
+		return err;
 	}
 
-	platform_set_drvdata(pdev, onkey);
-
 	return 0;
-
-err_free_irq:
-	free_irq(irq, onkey);
-	cancel_delayed_work_sync(&onkey->work);
-err_free_input:
-	input_free_device(input_dev);
-
-	return err;
-}
-
-static void da9055_onkey_remove(struct platform_device *pdev)
-{
-	struct da9055_onkey *onkey = platform_get_drvdata(pdev);
-	int irq = platform_get_irq_byname(pdev, "ONKEY");
-
-	irq = regmap_irq_get_virq(onkey->da9055->irq_data, irq);
-	free_irq(irq, onkey);
-	cancel_delayed_work_sync(&onkey->work);
-	input_unregister_device(onkey->input);
 }
 
 static struct platform_driver da9055_onkey_driver = {
 	.probe	= da9055_onkey_probe,
-	.remove	= da9055_onkey_remove,
 	.driver	= {
 		.name	= "da9055-onkey",
 	},
