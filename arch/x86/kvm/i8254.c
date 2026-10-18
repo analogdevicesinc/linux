@@ -522,8 +522,14 @@ static int pit_ioport_read(struct kvm_vcpu *vcpu,
 		return -EOPNOTSUPP;
 
 	addr &= KVM_PIT_CHANNEL_MASK;
-	if (addr == 3)
+	if (addr == 3) {
+		/*
+		 * Control words are write-only, arbitrarily return all ones,
+		 * e.g. to match bus abort semantics.
+		 */
+		memset(data, 0xff, len);
 		return 0;
+	}
 
 	s = &pit_state->channels[addr];
 
