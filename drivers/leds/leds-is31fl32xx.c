@@ -574,7 +574,7 @@ static int is31fl32xx_probe(struct i2c_client *client)
 	int count;
 	int ret = 0;
 
-	cdef = device_get_match_data(dev);
+	cdef = i2c_get_match_data(client);
 
 	count = device_get_child_node_count(dev);
 	if (!count)
@@ -611,19 +611,15 @@ static void is31fl32xx_remove(struct i2c_client *client)
 			ERR_PTR(ret));
 }
 
-/*
- * i2c-core (and modalias) requires that id_table be properly filled,
- * even though it is not used for DeviceTree based instantiation.
- */
 static const struct i2c_device_id is31fl32xx_id[] = {
-	{ .name = "is31fl3293" },
-	{ .name = "is31fl3236" },
-	{ .name = "is31fl3236a" },
-	{ .name = "is31fl3235" },
-	{ .name = "is31fl3218" },
-	{ .name = "sn3218" },
-	{ .name = "is31fl3216" },
-	{ .name = "sn3216" },
+	{ .name = "is31fl3293", .driver_data = (kernel_ulong_t)&is31fl3293_cdef },
+	{ .name = "is31fl3236", .driver_data = (kernel_ulong_t)&is31fl3236_cdef },
+	{ .name = "is31fl3236a", .driver_data = (kernel_ulong_t)&is31fl3236a_cdef },
+	{ .name = "is31fl3235", .driver_data = (kernel_ulong_t)&is31fl3235_cdef },
+	{ .name = "is31fl3218", .driver_data = (kernel_ulong_t)&is31fl3218_cdef },
+	{ .name = "sn3218", .driver_data = (kernel_ulong_t)&is31fl3218_cdef },
+	{ .name = "is31fl3216", .driver_data = (kernel_ulong_t)&is31fl3216_cdef },
+	{ .name = "sn3216", .driver_data = (kernel_ulong_t)&is31fl3216_cdef },
 	{ }
 };
 
