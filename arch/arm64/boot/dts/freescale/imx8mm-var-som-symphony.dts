@@ -11,7 +11,7 @@
 #include "imx8mm-var-som-wifi-bt-iw61x.dtsi"
 
 / {
-	model = "Variscite VAR-SOM-MX8MM Symphony evaluation board";
+	model = "Variscite VAR-SOM-MX8M-MINI on Symphony-Board";
 	compatible = "variscite,var-som-mx8mm-symphony", "variscite,var-som-mx8mm", "fsl,imx8mm";
 
 	chosen {
