@@ -4924,10 +4924,6 @@ static const struct alg_test_desc alg_test_descs[] = {
 			.hash = __VECS(hmac_streebog512_tv_template)
 		}
 	}, {
-		.alg = "jitterentropy_rng",
-		.fips_allowed = 1,
-		.test = alg_test_null,
-	}, {
 		.alg = "krb5enc(cmac(camellia),cts(cbc(camellia)))",
 		.test = alg_test_aead,
 		.suite.aead = __VECS(krb5_test_camellia_cts_cmac)

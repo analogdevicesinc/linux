@@ -44,7 +44,6 @@
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/time.h>
-#include <crypto/internal/rng.h>
 
 #include "jitterentropy.h"
 #include "jitterentropy-kcapi.h"
@@ -302,117 +301,15 @@ void crypto_jent_free(struct jitterentropy *rng)
 }
 EXPORT_SYMBOL_NS_GPL(crypto_jent_free, "CRYPTO_INTERNAL");
 
-static void jent_kcapi_cleanup(struct crypto_tfm *tfm)
-{
-	struct jitterentropy *rng = crypto_tfm_ctx(tfm);
-
-	mutex_lock(&rng->jent_lock);
-
-	memzero_explicit(&rng->hash_state, sizeof(rng->hash_state));
-
-	if (rng->entropy_collector)
-		jent_entropy_collector_free(rng->entropy_collector);
-	rng->entropy_collector = NULL;
-	mutex_unlock(&rng->jent_lock);
-}
-
-static int jent_kcapi_init(struct crypto_tfm *tfm)
-{
-	struct jitterentropy *rng = crypto_tfm_ctx(tfm);
-	int ret;
-
-	ret = jent_init();
-	if (ret)
-		return ret;
-
-	mutex_init(&rng->jent_lock);
-
-	/* Use SHA3-256 as conditioner */
-	sha3_256_init(&rng->hash_state);
-
-	rng->entropy_collector = jent_entropy_collector_alloc(
-		CONFIG_CRYPTO_JITTERENTROPY_OSR, 0, &rng->hash_state);
-	if (!rng->entropy_collector) {
-		ret = -ENOMEM;
-		goto err;
-	}
-
-	return 0;
-
-err:
-	jent_kcapi_cleanup(tfm);
-	return ret;
-}
-
-static int jent_kcapi_random(struct crypto_rng *tfm,
-			     const u8 *src, unsigned int slen,
-			     u8 *rdata, unsigned int dlen)
-{
-	struct jitterentropy *rng = crypto_rng_ctx(tfm);
-	int ret = 0;
-
-	mutex_lock(&rng->jent_lock);
-
-	ret = jent_read_entropy(rng->entropy_collector, rdata, dlen);
-
-	if (ret == -3) {
-		/* Handle permanent health test error */
-		/*
-		 * If the kernel was booted with fips=1, it implies that
-		 * the entire kernel acts as a FIPS 140 module. In this case
-		 * an SP800-90B permanent health test error is treated as
-		 * a FIPS module error.
-		 */
-		if (fips_enabled)
-			panic("Jitter RNG permanent health test failure\n");
-
-		pr_err("Jitter RNG permanent health test failure\n");
-		ret = -EFAULT;
-	} else if (ret == -2) {
-		/* Handle intermittent health test error */
-		pr_warn_ratelimited("Reset Jitter RNG due to intermittent health test failure\n");
-		ret = -EAGAIN;
-	} else if (ret == -1) {
-		/* Handle other errors */
-		ret = -EINVAL;
-	}
-
-	mutex_unlock(&rng->jent_lock);
-
-	return ret;
-}
-
-static int jent_kcapi_reset(struct crypto_rng *tfm,
-			    const u8 *seed, unsigned int slen)
-{
-	return 0;
-}
-
-static struct rng_alg jent_alg = {
-	.generate		= jent_kcapi_random,
-	.seed			= jent_kcapi_reset,
-	.seedsize		= 0,
-	.base			= {
-		.cra_name               = "jitterentropy_rng",
-		.cra_driver_name        = "jitterentropy_rng",
-		.cra_priority           = 100,
-		.cra_ctxsize            = sizeof(struct jitterentropy),
-		.cra_module             = THIS_MODULE,
-		.cra_init               = jent_kcapi_init,
-		.cra_exit               = jent_kcapi_cleanup,
-	}
-};
-
 static int __init jent_mod_init(void)
 {
 	jent_testing_init();
-	return crypto_register_rng(&jent_alg);
+	return 0;
 }
 
 static void __exit jent_mod_exit(void)
 {
 	jent_testing_exit();
-	crypto_unregister_rng(&jent_alg);
 }
 
 module_init(jent_mod_init);
@@ -421,4 +318,3 @@ module_exit(jent_mod_exit);
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Stephan Mueller <smueller@chronox.de>");
 MODULE_DESCRIPTION("Non-physical True Random Number Generator based on CPU Jitter");
-MODULE_ALIAS_CRYPTO("jitterentropy_rng");
