@@ -31,7 +31,6 @@
 #define CRYPTO_ALG_TYPE_KPP		0x00000008
 #define CRYPTO_ALG_TYPE_ACOMPRESS	0x0000000a
 #define CRYPTO_ALG_TYPE_SCOMPRESS	0x0000000b
-#define CRYPTO_ALG_TYPE_RNG		0x0000000c
 #define CRYPTO_ALG_TYPE_HASH		0x0000000e
 #define CRYPTO_ALG_TYPE_SHASH		0x0000000e
 #define CRYPTO_ALG_TYPE_AHASH		0x0000000f
@@ -307,7 +306,7 @@ struct cipher_alg {
  * @cra_type: Type of the cryptographic transformation. This is a pointer to
  *	      struct crypto_type, which implements callbacks common for all
  *	      transformation types. There are multiple options, such as
- *	      &crypto_skcipher_type, &crypto_ahash_type, &crypto_rng_type.
+ *	      &crypto_skcipher_type, &crypto_ahash_type.
  *	      This field might be empty. In that case, there are no common
  *	      callbacks. This is the case for: cipher.
  * @cra_u: Callbacks implementing the transformation. This is a union of

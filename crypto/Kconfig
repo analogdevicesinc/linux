@@ -98,15 +98,6 @@ config CRYPTO_HASH2
 	tristate
 	select CRYPTO_ALGAPI2
 
-config CRYPTO_RNG
-	tristate
-	select CRYPTO_RNG2
-	select CRYPTO_ALGAPI
-
-config CRYPTO_RNG2
-	tristate
-	select CRYPTO_ALGAPI2
-
 config CRYPTO_AKCIPHER2
 	tristate
 	select CRYPTO_ALGAPI2
