@@ -76,8 +76,8 @@
 	};
 
 	fan1 {
-		/* fan connected to P7 */
 		compatible = "pwm-fan";
+		label = "P7";
 		pwms = <&pwm0 0 40000 0>;
 		cooling-levels = <0 80 170 255>;
 		interrupt-parent = <&gpio4>;
@@ -87,8 +87,8 @@
 	};
 
 	fan2 {
-		/* fan connected to P6 */
 		compatible = "pwm-fan";
+		label = "P6";
 		pwms = <&pwm1 0 40000 0>;
 		cooling-levels = <0 80 170 255>;
 		interrupt-parent = <&gpio4>;
