@@ -178,6 +178,54 @@ struct jitterentropy {
 	struct sha3_ctx hash_state;
 };
 
+static int jent_init_err;
+
+static void jent_init_once(void)
+{
+	struct sha3_ctx hash_state;
+	int err;
+
+	sha3_256_init(&hash_state);
+	err = jent_entropy_init(CONFIG_CRYPTO_JITTERENTROPY_OSR, 0, &hash_state,
+				NULL);
+	memzero_explicit(&hash_state, sizeof(hash_state));
+	if (err) {
+		/* Handle permanent health test error */
+		if (fips_enabled)
+			panic("jitterentropy: Initialization failed with host not compliant with requirements: %d\n",
+			      err);
+
+		pr_info("jitterentropy: Initialization failed with host not compliant with requirements: %d\n",
+			err);
+		jent_init_err = err;
+	}
+}
+
+static int jent_init(void)
+{
+	static DEFINE_MUTEX(jent_init_mutex);
+	static bool initialized;
+
+	/*
+	 * To avoid lockdep reports of inconsistent ordering of drbg_mutex and
+	 * once_mutex, implement one-time-init locally instead of using
+	 * DO_ONCE_SLEEPABLE.
+	 */
+	guard(mutex)(&jent_init_mutex);
+	if (!initialized) {
+		jent_init_once();
+		initialized = true;
+	}
+	if (jent_init_err) {
+		/*
+		 * jent_init_err is a private custom error code from
+		 * jitterentropy.c.  Select an errno value instead.
+		 */
+		return -EOPNOTSUPP;
+	}
+	return 0;
+}
+
 static void jent_kcapi_cleanup(struct crypto_tfm *tfm)
 {
 	struct jitterentropy *rng = crypto_tfm_ctx(tfm);
@@ -195,7 +243,11 @@ static void jent_kcapi_cleanup(struct crypto_tfm *tfm)
 static int jent_kcapi_init(struct crypto_tfm *tfm)
 {
 	struct jitterentropy *rng = crypto_tfm_ctx(tfm);
-	int ret = 0;
+	int ret;
+
+	ret = jent_init();
+	if (ret)
+		return ret;
 
 	mutex_init(&rng->jent_lock);
 
@@ -277,25 +329,7 @@ static struct rng_alg jent_alg = {
 
 static int __init jent_mod_init(void)
 {
-	struct sha3_ctx hash_state;
-	int ret = 0;
-
 	jent_testing_init();
-
-	sha3_256_init(&hash_state);
-
-	ret = jent_entropy_init(CONFIG_CRYPTO_JITTERENTROPY_OSR, 0, &hash_state,
-				NULL);
-	memzero_explicit(&hash_state, sizeof(hash_state));
-	if (ret) {
-		/* Handle permanent health test error */
-		if (fips_enabled)
-			panic("jitterentropy: Initialization failed with host not compliant with requirements: %d\n", ret);
-
-		jent_testing_exit();
-		pr_info("jitterentropy: Initialization failed with host not compliant with requirements: %d\n", ret);
-		return -EFAULT;
-	}
 	return crypto_register_rng(&jent_alg);
 }
 
