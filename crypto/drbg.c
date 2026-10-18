@@ -93,10 +93,12 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/once.h>
 #include <linux/slab.h>
 #include <linux/string_choices.h>
 #include <linux/unaligned.h>
 #include "drbg.h"
+#include "drbg-testvecs.h"
 #include "jitterentropy-kcapi.h"
 
 /* State length in bytes */
@@ -522,7 +524,9 @@ static void drbg_kcapi_exit(struct crypto_tfm *tfm)
  * Public API
  ***************************************************************/
 
-struct drbg_state *crypto_drbg_alloc(void)
+static int drbg_selftest(void);
+
+static struct drbg_state *__crypto_drbg_alloc(void)
 {
 	struct drbg_state *drbg = kzalloc_obj(*drbg);
 
@@ -531,6 +535,15 @@ struct drbg_state *crypto_drbg_alloc(void)
 
 	mutex_init(&drbg->drbg_mutex);
 	return drbg;
+}
+
+struct drbg_state *crypto_drbg_alloc(void)
+{
+	int err = drbg_selftest();
+
+	if (err)
+		return ERR_PTR(err);
+	return __crypto_drbg_alloc();
 }
 EXPORT_SYMBOL_NS_GPL(crypto_drbg_alloc, "CRYPTO_INTERNAL");
 
@@ -635,20 +648,16 @@ EXPORT_SYMBOL_NS_GPL(crypto_drbg_free, "CRYPTO_INTERNAL");
  * Note 2: There is no sensible way of testing the reseed counter
  * enforcement, so skip it.
  */
-static inline int __init drbg_healthcheck_sanity(void)
+static void drbg_healthcheck_sanity(void)
 {
 #define OUTBUFLEN 16
 	u8 buf[OUTBUFLEN];
 	struct drbg_state *drbg = NULL;
 	int ret;
 
-	/* only perform test in FIPS mode */
-	if (!fips_enabled)
-		return 0;
-
 	drbg = kzalloc_obj(struct drbg_state);
 	if (!drbg)
-		return -ENOMEM;
+		panic("DRBG: out of memory");
 
 	guard(mutex_init)(&drbg->drbg_mutex);
 	drbg->instantiated = true;
@@ -677,8 +686,8 @@ static inline int __init drbg_healthcheck_sanity(void)
 	pr_devel("DRBG: Sanity tests for failure code paths successfully "
 		 "completed\n");
 
-	kfree(drbg);
-	return 0;
+	mutex_destroy(&drbg->drbg_mutex);
+	kfree_sensitive(drbg);
 }
 
 static struct rng_alg drbg_alg = {
@@ -694,13 +703,101 @@ static struct rng_alg drbg_alg = {
 	.base.cra_exit		= drbg_kcapi_exit,
 };
 
+DEFINE_FREE(crypto_drbg_free, struct drbg_state *, crypto_drbg_free(_T))
+
+static int drbg_selftest_one_vec(const struct drbg_testvec *test)
+{
+	struct drbg_state *drbg __free(crypto_drbg_free) = NULL;
+	unsigned char *buf __free(kfree_sensitive) = NULL;
+	int err;
+
+	buf = kzalloc(test->expectedlen, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	drbg = __crypto_drbg_alloc();
+	if (IS_ERR(drbg))
+		return PTR_ERR(drbg);
+
+	crypto_drbg_set_entropy(drbg, test->entropy, test->entropylen);
+	err = crypto_drbg_seed(drbg, test->pers, test->perslen);
+	if (err) {
+		pr_err("DRBG: Instantiation failed: %d\n", err);
+		return err;
+	}
+
+	if (test->ent_reseed_len) {
+		crypto_drbg_set_entropy(drbg, test->ent_reseed,
+					test->ent_reseed_len);
+		err = crypto_drbg_seed(drbg, test->addtl_reseed,
+				       test->addtl_reseed_len);
+		if (err) {
+			pr_err("DRBG: Reseed failed: %d\n", err);
+			return err;
+		}
+	}
+
+	err = crypto_drbg_get_bytes(drbg, buf, test->expectedlen, test->addtla,
+				    test->addtllen);
+	if (err) {
+		pr_err("DRBG: Generation failed (first): %d\n", err);
+		return err;
+	}
+
+	err = crypto_drbg_get_bytes(drbg, buf, test->expectedlen, test->addtlb,
+				    test->addtllen);
+	if (err) {
+		pr_err("DRBG: Generation failed (second): %d\n", err);
+		return err;
+	}
+
+	if (memcmp(test->expected, buf, test->expectedlen) != 0) {
+		pr_err("DRBG: Actual output doesn't match expected output\n");
+		return -ELIBBAD;
+	}
+	return 0;
+}
+
+static int drbg_selftest_err;
+
+static void drbg_selftest_once(void)
+{
+	if (!fips_enabled && !IS_ENABLED(CONFIG_CRYPTO_SELFTESTS))
+		return;
+
+	if (fips_enabled)
+		drbg_healthcheck_sanity();
+
+	for (size_t i = 0; i < ARRAY_SIZE(drbg_testvecs); i++) {
+		int err = drbg_selftest_one_vec(&drbg_testvecs[i]);
+
+		if (err) {
+			if (fips_enabled)
+				panic("DRBG self-test %zu failed: %d\n", i,
+				      err);
+			else
+				WARN(1, "DRBG self-test %zu failed: %d\n", i,
+				     err);
+			drbg_selftest_err = err;
+			break;
+		}
+	}
+	if (fips_enabled)
+		pr_info("DRBG: self-tests passed\n");
+}
+
+static int drbg_selftest(void)
+{
+	DO_ONCE_SLEEPABLE(drbg_selftest_once);
+	return drbg_selftest_err;
+}
+
 static int __init drbg_init(void)
 {
-	int ret;
+	int err = drbg_selftest();
 
-	ret = drbg_healthcheck_sanity();
-	if (ret)
-		return ret;
+	if (err)
+		return err;
 
 	/*
 	 * In FIPS mode, boost the algorithm priority to ensure that when users
