@@ -746,7 +746,7 @@ nfs_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 	} else if (nfs_have_delegated_atime(inode) &&
 		   attr->ia_valid & ATTR_ATIME &&
 		   !(attr->ia_valid & ATTR_MTIME)) {
-		if (!(attr->ia_valid & ATTR_ATIME_SET)) {
+		if (!(attr->ia_valid & (ATTR_ATIME_SET | ATTR_TIMES_SET))) {
 			nfs_update_delegated_atime(inode);
 			attr->ia_valid &= ~ATTR_ATIME;
 		}
