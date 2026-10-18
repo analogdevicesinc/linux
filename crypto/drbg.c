@@ -96,6 +96,7 @@
 #include <linux/mutex.h>
 #include <linux/string_choices.h>
 #include <linux/unaligned.h>
+#include "jitterentropy-kcapi.h"
 
 /* State length in bytes */
 #define DRBG_STATE_LEN		SHA512_DIGEST_SIZE
@@ -130,7 +131,7 @@ struct drbg_state {
 	/* Number of RNG requests since last reseed -- 10.1.2.1 1c */
 	size_t reseed_ctr;
 	bool instantiated;
-	struct crypto_rng *jent;
+	struct jitterentropy *jent;
 	const u8 *test_entropy;
 	size_t test_entropylen;
 };
@@ -272,9 +273,9 @@ static int drbg_seed(struct drbg_state *drbg, const u8 *pers, size_t pers_len,
 			 * Get seed from Jitter RNG, failures are
 			 * fatal only in FIPS mode.
 			 */
-			ret = crypto_rng_get_bytes(drbg->jent,
-						   &entropy_buf[entropylen],
-						   entropylen);
+			ret = crypto_jent_get_bytes(drbg->jent,
+						    &entropy_buf[entropylen],
+						    entropylen);
 			if (fips_enabled && ret) {
 				pr_devel("DRBG: jent failed with %d\n", ret);
 
@@ -454,7 +455,7 @@ static int drbg_kcapi_seed(struct crypto_rng *tfm,
 
 	/* Allocate jitterentropy_rng if not in test mode. */
 	if (drbg->test_entropylen == 0) {
-		drbg->jent = crypto_alloc_rng("jitterentropy_rng", 0, 0);
+		drbg->jent = crypto_jent_alloc();
 		if (IS_ERR(drbg->jent)) {
 			ret = PTR_ERR(drbg->jent);
 			drbg->jent = NULL;
@@ -466,7 +467,7 @@ static int drbg_kcapi_seed(struct crypto_rng *tfm,
 
 	ret = drbg_seed(drbg, pers, pers_len, /* reseed= */ false);
 	if (ret) {
-		crypto_free_rng(drbg->jent);
+		crypto_jent_free(drbg->jent);
 		drbg->jent = NULL;
 		return ret;
 	}
@@ -512,7 +513,7 @@ static void drbg_kcapi_exit(struct crypto_tfm *tfm)
 {
 	struct drbg_state *drbg = crypto_tfm_ctx(tfm);
 
-	crypto_free_rng(drbg->jent);
+	crypto_jent_free(drbg->jent);
 	memzero_explicit(drbg, sizeof(*drbg));
 }
 
@@ -615,3 +616,4 @@ MODULE_AUTHOR("Stephan Mueller <smueller@chronox.de>");
 MODULE_DESCRIPTION("NIST SP800-90A Deterministic Random Bit Generator (DRBG)");
 MODULE_ALIAS_CRYPTO("stdrng");
 MODULE_ALIAS_CRYPTO("drbg_nopr_hmac_sha512");
+MODULE_IMPORT_NS("CRYPTO_INTERNAL"); /* for jitterentropy */
