@@ -1051,17 +1051,19 @@ int btrfs_check_chunk_valid(const struct btrfs_fs_info *fs_info,
 		return -EUCLEAN;
 	}
 	/*
-	 * We artificially limit the chunk size, so that the number of stripes
-	 * inside a chunk can be fit into a U32.  The current limit (256G) is
-	 * way too large for real world usage anyway, and it's also much larger
-	 * than our existing limit (10G).
+	 * We artificially limit the chunk size, the current limit is 10G.
 	 *
-	 * Thus it should be a good way to catch obvious bitflips.
+	 * But we don't want to follow that 10G limit too strict, as if we
+	 * relax the requirement one day, we will need a dedicated flag to
+	 * prevent rejecting such new chunks.
+	 *
+	 * Here use 256G as a sane threshold, which should be large enough
+	 * and also a good way to catch obvious bitflips.
 	 */
-	if (unlikely(length >= btrfs_stripe_nr_to_offset(U32_MAX))) {
+	if (unlikely(length > SZ_256G)) {
 		chunk_err(fs_info, leaf, chunk, logical,
 			  "chunk length too large: have %llu limit %llu",
-			  length, btrfs_stripe_nr_to_offset(U32_MAX));
+			  length, SZ_256G);
 		return -EUCLEAN;
 	}
 	if (unlikely(type & ~BTRFS_BLOCK_GROUP_VALID)) {
