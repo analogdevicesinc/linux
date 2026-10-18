@@ -1115,7 +1115,7 @@ config CRYPTO_DRBG
 	  It's otherwise redundant with the kernel's regular RNG.
 
 config CRYPTO_JITTERENTROPY
-	tristate "CPU Jitter Non-Deterministic RNG (Random Number Generator)"
+	tristate
 	select CRYPTO_LIB_SHA3
 	help
 	  CPU Jitter RNG (Random Number Generator) from the Jitterentropy library
