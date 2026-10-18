@@ -41,46 +41,45 @@
  * ==========
  * The SP 800-90A DRBG allows the user to specify a personalization string
  * for initialization as well as an additional information string for each
- * random number request. The following code fragments show how a caller
- * uses the kernel crypto API to use the full functionality of the DRBG.
+ * random number request. The following code snippets show example use:
  *
  * Usage without any additional data
  * ---------------------------------
- * struct crypto_rng *drng;
+ * struct drbg_state *drbg;
  * int err;
  * char data[DATALEN];
  *
- * drng = crypto_alloc_rng(drng_name, 0, 0);
- * err = crypto_rng_get_bytes(drng, data, DATALEN);
- * crypto_free_rng(drng);
+ * drbg = crypto_drbg_alloc();
+ * err = crypto_drbg_seed(drbg, NULL, 0);
+ * err = crypto_drbg_get_bytes(drbg, data, sizeof(data), NULL, 0);
+ * crypto_drbg_free(drbg);
  *
  *
  * Usage with personalization string during initialization
  * -------------------------------------------------------
- * struct crypto_rng *drng;
+ * struct drbg_state *drbg;
  * int err;
  * char data[DATALEN];
  * char personalization[11] = "some-string";
  *
- * drng = crypto_alloc_rng(drng_name, 0, 0);
- * // The reset completely re-initializes the DRBG with the provided
- * // personalization string
- * err = crypto_rng_reset(drng, personalization, strlen(personalization));
- * err = crypto_rng_get_bytes(drng, data, DATALEN);
- * crypto_free_rng(drng);
+ * drbg = crypto_drbg_alloc();
+ * err = crypto_drbg_seed(drbg, personalization, sizeof(personalization));
+ * err = crypto_drbg_get_bytes(drbg, data, sizeof(data), NULL, 0);
+ * crypto_drbg_free(drbg);
  *
  *
  * Usage with additional information string during random number request
  * ---------------------------------------------------------------------
- * struct crypto_rng *drng;
+ * struct drbg_state *drbg;
  * int err;
  * char data[DATALEN];
  * char addtl_string[11] = "some-string";
  *
- * drng = crypto_alloc_rng(drng_name, 0, 0);
- * err = crypto_rng_generate(drng, addtl_string, strlen(addtl_string),
-			     data, DATALEN);
- * crypto_free_rng(drng);
+ * drbg = crypto_drbg_alloc();
+ * err = crypto_drbg_seed(drbg, NULL, 0);
+ * err = crypto_drbg_get_bytes(drbg, data, sizeof(data), addtl_string,
+ *			       sizeof(addtl_string));
+ * crypto_drbg_free(drbg);
  *
  *
  * Usage with personalization and additional information strings
@@ -94,8 +93,10 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/slab.h>
 #include <linux/string_choices.h>
 #include <linux/unaligned.h>
+#include "drbg.h"
 #include "jitterentropy-kcapi.h"
 
 /* State length in bytes */
@@ -516,6 +517,113 @@ static void drbg_kcapi_exit(struct crypto_tfm *tfm)
 	crypto_jent_free(drbg->jent);
 	memzero_explicit(drbg, sizeof(*drbg));
 }
+
+/***************************************************************
+ * Public API
+ ***************************************************************/
+
+struct drbg_state *crypto_drbg_alloc(void)
+{
+	struct drbg_state *drbg = kzalloc_obj(*drbg);
+
+	if (!drbg)
+		return ERR_PTR(-ENOMEM);
+
+	mutex_init(&drbg->drbg_mutex);
+	return drbg;
+}
+EXPORT_SYMBOL_NS_GPL(crypto_drbg_alloc, "CRYPTO_INTERNAL");
+
+/* Set test entropy in the DRBG. */
+void crypto_drbg_set_entropy(struct drbg_state *drbg, const u8 *data,
+			     size_t len)
+{
+	guard(mutex)(&drbg->drbg_mutex);
+	drbg->test_entropy = data;
+	drbg->test_entropylen = len;
+}
+EXPORT_SYMBOL_NS_GPL(crypto_drbg_set_entropy, "CRYPTO_INTERNAL");
+
+/* Seed (i.e. instantiate) or re-seed the DRBG. */
+int crypto_drbg_seed(struct drbg_state *drbg, const u8 *pers, size_t pers_len)
+{
+	static const u8 initial_key[DRBG_STATE_LEN]; /* all zeroes */
+	int ret;
+
+	pr_devel("DRBG: Initializing DRBG\n");
+	guard(mutex)(&drbg->drbg_mutex);
+
+	if (drbg->instantiated)
+		return drbg_seed(drbg, pers, pers_len, /* reseed= */ true);
+
+	/* 9.1 step 1 is implicit with the selected DRBG type */
+
+	/*
+	 * 9.1 step 2 is implicit, as this implementation doesn't support
+	 * prediction resistance
+	 */
+
+	/* 9.1 step 4 is implicit in DRBG_SEC_STRENGTH */
+
+	memset(drbg->V, 1, DRBG_STATE_LEN);
+	hmac_sha512_preparekey(&drbg->key, initial_key, DRBG_STATE_LEN);
+
+	/* Allocate jitterentropy if not in test mode. */
+	if (drbg->test_entropylen == 0) {
+		drbg->jent = crypto_jent_alloc();
+		if (IS_ERR(drbg->jent)) {
+			ret = PTR_ERR(drbg->jent);
+			drbg->jent = NULL;
+			if (fips_enabled)
+				return ret;
+			pr_info("DRBG: Continuing without Jitter RNG\n");
+		}
+	}
+
+	ret = drbg_seed(drbg, pers, pers_len, /* reseed= */ false);
+	if (ret) {
+		crypto_jent_free(drbg->jent);
+		drbg->jent = NULL;
+		return ret;
+	}
+	drbg->instantiated = true;
+	return 0;
+}
+EXPORT_SYMBOL_NS_GPL(crypto_drbg_seed, "CRYPTO_INTERNAL");
+
+int crypto_drbg_get_bytes(struct drbg_state *drbg, u8 *out, size_t out_len,
+			  const u8 *addtl, size_t addtl_len)
+{
+	/*
+	 * Break the request into multiple requests if needed, to avoid
+	 * exceeding the maximum request length of the core algorithm.
+	 */
+	while (out_len) {
+		size_t n = min(out_len, DRBG_MAX_REQUEST_BYTES);
+		int err;
+
+		mutex_lock(&drbg->drbg_mutex);
+		err = drbg_generate(drbg, out, n, addtl, addtl_len);
+		mutex_unlock(&drbg->drbg_mutex);
+		if (err < 0)
+			return err;
+		out += n;
+		out_len -= n;
+	}
+	return 0;
+}
+EXPORT_SYMBOL_NS_GPL(crypto_drbg_get_bytes, "CRYPTO_INTERNAL");
+
+/* Uninstantiate the DRBG. */
+void crypto_drbg_free(struct drbg_state *drbg)
+{
+	if (!IS_ERR_OR_NULL(drbg)) {
+		mutex_destroy(&drbg->drbg_mutex);
+		crypto_jent_free(drbg->jent);
+		kfree_sensitive(drbg);
+	}
+}
+EXPORT_SYMBOL_NS_GPL(crypto_drbg_free, "CRYPTO_INTERNAL");
 
 /*
  * Tests as defined in 11.3.2 in addition to the cipher tests: testing
