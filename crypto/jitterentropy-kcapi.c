@@ -1,6 +1,6 @@
 /*
  * Non-physical true random number generator based on timing jitter --
- * Linux Kernel Crypto API specific code
+ * Public API
  *
  * Copyright Stephan Mueller <smueller@chronox.de>, 2015 - 2023
  *
@@ -47,6 +47,7 @@
 #include <crypto/internal/rng.h>
 
 #include "jitterentropy.h"
+#include "jitterentropy-kcapi.h"
 
 /***************************************************************************
  * Helper function
@@ -169,7 +170,7 @@ void jent_read_random_block(struct sha3_ctx *hash_state, char *dst,
 }
 
 /***************************************************************************
- * Kernel crypto API interface
+ * Public API
  ***************************************************************************/
 
 struct jitterentropy {
@@ -225,6 +226,81 @@ static int jent_init(void)
 	}
 	return 0;
 }
+
+struct jitterentropy *crypto_jent_alloc(void)
+{
+	struct jitterentropy *rng;
+	int err;
+
+	err = jent_init();
+	if (err)
+		return ERR_PTR(err);
+
+	rng = kzalloc_obj(*rng);
+	if (!rng)
+		return ERR_PTR(-ENOMEM);
+
+	mutex_init(&rng->jent_lock);
+
+	/* Use SHA3-256 as conditioner */
+	sha3_256_init(&rng->hash_state);
+
+	rng->entropy_collector = jent_entropy_collector_alloc(
+		CONFIG_CRYPTO_JITTERENTROPY_OSR, 0, &rng->hash_state);
+	if (!rng->entropy_collector) {
+		crypto_jent_free(rng);
+		return ERR_PTR(-ENOMEM);
+	}
+	return rng;
+}
+EXPORT_SYMBOL_NS_GPL(crypto_jent_alloc, "CRYPTO_INTERNAL");
+
+int crypto_jent_get_bytes(struct jitterentropy *rng, u8 *out,
+			  unsigned int out_len)
+{
+	int ret;
+
+	guard(mutex)(&rng->jent_lock);
+
+	ret = jent_read_entropy(rng->entropy_collector, out, out_len);
+
+	if (ret == -3) {
+		/* Handle permanent health test error */
+		/*
+		 * If the kernel was booted with fips=1, it implies that
+		 * the entire kernel acts as a FIPS 140 module. In this case
+		 * an SP800-90B permanent health test error is treated as
+		 * a FIPS module error.
+		 */
+		if (fips_enabled)
+			panic("Jitter RNG permanent health test failure\n");
+
+		pr_err("Jitter RNG permanent health test failure\n");
+		return -EFAULT;
+	}
+	if (ret == -2) {
+		/* Handle intermittent health test error */
+		pr_warn_ratelimited("Reset Jitter RNG due to intermittent health test failure\n");
+		return -EAGAIN;
+	}
+	if (ret == -1) {
+		/* Handle other errors */
+		return -EINVAL;
+	}
+	return ret;
+}
+EXPORT_SYMBOL_NS_GPL(crypto_jent_get_bytes, "CRYPTO_INTERNAL");
+
+void crypto_jent_free(struct jitterentropy *rng)
+{
+	if (!IS_ERR_OR_NULL(rng)) {
+		mutex_destroy(&rng->jent_lock);
+		if (rng->entropy_collector)
+			jent_entropy_collector_free(rng->entropy_collector);
+		kfree_sensitive(rng);
+	}
+}
+EXPORT_SYMBOL_NS_GPL(crypto_jent_free, "CRYPTO_INTERNAL");
 
 static void jent_kcapi_cleanup(struct crypto_tfm *tfm)
 {
