@@ -23,10 +23,6 @@
 
 #include "internal.h"
 
-static DEFINE_MUTEX(crypto_default_rng_lock);
-static struct crypto_rng *crypto_default_rng;
-static int crypto_default_rng_refcnt;
-
 int crypto_rng_reset(struct crypto_rng *tfm, const u8 *seed, unsigned int slen)
 {
 	u8 *buf = NULL;
@@ -103,79 +99,6 @@ struct crypto_rng *crypto_alloc_rng(const char *alg_name, u32 type, u32 mask)
 }
 EXPORT_SYMBOL_GPL(crypto_alloc_rng);
 
-static int crypto_get_default_rng(void)
-{
-	struct crypto_rng *rng;
-	int err;
-
-	mutex_lock(&crypto_default_rng_lock);
-	if (!crypto_default_rng) {
-		rng = crypto_alloc_rng("stdrng", 0, 0);
-		err = PTR_ERR(rng);
-		if (IS_ERR(rng))
-			goto unlock;
-
-		err = crypto_rng_reset(rng, NULL, crypto_rng_seedsize(rng));
-		if (err) {
-			crypto_free_rng(rng);
-			goto unlock;
-		}
-
-		crypto_default_rng = rng;
-	}
-
-	crypto_default_rng_refcnt++;
-	err = 0;
-
-unlock:
-	mutex_unlock(&crypto_default_rng_lock);
-
-	return err;
-}
-
-static void crypto_put_default_rng(void)
-{
-	mutex_lock(&crypto_default_rng_lock);
-	crypto_default_rng_refcnt--;
-	mutex_unlock(&crypto_default_rng_lock);
-}
-
-int __crypto_stdrng_get_bytes(void *buf, unsigned int len)
-{
-	int err;
-
-	err = crypto_get_default_rng();
-	if (err)
-		return err;
-
-	err = crypto_rng_get_bytes(crypto_default_rng, buf, len);
-	crypto_put_default_rng();
-	return err;
-}
-EXPORT_SYMBOL_GPL(__crypto_stdrng_get_bytes);
-
-#if defined(CONFIG_CRYPTO_RNG) || defined(CONFIG_CRYPTO_RNG_MODULE)
-int crypto_del_default_rng(void)
-{
-	int err = -EBUSY;
-
-	mutex_lock(&crypto_default_rng_lock);
-	if (crypto_default_rng_refcnt)
-		goto out;
-
-	crypto_free_rng(crypto_default_rng);
-	crypto_default_rng = NULL;
-
-	err = 0;
-
-out:
-	mutex_unlock(&crypto_default_rng_lock);
-
-	return err;
-}
-EXPORT_SYMBOL_GPL(crypto_del_default_rng);
-#endif
-
 static void rng_default_set_ent(struct crypto_rng *tfm, const u8 *data,
 				unsigned int len)
 {
@@ -229,17 +152,6 @@ void crypto_unregister_rngs(struct rng_alg *algs, int count)
 		crypto_unregister_rng(algs + i);
 }
 EXPORT_SYMBOL_GPL(crypto_unregister_rngs);
-
-static void __exit rng_exit(void)
-{
-	int err;
-
-	err = crypto_del_default_rng();
-	if (err)
-		pr_err("Failed delete default RNG: %d\n", err);
-}
-
-module_exit(rng_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Random Number Generator");

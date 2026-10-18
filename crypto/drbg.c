@@ -638,6 +638,67 @@ void crypto_drbg_free(struct drbg_state *drbg)
 }
 EXPORT_SYMBOL_NS_GPL(crypto_drbg_free, "CRYPTO_INTERNAL");
 
+#ifdef CONFIG_CRYPTO_FIPS
+static DEFINE_MUTEX(crypto_default_rng_lock);
+static struct drbg_state *crypto_default_rng;
+static int crypto_default_rng_refcnt;
+
+static int crypto_get_default_rng(void)
+{
+	struct drbg_state *drbg;
+	int err;
+
+	guard(mutex)(&crypto_default_rng_lock);
+	if (!crypto_default_rng) {
+		drbg = crypto_drbg_alloc();
+		if (IS_ERR(drbg))
+			return PTR_ERR(drbg);
+
+		err = crypto_drbg_seed(drbg, NULL, 0);
+		if (err) {
+			crypto_drbg_free(drbg);
+			return err;
+		}
+		crypto_default_rng = drbg;
+	}
+
+	crypto_default_rng_refcnt++;
+	return 0;
+}
+
+static void crypto_put_default_rng(void)
+{
+	guard(mutex)(&crypto_default_rng_lock);
+	crypto_default_rng_refcnt--;
+}
+
+int __crypto_stdrng_get_bytes(void *buf, unsigned int len)
+{
+	int err;
+
+	err = crypto_get_default_rng();
+	if (err)
+		return err;
+
+	err = crypto_drbg_get_bytes(crypto_default_rng, buf, len, NULL, 0);
+	crypto_put_default_rng();
+	return err;
+}
+EXPORT_SYMBOL_GPL(__crypto_stdrng_get_bytes);
+
+int crypto_del_default_rng(void)
+{
+	guard(mutex)(&crypto_default_rng_lock);
+	if (crypto_default_rng_refcnt)
+		return -EBUSY;
+
+	crypto_drbg_free(crypto_default_rng);
+	crypto_default_rng = NULL;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(crypto_del_default_rng);
+#endif /* CONFIG_CRYPTO_FIPS */
+
 /*
  * Tests as defined in 11.3.2 in addition to the cipher tests: testing
  * of the error handling.
@@ -812,6 +873,11 @@ static int __init drbg_init(void)
 static void __exit drbg_exit(void)
 {
 	crypto_unregister_rng(&drbg_alg);
+
+	/*
+	 * Note there's no need to call crypto_del_default_rng() from here, as
+	 * it can exist only when this file is built-in.
+	 */
 }
 
 module_init(drbg_init);

@@ -66,9 +66,8 @@ int __crypto_stdrng_get_bytes(void *buf, unsigned int len);
  * @buf: output buffer holding the random numbers
  * @len: length of the output buffer
  *
- * This function fills the caller-allocated buffer with random numbers using the
- * normal Linux RNG if fips_enabled=0, or the highest-priority "stdrng"
- * algorithm in the crypto_rng subsystem if fips_enabled=1.
+ * This function fills the given buffer with random numbers using the normal
+ * Linux RNG if fips_enabled=0, or a NIST SP800-90A DRBG if fips_enabled=1.
  *
  * Context: May sleep
  * Return: 0 function was successful; < 0 if an error occurred
@@ -80,6 +79,15 @@ static inline int crypto_stdrng_get_bytes(void *buf, unsigned int len)
 		return __crypto_stdrng_get_bytes(buf, len);
 	return get_random_bytes_wait(buf, len);
 }
+
+#ifdef CONFIG_CRYPTO_FIPS
+int crypto_del_default_rng(void);
+#else
+static inline int crypto_del_default_rng(void)
+{
+	return 0;
+}
+#endif
 
 /**
  * DOC: Random number generator API

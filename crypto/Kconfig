@@ -158,7 +158,6 @@ config CRYPTO_USER
 	tristate "Userspace cryptographic algorithm configuration"
 	depends on NET
 	select CRYPTO_MANAGER
-	select CRYPTO_RNG
 	help
 	  Userspace configuration for cryptographic instantiations such as
 	  cbc(aes).
