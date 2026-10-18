@@ -112,8 +112,8 @@ struct clk *devm_clk_get_optional_enabled_with_rate(struct device *dev,
 	int ret;
 
 	clk = devm_clk_get_optional(dev, id);
-	if (IS_ERR(clk))
-		return ERR_CAST(clk);
+	if (IS_ERR_OR_NULL(clk))
+		return clk;
 
 	ret = clk_set_rate(clk, rate);
 	if (ret)
