@@ -230,7 +230,7 @@ static int drbg_seed(struct drbg_state *drbg, const u8 *pers, size_t pers_len,
 	__must_hold(&drbg->drbg_mutex)
 {
 	int ret;
-	u8 entropy_buf[(32 + 16) * 2];
+	u8 entropy_buf[(32 + 16) * 2] = {};
 	size_t entropylen;
 	const u8 *entropy;
 
