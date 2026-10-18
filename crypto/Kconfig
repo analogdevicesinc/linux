@@ -1288,7 +1288,7 @@ config CRYPTO_USER_API_SKCIPHER
 config CRYPTO_USER_API_RNG
 	tristate "Random number generation algorithms (deprecated)"
 	depends on NET
-	select CRYPTO_RNG
+	depends on CRYPTO_DRBG
 	select CRYPTO_USER_API
 	help
 	  Enable the AF_ALG userspace interface for random number generation
@@ -1305,7 +1305,7 @@ config CRYPTO_USER_API_RNG
 
 config CRYPTO_USER_API_RNG_CAVP
 	bool "Enable CAVP testing of DRBG"
-	depends on CRYPTO_USER_API_RNG && CRYPTO_DRBG
+	depends on CRYPTO_USER_API_RNG
 	help
 	  Enable extra APIs in the userspace interface for NIST CAVP
 	  (Cryptographic Algorithm Validation Program) testing:
