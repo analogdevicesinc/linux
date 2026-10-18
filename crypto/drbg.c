@@ -555,7 +555,7 @@ static void crypto_put_default_rng(void)
 	crypto_default_rng_refcnt--;
 }
 
-int __crypto_stdrng_get_bytes(void *buf, unsigned int len)
+int __crypto_stdrng_get_bytes(void *buf, size_t len)
 {
 	int err;
 

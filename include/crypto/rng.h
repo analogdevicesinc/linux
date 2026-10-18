@@ -12,7 +12,7 @@
 #include <linux/fips.h>
 #include <linux/random.h>
 
-int __crypto_stdrng_get_bytes(void *buf, unsigned int len);
+int __crypto_stdrng_get_bytes(void *buf, size_t len);
 
 /**
  * crypto_stdrng_get_bytes() - get cryptographically secure random bytes
@@ -25,7 +25,7 @@ int __crypto_stdrng_get_bytes(void *buf, unsigned int len);
  * Context: May sleep
  * Return: 0 function was successful; < 0 if an error occurred
  */
-static inline int crypto_stdrng_get_bytes(void *buf, unsigned int len)
+static inline int crypto_stdrng_get_bytes(void *buf, size_t len)
 {
 	might_sleep();
 	if (fips_enabled)
