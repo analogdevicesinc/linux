@@ -82,6 +82,16 @@
 		regulator-max-microvolt = <5000000>;
 		vin-supply = <&vcc5v0_sys>;
 	};
+
+	vcc_3v3_sd_s0: regulator-vcc-3v3-sd-s0 {
+		compatible = "regulator-fixed";
+		gpios = <&gpio4 RK_PB5 GPIO_ACTIVE_LOW>;
+		regulator-name = "vcc_3v3_sd_s0";
+		regulator-boot-on;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		vin-supply = <&vcc_3v3_s3>;
+	};
 };
 
 &gmac1 {
@@ -232,6 +242,10 @@
 	};
 };
 
+
+&sdmmc {
+	vmmc-supply = <&vcc_3v3_sd_s0>;
+};
 
 &usb_host0_xhci {
 	dr_mode = "otg";
