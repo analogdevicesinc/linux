@@ -231,7 +231,8 @@ static int osf_core_handle_sensor_sample(struct osf_device *osf,
 		return -EPROTO;
 
 	ret = osf_iio_push_sample(indio_dev, values, sample.channel_count);
-	if (ret) {
+	/* A full software buffer must not prevent the direct-read cache update. */
+	if (ret && ret != -EBUSY) {
 		dev_err_ratelimited(osf->dev,
 				    "failed to push sensor %#x:%u sample: %d\n",
 				    sample.sensor_type, sample.sensor_index, ret);
