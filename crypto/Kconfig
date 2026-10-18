@@ -151,7 +151,6 @@ config CRYPTO_MANAGER2
 	select CRYPTO_SIG2 if CRYPTO_SELFTESTS
 	select CRYPTO_HASH2 if CRYPTO_SELFTESTS
 	select CRYPTO_KPP2 if CRYPTO_SELFTESTS
-	select CRYPTO_RNG2 if CRYPTO_SELFTESTS
 	select CRYPTO_SKCIPHER2 if CRYPTO_SELFTESTS
 
 config CRYPTO_USER
@@ -1109,7 +1108,6 @@ config CRYPTO_DRBG
 	tristate "NIST SP800-90A DRBG (Deterministic Random Bit Generator)"
 	select CRYPTO_JITTERENTROPY
 	select CRYPTO_LIB_SHA512
-	select CRYPTO_RNG
 	help
 	  DRBG (Deterministic Random Bit Generator) (NIST SP800-90A)
 
