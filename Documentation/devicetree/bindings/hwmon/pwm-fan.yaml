@@ -10,18 +10,17 @@ maintainers:
   - Jean Delvare <jdelvare@suse.com>
   - Guenter Roeck <linux@roeck-us.net>
 
+allOf:
+  - $ref: fan-common.yaml#
+
 properties:
   compatible:
     const: pwm-fan
 
   cooling-levels:
     description: PWM duty cycle values corresponding to thermal cooling states.
-    $ref: /schemas/types.yaml#/definitions/uint32-array
     items:
       maximum: 255
-
-  fan-supply:
-    description: Phandle to the regulator that provides power to the fan.
 
   interrupts:
     description:
@@ -51,26 +50,14 @@ properties:
       Time to wait in microseconds after start when stopped.
 
   pulses-per-revolution:
-    description:
-      Define the number of pulses per fan revolution for each tachometer
-      input as an integer.
-    $ref: /schemas/types.yaml#/definitions/uint32
     minimum: 1
-    maximum: 4
     default: 2
-
-  pwms:
-    description: The PWM that is used to control the fan.
-    maxItems: 1
-
-  "#cooling-cells":
-    const: 2
 
 required:
   - compatible
   - pwms
 
-additionalProperties: false
+unevaluatedProperties: false
 
 examples:
   - |
@@ -114,4 +101,5 @@ examples:
       interrupt-parent = <&gpio5>;
       interrupts = <1 IRQ_TYPE_EDGE_FALLING>;
       pulses-per-revolution = <2>;
+      label = "CPU fan";
     };
