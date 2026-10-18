@@ -1330,6 +1330,7 @@ static const char * const asus_msi_boards[] = {
 	"PRIME B760M-A WIFI",
 	"PRIME B760M-A WIFI D4",
 	"PRIME B760M-AJ D4",
+	"PRIME B760M-K",
 	"PRIME B760M-K D4",
 	"PRIME H510M-A",
 	"PRIME H510M-A WIFI",
