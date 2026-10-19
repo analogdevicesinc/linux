@@ -528,9 +528,11 @@ static int spm_dev_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, drv);
 
 	/* Write the SPM sequences first.. */
-	addr = drv->reg_base + drv->reg_data->reg_offset[SPM_REG_SEQ_ENTRY];
-	__iowrite32_copy(addr, drv->reg_data->seq,
-			ARRAY_SIZE(drv->reg_data->seq) / 4);
+	if (drv->reg_data->reg_offset[SPM_REG_SEQ_ENTRY]) {
+		addr = drv->reg_base + drv->reg_data->reg_offset[SPM_REG_SEQ_ENTRY];
+		__iowrite32_copy(addr, drv->reg_data->seq,
+				 ARRAY_SIZE(drv->reg_data->seq) / 4);
+	}
 
 	/*
 	 * ..and then the control registers.
