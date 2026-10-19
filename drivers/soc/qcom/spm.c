@@ -100,7 +100,7 @@ static const struct spm_reg_data spm_reg_660_gold_l2  = {
 
 static const struct spm_reg_data spm_reg_660_silver_l2  = {
 	.reg_offset = spm_reg_offset_v4_1,
-	.avs_ctl = 0x101c031,
+	.avs_ctl = 0x1010031,
 	.avs_limit = 0x4580458,
 };
 
