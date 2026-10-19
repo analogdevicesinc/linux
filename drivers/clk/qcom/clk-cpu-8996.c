@@ -477,9 +477,9 @@ static int qcom_cpu_clk_msm8996_register_clks(struct device *dev,
 	regmap_write(regmap, PWRCL_REG_OFFSET + PSCTL_OFFSET, 0x00030005);
 	regmap_write(regmap, PERFCL_REG_OFFSET + PSCTL_OFFSET, 0x00030005);
 
-	/* Switch clusters to use the ACD leg */
-	regmap_write(regmap, PWRCL_REG_OFFSET + MUX_OFFSET, 0x32);
-	regmap_write(regmap, PERFCL_REG_OFFSET + MUX_OFFSET, 0x32);
+	/* Switch clusters to use the ACD leg, SMUX to PLL/2 for rate changes */
+	regmap_write(regmap, PWRCL_REG_OFFSET + MUX_OFFSET, 0x36);
+	regmap_write(regmap, PERFCL_REG_OFFSET + MUX_OFFSET, 0x36);
 
 	for (i = 0; i < ARRAY_SIZE(cpu_msm8996_hw_clks); i++) {
 		ret = devm_clk_hw_register(dev, cpu_msm8996_hw_clks[i]);
@@ -542,6 +542,12 @@ out:
 	spin_unlock_irqrestore(&qcom_clk_acd_lock, flags);
 }
 
+static bool cpu_clk_8996_leave_acd(struct clk_notifier_data *cnd)
+{
+	return cnd->old_rate >= DIV_2_THRESHOLD &&
+	       (cnd->new_rate < DIV_2_THRESHOLD || cnd->new_rate > cnd->old_rate);
+}
+
 static int cpu_clk_notifier_cb(struct notifier_block *nb, unsigned long event,
 			       void *data)
 {
@@ -558,17 +564,22 @@ static int cpu_clk_notifier_cb(struct notifier_block *nb, unsigned long event,
 		 * chaging the parent of PMUX. This can result in pmux getting
 		 * clocked twice the expected rate.
 		 *
+		 * The ACD may also latch at half the rate when the PLL goes up
+		 * underneath it, until the ACD leg is selected again.
+		 *
 		 * Manually switch to PLL/2 here.
 		 */
-		if (cnd->new_rate < DIV_2_THRESHOLD &&
-		    cnd->old_rate > DIV_2_THRESHOLD)
+		if (cpu_clk_8996_leave_acd(cnd))
 			clk_cpu_8996_pmux_set_parent(&cpuclk->clkr.hw, SMUX_INDEX);
 
 		break;
+	case POST_RATE_CHANGE:
+		if (cnd->new_rate >= DIV_2_THRESHOLD && cpu_clk_8996_leave_acd(cnd))
+			clk_cpu_8996_pmux_set_parent(&cpuclk->clkr.hw, ACD_INDEX);
+		break;
 	case ABORT_RATE_CHANGE:
 		/* Revert manual change */
-		if (cnd->new_rate < DIV_2_THRESHOLD &&
-		    cnd->old_rate > DIV_2_THRESHOLD)
+		if (cpu_clk_8996_leave_acd(cnd))
 			clk_cpu_8996_pmux_set_parent(&cpuclk->clkr.hw, ACD_INDEX);
 		break;
 	default:
