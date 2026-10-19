@@ -5,6 +5,10 @@
  *
  * https://www.infineon.com/dgdl/?fileId=5546d462576f34750157750826c42242
  *
+ * The Zilltek ZTS8032 is register compatible, with two more pressure
+ * calibration coefficients (c31, c40) and temperature calibrated against
+ * the internal sensor.
+ *
  * Temperature calculation:
  *   c0 * 0.5 + c1 * T_raw / kT °C
  */
@@ -67,8 +71,9 @@
 #define  DPS310_RESET_MAGIC	0x09
 #define DPS310_COEF_BASE	0x10
 #define DPS310_COEF_LEN		18
+#define ZTS8032_COEF_LEN	22
 
-#define MAX_COEF_LEN		18
+#define MAX_COEF_LEN		22
 
 /* Section 4.8: 32 shared entries. Stops when full, so late drains lose data */
 #define DPS310_FIFO_DEPTH	32
@@ -109,12 +114,20 @@ struct dps310_chip_info {
 	const char *name;
 	bool coef_for_ext_sensor;
 	u8 coef_len;
+	bool has_c31_c40;
 };
 
 static const struct dps310_chip_info dps310_chip_info = {
 	.name = "dps310",
 	.coef_for_ext_sensor = true,
 	.coef_len = DPS310_COEF_LEN,
+};
+
+static const struct dps310_chip_info zts8032_chip_info = {
+	.name = "zts8032",
+	.coef_for_ext_sensor = false,
+	.coef_len = ZTS8032_COEF_LEN,
+	.has_c31_c40 = true,
 };
 
 struct dps310_data {
@@ -125,6 +138,7 @@ struct dps310_data {
 
 	s32 c0, c1;
 	s32 c00, c10, c20, c30, c01, c11, c21;
+	s32 c31, c40;
 	s32 pressure_raw;
 	s32 temp_raw;
 	bool timeout_recovery_failed;
@@ -243,6 +257,11 @@ static int dps310_get_coefs(struct dps310_data *data)
 
 	c30 = (coef[16] << 8) | coef[17];
 	data->c30 = sign_extend32(c30, 15);
+
+	if (data->info->has_c31_c40) {
+		data->c31 = sign_extend32(get_unaligned_be16(&coef[18]), 15);
+		data->c40 = sign_extend32(get_unaligned_be16(&coef[20]), 15);
+	}
 
 	return 0;
 }
@@ -745,10 +764,15 @@ static int dps310_calculate_pressure(struct dps310_data *data, int *val)
 	if (rc)
 		return rc;
 
-	/* Section 4.9.1 of the DPS310 spec, Horner form to avoid overflow */
-	if (!dps310_horner_step(&prs, data->c30, p, kp) ||
+	/*
+	 * Section 4.9.1 of the DPS310 spec, Horner form to avoid overflow.
+	 * c40 and c31 are ZTS8032 only and zero on the DPS310.
+	 */
+	if (!dps310_horner_step(&prs, data->c40, p, kp) ||
+	    !dps310_horner_step(&prs, data->c30, p, kp) ||
 	    !dps310_horner_step(&prs, data->c20, p, kp) ||
 	    !dps310_horner_step(&prs, data->c10, p, kp) ||
+	    !dps310_horner_step(&tmp, data->c31, p, kp) ||
 	    !dps310_horner_step(&tmp, data->c21, p, kp) ||
 	    !dps310_horner_step(&tmp, data->c11, p, kp) ||
 	    !dps310_horner_step(&tmp, data->c01, t, kt))
@@ -1418,12 +1442,14 @@ static int dps310_probe(struct i2c_client *client)
 
 static const struct i2c_device_id dps310_id[] = {
 	{ .name = "dps310", .driver_data = (kernel_ulong_t)&dps310_chip_info },
+	{ .name = "zts8032", .driver_data = (kernel_ulong_t)&zts8032_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, dps310_id);
 
 static const struct of_device_id dps310_of_match[] = {
 	{ .compatible = "infineon,dps310", .data = &dps310_chip_info },
+	{ .compatible = "zilltek,zts8032", .data = &zts8032_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, dps310_of_match);
