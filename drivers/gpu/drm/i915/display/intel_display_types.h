@@ -1253,13 +1253,13 @@ struct intel_crtc_state {
 		u32 lvds_border_bits;
 	} gmch_pfit;
 
-	/* Panel fitter placement and size for Ironlake+ */
+	/* Panel fitter placement and size */
 	struct {
 		struct intel_casf casf;
 		struct drm_rect dst;
 		bool enabled;
 		bool force_thru;
-	} pch_pfit;
+	} pfit;
 
 	/* FDI configuration, only valid if has_pch_encoder is set. */
 	int fdi_lanes;

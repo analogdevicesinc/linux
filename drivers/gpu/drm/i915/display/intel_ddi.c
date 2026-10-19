@@ -562,7 +562,7 @@ intel_ddi_transcoder_func_reg_val_get(struct intel_encoder *encoder,
 			 * eDP when not using the panel fitter, and when not
 			 * using motion blur mitigation (which we don't
 			 * support). */
-			if (crtc_state->pch_pfit.force_thru)
+			if (crtc_state->pfit.force_thru)
 				temp |= TRANS_DDI_EDP_INPUT_A_ONOFF;
 			else
 				temp |= TRANS_DDI_EDP_INPUT_A_ON;
@@ -4560,8 +4560,8 @@ static int intel_ddi_compute_config(struct intel_atomic_state *state,
 
 	if (display->platform.haswell && crtc->pipe == PIPE_A &&
 	    pipe_config->cpu_transcoder == TRANSCODER_EDP)
-		pipe_config->pch_pfit.force_thru =
-			pipe_config->pch_pfit.enabled ||
+		pipe_config->pfit.force_thru =
+			pipe_config->pfit.enabled ||
 			pipe_config->crc_enabled;
 
 	if (display->platform.geminilake || display->platform.broxton)

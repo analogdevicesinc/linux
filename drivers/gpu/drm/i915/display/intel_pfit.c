@@ -22,7 +22,7 @@ static int intel_pch_pfit_check_dst_window(const struct intel_crtc_state *crtc_s
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
 	const struct drm_display_mode *adjusted_mode =
 		&crtc_state->hw.adjusted_mode;
-	const struct drm_rect *dst = &crtc_state->pch_pfit.dst;
+	const struct drm_rect *dst = &crtc_state->pfit.dst;
 	int width = drm_rect_width(dst);
 	int height = drm_rect_height(dst);
 	int x = dst->x1;
@@ -109,7 +109,7 @@ static int intel_pch_pfit_check_scaling(const struct intel_crtc_state *crtc_stat
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
-	const struct drm_rect *dst = &crtc_state->pch_pfit.dst;
+	const struct drm_rect *dst = &crtc_state->pfit.dst;
 	int pipe_src_w = drm_rect_width(&crtc_state->pipe_src);
 	int pipe_src_h = drm_rect_height(&crtc_state->pipe_src);
 	int hscale, vscale, max_scale = 0x12000; /* 1.125 */
@@ -271,9 +271,9 @@ static int pch_panel_fitting(struct intel_crtc_state *crtc_state,
 		return -EINVAL;
 	}
 
-	drm_rect_init(&crtc_state->pch_pfit.dst,
+	drm_rect_init(&crtc_state->pfit.dst,
 		      x, y, width, height);
-	crtc_state->pch_pfit.enabled = true;
+	crtc_state->pfit.enabled = true;
 
 	/*
 	 * SKL+ have unified scalers for pipes/planes so the
@@ -594,14 +594,14 @@ void ilk_pfit_enable(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
-	const struct drm_rect *dst = &crtc_state->pch_pfit.dst;
+	const struct drm_rect *dst = &crtc_state->pfit.dst;
 	enum pipe pipe = crtc->pipe;
 	int width = drm_rect_width(dst);
 	int height = drm_rect_height(dst);
 	int x = dst->x1;
 	int y = dst->y1;
 
-	if (!crtc_state->pch_pfit.enabled)
+	if (!crtc_state->pfit.enabled)
 		return;
 
 	/*
@@ -630,7 +630,7 @@ void ilk_pfit_disable(const struct intel_crtc_state *old_crtc_state)
 	 * To avoid upsetting the power well on haswell only disable the pfit if
 	 * it's in use. The hw state code will make sure we get this right.
 	 */
-	if (!old_crtc_state->pch_pfit.enabled)
+	if (!old_crtc_state->pfit.enabled)
 		return;
 
 	intel_de_write_fw(display, PF_CTL(pipe), 0);
@@ -654,12 +654,12 @@ void ilk_pfit_get_config(struct intel_crtc_state *crtc_state)
 	else
 		pipe = crtc->pipe;
 
-	crtc_state->pch_pfit.enabled = true;
+	crtc_state->pfit.enabled = true;
 
 	pos = intel_de_read(display, PF_WIN_POS(crtc->pipe));
 	size = intel_de_read(display, PF_WIN_SZ(crtc->pipe));
 
-	drm_rect_init(&crtc_state->pch_pfit.dst,
+	drm_rect_init(&crtc_state->pfit.dst,
 		      REG_FIELD_GET(PF_WIN_XPOS_MASK, pos),
 		      REG_FIELD_GET(PF_WIN_YPOS_MASK, pos),
 		      REG_FIELD_GET(PF_WIN_XSIZE_MASK, size),
