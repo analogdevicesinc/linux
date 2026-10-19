@@ -56,6 +56,7 @@
 #include <linux/clk-provider.h>
 #include <linux/io.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <soc/qcom/kryo-l2-accessors.h>
@@ -80,6 +81,7 @@ enum _pmux_input {
 #define MUX_OFFSET	0x40
 #define CLK_CTL_OFFSET 0x44
 #define CLK_CTL_AUTO_CLK_SEL BIT(8)
+#define MDD_DROOP_CODE_OFFSET	0x7c
 #define ALT_PLL_OFFSET	0x100
 #define SSSCTL_OFFSET 0x160
 #define PSCTL_OFFSET 0x164
@@ -470,6 +472,15 @@ static int qcom_cpu_clk_msm8996_register_clks(struct device *dev,
 
 	/* Ensure write goes through before muxes are switched */
 	udelay(5);
+
+	if (of_device_is_compatible(dev->of_node, "qcom,msm8996pro-apcc")) {
+		/*
+		 * Switch to the always-on source on D2-D5 entry and gate the
+		 * limits management clock in sleep.
+		 */
+		regmap_write(regmap, PWRCL_REG_OFFSET + MDD_DROOP_CODE_OFFSET, 0x3);
+		regmap_write(regmap, PERFCL_REG_OFFSET + MDD_DROOP_CODE_OFFSET, 0x3);
+	}
 
 	qcom_cpu_clk_msm8996_acd_init(regmap);
 
