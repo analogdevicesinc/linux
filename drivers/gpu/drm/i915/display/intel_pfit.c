@@ -16,7 +16,7 @@
 #include "intel_pfit_regs.h"
 #include "skl_scaler.h"
 
-static int intel_pch_pfit_check_dst_window(const struct intel_crtc_state *crtc_state)
+static int ilk_pfit_check_dst_window(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -67,7 +67,7 @@ static int intel_pch_pfit_check_dst_window(const struct intel_crtc_state *crtc_s
 	return 0;
 }
 
-static int intel_pch_pfit_check_src_size(const struct intel_crtc_state *crtc_state)
+static int ilk_pfit_check_src_size(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -105,7 +105,7 @@ static int intel_pch_pfit_check_src_size(const struct intel_crtc_state *crtc_sta
 	return 0;
 }
 
-static int intel_pch_pfit_check_scaling(const struct intel_crtc_state *crtc_state)
+static int ilk_pfit_check_scaling(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -140,7 +140,7 @@ static int intel_pch_pfit_check_scaling(const struct intel_crtc_state *crtc_stat
 	return 0;
 }
 
-static int intel_pch_pfit_check_timings(const struct intel_crtc_state *crtc_state)
+static int ilk_pfit_check_timings(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -158,7 +158,7 @@ static int intel_pch_pfit_check_timings(const struct intel_crtc_state *crtc_stat
 	return 0;
 }
 
-static int intel_pch_pfit_check_cloning(const struct intel_crtc_state *crtc_state)
+static int ilk_pfit_check_cloning(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -182,7 +182,7 @@ static int intel_pch_pfit_check_cloning(const struct intel_crtc_state *crtc_stat
 }
 
 /* adjusted_mode has been preset to be the panel's fixed mode */
-static int pch_panel_fitting(struct intel_crtc_state *crtc_state,
+static int ilk_panel_fitting(struct intel_crtc_state *crtc_state,
 			     const struct drm_connector_state *conn_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
@@ -282,23 +282,23 @@ static int pch_panel_fitting(struct intel_crtc_state *crtc_state,
 	if (DISPLAY_VER(display) >= 9)
 		return 0;
 
-	ret = intel_pch_pfit_check_dst_window(crtc_state);
+	ret = ilk_pfit_check_dst_window(crtc_state);
 	if (ret)
 		return ret;
 
-	ret = intel_pch_pfit_check_src_size(crtc_state);
+	ret = ilk_pfit_check_src_size(crtc_state);
 	if (ret)
 		return ret;
 
-	ret = intel_pch_pfit_check_scaling(crtc_state);
+	ret = ilk_pfit_check_scaling(crtc_state);
 	if (ret)
 		return ret;
 
-	ret = intel_pch_pfit_check_timings(crtc_state);
+	ret = ilk_pfit_check_timings(crtc_state);
 	if (ret)
 		return ret;
 
-	ret = intel_pch_pfit_check_cloning(crtc_state);
+	ret = ilk_pfit_check_cloning(crtc_state);
 	if (ret)
 		return ret;
 
@@ -587,7 +587,7 @@ int intel_pfit_compute_config(struct intel_crtc_state *crtc_state,
 	if (HAS_GMCH(display))
 		return gmch_panel_fitting(crtc_state, conn_state);
 	else
-		return pch_panel_fitting(crtc_state, conn_state);
+		return ilk_panel_fitting(crtc_state, conn_state);
 }
 
 void ilk_pfit_enable(const struct intel_crtc_state *crtc_state)
