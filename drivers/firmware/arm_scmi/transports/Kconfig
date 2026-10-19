@@ -5,7 +5,7 @@ config ARM_SCMI_HAVE_TRANSPORT
 	bool
 	help
 	  This declares whether at least one SCMI transport has been configured.
-	  Used to trigger a build bug when trying to build SCMI without any
+	  Used to trigger a runtime warning when enabling SCMI without any
 	  configured transport.
 
 config ARM_SCMI_HAVE_SHMEM
@@ -76,6 +76,18 @@ config ARM_SCMI_TRANSPORT_OPTEE
 	  transport based on OP-TEE SCMI service, answer Y.
 	  This driver can also be built as a module. If so, the module
 	  will be called scmi_transport_optee.
+
+config ARM_SCMI_TRANSPORT_PCC
+	tristate "SCMI transport based on ACPI PCC"
+	depends on PCC
+	select ARM_SCMI_HAVE_TRANSPORT
+	help
+	  This enables the ACPI PCC mailbox based transport for SCMI.
+
+	  If you want the ARM SCMI PROTOCOL stack to include support for a
+	  transport based on ACPI PCC mailboxes, answer Y.
+	  This driver can also be built as a module. If so, the module
+	  will be called scmi_transport_pcc.
 
 config ARM_SCMI_TRANSPORT_VIRTIO
 	tristate "SCMI transport based on VirtIO"
