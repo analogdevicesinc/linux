@@ -73,6 +73,14 @@
 #define ADMV1355_LO_X3_FILTER_MSK	GENMASK(4, 0)
 #define ADMV1355_LO_X1_FILTER_MSK	GENMASK(4, 0)
 
+#define ADMV1355_LPF_SELECT_MSK		BIT(4)
+#define ADMV1355_LPF_BYPASS_VAL_MSK	GENMASK(3, 0)
+#define ADMV1355_HPF_SELECT_MSK		BIT(7)
+#define ADMV1355_HPF_BYPASS_VAL_MSK	GENMASK(5, 0)
+
+#define ADMV1355_DIRECT_LPF_MSK		GENMASK(3, 0)
+#define ADMV1355_DIRECT_HPF_MSK		GENMASK(7, 4)
+
 #define ADMV1355_SCRATCH_TEST_VAL	0xA5
 
 static const char * const admv1355_rf_band_items[] = {
@@ -90,6 +98,40 @@ static const char * const admv1355_if_mode_items[] = {
 	"complex_if_low",
 	"complex_if_high",
 	"if_hybrid",
+};
+
+static const char * const admv1355_lo_x4_filter_items[] = {
+	"10GHz_14GHz",
+	"14GHz_18GHz",
+	"ge_18GHz",
+	"lt_10GHz",
+};
+static const u8 admv1355_lo_x4_filter_reg_values[] = {
+	0x00, 0x05, 0x07, 0x08,
+};
+
+static const char * const admv1355_lo_x3_filter_items[] = {
+	"ge_24GHz",
+	"21GHz_24GHz",
+	"19GHz_21GHz",
+	"17GHz_19GHz",
+	"15GHz_17GHz",
+	"12GHz_15GHz",
+	"lt_12GHz",
+};
+static const u8 admv1355_lo_x3_filter_reg_values[] = {
+	0x00, 0x02, 0x03, 0x04, 0x05, 0x07, 0x1C,
+};
+
+static const char * const admv1355_lo_x1_filter_items[] = {
+	"ge_21GHz",
+	"17GHz_21GHz",
+	"15GHz_17GHz",
+	"12GHz_15GHz",
+	"lt_12GHz",
+};
+static const u8 admv1355_lo_x1_filter_reg_values[] = {
+	0x00, 0x01, 0x05, 0x0A, 0x1F,
 };
 
 enum admv1355_chan_addr {
@@ -350,9 +392,304 @@ static const struct iio_enum admv1355_if_mode_enum = {
 	.set = admv1355_set_if_mode,
 };
 
+#define ADMV1355_FILTER_ENUM(_name, _reg, _mask, _items, _reg_values)	\
+static int admv1355_get_##_name(struct iio_dev *indio_dev,		\
+				const struct iio_chan_spec *chan)		\
+{									\
+	struct admv1355_priv *priv = iio_priv(indio_dev);		\
+	unsigned int data, reg_val;					\
+	int ret, i;							\
+									\
+	guard(mutex)(&priv->lock);					\
+	ret = regmap_read(priv->regmap, _reg, &data);			\
+	if (ret)							\
+		return ret;						\
+	reg_val = FIELD_GET(_mask, data);				\
+	for (i = 0; i < ARRAY_SIZE(_reg_values); i++) {			\
+		if (_reg_values[i] == reg_val)				\
+			return i;					\
+	}								\
+	return -EINVAL;							\
+}									\
+									\
+static int admv1355_set_##_name(struct iio_dev *indio_dev,		\
+				const struct iio_chan_spec *chan,		\
+				unsigned int val)			\
+{									\
+	struct admv1355_priv *priv = iio_priv(indio_dev);		\
+									\
+	if (val >= ARRAY_SIZE(_reg_values))				\
+		return -EINVAL;						\
+	guard(mutex)(&priv->lock);					\
+	return regmap_update_bits(priv->regmap, _reg, _mask,		\
+				  FIELD_PREP(_mask, _reg_values[val]));	\
+}									\
+									\
+static const struct iio_enum admv1355_##_name##_enum = {		\
+	.items = _items,						\
+	.num_items = ARRAY_SIZE(_items),				\
+	.get = admv1355_get_##_name,					\
+	.set = admv1355_set_##_name,					\
+}
+
+ADMV1355_FILTER_ENUM(lo_x4_filter, ADMV1355_REG_LO_X4_FILTER,
+		     ADMV1355_LO_X4_FILTER_MSK,
+		     admv1355_lo_x4_filter_items,
+		     admv1355_lo_x4_filter_reg_values);
+ADMV1355_FILTER_ENUM(lo_x3_filter, ADMV1355_REG_LO_X3_FILTER,
+		     ADMV1355_LO_X3_FILTER_MSK,
+		     admv1355_lo_x3_filter_items,
+		     admv1355_lo_x3_filter_reg_values);
+ADMV1355_FILTER_ENUM(lo_x1_filter, ADMV1355_REG_LO_X1_FILTER,
+		     ADMV1355_LO_X1_FILTER_MSK,
+		     admv1355_lo_x1_filter_items,
+		     admv1355_lo_x1_filter_reg_values);
+
+enum admv1355_rf_filter_attr {
+	ADMV1355_RF_DIRECT_LPF_VAL,
+	ADMV1355_RF_DIRECT_HPF_VAL,
+	ADMV1355_RF_LPF_BYPASS_EN,
+	ADMV1355_RF_LPF_BYPASS_VAL,
+	ADMV1355_RF_HPF_BYPASS_EN,
+	ADMV1355_RF_HPF_BYPASS_VAL,
+};
+
+enum admv1355_lo_filter_attr {
+	ADMV1355_LO_TRAP,
+	ADMV1355_LO_DBL_BAND,
+};
+
+static ssize_t admv1355_rf_filter_read(struct iio_dev *indio_dev,
+				       uintptr_t private,
+				       const struct iio_chan_spec *chan,
+				       char *buf)
+{
+	struct admv1355_priv *priv = iio_priv(indio_dev);
+	unsigned int val, data;
+	int ret;
+
+	guard(mutex)(&priv->lock);
+
+	switch (private) {
+	case ADMV1355_RF_DIRECT_LPF_VAL:
+		ret = regmap_read(priv->regmap, ADMV1355_REG_RF_FILTER, &data);
+		if (ret)
+			return ret;
+		val = FIELD_GET(ADMV1355_DIRECT_LPF_MSK, data);
+		break;
+	case ADMV1355_RF_DIRECT_HPF_VAL:
+		ret = regmap_read(priv->regmap, ADMV1355_REG_RF_FILTER, &data);
+		if (ret)
+			return ret;
+		val = FIELD_GET(ADMV1355_DIRECT_HPF_MSK, data);
+		break;
+	case ADMV1355_RF_LPF_BYPASS_EN:
+		ret = regmap_read(priv->regmap, ADMV1355_REG_RF_LPF, &data);
+		if (ret)
+			return ret;
+		return sysfs_emit(buf, "%s\n",
+				  FIELD_GET(ADMV1355_LPF_SELECT_MSK, data) ?
+				  "true" : "false");
+	case ADMV1355_RF_LPF_BYPASS_VAL:
+		ret = regmap_read(priv->regmap, ADMV1355_REG_RF_LPF, &data);
+		if (ret)
+			return ret;
+		val = FIELD_GET(ADMV1355_LPF_BYPASS_VAL_MSK, data);
+		break;
+	case ADMV1355_RF_HPF_BYPASS_EN:
+		ret = regmap_read(priv->regmap, ADMV1355_REG_RF_HPF, &data);
+		if (ret)
+			return ret;
+		return sysfs_emit(buf, "%s\n",
+				  FIELD_GET(ADMV1355_HPF_SELECT_MSK, data) ?
+				  "true" : "false");
+	case ADMV1355_RF_HPF_BYPASS_VAL:
+		ret = regmap_read(priv->regmap, ADMV1355_REG_RF_HPF, &data);
+		if (ret)
+			return ret;
+		val = FIELD_GET(ADMV1355_HPF_BYPASS_VAL_MSK, data);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return sysfs_emit(buf, "%u\n", val);
+}
+
+static ssize_t admv1355_rf_filter_write(struct iio_dev *indio_dev,
+					uintptr_t private,
+					const struct iio_chan_spec *chan,
+					const char *buf, size_t len)
+{
+	struct admv1355_priv *priv = iio_priv(indio_dev);
+	unsigned int val;
+	bool bval;
+	int ret;
+
+	guard(mutex)(&priv->lock);
+
+	switch (private) {
+	case ADMV1355_RF_DIRECT_LPF_VAL:
+		ret = kstrtouint(buf, 0, &val);
+		if (ret)
+			return ret;
+		if (val > 15)
+			return -EINVAL;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_RF_FILTER,
+					 ADMV1355_DIRECT_LPF_MSK,
+					 FIELD_PREP(ADMV1355_DIRECT_LPF_MSK, val));
+		break;
+	case ADMV1355_RF_DIRECT_HPF_VAL:
+		ret = kstrtouint(buf, 0, &val);
+		if (ret)
+			return ret;
+		if (val > 15)
+			return -EINVAL;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_RF_FILTER,
+					 ADMV1355_DIRECT_HPF_MSK,
+					 FIELD_PREP(ADMV1355_DIRECT_HPF_MSK, val));
+		break;
+	case ADMV1355_RF_LPF_BYPASS_EN:
+		ret = kstrtobool(buf, &bval);
+		if (ret)
+			return ret;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_RF_LPF,
+					 ADMV1355_LPF_SELECT_MSK,
+					 bval ? ADMV1355_LPF_SELECT_MSK : 0);
+		break;
+	case ADMV1355_RF_LPF_BYPASS_VAL:
+		ret = kstrtouint(buf, 0, &val);
+		if (ret)
+			return ret;
+		if (val > 15)
+			return -EINVAL;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_RF_LPF,
+					 ADMV1355_LPF_BYPASS_VAL_MSK,
+					 FIELD_PREP(ADMV1355_LPF_BYPASS_VAL_MSK, val));
+		break;
+	case ADMV1355_RF_HPF_BYPASS_EN:
+		ret = kstrtobool(buf, &bval);
+		if (ret)
+			return ret;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_RF_HPF,
+					 ADMV1355_HPF_SELECT_MSK,
+					 bval ? ADMV1355_HPF_SELECT_MSK : 0);
+		break;
+	case ADMV1355_RF_HPF_BYPASS_VAL:
+		ret = kstrtouint(buf, 0, &val);
+		if (ret)
+			return ret;
+		if (val > 63)
+			return -EINVAL;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_RF_HPF,
+					 ADMV1355_HPF_BYPASS_VAL_MSK,
+					 FIELD_PREP(ADMV1355_HPF_BYPASS_VAL_MSK, val));
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return ret ? ret : len;
+}
+
+static ssize_t admv1355_lo_filter_read(struct iio_dev *indio_dev,
+				       uintptr_t private,
+				       const struct iio_chan_spec *chan,
+				       char *buf)
+{
+	struct admv1355_priv *priv = iio_priv(indio_dev);
+	unsigned int val, lo, hi;
+	int ret;
+
+	guard(mutex)(&priv->lock);
+
+	switch (private) {
+	case ADMV1355_LO_TRAP:
+		ret = regmap_read(priv->regmap, ADMV1355_REG_LO_TRAP_7_0, &lo);
+		if (ret)
+			return ret;
+		ret = regmap_read(priv->regmap, ADMV1355_REG_LO_TRAP_9_8, &hi);
+		if (ret)
+			return ret;
+		val = lo | (FIELD_GET(ADMV1355_LO_TRAP_9_8_MSK, hi) << 8);
+		break;
+	case ADMV1355_LO_DBL_BAND:
+		ret = regmap_read(priv->regmap, ADMV1355_REG_LO_DBL_BAND, &val);
+		if (ret)
+			return ret;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return sysfs_emit(buf, "%u\n", val);
+}
+
+static ssize_t admv1355_lo_filter_write(struct iio_dev *indio_dev,
+					uintptr_t private,
+					const struct iio_chan_spec *chan,
+					const char *buf, size_t len)
+{
+	struct admv1355_priv *priv = iio_priv(indio_dev);
+	unsigned int val;
+	int ret;
+
+	ret = kstrtouint(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	guard(mutex)(&priv->lock);
+
+	switch (private) {
+	case ADMV1355_LO_TRAP:
+		if (val > 1023)
+			return -EINVAL;
+		ret = regmap_write(priv->regmap, ADMV1355_REG_LO_TRAP_7_0,
+				   val & 0xFF);
+		if (ret)
+			return ret;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_LO_TRAP_9_8,
+					 ADMV1355_LO_TRAP_9_8_MSK,
+					 FIELD_PREP(ADMV1355_LO_TRAP_9_8_MSK,
+						    (val >> 8) & 0x03));
+		break;
+	case ADMV1355_LO_DBL_BAND:
+		if (val > 255)
+			return -EINVAL;
+		ret = regmap_write(priv->regmap, ADMV1355_REG_LO_DBL_BAND, val);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return ret ? ret : len;
+}
+
+#define ADMV1355_RF_FILTER_EXT_INFO(_name, _ident) {	\
+	.name = _name,					\
+	.read = admv1355_rf_filter_read,		\
+	.write = admv1355_rf_filter_write,		\
+	.private = _ident,				\
+	.shared = IIO_SEPARATE,				\
+}
+
+#define ADMV1355_LO_FILTER_EXT_INFO(_name, _ident) {	\
+	.name = _name,					\
+	.read = admv1355_lo_filter_read,		\
+	.write = admv1355_lo_filter_write,		\
+	.private = _ident,				\
+	.shared = IIO_SEPARATE,				\
+}
+
 static const struct iio_chan_spec_ext_info admv1355_rf_ext_info[] = {
 	IIO_ENUM("band", IIO_SEPARATE, &admv1355_rf_band_enum),
 	IIO_ENUM_AVAILABLE("band", IIO_SEPARATE, &admv1355_rf_band_enum),
+	ADMV1355_RF_FILTER_EXT_INFO("direct_lpf_val", ADMV1355_RF_DIRECT_LPF_VAL),
+	ADMV1355_RF_FILTER_EXT_INFO("direct_hpf_val", ADMV1355_RF_DIRECT_HPF_VAL),
+	ADMV1355_RF_FILTER_EXT_INFO("bypass_lpf_en", ADMV1355_RF_LPF_BYPASS_EN),
+	ADMV1355_RF_FILTER_EXT_INFO("bypass_lpf_val", ADMV1355_RF_LPF_BYPASS_VAL),
+	ADMV1355_RF_FILTER_EXT_INFO("bypass_hpf_en", ADMV1355_RF_HPF_BYPASS_EN),
+	ADMV1355_RF_FILTER_EXT_INFO("bypass_hpf_val", ADMV1355_RF_HPF_BYPASS_VAL),
 	{ }
 };
 
@@ -366,6 +703,17 @@ static const struct iio_chan_spec_ext_info admv1355_lo_ext_info[] = {
 	IIO_ENUM("sideband", IIO_SEPARATE, &admv1355_mixer_sideband_enum),
 	IIO_ENUM_AVAILABLE("sideband", IIO_SEPARATE,
 			   &admv1355_mixer_sideband_enum),
+	IIO_ENUM("lo_x4_filter", IIO_SEPARATE, &admv1355_lo_x4_filter_enum),
+	IIO_ENUM_AVAILABLE("lo_x4_filter", IIO_SEPARATE,
+			   &admv1355_lo_x4_filter_enum),
+	IIO_ENUM("lo_x3_filter", IIO_SEPARATE, &admv1355_lo_x3_filter_enum),
+	IIO_ENUM_AVAILABLE("lo_x3_filter", IIO_SEPARATE,
+			   &admv1355_lo_x3_filter_enum),
+	IIO_ENUM("lo_x1_filter", IIO_SEPARATE, &admv1355_lo_x1_filter_enum),
+	IIO_ENUM_AVAILABLE("lo_x1_filter", IIO_SEPARATE,
+			   &admv1355_lo_x1_filter_enum),
+	ADMV1355_LO_FILTER_EXT_INFO("lo_trap", ADMV1355_LO_TRAP),
+	ADMV1355_LO_FILTER_EXT_INFO("lo_dbl_band", ADMV1355_LO_DBL_BAND),
 	{ }
 };
 

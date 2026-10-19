@@ -46,3 +46,100 @@ KernelVersion:
 Contact:	linux-iio@vger.kernel.org
 Description:
 		List of available mixer sideband selections.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltage0_direct_lpf_val
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read/write the direct-path RF low-pass filter tuning word (4-bit,
+		register 0x80B[3:0]). Sets the filter corner frequency for the
+		direct RF output path. No standard IIO filter attribute exists.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltage0_direct_hpf_val
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read/write the direct-path RF high-pass filter tuning word (4-bit,
+		register 0x80B[7:4]).
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltage0_bypass_lpf_en
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable/disable the bypass-path LPF (register 0x2A0[4]). When
+		enabled, the LPF bypass filter bank is active instead of the
+		direct-path LPF.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltage0_bypass_lpf_val
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read/write the bypass-path LPF tuning word (4-bit,
+		register 0x2A0[3:0]).
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltage0_bypass_hpf_en
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable/disable the bypass-path HPF (register 0x2A1[7]). When
+		enabled, the HPF bypass filter bank is active instead of the
+		direct-path HPF.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltage0_bypass_hpf_val
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read/write the bypass-path HPF tuning word (6-bit,
+		register 0x2A1[5:0]).
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_lo_x4_filter
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read/write the LO x4 harmonic-reject filter band selection.
+		Normally auto-configured from the LO clock rate. This manual
+		override is for custom frequency plans.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_lo_x4_filter_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		List of available LO x4 filter selections.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_lo_x3_filter
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read/write the LO x3 harmonic-reject filter band selection.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_lo_x3_filter_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		List of available LO x3 filter selections.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_lo_x1_filter
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read/write the LO x1 harmonic-reject filter band selection.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_lo_x1_filter_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		List of available LO x1 filter selections.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_lo_trap
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read/write the LO trap filter tuning word (10-bit, 0-1023).
+		Internal trap filter used to reject unwanted LO harmonics.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_lo_dbl_band
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read/write the LO doubler band tuning word (8-bit, 0-255).
+		Controls the internal LO frequency doubler band selection.
