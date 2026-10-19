@@ -8,14 +8,14 @@
 #include "sc598-som-ezkit.dtsi"
 
 &som_gpio_expander {
-	som-emmc {
+	som-emmc-hog {
 		gpio-hog;
 		gpios = <8 GPIO_ACTIVE_LOW>;
 		output-low;
 		line-name = "som-emmc-en";
 	};
 
-	crr-sdcard {
+	crr-sdcard-hog {
 		gpio-hog;
 		gpios = <9 GPIO_ACTIVE_LOW>;
 		output-high;

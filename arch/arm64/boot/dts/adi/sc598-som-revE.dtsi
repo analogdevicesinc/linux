@@ -14,49 +14,49 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 
-		uart0 {
+		uart0-hog {
 			gpio-hog;
 			gpios = <0 GPIO_ACTIVE_LOW>;
 			output-high;
 			line-name = "uart0-en";
 		};
 
-		uart0-flow {
+		uart0-flow-hog {
 			gpio-hog;
 			gpios = <1 GPIO_ACTIVE_LOW>;
 			output-low;
 			line-name = "uart0-flow-en";
 		};
 
-		som-flash-d2d3 {
+		som-flash-d2d3-hog {
 			gpio-hog;
 			gpios = <2 GPIO_ACTIVE_LOW>;
 			output-high;
 			line-name = "som-flash-d2d3-en";
 		};
 
-		som-flash-cs {
+		som-flash-cs-hog {
 			gpio-hog;
 			gpios = <3 GPIO_ACTIVE_LOW>;
 			output-high;
 			line-name = "som-flash-cs-en";
 		};
 
-		led-ds3 {
+		led-ds3-hog {
 			gpio-hog;
 			gpios = <15 GPIO_ACTIVE_LOW>;
 			output-high;
 			line-name = "led-ds3";
 		};
 
-		led-ds2 {
+		led-ds2-hog {
 			gpio-hog;
 			gpios = <16 GPIO_ACTIVE_LOW>;
 			output-high;
 			line-name = "led-ds2";
 		};
 
-		led-ds1 {
+		led-ds1-hog {
 			gpio-hog;
 			gpios = <17 GPIO_ACTIVE_LOW>;
 			output-high;
