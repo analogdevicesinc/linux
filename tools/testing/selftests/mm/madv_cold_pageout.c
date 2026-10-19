@@ -5,6 +5,7 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
+#include <grp.h>
 #include <sched.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -29,6 +30,8 @@ static size_t page_size;
 static size_t pmd_size;
 /* Whether MADV_PAGEOUT can swap out anonymous memory, see main(). */
 static bool can_swap;
+/* Whether MADV_PAGEOUT can unmap clean file pages in /tmp, see main(). */
+static bool can_unmap_file;
 
 /*
  * Keep this task on one CPU, so that draining that CPU's LRU batches drains
@@ -274,6 +277,15 @@ static char *map_temp_file(struct __test_metadata *_metadata, size_t size,
 	close(fd);
 
 	return mapping;
+}
+
+/* The uid and gid of nobody. */
+#define NOBODY 65534
+
+/* Become nobody, an unprivileged user without capabilities. */
+static bool drop_privileges(void)
+{
+	return !setgroups(0, NULL) && !setgid(NOBODY) && !setuid(NOBODY);
 }
 
 /*
@@ -689,6 +701,97 @@ TEST_F(madv_cold_pageout, cold_preserves_half_of_pte_mapped_thp)
 	ASSERT_EQ(munmap(mapping, pmd_size), 0);
 }
 
+/*
+ * The owner of a file may page out its clean page-cache pages. Run as an
+ * unprivileged owner, so that capabilities cannot stand in for ownership.
+ */
+TEST_F(madv_cold_pageout, pageout_unmaps_owned_file_page)
+{
+	char *mapping;
+	int fd;
+
+	if (!can_unmap_file)
+		SKIP(return, "MADV_PAGEOUT cannot unmap file pages");
+	fd = create_temp_file(page_size);
+	ASSERT_GE(fd, 0);
+	ASSERT_EQ(fchmod(fd, 0400), 0);
+	/* Hand the file over first, as nobody may not be able to write /tmp. */
+	if (!geteuid()) {
+		ASSERT_EQ(fchown(fd, NOBODY, NOBODY), 0);
+		if (!drop_privileges())
+			SKIP(return, "could not drop privileges");
+	}
+	mapping = mmap(NULL, page_size, PROT_READ | PROT_WRITE, MAP_PRIVATE,
+		       fd, 0);
+	ASSERT_NE(mapping, MAP_FAILED);
+	close(fd);
+
+	ASSERT_EQ(mapping[0], 0);
+	ASSERT_TRUE(pageout_until_unmapped(mapping, page_size,
+					   self->pagemap_fd));
+	ASSERT_EQ(mapping[0], 0);
+
+	ASSERT_EQ(munmap(mapping, page_size), 0);
+}
+
+/*
+ * A caller that neither owns nor may write a file must not page out its
+ * shared mappings. MADV_PAGEOUT succeeds but leaves the page mapped.
+ */
+TEST_F(madv_cold_pageout, pageout_skips_unauthorized_shared_file)
+{
+	char *mapping;
+
+	/* Otherwise the page would stay mapped regardless. */
+	if (!can_unmap_file)
+		SKIP(return, "MADV_PAGEOUT cannot unmap file pages");
+	if (geteuid())
+		SKIP(return, "requires root to change credentials");
+	mapping = map_temp_file(_metadata, page_size, MAP_SHARED, 0400);
+	if (!drop_privileges())
+		SKIP(return, "could not drop privileges");
+
+	ASSERT_EQ(mapping[0], 0);
+	ASSERT_TRUE(pagemap_is_populated(self->pagemap_fd, mapping));
+	ASSERT_EQ(madvise(mapping, page_size, MADV_PAGEOUT), 0);
+	ASSERT_TRUE(pagemap_is_populated(self->pagemap_fd, mapping));
+	ASSERT_EQ(mapping[0], 0);
+
+	ASSERT_EQ(munmap(mapping, page_size), 0);
+}
+
+/*
+ * A caller that neither owns nor may write a file may page out the anonymous
+ * COW pages of a private mapping of it, but must leave the file pages
+ * mapped.
+ */
+TEST_F(madv_cold_pageout, pageout_private_file_reclaims_only_cow)
+{
+	char *mapping;
+
+	if (!can_swap || !can_unmap_file)
+		SKIP(return, "MADV_PAGEOUT cannot swap or unmap file pages");
+	if (geteuid())
+		SKIP(return, "requires root to change credentials");
+	mapping = map_temp_file(_metadata, 2 * page_size, MAP_PRIVATE,
+				0400);
+	if (!drop_privileges())
+		SKIP(return, "could not drop privileges");
+
+	ASSERT_EQ(mapping[0], 0);
+	ASSERT_EQ(mapping[page_size], 0);
+	mapping[0] = 1;
+
+	ASSERT_TRUE(pageout_until_swapped(mapping, 2 * page_size,
+					  self->pagemap_fd));
+	ASSERT_TRUE(pagemap_is_populated(self->pagemap_fd,
+					 mapping + page_size));
+	ASSERT_EQ(mapping[0], 1);
+	ASSERT_EQ(mapping[page_size], 0);
+
+	ASSERT_EQ(munmap(mapping, 2 * page_size), 0);
+}
+
 /* Swap out an anonymous page, to see whether swap works at all. */
 static bool probe_swap(int pagemap_fd)
 {
@@ -704,6 +807,27 @@ static bool probe_swap(int pagemap_fd)
 	munmap(page, page_size);
 
 	return swapped;
+}
+
+/* Unmap a clean page of a file in /tmp, where the tests make their files. */
+static bool probe_file_unmap(int pagemap_fd)
+{
+	bool unmapped;
+	char *page;
+	int fd;
+
+	fd = create_temp_file(page_size);
+	if (fd < 0)
+		ksft_exit_fail_perror("create_temp_file");
+	page = mmap(NULL, page_size, PROT_READ, MAP_PRIVATE, fd, 0);
+	if (page == MAP_FAILED)
+		ksft_exit_fail_perror("mmap");
+	close(fd);
+	FORCE_READ(page[0]);
+	unmapped = pageout_until_unmapped(page, page_size, pagemap_fd);
+	munmap(page, page_size);
+
+	return unmapped;
 }
 
 int main(int argc, char **argv)
@@ -724,6 +848,9 @@ int main(int argc, char **argv)
 	can_swap = probe_swap(pagemap_fd);
 	if (!can_swap)
 		ksft_print_msg("MADV_PAGEOUT cannot swap\n");
+	can_unmap_file = probe_file_unmap(pagemap_fd);
+	if (!can_unmap_file)
+		ksft_print_msg("MADV_PAGEOUT cannot unmap file pages\n");
 	close(pagemap_fd);
 
 	return test_harness_run(argc, argv);
