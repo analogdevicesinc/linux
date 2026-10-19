@@ -754,20 +754,22 @@ static int adsp_pinctrl_init_groups(struct adsp_pinctrl *adsp_pinctrl,
 	struct device *dev = adsp_pinctrl->dev;
 	struct pinctrl_pin_desc *all_pins;
 	size_t port, pin;
-	unsigned int i, pin_total;
+	unsigned int i;
+	u32 pin_total;
 	int num_ports;
 	int ret;
 
-	num_ports = of_property_count_u32_elems(dev->of_node, "adi,port-sizes");
-
-	if (num_ports < 0)
-		return num_ports;
-
-	if (num_ports == 0) {
-		dev_err(dev, "pinctrl missing `adi,port-sizes` port size definition\n");
-		return -ENOENT;
+	ret = of_property_read_u32(dev->of_node, "adi,npins", &pin_total);
+	if (ret) {
+		dev_err(dev, "pinctrl missing `adi,npins` definition\n");
+		return ret;
+	}
+	if (pin_total == 0) {
+		dev_err(dev, "pinctrl `adi,npins` should be larger than 0\n");
+		return -EINVAL;
 	}
 
+	num_ports = DIV_ROUND_UP(pin_total, ADSP_PORT_NGPIO);
 	adsp_pinctrl->num_ports = num_ports;
 
 	adsp_pinctrl->pin_counts = devm_kcalloc(dev, sizeof(*adsp_pinctrl->pin_counts),
@@ -775,15 +777,9 @@ static int adsp_pinctrl_init_groups(struct adsp_pinctrl *adsp_pinctrl,
 	if (!adsp_pinctrl->pin_counts)
 		return -ENOMEM;
 
-	ret = of_property_read_u32_array(dev->of_node, "adi,port-sizes",
-		adsp_pinctrl->pin_counts, num_ports);
-	if (ret)
-		return ret;
-
-	pin_total = 0;
-
-	for (i = 0; i < num_ports; ++i)
-		pin_total += adsp_pinctrl->pin_counts[i];
+	for (i = 0; i < num_ports - 1; ++i)
+		adsp_pinctrl->pin_counts[i] = ADSP_PORT_NGPIO;
+	adsp_pinctrl->pin_counts[num_ports - 1] = pin_total - (num_ports - 1) * ADSP_PORT_NGPIO;
 
 	adsp_pinctrl->total_pins = pin_total;
 
