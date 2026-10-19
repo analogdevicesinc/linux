@@ -666,8 +666,8 @@ int rpc_mkpipe_dentry(struct dentry *parent, const char *name,
 	rpci->private = private;
 	rpci->pipe = pipe;
 	rpc_inode_setowner(inode, private);
-	pipe->dentry = dentry; // borrowed
 	d_make_persistent(dentry, inode);
+	pipe->dentry = dentry; // borrowed
 	fsnotify_create(dir, dentry);
 	simple_done_creating(dentry);
 	return 0;
