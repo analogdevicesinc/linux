@@ -70,6 +70,7 @@
 
 #define MT6589_TOPRGU_SW_RST_NUM	12
 #define MT7988_TOPRGU_SW_RST_NUM	24
+#define MT8163_TOPRGU_SW_RST_NUM	15
 
 static bool nowayout = WATCHDOG_NOWAYOUT;
 static unsigned int timeout;
@@ -115,6 +116,10 @@ static const struct mtk_wdt_data mt7986_data = {
 static const struct mtk_wdt_data mt7988_data = {
 	.toprgu_sw_rst_num = MT7988_TOPRGU_SW_RST_NUM,
 	.has_swsysrst_en = true,
+};
+
+static const struct mtk_wdt_data mt8163_data = {
+	.toprgu_sw_rst_num = MT8163_TOPRGU_SW_RST_NUM,
 };
 
 static const struct mtk_wdt_data mt8183_data = {
@@ -599,6 +604,7 @@ static const struct of_device_id mtk_wdt_dt_ids[] = {
 	{ .compatible = "mediatek,mt6795-wdt", .data = &mt6795_data },
 	{ .compatible = "mediatek,mt7986-wdt", .data = &mt7986_data },
 	{ .compatible = "mediatek,mt7988-wdt", .data = &mt7988_data },
+	{ .compatible = "mediatek,mt8163-wdt", .data = &mt8163_data },
 	{ .compatible = "mediatek,mt8167-wdt", .data = &mt8167_data },
 	{ .compatible = "mediatek,mt8183-wdt", .data = &mt8183_data },
 	{ .compatible = "mediatek,mt8186-wdt", .data = &mt8186_data },
