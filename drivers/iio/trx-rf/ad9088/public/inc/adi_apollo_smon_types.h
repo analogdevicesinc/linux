@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_SMON
  * @{
  */
-#ifndef __ADI_APOLLO_SMON_TYPES_H__
-#define __ADI_APOLLO_SMON_TYPES_H__
+#ifndef ADI_APOLLO_SMON_TYPES_H__
+#define ADI_APOLLO_SMON_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -20,10 +20,10 @@
 #include "adi_apollo_fddc_types.h"
 
 /*============= D E F I N E S ==============*/
-#define ADI_APOLLO_SMON_NUM 8
-#define ADI_APOLLO_SMON_PER_SIDE_NUM 4
-#define ADI_APOLLO_SMON_STATUS_SIZE 3
-#define ADI_APOLLO_SMON_MAX_THRESH_VAL (2047)
+#define ADI_APOLLO_SMON_NUM 8U
+#define ADI_APOLLO_SMON_PER_SIDE_NUM 4U
+#define ADI_APOLLO_SMON_STATUS_SIZE 3U
+#define ADI_APOLLO_SMON_MAX_THRESH_VAL (2047U)
 
 /*!
 * \brief Enumerates SMON selection
@@ -125,5 +125,5 @@ typedef struct
 
 } adi_apollo_smon_inspect_t;
 
-#endif /* __ADI_APOLLO_SMON_TYPES_H__ */
+#endif /* ADI_APOLLO_SMON_TYPES_H__ */
 /*! @} */

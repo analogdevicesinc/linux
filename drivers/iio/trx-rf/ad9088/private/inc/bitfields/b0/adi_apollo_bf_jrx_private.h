@@ -12,23 +12,23 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_JRX_PRIVATE_H__
-#define __ADI_APOLLO_BF_JRX_PRIVATE_H__
+#ifndef ADI_APOLLO_BF_JRX_PRIVATE_H__
+#define ADI_APOLLO_BF_JRX_PRIVATE_H__
 
 /*============= D E F I N E S ==============*/
-#define JRX_PRIVATE_JRX_TX_DIGITAL0       0x6161C000
-#define JRX_PRIVATE_JRX_TX_DIGITAL1       0x61E1C000
+#define JRX_PRIVATE_JRX_TX_DIGITAL0       0x6161C000U
+#define JRX_PRIVATE_JRX_TX_DIGITAL1       0x61E1C000U
 
 #ifdef USE_PRIVATE_BF
-#define REG_JRX_CORE_0_CONTROL_ADDR(inst) ((inst) + 0x00000000)
-#define BF_JRX_CONV_SEL_SPI_EN_INFO(inst) ((inst) + 0x00000000), 0x00000100
+#define REG_JRX_CORE_0_CONTROL_ADDR(inst) ((uint32_t)(inst) + 0x00000000U)
+#define BF_JRX_CONV_SEL_SPI_EN_INFO(inst) ((uint32_t)(inst) + 0x00000000U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TXFE_LOOPBACK_MODE_ADDR(inst) ((inst) + 0x00000001)
-#define BF_TXFE_LOOPBACK_MODES_INFO(inst) ((inst) + 0x00000001), 0x00000300
-#define BF_LP_SYNC_CONNECT_EN_INFO(inst)  ((inst) + 0x00000001), 0x00000104
+#define REG_TXFE_LOOPBACK_MODE_ADDR(inst) ((uint32_t)(inst) + 0x00000001U)
+#define BF_TXFE_LOOPBACK_MODES_INFO(inst) ((uint32_t)(inst) + 0x00000001U), 0x00000300U
+#define BF_LP_SYNC_CONNECT_EN_INFO(inst)  ((uint32_t)(inst) + 0x00000001U), 0x00000104U
 #endif /* USE_PRIVATE_BF */
 
-#endif /* __ADI_APOLLO_BF_JRX_PRIVATE_H__ */
+#endif /* ADI_APOLLO_BF_JRX_PRIVATE_H__ */
 /*! @} */

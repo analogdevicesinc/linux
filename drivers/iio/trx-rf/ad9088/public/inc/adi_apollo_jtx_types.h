@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_JTX
  * @{
  */
-#ifndef __ADI_APOLLO_JTX_TYPES_H__
-#define __ADI_APOLLO_JTX_TYPES_H__
+#ifndef ADI_APOLLO_JTX_TYPES_H__
+#define ADI_APOLLO_JTX_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -39,5 +39,5 @@ typedef struct adi_apollo_jesd_tx_inspect
     adi_apollo_jesd_subclass_e                subclass;        /*!< Subclass setting */
 } adi_apollo_jesd_tx_inspect_t;
 
-#endif /* __ADI_APOLLO_JTX_TYPES_H__ */
+#endif /* ADI_APOLLO_JTX_TYPES_H__ */
 /*! @} */

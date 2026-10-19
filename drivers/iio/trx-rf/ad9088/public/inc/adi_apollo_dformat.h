@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_DFORMAT
  * @{
  */
-#ifndef __ADI_APOLLO_DFORMAT_H__
-#define __ADI_APOLLO_DFORMAT_H__
+#ifndef ADI_APOLLO_DFORMAT_H__
+#define ADI_APOLLO_DFORMAT_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_dformat_types.h"
@@ -130,5 +130,5 @@ int32_t adi_apollo_dformat_smon_fd_fddc_set(adi_apollo_device_t *device, adi_apo
 }
 #endif
 
-#endif /* __ADI_APOLLO_DFORMAT_H__ */
+#endif /* ADI_APOLLO_DFORMAT_H__ */
 /*! @} */

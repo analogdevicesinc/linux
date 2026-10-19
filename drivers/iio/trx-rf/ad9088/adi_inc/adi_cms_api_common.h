@@ -12,8 +12,8 @@
  * \addtogroup ADI_API_COMMON
  * @{
  */
-#ifndef __ADI_CMS_API_COMMON_H__
-#define __ADI_CMS_API_COMMON_H__
+#ifndef ADI_CMS_API_COMMON_H_
+#define ADI_CMS_API_COMMON_H_
 
 /*============= I N C L U D E S ============*/
 #ifdef __KERNEL__
@@ -41,6 +41,19 @@
 #ifndef __maybe_unused
 #define __maybe_unused		__attribute__((__unused__))
 #endif
+
+/*!
+ * \brief  Compile-time assertion macro for C99
+ *         Produces a compiler error if condition is false.
+ *
+ * MISRA Deviation: Rule 20.10 - Token pasting operator ## used.
+ * Justification: The ## operator is necessary to create unique typedef names
+ *                based on the msg parameter. This is a standard C99 pattern for
+ *                compile-time assertions. Without token pasting, it's impossible
+ *                to generate unique identifier names from macro parameters.
+ */
+#define ADI_STATIC_ASSERT(cond, msg) \
+    typedef char static_assert_##msg[(cond) ? 1 : -1] __maybe_unused
 
 /*!
  * \brief  Enumerate error code
@@ -329,44 +342,66 @@ typedef int32_t(*adi_cms_delay_us_t)(void *user_data, uint32_t us);
 
 #endif
 
-#define _ADI_CMS_ERROR_PRINT_ENABLED(err) fprintf(stderr, "TB:ERROR %d in %s(): line %d in file \"%s\"\n", err, __func__, __LINE__, __FILE__)
-#define _ADI_CMS_ERROR_PRINT_DISABLED(err) ;
+#define ADI_CMS_ERROR_PRINT_ENABLED(err) fprintf(stderr, "TB:ERROR %d in %s(): line %d in file \"%s\"\n", (err), __func__, __LINE__, __FILE__)
+#define ADI_CMS_ERROR_PRINT_DISABLED(err) (void)(err);
 
 #ifdef ADI_EN_STDERR
-#define ADI_CMS_ERROR_PRINT(err) _ADI_CMS_ERROR_PRINT_ENABLED(err)
+#define ADI_CMS_ERROR_PRINT(err) ADI_CMS_ERROR_PRINT_ENABLED((err))
 #else
-#define ADI_CMS_ERROR_PRINT(err) _ADI_CMS_ERROR_PRINT_DISABLED(err)
+#define ADI_CMS_ERROR_PRINT(err) ADI_CMS_ERROR_PRINT_DISABLED((err))
 #endif /*ADI_EN_STDERR*/
 
 #define ADI_CMS_ERROR_RETURN(err)          \
     {                                      \
-        if (err != API_CMS_ERROR_OK) {     \
-            ADI_CMS_ERROR_PRINT(err);      \
-            return err;                    \
+        if ((int32_t)(err) != (int32_t)API_CMS_ERROR_OK) {   \
+            ADI_CMS_ERROR_PRINT((err));    \
+            return (int32_t)(err);         \
         }                                  \
     }
 
+/* MISRA Deviation: Rule 20.7 - Macro parameter 'label' cannot be parenthesized.
+ * Justification: C language syntax requires 'goto label;' - 'goto (label);' is invalid.
+ * This is a permitted deviation due to language constraints. */
 #define ADI_CMS_ERROR_GOTO(err, label)     \
     {                                      \
-        if (err != API_CMS_ERROR_OK) {     \
-            ADI_CMS_ERROR_PRINT(err);      \
+        if ((err) != (int32_t)API_CMS_ERROR_OK) {   \
+            ADI_CMS_ERROR_PRINT((err));    \
             goto label;                    \
         }                                  \
     }
 
-#define ADI_CMS_CHECK(r, err)              {if (r) ADI_CMS_ERROR_RETURN(err);}
-#define ADI_CMS_NULL_PTR_CHECK(r)          ADI_CMS_CHECK(r == NULL, API_CMS_ERROR_NULL_PARAM)
-#define ADI_CMS_MEM_ALLOC_CHECK(r)         ADI_CMS_CHECK(r == NULL, API_CMS_ERROR_MEM_ALLOC)
-#define ADI_CMS_FILE_OPEN_CHECK(r)         ADI_CMS_CHECK(r == NULL, API_CMS_ERROR_FILE_OPEN)
-#define ADI_CMS_INVALID_PARAM_CHECK(r)     ADI_CMS_CHECK(r, API_CMS_ERROR_INVALID_PARAM)
+/* Cast error code to int32_t for MISRA-compliant return from public API functions.
+ * Use in all public API functions returning int32_t.
+ * Ensures consistent type conversion between adi_cms_error_code_e enum and int32_t. */
+#define ADI_CMS_RETURN(err) return (int32_t)(err)
+
+#define ADI_CMS_CHECK(r, err)              {if ((r)) ADI_CMS_ERROR_RETURN((err));}
+#define ADI_CMS_NULL_PTR_CHECK(r)          ADI_CMS_CHECK((r) == NULL, API_CMS_ERROR_NULL_PARAM)
+#define ADI_CMS_MEM_ALLOC_CHECK(r)         ADI_CMS_CHECK((r) == NULL, API_CMS_ERROR_MEM_ALLOC)
+#define ADI_CMS_FILE_OPEN_CHECK(r)         ADI_CMS_CHECK((r) == NULL, API_CMS_ERROR_FILE_OPEN)
+#define ADI_CMS_INVALID_PARAM_CHECK(r)     ADI_CMS_CHECK((r), API_CMS_ERROR_INVALID_PARAM)
 #define ADI_CMS_MAX_SELECT_CHECK(r, m)     ADI_CMS_CHECK((((r) & (~(m)))), API_CMS_ERROR_INVALID_MASK_SELECT)
-#define ADI_CMS_SINGLE_SELECT_CHECK(r)     ADI_CMS_CHECK(!(r > 0 && (r & (r - 1)) == 0), API_CMS_ERROR_INVALID_MASK_SELECT)
-#define ADI_CMS_RANGE_CHECK(r, min, max)   ADI_CMS_CHECK(r < min || r > max, API_CMS_ERROR_INVALID_PARAM)
+#define ADI_CMS_SINGLE_SELECT_CHECK(r)     ADI_CMS_CHECK(!((r) > 0 && ((r) & ((r) - 1)) == 0), API_CMS_ERROR_INVALID_MASK_SELECT)
+/*
+ * Generic range check macro for defensive programming.
+ * Note: When used with unsigned types or enums where min=0, this intentionally
+ * generates -Wtype-limits warnings (comparison always false for r < 0).
+ * These are accepted false positives - the generic macro provides consistent
+ * validation across all data types, and the runtime check still executes
+ * correctly for the upper bound.
+ */
+#define ADI_CMS_RANGE_CHECK(r, min, max)   ADI_CMS_CHECK((r) < (min) || (r) > (max), API_CMS_ERROR_INVALID_PARAM)
 
-#define ADI_CMS_MASK_MATCH(value, mask)    ((value & mask) == mask)
+#define ADI_CMS_MASK_MATCH(value, mask)    (((value) & (mask)) == (mask))
 
-#define ADI_CMS_MEM_ALLOC_FREE(r)          if (r != NULL) {free(r); r = NULL;}
-#define ADI_CMS_FILE_CLOSE(r)              if (r != NULL) {fclose(r); r = NULL;}
+#define ADI_CMS_MEM_ALLOC_FREE(r)          if ((r) != NULL) {free((r)); (r) = NULL;}
+#define ADI_CMS_FILE_CLOSE(r)              if ((r) != NULL) {fclose((r)); (r) = NULL;}
 
-#endif /* __ADI_API_COMMON_H__ */
+#if defined(VERSION) && defined(APP_NAME)
+#define ADI_CMS_VERSION_PRINT() fprintf(stderr, "%s %s\n", APP_NAME, VERSION)
+#else
+#define ADI_CMS_VERSION_PRINT()
+#endif
+
+#endif /* ADI_CMS_API_COMMON_H_ */
 /*! @} */

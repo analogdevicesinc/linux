@@ -12,91 +12,91 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_JRX_DAC_SAMPLE_PRBS_H__
-#define __ADI_APOLLO_BF_JRX_DAC_SAMPLE_PRBS_H__
+#ifndef ADI_APOLLO_BF_JRX_DAC_SAMPLE_PRBS_H__
+#define ADI_APOLLO_BF_JRX_DAC_SAMPLE_PRBS_H__
 
 /*============= D E F I N E S ==============*/
-#define JRX_DAC_SAMPLE_PRBS_JRX_TX_DIGITAL0                    0x61620000
-#define JRX_DAC_SAMPLE_PRBS_JRX_TX_DIGITAL1                    0x61E20000
+#define JRX_DAC_SAMPLE_PRBS_JRX_TX_DIGITAL0                    0x61620000U
+#define JRX_DAC_SAMPLE_PRBS_JRX_TX_DIGITAL1                    0x61E20000U
 
-#define REG_SAMPLE_PRBS_CTRL0_ADDR(inst)                       ((inst) + 0x00000000)
-#define BF_PRBS_MODE_INFO(inst)                                ((inst) + 0x00000000), 0x00000300
-#define BF_SWAP_ENDIANNESS_INFO(inst)                          ((inst) + 0x00000000), 0x00000103
-#define BF_PRBS_INV_REAL_INFO(inst)                            ((inst) + 0x00000000), 0x00000104
-#define BF_PRBS_INV_IMAG_INFO(inst)                            ((inst) + 0x00000000), 0x00000105
-#define BF_CLR_ERRORS_INFO(inst)                               ((inst) + 0x00000000), 0x00000106
-#define BF_SAMPLE_PRBS_ENABLE_INFO(inst)                       ((inst) + 0x00000000), 0x00000107
+#define REG_SAMPLE_PRBS_CTRL0_ADDR(inst)                       ((uint32_t)(inst) + 0x00000000U)
+#define BF_PRBS_MODE_INFO(inst)                                ((uint32_t)(inst) + 0x00000000U), 0x00000300U
+#define BF_SWAP_ENDIANNESS_INFO(inst)                          ((uint32_t)(inst) + 0x00000000U), 0x00000103U
+#define BF_PRBS_INV_REAL_INFO(inst)                            ((uint32_t)(inst) + 0x00000000U), 0x00000104U
+#define BF_PRBS_INV_IMAG_INFO(inst)                            ((uint32_t)(inst) + 0x00000000U), 0x00000105U
+#define BF_CLR_ERRORS_INFO(inst)                               ((uint32_t)(inst) + 0x00000000U), 0x00000106U
+#define BF_SAMPLE_PRBS_ENABLE_INFO(inst)                       ((uint32_t)(inst) + 0x00000000U), 0x00000107U
 
-#define REG_SAMPLE_PRBS_CTRL1_ADDR(inst)                       ((inst) + 0x00000001)
-#define BF_UPDATE_ERROR_COUNT_INFO(inst)                       ((inst) + 0x00000001), 0x00000100
-#define BF_PRBS_ERR_RD_MODE_INFO(inst)                         ((inst) + 0x00000001), 0x00000101
-#define BF_PRBS_ERR_RD_CHNL_CLR_INFO(inst)                     ((inst) + 0x00000001), 0x00000102
-#define BF_PRBS_CHNL_SEL_INFO(inst)                            ((inst) + 0x00000001), 0x00000303
+#define REG_SAMPLE_PRBS_CTRL1_ADDR(inst)                       ((uint32_t)(inst) + 0x00000001U)
+#define BF_UPDATE_ERROR_COUNT_INFO(inst)                       ((uint32_t)(inst) + 0x00000001U), 0x00000100U
+#define BF_PRBS_ERR_RD_MODE_INFO(inst)                         ((uint32_t)(inst) + 0x00000001U), 0x00000101U
+#define BF_PRBS_ERR_RD_CHNL_CLR_INFO(inst)                     ((uint32_t)(inst) + 0x00000001U), 0x00000102U
+#define BF_PRBS_CHNL_SEL_INFO(inst)                            ((uint32_t)(inst) + 0x00000001U), 0x00000303U
 
-#define REG_SAMPLE_PRBS_STATUS0_ADDR(inst)                     ((inst) + 0x00000002)
-#define BF_PRBS_INVALID_DATA_FLAG_I_INFO(inst)                 ((inst) + 0x00000002), 0x00000100
-#define BF_PRBS_INVALID_DATA_FLAG_Q_INFO(inst)                 ((inst) + 0x00000002), 0x00000101
-#define BF_PRBS_ERROR_FLAG_I_INFO(inst)                        ((inst) + 0x00000002), 0x00000102
-#define BF_PRBS_ERROR_FLAG_Q_INFO(inst)                        ((inst) + 0x00000002), 0x00000103
-#define BF_PRBS_INV_FLAG_REAL_INFO(inst)                       ((inst) + 0x00000002), 0x00000104
-#define BF_PRBS_INV_FLAG_IMAG_INFO(inst)                       ((inst) + 0x00000002), 0x00000105
+#define REG_SAMPLE_PRBS_STATUS0_ADDR(inst)                     ((uint32_t)(inst) + 0x00000002U)
+#define BF_PRBS_INVALID_DATA_FLAG_I_INFO(inst)                 ((uint32_t)(inst) + 0x00000002U), 0x00000100U
+#define BF_PRBS_INVALID_DATA_FLAG_Q_INFO(inst)                 ((uint32_t)(inst) + 0x00000002U), 0x00000101U
+#define BF_PRBS_ERROR_FLAG_I_INFO(inst)                        ((uint32_t)(inst) + 0x00000002U), 0x00000102U
+#define BF_PRBS_ERROR_FLAG_Q_INFO(inst)                        ((uint32_t)(inst) + 0x00000002U), 0x00000103U
+#define BF_PRBS_INV_FLAG_REAL_INFO(inst)                       ((uint32_t)(inst) + 0x00000002U), 0x00000104U
+#define BF_PRBS_INV_FLAG_IMAG_INFO(inst)                       ((uint32_t)(inst) + 0x00000002U), 0x00000105U
 
-#define REG_SAMPLE_PRBS_STATUS1_ADDR(inst)                     ((inst) + 0x00000003)
-#define BF_ERROR_COUNT_I_INFO(inst)                            ((inst) + 0x00000003), 0x00001800
+#define REG_SAMPLE_PRBS_STATUS1_ADDR(inst)                     ((uint32_t)(inst) + 0x00000003U)
+#define BF_ERROR_COUNT_I_INFO(inst)                            ((uint32_t)(inst) + 0x00000003U), 0x00001800U
 
-#define REG_SAMPLE_PRBS_STATUS2_ADDR(inst)                     ((inst) + 0x00000004)
+#define REG_SAMPLE_PRBS_STATUS2_ADDR(inst)                     ((uint32_t)(inst) + 0x00000004U)
 
-#define REG_SAMPLE_PRBS_STATUS3_ADDR(inst)                     ((inst) + 0x00000005)
+#define REG_SAMPLE_PRBS_STATUS3_ADDR(inst)                     ((uint32_t)(inst) + 0x00000005U)
 
-#define REG_SAMPLE_PRBS_STATUS4_ADDR(inst)                     ((inst) + 0x00000006)
-#define BF_ERROR_COUNT_Q_INFO(inst)                            ((inst) + 0x00000006), 0x00001800
+#define REG_SAMPLE_PRBS_STATUS4_ADDR(inst)                     ((uint32_t)(inst) + 0x00000006U)
+#define BF_ERROR_COUNT_Q_INFO(inst)                            ((uint32_t)(inst) + 0x00000006U), 0x00001800U
 
-#define REG_SAMPLE_PRBS_STATUS5_ADDR(inst)                     ((inst) + 0x00000007)
+#define REG_SAMPLE_PRBS_STATUS5_ADDR(inst)                     ((uint32_t)(inst) + 0x00000007U)
 
-#define REG_SAMPLE_PRBS_STATUS6_ADDR(inst)                     ((inst) + 0x00000008)
+#define REG_SAMPLE_PRBS_STATUS6_ADDR(inst)                     ((uint32_t)(inst) + 0x00000008U)
 
-#define REG_SAMPLE_PRBS_DEBUG_ADDR(inst)                       ((inst) + 0x00000009)
-#define BF_PRBS_ERR_RD_CHNL_READBACK_INFO(inst)                ((inst) + 0x00000009), 0x00000300
+#define REG_SAMPLE_PRBS_DEBUG_ADDR(inst)                       ((uint32_t)(inst) + 0x00000009U)
+#define BF_PRBS_ERR_RD_CHNL_READBACK_INFO(inst)                ((uint32_t)(inst) + 0x00000009U), 0x00000300U
 
-#define REG_TMODE_USR_LSB_P0_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((inst) + 0x0000000A + 1 * (n))
-#define BF_TMODE_USR_PAT0_JRX_DAC_SAMPLE_PRBS_INFO(inst, n)    ((inst) + 0x0000000A + 1 * (n)), 0x00001000
+#define REG_TMODE_USR_LSB_P0_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((uint32_t)(inst) + 0x0000000AU + 1U * (uint32_t)(n))
+#define BF_TMODE_USR_PAT0_JRX_DAC_SAMPLE_PRBS_INFO(inst, n)    ((uint32_t)(inst) + 0x0000000AU + 1U * (uint32_t)(n)), 0x00001000U
 
-#define REG_TMODE_USR_MSB_P0_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((inst) + 0x0000000C + 1 * (n))
+#define REG_TMODE_USR_MSB_P0_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((uint32_t)(inst) + 0x0000000CU + 1U * (uint32_t)(n))
 
-#define REG_TMODE_USR_LSB_P1_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((inst) + 0x0000000E + 1 * (n))
-#define BF_TMODE_USR_PAT1_JRX_DAC_SAMPLE_PRBS_INFO(inst, n)    ((inst) + 0x0000000E + 1 * (n)), 0x00001000
+#define REG_TMODE_USR_LSB_P1_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((uint32_t)(inst) + 0x0000000EU + 1U * (uint32_t)(n))
+#define BF_TMODE_USR_PAT1_JRX_DAC_SAMPLE_PRBS_INFO(inst, n)    ((uint32_t)(inst) + 0x0000000EU + 1U * (uint32_t)(n)), 0x00001000U
 
-#define REG_TMODE_USR_MSB_P1_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((inst) + 0x00000010 + 1 * (n))
+#define REG_TMODE_USR_MSB_P1_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((uint32_t)(inst) + 0x00000010U + 1U * (uint32_t)(n))
 
-#define REG_TMODE_USR_LSB_P2_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((inst) + 0x00000012 + 1 * (n))
-#define BF_TMODE_USR_PAT2_JRX_DAC_SAMPLE_PRBS_INFO(inst, n)    ((inst) + 0x00000012 + 1 * (n)), 0x00001000
+#define REG_TMODE_USR_LSB_P2_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((uint32_t)(inst) + 0x00000012U + 1U * (uint32_t)(n))
+#define BF_TMODE_USR_PAT2_JRX_DAC_SAMPLE_PRBS_INFO(inst, n)    ((uint32_t)(inst) + 0x00000012U + 1U * (uint32_t)(n)), 0x00001000U
 
-#define REG_TMODE_USR_MSB_P2_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((inst) + 0x00000014 + 1 * (n))
+#define REG_TMODE_USR_MSB_P2_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((uint32_t)(inst) + 0x00000014U + 1U * (uint32_t)(n))
 
-#define REG_TMODE_USR_LSB_P3_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((inst) + 0x00000016 + 1 * (n))
-#define BF_TMODE_USR_PAT3_JRX_DAC_SAMPLE_PRBS_INFO(inst, n)    ((inst) + 0x00000016 + 1 * (n)), 0x00001000
+#define REG_TMODE_USR_LSB_P3_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((uint32_t)(inst) + 0x00000016U + 1U * (uint32_t)(n))
+#define BF_TMODE_USR_PAT3_JRX_DAC_SAMPLE_PRBS_INFO(inst, n)    ((uint32_t)(inst) + 0x00000016U + 1U * (uint32_t)(n)), 0x00001000U
 
-#define REG_TMODE_USR_MSB_P3_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((inst) + 0x00000018 + 1 * (n))
+#define REG_TMODE_USR_MSB_P3_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((uint32_t)(inst) + 0x00000018U + 1U * (uint32_t)(n))
 
-#define REG_TMODE_USR_LSB_P4_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((inst) + 0x0000001A + 1 * (n))
-#define BF_TMODE_USR_PAT4_JRX_DAC_SAMPLE_PRBS_INFO(inst, n)    ((inst) + 0x0000001A + 1 * (n)), 0x00001000
+#define REG_TMODE_USR_LSB_P4_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((uint32_t)(inst) + 0x0000001AU + 1U * (uint32_t)(n))
+#define BF_TMODE_USR_PAT4_JRX_DAC_SAMPLE_PRBS_INFO(inst, n)    ((uint32_t)(inst) + 0x0000001AU + 1U * (uint32_t)(n)), 0x00001000U
 
-#define REG_TMODE_USR_MSB_P4_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((inst) + 0x0000001C + 1 * (n))
+#define REG_TMODE_USR_MSB_P4_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((uint32_t)(inst) + 0x0000001CU + 1U * (uint32_t)(n))
 
-#define REG_TMODE_USR_LSB_P5_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((inst) + 0x0000001E + 1 * (n))
-#define BF_TMODE_USR_PAT5_JRX_DAC_SAMPLE_PRBS_INFO(inst, n)    ((inst) + 0x0000001E + 1 * (n)), 0x00001000
+#define REG_TMODE_USR_LSB_P5_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((uint32_t)(inst) + 0x0000001EU + 1U * (uint32_t)(n))
+#define BF_TMODE_USR_PAT5_JRX_DAC_SAMPLE_PRBS_INFO(inst, n)    ((uint32_t)(inst) + 0x0000001EU + 1U * (uint32_t)(n)), 0x00001000U
 
-#define REG_TMODE_USR_MSB_P5_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((inst) + 0x00000020 + 1 * (n))
+#define REG_TMODE_USR_MSB_P5_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((uint32_t)(inst) + 0x00000020U + 1U * (uint32_t)(n))
 
-#define REG_TMODE_USR_LSB_P6_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((inst) + 0x00000022 + 1 * (n))
-#define BF_TMODE_USR_PAT6_JRX_DAC_SAMPLE_PRBS_INFO(inst, n)    ((inst) + 0x00000022 + 1 * (n)), 0x00001000
+#define REG_TMODE_USR_LSB_P6_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((uint32_t)(inst) + 0x00000022U + 1U * (uint32_t)(n))
+#define BF_TMODE_USR_PAT6_JRX_DAC_SAMPLE_PRBS_INFO(inst, n)    ((uint32_t)(inst) + 0x00000022U + 1U * (uint32_t)(n)), 0x00001000U
 
-#define REG_TMODE_USR_MSB_P6_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((inst) + 0x00000024 + 1 * (n))
+#define REG_TMODE_USR_MSB_P6_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((uint32_t)(inst) + 0x00000024U + 1U * (uint32_t)(n))
 
-#define REG_TMODE_USR_LSB_P7_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((inst) + 0x00000026 + 1 * (n))
-#define BF_TMODE_USR_PAT7_JRX_DAC_SAMPLE_PRBS_INFO(inst, n)    ((inst) + 0x00000026 + 1 * (n)), 0x00001000
+#define REG_TMODE_USR_LSB_P7_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((uint32_t)(inst) + 0x00000026U + 1U * (uint32_t)(n))
+#define BF_TMODE_USR_PAT7_JRX_DAC_SAMPLE_PRBS_INFO(inst, n)    ((uint32_t)(inst) + 0x00000026U + 1U * (uint32_t)(n)), 0x00001000U
 
-#define REG_TMODE_USR_MSB_P7_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((inst) + 0x00000028 + 1 * (n))
+#define REG_TMODE_USR_MSB_P7_JRX_DAC_SAMPLE_PRBS_ADDR(inst, n) ((uint32_t)(inst) + 0x00000028U + 1U * (uint32_t)(n))
 
-#endif /* __ADI_APOLLO_BF_JRX_DAC_SAMPLE_PRBS_H__ */
+#endif /* ADI_APOLLO_BF_JRX_DAC_SAMPLE_PRBS_H__ */
 /*! @} */

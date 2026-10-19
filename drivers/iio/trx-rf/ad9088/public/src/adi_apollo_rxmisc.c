@@ -32,10 +32,11 @@ int32_t adi_apollo_rxmisc_low_samp_set(adi_apollo_device_t *device, adi_apollo_s
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(side_sel, ADI_APOLLO_SIDE_NONE, ADI_APOLLO_SIDE_ALL);
 
     for (side_index = 0;  side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        side = side_sel & (ADI_APOLLO_SIDE_A << side_index);
-        if (side > 0) {
+        side = (uint8_t)(side_sel & ((uint32_t)ADI_APOLLO_SIDE_A << side_index));
+        if (side > 0U) {
             regmap_base_addr = calc_rx_misc_base(side_index);
 
             err = adi_apollo_hal_bf_set(device, BF_LOW_SAMP_RX_MISC_INFO(regmap_base_addr), low_samp_en);
@@ -43,7 +44,7 @@ int32_t adi_apollo_rxmisc_low_samp_set(adi_apollo_device_t *device, adi_apollo_s
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_rxmisc_pgm(adi_apollo_device_t *device, adi_apollo_side_select_e side_sel, adi_apollo_rx_misc_pgm_t *config)
@@ -54,10 +55,11 @@ int32_t adi_apollo_rxmisc_pgm(adi_apollo_device_t *device, adi_apollo_side_selec
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(side_sel, ADI_APOLLO_SIDE_NONE, ADI_APOLLO_SIDE_ALL);
 
     for (side_index = 0;  side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        side = side_sel & (ADI_APOLLO_SIDE_A << side_index);
-        if (side > 0) {
+        side = (uint8_t)(side_sel & ((uint32_t)ADI_APOLLO_SIDE_A << side_index));
+        if (side > 0U) {
             regmap_base_addr = calc_rx_misc_base(side_index);
 
             err = adi_apollo_hal_bf_set(device, BF_DATAPATH_CLK_EN_INFO(regmap_base_addr), config->datapath_clk); 
@@ -67,7 +69,7 @@ int32_t adi_apollo_rxmisc_pgm(adi_apollo_device_t *device, adi_apollo_side_selec
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_rxmisc_dp_reset(adi_apollo_device_t *device, adi_apollo_side_select_e side_sel, uint8_t reset_en)
@@ -77,22 +79,24 @@ int32_t adi_apollo_rxmisc_dp_reset(adi_apollo_device_t *device, adi_apollo_side_
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(side_sel, ADI_APOLLO_SIDE_NONE, ADI_APOLLO_SIDE_ALL);
 
     for (side_index = 0;  side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        side = side_sel & (ADI_APOLLO_SIDE_A << side_index);
-        if (side > 0) {
-            if (side_index == 0)
+        side = (uint8_t)(side_sel & ((uint32_t)ADI_APOLLO_SIDE_A << side_index));
+        if (side > 0U) {
+            if (side_index == 0U) {
                 err = adi_apollo_hal_bf_set(device, BF_RX_DP_RESET_A_INFO, reset_en);
-            else
+            } else {
                 err = adi_apollo_hal_bf_set(device, BF_RX_DP_RESET_B_INFO, reset_en);
+            }
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
-uint32_t calc_rx_misc_base(int32_t side_idx)
+uint32_t calc_rx_misc_base(uint32_t side_idx)
 {
     static uint32_t rx_misc_regmap[ADI_APOLLO_NUM_SIDES] = {
         RX_MISC_RX_DIGITAL0,

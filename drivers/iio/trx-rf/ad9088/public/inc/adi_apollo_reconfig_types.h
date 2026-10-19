@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_RECONFIG
  * @{
  */
-#ifndef __ADI_APOLLO_RECONFIG_TYPES_H__
-#define __ADI_APOLLO_RECONFIG_TYPES_H__
+#ifndef ADI_APOLLO_RECONFIG_TYPES_H__
+#define ADI_APOLLO_RECONFIG_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -70,5 +70,5 @@ typedef struct {
                                              but needs to be programmed according to the decimation/interpolation modes. >*/
 } adi_apollo_reconfig_ctrl_pgm_t;
 
-#endif /* __ADI_APOLLO_RECONFIG_TYPES_H__ */
+#endif /* ADI_APOLLO_RECONFIG_TYPES_H__ */
 /*! @} */

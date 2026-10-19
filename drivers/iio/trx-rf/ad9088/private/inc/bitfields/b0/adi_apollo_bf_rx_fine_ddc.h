@@ -12,129 +12,129 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_RX_FINE_DDC_H__
-#define __ADI_APOLLO_BF_RX_FINE_DDC_H__
+#ifndef ADI_APOLLO_BF_RX_FINE_DDC_H__
+#define ADI_APOLLO_BF_RX_FINE_DDC_H__
 
 /*============= D E F I N E S ==============*/
-#define RX_FINE_DDC0_RX_SLICE_0_RX_DIGITAL0         0x603A0000
-#define RX_FINE_DDC1_RX_SLICE_0_RX_DIGITAL0         0x603A1000
-#define RX_FINE_DDC0_RX_SLICE_1_RX_DIGITAL0         0x605A0000
-#define RX_FINE_DDC1_RX_SLICE_1_RX_DIGITAL0         0x605A1000
-#define RX_FINE_DDC0_RX_SLICE_0_RX_DIGITAL1         0x60BA0000
-#define RX_FINE_DDC1_RX_SLICE_0_RX_DIGITAL1         0x60BA1000
-#define RX_FINE_DDC0_RX_SLICE_1_RX_DIGITAL1         0x60DA0000
-#define RX_FINE_DDC1_RX_SLICE_1_RX_DIGITAL1         0x60DA1000
+#define RX_FINE_DDC0_RX_SLICE_0_RX_DIGITAL0         0x603A0000U
+#define RX_FINE_DDC1_RX_SLICE_0_RX_DIGITAL0         0x603A1000U
+#define RX_FINE_DDC0_RX_SLICE_1_RX_DIGITAL0         0x605A0000U
+#define RX_FINE_DDC1_RX_SLICE_1_RX_DIGITAL0         0x605A1000U
+#define RX_FINE_DDC0_RX_SLICE_0_RX_DIGITAL1         0x60BA0000U
+#define RX_FINE_DDC1_RX_SLICE_0_RX_DIGITAL1         0x60BA1000U
+#define RX_FINE_DDC0_RX_SLICE_1_RX_DIGITAL1         0x60DA0000U
+#define RX_FINE_DDC1_RX_SLICE_1_RX_DIGITAL1         0x60DA1000U
 
-#define REG_FINE_DEC_CTRL_ADDR(inst)                ((inst) + 0x00000000)
-#define BF_FINE_DDC_DEC_SEL_INFO(inst)              ((inst) + 0x00000000), 0x00000400
-#define BF_LINK_NUM_RX_FINE_DDC_INFO(inst)          ((inst) + 0x00000000), 0x00000106
+#define REG_FINE_DEC_CTRL_ADDR(inst)                ((uint32_t)(inst) + 0x00000000U)
+#define BF_FINE_DDC_DEC_SEL_INFO(inst)              ((uint32_t)(inst) + 0x00000000U), 0x00000400U
+#define BF_LINK_NUM_RX_FINE_DDC_INFO(inst)          ((uint32_t)(inst) + 0x00000000U), 0x00000106U
 
-#define REG_FINE_FILT_DEL_CTRL_ADDR(inst)           ((inst) + 0x00000001)
-#define BF_HB1_DEL_RX_FINE_DDC_INFO(inst)           ((inst) + 0x00000001), 0x00000100
-#define BF_HB2_DEL_RX_FINE_DDC_INFO(inst)           ((inst) + 0x00000001), 0x00000101
-#define BF_HB3_DEL_INFO(inst)                       ((inst) + 0x00000001), 0x00000102
-#define BF_HB4_DEL_INFO(inst)                       ((inst) + 0x00000001), 0x00000103
-#define BF_HB5_DEL_INFO(inst)                       ((inst) + 0x00000001), 0x00000104
-#define BF_HB6_DEL_INFO(inst)                       ((inst) + 0x00000001), 0x00000105
+#define REG_FINE_FILT_DEL_CTRL_ADDR(inst)           ((uint32_t)(inst) + 0x00000001U)
+#define BF_HB1_DEL_RX_FINE_DDC_INFO(inst)           ((uint32_t)(inst) + 0x00000001U), 0x00000100U
+#define BF_HB2_DEL_RX_FINE_DDC_INFO(inst)           ((uint32_t)(inst) + 0x00000001U), 0x00000101U
+#define BF_HB3_DEL_INFO(inst)                       ((uint32_t)(inst) + 0x00000001U), 0x00000102U
+#define BF_HB4_DEL_INFO(inst)                       ((uint32_t)(inst) + 0x00000001U), 0x00000103U
+#define BF_HB5_DEL_INFO(inst)                       ((uint32_t)(inst) + 0x00000001U), 0x00000104U
+#define BF_HB6_DEL_INFO(inst)                       ((uint32_t)(inst) + 0x00000001U), 0x00000105U
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_BASE_OFFSET_RX_FINE_DDC_ADDR(inst) ((inst) + 0x00000002)
-#define BF_DDC_BASE_OFFSET_RX_FINE_DDC_INFO(inst)   ((inst) + 0x00000002), 0x00000800
+#define REG_FINE_BASE_OFFSET_RX_FINE_DDC_ADDR(inst) ((uint32_t)(inst) + 0x00000002U)
+#define BF_DDC_BASE_OFFSET_RX_FINE_DDC_INFO(inst)   ((uint32_t)(inst) + 0x00000002U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_CLK_OFFSET_WR_EN_ADDR(inst)        ((inst) + 0x00000003)
-#define BF_CLK_OFFSET_WR_EN_RX_FINE_DDC_INFO(inst)  ((inst) + 0x00000003), 0x00000100
+#define REG_FINE_CLK_OFFSET_WR_EN_ADDR(inst)        ((uint32_t)(inst) + 0x00000003U)
+#define BF_CLK_OFFSET_WR_EN_RX_FINE_DDC_INFO(inst)  ((uint32_t)(inst) + 0x00000003U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_FINE_CLK_DEBUG_ADDR(inst)               ((inst) + 0x00000004)
-#define BF_FDDC_CLK_EN_INFO(inst)                   ((inst) + 0x00000004), 0x00000800
+#define REG_FINE_CLK_DEBUG_ADDR(inst)               ((uint32_t)(inst) + 0x00000004U)
+#define BF_FDDC_CLK_EN_INFO(inst)                   ((uint32_t)(inst) + 0x00000004U), 0x00000800U
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_I_FILT_OUT_OFFSET_ADDR(inst)       ((inst) + 0x00000007)
-#define BF_FINE_I_FILT_OUT_OFFSET_INFO(inst)        ((inst) + 0x00000007), 0x00000800
-#endif /* USE_PRIVATE_BF */
-
-#ifdef USE_PRIVATE_BF
-#define REG_FINE_Q_FILT_OUT_OFFSET_ADDR(inst)       ((inst) + 0x00000008)
-#define BF_FINE_Q_FILT_OUT_OFFSET_INFO(inst)        ((inst) + 0x00000008), 0x00000800
+#define REG_FINE_I_FILT_OUT_OFFSET_ADDR(inst)       ((uint32_t)(inst) + 0x00000007U)
+#define BF_FINE_I_FILT_OUT_OFFSET_INFO(inst)        ((uint32_t)(inst) + 0x00000007U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_I_FILT_IN_OFFSET_ADDR(inst)        ((inst) + 0x00000009)
-#define BF_FINE_I_FILT_IN_OFFSET_INFO(inst)         ((inst) + 0x00000009), 0x00000800
+#define REG_FINE_Q_FILT_OUT_OFFSET_ADDR(inst)       ((uint32_t)(inst) + 0x00000008U)
+#define BF_FINE_Q_FILT_OUT_OFFSET_INFO(inst)        ((uint32_t)(inst) + 0x00000008U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_Q_FILT_IN_OFFSET_ADDR(inst)        ((inst) + 0x0000000A)
-#define BF_FINE_Q_FILT_IN_OFFSET_INFO(inst)         ((inst) + 0x0000000A), 0x00000800
+#define REG_FINE_I_FILT_IN_OFFSET_ADDR(inst)        ((uint32_t)(inst) + 0x00000009U)
+#define BF_FINE_I_FILT_IN_OFFSET_INFO(inst)         ((uint32_t)(inst) + 0x00000009U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_I_HB1_OFFSET_ADDR(inst)            ((inst) + 0x0000000B)
-#define BF_FINE_I_HB1_OFFSET_INFO(inst)             ((inst) + 0x0000000B), 0x00000800
+#define REG_FINE_Q_FILT_IN_OFFSET_ADDR(inst)        ((uint32_t)(inst) + 0x0000000AU)
+#define BF_FINE_Q_FILT_IN_OFFSET_INFO(inst)         ((uint32_t)(inst) + 0x0000000AU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_Q_HB1_OFFSET_ADDR(inst)            ((inst) + 0x0000000C)
-#define BF_FINE_Q_HB1_OFFSET_INFO(inst)             ((inst) + 0x0000000C), 0x00000800
+#define REG_FINE_I_HB1_OFFSET_ADDR(inst)            ((uint32_t)(inst) + 0x0000000BU)
+#define BF_FINE_I_HB1_OFFSET_INFO(inst)             ((uint32_t)(inst) + 0x0000000BU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_I_HB2_OFFSET_ADDR(inst)            ((inst) + 0x0000000D)
-#define BF_FINE_I_HB2_OFFSET_INFO(inst)             ((inst) + 0x0000000D), 0x00000800
+#define REG_FINE_Q_HB1_OFFSET_ADDR(inst)            ((uint32_t)(inst) + 0x0000000CU)
+#define BF_FINE_Q_HB1_OFFSET_INFO(inst)             ((uint32_t)(inst) + 0x0000000CU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_Q_HB2_OFFSET_ADDR(inst)            ((inst) + 0x0000000E)
-#define BF_FINE_Q_HB2_OFFSET_INFO(inst)             ((inst) + 0x0000000E), 0x00000800
+#define REG_FINE_I_HB2_OFFSET_ADDR(inst)            ((uint32_t)(inst) + 0x0000000DU)
+#define BF_FINE_I_HB2_OFFSET_INFO(inst)             ((uint32_t)(inst) + 0x0000000DU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_I_HB3_OFFSET_ADDR(inst)            ((inst) + 0x0000000F)
-#define BF_FINE_I_HB3_OFFSET_INFO(inst)             ((inst) + 0x0000000F), 0x00000800
+#define REG_FINE_Q_HB2_OFFSET_ADDR(inst)            ((uint32_t)(inst) + 0x0000000EU)
+#define BF_FINE_Q_HB2_OFFSET_INFO(inst)             ((uint32_t)(inst) + 0x0000000EU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_Q_HB3_OFFSET_ADDR(inst)            ((inst) + 0x00000010)
-#define BF_FINE_Q_HB3_OFFSET_INFO(inst)             ((inst) + 0x00000010), 0x00000800
+#define REG_FINE_I_HB3_OFFSET_ADDR(inst)            ((uint32_t)(inst) + 0x0000000FU)
+#define BF_FINE_I_HB3_OFFSET_INFO(inst)             ((uint32_t)(inst) + 0x0000000FU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_I_HB4_OFFSET_ADDR(inst)            ((inst) + 0x00000011)
-#define BF_FINE_I_HB4_OFFSET_INFO(inst)             ((inst) + 0x00000011), 0x00000800
+#define REG_FINE_Q_HB3_OFFSET_ADDR(inst)            ((uint32_t)(inst) + 0x00000010U)
+#define BF_FINE_Q_HB3_OFFSET_INFO(inst)             ((uint32_t)(inst) + 0x00000010U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_Q_HB4_OFFSET_ADDR(inst)            ((inst) + 0x00000012)
-#define BF_FINE_Q_HB4_OFFSET_INFO(inst)             ((inst) + 0x00000012), 0x00000800
+#define REG_FINE_I_HB4_OFFSET_ADDR(inst)            ((uint32_t)(inst) + 0x00000011U)
+#define BF_FINE_I_HB4_OFFSET_INFO(inst)             ((uint32_t)(inst) + 0x00000011U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_I_HB5_OFFSET_ADDR(inst)            ((inst) + 0x00000013)
-#define BF_FINE_I_HB5_OFFSET_INFO(inst)             ((inst) + 0x00000013), 0x00000800
+#define REG_FINE_Q_HB4_OFFSET_ADDR(inst)            ((uint32_t)(inst) + 0x00000012U)
+#define BF_FINE_Q_HB4_OFFSET_INFO(inst)             ((uint32_t)(inst) + 0x00000012U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_Q_HB5_OFFSET_ADDR(inst)            ((inst) + 0x00000014)
-#define BF_FINE_Q_HB5_OFFSET_INFO(inst)             ((inst) + 0x00000014), 0x00000800
+#define REG_FINE_I_HB5_OFFSET_ADDR(inst)            ((uint32_t)(inst) + 0x00000013U)
+#define BF_FINE_I_HB5_OFFSET_INFO(inst)             ((uint32_t)(inst) + 0x00000013U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_I_HB6_OFFSET_ADDR(inst)            ((inst) + 0x00000015)
-#define BF_FINE_I_HB6_OFFSET_INFO(inst)             ((inst) + 0x00000015), 0x00000800
+#define REG_FINE_Q_HB5_OFFSET_ADDR(inst)            ((uint32_t)(inst) + 0x00000014U)
+#define BF_FINE_Q_HB5_OFFSET_INFO(inst)             ((uint32_t)(inst) + 0x00000014U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_Q_HB6_OFFSET_ADDR(inst)            ((inst) + 0x00000016)
-#define BF_FINE_Q_HB6_OFFSET_INFO(inst)             ((inst) + 0x00000016), 0x00000800
+#define REG_FINE_I_HB6_OFFSET_ADDR(inst)            ((uint32_t)(inst) + 0x00000015U)
+#define BF_FINE_I_HB6_OFFSET_INFO(inst)             ((uint32_t)(inst) + 0x00000015U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_FILTER_GAIN_EN_RX_FINE_DDC_ADDR(inst)   ((inst) + 0x00000017)
-#define BF_HB1_GAIN_EN_RX_FINE_DDC_INFO(inst)       ((inst) + 0x00000017), 0x00000100
+#ifdef USE_PRIVATE_BF
+#define REG_FINE_Q_HB6_OFFSET_ADDR(inst)            ((uint32_t)(inst) + 0x00000016U)
+#define BF_FINE_Q_HB6_OFFSET_INFO(inst)             ((uint32_t)(inst) + 0x00000016U), 0x00000800U
+#endif /* USE_PRIVATE_BF */
 
-#define REG_GPIO_EN_RX_FINE_DDC_ADDR(inst)          ((inst) + 0x00000018)
-#define BF_GPIO_DEC_SEL_RX_FINE_DDC_INFO(inst)      ((inst) + 0x00000018), 0x00000100
+#define REG_FILTER_GAIN_EN_RX_FINE_DDC_ADDR(inst)   ((uint32_t)(inst) + 0x00000017U)
+#define BF_HB1_GAIN_EN_RX_FINE_DDC_INFO(inst)       ((uint32_t)(inst) + 0x00000017U), 0x00000100U
 
-#endif /* __ADI_APOLLO_BF_RX_FINE_DDC_H__ */
+#define REG_GPIO_EN_RX_FINE_DDC_ADDR(inst)          ((uint32_t)(inst) + 0x00000018U)
+#define BF_GPIO_DEC_SEL_RX_FINE_DDC_INFO(inst)      ((uint32_t)(inst) + 0x00000018U), 0x00000100U
+
+#endif /* ADI_APOLLO_BF_RX_FINE_DDC_H__ */
 /*! @} */

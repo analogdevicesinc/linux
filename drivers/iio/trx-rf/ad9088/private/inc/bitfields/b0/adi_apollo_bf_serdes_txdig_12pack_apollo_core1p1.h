@@ -12,87 +12,87 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_SERDES_TXDIG_12PACK_APOLLO_CORE1P1_H__
-#define __ADI_APOLLO_BF_SERDES_TXDIG_12PACK_APOLLO_CORE1P1_H__
+#ifndef ADI_APOLLO_BF_SERDES_TXDIG_12PACK_APOLLO_CORE1P1_H__
+#define ADI_APOLLO_BF_SERDES_TXDIG_12PACK_APOLLO_CORE1P1_H__
 
 /*============= D E F I N E S ==============*/
-#define SER_PHY_TOP_12PACK_SERDES_TX_JTX_TOP_RX_DIGITAL0            0x60628000
-#define SER_PHY_TOP_12PACK_SERDES_TX_JTX_TOP_RX_DIGITAL1            0x60E28000
+#define SER_PHY_TOP_12PACK_SERDES_TX_JTX_TOP_RX_DIGITAL0            0x60628000U
+#define SER_PHY_TOP_12PACK_SERDES_TX_JTX_TOP_RX_DIGITAL1            0x60E28000U
 
-#define REG_TXSER_12PACK_CLK_CTL0_ADDR(inst)                        ((inst) + 0x00000000)
-#define BF_SER_CLK_DIV_INFO(inst)                                   ((inst) + 0x00000000), 0x00000200
+#define REG_TXSER_12PACK_CLK_CTL0_ADDR(inst)                        ((uint32_t)(inst) + 0x00000000U)
+#define BF_SER_CLK_DIV_INFO(inst)                                   ((uint32_t)(inst) + 0x00000000U), 0x00000200U
 
-#define REG_TXSER_12PACK_PD_ADDR(inst)                              ((inst) + 0x00000001)
-#define BF_SER_CLK_PD_INFO(inst)                                    ((inst) + 0x00000001), 0x00000100
-#define BF_DES_CLK_PD_INFO(inst)                                    ((inst) + 0x00000001), 0x00000101
-#define BF_SERDES_CLK_PD_INFO(inst)                                 ((inst) + 0x00000001), 0x00000102
+#define REG_TXSER_12PACK_PD_ADDR(inst)                              ((uint32_t)(inst) + 0x00000001U)
+#define BF_SER_CLK_PD_INFO(inst)                                    ((uint32_t)(inst) + 0x00000001U), 0x00000100U
+#define BF_DES_CLK_PD_INFO(inst)                                    ((uint32_t)(inst) + 0x00000001U), 0x00000101U
+#define BF_SERDES_CLK_PD_INFO(inst)                                 ((uint32_t)(inst) + 0x00000001U), 0x00000102U
 
-#define REG_TXSER_12PACK_CLK_PD_ADDR(inst)                          ((inst) + 0x00000002)
-#define BF_TXSER_PD_CLK_RX_INFO(inst)                               ((inst) + 0x00000002), 0x00000100
+#define REG_TXSER_12PACK_CLK_PD_ADDR(inst)                          ((uint32_t)(inst) + 0x00000002U)
+#define BF_TXSER_PD_CLK_RX_INFO(inst)                               ((uint32_t)(inst) + 0x00000002U), 0x00000100U
 
-#define REG_TXSER_12PACK_CLK_CTL1_ADDR(inst)                        ((inst) + 0x00000003)
-#define BF_TEST_CLK_OUTPUT_PD_INFO(inst)                            ((inst) + 0x00000003), 0x00000104
-#define BF_TEST_CLK_RECEIVER_PD_INFO(inst)                          ((inst) + 0x00000003), 0x00000105
-#define BF_SEL_EXT_REF_CLK_INFO(inst)                               ((inst) + 0x00000003), 0x00000106
-#define BF_SER_CLK_DIV_RESETB_INFO(inst)                            ((inst) + 0x00000003), 0x00000107
+#define REG_TXSER_12PACK_CLK_CTL1_ADDR(inst)                        ((uint32_t)(inst) + 0x00000003U)
+#define BF_TEST_CLK_OUTPUT_PD_INFO(inst)                            ((uint32_t)(inst) + 0x00000003U), 0x00000104U
+#define BF_TEST_CLK_RECEIVER_PD_INFO(inst)                          ((uint32_t)(inst) + 0x00000003U), 0x00000105U
+#define BF_SEL_EXT_REF_CLK_INFO(inst)                               ((uint32_t)(inst) + 0x00000003U), 0x00000106U
+#define BF_SER_CLK_DIV_RESETB_INFO(inst)                            ((uint32_t)(inst) + 0x00000003U), 0x00000107U
 
-#define REG_TXSER_12PACK_JTAG_CTL0_ADDR(inst)                       ((inst) + 0x00000004)
-#define BF_TXSER_JTAG_DATA_INV_INFO(inst)                           ((inst) + 0x00000004), 0x00000C00
+#define REG_TXSER_12PACK_JTAG_CTL0_ADDR(inst)                       ((uint32_t)(inst) + 0x00000004U)
+#define BF_TXSER_JTAG_DATA_INV_INFO(inst)                           ((uint32_t)(inst) + 0x00000004U), 0x00000C00U
 
-#define REG_TXSER_12PACK_JTAG_CTL1_ADDR(inst)                       ((inst) + 0x00000005)
+#define REG_TXSER_12PACK_JTAG_CTL1_ADDR(inst)                       ((uint32_t)(inst) + 0x00000005U)
 
-#define REG_TXSER_12PACK_TEST_CTL_ADDR(inst)                        ((inst) + 0x00000006)
-#define BF_TXSER_EN_SER_TESTV_OUT_INFO(inst)                        ((inst) + 0x00000006), 0x00000100
+#define REG_TXSER_12PACK_TEST_CTL_ADDR(inst)                        ((uint32_t)(inst) + 0x00000006U)
+#define BF_TXSER_EN_SER_TESTV_OUT_INFO(inst)                        ((uint32_t)(inst) + 0x00000006U), 0x00000100U
 
-#define REG_TXSER_12PACK_TEST_CTL2_ADDR(inst)                       ((inst) + 0x00000007)
-#define BF_TEST_CLK_SEL_INFO(inst)                                  ((inst) + 0x00000007), 0x00000300
+#define REG_TXSER_12PACK_TEST_CTL2_ADDR(inst)                       ((uint32_t)(inst) + 0x00000007U)
+#define BF_TEST_CLK_SEL_INFO(inst)                                  ((uint32_t)(inst) + 0x00000007U), 0x00000300U
 
-#define REG_TXSER_12PACK_PLL_REF_CTL_ADDR(inst)                     ((inst) + 0x00000008)
-#define BF_PLL_REF_CLK_INFO(inst)                                   ((inst) + 0x00000008), 0x00000800
+#define REG_TXSER_12PACK_PLL_REF_CTL_ADDR(inst)                     ((uint32_t)(inst) + 0x00000008U)
+#define BF_PLL_REF_CLK_INFO(inst)                                   ((uint32_t)(inst) + 0x00000008U), 0x00000800U
 
-#define REG_TXSER_12PACK_TERM_CAL_ADDR(inst)                        ((inst) + 0x00000010)
-#define BF_DRVRPOLYCODE_INFO(inst)                                  ((inst) + 0x00000010), 0x00000600
-#define BF_DRVSLICEOFFSETEN_INFO(inst)                              ((inst) + 0x00000010), 0x00000106
-#define BF_OFFSET32_EN_INFO(inst)                                   ((inst) + 0x00000010), 0x00000107
+#define REG_TXSER_12PACK_TERM_CAL_ADDR(inst)                        ((uint32_t)(inst) + 0x00000010U)
+#define BF_DRVRPOLYCODE_INFO(inst)                                  ((uint32_t)(inst) + 0x00000010U), 0x00000600U
+#define BF_DRVSLICEOFFSETEN_INFO(inst)                              ((uint32_t)(inst) + 0x00000010U), 0x00000106U
+#define BF_OFFSET32_EN_INFO(inst)                                   ((uint32_t)(inst) + 0x00000010U), 0x00000107U
 
-#define REG_TXSER_12PACK_USR0_ADDR(inst)                            ((inst) + 0x00000020)
-#define BF_TXSER_USR_CTL0_INFO(inst)                                ((inst) + 0x00000020), 0x00000800
+#define REG_TXSER_12PACK_USR0_ADDR(inst)                            ((uint32_t)(inst) + 0x00000020U)
+#define BF_TXSER_USR_CTL0_INFO(inst)                                ((uint32_t)(inst) + 0x00000020U), 0x00000800U
 
-#define REG_TXSER_12PACK_USR1_ADDR(inst)                            ((inst) + 0x00000021)
-#define BF_TXSER_USR_CTL1_INFO(inst)                                ((inst) + 0x00000021), 0x00000800
+#define REG_TXSER_12PACK_USR1_ADDR(inst)                            ((uint32_t)(inst) + 0x00000021U)
+#define BF_TXSER_USR_CTL1_INFO(inst)                                ((uint32_t)(inst) + 0x00000021U), 0x00000800U
 
-#define REG_TXSER_12PACK_USR2_ADDR(inst)                            ((inst) + 0x00000022)
-#define BF_TXSER_USR_CTL2_INFO(inst)                                ((inst) + 0x00000022), 0x00000800
+#define REG_TXSER_12PACK_USR2_ADDR(inst)                            ((uint32_t)(inst) + 0x00000022U)
+#define BF_TXSER_USR_CTL2_INFO(inst)                                ((uint32_t)(inst) + 0x00000022U), 0x00000800U
 
-#define REG_TXSER_12PACK_USR3_ADDR(inst)                            ((inst) + 0x00000023)
-#define BF_TXSER_USR_CTL3_INFO(inst)                                ((inst) + 0x00000023), 0x00000800
+#define REG_TXSER_12PACK_USR3_ADDR(inst)                            ((uint32_t)(inst) + 0x00000023U)
+#define BF_TXSER_USR_CTL3_INFO(inst)                                ((uint32_t)(inst) + 0x00000023U), 0x00000800U
 
-#define REG_TXSER_12PACK_USR4_ADDR(inst)                            ((inst) + 0x00000024)
-#define BF_TXSER_USR_CTL4_INFO(inst)                                ((inst) + 0x00000024), 0x00000800
+#define REG_TXSER_12PACK_USR4_ADDR(inst)                            ((uint32_t)(inst) + 0x00000024U)
+#define BF_TXSER_USR_CTL4_INFO(inst)                                ((uint32_t)(inst) + 0x00000024U), 0x00000800U
 
-#define REG_TXSER_12PACK_USR5_ADDR(inst)                            ((inst) + 0x00000025)
-#define BF_TXSER_USR_CTL5_INFO(inst)                                ((inst) + 0x00000025), 0x00000800
+#define REG_TXSER_12PACK_USR5_ADDR(inst)                            ((uint32_t)(inst) + 0x00000025U)
+#define BF_TXSER_USR_CTL5_INFO(inst)                                ((uint32_t)(inst) + 0x00000025U), 0x00000800U
 
-#define REG_TXSER_12PACK_USR6_ADDR(inst)                            ((inst) + 0x00000026)
-#define BF_TXSER_USR_CTL6_INFO(inst)                                ((inst) + 0x00000026), 0x00000800
+#define REG_TXSER_12PACK_USR6_ADDR(inst)                            ((uint32_t)(inst) + 0x00000026U)
+#define BF_TXSER_USR_CTL6_INFO(inst)                                ((uint32_t)(inst) + 0x00000026U), 0x00000800U
 
-#define REG_TXSER_12PACK_USR7_ADDR(inst)                            ((inst) + 0x00000027)
-#define BF_TXSER_USR_CTL7_INFO(inst)                                ((inst) + 0x00000027), 0x00000800
+#define REG_TXSER_12PACK_USR7_ADDR(inst)                            ((uint32_t)(inst) + 0x00000027U)
+#define BF_TXSER_USR_CTL7_INFO(inst)                                ((uint32_t)(inst) + 0x00000027U), 0x00000800U
 
-#define REG_TXSER_12PACK_USR8_ADDR(inst)                            ((inst) + 0x00000028)
-#define BF_TXSER_USR_CTL8_INFO(inst)                                ((inst) + 0x00000028), 0x00000800
+#define REG_TXSER_12PACK_USR8_ADDR(inst)                            ((uint32_t)(inst) + 0x00000028U)
+#define BF_TXSER_USR_CTL8_INFO(inst)                                ((uint32_t)(inst) + 0x00000028U), 0x00000800U
 
-#define REG_TXSER_12PACK_USR9_ADDR(inst)                            ((inst) + 0x00000029)
-#define BF_TXSER_USR_STA0_INFO(inst)                                ((inst) + 0x00000029), 0x00000800
+#define REG_TXSER_12PACK_USR9_ADDR(inst)                            ((uint32_t)(inst) + 0x00000029U)
+#define BF_TXSER_USR_STA0_INFO(inst)                                ((uint32_t)(inst) + 0x00000029U), 0x00000800U
 
-#define REG_TXSER_12PACK_USR10_ADDR(inst)                           ((inst) + 0x0000002A)
-#define BF_TXSER_USR_STA1_INFO(inst)                                ((inst) + 0x0000002A), 0x00000800
+#define REG_TXSER_12PACK_USR10_ADDR(inst)                           ((uint32_t)(inst) + 0x0000002AU)
+#define BF_TXSER_USR_STA1_INFO(inst)                                ((uint32_t)(inst) + 0x0000002AU), 0x00000800U
 
-#define REG_TXSER_12PACK_SPARE_ADDR(inst)                           ((inst) + 0x00000030)
-#define BF_SPARE_CTL_SERDES_TXDIG_12PACK_APOLLO__CORE1P1_INFO(inst) ((inst) + 0x00000030), 0x00000800
+#define REG_TXSER_12PACK_SPARE_ADDR(inst)                           ((uint32_t)(inst) + 0x00000030U)
+#define BF_SPARE_CTL_SERDES_TXDIG_12PACK_APOLLO__CORE1P1_INFO(inst) ((uint32_t)(inst) + 0x00000030U), 0x00000800U
 
-#define REG_TXSER_12PACK_REVID_ADDR(inst)                           ((inst) + 0x000000FF)
-#define BF_TXSER_12PACK_REVID_INFO(inst)                            ((inst) + 0x000000FF), 0x00000800
+#define REG_TXSER_12PACK_REVID_ADDR(inst)                           ((uint32_t)(inst) + 0x000000FFU)
+#define BF_TXSER_12PACK_REVID_INFO(inst)                            ((uint32_t)(inst) + 0x000000FFU), 0x00000800U
 
-#endif /* __ADI_APOLLO_BF_SERDES_TXDIG_12PACK_APOLLO_CORE1P1_H__ */
+#endif /* ADI_APOLLO_BF_SERDES_TXDIG_12PACK_APOLLO_CORE1P1_H__ */
 /*! @} */

@@ -12,144 +12,144 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_TXRX_TRIGGER_TS_H__
-#define __ADI_APOLLO_BF_TXRX_TRIGGER_TS_H__
+#ifndef ADI_APOLLO_BF_TXRX_TRIGGER_TS_H__
+#define ADI_APOLLO_BF_TXRX_TRIGGER_TS_H__
 
 /*============= D E F I N E S ==============*/
-#define TXRX_TRIGGER_TS_RX_DIGITAL0                     0x60021000
-#define TXRX_TRIGGER_TS_RX_DIGITAL1                     0x60821000
-#define TXRX_TRIGGER_TS_TX_TOP_TX_DIGITAL0              0x61020000
-#define TXRX_TRIGGER_TS_TX_TOP_TX_DIGITAL1              0x61820000
+#define TXRX_TRIGGER_TS_RX_DIGITAL0                     0x60021000U
+#define TXRX_TRIGGER_TS_RX_DIGITAL1                     0x60821000U
+#define TXRX_TRIGGER_TS_TX_TOP_TX_DIGITAL0              0x61020000U
+#define TXRX_TRIGGER_TS_TX_TOP_TX_DIGITAL1              0x61820000U
 
-#define REG_COUNT0_REG0_ADDR(inst)                      ((inst) + 0x00000000)
-#define BF_COUNT0_REG0_INFO(inst)                       ((inst) + 0x00000000), 0x00000800
+#define REG_COUNT0_REG0_ADDR(inst)                      ((uint32_t)(inst) + 0x00000000U)
+#define BF_COUNT0_REG0_INFO(inst)                       ((uint32_t)(inst) + 0x00000000U), 0x00000800U
 
-#define REG_COUNT0_REG1_ADDR(inst)                      ((inst) + 0x00000001)
-#define BF_COUNT0_REG1_INFO(inst)                       ((inst) + 0x00000001), 0x00000800
+#define REG_COUNT0_REG1_ADDR(inst)                      ((uint32_t)(inst) + 0x00000001U)
+#define BF_COUNT0_REG1_INFO(inst)                       ((uint32_t)(inst) + 0x00000001U), 0x00000800U
 
-#define REG_COUNT1_REG0_ADDR(inst)                      ((inst) + 0x00000002)
-#define BF_COUNT1_REG0_INFO(inst)                       ((inst) + 0x00000002), 0x00000800
+#define REG_COUNT1_REG0_ADDR(inst)                      ((uint32_t)(inst) + 0x00000002U)
+#define BF_COUNT1_REG0_INFO(inst)                       ((uint32_t)(inst) + 0x00000002U), 0x00000800U
 
-#define REG_COUNT1_REG1_ADDR(inst)                      ((inst) + 0x00000003)
-#define BF_COUNT1_REG1_INFO(inst)                       ((inst) + 0x00000003), 0x00000800
+#define REG_COUNT1_REG1_ADDR(inst)                      ((uint32_t)(inst) + 0x00000003U)
+#define BF_COUNT1_REG1_INFO(inst)                       ((uint32_t)(inst) + 0x00000003U), 0x00000800U
 
-#define REG_TS_RST_STATUS_ADDR(inst)                    ((inst) + 0x0000001E)
-#define BF_RST_DONE_TXRX_TRIGGER_TS_INFO(inst)          ((inst) + 0x0000001E), 0x00000100
-#define BF_RST_DONE_CLR_TXRX_TRIGGER_TS_INFO(inst)      ((inst) + 0x0000001E), 0x00000101
+#define REG_TS_RST_STATUS_ADDR(inst)                    ((uint32_t)(inst) + 0x0000001EU)
+#define BF_RST_DONE_TXRX_TRIGGER_TS_INFO(inst)          ((uint32_t)(inst) + 0x0000001EU), 0x00000100U
+#define BF_RST_DONE_CLR_TXRX_TRIGGER_TS_INFO(inst)      ((uint32_t)(inst) + 0x0000001EU), 0x00000101U
 
-#define REG_TS_RST_ADDR(inst)                           ((inst) + 0x0000001F)
-#define BF_TS_RST_MODE_TXRX_TRIGGER_TS_INFO(inst)       ((inst) + 0x0000001F), 0x00000100
-#define BF_SPI_TS_RST_TXRX_TRIGGER_TS_INFO(inst)        ((inst) + 0x0000001F), 0x00000102
+#define REG_TS_RST_ADDR(inst)                           ((uint32_t)(inst) + 0x0000001FU)
+#define BF_TS_RST_MODE_TXRX_TRIGGER_TS_INFO(inst)       ((uint32_t)(inst) + 0x0000001FU), 0x00000100U
+#define BF_SPI_TS_RST_TXRX_TRIGGER_TS_INFO(inst)        ((uint32_t)(inst) + 0x0000001FU), 0x00000102U
 
-#define REG_TS_RD_EN_ADDR(inst)                         ((inst) + 0x00000020)
-#define BF_TIMESTAMP_READ_EN_TXRX_TRIGGER_TS_INFO(inst) ((inst) + 0x00000020), 0x00000100
+#define REG_TS_RD_EN_ADDR(inst)                         ((uint32_t)(inst) + 0x00000020U)
+#define BF_TIMESTAMP_READ_EN_TXRX_TRIGGER_TS_INFO(inst) ((uint32_t)(inst) + 0x00000020U), 0x00000100U
 
-#define REG_TS_STATUS0_ADDR(inst)                       ((inst) + 0x00000021)
-#define BF_TIMESTAMP_STATUS_TXRX_TRIGGER_TS_INFO(inst)  ((inst) + 0x00000021), 0x00004000
+#define REG_TS_STATUS0_ADDR(inst)                       ((uint32_t)(inst) + 0x00000021U)
+#define BF_TIMESTAMP_STATUS_TXRX_TRIGGER_TS_INFO(inst)  ((uint32_t)(inst) + 0x00000021U), 0x00004000U
 
-#define REG_TS_STATUS1_ADDR(inst)                       ((inst) + 0x00000022)
+#define REG_TS_STATUS1_ADDR(inst)                       ((uint32_t)(inst) + 0x00000022U)
 
-#define REG_TS_STATUS2_ADDR(inst)                       ((inst) + 0x00000023)
+#define REG_TS_STATUS2_ADDR(inst)                       ((uint32_t)(inst) + 0x00000023U)
 
-#define REG_TS_STATUS3_ADDR(inst)                       ((inst) + 0x00000024)
+#define REG_TS_STATUS3_ADDR(inst)                       ((uint32_t)(inst) + 0x00000024U)
 
-#define REG_TS_STATUS4_ADDR(inst)                       ((inst) + 0x00000025)
+#define REG_TS_STATUS4_ADDR(inst)                       ((uint32_t)(inst) + 0x00000025U)
 
-#define REG_TS_STATUS5_ADDR(inst)                       ((inst) + 0x00000026)
+#define REG_TS_STATUS5_ADDR(inst)                       ((uint32_t)(inst) + 0x00000026U)
 
-#define REG_TS_STATUS6_ADDR(inst)                       ((inst) + 0x00000027)
+#define REG_TS_STATUS6_ADDR(inst)                       ((uint32_t)(inst) + 0x00000027U)
 
-#define REG_TS_STATUS7_ADDR(inst)                       ((inst) + 0x00000028)
+#define REG_TS_STATUS7_ADDR(inst)                       ((uint32_t)(inst) + 0x00000028U)
 
-#define REG_TRIG_OFFSET0_ADDR(inst, n)                  ((inst) + 0x00000035 + 1 * (n))
-#define BF_TRIG_OFFSET0_INFO(inst, n)                   ((inst) + 0x00000035 + 1 * (n)), 0x00004000
+#define REG_TRIG_OFFSET0_ADDR(inst, n)                  ((uint32_t)(inst) + 0x00000035U + 1U * (uint32_t)(n))
+#define BF_TRIG_OFFSET0_INFO(inst, n)                   ((uint32_t)(inst) + 0x00000035U + 1U * (uint32_t)(n)), 0x00004000U
 
-#define REG_TRIG_OFFSET1_ADDR(inst, n)                  ((inst) + 0x00000055 + 1 * (n))
+#define REG_TRIG_OFFSET1_ADDR(inst, n)                  ((uint32_t)(inst) + 0x00000055U + 1U * (uint32_t)(n))
 
-#define REG_TRIG_OFFSET2_ADDR(inst, n)                  ((inst) + 0x00000075 + 1 * (n))
+#define REG_TRIG_OFFSET2_ADDR(inst, n)                  ((uint32_t)(inst) + 0x00000075U + 1U * (uint32_t)(n))
 
-#define REG_TRIG_OFFSET3_ADDR(inst, n)                  ((inst) + 0x00000095 + 1 * (n))
+#define REG_TRIG_OFFSET3_ADDR(inst, n)                  ((uint32_t)(inst) + 0x00000095U + 1U * (uint32_t)(n))
 
-#define REG_TRIG_OFFSET4_ADDR(inst, n)                  ((inst) + 0x000000B5 + 1 * (n))
+#define REG_TRIG_OFFSET4_ADDR(inst, n)                  ((uint32_t)(inst) + 0x000000B5U + 1U * (uint32_t)(n))
 
-#define REG_TRIG_OFFSET5_ADDR(inst, n)                  ((inst) + 0x000000D5 + 1 * (n))
+#define REG_TRIG_OFFSET5_ADDR(inst, n)                  ((uint32_t)(inst) + 0x000000D5U + 1U * (uint32_t)(n))
 
-#define REG_TRIG_OFFSET6_ADDR(inst, n)                  ((inst) + 0x000000F5 + 1 * (n))
+#define REG_TRIG_OFFSET6_ADDR(inst, n)                  ((uint32_t)(inst) + 0x000000F5U + 1U * (uint32_t)(n))
 
-#define REG_TRIG_OFFSET7_ADDR(inst, n)                  ((inst) + 0x00000115 + 1 * (n))
+#define REG_TRIG_OFFSET7_ADDR(inst, n)                  ((uint32_t)(inst) + 0x00000115U + 1U * (uint32_t)(n))
 
-#define REG_TRIG_PERIOD0_ADDR(inst, n)                  ((inst) + 0x00000135 + 1 * (n))
-#define BF_TRIG_PERIOD0_INFO(inst, n)                   ((inst) + 0x00000135 + 1 * (n)), 0x00004000
+#define REG_TRIG_PERIOD0_ADDR(inst, n)                  ((uint32_t)(inst) + 0x00000135U + 1U * (uint32_t)(n))
+#define BF_TRIG_PERIOD0_INFO(inst, n)                   ((uint32_t)(inst) + 0x00000135U + 1U * (uint32_t)(n)), 0x00004000U
 
-#define REG_TRIG_PERIOD1_ADDR(inst, n)                  ((inst) + 0x00000155 + 1 * (n))
+#define REG_TRIG_PERIOD1_ADDR(inst, n)                  ((uint32_t)(inst) + 0x00000155U + 1U * (uint32_t)(n))
 
-#define REG_TRIG_PERIOD2_ADDR(inst, n)                  ((inst) + 0x00000175 + 1 * (n))
+#define REG_TRIG_PERIOD2_ADDR(inst, n)                  ((uint32_t)(inst) + 0x00000175U + 1U * (uint32_t)(n))
 
-#define REG_TRIG_PERIOD3_ADDR(inst, n)                  ((inst) + 0x00000195 + 1 * (n))
+#define REG_TRIG_PERIOD3_ADDR(inst, n)                  ((uint32_t)(inst) + 0x00000195U + 1U * (uint32_t)(n))
 
-#define REG_TRIG_PERIOD4_ADDR(inst, n)                  ((inst) + 0x000001B5 + 1 * (n))
+#define REG_TRIG_PERIOD4_ADDR(inst, n)                  ((uint32_t)(inst) + 0x000001B5U + 1U * (uint32_t)(n))
 
-#define REG_TRIG_PERIOD5_ADDR(inst, n)                  ((inst) + 0x000001D5 + 1 * (n))
+#define REG_TRIG_PERIOD5_ADDR(inst, n)                  ((uint32_t)(inst) + 0x000001D5U + 1U * (uint32_t)(n))
 
-#define REG_TRIG_PERIOD6_ADDR(inst, n)                  ((inst) + 0x000001F5 + 1 * (n))
+#define REG_TRIG_PERIOD6_ADDR(inst, n)                  ((uint32_t)(inst) + 0x000001F5U + 1U * (uint32_t)(n))
 
-#define REG_TRIG_PERIOD7_ADDR(inst, n)                  ((inst) + 0x00000215 + 1 * (n))
+#define REG_TRIG_PERIOD7_ADDR(inst, n)                  ((uint32_t)(inst) + 0x00000215U + 1U * (uint32_t)(n))
 
-#define REG_TRIG_GPIO_PERIOD0_ADDR(inst, n)             ((inst) + 0x00000235 + 1 * (n))
-#define BF_TRIG_GPIO_PERIOD0_INFO(inst, n)              ((inst) + 0x00000235 + 1 * (n)), 0x00001000
+#define REG_TRIG_GPIO_PERIOD0_ADDR(inst, n)             ((uint32_t)(inst) + 0x00000235U + 1U * (uint32_t)(n))
+#define BF_TRIG_GPIO_PERIOD0_INFO(inst, n)              ((uint32_t)(inst) + 0x00000235U + 1U * (uint32_t)(n)), 0x00001000U
 
-#define REG_TRIG_GPIO_PERIOD1_ADDR(inst, n)             ((inst) + 0x00000255 + 1 * (n))
+#define REG_TRIG_GPIO_PERIOD1_ADDR(inst, n)             ((uint32_t)(inst) + 0x00000255U + 1U * (uint32_t)(n))
 
-#define REG_TRIG_SEL_MUX_BMEM_ADDR(inst, n)             ((inst) + 0x00000275 + 1 * (n))
-#define BF_TRIG_SEL_MUX_BMEM_INFO(inst, n)              ((inst) + 0x00000275 + 1 * (n)), 0x00000300
+#define REG_TRIG_SEL_MUX_BMEM_ADDR(inst, n)             ((uint32_t)(inst) + 0x00000275U + 1U * (uint32_t)(n))
+#define BF_TRIG_SEL_MUX_BMEM_INFO(inst, n)              ((uint32_t)(inst) + 0x00000275U + 1U * (uint32_t)(n)), 0x00000300U
 
-#define REG_SPI_TRIG_ADDR(inst)                         ((inst) + 0x00000277)
-#define BF_SPI_TRIG_INFO(inst)                          ((inst) + 0x00000277), 0x00000100
+#define REG_SPI_TRIG_ADDR(inst)                         ((uint32_t)(inst) + 0x00000277U)
+#define BF_SPI_TRIG_INFO(inst)                          ((uint32_t)(inst) + 0x00000277U), 0x00000100U
 
-#define REG_TM_SEL0_ADDR(inst)                          ((inst) + 0x00000278)
-#define BF_TM_SEL0_INFO(inst)                           ((inst) + 0x00000278), 0x00000500
+#define REG_TM_SEL0_ADDR(inst)                          ((uint32_t)(inst) + 0x00000278U)
+#define BF_TM_SEL0_INFO(inst)                           ((uint32_t)(inst) + 0x00000278U), 0x00000500U
 
-#define REG_TM_SEL1_ADDR(inst)                          ((inst) + 0x00000298)
-#define BF_TM_SEL1_INFO(inst)                           ((inst) + 0x00000298), 0x00000500
+#define REG_TM_SEL1_ADDR(inst)                          ((uint32_t)(inst) + 0x00000298U)
+#define BF_TM_SEL1_INFO(inst)                           ((uint32_t)(inst) + 0x00000298U), 0x00000500U
 
-#define REG_TRIG_SEL_MUX_CDRC0_ADDR(inst, n)            ((inst) + 0x000002B8 + 1 * (n))
-#define BF_TRIG_SEL_MUX_CDRC0_INFO(inst, n)             ((inst) + 0x000002B8 + 1 * (n)), 0x00000300
+#define REG_TRIG_SEL_MUX_CDRC0_ADDR(inst, n)            ((uint32_t)(inst) + 0x000002B8U + 1U * (uint32_t)(n))
+#define BF_TRIG_SEL_MUX_CDRC0_INFO(inst, n)             ((uint32_t)(inst) + 0x000002B8U + 1U * (uint32_t)(n)), 0x00000300U
 
-#define REG_TRIG_SEL_MUX_CDRC1_ADDR(inst, n)            ((inst) + 0x000002BA + 1 * (n))
-#define BF_TRIG_SEL_MUX_CDRC1_INFO(inst, n)             ((inst) + 0x000002BA + 1 * (n)), 0x00000300
+#define REG_TRIG_SEL_MUX_CDRC1_ADDR(inst, n)            ((uint32_t)(inst) + 0x000002BAU + 1U * (uint32_t)(n))
+#define BF_TRIG_SEL_MUX_CDRC1_INFO(inst, n)             ((uint32_t)(inst) + 0x000002BAU + 1U * (uint32_t)(n)), 0x00000300U
 
-#define REG_TRIG_SEL_MUX_FDRC0_ADDR(inst, n)            ((inst) + 0x000002BC + 1 * (n))
-#define BF_TRIG_SEL_MUX_FDRC0_INFO(inst, n)             ((inst) + 0x000002BC + 1 * (n)), 0x00000300
+#define REG_TRIG_SEL_MUX_FDRC0_ADDR(inst, n)            ((uint32_t)(inst) + 0x000002BCU + 1U * (uint32_t)(n))
+#define BF_TRIG_SEL_MUX_FDRC0_INFO(inst, n)             ((uint32_t)(inst) + 0x000002BCU + 1U * (uint32_t)(n)), 0x00000300U
 
-#define REG_TRIG_SEL_MUX_FDRC1_ADDR(inst, n)            ((inst) + 0x000002C0 + 1 * (n))
-#define BF_TRIG_SEL_MUX_FDRC1_INFO(inst, n)             ((inst) + 0x000002C0 + 1 * (n)), 0x00000300
+#define REG_TRIG_SEL_MUX_FDRC1_ADDR(inst, n)            ((uint32_t)(inst) + 0x000002C0U + 1U * (uint32_t)(n))
+#define BF_TRIG_SEL_MUX_FDRC1_INFO(inst, n)             ((uint32_t)(inst) + 0x000002C0U + 1U * (uint32_t)(n)), 0x00000300U
 
-#define REG_TRIG_SEL_MUX_LINEARX_ADDR(inst)             ((inst) + 0x000002C4)
-#define BF_TRIG_SEL_MUX_LINEARX_INFO(inst)              ((inst) + 0x000002C4), 0x00000300
+#define REG_TRIG_SEL_MUX_LINEARX_ADDR(inst)             ((uint32_t)(inst) + 0x000002C4U)
+#define BF_TRIG_SEL_MUX_LINEARX_INFO(inst)              ((uint32_t)(inst) + 0x000002C4U), 0x00000300U
 
-#define REG_TRIG_CTRL_TXRX_TRIGGER_TS_ADDR(inst, n)     ((inst) + 0x000002C7 + 1 * (n))
-#define BF_MUTE_TRIG_INFO(inst, n)                      ((inst) + 0x000002C7 + 1 * (n)), 0x00000100
-#define BF_TRIG_EN_INFO(inst, n)                        ((inst) + 0x000002C7 + 1 * (n)), 0x00000101
-#define BF_TRIG_MASK_COUNT_INFO(inst, n)                ((inst) + 0x000002C7 + 1 * (n)), 0x00000202
-#define BF_TRIG_SEL_INFO(inst, n)                       ((inst) + 0x000002C7 + 1 * (n)), 0x00000204
+#define REG_TRIG_CTRL_TXRX_TRIGGER_TS_ADDR(inst, n)     ((uint32_t)(inst) + 0x000002C7U + 1U * (uint32_t)(n))
+#define BF_MUTE_TRIG_INFO(inst, n)                      ((uint32_t)(inst) + 0x000002C7U + 1U * (uint32_t)(n)), 0x00000100U
+#define BF_TRIG_EN_INFO(inst, n)                        ((uint32_t)(inst) + 0x000002C7U + 1U * (uint32_t)(n)), 0x00000101U
+#define BF_TRIG_MASK_COUNT_INFO(inst, n)                ((uint32_t)(inst) + 0x000002C7U + 1U * (uint32_t)(n)), 0x00000202U
+#define BF_TRIG_SEL_INFO(inst, n)                       ((uint32_t)(inst) + 0x000002C7U + 1U * (uint32_t)(n)), 0x00000204U
 
-#define REG_TRIG_SEL_MUX_RECONFIG_ADDR(inst)            ((inst) + 0x000002E7)
-#define BF_TRIG_SEL_MUX_RECONFIG_INFO(inst)             ((inst) + 0x000002E7), 0x00000300
+#define REG_TRIG_SEL_MUX_RECONFIG_ADDR(inst)            ((uint32_t)(inst) + 0x000002E7U)
+#define BF_TRIG_SEL_MUX_RECONFIG_INFO(inst)             ((uint32_t)(inst) + 0x000002E7U), 0x00000300U
 
-#define REG_TRIG_SEL_MUX_PFILT0_ADDR(inst)              ((inst) + 0x000002F7)
-#define BF_TRIG_SEL_MUX_PFILT0_INFO(inst)               ((inst) + 0x000002F7), 0x00000300
+#define REG_TRIG_SEL_MUX_PFILT0_ADDR(inst)              ((uint32_t)(inst) + 0x000002F7U)
+#define BF_TRIG_SEL_MUX_PFILT0_INFO(inst)               ((uint32_t)(inst) + 0x000002F7U), 0x00000300U
 
-#define REG_TRIG_SEL_MUX_PFILT1_ADDR(inst)              ((inst) + 0x000002F8)
-#define BF_TRIG_SEL_MUX_PFILT1_INFO(inst)               ((inst) + 0x000002F8), 0x00000300
+#define REG_TRIG_SEL_MUX_PFILT1_ADDR(inst)              ((uint32_t)(inst) + 0x000002F8U)
+#define BF_TRIG_SEL_MUX_PFILT1_INFO(inst)               ((uint32_t)(inst) + 0x000002F8U), 0x00000300U
 
-#define REG_TRIG_SEL_MUX_CFIR_ADDR(inst, n)             ((inst) + 0x000002F9 + 1 * (n))
-#define BF_TRIG_SEL_MUX_CFIR_INFO(inst, n)              ((inst) + 0x000002F9 + 1 * (n)), 0x00000300
+#define REG_TRIG_SEL_MUX_CFIR_ADDR(inst, n)             ((uint32_t)(inst) + 0x000002F9U + 1U * (uint32_t)(n))
+#define BF_TRIG_SEL_MUX_CFIR_INFO(inst, n)              ((uint32_t)(inst) + 0x000002F9U + 1U * (uint32_t)(n)), 0x00000300U
 
-#define REG_TRIG_SEL_MUX_CBMEM_ADDR(inst, n)            ((inst) + 0x000002FB + 1 * (n))
-#define BF_TRIG_SEL_MUX_CBMEM_INFO(inst, n)             ((inst) + 0x000002FB + 1 * (n)), 0x00000303
+#define REG_TRIG_SEL_MUX_CBMEM_ADDR(inst, n)            ((uint32_t)(inst) + 0x000002FBU + 1U * (uint32_t)(n))
+#define BF_TRIG_SEL_MUX_CBMEM_INFO(inst, n)             ((uint32_t)(inst) + 0x000002FBU + 1U * (uint32_t)(n)), 0x00000303U
 
-#define REG_TRIG_SEL_MUX_FBMEM_ADDR(inst, n)            ((inst) + 0x000002FD + 1 * (n))
-#define BF_TRIG_SEL_MUX_FBMEM_INFO(inst, n)             ((inst) + 0x000002FD + 1 * (n)), 0x00000300
+#define REG_TRIG_SEL_MUX_FBMEM_ADDR(inst, n)            ((uint32_t)(inst) + 0x000002FDU + 1U * (uint32_t)(n))
+#define BF_TRIG_SEL_MUX_FBMEM_INFO(inst, n)             ((uint32_t)(inst) + 0x000002FDU + 1U * (uint32_t)(n)), 0x00000300U
 
-#endif /* __ADI_APOLLO_BF_TXRX_TRIGGER_TS_H__ */
+#endif /* ADI_APOLLO_BF_TXRX_TRIGGER_TS_H__ */
 /*! @} */

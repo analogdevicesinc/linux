@@ -12,12 +12,12 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_INTERRUPT_AGGREGATOR_H__
-#define __ADI_APOLLO_BF_INTERRUPT_AGGREGATOR_H__
+#ifndef ADI_APOLLO_BF_INTERRUPT_AGGREGATOR_H__
+#define ADI_APOLLO_BF_INTERRUPT_AGGREGATOR_H__
 
 /*============= D E F I N E S ==============*/
-#define REG_INTERRUPT_MASK_ADDR(n) (0x41200000 + 4 * (n))
-#define BF_MASK_INFO(n)            (0x41200000 + 4 * (n)), 0x00000800
+#define REG_INTERRUPT_MASK_ADDR(n) (0x41200000U + 4U * (uint32_t)(n))
+#define BF_MASK_INFO(n)            (0x41200000U + 4U * (uint32_t)(n)), 0x00000800U
 
-#endif /* __ADI_APOLLO_BF_INTERRUPT_AGGREGATOR_H__ */
+#endif /* ADI_APOLLO_BF_INTERRUPT_AGGREGATOR_H__ */
 /*! @} */

@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_GPIO
  * @{
  */
-#ifndef __ADI_APOLLO_GPIO_H__
-#define __ADI_APOLLO_GPIO_H__
+#ifndef ADI_APOLLO_GPIO_H__
+#define ADI_APOLLO_GPIO_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_gpio_types.h"
@@ -206,5 +206,5 @@ int32_t adi_apollo_gpio_jesd_204b_configure(adi_apollo_device_t *device);
 }
 #endif
     
-#endif /*__ADI_APOLLO_GPIO_H__ */
+#endif /* ADI_APOLLO_GPIO_H__ */
 /*! @} */

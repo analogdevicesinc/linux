@@ -12,104 +12,104 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_CC_SS_CTRL_H__
-#define __ADI_APOLLO_BF_CC_SS_CTRL_H__
+#ifndef ADI_APOLLO_BF_CC_SS_CTRL_H__
+#define ADI_APOLLO_BF_CC_SS_CTRL_H__
 
 /*============= D E F I N E S ==============*/
-#define CC_SS_CTRL0_MCS_CC_SS0          0x4C001A00
-#define CC_SS_CTRL1_MCS_CC_SS0          0x4C001A20
-#define CC_SS_CTRL2_MCS_CC_SS0          0x4C001A40
-#define CC_SS_CTRL3_MCS_CC_SS0          0x4C001A60
-#define CC_SS_CTRL4_MCS_CC_SS0          0x4C001A80
-#define CC_SS_CTRL5_MCS_CC_SS0          0x4C001AA0
-#define CC_SS_CTRL6_MCS_CC_SS0          0x4C001AC0
-#define CC_SS_CTRL7_MCS_CC_SS0          0x4C001AE0
-#define CC_SS_CTRL0_MCS_CC_SS1          0x4C001E00
-#define CC_SS_CTRL1_MCS_CC_SS1          0x4C001E20
-#define CC_SS_CTRL2_MCS_CC_SS1          0x4C001E40
-#define CC_SS_CTRL3_MCS_CC_SS1          0x4C001E60
-#define CC_SS_CTRL4_MCS_CC_SS1          0x4C001E80
-#define CC_SS_CTRL5_MCS_CC_SS1          0x4C001EA0
-#define CC_SS_CTRL6_MCS_CC_SS1          0x4C001EC0
-#define CC_SS_CTRL7_MCS_CC_SS1          0x4C001EE0
+#define CC_SS_CTRL0_MCS_CC_SS0          0x4C001A00U
+#define CC_SS_CTRL1_MCS_CC_SS0          0x4C001A20U
+#define CC_SS_CTRL2_MCS_CC_SS0          0x4C001A40U
+#define CC_SS_CTRL3_MCS_CC_SS0          0x4C001A60U
+#define CC_SS_CTRL4_MCS_CC_SS0          0x4C001A80U
+#define CC_SS_CTRL5_MCS_CC_SS0          0x4C001AA0U
+#define CC_SS_CTRL6_MCS_CC_SS0          0x4C001AC0U
+#define CC_SS_CTRL7_MCS_CC_SS0          0x4C001AE0U
+#define CC_SS_CTRL0_MCS_CC_SS1          0x4C001E00U
+#define CC_SS_CTRL1_MCS_CC_SS1          0x4C001E20U
+#define CC_SS_CTRL2_MCS_CC_SS1          0x4C001E40U
+#define CC_SS_CTRL3_MCS_CC_SS1          0x4C001E60U
+#define CC_SS_CTRL4_MCS_CC_SS1          0x4C001E80U
+#define CC_SS_CTRL5_MCS_CC_SS1          0x4C001EA0U
+#define CC_SS_CTRL6_MCS_CC_SS1          0x4C001EC0U
+#define CC_SS_CTRL7_MCS_CC_SS1          0x4C001EE0U
 
-#define REG_BUF_CTRL_ADDR(inst)         ((inst) + 0x00000000)
-#define BF_BUF_PUPB_INFO(inst)          ((inst) + 0x00000000), 0x00000100
-#define BF_BUF_PDN_INFO(inst)           ((inst) + 0x00000000), 0x00000101
-#define BF_BUF_SWITCH_EN_INFO(inst)     ((inst) + 0x00000000), 0x00000102
-#define BF_BUF_VIN_INFO(inst)           ((inst) + 0x00000000), 0x00000103
+#define REG_BUF_CTRL_ADDR(inst)         ((uint32_t)(inst) + 0x00000000U)
+#define BF_BUF_PUPB_INFO(inst)          ((uint32_t)(inst) + 0x00000000U), 0x00000100U
+#define BF_BUF_PDN_INFO(inst)           ((uint32_t)(inst) + 0x00000000U), 0x00000101U
+#define BF_BUF_SWITCH_EN_INFO(inst)     ((uint32_t)(inst) + 0x00000000U), 0x00000102U
+#define BF_BUF_VIN_INFO(inst)           ((uint32_t)(inst) + 0x00000000U), 0x00000103U
 
-#define REG_CDAC_N_PDN_ADDR(inst)       ((inst) + 0x00000001)
-#define BF_CDAC_N_DRIFT_PUD_INFO(inst)  ((inst) + 0x00000001), 0x00000400
+#define REG_CDAC_N_PDN_ADDR(inst)       ((uint32_t)(inst) + 0x00000001U)
+#define BF_CDAC_N_DRIFT_PUD_INFO(inst)  ((uint32_t)(inst) + 0x00000001U), 0x00000400U
 
-#define REG_CDAC_N_PUPB_ADDR(inst)      ((inst) + 0x00000002)
-#define BF_CDAC_N_DRIFT_PUUB_INFO(inst) ((inst) + 0x00000002), 0x00000400
+#define REG_CDAC_N_PUPB_ADDR(inst)      ((uint32_t)(inst) + 0x00000002U)
+#define BF_CDAC_N_DRIFT_PUUB_INFO(inst) ((uint32_t)(inst) + 0x00000002U), 0x00000400U
 
-#define REG_CDAC_P_PDN_ADDR(inst)       ((inst) + 0x00000003)
-#define BF_CDAC_P_DRIFT_PUD_INFO(inst)  ((inst) + 0x00000003), 0x00000400
+#define REG_CDAC_P_PDN_ADDR(inst)       ((uint32_t)(inst) + 0x00000003U)
+#define BF_CDAC_P_DRIFT_PUD_INFO(inst)  ((uint32_t)(inst) + 0x00000003U), 0x00000400U
 
-#define REG_CDAC_P_PUPB_ADDR(inst)      ((inst) + 0x00000004)
-#define BF_CDAC_P_DRIFT_PUUB_INFO(inst) ((inst) + 0x00000004), 0x00000400
+#define REG_CDAC_P_PUPB_ADDR(inst)      ((uint32_t)(inst) + 0x00000004U)
+#define BF_CDAC_P_DRIFT_PUUB_INFO(inst) ((uint32_t)(inst) + 0x00000004U), 0x00000400U
 
-#define REG_RDAC_N_PDN0_ADDR(inst)      ((inst) + 0x00000005)
-#define BF_RDAC_N_DRIFT_PUD_INFO(inst)  ((inst) + 0x00000005), 0x00001000
+#define REG_RDAC_N_PDN0_ADDR(inst)      ((uint32_t)(inst) + 0x00000005U)
+#define BF_RDAC_N_DRIFT_PUD_INFO(inst)  ((uint32_t)(inst) + 0x00000005U), 0x00001000U
 
-#define REG_RDAC_N_PDN1_ADDR(inst)      ((inst) + 0x00000006)
+#define REG_RDAC_N_PDN1_ADDR(inst)      ((uint32_t)(inst) + 0x00000006U)
 
-#define REG_RDAC_N_PDN2_ADDR(inst)      ((inst) + 0x00000007)
+#define REG_RDAC_N_PDN2_ADDR(inst)      ((uint32_t)(inst) + 0x00000007U)
 
-#define REG_RDAC_N_PDN3_ADDR(inst)      ((inst) + 0x00000008)
+#define REG_RDAC_N_PDN3_ADDR(inst)      ((uint32_t)(inst) + 0x00000008U)
 
-#define REG_RDAC_N_PUPB0_ADDR(inst)     ((inst) + 0x00000009)
-#define BF_RDAC_N_DRIFT_PUUB_INFO(inst) ((inst) + 0x00000009), 0x00001000
+#define REG_RDAC_N_PUPB0_ADDR(inst)     ((uint32_t)(inst) + 0x00000009U)
+#define BF_RDAC_N_DRIFT_PUUB_INFO(inst) ((uint32_t)(inst) + 0x00000009U), 0x00001000U
 
-#define REG_RDAC_N_PUPB1_ADDR(inst)     ((inst) + 0x0000000A)
+#define REG_RDAC_N_PUPB1_ADDR(inst)     ((uint32_t)(inst) + 0x0000000AU)
 
-#define REG_RDAC_N_PUPB2_ADDR(inst)     ((inst) + 0x0000000B)
+#define REG_RDAC_N_PUPB2_ADDR(inst)     ((uint32_t)(inst) + 0x0000000BU)
 
-#define REG_RDAC_N_PUPB3_ADDR(inst)     ((inst) + 0x0000000C)
+#define REG_RDAC_N_PUPB3_ADDR(inst)     ((uint32_t)(inst) + 0x0000000CU)
 
-#define REG_RDAC_P_PDN0_ADDR(inst)      ((inst) + 0x0000000D)
-#define BF_RDAC_P_DRIFT_PUD_INFO(inst)  ((inst) + 0x0000000D), 0x00001000
+#define REG_RDAC_P_PDN0_ADDR(inst)      ((uint32_t)(inst) + 0x0000000DU)
+#define BF_RDAC_P_DRIFT_PUD_INFO(inst)  ((uint32_t)(inst) + 0x0000000DU), 0x00001000U
 
-#define REG_RDAC_P_PDN1_ADDR(inst)      ((inst) + 0x0000000E)
+#define REG_RDAC_P_PDN1_ADDR(inst)      ((uint32_t)(inst) + 0x0000000EU)
 
-#define REG_RDAC_P_PDN2_ADDR(inst)      ((inst) + 0x0000000F)
+#define REG_RDAC_P_PDN2_ADDR(inst)      ((uint32_t)(inst) + 0x0000000FU)
 
-#define REG_RDAC_P_PDN3_ADDR(inst)      ((inst) + 0x00000010)
+#define REG_RDAC_P_PDN3_ADDR(inst)      ((uint32_t)(inst) + 0x00000010U)
 
-#define REG_RDAC_P_PUPB0_ADDR(inst)     ((inst) + 0x00000011)
-#define BF_RDAC_P_DRIFT_PUUB_INFO(inst) ((inst) + 0x00000011), 0x00001000
+#define REG_RDAC_P_PUPB0_ADDR(inst)     ((uint32_t)(inst) + 0x00000011U)
+#define BF_RDAC_P_DRIFT_PUUB_INFO(inst) ((uint32_t)(inst) + 0x00000011U), 0x00001000U
 
-#define REG_RDAC_P_PUPB1_ADDR(inst)     ((inst) + 0x00000012)
+#define REG_RDAC_P_PUPB1_ADDR(inst)     ((uint32_t)(inst) + 0x00000012U)
 
-#define REG_RDAC_P_PUPB2_ADDR(inst)     ((inst) + 0x00000013)
+#define REG_RDAC_P_PUPB2_ADDR(inst)     ((uint32_t)(inst) + 0x00000013U)
 
-#define REG_RDAC_P_PUPB3_ADDR(inst)     ((inst) + 0x00000014)
+#define REG_RDAC_P_PUPB3_ADDR(inst)     ((uint32_t)(inst) + 0x00000014U)
 
-#define REG_TNEN_CDAC_ADDR(inst)        ((inst) + 0x00000015)
-#define BF_TNEN_CDAC_INFO(inst)         ((inst) + 0x00000015), 0x00000400
+#define REG_TNEN_CDAC_ADDR(inst)        ((uint32_t)(inst) + 0x00000015U)
+#define BF_TNEN_CDAC_INFO(inst)         ((uint32_t)(inst) + 0x00000015U), 0x00000400U
 
-#define REG_TPEN_CDAC_ADDR(inst)        ((inst) + 0x00000016)
-#define BF_TPEN_CDAC_INFO(inst)         ((inst) + 0x00000016), 0x00000400
+#define REG_TPEN_CDAC_ADDR(inst)        ((uint32_t)(inst) + 0x00000016U)
+#define BF_TPEN_CDAC_INFO(inst)         ((uint32_t)(inst) + 0x00000016U), 0x00000400U
 
-#define REG_TNEN_RDAC0_ADDR(inst)       ((inst) + 0x00000017)
-#define BF_TNEN_RDAC_INFO(inst)         ((inst) + 0x00000017), 0x00001000
+#define REG_TNEN_RDAC0_ADDR(inst)       ((uint32_t)(inst) + 0x00000017U)
+#define BF_TNEN_RDAC_INFO(inst)         ((uint32_t)(inst) + 0x00000017U), 0x00001000U
 
-#define REG_TNEN_RDAC1_ADDR(inst)       ((inst) + 0x00000018)
+#define REG_TNEN_RDAC1_ADDR(inst)       ((uint32_t)(inst) + 0x00000018U)
 
-#define REG_TNEN_RDAC2_ADDR(inst)       ((inst) + 0x00000019)
+#define REG_TNEN_RDAC2_ADDR(inst)       ((uint32_t)(inst) + 0x00000019U)
 
-#define REG_TNEN_RDAC3_ADDR(inst)       ((inst) + 0x0000001A)
+#define REG_TNEN_RDAC3_ADDR(inst)       ((uint32_t)(inst) + 0x0000001AU)
 
-#define REG_TPEN_RDAC0_ADDR(inst)       ((inst) + 0x0000001B)
-#define BF_TPEN_RDAC_INFO(inst)         ((inst) + 0x0000001B), 0x00001000
+#define REG_TPEN_RDAC0_ADDR(inst)       ((uint32_t)(inst) + 0x0000001BU)
+#define BF_TPEN_RDAC_INFO(inst)         ((uint32_t)(inst) + 0x0000001BU), 0x00001000U
 
-#define REG_TPEN_RDAC1_ADDR(inst)       ((inst) + 0x0000001C)
+#define REG_TPEN_RDAC1_ADDR(inst)       ((uint32_t)(inst) + 0x0000001CU)
 
-#define REG_TPEN_RDAC2_ADDR(inst)       ((inst) + 0x0000001D)
+#define REG_TPEN_RDAC2_ADDR(inst)       ((uint32_t)(inst) + 0x0000001DU)
 
-#define REG_TPEN_RDAC3_ADDR(inst)       ((inst) + 0x0000001E)
+#define REG_TPEN_RDAC3_ADDR(inst)       ((uint32_t)(inst) + 0x0000001EU)
 
-#endif /* __ADI_APOLLO_BF_CC_SS_CTRL_H__ */
+#endif /* ADI_APOLLO_BF_CC_SS_CTRL_H__ */
 /*! @} */

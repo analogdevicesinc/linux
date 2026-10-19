@@ -12,62 +12,62 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_RX_SMON_H__
-#define __ADI_APOLLO_BF_RX_SMON_H__
+#ifndef ADI_APOLLO_BF_RX_SMON_H__
+#define ADI_APOLLO_BF_RX_SMON_H__
 
 /*============= D E F I N E S ==============*/
-#define RX_SMON0_RX_SLICE_0_RX_DIGITAL0    0x60207000
-#define RX_SMON1_RX_SLICE_0_RX_DIGITAL0    0x60208000
-#define RX_SMON0_RX_SLICE_1_RX_DIGITAL0    0x60407000
-#define RX_SMON1_RX_SLICE_1_RX_DIGITAL0    0x60408000
-#define RX_SMON0_RX_SLICE_0_RX_DIGITAL1    0x60A07000
-#define RX_SMON1_RX_SLICE_0_RX_DIGITAL1    0x60A08000
-#define RX_SMON0_RX_SLICE_1_RX_DIGITAL1    0x60C07000
-#define RX_SMON1_RX_SLICE_1_RX_DIGITAL1    0x60C08000
+#define RX_SMON0_RX_SLICE_0_RX_DIGITAL0    0x60207000U
+#define RX_SMON1_RX_SLICE_0_RX_DIGITAL0    0x60208000U
+#define RX_SMON0_RX_SLICE_1_RX_DIGITAL0    0x60407000U
+#define RX_SMON1_RX_SLICE_1_RX_DIGITAL0    0x60408000U
+#define RX_SMON0_RX_SLICE_0_RX_DIGITAL1    0x60A07000U
+#define RX_SMON1_RX_SLICE_0_RX_DIGITAL1    0x60A08000U
+#define RX_SMON0_RX_SLICE_1_RX_DIGITAL1    0x60C07000U
+#define RX_SMON1_RX_SLICE_1_RX_DIGITAL1    0x60C08000U
 
-#define REG_SMON_CLK_EN_ADDR(inst)         ((inst) + 0x00000000)
-#define BF_SMON_SFRAMER_MODE_EN_INFO(inst) ((inst) + 0x00000000), 0x00000201
+#define REG_SMON_CLK_EN_ADDR(inst)         ((uint32_t)(inst) + 0x00000000U)
+#define BF_SMON_SFRAMER_MODE_EN_INFO(inst) ((uint32_t)(inst) + 0x00000000U), 0x00000201U
 
-#define REG_SMON_STATUS_FCNT_ADDR(inst)    ((inst) + 0x00000001)
-#define BF_SMON_STATUS_FCNT_INFO(inst)     ((inst) + 0x00000001), 0x00000800
+#define REG_SMON_STATUS_FCNT_ADDR(inst)    ((uint32_t)(inst) + 0x00000001U)
+#define BF_SMON_STATUS_FCNT_INFO(inst)     ((uint32_t)(inst) + 0x00000001U), 0x00000800U
 
-#define REG_SMON_PERIOD0_ADDR(inst)        ((inst) + 0x00000002)
-#define BF_SMON_PERIOD_INFO(inst)          ((inst) + 0x00000002), 0x00002000
+#define REG_SMON_PERIOD0_ADDR(inst)        ((uint32_t)(inst) + 0x00000002U)
+#define BF_SMON_PERIOD_INFO(inst)          ((uint32_t)(inst) + 0x00000002U), 0x00002000U
 
-#define REG_SMON_PERIOD1_ADDR(inst)        ((inst) + 0x00000003)
+#define REG_SMON_PERIOD1_ADDR(inst)        ((uint32_t)(inst) + 0x00000003U)
 
-#define REG_SMON_PERIOD2_ADDR(inst)        ((inst) + 0x00000004)
+#define REG_SMON_PERIOD2_ADDR(inst)        ((uint32_t)(inst) + 0x00000004U)
 
-#define REG_SMON_PERIOD3_ADDR(inst)        ((inst) + 0x00000005)
+#define REG_SMON_PERIOD3_ADDR(inst)        ((uint32_t)(inst) + 0x00000005U)
 
-#define REG_SMON_STATUS_CTRL_ADDR(inst)    ((inst) + 0x00000006)
-#define BF_SMON_STATUS_UPDATE_INFO(inst)   ((inst) + 0x00000006), 0x00000100
-#define BF_SMON_STATUS_RDSEL_INFO(inst)    ((inst) + 0x00000006), 0x00000301
-#define BF_SMON_PEAK_EN_INFO(inst)         ((inst) + 0x00000006), 0x00000104
-#define BF_SMON_JLINK_SEL_INFO(inst)       ((inst) + 0x00000006), 0x00000105
-#define BF_SMON_GPIO_EN_INFO(inst)         ((inst) + 0x00000006), 0x00000106
+#define REG_SMON_STATUS_CTRL_ADDR(inst)    ((uint32_t)(inst) + 0x00000006U)
+#define BF_SMON_STATUS_UPDATE_INFO(inst)   ((uint32_t)(inst) + 0x00000006U), 0x00000100U
+#define BF_SMON_STATUS_RDSEL_INFO(inst)    ((uint32_t)(inst) + 0x00000006U), 0x00000301U
+#define BF_SMON_PEAK_EN_INFO(inst)         ((uint32_t)(inst) + 0x00000006U), 0x00000104U
+#define BF_SMON_JLINK_SEL_INFO(inst)       ((uint32_t)(inst) + 0x00000006U), 0x00000105U
+#define BF_SMON_GPIO_EN_INFO(inst)         ((uint32_t)(inst) + 0x00000006U), 0x00000106U
 
-#define REG_SMON_FRAMER_ADDR(inst)         ((inst) + 0x00000007)
-#define BF_SMON_SFRAMER_EN_INFO(inst)      ((inst) + 0x00000007), 0x00000100
-#define BF_SMON_SFRAMER_MODE_INFO(inst)    ((inst) + 0x00000007), 0x00000101
-#define BF_SMON_SFRAMER_INSEL_INFO(inst)   ((inst) + 0x00000007), 0x00000602
+#define REG_SMON_FRAMER_ADDR(inst)         ((uint32_t)(inst) + 0x00000007U)
+#define BF_SMON_SFRAMER_EN_INFO(inst)      ((uint32_t)(inst) + 0x00000007U), 0x00000100U
+#define BF_SMON_SFRAMER_MODE_INFO(inst)    ((uint32_t)(inst) + 0x00000007U), 0x00000101U
+#define BF_SMON_SFRAMER_INSEL_INFO(inst)   ((uint32_t)(inst) + 0x00000007U), 0x00000602U
 
-#define REG_SMON_SYNC_CTRL_ADDR(inst)      ((inst) + 0x00000008)
-#define BF_SMON_SYNC_EN_INFO(inst)         ((inst) + 0x00000008), 0x00000100
-#define BF_SMON_SYNC_NEXT_INFO(inst)       ((inst) + 0x00000008), 0x00000101
+#define REG_SMON_SYNC_CTRL_ADDR(inst)      ((uint32_t)(inst) + 0x00000008U)
+#define BF_SMON_SYNC_EN_INFO(inst)         ((uint32_t)(inst) + 0x00000008U), 0x00000100U
+#define BF_SMON_SYNC_NEXT_INFO(inst)       ((uint32_t)(inst) + 0x00000008U), 0x00000101U
 
-#define REG_SMON_STATUS_ADDR(inst, n)      ((inst) + 0x00000009 + 1 * (n))
-#define BF_SMON_STATUS_INFO(inst, n)       ((inst) + 0x00000009 + 1 * (n)), 0x00000800
+#define REG_SMON_STATUS_ADDR(inst, n)      ((uint32_t)(inst) + 0x00000009U + 1U * (uint32_t)(n))
+#define BF_SMON_STATUS_INFO(inst, n)       ((uint32_t)(inst) + 0x00000009U + 1U * (uint32_t)(n)), 0x00000800U
 
-#define REG_SMON_THRESH_LOW0_ADDR(inst)    ((inst) + 0x0000000C)
-#define BF_SMON_THRESH_LOW_INFO(inst)      ((inst) + 0x0000000C), 0x00000B00
+#define REG_SMON_THRESH_LOW0_ADDR(inst)    ((uint32_t)(inst) + 0x0000000CU)
+#define BF_SMON_THRESH_LOW_INFO(inst)      ((uint32_t)(inst) + 0x0000000CU), 0x00000B00U
 
-#define REG_SMON_THRESH_LOW1_ADDR(inst)    ((inst) + 0x0000000D)
+#define REG_SMON_THRESH_LOW1_ADDR(inst)    ((uint32_t)(inst) + 0x0000000DU)
 
-#define REG_SMON_THRESH_HIGH0_ADDR(inst)   ((inst) + 0x0000000E)
-#define BF_SMON_THRESH_HIGH_INFO(inst)     ((inst) + 0x0000000E), 0x00000B00
+#define REG_SMON_THRESH_HIGH0_ADDR(inst)   ((uint32_t)(inst) + 0x0000000EU)
+#define BF_SMON_THRESH_HIGH_INFO(inst)     ((uint32_t)(inst) + 0x0000000EU), 0x00000B00U
 
-#define REG_SMON_THRESH_HIGH1_ADDR(inst)   ((inst) + 0x0000000F)
+#define REG_SMON_THRESH_HIGH1_ADDR(inst)   ((uint32_t)(inst) + 0x0000000FU)
 
-#endif /* __ADI_APOLLO_BF_RX_SMON_H__ */
+#endif /* ADI_APOLLO_BF_RX_SMON_H__ */
 /*! @} */

@@ -25,9 +25,9 @@
 
 #define DEFAULT_FFT_TIMEOUT_US 1000
 
-static uint32_t calc_rx_sniffer_base(int32_t sniffer_index);
-static uint32_t calc_rx_datin_base(int32_t sniffer_index);
-static uint32_t calc_adc_mux(adi_apollo_adc_idx_e adc);
+static uint32_t calc_rx_sniffer_base(uint32_t sniffer_index);
+static uint32_t calc_rx_datin_base_from_side(uint32_t sniffer_index);
+static uint32_t calc_adc_mux(uint16_t adc);
 
 /*==================== P U B L I C   A P I   C O D E ====================*/
 
@@ -42,9 +42,11 @@ int32_t adi_apollo_sniffer_enable_set(adi_apollo_device_t *device, adi_apollo_bl
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_RX, ADI_APOLLO_EC_FFT_SPECTURMSNIFFER_LOCK);
     ADI_APOLLO_SNIFFER_BLK_SEL_MASK(sniffers);
 
-    for (side_index = 0; side_index < ADI_APOLLO_SNIFFER_NUM; side_index++) {
-        side = sniffers & (ADI_APOLLO_SNIFFER_A << side_index);
-        if (side > 0) {
+    err = (int32_t)API_CMS_ERROR_OK;
+
+    for (side_index = 0U; side_index < ADI_APOLLO_SNIFFER_NUM; side_index++) {
+        side = (uint16_t)(sniffers & ((uint32_t)ADI_APOLLO_SNIFFER_A << side_index));
+        if (side > 0U) {
 
             regmap_base_addr = calc_rx_sniffer_base(side_index);
             // Spectrum sniffer enable
@@ -53,7 +55,7 @@ int32_t adi_apollo_sniffer_enable_set(adi_apollo_device_t *device, adi_apollo_bl
         }
     }
 
-    return err;   
+    ADI_CMS_RETURN(err);   
 }
 
 int32_t adi_apollo_sniffer_adc_mux_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t sniffers, uint16_t adc) {
@@ -65,22 +67,24 @@ int32_t adi_apollo_sniffer_adc_mux_set(adi_apollo_device_t *device, adi_apollo_b
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_RX, ADI_APOLLO_EC_FFT_SPECTURMSNIFFER_LOCK);
-    ADI_APOLLO_INVALID_PARAM_RETURN( ! (adc == ADI_APOLLO_ADC_0 || adc == ADI_APOLLO_ADC_1 || adc == ADI_APOLLO_ADC_2 || adc == ADI_APOLLO_ADC_3));
+    ADI_APOLLO_INVALID_PARAM_RETURN( ! (adc == (uint16_t)ADI_APOLLO_ADC_0 || adc == (uint16_t)ADI_APOLLO_ADC_1 || adc == (uint16_t)ADI_APOLLO_ADC_2 || adc == (uint16_t)ADI_APOLLO_ADC_3));
     ADI_APOLLO_SNIFFER_BLK_SEL_MASK(sniffers);
 
-    for (side_index = 0; side_index < ADI_APOLLO_SNIFFER_NUM; side_index++) {
-        side = sniffers & (ADI_APOLLO_SNIFFER_A << side_index);
-        if (side > 0) {
+    err = (int32_t)API_CMS_ERROR_OK;
 
-            regmap_base_addr = calc_rx_datin_base(side_index);
+    for (side_index = 0U; side_index < ADI_APOLLO_SNIFFER_NUM; side_index++) {
+        side = (uint16_t)(sniffers & ((uint32_t)ADI_APOLLO_SNIFFER_A << side_index));
+        if (side > 0U) {
+
+            regmap_base_addr = calc_rx_datin_base_from_side(side_index);
 
             // ADC mux   
-            err = adi_apollo_hal_bf_set(device, BF_ADC_0_MUX_SEL_INFO(regmap_base_addr), calc_adc_mux(adc));
+            err = adi_apollo_hal_bf_set(device, BF_ADC_0_MUX_SEL_INFO(regmap_base_addr), (uint64_t)calc_adc_mux(adc));
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return err;   
+    ADI_CMS_RETURN(err);   
 }
 
 int32_t adi_apollo_sniffer_init(adi_apollo_device_t *device, adi_apollo_blk_sel_t sniffers, adi_apollo_sniffer_init_t *config) {
@@ -96,9 +100,11 @@ int32_t adi_apollo_sniffer_init(adi_apollo_device_t *device, adi_apollo_blk_sel_
     ADI_APOLLO_NULL_POINTER_RETURN(config);
     ADI_APOLLO_SNIFFER_BLK_SEL_MASK(sniffers);
 
-    for (side_index = 0; side_index < ADI_APOLLO_SNIFFER_NUM; side_index++) {
-        side = sniffers & (ADI_APOLLO_SNIFFER_A << side_index);
-        if (side > 0) {
+    err = (int32_t)API_CMS_ERROR_OK;
+
+    for (side_index = 0U; side_index < ADI_APOLLO_SNIFFER_NUM; side_index++) {
+        side = (uint16_t)(sniffers & ((uint32_t)ADI_APOLLO_SNIFFER_A << side_index));
+        if (side > 0U) {
 
             regmap_base_addr = calc_rx_sniffer_base(side_index);
             // Spectrum sniffer enable
@@ -127,7 +133,7 @@ int32_t adi_apollo_sniffer_init(adi_apollo_device_t *device, adi_apollo_blk_sel_
         }
     }
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 int32_t adi_apollo_sniffer_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel_t sniffers, adi_apollo_sniffer_pgm_t *config) {
@@ -147,38 +153,38 @@ int32_t adi_apollo_sniffer_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel_t
 
     // Get parameters for different modes
 
-    if (config->sniffer_mode > ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE) {  // IQ mode
+    if ((config->sniffer_mode > ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE)) {  // IQ mode
         mag_iq = 0;
     } else {                                                            // Magnitude mode
         mag_iq = 1;
     }
 
-    if (config->sniffer_mode % 2 == 1) {                                // Instantaneous/debug mode
+    if ((config->sniffer_mode % 2U) == 1U) {                                // Instantaneous/debug mode
         force_sort_store = 1;
     } else {                                                            // Normal mode
         force_sort_store = 0;
     }
 
-    if (config->sniffer_mode > ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE) {
-        ADI_APOLLO_INVALID_PARAM_RETURN(config->sort_enable != 0);
-        ADI_APOLLO_INVALID_PARAM_RETURN(config->bottom_fft_enable != 0);
-        ADI_APOLLO_INVALID_PARAM_RETURN(config->continuous_mode == 1);
+    if ((config->sniffer_mode > ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE)) {
+        ADI_APOLLO_INVALID_PARAM_RETURN(config->sort_enable != 0U);
+        ADI_APOLLO_INVALID_PARAM_RETURN(config->bottom_fft_enable != 0U);
+        ADI_APOLLO_INVALID_PARAM_RETURN(config->continuous_mode == 1U);
     }
 
-    if (config->continuous_mode == 1) {
-        ADI_APOLLO_INVALID_PARAM_RETURN(config->alpha_factor != 0);
+    if (config->continuous_mode == 1U) {
+        ADI_APOLLO_INVALID_PARAM_RETURN(config->alpha_factor != 0U);
     }
 
-    ADI_APOLLO_INVALID_PARAM_RETURN(config->alpha_factor > 9); // alpha factor can be 0 - 9
+    ADI_APOLLO_INVALID_PARAM_RETURN(config->alpha_factor > 9U); // alpha factor can be 0 - 9
 
     // Set values per side
 
     err = adi_apollo_sniffer_adc_mux_set(device, sniffers, config->adc);
     ADI_APOLLO_ERROR_RETURN(err);
     
-    for (side_index = 0; side_index < ADI_APOLLO_SNIFFER_NUM; side_index++) {
-        side = sniffers & (ADI_APOLLO_SNIFFER_A << side_index);
-        if (side > 0) {
+    for (side_index = 0U; side_index < ADI_APOLLO_SNIFFER_NUM; side_index++) {
+        side = (uint16_t)(sniffers & ((uint32_t)ADI_APOLLO_SNIFFER_A << side_index));
+        if (side > 0U) {
 
             regmap_base_addr = calc_rx_sniffer_base(side_index);
 
@@ -220,11 +226,11 @@ int32_t adi_apollo_sniffer_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel_t
         }
     }
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 int32_t adi_apollo_sniffer_fft_enable_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t sniffers, uint8_t enable) {
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
     uint32_t regmap_base_addr = 0;
     uint16_t s;
 
@@ -233,19 +239,19 @@ int32_t adi_apollo_sniffer_fft_enable_set(adi_apollo_device_t *device, adi_apoll
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_RX, ADI_APOLLO_EC_FFT_SPECTURMSNIFFER_LOCK);
     ADI_APOLLO_SNIFFER_BLK_SEL_MASK(sniffers);
 
-    for (s = 0; s < ADI_APOLLO_SNIFFER_NUM; s++) {
-        if (sniffers & (1 << s)) {
+    for (s = 0U; s < ADI_APOLLO_SNIFFER_NUM; s++) {
+        if ((sniffers & (1U << s)) != 0U) {
             regmap_base_addr = calc_rx_sniffer_base(s);
             err = adi_apollo_hal_bf_set(device, BF_FFT_ENABLE_INFO(regmap_base_addr), enable);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 int32_t adi_apollo_sniffer_fft_hold_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t sniffers, uint8_t hold) {
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
     uint32_t regmap_base_addr = 0;
     uint16_t s;
 
@@ -254,38 +260,38 @@ int32_t adi_apollo_sniffer_fft_hold_set(adi_apollo_device_t *device, adi_apollo_
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_RX, ADI_APOLLO_EC_FFT_SPECTURMSNIFFER_LOCK);
     ADI_APOLLO_SNIFFER_BLK_SEL_MASK(sniffers);
 
-    for (s = 0; s < ADI_APOLLO_SNIFFER_NUM; s++) {
-        if (sniffers & (1 << s)) {
+    for (s = 0U; s < ADI_APOLLO_SNIFFER_NUM; s++) {
+        if ((sniffers & (1U << s)) != 0U) {
             regmap_base_addr = calc_rx_sniffer_base(s);
             err = adi_apollo_hal_bf_set(device, BF_FFT_HOLD_INFO(regmap_base_addr), hold);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 int32_t adi_apollo_sniffer_fft_done_get(adi_apollo_device_t *device, adi_apollo_blk_sel_t sniffers, uint8_t *done) {
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
     uint32_t regmap_base_addr = 0;
     uint16_t s;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_RX, ADI_APOLLO_EC_FFT_SPECTURMSNIFFER_LOCK);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(sniffers) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(sniffers) != 1U);
     ADI_APOLLO_NULL_POINTER_RETURN(done);
     ADI_APOLLO_SNIFFER_BLK_SEL_MASK(sniffers);
 
-    for (s = 0; s < ADI_APOLLO_SNIFFER_NUM; s++) {
-        if (sniffers & (1 << s)) {
+    for (s = 0U; s < ADI_APOLLO_SNIFFER_NUM; s++) {
+        if ((sniffers & (1U << s)) != 0U) {
             regmap_base_addr = calc_rx_sniffer_base(s);
             err = adi_apollo_hal_bf_get(device, BF_FFT_DONE_INFO(regmap_base_addr), done, 1);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 int32_t adi_apollo_sniffer_fft_data_get(adi_apollo_device_t *device, adi_apollo_blk_sel_t sniffers, adi_apollo_sniffer_param_t *config, adi_apollo_sniffer_fft_data_t *fft_data_params) {
@@ -305,11 +311,13 @@ int32_t adi_apollo_sniffer_fft_data_get(adi_apollo_device_t *device, adi_apollo_
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_RX, ADI_APOLLO_EC_FFT_SPECTURMSNIFFER_LOCK);
     ADI_APOLLO_NULL_POINTER_RETURN(fft_data_params);
     ADI_APOLLO_NULL_POINTER_RETURN(config);
-    ADI_APOLLO_INVALID_PARAM_RETURN(sniffers > ADI_APOLLO_SNIFFER_B);
+    ADI_APOLLO_INVALID_PARAM_RETURN(sniffers > (adi_apollo_blk_sel_t)ADI_APOLLO_SNIFFER_B);
     ADI_APOLLO_INVALID_PARAM_RETURN(config->init.real_mode && config->pgm.sniffer_mode > ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE); // Real mode has no meaning in IQ mode
     ADI_APOLLO_SNIFFER_BLK_SEL_MASK(sniffers);
 
-    side = (sniffers == ADI_APOLLO_SNIFFER_A) ? 0 : 1;
+    err = (int32_t)API_CMS_ERROR_OK;
+
+    side = (sniffers == (adi_apollo_blk_sel_t)ADI_APOLLO_SNIFFER_A) ? (uint16_t)0U : (uint16_t)1U;
     regmap_base_addr = calc_rx_sniffer_base(side);
 
     // Update fft data with meta info
@@ -329,7 +337,7 @@ int32_t adi_apollo_sniffer_fft_data_get(adi_apollo_device_t *device, adi_apollo_
         ADI_APOLLO_ERROR_RETURN(err);
         
         // Read Bin number / Q data
-        if (config->pgm.sniffer_mode > ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE || config->pgm.sort_enable) { // IQ mode or sorting enabled
+        if ((config->pgm.sniffer_mode > ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE) || config->pgm.sort_enable) { // IQ mode or sorting enabled
             err = adi_apollo_hal_bf_get(device, BF_BIN_NUMBER_Q_INFO(regmap_base_addr, k),
                                         (uint8_t *) &fft_data_params->bin_q_data[k], 2);
             ADI_APOLLO_ERROR_RETURN(err);
@@ -340,7 +348,7 @@ int32_t adi_apollo_sniffer_fft_data_get(adi_apollo_device_t *device, adi_apollo_
 
     // Read bin threshold values (magnitude mode only)
     if (config->pgm.sniffer_mode <= ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE) { // Mag mode
-        for (k = 0; k < fft_data_params->valid_data_length/8; k++) {
+        for (k = 0U; k < (fft_data_params->valid_data_length/ 8U); k++) {
             //for reading bins above threshold and below threshold
 
             err = adi_apollo_hal_bf_get(device, BF_MAX_THRESHOLD_BIN_INFO(regmap_base_addr, k), &max_threshold_tmp, 1);
@@ -349,16 +357,16 @@ int32_t adi_apollo_sniffer_fft_data_get(adi_apollo_device_t *device, adi_apollo_
             err = adi_apollo_hal_bf_get(device, BF_MIN_THRESHOLD_BIN_INFO(regmap_base_addr, k), &min_threshold_tmp, 1);
             ADI_APOLLO_ERROR_RETURN(err);
             
-            for (j = 0 ; j < 8; j++) {
+            for (j = 0U ; j < 8U; j++) {
 
-                fft_data_params->bin_above_threshold[k*8 + j] = ((max_threshold_tmp & (1 << j)) > 0) ? 1 : 0;
-                fft_data_params->bin_below_threshold[k*8 + j] = ((min_threshold_tmp & (1 << j)) > 0) ? 1 : 0;
+                fft_data_params->bin_above_threshold[(k* 8U) + j] = ((max_threshold_tmp & (1U << j)) > 0U) ? 1U : 0U;
+                fft_data_params->bin_below_threshold[(k* 8U) + j] = ((min_threshold_tmp & (1U << j)) > 0U) ? 1U : 0U;
             }
         }
 
     }
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 int32_t adi_apollo_sniffer_data_get(adi_apollo_device_t *device, adi_apollo_blk_sel_t sniffers, adi_apollo_sniffer_param_t *config, adi_apollo_sniffer_fft_data_t *fft_data_params) {
@@ -373,15 +381,15 @@ int32_t adi_apollo_sniffer_data_get(adi_apollo_device_t *device, adi_apollo_blk_
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_RX, ADI_APOLLO_EC_FFT_SPECTURMSNIFFER_LOCK);
     ADI_APOLLO_NULL_POINTER_RETURN(fft_data_params);
     ADI_APOLLO_NULL_POINTER_RETURN(config);
-    ADI_APOLLO_INVALID_PARAM_RETURN(sniffers > ADI_APOLLO_SNIFFER_B);
+    ADI_APOLLO_INVALID_PARAM_RETURN(sniffers > (adi_apollo_blk_sel_t)ADI_APOLLO_SNIFFER_B);
     ADI_APOLLO_INVALID_PARAM_RETURN(config->init.real_mode && config->pgm.sniffer_mode > ADI_APOLLO_SNIFFER_INSTANT_MAGNITUDE); // Real mode has no meaning in IQ mode
-    ADI_APOLLO_INVALID_PARAM_RETURN(config->init.fft_enable_sel == ADI_APOLLO_SNIFFER_GPIO_INPUT);
-    ADI_APOLLO_INVALID_PARAM_RETURN(config->init.fft_hold_sel == ADI_APOLLO_SNIFFER_GPIO_INPUT);
+    ADI_APOLLO_INVALID_PARAM_RETURN(config->init.fft_enable_sel == (uint8_t)ADI_APOLLO_SNIFFER_GPIO_INPUT);
+    ADI_APOLLO_INVALID_PARAM_RETURN(config->init.fft_hold_sel == (uint8_t)ADI_APOLLO_SNIFFER_GPIO_INPUT);
     ADI_APOLLO_SNIFFER_BLK_SEL_MASK(sniffers);
 
 
     fft_timeout = config->read.timeout_us ? config->read.timeout_us : DEFAULT_FFT_TIMEOUT_US;
-    do_fft_timeout = (config->pgm.sniffer_mode % 2 == 1 || config->read.timeout_us) ? 1 : 0;  // Do timeout for instantaneous mode or if timeout is set
+    do_fft_timeout = (((config->pgm.sniffer_mode % 2U) == 1U) || (config->read.timeout_us != 0U)) ? 1U : 0U;  // Do timeout for instantaneous mode or if timeout is set
 
     // Data request sequence
 
@@ -394,21 +402,22 @@ int32_t adi_apollo_sniffer_data_get(adi_apollo_device_t *device, adi_apollo_blk_
     ADI_APOLLO_ERROR_RETURN(err);
 
     // Wait for fft_done to go high
-    while(fft_done == 0) {
+    while(fft_done == 0U) {
         err = adi_apollo_sniffer_fft_done_get(device, sniffers, &fft_done);
         ADI_APOLLO_ERROR_RETURN(err);
 
-        if (do_fft_timeout) {
-            device->hal_info.delay_us(device, 1);
+        if (do_fft_timeout != 0U) {
+            err = device->hal_info.delay_us(device, 1);
+            ADI_APOLLO_ERROR_RETURN(err);
             fft_timeout--;
-            if (! fft_timeout ) {
-                return API_CMS_ERROR_OPERATION_TIMEOUT;
+            if (fft_timeout == 0U) {
+                ADI_CMS_RETURN(API_CMS_ERROR_OPERATION_TIMEOUT);
             }
         }
     }
 
     // Disable fft engine
-    if (! config->read.run_fft_engine_background) {
+    if (config->read.run_fft_engine_background == 0U) {
         err = adi_apollo_sniffer_fft_enable_set(device, sniffers, 0);
         ADI_APOLLO_ERROR_RETURN(err);
     }
@@ -419,10 +428,10 @@ int32_t adi_apollo_sniffer_data_get(adi_apollo_device_t *device, adi_apollo_blk_
     err = adi_apollo_sniffer_fft_data_get(device, sniffers, config, fft_data_params);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
-static uint32_t calc_rx_sniffer_base(int32_t sniffer_index)
+static uint32_t calc_rx_sniffer_base(uint32_t sniffer_index)
 {
     static uint32_t sniffer_addr[] = {
         RX_SPECTRUM_SNIFFER_RX_SLICE_0_RX_DIGITAL0, RX_SPECTRUM_SNIFFER_RX_SLICE_0_RX_DIGITAL1
@@ -431,7 +440,7 @@ static uint32_t calc_rx_sniffer_base(int32_t sniffer_index)
     return sniffer_addr[sniffer_index];
 }
 
-static uint32_t calc_rx_datin_base(int32_t sniffer_index)
+static uint32_t calc_rx_datin_base_from_side(uint32_t sniffer_index)
 {
     static uint32_t datin_addr[] = {
         RX_DATIN_RX_SLICE_0_RX_DIGITAL0, RX_DATIN_RX_SLICE_0_RX_DIGITAL1
@@ -440,12 +449,12 @@ static uint32_t calc_rx_datin_base(int32_t sniffer_index)
     return datin_addr[sniffer_index];
 }
 
-static uint32_t calc_adc_mux(adi_apollo_adc_idx_e adc)
+static uint32_t calc_adc_mux(uint16_t adc)
 {
-    uint8_t i;
+    uint32_t i;
 
     for (i = 0; i < ADI_APOLLO_ADC_PER_SIDE_NUM; i++) {
-        if ((1 << i) & adc) {
+        if (((uint32_t)(1U << i) & (uint32_t)adc) != 0U) {
             return i;
         }
     }

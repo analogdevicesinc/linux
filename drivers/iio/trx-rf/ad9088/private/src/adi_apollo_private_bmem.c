@@ -18,25 +18,24 @@
 #include "adi_apollo_bf_rx_bmem.h"
 #include "adi_apollo_config.h"
 #include "adi_apollo_hal.h"
-#include "linux/gfp_types.h"
-#include "linux/slab.h"
 #ifdef __KERNEL__
 #include <linux/cleanup.h>
+#include <linux/slab.h>
 #endif
 
 #define TIMEOUT_US 100000
 #define POLL_DELAY_US 10
 
 /*==================== L O C A L   F U N C T I O N S ====================*/
-typedef uint32_t(*calc_bmem_base_f)(int32_t bmem_index);
+typedef uint32_t(*calc_bmem_base_f)(uint32_t bmem_index);
 
-static uint32_t calc_bmem_hsdin_base(int32_t bmem_index);
-static uint32_t calc_bmem_fddc_base(int32_t bmem_index);
-static uint32_t calc_bmem_cddc_base(int32_t bmem_index);
-static uint32_t calc_hsdin_bmem_sram_base(int32_t bmem_index);
-static uint32_t calc_fine_bmem_sram_base(int32_t bmem_index);
-static uint32_t calc_coarse_bmem_sram_base(int32_t bmem_index);
-static uint32_t calc_hsdin_bmem_sram_base(int32_t bmem_index);
+static uint32_t calc_bmem_hsdin_base(uint32_t bmem_index);
+static uint32_t calc_bmem_fddc_base(uint32_t bmem_index);
+static uint32_t calc_bmem_cddc_base(uint32_t bmem_index);
+static uint32_t calc_hsdin_bmem_sram_base(uint32_t bmem_index);
+static uint32_t calc_fine_bmem_sram_base(uint32_t bmem_index);
+static uint32_t calc_coarse_bmem_sram_base(uint32_t bmem_index);
+static uint32_t calc_hsdin_bmem_sram_base(uint32_t bmem_index);
 
 static calc_bmem_base_f calc_bmem_base_func(adi_apollo_bmem_loc_e bmem_loc);
 static calc_bmem_base_f calc_sram_base_func(adi_apollo_bmem_loc_e bmem_loc);
@@ -45,8 +44,8 @@ static calc_bmem_base_f calc_sram_base_func(adi_apollo_bmem_loc_e bmem_loc);
 
 int32_t adi_apollo_private_bmem_delay_sample_set(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc, adi_apollo_blk_sel_t bmems, uint16_t sample_delay)
 {
-    int32_t err = API_CMS_ERROR_OK;
-    int32_t i;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
+    uint32_t i;
     uint32_t regmap_base_addr;
     calc_bmem_base_f calc_bmem_base;
     calc_bmem_base = calc_bmem_base_func(bmem_loc);
@@ -55,23 +54,23 @@ int32_t adi_apollo_private_bmem_delay_sample_set(adi_apollo_device_t *device, ad
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_BMEM_BLK_SEL_MASK(bmems);
 
-    for (i = 0; i < ADI_APOLLO_BMEM_NUM; i++) {
-        if ((bmems & (ADI_APOLLO_BMEM_A0 << i)) > 0) {
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
             regmap_base_addr = calc_bmem_base(i);
 
-            // Set sample delay
+            // Set sample delay 
             err = adi_apollo_hal_bf_set(device, BF_SAMPLE_DLY_INFO(regmap_base_addr), sample_delay);
             ADI_CMS_ERROR_RETURN(err);
         }
     }
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 int32_t adi_apollo_private_bmem_delay_hop_set(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc, adi_apollo_blk_sel_t bmems, uint16_t sample_delay[], uint32_t sample_delay_length)
 {
-    int32_t err = API_CMS_ERROR_OK;
-    int32_t i;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
+    uint32_t i;
     uint32_t regmap_base_addr;
     calc_bmem_base_f calc_bmem_base;
     calc_bmem_base = calc_bmem_base_func(bmem_loc);
@@ -82,8 +81,8 @@ int32_t adi_apollo_private_bmem_delay_hop_set(adi_apollo_device_t *device, adi_a
     ADI_CMS_INVALID_PARAM_CHECK(sample_delay_length != ADI_APOLLO_BMEM_HOP_PROFILES);
     ADI_APOLLO_BMEM_BLK_SEL_MASK(bmems);
 
-    for (i = 0; i < ADI_APOLLO_BMEM_NUM; i++) {
-        if ((bmems & (ADI_APOLLO_BMEM_A0 << i)) > 0) {
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
             regmap_base_addr = calc_bmem_base(i);
 
             // Set hop delays
@@ -101,13 +100,13 @@ int32_t adi_apollo_private_bmem_delay_hop_set(adi_apollo_device_t *device, adi_a
         }
     }
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 int32_t adi_apollo_private_bmem_delay_sample_config(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc, adi_apollo_blk_sel_t bmems, adi_apollo_bmem_delay_sample_t *config)
 {
     int32_t err;
-    int32_t i;
+    uint32_t i;
     uint32_t regmap_base_addr;
     calc_bmem_base_f calc_bmem_base;
     calc_bmem_base = calc_bmem_base_func(bmem_loc);
@@ -117,8 +116,8 @@ int32_t adi_apollo_private_bmem_delay_sample_config(adi_apollo_device_t *device,
     ADI_CMS_NULL_PTR_CHECK(config);
     ADI_APOLLO_BMEM_BLK_SEL_MASK(bmems);
 
-    for (i = 0; i < ADI_APOLLO_BMEM_NUM; i++) {
-        if ((bmems & (ADI_APOLLO_BMEM_A0 << i)) > 0) {
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
             regmap_base_addr = calc_bmem_base(i);
 
             // Enable BMEM
@@ -142,7 +141,7 @@ int32_t adi_apollo_private_bmem_delay_sample_config(adi_apollo_device_t *device,
             err = adi_apollo_hal_bf_set(device, BF_HOP_DLY_SEL_MODE_INFO(regmap_base_addr), 0);
             ADI_CMS_ERROR_RETURN(err);
 
-
+            
             // Set parity check
             err = adi_apollo_hal_bf_set(device, BF_PARITY_CHECK_EN_INFO(regmap_base_addr), config->parity_check_en);
             ADI_CMS_ERROR_RETURN(err);
@@ -152,13 +151,13 @@ int32_t adi_apollo_private_bmem_delay_sample_config(adi_apollo_device_t *device,
     err = adi_apollo_private_bmem_delay_sample_set(device, bmem_loc, bmems, config->sample_delay);
     ADI_CMS_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_private_bmem_delay_hop_config(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc, adi_apollo_blk_sel_t bmems, adi_apollo_bmem_delay_hop_t *config)
 {
     int32_t err;
-    int32_t i;
+    uint32_t i;
     uint32_t regmap_base_addr;
     calc_bmem_base_f calc_bmem_base;
     calc_bmem_base = calc_bmem_base_func(bmem_loc);
@@ -168,8 +167,8 @@ int32_t adi_apollo_private_bmem_delay_hop_config(adi_apollo_device_t *device, ad
     ADI_CMS_NULL_PTR_CHECK(config);
     ADI_APOLLO_BMEM_BLK_SEL_MASK(bmems);
 
-    for (i = 0; i < ADI_APOLLO_BMEM_NUM; i++) {
-        if ((bmems & (ADI_APOLLO_BMEM_A0 << i)) > 0) {
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
             regmap_base_addr = calc_bmem_base(i);
 
             // Enable BMEM
@@ -197,7 +196,7 @@ int32_t adi_apollo_private_bmem_delay_hop_config(adi_apollo_device_t *device, ad
             // Set trigger mode self clear
             err = adi_apollo_hal_bf_set(device, BF_TRIG_MODE_SCLR_EN_INFO(regmap_base_addr), config->trig_mode_sclr_en);
             ADI_CMS_ERROR_RETURN(err);
-
+            
             // Set parity check
             err = adi_apollo_hal_bf_set(device, BF_PARITY_CHECK_EN_INFO(regmap_base_addr), config->parity_check_en);
             ADI_CMS_ERROR_RETURN(err);
@@ -207,7 +206,7 @@ int32_t adi_apollo_private_bmem_delay_hop_config(adi_apollo_device_t *device, ad
     err = adi_apollo_private_bmem_delay_hop_set(device, bmem_loc, bmems, config->hop_delay, ADI_APOLLO_BMEM_HOP_PROFILES);
     ADI_CMS_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_private_bmem_delay_start(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc, adi_apollo_blk_sel_t bmems)
@@ -222,8 +221,8 @@ int32_t adi_apollo_private_bmem_delay_start(adi_apollo_device_t *device, adi_apo
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_BMEM_BLK_SEL_MASK(bmems);
 
-    for (i = 0; i < ADI_APOLLO_BMEM_NUM; i++) {
-        if ((bmems & (ADI_APOLLO_BMEM_A0 << i)) > 0) {
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
             regmap_base_addr = calc_bmem_base(i);
 
             // Issue start signal for pushing data in loop
@@ -235,7 +234,7 @@ int32_t adi_apollo_private_bmem_delay_start(adi_apollo_device_t *device, adi_apo
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_private_bmem_capture_config(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc, adi_apollo_blk_sel_t bmems, adi_apollo_bmem_capture_t *config)
@@ -251,8 +250,8 @@ int32_t adi_apollo_private_bmem_capture_config(adi_apollo_device_t *device, adi_
     ADI_CMS_NULL_PTR_CHECK(config);
     ADI_APOLLO_BMEM_BLK_SEL_MASK(bmems);
 
-    for (i = 0; i < ADI_APOLLO_BMEM_NUM; i++) {
-        if ((bmems & (ADI_APOLLO_BMEM_A0 << i)) > 0) {
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
             regmap_base_addr = calc_bmem_base(i);
 
             // Enable BMEM
@@ -293,7 +292,7 @@ int32_t adi_apollo_private_bmem_capture_config(adi_apollo_device_t *device, adi_
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_private_bmem_capture_run(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc, adi_apollo_blk_sel_t bmems)
@@ -308,8 +307,8 @@ int32_t adi_apollo_private_bmem_capture_run(adi_apollo_device_t *device, adi_apo
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_BMEM_BLK_SEL_MASK(bmems);
 
-    for (i = 0; i < ADI_APOLLO_BMEM_NUM; i++) {
-        if ((bmems & (ADI_APOLLO_BMEM_A0 << i)) > 0) {
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
             regmap_base_addr = calc_bmem_base(i);
 
             // Issue BMEM Reset before every capture
@@ -348,7 +347,7 @@ int32_t adi_apollo_private_bmem_capture_run(adi_apollo_device_t *device, adi_apo
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_private_bmem_capture_get(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc, adi_apollo_blk_sel_t bmems, uint32_t data[], uint32_t length)
@@ -366,20 +365,20 @@ int32_t adi_apollo_private_bmem_capture_get(adi_apollo_device_t *device, adi_apo
 
     calc_sram_base = calc_sram_base_func(bmem_loc);
 
-    for (i = 0; i < ADI_APOLLO_BMEM_NUM; i++) {
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
         // verify we're only requesting one bmem
-        if ((bmems & (ADI_APOLLO_BMEM_A0 << i)) > 0) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
             regmap_base_addr = calc_sram_base(i);
 
             // Read data from SRAM
             err = adi_apollo_hal_stream_reg32_get(device, regmap_base_addr, data, length, 0);
             ADI_CMS_ERROR_RETURN(err);
 
-            return API_CMS_ERROR_OK;
+            ADI_CMS_RETURN(API_CMS_ERROR_OK);
         }
     }
 
-    return API_CMS_ERROR_INVALID_PARAM;
+    ADI_CMS_RETURN(API_CMS_ERROR_INVALID_PARAM);
 }
 
 int32_t adi_apollo_private_bmem_awg_config(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc, adi_apollo_blk_sel_t bmems, adi_apollo_bmem_awg_t *config)
@@ -395,8 +394,8 @@ int32_t adi_apollo_private_bmem_awg_config(adi_apollo_device_t *device, adi_apol
     ADI_CMS_NULL_PTR_CHECK(config);
     ADI_APOLLO_BMEM_BLK_SEL_MASK(bmems);
 
-    for (i = 0; i < ADI_APOLLO_BMEM_NUM; i++) {
-        if ((bmems & (ADI_APOLLO_BMEM_A0 << i)) > 0) {
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
             regmap_base_addr = calc_bmem_base(i);
 
             // Enable BMEM
@@ -422,7 +421,7 @@ int32_t adi_apollo_private_bmem_awg_config(adi_apollo_device_t *device, adi_apol
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_private_bmem_awg_start(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc, adi_apollo_blk_sel_t bmems)
@@ -437,8 +436,8 @@ int32_t adi_apollo_private_bmem_awg_start(adi_apollo_device_t *device, adi_apoll
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_BMEM_BLK_SEL_MASK(bmems);
 
-    for (i = 0; i < ADI_APOLLO_BMEM_NUM; i++) {
-        if ((bmems & (ADI_APOLLO_BMEM_A0 << i)) > 0) {
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
             regmap_base_addr = calc_bmem_base(i);
 
             // Set SRAM access to converter - Fast
@@ -451,8 +450,8 @@ int32_t adi_apollo_private_bmem_awg_start(adi_apollo_device_t *device, adi_apoll
     err = adi_apollo_hal_delay_us(device, 10000);
     ADI_CMS_ERROR_RETURN(err);
 
-    for (i = 0; i < ADI_APOLLO_BMEM_NUM; i++) {
-        if ((bmems & (ADI_APOLLO_BMEM_A0 << i)) > 0) {
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
             regmap_base_addr = calc_bmem_base(i);
 
             // Issue start signal for pushing data in loop
@@ -461,8 +460,8 @@ int32_t adi_apollo_private_bmem_awg_start(adi_apollo_device_t *device, adi_apoll
         }
     }
 
-    for (i = 0; i < ADI_APOLLO_BMEM_NUM; i++) {
-        if ((bmems & (ADI_APOLLO_BMEM_A0 << i)) > 0) {
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
             regmap_base_addr = calc_bmem_base(i);
 
             err = adi_apollo_hal_bf_wait_to_clear(device, BF_BMEM_START_INFO(regmap_base_addr) , TIMEOUT_US, POLL_DELAY_US);
@@ -470,7 +469,7 @@ int32_t adi_apollo_private_bmem_awg_start(adi_apollo_device_t *device, adi_apoll
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_private_bmem_awg_stop(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc, adi_apollo_blk_sel_t bmems)
@@ -485,8 +484,8 @@ int32_t adi_apollo_private_bmem_awg_stop(adi_apollo_device_t *device, adi_apollo
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_BMEM_BLK_SEL_MASK(bmems);
 
-    for (i = 0; i < ADI_APOLLO_BMEM_NUM; i++) {
-        if ((bmems & (ADI_APOLLO_BMEM_A0 << i)) > 0) {
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
             regmap_base_addr = calc_bmem_base(i);
 
             // Issue BMEM Reset for Multiple AWGs
@@ -498,7 +497,7 @@ int32_t adi_apollo_private_bmem_awg_stop(adi_apollo_device_t *device, adi_apollo
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_private_bmem_awg_sram_set(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc, adi_apollo_blk_sel_t bmems, uint32_t data[], uint32_t length)
@@ -517,7 +516,7 @@ int32_t adi_apollo_private_bmem_awg_sram_set(adi_apollo_device_t *device, adi_ap
     /* Only SPI transactions can be used for writing BMEM AWG */
     err = adi_apollo_hal_active_protocol_get(device, &ap);
     ADI_CMS_ERROR_RETURN(err);
-
+    
     if (ap != ADI_APOLLO_HAL_PROTOCOL_SPI0) {
         ADI_CMS_ERROR_RETURN(API_CMS_ERROR_PROTOCOL_OP_NOT_SUPPORTED);
     }
@@ -525,8 +524,8 @@ int32_t adi_apollo_private_bmem_awg_sram_set(adi_apollo_device_t *device, adi_ap
     calc_sram_base = calc_sram_base_func(bmem_loc);
     calc_bmem_base = calc_bmem_base_func(bmem_loc);
 
-    for (i = 0; i < ADI_APOLLO_BMEM_NUM; i++) {
-        if ((bmems & (ADI_APOLLO_BMEM_A0 << i)) > 0) {
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
             regmap_base_addr = calc_bmem_base(i);
             // Set SRAM access to uP - slow
             err = adi_apollo_hal_bf_set(device, BF_FAST_NSLOW_MODE_INFO(regmap_base_addr), 0);
@@ -535,7 +534,7 @@ int32_t adi_apollo_private_bmem_awg_sram_set(adi_apollo_device_t *device, adi_ap
             err = adi_apollo_hal_bf_set(device, BF_ST_ADDR_AWG_INFO(regmap_base_addr), 0);
             ADI_CMS_ERROR_RETURN(err);
 
-            err = adi_apollo_hal_bf_set(device, BF_END_ADDR_AWG_INFO(regmap_base_addr), length - 1);
+            err = adi_apollo_hal_bf_set(device, BF_END_ADDR_AWG_INFO(regmap_base_addr), (uint64_t)length - 1U);
             ADI_CMS_ERROR_RETURN(err);
 
         }
@@ -545,8 +544,8 @@ int32_t adi_apollo_private_bmem_awg_sram_set(adi_apollo_device_t *device, adi_ap
     err = adi_apollo_hal_delay_us(device, 10000);
     ADI_CMS_ERROR_RETURN(err);
 
-    for (i = 0; i < ADI_APOLLO_BMEM_NUM; i++) {
-        if ((bmems & (ADI_APOLLO_BMEM_A0 << i)) > 0) {
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
             regmap_base_addr = calc_sram_base(i);
 
             // Write data to sram
@@ -555,15 +554,15 @@ int32_t adi_apollo_private_bmem_awg_sram_set(adi_apollo_device_t *device, adi_ap
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_private_bmem_awg_sample_write(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc, adi_apollo_blk_sel_t bmems, int16_t data16[], uint32_t data16_len)
 {
     int32_t err;
-    uint32_t vec32_len = data16_len/2;
+    uint32_t vec32_len = data16_len/ 2U;
 #ifdef __KERNEL__
-    uint32_t *vec32 __free(kfree) = kcalloc(vec32_len, sizeof(uint32_t), GFP_KERNEL);
+    uint32_t *vec32 __free(kfree) = kcalloc(vec32_len, sizeof(*vec32), GFP_KERNEL);
     if (!vec32) {
         ADI_CMS_ERROR_RETURN(API_CMS_ERROR_MEM_ALLOC);
     }
@@ -571,7 +570,7 @@ int32_t adi_apollo_private_bmem_awg_sample_write(adi_apollo_device_t *device, ad
     uint32_t vec32[vec32_len];
 #endif
     uint32_t s0, s1;
-    int32_t i;
+    uint32_t i;
 
     ADI_CMS_NULL_PTR_CHECK(device);
     ADI_APOLLO_LOG_FUNC();
@@ -579,17 +578,17 @@ int32_t adi_apollo_private_bmem_awg_sample_write(adi_apollo_device_t *device, ad
     ADI_APOLLO_BMEM_BLK_SEL_MASK(bmems);
 
     /* Pack 2 16-bit samples into 32-bit word for BMEM write */
-    for (i = 0; i < data16_len; i += 2)
+    for (i = 0U; i < data16_len; i += 2U)
     {
-        s0 = ((uint32_t)data16[i + 0] <<4 ) & 0xffff;      // Left justify 12-bit to data. Lower 4 bits must be 0 per design.
-        s1 = ((uint32_t)data16[i + 1] <<4 ) & 0xffff;
-        vec32[i / 2] = s0 | s1 << 16;
+        s0 = ((uint32_t)data16[i + 0U] << 4U ) & 0xffffU;      // Left justify 12-bit to data. Lower 4 bits must be 0 per design.
+        s1 = ((uint32_t)data16[i + 1U] << 4U ) & 0xffffU;
+        vec32[i / 2U] = s0 | (s1 << 16U);
     }
 
     err = adi_apollo_private_bmem_awg_sram_set(device, bmem_loc, bmems, vec32, vec32_len);
     ADI_CMS_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_private_bmem_awg_sample_shared_write(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc, adi_apollo_blk_sel_t bmems,
@@ -600,35 +599,204 @@ int32_t adi_apollo_private_bmem_awg_sample_shared_write(adi_apollo_device_t *dev
     uint32_t vec32_len = data16_len;
     uint32_t *vec32 = scratch32;
     uint32_t s0, s1;
-    int32_t i;
+    uint32_t i;
 
     ADI_CMS_NULL_PTR_CHECK(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_CMS_NULL_PTR_CHECK(data16_0);
     ADI_CMS_NULL_PTR_CHECK(data16_1);
     ADI_CMS_NULL_PTR_CHECK(scratch32);
-    ADI_CMS_INVALID_PARAM_CHECK(data16_len > (ADI_APOLLO_BMEM_HSDIN_MEM_SIZE_BYTES / (2 * sizeof(uint16_t))));
+    ADI_CMS_INVALID_PARAM_CHECK(data16_len > (ADI_APOLLO_BMEM_HSDIN_MEM_SIZE_BYTES / (2U * sizeof(uint16_t))));
     ADI_CMS_INVALID_PARAM_CHECK(scratch32_len < data16_len);
     ADI_APOLLO_BMEM_BLK_SEL_MASK(bmems);
 
     /* Pack 2 16-bit samples into 32-bit word for BMEM write */
-    for (i = 0; i < data16_len; i += 2) {
-        s0 = ((uint32_t)data16_0[i + 0] << 4) & 0xffff; // Left justify 12-bit to data. Lower 4 bits must be 0 per design.
-        s1 = ((uint32_t)data16_0[i + 1] << 4) & 0xffff;
-        vec32[i] = s0 | s1 << 16;
+    for (i = 0U; i < data16_len; i += 2U) {
+        s0 = ((uint32_t)data16_0[i + 0U] << 4U) & 0xffffU; // Left justify 12-bit to data. Lower 4 bits must be 0 per design.
+        s1 = ((uint32_t)data16_0[i + 1U] << 4U) & 0xffffU;
+        vec32[i] = s0 | (s1 << 16U);
 
-        s0 = ((uint32_t)data16_1[i + 0] << 4) & 0xffff; // Left justify 12-bit to data. Lower 4 bits must be 0 per design.
-        s1 = ((uint32_t)data16_1[i + 1] << 4) & 0xffff;
-        vec32[i + 1] = s0 | s1 << 16;
+        s0 = ((uint32_t)data16_1[i + 0U] << 4U) & 0xffffU; // Left justify 12-bit to data. Lower 4 bits must be 0 per design.
+        s1 = ((uint32_t)data16_1[i + 1U] << 4U) & 0xffffU;
+        vec32[i + 1U] = s0 | (s1 << 16U);
     }
 
     err = adi_apollo_private_bmem_awg_sram_set(device, bmem_loc, bmems, vec32, vec32_len);
     ADI_CMS_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
-static uint32_t calc_bmem_hsdin_base(int32_t bmem_index)
+int32_t adi_apollo_private_bmem_capture_config_triggered(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc,
+                                                          adi_apollo_blk_sel_t bmems, adi_apollo_bmem_capture_t *config)
+{
+    int32_t err;
+    uint8_t i;
+    uint32_t regmap_base_addr = 0;
+    calc_bmem_base_f calc_bmem_base;
+    calc_bmem_base = calc_bmem_base_func(bmem_loc);
+
+    ADI_CMS_NULL_PTR_CHECK(device);
+    ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_NULL_PTR_CHECK(config);
+    ADI_APOLLO_BMEM_BLK_SEL_MASK(bmems);
+
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
+            regmap_base_addr = calc_bmem_base(i);
+
+            // Enable BMEM
+            err = adi_apollo_hal_bf_set(device, BF_BMEM_EN_INFO(regmap_base_addr), 1);
+            ADI_CMS_ERROR_RETURN(err);
+
+            // Set capture mode
+            err = adi_apollo_hal_bf_set(device, BF_BMEM_MODE_INFO(regmap_base_addr), 0);
+            ADI_CMS_ERROR_RETURN(err);
+
+            err = adi_apollo_hal_bf_set(device, BF_SAMPLE_SIZE_INFO(regmap_base_addr), config->sample_size);
+            ADI_CMS_ERROR_RETURN(err);
+
+            err = adi_apollo_hal_bf_set(device, BF_RAMCLK_PH_DIS_INFO(regmap_base_addr), config->ramclk_ph_dis);
+            ADI_CMS_ERROR_RETURN(err);
+
+            err = adi_apollo_hal_bf_set(device, BF_ST_ADDR_CPT_INFO(regmap_base_addr), config->st_addr_cpt);
+            ADI_CMS_ERROR_RETURN(err);
+
+            err = adi_apollo_hal_bf_set(device, BF_END_ADDR_CPT_INFO(regmap_base_addr), config->end_addr_cpt);
+            ADI_CMS_ERROR_RETURN(err);
+
+            err = adi_apollo_hal_bf_set(device, BF_PARITY_CHECK_EN_INFO(regmap_base_addr), config->parity_check_en);
+            ADI_CMS_ERROR_RETURN(err);
+
+            // Set mask value
+            err = adi_apollo_hal_bf_set(device, BF_BMEM_8T8R_CAP_MASK_INFO(regmap_base_addr), 0);
+            ADI_CMS_ERROR_RETURN(err);
+
+            // Disable sample threshold capture mode
+            err = adi_apollo_hal_bf_set(device, BF_ST_CPTR_ON_SMPL_VAL_INFO(regmap_base_addr), 0);
+            ADI_CMS_ERROR_RETURN(err);
+
+            err = adi_apollo_hal_bf_set(device, BF_TRIG_MODE_SCLR_EN_INFO(regmap_base_addr), 0);
+            ADI_CMS_ERROR_RETURN(err);
+
+            err = adi_apollo_hal_bf_set(device, BF_TRIG_MODE_INFO(regmap_base_addr), 0);
+            ADI_CMS_ERROR_RETURN(err);
+        }
+    }
+
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
+}
+
+int32_t adi_apollo_private_bmem_capture_arm(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc,
+                                                     adi_apollo_blk_sel_t bmems)
+{
+    int32_t err;
+    uint8_t i;
+    uint32_t regmap_base_addr = 0;
+    calc_bmem_base_f calc_bmem_base;
+    calc_bmem_base = calc_bmem_base_func(bmem_loc);
+
+    ADI_CMS_NULL_PTR_CHECK(device);
+    ADI_APOLLO_LOG_FUNC();
+    ADI_APOLLO_BMEM_BLK_SEL_MASK(bmems);
+
+    // Step 1: Reset all BMEMs (clears previous state)
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
+            regmap_base_addr = calc_bmem_base(i);
+
+            err = adi_apollo_hal_bf_set(device, BF_BMEM_RESET_INFO(regmap_base_addr), 1);
+            ADI_CMS_ERROR_RETURN(err);
+
+            err = adi_apollo_hal_bf_wait_to_clear(device, BF_BMEM_RESET_INFO(regmap_base_addr), TIMEOUT_US, POLL_DELAY_US);
+            ADI_CMS_ERROR_RETURN(err);
+        }
+    }
+
+    // Step 2: Set all BMEMs to fast mode (converter access)
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
+            regmap_base_addr = calc_bmem_base(i);
+
+            err = adi_apollo_hal_bf_set(device, BF_FAST_NSLOW_MODE_INFO(regmap_base_addr), 1);
+            ADI_CMS_ERROR_RETURN(err);
+        }
+    }
+
+    err = adi_apollo_hal_delay_us(device, 10000);
+    ADI_CMS_ERROR_RETURN(err);
+
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
+}
+
+int32_t adi_apollo_private_bmem_capture_trig_mode_enable(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc,
+                                                          adi_apollo_blk_sel_t bmems)
+{
+    int32_t err;
+    uint8_t i;
+    uint32_t regmap_base_addr = 0;
+    calc_bmem_base_f calc_bmem_base;
+    calc_bmem_base = calc_bmem_base_func(bmem_loc);
+
+    ADI_CMS_NULL_PTR_CHECK(device);
+    ADI_APOLLO_LOG_FUNC();
+    ADI_APOLLO_BMEM_BLK_SEL_MASK(bmems);
+
+    // Enable trigger mode - BMEM will start capture on next sync pulse
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
+            regmap_base_addr = calc_bmem_base(i);
+
+            err = adi_apollo_hal_bf_set(device, BF_TRIG_MODE_INFO(regmap_base_addr), 1);
+            ADI_CMS_ERROR_RETURN(err);
+        }
+    }
+
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
+}
+
+int32_t adi_apollo_private_bmem_capture_wait_complete(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc,
+                                                       adi_apollo_blk_sel_t bmems, uint32_t timeout_us)
+{
+    int32_t err;
+    uint8_t i;
+    uint32_t regmap_base_addr = 0;
+    calc_bmem_base_f calc_bmem_base;
+    calc_bmem_base = calc_bmem_base_func(bmem_loc);
+
+    ADI_CMS_NULL_PTR_CHECK(device);
+    ADI_APOLLO_LOG_FUNC();
+    ADI_APOLLO_BMEM_BLK_SEL_MASK(bmems);
+
+    // Wait for FULL_IRQ on all selected BMEMs
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
+            regmap_base_addr = calc_bmem_base(i);
+
+            // Wait for capture to complete
+            err = adi_apollo_hal_bf_wait_to_set(device, BF_FULL_IRQ_INFO(regmap_base_addr), timeout_us, POLL_DELAY_US);
+            ADI_CMS_ERROR_RETURN(err);
+        }
+    }
+
+    // Switch all BMEMs to slow mode for SPI readout
+    for (i = 0U; i < ADI_APOLLO_BMEM_NUM; i++) {
+        if ((bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i)) > 0U) {
+            regmap_base_addr = calc_bmem_base(i);
+
+            err = adi_apollo_hal_bf_set(device, BF_FAST_NSLOW_MODE_INFO(regmap_base_addr), 0);
+            ADI_CMS_ERROR_RETURN(err);
+        }
+    }
+
+    // Delay after switching fast_nslow_mode
+    err = adi_apollo_hal_delay_us(device, 10000);
+    ADI_CMS_ERROR_RETURN(err);
+
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
+}
+
+static uint32_t calc_bmem_hsdin_base(uint32_t bmem_index)
 {
     static uint32_t bmem_regmap[ADI_APOLLO_BMEM_NUM] = {
         RX_BMEM0_REG_RX_SLICE_0_RX_DIGITAL0, RX_BMEM0_REG_RX_SLICE_1_RX_DIGITAL0,
@@ -640,7 +808,7 @@ static uint32_t calc_bmem_hsdin_base(int32_t bmem_index)
     return bmem_regmap[bmem_index];
 }
 
-static uint32_t calc_bmem_fddc_base(int32_t bmem_index)
+static uint32_t calc_bmem_fddc_base(uint32_t bmem_index)
 {
     static uint32_t bmem_regmap[ADI_APOLLO_BMEM_NUM] = {
         RX_BMEM2_REG0_RX_SLICE_0_RX_DIGITAL0, RX_BMEM2_REG0_RX_SLICE_1_RX_DIGITAL0,
@@ -652,7 +820,7 @@ static uint32_t calc_bmem_fddc_base(int32_t bmem_index)
     return bmem_regmap[bmem_index];
 }
 
-static uint32_t calc_bmem_cddc_base(int32_t bmem_index)
+static uint32_t calc_bmem_cddc_base(uint32_t bmem_index)
 {
     static uint32_t bmem_regmap[ADI_APOLLO_BMEM_NUM] = {
         RX_BMEM1_REG0_RX_SLICE_0_RX_DIGITAL0, RX_BMEM1_REG0_RX_SLICE_1_RX_DIGITAL0,
@@ -664,7 +832,7 @@ static uint32_t calc_bmem_cddc_base(int32_t bmem_index)
     return bmem_regmap[bmem_index];
 }
 
-static uint32_t calc_hsdin_bmem_sram_base(int32_t bmem_index)
+static uint32_t calc_hsdin_bmem_sram_base(uint32_t bmem_index)
 {
     static uint32_t bmem_regmap[ADI_APOLLO_BMEM_NUM] = {
         0x60240000, 0x60440000,
@@ -676,7 +844,7 @@ static uint32_t calc_hsdin_bmem_sram_base(int32_t bmem_index)
     return bmem_regmap[bmem_index];
 }
 
-static uint32_t calc_fine_bmem_sram_base(int32_t bmem_index)
+static uint32_t calc_fine_bmem_sram_base(uint32_t bmem_index)
 {
     static uint32_t bmem_regmap[ADI_APOLLO_BMEM_NUM] = {
         0x603C0000, 0x605C0000,
@@ -688,7 +856,7 @@ static uint32_t calc_fine_bmem_sram_base(int32_t bmem_index)
     return bmem_regmap[bmem_index];
 }
 
-static uint32_t calc_coarse_bmem_sram_base(int32_t bmem_index)
+static uint32_t calc_coarse_bmem_sram_base(uint32_t bmem_index)
 {
     static uint32_t bmem_regmap[ADI_APOLLO_BMEM_NUM] = {
         0x60380000, 0x60580000,

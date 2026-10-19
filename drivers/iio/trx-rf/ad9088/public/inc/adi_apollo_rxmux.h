@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_RXMUX
  * @{
  */
-#ifndef __ADI_APOLLO_RXMUX_H__
-#define __ADI_APOLLO_RXMUX_H__
+#ifndef ADI_APOLLO_RXMUX_H__
+#define ADI_APOLLO_RXMUX_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_rxmux_types.h"
@@ -71,5 +71,5 @@ int32_t adi_apollo_rxmux_sample_xbar_set(adi_apollo_device_t *device, uint16_t l
 }
 #endif
 
-#endif /* __ADI_APOLLO_RXMUX_H__ */
+#endif /* ADI_APOLLO_RXMUX_H__ */
 /*! @} */

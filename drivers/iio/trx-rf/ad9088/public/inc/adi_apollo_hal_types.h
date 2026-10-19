@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_HAL
  * @{
  */
-#ifndef __ADI_APOLLO_HAL_TYPES_H__
-#define __ADI_APOLLO_HAL_TYPES_H__
+#ifndef ADI_APOLLO_HAL_TYPES_H__
+#define ADI_APOLLO_HAL_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -227,6 +227,6 @@ typedef int32_t(*adi_apollo_hal_reset_pin_ctrl_t)(void *dev_obj, uint8_t enable)
  */
 typedef int32_t(*adi_apollo_hal_log_write_t)(void *dev_obj, int32_t log_type, const char *message, va_list argp);
 
-#endif /* __ADI_APOLLO_HAL_TYPES_H__ */
+#endif /* ADI_APOLLO_HAL_TYPES_H__ */
 
 /*! @} */

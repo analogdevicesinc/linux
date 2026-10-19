@@ -12,38 +12,38 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_TX_FDUC_H__
-#define __ADI_APOLLO_BF_TX_FDUC_H__
+#ifndef ADI_APOLLO_BF_TX_FDUC_H__
+#define ADI_APOLLO_BF_TX_FDUC_H__
 
 /*============= D E F I N E S ==============*/
-#define TX_FDUC0_TX_SLICE_0_TX_DIGITAL0   0x61307000
-#define TX_FDUC1_TX_SLICE_0_TX_DIGITAL0   0x61308000
-#define TX_FDUC0_TX_SLICE_1_TX_DIGITAL0   0x61507000
-#define TX_FDUC1_TX_SLICE_1_TX_DIGITAL0   0x61508000
-#define TX_FDUC0_TX_SLICE_0_TX_DIGITAL1   0x61B07000
-#define TX_FDUC1_TX_SLICE_0_TX_DIGITAL1   0x61B08000
-#define TX_FDUC0_TX_SLICE_1_TX_DIGITAL1   0x61D07000
-#define TX_FDUC1_TX_SLICE_1_TX_DIGITAL1   0x61D08000
+#define TX_FDUC0_TX_SLICE_0_TX_DIGITAL0   0x61307000U
+#define TX_FDUC1_TX_SLICE_0_TX_DIGITAL0   0x61308000U
+#define TX_FDUC0_TX_SLICE_1_TX_DIGITAL0   0x61507000U
+#define TX_FDUC1_TX_SLICE_1_TX_DIGITAL0   0x61508000U
+#define TX_FDUC0_TX_SLICE_0_TX_DIGITAL1   0x61B07000U
+#define TX_FDUC1_TX_SLICE_0_TX_DIGITAL1   0x61B08000U
+#define TX_FDUC0_TX_SLICE_1_TX_DIGITAL1   0x61D07000U
+#define TX_FDUC1_TX_SLICE_1_TX_DIGITAL1   0x61D08000U
 
-#define REG_FDUC_INTERP_ADDR(inst)        ((inst) + 0x00000000)
-#define BF_FDUC_INTERP_INFO(inst)         ((inst) + 0x00000000), 0x00000700
+#define REG_FDUC_INTERP_ADDR(inst)        ((uint32_t)(inst) + 0x00000000U)
+#define BF_FDUC_INTERP_INFO(inst)         ((uint32_t)(inst) + 0x00000000U), 0x00000700U
 
-#define REG_SUB_DATAPATH_CFG_ADDR(inst)   ((inst) + 0x00000002)
-#define BF_SUB_DP_GAIN_EN_INFO(inst)      ((inst) + 0x00000002), 0x00000100
-#define BF_FDUC_INTERP_GPIO_EN_INFO(inst) ((inst) + 0x00000002), 0x00000101
+#define REG_SUB_DATAPATH_CFG_ADDR(inst)   ((uint32_t)(inst) + 0x00000002U)
+#define BF_SUB_DP_GAIN_EN_INFO(inst)      ((uint32_t)(inst) + 0x00000002U), 0x00000100U
+#define BF_FDUC_INTERP_GPIO_EN_INFO(inst) ((uint32_t)(inst) + 0x00000002U), 0x00000101U
 
-#define REG_SUBDP_GAIN0_ADDR(inst)        ((inst) + 0x00000003)
-#define BF_SUBDP_GAIN_INFO(inst)          ((inst) + 0x00000003), 0x00000C00
+#define REG_SUBDP_GAIN0_ADDR(inst)        ((uint32_t)(inst) + 0x00000003U)
+#define BF_SUBDP_GAIN_INFO(inst)          ((uint32_t)(inst) + 0x00000003U), 0x00000C00U
 
-#define REG_SUBDP_GAIN1_ADDR(inst)        ((inst) + 0x00000004)
+#define REG_SUBDP_GAIN1_ADDR(inst)        ((uint32_t)(inst) + 0x00000004U)
 
-#define REG_INT_TIME_DELAY_ADDR(inst)     ((inst) + 0x00000006)
-#define BF_INT_TIME_DELAY_HB1_INFO(inst)  ((inst) + 0x00000006), 0x00000100
-#define BF_INT_TIME_DELAY_HB2_INFO(inst)  ((inst) + 0x00000006), 0x00000101
-#define BF_INT_TIME_DELAY_HB3_INFO(inst)  ((inst) + 0x00000006), 0x00000102
-#define BF_INT_TIME_DELAY_HB4_INFO(inst)  ((inst) + 0x00000006), 0x00000103
-#define BF_INT_TIME_DELAY_HB5_INFO(inst)  ((inst) + 0x00000006), 0x00000104
-#define BF_INT_TIME_DELAY_HB6_INFO(inst)  ((inst) + 0x00000006), 0x00000105
+#define REG_INT_TIME_DELAY_ADDR(inst)     ((uint32_t)(inst) + 0x00000006U)
+#define BF_INT_TIME_DELAY_HB1_INFO(inst)  ((uint32_t)(inst) + 0x00000006U), 0x00000100U
+#define BF_INT_TIME_DELAY_HB2_INFO(inst)  ((uint32_t)(inst) + 0x00000006U), 0x00000101U
+#define BF_INT_TIME_DELAY_HB3_INFO(inst)  ((uint32_t)(inst) + 0x00000006U), 0x00000102U
+#define BF_INT_TIME_DELAY_HB4_INFO(inst)  ((uint32_t)(inst) + 0x00000006U), 0x00000103U
+#define BF_INT_TIME_DELAY_HB5_INFO(inst)  ((uint32_t)(inst) + 0x00000006U), 0x00000104U
+#define BF_INT_TIME_DELAY_HB6_INFO(inst)  ((uint32_t)(inst) + 0x00000006U), 0x00000105U
 
-#endif /* __ADI_APOLLO_BF_TX_FDUC_H__ */
+#endif /* ADI_APOLLO_BF_TX_FDUC_H__ */
 /*! @} */

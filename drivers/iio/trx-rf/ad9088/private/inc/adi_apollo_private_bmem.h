@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_BMEM
  * @{
  */
-#ifndef __ADI_APOLLO_PRIVATE_BMEM_H__
-#define __ADI_APOLLO_PRIVATE_BMEM_H__
+#ifndef ADI_APOLLO_PRIVATE_BMEM_H__
+#define ADI_APOLLO_PRIVATE_BMEM_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_bmem_types.h"
@@ -113,6 +113,69 @@ int32_t adi_apollo_private_bmem_capture_config(adi_apollo_device_t *device, adi_
  * \return <0                  Failed. \ref adi_cms_error_e for details.
  */
 int32_t adi_apollo_private_bmem_capture_run(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc, adi_apollo_blk_sel_t bmems);
+
+/**
+ * \brief  Configures BMEM for triggered capture mode
+ *
+ * \param[in]  device       Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  bmem_loc     Which BMEM location to target \ref adi_apollo_bmem_loc_e
+ * \param[in]  bmems        Target BMEM \ref adi_apollo_bmem_sel_e
+ * \param[in]  config       \ref adi_apollo_bmem_capture_t
+ *
+ * \return API_CMS_ERROR_OK    API Completed Successfully
+ * \return <0                  Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_private_bmem_capture_config_triggered(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc,
+                                                          adi_apollo_blk_sel_t bmems, adi_apollo_bmem_capture_t *config);
+
+/**
+ * \brief  Arms BMEMs for triggered capture
+ *
+ * Resets BMEMs and sets fast mode for converter access. Does NOT enable
+ * trigger mode - call adi_apollo_private_bmem_capture_trig_mode_enable()
+ * separately before issuing the sync pulse.
+ *
+ * \param[in]  device       Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  bmem_loc     Which BMEM location to target \ref adi_apollo_bmem_loc_e
+ * \param[in]  bmems        Target BMEM \ref adi_apollo_bmem_sel_e
+ *
+ * \return API_CMS_ERROR_OK    API Completed Successfully
+ * \return <0                  Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_private_bmem_capture_arm(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc,
+                                                     adi_apollo_blk_sel_t bmems);
+
+/**
+ * \brief  Enables trigger mode on BMEMs for sync-triggered capture
+ *
+ * Sets trig_mode=1 on selected BMEMs so they will start capture on the
+ * next sync pulse. Call this after adi_apollo_private_bmem_capture_arm()
+ * and before issuing the sync pulse.
+ *
+ * \param[in]  device       Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  bmem_loc     Which BMEM location to target \ref adi_apollo_bmem_loc_e
+ * \param[in]  bmems        Target BMEM \ref adi_apollo_bmem_sel_e
+ *
+ * \return API_CMS_ERROR_OK    API Completed Successfully
+ * \return <0                  Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_private_bmem_capture_trig_mode_enable(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc,
+                                                          adi_apollo_blk_sel_t bmems);
+
+/**
+ * \brief  Waits for BMEMs to complete triggered capture
+ *
+ * \param[in]  device       Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  bmem_loc     Which BMEM location to target \ref adi_apollo_bmem_loc_e
+ * \param[in]  bmems        Target BMEM \ref adi_apollo_bmem_sel_e
+ * \param[in]  timeout_us   Maximum time to wait in microseconds
+ *
+ * \return API_CMS_ERROR_OK      API Completed Successfully
+ * \return API_CMS_ERROR_OPERATION_TIMEOUT Timeout waiting for BMEM(s)
+ * \return <0                    Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_private_bmem_capture_wait_complete(adi_apollo_device_t *device, adi_apollo_bmem_loc_e bmem_loc,
+                                                       adi_apollo_blk_sel_t bmems, uint32_t timeout_us);
 
 /**
  * \brief Reads Rx BMEM SRAM.
@@ -219,5 +282,5 @@ int32_t adi_apollo_private_bmem_awg_sample_shared_write(adi_apollo_device_t *dev
 }
 #endif
 
-#endif /* __ADI_APOLLO_PRIVATE_BMEM_H__ */
+#endif /* ADI_APOLLO_PRIVATE_BMEM_H__ */
 /*! @} */

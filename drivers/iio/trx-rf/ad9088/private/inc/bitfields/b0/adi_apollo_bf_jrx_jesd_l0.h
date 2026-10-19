@@ -12,67 +12,67 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_JRX_JESD_L0_H__
-#define __ADI_APOLLO_BF_JRX_JESD_L0_H__
+#ifndef ADI_APOLLO_BF_JRX_JESD_L0_H__
+#define ADI_APOLLO_BF_JRX_JESD_L0_H__
 
 /*============= D E F I N E S ==============*/
-#define JRX_JESD_L0_JRX_TX_DIGITAL0                0x61608000
-#define JRX_JESD_L0_JRX_TX_DIGITAL1                0x61E08000
+#define JRX_JESD_L0_JRX_TX_DIGITAL0                0x61608000U
+#define JRX_JESD_L0_JRX_TX_DIGITAL1                0x61E08000U
 
-#define REG_JRX_L0_DID_ADDR(inst, n)               ((inst) + 0x00000000 + 1 * (n))
-#define BF_JRX_CORE_DID_CFG_INFO(inst, n)          ((inst) + 0x00000000 + 1 * (n)), 0x00000800
+#define REG_JRX_L0_DID_ADDR(inst, n)               ((uint32_t)(inst) + 0x00000000U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_DID_CFG_INFO(inst, n)          ((uint32_t)(inst) + 0x00000000U + 1U * (uint32_t)(n)), 0x00000800U
 
-#define REG_JRX_L0_RESERVED0_ADDR(inst, n)         ((inst) + 0x00000002 + 1 * (n))
+#define REG_JRX_L0_RESERVED0_ADDR(inst, n)         ((uint32_t)(inst) + 0x00000002U + 1U * (uint32_t)(n))
 
-#define REG_JRX_L0_LID_ADDR(inst, n)               ((inst) + 0x00000004 + 1 * (n))
-#define BF_JRX_CORE_LID_CFG_LINK0_INFO(inst, n)    ((inst) + 0x00000004 + 1 * (n)), 0x00000500
+#define REG_JRX_L0_LID_ADDR(inst, n)               ((uint32_t)(inst) + 0x00000004U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_LID_CFG_LINK0_INFO(inst, n)    ((uint32_t)(inst) + 0x00000004U + 1U * (uint32_t)(n)), 0x00000500U
 
-#define REG_JRX_L0_LID_1_ADDR(inst, n)             ((inst) + 0x00000014 + 1 * (n))
-#define BF_JRX_CORE_LID_CFG_LINK1_INFO(inst, n)    ((inst) + 0x00000014 + 1 * (n)), 0x00000500
+#define REG_JRX_L0_LID_1_ADDR(inst, n)             ((uint32_t)(inst) + 0x00000014U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_LID_CFG_LINK1_INFO(inst, n)    ((uint32_t)(inst) + 0x00000014U + 1U * (uint32_t)(n)), 0x00000500U
 
-#define REG_JRX_L0_DSCR_L_ADDR(inst, n)            ((inst) + 0x00000024 + 1 * (n))
-#define BF_JRX_CORE_L_CFG_INFO(inst, n)            ((inst) + 0x00000024 + 1 * (n)), 0x00000500
-#define BF_JRX_CORE_DSCR_CFG_INFO(inst, n)         ((inst) + 0x00000024 + 1 * (n)), 0x00000107
+#define REG_JRX_L0_DSCR_L_ADDR(inst, n)            ((uint32_t)(inst) + 0x00000024U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_L_CFG_INFO(inst, n)            ((uint32_t)(inst) + 0x00000024U + 1U * (uint32_t)(n)), 0x00000500U
+#define BF_JRX_CORE_DSCR_CFG_INFO(inst, n)         ((uint32_t)(inst) + 0x00000024U + 1U * (uint32_t)(n)), 0x00000107U
 
-#define REG_JRX_L0_F_ADDR(inst, n)                 ((inst) + 0x00000026 + 1 * (n))
-#define BF_JRX_CORE_F_CFG_INFO(inst, n)            ((inst) + 0x00000026 + 1 * (n)), 0x00000800
+#define REG_JRX_L0_F_ADDR(inst, n)                 ((uint32_t)(inst) + 0x00000026U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_F_CFG_INFO(inst, n)            ((uint32_t)(inst) + 0x00000026U + 1U * (uint32_t)(n)), 0x00000800U
 
-#define REG_JRX_L0_K_ADDR(inst, n)                 ((inst) + 0x00000028 + 1 * (n))
-#define BF_JRX_CORE_K_CFG_INFO(inst, n)            ((inst) + 0x00000028 + 1 * (n)), 0x00000800
+#define REG_JRX_L0_K_ADDR(inst, n)                 ((uint32_t)(inst) + 0x00000028U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_K_CFG_INFO(inst, n)            ((uint32_t)(inst) + 0x00000028U + 1U * (uint32_t)(n)), 0x00000800U
 
-#define REG_JRX_L0_M_ADDR(inst, n)                 ((inst) + 0x0000002A + 1 * (n))
-#define BF_JRX_CORE_M_CFG_INFO(inst, n)            ((inst) + 0x0000002A + 1 * (n)), 0x00000800
+#define REG_JRX_L0_M_ADDR(inst, n)                 ((uint32_t)(inst) + 0x0000002AU + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_M_CFG_INFO(inst, n)            ((uint32_t)(inst) + 0x0000002AU + 1U * (uint32_t)(n)), 0x00000800U
 
-#define REG_JRX_L0_CS_N_ADDR(inst, n)              ((inst) + 0x0000002C + 1 * (n))
-#define BF_JRX_CORE_N_CFG_INFO(inst, n)            ((inst) + 0x0000002C + 1 * (n)), 0x00000500
-#define BF_JRX_CORE_CS_CFG_INFO(inst, n)           ((inst) + 0x0000002C + 1 * (n)), 0x00000206
+#define REG_JRX_L0_CS_N_ADDR(inst, n)              ((uint32_t)(inst) + 0x0000002CU + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_N_CFG_INFO(inst, n)            ((uint32_t)(inst) + 0x0000002CU + 1U * (uint32_t)(n)), 0x00000500U
+#define BF_JRX_CORE_CS_CFG_INFO(inst, n)           ((uint32_t)(inst) + 0x0000002CU + 1U * (uint32_t)(n)), 0x00000206U
 
-#define REG_JRX_L0_SUBCLASSV_NP_ADDR(inst, n)      ((inst) + 0x0000002E + 1 * (n))
-#define BF_JRX_CORE_NP_CFG_INFO(inst, n)           ((inst) + 0x0000002E + 1 * (n)), 0x00000500
-#define BF_JRX_CORE_SUBCLASSV_CFG_INFO(inst, n)    ((inst) + 0x0000002E + 1 * (n)), 0x00000305
+#define REG_JRX_L0_SUBCLASSV_NP_ADDR(inst, n)      ((uint32_t)(inst) + 0x0000002EU + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_NP_CFG_INFO(inst, n)           ((uint32_t)(inst) + 0x0000002EU + 1U * (uint32_t)(n)), 0x00000500U
+#define BF_JRX_CORE_SUBCLASSV_CFG_INFO(inst, n)    ((uint32_t)(inst) + 0x0000002EU + 1U * (uint32_t)(n)), 0x00000305U
 
-#define REG_JRX_L0_JESDV_S_ADDR(inst, n)           ((inst) + 0x00000030 + 1 * (n))
-#define BF_JRX_CORE_S_CFG_INFO(inst, n)            ((inst) + 0x00000030 + 1 * (n)), 0x00000500
-#define BF_JRX_CORE_JESDV_CFG_INFO(inst, n)        ((inst) + 0x00000030 + 1 * (n)), 0x00000305
+#define REG_JRX_L0_JESDV_S_ADDR(inst, n)           ((uint32_t)(inst) + 0x00000030U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_S_CFG_INFO(inst, n)            ((uint32_t)(inst) + 0x00000030U + 1U * (uint32_t)(n)), 0x00000500U
+#define BF_JRX_CORE_JESDV_CFG_INFO(inst, n)        ((uint32_t)(inst) + 0x00000030U + 1U * (uint32_t)(n)), 0x00000305U
 
-#define REG_JRX_L0_HD_ADDR(inst, n)                ((inst) + 0x00000032 + 1 * (n))
-#define BF_JRX_CORE_HD_CFG_INFO(inst, n)           ((inst) + 0x00000032 + 1 * (n)), 0x00000107
+#define REG_JRX_L0_HD_ADDR(inst, n)                ((uint32_t)(inst) + 0x00000032U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_HD_CFG_INFO(inst, n)           ((uint32_t)(inst) + 0x00000032U + 1U * (uint32_t)(n)), 0x00000107U
 
-#define REG_JRX_L0_RESERVED1_ADDR(inst, n)         ((inst) + 0x00000034 + 1 * (n))
+#define REG_JRX_L0_RESERVED1_ADDR(inst, n)         ((uint32_t)(inst) + 0x00000034U + 1U * (uint32_t)(n))
 
-#define REG_JRX_L0_RESERVED2_ADDR(inst, n)         ((inst) + 0x00000036 + 1 * (n))
+#define REG_JRX_L0_RESERVED2_ADDR(inst, n)         ((uint32_t)(inst) + 0x00000036U + 1U * (uint32_t)(n))
 
-#define REG_JRX_L0_CHKSUM_ADDR(inst, n)            ((inst) + 0x00000040 + 1 * (n))
-#define BF_JRX_CORE_CHKSUM_CFG_LINK0_INFO(inst, n) ((inst) + 0x00000040 + 1 * (n)), 0x00000800
+#define REG_JRX_L0_CHKSUM_ADDR(inst, n)            ((uint32_t)(inst) + 0x00000040U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_CHKSUM_CFG_LINK0_INFO(inst, n) ((uint32_t)(inst) + 0x00000040U + 1U * (uint32_t)(n)), 0x00000800U
 
-#define REG_JRX_L0_CHKSUM_1_ADDR(inst, n)          ((inst) + 0x00000050 + 1 * (n))
-#define BF_JRX_CORE_CHKSUM_CFG_LINK1_INFO(inst, n) ((inst) + 0x00000050 + 1 * (n)), 0x00000800
+#define REG_JRX_L0_CHKSUM_1_ADDR(inst, n)          ((uint32_t)(inst) + 0x00000050U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_CHKSUM_CFG_LINK1_INFO(inst, n) ((uint32_t)(inst) + 0x00000050U + 1U * (uint32_t)(n)), 0x00000800U
 
-#define REG_JRX_L0_NS_ADDR(inst, n)                ((inst) + 0x00000060 + 1 * (n))
-#define BF_JRX_CORE_NS_CFG_INFO(inst, n)           ((inst) + 0x00000060 + 1 * (n)), 0x00000500
+#define REG_JRX_L0_NS_ADDR(inst, n)                ((uint32_t)(inst) + 0x00000060U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_NS_CFG_INFO(inst, n)           ((uint32_t)(inst) + 0x00000060U + 1U * (uint32_t)(n)), 0x00000500U
 
-#define REG_JRX_L0_E_ADDR(inst, n)                 ((inst) + 0x00000062 + 1 * (n))
-#define BF_JRX_CORE_E_CFG_INFO(inst, n)            ((inst) + 0x00000062 + 1 * (n)), 0x00000500
+#define REG_JRX_L0_E_ADDR(inst, n)                 ((uint32_t)(inst) + 0x00000062U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_E_CFG_INFO(inst, n)            ((uint32_t)(inst) + 0x00000062U + 1U * (uint32_t)(n)), 0x00000500U
 
-#endif /* __ADI_APOLLO_BF_JRX_JESD_L0_H__ */
+#endif /* ADI_APOLLO_BF_JRX_JESD_L0_H__ */
 /*! @} */

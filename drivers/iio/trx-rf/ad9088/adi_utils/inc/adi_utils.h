@@ -13,8 +13,8 @@
  * \addtogroup __ADI_UTILS__
  * @{
  */
-#ifndef __ADI_UTILS_H__
-#define __ADI_UTILS_H__
+#ifndef ADI_UTILS_H_
+#define ADI_UTILS_H_
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -143,6 +143,6 @@ int32_t adi_api_utils_check_consecutive_ones_bounded(uint16_t link_table, uint8_
 }
 #endif
 
-#endif /*__ADI_UTILS_H__*/
+#endif /* ADI_UTILS_H_ */
 
 /*! @} */

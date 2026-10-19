@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_MCS_CAL
  * @{
  */
-#ifndef __ADI_APOLLO_MCS_CAL_H__
-#define __ADI_APOLLO_MCS_CAL_H__
+#ifndef ADI_APOLLO_MCS_CAL_H__
+#define ADI_APOLLO_MCS_CAL_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_mcs_cal_types.h"
@@ -212,5 +212,5 @@ int32_t adi_apollo_mcs_cal_tracking_status_get(adi_apollo_device_t *device, adi_
 }
 #endif
 
-#endif /* __ADI_APOLLO_MCS_CAL_H__ */
+#endif /* ADI_APOLLO_MCS_CAL_H__ */
 /*! @} */

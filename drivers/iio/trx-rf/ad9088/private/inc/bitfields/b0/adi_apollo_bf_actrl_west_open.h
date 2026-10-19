@@ -12,397 +12,397 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_ACTRL_WEST_OPEN_H__
-#define __ADI_APOLLO_BF_ACTRL_WEST_OPEN_H__
+#ifndef ADI_APOLLO_BF_ACTRL_WEST_OPEN_H__
+#define ADI_APOLLO_BF_ACTRL_WEST_OPEN_H__
 
 /*============= D E F I N E S ==============*/
-#define VENUS_ACTRL_WEST_REGMAP_ADC8_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60262400
-#define VENUS_ACTRL_WEST_REGMAP_ADC8_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60462400
-#define VENUS_ACTRL_WEST_REGMAP_ADC8_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A62400
-#define VENUS_ACTRL_WEST_REGMAP_ADC8_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C62400
+#define VENUS_ACTRL_WEST_REGMAP_ADC8_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60262400U
+#define VENUS_ACTRL_WEST_REGMAP_ADC8_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60462400U
+#define VENUS_ACTRL_WEST_REGMAP_ADC8_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A62400U
+#define VENUS_ACTRL_WEST_REGMAP_ADC8_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C62400U
 
-#define REG_ACTRL_SCRATCH_BEGIN_ACTRL_WEST__OPEN_ADDR(inst)             ((inst) + 0x00000000)
-#define BF_ACTRL_SCRATCH_BEGIN_ACTRL_WEST__OPEN_INFO(inst)              ((inst) + 0x00000000), 0x00000800
+#define REG_ACTRL_SCRATCH_BEGIN_ACTRL_WEST__OPEN_ADDR(inst)             ((uint32_t)(inst) + 0x00000000U)
+#define BF_ACTRL_SCRATCH_BEGIN_ACTRL_WEST__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000000U), 0x00000800U
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0001_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000001)
-#define BF_BF_4F891517_INFO(inst)                                       ((inst) + 0x00000001), 0x00000100
-#define BF_BF_CAEB7B6D_INFO(inst)                                       ((inst) + 0x00000001), 0x00000101
-#define BF_BF_B5E15A20_INFO(inst)                                       ((inst) + 0x00000001), 0x00000102
+#define REG_REG_0X0001_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000001U)
+#define BF_BF_4F891517_INFO(inst)                                       ((uint32_t)(inst) + 0x00000001U), 0x00000100U
+#define BF_BF_CAEB7B6D_INFO(inst)                                       ((uint32_t)(inst) + 0x00000001U), 0x00000101U
+#define BF_BF_B5E15A20_INFO(inst)                                       ((uint32_t)(inst) + 0x00000001U), 0x00000102U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0002_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000002)
-#define BF_BF_80682486_INFO(inst)                                       ((inst) + 0x00000002), 0x00000100
-#define BF_BF_0CEA8917_INFO(inst)                                       ((inst) + 0x00000002), 0x00000101
-#define BF_BF_CAA8A3A9_INFO(inst)                                       ((inst) + 0x00000002), 0x00000102
-#define BF_BF_EF17F471_INFO(inst)                                       ((inst) + 0x00000002), 0x00000103
-#define BF_BF_FB0A16E3_INFO(inst)                                       ((inst) + 0x00000002), 0x00000107
+#define REG_REG_0X0002_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000002U)
+#define BF_BF_80682486_INFO(inst)                                       ((uint32_t)(inst) + 0x00000002U), 0x00000100U
+#define BF_BF_0CEA8917_INFO(inst)                                       ((uint32_t)(inst) + 0x00000002U), 0x00000101U
+#define BF_BF_CAA8A3A9_INFO(inst)                                       ((uint32_t)(inst) + 0x00000002U), 0x00000102U
+#define BF_BF_EF17F471_INFO(inst)                                       ((uint32_t)(inst) + 0x00000002U), 0x00000103U
+#define BF_BF_FB0A16E3_INFO(inst)                                       ((uint32_t)(inst) + 0x00000002U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_REG_0X0003_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000003)
+#define REG_REG_0X0003_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000003U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0004_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000004)
-#define BF_BF_D715BF87_INFO(inst)                                       ((inst) + 0x00000004), 0x00000800
-#endif /* USE_PRIVATE_BF */
-
-#ifdef USE_PRIVATE_BF
-#define REG_REG_0X0005_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000005)
-#define BF_BF_AF3E1E65_INFO(inst)                                       ((inst) + 0x00000005), 0x00000800
+#define REG_REG_0X0004_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000004U)
+#define BF_BF_D715BF87_INFO(inst)                                       ((uint32_t)(inst) + 0x00000004U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0006_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000006)
-#define BF_BF_5050CF8A_INFO(inst)                                       ((inst) + 0x00000006), 0x00000100
-#define BF_BF_F92DEBA5_INFO(inst)                                       ((inst) + 0x00000006), 0x00000101
+#define REG_REG_0X0005_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000005U)
+#define BF_BF_AF3E1E65_INFO(inst)                                       ((uint32_t)(inst) + 0x00000005U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0007_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000007)
-#define BF_BF_CBBB0A1D_INFO(inst)                                       ((inst) + 0x00000007), 0x00000100
-#define BF_BF_0EC38FEC_INFO(inst)                                       ((inst) + 0x00000007), 0x00000104
+#define REG_REG_0X0006_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000006U)
+#define BF_BF_5050CF8A_INFO(inst)                                       ((uint32_t)(inst) + 0x00000006U), 0x00000100U
+#define BF_BF_F92DEBA5_INFO(inst)                                       ((uint32_t)(inst) + 0x00000006U), 0x00000101U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0008_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000008)
-#define BF_BF_D6319B8F_INFO(inst)                                       ((inst) + 0x00000008), 0x00000400
+#define REG_REG_0X0007_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000007U)
+#define BF_BF_CBBB0A1D_INFO(inst)                                       ((uint32_t)(inst) + 0x00000007U), 0x00000100U
+#define BF_BF_0EC38FEC_INFO(inst)                                       ((uint32_t)(inst) + 0x00000007U), 0x00000104U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0009_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000009)
-#define BF_BF_C151B9C1_INFO(inst)                                       ((inst) + 0x00000009), 0x00000300
-#define BF_BF_785765B5_INFO(inst)                                       ((inst) + 0x00000009), 0x00000304
+#define REG_REG_0X0008_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000008U)
+#define BF_BF_D6319B8F_INFO(inst)                                       ((uint32_t)(inst) + 0x00000008U), 0x00000400U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X000A_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000000A)
-#define BF_BF_F0EFD958_INFO(inst)                                       ((inst) + 0x0000000A), 0x00000300
-#define BF_BF_3617B926_INFO(inst)                                       ((inst) + 0x0000000A), 0x00000304
+#define REG_REG_0X0009_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000009U)
+#define BF_BF_C151B9C1_INFO(inst)                                       ((uint32_t)(inst) + 0x00000009U), 0x00000300U
+#define BF_BF_785765B5_INFO(inst)                                       ((uint32_t)(inst) + 0x00000009U), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X000B_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000000B)
-#define BF_BF_0827E611_INFO(inst)                                       ((inst) + 0x0000000B), 0x00000300
-#define BF_BF_92C4A8D5_INFO(inst)                                       ((inst) + 0x0000000B), 0x00000304
+#define REG_REG_0X000A_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000000AU)
+#define BF_BF_F0EFD958_INFO(inst)                                       ((uint32_t)(inst) + 0x0000000AU), 0x00000300U
+#define BF_BF_3617B926_INFO(inst)                                       ((uint32_t)(inst) + 0x0000000AU), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X000C_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000000C)
-#define BF_BF_0CACD55E_INFO(inst)                                       ((inst) + 0x0000000C), 0x00000300
-#define BF_BF_460694AB_INFO(inst)                                       ((inst) + 0x0000000C), 0x00000304
+#define REG_REG_0X000B_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000000BU)
+#define BF_BF_0827E611_INFO(inst)                                       ((uint32_t)(inst) + 0x0000000BU), 0x00000300U
+#define BF_BF_92C4A8D5_INFO(inst)                                       ((uint32_t)(inst) + 0x0000000BU), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X000D_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000000D)
-#define BF_BF_585C1963_INFO(inst)                                       ((inst) + 0x0000000D), 0x00000300
+#define REG_REG_0X000C_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000000CU)
+#define BF_BF_0CACD55E_INFO(inst)                                       ((uint32_t)(inst) + 0x0000000CU), 0x00000300U
+#define BF_BF_460694AB_INFO(inst)                                       ((uint32_t)(inst) + 0x0000000CU), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X000E_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000000E)
-#define BF_BF_16C1981F_INFO(inst)                                       ((inst) + 0x0000000E), 0x00000200
-#define BF_BF_AC531167_INFO(inst)                                       ((inst) + 0x0000000E), 0x00000202
-#define BF_BF_9FC9112E_INFO(inst)                                       ((inst) + 0x0000000E), 0x00000204
+#define REG_REG_0X000D_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000000DU)
+#define BF_BF_585C1963_INFO(inst)                                       ((uint32_t)(inst) + 0x0000000DU), 0x00000300U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X000F_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000000F)
-#define BF_BF_3E5198E9_INFO(inst)                                       ((inst) + 0x0000000F), 0x00000300
-#define BF_BF_F7E42D50_INFO(inst)                                       ((inst) + 0x0000000F), 0x00000304
+#define REG_REG_0X000E_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000000EU)
+#define BF_BF_16C1981F_INFO(inst)                                       ((uint32_t)(inst) + 0x0000000EU), 0x00000200U
+#define BF_BF_AC531167_INFO(inst)                                       ((uint32_t)(inst) + 0x0000000EU), 0x00000202U
+#define BF_BF_9FC9112E_INFO(inst)                                       ((uint32_t)(inst) + 0x0000000EU), 0x00000204U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0010_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000010)
-#define BF_BF_57DBD614_INFO(inst)                                       ((inst) + 0x00000010), 0x00000200
-#define BF_BF_6FA8186A_INFO(inst)                                       ((inst) + 0x00000010), 0x00000204
+#define REG_REG_0X000F_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000000FU)
+#define BF_BF_3E5198E9_INFO(inst)                                       ((uint32_t)(inst) + 0x0000000FU), 0x00000300U
+#define BF_BF_F7E42D50_INFO(inst)                                       ((uint32_t)(inst) + 0x0000000FU), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0011_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000011)
-#define BF_BF_8BF62269_INFO(inst)                                       ((inst) + 0x00000011), 0x00000500
-#define BF_BF_2BDB14F1_INFO(inst)                                       ((inst) + 0x00000011), 0x00000105
-#define BF_BF_3038DD87_INFO(inst)                                       ((inst) + 0x00000011), 0x00000107
+#define REG_REG_0X0010_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000010U)
+#define BF_BF_57DBD614_INFO(inst)                                       ((uint32_t)(inst) + 0x00000010U), 0x00000200U
+#define BF_BF_6FA8186A_INFO(inst)                                       ((uint32_t)(inst) + 0x00000010U), 0x00000204U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0012_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000012)
-#define BF_BF_71FC3AF9_INFO(inst)                                       ((inst) + 0x00000012), 0x00000500
-#define BF_BF_AA7CEFFF_INFO(inst)                                       ((inst) + 0x00000012), 0x00000105
-#define BF_BF_16BCA3C2_INFO(inst)                                       ((inst) + 0x00000012), 0x00000107
+#define REG_REG_0X0011_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000011U)
+#define BF_BF_8BF62269_INFO(inst)                                       ((uint32_t)(inst) + 0x00000011U), 0x00000500U
+#define BF_BF_2BDB14F1_INFO(inst)                                       ((uint32_t)(inst) + 0x00000011U), 0x00000105U
+#define BF_BF_3038DD87_INFO(inst)                                       ((uint32_t)(inst) + 0x00000011U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0013_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000013)
-#define BF_BF_899E4BBF_INFO(inst)                                       ((inst) + 0x00000013), 0x00000300
-#define BF_BF_F3A4F067_INFO(inst)                                       ((inst) + 0x00000013), 0x00000304
-#endif /* USE_PRIVATE_BF */
-
-#define REG_REG_0X0014_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000014)
-
-#ifdef USE_PRIVATE_BF
-#define REG_REG_0X0015_ACTRL_WEST__OPEN_ADDR(inst, n)                   ((inst) + 0x00000015 + 1 * (n))
-#define BF_BF_4EB392BF_INFO(inst, n)                                    ((inst) + 0x00000015 + 1 * (n)), 0x00000200
-#define BF_BF_D8B30366_INFO(inst, n)                                    ((inst) + 0x00000015 + 1 * (n)), 0x00000202
-#define BF_BF_20CE60BB_INFO(inst, n)                                    ((inst) + 0x00000015 + 1 * (n)), 0x00000204
-#define BF_BF_9203C058_INFO(inst, n)                                    ((inst) + 0x00000015 + 1 * (n)), 0x00000206
+#define REG_REG_0X0012_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000012U)
+#define BF_BF_71FC3AF9_INFO(inst)                                       ((uint32_t)(inst) + 0x00000012U), 0x00000500U
+#define BF_BF_AA7CEFFF_INFO(inst)                                       ((uint32_t)(inst) + 0x00000012U), 0x00000105U
+#define BF_BF_16BCA3C2_INFO(inst)                                       ((uint32_t)(inst) + 0x00000012U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X001D_ACTRL_WEST__OPEN_ADDR(inst, n)                   ((inst) + 0x0000001D + 1 * (n))
-#define BF_BF_4E03658F_INFO(inst, n)                                    ((inst) + 0x0000001D + 1 * (n)), 0x00000200
-#define BF_BF_B1068A5B_INFO(inst, n)                                    ((inst) + 0x0000001D + 1 * (n)), 0x00000202
-#define BF_BF_75F3304F_INFO(inst, n)                                    ((inst) + 0x0000001D + 1 * (n)), 0x00000204
-#define BF_BF_2C2ED0CC_INFO(inst, n)                                    ((inst) + 0x0000001D + 1 * (n)), 0x00000206
+#define REG_REG_0X0013_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000013U)
+#define BF_BF_899E4BBF_INFO(inst)                                       ((uint32_t)(inst) + 0x00000013U), 0x00000300U
+#define BF_BF_F3A4F067_INFO(inst)                                       ((uint32_t)(inst) + 0x00000013U), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_REG_0X0025_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000025)
+#define REG_REG_0X0014_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000014U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0026_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000026)
-#define BF_BF_DC640D74_INFO(inst)                                       ((inst) + 0x00000026), 0x00000300
-#define BF_BF_EC909415_INFO(inst)                                       ((inst) + 0x00000026), 0x00000304
-#endif /* USE_PRIVATE_BF */
-
-#ifdef USE_PRIVATE_BF
-#define REG_REG_0X0027_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000027)
-#define BF_BF_8BC429B9_INFO(inst)                                       ((inst) + 0x00000027), 0x00000300
-#define BF_BF_17B15B87_INFO(inst)                                       ((inst) + 0x00000027), 0x00000304
+#define REG_REG_0X0015_ACTRL_WEST__OPEN_ADDR(inst, n)                   ((uint32_t)(inst) + 0x00000015U + 1U * (uint32_t)(n))
+#define BF_BF_4EB392BF_INFO(inst, n)                                    ((uint32_t)(inst) + 0x00000015U + 1U * (uint32_t)(n)), 0x00000200U
+#define BF_BF_D8B30366_INFO(inst, n)                                    ((uint32_t)(inst) + 0x00000015U + 1U * (uint32_t)(n)), 0x00000202U
+#define BF_BF_20CE60BB_INFO(inst, n)                                    ((uint32_t)(inst) + 0x00000015U + 1U * (uint32_t)(n)), 0x00000204U
+#define BF_BF_9203C058_INFO(inst, n)                                    ((uint32_t)(inst) + 0x00000015U + 1U * (uint32_t)(n)), 0x00000206U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0028_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000028)
-#define BF_BF_5AAF89C8_INFO(inst)                                       ((inst) + 0x00000028), 0x00000300
-#define BF_BF_19109ACE_INFO(inst)                                       ((inst) + 0x00000028), 0x00000304
+#define REG_REG_0X001D_ACTRL_WEST__OPEN_ADDR(inst, n)                   ((uint32_t)(inst) + 0x0000001DU + 1U * (uint32_t)(n))
+#define BF_BF_4E03658F_INFO(inst, n)                                    ((uint32_t)(inst) + 0x0000001DU + 1U * (uint32_t)(n)), 0x00000200U
+#define BF_BF_B1068A5B_INFO(inst, n)                                    ((uint32_t)(inst) + 0x0000001DU + 1U * (uint32_t)(n)), 0x00000202U
+#define BF_BF_75F3304F_INFO(inst, n)                                    ((uint32_t)(inst) + 0x0000001DU + 1U * (uint32_t)(n)), 0x00000204U
+#define BF_BF_2C2ED0CC_INFO(inst, n)                                    ((uint32_t)(inst) + 0x0000001DU + 1U * (uint32_t)(n)), 0x00000206U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_REG_0X0025_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000025U)
+
+#ifdef USE_PRIVATE_BF
+#define REG_REG_0X0026_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000026U)
+#define BF_BF_DC640D74_INFO(inst)                                       ((uint32_t)(inst) + 0x00000026U), 0x00000300U
+#define BF_BF_EC909415_INFO(inst)                                       ((uint32_t)(inst) + 0x00000026U), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0029_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000029)
-#define BF_BF_8DF4690C_INFO(inst)                                       ((inst) + 0x00000029), 0x00000300
-#define BF_BF_0FC925AE_INFO(inst)                                       ((inst) + 0x00000029), 0x00000304
+#define REG_REG_0X0027_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000027U)
+#define BF_BF_8BC429B9_INFO(inst)                                       ((uint32_t)(inst) + 0x00000027U), 0x00000300U
+#define BF_BF_17B15B87_INFO(inst)                                       ((uint32_t)(inst) + 0x00000027U), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X002A_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000002A)
-#define BF_BF_6F3D1EB2_INFO(inst)                                       ((inst) + 0x0000002A), 0x00000300
-#define BF_BF_06BFDD4F_INFO(inst)                                       ((inst) + 0x0000002A), 0x00000304
+#define REG_REG_0X0028_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000028U)
+#define BF_BF_5AAF89C8_INFO(inst)                                       ((uint32_t)(inst) + 0x00000028U), 0x00000300U
+#define BF_BF_19109ACE_INFO(inst)                                       ((uint32_t)(inst) + 0x00000028U), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X002B_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000002B)
-#define BF_BF_A748C638_INFO(inst)                                       ((inst) + 0x0000002B), 0x00000300
-#define BF_BF_BEA5A3D9_INFO(inst)                                       ((inst) + 0x0000002B), 0x00000304
+#define REG_REG_0X0029_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000029U)
+#define BF_BF_8DF4690C_INFO(inst)                                       ((uint32_t)(inst) + 0x00000029U), 0x00000300U
+#define BF_BF_0FC925AE_INFO(inst)                                       ((uint32_t)(inst) + 0x00000029U), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X002C_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000002C)
-#define BF_BF_3D67E04C_INFO(inst)                                       ((inst) + 0x0000002C), 0x00000300
-#define BF_BF_53D60460_INFO(inst)                                       ((inst) + 0x0000002C), 0x00000304
+#define REG_REG_0X002A_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000002AU)
+#define BF_BF_6F3D1EB2_INFO(inst)                                       ((uint32_t)(inst) + 0x0000002AU), 0x00000300U
+#define BF_BF_06BFDD4F_INFO(inst)                                       ((uint32_t)(inst) + 0x0000002AU), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X002D_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000002D)
-#define BF_BF_AF725B34_INFO(inst)                                       ((inst) + 0x0000002D), 0x00000300
+#define REG_REG_0X002B_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000002BU)
+#define BF_BF_A748C638_INFO(inst)                                       ((uint32_t)(inst) + 0x0000002BU), 0x00000300U
+#define BF_BF_BEA5A3D9_INFO(inst)                                       ((uint32_t)(inst) + 0x0000002BU), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X002E_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000002E)
-#define BF_BF_3838C9C7_INFO(inst)                                       ((inst) + 0x0000002E), 0x00000700
+#define REG_REG_0X002C_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000002CU)
+#define BF_BF_3D67E04C_INFO(inst)                                       ((uint32_t)(inst) + 0x0000002CU), 0x00000300U
+#define BF_BF_53D60460_INFO(inst)                                       ((uint32_t)(inst) + 0x0000002CU), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X002F_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000002F)
-#define BF_BF_BC7ABCEF_INFO(inst)                                       ((inst) + 0x0000002F), 0x00000700
+#define REG_REG_0X002D_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000002DU)
+#define BF_BF_AF725B34_INFO(inst)                                       ((uint32_t)(inst) + 0x0000002DU), 0x00000300U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0030_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000030)
-#define BF_BF_5EDCE83D_INFO(inst)                                       ((inst) + 0x00000030), 0x00000700
+#define REG_REG_0X002E_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000002EU)
+#define BF_BF_3838C9C7_INFO(inst)                                       ((uint32_t)(inst) + 0x0000002EU), 0x00000700U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0031_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000031)
-#define BF_BF_12A41045_INFO(inst)                                       ((inst) + 0x00000031), 0x00000800
+#define REG_REG_0X002F_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000002FU)
+#define BF_BF_BC7ABCEF_INFO(inst)                                       ((uint32_t)(inst) + 0x0000002FU), 0x00000700U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0032_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000032)
-#define BF_BF_818EAAB9_INFO(inst)                                       ((inst) + 0x00000032), 0x00000300
+#define REG_REG_0X0030_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000030U)
+#define BF_BF_5EDCE83D_INFO(inst)                                       ((uint32_t)(inst) + 0x00000030U), 0x00000700U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0033_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000033)
-#define BF_BF_D909CB45_INFO(inst)                                       ((inst) + 0x00000033), 0x00000100
-#define BF_BF_9B37C1EE_INFO(inst)                                       ((inst) + 0x00000033), 0x00000201
-#define BF_BF_EAD5C9CD_INFO(inst)                                       ((inst) + 0x00000033), 0x00000103
-#define BF_BF_E751D2E0_INFO(inst)                                       ((inst) + 0x00000033), 0x00000104
-#define BF_BF_85E41FBC_INFO(inst)                                       ((inst) + 0x00000033), 0x00000105
-#define BF_BF_8113DC9C_INFO(inst)                                       ((inst) + 0x00000033), 0x00000106
-#define BF_BF_C3E8EB1D_INFO(inst)                                       ((inst) + 0x00000033), 0x00000107
+#define REG_REG_0X0031_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000031U)
+#define BF_BF_12A41045_INFO(inst)                                       ((uint32_t)(inst) + 0x00000031U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0034_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000034)
-#define BF_BF_6F17ED86_INFO(inst)                                       ((inst) + 0x00000034), 0x00000400
+#define REG_REG_0X0032_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000032U)
+#define BF_BF_818EAAB9_INFO(inst)                                       ((uint32_t)(inst) + 0x00000032U), 0x00000300U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0035_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000035)
-#define BF_BF_831942C1_INFO(inst)                                       ((inst) + 0x00000035), 0x00000404
+#define REG_REG_0X0033_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000033U)
+#define BF_BF_D909CB45_INFO(inst)                                       ((uint32_t)(inst) + 0x00000033U), 0x00000100U
+#define BF_BF_9B37C1EE_INFO(inst)                                       ((uint32_t)(inst) + 0x00000033U), 0x00000201U
+#define BF_BF_EAD5C9CD_INFO(inst)                                       ((uint32_t)(inst) + 0x00000033U), 0x00000103U
+#define BF_BF_E751D2E0_INFO(inst)                                       ((uint32_t)(inst) + 0x00000033U), 0x00000104U
+#define BF_BF_85E41FBC_INFO(inst)                                       ((uint32_t)(inst) + 0x00000033U), 0x00000105U
+#define BF_BF_8113DC9C_INFO(inst)                                       ((uint32_t)(inst) + 0x00000033U), 0x00000106U
+#define BF_BF_C3E8EB1D_INFO(inst)                                       ((uint32_t)(inst) + 0x00000033U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0036_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000036)
-#define BF_BF_4B0B8019_INFO(inst)                                       ((inst) + 0x00000036), 0x00000300
-#define BF_BF_D3FA0DFF_INFO(inst)                                       ((inst) + 0x00000036), 0x00000404
-#endif /* USE_PRIVATE_BF */
-
-#define REG_REG_0X0037_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000037)
-
-#ifdef USE_PRIVATE_BF
-#define REG_REG_0X0038_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000038)
-#define BF_BF_F2B9F109_INFO(inst)                                       ((inst) + 0x00000038), 0x00000100
+#define REG_REG_0X0034_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000034U)
+#define BF_BF_6F17ED86_INFO(inst)                                       ((uint32_t)(inst) + 0x00000034U), 0x00000400U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0039_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000039)
-#define BF_BF_459ACF5C_INFO(inst)                                       ((inst) + 0x00000039), 0x00000100
+#define REG_REG_0X0035_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000035U)
+#define BF_BF_831942C1_INFO(inst)                                       ((uint32_t)(inst) + 0x00000035U), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X003A_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000003A)
-#define BF_BF_DA32E51D_ACTRL_WEST__OPEN_INFO(inst)                      ((inst) + 0x0000003A), 0x00000500
+#define REG_REG_0X0036_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000036U)
+#define BF_BF_4B0B8019_INFO(inst)                                       ((uint32_t)(inst) + 0x00000036U), 0x00000300U
+#define BF_BF_D3FA0DFF_INFO(inst)                                       ((uint32_t)(inst) + 0x00000036U), 0x00000404U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_REG_0X0037_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000037U)
+
+#ifdef USE_PRIVATE_BF
+#define REG_REG_0X0038_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000038U)
+#define BF_BF_F2B9F109_INFO(inst)                                       ((uint32_t)(inst) + 0x00000038U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X003B_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000003B)
-#define BF_BF_ECECD989_ACTRL_WEST__OPEN_INFO(inst)                      ((inst) + 0x0000003B), 0x00000500
+#define REG_REG_0X0039_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000039U)
+#define BF_BF_459ACF5C_INFO(inst)                                       ((uint32_t)(inst) + 0x00000039U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X003C_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000003C)
-#define BF_BF_246AC3B1_ACTRL_WEST__OPEN_INFO(inst)                      ((inst) + 0x0000003C), 0x00000500
+#define REG_REG_0X003A_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000003AU)
+#define BF_BF_DA32E51D_ACTRL_WEST__OPEN_INFO(inst)                      ((uint32_t)(inst) + 0x0000003AU), 0x00000500U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X003D_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000003D)
-#define BF_BF_CB8D6E7B_ACTRL_WEST__OPEN_INFO(inst)                      ((inst) + 0x0000003D), 0x00000300
+#define REG_REG_0X003B_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000003BU)
+#define BF_BF_ECECD989_ACTRL_WEST__OPEN_INFO(inst)                      ((uint32_t)(inst) + 0x0000003BU), 0x00000500U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X003E_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000003E)
-#define BF_BF_E71A6D16_INFO(inst)                                       ((inst) + 0x0000003E), 0x00000800
+#define REG_REG_0X003C_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000003CU)
+#define BF_BF_246AC3B1_ACTRL_WEST__OPEN_INFO(inst)                      ((uint32_t)(inst) + 0x0000003CU), 0x00000500U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X003F_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000003F)
-#define BF_BF_5F1C3B7E_INFO(inst)                                       ((inst) + 0x0000003F), 0x00000100
+#define REG_REG_0X003D_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000003DU)
+#define BF_BF_CB8D6E7B_ACTRL_WEST__OPEN_INFO(inst)                      ((uint32_t)(inst) + 0x0000003DU), 0x00000300U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0040_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000040)
-#define BF_BF_04557BC8_INFO(inst)                                       ((inst) + 0x00000040), 0x00000300
-#define BF_BF_568AB02F_INFO(inst)                                       ((inst) + 0x00000040), 0x00000303
+#define REG_REG_0X003E_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000003EU)
+#define BF_BF_E71A6D16_INFO(inst)                                       ((uint32_t)(inst) + 0x0000003EU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0041_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000041)
-#define BF_BF_97907FC4_INFO(inst)                                       ((inst) + 0x00000041), 0x00000300
-#define BF_BF_40FAEF21_INFO(inst)                                       ((inst) + 0x00000041), 0x00000303
+#define REG_REG_0X003F_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000003FU)
+#define BF_BF_5F1C3B7E_INFO(inst)                                       ((uint32_t)(inst) + 0x0000003FU), 0x00000100U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0042_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000042)
-#define BF_BF_6653AD72_INFO(inst)                                       ((inst) + 0x00000042), 0x00000400
-#define BF_BF_F95A48BC_INFO(inst)                                       ((inst) + 0x00000042), 0x00000404
+#define REG_REG_0X0040_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000040U)
+#define BF_BF_04557BC8_INFO(inst)                                       ((uint32_t)(inst) + 0x00000040U), 0x00000300U
+#define BF_BF_568AB02F_INFO(inst)                                       ((uint32_t)(inst) + 0x00000040U), 0x00000303U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0043_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000043)
-#define BF_BF_85EDE74B_INFO(inst)                                       ((inst) + 0x00000043), 0x00000300
-#endif /* USE_PRIVATE_BF */
-
-#define REG_REG_0X0044_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000044)
-
-#define REG_REG_0X0045_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000045)
-
-#define REG_REG_0X0046_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000046)
-
-#define REG_REG_0X0047_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000047)
-
-#define REG_REG_0X0048_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000048)
-
-#define REG_REG_0X0049_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000049)
-
-#define REG_REG_0X004A_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000004A)
-
-#define REG_REG_0X004B_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000004B)
-
-#define REG_REG_0X004C_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000004C)
-
-#ifdef USE_PRIVATE_BF
-#define REG_REG_0X004D_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000004D)
-#define BF_BF_6D240534_INFO(inst)                                       ((inst) + 0x0000004D), 0x00000200
-#define BF_BF_30B90B4D_INFO(inst)                                       ((inst) + 0x0000004D), 0x00000202
-#define BF_BF_F7942724_INFO(inst)                                       ((inst) + 0x0000004D), 0x00000204
-#define BF_BF_CF92A541_INFO(inst)                                       ((inst) + 0x0000004D), 0x00000206
+#define REG_REG_0X0041_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000041U)
+#define BF_BF_97907FC4_INFO(inst)                                       ((uint32_t)(inst) + 0x00000041U), 0x00000300U
+#define BF_BF_40FAEF21_INFO(inst)                                       ((uint32_t)(inst) + 0x00000041U), 0x00000303U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X004E_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000004E)
-#define BF_BF_8B25C9FE_INFO(inst)                                       ((inst) + 0x0000004E), 0x00000400
-#define BF_BF_DF7E2BC6_INFO(inst)                                       ((inst) + 0x0000004E), 0x00000404
+#define REG_REG_0X0042_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000042U)
+#define BF_BF_6653AD72_INFO(inst)                                       ((uint32_t)(inst) + 0x00000042U), 0x00000400U
+#define BF_BF_F95A48BC_INFO(inst)                                       ((uint32_t)(inst) + 0x00000042U), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X004F_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000004F)
-#define BF_BF_AD94D2D6_INFO(inst)                                       ((inst) + 0x0000004F), 0x00000400
-#define BF_BF_EBDB1917_INFO(inst)                                       ((inst) + 0x0000004F), 0x00000404
+#define REG_REG_0X0043_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000043U)
+#define BF_BF_85EDE74B_INFO(inst)                                       ((uint32_t)(inst) + 0x00000043U), 0x00000300U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_REG_0X0044_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000044U)
+
+#define REG_REG_0X0045_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000045U)
+
+#define REG_REG_0X0046_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000046U)
+
+#define REG_REG_0X0047_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000047U)
+
+#define REG_REG_0X0048_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000048U)
+
+#define REG_REG_0X0049_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000049U)
+
+#define REG_REG_0X004A_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000004AU)
+
+#define REG_REG_0X004B_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000004BU)
+
+#define REG_REG_0X004C_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000004CU)
+
+#ifdef USE_PRIVATE_BF
+#define REG_REG_0X004D_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000004DU)
+#define BF_BF_6D240534_INFO(inst)                                       ((uint32_t)(inst) + 0x0000004DU), 0x00000200U
+#define BF_BF_30B90B4D_INFO(inst)                                       ((uint32_t)(inst) + 0x0000004DU), 0x00000202U
+#define BF_BF_F7942724_INFO(inst)                                       ((uint32_t)(inst) + 0x0000004DU), 0x00000204U
+#define BF_BF_CF92A541_INFO(inst)                                       ((uint32_t)(inst) + 0x0000004DU), 0x00000206U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0050_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000050)
-#define BF_BF_80470963_INFO(inst)                                       ((inst) + 0x00000050), 0x00000400
-#define BF_BF_9BC834E1_INFO(inst)                                       ((inst) + 0x00000050), 0x00000404
+#define REG_REG_0X004E_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000004EU)
+#define BF_BF_8B25C9FE_INFO(inst)                                       ((uint32_t)(inst) + 0x0000004EU), 0x00000400U
+#define BF_BF_DF7E2BC6_INFO(inst)                                       ((uint32_t)(inst) + 0x0000004EU), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0051_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000051)
-#define BF_BF_E152813D_INFO(inst)                                       ((inst) + 0x00000051), 0x00000400
-#define BF_BF_EDF345ED_INFO(inst)                                       ((inst) + 0x00000051), 0x00000404
+#define REG_REG_0X004F_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000004FU)
+#define BF_BF_AD94D2D6_INFO(inst)                                       ((uint32_t)(inst) + 0x0000004FU), 0x00000400U
+#define BF_BF_EBDB1917_INFO(inst)                                       ((uint32_t)(inst) + 0x0000004FU), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0055_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000055)
-#define BF_BF_2BD68F04_ACTRL_WEST__OPEN_INFO(inst)                      ((inst) + 0x00000055), 0x00000800
+#define REG_REG_0X0050_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000050U)
+#define BF_BF_80470963_INFO(inst)                                       ((uint32_t)(inst) + 0x00000050U), 0x00000400U
+#define BF_BF_9BC834E1_INFO(inst)                                       ((uint32_t)(inst) + 0x00000050U), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0056_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000056)
-#define BF_BF_6F0E76C0_ACTRL_WEST__OPEN_INFO(inst)                      ((inst) + 0x00000056), 0x00000800
+#define REG_REG_0X0051_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000051U)
+#define BF_BF_E152813D_INFO(inst)                                       ((uint32_t)(inst) + 0x00000051U), 0x00000400U
+#define BF_BF_EDF345ED_INFO(inst)                                       ((uint32_t)(inst) + 0x00000051U), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0057_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000057)
-#define BF_BF_1DECF0B5_ACTRL_WEST__OPEN_INFO(inst)                      ((inst) + 0x00000057), 0x00000800
+#define REG_REG_0X0055_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000055U)
+#define BF_BF_2BD68F04_ACTRL_WEST__OPEN_INFO(inst)                      ((uint32_t)(inst) + 0x00000055U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0058_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000058)
-#define BF_BF_C5EBC8EF_ACTRL_WEST__OPEN_INFO(inst)                      ((inst) + 0x00000058), 0x00000800
+#define REG_REG_0X0056_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000056U)
+#define BF_BF_6F0E76C0_ACTRL_WEST__OPEN_INFO(inst)                      ((uint32_t)(inst) + 0x00000056U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0059_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x00000059)
-#define BF_BF_C9878C07_ACTRL_WEST__OPEN_INFO(inst)                      ((inst) + 0x00000059), 0x00000800
+#define REG_REG_0X0057_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000057U)
+#define BF_BF_1DECF0B5_ACTRL_WEST__OPEN_INFO(inst)                      ((uint32_t)(inst) + 0x00000057U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X005A_ACTRL_WEST__OPEN_ADDR(inst)                      ((inst) + 0x0000005A)
-#define BF_BF_A8BAEFD3_ACTRL_WEST__OPEN_INFO(inst)                      ((inst) + 0x0000005A), 0x00000800
+#define REG_REG_0X0058_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000058U)
+#define BF_BF_C5EBC8EF_ACTRL_WEST__OPEN_INFO(inst)                      ((uint32_t)(inst) + 0x00000058U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_ACTRL_SCRATCH_END_ACTRL_WEST__OPEN_ADDR(inst)               ((inst) + 0x000003FF)
-#define BF_ACTRL_SCRATCH_END_ACTRL_WEST__OPEN_INFO(inst)                ((inst) + 0x000003FF), 0x00000800
+#ifdef USE_PRIVATE_BF
+#define REG_REG_0X0059_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000059U)
+#define BF_BF_C9878C07_ACTRL_WEST__OPEN_INFO(inst)                      ((uint32_t)(inst) + 0x00000059U), 0x00000800U
+#endif /* USE_PRIVATE_BF */
 
-#endif /* __ADI_APOLLO_BF_ACTRL_WEST_OPEN_H__ */
+#ifdef USE_PRIVATE_BF
+#define REG_REG_0X005A_ACTRL_WEST__OPEN_ADDR(inst)                      ((uint32_t)(inst) + 0x0000005AU)
+#define BF_BF_A8BAEFD3_ACTRL_WEST__OPEN_INFO(inst)                      ((uint32_t)(inst) + 0x0000005AU), 0x00000800U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_ACTRL_SCRATCH_END_ACTRL_WEST__OPEN_ADDR(inst)               ((uint32_t)(inst) + 0x000003FFU)
+#define BF_ACTRL_SCRATCH_END_ACTRL_WEST__OPEN_INFO(inst)                ((uint32_t)(inst) + 0x000003FFU), 0x00000800U
+
+#endif /* ADI_APOLLO_BF_ACTRL_WEST_OPEN_H__ */
 /*! @} */

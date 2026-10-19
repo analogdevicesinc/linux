@@ -11,16 +11,16 @@
  * \addtogroup ADI_APOLLO_FSRC
  * @{
  */
-#ifndef __ADI_APOLLO_FSRC_TYPES_H__
-#define __ADI_APOLLO_FSRC_TYPES_H__
+#ifndef ADI_APOLLO_FSRC_TYPES_H__
+#define ADI_APOLLO_FSRC_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
 #include "adi_apollo_common.h"
 
 /*============= D E F I N E S ==============*/
-#define ADI_APOLLO_FSRC_NUM 4
-#define ADI_APOLLO_FSRC_PER_SIDE_NUM 2
+#define ADI_APOLLO_FSRC_NUM 4U
+#define ADI_APOLLO_FSRC_PER_SIDE_NUM 2U
 
 /*!
 * \brief Enumerates FSRC selection
@@ -78,5 +78,5 @@ typedef struct {
 } adi_apollo_rx_rm_fifo_pgm_t;
 
 
-#endif /* __ADI_APOLLO_FSRC_TYPES_H__ */
+#endif /* ADI_APOLLO_FSRC_TYPES_H__ */
 /*! @} */

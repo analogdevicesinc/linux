@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_CLK_MCS
  * @{
  */
-#ifndef __ADI_APOLLO_CLK_MCS_TYPES_H__
-#define __ADI_APOLLO_CLK_MCS_TYPES_H__
+#ifndef ADI_APOLLO_CLK_MCS_TYPES_H__
+#define ADI_APOLLO_CLK_MCS_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -170,6 +170,6 @@ typedef struct adi_apollo_data_fifo_config {
     uint8_t                                 lat_wr_offset;      /*!< Latency write offset, if lat_override is 1 */
 } adi_apollo_data_fifo_config_t;
 
-#endif /* __ADI_APOLLO_CLK_MCS_TYPES_H__ */
+#endif /* ADI_APOLLO_CLK_MCS_TYPES_H__ */
 
 /*! @} */

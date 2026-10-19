@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_ADC
  * @{
  */
-#ifndef __ADI_APOLLO_ADC_TYPES_H__
-#define __ADI_APOLLO_ADC_TYPES_H__
+#ifndef ADI_APOLLO_ADC_TYPES_H__
+#define ADI_APOLLO_ADC_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -92,6 +92,14 @@ typedef enum {
 } adi_apollo_adc_ovr_threshold_e;
 
 /*!
+ * \brief Enumerates ADC actmode
+ */
+typedef enum {
+    ADI_APOLLO_ACTMODE_MODE0               = 0U,     /*!< mode0 */
+    ADI_APOLLO_ACTMODE_MODE1               = 1U      /*!< mode1 */
+} adi_apollo_actmode_e;
+
+/*!
  * \brief ADC Tracking / BG Cal error and status struct
  */
 typedef struct {
@@ -150,5 +158,5 @@ typedef struct {
 } adi_apollo_adc_input_status_t;
 
 
-#endif /* __ADI_APOLLO_ADC_TYPES_H__ */
+#endif /* ADI_APOLLO_ADC_TYPES_H__ */
 /*! @} */

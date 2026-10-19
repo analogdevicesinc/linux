@@ -12,268 +12,268 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_JTX_DUAL_LINK_H__
-#define __ADI_APOLLO_BF_JTX_DUAL_LINK_H__
+#ifndef ADI_APOLLO_BF_JTX_DUAL_LINK_H__
+#define ADI_APOLLO_BF_JTX_DUAL_LINK_H__
 
 /*============= D E F I N E S ==============*/
-#define JTX_DUAL_LINK_0_JTX_TOP_RX_DIGITAL0                 0x60610000
-#define JTX_DUAL_LINK_1_JTX_TOP_RX_DIGITAL0                 0x60614000
-#define JTX_DUAL_LINK_0_JTX_TOP_RX_DIGITAL1                 0x60E10000
-#define JTX_DUAL_LINK_1_JTX_TOP_RX_DIGITAL1                 0x60E14000
+#define JTX_DUAL_LINK_0_JTX_TOP_RX_DIGITAL0                 0x60610000U
+#define JTX_DUAL_LINK_1_JTX_TOP_RX_DIGITAL0                 0x60614000U
+#define JTX_DUAL_LINK_0_JTX_TOP_RX_DIGITAL1                 0x60E10000U
+#define JTX_DUAL_LINK_1_JTX_TOP_RX_DIGITAL1                 0x60E14000U
 
-#define REG_JTX_CORE_1_ADDR(inst)                           ((inst) + 0x00000011)
-#define BF_JTX_CHKSUM_LSB_ALG_INFO(inst)                    ((inst) + 0x00000011), 0x00000100
-#define BF_JTX_CHKSUM_DISABLE_INFO(inst)                    ((inst) + 0x00000011), 0x00000101
-#define BF_JTX_LINK_204C_SEL_INFO(inst)                     ((inst) + 0x00000011), 0x00000204
-#define BF_JTX_SYSREF_FOR_STARTUP_INFO(inst)                ((inst) + 0x00000011), 0x00000106
+#define REG_JTX_CORE_1_ADDR(inst)                           ((uint32_t)(inst) + 0x00000011U)
+#define BF_JTX_CHKSUM_LSB_ALG_INFO(inst)                    ((uint32_t)(inst) + 0x00000011U), 0x00000100U
+#define BF_JTX_CHKSUM_DISABLE_INFO(inst)                    ((uint32_t)(inst) + 0x00000011U), 0x00000101U
+#define BF_JTX_LINK_204C_SEL_INFO(inst)                     ((uint32_t)(inst) + 0x00000011U), 0x00000204U
+#define BF_JTX_SYSREF_FOR_STARTUP_INFO(inst)                ((uint32_t)(inst) + 0x00000011U), 0x00000106U
 #ifdef USE_PRIVATE_BF
-#define BF_JTX_SYSREF_FOR_RELINK_INFO(inst)                 ((inst) + 0x00000011), 0x00000107
+#define BF_JTX_SYSREF_FOR_RELINK_INFO(inst)                 ((uint32_t)(inst) + 0x00000011U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_JTX_CORE_2_LANE_ADDR(inst, n)                   ((inst) + 0x00000020 + 1 * (n))
-#define BF_JTX_LANE_ASSIGN_INFO(inst, n)                    ((inst) + 0x00000020 + 1 * (n)), 0x00000500
-#define BF_JTX_LANE_INV_INFO(inst, n)                       ((inst) + 0x00000020 + 1 * (n)), 0x00000105
-#define BF_JTX_FORCE_LANE_PD_INFO(inst, n)                  ((inst) + 0x00000020 + 1 * (n)), 0x00000106
-#define BF_JTX_LANE_PD_STATUS_INFO(inst, n)                 ((inst) + 0x00000020 + 1 * (n)), 0x00000107
+#define REG_JTX_CORE_2_LANE_ADDR(inst, n)                   ((uint32_t)(inst) + 0x00000020U + 1U * (uint32_t)(n))
+#define BF_JTX_LANE_ASSIGN_INFO(inst, n)                    ((uint32_t)(inst) + 0x00000020U + 1U * (uint32_t)(n)), 0x00000500U
+#define BF_JTX_LANE_INV_INFO(inst, n)                       ((uint32_t)(inst) + 0x00000020U + 1U * (uint32_t)(n)), 0x00000105U
+#define BF_JTX_FORCE_LANE_PD_INFO(inst, n)                  ((uint32_t)(inst) + 0x00000020U + 1U * (uint32_t)(n)), 0x00000106U
+#define BF_JTX_LANE_PD_STATUS_INFO(inst, n)                 ((uint32_t)(inst) + 0x00000020U + 1U * (uint32_t)(n)), 0x00000107U
 
-#define REG_JTX_CORE_3_ADDR(inst)                           ((inst) + 0x00000030)
-#define BF_JTX_TEST_GEN_MODE_INFO(inst)                     ((inst) + 0x00000030), 0x00000400
-#define BF_JTX_TEST_GEN_SEL_INFO(inst)                      ((inst) + 0x00000030), 0x00000204
-#define BF_JTX_TEST_MIRROR_INFO(inst)                       ((inst) + 0x00000030), 0x00000106
-#define BF_JTX_TEST_USER_GO_INFO(inst)                      ((inst) + 0x00000030), 0x00000107
+#define REG_JTX_CORE_3_ADDR(inst)                           ((uint32_t)(inst) + 0x00000030U)
+#define BF_JTX_TEST_GEN_MODE_INFO(inst)                     ((uint32_t)(inst) + 0x00000030U), 0x00000400U
+#define BF_JTX_TEST_GEN_SEL_INFO(inst)                      ((uint32_t)(inst) + 0x00000030U), 0x00000204U
+#define BF_JTX_TEST_MIRROR_INFO(inst)                       ((uint32_t)(inst) + 0x00000030U), 0x00000106U
+#define BF_JTX_TEST_USER_GO_INFO(inst)                      ((uint32_t)(inst) + 0x00000030U), 0x00000107U
 
-#define REG_JTX_CORE_4_ADDR(inst)                           ((inst) + 0x00000031)
+#define REG_JTX_CORE_4_ADDR(inst)                           ((uint32_t)(inst) + 0x00000031U)
 
-#define REG_JTX_CORE_5_ADDR(inst)                           ((inst) + 0x00000032)
+#define REG_JTX_CORE_5_ADDR(inst)                           ((uint32_t)(inst) + 0x00000032U)
 
-#define REG_JTX_CORE_6_ADDR(inst)                           ((inst) + 0x00000033)
+#define REG_JTX_CORE_6_ADDR(inst)                           ((uint32_t)(inst) + 0x00000033U)
 
-#define REG_JTX_CORE_7_ADDR(inst)                           ((inst) + 0x00000034)
+#define REG_JTX_CORE_7_ADDR(inst)                           ((uint32_t)(inst) + 0x00000034U)
 
-#define REG_JTX_CORE_8_ADDR(inst)                           ((inst) + 0x00000035)
+#define REG_JTX_CORE_8_ADDR(inst)                           ((uint32_t)(inst) + 0x00000035U)
 
-#define REG_JTX_CORE_9_ADDR(inst)                           ((inst) + 0x00000036)
+#define REG_JTX_CORE_9_ADDR(inst)                           ((uint32_t)(inst) + 0x00000036U)
 
-#define REG_JTX_CORE_10_ADDR(inst)                          ((inst) + 0x00000037)
+#define REG_JTX_CORE_10_ADDR(inst)                          ((uint32_t)(inst) + 0x00000037U)
 
-#define REG_JTX_CORE_11_ADDR(inst)                          ((inst) + 0x00000038)
+#define REG_JTX_CORE_11_ADDR(inst)                          ((uint32_t)(inst) + 0x00000038U)
 
-#define REG_JTX_CORE_12_ADDR(inst)                          ((inst) + 0x00000039)
-#define BF_JTX_SYNC_N_SEL_INFO(inst)                        ((inst) + 0x00000039), 0x00000305
+#define REG_JTX_CORE_12_ADDR(inst)                          ((uint32_t)(inst) + 0x00000039U)
+#define BF_JTX_SYNC_N_SEL_INFO(inst)                        ((uint32_t)(inst) + 0x00000039U), 0x00000305U
 
-#define REG_JTX_CORE_13_ADDR(inst)                          ((inst) + 0x0000003A)
-#define BF_JTX_LINK_EN_INFO(inst)                           ((inst) + 0x0000003A), 0x00000100
+#define REG_JTX_CORE_13_ADDR(inst)                          ((uint32_t)(inst) + 0x0000003AU)
+#define BF_JTX_LINK_EN_INFO(inst)                           ((uint32_t)(inst) + 0x0000003AU), 0x00000100U
 
-#define REG_JTX_CORE_0_CONV_ADDR(inst, n)                   ((inst) + 0x00000040 + 1 * (n))
-#define BF_JTX_CONV_SEL_INFO(inst, n)                       ((inst) + 0x00000040 + 1 * (n)), 0x00000600
+#define REG_JTX_CORE_0_CONV_ADDR(inst, n)                   ((uint32_t)(inst) + 0x00000040U + 1U * (uint32_t)(n))
+#define BF_JTX_CONV_SEL_INFO(inst, n)                       ((uint32_t)(inst) + 0x00000040U + 1U * (uint32_t)(n)), 0x00000600U
 #ifdef USE_PRIVATE_BF
-#define BF_JTX_CONV_MASK_INFO(inst, n)                      ((inst) + 0x00000040 + 1 * (n)), 0x00000107
+#define BF_JTX_CONV_MASK_INFO(inst, n)                      ((uint32_t)(inst) + 0x00000040U + 1U * (uint32_t)(n)), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_JTX_TPL_0_ADDR(inst)                            ((inst) + 0x00000080)
+#define REG_JTX_TPL_0_ADDR(inst)                            ((uint32_t)(inst) + 0x00000080U)
 #ifdef USE_PRIVATE_BF
-#define BF_JTX_TPL_ADAPTIVE_LATENCY_INFO(inst)              ((inst) + 0x00000080), 0x00000100
+#define BF_JTX_TPL_ADAPTIVE_LATENCY_INFO(inst)              ((uint32_t)(inst) + 0x00000080U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
-#define BF_JTX_TPL_TEST_ENABLE_INFO(inst)                   ((inst) + 0x00000080), 0x00000101
+#define BF_JTX_TPL_TEST_ENABLE_INFO(inst)                   ((uint32_t)(inst) + 0x00000080U), 0x00000101U
 #ifdef USE_PRIVATE_BF
-#define BF_JTX_CONV_ASYNCHRONOUS_INFO(inst)                 ((inst) + 0x00000080), 0x00000102
+#define BF_JTX_CONV_ASYNCHRONOUS_INFO(inst)                 ((uint32_t)(inst) + 0x00000080U), 0x00000102U
 #endif /* USE_PRIVATE_BF */
-#define BF_JTX_NS_CFG_INFO(inst)                            ((inst) + 0x00000080), 0x00000503
+#define BF_JTX_NS_CFG_INFO(inst)                            ((uint32_t)(inst) + 0x00000080U), 0x00000503U
 
 #ifdef USE_PRIVATE_BF
-#define REG_JTX_TPL_1_ADDR(inst)                            ((inst) + 0x00000081)
-#define BF_JTX_TPL_LATENCY_ADJUST_INFO(inst)                ((inst) + 0x00000081), 0x00000800
+#define REG_JTX_TPL_1_ADDR(inst)                            ((uint32_t)(inst) + 0x00000081U)
+#define BF_JTX_TPL_LATENCY_ADJUST_INFO(inst)                ((uint32_t)(inst) + 0x00000081U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_JTX_TPL_2_ADDR(inst)                            ((inst) + 0x00000082)
-#define BF_JTX_TPL_PHASE_ADJUST_INFO(inst)                  ((inst) + 0x00000082), 0x00001000
+#define REG_JTX_TPL_2_ADDR(inst)                            ((uint32_t)(inst) + 0x00000082U)
+#define BF_JTX_TPL_PHASE_ADJUST_INFO(inst)                  ((uint32_t)(inst) + 0x00000082U), 0x00001000U
 
-#define REG_JTX_TPL_3_ADDR(inst)                            ((inst) + 0x00000083)
+#define REG_JTX_TPL_3_ADDR(inst)                            ((uint32_t)(inst) + 0x00000083U)
 
-#define REG_JTX_TPL_4_ADDR(inst)                            ((inst) + 0x00000084)
-#define BF_JTX_TPL_TEST_NUM_FRAMES_M1_INFO(inst)            ((inst) + 0x00000084), 0x00001000
+#define REG_JTX_TPL_4_ADDR(inst)                            ((uint32_t)(inst) + 0x00000084U)
+#define BF_JTX_TPL_TEST_NUM_FRAMES_M1_INFO(inst)            ((uint32_t)(inst) + 0x00000084U), 0x00001000U
 
-#define REG_JTX_TPL_5_ADDR(inst)                            ((inst) + 0x00000085)
+#define REG_JTX_TPL_5_ADDR(inst)                            ((uint32_t)(inst) + 0x00000085U)
 
-#define REG_JTX_TPL_6_ADDR(inst)                            ((inst) + 0x00000086)
-#define BF_JTX_TPL_INVALID_CFG_INFO(inst)                   ((inst) + 0x00000086), 0x00000100
-#define BF_JTX_TPL_SYSREF_RCVD_INFO(inst)                   ((inst) + 0x00000086), 0x00000101
+#define REG_JTX_TPL_6_ADDR(inst)                            ((uint32_t)(inst) + 0x00000086U)
+#define BF_JTX_TPL_INVALID_CFG_INFO(inst)                   ((uint32_t)(inst) + 0x00000086U), 0x00000100U
+#define BF_JTX_TPL_SYSREF_RCVD_INFO(inst)                   ((uint32_t)(inst) + 0x00000086U), 0x00000101U
 #ifdef USE_PRIVATE_BF
-#define BF_JTX_TPL_SYSREF_PHASE_ERR_INFO(inst)              ((inst) + 0x00000086), 0x00000102
+#define BF_JTX_TPL_SYSREF_PHASE_ERR_INFO(inst)              ((uint32_t)(inst) + 0x00000086U), 0x00000102U
 #endif /* USE_PRIVATE_BF */
 #ifdef USE_PRIVATE_BF
-#define BF_JTX_TPL_SYSREF_MASK_INFO(inst)                   ((inst) + 0x00000086), 0x00000105
+#define BF_JTX_TPL_SYSREF_MASK_INFO(inst)                   ((uint32_t)(inst) + 0x00000086U), 0x00000105U
 #endif /* USE_PRIVATE_BF */
 #ifdef USE_PRIVATE_BF
-#define BF_JTX_TPL_SYSREF_CLR_PHASE_ERR_INFO(inst)          ((inst) + 0x00000086), 0x00000106
+#define BF_JTX_TPL_SYSREF_CLR_PHASE_ERR_INFO(inst)          ((uint32_t)(inst) + 0x00000086U), 0x00000106U
 #endif /* USE_PRIVATE_BF */
 #ifdef USE_PRIVATE_BF
-#define BF_JTX_TPL_SYSREF_IGNORE_WHEN_LINKED_INFO(inst)     ((inst) + 0x00000086), 0x00000107
-#endif /* USE_PRIVATE_BF */
-
-#ifdef USE_PRIVATE_BF
-#define REG_JTX_TPL_7_ADDR(inst)                            ((inst) + 0x00000087)
-#define BF_JTX_TPL_SYSREF_N_SHOT_COUNT_INFO(inst)           ((inst) + 0x00000087), 0x00000400
-#define BF_JTX_TPL_SYSREF_N_SHOT_ENABLE_INFO(inst)          ((inst) + 0x00000087), 0x00000104
+#define BF_JTX_TPL_SYSREF_IGNORE_WHEN_LINKED_INFO(inst)     ((uint32_t)(inst) + 0x00000086U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_JTX_TPL_8_ADDR(inst)                            ((inst) + 0x00000088)
-#define BF_JTX_TPL_LATENCY_ADDED_INFO(inst)                 ((inst) + 0x00000088), 0x00000800
+#define REG_JTX_TPL_7_ADDR(inst)                            ((uint32_t)(inst) + 0x00000087U)
+#define BF_JTX_TPL_SYSREF_N_SHOT_COUNT_INFO(inst)           ((uint32_t)(inst) + 0x00000087U), 0x00000400U
+#define BF_JTX_TPL_SYSREF_N_SHOT_ENABLE_INFO(inst)          ((uint32_t)(inst) + 0x00000087U), 0x00000104U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_JTX_TPL_9_ADDR(inst)                            ((inst) + 0x00000089)
-#define BF_JTX_TPL_BUF_FRAMES_INFO(inst)                    ((inst) + 0x00000089), 0x00000800
-#endif /* USE_PRIVATE_BF */
-
-#define REG_JTX_L0_0_ADDR(inst)                             ((inst) + 0x00000090)
-#define BF_JTX_DID_CFG_INFO(inst)                           ((inst) + 0x00000090), 0x00000800
-
-#define REG_JTX_L0_1_ADDR(inst)                             ((inst) + 0x00000091)
-#define BF_JTX_BID_CFG_INFO(inst)                           ((inst) + 0x00000091), 0x00000400
-#define BF_JTX_ADJCNT_CFG_INFO(inst)                        ((inst) + 0x00000091), 0x00000404
-
-#define REG_JTX_L0_2_ADDR(inst)                             ((inst) + 0x00000092)
-#define BF_JTX_PHADJ_CFG_INFO(inst)                         ((inst) + 0x00000092), 0x00000105
-#define BF_JTX_ADJDIR_CFG_INFO(inst)                        ((inst) + 0x00000092), 0x00000106
-
-#define REG_JTX_L0_3_ADDR(inst)                             ((inst) + 0x00000093)
-#define BF_JTX_L_CFG_INFO(inst)                             ((inst) + 0x00000093), 0x00000500
-#define BF_JTX_SCR_CFG_INFO(inst)                           ((inst) + 0x00000093), 0x00000107
-
-#define REG_JTX_L0_4_ADDR(inst)                             ((inst) + 0x00000094)
-#define BF_JTX_F_CFG_INFO(inst)                             ((inst) + 0x00000094), 0x00000800
-
-#define REG_JTX_L0_5_ADDR(inst)                             ((inst) + 0x00000095)
-#define BF_JTX_K_CFG_INFO(inst)                             ((inst) + 0x00000095), 0x00000800
-
-#define REG_JTX_L0_6_ADDR(inst)                             ((inst) + 0x00000096)
-#define BF_JTX_M_CFG_INFO(inst)                             ((inst) + 0x00000096), 0x00000800
-
-#define REG_JTX_L0_7_ADDR(inst)                             ((inst) + 0x00000097)
-#define BF_JTX_N_CFG_INFO(inst)                             ((inst) + 0x00000097), 0x00000500
-#define BF_JTX_CS_CFG_INFO(inst)                            ((inst) + 0x00000097), 0x00000206
-
-#define REG_JTX_L0_8_ADDR(inst)                             ((inst) + 0x00000098)
-#define BF_JTX_NP_CFG_INFO(inst)                            ((inst) + 0x00000098), 0x00000500
-#define BF_JTX_SUBCLASSV_CFG_INFO(inst)                     ((inst) + 0x00000098), 0x00000305
-
-#define REG_JTX_L0_9_ADDR(inst)                             ((inst) + 0x00000099)
-#define BF_JTX_S_CFG_INFO(inst)                             ((inst) + 0x00000099), 0x00000500
-#define BF_JTX_JESDV_CFG_INFO(inst)                         ((inst) + 0x00000099), 0x00000305
-
-#define REG_JTX_L0_10_ADDR(inst)                            ((inst) + 0x0000009A)
-#define BF_JTX_HD_CFG_INFO(inst)                            ((inst) + 0x0000009A), 0x00000107
-
-#define REG_JTX_L0_13_LANE_ADDR(inst, n)                    ((inst) + 0x000000A0 + 1 * (n))
-#define BF_JTX_CHKSUM_CFG_INFO(inst, n)                     ((inst) + 0x000000A0 + 1 * (n)), 0x00000800
-
-#define REG_JTX_L0_14_LANE_ADDR(inst, n)                    ((inst) + 0x000000B0 + 1 * (n))
-#define BF_JTX_LID_CFG_INFO(inst, n)                        ((inst) + 0x000000B0 + 1 * (n)), 0x00000500
-
-#define REG_JTX_DL_204B_0_ADDR(inst)                        ((inst) + 0x000000C0)
-#define BF_JTX_DL_204B_BYP_ACG_CFG_INFO(inst)               ((inst) + 0x000000C0), 0x00000100
-#define BF_JTX_DL_204B_BYP_8B10B_CFG_INFO(inst)             ((inst) + 0x000000C0), 0x00000101
-#define BF_JTX_DL_204B_ILAS_TEST_EN_CFG_INFO(inst)          ((inst) + 0x000000C0), 0x00000102
-#define BF_JTX_DL_204B_BYP_ILAS_CFG_INFO(inst)              ((inst) + 0x000000C0), 0x00000103
-#define BF_JTX_DL_204B_ILAS_DELAY_CFG_INFO(inst)            ((inst) + 0x000000C0), 0x00000404
-
-#define REG_JTX_DL_204B_1_ADDR(inst)                        ((inst) + 0x000000C1)
-#define BF_JTX_DL_204B_10B_MIRROR_INFO(inst)                ((inst) + 0x000000C1), 0x00000100
-#define BF_JTX_DL_204B_DEL_SCR_CFG_INFO(inst)               ((inst) + 0x000000C1), 0x00000101
-#define BF_JTX_DL_204B_LSYNC_EN_CFG_INFO(inst)              ((inst) + 0x000000C1), 0x00000102
-
-#define REG_JTX_DL_204B_2_ADDR(inst)                        ((inst) + 0x000000C2)
-#define BF_JTX_DL_204B_KF_ILAS_CFG_INFO(inst)               ((inst) + 0x000000C2), 0x00000800
-
-#define REG_JTX_DL_204B_3_ADDR(inst)                        ((inst) + 0x000000C3)
-#define BF_JTX_DL_204B_RJSPAT_EN_CFG_INFO(inst)             ((inst) + 0x000000C3), 0x00000100
-#define BF_JTX_DL_204B_RJSPAT_SEL_CFG_INFO(inst)            ((inst) + 0x000000C3), 0x00000201
-#ifdef USE_PRIVATE_BF
-#define BF_JTX_DL_204B_TPL_TEST_EN_CFG_INFO(inst)           ((inst) + 0x000000C3), 0x00000104
-#endif /* USE_PRIVATE_BF */
-#define BF_JTX_DL_204B_SYNC_N_INFO(inst)                    ((inst) + 0x000000C3), 0x00000105
-#define BF_JTX_DL_204B_TESTMODE_IGNORE_SYNCN_CFG_INFO(inst) ((inst) + 0x000000C3), 0x00000106
-#define BF_JTX_DL_204B_CLEAR_SYNC_NE_COUNT_INFO(inst)       ((inst) + 0x000000C3), 0x00000107
-
-#define REG_JTX_DL_204B_4_ADDR(inst)                        ((inst) + 0x000000C4)
-#define BF_JTX_DL_204B_STATE_INFO(inst)                     ((inst) + 0x000000C4), 0x00000400
-#define BF_JTX_DL_204B_SYNC_N_FORCE_VAL_INFO(inst)          ((inst) + 0x000000C4), 0x00000106
-#define BF_JTX_DL_204B_SYNC_N_FORCE_EN_INFO(inst)           ((inst) + 0x000000C4), 0x00000107
-
-#define REG_JTX_DL_204B_5_ADDR(inst)                        ((inst) + 0x000000C5)
-#define BF_JTX_DL_204B_SYNC_NE_COUNT_INFO(inst)             ((inst) + 0x000000C5), 0x00000800
-
-#define REG_JTX_DL_204B_6_LANE_ADDR(inst, n)                ((inst) + 0x000000C6 + 1 * (n))
-#ifdef USE_PRIVATE_BF
-#define BF_JTX_DL_204B_L_EN_CFG_INFO(inst, n)               ((inst) + 0x000000C6 + 1 * (n)), 0x00000100
-#endif /* USE_PRIVATE_BF */
-#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_INFO(inst, n)       ((inst) + 0x000000C6 + 1 * (n)), 0x00000102
-#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_INFO(inst, n)       ((inst) + 0x000000C6 + 1 * (n)), 0x00000103
-#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_INFO(inst, n)        ((inst) + 0x000000C6 + 1 * (n)), 0x00000104
-
-#define REG_JTX_DL_204C_0_ADDR(inst)                        ((inst) + 0x000000F0)
-#define BF_JTX_CRC_FEC_REVERSE_CFG_INFO(inst)               ((inst) + 0x000000F0), 0x00000100
-#define BF_JTX_LINK_FEC_ENABLE_INFO(inst)                   ((inst) + 0x000000F0), 0x00000101
-#define BF_JTX_FORCE_METABITS_INFO(inst)                    ((inst) + 0x000000F0), 0x00000102
-#define BF_JTX_DL_204C_SYSREF_RCVD_INFO(inst)               ((inst) + 0x000000F0), 0x00000103
-
-#define REG_JTX_DL_204C_1_ADDR(inst)                        ((inst) + 0x000000F1)
-#define BF_JTX_E_CFG_INFO(inst)                             ((inst) + 0x000000F1), 0x00000500
-
-#ifdef USE_PRIVATE_BF
-#define REG_JTX_DL_204C_2_ADDR(inst)                        ((inst) + 0x000000F2)
-#define BF_JTX_BURST_ERROR_INJECT_INFO(inst)                ((inst) + 0x000000F2), 0x00000100
-#define BF_JTX_BURST_ERROR_LENGTH_INFO(inst)                ((inst) + 0x000000F2), 0x00000404
+#define REG_JTX_TPL_8_ADDR(inst)                            ((uint32_t)(inst) + 0x00000088U)
+#define BF_JTX_TPL_LATENCY_ADDED_INFO(inst)                 ((uint32_t)(inst) + 0x00000088U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_JTX_DL_204C_3_ADDR(inst)                        ((inst) + 0x000000F3)
-#define BF_JTX_BURST_ERROR_LOCATION_INFO(inst)              ((inst) + 0x000000F3), 0x00000B00
+#define REG_JTX_TPL_9_ADDR(inst)                            ((uint32_t)(inst) + 0x00000089U)
+#define BF_JTX_TPL_BUF_FRAMES_INFO(inst)                    ((uint32_t)(inst) + 0x00000089U), 0x00000800U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_JTX_L0_0_ADDR(inst)                             ((uint32_t)(inst) + 0x00000090U)
+#define BF_JTX_DID_CFG_INFO(inst)                           ((uint32_t)(inst) + 0x00000090U), 0x00000800U
+
+#define REG_JTX_L0_1_ADDR(inst)                             ((uint32_t)(inst) + 0x00000091U)
+#define BF_JTX_BID_CFG_INFO(inst)                           ((uint32_t)(inst) + 0x00000091U), 0x00000400U
+#define BF_JTX_ADJCNT_CFG_INFO(inst)                        ((uint32_t)(inst) + 0x00000091U), 0x00000404U
+
+#define REG_JTX_L0_2_ADDR(inst)                             ((uint32_t)(inst) + 0x00000092U)
+#define BF_JTX_PHADJ_CFG_INFO(inst)                         ((uint32_t)(inst) + 0x00000092U), 0x00000105U
+#define BF_JTX_ADJDIR_CFG_INFO(inst)                        ((uint32_t)(inst) + 0x00000092U), 0x00000106U
+
+#define REG_JTX_L0_3_ADDR(inst)                             ((uint32_t)(inst) + 0x00000093U)
+#define BF_JTX_L_CFG_INFO(inst)                             ((uint32_t)(inst) + 0x00000093U), 0x00000500U
+#define BF_JTX_SCR_CFG_INFO(inst)                           ((uint32_t)(inst) + 0x00000093U), 0x00000107U
+
+#define REG_JTX_L0_4_ADDR(inst)                             ((uint32_t)(inst) + 0x00000094U)
+#define BF_JTX_F_CFG_INFO(inst)                             ((uint32_t)(inst) + 0x00000094U), 0x00000800U
+
+#define REG_JTX_L0_5_ADDR(inst)                             ((uint32_t)(inst) + 0x00000095U)
+#define BF_JTX_K_CFG_INFO(inst)                             ((uint32_t)(inst) + 0x00000095U), 0x00000800U
+
+#define REG_JTX_L0_6_ADDR(inst)                             ((uint32_t)(inst) + 0x00000096U)
+#define BF_JTX_M_CFG_INFO(inst)                             ((uint32_t)(inst) + 0x00000096U), 0x00000800U
+
+#define REG_JTX_L0_7_ADDR(inst)                             ((uint32_t)(inst) + 0x00000097U)
+#define BF_JTX_N_CFG_INFO(inst)                             ((uint32_t)(inst) + 0x00000097U), 0x00000500U
+#define BF_JTX_CS_CFG_INFO(inst)                            ((uint32_t)(inst) + 0x00000097U), 0x00000206U
+
+#define REG_JTX_L0_8_ADDR(inst)                             ((uint32_t)(inst) + 0x00000098U)
+#define BF_JTX_NP_CFG_INFO(inst)                            ((uint32_t)(inst) + 0x00000098U), 0x00000500U
+#define BF_JTX_SUBCLASSV_CFG_INFO(inst)                     ((uint32_t)(inst) + 0x00000098U), 0x00000305U
+
+#define REG_JTX_L0_9_ADDR(inst)                             ((uint32_t)(inst) + 0x00000099U)
+#define BF_JTX_S_CFG_INFO(inst)                             ((uint32_t)(inst) + 0x00000099U), 0x00000500U
+#define BF_JTX_JESDV_CFG_INFO(inst)                         ((uint32_t)(inst) + 0x00000099U), 0x00000305U
+
+#define REG_JTX_L0_10_ADDR(inst)                            ((uint32_t)(inst) + 0x0000009AU)
+#define BF_JTX_HD_CFG_INFO(inst)                            ((uint32_t)(inst) + 0x0000009AU), 0x00000107U
+
+#define REG_JTX_L0_13_LANE_ADDR(inst, n)                    ((uint32_t)(inst) + 0x000000A0U + 1U * (uint32_t)(n))
+#define BF_JTX_CHKSUM_CFG_INFO(inst, n)                     ((uint32_t)(inst) + 0x000000A0U + 1U * (uint32_t)(n)), 0x00000800U
+
+#define REG_JTX_L0_14_LANE_ADDR(inst, n)                    ((uint32_t)(inst) + 0x000000B0U + 1U * (uint32_t)(n))
+#define BF_JTX_LID_CFG_INFO(inst, n)                        ((uint32_t)(inst) + 0x000000B0U + 1U * (uint32_t)(n)), 0x00000500U
+
+#define REG_JTX_DL_204B_0_ADDR(inst)                        ((uint32_t)(inst) + 0x000000C0U)
+#define BF_JTX_DL_204B_BYP_ACG_CFG_INFO(inst)               ((uint32_t)(inst) + 0x000000C0U), 0x00000100U
+#define BF_JTX_DL_204B_BYP_8B10B_CFG_INFO(inst)             ((uint32_t)(inst) + 0x000000C0U), 0x00000101U
+#define BF_JTX_DL_204B_ILAS_TEST_EN_CFG_INFO(inst)          ((uint32_t)(inst) + 0x000000C0U), 0x00000102U
+#define BF_JTX_DL_204B_BYP_ILAS_CFG_INFO(inst)              ((uint32_t)(inst) + 0x000000C0U), 0x00000103U
+#define BF_JTX_DL_204B_ILAS_DELAY_CFG_INFO(inst)            ((uint32_t)(inst) + 0x000000C0U), 0x00000404U
+
+#define REG_JTX_DL_204B_1_ADDR(inst)                        ((uint32_t)(inst) + 0x000000C1U)
+#define BF_JTX_DL_204B_10B_MIRROR_INFO(inst)                ((uint32_t)(inst) + 0x000000C1U), 0x00000100U
+#define BF_JTX_DL_204B_DEL_SCR_CFG_INFO(inst)               ((uint32_t)(inst) + 0x000000C1U), 0x00000101U
+#define BF_JTX_DL_204B_LSYNC_EN_CFG_INFO(inst)              ((uint32_t)(inst) + 0x000000C1U), 0x00000102U
+
+#define REG_JTX_DL_204B_2_ADDR(inst)                        ((uint32_t)(inst) + 0x000000C2U)
+#define BF_JTX_DL_204B_KF_ILAS_CFG_INFO(inst)               ((uint32_t)(inst) + 0x000000C2U), 0x00000800U
+
+#define REG_JTX_DL_204B_3_ADDR(inst)                        ((uint32_t)(inst) + 0x000000C3U)
+#define BF_JTX_DL_204B_RJSPAT_EN_CFG_INFO(inst)             ((uint32_t)(inst) + 0x000000C3U), 0x00000100U
+#define BF_JTX_DL_204B_RJSPAT_SEL_CFG_INFO(inst)            ((uint32_t)(inst) + 0x000000C3U), 0x00000201U
+#ifdef USE_PRIVATE_BF
+#define BF_JTX_DL_204B_TPL_TEST_EN_CFG_INFO(inst)           ((uint32_t)(inst) + 0x000000C3U), 0x00000104U
+#endif /* USE_PRIVATE_BF */
+#define BF_JTX_DL_204B_SYNC_N_INFO(inst)                    ((uint32_t)(inst) + 0x000000C3U), 0x00000105U
+#define BF_JTX_DL_204B_TESTMODE_IGNORE_SYNCN_CFG_INFO(inst) ((uint32_t)(inst) + 0x000000C3U), 0x00000106U
+#define BF_JTX_DL_204B_CLEAR_SYNC_NE_COUNT_INFO(inst)       ((uint32_t)(inst) + 0x000000C3U), 0x00000107U
+
+#define REG_JTX_DL_204B_4_ADDR(inst)                        ((uint32_t)(inst) + 0x000000C4U)
+#define BF_JTX_DL_204B_STATE_INFO(inst)                     ((uint32_t)(inst) + 0x000000C4U), 0x00000400U
+#define BF_JTX_DL_204B_SYNC_N_FORCE_VAL_INFO(inst)          ((uint32_t)(inst) + 0x000000C4U), 0x00000106U
+#define BF_JTX_DL_204B_SYNC_N_FORCE_EN_INFO(inst)           ((uint32_t)(inst) + 0x000000C4U), 0x00000107U
+
+#define REG_JTX_DL_204B_5_ADDR(inst)                        ((uint32_t)(inst) + 0x000000C5U)
+#define BF_JTX_DL_204B_SYNC_NE_COUNT_INFO(inst)             ((uint32_t)(inst) + 0x000000C5U), 0x00000800U
+
+#define REG_JTX_DL_204B_6_LANE_ADDR(inst, n)                ((uint32_t)(inst) + 0x000000C6U + 1U * (uint32_t)(n))
+#ifdef USE_PRIVATE_BF
+#define BF_JTX_DL_204B_L_EN_CFG_INFO(inst, n)               ((uint32_t)(inst) + 0x000000C6U + 1U * (uint32_t)(n)), 0x00000100U
+#endif /* USE_PRIVATE_BF */
+#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_INFO(inst, n)       ((uint32_t)(inst) + 0x000000C6U + 1U * (uint32_t)(n)), 0x00000102U
+#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_INFO(inst, n)       ((uint32_t)(inst) + 0x000000C6U + 1U * (uint32_t)(n)), 0x00000103U
+#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_INFO(inst, n)        ((uint32_t)(inst) + 0x000000C6U + 1U * (uint32_t)(n)), 0x00000104U
+
+#define REG_JTX_DL_204C_0_ADDR(inst)                        ((uint32_t)(inst) + 0x000000F0U)
+#define BF_JTX_CRC_FEC_REVERSE_CFG_INFO(inst)               ((uint32_t)(inst) + 0x000000F0U), 0x00000100U
+#define BF_JTX_LINK_FEC_ENABLE_INFO(inst)                   ((uint32_t)(inst) + 0x000000F0U), 0x00000101U
+#define BF_JTX_FORCE_METABITS_INFO(inst)                    ((uint32_t)(inst) + 0x000000F0U), 0x00000102U
+#define BF_JTX_DL_204C_SYSREF_RCVD_INFO(inst)               ((uint32_t)(inst) + 0x000000F0U), 0x00000103U
+
+#define REG_JTX_DL_204C_1_ADDR(inst)                        ((uint32_t)(inst) + 0x000000F1U)
+#define BF_JTX_E_CFG_INFO(inst)                             ((uint32_t)(inst) + 0x000000F1U), 0x00000500U
+
+#ifdef USE_PRIVATE_BF
+#define REG_JTX_DL_204C_2_ADDR(inst)                        ((uint32_t)(inst) + 0x000000F2U)
+#define BF_JTX_BURST_ERROR_INJECT_INFO(inst)                ((uint32_t)(inst) + 0x000000F2U), 0x00000100U
+#define BF_JTX_BURST_ERROR_LENGTH_INFO(inst)                ((uint32_t)(inst) + 0x000000F2U), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_JTX_DL_204H_0_ADDR(inst)                        ((inst) + 0x00000100)
-#define BF_JTX_DL_204H_ACG_BYP_INFO(inst)                   ((inst) + 0x00000100), 0x00000100
-#define BF_JTX_DL_204H_BYP_ILAS_CFG_INFO(inst)              ((inst) + 0x00000100), 0x00000101
-#define BF_JTX_DL_204H_CLEAR_SYNC_NE_COUNT_INFO(inst)       ((inst) + 0x00000100), 0x00000102
-#define BF_JTX_DL_204H_LANE_SYNC_2SIDES_INFO(inst)          ((inst) + 0x00000100), 0x00000103
-#define BF_JTX_DL_204H_ILAS_DELAY_CFG_INFO(inst)            ((inst) + 0x00000100), 0x00000404
+#define REG_JTX_DL_204C_3_ADDR(inst)                        ((uint32_t)(inst) + 0x000000F3U)
+#define BF_JTX_BURST_ERROR_LOCATION_INFO(inst)              ((uint32_t)(inst) + 0x000000F3U), 0x00000B00U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_JTX_DL_204H_1_ADDR(inst)                        ((inst) + 0x00000101)
-#define BF_JTX_DL_204H_INTERLEAVE_MODE_INFO(inst)           ((inst) + 0x00000101), 0x00000200
-#define BF_JTX_DL_204H_PARITY_BYPASS_INFO(inst)             ((inst) + 0x00000101), 0x00000102
-#define BF_JTX_DL_204H_PARITY_MODE_INFO(inst)               ((inst) + 0x00000101), 0x00000103
-#define BF_JTX_DL_204H_STATE_INFO(inst)                     ((inst) + 0x00000101), 0x00000404
+#define REG_JTX_DL_204H_0_ADDR(inst)                        ((uint32_t)(inst) + 0x00000100U)
+#define BF_JTX_DL_204H_ACG_BYP_INFO(inst)                   ((uint32_t)(inst) + 0x00000100U), 0x00000100U
+#define BF_JTX_DL_204H_BYP_ILAS_CFG_INFO(inst)              ((uint32_t)(inst) + 0x00000100U), 0x00000101U
+#define BF_JTX_DL_204H_CLEAR_SYNC_NE_COUNT_INFO(inst)       ((uint32_t)(inst) + 0x00000100U), 0x00000102U
+#define BF_JTX_DL_204H_LANE_SYNC_2SIDES_INFO(inst)          ((uint32_t)(inst) + 0x00000100U), 0x00000103U
+#define BF_JTX_DL_204H_ILAS_DELAY_CFG_INFO(inst)            ((uint32_t)(inst) + 0x00000100U), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_JTX_DL_204H_2_ADDR(inst)                        ((inst) + 0x00000102)
-#define BF_JTX_DL_204H_KF_ILAS_CFG_INFO(inst)               ((inst) + 0x00000102), 0x00000800
+#define REG_JTX_DL_204H_1_ADDR(inst)                        ((uint32_t)(inst) + 0x00000101U)
+#define BF_JTX_DL_204H_INTERLEAVE_MODE_INFO(inst)           ((uint32_t)(inst) + 0x00000101U), 0x00000200U
+#define BF_JTX_DL_204H_PARITY_BYPASS_INFO(inst)             ((uint32_t)(inst) + 0x00000101U), 0x00000102U
+#define BF_JTX_DL_204H_PARITY_MODE_INFO(inst)               ((uint32_t)(inst) + 0x00000101U), 0x00000103U
+#define BF_JTX_DL_204H_STATE_INFO(inst)                     ((uint32_t)(inst) + 0x00000101U), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_JTX_DL_204H_3_ADDR(inst)                        ((inst) + 0x00000103)
-#define BF_JTX_DL_204H_PARITY_ODD_ENABLE_INFO(inst)         ((inst) + 0x00000103), 0x00000100
-#define BF_JTX_DL_204H_SCR_CFG_INFO(inst)                   ((inst) + 0x00000103), 0x00000101
-#define BF_JTX_DL_204H_SYNC_N_FORCE_EN_INFO(inst)           ((inst) + 0x00000103), 0x00000102
-#define BF_JTX_DL_204H_SYNC_N_FORCE_VAL_INFO(inst)          ((inst) + 0x00000103), 0x00000103
-#define BF_JTX_DL_204H_TEST_MODE_INFO(inst)                 ((inst) + 0x00000103), 0x00000204
+#define REG_JTX_DL_204H_2_ADDR(inst)                        ((uint32_t)(inst) + 0x00000102U)
+#define BF_JTX_DL_204H_KF_ILAS_CFG_INFO(inst)               ((uint32_t)(inst) + 0x00000102U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_JTX_DL_204H_4_ADDR(inst)                        ((inst) + 0x00000104)
-#define BF_JTX_DL_204H_SYNC_NE_COUNT_INFO(inst)             ((inst) + 0x00000104), 0x00000800
+#define REG_JTX_DL_204H_3_ADDR(inst)                        ((uint32_t)(inst) + 0x00000103U)
+#define BF_JTX_DL_204H_PARITY_ODD_ENABLE_INFO(inst)         ((uint32_t)(inst) + 0x00000103U), 0x00000100U
+#define BF_JTX_DL_204H_SCR_CFG_INFO(inst)                   ((uint32_t)(inst) + 0x00000103U), 0x00000101U
+#define BF_JTX_DL_204H_SYNC_N_FORCE_EN_INFO(inst)           ((uint32_t)(inst) + 0x00000103U), 0x00000102U
+#define BF_JTX_DL_204H_SYNC_N_FORCE_VAL_INFO(inst)          ((uint32_t)(inst) + 0x00000103U), 0x00000103U
+#define BF_JTX_DL_204H_TEST_MODE_INFO(inst)                 ((uint32_t)(inst) + 0x00000103U), 0x00000204U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_JTX_PHY_IFX_0_LANE_ADDR(inst, n)                ((inst) + 0x00000110 + 1 * (n))
-#define BF_JTX_BR_LOG2_RATIO_INFO(inst, n)                  ((inst) + 0x00000110 + 1 * (n)), 0x00000400
 #ifdef USE_PRIVATE_BF
-#define BF_JTX_LANE_FIFO_WR_ENTRIES_INFO(inst, n)           ((inst) + 0x00000110 + 1 * (n)), 0x00000404
+#define REG_JTX_DL_204H_4_ADDR(inst)                        ((uint32_t)(inst) + 0x00000104U)
+#define BF_JTX_DL_204H_SYNC_NE_COUNT_INFO(inst)             ((uint32_t)(inst) + 0x00000104U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
-#endif /* __ADI_APOLLO_BF_JTX_DUAL_LINK_H__ */
+#define REG_JTX_PHY_IFX_0_LANE_ADDR(inst, n)                ((uint32_t)(inst) + 0x00000110U + 1U * (uint32_t)(n))
+#define BF_JTX_BR_LOG2_RATIO_INFO(inst, n)                  ((uint32_t)(inst) + 0x00000110U + 1U * (uint32_t)(n)), 0x00000400U
+#ifdef USE_PRIVATE_BF
+#define BF_JTX_LANE_FIFO_WR_ENTRIES_INFO(inst, n)           ((uint32_t)(inst) + 0x00000110U + 1U * (uint32_t)(n)), 0x00000404U
+#endif /* USE_PRIVATE_BF */
+
+#endif /* ADI_APOLLO_BF_JTX_DUAL_LINK_H__ */
 /*! @} */

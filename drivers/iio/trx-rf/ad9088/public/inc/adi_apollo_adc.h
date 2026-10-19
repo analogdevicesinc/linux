@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_ADC
  * @{
  */
-#ifndef __ADI_APOLLO_ADC_H__
-#define __ADI_APOLLO_ADC_H__
+#ifndef ADI_APOLLO_ADC_H__
+#define ADI_APOLLO_ADC_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_adc_types.h"
@@ -25,6 +25,8 @@ extern "C" {
 
 /**
  * \brief Execute an ADC init (foreground) calibration
+ *
+ * ADC background calibration should be either freezed or it should be disabled before running foreground calibration.
  *
  * \param[in] device        Context variable - Pointer to the APOLLO device data structure
  * \param[in] adcs          Target ADC selector \ref adi_apollo_adc_select_e
@@ -169,7 +171,10 @@ int32_t adi_apollo_adc_bgcal_unfreeze(adi_apollo_device_t *device, adi_apollo_bl
 int32_t adi_apollo_adc_mode_switch_enable_set(adi_apollo_device_t *device, uint8_t enable);
 
 /**
- * \brief  Perform setup sequence for the ADC Mode Switch for select ADCs.
+ * \brief  Execute ADC Slice Mode Switch for select ADCs.
+ *
+ * For fast switch, this API is replaced by GPIO toggle using \ref adi_apollo_gpio_cmos_func_mode_set
+ * with func mode ADI_APOLLO_FUNC_ADC_MODE_SWITCH.
  *
  * \param[in]  device       Context variable - Pointer to the APOLLO device data structure
  * \param[in]  adcs         Target ADC selector \ref adi_apollo_adc_select_e
@@ -408,9 +413,20 @@ int32_t adi_apollo_adc_fact_cal_mode_set(adi_apollo_device_t *device, adi_apollo
  */
 int32_t adi_apollo_adc_fact_cal_mode_get(adi_apollo_device_t *device, adi_apollo_blk_sel_t adc, uint32_t *coeff_mode);
 
+/**
+ * \brief  Set the ADC actmode type via scratch register
+ *
+ * \param[in] device                Context variable - Pointer to the APOLLO device data structure
+ * \param[in] actmode               Type selection. \ref adi_apollo_actmode_e
+ *
+ * \return API_CMS_ERROR_OK         API Completed Successfully
+ * \return <0                       Failed. \ref adi_cms_error_e for details.
+ */
+    int32_t adi_apollo_adc_actmode_set(adi_apollo_device_t *device, adi_apollo_actmode_e actmode);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif /*__ADI_APOLLO_ADC_H__ */
+#endif /* ADI_APOLLO_ADC_H__ */
 /*! @} */

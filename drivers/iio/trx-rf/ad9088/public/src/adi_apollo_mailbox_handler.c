@@ -24,7 +24,7 @@
 #include "adi_apollo_config.h"
 #include "adi_apollo_hal.h"
 
-#define ADI_ADI_APOLLO_CPU1_MAILBOX_START         0x21000000
+#define ADI_ADI_APOLLO_CPU1_MAILBOX_START         0x21000000U
 #define ADI_ADI_APOLLO_RAM_BOOT_STEP_MAILBOX_INIT 48U
 #define ADI_ADI_APOLLO_RAM_BOOT_STEP_MAILBOX_READY 52U
 
@@ -32,15 +32,15 @@
 
 int32_t adi_apollo_mailbox_ready_check(adi_apollo_device_t *device)
 {
-    int32_t err;
+    int32_t err = (int32_t)API_CMS_ERROR_ERROR;
     uint8_t boot_status = 0x00;
     uint8_t prev_boot_status = 0x00;
-    int32_t i;
+    uint32_t i;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
 
-    for (i = 0; i < 100; i++)
+    for (i = 0; i < 100U; i++)
     {
         err = adi_apollo_arm_ram_boot_error_check(device);
         ADI_APOLLO_ERROR_RETURN(err);
@@ -53,21 +53,21 @@ int32_t adi_apollo_mailbox_ready_check(adi_apollo_device_t *device)
         }
 
         if (boot_status >= ADI_ADI_APOLLO_RAM_BOOT_STEP_MAILBOX_READY)
-        {    
-            err = API_CMS_ERROR_OK;
+        {
+            err = (int32_t)API_CMS_ERROR_OK;
             break;
+        } else {
+            // delay 50ms
+            err = adi_apollo_hal_delay_us(device, 50000);
+            ADI_APOLLO_ERROR_RETURN(err);
+
+            err = (int32_t)API_CMS_ERROR_ERROR;
         }
-        
-        // delay 50ms
-        err = adi_apollo_hal_delay_us(device, 50000);
-        ADI_APOLLO_ERROR_RETURN(err);
-        
-	    err = API_CMS_ERROR_ERROR;
     }
 
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK; 
+    ADI_CMS_RETURN(API_CMS_ERROR_OK); 
 }
 
 int32_t adi_apollo_mailbox_busy_wait(adi_apollo_device_t *device)
@@ -87,6 +87,8 @@ int32_t adi_apollo_mailbox_read(adi_apollo_device_t *device, adi_apollo_mailbox_
     ADI_APOLLO_NULL_POINTER_RETURN(ptr_resp);
     // ADI_APOLLO_LOG_FUNC();
 
+    (void)cmd_id;  // Mark as intentionally unused
+
     /* Wait for non-busy state */
     err = adi_apollo_mailbox_busy_wait(device);
     ADI_APOLLO_ERROR_RETURN(err);
@@ -98,7 +100,7 @@ int32_t adi_apollo_mailbox_read(adi_apollo_device_t *device, adi_apollo_mailbox_
         ADI_APOLLO_ERROR_RETURN(err);
     }
     
-    return API_CMS_ERROR_OK; 
+    ADI_CMS_RETURN(API_CMS_ERROR_OK); 
 }
 
 int32_t adi_apollo_mailbox_write(adi_apollo_device_t *device, adi_apollo_mailbox_cmd_id_e cmd_id, uint8_t* ptr_cmd, const size_t size_cmd)
@@ -108,8 +110,9 @@ int32_t adi_apollo_mailbox_write(adi_apollo_device_t *device, adi_apollo_mailbox
     uint32_t i;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
-    if (size_cmd != 0)
+    if (size_cmd != 0U) {
         ADI_APOLLO_NULL_POINTER_RETURN(ptr_cmd);
+    }
     // ADI_APOLLO_LOG_FUNC();
 
     /* Wait for non-busy state */
@@ -117,7 +120,7 @@ int32_t adi_apollo_mailbox_write(adi_apollo_device_t *device, adi_apollo_mailbox
     ADI_APOLLO_ERROR_RETURN(err);
 
     /* Write buffer */
-    if (size_cmd != 0)
+    if (size_cmd != 0U)
     {
         for (i = 0; i < size_cmd; i++)
         {
@@ -130,7 +133,7 @@ int32_t adi_apollo_mailbox_write(adi_apollo_device_t *device, adi_apollo_mailbox
     err = adi_apollo_hal_bf_set(device, BF_ARM1_SPI0_COMMAND_INFO, cmd_id);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK; 
+    ADI_CMS_RETURN(API_CMS_ERROR_OK); 
 
 }
 
@@ -140,8 +143,9 @@ int32_t adi_apollo_mailbox_xfer(adi_apollo_device_t *device, adi_apollo_mailbox_
     int32_t err;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
-    if (size_cmd != 0)
+    if (size_cmd != 0U) {
         ADI_APOLLO_NULL_POINTER_RETURN(ptr_cmd);
+    }
     ADI_APOLLO_NULL_POINTER_RETURN(ptr_resp);
     // ADI_APOLLO_LOG_FUNC();
     
@@ -150,7 +154,7 @@ int32_t adi_apollo_mailbox_xfer(adi_apollo_device_t *device, adi_apollo_mailbox_
     err = adi_apollo_mailbox_read(device, cmd_id, ptr_resp, size_resp);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK; 
+    ADI_CMS_RETURN(API_CMS_ERROR_OK); 
 
 }
 /*! @} */

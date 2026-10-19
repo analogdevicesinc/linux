@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_JTX
  * @{
  */
-#ifndef __ADI_APOLLO_JTX_H__
-#define __ADI_APOLLO_JTX_H__
+#ifndef ADI_APOLLO_JTX_H__
+#define ADI_APOLLO_JTX_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_jtx_types.h"
@@ -326,14 +326,14 @@ int32_t adi_apollo_jtx_lr_adapt_set(adi_apollo_device_t *device,
                                         uint8_t lr_adapt);
 
 #ifndef CLIENT_IGNORE
-uint32_t calc_jtx_dual_link_base(int32_t link);
-uint32_t calc_jtx_qbf_txfe_base(int32_t link);
-uint32_t calc_jtx_jesd_param_base(int32_t link);
+uint32_t calc_jtx_dual_link_base(uint32_t link);
+uint32_t calc_jtx_qbf_txfe_base(uint32_t link);
+uint32_t calc_jtx_jesd_param_base(uint32_t link);
 #endif /* CLIENT_IGNORE*/
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __ADI_APOLLO_JTX_H__ */
+#endif /* ADI_APOLLO_JTX_H__ */
 /*! @} */

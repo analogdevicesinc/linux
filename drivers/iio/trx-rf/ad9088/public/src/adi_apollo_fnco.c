@@ -25,6 +25,9 @@
 
 #include "adi_utils.h"
 
+uint32_t calc_tx_fnco_base(uint32_t idx);
+uint32_t calc_rx_fnco_base(uint32_t idx);
+
 /*==================== P U B L I C   A P I   C O D E ====================*/
 int32_t adi_apollo_fnco_profile_load(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fncos,
                 adi_apollo_nco_profile_word_sel_e word_sel, uint8_t first, uint32_t words[], uint32_t length)
@@ -36,18 +39,20 @@ int32_t adi_apollo_fnco_profile_load(adi_apollo_device_t *device, adi_apollo_ter
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    /* Lower bound check (< ADI_APOLLO_NCO_PROFILE_PHASE_INCREMENT) omitted - parameter is unsigned enum */
+    ADI_APOLLO_INVALID_PARAM_RETURN(word_sel > ADI_APOLLO_NCO_PROFILE_PHASE_OFFSET);
     ADI_APOLLO_NULL_POINTER_RETURN(words);
     ADI_APOLLO_INVALID_PARAM_RETURN((first+length) > ADI_APOLLO_FNCO_PROFILE_NUM)
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
 
-    for (i = 0; i < ADI_APOLLO_FNCO_NUM; i++) {
+    for (i = 0U; i < ADI_APOLLO_FNCO_NUM; i++) {
 
-        fnco = fncos & (ADI_APOLLO_FNCO_A0 << i);
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i);
 
-        if (fnco > 0) {
+        if (fnco > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
-            for(j = first; j < first+length; j++) {
+            for(j = first; j < (first + length); j++) {
                 err = adi_apollo_hal_paged_bf_set(device, BF_HOP_PROFILE_PAGE_INFO(regmap_base_addr), j);
                 ADI_APOLLO_ERROR_RETURN(err);
 
@@ -59,6 +64,66 @@ int32_t adi_apollo_fnco_profile_load(adi_apollo_device_t *device, adi_apollo_ter
                     ADI_APOLLO_ERROR_RETURN(err);
                 }
            }
+        }
+    }
+
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
+}
+
+int32_t adi_apollo_fnco_profile_load_fast(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fncos,
+                uint8_t inc_first, uint32_t inc_words[], uint32_t inc_length,
+                uint8_t offset_first, uint32_t offset_words[], uint32_t offset_length)
+{
+    int32_t err;
+    uint16_t fnco_id;
+    uint8_t profile_id;
+    uint8_t load_inc, load_offset;
+    adi_apollo_blk_sel_t fnco;
+    uint32_t regmap_base_addr = 0;
+
+    ADI_APOLLO_NULL_POINTER_RETURN(device);
+    ADI_APOLLO_LOG_FUNC();
+    ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
+
+    load_inc    = (inc_length > 0);
+    load_offset = (offset_length > 0);
+
+    if (load_inc) {
+        ADI_APOLLO_INVALID_PARAM_RETURN((inc_first + inc_length) > ADI_APOLLO_FNCO_PROFILE_NUM)
+        ADI_APOLLO_NULL_POINTER_RETURN(inc_words);
+    }
+    if (load_offset) {
+        ADI_APOLLO_INVALID_PARAM_RETURN((offset_first + offset_length) > ADI_APOLLO_FNCO_PROFILE_NUM)
+        ADI_APOLLO_NULL_POINTER_RETURN(offset_words);
+    }
+
+    for (fnco_id = 0; fnco_id < ADI_APOLLO_FNCO_NUM; fnco_id++) {
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << fnco_id);
+        if (fnco > 0U) {
+            regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(fnco_id) : calc_tx_fnco_base(fnco_id);
+
+            if (load_inc) {
+                for (profile_id = inc_first; profile_id < (inc_first + inc_length); profile_id++) {
+                    uint8_t wbuf[4];
+                    uint32_t w = inc_words[profile_id - inc_first];
+                    err = adi_apollo_hal_paged_reg_set(device, REG_HOP_PROFILE_PAGE_ADDR(regmap_base_addr), profile_id);
+                    ADI_APOLLO_ERROR_RETURN(err);
+                    wbuf[0] = (uint8_t)(w); wbuf[1] = (uint8_t)(w >> 8); wbuf[2] = (uint8_t)(w >> 16); wbuf[3] = (uint8_t)(w >> 24);
+                    err = adi_apollo_hal_paged_stream_set(device, REG_HOP_PHASE_INC0_ADDR(regmap_base_addr), wbuf, 4);
+                    ADI_APOLLO_ERROR_RETURN(err);
+                }
+            }
+            if (load_offset) {
+                for (profile_id = offset_first; profile_id < (offset_first + offset_length); profile_id++) {
+                    uint8_t wbuf[2];
+                    uint32_t w = offset_words[profile_id - offset_first];
+                    err = adi_apollo_hal_paged_reg_set(device, REG_HOP_PROFILE_PAGE_ADDR(regmap_base_addr), profile_id);
+                    ADI_APOLLO_ERROR_RETURN(err);
+                    wbuf[0] = (uint8_t)(w); wbuf[1] = (uint8_t)(w >> 8);   /* 16-bit phase offset */
+                    err = adi_apollo_hal_paged_stream_set(device, REG_HOP_PHASE_OFFSET0_ADDR(regmap_base_addr), wbuf, 2);
+                    ADI_APOLLO_ERROR_RETURN(err);
+                }
+            }
         }
     }
 
@@ -74,55 +139,58 @@ int32_t adi_apollo_fnco_hop_pgm(adi_apollo_device_t *device, adi_apollo_terminal
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_NULL_POINTER_RETURN(config);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
 
-    for(i = 0; i < ADI_APOLLO_FNCO_NUM; i ++) {
-        fnco = fncos & (ADI_APOLLO_FNCO_A0 << i);
-        if (fnco > 0) {
+    for(i = 0U; i < ADI_APOLLO_FNCO_NUM; i ++) {
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i);
+        if (fnco > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
-            err = adi_apollo_hal_bf_set(device, BF_TRIG_HOP_SEL0_INFO(regmap_base_addr), config->nco_trig_hop_sel);
+            err = adi_apollo_hal_bf_set(device, BF_TRIG_HOP_SEL0_INFO(regmap_base_addr), (uint64_t)config->nco_trig_hop_sel);
             ADI_APOLLO_ERROR_RETURN(err);
 
-            err = adi_apollo_hal_bf_set(device, BF_FREQ_COHRNCE_TXRX_FINE_NCO_INFO(regmap_base_addr), config->phase_handling);
+            err = adi_apollo_hal_bf_set(device, BF_FREQ_COHRNCE_TXRX_FINE_NCO_INFO(regmap_base_addr), (uint64_t)config->phase_handling);
             ADI_APOLLO_ERROR_RETURN(err);
 
             err = adi_apollo_hal_bf_set(device, BF_AUTOFLIP_INCDIR_FTW_TXRX_FINE_NCO_INFO(regmap_base_addr),
-                    (config->phase_inc_auto_mode == ADI_APOLLO_NCO_AUTO_HOP_FLIP) ? 1 : 0);
+                    (config->phase_inc_auto_mode == ADI_APOLLO_NCO_AUTO_HOP_FLIP) ? 1ULL : 0ULL);
             ADI_APOLLO_ERROR_RETURN(err);
             err = adi_apollo_hal_bf_set(device, BF_AUTOFLIP_INCDIR_PHOFST_TXRX_FINE_NCO_INFO(regmap_base_addr),
-                    (config->phase_offset_auto_mode == ADI_APOLLO_NCO_AUTO_HOP_FLIP) ? 1 : 0);
+                    (config->phase_offset_auto_mode == ADI_APOLLO_NCO_AUTO_HOP_FLIP) ? 1ULL : 0ULL);
             ADI_APOLLO_ERROR_RETURN(err);
 
 
-            err = adi_apollo_hal_bf_set(device, BF_HOP_HIGHLIMIT_PR0_INFO(regmap_base_addr), config->phase_inc_high_limit);
+            err = adi_apollo_hal_bf_set(device, BF_HOP_HIGHLIMIT_PR0_INFO(regmap_base_addr), (uint64_t)config->phase_inc_high_limit);
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_bf_set(device, BF_HOP_LOWLIMIT_PR0_INFO(regmap_base_addr), config->phase_inc_low_limit);
+            err = adi_apollo_hal_bf_set(device, BF_HOP_LOWLIMIT_PR0_INFO(regmap_base_addr), (uint64_t)config->phase_inc_low_limit);
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_bf_set(device, BF_HOP_HIGHLIMIT_PR2_INFO(regmap_base_addr), config->phase_offset_high_limit);
+            err = adi_apollo_hal_bf_set(device, BF_HOP_HIGHLIMIT_PR2_INFO(regmap_base_addr), (uint64_t)config->phase_offset_high_limit);
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_bf_set(device, BF_HOP_LOWLIMIT_PR2_INFO(regmap_base_addr), config->phase_offset_low_limit);
+            err = adi_apollo_hal_bf_set(device, BF_HOP_LOWLIMIT_PR2_INFO(regmap_base_addr), (uint64_t)config->phase_offset_low_limit);
             ADI_APOLLO_ERROR_RETURN(err);
 
             /* if phase_inc and phase_offset are both in auto_flip mode then auto inc/dec register is not programmed */
-            if (config->phase_inc_auto_mode != ADI_APOLLO_NCO_AUTO_HOP_FLIP && config->phase_offset_auto_mode != ADI_APOLLO_NCO_AUTO_HOP_FLIP) {
-                err = adi_apollo_hal_bf_set(device, BF_AUTO_INC_DECB_FTW_TXRX_FINE_NCO_INFO(regmap_base_addr), config->phase_inc_auto_mode);
+            if ((config->phase_inc_auto_mode != ADI_APOLLO_NCO_AUTO_HOP_FLIP) && (config->phase_offset_auto_mode != ADI_APOLLO_NCO_AUTO_HOP_FLIP)) {
+                err = adi_apollo_hal_bf_set(device, BF_AUTO_INC_DECB_FTW_TXRX_FINE_NCO_INFO(regmap_base_addr), (uint64_t)config->phase_inc_auto_mode);
                 ADI_APOLLO_ERROR_RETURN(err);
-                err = adi_apollo_hal_bf_set(device, BF_AUTO_INC_DECB_PHOFST_TXRX_FINE_NCO_INFO(regmap_base_addr), config->phase_offset_auto_mode);
+                err = adi_apollo_hal_bf_set(device, BF_AUTO_INC_DECB_PHOFST_TXRX_FINE_NCO_INFO(regmap_base_addr), (uint64_t)config->phase_offset_auto_mode);
                 ADI_APOLLO_ERROR_RETURN(err);
             } else if (config->phase_inc_auto_mode != ADI_APOLLO_NCO_AUTO_HOP_FLIP) {
-                err = adi_apollo_hal_bf_set(device, BF_AUTO_INC_DECB_FTW_TXRX_FINE_NCO_INFO(regmap_base_addr), config->phase_inc_auto_mode);
+                err = adi_apollo_hal_bf_set(device, BF_AUTO_INC_DECB_FTW_TXRX_FINE_NCO_INFO(regmap_base_addr), (uint64_t)config->phase_inc_auto_mode);
                 ADI_APOLLO_ERROR_RETURN(err);
             } else if  (config->phase_offset_auto_mode != ADI_APOLLO_NCO_AUTO_HOP_FLIP) {
-                err = adi_apollo_hal_bf_set(device, BF_AUTO_INC_DECB_PHOFST_TXRX_FINE_NCO_INFO(regmap_base_addr), config->phase_offset_auto_mode);
+                err = adi_apollo_hal_bf_set(device, BF_AUTO_INC_DECB_PHOFST_TXRX_FINE_NCO_INFO(regmap_base_addr), (uint64_t)config->phase_offset_auto_mode);
                 ADI_APOLLO_ERROR_RETURN(err);
+            } else {
+                /* Both are in AUTO_HOP_FLIP mode - auto inc/dec register is intentionally not programmed */
             }
 
-            err = adi_apollo_hal_bf_set(device, BF_PROFILE_SEL_MODE_TXRX_FINE_NCO_INFO(regmap_base_addr), config->profile_sel_mode);
+            err = adi_apollo_hal_bf_set(device, BF_PROFILE_SEL_MODE_TXRX_FINE_NCO_INFO(regmap_base_addr), (uint64_t)config->profile_sel_mode);
             ADI_APOLLO_ERROR_RETURN(err);
             err = adi_apollo_hal_bf_set(device, BF_TXRX_GPIOSHARE_INFO(regmap_base_addr),
-                    (config->profile_sel_mode == ADI_APOLLO_NCO_CHAN_SEL_TRIG_GPIO || config->profile_sel_mode == ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO) ? 1 : 0);
+                    ((config->profile_sel_mode == ADI_APOLLO_NCO_CHAN_SEL_TRIG_GPIO) || (config->profile_sel_mode == ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO)) ? 1ULL : 0ULL);
             ADI_APOLLO_ERROR_RETURN(err);
 
             err = adi_apollo_hal_bf_set(device, BF_HOP_CTRL_INIT_TXRX_FINE_NCO_INFO(regmap_base_addr), 0);
@@ -132,7 +200,7 @@ int32_t adi_apollo_fnco_hop_pgm(adi_apollo_device_t *device, adi_apollo_terminal
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fnco_chan_pgm(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fncos, uint8_t profile_num, adi_apollo_fine_nco_chan_pgm_t *config)
@@ -144,25 +212,26 @@ int32_t adi_apollo_fnco_chan_pgm(adi_apollo_device_t *device, adi_apollo_termina
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_NULL_POINTER_RETURN(config);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
 
-    for(i = 0; i < ADI_APOLLO_FNCO_NUM; i ++) {
-        fnco = fncos & (ADI_APOLLO_FNCO_A0 << i);
-        if (fnco > 0) {
+    for(i = 0U; i < ADI_APOLLO_FNCO_NUM; i ++) {
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i);
+        if (fnco > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
             err = adi_apollo_hal_paged_bf_set(device, BF_HOP_PROFILE_PAGE_INFO(regmap_base_addr), profile_num);
             ADI_APOLLO_ERROR_RETURN(err);
 
-            err = adi_apollo_hal_bf_set(device, BF_HOP_PHASE_INC_INFO(regmap_base_addr), config->drc_phase_inc);
+            err = adi_apollo_hal_bf_set(device, BF_HOP_PHASE_INC_INFO(regmap_base_addr), (uint64_t)config->drc_phase_inc);
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_bf_set(device, BF_HOP_PHASE_OFFSET_INFO(regmap_base_addr), config->drc_phase_offset);
+            err = adi_apollo_hal_bf_set(device, BF_HOP_PHASE_OFFSET_INFO(regmap_base_addr), (uint64_t)config->drc_phase_offset);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fnco_main_pgm(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fncos, adi_apollo_fine_nco_main_pgm_t *config)
@@ -174,26 +243,27 @@ int32_t adi_apollo_fnco_main_pgm(adi_apollo_device_t *device, adi_apollo_termina
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_NULL_POINTER_RETURN(config);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
 
-    for(i = 0; i < ADI_APOLLO_FNCO_NUM; i ++) {
-        fnco = fncos & (ADI_APOLLO_FNCO_A0 << i);
-        if (fnco > 0) {
+    for(i = 0U; i < ADI_APOLLO_FNCO_NUM; i ++) {
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i);
+        if (fnco > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
-            err = adi_apollo_hal_bf_set(device, BF_MAIN_PHASE_INC_INFO(regmap_base_addr), config->main_phase_inc);
+            err = adi_apollo_hal_bf_set(device, BF_MAIN_PHASE_INC_INFO(regmap_base_addr), (uint64_t)config->main_phase_inc);
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_bf_set(device, BF_MAIN_PHASE_OFFSET_INFO(regmap_base_addr), config->main_phase_offset);
+            err = adi_apollo_hal_bf_set(device, BF_MAIN_PHASE_OFFSET_INFO(regmap_base_addr), (uint64_t)config->main_phase_offset);
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_bf_set(device, BF_DRC0_PHASE_INC_FRAC_A_INFO(regmap_base_addr), config->drc_phase_inc_frac_a);
+            err = adi_apollo_hal_bf_set(device, BF_DRC0_PHASE_INC_FRAC_A_INFO(regmap_base_addr), (uint64_t)config->drc_phase_inc_frac_a);
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_bf_set(device, BF_DRC0_PHASE_INC_FRAC_B_INFO(regmap_base_addr), config->drc_phase_inc_frac_b);
+            err = adi_apollo_hal_bf_set(device, BF_DRC0_PHASE_INC_FRAC_B_INFO(regmap_base_addr), (uint64_t)config->drc_phase_inc_frac_b);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fnco_pgm(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fncos, adi_apollo_fnco_pgm_t *config)
@@ -205,52 +275,53 @@ int32_t adi_apollo_fnco_pgm(adi_apollo_device_t *device, adi_apollo_terminal_e t
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_NULL_POINTER_RETURN(config);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
 
-    for(i = 0; i < ADI_APOLLO_FNCO_NUM; i ++) {
-        fnco = fncos & (ADI_APOLLO_FNCO_A0 << i);
-        if (fnco > 0) {
+    for(i = 0U; i < ADI_APOLLO_FNCO_NUM; i ++) {
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i);
+        if (fnco > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
-            err = adi_apollo_hal_bf_set(device, BF_DRC_IF_MODE_TXRX_FINE_NCO_INFO(regmap_base_addr), config->if_mode);
+            err = adi_apollo_hal_bf_set(device, BF_DRC_IF_MODE_TXRX_FINE_NCO_INFO(regmap_base_addr), (uint64_t)config->if_mode);
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_bf_set(device, BF_DRC_MXR_SEL_INFO(regmap_base_addr), config->mixer_sel);
+            err = adi_apollo_hal_bf_set(device, BF_DRC_MXR_SEL_INFO(regmap_base_addr), (uint64_t)config->mixer_sel);
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_bf_set(device, BF_CMPLX_MXR_MULT_SCALE_EN_INFO(regmap_base_addr), config->cmplx_mxr_scale_en);
+            err = adi_apollo_hal_bf_set(device, BF_CMPLX_MXR_MULT_SCALE_EN_INFO(regmap_base_addr), (uint64_t)config->cmplx_mxr_scale_en);
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_bf_set(device, BF_HOP_MODE_EN_INFO(regmap_base_addr), config->hop_mode_en);
+            err = adi_apollo_hal_bf_set(device, BF_HOP_MODE_EN_INFO(regmap_base_addr), (uint64_t)config->hop_mode_en);
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_bf_set(device, BF_FINE_DRC_EN0_INFO(regmap_base_addr), config->drc_en);
+            err = adi_apollo_hal_bf_set(device, BF_FINE_DRC_EN0_INFO(regmap_base_addr), (uint64_t)config->drc_en);
 
             err = adi_apollo_hal_bf_set(device, BF_FDRC_CLK_EN_INFO(regmap_base_addr),config->debug_drc_clkoff_n);
             ADI_APOLLO_ERROR_RETURN(err);
 
-            err = adi_apollo_hal_bf_set(device, BF_PROFILE_SEL_MODE_TXRX_FINE_NCO_INFO(regmap_base_addr), config->profile_sel_mode);
+            err = adi_apollo_hal_bf_set(device, BF_PROFILE_SEL_MODE_TXRX_FINE_NCO_INFO(regmap_base_addr), (uint64_t)config->profile_sel_mode);
             ADI_APOLLO_ERROR_RETURN(err);
             err = adi_apollo_hal_bf_set(device, BF_TXRX_GPIOSHARE_INFO(regmap_base_addr),
-                    (config->profile_sel_mode == ADI_APOLLO_NCO_CHAN_SEL_TRIG_GPIO || config->profile_sel_mode == ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO) ? 1 : 0);
+                    ((config->profile_sel_mode == ADI_APOLLO_NCO_CHAN_SEL_TRIG_GPIO) || (config->profile_sel_mode == ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO)) ? 1ULL : 0ULL);
             ADI_APOLLO_ERROR_RETURN(err);
 
             err = adi_apollo_hal_paged_bf_set(device, BF_HOP_PROFILE_PAGE_INFO(regmap_base_addr), config->profile_num);
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_bf_set(device, BF_REGMAP_HOPPROF_INFO(regmap_base_addr), config->profile_num);
+            err = adi_apollo_hal_bf_set(device, BF_REGMAP_HOPPROF_INFO(regmap_base_addr), (uint64_t)config->profile_num);
             ADI_APOLLO_ERROR_RETURN(err);
 
-            err = adi_apollo_hal_bf_set(device, BF_MAIN_PHASE_INC_INFO(regmap_base_addr), config->main_phase_inc);
+            err = adi_apollo_hal_bf_set(device, BF_MAIN_PHASE_INC_INFO(regmap_base_addr), (uint64_t)config->main_phase_inc);
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_bf_set(device, BF_MAIN_PHASE_OFFSET_INFO(regmap_base_addr), config->main_phase_offset);
+            err = adi_apollo_hal_bf_set(device, BF_MAIN_PHASE_OFFSET_INFO(regmap_base_addr), (uint64_t)config->main_phase_offset);
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_bf_set(device, BF_DRC0_PHASE_INC_FRAC_A_INFO(regmap_base_addr), config->drc_phase_inc_frac_a);
+            err = adi_apollo_hal_bf_set(device, BF_DRC0_PHASE_INC_FRAC_A_INFO(regmap_base_addr), (uint64_t)config->drc_phase_inc_frac_a);
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_bf_set(device, BF_DRC0_PHASE_INC_FRAC_B_INFO(regmap_base_addr), config->drc_phase_inc_frac_b);
+            err = adi_apollo_hal_bf_set(device, BF_DRC0_PHASE_INC_FRAC_B_INFO(regmap_base_addr), (uint64_t)config->drc_phase_inc_frac_b);
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_bf_set(device, BF_MIXER_TEST_MODE_VAL_TXRX_FINE_NCO_INFO(regmap_base_addr), config->dc_testmode_value);
+            err = adi_apollo_hal_bf_set(device, BF_MIXER_TEST_MODE_VAL_TXRX_FINE_NCO_INFO(regmap_base_addr), (uint64_t)config->dc_testmode_value);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fnco_main_phase_inc_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fncos, uint64_t ftw)
@@ -262,11 +333,12 @@ int32_t adi_apollo_fnco_main_phase_inc_set(adi_apollo_device_t *device, adi_apol
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
 
-    for (i = 0; i < ADI_APOLLO_FNCO_NUM; i++) {
-        fnco = fncos & (ADI_APOLLO_FNCO_A0 << i);
-        if (fnco > 0) {
+    for (i = 0U; i < ADI_APOLLO_FNCO_NUM; i++) {
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i);
+        if (fnco > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_MAIN_PHASE_INC_INFO(regmap_base_addr), ftw);
@@ -274,7 +346,7 @@ int32_t adi_apollo_fnco_main_phase_inc_set(adi_apollo_device_t *device, adi_apol
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fnco_main_phase_offset_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fncos, uint64_t pow)
@@ -286,11 +358,12 @@ int32_t adi_apollo_fnco_main_phase_offset_set(adi_apollo_device_t *device, adi_a
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
 
-    for (i = 0; i < ADI_APOLLO_FNCO_NUM; i++) {
-        fnco = fncos & (ADI_APOLLO_FNCO_A0 << i);
-        if (fnco > 0) {
+    for (i = 0U; i < ADI_APOLLO_FNCO_NUM; i++) {
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i);
+        if (fnco > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_MAIN_PHASE_OFFSET_INFO(regmap_base_addr), pow);
@@ -298,7 +371,7 @@ int32_t adi_apollo_fnco_main_phase_offset_set(adi_apollo_device_t *device, adi_a
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fnco_inspect(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fnco, adi_apollo_fnco_inspect_t *fnco_inspect)
@@ -309,12 +382,13 @@ int32_t adi_apollo_fnco_inspect(adi_apollo_device_t *device, adi_apollo_terminal
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_NULL_POINTER_RETURN(fnco_inspect);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(fnco) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(fnco) != 1U);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fnco);
 
-    for(i = 0; i < ADI_APOLLO_FNCO_NUM; i ++) {
-        if ((fnco & (ADI_APOLLO_FNCO_A0 << i)) > 0) {
+    for(i = 0U; i < ADI_APOLLO_FNCO_NUM; i ++) {
+        if ((fnco & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i)) > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
             err = adi_apollo_hal_bf_get(device, BF_DRC_IF_MODE_TXRX_FINE_NCO_INFO(regmap_base_addr), &(fnco_inspect->dp_cfg.nco_if_mode), sizeof(fnco_inspect->dp_cfg.nco_if_mode));
@@ -375,8 +449,8 @@ int32_t adi_apollo_fnco_inspect(adi_apollo_device_t *device, adi_apollo_terminal
             err = adi_apollo_hal_bf_get(device, BF_DRC0_AMP_DITHER_EN_INFO(regmap_base_addr), &(fnco_inspect->drc_amp_dither_en), 1);
             ADI_APOLLO_ERROR_RETURN(err);
 
-            for (j = 0; j < ADI_APOLLO_FNCO_PROFILE_NUM; j++) {
-                err = adi_apollo_hal_paged_reg_set(device, REG_HOP_PROFILE_PAGE_ADDR(regmap_base_addr), j);     // only bf in reg, use wr reg
+            for (j = 0U; j < ADI_APOLLO_FNCO_PROFILE_NUM; j++) {
+                err = adi_apollo_hal_paged_reg_set(device, REG_HOP_PROFILE_PAGE_ADDR(regmap_base_addr), (uint8_t)j);     // only bf in reg, use wr reg
                 ADI_APOLLO_ERROR_RETURN(err);
 
                 err = adi_apollo_hal_bf_get(device, BF_HOP_PHASE_INC_INFO(regmap_base_addr), (uint8_t *) &(fnco_inspect->dp_cfg.nco_phase_inc_words[j]), 4);
@@ -395,7 +469,7 @@ int32_t adi_apollo_fnco_inspect(adi_apollo_device_t *device, adi_apollo_terminal
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fnco_mode_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fncos, adi_apollo_nco_mixer_mode_e mode)
@@ -407,11 +481,13 @@ int32_t adi_apollo_fnco_mode_set(adi_apollo_device_t *device, adi_apollo_termina
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    /* Lower bound check (< ADI_APOLLO_MXR_VAR_IF_MODE) omitted - parameter is unsigned enum */
+    ADI_APOLLO_INVALID_PARAM_RETURN(mode > ADI_APOLLO_MXR_TEST_MODE);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
 
-    for (i = 0; i < ADI_APOLLO_FNCO_NUM; i++) {
-        fnco = fncos & (ADI_APOLLO_FNCO_A0 << i);
-        if (fnco > 0) {
+    for (i = 0U; i < ADI_APOLLO_FNCO_NUM; i++) {
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i);
+        if (fnco > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_DRC_IF_MODE_TXRX_FINE_NCO_INFO(regmap_base_addr), mode);
@@ -419,7 +495,7 @@ int32_t adi_apollo_fnco_mode_set(adi_apollo_device_t *device, adi_apollo_termina
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fnco_mixer_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fncos, adi_apollo_drc_mixer_sel_e mixer)
@@ -431,11 +507,13 @@ int32_t adi_apollo_fnco_mixer_set(adi_apollo_device_t *device, adi_apollo_termin
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    /* Lower bound check (< ADI_APOLLO_DRC_MIXER_REAL) omitted - parameter is unsigned enum */
+    ADI_APOLLO_INVALID_PARAM_RETURN(mixer > ADI_APOLLO_DRC_MIXER_COMPLEX);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
 
-    for (i = 0; i < ADI_APOLLO_FNCO_NUM; i++) {
-        fnco = fncos & (ADI_APOLLO_FNCO_A0 << i);
-        if (fnco > 0) {
+    for (i = 0U; i < ADI_APOLLO_FNCO_NUM; i++) {
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i);
+        if (fnco > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_DRC_MXR_SEL_INFO(regmap_base_addr), mixer);
@@ -443,7 +521,7 @@ int32_t adi_apollo_fnco_mixer_set(adi_apollo_device_t *device, adi_apollo_termin
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fnco_enable_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fncos, uint8_t enable)
@@ -455,11 +533,12 @@ int32_t adi_apollo_fnco_enable_set(adi_apollo_device_t *device, adi_apollo_termi
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
 
-    for (i = 0; i < ADI_APOLLO_FNCO_NUM; i++) {
-        fnco = fncos & (ADI_APOLLO_FNCO_A0 << i);
-        if (fnco > 0) {
+    for (i = 0U; i < ADI_APOLLO_FNCO_NUM; i++) {
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i);
+        if (fnco > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_FINE_DRC_EN0_INFO(regmap_base_addr), enable);
@@ -467,7 +546,7 @@ int32_t adi_apollo_fnco_enable_set(adi_apollo_device_t *device, adi_apollo_termi
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fnco_test_mode_val_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fncos, uint16_t val)
@@ -479,11 +558,12 @@ int32_t adi_apollo_fnco_test_mode_val_set(adi_apollo_device_t *device, adi_apoll
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
 
-    for (i = 0; i < ADI_APOLLO_FNCO_NUM; i++) {
-        fnco = fncos & (ADI_APOLLO_FNCO_A0 << i);
-        if (fnco > 0) {
+    for (i = 0U; i < ADI_APOLLO_FNCO_NUM; i++) {
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i);
+        if (fnco > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_MIXER_TEST_MODE_VAL_TXRX_FINE_NCO_INFO(regmap_base_addr), val);
@@ -491,7 +571,7 @@ int32_t adi_apollo_fnco_test_mode_val_set(adi_apollo_device_t *device, adi_apoll
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fnco_ftw_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fncos, uint8_t profile_num, uint8_t active_en, uint32_t ftw)
@@ -503,12 +583,13 @@ int32_t adi_apollo_fnco_ftw_set(adi_apollo_device_t *device, adi_apollo_terminal
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
-    ADI_APOLLO_INVALID_PARAM_RETURN(profile_num > ADI_APOLLO_FNCO_PROFILE_NUM-1);
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
+    ADI_APOLLO_INVALID_PARAM_RETURN(profile_num > ADI_APOLLO_FNCO_PROFILE_NUM- 1U);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
 
-    for (i = 0; i < ADI_APOLLO_FNCO_NUM; i++) {
-        fnco = fncos & (ADI_APOLLO_FNCO_A0 << i);
-        if (fnco > 0) {
+    for (i = 0U; i < ADI_APOLLO_FNCO_NUM; i++) {
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i);
+        if (fnco > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
             /* Select profile to update */
@@ -518,14 +599,14 @@ int32_t adi_apollo_fnco_ftw_set(adi_apollo_device_t *device, adi_apollo_terminal
             err = adi_apollo_hal_bf_set(device, BF_HOP_PHASE_INC_INFO(regmap_base_addr), ftw);
             ADI_APOLLO_ERROR_RETURN(err);
 
-            if (active_en) {
+            if (active_en != 0U) {
                 err = adi_apollo_hal_bf_set(device, BF_REGMAP_HOPPROF_INFO(regmap_base_addr), profile_num);
                 ADI_APOLLO_ERROR_RETURN(err);
             }
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fnco_pow_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fncos, uint8_t profile_num, uint8_t active_en, uint32_t pow)
@@ -537,12 +618,13 @@ int32_t adi_apollo_fnco_pow_set(adi_apollo_device_t *device, adi_apollo_terminal
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
-    ADI_APOLLO_INVALID_PARAM_RETURN(profile_num > ADI_APOLLO_FNCO_PROFILE_NUM-1);
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
+    ADI_APOLLO_INVALID_PARAM_RETURN(profile_num > ADI_APOLLO_FNCO_PROFILE_NUM- 1U);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
 
-    for (i = 0; i < ADI_APOLLO_FNCO_NUM; i++) {
-        fnco = fncos & (ADI_APOLLO_FNCO_A0 << i);
-        if (fnco > 0) {
+    for (i = 0U; i < ADI_APOLLO_FNCO_NUM; i++) {
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i);
+        if (fnco > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
             /* Select profile to update */
@@ -552,14 +634,14 @@ int32_t adi_apollo_fnco_pow_set(adi_apollo_device_t *device, adi_apollo_terminal
             err = adi_apollo_hal_bf_set(device, BF_HOP_PHASE_OFFSET_INFO(regmap_base_addr), pow);
             ADI_APOLLO_ERROR_RETURN(err);
 
-            if (active_en) {
+            if (active_en != 0U) {
                 err = adi_apollo_hal_bf_set(device, BF_REGMAP_HOPPROF_INFO(regmap_base_addr), profile_num);
                 ADI_APOLLO_ERROR_RETURN(err);
             }
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 
@@ -572,22 +654,24 @@ int32_t adi_apollo_fnco_profile_sel_mode_set(adi_apollo_device_t *device, adi_ap
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    /* Lower bound check (< ADI_APOLLO_NCO_CHAN_SEL_TRIG_AUTO) omitted - parameter is unsigned enum */
+    ADI_APOLLO_INVALID_PARAM_RETURN(profile_sel_mode > ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
 
-    for (i = 0; i < ADI_APOLLO_FNCO_NUM; i++) {
-        fnco = fncos & (ADI_APOLLO_FNCO_A0 << i);
-        if (fnco > 0) {
+    for (i = 0U; i < ADI_APOLLO_FNCO_NUM; i++) {
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i);
+        if (fnco > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_PROFILE_SEL_MODE_TXRX_FINE_NCO_INFO(regmap_base_addr), profile_sel_mode);
             ADI_APOLLO_ERROR_RETURN(err);
             err = adi_apollo_hal_bf_set(device, BF_TXRX_GPIOSHARE_INFO(regmap_base_addr),
-                    (profile_sel_mode == ADI_APOLLO_NCO_CHAN_SEL_TRIG_GPIO || profile_sel_mode == ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO) ? 1 : 0);
+                    ((profile_sel_mode == ADI_APOLLO_NCO_CHAN_SEL_TRIG_GPIO) || (profile_sel_mode == ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO)) ? 1ULL : 0ULL);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 
@@ -600,12 +684,13 @@ int32_t adi_apollo_fnco_active_profile_set(adi_apollo_device_t *device, adi_apol
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
-    ADI_APOLLO_INVALID_PARAM_RETURN(profile_num > ADI_APOLLO_FNCO_PROFILE_NUM-1);
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
+    ADI_APOLLO_INVALID_PARAM_RETURN(profile_num > ADI_APOLLO_FNCO_PROFILE_NUM- 1U);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
 
-    for (i = 0; i < ADI_APOLLO_FNCO_NUM; i++) {
-        fnco = fncos & (ADI_APOLLO_FNCO_A0 << i);
-        if (fnco > 0) {
+    for (i = 0U; i < ADI_APOLLO_FNCO_NUM; i++) {
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i);
+        if (fnco > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_REGMAP_HOPPROF_INFO(regmap_base_addr), profile_num);
@@ -613,7 +698,7 @@ int32_t adi_apollo_fnco_active_profile_set(adi_apollo_device_t *device, adi_apol
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fnco_hop_enable(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fncos, uint8_t hop_en)
@@ -625,11 +710,12 @@ int32_t adi_apollo_fnco_hop_enable(adi_apollo_device_t *device, adi_apollo_termi
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
 
-    for (i = 0; i < ADI_APOLLO_FNCO_NUM; i++) {
-        fnco = fncos & (ADI_APOLLO_FNCO_A0 << i);
-        if (fnco > 0) {
+    for (i = 0U; i < ADI_APOLLO_FNCO_NUM; i++) {
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i);
+        if (fnco > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_HOP_MODE_EN_INFO(regmap_base_addr), hop_en);
@@ -637,7 +723,7 @@ int32_t adi_apollo_fnco_hop_enable(adi_apollo_device_t *device, adi_apollo_termi
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fnco_next_hop_num_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fncos, int16_t hop_num_freq, int16_t hop_num_phase)
@@ -649,27 +735,88 @@ int32_t adi_apollo_fnco_next_hop_num_set(adi_apollo_device_t *device, adi_apollo
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_INVALID_PARAM_RETURN(hop_num_freq > ADI_APOLLO_FNCO_PROFILE_NUM);
     ADI_APOLLO_INVALID_PARAM_RETURN(hop_num_phase > ADI_APOLLO_FNCO_PROFILE_NUM);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fncos);
 
-    for (i = 0; i < ADI_APOLLO_FNCO_NUM; i++) {
-        fnco = fncos & (ADI_APOLLO_FNCO_A0 << i);
-        if (fnco > 0) {
+    for (i = 0U; i < ADI_APOLLO_FNCO_NUM; i++) {
+        fnco = fncos & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FNCO_A0 << i);
+        if (fnco > 0U) {
             regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
 
-            err = adi_apollo_hal_reg_set(device, REG_NEXT_HOP_NUMBER_PR0_ADDR(regmap_base_addr), hop_num_freq);      /* Freq hop num */
+            err = adi_apollo_hal_reg_set(device, REG_NEXT_HOP_NUMBER_PR0_ADDR(regmap_base_addr), (uint8_t)hop_num_freq);      /* Freq hop num */
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_reg_set(device, REG_NEXT_HOP_NUMBER_PR2_ADDR(regmap_base_addr), hop_num_phase);     /* Phase hop num */
+            err = adi_apollo_hal_reg_set(device, REG_NEXT_HOP_NUMBER_PR2_ADDR(regmap_base_addr), (uint8_t)hop_num_phase);     /* Phase hop num */
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
+
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
+}
+
+int32_t adi_apollo_fnco_active_profile_read(adi_apollo_device_t *device, adi_apollo_terminal_e terminal,
+                adi_apollo_blk_sel_t fnco, uint8_t first,
+                uint64_t phase_inc[], uint32_t phase_inc_len, uint64_t phase_offset[], uint32_t phase_off_len)
+{
+    int32_t err;
+    uint16_t i;
+    uint8_t profile_id;
+    uint8_t saved_hopprof, saved_profile_sel_mode, saved_hop_mode_en;
+    uint32_t regmap_base_addr = 0;
+
+    ADI_APOLLO_NULL_POINTER_RETURN(device);
+    ADI_APOLLO_NULL_POINTER_RETURN(phase_inc);
+    ADI_APOLLO_NULL_POINTER_RETURN(phase_offset);
+    ADI_APOLLO_LOG_FUNC();
+    ADI_APOLLO_INVALID_PARAM_RETURN(phase_inc_len != phase_off_len);
+    ADI_APOLLO_INVALID_PARAM_RETURN((first + phase_inc_len) > ADI_APOLLO_FNCO_PROFILE_NUM);
+    ADI_APOLLO_FNCO_BLK_SEL_MASK(fnco);
+
+    for (i = 0; i < ADI_APOLLO_FNCO_NUM; i++) {
+        if ((fnco & (ADI_APOLLO_FNCO_A0 << i)) > 0) {
+            regmap_base_addr = (terminal == ADI_APOLLO_RX) ? calc_rx_fnco_base(i) : calc_tx_fnco_base(i);
+            break;
+        }
+    }
+    ADI_APOLLO_INVALID_PARAM_RETURN(regmap_base_addr == 0);
+
+    err = adi_apollo_hal_bf_get(device, BF_REGMAP_HOPPROF_INFO(regmap_base_addr), &saved_hopprof, 1);
+    ADI_APOLLO_ERROR_RETURN(err);
+    err = adi_apollo_hal_bf_get(device, BF_PROFILE_SEL_MODE_TXRX_FINE_NCO_INFO(regmap_base_addr), &saved_profile_sel_mode, 1);
+    ADI_APOLLO_ERROR_RETURN(err);
+    err = adi_apollo_hal_bf_get(device, BF_HOP_MODE_EN_INFO(regmap_base_addr), &saved_hop_mode_en, 1);
+    ADI_APOLLO_ERROR_RETURN(err);
+
+    err = adi_apollo_hal_bf_set(device, BF_HOP_CTRL_INIT_TXRX_FINE_NCO_INFO(regmap_base_addr), 1);
+    ADI_APOLLO_ERROR_RETURN(err);
+    err = adi_apollo_hal_bf_set(device, BF_PROFILE_SEL_MODE_TXRX_FINE_NCO_INFO(regmap_base_addr), ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP);
+    ADI_APOLLO_ERROR_RETURN(err);
+    err = adi_apollo_hal_bf_set(device, BF_HOP_MODE_EN_INFO(regmap_base_addr), 1);
+    ADI_APOLLO_ERROR_RETURN(err);
+
+    for (profile_id = first; profile_id < (first + phase_inc_len); profile_id++) {
+        err = adi_apollo_hal_bf_set(device, BF_REGMAP_HOPPROF_INFO(regmap_base_addr), profile_id);
+        ADI_APOLLO_ERROR_RETURN(err);
+
+        err = adi_apollo_hal_bf_get(device, BF_DRC0_ACTIVE_PHASE_INC_INFO(regmap_base_addr), (uint8_t *)&phase_inc[profile_id - first], sizeof(phase_inc[0]));
+        ADI_APOLLO_ERROR_RETURN(err);
+        err = adi_apollo_hal_bf_get(device, BF_DRC0_ACTIVE_PHASE_OFFSET_INFO(regmap_base_addr), (uint8_t *)&phase_offset[profile_id - first], sizeof(phase_offset[0]));
+        ADI_APOLLO_ERROR_RETURN(err);
+    }
+
+    err = adi_apollo_hal_bf_set(device, BF_PROFILE_SEL_MODE_TXRX_FINE_NCO_INFO(regmap_base_addr), saved_profile_sel_mode);
+    ADI_APOLLO_ERROR_RETURN(err);
+    err = adi_apollo_hal_bf_set(device, BF_HOP_MODE_EN_INFO(regmap_base_addr), saved_hop_mode_en);
+    ADI_APOLLO_ERROR_RETURN(err);
+    err = adi_apollo_hal_bf_set(device, BF_REGMAP_HOPPROF_INFO(regmap_base_addr), saved_hopprof);
+    ADI_APOLLO_ERROR_RETURN(err);
 
     return API_CMS_ERROR_OK;
 }
 
 
-uint32_t calc_tx_fnco_base(int32_t idx)
+uint32_t calc_tx_fnco_base(uint32_t idx)
 {
     static const uint32_t tx_fnco_regmap[ADI_APOLLO_FNCO_NUM] = {
         TX_FINE_NCO0_TX_SLICE_0_TX_DIGITAL0, TX_FINE_NCO2_TX_SLICE_0_TX_DIGITAL0,
@@ -686,7 +833,7 @@ uint32_t calc_tx_fnco_base(int32_t idx)
     return tx_fnco_regmap[idx];
 }
 
-uint32_t calc_rx_fnco_base(int32_t idx)
+uint32_t calc_rx_fnco_base(uint32_t idx)
 {
     static uint32_t rx_fine_nco_regmap[ADI_APOLLO_FNCO_NUM] = {
         RX_FINE_NCO0_RX_SLICE_0_RX_DIGITAL0, RX_FINE_NCO2_RX_SLICE_0_RX_DIGITAL0, RX_FINE_NCO0_RX_SLICE_1_RX_DIGITAL0, RX_FINE_NCO2_RX_SLICE_1_RX_DIGITAL0,

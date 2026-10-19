@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_DFORMAT
  * @{
  */
-#ifndef __ADI_APOLLO_DFORMAT_LOCAL_H__
-#define __ADI_APOLLO_DFORMAT_LOCAL_H__
+#ifndef ADI_APOLLO_DFORMAT_LOCAL_H__
+#define ADI_APOLLO_DFORMAT_LOCAL_H__
 
 
 /*============= I N C L U D E S ============*/
@@ -40,12 +40,12 @@ int32_t adi_apollo_dformat_conv_test_mode_enable_set(adi_apollo_device_t *device
 extern "C" {
 #endif
 
-uint32_t calc_jtx_dformat_base(int32_t link);
+uint32_t calc_jtx_dformat_base(uint32_t link);
 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __ADI_APOLLO_DFORMAT_LOCAL_H__ */
+#endif /* ADI_APOLLO_DFORMAT_LOCAL_H__ */
 /*! @} */

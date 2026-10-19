@@ -13,8 +13,8 @@
  * \addtogroup ADI_APOLLO_DEVICE
  * @{
  */
-#ifndef __ADI_APOLLO_DEVICE_H__
-#define __ADI_APOLLO_DEVICE_H__
+#ifndef ADI_APOLLO_DEVICE_H__
+#define ADI_APOLLO_DEVICE_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_common.h"
@@ -241,6 +241,34 @@ int32_t adi_apollo_device_rx_type_get(adi_apollo_device_t *device, adi_apollo_de
 int32_t adi_apollo_device_board_variant_and_rev_get(adi_apollo_device_t *device, adi_apollo_device_board_var_and_rev_info_t *board_var_rev);
 
 /**
+ * \brief  Emulate Tx-only or Rx-only board variant
+ *         Writes the requested variant to a dedicated scratch register
+ *         so the FW can override the fuse-determined part type.
+ *         Only TX_ONLY and RX_ONLY are accepted; MXFE is rejected.
+ *
+ * \param[in]  device   Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  mxfe     Variant to emulate (TX_ONLY or RX_ONLY only). \ref adi_apollo_device_sw_variant_mxfe_e
+ *
+ * \return API_CMS_ERROR_OK                     API Completed Successfully
+ * \return <0                                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_device_txrx_variant_emulate(adi_apollo_device_t *device, adi_apollo_device_sw_variant_mxfe_e mxfe);
+
+/**
+ * \brief  Emulate SW trim level
+ *         Writes the requested trim level to a dedicated scratch register
+ *         so the FW can override the fuse-determined trim setting.
+ *         Only SW1, SW3, and SW5 are accepted; NOT_SET is rejected.
+ *
+ * \param[in]  device   Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  sw_trim  SW trim level to emulate (SW1, SW3, or SW5). \ref adi_apollo_device_sw_variant_trim_e
+ *
+ * \return API_CMS_ERROR_OK                     API Completed Successfully
+ * \return <0                                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_device_sw_trim_emulate(adi_apollo_device_t *device, adi_apollo_device_sw_variant_trim_e sw_trim);
+
+/**
  * \brief Configure SPI settings
  *
  * \param[in]  device       Context variable - Pointer to the APOLLO device data structure
@@ -296,6 +324,52 @@ int32_t adi_apollo_device_tmu_get(adi_apollo_device_t *device, adi_apollo_device
  */
 int32_t adi_apollo_device_tmu_enable(adi_apollo_device_t *device);
 
+/**
+ * \brief  Set the global temperature alarm thresholds
+ *
+ * \details When any temperature sensor reading crosses a threshold, the firmware asserts the
+ *          corresponding FW_IRQ_OUT temperature-alarm source bit
+ *          (\ref ADI_APOLLO_FW_IRQ_OUT_SOURCE_TEMP_ALARM_HIGH / \ref ADI_APOLLO_FW_IRQ_OUT_SOURCE_TEMP_ALARM_LOW).
+ *          The high threshold must be strictly greater than the low threshold or the firmware
+ *          rejects the command with \ref APOLLO_CPU_DEV_TEMP_SENSOR_INVALID_THRESHOLD_ERROR.
+ *          Thresholds are expressed in tenths of a degree Celsius (dC), e.g. +110.0 degC = 1100.
+ *          Note: setting the thresholds only arms the source; to make the alarm reach the pin the
+ *          host must also enable the source (see \ref adi_apollo_arm_fw_irq_out_sources_enable).
+ *
+ * \param[in]  device               Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  high_threshold_dc    High alarm threshold in tenths of degC
+ * \param[in]  low_threshold_dc     Low alarm threshold in tenths of degC
+ *
+ * \return API_CMS_ERROR_OK                     API Completed Successfully
+ * \return <0                                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_device_temp_alarm_threshold_set(adi_apollo_device_t *device, int16_t high_threshold_dc, int16_t low_threshold_dc);
+
+/**
+ * \brief  Get the current global temperature alarm thresholds
+ *
+ * \details Thresholds are expressed in tenths of a degree Celsius (dC).
+ *
+ * \param[in]  device               Context variable - Pointer to the APOLLO device data structure
+ * \param[out] high_threshold_dc    Current high threshold in tenths of degC
+ * \param[out] low_threshold_dc     Current low threshold in tenths of degC
+ *
+ * \return API_CMS_ERROR_OK                     API Completed Successfully
+ * \return <0                                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_device_temp_alarm_threshold_get(adi_apollo_device_t *device, int16_t *high_threshold_dc, int16_t *low_threshold_dc);
+
+/**
+ * \brief  apollo shutdown
+ *
+ * \param[in]  device                       Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  wait_time_between_grps_in_us Shutdown wait time between each group. \ref adi_apollo_mailbox_cmd_shutdown_t
+ *
+ * \return API_CMS_ERROR_OK                     API Completed Successfully
+ * \return <0                                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_device_shutdown(adi_apollo_device_t *device, uint32_t wait_time_between_grps_in_us);
+
 #ifndef CLIENT_IGNORE
 #endif /* CLIENT_IGNORE*/
 
@@ -303,5 +377,5 @@ int32_t adi_apollo_device_tmu_enable(adi_apollo_device_t *device);
 }
 #endif
 
-#endif /* __ADI_APOLLO_DEVICE_H__ */
+#endif /* ADI_APOLLO_DEVICE_H__ */
 /*! @} */

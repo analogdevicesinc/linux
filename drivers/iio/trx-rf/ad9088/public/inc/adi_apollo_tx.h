@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_TX
  * @{
  */
-#ifndef __ADI_APOLLO_TX_H__
-#define __ADI_APOLLO_TX_H__
+#ifndef ADI_APOLLO_TX_H__
+#define ADI_APOLLO_TX_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_tx_types.h"
@@ -66,40 +66,40 @@ int32_t adi_apollo_tx_fduc_configure(adi_apollo_device_t *device, adi_apollo_sid
  *
  * \param[in] device        Context variable - Pointer to the APOLLO device data structure
  * \param[in] side          Device side, A or B \ref adi_apollo_sides_e
- * \param[in] idx           Index of block to configure. \ref adi_apollo_pfilt_idx_e
+ * \param[in] idx_pfilt     Index of block to configure. \ref adi_apollo_pfilt_idx_e
  * \param[in] config        Configuration parameters. \ref adi_apollo_pfilt_cfg_t
  *
  * \return API_CMS_ERROR_OK                     Completed successfully
  * \return <0                                   Failed. \ref adi_cms_error_e for details.
  */
-int32_t adi_apollo_tx_pfilt_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, adi_apollo_pfilt_idx_e idx, adi_apollo_pfilt_cfg_t *config);
+int32_t adi_apollo_tx_pfilt_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, adi_apollo_pfilt_idx_e idx_pfilt, adi_apollo_pfilt_cfg_t *config);
 
 /**
  * \brief  Configures TX cfir
  *
  * \param[in] device        Context variable - Pointer to the APOLLO device data structure
  * \param[in] side          Device side, A or B \ref adi_apollo_sides_e
- * \param[in] idx           Index of block to configure. \ref adi_apollo_cfir_idx_e
+ * \param[in] idx_cfir      Index of block to configure. \ref adi_apollo_cfir_idx_e
  * \param[in] config        Configuration parameters. \ref adi_apollo_cfir_cfg_t
  *
  * \return API_CMS_ERROR_OK                     Completed successfully
  * \return <0                                   Failed. \ref adi_cms_error_e for details.
  */
-int32_t adi_apollo_tx_cfir_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, adi_apollo_cfir_idx_e idx, adi_apollo_cfir_cfg_t *config);
+int32_t adi_apollo_tx_cfir_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, adi_apollo_cfir_idx_e idx_cfir, adi_apollo_cfir_cfg_t *config);
 
 /**
  * \brief  Configures TX fsrc
  *
  * \param[in] device            Context variable - Pointer to the APOLLO device data structure
  * \param[in] side              Device side, A or B \ref adi_apollo_sides_e
- * \param[in] idx               Index of block to configure (0 or 1)
+ * \param[in] idx_fsrc          Index of block to configure (0 or 1)
  * \param[in] config            FSRC config parameters. \ref adi_apollo_fsrc_cfg_t
  * \param[in] jrx_link_config   JRX link config parameters. \ref adi_apollo_jesd_rx_link_cfg_t
  *
  * \return API_CMS_ERROR_OK                     Completed successfully
  * \return <0                                   Failed. \ref adi_cms_error_e for details.
  */
-int32_t adi_apollo_tx_fsrc_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, uint8_t idx, 
+int32_t adi_apollo_tx_fsrc_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, uint8_t idx_fsrc,
     adi_apollo_fsrc_cfg_t *config, adi_apollo_jesd_rx_link_cfg_t *jrx_link_config);
 
 /**
@@ -150,5 +150,5 @@ int32_t adi_apollo_tx_sample_repeat_configure(adi_apollo_device_t *device, adi_a
 }
 #endif
 
-#endif /* __ADI_APOLLO_TX_H__ */
+#endif /* ADI_APOLLO_TX_H__ */
 /*! @} */

@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_DFORMAT
  * @{
  */
-#ifndef __ADI_APOLLO_TMODE_LOCAL_H__
-#define __ADI_APOLLO_TMODE_LOCAL_H__
+#ifndef ADI_APOLLO_TMODE_LOCAL_H__
+#define ADI_APOLLO_TMODE_LOCAL_H__
 
 
 /*============= I N C L U D E S ============*/
@@ -31,5 +31,5 @@ extern "C" {
 }
 #endif
 
-#endif /* __ADI_APOLLO_TMODE_LOCAL_H__ */
+#endif /* ADI_APOLLO_TMODE_LOCAL_H__ */
 /*! @} */

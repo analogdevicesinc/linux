@@ -12,36 +12,36 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_RX_LOOPBACK_H__
-#define __ADI_APOLLO_BF_RX_LOOPBACK_H__
+#ifndef ADI_APOLLO_BF_RX_LOOPBACK_H__
+#define ADI_APOLLO_BF_RX_LOOPBACK_H__
 
 /*============= D E F I N E S ==============*/
-#define RX_LOOPBACK_RX_SLICE_0_RX_DIGITAL0 0x60200000
-#define RX_LOOPBACK_RX_SLICE_1_RX_DIGITAL0 0x60400000
-#define RX_LOOPBACK_RX_SLICE_0_RX_DIGITAL1 0x60A00000
-#define RX_LOOPBACK_RX_SLICE_1_RX_DIGITAL1 0x60C00000
+#define RX_LOOPBACK_RX_SLICE_0_RX_DIGITAL0 0x60200000U
+#define RX_LOOPBACK_RX_SLICE_1_RX_DIGITAL0 0x60400000U
+#define RX_LOOPBACK_RX_SLICE_0_RX_DIGITAL1 0x60A00000U
+#define RX_LOOPBACK_RX_SLICE_1_RX_DIGITAL1 0x60C00000U
 
-#define REG_WRPTR_SYNC_RSTVAL_ADDR(inst)   ((inst) + 0x00000000)
-#define BF_WRPTR_SYNC_RSTVAL_INFO(inst)    ((inst) + 0x00000000), 0x00000200
+#define REG_WRPTR_SYNC_RSTVAL_ADDR(inst)   ((uint32_t)(inst) + 0x00000000U)
+#define BF_WRPTR_SYNC_RSTVAL_INFO(inst)    ((uint32_t)(inst) + 0x00000000U), 0x00000200U
 
 #ifdef USE_PRIVATE_BF
-#define REG_ADC_DATA_OVR_STATUS_ADDR(inst) ((inst) + 0x00000001)
-#define BF_ADC_DATA_OVR_STATUS_INFO(inst)  ((inst) + 0x00000001), 0x00000400
+#define REG_ADC_DATA_OVR_STATUS_ADDR(inst) ((uint32_t)(inst) + 0x00000001U)
+#define BF_ADC_DATA_OVR_STATUS_INFO(inst)  ((uint32_t)(inst) + 0x00000001U), 0x00000400U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ADC_DATA_OVR_CLR_ADDR(inst)    ((inst) + 0x00000002)
-#define BF_ADC_DATA_OVR_CLEAR_INFO(inst)   ((inst) + 0x00000002), 0x00000400
+#define REG_ADC_DATA_OVR_CLR_ADDR(inst)    ((uint32_t)(inst) + 0x00000002U)
+#define BF_ADC_DATA_OVR_CLEAR_INFO(inst)   ((uint32_t)(inst) + 0x00000002U), 0x00000400U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_LPBK_WR_EN_ADDR(inst)          ((inst) + 0x00000003)
-#define BF_LPBK_WR_EN_INFO(inst)           ((inst) + 0x00000003), 0x00000100
+#define REG_LPBK_WR_EN_ADDR(inst)          ((uint32_t)(inst) + 0x00000003U)
+#define BF_LPBK_WR_EN_INFO(inst)           ((uint32_t)(inst) + 0x00000003U), 0x00000100U
 
-#define REG_DBG_DATA_OFF_EN_ADDR(inst)     ((inst) + 0x00000004)
-#define BF_DBG_DATA_OFF_EN_INFO(inst)      ((inst) + 0x00000004), 0x00000100
+#define REG_DBG_DATA_OFF_EN_ADDR(inst)     ((uint32_t)(inst) + 0x00000004U)
+#define BF_DBG_DATA_OFF_EN_INFO(inst)      ((uint32_t)(inst) + 0x00000004U), 0x00000100U
 
-#define REG_LB0_BMEM_PATH_SEL_ADDR(inst)   ((inst) + 0x00000005)
-#define BF_LB0_BMEM_PATH_SEL_INFO(inst)    ((inst) + 0x00000005), 0x00000100
+#define REG_LB0_BMEM_PATH_SEL_ADDR(inst)   ((uint32_t)(inst) + 0x00000005U)
+#define BF_LB0_BMEM_PATH_SEL_INFO(inst)    ((uint32_t)(inst) + 0x00000005U), 0x00000100U
 
-#endif /* __ADI_APOLLO_BF_RX_LOOPBACK_H__ */
+#endif /* ADI_APOLLO_BF_RX_LOOPBACK_H__ */
 /*! @} */

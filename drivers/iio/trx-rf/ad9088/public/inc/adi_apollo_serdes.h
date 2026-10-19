@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_SERDES
  * @{
  */
-#ifndef __ADI_APOLLO_SERDES_H__
-#define __ADI_APOLLO_SERDES_H__
+#ifndef ADI_APOLLO_SERDES_H__
+#define ADI_APOLLO_SERDES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_serdes_types.h"
@@ -296,7 +296,7 @@ int32_t adi_apollo_serdes_jrx_vert_eye_sweep_resp_get(adi_apollo_device_t *devic
  * \brief  Reads serdes PLL lock status
  *
  * \param[in] device         Context variable - Pointer to the APOLLO device data structure
- * \param[in] side_index     Apollo side index \ref adi_apollo_sides_e
+ * \param[in] side           Apollo side index \ref adi_apollo_sides_e
  * \param[in] lane_mask      Lane mask to read the status
  * \param[out] status        PLL lock status
  *
@@ -304,7 +304,7 @@ int32_t adi_apollo_serdes_jrx_vert_eye_sweep_resp_get(adi_apollo_device_t *devic
  * \return <0                                   Failed. \ref adi_cms_error_e for details.
  */
 int32_t adi_apollo_serdes_pll_locked_status(adi_apollo_device_t *device,
-            adi_apollo_sides_e side_index,
+            adi_apollo_sides_e side,
             uint16_t lane_mask,
             uint16_t *status);
 
@@ -316,5 +316,5 @@ int32_t adi_apollo_serdes_pll_locked_status(adi_apollo_device_t *device,
 }
 #endif
 
-#endif /* __ADI_APOLLO_SERDES_H__ */
+#endif /* ADI_APOLLO_SERDES_H__ */
 /*! @} */

@@ -11,16 +11,16 @@
  * \addtogroup ADI_APOLLO_CNCO
  * @{
  */
-#ifndef __ADI_APOLLO_CNCO_TYPES_H__
-#define __ADI_APOLLO_CNCO_TYPES_H__
+#ifndef ADI_APOLLO_CNCO_TYPES_H__
+#define ADI_APOLLO_CNCO_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
 #include "adi_apollo_common.h"
 
 /*============= D E F I N E S ==============*/
-#define ADI_APOLLO_CNCO_NUM 8                   /* Sized for 8T8R */
-#define ADI_APOLLO_CNCO_PER_SIDE_NUM 4
+#define ADI_APOLLO_CNCO_NUM 8U                   /* Sized for 8T8R */
+#define ADI_APOLLO_CNCO_PER_SIDE_NUM 4U
 
 /*!
  * \brief Enumerates RX coarse NCO select
@@ -144,5 +144,5 @@ typedef struct {
     uint32_t drc_phase_inc_frac_b;                  /*!< Denominator correction term for modulus phase accumulator */
 } adi_apollo_coarse_nco_chan_pgm_t;
 
-#endif /* __ADI_APOLLO_CNCO_TYPES_H__ */
+#endif /* ADI_APOLLO_CNCO_TYPES_H__ */
 /*! @} */

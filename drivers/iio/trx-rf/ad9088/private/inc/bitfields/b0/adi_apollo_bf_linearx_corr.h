@@ -12,99 +12,99 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_LINEARX_CORR_H__
-#define __ADI_APOLLO_BF_LINEARX_CORR_H__
+#ifndef ADI_APOLLO_BF_LINEARX_CORR_H__
+#define ADI_APOLLO_BF_LINEARX_CORR_H__
 
 /*============= D E F I N E S ==============*/
-#define LINEARX_CORR_RX_LINEARX_REG32_0_RX_SLICE_0_RX_DIGITAL0 0x60220100
-#define LINEARX_CORR_RX_LINEARX_REG32_1_RX_SLICE_0_RX_DIGITAL0 0x60228100
-#define LINEARX_CORR_RX_LINEARX_REG32_0_RX_SLICE_1_RX_DIGITAL0 0x60420100
-#define LINEARX_CORR_RX_LINEARX_REG32_1_RX_SLICE_1_RX_DIGITAL0 0x60428100
-#define LINEARX_CORR_RX_LINEARX_REG32_0_RX_SLICE_0_RX_DIGITAL1 0x60A20100
-#define LINEARX_CORR_RX_LINEARX_REG32_1_RX_SLICE_0_RX_DIGITAL1 0x60A28100
-#define LINEARX_CORR_RX_LINEARX_REG32_0_RX_SLICE_1_RX_DIGITAL1 0x60C20100
-#define LINEARX_CORR_RX_LINEARX_REG32_1_RX_SLICE_1_RX_DIGITAL1 0x60C28100
-#define LINEARX_CORR_TX_LINEARX_REG32_0_TX_SLICE_0_TX_DIGITAL0 0x61220100
-#define LINEARX_CORR_TX_LINEARX_REG32_1_TX_SLICE_0_TX_DIGITAL0 0x61228100
-#define LINEARX_CORR_TX_LINEARX_REG32_0_TX_SLICE_1_TX_DIGITAL0 0x61420100
-#define LINEARX_CORR_TX_LINEARX_REG32_1_TX_SLICE_1_TX_DIGITAL0 0x61428100
-#define LINEARX_CORR_TX_LINEARX_REG32_0_TX_SLICE_0_TX_DIGITAL1 0x61A20100
-#define LINEARX_CORR_TX_LINEARX_REG32_1_TX_SLICE_0_TX_DIGITAL1 0x61A28100
-#define LINEARX_CORR_TX_LINEARX_REG32_0_TX_SLICE_1_TX_DIGITAL1 0x61C20100
-#define LINEARX_CORR_TX_LINEARX_REG32_1_TX_SLICE_1_TX_DIGITAL1 0x61C28100
+#define LINEARX_CORR_RX_LINEARX_REG32_0_RX_SLICE_0_RX_DIGITAL0 0x60220100U
+#define LINEARX_CORR_RX_LINEARX_REG32_1_RX_SLICE_0_RX_DIGITAL0 0x60228100U
+#define LINEARX_CORR_RX_LINEARX_REG32_0_RX_SLICE_1_RX_DIGITAL0 0x60420100U
+#define LINEARX_CORR_RX_LINEARX_REG32_1_RX_SLICE_1_RX_DIGITAL0 0x60428100U
+#define LINEARX_CORR_RX_LINEARX_REG32_0_RX_SLICE_0_RX_DIGITAL1 0x60A20100U
+#define LINEARX_CORR_RX_LINEARX_REG32_1_RX_SLICE_0_RX_DIGITAL1 0x60A28100U
+#define LINEARX_CORR_RX_LINEARX_REG32_0_RX_SLICE_1_RX_DIGITAL1 0x60C20100U
+#define LINEARX_CORR_RX_LINEARX_REG32_1_RX_SLICE_1_RX_DIGITAL1 0x60C28100U
+#define LINEARX_CORR_TX_LINEARX_REG32_0_TX_SLICE_0_TX_DIGITAL0 0x61220100U
+#define LINEARX_CORR_TX_LINEARX_REG32_1_TX_SLICE_0_TX_DIGITAL0 0x61228100U
+#define LINEARX_CORR_TX_LINEARX_REG32_0_TX_SLICE_1_TX_DIGITAL0 0x61420100U
+#define LINEARX_CORR_TX_LINEARX_REG32_1_TX_SLICE_1_TX_DIGITAL0 0x61428100U
+#define LINEARX_CORR_TX_LINEARX_REG32_0_TX_SLICE_0_TX_DIGITAL1 0x61A20100U
+#define LINEARX_CORR_TX_LINEARX_REG32_1_TX_SLICE_0_TX_DIGITAL1 0x61A28100U
+#define LINEARX_CORR_TX_LINEARX_REG32_0_TX_SLICE_1_TX_DIGITAL1 0x61C20100U
+#define LINEARX_CORR_TX_LINEARX_REG32_1_TX_SLICE_1_TX_DIGITAL1 0x61C28100U
 
-#define REG_LINEARX_CORR_CONTROL_ADDR(inst)                    ((inst) + 0x00000000)
-#define BF_NO_INTERP_CORRECTION_INFO(inst)                     ((inst) + 0x00000000), 0x00000100
-#define BF_INTERP_TYPE_EN_INFO(inst)                           ((inst) + 0x00000000), 0x00000101
-#define BF_HAMMERSTEIN_EN_INFO(inst)                           ((inst) + 0x00000000), 0x00000102
-#define BF_INTERP_NOM_6B_OUT_LP_INFO(inst)                     ((inst) + 0x00000000), 0x00000103
-#define BF_INTERP_NOM_6B_OUT_BP_INFO(inst)                     ((inst) + 0x00000000), 0x00000104
-#define BF_CROSSTERM_EN_INFO(inst)                             ((inst) + 0x00000000), 0x0000010D
-#define BF_CROSSTERM_DELAY_INFO(inst)                          ((inst) + 0x00000000), 0x00000C10
-#define BF_LINEARX_OVR_OPTION_INFO(inst)                       ((inst) + 0x00000000), 0x0000021C
-#define BF_TAP_ADJUST_INFO(inst)                               ((inst) + 0x00000000), 0x0000021E
+#define REG_LINEARX_CORR_CONTROL_ADDR(inst)                    ((uint32_t)(inst) + 0x00000000U)
+#define BF_NO_INTERP_CORRECTION_INFO(inst)                     ((uint32_t)(inst) + 0x00000000U), 0x00000100U
+#define BF_INTERP_TYPE_EN_INFO(inst)                           ((uint32_t)(inst) + 0x00000000U), 0x00000101U
+#define BF_HAMMERSTEIN_EN_INFO(inst)                           ((uint32_t)(inst) + 0x00000000U), 0x00000102U
+#define BF_INTERP_NOM_6B_OUT_LP_INFO(inst)                     ((uint32_t)(inst) + 0x00000000U), 0x00000103U
+#define BF_INTERP_NOM_6B_OUT_BP_INFO(inst)                     ((uint32_t)(inst) + 0x00000000U), 0x00000104U
+#define BF_CROSSTERM_EN_INFO(inst)                             ((uint32_t)(inst) + 0x00000000U), 0x0000010DU
+#define BF_CROSSTERM_DELAY_INFO(inst)                          ((uint32_t)(inst) + 0x00000000U), 0x00000C10U
+#define BF_LINEARX_OVR_OPTION_INFO(inst)                       ((uint32_t)(inst) + 0x00000000U), 0x0000021CU
+#define BF_TAP_ADJUST_INFO(inst)                               ((uint32_t)(inst) + 0x00000000U), 0x0000021EU
 
-#define REG_LINEARX_ACAUSAL_TAPS_ADDR(inst)                    ((inst) + 0x00000004)
-#define BF_ACAUSAL_TAPS_INFO(inst)                             ((inst) + 0x00000004), 0x00000400
-#define BF_DISABLE_ACAUSAL_TAPS_CSRAM_INFO(inst)               ((inst) + 0x00000004), 0x00000204
+#define REG_LINEARX_ACAUSAL_TAPS_ADDR(inst)                    ((uint32_t)(inst) + 0x00000004U)
+#define BF_ACAUSAL_TAPS_INFO(inst)                             ((uint32_t)(inst) + 0x00000004U), 0x00000400U
+#define BF_DISABLE_ACAUSAL_TAPS_CSRAM_INFO(inst)               ((uint32_t)(inst) + 0x00000004U), 0x00000204U
 
-#define REG_LINEARX_AMP_THRESH_ADDR(inst)                      ((inst) + 0x00000008)
-#define BF_LINEARX_AMP_THRESH_EN_INFO(inst)                    ((inst) + 0x00000008), 0x00000100
-#define BF_LINEARX_AMP_THRESH_DITHER_EN_INFO(inst)             ((inst) + 0x00000008), 0x00000101
-#define BF_LINEARX_AMP_THRESH_CLK_GATING_EN_INFO(inst)         ((inst) + 0x00000008), 0x00000102
-#define BF_LINEARX_AMP_THRESH_FLUSH_PIPELINE_EN_INFO(inst)     ((inst) + 0x00000008), 0x00000103
-#define BF_LINEARX_AMP_THRESH_DITHER_SHIFT_INFO(inst)          ((inst) + 0x00000008), 0x00000204
+#define REG_LINEARX_AMP_THRESH_ADDR(inst)                      ((uint32_t)(inst) + 0x00000008U)
+#define BF_LINEARX_AMP_THRESH_EN_INFO(inst)                    ((uint32_t)(inst) + 0x00000008U), 0x00000100U
+#define BF_LINEARX_AMP_THRESH_DITHER_EN_INFO(inst)             ((uint32_t)(inst) + 0x00000008U), 0x00000101U
+#define BF_LINEARX_AMP_THRESH_CLK_GATING_EN_INFO(inst)         ((uint32_t)(inst) + 0x00000008U), 0x00000102U
+#define BF_LINEARX_AMP_THRESH_FLUSH_PIPELINE_EN_INFO(inst)     ((uint32_t)(inst) + 0x00000008U), 0x00000103U
+#define BF_LINEARX_AMP_THRESH_DITHER_SHIFT_INFO(inst)          ((uint32_t)(inst) + 0x00000008U), 0x00000204U
 
-#define REG_LINEARX_AMP_THRESH2_ADDR(inst)                     ((inst) + 0x0000000C)
-#define BF_CAL_DWELL_TIME_INFO(inst)                           ((inst) + 0x0000000C), 0x00001000
-#define BF_LINEARX_AMP_THRESH_INFO(inst)                       ((inst) + 0x0000000C), 0x00000B10
+#define REG_LINEARX_AMP_THRESH2_ADDR(inst)                     ((uint32_t)(inst) + 0x0000000CU)
+#define BF_CAL_DWELL_TIME_INFO(inst)                           ((uint32_t)(inst) + 0x0000000CU), 0x00001000U
+#define BF_LINEARX_AMP_THRESH_INFO(inst)                       ((uint32_t)(inst) + 0x0000000CU), 0x00000B10U
 
-#define REG_LINEARX_OFFSET_OVR_ADDR(inst)                      ((inst) + 0x00000010)
-#define BF_LINEARX_OFFSET_OVR_CNT_INFO(inst)                   ((inst) + 0x00000010), 0x00001000
+#define REG_LINEARX_OFFSET_OVR_ADDR(inst)                      ((uint32_t)(inst) + 0x00000010U)
+#define BF_LINEARX_OFFSET_OVR_CNT_INFO(inst)                   ((uint32_t)(inst) + 0x00000010U), 0x00001000U
 
-#define REG_LINEARX_OFFSET_MEASUREMENT_ADDR(inst)              ((inst) + 0x00000014)
-#define BF_LINEARX_OFFSET_MEASUREMENT_INFO(inst)               ((inst) + 0x00000014), 0x00000B00
-#define BF_LINEARX_OFFSET_STATUS_IRQ_INFO(inst)                ((inst) + 0x00000014), 0x0000010B
+#define REG_LINEARX_OFFSET_MEASUREMENT_ADDR(inst)              ((uint32_t)(inst) + 0x00000014U)
+#define BF_LINEARX_OFFSET_MEASUREMENT_INFO(inst)               ((uint32_t)(inst) + 0x00000014U), 0x00000B00U
+#define BF_LINEARX_OFFSET_STATUS_IRQ_INFO(inst)                ((uint32_t)(inst) + 0x00000014U), 0x0000010BU
 
-#define REG_LINEARX_OFFSET_START_ADDR(inst)                    ((inst) + 0x00000018)
-#define BF_LINEARX_OFFSET_CAL_START_INFO(inst)                 ((inst) + 0x00000018), 0x00000100
+#define REG_LINEARX_OFFSET_START_ADDR(inst)                    ((uint32_t)(inst) + 0x00000018U)
+#define BF_LINEARX_OFFSET_CAL_START_INFO(inst)                 ((uint32_t)(inst) + 0x00000018U), 0x00000100U
 
-#define REG_LINEARX_OFFSET_CLR_ADDR(inst)                      ((inst) + 0x0000001C)
-#define BF_LINEARX_OFFSET_IRQ_CLEAR_INFO(inst)                 ((inst) + 0x0000001C), 0x00000100
+#define REG_LINEARX_OFFSET_CLR_ADDR(inst)                      ((uint32_t)(inst) + 0x0000001CU)
+#define BF_LINEARX_OFFSET_IRQ_CLEAR_INFO(inst)                 ((uint32_t)(inst) + 0x0000001CU), 0x00000100U
 
-#define REG_LINEARX_OFFSET_CAL_ADDR(inst)                      ((inst) + 0x00000020)
-#define BF_LINEARX_OFFSET_CAL_DEC_RATE_INFO(inst)              ((inst) + 0x00000020), 0x00000D00
-#define BF_LINEARX_OFFSET_CAL_SHIFT_EXP_INFO(inst)             ((inst) + 0x00000020), 0x0000040D
-#define BF_LINEARX_OFFSET_CAL_EN_INFO(inst)                    ((inst) + 0x00000020), 0x00000111
-#define BF_LINEARX_OFFSET_IRQ_EN_INFO(inst)                    ((inst) + 0x00000020), 0x00000112
+#define REG_LINEARX_OFFSET_CAL_ADDR(inst)                      ((uint32_t)(inst) + 0x00000020U)
+#define BF_LINEARX_OFFSET_CAL_DEC_RATE_INFO(inst)              ((uint32_t)(inst) + 0x00000020U), 0x00000D00U
+#define BF_LINEARX_OFFSET_CAL_SHIFT_EXP_INFO(inst)             ((uint32_t)(inst) + 0x00000020U), 0x0000040DU
+#define BF_LINEARX_OFFSET_CAL_EN_INFO(inst)                    ((uint32_t)(inst) + 0x00000020U), 0x00000111U
+#define BF_LINEARX_OFFSET_IRQ_EN_INFO(inst)                    ((uint32_t)(inst) + 0x00000020U), 0x00000112U
 
-#define REG_LINEARX_OFFSET_CORR_COEF_ADDR(inst)                ((inst) + 0x00000024)
-#define BF_LINEARX_OFFSET_CANCELLATION_COEF_INFO(inst)         ((inst) + 0x00000024), 0x00000900
+#define REG_LINEARX_OFFSET_CORR_COEF_ADDR(inst)                ((uint32_t)(inst) + 0x00000024U)
+#define BF_LINEARX_OFFSET_CANCELLATION_COEF_INFO(inst)         ((uint32_t)(inst) + 0x00000024U), 0x00000900U
 
-#define REG_LINEARX_DEBUG_ADDR(inst)                           ((inst) + 0x00000028)
-#define BF_DEBUG_MODE_HSRAM_CSRAM_EN_INFO(inst)                ((inst) + 0x00000028), 0x00000200
-#define BF_DEBUG_MODE_CSRAM_NUM_INFO(inst)                     ((inst) + 0x00000028), 0x00000202
-#define BF_DEBUG_MODE_POLY_INFO(inst)                          ((inst) + 0x00000028), 0x00000204
-#define BF_DEBUG_MODE_INFO(inst)                               ((inst) + 0x00000028), 0x00000306
+#define REG_LINEARX_DEBUG_ADDR(inst)                           ((uint32_t)(inst) + 0x00000028U)
+#define BF_DEBUG_MODE_HSRAM_CSRAM_EN_INFO(inst)                ((uint32_t)(inst) + 0x00000028U), 0x00000200U
+#define BF_DEBUG_MODE_CSRAM_NUM_INFO(inst)                     ((uint32_t)(inst) + 0x00000028U), 0x00000202U
+#define BF_DEBUG_MODE_POLY_INFO(inst)                          ((uint32_t)(inst) + 0x00000028U), 0x00000204U
+#define BF_DEBUG_MODE_INFO(inst)                               ((uint32_t)(inst) + 0x00000028U), 0x00000306U
 
-#define REG_LFSR_CONTROLS_ADDR(inst)                           ((inst) + 0x0000002C)
-#define BF_ADDR_GEN_LFSR_EN_INFO(inst)                         ((inst) + 0x0000002C), 0x00000100
-#define BF_ADDR_GEN_LFSR_RESTART_INFO(inst)                    ((inst) + 0x0000002C), 0x00000101
-#define BF_DIST_REM_LFSR_EN_INFO(inst)                         ((inst) + 0x0000002C), 0x00000102
-#define BF_DIST_REM_LFSR_RESTART_INFO(inst)                    ((inst) + 0x0000002C), 0x00000103
-#define BF_THRESHOLD_LFSR_EN_INFO(inst)                        ((inst) + 0x0000002C), 0x00000104
-#define BF_THRESHOLD_LFSR_RESTART_INFO(inst)                   ((inst) + 0x0000002C), 0x00000105
-#define BF_REQUANT_LFSR_EN_INFO(inst)                          ((inst) + 0x0000002C), 0x00000106
-#define BF_REQUANT_LFSR_RESTART_INFO(inst)                     ((inst) + 0x0000002C), 0x00000107
+#define REG_LFSR_CONTROLS_ADDR(inst)                           ((uint32_t)(inst) + 0x0000002CU)
+#define BF_ADDR_GEN_LFSR_EN_INFO(inst)                         ((uint32_t)(inst) + 0x0000002CU), 0x00000100U
+#define BF_ADDR_GEN_LFSR_RESTART_INFO(inst)                    ((uint32_t)(inst) + 0x0000002CU), 0x00000101U
+#define BF_DIST_REM_LFSR_EN_INFO(inst)                         ((uint32_t)(inst) + 0x0000002CU), 0x00000102U
+#define BF_DIST_REM_LFSR_RESTART_INFO(inst)                    ((uint32_t)(inst) + 0x0000002CU), 0x00000103U
+#define BF_THRESHOLD_LFSR_EN_INFO(inst)                        ((uint32_t)(inst) + 0x0000002CU), 0x00000104U
+#define BF_THRESHOLD_LFSR_RESTART_INFO(inst)                   ((uint32_t)(inst) + 0x0000002CU), 0x00000105U
+#define BF_REQUANT_LFSR_EN_INFO(inst)                          ((uint32_t)(inst) + 0x0000002CU), 0x00000106U
+#define BF_REQUANT_LFSR_RESTART_INFO(inst)                     ((uint32_t)(inst) + 0x0000002CU), 0x00000107U
 
-#define REG_TRANSFER_ADDR(inst)                                ((inst) + 0x00000030)
-#define BF_TRANSFER_OFFSET_CORR_INFO(inst)                     ((inst) + 0x00000030), 0x00000100
-#define BF_TRANSFER_OFFSET_CORR_IN_INFO(inst)                  ((inst) + 0x00000030), 0x00000101
-#define BF_READ_SEL_OFFSET_CORR_INFO(inst)                     ((inst) + 0x00000030), 0x00000104
-#define BF_READ_SEL_OFFSET_CORR_IN_INFO(inst)                  ((inst) + 0x00000030), 0x00000105
+#define REG_TRANSFER_ADDR(inst)                                ((uint32_t)(inst) + 0x00000030U)
+#define BF_TRANSFER_OFFSET_CORR_INFO(inst)                     ((uint32_t)(inst) + 0x00000030U), 0x00000100U
+#define BF_TRANSFER_OFFSET_CORR_IN_INFO(inst)                  ((uint32_t)(inst) + 0x00000030U), 0x00000101U
+#define BF_READ_SEL_OFFSET_CORR_INFO(inst)                     ((uint32_t)(inst) + 0x00000030U), 0x00000104U
+#define BF_READ_SEL_OFFSET_CORR_IN_INFO(inst)                  ((uint32_t)(inst) + 0x00000030U), 0x00000105U
 
-#define REG_LINEARX_INPUT_OFFSET_CORR_COEF_ADDR(inst)          ((inst) + 0x00000034)
-#define BF_LINEARX_OFFSET_CANCELLATION_COEF_IN_INFO(inst)      ((inst) + 0x00000034), 0x00001000
+#define REG_LINEARX_INPUT_OFFSET_CORR_COEF_ADDR(inst)          ((uint32_t)(inst) + 0x00000034U)
+#define BF_LINEARX_OFFSET_CANCELLATION_COEF_IN_INFO(inst)      ((uint32_t)(inst) + 0x00000034U), 0x00001000U
 
-#endif /* __ADI_APOLLO_BF_LINEARX_CORR_H__ */
+#endif /* ADI_APOLLO_BF_LINEARX_CORR_H__ */
 /*! @} */

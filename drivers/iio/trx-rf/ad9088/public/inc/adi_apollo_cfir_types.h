@@ -11,23 +11,28 @@
  * \addtogroup ADI_APOLLO_CFIR
  * @{
  */
-#ifndef __ADI_APOLLO_CFIR_TYPES_H__
-#define __ADI_APOLLO_CFIR_TYPES_H__
+#ifndef ADI_APOLLO_CFIR_TYPES_H__
+#define ADI_APOLLO_CFIR_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
 #include "adi_apollo_common.h"
 
 /*============= D E F I N E S ==============*/
-#define ADI_APOLLO_CFIR_NUM                 4
-#define ADI_APOLLO_CFIR_PER_SIDE_NUM        2
-#define ADI_APOLLO_CFIR_DP_PER_INST_NUM     4
-#define ADI_APOLLO_CFIR_PROFILE_NUM         2
-#define ADI_APOLLO_CFIR_COEFF_NUM           16
-#define ADI_APOLLO_CFIR_MEM_SEL_NUM         3
-#define ADI_APOLLO_CFIR_NUM_PROFILES 2
-#define ADI_APOLLO_CFIR_COEFF_SETS 4
+#define ADI_APOLLO_CFIR_NUM                 4U
+#define ADI_APOLLO_CFIR_PER_SIDE_NUM        2U
+#define ADI_APOLLO_CFIR_DP_PER_INST_NUM     4U
+#define ADI_APOLLO_CFIR_PROFILE_NUM         2U
+#define ADI_APOLLO_CFIR_COEFF_NUM           16U
+#define ADI_APOLLO_CFIR_MEM_SEL_NUM         3U
+#define ADI_APOLLO_CFIR_NUM_PROFILES 2U
+#define ADI_APOLLO_CFIR_COEFF_SETS 4U
+/* Note: ADI_APOLLO_CFIR_NUM_PROFILES and ADI_APOLLO_CFIR_COEFF_SETS also exist as enum values in apollo_cpu_device_profile_types.h */
+/* This duplication violates MISRA Rule 5.5 but is required for C# code generation tooling */
+/* Note: ADI_APOLLO_CFIR_NUM_TAPS is also defined in apollo_cpu_device_profile_types.h - guarded to prevent redefinition */
+#ifndef ADI_APOLLO_CFIR_NUM_TAPS
 #define ADI_APOLLO_CFIR_NUM_TAPS                16
+#endif
 
 /*!
  * \brief Enumerates CFIR select
@@ -91,7 +96,7 @@ typedef enum
 typedef struct {
     uint8_t cfir_bypass;                                        /*!< Bypass CFIR. 0: Disable, 1: Enable */
     uint8_t cfir_sparse_filt_en;                                /*!< Enable Sparse Filter. 0: Disable, 1: Enable */
-    uint8_t cfir_32taps_en;                                     /*!< Enable 32-taps filter 0: Disable, 1: Enable */
+    uint8_t cfir_32taps_en;                                     /*!< @deprecated Unused - 32-tap mode not supported. Field retained for API compatibility. */
     uint8_t cfir_coeff_transfer;                                /*!< Coefficient Transfer Signal. Transfers all coefficient data from master registers to slave registers. 0: Disable, 1: Enable */
 } adi_apollo_cfir_pgm_t;
 
@@ -105,5 +110,5 @@ typedef struct {
     uint16_t                sparse_coeff[ADI_APOLLO_CFIR_NUM_PROFILES][ADI_APOLLO_CFIR_COEFF_SETS][ADI_APOLLO_CFIR_NUM_TAPS];
     uint8_t                 sparse_mem[ADI_APOLLO_CFIR_NUM_PROFILES][ADI_APOLLO_CFIR_COEFF_SETS][ADI_APOLLO_CFIR_MEM_SEL_NUM];
 } adi_apollo_cfir_inspect_t;
-#endif /* __ADI_APOLLO_CFIR_TYPES_H__ */
+#endif /* ADI_APOLLO_CFIR_TYPES_H__ */
 /*! @} */

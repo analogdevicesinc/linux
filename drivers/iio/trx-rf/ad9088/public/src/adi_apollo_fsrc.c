@@ -18,6 +18,7 @@
 #include "adi_apollo_dformat_local.h"
 #include "adi_apollo_private_device.h"
 #include "adi_apollo_private_blk_sel_types.h"
+#include "adi_apollo_clk_mcs.h"
 
 #include "adi_apollo_bf_txrx_fsrc.h"
 #include "adi_apollo_bf_jtx_dformat.h"
@@ -28,17 +29,20 @@
 
 #include "adi_utils.h"
 
+static uint32_t calc_fsrc_base(adi_apollo_terminal_e terminal, uint32_t fsrc_index);
+
 /*==================== P U B L I C   A P I   C O D E ====================*/
 
 int32_t adi_apollo_fsrc_pgm(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrcs, adi_apollo_fsrc_pgm_t *config)
 {
     int32_t err;
-    uint8_t i;
+    uint32_t i;
     adi_apollo_blk_sel_t fsrc;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(terminal, ADI_APOLLO_EC_FSRC_LOCK);
     ADI_APOLLO_NULL_POINTER_RETURN(config);
     ADI_APOLLO_FSRC_BLK_SEL_MASK(fsrcs);
@@ -52,16 +56,16 @@ int32_t adi_apollo_fsrc_pgm(adi_apollo_device_t *device, adi_apollo_terminal_e t
     err = adi_apollo_fsrc_mode_1x_enable_set(device, terminal, fsrcs, config->fsrc_1x_mode);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    for(i = 0; i < ADI_APOLLO_FSRC_NUM; i += 2) {                 //Common bitfield for 0 & 1 fsrcs              
-        fsrc = fsrcs & ((ADI_APOLLO_FSRC_A0 << i) | (ADI_APOLLO_FSRC_A0 << (i+1)));
-        if (fsrc > 0) {
+    for(i = 0U; i < ADI_APOLLO_FSRC_NUM; i += 2U) {                 //Common bitfield for 0 & 1U fsrcs
+        fsrc = fsrcs & (adi_apollo_blk_sel_t)(((uint32_t)ADI_APOLLO_FSRC_A0 << i) | ((uint32_t)ADI_APOLLO_FSRC_A0 << (i + 1U)));
+        if (fsrc > 0U) {
             regmap_base_addr = calc_fsrc_base(terminal, i);
 
             err = adi_apollo_hal_bf_set(device, BF_SAMPLE_FRAC_DELAY_INFO(regmap_base_addr), config->sample_frac_delay);
             ADI_APOLLO_ERROR_RETURN(err);
             err = adi_apollo_hal_bf_set(device, BF_PTR_SYNCRSTVAL_REGMAP_OVERWRITE_INFO(regmap_base_addr), config->ptr_overwrite);
             ADI_APOLLO_ERROR_RETURN(err);
-            if (config->ptr_overwrite == 1) {
+            if (config->ptr_overwrite == 1U) {
                 err = adi_apollo_hal_bf_set(device, BF_PTR_SYNCRSTVAL_INFO(regmap_base_addr), config->ptr_syncrstval);
                 ADI_APOLLO_ERROR_RETURN(err);
             }
@@ -77,12 +81,12 @@ int32_t adi_apollo_fsrc_pgm(adi_apollo_device_t *device, adi_apollo_terminal_e t
     }    
             
     /* Set the stream enables */
-    for(i = 0; i < ADI_APOLLO_FSRC_NUM; i ++) {
-        fsrc = fsrcs & (ADI_APOLLO_FSRC_A0 << i);
-        if (fsrc > 0) {
+    for(i = 0U; i < ADI_APOLLO_FSRC_NUM; i ++) {
+        fsrc = fsrcs & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FSRC_A0 << i);
+        if (fsrc > 0U) {
             regmap_base_addr = calc_fsrc_base(terminal, i);
             
-            if (i % 2 == 0) {
+            if ((i % 2U) == 0U) {
                 err = adi_apollo_hal_bf_set(device, BF_FSRC_EN0_INFO(regmap_base_addr), config->fsrc_en0);
                 ADI_APOLLO_ERROR_RETURN(err);
             } else {
@@ -92,26 +96,27 @@ int32_t adi_apollo_fsrc_pgm(adi_apollo_device_t *device, adi_apollo_terminal_e t
         }
     }
             
-    return API_CMS_ERROR_OK; 
+    ADI_CMS_RETURN(API_CMS_ERROR_OK); 
 }
 
 int32_t adi_apollo_fsrc_inspect(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t  fsrc, adi_apollo_fsrc_inspect_t *fsrc_inspect)
 {
     int32_t err;
-    uint8_t i;
+    uint32_t i;
     adi_apollo_blk_sel_t fsrc_temp;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(terminal, ADI_APOLLO_EC_FSRC_LOCK);
     ADI_APOLLO_NULL_POINTER_RETURN(fsrc_inspect);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(fsrc)!= 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(fsrc)!= 1U);
     ADI_APOLLO_FSRC_BLK_SEL_MASK(fsrc);
 
-    for(i = 0; i < ADI_APOLLO_FSRC_NUM; i += 2) {                 //Common bitfield for 0 & 1 fsrcs              
-        fsrc_temp = fsrc & ((ADI_APOLLO_FSRC_A0 << i) | (ADI_APOLLO_FSRC_A0 << (i+1)));
-        if (fsrc_temp > 0) {
+    for(i = 0U; i < ADI_APOLLO_FSRC_NUM; i += 2U) {                 //Common bitfield for 0 & 1U fsrcs
+        fsrc_temp = fsrc & (adi_apollo_blk_sel_t)(((uint32_t)ADI_APOLLO_FSRC_A0 << i) | ((uint32_t)ADI_APOLLO_FSRC_A0 << (i + 1U)));
+        if (fsrc_temp > 0U) {
             regmap_base_addr = calc_fsrc_base(terminal, i);
 
             err = adi_apollo_hal_bf_get(device, BF_FSRC_RATE_INT_INFO(regmap_base_addr), (uint8_t*)  &(fsrc_inspect->dp_cfg.fsrc_rate_int), 8);
@@ -126,7 +131,7 @@ int32_t adi_apollo_fsrc_inspect(adi_apollo_device_t *device, adi_apollo_terminal
             ADI_APOLLO_ERROR_RETURN(err);
             err = adi_apollo_hal_bf_get(device, BF_PTR_SYNCRSTVAL_REGMAP_OVERWRITE_INFO(regmap_base_addr), (uint8_t*) &(fsrc_inspect->dp_cfg.ptr_overwrite), 1);
             ADI_APOLLO_ERROR_RETURN(err);
-            if (fsrc_inspect->dp_cfg.ptr_overwrite == 1){
+            if (fsrc_inspect->dp_cfg.ptr_overwrite != 0U){
                 err = adi_apollo_hal_bf_get(device, BF_PTR_SYNCRSTVAL_INFO(regmap_base_addr), (uint8_t*) &(fsrc_inspect->dp_cfg.ptr_syncrstval), 1);
                 ADI_APOLLO_ERROR_RETURN(err);
             }
@@ -144,16 +149,16 @@ int32_t adi_apollo_fsrc_inspect(adi_apollo_device_t *device, adi_apollo_terminal
     }    
             
     /* first clear the enables since only one will be updated in the function call */
-    fsrc_inspect->dp_cfg.enable0 = 0;
-    fsrc_inspect->dp_cfg.enable1 = 0;
+    fsrc_inspect->dp_cfg.enable0 = false;
+    fsrc_inspect->dp_cfg.enable1 = false;
     
     /* Now retrieve the enable for the specific FSC block */
-    for(i = 0; i < ADI_APOLLO_FSRC_NUM; i ++) {
-        fsrc_temp = fsrc & (ADI_APOLLO_FSRC_A0 << i);
-        if (fsrc_temp > 0) {
+    for(i = 0U; i < ADI_APOLLO_FSRC_NUM; i ++) {
+        fsrc_temp = fsrc & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FSRC_A0 << i);
+        if (fsrc_temp > 0U) {
             regmap_base_addr = calc_fsrc_base(terminal, i);
             
-            if (i % 2 == 0) {
+            if ((i % 2U) == 0U) {
                 err = adi_apollo_hal_bf_get(device, BF_FSRC_EN0_INFO(regmap_base_addr), (uint8_t*) &(fsrc_inspect->dp_cfg.enable0), 1);
                 ADI_APOLLO_ERROR_RETURN(err);
             } else {
@@ -163,23 +168,24 @@ int32_t adi_apollo_fsrc_inspect(adi_apollo_device_t *device, adi_apollo_terminal
         }
     }
             
-    return API_CMS_ERROR_OK; 
+    ADI_CMS_RETURN(API_CMS_ERROR_OK); 
 }
 
 int32_t adi_apollo_fsrc_rx_rm_fifo_pgm(adi_apollo_device_t *device, const uint16_t links, adi_apollo_rx_rm_fifo_pgm_t *config)
-{ 
-    int32_t err, i;
+{
+    int32_t err;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_RX, ADI_APOLLO_EC_FSRC_LOCK);
 
-    for (i = 0; i < ADI_APOLLO_NUM_JTX_LINKS; i++) {
-        if ((1 << i) & links) {
+    for (i = 0U; i < ADI_APOLLO_NUM_JTX_LINKS; i++) {
+        if (((1U << i) & (uint32_t)links) != 0U) {
             regmap_base_addr = calc_jtx_dformat_base(i);
             
-            if ((i % ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0) {                                              /* Link 0 */
+            if ((i % ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0U) {                                              /* Link 0 */
                 err = adi_apollo_hal_bf_set(device, BF_LINK_DDC_DEC_0_INFO(regmap_base_addr), config->dcm_ratio);
                 ADI_APOLLO_ERROR_RETURN(err);
                 err = adi_apollo_hal_bf_set(device, BF_LINK_TOTAL_DEC_0_INFO(regmap_base_addr), config->total_dcm);
@@ -211,25 +217,26 @@ int32_t adi_apollo_fsrc_rx_rm_fifo_pgm(adi_apollo_device_t *device, const uint16
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
-int32_t adi_apollo_fsrc_rate_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrcs, 
+int32_t adi_apollo_fsrc_rate_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrcs,
     uint64_t rate_int, uint64_t rate_frac_a, uint64_t rate_frac_b, uint16_t gain_red)
 {
     int32_t err;
-    uint8_t i;
+    uint32_t i;
     adi_apollo_blk_sel_t fsrc;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(terminal, ADI_APOLLO_EC_FSRC_LOCK);
     ADI_APOLLO_FSRC_BLK_SEL_MASK(fsrcs);
 
-    for (i = 0; i < ADI_APOLLO_FSRC_NUM; i += 2) {
-        fsrc = fsrcs & ((ADI_APOLLO_FSRC_A0 << i) | (ADI_APOLLO_FSRC_A0 << (i+1)));
-        if (fsrc > 0) {
+    for (i = 0U; i < ADI_APOLLO_FSRC_NUM; i += 2U) {
+        fsrc = fsrcs & (adi_apollo_blk_sel_t)(((uint32_t)ADI_APOLLO_FSRC_A0 << i) | ((uint32_t)ADI_APOLLO_FSRC_A0 << (i + 1U)));
+        if (fsrc > 0U) {
             regmap_base_addr = calc_fsrc_base(terminal, i);
 
             err = adi_apollo_hal_bf_set(device, BF_FSRC_RATE_INT_INFO(regmap_base_addr), rate_int);
@@ -243,7 +250,7 @@ int32_t adi_apollo_fsrc_rate_set(adi_apollo_device_t *device, adi_apollo_termina
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fsrc_ratio_set(adi_apollo_device_t* device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrcs, uint32_t n, uint32_t m)
@@ -253,44 +260,46 @@ int32_t adi_apollo_fsrc_ratio_set(adi_apollo_device_t* device, adi_apollo_termin
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(terminal, ADI_APOLLO_EC_FSRC_LOCK);
-    ADI_APOLLO_INVALID_PARAM_RETURN((m == 0) || (n == m) || (n / m != 1));
+    ADI_APOLLO_INVALID_PARAM_RETURN((m == 0U) || (n == m) || (n / m != 1U));
     ADI_APOLLO_FSRC_BLK_SEL_MASK(fsrcs);
 
     err = adi_api_utils_ratio_decomposition(m, n, 48, &rate_int, &rate_frac_a, &rate_frac_b);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    gain_red = adi_api_utils_div_floor_u64(4096ull * (uint64_t)m, (uint64_t)n);
+    gain_red = adi_api_utils_div_floor_u64(4096ULL * (uint64_t)m, (uint64_t)n);
 
-    return adi_apollo_fsrc_rate_set(device, terminal, fsrcs, rate_int, rate_frac_a, rate_frac_b, gain_red);
+    return adi_apollo_fsrc_rate_set(device, terminal, fsrcs, rate_int, rate_frac_a, rate_frac_b, (uint16_t)gain_red);
 }
 
 
 int32_t adi_apollo_fsrc_mode_1x_enable_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrcs, uint8_t enable)
 {
     int32_t err;
-    uint8_t i;
+    uint32_t i;
     adi_apollo_blk_sel_t fsrc;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(terminal, ADI_APOLLO_EC_FSRC_LOCK);
     ADI_APOLLO_FSRC_BLK_SEL_MASK(fsrcs);
 
-    for (i = 0; i < ADI_APOLLO_FSRC_NUM; i += 2) {             
-        fsrc = fsrcs & ((ADI_APOLLO_FSRC_A0 << i) | (ADI_APOLLO_FSRC_A0 << (i+1)));
-        if (fsrc > 0) {
+    for (i = 0U; i < ADI_APOLLO_FSRC_NUM; i += 2U) {
+        fsrc = fsrcs & (adi_apollo_blk_sel_t)(((uint32_t)ADI_APOLLO_FSRC_A0 << i) | ((uint32_t)ADI_APOLLO_FSRC_A0 << (i + 1U)));
+        if (fsrc > 0U) {
             regmap_base_addr = calc_fsrc_base(terminal, i);
             err = adi_apollo_hal_bf_set(device, BF_FSRC_1X_MODE_INFO(regmap_base_addr), enable);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
-uint32_t calc_fsrc_base(adi_apollo_terminal_e terminal, int32_t fsrc_index)
+static uint32_t calc_fsrc_base(adi_apollo_terminal_e terminal, uint32_t fsrc_index)
 {
     static uint32_t rx_fsrc_regmap[ADI_APOLLO_FSRC_NUM] = {
         RX_FSRC_RX_SLICE_0_RX_DIGITAL0, RX_FSRC_RX_SLICE_0_RX_DIGITAL0,
@@ -300,9 +309,110 @@ uint32_t calc_fsrc_base(adi_apollo_terminal_e terminal, int32_t fsrc_index)
         TX_FSRC_TX_SLICE_0_TX_DIGITAL0, TX_FSRC_TX_SLICE_0_TX_DIGITAL0,
         TX_FSRC_TX_SLICE_0_TX_DIGITAL1, TX_FSRC_TX_SLICE_0_TX_DIGITAL1
     };
-    if (terminal == ADI_APOLLO_RX)
+    if (terminal == ADI_APOLLO_RX) {
         return rx_fsrc_regmap[fsrc_index];
-    else
+    } else {
         return tx_fsrc_regmap[fsrc_index];
+    }
+}
+
+int32_t adi_apollo_fsrc_ptr_overwrite_enable(adi_apollo_device_t *device,
+    adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrcs, uint8_t enable)
+{
+    int32_t err;
+    uint32_t i;
+    adi_apollo_blk_sel_t fsrc;
+    uint32_t regmap_base_addr = 0;
+
+    ADI_APOLLO_NULL_POINTER_RETURN(device);
+    ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
+    ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(terminal, ADI_APOLLO_EC_FSRC_LOCK);
+    ADI_APOLLO_FSRC_BLK_SEL_MASK(fsrcs);
+
+    /* Enable/disable SYNCRSTVAL overwrite for each FSRC pair (pairs: 0&1, 2&3) */
+    for (i = 0U; i < ADI_APOLLO_FSRC_NUM; i += 2U) {
+        fsrc = fsrcs & (adi_apollo_blk_sel_t)(((uint32_t)ADI_APOLLO_FSRC_A0 << i) | ((uint32_t)ADI_APOLLO_FSRC_A0 << (i + 1U)));
+        if (fsrc > 0U) {
+            regmap_base_addr = calc_fsrc_base(terminal, i);
+            err = adi_apollo_hal_bf_set(device,
+                BF_PTR_SYNCRSTVAL_REGMAP_OVERWRITE_INFO(regmap_base_addr), (enable != 0U) ? 1U : 0U);
+            ADI_APOLLO_ERROR_RETURN(err);
+        }
+    }
+
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
+}
+
+int32_t adi_apollo_fsrc_ptr_syncrstval_update(adi_apollo_device_t *device,
+    adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrcs)
+{
+    int32_t err;
+    uint32_t i;
+    adi_apollo_blk_sel_t fsrc;
+    uint32_t regmap_base_addr = 0;
+    uint8_t fsrc_ns_rs[2];
+    uint16_t ns_rs_val;
+    uint16_t ptrsyncrstval;
+
+    ADI_APOLLO_NULL_POINTER_RETURN(device);
+    ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
+    ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(terminal, ADI_APOLLO_EC_FSRC_LOCK);
+    ADI_APOLLO_FSRC_BLK_SEL_MASK(fsrcs);
+
+    /* Update ptrsyncrstval for each FSRC pair (pairs: 0&1, 2&3) */
+    for (i = 0U; i < ADI_APOLLO_FSRC_NUM; i += 2U) {
+        fsrc = fsrcs & (adi_apollo_blk_sel_t)(((uint32_t)ADI_APOLLO_FSRC_A0 << i) | ((uint32_t)ADI_APOLLO_FSRC_A0 << (i + 1U)));
+        if (fsrc > 0U) {
+            regmap_base_addr = calc_fsrc_base(terminal, i);
+
+            /* Read ns_rs value (private bitfield) */
+            err = adi_apollo_hal_bf_get(device,
+                BF_FSRC_NS_RS_INFO(regmap_base_addr), fsrc_ns_rs, 1);
+            ADI_APOLLO_ERROR_RETURN(err);
+            ns_rs_val = fsrc_ns_rs[0];
+
+            /* Calculate ptrsyncrstval = 4*(ns_rs+1)-1 */
+            ptrsyncrstval = (uint16_t)(4U * (ns_rs_val + 1U) - 1U);
+
+            /* Set ptrsyncrstval (private bitfield) */
+            err = adi_apollo_hal_bf_set(device,
+                BF_PTR_SYNCRSTVAL_INFO(regmap_base_addr), ptrsyncrstval);
+            ADI_APOLLO_ERROR_RETURN(err);
+        }
+    }
+
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
+}
+
+int32_t adi_apollo_fsrc_sample_frac_delay_set(adi_apollo_device_t *device,
+    adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrcs, uint16_t sample_frac_delay)
+{
+    int32_t err;
+    uint32_t i;
+    adi_apollo_blk_sel_t fsrc;
+    uint32_t regmap_base_addr = 0;
+
+    ADI_APOLLO_NULL_POINTER_RETURN(device);
+    ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
+    ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(terminal, ADI_APOLLO_EC_FSRC_LOCK);
+    ADI_APOLLO_FSRC_BLK_SEL_MASK(fsrcs);
+
+    /* Update sample_frac_delay for each FSRC pair (pairs: 0&1, 2&3) */
+    for (i = 0U; i < ADI_APOLLO_FSRC_NUM; i += 2U) {
+        fsrc = fsrcs & (adi_apollo_blk_sel_t)(((uint32_t)ADI_APOLLO_FSRC_A0 << i) | ((uint32_t)ADI_APOLLO_FSRC_A0 << (i + 1U)));
+        if (fsrc > 0U) {
+            regmap_base_addr = calc_fsrc_base(terminal, i);
+
+            /* Set sample_frac_delay */
+            err = adi_apollo_hal_bf_set(device,
+                BF_SAMPLE_FRAC_DELAY_INFO(regmap_base_addr), sample_frac_delay);
+            ADI_APOLLO_ERROR_RETURN(err);
+        }
+    }
+
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 /*! @} */

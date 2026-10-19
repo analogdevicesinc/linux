@@ -12,1063 +12,1063 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_PLL_MEM_MAP_H__
-#define __ADI_APOLLO_BF_PLL_MEM_MAP_H__
+#ifndef ADI_APOLLO_BF_PLL_MEM_MAP_H__
+#define ADI_APOLLO_BF_PLL_MEM_MAP_H__
 
 /*============= D E F I N E S ==============*/
-#define SERDES_PLL                                         0x4C003000
-#define CKPLL                                              0x4C001700
+#define SERDES_PLL                                         0x4C003000U
+#define CKPLL                                              0x4C001700U
 
 #ifdef USE_PRIVATE_BF
-#define REG_SYNTH_RESETB_ADDR(inst)                        ((inst) + 0x00000000)
-#define BF_VCO_CAL_LOGIC_RESETB_INFO(inst)                 ((inst) + 0x00000000), 0x00000100
-#define BF_VCO_TC_CAL_RESETB_INFO(inst)                    ((inst) + 0x00000000), 0x00000101
-#define BF_LO_SYNC_RESETB_INFO(inst)                       ((inst) + 0x00000000), 0x00000102
-#define BF_MCS_RESETB_INFO(inst)                           ((inst) + 0x00000000), 0x00000103
-#define BF_LOCK_DETECT_RESETB_INFO(inst)                   ((inst) + 0x00000000), 0x00000104
-#define BF_SDM_RESETB_INFO(inst)                           ((inst) + 0x00000000), 0x00000105
-#define BF_AB_COUNTER_RESETB_INFO(inst)                    ((inst) + 0x00000000), 0x00000106
-#define BF_REF_CLK_DIVIDER_RESETB_INFO(inst)               ((inst) + 0x00000000), 0x00000107
+#define REG_SYNTH_RESETB_ADDR(inst)                        ((uint32_t)(inst) + 0x00000000U)
+#define BF_VCO_CAL_LOGIC_RESETB_INFO(inst)                 ((uint32_t)(inst) + 0x00000000U), 0x00000100U
+#define BF_VCO_TC_CAL_RESETB_INFO(inst)                    ((uint32_t)(inst) + 0x00000000U), 0x00000101U
+#define BF_LO_SYNC_RESETB_INFO(inst)                       ((uint32_t)(inst) + 0x00000000U), 0x00000102U
+#define BF_MCS_RESETB_INFO(inst)                           ((uint32_t)(inst) + 0x00000000U), 0x00000103U
+#define BF_LOCK_DETECT_RESETB_INFO(inst)                   ((uint32_t)(inst) + 0x00000000U), 0x00000104U
+#define BF_SDM_RESETB_INFO(inst)                           ((uint32_t)(inst) + 0x00000000U), 0x00000105U
+#define BF_AB_COUNTER_RESETB_INFO(inst)                    ((uint32_t)(inst) + 0x00000000U), 0x00000106U
+#define BF_REF_CLK_DIVIDER_RESETB_INFO(inst)               ((uint32_t)(inst) + 0x00000000U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_MISC_PD_ADDR(inst)                             ((inst) + 0x00000001)
-#define BF_VCO_LDO_PD_INFO(inst)                           ((inst) + 0x00000001), 0x00000100
-#define BF_VCOTC_DAC_PD_INFO(inst)                         ((inst) + 0x00000001), 0x00000101
-#define BF_PRESCALER_PD_INFO(inst)                         ((inst) + 0x00000001), 0x00000102
-#define BF_PFD_RESETB_INFO(inst)                           ((inst) + 0x00000001), 0x00000103
-#define BF_REF_CLK_DIVIDER_PD_INFO(inst)                   ((inst) + 0x00000001), 0x00000104
-#define BF_CP_LEVELDET_PD_INFO(inst)                       ((inst) + 0x00000001), 0x00000105
-#define BF_SDM_PD_INFO(inst)                               ((inst) + 0x00000001), 0x00000106
-#define BF_SYNTH_PD_INFO(inst)                             ((inst) + 0x00000001), 0x00000107
+#define REG_MISC_PD_ADDR(inst)                             ((uint32_t)(inst) + 0x00000001U)
+#define BF_VCO_LDO_PD_INFO(inst)                           ((uint32_t)(inst) + 0x00000001U), 0x00000100U
+#define BF_VCOTC_DAC_PD_INFO(inst)                         ((uint32_t)(inst) + 0x00000001U), 0x00000101U
+#define BF_PRESCALER_PD_INFO(inst)                         ((uint32_t)(inst) + 0x00000001U), 0x00000102U
+#define BF_PFD_RESETB_INFO(inst)                           ((uint32_t)(inst) + 0x00000001U), 0x00000103U
+#define BF_REF_CLK_DIVIDER_PD_INFO(inst)                   ((uint32_t)(inst) + 0x00000001U), 0x00000104U
+#define BF_CP_LEVELDET_PD_INFO(inst)                       ((uint32_t)(inst) + 0x00000001U), 0x00000105U
+#define BF_SDM_PD_INFO(inst)                               ((uint32_t)(inst) + 0x00000001U), 0x00000106U
+#define BF_SYNTH_PD_INFO(inst)                             ((uint32_t)(inst) + 0x00000001U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_MISC_PD_KILLS_ADDR(inst)                       ((inst) + 0x00000002)
-#define BF_KILLRDIV_TEMPS_INFO(inst)                       ((inst) + 0x00000002), 0x00000100
-#define BF_VCOBUF_TO_PS_PD_INFO(inst)                      ((inst) + 0x00000002), 0x00000101
-#define BF_CP_OPAMP_PD_INFO(inst)                          ((inst) + 0x00000002), 0x00000102
-#define BF_CLKOUT_BUF_PD_INFO(inst)                        ((inst) + 0x00000002), 0x00000103
-#define BF_CP_RESETB_INFO(inst)                            ((inst) + 0x00000002), 0x00000107
+#define REG_MISC_PD_KILLS_ADDR(inst)                       ((uint32_t)(inst) + 0x00000002U)
+#define BF_KILLRDIV_TEMPS_INFO(inst)                       ((uint32_t)(inst) + 0x00000002U), 0x00000100U
+#define BF_VCOBUF_TO_PS_PD_INFO(inst)                      ((uint32_t)(inst) + 0x00000002U), 0x00000101U
+#define BF_CP_OPAMP_PD_INFO(inst)                          ((uint32_t)(inst) + 0x00000002U), 0x00000102U
+#define BF_CLKOUT_BUF_PD_INFO(inst)                        ((uint32_t)(inst) + 0x00000002U), 0x00000103U
+#define BF_CP_RESETB_INFO(inst)                            ((uint32_t)(inst) + 0x00000002U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LOGEN_CLKGEN_LOSYNC_PD_ADDR(inst)              ((inst) + 0x00000003)
-#define BF_CLKGEN_SERDES_OUTBUF_PD_INFO(inst)              ((inst) + 0x00000003), 0x00000100
-#define BF_RF_EXTLO_OUT_PD_INFO(inst)                      ((inst) + 0x00000003), 0x00000101
-#define BF_LOGEN_PD_INFO(inst)                             ((inst) + 0x00000003), 0x00000104
-#define BF_RF_EXTLO_IN_PD_INFO(inst)                       ((inst) + 0x00000003), 0x00000105
-#define BF_LO_SYNC_SAMPLER_FLOPS_PD_INFO(inst)             ((inst) + 0x00000003), 0x00000106
-#define BF_LO_SYNC_SAMPLER_LO_INPUT_BUF_PD_INFO(inst)      ((inst) + 0x00000003), 0x00000107
+#define REG_LOGEN_CLKGEN_LOSYNC_PD_ADDR(inst)              ((uint32_t)(inst) + 0x00000003U)
+#define BF_CLKGEN_SERDES_OUTBUF_PD_INFO(inst)              ((uint32_t)(inst) + 0x00000003U), 0x00000100U
+#define BF_RF_EXTLO_OUT_PD_INFO(inst)                      ((uint32_t)(inst) + 0x00000003U), 0x00000101U
+#define BF_LOGEN_PD_INFO(inst)                             ((uint32_t)(inst) + 0x00000003U), 0x00000104U
+#define BF_RF_EXTLO_IN_PD_INFO(inst)                       ((uint32_t)(inst) + 0x00000003U), 0x00000105U
+#define BF_LO_SYNC_SAMPLER_FLOPS_PD_INFO(inst)             ((uint32_t)(inst) + 0x00000003U), 0x00000106U
+#define BF_LO_SYNC_SAMPLER_LO_INPUT_BUF_PD_INFO(inst)      ((uint32_t)(inst) + 0x00000003U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_DIVIDER_INT_BYTE0_ADDR(inst)                   ((inst) + 0x00000004)
-#define BF_SDM_INT_INFO(inst)                              ((inst) + 0x00000004), 0x00000B00
+#define REG_DIVIDER_INT_BYTE0_ADDR(inst)                   ((uint32_t)(inst) + 0x00000004U)
+#define BF_SDM_INT_INFO(inst)                              ((uint32_t)(inst) + 0x00000004U), 0x00000B00U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_DIVIDER_INT_BYTE1_ADDR(inst)                   ((inst) + 0x00000005)
-#define BF_READ_EFFECT_FTW_INFO(inst)                      ((inst) + 0x00000005), 0x00000103
-#define BF_FB_CLOCK_ADV_INFO(inst)                         ((inst) + 0x00000005), 0x00000204
-#define BF_BYP_LOAD_DELAY_INFO(inst)                       ((inst) + 0x00000005), 0x00000106
-#define BF_SDM_BYP_INFO(inst)                              ((inst) + 0x00000005), 0x00000107
+#define REG_DIVIDER_INT_BYTE1_ADDR(inst)                   ((uint32_t)(inst) + 0x00000005U)
+#define BF_READ_EFFECT_FTW_INFO(inst)                      ((uint32_t)(inst) + 0x00000005U), 0x00000103U
+#define BF_FB_CLOCK_ADV_INFO(inst)                         ((uint32_t)(inst) + 0x00000005U), 0x00000204U
+#define BF_BYP_LOAD_DELAY_INFO(inst)                       ((uint32_t)(inst) + 0x00000005U), 0x00000106U
+#define BF_SDM_BYP_INFO(inst)                              ((uint32_t)(inst) + 0x00000005U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_DIVIDER_FRAC_BYTE0_ADDR(inst)                  ((inst) + 0x00000006)
-#define BF_SDM_FRAC_INFO(inst)                             ((inst) + 0x00000006), 0x00002000
+#define REG_DIVIDER_FRAC_BYTE0_ADDR(inst)                  ((uint32_t)(inst) + 0x00000006U)
+#define BF_SDM_FRAC_INFO(inst)                             ((uint32_t)(inst) + 0x00000006U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_DIVIDER_FRAC_BYTE1_ADDR(inst)                  ((inst) + 0x00000007)
+#define REG_DIVIDER_FRAC_BYTE1_ADDR(inst)                  ((uint32_t)(inst) + 0x00000007U)
 
-#define REG_DIVIDER_FRAC_BYTE2_ADDR(inst)                  ((inst) + 0x00000008)
+#define REG_DIVIDER_FRAC_BYTE2_ADDR(inst)                  ((uint32_t)(inst) + 0x00000008U)
 
-#define REG_DIVIDER_FRAC_BYTE3_ADDR(inst)                  ((inst) + 0x00000009)
+#define REG_DIVIDER_FRAC_BYTE3_ADDR(inst)                  ((uint32_t)(inst) + 0x00000009U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_CHARGE_PUMP_CONFIG0_ADDR(inst)                 ((inst) + 0x0000000A)
-#define BF_CP_I_INFO(inst)                                 ((inst) + 0x0000000A), 0x00000500
-#define BF_VT_FORCE_INFO(inst)                             ((inst) + 0x0000000A), 0x00000106
+#define REG_CHARGE_PUMP_CONFIG0_ADDR(inst)                 ((uint32_t)(inst) + 0x0000000AU)
+#define BF_CP_I_INFO(inst)                                 ((uint32_t)(inst) + 0x0000000AU), 0x00000500U
+#define BF_VT_FORCE_INFO(inst)                             ((uint32_t)(inst) + 0x0000000AU), 0x00000106U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PFD_CTL0_ADDR(inst)                            ((inst) + 0x0000000B)
-#define BF_PFD_CLOCK_EDGE_INFO(inst)                       ((inst) + 0x0000000B), 0x00000100
-#define BF_PFD_FORCEUPDN_INFO(inst)                        ((inst) + 0x0000000B), 0x00000204
-#define BF_PFD_KILLUPDN_INFO(inst)                         ((inst) + 0x0000000B), 0x00000206
+#define REG_PFD_CTL0_ADDR(inst)                            ((uint32_t)(inst) + 0x0000000BU)
+#define BF_PFD_CLOCK_EDGE_INFO(inst)                       ((uint32_t)(inst) + 0x0000000BU), 0x00000100U
+#define BF_PFD_FORCEUPDN_INFO(inst)                        ((uint32_t)(inst) + 0x0000000BU), 0x00000204U
+#define BF_PFD_KILLUPDN_INFO(inst)                         ((uint32_t)(inst) + 0x0000000BU), 0x00000206U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PFD_CTL1_ADDR(inst)                            ((inst) + 0x0000000C)
-#define BF_PFD_DELAY_INFO(inst)                            ((inst) + 0x0000000C), 0x00000200
-#define BF_PFD_DISABLE_ASYM_INFO(inst)                     ((inst) + 0x0000000C), 0x00000102
-#define BF_PFD_SLIPDN_INFO(inst)                           ((inst) + 0x0000000C), 0x00000104
-#define BF_PFD_SLIPUP_INFO(inst)                           ((inst) + 0x0000000C), 0x00000105
+#define REG_PFD_CTL1_ADDR(inst)                            ((uint32_t)(inst) + 0x0000000CU)
+#define BF_PFD_DELAY_INFO(inst)                            ((uint32_t)(inst) + 0x0000000CU), 0x00000200U
+#define BF_PFD_DISABLE_ASYM_INFO(inst)                     ((uint32_t)(inst) + 0x0000000CU), 0x00000102U
+#define BF_PFD_SLIPDN_INFO(inst)                           ((uint32_t)(inst) + 0x0000000CU), 0x00000104U
+#define BF_PFD_SLIPUP_INFO(inst)                           ((uint32_t)(inst) + 0x0000000CU), 0x00000105U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_CP_CAL_CTL0_ADDR(inst)                         ((inst) + 0x0000000D)
-#define BF_CP_CAL_INIT_INFO(inst)                          ((inst) + 0x0000000D), 0x00000100
-#define BF_CP_CAL_EN_INFO(inst)                            ((inst) + 0x0000000D), 0x00000101
-#define BF_CP_TEST_INFO(inst)                              ((inst) + 0x0000000D), 0x00000202
-#define BF_CP_CAL_CLK_DIVIDE_INFO(inst)                    ((inst) + 0x0000000D), 0x00000304
+#define REG_CP_CAL_CTL0_ADDR(inst)                         ((uint32_t)(inst) + 0x0000000DU)
+#define BF_CP_CAL_INIT_INFO(inst)                          ((uint32_t)(inst) + 0x0000000DU), 0x00000100U
+#define BF_CP_CAL_EN_INFO(inst)                            ((uint32_t)(inst) + 0x0000000DU), 0x00000101U
+#define BF_CP_TEST_INFO(inst)                              ((uint32_t)(inst) + 0x0000000DU), 0x00000202U
+#define BF_CP_CAL_CLK_DIVIDE_INFO(inst)                    ((uint32_t)(inst) + 0x0000000DU), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_CP_CAL_CTL1_ADDR(inst)                         ((inst) + 0x0000000E)
-#define BF_CP_F_CAL_BITS_INFO(inst)                        ((inst) + 0x0000000E), 0x00000600
-#define BF_CP_F_CAL_INFO(inst)                             ((inst) + 0x0000000E), 0x00000106
-#define BF_CP_CAL_VALID_INFO(inst)                         ((inst) + 0x0000000E), 0x00000107
+#define REG_CP_CAL_CTL1_ADDR(inst)                         ((uint32_t)(inst) + 0x0000000EU)
+#define BF_CP_F_CAL_BITS_INFO(inst)                        ((uint32_t)(inst) + 0x0000000EU), 0x00000600U
+#define BF_CP_F_CAL_INFO(inst)                             ((uint32_t)(inst) + 0x0000000EU), 0x00000106U
+#define BF_CP_CAL_VALID_INFO(inst)                         ((uint32_t)(inst) + 0x0000000EU), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_CP_LVL_DET_TC_ADDR(inst)                       ((inst) + 0x0000000F)
-#define BF_CP_VLEVEL_LOW_TC_INFO(inst)                     ((inst) + 0x0000000F), 0x00000400
-#define BF_CP_VLEVEL_HIGH_TC_INFO(inst)                    ((inst) + 0x0000000F), 0x00000404
+#define REG_CP_LVL_DET_TC_ADDR(inst)                       ((uint32_t)(inst) + 0x0000000FU)
+#define BF_CP_VLEVEL_LOW_TC_INFO(inst)                     ((uint32_t)(inst) + 0x0000000FU), 0x00000400U
+#define BF_CP_VLEVEL_HIGH_TC_INFO(inst)                    ((uint32_t)(inst) + 0x0000000FU), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_CP_LVL_DET_TC2_ADDR(inst)                      ((inst) + 0x00000010)
-#define BF_CP_VLEVEL_HIGH_FLAG_INFO(inst)                  ((inst) + 0x00000010), 0x00000400
-#define BF_CP_VLEVEL_LOW_FLAG_INFO(inst)                   ((inst) + 0x00000010), 0x00000404
+#define REG_CP_LVL_DET_TC2_ADDR(inst)                      ((uint32_t)(inst) + 0x00000010U)
+#define BF_CP_VLEVEL_HIGH_FLAG_INFO(inst)                  ((uint32_t)(inst) + 0x00000010U), 0x00000400U
+#define BF_CP_VLEVEL_LOW_FLAG_INFO(inst)                   ((uint32_t)(inst) + 0x00000010U), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_CP_LVL_DET_CTL_STAT_ADDR(inst)                 ((inst) + 0x00000011)
-#define BF_CP_AUXADC_HYST_TC_INFO(inst)                    ((inst) + 0x00000011), 0x00000200
-#define BF_CP_AUXADC_HYST_ON_TC_INFO(inst)                 ((inst) + 0x00000011), 0x00000102
-#define BF_CP_SEL_ADC_TC_INFO(inst)                        ((inst) + 0x00000011), 0x00000103
-#define BF_CP_OVERRANGE_LOW_TC_INFO(inst)                  ((inst) + 0x00000011), 0x00000104
-#define BF_CP_OVERRANGE_HIGH_TC_INFO(inst)                 ((inst) + 0x00000011), 0x00000105
-#define BF_CP_OVERRANGE_HIGH_FLAG_INFO(inst)               ((inst) + 0x00000011), 0x00000106
-#define BF_CP_OVERRANGE_LOW_FLAG_INFO(inst)                ((inst) + 0x00000011), 0x00000107
+#define REG_CP_LVL_DET_CTL_STAT_ADDR(inst)                 ((uint32_t)(inst) + 0x00000011U)
+#define BF_CP_AUXADC_HYST_TC_INFO(inst)                    ((uint32_t)(inst) + 0x00000011U), 0x00000200U
+#define BF_CP_AUXADC_HYST_ON_TC_INFO(inst)                 ((uint32_t)(inst) + 0x00000011U), 0x00000102U
+#define BF_CP_SEL_ADC_TC_INFO(inst)                        ((uint32_t)(inst) + 0x00000011U), 0x00000103U
+#define BF_CP_OVERRANGE_LOW_TC_INFO(inst)                  ((uint32_t)(inst) + 0x00000011U), 0x00000104U
+#define BF_CP_OVERRANGE_HIGH_TC_INFO(inst)                 ((uint32_t)(inst) + 0x00000011U), 0x00000105U
+#define BF_CP_OVERRANGE_HIGH_FLAG_INFO(inst)               ((uint32_t)(inst) + 0x00000011U), 0x00000106U
+#define BF_CP_OVERRANGE_LOW_FLAG_INFO(inst)                ((uint32_t)(inst) + 0x00000011U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LF_C2_ADDR(inst)                               ((inst) + 0x00000012)
-#define BF_LF_C2_INFO(inst)                                ((inst) + 0x00000012), 0x00000600
-#define BF_LF_BYPASS_C2_INFO(inst)                         ((inst) + 0x00000012), 0x00000106
+#define REG_LF_C2_ADDR(inst)                               ((uint32_t)(inst) + 0x00000012U)
+#define BF_LF_C2_INFO(inst)                                ((uint32_t)(inst) + 0x00000012U), 0x00000600U
+#define BF_LF_BYPASS_C2_INFO(inst)                         ((uint32_t)(inst) + 0x00000012U), 0x00000106U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LF_C1_ADDR(inst)                               ((inst) + 0x00000013)
-#define BF_LF_C1_INFO(inst)                                ((inst) + 0x00000013), 0x00000600
-#define BF_LF_BYPASS_C1_INFO(inst)                         ((inst) + 0x00000013), 0x00000106
+#define REG_LF_C1_ADDR(inst)                               ((uint32_t)(inst) + 0x00000013U)
+#define BF_LF_C1_INFO(inst)                                ((uint32_t)(inst) + 0x00000013U), 0x00000600U
+#define BF_LF_BYPASS_C1_INFO(inst)                         ((uint32_t)(inst) + 0x00000013U), 0x00000106U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LF_R1_ADDR(inst)                               ((inst) + 0x00000014)
-#define BF_LF_R1_INFO(inst)                                ((inst) + 0x00000014), 0x00000600
-#define BF_LF_BYPASS_R1_INFO(inst)                         ((inst) + 0x00000014), 0x00000106
+#define REG_LF_R1_ADDR(inst)                               ((uint32_t)(inst) + 0x00000014U)
+#define BF_LF_R1_INFO(inst)                                ((uint32_t)(inst) + 0x00000014U), 0x00000600U
+#define BF_LF_BYPASS_R1_INFO(inst)                         ((uint32_t)(inst) + 0x00000014U), 0x00000106U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LF_C3_ADDR(inst)                               ((inst) + 0x00000015)
-#define BF_LF_C3_INFO(inst)                                ((inst) + 0x00000015), 0x00000600
+#define REG_LF_C3_ADDR(inst)                               ((uint32_t)(inst) + 0x00000015U)
+#define BF_LF_C3_INFO(inst)                                ((uint32_t)(inst) + 0x00000015U), 0x00000600U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LF_R3_ADDR(inst)                               ((inst) + 0x00000016)
-#define BF_LF_R3_INFO(inst)                                ((inst) + 0x00000016), 0x00000600
-#define BF_LF_BYPASS_R3_INFO(inst)                         ((inst) + 0x00000016), 0x00000106
+#define REG_LF_R3_ADDR(inst)                               ((uint32_t)(inst) + 0x00000016U)
+#define BF_LF_R3_INFO(inst)                                ((uint32_t)(inst) + 0x00000016U), 0x00000600U
+#define BF_LF_BYPASS_R3_INFO(inst)                         ((uint32_t)(inst) + 0x00000016U), 0x00000106U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_ALC_FREQ_CAL_BYTE0_ADDR(inst)              ((inst) + 0x00000017)
-#define BF_VCO_CAL_INIT_INFO(inst)                         ((inst) + 0x00000017), 0x00000100
-#define BF_VCO_CAL_BUSY_INFO(inst)                         ((inst) + 0x00000017), 0x00000101
-#define BF_VCO_COMP_OUT_INFO(inst)                         ((inst) + 0x00000017), 0x00000102
-#define BF_VCO_FINE_CAL_EN_INFO(inst)                      ((inst) + 0x00000017), 0x00000103
-#define BF_VCO_CAL_ALC_WAIT_INFO(inst)                     ((inst) + 0x00000017), 0x00000304
-#define BF_VCO_COARSE_CAL_EN_INFO(inst)                    ((inst) + 0x00000017), 0x00000107
+#define REG_VCO_ALC_FREQ_CAL_BYTE0_ADDR(inst)              ((uint32_t)(inst) + 0x00000017U)
+#define BF_VCO_CAL_INIT_INFO(inst)                         ((uint32_t)(inst) + 0x00000017U), 0x00000100U
+#define BF_VCO_CAL_BUSY_INFO(inst)                         ((uint32_t)(inst) + 0x00000017U), 0x00000101U
+#define BF_VCO_COMP_OUT_INFO(inst)                         ((uint32_t)(inst) + 0x00000017U), 0x00000102U
+#define BF_VCO_FINE_CAL_EN_INFO(inst)                      ((uint32_t)(inst) + 0x00000017U), 0x00000103U
+#define BF_VCO_CAL_ALC_WAIT_INFO(inst)                     ((uint32_t)(inst) + 0x00000017U), 0x00000304U
+#define BF_VCO_COARSE_CAL_EN_INFO(inst)                    ((uint32_t)(inst) + 0x00000017U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_ALC_FREQ_CAL_BYTE1_ADDR(inst)              ((inst) + 0x00000018)
-#define BF_VCO_CAL_ALC_CLK_DIV_INFO(inst)                  ((inst) + 0x00000018), 0x00000300
-#define BF_VCO_CAL_ALC_INIT_WAIT_INFO(inst)                ((inst) + 0x00000018), 0x00000203
-#define BF_VCO_CAL_INIT_DEL_INFO(inst)                     ((inst) + 0x00000018), 0x00000305
+#define REG_VCO_ALC_FREQ_CAL_BYTE1_ADDR(inst)              ((uint32_t)(inst) + 0x00000018U)
+#define BF_VCO_CAL_ALC_CLK_DIV_INFO(inst)                  ((uint32_t)(inst) + 0x00000018U), 0x00000300U
+#define BF_VCO_CAL_ALC_INIT_WAIT_INFO(inst)                ((uint32_t)(inst) + 0x00000018U), 0x00000203U
+#define BF_VCO_CAL_INIT_DEL_INFO(inst)                     ((uint32_t)(inst) + 0x00000018U), 0x00000305U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_ALC_FREQ_CAL_BYTE2_ADDR(inst)              ((inst) + 0x00000019)
-#define BF_VCO_INIT_ALC_VALUE_INFO(inst)                   ((inst) + 0x00000019), 0x00000500
+#define REG_VCO_ALC_FREQ_CAL_BYTE2_ADDR(inst)              ((uint32_t)(inst) + 0x00000019U)
+#define BF_VCO_INIT_ALC_VALUE_INFO(inst)                   ((uint32_t)(inst) + 0x00000019U), 0x00000500U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_F_ALC_BYTE0_ADDR(inst)                         ((inst) + 0x0000001A)
-#define BF_VCO_F_ALC_INFO(inst)                            ((inst) + 0x0000001A), 0x00000B00
+#define REG_F_ALC_BYTE0_ADDR(inst)                         ((uint32_t)(inst) + 0x0000001AU)
+#define BF_VCO_F_ALC_INFO(inst)                            ((uint32_t)(inst) + 0x0000001AU), 0x00000B00U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_F_ALC_BYTE1_ADDR(inst)                         ((inst) + 0x0000001B)
-#define BF_ALC_COMP_CLK_F_VAL_INFO(inst)                   ((inst) + 0x0000001B), 0x00000104
-#define BF_FORCE_ALC_COMP_CLK_INFO(inst)                   ((inst) + 0x0000001B), 0x00000105
-#define BF_VCO_ALC_CAL_EN_INFO(inst)                       ((inst) + 0x0000001B), 0x00000106
-#define BF_VCO_F_ALC_EN_INFO(inst)                         ((inst) + 0x0000001B), 0x00000107
+#define REG_F_ALC_BYTE1_ADDR(inst)                         ((uint32_t)(inst) + 0x0000001BU)
+#define BF_ALC_COMP_CLK_F_VAL_INFO(inst)                   ((uint32_t)(inst) + 0x0000001BU), 0x00000104U
+#define BF_FORCE_ALC_COMP_CLK_INFO(inst)                   ((uint32_t)(inst) + 0x0000001BU), 0x00000105U
+#define BF_VCO_ALC_CAL_EN_INFO(inst)                       ((uint32_t)(inst) + 0x0000001BU), 0x00000106U
+#define BF_VCO_F_ALC_EN_INFO(inst)                         ((uint32_t)(inst) + 0x0000001BU), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_F_COARSE_BAND_BYTE0_ADDR(inst)             ((inst) + 0x0000001C)
-#define BF_VCO_F_COARSE_BAND_INFO(inst)                    ((inst) + 0x0000001C), 0x00000900
+#define REG_VCO_F_COARSE_BAND_BYTE0_ADDR(inst)             ((uint32_t)(inst) + 0x0000001CU)
+#define BF_VCO_F_COARSE_BAND_INFO(inst)                    ((uint32_t)(inst) + 0x0000001CU), 0x00000900U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_F_COARSE_BAND_BYTE1_ADDR(inst)             ((inst) + 0x0000001D)
-#define BF_VCO_F_COARSE_BAND_EN_INFO(inst)                 ((inst) + 0x0000001D), 0x00000101
+#define REG_VCO_F_COARSE_BAND_BYTE1_ADDR(inst)             ((uint32_t)(inst) + 0x0000001DU)
+#define BF_VCO_F_COARSE_BAND_EN_INFO(inst)                 ((uint32_t)(inst) + 0x0000001DU), 0x00000101U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_F_FINE_BAND_ADDR(inst)                     ((inst) + 0x0000001E)
-#define BF_VCO_F_FINE_BAND_INFO(inst)                      ((inst) + 0x0000001E), 0x00000600
-#define BF_VCO_F_FINE_BAND_EN_INFO(inst)                   ((inst) + 0x0000001E), 0x00000106
-#define BF_VCO_F_FINE_BAND_INDEX_EN_INFO(inst)             ((inst) + 0x0000001E), 0x00000107
+#define REG_VCO_F_FINE_BAND_ADDR(inst)                     ((uint32_t)(inst) + 0x0000001EU)
+#define BF_VCO_F_FINE_BAND_INFO(inst)                      ((uint32_t)(inst) + 0x0000001EU), 0x00000600U
+#define BF_VCO_F_FINE_BAND_EN_INFO(inst)                   ((uint32_t)(inst) + 0x0000001EU), 0x00000106U
+#define BF_VCO_F_FINE_BAND_INDEX_EN_INFO(inst)             ((uint32_t)(inst) + 0x0000001EU), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_TC_BYTE1_ADDR(inst)                        ((inst) + 0x0000001F)
-#define BF_VCO_VAR_TC_INFO(inst)                           ((inst) + 0x0000001F), 0x00000500
+#define REG_VCO_TC_BYTE1_ADDR(inst)                        ((uint32_t)(inst) + 0x0000001FU)
+#define BF_VCO_VAR_TC_INFO(inst)                           ((uint32_t)(inst) + 0x0000001FU), 0x00000500U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_TC_BYTE2_ADDR(inst)                        ((inst) + 0x00000020)
-#define BF_VCO_TC_TRACKING_EN_INFO(inst)                   ((inst) + 0x00000020), 0x00000100
-#define BF_TC_FLAG_STEP_EN_INFO(inst)                      ((inst) + 0x00000020), 0x00000101
-#define BF_VCO_TC_WAIT_INFO(inst)                          ((inst) + 0x00000020), 0x00000304
+#define REG_VCO_TC_BYTE2_ADDR(inst)                        ((uint32_t)(inst) + 0x00000020U)
+#define BF_VCO_TC_TRACKING_EN_INFO(inst)                   ((uint32_t)(inst) + 0x00000020U), 0x00000100U
+#define BF_TC_FLAG_STEP_EN_INFO(inst)                      ((uint32_t)(inst) + 0x00000020U), 0x00000101U
+#define BF_VCO_TC_WAIT_INFO(inst)                          ((uint32_t)(inst) + 0x00000020U), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_TC_BYTE3_ADDR(inst)                        ((inst) + 0x00000021)
-#define BF_TC_OV_STEP_INFO(inst)                           ((inst) + 0x00000021), 0x00000400
-#define BF_TC_FLAG_STEP_INFO(inst)                         ((inst) + 0x00000021), 0x00000404
+#define REG_VCO_TC_BYTE3_ADDR(inst)                        ((uint32_t)(inst) + 0x00000021U)
+#define BF_TC_OV_STEP_INFO(inst)                           ((uint32_t)(inst) + 0x00000021U), 0x00000400U
+#define BF_TC_FLAG_STEP_INFO(inst)                         ((uint32_t)(inst) + 0x00000021U), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_MCS_CONTROL_ADDR(inst)                         ((inst) + 0x00000022)
-#define BF_MCS_ENABLE_INFO(inst)                           ((inst) + 0x00000022), 0x00000100
-#define BF_MCS_CLKGEN_SYNC_ENABLE_INFO(inst)               ((inst) + 0x00000022), 0x00000101
-#define BF_MCS_SDM_SYNC_ENABLE_INFO(inst)                  ((inst) + 0x00000022), 0x00000102
-#define BF_MCS_DEVICE_CLK_DIVIDER_SYNC_ENABLE_INFO(inst)   ((inst) + 0x00000022), 0x00000103
+#define REG_MCS_CONTROL_ADDR(inst)                         ((uint32_t)(inst) + 0x00000022U)
+#define BF_MCS_ENABLE_INFO(inst)                           ((uint32_t)(inst) + 0x00000022U), 0x00000100U
+#define BF_MCS_CLKGEN_SYNC_ENABLE_INFO(inst)               ((uint32_t)(inst) + 0x00000022U), 0x00000101U
+#define BF_MCS_SDM_SYNC_ENABLE_INFO(inst)                  ((uint32_t)(inst) + 0x00000022U), 0x00000102U
+#define BF_MCS_DEVICE_CLK_DIVIDER_SYNC_ENABLE_INFO(inst)   ((uint32_t)(inst) + 0x00000022U), 0x00000103U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_MCS_CONTROL_2_ADDR(inst)                       ((inst) + 0x00000023)
-#define BF_MCS_PULSE_DELAY_INFO(inst)                      ((inst) + 0x00000023), 0x00000300
-#define BF_MCS_WAIT_COUNT_INFO(inst)                       ((inst) + 0x00000023), 0x00000203
-#define BF_RETIME_SEL_PSYNCDIV_INFO(inst)                  ((inst) + 0x00000023), 0x00000105
-#define BF_SEL_PSYNCDIV_FE_INFO(inst)                      ((inst) + 0x00000023), 0x00000106
-#define BF_INV_SYSREF_INFO(inst)                           ((inst) + 0x00000023), 0x00000107
+#define REG_MCS_CONTROL_2_ADDR(inst)                       ((uint32_t)(inst) + 0x00000023U)
+#define BF_MCS_PULSE_DELAY_INFO(inst)                      ((uint32_t)(inst) + 0x00000023U), 0x00000300U
+#define BF_MCS_WAIT_COUNT_INFO(inst)                       ((uint32_t)(inst) + 0x00000023U), 0x00000203U
+#define BF_RETIME_SEL_PSYNCDIV_INFO(inst)                  ((uint32_t)(inst) + 0x00000023U), 0x00000105U
+#define BF_SEL_PSYNCDIV_FE_INFO(inst)                      ((uint32_t)(inst) + 0x00000023U), 0x00000106U
+#define BF_INV_SYSREF_INFO(inst)                           ((uint32_t)(inst) + 0x00000023U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_MCS_CONTROL_3_ADDR(inst)                       ((inst) + 0x00000024)
-#define BF_INTERNAL_SYSREF_EN_INFO(inst)                   ((inst) + 0x00000024), 0x00000100
-#define BF_GCNT_SYSREF_EN_INFO(inst)                       ((inst) + 0x00000024), 0x00000101
-#define BF_REFCLK_MCSRST_ON_RE_INFO(inst)                  ((inst) + 0x00000024), 0x00000104
+#define REG_MCS_CONTROL_3_ADDR(inst)                       ((uint32_t)(inst) + 0x00000024U)
+#define BF_INTERNAL_SYSREF_EN_INFO(inst)                   ((uint32_t)(inst) + 0x00000024U), 0x00000100U
+#define BF_GCNT_SYSREF_EN_INFO(inst)                       ((uint32_t)(inst) + 0x00000024U), 0x00000101U
+#define BF_REFCLK_MCSRST_ON_RE_INFO(inst)                  ((uint32_t)(inst) + 0x00000024U), 0x00000104U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_MCS_STATUS_ADDR(inst)                          ((inst) + 0x00000025)
-#define BF_MCS_SPI_STATUS_INFO(inst)                       ((inst) + 0x00000025), 0x00000300
+#define REG_MCS_STATUS_ADDR(inst)                          ((uint32_t)(inst) + 0x00000025U)
+#define BF_MCS_SPI_STATUS_INFO(inst)                       ((uint32_t)(inst) + 0x00000025U), 0x00000300U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LOCKDET_CONFIG_ADDR(inst)                      ((inst) + 0x00000026)
-#define BF_LOCKDET_MODE_INFO(inst)                         ((inst) + 0x00000026), 0x00000200
-#define BF_LOCKDET_CNT_INFO(inst)                          ((inst) + 0x00000026), 0x00000202
-#define BF_FORCE_LOCK_INFO(inst)                           ((inst) + 0x00000026), 0x00000104
-#define BF_SYN_LOCK_INFO(inst)                             ((inst) + 0x00000026), 0x00000105
-#define BF_LOCK_WINDOW_SIZE_INFO(inst)                     ((inst) + 0x00000026), 0x00000106
+#define REG_LOCKDET_CONFIG_ADDR(inst)                      ((uint32_t)(inst) + 0x00000026U)
+#define BF_LOCKDET_MODE_INFO(inst)                         ((uint32_t)(inst) + 0x00000026U), 0x00000200U
+#define BF_LOCKDET_CNT_INFO(inst)                          ((uint32_t)(inst) + 0x00000026U), 0x00000202U
+#define BF_FORCE_LOCK_INFO(inst)                           ((uint32_t)(inst) + 0x00000026U), 0x00000104U
+#define BF_SYN_LOCK_INFO(inst)                             ((uint32_t)(inst) + 0x00000026U), 0x00000105U
+#define BF_LOCK_WINDOW_SIZE_INFO(inst)                     ((uint32_t)(inst) + 0x00000026U), 0x00000106U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LOCKDET_CONFIG2_ADDR(inst)                     ((inst) + 0x00000027)
-#define BF_FAST_UNLOCK_EN_INFO(inst)                       ((inst) + 0x00000027), 0x00000100
-#define BF_UNLOCK_TIMEOUT_EN_INFO(inst)                    ((inst) + 0x00000027), 0x00000101
-#define BF_FAST_UNLOCK_THR_INFO(inst)                      ((inst) + 0x00000027), 0x00000204
-#define BF_UNLOCK_TIMEOUT_VAL_INFO(inst)                   ((inst) + 0x00000027), 0x00000206
+#define REG_LOCKDET_CONFIG2_ADDR(inst)                     ((uint32_t)(inst) + 0x00000027U)
+#define BF_FAST_UNLOCK_EN_INFO(inst)                       ((uint32_t)(inst) + 0x00000027U), 0x00000100U
+#define BF_UNLOCK_TIMEOUT_EN_INFO(inst)                    ((uint32_t)(inst) + 0x00000027U), 0x00000101U
+#define BF_FAST_UNLOCK_THR_INFO(inst)                      ((uint32_t)(inst) + 0x00000027U), 0x00000204U
+#define BF_UNLOCK_TIMEOUT_VAL_INFO(inst)                   ((uint32_t)(inst) + 0x00000027U), 0x00000206U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PSCTL0_ADDR(inst)                              ((inst) + 0x00000028)
-#define BF_PSEN_INFO(inst)                                 ((inst) + 0x00000028), 0x00000100
-#define BF_CALTYP_INFO(inst)                               ((inst) + 0x00000028), 0x00000301
-#define BF_CALPER_INFO(inst)                               ((inst) + 0x00000028), 0x00000304
-#define BF_ABORT_PLL_MEM_MAP_INFO(inst)                    ((inst) + 0x00000028), 0x00000107
+#define REG_PSCTL0_ADDR(inst)                              ((uint32_t)(inst) + 0x00000028U)
+#define BF_PSEN_INFO(inst)                                 ((uint32_t)(inst) + 0x00000028U), 0x00000100U
+#define BF_CALTYP_INFO(inst)                               ((uint32_t)(inst) + 0x00000028U), 0x00000301U
+#define BF_CALPER_INFO(inst)                               ((uint32_t)(inst) + 0x00000028U), 0x00000304U
+#define BF_ABORT_PLL_MEM_MAP_INFO(inst)                    ((uint32_t)(inst) + 0x00000028U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PSCTL1_ADDR(inst)                              ((inst) + 0x00000029)
-#define BF_CTSTEP_INFO(inst)                               ((inst) + 0x00000029), 0x00000800
+#define REG_PSCTL1_ADDR(inst)                              ((uint32_t)(inst) + 0x00000029U)
+#define BF_CTSTEP_INFO(inst)                               ((uint32_t)(inst) + 0x00000029U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PSCTL2_ADDR(inst)                              ((inst) + 0x0000002A)
-#define BF_CSTEP_INFO(inst)                                ((inst) + 0x0000002A), 0x00000C00
+#define REG_PSCTL2_ADDR(inst)                              ((uint32_t)(inst) + 0x0000002AU)
+#define BF_CSTEP_INFO(inst)                                ((uint32_t)(inst) + 0x0000002AU), 0x00000C00U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PSCTL3_ADDR(inst)                              ((inst) + 0x0000002B)
-#define BF_QTHR_INFO(inst)                                 ((inst) + 0x0000002B), 0x00000404
+#define REG_PSCTL3_ADDR(inst)                              ((uint32_t)(inst) + 0x0000002BU)
+#define BF_QTHR_INFO(inst)                                 ((uint32_t)(inst) + 0x0000002BU), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PSCTL4_ADDR(inst)                              ((inst) + 0x0000002C)
-#define BF_ICALWAIT_INFO(inst)                             ((inst) + 0x0000002C), 0x00000200
-#define BF_TSZERO_INFO(inst)                               ((inst) + 0x0000002C), 0x00000103
-#define BF_TSPRSC_INFO(inst)                               ((inst) + 0x0000002C), 0x00000404
+#define REG_PSCTL4_ADDR(inst)                              ((uint32_t)(inst) + 0x0000002CU)
+#define BF_ICALWAIT_INFO(inst)                             ((uint32_t)(inst) + 0x0000002CU), 0x00000200U
+#define BF_TSZERO_INFO(inst)                               ((uint32_t)(inst) + 0x0000002CU), 0x00000103U
+#define BF_TSPRSC_INFO(inst)                               ((uint32_t)(inst) + 0x0000002CU), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PSCTL5_ADDR(inst)                              ((inst) + 0x0000002D)
-#define BF_LG_DIV_INFO(inst)                               ((inst) + 0x0000002D), 0x00000A00
+#define REG_PSCTL5_ADDR(inst)                              ((uint32_t)(inst) + 0x0000002DU)
+#define BF_LG_DIV_INFO(inst)                               ((uint32_t)(inst) + 0x0000002DU), 0x00000A00U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_PSCTL6_ADDR(inst)                              ((inst) + 0x0000002E)
+#define REG_PSCTL6_ADDR(inst)                              ((uint32_t)(inst) + 0x0000002EU)
 
 #ifdef USE_PRIVATE_BF
-#define REG_PSCTL7_ADDR(inst)                              ((inst) + 0x0000002F)
-#define BF_READ_GCNT_INFO(inst)                            ((inst) + 0x0000002F), 0x00000100
-#define BF_FDOVDM_INFO(inst)                               ((inst) + 0x0000002F), 0x00000104
-#define BF_INV_LO_I_INFO(inst)                             ((inst) + 0x0000002F), 0x00000106
-#define BF_INV_LO_Q_INFO(inst)                             ((inst) + 0x0000002F), 0x00000107
+#define REG_PSCTL7_ADDR(inst)                              ((uint32_t)(inst) + 0x0000002FU)
+#define BF_READ_GCNT_INFO(inst)                            ((uint32_t)(inst) + 0x0000002FU), 0x00000100U
+#define BF_FDOVDM_INFO(inst)                               ((uint32_t)(inst) + 0x0000002FU), 0x00000104U
+#define BF_INV_LO_I_INFO(inst)                             ((uint32_t)(inst) + 0x0000002FU), 0x00000106U
+#define BF_INV_LO_Q_INFO(inst)                             ((uint32_t)(inst) + 0x0000002FU), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PSSTAT_ADDR(inst)                              ((inst) + 0x00000030)
-#define BF_PSBUSY_INFO(inst)                               ((inst) + 0x00000030), 0x00000100
-#define BF_MPEND_INFO(inst)                                ((inst) + 0x00000030), 0x00000101
-#define BF_CPEND_INFO(inst)                                ((inst) + 0x00000030), 0x00000102
+#define REG_PSSTAT_ADDR(inst)                              ((uint32_t)(inst) + 0x00000030U)
+#define BF_PSBUSY_INFO(inst)                               ((uint32_t)(inst) + 0x00000030U), 0x00000100U
+#define BF_MPEND_INFO(inst)                                ((uint32_t)(inst) + 0x00000030U), 0x00000101U
+#define BF_CPEND_INFO(inst)                                ((uint32_t)(inst) + 0x00000030U), 0x00000102U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PHADJ0_ADDR(inst)                              ((inst) + 0x00000031)
-#define BF_PHADJ_INFO(inst)                                ((inst) + 0x00000031), 0x00001700
+#define REG_PHADJ0_ADDR(inst)                              ((uint32_t)(inst) + 0x00000031U)
+#define BF_PHADJ_INFO(inst)                                ((uint32_t)(inst) + 0x00000031U), 0x00001700U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_PHADJ1_ADDR(inst)                              ((inst) + 0x00000032)
+#define REG_PHADJ1_ADDR(inst)                              ((uint32_t)(inst) + 0x00000032U)
 
-#define REG_PHADJ2_ADDR(inst)                              ((inst) + 0x00000033)
+#define REG_PHADJ2_ADDR(inst)                              ((uint32_t)(inst) + 0x00000033U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_FDOVD0_ADDR(inst)                              ((inst) + 0x00000034)
-#define BF_FDOVD_INFO(inst)                                ((inst) + 0x00000034), 0x00002000
+#define REG_FDOVD0_ADDR(inst)                              ((uint32_t)(inst) + 0x00000034U)
+#define BF_FDOVD_INFO(inst)                                ((uint32_t)(inst) + 0x00000034U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_FDOVD1_ADDR(inst)                              ((inst) + 0x00000035)
+#define REG_FDOVD1_ADDR(inst)                              ((uint32_t)(inst) + 0x00000035U)
 
-#define REG_FDOVD2_ADDR(inst)                              ((inst) + 0x00000036)
+#define REG_FDOVD2_ADDR(inst)                              ((uint32_t)(inst) + 0x00000036U)
 
-#define REG_FDOVD3_ADDR(inst)                              ((inst) + 0x00000037)
+#define REG_FDOVD3_ADDR(inst)                              ((uint32_t)(inst) + 0x00000037U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_WPA0_ADDR(inst)                                ((inst) + 0x00000038)
-#define BF_WPA_INFO(inst)                                  ((inst) + 0x00000038), 0x00002000
+#define REG_WPA0_ADDR(inst)                                ((uint32_t)(inst) + 0x00000038U)
+#define BF_WPA_INFO(inst)                                  ((uint32_t)(inst) + 0x00000038U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_WPA1_ADDR(inst)                                ((inst) + 0x00000039)
+#define REG_WPA1_ADDR(inst)                                ((uint32_t)(inst) + 0x00000039U)
 
-#define REG_WPA2_ADDR(inst)                                ((inst) + 0x0000003A)
+#define REG_WPA2_ADDR(inst)                                ((uint32_t)(inst) + 0x0000003AU)
 
-#define REG_WPA3_ADDR(inst)                                ((inst) + 0x0000003B)
+#define REG_WPA3_ADDR(inst)                                ((uint32_t)(inst) + 0x0000003BU)
 
 #ifdef USE_PRIVATE_BF
-#define REG_POAI0_ADDR(inst)                               ((inst) + 0x0000003C)
-#define BF_POAI_INFO(inst)                                 ((inst) + 0x0000003C), 0x00001400
+#define REG_POAI0_ADDR(inst)                               ((uint32_t)(inst) + 0x0000003CU)
+#define BF_POAI_INFO(inst)                                 ((uint32_t)(inst) + 0x0000003CU), 0x00001400U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_POAI1_ADDR(inst)                               ((inst) + 0x0000003D)
+#define REG_POAI1_ADDR(inst)                               ((uint32_t)(inst) + 0x0000003DU)
 
-#define REG_POAI2_ADDR(inst)                               ((inst) + 0x0000003E)
+#define REG_POAI2_ADDR(inst)                               ((uint32_t)(inst) + 0x0000003EU)
 
 #ifdef USE_PRIVATE_BF
-#define REG_POAQ0_ADDR(inst)                               ((inst) + 0x0000003F)
-#define BF_POAQ_INFO(inst)                                 ((inst) + 0x0000003F), 0x00001400
+#define REG_POAQ0_ADDR(inst)                               ((uint32_t)(inst) + 0x0000003FU)
+#define BF_POAQ_INFO(inst)                                 ((uint32_t)(inst) + 0x0000003FU), 0x00001400U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_POAQ1_ADDR(inst)                               ((inst) + 0x00000040)
+#define REG_POAQ1_ADDR(inst)                               ((uint32_t)(inst) + 0x00000040U)
 
-#define REG_POAQ2_ADDR(inst)                               ((inst) + 0x00000041)
+#define REG_POAQ2_ADDR(inst)                               ((uint32_t)(inst) + 0x00000041U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_PHDIFF0_ADDR(inst)                             ((inst) + 0x00000042)
-#define BF_PHDIFF_INFO(inst)                               ((inst) + 0x00000042), 0x00001700
+#define REG_PHDIFF0_ADDR(inst)                             ((uint32_t)(inst) + 0x00000042U)
+#define BF_PHDIFF_INFO(inst)                               ((uint32_t)(inst) + 0x00000042U), 0x00001700U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_PHDIFF1_ADDR(inst)                             ((inst) + 0x00000043)
+#define REG_PHDIFF1_ADDR(inst)                             ((uint32_t)(inst) + 0x00000043U)
 
-#define REG_PHDIFF2_ADDR(inst)                             ((inst) + 0x00000044)
+#define REG_PHDIFF2_ADDR(inst)                             ((uint32_t)(inst) + 0x00000044U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_GCNT0_ADDR(inst)                               ((inst) + 0x00000045)
-#define BF_GCNT_INFO(inst)                                 ((inst) + 0x00000045), 0x00004000
+#define REG_GCNT0_ADDR(inst)                               ((uint32_t)(inst) + 0x00000045U)
+#define BF_GCNT_INFO(inst)                                 ((uint32_t)(inst) + 0x00000045U), 0x00004000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_GCNT1_ADDR(inst)                               ((inst) + 0x00000046)
+#define REG_GCNT1_ADDR(inst)                               ((uint32_t)(inst) + 0x00000046U)
 
-#define REG_GCNT2_ADDR(inst)                               ((inst) + 0x00000047)
+#define REG_GCNT2_ADDR(inst)                               ((uint32_t)(inst) + 0x00000047U)
 
-#define REG_GCNT3_ADDR(inst)                               ((inst) + 0x00000048)
+#define REG_GCNT3_ADDR(inst)                               ((uint32_t)(inst) + 0x00000048U)
 
-#define REG_GCNT4_ADDR(inst)                               ((inst) + 0x00000049)
+#define REG_GCNT4_ADDR(inst)                               ((uint32_t)(inst) + 0x00000049U)
 
-#define REG_GCNT5_ADDR(inst)                               ((inst) + 0x0000004A)
+#define REG_GCNT5_ADDR(inst)                               ((uint32_t)(inst) + 0x0000004AU)
 
-#define REG_GCNT6_ADDR(inst)                               ((inst) + 0x0000004B)
+#define REG_GCNT6_ADDR(inst)                               ((uint32_t)(inst) + 0x0000004BU)
 
-#define REG_GCNT7_ADDR(inst)                               ((inst) + 0x0000004C)
+#define REG_GCNT7_ADDR(inst)                               ((uint32_t)(inst) + 0x0000004CU)
 
 #ifdef USE_PRIVATE_BF
-#define REG_GCNT_SYSREF0_ADDR(inst)                        ((inst) + 0x0000004D)
-#define BF_GCNT_SYSREF_INFO(inst)                          ((inst) + 0x0000004D), 0x00004000
+#define REG_GCNT_SYSREF0_ADDR(inst)                        ((uint32_t)(inst) + 0x0000004DU)
+#define BF_GCNT_SYSREF_INFO(inst)                          ((uint32_t)(inst) + 0x0000004DU), 0x00004000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_GCNT_SYSREF1_ADDR(inst)                        ((inst) + 0x0000004E)
+#define REG_GCNT_SYSREF1_ADDR(inst)                        ((uint32_t)(inst) + 0x0000004EU)
 
-#define REG_GCNT_SYSREF2_ADDR(inst)                        ((inst) + 0x0000004F)
+#define REG_GCNT_SYSREF2_ADDR(inst)                        ((uint32_t)(inst) + 0x0000004FU)
 
-#define REG_GCNT_SYSREF3_ADDR(inst)                        ((inst) + 0x00000050)
+#define REG_GCNT_SYSREF3_ADDR(inst)                        ((uint32_t)(inst) + 0x00000050U)
 
-#define REG_GCNT_SYSREF4_ADDR(inst)                        ((inst) + 0x00000051)
+#define REG_GCNT_SYSREF4_ADDR(inst)                        ((uint32_t)(inst) + 0x00000051U)
 
-#define REG_GCNT_SYSREF5_ADDR(inst)                        ((inst) + 0x00000052)
+#define REG_GCNT_SYSREF5_ADDR(inst)                        ((uint32_t)(inst) + 0x00000052U)
 
-#define REG_GCNT_SYSREF6_ADDR(inst)                        ((inst) + 0x00000053)
+#define REG_GCNT_SYSREF6_ADDR(inst)                        ((uint32_t)(inst) + 0x00000053U)
 
-#define REG_GCNT_SYSREF7_ADDR(inst)                        ((inst) + 0x00000054)
+#define REG_GCNT_SYSREF7_ADDR(inst)                        ((uint32_t)(inst) + 0x00000054U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_MOD0_0_ADDR(inst)                              ((inst) + 0x00000055)
-#define BF_MOD0_INFO(inst)                                 ((inst) + 0x00000055), 0x00002000
+#define REG_MOD0_0_ADDR(inst)                              ((uint32_t)(inst) + 0x00000055U)
+#define BF_MOD0_INFO(inst)                                 ((uint32_t)(inst) + 0x00000055U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_MOD0_1_ADDR(inst)                              ((inst) + 0x00000056)
+#define REG_MOD0_1_ADDR(inst)                              ((uint32_t)(inst) + 0x00000056U)
 
-#define REG_MOD0_2_ADDR(inst)                              ((inst) + 0x00000057)
+#define REG_MOD0_2_ADDR(inst)                              ((uint32_t)(inst) + 0x00000057U)
 
-#define REG_MOD0_3_ADDR(inst)                              ((inst) + 0x00000058)
+#define REG_MOD0_3_ADDR(inst)                              ((uint32_t)(inst) + 0x00000058U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_MOD1_0_ADDR(inst)                              ((inst) + 0x00000059)
-#define BF_MOD1_INFO(inst)                                 ((inst) + 0x00000059), 0x00001700
+#define REG_MOD1_0_ADDR(inst)                              ((uint32_t)(inst) + 0x00000059U)
+#define BF_MOD1_INFO(inst)                                 ((uint32_t)(inst) + 0x00000059U), 0x00001700U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_MOD1_1_ADDR(inst)                              ((inst) + 0x0000005A)
+#define REG_MOD1_1_ADDR(inst)                              ((uint32_t)(inst) + 0x0000005AU)
 
-#define REG_MOD1_2_ADDR(inst)                              ((inst) + 0x0000005B)
+#define REG_MOD1_2_ADDR(inst)                              ((uint32_t)(inst) + 0x0000005BU)
 
 #ifdef USE_PRIVATE_BF
-#define REG_MOD2_0_ADDR(inst)                              ((inst) + 0x0000005C)
-#define BF_MOD2_INFO(inst)                                 ((inst) + 0x0000005C), 0x00001700
+#define REG_MOD2_0_ADDR(inst)                              ((uint32_t)(inst) + 0x0000005CU)
+#define BF_MOD2_INFO(inst)                                 ((uint32_t)(inst) + 0x0000005CU), 0x00001700U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_MOD2_1_ADDR(inst)                              ((inst) + 0x0000005D)
+#define REG_MOD2_1_ADDR(inst)                              ((uint32_t)(inst) + 0x0000005DU)
 
-#define REG_MOD2_2_ADDR(inst)                              ((inst) + 0x0000005E)
+#define REG_MOD2_2_ADDR(inst)                              ((uint32_t)(inst) + 0x0000005EU)
 
 #ifdef USE_PRIVATE_BF
-#define REG_DTAPS0_ADDR(inst)                              ((inst) + 0x0000005F)
-#define BF_DTAPS_B0_INFO(inst)                             ((inst) + 0x0000005F), 0x00000800
+#define REG_DTAPS0_ADDR(inst)                              ((uint32_t)(inst) + 0x0000005FU)
+#define BF_DTAPS_B0_INFO(inst)                             ((uint32_t)(inst) + 0x0000005FU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_DTAPS1_ADDR(inst)                              ((inst) + 0x00000060)
-#define BF_DTAPS_B1_INFO(inst)                             ((inst) + 0x00000060), 0x00000800
+#define REG_DTAPS1_ADDR(inst)                              ((uint32_t)(inst) + 0x00000060U)
+#define BF_DTAPS_B1_INFO(inst)                             ((uint32_t)(inst) + 0x00000060U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_DTAPS2_ADDR(inst)                              ((inst) + 0x00000061)
-#define BF_DTAPS_B2_INFO(inst)                             ((inst) + 0x00000061), 0x00000800
+#define REG_DTAPS2_ADDR(inst)                              ((uint32_t)(inst) + 0x00000061U)
+#define BF_DTAPS_B2_INFO(inst)                             ((uint32_t)(inst) + 0x00000061U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_DTAPS3_ADDR(inst)                              ((inst) + 0x00000062)
-#define BF_DTAPS_B3_INFO(inst)                             ((inst) + 0x00000062), 0x00000800
+#define REG_DTAPS3_ADDR(inst)                              ((uint32_t)(inst) + 0x00000062U)
+#define BF_DTAPS_B3_INFO(inst)                             ((uint32_t)(inst) + 0x00000062U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_SDA_ADDR(inst)                                 ((inst) + 0x00000063)
-#define BF_SDA_INFO(inst)                                  ((inst) + 0x00000063), 0x00000500
+#define REG_SDA_ADDR(inst)                                 ((uint32_t)(inst) + 0x00000063U)
+#define BF_SDA_INFO(inst)                                  ((uint32_t)(inst) + 0x00000063U), 0x00000500U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_SDM_DITH_ADDR(inst)                            ((inst) + 0x00000064)
-#define BF_NUM_DITHER_BITS_INFO(inst)                      ((inst) + 0x00000064), 0x00000400
+#define REG_SDM_DITH_ADDR(inst)                            ((uint32_t)(inst) + 0x00000064U)
+#define BF_NUM_DITHER_BITS_INFO(inst)                      ((uint32_t)(inst) + 0x00000064U), 0x00000400U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TCCTL_ADDR(inst)                               ((inst) + 0x00000065)
-#define BF_TCFORCEN_INFO(inst)                             ((inst) + 0x00000065), 0x00000100
-#define BF_TCUPDINIT_INFO(inst)                            ((inst) + 0x00000065), 0x00000101
-#define BF_TCPOL_INFO(inst)                                ((inst) + 0x00000065), 0x00000102
-#define BF_TCFORCE_INFO(inst)                              ((inst) + 0x00000065), 0x00000103
+#define REG_TCCTL_ADDR(inst)                               ((uint32_t)(inst) + 0x00000065U)
+#define BF_TCFORCEN_INFO(inst)                             ((uint32_t)(inst) + 0x00000065U), 0x00000100U
+#define BF_TCUPDINIT_INFO(inst)                            ((uint32_t)(inst) + 0x00000065U), 0x00000101U
+#define BF_TCPOL_INFO(inst)                                ((uint32_t)(inst) + 0x00000065U), 0x00000102U
+#define BF_TCFORCE_INFO(inst)                              ((uint32_t)(inst) + 0x00000065U), 0x00000103U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TCIDAC_0_ADDR(inst)                            ((inst) + 0x00000066)
-#define BF_TCIDAC_INFO(inst)                               ((inst) + 0x00000066), 0x00000C00
+#define REG_TCIDAC_0_ADDR(inst)                            ((uint32_t)(inst) + 0x00000066U)
+#define BF_TCIDAC_INFO(inst)                               ((uint32_t)(inst) + 0x00000066U), 0x00000C00U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_TCIDAC_1_ADDR(inst)                            ((inst) + 0x00000067)
+#define REG_TCIDAC_1_ADDR(inst)                            ((uint32_t)(inst) + 0x00000067U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_LOGEN_CTL0_ADDR(inst)                          ((inst) + 0x00000068)
-#define BF_LODIV_THERMCODE_INFO(inst)                      ((inst) + 0x00000068), 0x00000600
+#define REG_LOGEN_CTL0_ADDR(inst)                          ((uint32_t)(inst) + 0x00000068U)
+#define BF_LODIV_THERMCODE_INFO(inst)                      ((uint32_t)(inst) + 0x00000068U), 0x00000600U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LOGEN_CTL1_ADDR(inst)                          ((inst) + 0x00000069)
-#define BF_LOOUTDIV_THERMCODE_INFO(inst)                   ((inst) + 0x00000069), 0x00000600
+#define REG_LOGEN_CTL1_ADDR(inst)                          ((uint32_t)(inst) + 0x00000069U)
+#define BF_LOOUTDIV_THERMCODE_INFO(inst)                   ((uint32_t)(inst) + 0x00000069U), 0x00000600U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LOGEN_CTL2_ADDR(inst)                          ((inst) + 0x0000006A)
-#define BF_LOOUTDIV_LEAF_THERMCODE_INFO(inst)              ((inst) + 0x0000006A), 0x00000200
-#define BF_LOOUTDIV_LEAF_FUND_INFO(inst)                   ((inst) + 0x0000006A), 0x00000103
-#define BF_XLOIN_BAND_INFO(inst)                           ((inst) + 0x0000006A), 0x00000304
-#define BF_XLOIN_SPARE_INFO(inst)                          ((inst) + 0x0000006A), 0x00000107
+#define REG_LOGEN_CTL2_ADDR(inst)                          ((uint32_t)(inst) + 0x0000006AU)
+#define BF_LOOUTDIV_LEAF_THERMCODE_INFO(inst)              ((uint32_t)(inst) + 0x0000006AU), 0x00000200U
+#define BF_LOOUTDIV_LEAF_FUND_INFO(inst)                   ((uint32_t)(inst) + 0x0000006AU), 0x00000103U
+#define BF_XLOIN_BAND_INFO(inst)                           ((uint32_t)(inst) + 0x0000006AU), 0x00000304U
+#define BF_XLOIN_SPARE_INFO(inst)                          ((uint32_t)(inst) + 0x0000006AU), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LOGEN_CTL3_ADDR(inst)                          ((inst) + 0x0000006B)
-#define BF_LODIV_KILLCLK_INFO(inst)                        ((inst) + 0x0000006B), 0x00000100
-#define BF_LOOUTDIV_KILLCLK_INFO(inst)                     ((inst) + 0x0000006B), 0x00000101
-#define BF_LODIV_RB_INFO(inst)                             ((inst) + 0x0000006B), 0x00000104
-#define BF_LOOUTDIV_RB_INFO(inst)                          ((inst) + 0x0000006B), 0x00000105
+#define REG_LOGEN_CTL3_ADDR(inst)                          ((uint32_t)(inst) + 0x0000006BU)
+#define BF_LODIV_KILLCLK_INFO(inst)                        ((uint32_t)(inst) + 0x0000006BU), 0x00000100U
+#define BF_LOOUTDIV_KILLCLK_INFO(inst)                     ((uint32_t)(inst) + 0x0000006BU), 0x00000101U
+#define BF_LODIV_RB_INFO(inst)                             ((uint32_t)(inst) + 0x0000006BU), 0x00000104U
+#define BF_LOOUTDIV_RB_INFO(inst)                          ((uint32_t)(inst) + 0x0000006BU), 0x00000105U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LOGEN_CTL4_ADDR(inst)                          ((inst) + 0x0000006C)
-#define BF_XLOIN_FUND_INV_INFO(inst)                       ((inst) + 0x0000006C), 0x00000100
-#define BF_LODIV_FUND_INFO(inst)                           ((inst) + 0x0000006C), 0x00000101
-#define BF_LOOUTDIV_FUND_INFO(inst)                        ((inst) + 0x0000006C), 0x00000102
-#define BF_SEL_VCO_OR_EXTLO_INFO(inst)                     ((inst) + 0x0000006C), 0x00000104
-#define BF_SEL_TX_LO_INFO(inst)                            ((inst) + 0x0000006C), 0x00000105
-#define BF_SEL_RX_LO_INFO(inst)                            ((inst) + 0x0000006C), 0x00000106
+#define REG_LOGEN_CTL4_ADDR(inst)                          ((uint32_t)(inst) + 0x0000006CU)
+#define BF_XLOIN_FUND_INV_INFO(inst)                       ((uint32_t)(inst) + 0x0000006CU), 0x00000100U
+#define BF_LODIV_FUND_INFO(inst)                           ((uint32_t)(inst) + 0x0000006CU), 0x00000101U
+#define BF_LOOUTDIV_FUND_INFO(inst)                        ((uint32_t)(inst) + 0x0000006CU), 0x00000102U
+#define BF_SEL_VCO_OR_EXTLO_INFO(inst)                     ((uint32_t)(inst) + 0x0000006CU), 0x00000104U
+#define BF_SEL_TX_LO_INFO(inst)                            ((uint32_t)(inst) + 0x0000006CU), 0x00000105U
+#define BF_SEL_RX_LO_INFO(inst)                            ((uint32_t)(inst) + 0x0000006CU), 0x00000106U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LOGEN_CTL5_ADDR(inst)                          ((inst) + 0x0000006D)
-#define BF_LO_PHSYNC_LEAF_FUND_INFO(inst)                  ((inst) + 0x0000006D), 0x00000100
-#define BF_LO_PHSYNC_LEAF_THERMCODE_INFO(inst)             ((inst) + 0x0000006D), 0x00000202
-#define BF_LO_PHSYNC_LEAF_KILLCLK_INFO(inst)               ((inst) + 0x0000006D), 0x00000104
-#define BF_LO_PHSYNC_LEAF_RB_INFO(inst)                    ((inst) + 0x0000006D), 0x00000105
-#define BF_LO_PHSYNC_QUAD2_KILLCLK_INFO(inst)              ((inst) + 0x0000006D), 0x00000106
-#define BF_LO_PHSYNC_QUAD2_RB_INFO(inst)                   ((inst) + 0x0000006D), 0x00000107
+#define REG_LOGEN_CTL5_ADDR(inst)                          ((uint32_t)(inst) + 0x0000006DU)
+#define BF_LO_PHSYNC_LEAF_FUND_INFO(inst)                  ((uint32_t)(inst) + 0x0000006DU), 0x00000100U
+#define BF_LO_PHSYNC_LEAF_THERMCODE_INFO(inst)             ((uint32_t)(inst) + 0x0000006DU), 0x00000202U
+#define BF_LO_PHSYNC_LEAF_KILLCLK_INFO(inst)               ((uint32_t)(inst) + 0x0000006DU), 0x00000104U
+#define BF_LO_PHSYNC_LEAF_RB_INFO(inst)                    ((uint32_t)(inst) + 0x0000006DU), 0x00000105U
+#define BF_LO_PHSYNC_QUAD2_KILLCLK_INFO(inst)              ((uint32_t)(inst) + 0x0000006DU), 0x00000106U
+#define BF_LO_PHSYNC_QUAD2_RB_INFO(inst)                   ((uint32_t)(inst) + 0x0000006DU), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LOGEN_CTL6_ADDR(inst)                          ((inst) + 0x0000006E)
-#define BF_LOGEN_SPARES_INFO(inst)                         ((inst) + 0x0000006E), 0x00000800
+#define REG_LOGEN_CTL6_ADDR(inst)                          ((uint32_t)(inst) + 0x0000006EU)
+#define BF_LOGEN_SPARES_INFO(inst)                         ((uint32_t)(inst) + 0x0000006EU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_CLKGEN_DIGCORE_1_ADDR(inst)                    ((inst) + 0x0000006F)
-#define BF_DIGCORE_DIV1_EN_INFO(inst)                      ((inst) + 0x0000006F), 0x00000100
-#define BF_DIGCORE_DIV3_EN_INFO(inst)                      ((inst) + 0x0000006F), 0x00000101
-#define BF_CLKGEN_SYNCCLK_OUTPUT_EN_INFO(inst)             ((inst) + 0x0000006F), 0x00000102
-#define BF_DIGCORE_DIV3_KILLCLK_INFO(inst)                 ((inst) + 0x0000006F), 0x00000104
-#define BF_DIGCORE_SAMPLE_KILLCLK_INFO(inst)               ((inst) + 0x0000006F), 0x00000105
-#define BF_DIGCORE_INTERFACE_KILLCLK_INFO(inst)            ((inst) + 0x0000006F), 0x00000106
-#define BF_DIGCORE_DIV_RSTB_INFO(inst)                     ((inst) + 0x0000006F), 0x00000107
+#define REG_CLKGEN_DIGCORE_1_ADDR(inst)                    ((uint32_t)(inst) + 0x0000006FU)
+#define BF_DIGCORE_DIV1_EN_INFO(inst)                      ((uint32_t)(inst) + 0x0000006FU), 0x00000100U
+#define BF_DIGCORE_DIV3_EN_INFO(inst)                      ((uint32_t)(inst) + 0x0000006FU), 0x00000101U
+#define BF_CLKGEN_SYNCCLK_OUTPUT_EN_INFO(inst)             ((uint32_t)(inst) + 0x0000006FU), 0x00000102U
+#define BF_DIGCORE_DIV3_KILLCLK_INFO(inst)                 ((uint32_t)(inst) + 0x0000006FU), 0x00000104U
+#define BF_DIGCORE_SAMPLE_KILLCLK_INFO(inst)               ((uint32_t)(inst) + 0x0000006FU), 0x00000105U
+#define BF_DIGCORE_INTERFACE_KILLCLK_INFO(inst)            ((uint32_t)(inst) + 0x0000006FU), 0x00000106U
+#define BF_DIGCORE_DIV_RSTB_INFO(inst)                     ((uint32_t)(inst) + 0x0000006FU), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_CLKGEN_DIGCORE_2_ADDR(inst)                    ((inst) + 0x00000070)
-#define BF_DIGCORE_INTDIV_BINCODE_INFO(inst)               ((inst) + 0x00000070), 0x00000400
-#define BF_DIGCORE_CLKDIV_THERMCODE_INFO(inst)             ((inst) + 0x00000070), 0x00000304
+#define REG_CLKGEN_DIGCORE_2_ADDR(inst)                    ((uint32_t)(inst) + 0x00000070U)
+#define BF_DIGCORE_INTDIV_BINCODE_INFO(inst)               ((uint32_t)(inst) + 0x00000070U), 0x00000400U
+#define BF_DIGCORE_CLKDIV_THERMCODE_INFO(inst)             ((uint32_t)(inst) + 0x00000070U), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_CLKGEN_DIGCORE_3_ADDR(inst)                    ((inst) + 0x00000071)
-#define BF_CLKGEN_SPARES_INFO(inst)                        ((inst) + 0x00000071), 0x00000800
+#define REG_CLKGEN_DIGCORE_3_ADDR(inst)                    ((uint32_t)(inst) + 0x00000071U)
+#define BF_CLKGEN_SPARES_INFO(inst)                        ((uint32_t)(inst) + 0x00000071U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_CLKGEN_ROOT_DIV_ADDR(inst)                     ((inst) + 0x00000072)
-#define BF_ROOT_CLKDIV_RB_INFO(inst)                       ((inst) + 0x00000072), 0x00000100
-#define BF_ROOT_CLKDIV_KILLCLK_INFO(inst)                  ((inst) + 0x00000072), 0x00000103
-#define BF_ROOT_CLKDIV_FUND_INFO(inst)                     ((inst) + 0x00000072), 0x00000104
-#define BF_ROOT_CLKDIV_DIV2_INFO(inst)                     ((inst) + 0x00000072), 0x00000105
+#define REG_CLKGEN_ROOT_DIV_ADDR(inst)                     ((uint32_t)(inst) + 0x00000072U)
+#define BF_ROOT_CLKDIV_RB_INFO(inst)                       ((uint32_t)(inst) + 0x00000072U), 0x00000100U
+#define BF_ROOT_CLKDIV_KILLCLK_INFO(inst)                  ((uint32_t)(inst) + 0x00000072U), 0x00000103U
+#define BF_ROOT_CLKDIV_FUND_INFO(inst)                     ((uint32_t)(inst) + 0x00000072U), 0x00000104U
+#define BF_ROOT_CLKDIV_DIV2_INFO(inst)                     ((uint32_t)(inst) + 0x00000072U), 0x00000105U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TEST_CLKDIV_ADDR(inst)                         ((inst) + 0x00000073)
-#define BF_TEST_CLKDIV_RSTB_INFO(inst)                     ((inst) + 0x00000073), 0x00000100
-#define BF_TEST_CLKDIV_SAMPLE_KILLCLK_INFO(inst)           ((inst) + 0x00000073), 0x00000101
-#define BF_TEST_CLKDIV_DIV1_EN_INFO(inst)                  ((inst) + 0x00000073), 0x00000102
-#define BF_TEST_CLKDIV_THERMCODE_INFO(inst)                ((inst) + 0x00000073), 0x00000204
+#define REG_TEST_CLKDIV_ADDR(inst)                         ((uint32_t)(inst) + 0x00000073U)
+#define BF_TEST_CLKDIV_RSTB_INFO(inst)                     ((uint32_t)(inst) + 0x00000073U), 0x00000100U
+#define BF_TEST_CLKDIV_SAMPLE_KILLCLK_INFO(inst)           ((uint32_t)(inst) + 0x00000073U), 0x00000101U
+#define BF_TEST_CLKDIV_DIV1_EN_INFO(inst)                  ((uint32_t)(inst) + 0x00000073U), 0x00000102U
+#define BF_TEST_CLKDIV_THERMCODE_INFO(inst)                ((uint32_t)(inst) + 0x00000073U), 0x00000204U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REF_CLK_BYTE0_ADDR(inst)                       ((inst) + 0x00000074)
-#define BF_REF_CLK_DIVIDE_RATIO_INFO(inst)                 ((inst) + 0x00000074), 0x00000600
+#define REG_REF_CLK_BYTE0_ADDR(inst)                       ((uint32_t)(inst) + 0x00000074U)
+#define BF_REF_CLK_DIVIDE_RATIO_INFO(inst)                 ((uint32_t)(inst) + 0x00000074U), 0x00000600U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_MOD_VCO_CAL_CTL_ADDR(inst)                     ((inst) + 0x00000075)
-#define BF_VCOCAL_MAXCNTBAND_EN_INFO(inst)                 ((inst) + 0x00000075), 0x00000100
-#define BF_ENDVCOCAL_MAXCNT_EN_INFO(inst)                  ((inst) + 0x00000075), 0x00000101
-#define BF_FREQ_CAL_SINGLE_INFO(inst)                      ((inst) + 0x00000075), 0x00000102
-#define BF_FCAL_SINGLE_UPD_BANDS_INFO(inst)                ((inst) + 0x00000075), 0x00000103
-#define BF_VCOCAL_TIMEDBANDUPD_EN_INFO(inst)               ((inst) + 0x00000075), 0x00000104
-#define BF_FREQ_CAL_CNT_RDSEL_INFO(inst)                   ((inst) + 0x00000075), 0x00000106
-#define BF_FORCE_VCO_INIT_ALC_VALUE_INFO(inst)             ((inst) + 0x00000075), 0x00000107
+#define REG_MOD_VCO_CAL_CTL_ADDR(inst)                     ((uint32_t)(inst) + 0x00000075U)
+#define BF_VCOCAL_MAXCNTBAND_EN_INFO(inst)                 ((uint32_t)(inst) + 0x00000075U), 0x00000100U
+#define BF_ENDVCOCAL_MAXCNT_EN_INFO(inst)                  ((uint32_t)(inst) + 0x00000075U), 0x00000101U
+#define BF_FREQ_CAL_SINGLE_INFO(inst)                      ((uint32_t)(inst) + 0x00000075U), 0x00000102U
+#define BF_FCAL_SINGLE_UPD_BANDS_INFO(inst)                ((uint32_t)(inst) + 0x00000075U), 0x00000103U
+#define BF_VCOCAL_TIMEDBANDUPD_EN_INFO(inst)               ((uint32_t)(inst) + 0x00000075U), 0x00000104U
+#define BF_FREQ_CAL_CNT_RDSEL_INFO(inst)                   ((uint32_t)(inst) + 0x00000075U), 0x00000106U
+#define BF_FORCE_VCO_INIT_ALC_VALUE_INFO(inst)             ((uint32_t)(inst) + 0x00000075U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_QUICK_FREQ_CAL_CTL_ADDR(inst)                  ((inst) + 0x00000076)
-#define BF_QUICK_FREQ_CAL_THRESHOLD_INFO(inst)             ((inst) + 0x00000076), 0x00000700
-#define BF_QUICK_FREQ_CAL_EN_INFO(inst)                    ((inst) + 0x00000076), 0x00000107
+#define REG_QUICK_FREQ_CAL_CTL_ADDR(inst)                  ((uint32_t)(inst) + 0x00000076U)
+#define BF_QUICK_FREQ_CAL_THRESHOLD_INFO(inst)             ((uint32_t)(inst) + 0x00000076U), 0x00000700U
+#define BF_QUICK_FREQ_CAL_EN_INFO(inst)                    ((uint32_t)(inst) + 0x00000076U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FREQ_CAL_MAX_CNT0_ADDR(inst)                   ((inst) + 0x00000077)
-#define BF_FREQ_CAL_MAX_CNT_INFO(inst)                     ((inst) + 0x00000077), 0x00001800
+#define REG_FREQ_CAL_MAX_CNT0_ADDR(inst)                   ((uint32_t)(inst) + 0x00000077U)
+#define BF_FREQ_CAL_MAX_CNT_INFO(inst)                     ((uint32_t)(inst) + 0x00000077U), 0x00001800U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_FREQ_CAL_MAX_CNT1_ADDR(inst)                   ((inst) + 0x00000078)
+#define REG_FREQ_CAL_MAX_CNT1_ADDR(inst)                   ((uint32_t)(inst) + 0x00000078U)
 
-#define REG_FREQ_CAL_MAX_CNT2_ADDR(inst)                   ((inst) + 0x00000079)
+#define REG_FREQ_CAL_MAX_CNT2_ADDR(inst)                   ((uint32_t)(inst) + 0x00000079U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_CAP_DNL_OFFSET_ADDR(inst)                 ((inst) + 0x0000007A)
-#define BF_DNL_OFFSET_INFO(inst)                           ((inst) + 0x0000007A), 0x00000800
+#define REG_FINE_CAP_DNL_OFFSET_ADDR(inst)                 ((uint32_t)(inst) + 0x0000007AU)
+#define BF_DNL_OFFSET_INFO(inst)                           ((uint32_t)(inst) + 0x0000007AU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FREQ_CALCNT_RDBCK0_ADDR(inst)                  ((inst) + 0x0000007B)
-#define BF_FREQ_CALCNT_RDBCK_INFO(inst)                    ((inst) + 0x0000007B), 0x00001800
+#define REG_FREQ_CALCNT_RDBCK0_ADDR(inst)                  ((uint32_t)(inst) + 0x0000007BU)
+#define BF_FREQ_CALCNT_RDBCK_INFO(inst)                    ((uint32_t)(inst) + 0x0000007BU), 0x00001800U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_FREQ_CALCNT_RDBCK1_ADDR(inst)                  ((inst) + 0x0000007C)
+#define REG_FREQ_CALCNT_RDBCK1_ADDR(inst)                  ((uint32_t)(inst) + 0x0000007CU)
 
-#define REG_FREQ_CALCNT_RDBCK2_ADDR(inst)                  ((inst) + 0x0000007D)
+#define REG_FREQ_CALCNT_RDBCK2_ADDR(inst)                  ((uint32_t)(inst) + 0x0000007DU)
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_CAP_DNL_0_ADDR(inst)                      ((inst) + 0x0000007E)
-#define BF_DNL_0_INFO(inst)                                ((inst) + 0x0000007E), 0x00000800
+#define REG_FINE_CAP_DNL_0_ADDR(inst)                      ((uint32_t)(inst) + 0x0000007EU)
+#define BF_DNL_0_INFO(inst)                                ((uint32_t)(inst) + 0x0000007EU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_CAP_DNL_1_ADDR(inst)                      ((inst) + 0x0000007F)
-#define BF_DNL_1_INFO(inst)                                ((inst) + 0x0000007F), 0x00000800
+#define REG_FINE_CAP_DNL_1_ADDR(inst)                      ((uint32_t)(inst) + 0x0000007FU)
+#define BF_DNL_1_INFO(inst)                                ((uint32_t)(inst) + 0x0000007FU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_CAP_DNL_2_ADDR(inst)                      ((inst) + 0x00000080)
-#define BF_DNL_2_INFO(inst)                                ((inst) + 0x00000080), 0x00000800
+#define REG_FINE_CAP_DNL_2_ADDR(inst)                      ((uint32_t)(inst) + 0x00000080U)
+#define BF_DNL_2_INFO(inst)                                ((uint32_t)(inst) + 0x00000080U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_CAP_DNL_3_ADDR(inst)                      ((inst) + 0x00000081)
-#define BF_DNL_3_INFO(inst)                                ((inst) + 0x00000081), 0x00000800
+#define REG_FINE_CAP_DNL_3_ADDR(inst)                      ((uint32_t)(inst) + 0x00000081U)
+#define BF_DNL_3_INFO(inst)                                ((uint32_t)(inst) + 0x00000081U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_CAP_DNL_4_ADDR(inst)                      ((inst) + 0x00000082)
-#define BF_DNL_4_INFO(inst)                                ((inst) + 0x00000082), 0x00000800
+#define REG_FINE_CAP_DNL_4_ADDR(inst)                      ((uint32_t)(inst) + 0x00000082U)
+#define BF_DNL_4_INFO(inst)                                ((uint32_t)(inst) + 0x00000082U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_CAP_DNL_5_ADDR(inst)                      ((inst) + 0x00000083)
-#define BF_DNL_5_INFO(inst)                                ((inst) + 0x00000083), 0x00000800
+#define REG_FINE_CAP_DNL_5_ADDR(inst)                      ((uint32_t)(inst) + 0x00000083U)
+#define BF_DNL_5_INFO(inst)                                ((uint32_t)(inst) + 0x00000083U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_CAP_DNL_6_ADDR(inst)                      ((inst) + 0x00000084)
-#define BF_DNL_6_INFO(inst)                                ((inst) + 0x00000084), 0x00000800
+#define REG_FINE_CAP_DNL_6_ADDR(inst)                      ((uint32_t)(inst) + 0x00000084U)
+#define BF_DNL_6_INFO(inst)                                ((uint32_t)(inst) + 0x00000084U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_CAP_DNL_7_ADDR(inst)                      ((inst) + 0x00000085)
-#define BF_DNL_7_INFO(inst)                                ((inst) + 0x00000085), 0x00000800
+#define REG_FINE_CAP_DNL_7_ADDR(inst)                      ((uint32_t)(inst) + 0x00000085U)
+#define BF_DNL_7_INFO(inst)                                ((uint32_t)(inst) + 0x00000085U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_CAP_DNL_8_ADDR(inst)                      ((inst) + 0x00000086)
-#define BF_DNL_8_INFO(inst)                                ((inst) + 0x00000086), 0x00000800
+#define REG_FINE_CAP_DNL_8_ADDR(inst)                      ((uint32_t)(inst) + 0x00000086U)
+#define BF_DNL_8_INFO(inst)                                ((uint32_t)(inst) + 0x00000086U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_CP_CTL0_ADDR(inst)                             ((inst) + 0x00000087)
-#define BF_CP_EN_INFO(inst)                                ((inst) + 0x00000087), 0x00000100
-#define BF_CP_BLEED_DN_EN_INFO(inst)                       ((inst) + 0x00000087), 0x00000102
-#define BF_CP_BLEED_UP_EN_INFO(inst)                       ((inst) + 0x00000087), 0x00000103
-#define BF_CP_BW_INFO(inst)                                ((inst) + 0x00000087), 0x00000204
-#define BF_CP_GAINBITS_INFO(inst)                          ((inst) + 0x00000087), 0x00000206
+#define REG_CP_CTL0_ADDR(inst)                             ((uint32_t)(inst) + 0x00000087U)
+#define BF_CP_EN_INFO(inst)                                ((uint32_t)(inst) + 0x00000087U), 0x00000100U
+#define BF_CP_BLEED_DN_EN_INFO(inst)                       ((uint32_t)(inst) + 0x00000087U), 0x00000102U
+#define BF_CP_BLEED_UP_EN_INFO(inst)                       ((uint32_t)(inst) + 0x00000087U), 0x00000103U
+#define BF_CP_BW_INFO(inst)                                ((uint32_t)(inst) + 0x00000087U), 0x00000204U
+#define BF_CP_GAINBITS_INFO(inst)                          ((uint32_t)(inst) + 0x00000087U), 0x00000206U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_CP_CTL1_ADDR(inst)                             ((inst) + 0x00000088)
-#define BF_CP_IBLEED_INFO(inst)                            ((inst) + 0x00000088), 0x00000700
+#define REG_CP_CTL1_ADDR(inst)                             ((uint32_t)(inst) + 0x00000088U)
+#define BF_CP_IBLEED_INFO(inst)                            ((uint32_t)(inst) + 0x00000088U), 0x00000700U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_CP_CTL2_ADDR(inst)                             ((inst) + 0x00000089)
-#define BF_AUXADC_HYST_ON_FLAG_INFO(inst)                  ((inst) + 0x00000089), 0x00000100
-#define BF_SEL_ADC_FLAG_INFO(inst)                         ((inst) + 0x00000089), 0x00000102
-#define BF_CP_FORCE_VDD_OVER_2_INFO(inst)                  ((inst) + 0x00000089), 0x00000103
-#define BF_AUXADC_HYST_FLAG_INFO(inst)                     ((inst) + 0x00000089), 0x00000204
-#define BF_CP_BYPASS_FILTER_INFO(inst)                     ((inst) + 0x00000089), 0x00000206
+#define REG_CP_CTL2_ADDR(inst)                             ((uint32_t)(inst) + 0x00000089U)
+#define BF_AUXADC_HYST_ON_FLAG_INFO(inst)                  ((uint32_t)(inst) + 0x00000089U), 0x00000100U
+#define BF_SEL_ADC_FLAG_INFO(inst)                         ((uint32_t)(inst) + 0x00000089U), 0x00000102U
+#define BF_CP_FORCE_VDD_OVER_2_INFO(inst)                  ((uint32_t)(inst) + 0x00000089U), 0x00000103U
+#define BF_AUXADC_HYST_FLAG_INFO(inst)                     ((uint32_t)(inst) + 0x00000089U), 0x00000204U
+#define BF_CP_BYPASS_FILTER_INFO(inst)                     ((uint32_t)(inst) + 0x00000089U), 0x00000206U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_MISC_KILL_SIGNALS_ADDR(inst)                   ((inst) + 0x0000008A)
-#define BF_PFD_KILL_UPDNTOLD_INFO(inst)                    ((inst) + 0x0000008A), 0x00000100
-#define BF_KILLRDIVTODIG_INFO(inst)                        ((inst) + 0x0000008A), 0x00000102
-#define BF_KILLRDIVTOLD_INFO(inst)                         ((inst) + 0x0000008A), 0x00000103
-#define BF_KILLNDIVTOLD_INFO(inst)                         ((inst) + 0x0000008A), 0x00000104
-#define BF_NDIV_PS_KILLCLK_TUNEDIV4_INFO(inst)             ((inst) + 0x0000008A), 0x00000105
-#define BF_KILLRDIV_VCOCAL_INFO(inst)                      ((inst) + 0x0000008A), 0x00000106
+#define REG_MISC_KILL_SIGNALS_ADDR(inst)                   ((uint32_t)(inst) + 0x0000008AU)
+#define BF_PFD_KILL_UPDNTOLD_INFO(inst)                    ((uint32_t)(inst) + 0x0000008AU), 0x00000100U
+#define BF_KILLRDIVTODIG_INFO(inst)                        ((uint32_t)(inst) + 0x0000008AU), 0x00000102U
+#define BF_KILLRDIVTOLD_INFO(inst)                         ((uint32_t)(inst) + 0x0000008AU), 0x00000103U
+#define BF_KILLNDIVTOLD_INFO(inst)                         ((uint32_t)(inst) + 0x0000008AU), 0x00000104U
+#define BF_NDIV_PS_KILLCLK_TUNEDIV4_INFO(inst)             ((uint32_t)(inst) + 0x0000008AU), 0x00000105U
+#define BF_KILLRDIV_VCOCAL_INFO(inst)                      ((uint32_t)(inst) + 0x0000008AU), 0x00000106U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_NEW_LOCK_DETECT0_ADDR(inst)                    ((inst) + 0x0000008B)
-#define BF_LD_RSTB_INFO(inst)                              ((inst) + 0x0000008B), 0x00000100
-#define BF_LD_EN_INFO(inst)                                ((inst) + 0x0000008B), 0x00000102
-#define BF_LD_LOL_EN_INFO(inst)                            ((inst) + 0x0000008B), 0x00000103
-#define BF_LD_BYPASS_DIVBY32_INFO(inst)                    ((inst) + 0x0000008B), 0x00000104
-#define BF_LD_LOL_LDP_INFO(inst)                           ((inst) + 0x0000008B), 0x00000305
+#define REG_NEW_LOCK_DETECT0_ADDR(inst)                    ((uint32_t)(inst) + 0x0000008BU)
+#define BF_LD_RSTB_INFO(inst)                              ((uint32_t)(inst) + 0x0000008BU), 0x00000100U
+#define BF_LD_EN_INFO(inst)                                ((uint32_t)(inst) + 0x0000008BU), 0x00000102U
+#define BF_LD_LOL_EN_INFO(inst)                            ((uint32_t)(inst) + 0x0000008BU), 0x00000103U
+#define BF_LD_BYPASS_DIVBY32_INFO(inst)                    ((uint32_t)(inst) + 0x0000008BU), 0x00000104U
+#define BF_LD_LOL_LDP_INFO(inst)                           ((uint32_t)(inst) + 0x0000008BU), 0x00000305U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_NEW_LOCK_DETECT1_ADDR(inst)                    ((inst) + 0x0000008C)
-#define BF_LD_LOL_HYST_EN_INFO(inst)                       ((inst) + 0x0000008C), 0x00000100
-#define BF_LD_PD_INFO(inst)                                ((inst) + 0x0000008C), 0x00000101
-#define BF_LD_LOL_DEAD_CLK_INFO(inst)                      ((inst) + 0x0000008C), 0x00000102
-#define BF_LD_LOL_HYST_INFO(inst)                          ((inst) + 0x0000008C), 0x00000103
-#define BF_LD_COUNT_INFO(inst)                             ((inst) + 0x0000008C), 0x00000204
-#define BF_LD_LOCKED_INFO(inst)                            ((inst) + 0x0000008C), 0x00000107
+#define REG_NEW_LOCK_DETECT1_ADDR(inst)                    ((uint32_t)(inst) + 0x0000008CU)
+#define BF_LD_LOL_HYST_EN_INFO(inst)                       ((uint32_t)(inst) + 0x0000008CU), 0x00000100U
+#define BF_LD_PD_INFO(inst)                                ((uint32_t)(inst) + 0x0000008CU), 0x00000101U
+#define BF_LD_LOL_DEAD_CLK_INFO(inst)                      ((uint32_t)(inst) + 0x0000008CU), 0x00000102U
+#define BF_LD_LOL_HYST_INFO(inst)                          ((uint32_t)(inst) + 0x0000008CU), 0x00000103U
+#define BF_LD_COUNT_INFO(inst)                             ((uint32_t)(inst) + 0x0000008CU), 0x00000204U
+#define BF_LD_LOCKED_INFO(inst)                            ((uint32_t)(inst) + 0x0000008CU), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PRESCALER_CTL_ADDR(inst)                       ((inst) + 0x0000008D)
-#define BF_NDIV_PS_EN_TUNEDIV4_INFO(inst)                  ((inst) + 0x0000008D), 0x00000100
-#define BF_NDIV_PS_RB_INFO(inst)                           ((inst) + 0x0000008D), 0x00000101
-#define BF_KILL_VCO_TO_NDIV_PS_INFO(inst)                  ((inst) + 0x0000008D), 0x00000102
-#define BF_NDIV_PS_DLYSEL_INFO(inst)                       ((inst) + 0x0000008D), 0x00000103
-#define BF_NDIV_PS_SPARES_INFO(inst)                       ((inst) + 0x0000008D), 0x00000404
+#define REG_PRESCALER_CTL_ADDR(inst)                       ((uint32_t)(inst) + 0x0000008DU)
+#define BF_NDIV_PS_EN_TUNEDIV4_INFO(inst)                  ((uint32_t)(inst) + 0x0000008DU), 0x00000100U
+#define BF_NDIV_PS_RB_INFO(inst)                           ((uint32_t)(inst) + 0x0000008DU), 0x00000101U
+#define BF_KILL_VCO_TO_NDIV_PS_INFO(inst)                  ((uint32_t)(inst) + 0x0000008DU), 0x00000102U
+#define BF_NDIV_PS_DLYSEL_INFO(inst)                       ((uint32_t)(inst) + 0x0000008DU), 0x00000103U
+#define BF_NDIV_PS_SPARES_INFO(inst)                       ((uint32_t)(inst) + 0x0000008DU), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PFD_CHARGEPUMP_SPARES_ADDR(inst)               ((inst) + 0x0000008E)
-#define BF_PFDCP_SPARES_INFO(inst)                         ((inst) + 0x0000008E), 0x00000800
+#define REG_PFD_CHARGEPUMP_SPARES_ADDR(inst)               ((uint32_t)(inst) + 0x0000008EU)
+#define BF_PFDCP_SPARES_INFO(inst)                         ((uint32_t)(inst) + 0x0000008EU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_LDO_0_ADDR(inst)                           ((inst) + 0x0000008F)
-#define BF_LDO_THERM_SDN_THR_INFO(inst)                    ((inst) + 0x0000008F), 0x00000200
-#define BF_VCO_LDO_ILIM_THR_INFO(inst)                     ((inst) + 0x0000008F), 0x00000202
-#define BF_LDO_OVERVOLT_THR_INFO(inst)                     ((inst) + 0x0000008F), 0x00000204
-#define BF_LDO_OVERRIDE_INFO(inst)                         ((inst) + 0x0000008F), 0x00000106
-#define BF_VCO_LDO_BYPASS_INFO(inst)                       ((inst) + 0x0000008F), 0x00000107
+#define REG_VCO_LDO_0_ADDR(inst)                           ((uint32_t)(inst) + 0x0000008FU)
+#define BF_LDO_THERM_SDN_THR_INFO(inst)                    ((uint32_t)(inst) + 0x0000008FU), 0x00000200U
+#define BF_VCO_LDO_ILIM_THR_INFO(inst)                     ((uint32_t)(inst) + 0x0000008FU), 0x00000202U
+#define BF_LDO_OVERVOLT_THR_INFO(inst)                     ((uint32_t)(inst) + 0x0000008FU), 0x00000204U
+#define BF_LDO_OVERRIDE_INFO(inst)                         ((uint32_t)(inst) + 0x0000008FU), 0x00000106U
+#define BF_VCO_LDO_BYPASS_INFO(inst)                       ((uint32_t)(inst) + 0x0000008FU), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_LDO_1_ADDR(inst)                           ((inst) + 0x00000090)
-#define BF_LDO_VOUT_ADJ_INFO(inst)                         ((inst) + 0x00000090), 0x00000500
+#define REG_VCO_LDO_1_ADDR(inst)                           ((uint32_t)(inst) + 0x00000090U)
+#define BF_LDO_VOUT_ADJ_INFO(inst)                         ((uint32_t)(inst) + 0x00000090U), 0x00000500U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_LDO_2_ADDR(inst)                           ((inst) + 0x00000091)
-#define BF_LDO_VREF_FILT_INFO(inst)                        ((inst) + 0x00000091), 0x00000200
-#define BF_LDO_COMPENS_ADJ_INFO(inst)                      ((inst) + 0x00000091), 0x00000202
-#define BF_LDO_LOAD_RES_ADJ_INFO(inst)                     ((inst) + 0x00000091), 0x00000104
-#define BF_LDO_COMPAR_TEST_INFO(inst)                      ((inst) + 0x00000091), 0x00000305
+#define REG_VCO_LDO_2_ADDR(inst)                           ((uint32_t)(inst) + 0x00000091U)
+#define BF_LDO_VREF_FILT_INFO(inst)                        ((uint32_t)(inst) + 0x00000091U), 0x00000200U
+#define BF_LDO_COMPENS_ADJ_INFO(inst)                      ((uint32_t)(inst) + 0x00000091U), 0x00000202U
+#define BF_LDO_LOAD_RES_ADJ_INFO(inst)                     ((uint32_t)(inst) + 0x00000091U), 0x00000104U
+#define BF_LDO_COMPAR_TEST_INFO(inst)                      ((uint32_t)(inst) + 0x00000091U), 0x00000305U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_LDO_3_ADDR(inst)                           ((inst) + 0x00000092)
-#define BF_LDO_SPARE_INFO(inst)                            ((inst) + 0x00000092), 0x00000400
-#define BF_LDO_ENVPTAT_INFO(inst)                          ((inst) + 0x00000092), 0x00000104
-#define BF_LDO_VPTATCTRL_INFO(inst)                        ((inst) + 0x00000092), 0x00000205
-#define BF_VCO_LDO_OUTPUT_PD_INFO(inst)                    ((inst) + 0x00000092), 0x00000107
+#define REG_VCO_LDO_3_ADDR(inst)                           ((uint32_t)(inst) + 0x00000092U)
+#define BF_LDO_SPARE_INFO(inst)                            ((uint32_t)(inst) + 0x00000092U), 0x00000400U
+#define BF_LDO_ENVPTAT_INFO(inst)                          ((uint32_t)(inst) + 0x00000092U), 0x00000104U
+#define BF_LDO_VPTATCTRL_INFO(inst)                        ((uint32_t)(inst) + 0x00000092U), 0x00000205U
+#define BF_VCO_LDO_OUTPUT_PD_INFO(inst)                    ((uint32_t)(inst) + 0x00000092U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_LDO_4_ADDR(inst)                           ((inst) + 0x00000093)
-#define BF_LDO_CORE_BIAS_ADJ_INFO(inst)                    ((inst) + 0x00000093), 0x00000400
-#define BF_LDO_CLEAR_STATUS_INFO(inst)                     ((inst) + 0x00000093), 0x00000104
-#define BF_LDO_ILOAD_ADJ_INFO(inst)                        ((inst) + 0x00000093), 0x00000105
+#define REG_VCO_LDO_4_ADDR(inst)                           ((uint32_t)(inst) + 0x00000093U)
+#define BF_LDO_CORE_BIAS_ADJ_INFO(inst)                    ((uint32_t)(inst) + 0x00000093U), 0x00000400U
+#define BF_LDO_CLEAR_STATUS_INFO(inst)                     ((uint32_t)(inst) + 0x00000093U), 0x00000104U
+#define BF_LDO_ILOAD_ADJ_INFO(inst)                        ((uint32_t)(inst) + 0x00000093U), 0x00000105U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_LDO_STAT_ADDR(inst)                        ((inst) + 0x00000094)
-#define BF_LDO_OVERVOLT_INFO(inst)                         ((inst) + 0x00000094), 0x00000100
-#define BF_LDO_CURLIM_INFO(inst)                           ((inst) + 0x00000094), 0x00000101
-#define BF_LDO_THERMSDN_INFO(inst)                         ((inst) + 0x00000094), 0x00000102
-#define BF_LDO_POWERGOOD_INFO(inst)                        ((inst) + 0x00000094), 0x00000103
-#define BF_LDO_NOREF_INFO(inst)                            ((inst) + 0x00000094), 0x00000104
-#define BF_LDO_UVL_INFO(inst)                              ((inst) + 0x00000094), 0x00000105
-#define BF_LDO_LOWOUTPUT_INFO(inst)                        ((inst) + 0x00000094), 0x00000106
+#define REG_VCO_LDO_STAT_ADDR(inst)                        ((uint32_t)(inst) + 0x00000094U)
+#define BF_LDO_OVERVOLT_INFO(inst)                         ((uint32_t)(inst) + 0x00000094U), 0x00000100U
+#define BF_LDO_CURLIM_INFO(inst)                           ((uint32_t)(inst) + 0x00000094U), 0x00000101U
+#define BF_LDO_THERMSDN_INFO(inst)                         ((uint32_t)(inst) + 0x00000094U), 0x00000102U
+#define BF_LDO_POWERGOOD_INFO(inst)                        ((uint32_t)(inst) + 0x00000094U), 0x00000103U
+#define BF_LDO_NOREF_INFO(inst)                            ((uint32_t)(inst) + 0x00000094U), 0x00000104U
+#define BF_LDO_UVL_INFO(inst)                              ((uint32_t)(inst) + 0x00000094U), 0x00000105U
+#define BF_LDO_LOWOUTPUT_INFO(inst)                        ((uint32_t)(inst) + 0x00000094U), 0x00000106U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_CTL0_ADDR(inst)                            ((inst) + 0x00000095)
-#define BF_VCO_SEL_INFO(inst)                              ((inst) + 0x00000095), 0x00000200
-#define BF_VCOLCR_PD_INFO(inst)                            ((inst) + 0x00000095), 0x00000102
-#define BF_VCOLCR_BYPASS_BIAS_RES_INFO(inst)               ((inst) + 0x00000095), 0x00000103
-#define BF_VCO_VPULL_SEL_INFO(inst)                        ((inst) + 0x00000095), 0x00000305
+#define REG_VCO_CTL0_ADDR(inst)                            ((uint32_t)(inst) + 0x00000095U)
+#define BF_VCO_SEL_INFO(inst)                              ((uint32_t)(inst) + 0x00000095U), 0x00000200U
+#define BF_VCOLCR_PD_INFO(inst)                            ((uint32_t)(inst) + 0x00000095U), 0x00000102U
+#define BF_VCOLCR_BYPASS_BIAS_RES_INFO(inst)               ((uint32_t)(inst) + 0x00000095U), 0x00000103U
+#define BF_VCO_VPULL_SEL_INFO(inst)                        ((uint32_t)(inst) + 0x00000095U), 0x00000305U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_CTL1_ADDR(inst)                            ((inst) + 0x00000096)
-#define BF_VCO_VAR_INFO(inst)                              ((inst) + 0x00000096), 0x00000400
-#define BF_VCOPKDET_CM_SEL_INFO(inst)                      ((inst) + 0x00000096), 0x00000404
+#define REG_VCO_CTL1_ADDR(inst)                            ((uint32_t)(inst) + 0x00000096U)
+#define BF_VCO_VAR_INFO(inst)                              ((uint32_t)(inst) + 0x00000096U), 0x00000400U
+#define BF_VCOPKDET_CM_SEL_INFO(inst)                      ((uint32_t)(inst) + 0x00000096U), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_CTL2_ADDR(inst)                            ((inst) + 0x00000097)
-#define BF_VCOPKDET_VREF_SEL_INFO(inst)                    ((inst) + 0x00000097), 0x00000400
-#define BF_VCOPKDET_BYP_RES_DET_INFO(inst)                 ((inst) + 0x00000097), 0x00000105
-#define BF_VCO_BIAS_TEST_INFO(inst)                        ((inst) + 0x00000097), 0x00000107
+#define REG_VCO_CTL2_ADDR(inst)                            ((uint32_t)(inst) + 0x00000097U)
+#define BF_VCOPKDET_VREF_SEL_INFO(inst)                    ((uint32_t)(inst) + 0x00000097U), 0x00000400U
+#define BF_VCOPKDET_BYP_RES_DET_INFO(inst)                 ((uint32_t)(inst) + 0x00000097U), 0x00000105U
+#define BF_VCO_BIAS_TEST_INFO(inst)                        ((uint32_t)(inst) + 0x00000097U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_CTL3_ADDR(inst)                            ((inst) + 0x00000098)
-#define BF_VCO_LBCORE_CONFIG_INFO(inst)                    ((inst) + 0x00000098), 0x00000100
+#define REG_VCO_CTL3_ADDR(inst)                            ((uint32_t)(inst) + 0x00000098U)
+#define BF_VCO_LBCORE_CONFIG_INFO(inst)                    ((uint32_t)(inst) + 0x00000098U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_PD0_ADDR(inst)                             ((inst) + 0x00000099)
-#define BF_VCO_PD_INFO(inst)                               ((inst) + 0x00000099), 0x00000600
-#define BF_VCO_PD_OVERRIDE_INFO(inst)                      ((inst) + 0x00000099), 0x00000107
+#define REG_VCO_PD0_ADDR(inst)                             ((uint32_t)(inst) + 0x00000099U)
+#define BF_VCO_PD_INFO(inst)                               ((uint32_t)(inst) + 0x00000099U), 0x00000600U
+#define BF_VCO_PD_OVERRIDE_INFO(inst)                      ((uint32_t)(inst) + 0x00000099U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_PD1_ADDR(inst)                             ((inst) + 0x0000009A)
-#define BF_VCOBUF_PD_INFO(inst)                            ((inst) + 0x0000009A), 0x00000600
+#define REG_VCO_PD1_ADDR(inst)                             ((uint32_t)(inst) + 0x0000009AU)
+#define BF_VCOBUF_PD_INFO(inst)                            ((uint32_t)(inst) + 0x0000009AU), 0x00000600U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_PD2_ADDR(inst)                             ((inst) + 0x0000009B)
-#define BF_VCOPKDET_PD_INFO(inst)                          ((inst) + 0x0000009B), 0x00000600
+#define REG_VCO_PD2_ADDR(inst)                             ((uint32_t)(inst) + 0x0000009BU)
+#define BF_VCOPKDET_PD_INFO(inst)                          ((uint32_t)(inst) + 0x0000009BU), 0x00000600U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_PD3_ADDR(inst)                             ((inst) + 0x0000009C)
-#define BF_VCOPKDET_CMP_PD_INFO(inst)                      ((inst) + 0x0000009C), 0x00000600
+#define REG_VCO_PD3_ADDR(inst)                             ((uint32_t)(inst) + 0x0000009CU)
+#define BF_VCOPKDET_CMP_PD_INFO(inst)                      ((uint32_t)(inst) + 0x0000009CU), 0x00000600U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TCIDAC_REG0_ADDR(inst)                         ((inst) + 0x0000009D)
-#define BF_VCOTC_DAC_RST_INFO(inst)                        ((inst) + 0x0000009D), 0x00000100
-#define BF_VCOTC_I2V_DEGEN_BYP_INFO(inst)                  ((inst) + 0x0000009D), 0x00000102
-#define BF_VCOTC_I2V_PD_INFO(inst)                         ((inst) + 0x0000009D), 0x00000103
-#define BF_VCOTC_DAC_SCALE_INFO(inst)                      ((inst) + 0x0000009D), 0x00000204
-#define BF_VCOTC_I2V_FILT1_BYP_INFO(inst)                  ((inst) + 0x0000009D), 0x00000106
+#define REG_TCIDAC_REG0_ADDR(inst)                         ((uint32_t)(inst) + 0x0000009DU)
+#define BF_VCOTC_DAC_RST_INFO(inst)                        ((uint32_t)(inst) + 0x0000009DU), 0x00000100U
+#define BF_VCOTC_I2V_DEGEN_BYP_INFO(inst)                  ((uint32_t)(inst) + 0x0000009DU), 0x00000102U
+#define BF_VCOTC_I2V_PD_INFO(inst)                         ((uint32_t)(inst) + 0x0000009DU), 0x00000103U
+#define BF_VCOTC_DAC_SCALE_INFO(inst)                      ((uint32_t)(inst) + 0x0000009DU), 0x00000204U
+#define BF_VCOTC_I2V_FILT1_BYP_INFO(inst)                  ((uint32_t)(inst) + 0x0000009DU), 0x00000106U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TCIDAC_REG1_ADDR(inst)                         ((inst) + 0x0000009E)
-#define BF_VCOTC_I2V_FILT1_INFO(inst)                      ((inst) + 0x0000009E), 0x00000800
+#define REG_TCIDAC_REG1_ADDR(inst)                         ((uint32_t)(inst) + 0x0000009EU)
+#define BF_VCOTC_I2V_FILT1_INFO(inst)                      ((uint32_t)(inst) + 0x0000009EU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TCIDAC_REG2_ADDR(inst)                         ((inst) + 0x0000009F)
-#define BF_VCOTC_I2V_FILT2_INFO(inst)                      ((inst) + 0x0000009F), 0x00000300
-#define BF_VCOTC_I2V_FILT2_BYP_INFO(inst)                  ((inst) + 0x0000009F), 0x00000104
-#define BF_VCOTC_TEST_INFO(inst)                           ((inst) + 0x0000009F), 0x00000206
+#define REG_TCIDAC_REG2_ADDR(inst)                         ((uint32_t)(inst) + 0x0000009FU)
+#define BF_VCOTC_I2V_FILT2_INFO(inst)                      ((uint32_t)(inst) + 0x0000009FU), 0x00000300U
+#define BF_VCOTC_I2V_FILT2_BYP_INFO(inst)                  ((uint32_t)(inst) + 0x0000009FU), 0x00000104U
+#define BF_VCOTC_TEST_INFO(inst)                           ((uint32_t)(inst) + 0x0000009FU), 0x00000206U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TCIDAC_REG3_ADDR(inst)                         ((inst) + 0x000000A0)
-#define BF_VCOTC_I2V_MIR_INFO(inst)                        ((inst) + 0x000000A0), 0x00000800
+#define REG_TCIDAC_REG3_ADDR(inst)                         ((uint32_t)(inst) + 0x000000A0U)
+#define BF_VCOTC_I2V_MIR_INFO(inst)                        ((uint32_t)(inst) + 0x000000A0U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TCIDAC_REG4_ADDR(inst)                         ((inst) + 0x000000A1)
-#define BF_VCOTC_I2V_DIODE_INFO(inst)                      ((inst) + 0x000000A1), 0x00000800
+#define REG_TCIDAC_REG4_ADDR(inst)                         ((uint32_t)(inst) + 0x000000A1U)
+#define BF_VCOTC_I2V_DIODE_INFO(inst)                      ((uint32_t)(inst) + 0x000000A1U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_CTL_SPARES_0_ADDR(inst)                    ((inst) + 0x000000A2)
-#define BF_VCO_STAT_SPARE_INFO(inst)                       ((inst) + 0x000000A2), 0x00001000
+#define REG_VCO_CTL_SPARES_0_ADDR(inst)                    ((uint32_t)(inst) + 0x000000A2U)
+#define BF_VCO_STAT_SPARE_INFO(inst)                       ((uint32_t)(inst) + 0x000000A2U), 0x00001000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_VCO_CTL_SPARES_1_ADDR(inst)                    ((inst) + 0x000000A3)
+#define REG_VCO_CTL_SPARES_1_ADDR(inst)                    ((uint32_t)(inst) + 0x000000A3U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_STAT_SPARES_0_ADDR(inst)                   ((inst) + 0x000000A4)
-#define BF_VCO_CTL_SPARE_INFO(inst)                        ((inst) + 0x000000A4), 0x00001000
+#define REG_VCO_STAT_SPARES_0_ADDR(inst)                   ((uint32_t)(inst) + 0x000000A4U)
+#define BF_VCO_CTL_SPARE_INFO(inst)                        ((uint32_t)(inst) + 0x000000A4U), 0x00001000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_VCO_STAT_SPARES_1_ADDR(inst)                   ((inst) + 0x000000A5)
+#define REG_VCO_STAT_SPARES_1_ADDR(inst)                   ((uint32_t)(inst) + 0x000000A5U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_BLEED_RAMP_CTL_ADDR(inst)                      ((inst) + 0x000000A6)
-#define BF_BLEED_RAMP_EN_INFO(inst)                        ((inst) + 0x000000A6), 0x00000100
-#define BF_BLEED_RAMP_INIT_INFO(inst)                      ((inst) + 0x000000A6), 0x00000101
-#define BF_BLEED_RAMP_DONE_INFO(inst)                      ((inst) + 0x000000A6), 0x00000104
-#define BF_CP_BLEED_UP_EN_RAMPED_INFO(inst)                ((inst) + 0x000000A6), 0x00000106
-#define BF_CP_BLEED_DN_EN_RAMPED_INFO(inst)                ((inst) + 0x000000A6), 0x00000107
+#define REG_BLEED_RAMP_CTL_ADDR(inst)                      ((uint32_t)(inst) + 0x000000A6U)
+#define BF_BLEED_RAMP_EN_INFO(inst)                        ((uint32_t)(inst) + 0x000000A6U), 0x00000100U
+#define BF_BLEED_RAMP_INIT_INFO(inst)                      ((uint32_t)(inst) + 0x000000A6U), 0x00000101U
+#define BF_BLEED_RAMP_DONE_INFO(inst)                      ((uint32_t)(inst) + 0x000000A6U), 0x00000104U
+#define BF_CP_BLEED_UP_EN_RAMPED_INFO(inst)                ((uint32_t)(inst) + 0x000000A6U), 0x00000106U
+#define BF_CP_BLEED_DN_EN_RAMPED_INFO(inst)                ((uint32_t)(inst) + 0x000000A6U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_BLEED_RAMP_CFG_ADDR(inst)                      ((inst) + 0x000000A7)
-#define BF_BLEED_RAMP_STEP_INFO(inst)                      ((inst) + 0x000000A7), 0x00000400
-#define BF_BLEED_RAMP_TIME_STEP_INFO(inst)                 ((inst) + 0x000000A7), 0x00000404
+#define REG_BLEED_RAMP_CFG_ADDR(inst)                      ((uint32_t)(inst) + 0x000000A7U)
+#define BF_BLEED_RAMP_STEP_INFO(inst)                      ((uint32_t)(inst) + 0x000000A7U), 0x00000400U
+#define BF_BLEED_RAMP_TIME_STEP_INFO(inst)                 ((uint32_t)(inst) + 0x000000A7U), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_BLEED_RAMP_STAT_ADDR(inst)                     ((inst) + 0x000000A8)
-#define BF_CP_IBLEED_RAMPED_INFO(inst)                     ((inst) + 0x000000A8), 0x00000700
+#define REG_BLEED_RAMP_STAT_ADDR(inst)                     ((uint32_t)(inst) + 0x000000A8U)
+#define BF_CP_IBLEED_RAMPED_INFO(inst)                     ((uint32_t)(inst) + 0x000000A8U), 0x00000700U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_BAND_DEBUG_COARSE_0_ADDR(inst)             ((inst) + 0x000000A9)
-#define BF_VCO_BAND2_COARSE_INFO(inst)                     ((inst) + 0x000000A9), 0x00000900
+#define REG_VCO_BAND_DEBUG_COARSE_0_ADDR(inst)             ((uint32_t)(inst) + 0x000000A9U)
+#define BF_VCO_BAND2_COARSE_INFO(inst)                     ((uint32_t)(inst) + 0x000000A9U), 0x00000900U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_BAND_DEBUG_COARSE_1_ADDR(inst)             ((inst) + 0x000000AA)
-#define BF_VCO_BAND_COARSE_SEL_INFO(inst)                  ((inst) + 0x000000AA), 0x00000107
+#define REG_VCO_BAND_DEBUG_COARSE_1_ADDR(inst)             ((uint32_t)(inst) + 0x000000AAU)
+#define BF_VCO_BAND_COARSE_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x000000AAU), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_BAND_DEBUG_FINE_ADDR(inst)                 ((inst) + 0x000000AB)
-#define BF_VCO_BAND2_FINE_INFO(inst)                       ((inst) + 0x000000AB), 0x00000600
-#define BF_VCO_BAND_FINE_SEL_INFO(inst)                    ((inst) + 0x000000AB), 0x00000107
+#define REG_VCO_BAND_DEBUG_FINE_ADDR(inst)                 ((uint32_t)(inst) + 0x000000ABU)
+#define BF_VCO_BAND2_FINE_INFO(inst)                       ((uint32_t)(inst) + 0x000000ABU), 0x00000600U
+#define BF_VCO_BAND_FINE_SEL_INFO(inst)                    ((uint32_t)(inst) + 0x000000ABU), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TESTMUX_ADDR(inst)                             ((inst) + 0x000000AC)
-#define BF_TESTMUX_SEL_INFO(inst)                          ((inst) + 0x000000AC), 0x00000500
-#define BF_TESTMUX_PD_INFO(inst)                           ((inst) + 0x000000AC), 0x00000106
-#define BF_TESTMUX_RB_INFO(inst)                           ((inst) + 0x000000AC), 0x00000107
+#define REG_TESTMUX_ADDR(inst)                             ((uint32_t)(inst) + 0x000000ACU)
+#define BF_TESTMUX_SEL_INFO(inst)                          ((uint32_t)(inst) + 0x000000ACU), 0x00000500U
+#define BF_TESTMUX_PD_INFO(inst)                           ((uint32_t)(inst) + 0x000000ACU), 0x00000106U
+#define BF_TESTMUX_RB_INFO(inst)                           ((uint32_t)(inst) + 0x000000ACU), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_SERDES_TEMP_LOOP_CTL_ADDR(inst)                ((inst) + 0x000000AD)
-#define BF_TC2_CURR_GM_INFO(inst)                          ((inst) + 0x000000AD), 0x00000300
-#define BF_TC2_GM_PD_INFO(inst)                            ((inst) + 0x000000AD), 0x00000104
-#define BF_TC2_GM_NORMAL_INFO(inst)                        ((inst) + 0x000000AD), 0x00000105
-#define BF_TC2_CAL_INFO(inst)                              ((inst) + 0x000000AD), 0x00000106
-#define BF_TC2_OVERRIDE_INFO(inst)                         ((inst) + 0x000000AD), 0x00000107
+#define REG_SERDES_TEMP_LOOP_CTL_ADDR(inst)                ((uint32_t)(inst) + 0x000000ADU)
+#define BF_TC2_CURR_GM_INFO(inst)                          ((uint32_t)(inst) + 0x000000ADU), 0x00000300U
+#define BF_TC2_GM_PD_INFO(inst)                            ((uint32_t)(inst) + 0x000000ADU), 0x00000104U
+#define BF_TC2_GM_NORMAL_INFO(inst)                        ((uint32_t)(inst) + 0x000000ADU), 0x00000105U
+#define BF_TC2_CAL_INFO(inst)                              ((uint32_t)(inst) + 0x000000ADU), 0x00000106U
+#define BF_TC2_OVERRIDE_INFO(inst)                         ((uint32_t)(inst) + 0x000000ADU), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_SERDES_OUTPUT_DIVIDER_CTL_ADDR(inst)           ((inst) + 0x000000AE)
-#define BF_SERDES_PLL_ODIV_KILLCLK_INFO(inst)              ((inst) + 0x000000AE), 0x00000100
-#define BF_SERDES_PLL_ODIV_RB_INFO(inst)                   ((inst) + 0x000000AE), 0x00000101
-#define BF_SERDES_PLL_ODIV_INFO(inst)                      ((inst) + 0x000000AE), 0x00000602
+#define REG_SERDES_OUTPUT_DIVIDER_CTL_ADDR(inst)           ((uint32_t)(inst) + 0x000000AEU)
+#define BF_SERDES_PLL_ODIV_KILLCLK_INFO(inst)              ((uint32_t)(inst) + 0x000000AEU), 0x00000100U
+#define BF_SERDES_PLL_ODIV_RB_INFO(inst)                   ((uint32_t)(inst) + 0x000000AEU), 0x00000101U
+#define BF_SERDES_PLL_ODIV_INFO(inst)                      ((uint32_t)(inst) + 0x000000AEU), 0x00000602U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_SHUNT_LDO_CTL_0_ADDR(inst)                 ((inst) + 0x000000AF)
-#define BF_SLDO1P0_UVP_DET_THR_INFO(inst)                  ((inst) + 0x000000AF), 0x00000200
-#define BF_SLDO1P0_UVP_COMP_TST_INFO(inst)                 ((inst) + 0x000000AF), 0x00000102
-#define BF_SLDO1P0_BYP_INFO(inst)                          ((inst) + 0x000000AF), 0x00000103
-#define BF_SLDO1P0_SPARE_INFO(inst)                        ((inst) + 0x000000AF), 0x00000304
-#define BF_SLDO1P0_OVP_COMP_TST_INFO(inst)                 ((inst) + 0x000000AF), 0x00000107
+#define REG_VCO_SHUNT_LDO_CTL_0_ADDR(inst)                 ((uint32_t)(inst) + 0x000000AFU)
+#define BF_SLDO1P0_UVP_DET_THR_INFO(inst)                  ((uint32_t)(inst) + 0x000000AFU), 0x00000200U
+#define BF_SLDO1P0_UVP_COMP_TST_INFO(inst)                 ((uint32_t)(inst) + 0x000000AFU), 0x00000102U
+#define BF_SLDO1P0_BYP_INFO(inst)                          ((uint32_t)(inst) + 0x000000AFU), 0x00000103U
+#define BF_SLDO1P0_SPARE_INFO(inst)                        ((uint32_t)(inst) + 0x000000AFU), 0x00000304U
+#define BF_SLDO1P0_OVP_COMP_TST_INFO(inst)                 ((uint32_t)(inst) + 0x000000AFU), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_SHUNT_LDO_CTL_1_ADDR(inst)                 ((inst) + 0x000000B0)
-#define BF_SLDO1P0_OVP_DIS_INFO(inst)                      ((inst) + 0x000000B0), 0x00000100
-#define BF_SLDO1P0_COMPENS_ADJ_INFO(inst)                  ((inst) + 0x000000B0), 0x00000101
-#define BF_SLDO1P0_PD_INFO(inst)                           ((inst) + 0x000000B0), 0x00000102
-#define BF_SLDO1P0_RAMP_INFO(inst)                         ((inst) + 0x000000B0), 0x00000103
-#define BF_SLDO1P0_OVP_DET_THR_INFO(inst)                  ((inst) + 0x000000B0), 0x00000204
-#define BF_SLDO1P0_VOUT_ADJ_INFO(inst)                     ((inst) + 0x000000B0), 0x00000206
+#define REG_VCO_SHUNT_LDO_CTL_1_ADDR(inst)                 ((uint32_t)(inst) + 0x000000B0U)
+#define BF_SLDO1P0_OVP_DIS_INFO(inst)                      ((uint32_t)(inst) + 0x000000B0U), 0x00000100U
+#define BF_SLDO1P0_COMPENS_ADJ_INFO(inst)                  ((uint32_t)(inst) + 0x000000B0U), 0x00000101U
+#define BF_SLDO1P0_PD_INFO(inst)                           ((uint32_t)(inst) + 0x000000B0U), 0x00000102U
+#define BF_SLDO1P0_RAMP_INFO(inst)                         ((uint32_t)(inst) + 0x000000B0U), 0x00000103U
+#define BF_SLDO1P0_OVP_DET_THR_INFO(inst)                  ((uint32_t)(inst) + 0x000000B0U), 0x00000204U
+#define BF_SLDO1P0_VOUT_ADJ_INFO(inst)                     ((uint32_t)(inst) + 0x000000B0U), 0x00000206U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_VCO_SHUNT_LDO_STAT_ADDR(inst)                  ((inst) + 0x000000B1)
-#define BF_SLDO1P0_OVFLAG_INFO(inst)                       ((inst) + 0x000000B1), 0x00000100
-#define BF_SLDO1P0_UVFLAG_INFO(inst)                       ((inst) + 0x000000B1), 0x00000101
+#define REG_VCO_SHUNT_LDO_STAT_ADDR(inst)                  ((uint32_t)(inst) + 0x000000B1U)
+#define BF_SLDO1P0_OVFLAG_INFO(inst)                       ((uint32_t)(inst) + 0x000000B1U), 0x00000100U
+#define BF_SLDO1P0_UVFLAG_INFO(inst)                       ((uint32_t)(inst) + 0x000000B1U), 0x00000101U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_SDM_SHUNT_LDO_CTL0_ADDR(inst)                  ((inst) + 0x000000B2)
-#define BF_SLDO0P8_PD_INFO(inst)                           ((inst) + 0x000000B2), 0x00000100
-#define BF_SLDO0P8_BYP_INFO(inst)                          ((inst) + 0x000000B2), 0x00000101
-#define BF_SLDO0P8_VOUT_ADJ_INFO(inst)                     ((inst) + 0x000000B2), 0x00000202
-#define BF_SLDO0P8_COMPENS_ADJ_INFO(inst)                  ((inst) + 0x000000B2), 0x00000104
+#define REG_SDM_SHUNT_LDO_CTL0_ADDR(inst)                  ((uint32_t)(inst) + 0x000000B2U)
+#define BF_SLDO0P8_PD_INFO(inst)                           ((uint32_t)(inst) + 0x000000B2U), 0x00000100U
+#define BF_SLDO0P8_BYP_INFO(inst)                          ((uint32_t)(inst) + 0x000000B2U), 0x00000101U
+#define BF_SLDO0P8_VOUT_ADJ_INFO(inst)                     ((uint32_t)(inst) + 0x000000B2U), 0x00000202U
+#define BF_SLDO0P8_COMPENS_ADJ_INFO(inst)                  ((uint32_t)(inst) + 0x000000B2U), 0x00000104U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_SDM_SHUNT_LDO_CTL1_ADDR(inst)                  ((inst) + 0x000000B3)
-#define BF_SLDO0P8_SPARE_INFO(inst)                        ((inst) + 0x000000B3), 0x00000300
-#define BF_PORB_0P8_INFO(inst)                             ((inst) + 0x000000B3), 0x00000107
+#define REG_SDM_SHUNT_LDO_CTL1_ADDR(inst)                  ((uint32_t)(inst) + 0x000000B3U)
+#define BF_SLDO0P8_SPARE_INFO(inst)                        ((uint32_t)(inst) + 0x000000B3U), 0x00000300U
+#define BF_PORB_0P8_INFO(inst)                             ((uint32_t)(inst) + 0x000000B3U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_TEMPS_MAIN_00_PLL_MEM_MAP_ADDR(inst)           ((inst) + 0x000000B4)
-#define BF_TEMPS_RESET_PLL_MEM_MAP_INFO(inst)              ((inst) + 0x000000B4), 0x00000100
-#define BF_TEMPS_START_MEASUREMENT_PLL_MEM_MAP_INFO(inst)  ((inst) + 0x000000B4), 0x00000101
-#define BF_TEMPS_MEASUREMENT_READY_PLL_MEM_MAP_INFO(inst)  ((inst) + 0x000000B4), 0x00000104
-#define BF_TEMPS_AWAKE_INFO(inst)                          ((inst) + 0x000000B4), 0x00000107
+#define REG_TEMPS_MAIN_00_PLL_MEM_MAP_ADDR(inst)           ((uint32_t)(inst) + 0x000000B4U)
+#define BF_TEMPS_RESET_PLL_MEM_MAP_INFO(inst)              ((uint32_t)(inst) + 0x000000B4U), 0x00000100U
+#define BF_TEMPS_START_MEASUREMENT_PLL_MEM_MAP_INFO(inst)  ((uint32_t)(inst) + 0x000000B4U), 0x00000101U
+#define BF_TEMPS_MEASUREMENT_READY_PLL_MEM_MAP_INFO(inst)  ((uint32_t)(inst) + 0x000000B4U), 0x00000104U
+#define BF_TEMPS_AWAKE_INFO(inst)                          ((uint32_t)(inst) + 0x000000B4U), 0x00000107U
 
-#define REG_TEMPS_MAIN_01_PLL_MEM_MAP_ADDR(inst)           ((inst) + 0x000000B5)
+#define REG_TEMPS_MAIN_01_PLL_MEM_MAP_ADDR(inst)           ((uint32_t)(inst) + 0x000000B5U)
 
-#define REG_TEMPS_MAIN_02_PLL_MEM_MAP_ADDR(inst)           ((inst) + 0x000000B6)
-#define BF_TEMPS_TEMPERATURE_PLL_MEM_MAP_INFO(inst)        ((inst) + 0x000000B6), 0x00000C00
+#define REG_TEMPS_MAIN_02_PLL_MEM_MAP_ADDR(inst)           ((uint32_t)(inst) + 0x000000B6U)
+#define BF_TEMPS_TEMPERATURE_PLL_MEM_MAP_INFO(inst)        ((uint32_t)(inst) + 0x000000B6U), 0x00000C00U
 
-#define REG_TEMPS_MAIN_03_PLL_MEM_MAP_ADDR(inst)           ((inst) + 0x000000B7)
-#define BF_TEMPS_OFFSET_ADJ_PLL_MEM_MAP_INFO(inst)         ((inst) + 0x000000B7), 0x00000700
+#define REG_TEMPS_MAIN_03_PLL_MEM_MAP_ADDR(inst)           ((uint32_t)(inst) + 0x000000B7U)
+#define BF_TEMPS_OFFSET_ADJ_PLL_MEM_MAP_INFO(inst)         ((uint32_t)(inst) + 0x000000B7U), 0x00000700U
 
-#define REG_TEMPS_MAIN_04_PLL_MEM_MAP_ADDR(inst)           ((inst) + 0x000000B8)
-#define BF_TEMPS_SLOPE_ADJ_PLL_MEM_MAP_INFO(inst)          ((inst) + 0x000000B8), 0x00000800
+#define REG_TEMPS_MAIN_04_PLL_MEM_MAP_ADDR(inst)           ((uint32_t)(inst) + 0x000000B8U)
+#define BF_TEMPS_SLOPE_ADJ_PLL_MEM_MAP_INFO(inst)          ((uint32_t)(inst) + 0x000000B8U), 0x00000800U
 
-#define REG_TEMPS_PD_RESET_PLL_MEM_MAP_ADDR(inst)          ((inst) + 0x000000B9)
-#define BF_TEMPS_CLK_PD_PLL_MEM_MAP_INFO(inst)             ((inst) + 0x000000B9), 0x00000100
-#define BF_TEMPS_STARTUP_PD_PLL_MEM_MAP_INFO(inst)         ((inst) + 0x000000B9), 0x00000101
-#define BF_TEMPS_PTAT_PD_PLL_MEM_MAP_INFO(inst)            ((inst) + 0x000000B9), 0x00000102
-#define BF_TEMPS_REF_PD_PLL_MEM_MAP_INFO(inst)             ((inst) + 0x000000B9), 0x00000103
-#define BF_TEMPS_ADC_PD_PLL_MEM_MAP_INFO(inst)             ((inst) + 0x000000B9), 0x00000104
-#define BF_TEMPS_RESET_ADC_PLL_MEM_MAP_INFO(inst)          ((inst) + 0x000000B9), 0x00000107
+#define REG_TEMPS_PD_RESET_PLL_MEM_MAP_ADDR(inst)          ((uint32_t)(inst) + 0x000000B9U)
+#define BF_TEMPS_CLK_PD_PLL_MEM_MAP_INFO(inst)             ((uint32_t)(inst) + 0x000000B9U), 0x00000100U
+#define BF_TEMPS_STARTUP_PD_PLL_MEM_MAP_INFO(inst)         ((uint32_t)(inst) + 0x000000B9U), 0x00000101U
+#define BF_TEMPS_PTAT_PD_PLL_MEM_MAP_INFO(inst)            ((uint32_t)(inst) + 0x000000B9U), 0x00000102U
+#define BF_TEMPS_REF_PD_PLL_MEM_MAP_INFO(inst)             ((uint32_t)(inst) + 0x000000B9U), 0x00000103U
+#define BF_TEMPS_ADC_PD_PLL_MEM_MAP_INFO(inst)             ((uint32_t)(inst) + 0x000000B9U), 0x00000104U
+#define BF_TEMPS_RESET_ADC_PLL_MEM_MAP_INFO(inst)          ((uint32_t)(inst) + 0x000000B9U), 0x00000107U
 
-#define REG_TEMPS_PD_OVERRIDE_ADDR(inst)                   ((inst) + 0x000000BA)
+#define REG_TEMPS_PD_OVERRIDE_ADDR(inst)                   ((uint32_t)(inst) + 0x000000BAU)
 
-#define REG_TEMPS_PD_OVERRIDE_SELECT_ADDR(inst)            ((inst) + 0x000000BB)
+#define REG_TEMPS_PD_OVERRIDE_SELECT_ADDR(inst)            ((uint32_t)(inst) + 0x000000BBU)
 
-#define REG_TEMPS_BIAS_PTAT_PLL_MEM_MAP_ADDR(inst)         ((inst) + 0x000000BC)
-#define BF_TEMPS_CURR_PTAT_PLL_MEM_MAP_INFO(inst)          ((inst) + 0x000000BC), 0x00000600
+#define REG_TEMPS_BIAS_PTAT_PLL_MEM_MAP_ADDR(inst)         ((uint32_t)(inst) + 0x000000BCU)
+#define BF_TEMPS_CURR_PTAT_PLL_MEM_MAP_INFO(inst)          ((uint32_t)(inst) + 0x000000BCU), 0x00000600U
 
-#define REG_TEMPS_BIAS_REF_PLL_MEM_MAP_ADDR(inst)          ((inst) + 0x000000BD)
-#define BF_TEMPS_CURR_REF_PLL_MEM_MAP_INFO(inst)           ((inst) + 0x000000BD), 0x00000600
+#define REG_TEMPS_BIAS_REF_PLL_MEM_MAP_ADDR(inst)          ((uint32_t)(inst) + 0x000000BDU)
+#define BF_TEMPS_CURR_REF_PLL_MEM_MAP_INFO(inst)           ((uint32_t)(inst) + 0x000000BDU), 0x00000600U
 
-#define REG_TEMPS_BIAS_IAMP_PLL_MEM_MAP_ADDR(inst)         ((inst) + 0x000000BE)
-#define BF_TEMPS_CURR_IAMP1_PLL_MEM_MAP_INFO(inst)         ((inst) + 0x000000BE), 0x00000400
-#define BF_TEMPS_CURR_IAMP2_PLL_MEM_MAP_INFO(inst)         ((inst) + 0x000000BE), 0x00000404
+#define REG_TEMPS_BIAS_IAMP_PLL_MEM_MAP_ADDR(inst)         ((uint32_t)(inst) + 0x000000BEU)
+#define BF_TEMPS_CURR_IAMP1_PLL_MEM_MAP_INFO(inst)         ((uint32_t)(inst) + 0x000000BEU), 0x00000400U
+#define BF_TEMPS_CURR_IAMP2_PLL_MEM_MAP_INFO(inst)         ((uint32_t)(inst) + 0x000000BEU), 0x00000404U
 
-#define REG_TEMPS_BIAS_VCM_PLL_MEM_MAP_ADDR(inst)          ((inst) + 0x000000BF)
-#define BF_TEMPS_CURR_VCM_PLL_MEM_MAP_INFO(inst)           ((inst) + 0x000000BF), 0x00000400
+#define REG_TEMPS_BIAS_VCM_PLL_MEM_MAP_ADDR(inst)          ((uint32_t)(inst) + 0x000000BFU)
+#define BF_TEMPS_CURR_VCM_PLL_MEM_MAP_INFO(inst)           ((uint32_t)(inst) + 0x000000BFU), 0x00000400U
 
-#define REG_TEMPS_BIAS_COMP_PLL_MEM_MAP_ADDR(inst)         ((inst) + 0x000000C0)
-#define BF_TEMPS_CURR_FLASHO_N_PLL_MEM_MAP_INFO(inst)      ((inst) + 0x000000C0), 0x00000400
-#define BF_TEMPS_CURR_FLASHO_P_PLL_MEM_MAP_INFO(inst)      ((inst) + 0x000000C0), 0x00000404
+#define REG_TEMPS_BIAS_COMP_PLL_MEM_MAP_ADDR(inst)         ((uint32_t)(inst) + 0x000000C0U)
+#define BF_TEMPS_CURR_FLASHO_N_PLL_MEM_MAP_INFO(inst)      ((uint32_t)(inst) + 0x000000C0U), 0x00000400U
+#define BF_TEMPS_CURR_FLASHO_P_PLL_MEM_MAP_INFO(inst)      ((uint32_t)(inst) + 0x000000C0U), 0x00000404U
 
-#define REG_TEMPS_MUX_IN_PLL_MEM_MAP_ADDR(inst)            ((inst) + 0x000000C1)
-#define BF_TEMPS_SEL_MUX_VP_PLL_MEM_MAP_INFO(inst)         ((inst) + 0x000000C1), 0x00000300
-#define BF_TEMPS_SEL_MUX_VM_PLL_MEM_MAP_INFO(inst)         ((inst) + 0x000000C1), 0x00000304
+#define REG_TEMPS_MUX_IN_PLL_MEM_MAP_ADDR(inst)            ((uint32_t)(inst) + 0x000000C1U)
+#define BF_TEMPS_SEL_MUX_VP_PLL_MEM_MAP_INFO(inst)         ((uint32_t)(inst) + 0x000000C1U), 0x00000300U
+#define BF_TEMPS_SEL_MUX_VM_PLL_MEM_MAP_INFO(inst)         ((uint32_t)(inst) + 0x000000C1U), 0x00000304U
 
-#define REG_TEMPS_MUX_BG_CLK_PLL_MEM_MAP_ADDR(inst)        ((inst) + 0x000000C2)
-#define BF_TEMPS_SEL_MUX_BG_PLL_MEM_MAP_INFO(inst)         ((inst) + 0x000000C2), 0x00000300
-#define BF_TEMPS_CLK_MUX_PLL_MEM_MAP_INFO(inst)            ((inst) + 0x000000C2), 0x00000104
+#define REG_TEMPS_MUX_BG_CLK_PLL_MEM_MAP_ADDR(inst)        ((uint32_t)(inst) + 0x000000C2U)
+#define BF_TEMPS_SEL_MUX_BG_PLL_MEM_MAP_INFO(inst)         ((uint32_t)(inst) + 0x000000C2U), 0x00000300U
+#define BF_TEMPS_CLK_MUX_PLL_MEM_MAP_INFO(inst)            ((uint32_t)(inst) + 0x000000C2U), 0x00000104U
 
-#define REG_TEMPS_TEST_CTRL_PLL_MEM_MAP_ADDR(inst)         ((inst) + 0x000000C3)
-#define BF_TEMPS_TEST_MODE_PLL_MEM_MAP_INFO(inst)          ((inst) + 0x000000C3), 0x00000200
-#define BF_TEMPS_WAIT_TO_MEASURE_PLL_MEM_MAP_INFO(inst)    ((inst) + 0x000000C3), 0x00000302
-#define BF_TEMPS_WAKE_SETTING_PLL_MEM_MAP_INFO(inst)       ((inst) + 0x000000C3), 0x00000305
+#define REG_TEMPS_TEST_CTRL_PLL_MEM_MAP_ADDR(inst)         ((uint32_t)(inst) + 0x000000C3U)
+#define BF_TEMPS_TEST_MODE_PLL_MEM_MAP_INFO(inst)          ((uint32_t)(inst) + 0x000000C3U), 0x00000200U
+#define BF_TEMPS_WAIT_TO_MEASURE_PLL_MEM_MAP_INFO(inst)    ((uint32_t)(inst) + 0x000000C3U), 0x00000302U
+#define BF_TEMPS_WAKE_SETTING_PLL_MEM_MAP_INFO(inst)       ((uint32_t)(inst) + 0x000000C3U), 0x00000305U
 
-#define REG_TEMPS_TEST_STATE_STEP_PLL_MEM_MAP_ADDR(inst)   ((inst) + 0x000000C4)
-#define BF_TEMPS_TEST_STATE_ADVANCE_PLL_MEM_MAP_INFO(inst) ((inst) + 0x000000C4), 0x00000100
-#define BF_TEMPS_TEST_STATE_PLL_MEM_MAP_INFO(inst)         ((inst) + 0x000000C4), 0x00000101
-#define BF_TEMPS_MEASURE_CONTROL_PLL_MEM_MAP_INFO(inst)    ((inst) + 0x000000C4), 0x00000204
+#define REG_TEMPS_TEST_STATE_STEP_PLL_MEM_MAP_ADDR(inst)   ((uint32_t)(inst) + 0x000000C4U)
+#define BF_TEMPS_TEST_STATE_ADVANCE_PLL_MEM_MAP_INFO(inst) ((uint32_t)(inst) + 0x000000C4U), 0x00000100U
+#define BF_TEMPS_TEST_STATE_PLL_MEM_MAP_INFO(inst)         ((uint32_t)(inst) + 0x000000C4U), 0x00000101U
+#define BF_TEMPS_MEASURE_CONTROL_PLL_MEM_MAP_INFO(inst)    ((uint32_t)(inst) + 0x000000C4U), 0x00000204U
 
-#define REG_TEMPS_MUX_OBS_CTRL_PLL_MEM_MAP_ADDR(inst)      ((inst) + 0x000000C5)
-#define BF_TEMPS_MUX_OBS_CTRL_PLL_MEM_MAP_INFO(inst)       ((inst) + 0x000000C5), 0x00000800
+#define REG_TEMPS_MUX_OBS_CTRL_PLL_MEM_MAP_ADDR(inst)      ((uint32_t)(inst) + 0x000000C5U)
+#define BF_TEMPS_MUX_OBS_CTRL_PLL_MEM_MAP_INFO(inst)       ((uint32_t)(inst) + 0x000000C5U), 0x00000800U
 
-#define REG_TEMPS_MUX_OBS_PLL_MEM_MAP_ADDR(inst)           ((inst) + 0x000000C6)
-#define BF_TEMPS_MUX_OBS_PLL_MEM_MAP_INFO(inst)            ((inst) + 0x000000C6), 0x00000800
+#define REG_TEMPS_MUX_OBS_PLL_MEM_MAP_ADDR(inst)           ((uint32_t)(inst) + 0x000000C6U)
+#define BF_TEMPS_MUX_OBS_PLL_MEM_MAP_INFO(inst)            ((uint32_t)(inst) + 0x000000C6U), 0x00000800U
 
-#define REG_TEMPS_TEST_SPARE_00_PLL_MEM_MAP_ADDR(inst)     ((inst) + 0x000000C7)
+#define REG_TEMPS_TEST_SPARE_00_PLL_MEM_MAP_ADDR(inst)     ((uint32_t)(inst) + 0x000000C7U)
 
-#define REG_TEMPS_TEST_SPARE_01_PLL_MEM_MAP_ADDR(inst)     ((inst) + 0x000000C8)
-#define BF_TEMPS_CTRL_PLL_MEM_MAP_INFO(inst)               ((inst) + 0x000000C8), 0x00001000
+#define REG_TEMPS_TEST_SPARE_01_PLL_MEM_MAP_ADDR(inst)     ((uint32_t)(inst) + 0x000000C8U)
+#define BF_TEMPS_CTRL_PLL_MEM_MAP_INFO(inst)               ((uint32_t)(inst) + 0x000000C8U), 0x00001000U
 
-#endif /* __ADI_APOLLO_BF_PLL_MEM_MAP_H__ */
+#endif /* ADI_APOLLO_BF_PLL_MEM_MAP_H__ */
 /*! @} */

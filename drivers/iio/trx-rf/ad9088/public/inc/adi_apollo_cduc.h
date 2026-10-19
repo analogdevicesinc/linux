@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_CDUC
  * @{
  */
-#ifndef __ADI_APOLLO_CDUC_H__
-#define __ADI_APOLLO_CDUC_H__
+#ifndef ADI_APOLLO_CDUC_H__
+#define ADI_APOLLO_CDUC_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_cduc_types.h"
@@ -104,5 +104,5 @@ int32_t adi_apollo_cduc_irq_enable_set(adi_apollo_device_t *device, adi_apollo_b
 }
 #endif
 
-#endif /* __ADI_APOLLO_CDUC_H__ */
+#endif /* ADI_APOLLO_CDUC_H__ */
 /*! @} */

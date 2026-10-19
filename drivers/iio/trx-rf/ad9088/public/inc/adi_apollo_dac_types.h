@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_DAC
  * @{
  */
-#ifndef __ADI_APOLLO_DAC_TYPES_H__
-#define __ADI_APOLLO_DAC_TYPES_H__
+#ifndef ADI_APOLLO_DAC_TYPES_H__
+#define ADI_APOLLO_DAC_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -27,5 +27,5 @@ typedef enum {
     ADI_APOLLO_DAC_CLK_TRIM_3   = 3
 } adi_apollo_dac_clk_trim_e;
 
-#endif /* __ADI_APOLLO_DAC_TYPES_H__ */
+#endif /* ADI_APOLLO_DAC_TYPES_H__ */
 /*! @} */

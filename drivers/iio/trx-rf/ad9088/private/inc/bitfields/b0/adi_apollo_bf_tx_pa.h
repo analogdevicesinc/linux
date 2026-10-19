@@ -12,59 +12,59 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_TX_PA_H__
-#define __ADI_APOLLO_BF_TX_PA_H__
+#ifndef ADI_APOLLO_BF_TX_PA_H__
+#define ADI_APOLLO_BF_TX_PA_H__
 
 /*============= D E F I N E S ==============*/
-#define TX_PA0_TX_SLICE_0_TX_DIGITAL0          0x61336000
-#define TX_PA1_TX_SLICE_0_TX_DIGITAL0          0x61337000
-#define TX_PA0_TX_SLICE_1_TX_DIGITAL0          0x61536000
-#define TX_PA1_TX_SLICE_1_TX_DIGITAL0          0x61537000
-#define TX_PA0_TX_SLICE_0_TX_DIGITAL1          0x61B36000
-#define TX_PA1_TX_SLICE_0_TX_DIGITAL1          0x61B37000
-#define TX_PA0_TX_SLICE_1_TX_DIGITAL1          0x61D36000
-#define TX_PA1_TX_SLICE_1_TX_DIGITAL1          0x61D37000
+#define TX_PA0_TX_SLICE_0_TX_DIGITAL0          0x61336000U
+#define TX_PA1_TX_SLICE_0_TX_DIGITAL0          0x61337000U
+#define TX_PA0_TX_SLICE_1_TX_DIGITAL0          0x61536000U
+#define TX_PA1_TX_SLICE_1_TX_DIGITAL0          0x61537000U
+#define TX_PA0_TX_SLICE_0_TX_DIGITAL1          0x61B36000U
+#define TX_PA1_TX_SLICE_0_TX_DIGITAL1          0x61B37000U
+#define TX_PA0_TX_SLICE_1_TX_DIGITAL1          0x61D36000U
+#define TX_PA1_TX_SLICE_1_TX_DIGITAL1          0x61D37000U
 
-#define REG_LONG_PA_THRES_LSB_ADDR(inst)       ((inst) + 0x00000024)
-#define BF_PWR_THRESHOLD_LONG_INFO(inst)       ((inst) + 0x00000024), 0x00000D00
+#define REG_LONG_PA_THRES_LSB_ADDR(inst)       ((uint32_t)(inst) + 0x00000024U)
+#define BF_PWR_THRESHOLD_LONG_INFO(inst)       ((uint32_t)(inst) + 0x00000024U), 0x00000D00U
 
-#define REG_LONG_PA_THRES_MSB_ADDR(inst)       ((inst) + 0x00000025)
+#define REG_LONG_PA_THRES_MSB_ADDR(inst)       ((uint32_t)(inst) + 0x00000025U)
 
-#define REG_LONG_PA_AVG_ADDR(inst)             ((inst) + 0x00000026)
-#define BF_AVG_LONG_WIN_INFO(inst)             ((inst) + 0x00000026), 0x00000400
+#define REG_LONG_PA_AVG_ADDR(inst)             ((uint32_t)(inst) + 0x00000026U)
+#define BF_AVG_LONG_WIN_INFO(inst)             ((uint32_t)(inst) + 0x00000026U), 0x00000400U
 
-#define REG_SHORT_PA_AVG_ADDR(inst)            ((inst) + 0x00000027)
-#define BF_AVG_SHORT_WIN_INFO(inst)            ((inst) + 0x00000027), 0x00000200
+#define REG_SHORT_PA_AVG_ADDR(inst)            ((uint32_t)(inst) + 0x00000027U)
+#define BF_AVG_SHORT_WIN_INFO(inst)            ((uint32_t)(inst) + 0x00000027U), 0x00000200U
 
-#define REG_SHORT_PA_THRES_LSB_ADDR(inst)      ((inst) + 0x00000028)
-#define BF_PWR_THRESHOLD_SHORT_INFO(inst)      ((inst) + 0x00000028), 0x00000D00
+#define REG_SHORT_PA_THRES_LSB_ADDR(inst)      ((uint32_t)(inst) + 0x00000028U)
+#define BF_PWR_THRESHOLD_SHORT_INFO(inst)      ((uint32_t)(inst) + 0x00000028U), 0x00000D00U
 
-#define REG_SHORT_PA_THRES_MSB_ADDR(inst)      ((inst) + 0x00000029)
+#define REG_SHORT_PA_THRES_MSB_ADDR(inst)      ((uint32_t)(inst) + 0x00000029U)
 
-#define REG_LONG_PA_POWER_LSB_ADDR(inst)       ((inst) + 0x00000030)
-#define BF_CALCULATED_PWR_AVG_LONG_INFO(inst)  ((inst) + 0x00000030), 0x00000D00
+#define REG_LONG_PA_POWER_LSB_ADDR(inst)       ((uint32_t)(inst) + 0x00000030U)
+#define BF_CALCULATED_PWR_AVG_LONG_INFO(inst)  ((uint32_t)(inst) + 0x00000030U), 0x00000D00U
 
-#define REG_LONG_PA_POWER_MSB_ADDR(inst)       ((inst) + 0x00000031)
+#define REG_LONG_PA_POWER_MSB_ADDR(inst)       ((uint32_t)(inst) + 0x00000031U)
 
-#define REG_SHORT_PA_POWER_LSB_ADDR(inst)      ((inst) + 0x00000032)
-#define BF_CALCULATED_PWR_AVG_SHORT_INFO(inst) ((inst) + 0x00000032), 0x00000D00
+#define REG_SHORT_PA_POWER_LSB_ADDR(inst)      ((uint32_t)(inst) + 0x00000032U)
+#define BF_CALCULATED_PWR_AVG_SHORT_INFO(inst) ((uint32_t)(inst) + 0x00000032U), 0x00000D00U
 
-#define REG_SHORT_PA_POWER_MSB_ADDR(inst)      ((inst) + 0x00000033)
+#define REG_SHORT_PA_POWER_MSB_ADDR(inst)      ((uint32_t)(inst) + 0x00000033U)
 
-#define REG_PA_PWR_AVG_CTRL_ADDR(inst)         ((inst) + 0x00000034)
-#define BF_LONG_PAC_ENABLE_INFO(inst)          ((inst) + 0x00000034), 0x00000101
-#define BF_SHORT_PAC_ENABLE_INFO(inst)         ((inst) + 0x00000034), 0x00000102
-#define BF_PA_AVG_ERR_INFO(inst)               ((inst) + 0x00000034), 0x00000103
-#define BF_PA_PWR_AVG_ERR_CLEAR_INFO(inst)     ((inst) + 0x00000034), 0x00000104
-#define BF_PA_CLK_ENA_INFO(inst)               ((inst) + 0x00000034), 0x00000107
+#define REG_PA_PWR_AVG_CTRL_ADDR(inst)         ((uint32_t)(inst) + 0x00000034U)
+#define BF_LONG_PAC_ENABLE_INFO(inst)          ((uint32_t)(inst) + 0x00000034U), 0x00000101U
+#define BF_SHORT_PAC_ENABLE_INFO(inst)         ((uint32_t)(inst) + 0x00000034U), 0x00000102U
+#define BF_PA_AVG_ERR_INFO(inst)               ((uint32_t)(inst) + 0x00000034U), 0x00000103U
+#define BF_PA_PWR_AVG_ERR_CLEAR_INFO(inst)     ((uint32_t)(inst) + 0x00000034U), 0x00000104U
+#define BF_PA_CLK_ENA_INFO(inst)               ((uint32_t)(inst) + 0x00000034U), 0x00000107U
 
-#define REG_PA_PWR_AVG_IRQ_ADDR(inst)          ((inst) + 0x00000035)
-#define BF_PA_AVG_ERR_IRQ_INFO(inst)           ((inst) + 0x00000035), 0x00000100
-#define BF_PA_AVG_ERR_IRQ_EN_INFO(inst)        ((inst) + 0x00000035), 0x00000101
-#define BF_LONG_WIN_DONE_IRQ_INFO(inst)        ((inst) + 0x00000035), 0x00000102
-#define BF_LONG_WIN_DONE_IRQ_EN_INFO(inst)     ((inst) + 0x00000035), 0x00000103
-#define BF_SHORT_WIN_DONE_IRQ_INFO(inst)       ((inst) + 0x00000035), 0x00000104
-#define BF_SHORT_WIN_DONE_IRQ_EN_INFO(inst)    ((inst) + 0x00000035), 0x00000105
+#define REG_PA_PWR_AVG_IRQ_ADDR(inst)          ((uint32_t)(inst) + 0x00000035U)
+#define BF_PA_AVG_ERR_IRQ_INFO(inst)           ((uint32_t)(inst) + 0x00000035U), 0x00000100U
+#define BF_PA_AVG_ERR_IRQ_EN_INFO(inst)        ((uint32_t)(inst) + 0x00000035U), 0x00000101U
+#define BF_LONG_WIN_DONE_IRQ_INFO(inst)        ((uint32_t)(inst) + 0x00000035U), 0x00000102U
+#define BF_LONG_WIN_DONE_IRQ_EN_INFO(inst)     ((uint32_t)(inst) + 0x00000035U), 0x00000103U
+#define BF_SHORT_WIN_DONE_IRQ_INFO(inst)       ((uint32_t)(inst) + 0x00000035U), 0x00000104U
+#define BF_SHORT_WIN_DONE_IRQ_EN_INFO(inst)    ((uint32_t)(inst) + 0x00000035U), 0x00000105U
 
-#endif /* __ADI_APOLLO_BF_TX_PA_H__ */
+#endif /* ADI_APOLLO_BF_TX_PA_H__ */
 /*! @} */
