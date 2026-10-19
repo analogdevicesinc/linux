@@ -14,4 +14,8 @@ void xe_shrinker_mod_pages(struct xe_shrinker *shrinker, long shrinkable, long p
 
 int xe_shrinker_create(struct xe_device *xe);
 
+int xe_shrinker_non_purgeable_seeks(struct xe_shrinker *shrinker);
+int xe_shrinker_set_non_purgeable_seeks(struct xe_shrinker *shrinker,
+					unsigned int seeks);
+
 #endif
