@@ -30,6 +30,8 @@
 #define ADMV1355_REG_FILTER_LUT_EN	0x202
 #define ADMV1355_REG_FILTER_LOAD_EN	0x208
 #define ADMV1355_REG_GAIN_TBL_BYP	0x28A
+#define ADMV1355_REG_DSA_BYPASS		0x28B
+#define ADMV1355_REG_GPO_G_BYPASS	0x28C
 #define ADMV1355_REG_RF_LPF		0x2A0
 #define ADMV1355_REG_RF_HPF		0x2A1
 #define ADMV1355_REG_ADC_MUX		0x2A7
@@ -40,9 +42,12 @@
 #define ADMV1355_REG_DSA_DIRECT		0x600
 #define ADMV1355_REG_GPO_G_DIRECT	0x601
 #define ADMV1355_REG_IF_ENABLE		0x602
+#define ADMV1355_REG_GPO_F_OE		0x780
+#define ADMV1355_REG_GPO_GF_OE		0x781
 #define ADMV1355_REG_LO_X4_FILTER	0x800
 #define ADMV1355_REG_LO_X3_FILTER	0x801
 #define ADMV1355_REG_LO_X1_FILTER	0x802
+#define ADMV1355_REG_GPO_F_DIRECT	0x803
 #define ADMV1355_REG_LO_TRAP_7_0	0x804
 #define ADMV1355_REG_LO_TRAP_9_8	0x805
 #define ADMV1355_REG_LO_BAND		0x806
@@ -80,6 +85,17 @@
 
 #define ADMV1355_DIRECT_LPF_MSK		GENMASK(3, 0)
 #define ADMV1355_DIRECT_HPF_MSK		GENMASK(7, 4)
+
+#define ADMV1355_GAIN_LUT_BYP_EN_MSK	BIT(0)
+#define ADMV1355_DSA1_BYPASS_MSK	GENMASK(3, 0)
+#define ADMV1355_DSA2_BYPASS_MSK	GENMASK(7, 4)
+
+#define ADMV1355_GPO_G_DIRECT_MSK	GENMASK(4, 0)
+#define ADMV1355_GPO_G_BYPASS_MSK	GENMASK(4, 0)
+#define ADMV1355_GPO_F_DIRECT_MSK	GENMASK(5, 0)
+#define ADMV1355_GPO_F_OE_MSK		GENMASK(5, 0)
+#define ADMV1355_GPO_G_OE_LO_MSK	GENMASK(7, 6)
+#define ADMV1355_GPO_G_OE_HI_MSK	GENMASK(2, 0)
 
 #define ADMV1355_SCRATCH_TEST_VAL	0xA5
 
@@ -138,6 +154,8 @@ enum admv1355_chan_addr {
 	ADMV1355_CH_RF,
 	ADMV1355_CH_DSA1,
 	ADMV1355_CH_DSA2,
+	ADMV1355_CH_DSA1_BYPASS,
+	ADMV1355_CH_DSA2_BYPASS,
 	ADMV1355_CH_IF,
 	ADMV1355_CH_LO,
 	ADMV1355_CH_LO_I,
@@ -148,6 +166,8 @@ static const char * const admv1355_chan_labels[] = {
 	[ADMV1355_CH_RF] = "rf",
 	[ADMV1355_CH_DSA1] = "dsa1",
 	[ADMV1355_CH_DSA2] = "dsa2",
+	[ADMV1355_CH_DSA1_BYPASS] = "dsa1_bypass",
+	[ADMV1355_CH_DSA2_BYPASS] = "dsa2_bypass",
 	[ADMV1355_CH_IF] = "if",
 	[ADMV1355_CH_LO] = "lo",
 	[ADMV1355_CH_LO_I] = "lo_i",
@@ -747,6 +767,26 @@ static const struct iio_chan_spec admv1355_channels[] = {
 		.parent = &admv1355_channels[ADMV1355_CH_RF],
 		.address = ADMV1355_CH_DSA2,
 	},
+	/* Bypass DSA1 — bypass path attenuator, 0 to -15 dB in 1 dB steps */
+	[ADMV1355_CH_DSA1_BYPASS] = {
+		.type = IIO_ALTVOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = 3,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
+		.parent = &admv1355_channels[ADMV1355_CH_RF],
+		.address = ADMV1355_CH_DSA1_BYPASS,
+	},
+	/* Bypass DSA2 — bypass path attenuator, 0 to -15 dB in 1 dB steps */
+	[ADMV1355_CH_DSA2_BYPASS] = {
+		.type = IIO_ALTVOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = 4,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN),
+		.parent = &admv1355_channels[ADMV1355_CH_RF],
+		.address = ADMV1355_CH_DSA2_BYPASS,
+	},
 	/* IF input */
 	[ADMV1355_CH_IF] = {
 		.type = IIO_ALTVOLTAGE,
@@ -830,6 +870,20 @@ static int admv1355_read_raw(struct iio_dev *indio_dev,
 			if (ret)
 				return ret;
 			*val = -(int)FIELD_GET(ADMV1355_DSA2_DIRECT_MSK, data);
+			return IIO_VAL_INT;
+		case ADMV1355_CH_DSA1_BYPASS:
+			ret = regmap_read(priv->regmap, ADMV1355_REG_DSA_BYPASS,
+					  &data);
+			if (ret)
+				return ret;
+			*val = -(int)FIELD_GET(ADMV1355_DSA1_BYPASS_MSK, data);
+			return IIO_VAL_INT;
+		case ADMV1355_CH_DSA2_BYPASS:
+			ret = regmap_read(priv->regmap, ADMV1355_REG_DSA_BYPASS,
+					  &data);
+			if (ret)
+				return ret;
+			*val = -(int)FIELD_GET(ADMV1355_DSA2_BYPASS_MSK, data);
 			return IIO_VAL_INT;
 		case ADMV1355_CH_LO_I:
 			ret = regmap_read(priv->regmap, ADMV1355_REG_IF_GAIN,
@@ -926,6 +980,22 @@ static int admv1355_write_raw(struct iio_dev *indio_dev,
 						 ADMV1355_DSA2_DIRECT_MSK,
 						 FIELD_PREP(ADMV1355_DSA2_DIRECT_MSK,
 							    -val));
+		case ADMV1355_CH_DSA1_BYPASS:
+			if (val2 != 0 || val > 0 || val < -15)
+				return -EINVAL;
+			return regmap_update_bits(priv->regmap,
+						 ADMV1355_REG_DSA_BYPASS,
+						 ADMV1355_DSA1_BYPASS_MSK,
+						 FIELD_PREP(ADMV1355_DSA1_BYPASS_MSK,
+							    -val));
+		case ADMV1355_CH_DSA2_BYPASS:
+			if (val2 != 0 || val > 0 || val < -15)
+				return -EINVAL;
+			return regmap_update_bits(priv->regmap,
+						 ADMV1355_REG_DSA_BYPASS,
+						 ADMV1355_DSA2_BYPASS_MSK,
+						 FIELD_PREP(ADMV1355_DSA2_BYPASS_MSK,
+							    -val));
 		case ADMV1355_CH_LO_I:
 			if (val > 0 || (val == 0 && val2 > 0))
 				return -EINVAL;
@@ -1014,11 +1084,209 @@ static int admv1355_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	return admv1355_spi_write(priv, reg, write_val);
 }
 
+enum admv1355_dev_attr_id {
+	ADMV1355_DEV_ATTR_GAIN_LUT_BYPASS_EN,
+	ADMV1355_DEV_ATTR_DIRECT_GPO_G,
+	ADMV1355_DEV_ATTR_BYPASS_GPO_G,
+	ADMV1355_DEV_ATTR_DIRECT_GPO_F,
+	ADMV1355_DEV_ATTR_GPO_F_OE,
+	ADMV1355_DEV_ATTR_GPO_G_OE,
+};
+
+struct admv1355_attribute {
+	enum admv1355_dev_attr_id id;
+	struct device_attribute attr;
+};
+
+#define to_admv1355_attribute(x) container_of(x, struct admv1355_attribute, attr)
+
+static ssize_t admv1355_dev_attr_show(struct device *dev,
+				      struct device_attribute *dev_attr,
+				      char *buf)
+{
+	const struct admv1355_attribute *attr = to_admv1355_attribute(dev_attr);
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct admv1355_priv *priv = iio_priv(indio_dev);
+	unsigned int data;
+	int ret;
+
+	guard(mutex)(&priv->lock);
+
+	switch (attr->id) {
+	case ADMV1355_DEV_ATTR_GAIN_LUT_BYPASS_EN:
+		ret = regmap_read(priv->regmap, ADMV1355_REG_GAIN_TBL_BYP,
+				  &data);
+		if (ret)
+			return ret;
+		return sysfs_emit(buf, "%s\n",
+				  (data & ADMV1355_GAIN_LUT_BYP_EN_MSK) ?
+				  "true" : "false");
+	case ADMV1355_DEV_ATTR_DIRECT_GPO_G:
+		ret = regmap_read(priv->regmap, ADMV1355_REG_GPO_G_DIRECT,
+				  &data);
+		if (ret)
+			return ret;
+		return sysfs_emit(buf, "%lu\n",
+				  FIELD_GET(ADMV1355_GPO_G_DIRECT_MSK, data));
+	case ADMV1355_DEV_ATTR_BYPASS_GPO_G:
+		ret = regmap_read(priv->regmap, ADMV1355_REG_GPO_G_BYPASS,
+				  &data);
+		if (ret)
+			return ret;
+		return sysfs_emit(buf, "%lu\n",
+				  FIELD_GET(ADMV1355_GPO_G_BYPASS_MSK, data));
+	case ADMV1355_DEV_ATTR_DIRECT_GPO_F:
+		ret = regmap_read(priv->regmap, ADMV1355_REG_GPO_F_DIRECT,
+				  &data);
+		if (ret)
+			return ret;
+		return sysfs_emit(buf, "%lu\n",
+				  FIELD_GET(ADMV1355_GPO_F_DIRECT_MSK, data));
+	case ADMV1355_DEV_ATTR_GPO_F_OE:
+		ret = regmap_read(priv->regmap, ADMV1355_REG_GPO_F_OE, &data);
+		if (ret)
+			return ret;
+		return sysfs_emit(buf, "%lu\n",
+				  FIELD_GET(ADMV1355_GPO_F_OE_MSK, data));
+	case ADMV1355_DEV_ATTR_GPO_G_OE: {
+		unsigned int lo, hi;
+
+		ret = regmap_read(priv->regmap, ADMV1355_REG_GPO_F_OE, &lo);
+		if (ret)
+			return ret;
+		ret = regmap_read(priv->regmap, ADMV1355_REG_GPO_GF_OE, &hi);
+		if (ret)
+			return ret;
+		return sysfs_emit(buf, "%lu\n",
+				  (FIELD_GET(ADMV1355_GPO_G_OE_LO_MSK, lo)) |
+				  (FIELD_GET(ADMV1355_GPO_G_OE_HI_MSK, hi) << 2));
+	}
+	default:
+		return -EINVAL;
+	}
+}
+
+static ssize_t admv1355_dev_attr_store(struct device *dev,
+				       struct device_attribute *dev_attr,
+				       const char *buf, size_t len)
+{
+	const struct admv1355_attribute *attr = to_admv1355_attribute(dev_attr);
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct admv1355_priv *priv = iio_priv(indio_dev);
+	unsigned int val;
+	bool bval;
+	int ret;
+
+	guard(mutex)(&priv->lock);
+
+	switch (attr->id) {
+	case ADMV1355_DEV_ATTR_GAIN_LUT_BYPASS_EN:
+		ret = kstrtobool(buf, &bval);
+		if (ret)
+			return ret;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_GAIN_TBL_BYP,
+					 ADMV1355_GAIN_LUT_BYP_EN_MSK,
+					 bval ? ADMV1355_GAIN_LUT_BYP_EN_MSK : 0);
+		break;
+	case ADMV1355_DEV_ATTR_DIRECT_GPO_G:
+		ret = kstrtouint(buf, 0, &val);
+		if (ret)
+			return ret;
+		if (val > 31)
+			return -EINVAL;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_GPO_G_DIRECT,
+					 ADMV1355_GPO_G_DIRECT_MSK,
+					 FIELD_PREP(ADMV1355_GPO_G_DIRECT_MSK, val));
+		break;
+	case ADMV1355_DEV_ATTR_BYPASS_GPO_G:
+		ret = kstrtouint(buf, 0, &val);
+		if (ret)
+			return ret;
+		if (val > 31)
+			return -EINVAL;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_GPO_G_BYPASS,
+					 ADMV1355_GPO_G_BYPASS_MSK,
+					 FIELD_PREP(ADMV1355_GPO_G_BYPASS_MSK, val));
+		break;
+	case ADMV1355_DEV_ATTR_DIRECT_GPO_F:
+		ret = kstrtouint(buf, 0, &val);
+		if (ret)
+			return ret;
+		if (val > 63)
+			return -EINVAL;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_GPO_F_DIRECT,
+					 ADMV1355_GPO_F_DIRECT_MSK,
+					 FIELD_PREP(ADMV1355_GPO_F_DIRECT_MSK, val));
+		break;
+	case ADMV1355_DEV_ATTR_GPO_F_OE:
+		ret = kstrtouint(buf, 0, &val);
+		if (ret)
+			return ret;
+		if (val > 63)
+			return -EINVAL;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_GPO_F_OE,
+					 ADMV1355_GPO_F_OE_MSK,
+					 FIELD_PREP(ADMV1355_GPO_F_OE_MSK, val));
+		break;
+	case ADMV1355_DEV_ATTR_GPO_G_OE:
+		ret = kstrtouint(buf, 0, &val);
+		if (ret)
+			return ret;
+		if (val > 31)
+			return -EINVAL;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_GPO_F_OE,
+					 ADMV1355_GPO_G_OE_LO_MSK,
+					 FIELD_PREP(ADMV1355_GPO_G_OE_LO_MSK,
+						    val & 0x3));
+		if (ret)
+			break;
+		ret = regmap_update_bits(priv->regmap, ADMV1355_REG_GPO_GF_OE,
+					 ADMV1355_GPO_G_OE_HI_MSK,
+					 FIELD_PREP(ADMV1355_GPO_G_OE_HI_MSK,
+						    (val >> 2) & 0x7));
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return ret ? ret : len;
+}
+
+#define ADMV1355_ATTR(_name, _id, _mode)				\
+	struct admv1355_attribute dev_attr_##_name = {			\
+		.attr = __ATTR(_name, _mode, admv1355_dev_attr_show,	\
+			       admv1355_dev_attr_store),			\
+		.id = _id,						\
+	}
+
+static ADMV1355_ATTR(gain_lut_bypass_en, ADMV1355_DEV_ATTR_GAIN_LUT_BYPASS_EN,
+		     0644);
+static ADMV1355_ATTR(direct_gpo_g, ADMV1355_DEV_ATTR_DIRECT_GPO_G, 0644);
+static ADMV1355_ATTR(bypass_gpo_g, ADMV1355_DEV_ATTR_BYPASS_GPO_G, 0644);
+static ADMV1355_ATTR(direct_gpo_f, ADMV1355_DEV_ATTR_DIRECT_GPO_F, 0644);
+static ADMV1355_ATTR(gpo_f_oe, ADMV1355_DEV_ATTR_GPO_F_OE, 0644);
+static ADMV1355_ATTR(gpo_g_oe, ADMV1355_DEV_ATTR_GPO_G_OE, 0644);
+
+static struct attribute *admv1355_attributes[] = {
+	&dev_attr_gain_lut_bypass_en.attr.attr,
+	&dev_attr_direct_gpo_g.attr.attr,
+	&dev_attr_bypass_gpo_g.attr.attr,
+	&dev_attr_direct_gpo_f.attr.attr,
+	&dev_attr_gpo_f_oe.attr.attr,
+	&dev_attr_gpo_g_oe.attr.attr,
+	NULL,
+};
+
+static const struct attribute_group admv1355_attribute_group = {
+	.attrs = admv1355_attributes,
+};
+
 static const struct iio_info admv1355_info = {
 	.read_raw = admv1355_read_raw,
 	.write_raw = admv1355_write_raw,
 	.read_label = admv1355_read_label,
 	.debugfs_reg_access = admv1355_reg_access,
+	.attrs = &admv1355_attribute_group,
 };
 
 static int admv1355_set_filters(struct admv1355_priv *priv, u64 rate_hz)
@@ -1296,6 +1564,10 @@ static int admv1355_setup(struct admv1355_priv *priv)
 		return ret;
 
 	ret = admv1355_spi_write(priv, ADMV1355_REG_GAIN_TBL_BYP, 0x01);
+	if (ret)
+		return ret;
+
+	ret = admv1355_spi_write(priv, ADMV1355_REG_DSA_BYPASS, 0x00);
 	if (ret)
 		return ret;
 
