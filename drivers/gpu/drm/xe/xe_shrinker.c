@@ -34,6 +34,8 @@
  * @shrinkable_pages: Number of pages that are currently shrinkable.
  * @purgeable_pages: Number of pages that are currently purgeable.
  * @populated_tts: Number of populated ttm_tts currently shrinkable or purgeable.
+ * @batch_avg: Exponential moving average of the preferred non-purgeable
+ * batch size, based on the average populated ttm_tt size.
  * @shrink: Pointer to the mm shrinker handling non-purgeable (shrinkable) objects.
  * @purge_shrink: Pointer to the mm shrinker handling purgeable objects.
  * @pm_worker: Worker to wake up the device if required.
@@ -44,6 +46,7 @@ struct xe_shrinker {
 	long shrinkable_pages;
 	long purgeable_pages;
 	long populated_tts;
+	long batch_avg;
 	struct shrinker *shrink;
 	struct shrinker *purge_shrink;
 	struct work_struct pm_worker;
@@ -207,6 +210,28 @@ xe_shrinker_count_purgeable(struct shrinker *shrink, struct shrink_control *sc)
 	return num_pages ? num_pages : SHRINK_EMPTY;
 }
 
+/**
+ * DOC: Batch size calculation
+ *
+ * Update our preferred vmscan batch size for the non-purgeable shrinker
+ * on count passes that allow backup (__GFP_FS), to avoid invoking
+ * scan_objects() for requests too small to free even a single
+ * average-sized GEM object. Our rough estimate for an effective batch
+ * is twice the average number of pages per populated ttm_tt across
+ * the full shrinkable and purgeable population. The factor of two
+ * provides headroom so that most scan invocations can free at least one
+ * GEM object despite variability in object sizes.
+ *
+ * The batch value is updated as an exponential moving average,
+ * (old_batch + avg) / 2, to smooth out sudden changes in the object
+ * population. It is floored at 128 pages, the kernel default
+ * SHRINK_BATCH, to ensure the shrinker remains responsive when there
+ * are very few objects.
+ *
+ * We only do this for the non-purgeable shrinker: purgeable objects are
+ * reclaimed without writeback or GPU idling, so shrinking them is cheap
+ * enough that the core default batch size is fine.
+ */
 static unsigned long
 xe_shrinker_count(struct shrinker *shrink, struct shrink_control *sc)
 {
@@ -214,15 +239,26 @@ xe_shrinker_count(struct shrinker *shrink, struct shrink_control *sc)
 	unsigned long num_pages;
 	bool can_backup = !!(sc->gfp_mask & __GFP_FS);
 
+	if (!can_backup)
+		return SHRINK_EMPTY;
+
 	num_pages = ttm_backup_bytes_avail() >> PAGE_SHIFT;
-	read_lock(&shrinker->lock);
+	/* Consistently use write_lock() for simplicity. */
+	write_lock(&shrinker->lock);
 
-	if (can_backup)
-		num_pages = min_t(unsigned long, num_pages, shrinker->shrinkable_pages);
-	else
-		num_pages = 0;
+	num_pages = min_t(unsigned long, num_pages, shrinker->shrinkable_pages);
 
-	read_unlock(&shrinker->lock);
+	if (shrinker->populated_tts) {
+		unsigned long avg = 2 * (shrinker->shrinkable_pages +
+					 shrinker->purgeable_pages) /
+				     shrinker->populated_tts;
+
+		shrinker->batch_avg = max((shrinker->batch_avg + (long)avg) >> 1,
+					  128L /* default SHRINK_BATCH */);
+		WRITE_ONCE(shrink->batch, shrinker->batch_avg);
+	}
+
+	write_unlock(&shrinker->lock);
 
 	return num_pages ? num_pages : SHRINK_EMPTY;
 }
