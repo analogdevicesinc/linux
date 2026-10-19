@@ -6,6 +6,8 @@
  * Sorted alphabetically.
  */
 
+#include "../../drivers/gpu/drm/nova/nova_drm_unstable.h"
+
 #include <uapi/drm/drm.h>
 #include <uapi/drm/nova_drm.h>
 #include <uapi/drm/panthor_drm.h>
