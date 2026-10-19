@@ -4845,6 +4845,71 @@ static void snd_ab13x_quirks(struct usb_mixer_interface *mixer, struct usb_mixer
 	}
 }
 
+static void snd_xiaomi_speaker_mini_quirk_db_scale(struct usb_mixer_interface *mixer,
+						   struct usb_mixer_elem_info *cval,
+						   struct snd_kcontrol *kctl)
+{
+	/*
+	 * Volume mapping based on normalized microphone measurement @ 1000Hz:
+	 * +--------+--------+-----------+-------------+--------+
+	 * |  hex   |  dec   | dec => dB | measured dB |  res   |
+	 * +--------+--------+-----------+-------------+--------+
+	 * | 0xd000 | -12288 |    -48.00 |      (mute) |        |
+	 * | 0xdd00 |  -8960 |    -35.00 |       -68.6 | 3328 # |
+	 * | 0xe540 |  -6848 |    -26.75 |       -61.2 | 2112   |
+	 * | 0xea40 |  -5568 |    -21.75 |       -57.0 | 1280   |
+	 * | 0xed80 |  -4736 |    -18.50 |       -52.5 |  832   |
+	 * | 0xf0a0 |  -3936 |    -15.38 |       -48.3 |  800   |
+	 * | 0xf2d0 |  -3376 |    -13.19 |       -42.1 |  560   |
+	 * | 0xf4d0 |  -2864 |    -11.19 |       -36.1 |  512   |
+	 * | 0xf6c0 |  -2368 |     -9.25 |       -32.0 |  496   |
+	 * | 0xf840 |  -1984 |     -7.75 |       -24.0 |  384   |
+	 * | 0xf9e0 |  -1568 |     -6.13 |       -17.9 |  416   |
+	 * | 0xfb30 |  -1232 |     -4.81 |       -13.9 |  336   |
+	 * | 0xfc80 |   -896 |     -3.50 |       -10.0 |  336   |
+	 * | 0xfd90 |   -624 |     -2.44 |        -6.0 |  272   |
+	 * | 0xfeb0 |   -336 |     -1.31 |        -4.0 |  288   |
+	 * | 0xffb0 |    -80 |     -0.31 |        -2.0 |  256   |
+	 * | 0x0000 |      0 |      0.00 |         0.0 |   80   |
+	 * +--------+--------+-----------+-------------+--------+
+	 *
+	 * The volume control mixer declares res == 256, but actually acts like
+	 * res == 1 (i.e., accepts any value between min and max) and has uneven
+	 * resolutions in reality. Setting any value between (0xd000, 0xdd00]
+	 * results in the same audible volume as 0xdd00, and so on.
+	 *
+	 * Footnote #: running out of the 10-item limit of TLV ranges.
+	 */
+	static const DECLARE_TLV_DB_RANGE(scale,
+		 0,  0, TLV_DB_SCALE_ITEM( -6120,  0, 0), /*                             -7104 */
+		 1,  5, TLV_DB_SCALE_ITEM( -5700,  0, 0), /* -6808, -6512, -6216, -5920, -5624 */
+		 6,  8, TLV_DB_SCALE_ITEM( -5250,  0, 0), /*               -5328, -5032, -4736 */
+		 9, 10, TLV_DB_SCALE_ITEM( -4830,  0, 0), /*                      -4440, -4144 */
+		11, 12, TLV_DB_SCALE_ITEM( -4210,  0, 0), /*                      -3848, -3552 */
+		13, 14, TLV_DB_SCALE_ITEM( -3610,  0, 0), /*                      -3256, -2960 */
+		15, 16, TLV_DB_SCALE_ITEM( -3200,  0, 0), /*                      -2664, -2368 */
+		17, 18, TLV_DB_MINMAX_ITEM(-2400, -1790), /*                      -2072, -1776 */
+		19, 21, TLV_DB_MINMAX_ITEM(-1390,  -600), /*               -1480, -1184,  -888 */
+		22, 24, TLV_DB_MINMAX_ITEM( -400,     0), /*                -592,  -296,     0 */
+	);
+
+	if (cval->min == -12288 && cval->max == 0 && cval->res == 256) {
+		if (!deconflict_playback_tlv_quirks(mixer, kctl))
+			return;
+
+		/*
+		 * These values are carefully chosen so that volume steps with
+		 * 2dB or 4dB resolution can be approximately represented
+		 * togother.
+		 */
+		snd_usb_apply_db_scale_val(mixer, cval, kctl, scale,
+					   "Xiaomi Speaker Mini", -7104, 0, 296);
+	} else {
+		usb_audio_dbg(mixer->chip,
+			      "not applying Xiaomi Speaker Mini quirk on unknown variant\n");
+	}
+}
+
 static void snd_usb_mv_silicon_quirks(struct usb_mixer_interface *mixer,
 				      struct usb_mixer_elem_info *cval,
 				      struct snd_kcontrol *kctl)
@@ -4919,6 +4984,10 @@ void snd_usb_mixer_fu_apply_quirk(struct usb_mixer_interface *mixer,
 	case USB_ID(0x21b4, 0x0081): /* AudioQuest DragonFly */
 		if (unitid == 7 && cval->control == UAC_FU_VOLUME)
 			snd_dragonfly_quirk_db_scale(mixer, cval, kctl);
+		break;
+	case USB_ID(0x2717, 0x5096): /* Xiaomi Speaker Mini */
+		if (cval->control == UAC_FU_VOLUME)
+			snd_xiaomi_speaker_mini_quirk_db_scale(mixer, cval, kctl);
 		break;
 	}
 
