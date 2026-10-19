@@ -1152,6 +1152,36 @@ static void schedule_deferred_locked(struct rq *rq)
 	schedule_deferred(rq);
 }
 
+static void resched_irq_workfn(struct irq_work *irq_work)
+{
+	struct rq *rq = container_of(irq_work, struct rq, scx.resched_irq_work);
+
+	guard(rq_lock)(rq);
+	/* a higher class task would only be picked again, see kick_one_cpu() */
+	if (!sched_class_above(rq->donor->sched_class, &ext_sched_class))
+		resched_curr(rq);
+	scx_rq_lock_drop(rq);
+}
+
+/**
+ * scx_resched_curr_deferred - Reschedule @rq's cpu from hard irq work on it
+ * @rq: rq to reschedule
+ *
+ * A kick, like a direct resched, only guarantees that a scheduling event on the
+ * cpu completes after it, and that can be the one in progress. Work that a pick
+ * processes only at the start of its dispatch, such as the ecaps syncs, can be
+ * queued after that point and miss the pick. A pick on @rq's cpu runs with IRQs
+ * off, so the irq work runs after it, and the scheduling event its resched
+ * triggers starts after this call. A sibling's core scheduling pick for @rq
+ * isn't covered. A cpu running a task of a higher class isn't rescheduled, as
+ * its pick would return that task again. @rq's cpu must stay online until the
+ * irq work is queued.
+ */
+void scx_resched_curr_deferred(struct rq *rq)
+{
+	irq_work_queue_on(&rq->scx.resched_irq_work, cpu_of(rq));
+}
+
 #ifdef CONFIG_NO_HZ_FULL
 static void scx_proxy_tick_bal_cb(struct rq *rq)
 {
@@ -2148,11 +2178,11 @@ static void direct_dispatch(struct scx_sched *sch, struct task_struct *p,
 bool scx_rq_online(struct rq *rq)
 {
 	/*
-	 * Test both cpu_active() and %SCX_RQ_ONLINE. %SCX_RQ_ONLINE indicates
-	 * the online state as seen from the BPF scheduler. cpu_active() test
-	 * guarantees that, if this function returns %true, %SCX_RQ_ONLINE will
-	 * stay set until the current scheduling operation is complete even if
-	 * we aren't locking @rq.
+	 * Test both cpu_active() and %SCX_RQ_ONLINE. %SCX_RQ_ONLINE follows the
+	 * core's rq online state. cpu_active() test guarantees that, if this
+	 * function returns %true, %SCX_RQ_ONLINE will stay set until the
+	 * current scheduling operation is complete even if we aren't locking
+	 * @rq.
 	 */
 	return likely((rq->scx.flags & SCX_RQ_ONLINE) && cpu_active(cpu_of(rq)));
 }
@@ -4140,6 +4170,7 @@ static void handle_hotplug(struct rq *rq, bool online)
 	s32 cpu_or_cid = cpu;
 
 	atomic_long_inc(&scx_hotplug_seq);
+	scx_update_frozen_cpus(cpu, online);
 
 	/*
 	 * scx_root updates are protected by cpus_read_lock() and will stay
@@ -4151,11 +4182,6 @@ static void handle_hotplug(struct rq *rq, bool online)
 
 	if (scx_enabled())
 		scx_idle_update_selcpu_topology(&sch->ops);
-
-	if (online)
-		scx_online_ecaps(rq);
-	else
-		scx_offline_ecaps(rq);
 
 	/*
 	 * The tables can't be retired while this function is running as the
@@ -4185,6 +4211,14 @@ static void handle_hotplug(struct rq *rq, bool online)
 		}
 	}
 
+	/*
+	 * ecaps are delivered for @cpu only after ops.cpu_online() and before
+	 * ops.cpu_offline(). The ecaps ops may read online_cmask, so
+	 * scx_offline_ecaps() and scx_online_ecaps() run after its update.
+	 */
+	if (!online)
+		scx_offline_ecaps(rq);
+
 	if (online && SCX_HAS_OP(sch, cpu_online))
 		SCX_CALL_OP(sch, cpu_online, NULL, cpu_or_cid);
 	else if (!online && SCX_HAS_OP(sch, cpu_offline))
@@ -4194,6 +4228,9 @@ static void handle_hotplug(struct rq *rq, bool online)
 			 SCX_ECODE_ACT_RESTART | SCX_ECODE_RSN_HOTPLUG,
 			 "cpu %d going %s, exiting scheduler", cpu,
 			 online ? "online" : "offline");
+
+	if (online)
+		scx_online_ecaps(rq);
 }
 
 void scx_rq_activate(struct rq *rq)
@@ -6028,10 +6065,6 @@ static void scx_sched_free_rcu_work(struct work_struct *work)
 	struct scx_dispatch_q *dsq;
 	int cpu, node;
 
-	irq_work_sync(&sch->propagate_exit_irq_work);
-	irq_work_sync(&sch->disable_irq_work);
-	kthread_destroy_worker(sch->helper);
-	timer_shutdown_sync(&sch->bypass_lb_timer);
 	free_cpumask_var(sch->bypass_lb_donee_cpumask);
 	free_cpumask_var(sch->bypass_lb_resched_cpumask);
 	free_cpumask_var(sch->stall_cpus);
@@ -6049,22 +6082,6 @@ static void scx_sched_free_rcu_work(struct work_struct *work)
 	for_each_possible_cpu(cpu) {
 		struct scx_sched_pcpu *pcpu = per_cpu_ptr(sch->pcpu, cpu);
 
-		/*
-		 * $sch would have entered bypass mode before the RCU grace
-		 * period. As that blocks new deferrals, all
-		 * deferred_reenq_local_node's must be off-list by now.
-		 */
-		WARN_ON_ONCE(!list_empty(&pcpu->deferred_reenq_local.node));
-
-		/* remove the queued ecaps sync so the pcpu can be freed */
-		scx_discard_ecaps_to_sync(cpu, pcpu);
-
-		/*
-		 * Bypass blocks new kicks. Flush the kick irq_work so this
-		 * pcpu's to_kick_node is off the list before it is freed.
-		 */
-		irq_work_sync(&cpu_rq(cpu)->scx.kick_cpus_irq_work);
-		WARN_ON_ONCE(!list_empty(&pcpu->to_kick_node));
 		free_cpumask_var(pcpu->cpus_to_kick);
 		free_cpumask_var(pcpu->cpus_to_kick_if_idle);
 		free_cpumask_var(pcpu->cpus_to_preempt);
@@ -6106,11 +6123,65 @@ static void scx_sched_free_rcu_work(struct work_struct *work)
 	kfree(sch);
 }
 
+/**
+ * scx_sched_quiesce_rcu_work - Quiesce a sched and queue its free
+ * @work: &scx_sched.rcu_work
+ *
+ * $sch is freed after two RCU grace periods because of its ecaps sync nodes.
+ *
+ * The first grace period runs between scx_kobj_release() and this function. It
+ * waits for the paths that found $sch before scx_unlink_sched(), such as the
+ * sub-cap kfuncs and the cpu hotplug hooks. Until they finish, they can queue
+ * $sch's syncs, and a cpu can take a queued node into a sync batch. The first
+ * grace period doesn't wait for a batch that started after it began.
+ *
+ * Nothing queues $sch's syncs now. Remove the nodes still on the cpus' lists. A
+ * batch that took a node can still write $sch's pcpu, and a delivery in the
+ * batch can drop the rq lock before that write. The batch keeps irqs off from
+ * taking the node to its last pcpu write, so the second grace period waits for
+ * it before scx_sched_free_rcu_work() frees $sch.
+ */
+static void scx_sched_quiesce_rcu_work(struct work_struct *work)
+{
+	struct rcu_work *rcu_work = to_rcu_work(work);
+	struct scx_sched *sch = container_of(rcu_work, struct scx_sched, rcu_work);
+	s32 cpu;
+
+	irq_work_sync(&sch->propagate_exit_irq_work);
+	irq_work_sync(&sch->disable_irq_work);
+	kthread_destroy_worker(sch->helper);
+	timer_shutdown_sync(&sch->bypass_lb_timer);
+
+	for_each_possible_cpu(cpu) {
+		struct scx_sched_pcpu *pcpu = per_cpu_ptr(sch->pcpu, cpu);
+
+		/*
+		 * $sch would have entered bypass mode before the first RCU
+		 * grace period. As that blocks new deferrals, all
+		 * deferred_reenq_local_node's must be off-list by now.
+		 */
+		WARN_ON_ONCE(!list_empty(&pcpu->deferred_reenq_local.node));
+
+		/* remove the queued ecaps sync so the pcpu can be freed */
+		scx_discard_ecaps_to_sync(cpu, pcpu);
+
+		/*
+		 * Bypass blocks new kicks. Flush the kick irq_work so this
+		 * pcpu's to_kick_node is off the list before it is freed.
+		 */
+		irq_work_sync(&cpu_rq(cpu)->scx.kick_cpus_irq_work);
+		WARN_ON_ONCE(!list_empty(&pcpu->to_kick_node));
+	}
+
+	INIT_RCU_WORK(&sch->rcu_work, scx_sched_free_rcu_work);
+	queue_rcu_work(system_dfl_wq, &sch->rcu_work);
+}
+
 static void scx_kobj_release(struct kobject *kobj)
 {
 	struct scx_sched *sch = container_of(kobj, struct scx_sched, kobj);
 
-	INIT_RCU_WORK(&sch->rcu_work, scx_sched_free_rcu_work);
+	INIT_RCU_WORK(&sch->rcu_work, scx_sched_quiesce_rcu_work);
 	queue_rcu_work(system_dfl_wq, &sch->rcu_work);
 }
 
@@ -6757,6 +6828,9 @@ static void unbypass_renotify_idle(struct rq *rq, struct scx_sched *pos,
  *
  * - ops.dispatch() is ignored.
  *
+ * - ops.sub_ecaps_updated() and ops.sub_child_ecaps_updated() are still called.
+ *   The bypassed tasks are on the bypass DSQs, out of their reach.
+ *
  * - dispatch_one() does not report %SCX_DSP_PREV on non-zero slice as slice
  *   can't be trusted. Whenever a tick triggers, the running task is rotated to
  *   the tail of the queue.
@@ -6836,10 +6910,8 @@ void scx_bypass(struct scx_sched *sch, bool bypass)
 				pcpu->flags |= SCX_SCHED_PCPU_BYPASSING;
 			} else {
 				pcpu->flags &= ~SCX_SCHED_PCPU_BYPASSING;
-				if (was_bypassing) {
+				if (was_bypassing)
 					unbypass_renotify_idle(rq, pos, pcpu);
-					scx_unbypass_replay_ecaps(rq, pos);
-				}
 			}
 		}
 
@@ -8303,6 +8375,8 @@ static void scx_root_enable_workfn(struct kthread_work *work)
 		goto err_disable;
 	}
 
+	scx_init_rq_ops_online();
+
 	/*
 	 * Make the scheduler instance visible. Must be inside cpus_read_lock().
 	 * See handle_hotplug().
@@ -9409,6 +9483,20 @@ static int scx_pm_handler(struct notifier_block *nb, unsigned long event, void *
 {
 	struct scx_sched *sch;
 
+	/* track the PM cycle whether or not a root is loaded */
+	switch (event) {
+	case PM_HIBERNATION_PREPARE:
+	case PM_SUSPEND_PREPARE:
+	case PM_RESTORE_PREPARE:
+		scx_sub_pm_begin();
+		break;
+	case PM_POST_HIBERNATION:
+	case PM_POST_SUSPEND:
+	case PM_POST_RESTORE:
+		scx_sub_pm_end();
+		break;
+	}
+
 	guard(rcu)();
 
 	sch = rcu_dereference(scx_root);
@@ -9476,6 +9564,7 @@ void __init init_sched_ext_class(void)
 		INIT_LIST_HEAD(&rq->scx.deferred_reenq_users);
 		rq->scx.deferred_irq_work = IRQ_WORK_INIT_HARD(deferred_irq_workfn);
 		rq->scx.kick_cpus_irq_work = IRQ_WORK_INIT_HARD(kick_cpus_irq_workfn);
+		rq->scx.resched_irq_work = IRQ_WORK_INIT_HARD(resched_irq_workfn);
 
 		if (cpu_online(cpu))
 			cpu_rq(cpu)->scx.flags |= SCX_RQ_ONLINE;
