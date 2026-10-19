@@ -1,0 +1,48 @@
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltage0_band
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read/write the RF output band selection. The ADMV1355 has two
+		internal RF signal paths (low band and high band) selected by
+		this attribute. No standard IIO attribute maps to internal
+		band-path routing.
+		Valid values: low_band high_band
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltage0_band_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		List of available RF band selections.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage0_mode
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read/write the IF input operating mode. The ADMV1355 supports
+		four mixer modes with different intermediate frequency input
+		configurations. This selects which internal IF path is active.
+		No standard IIO channel type covers device-specific mixer mode
+		selection.
+		Valid values: baseband complex_if_low complex_if_high if_hybrid
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage0_mode_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		List of available IF input modes.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_sideband
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read/write the mixer sideband selection. Controls whether the
+		lower sideband (LSB) or upper sideband (USB) of the mixer
+		output is selected. This is a fundamental mixer topology control
+		with no standard IIO mapping.
+		Valid values: LSB USB
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_sideband_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		List of available mixer sideband selections.
