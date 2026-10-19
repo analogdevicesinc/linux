@@ -192,8 +192,7 @@
 	};
 
 	sound {
-		compatible = "karo,imx6ul-tx6ul-sgtl5000",
-			     "simple-audio-card";
+		compatible = "simple-audio-card";
 		simple-audio-card,name = "imx6ul-tx6ul-sgtl5000-audio";
 		simple-audio-card,format = "i2s";
 		simple-audio-card,bitclock-master = <&codec_dai>;
