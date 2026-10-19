@@ -11,6 +11,7 @@
 //         with code, comments and ideas from :-
 //         Richard Purdie <richard@openedhand.com>
 
+#include <kunit/visibility.h>
 #include <linux/cleanup.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -25,6 +26,7 @@
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <sound/initval.h>
+#include "soc-internal.h"
 
 /**
  * snd_soc_info_enum_double - enumerated double mixer info callback
@@ -816,3 +818,49 @@ int snd_soc_put_strobe(struct snd_kcontrol *kcontrol,
 	return snd_soc_component_update_bits(component, mc->reg, mask, val2);
 }
 EXPORT_SYMBOL_GPL(snd_soc_put_strobe);
+
+/*
+ * snd_soc_control_fields - find the register bits a control writes
+ * @kctl: the control
+ * @fields: filled with up to two register fields
+ *
+ * Only controls with a standard put callback are described. For other
+ * controls the bits written are not known.
+ *
+ * Returns the number of fields filled in.
+ */
+int snd_soc_control_fields(const struct snd_kcontrol *kctl,
+			   struct snd_soc_control_field *fields)
+{
+	if (kctl->put == snd_soc_put_volsw || kctl->put == snd_soc_put_volsw_sx) {
+		struct soc_mixer_control *mc =
+			(struct soc_mixer_control *)kctl->private_value;
+		unsigned int mask = kctl->put == snd_soc_put_volsw ?
+				    soc_mixer_mask(mc) : soc_mixer_sx_mask(mc);
+
+		fields[0].reg = mc->reg;
+		fields[0].mask = mask << mc->shift;
+		if (!snd_soc_volsw_is_stereo(mc))
+			return 1;
+
+		if (mc->reg == mc->rreg) {
+			fields[0].mask |= mask << mc->rshift;
+			return 1;
+		}
+
+		fields[1].reg = mc->rreg;
+		fields[1].mask = mask << mc->shift;
+		return 2;
+	}
+
+	if (kctl->put == snd_soc_put_enum_double) {
+		struct soc_enum *e = (struct soc_enum *)kctl->private_value;
+
+		fields[0].reg = e->reg;
+		fields[0].mask = e->mask << e->shift_l | e->mask << e->shift_r;
+		return 1;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_IF_KUNIT(snd_soc_control_fields);
