@@ -196,3 +196,54 @@ Description:
 		Read/write the GPO G output-enable mask (5-bit, 0-31,
 		registers 0x780[7:6] and 0x781[2:0]). Each bit enables the
 		corresponding GPO G pin as an output.
+
+What:		/sys/bus/iio/devices/iio:deviceX/filter_lut_en
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable/disable the filter lookup table (register 0x202[0]).
+		When enabled, the ADMV1355 uses LUT-based filter configuration
+		indexed by the state machine step, rather than static register
+		values.
+
+What:		/sys/bus/iio/devices/iio:deviceX/filter_load_en
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable/disable loading the filter LUT to the active register
+		set (register 0x208[0]). Set to true to apply the current LUT
+		contents. Typically toggled after uploading a new filter LUT.
+
+What:		/sys/bus/iio/devices/iio:deviceX/gain_lut_en
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable/disable the gain lookup table (register 0x285[0]).
+		When enabled, DSA settings are driven by the gain LUT indexed
+		by the state machine step, instead of the direct DSA registers.
+
+What:		/sys/bus/iio/devices/iio:deviceX/gain_load_en
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable/disable loading the gain LUT to the active register
+		set (register 0x281[0]). Set to true to apply the current LUT
+		contents. Typically toggled after uploading a new gain LUT.
+
+What:		/sys/bus/iio/devices/iio:deviceX/filter_table_sel
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Select which filter LUT page is active (register 0x207[0]).
+		Valid values: A B
+		The ADMV1355 has two filter LUT pages (A and B); this
+		selects which one drives the filter state machine.
+
+What:		/sys/bus/iio/devices/iio:deviceX/filter_sm_step
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read/write the filter state machine step index (8-bit, 0-255,
+		register 0x200). Selects which LUT entry is used for the
+		current filter and gain configuration when the respective LUT
+		is enabled.
