@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <inttypes.h>
+#include <unistd.h>
 #include <linux/compiler.h>
 #include <linux/kernel.h>
-#include "tests.h"
+#include "debug.h"
+#include "dso.h"
+#include "env.h"
 #include "map.h"
 #include "maps.h"
-#include "dso.h"
-#include "debug.h"
+#include "tests.h"
 
 struct map_def {
 	const char *name;
@@ -100,8 +102,15 @@ static int test__maps__merge_in(struct test_suite *t __maybe_unused, int subtest
 	};
 	struct map *map_kcore1, *map_kcore2, *map_kcore3;
 	int ret;
-	struct maps *maps = maps__new(NULL);
+	struct perf_env host_env;
+	struct machine *machine;
+	struct maps *maps;
 
+	perf_env__init(&host_env);
+	machine = machine__new_live(&host_env, /*kernel_maps=*/false, getpid());
+	maps = maps__new(machine);
+
+	TEST_ASSERT_VAL("failed to create machine", machine);
 	TEST_ASSERT_VAL("failed to create maps", maps);
 
 	for (i = 0; i < ARRAY_SIZE(bpf_progs); i++) {
@@ -159,6 +168,8 @@ static int test__maps__merge_in(struct test_suite *t __maybe_unused, int subtest
 	map__zput(map_kcore1);
 	map__zput(map_kcore2);
 	map__zput(map_kcore3);
+	machine__delete(machine);
+	perf_env__exit(&host_env);
 	return TEST_OK;
 }
 
@@ -189,8 +200,15 @@ static int test__maps__fixup_overlap_and_insert(struct test_suite *t __maybe_unu
 	struct map *map_split, *map_eclipse;
 	int ret;
 	unsigned int i;
-	struct maps *maps = maps__new(NULL);
+	struct perf_env host_env;
+	struct machine *machine;
+	struct maps *maps;
 
+	perf_env__init(&host_env);
+	machine = machine__new_live(&host_env, /*kernel_maps=*/false, getpid());
+	maps = maps__new(machine);
+
+	TEST_ASSERT_VAL("failed to create machine", machine);
 	TEST_ASSERT_VAL("failed to create maps", maps);
 
 	for (i = 0; i < ARRAY_SIZE(initial_maps); i++) {
@@ -230,6 +248,8 @@ static int test__maps__fixup_overlap_and_insert(struct test_suite *t __maybe_unu
 	TEST_ASSERT_VAL("eclipse check failed", !ret);
 
 	maps__zput(maps);
+	machine__delete(machine);
+	perf_env__exit(&host_env);
 	return TEST_OK;
 }
 
