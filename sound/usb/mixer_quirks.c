@@ -4758,13 +4758,11 @@ static void snd_usb_mv_silicon_quirks(struct usb_mixer_interface *mixer,
 		/* The final effects will be printed later. */
 		usb_audio_info(mixer->chip, "applying MV-SILICON quirks (0/4096/1 variant)\n");
 
-		/* Respect MIN_MUTE set by module parameters. */
-		if (!(mixer->chip->quirk_flags & QUIRK_FLAG_MIXER_PLAYBACK_MIN_MUTE))
-			mixer->chip->quirk_flags |= QUIRK_FLAG_MIXER_PLAYBACK_LINEAR_VOL;
-		if (!(mixer->chip->quirk_flags & QUIRK_FLAG_MIXER_CAPTURE_MIN_MUTE))
-			mixer->chip->quirk_flags |= QUIRK_FLAG_MIXER_CAPTURE_LINEAR_VOL;
+		if (deconflict_playback_tlv_quirks(mixer, kctl) ||
+		    deconflict_capture_tlv_quirks(mixer, kctl))
+			snd_usb_mixer_fu_quirk_linear_scale(mixer, cval, kctl);
 	} else {
-		usb_audio_dbg(mixer->chip, "not applying MV-SILICON quirks on unknown variant");
+		usb_audio_dbg(mixer->chip, "not applying MV-SILICON quirks on unknown variant\n");
 	}
 }
 
