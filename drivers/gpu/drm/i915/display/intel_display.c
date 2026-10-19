@@ -3291,7 +3291,7 @@ static bool i9xx_get_pipe_config(struct intel_crtc *crtc,
 	intel_get_transcoder_timings(crtc, pipe_config);
 	intel_get_pipe_src_size(crtc, pipe_config);
 
-	i9xx_pfit_get_config(pipe_config);
+	intel_pfit_get_config(pipe_config);
 
 	i9xx_dpll_get_hw_state(crtc, &pipe_config->dpll_hw_state);
 
@@ -3692,7 +3692,7 @@ static bool ilk_get_pipe_config(struct intel_crtc *crtc,
 	intel_get_transcoder_timings(crtc, pipe_config);
 	intel_get_pipe_src_size(crtc, pipe_config);
 
-	ilk_pfit_get_config(pipe_config);
+	intel_pfit_get_config(pipe_config);
 
 	ret = true;
 
@@ -4259,12 +4259,8 @@ static bool hsw_get_pipe_config(struct intel_crtc *crtc,
 			REG_FIELD_GET(HSW_IPS_LINETIME_MASK, tmp);
 
 	if (intel_display_power_get_in_set_if_enabled(display, &crtc->hw_readout_power_domains,
-						      POWER_DOMAIN_PIPE_PANEL_FITTER(crtc->pipe))) {
-		if (DISPLAY_VER(display) >= 9)
-			skl_scaler_get_config(pipe_config);
-		else
-			ilk_pfit_get_config(pipe_config);
-	}
+						      POWER_DOMAIN_PIPE_PANEL_FITTER(crtc->pipe)))
+		intel_pfit_get_config(pipe_config);
 
 	hsw_ips_get_config(pipe_config);
 

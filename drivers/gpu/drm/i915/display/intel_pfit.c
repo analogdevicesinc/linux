@@ -638,7 +638,7 @@ void ilk_pfit_disable(const struct intel_crtc_state *old_crtc_state)
 	intel_de_write_fw(display, PF_WIN_SZ(pipe), 0);
 }
 
-void ilk_pfit_get_config(struct intel_crtc_state *crtc_state)
+static void ilk_pfit_get_config(struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -724,7 +724,7 @@ static bool i9xx_has_pfit(struct intel_display *display)
 		display->platform.pineview || display->platform.mobile;
 }
 
-void i9xx_pfit_get_config(struct intel_crtc_state *crtc_state)
+static void i9xx_pfit_get_config(struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -750,4 +750,16 @@ void i9xx_pfit_get_config(struct intel_crtc_state *crtc_state)
 	crtc_state->gmch_pfit.control = tmp;
 	crtc_state->gmch_pfit.pgm_ratios =
 		intel_de_read(display, PFIT_PGM_RATIOS(display));
+}
+
+void intel_pfit_get_config(struct intel_crtc_state *crtc_state)
+{
+	struct intel_display *display = to_intel_display(crtc_state);
+
+	if (HAS_GMCH(display))
+		i9xx_pfit_get_config(crtc_state);
+	else if (DISPLAY_VER(display) >= 9)
+		skl_scaler_get_config(crtc_state);
+	else
+		ilk_pfit_get_config(crtc_state);
 }
