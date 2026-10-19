@@ -44,14 +44,14 @@
 };
 
 &gpb {
-	uart0-en {
+	uart0-en-hog {
 		gpio-hog;
 		gpios = <13 GPIO_ACTIVE_LOW>;
 		output-high;
 		line-name = "uart0-en";
 	};
 
-	uart0-flow-en {
+	uart0-flow-en-hog {
 		gpio-hog;
 		gpios = <14 GPIO_ACTIVE_LOW>;
 		output-low;
@@ -60,14 +60,14 @@
 };
 
 &gpe {
-	led1 {
+	led1-hog {
 		gpio-hog;
 		gpios = <15 GPIO_ACTIVE_LOW>;
 		output-high;
 		line-name = "led1";
 	};
 
-	led2 {
+	led2-hog {
 		gpio-hog;
 		gpios = <10 GPIO_ACTIVE_LOW>;
 		output-high;
