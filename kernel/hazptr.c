@@ -54,19 +54,16 @@ unsigned int flip_list_phase(unsigned int phase)
 }
 
 static
-struct hazptr_slot *hazptr_get_free_percpu_slot(struct hazptr_ctx *ctx)
+struct hazptr_slot_item *hazptr_get_free_percpu_slot_item(void)
 {
 	struct hazptr_percpu_slots *percpu_slots = this_cpu_ptr(&hazptr_percpu_slots);
 	unsigned int idx;
 
 	for (idx = 0; idx < NR_HAZPTR_PERCPU_SLOTS; idx++) {
 		struct hazptr_slot_item *item = &percpu_slots->items[idx];
-		struct hazptr_slot *slot = &item->slot;
 
-		if (!slot->addr) {
-			item->ctx.ctx = ctx;
-			return slot;
-		}
+		if (!item->slot.addr)
+			return item;
 	}
 	/* All slots are in use. */
 	return NULL;
@@ -78,6 +75,7 @@ struct hazptr_slot *hazptr_get_free_percpu_slot(struct hazptr_ctx *ctx)
  */
 void *__hazptr_acquire(struct hazptr_ctx *ctx, void * const *addr_p)
 {
+	struct hazptr_slot_item *item;
 	struct hazptr_slot *slot;
 	void *addr;
 
@@ -85,10 +83,17 @@ void *__hazptr_acquire(struct hazptr_ctx *ctx, void * const *addr_p)
 	 * In case we are called due to nested use of hazard pointers,
 	 * try a slot protection with per-CPU slots.
 	 */
-	slot = hazptr_get_free_percpu_slot(ctx);
-	if (likely(slot)) {
+	item = hazptr_get_free_percpu_slot_item();
+	if (likely(item)) {
+		slot = &item->slot;
 		addr = __hazptr_try_acquire(ctx, addr_p, slot);
 		if (addr) {
+			/*
+			 * Record the owner only once Store B has claimed the
+			 * slot, as hazptr_acquire() does: an interrupt may
+			 * have used this slot since it was chosen.
+			 */
+			item->ctx.ctx = ctx;
 			ctx->slot = slot;
 			return addr;
 		}
