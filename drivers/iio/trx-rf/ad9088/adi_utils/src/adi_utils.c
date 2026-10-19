@@ -21,24 +21,24 @@
 #define LOWER_16(A)     (((A) &  0xffff))
 #define UPPER_16(A)     (((A) >> 16) & 0xffff)
 #define LOWER_32(A)     (((A) & (uint32_t) 0xffffffff))
-#define U64MSB          (0x8000000000000000ull)
+#define U64MSB          (0x8000000000000000ULL)
 
 /*============= C O D E ====================*/
 int32_t adi_api_utils_gcd(int32_t u, int32_t v)
 {
     int32_t t;
     while (v != 0) {
-        t = u; 
-        u = v; 
+        t = u;
+        u = v;
         v = t % v;
     }
-    return u < 0 ? -u : u; /* abs(u) */
+    return (u < 0) ? -u : u; /* abs(u) */
 }
 
 uint64_t adi_api_utils_gcd_64(uint64_t u, uint64_t v)
 {
     uint64_t t;
-    while (v != 0) {
+    while (v != 0U) {
         t = u; 
         u = v; 
 #ifdef __KERNEL__
@@ -52,17 +52,17 @@ uint64_t adi_api_utils_gcd_64(uint64_t u, uint64_t v)
 
 uint32_t adi_api_utils_lcm(uint32_t p, uint32_t q)
 {
-    uint32_t gcd, lcm, i, min_p_q;
+    uint32_t gcd = 1, lcm, i, min_p_q;
 
-    if (p == 0 || q == 0) {
-        return 0;
+    if ((p == 0U) || (q == 0U)) {
+        return 0U;
     }
 
     min_p_q = (p <= q) ? p : q;
 
     i = min_p_q;
-    while (i > 0) {
-        if (p % i == 0 && q % i == 0) {
+    while (i > 0U) {
+        if (((p % i) == 0U) && ((q % i) == 0U)) {
             gcd = i;
             break;
         }
@@ -76,24 +76,24 @@ uint32_t adi_api_utils_lcm(uint32_t p, uint32_t q)
 
 uint64_t adi_api_utils_lcm_64(uint64_t p, uint64_t q)
 {
-    uint64_t gcd, lcm, i, min_p_q;
+    uint64_t gcd = 1, lcm, i, min_p_q;
 #ifdef __KERNEL__
     uint64_t p_mod_i, q_mod_i;
 #endif    
     min_p_q = (p <= q) ? p : q;
 
     i = min_p_q;
-    while (i > 0) {
+    while (i > 0U) {
 #ifdef __KERNEL__
         div64_u64_rem(p, i, &p_mod_i);
         div64_u64_rem(q, i, &q_mod_i);
 
-        if (p_mod_i == 0 && q_mod_i == 0) {
+        if ((p_mod_i == 0U) && (q_mod_i == 0U)) {
             gcd = i;
             break;
         }
 #else
-        if (p % i == 0 && q % i == 0) {
+        if (((p % i) == 0U) && ((q % i) == 0U)) {
             gcd = i;
             break;
         }
@@ -111,23 +111,23 @@ uint64_t adi_api_utils_lcm_64(uint64_t p, uint64_t q)
 
 int32_t adi_api_utils_is_power_of_two(uint64_t x)
 {
-    return ((x != 0) && !(x & (x - 1)));
+    return ((x != 0U) && !(x & (x - 1U)));
 }
 
 void adi_api_utils_mult_64(uint32_t a, uint32_t b, uint32_t *hi, uint32_t *lo)
 {
-    uint32_t ah   = a >> 16, 
-             al   = a & 0xffff, 
+    uint32_t ah   = a >> 16,
+             al   = a & 0xffffU,
              bh   = b >> 16,
-             bl   = b & 0xffff,
+             bl   = b & 0xffffU,
              rh   = ah * bh,
              rl   = al * bl,
              rm1  = ah * bl,
              rm2  = al * bh,
-             rm1h = rm1 >> 16, 
-             rm2h = rm2 >> 16, 
-             rm1l = rm1 & 0xffff, 
-             rm2l = rm2 & 0xffff,
+             rm1h = rm1 >> 16,
+             rm2h = rm2 >> 16,
+             rm1l = rm1 & 0xffffU,
+             rm2l = rm2 & 0xffffU,
              rmh  = rm1h + rm2h, 
              rml  = rm1l + rm2l, 
              c    = ((rl >> 16) + rml) >> 16;
@@ -140,9 +140,9 @@ void adi_api_utils_mult_64(uint32_t a, uint32_t b, uint32_t *hi, uint32_t *lo)
 void adi_api_utils_lshift_128(uint64_t *hi, uint64_t *lo)
 {
     *hi <<= 1;
-    if (*lo & U64MSB)
+    if ((*lo & U64MSB) != 0ULL)
     {
-        *hi |= 1ul;
+        *hi |= 1UL;
     }
     *lo <<= 1;
 }
@@ -150,7 +150,7 @@ void adi_api_utils_lshift_128(uint64_t *hi, uint64_t *lo)
 void adi_api_utils_rshift_128(uint64_t *hi, uint64_t *lo)
 {
     *lo >>= 1;
-    if (*hi & 1u) {
+    if ((*hi & 1U) != 0U) {
         *lo |= U64MSB;
     }
     *hi >>= 1;
@@ -159,17 +159,17 @@ void adi_api_utils_rshift_128(uint64_t *hi, uint64_t *lo)
 void adi_api_utils_mult_128(uint64_t a, uint64_t b, uint64_t *hi, uint64_t *lo)
 {
     uint64_t ah   = a >> 32,
-             al   = a & 0xffffffff, 
-             bh   = b >> 32, 
-             bl   = b & 0xffffffff, 
+             al   = a & 0xFFFFFFFFU,
+             bh   = b >> 32,
+             bl   = b & 0xFFFFFFFFU, 
              rh   = ah * bh, 
              rl   = al * bl, 
              rm1  = ah * bl, 
              rm2  = al * bh, 
              rm1h = rm1 >> 32,
              rm2h = rm2 >> 32,
-             rm1l = rm1 & 0xffffffff, 
-             rm2l = rm2 & 0xffffffff,
+             rm1l = rm1 & 0xFFFFFFFFU,
+             rm2l = rm2 & 0xFFFFFFFFU,
              rmh  = rm1h + rm2h, 
              rml  = rm1l + rm2l, 
              c    = ((rl >> 32) + rml) >> 32;
@@ -191,7 +191,7 @@ void adi_api_utils_div_128(uint64_t a_hi, uint64_t a_lo, uint64_t b_hi, uint64_t
     uint64_t mask_lo   = 1;
     uint64_t mask_hi   = 0;
     
-    if ((part1_lo == 0) && (part1_hi == 0)) {
+    if ((part1_lo == 0ULL) && (part1_hi == 0ULL)) {
         /* Do whatever should happen when dividing by zero. */
         return;
     }
@@ -214,7 +214,7 @@ void adi_api_utils_div_128(uint64_t a_hi, uint64_t a_lo, uint64_t b_hi, uint64_t
         }        
         adi_api_utils_rshift_128(&part1_hi, &part1_lo); /* part1 = part1 >> 1 */        
         adi_api_utils_rshift_128(&mask_hi, &mask_lo);   /* mask  = mask  >> 1 */
-    } while ((mask_hi != 0) || (mask_lo != 0));
+    } while ((mask_hi != 0ULL) || (mask_lo != 0ULL));
     
     /* result    = division result       (quotient) */
     /* remain_lo = division remain_loder (modulo)   */
@@ -232,13 +232,13 @@ void  adi_api_utils_mod_128(uint64_t ah, uint64_t al, uint64_t div, uint64_t *mo
     a += 1;
     div64_u64_rem(ah, div, &ah);
 #else
-    a = (~0 % div) + 1;
+    a = (UINT64_MAX % div) + 1ULL;
     ah %= div;
 #endif
 
     /*modular multiplication of (2^64*upper) % div*/
-    while (ah != 0) {
-        if ( (ah & 1) == 1) {
+    while (ah != 0ULL) {
+        if ( (ah & 1ULL) == 1ULL) {
             result += a;
             if(result >= div) {
                 result -= div;
@@ -289,8 +289,8 @@ void adi_api_utils_subt_128(uint64_t ah, uint64_t al, uint64_t bh, uint64_t bl,
         rl = al - bl;
         rh = ah - bh;
     } else {
-        rl = bl - al - 1;
-        rl = 0xFFFFFFFFFFFFFFFFll - rl;
+        rl = bl - al - 1ULL;
+        rl = 0xFFFFFFFFFFFFFFFFULL - rl;
         ah--;
         rh = ah - bh;
     }
@@ -301,21 +301,21 @@ void adi_api_utils_subt_128(uint64_t ah, uint64_t al, uint64_t bh, uint64_t bl,
 
 uint8_t adi_api_utils_num_selected(uint32_t select_mask)
 {
-    int sel_cnt = 0;
-    while (select_mask) {
-        sel_cnt += select_mask & 1;
+    uint32_t sel_cnt = 0U;
+    while (select_mask != 0U) {
+        sel_cnt += (select_mask & 1U);
         select_mask = select_mask >> 1;
     }
-    return sel_cnt;
+    return (uint8_t)sel_cnt;
 }
 
 uint8_t adi_api_utils_select_lsb_get(uint32_t select_mask)
 {
     uint8_t index = 0;
-    if (select_mask == 0) {
+    if (select_mask == 0U) {
         return 255;
     }
-    while ((select_mask & 1) == 0) {
+    while ((select_mask & 1U) == 0U) {
         index++;
         select_mask = select_mask >> 1;
     }
@@ -325,11 +325,11 @@ uint8_t adi_api_utils_select_lsb_get(uint32_t select_mask)
 void adi_uint64_to_byte_array(uint8_t dest[], const uint64_t val)
 {
     uint32_t offset = 0;
-    uint32_t endian_test_val = 0x11223344;
-    uint8_t is_lit_endian = (*(uint8_t *)&endian_test_val == 0x44);
-    
+    uint32_t endian_test_val = 0x11223344U;
+    uint8_t is_lit_endian = (*(uint8_t *)&endian_test_val == 0x44U);
+
     /* Little endian */
-    if (is_lit_endian) {
+    if (is_lit_endian != 0U) {
         dest[offset++] = (uint8_t)(val);
         dest[offset++] = (uint8_t)(val >> 8);
         dest[offset++] = (uint8_t)(val >> 16);
@@ -354,12 +354,12 @@ void adi_uint64_to_byte_array(uint8_t dest[], const uint64_t val)
 void adi_byte_array_to_uint64(uint8_t src[], uint64_t *val)
 {
     uint32_t offset = 0;
-    uint32_t endian_test_val = 0x11223344;
-    uint8_t is_lit_endian = (*(uint8_t *)&endian_test_val == 0x44);
+    uint32_t endian_test_val = 0x11223344U;
+    uint8_t is_lit_endian = (*(uint8_t *)&endian_test_val == 0x44U);
 
     uint8_t *val_ptr = (uint8_t *) val;
 
-    if (is_lit_endian) {
+    if (is_lit_endian != 0U) {
         val_ptr[0] = src[offset++];
         val_ptr[1] = src[offset++];
         val_ptr[2] = src[offset++];
@@ -382,10 +382,10 @@ void adi_byte_array_to_uint64(uint8_t src[], uint64_t *val)
 }
 
 int32_t adi_api_utils_ratio_decomposition(uint64_t ratio_num, uint64_t ratio_den, uint8_t bit_size, uint64_t *x, uint64_t *a, uint64_t *b) {
-    uint64_t gcd, n, mh, ml, xh, xl; // ratio = m/n
+    uint64_t gcd, n, mh, ml, xh = 0, xl = 0; // ratio = m/n
     uint64_t y;
 
-    if (ratio_den == 0  || bit_size >= 64 || ratio_num > ratio_den) {
+    if ((ratio_den == 0ULL) || (bit_size >= 64U) || (ratio_num > ratio_den)) {
         return -1;
     }
 
@@ -393,16 +393,16 @@ int32_t adi_api_utils_ratio_decomposition(uint64_t ratio_num, uint64_t ratio_den
 
 #ifdef __KERNEL__
     n = div64_u64(ratio_den, gcd);
-    adi_api_utils_mult_128(div64_u64(ratio_num, gcd),(1ull << bit_size), &mh, &ml);
+    adi_api_utils_mult_128(div64_u64(ratio_num, gcd),(1ULL << bit_size), &mh, &ml);
 #else
     n = ratio_den/gcd;
-    adi_api_utils_mult_128(ratio_num/gcd,(1ull << bit_size), &mh, &ml);
+    adi_api_utils_mult_128(ratio_num/gcd,(1ULL << bit_size), &mh, &ml);
 #endif
 
     adi_api_utils_div_128(mh, ml, 0, n, &xh, &xl);
     adi_api_utils_mod_128(mh, ml, n, &y);
 
-    if (xh > 0) {
+    if (xh > 0ULL) {
         return -1;
     }
 
@@ -422,22 +422,22 @@ int32_t adi_api_utils_ratio_decomposition(uint64_t ratio_num, uint64_t ratio_den
 int32_t adi_api_utils_ratio_composition(uint64_t x, uint64_t a, uint64_t b, uint32_t *ratio_num, uint32_t *ratio_den, uint8_t bit_size)
 {
 
-    uint64_t mh, ml, ah, al, xh, xl, gcd;
+    uint64_t mh, ml, ah, al, xh = 0, xl = 0, gcd;
 
-    if (b == 0  || bit_size >= 64) {
+    if ((b == 0ULL) || (bit_size >= 64U)) {
         return -1;
     }
 
     adi_api_utils_mult_128(x, b, &mh, &ml);
     adi_api_utils_add_128(mh, ml, 0, a, &ah, &al);
-    while ((al & (0xFFFFFFFFFFFFFFFF >> (64 - bit_size))) != 0ull) {
+    while ((al & (0xFFFFFFFFFFFFFFFFULL >> (64 - bit_size))) != 0ULL) {
         adi_api_utils_lshift_128(&ah, &al);
         b = b << 1;
     }
 
-    adi_api_utils_div_128(ah, al, 0, (1ull << bit_size), &xh, &xl);
+    adi_api_utils_div_128(ah, al, 0, (1ULL << bit_size), &xh, &xl);
 
-    if (xh > 0) {
+    if (xh > 0ULL) {
         return -1;
     }
  
@@ -447,8 +447,8 @@ int32_t adi_api_utils_ratio_composition(uint64_t x, uint64_t a, uint64_t b, uint
     *ratio_num = div64_u64(xl, gcd);
     *ratio_den = div64_u64(b, gcd);
 #else
-    *ratio_num = xl / gcd;
-    *ratio_den = b / gcd;
+    *ratio_num = (uint32_t)(xl / gcd);
+    *ratio_den = (uint32_t)(b / gcd);
 #endif
 
     return 0;
@@ -469,7 +469,7 @@ uint64_t adi_api_utils_div_ceil_u64(uint64_t a, uint64_t b) {
 #ifdef __KERNEL__
     return DIV64_U64_ROUND_UP(a, b);
 #else
-    return ((a) / (b)) + ((a) % (b) != 0);
+    return ((a) / (b)) + (((a) % (b)) != 0ULL);
 #endif
 }
 
@@ -480,15 +480,15 @@ int32_t adi_api_utils_check_consecutive_ones_bounded(uint16_t link_table, uint8_
     uint8_t i = 0;
 
     for (i = clk_adj_lower_bound; i <= clk_adj_upper_bound; ++i) {
-        link_table_shifted = (link_table >> bit_shift) & expected_val;
+        link_table_shifted = (uint16_t)((link_table >> bit_shift) & expected_val);
 
         if (link_table_shifted == expected_val) {
             *calc_clk_adj = i;
-            return API_CMS_ERROR_OK;
+            ADI_CMS_RETURN(API_CMS_ERROR_OK);
         }
         bit_shift++;
     }
-    return API_CMS_ERROR_ERROR;
+    ADI_CMS_RETURN(API_CMS_ERROR_ERROR);
 }
 
 /*! @} */

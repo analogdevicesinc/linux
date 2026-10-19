@@ -8,7 +8,7 @@
  */
 
 /*!
- * \addtogroup ADI_APOLLO_TRIGGER
+ * \addtogroup ADI_APOLLO_TRIGGER_TS
  * @{
  */
 
@@ -60,52 +60,58 @@ static reg_bf_info_map_t *calc_cfir_trig_sel_mux(adi_apollo_terminal_e terminal,
 
 /* Utility for converting a functional block select index to its associated trig mst sel*/
 static uint32_t fb_sel_to_tm_sel(uint32_t(*fb2tm_fp)(uint8_t), uint32_t fb_sel, uint8_t fb_sel_per_side, uint16_t fb_sel_side_offset);
+static uint32_t calc_trigts_base(adi_apollo_terminal_e terminal, uint32_t side_index);
 
 /*==================== P U B L I C   A P I   C O D E ====================*/
 int32_t adi_apollo_trigts_mst_config(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_side_select_e side_sel,
-                                         uint32_t trig_msts, adi_apollo_trig_mst_config_t *config) 
+                                         uint32_t trig_msts, adi_apollo_trig_mst_config_t *config)
 {
     int32_t err;
-    uint8_t i, side, side_index, trig_index;
+    uint8_t side_index, trig_index;
+    uint32_t i;
+    uint32_t side;
     uint32_t trig_mst;
     uint8_t byte_array[8];
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(side_sel, ADI_APOLLO_SIDE_NONE, ADI_APOLLO_SIDE_ALL);
     ADI_APOLLO_NULL_POINTER_RETURN(config);
 
-    for (side_index = 0;  side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        side = side_sel & (ADI_APOLLO_SIDE_A << side_index);
-        if (side > 0) {
+    for (side_index = 0;  side_index < (uint8_t)ADI_APOLLO_NUM_SIDES; side_index++) {
+        uint32_t side_mask = (uint32_t)ADI_APOLLO_SIDE_A << side_index;
+        side = (uint32_t)side_sel & side_mask;
+        if (side > 0U) {
             regmap_base_addr = calc_trigts_base(terminal, side_index);
             
             /* Set reg_map base address for subsequent paged writes */
-            adi_apollo_hal_paged_base_addr_set(device, regmap_base_addr);
+            err = adi_apollo_hal_paged_base_addr_set(device, regmap_base_addr);
+            ADI_APOLLO_ERROR_RETURN(err);
 
-            for (trig_index = 0; trig_index < ADI_APOLLO_NUM_TRIG_MASTER_PER_SIDE; trig_index++) {
-                trig_mst = trig_msts & (ADI_APOLLO_TRIG_MST_CNCO_0 << trig_index); 
+            for (trig_index = 0U; trig_index < ADI_APOLLO_NUM_TRIG_MASTER_PER_SIDE; trig_index++) {
+                trig_mst = (uint32_t)(trig_msts & ((uint32_t)ADI_APOLLO_TRIG_MST_CNCO_0 << trig_index)); 
                 
-                if (trig_mst > 0) {
+                if (trig_mst > 0U) {
                     
                     /* Trigger enable */
                     // err = adi_apollo_hal_bf_set(device, BF_TRIG_EN_INFO(regmap_base_addr, trig_index), config->trig_enable);
-                    err = adi_apollo_hal_paged_bf_set(device, BF_TRIG_EN_INFO(regmap_base_addr, trig_index), config->trig_enable);
+                    err = adi_apollo_hal_paged_bf_set(device, BF_TRIG_EN_INFO(regmap_base_addr, trig_index), (uint64_t)config->trig_enable);
                     ADI_APOLLO_ERROR_RETURN(err);
                     
                     /* Trigger offset (registers have a stride of 32) */
                     adi_uint64_to_byte_array(byte_array, config->trig_offset);
-                    for (i=0; i<8; i++) {
-                        // adi_apollo_hal_reg_set(device, REG_TRIG_OFFSET0_ADDR(regmap_base_addr, trig_index) + i*32, byte_array[i]); /* not paged */
-                        adi_apollo_hal_paged_reg_set(device, REG_TRIG_OFFSET0_ADDR(regmap_base_addr, trig_index) + i*32, byte_array[i]);
+                    for (i=0U; i< 8U; i++) {
+                        /* adi_apollo_hal_reg_set(device, REG_TRIG_OFFSET0_ADDR(regmap_base_addr, trig_index) + (i*32), byte_array[i]); */ /* not paged */
+                        err = adi_apollo_hal_paged_reg_set(device, REG_TRIG_OFFSET0_ADDR(regmap_base_addr, trig_index) + i * 32U, byte_array[i]);
                         ADI_APOLLO_ERROR_RETURN(err);
                     }
                     
                     /* Trigger period  (registers have a stride of 32) */
                     adi_uint64_to_byte_array(byte_array, config->trig_period);
-                    for (i=0; i<8; i++) {
-                        // adi_apollo_hal_reg_set(device, REG_TRIG_PERIOD0_ADDR(regmap_base_addr, trig_index) + i*32, byte_array[i]); /* not paged */
-                        adi_apollo_hal_paged_reg_set(device, REG_TRIG_PERIOD0_ADDR(regmap_base_addr, trig_index) + i*32, byte_array[i]);
+                    for (i=0U; i< 8U; i++) {
+                        /* adi_apollo_hal_reg_set(device, REG_TRIG_PERIOD0_ADDR(regmap_base_addr, trig_index) + (i*32), byte_array[i]); */ /* not paged */
+                        err = adi_apollo_hal_paged_reg_set(device, REG_TRIG_PERIOD0_ADDR(regmap_base_addr, trig_index) + i * 32U, byte_array[i]);
                         ADI_APOLLO_ERROR_RETURN(err);
                     }
 
@@ -113,14 +119,16 @@ int32_t adi_apollo_trigts_mst_config(adi_apollo_device_t *device, adi_apollo_ter
             }
         }
     }
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_trigts_mst_inspect(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_side_select_e side_sel,
                                    uint32_t trig_msts, adi_apollo_trig_mst_config_t *config)
 {
     int32_t err;
-    uint8_t i, side, side_index, trig_index;
+    uint8_t side_index, trig_index;
+    uint32_t i;
+    uint32_t side;
     uint32_t trig_mst;
     uint8_t val_u64[8];
     uint32_t regmap_base_addr = 0;
@@ -128,76 +136,83 @@ int32_t adi_apollo_trigts_mst_inspect(adi_apollo_device_t *device, adi_apollo_te
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(config);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(side_sel) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected((uint32_t)side_sel) != 1U);
 
-    for (side_index = 0;  side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        side = side_sel & (ADI_APOLLO_SIDE_A << side_index);
-        if (side > 0) {
+    for (side_index = 0;  side_index < (uint8_t)ADI_APOLLO_NUM_SIDES; side_index++) {
+        uint32_t side_mask = (uint32_t)ADI_APOLLO_SIDE_A << side_index;
+        side = (uint32_t)side_sel & side_mask;
+        if (side > 0U) {
             regmap_base_addr = calc_trigts_base(terminal, side_index);
 
-            for (trig_index = 0; trig_index < ADI_APOLLO_NUM_TRIG_MASTER_PER_SIDE; trig_index++) {
-                trig_mst = trig_msts & (ADI_APOLLO_TRIG_MST_CNCO_0 << trig_index); 
+            for (trig_index = 0U; trig_index < ADI_APOLLO_NUM_TRIG_MASTER_PER_SIDE; trig_index++) {
+                trig_mst = (uint32_t)(trig_msts & ((uint32_t)ADI_APOLLO_TRIG_MST_CNCO_0 << trig_index)); 
                 
-                if (trig_mst > 0) {
+                if (trig_mst > 0U) {
                     
                     /* Trigger enable */
-                    err = adi_apollo_hal_bf_get(device, BF_TRIG_EN_INFO(regmap_base_addr, trig_index), (uint8_t *) &config->trig_enable, sizeof(config->trig_enable));
+                    err = adi_apollo_hal_bf_get(device, BF_TRIG_EN_INFO(regmap_base_addr, trig_index), (uint8_t *) &config->trig_enable, (uint8_t)sizeof(config->trig_enable));
                     ADI_APOLLO_ERROR_RETURN(err);
 
                     /* Trigger offset (registers have a stride of 32) */
-                    for (i=0; i<8; i++) {
-                        adi_apollo_hal_reg_get(device, REG_TRIG_PERIOD0_ADDR(regmap_base_addr, trig_index) + i*32, &val_u64[i]);
+                    for (i=0U; i< 8U; i++) {
+                        err = adi_apollo_hal_reg_get(device, REG_TRIG_PERIOD0_ADDR(regmap_base_addr, trig_index) + i * 32U, &val_u64[i]);
+                        ADI_APOLLO_ERROR_RETURN(err);
                     }
                     adi_byte_array_to_uint64(val_u64, &config->trig_period);
-                    
+
                     /* Trigger period  (registers have a stride of 32) */
-                    for (i=0; i<8; i++) {
-                        adi_apollo_hal_reg_get(device, REG_TRIG_OFFSET0_ADDR(regmap_base_addr, trig_index) + i*32, &val_u64[i]);
+                    for (i=0U; i< 8U; i++) {
+                        err = adi_apollo_hal_reg_get(device, REG_TRIG_OFFSET0_ADDR(regmap_base_addr, trig_index) + i * 32U, &val_u64[i]);
+                        ADI_APOLLO_ERROR_RETURN(err);
                     }
                     adi_byte_array_to_uint64(val_u64, &config->trig_offset);
 
                     // Can only return one trig mst config at time
-                    return API_CMS_ERROR_OK;
+                    ADI_CMS_RETURN(API_CMS_ERROR_OK);
                 }
             }
         }
     }
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_trigts_mst_mute(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_side_select_e side_sel,
                                  uint32_t trig_msts, adi_apollo_trig_mute_sel_e trigger_mute)
 {
     int32_t err;
-    uint8_t side, side_index, trig_index;
+    uint8_t side_index, trig_index;
+    uint32_t side;
     uint32_t trig_mst;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(trigger_mute, ADI_APOLLO_TRIG_MUTE_DISABLE, ADI_APOLLO_TRIG_MUTE_ENABLE);
 
-    for (side_index = 0;  side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        side = side_sel & (ADI_APOLLO_SIDE_A << side_index);
-        if (side > 0) {
+    for (side_index = 0;  side_index < (uint8_t)ADI_APOLLO_NUM_SIDES; side_index++) {
+        uint32_t side_mask = (uint32_t)ADI_APOLLO_SIDE_A << side_index;
+        side = (uint32_t)side_sel & side_mask;
+        if (side > 0U) {
             regmap_base_addr = calc_trigts_base(terminal, side_index);
 
-            for (trig_index = 0; trig_index < ADI_APOLLO_NUM_TRIG_MASTER_PER_SIDE; trig_index++) {
-                trig_mst = trig_msts & (ADI_APOLLO_TRIG_MST_CNCO_0 << trig_index); 
-                if (trig_mst > 0) {
-                    err = adi_apollo_hal_bf_set(device, BF_MUTE_TRIG_INFO(regmap_base_addr, trig_index), trigger_mute);
+            for (trig_index = 0U; trig_index < ADI_APOLLO_NUM_TRIG_MASTER_PER_SIDE; trig_index++) {
+                trig_mst = (uint32_t)(trig_msts & ((uint32_t)ADI_APOLLO_TRIG_MST_CNCO_0 << trig_index)); 
+                if (trig_mst > 0U) {
+                    err = adi_apollo_hal_bf_set(device, BF_MUTE_TRIG_INFO(regmap_base_addr, trig_index), (uint64_t)trigger_mute);
                     ADI_APOLLO_ERROR_RETURN(err);
                 }
             }
         }
     }
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_trigts_mst_mute_mask_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_side_select_e side_sel,
                                  uint32_t trig_msts, adi_apollo_trig_mute_mask_e trigger_mute)
 {
     int32_t err;
-    uint8_t side, side_index, trig_index;
+    uint8_t side_index;
+    uint32_t side, trig_index;
     uint32_t trig_mst;
     uint32_t regmap_base_addr = 0;
 
@@ -205,84 +220,90 @@ int32_t adi_apollo_trigts_mst_mute_mask_set(adi_apollo_device_t *device, adi_apo
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_INVALID_PARAM_RETURN(trigger_mute > ADI_APOLLO_TRIG_MUTE_MASK_1);
 
-    for (side_index = 0;  side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        side = side_sel & (ADI_APOLLO_SIDE_A << side_index);
-        if (side > 0) {
+    for (side_index = 0;  side_index < (uint8_t)ADI_APOLLO_NUM_SIDES; side_index++) {
+        uint32_t side_mask = (uint32_t)ADI_APOLLO_SIDE_A << side_index;
+        side = (uint32_t)side_sel & side_mask;
+        if (side > 0U) {
             regmap_base_addr = calc_trigts_base(terminal, side_index);
 
-            for (trig_index = 0; trig_index < ADI_APOLLO_NUM_TRIG_MASTER_PER_SIDE; trig_index++) {
-                trig_mst = trig_msts & (ADI_APOLLO_TRIG_MST_CNCO_0 << trig_index); 
-                if (trig_mst > 0) {
-                    err = adi_apollo_hal_bf_set(device, BF_TRIG_MASK_COUNT_INFO(regmap_base_addr, trig_index), trigger_mute);
+            for (trig_index = 0U; trig_index < ADI_APOLLO_NUM_TRIG_MASTER_PER_SIDE; trig_index++) {
+                trig_mst = (uint32_t)(trig_msts & ((uint32_t)ADI_APOLLO_TRIG_MST_CNCO_0 << trig_index)); 
+                if (trig_mst > 0U) {
+                    err = adi_apollo_hal_bf_set(device, BF_TRIG_MASK_COUNT_INFO(regmap_base_addr, trig_index), (uint64_t)trigger_mute);
                     ADI_APOLLO_ERROR_RETURN(err);
                 }
             }
         }
     }
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_trigts_mst_mute_mask_count_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_side_select_e side_sel,
                                 adi_apollo_trig_mute_mask_e trigger_mute, adi_apollo_trig_mst_sel_e trig_mst, uint16_t pulse_count)
 {
     int32_t err;
-    uint8_t side, side_index;
+    uint8_t side_index;
+    uint32_t side;
     uint32_t regmap_base_addr = 0;
     uint32_t trig = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_INVALID_PARAM_RETURN(trigger_mute == ADI_APOLLO_TRIG_MUTE_MASK_DISABLE);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(trig_mst) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected((uint32_t)trig_mst) != 1U);
 
-    trig = adi_api_utils_select_lsb_get(trig_mst);
+    trig = adi_api_utils_select_lsb_get((uint32_t)trig_mst);
 
-    for (side_index = 0;  side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        side = side_sel & (ADI_APOLLO_SIDE_A << side_index);
-        if (side > 0) {
+    for (side_index = 0;  side_index < (uint8_t)ADI_APOLLO_NUM_SIDES; side_index++) {
+        uint32_t side_mask = (uint32_t)ADI_APOLLO_SIDE_A << side_index;
+        side = (uint32_t)side_sel & side_mask;
+        if (side > 0U) {
             regmap_base_addr = calc_trigts_base(terminal, side_index);
             if (trigger_mute == ADI_APOLLO_TRIG_MUTE_MASK_0) {
                 err = adi_apollo_hal_bf_set(device, BF_COUNT0_REG0_INFO(regmap_base_addr), pulse_count);
                 ADI_APOLLO_ERROR_RETURN(err);
-                err = adi_apollo_hal_bf_set(device, BF_COUNT0_REG1_INFO(regmap_base_addr), pulse_count >> 8);
+                err = adi_apollo_hal_bf_set(device, BF_COUNT0_REG1_INFO(regmap_base_addr), (uint64_t)(pulse_count >> 8));
                 ADI_APOLLO_ERROR_RETURN(err);
                 err = adi_apollo_hal_bf_set(device, BF_TM_SEL0_INFO(regmap_base_addr), trig);
                 ADI_APOLLO_ERROR_RETURN(err);
             } else {
                 err = adi_apollo_hal_bf_set(device, BF_COUNT1_REG0_INFO(regmap_base_addr), pulse_count);
                 ADI_APOLLO_ERROR_RETURN(err);
-                err = adi_apollo_hal_bf_set(device, BF_COUNT1_REG1_INFO(regmap_base_addr), pulse_count >> 8);
+                err = adi_apollo_hal_bf_set(device, BF_COUNT1_REG1_INFO(regmap_base_addr), (uint64_t)(pulse_count >> 8));
                 ADI_APOLLO_ERROR_RETURN(err);
                 err = adi_apollo_hal_bf_set(device, BF_TM_SEL1_INFO(regmap_base_addr), trig);
                 ADI_APOLLO_ERROR_RETURN(err);
             }
         }
     }
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_trigts_reconfig_trig_sel_mux_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_side_select_e side_sel,
                                                adi_apollo_trigger_sel_mux_e trig_sel)
 {
     int32_t err;
-    uint8_t side, side_index;
+    uint8_t side_index;
+    uint32_t side;
     uint32_t regmap_base_addr = 0;
 
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(trig_sel, ADI_APOLLO_TRIG_INPUT, ADI_APOLLO_TRIG_MASTER);
 
-    for (side_index = 0;  side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        side = side_sel & (ADI_APOLLO_SIDE_A << side_index);
-        if (side > 0) {
+    for (side_index = 0;  side_index < (uint8_t)ADI_APOLLO_NUM_SIDES; side_index++) {
+        uint32_t side_mask = (uint32_t)ADI_APOLLO_SIDE_A << side_index;
+        side = (uint32_t)side_sel & side_mask;
+        if (side > 0U) {
             regmap_base_addr = calc_trigts_base(terminal, side_index);
 
-            err = adi_apollo_hal_bf_set(device, BF_TRIG_SEL_MUX_RECONFIG_INFO(regmap_base_addr), trig_sel);
+            err = adi_apollo_hal_bf_set(device, BF_TRIG_SEL_MUX_RECONFIG_INFO(regmap_base_addr), (uint64_t)trig_sel);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
     
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_trigts_cdrc_trig_sel_mux_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal,  adi_apollo_blk_sel_t cdrcs, adi_apollo_trigger_sel_mux_e trig_sel)
@@ -294,19 +315,20 @@ int32_t adi_apollo_trigts_cdrc_trig_sel_mux_set(adi_apollo_device_t *device, adi
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(trig_sel, ADI_APOLLO_TRIG_INPUT, ADI_APOLLO_TRIG_MASTER);
     ADI_APOLLO_CNCO_BLK_SEL_MASK(cdrcs);
 
-    for(i = 0; i < ADI_APOLLO_CNCO_NUM; i ++) {
-        cdrc = cdrcs & (ADI_APOLLO_CNCO_A0 << i);
-        if (cdrc > 0) {
+    for(i = 0U; i < ADI_APOLLO_CNCO_NUM; i ++) {
+        cdrc = (uint16_t)(cdrcs & ((uint32_t)ADI_APOLLO_CNCO_A0 << i));
+        if (cdrc > 0U) {
             reg_bfinfo = calc_cdrc_trig_sel_mux(terminal, i);
 
-            err = adi_apollo_hal_bf_set(device, reg_bfinfo->reg_base_addr, reg_bfinfo->bf_info, trig_sel);
+            err = adi_apollo_hal_bf_set(device, reg_bfinfo->reg_base_addr, reg_bfinfo->bf_info, (uint64_t)trig_sel);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
     
-    return API_CMS_ERROR_OK;   
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);   
 }
 
 int32_t adi_apollo_trigts_fdrc_trig_sel_mux_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fdrcs, adi_apollo_trigger_sel_mux_e trig_sel)
@@ -318,19 +340,20 @@ int32_t adi_apollo_trigts_fdrc_trig_sel_mux_set(adi_apollo_device_t *device, adi
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(trig_sel, ADI_APOLLO_TRIG_INPUT, ADI_APOLLO_TRIG_MASTER);
     ADI_APOLLO_FNCO_BLK_SEL_MASK(fdrcs);
 
-    for(i = 0; i < ADI_APOLLO_FNCO_NUM; i ++) {
-        fdrc = fdrcs & (ADI_APOLLO_FNCO_A0 << i);
-        if (fdrc > 0) {
+    for(i = 0U; i < ADI_APOLLO_FNCO_NUM; i ++) {
+        fdrc = (uint16_t)(fdrcs & ((uint32_t)ADI_APOLLO_FNCO_A0 << i));
+        if (fdrc > 0U) {
             reg_bfinfo = calc_fdrc_trig_sel_mux(terminal, i);
 
-            err = adi_apollo_hal_bf_set(device, reg_bfinfo->reg_base_addr, reg_bfinfo->bf_info, trig_sel);
+            err = adi_apollo_hal_bf_set(device, reg_bfinfo->reg_base_addr, reg_bfinfo->bf_info, (uint64_t)trig_sel);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
     
-    return API_CMS_ERROR_OK;   
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);   
 }
 
 int32_t adi_apollo_trigts_bmem_trig_sel_mux_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t bmems, adi_apollo_trigger_sel_mux_e trig_sel)
@@ -342,19 +365,20 @@ int32_t adi_apollo_trigts_bmem_trig_sel_mux_set(adi_apollo_device_t *device, adi
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(trig_sel, ADI_APOLLO_TRIG_INPUT, ADI_APOLLO_TRIG_MASTER);
     ADI_APOLLO_BMEM_BLK_SEL_MASK(bmems);
 
-    for(i = 0; i < ADI_APOLLO_BMEM_NUM; i ++) {
-        bmem = bmems & (ADI_APOLLO_BMEM_A0 << i);
-        if (bmem > 0) {
+    for(i = 0U; i < ADI_APOLLO_BMEM_NUM; i ++) {
+        bmem = (uint16_t)(bmems & ((uint32_t)ADI_APOLLO_BMEM_A0 << i));
+        if (bmem > 0U) {
             reg_bfinfo = calc_bmem_trig_sel_mux(terminal, i);
 
-            err = adi_apollo_hal_bf_set(device, reg_bfinfo->reg_base_addr, reg_bfinfo->bf_info, trig_sel);
+            err = adi_apollo_hal_bf_set(device, reg_bfinfo->reg_base_addr, reg_bfinfo->bf_info, (uint64_t)trig_sel);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
     
-    return API_CMS_ERROR_OK;   
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);   
 }
 
 int32_t adi_apollo_trigts_pfilt_trig_sel_mux_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t pfilts, adi_apollo_trigger_sel_mux_e trig_sel)
@@ -366,19 +390,20 @@ int32_t adi_apollo_trigts_pfilt_trig_sel_mux_set(adi_apollo_device_t *device, ad
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(trig_sel, ADI_APOLLO_TRIG_INPUT, ADI_APOLLO_TRIG_MASTER);
     ADI_APOLLO_PFILT_BLK_SEL_MASK(pfilts);
 
-    for(i = 0; i < ADI_APOLLO_PFILT_NUM; i ++) {
-        pfilt = pfilts & (ADI_APOLLO_PFILT_A0 << i);
-        if (pfilt > 0) {
+    for(i = 0U; i < ADI_APOLLO_PFILT_NUM; i ++) {
+        pfilt = (uint16_t)(pfilts & ((uint32_t)ADI_APOLLO_PFILT_A0 << i));
+        if (pfilt > 0U) {
             reg_bfinfo = calc_pfilt_trig_sel_mux(terminal, i);
 
-            err = adi_apollo_hal_bf_set(device, reg_bfinfo->reg_base_addr, reg_bfinfo->bf_info, trig_sel);
+            err = adi_apollo_hal_bf_set(device, reg_bfinfo->reg_base_addr, reg_bfinfo->bf_info, (uint64_t)trig_sel);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
     
-    return API_CMS_ERROR_OK;   
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);   
 }
 
 int32_t adi_apollo_trigts_cfir_trig_sel_mux_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t cfirs, adi_apollo_trigger_sel_mux_e trig_sel)
@@ -390,33 +415,37 @@ int32_t adi_apollo_trigts_cfir_trig_sel_mux_set(adi_apollo_device_t *device, adi
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(trig_sel, ADI_APOLLO_TRIG_INPUT, ADI_APOLLO_TRIG_MASTER);
     ADI_APOLLO_CFIR_BLK_SEL_MASK(cfirs);
 
-    for(i = 0; i < ADI_APOLLO_PFILT_NUM; i ++) {
-        cfir = cfirs & (ADI_APOLLO_PFILT_A0 << i);
-        if (cfir > 0) {
+    for(i = 0U; i < ADI_APOLLO_PFILT_NUM; i ++) {
+        cfir = (uint16_t)(cfirs & ((uint32_t)ADI_APOLLO_PFILT_A0 << i));
+        if (cfir > 0U) {
             reg_bfinfo = calc_cfir_trig_sel_mux(terminal, i);
 
-            err = adi_apollo_hal_bf_set(device, reg_bfinfo->reg_base_addr, reg_bfinfo->bf_info, trig_sel);
+            err = adi_apollo_hal_bf_set(device, reg_bfinfo->reg_base_addr, reg_bfinfo->bf_info, (uint64_t)trig_sel);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
     
-    return API_CMS_ERROR_OK;   
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);   
 }
 
 int32_t adi_apollo_trigts_trig_now(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_side_select_e side_sel)
 {
     int32_t err;
-    uint8_t side, side_index;
+    uint8_t side_index;
+    uint32_t side;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(side_sel, ADI_APOLLO_SIDE_NONE, ADI_APOLLO_SIDE_ALL);
 
-    for (side_index = 0;  side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        side = side_sel & (ADI_APOLLO_SIDE_A << side_index);
-        if (side > 0) {
+    for (side_index = 0;  side_index < (uint8_t)ADI_APOLLO_NUM_SIDES; side_index++) {
+        uint32_t side_mask = (uint32_t)ADI_APOLLO_SIDE_A << side_index;
+        side = (uint32_t)side_sel & side_mask;
+        if (side > 0U) {
             regmap_base_addr = calc_trigts_base(terminal, side_index);
 
             // A low-to-high transition spi_trig 
@@ -427,23 +456,25 @@ int32_t adi_apollo_trigts_trig_now(adi_apollo_device_t *device, adi_apollo_termi
         }
     }
     
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_trigts_counter_get(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_side_select_e side_sel, uint64_t *val)
 {
     int32_t err;
-    uint8_t side, side_index;
+    uint8_t side_index;
+    uint32_t side;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(val);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(side_sel) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected((uint32_t)side_sel) != 1U);
 
-    for (side_index = 0; side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        side = side_sel & (ADI_APOLLO_SIDE_A << side_index);
-        if (side > 0) {
+    for (side_index = 0; side_index < (uint8_t)ADI_APOLLO_NUM_SIDES; side_index++) {
+        uint32_t side_mask = (uint32_t)ADI_APOLLO_SIDE_A << side_index;
+        side = (uint32_t)side_sel & side_mask;
+        if (side > 0U) {
             regmap_base_addr = calc_trigts_base(terminal, side_index);
 
             /* Latch 64-bit timestamp counter*/
@@ -455,7 +486,7 @@ int32_t adi_apollo_trigts_counter_get(adi_apollo_device_t *device, adi_apollo_te
             ADI_APOLLO_ERROR_RETURN(err);
 
             /* Read the 64-bit counter value */
-            err = adi_apollo_hal_bf_get(device, BF_TIMESTAMP_STATUS_TXRX_TRIGGER_TS_INFO(regmap_base_addr), (uint8_t *)val, sizeof(*val));
+            err = adi_apollo_hal_bf_get(device, BF_TIMESTAMP_STATUS_TXRX_TRIGGER_TS_INFO(regmap_base_addr), (uint8_t *)val, (uint8_t)sizeof(*val));
             ADI_APOLLO_ERROR_RETURN(err);
 
             /* Only single value returned */
@@ -463,7 +494,7 @@ int32_t adi_apollo_trigts_counter_get(adi_apollo_device_t *device, adi_apollo_te
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_trigts_cnco_trig_mst_config(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t cncos, adi_apollo_trig_mst_config_t *config)
@@ -472,24 +503,25 @@ int32_t adi_apollo_trigts_cnco_trig_mst_config(adi_apollo_device_t *device, adi_
     uint32_t trig_msts;
     
     ADI_APOLLO_NULL_POINTER_RETURN(device);
-    ADI_APOLLO_LOG_FUNC();    
+    ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);    
     ADI_APOLLO_NULL_POINTER_RETURN(config);
 
     /* Configure cnco trigger masters for Side A */
-    trig_msts = fb_sel_to_tm_sel(calc_cnco_trig_mst_num, cncos, ADI_APOLLO_CDDC_PER_SIDE_NUM, ADI_APOLLO_CDDC_A0);
-    if (trig_msts > 0){
+    trig_msts = fb_sel_to_tm_sel(calc_cnco_trig_mst_num, cncos, ADI_APOLLO_CDDC_PER_SIDE_NUM, (uint16_t)ADI_APOLLO_CDDC_A0);
+    if (trig_msts > 0U){
         err = adi_apollo_trigts_mst_config(device, terminal, ADI_APOLLO_SIDE_A, trig_msts, config);
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
     /* Configure cnco trigger masters for Side B */
-    trig_msts = fb_sel_to_tm_sel(calc_cnco_trig_mst_num, cncos, ADI_APOLLO_CDDC_PER_SIDE_NUM, ADI_APOLLO_CDDC_B0);
-    if (trig_msts > 0){
+    trig_msts = fb_sel_to_tm_sel(calc_cnco_trig_mst_num, cncos, ADI_APOLLO_CDDC_PER_SIDE_NUM, (uint16_t)ADI_APOLLO_CDDC_B0);
+    if (trig_msts > 0U){
         err = adi_apollo_trigts_mst_config(device, terminal, ADI_APOLLO_SIDE_B, trig_msts, config);
         ADI_APOLLO_ERROR_RETURN(err);        
     }
 
-    return API_CMS_ERROR_OK;   
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);   
 }
 
 int32_t adi_apollo_trigts_fnco_trig_mst_config(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fncos, adi_apollo_trig_mst_config_t *config)
@@ -499,23 +531,24 @@ int32_t adi_apollo_trigts_fnco_trig_mst_config(adi_apollo_device_t *device, adi_
     
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_NULL_POINTER_RETURN(config);
 
     /* Configure fnco trigger masters for Side A */
-    trig_msts = fb_sel_to_tm_sel(calc_fnco_trig_mst_num, fncos, ADI_APOLLO_FDDC_PER_SIDE_NUM, ADI_APOLLO_FDDC_A0);
-    if (trig_msts > 0){
+    trig_msts = fb_sel_to_tm_sel(calc_fnco_trig_mst_num, fncos, ADI_APOLLO_FDDC_PER_SIDE_NUM, (uint16_t)ADI_APOLLO_FDDC_A0);
+    if (trig_msts > 0U){
         err = adi_apollo_trigts_mst_config(device, terminal, ADI_APOLLO_SIDE_A, trig_msts, config);
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
     /* Configure fnco trigger masters for Side B */
-    trig_msts = fb_sel_to_tm_sel(calc_fnco_trig_mst_num, fncos, ADI_APOLLO_FDDC_PER_SIDE_NUM, ADI_APOLLO_FDDC_B0);
-    if (trig_msts > 0){
+    trig_msts = fb_sel_to_tm_sel(calc_fnco_trig_mst_num, fncos, ADI_APOLLO_FDDC_PER_SIDE_NUM, (uint16_t)ADI_APOLLO_FDDC_B0);
+    if (trig_msts > 0U){
         err = adi_apollo_trigts_mst_config(device, terminal, ADI_APOLLO_SIDE_B, trig_msts, config);
         ADI_APOLLO_ERROR_RETURN(err);        
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_trigts_pfilt_trig_mst_config(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t pfilts, adi_apollo_trig_mst_config_t *config)
@@ -525,23 +558,24 @@ int32_t adi_apollo_trigts_pfilt_trig_mst_config(adi_apollo_device_t *device, adi
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_NULL_POINTER_RETURN(config);
 
     /* Configure pfilt trigger masters for Side A */
-    trig_msts = fb_sel_to_tm_sel(calc_pfilt_trig_mst_num, pfilts, ADI_APOLLO_PFILT_PER_SIDE, ADI_APOLLO_PFILT_A0);
-    if (trig_msts > 0) {
+    trig_msts = fb_sel_to_tm_sel(calc_pfilt_trig_mst_num, pfilts, ADI_APOLLO_PFILT_PER_SIDE, (uint16_t)ADI_APOLLO_PFILT_A0);
+    if (trig_msts > 0U) {
         err = adi_apollo_trigts_mst_config(device, terminal, ADI_APOLLO_SIDE_A, trig_msts, config);
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
     /* Configure PFILT trigger masters for Side B */
-    trig_msts = fb_sel_to_tm_sel(calc_pfilt_trig_mst_num, pfilts, ADI_APOLLO_PFILT_PER_SIDE, ADI_APOLLO_PFILT_B0);
-    if (trig_msts > 0) {
+    trig_msts = fb_sel_to_tm_sel(calc_pfilt_trig_mst_num, pfilts, ADI_APOLLO_PFILT_PER_SIDE, (uint16_t)ADI_APOLLO_PFILT_B0);
+    if (trig_msts > 0U) {
         err = adi_apollo_trigts_mst_config(device, terminal, ADI_APOLLO_SIDE_B, trig_msts, config);
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_trigts_cfir_trig_mst_config(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t cfirs, adi_apollo_trig_mst_config_t *config)
@@ -551,29 +585,30 @@ int32_t adi_apollo_trigts_cfir_trig_mst_config(adi_apollo_device_t *device, adi_
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_NULL_POINTER_RETURN(config);
 
     /* Configure cfir trigger masters for Side A */
-    trig_msts = fb_sel_to_tm_sel(calc_cfir_trig_mst_num, cfirs, ADI_APOLLO_CFIRS_PER_SIDE, ADI_APOLLO_CFIR_A0);
-    if (trig_msts > 0) {
+    trig_msts = fb_sel_to_tm_sel(calc_cfir_trig_mst_num, cfirs, (uint8_t)ADI_APOLLO_CFIRS_PER_SIDE, (uint16_t)ADI_APOLLO_CFIR_A0);
+    if (trig_msts > 0U) {
         err = adi_apollo_trigts_mst_config(device, terminal, ADI_APOLLO_SIDE_A, trig_msts, config);
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
     /* Configure CFIR trigger masters for Side B */
-    trig_msts = fb_sel_to_tm_sel(calc_cfir_trig_mst_num, cfirs, ADI_APOLLO_CFIRS_PER_SIDE, ADI_APOLLO_CFIR_B0);
-    if (trig_msts > 0) {
+    trig_msts = fb_sel_to_tm_sel(calc_cfir_trig_mst_num, cfirs, (uint8_t)ADI_APOLLO_CFIRS_PER_SIDE, (uint16_t)ADI_APOLLO_CFIR_B0);
+    if (trig_msts > 0U) {
         err = adi_apollo_trigts_mst_config(device, terminal, ADI_APOLLO_SIDE_B, trig_msts, config);
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_trigts_reconfig_trig_mst_config(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_side_select_e side_sel, 
                                                  adi_apollo_trig_mst_config_t *config)
 {    
-    return adi_apollo_trigts_mst_config(device, terminal, side_sel, ADI_APOLLO_TRIG_MST_RECONFIG, config);    
+    return adi_apollo_trigts_mst_config(device, terminal, side_sel, (uint32_t)ADI_APOLLO_TRIG_MST_RECONFIG, config);    
 }
 
 int32_t adi_apollo_trigts_ts_reset_mode_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, uint16_t side_sel, adi_apollo_trig_ts_reset_mode_e mode)
@@ -586,14 +621,16 @@ int32_t adi_apollo_trigts_ts_reset_mode_set(adi_apollo_device_t *device, adi_apo
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(mode, ADI_APOLLO_TRIG_TS_RESET_MODE_SYSREF, ADI_APOLLO_TRIG_TS_RESET_MODE_SPI);
 
-    for (side_index = 0; side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        side = side_sel & (ADI_APOLLO_SIDE_A << side_index);
-        if (side > 0) {
+    for (side_index = 0; side_index < (uint8_t)ADI_APOLLO_NUM_SIDES; side_index++) {
+        uint16_t bit_select = (uint16_t)(side_sel & ((uint32_t)ADI_APOLLO_SIDE_A << side_index));
+        side = (uint8_t)bit_select;
+        if (side > 0U) {
             regmap_base_addr = calc_trigts_base(terminal, side_index);
 
             // Set the timestamp reset mode: SYSREF or SPI based
-            err = adi_apollo_hal_bf_set(device, BF_TS_RST_MODE_TXRX_TRIGGER_TS_INFO(regmap_base_addr), mode);
+            err = adi_apollo_hal_bf_set(device, BF_TS_RST_MODE_TXRX_TRIGGER_TS_INFO(regmap_base_addr), (uint64_t)mode);
             ADI_APOLLO_ERROR_RETURN(err);
 
             // Clear reset done status for selected timestamp instance
@@ -602,7 +639,7 @@ int32_t adi_apollo_trigts_ts_reset_mode_set(adi_apollo_device_t *device, adi_apo
             err = adi_apollo_hal_bf_set(device, BF_RST_DONE_CLR_TXRX_TRIGGER_TS_INFO(regmap_base_addr), 1);
             ADI_APOLLO_ERROR_RETURN(err);
 
-            if (mode == ADI_APOLLO_TRIG_TS_RESET_MODE_SYSREF) {
+            if (mode == (uint8_t)ADI_APOLLO_TRIG_TS_RESET_MODE_SYSREF) {
                 prefsrc_regmap_base_addr = calc_prefsrc_reconfig_base(terminal, side_index);
 
                 // Enable timestamp reset on sync event (timestamp_reset_en requires 0->1 transition to set)
@@ -617,7 +654,7 @@ int32_t adi_apollo_trigts_ts_reset_mode_set(adi_apollo_device_t *device, adi_apo
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_trigts_ts_reset(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, uint16_t side_sel, uint8_t sync)
@@ -631,10 +668,12 @@ int32_t adi_apollo_trigts_ts_reset(adi_apollo_device_t *device, adi_apollo_termi
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
 
-    for (side_index = 0; side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        side = side_sel & (ADI_APOLLO_SIDE_A << side_index);
-        if (side > 0) {
+    for (side_index = 0; side_index < (uint8_t)ADI_APOLLO_NUM_SIDES; side_index++) {
+        uint16_t bit_select = (uint16_t)(side_sel & ((uint32_t)ADI_APOLLO_SIDE_A << side_index));
+        side = (uint8_t)bit_select;
+        if (side > 0U) {
             regmap_base_addr = calc_trigts_base(terminal, side_index);
 
             // Clear reset done status
@@ -644,10 +683,10 @@ int32_t adi_apollo_trigts_ts_reset(adi_apollo_device_t *device, adi_apollo_termi
             ADI_APOLLO_ERROR_RETURN(err);
 
             // Determine current timestamp reset mode
-            err = adi_apollo_hal_bf_get(device, BF_TS_RST_MODE_TXRX_TRIGGER_TS_INFO(regmap_base_addr), &mode, sizeof(mode));
+            err = adi_apollo_hal_bf_get(device, BF_TS_RST_MODE_TXRX_TRIGGER_TS_INFO(regmap_base_addr), &mode, (uint8_t)sizeof(mode));
             ADI_APOLLO_ERROR_RETURN(err);
 
-            if (mode == ADI_APOLLO_TRIG_TS_RESET_MODE_SYSREF) {
+            if (mode == (uint8_t)ADI_APOLLO_TRIG_TS_RESET_MODE_SYSREF) {
                 // Reset timestamp counter via SYSREF/SYNC
                 prefsrc_regmap_base_addr = calc_prefsrc_reconfig_base(terminal, side_index);
 
@@ -669,12 +708,12 @@ int32_t adi_apollo_trigts_ts_reset(adi_apollo_device_t *device, adi_apollo_termi
         }
     }
 
-    if (sync_pending) {
+    if (sync_pending != 0U) {
         err = adi_apollo_clk_mcs_sync_only_set(device); // dynamic sync (no SYSREF realignment)
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_trigts_reset_done_clear(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, uint16_t side_sel) {
@@ -685,10 +724,12 @@ int32_t adi_apollo_trigts_reset_done_clear(adi_apollo_device_t *device, adi_apol
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
 
-    for (side_index = 0; side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        side = side_sel & (ADI_APOLLO_SIDE_A << side_index);
-        if (side > 0) {
+    for (side_index = 0; side_index < (uint8_t)ADI_APOLLO_NUM_SIDES; side_index++) {
+        uint16_t bit_select = (uint16_t)(side_sel & ((uint32_t)ADI_APOLLO_SIDE_A << side_index));
+        side = (uint8_t)bit_select;
+        if (side > 0U) {
             regmap_base_addr = calc_trigts_base(terminal, side_index);
 
             // Clear reset done
@@ -699,7 +740,7 @@ int32_t adi_apollo_trigts_reset_done_clear(adi_apollo_device_t *device, adi_apol
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_trigts_reset_done_get(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, uint16_t side_sel, uint8_t *reset_done_status)
@@ -711,15 +752,17 @@ int32_t adi_apollo_trigts_reset_done_get(adi_apollo_device_t *device, adi_apollo
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_NULL_POINTER_RETURN(device);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(side_sel) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(side_sel) != 1U);
 
-    for (side_index = 0; side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        side = side_sel & (ADI_APOLLO_SIDE_A << side_index);
-        if (side > 0) {
+    for (side_index = 0; side_index < (uint8_t)ADI_APOLLO_NUM_SIDES; side_index++) {
+        uint16_t bit_select = (uint16_t)(side_sel & ((uint32_t)ADI_APOLLO_SIDE_A << side_index));
+        side = (uint8_t)bit_select;
+        if (side > 0U) {
             regmap_base_addr = calc_trigts_base(terminal, side_index);
 
-            err = adi_apollo_hal_bf_get(device, BF_RST_DONE_TXRX_TRIGGER_TS_INFO(regmap_base_addr), reset_done_status, sizeof(*reset_done_status));
+            err = adi_apollo_hal_bf_get(device, BF_RST_DONE_TXRX_TRIGGER_TS_INFO(regmap_base_addr), reset_done_status, (uint8_t)sizeof(*reset_done_status));
             ADI_APOLLO_ERROR_RETURN(err);
 
             /* Only single value returned */
@@ -727,7 +770,7 @@ int32_t adi_apollo_trigts_reset_done_get(adi_apollo_device_t *device, adi_apollo
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_trigts_ext_trig_no_dr_setup(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, uint16_t side_sel)
@@ -739,6 +782,7 @@ int32_t adi_apollo_trigts_ext_trig_no_dr_setup(adi_apollo_device_t *device, adi_
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
 
     err = adi_apollo_clk_mcs_trig_sync_enable(device, 1);
     ADI_APOLLO_ERROR_RETURN(err);
@@ -746,9 +790,10 @@ int32_t adi_apollo_trigts_ext_trig_no_dr_setup(adi_apollo_device_t *device, adi_
     err = adi_apollo_clk_mcs_dig_clk_mask_set(device, 1);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    for (side_index = 0; side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        side = side_sel & (ADI_APOLLO_SIDE_A << side_index);
-        if (side > 0) {
+    for (side_index = 0; side_index < (uint8_t)ADI_APOLLO_NUM_SIDES; side_index++) {
+        uint16_t bit_select = (uint16_t)(side_sel & ((uint32_t)ADI_APOLLO_SIDE_A << side_index));
+        side = (uint8_t)bit_select;
+        if (side > 0U) {
             prefsrc_regmap_base_addr = calc_prefsrc_reconfig_base(terminal, side_index);
 
             err = adi_apollo_hal_bf_set(device, BF_NONRESYNC_SYSREF_EN_INFO(prefsrc_regmap_base_addr), 1);
@@ -756,15 +801,15 @@ int32_t adi_apollo_trigts_ext_trig_no_dr_setup(adi_apollo_device_t *device, adi_
         }
     }
     
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 
 }
 
 static uint32_t calc_cnco_trig_mst_num(uint8_t cnco_index)
-{   
+{
     static uint32_t cnco_trig_mst_map[ADI_APOLLO_CDDC_PER_SIDE_NUM] = {
-        ADI_APOLLO_TRIG_MST_CNCO_0, ADI_APOLLO_TRIG_MST_CNCO_1, 
-        ADI_APOLLO_TRIG_MST_CNCO_2, ADI_APOLLO_TRIG_MST_CNCO_3        
+        (uint32_t)ADI_APOLLO_TRIG_MST_CNCO_0, (uint32_t)ADI_APOLLO_TRIG_MST_CNCO_1,
+        (uint32_t)ADI_APOLLO_TRIG_MST_CNCO_2, (uint32_t)ADI_APOLLO_TRIG_MST_CNCO_3
     };
     return cnco_trig_mst_map[cnco_index];
 }
@@ -772,10 +817,10 @@ static uint32_t calc_cnco_trig_mst_num(uint8_t cnco_index)
 static uint32_t calc_fnco_trig_mst_num(uint8_t fnco_index)
 {
     static uint32_t fnco_trig_mst_map[ADI_APOLLO_FDDC_PER_SIDE_NUM] = {
-        ADI_APOLLO_TRIG_MST_FNCO_0, ADI_APOLLO_TRIG_MST_FNCO_1, 
-        ADI_APOLLO_TRIG_MST_FNCO_2, ADI_APOLLO_TRIG_MST_FNCO_3,
-        ADI_APOLLO_TRIG_MST_FNCO_4, ADI_APOLLO_TRIG_MST_FNCO_5, 
-        ADI_APOLLO_TRIG_MST_FNCO_6, ADI_APOLLO_TRIG_MST_FNCO_7
+        (uint32_t)ADI_APOLLO_TRIG_MST_FNCO_0, (uint32_t)ADI_APOLLO_TRIG_MST_FNCO_1,
+        (uint32_t)ADI_APOLLO_TRIG_MST_FNCO_2, (uint32_t)ADI_APOLLO_TRIG_MST_FNCO_3,
+        (uint32_t)ADI_APOLLO_TRIG_MST_FNCO_4, (uint32_t)ADI_APOLLO_TRIG_MST_FNCO_5,
+        (uint32_t)ADI_APOLLO_TRIG_MST_FNCO_6, (uint32_t)ADI_APOLLO_TRIG_MST_FNCO_7
     };
     return fnco_trig_mst_map[fnco_index];
 }
@@ -783,14 +828,14 @@ static uint32_t calc_fnco_trig_mst_num(uint8_t fnco_index)
 static uint32_t calc_pfilt_trig_mst_num(uint8_t pfilt_index)
 {
     static uint32_t pfilt_trig_mst_map[ADI_APOLLO_PFILT_PER_SIDE] = {
-        ADI_APOLLO_TRIG_MST_PFILT0, ADI_APOLLO_TRIG_MST_PFILT1};
+        (uint32_t)ADI_APOLLO_TRIG_MST_PFILT0, (uint32_t)ADI_APOLLO_TRIG_MST_PFILT1};
     return pfilt_trig_mst_map[pfilt_index];
 }
 
 static uint32_t calc_cfir_trig_mst_num(uint8_t cfir_index)
 {
     static uint32_t cfir_trig_mst_map[ADI_APOLLO_CFIR_PER_SIDE_NUM] = {
-        ADI_APOLLO_TRIG_MST_CFIR0, ADI_APOLLO_TRIG_MST_CFIR1};
+        (uint32_t)ADI_APOLLO_TRIG_MST_CFIR0, (uint32_t)ADI_APOLLO_TRIG_MST_CFIR1};
     return cfir_trig_mst_map[cfir_index];
 }
 
@@ -801,8 +846,8 @@ static uint32_t fb_sel_to_tm_sel(uint32_t(*fb2tm_fp)(uint8_t), uint32_t fb_sel, 
     
     // Determine the corresponding trigger master(tm) selects from a functional block(fb) select
     for (i = 0; i < fb_sel_per_side; i ++) {
-        fb = fb_sel & (fb_sel_side_offset << i);
-        if (fb > 0) {
+        fb = (uint32_t)(fb_sel & ((uint32_t)fb_sel_side_offset << i));
+        if (fb > 0U) {
             trig_msts |= fb2tm_fp(i);   /* func block idx to trig mst bit sel */
         }
     }
@@ -954,18 +999,19 @@ static reg_bf_info_map_t *calc_cfir_trig_sel_mux(adi_apollo_terminal_e terminal,
     return (terminal == ADI_APOLLO_RX) ? &cfir_rx_trig_sel_mux[cfir_idx] : &cfir_tx_trig_sel_mux[cfir_idx];
 }
 
- uint32_t calc_trigts_base(adi_apollo_terminal_e terminal, int32_t side_index)
- {
-     static uint32_t rx_trigts_regmap[ADI_APOLLO_NUM_SIDES] = {
+static uint32_t calc_trigts_base(adi_apollo_terminal_e terminal, uint32_t side_index)
+{
+    static uint32_t rx_trigts_regmap[ADI_APOLLO_NUM_SIDES] = {
          TXRX_TRIGGER_TS_RX_DIGITAL0, TXRX_TRIGGER_TS_RX_DIGITAL1
      };
      static uint32_t tx_trigts_regmap[ADI_APOLLO_NUM_SIDES] = {
          TXRX_TRIGGER_TS_TX_TOP_TX_DIGITAL0, TXRX_TRIGGER_TS_TX_TOP_TX_DIGITAL1
      };
-     if (terminal == ADI_APOLLO_RX)
+     if (terminal == ADI_APOLLO_RX) {
          return rx_trigts_regmap[side_index];
-     else
+     } else {
          return tx_trigts_regmap[side_index];
+     }
  }
 
 

@@ -12,8 +12,8 @@
  * @{
  */
 
-#ifndef __ADI_APOLLO_HAL_REGIO_H__
-#define __ADI_APOLLO_HAL_REGIO_H__
+#ifndef ADI_APOLLO_HAL_REGIO_H__
+#define ADI_APOLLO_HAL_REGIO_H__
 
 #include "adi_cms_api_common.h"
 #include "adi_apollo_hal_types.h"
@@ -36,6 +36,6 @@ typedef struct {
 } adi_apollo_hal_regio_t;
 #endif /* CLIENT_IGNORE*/
 
-#endif /* __ADI_APOLLO_HAL_REGIO_H__ */
+#endif /* ADI_APOLLO_HAL_REGIO_H__ */
 
 /*! @} */

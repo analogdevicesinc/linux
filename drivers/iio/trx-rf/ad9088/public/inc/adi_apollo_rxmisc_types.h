@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_RXMISC
  * @{
  */
-#ifndef __ADI_APOLLO_RXMISC_TYPES_H__
-#define __ADI_APOLLO_RXMISC_TYPES_H__
+#ifndef ADI_APOLLO_RXMISC_TYPES_H__
+#define ADI_APOLLO_RXMISC_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -37,5 +37,5 @@ typedef struct {
     uint8_t low_samp_en;                             /*!< 1: the lower sample case is enabled, 0: Disabled */
 } adi_apollo_rx_misc_pgm_t;
 
-#endif /* __ADI_APOLLO_RXMISC_TYPES_H__ */
+#endif /* ADI_APOLLO_RXMISC_TYPES_H__ */
 /*! @} */

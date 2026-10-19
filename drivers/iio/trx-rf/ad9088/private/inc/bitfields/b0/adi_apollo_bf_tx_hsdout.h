@@ -12,101 +12,101 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_TX_HSDOUT_H__
-#define __ADI_APOLLO_BF_TX_HSDOUT_H__
+#ifndef ADI_APOLLO_BF_TX_HSDOUT_H__
+#define ADI_APOLLO_BF_TX_HSDOUT_H__
 
 /*============= D E F I N E S ==============*/
-#define TX_HSDOUT0_TX_SLICE_0_TX_DIGITAL0              0x61204000
-#define TX_HSDOUT1_TX_SLICE_0_TX_DIGITAL0              0x61205000
-#define TX_HSDOUT0_TX_SLICE_1_TX_DIGITAL0              0x61404000
-#define TX_HSDOUT1_TX_SLICE_1_TX_DIGITAL0              0x61405000
-#define TX_HSDOUT0_TX_SLICE_0_TX_DIGITAL1              0x61A04000
-#define TX_HSDOUT1_TX_SLICE_0_TX_DIGITAL1              0x61A05000
-#define TX_HSDOUT0_TX_SLICE_1_TX_DIGITAL1              0x61C04000
-#define TX_HSDOUT1_TX_SLICE_1_TX_DIGITAL1              0x61C05000
+#define TX_HSDOUT0_TX_SLICE_0_TX_DIGITAL0              0x61204000U
+#define TX_HSDOUT1_TX_SLICE_0_TX_DIGITAL0              0x61205000U
+#define TX_HSDOUT0_TX_SLICE_1_TX_DIGITAL0              0x61404000U
+#define TX_HSDOUT1_TX_SLICE_1_TX_DIGITAL0              0x61405000U
+#define TX_HSDOUT0_TX_SLICE_0_TX_DIGITAL1              0x61A04000U
+#define TX_HSDOUT1_TX_SLICE_0_TX_DIGITAL1              0x61A05000U
+#define TX_HSDOUT0_TX_SLICE_1_TX_DIGITAL1              0x61C04000U
+#define TX_HSDOUT1_TX_SLICE_1_TX_DIGITAL1              0x61C05000U
 
-#define REG_DAC_REG_WR_SETUP_CYCLES_ADDR(inst)         ((inst) + 0x00000000)
-#define BF_DAC_ANA_BRIDGE_WR_SETUP_CYCLES_INFO(inst)   ((inst) + 0x00000000), 0x00000600
+#define REG_DAC_REG_WR_SETUP_CYCLES_ADDR(inst)         ((uint32_t)(inst) + 0x00000000U)
+#define BF_DAC_ANA_BRIDGE_WR_SETUP_CYCLES_INFO(inst)   ((uint32_t)(inst) + 0x00000000U), 0x00000600U
 
-#define REG_DAC_REG_WR_HOLD_CYCLES_ADDR(inst)          ((inst) + 0x00000001)
-#define BF_DAC_ANA_BRIDGE_WR_HOLD_CYCLES_INFO(inst)    ((inst) + 0x00000001), 0x00000600
+#define REG_DAC_REG_WR_HOLD_CYCLES_ADDR(inst)          ((uint32_t)(inst) + 0x00000001U)
+#define BF_DAC_ANA_BRIDGE_WR_HOLD_CYCLES_INFO(inst)    ((uint32_t)(inst) + 0x00000001U), 0x00000600U
 
-#define REG_DAC_REG_RD_CYCLES_ADDR(inst)               ((inst) + 0x00000002)
-#define BF_DAC_ANA_BRIDGE_RD_CYCLES_INFO(inst)         ((inst) + 0x00000002), 0x00000600
+#define REG_DAC_REG_RD_CYCLES_ADDR(inst)               ((uint32_t)(inst) + 0x00000002U)
+#define BF_DAC_ANA_BRIDGE_RD_CYCLES_INFO(inst)         ((uint32_t)(inst) + 0x00000002U), 0x00000600U
 
-#define REG_DFIFO_CTRL_TX_HSDOUT_ADDR(inst)            ((inst) + 0x00000050)
-#define BF_DFIFO_EN_TX_HSDOUT_INFO(inst)               ((inst) + 0x00000050), 0x00000100
-#define BF_DAC_FIFO_FORCEON_CTRL_TX_HSDOUT_INFO(inst)  ((inst) + 0x00000050), 0x00000404
+#define REG_DFIFO_CTRL_TX_HSDOUT_ADDR(inst)            ((uint32_t)(inst) + 0x00000050U)
+#define BF_DFIFO_EN_TX_HSDOUT_INFO(inst)               ((uint32_t)(inst) + 0x00000050U), 0x00000100U
+#define BF_DAC_FIFO_FORCEON_CTRL_TX_HSDOUT_INFO(inst)  ((uint32_t)(inst) + 0x00000050U), 0x00000404U
 
-#define REG_LAT_CTRL_TX_HSDOUT_ADDR(inst)              ((inst) + 0x00000051)
-#define BF_LAT_PGM_MODE_TX_HSDOUT_INFO(inst)           ((inst) + 0x00000051), 0x00000200
-#define BF_WR_RD_OFFSET_TX_HSDOUT_INFO(inst)           ((inst) + 0x00000051), 0x00000304
-#define BF_DAC_SCRAMBLER_EN_INFO(inst)                 ((inst) + 0x00000051), 0x00000107
+#define REG_LAT_CTRL_TX_HSDOUT_ADDR(inst)              ((uint32_t)(inst) + 0x00000051U)
+#define BF_LAT_PGM_MODE_TX_HSDOUT_INFO(inst)           ((uint32_t)(inst) + 0x00000051U), 0x00000200U
+#define BF_WR_RD_OFFSET_TX_HSDOUT_INFO(inst)           ((uint32_t)(inst) + 0x00000051U), 0x00000304U
+#define BF_DAC_SCRAMBLER_EN_INFO(inst)                 ((uint32_t)(inst) + 0x00000051U), 0x00000107U
 
-#define REG_LAT_SPI_CTRL_TX_HSDOUT_ADDR(inst)          ((inst) + 0x00000052)
-#define BF_LAT_WR_SPI_TX_HSDOUT_INFO(inst)             ((inst) + 0x00000052), 0x00000300
-#define BF_LAT_RD_SPI_TX_HSDOUT_INFO(inst)             ((inst) + 0x00000052), 0x00000404
+#define REG_LAT_SPI_CTRL_TX_HSDOUT_ADDR(inst)          ((uint32_t)(inst) + 0x00000052U)
+#define BF_LAT_WR_SPI_TX_HSDOUT_INFO(inst)             ((uint32_t)(inst) + 0x00000052U), 0x00000300U
+#define BF_LAT_RD_SPI_TX_HSDOUT_INFO(inst)             ((uint32_t)(inst) + 0x00000052U), 0x00000404U
 
-#define REG_SYNCCNT_STRB_TX_HSDOUT_ADDR(inst)          ((inst) + 0x00000053)
-#define BF_WRSYNCCNT_RDSTRB_TX_HSDOUT_INFO(inst)       ((inst) + 0x00000053), 0x00000300
-#define BF_RDSYNCCNT_WRSTRB_TX_HSDOUT_INFO(inst)       ((inst) + 0x00000053), 0x00000404
+#define REG_SYNCCNT_STRB_TX_HSDOUT_ADDR(inst)          ((uint32_t)(inst) + 0x00000053U)
+#define BF_WRSYNCCNT_RDSTRB_TX_HSDOUT_INFO(inst)       ((uint32_t)(inst) + 0x00000053U), 0x00000300U
+#define BF_RDSYNCCNT_WRSTRB_TX_HSDOUT_INFO(inst)       ((uint32_t)(inst) + 0x00000053U), 0x00000404U
 
-#define REG_LAT_REAL_TX_HSDOUT_ADDR(inst)              ((inst) + 0x00000054)
-#define BF_LAT_WR_REAL_TX_HSDOUT_INFO(inst)            ((inst) + 0x00000054), 0x00000300
-#define BF_LAT_RD_REAL_TX_HSDOUT_INFO(inst)            ((inst) + 0x00000054), 0x00000404
+#define REG_LAT_REAL_TX_HSDOUT_ADDR(inst)              ((uint32_t)(inst) + 0x00000054U)
+#define BF_LAT_WR_REAL_TX_HSDOUT_INFO(inst)            ((uint32_t)(inst) + 0x00000054U), 0x00000300U
+#define BF_LAT_RD_REAL_TX_HSDOUT_INFO(inst)            ((uint32_t)(inst) + 0x00000054U), 0x00000404U
 
-#define REG_SYNC_STATE_TX_HSDOUT_ADDR(inst)            ((inst) + 0x00000055)
-#define BF_WRSYNC_STATE_TX_HSDOUT_INFO(inst)           ((inst) + 0x00000055), 0x00000200
-#define BF_RDSYNC_STATE_TX_HSDOUT_INFO(inst)           ((inst) + 0x00000055), 0x00000204
+#define REG_SYNC_STATE_TX_HSDOUT_ADDR(inst)            ((uint32_t)(inst) + 0x00000055U)
+#define BF_WRSYNC_STATE_TX_HSDOUT_INFO(inst)           ((uint32_t)(inst) + 0x00000055U), 0x00000200U
+#define BF_RDSYNC_STATE_TX_HSDOUT_INFO(inst)           ((uint32_t)(inst) + 0x00000055U), 0x00000204U
 
-#define REG_DATA_INVERSION_ADDR(inst)                  ((inst) + 0x00000056)
-#define BF_DAC_DATA_INVERSION_EN_INFO(inst)            ((inst) + 0x00000056), 0x00000100
+#define REG_DATA_INVERSION_ADDR(inst)                  ((uint32_t)(inst) + 0x00000056U)
+#define BF_DAC_DATA_INVERSION_EN_INFO(inst)            ((uint32_t)(inst) + 0x00000056U), 0x00000100U
 
-#define REG_DITHER_NCO_CTRL_ADDR(inst)                 ((inst) + 0x00000070)
-#define BF_DITHER_NCO_EN_INFO(inst)                    ((inst) + 0x00000070), 0x00000100
-#define BF_DITHER_NCO_GAIN_INFO(inst)                  ((inst) + 0x00000070), 0x00000304
-#define BF_DITHER_NCO_PRN_RESET_INFO(inst)             ((inst) + 0x00000070), 0x00000107
+#define REG_DITHER_NCO_CTRL_ADDR(inst)                 ((uint32_t)(inst) + 0x00000070U)
+#define BF_DITHER_NCO_EN_INFO(inst)                    ((uint32_t)(inst) + 0x00000070U), 0x00000100U
+#define BF_DITHER_NCO_GAIN_INFO(inst)                  ((uint32_t)(inst) + 0x00000070U), 0x00000304U
+#define BF_DITHER_NCO_PRN_RESET_INFO(inst)             ((uint32_t)(inst) + 0x00000070U), 0x00000107U
 
-#define REG_DITHER_NCO_PHASE_OFFSET0_ADDR(inst)        ((inst) + 0x00000071)
-#define BF_DITHER_NCO_PHASE_OFFSET_INFO(inst)          ((inst) + 0x00000071), 0x00000C00
+#define REG_DITHER_NCO_PHASE_OFFSET0_ADDR(inst)        ((uint32_t)(inst) + 0x00000071U)
+#define BF_DITHER_NCO_PHASE_OFFSET_INFO(inst)          ((uint32_t)(inst) + 0x00000071U), 0x00000C00U
 
-#define REG_DITHER_NCO_PHASE_OFFSET1_ADDR(inst)        ((inst) + 0x00000072)
+#define REG_DITHER_NCO_PHASE_OFFSET1_ADDR(inst)        ((uint32_t)(inst) + 0x00000072U)
 
-#define REG_DITHER_NCO_FTW0_ADDR(inst)                 ((inst) + 0x00000073)
-#define BF_DITHER_NCO_FTW_INFO(inst)                   ((inst) + 0x00000073), 0x00000C00
+#define REG_DITHER_NCO_FTW0_ADDR(inst)                 ((uint32_t)(inst) + 0x00000073U)
+#define BF_DITHER_NCO_FTW_INFO(inst)                   ((uint32_t)(inst) + 0x00000073U), 0x00000C00U
 
-#define REG_DITHER_NCO_FTW1_ADDR(inst)                 ((inst) + 0x00000074)
+#define REG_DITHER_NCO_FTW1_ADDR(inst)                 ((uint32_t)(inst) + 0x00000074U)
 
-#define REG_DITHER_NCO_MODE_ADDR(inst)                 ((inst) + 0x00000075)
-#define BF_DITHER_NCO_MODE_INFO(inst)                  ((inst) + 0x00000075), 0x00000800
+#define REG_DITHER_NCO_MODE_ADDR(inst)                 ((uint32_t)(inst) + 0x00000075U)
+#define BF_DITHER_NCO_MODE_INFO(inst)                  ((uint32_t)(inst) + 0x00000075U), 0x00000800U
 
-#define REG_DITHER_NCO_SYNC_CTRL_ADDR(inst)            ((inst) + 0x00000076)
-#define BF_DITHER_NCO_SYNC_BYSPI_INFO(inst)            ((inst) + 0x00000076), 0x00000100
-#define BF_DITHER_NCO_SYNCEN_INFO(inst)                ((inst) + 0x00000076), 0x00000104
+#define REG_DITHER_NCO_SYNC_CTRL_ADDR(inst)            ((uint32_t)(inst) + 0x00000076U)
+#define BF_DITHER_NCO_SYNC_BYSPI_INFO(inst)            ((uint32_t)(inst) + 0x00000076U), 0x00000100U
+#define BF_DITHER_NCO_SYNCEN_INFO(inst)                ((uint32_t)(inst) + 0x00000076U), 0x00000104U
 
-#define REG_DITHER_NCO_PHASE_OFFSET_ACTIVE0_ADDR(inst) ((inst) + 0x00000077)
-#define BF_DITHER_NCO_PHASE_OFFSET_ACTIVE_INFO(inst)   ((inst) + 0x00000077), 0x00000C00
+#define REG_DITHER_NCO_PHASE_OFFSET_ACTIVE0_ADDR(inst) ((uint32_t)(inst) + 0x00000077U)
+#define BF_DITHER_NCO_PHASE_OFFSET_ACTIVE_INFO(inst)   ((uint32_t)(inst) + 0x00000077U), 0x00000C00U
 
-#define REG_DITHER_NCO_PHASE_OFFSET_ACTIVE1_ADDR(inst) ((inst) + 0x00000078)
+#define REG_DITHER_NCO_PHASE_OFFSET_ACTIVE1_ADDR(inst) ((uint32_t)(inst) + 0x00000078U)
 
-#define REG_DITHER_NCO_FTW_ACTIVE0_ADDR(inst)          ((inst) + 0x00000079)
-#define BF_DITHER_NCO_FTW_ACTIVE_INFO(inst)            ((inst) + 0x00000079), 0x00000C00
+#define REG_DITHER_NCO_FTW_ACTIVE0_ADDR(inst)          ((uint32_t)(inst) + 0x00000079U)
+#define BF_DITHER_NCO_FTW_ACTIVE_INFO(inst)            ((uint32_t)(inst) + 0x00000079U), 0x00000C00U
 
-#define REG_DITHER_NCO_FTW_ACTIVE1_ADDR(inst)          ((inst) + 0x0000007A)
+#define REG_DITHER_NCO_FTW_ACTIVE1_ADDR(inst)          ((uint32_t)(inst) + 0x0000007AU)
 
-#define REG_INVSINC_CFG_ADDR(inst)                     ((inst) + 0x000001D0)
-#define BF_INVSINC_EN_INFO(inst)                       ((inst) + 0x000001D0), 0x00000100
+#define REG_INVSINC_CFG_ADDR(inst)                     ((uint32_t)(inst) + 0x000001D0U)
+#define BF_INVSINC_EN_INFO(inst)                       ((uint32_t)(inst) + 0x000001D0U), 0x00000100U
 
-#define REG_INVSINC_CLK_GATING_ADDR(inst)              ((inst) + 0x000001D1)
-#define BF_INVSINC_CLK_EN_INFO(inst)                   ((inst) + 0x000001D1), 0x00000100
+#define REG_INVSINC_CLK_GATING_ADDR(inst)              ((uint32_t)(inst) + 0x000001D1U)
+#define BF_INVSINC_CLK_EN_INFO(inst)                   ((uint32_t)(inst) + 0x000001D1U), 0x00000100U
 
 #ifdef USE_PRIVATE_BF
-#define REG_TEST_MUX_LVDS_ADDR(inst)                   ((inst) + 0x000001D4)
-#define BF_TEST_SEL_LVDS_INFO(inst)                    ((inst) + 0x000001D4), 0x00000500
+#define REG_TEST_MUX_LVDS_ADDR(inst)                   ((uint32_t)(inst) + 0x000001D4U)
+#define BF_TEST_SEL_LVDS_INFO(inst)                    ((uint32_t)(inst) + 0x000001D4U), 0x00000500U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_TEST_MUX_CMOS_ADDR(inst)                   ((inst) + 0x000001D5)
-#define BF_TEST_SEL_CMOS_INFO(inst)                    ((inst) + 0x000001D5), 0x00000500
+#define REG_TEST_MUX_CMOS_ADDR(inst)                   ((uint32_t)(inst) + 0x000001D5U)
+#define BF_TEST_SEL_CMOS_INFO(inst)                    ((uint32_t)(inst) + 0x000001D5U), 0x00000500U
 
-#endif /* __ADI_APOLLO_BF_TX_HSDOUT_H__ */
+#endif /* ADI_APOLLO_BF_TX_HSDOUT_H__ */
 /*! @} */

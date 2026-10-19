@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_TXEN
  * @{
  */
-#ifndef __ADI_APOLLO_TXEN_TYPES_H__
-#define __ADI_APOLLO_TXEN_TYPES_H__
+#ifndef ADI_APOLLO_TXEN_TYPES_H__
+#define ADI_APOLLO_TXEN_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -20,11 +20,11 @@
 
 /*============= D E F I N E S ==============*/
 
-#define ADI_APOLLO_NUM_TX_EN 8              /* Num of TX_EN pins */
-#define ADI_APOLLO_NUM_TX_EN_PER_SIDE 4     /* Num of TX_EN pins per side */
-#define ADI_APOLLO_NUM_TX_GAIN_PER_SIDE         4
-#define ADI_APOLLO_NUM_TX_SRD_PER_SIDE          4
-#define ADI_APOLLO_NUM_TX_INVSINC_PER_SIDE      4
+#define ADI_APOLLO_NUM_TX_EN 8U             /* Num of TX_EN pins */
+#define ADI_APOLLO_NUM_TX_EN_PER_SIDE 4U    /* Num of TX_EN pins per side */
+#define ADI_APOLLO_NUM_TX_GAIN_PER_SIDE         4U
+#define ADI_APOLLO_NUM_TX_SRD_PER_SIDE          4U
+#define ADI_APOLLO_NUM_TX_INVSINC_PER_SIDE      4U
 
 /*!
  * \brief Enumerates DAC Select
@@ -73,7 +73,7 @@ typedef struct {
     adi_apollo_txen_en_polarity_e enable_polarity;
     uint8_t spi_en;
     uint8_t spien_en;
-    uint16_t slice_sel;
+    uint16_t slice_sel;                             /*!< Value is ignored by _txen_config_set () */
     uint8_t linx_sel;
     uint16_t pfilt_sel;
     uint16_t cduc_sel;
@@ -134,5 +134,5 @@ typedef struct {
     adi_apollo_puc_en_pin_sel_e pin_en;         /*!< Select which enable pin from CONV_POW_ONOFF is used as TXEN_POWER_CTRL input. */
 } adi_apollo_txen_pwrup_blk_config_t;
 
-#endif /* __ADI_APOLLO_TXEN_TYPES_H__ */
+#endif /* ADI_APOLLO_TXEN_TYPES_H__ */
 /*! @} */

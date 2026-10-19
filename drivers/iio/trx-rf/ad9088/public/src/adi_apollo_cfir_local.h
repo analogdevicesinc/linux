@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_CFIR
  * @{
  */
-#ifndef __ADI_APOLLO_CFIR_LOCAL_H__
-#define __ADI_APOLLO_CFIR_LOCAL_H__
+#ifndef ADI_APOLLO_CFIR_LOCAL_H__
+#define ADI_APOLLO_CFIR_LOCAL_H__
 
 /*============= I N C L U D E S ============*/
 
@@ -23,8 +23,7 @@
 extern "C" {
 #endif
 
-uint32_t calc_cfir_base(adi_apollo_terminal_e terminal, int32_t cfir_index);
-uint32_t calc_cfir_coeff_base(adi_apollo_terminal_e terminal, int32_t cfir_index);
+/* No exports - all functions are static within adi_apollo_cfir.c */
 
 #ifndef CLIENT_IGNORE
 #endif /* CLIENT_IGNORE*/
@@ -33,5 +32,5 @@ uint32_t calc_cfir_coeff_base(adi_apollo_terminal_e terminal, int32_t cfir_index
 }
 #endif
 
-#endif /* __ADI_APOLLO_CFIR_LOCAL_H__ */
+#endif /* ADI_APOLLO_CFIR_LOCAL_H__ */
 /*! @} */

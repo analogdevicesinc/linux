@@ -11,20 +11,20 @@
  * \addtogroup ADI_APOLLO_PFILT
  * @{
  */
-#ifndef __ADI_APOLLO_PFILT_TYPES_H__
-#define __ADI_APOLLO_PFILT_TYPES_H__
+#ifndef ADI_APOLLO_PFILT_TYPES_H__
+#define ADI_APOLLO_PFILT_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
 #include "adi_apollo_common.h"
 
 /*============= D E F I N E S ==============*/
-#define ADI_APOLLO_PFILT_NUM 4
-#define ADI_APOLLO_PFILT_BANK_NUM 4
-#define ADI_APOLLO_PFILT_PER_SIDE 2
-#define ADI_APOLLO_PFILT_BANKS_PER_REGMAP 2
-#define ADI_APOLLO_PFILT_COEFF_NUM 32
-#define ADI_APOLLO_PFILT_STREAMS_NUM 2
+#define ADI_APOLLO_PFILT_NUM 4U
+#define ADI_APOLLO_PFILT_BANK_NUM 4U
+#define ADI_APOLLO_PFILT_PER_SIDE 2U
+#define ADI_APOLLO_PFILT_BANKS_PER_REGMAP 2U
+#define ADI_APOLLO_PFILT_COEFF_NUM 32U
+#define ADI_APOLLO_PFILT_STREAMS_NUM 2U
 
 /*!
 * \brief Enumerates PFLIT selection
@@ -131,6 +131,6 @@ typedef struct {
     uint8_t gpio_config1;                    /*!< 0: Disable: use i_eq_gpio[1:0] to select the coeff bank, 1: Enable: use part select of i_eq_gpio[1:0] to select coeff bank */
 } adi_apollo_pfilt_inspect_t;
 
-#endif /* __ADI_APOLLO_PFILT_TYPES_H__ */
+#endif /* ADI_APOLLO_PFILT_TYPES_H__ */
 
 /*! @} */

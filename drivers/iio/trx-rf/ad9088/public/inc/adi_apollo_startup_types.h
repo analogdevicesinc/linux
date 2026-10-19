@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_STARTUP
  * @{
  */
-#ifndef __ADI_APOLLO_STARTUP_TYPES_H__
-#define __ADI_APOLLO_STARTUP_TYPES_H__
+#ifndef ADI_APOLLO_STARTUP_TYPES_H__
+#define ADI_APOLLO_STARTUP_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_device_types.h"
@@ -54,6 +54,8 @@ typedef enum {
     ADI_APOLLO_FW_ID_PROD_CORE_1_TYE_FW_BIN = 8,
     ADI_APOLLO_FW_ID_PROD_TYE_OPER_FW_BIN   = 9,
 
+    ADI_APOLLO_FW_ID_STREAM_BIN             = 10,
+
     ADI_APOLLO_FW_ID_MAX
 
 } adi_apollo_startup_fw_id_e;
@@ -91,5 +93,5 @@ typedef int32_t (*adi_apollo_fw_provider_get_t)      (adi_apollo_fw_provider_t *
 }
 #endif
 
-#endif /* __ADI_APOLLO_STARTUP_TYPES_H__ */
+#endif /* ADI_APOLLO_STARTUP_TYPES_H__ */
 /*! @} */

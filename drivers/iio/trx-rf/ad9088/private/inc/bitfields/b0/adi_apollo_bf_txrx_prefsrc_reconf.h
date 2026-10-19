@@ -12,80 +12,80 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_TXRX_PREFSRC_RECONF_H__
-#define __ADI_APOLLO_BF_TXRX_PREFSRC_RECONF_H__
+#ifndef ADI_APOLLO_BF_TXRX_PREFSRC_RECONF_H__
+#define ADI_APOLLO_BF_TXRX_PREFSRC_RECONF_H__
 
 /*============= D E F I N E S ==============*/
-#define TXRX_PREFSRC_RECONF_RX_SLICE_0_RX_DIGITAL0             0x6020A000
-#define TXRX_PREFSRC_RECONF_RX_SLICE_1_RX_DIGITAL0             0x6040A000
-#define TXRX_PREFSRC_RECONF_RX_SLICE_0_RX_DIGITAL1             0x60A0A000
-#define TXRX_PREFSRC_RECONF_RX_SLICE_1_RX_DIGITAL1             0x60C0A000
-#define TXRX_PREFSRC_RECONF_TX_SLICE_0_TX_DIGITAL0             0x6120B000
-#define TXRX_PREFSRC_RECONF_TX_SLICE_1_TX_DIGITAL0             0x6140B000
-#define TXRX_PREFSRC_RECONF_TX_SLICE_0_TX_DIGITAL1             0x61A0B000
-#define TXRX_PREFSRC_RECONF_TX_SLICE_1_TX_DIGITAL1             0x61C0B000
+#define TXRX_PREFSRC_RECONF_RX_SLICE_0_RX_DIGITAL0             0x6020A000U
+#define TXRX_PREFSRC_RECONF_RX_SLICE_1_RX_DIGITAL0             0x6040A000U
+#define TXRX_PREFSRC_RECONF_RX_SLICE_0_RX_DIGITAL1             0x60A0A000U
+#define TXRX_PREFSRC_RECONF_RX_SLICE_1_RX_DIGITAL1             0x60C0A000U
+#define TXRX_PREFSRC_RECONF_TX_SLICE_0_TX_DIGITAL0             0x6120B000U
+#define TXRX_PREFSRC_RECONF_TX_SLICE_1_TX_DIGITAL0             0x6140B000U
+#define TXRX_PREFSRC_RECONF_TX_SLICE_0_TX_DIGITAL1             0x61A0B000U
+#define TXRX_PREFSRC_RECONF_TX_SLICE_1_TX_DIGITAL1             0x61C0B000U
 
-#define REG_PREFSRC_RECONF_SYNC_CTRL_ADDR(inst)                ((inst) + 0x000002E8)
+#define REG_PREFSRC_RECONF_SYNC_CTRL_ADDR(inst)                ((uint32_t)(inst) + 0x000002E8U)
 #ifdef USE_PRIVATE_BF
-#define BF_FORCE_TS_SYNC_INFO(inst)                            ((inst) + 0x000002E8), 0x00000101
+#define BF_FORCE_TS_SYNC_INFO(inst)                            ((uint32_t)(inst) + 0x000002E8U), 0x00000101U
 #endif /* USE_PRIVATE_BF */
-#define BF_NONRESYNC_SYSREF_EN_INFO(inst)                      ((inst) + 0x000002E8), 0x00000102
-#define BF_TRIG_RECONF_MODE_INFO(inst)                         ((inst) + 0x000002E8), 0x00000103
+#define BF_NONRESYNC_SYSREF_EN_INFO(inst)                      ((uint32_t)(inst) + 0x000002E8U), 0x00000102U
+#define BF_TRIG_RECONF_MODE_INFO(inst)                         ((uint32_t)(inst) + 0x000002E8U), 0x00000103U
 #ifdef USE_PRIVATE_BF
-#define BF_FORCE_SYNC_EN_INFO(inst)                            ((inst) + 0x000002E8), 0x00000104
-#endif /* USE_PRIVATE_BF */
-
-#define REG_PREFSRC_RECONF_CTRL_ADDR(inst)                     ((inst) + 0x000002E9)
-#define BF_CNCO_RESET_EN_INFO(inst)                            ((inst) + 0x000002E9), 0x00000101
-#define BF_TIMESTAMP_RESET_EN_INFO(inst)                       ((inst) + 0x000002E9), 0x00000102
-#define BF_RESYNC_EN_INFO(inst)                                ((inst) + 0x000002E9), 0x00000103
-#define BF_TZERO_COHERENCE_EN_INFO(inst)                       ((inst) + 0x000002E9), 0x00000104
-#define BF_FNCO_RESET_EN_INFO(inst)                            ((inst) + 0x000002E9), 0x00000105
-
-#define REG_PREFSRC_RECONF_LCM0_ADDR(inst)                     ((inst) + 0x000002EA)
-#define BF_PREFSRC_LCM_INFO(inst)                              ((inst) + 0x000002EA), 0x00000900
-
-#define REG_PREFSRC_RECONF_LCM1_ADDR(inst)                     ((inst) + 0x000002EB)
-
-#ifdef USE_PRIVATE_BF
-#define REG_PREFSRC_RECONF_ERROR_STATUS_ADDR(inst)             ((inst) + 0x000002F1)
-#define BF_RECONFIG_ERROR_STATUS_INFO(inst)                    ((inst) + 0x000002F1), 0x00000400
-#define BF_TIME_ERROR_STATUS_TXRX_PREFSRC_RECONF_INFO(inst)    ((inst) + 0x000002F1), 0x00000105
+#define BF_FORCE_SYNC_EN_INFO(inst)                            ((uint32_t)(inst) + 0x000002E8U), 0x00000104U
 #endif /* USE_PRIVATE_BF */
 
+#define REG_PREFSRC_RECONF_CTRL_ADDR(inst)                     ((uint32_t)(inst) + 0x000002E9U)
+#define BF_CNCO_RESET_EN_INFO(inst)                            ((uint32_t)(inst) + 0x000002E9U), 0x00000101U
+#define BF_TIMESTAMP_RESET_EN_INFO(inst)                       ((uint32_t)(inst) + 0x000002E9U), 0x00000102U
+#define BF_RESYNC_EN_INFO(inst)                                ((uint32_t)(inst) + 0x000002E9U), 0x00000103U
+#define BF_TZERO_COHERENCE_EN_INFO(inst)                       ((uint32_t)(inst) + 0x000002E9U), 0x00000104U
+#define BF_FNCO_RESET_EN_INFO(inst)                            ((uint32_t)(inst) + 0x000002E9U), 0x00000105U
+
+#define REG_PREFSRC_RECONF_LCM0_ADDR(inst)                     ((uint32_t)(inst) + 0x000002EAU)
+#define BF_PREFSRC_LCM_INFO(inst)                              ((uint32_t)(inst) + 0x000002EAU), 0x00000900U
+
+#define REG_PREFSRC_RECONF_LCM1_ADDR(inst)                     ((uint32_t)(inst) + 0x000002EBU)
+
 #ifdef USE_PRIVATE_BF
-#define REG_PREFSRC_SM_STATE_ADDR(inst)                        ((inst) + 0x000002F2)
-#define BF_PREFSRC_SM_STATE_INFO(inst)                         ((inst) + 0x000002F2), 0x00000400
+#define REG_PREFSRC_RECONF_ERROR_STATUS_ADDR(inst)             ((uint32_t)(inst) + 0x000002F1U)
+#define BF_RECONFIG_ERROR_STATUS_INFO(inst)                    ((uint32_t)(inst) + 0x000002F1U), 0x00000400U
+#define BF_TIME_ERROR_STATUS_TXRX_PREFSRC_RECONF_INFO(inst)    ((uint32_t)(inst) + 0x000002F1U), 0x00000105U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PREFSRC_TRIG_INP_CNT_ADDR(inst)                    ((inst) + 0x000002F4)
-#define BF_TRIG_INPUT_COUNT_INFO(inst)                         ((inst) + 0x000002F4), 0x00000400
+#define REG_PREFSRC_SM_STATE_ADDR(inst)                        ((uint32_t)(inst) + 0x000002F2U)
+#define BF_PREFSRC_SM_STATE_INFO(inst)                         ((uint32_t)(inst) + 0x000002F2U), 0x00000400U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PREFSRC_SYNC_INP_CNT_ADDR(inst)                    ((inst) + 0x000002F5)
-#define BF_SYNC_INPUT_COUNT_INFO(inst)                         ((inst) + 0x000002F5), 0x00000400
+#define REG_PREFSRC_TRIG_INP_CNT_ADDR(inst)                    ((uint32_t)(inst) + 0x000002F4U)
+#define BF_TRIG_INPUT_COUNT_INFO(inst)                         ((uint32_t)(inst) + 0x000002F4U), 0x00000400U
 #endif /* USE_PRIVATE_BF */
-
-#define REG_PREFSRC_RECONF_RESET_STATUS_ADDR(inst)             ((inst) + 0x000002F6)
-#define BF_TIMESTAMP_RESET_DONE_INFO(inst)                     ((inst) + 0x000002F6), 0x00000100
-#define BF_CNCO_RESET_DONE_INFO(inst)                          ((inst) + 0x000002F6), 0x00000101
-#define BF_FNCO_RESET_DONE_INFO(inst)                          ((inst) + 0x000002F6), 0x00000102
-
-#define REG_RECONFIG_FLUSH_COUNT_ADDR(inst)                    ((inst) + 0x000002F7)
-#define BF_RECONFIG_FLUSH_COUNT_INFO(inst)                     ((inst) + 0x000002F7), 0x00000500
-
-#define REG_RECONFIG_RAMP_WIDTH_TXRX_PREFSRC_RECONF_ADDR(inst) ((inst) + 0x000002F8)
-#define BF_RECONFIG_RAMP_WIDTH_TXRX_PREFSRC_RECONF_INFO(inst)  ((inst) + 0x000002F8), 0x00000500
-
-#define REG_PREFSRC_RECONF_NEWCLK_DLY_ADDR(inst)               ((inst) + 0x000002F9)
-#define BF_NEWCLK_DLY_TXRX_PREFSRC_RECONF_INFO(inst)           ((inst) + 0x000002F9), 0x00000500
 
 #ifdef USE_PRIVATE_BF
-#define REG_PREFSRC_FORCE_NEWCLK_ADDR(inst)                    ((inst) + 0x000002FA)
-#define BF_FORCE_NEWCLK_TXRX_PREFSRC_RECONF_INFO(inst)         ((inst) + 0x000002FA), 0x00000100
+#define REG_PREFSRC_SYNC_INP_CNT_ADDR(inst)                    ((uint32_t)(inst) + 0x000002F5U)
+#define BF_SYNC_INPUT_COUNT_INFO(inst)                         ((uint32_t)(inst) + 0x000002F5U), 0x00000400U
 #endif /* USE_PRIVATE_BF */
 
-#endif /* __ADI_APOLLO_BF_TXRX_PREFSRC_RECONF_H__ */
+#define REG_PREFSRC_RECONF_RESET_STATUS_ADDR(inst)             ((uint32_t)(inst) + 0x000002F6U)
+#define BF_TIMESTAMP_RESET_DONE_INFO(inst)                     ((uint32_t)(inst) + 0x000002F6U), 0x00000100U
+#define BF_CNCO_RESET_DONE_INFO(inst)                          ((uint32_t)(inst) + 0x000002F6U), 0x00000101U
+#define BF_FNCO_RESET_DONE_INFO(inst)                          ((uint32_t)(inst) + 0x000002F6U), 0x00000102U
+
+#define REG_RECONFIG_FLUSH_COUNT_ADDR(inst)                    ((uint32_t)(inst) + 0x000002F7U)
+#define BF_RECONFIG_FLUSH_COUNT_INFO(inst)                     ((uint32_t)(inst) + 0x000002F7U), 0x00000500U
+
+#define REG_RECONFIG_RAMP_WIDTH_TXRX_PREFSRC_RECONF_ADDR(inst) ((uint32_t)(inst) + 0x000002F8U)
+#define BF_RECONFIG_RAMP_WIDTH_TXRX_PREFSRC_RECONF_INFO(inst)  ((uint32_t)(inst) + 0x000002F8U), 0x00000500U
+
+#define REG_PREFSRC_RECONF_NEWCLK_DLY_ADDR(inst)               ((uint32_t)(inst) + 0x000002F9U)
+#define BF_NEWCLK_DLY_TXRX_PREFSRC_RECONF_INFO(inst)           ((uint32_t)(inst) + 0x000002F9U), 0x00000500U
+
+#ifdef USE_PRIVATE_BF
+#define REG_PREFSRC_FORCE_NEWCLK_ADDR(inst)                    ((uint32_t)(inst) + 0x000002FAU)
+#define BF_FORCE_NEWCLK_TXRX_PREFSRC_RECONF_INFO(inst)         ((uint32_t)(inst) + 0x000002FAU), 0x00000100U
+#endif /* USE_PRIVATE_BF */
+
+#endif /* ADI_APOLLO_BF_TXRX_PREFSRC_RECONF_H__ */
 /*! @} */

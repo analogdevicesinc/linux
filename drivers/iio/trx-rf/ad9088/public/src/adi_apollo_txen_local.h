@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_TXEN
  * @{
  */
-#ifndef __ADI_APOLLO_TXEN_LOCAL_H__
-#define __ADI_APOLLO_TXEN_LOCAL_H__
+#ifndef ADI_APOLLO_TXEN_LOCAL_H__
+#define ADI_APOLLO_TXEN_LOCAL_H__
 
 
 /*============= I N C L U D E S ============*/
@@ -24,12 +24,11 @@
 extern "C" {
 #endif
 
-uint32_t calc_tx_txen_power_ctrl_base(int32_t dac_index);
-uint32_t calc_tx_enable_base(int32_t index);
+uint32_t tx_chan_id_to_txen_power_ctrl_base(int32_t chan_id);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __ADI_APOLLO_TXEN_LOCAL_H__ */
+#endif /* ADI_APOLLO_TXEN_LOCAL_H__ */
 /*! @} */

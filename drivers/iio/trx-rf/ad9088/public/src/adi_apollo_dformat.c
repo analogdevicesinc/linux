@@ -39,7 +39,8 @@ static uint8_t cbout_to_bf(uint8_t cbout, uint8_t is_8t8r);
 
 int32_t adi_apollo_dformat_pgm(adi_apollo_device_t *device, const uint16_t links, adi_apollo_dformat_pgm_t *config)
 { 
-    int32_t err, i;
+    int32_t err;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
@@ -47,17 +48,17 @@ int32_t adi_apollo_dformat_pgm(adi_apollo_device_t *device, const uint16_t links
     ADI_APOLLO_NULL_POINTER_RETURN(config);
 
     for (i = 0; i < ADI_APOLLO_NUM_JTX_LINKS; i++) {
-        if ((1 << i) & links) {
+        if (((1U << i) & links) != 0U) {
             regmap_base_addr = calc_jtx_dformat_base(i);
             
-            if ((i % ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0) { /* Link 0 */
-                err = adi_apollo_hal_bf_set(device, BF_DFORMAT_SEL_0_INFO(regmap_base_addr), config->dfor_sel);
+            if ((i % ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0U) { /* Link 0 */
+                err = adi_apollo_hal_bf_set(device, BF_DFORMAT_SEL_0_INFO(regmap_base_addr), (uint64_t)config->dfor_sel);
                 ADI_APOLLO_ERROR_RETURN(err);
                 err = adi_apollo_hal_bf_set(device, BF_DFORMAT_INV_0_INFO(regmap_base_addr), config->dfor_inv);
                 ADI_APOLLO_ERROR_RETURN(err);
                 err = adi_apollo_hal_bf_set(device, BF_DFORMAT_DDC_DITHER_EN_0_INFO(regmap_base_addr), config->dfor_ddc_dither_en);
                 ADI_APOLLO_ERROR_RETURN(err);
-                err = adi_apollo_hal_bf_set(device, BF_DFORMAT_RES_0_INFO(regmap_base_addr), config->dfor_res);
+                err = adi_apollo_hal_bf_set(device, BF_DFORMAT_RES_0_INFO(regmap_base_addr), (uint64_t)config->dfor_res);
                 ADI_APOLLO_ERROR_RETURN(err);
                 err = adi_apollo_hal_bf_set(device, BF_LINK_EN_0_INFO(regmap_base_addr), config->link_en);
                 ADI_APOLLO_ERROR_RETURN(err);
@@ -70,13 +71,13 @@ int32_t adi_apollo_dformat_pgm(adi_apollo_device_t *device, const uint16_t links
 	            err = adi_apollo_hal_bf_set(device, BF_SAMPLE_REPEAT_EN_0_INFO(regmap_base_addr), config->sample_repeat_en);
 	            ADI_APOLLO_ERROR_RETURN(err);
             } else {                                            /* Link 1 */
-                err = adi_apollo_hal_bf_set(device, BF_DFORMAT_SEL_1_INFO(regmap_base_addr), config->dfor_sel); 
+                err = adi_apollo_hal_bf_set(device, BF_DFORMAT_SEL_1_INFO(regmap_base_addr), (uint64_t)config->dfor_sel);
                 ADI_APOLLO_ERROR_RETURN(err);
-                err = adi_apollo_hal_bf_set(device, BF_DFORMAT_INV_1_INFO(regmap_base_addr), config->dfor_inv); 
+                err = adi_apollo_hal_bf_set(device, BF_DFORMAT_INV_1_INFO(regmap_base_addr), config->dfor_inv);
                 ADI_APOLLO_ERROR_RETURN(err);
-                err = adi_apollo_hal_bf_set(device, BF_DFORMAT_DDC_DITHER_EN_1_INFO(regmap_base_addr), config->dfor_ddc_dither_en); 
+                err = adi_apollo_hal_bf_set(device, BF_DFORMAT_DDC_DITHER_EN_1_INFO(regmap_base_addr), config->dfor_ddc_dither_en);
                 ADI_APOLLO_ERROR_RETURN(err);
-                err = adi_apollo_hal_bf_set(device, BF_DFORMAT_RES_1_INFO(regmap_base_addr), config->dfor_res); 
+                err = adi_apollo_hal_bf_set(device, BF_DFORMAT_RES_1_INFO(regmap_base_addr), (uint64_t)config->dfor_res); 
                 ADI_APOLLO_ERROR_RETURN(err);
                 err = adi_apollo_hal_bf_set(device, BF_LINK_EN_1_INFO(regmap_base_addr), config->link_en);
                 ADI_APOLLO_ERROR_RETURN(err);
@@ -92,51 +93,54 @@ int32_t adi_apollo_dformat_pgm(adi_apollo_device_t *device, const uint16_t links
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_dformat_res_sel_set(adi_apollo_device_t *device, 
     const uint16_t links, 
     adi_apollo_chip_output_res_e resolution)
 {
-    int32_t err, i;
+    int32_t err;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(resolution, ADI_APOLLO_CHIP_OUT_RES_16BIT, ADI_APOLLO_CHIP_OUT_RES_08BIT);
 
     for (i = 0; i < ADI_APOLLO_NUM_JTX_LINKS; i++) {
-        if ((1 << i) & links) {
+        if (((1U << i) & links) != 0U) {
             regmap_base_addr = calc_jtx_dformat_base(i);
             
-            if ((i % ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0) {
-                err = adi_apollo_hal_bf_set(device, BF_DFORMAT_RES_0_INFO(regmap_base_addr), resolution);   /* Link 0 */
+            if ((i % ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0U) {
+                err = adi_apollo_hal_bf_set(device, BF_DFORMAT_RES_0_INFO(regmap_base_addr), (uint64_t)resolution);   /* Link 0 */
             } else {
-                err = adi_apollo_hal_bf_set(device, BF_DFORMAT_RES_1_INFO(regmap_base_addr), resolution);   /* Link 1*/
+                err = adi_apollo_hal_bf_set(device, BF_DFORMAT_RES_1_INFO(regmap_base_addr), (uint64_t)resolution);   /* Link 1*/
             }
 
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_dformat_format_sel_set(adi_apollo_device_t *device, const uint16_t links,
     uint8_t format)
 {
-    int32_t err, i;
+    int32_t err;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
-    ADI_APOLLO_INVALID_PARAM_RETURN(format > 2);
+    ADI_APOLLO_INVALID_PARAM_RETURN(format > 2U);
 
     for (i = 0; i < ADI_APOLLO_NUM_JTX_LINKS; i++) {
-        if ((1 << i) & links) {
+        if (((1U << i) & links) != 0U) {
             regmap_base_addr = calc_jtx_dformat_base(i);
             
-            if ((i % ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0) {
+            if ((i % ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0U) {
                 err = adi_apollo_hal_bf_set(device, BF_DFORMAT_SEL_0_INFO(regmap_base_addr), format);   /* Link 0 */
                 ADI_APOLLO_ERROR_RETURN(err);
             } else {
@@ -147,23 +151,24 @@ int32_t adi_apollo_dformat_format_sel_set(adi_apollo_device_t *device, const uin
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_dformat_ctrl_bit_sel_set(adi_apollo_device_t *device, const uint16_t links,
     uint8_t bit0_sel, uint8_t bit1_sel, uint8_t bit2_sel)
 {
-    int32_t err, i;
+    int32_t err;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
 
     for (i = 0; i < ADI_APOLLO_NUM_JTX_LINKS; i++) {
-        if ((1 << i) & links) {
+        if (((1U << i) & links) != 0U) {
             regmap_base_addr = calc_jtx_dformat_base(i);
             
-            if ((i % ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0) {
+            if ((i % ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0U) {
                 err = adi_apollo_hal_bf_set(device, BF_DFORMAT_CTRL_BIT_0_SEL_0_INFO(regmap_base_addr), bit0_sel);   /* Link 0 */
                 ADI_APOLLO_ERROR_RETURN(err);
                 err = adi_apollo_hal_bf_set(device, BF_DFORMAT_CTRL_BIT_1_SEL_0_INFO(regmap_base_addr), bit1_sel);
@@ -182,7 +187,7 @@ int32_t adi_apollo_dformat_ctrl_bit_sel_set(adi_apollo_device_t *device, const u
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 
@@ -190,18 +195,19 @@ int32_t adi_apollo_dformat_conv_test_mode_enable_set(adi_apollo_device_t *device
     const uint16_t links, 
     uint8_t enable)
 {
-    int32_t err, i;
+    int32_t err;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
 
     for (i = 0; i < ADI_APOLLO_NUM_JTX_LINKS; i ++) {
-        if ((1 << i) & links) {
+        if (((1U << i) & links) != 0U) {
 
             regmap_base_addr = calc_jtx_dformat_base(i);
 
-            if ((i % ADI_APOLLO_TMODE_N) == 0) {
+            if ((i % ADI_APOLLO_TMODE_N) == 0U) {
                 err = adi_apollo_hal_bf_set(device, BF_DFORMAT_TMODE_SEL_0_INFO(regmap_base_addr), enable);     /* Link 0 */
             } else {
                 err = adi_apollo_hal_bf_set(device, BF_DFORMAT_TMODE_SEL_1_INFO(regmap_base_addr), enable);     /* Link 1 */
@@ -210,23 +216,24 @@ int32_t adi_apollo_dformat_conv_test_mode_enable_set(adi_apollo_device_t *device
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_dformat_inspect(adi_apollo_device_t *device, const uint16_t link, adi_apollo_dformat_inspect_t *inspect){
-    int32_t err, i;
+    int32_t err;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(inspect);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(link) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(link) != 1U);
 
     for (i = 0; i < ADI_APOLLO_NUM_JTX_LINKS; i++) {
-        if ((1 << i) & link) {
+        if (((1U << i) & link) != 0U) {
             regmap_base_addr = calc_jtx_dformat_base(i);
             
-            if ((i % ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0) {                                              /* Link 0 */
+            if ((i % ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0U) {                                              /* Link 0 */
                 err = adi_apollo_hal_bf_get(device, BF_DFORMAT_SEL_0_INFO(regmap_base_addr), &(inspect->dp_cfg.sel), sizeof(inspect->dp_cfg.sel));
                 ADI_APOLLO_ERROR_RETURN(err);
                 err = adi_apollo_hal_bf_get(device, BF_DFORMAT_INV_0_INFO(regmap_base_addr), (uint8_t*) &(inspect->dp_cfg.inv), sizeof(inspect->dp_cfg.inv));
@@ -272,7 +279,7 @@ int32_t adi_apollo_dformat_inspect(adi_apollo_device_t *device, const uint16_t l
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_dformat_overflow_status_get(adi_apollo_device_t *device, const uint16_t link, uint8_t clear, uint8_t *status) {
@@ -282,11 +289,11 @@ int32_t adi_apollo_dformat_overflow_status_get(adi_apollo_device_t *device, cons
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(status);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(link) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(link) != 1U);
 
     regmap_base_addr = calc_jtx_dformat_base(link);
 
-    if (link == ADI_APOLLO_LINK_A0 || link == ADI_APOLLO_LINK_B0) { // Link 0
+    if ((link == ADI_APOLLO_LINK_A0) || (link == ADI_APOLLO_LINK_B0)) { // Link 0
         err = adi_apollo_hal_bf_get(device, BF_DFORMAT_OVR_STATUS_0_INFO(regmap_base_addr), status, sizeof(*status));
         ADI_APOLLO_ERROR_RETURN(err);
     } else { // Link 1
@@ -294,26 +301,27 @@ int32_t adi_apollo_dformat_overflow_status_get(adi_apollo_device_t *device, cons
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    if (clear) {
+    if (clear != 0U) {
         err = adi_apollo_dformat_overflow_status_clear(device, link);
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 
 int32_t adi_apollo_dformat_overflow_status_clear(adi_apollo_device_t *device, const uint16_t link) {
-    int32_t err, i;
+    int32_t err;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
 
     for (i = 0; i < ADI_APOLLO_NUM_JTX_LINKS; i++) {
-        if ((1 << i) & link) {
+        if (((1U << i) & link) != 0U) {
             regmap_base_addr = calc_jtx_dformat_base(i);
-            if ((i % ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0) { // Link 0
+            if ((i % ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0U) { // Link 0
                 err = adi_apollo_hal_bf_set(device, BF_DFORMAT_OVR_CLR_0_INFO(regmap_base_addr), 0);
                 ADI_APOLLO_ERROR_RETURN(err);
                 err = adi_apollo_hal_bf_set(device, BF_DFORMAT_OVR_CLR_0_INFO(regmap_base_addr), 0xFF);
@@ -331,14 +339,14 @@ int32_t adi_apollo_dformat_overflow_status_clear(adi_apollo_device_t *device, co
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_dformat_smon_fd_fddc_set(adi_apollo_device_t *device, adi_apollo_dformat_smon_fd_map_t map[], uint32_t map_len)
 {
     int32_t err;
-    int32_t i;
-    int32_t idx;
+    uint32_t i;
+    uint32_t idx;
     uint8_t i_q_sel;
     uint8_t cbout_bf;
     adi_apollo_blk_sel_t fddc;
@@ -373,16 +381,16 @@ int32_t adi_apollo_dformat_smon_fd_fddc_set(adi_apollo_device_t *device, adi_apo
     };
 
     for (idx = 0; idx < map_len; idx++) {
-        for (i = 0; i < ADI_APOLLO_FDDC_NUM; i++) {
-            fddc = map[idx].fddc_select & (ADI_APOLLO_FDDC_A0 << i);
-            if (fddc > 0) {
+        for (i = 0U; i < ADI_APOLLO_FDDC_NUM; i++) {
+            fddc = map[idx].fddc_select & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FDDC_A0 << i);
+            if (fddc > 0U) {
                 regmap_base_addr = calc_jtx_dformat_base((i / ADI_APOLLO_FDDC_PER_SIDE_NUM) * ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE);
 
-                err = map[idx].i_q_select > 1 ? API_CMS_ERROR_INVALID_PARAM : API_CMS_ERROR_OK;
+                err = (map[idx].i_q_select > 1U) ? (int32_t)API_CMS_ERROR_INVALID_PARAM : (int32_t)API_CMS_ERROR_OK;
                 ADI_APOLLO_LOG_ERROR_RETURN_VAR(err, "i_q_select out of range %d", map[idx].i_q_select);
 
-                err = (device->dev_info.is_8t8r ? (map[idx].cbout > ADI_APOLLO_RXMUX_CBOUT_3 ? API_CMS_ERROR_INVALID_PARAM : API_CMS_ERROR_OK) :
-                                                  (map[idx].cbout > ADI_APOLLO_RXMUX_CBOUT_1 ? API_CMS_ERROR_INVALID_PARAM : API_CMS_ERROR_OK));
+                err = (device->dev_info.is_8t8r ? ((map[idx].cbout > ADI_APOLLO_RXMUX_CBOUT_3) ? (int32_t)API_CMS_ERROR_INVALID_PARAM : (int32_t)API_CMS_ERROR_OK) :
+                                                  ((map[idx].cbout > ADI_APOLLO_RXMUX_CBOUT_1) ? (int32_t)API_CMS_ERROR_INVALID_PARAM : (int32_t)API_CMS_ERROR_OK));
                 ADI_APOLLO_LOG_ERROR_RETURN_VAR(err, "cbout out of range %d", map[idx].cbout);
 
                 i_q_sel = map[idx].i_q_select;
@@ -390,22 +398,22 @@ int32_t adi_apollo_dformat_smon_fd_fddc_set(adi_apollo_device_t *device, adi_apo
     
                 err = adi_apollo_hal_bf_set(device,
                                             fddc_iq_map[i_q_sel][i % ADI_APOLLO_FDDC_PER_SIDE_NUM].reg_offset + regmap_base_addr,
-                                            fddc_iq_map[i_q_sel][i % ADI_APOLLO_FDDC_PER_SIDE_NUM].bf_info, cbout_bf);
+                                            fddc_iq_map[i_q_sel][(i % ADI_APOLLO_FDDC_PER_SIDE_NUM)].bf_info, cbout_bf);
                 ADI_APOLLO_ERROR_RETURN(err);
             }
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 static uint8_t cbout_to_bf(uint8_t cbout, uint8_t is_8t8r)
 {
-    return is_8t8r ? cbout : (cbout == 0) ? cbout : 2;      /* for 4t4r 0=cbout0, 2=cbout1 */
+    return is_8t8r ? cbout : ((cbout == 0U) ? cbout : 2U);      /* for 4t4r 0=cbout0, 2=cbout1 */
 }
 
-uint32_t calc_jtx_dformat_base(int32_t link)
+uint32_t calc_jtx_dformat_base(uint32_t link)
 {
-    return ((link / ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0) ? JTX_DFORMAT_JTX_TOP_RX_DIGITAL0 : JTX_DFORMAT_JTX_TOP_RX_DIGITAL1;
+    return (((link / ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0U)) ? JTX_DFORMAT_JTX_TOP_RX_DIGITAL0 : JTX_DFORMAT_JTX_TOP_RX_DIGITAL1;
 }
 /*! @} */

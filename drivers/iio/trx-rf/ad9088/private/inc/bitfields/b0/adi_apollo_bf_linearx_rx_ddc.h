@@ -12,59 +12,59 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_LINEARX_RX_DDC_H__
-#define __ADI_APOLLO_BF_LINEARX_RX_DDC_H__
+#ifndef ADI_APOLLO_BF_LINEARX_RX_DDC_H__
+#define ADI_APOLLO_BF_LINEARX_RX_DDC_H__
 
 /*============= D E F I N E S ==============*/
-#define LINEARX_RX_DDC_REGMAP_RX_LINEARX_REG32_0_RX_SLICE_0_RX_DIGITAL0 0x60220F00
-#define LINEARX_RX_DDC_REGMAP_RX_LINEARX_REG32_1_RX_SLICE_0_RX_DIGITAL0 0x60228F00
-#define LINEARX_RX_DDC_REGMAP_RX_LINEARX_REG32_0_RX_SLICE_1_RX_DIGITAL0 0x60420F00
-#define LINEARX_RX_DDC_REGMAP_RX_LINEARX_REG32_1_RX_SLICE_1_RX_DIGITAL0 0x60428F00
-#define LINEARX_RX_DDC_REGMAP_RX_LINEARX_REG32_0_RX_SLICE_0_RX_DIGITAL1 0x60A20F00
-#define LINEARX_RX_DDC_REGMAP_RX_LINEARX_REG32_1_RX_SLICE_0_RX_DIGITAL1 0x60A28F00
-#define LINEARX_RX_DDC_REGMAP_RX_LINEARX_REG32_0_RX_SLICE_1_RX_DIGITAL1 0x60C20F00
-#define LINEARX_RX_DDC_REGMAP_RX_LINEARX_REG32_1_RX_SLICE_1_RX_DIGITAL1 0x60C28F00
+#define LINEARX_RX_DDC_REGMAP_RX_LINEARX_REG32_0_RX_SLICE_0_RX_DIGITAL0 0x60220F00U
+#define LINEARX_RX_DDC_REGMAP_RX_LINEARX_REG32_1_RX_SLICE_0_RX_DIGITAL0 0x60228F00U
+#define LINEARX_RX_DDC_REGMAP_RX_LINEARX_REG32_0_RX_SLICE_1_RX_DIGITAL0 0x60420F00U
+#define LINEARX_RX_DDC_REGMAP_RX_LINEARX_REG32_1_RX_SLICE_1_RX_DIGITAL0 0x60428F00U
+#define LINEARX_RX_DDC_REGMAP_RX_LINEARX_REG32_0_RX_SLICE_0_RX_DIGITAL1 0x60A20F00U
+#define LINEARX_RX_DDC_REGMAP_RX_LINEARX_REG32_1_RX_SLICE_0_RX_DIGITAL1 0x60A28F00U
+#define LINEARX_RX_DDC_REGMAP_RX_LINEARX_REG32_0_RX_SLICE_1_RX_DIGITAL1 0x60C20F00U
+#define LINEARX_RX_DDC_REGMAP_RX_LINEARX_REG32_1_RX_SLICE_1_RX_DIGITAL1 0x60C28F00U
 
-#define REG_NCO_TUNE_LINEARX_RX_DDC_ADDR(inst)                          ((inst) + 0x00000000)
-#define BF_NCO_FREQ_ADJ_LINEARX_RX_DDC_INFO(inst)                       ((inst) + 0x00000000), 0x00000F00
-#define BF_NCO_PHASE_ADJ_LINEARX_RX_DDC_INFO(inst)                      ((inst) + 0x00000000), 0x00000F10
+#define REG_NCO_TUNE_LINEARX_RX_DDC_ADDR(inst)                          ((uint32_t)(inst) + 0x00000000U)
+#define BF_NCO_FREQ_ADJ_LINEARX_RX_DDC_INFO(inst)                       ((uint32_t)(inst) + 0x00000000U), 0x00000F00U
+#define BF_NCO_PHASE_ADJ_LINEARX_RX_DDC_INFO(inst)                      ((uint32_t)(inst) + 0x00000000U), 0x00000F10U
 
-#define REG_DDC_DATA_I_ADDR(inst)                                       ((inst) + 0x00000010)
-#define BF_CIC_OUT_IDATA_LINEARX_RX_DDC_INFO(inst)                      ((inst) + 0x00000010), 0x00001900
+#define REG_DDC_DATA_I_ADDR(inst)                                       ((uint32_t)(inst) + 0x00000010U)
+#define BF_CIC_OUT_IDATA_LINEARX_RX_DDC_INFO(inst)                      ((uint32_t)(inst) + 0x00000010U), 0x00001900U
 
-#define REG_DDC_DATA_Q_ADDR(inst)                                       ((inst) + 0x00000014)
-#define BF_CIC_OUT_QDATA_LINEARX_RX_DDC_INFO(inst)                      ((inst) + 0x00000014), 0x00001900
+#define REG_DDC_DATA_Q_ADDR(inst)                                       ((uint32_t)(inst) + 0x00000014U)
+#define BF_CIC_OUT_QDATA_LINEARX_RX_DDC_INFO(inst)                      ((uint32_t)(inst) + 0x00000014U), 0x00001900U
 
-#define REG_DDC_MISC_CTRL_LINEARX_RX_DDC_ADDR(inst)                     ((inst) + 0x00000020)
-#define BF_MIXER_DITH_EN_INFO(inst)                                     ((inst) + 0x00000020), 0x00000100
-#define BF_NCO_ADITH_EN_LINEARX_RX_DDC_INFO(inst)                       ((inst) + 0x00000020), 0x00000101
-#define BF_NCO_PDITH_EN_LINEARX_RX_DDC_INFO(inst)                       ((inst) + 0x00000020), 0x00000102
-#define BF_MIXER_MODE_LINEARX_RX_DDC_INFO(inst)                         ((inst) + 0x00000020), 0x00000203
-#define BF_CIC_DEC_RATE_LINEARX_RX_DDC_INFO(inst)                       ((inst) + 0x00000020), 0x00000805
-#define BF_RESET_FSM_INFO(inst)                                         ((inst) + 0x00000020), 0x0000010D
-#define BF_CIC_FSM_STATE_I0_LINEARX_RX_DDC_INFO(inst)                   ((inst) + 0x00000020), 0x00000410
-#define BF_CIC_FSM_STATE_Q0_LINEARX_RX_DDC_INFO(inst)                   ((inst) + 0x00000020), 0x00000414
-#define BF_EXP_DEC_RATE_INFO(inst)                                      ((inst) + 0x00000020), 0x00000318
+#define REG_DDC_MISC_CTRL_LINEARX_RX_DDC_ADDR(inst)                     ((uint32_t)(inst) + 0x00000020U)
+#define BF_MIXER_DITH_EN_INFO(inst)                                     ((uint32_t)(inst) + 0x00000020U), 0x00000100U
+#define BF_NCO_ADITH_EN_LINEARX_RX_DDC_INFO(inst)                       ((uint32_t)(inst) + 0x00000020U), 0x00000101U
+#define BF_NCO_PDITH_EN_LINEARX_RX_DDC_INFO(inst)                       ((uint32_t)(inst) + 0x00000020U), 0x00000102U
+#define BF_MIXER_MODE_LINEARX_RX_DDC_INFO(inst)                         ((uint32_t)(inst) + 0x00000020U), 0x00000203U
+#define BF_CIC_DEC_RATE_LINEARX_RX_DDC_INFO(inst)                       ((uint32_t)(inst) + 0x00000020U), 0x00000805U
+#define BF_RESET_FSM_INFO(inst)                                         ((uint32_t)(inst) + 0x00000020U), 0x0000010DU
+#define BF_CIC_FSM_STATE_I0_LINEARX_RX_DDC_INFO(inst)                   ((uint32_t)(inst) + 0x00000020U), 0x00000410U
+#define BF_CIC_FSM_STATE_Q0_LINEARX_RX_DDC_INFO(inst)                   ((uint32_t)(inst) + 0x00000020U), 0x00000414U
+#define BF_EXP_DEC_RATE_INFO(inst)                                      ((uint32_t)(inst) + 0x00000020U), 0x00000318U
 
-#define REG_DDC_CTRL_REG_LINEARX_RX_DDC_ADDR(inst)                      ((inst) + 0x00000030)
-#define BF_RESET_DDC_LINEARX_RX_DDC_INFO(inst)                          ((inst) + 0x00000030), 0x00000100
-#define BF_EN_CLK_DDC_LINEARX_RX_DDC_INFO(inst)                         ((inst) + 0x00000030), 0x00000101
-#define BF_NCO_RESET_LINEARX_RX_DDC_INFO(inst)                          ((inst) + 0x00000030), 0x00000102
-#define BF_NUM_CPT_AVG_INFO(inst)                                       ((inst) + 0x00000030), 0x00000703
+#define REG_DDC_CTRL_REG_LINEARX_RX_DDC_ADDR(inst)                      ((uint32_t)(inst) + 0x00000030U)
+#define BF_RESET_DDC_LINEARX_RX_DDC_INFO(inst)                          ((uint32_t)(inst) + 0x00000030U), 0x00000100U
+#define BF_EN_CLK_DDC_LINEARX_RX_DDC_INFO(inst)                         ((uint32_t)(inst) + 0x00000030U), 0x00000101U
+#define BF_NCO_RESET_LINEARX_RX_DDC_INFO(inst)                          ((uint32_t)(inst) + 0x00000030U), 0x00000102U
+#define BF_NUM_CPT_AVG_INFO(inst)                                       ((uint32_t)(inst) + 0x00000030U), 0x00000703U
 
-#define REG_DDC_NCO_EN_LINEARX_RX_DDC_ADDR(inst)                        ((inst) + 0x00000034)
-#define BF_NCO_EN_DDC_LINEARX_RX_DDC_INFO(inst)                         ((inst) + 0x00000034), 0x00000100
+#define REG_DDC_NCO_EN_LINEARX_RX_DDC_ADDR(inst)                        ((uint32_t)(inst) + 0x00000034U)
+#define BF_NCO_EN_DDC_LINEARX_RX_DDC_INFO(inst)                         ((uint32_t)(inst) + 0x00000034U), 0x00000100U
 
-#define REG_DDC_START_LINEARX_RX_DDC_ADDR(inst)                         ((inst) + 0x00000038)
-#define BF_START_DDC_LINEARX_RX_DDC_INFO(inst)                          ((inst) + 0x00000038), 0x00000100
+#define REG_DDC_START_LINEARX_RX_DDC_ADDR(inst)                         ((uint32_t)(inst) + 0x00000038U)
+#define BF_START_DDC_LINEARX_RX_DDC_INFO(inst)                          ((uint32_t)(inst) + 0x00000038U), 0x00000100U
 
-#define REG_DDC_IRQ_LINEARX_RX_DDC_ADDR(inst)                           ((inst) + 0x00000040)
-#define BF_CIC_IRQ_RECVD_DDC_LINEARX_RX_DDC_INFO(inst)                  ((inst) + 0x00000040), 0x00000100
-#define BF_IRQ_STATUS_DDC_LINEARX_RX_DDC_INFO(inst)                     ((inst) + 0x00000040), 0x00000101
-#define BF_IRQ_DDC_EN_LINEARX_RX_DDC_INFO(inst)                         ((inst) + 0x00000040), 0x00000102
+#define REG_DDC_IRQ_LINEARX_RX_DDC_ADDR(inst)                           ((uint32_t)(inst) + 0x00000040U)
+#define BF_CIC_IRQ_RECVD_DDC_LINEARX_RX_DDC_INFO(inst)                  ((uint32_t)(inst) + 0x00000040U), 0x00000100U
+#define BF_IRQ_STATUS_DDC_LINEARX_RX_DDC_INFO(inst)                     ((uint32_t)(inst) + 0x00000040U), 0x00000101U
+#define BF_IRQ_DDC_EN_LINEARX_RX_DDC_INFO(inst)                         ((uint32_t)(inst) + 0x00000040U), 0x00000102U
 
-#define REG_DDC_BMEM_CTRL_ADDR(inst)                                    ((inst) + 0x00000044)
-#define BF_RX_DDC_BMEM_AWG_MODE_INFO(inst)                              ((inst) + 0x00000044), 0x00000100
+#define REG_DDC_BMEM_CTRL_ADDR(inst)                                    ((uint32_t)(inst) + 0x00000044U)
+#define BF_RX_DDC_BMEM_AWG_MODE_INFO(inst)                              ((uint32_t)(inst) + 0x00000044U), 0x00000100U
 
-#endif /* __ADI_APOLLO_BF_LINEARX_RX_DDC_H__ */
+#endif /* ADI_APOLLO_BF_LINEARX_RX_DDC_H__ */
 /*! @} */

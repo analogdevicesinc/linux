@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_RX
  * @{
  */
-#ifndef __ADI_APOLLO_RX_TYPES_H__
-#define __ADI_APOLLO_RX_TYPES_H__
+#ifndef ADI_APOLLO_RX_TYPES_H__
+#define ADI_APOLLO_RX_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -24,6 +24,6 @@
 /* Force idl-gen to pick up file */
 typedef uint8_t adi_apollo_rx_types_dummy;
 
-#endif /* __ADI_APOLLO_RX_TYPES_H__ */
+#endif /* ADI_APOLLO_RX_TYPES_H__ */
 
 /*! @} */

@@ -12,71 +12,71 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_TXEN_POWER_CTRL_H__
-#define __ADI_APOLLO_BF_TXEN_POWER_CTRL_H__
+#ifndef ADI_APOLLO_BF_TXEN_POWER_CTRL_H__
+#define ADI_APOLLO_BF_TXEN_POWER_CTRL_H__
 
 /*============= D E F I N E S ==============*/
-#define RXEN_POWER_CTRL0_RX_SLICE_0_RX_DIGITAL0 0x603AF000
-#define RXEN_POWER_CTRL1_RX_SLICE_0_RX_DIGITAL0 0x603B0000
-#define RXEN_POWER_CTRL0_RX_SLICE_1_RX_DIGITAL0 0x605AF000
-#define RXEN_POWER_CTRL1_RX_SLICE_1_RX_DIGITAL0 0x605B0000
-#define RXEN_POWER_CTRL0_RX_SLICE_0_RX_DIGITAL1 0x60BAF000
-#define RXEN_POWER_CTRL1_RX_SLICE_0_RX_DIGITAL1 0x60BB0000
-#define RXEN_POWER_CTRL0_RX_SLICE_1_RX_DIGITAL1 0x60DAF000
-#define RXEN_POWER_CTRL1_RX_SLICE_1_RX_DIGITAL1 0x60DB0000
-#define TXEN_POWER_CTRL0_TX_SLICE_0_TX_DIGITAL0 0x61208000
-#define TXEN_POWER_CTRL1_TX_SLICE_0_TX_DIGITAL0 0x61209000
-#define TXEN_POWER_CTRL0_TX_SLICE_1_TX_DIGITAL0 0x61408000
-#define TXEN_POWER_CTRL1_TX_SLICE_1_TX_DIGITAL0 0x61409000
-#define TXEN_POWER_CTRL0_TX_SLICE_0_TX_DIGITAL1 0x61A08000
-#define TXEN_POWER_CTRL1_TX_SLICE_0_TX_DIGITAL1 0x61A09000
-#define TXEN_POWER_CTRL0_TX_SLICE_1_TX_DIGITAL1 0x61C08000
-#define TXEN_POWER_CTRL1_TX_SLICE_1_TX_DIGITAL1 0x61C09000
+#define RXEN_POWER_CTRL0_RX_SLICE_0_RX_DIGITAL0 0x603AF000U
+#define RXEN_POWER_CTRL1_RX_SLICE_0_RX_DIGITAL0 0x603B0000U
+#define RXEN_POWER_CTRL0_RX_SLICE_1_RX_DIGITAL0 0x605AF000U
+#define RXEN_POWER_CTRL1_RX_SLICE_1_RX_DIGITAL0 0x605B0000U
+#define RXEN_POWER_CTRL0_RX_SLICE_0_RX_DIGITAL1 0x60BAF000U
+#define RXEN_POWER_CTRL1_RX_SLICE_0_RX_DIGITAL1 0x60BB0000U
+#define RXEN_POWER_CTRL0_RX_SLICE_1_RX_DIGITAL1 0x60DAF000U
+#define RXEN_POWER_CTRL1_RX_SLICE_1_RX_DIGITAL1 0x60DB0000U
+#define TXEN_POWER_CTRL0_TX_SLICE_0_TX_DIGITAL0 0x61208000U
+#define TXEN_POWER_CTRL1_TX_SLICE_0_TX_DIGITAL0 0x61209000U
+#define TXEN_POWER_CTRL0_TX_SLICE_1_TX_DIGITAL0 0x61408000U
+#define TXEN_POWER_CTRL1_TX_SLICE_1_TX_DIGITAL0 0x61409000U
+#define TXEN_POWER_CTRL0_TX_SLICE_0_TX_DIGITAL1 0x61A08000U
+#define TXEN_POWER_CTRL1_TX_SLICE_0_TX_DIGITAL1 0x61A09000U
+#define TXEN_POWER_CTRL0_TX_SLICE_1_TX_DIGITAL1 0x61C08000U
+#define TXEN_POWER_CTRL1_TX_SLICE_1_TX_DIGITAL1 0x61C09000U
 
-#define REG_TXEN_PWR_CRTL_ADDR(inst)            ((inst) + 0x00000000)
-#define BF_SM_EN_INFO(inst)                     ((inst) + 0x00000000), 0x00000100
-#define BF_SPI_TXEN_ENA_INFO(inst)              ((inst) + 0x00000000), 0x00000101
-#define BF_SPI_TXEN_INFO(inst)                  ((inst) + 0x00000000), 0x00000102
-#define BF_SEL_CNT_RATE_INFO(inst)              ((inst) + 0x00000000), 0x00000103
+#define REG_TXEN_PWR_CRTL_ADDR(inst)            ((uint32_t)(inst) + 0x00000000U)
+#define BF_SM_EN_INFO(inst)                     ((uint32_t)(inst) + 0x00000000U), 0x00000100U
+#define BF_SPI_TXEN_ENA_INFO(inst)              ((uint32_t)(inst) + 0x00000000U), 0x00000101U
+#define BF_SPI_TXEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000000U), 0x00000102U
+#define BF_SEL_CNT_RATE_INFO(inst)              ((uint32_t)(inst) + 0x00000000U), 0x00000103U
 
-#define REG_TXEN_DAC_EDGES_ADDR(inst)           ((inst) + 0x00000001)
-#define BF_DAC_RISE_INFO(inst)                  ((inst) + 0x00000001), 0x00000200
-#define BF_DAC_FALL_INFO(inst)                  ((inst) + 0x00000001), 0x00000202
+#define REG_TXEN_DAC_EDGES_ADDR(inst)           ((uint32_t)(inst) + 0x00000001U)
+#define BF_DAC_RISE_INFO(inst)                  ((uint32_t)(inst) + 0x00000001U), 0x00000200U
+#define BF_DAC_FALL_INFO(inst)                  ((uint32_t)(inst) + 0x00000001U), 0x00000202U
 
-#define REG_TXEN_DIG_EDGES_ADDR(inst)           ((inst) + 0x00000002)
-#define BF_DIG_RISE_INFO(inst)                  ((inst) + 0x00000002), 0x00000200
-#define BF_DIG_FALL_INFO(inst)                  ((inst) + 0x00000002), 0x00000202
+#define REG_TXEN_DIG_EDGES_ADDR(inst)           ((uint32_t)(inst) + 0x00000002U)
+#define BF_DIG_RISE_INFO(inst)                  ((uint32_t)(inst) + 0x00000002U), 0x00000200U
+#define BF_DIG_FALL_INFO(inst)                  ((uint32_t)(inst) + 0x00000002U), 0x00000202U
 
-#define REG_TXEN_PA_EDGES_ADDR(inst)            ((inst) + 0x00000003)
-#define BF_PA_RISE_INFO(inst)                   ((inst) + 0x00000003), 0x00000200
-#define BF_PA_FALL_INFO(inst)                   ((inst) + 0x00000003), 0x00000202
+#define REG_TXEN_PA_EDGES_ADDR(inst)            ((uint32_t)(inst) + 0x00000003U)
+#define BF_PA_RISE_INFO(inst)                   ((uint32_t)(inst) + 0x00000003U), 0x00000200U
+#define BF_PA_FALL_INFO(inst)                   ((uint32_t)(inst) + 0x00000003U), 0x00000202U
 
-#define REG_MAX_A_ADDR(inst)                    ((inst) + 0x00000004)
-#define BF_COUNT_MAXA_INFO(inst)                ((inst) + 0x00000004), 0x00000800
+#define REG_MAX_A_ADDR(inst)                    ((uint32_t)(inst) + 0x00000004U)
+#define BF_COUNT_MAXA_INFO(inst)                ((uint32_t)(inst) + 0x00000004U), 0x00000800U
 
-#define REG_MAX_B_ADDR(inst)                    ((inst) + 0x00000005)
-#define BF_COUNT_MAXB_INFO(inst)                ((inst) + 0x00000005), 0x00000800
+#define REG_MAX_B_ADDR(inst)                    ((uint32_t)(inst) + 0x00000005U)
+#define BF_COUNT_MAXB_INFO(inst)                ((uint32_t)(inst) + 0x00000005U), 0x00000800U
 
-#define REG_MAX_C_ADDR(inst)                    ((inst) + 0x00000006)
-#define BF_COUNT_MAXC_INFO(inst)                ((inst) + 0x00000006), 0x00000800
+#define REG_MAX_C_ADDR(inst)                    ((uint32_t)(inst) + 0x00000006U)
+#define BF_COUNT_MAXC_INFO(inst)                ((uint32_t)(inst) + 0x00000006U), 0x00000800U
 
-#define REG_MAX_D_ADDR(inst)                    ((inst) + 0x00000007)
-#define BF_COUNT_MAXD_INFO(inst)                ((inst) + 0x00000007), 0x00000800
+#define REG_MAX_D_ADDR(inst)                    ((uint32_t)(inst) + 0x00000007U)
+#define BF_COUNT_MAXD_INFO(inst)                ((uint32_t)(inst) + 0x00000007U), 0x00000800U
 
-#define REG_MAX_E_ADDR(inst)                    ((inst) + 0x00000008)
-#define BF_COUNT_MAXE_INFO(inst)                ((inst) + 0x00000008), 0x00000800
+#define REG_MAX_E_ADDR(inst)                    ((uint32_t)(inst) + 0x00000008U)
+#define BF_COUNT_MAXE_INFO(inst)                ((uint32_t)(inst) + 0x00000008U), 0x00000800U
 
-#define REG_MAX_F_ADDR(inst)                    ((inst) + 0x00000009)
-#define BF_COUNT_MAXF_INFO(inst)                ((inst) + 0x00000009), 0x00000800
+#define REG_MAX_F_ADDR(inst)                    ((uint32_t)(inst) + 0x00000009U)
+#define BF_COUNT_MAXF_INFO(inst)                ((uint32_t)(inst) + 0x00000009U), 0x00000800U
 
-#define REG_COUNTER_READ_ADDR(inst)             ((inst) + 0x0000000A)
-#define BF_COUNT_INFO(inst)                     ((inst) + 0x0000000A), 0x00000800
+#define REG_COUNTER_READ_ADDR(inst)             ((uint32_t)(inst) + 0x0000000AU)
+#define BF_COUNT_INFO(inst)                     ((uint32_t)(inst) + 0x0000000AU), 0x00000800U
 
-#define REG_STATES_READ_ADDR(inst)              ((inst) + 0x0000000B)
-#define BF_STATES_INFO(inst)                    ((inst) + 0x0000000B), 0x00000800
+#define REG_STATES_READ_ADDR(inst)              ((uint32_t)(inst) + 0x0000000BU)
+#define BF_STATES_INFO(inst)                    ((uint32_t)(inst) + 0x0000000BU), 0x00000800U
 
-#define REG_TXEN_SEL_ADDR(inst)                 ((inst) + 0x00000010)
-#define BF_TXEN_SEL_INFO(inst)                  ((inst) + 0x00000010), 0x00000200
+#define REG_TXEN_SEL_ADDR(inst)                 ((uint32_t)(inst) + 0x00000010U)
+#define BF_TXEN_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000010U), 0x00000200U
 
-#endif /* __ADI_APOLLO_BF_TXEN_POWER_CTRL_H__ */
+#endif /* ADI_APOLLO_BF_TXEN_POWER_CTRL_H__ */
 /*! @} */

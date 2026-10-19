@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_TRIGGER_TS
  * @{
  */
-#ifndef __ADI_APOLLO_TRIGGER_TS_TYPES_H__
-#define __ADI_APOLLO_TRIGGER_TS_TYPES_H__
+#ifndef ADI_APOLLO_TRIGGER_TS_TYPES_H__
+#define ADI_APOLLO_TRIGGER_TS_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -97,5 +97,5 @@ typedef struct {
     adi_apollo_trig_enable_sel_e trig_enable;
 } adi_apollo_trig_mst_config_t; 
 
-#endif /* __ADI_APOLLO_TRIGGER_TS_TYPES_H__ */
+#endif /* ADI_APOLLO_TRIGGER_TS_TYPES_H__ */
 /*! @} */

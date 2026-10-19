@@ -41,25 +41,27 @@ int32_t adi_apollo_tmode_config_set(adi_apollo_device_t *device,
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
 
-    ADI_CMS_RANGE_CHECK(res, ADI_APOLLO_RX_TMODE_RES_16B, ADI_APOLLO_RX_TMODE_RES_12B);
-    ADI_CMS_RANGE_CHECK(mode, ADI_APOLLO_TMODE_TYPE_SEL_NORM, ADI_APOLLO_TMODE_TYPE_SEL_RAMP);
-    
+    /* One-sided checks only - lower bound always valid for enum types (avoids -Wtype-limits warning) */
+    ADI_APOLLO_INVALID_PARAM_RETURN(res > ADI_APOLLO_RX_TMODE_RES_12B);
+    ADI_APOLLO_INVALID_PARAM_RETURN(mode > ADI_APOLLO_TMODE_TYPE_SEL_RAMP);
+
     /* set test mode converters */
     err = adi_apollo_dformat_conv_test_mode_enable_set(device, links, converter_mask);
     ADI_APOLLO_ERROR_RETURN(err);
 
     /* set JTx output resolution */
-    err = adi_apollo_dformat_res_sel_set(device, links, res);
+    err = adi_apollo_dformat_res_sel_set(device, links, (adi_apollo_chip_output_res_e)res);
     ADI_APOLLO_ERROR_RETURN(err);
 
     /* Set ADC TMODE block res */
-    adi_apollo_tmode_resolution_set(device, links, res); 
+    err = adi_apollo_tmode_resolution_set(device, links, (adi_apollo_rx_tmode_res_e)res);
+    ADI_APOLLO_ERROR_RETURN(err); 
 
     /* set test mode type */
     err = adi_apollo_tmode_type_sel_set(device, links, mode);
     ADI_APOLLO_ERROR_RETURN(err);
     
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_tmode_usr_pattern_set(adi_apollo_device_t *device,
@@ -67,9 +69,10 @@ int32_t adi_apollo_tmode_usr_pattern_set(adi_apollo_device_t *device,
     uint16_t usr_pattern[],
     uint32_t length)
 {
-    int32_t err, i, j, k; 
-    int32_t pat_addr_offset_lsb[ADI_APOLLO_TMODE_USR_PAT_NUM], 
-            pat_addr_offset_msb[ADI_APOLLO_TMODE_USR_PAT_NUM]; 
+    int32_t err;
+    uint32_t i, j, k;
+    uint32_t pat_addr_offset_lsb[ADI_APOLLO_TMODE_USR_PAT_NUM],
+             pat_addr_offset_msb[ADI_APOLLO_TMODE_USR_PAT_NUM]; 
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
@@ -97,13 +100,13 @@ int32_t adi_apollo_tmode_usr_pattern_set(adi_apollo_device_t *device,
     pat_addr_offset_msb[7] = REG_TMODE_USR_MSB_P7_JTX_DFORMAT_ADDR(0, 0) - REG_TMODE_USR_MSB_P6_JTX_DFORMAT_ADDR(0, 0);
 
     for (k = 1; k < length; k ++) {
-       pat_addr_offset_lsb[k] = pat_addr_offset_lsb[k] + pat_addr_offset_lsb[k-1];
-       pat_addr_offset_msb[k] = pat_addr_offset_msb[k] + pat_addr_offset_msb[k-1];
+       pat_addr_offset_lsb[k] = pat_addr_offset_lsb[k] + pat_addr_offset_lsb[k-1U];
+       pat_addr_offset_msb[k] = pat_addr_offset_msb[k] + pat_addr_offset_msb[k-1U];
    } 
 
     /* Writing user pattern data to registers */
     for (i = 0; i < ADI_APOLLO_NUM_JTX_LINKS; i++) {
-        if ((1 << i) & links) {
+        if (((1U << i) & links) != 0U) {
 
             regmap_base_addr = calc_jtx_dformat_base(i);
 
@@ -120,7 +123,7 @@ int32_t adi_apollo_tmode_usr_pattern_set(adi_apollo_device_t *device,
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 /*==================== L O C A L   A P I   C O D E ====================*/
@@ -128,16 +131,17 @@ int32_t adi_apollo_tmode_usr_pattern_set(adi_apollo_device_t *device,
 
 int32_t adi_apollo_tmode_type_sel_set(adi_apollo_device_t *device, 
     const uint16_t links,
-    adi_apollo_rx_tmode_type_sel_e mode) 
+    adi_apollo_rx_tmode_type_sel_e mode)
 {
-    int32_t err, i;
+    int32_t err;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
 
     for (i = 0; i < ADI_APOLLO_NUM_JTX_LINKS; i ++) {
-        if ((1 << i) & links) {
+        if (((1U << i) & links) != 0U) {
 
             regmap_base_addr = calc_jtx_dformat_base(i);
 
@@ -152,21 +156,24 @@ int32_t adi_apollo_tmode_type_sel_set(adi_apollo_device_t *device,
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_tmode_resolution_set(adi_apollo_device_t *device, 
     const uint16_t links,
-    adi_apollo_rx_tmode_res_e res) 
+    adi_apollo_rx_tmode_res_e res)
 {
-    int32_t err, i;
+    int32_t err;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
  
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    /* One-sided check only - lower bound always valid for enum type (avoids -Wtype-limits warning) */
+    ADI_APOLLO_INVALID_PARAM_RETURN(res > ADI_APOLLO_RX_TMODE_RES_12B);
 
     for (i = 0; i < ADI_APOLLO_NUM_JTX_LINKS; i ++) {
-        if ((1 << i) & links) {
+        if (((1U << i) & links) != 0U) {
             regmap_base_addr = calc_jtx_dformat_base(i);
 
             if ((i % ADI_APOLLO_TMODE_N) == 0) {
@@ -180,6 +187,6 @@ int32_t adi_apollo_tmode_resolution_set(adi_apollo_device_t *device,
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 /*! @} */

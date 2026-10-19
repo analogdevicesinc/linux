@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_CFG
  * @{
  */
-#ifndef __ADI_APOLLO_CFG_H__
-#define __ADI_APOLLO_CFG_H__
+#ifndef ADI_APOLLO_CFG_H__
+#define ADI_APOLLO_CFG_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_cfg_types.h"
@@ -322,6 +322,6 @@ int32_t adi_apollo_cfg_clk_cond_cal_cfg_set(adi_apollo_device_t *device, adi_apo
 }
 #endif
 
-#endif /* __ADI_APOLLO_CFG_H__ */
+#endif /* ADI_APOLLO_CFG_H__ */
 /*! @} */
 

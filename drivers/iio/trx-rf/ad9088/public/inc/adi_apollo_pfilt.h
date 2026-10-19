@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_PFILT
  * @{
  */
-#ifndef __ADI_APOLLO_PFILT_H__
-#define __ADI_APOLLO_PFILT_H__
+#ifndef ADI_APOLLO_PFILT_H__
+#define ADI_APOLLO_PFILT_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_pfilt_types.h"
@@ -74,7 +74,7 @@ int32_t adi_apollo_pfilt_coeff_pgm(adi_apollo_device_t *device, adi_apollo_termi
  * \param[in]  pfilts           Target PFILT (ADI_APOLLO_PFILT_A0, A1, B0, A1) \ref adi_apollo_pfilt_sel_e
  * \param[in]  pfilt_banks      Target PFILT coeff banks (ADI_APOLLO_PFILT_BANK0, 1, 2, 3) \ref adi_apollo_pfilt_bank_sel_e 
  * \param[in]  streams          Streams to set coeffs for (ADI_APOLLO_PFILT_STREAM_0, _1) \ref adi_apollo_pfilt_stream_sel_e
- * \param[in]  ntap_mode        Num real taps (ADI_APOLLO_PFILT_MODE_N_REAL, _N_DIV_BY_2_REAL, _N_DIV_BY_4_REAL) \ref adi_apollo_pfilt_mode_e
+ * \param[in]  mode             Num real taps (ADI_APOLLO_PFILT_MODE_N_REAL, _N_DIV_BY_2_REAL, _N_DIV_BY_4_REAL) \ref adi_apollo_pfilt_mode_e
  * \param[in]  coeffs           Coefficient values for the PFILT bank
  * \param[in]  coeffs_len       Length of coeffs array
  *
@@ -82,7 +82,7 @@ int32_t adi_apollo_pfilt_coeff_pgm(adi_apollo_device_t *device, adi_apollo_termi
  * \return <0                  Failed. \ref adi_cms_error_e for details.
  */
 int32_t adi_apollo_pfilt_coeff_ntap_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t pfilts, uint8_t pfilt_banks,
-                                        uint16_t streams, adi_apollo_pfilt_mode_e ntap_mode, int16_t coeffs[], uint32_t coeffs_len);
+                                        uint16_t streams, adi_apollo_pfilt_mode_e mode, int16_t coeffs[], uint32_t coeffs_len);
 
 /**
  * \brief  Set PFILT coeffs for half-complex mode
@@ -237,5 +237,5 @@ int32_t adi_apollo_pfilt_data_type_set(adi_apollo_device_t *device, adi_apollo_t
 }
 #endif
 
-#endif /* __ADI_APOLLO_PFILT_H__ */
+#endif /* ADI_APOLLO_PFILT_H__ */
 /*! @} */

@@ -25,11 +25,12 @@
 #define TYE_USER_SCENARIO (4)
 
 #define FW_TRANSFER_CHUNK_SIZE (16 * 1024)      // FW write chunk block size
+#define STREAM_TRANSFER_CHUNK_SIZE (4 * 1024)   // Stream write chunk block size
 #define PREFIX "adi_apollo_startup_execute: "
 
 /*============= C O D E ====================*/
 static int32_t startup_seq_execute(adi_apollo_device_t *device, adi_apollo_top_t *dev_profile,
-                                   adi_apollo_fw_provider_t *fw_provider, adi_apollo_startup_seq_type_e startup_type);
+                                   adi_apollo_fw_provider_t *fw_provider, uint32_t startup_type);
 static int32_t fw_load(adi_apollo_device_t *device);
 static int32_t tye_fw_load(adi_apollo_device_t *device, uint8_t scenario);
 static int32_t profile_load(adi_apollo_device_t *device, adi_apollo_top_t *profile);
@@ -45,7 +46,7 @@ static int32_t seq_sync(adi_apollo_device_t *device);
 
 int32_t adi_apollo_startup_execute(adi_apollo_device_t *device, adi_apollo_top_t *dev_profile, uint32_t startup_type)
 {
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
@@ -53,7 +54,7 @@ int32_t adi_apollo_startup_execute(adi_apollo_device_t *device, adi_apollo_top_t
     ADI_APOLLO_NULL_POINTER_RETURN(device->startup_info.fw_provider);
     ADI_APOLLO_NULL_POINTER_RETURN(device->startup_info.fw_provider->desc);
     ADI_APOLLO_NULL_POINTER_RETURN(device->startup_info.get);
-    ADI_APOLLO_INVALID_PARAM_RETURN((startup_type & ADI_APOLLO_STARTUP_SEQ_DEFAULT) == 0);
+    ADI_APOLLO_INVALID_PARAM_RETURN((startup_type & (uint32_t)ADI_APOLLO_STARTUP_SEQ_DEFAULT) == 0U);
 
     ADI_APOLLO_LOG_MSG_VAR(PREFIX"startup_type 0x%08x", startup_type);
     ADI_APOLLO_LOG_MSG_VAR(PREFIX"profile checksum %lu", dev_profile->profile_checksum);
@@ -63,74 +64,75 @@ int32_t adi_apollo_startup_execute(adi_apollo_device_t *device, adi_apollo_top_t
     err = startup_seq_execute(device, dev_profile, device->startup_info.fw_provider, startup_type);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 static int32_t startup_seq_execute(adi_apollo_device_t *device, adi_apollo_top_t *dev_profile,
-                                   adi_apollo_fw_provider_t *fw_provider, adi_apollo_startup_seq_type_e startup_type)
+                                   adi_apollo_fw_provider_t *fw_provider, uint32_t startup_type)
 {
 
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
 
-    if (startup_type & ADI_APOLLO_STARTUP_SEQ_FW_LOAD) {
+    if ((startup_type & (uint32_t)ADI_APOLLO_STARTUP_SEQ_FW_LOAD) != 0U) {
         err = seq_fw_load(device, fw_provider);
-        ADI_APOLLO_LOG_MSG_VAR(PREFIX"seq_fw_load: %s", (err == API_CMS_ERROR_OK) ? "OK" : "Error");
+        ADI_APOLLO_LOG_MSG_VAR(PREFIX"seq_fw_load: %s", (err == (int32_t)API_CMS_ERROR_OK) ? "OK" : "Error");
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    if (startup_type & ADI_APOLLO_STARTUP_SEQ_PROFILE_LOAD) {
+    if ((startup_type & (uint32_t)ADI_APOLLO_STARTUP_SEQ_PROFILE_LOAD) != 0U) {
         err = seq_profile_load(device, dev_profile);
-        ADI_APOLLO_LOG_MSG_VAR(PREFIX"seq_profile_load: %s", (err == API_CMS_ERROR_OK) ? "OK" : "Error");
+        ADI_APOLLO_LOG_MSG_VAR(PREFIX"seq_profile_load: %s", (err == (int32_t)API_CMS_ERROR_OK) ? "OK" : "Error");
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    if (startup_type & ADI_APOLLO_STARTUP_SEQ_TMU_EN) {
+    if ((startup_type & (uint32_t)ADI_APOLLO_STARTUP_SEQ_TMU_EN) != 0U) {
         err = seq_tmu_enable(device);
-        ADI_APOLLO_LOG_MSG_VAR(PREFIX"seq_tmu_enable: %s", (err == API_CMS_ERROR_OK) ? "OK" : "Error");
+        ADI_APOLLO_LOG_MSG_VAR(PREFIX"seq_tmu_enable: %s", (err == (int32_t)API_CMS_ERROR_OK) ? "OK" : "Error");
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    if (startup_type & ADI_APOLLO_STARTUP_SEQ_DP_CONFIG) {
+    if ((startup_type & (uint32_t)ADI_APOLLO_STARTUP_SEQ_DP_CONFIG) != 0U) {
         err = seq_dp_config(device, dev_profile);
-        ADI_APOLLO_LOG_MSG_VAR(PREFIX"seq_dp_config: %s", (err == API_CMS_ERROR_OK) ? "OK" : "Error");
+        ADI_APOLLO_LOG_MSG_VAR(PREFIX"seq_dp_config: %s", (err == (int32_t)API_CMS_ERROR_OK) ? "OK" : "Error");
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    if (startup_type & ADI_APOLLO_STARTUP_SEQ_LINK_EN) {
+    if ((startup_type & (uint32_t)ADI_APOLLO_STARTUP_SEQ_LINK_EN) != 0U) {
         err = seq_link_en(device, dev_profile);
-        ADI_APOLLO_LOG_MSG_VAR(PREFIX"seq_link_en: %s", (err == API_CMS_ERROR_OK) ? "OK" : "Error");
+        ADI_APOLLO_LOG_MSG_VAR(PREFIX"seq_link_en: %s", (err == (int32_t)API_CMS_ERROR_OK) ? "OK" : "Error");
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    if (startup_type & ADI_APOLLO_STARTUP_SEQ_TXRX_ACTIVATE) {
+    if ((startup_type & (uint32_t)ADI_APOLLO_STARTUP_SEQ_TXRX_ACTIVATE) != 0U) {
         err = seq_txrx_activate(device);
-        ADI_APOLLO_LOG_MSG_VAR(PREFIX"seq_txrx_activate: %s", (err == API_CMS_ERROR_OK) ? "OK" : "Error");
+        ADI_APOLLO_LOG_MSG_VAR(PREFIX"seq_txrx_activate: %s", (err == (int32_t)API_CMS_ERROR_OK) ? "OK" : "Error");
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    if (startup_type & ADI_APOLLO_STARTUP_SEQ_SYNC) {
+    if ((startup_type & (uint32_t)ADI_APOLLO_STARTUP_SEQ_SYNC) != 0U) {
         err = seq_sync(device);
-        ADI_APOLLO_LOG_MSG_VAR(PREFIX"seq_sync: %s", (err == API_CMS_ERROR_OK) ? "OK" : "Error");
+        ADI_APOLLO_LOG_MSG_VAR(PREFIX"seq_sync: %s", (err == (int32_t)API_CMS_ERROR_OK) ? "OK" : "Error");
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 static int32_t seq_fw_load(adi_apollo_device_t *device, adi_apollo_fw_provider_t *fw_provider)
 {
 
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
     uint8_t tye_bypassed = 0;
 
     ADI_APOLLO_LOG_MSG(PREFIX"ADI_APOLLO_STARTUP_SEQ_FW_LOAD");
+    (void)fw_provider;  // Mark as intentionally unused
 
     err = adi_apollo_arm_tye_bypassed_get(device, &tye_bypassed);
     ADI_APOLLO_ERROR_RETURN(err);
     ADI_APOLLO_LOG_MSG_VAR(PREFIX"TyE bypassed: %d", tye_bypassed);
 
     /* Load FW files */
-    if (tye_bypassed) {
+    if (tye_bypassed != 0U) {
         /* Load the standard device firmware for core0 and core1.*/
         err = fw_load(device);
         ADI_APOLLO_LOG_ERROR_RETURN_VAR(err, PREFIX"fw_load", "");
@@ -140,12 +142,12 @@ static int32_t seq_fw_load(adi_apollo_device_t *device, adi_apollo_fw_provider_t
         ADI_APOLLO_LOG_ERROR_RETURN_VAR(err, PREFIX"tye_fw_load %d", err);
     }
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 static int32_t seq_profile_load(adi_apollo_device_t *device,  adi_apollo_top_t *dev_profile)
 {
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
     uint32_t num_tries = 10;
     uint8_t boot_status = 0;
     uint8_t prev_boot_status = 0;
@@ -166,10 +168,11 @@ static int32_t seq_profile_load(adi_apollo_device_t *device,  adi_apollo_top_t *
             prev_boot_status = boot_status;
         }
 
-    } while (boot_status != ADI_APOLLO_RAM_BOOT_STEP_WAIT_FOR_CONFIG && num_tries-- > 0);
+        num_tries--;
+    } while ((boot_status != ADI_APOLLO_RAM_BOOT_STEP_WAIT_FOR_CONFIG) && (num_tries > 0U));
 
     if (boot_status != ADI_APOLLO_RAM_BOOT_STEP_WAIT_FOR_CONFIG) {
-        err = API_CMS_ERROR_STARTUP_FW_RDY_FOR_PROFILE_ERROR;
+        err = (int32_t)API_CMS_ERROR_STARTUP_FW_RDY_FOR_PROFILE_ERROR;
         ADI_APOLLO_LOG_ERROR_RETURN_VAR(err, PREFIX"FW didn't reach wait for device profile state. boot_status: 0x%x.", boot_status);
     }
 
@@ -204,24 +207,25 @@ static int32_t seq_profile_load(adi_apollo_device_t *device,  adi_apollo_top_t *
             prev_boot_status = boot_status;
         }
 
-    } while (boot_status != ADI_APOLLO_CPU_BOOT_MAILBOX_READY && num_tries-- > 0);
+        num_tries--;
+    } while ((boot_status != ADI_APOLLO_CPU_BOOT_MAILBOX_READY) && (num_tries > 0U));
 
     if (boot_status != ADI_APOLLO_CPU_BOOT_MAILBOX_READY) {
         // Log the FW error code
         fw_err_code = adi_apollo_arm_ram_boot_error_check(device);
         ADI_APOLLO_LOG_ERR_VAR(PREFIX "FW didn't reach mailbox ready state. fw_err_code: 0x%x", fw_err_code);
 
-        err = API_CMS_ERROR_STARTUP_FW_MAILBOX_RDY_ERROR;
+        err = (int32_t)API_CMS_ERROR_STARTUP_FW_MAILBOX_RDY_ERROR;
         ADI_APOLLO_LOG_ERROR_RETURN_VAR(err, PREFIX"FW didn't reach mailbox ready state. boot_status: 0x%x", boot_status);
     }
 
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 static int32_t seq_tmu_enable(adi_apollo_device_t *device)
 {
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
 
     ADI_APOLLO_LOG_MSG(PREFIX"ADI_APOLLO_STARTUP_SEQ_TMU_EN");
 
@@ -229,12 +233,12 @@ static int32_t seq_tmu_enable(adi_apollo_device_t *device)
     err = adi_apollo_device_tmu_enable(device);
     ADI_APOLLO_LOG_ERROR_RETURN_VAR(err, PREFIX"adi_apollo_device_tmu_enable. err: %d", err);
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 static int32_t seq_dp_config(adi_apollo_device_t *device,  adi_apollo_top_t *dev_profile)
 {
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
 
     ADI_APOLLO_LOG_MSG(PREFIX"ADI_APOLLO_STARTUP_SEQ_DP_CONFIG");
 
@@ -242,7 +246,7 @@ static int32_t seq_dp_config(adi_apollo_device_t *device,  adi_apollo_top_t *dev
     err = adi_apollo_cfg_data_path(device, dev_profile);
     ADI_APOLLO_LOG_ERROR_RETURN_VAR(err, PREFIX"adi_apollo_cfg_data_path failed. err: %d", err);
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 static int32_t seq_link_en(adi_apollo_device_t *device,  adi_apollo_top_t *dev_profile)
@@ -252,25 +256,25 @@ static int32_t seq_link_en(adi_apollo_device_t *device,  adi_apollo_top_t *dev_p
     ADI_APOLLO_LOG_MSG(PREFIX"ADI_APOLLO_STARTUP_SEQ_LINK_EN");
 
     /* Enable Apollo JTx and JRx links based on device profile */
-    err = adi_apollo_jtx_link_enable_set(device, ADI_APOLLO_LINK_A0, dev_profile->jtx[0].tx_link_cfg[0].link_in_use);
+    err = adi_apollo_jtx_link_enable_set(device, (uint16_t)ADI_APOLLO_LINK_A0, (uint8_t)dev_profile->jtx[0].tx_link_cfg[0].link_in_use);
     ADI_APOLLO_ERROR_RETURN(err);
-    err = adi_apollo_jtx_link_enable_set(device, ADI_APOLLO_LINK_A1, dev_profile->jtx[0].tx_link_cfg[1].link_in_use);
+    err = adi_apollo_jtx_link_enable_set(device, (uint16_t)ADI_APOLLO_LINK_A1, (uint8_t)dev_profile->jtx[0].tx_link_cfg[1].link_in_use);
     ADI_APOLLO_ERROR_RETURN(err);
-    err = adi_apollo_jtx_link_enable_set(device, ADI_APOLLO_LINK_B0, dev_profile->jtx[1].tx_link_cfg[0].link_in_use);
+    err = adi_apollo_jtx_link_enable_set(device, (uint16_t)ADI_APOLLO_LINK_B0, (uint8_t)dev_profile->jtx[1].tx_link_cfg[0].link_in_use);
     ADI_APOLLO_ERROR_RETURN(err);
-    err = adi_apollo_jtx_link_enable_set(device, ADI_APOLLO_LINK_B1, dev_profile->jtx[1].tx_link_cfg[1].link_in_use);
-    ADI_APOLLO_ERROR_RETURN(err);
-
-    err = adi_apollo_jrx_link_enable_set(device, ADI_APOLLO_LINK_A0, dev_profile->jrx[0].rx_link_cfg[0].link_in_use);
-    ADI_APOLLO_ERROR_RETURN(err);
-    err = adi_apollo_jrx_link_enable_set(device, ADI_APOLLO_LINK_A1, dev_profile->jrx[0].rx_link_cfg[1].link_in_use);
-    ADI_APOLLO_ERROR_RETURN(err);
-    err = adi_apollo_jrx_link_enable_set(device, ADI_APOLLO_LINK_B0, dev_profile->jrx[1].rx_link_cfg[0].link_in_use);
-    ADI_APOLLO_ERROR_RETURN(err);
-    err = adi_apollo_jrx_link_enable_set(device, ADI_APOLLO_LINK_B1, dev_profile->jrx[1].rx_link_cfg[1].link_in_use);
+    err = adi_apollo_jtx_link_enable_set(device, (uint16_t)ADI_APOLLO_LINK_B1, (uint8_t)dev_profile->jtx[1].tx_link_cfg[1].link_in_use);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return err;
+    err = adi_apollo_jrx_link_enable_set(device, (uint16_t)ADI_APOLLO_LINK_A0, (uint8_t)dev_profile->jrx[0].rx_link_cfg[0].link_in_use);
+    ADI_APOLLO_ERROR_RETURN(err);
+    err = adi_apollo_jrx_link_enable_set(device, (uint16_t)ADI_APOLLO_LINK_A1, (uint8_t)dev_profile->jrx[0].rx_link_cfg[1].link_in_use);
+    ADI_APOLLO_ERROR_RETURN(err);
+    err = adi_apollo_jrx_link_enable_set(device, (uint16_t)ADI_APOLLO_LINK_B0, (uint8_t)dev_profile->jrx[1].rx_link_cfg[0].link_in_use);
+    ADI_APOLLO_ERROR_RETURN(err);
+    err = adi_apollo_jrx_link_enable_set(device, (uint16_t)ADI_APOLLO_LINK_B1, (uint8_t)dev_profile->jrx[1].rx_link_cfg[1].link_in_use);
+    ADI_APOLLO_ERROR_RETURN(err);
+
+    ADI_CMS_RETURN(err);
 }
 
 static int32_t seq_txrx_activate(adi_apollo_device_t *device)
@@ -283,7 +287,7 @@ static int32_t seq_txrx_activate(adi_apollo_device_t *device)
     err = activate_rx_tx_blocks(device);
     ADI_APOLLO_LOG_ERROR_RETURN_VAR(err, PREFIX"activate_rx_tx_blocks failed. err: %d", err);
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 static int32_t seq_sync(adi_apollo_device_t *device)
@@ -306,7 +310,7 @@ static int32_t seq_sync(adi_apollo_device_t *device)
     err = adi_apollo_clk_mcs_dyn_sync_sequence_run(device);
     ADI_APOLLO_LOG_ERROR_RETURN_VAR(err, PREFIX"adi_apollo_clk_mcs_dyn_sync_sequence_run failed. err: %d\n", err);
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 static int32_t fw_load(adi_apollo_device_t *device)
@@ -314,8 +318,10 @@ static int32_t fw_load(adi_apollo_device_t *device)
     int32_t err;
     uint8_t *core1_fw_buf = NULL;
     uint8_t *core0_fw_buf = NULL;
+    uint8_t *stream_buf = NULL;
     uint32_t core1_size_bytes = 0;
     uint32_t core0_size_bytes = 0;
+    uint32_t stream_size_bytes = 0;
     adi_apollo_fw_provider_t *fw_provider;
 
     fw_provider = device->startup_info.fw_provider;
@@ -330,7 +336,7 @@ static int32_t fw_load(adi_apollo_device_t *device)
     err = device->startup_info.get(fw_provider, ADI_APOLLO_FW_ID_CORE_1_STD_FW_BIN, &core1_fw_buf, &core1_size_bytes);
     ADI_CMS_ERROR_RETURN(err);
 
-    err = adi_apollo_arm_firmware_buf_write(device, ADI_APOLLO_CPU_ID_1, core1_fw_buf, core1_size_bytes, FW_TRANSFER_CHUNK_SIZE);
+    err = adi_apollo_arm_firmware_buf_write(device, (uint8_t)ADI_APOLLO_CPU_ID_1, core1_fw_buf, core1_size_bytes, FW_TRANSFER_CHUNK_SIZE);
     ADI_CMS_ERROR_RETURN(err);
 
     err = device->startup_info.close ? device->startup_info.close(fw_provider, ADI_APOLLO_FW_ID_CORE_1_STD_FW_BIN) : API_CMS_ERROR_OK;
@@ -343,21 +349,34 @@ static int32_t fw_load(adi_apollo_device_t *device)
     err = device->startup_info.get(fw_provider, ADI_APOLLO_FW_ID_CORE_0_STD_FW_BIN, &core0_fw_buf, &core0_size_bytes);
     ADI_CMS_ERROR_RETURN(err);
 
-    err = adi_apollo_arm_firmware_buf_write(device, ADI_APOLLO_CPU_ID_0, core0_fw_buf, core0_size_bytes, FW_TRANSFER_CHUNK_SIZE);
+    err = adi_apollo_arm_firmware_buf_write(device, (uint8_t)ADI_APOLLO_CPU_ID_0, core0_fw_buf, core0_size_bytes, FW_TRANSFER_CHUNK_SIZE);
     ADI_CMS_ERROR_RETURN(err);
 
     err = device->startup_info.close ? device->startup_info.close(fw_provider, ADI_APOLLO_FW_ID_CORE_0_STD_FW_BIN) : API_CMS_ERROR_OK;
     ADI_CMS_ERROR_RETURN(err);
 
+    ADI_APOLLO_LOG_MSG(PREFIX"Loading stream...");
+    err = device->startup_info.open ? device->startup_info.open(fw_provider, ADI_APOLLO_FW_ID_STREAM_BIN) : API_CMS_ERROR_OK;
+    ADI_CMS_ERROR_RETURN(err);
+
+    err = device->startup_info.get(fw_provider, ADI_APOLLO_FW_ID_STREAM_BIN, &stream_buf, &stream_size_bytes);
+    ADI_CMS_ERROR_RETURN(err);
+
+    err = adi_apollo_arm_stream_buf_write(device, stream_buf, stream_size_bytes, STREAM_TRANSFER_CHUNK_SIZE);
+    ADI_CMS_ERROR_RETURN(err);
+
+    err = device->startup_info.close ? device->startup_info.close(fw_provider, ADI_APOLLO_FW_ID_STREAM_BIN) : API_CMS_ERROR_OK;
+    ADI_CMS_ERROR_RETURN(err);
+
     err = adi_apollo_arm_fwload_post_config(device);
     ADI_CMS_ERROR_RETURN(err);
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 static int32_t tye_fw_load(adi_apollo_device_t *device, uint8_t scenario)
 {
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
     uint8_t si_grade;
 
     adi_apollo_startup_fw_id_e secr_hdr_filename;
@@ -369,11 +388,13 @@ static int32_t tye_fw_load(adi_apollo_device_t *device, uint8_t scenario)
     uint8_t *core0_fw_buf = NULL;
     uint8_t *core1_fw_buf = NULL;
     uint8_t *oper_fw_buf = NULL;
+    uint8_t *stream_buf = NULL;
 
     uint32_t secr_hdr_size_bytes = 0;
     uint32_t core0_fw_size_bytes = 0;
     uint32_t core1_fw_size_bytes = 0;
     uint32_t oper_fw_size_bytes = 0;
+    uint32_t stream_size_bytes = 0;
 
     adi_apollo_fw_provider_t *fw_provider = device->startup_info.fw_provider;
 
@@ -383,10 +404,10 @@ static int32_t tye_fw_load(adi_apollo_device_t *device, uint8_t scenario)
     ADI_CMS_ERROR_RETURN(err);
     ADI_APOLLO_LOG_MSG_VAR(PREFIX"Apollo Silicon Grade = %02d", si_grade);
 
-    secr_hdr_filename = (si_grade == 0) ? ADI_APOLLO_FW_ID_SECR_BOOT_HDR_BIN : ADI_APOLLO_FW_ID_PROD_SECR_BOOT_HDR_BIN;
-    core0_fw_filename = (si_grade == 0) ? ADI_APOLLO_FW_ID_CORE_0_TYE_FW_BIN : ADI_APOLLO_FW_ID_PROD_CORE_0_TYE_FW_BIN;
-    core1_fw_filename = (si_grade == 0) ? ADI_APOLLO_FW_ID_CORE_1_TYE_FW_BIN : ADI_APOLLO_FW_ID_PROD_CORE_1_TYE_FW_BIN;
-    oper_fw_filename = (si_grade == 0) ? ADI_APOLLO_FW_ID_TYE_OPER_FW_BIN : ADI_APOLLO_FW_ID_PROD_TYE_OPER_FW_BIN;
+    secr_hdr_filename = (si_grade == 0U) ? ADI_APOLLO_FW_ID_SECR_BOOT_HDR_BIN : ADI_APOLLO_FW_ID_PROD_SECR_BOOT_HDR_BIN;
+    core0_fw_filename = (si_grade == 0U) ? ADI_APOLLO_FW_ID_CORE_0_TYE_FW_BIN : ADI_APOLLO_FW_ID_PROD_CORE_0_TYE_FW_BIN;
+    core1_fw_filename = (si_grade == 0U) ? ADI_APOLLO_FW_ID_CORE_1_TYE_FW_BIN : ADI_APOLLO_FW_ID_PROD_CORE_1_TYE_FW_BIN;
+    oper_fw_filename = (si_grade == 0U) ? ADI_APOLLO_FW_ID_TYE_OPER_FW_BIN : ADI_APOLLO_FW_ID_PROD_TYE_OPER_FW_BIN;
 
     err = adi_apollo_arm_fwload_pre_config(device);
     ADI_CMS_ERROR_RETURN(err);
@@ -406,7 +427,7 @@ static int32_t tye_fw_load(adi_apollo_device_t *device, uint8_t scenario)
     ADI_CMS_ERROR_RETURN(err);
 
     // Scenarios 2 and 4 app_pack contains the core 0 firmware image.
-    if (scenario == 2 || scenario == 4) {
+    if ((scenario == 2U) || (scenario == 4U)) {
         ADI_APOLLO_LOG_MSG(PREFIX"Loading Core0 firmware image...");
         err = device->startup_info.open ? device->startup_info.open(fw_provider, core0_fw_filename) : API_CMS_ERROR_OK;
         ADI_CMS_ERROR_RETURN(err);
@@ -422,7 +443,7 @@ static int32_t tye_fw_load(adi_apollo_device_t *device, uint8_t scenario)
     }
 
     // Scenarios 3 and 4 app_pack contains the core 1 firmware image.
-    if (scenario == 3 || scenario == 4) {
+    if ((scenario == 3U) || (scenario == 4U)) {
         ADI_APOLLO_LOG_MSG(PREFIX"Loading Core1 firmware image...");
         err = device->startup_info.open ? device->startup_info.open(fw_provider, core1_fw_filename) : API_CMS_ERROR_OK;
         ADI_CMS_ERROR_RETURN(err);
@@ -442,8 +463,8 @@ static int32_t tye_fw_load(adi_apollo_device_t *device, uint8_t scenario)
     err = device->startup_info.open ? device->startup_info.open(fw_provider, oper_fw_filename) : API_CMS_ERROR_OK;
     ADI_CMS_ERROR_RETURN(err);
 
-    device->startup_info.get(fw_provider, oper_fw_filename, &oper_fw_buf, &oper_fw_size_bytes);
-    ADI_CMS_ERROR_RETURN(err);
+    err = device->startup_info.get(fw_provider, oper_fw_filename, &oper_fw_buf, &oper_fw_size_bytes);
+    ADI_APOLLO_ERROR_RETURN(err);
 
     err = adi_apollo_arm_tye_firmware_buf_write(device, TYE_OPER_FW_MEM_ADDR, oper_fw_buf, oper_fw_size_bytes, FW_TRANSFER_CHUNK_SIZE);
     ADI_CMS_ERROR_RETURN(err);
@@ -457,7 +478,22 @@ static int32_t tye_fw_load(adi_apollo_device_t *device, uint8_t scenario)
     ADI_APOLLO_LOG_MSG(PREFIX"Boot Ready bit has been set");
 
     /* Delay 0.1s */
-    adi_apollo_hal_delay_us(device, 1 * 10000);
+    err = adi_apollo_hal_delay_us(device, 1 * 10000);
+    ADI_APOLLO_ERROR_RETURN(err);
+
+    /* Load stream image to memory */
+    ADI_APOLLO_LOG_MSG(PREFIX"Loading stream image...");
+    err = device->startup_info.open ? device->startup_info.open(fw_provider, ADI_APOLLO_FW_ID_STREAM_BIN) : API_CMS_ERROR_OK;
+    ADI_CMS_ERROR_RETURN(err);
+
+    err = device->startup_info.get(fw_provider, ADI_APOLLO_FW_ID_STREAM_BIN, &stream_buf, &stream_size_bytes);
+    ADI_CMS_ERROR_RETURN(err);
+
+    err = adi_apollo_arm_stream_buf_write(device, stream_buf, stream_size_bytes, STREAM_TRANSFER_CHUNK_SIZE);
+    ADI_CMS_ERROR_RETURN(err);
+
+    err = device->startup_info.close ? device->startup_info.close(fw_provider, ADI_APOLLO_FW_ID_STREAM_BIN) : API_CMS_ERROR_OK;
+    ADI_CMS_ERROR_RETURN(err);
 
     err = adi_apollo_arm_fwload_post_config(device);
     ADI_APOLLO_LOG_ERROR_RETURN_VAR(err, PREFIX"adi_apollo_arm_fwload_post_config error. Err: %d.", err);
@@ -465,7 +501,7 @@ static int32_t tye_fw_load(adi_apollo_device_t *device, uint8_t scenario)
     err = adi_apollo_arm_tye_validate_boot_completion(device, 1);
     ADI_APOLLO_LOG_ERROR_RETURN_VAR(err, PREFIX"Error: adi_apollo_arm_tye_validate_boot_completion. Err: %d.", err);
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 static int32_t profile_load(adi_apollo_device_t *device, adi_apollo_top_t *profile)
@@ -477,21 +513,25 @@ static int32_t profile_load(adi_apollo_device_t *device, adi_apollo_top_t *profi
     err = adi_apollo_hal_bf_set(device, BF_CONFIG_TRANSFER_DONE, 0);
 
     /* Write the profile configuration to ARM memory for firmware processing */
-    if (err = adi_apollo_arm_profile_write(device, profile, 16 * 1024), err != API_CMS_ERROR_OK) {
+    err = adi_apollo_arm_profile_write(device, profile, 16 * 1024);
+    if (err != (int32_t)API_CMS_ERROR_OK) {
         ADI_APOLLO_LOG_ERR_VAR(PREFIX"adi_apollo_arm_profile_write error: 0x%x", err);
-        return err;
+        ADI_CMS_RETURN(err);
     }
 
-    adi_apollo_hal_reg32_get(device, ADI_APOLLO_FW_DEVICE_PROFILE_PTR, &device_profile_start_addr);
+    err = adi_apollo_hal_reg32_get(device, ADI_APOLLO_FW_DEVICE_PROFILE_PTR, &device_profile_start_addr);
+    ADI_APOLLO_ERROR_RETURN(err);
 
     /* Notify firmware that profile load has completed */
-    if (err = adi_apollo_arm_profile_write_post_config(device, profile), err != API_CMS_ERROR_OK) {
-        adi_apollo_arm_boot_status(device, &boot_status);
+    err = adi_apollo_arm_profile_write_post_config(device, profile);
+    if (err != (int32_t)API_CMS_ERROR_OK) {
+        int32_t boot_err = adi_apollo_arm_boot_status(device, &boot_status);
+        (void)boot_err;  // Intentionally ignore - just trying to get debug info
         ADI_APOLLO_LOG_ERR_VAR(PREFIX"Profile write completed with error code: %d. boot_status: 0x%x", err, boot_status);
-        return err;
+        ADI_CMS_RETURN(err);
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 static int32_t activate_rx_tx_blocks(adi_apollo_device_t *device)
@@ -504,7 +544,7 @@ static int32_t activate_rx_tx_blocks(adi_apollo_device_t *device)
         .sm_en = 0, .spi_rxen = 1, .spi_rxen_en = 1
     };
 
-    err = adi_apollo_rxen_pwrup_ctrl_set(device, ADI_APOLLO_RXEN_ADC_ALL, &rxen_config);
+    err = adi_apollo_rxen_pwrup_ctrl_set(device, (uint16_t)ADI_APOLLO_RXEN_ADC_ALL, &rxen_config);
     ADI_CMS_ERROR_RETURN(err);
 
     /* Enable Tx blocks - enable/disable via spi */
@@ -513,10 +553,10 @@ static int32_t activate_rx_tx_blocks(adi_apollo_device_t *device)
         .sm_en = 0, .spi_txen = 1, .spi_txen_en = 1
     };
 
-    err = adi_apollo_txen_pwrup_ctrl_set(device, ADI_APOLLO_TXEN_DAC_ALL, &txen_config);
+    err = adi_apollo_txen_pwrup_ctrl_set(device, (uint16_t)ADI_APOLLO_TXEN_DAC_ALL, &txen_config);
     ADI_CMS_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 /*! @} */

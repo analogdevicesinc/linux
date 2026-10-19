@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_JRX
  * @{
  */
-#ifndef __ADI_APOLLO_JRX_TYPES_H__
-#define __ADI_APOLLO_JRX_TYPES_H__
+#ifndef ADI_APOLLO_JRX_TYPES_H__
+#define ADI_APOLLO_JRX_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -20,9 +20,9 @@
 
 /*============= D E F I N E S ==============*/
 
-#define ADI_APOLLO_JRX_LANES_MAX            12
-#define ADI_APOLLO_JRX_J204C_IRQ_NUM        10
-#define ADI_APOLLO_JRX_PHASE_ADJ_MARGIN_DEFAULT 2
+#define ADI_APOLLO_JRX_LANES_MAX            12U
+#define ADI_APOLLO_JRX_J204C_IRQ_NUM        10U
+#define ADI_APOLLO_JRX_PHASE_ADJ_MARGIN_DEFAULT 2U
 
 /**
  * \brief Jrx link status mask from
@@ -72,5 +72,5 @@ typedef struct adi_apollo_jesd_rx_inspect
     adi_apollo_jesd_subclass_e                subclass;        /*!< Subclass setting */
 } adi_apollo_jesd_rx_inspect_t;
 
-#endif /* __ADI_APOLLO_JRX_TYPES_H__ */
+#endif /* ADI_APOLLO_JRX_TYPES_H__ */
 /*! @} */

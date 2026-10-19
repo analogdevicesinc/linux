@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_DFORMAT
  * @{
  */
-#ifndef __ADI_APOLLO_DFORMAT_TYPES_H__
-#define __ADI_APOLLO_DFORMAT_TYPES_H__
+#ifndef ADI_APOLLO_DFORMAT_TYPES_H__
+#define ADI_APOLLO_DFORMAT_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -36,15 +36,15 @@ typedef enum {
  * \brief Enumerates Chip Output Resolution
  */
 typedef enum {
-    ADI_APOLLO_CHIP_OUT_RES_16BIT = 0x0,                  /*!< 16Bit */
-    ADI_APOLLO_CHIP_OUT_RES_15BIT = 0x1,                  /*!< 15Bit */
-    ADI_APOLLO_CHIP_OUT_RES_14BIT = 0x2,                  /*!< 14Bit */
-    ADI_APOLLO_CHIP_OUT_RES_13BIT = 0x3,                  /*!< 13Bit */
-    ADI_APOLLO_CHIP_OUT_RES_12BIT = 0x4,                  /*!< 12Bit */
-    ADI_APOLLO_CHIP_OUT_RES_11BIT = 0x5,                  /*!< 11Bit */
-    ADI_APOLLO_CHIP_OUT_RES_10BIT = 0x6,                  /*!< 10Bit */
-    ADI_APOLLO_CHIP_OUT_RES_09BIT = 0x7,                  /*!<  9Bit */
-    ADI_APOLLO_CHIP_OUT_RES_08BIT = 0x8                   /*!<  8Bit */
+        ADI_APOLLO_CHIP_OUT_RES_16BIT = 0x0,                  /*!< 16Bit */
+        ADI_APOLLO_CHIP_OUT_RES_15BIT = 0x1,                  /*!< 15Bit */
+        ADI_APOLLO_CHIP_OUT_RES_14BIT = 0x2,                  /*!< 14Bit */
+        ADI_APOLLO_CHIP_OUT_RES_13BIT = 0x3,                  /*!< 13Bit */
+        ADI_APOLLO_CHIP_OUT_RES_12BIT = 0x4,                  /*!< 12Bit */
+        ADI_APOLLO_CHIP_OUT_RES_11BIT = 0x5,                  /*!< 11Bit */
+        ADI_APOLLO_CHIP_OUT_RES_10BIT = 0x6,                  /*!< 10Bit */
+        ADI_APOLLO_CHIP_OUT_RES_09BIT = 0x7,                  /*!<  9Bit */
+        ADI_APOLLO_CHIP_OUT_RES_08BIT = 0x8                   /*!<  8Bit */
 } adi_apollo_chip_output_res_e;
 
 /*!
@@ -106,5 +106,5 @@ typedef struct
 
 } adi_apollo_dformat_inspect_t;
 
-#endif /* __ADI_APOLLO_DFORMAT_TYPES_H__ */
+#endif /* ADI_APOLLO_DFORMAT_TYPES_H__ */
 /*! @} */

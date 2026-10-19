@@ -29,16 +29,18 @@
 int32_t adi_apollo_reconfig_ctrl_pgm(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, uint8_t sides, adi_apollo_reconfig_ctrl_pgm_t *config)
 {
     int32_t err;
-    uint8_t i, side;
+    uint32_t i;
+    uint8_t side;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(terminal, ADI_APOLLO_RX, ADI_APOLLO_TX);
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(terminal, ADI_APOLLO_EC_DYN_CFG_LOCK);
 
     for(i = 0; i < ADI_APOLLO_NUM_SIDES; i ++) {
-        side = sides & (ADI_APOLLO_SIDE_A << i);
-        if (side > 0) {
+        side = (uint8_t)(sides & ((uint32_t)ADI_APOLLO_SIDE_A << i));
+        if (side > 0U) {
             regmap_base_addr = calc_prefsrc_reconfig_base(terminal, i);
             
             err = adi_apollo_hal_bf_set(device, BF_TRIG_RECONF_MODE_INFO(regmap_base_addr), config->trig_reconfig_mode);
@@ -63,14 +65,15 @@ int32_t adi_apollo_reconfig_ctrl_pgm(adi_apollo_device_t *device, adi_apollo_ter
         }
     }
             
-    return API_CMS_ERROR_OK; 
+    ADI_CMS_RETURN(API_CMS_ERROR_OK); 
 }
 
 
 int32_t adi_apollo_reconfig_trig_evt_cnt_get(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, uint8_t sides, adi_apollo_reconfig_type_e rec_type, uint16_t *count)
 {
     int32_t err;
-    uint8_t i, side;
+    uint32_t i;
+    uint8_t side;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
@@ -80,8 +83,8 @@ int32_t adi_apollo_reconfig_trig_evt_cnt_get(adi_apollo_device_t *device, adi_ap
     ADI_APOLLO_INVALID_PARAM_RETURN(rec_type >= ADI_APOLLO_RECONFIG_TYPE_NUM);
 
     for (i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
-        side = sides & (ADI_APOLLO_SIDE_A << i);
-        if (side > 0) {
+        side = (uint8_t)(sides & ((uint32_t)ADI_APOLLO_SIDE_A << i));
+        if (side > 0U) {
             regmap_base_addr = calc_prefsrc_reconfig_base(terminal, i);
 
             if (rec_type == ADI_APOLLO_RECONFIG_EXTERNAL) {
@@ -96,13 +99,13 @@ int32_t adi_apollo_reconfig_trig_evt_cnt_get(adi_apollo_device_t *device, adi_ap
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 
 
 
-uint32_t calc_prefsrc_reconfig_base(adi_apollo_terminal_e terminal, int32_t reconfig_index)
+uint32_t calc_prefsrc_reconfig_base(adi_apollo_terminal_e terminal, uint32_t reconfig_index)
 {
     static uint32_t rx_prefsrc_reconfig_regmap[ADI_APOLLO_NUM_SIDES] = {
         TXRX_PREFSRC_RECONF_RX_SLICE_0_RX_DIGITAL0, TXRX_PREFSRC_RECONF_RX_SLICE_0_RX_DIGITAL1
@@ -110,13 +113,14 @@ uint32_t calc_prefsrc_reconfig_base(adi_apollo_terminal_e terminal, int32_t reco
     static uint32_t tx_prefsrc_reconfig_regmap[ADI_APOLLO_NUM_SIDES] = {
         TXRX_PREFSRC_RECONF_TX_SLICE_0_TX_DIGITAL0, TXRX_PREFSRC_RECONF_TX_SLICE_0_TX_DIGITAL1
     };
-    if (terminal == ADI_APOLLO_RX)
+    if (terminal == ADI_APOLLO_RX) {
         return rx_prefsrc_reconfig_regmap[reconfig_index];
-    else
+    } else {
         return tx_prefsrc_reconfig_regmap[reconfig_index];
+    }
 }
 
-uint32_t calc_postfsrc_reconfig_base(adi_apollo_terminal_e terminal, int32_t reconfig_index)
+uint32_t calc_postfsrc_reconfig_base(adi_apollo_terminal_e terminal, uint32_t reconfig_index)
 {
     static uint32_t rx_postfsrc_reconfig_regmap[ADI_APOLLO_NUM_SIDES] = {
         TXRX_POSTFSRC_RECONF_RX_SLICE_0_RX_DIGITAL0, TXRX_POSTFSRC_RECONF_RX_SLICE_0_RX_DIGITAL1
@@ -124,9 +128,10 @@ uint32_t calc_postfsrc_reconfig_base(adi_apollo_terminal_e terminal, int32_t rec
     static uint32_t tx_postfsrc_reconfig_regmap[ADI_APOLLO_NUM_SIDES] = {
         TXRX_POSTFSRC_RECONF_TX_SLICE_0_TX_DIGITAL0, TXRX_POSTFSRC_RECONF_TX_SLICE_0_TX_DIGITAL1
     };
-    if (terminal == ADI_APOLLO_RX)
+    if (terminal == ADI_APOLLO_RX) {
         return rx_postfsrc_reconfig_regmap[reconfig_index];
-    else
+    } else {
         return tx_postfsrc_reconfig_regmap[reconfig_index];
+    }
 }
 /*! @} */

@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_RECONFIG
  * @{
  */
-#ifndef __ADI_APOLLO_RECONFIG_H__
-#define __ADI_APOLLO_RECONFIG_H__
+#ifndef ADI_APOLLO_RECONFIG_H__
+#define ADI_APOLLO_RECONFIG_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_reconfig_types.h"
@@ -57,5 +57,5 @@ int32_t adi_apollo_reconfig_trig_evt_cnt_get(adi_apollo_device_t *device, adi_ap
 }
 #endif
 
-#endif /* __ADI_APOLLO_RECONFIG_H__ */
+#endif /* ADI_APOLLO_RECONFIG_H__ */
 /*! @} */

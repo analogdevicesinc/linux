@@ -12,54 +12,54 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_RX_ENG_H__
-#define __ADI_APOLLO_BF_RX_ENG_H__
+#ifndef ADI_APOLLO_BF_RX_ENG_H__
+#define ADI_APOLLO_BF_RX_ENG_H__
 
 /*============= D E F I N E S ==============*/
-#define RX_ENG_RX_DIGITAL0                          0x60010000
-#define RX_ENG_RX_DIGITAL1                          0x60810000
+#define RX_ENG_RX_DIGITAL0                          0x60010000U
+#define RX_ENG_RX_DIGITAL1                          0x60810000U
 
 #ifdef USE_PRIVATE_BF
-#define REG_COARSE_DDC_BIST_OP_ADDR(inst, n)        ((inst) + 0x00000000 + 1 * (n))
-#define BF_COARSE_DDC_BIST_EN_INFO(inst, n)         ((inst) + 0x00000000 + 1 * (n)), 0x00000100
-#define BF_COARSE_DDC_BIST_INIT_INFO(inst, n)       ((inst) + 0x00000000 + 1 * (n)), 0x00000104
+#define REG_COARSE_DDC_BIST_OP_ADDR(inst, n)        ((uint32_t)(inst) + 0x00000000U + 1U * (uint32_t)(n))
+#define BF_COARSE_DDC_BIST_EN_INFO(inst, n)         ((uint32_t)(inst) + 0x00000000U + 1U * (uint32_t)(n)), 0x00000100U
+#define BF_COARSE_DDC_BIST_INIT_INFO(inst, n)       ((uint32_t)(inst) + 0x00000000U + 1U * (uint32_t)(n)), 0x00000104U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_COARSE_DDC_BIST_CRC_LO_ADDR(inst, n)    ((inst) + 0x00000004 + 1 * (n))
-#define BF_COARSE_DDC_BIST_CRC_LO_INFO(inst, n)     ((inst) + 0x00000004 + 1 * (n)), 0x00000800
+#define REG_COARSE_DDC_BIST_CRC_LO_ADDR(inst, n)    ((uint32_t)(inst) + 0x00000004U + 1U * (uint32_t)(n))
+#define BF_COARSE_DDC_BIST_CRC_LO_INFO(inst, n)     ((uint32_t)(inst) + 0x00000004U + 1U * (uint32_t)(n)), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_COARSE_DDC_BIST_CRC_HI_ADDR(inst, n)    ((inst) + 0x00000008 + 1 * (n))
-#define BF_COARSE_DDC_BIST_CRC_HI_INFO(inst, n)     ((inst) + 0x00000008 + 1 * (n)), 0x00000800
+#define REG_COARSE_DDC_BIST_CRC_HI_ADDR(inst, n)    ((uint32_t)(inst) + 0x00000008U + 1U * (uint32_t)(n))
+#define BF_COARSE_DDC_BIST_CRC_HI_INFO(inst, n)     ((uint32_t)(inst) + 0x00000008U + 1U * (uint32_t)(n)), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_COARSE_DDC_BIST_EN_STATUS_ADDR(inst, n) ((inst) + 0x0000000C + 1 * (n))
-#define BF_COARSE_DDC_BIST_EN_STATUS_INFO(inst, n)  ((inst) + 0x0000000C + 1 * (n)), 0x00000100
+#define REG_COARSE_DDC_BIST_EN_STATUS_ADDR(inst, n) ((uint32_t)(inst) + 0x0000000CU + 1U * (uint32_t)(n))
+#define BF_COARSE_DDC_BIST_EN_STATUS_INFO(inst, n)  ((uint32_t)(inst) + 0x0000000CU + 1U * (uint32_t)(n)), 0x00000100U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_DDC_BIST_OP_ADDR(inst, n)          ((inst) + 0x00000010 + 1 * (n))
-#define BF_FINE_DDC_BIST_EN_INFO(inst, n)           ((inst) + 0x00000010 + 1 * (n)), 0x00000103
-#define BF_FINE_DDC_BIST_INIT_INFO(inst, n)         ((inst) + 0x00000010 + 1 * (n)), 0x00000104
+#define REG_FINE_DDC_BIST_OP_ADDR(inst, n)          ((uint32_t)(inst) + 0x00000010U + 1U * (uint32_t)(n))
+#define BF_FINE_DDC_BIST_EN_INFO(inst, n)           ((uint32_t)(inst) + 0x00000010U + 1U * (uint32_t)(n)), 0x00000103U
+#define BF_FINE_DDC_BIST_INIT_INFO(inst, n)         ((uint32_t)(inst) + 0x00000010U + 1U * (uint32_t)(n)), 0x00000104U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_DDC_BIST_CRC_LO_ADDR(inst, n)      ((inst) + 0x00000018 + 1 * (n))
-#define BF_FINE_DDC_BIST_CRC_LO_INFO(inst, n)       ((inst) + 0x00000018 + 1 * (n)), 0x00000800
+#define REG_FINE_DDC_BIST_CRC_LO_ADDR(inst, n)      ((uint32_t)(inst) + 0x00000018U + 1U * (uint32_t)(n))
+#define BF_FINE_DDC_BIST_CRC_LO_INFO(inst, n)       ((uint32_t)(inst) + 0x00000018U + 1U * (uint32_t)(n)), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_DDC_BIST_CRC_HI_ADDR(inst, n)      ((inst) + 0x00000020 + 1 * (n))
-#define BF_FINE_DDC_BIST_CRC_HI_INFO(inst, n)       ((inst) + 0x00000020 + 1 * (n)), 0x00000800
+#define REG_FINE_DDC_BIST_CRC_HI_ADDR(inst, n)      ((uint32_t)(inst) + 0x00000020U + 1U * (uint32_t)(n))
+#define BF_FINE_DDC_BIST_CRC_HI_INFO(inst, n)       ((uint32_t)(inst) + 0x00000020U + 1U * (uint32_t)(n)), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FINE_DDC_BIST_EN_STATUS_ADDR(inst, n)   ((inst) + 0x00000028 + 1 * (n))
-#define BF_FINE_DDC_BIST_EN_STATUS_INFO(inst, n)    ((inst) + 0x00000028 + 1 * (n)), 0x00000100
+#define REG_FINE_DDC_BIST_EN_STATUS_ADDR(inst, n)   ((uint32_t)(inst) + 0x00000028U + 1U * (uint32_t)(n))
+#define BF_FINE_DDC_BIST_EN_STATUS_INFO(inst, n)    ((uint32_t)(inst) + 0x00000028U + 1U * (uint32_t)(n)), 0x00000100U
 #endif /* USE_PRIVATE_BF */
 
-#endif /* __ADI_APOLLO_BF_RX_ENG_H__ */
+#endif /* ADI_APOLLO_BF_RX_ENG_H__ */
 /*! @} */

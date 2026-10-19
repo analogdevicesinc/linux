@@ -12,37 +12,37 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_MAILBOX_H__
-#define __ADI_APOLLO_BF_MAILBOX_H__
+#ifndef ADI_APOLLO_BF_MAILBOX_H__
+#define ADI_APOLLO_BF_MAILBOX_H__
 
 /*============= D E F I N E S ==============*/
-#define CORE_0_SPI0_CMD_MAILBOX                      0x41500000
-#define CORE_0_SPI1_CMD_MAILBOX                      0x41600000
+#define CORE_0_SPI0_CMD_MAILBOX                      0x41500000U
+#define CORE_0_SPI1_CMD_MAILBOX                      0x41600000U
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM_CMD_1_MAILBOX_ADDR(inst)             ((inst) + 0x00000000)
-#define BF_ARM_COMMAND_OPCODE_INFO(inst)             ((inst) + 0x00000000), 0x00000600
-#define BF_ARM_COMMAND_BUSY_MAILBOX_INFO(inst)       ((inst) + 0x00000000), 0x00000107
+#define REG_ARM_CMD_1_MAILBOX_ADDR(inst)             ((uint32_t)(inst) + 0x00000000U)
+#define BF_ARM_COMMAND_OPCODE_INFO(inst)             ((uint32_t)(inst) + 0x00000000U), 0x00000600U
+#define BF_ARM_COMMAND_BUSY_MAILBOX_INFO(inst)       ((uint32_t)(inst) + 0x00000000U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_ARM_CMD_2_MAILBOX_ADDR(inst)             ((inst) + 0x00000004)
-#define BF_ARM_COMMAND_PAYLOAD_BYTES_INFO(inst)      ((inst) + 0x00000004), 0x00002000
+#define REG_ARM_CMD_2_MAILBOX_ADDR(inst)             ((uint32_t)(inst) + 0x00000004U)
+#define BF_ARM_COMMAND_PAYLOAD_BYTES_INFO(inst)      ((uint32_t)(inst) + 0x00000004U), 0x00002000U
 
-#define REG_ARM_STATUS_1_MAILBOX_ADDR(inst)          ((inst) + 0x00000008)
-#define BF_ARM_STATUS_1_INFO(inst)                   ((inst) + 0x00000008), 0x00002000
+#define REG_ARM_STATUS_1_MAILBOX_ADDR(inst)          ((uint32_t)(inst) + 0x00000008U)
+#define BF_ARM_STATUS_1_INFO(inst)                   ((uint32_t)(inst) + 0x00000008U), 0x00002000U
 
-#define REG_ARM_STATUS_2_MAILBOX_ADDR(inst)          ((inst) + 0x0000000C)
-#define BF_ARM_STATUS_2_INFO(inst)                   ((inst) + 0x0000000C), 0x00001E00
-#define BF_STREAM_PROC_ARM_STATUS_MAILBOX_INFO(inst) ((inst) + 0x0000000C), 0x0000021E
+#define REG_ARM_STATUS_2_MAILBOX_ADDR(inst)          ((uint32_t)(inst) + 0x0000000CU)
+#define BF_ARM_STATUS_2_INFO(inst)                   ((uint32_t)(inst) + 0x0000000CU), 0x00001E00U
+#define BF_STREAM_PROC_ARM_STATUS_MAILBOX_INFO(inst) ((uint32_t)(inst) + 0x0000000CU), 0x0000021EU
 
-#define REG_ARM_STATUS_3_MAILBOX_ADDR(inst)          ((inst) + 0x00000010)
-#define BF_ARM_STATUS_3_INFO(inst)                   ((inst) + 0x00000010), 0x00002000
+#define REG_ARM_STATUS_3_MAILBOX_ADDR(inst)          ((uint32_t)(inst) + 0x00000010U)
+#define BF_ARM_STATUS_3_INFO(inst)                   ((uint32_t)(inst) + 0x00000010U), 0x00002000U
 
-#define REG_ARM_STATUS_4_MAILBOX_ADDR(inst)          ((inst) + 0x00000014)
-#define BF_ARM_STATUS_4_INFO(inst)                   ((inst) + 0x00000014), 0x00002000
+#define REG_ARM_STATUS_4_MAILBOX_ADDR(inst)          ((uint32_t)(inst) + 0x00000014U)
+#define BF_ARM_STATUS_4_INFO(inst)                   ((uint32_t)(inst) + 0x00000014U), 0x00002000U
 
-#define REG_ARM_GPIO_VAL_MAILBOX_ADDR(inst)          ((inst) + 0x00000018)
-#define BF_GPIO_VAL_INFO(inst)                       ((inst) + 0x00000018), 0x00001000
+#define REG_ARM_GPIO_VAL_MAILBOX_ADDR(inst)          ((uint32_t)(inst) + 0x00000018U)
+#define BF_GPIO_VAL_INFO(inst)                       ((uint32_t)(inst) + 0x00000018U), 0x00001000U
 
-#endif /* __ADI_APOLLO_BF_MAILBOX_H__ */
+#endif /* ADI_APOLLO_BF_MAILBOX_H__ */
 /*! @} */

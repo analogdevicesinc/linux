@@ -11,16 +11,16 @@
  * \addtogroup ADI_APOLLO_RXEN
  * @{
  */
-#ifndef __ADI_APOLLO_RXEN_TYPES_H__
-#define __ADI_APOLLO_RXEN_TYPES_H__
+#ifndef ADI_APOLLO_RXEN_TYPES_H__
+#define ADI_APOLLO_RXEN_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
 #include "adi_apollo_common.h"
 
 /*============= D E F I N E S ==============*/
-#define ADI_APOLLO_DIG_EN_NUM 8              /* Num of dig enables from TX/RX enable pwr control */
-#define ADI_APOLLO_DIG_EN_PER_SIDE_NUM 4     /* Num of dig enables from TX/RX enable pwr control per side */
+#define ADI_APOLLO_DIG_EN_NUM 8U              /* Num of dig enables from TX/RX enable pwr control */
+#define ADI_APOLLO_DIG_EN_PER_SIDE_NUM 4U     /* Num of dig enables from TX/RX enable pwr control per side */
 
 /*!
  * \brief Enumerates ADC Select
@@ -120,7 +120,7 @@ typedef struct {
     adi_apollo_rxen_en_polarity_e enable_polarity;
     uint8_t spi_en;
     uint8_t spien_en;
-    uint16_t slice_sel;
+    uint16_t slice_sel;                             /*!< Value is ignored by _rxen_config_set () */
     uint8_t linx_sel;
     uint16_t pfilt_sel;
     uint16_t cddc_sel;
@@ -136,5 +136,5 @@ typedef struct {
     uint8_t srd_sel;
 } adi_apollo_rxen_blk_config_t;
 
-#endif /* __ADI_APOLLO_RXEN_TYPES_H__ */
+#endif /* ADI_APOLLO_RXEN_TYPES_H__ */
 /*! @} */

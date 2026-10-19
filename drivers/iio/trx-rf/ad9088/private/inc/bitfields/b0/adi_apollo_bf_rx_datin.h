@@ -12,59 +12,59 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_RX_DATIN_H__
-#define __ADI_APOLLO_BF_RX_DATIN_H__
+#ifndef ADI_APOLLO_BF_RX_DATIN_H__
+#define ADI_APOLLO_BF_RX_DATIN_H__
 
 /*============= D E F I N E S ==============*/
-#define RX_DATIN_RX_SLICE_0_RX_DIGITAL0              0x60209000
-#define RX_DATIN_RX_SLICE_1_RX_DIGITAL0              0x60409000
-#define RX_DATIN_RX_SLICE_0_RX_DIGITAL1              0x60A09000
-#define RX_DATIN_RX_SLICE_1_RX_DIGITAL1              0x60C09000
+#define RX_DATIN_RX_SLICE_0_RX_DIGITAL0              0x60209000U
+#define RX_DATIN_RX_SLICE_1_RX_DIGITAL0              0x60409000U
+#define RX_DATIN_RX_SLICE_0_RX_DIGITAL1              0x60A09000U
+#define RX_DATIN_RX_SLICE_1_RX_DIGITAL1              0x60C09000U
 
-#define REG_DFIFO_CTRL_RX_DATIN_ADDR(inst)           ((inst) + 0x00000000)
-#define BF_DFIFO_EN_RX_DATIN_INFO(inst)              ((inst) + 0x00000000), 0x00000100
-#define BF_RXFIFO_WRCLK_INVERT_INFO(inst)            ((inst) + 0x00000000), 0x00000101
-#define BF_DAC_FIFO_FORCEON_CTRL_RX_DATIN_INFO(inst) ((inst) + 0x00000000), 0x00000404
+#define REG_DFIFO_CTRL_RX_DATIN_ADDR(inst)           ((uint32_t)(inst) + 0x00000000U)
+#define BF_DFIFO_EN_RX_DATIN_INFO(inst)              ((uint32_t)(inst) + 0x00000000U), 0x00000100U
+#define BF_RXFIFO_WRCLK_INVERT_INFO(inst)            ((uint32_t)(inst) + 0x00000000U), 0x00000101U
+#define BF_DAC_FIFO_FORCEON_CTRL_RX_DATIN_INFO(inst) ((uint32_t)(inst) + 0x00000000U), 0x00000404U
 
-#define REG_LAT_CTRL_RX_DATIN_ADDR(inst)             ((inst) + 0x00000001)
-#define BF_LAT_PGM_MODE_RX_DATIN_INFO(inst)          ((inst) + 0x00000001), 0x00000200
-#define BF_WR_RD_OFFSET_RX_DATIN_INFO(inst)          ((inst) + 0x00000001), 0x00000302
+#define REG_LAT_CTRL_RX_DATIN_ADDR(inst)             ((uint32_t)(inst) + 0x00000001U)
+#define BF_LAT_PGM_MODE_RX_DATIN_INFO(inst)          ((uint32_t)(inst) + 0x00000001U), 0x00000200U
+#define BF_WR_RD_OFFSET_RX_DATIN_INFO(inst)          ((uint32_t)(inst) + 0x00000001U), 0x00000302U
 
-#define REG_LAT_SPI_CTRL_RX_DATIN_ADDR(inst)         ((inst) + 0x00000002)
-#define BF_LAT_RD_SPI_RX_DATIN_INFO(inst)            ((inst) + 0x00000002), 0x00000300
-#define BF_LAT_WR_SPI_RX_DATIN_INFO(inst)            ((inst) + 0x00000002), 0x00000403
+#define REG_LAT_SPI_CTRL_RX_DATIN_ADDR(inst)         ((uint32_t)(inst) + 0x00000002U)
+#define BF_LAT_RD_SPI_RX_DATIN_INFO(inst)            ((uint32_t)(inst) + 0x00000002U), 0x00000300U
+#define BF_LAT_WR_SPI_RX_DATIN_INFO(inst)            ((uint32_t)(inst) + 0x00000002U), 0x00000403U
 
 #ifdef USE_PRIVATE_BF
-#define REG_SYNCCNT_STRB_RX_DATIN_ADDR(inst)         ((inst) + 0x00000003)
-#define BF_RDSYNCCNT_WRSTRB_RX_DATIN_INFO(inst)      ((inst) + 0x00000003), 0x00000300
-#define BF_WRSYNCCNT_RDSTRB_RX_DATIN_INFO(inst)      ((inst) + 0x00000003), 0x00000403
+#define REG_SYNCCNT_STRB_RX_DATIN_ADDR(inst)         ((uint32_t)(inst) + 0x00000003U)
+#define BF_RDSYNCCNT_WRSTRB_RX_DATIN_INFO(inst)      ((uint32_t)(inst) + 0x00000003U), 0x00000300U
+#define BF_WRSYNCCNT_RDSTRB_RX_DATIN_INFO(inst)      ((uint32_t)(inst) + 0x00000003U), 0x00000403U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_LAT_REAL_RX_DATIN_ADDR(inst)             ((inst) + 0x00000004)
-#define BF_LAT_RD_REAL_RX_DATIN_INFO(inst)           ((inst) + 0x00000004), 0x00000300
-#define BF_LAT_WR_REAL_RX_DATIN_INFO(inst)           ((inst) + 0x00000004), 0x00000403
+#define REG_LAT_REAL_RX_DATIN_ADDR(inst)             ((uint32_t)(inst) + 0x00000004U)
+#define BF_LAT_RD_REAL_RX_DATIN_INFO(inst)           ((uint32_t)(inst) + 0x00000004U), 0x00000300U
+#define BF_LAT_WR_REAL_RX_DATIN_INFO(inst)           ((uint32_t)(inst) + 0x00000004U), 0x00000403U
 
-#define REG_SYNC_STATE_RX_DATIN_ADDR(inst)           ((inst) + 0x00000005)
-#define BF_RDSYNC_STATE_RX_DATIN_INFO(inst)          ((inst) + 0x00000005), 0x00000200
-#define BF_WRSYNC_STATE_RX_DATIN_INFO(inst)          ((inst) + 0x00000005), 0x00000202
+#define REG_SYNC_STATE_RX_DATIN_ADDR(inst)           ((uint32_t)(inst) + 0x00000005U)
+#define BF_RDSYNC_STATE_RX_DATIN_INFO(inst)          ((uint32_t)(inst) + 0x00000005U), 0x00000200U
+#define BF_WRSYNC_STATE_RX_DATIN_INFO(inst)          ((uint32_t)(inst) + 0x00000005U), 0x00000202U
 
-#define REG_DEBUG_CTRL_ADDR(inst)                    ((inst) + 0x00000006)
-#define BF_DBG_EN_RX_DATIN_INFO(inst)                ((inst) + 0x00000006), 0x00000100
-#define BF_DBG_OUT_INFO(inst)                        ((inst) + 0x00000006), 0x00000101
-#define BF_DBG_OUT_DEC2_INFO(inst)                   ((inst) + 0x00000006), 0x00000102
+#define REG_DEBUG_CTRL_ADDR(inst)                    ((uint32_t)(inst) + 0x00000006U)
+#define BF_DBG_EN_RX_DATIN_INFO(inst)                ((uint32_t)(inst) + 0x00000006U), 0x00000100U
+#define BF_DBG_OUT_INFO(inst)                        ((uint32_t)(inst) + 0x00000006U), 0x00000101U
+#define BF_DBG_OUT_DEC2_INFO(inst)                   ((uint32_t)(inst) + 0x00000006U), 0x00000102U
 
-#define REG_ADC_MUX_SEL_ADDR(inst)                   ((inst) + 0x00000007)
-#define BF_ADC_0_MUX_SEL_INFO(inst)                  ((inst) + 0x00000007), 0x00000200
-#define BF_ADC_1_MUX_SEL_INFO(inst)                  ((inst) + 0x00000007), 0x00000202
+#define REG_ADC_MUX_SEL_ADDR(inst)                   ((uint32_t)(inst) + 0x00000007U)
+#define BF_ADC_0_MUX_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000007U), 0x00000200U
+#define BF_ADC_1_MUX_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000007U), 0x00000202U
 
-#define REG_ADC_WR_SETUP_CTRL_ADDR(inst)             ((inst) + 0x00000008)
-#define BF_ADC_ANA_BRIDGE_WR_SETUP_CYCLES_INFO(inst) ((inst) + 0x00000008), 0x00000600
+#define REG_ADC_WR_SETUP_CTRL_ADDR(inst)             ((uint32_t)(inst) + 0x00000008U)
+#define BF_ADC_ANA_BRIDGE_WR_SETUP_CYCLES_INFO(inst) ((uint32_t)(inst) + 0x00000008U), 0x00000600U
 
-#define REG_ADC_WR_HOLD_CTRL_ADDR(inst)              ((inst) + 0x00000009)
-#define BF_ADC_ANA_BRIDGE_WR_HOLD_CYCLES_INFO(inst)  ((inst) + 0x00000009), 0x00000600
+#define REG_ADC_WR_HOLD_CTRL_ADDR(inst)              ((uint32_t)(inst) + 0x00000009U)
+#define BF_ADC_ANA_BRIDGE_WR_HOLD_CYCLES_INFO(inst)  ((uint32_t)(inst) + 0x00000009U), 0x00000600U
 
-#define REG_ADC_RD_CTRL_ADDR(inst)                   ((inst) + 0x0000000A)
-#define BF_ADC_ANA_BRIDGE_RD_CYCLES_INFO(inst)       ((inst) + 0x0000000A), 0x00000600
+#define REG_ADC_RD_CTRL_ADDR(inst)                   ((uint32_t)(inst) + 0x0000000AU)
+#define BF_ADC_ANA_BRIDGE_RD_CYCLES_INFO(inst)       ((uint32_t)(inst) + 0x0000000AU), 0x00000600U
 
-#endif /* __ADI_APOLLO_BF_RX_DATIN_H__ */
+#endif /* ADI_APOLLO_BF_RX_DATIN_H__ */
 /*! @} */

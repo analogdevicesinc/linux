@@ -12,15 +12,15 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_SPI_PM_KEY_H__
-#define __ADI_APOLLO_BF_SPI_PM_KEY_H__
+#ifndef ADI_APOLLO_BF_SPI_PM_KEY_H__
+#define ADI_APOLLO_BF_SPI_PM_KEY_H__
 
 /*============= D E F I N E S ==============*/
-#define CORE_0_SPI_PM_KEY       0x41100000
-#define DEBUG_KEY_REGS          0x46810100
+#define CORE_0_SPI_PM_KEY       0x41100000U
+#define DEBUG_KEY_REGS          0x46810100U
 
-#define REG_KEY_ADDR_ADDR(inst) ((inst) + 0x00000000)
-#define BF_PMEM_KEY_INFO(inst)  ((inst) + 0x00000000), 0x00002000
+#define REG_KEY_ADDR_ADDR(inst) ((uint32_t)(inst) + 0x00000000U)
+#define BF_PMEM_KEY_INFO(inst)  ((uint32_t)(inst) + 0x00000000U), 0x00002000U
 
-#endif /* __ADI_APOLLO_BF_SPI_PM_KEY_H__ */
+#endif /* ADI_APOLLO_BF_SPI_PM_KEY_H__ */
 /*! @} */

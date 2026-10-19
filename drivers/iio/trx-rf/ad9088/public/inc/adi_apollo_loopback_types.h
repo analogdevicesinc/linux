@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_LOOPBACK
  * @{
  */
-#ifndef __ADI_APOLLO_LOOPBACK_TYPES_H__
-#define __ADI_APOLLO_LOOPBACK_TYPES_H__
+#ifndef ADI_APOLLO_LOOPBACK_TYPES_H__
+#define ADI_APOLLO_LOOPBACK_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -28,5 +28,5 @@ typedef enum {
     ADI_APOLLO_LB1_BLEND_DIV_4      = 0x3,                   /*!< Enable blend with loopback1 data scaled by 4 */
 } adi_apollo_loopback_lb1_blend_mode_e;
 
-#endif /* __ADI_APOLLO_LOOPBACK_TYPES_H__ */
+#endif /* ADI_APOLLO_LOOPBACK_TYPES_H__ */
 /*! @} */

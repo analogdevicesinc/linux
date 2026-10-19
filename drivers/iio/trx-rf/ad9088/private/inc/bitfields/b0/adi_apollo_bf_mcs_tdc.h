@@ -12,247 +12,247 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_MCS_TDC_H__
-#define __ADI_APOLLO_BF_MCS_TDC_H__
+#ifndef ADI_APOLLO_BF_MCS_TDC_H__
+#define ADI_APOLLO_BF_MCS_TDC_H__
 
 /*============= D E F I N E S ==============*/
-#define MCS_TDC_MCSTOP0                              0x4C001480
-#define MCS_TDC_MCSTOP1                              0x4C001880
-#define MCS_TDC_MCSTOP2                              0x4C001C80
+#define MCS_TDC_MCSTOP0                              0x4C001480U
+#define MCS_TDC_MCSTOP1                              0x4C001880U
+#define MCS_TDC_MCSTOP2                              0x4C001C80U
 
 #ifdef USE_PRIVATE_BF
-#define REG_MCS_EN_CTRL_ADDR(inst)                   ((inst) + 0x00000000)
-#define BF_TDC_EN_INFO(inst)                         ((inst) + 0x00000000), 0x00000100
-#define BF_DTLL_EN_INFO(inst)                        ((inst) + 0x00000000), 0x00000104
-#define BF_TDC_DIG_EN_INFO(inst)                     ((inst) + 0x00000000), 0x00000105
+#define REG_MCS_EN_CTRL_ADDR(inst)                   ((uint32_t)(inst) + 0x00000000U)
+#define BF_TDC_EN_INFO(inst)                         ((uint32_t)(inst) + 0x00000000U), 0x00000100U
+#define BF_DTLL_EN_INFO(inst)                        ((uint32_t)(inst) + 0x00000000U), 0x00000104U
+#define BF_TDC_DIG_EN_INFO(inst)                     ((uint32_t)(inst) + 0x00000000U), 0x00000105U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_MCS_IRQ_CTRL_ADDR(inst)                  ((inst) + 0x00000001)
-#define BF_MCS_SYSREF_IN_FSM_START_INFO(inst)        ((inst) + 0x00000001), 0x00000100
-#define BF_MCS_SYSREF_IN_IRQ_RECVD_INFO(inst)        ((inst) + 0x00000001), 0x00000101
-#define BF_MCS_MEASURE_DONE_INFO(inst)               ((inst) + 0x00000001), 0x00000104
+#define REG_MCS_IRQ_CTRL_ADDR(inst)                  ((uint32_t)(inst) + 0x00000001U)
+#define BF_MCS_SYSREF_IN_FSM_START_INFO(inst)        ((uint32_t)(inst) + 0x00000001U), 0x00000100U
+#define BF_MCS_SYSREF_IN_IRQ_RECVD_INFO(inst)        ((uint32_t)(inst) + 0x00000001U), 0x00000101U
+#define BF_MCS_MEASURE_DONE_INFO(inst)               ((uint32_t)(inst) + 0x00000001U), 0x00000104U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TDC_MUX_CTRL_ADDR(inst)                  ((inst) + 0x00000002)
-#define BF_TDC_A_MUX_SEL_INFO(inst)                  ((inst) + 0x00000002), 0x00000300
-#define BF_TDC_B_MUX_SEL_INFO(inst)                  ((inst) + 0x00000002), 0x00000304
+#define REG_TDC_MUX_CTRL_ADDR(inst)                  ((uint32_t)(inst) + 0x00000002U)
+#define BF_TDC_A_MUX_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000002U), 0x00000300U
+#define BF_TDC_B_MUX_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000002U), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TDC_FREQ_CTRL_ADDR(inst)                 ((inst) + 0x00000003)
-#define BF_TDC_FREQ_CTRL_INFO(inst)                  ((inst) + 0x00000003), 0x00000300
-#define BF_TDC_PN_FREQ_CTRL_MASK_INFO(inst)          ((inst) + 0x00000003), 0x00000303
+#define REG_TDC_FREQ_CTRL_ADDR(inst)                 ((uint32_t)(inst) + 0x00000003U)
+#define BF_TDC_FREQ_CTRL_INFO(inst)                  ((uint32_t)(inst) + 0x00000003U), 0x00000300U
+#define BF_TDC_PN_FREQ_CTRL_MASK_INFO(inst)          ((uint32_t)(inst) + 0x00000003U), 0x00000303U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_DTLL_CLK_CTRL_ADDR(inst)                 ((inst) + 0x00000004)
-#define BF_DTLL_CLK_SEL_INFO(inst)                   ((inst) + 0x00000004), 0x00000100
-#define BF_DTLL_EDGE_ALIGN_EN_INFO(inst)             ((inst) + 0x00000004), 0x00000101
-#define BF_DTLL_GAPPED_TRUE_PERIOD_DETECT_INFO(inst) ((inst) + 0x00000004), 0x00000104
+#define REG_DTLL_CLK_CTRL_ADDR(inst)                 ((uint32_t)(inst) + 0x00000004U)
+#define BF_DTLL_CLK_SEL_INFO(inst)                   ((uint32_t)(inst) + 0x00000004U), 0x00000100U
+#define BF_DTLL_EDGE_ALIGN_EN_INFO(inst)             ((uint32_t)(inst) + 0x00000004U), 0x00000101U
+#define BF_DTLL_GAPPED_TRUE_PERIOD_DETECT_INFO(inst) ((uint32_t)(inst) + 0x00000004U), 0x00000104U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_DTLL_CIC_DECIMATION_RATE_0_ADDR(inst)    ((inst) + 0x00000005)
-#define BF_DTLL_CIC_DECIMATION_RATE_INFO(inst)       ((inst) + 0x00000005), 0x00001000
+#define REG_DTLL_CIC_DECIMATION_RATE_0_ADDR(inst)    ((uint32_t)(inst) + 0x00000005U)
+#define BF_DTLL_CIC_DECIMATION_RATE_INFO(inst)       ((uint32_t)(inst) + 0x00000005U), 0x00001000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_DTLL_CIC_DECIMATION_RATE_1_ADDR(inst)    ((inst) + 0x00000006)
+#define REG_DTLL_CIC_DECIMATION_RATE_1_ADDR(inst)    ((uint32_t)(inst) + 0x00000006U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_MCS_RD_FSM_1_ADDR(inst)                  ((inst) + 0x00000007)
-#define BF_MCS_SYSREF_IN_FSM_STATE_INFO(inst)        ((inst) + 0x00000007), 0x00000400
-#define BF_MCS_SYSREF_OUT_FSM_STATE_INFO(inst)       ((inst) + 0x00000007), 0x00000404
-#endif /* USE_PRIVATE_BF */
-
-#ifdef USE_PRIVATE_BF
-#define REG_MCS_RD_FSM_3_ADDR(inst)                  ((inst) + 0x00000008)
-#define BF_MCS_DTLL_EDGE_ALIGN_FSM_STATE_INFO(inst)  ((inst) + 0x00000008), 0x00000400
-#define BF_MCS_DTLL_EDGE_ALIGN_DONE_INFO(inst)       ((inst) + 0x00000008), 0x00000104
-#define BF_MCS_SYSREF_IN_DONE_INFO(inst)             ((inst) + 0x00000008), 0x00000106
-#define BF_MCS_SYSREF_OUT_DONE_INFO(inst)            ((inst) + 0x00000008), 0x00000107
+#define REG_MCS_RD_FSM_1_ADDR(inst)                  ((uint32_t)(inst) + 0x00000007U)
+#define BF_MCS_SYSREF_IN_FSM_STATE_INFO(inst)        ((uint32_t)(inst) + 0x00000007U), 0x00000400U
+#define BF_MCS_SYSREF_OUT_FSM_STATE_INFO(inst)       ((uint32_t)(inst) + 0x00000007U), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_MCS_MEAS_TDC_FAST_PERIOD_0_ADDR(inst)    ((inst) + 0x00000009)
-#define BF_MCS_MEAS_TDC_FAST_PERIOD_INFO(inst)       ((inst) + 0x00000009), 0x00003000
+#define REG_MCS_RD_FSM_3_ADDR(inst)                  ((uint32_t)(inst) + 0x00000008U)
+#define BF_MCS_DTLL_EDGE_ALIGN_FSM_STATE_INFO(inst)  ((uint32_t)(inst) + 0x00000008U), 0x00000400U
+#define BF_MCS_DTLL_EDGE_ALIGN_DONE_INFO(inst)       ((uint32_t)(inst) + 0x00000008U), 0x00000104U
+#define BF_MCS_SYSREF_IN_DONE_INFO(inst)             ((uint32_t)(inst) + 0x00000008U), 0x00000106U
+#define BF_MCS_SYSREF_OUT_DONE_INFO(inst)            ((uint32_t)(inst) + 0x00000008U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
-
-#define REG_MCS_MEAS_TDC_FAST_PERIOD_1_ADDR(inst)    ((inst) + 0x0000000A)
-
-#define REG_MCS_MEAS_TDC_FAST_PERIOD_2_ADDR(inst)    ((inst) + 0x0000000B)
-
-#define REG_MCS_MEAS_TDC_FAST_PERIOD_3_ADDR(inst)    ((inst) + 0x0000000C)
-
-#define REG_MCS_MEAS_TDC_FAST_PERIOD_4_ADDR(inst)    ((inst) + 0x0000000D)
-
-#define REG_MCS_MEAS_TDC_FAST_PERIOD_5_ADDR(inst)    ((inst) + 0x0000000E)
 
 #ifdef USE_PRIVATE_BF
-#define REG_MCS_MEAS_TDC_SLOW_PERIOD_0_ADDR(inst)    ((inst) + 0x0000000F)
-#define BF_MCS_MEAS_TDC_SLOW_PERIOD_INFO(inst)       ((inst) + 0x0000000F), 0x00003000
+#define REG_MCS_MEAS_TDC_FAST_PERIOD_0_ADDR(inst)    ((uint32_t)(inst) + 0x00000009U)
+#define BF_MCS_MEAS_TDC_FAST_PERIOD_INFO(inst)       ((uint32_t)(inst) + 0x00000009U), 0x00003000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_MCS_MEAS_TDC_SLOW_PERIOD_1_ADDR(inst)    ((inst) + 0x00000010)
+#define REG_MCS_MEAS_TDC_FAST_PERIOD_1_ADDR(inst)    ((uint32_t)(inst) + 0x0000000AU)
 
-#define REG_MCS_MEAS_TDC_SLOW_PERIOD_2_ADDR(inst)    ((inst) + 0x00000011)
+#define REG_MCS_MEAS_TDC_FAST_PERIOD_2_ADDR(inst)    ((uint32_t)(inst) + 0x0000000BU)
 
-#define REG_MCS_MEAS_TDC_SLOW_PERIOD_3_ADDR(inst)    ((inst) + 0x00000012)
+#define REG_MCS_MEAS_TDC_FAST_PERIOD_3_ADDR(inst)    ((uint32_t)(inst) + 0x0000000CU)
 
-#define REG_MCS_MEAS_TDC_SLOW_PERIOD_4_ADDR(inst)    ((inst) + 0x00000013)
+#define REG_MCS_MEAS_TDC_FAST_PERIOD_4_ADDR(inst)    ((uint32_t)(inst) + 0x0000000DU)
 
-#define REG_MCS_MEAS_TDC_SLOW_PERIOD_5_ADDR(inst)    ((inst) + 0x00000014)
+#define REG_MCS_MEAS_TDC_FAST_PERIOD_5_ADDR(inst)    ((uint32_t)(inst) + 0x0000000EU)
 
 #ifdef USE_PRIVATE_BF
-#define REG_MCS_MEAS_TDC_TIMEDIFF_0_ADDR(inst)       ((inst) + 0x00000015)
-#define BF_MCS_MEAS_TDC_TIMEDIFF_INFO(inst)          ((inst) + 0x00000015), 0x00003000
+#define REG_MCS_MEAS_TDC_SLOW_PERIOD_0_ADDR(inst)    ((uint32_t)(inst) + 0x0000000FU)
+#define BF_MCS_MEAS_TDC_SLOW_PERIOD_INFO(inst)       ((uint32_t)(inst) + 0x0000000FU), 0x00003000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_MCS_MEAS_TDC_TIMEDIFF_1_ADDR(inst)       ((inst) + 0x00000016)
+#define REG_MCS_MEAS_TDC_SLOW_PERIOD_1_ADDR(inst)    ((uint32_t)(inst) + 0x00000010U)
 
-#define REG_MCS_MEAS_TDC_TIMEDIFF_2_ADDR(inst)       ((inst) + 0x00000017)
+#define REG_MCS_MEAS_TDC_SLOW_PERIOD_2_ADDR(inst)    ((uint32_t)(inst) + 0x00000011U)
 
-#define REG_MCS_MEAS_TDC_TIMEDIFF_3_ADDR(inst)       ((inst) + 0x00000018)
+#define REG_MCS_MEAS_TDC_SLOW_PERIOD_3_ADDR(inst)    ((uint32_t)(inst) + 0x00000012U)
 
-#define REG_MCS_MEAS_TDC_TIMEDIFF_4_ADDR(inst)       ((inst) + 0x00000019)
+#define REG_MCS_MEAS_TDC_SLOW_PERIOD_4_ADDR(inst)    ((uint32_t)(inst) + 0x00000013U)
 
-#define REG_MCS_MEAS_TDC_TIMEDIFF_5_ADDR(inst)       ((inst) + 0x0000001A)
+#define REG_MCS_MEAS_TDC_SLOW_PERIOD_5_ADDR(inst)    ((uint32_t)(inst) + 0x00000014U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_DTLL_FINE_PH_REMAP_0_ADDR(inst)          ((inst) + 0x0000001B)
-#define BF_DTLL_FINE_PH_REMAP_INFO(inst)             ((inst) + 0x0000001B), 0x00001000
+#define REG_MCS_MEAS_TDC_TIMEDIFF_0_ADDR(inst)       ((uint32_t)(inst) + 0x00000015U)
+#define BF_MCS_MEAS_TDC_TIMEDIFF_INFO(inst)          ((uint32_t)(inst) + 0x00000015U), 0x00003000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_DTLL_FINE_PH_REMAP_1_ADDR(inst)          ((inst) + 0x0000001C)
+#define REG_MCS_MEAS_TDC_TIMEDIFF_1_ADDR(inst)       ((uint32_t)(inst) + 0x00000016U)
 
-#define REG_CLK_STABLE_ADDR(inst)                    ((inst) + 0x0000001D)
-#define BF_CLK_STABLE_FLAG_INFO(inst)                ((inst) + 0x0000001D), 0x00000100
+#define REG_MCS_MEAS_TDC_TIMEDIFF_2_ADDR(inst)       ((uint32_t)(inst) + 0x00000017U)
 
-#define REG_CK_CKR_PD_CTRL_ADDR(inst)                ((inst) + 0x0000001E)
-#define BF_CK_CKR_PD_COMP_CK_INFO(inst)              ((inst) + 0x0000001E), 0x00000100
-#define BF_CK_CKR_PD_ENB_INFO(inst)                  ((inst) + 0x0000001E), 0x00000101
-#define BF_CK_CKR_PD_TRIM_INFO(inst)                 ((inst) + 0x0000001E), 0x00000204
+#define REG_MCS_MEAS_TDC_TIMEDIFF_3_ADDR(inst)       ((uint32_t)(inst) + 0x00000018U)
 
-#define REG_CK_CKR_STATUS_ADDR(inst)                 ((inst) + 0x0000001F)
-#define BF_CK_CKR_PD_STATUS_RX_INFO(inst)            ((inst) + 0x0000001F), 0x00000100
-#define BF_CK_CKR_PD_STATUS_SCR_INFO(inst)           ((inst) + 0x0000001F), 0x00000104
+#define REG_MCS_MEAS_TDC_TIMEDIFF_4_ADDR(inst)       ((uint32_t)(inst) + 0x00000019U)
 
-#define REG_SYSREF_RX_RTERM_ADDR(inst)               ((inst) + 0x00000020)
-#define BF_SYSREF_RX_RTERM_PD_INFO(inst)             ((inst) + 0x00000020), 0x00000100
-#define BF_SYSREF_RX_RTERM_INFO(inst)                ((inst) + 0x00000020), 0x00000304
+#define REG_MCS_MEAS_TDC_TIMEDIFF_5_ADDR(inst)       ((uint32_t)(inst) + 0x0000001AU)
 
-#define REG_SYSREF_RX_CTRL_MISC_ADDR(inst)           ((inst) + 0x00000021)
-#define BF_SYSREF_RX_LOW_DEG_INFO(inst)              ((inst) + 0x00000021), 0x00000100
-#define BF_SYSREF_RX_LOW_VCM_INFO(inst)              ((inst) + 0x00000021), 0x00000101
-#define BF_SYSREF_RX_PROT_EN_INFO(inst)              ((inst) + 0x00000021), 0x00000202
-#define BF_SYSREF_RX_TX_DATA_INVERT_INFO(inst)       ((inst) + 0x00000021), 0x00000104
+#ifdef USE_PRIVATE_BF
+#define REG_DTLL_FINE_PH_REMAP_0_ADDR(inst)          ((uint32_t)(inst) + 0x0000001BU)
+#define BF_DTLL_FINE_PH_REMAP_INFO(inst)             ((uint32_t)(inst) + 0x0000001BU), 0x00001000U
+#endif /* USE_PRIVATE_BF */
 
-#define REG_SYSREF_DELAY0_ADDR(inst)                 ((inst) + 0x00000022)
-#define BF_SYSREF_DELAY_CTRL_INFO(inst)              ((inst) + 0x00000022), 0x00000D00
+#define REG_DTLL_FINE_PH_REMAP_1_ADDR(inst)          ((uint32_t)(inst) + 0x0000001CU)
 
-#define REG_SYSREF_DELAY1_ADDR(inst)                 ((inst) + 0x00000023)
+#define REG_CLK_STABLE_ADDR(inst)                    ((uint32_t)(inst) + 0x0000001DU)
+#define BF_CLK_STABLE_FLAG_INFO(inst)                ((uint32_t)(inst) + 0x0000001DU), 0x00000100U
 
-#define REG_SYSREF_EARLY_DELAY_ADDR(inst)            ((inst) + 0x00000024)
-#define BF_SYSREF_EARLY_DELAY_CTRL_INFO(inst)        ((inst) + 0x00000024), 0x00000200
+#define REG_CK_CKR_PD_CTRL_ADDR(inst)                ((uint32_t)(inst) + 0x0000001EU)
+#define BF_CK_CKR_PD_COMP_CK_INFO(inst)              ((uint32_t)(inst) + 0x0000001EU), 0x00000100U
+#define BF_CK_CKR_PD_ENB_INFO(inst)                  ((uint32_t)(inst) + 0x0000001EU), 0x00000101U
+#define BF_CK_CKR_PD_TRIM_INFO(inst)                 ((uint32_t)(inst) + 0x0000001EU), 0x00000204U
 
-#define REG_SYSREF_SUHD_STATUS_ADDR(inst)            ((inst) + 0x00000030)
-#define BF_SYSREF_SETUP_STATUS_INFO(inst)            ((inst) + 0x00000030), 0x00000400
-#define BF_SYSREF_HOLD_STATUS_INFO(inst)             ((inst) + 0x00000030), 0x00000404
+#define REG_CK_CKR_STATUS_ADDR(inst)                 ((uint32_t)(inst) + 0x0000001FU)
+#define BF_CK_CKR_PD_STATUS_RX_INFO(inst)            ((uint32_t)(inst) + 0x0000001FU), 0x00000100U
+#define BF_CK_CKR_PD_STATUS_SCR_INFO(inst)           ((uint32_t)(inst) + 0x0000001FU), 0x00000104U
 
-#define REG_SERDIV_CTRL0_ADDR(inst)                  ((inst) + 0x00000031)
-#define BF_MCS_SERDIV_EN_INFO(inst)                  ((inst) + 0x00000031), 0x00000100
-#define BF_MCS_SERDIV_MODE_INFO(inst)                ((inst) + 0x00000031), 0x00000204
+#define REG_SYSREF_RX_RTERM_ADDR(inst)               ((uint32_t)(inst) + 0x00000020U)
+#define BF_SYSREF_RX_RTERM_PD_INFO(inst)             ((uint32_t)(inst) + 0x00000020U), 0x00000100U
+#define BF_SYSREF_RX_RTERM_INFO(inst)                ((uint32_t)(inst) + 0x00000020U), 0x00000304U
 
-#define REG_SERDIV_CTRL1_ADDR(inst)                  ((inst) + 0x00000032)
-#define BF_SER_DIVROT_INFO(inst)                     ((inst) + 0x00000032), 0x00000100
+#define REG_SYSREF_RX_CTRL_MISC_ADDR(inst)           ((uint32_t)(inst) + 0x00000021U)
+#define BF_SYSREF_RX_LOW_DEG_INFO(inst)              ((uint32_t)(inst) + 0x00000021U), 0x00000100U
+#define BF_SYSREF_RX_LOW_VCM_INFO(inst)              ((uint32_t)(inst) + 0x00000021U), 0x00000101U
+#define BF_SYSREF_RX_PROT_EN_INFO(inst)              ((uint32_t)(inst) + 0x00000021U), 0x00000202U
+#define BF_SYSREF_RX_TX_DATA_INVERT_INFO(inst)       ((uint32_t)(inst) + 0x00000021U), 0x00000104U
 
-#define REG_CLK_EN_GEN_ADDR(inst)                    ((inst) + 0x00000033)
-#define BF_CLK_REC_EN_INFO(inst)                     ((inst) + 0x00000033), 0x00000100
-#define BF_MCS_SH_EN_INFO(inst)                      ((inst) + 0x00000033), 0x00000101
-#define BF_MCS_SYNCSAMPLER_EN_INFO(inst)             ((inst) + 0x00000033), 0x00000102
+#define REG_SYSREF_DELAY0_ADDR(inst)                 ((uint32_t)(inst) + 0x00000022U)
+#define BF_SYSREF_DELAY_CTRL_INFO(inst)              ((uint32_t)(inst) + 0x00000022U), 0x00000D00U
 
-#define REG_SYSREF_EN_ALL_ADDR(inst)                 ((inst) + 0x00000034)
-#define BF_SYSREF_EN_INFO(inst)                      ((inst) + 0x00000034), 0x00000100
-#define BF_SYSREF_LEVEL_INFO(inst)                   ((inst) + 0x00000034), 0x00000104
+#define REG_SYSREF_DELAY1_ADDR(inst)                 ((uint32_t)(inst) + 0x00000023U)
 
-#define REG_TDC_DIV32_CTRL_ADDR(inst)                ((inst) + 0x00000035)
-#define BF_TDC_DIV_BYPASS_INFO(inst)                 ((inst) + 0x00000035), 0x00000100
-#define BF_TDC_DIV_RESETB_INFO(inst)                 ((inst) + 0x00000035), 0x00000104
+#define REG_SYSREF_EARLY_DELAY_ADDR(inst)            ((uint32_t)(inst) + 0x00000024U)
+#define BF_SYSREF_EARLY_DELAY_CTRL_INFO(inst)        ((uint32_t)(inst) + 0x00000024U), 0x00000200U
 
-#define REG_SYSREF_TRIM_OFFSET_ADDR(inst)            ((inst) + 0x00000036)
-#define BF_SYSREF_OFFSET_INFO(inst)                  ((inst) + 0x00000036), 0x00000300
-#define BF_SYSREF_TRIM_IBIAS_INFO(inst)              ((inst) + 0x00000036), 0x00000204
+#define REG_SYSREF_SUHD_STATUS_ADDR(inst)            ((uint32_t)(inst) + 0x00000030U)
+#define BF_SYSREF_SETUP_STATUS_INFO(inst)            ((uint32_t)(inst) + 0x00000030U), 0x00000400U
+#define BF_SYSREF_HOLD_STATUS_INFO(inst)             ((uint32_t)(inst) + 0x00000030U), 0x00000404U
 
-#define REG_SYSREF_CTRL_MISC_ADDR(inst)              ((inst) + 0x00000037)
-#define BF_SYSREF_GATEOFF_OUTPUT_INFO(inst)          ((inst) + 0x00000037), 0x00000100
-#define BF_SYSREF_BYP_BIAS_R_INFO(inst)              ((inst) + 0x00000037), 0x00000101
-#define BF_EN_ODRV_TST_INFO(inst)                    ((inst) + 0x00000037), 0x00000102
+#define REG_SERDIV_CTRL0_ADDR(inst)                  ((uint32_t)(inst) + 0x00000031U)
+#define BF_MCS_SERDIV_EN_INFO(inst)                  ((uint32_t)(inst) + 0x00000031U), 0x00000100U
+#define BF_MCS_SERDIV_MODE_INFO(inst)                ((uint32_t)(inst) + 0x00000031U), 0x00000204U
 
-#define REG_CKMUX_CTRL_ADDR(inst)                    ((inst) + 0x00000038)
-#define BF_EN_CKMUX_INFO(inst)                       ((inst) + 0x00000038), 0x00000100
-#define BF_EN_CKMUX_XC_INFO(inst)                    ((inst) + 0x00000038), 0x00000204
+#define REG_SERDIV_CTRL1_ADDR(inst)                  ((uint32_t)(inst) + 0x00000032U)
+#define BF_SER_DIVROT_INFO(inst)                     ((uint32_t)(inst) + 0x00000032U), 0x00000100U
 
-#define REG_PROG_AMUX_ADDR(inst)                     ((inst) + 0x00000039)
-#define BF_PROG_AMUX_INFO(inst)                      ((inst) + 0x00000039), 0x00000400
+#define REG_CLK_EN_GEN_ADDR(inst)                    ((uint32_t)(inst) + 0x00000033U)
+#define BF_CLK_REC_EN_INFO(inst)                     ((uint32_t)(inst) + 0x00000033U), 0x00000100U
+#define BF_MCS_SH_EN_INFO(inst)                      ((uint32_t)(inst) + 0x00000033U), 0x00000101U
+#define BF_MCS_SYNCSAMPLER_EN_INFO(inst)             ((uint32_t)(inst) + 0x00000033U), 0x00000102U
 
-#define REG_CLK_PATH_SEL_ADDR(inst)                  ((inst) + 0x0000003A)
-#define BF_CLK_PATH_SEL_INFO(inst)                   ((inst) + 0x0000003A), 0x00000100
+#define REG_SYSREF_EN_ALL_ADDR(inst)                 ((uint32_t)(inst) + 0x00000034U)
+#define BF_SYSREF_EN_INFO(inst)                      ((uint32_t)(inst) + 0x00000034U), 0x00000100U
+#define BF_SYSREF_LEVEL_INFO(inst)                   ((uint32_t)(inst) + 0x00000034U), 0x00000104U
 
-#define REG_CKRX_SKEW_TRIM_ADDR(inst)                ((inst) + 0x0000003B)
-#define BF_CKRX_SKEW_TRIMP_INFO(inst)                ((inst) + 0x0000003B), 0x00000400
-#define BF_CKRX_SKEW_TRIMN_INFO(inst)                ((inst) + 0x0000003B), 0x00000404
+#define REG_TDC_DIV32_CTRL_ADDR(inst)                ((uint32_t)(inst) + 0x00000035U)
+#define BF_TDC_DIV_BYPASS_INFO(inst)                 ((uint32_t)(inst) + 0x00000035U), 0x00000100U
+#define BF_TDC_DIV_RESETB_INFO(inst)                 ((uint32_t)(inst) + 0x00000035U), 0x00000104U
 
-#define REG_SH_DETECTOR_ADDR(inst)                   ((inst) + 0x0000003C)
-#define BF_SH_BEFORE_INFO(inst)                      ((inst) + 0x0000003C), 0x00000200
-#define BF_SH_AFTER_INFO(inst)                       ((inst) + 0x0000003C), 0x00000204
+#define REG_SYSREF_TRIM_OFFSET_ADDR(inst)            ((uint32_t)(inst) + 0x00000036U)
+#define BF_SYSREF_OFFSET_INFO(inst)                  ((uint32_t)(inst) + 0x00000036U), 0x00000300U
+#define BF_SYSREF_TRIM_IBIAS_INFO(inst)              ((uint32_t)(inst) + 0x00000036U), 0x00000204U
 
-#define REG_RDBK_SPARE_0_ADDR(inst)                  ((inst) + 0x0000003E)
-#define BF_RDBK_SPARE0_INFO(inst)                    ((inst) + 0x0000003E), 0x00000800
+#define REG_SYSREF_CTRL_MISC_ADDR(inst)              ((uint32_t)(inst) + 0x00000037U)
+#define BF_SYSREF_GATEOFF_OUTPUT_INFO(inst)          ((uint32_t)(inst) + 0x00000037U), 0x00000100U
+#define BF_SYSREF_BYP_BIAS_R_INFO(inst)              ((uint32_t)(inst) + 0x00000037U), 0x00000101U
+#define BF_EN_ODRV_TST_INFO(inst)                    ((uint32_t)(inst) + 0x00000037U), 0x00000102U
 
-#define REG_RDBK_SPARE_1_ADDR(inst)                  ((inst) + 0x0000003F)
-#define BF_RDBK_SPARE1_INFO(inst)                    ((inst) + 0x0000003F), 0x00000800
+#define REG_CKMUX_CTRL_ADDR(inst)                    ((uint32_t)(inst) + 0x00000038U)
+#define BF_EN_CKMUX_INFO(inst)                       ((uint32_t)(inst) + 0x00000038U), 0x00000100U
+#define BF_EN_CKMUX_XC_INFO(inst)                    ((uint32_t)(inst) + 0x00000038U), 0x00000204U
 
-#define REG_SPARE_0_MCS_TDC_ADDR(inst)               ((inst) + 0x00000040)
-#define BF_SPARE0_INFO(inst)                         ((inst) + 0x00000040), 0x00000800
+#define REG_PROG_AMUX_ADDR(inst)                     ((uint32_t)(inst) + 0x00000039U)
+#define BF_PROG_AMUX_INFO(inst)                      ((uint32_t)(inst) + 0x00000039U), 0x00000400U
 
-#define REG_SPARE_1_MCS_TDC_ADDR(inst)               ((inst) + 0x00000041)
-#define BF_SPARE1_INFO(inst)                         ((inst) + 0x00000041), 0x00000800
+#define REG_CLK_PATH_SEL_ADDR(inst)                  ((uint32_t)(inst) + 0x0000003AU)
+#define BF_CLK_PATH_SEL_INFO(inst)                   ((uint32_t)(inst) + 0x0000003AU), 0x00000100U
 
-#define REG_SPARE_2_MCS_TDC_ADDR(inst)               ((inst) + 0x00000042)
-#define BF_SPARE2_INFO(inst)                         ((inst) + 0x00000042), 0x00000800
+#define REG_CKRX_SKEW_TRIM_ADDR(inst)                ((uint32_t)(inst) + 0x0000003BU)
+#define BF_CKRX_SKEW_TRIMP_INFO(inst)                ((uint32_t)(inst) + 0x0000003BU), 0x00000400U
+#define BF_CKRX_SKEW_TRIMN_INFO(inst)                ((uint32_t)(inst) + 0x0000003BU), 0x00000404U
 
-#define REG_SPARE_3_MCS_TDC_ADDR(inst)               ((inst) + 0x00000043)
-#define BF_SPARE3_INFO(inst)                         ((inst) + 0x00000043), 0x00000800
+#define REG_SH_DETECTOR_ADDR(inst)                   ((uint32_t)(inst) + 0x0000003CU)
+#define BF_SH_BEFORE_INFO(inst)                      ((uint32_t)(inst) + 0x0000003CU), 0x00000200U
+#define BF_SH_AFTER_INFO(inst)                       ((uint32_t)(inst) + 0x0000003CU), 0x00000204U
 
-#define REG_CKRX_SKEW_TRIM_PAD_P_ADDR(inst)          ((inst) + 0x00000044)
-#define BF_CKRX_SKEW_TRIM_PAD_P_INFO(inst)           ((inst) + 0x00000044), 0x00000600
+#define REG_RDBK_SPARE_0_ADDR(inst)                  ((uint32_t)(inst) + 0x0000003EU)
+#define BF_RDBK_SPARE0_INFO(inst)                    ((uint32_t)(inst) + 0x0000003EU), 0x00000800U
 
-#define REG_CKRX_SKEW_TRIM_PAD_N_ADDR(inst)          ((inst) + 0x00000045)
-#define BF_CKRX_SKEW_TRIM_PAD_N_INFO(inst)           ((inst) + 0x00000045), 0x00000600
+#define REG_RDBK_SPARE_1_ADDR(inst)                  ((uint32_t)(inst) + 0x0000003FU)
+#define BF_RDBK_SPARE1_INFO(inst)                    ((uint32_t)(inst) + 0x0000003FU), 0x00000800U
 
-#define REG_CKRX_SKEW_OTRIM_ADDR(inst)               ((inst) + 0x00000046)
-#define BF_CKRX_SKEW_OTRIMP_INFO(inst)               ((inst) + 0x00000046), 0x00000400
-#define BF_CKRX_SKEW_OTRIMN_INFO(inst)               ((inst) + 0x00000046), 0x00000404
+#define REG_SPARE_0_MCS_TDC_ADDR(inst)               ((uint32_t)(inst) + 0x00000040U)
+#define BF_SPARE0_INFO(inst)                         ((uint32_t)(inst) + 0x00000040U), 0x00000800U
 
-#define REG_MCS_CLK_CTRL_MISC_ADDR(inst)             ((inst) + 0x00000047)
-#define BF_MCS_CLK_BUFF_EN_INFO(inst)                ((inst) + 0x00000047), 0x00000100
-#define BF_MCS_CLK_SERDES_EN_INFO(inst)              ((inst) + 0x00000047), 0x00000101
-#define BF_MCS_EN_TDC_DIV4_INFO(inst)                ((inst) + 0x00000047), 0x00000104
+#define REG_SPARE_1_MCS_TDC_ADDR(inst)               ((uint32_t)(inst) + 0x00000041U)
+#define BF_SPARE1_INFO(inst)                         ((uint32_t)(inst) + 0x00000041U), 0x00000800U
 
-#define REG_ODRV_CTRL_ADDR(inst)                     ((inst) + 0x00000048)
-#define BF_EN_ODRV_PATH_INFO(inst)                   ((inst) + 0x00000048), 0x00000100
-#define BF_SEL_ODRV_INFO(inst)                       ((inst) + 0x00000048), 0x00000404
+#define REG_SPARE_2_MCS_TDC_ADDR(inst)               ((uint32_t)(inst) + 0x00000042U)
+#define BF_SPARE2_INFO(inst)                         ((uint32_t)(inst) + 0x00000042U), 0x00000800U
 
-#define REG_MCS_LINK_CFG0_ADDR(inst)                 ((inst) + 0x00000049)
-#define BF_MCS_LINK_CONFIG_INFO(inst)                ((inst) + 0x00000049), 0x00001000
+#define REG_SPARE_3_MCS_TDC_ADDR(inst)               ((uint32_t)(inst) + 0x00000043U)
+#define BF_SPARE3_INFO(inst)                         ((uint32_t)(inst) + 0x00000043U), 0x00000800U
 
-#define REG_LPU_CK_CTRL_ADDR(inst)                   ((inst) + 0x0000004A)
-#define BF_LPU_CK_CHOP_INFO(inst)                    ((inst) + 0x0000004A), 0x00000100
-#define BF_LPU_CK_BUFBYPASS_INFO(inst)               ((inst) + 0x0000004A), 0x00000101
-#define BF_LPU_CK_SEL_INFO(inst)                     ((inst) + 0x0000004A), 0x00000404
+#define REG_CKRX_SKEW_TRIM_PAD_P_ADDR(inst)          ((uint32_t)(inst) + 0x00000044U)
+#define BF_CKRX_SKEW_TRIM_PAD_P_INFO(inst)           ((uint32_t)(inst) + 0x00000044U), 0x00000600U
 
-#define REG_MCS_LINK_CFG1_ADDR(inst)                 ((inst) + 0x0000004B)
+#define REG_CKRX_SKEW_TRIM_PAD_N_ADDR(inst)          ((uint32_t)(inst) + 0x00000045U)
+#define BF_CKRX_SKEW_TRIM_PAD_N_INFO(inst)           ((uint32_t)(inst) + 0x00000045U), 0x00000600U
 
-#endif /* __ADI_APOLLO_BF_MCS_TDC_H__ */
+#define REG_CKRX_SKEW_OTRIM_ADDR(inst)               ((uint32_t)(inst) + 0x00000046U)
+#define BF_CKRX_SKEW_OTRIMP_INFO(inst)               ((uint32_t)(inst) + 0x00000046U), 0x00000400U
+#define BF_CKRX_SKEW_OTRIMN_INFO(inst)               ((uint32_t)(inst) + 0x00000046U), 0x00000404U
+
+#define REG_MCS_CLK_CTRL_MISC_ADDR(inst)             ((uint32_t)(inst) + 0x00000047U)
+#define BF_MCS_CLK_BUFF_EN_INFO(inst)                ((uint32_t)(inst) + 0x00000047U), 0x00000100U
+#define BF_MCS_CLK_SERDES_EN_INFO(inst)              ((uint32_t)(inst) + 0x00000047U), 0x00000101U
+#define BF_MCS_EN_TDC_DIV4_INFO(inst)                ((uint32_t)(inst) + 0x00000047U), 0x00000104U
+
+#define REG_ODRV_CTRL_ADDR(inst)                     ((uint32_t)(inst) + 0x00000048U)
+#define BF_EN_ODRV_PATH_INFO(inst)                   ((uint32_t)(inst) + 0x00000048U), 0x00000100U
+#define BF_SEL_ODRV_INFO(inst)                       ((uint32_t)(inst) + 0x00000048U), 0x00000404U
+
+#define REG_MCS_LINK_CFG0_ADDR(inst)                 ((uint32_t)(inst) + 0x00000049U)
+#define BF_MCS_LINK_CONFIG_INFO(inst)                ((uint32_t)(inst) + 0x00000049U), 0x00001000U
+
+#define REG_LPU_CK_CTRL_ADDR(inst)                   ((uint32_t)(inst) + 0x0000004AU)
+#define BF_LPU_CK_CHOP_INFO(inst)                    ((uint32_t)(inst) + 0x0000004AU), 0x00000100U
+#define BF_LPU_CK_BUFBYPASS_INFO(inst)               ((uint32_t)(inst) + 0x0000004AU), 0x00000101U
+#define BF_LPU_CK_SEL_INFO(inst)                     ((uint32_t)(inst) + 0x0000004AU), 0x00000404U
+
+#define REG_MCS_LINK_CFG1_ADDR(inst)                 ((uint32_t)(inst) + 0x0000004BU)
+
+#endif /* ADI_APOLLO_BF_MCS_TDC_H__ */
 /*! @} */

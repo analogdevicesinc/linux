@@ -11,16 +11,16 @@
  * \addtogroup ADI_APOLLO_FNCO
  * @{
  */
-#ifndef __ADI_APOLLO_FNCO_TYPES_H__
-#define __ADI_APOLLO_FNCO_TYPES_H__
+#ifndef ADI_APOLLO_FNCO_TYPES_H__
+#define ADI_APOLLO_FNCO_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
 #include "adi_apollo_common.h"
 
 /*============= D E F I N E S ==============*/
-#define ADI_APOLLO_FNCO_NUM 16      /* Sized for 8T8R */
-#define ADI_APOLLO_FNCO_PER_SIDE_NUM 8
+#define ADI_APOLLO_FNCO_NUM 16U      /* Sized for 8T8R */
+#define ADI_APOLLO_FNCO_PER_SIDE_NUM 8U
 
 /*!
  * \brief Enumerates RX fine NCO select
@@ -140,5 +140,5 @@ typedef struct {
     uint32_t drc_phase_offset;                           /*!< Channel NCO Phase Offset. */
 } adi_apollo_fine_nco_chan_pgm_t;
 
-#endif /* __ADI_APOLLO_FNCO_TYPES_H__ */
+#endif /* ADI_APOLLO_FNCO_TYPES_H__ */
 /*! @} */

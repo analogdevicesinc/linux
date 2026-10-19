@@ -12,211 +12,211 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_JTX_DFORMAT_H__
-#define __ADI_APOLLO_BF_JTX_DFORMAT_H__
+#ifndef ADI_APOLLO_BF_JTX_DFORMAT_H__
+#define ADI_APOLLO_BF_JTX_DFORMAT_H__
 
 /*============= D E F I N E S ==============*/
-#define JTX_DFORMAT_JTX_TOP_RX_DIGITAL0                0x60600000
-#define JTX_DFORMAT_JTX_TOP_RX_DIGITAL1                0x60E00000
+#define JTX_DFORMAT_JTX_TOP_RX_DIGITAL0                0x60600000U
+#define JTX_DFORMAT_JTX_TOP_RX_DIGITAL1                0x60E00000U
 
-#define REG_DFORMAT_OUT_FORMAT_SEL0_ADDR(inst)         ((inst) + 0x00000000)
-#define BF_DFORMAT_SEL_0_INFO(inst)                    ((inst) + 0x00000000), 0x00000200
-#define BF_DFORMAT_INV_0_INFO(inst)                    ((inst) + 0x00000000), 0x00000102
+#define REG_DFORMAT_OUT_FORMAT_SEL0_ADDR(inst)         ((uint32_t)(inst) + 0x00000000U)
+#define BF_DFORMAT_SEL_0_INFO(inst)                    ((uint32_t)(inst) + 0x00000000U), 0x00000200U
+#define BF_DFORMAT_INV_0_INFO(inst)                    ((uint32_t)(inst) + 0x00000000U), 0x00000102U
 
-#define REG_DFORMAT_OUT_FORMAT_SEL1_ADDR(inst)         ((inst) + 0x00000001)
-#define BF_DFORMAT_SEL_1_INFO(inst)                    ((inst) + 0x00000001), 0x00000200
-#define BF_DFORMAT_INV_1_INFO(inst)                    ((inst) + 0x00000001), 0x00000102
+#define REG_DFORMAT_OUT_FORMAT_SEL1_ADDR(inst)         ((uint32_t)(inst) + 0x00000001U)
+#define BF_DFORMAT_SEL_1_INFO(inst)                    ((uint32_t)(inst) + 0x00000001U), 0x00000200U
+#define BF_DFORMAT_INV_1_INFO(inst)                    ((uint32_t)(inst) + 0x00000001U), 0x00000102U
 
-#define REG_DFORMAT_OUT_RES0_ADDR(inst)                ((inst) + 0x00000002)
-#define BF_DFORMAT_RES_0_INFO(inst)                    ((inst) + 0x00000002), 0x00000400
-#define BF_DFORMAT_DDC_DITHER_EN_0_INFO(inst)          ((inst) + 0x00000002), 0x00000104
+#define REG_DFORMAT_OUT_RES0_ADDR(inst)                ((uint32_t)(inst) + 0x00000002U)
+#define BF_DFORMAT_RES_0_INFO(inst)                    ((uint32_t)(inst) + 0x00000002U), 0x00000400U
+#define BF_DFORMAT_DDC_DITHER_EN_0_INFO(inst)          ((uint32_t)(inst) + 0x00000002U), 0x00000104U
 
-#define REG_DFORMAT_OUT_RES1_ADDR(inst)                ((inst) + 0x00000003)
-#define BF_DFORMAT_RES_1_INFO(inst)                    ((inst) + 0x00000003), 0x00000400
-#define BF_DFORMAT_DDC_DITHER_EN_1_INFO(inst)          ((inst) + 0x00000003), 0x00000104
+#define REG_DFORMAT_OUT_RES1_ADDR(inst)                ((uint32_t)(inst) + 0x00000003U)
+#define BF_DFORMAT_RES_1_INFO(inst)                    ((uint32_t)(inst) + 0x00000003U), 0x00000400U
+#define BF_DFORMAT_DDC_DITHER_EN_1_INFO(inst)          ((uint32_t)(inst) + 0x00000003U), 0x00000104U
 
-#define REG_LINK_EN_ADDR(inst)                         ((inst) + 0x00000004)
-#define BF_LINK_EN_0_INFO(inst)                        ((inst) + 0x00000004), 0x00000100
-#define BF_LINK_EN_1_INFO(inst)                        ((inst) + 0x00000004), 0x00000101
+#define REG_LINK_EN_ADDR(inst)                         ((uint32_t)(inst) + 0x00000004U)
+#define BF_LINK_EN_0_INFO(inst)                        ((uint32_t)(inst) + 0x00000004U), 0x00000100U
+#define BF_LINK_EN_1_INFO(inst)                        ((uint32_t)(inst) + 0x00000004U), 0x00000101U
 
-#define REG_DFORMAT_TMODE_SEL0_ADDR(inst)              ((inst) + 0x00000005)
-#define BF_DFORMAT_TMODE_SEL_0_INFO(inst)              ((inst) + 0x00000005), 0x00000800
+#define REG_DFORMAT_TMODE_SEL0_ADDR(inst)              ((uint32_t)(inst) + 0x00000005U)
+#define BF_DFORMAT_TMODE_SEL_0_INFO(inst)              ((uint32_t)(inst) + 0x00000005U), 0x00000800U
 
-#define REG_DFORMAT_TMODE_SEL1_ADDR(inst)              ((inst) + 0x00000006)
-#define BF_DFORMAT_TMODE_SEL_1_INFO(inst)              ((inst) + 0x00000006), 0x00000800
+#define REG_DFORMAT_TMODE_SEL1_ADDR(inst)              ((uint32_t)(inst) + 0x00000006U)
+#define BF_DFORMAT_TMODE_SEL_1_INFO(inst)              ((uint32_t)(inst) + 0x00000006U), 0x00000800U
 
-#define REG_DFORMAT_OVR_CLR0_ADDR(inst)                ((inst) + 0x00000007)
-#define BF_DFORMAT_OVR_CLR_0_INFO(inst)                ((inst) + 0x00000007), 0x00000800
+#define REG_DFORMAT_OVR_CLR0_ADDR(inst)                ((uint32_t)(inst) + 0x00000007U)
+#define BF_DFORMAT_OVR_CLR_0_INFO(inst)                ((uint32_t)(inst) + 0x00000007U), 0x00000800U
 
-#define REG_DFORMAT_OVR_CLR1_ADDR(inst)                ((inst) + 0x00000008)
-#define BF_DFORMAT_OVR_CLR_1_INFO(inst)                ((inst) + 0x00000008), 0x00000800
+#define REG_DFORMAT_OVR_CLR1_ADDR(inst)                ((uint32_t)(inst) + 0x00000008U)
+#define BF_DFORMAT_OVR_CLR_1_INFO(inst)                ((uint32_t)(inst) + 0x00000008U), 0x00000800U
 
-#define REG_DFORMAT_OVR_STATUS0_ADDR(inst)             ((inst) + 0x00000009)
-#define BF_DFORMAT_OVR_STATUS_0_INFO(inst)             ((inst) + 0x00000009), 0x00000800
+#define REG_DFORMAT_OVR_STATUS0_ADDR(inst)             ((uint32_t)(inst) + 0x00000009U)
+#define BF_DFORMAT_OVR_STATUS_0_INFO(inst)             ((uint32_t)(inst) + 0x00000009U), 0x00000800U
 
-#define REG_DFORMAT_OVR_STATUS1_ADDR(inst)             ((inst) + 0x0000000A)
-#define BF_DFORMAT_OVR_STATUS_1_INFO(inst)             ((inst) + 0x0000000A), 0x00000800
+#define REG_DFORMAT_OVR_STATUS1_ADDR(inst)             ((uint32_t)(inst) + 0x0000000AU)
+#define BF_DFORMAT_OVR_STATUS_1_INFO(inst)             ((uint32_t)(inst) + 0x0000000AU), 0x00000800U
 
-#define REG_LINK0_DDC_DEC0_ADDR(inst)                  ((inst) + 0x0000000B)
-#define BF_LINK_DDC_DEC_0_INFO(inst)                   ((inst) + 0x0000000B), 0x00000A00
+#define REG_LINK0_DDC_DEC0_ADDR(inst)                  ((uint32_t)(inst) + 0x0000000BU)
+#define BF_LINK_DDC_DEC_0_INFO(inst)                   ((uint32_t)(inst) + 0x0000000BU), 0x00000A00U
 
-#define REG_LINK0_DDC_DEC1_ADDR(inst)                  ((inst) + 0x0000000C)
+#define REG_LINK0_DDC_DEC1_ADDR(inst)                  ((uint32_t)(inst) + 0x0000000CU)
 
-#define REG_LINK1_DDC_DEC0_ADDR(inst)                  ((inst) + 0x0000000D)
-#define BF_LINK_DDC_DEC_1_INFO(inst)                   ((inst) + 0x0000000D), 0x00000A00
+#define REG_LINK1_DDC_DEC0_ADDR(inst)                  ((uint32_t)(inst) + 0x0000000DU)
+#define BF_LINK_DDC_DEC_1_INFO(inst)                   ((uint32_t)(inst) + 0x0000000DU), 0x00000A00U
 
-#define REG_LINK1_DDC_DEC1_ADDR(inst)                  ((inst) + 0x0000000E)
+#define REG_LINK1_DDC_DEC1_ADDR(inst)                  ((uint32_t)(inst) + 0x0000000EU)
 
-#define REG_CTRL_BIT_0_SEL0_ADDR(inst)                 ((inst) + 0x0000000F)
-#define BF_DFORMAT_CTRL_BIT_0_SEL_0_INFO(inst)         ((inst) + 0x0000000F), 0x00000400
+#define REG_CTRL_BIT_0_SEL0_ADDR(inst)                 ((uint32_t)(inst) + 0x0000000FU)
+#define BF_DFORMAT_CTRL_BIT_0_SEL_0_INFO(inst)         ((uint32_t)(inst) + 0x0000000FU), 0x00000400U
 
-#define REG_CTRL_BIT_0_SEL1_ADDR(inst)                 ((inst) + 0x00000010)
-#define BF_DFORMAT_CTRL_BIT_0_SEL_1_INFO(inst)         ((inst) + 0x00000010), 0x00000400
+#define REG_CTRL_BIT_0_SEL1_ADDR(inst)                 ((uint32_t)(inst) + 0x00000010U)
+#define BF_DFORMAT_CTRL_BIT_0_SEL_1_INFO(inst)         ((uint32_t)(inst) + 0x00000010U), 0x00000400U
 
-#define REG_CTRL_BIT_1_SEL0_ADDR(inst)                 ((inst) + 0x00000011)
-#define BF_DFORMAT_CTRL_BIT_1_SEL_0_INFO(inst)         ((inst) + 0x00000011), 0x00000400
+#define REG_CTRL_BIT_1_SEL0_ADDR(inst)                 ((uint32_t)(inst) + 0x00000011U)
+#define BF_DFORMAT_CTRL_BIT_1_SEL_0_INFO(inst)         ((uint32_t)(inst) + 0x00000011U), 0x00000400U
 
-#define REG_CTRL_BIT_1_SEL1_ADDR(inst)                 ((inst) + 0x00000012)
-#define BF_DFORMAT_CTRL_BIT_1_SEL_1_INFO(inst)         ((inst) + 0x00000012), 0x00000400
+#define REG_CTRL_BIT_1_SEL1_ADDR(inst)                 ((uint32_t)(inst) + 0x00000012U)
+#define BF_DFORMAT_CTRL_BIT_1_SEL_1_INFO(inst)         ((uint32_t)(inst) + 0x00000012U), 0x00000400U
 
-#define REG_CTRL_BIT_2_SEL0_ADDR(inst)                 ((inst) + 0x00000013)
-#define BF_DFORMAT_CTRL_BIT_2_SEL_0_INFO(inst)         ((inst) + 0x00000013), 0x00000400
+#define REG_CTRL_BIT_2_SEL0_ADDR(inst)                 ((uint32_t)(inst) + 0x00000013U)
+#define BF_DFORMAT_CTRL_BIT_2_SEL_0_INFO(inst)         ((uint32_t)(inst) + 0x00000013U), 0x00000400U
 
-#define REG_CTRL_BIT_2_SEL1_ADDR(inst)                 ((inst) + 0x00000014)
-#define BF_DFORMAT_CTRL_BIT_2_SEL_1_INFO(inst)         ((inst) + 0x00000014), 0x00000400
+#define REG_CTRL_BIT_2_SEL1_ADDR(inst)                 ((uint32_t)(inst) + 0x00000014U)
+#define BF_DFORMAT_CTRL_BIT_2_SEL_1_INFO(inst)         ((uint32_t)(inst) + 0x00000014U), 0x00000400U
 
-#define REG_TMODE_USR_LSB_P0_JTX_DFORMAT_ADDR(inst, n) ((inst) + 0x0000001D + 1 * (n))
-#define BF_TMODE_USR_PAT0_JTX_DFORMAT_INFO(inst, n)    ((inst) + 0x0000001D + 1 * (n)), 0x00001000
+#define REG_TMODE_USR_LSB_P0_JTX_DFORMAT_ADDR(inst, n) ((uint32_t)(inst) + 0x0000001DU + 1U * (uint32_t)(n))
+#define BF_TMODE_USR_PAT0_JTX_DFORMAT_INFO(inst, n)    ((uint32_t)(inst) + 0x0000001DU + 1U * (uint32_t)(n)), 0x00001000U
 
-#define REG_TMODE_USR_MSB_P0_JTX_DFORMAT_ADDR(inst, n) ((inst) + 0x0000001F + 1 * (n))
+#define REG_TMODE_USR_MSB_P0_JTX_DFORMAT_ADDR(inst, n) ((uint32_t)(inst) + 0x0000001FU + 1U * (uint32_t)(n))
 
-#define REG_TMODE_USR_LSB_P1_JTX_DFORMAT_ADDR(inst, n) ((inst) + 0x00000021 + 1 * (n))
-#define BF_TMODE_USR_PAT1_JTX_DFORMAT_INFO(inst, n)    ((inst) + 0x00000021 + 1 * (n)), 0x00001000
+#define REG_TMODE_USR_LSB_P1_JTX_DFORMAT_ADDR(inst, n) ((uint32_t)(inst) + 0x00000021U + 1U * (uint32_t)(n))
+#define BF_TMODE_USR_PAT1_JTX_DFORMAT_INFO(inst, n)    ((uint32_t)(inst) + 0x00000021U + 1U * (uint32_t)(n)), 0x00001000U
 
-#define REG_TMODE_USR_MSB_P1_JTX_DFORMAT_ADDR(inst, n) ((inst) + 0x00000023 + 1 * (n))
+#define REG_TMODE_USR_MSB_P1_JTX_DFORMAT_ADDR(inst, n) ((uint32_t)(inst) + 0x00000023U + 1U * (uint32_t)(n))
 
-#define REG_TMODE_USR_LSB_P2_JTX_DFORMAT_ADDR(inst, n) ((inst) + 0x00000025 + 1 * (n))
-#define BF_TMODE_USR_PAT2_JTX_DFORMAT_INFO(inst, n)    ((inst) + 0x00000025 + 1 * (n)), 0x00001000
+#define REG_TMODE_USR_LSB_P2_JTX_DFORMAT_ADDR(inst, n) ((uint32_t)(inst) + 0x00000025U + 1U * (uint32_t)(n))
+#define BF_TMODE_USR_PAT2_JTX_DFORMAT_INFO(inst, n)    ((uint32_t)(inst) + 0x00000025U + 1U * (uint32_t)(n)), 0x00001000U
 
-#define REG_TMODE_USR_MSB_P2_JTX_DFORMAT_ADDR(inst, n) ((inst) + 0x00000027 + 1 * (n))
+#define REG_TMODE_USR_MSB_P2_JTX_DFORMAT_ADDR(inst, n) ((uint32_t)(inst) + 0x00000027U + 1U * (uint32_t)(n))
 
-#define REG_TMODE_USR_LSB_P3_JTX_DFORMAT_ADDR(inst, n) ((inst) + 0x00000029 + 1 * (n))
-#define BF_TMODE_USR_PAT3_JTX_DFORMAT_INFO(inst, n)    ((inst) + 0x00000029 + 1 * (n)), 0x00001000
+#define REG_TMODE_USR_LSB_P3_JTX_DFORMAT_ADDR(inst, n) ((uint32_t)(inst) + 0x00000029U + 1U * (uint32_t)(n))
+#define BF_TMODE_USR_PAT3_JTX_DFORMAT_INFO(inst, n)    ((uint32_t)(inst) + 0x00000029U + 1U * (uint32_t)(n)), 0x00001000U
 
-#define REG_TMODE_USR_MSB_P3_JTX_DFORMAT_ADDR(inst, n) ((inst) + 0x0000002B + 1 * (n))
+#define REG_TMODE_USR_MSB_P3_JTX_DFORMAT_ADDR(inst, n) ((uint32_t)(inst) + 0x0000002BU + 1U * (uint32_t)(n))
 
-#define REG_TMODE_USR_LSB_P4_JTX_DFORMAT_ADDR(inst, n) ((inst) + 0x0000002D + 1 * (n))
-#define BF_TMODE_USR_PAT4_JTX_DFORMAT_INFO(inst, n)    ((inst) + 0x0000002D + 1 * (n)), 0x00001000
+#define REG_TMODE_USR_LSB_P4_JTX_DFORMAT_ADDR(inst, n) ((uint32_t)(inst) + 0x0000002DU + 1U * (uint32_t)(n))
+#define BF_TMODE_USR_PAT4_JTX_DFORMAT_INFO(inst, n)    ((uint32_t)(inst) + 0x0000002DU + 1U * (uint32_t)(n)), 0x00001000U
 
-#define REG_TMODE_USR_MSB_P4_JTX_DFORMAT_ADDR(inst, n) ((inst) + 0x0000002F + 1 * (n))
+#define REG_TMODE_USR_MSB_P4_JTX_DFORMAT_ADDR(inst, n) ((uint32_t)(inst) + 0x0000002FU + 1U * (uint32_t)(n))
 
-#define REG_TMODE_USR_LSB_P5_JTX_DFORMAT_ADDR(inst, n) ((inst) + 0x00000031 + 1 * (n))
-#define BF_TMODE_USR_PAT5_JTX_DFORMAT_INFO(inst, n)    ((inst) + 0x00000031 + 1 * (n)), 0x00001000
+#define REG_TMODE_USR_LSB_P5_JTX_DFORMAT_ADDR(inst, n) ((uint32_t)(inst) + 0x00000031U + 1U * (uint32_t)(n))
+#define BF_TMODE_USR_PAT5_JTX_DFORMAT_INFO(inst, n)    ((uint32_t)(inst) + 0x00000031U + 1U * (uint32_t)(n)), 0x00001000U
 
-#define REG_TMODE_USR_MSB_P5_JTX_DFORMAT_ADDR(inst, n) ((inst) + 0x00000033 + 1 * (n))
+#define REG_TMODE_USR_MSB_P5_JTX_DFORMAT_ADDR(inst, n) ((uint32_t)(inst) + 0x00000033U + 1U * (uint32_t)(n))
 
-#define REG_TMODE_USR_LSB_P6_JTX_DFORMAT_ADDR(inst, n) ((inst) + 0x00000035 + 1 * (n))
-#define BF_TMODE_USR_PAT6_JTX_DFORMAT_INFO(inst, n)    ((inst) + 0x00000035 + 1 * (n)), 0x00001000
+#define REG_TMODE_USR_LSB_P6_JTX_DFORMAT_ADDR(inst, n) ((uint32_t)(inst) + 0x00000035U + 1U * (uint32_t)(n))
+#define BF_TMODE_USR_PAT6_JTX_DFORMAT_INFO(inst, n)    ((uint32_t)(inst) + 0x00000035U + 1U * (uint32_t)(n)), 0x00001000U
 
-#define REG_TMODE_USR_MSB_P6_JTX_DFORMAT_ADDR(inst, n) ((inst) + 0x00000037 + 1 * (n))
+#define REG_TMODE_USR_MSB_P6_JTX_DFORMAT_ADDR(inst, n) ((uint32_t)(inst) + 0x00000037U + 1U * (uint32_t)(n))
 
-#define REG_TMODE_USR_LSB_P7_JTX_DFORMAT_ADDR(inst, n) ((inst) + 0x00000039 + 1 * (n))
-#define BF_TMODE_USR_PAT7_JTX_DFORMAT_INFO(inst, n)    ((inst) + 0x00000039 + 1 * (n)), 0x00001000
+#define REG_TMODE_USR_LSB_P7_JTX_DFORMAT_ADDR(inst, n) ((uint32_t)(inst) + 0x00000039U + 1U * (uint32_t)(n))
+#define BF_TMODE_USR_PAT7_JTX_DFORMAT_INFO(inst, n)    ((uint32_t)(inst) + 0x00000039U + 1U * (uint32_t)(n)), 0x00001000U
 
-#define REG_TMODE_USR_MSB_P7_JTX_DFORMAT_ADDR(inst, n) ((inst) + 0x0000004B + 1 * (n))
+#define REG_TMODE_USR_MSB_P7_JTX_DFORMAT_ADDR(inst, n) ((uint32_t)(inst) + 0x0000004BU + 1U * (uint32_t)(n))
 
-#define REG_LINK_TOTAL_DEC0_LSB_ADDR(inst)             ((inst) + 0x0000006D)
-#define BF_LINK_TOTAL_DEC_0_INFO(inst)                 ((inst) + 0x0000006D), 0x00000B00
+#define REG_LINK_TOTAL_DEC0_LSB_ADDR(inst)             ((uint32_t)(inst) + 0x0000006DU)
+#define BF_LINK_TOTAL_DEC_0_INFO(inst)                 ((uint32_t)(inst) + 0x0000006DU), 0x00000B00U
 
-#define REG_LINK_TOTAL_DEC0_MSB_ADDR(inst)             ((inst) + 0x0000006E)
+#define REG_LINK_TOTAL_DEC0_MSB_ADDR(inst)             ((uint32_t)(inst) + 0x0000006EU)
 
-#define REG_LINK_TOTAL_DEC1_LSB_ADDR(inst)             ((inst) + 0x0000006F)
-#define BF_LINK_TOTAL_DEC_1_INFO(inst)                 ((inst) + 0x0000006F), 0x00000B00
+#define REG_LINK_TOTAL_DEC1_LSB_ADDR(inst)             ((uint32_t)(inst) + 0x0000006FU)
+#define BF_LINK_TOTAL_DEC_1_INFO(inst)                 ((uint32_t)(inst) + 0x0000006FU), 0x00000B00U
 
-#define REG_LINK_TOTAL_DEC1_MSB_ADDR(inst)             ((inst) + 0x00000070)
+#define REG_LINK_TOTAL_DEC1_MSB_ADDR(inst)             ((uint32_t)(inst) + 0x00000070U)
 
-#define REG_INVALID_EN_ADDR(inst)                      ((inst) + 0x00000071)
-#define BF_INVALID_EN_INFO(inst)                       ((inst) + 0x00000071), 0x00000200
+#define REG_INVALID_EN_ADDR(inst)                      ((uint32_t)(inst) + 0x00000071U)
+#define BF_INVALID_EN_INFO(inst)                       ((uint32_t)(inst) + 0x00000071U), 0x00000200U
 
-#define REG_FINE_I_SEL_ADDR(inst)                      ((inst) + 0x00000072)
-#define BF_FINE0_ADC_I_SEL_INFO(inst)                  ((inst) + 0x00000072), 0x00000200
-#define BF_FINE1_ADC_I_SEL_INFO(inst)                  ((inst) + 0x00000072), 0x00000202
-#define BF_FINE2_ADC_I_SEL_INFO(inst)                  ((inst) + 0x00000072), 0x00000204
-#define BF_FINE3_ADC_I_SEL_INFO(inst)                  ((inst) + 0x00000072), 0x00000206
+#define REG_FINE_I_SEL_ADDR(inst)                      ((uint32_t)(inst) + 0x00000072U)
+#define BF_FINE0_ADC_I_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000072U), 0x00000200U
+#define BF_FINE1_ADC_I_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000072U), 0x00000202U
+#define BF_FINE2_ADC_I_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000072U), 0x00000204U
+#define BF_FINE3_ADC_I_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000072U), 0x00000206U
 
-#define REG_FINE_I_SEL_8T8R_ADDR(inst)                 ((inst) + 0x00000073)
-#define BF_FINE4_ADC_I_SEL_INFO(inst)                  ((inst) + 0x00000073), 0x00000200
-#define BF_FINE5_ADC_I_SEL_INFO(inst)                  ((inst) + 0x00000073), 0x00000202
-#define BF_FINE6_ADC_I_SEL_INFO(inst)                  ((inst) + 0x00000073), 0x00000204
-#define BF_FINE7_ADC_I_SEL_INFO(inst)                  ((inst) + 0x00000073), 0x00000206
+#define REG_FINE_I_SEL_8T8R_ADDR(inst)                 ((uint32_t)(inst) + 0x00000073U)
+#define BF_FINE4_ADC_I_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000073U), 0x00000200U
+#define BF_FINE5_ADC_I_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000073U), 0x00000202U
+#define BF_FINE6_ADC_I_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000073U), 0x00000204U
+#define BF_FINE7_ADC_I_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000073U), 0x00000206U
 
-#define REG_FINE_Q_SEL_ADDR(inst)                      ((inst) + 0x00000074)
-#define BF_FINE0_ADC_Q_SEL_INFO(inst)                  ((inst) + 0x00000074), 0x00000200
-#define BF_FINE1_ADC_Q_SEL_INFO(inst)                  ((inst) + 0x00000074), 0x00000202
-#define BF_FINE2_ADC_Q_SEL_INFO(inst)                  ((inst) + 0x00000074), 0x00000204
-#define BF_FINE3_ADC_Q_SEL_INFO(inst)                  ((inst) + 0x00000074), 0x00000206
+#define REG_FINE_Q_SEL_ADDR(inst)                      ((uint32_t)(inst) + 0x00000074U)
+#define BF_FINE0_ADC_Q_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000074U), 0x00000200U
+#define BF_FINE1_ADC_Q_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000074U), 0x00000202U
+#define BF_FINE2_ADC_Q_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000074U), 0x00000204U
+#define BF_FINE3_ADC_Q_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000074U), 0x00000206U
 
-#define REG_FINE_Q_SEL_8T8R_ADDR(inst)                 ((inst) + 0x00000075)
-#define BF_FINE4_ADC_Q_SEL_INFO(inst)                  ((inst) + 0x00000075), 0x00000200
-#define BF_FINE5_ADC_Q_SEL_INFO(inst)                  ((inst) + 0x00000075), 0x00000202
-#define BF_FINE6_ADC_Q_SEL_INFO(inst)                  ((inst) + 0x00000075), 0x00000204
-#define BF_FINE7_ADC_Q_SEL_INFO(inst)                  ((inst) + 0x00000075), 0x00000206
+#define REG_FINE_Q_SEL_8T8R_ADDR(inst)                 ((uint32_t)(inst) + 0x00000075U)
+#define BF_FINE4_ADC_Q_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000075U), 0x00000200U
+#define BF_FINE5_ADC_Q_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000075U), 0x00000202U
+#define BF_FINE6_ADC_Q_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000075U), 0x00000204U
+#define BF_FINE7_ADC_Q_SEL_INFO(inst)                  ((uint32_t)(inst) + 0x00000075U), 0x00000206U
 
-#define REG_TMODE_CTRL0_LINK0_ADDR(inst)               ((inst) + 0x00000076)
-#define BF_TMODE_TYPE_SEL_INFO(inst)                   ((inst) + 0x00000076), 0x00000400
+#define REG_TMODE_CTRL0_LINK0_ADDR(inst)               ((uint32_t)(inst) + 0x00000076U)
+#define BF_TMODE_TYPE_SEL_INFO(inst)                   ((uint32_t)(inst) + 0x00000076U), 0x00000400U
 
-#define REG_TMODE_CTRL1_LINK0_ADDR(inst)               ((inst) + 0x00000078)
-#define BF_TMODE_USR_PAT_SEL_INFO(inst)                ((inst) + 0x00000078), 0x00000100
-#define BF_TMODE_FLUSH_INFO(inst)                      ((inst) + 0x00000078), 0x00000101
-#define BF_TMODE_PN_FORCE_RST_INFO(inst)               ((inst) + 0x00000078), 0x00000102
+#define REG_TMODE_CTRL1_LINK0_ADDR(inst)               ((uint32_t)(inst) + 0x00000078U)
+#define BF_TMODE_USR_PAT_SEL_INFO(inst)                ((uint32_t)(inst) + 0x00000078U), 0x00000100U
+#define BF_TMODE_FLUSH_INFO(inst)                      ((uint32_t)(inst) + 0x00000078U), 0x00000101U
+#define BF_TMODE_PN_FORCE_RST_INFO(inst)               ((uint32_t)(inst) + 0x00000078U), 0x00000102U
 
-#define REG_TMODE_CTRL2_LINK0_ADDR(inst)               ((inst) + 0x0000007A)
-#define BF_TMODE_RES_INFO(inst)                        ((inst) + 0x0000007A), 0x00000400
+#define REG_TMODE_CTRL2_LINK0_ADDR(inst)               ((uint32_t)(inst) + 0x0000007AU)
+#define BF_TMODE_RES_INFO(inst)                        ((uint32_t)(inst) + 0x0000007AU), 0x00000400U
 
-#define REG_TMODE_CTRL0_LINK1_ADDR(inst)               ((inst) + 0x0000007B)
-#define BF_TMODE_TYPE_SEL_LINK1_INFO(inst)             ((inst) + 0x0000007B), 0x00000400
+#define REG_TMODE_CTRL0_LINK1_ADDR(inst)               ((uint32_t)(inst) + 0x0000007BU)
+#define BF_TMODE_TYPE_SEL_LINK1_INFO(inst)             ((uint32_t)(inst) + 0x0000007BU), 0x00000400U
 
-#define REG_TMODE_CTRL1_LINK1_ADDR(inst)               ((inst) + 0x0000007C)
-#define BF_TMODE_USR_PAT_SEL_LINK1_INFO(inst)          ((inst) + 0x0000007C), 0x00000100
-#define BF_TMODE_FLUSH_LINK1_INFO(inst)                ((inst) + 0x0000007C), 0x00000101
-#define BF_TMODE_PN_FORCE_RST_LINK1_INFO(inst)         ((inst) + 0x0000007C), 0x00000102
+#define REG_TMODE_CTRL1_LINK1_ADDR(inst)               ((uint32_t)(inst) + 0x0000007CU)
+#define BF_TMODE_USR_PAT_SEL_LINK1_INFO(inst)          ((uint32_t)(inst) + 0x0000007CU), 0x00000100U
+#define BF_TMODE_FLUSH_LINK1_INFO(inst)                ((uint32_t)(inst) + 0x0000007CU), 0x00000101U
+#define BF_TMODE_PN_FORCE_RST_LINK1_INFO(inst)         ((uint32_t)(inst) + 0x0000007CU), 0x00000102U
 
-#define REG_TMODE_CTRL2_LINK1_ADDR(inst)               ((inst) + 0x0000007D)
-#define BF_TMODE_RES_LINK1_INFO(inst)                  ((inst) + 0x0000007D), 0x00000400
+#define REG_TMODE_CTRL2_LINK1_ADDR(inst)               ((uint32_t)(inst) + 0x0000007DU)
+#define BF_TMODE_RES_LINK1_INFO(inst)                  ((uint32_t)(inst) + 0x0000007DU), 0x00000400U
 
-#define REG_DFORMAT_NEG_FULL_SCALE_CLR0_ADDR(inst)     ((inst) + 0x0000007E)
-#define BF_DFORMAT_NEG_FULL_SCALE_CLR_0_INFO(inst)     ((inst) + 0x0000007E), 0x00000800
+#define REG_DFORMAT_NEG_FULL_SCALE_CLR0_ADDR(inst)     ((uint32_t)(inst) + 0x0000007EU)
+#define BF_DFORMAT_NEG_FULL_SCALE_CLR_0_INFO(inst)     ((uint32_t)(inst) + 0x0000007EU), 0x00000800U
 
-#define REG_DFORMAT_NEG_FULL_SCALE_CLR1_ADDR(inst)     ((inst) + 0x0000007F)
-#define BF_DFORMAT_NEG_FULL_SCALE_CLR_1_INFO(inst)     ((inst) + 0x0000007F), 0x00000800
+#define REG_DFORMAT_NEG_FULL_SCALE_CLR1_ADDR(inst)     ((uint32_t)(inst) + 0x0000007FU)
+#define BF_DFORMAT_NEG_FULL_SCALE_CLR_1_INFO(inst)     ((uint32_t)(inst) + 0x0000007FU), 0x00000800U
 
-#define REG_DFORMAT_NEG_FULL_SCALE_STATUS0_ADDR(inst)  ((inst) + 0x00000080)
-#define BF_DFORMAT_NEG_FULL_SCALE_STATUS_0_INFO(inst)  ((inst) + 0x00000080), 0x00000800
+#define REG_DFORMAT_NEG_FULL_SCALE_STATUS0_ADDR(inst)  ((uint32_t)(inst) + 0x00000080U)
+#define BF_DFORMAT_NEG_FULL_SCALE_STATUS_0_INFO(inst)  ((uint32_t)(inst) + 0x00000080U), 0x00000800U
 
-#define REG_DFORMAT_NEG_FULL_SCALE_STATUS1_ADDR(inst)  ((inst) + 0x00000081)
-#define BF_DFORMAT_NEG_FULL_SCALE_STATUS_1_INFO(inst)  ((inst) + 0x00000081), 0x00000800
+#define REG_DFORMAT_NEG_FULL_SCALE_STATUS1_ADDR(inst)  ((uint32_t)(inst) + 0x00000081U)
+#define BF_DFORMAT_NEG_FULL_SCALE_STATUS_1_INFO(inst)  ((uint32_t)(inst) + 0x00000081U), 0x00000800U
 
-#define REG_SAMPLE_REPEAT_EN_ADDR(inst)                ((inst) + 0x00000082)
-#define BF_SAMPLE_REPEAT_EN_0_INFO(inst)               ((inst) + 0x00000082), 0x00000100
-#define BF_SAMPLE_REPEAT_EN_1_INFO(inst)               ((inst) + 0x00000082), 0x00000101
+#define REG_SAMPLE_REPEAT_EN_ADDR(inst)                ((uint32_t)(inst) + 0x00000082U)
+#define BF_SAMPLE_REPEAT_EN_0_INFO(inst)               ((uint32_t)(inst) + 0x00000082U), 0x00000100U
+#define BF_SAMPLE_REPEAT_EN_1_INFO(inst)               ((uint32_t)(inst) + 0x00000082U), 0x00000101U
 
-#define REG_STARTUP_FORCE_INVALID_EN_ADDR(inst, n)     ((inst) + 0x00000083 + 1 * (n))
-#define BF_STARTUP_FRCE_INVALID_EN_INFO(inst, n)       ((inst) + 0x00000083 + 1 * (n)), 0x00000100
+#define REG_STARTUP_FORCE_INVALID_EN_ADDR(inst, n)     ((uint32_t)(inst) + 0x00000083U + 1U * (uint32_t)(n))
+#define BF_STARTUP_FRCE_INVALID_EN_INFO(inst, n)       ((uint32_t)(inst) + 0x00000083U + 1U * (uint32_t)(n)), 0x00000100U
 
-#define REG_FORCE_INVALID_EN_ADDR(inst, n)             ((inst) + 0x00000085 + 1 * (n))
-#define BF_FORCE_INVALID_EN_INFO(inst, n)              ((inst) + 0x00000085 + 1 * (n)), 0x00000100
+#define REG_FORCE_INVALID_EN_ADDR(inst, n)             ((uint32_t)(inst) + 0x00000085U + 1U * (uint32_t)(n))
+#define BF_FORCE_INVALID_EN_INFO(inst, n)              ((uint32_t)(inst) + 0x00000085U + 1U * (uint32_t)(n)), 0x00000100U
 
-#define REG_DFORMAT_OVR_CLR_8T8R_0_ADDR(inst)          ((inst) + 0x00000087)
-#define BF_DFORMAT_OVR_CLR_8T8R_0_INFO(inst)           ((inst) + 0x00000087), 0x00000800
+#define REG_DFORMAT_OVR_CLR_8T8R_0_ADDR(inst)          ((uint32_t)(inst) + 0x00000087U)
+#define BF_DFORMAT_OVR_CLR_8T8R_0_INFO(inst)           ((uint32_t)(inst) + 0x00000087U), 0x00000800U
 
-#define REG_DFORMAT_OVR_CLR_8T8R_1_ADDR(inst)          ((inst) + 0x00000088)
-#define BF_DFORMAT_OVR_CLR_8T8R_1_INFO(inst)           ((inst) + 0x00000088), 0x00000800
+#define REG_DFORMAT_OVR_CLR_8T8R_1_ADDR(inst)          ((uint32_t)(inst) + 0x00000088U)
+#define BF_DFORMAT_OVR_CLR_8T8R_1_INFO(inst)           ((uint32_t)(inst) + 0x00000088U), 0x00000800U
 
-#define REG_DFORMAT_OVR_STATUS_8T8R_0_ADDR(inst)       ((inst) + 0x00000089)
-#define BF_DFORMAT_OVR_STATUS_8T8R_0_INFO(inst)        ((inst) + 0x00000089), 0x00000800
+#define REG_DFORMAT_OVR_STATUS_8T8R_0_ADDR(inst)       ((uint32_t)(inst) + 0x00000089U)
+#define BF_DFORMAT_OVR_STATUS_8T8R_0_INFO(inst)        ((uint32_t)(inst) + 0x00000089U), 0x00000800U
 
-#define REG_DFORMAT_OVR_STATUS_8T8R_1_ADDR(inst)       ((inst) + 0x0000008A)
-#define BF_DFORMAT_OVR_STATUS_8T8R_1_INFO(inst)        ((inst) + 0x0000008A), 0x00000800
+#define REG_DFORMAT_OVR_STATUS_8T8R_1_ADDR(inst)       ((uint32_t)(inst) + 0x0000008AU)
+#define BF_DFORMAT_OVR_STATUS_8T8R_1_INFO(inst)        ((uint32_t)(inst) + 0x0000008AU), 0x00000800U
 
-#endif /* __ADI_APOLLO_BF_JTX_DFORMAT_H__ */
+#endif /* ADI_APOLLO_BF_JTX_DFORMAT_H__ */
 /*! @} */

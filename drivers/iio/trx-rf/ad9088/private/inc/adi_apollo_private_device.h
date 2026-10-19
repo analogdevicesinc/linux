@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_PRIVATE_DEVICE
  * @{
  */
-#ifndef __ADI_APOLLO_PRIVATE_DEVICE_H__
-#define __ADI_APOLLO_PRIVATE_DEVICE_H__
+#ifndef ADI_APOLLO_PRIVATE_DEVICE_H__
+#define ADI_APOLLO_PRIVATE_DEVICE_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_common.h"
@@ -63,5 +63,5 @@ uint8_t adi_apollo_private_device_lockout_get(adi_apollo_device_t *device, adi_a
 }
 #endif
 
-#endif /* __ADI_APOLLO_PRIVATE_DEVICE_H__ */
+#endif /* ADI_APOLLO_PRIVATE_DEVICE_H__ */
 /*! @} */

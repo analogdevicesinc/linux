@@ -12,124 +12,124 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_JRX_CORE_H__
-#define __ADI_APOLLO_BF_JRX_CORE_H__
+#ifndef ADI_APOLLO_BF_JRX_CORE_H__
+#define ADI_APOLLO_BF_JRX_CORE_H__
 
 /*============= D E F I N E S ==============*/
-#define JRX_CORE_JRX_TX_DIGITAL0                            0x61604000
-#define JRX_CORE_JRX_TX_DIGITAL1                            0x61E04000
+#define JRX_CORE_JRX_TX_DIGITAL0                            0x61604000U
+#define JRX_CORE_JRX_TX_DIGITAL1                            0x61E04000U
 
-#define REG_JRX_CORE_CONFIG_ADDR(inst)                      ((inst) + 0x00000000)
-#define BF_JRX_LINK_TYPE_INFO(inst)                         ((inst) + 0x00000000), 0x00000200
-
-#ifdef USE_PRIVATE_BF
-#define REG_JRX_CORE_CONFIG0_ADDR(inst, n)                  ((inst) + 0x00000001 + 1 * (n))
-#define BF_JRX_CORE_CHKSUM_DISABLE_INFO(inst, n)            ((inst) + 0x00000001 + 1 * (n)), 0x00000100
-#define BF_JRX_CORE_CHKSUM_LSB_ALG_INFO(inst, n)            ((inst) + 0x00000001 + 1 * (n)), 0x00000101
-#define BF_JRX_CORE_CLEAR_SYNC_NE_COUNT_INFO(inst, n)       ((inst) + 0x00000001 + 1 * (n)), 0x00000102
-#define BF_JRX_CORE_PCLK_ERROR_CLEAR_INFO(inst, n)          ((inst) + 0x00000001 + 1 * (n)), 0x00000103
-#define BF_JRX_CORE_SYSREF_FOR_RELINK_INFO(inst, n)         ((inst) + 0x00000001 + 1 * (n)), 0x00000104
-#define BF_JRX_CORE_SYSREF_FOR_STARTUP_INFO(inst, n)        ((inst) + 0x00000001 + 1 * (n)), 0x00000105
-#endif /* USE_PRIVATE_BF */
+#define REG_JRX_CORE_CONFIG_ADDR(inst)                      ((uint32_t)(inst) + 0x00000000U)
+#define BF_JRX_LINK_TYPE_INFO(inst)                         ((uint32_t)(inst) + 0x00000000U), 0x00000200U
 
 #ifdef USE_PRIVATE_BF
-#define REG_JRX_CORE_SAMPLE_XBAR_A_ADDR(inst, n)            ((inst) + 0x00000010 + 1 * (n))
-#define BF_JRX_CORE_CONV_SEL_LINK0_INFO(inst, n)            ((inst) + 0x00000010 + 1 * (n)), 0x00000700
-#define BF_JRX_CORE_CONV_DISABLE_LINK0_INFO(inst, n)        ((inst) + 0x00000010 + 1 * (n)), 0x00000107
+#define REG_JRX_CORE_CONFIG0_ADDR(inst, n)                  ((uint32_t)(inst) + 0x00000001U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_CHKSUM_DISABLE_INFO(inst, n)            ((uint32_t)(inst) + 0x00000001U + 1U * (uint32_t)(n)), 0x00000100U
+#define BF_JRX_CORE_CHKSUM_LSB_ALG_INFO(inst, n)            ((uint32_t)(inst) + 0x00000001U + 1U * (uint32_t)(n)), 0x00000101U
+#define BF_JRX_CORE_CLEAR_SYNC_NE_COUNT_INFO(inst, n)       ((uint32_t)(inst) + 0x00000001U + 1U * (uint32_t)(n)), 0x00000102U
+#define BF_JRX_CORE_PCLK_ERROR_CLEAR_INFO(inst, n)          ((uint32_t)(inst) + 0x00000001U + 1U * (uint32_t)(n)), 0x00000103U
+#define BF_JRX_CORE_SYSREF_FOR_RELINK_INFO(inst, n)         ((uint32_t)(inst) + 0x00000001U + 1U * (uint32_t)(n)), 0x00000104U
+#define BF_JRX_CORE_SYSREF_FOR_STARTUP_INFO(inst, n)        ((uint32_t)(inst) + 0x00000001U + 1U * (uint32_t)(n)), 0x00000105U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_JRX_CORE_SAMPLE_XBAR_B_ADDR(inst, n)            ((inst) + 0x00000090 + 1 * (n))
-#define BF_JRX_CORE_CONV_SEL_LINK1_INFO(inst, n)            ((inst) + 0x00000090 + 1 * (n)), 0x00000700
-#define BF_JRX_CORE_CONV_DISABLE_LINK1_INFO(inst, n)        ((inst) + 0x00000090 + 1 * (n)), 0x00000107
+#define REG_JRX_CORE_SAMPLE_XBAR_A_ADDR(inst, n)            ((uint32_t)(inst) + 0x00000010U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_CONV_SEL_LINK0_INFO(inst, n)            ((uint32_t)(inst) + 0x00000010U + 1U * (uint32_t)(n)), 0x00000700U
+#define BF_JRX_CORE_CONV_DISABLE_LINK0_INFO(inst, n)        ((uint32_t)(inst) + 0x00000010U + 1U * (uint32_t)(n)), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_JRX_CORE_SYNC_N_SEL_ADDR(inst, n)               ((inst) + 0x00000110 + 1 * (n))
-#define BF_JRX_CORE_SYNC_N_SEL_INFO(inst, n)                ((inst) + 0x00000110 + 1 * (n)), 0x00000800
+#define REG_JRX_CORE_SAMPLE_XBAR_B_ADDR(inst, n)            ((uint32_t)(inst) + 0x00000090U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_CONV_SEL_LINK1_INFO(inst, n)            ((uint32_t)(inst) + 0x00000090U + 1U * (uint32_t)(n)), 0x00000700U
+#define BF_JRX_CORE_CONV_DISABLE_LINK1_INFO(inst, n)        ((uint32_t)(inst) + 0x00000090U + 1U * (uint32_t)(n)), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_JRX_CORE_SYNC_NE_COUNT_ADDR(inst, n)            ((inst) + 0x00000112 + 1 * (n))
-#define BF_JRX_CORE_SYNC_NE_COUNT_INFO(inst, n)             ((inst) + 0x00000112 + 1 * (n)), 0x00000800
+#define REG_JRX_CORE_SYNC_N_SEL_ADDR(inst, n)               ((uint32_t)(inst) + 0x00000110U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_SYNC_N_SEL_INFO(inst, n)                ((uint32_t)(inst) + 0x00000110U + 1U * (uint32_t)(n)), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_JRX_CORE_BUF_DEPTH_ADDR(inst, n)                ((inst) + 0x00000114 + 1 * (n))
-#define BF_JRX_CORE_BUF_DEPTH_INFO(inst, n)                 ((inst) + 0x00000114 + 1 * (n)), 0x00000800
-#endif /* USE_PRIVATE_BF */
-
-#define REG_JRX_CORE_PHASE_ADJUST0_ADDR(inst, n)            ((inst) + 0x00000116 + 1 * (n))
-#define BF_JRX_CORE_PHASE_ADJUST_INFO(inst, n)              ((inst) + 0x00000116 + 1 * (n)), 0x00001000
-
-#define REG_JRX_CORE_PHASE_ADJUST1_ADDR(inst, n)            ((inst) + 0x00000118 + 1 * (n))
-
-#define REG_JRX_CORE_LANE_PHASE_DIFF_0_ADDR(inst, n)        ((inst) + 0x0000011B + 1 * (n))
-#define BF_JRX_CORE_PHASE_DIFF_INFO(inst, n)                ((inst) + 0x0000011B + 1 * (n)), 0x00001000
-
-#define REG_JRX_CORE_LANE_PHASE_DIFF_1_ADDR(inst, n)        ((inst) + 0x0000013C + 1 * (n))
-
-#define REG_JRX_TPL_CONFIG0_ADDR(inst, n)                   ((inst) + 0x0000015C + 1 * (n))
-#ifdef USE_PRIVATE_BF
-#define BF_JRX_CORE_CFG_INVALID_INFO(inst, n)               ((inst) + 0x0000015C + 1 * (n)), 0x00000100
-#endif /* USE_PRIVATE_BF */
-#define BF_JRX_CORE_USR_DATA_RDY_INFO(inst, n)              ((inst) + 0x0000015C + 1 * (n)), 0x00000101
-#define BF_JRX_CORE_SYSREF_RCVD_INFO(inst, n)               ((inst) + 0x0000015C + 1 * (n)), 0x00000102
-#ifdef USE_PRIVATE_BF
-#define BF_JRX_CORE_SYSREF_N_SHOT_ENABLE_INFO(inst, n)      ((inst) + 0x0000015C + 1 * (n)), 0x00000103
-#endif /* USE_PRIVATE_BF */
-#ifdef USE_PRIVATE_BF
-#define BF_JRX_CORE_SYSREF_N_SHOT_COUNT_INFO(inst, n)       ((inst) + 0x0000015C + 1 * (n)), 0x00000404
-#endif /* USE_PRIVATE_BF */
-
-#define REG_JRX_TPL_CONFIG1_ADDR(inst, n)                   ((inst) + 0x0000015E + 1 * (n))
-#ifdef USE_PRIVATE_BF
-#define BF_JRX_CORE_SYSREF_PHASE_ERR_INFO(inst, n)          ((inst) + 0x0000015E + 1 * (n)), 0x00000100
-#endif /* USE_PRIVATE_BF */
-#ifdef USE_PRIVATE_BF
-#define BF_JRX_CORE_SYSREF_CLR_PHASE_ERR_INFO(inst, n)      ((inst) + 0x0000015E + 1 * (n)), 0x00000101
-#endif /* USE_PRIVATE_BF */
-#ifdef USE_PRIVATE_BF
-#define BF_JRX_CORE_SYSREF_IGNORE_WHEN_LINKED_INFO(inst, n) ((inst) + 0x0000015E + 1 * (n)), 0x00000102
-#endif /* USE_PRIVATE_BF */
-#ifdef USE_PRIVATE_BF
-#define BF_JRX_CORE_SYSREF_ENABLE_INFO(inst, n)             ((inst) + 0x0000015E + 1 * (n)), 0x00000103
-#endif /* USE_PRIVATE_BF */
-#ifdef USE_PRIVATE_BF
-#define BF_JRX_CORE_SYNC_FORMAT_EN_INFO(inst, n)            ((inst) + 0x0000015E + 1 * (n)), 0x00000104
-#endif /* USE_PRIVATE_BF */
-#ifdef USE_PRIVATE_BF
-#define BF_JRX_CORE_BUF_ERROR_INFO(inst, n)                 ((inst) + 0x0000015E + 1 * (n)), 0x00000106
-#endif /* USE_PRIVATE_BF */
-#define BF_JRX_TPL_BUF_ERROR_INFO(inst, n)                  ((inst) + 0x0000015E + 1 * (n)), 0x00000107
-
-#ifdef USE_PRIVATE_BF
-#define REG_JRX_TPL_LANE_BUF_DEPTH_A_ADDR(inst, n)          ((inst) + 0x00000160 + 1 * (n))
-#define BF_JRX_TPL_BUF_DEPTH_LINK0_INFO(inst, n)            ((inst) + 0x00000160 + 1 * (n)), 0x00000800
+#define REG_JRX_CORE_SYNC_NE_COUNT_ADDR(inst, n)            ((uint32_t)(inst) + 0x00000112U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_SYNC_NE_COUNT_INFO(inst, n)             ((uint32_t)(inst) + 0x00000112U + 1U * (uint32_t)(n)), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_JRX_TPL_LANE_BUF_DEPTH_B_ADDR(inst, n)          ((inst) + 0x00000170 + 1 * (n))
-#define BF_JRX_TPL_BUF_DEPTH_LINK1_INFO(inst, n)            ((inst) + 0x00000170 + 1 * (n)), 0x00000800
+#define REG_JRX_CORE_BUF_DEPTH_ADDR(inst, n)                ((uint32_t)(inst) + 0x00000114U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_BUF_DEPTH_INFO(inst, n)                 ((uint32_t)(inst) + 0x00000114U + 1U * (uint32_t)(n)), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_JRX_CORE_LANE_XBAR_A_ADDR(inst, n)              ((inst) + 0x00000180 + 1 * (n))
-#define BF_JRX_CORE_LANE_SEL_LINK0_INFO(inst, n)            ((inst) + 0x00000180 + 1 * (n)), 0x00000500
+#define REG_JRX_CORE_PHASE_ADJUST0_ADDR(inst, n)            ((uint32_t)(inst) + 0x00000116U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_PHASE_ADJUST_INFO(inst, n)              ((uint32_t)(inst) + 0x00000116U + 1U * (uint32_t)(n)), 0x00001000U
+
+#define REG_JRX_CORE_PHASE_ADJUST1_ADDR(inst, n)            ((uint32_t)(inst) + 0x00000118U + 1U * (uint32_t)(n))
+
+#define REG_JRX_CORE_LANE_PHASE_DIFF_0_ADDR(inst, n)        ((uint32_t)(inst) + 0x0000011BU + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_PHASE_DIFF_INFO(inst, n)                ((uint32_t)(inst) + 0x0000011BU + 1U * (uint32_t)(n)), 0x00001000U
+
+#define REG_JRX_CORE_LANE_PHASE_DIFF_1_ADDR(inst, n)        ((uint32_t)(inst) + 0x0000013CU + 1U * (uint32_t)(n))
+
+#define REG_JRX_TPL_CONFIG0_ADDR(inst, n)                   ((uint32_t)(inst) + 0x0000015CU + 1U * (uint32_t)(n))
 #ifdef USE_PRIVATE_BF
-#define BF_JRX_CORE_PCLK_SLOW_ERROR_LINK0_INFO(inst, n)     ((inst) + 0x00000180 + 1 * (n)), 0x00000106
+#define BF_JRX_CORE_CFG_INVALID_INFO(inst, n)               ((uint32_t)(inst) + 0x0000015CU + 1U * (uint32_t)(n)), 0x00000100U
+#endif /* USE_PRIVATE_BF */
+#define BF_JRX_CORE_USR_DATA_RDY_INFO(inst, n)              ((uint32_t)(inst) + 0x0000015CU + 1U * (uint32_t)(n)), 0x00000101U
+#define BF_JRX_CORE_SYSREF_RCVD_INFO(inst, n)               ((uint32_t)(inst) + 0x0000015CU + 1U * (uint32_t)(n)), 0x00000102U
+#ifdef USE_PRIVATE_BF
+#define BF_JRX_CORE_SYSREF_N_SHOT_ENABLE_INFO(inst, n)      ((uint32_t)(inst) + 0x0000015CU + 1U * (uint32_t)(n)), 0x00000103U
 #endif /* USE_PRIVATE_BF */
 #ifdef USE_PRIVATE_BF
-#define BF_JRX_CORE_PCLK_FAST_ERROR_LINK0_INFO(inst, n)     ((inst) + 0x00000180 + 1 * (n)), 0x00000107
+#define BF_JRX_CORE_SYSREF_N_SHOT_COUNT_INFO(inst, n)       ((uint32_t)(inst) + 0x0000015CU + 1U * (uint32_t)(n)), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_JRX_CORE_LANE_XBAR_B_ADDR(inst, n)              ((inst) + 0x00000190 + 1 * (n))
-#define BF_JRX_CORE_LANE_SEL_LINK1_INFO(inst, n)            ((inst) + 0x00000190 + 1 * (n)), 0x00000500
+#define REG_JRX_TPL_CONFIG1_ADDR(inst, n)                   ((uint32_t)(inst) + 0x0000015EU + 1U * (uint32_t)(n))
 #ifdef USE_PRIVATE_BF
-#define BF_JRX_CORE_PCLK_SLOW_ERROR_LINK1_INFO(inst, n)     ((inst) + 0x00000190 + 1 * (n)), 0x00000106
+#define BF_JRX_CORE_SYSREF_PHASE_ERR_INFO(inst, n)          ((uint32_t)(inst) + 0x0000015EU + 1U * (uint32_t)(n)), 0x00000100U
 #endif /* USE_PRIVATE_BF */
 #ifdef USE_PRIVATE_BF
-#define BF_JRX_CORE_PCLK_FAST_ERROR_LINK1_INFO(inst, n)     ((inst) + 0x00000190 + 1 * (n)), 0x00000107
+#define BF_JRX_CORE_SYSREF_CLR_PHASE_ERR_INFO(inst, n)      ((uint32_t)(inst) + 0x0000015EU + 1U * (uint32_t)(n)), 0x00000101U
+#endif /* USE_PRIVATE_BF */
+#ifdef USE_PRIVATE_BF
+#define BF_JRX_CORE_SYSREF_IGNORE_WHEN_LINKED_INFO(inst, n) ((uint32_t)(inst) + 0x0000015EU + 1U * (uint32_t)(n)), 0x00000102U
+#endif /* USE_PRIVATE_BF */
+#ifdef USE_PRIVATE_BF
+#define BF_JRX_CORE_SYSREF_ENABLE_INFO(inst, n)             ((uint32_t)(inst) + 0x0000015EU + 1U * (uint32_t)(n)), 0x00000103U
+#endif /* USE_PRIVATE_BF */
+#ifdef USE_PRIVATE_BF
+#define BF_JRX_CORE_SYNC_FORMAT_EN_INFO(inst, n)            ((uint32_t)(inst) + 0x0000015EU + 1U * (uint32_t)(n)), 0x00000104U
+#endif /* USE_PRIVATE_BF */
+#ifdef USE_PRIVATE_BF
+#define BF_JRX_CORE_BUF_ERROR_INFO(inst, n)                 ((uint32_t)(inst) + 0x0000015EU + 1U * (uint32_t)(n)), 0x00000106U
+#endif /* USE_PRIVATE_BF */
+#define BF_JRX_TPL_BUF_ERROR_INFO(inst, n)                  ((uint32_t)(inst) + 0x0000015EU + 1U * (uint32_t)(n)), 0x00000107U
+
+#ifdef USE_PRIVATE_BF
+#define REG_JRX_TPL_LANE_BUF_DEPTH_A_ADDR(inst, n)          ((uint32_t)(inst) + 0x00000160U + 1U * (uint32_t)(n))
+#define BF_JRX_TPL_BUF_DEPTH_LINK0_INFO(inst, n)            ((uint32_t)(inst) + 0x00000160U + 1U * (uint32_t)(n)), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
-#endif /* __ADI_APOLLO_BF_JRX_CORE_H__ */
+#ifdef USE_PRIVATE_BF
+#define REG_JRX_TPL_LANE_BUF_DEPTH_B_ADDR(inst, n)          ((uint32_t)(inst) + 0x00000170U + 1U * (uint32_t)(n))
+#define BF_JRX_TPL_BUF_DEPTH_LINK1_INFO(inst, n)            ((uint32_t)(inst) + 0x00000170U + 1U * (uint32_t)(n)), 0x00000800U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_JRX_CORE_LANE_XBAR_A_ADDR(inst, n)              ((uint32_t)(inst) + 0x00000180U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_LANE_SEL_LINK0_INFO(inst, n)            ((uint32_t)(inst) + 0x00000180U + 1U * (uint32_t)(n)), 0x00000500U
+#ifdef USE_PRIVATE_BF
+#define BF_JRX_CORE_PCLK_SLOW_ERROR_LINK0_INFO(inst, n)     ((uint32_t)(inst) + 0x00000180U + 1U * (uint32_t)(n)), 0x00000106U
+#endif /* USE_PRIVATE_BF */
+#ifdef USE_PRIVATE_BF
+#define BF_JRX_CORE_PCLK_FAST_ERROR_LINK0_INFO(inst, n)     ((uint32_t)(inst) + 0x00000180U + 1U * (uint32_t)(n)), 0x00000107U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_JRX_CORE_LANE_XBAR_B_ADDR(inst, n)              ((uint32_t)(inst) + 0x00000190U + 1U * (uint32_t)(n))
+#define BF_JRX_CORE_LANE_SEL_LINK1_INFO(inst, n)            ((uint32_t)(inst) + 0x00000190U + 1U * (uint32_t)(n)), 0x00000500U
+#ifdef USE_PRIVATE_BF
+#define BF_JRX_CORE_PCLK_SLOW_ERROR_LINK1_INFO(inst, n)     ((uint32_t)(inst) + 0x00000190U + 1U * (uint32_t)(n)), 0x00000106U
+#endif /* USE_PRIVATE_BF */
+#ifdef USE_PRIVATE_BF
+#define BF_JRX_CORE_PCLK_FAST_ERROR_LINK1_INFO(inst, n)     ((uint32_t)(inst) + 0x00000190U + 1U * (uint32_t)(n)), 0x00000107U
+#endif /* USE_PRIVATE_BF */
+
+#endif /* ADI_APOLLO_BF_JRX_CORE_H__ */
 /*! @} */

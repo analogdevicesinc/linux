@@ -12,2350 +12,2350 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_CORE_H__
-#define __ADI_APOLLO_BF_CORE_H__
+#ifndef ADI_APOLLO_BF_CORE_H__
+#define ADI_APOLLO_BF_CORE_H__
 
 /*============= D E F I N E S ==============*/
 #ifdef USE_PRIVATE_BF
-#define REG_SPI_IFACE_CONFIG_A_ADDR                           0x47000000
-#define BF_SOFT_RESET_0_INFO                                  0x47000000, 0x00000100
-#define BF_LSB_FIRST_1_INFO                                   0x47000000, 0x00000101
-#define BF_ADDR_ASCENSION_2_INFO                              0x47000000, 0x00000102
-#define BF_SDO_ACTIVE_3_INFO                                  0x47000000, 0x00000103
-#define BF_SDO_ACTIVE_4_INFO                                  0x47000000, 0x00000104
-#define BF_ADDR_ASCENSION_5_INFO                              0x47000000, 0x00000105
-#define BF_LSB_FIRST_6_INFO                                   0x47000000, 0x00000106
-#define BF_SOFT_RESET_7_INFO                                  0x47000000, 0x00000107
+#define REG_SPI_IFACE_CONFIG_A_ADDR                           0x47000000U
+#define BF_SOFT_RESET_0_INFO                                  0x47000000U, 0x00000100U
+#define BF_LSB_FIRST_1_INFO                                   0x47000000U, 0x00000101U
+#define BF_ADDR_ASCENSION_2_INFO                              0x47000000U, 0x00000102U
+#define BF_SDO_ACTIVE_3_INFO                                  0x47000000U, 0x00000103U
+#define BF_SDO_ACTIVE_4_INFO                                  0x47000000U, 0x00000104U
+#define BF_ADDR_ASCENSION_5_INFO                              0x47000000U, 0x00000105U
+#define BF_LSB_FIRST_6_INFO                                   0x47000000U, 0x00000106U
+#define BF_SOFT_RESET_7_INFO                                  0x47000000U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_SPI_IFACE_CONFIG_B_ADDR                           0x47000001
-#define BF_SOFT_RESET_001_1_INFO                              0x47000001, 0x00000101
-#define BF_SOFT_RESET_001_2_INFO                              0x47000001, 0x00000102
-#define BF_SLOW_IFACE_CTL_INFO                                0x47000001, 0x00000104
-#define BF_MASTER_SLAVE_READBACK_CTL_INFO                     0x47000001, 0x00000105
-#define BF_CSB_STALL_INFO                                     0x47000001, 0x00000106
-#define BF_SINGLE_INSTRUCTION_INFO                            0x47000001, 0x00000107
+#define REG_SPI_IFACE_CONFIG_B_ADDR                           0x47000001U
+#define BF_SOFT_RESET_001_1_INFO                              0x47000001U, 0x00000101U
+#define BF_SOFT_RESET_001_2_INFO                              0x47000001U, 0x00000102U
+#define BF_SLOW_IFACE_CTL_INFO                                0x47000001U, 0x00000104U
+#define BF_MASTER_SLAVE_READBACK_CTL_INFO                     0x47000001U, 0x00000105U
+#define BF_CSB_STALL_INFO                                     0x47000001U, 0x00000106U
+#define BF_SINGLE_INSTRUCTION_INFO                            0x47000001U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_DEVICE_CONFIG_ADDR                                0x47000002
-#define BF_DEVICE_CONFIG_OP_MODES_INFO                        0x47000002, 0x00000200
-#define BF_DEVICE_CONFIG_CUSTOM_OP_MODES_INFO                 0x47000002, 0x00000202
-#define BF_DEVICE_CONFIG_STATUS_INFO                          0x47000002, 0x00000404
+#define REG_DEVICE_CONFIG_ADDR                                0x47000002U
+#define BF_DEVICE_CONFIG_OP_MODES_INFO                        0x47000002U, 0x00000200U
+#define BF_DEVICE_CONFIG_CUSTOM_OP_MODES_INFO                 0x47000002U, 0x00000202U
+#define BF_DEVICE_CONFIG_STATUS_INFO                          0x47000002U, 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_CHIP_TYPE_ADDR                                    0x47000003
-#define BF_CHIP_TYPE_INFO                                     0x47000003, 0x00000800
+#define REG_CHIP_TYPE_ADDR                                    0x47000003U
+#define BF_CHIP_TYPE_INFO                                     0x47000003U, 0x00000800U
 
-#define REG_PRODUCT_ID_0_ADDR                                 0x47000004
-#define BF_PRODUCT_ID_0_INFO                                  0x47000004, 0x00000800
+#define REG_PRODUCT_ID_0_ADDR                                 0x47000004U
+#define BF_PRODUCT_ID_0_INFO                                  0x47000004U, 0x00000800U
 
-#define REG_PRODUCT_ID_1_ADDR                                 0x47000005
-#define BF_PRODUCT_ID_1_INFO                                  0x47000005, 0x00000800
+#define REG_PRODUCT_ID_1_ADDR                                 0x47000005U
+#define BF_PRODUCT_ID_1_INFO                                  0x47000005U, 0x00000800U
 
-#define REG_CHIP_GRADE_ADDR                                   0x47000006
-#define BF_CHIP_GRADE_LOWER_NIBBLE_INFO                       0x47000006, 0x00000400
-#define BF_CHIP_GRADE_UPPER_NIBBLE_INFO                       0x47000006, 0x00000404
+#define REG_CHIP_GRADE_ADDR                                   0x47000006U
+#define BF_CHIP_GRADE_LOWER_NIBBLE_INFO                       0x47000006U, 0x00000400U
+#define BF_CHIP_GRADE_UPPER_NIBBLE_INFO                       0x47000006U, 0x00000404U
 
 #ifdef USE_PRIVATE_BF
-#define REG_DIE_ID_ADDR                                       0x47000007
-#define BF_MASK_REVISION_MINOR_INFO                           0x47000007, 0x00000400
-#define BF_MASK_REVISION_MAJOR_INFO                           0x47000007, 0x00000404
+#define REG_DIE_ID_ADDR                                       0x47000007U
+#define BF_MASK_REVISION_MINOR_INFO                           0x47000007U, 0x00000400U
+#define BF_MASK_REVISION_MAJOR_INFO                           0x47000007U, 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_OFFSET_POINTER_DEVICE_INDEX_ADDR                  0x47000008
-#define BF_PAGE_POINTER_DEVICE_INDEX_VALUE_0_INFO             0x47000008, 0x00000800
+#define REG_OFFSET_POINTER_DEVICE_INDEX_ADDR                  0x47000008U
+#define BF_PAGE_POINTER_DEVICE_INDEX_VALUE_0_INFO             0x47000008U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_DEVICE_INDEX_ADDR                                 0x47000009
-#define BF_PAGE_POINTER_DEVICE_INDEX_VALUE_1_INFO             0x47000009, 0x00000800
+#define REG_DEVICE_INDEX_ADDR                                 0x47000009U
+#define BF_PAGE_POINTER_DEVICE_INDEX_VALUE_1_INFO             0x47000009U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_SCRATCH_PAD_ADDR                                  0x4700000A
-#define BF_SCRATCH_PAD_WORD_INFO                              0x4700000A, 0x00000800
+#define REG_SCRATCH_PAD_ADDR                                  0x4700000AU
+#define BF_SCRATCH_PAD_WORD_INFO                              0x4700000AU, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_SPI_REVISION_ADDR                                 0x4700000B
-#define BF_SPI_CONTROLLER_DOC_REVISION_INFO                   0x4700000B, 0x00000800
+#define REG_SPI_REVISION_ADDR                                 0x4700000BU
+#define BF_SPI_CONTROLLER_DOC_REVISION_INFO                   0x4700000BU, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_VENDOR_ID_0_ADDR                                  0x4700000C
-#define BF_VENDOR_ID_INFO                                     0x4700000C, 0x00001000
+#define REG_VENDOR_ID_0_ADDR                                  0x4700000CU
+#define BF_VENDOR_ID_INFO                                     0x4700000CU, 0x00001000U
 
-#define REG_VENDOR_ID_1_ADDR                                  0x4700000D
+#define REG_VENDOR_ID_1_ADDR                                  0x4700000DU
 
 #ifdef USE_PRIVATE_BF
-#define REG_LAMINATE_ID_ADDR                                  0x4700000E
-#define BF_LAMINATE_ID_INFO                                   0x4700000E, 0x00000500
+#define REG_LAMINATE_ID_ADDR                                  0x4700000EU
+#define BF_LAMINATE_ID_INFO                                   0x4700000EU, 0x00000500U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TRANSFER_REG_ADDR                                 0x4700000F
-#define BF_MASTER_SLAVE_TRANSFER_BIT_INFO                     0x4700000F, 0x00000100
+#define REG_TRANSFER_REG_ADDR                                 0x4700000FU
+#define BF_MASTER_SLAVE_TRANSFER_BIT_INFO                     0x4700000FU, 0x00000100U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_SPI_FIFO_MODE_REG_ADDR                            0x47000010
-#define BF_SPI_FIFO_MODE_INFO                                 0x47000010, 0x00000300
+#define REG_SPI_FIFO_MODE_REG_ADDR                            0x47000010U
+#define BF_SPI_FIFO_MODE_INFO                                 0x47000010U, 0x00000300U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_FW_REV_RESERVED_ADDR                              0x47000011
-#define BF_FW_REV_INFO                                        0x47000011, 0x00002000
+#define REG_FW_REV_RESERVED_ADDR                              0x47000011U
+#define BF_FW_REV_INFO                                        0x47000011U, 0x00002000U
 
-#define REG_FW_REV_PATCH_ADDR                                 0x47000012
+#define REG_FW_REV_PATCH_ADDR                                 0x47000012U
 
-#define REG_FW_REV_MINOR_ADDR                                 0x47000013
+#define REG_FW_REV_MINOR_ADDR                                 0x47000013U
 
-#define REG_FW_REV_MAJOR_ADDR                                 0x47000014
+#define REG_FW_REV_MAJOR_ADDR                                 0x47000014U
 
 #ifdef USE_PRIVATE_BF
-#define REG_SPI1_ENABLE_ADDR                                  0x47000015
-#define BF_SPI1_EN_INFO                                       0x47000015, 0x00000100
+#define REG_SPI1_ENABLE_ADDR                                  0x47000015U
+#define BF_SPI1_EN_INFO                                       0x47000015U, 0x00000100U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_CLOCK_CONTROL_0_ADDR                              0x47000017
-#define BF_UP_RTCLK_DIV_CORE_INFO                             0x47000017, 0x00000400
-#define BF_UP_RTCLK_DIV_UPDT_CORE_INFO                        0x47000017, 0x00000104
+#define REG_CLOCK_CONTROL_0_ADDR                              0x47000017U
+#define BF_UP_RTCLK_DIV_CORE_INFO                             0x47000017U, 0x00000400U
+#define BF_UP_RTCLK_DIV_UPDT_CORE_INFO                        0x47000017U, 0x00000104U
 #ifdef USE_PRIVATE_BF
-#define BF_ROSC_BACKUP_CLK_SELECT_INFO                        0x47000017, 0x00000105
+#define BF_ROSC_BACKUP_CLK_SELECT_INFO                        0x47000017U, 0x00000105U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_CLOCK_CONTROL_1_ADDR                              0x47000018
-#define BF_ASYNC_CLK_MUX_BYPASS_INFO                          0x47000018, 0x00000100
+#define REG_CLOCK_CONTROL_1_ADDR                              0x47000018U
+#define BF_ASYNC_CLK_MUX_BYPASS_INFO                          0x47000018U, 0x00000100U
 #ifdef USE_PRIVATE_BF
-#define BF_DIG_REF_CLK_DIV_RATIO_INFO                         0x47000018, 0x00000302
+#define BF_DIG_REF_CLK_DIV_RATIO_INFO                         0x47000018U, 0x00000302U
 #endif /* USE_PRIVATE_BF */
-#define BF_ROSC_CLK_DEBUG_DIV_RATIO_INFO                      0x47000018, 0x00000205
+#define BF_ROSC_CLK_DEBUG_DIV_RATIO_INFO                      0x47000018U, 0x00000205U
 
 #ifdef USE_PRIVATE_BF
-#define REG_CLOCK_CONTROL_2_ADDR                              0x47000019
-#define BF_DISABLE_HSDIGCLK_GATING_INFO                       0x47000019, 0x00000105
-#define BF_DIGITAL_CLOCK_POWER_UP_INFO                        0x47000019, 0x00000106
-#define BF_USE_DEVICE_CLK_AS_HSDIGCLK_INFO                    0x47000019, 0x00000107
+#define REG_CLOCK_CONTROL_2_ADDR                              0x47000019U
+#define BF_DISABLE_HSDIGCLK_GATING_INFO                       0x47000019U, 0x00000105U
+#define BF_DIGITAL_CLOCK_POWER_UP_INFO                        0x47000019U, 0x00000106U
+#define BF_USE_DEVICE_CLK_AS_HSDIGCLK_INFO                    0x47000019U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_OTP_CLK_CONTROL_ADDR                              0x4700001B
-#define BF_OTP_CLK_DIV_RATIO_INFO                             0x4700001B, 0x00000600
-#define BF_OTP_CLK_ENABLE_INFO                                0x4700001B, 0x00000106
+#define REG_OTP_CLK_CONTROL_ADDR                              0x4700001BU
+#define BF_OTP_CLK_DIV_RATIO_INFO                             0x4700001BU, 0x00000600U
+#define BF_OTP_CLK_ENABLE_INFO                                0x4700001BU, 0x00000106U
 
 #ifdef USE_PRIVATE_BF
-#define REG_REFERENCE_CLOCK_CYCLES_ADDR                       0x4700001C
-#define BF_REFERENCE_CLOCK_CYCLES_CORE_INFO                   0x4700001C, 0x00000800
+#define REG_REFERENCE_CLOCK_CYCLES_ADDR                       0x4700001CU
+#define BF_REFERENCE_CLOCK_CYCLES_CORE_INFO                   0x4700001CU, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_TRACE_CLK_GEN_DIV_VAL_ADDR                        0x4700001D
-#define BF_TRACE_CLK_GEN_DIV_VAL_INFO                         0x4700001D, 0x00000700
+#define REG_TRACE_CLK_GEN_DIV_VAL_ADDR                        0x4700001DU
+#define BF_TRACE_CLK_GEN_DIV_VAL_INFO                         0x4700001DU, 0x00000700U
 
 #ifdef USE_PRIVATE_BF
-#define REG_AHB_SPI_BRIDGE_ADDR                               0x4700001F
-#define BF_AHB_SPI_BRIDGE_ENABLE_INFO                         0x4700001F, 0x00000100
-#define BF_SPI_ARB_DISABLE_RESP_INFO                          0x4700001F, 0x00000105
+#define REG_AHB_SPI_BRIDGE_ADDR                               0x4700001FU
+#define BF_AHB_SPI_BRIDGE_ENABLE_INFO                         0x4700001FU, 0x00000100U
+#define BF_SPI_ARB_DISABLE_RESP_INFO                          0x4700001FU, 0x00000105U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_CTL_ADDR                                     0x47000021
-#define BF_ARM0_M3_RUN_INFO                                   0x47000021, 0x00000100
-#define BF_ARM0_ERROR_INFO                                    0x47000021, 0x00000101
-#define BF_ARM0_MEM_HRESP_MASK_INFO                           0x47000021, 0x00000103
-#define BF_ARM0_DEBUG_ENABLE_INFO                             0x47000021, 0x00000107
+#define REG_ARM0_CTL_ADDR                                     0x47000021U
+#define BF_ARM0_M3_RUN_INFO                                   0x47000021U, 0x00000100U
+#define BF_ARM0_ERROR_INFO                                    0x47000021U, 0x00000101U
+#define BF_ARM0_MEM_HRESP_MASK_INFO                           0x47000021U, 0x00000103U
+#define BF_ARM0_DEBUG_ENABLE_INFO                             0x47000021U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_RESET_ADDR                                   0x47000022
-#define BF_ARM0_FORCE_RESET_INFO                              0x47000022, 0x00000100
+#define REG_ARM0_RESET_ADDR                                   0x47000022U
+#define BF_ARM0_FORCE_RESET_INFO                              0x47000022U, 0x00000100U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_BOOT_ADDR_BYTE0_ADDR                         0x47000023
-#define BF_ARM0_BOOT_ADDR_INFO                                0x47000023, 0x00002000
+#define REG_ARM0_BOOT_ADDR_BYTE0_ADDR                         0x47000023U
+#define BF_ARM0_BOOT_ADDR_INFO                                0x47000023U, 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_ARM0_BOOT_ADDR_BYTE1_ADDR                         0x47000024
+#define REG_ARM0_BOOT_ADDR_BYTE1_ADDR                         0x47000024U
 
-#define REG_ARM0_BOOT_ADDR_BYTE2_ADDR                         0x47000025
+#define REG_ARM0_BOOT_ADDR_BYTE2_ADDR                         0x47000025U
 
-#define REG_ARM0_BOOT_ADDR_BYTE3_ADDR                         0x47000026
+#define REG_ARM0_BOOT_ADDR_BYTE3_ADDR                         0x47000026U
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_STACK_PTR_BYTE_0_ADDR                        0x47000027
-#define BF_ARM0_STACK_PTR_INFO                                0x47000027, 0x00002000
+#define REG_ARM0_STACK_PTR_BYTE_0_ADDR                        0x47000027U
+#define BF_ARM0_STACK_PTR_INFO                                0x47000027U, 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_ARM0_STACK_PTR_BYTE_1_ADDR                        0x47000028
+#define REG_ARM0_STACK_PTR_BYTE_1_ADDR                        0x47000028U
 
-#define REG_ARM0_STACK_PTR_BYTE_2_ADDR                        0x47000029
+#define REG_ARM0_STACK_PTR_BYTE_2_ADDR                        0x47000029U
 
-#define REG_ARM0_STACK_PTR_BYTE_3_ADDR                        0x4700002A
+#define REG_ARM0_STACK_PTR_BYTE_3_ADDR                        0x4700002AU
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM0_ECC_CONTROL_ADDR                           0x4700003A
-#define BF_L1MEM0_ECC_IRQ_SENSITIVITY_INFO                    0x4700003A, 0x00000101
-#define BF_L1MEM0_ECC_MODE_INFO                               0x4700003A, 0x00000206
+#define REG_L1MEM0_ECC_CONTROL_ADDR                           0x4700003AU
+#define BF_L1MEM0_ECC_IRQ_SENSITIVITY_INFO                    0x4700003AU, 0x00000101U
+#define BF_L1MEM0_ECC_MODE_INFO                               0x4700003AU, 0x00000206U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM0_ECC_DATA_READBACK0_ADDR                    0x4700003B
-#define BF_L1MEM0_ECC_DATA_PARITY_INDEX_INFO                  0x4700003B, 0x00000400
+#define REG_L1MEM0_ECC_DATA_READBACK0_ADDR                    0x4700003BU
+#define BF_L1MEM0_ECC_DATA_PARITY_INDEX_INFO                  0x4700003BU, 0x00000400U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_L1MEM0_ECC_DATA_READBACK1_ADDR                    0x4700003C
+#define REG_L1MEM0_ECC_DATA_READBACK1_ADDR                    0x4700003CU
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM0_ECC_DATA_READBACK2_ADDR                    0x4700003D
-#define BF_L1MEM0_ECC_DATA_PARITY_TAG_INFO                    0x4700003D, 0x00000D00
+#define REG_L1MEM0_ECC_DATA_READBACK2_ADDR                    0x4700003DU
+#define BF_L1MEM0_ECC_DATA_PARITY_TAG_INFO                    0x4700003DU, 0x00000D00U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_L1MEM0_ECC_DATA_READBACK3_ADDR                    0x4700003E
+#define REG_L1MEM0_ECC_DATA_READBACK3_ADDR                    0x4700003EU
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM0_ECC_DATA_READBACK4_ADDR                    0x4700003F
-#define BF_L1MEM0_ECC_DATA_PARITY_OUT_INFO                    0x4700003F, 0x00000700
-#define BF_L1MEM0_ECC_DATA_PARITY_ERROR_INFO                  0x4700003F, 0x00000107
+#define REG_L1MEM0_ECC_DATA_READBACK4_ADDR                    0x4700003FU
+#define BF_L1MEM0_ECC_DATA_PARITY_OUT_INFO                    0x4700003FU, 0x00000700U
+#define BF_L1MEM0_ECC_DATA_PARITY_ERROR_INFO                  0x4700003FU, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM0_ECC_DATA_READBACK5_ADDR                    0x47000040
-#define BF_L1MEM0_ECC_DATA_PARITY_IN_INFO                     0x47000040, 0x00002000
+#define REG_L1MEM0_ECC_DATA_READBACK5_ADDR                    0x47000040U
+#define BF_L1MEM0_ECC_DATA_PARITY_IN_INFO                     0x47000040U, 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_L1MEM0_ECC_DATA_READBACK6_ADDR                    0x47000041
+#define REG_L1MEM0_ECC_DATA_READBACK6_ADDR                    0x47000041U
 
-#define REG_L1MEM0_ECC_DATA_READBACK7_ADDR                    0x47000042
+#define REG_L1MEM0_ECC_DATA_READBACK7_ADDR                    0x47000042U
 
-#define REG_L1MEM0_ECC_DATA_READBACK8_ADDR                    0x47000043
+#define REG_L1MEM0_ECC_DATA_READBACK8_ADDR                    0x47000043U
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM0_ECC_PROG_READBACK0_ADDR                    0x47000044
-#define BF_L1MEM0_ECC_PROG_PARITY_INDEX_INFO                  0x47000044, 0x00000400
+#define REG_L1MEM0_ECC_PROG_READBACK0_ADDR                    0x47000044U
+#define BF_L1MEM0_ECC_PROG_PARITY_INDEX_INFO                  0x47000044U, 0x00000400U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_L1MEM0_ECC_PROG_READBACK1_ADDR                    0x47000045
+#define REG_L1MEM0_ECC_PROG_READBACK1_ADDR                    0x47000045U
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM0_ECC_PROG_READBACK2_ADDR                    0x47000046
-#define BF_L1MEM0_ECC_PROG_PARITY_TAG_INFO                    0x47000046, 0x00000D00
+#define REG_L1MEM0_ECC_PROG_READBACK2_ADDR                    0x47000046U
+#define BF_L1MEM0_ECC_PROG_PARITY_TAG_INFO                    0x47000046U, 0x00000D00U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_L1MEM0_ECC_PROG_READBACK3_ADDR                    0x47000047
+#define REG_L1MEM0_ECC_PROG_READBACK3_ADDR                    0x47000047U
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM0_ECC_PROG_READBACK4_ADDR                    0x47000048
-#define BF_L1MEM0_ECC_PROG_PARITY_OUT_INFO                    0x47000048, 0x00000700
-#define BF_L1MEM0_ECC_PROG_PARITY_ERROR_INFO                  0x47000048, 0x00000107
+#define REG_L1MEM0_ECC_PROG_READBACK4_ADDR                    0x47000048U
+#define BF_L1MEM0_ECC_PROG_PARITY_OUT_INFO                    0x47000048U, 0x00000700U
+#define BF_L1MEM0_ECC_PROG_PARITY_ERROR_INFO                  0x47000048U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM0_ECC_PROG_READBACK5_ADDR                    0x47000049
-#define BF_L1MEM0_ECC_PROG_PARITY_IN_INFO                     0x47000049, 0x00002000
+#define REG_L1MEM0_ECC_PROG_READBACK5_ADDR                    0x47000049U
+#define BF_L1MEM0_ECC_PROG_PARITY_IN_INFO                     0x47000049U, 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_L1MEM0_ECC_PROG_READBACK6_ADDR                    0x4700004A
+#define REG_L1MEM0_ECC_PROG_READBACK6_ADDR                    0x4700004AU
 
-#define REG_L1MEM0_ECC_PROG_READBACK7_ADDR                    0x4700004B
+#define REG_L1MEM0_ECC_PROG_READBACK7_ADDR                    0x4700004BU
 
-#define REG_L1MEM0_ECC_PROG_READBACK8_ADDR                    0x4700004C
+#define REG_L1MEM0_ECC_PROG_READBACK8_ADDR                    0x4700004CU
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM0_SHARED_BANK_DIV_CTRL_ADDR                  0x4700004D
-#define BF_L1MEM0_SHARED_BANK_DIV_INFO                        0x4700004D, 0x00000300
+#define REG_L1MEM0_SHARED_BANK_DIV_CTRL_ADDR                  0x4700004DU
+#define BF_L1MEM0_SHARED_BANK_DIV_INFO                        0x4700004DU, 0x00000300U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_SPIDMA0_CTL_ADDR                                  0x4700004F
-#define BF_SPIDMA0_AHB_BUS_SELECT_INFO                        0x4700004F, 0x00000100
-#define BF_SPIDMA0_AUTO_INCR_INFO                             0x4700004F, 0x00000101
-#define BF_SPIDMA0_BUS_SIZE_INFO                              0x4700004F, 0x00000202
-#define BF_SPIDMA0_BUS_RESPONSE_INFO                          0x4700004F, 0x00000104
-#define BF_SPIDMA0_BUS_WAITING_INFO                           0x4700004F, 0x00000105
-#define BF_SPIDMA0_SYS_CODEB_INFO                             0x4700004F, 0x00000106
-#define BF_SPIDMA0_RD_WRB_INFO                                0x4700004F, 0x00000107
+#define REG_SPIDMA0_CTL_ADDR                                  0x4700004FU
+#define BF_SPIDMA0_AHB_BUS_SELECT_INFO                        0x4700004FU, 0x00000100U
+#define BF_SPIDMA0_AUTO_INCR_INFO                             0x4700004FU, 0x00000101U
+#define BF_SPIDMA0_BUS_SIZE_INFO                              0x4700004FU, 0x00000202U
+#define BF_SPIDMA0_BUS_RESPONSE_INFO                          0x4700004FU, 0x00000104U
+#define BF_SPIDMA0_BUS_WAITING_INFO                           0x4700004FU, 0x00000105U
+#define BF_SPIDMA0_SYS_CODEB_INFO                             0x4700004FU, 0x00000106U
+#define BF_SPIDMA0_RD_WRB_INFO                                0x4700004FU, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_SPIDMA0_ADDR3_ADDR                                0x47000050
+#define REG_SPIDMA0_ADDR3_ADDR                                0x47000050U
 
-#define REG_SPIDMA0_ADDR2_ADDR                                0x47000051
+#define REG_SPIDMA0_ADDR2_ADDR                                0x47000051U
 
-#define REG_SPIDMA0_ADDR1_ADDR                                0x47000052
+#define REG_SPIDMA0_ADDR1_ADDR                                0x47000052U
 
 #ifdef USE_PRIVATE_BF
-#define REG_SPIDMA0_ADDR0_ADDR                                0x47000053
-#define BF_SPIDMA0_BUS_ADDR_INFO                              0x47000053, 0x00002000
+#define REG_SPIDMA0_ADDR0_ADDR                                0x47000053U
+#define BF_SPIDMA0_BUS_ADDR_INFO                              0x47000053U, 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_SPIDMA0_DATA3_ADDR                                0x47000054
+#define REG_SPIDMA0_DATA3_ADDR                                0x47000054U
 
-#define REG_SPIDMA0_DATA2_ADDR                                0x47000055
+#define REG_SPIDMA0_DATA2_ADDR                                0x47000055U
 
-#define REG_SPIDMA0_DATA1_ADDR                                0x47000056
+#define REG_SPIDMA0_DATA1_ADDR                                0x47000056U
 
 #ifdef USE_PRIVATE_BF
-#define REG_SPIDMA0_DATA0_ADDR                                0x47000057
-#define BF_SPIDMA0_MEM_WRITE_DATA_INFO                        0x47000057, 0x00002000
+#define REG_SPIDMA0_DATA0_ADDR                                0x47000057U
+#define BF_SPIDMA0_MEM_WRITE_DATA_INFO                        0x47000057U, 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_SPIDMA1_CTL_ADDR                                  0x47000059
-#define BF_SPIDMA1_AHB_BUS_SELECT_INFO                        0x47000059, 0x00000100
-#define BF_SPIDMA1_AUTO_INCR_INFO                             0x47000059, 0x00000101
-#define BF_SPIDMA1_BUS_SIZE_INFO                              0x47000059, 0x00000202
-#define BF_SPIDMA1_BUS_RESPONSE_INFO                          0x47000059, 0x00000104
-#define BF_SPIDMA1_BUS_WAITING_INFO                           0x47000059, 0x00000105
-#define BF_SPIDMA1_SYS_CODEB_INFO                             0x47000059, 0x00000106
-#define BF_SPIDMA1_RD_WRB_INFO                                0x47000059, 0x00000107
+#define REG_SPIDMA1_CTL_ADDR                                  0x47000059U
+#define BF_SPIDMA1_AHB_BUS_SELECT_INFO                        0x47000059U, 0x00000100U
+#define BF_SPIDMA1_AUTO_INCR_INFO                             0x47000059U, 0x00000101U
+#define BF_SPIDMA1_BUS_SIZE_INFO                              0x47000059U, 0x00000202U
+#define BF_SPIDMA1_BUS_RESPONSE_INFO                          0x47000059U, 0x00000104U
+#define BF_SPIDMA1_BUS_WAITING_INFO                           0x47000059U, 0x00000105U
+#define BF_SPIDMA1_SYS_CODEB_INFO                             0x47000059U, 0x00000106U
+#define BF_SPIDMA1_RD_WRB_INFO                                0x47000059U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_SPIDMA1_ADDR3_ADDR                                0x4700005A
+#define REG_SPIDMA1_ADDR3_ADDR                                0x4700005AU
 
-#define REG_SPIDMA1_ADDR2_ADDR                                0x4700005B
+#define REG_SPIDMA1_ADDR2_ADDR                                0x4700005BU
 
-#define REG_SPIDMA1_ADDR1_ADDR                                0x4700005C
+#define REG_SPIDMA1_ADDR1_ADDR                                0x4700005CU
 
 #ifdef USE_PRIVATE_BF
-#define REG_SPIDMA1_ADDR0_ADDR                                0x4700005D
-#define BF_SPIDMA1_BUS_ADDR_INFO                              0x4700005D, 0x00002000
+#define REG_SPIDMA1_ADDR0_ADDR                                0x4700005DU
+#define BF_SPIDMA1_BUS_ADDR_INFO                              0x4700005DU, 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_SPIDMA1_DATA3_ADDR                                0x4700005E
+#define REG_SPIDMA1_DATA3_ADDR                                0x4700005EU
 
-#define REG_SPIDMA1_DATA2_ADDR                                0x4700005F
+#define REG_SPIDMA1_DATA2_ADDR                                0x4700005FU
 
-#define REG_SPIDMA1_DATA1_ADDR                                0x47000060
+#define REG_SPIDMA1_DATA1_ADDR                                0x47000060U
 
 #ifdef USE_PRIVATE_BF
-#define REG_SPIDMA1_DATA0_ADDR                                0x47000061
-#define BF_SPIDMA1_MEM_WRITE_DATA_INFO                        0x47000061, 0x00002000
+#define REG_SPIDMA1_DATA0_ADDR                                0x47000061U
+#define BF_SPIDMA1_MEM_WRITE_DATA_INFO                        0x47000061U, 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_SPI0_COMMAND_ADDR                            0x47000063
-#define BF_ARM0_SPI0_COMMAND_INFO                             0x47000063, 0x00000600
-#define BF_ARM0_SPI0_COMMAND_BUSY_INFO                        0x47000063, 0x00000107
+#define REG_ARM0_SPI0_COMMAND_ADDR                            0x47000063U
+#define BF_ARM0_SPI0_COMMAND_INFO                             0x47000063U, 0x00000600U
+#define BF_ARM0_SPI0_COMMAND_BUSY_INFO                        0x47000063U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_SPI0_EXT_CMD_BYTE_1_ADDR                     0x47000064
-#define BF_ARM0_SPI0_EXT_CMD_BYTE_1_INFO                      0x47000064, 0x00000800
+#define REG_ARM0_SPI0_EXT_CMD_BYTE_1_ADDR                     0x47000064U
+#define BF_ARM0_SPI0_EXT_CMD_BYTE_1_INFO                      0x47000064U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_SPI0_EXT_CMD_BYTE_2_ADDR                     0x47000065
-#define BF_ARM0_SPI0_EXT_CMD_BYTE_2_INFO                      0x47000065, 0x00000800
+#define REG_ARM0_SPI0_EXT_CMD_BYTE_2_ADDR                     0x47000065U
+#define BF_ARM0_SPI0_EXT_CMD_BYTE_2_INFO                      0x47000065U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_SPI0_EXT_CMD_BYTE_3_ADDR                     0x47000066
-#define BF_ARM0_SPI0_EXT_CMD_BYTE_3_INFO                      0x47000066, 0x00000800
+#define REG_ARM0_SPI0_EXT_CMD_BYTE_3_ADDR                     0x47000066U
+#define BF_ARM0_SPI0_EXT_CMD_BYTE_3_INFO                      0x47000066U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_SPI0_EXT_CMD_BYTE_4_ADDR                     0x47000067
-#define BF_ARM0_SPI0_EXT_CMD_BYTE_4_INFO                      0x47000067, 0x00000800
+#define REG_ARM0_SPI0_EXT_CMD_BYTE_4_ADDR                     0x47000067U
+#define BF_ARM0_SPI0_EXT_CMD_BYTE_4_INFO                      0x47000067U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_SPI0_CMD_STATUS_0_ADDR                       0x4700006B
-#define BF_ARM0_SPI0_CMD_STATUS_DWL_INFO                      0x4700006B, 0x00004000
+#define REG_ARM0_SPI0_CMD_STATUS_0_ADDR                       0x4700006BU
+#define BF_ARM0_SPI0_CMD_STATUS_DWL_INFO                      0x4700006BU, 0x00004000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_ARM0_SPI0_CMD_STATUS_1_ADDR                       0x4700006C
+#define REG_ARM0_SPI0_CMD_STATUS_1_ADDR                       0x4700006CU
 
-#define REG_ARM0_SPI0_CMD_STATUS_2_ADDR                       0x4700006D
+#define REG_ARM0_SPI0_CMD_STATUS_2_ADDR                       0x4700006DU
 
-#define REG_ARM0_SPI0_CMD_STATUS_3_ADDR                       0x4700006E
+#define REG_ARM0_SPI0_CMD_STATUS_3_ADDR                       0x4700006EU
 
-#define REG_ARM0_SPI0_CMD_STATUS_4_ADDR                       0x4700006F
+#define REG_ARM0_SPI0_CMD_STATUS_4_ADDR                       0x4700006FU
 
-#define REG_ARM0_SPI0_CMD_STATUS_5_ADDR                       0x47000070
+#define REG_ARM0_SPI0_CMD_STATUS_5_ADDR                       0x47000070U
 
-#define REG_ARM0_SPI0_CMD_STATUS_6_ADDR                       0x47000071
+#define REG_ARM0_SPI0_CMD_STATUS_6_ADDR                       0x47000071U
 
-#define REG_ARM0_SPI0_CMD_STATUS_7_ADDR                       0x47000072
+#define REG_ARM0_SPI0_CMD_STATUS_7_ADDR                       0x47000072U
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_SPI0_CMD_STATUS_8_ADDR                       0x47000073
-#define BF_ARM0_SPI0_CMD_STATUS_DWH_INFO                      0x47000073, 0x00004000
+#define REG_ARM0_SPI0_CMD_STATUS_8_ADDR                       0x47000073U
+#define BF_ARM0_SPI0_CMD_STATUS_DWH_INFO                      0x47000073U, 0x00004000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_ARM0_SPI0_CMD_STATUS_9_ADDR                       0x47000074
+#define REG_ARM0_SPI0_CMD_STATUS_9_ADDR                       0x47000074U
 
-#define REG_ARM0_SPI0_CMD_STATUS_10_ADDR                      0x47000075
+#define REG_ARM0_SPI0_CMD_STATUS_10_ADDR                      0x47000075U
 
-#define REG_ARM0_SPI0_CMD_STATUS_11_ADDR                      0x47000076
+#define REG_ARM0_SPI0_CMD_STATUS_11_ADDR                      0x47000076U
 
-#define REG_ARM0_SPI0_CMD_STATUS_12_ADDR                      0x47000077
+#define REG_ARM0_SPI0_CMD_STATUS_12_ADDR                      0x47000077U
 
-#define REG_ARM0_SPI0_CMD_STATUS_13_ADDR                      0x47000078
+#define REG_ARM0_SPI0_CMD_STATUS_13_ADDR                      0x47000078U
 
-#define REG_ARM0_SPI0_CMD_STATUS_14_ADDR                      0x47000079
+#define REG_ARM0_SPI0_CMD_STATUS_14_ADDR                      0x47000079U
 
-#define REG_ARM0_SPI0_CMD_STATUS_15_ADDR                      0x4700007A
+#define REG_ARM0_SPI0_CMD_STATUS_15_ADDR                      0x4700007AU
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_SPI1_COMMAND_ADDR                            0x4700007C
-#define BF_ARM0_SPI1_COMMAND_INFO                             0x4700007C, 0x00000600
-#define BF_ARM0_SPI1_COMMAND_BUSY_INFO                        0x4700007C, 0x00000107
+#define REG_ARM0_SPI1_COMMAND_ADDR                            0x4700007CU
+#define BF_ARM0_SPI1_COMMAND_INFO                             0x4700007CU, 0x00000600U
+#define BF_ARM0_SPI1_COMMAND_BUSY_INFO                        0x4700007CU, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_SPI1_EXT_CMD_BYTE_1_ADDR                     0x4700007D
-#define BF_ARM0_SPI1_EXT_CMD_BYTE_1_INFO                      0x4700007D, 0x00000800
+#define REG_ARM0_SPI1_EXT_CMD_BYTE_1_ADDR                     0x4700007DU
+#define BF_ARM0_SPI1_EXT_CMD_BYTE_1_INFO                      0x4700007DU, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_SPI1_EXT_CMD_BYTE_2_ADDR                     0x4700007E
-#define BF_ARM0_SPI1_EXT_CMD_BYTE_2_INFO                      0x4700007E, 0x00000800
+#define REG_ARM0_SPI1_EXT_CMD_BYTE_2_ADDR                     0x4700007EU
+#define BF_ARM0_SPI1_EXT_CMD_BYTE_2_INFO                      0x4700007EU, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_SPI1_EXT_CMD_BYTE_3_ADDR                     0x4700007F
-#define BF_ARM0_SPI1_EXT_CMD_BYTE_3_INFO                      0x4700007F, 0x00000800
+#define REG_ARM0_SPI1_EXT_CMD_BYTE_3_ADDR                     0x4700007FU
+#define BF_ARM0_SPI1_EXT_CMD_BYTE_3_INFO                      0x4700007FU, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_SPI1_EXT_CMD_BYTE_4_ADDR                     0x47000080
-#define BF_ARM0_SPI1_EXT_CMD_BYTE_4_INFO                      0x47000080, 0x00000800
+#define REG_ARM0_SPI1_EXT_CMD_BYTE_4_ADDR                     0x47000080U
+#define BF_ARM0_SPI1_EXT_CMD_BYTE_4_INFO                      0x47000080U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_SPI1_CMD_STATUS_0_ADDR                       0x47000084
-#define BF_ARM0_SPI1_CMD_STATUS_DWL_INFO                      0x47000084, 0x00004000
+#define REG_ARM0_SPI1_CMD_STATUS_0_ADDR                       0x47000084U
+#define BF_ARM0_SPI1_CMD_STATUS_DWL_INFO                      0x47000084U, 0x00004000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_ARM0_SPI1_CMD_STATUS_1_ADDR                       0x47000085
+#define REG_ARM0_SPI1_CMD_STATUS_1_ADDR                       0x47000085U
 
-#define REG_ARM0_SPI1_CMD_STATUS_2_ADDR                       0x47000086
+#define REG_ARM0_SPI1_CMD_STATUS_2_ADDR                       0x47000086U
 
-#define REG_ARM0_SPI1_CMD_STATUS_3_ADDR                       0x47000087
+#define REG_ARM0_SPI1_CMD_STATUS_3_ADDR                       0x47000087U
 
-#define REG_ARM0_SPI1_CMD_STATUS_4_ADDR                       0x47000088
+#define REG_ARM0_SPI1_CMD_STATUS_4_ADDR                       0x47000088U
 
-#define REG_ARM0_SPI1_CMD_STATUS_5_ADDR                       0x47000089
+#define REG_ARM0_SPI1_CMD_STATUS_5_ADDR                       0x47000089U
 
-#define REG_ARM0_SPI1_CMD_STATUS_6_ADDR                       0x4700008A
+#define REG_ARM0_SPI1_CMD_STATUS_6_ADDR                       0x4700008AU
 
-#define REG_ARM0_SPI1_CMD_STATUS_7_ADDR                       0x4700008B
+#define REG_ARM0_SPI1_CMD_STATUS_7_ADDR                       0x4700008BU
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_SPI1_CMD_STATUS_8_ADDR                       0x4700008C
-#define BF_ARM0_SPI1_CMD_STATUS_DWH_INFO                      0x4700008C, 0x00004000
+#define REG_ARM0_SPI1_CMD_STATUS_8_ADDR                       0x4700008CU
+#define BF_ARM0_SPI1_CMD_STATUS_DWH_INFO                      0x4700008CU, 0x00004000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_ARM0_SPI1_CMD_STATUS_9_ADDR                       0x4700008D
+#define REG_ARM0_SPI1_CMD_STATUS_9_ADDR                       0x4700008DU
 
-#define REG_ARM0_SPI1_CMD_STATUS_10_ADDR                      0x4700008E
+#define REG_ARM0_SPI1_CMD_STATUS_10_ADDR                      0x4700008EU
 
-#define REG_ARM0_SPI1_CMD_STATUS_11_ADDR                      0x4700008F
+#define REG_ARM0_SPI1_CMD_STATUS_11_ADDR                      0x4700008FU
 
-#define REG_ARM0_SPI1_CMD_STATUS_12_ADDR                      0x47000090
+#define REG_ARM0_SPI1_CMD_STATUS_12_ADDR                      0x47000090U
 
-#define REG_ARM0_SPI1_CMD_STATUS_13_ADDR                      0x47000091
+#define REG_ARM0_SPI1_CMD_STATUS_13_ADDR                      0x47000091U
 
-#define REG_ARM0_SPI1_CMD_STATUS_14_ADDR                      0x47000092
+#define REG_ARM0_SPI1_CMD_STATUS_14_ADDR                      0x47000092U
 
-#define REG_ARM0_SPI1_CMD_STATUS_15_ADDR                      0x47000093
+#define REG_ARM0_SPI1_CMD_STATUS_15_ADDR                      0x47000093U
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_CONTROL_ADDR                               0x47000095
-#define BF_STREAM_RESET_CORE_INFO                             0x47000095, 0x00000100
-#define BF_STREAM_BANK_SELECT_INFO                            0x47000095, 0x00000305
+#define REG_STREAM_CONTROL_ADDR                               0x47000095U
+#define BF_STREAM_RESET_CORE_INFO                             0x47000095U, 0x00000100U
+#define BF_STREAM_BANK_SELECT_INFO                            0x47000095U, 0x00000305U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_BASE_BYTE0_ADDR                            0x47000096
-#define BF_STREAM_BASE_CORE_INFO                              0x47000096, 0x00001000
+#define REG_STREAM_BASE_BYTE0_ADDR                            0x47000096U
+#define BF_STREAM_BASE_CORE_INFO                              0x47000096U, 0x00001000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_STREAM_BASE_BYTE1_ADDR                            0x47000097
+#define REG_STREAM_BASE_BYTE1_ADDR                            0x47000097U
 
 #ifdef USE_PRIVATE_BF
-#define REG_LAST_STREAM_NUM_ADDR                              0x47000098
-#define BF_LAST_STREAM_NUM_CORE_INFO                          0x47000098, 0x00000800
+#define REG_LAST_STREAM_NUM_ADDR                              0x47000098U
+#define BF_LAST_STREAM_NUM_CORE_INFO                          0x47000098U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_COMPLETED_STREAM_NUMBER_ADDR                      0x47000099
-#define BF_COMPLETED_STREAM_NUM_CORE_INFO                     0x47000099, 0x00000800
+#define REG_COMPLETED_STREAM_NUMBER_ADDR                      0x47000099U
+#define BF_COMPLETED_STREAM_NUM_CORE_INFO                     0x47000099U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TX_EN_READBACK_ADDR                               0x4700009A
-#define BF_TX_ENABLE_READBACK_INFO                            0x4700009A, 0x00000800
+#define REG_TX_EN_READBACK_ADDR                               0x4700009AU
+#define BF_TX_ENABLE_READBACK_INFO                            0x4700009AU, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_RX_EN_READBACK_ADDR                               0x4700009B
-#define BF_RX_ENABLE_READBACK_INFO                            0x4700009B, 0x00000800
+#define REG_RX_EN_READBACK_ADDR                               0x4700009BU
+#define BF_RX_ENABLE_READBACK_INFO                            0x4700009BU, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ORX_EN_READBACK_ADDR                              0x4700009C
-#define BF_ORX_ENABLE_READBACK_INFO                           0x4700009C, 0x00000400
+#define REG_ORX_EN_READBACK_ADDR                              0x4700009CU
+#define BF_ORX_ENABLE_READBACK_INFO                           0x4700009CU, 0x00000400U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PIN_MODE_STREAM_ERROR_TX_RISE_ADDR                0x4700009D
-#define BF_TX0_RISE_STREAM_ERROR_INFO                         0x4700009D, 0x00000100
-#define BF_TX1_RISE_STREAM_ERROR_INFO                         0x4700009D, 0x00000101
-#define BF_TX2_RISE_STREAM_ERROR_INFO                         0x4700009D, 0x00000102
-#define BF_TX3_RISE_STREAM_ERROR_INFO                         0x4700009D, 0x00000103
-#define BF_TX4_RISE_STREAM_ERROR_INFO                         0x4700009D, 0x00000104
-#define BF_TX5_RISE_STREAM_ERROR_INFO                         0x4700009D, 0x00000105
-#define BF_TX6_RISE_STREAM_ERROR_INFO                         0x4700009D, 0x00000106
-#define BF_TX7_RISE_STREAM_ERROR_INFO                         0x4700009D, 0x00000107
+#define REG_PIN_MODE_STREAM_ERROR_TX_RISE_ADDR                0x4700009DU
+#define BF_TX0_RISE_STREAM_ERROR_INFO                         0x4700009DU, 0x00000100U
+#define BF_TX1_RISE_STREAM_ERROR_INFO                         0x4700009DU, 0x00000101U
+#define BF_TX2_RISE_STREAM_ERROR_INFO                         0x4700009DU, 0x00000102U
+#define BF_TX3_RISE_STREAM_ERROR_INFO                         0x4700009DU, 0x00000103U
+#define BF_TX4_RISE_STREAM_ERROR_INFO                         0x4700009DU, 0x00000104U
+#define BF_TX5_RISE_STREAM_ERROR_INFO                         0x4700009DU, 0x00000105U
+#define BF_TX6_RISE_STREAM_ERROR_INFO                         0x4700009DU, 0x00000106U
+#define BF_TX7_RISE_STREAM_ERROR_INFO                         0x4700009DU, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PIN_MODE_STREAM_ERROR_TX_FALL_ADDR                0x4700009F
-#define BF_TX0_FALL_STREAM_ERROR_INFO                         0x4700009F, 0x00000100
-#define BF_TX1_FALL_STREAM_ERROR_INFO                         0x4700009F, 0x00000101
-#define BF_TX2_FALL_STREAM_ERROR_INFO                         0x4700009F, 0x00000102
-#define BF_TX3_FALL_STREAM_ERROR_INFO                         0x4700009F, 0x00000103
-#define BF_TX4_FALL_STREAM_ERROR_INFO                         0x4700009F, 0x00000104
-#define BF_TX5_FALL_STREAM_ERROR_INFO                         0x4700009F, 0x00000105
-#define BF_TX6_FALL_STREAM_ERROR_INFO                         0x4700009F, 0x00000106
-#define BF_TX7_FALL_STREAM_ERROR_INFO                         0x4700009F, 0x00000107
+#define REG_PIN_MODE_STREAM_ERROR_TX_FALL_ADDR                0x4700009FU
+#define BF_TX0_FALL_STREAM_ERROR_INFO                         0x4700009FU, 0x00000100U
+#define BF_TX1_FALL_STREAM_ERROR_INFO                         0x4700009FU, 0x00000101U
+#define BF_TX2_FALL_STREAM_ERROR_INFO                         0x4700009FU, 0x00000102U
+#define BF_TX3_FALL_STREAM_ERROR_INFO                         0x4700009FU, 0x00000103U
+#define BF_TX4_FALL_STREAM_ERROR_INFO                         0x4700009FU, 0x00000104U
+#define BF_TX5_FALL_STREAM_ERROR_INFO                         0x4700009FU, 0x00000105U
+#define BF_TX6_FALL_STREAM_ERROR_INFO                         0x4700009FU, 0x00000106U
+#define BF_TX7_FALL_STREAM_ERROR_INFO                         0x4700009FU, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PIN_MODE_STREAM_ERROR_ORX_RISE_FALL_ADDR          0x470000A1
-#define BF_ORX0_RISE_STREAM_ERROR_INFO                        0x470000A1, 0x00000100
-#define BF_ORX1_RISE_STREAM_ERROR_INFO                        0x470000A1, 0x00000101
-#define BF_ORX2_RISE_STREAM_ERROR_INFO                        0x470000A1, 0x00000102
-#define BF_ORX3_RISE_STREAM_ERROR_INFO                        0x470000A1, 0x00000103
-#define BF_ORX0_FALL_STREAM_ERROR_INFO                        0x470000A1, 0x00000104
-#define BF_ORX1_FALL_STREAM_ERROR_INFO                        0x470000A1, 0x00000105
-#define BF_ORX2_FALL_STREAM_ERROR_INFO                        0x470000A1, 0x00000106
-#define BF_ORX3_FALL_STREAM_ERROR_INFO                        0x470000A1, 0x00000107
+#define REG_PIN_MODE_STREAM_ERROR_ORX_RISE_FALL_ADDR          0x470000A1U
+#define BF_ORX0_RISE_STREAM_ERROR_INFO                        0x470000A1U, 0x00000100U
+#define BF_ORX1_RISE_STREAM_ERROR_INFO                        0x470000A1U, 0x00000101U
+#define BF_ORX2_RISE_STREAM_ERROR_INFO                        0x470000A1U, 0x00000102U
+#define BF_ORX3_RISE_STREAM_ERROR_INFO                        0x470000A1U, 0x00000103U
+#define BF_ORX0_FALL_STREAM_ERROR_INFO                        0x470000A1U, 0x00000104U
+#define BF_ORX1_FALL_STREAM_ERROR_INFO                        0x470000A1U, 0x00000105U
+#define BF_ORX2_FALL_STREAM_ERROR_INFO                        0x470000A1U, 0x00000106U
+#define BF_ORX3_FALL_STREAM_ERROR_INFO                        0x470000A1U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PIN_MODE_STREAM_ERROR_RX_RISE_ADDR                0x470000A2
-#define BF_RX0_RISE_STREAM_ERROR_INFO                         0x470000A2, 0x00000100
-#define BF_RX1_RISE_STREAM_ERROR_INFO                         0x470000A2, 0x00000101
-#define BF_RX2_RISE_STREAM_ERROR_INFO                         0x470000A2, 0x00000102
-#define BF_RX3_RISE_STREAM_ERROR_INFO                         0x470000A2, 0x00000103
-#define BF_RX4_RISE_STREAM_ERROR_INFO                         0x470000A2, 0x00000104
-#define BF_RX5_RISE_STREAM_ERROR_INFO                         0x470000A2, 0x00000105
-#define BF_RX6_RISE_STREAM_ERROR_INFO                         0x470000A2, 0x00000106
-#define BF_RX7_RISE_STREAM_ERROR_INFO                         0x470000A2, 0x00000107
+#define REG_PIN_MODE_STREAM_ERROR_RX_RISE_ADDR                0x470000A2U
+#define BF_RX0_RISE_STREAM_ERROR_INFO                         0x470000A2U, 0x00000100U
+#define BF_RX1_RISE_STREAM_ERROR_INFO                         0x470000A2U, 0x00000101U
+#define BF_RX2_RISE_STREAM_ERROR_INFO                         0x470000A2U, 0x00000102U
+#define BF_RX3_RISE_STREAM_ERROR_INFO                         0x470000A2U, 0x00000103U
+#define BF_RX4_RISE_STREAM_ERROR_INFO                         0x470000A2U, 0x00000104U
+#define BF_RX5_RISE_STREAM_ERROR_INFO                         0x470000A2U, 0x00000105U
+#define BF_RX6_RISE_STREAM_ERROR_INFO                         0x470000A2U, 0x00000106U
+#define BF_RX7_RISE_STREAM_ERROR_INFO                         0x470000A2U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_PIN_MODE_STREAM_ERROR_RX_FALL_ADDR                0x470000A4
-#define BF_RX0_FALL_STREAM_ERROR_INFO                         0x470000A4, 0x00000100
-#define BF_RX1_FALL_STREAM_ERROR_INFO                         0x470000A4, 0x00000101
-#define BF_RX2_FALL_STREAM_ERROR_INFO                         0x470000A4, 0x00000102
-#define BF_RX3_FALL_STREAM_ERROR_INFO                         0x470000A4, 0x00000103
-#define BF_RX4_FALL_STREAM_ERROR_INFO                         0x470000A4, 0x00000104
-#define BF_RX5_FALL_STREAM_ERROR_INFO                         0x470000A4, 0x00000105
-#define BF_RX6_FALL_STREAM_ERROR_INFO                         0x470000A4, 0x00000106
-#define BF_RX7_FALL_STREAM_ERROR_INFO                         0x470000A4, 0x00000107
+#define REG_PIN_MODE_STREAM_ERROR_RX_FALL_ADDR                0x470000A4U
+#define BF_RX0_FALL_STREAM_ERROR_INFO                         0x470000A4U, 0x00000100U
+#define BF_RX1_FALL_STREAM_ERROR_INFO                         0x470000A4U, 0x00000101U
+#define BF_RX2_FALL_STREAM_ERROR_INFO                         0x470000A4U, 0x00000102U
+#define BF_RX3_FALL_STREAM_ERROR_INFO                         0x470000A4U, 0x00000103U
+#define BF_RX4_FALL_STREAM_ERROR_INFO                         0x470000A4U, 0x00000104U
+#define BF_RX5_FALL_STREAM_ERROR_INFO                         0x470000A4U, 0x00000105U
+#define BF_RX6_FALL_STREAM_ERROR_INFO                         0x470000A4U, 0x00000106U
+#define BF_RX7_FALL_STREAM_ERROR_INFO                         0x470000A4U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ORX_LPBK_STREAM_ERROR_ADDR                        0x470000A6
-#define BF_LPBK0_FALL_STREAM_ERROR_INFO                       0x470000A6, 0x00000100
-#define BF_LPBK0_RISE_STREAM_ERROR_INFO                       0x470000A6, 0x00000101
-#define BF_LPBK1_FALL_STREAM_ERROR_INFO                       0x470000A6, 0x00000102
-#define BF_LPBK1_RISE_STREAM_ERROR_INFO                       0x470000A6, 0x00000103
-#define BF_LPBK2_FALL_STREAM_ERROR_INFO                       0x470000A6, 0x00000104
-#define BF_LPBK2_RISE_STREAM_ERROR_INFO                       0x470000A6, 0x00000105
-#define BF_LPBK3_FALL_STREAM_ERROR_INFO                       0x470000A6, 0x00000106
-#define BF_LPBK3_RISE_STREAM_ERROR_INFO                       0x470000A6, 0x00000107
+#define REG_ORX_LPBK_STREAM_ERROR_ADDR                        0x470000A6U
+#define BF_LPBK0_FALL_STREAM_ERROR_INFO                       0x470000A6U, 0x00000100U
+#define BF_LPBK0_RISE_STREAM_ERROR_INFO                       0x470000A6U, 0x00000101U
+#define BF_LPBK1_FALL_STREAM_ERROR_INFO                       0x470000A6U, 0x00000102U
+#define BF_LPBK1_RISE_STREAM_ERROR_INFO                       0x470000A6U, 0x00000103U
+#define BF_LPBK2_FALL_STREAM_ERROR_INFO                       0x470000A6U, 0x00000104U
+#define BF_LPBK2_RISE_STREAM_ERROR_INFO                       0x470000A6U, 0x00000105U
+#define BF_LPBK3_FALL_STREAM_ERROR_INFO                       0x470000A6U, 0x00000106U
+#define BF_LPBK3_RISE_STREAM_ERROR_INFO                       0x470000A6U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_STREAM_DFRM_IRQ_MASK_ADDR                         0x470000A7
-#define BF_DFRM_IRQ_MASK_INFO                                 0x470000A7, 0x00000200
-#define BF_NEW_SYSREF_PHASE_IRQ_MASK_INFO                     0x470000A7, 0x00000104
+#define REG_STREAM_DFRM_IRQ_MASK_ADDR                         0x470000A7U
+#define BF_DFRM_IRQ_MASK_INFO                                 0x470000A7U, 0x00000200U
+#define BF_NEW_SYSREF_PHASE_IRQ_MASK_INFO                     0x470000A7U, 0x00000104U
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_SPI_REG_MASK_WRITE_STATUS_ADDR             0x470000A8
-#define BF_SPI_REG_MASK_WRITE_STREAM_STATUS_INFO              0x470000A8, 0x00000100
-#define BF_SPI_REG_MASK_WRITE_STREAM_ERROR_INFO               0x470000A8, 0x00000101
+#define REG_STREAM_SPI_REG_MASK_WRITE_STATUS_ADDR             0x470000A8U
+#define BF_SPI_REG_MASK_WRITE_STREAM_STATUS_INFO              0x470000A8U, 0x00000100U
+#define BF_SPI_REG_MASK_WRITE_STREAM_ERROR_INFO               0x470000A8U, 0x00000101U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_GPIO_STATUS_ADDR                           0x470000A9
-#define BF_STREAM_GPIO0_STATUS_INFO                           0x470000A9, 0x00000100
-#define BF_STREAM_GPIO1_STATUS_INFO                           0x470000A9, 0x00000101
-#define BF_STREAM_GPIO2_STATUS_INFO                           0x470000A9, 0x00000102
-#define BF_STREAM_GPIO3_STATUS_INFO                           0x470000A9, 0x00000103
-#define BF_STREAM_GPIO4_STATUS_INFO                           0x470000A9, 0x00000104
-#define BF_STREAM_GPIO5_STATUS_INFO                           0x470000A9, 0x00000105
-#define BF_STREAM_GPIO6_STATUS_INFO                           0x470000A9, 0x00000106
-#define BF_STREAM_GPIO7_STATUS_INFO                           0x470000A9, 0x00000107
+#define REG_STREAM_GPIO_STATUS_ADDR                           0x470000A9U
+#define BF_STREAM_GPIO0_STATUS_INFO                           0x470000A9U, 0x00000100U
+#define BF_STREAM_GPIO1_STATUS_INFO                           0x470000A9U, 0x00000101U
+#define BF_STREAM_GPIO2_STATUS_INFO                           0x470000A9U, 0x00000102U
+#define BF_STREAM_GPIO3_STATUS_INFO                           0x470000A9U, 0x00000103U
+#define BF_STREAM_GPIO4_STATUS_INFO                           0x470000A9U, 0x00000104U
+#define BF_STREAM_GPIO5_STATUS_INFO                           0x470000A9U, 0x00000105U
+#define BF_STREAM_GPIO6_STATUS_INFO                           0x470000A9U, 0x00000106U
+#define BF_STREAM_GPIO7_STATUS_INFO                           0x470000A9U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_GPIO_ERROR_ADDR                            0x470000AA
-#define BF_STREAM_GPIO0_RISE_ERROR_INFO                       0x470000AA, 0x00000100
-#define BF_STREAM_GPIO1_RISE_ERROR_INFO                       0x470000AA, 0x00000101
-#define BF_STREAM_GPIO2_RISE_ERROR_INFO                       0x470000AA, 0x00000102
-#define BF_STREAM_GPIO3_RISE_ERROR_INFO                       0x470000AA, 0x00000103
-#define BF_STREAM_GPIO0_FALL_ERROR_INFO                       0x470000AA, 0x00000104
-#define BF_STREAM_GPIO1_FALL_ERROR_INFO                       0x470000AA, 0x00000105
-#define BF_STREAM_GPIO2_FALL_ERROR_INFO                       0x470000AA, 0x00000106
-#define BF_STREAM_GPIO3_FALL_ERROR_INFO                       0x470000AA, 0x00000107
+#define REG_STREAM_GPIO_ERROR_ADDR                            0x470000AAU
+#define BF_STREAM_GPIO0_RISE_ERROR_INFO                       0x470000AAU, 0x00000100U
+#define BF_STREAM_GPIO1_RISE_ERROR_INFO                       0x470000AAU, 0x00000101U
+#define BF_STREAM_GPIO2_RISE_ERROR_INFO                       0x470000AAU, 0x00000102U
+#define BF_STREAM_GPIO3_RISE_ERROR_INFO                       0x470000AAU, 0x00000103U
+#define BF_STREAM_GPIO0_FALL_ERROR_INFO                       0x470000AAU, 0x00000104U
+#define BF_STREAM_GPIO1_FALL_ERROR_INFO                       0x470000AAU, 0x00000105U
+#define BF_STREAM_GPIO2_FALL_ERROR_INFO                       0x470000AAU, 0x00000106U
+#define BF_STREAM_GPIO3_FALL_ERROR_INFO                       0x470000AAU, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_GPIO_ERROR1_ADDR                           0x470000AB
-#define BF_STREAM_GPIO4_RISE_ERROR_INFO                       0x470000AB, 0x00000100
-#define BF_STREAM_GPIO5_RISE_ERROR_INFO                       0x470000AB, 0x00000101
-#define BF_STREAM_GPIO6_RISE_ERROR_INFO                       0x470000AB, 0x00000102
-#define BF_STREAM_GPIO7_RISE_ERROR_INFO                       0x470000AB, 0x00000103
-#define BF_STREAM_GPIO4_FALL_ERROR_INFO                       0x470000AB, 0x00000104
-#define BF_STREAM_GPIO5_FALL_ERROR_INFO                       0x470000AB, 0x00000105
-#define BF_STREAM_GPIO6_FALL_ERROR_INFO                       0x470000AB, 0x00000106
-#define BF_STREAM_GPIO7_FALL_ERROR_INFO                       0x470000AB, 0x00000107
+#define REG_STREAM_GPIO_ERROR1_ADDR                           0x470000ABU
+#define BF_STREAM_GPIO4_RISE_ERROR_INFO                       0x470000ABU, 0x00000100U
+#define BF_STREAM_GPIO5_RISE_ERROR_INFO                       0x470000ABU, 0x00000101U
+#define BF_STREAM_GPIO6_RISE_ERROR_INFO                       0x470000ABU, 0x00000102U
+#define BF_STREAM_GPIO7_RISE_ERROR_INFO                       0x470000ABU, 0x00000103U
+#define BF_STREAM_GPIO4_FALL_ERROR_INFO                       0x470000ABU, 0x00000104U
+#define BF_STREAM_GPIO5_FALL_ERROR_INFO                       0x470000ABU, 0x00000105U
+#define BF_STREAM_GPIO6_FALL_ERROR_INFO                       0x470000ABU, 0x00000106U
+#define BF_STREAM_GPIO7_FALL_ERROR_INFO                       0x470000ABU, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_GPIO_ERROR2_ADDR                           0x470000AC
-#define BF_STREAM_GPIO8_RISE_ERROR_INFO                       0x470000AC, 0x00000100
-#define BF_STREAM_GPIO9_RISE_ERROR_INFO                       0x470000AC, 0x00000101
-#define BF_STREAM_GPIO10_RISE_ERROR_INFO                      0x470000AC, 0x00000102
-#define BF_STREAM_GPIO11_RISE_ERROR_INFO                      0x470000AC, 0x00000103
-#define BF_STREAM_GPIO8_FALL_ERROR_INFO                       0x470000AC, 0x00000104
-#define BF_STREAM_GPIO9_FALL_ERROR_INFO                       0x470000AC, 0x00000105
-#define BF_STREAM_GPIO10_FALL_ERROR_INFO                      0x470000AC, 0x00000106
-#define BF_STREAM_GPIO11_FALL_ERROR_INFO                      0x470000AC, 0x00000107
+#define REG_STREAM_GPIO_ERROR2_ADDR                           0x470000ACU
+#define BF_STREAM_GPIO8_RISE_ERROR_INFO                       0x470000ACU, 0x00000100U
+#define BF_STREAM_GPIO9_RISE_ERROR_INFO                       0x470000ACU, 0x00000101U
+#define BF_STREAM_GPIO10_RISE_ERROR_INFO                      0x470000ACU, 0x00000102U
+#define BF_STREAM_GPIO11_RISE_ERROR_INFO                      0x470000ACU, 0x00000103U
+#define BF_STREAM_GPIO8_FALL_ERROR_INFO                       0x470000ACU, 0x00000104U
+#define BF_STREAM_GPIO9_FALL_ERROR_INFO                       0x470000ACU, 0x00000105U
+#define BF_STREAM_GPIO10_FALL_ERROR_INFO                      0x470000ACU, 0x00000106U
+#define BF_STREAM_GPIO11_FALL_ERROR_INFO                      0x470000ACU, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_GPIO_ERROR3_ADDR                           0x470000AD
-#define BF_STREAM_GPIO12_RISE_ERROR_INFO                      0x470000AD, 0x00000100
-#define BF_STREAM_GPIO13_RISE_ERROR_INFO                      0x470000AD, 0x00000101
-#define BF_STREAM_GPIO14_RISE_ERROR_INFO                      0x470000AD, 0x00000102
-#define BF_STREAM_GPIO15_RISE_ERROR_INFO                      0x470000AD, 0x00000103
-#define BF_STREAM_GPIO12_FALL_ERROR_INFO                      0x470000AD, 0x00000104
-#define BF_STREAM_GPIO13_FALL_ERROR_INFO                      0x470000AD, 0x00000105
-#define BF_STREAM_GPIO14_FALL_ERROR_INFO                      0x470000AD, 0x00000106
-#define BF_STREAM_GPIO15_FALL_ERROR_INFO                      0x470000AD, 0x00000107
+#define REG_STREAM_GPIO_ERROR3_ADDR                           0x470000ADU
+#define BF_STREAM_GPIO12_RISE_ERROR_INFO                      0x470000ADU, 0x00000100U
+#define BF_STREAM_GPIO13_RISE_ERROR_INFO                      0x470000ADU, 0x00000101U
+#define BF_STREAM_GPIO14_RISE_ERROR_INFO                      0x470000ADU, 0x00000102U
+#define BF_STREAM_GPIO15_RISE_ERROR_INFO                      0x470000ADU, 0x00000103U
+#define BF_STREAM_GPIO12_FALL_ERROR_INFO                      0x470000ADU, 0x00000104U
+#define BF_STREAM_GPIO13_FALL_ERROR_INFO                      0x470000ADU, 0x00000105U
+#define BF_STREAM_GPIO14_FALL_ERROR_INFO                      0x470000ADU, 0x00000106U
+#define BF_STREAM_GPIO15_FALL_ERROR_INFO                      0x470000ADU, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_GPIO_ERROR4_ADDR                           0x470000AE
-#define BF_STREAM_GPIO16_RISE_ERROR_INFO                      0x470000AE, 0x00000100
-#define BF_STREAM_GPIO17_RISE_ERROR_INFO                      0x470000AE, 0x00000101
-#define BF_STREAM_GPIO18_RISE_ERROR_INFO                      0x470000AE, 0x00000102
-#define BF_STREAM_GPIO19_RISE_ERROR_INFO                      0x470000AE, 0x00000103
-#define BF_STREAM_GPIO16_FALL_ERROR_INFO                      0x470000AE, 0x00000104
-#define BF_STREAM_GPIO17_FALL_ERROR_INFO                      0x470000AE, 0x00000105
-#define BF_STREAM_GPIO18_FALL_ERROR_INFO                      0x470000AE, 0x00000106
-#define BF_STREAM_GPIO19_FALL_ERROR_INFO                      0x470000AE, 0x00000107
+#define REG_STREAM_GPIO_ERROR4_ADDR                           0x470000AEU
+#define BF_STREAM_GPIO16_RISE_ERROR_INFO                      0x470000AEU, 0x00000100U
+#define BF_STREAM_GPIO17_RISE_ERROR_INFO                      0x470000AEU, 0x00000101U
+#define BF_STREAM_GPIO18_RISE_ERROR_INFO                      0x470000AEU, 0x00000102U
+#define BF_STREAM_GPIO19_RISE_ERROR_INFO                      0x470000AEU, 0x00000103U
+#define BF_STREAM_GPIO16_FALL_ERROR_INFO                      0x470000AEU, 0x00000104U
+#define BF_STREAM_GPIO17_FALL_ERROR_INFO                      0x470000AEU, 0x00000105U
+#define BF_STREAM_GPIO18_FALL_ERROR_INFO                      0x470000AEU, 0x00000106U
+#define BF_STREAM_GPIO19_FALL_ERROR_INFO                      0x470000AEU, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_GPIO_ERROR5_ADDR                           0x470000AF
-#define BF_STREAM_GPIO20_RISE_ERROR_INFO                      0x470000AF, 0x00000100
-#define BF_STREAM_GPIO21_RISE_ERROR_INFO                      0x470000AF, 0x00000101
-#define BF_STREAM_GPIO22_RISE_ERROR_INFO                      0x470000AF, 0x00000102
-#define BF_STREAM_GPIO23_RISE_ERROR_INFO                      0x470000AF, 0x00000103
-#define BF_STREAM_GPIO20_FALL_ERROR_INFO                      0x470000AF, 0x00000104
-#define BF_STREAM_GPIO21_FALL_ERROR_INFO                      0x470000AF, 0x00000105
-#define BF_STREAM_GPIO22_FALL_ERROR_INFO                      0x470000AF, 0x00000106
-#define BF_STREAM_GPIO23_FALL_ERROR_INFO                      0x470000AF, 0x00000107
+#define REG_STREAM_GPIO_ERROR5_ADDR                           0x470000AFU
+#define BF_STREAM_GPIO20_RISE_ERROR_INFO                      0x470000AFU, 0x00000100U
+#define BF_STREAM_GPIO21_RISE_ERROR_INFO                      0x470000AFU, 0x00000101U
+#define BF_STREAM_GPIO22_RISE_ERROR_INFO                      0x470000AFU, 0x00000102U
+#define BF_STREAM_GPIO23_RISE_ERROR_INFO                      0x470000AFU, 0x00000103U
+#define BF_STREAM_GPIO20_FALL_ERROR_INFO                      0x470000AFU, 0x00000104U
+#define BF_STREAM_GPIO21_FALL_ERROR_INFO                      0x470000AFU, 0x00000105U
+#define BF_STREAM_GPIO22_FALL_ERROR_INFO                      0x470000AFU, 0x00000106U
+#define BF_STREAM_GPIO23_FALL_ERROR_INFO                      0x470000AFU, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_ORX_SWITCH_ERROR_ADDR                      0x470000B0
-#define BF_ORX0LOW_TO_ORX1HIGH_STREAM_ERROR_INFO              0x470000B0, 0x00000100
-#define BF_ORX1LOW_TO_ORX0HIGH_STREAM_ERROR_INFO              0x470000B0, 0x00000101
-#define BF_ORX2LOW_TO_ORX3HIGH_STREAM_ERROR_INFO              0x470000B0, 0x00000102
-#define BF_ORX3LOW_TO_ORX2HIGH_STREAM_ERROR_INFO              0x470000B0, 0x00000103
+#define REG_STREAM_ORX_SWITCH_ERROR_ADDR                      0x470000B0U
+#define BF_ORX0LOW_TO_ORX1HIGH_STREAM_ERROR_INFO              0x470000B0U, 0x00000100U
+#define BF_ORX1LOW_TO_ORX0HIGH_STREAM_ERROR_INFO              0x470000B0U, 0x00000101U
+#define BF_ORX2LOW_TO_ORX3HIGH_STREAM_ERROR_INFO              0x470000B0U, 0x00000102U
+#define BF_ORX3LOW_TO_ORX2HIGH_STREAM_ERROR_INFO              0x470000B0U, 0x00000103U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_PROC_READBACK_ADDR_ADDR                    0x470000B1
-#define BF_STREAM_PROC_ADDR_CORE_INFO                         0x470000B1, 0x00000400
-#define BF_STREAM_PROC_RDEN_CORE_INFO                         0x470000B1, 0x00000104
+#define REG_STREAM_PROC_READBACK_ADDR_ADDR                    0x470000B1U
+#define BF_STREAM_PROC_ADDR_CORE_INFO                         0x470000B1U, 0x00000400U
+#define BF_STREAM_PROC_RDEN_CORE_INFO                         0x470000B1U, 0x00000104U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_PROC_READBACK_DATA0_ADDR                   0x470000B2
-#define BF_STREAM_PROC_DATA_CORE_INFO                         0x470000B2, 0x00002000
+#define REG_STREAM_PROC_READBACK_DATA0_ADDR                   0x470000B2U
+#define BF_STREAM_PROC_DATA_CORE_INFO                         0x470000B2U, 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_STREAM_PROC_READBACK_DATA1_ADDR                   0x470000B3
+#define REG_STREAM_PROC_READBACK_DATA1_ADDR                   0x470000B3U
 
-#define REG_STREAM_PROC_READBACK_DATA2_ADDR                   0x470000B4
+#define REG_STREAM_PROC_READBACK_DATA2_ADDR                   0x470000B4U
 
-#define REG_STREAM_PROC_READBACK_DATA3_ADDR                   0x470000B5
+#define REG_STREAM_PROC_READBACK_DATA3_ADDR                   0x470000B5U
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_PROC_ERROR_ADDR                            0x470000B6
-#define BF_STREAM_ERROR_CORE_INFO                             0x470000B6, 0x00000100
+#define REG_STREAM_PROC_ERROR_ADDR                            0x470000B6U
+#define BF_STREAM_ERROR_CORE_INFO                             0x470000B6U, 0x00000100U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_PROC_SPI_RMW_ADDRESS_LSB_ADDR              0x470000B7
-#define BF_SPI_RMW_ADDRESS_INFO                               0x470000B7, 0x00000F00
+#define REG_STREAM_PROC_SPI_RMW_ADDRESS_LSB_ADDR              0x470000B7U
+#define BF_SPI_RMW_ADDRESS_INFO                               0x470000B7U, 0x00000F00U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_STREAM_PROC_SPI_RMW_ADDRESS_MSB_ADDR              0x470000B8
+#define REG_STREAM_PROC_SPI_RMW_ADDRESS_MSB_ADDR              0x470000B8U
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_PROC_SPI_RMW_MASK_ADDR                     0x470000B9
-#define BF_SPI_RMW_MASK_INFO                                  0x470000B9, 0x00000800
+#define REG_STREAM_PROC_SPI_RMW_MASK_ADDR                     0x470000B9U
+#define BF_SPI_RMW_MASK_INFO                                  0x470000B9U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_PROC_SPI_RMW_DATA_ADDR                     0x470000BA
-#define BF_SPI_RMW_DATA_INFO                                  0x470000BA, 0x00000800
+#define REG_STREAM_PROC_SPI_RMW_DATA_ADDR                     0x470000BAU
+#define BF_SPI_RMW_DATA_INFO                                  0x470000BAU, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_GPIO_STATUS2_ADDR                          0x470000BB
-#define BF_STREAM_GPIO8_STATUS_INFO                           0x470000BB, 0x00000100
-#define BF_STREAM_GPIO9_STATUS_INFO                           0x470000BB, 0x00000101
-#define BF_STREAM_GPIO10_STATUS_INFO                          0x470000BB, 0x00000102
-#define BF_STREAM_GPIO11_STATUS_INFO                          0x470000BB, 0x00000103
-#define BF_STREAM_GPIO12_STATUS_INFO                          0x470000BB, 0x00000104
-#define BF_STREAM_GPIO13_STATUS_INFO                          0x470000BB, 0x00000105
-#define BF_STREAM_GPIO14_STATUS_INFO                          0x470000BB, 0x00000106
-#define BF_STREAM_GPIO15_STATUS_INFO                          0x470000BB, 0x00000107
+#define REG_STREAM_GPIO_STATUS2_ADDR                          0x470000BBU
+#define BF_STREAM_GPIO8_STATUS_INFO                           0x470000BBU, 0x00000100U
+#define BF_STREAM_GPIO9_STATUS_INFO                           0x470000BBU, 0x00000101U
+#define BF_STREAM_GPIO10_STATUS_INFO                          0x470000BBU, 0x00000102U
+#define BF_STREAM_GPIO11_STATUS_INFO                          0x470000BBU, 0x00000103U
+#define BF_STREAM_GPIO12_STATUS_INFO                          0x470000BBU, 0x00000104U
+#define BF_STREAM_GPIO13_STATUS_INFO                          0x470000BBU, 0x00000105U
+#define BF_STREAM_GPIO14_STATUS_INFO                          0x470000BBU, 0x00000106U
+#define BF_STREAM_GPIO15_STATUS_INFO                          0x470000BBU, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_GPIO_STATUS3_ADDR                          0x470000BC
-#define BF_STREAM_GPIO16_STATUS_INFO                          0x470000BC, 0x00000100
-#define BF_STREAM_GPIO17_STATUS_INFO                          0x470000BC, 0x00000101
-#define BF_STREAM_GPIO18_STATUS_INFO                          0x470000BC, 0x00000102
-#define BF_STREAM_GPIO19_STATUS_INFO                          0x470000BC, 0x00000103
-#define BF_STREAM_GPIO20_STATUS_INFO                          0x470000BC, 0x00000104
-#define BF_STREAM_GPIO21_STATUS_INFO                          0x470000BC, 0x00000105
-#define BF_STREAM_GPIO22_STATUS_INFO                          0x470000BC, 0x00000106
-#define BF_STREAM_GPIO23_STATUS_INFO                          0x470000BC, 0x00000107
+#define REG_STREAM_GPIO_STATUS3_ADDR                          0x470000BCU
+#define BF_STREAM_GPIO16_STATUS_INFO                          0x470000BCU, 0x00000100U
+#define BF_STREAM_GPIO17_STATUS_INFO                          0x470000BCU, 0x00000101U
+#define BF_STREAM_GPIO18_STATUS_INFO                          0x470000BCU, 0x00000102U
+#define BF_STREAM_GPIO19_STATUS_INFO                          0x470000BCU, 0x00000103U
+#define BF_STREAM_GPIO20_STATUS_INFO                          0x470000BCU, 0x00000104U
+#define BF_STREAM_GPIO21_STATUS_INFO                          0x470000BCU, 0x00000105U
+#define BF_STREAM_GPIO22_STATUS_INFO                          0x470000BCU, 0x00000106U
+#define BF_STREAM_GPIO23_STATUS_INFO                          0x470000BCU, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_CTL_ADDR                                     0x470000C6
-#define BF_ARM1_M3_RUN_INFO                                   0x470000C6, 0x00000100
-#define BF_ARM1_ERROR_INFO                                    0x470000C6, 0x00000101
-#define BF_ARM1_MEM_HRESP_MASK_INFO                           0x470000C6, 0x00000103
-#define BF_ARM1_DEBUG_ENABLE_INFO                             0x470000C6, 0x00000107
+#define REG_ARM1_CTL_ADDR                                     0x470000C6U
+#define BF_ARM1_M3_RUN_INFO                                   0x470000C6U, 0x00000100U
+#define BF_ARM1_ERROR_INFO                                    0x470000C6U, 0x00000101U
+#define BF_ARM1_MEM_HRESP_MASK_INFO                           0x470000C6U, 0x00000103U
+#define BF_ARM1_DEBUG_ENABLE_INFO                             0x470000C6U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_RESET_ADDR                                   0x470000C7
-#define BF_ARM1_FORCE_RESET_INFO                              0x470000C7, 0x00000100
+#define REG_ARM1_RESET_ADDR                                   0x470000C7U
+#define BF_ARM1_FORCE_RESET_INFO                              0x470000C7U, 0x00000100U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_BOOT_ADDR_BYTE0_ADDR                         0x470000C8
-#define BF_ARM1_BOOT_ADDR_INFO                                0x470000C8, 0x00002000
+#define REG_ARM1_BOOT_ADDR_BYTE0_ADDR                         0x470000C8U
+#define BF_ARM1_BOOT_ADDR_INFO                                0x470000C8U, 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_ARM1_BOOT_ADDR_BYTE1_ADDR                         0x470000C9
+#define REG_ARM1_BOOT_ADDR_BYTE1_ADDR                         0x470000C9U
 
-#define REG_ARM1_BOOT_ADDR_BYTE2_ADDR                         0x470000CA
+#define REG_ARM1_BOOT_ADDR_BYTE2_ADDR                         0x470000CAU
 
-#define REG_ARM1_BOOT_ADDR_BYTE3_ADDR                         0x470000CB
+#define REG_ARM1_BOOT_ADDR_BYTE3_ADDR                         0x470000CBU
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_STACK_PTR_BYTE_0_ADDR                        0x470000CC
-#define BF_ARM1_STACK_PTR_INFO                                0x470000CC, 0x00002000
+#define REG_ARM1_STACK_PTR_BYTE_0_ADDR                        0x470000CCU
+#define BF_ARM1_STACK_PTR_INFO                                0x470000CCU, 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_ARM1_STACK_PTR_BYTE_1_ADDR                        0x470000CD
+#define REG_ARM1_STACK_PTR_BYTE_1_ADDR                        0x470000CDU
 
-#define REG_ARM1_STACK_PTR_BYTE_2_ADDR                        0x470000CE
+#define REG_ARM1_STACK_PTR_BYTE_2_ADDR                        0x470000CEU
 
-#define REG_ARM1_STACK_PTR_BYTE_3_ADDR                        0x470000CF
+#define REG_ARM1_STACK_PTR_BYTE_3_ADDR                        0x470000CFU
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM1_ECC_CONTROL_ADDR                           0x470000DF
-#define BF_L1MEM1_ECC_IRQ_SENSITIVITY_INFO                    0x470000DF, 0x00000101
-#define BF_L1MEM1_ECC_MODE_INFO                               0x470000DF, 0x00000206
+#define REG_L1MEM1_ECC_CONTROL_ADDR                           0x470000DFU
+#define BF_L1MEM1_ECC_IRQ_SENSITIVITY_INFO                    0x470000DFU, 0x00000101U
+#define BF_L1MEM1_ECC_MODE_INFO                               0x470000DFU, 0x00000206U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM1_ECC_DATA_READBACK0_ADDR                    0x470000E0
-#define BF_L1MEM1_ECC_DATA_PARITY_INDEX_INFO                  0x470000E0, 0x00000400
+#define REG_L1MEM1_ECC_DATA_READBACK0_ADDR                    0x470000E0U
+#define BF_L1MEM1_ECC_DATA_PARITY_INDEX_INFO                  0x470000E0U, 0x00000400U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_L1MEM1_ECC_DATA_READBACK1_ADDR                    0x470000E1
+#define REG_L1MEM1_ECC_DATA_READBACK1_ADDR                    0x470000E1U
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM1_ECC_DATA_READBACK2_ADDR                    0x470000E2
-#define BF_L1MEM1_ECC_DATA_PARITY_TAG_INFO                    0x470000E2, 0x00000D00
+#define REG_L1MEM1_ECC_DATA_READBACK2_ADDR                    0x470000E2U
+#define BF_L1MEM1_ECC_DATA_PARITY_TAG_INFO                    0x470000E2U, 0x00000D00U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_L1MEM1_ECC_DATA_READBACK3_ADDR                    0x470000E3
+#define REG_L1MEM1_ECC_DATA_READBACK3_ADDR                    0x470000E3U
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM1_ECC_DATA_READBACK4_ADDR                    0x470000E4
-#define BF_L1MEM1_ECC_DATA_PARITY_OUT_INFO                    0x470000E4, 0x00000700
-#define BF_L1MEM1_ECC_DATA_PARITY_ERROR_INFO                  0x470000E4, 0x00000107
+#define REG_L1MEM1_ECC_DATA_READBACK4_ADDR                    0x470000E4U
+#define BF_L1MEM1_ECC_DATA_PARITY_OUT_INFO                    0x470000E4U, 0x00000700U
+#define BF_L1MEM1_ECC_DATA_PARITY_ERROR_INFO                  0x470000E4U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM1_ECC_DATA_READBACK5_ADDR                    0x470000E5
-#define BF_L1MEM1_ECC_DATA_PARITY_IN_INFO                     0x470000E5, 0x00002000
+#define REG_L1MEM1_ECC_DATA_READBACK5_ADDR                    0x470000E5U
+#define BF_L1MEM1_ECC_DATA_PARITY_IN_INFO                     0x470000E5U, 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_L1MEM1_ECC_DATA_READBACK6_ADDR                    0x470000E6
+#define REG_L1MEM1_ECC_DATA_READBACK6_ADDR                    0x470000E6U
 
-#define REG_L1MEM1_ECC_DATA_READBACK7_ADDR                    0x470000E7
+#define REG_L1MEM1_ECC_DATA_READBACK7_ADDR                    0x470000E7U
 
-#define REG_L1MEM1_ECC_DATA_READBACK8_ADDR                    0x470000E8
+#define REG_L1MEM1_ECC_DATA_READBACK8_ADDR                    0x470000E8U
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM1_ECC_PROG_READBACK0_ADDR                    0x470000E9
-#define BF_L1MEM1_ECC_PROG_PARITY_INDEX_INFO                  0x470000E9, 0x00000400
+#define REG_L1MEM1_ECC_PROG_READBACK0_ADDR                    0x470000E9U
+#define BF_L1MEM1_ECC_PROG_PARITY_INDEX_INFO                  0x470000E9U, 0x00000400U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_L1MEM1_ECC_PROG_READBACK1_ADDR                    0x470000EA
+#define REG_L1MEM1_ECC_PROG_READBACK1_ADDR                    0x470000EAU
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM1_ECC_PROG_READBACK2_ADDR                    0x470000EB
-#define BF_L1MEM1_ECC_PROG_PARITY_TAG_INFO                    0x470000EB, 0x00000D00
+#define REG_L1MEM1_ECC_PROG_READBACK2_ADDR                    0x470000EBU
+#define BF_L1MEM1_ECC_PROG_PARITY_TAG_INFO                    0x470000EBU, 0x00000D00U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_L1MEM1_ECC_PROG_READBACK3_ADDR                    0x470000EC
+#define REG_L1MEM1_ECC_PROG_READBACK3_ADDR                    0x470000ECU
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM1_ECC_PROG_READBACK4_ADDR                    0x470000ED
-#define BF_L1MEM1_ECC_PROG_PARITY_OUT_INFO                    0x470000ED, 0x00000700
-#define BF_L1MEM1_ECC_PROG_PARITY_ERROR_INFO                  0x470000ED, 0x00000107
+#define REG_L1MEM1_ECC_PROG_READBACK4_ADDR                    0x470000EDU
+#define BF_L1MEM1_ECC_PROG_PARITY_OUT_INFO                    0x470000EDU, 0x00000700U
+#define BF_L1MEM1_ECC_PROG_PARITY_ERROR_INFO                  0x470000EDU, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM1_ECC_PROG_READBACK5_ADDR                    0x470000EE
-#define BF_L1MEM1_ECC_PROG_PARITY_IN_INFO                     0x470000EE, 0x00002000
+#define REG_L1MEM1_ECC_PROG_READBACK5_ADDR                    0x470000EEU
+#define BF_L1MEM1_ECC_PROG_PARITY_IN_INFO                     0x470000EEU, 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_L1MEM1_ECC_PROG_READBACK6_ADDR                    0x470000EF
+#define REG_L1MEM1_ECC_PROG_READBACK6_ADDR                    0x470000EFU
 
-#define REG_L1MEM1_ECC_PROG_READBACK7_ADDR                    0x470000F0
+#define REG_L1MEM1_ECC_PROG_READBACK7_ADDR                    0x470000F0U
 
-#define REG_L1MEM1_ECC_PROG_READBACK8_ADDR                    0x470000F1
+#define REG_L1MEM1_ECC_PROG_READBACK8_ADDR                    0x470000F1U
 
 #ifdef USE_PRIVATE_BF
-#define REG_L1MEM1_SHARED_BANK_DIV_CTRL_ADDR                  0x470000F2
-#define BF_L1MEM1_SHARED_BANK_DIV_INFO                        0x470000F2, 0x00000300
+#define REG_L1MEM1_SHARED_BANK_DIV_CTRL_ADDR                  0x470000F2U
+#define BF_L1MEM1_SHARED_BANK_DIV_INFO                        0x470000F2U, 0x00000300U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_SPI0_COMMAND_ADDR                            0x470000F4
-#define BF_ARM1_SPI0_COMMAND_INFO                             0x470000F4, 0x00000600
-#define BF_ARM1_SPI0_COMMAND_BUSY_INFO                        0x470000F4, 0x00000107
+#define REG_ARM1_SPI0_COMMAND_ADDR                            0x470000F4U
+#define BF_ARM1_SPI0_COMMAND_INFO                             0x470000F4U, 0x00000600U
+#define BF_ARM1_SPI0_COMMAND_BUSY_INFO                        0x470000F4U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_SPI0_EXT_CMD_BYTE_1_ADDR                     0x470000F5
-#define BF_ARM1_SPI0_EXT_CMD_BYTE_1_INFO                      0x470000F5, 0x00000800
+#define REG_ARM1_SPI0_EXT_CMD_BYTE_1_ADDR                     0x470000F5U
+#define BF_ARM1_SPI0_EXT_CMD_BYTE_1_INFO                      0x470000F5U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_SPI0_EXT_CMD_BYTE_2_ADDR                     0x470000F6
-#define BF_ARM1_SPI0_EXT_CMD_BYTE_2_INFO                      0x470000F6, 0x00000800
+#define REG_ARM1_SPI0_EXT_CMD_BYTE_2_ADDR                     0x470000F6U
+#define BF_ARM1_SPI0_EXT_CMD_BYTE_2_INFO                      0x470000F6U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_SPI0_EXT_CMD_BYTE_3_ADDR                     0x470000F7
-#define BF_ARM1_SPI0_EXT_CMD_BYTE_3_INFO                      0x470000F7, 0x00000800
+#define REG_ARM1_SPI0_EXT_CMD_BYTE_3_ADDR                     0x470000F7U
+#define BF_ARM1_SPI0_EXT_CMD_BYTE_3_INFO                      0x470000F7U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_SPI0_EXT_CMD_BYTE_4_ADDR                     0x470000F8
-#define BF_ARM1_SPI0_EXT_CMD_BYTE_4_INFO                      0x470000F8, 0x00000800
+#define REG_ARM1_SPI0_EXT_CMD_BYTE_4_ADDR                     0x470000F8U
+#define BF_ARM1_SPI0_EXT_CMD_BYTE_4_INFO                      0x470000F8U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_SPI0_CMD_STATUS_0_ADDR                       0x470000FC
-#define BF_ARM1_SPI0_CMD_STATUS_DWL_INFO                      0x470000FC, 0x00004000
+#define REG_ARM1_SPI0_CMD_STATUS_0_ADDR                       0x470000FCU
+#define BF_ARM1_SPI0_CMD_STATUS_DWL_INFO                      0x470000FCU, 0x00004000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_ARM1_SPI0_CMD_STATUS_1_ADDR                       0x470000FD
+#define REG_ARM1_SPI0_CMD_STATUS_1_ADDR                       0x470000FDU
 
-#define REG_ARM1_SPI0_CMD_STATUS_2_ADDR                       0x470000FE
+#define REG_ARM1_SPI0_CMD_STATUS_2_ADDR                       0x470000FEU
 
-#define REG_ARM1_SPI0_CMD_STATUS_3_ADDR                       0x470000FF
+#define REG_ARM1_SPI0_CMD_STATUS_3_ADDR                       0x470000FFU
 
-#define REG_ARM1_SPI0_CMD_STATUS_4_ADDR                       0x47000100
+#define REG_ARM1_SPI0_CMD_STATUS_4_ADDR                       0x47000100U
 
-#define REG_ARM1_SPI0_CMD_STATUS_5_ADDR                       0x47000101
+#define REG_ARM1_SPI0_CMD_STATUS_5_ADDR                       0x47000101U
 
-#define REG_ARM1_SPI0_CMD_STATUS_6_ADDR                       0x47000102
+#define REG_ARM1_SPI0_CMD_STATUS_6_ADDR                       0x47000102U
 
-#define REG_ARM1_SPI0_CMD_STATUS_7_ADDR                       0x47000103
+#define REG_ARM1_SPI0_CMD_STATUS_7_ADDR                       0x47000103U
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_SPI0_CMD_STATUS_8_ADDR                       0x47000104
-#define BF_ARM1_SPI0_CMD_STATUS_DWH_INFO                      0x47000104, 0x00004000
+#define REG_ARM1_SPI0_CMD_STATUS_8_ADDR                       0x47000104U
+#define BF_ARM1_SPI0_CMD_STATUS_DWH_INFO                      0x47000104U, 0x00004000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_ARM1_SPI0_CMD_STATUS_9_ADDR                       0x47000105
+#define REG_ARM1_SPI0_CMD_STATUS_9_ADDR                       0x47000105U
 
-#define REG_ARM1_SPI0_CMD_STATUS_10_ADDR                      0x47000106
+#define REG_ARM1_SPI0_CMD_STATUS_10_ADDR                      0x47000106U
 
-#define REG_ARM1_SPI0_CMD_STATUS_11_ADDR                      0x47000107
+#define REG_ARM1_SPI0_CMD_STATUS_11_ADDR                      0x47000107U
 
-#define REG_ARM1_SPI0_CMD_STATUS_12_ADDR                      0x47000108
+#define REG_ARM1_SPI0_CMD_STATUS_12_ADDR                      0x47000108U
 
-#define REG_ARM1_SPI0_CMD_STATUS_13_ADDR                      0x47000109
+#define REG_ARM1_SPI0_CMD_STATUS_13_ADDR                      0x47000109U
 
-#define REG_ARM1_SPI0_CMD_STATUS_14_ADDR                      0x4700010A
+#define REG_ARM1_SPI0_CMD_STATUS_14_ADDR                      0x4700010AU
 
-#define REG_ARM1_SPI0_CMD_STATUS_15_ADDR                      0x4700010B
+#define REG_ARM1_SPI0_CMD_STATUS_15_ADDR                      0x4700010BU
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_SPI1_COMMAND_ADDR                            0x4700010D
-#define BF_ARM1_SPI1_COMMAND_INFO                             0x4700010D, 0x00000600
-#define BF_ARM1_SPI1_COMMAND_BUSY_INFO                        0x4700010D, 0x00000107
+#define REG_ARM1_SPI1_COMMAND_ADDR                            0x4700010DU
+#define BF_ARM1_SPI1_COMMAND_INFO                             0x4700010DU, 0x00000600U
+#define BF_ARM1_SPI1_COMMAND_BUSY_INFO                        0x4700010DU, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_SPI1_EXT_CMD_BYTE_1_ADDR                     0x4700010E
-#define BF_ARM1_SPI1_EXT_CMD_BYTE_1_INFO                      0x4700010E, 0x00000800
+#define REG_ARM1_SPI1_EXT_CMD_BYTE_1_ADDR                     0x4700010EU
+#define BF_ARM1_SPI1_EXT_CMD_BYTE_1_INFO                      0x4700010EU, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_SPI1_EXT_CMD_BYTE_2_ADDR                     0x4700010F
-#define BF_ARM1_SPI1_EXT_CMD_BYTE_2_INFO                      0x4700010F, 0x00000800
+#define REG_ARM1_SPI1_EXT_CMD_BYTE_2_ADDR                     0x4700010FU
+#define BF_ARM1_SPI1_EXT_CMD_BYTE_2_INFO                      0x4700010FU, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_SPI1_EXT_CMD_BYTE_3_ADDR                     0x47000110
-#define BF_ARM1_SPI1_EXT_CMD_BYTE_3_INFO                      0x47000110, 0x00000800
+#define REG_ARM1_SPI1_EXT_CMD_BYTE_3_ADDR                     0x47000110U
+#define BF_ARM1_SPI1_EXT_CMD_BYTE_3_INFO                      0x47000110U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_SPI1_EXT_CMD_BYTE_4_ADDR                     0x47000111
-#define BF_ARM1_SPI1_EXT_CMD_BYTE_4_INFO                      0x47000111, 0x00000800
+#define REG_ARM1_SPI1_EXT_CMD_BYTE_4_ADDR                     0x47000111U
+#define BF_ARM1_SPI1_EXT_CMD_BYTE_4_INFO                      0x47000111U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_SPI1_CMD_STATUS_0_ADDR                       0x47000115
-#define BF_ARM1_SPI1_CMD_STATUS_DWL_INFO                      0x47000115, 0x00004000
+#define REG_ARM1_SPI1_CMD_STATUS_0_ADDR                       0x47000115U
+#define BF_ARM1_SPI1_CMD_STATUS_DWL_INFO                      0x47000115U, 0x00004000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_ARM1_SPI1_CMD_STATUS_1_ADDR                       0x47000116
+#define REG_ARM1_SPI1_CMD_STATUS_1_ADDR                       0x47000116U
 
-#define REG_ARM1_SPI1_CMD_STATUS_2_ADDR                       0x47000117
+#define REG_ARM1_SPI1_CMD_STATUS_2_ADDR                       0x47000117U
 
-#define REG_ARM1_SPI1_CMD_STATUS_3_ADDR                       0x47000118
+#define REG_ARM1_SPI1_CMD_STATUS_3_ADDR                       0x47000118U
 
-#define REG_ARM1_SPI1_CMD_STATUS_4_ADDR                       0x47000119
+#define REG_ARM1_SPI1_CMD_STATUS_4_ADDR                       0x47000119U
 
-#define REG_ARM1_SPI1_CMD_STATUS_5_ADDR                       0x4700011A
+#define REG_ARM1_SPI1_CMD_STATUS_5_ADDR                       0x4700011AU
 
-#define REG_ARM1_SPI1_CMD_STATUS_6_ADDR                       0x4700011B
+#define REG_ARM1_SPI1_CMD_STATUS_6_ADDR                       0x4700011BU
 
-#define REG_ARM1_SPI1_CMD_STATUS_7_ADDR                       0x4700011C
+#define REG_ARM1_SPI1_CMD_STATUS_7_ADDR                       0x4700011CU
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_SPI1_CMD_STATUS_8_ADDR                       0x4700011D
-#define BF_ARM1_SPI1_CMD_STATUS_DWH_INFO                      0x4700011D, 0x00004000
+#define REG_ARM1_SPI1_CMD_STATUS_8_ADDR                       0x4700011DU
+#define BF_ARM1_SPI1_CMD_STATUS_DWH_INFO                      0x4700011DU, 0x00004000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_ARM1_SPI1_CMD_STATUS_9_ADDR                       0x4700011E
+#define REG_ARM1_SPI1_CMD_STATUS_9_ADDR                       0x4700011EU
 
-#define REG_ARM1_SPI1_CMD_STATUS_10_ADDR                      0x4700011F
+#define REG_ARM1_SPI1_CMD_STATUS_10_ADDR                      0x4700011FU
 
-#define REG_ARM1_SPI1_CMD_STATUS_11_ADDR                      0x47000120
+#define REG_ARM1_SPI1_CMD_STATUS_11_ADDR                      0x47000120U
 
-#define REG_ARM1_SPI1_CMD_STATUS_12_ADDR                      0x47000121
+#define REG_ARM1_SPI1_CMD_STATUS_12_ADDR                      0x47000121U
 
-#define REG_ARM1_SPI1_CMD_STATUS_13_ADDR                      0x47000122
+#define REG_ARM1_SPI1_CMD_STATUS_13_ADDR                      0x47000122U
 
-#define REG_ARM1_SPI1_CMD_STATUS_14_ADDR                      0x47000123
+#define REG_ARM1_SPI1_CMD_STATUS_14_ADDR                      0x47000123U
 
-#define REG_ARM1_SPI1_CMD_STATUS_15_ADDR                      0x47000124
+#define REG_ARM1_SPI1_CMD_STATUS_15_ADDR                      0x47000124U
 
-#define REG_SPI0_BASE_PAGE_ADDRESS_31TO24_ADDR                0x47000126
-#define BF_SPI0_BASE_PAGE_ADDR_31TO24_INFO                    0x47000126, 0x00000800
+#define REG_SPI0_BASE_PAGE_ADDRESS_31TO24_ADDR                0x47000126U
+#define BF_SPI0_BASE_PAGE_ADDR_31TO24_INFO                    0x47000126U, 0x00000800U
 
-#define REG_SPI0_BASE_PAGE_ADDRESS_23TO16_ADDR                0x47000127
-#define BF_SPI0_BASE_PAGE_ADDR_23TO16_INFO                    0x47000127, 0x00000800
+#define REG_SPI0_BASE_PAGE_ADDRESS_23TO16_ADDR                0x47000127U
+#define BF_SPI0_BASE_PAGE_ADDR_23TO16_INFO                    0x47000127U, 0x00000800U
 
-#define REG_SPI0_BASE_PAGE_ADDRESS_15TO8_ADDR                 0x47000128
-#define BF_SPI0_BASE_PAGE_ADDR_15TO8_INFO                     0x47000128, 0x00000800
+#define REG_SPI0_BASE_PAGE_ADDRESS_15TO8_ADDR                 0x47000128U
+#define BF_SPI0_BASE_PAGE_ADDR_15TO8_INFO                     0x47000128U, 0x00000800U
 
-#define REG_SPI0_BASE_PAGE_ADDRESS_7TO0_ADDR                  0x47000129
-#define BF_SPI0_BASE_PAGE_ADDR_7TO0_INFO                      0x47000129, 0x00000800
+#define REG_SPI0_BASE_PAGE_ADDRESS_7TO0_ADDR                  0x47000129U
+#define BF_SPI0_BASE_PAGE_ADDR_7TO0_INFO                      0x47000129U, 0x00000800U
 
-#define REG_SPI0_PAGING_CONTROL_ADDR                          0x4700012A
-#define BF_SPI0_AHB_BRIDGE_32B_PACK_EN_INFO                   0x4700012A, 0x00000100
-#define BF_SPI0_PAGING_SPI2AHB_BUSY_INFO                      0x4700012A, 0x00000102
+#define REG_SPI0_PAGING_CONTROL_ADDR                          0x4700012AU
+#define BF_SPI0_AHB_BRIDGE_32B_PACK_EN_INFO                   0x4700012AU, 0x00000100U
+#define BF_SPI0_PAGING_SPI2AHB_BUSY_INFO                      0x4700012AU, 0x00000102U
 
-#define REG_SPI0_WORKING_PAGE_ADDRESS_31TO24_ADDR             0x4700012B
-#define BF_SPI0_WORKING_PAGE_ADDR_31TO24_INFO                 0x4700012B, 0x00000800
+#define REG_SPI0_WORKING_PAGE_ADDRESS_31TO24_ADDR             0x4700012BU
+#define BF_SPI0_WORKING_PAGE_ADDR_31TO24_INFO                 0x4700012BU, 0x00000800U
 
-#define REG_SPI0_WORKING_PAGE_ADDRESS_23TO16_ADDR             0x4700012C
-#define BF_SPI0_WORKING_PAGE_ADDR_23TO16_INFO                 0x4700012C, 0x00000800
+#define REG_SPI0_WORKING_PAGE_ADDRESS_23TO16_ADDR             0x4700012CU
+#define BF_SPI0_WORKING_PAGE_ADDR_23TO16_INFO                 0x4700012CU, 0x00000800U
 
-#define REG_SPI0_WORKING_PAGE_ADDRESS_15TO8_ADDR              0x4700012D
-#define BF_SPI0_WORKING_PAGE_ADDR_15TO8_INFO                  0x4700012D, 0x00000800
+#define REG_SPI0_WORKING_PAGE_ADDRESS_15TO8_ADDR              0x4700012DU
+#define BF_SPI0_WORKING_PAGE_ADDR_15TO8_INFO                  0x4700012DU, 0x00000800U
 
-#define REG_SPI0_WORKING_PAGE_ADDRESS_7TO0_ADDR               0x4700012E
-#define BF_SPI0_WORKING_PAGE_ADDR_7TO0_INFO                   0x4700012E, 0x00000800
+#define REG_SPI0_WORKING_PAGE_ADDRESS_7TO0_ADDR               0x4700012EU
+#define BF_SPI0_WORKING_PAGE_ADDR_7TO0_INFO                   0x4700012EU, 0x00000800U
 
-#define REG_SPI0_MASK_31TO24_ADDR                             0x4700012F
-#define BF_SPI0_MASK_31TO24_INFO                              0x4700012F, 0x00000800
+#define REG_SPI0_MASK_31TO24_ADDR                             0x4700012FU
+#define BF_SPI0_MASK_31TO24_INFO                              0x4700012FU, 0x00000800U
 
-#define REG_SPI0_MASK_23TO16_ADDR                             0x47000130
-#define BF_SPI0_MASK_23TO16_INFO                              0x47000130, 0x00000800
+#define REG_SPI0_MASK_23TO16_ADDR                             0x47000130U
+#define BF_SPI0_MASK_23TO16_INFO                              0x47000130U, 0x00000800U
 
-#define REG_SPI0_MASK_15TO8_ADDR                              0x47000131
-#define BF_SPI0_MASK_15TO8_INFO                               0x47000131, 0x00000800
+#define REG_SPI0_MASK_15TO8_ADDR                              0x47000131U
+#define BF_SPI0_MASK_15TO8_INFO                               0x47000131U, 0x00000800U
 
-#define REG_SPI0_MASK_7TO0_ADDR                               0x47000132
-#define BF_SPI0_MASK_7TO0_INFO                                0x47000132, 0x00000800
+#define REG_SPI0_MASK_7TO0_ADDR                               0x47000132U
+#define BF_SPI0_MASK_7TO0_INFO                                0x47000132U, 0x00000800U
 
-#define REG_SPI1_PAGE_ADDRESS_31TO24_ADDR                     0x47000134
-#define BF_SPI1_BASE_PAGE_ADDR_31TO24_INFO                    0x47000134, 0x00000800
+#define REG_SPI1_PAGE_ADDRESS_31TO24_ADDR                     0x47000134U
+#define BF_SPI1_BASE_PAGE_ADDR_31TO24_INFO                    0x47000134U, 0x00000800U
 
-#define REG_SPI1_PAGE_ADDRESS_23TO16_ADDR                     0x47000135
-#define BF_SPI1_BASE_PAGE_ADDR_23TO16_INFO                    0x47000135, 0x00000800
+#define REG_SPI1_PAGE_ADDRESS_23TO16_ADDR                     0x47000135U
+#define BF_SPI1_BASE_PAGE_ADDR_23TO16_INFO                    0x47000135U, 0x00000800U
 
-#define REG_SPI1_PAGE_ADDRESS_15TO8_ADDR                      0x47000136
-#define BF_SPI1_BASE_PAGE_ADDR_15TO8_INFO                     0x47000136, 0x00000800
+#define REG_SPI1_PAGE_ADDRESS_15TO8_ADDR                      0x47000136U
+#define BF_SPI1_BASE_PAGE_ADDR_15TO8_INFO                     0x47000136U, 0x00000800U
 
-#define REG_SPI1_PAGE_ADDRESS_7TO0_ADDR                       0x47000137
-#define BF_SPI1_BASE_PAGE_ADDR_7TO0_INFO                      0x47000137, 0x00000800
+#define REG_SPI1_PAGE_ADDRESS_7TO0_ADDR                       0x47000137U
+#define BF_SPI1_BASE_PAGE_ADDR_7TO0_INFO                      0x47000137U, 0x00000800U
 
-#define REG_SPI1_PAGING_CONTROL_ADDR                          0x47000138
-#define BF_SPI1_AHB_BRIDGE_32B_PACK_EN_INFO                   0x47000138, 0x00000100
-#define BF_SPI1_CORE_SPI2AHB_BUSY_INFO                        0x47000138, 0x00000101
-#define BF_SPI1_PAGING_SPI2AHB_BUSY_INFO                      0x47000138, 0x00000102
+#define REG_SPI1_PAGING_CONTROL_ADDR                          0x47000138U
+#define BF_SPI1_AHB_BRIDGE_32B_PACK_EN_INFO                   0x47000138U, 0x00000100U
+#define BF_SPI1_CORE_SPI2AHB_BUSY_INFO                        0x47000138U, 0x00000101U
+#define BF_SPI1_PAGING_SPI2AHB_BUSY_INFO                      0x47000138U, 0x00000102U
 
-#define REG_SPI1_WORKING_PAGE_ADDRESS_31TO24_ADDR             0x47000139
-#define BF_SPI1_WORKING_PAGE_ADDR_31TO24_INFO                 0x47000139, 0x00000800
+#define REG_SPI1_WORKING_PAGE_ADDRESS_31TO24_ADDR             0x47000139U
+#define BF_SPI1_WORKING_PAGE_ADDR_31TO24_INFO                 0x47000139U, 0x00000800U
 
-#define REG_SPI1_WORKING_PAGE_ADDRESS_23TO16_ADDR             0x4700013A
-#define BF_SPI1_WORKING_PAGE_ADDR_23TO16_INFO                 0x4700013A, 0x00000800
+#define REG_SPI1_WORKING_PAGE_ADDRESS_23TO16_ADDR             0x4700013AU
+#define BF_SPI1_WORKING_PAGE_ADDR_23TO16_INFO                 0x4700013AU, 0x00000800U
 
-#define REG_SPI1_WORKING_PAGE_ADDRESS_15TO8_ADDR              0x4700013B
-#define BF_SPI1_WORKING_PAGE_ADDR_15TO8_INFO                  0x4700013B, 0x00000800
+#define REG_SPI1_WORKING_PAGE_ADDRESS_15TO8_ADDR              0x4700013BU
+#define BF_SPI1_WORKING_PAGE_ADDR_15TO8_INFO                  0x4700013BU, 0x00000800U
 
-#define REG_SPI1_WORKING_PAGE_ADDRESS_7TO0_ADDR               0x4700013C
-#define BF_SPI1_WORKING_PAGE_ADDR_7TO0_INFO                   0x4700013C, 0x00000800
+#define REG_SPI1_WORKING_PAGE_ADDRESS_7TO0_ADDR               0x4700013CU
+#define BF_SPI1_WORKING_PAGE_ADDR_7TO0_INFO                   0x4700013CU, 0x00000800U
 
-#define REG_SPI1_MASK_31TO24_ADDR                             0x4700013D
-#define BF_SPI1_MASK_31TO24_INFO                              0x4700013D, 0x00000800
+#define REG_SPI1_MASK_31TO24_ADDR                             0x4700013DU
+#define BF_SPI1_MASK_31TO24_INFO                              0x4700013DU, 0x00000800U
 
-#define REG_SPI1_MASK_23TO16_ADDR                             0x4700013E
-#define BF_SPI1_MASK_23TO16_INFO                              0x4700013E, 0x00000800
+#define REG_SPI1_MASK_23TO16_ADDR                             0x4700013EU
+#define BF_SPI1_MASK_23TO16_INFO                              0x4700013EU, 0x00000800U
 
-#define REG_SPI1_MASK_15TO8_ADDR                              0x4700013F
-#define BF_SPI1_MASK_15TO8_INFO                               0x4700013F, 0x00000800
+#define REG_SPI1_MASK_15TO8_ADDR                              0x4700013FU
+#define BF_SPI1_MASK_15TO8_INFO                               0x4700013FU, 0x00000800U
 
-#define REG_SPI1_MASK_7TO0_ADDR                               0x47000140
-#define BF_SPI1_MASK_7TO0_INFO                                0x47000140, 0x00000800
+#define REG_SPI1_MASK_7TO0_ADDR                               0x47000140U
+#define BF_SPI1_MASK_7TO0_INFO                                0x47000140U, 0x00000800U
 
-#define REG_DUAL_ARM_SUBSYS_MISC_CONTROL_ADDR                 0x47000142
-#define BF_ARM_DAP_MODE_SEL_INFO                              0x47000142, 0x00000100
-#define BF_STREAM_PROC_WR_ACC_ARM_MEM_INFO                    0x47000142, 0x00000101
+#define REG_DUAL_ARM_SUBSYS_MISC_CONTROL_ADDR                 0x47000142U
+#define BF_ARM_DAP_MODE_SEL_INFO                              0x47000142U, 0x00000100U
+#define BF_STREAM_PROC_WR_ACC_ARM_MEM_INFO                    0x47000142U, 0x00000101U
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM0_SW_INTERRUPT_CONTROL_ADDR                    0x47000143
-#define BF_ARM0_FORCE_GP_INTERRUPT_INFO                       0x47000143, 0x00000100
-#define BF_ARM0_CALIBRATION_ERROR_INFO                        0x47000143, 0x00000102
-#define BF_ARM0_SYSTEM_ERROR_INFO                             0x47000143, 0x00000103
-#define BF_ARM0_USE_RX_ENABLE_PIN_FOR_INTERRUPT_INFO          0x47000143, 0x00000104
-#define BF_ARM0_USE_TX_ENABLE_PIN_FOR_INTERRUPT_INFO          0x47000143, 0x00000105
-#define BF_ARM0_USE_ORX_ENABLE_PIN_FOR_INTERRUPT_INFO         0x47000143, 0x00000106
-#define BF_ARM0_USE_ORX_ENABLE_PIN_FOR_LPBK_INTERRUPT_INFO    0x47000143, 0x00000107
+#define REG_ARM0_SW_INTERRUPT_CONTROL_ADDR                    0x47000143U
+#define BF_ARM0_FORCE_GP_INTERRUPT_INFO                       0x47000143U, 0x00000100U
+#define BF_ARM0_CALIBRATION_ERROR_INFO                        0x47000143U, 0x00000102U
+#define BF_ARM0_SYSTEM_ERROR_INFO                             0x47000143U, 0x00000103U
+#define BF_ARM0_USE_RX_ENABLE_PIN_FOR_INTERRUPT_INFO          0x47000143U, 0x00000104U
+#define BF_ARM0_USE_TX_ENABLE_PIN_FOR_INTERRUPT_INFO          0x47000143U, 0x00000105U
+#define BF_ARM0_USE_ORX_ENABLE_PIN_FOR_INTERRUPT_INFO         0x47000143U, 0x00000106U
+#define BF_ARM0_USE_ORX_ENABLE_PIN_FOR_LPBK_INTERRUPT_INFO    0x47000143U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ARM1_SW_INTERRUPT_CONTROL_ADDR                    0x47000144
-#define BF_ARM1_FORCE_GP_INTERRUPT_INFO                       0x47000144, 0x00000100
-#define BF_ARM1_CALIBRATION_ERROR_INFO                        0x47000144, 0x00000102
-#define BF_ARM1_SYSTEM_ERROR_INFO                             0x47000144, 0x00000103
-#define BF_ARM1_USE_RX_ENABLE_PIN_FOR_INTERRUPT_INFO          0x47000144, 0x00000104
-#define BF_ARM1_USE_TX_ENABLE_PIN_FOR_INTERRUPT_INFO          0x47000144, 0x00000105
-#define BF_ARM1_USE_ORX_ENABLE_PIN_FOR_INTERRUPT_INFO         0x47000144, 0x00000106
-#define BF_ARM1_USE_ORX_ENABLE_PIN_FOR_LPBK_INTERRUPT_INFO    0x47000144, 0x00000107
+#define REG_ARM1_SW_INTERRUPT_CONTROL_ADDR                    0x47000144U
+#define BF_ARM1_FORCE_GP_INTERRUPT_INFO                       0x47000144U, 0x00000100U
+#define BF_ARM1_CALIBRATION_ERROR_INFO                        0x47000144U, 0x00000102U
+#define BF_ARM1_SYSTEM_ERROR_INFO                             0x47000144U, 0x00000103U
+#define BF_ARM1_USE_RX_ENABLE_PIN_FOR_INTERRUPT_INFO          0x47000144U, 0x00000104U
+#define BF_ARM1_USE_TX_ENABLE_PIN_FOR_INTERRUPT_INFO          0x47000144U, 0x00000105U
+#define BF_ARM1_USE_ORX_ENABLE_PIN_FOR_INTERRUPT_INFO         0x47000144U, 0x00000106U
+#define BF_ARM1_USE_ORX_ENABLE_PIN_FOR_LPBK_INTERRUPT_INFO    0x47000144U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_ZCD_SEL_CTRL_ADDR                                 0x47000145
-#define BF_ZCD_SEL_TAP1_CORE_INFO                             0x47000145, 0x00000300
-#define BF_ZCD_SEL_TAP2_CORE_INFO                             0x47000145, 0x00000303
+#define REG_ZCD_SEL_CTRL_ADDR                                 0x47000145U
+#define BF_ZCD_SEL_TAP1_CORE_INFO                             0x47000145U, 0x00000300U
+#define BF_ZCD_SEL_TAP2_CORE_INFO                             0x47000145U, 0x00000303U
 
-#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE0_ADDR                0x47000146
-#define BF_GP_INTERRUPTS_MASK_LOWER_WORD_PIN1_INFO            0x47000146, 0x00003000
+#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE0_ADDR                0x47000146U
+#define BF_GP_INTERRUPTS_MASK_LOWER_WORD_PIN1_INFO            0x47000146U, 0x00003000U
 
-#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE1_ADDR                0x47000147
+#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE1_ADDR                0x47000147U
 
-#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE2_ADDR                0x47000148
+#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE2_ADDR                0x47000148U
 
-#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE3_ADDR                0x47000149
+#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE3_ADDR                0x47000149U
 
-#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE4_ADDR                0x4700014A
+#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE4_ADDR                0x4700014AU
 
-#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE5_ADDR                0x4700014B
+#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE5_ADDR                0x4700014BU
 
-#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE6_ADDR                0x4700014C
-#define BF_GP_INTERRUPTS_MASK_UPPER_WORD_PIN1_INFO            0x4700014C, 0x00003000
+#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE6_ADDR                0x4700014CU
+#define BF_GP_INTERRUPTS_MASK_UPPER_WORD_PIN1_INFO            0x4700014CU, 0x00003000U
 
-#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE7_ADDR                0x4700014D
+#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE7_ADDR                0x4700014DU
 
-#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE8_ADDR                0x4700014E
+#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE8_ADDR                0x4700014EU
 
-#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE9_ADDR                0x4700014F
+#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE9_ADDR                0x4700014FU
 
-#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE10_ADDR               0x47000150
+#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE10_ADDR               0x47000150U
 
-#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE11_ADDR               0x47000151
+#define REG_GP_INTERRUPT_MASK_PIN_1_BYTE11_ADDR               0x47000151U
 
 #ifdef USE_PRIVATE_BF
-#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE0_ADDR                0x47000152
-#define BF_GP_INTERRUPTS_MASK_LOWER_WORD_PIN0_INFO            0x47000152, 0x00003000
+#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE0_ADDR                0x47000152U
+#define BF_GP_INTERRUPTS_MASK_LOWER_WORD_PIN0_INFO            0x47000152U, 0x00003000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE1_ADDR                0x47000153
+#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE1_ADDR                0x47000153U
 
-#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE2_ADDR                0x47000154
+#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE2_ADDR                0x47000154U
 
-#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE3_ADDR                0x47000155
+#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE3_ADDR                0x47000155U
 
-#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE4_ADDR                0x47000156
+#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE4_ADDR                0x47000156U
 
-#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE5_ADDR                0x47000157
+#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE5_ADDR                0x47000157U
 
 #ifdef USE_PRIVATE_BF
-#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE6_ADDR                0x47000158
-#define BF_GP_INTERRUPTS_MASK_UPPER_WORD_PIN0_INFO            0x47000158, 0x00003000
+#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE6_ADDR                0x47000158U
+#define BF_GP_INTERRUPTS_MASK_UPPER_WORD_PIN0_INFO            0x47000158U, 0x00003000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE7_ADDR                0x47000159
+#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE7_ADDR                0x47000159U
 
-#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE8_ADDR                0x4700015A
+#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE8_ADDR                0x4700015AU
 
-#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE9_ADDR                0x4700015B
+#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE9_ADDR                0x4700015BU
 
-#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE10_ADDR               0x4700015C
+#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE10_ADDR               0x4700015CU
 
-#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE11_ADDR               0x4700015D
+#define REG_GP_INTERRUPT_MASK_PIN_0_BYTE11_ADDR               0x4700015DU
 
 #ifdef USE_PRIVATE_BF
-#define REG_GP_INTERRUPT_STATUS_READ_BYTE0_ADDR               0x4700016A
-#define BF_GP_INTERRUPTS_STATUS_LOWER_WORD_INFO               0x4700016A, 0x00003000
+#define REG_GP_INTERRUPT_STATUS_READ_BYTE0_ADDR               0x4700016AU
+#define BF_GP_INTERRUPTS_STATUS_LOWER_WORD_INFO               0x4700016AU, 0x00003000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_GP_INTERRUPT_STATUS_READ_BYTE1_ADDR               0x4700016B
+#define REG_GP_INTERRUPT_STATUS_READ_BYTE1_ADDR               0x4700016BU
 
-#define REG_GP_INTERRUPT_STATUS_READ_BYTE2_ADDR               0x4700016C
+#define REG_GP_INTERRUPT_STATUS_READ_BYTE2_ADDR               0x4700016CU
 
-#define REG_GP_INTERRUPT_STATUS_READ_BYTE3_ADDR               0x4700016D
+#define REG_GP_INTERRUPT_STATUS_READ_BYTE3_ADDR               0x4700016DU
 
-#define REG_GP_INTERRUPT_STATUS_READ_BYTE4_ADDR               0x4700016E
+#define REG_GP_INTERRUPT_STATUS_READ_BYTE4_ADDR               0x4700016EU
 
-#define REG_GP_INTERRUPT_STATUS_READ_BYTE5_ADDR               0x4700016F
+#define REG_GP_INTERRUPT_STATUS_READ_BYTE5_ADDR               0x4700016FU
 
 #ifdef USE_PRIVATE_BF
-#define REG_GP_INTERRUPT_STATUS_READ_BYTE6_ADDR               0x47000170
-#define BF_GP_INTERRUPTS_STATUS_UPPER_WORD_INFO               0x47000170, 0x00003000
+#define REG_GP_INTERRUPT_STATUS_READ_BYTE6_ADDR               0x47000170U
+#define BF_GP_INTERRUPTS_STATUS_UPPER_WORD_INFO               0x47000170U, 0x00003000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_GP_INTERRUPT_STATUS_READ_BYTE7_ADDR               0x47000171
+#define REG_GP_INTERRUPT_STATUS_READ_BYTE7_ADDR               0x47000171U
 
-#define REG_GP_INTERRUPT_STATUS_READ_BYTE8_ADDR               0x47000172
+#define REG_GP_INTERRUPT_STATUS_READ_BYTE8_ADDR               0x47000172U
 
-#define REG_GP_INTERRUPT_STATUS_READ_BYTE9_ADDR               0x47000173
+#define REG_GP_INTERRUPT_STATUS_READ_BYTE9_ADDR               0x47000173U
 
-#define REG_GP_INTERRUPT_STATUS_READ_BYTE10_ADDR              0x47000174
+#define REG_GP_INTERRUPT_STATUS_READ_BYTE10_ADDR              0x47000174U
 
-#define REG_GP_INTERRUPT_STATUS_READ_BYTE11_ADDR              0x47000175
+#define REG_GP_INTERRUPT_STATUS_READ_BYTE11_ADDR              0x47000175U
 
-#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE0_ADDR             0x47000176
-#define BF_GP_INTERRUPTS_LEVEL_PULSE_B_LOWER_WORD_INFO        0x47000176, 0x00003000
+#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE0_ADDR             0x47000176U
+#define BF_GP_INTERRUPTS_LEVEL_PULSE_B_LOWER_WORD_INFO        0x47000176U, 0x00003000U
 
-#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE1_ADDR             0x47000177
+#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE1_ADDR             0x47000177U
 
-#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE2_ADDR             0x47000178
+#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE2_ADDR             0x47000178U
 
-#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE3_ADDR             0x47000179
+#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE3_ADDR             0x47000179U
 
-#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE4_ADDR             0x4700017A
+#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE4_ADDR             0x4700017AU
 
-#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE5_ADDR             0x4700017B
+#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE5_ADDR             0x4700017BU
 
-#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE6_ADDR             0x4700017C
-#define BF_GP_INTERRUPTS_LEVEL_PULSE_B_UPPER_WORD_INFO        0x4700017C, 0x00003000
+#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE6_ADDR             0x4700017CU
+#define BF_GP_INTERRUPTS_LEVEL_PULSE_B_UPPER_WORD_INFO        0x4700017CU, 0x00003000U
 
-#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE7_ADDR             0x4700017D
+#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE7_ADDR             0x4700017DU
 
-#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE8_ADDR             0x4700017E
+#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE8_ADDR             0x4700017EU
 
-#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE9_ADDR             0x4700017F
+#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE9_ADDR             0x4700017FU
 
-#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE10_ADDR            0x47000180
+#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE10_ADDR            0x47000180U
 
-#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE11_ADDR            0x47000181
+#define REG_GP_INTERRUPT_LEVEL_PULSE_B_BYTE11_ADDR            0x47000181U
 
-#define REG_SYNCINB0_A_CNTRL_ADDR                             0x47000183
-#define BF_SYNCINB0_A_PAD_EN_INFO                             0x47000183, 0x00000100
-#define BF_SYNCINB0_A_PN_INVERT_INFO                          0x47000183, 0x00000101
-#define BF_SYNCINB0_A_LVDS_SEL_INFO                           0x47000183, 0x00000102
-#define BF_SYNCINB0_A_ALT_LVDS_DOUT_EN_INFO                   0x47000183, 0x00000103
-#define BF_SYNCINB0_A_SPI_READ_INFO                           0x47000183, 0x00000104
-#define BF_SYNCINB0_A_TERM_EN_INFO                            0x47000183, 0x00000105
-#define BF_SYNCINB0_A_ALT_DOUT_MUX_SEL_INFO                   0x47000183, 0x00000206
+#define REG_SYNCINB0_A_CNTRL_ADDR                             0x47000183U
+#define BF_SYNCINB0_A_PAD_EN_INFO                             0x47000183U, 0x00000100U
+#define BF_SYNCINB0_A_PN_INVERT_INFO                          0x47000183U, 0x00000101U
+#define BF_SYNCINB0_A_LVDS_SEL_INFO                           0x47000183U, 0x00000102U
+#define BF_SYNCINB0_A_ALT_LVDS_DOUT_EN_INFO                   0x47000183U, 0x00000103U
+#define BF_SYNCINB0_A_SPI_READ_INFO                           0x47000183U, 0x00000104U
+#define BF_SYNCINB0_A_TERM_EN_INFO                            0x47000183U, 0x00000105U
+#define BF_SYNCINB0_A_ALT_DOUT_MUX_SEL_INFO                   0x47000183U, 0x00000206U
 
-#define REG_SYNCINB1_A_CNTRL_ADDR                             0x47000184
-#define BF_SYNCINB1_A_PAD_EN_INFO                             0x47000184, 0x00000100
-#define BF_SYNCINB1_A_PN_INVERT_INFO                          0x47000184, 0x00000101
-#define BF_SYNCINB1_A_LVDS_SEL_INFO                           0x47000184, 0x00000102
-#define BF_SYNCINB1_A_ALT_LVDS_DOUT_EN_INFO                   0x47000184, 0x00000103
-#define BF_SYNCINB1_A_SPI_READ_INFO                           0x47000184, 0x00000104
-#define BF_SYNCINB1_A_TERM_EN_INFO                            0x47000184, 0x00000105
-#define BF_SYNCINB1_A_ALT_DOUT_MUX_SEL_INFO                   0x47000184, 0x00000206
+#define REG_SYNCINB1_A_CNTRL_ADDR                             0x47000184U
+#define BF_SYNCINB1_A_PAD_EN_INFO                             0x47000184U, 0x00000100U
+#define BF_SYNCINB1_A_PN_INVERT_INFO                          0x47000184U, 0x00000101U
+#define BF_SYNCINB1_A_LVDS_SEL_INFO                           0x47000184U, 0x00000102U
+#define BF_SYNCINB1_A_ALT_LVDS_DOUT_EN_INFO                   0x47000184U, 0x00000103U
+#define BF_SYNCINB1_A_SPI_READ_INFO                           0x47000184U, 0x00000104U
+#define BF_SYNCINB1_A_TERM_EN_INFO                            0x47000184U, 0x00000105U
+#define BF_SYNCINB1_A_ALT_DOUT_MUX_SEL_INFO                   0x47000184U, 0x00000206U
 
-#define REG_SYNCINB0_B_CNTRL_ADDR                             0x47000185
-#define BF_SYNCINB0_B_PAD_EN_INFO                             0x47000185, 0x00000100
-#define BF_SYNCINB0_B_PN_INVERT_INFO                          0x47000185, 0x00000101
-#define BF_SYNCINB0_B_LVDS_SEL_INFO                           0x47000185, 0x00000102
-#define BF_SYNCINB0_B_ALT_LVDS_DOUT_EN_INFO                   0x47000185, 0x00000103
-#define BF_SYNCINB0_B_SPI_READ_INFO                           0x47000185, 0x00000104
-#define BF_SYNCINB0_B_TERM_EN_INFO                            0x47000185, 0x00000105
-#define BF_SYNCINB0_B_ALT_DOUT_MUX_SEL_INFO                   0x47000185, 0x00000206
+#define REG_SYNCINB0_B_CNTRL_ADDR                             0x47000185U
+#define BF_SYNCINB0_B_PAD_EN_INFO                             0x47000185U, 0x00000100U
+#define BF_SYNCINB0_B_PN_INVERT_INFO                          0x47000185U, 0x00000101U
+#define BF_SYNCINB0_B_LVDS_SEL_INFO                           0x47000185U, 0x00000102U
+#define BF_SYNCINB0_B_ALT_LVDS_DOUT_EN_INFO                   0x47000185U, 0x00000103U
+#define BF_SYNCINB0_B_SPI_READ_INFO                           0x47000185U, 0x00000104U
+#define BF_SYNCINB0_B_TERM_EN_INFO                            0x47000185U, 0x00000105U
+#define BF_SYNCINB0_B_ALT_DOUT_MUX_SEL_INFO                   0x47000185U, 0x00000206U
 
-#define REG_SYNCINB1_B_CNTRL_ADDR                             0x47000186
-#define BF_SYNCINB1_B_PAD_EN_INFO                             0x47000186, 0x00000100
-#define BF_SYNCINB1_B_PN_INVERT_INFO                          0x47000186, 0x00000101
-#define BF_SYNCINB1_B_LVDS_SEL_INFO                           0x47000186, 0x00000102
-#define BF_SYNCINB1_B_ALT_LVDS_DOUT_EN_INFO                   0x47000186, 0x00000103
-#define BF_SYNCINB1_B_SPI_READ_INFO                           0x47000186, 0x00000104
-#define BF_SYNCINB1_B_TERM_EN_INFO                            0x47000186, 0x00000105
-#define BF_SYNCINB1_B_ALT_DOUT_MUX_SEL_INFO                   0x47000186, 0x00000206
+#define REG_SYNCINB1_B_CNTRL_ADDR                             0x47000186U
+#define BF_SYNCINB1_B_PAD_EN_INFO                             0x47000186U, 0x00000100U
+#define BF_SYNCINB1_B_PN_INVERT_INFO                          0x47000186U, 0x00000101U
+#define BF_SYNCINB1_B_LVDS_SEL_INFO                           0x47000186U, 0x00000102U
+#define BF_SYNCINB1_B_ALT_LVDS_DOUT_EN_INFO                   0x47000186U, 0x00000103U
+#define BF_SYNCINB1_B_SPI_READ_INFO                           0x47000186U, 0x00000104U
+#define BF_SYNCINB1_B_TERM_EN_INFO                            0x47000186U, 0x00000105U
+#define BF_SYNCINB1_B_ALT_DOUT_MUX_SEL_INFO                   0x47000186U, 0x00000206U
 
-#define REG_SYNCOUTB0_A_CNTRL_BYTE0_ADDR                      0x47000187
-#define BF_SYNCOUTB0_A_PAD_EN_INFO                            0x47000187, 0x00000100
-#define BF_SYNCOUTB0_A_PN_INVERT_INFO                         0x47000187, 0x00000101
-#define BF_SYNCOUTB0_A_LVDS_SEL_INFO                          0x47000187, 0x00000102
-#define BF_SYNCOUTB0_A_ALT_LVDS_DIN_EN_INFO                   0x47000187, 0x00000103
-#define BF_SYNCOUTB0_A_ALT_DIN_MUX_SEL_INFO                   0x47000187, 0x00000206
+#define REG_SYNCOUTB0_A_CNTRL_BYTE0_ADDR                      0x47000187U
+#define BF_SYNCOUTB0_A_PAD_EN_INFO                            0x47000187U, 0x00000100U
+#define BF_SYNCOUTB0_A_PN_INVERT_INFO                         0x47000187U, 0x00000101U
+#define BF_SYNCOUTB0_A_LVDS_SEL_INFO                          0x47000187U, 0x00000102U
+#define BF_SYNCOUTB0_A_ALT_LVDS_DIN_EN_INFO                   0x47000187U, 0x00000103U
+#define BF_SYNCOUTB0_A_ALT_DIN_MUX_SEL_INFO                   0x47000187U, 0x00000206U
 
-#define REG_SYNCOUTB0_A_CNTRL_BYTE1_ADDR                      0x47000188
-#define BF_SYNCOUTB0_A_GPIO_STAGE_SEL_INFO                    0x47000188, 0x00000100
-#define BF_SYNCOUTB0_A_GPIO_DEBUG_SOURCE_SEL_INFO             0x47000188, 0x00000601
+#define REG_SYNCOUTB0_A_CNTRL_BYTE1_ADDR                      0x47000188U
+#define BF_SYNCOUTB0_A_GPIO_STAGE_SEL_INFO                    0x47000188U, 0x00000100U
+#define BF_SYNCOUTB0_A_GPIO_DEBUG_SOURCE_SEL_INFO             0x47000188U, 0x00000601U
 
-#define REG_SYNCOUTB1_A_CNTRL_BYTE0_ADDR                      0x47000189
-#define BF_SYNCOUTB1_A_PAD_EN_INFO                            0x47000189, 0x00000100
-#define BF_SYNCOUTB1_A_PN_INVERT_INFO                         0x47000189, 0x00000101
-#define BF_SYNCOUTB1_A_LVDS_SEL_INFO                          0x47000189, 0x00000102
-#define BF_SYNCOUTB1_A_ALT_LVDS_DIN_EN_INFO                   0x47000189, 0x00000103
-#define BF_SYNCOUTB1_A_ALT_DIN_MUX_SEL_INFO                   0x47000189, 0x00000206
+#define REG_SYNCOUTB1_A_CNTRL_BYTE0_ADDR                      0x47000189U
+#define BF_SYNCOUTB1_A_PAD_EN_INFO                            0x47000189U, 0x00000100U
+#define BF_SYNCOUTB1_A_PN_INVERT_INFO                         0x47000189U, 0x00000101U
+#define BF_SYNCOUTB1_A_LVDS_SEL_INFO                          0x47000189U, 0x00000102U
+#define BF_SYNCOUTB1_A_ALT_LVDS_DIN_EN_INFO                   0x47000189U, 0x00000103U
+#define BF_SYNCOUTB1_A_ALT_DIN_MUX_SEL_INFO                   0x47000189U, 0x00000206U
 
-#define REG_SYNCOUTB1_A_CNTRL_BYTE1_ADDR                      0x4700018A
-#define BF_SYNCOUTB1_A_GPIO_STAGE_SEL_INFO                    0x4700018A, 0x00000100
-#define BF_SYNCOUTB1_A_GPIO_DEBUG_SOURCE_SEL_INFO             0x4700018A, 0x00000601
+#define REG_SYNCOUTB1_A_CNTRL_BYTE1_ADDR                      0x4700018AU
+#define BF_SYNCOUTB1_A_GPIO_STAGE_SEL_INFO                    0x4700018AU, 0x00000100U
+#define BF_SYNCOUTB1_A_GPIO_DEBUG_SOURCE_SEL_INFO             0x4700018AU, 0x00000601U
 
-#define REG_SYNCOUTB0_B_CNTRL_BYTE0_ADDR                      0x4700018B
-#define BF_SYNCOUTB0_B_PAD_EN_INFO                            0x4700018B, 0x00000100
-#define BF_SYNCOUTB0_B_PN_INVERT_INFO                         0x4700018B, 0x00000101
-#define BF_SYNCOUTB0_B_LVDS_SEL_INFO                          0x4700018B, 0x00000102
-#define BF_SYNCOUTB0_B_ALT_LVDS_DIN_EN_INFO                   0x4700018B, 0x00000103
-#define BF_SYNCOUTB0_B_ALT_DIN_MUX_SEL_INFO                   0x4700018B, 0x00000206
+#define REG_SYNCOUTB0_B_CNTRL_BYTE0_ADDR                      0x4700018BU
+#define BF_SYNCOUTB0_B_PAD_EN_INFO                            0x4700018BU, 0x00000100U
+#define BF_SYNCOUTB0_B_PN_INVERT_INFO                         0x4700018BU, 0x00000101U
+#define BF_SYNCOUTB0_B_LVDS_SEL_INFO                          0x4700018BU, 0x00000102U
+#define BF_SYNCOUTB0_B_ALT_LVDS_DIN_EN_INFO                   0x4700018BU, 0x00000103U
+#define BF_SYNCOUTB0_B_ALT_DIN_MUX_SEL_INFO                   0x4700018BU, 0x00000206U
 
-#define REG_SYNCOUTB0_B_CNTRL_BYTE1_ADDR                      0x4700018C
-#define BF_SYNCOUTB0_B_GPIO_STAGE_SEL_INFO                    0x4700018C, 0x00000100
-#define BF_SYNCOUTB0_B_GPIO_DEBUG_SOURCE_SEL_INFO             0x4700018C, 0x00000601
+#define REG_SYNCOUTB0_B_CNTRL_BYTE1_ADDR                      0x4700018CU
+#define BF_SYNCOUTB0_B_GPIO_STAGE_SEL_INFO                    0x4700018CU, 0x00000100U
+#define BF_SYNCOUTB0_B_GPIO_DEBUG_SOURCE_SEL_INFO             0x4700018CU, 0x00000601U
 
-#define REG_SYNCOUTB1_B_CNTRL_BYTE0_ADDR                      0x4700018D
-#define BF_SYNCOUTB1_B_PAD_EN_INFO                            0x4700018D, 0x00000100
-#define BF_SYNCOUTB1_B_PN_INVERT_INFO                         0x4700018D, 0x00000101
-#define BF_SYNCOUTB1_B_LVDS_SEL_INFO                          0x4700018D, 0x00000102
-#define BF_SYNCOUTB1_B_ALT_LVDS_DIN_EN_INFO                   0x4700018D, 0x00000103
-#define BF_SYNCOUTB1_B_ALT_DIN_MUX_SEL_INFO                   0x4700018D, 0x00000206
+#define REG_SYNCOUTB1_B_CNTRL_BYTE0_ADDR                      0x4700018DU
+#define BF_SYNCOUTB1_B_PAD_EN_INFO                            0x4700018DU, 0x00000100U
+#define BF_SYNCOUTB1_B_PN_INVERT_INFO                         0x4700018DU, 0x00000101U
+#define BF_SYNCOUTB1_B_LVDS_SEL_INFO                          0x4700018DU, 0x00000102U
+#define BF_SYNCOUTB1_B_ALT_LVDS_DIN_EN_INFO                   0x4700018DU, 0x00000103U
+#define BF_SYNCOUTB1_B_ALT_DIN_MUX_SEL_INFO                   0x4700018DU, 0x00000206U
 
-#define REG_SYNCOUTB1_B_CNTRL_BYTE1_ADDR                      0x4700018E
-#define BF_SYNCOUTB1_B_GPIO_STAGE_SEL_INFO                    0x4700018E, 0x00000100
-#define BF_SYNCOUTB1_B_GPIO_DEBUG_SOURCE_SEL_INFO             0x4700018E, 0x00000601
+#define REG_SYNCOUTB1_B_CNTRL_BYTE1_ADDR                      0x4700018EU
+#define BF_SYNCOUTB1_B_GPIO_STAGE_SEL_INFO                    0x4700018EU, 0x00000100U
+#define BF_SYNCOUTB1_B_GPIO_DEBUG_SOURCE_SEL_INFO             0x4700018EU, 0x00000601U
 
 #ifdef USE_PRIVATE_BF
-#define REG_SCAN_CONFIG_BYTE0_ADDR                            0x47000190
-#define BF_SCAN_COMP_EN_INFO                                  0x47000190, 0x00000100
-#define BF_SCAN_OPCG_EN_INFO                                  0x47000190, 0x00000101
-#define BF_TEST_ENTRY_PATTERN_INFO                            0x47000190, 0x00000502
+#define REG_SCAN_CONFIG_BYTE0_ADDR                            0x47000190U
+#define BF_SCAN_COMP_EN_INFO                                  0x47000190U, 0x00000100U
+#define BF_SCAN_OPCG_EN_INFO                                  0x47000190U, 0x00000101U
+#define BF_TEST_ENTRY_PATTERN_INFO                            0x47000190U, 0x00000502U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_TEST_MODE_REGISTER_ADDR                           0x47000191
+#define REG_TEST_MODE_REGISTER_ADDR                           0x47000191U
 #ifdef USE_PRIVATE_BF
-#define BF_TEST_MODE_CONTROL_INFO                             0x47000191, 0x00000300
+#define BF_TEST_MODE_CONTROL_INFO                             0x47000191U, 0x00000300U
 #endif /* USE_PRIVATE_BF */
-#define BF_TEST_MODE_EN_INFO                                  0x47000191, 0x00000103
+#define BF_TEST_MODE_EN_INFO                                  0x47000191U, 0x00000103U
 
-#define REG_OPCG_CLK_SEL_REG_ADDR                             0x47000192
-#define BF_OPCG_CLK_SELECT_INFO                               0x47000192, 0x00000700
+#define REG_OPCG_CLK_SEL_REG_ADDR                             0x47000192U
+#define BF_OPCG_CLK_SELECT_INFO                               0x47000192U, 0x00000700U
 
-#define REG_MBIST_MODE_EN_ADDR                                0x47000193
-#define BF_MBIST_MODE_EN_INFO                                 0x47000193, 0x00000100
+#define REG_MBIST_MODE_EN_ADDR                                0x47000193U
+#define BF_MBIST_MODE_EN_INFO                                 0x47000193U, 0x00000100U
 
 #ifdef USE_PRIVATE_BF
-#define REG_EFUSE_OVERRIDE_0_ADDR                             0x4700019A
-#define BF_EFUSE_OVERRIDES_LOWER_WORD_INFO                    0x4700019A, 0x00003000
+#define REG_EFUSE_OVERRIDE_0_ADDR                             0x4700019AU
+#define BF_EFUSE_OVERRIDES_LOWER_WORD_INFO                    0x4700019AU, 0x00003000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_EFUSE_OVERRIDE_1_ADDR                             0x4700019B
+#define REG_EFUSE_OVERRIDE_1_ADDR                             0x4700019BU
 
-#define REG_EFUSE_OVERRIDE_2_ADDR                             0x4700019C
+#define REG_EFUSE_OVERRIDE_2_ADDR                             0x4700019CU
 
-#define REG_EFUSE_OVERRIDE_3_ADDR                             0x4700019D
+#define REG_EFUSE_OVERRIDE_3_ADDR                             0x4700019DU
 
-#define REG_EFUSE_OVERRIDE_4_ADDR                             0x4700019E
+#define REG_EFUSE_OVERRIDE_4_ADDR                             0x4700019EU
 
-#define REG_EFUSE_OVERRIDE_5_ADDR                             0x4700019F
+#define REG_EFUSE_OVERRIDE_5_ADDR                             0x4700019FU
 
 #ifdef USE_PRIVATE_BF
-#define REG_EFUSE_OVERRIDE_6_ADDR                             0x470001A0
-#define BF_EFUSE_OVERRIDES_UPPER_WORD_INFO                    0x470001A0, 0x00003000
+#define REG_EFUSE_OVERRIDE_6_ADDR                             0x470001A0U
+#define BF_EFUSE_OVERRIDES_UPPER_WORD_INFO                    0x470001A0U, 0x00003000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_EFUSE_OVERRIDE_7_ADDR                             0x470001A1
+#define REG_EFUSE_OVERRIDE_7_ADDR                             0x470001A1U
 
-#define REG_EFUSE_OVERRIDE_8_ADDR                             0x470001A2
+#define REG_EFUSE_OVERRIDE_8_ADDR                             0x470001A2U
 
-#define REG_EFUSE_OVERRIDE_9_ADDR                             0x470001A3
+#define REG_EFUSE_OVERRIDE_9_ADDR                             0x470001A3U
 
-#define REG_EFUSE_OVERRIDE_10_ADDR                            0x470001A4
+#define REG_EFUSE_OVERRIDE_10_ADDR                            0x470001A4U
 
-#define REG_EFUSE_OVERRIDE_11_ADDR                            0x470001A5
+#define REG_EFUSE_OVERRIDE_11_ADDR                            0x470001A5U
 
 #ifdef USE_PRIVATE_BF
-#define REG_EFUSE_OVERRIDE_CTL_ADDR                           0x470001A6
-#define BF_EFUSE_OVER_RIDE_ENABLE_INFO                        0x470001A6, 0x00000100
+#define REG_EFUSE_OVERRIDE_CTL_ADDR                           0x470001A6U
+#define BF_EFUSE_OVER_RIDE_ENABLE_INFO                        0x470001A6U, 0x00000100U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_MONITOR_0_ADDR                                    0x470001A8
-#define BF_CONTROL_OUT_SEL_INFO                               0x470001A8, 0x00000800
+#define REG_MONITOR_0_ADDR                                    0x470001A8U
+#define BF_CONTROL_OUT_SEL_INFO                               0x470001A8U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_MONITOR_1_ADDR                                    0x470001A9
-#define BF_RX_CONTROL_OUT_SEL_INFO                            0x470001A9, 0x00000800
+#define REG_MONITOR_1_ADDR                                    0x470001A9U
+#define BF_RX_CONTROL_OUT_SEL_INFO                            0x470001A9U, 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_MONITOR_2_ADDR                                    0x470001AB
-#define BF_CONTROL_OUT_ENABLE_INFO                            0x470001AB, 0x00000100
-#define BF_RX_CONTROL_OUT_ENABLE_INFO                         0x470001AB, 0x00000101
+#define REG_MONITOR_2_ADDR                                    0x470001ABU
+#define BF_CONTROL_OUT_ENABLE_INFO                            0x470001ABU, 0x00000100U
+#define BF_RX_CONTROL_OUT_ENABLE_INFO                         0x470001ABU, 0x00000101U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_MONITOR_3_ADDR                                    0x470001AE
-#define BF_RX_ORX_ANY_SOURCE_MUX_SEL_10_INFO                  0x470001AE, 0x00000300
-#define BF_RX_ORX_ANY_SOURCE_MUX_SEL_32_INFO                  0x470001AE, 0x00000303
+#define REG_MONITOR_3_ADDR                                    0x470001AEU
+#define BF_RX_ORX_ANY_SOURCE_MUX_SEL_10_INFO                  0x470001AEU, 0x00000300U
+#define BF_RX_ORX_ANY_SOURCE_MUX_SEL_32_INFO                  0x470001AEU, 0x00000303U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_MONITOR_4_ADDR                                    0x470001AF
-#define BF_RX_ORX_ANY_SOURCE_MUX_SEL_54_INFO                  0x470001AF, 0x00000300
-#define BF_RX_ORX_ANY_SOURCE_MUX_SEL_76_INFO                  0x470001AF, 0x00000303
+#define REG_MONITOR_4_ADDR                                    0x470001AFU
+#define BF_RX_ORX_ANY_SOURCE_MUX_SEL_54_INFO                  0x470001AFU, 0x00000300U
+#define BF_RX_ORX_ANY_SOURCE_MUX_SEL_76_INFO                  0x470001AFU, 0x00000303U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_DRV_STRENGTH_CONTROL_0_ADDR                       0x470001B1
-#define BF_REFCLK_CLK_PLL_DRVR_STRENGTH_INFO                  0x470001B1, 0x00000200
-#define BF_REFCLK_SERDES_PLL_DRVR_STRENGTH_INFO               0x470001B1, 0x00000206
+#define REG_DRV_STRENGTH_CONTROL_0_ADDR                       0x470001B1U
+#define BF_REFCLK_CLK_PLL_DRVR_STRENGTH_INFO                  0x470001B1U, 0x00000200U
+#define BF_REFCLK_SERDES_PLL_DRVR_STRENGTH_INFO               0x470001B1U, 0x00000206U
 
-#define REG_SCRATCH_REGS_ADDR(n)                              (0x47000200 + 1 * (n))
-#define BF_SCRATCH_REG_INFO(n)                                (0x47000200 + 1 * (n)), 0x00000800
+#define REG_SCRATCH_REGS_ADDR(n)                              (0x47000200U + 1U * (uint32_t)(n))
+#define BF_SCRATCH_REG_INFO(n)                                (0x47000200U + 1U * (uint32_t)(n)), 0x00000800U
 
-#define REG_SP_DBG_GLBL_CTL_ADDR                              0x47000300
-#define BF_SP_DBG_GLOBAL_HALT_INFO                            0x47000300, 0x00000100
-#define BF_SP_DBG_GLOBAL_RESUME_INFO                          0x47000300, 0x00000101
+#define REG_SP_DBG_GLBL_CTL_ADDR                              0x47000300U
+#define BF_SP_DBG_GLOBAL_HALT_INFO                            0x47000300U, 0x00000100U
+#define BF_SP_DBG_GLOBAL_RESUME_INFO                          0x47000300U, 0x00000101U
 
-#define REG_RX_SP_DBG_TRIG_MASK_ADDR                          0x47000301
-#define BF_RX_SP_DBG_TRIG_MASK_INFO                           0x47000301, 0x00000800
+#define REG_RX_SP_DBG_TRIG_MASK_ADDR                          0x47000301U
+#define BF_RX_SP_DBG_TRIG_MASK_INFO                           0x47000301U, 0x00000800U
 
-#define REG_TX_SP_DBG_TRIG_MASK_ADDR                          0x47000302
-#define BF_TX_SP_DBG_TRIG_MASK_INFO                           0x47000302, 0x00000800
+#define REG_TX_SP_DBG_TRIG_MASK_ADDR                          0x47000302U
+#define BF_TX_SP_DBG_TRIG_MASK_INFO                           0x47000302U, 0x00000800U
 
-#define REG_ORX_MAIN_SP_DBG_TRIG_MASK_ADDR                    0x47000303
-#define BF_ORX_SP_DBG_TRIG_MASK_INFO                          0x47000303, 0x00000200
-#define BF_MAIN_SP_DBG_TRIG_MASK_INFO                         0x47000303, 0x00000104
+#define REG_ORX_MAIN_SP_DBG_TRIG_MASK_ADDR                    0x47000303U
+#define BF_ORX_SP_DBG_TRIG_MASK_INFO                          0x47000303U, 0x00000200U
+#define BF_MAIN_SP_DBG_TRIG_MASK_INFO                         0x47000303U, 0x00000104U
 
-#define REG_MAIN_SP_DBG_STATUS_ADDR                           0x47000307
-#define BF_MAIN_SP_DBG_STAT_INFO                              0x47000307, 0x00000100
+#define REG_MAIN_SP_DBG_STATUS_ADDR                           0x47000307U
+#define BF_MAIN_SP_DBG_STAT_INFO                              0x47000307U, 0x00000100U
 
-#define REG_ORX_SP_DBG_STATUS_ADDR                            0x47000308
-#define BF_ORX_SLICE_SP_DBG_STAT_INFO                         0x47000308, 0x00000200
+#define REG_ORX_SP_DBG_STATUS_ADDR                            0x47000308U
+#define BF_ORX_SLICE_SP_DBG_STAT_INFO                         0x47000308U, 0x00000200U
 
-#define REG_RX_SP_DBG_STATUS_ADDR                             0x47000309
-#define BF_RX_SLICE_SP_DBG_STAT_INFO                          0x47000309, 0x00000800
+#define REG_RX_SP_DBG_STATUS_ADDR                             0x47000309U
+#define BF_RX_SLICE_SP_DBG_STAT_INFO                          0x47000309U, 0x00000800U
 
-#define REG_TX_SP_DBG_STATUS_ADDR                             0x4700030A
-#define BF_TX_SLICE_SP_DBG_STAT_INFO                          0x4700030A, 0x00000800
+#define REG_TX_SP_DBG_STATUS_ADDR                             0x4700030AU
+#define BF_TX_SLICE_SP_DBG_STAT_INFO                          0x4700030AU, 0x00000800U
 
-#define REG_JESD_EVENT_FIFO_STATUS_ADDR                       0x4700030B
-#define BF_JESD_EVENT_FIFO_WR_FULL_INFO                       0x4700030B, 0x00000800
+#define REG_JESD_EVENT_FIFO_STATUS_ADDR                       0x4700030BU
+#define BF_JESD_EVENT_FIFO_WR_FULL_INFO                       0x4700030BU, 0x00000800U
 
-#define REG_AHB_ERROR_HMASTER_ADDR                            0x4700030C
-#define BF_AHB_ERR_HMASTER_INFO                               0x4700030C, 0x00000400
+#define REG_AHB_ERROR_HMASTER_ADDR                            0x4700030CU
+#define BF_AHB_ERR_HMASTER_INFO                               0x4700030CU, 0x00000400U
 
-#define REG_AHB_ERROR_HADDR_BYTE3_ADDR                        0x4700030D
+#define REG_AHB_ERROR_HADDR_BYTE3_ADDR                        0x4700030DU
 
-#define REG_AHB_ERROR_HADDR_BYTE2_ADDR                        0x4700030E
+#define REG_AHB_ERROR_HADDR_BYTE2_ADDR                        0x4700030EU
 
-#define REG_AHB_ERROR_HADDR_BYTE1_ADDR                        0x4700030F
+#define REG_AHB_ERROR_HADDR_BYTE1_ADDR                        0x4700030FU
 
-#define REG_AHB_ERROR_HADDR_BYTE0_ADDR                        0x47000310
-#define BF_AHB_ERR_HADDR_INFO                                 0x47000310, 0x00002000
+#define REG_AHB_ERROR_HADDR_BYTE0_ADDR                        0x47000310U
+#define BF_AHB_ERR_HADDR_INFO                                 0x47000310U, 0x00002000U
 
-#define REG_AHB_ERROR_TYPE_ADDR                               0x47000311
-#define BF_AHB_ERR_HSIZE_INFO                                 0x47000311, 0x00000300
+#define REG_AHB_ERROR_TYPE_ADDR                               0x47000311U
+#define BF_AHB_ERR_HSIZE_INFO                                 0x47000311U, 0x00000300U
 #ifdef USE_HW_BF
-#define BF_AHB_ERR_HWRITE_INFO                                0x47000311, 0x00000103
+#define BF_AHB_ERR_HWRITE_INFO                                0x47000311U, 0x00000103U
 #endif /* USE_HW_BF */
 
-#define REG_AHB_ERROR_LOCATOR_ADDR                            0x47000313
-#define BF_AHB_ERROR_LOCATOR_INFO                             0x47000313, 0x00000500
+#define REG_AHB_ERROR_LOCATOR_ADDR                            0x47000313U
+#define BF_AHB_ERROR_LOCATOR_INFO                             0x47000313U, 0x00000500U
 
-#define REG_MASTER_AHB_ERROR_HRESP_MASK_ADDR                  0x47000315
-#define BF_AHB_ERROR_HRESP_MASK_ARM0_INFO                     0x47000315, 0x00000100
-#define BF_AHB_ERROR_HRESP_MASK_ARM1_INFO                     0x47000315, 0x00000101
+#define REG_MASTER_AHB_ERROR_HRESP_MASK_ADDR                  0x47000315U
+#define BF_AHB_ERROR_HRESP_MASK_ARM0_INFO                     0x47000315U, 0x00000100U
+#define BF_AHB_ERROR_HRESP_MASK_ARM1_INFO                     0x47000315U, 0x00000101U
 
-#define REG_MASTER_AHB_ERROR_INTERRUPT_MASK_ADDR              0x47000316
-#define BF_AHB_ERROR_INTERRUPT_MASK_SPI0_INFO                 0x47000316, 0x00000100
-#define BF_AHB_ERROR_INTERRUPT_MASK_SPI1_INFO                 0x47000316, 0x00000101
-#define BF_AHB_ERROR_INTERRUPT_MASK_ARM0_INFO                 0x47000316, 0x00000102
-#define BF_AHB_ERROR_INTERRUPT_MASK_ARM1_INFO                 0x47000316, 0x00000103
-#define BF_AHB_ERROR_INTERRUPT_MASK_CORE_STREAM_PROC_INFO     0x47000316, 0x00000104
-#define BF_AHB_ERROR_INTERRUPT_MASK_KFA_STREAM_PROC_INFO      0x47000316, 0x00000105
+#define REG_MASTER_AHB_ERROR_INTERRUPT_MASK_ADDR              0x47000316U
+#define BF_AHB_ERROR_INTERRUPT_MASK_SPI0_INFO                 0x47000316U, 0x00000100U
+#define BF_AHB_ERROR_INTERRUPT_MASK_SPI1_INFO                 0x47000316U, 0x00000101U
+#define BF_AHB_ERROR_INTERRUPT_MASK_ARM0_INFO                 0x47000316U, 0x00000102U
+#define BF_AHB_ERROR_INTERRUPT_MASK_ARM1_INFO                 0x47000316U, 0x00000103U
+#define BF_AHB_ERROR_INTERRUPT_MASK_CORE_STREAM_PROC_INFO     0x47000316U, 0x00000104U
+#define BF_AHB_ERROR_INTERRUPT_MASK_KFA_STREAM_PROC_INFO      0x47000316U, 0x00000105U
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_PROC_GPIO_PIN_MASK_1_ADDR                  0x47000317
-#define BF_STREAM_PROC_GPIO_PIN_MASK_INFO                     0x47000317, 0x00001800
+#define REG_STREAM_PROC_GPIO_PIN_MASK_1_ADDR                  0x47000317U
+#define BF_STREAM_PROC_GPIO_PIN_MASK_INFO                     0x47000317U, 0x00001800U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_STREAM_PROC_GPIO_PIN_MASK_2_ADDR                  0x47000318
+#define REG_STREAM_PROC_GPIO_PIN_MASK_2_ADDR                  0x47000318U
 
-#define REG_STREAM_PROC_GPIO_PIN_MASK_3_ADDR                  0x47000319
-
-#ifdef USE_PRIVATE_BF
-#define REG_JESD_CONTROL_CONFIG_ADDR                          0x4700031A
-#define BF_JESD_CONTROL_TRIGGER_MASK_INFO                     0x4700031A, 0x00000100
-#define BF_JESD_CONTROL_TRIGGER_1_MASK_INFO                   0x4700031A, 0x00000101
-#define BF_JESD_CONTROL_TRIGGER_2_MASK_INFO                   0x4700031A, 0x00000102
-#define BF_JESD_CONTROL_TRIGGER_3_MASK_INFO                   0x4700031A, 0x00000103
-#define BF_JESD_CONTROL_TRIGGER_4_MASK_INFO                   0x4700031A, 0x00000104
-#define BF_JESD_CONTROL_TRIGGER_5_MASK_INFO                   0x4700031A, 0x00000105
-#define BF_JESD_CONTROL_TRIGGER_6_MASK_INFO                   0x4700031A, 0x00000106
-#define BF_JESD_CONTROL_TRIGGER_7_MASK_INFO                   0x4700031A, 0x00000107
-#endif /* USE_PRIVATE_BF */
+#define REG_STREAM_PROC_GPIO_PIN_MASK_3_ADDR                  0x47000319U
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_PROC_GP_IRQ_MASK_ADDR                      0x4700031B
-#define BF_STREAM_PROC_GP_IRQ_MASK_INFO                       0x4700031B, 0x00000200
-#endif /* USE_PRIVATE_BF */
-
-#define REG_REFCLK_CLKSYNTH_CONTROL_ADDR                      0x47000338
-#define BF_CLKPLL_REFPATH_PD_INFO                             0x47000338, 0x00000100
-#define BF_CLKPLL_REFCLK_ENABLE_CLKB_INFO                     0x47000338, 0x00000101
-#define BF_CLKPLL_INVERT_REFCLK_INFO                          0x47000338, 0x00000102
-#define BF_CLKPLL_INVERT_SYNC_PULSE_INFO                      0x47000338, 0x00000103
-#define BF_CLKPLL_FORCE_REFCLK_PATH_ON_INFO                   0x47000338, 0x00000104
-
-#define REG_REFCLK_CLKSYNTH_CONTROL2_ADDR                     0x47000339
-#define BF_CLKPLL_DELAY_REFCLK_INFO                           0x47000339, 0x00000400
-#define BF_CLKPLL_DELAY_SYNC_PULSE_INFO                       0x47000339, 0x00000404
-
-#define REG_REFCLK_SERDES_SYNTH_CONTROL_ADDR                  0x4700033A
-#define BF_SERDES_PLL_REFPATH_PD_INFO                         0x4700033A, 0x00000100
-#define BF_SERDES_PLL_REFCLK_ENABLE_CLKB_INFO                 0x4700033A, 0x00000101
-#define BF_SERDES_PLL_INVERT_REFCLK_INFO                      0x4700033A, 0x00000102
-#define BF_SERDES_PLL_INVERT_SYNC_PULSE_INFO                  0x4700033A, 0x00000103
-#define BF_SERDES_PLL_FORCE_REFCLK_PATH_ON_INFO               0x4700033A, 0x00000104
-
-#define REG_REFCLK_SERDES_SYNTH_CONTROL2_ADDR                 0x4700033B
-#define BF_SERDES_PLL_DELAY_REFCLK_INFO                       0x4700033B, 0x00000400
-#define BF_SERDES_PLL_DELAY_SYNC_PULSE_INFO                   0x4700033B, 0x00000404
-
-#define REG_XTRIG_CTL_ADDR                                    0x470003F0
-#define BF_XTRIG_EN_INFO                                      0x470003F0, 0x00000100
-
-#define REG_XTRIG_MASK1_ADDR(n)                               (0x470003F1 + 3 * (n))
-#define BF_TRIG_MASK_INFO(n)                                  (0x470003F1 + 3 * (n)), 0x00001500
-
-#define REG_XTRIG_MASK2_ADDR(n)                               (0x470003F2 + 3 * (n))
-
-#define REG_XTRIG_MASK3_ADDR(n)                               (0x470003F3 + 3 * (n))
-
-#ifdef USE_PRIVATE_BF
-#define REG_STREAM_PROC_DEBUG_REG_ARRAY_ADDR(n)               (0x47000523 + 1 * (n))
-#define BF_STREAMPROC_DEBUG_DATA_INFO(n)                      (0x47000523 + 1 * (n)), 0x00000800
-#endif /* USE_PRIVATE_BF */
-
-#define REG_STREAM_PROC_ECC_STATUS_ADDR                       0x47000543
-#define BF_MAIN_STREAMPROC_ERROR_STATUS_INFO                  0x47000543, 0x00000100
-#define BF_MAIN_STREAMPROC_ERROR_CLEAR_INFO                   0x47000543, 0x00000101
-
-#ifdef USE_PRIVATE_BF
-#define REG_DIG_CORE_FABRIC_DUAL_RANGE_CONTROL_ADDR           0x47000544
-#define BF_DIG_CORE_FABRIC_DUAL_RANGE_ENABLE_INFO             0x47000544, 0x00000100
+#define REG_JESD_CONTROL_CONFIG_ADDR                          0x4700031AU
+#define BF_JESD_CONTROL_TRIGGER_MASK_INFO                     0x4700031AU, 0x00000100U
+#define BF_JESD_CONTROL_TRIGGER_1_MASK_INFO                   0x4700031AU, 0x00000101U
+#define BF_JESD_CONTROL_TRIGGER_2_MASK_INFO                   0x4700031AU, 0x00000102U
+#define BF_JESD_CONTROL_TRIGGER_3_MASK_INFO                   0x4700031AU, 0x00000103U
+#define BF_JESD_CONTROL_TRIGGER_4_MASK_INFO                   0x4700031AU, 0x00000104U
+#define BF_JESD_CONTROL_TRIGGER_5_MASK_INFO                   0x4700031AU, 0x00000105U
+#define BF_JESD_CONTROL_TRIGGER_6_MASK_INFO                   0x4700031AU, 0x00000106U
+#define BF_JESD_CONTROL_TRIGGER_7_MASK_INFO                   0x4700031AU, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_DEBUG_KEY_STATUS_ADDR                             0x4700054E
-#define BF_DEBUG_KEY_UNLOCKED_INFO                            0x4700054E, 0x00000100
+#define REG_STREAM_PROC_GP_IRQ_MASK_ADDR                      0x4700031BU
+#define BF_STREAM_PROC_GP_IRQ_MASK_INFO                       0x4700031BU, 0x00000200U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_CMOS_PAD_DS_ADDR                                  0x47000550
-#define BF_PAD_DS_INFO                                        0x47000550, 0x00000400
-
-#define REG_CMOS_PAD_ST_BYTE0_ADDR                            0x47000551
-#define BF_PAD_ST_GPIO_INFO                                   0x47000551, 0x00003300
-
-#define REG_CMOS_PAD_ST_BYTE1_ADDR                            0x47000552
-
-#define REG_CMOS_PAD_ST_BYTE2_ADDR                            0x47000553
-
-#define REG_CMOS_PAD_ST_BYTE3_ADDR                            0x47000554
-
-#define REG_CMOS_PAD_ST_BYTE4_ADDR                            0x47000555
-
-#define REG_CMOS_PAD_ST_BYTE5_ADDR                            0x47000556
-
-#define REG_CMOS_PAD_ST_BYTE6_ADDR                            0x47000557
-#define BF_PAD_ST_SCK_INFO                                    0x47000557, 0x00000103
-#define BF_PAD_ST_SCSB_INFO                                   0x47000557, 0x00000104
-#define BF_PAD_ST_RESETN_INFO                                 0x47000557, 0x00000105
-#define BF_PAD_ST_SDIO_INFO                                   0x47000557, 0x00000106
-#define BF_PAD_ST_SDO_INFO                                    0x47000557, 0x00000107
-
-#define REG_ALT_BOOT_ADDR(n)                                  (0x47000558 + 1 * (n))
-#define BF_ALT_BOOT_INFO(n)                                   (0x47000558 + 1 * (n)), 0x00000800
-
-#define REG_RX_A0_PORB_STATUS_ADDR                            0x47000582
-#define BF_PORB_RX_A0_VDDA1P0_INFO                            0x47000582, 0x00000100
-#define BF_PORB_RX_A0_VDDA1P8_INFO                            0x47000582, 0x00000101
-#define BF_PORB_RX_A0_VDDACK1P0_INFO                          0x47000582, 0x00000102
-#define BF_PORB_RX_A0_VDDD0P8_INFO                            0x47000582, 0x00000103
-#define BF_PORB_RX_A0_VDDD1P0_INFO                            0x47000582, 0x00000104
-
-#define REG_RX_A1_PORB_STATUS_ADDR                            0x47000583
-#define BF_PORB_RX_A1_VDDA1P0_INFO                            0x47000583, 0x00000100
-#define BF_PORB_RX_A1_VDDA1P8_INFO                            0x47000583, 0x00000101
-#define BF_PORB_RX_A1_VDDACK1P0_INFO                          0x47000583, 0x00000102
-#define BF_PORB_RX_A1_VDDD0P8_INFO                            0x47000583, 0x00000103
-#define BF_PORB_RX_A1_VDDD1P0_INFO                            0x47000583, 0x00000104
-
-#define REG_RX_B0_PORB_STATUS_ADDR                            0x47000584
-#define BF_PORB_RX_B0_VDDA1P0_INFO                            0x47000584, 0x00000100
-#define BF_PORB_RX_B0_VDDA1P8_INFO                            0x47000584, 0x00000101
-#define BF_PORB_RX_B0_VDDACK1P0_INFO                          0x47000584, 0x00000102
-#define BF_PORB_RX_B0_VDDD0P8_INFO                            0x47000584, 0x00000103
-#define BF_PORB_RX_B0_VDDD1P0_INFO                            0x47000584, 0x00000104
-
-#define REG_RX_B1_PORB_STATUS_ADDR                            0x47000585
-#define BF_PORB_RX_B1_VDDA1P0_INFO                            0x47000585, 0x00000100
-#define BF_PORB_RX_B1_VDDA1P8_INFO                            0x47000585, 0x00000101
-#define BF_PORB_RX_B1_VDDACK1P0_INFO                          0x47000585, 0x00000102
-#define BF_PORB_RX_B1_VDDD0P8_INFO                            0x47000585, 0x00000103
-#define BF_PORB_RX_B1_VDDD1P0_INFO                            0x47000585, 0x00000104
-
-#define REG_TX_A0_PORB_STATUS_ADDR                            0x47000586
-#define BF_PORB_TX_A0_VDDA1P0_INFO                            0x47000586, 0x00000100
-#define BF_PORB_TX_A0_VDDA1P8_INFO                            0x47000586, 0x00000101
-#define BF_PORB_TX_A0_VDDC1P0_INFO                            0x47000586, 0x00000102
-#define BF_PORB_TX_A0_VDDD1P0_INFO                            0x47000586, 0x00000103
-#define BF_PORB_TX_A0_VNEG_INFO                               0x47000586, 0x00000104
-#define BF_PORB_TX_A0_VDDA2P5_INFO                            0x47000586, 0x00000105
-
-#define REG_TX_A1_PORB_STATUS_ADDR                            0x47000587
-#define BF_PORB_TX_A1_VDDA1P0_INFO                            0x47000587, 0x00000100
-#define BF_PORB_TX_A1_VDDA1P8_INFO                            0x47000587, 0x00000101
-#define BF_PORB_TX_A1_VDDC1P0_INFO                            0x47000587, 0x00000102
-#define BF_PORB_TX_A1_VDDD1P0_INFO                            0x47000587, 0x00000103
-#define BF_PORB_TX_A1_VNEG_INFO                               0x47000587, 0x00000104
-#define BF_PORB_TX_A1_VDDA2P5_INFO                            0x47000587, 0x00000105
-
-#define REG_TX_A2_PORB_STATUS_ADDR                            0x47000588
-#define BF_PORB_TX_A2_VDDA1P0_INFO                            0x47000588, 0x00000100
-#define BF_PORB_TX_A2_VDDA1P8_INFO                            0x47000588, 0x00000101
-#define BF_PORB_TX_A2_VDDC1P0_INFO                            0x47000588, 0x00000102
-#define BF_PORB_TX_A2_VDDD1P0_INFO                            0x47000588, 0x00000103
-#define BF_PORB_TX_A2_VNEG_INFO                               0x47000588, 0x00000104
-#define BF_PORB_TX_A2_VDDA2P5_INFO                            0x47000588, 0x00000105
-
-#define REG_TX_A3_PORB_STATUS_ADDR                            0x47000589
-#define BF_PORB_TX_A3_VDDA1P0_INFO                            0x47000589, 0x00000100
-#define BF_PORB_TX_A3_VDDA1P8_INFO                            0x47000589, 0x00000101
-#define BF_PORB_TX_A3_VDDC1P0_INFO                            0x47000589, 0x00000102
-#define BF_PORB_TX_A3_VDDD1P0_INFO                            0x47000589, 0x00000103
-#define BF_PORB_TX_A3_VNEG_INFO                               0x47000589, 0x00000104
-#define BF_PORB_TX_A3_VDDA2P5_INFO                            0x47000589, 0x00000105
-
-#define REG_TX_B0_PORB_STATUS_ADDR                            0x4700058A
-#define BF_PORB_TX_B0_VDDA1P0_INFO                            0x4700058A, 0x00000100
-#define BF_PORB_TX_B0_VDDA1P8_INFO                            0x4700058A, 0x00000101
-#define BF_PORB_TX_B0_VDDC1P0_INFO                            0x4700058A, 0x00000102
-#define BF_PORB_TX_B0_VDDD1P0_INFO                            0x4700058A, 0x00000103
-#define BF_PORB_TX_B0_VNEG_INFO                               0x4700058A, 0x00000104
-#define BF_PORB_TX_B0_VDDA2P5_INFO                            0x4700058A, 0x00000105
-
-#define REG_TX_B1_PORB_STATUS_ADDR                            0x4700058B
-#define BF_PORB_TX_B1_VDDA1P0_INFO                            0x4700058B, 0x00000100
-#define BF_PORB_TX_B1_VDDA1P8_INFO                            0x4700058B, 0x00000101
-#define BF_PORB_TX_B1_VDDC1P0_INFO                            0x4700058B, 0x00000102
-#define BF_PORB_TX_B1_VDDD1P0_INFO                            0x4700058B, 0x00000103
-#define BF_PORB_TX_B1_VNEG_INFO                               0x4700058B, 0x00000104
-#define BF_PORB_TX_B1_VDDA2P5_INFO                            0x4700058B, 0x00000105
-
-#define REG_TX_B2_PORB_STATUS_ADDR                            0x4700058C
-#define BF_PORB_TX_B2_VDDA1P0_INFO                            0x4700058C, 0x00000100
-#define BF_PORB_TX_B2_VDDA1P8_INFO                            0x4700058C, 0x00000101
-#define BF_PORB_TX_B2_VDDC1P0_INFO                            0x4700058C, 0x00000102
-#define BF_PORB_TX_B2_VDDD1P0_INFO                            0x4700058C, 0x00000103
-#define BF_PORB_TX_B2_VNEG_INFO                               0x4700058C, 0x00000104
-#define BF_PORB_TX_B2_VDDA2P5_INFO                            0x4700058C, 0x00000105
-
-#define REG_TX_B3_PORB_STATUS_ADDR                            0x4700058D
-#define BF_PORB_TX_B3_VDDA1P0_INFO                            0x4700058D, 0x00000100
-#define BF_PORB_TX_B3_VDDA1P8_INFO                            0x4700058D, 0x00000101
-#define BF_PORB_TX_B3_VDDC1P0_INFO                            0x4700058D, 0x00000102
-#define BF_PORB_TX_B3_VDDD1P0_INFO                            0x4700058D, 0x00000103
-#define BF_PORB_TX_B3_VNEG_INFO                               0x4700058D, 0x00000104
-#define BF_PORB_TX_B3_VDDA2P5_INFO                            0x4700058D, 0x00000105
-
-#define REG_SERDES_PORB_STATUS_ADDR                           0x4700058E
-#define BF_PORB_DES_VDDA1P0_INFO                              0x4700058E, 0x00000100
-#define BF_PORB_SER_VDDA1P0_INFO                              0x4700058E, 0x00000101
-#define BF_PORB_SERDES_CK_VDDA1P0_INFO                        0x4700058E, 0x00000102
-#define BF_PORB_SERDES_PLL_VDDA1P0_INFO                       0x4700058E, 0x00000103
-#define BF_PORB_SERDES_PLL_VDDA1P8_INFO                       0x4700058E, 0x00000104
-#define BF_PORB_SERDES_VDDD0P8_INFO                           0x4700058E, 0x00000105
-
-#define REG_MCS_MB_CK_PORB_STATUS_ADDR                        0x4700058F
-#define BF_PORB_CK_VDDA1P0_INFO                               0x4700058F, 0x00000100
-#define BF_PORB_MB_A_VDDA1P0_INFO                             0x4700058F, 0x00000101
-#define BF_PORB_MB_A_VDDA1P8_INFO                             0x4700058F, 0x00000102
-#define BF_PORB_MB_B_VDDA1P0_INFO                             0x4700058F, 0x00000103
-#define BF_PORB_MB_B_VDDA1P8_INFO                             0x4700058F, 0x00000104
-#define BF_PORB_MCS_VDDD1P0_INFO                              0x4700058F, 0x00000105
-
-#define REG_RX_A_IRMON_CTRL_ADDR                              0x47000590
-#define BF_RX_A_IRMON_CTRL_INFO                               0x47000590, 0x00000800
-
-#define REG_RX_B_IRMON_CTRL_ADDR                              0x47000591
-#define BF_RX_B_IRMON_CTRL_INFO                               0x47000591, 0x00000800
-
-#define REG_TX_A_IRMON_CTRL_ADDR                              0x47000592
-#define BF_TX_A_IRMON_CTRL_INFO                               0x47000592, 0x00000800
-
-#define REG_TX_B_IRMON_CTRL_ADDR                              0x47000593
-#define BF_TX_B_IRMON_CTRL_INFO                               0x47000593, 0x00000800
-
-#define REG_TRACE_CORE_SELECT_REG_ADDR                        0x4700077E
-#define BF_TRACE_CORE_SELECT_INFO                             0x4700077E, 0x00000100
-
-#define REG_XTRIG_DAP_MODE_TRIG_CTL_ADDR                      0x47000786
-#define BF_XTRIG_DAP_MODE_TRIG_EN_INFO                        0x47000786, 0x00000100
-
-#define REG_XTRIG_PROG_COUNT_THRES_ADDR                       0x47000787
-#define BF_PROG_FSM_COUNT_THRES_INFO                          0x47000787, 0x00000400
-#define BF_PROG_FSM_COUNT_THRES1_INFO                         0x47000787, 0x00000404
-
-#define REG_XTRIG_PROG_DP_ADDR1_1_ADDR                        0x47000788
-#define BF_PROG_DP_ADDR1_INFO                                 0x47000788, 0x00002000
-
-#define REG_XTRIG_PROG_DP_ADDR1_2_ADDR                        0x47000789
-
-#define REG_XTRIG_PROG_DP_ADDR1_3_ADDR                        0x4700078A
-
-#define REG_XTRIG_PROG_DP_ADDR1_4_ADDR                        0x4700078B
-
-#define REG_XTRIG_PROG_DP_ADDR2_1_ADDR                        0x4700078C
-#define BF_PROG_DP_ADDR2_INFO                                 0x4700078C, 0x00002000
-
-#define REG_XTRIG_PROG_DP_ADDR2_2_ADDR                        0x4700078D
-
-#define REG_XTRIG_PROG_DP_ADDR2_3_ADDR                        0x4700078E
-
-#define REG_XTRIG_PROG_DP_ADDR2_4_ADDR                        0x4700078F
-
-#define REG_XTRIG_PROG_DP_ADDR3_1_ADDR                        0x47000790
-#define BF_PROG_DP_ADDR3_INFO                                 0x47000790, 0x00002000
-
-#define REG_XTRIG_PROG_DP_ADDR3_2_ADDR                        0x47000791
-
-#define REG_XTRIG_PROG_DP_ADDR3_3_ADDR                        0x47000792
-
-#define REG_XTRIG_PROG_DP_ADDR3_4_ADDR                        0x47000793
-
-#define REG_XTRIG_PROG_DP_ADDR4_1_ADDR                        0x47000794
-#define BF_PROG_DP_ADDR4_INFO                                 0x47000794, 0x00002000
-
-#define REG_XTRIG_PROG_DP_ADDR4_2_ADDR                        0x47000795
-
-#define REG_XTRIG_PROG_DP_ADDR4_3_ADDR                        0x47000796
-
-#define REG_XTRIG_PROG_DP_ADDR4_4_ADDR                        0x47000797
-
-#define REG_XTRIG_PROG_DP_ADDR5_1_ADDR                        0x47000798
-#define BF_PROG_DP_ADDR5_INFO                                 0x47000798, 0x00002000
-
-#define REG_XTRIG_PROG_DP_ADDR5_2_ADDR                        0x47000799
-
-#define REG_XTRIG_PROG_DP_ADDR5_3_ADDR                        0x4700079A
-
-#define REG_XTRIG_PROG_DP_ADDR5_4_ADDR                        0x4700079B
-
-#define REG_XTRIG_PROG_DP_ADDR6_1_ADDR                        0x4700079C
-#define BF_PROG_DP_ADDR6_INFO                                 0x4700079C, 0x00002000
-
-#define REG_XTRIG_PROG_DP_ADDR6_2_ADDR                        0x4700079D
-
-#define REG_XTRIG_PROG_DP_ADDR6_3_ADDR                        0x4700079E
-
-#define REG_XTRIG_PROG_DP_ADDR6_4_ADDR                        0x4700079F
-
-#define REG_XTRIG_PROG_DP_ADDR7_1_ADDR                        0x470007A0
-#define BF_PROG_DP_ADDR7_INFO                                 0x470007A0, 0x00002000
-
-#define REG_XTRIG_PROG_DP_ADDR7_2_ADDR                        0x470007A1
-
-#define REG_XTRIG_PROG_DP_ADDR7_3_ADDR                        0x470007A2
-
-#define REG_XTRIG_PROG_DP_ADDR7_4_ADDR                        0x470007A3
-
-#define REG_XTRIG_PROG_DP_ADDR8_1_ADDR                        0x470007A4
-#define BF_PROG_DP_ADDR8_INFO                                 0x470007A4, 0x00002000
-
-#define REG_XTRIG_PROG_DP_ADDR8_2_ADDR                        0x470007A5
-
-#define REG_XTRIG_PROG_DP_ADDR8_3_ADDR                        0x470007A6
-
-#define REG_XTRIG_PROG_DP_ADDR8_4_ADDR                        0x470007A7
-
-#define REG_XTRIG_PROG_DP_ADDR9_1_ADDR                        0x470007A8
-#define BF_PROG_DP_ADDR9_INFO                                 0x470007A8, 0x00002000
-
-#define REG_XTRIG_PROG_DP_ADDR9_2_ADDR                        0x470007A9
-
-#define REG_XTRIG_PROG_DP_ADDR9_3_ADDR                        0x470007AA
-
-#define REG_XTRIG_PROG_DP_ADDR9_4_ADDR                        0x470007AB
-
-#define REG_XTRIG_PROG_DP_ADDR10_1_ADDR                       0x470007AC
-#define BF_PROG_DP_ADDR10_INFO                                0x470007AC, 0x00002000
-
-#define REG_XTRIG_PROG_DP_ADDR10_2_ADDR                       0x470007AD
-
-#define REG_XTRIG_PROG_DP_ADDR10_3_ADDR                       0x470007AE
-
-#define REG_XTRIG_PROG_DP_ADDR10_4_ADDR                       0x470007AF
-
-#define REG_XTRIG_PROG_DP_VAL1_1_ADDR                         0x470007B6
-#define BF_PROG_DP_VAL1_INFO                                  0x470007B6, 0x00002000
-
-#define REG_XTRIG_PROG_DP_VAL1_2_ADDR                         0x470007B7
-
-#define REG_XTRIG_PROG_DP_VAL1_3_ADDR                         0x470007B8
-
-#define REG_XTRIG_PROG_DP_VAL1_4_ADDR                         0x470007B9
-
-#define REG_XTRIG_PROG_DP_VAL2_1_ADDR                         0x470007BA
-#define BF_PROG_DP_VAL2_INFO                                  0x470007BA, 0x00002000
-
-#define REG_XTRIG_PROG_DP_VAL2_2_ADDR                         0x470007BB
-
-#define REG_XTRIG_PROG_DP_VAL2_3_ADDR                         0x470007BC
-
-#define REG_XTRIG_PROG_DP_VAL2_4_ADDR                         0x470007BD
-
-#define REG_XTRIG_PROG_DP_VAL3_1_ADDR                         0x470007BE
-#define BF_PROG_DP_VAL3_INFO                                  0x470007BE, 0x00002000
-
-#define REG_XTRIG_PROG_DP_VAL3_2_ADDR                         0x470007BF
-
-#define REG_XTRIG_PROG_DP_VAL3_3_ADDR                         0x470007C0
-
-#define REG_XTRIG_PROG_DP_VAL3_4_ADDR                         0x470007C1
-
-#define REG_XTRIG_PROG_DP_VAL4_1_ADDR                         0x470007C2
-#define BF_PROG_DP_VAL4_INFO                                  0x470007C2, 0x00002000
-
-#define REG_XTRIG_PROG_DP_VAL4_2_ADDR                         0x470007C3
-
-#define REG_XTRIG_PROG_DP_VAL4_3_ADDR                         0x470007C4
-
-#define REG_XTRIG_PROG_DP_VAL4_4_ADDR                         0x470007C5
-
-#define REG_XTRIG_PROG_DP_VAL5_1_ADDR                         0x470007C6
-#define BF_PROG_DP_VAL5_INFO                                  0x470007C6, 0x00002000
-
-#define REG_XTRIG_PROG_DP_VAL5_2_ADDR                         0x470007C7
-
-#define REG_XTRIG_PROG_DP_VAL5_3_ADDR                         0x470007C8
-
-#define REG_XTRIG_PROG_DP_VAL5_4_ADDR                         0x470007C9
-
-#define REG_XTRIG_PROG_DP_VAL6_1_ADDR                         0x470007CA
-#define BF_PROG_DP_VAL6_INFO                                  0x470007CA, 0x00002000
-
-#define REG_XTRIG_PROG_DP_VAL6_2_ADDR                         0x470007CB
-
-#define REG_XTRIG_PROG_DP_VAL6_3_ADDR                         0x470007CC
-
-#define REG_XTRIG_PROG_DP_VAL6_4_ADDR                         0x470007CD
-
-#define REG_XTRIG_PROG_DP_VAL7_1_ADDR                         0x470007CE
-#define BF_PROG_DP_VAL7_INFO                                  0x470007CE, 0x00002000
-
-#define REG_XTRIG_PROG_DP_VAL7_2_ADDR                         0x470007CF
-
-#define REG_XTRIG_PROG_DP_VAL7_3_ADDR                         0x470007D0
-
-#define REG_XTRIG_PROG_DP_VAL7_4_ADDR                         0x470007D1
-
-#define REG_XTRIG_PROG_DP_VAL8_1_ADDR                         0x470007D2
-#define BF_PROG_DP_VAL8_INFO                                  0x470007D2, 0x00002000
-
-#define REG_XTRIG_PROG_DP_VAL8_2_ADDR                         0x470007D3
-
-#define REG_XTRIG_PROG_DP_VAL8_3_ADDR                         0x470007D4
-
-#define REG_XTRIG_PROG_DP_VAL8_4_ADDR                         0x470007D5
-
-#define REG_XTRIG_PROG_DP_VAL9_1_ADDR                         0x470007D6
-#define BF_PROG_DP_VAL9_INFO                                  0x470007D6, 0x00002000
-
-#define REG_XTRIG_PROG_DP_VAL9_2_ADDR                         0x470007D7
-
-#define REG_XTRIG_PROG_DP_VAL9_3_ADDR                         0x470007D8
-
-#define REG_XTRIG_PROG_DP_VAL9_4_ADDR                         0x470007D9
-
-#define REG_XTRIG_PROG_DP_VAL10_1_ADDR                        0x470007DA
-#define BF_PROG_DP_VAL10_INFO                                 0x470007DA, 0x00002000
-
-#define REG_XTRIG_PROG_DP_VAL10_2_ADDR                        0x470007DB
-
-#define REG_XTRIG_PROG_DP_VAL10_3_ADDR                        0x470007DC
-
-#define REG_XTRIG_PROG_DP_VAL10_4_ADDR                        0x470007DD
-
-#define REG_XTRIG_PROG_DP1_ADDR1_1_ADDR                       0x470007DE
-#define BF_PROG_DP1_ADDR1_INFO                                0x470007DE, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_ADDR1_2_ADDR                       0x470007DF
-
-#define REG_XTRIG_PROG_DP1_ADDR1_3_ADDR                       0x470007E0
-
-#define REG_XTRIG_PROG_DP1_ADDR1_4_ADDR                       0x470007E1
-
-#define REG_XTRIG_PROG_DP1_ADDR2_1_ADDR                       0x470007E2
-#define BF_PROG_DP1_ADDR2_INFO                                0x470007E2, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_ADDR2_2_ADDR                       0x470007E3
-
-#define REG_XTRIG_PROG_DP1_ADDR2_3_ADDR                       0x470007E4
-
-#define REG_XTRIG_PROG_DP1_ADDR2_4_ADDR                       0x470007E5
-
-#define REG_XTRIG_PROG_DP1_ADDR3_1_ADDR                       0x470007E6
-#define BF_PROG_DP1_ADDR3_INFO                                0x470007E6, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_ADDR3_2_ADDR                       0x470007E7
-
-#define REG_XTRIG_PROG_DP1_ADDR3_3_ADDR                       0x470007E8
-
-#define REG_XTRIG_PROG_DP1_ADDR3_4_ADDR                       0x470007E9
-
-#define REG_XTRIG_PROG_DP1_ADDR4_1_ADDR                       0x470007EA
-#define BF_PROG_DP1_ADDR4_INFO                                0x470007EA, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_ADDR4_2_ADDR                       0x470007EB
-
-#define REG_XTRIG_PROG_DP1_ADDR4_3_ADDR                       0x470007EC
-
-#define REG_XTRIG_PROG_DP1_ADDR4_4_ADDR                       0x470007ED
-
-#define REG_XTRIG_PROG_DP1_ADDR5_1_ADDR                       0x470007EE
-#define BF_PROG_DP1_ADDR5_INFO                                0x470007EE, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_ADDR5_2_ADDR                       0x470007EF
-
-#define REG_XTRIG_PROG_DP1_ADDR5_3_ADDR                       0x470007F0
-
-#define REG_XTRIG_PROG_DP1_ADDR5_4_ADDR                       0x470007F1
-
-#define REG_XTRIG_PROG_DP1_ADDR6_1_ADDR                       0x470007F2
-#define BF_PROG_DP1_ADDR6_INFO                                0x470007F2, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_ADDR6_2_ADDR                       0x470007F3
-
-#define REG_XTRIG_PROG_DP1_ADDR6_3_ADDR                       0x470007F4
-
-#define REG_XTRIG_PROG_DP1_ADDR6_4_ADDR                       0x470007F5
-
-#define REG_XTRIG_PROG_DP1_ADDR7_1_ADDR                       0x470007F6
-#define BF_PROG_DP1_ADDR7_INFO                                0x470007F6, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_ADDR7_2_ADDR                       0x470007F7
-
-#define REG_XTRIG_PROG_DP1_ADDR7_3_ADDR                       0x470007F8
-
-#define REG_XTRIG_PROG_DP1_ADDR7_4_ADDR                       0x470007F9
-
-#define REG_XTRIG_PROG_DP1_ADDR8_1_ADDR                       0x470007FA
-#define BF_PROG_DP1_ADDR8_INFO                                0x470007FA, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_ADDR8_2_ADDR                       0x470007FB
-
-#define REG_XTRIG_PROG_DP1_ADDR8_3_ADDR                       0x470007FC
-
-#define REG_XTRIG_PROG_DP1_ADDR8_4_ADDR                       0x470007FD
-
-#define REG_XTRIG_PROG_DP1_ADDR9_1_ADDR                       0x470007FE
-#define BF_PROG_DP1_ADDR9_INFO                                0x470007FE, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_ADDR9_2_ADDR                       0x470007FF
-
-#define REG_XTRIG_PROG_DP1_ADDR9_3_ADDR                       0x47000800
-
-#define REG_XTRIG_PROG_DP1_ADDR9_4_ADDR                       0x47000801
-
-#define REG_XTRIG_PROG_DP1_ADDR10_1_ADDR                      0x47000802
-#define BF_PROG_DP1_ADDR10_INFO                               0x47000802, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_ADDR10_2_ADDR                      0x47000803
-
-#define REG_XTRIG_PROG_DP1_ADDR10_3_ADDR                      0x47000804
-
-#define REG_XTRIG_PROG_DP1_ADDR10_4_ADDR                      0x47000805
-
-#define REG_XTRIG_PROG_DP1_VAL1_1_ADDR                        0x47000806
-#define BF_PROG_DP1_VAL1_INFO                                 0x47000806, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_VAL1_2_ADDR                        0x47000807
-
-#define REG_XTRIG_PROG_DP1_VAL1_3_ADDR                        0x47000808
-
-#define REG_XTRIG_PROG_DP1_VAL1_4_ADDR                        0x47000809
-
-#define REG_XTRIG_PROG_DP1_VAL2_1_ADDR                        0x4700080A
-#define BF_PROG_DP1_VAL2_INFO                                 0x4700080A, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_VAL2_2_ADDR                        0x4700080B
-
-#define REG_XTRIG_PROG_DP1_VAL2_3_ADDR                        0x4700080C
-
-#define REG_XTRIG_PROG_DP1_VAL2_4_ADDR                        0x4700080D
-
-#define REG_XTRIG_PROG_DP1_VAL3_1_ADDR                        0x4700080E
-#define BF_PROG_DP1_VAL3_INFO                                 0x4700080E, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_VAL3_2_ADDR                        0x4700080F
-
-#define REG_XTRIG_PROG_DP1_VAL3_3_ADDR                        0x47000810
-
-#define REG_XTRIG_PROG_DP1_VAL3_4_ADDR                        0x47000811
-
-#define REG_XTRIG_PROG_DP1_VAL4_1_ADDR                        0x47000812
-#define BF_PROG_DP1_VAL4_INFO                                 0x47000812, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_VAL4_2_ADDR                        0x47000813
-
-#define REG_XTRIG_PROG_DP1_VAL4_3_ADDR                        0x47000814
-
-#define REG_XTRIG_PROG_DP1_VAL4_4_ADDR                        0x47000815
-
-#define REG_XTRIG_PROG_DP1_VAL5_1_ADDR                        0x47000816
-#define BF_PROG_DP1_VAL5_INFO                                 0x47000816, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_VAL5_2_ADDR                        0x47000817
-
-#define REG_XTRIG_PROG_DP1_VAL5_3_ADDR                        0x47000818
-
-#define REG_XTRIG_PROG_DP1_VAL5_4_ADDR                        0x47000819
-
-#define REG_XTRIG_PROG_DP1_VAL6_1_ADDR                        0x4700081A
-#define BF_PROG_DP1_VAL6_INFO                                 0x4700081A, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_VAL6_2_ADDR                        0x4700081B
-
-#define REG_XTRIG_PROG_DP1_VAL6_3_ADDR                        0x4700081C
-
-#define REG_XTRIG_PROG_DP1_VAL6_4_ADDR                        0x4700081D
-
-#define REG_XTRIG_PROG_DP1_VAL7_1_ADDR                        0x4700081E
-#define BF_PROG_DP1_VAL7_INFO                                 0x4700081E, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_VAL7_2_ADDR                        0x4700081F
-
-#define REG_XTRIG_PROG_DP1_VAL7_3_ADDR                        0x47000820
-
-#define REG_XTRIG_PROG_DP1_VAL7_4_ADDR                        0x47000821
-
-#define REG_XTRIG_PROG_DP1_VAL8_1_ADDR                        0x47000822
-#define BF_PROG_DP1_VAL8_INFO                                 0x47000822, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_VAL8_2_ADDR                        0x47000823
-
-#define REG_XTRIG_PROG_DP1_VAL8_3_ADDR                        0x47000824
-
-#define REG_XTRIG_PROG_DP1_VAL8_4_ADDR                        0x47000825
-
-#define REG_XTRIG_PROG_DP1_VAL9_1_ADDR                        0x47000826
-#define BF_PROG_DP1_VAL9_INFO                                 0x47000826, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_VAL9_2_ADDR                        0x47000827
-
-#define REG_XTRIG_PROG_DP1_VAL9_3_ADDR                        0x47000828
-
-#define REG_XTRIG_PROG_DP1_VAL9_4_ADDR                        0x47000829
-
-#define REG_XTRIG_PROG_DP1_VAL10_1_ADDR                       0x4700082A
-#define BF_PROG_DP1_VAL10_INFO                                0x4700082A, 0x00002000
-
-#define REG_XTRIG_PROG_DP1_VAL10_2_ADDR                       0x4700082B
-
-#define REG_XTRIG_PROG_DP1_VAL10_3_ADDR                       0x4700082C
-
-#define REG_XTRIG_PROG_DP1_VAL10_4_ADDR                       0x4700082D
-
-#define REG_RX_DIG_RESET_ADDR                                 0x4700082F
-#define BF_SOFT_RESET_RX_A_INFO                               0x4700082F, 0x00000100
-#define BF_SOFT_RESET_RX_B_INFO                               0x4700082F, 0x00000101
-#define BF_RX_DP_RESET_A_INFO                                 0x4700082F, 0x00000102
-#define BF_RX_DP_RESET_B_INFO                                 0x4700082F, 0x00000103
-#define BF_RX_DIG_REGMAP_RESET_A_INFO                         0x4700082F, 0x00000104
-#define BF_RX_DIG_REGMAP_RESET_B_INFO                         0x4700082F, 0x00000105
-
-#define REG_TX_DIG_RESET_ADDR                                 0x47000830
-#define BF_SOFT_RESET_TX_A_INFO                               0x47000830, 0x00000100
-#define BF_SOFT_RESET_TX_B_INFO                               0x47000830, 0x00000101
-#define BF_TX_DP_RESET_A_INFO                                 0x47000830, 0x00000102
-#define BF_TX_DP_RESET_B_INFO                                 0x47000830, 0x00000103
-#define BF_TX_DIG_REGMAP_RESET_A_INFO                         0x47000830, 0x00000104
-#define BF_TX_DIG_REGMAP_RESET_B_INFO                         0x47000830, 0x00000105
-
-#define REG_VENUS_IP_RESET_A_ADDR                             0x47000831
-#define BF_VENUS_ADC_REG8_A_INFO                              0x47000831, 0x00000200
-#define BF_VENUS_ADC_REG32_A_INFO                             0x47000831, 0x00000202
-#define BF_VENUS_ADC_DP_RESET_A_INFO                          0x47000831, 0x00000404
-
-#define REG_VENUS_IP_RESET_B_ADDR                             0x47000832
-#define BF_VENUS_ADC_REG8_B_INFO                              0x47000832, 0x00000200
-#define BF_VENUS_ADC_REG32_B_INFO                             0x47000832, 0x00000202
-#define BF_VENUS_ADC_DP_RESET_B_INFO                          0x47000832, 0x00000404
-
-#define REG_DAC_IP_RESET_A_ADDR                               0x47000833
-#define BF_DAC_RMAP_RESET_A_INFO                              0x47000833, 0x00000400
-#define BF_DAC_DP_RESET_A_INFO                                0x47000833, 0x00000404
-
-#define REG_DAC_IP_RESET_B_ADDR                               0x47000834
-#define BF_DAC_RMAP_RESET_B_INFO                              0x47000834, 0x00000400
-#define BF_DAC_DP_RESET_B_INFO                                0x47000834, 0x00000404
-
-#define REG_SERDES_IP_RSTN_ADDR                               0x47000835
-#define BF_TXSER_DP_RESET_A_INFO                              0x47000835, 0x00000100
-#define BF_TXSER_DP_RESET_B_INFO                              0x47000835, 0x00000101
-#define BF_RXDES_DP_RESET_A_INFO                              0x47000835, 0x00000102
-#define BF_RXDES_DP_RESET_B_INFO                              0x47000835, 0x00000103
-#define BF_SERDES_PLL_REG_RESET_INFO                          0x47000835, 0x00000104
-
-#define REG_MISC_RESETS_ADDR                                  0x47000836
-#define BF_SOFT_RESET_REST_INFO                               0x47000836, 0x00000100
-#define BF_ANA_CENTER_RESET_INFO                              0x47000836, 0x00000101
-#define BF_OSC_CLK_EN_INFO                                    0x47000836, 0x00000102
-
-#define REG_GPIO_MODE_CONTROL_BYTE0_ADDR                      0x47000839
-#define BF_GPIO_MODE_EN_INFO                                  0x47000839, 0x00003300
-
-#define REG_GPIO_MODE_CONTROL_BYTE1_ADDR                      0x4700083A
-
-#define REG_GPIO_MODE_CONTROL_BYTE2_ADDR                      0x4700083B
-
-#define REG_GPIO_MODE_CONTROL_BYTE3_ADDR                      0x4700083C
-
-#define REG_GPIO_MODE_CONTROL_BYTE4_ADDR                      0x4700083D
-
-#define REG_GPIO_MODE_CONTROL_BYTE5_ADDR                      0x4700083E
-
-#define REG_GPIO_MODE_CONTROL_BYTE6_ADDR                      0x4700083F
-
-#define REG_GPIO_MODE_DIR_BYTE0_ADDR                          0x47000840
-#define BF_GPIO_MODE_DIR_INFO                                 0x47000840, 0x00003300
-
-#define REG_GPIO_MODE_DIR_BYTE1_ADDR                          0x47000841
-
-#define REG_GPIO_MODE_DIR_BYTE2_ADDR                          0x47000842
-
-#define REG_GPIO_MODE_DIR_BYTE3_ADDR                          0x47000843
-
-#define REG_GPIO_MODE_DIR_BYTE4_ADDR                          0x47000844
-
-#define REG_GPIO_MODE_DIR_BYTE5_ADDR                          0x47000845
-
-#define REG_GPIO_MODE_DIR_BYTE6_ADDR                          0x47000846
-
-#define REG_GPIO_FROM_MASTER_BYTE0_ADDR                       0x47000847
-#define BF_GPIO_FROM_MASTER_INFO                              0x47000847, 0x00003300
-
-#define REG_GPIO_FROM_MASTER_BYTE1_ADDR                       0x47000848
-
-#define REG_GPIO_FROM_MASTER_BYTE2_ADDR                       0x47000849
-
-#define REG_GPIO_FROM_MASTER_BYTE3_ADDR                       0x4700084A
-
-#define REG_GPIO_FROM_MASTER_BYTE4_ADDR                       0x4700084B
-
-#define REG_GPIO_FROM_MASTER_BYTE5_ADDR                       0x4700084C
-
-#define REG_GPIO_FROM_MASTER_BYTE6_ADDR                       0x4700084D
-
-#define REG_GPIO_FROM_MASTER_SET_BYTE0_ADDR                   0x4700084E
-#define BF_GPIO_FROM_SET_INFO                                 0x4700084E, 0x00003300
-
-#define REG_GPIO_FROM_MASTER_SET_BYTE1_ADDR                   0x4700084F
-
-#define REG_GPIO_FROM_MASTER_SET_BYTE2_ADDR                   0x47000850
-
-#define REG_GPIO_FROM_MASTER_SET_BYTE3_ADDR                   0x47000851
-
-#define REG_GPIO_FROM_MASTER_SET_BYTE4_ADDR                   0x47000852
-
-#define REG_GPIO_FROM_MASTER_SET_BYTE5_ADDR                   0x47000853
-
-#define REG_GPIO_FROM_MASTER_SET_BYTE6_ADDR                   0x47000854
-
-#define REG_GPIO_FROM_MASTER_CLEAR_BYTE0_ADDR                 0x47000855
-#define BF_GPIO_FROM_CLEAR_INFO                               0x47000855, 0x00003300
-
-#define REG_GPIO_FROM_MASTER_CLEAR_BYTE1_ADDR                 0x47000856
-
-#define REG_GPIO_FROM_MASTER_CLEAR_BYTE2_ADDR                 0x47000857
-
-#define REG_GPIO_FROM_MASTER_CLEAR_BYTE3_ADDR                 0x47000858
-
-#define REG_GPIO_FROM_MASTER_CLEAR_BYTE4_ADDR                 0x47000859
-
-#define REG_GPIO_FROM_MASTER_CLEAR_BYTE5_ADDR                 0x4700085A
-
-#define REG_GPIO_FROM_MASTER_CLEAR_BYTE6_ADDR                 0x4700085B
-
-#define REG_GPIO_FROM_MASTER_TOGGLE_BYTE0_ADDR                0x4700085C
-#define BF_GPIO_FROM_TOGGLE_INFO                              0x4700085C, 0x00003300
-
-#define REG_GPIO_FROM_MASTER_TOGGLE_BYTE1_ADDR                0x4700085D
-
-#define REG_GPIO_FROM_MASTER_TOGGLE_BYTE2_ADDR                0x4700085E
-
-#define REG_GPIO_FROM_MASTER_TOGGLE_BYTE3_ADDR                0x4700085F
-
-#define REG_GPIO_FROM_MASTER_TOGGLE_BYTE4_ADDR                0x47000860
-
-#define REG_GPIO_FROM_MASTER_TOGGLE_BYTE5_ADDR                0x47000861
-
-#define REG_GPIO_FROM_MASTER_TOGGLE_BYTE6_ADDR                0x47000862
-
-#define REG_GPIO_SPI_READ_BYTE0_ADDR                          0x47000869
-#define BF_GPIO_SPI_READ_INFO                                 0x47000869, 0x00003300
-
-#define REG_GPIO_SPI_READ_BYTE1_ADDR                          0x4700086A
-
-#define REG_GPIO_SPI_READ_BYTE2_ADDR                          0x4700086B
-
-#define REG_GPIO_SPI_READ_BYTE3_ADDR                          0x4700086C
-
-#define REG_GPIO_SPI_READ_BYTE4_ADDR                          0x4700086D
-
-#define REG_GPIO_SPI_READ_BYTE5_ADDR                          0x4700086E
-
-#define REG_GPIO_SPI_READ_BYTE6_ADDR                          0x4700086F
-
-#define REG_GPIO_SOURCE_CONTROL_ADDR(n)                       (0x47000870 + 1 * (n))
-#define BF_GPIO_SOURCE_CONTROL_INFO(n)                        (0x47000870 + 1 * (n)), 0x00000800
-
-#define REG_GPIO_STAGE_SEL_BYTE0_ADDR                         0x470008A3
-
-#define REG_GPIO_STAGE_SEL_BYTE1_ADDR                         0x470008A4
-
-#define REG_GPIO_STAGE_SEL_BYTE2_ADDR                         0x470008A5
-
-#define REG_GPIO_STAGE_SEL_BYTE3_ADDR                         0x470008A6
-
-#define REG_GPIO_STAGE_SEL_BYTE4_ADDR                         0x470008A7
-
-#define REG_GPIO_STAGE_SEL_BYTE5_ADDR                         0x470008A8
-
-#define REG_GPIO_STAGE_SEL_BYTE6_ADDR                         0x470008A9
-
-#define REG_GPIO_STAGE_SEL_BYTE7_ADDR                         0x470008AA
-
-#define REG_GPIO_STAGE_SEL_BYTE8_ADDR                         0x470008AB
-
-#define REG_GPIO_STAGE_SEL_BYTE9_ADDR                         0x470008AC
-
-#define REG_GPIO_STAGE_SEL_BYTE10_ADDR                        0x470008AD
-
-#define REG_GPIO_STAGE_SEL_BYTE11_ADDR                        0x470008AE
-
-#define REG_GPIO_STAGE_SEL_BYTE12_ADDR                        0x470008AF
-
-#define REG_GPIO_QUICK_CONFIG_ADDR                            0x470008B0
-#define BF_GPIO_QUICK_CONFIG_INFO                             0x470008B0, 0x00000400
-
-#define REG_GPIO_PINMUX_REGOUT_BYTE0_ADDR                     0x470008B1
-#define BF_LNX_SW0_CTL_INFO                                   0x470008B1, 0x00000200
-#define BF_LNX_SW1_CTL_INFO                                   0x470008B1, 0x00000202
-#define BF_CLK_DELADJ_INFO                                    0x470008B1, 0x00000204
-#define BF_CLK_DELSTR_INFO                                    0x470008B1, 0x00000206
-
-#define REG_GPIO_PINMUX_REGOUT_BYTE1_ADDR                     0x470008B2
-#define BF_FW_IRQ_OUT_INFO                                    0x470008B2, 0x00000100
-#define BF_CAL_FREEZE_INFO                                    0x470008B2, 0x00000101
-#define BF_FW_TMU_ALARM_INFO                                  0x470008B2, 0x00000102
-
-#define REG_COMMON_SYNCIN_CTRL_ADDR                           0x470008B3
-#define BF_COMMON_SYNCIN_LINK0_INFO                           0x470008B3, 0x00000100
-#define BF_COMMON_SYNCIN_LINK1_INFO                           0x470008B3, 0x00000101
-
-#define REG_SERDES_PLL_WR_SETUP_CYCLES_ADDR                   0x470008B4
-#define BF_SERDES_PLL_ANA_BRIDGE_WR_SETUP_CYCLES_INFO         0x470008B4, 0x00000600
-
-#define REG_SERDES_PLL_WR_HOLD_CYCLES_ADDR                    0x470008B5
-#define BF_SERDES_PLL_ANA_BRIDGE_WR_HOLD_CYCLES_INFO          0x470008B5, 0x00000600
-
-#define REG_SERDES_PLL_RD_CYCLES_ADDR                         0x470008B6
-#define BF_SERDES_PLL_ANA_BRIDGE_RD_CYCLES_INFO               0x470008B6, 0x00000600
-
-#define REG_RTCLK_GEN_WR_SETUP_CYCLES_ADDR                    0x470008B7
-#define BF_RTCLK_GEN_ANA_BRIDGE_WR_SETUP_CYCLES_INFO          0x470008B7, 0x00000600
-
-#define REG_RTCLK_GEN_WR_HOLD_CYCLES_ADDR                     0x470008B8
-#define BF_RTCLK_GEN_ANA_BRIDGE_WR_HOLD_CYCLES_INFO           0x470008B8, 0x00000600
-
-#define REG_RTCLK_GEN_RD_CYCLES_ADDR                          0x470008B9
-#define BF_RTCLK_GEN_ANA_BRIDGE_RD_CYCLES_INFO                0x470008B9, 0x00000600
-
-#define REG_WT_RT_SEL_1024X132_ADDR                           0x470008BA
-#define BF_RT_SEL_1024X132_INFO                               0x470008BA, 0x00000200
-#define BF_WT_SEL_1024X132_INFO                               0x470008BA, 0x00000202
-
-#define REG_WT_RT_SEL_1024X39_ADDR                            0x470008BB
-#define BF_RT_SEL_1024X39_INFO                                0x470008BB, 0x00000200
-#define BF_WT_SEL_1024X39_INFO                                0x470008BB, 0x00000202
-
-#define REG_WT_RT_SEL_4096X39_ADDR                            0x470008BC
-#define BF_RT_SEL_4096X39_INFO                                0x470008BC, 0x00000200
-#define BF_WT_SEL_4096X39_INFO                                0x470008BC, 0x00000202
-
-#define REG_WT_RT_SEL_512X39_ADDR                             0x470008BD
-#define BF_RT_SEL_512X39_INFO                                 0x470008BD, 0x00000200
-#define BF_WT_SEL_512X39_INFO                                 0x470008BD, 0x00000202
-
-#define REG_WT_RT_SEL_64X64_ADDR                              0x470008BE
-#define BF_RT_SEL_64X64_INFO                                  0x470008BE, 0x00000200
-#define BF_WT_SEL_64X64_INFO                                  0x470008BE, 0x00000202
-
-#define REG_WT_RT_SEL_64X10_ADDR                              0x470008BF
-#define BF_RT_SEL_64X10_INFO                                  0x470008BF, 0x00000200
-#define BF_WT_SEL_64X10_INFO                                  0x470008BF, 0x00000202
-
-#define REG_WT_RT_SEL_8192X13_ADDR                            0x470008C0
-#define BF_RT_SEL_8192X13_INFO                                0x470008C0, 0x00000200
-#define BF_WT_SEL_8192X13_INFO                                0x470008C0, 0x00000202
-
-#define REG_WT_RT_SEL_8192X39_ADDR                            0x470008C1
-#define BF_RT_SEL_8192X39_INFO                                0x470008C1, 0x00000200
-#define BF_WT_SEL_8192X39_INFO                                0x470008C1, 0x00000202
-
-#define REG_PT_RT_SEL_8192X39_ADDR                            0x470008C2
-#define BF_ROM_RT_SEL_8192X39_INFO                            0x470008C2, 0x00000200
-#define BF_ROM_PT_SEL_8192X39_INFO                            0x470008C2, 0x00000202
-
-#define REG_WT_RT_SEL_8X132_ADDR                              0x470008C3
-#define BF_RT_SEL_8X132_INFO                                  0x470008C3, 0x00000200
-#define BF_WT_SEL_8X132_INFO                                  0x470008C3, 0x00000202
+#define REG_REFCLK_CLKSYNTH_CONTROL_ADDR                      0x47000338U
+#define BF_CLKPLL_REFPATH_PD_INFO                             0x47000338U, 0x00000100U
+#define BF_CLKPLL_REFCLK_ENABLE_CLKB_INFO                     0x47000338U, 0x00000101U
+#define BF_CLKPLL_INVERT_REFCLK_INFO                          0x47000338U, 0x00000102U
+#define BF_CLKPLL_INVERT_SYNC_PULSE_INFO                      0x47000338U, 0x00000103U
+#define BF_CLKPLL_FORCE_REFCLK_PATH_ON_INFO                   0x47000338U, 0x00000104U
+
+#define REG_REFCLK_CLKSYNTH_CONTROL2_ADDR                     0x47000339U
+#define BF_CLKPLL_DELAY_REFCLK_INFO                           0x47000339U, 0x00000400U
+#define BF_CLKPLL_DELAY_SYNC_PULSE_INFO                       0x47000339U, 0x00000404U
+
+#define REG_REFCLK_SERDES_SYNTH_CONTROL_ADDR                  0x4700033AU
+#define BF_SERDES_PLL_REFPATH_PD_INFO                         0x4700033AU, 0x00000100U
+#define BF_SERDES_PLL_REFCLK_ENABLE_CLKB_INFO                 0x4700033AU, 0x00000101U
+#define BF_SERDES_PLL_INVERT_REFCLK_INFO                      0x4700033AU, 0x00000102U
+#define BF_SERDES_PLL_INVERT_SYNC_PULSE_INFO                  0x4700033AU, 0x00000103U
+#define BF_SERDES_PLL_FORCE_REFCLK_PATH_ON_INFO               0x4700033AU, 0x00000104U
+
+#define REG_REFCLK_SERDES_SYNTH_CONTROL2_ADDR                 0x4700033BU
+#define BF_SERDES_PLL_DELAY_REFCLK_INFO                       0x4700033BU, 0x00000400U
+#define BF_SERDES_PLL_DELAY_SYNC_PULSE_INFO                   0x4700033BU, 0x00000404U
+
+#define REG_XTRIG_CTL_ADDR                                    0x470003F0U
+#define BF_XTRIG_EN_INFO                                      0x470003F0U, 0x00000100U
+
+#define REG_XTRIG_MASK1_ADDR(n)                               (0x470003F1U + 3U * (uint32_t)(n))
+#define BF_TRIG_MASK_INFO(n)                                  (0x470003F1U + 3U * (uint32_t)(n)), 0x00001500U
+
+#define REG_XTRIG_MASK2_ADDR(n)                               (0x470003F2U + 3U * (uint32_t)(n))
+
+#define REG_XTRIG_MASK3_ADDR(n)                               (0x470003F3U + 3U * (uint32_t)(n))
 
 #ifdef USE_PRIVATE_BF
-#define REG_ENG_MASK_REVISION_ADDR                            0x470008C4
-#define BF_ENG_MASK_REVISION_MINOR_INFO                       0x470008C4, 0x00000400
-#define BF_ENG_MASK_REVISION_MAJOR_INFO                       0x470008C4, 0x00000404
+#define REG_STREAM_PROC_DEBUG_REG_ARRAY_ADDR(n)               (0x47000523U + 1U * (uint32_t)(n))
+#define BF_STREAMPROC_DEBUG_DATA_INFO(n)                      (0x47000523U + 1U * (uint32_t)(n)), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_SLICE_STREAM_TO_CORE_STREAM_INTERRUPT_ENABLE_ADDR 0x470008C5
-#define BF_SLICE_TO_CORE_IRQ_ENABLE_INFO                      0x470008C5, 0x00000800
-
-#define REG_TE_BYPASS_N_MMR_ADDR                              0x470008C6
-#define BF_TE_BYPASS_N_MMR_INFO                               0x470008C6, 0x00000100
-
-#define REG_NVM_BOOT_STATUS_ADDR                              0x470008C7
-#define BF_TE_BYPASS_INFO                                     0x470008C7, 0x00000100
-#define BF_NVM_BOOT_DONE_INFO                                 0x470008C7, 0x00000101
-#define BF_NVM_ERR_FLAG_TIMEOUT_INFO                          0x470008C7, 0x00000102
-#define BF_NVM_ERR_FLAG_BOOT_INFO                             0x470008C7, 0x00000103
-#define BF_MC_QUAL_BUSY_INFO                                  0x470008C7, 0x00000104
-#define BF_TE_FAULT_INFO                                      0x470008C7, 0x00000105
-
-#define REG_EC_RX_BYTE0_ADDR                                  0x470008C8
-#define BF_EC_RX_INFO                                         0x470008C8, 0x00002000
-
-#define REG_EC_RX_BYTE1_ADDR                                  0x470008C9
-
-#define REG_EC_RX_BYTE2_ADDR                                  0x470008CA
-
-#define REG_EC_RX_BYTE3_ADDR                                  0x470008CB
-
-#define REG_EC_TX_BYTE0_ADDR                                  0x470008CC
-#define BF_EC_TX_INFO                                         0x470008CC, 0x00002000
-
-#define REG_EC_TX_BYTE1_ADDR                                  0x470008CD
-
-#define REG_EC_TX_BYTE2_ADDR                                  0x470008CE
-
-#define REG_EC_TX_BYTE3_ADDR                                  0x470008CF
-
-#define REG_EC_ANA_BYTE0_ADDR                                 0x470008D0
-#define BF_EC_ANA_INFO                                        0x470008D0, 0x00002000
-
-#define REG_EC_ANA_BYTE1_ADDR                                 0x470008D1
-
-#define REG_EC_ANA_BYTE2_ADDR                                 0x470008D2
-
-#define REG_EC_ANA_BYTE3_ADDR                                 0x470008D3
+#define REG_STREAM_PROC_ECC_STATUS_ADDR                       0x47000543U
+#define BF_MAIN_STREAMPROC_ERROR_STATUS_INFO                  0x47000543U, 0x00000100U
+#define BF_MAIN_STREAMPROC_ERROR_CLEAR_INFO                   0x47000543U, 0x00000101U
 
 #ifdef USE_PRIVATE_BF
-#define REG_DIE_ID_BIT8_OVERRIDE_REG_ADDR                     0x470008D5
-#define BF_DIE_ID_BIT8_OVERRIDE_INFO                          0x470008D5, 0x00000100
-#endif /* USE_PRIVATE_BF */
-
-#define REG_SYSRESETN_DETECT_FLAG_ADDR                        0x470008D6
-#define BF_SYSRESETN_DETECT_FLAG_INFO                         0x470008D6, 0x00000100
-
-#ifdef USE_PRIVATE_BF
-#define REG_ACB_REG_BYTE0_ADDR                                0x470008D7
-#define BF_TE_SCAN_EN_INFO                                    0x470008D7, 0x00000100
-#define BF_TE_JTAG_EN_INFO                                    0x470008D7, 0x00000103
-#define BF_TE_UART_RX_EN_INFO                                 0x470008D7, 0x00000104
-#define BF_ARM_JTAG_EN_INFO                                   0x470008D7, 0x00000105
-#define BF_C0_M3_RUN_FINAL_INFO                               0x470008D7, 0x00000106
-#define BF_IRAM_ACCESS_EN_INFO                                0x470008D7, 0x00000107
+#define REG_DIG_CORE_FABRIC_DUAL_RANGE_CONTROL_ADDR           0x47000544U
+#define BF_DIG_CORE_FABRIC_DUAL_RANGE_ENABLE_INFO             0x47000544U, 0x00000100U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ACB_REG_BYTE1_ADDR                                0x470008D8
-#define BF_TE_UART_TX_EN_INFO                                 0x470008D8, 0x00000100
-#define BF_IROM_ACCESS_EN_INFO                                0x470008D8, 0x00000104
-#define BF_C1_M3_RUN_FINAL_INFO                               0x470008D8, 0x00000106
-#define BF_SYSRESETN_FINAL_INFO                               0x470008D8, 0x00000107
+#define REG_DEBUG_KEY_STATUS_ADDR                             0x4700054EU
+#define BF_DEBUG_KEY_UNLOCKED_INFO                            0x4700054EU, 0x00000100U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_CMOS_PAD_DS_ADDR                                  0x47000550U
+#define BF_PAD_DS_INFO                                        0x47000550U, 0x00000400U
+
+#define REG_CMOS_PAD_ST_BYTE0_ADDR                            0x47000551U
+#define BF_PAD_ST_GPIO_INFO                                   0x47000551U, 0x00003300U
+
+#define REG_CMOS_PAD_ST_BYTE1_ADDR                            0x47000552U
+
+#define REG_CMOS_PAD_ST_BYTE2_ADDR                            0x47000553U
+
+#define REG_CMOS_PAD_ST_BYTE3_ADDR                            0x47000554U
+
+#define REG_CMOS_PAD_ST_BYTE4_ADDR                            0x47000555U
+
+#define REG_CMOS_PAD_ST_BYTE5_ADDR                            0x47000556U
+
+#define REG_CMOS_PAD_ST_BYTE6_ADDR                            0x47000557U
+#define BF_PAD_ST_SCK_INFO                                    0x47000557U, 0x00000103U
+#define BF_PAD_ST_SCSB_INFO                                   0x47000557U, 0x00000104U
+#define BF_PAD_ST_RESETN_INFO                                 0x47000557U, 0x00000105U
+#define BF_PAD_ST_SDIO_INFO                                   0x47000557U, 0x00000106U
+#define BF_PAD_ST_SDO_INFO                                    0x47000557U, 0x00000107U
+
+#define REG_ALT_BOOT_ADDR(n)                                  (0x47000558U + 1U * (uint32_t)(n))
+#define BF_ALT_BOOT_INFO(n)                                   (0x47000558U + 1U * (uint32_t)(n)), 0x00000800U
+
+#define REG_RX_A0_PORB_STATUS_ADDR                            0x47000582U
+#define BF_PORB_RX_A0_VDDA1P0_INFO                            0x47000582U, 0x00000100U
+#define BF_PORB_RX_A0_VDDA1P8_INFO                            0x47000582U, 0x00000101U
+#define BF_PORB_RX_A0_VDDACK1P0_INFO                          0x47000582U, 0x00000102U
+#define BF_PORB_RX_A0_VDDD0P8_INFO                            0x47000582U, 0x00000103U
+#define BF_PORB_RX_A0_VDDD1P0_INFO                            0x47000582U, 0x00000104U
+
+#define REG_RX_A1_PORB_STATUS_ADDR                            0x47000583U
+#define BF_PORB_RX_A1_VDDA1P0_INFO                            0x47000583U, 0x00000100U
+#define BF_PORB_RX_A1_VDDA1P8_INFO                            0x47000583U, 0x00000101U
+#define BF_PORB_RX_A1_VDDACK1P0_INFO                          0x47000583U, 0x00000102U
+#define BF_PORB_RX_A1_VDDD0P8_INFO                            0x47000583U, 0x00000103U
+#define BF_PORB_RX_A1_VDDD1P0_INFO                            0x47000583U, 0x00000104U
+
+#define REG_RX_B0_PORB_STATUS_ADDR                            0x47000584U
+#define BF_PORB_RX_B0_VDDA1P0_INFO                            0x47000584U, 0x00000100U
+#define BF_PORB_RX_B0_VDDA1P8_INFO                            0x47000584U, 0x00000101U
+#define BF_PORB_RX_B0_VDDACK1P0_INFO                          0x47000584U, 0x00000102U
+#define BF_PORB_RX_B0_VDDD0P8_INFO                            0x47000584U, 0x00000103U
+#define BF_PORB_RX_B0_VDDD1P0_INFO                            0x47000584U, 0x00000104U
+
+#define REG_RX_B1_PORB_STATUS_ADDR                            0x47000585U
+#define BF_PORB_RX_B1_VDDA1P0_INFO                            0x47000585U, 0x00000100U
+#define BF_PORB_RX_B1_VDDA1P8_INFO                            0x47000585U, 0x00000101U
+#define BF_PORB_RX_B1_VDDACK1P0_INFO                          0x47000585U, 0x00000102U
+#define BF_PORB_RX_B1_VDDD0P8_INFO                            0x47000585U, 0x00000103U
+#define BF_PORB_RX_B1_VDDD1P0_INFO                            0x47000585U, 0x00000104U
+
+#define REG_TX_A0_PORB_STATUS_ADDR                            0x47000586U
+#define BF_PORB_TX_A0_VDDA1P0_INFO                            0x47000586U, 0x00000100U
+#define BF_PORB_TX_A0_VDDA1P8_INFO                            0x47000586U, 0x00000101U
+#define BF_PORB_TX_A0_VDDC1P0_INFO                            0x47000586U, 0x00000102U
+#define BF_PORB_TX_A0_VDDD1P0_INFO                            0x47000586U, 0x00000103U
+#define BF_PORB_TX_A0_VNEG_INFO                               0x47000586U, 0x00000104U
+#define BF_PORB_TX_A0_VDDA2P5_INFO                            0x47000586U, 0x00000105U
+
+#define REG_TX_A1_PORB_STATUS_ADDR                            0x47000587U
+#define BF_PORB_TX_A1_VDDA1P0_INFO                            0x47000587U, 0x00000100U
+#define BF_PORB_TX_A1_VDDA1P8_INFO                            0x47000587U, 0x00000101U
+#define BF_PORB_TX_A1_VDDC1P0_INFO                            0x47000587U, 0x00000102U
+#define BF_PORB_TX_A1_VDDD1P0_INFO                            0x47000587U, 0x00000103U
+#define BF_PORB_TX_A1_VNEG_INFO                               0x47000587U, 0x00000104U
+#define BF_PORB_TX_A1_VDDA2P5_INFO                            0x47000587U, 0x00000105U
+
+#define REG_TX_A2_PORB_STATUS_ADDR                            0x47000588U
+#define BF_PORB_TX_A2_VDDA1P0_INFO                            0x47000588U, 0x00000100U
+#define BF_PORB_TX_A2_VDDA1P8_INFO                            0x47000588U, 0x00000101U
+#define BF_PORB_TX_A2_VDDC1P0_INFO                            0x47000588U, 0x00000102U
+#define BF_PORB_TX_A2_VDDD1P0_INFO                            0x47000588U, 0x00000103U
+#define BF_PORB_TX_A2_VNEG_INFO                               0x47000588U, 0x00000104U
+#define BF_PORB_TX_A2_VDDA2P5_INFO                            0x47000588U, 0x00000105U
+
+#define REG_TX_A3_PORB_STATUS_ADDR                            0x47000589U
+#define BF_PORB_TX_A3_VDDA1P0_INFO                            0x47000589U, 0x00000100U
+#define BF_PORB_TX_A3_VDDA1P8_INFO                            0x47000589U, 0x00000101U
+#define BF_PORB_TX_A3_VDDC1P0_INFO                            0x47000589U, 0x00000102U
+#define BF_PORB_TX_A3_VDDD1P0_INFO                            0x47000589U, 0x00000103U
+#define BF_PORB_TX_A3_VNEG_INFO                               0x47000589U, 0x00000104U
+#define BF_PORB_TX_A3_VDDA2P5_INFO                            0x47000589U, 0x00000105U
+
+#define REG_TX_B0_PORB_STATUS_ADDR                            0x4700058AU
+#define BF_PORB_TX_B0_VDDA1P0_INFO                            0x4700058AU, 0x00000100U
+#define BF_PORB_TX_B0_VDDA1P8_INFO                            0x4700058AU, 0x00000101U
+#define BF_PORB_TX_B0_VDDC1P0_INFO                            0x4700058AU, 0x00000102U
+#define BF_PORB_TX_B0_VDDD1P0_INFO                            0x4700058AU, 0x00000103U
+#define BF_PORB_TX_B0_VNEG_INFO                               0x4700058AU, 0x00000104U
+#define BF_PORB_TX_B0_VDDA2P5_INFO                            0x4700058AU, 0x00000105U
+
+#define REG_TX_B1_PORB_STATUS_ADDR                            0x4700058BU
+#define BF_PORB_TX_B1_VDDA1P0_INFO                            0x4700058BU, 0x00000100U
+#define BF_PORB_TX_B1_VDDA1P8_INFO                            0x4700058BU, 0x00000101U
+#define BF_PORB_TX_B1_VDDC1P0_INFO                            0x4700058BU, 0x00000102U
+#define BF_PORB_TX_B1_VDDD1P0_INFO                            0x4700058BU, 0x00000103U
+#define BF_PORB_TX_B1_VNEG_INFO                               0x4700058BU, 0x00000104U
+#define BF_PORB_TX_B1_VDDA2P5_INFO                            0x4700058BU, 0x00000105U
+
+#define REG_TX_B2_PORB_STATUS_ADDR                            0x4700058CU
+#define BF_PORB_TX_B2_VDDA1P0_INFO                            0x4700058CU, 0x00000100U
+#define BF_PORB_TX_B2_VDDA1P8_INFO                            0x4700058CU, 0x00000101U
+#define BF_PORB_TX_B2_VDDC1P0_INFO                            0x4700058CU, 0x00000102U
+#define BF_PORB_TX_B2_VDDD1P0_INFO                            0x4700058CU, 0x00000103U
+#define BF_PORB_TX_B2_VNEG_INFO                               0x4700058CU, 0x00000104U
+#define BF_PORB_TX_B2_VDDA2P5_INFO                            0x4700058CU, 0x00000105U
+
+#define REG_TX_B3_PORB_STATUS_ADDR                            0x4700058DU
+#define BF_PORB_TX_B3_VDDA1P0_INFO                            0x4700058DU, 0x00000100U
+#define BF_PORB_TX_B3_VDDA1P8_INFO                            0x4700058DU, 0x00000101U
+#define BF_PORB_TX_B3_VDDC1P0_INFO                            0x4700058DU, 0x00000102U
+#define BF_PORB_TX_B3_VDDD1P0_INFO                            0x4700058DU, 0x00000103U
+#define BF_PORB_TX_B3_VNEG_INFO                               0x4700058DU, 0x00000104U
+#define BF_PORB_TX_B3_VDDA2P5_INFO                            0x4700058DU, 0x00000105U
+
+#define REG_SERDES_PORB_STATUS_ADDR                           0x4700058EU
+#define BF_PORB_DES_VDDA1P0_INFO                              0x4700058EU, 0x00000100U
+#define BF_PORB_SER_VDDA1P0_INFO                              0x4700058EU, 0x00000101U
+#define BF_PORB_SERDES_CK_VDDA1P0_INFO                        0x4700058EU, 0x00000102U
+#define BF_PORB_SERDES_PLL_VDDA1P0_INFO                       0x4700058EU, 0x00000103U
+#define BF_PORB_SERDES_PLL_VDDA1P8_INFO                       0x4700058EU, 0x00000104U
+#define BF_PORB_SERDES_VDDD0P8_INFO                           0x4700058EU, 0x00000105U
+
+#define REG_MCS_MB_CK_PORB_STATUS_ADDR                        0x4700058FU
+#define BF_PORB_CK_VDDA1P0_INFO                               0x4700058FU, 0x00000100U
+#define BF_PORB_MB_A_VDDA1P0_INFO                             0x4700058FU, 0x00000101U
+#define BF_PORB_MB_A_VDDA1P8_INFO                             0x4700058FU, 0x00000102U
+#define BF_PORB_MB_B_VDDA1P0_INFO                             0x4700058FU, 0x00000103U
+#define BF_PORB_MB_B_VDDA1P8_INFO                             0x4700058FU, 0x00000104U
+#define BF_PORB_MCS_VDDD1P0_INFO                              0x4700058FU, 0x00000105U
+
+#define REG_RX_A_IRMON_CTRL_ADDR                              0x47000590U
+#define BF_RX_A_IRMON_CTRL_INFO                               0x47000590U, 0x00000800U
+
+#define REG_RX_B_IRMON_CTRL_ADDR                              0x47000591U
+#define BF_RX_B_IRMON_CTRL_INFO                               0x47000591U, 0x00000800U
+
+#define REG_TX_A_IRMON_CTRL_ADDR                              0x47000592U
+#define BF_TX_A_IRMON_CTRL_INFO                               0x47000592U, 0x00000800U
+
+#define REG_TX_B_IRMON_CTRL_ADDR                              0x47000593U
+#define BF_TX_B_IRMON_CTRL_INFO                               0x47000593U, 0x00000800U
+
+#define REG_TRACE_CORE_SELECT_REG_ADDR                        0x4700077EU
+#define BF_TRACE_CORE_SELECT_INFO                             0x4700077EU, 0x00000100U
+
+#define REG_XTRIG_DAP_MODE_TRIG_CTL_ADDR                      0x47000786U
+#define BF_XTRIG_DAP_MODE_TRIG_EN_INFO                        0x47000786U, 0x00000100U
+
+#define REG_XTRIG_PROG_COUNT_THRES_ADDR                       0x47000787U
+#define BF_PROG_FSM_COUNT_THRES_INFO                          0x47000787U, 0x00000400U
+#define BF_PROG_FSM_COUNT_THRES1_INFO                         0x47000787U, 0x00000404U
+
+#define REG_XTRIG_PROG_DP_ADDR1_1_ADDR                        0x47000788U
+#define BF_PROG_DP_ADDR1_INFO                                 0x47000788U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_ADDR1_2_ADDR                        0x47000789U
+
+#define REG_XTRIG_PROG_DP_ADDR1_3_ADDR                        0x4700078AU
+
+#define REG_XTRIG_PROG_DP_ADDR1_4_ADDR                        0x4700078BU
+
+#define REG_XTRIG_PROG_DP_ADDR2_1_ADDR                        0x4700078CU
+#define BF_PROG_DP_ADDR2_INFO                                 0x4700078CU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_ADDR2_2_ADDR                        0x4700078DU
+
+#define REG_XTRIG_PROG_DP_ADDR2_3_ADDR                        0x4700078EU
+
+#define REG_XTRIG_PROG_DP_ADDR2_4_ADDR                        0x4700078FU
+
+#define REG_XTRIG_PROG_DP_ADDR3_1_ADDR                        0x47000790U
+#define BF_PROG_DP_ADDR3_INFO                                 0x47000790U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_ADDR3_2_ADDR                        0x47000791U
+
+#define REG_XTRIG_PROG_DP_ADDR3_3_ADDR                        0x47000792U
+
+#define REG_XTRIG_PROG_DP_ADDR3_4_ADDR                        0x47000793U
+
+#define REG_XTRIG_PROG_DP_ADDR4_1_ADDR                        0x47000794U
+#define BF_PROG_DP_ADDR4_INFO                                 0x47000794U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_ADDR4_2_ADDR                        0x47000795U
+
+#define REG_XTRIG_PROG_DP_ADDR4_3_ADDR                        0x47000796U
+
+#define REG_XTRIG_PROG_DP_ADDR4_4_ADDR                        0x47000797U
+
+#define REG_XTRIG_PROG_DP_ADDR5_1_ADDR                        0x47000798U
+#define BF_PROG_DP_ADDR5_INFO                                 0x47000798U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_ADDR5_2_ADDR                        0x47000799U
+
+#define REG_XTRIG_PROG_DP_ADDR5_3_ADDR                        0x4700079AU
+
+#define REG_XTRIG_PROG_DP_ADDR5_4_ADDR                        0x4700079BU
+
+#define REG_XTRIG_PROG_DP_ADDR6_1_ADDR                        0x4700079CU
+#define BF_PROG_DP_ADDR6_INFO                                 0x4700079CU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_ADDR6_2_ADDR                        0x4700079DU
+
+#define REG_XTRIG_PROG_DP_ADDR6_3_ADDR                        0x4700079EU
+
+#define REG_XTRIG_PROG_DP_ADDR6_4_ADDR                        0x4700079FU
+
+#define REG_XTRIG_PROG_DP_ADDR7_1_ADDR                        0x470007A0U
+#define BF_PROG_DP_ADDR7_INFO                                 0x470007A0U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_ADDR7_2_ADDR                        0x470007A1U
+
+#define REG_XTRIG_PROG_DP_ADDR7_3_ADDR                        0x470007A2U
+
+#define REG_XTRIG_PROG_DP_ADDR7_4_ADDR                        0x470007A3U
+
+#define REG_XTRIG_PROG_DP_ADDR8_1_ADDR                        0x470007A4U
+#define BF_PROG_DP_ADDR8_INFO                                 0x470007A4U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_ADDR8_2_ADDR                        0x470007A5U
+
+#define REG_XTRIG_PROG_DP_ADDR8_3_ADDR                        0x470007A6U
+
+#define REG_XTRIG_PROG_DP_ADDR8_4_ADDR                        0x470007A7U
+
+#define REG_XTRIG_PROG_DP_ADDR9_1_ADDR                        0x470007A8U
+#define BF_PROG_DP_ADDR9_INFO                                 0x470007A8U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_ADDR9_2_ADDR                        0x470007A9U
+
+#define REG_XTRIG_PROG_DP_ADDR9_3_ADDR                        0x470007AAU
+
+#define REG_XTRIG_PROG_DP_ADDR9_4_ADDR                        0x470007ABU
+
+#define REG_XTRIG_PROG_DP_ADDR10_1_ADDR                       0x470007ACU
+#define BF_PROG_DP_ADDR10_INFO                                0x470007ACU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_ADDR10_2_ADDR                       0x470007ADU
+
+#define REG_XTRIG_PROG_DP_ADDR10_3_ADDR                       0x470007AEU
+
+#define REG_XTRIG_PROG_DP_ADDR10_4_ADDR                       0x470007AFU
+
+#define REG_XTRIG_PROG_DP_VAL1_1_ADDR                         0x470007B6U
+#define BF_PROG_DP_VAL1_INFO                                  0x470007B6U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_VAL1_2_ADDR                         0x470007B7U
+
+#define REG_XTRIG_PROG_DP_VAL1_3_ADDR                         0x470007B8U
+
+#define REG_XTRIG_PROG_DP_VAL1_4_ADDR                         0x470007B9U
+
+#define REG_XTRIG_PROG_DP_VAL2_1_ADDR                         0x470007BAU
+#define BF_PROG_DP_VAL2_INFO                                  0x470007BAU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_VAL2_2_ADDR                         0x470007BBU
+
+#define REG_XTRIG_PROG_DP_VAL2_3_ADDR                         0x470007BCU
+
+#define REG_XTRIG_PROG_DP_VAL2_4_ADDR                         0x470007BDU
+
+#define REG_XTRIG_PROG_DP_VAL3_1_ADDR                         0x470007BEU
+#define BF_PROG_DP_VAL3_INFO                                  0x470007BEU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_VAL3_2_ADDR                         0x470007BFU
+
+#define REG_XTRIG_PROG_DP_VAL3_3_ADDR                         0x470007C0U
+
+#define REG_XTRIG_PROG_DP_VAL3_4_ADDR                         0x470007C1U
+
+#define REG_XTRIG_PROG_DP_VAL4_1_ADDR                         0x470007C2U
+#define BF_PROG_DP_VAL4_INFO                                  0x470007C2U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_VAL4_2_ADDR                         0x470007C3U
+
+#define REG_XTRIG_PROG_DP_VAL4_3_ADDR                         0x470007C4U
+
+#define REG_XTRIG_PROG_DP_VAL4_4_ADDR                         0x470007C5U
+
+#define REG_XTRIG_PROG_DP_VAL5_1_ADDR                         0x470007C6U
+#define BF_PROG_DP_VAL5_INFO                                  0x470007C6U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_VAL5_2_ADDR                         0x470007C7U
+
+#define REG_XTRIG_PROG_DP_VAL5_3_ADDR                         0x470007C8U
+
+#define REG_XTRIG_PROG_DP_VAL5_4_ADDR                         0x470007C9U
+
+#define REG_XTRIG_PROG_DP_VAL6_1_ADDR                         0x470007CAU
+#define BF_PROG_DP_VAL6_INFO                                  0x470007CAU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_VAL6_2_ADDR                         0x470007CBU
+
+#define REG_XTRIG_PROG_DP_VAL6_3_ADDR                         0x470007CCU
+
+#define REG_XTRIG_PROG_DP_VAL6_4_ADDR                         0x470007CDU
+
+#define REG_XTRIG_PROG_DP_VAL7_1_ADDR                         0x470007CEU
+#define BF_PROG_DP_VAL7_INFO                                  0x470007CEU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_VAL7_2_ADDR                         0x470007CFU
+
+#define REG_XTRIG_PROG_DP_VAL7_3_ADDR                         0x470007D0U
+
+#define REG_XTRIG_PROG_DP_VAL7_4_ADDR                         0x470007D1U
+
+#define REG_XTRIG_PROG_DP_VAL8_1_ADDR                         0x470007D2U
+#define BF_PROG_DP_VAL8_INFO                                  0x470007D2U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_VAL8_2_ADDR                         0x470007D3U
+
+#define REG_XTRIG_PROG_DP_VAL8_3_ADDR                         0x470007D4U
+
+#define REG_XTRIG_PROG_DP_VAL8_4_ADDR                         0x470007D5U
+
+#define REG_XTRIG_PROG_DP_VAL9_1_ADDR                         0x470007D6U
+#define BF_PROG_DP_VAL9_INFO                                  0x470007D6U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_VAL9_2_ADDR                         0x470007D7U
+
+#define REG_XTRIG_PROG_DP_VAL9_3_ADDR                         0x470007D8U
+
+#define REG_XTRIG_PROG_DP_VAL9_4_ADDR                         0x470007D9U
+
+#define REG_XTRIG_PROG_DP_VAL10_1_ADDR                        0x470007DAU
+#define BF_PROG_DP_VAL10_INFO                                 0x470007DAU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP_VAL10_2_ADDR                        0x470007DBU
+
+#define REG_XTRIG_PROG_DP_VAL10_3_ADDR                        0x470007DCU
+
+#define REG_XTRIG_PROG_DP_VAL10_4_ADDR                        0x470007DDU
+
+#define REG_XTRIG_PROG_DP1_ADDR1_1_ADDR                       0x470007DEU
+#define BF_PROG_DP1_ADDR1_INFO                                0x470007DEU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_ADDR1_2_ADDR                       0x470007DFU
+
+#define REG_XTRIG_PROG_DP1_ADDR1_3_ADDR                       0x470007E0U
+
+#define REG_XTRIG_PROG_DP1_ADDR1_4_ADDR                       0x470007E1U
+
+#define REG_XTRIG_PROG_DP1_ADDR2_1_ADDR                       0x470007E2U
+#define BF_PROG_DP1_ADDR2_INFO                                0x470007E2U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_ADDR2_2_ADDR                       0x470007E3U
+
+#define REG_XTRIG_PROG_DP1_ADDR2_3_ADDR                       0x470007E4U
+
+#define REG_XTRIG_PROG_DP1_ADDR2_4_ADDR                       0x470007E5U
+
+#define REG_XTRIG_PROG_DP1_ADDR3_1_ADDR                       0x470007E6U
+#define BF_PROG_DP1_ADDR3_INFO                                0x470007E6U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_ADDR3_2_ADDR                       0x470007E7U
+
+#define REG_XTRIG_PROG_DP1_ADDR3_3_ADDR                       0x470007E8U
+
+#define REG_XTRIG_PROG_DP1_ADDR3_4_ADDR                       0x470007E9U
+
+#define REG_XTRIG_PROG_DP1_ADDR4_1_ADDR                       0x470007EAU
+#define BF_PROG_DP1_ADDR4_INFO                                0x470007EAU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_ADDR4_2_ADDR                       0x470007EBU
+
+#define REG_XTRIG_PROG_DP1_ADDR4_3_ADDR                       0x470007ECU
+
+#define REG_XTRIG_PROG_DP1_ADDR4_4_ADDR                       0x470007EDU
+
+#define REG_XTRIG_PROG_DP1_ADDR5_1_ADDR                       0x470007EEU
+#define BF_PROG_DP1_ADDR5_INFO                                0x470007EEU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_ADDR5_2_ADDR                       0x470007EFU
+
+#define REG_XTRIG_PROG_DP1_ADDR5_3_ADDR                       0x470007F0U
+
+#define REG_XTRIG_PROG_DP1_ADDR5_4_ADDR                       0x470007F1U
+
+#define REG_XTRIG_PROG_DP1_ADDR6_1_ADDR                       0x470007F2U
+#define BF_PROG_DP1_ADDR6_INFO                                0x470007F2U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_ADDR6_2_ADDR                       0x470007F3U
+
+#define REG_XTRIG_PROG_DP1_ADDR6_3_ADDR                       0x470007F4U
+
+#define REG_XTRIG_PROG_DP1_ADDR6_4_ADDR                       0x470007F5U
+
+#define REG_XTRIG_PROG_DP1_ADDR7_1_ADDR                       0x470007F6U
+#define BF_PROG_DP1_ADDR7_INFO                                0x470007F6U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_ADDR7_2_ADDR                       0x470007F7U
+
+#define REG_XTRIG_PROG_DP1_ADDR7_3_ADDR                       0x470007F8U
+
+#define REG_XTRIG_PROG_DP1_ADDR7_4_ADDR                       0x470007F9U
+
+#define REG_XTRIG_PROG_DP1_ADDR8_1_ADDR                       0x470007FAU
+#define BF_PROG_DP1_ADDR8_INFO                                0x470007FAU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_ADDR8_2_ADDR                       0x470007FBU
+
+#define REG_XTRIG_PROG_DP1_ADDR8_3_ADDR                       0x470007FCU
+
+#define REG_XTRIG_PROG_DP1_ADDR8_4_ADDR                       0x470007FDU
+
+#define REG_XTRIG_PROG_DP1_ADDR9_1_ADDR                       0x470007FEU
+#define BF_PROG_DP1_ADDR9_INFO                                0x470007FEU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_ADDR9_2_ADDR                       0x470007FFU
+
+#define REG_XTRIG_PROG_DP1_ADDR9_3_ADDR                       0x47000800U
+
+#define REG_XTRIG_PROG_DP1_ADDR9_4_ADDR                       0x47000801U
+
+#define REG_XTRIG_PROG_DP1_ADDR10_1_ADDR                      0x47000802U
+#define BF_PROG_DP1_ADDR10_INFO                               0x47000802U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_ADDR10_2_ADDR                      0x47000803U
+
+#define REG_XTRIG_PROG_DP1_ADDR10_3_ADDR                      0x47000804U
+
+#define REG_XTRIG_PROG_DP1_ADDR10_4_ADDR                      0x47000805U
+
+#define REG_XTRIG_PROG_DP1_VAL1_1_ADDR                        0x47000806U
+#define BF_PROG_DP1_VAL1_INFO                                 0x47000806U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_VAL1_2_ADDR                        0x47000807U
+
+#define REG_XTRIG_PROG_DP1_VAL1_3_ADDR                        0x47000808U
+
+#define REG_XTRIG_PROG_DP1_VAL1_4_ADDR                        0x47000809U
+
+#define REG_XTRIG_PROG_DP1_VAL2_1_ADDR                        0x4700080AU
+#define BF_PROG_DP1_VAL2_INFO                                 0x4700080AU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_VAL2_2_ADDR                        0x4700080BU
+
+#define REG_XTRIG_PROG_DP1_VAL2_3_ADDR                        0x4700080CU
+
+#define REG_XTRIG_PROG_DP1_VAL2_4_ADDR                        0x4700080DU
+
+#define REG_XTRIG_PROG_DP1_VAL3_1_ADDR                        0x4700080EU
+#define BF_PROG_DP1_VAL3_INFO                                 0x4700080EU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_VAL3_2_ADDR                        0x4700080FU
+
+#define REG_XTRIG_PROG_DP1_VAL3_3_ADDR                        0x47000810U
+
+#define REG_XTRIG_PROG_DP1_VAL3_4_ADDR                        0x47000811U
+
+#define REG_XTRIG_PROG_DP1_VAL4_1_ADDR                        0x47000812U
+#define BF_PROG_DP1_VAL4_INFO                                 0x47000812U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_VAL4_2_ADDR                        0x47000813U
+
+#define REG_XTRIG_PROG_DP1_VAL4_3_ADDR                        0x47000814U
+
+#define REG_XTRIG_PROG_DP1_VAL4_4_ADDR                        0x47000815U
+
+#define REG_XTRIG_PROG_DP1_VAL5_1_ADDR                        0x47000816U
+#define BF_PROG_DP1_VAL5_INFO                                 0x47000816U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_VAL5_2_ADDR                        0x47000817U
+
+#define REG_XTRIG_PROG_DP1_VAL5_3_ADDR                        0x47000818U
+
+#define REG_XTRIG_PROG_DP1_VAL5_4_ADDR                        0x47000819U
+
+#define REG_XTRIG_PROG_DP1_VAL6_1_ADDR                        0x4700081AU
+#define BF_PROG_DP1_VAL6_INFO                                 0x4700081AU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_VAL6_2_ADDR                        0x4700081BU
+
+#define REG_XTRIG_PROG_DP1_VAL6_3_ADDR                        0x4700081CU
+
+#define REG_XTRIG_PROG_DP1_VAL6_4_ADDR                        0x4700081DU
+
+#define REG_XTRIG_PROG_DP1_VAL7_1_ADDR                        0x4700081EU
+#define BF_PROG_DP1_VAL7_INFO                                 0x4700081EU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_VAL7_2_ADDR                        0x4700081FU
+
+#define REG_XTRIG_PROG_DP1_VAL7_3_ADDR                        0x47000820U
+
+#define REG_XTRIG_PROG_DP1_VAL7_4_ADDR                        0x47000821U
+
+#define REG_XTRIG_PROG_DP1_VAL8_1_ADDR                        0x47000822U
+#define BF_PROG_DP1_VAL8_INFO                                 0x47000822U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_VAL8_2_ADDR                        0x47000823U
+
+#define REG_XTRIG_PROG_DP1_VAL8_3_ADDR                        0x47000824U
+
+#define REG_XTRIG_PROG_DP1_VAL8_4_ADDR                        0x47000825U
+
+#define REG_XTRIG_PROG_DP1_VAL9_1_ADDR                        0x47000826U
+#define BF_PROG_DP1_VAL9_INFO                                 0x47000826U, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_VAL9_2_ADDR                        0x47000827U
+
+#define REG_XTRIG_PROG_DP1_VAL9_3_ADDR                        0x47000828U
+
+#define REG_XTRIG_PROG_DP1_VAL9_4_ADDR                        0x47000829U
+
+#define REG_XTRIG_PROG_DP1_VAL10_1_ADDR                       0x4700082AU
+#define BF_PROG_DP1_VAL10_INFO                                0x4700082AU, 0x00002000U
+
+#define REG_XTRIG_PROG_DP1_VAL10_2_ADDR                       0x4700082BU
+
+#define REG_XTRIG_PROG_DP1_VAL10_3_ADDR                       0x4700082CU
+
+#define REG_XTRIG_PROG_DP1_VAL10_4_ADDR                       0x4700082DU
+
+#define REG_RX_DIG_RESET_ADDR                                 0x4700082FU
+#define BF_SOFT_RESET_RX_A_INFO                               0x4700082FU, 0x00000100U
+#define BF_SOFT_RESET_RX_B_INFO                               0x4700082FU, 0x00000101U
+#define BF_RX_DP_RESET_A_INFO                                 0x4700082FU, 0x00000102U
+#define BF_RX_DP_RESET_B_INFO                                 0x4700082FU, 0x00000103U
+#define BF_RX_DIG_REGMAP_RESET_A_INFO                         0x4700082FU, 0x00000104U
+#define BF_RX_DIG_REGMAP_RESET_B_INFO                         0x4700082FU, 0x00000105U
+
+#define REG_TX_DIG_RESET_ADDR                                 0x47000830U
+#define BF_SOFT_RESET_TX_A_INFO                               0x47000830U, 0x00000100U
+#define BF_SOFT_RESET_TX_B_INFO                               0x47000830U, 0x00000101U
+#define BF_TX_DP_RESET_A_INFO                                 0x47000830U, 0x00000102U
+#define BF_TX_DP_RESET_B_INFO                                 0x47000830U, 0x00000103U
+#define BF_TX_DIG_REGMAP_RESET_A_INFO                         0x47000830U, 0x00000104U
+#define BF_TX_DIG_REGMAP_RESET_B_INFO                         0x47000830U, 0x00000105U
+
+#define REG_VENUS_IP_RESET_A_ADDR                             0x47000831U
+#define BF_VENUS_ADC_REG8_A_INFO                              0x47000831U, 0x00000200U
+#define BF_VENUS_ADC_REG32_A_INFO                             0x47000831U, 0x00000202U
+#define BF_VENUS_ADC_DP_RESET_A_INFO                          0x47000831U, 0x00000404U
+
+#define REG_VENUS_IP_RESET_B_ADDR                             0x47000832U
+#define BF_VENUS_ADC_REG8_B_INFO                              0x47000832U, 0x00000200U
+#define BF_VENUS_ADC_REG32_B_INFO                             0x47000832U, 0x00000202U
+#define BF_VENUS_ADC_DP_RESET_B_INFO                          0x47000832U, 0x00000404U
+
+#define REG_DAC_IP_RESET_A_ADDR                               0x47000833U
+#define BF_DAC_RMAP_RESET_A_INFO                              0x47000833U, 0x00000400U
+#define BF_DAC_DP_RESET_A_INFO                                0x47000833U, 0x00000404U
+
+#define REG_DAC_IP_RESET_B_ADDR                               0x47000834U
+#define BF_DAC_RMAP_RESET_B_INFO                              0x47000834U, 0x00000400U
+#define BF_DAC_DP_RESET_B_INFO                                0x47000834U, 0x00000404U
+
+#define REG_SERDES_IP_RSTN_ADDR                               0x47000835U
+#define BF_TXSER_DP_RESET_A_INFO                              0x47000835U, 0x00000100U
+#define BF_TXSER_DP_RESET_B_INFO                              0x47000835U, 0x00000101U
+#define BF_RXDES_DP_RESET_A_INFO                              0x47000835U, 0x00000102U
+#define BF_RXDES_DP_RESET_B_INFO                              0x47000835U, 0x00000103U
+#define BF_SERDES_PLL_REG_RESET_INFO                          0x47000835U, 0x00000104U
+
+#define REG_MISC_RESETS_ADDR                                  0x47000836U
+#define BF_SOFT_RESET_REST_INFO                               0x47000836U, 0x00000100U
+#define BF_ANA_CENTER_RESET_INFO                              0x47000836U, 0x00000101U
+#define BF_OSC_CLK_EN_INFO                                    0x47000836U, 0x00000102U
+
+#define REG_GPIO_MODE_CONTROL_BYTE0_ADDR                      0x47000839U
+#define BF_GPIO_MODE_EN_INFO                                  0x47000839U, 0x00003300U
+
+#define REG_GPIO_MODE_CONTROL_BYTE1_ADDR                      0x4700083AU
+
+#define REG_GPIO_MODE_CONTROL_BYTE2_ADDR                      0x4700083BU
+
+#define REG_GPIO_MODE_CONTROL_BYTE3_ADDR                      0x4700083CU
+
+#define REG_GPIO_MODE_CONTROL_BYTE4_ADDR                      0x4700083DU
+
+#define REG_GPIO_MODE_CONTROL_BYTE5_ADDR                      0x4700083EU
+
+#define REG_GPIO_MODE_CONTROL_BYTE6_ADDR                      0x4700083FU
+
+#define REG_GPIO_MODE_DIR_BYTE0_ADDR                          0x47000840U
+#define BF_GPIO_MODE_DIR_INFO                                 0x47000840U, 0x00003300U
+
+#define REG_GPIO_MODE_DIR_BYTE1_ADDR                          0x47000841U
+
+#define REG_GPIO_MODE_DIR_BYTE2_ADDR                          0x47000842U
+
+#define REG_GPIO_MODE_DIR_BYTE3_ADDR                          0x47000843U
+
+#define REG_GPIO_MODE_DIR_BYTE4_ADDR                          0x47000844U
+
+#define REG_GPIO_MODE_DIR_BYTE5_ADDR                          0x47000845U
+
+#define REG_GPIO_MODE_DIR_BYTE6_ADDR                          0x47000846U
+
+#define REG_GPIO_FROM_MASTER_BYTE0_ADDR                       0x47000847U
+#define BF_GPIO_FROM_MASTER_INFO                              0x47000847U, 0x00003300U
+
+#define REG_GPIO_FROM_MASTER_BYTE1_ADDR                       0x47000848U
+
+#define REG_GPIO_FROM_MASTER_BYTE2_ADDR                       0x47000849U
+
+#define REG_GPIO_FROM_MASTER_BYTE3_ADDR                       0x4700084AU
+
+#define REG_GPIO_FROM_MASTER_BYTE4_ADDR                       0x4700084BU
+
+#define REG_GPIO_FROM_MASTER_BYTE5_ADDR                       0x4700084CU
+
+#define REG_GPIO_FROM_MASTER_BYTE6_ADDR                       0x4700084DU
+
+#define REG_GPIO_FROM_MASTER_SET_BYTE0_ADDR                   0x4700084EU
+#define BF_GPIO_FROM_SET_INFO                                 0x4700084EU, 0x00003300U
+
+#define REG_GPIO_FROM_MASTER_SET_BYTE1_ADDR                   0x4700084FU
+
+#define REG_GPIO_FROM_MASTER_SET_BYTE2_ADDR                   0x47000850U
+
+#define REG_GPIO_FROM_MASTER_SET_BYTE3_ADDR                   0x47000851U
+
+#define REG_GPIO_FROM_MASTER_SET_BYTE4_ADDR                   0x47000852U
+
+#define REG_GPIO_FROM_MASTER_SET_BYTE5_ADDR                   0x47000853U
+
+#define REG_GPIO_FROM_MASTER_SET_BYTE6_ADDR                   0x47000854U
+
+#define REG_GPIO_FROM_MASTER_CLEAR_BYTE0_ADDR                 0x47000855U
+#define BF_GPIO_FROM_CLEAR_INFO                               0x47000855U, 0x00003300U
+
+#define REG_GPIO_FROM_MASTER_CLEAR_BYTE1_ADDR                 0x47000856U
+
+#define REG_GPIO_FROM_MASTER_CLEAR_BYTE2_ADDR                 0x47000857U
+
+#define REG_GPIO_FROM_MASTER_CLEAR_BYTE3_ADDR                 0x47000858U
+
+#define REG_GPIO_FROM_MASTER_CLEAR_BYTE4_ADDR                 0x47000859U
+
+#define REG_GPIO_FROM_MASTER_CLEAR_BYTE5_ADDR                 0x4700085AU
+
+#define REG_GPIO_FROM_MASTER_CLEAR_BYTE6_ADDR                 0x4700085BU
+
+#define REG_GPIO_FROM_MASTER_TOGGLE_BYTE0_ADDR                0x4700085CU
+#define BF_GPIO_FROM_TOGGLE_INFO                              0x4700085CU, 0x00003300U
+
+#define REG_GPIO_FROM_MASTER_TOGGLE_BYTE1_ADDR                0x4700085DU
+
+#define REG_GPIO_FROM_MASTER_TOGGLE_BYTE2_ADDR                0x4700085EU
+
+#define REG_GPIO_FROM_MASTER_TOGGLE_BYTE3_ADDR                0x4700085FU
+
+#define REG_GPIO_FROM_MASTER_TOGGLE_BYTE4_ADDR                0x47000860U
+
+#define REG_GPIO_FROM_MASTER_TOGGLE_BYTE5_ADDR                0x47000861U
+
+#define REG_GPIO_FROM_MASTER_TOGGLE_BYTE6_ADDR                0x47000862U
+
+#define REG_GPIO_SPI_READ_BYTE0_ADDR                          0x47000869U
+#define BF_GPIO_SPI_READ_INFO                                 0x47000869U, 0x00003300U
+
+#define REG_GPIO_SPI_READ_BYTE1_ADDR                          0x4700086AU
+
+#define REG_GPIO_SPI_READ_BYTE2_ADDR                          0x4700086BU
+
+#define REG_GPIO_SPI_READ_BYTE3_ADDR                          0x4700086CU
+
+#define REG_GPIO_SPI_READ_BYTE4_ADDR                          0x4700086DU
+
+#define REG_GPIO_SPI_READ_BYTE5_ADDR                          0x4700086EU
+
+#define REG_GPIO_SPI_READ_BYTE6_ADDR                          0x4700086FU
+
+#define REG_GPIO_SOURCE_CONTROL_ADDR(n)                       (0x47000870U + 1U * (uint32_t)(n))
+#define BF_GPIO_SOURCE_CONTROL_INFO(n)                        (0x47000870U + 1U * (uint32_t)(n)), 0x00000800U
+
+#define REG_GPIO_STAGE_SEL_BYTE0_ADDR                         0x470008A3U
+
+#define REG_GPIO_STAGE_SEL_BYTE1_ADDR                         0x470008A4U
+
+#define REG_GPIO_STAGE_SEL_BYTE2_ADDR                         0x470008A5U
+
+#define REG_GPIO_STAGE_SEL_BYTE3_ADDR                         0x470008A6U
+
+#define REG_GPIO_STAGE_SEL_BYTE4_ADDR                         0x470008A7U
+
+#define REG_GPIO_STAGE_SEL_BYTE5_ADDR                         0x470008A8U
+
+#define REG_GPIO_STAGE_SEL_BYTE6_ADDR                         0x470008A9U
+
+#define REG_GPIO_STAGE_SEL_BYTE7_ADDR                         0x470008AAU
+
+#define REG_GPIO_STAGE_SEL_BYTE8_ADDR                         0x470008ABU
+
+#define REG_GPIO_STAGE_SEL_BYTE9_ADDR                         0x470008ACU
+
+#define REG_GPIO_STAGE_SEL_BYTE10_ADDR                        0x470008ADU
+
+#define REG_GPIO_STAGE_SEL_BYTE11_ADDR                        0x470008AEU
+
+#define REG_GPIO_STAGE_SEL_BYTE12_ADDR                        0x470008AFU
+
+#define REG_GPIO_QUICK_CONFIG_ADDR                            0x470008B0U
+#define BF_GPIO_QUICK_CONFIG_INFO                             0x470008B0U, 0x00000400U
+
+#define REG_GPIO_PINMUX_REGOUT_BYTE0_ADDR                     0x470008B1U
+#define BF_LNX_SW0_CTL_INFO                                   0x470008B1U, 0x00000200U
+#define BF_LNX_SW1_CTL_INFO                                   0x470008B1U, 0x00000202U
+#define BF_CLK_DELADJ_INFO                                    0x470008B1U, 0x00000204U
+#define BF_CLK_DELSTR_INFO                                    0x470008B1U, 0x00000206U
+
+#define REG_GPIO_PINMUX_REGOUT_BYTE1_ADDR                     0x470008B2U
+#define BF_FW_IRQ_OUT_INFO                                    0x470008B2U, 0x00000100U
+#define BF_CAL_FREEZE_INFO                                    0x470008B2U, 0x00000101U
+#define BF_FW_TMU_ALARM_INFO                                  0x470008B2U, 0x00000102U
+
+#define REG_COMMON_SYNCIN_CTRL_ADDR                           0x470008B3U
+#define BF_COMMON_SYNCIN_LINK0_INFO                           0x470008B3U, 0x00000100U
+#define BF_COMMON_SYNCIN_LINK1_INFO                           0x470008B3U, 0x00000101U
+
+#define REG_SERDES_PLL_WR_SETUP_CYCLES_ADDR                   0x470008B4U
+#define BF_SERDES_PLL_ANA_BRIDGE_WR_SETUP_CYCLES_INFO         0x470008B4U, 0x00000600U
+
+#define REG_SERDES_PLL_WR_HOLD_CYCLES_ADDR                    0x470008B5U
+#define BF_SERDES_PLL_ANA_BRIDGE_WR_HOLD_CYCLES_INFO          0x470008B5U, 0x00000600U
+
+#define REG_SERDES_PLL_RD_CYCLES_ADDR                         0x470008B6U
+#define BF_SERDES_PLL_ANA_BRIDGE_RD_CYCLES_INFO               0x470008B6U, 0x00000600U
+
+#define REG_RTCLK_GEN_WR_SETUP_CYCLES_ADDR                    0x470008B7U
+#define BF_RTCLK_GEN_ANA_BRIDGE_WR_SETUP_CYCLES_INFO          0x470008B7U, 0x00000600U
+
+#define REG_RTCLK_GEN_WR_HOLD_CYCLES_ADDR                     0x470008B8U
+#define BF_RTCLK_GEN_ANA_BRIDGE_WR_HOLD_CYCLES_INFO           0x470008B8U, 0x00000600U
+
+#define REG_RTCLK_GEN_RD_CYCLES_ADDR                          0x470008B9U
+#define BF_RTCLK_GEN_ANA_BRIDGE_RD_CYCLES_INFO                0x470008B9U, 0x00000600U
+
+#define REG_WT_RT_SEL_1024X132_ADDR                           0x470008BAU
+#define BF_RT_SEL_1024X132_INFO                               0x470008BAU, 0x00000200U
+#define BF_WT_SEL_1024X132_INFO                               0x470008BAU, 0x00000202U
+
+#define REG_WT_RT_SEL_1024X39_ADDR                            0x470008BBU
+#define BF_RT_SEL_1024X39_INFO                                0x470008BBU, 0x00000200U
+#define BF_WT_SEL_1024X39_INFO                                0x470008BBU, 0x00000202U
+
+#define REG_WT_RT_SEL_4096X39_ADDR                            0x470008BCU
+#define BF_RT_SEL_4096X39_INFO                                0x470008BCU, 0x00000200U
+#define BF_WT_SEL_4096X39_INFO                                0x470008BCU, 0x00000202U
+
+#define REG_WT_RT_SEL_512X39_ADDR                             0x470008BDU
+#define BF_RT_SEL_512X39_INFO                                 0x470008BDU, 0x00000200U
+#define BF_WT_SEL_512X39_INFO                                 0x470008BDU, 0x00000202U
+
+#define REG_WT_RT_SEL_64X64_ADDR                              0x470008BEU
+#define BF_RT_SEL_64X64_INFO                                  0x470008BEU, 0x00000200U
+#define BF_WT_SEL_64X64_INFO                                  0x470008BEU, 0x00000202U
+
+#define REG_WT_RT_SEL_64X10_ADDR                              0x470008BFU
+#define BF_RT_SEL_64X10_INFO                                  0x470008BFU, 0x00000200U
+#define BF_WT_SEL_64X10_INFO                                  0x470008BFU, 0x00000202U
+
+#define REG_WT_RT_SEL_8192X13_ADDR                            0x470008C0U
+#define BF_RT_SEL_8192X13_INFO                                0x470008C0U, 0x00000200U
+#define BF_WT_SEL_8192X13_INFO                                0x470008C0U, 0x00000202U
+
+#define REG_WT_RT_SEL_8192X39_ADDR                            0x470008C1U
+#define BF_RT_SEL_8192X39_INFO                                0x470008C1U, 0x00000200U
+#define BF_WT_SEL_8192X39_INFO                                0x470008C1U, 0x00000202U
+
+#define REG_PT_RT_SEL_8192X39_ADDR                            0x470008C2U
+#define BF_ROM_RT_SEL_8192X39_INFO                            0x470008C2U, 0x00000200U
+#define BF_ROM_PT_SEL_8192X39_INFO                            0x470008C2U, 0x00000202U
+
+#define REG_WT_RT_SEL_8X132_ADDR                              0x470008C3U
+#define BF_RT_SEL_8X132_INFO                                  0x470008C3U, 0x00000200U
+#define BF_WT_SEL_8X132_INFO                                  0x470008C3U, 0x00000202U
+
+#ifdef USE_PRIVATE_BF
+#define REG_ENG_MASK_REVISION_ADDR                            0x470008C4U
+#define BF_ENG_MASK_REVISION_MINOR_INFO                       0x470008C4U, 0x00000400U
+#define BF_ENG_MASK_REVISION_MAJOR_INFO                       0x470008C4U, 0x00000404U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_SLICE_STREAM_TO_CORE_STREAM_INTERRUPT_ENABLE_ADDR 0x470008C5U
+#define BF_SLICE_TO_CORE_IRQ_ENABLE_INFO                      0x470008C5U, 0x00000800U
+
+#define REG_TE_BYPASS_N_MMR_ADDR                              0x470008C6U
+#define BF_TE_BYPASS_N_MMR_INFO                               0x470008C6U, 0x00000100U
+
+#define REG_NVM_BOOT_STATUS_ADDR                              0x470008C7U
+#define BF_TE_BYPASS_INFO                                     0x470008C7U, 0x00000100U
+#define BF_NVM_BOOT_DONE_INFO                                 0x470008C7U, 0x00000101U
+#define BF_NVM_ERR_FLAG_TIMEOUT_INFO                          0x470008C7U, 0x00000102U
+#define BF_NVM_ERR_FLAG_BOOT_INFO                             0x470008C7U, 0x00000103U
+#define BF_MC_QUAL_BUSY_INFO                                  0x470008C7U, 0x00000104U
+#define BF_TE_FAULT_INFO                                      0x470008C7U, 0x00000105U
+
+#define REG_EC_RX_BYTE0_ADDR                                  0x470008C8U
+#define BF_EC_RX_INFO                                         0x470008C8U, 0x00002000U
+
+#define REG_EC_RX_BYTE1_ADDR                                  0x470008C9U
+
+#define REG_EC_RX_BYTE2_ADDR                                  0x470008CAU
+
+#define REG_EC_RX_BYTE3_ADDR                                  0x470008CBU
+
+#define REG_EC_TX_BYTE0_ADDR                                  0x470008CCU
+#define BF_EC_TX_INFO                                         0x470008CCU, 0x00002000U
+
+#define REG_EC_TX_BYTE1_ADDR                                  0x470008CDU
+
+#define REG_EC_TX_BYTE2_ADDR                                  0x470008CEU
+
+#define REG_EC_TX_BYTE3_ADDR                                  0x470008CFU
+
+#define REG_EC_ANA_BYTE0_ADDR                                 0x470008D0U
+#define BF_EC_ANA_INFO                                        0x470008D0U, 0x00002000U
+
+#define REG_EC_ANA_BYTE1_ADDR                                 0x470008D1U
+
+#define REG_EC_ANA_BYTE2_ADDR                                 0x470008D2U
+
+#define REG_EC_ANA_BYTE3_ADDR                                 0x470008D3U
+
+#ifdef USE_PRIVATE_BF
+#define REG_DIE_ID_BIT8_OVERRIDE_REG_ADDR                     0x470008D5U
+#define BF_DIE_ID_BIT8_OVERRIDE_INFO                          0x470008D5U, 0x00000100U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_SYSRESETN_DETECT_FLAG_ADDR                        0x470008D6U
+#define BF_SYSRESETN_DETECT_FLAG_INFO                         0x470008D6U, 0x00000100U
+
+#ifdef USE_PRIVATE_BF
+#define REG_ACB_REG_BYTE0_ADDR                                0x470008D7U
+#define BF_TE_SCAN_EN_INFO                                    0x470008D7U, 0x00000100U
+#define BF_TE_JTAG_EN_INFO                                    0x470008D7U, 0x00000103U
+#define BF_TE_UART_RX_EN_INFO                                 0x470008D7U, 0x00000104U
+#define BF_ARM_JTAG_EN_INFO                                   0x470008D7U, 0x00000105U
+#define BF_C0_M3_RUN_FINAL_INFO                               0x470008D7U, 0x00000106U
+#define BF_IRAM_ACCESS_EN_INFO                                0x470008D7U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_ACB_REG_BYTE2_ADDR                                0x470008D9
-#define BF_TE_OTP_MASTER_INFO                                 0x470008D9, 0x00000100
+#define REG_ACB_REG_BYTE1_ADDR                                0x470008D8U
+#define BF_TE_UART_TX_EN_INFO                                 0x470008D8U, 0x00000100U
+#define BF_IROM_ACCESS_EN_INFO                                0x470008D8U, 0x00000104U
+#define BF_C1_M3_RUN_FINAL_INFO                               0x470008D8U, 0x00000106U
+#define BF_SYSRESETN_FINAL_INFO                               0x470008D8U, 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_RX_REG_GATING_ADDR                                0x470008DA
-#define BF_RX_REGMAP_CLOCK_GATE_INFO                          0x470008DA, 0x00000600
+#ifdef USE_PRIVATE_BF
+#define REG_ACB_REG_BYTE2_ADDR                                0x470008D9U
+#define BF_TE_OTP_MASTER_INFO                                 0x470008D9U, 0x00000100U
+#endif /* USE_PRIVATE_BF */
 
-#define REG_TX_REG_GATING_ADDR                                0x470008DB
-#define BF_TX_REGMAP_CLOCK_GATE2_INFO                         0x470008DB, 0x00000600
+#define REG_RX_REG_GATING_ADDR                                0x470008DAU
+#define BF_RX_REGMAP_CLOCK_GATE_INFO                          0x470008DAU, 0x00000600U
 
-#endif /* __ADI_APOLLO_BF_CORE_H__ */
+#define REG_TX_REG_GATING_ADDR                                0x470008DBU
+#define BF_TX_REGMAP_CLOCK_GATE2_INFO                         0x470008DBU, 0x00000600U
+
+#endif /* ADI_APOLLO_BF_CORE_H__ */
 /*! @} */

@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_STARTUP
  * @{
  */
-#ifndef __ADI_APOLLO_STARTUP_H__
-#define __ADI_APOLLO_STARTUP_H__
+#ifndef ADI_APOLLO_STARTUP_H__
+#define ADI_APOLLO_STARTUP_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_common.h"
@@ -45,5 +45,5 @@ int32_t adi_apollo_startup_execute(adi_apollo_device_t *device, adi_apollo_top_t
 }
 #endif
 
-#endif /* __ADI_APOLLO_STARTUP_H__ */
+#endif /* ADI_APOLLO_STARTUP_H__ */
 /*! @} */

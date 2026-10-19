@@ -8,7 +8,7 @@
  */
 
 /*!
- * \addtogroup ADI_APOLLO_LB0
+ * \addtogroup ADI_APOLLO_LOOPBACK
  * @{
  */
 
@@ -33,9 +33,9 @@
 
 /*==================== D E F I N E S ====================*/
 
-static uint32_t calc_rx_lb_base(int32_t side);
-static uint32_t calc_tx_lb_base(int32_t adc);
-static uint32_t calc_lb1_blend_base(int32_t cduc);
+static uint32_t calc_rx_lb_base(uint32_t side);
+static uint32_t calc_tx_lb_base(uint32_t adc);
+static uint32_t calc_lb1_blend_base(uint32_t cduc);
 
 static int32_t loopback_lb0_tx_xbar_map(adi_apollo_device_t *device, adi_apollo_adc_idx_e adc, adi_apollo_dac_idx_e dac, uint8_t *xbar);
 
@@ -43,16 +43,19 @@ static int32_t loopback_lb0_tx_xbar_map(adi_apollo_device_t *device, adi_apollo_
 
 int32_t adi_apollo_loopback_lb0_debug_data_enable_set(adi_apollo_device_t *device, uint16_t sides, uint8_t enable)
 {
-    int32_t err, i, select;
+    int32_t err;
+    uint32_t select;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_TX, ADI_APOLLO_EC_LPBK0_LOCK);
 
-    for (i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
-        select = sides & (ADI_APOLLO_SIDE_A << i);
-        if (select > 0) {
+    for (i = 0; i < (uint32_t)ADI_APOLLO_NUM_SIDES; i++) {
+        uint32_t side_mask = (uint32_t)ADI_APOLLO_SIDE_A << i;
+        select = sides & side_mask;
+        if (select > 0U) {
             regmap_base_addr = calc_rx_lb_base(i);
 
             // Enable/disable debug data gating
@@ -61,21 +64,24 @@ int32_t adi_apollo_loopback_lb0_debug_data_enable_set(adi_apollo_device_t *devic
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_loopback_lb0_rx_enable_set(adi_apollo_device_t *device, uint16_t sides, uint8_t enable)
 {
-    int32_t err, i, select;
+    int32_t err;
+    uint32_t select;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_TX, ADI_APOLLO_EC_LPBK0_LOCK);
 
-    for (i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
-        select = sides & (ADI_APOLLO_SIDE_A << i);
-        if (select > 0) {
+    for (i = 0; i < (uint32_t)ADI_APOLLO_NUM_SIDES; i++) {
+        uint32_t side_mask = (uint32_t)ADI_APOLLO_SIDE_A << i;
+        select = sides & side_mask;
+        if (select > 0U) {
             regmap_base_addr = calc_rx_lb_base(i);
 
             // Enable/disable Rx loopback
@@ -84,12 +90,14 @@ int32_t adi_apollo_loopback_lb0_rx_enable_set(adi_apollo_device_t *device, uint1
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_loopback_lb0_tx_enable_set(adi_apollo_device_t *device, uint16_t adcs, uint8_t enable)
 {
-    int32_t err, i, select;
+    int32_t err;
+    uint32_t select;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
@@ -97,14 +105,15 @@ int32_t adi_apollo_loopback_lb0_tx_enable_set(adi_apollo_device_t *device, uint1
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_TX, ADI_APOLLO_EC_LPBK0_LOCK);
 
     // 4T4R devices require setting bf pairs
-    if (!device->dev_info.is_8t8r) {
-        adcs |= (adcs & ADI_APOLLO_ADC_A0) ? ADI_APOLLO_ADC_A2 : 0;
-        adcs |= (adcs & ADI_APOLLO_ADC_A1) ? ADI_APOLLO_ADC_A3 : 0;
+    if (device->dev_info.is_8t8r == 0U) {
+        adcs = (uint16_t)(adcs | ((adcs & (uint16_t)ADI_APOLLO_ADC_A0) ? (uint16_t)ADI_APOLLO_ADC_A2 : 0U));
+        adcs = (uint16_t)(adcs | ((adcs & (uint16_t)ADI_APOLLO_ADC_A1) ? (uint16_t)ADI_APOLLO_ADC_A3 : 0U));
     }
         
-    for (i = 0; i < ADI_APOLLO_ADC_NUM; i++) {
-        select = adcs & (ADI_APOLLO_ADC_A0 << i);
-        if (select > 0) {
+    for (i = 0; i < (uint32_t)ADI_APOLLO_ADC_NUM; i++) {
+        uint32_t adc_mask = (uint32_t)ADI_APOLLO_ADC_A0 << i;
+        select = adcs & (uint16_t)adc_mask;
+        if (select > 0U) {
             regmap_base_addr = calc_tx_lb_base(i);
 
             // Enable/disable Tx loopback
@@ -113,7 +122,7 @@ int32_t adi_apollo_loopback_lb0_tx_enable_set(adi_apollo_device_t *device, uint1
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_loopback_lb0_tx_xbar_set(adi_apollo_device_t *device, uint16_t sides, uint16_t adcs[], uint32_t adc_map_length)
@@ -130,7 +139,8 @@ int32_t adi_apollo_loopback_lb0_tx_xbar_custom_set(adi_apollo_device_t *device, 
 {
     int32_t err;
     uint32_t regmap_base_addr = 0;
-    uint8_t i, j, select, xbar_value;
+    uint8_t i, j, xbar_value;
+    uint32_t select;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
@@ -139,13 +149,14 @@ int32_t adi_apollo_loopback_lb0_tx_xbar_custom_set(adi_apollo_device_t *device, 
     ADI_APOLLO_NULL_POINTER_RETURN(dacs);
 
     // Check parameters are valid
-    if ((device->dev_info.is_8t8r && adc_map_length != 4) || (!device->dev_info.is_8t8r && adc_map_length != 2)) {
-        return API_CMS_ERROR_INVALID_PARAM;
+    if (((device->dev_info.is_8t8r != 0U) && (adc_map_length != 4U)) || ((device->dev_info.is_8t8r == 0U) && (adc_map_length != 2U))) {
+        ADI_CMS_RETURN(API_CMS_ERROR_INVALID_PARAM);
     }
 
     for (i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
-        select = sides & (ADI_APOLLO_SIDE_A << i);
-        if (select > 0) {
+        uint32_t bit_select = sides & ((uint32_t)ADI_APOLLO_SIDE_A << i);
+        select = bit_select;
+        if (select > 0U) {
 
             // set tx xbar
             regmap_base_addr = calc_tx_misc_base(i);
@@ -165,22 +176,25 @@ int32_t adi_apollo_loopback_lb0_tx_xbar_custom_set(adi_apollo_device_t *device, 
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_loopback_lb0_read_ptr_rst_set(adi_apollo_device_t *device, uint16_t adcs, uint8_t value)
 {
-    int32_t err, i, select;
+    int32_t err;
+    uint32_t select;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_TX, ADI_APOLLO_EC_LPBK0_LOCK);
-    ADI_APOLLO_INVALID_PARAM_RETURN(value >= 3);
+    ADI_APOLLO_INVALID_PARAM_RETURN(value >= 3U);
 
-    for (i = 0; i < ADI_APOLLO_ADC_NUM; i++) {
-        select = adcs & (ADI_APOLLO_ADC_A0 << i);
-        if (select > 0) {
+    for (i = 0; i < (uint32_t)ADI_APOLLO_ADC_NUM; i++) {
+        uint32_t adc_mask = (uint32_t)ADI_APOLLO_ADC_A0 << i;
+        select = adcs & (uint16_t)adc_mask;
+        if (select > 0U) {
             regmap_base_addr = calc_tx_lb_base(i);
 
             // Set read pointer
@@ -189,22 +203,25 @@ int32_t adi_apollo_loopback_lb0_read_ptr_rst_set(adi_apollo_device_t *device, ui
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_loopback_lb0_write_ptr_rst_set(adi_apollo_device_t *device, uint16_t sides, uint8_t value)
 {
-    int32_t err, i, select;
+    int32_t err;
+    uint32_t select;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_TX, ADI_APOLLO_EC_LPBK0_LOCK);
-    ADI_APOLLO_INVALID_PARAM_RETURN(value >= 3);
+    ADI_APOLLO_INVALID_PARAM_RETURN(value >= 3U);
 
-    for (i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
-        select = sides & (ADI_APOLLO_SIDE_A << i);
-        if (select > 0) {
+    for (i = 0; i < (uint32_t)ADI_APOLLO_NUM_SIDES; i++) {
+        uint32_t side_mask = (uint32_t)ADI_APOLLO_SIDE_A << i;
+        select = sides & side_mask;
+        if (select > 0U) {
             regmap_base_addr = calc_rx_lb_base(i);
 
             // Set write ptr
@@ -213,7 +230,7 @@ int32_t adi_apollo_loopback_lb0_write_ptr_rst_set(adi_apollo_device_t *device, u
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_loopback_lb0_overflow_status_get(adi_apollo_device_t *device, uint16_t adcs, uint8_t *status)
@@ -237,24 +254,20 @@ int32_t adi_apollo_loopback_lb0_overflow_status_get(adi_apollo_device_t *device,
     case ADI_APOLLO_ADC_B0:
         bitmask = 0x1;
         break;
-
     case ADI_APOLLO_ADC_A1:
     case ADI_APOLLO_ADC_B1:
         bitmask = 0x4;
         break;
-
     case ADI_APOLLO_ADC_A2:
     case ADI_APOLLO_ADC_B2:
         bitmask = 0x2;
         break;
-
     case ADI_APOLLO_ADC_A3:
     case ADI_APOLLO_ADC_B3:
         bitmask = 0x8;
         break;
-
     default:
-        return API_CMS_ERROR_INVALID_PARAM;
+        ADI_CMS_RETURN(API_CMS_ERROR_INVALID_PARAM);
     }
 
     // Side A
@@ -273,23 +286,26 @@ int32_t adi_apollo_loopback_lb0_overflow_status_get(adi_apollo_device_t *device,
     }
 
     // Set status
-    *status = *status & bitmask ? 1 : 0;
+    *status = (*status & bitmask) ? 1 : 0;
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_loopback_lb0_bmem_enable_set(adi_apollo_device_t *device, uint16_t sides, uint8_t enable)
 {
-    int32_t err, i, select;
+    int32_t err;
+    uint32_t select;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_TX, ADI_APOLLO_EC_LPBK0_LOCK);
 
-    for (i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
-        select = sides & (ADI_APOLLO_SIDE_A << i);
-        if (select > 0) {
+    for (i = 0; i < (uint32_t)ADI_APOLLO_NUM_SIDES; i++) {
+        uint32_t side_mask = (uint32_t)ADI_APOLLO_SIDE_A << i;
+        select = sides & side_mask;
+        if (select > 0U) {
             regmap_base_addr = calc_rx_lb_base(i);
 
             // Enable/disable debug data gating
@@ -297,29 +313,29 @@ int32_t adi_apollo_loopback_lb0_bmem_enable_set(adi_apollo_device_t *device, uin
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_loopback_jesd_enable_set(adi_apollo_device_t *device, uint16_t sides, uint8_t enable)
 {
 
     int32_t err;
-    uint8_t i;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
-    uint16_t side;
+    uint32_t side;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
-    ADI_APOLLO_INVALID_PARAM_RETURN(enable > 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(enable > 1U);
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_TX, ADI_APOLLO_EC_LPBK123_LOCK);
 
     for (i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
-        side = sides & (ADI_APOLLO_SIDE_A << i);
-        if (side > 0) {
+        side = sides & ((uint32_t)ADI_APOLLO_SIDE_A << i);
+        if (side > 0U) {
             regmap_base_addr = calc_tx_misc_base(i);
 
             // Ensure data reaches loopback point      
-            if (enable) {
+            if (enable != 0U) {
                 err = adi_apollo_hal_bf_set(device, BF_CDUC_DAC_ENABLES0_INFO(regmap_base_addr), 3);
                 ADI_APOLLO_ERROR_RETURN(err);
 
@@ -332,12 +348,13 @@ int32_t adi_apollo_loopback_jesd_enable_set(adi_apollo_device_t *device, uint16_
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_loopback_lb1_enable_set(adi_apollo_device_t *device, uint16_t sides, uint8_t enable)
 {
-    int32_t err, i;
+    int32_t err;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
@@ -345,7 +362,7 @@ int32_t adi_apollo_loopback_lb1_enable_set(adi_apollo_device_t *device, uint16_t
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_TX, ADI_APOLLO_EC_LPBK123_LOCK);
 
     for (i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
-        if ((sides & (1 << i)) > 0) {
+        if ((sides & (1U << i)) > 0U) {
             // Enable/disable LB1 write
             regmap_base_addr = calc_rx_misc_base(i);
             err = adi_apollo_hal_bf_set(device, BF_LB1_WR_EN_INFO(regmap_base_addr), enable);
@@ -353,50 +370,53 @@ int32_t adi_apollo_loopback_lb1_enable_set(adi_apollo_device_t *device, uint16_t
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_loopback_lb1_cduc_enable_set(adi_apollo_device_t *device, uint16_t cducs, uint8_t enable)
 {
-    int32_t err, i;
+    int32_t err;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_TX, ADI_APOLLO_EC_LPBK123_LOCK);
 
-    for (i = 0; i < ADI_APOLLO_CDUC_NUM; i++) {
-        if ((cducs & (1 << i)) > 0) {
+    for (i = 0U; i < ADI_APOLLO_CDUC_NUM; i++) {
+        if ((cducs & (1U << i)) > 0U) {
             regmap_base_addr = calc_tx_misc_base(i/ADI_APOLLO_CDUC_PER_SIDE_NUM);
-            err = adi_apollo_hal_bf_set(device, BF_LB1_EN0_INFO(regmap_base_addr) + (i%ADI_APOLLO_CDUC_PER_SIDE_NUM), enable);
+            err = adi_apollo_hal_bf_set(device, BF_LB1_EN0_INFO(regmap_base_addr) + (i%ADI_APOLLO_CDUC_PER_SIDE_NUM), (uint64_t)enable);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_loopback_lb1_blend_set(adi_apollo_device_t *device, uint16_t cducs, adi_apollo_loopback_lb1_blend_mode_e mode)
 {
-    int32_t err, i;
+    int32_t err;
+    uint32_t i;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_TX, ADI_APOLLO_EC_LPBK123_LOCK);
 
-    for (i = 0; i < ADI_APOLLO_CDUC_NUM; i++) {
-        if ((cducs & (1 << i)) > 0) {
-            err = adi_apollo_hal_bf_set(device, calc_lb1_blend_base(2*i), calc_lb1_blend_base(2*i + 1), mode);
+    for (i = 0U; i < ADI_APOLLO_CDUC_NUM; i++) {
+        if ((cducs & (1U << i)) > 0U) {
+            err = adi_apollo_hal_bf_set(device, calc_lb1_blend_base((2U * i)), calc_lb1_blend_base(((2U * i) + 1U)), mode);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_loopback_lb2_enable_set(adi_apollo_device_t *device, uint16_t sides, uint8_t enable)
 {
-    int32_t err, i;
+    int32_t err;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
@@ -404,7 +424,7 @@ int32_t adi_apollo_loopback_lb2_enable_set(adi_apollo_device_t *device, uint16_t
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_TX, ADI_APOLLO_EC_LPBK123_LOCK);
 
     for (i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
-        if ((sides & (1 << i)) > 0) {
+        if ((sides & (1U << i)) > 0U) {
             // Enable/disable LB2 write
             regmap_base_addr = calc_rx_misc_base(i);
             err = adi_apollo_hal_bf_set(device, BF_LB2_WR_EN_INFO(regmap_base_addr), enable);
@@ -412,36 +432,37 @@ int32_t adi_apollo_loopback_lb2_enable_set(adi_apollo_device_t *device, uint16_t
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_loopback_lb2_fduc_enable_set(adi_apollo_device_t *device, uint16_t fducs, uint8_t enable)
 {
-    int32_t err, i;
+    int32_t err;
+    uint32_t i;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_DEV_FEAT_LOCKOUT_RETURN(ADI_APOLLO_TX, ADI_APOLLO_EC_LPBK123_LOCK);
 
-    for (i = 0; i < ADI_APOLLO_FDUC_NUM; i++) {
-        if ((fducs & (1 << i)) > 0) {
+    for (i = 0U; i < ADI_APOLLO_FDUC_NUM; i++) {
+        if ((fducs & (1U << i)) > 0U) {
             regmap_base_addr = calc_tx_misc_base(i/ADI_APOLLO_FDUC_PER_SIDE_NUM);
-            err = adi_apollo_hal_bf_set(device, BF_LB2_EN0_INFO(regmap_base_addr) + (i%ADI_APOLLO_FDUC_PER_SIDE_NUM), enable);
+            err = adi_apollo_hal_bf_set(device, BF_LB2_EN0_INFO(regmap_base_addr) + (i%ADI_APOLLO_FDUC_PER_SIDE_NUM), (uint64_t)enable);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 
-static uint32_t calc_rx_lb_base(int32_t side) {
+static uint32_t calc_rx_lb_base(uint32_t side) {
     static const uint32_t rx_lb_reg[ADI_APOLLO_NUM_SIDES] = {RX_LOOPBACK_RX_SLICE_0_RX_DIGITAL0, RX_LOOPBACK_RX_SLICE_0_RX_DIGITAL1};
     return rx_lb_reg[side];
 }
 
-static uint32_t calc_tx_lb_base(int32_t adc)
+static uint32_t calc_tx_lb_base(uint32_t adc)
 {
     static const uint32_t tx_lb_reg[ADI_APOLLO_ADC_NUM] = {
         TX_LOOPBACK0_TX_SLICE_0_TX_DIGITAL0, TX_LOOPBACK0_TX_SLICE_1_TX_DIGITAL0,    // A0, A1
@@ -453,8 +474,9 @@ static uint32_t calc_tx_lb_base(int32_t adc)
 }
 
 static int32_t loopback_lb0_tx_xbar_map(adi_apollo_device_t *device, adi_apollo_adc_idx_e adc, adi_apollo_dac_idx_e dac, uint8_t *xbar) {
-    uint8_t bit_shift;
-    uint8_t map_val;
+    uint8_t bit_shift = 0;
+    uint8_t map_val = 0;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
@@ -474,10 +496,15 @@ static int32_t loopback_lb0_tx_xbar_map(adi_apollo_device_t *device, adi_apollo_
     case ADI_APOLLO_ADC_3:
         map_val = 3;
         break;
-
+    case ADI_APOLLO_ADC_IDX_NONE:
+    case ADI_APOLLO_ADC_IDX_ALL:
+        // Special values not valid for individual ADC selection
+        err = (int32_t)API_CMS_ERROR_INVALID_PARAM;
+        break;
     default:
-        ADI_APOLLO_ERROR_RETURN(API_CMS_ERROR_INVALID_PARAM);
+        err = (int32_t)API_CMS_ERROR_INVALID_PARAM;
     }
+    ADI_APOLLO_ERROR_RETURN(err);    
 
     // Get bit positions
     switch (dac)
@@ -494,23 +521,29 @@ static int32_t loopback_lb0_tx_xbar_map(adi_apollo_device_t *device, adi_apollo_
     case ADI_APOLLO_DAC_3:
         bit_shift = 6;
         break;
-
+    case ADI_APOLLO_DAC_IDX_NONE:
+    case ADI_APOLLO_DAC_IDX_ALL:
+        // Special values not valid for individual DAC selection
+        err = (int32_t)API_CMS_ERROR_INVALID_PARAM;
+        break;
     default:
-        ADI_APOLLO_ERROR_RETURN(API_CMS_ERROR_INVALID_PARAM);
+        err = (int32_t)API_CMS_ERROR_INVALID_PARAM;
     }
+    ADI_APOLLO_ERROR_RETURN(err);
+
 
     // Update xbar value
-    *xbar = *xbar & ~((uint8_t)3 << bit_shift);
-    *xbar = *xbar | (map_val << bit_shift);
+    *xbar = (uint8_t)(*xbar & ~((uint8_t)3 << bit_shift));
+    *xbar = (uint8_t)(*xbar | (map_val << bit_shift));
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
-static uint32_t calc_lb1_blend_base(int32_t cduc){
+static uint32_t calc_lb1_blend_base(uint32_t cduc){
     static const uint32_t lb_reg[ADI_APOLLO_CDUC_NUM * 2] = {
-        BF_SL0_LB1_SHIFT_INFO(TX_MISC_TX_TOP_TX_DIGITAL0), BF_SL1_LB1_SHIFT_INFO(TX_MISC_TX_TOP_TX_DIGITAL0), 
+        BF_SL0_LB1_SHIFT_INFO(TX_MISC_TX_TOP_TX_DIGITAL0), BF_SL1_LB1_SHIFT_INFO(TX_MISC_TX_TOP_TX_DIGITAL0),
         BF_SL0_LB1_SHIFT_8T8R_INFO(TX_MISC_TX_TOP_TX_DIGITAL0), BF_SL1_LB1_SHIFT_8T8R_INFO(TX_MISC_TX_TOP_TX_DIGITAL0),
-        BF_SL0_LB1_SHIFT_INFO(TX_MISC_TX_TOP_TX_DIGITAL1), BF_SL1_LB1_SHIFT_INFO(TX_MISC_TX_TOP_TX_DIGITAL1), 
+        BF_SL0_LB1_SHIFT_INFO(TX_MISC_TX_TOP_TX_DIGITAL1), BF_SL1_LB1_SHIFT_INFO(TX_MISC_TX_TOP_TX_DIGITAL1),
         BF_SL0_LB1_SHIFT_8T8R_INFO(TX_MISC_TX_TOP_TX_DIGITAL1), BF_SL1_LB1_SHIFT_8T8R_INFO(TX_MISC_TX_TOP_TX_DIGITAL1)
         };
     return lb_reg[cduc];

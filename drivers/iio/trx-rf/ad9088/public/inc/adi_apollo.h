@@ -13,11 +13,11 @@
  * \addtogroup ADI_APOLLO
  * @{
  */
-#ifndef __ADI_APOLLO_H__
-#define __ADI_APOLLO_H__
+#ifndef ADI_APOLLO_H__
+#define ADI_APOLLO_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_types.h"
 
-#endif /* __ADI_APOLLO_H__ */
+#endif /* ADI_APOLLO_H__ */
 /*! @} */

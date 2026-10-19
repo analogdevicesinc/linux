@@ -14,8 +14,8 @@
  * @{
  */
 
-#ifndef __ADI_APOLLO_COMMON_TYPES_H__
-#define __ADI_APOLLO_COMMON_TYPES_H__
+#ifndef ADI_APOLLO_COMMON_TYPES_H__
+#define ADI_APOLLO_COMMON_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -29,35 +29,35 @@
 
 #define adi_apollo_blk_sel_t uint16_t
 
-#define ADI_APOLLO_ADC_NUM            8
-#define ADI_APOLLO_ADC_PER_SIDE_NUM   4
-#define ADI_APOLLO_DAC_NUM            8
-#define ADI_APOLLO_DAC_PER_SIDE_NUM   4
+#define ADI_APOLLO_ADC_NUM            8U
+#define ADI_APOLLO_ADC_PER_SIDE_NUM   4U
+#define ADI_APOLLO_DAC_NUM            8U
+#define ADI_APOLLO_DAC_PER_SIDE_NUM   4U
 
-#define ADI_APOLLO_NUM_JTX_SERDES_12PACKS 2
-#define ADI_APOLLO_NUM_JRX_SERDES_12PACKS 2
-#define ADI_APOLLO_NUM_JTX_LINKS          4
-#define ADI_APOLLO_NUM_JRX_LINKS          4
-#define ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE 2
-#define ADI_APOLLO_NUM_JRX_LINKS_PER_SIDE 2
+#define ADI_APOLLO_NUM_JTX_SERDES_12PACKS 2U
+#define ADI_APOLLO_NUM_JRX_SERDES_12PACKS 2U
+#define ADI_APOLLO_NUM_JTX_LINKS          4U
+#define ADI_APOLLO_NUM_JRX_LINKS          4U
+#define ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE 2U
+#define ADI_APOLLO_NUM_JRX_LINKS_PER_SIDE 2U
 
-#define ADI_APOLLO_NUM_LINX_PER_SIDE      4
-#define ADI_APOLLO_NUM_CFIR_PER_SIDE      2
-#define ADI_APOLLO_NUM_FSRC_PER_SIDE      2
+#define ADI_APOLLO_NUM_LINX_PER_SIDE      4U
+#define ADI_APOLLO_NUM_CFIR_PER_SIDE      2U
+#define ADI_APOLLO_NUM_FSRC_PER_SIDE      2U
 
-#define ADI_APOLLO_JESD_SER_COUNT         12
-#define ADI_APOLLO_JESD_DESER_COUNT       12
+#define ADI_APOLLO_JESD_SER_COUNT         12U
+#define ADI_APOLLO_JESD_DESER_COUNT       12U
 
-#define ADI_APOLLO_USE_FLOATING_TYPE      0
-#define ADI_APOLLO_USE_SPI_BURST_MODE     0
+#define ADI_APOLLO_USE_FLOATING_TYPE      0U
+#define ADI_APOLLO_USE_SPI_BURST_MODE     0U
 
-#define ADI_APOLLO_LOW                0
-#define ADI_APOLLO_HIGH               1
+#define ADI_APOLLO_LOW                0U
+#define ADI_APOLLO_HIGH               1U
 
-#define ADI_APOLLO_DISABLE            0
-#define ADI_APOLLO_ENABLE             1
+#define ADI_APOLLO_DISABLE            0U
+#define ADI_APOLLO_ENABLE             1U
 
-#define ADI_APOLLO_NUM_TRIG_MASTER_PER_SIDE      32
+#define ADI_APOLLO_NUM_TRIG_MASTER_PER_SIDE      32U
 
 #define BF_INFO_EXTRACT(...)                BF_INFO_EXTRACT_2(__VA_ARGS__)
 #define BF_INFO_EXTRACT_2(addr, bf_info)    (bf_info)
@@ -65,26 +65,26 @@
 #define REG_ADDR_EXTRACT(...) 	            REG_ADDR_EXTRACT_2(__VA_ARGS__)
 #define REG_ADDR_EXTRACT_2(addr, bf_info) 	(addr)
 
-#define ADI_APOLLO_MAX_SLICES_PER_SIDE_NUM 4 /* Max number of slices per side. For 8T8R, 2 slices are split into 4 */
+#define ADI_APOLLO_MAX_SLICES_PER_SIDE_NUM 4U /* Max number of slices per side. For 8T8R, 2 slices are split into 4 */
 
 /**
  * The following ADI_APOLLO_xxx_IDX2B macros convert functional block indexes to a bit-wise selector.
  * Top level APIs use indexes (e.g. 0, 1, ...) plus a side select to address functional blocks.
  * Block level APIs use bitwise selectors and are scaled for 8T8R devices.
  */
-#define ADI_APOLLO_SIDE_IDX2B(side) (1<<(side))
-#define ADI_APOLLO_CDDC_IDX2B(side, idx) (1<<((side)*(ADI_APOLLO_CDDC_PER_SIDE_NUM) + (idx)))
-#define ADI_APOLLO_FDDC_IDX2B(side, idx) (1<<((side)*(ADI_APOLLO_FDDC_PER_SIDE_NUM) + (idx)))
-#define ADI_APOLLO_CDUC_IDX2B(side, idx) (1<<((side)*(ADI_APOLLO_CDUC_PER_SIDE_NUM) + (idx)))
-#define ADI_APOLLO_FDUC_IDX2B(side, idx) (1<<((side)*(ADI_APOLLO_FDUC_PER_SIDE_NUM) + (idx)))
-#define ADI_APOLLO_PFILT_IDX2B(side, idx) (1<<((side)*(ADI_APOLLO_PFILT_PER_SIDE) + (idx)))
-#define ADI_APOLLO_PFILT_COEFF_IDX2B(idx)  (1<< (idx))
-#define ADI_APOLLO_CFIR_IDX2B(side, idx) (1<<((side)*(ADI_APOLLO_CFIR_PER_SIDE_NUM) + (idx)))
-#define ADI_APOLLO_CFIR_COEFF_SET_IDX2B(idx) (1<< (idx))
-#define ADI_APOLLO_CFIR_PROFILE_IDX2B(idx) (1<< (idx))
-#define ADI_APOLLO_FSRC_IDX2B(side, idx) (1<<((side)*(ADI_APOLLO_FSRC_PER_SIDE_NUM) + (idx)))
-#define ADI_APOLLO_DFMT_IDX2B(side, idx) (1<<((side)*(ADI_APOLLO_JESD_LINKS) + (idx)))
-#define ADI_APOLLO_SMON_IDX2B(side, idx) (1 << ((side) * (ADI_APOLLO_SMON_PER_SIDE_NUM) + (idx)))
+#define ADI_APOLLO_SIDE_IDX2B(side) ((uint16_t)(1U<<(side)))
+#define ADI_APOLLO_CDDC_IDX2B(side, idx) ((uint16_t)(1U<<(((uint32_t)(side))*((uint32_t)ADI_APOLLO_CDDC_PER_SIDE_NUM) + ((uint32_t)(idx)))))
+#define ADI_APOLLO_FDDC_IDX2B(side, idx) ((uint16_t)(1U<<(((uint32_t)(side))*((uint32_t)ADI_APOLLO_FDDC_PER_SIDE_NUM) + ((uint32_t)(idx)))))
+#define ADI_APOLLO_CDUC_IDX2B(side, idx) ((uint16_t)(1U<<(((uint32_t)(side))*((uint32_t)ADI_APOLLO_CDUC_PER_SIDE_NUM) + ((uint32_t)(idx)))))
+#define ADI_APOLLO_FDUC_IDX2B(side, idx) ((uint16_t)(1U<<(((uint32_t)(side))*((uint32_t)ADI_APOLLO_FDUC_PER_SIDE_NUM) + ((uint32_t)(idx)))))
+#define ADI_APOLLO_PFILT_IDX2B(side, idx) ((uint16_t)(1U<<(((uint32_t)(side))*((uint32_t)ADI_APOLLO_PFILT_PER_SIDE) + ((uint32_t)(idx)))))
+#define ADI_APOLLO_PFILT_COEFF_IDX2B(idx)  ((uint8_t)(1U<< (idx)))
+#define ADI_APOLLO_CFIR_IDX2B(side, idx) ((uint16_t)(1U<<(((uint32_t)(side))*((uint32_t)ADI_APOLLO_CFIR_PER_SIDE_NUM) + ((uint32_t)(idx)))))
+#define ADI_APOLLO_CFIR_COEFF_SET_IDX2B(idx) ((uint8_t)(1U<< (idx)))
+#define ADI_APOLLO_CFIR_PROFILE_IDX2B(idx) ((uint8_t)(1U<< (idx)))
+#define ADI_APOLLO_FSRC_IDX2B(side, idx) ((uint16_t)(1U<<(((uint32_t)(side))*((uint32_t)ADI_APOLLO_FSRC_PER_SIDE_NUM) + ((uint32_t)(idx)))))
+#define ADI_APOLLO_DFMT_IDX2B(side, idx) ((uint16_t)(1U<<(((uint32_t)(side))*((uint32_t)ADI_APOLLO_JESD_LINKS) + ((uint32_t)(idx)))))
+#define ADI_APOLLO_SMON_IDX2B(side, idx) ((uint16_t)(1U << (((uint32_t)(side)) * ((uint32_t)ADI_APOLLO_SMON_PER_SIDE_NUM) + ((uint32_t)(idx)))))
 
 /*!
  * \brief Enumerates ADC Select
@@ -245,6 +245,15 @@ typedef enum {
 
 /*!
 * \brief Powerup control enable pin select
+* 
+* Is used in adi_apollo_tx/rxen_pwrup_blk_config_t to indicate which of the four input
+* signals from the CONV_POW_ONOFF block is to be selected for POWER_CTRL output.
+* 
+* It's value is written to tx/rxen_sel bitfield.
+* For RX A POWER_CTRL block, PIN0-3 corresponds to outputs 0-3   of the CONV_POW_ONOFF block.
+* For RX B POWER_CTRL block, PIN0-3 corresponds to outputs 4-7   of the CONV_POW_ONOFF block.
+* For TX A POWER_CTRL block, PIN0-3 corresponds to outputs 8-11  of the CONV_POW_ONOFF block.
+* For TX B POWER_CTRL block, PIN0-3 corresponds to outputs 12-15 of the CONV_POW_ONOFF block.
 */
 typedef enum {
     ADI_APOLLO_PUC_EN_PIN_0 = 0,                /*!< Enable pin 0 select for a pwr control input */
@@ -252,6 +261,67 @@ typedef enum {
     ADI_APOLLO_PUC_EN_PIN_2 = 2,                /*!< Enable pin 2 select for a pwr control input */
     ADI_APOLLO_PUC_EN_PIN_3 = 3,                /*!< Enable pin 3 select for a pwr control input */
 } adi_apollo_puc_en_pin_sel_e;
+
+/*!
+* \brief RX/TX enable source select
+*
+* Selects which RXen or TXen input signal is the source for datapath enable/disable.
+* Used by adi_apollo_rxen_set() and adi_apollo_txen_set().
+*/
+typedef enum {
+    ADI_APOLLO_RXTX_ENABLE_RX0,
+    ADI_APOLLO_RXTX_ENABLE_RX1,
+    ADI_APOLLO_RXTX_ENABLE_RX2,
+    ADI_APOLLO_RXTX_ENABLE_RX3,
+    ADI_APOLLO_RXTX_ENABLE_TX0,
+    ADI_APOLLO_RXTX_ENABLE_TX1,
+    ADI_APOLLO_RXTX_ENABLE_TX2,
+    ADI_APOLLO_RXTX_ENABLE_TX3
+} adi_apollo_rxtx_enable_e;
+
+/*!
+* \brief CONV_POW_ONOFF output (POWERUP) signal index
+*
+* Maps from the output signal of the CONV_POW_ONOFF block to which
+* element in the mux_select and other array bitfields is used to configure that output's behavior.
+*
+* e.g. mux_select[ADI_APOLLO_CONV_POW_OUTPUT_RX_A_EN0] configures which input signal triggers the
+* POWERUP output that is hardwired to RX_A_EN0.
+*/
+typedef enum {
+    ADI_APOLLO_CONV_POW_OUTPUT_INVALID  = -1,
+    ADI_APOLLO_CONV_POW_OUTPUT_RX_A_EN0,
+    ADI_APOLLO_CONV_POW_OUTPUT_RX_A_EN1,
+    ADI_APOLLO_CONV_POW_OUTPUT_RX_A_EN2,
+    ADI_APOLLO_CONV_POW_OUTPUT_RX_A_EN3,
+    ADI_APOLLO_CONV_POW_OUTPUT_RX_B_EN0,
+    ADI_APOLLO_CONV_POW_OUTPUT_RX_B_EN1,
+    ADI_APOLLO_CONV_POW_OUTPUT_RX_B_EN2,
+    ADI_APOLLO_CONV_POW_OUTPUT_RX_B_EN3,
+    ADI_APOLLO_CONV_POW_OUTPUT_TX_A_EN0,
+    ADI_APOLLO_CONV_POW_OUTPUT_TX_A_EN1,
+    ADI_APOLLO_CONV_POW_OUTPUT_TX_A_EN2,
+    ADI_APOLLO_CONV_POW_OUTPUT_TX_A_EN3,
+    ADI_APOLLO_CONV_POW_OUTPUT_TX_B_EN0,
+    ADI_APOLLO_CONV_POW_OUTPUT_TX_B_EN1,
+    ADI_APOLLO_CONV_POW_OUTPUT_TX_B_EN2,
+    ADI_APOLLO_CONV_POW_OUTPUT_TX_B_EN3,
+    ADI_APOLLO_CONV_POW_NUM_OUTPUTS
+} adi_apollo_conv_pow_output_e;
+
+/*!
+* \brief Map a CONV_POW_ONOFF output to its A/B side index
+*
+* Side A outputs (RX_A_EN*, TX_A_EN*) return 0; side B outputs (RX_B_EN*, TX_B_EN*) return 1.
+*
+* \param[in]  output  CONV_POW_ONOFF output index
+*
+* \return 0 for side A, 1 for side B
+*/
+static inline uint8_t adi_apollo_conv_pow_output_to_side(adi_apollo_conv_pow_output_e output)
+{
+    return (((uint8_t)(output)) / 4U) & 1U;
+}
 
 /*!
 * \brief Powerup control clock rate
@@ -448,6 +518,8 @@ typedef struct {
     uint8_t dev_rev;                                /*!< Device revision, 0:a0, 1:b0 */
     uint8_t is_8t8r;                                /*!< 0 if 4t4r device, 1 if 8t8r device */
     uint8_t is_dual_clk;                            /*!< Whether the device is in dual clk mode */
+    uint8_t txen_tdd_static_cfg_done;         /*!< Non-zero once tdd_tx_static_cfg_set has been called for TX */
+    uint8_t rxen_tdd_static_cfg_done;         /*!< Non-zero once tdd_rx_static_cfg_set has been called for RX */
 
     adi_apollo_device_lockout_t lockout_mask;       /*!< device variant feature lockout */
     adi_apollo_device_blk_sel_mask_t blk_sel_mask;  /*!< device block instance select masks */
@@ -482,5 +554,5 @@ typedef struct adi_apollo_device_t {
 
 #endif /* CLIENT_IGNORE*/
 
-#endif /* __ADI_APOLLO_COMMON_TYPES_H__ */
+#endif /* ADI_APOLLO_COMMON_TYPES_H__ */
 /*! @} */

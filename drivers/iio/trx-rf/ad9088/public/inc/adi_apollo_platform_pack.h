@@ -15,8 +15,8 @@
  * see the "LICENSE.PDF" file in this zip file.
  */
 
-#ifndef __ADI_APOLLO_PLATFORM_PACK_H__
-#define __ADI_APOLLO_PLATFORM_PACK_H__
+#ifndef ADI_APOLLO_PLATFORM_PACK_H__
+#define ADI_APOLLO_PLATFORM_PACK_H__
 
 #ifndef ADI_APOLLO_FW
 #include "adi_apollo_user.h"
@@ -41,12 +41,13 @@
 #ifndef ADI_APOLLO_PACKED
 #if defined  __ICCARM__
 /*
- * Error[Pm154]: in the definition of a function-like macro, each instance of a
- * parameter shall be enclosed in parenthesis (MISRA C 2004 rule 19.10)
+ * MISRA Deviation: Rule 20.7 (MISRA C:2012) / Rule 19.10 (MISRA C:2004)
+ * Error[Pm154]: Macro parameter 'd' cannot be parenthesized.
  *
- * ADI_APOLLO_PACKED() is a macro used for structure packing. The parameter
- * for this macro must be a structure definition, which cannot be enclosed in
- * parenthesis (syntatically invalid).
+ * Justification: ADI_APOLLO_PACKED() is used for structure packing. The parameter
+ * must be a structure definition (code block), which cannot be enclosed in
+ * parentheses - doing so would be syntactically invalid C.
+ * This is a permitted deviation due to language constraints.
  */
 #pragma diag_suppress=Pm154
 #define ADI_APOLLO_PACKED(d)    _Pragma("pack(1)") d _Pragma("pack()")
@@ -56,4 +57,4 @@
 #endif
 #endif
 
-#endif /* __ADI_APOLLO_PLATFORM_PACK_H__ */
+#endif /* ADI_APOLLO_PLATFORM_PACK_H__ */

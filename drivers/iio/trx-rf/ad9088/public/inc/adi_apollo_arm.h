@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_ARM
  * @{
  */
-#ifndef __ADI_APOLLO_ARM_H__
-#define __ADI_APOLLO_ARM_H__
+#ifndef ADI_APOLLO_ARM_H__
+#define ADI_APOLLO_ARM_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_arm_types.h"
@@ -224,9 +224,121 @@ int32_t adi_apollo_arm_fw_irq_out_get(adi_apollo_device_t *device, uint8_t *fw_i
  */
 int32_t adi_apollo_arm_fw_irq_out_clear(adi_apollo_device_t *device);
 
+/**
+ * \brief  Get the FW_IRQ_OUT active-source bitmask (via mailbox)
+ *
+ * \details Returns the 32-bit "source" register: which sources are currently active (sticky;
+ *          the firmware never clears them by itself). The pin is asserted only when
+ *          (source & config) != 0 - see \ref adi_apollo_arm_fw_irq_out_config_get.
+ *          Source bits are defined in \ref adi_apollo_fw_irq_out_source_e (e.g.
+ *          \ref ADI_APOLLO_FW_IRQ_OUT_SOURCE_TEMP_ALARM_HIGH / _LOW).
+ *          This is the mailbox path (selective mask + firmware validation); the SPI-scratch path
+ *          \ref adi_apollo_arm_fw_irq_out_get remains available for a fast local read.
+ *
+ * \param[in]  device        Context variable - Pointer to the APOLLO device data structure
+ * \param[out] source_mask   FW_IRQ_OUT active-source bitmask (32-bit)
+ *
+ * \return API_CMS_ERROR_OK                     API Completed Successfully
+ * \return <0                                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_arm_fw_irq_out_source_get(adi_apollo_device_t *device, uint32_t *source_mask);
+
+/**
+ * \brief  Clear selected bits in the FW_IRQ_OUT active-source bitmask (via mailbox)
+ *
+ * \details The source register is sticky; the host is responsible for clearing it. After clearing,
+ *          the pin drops if no (active & enabled) bit remains. If the underlying condition persists
+ *          (e.g. temperature still out of range) the source re-asserts on the next measurement.
+ *
+ * \param[in]  device          Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  clear_mask      Bitmask of active bits to clear (32-bit)
+ * \param[out] remaining_mask  Remaining active-source bitmask after the clear (32-bit)
+ *
+ * \return API_CMS_ERROR_OK                     API Completed Successfully
+ * \return <0                                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_arm_fw_irq_out_source_clear(adi_apollo_device_t *device, uint32_t clear_mask, uint32_t *remaining_mask);
+
+/**
+ * \brief  Get the FW_IRQ_OUT config (enable) bitmask (via mailbox)
+ *
+ * \details Returns the 32-bit "config" register: which sources are enabled to drive the pin.
+ *          The pin is asserted only when (source & config) != 0. The config register powers up at
+ *          0x00 (strict opt-in): until a source is enabled the pin never asserts.
+ *
+ * \param[in]  device        Context variable - Pointer to the APOLLO device data structure
+ * \param[out] config_mask   FW_IRQ_OUT config (enable) bitmask (32-bit)
+ *
+ * \return API_CMS_ERROR_OK                     API Completed Successfully
+ * \return <0                                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_arm_fw_irq_out_config_get(adi_apollo_device_t *device, uint32_t *config_mask);
+
+/**
+ * \brief  Enable FW_IRQ_OUT sources (via mailbox)
+ *
+ * \details Sets the given bits in the config (enable) register; the firmware performs the
+ *          read-modify-write under a critical region. Because config powers up at 0x00, this call
+ *          is mandatory after configuring a source for its alarm to reach the pin, e.g. for the
+ *          temperature alarm: enable_mask = (TEMP_ALARM_HIGH | TEMP_ALARM_LOW) = 0xC0.
+ *          The command is validated: if enable_mask contains bits outside the supported sources
+ *          (0xFF) nothing changes and the firmware returns
+ *          \ref APOLLO_CPU_DEV_TEMP_SENSOR_INVALID_CONFIG_MASK_ERROR.
+ *
+ * \param[in]  device        Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  enable_mask   Bits to enable in the config bitmask (32-bit)
+ * \param[out] config_mask   Resulting config (enable) bitmask after the update (32-bit)
+ *
+ * \return API_CMS_ERROR_OK                     API Completed Successfully
+ * \return <0                                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_arm_fw_irq_out_sources_enable(adi_apollo_device_t *device, uint32_t enable_mask, uint32_t *config_mask);
+
+/**
+ * \brief  Disable FW_IRQ_OUT sources (via mailbox)
+ *
+ * \details Clears the given bits in the config (enable) register; the firmware performs the
+ *          read-modify-write under a critical region. This call is lenient: clearing unknown bits
+ *          is a no-op and returns no error.
+ *
+ * \param[in]  device        Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  disable_mask  Bits to disable in the config bitmask (32-bit)
+ * \param[out] config_mask   Resulting config (enable) bitmask after the update (32-bit)
+ *
+ * \return API_CMS_ERROR_OK                     API Completed Successfully
+ * \return <0                                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_arm_fw_irq_out_sources_disable(adi_apollo_device_t *device, uint32_t disable_mask, uint32_t *config_mask);
+
+/**
+ * \brief  Load device stream image to CPU
+ *
+ * \param[in]  device                   Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  stream_image_buf         Stream binary byte array
+ * \param[in]  stream_image_size_bytes  Stream image size
+ * \param[in]  chunk_sz_bytes           Number of bytes to transfer to stream at a time
+ *
+ * \return API_CMS_ERROR_OK                     API Completed Successfully
+ * \return <0                                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_arm_stream_buf_write(adi_apollo_device_t *device, uint8_t stream_image_buf[], uint32_t stream_image_size_bytes, uint16_t chunk_sz_bytes);
+
+/**
+ * \brief  Load memory to stream ram
+ *
+ * \param[in]  device           Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  binary_info      Pointer to the stream binary loading config structure
+ * \param[in]  chunk_sz_bytes   Number of bytes to transfer to stream at a time
+ *
+ * \return API_CMS_ERROR_OK                     API Completed Successfully
+ * \return <0                                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_arm_stream_load(adi_apollo_device_t *device, adi_apollo_arm_binary_info_t *binary_info, uint16_t chunk_sz_bytes);
+
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __ADI_APOLLO_ARM_H__ */
+#endif /* ADI_APOLLO_ARM_H__ */
 /*! @} */

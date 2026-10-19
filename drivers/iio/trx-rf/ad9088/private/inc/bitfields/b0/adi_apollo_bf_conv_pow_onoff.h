@@ -12,29 +12,29 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_CONV_POW_ONOFF_H__
-#define __ADI_APOLLO_BF_CONV_POW_ONOFF_H__
+#ifndef ADI_APOLLO_BF_CONV_POW_ONOFF_H__
+#define ADI_APOLLO_BF_CONV_POW_ONOFF_H__
 
 /*============= D E F I N E S ==============*/
-#define REG_CONFIG_ADDR(n)                 (0x4C004000 + 1 * (n))
-#define BF_MUX_SELECT_INFO(n)              (0x4C004000 + 1 * (n)), 0x00000500
-#define BF_COUNTER_BYPASS_EN_INFO(n)       (0x4C004000 + 1 * (n)), 0x00000105
-#define BF_POWER_EN_MASK_INFO(n)           (0x4C004000 + 1 * (n)), 0x00000106
-#define BF_TRIGGER_POLARITY_INVERT_INFO(n) (0x4C004000 + 1 * (n)), 0x00000107
+#define REG_CONFIG_ADDR(n)                 (0x4C004000U + 1U * (uint32_t)(n))
+#define BF_MUX_SELECT_INFO(n)              (0x4C004000U + 1U * (uint32_t)(n)), 0x00000500U
+#define BF_COUNTER_BYPASS_EN_INFO(n)       (0x4C004000U + 1U * (uint32_t)(n)), 0x00000105U
+#define BF_POWER_EN_MASK_INFO(n)           (0x4C004000U + 1U * (uint32_t)(n)), 0x00000106U
+#define BF_TRIGGER_POLARITY_INVERT_INFO(n) (0x4C004000U + 1U * (uint32_t)(n)), 0x00000107U
 
-#define REG_THRESH_HL_BYTE0_ADDR(n)        (0x4C004010 + 3 * (n))
-#define BF_THRESH_HL_INFO(n)               (0x4C004010 + 3 * (n)), 0x00001800
+#define REG_THRESH_HL_BYTE0_ADDR(n)        (0x4C004010U + 3U * (uint32_t)(n))
+#define BF_THRESH_HL_INFO(n)               (0x4C004010U + 3U * (uint32_t)(n)), 0x00001800U
 
-#define REG_THRESH_HL_BYTE1_ADDR(n)        (0x4C004011 + 3 * (n))
+#define REG_THRESH_HL_BYTE1_ADDR(n)        (0x4C004011U + 3U * (uint32_t)(n))
 
-#define REG_THRESH_HL_BYTE2_ADDR(n)        (0x4C004012 + 3 * (n))
+#define REG_THRESH_HL_BYTE2_ADDR(n)        (0x4C004012U + 3U * (uint32_t)(n))
 
-#define REG_THRESH_LH_BYTE0_ADDR(n)        (0x4C004040 + 3 * (n))
-#define BF_THRESH_LH_INFO(n)               (0x4C004040 + 3 * (n)), 0x00001800
+#define REG_THRESH_LH_BYTE0_ADDR(n)        (0x4C004040U + 3U * (uint32_t)(n))
+#define BF_THRESH_LH_INFO(n)               (0x4C004040U + 3U * (uint32_t)(n)), 0x00001800U
 
-#define REG_THRESH_LH_BYTE1_ADDR(n)        (0x4C004041 + 3 * (n))
+#define REG_THRESH_LH_BYTE1_ADDR(n)        (0x4C004041U + 3U * (uint32_t)(n))
 
-#define REG_THRESH_LH_BYTE2_ADDR(n)        (0x4C004042 + 3 * (n))
+#define REG_THRESH_LH_BYTE2_ADDR(n)        (0x4C004042U + 3U * (uint32_t)(n))
 
-#endif /* __ADI_APOLLO_BF_CONV_POW_ONOFF_H__ */
+#endif /* ADI_APOLLO_BF_CONV_POW_ONOFF_H__ */
 /*! @} */

@@ -12,341 +12,341 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_TX_MISC_H__
-#define __ADI_APOLLO_BF_TX_MISC_H__
+#ifndef ADI_APOLLO_BF_TX_MISC_H__
+#define ADI_APOLLO_BF_TX_MISC_H__
 
 /*============= D E F I N E S ==============*/
-#define TX_MISC_TX_TOP_TX_DIGITAL0                       0x61000000
-#define TX_MISC_TX_TOP_TX_DIGITAL1                       0x61800000
+#define TX_MISC_TX_TOP_TX_DIGITAL0                       0x61000000U
+#define TX_MISC_TX_TOP_TX_DIGITAL1                       0x61800000U
 
-#define REG_DP_CFG_ADDR(inst)                            ((inst) + 0x00000000)
-#define BF_MODSW0_INFO(inst)                             ((inst) + 0x00000000), 0x00000300
-#define BF_MODSW1_INFO(inst)                             ((inst) + 0x00000000), 0x00000303
-#define BF_DIS_SCALE_INFO(inst)                          ((inst) + 0x00000000), 0x00000206
+#define REG_DP_CFG_ADDR(inst)                            ((uint32_t)(inst) + 0x00000000U)
+#define BF_MODSW0_INFO(inst)                             ((uint32_t)(inst) + 0x00000000U), 0x00000300U
+#define BF_MODSW1_INFO(inst)                             ((uint32_t)(inst) + 0x00000000U), 0x00000303U
+#define BF_DIS_SCALE_INFO(inst)                          ((uint32_t)(inst) + 0x00000000U), 0x00000206U
 
 #ifdef USE_PRIVATE_BF
-#define REG_HS_XBAR_CTRL_ADDR(inst)                      ((inst) + 0x00000001)
-#define BF_HS_XBAR_CTRL_INFO(inst)                       ((inst) + 0x00000001), 0x00000800
+#define REG_HS_XBAR_CTRL_ADDR(inst)                      ((uint32_t)(inst) + 0x00000001U)
+#define BF_HS_XBAR_CTRL_INFO(inst)                       ((uint32_t)(inst) + 0x00000001U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_FDUC_ENABLES00_ADDR(inst)                    ((inst) + 0x00000002)
-#define BF_FDUC_ENABLES00_INFO(inst)                     ((inst) + 0x00000002), 0x00000800
+#define REG_FDUC_ENABLES00_ADDR(inst)                    ((uint32_t)(inst) + 0x00000002U)
+#define BF_FDUC_ENABLES00_INFO(inst)                     ((uint32_t)(inst) + 0x00000002U), 0x00000800U
 
-#define REG_FDUC_ENABLES01_ADDR(inst)                    ((inst) + 0x00000003)
-#define BF_FDUC_ENABLES01_INFO(inst)                     ((inst) + 0x00000003), 0x00000800
+#define REG_FDUC_ENABLES01_ADDR(inst)                    ((uint32_t)(inst) + 0x00000003U)
+#define BF_FDUC_ENABLES01_INFO(inst)                     ((uint32_t)(inst) + 0x00000003U), 0x00000800U
 
-#define REG_FDUC_ENABLES10_ADDR(inst)                    ((inst) + 0x00000004)
-#define BF_FDUC_ENABLES10_INFO(inst)                     ((inst) + 0x00000004), 0x00000800
+#define REG_FDUC_ENABLES10_ADDR(inst)                    ((uint32_t)(inst) + 0x00000004U)
+#define BF_FDUC_ENABLES10_INFO(inst)                     ((uint32_t)(inst) + 0x00000004U), 0x00000800U
 
-#define REG_FDUC_ENABLES11_ADDR(inst)                    ((inst) + 0x00000005)
-#define BF_FDUC_ENABLES11_INFO(inst)                     ((inst) + 0x00000005), 0x00000800
+#define REG_FDUC_ENABLES11_ADDR(inst)                    ((uint32_t)(inst) + 0x00000005U)
+#define BF_FDUC_ENABLES11_INFO(inst)                     ((uint32_t)(inst) + 0x00000005U), 0x00000800U
 
-#define REG_LOW_SAMP_TX_MISC_ADDR(inst)                  ((inst) + 0x00000007)
-#define BF_LOW_SAMP_TX_MISC_INFO(inst)                   ((inst) + 0x00000007), 0x00000100
+#define REG_LOW_SAMP_TX_MISC_ADDR(inst)                  ((uint32_t)(inst) + 0x00000007U)
+#define BF_LOW_SAMP_TX_MISC_INFO(inst)                   ((uint32_t)(inst) + 0x00000007U), 0x00000100U
 
-#define REG_SL0_FDUC0_HB_IRQ_EN0_ADDR(inst)              ((inst) + 0x00000008)
-#define BF_EN_FDUC_A0_HB1_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000008), 0x00000100
-#define BF_EN_FDUC_A0_HB2_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000008), 0x00000101
-#define BF_EN_FDUC_A0_HB3_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000008), 0x00000102
-#define BF_EN_FDUC_A0_HB4_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000008), 0x00000103
-#define BF_EN_FDUC_A0_HB5_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000008), 0x00000104
-#define BF_EN_FDUC_A0_HB6_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000008), 0x00000105
+#define REG_SL0_FDUC0_HB_IRQ_EN0_ADDR(inst)              ((uint32_t)(inst) + 0x00000008U)
+#define BF_EN_FDUC_A0_HB1_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000008U), 0x00000100U
+#define BF_EN_FDUC_A0_HB2_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000008U), 0x00000101U
+#define BF_EN_FDUC_A0_HB3_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000008U), 0x00000102U
+#define BF_EN_FDUC_A0_HB4_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000008U), 0x00000103U
+#define BF_EN_FDUC_A0_HB5_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000008U), 0x00000104U
+#define BF_EN_FDUC_A0_HB6_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000008U), 0x00000105U
 
-#define REG_SL0_FDUC0_HB_IRQ_EN1_ADDR(inst)              ((inst) + 0x00000009)
-#define BF_EN_FDUC_A0_HB1_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000009), 0x00000100
-#define BF_EN_FDUC_A0_HB2_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000009), 0x00000101
-#define BF_EN_FDUC_A0_HB3_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000009), 0x00000102
-#define BF_EN_FDUC_A0_HB4_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000009), 0x00000103
-#define BF_EN_FDUC_A0_HB5_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000009), 0x00000104
-#define BF_EN_FDUC_A0_HB6_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000009), 0x00000105
+#define REG_SL0_FDUC0_HB_IRQ_EN1_ADDR(inst)              ((uint32_t)(inst) + 0x00000009U)
+#define BF_EN_FDUC_A0_HB1_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000009U), 0x00000100U
+#define BF_EN_FDUC_A0_HB2_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000009U), 0x00000101U
+#define BF_EN_FDUC_A0_HB3_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000009U), 0x00000102U
+#define BF_EN_FDUC_A0_HB4_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000009U), 0x00000103U
+#define BF_EN_FDUC_A0_HB5_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000009U), 0x00000104U
+#define BF_EN_FDUC_A0_HB6_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000009U), 0x00000105U
 
-#define REG_SL0_FDUC1_IRQ_ADDR(inst)                     ((inst) + 0x0000000A)
-#define BF_EN_FDUC_A1_HB1_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000A), 0x00000100
-#define BF_EN_FDUC_A1_HB2_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000A), 0x00000101
-#define BF_EN_FDUC_A1_HB3_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000A), 0x00000102
-#define BF_EN_FDUC_A1_HB4_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000A), 0x00000103
-#define BF_EN_FDUC_A1_HB5_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000A), 0x00000104
-#define BF_EN_FDUC_A1_HB6_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000A), 0x00000105
+#define REG_SL0_FDUC1_IRQ_ADDR(inst)                     ((uint32_t)(inst) + 0x0000000AU)
+#define BF_EN_FDUC_A1_HB1_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000AU), 0x00000100U
+#define BF_EN_FDUC_A1_HB2_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000AU), 0x00000101U
+#define BF_EN_FDUC_A1_HB3_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000AU), 0x00000102U
+#define BF_EN_FDUC_A1_HB4_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000AU), 0x00000103U
+#define BF_EN_FDUC_A1_HB5_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000AU), 0x00000104U
+#define BF_EN_FDUC_A1_HB6_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000AU), 0x00000105U
 
-#define REG_SL0_FDUC1_HB_IRQ_EN1_ADDR(inst)              ((inst) + 0x0000000B)
-#define BF_EN_FDUC_A1_HB1_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000B), 0x00000100
-#define BF_EN_FDUC_A1_HB2_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000B), 0x00000101
-#define BF_EN_FDUC_A1_HB3_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000B), 0x00000102
-#define BF_EN_FDUC_A1_HB4_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000B), 0x00000103
-#define BF_EN_FDUC_A1_HB5_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000B), 0x00000104
-#define BF_EN_FDUC_A1_HB6_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000B), 0x00000105
+#define REG_SL0_FDUC1_HB_IRQ_EN1_ADDR(inst)              ((uint32_t)(inst) + 0x0000000BU)
+#define BF_EN_FDUC_A1_HB1_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000BU), 0x00000100U
+#define BF_EN_FDUC_A1_HB2_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000BU), 0x00000101U
+#define BF_EN_FDUC_A1_HB3_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000BU), 0x00000102U
+#define BF_EN_FDUC_A1_HB4_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000BU), 0x00000103U
+#define BF_EN_FDUC_A1_HB5_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000BU), 0x00000104U
+#define BF_EN_FDUC_A1_HB6_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000BU), 0x00000105U
 
-#define REG_SL0_FNCO_IRQ_EN_ADDR(inst)                   ((inst) + 0x0000000C)
-#define BF_EN_FDUC_A0_FNCO_OVR_I_IRQ0_INFO(inst)         ((inst) + 0x0000000C), 0x00000100
-#define BF_EN_FDUC_A0_FNCO_OVR_I_IRQ1_INFO(inst)         ((inst) + 0x0000000C), 0x00000101
-#define BF_EN_FDUC_A0_FNCO_OVR_Q_IRQ0_INFO(inst)         ((inst) + 0x0000000C), 0x00000102
-#define BF_EN_FDUC_A0_FNCO_OVR_Q_IRQ1_INFO(inst)         ((inst) + 0x0000000C), 0x00000103
-#define BF_EN_FDUC_A1_FNCO_OVR_I_IRQ0_INFO(inst)         ((inst) + 0x0000000C), 0x00000104
-#define BF_EN_FDUC_A1_FNCO_OVR_I_IRQ1_INFO(inst)         ((inst) + 0x0000000C), 0x00000105
-#define BF_EN_FDUC_A1_FNCO_OVR_Q_IRQ0_INFO(inst)         ((inst) + 0x0000000C), 0x00000106
-#define BF_EN_FDUC_A1_FNCO_OVR_Q_IRQ1_INFO(inst)         ((inst) + 0x0000000C), 0x00000107
+#define REG_SL0_FNCO_IRQ_EN_ADDR(inst)                   ((uint32_t)(inst) + 0x0000000CU)
+#define BF_EN_FDUC_A0_FNCO_OVR_I_IRQ0_INFO(inst)         ((uint32_t)(inst) + 0x0000000CU), 0x00000100U
+#define BF_EN_FDUC_A0_FNCO_OVR_I_IRQ1_INFO(inst)         ((uint32_t)(inst) + 0x0000000CU), 0x00000101U
+#define BF_EN_FDUC_A0_FNCO_OVR_Q_IRQ0_INFO(inst)         ((uint32_t)(inst) + 0x0000000CU), 0x00000102U
+#define BF_EN_FDUC_A0_FNCO_OVR_Q_IRQ1_INFO(inst)         ((uint32_t)(inst) + 0x0000000CU), 0x00000103U
+#define BF_EN_FDUC_A1_FNCO_OVR_I_IRQ0_INFO(inst)         ((uint32_t)(inst) + 0x0000000CU), 0x00000104U
+#define BF_EN_FDUC_A1_FNCO_OVR_I_IRQ1_INFO(inst)         ((uint32_t)(inst) + 0x0000000CU), 0x00000105U
+#define BF_EN_FDUC_A1_FNCO_OVR_Q_IRQ0_INFO(inst)         ((uint32_t)(inst) + 0x0000000CU), 0x00000106U
+#define BF_EN_FDUC_A1_FNCO_OVR_Q_IRQ1_INFO(inst)         ((uint32_t)(inst) + 0x0000000CU), 0x00000107U
 
-#define REG_SL1_FDUC0_HB_IRQ_EN0_ADDR(inst)              ((inst) + 0x0000000D)
-#define BF_EN_FDUC_A2_HB1_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000D), 0x00000100
-#define BF_EN_FDUC_A2_HB2_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000D), 0x00000101
-#define BF_EN_FDUC_A2_HB3_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000D), 0x00000102
-#define BF_EN_FDUC_A2_HB4_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000D), 0x00000103
-#define BF_EN_FDUC_A2_HB5_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000D), 0x00000104
-#define BF_EN_FDUC_A2_HB6_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000D), 0x00000105
+#define REG_SL1_FDUC0_HB_IRQ_EN0_ADDR(inst)              ((uint32_t)(inst) + 0x0000000DU)
+#define BF_EN_FDUC_A2_HB1_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000DU), 0x00000100U
+#define BF_EN_FDUC_A2_HB2_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000DU), 0x00000101U
+#define BF_EN_FDUC_A2_HB3_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000DU), 0x00000102U
+#define BF_EN_FDUC_A2_HB4_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000DU), 0x00000103U
+#define BF_EN_FDUC_A2_HB5_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000DU), 0x00000104U
+#define BF_EN_FDUC_A2_HB6_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000DU), 0x00000105U
 
-#define REG_SL1_FDUC0_HB_IRQ_EN1_ADDR(inst)              ((inst) + 0x0000000E)
-#define BF_EN_FDUC_A2_HB1_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000E), 0x00000100
-#define BF_EN_FDUC_A2_HB2_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000E), 0x00000101
-#define BF_EN_FDUC_A2_HB3_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000E), 0x00000102
-#define BF_EN_FDUC_A2_HB4_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000E), 0x00000103
-#define BF_EN_FDUC_A2_HB5_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000E), 0x00000104
-#define BF_EN_FDUC_A2_HB6_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000E), 0x00000105
+#define REG_SL1_FDUC0_HB_IRQ_EN1_ADDR(inst)              ((uint32_t)(inst) + 0x0000000EU)
+#define BF_EN_FDUC_A2_HB1_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000EU), 0x00000100U
+#define BF_EN_FDUC_A2_HB2_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000EU), 0x00000101U
+#define BF_EN_FDUC_A2_HB3_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000EU), 0x00000102U
+#define BF_EN_FDUC_A2_HB4_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000EU), 0x00000103U
+#define BF_EN_FDUC_A2_HB5_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000EU), 0x00000104U
+#define BF_EN_FDUC_A2_HB6_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000EU), 0x00000105U
 
-#define REG_SL1_FDUC1_IRQ_ADDR(inst)                     ((inst) + 0x0000000F)
-#define BF_EN_FDUC_A3_HB1_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000F), 0x00000100
-#define BF_EN_FDUC_A3_HB2_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000F), 0x00000101
-#define BF_EN_FDUC_A3_HB3_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000F), 0x00000102
-#define BF_EN_FDUC_A3_HB4_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000F), 0x00000103
-#define BF_EN_FDUC_A3_HB5_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000F), 0x00000104
-#define BF_EN_FDUC_A3_HB6_I_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x0000000F), 0x00000105
+#define REG_SL1_FDUC1_IRQ_ADDR(inst)                     ((uint32_t)(inst) + 0x0000000FU)
+#define BF_EN_FDUC_A3_HB1_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000FU), 0x00000100U
+#define BF_EN_FDUC_A3_HB2_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000FU), 0x00000101U
+#define BF_EN_FDUC_A3_HB3_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000FU), 0x00000102U
+#define BF_EN_FDUC_A3_HB4_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000FU), 0x00000103U
+#define BF_EN_FDUC_A3_HB5_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000FU), 0x00000104U
+#define BF_EN_FDUC_A3_HB6_I_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x0000000FU), 0x00000105U
 
-#define REG_SL1_FDUC1_HB_IRQ_EN1_ADDR(inst)              ((inst) + 0x00000010)
-#define BF_EN_FDUC_A3_HB1_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000010), 0x00000100
-#define BF_EN_FDUC_A3_HB2_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000010), 0x00000101
-#define BF_EN_FDUC_A3_HB3_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000010), 0x00000102
-#define BF_EN_FDUC_A3_HB4_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000010), 0x00000103
-#define BF_EN_FDUC_A3_HB5_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000010), 0x00000104
-#define BF_EN_FDUC_A3_HB6_Q_OVERFLOW_IRQ_INFO(inst)      ((inst) + 0x00000010), 0x00000105
+#define REG_SL1_FDUC1_HB_IRQ_EN1_ADDR(inst)              ((uint32_t)(inst) + 0x00000010U)
+#define BF_EN_FDUC_A3_HB1_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000010U), 0x00000100U
+#define BF_EN_FDUC_A3_HB2_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000010U), 0x00000101U
+#define BF_EN_FDUC_A3_HB3_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000010U), 0x00000102U
+#define BF_EN_FDUC_A3_HB4_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000010U), 0x00000103U
+#define BF_EN_FDUC_A3_HB5_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000010U), 0x00000104U
+#define BF_EN_FDUC_A3_HB6_Q_OVERFLOW_IRQ_INFO(inst)      ((uint32_t)(inst) + 0x00000010U), 0x00000105U
 
-#define REG_SL1_FNCO_IRQ_EN_ADDR(inst)                   ((inst) + 0x00000011)
-#define BF_EN_FDUC_A2_FNCO_OVR_I_IRQ0_INFO(inst)         ((inst) + 0x00000011), 0x00000100
-#define BF_EN_FDUC_A2_FNCO_OVR_I_IRQ1_INFO(inst)         ((inst) + 0x00000011), 0x00000101
-#define BF_EN_FDUC_A2_FNCO_OVR_Q_IRQ0_INFO(inst)         ((inst) + 0x00000011), 0x00000102
-#define BF_EN_FDUC_A2_FNCO_OVR_Q_IRQ1_INFO(inst)         ((inst) + 0x00000011), 0x00000103
-#define BF_EN_FDUC_A3_FNCO_OVR_I_IRQ0_INFO(inst)         ((inst) + 0x00000011), 0x00000104
-#define BF_EN_FDUC_A3_FNCO_OVR_I_IRQ1_INFO(inst)         ((inst) + 0x00000011), 0x00000105
-#define BF_EN_FDUC_A3_FNCO_OVR_Q_IRQ0_INFO(inst)         ((inst) + 0x00000011), 0x00000106
-#define BF_EN_FDUC_A3_FNCO_OVR_Q_IRQ1_INFO(inst)         ((inst) + 0x00000011), 0x00000107
+#define REG_SL1_FNCO_IRQ_EN_ADDR(inst)                   ((uint32_t)(inst) + 0x00000011U)
+#define BF_EN_FDUC_A2_FNCO_OVR_I_IRQ0_INFO(inst)         ((uint32_t)(inst) + 0x00000011U), 0x00000100U
+#define BF_EN_FDUC_A2_FNCO_OVR_I_IRQ1_INFO(inst)         ((uint32_t)(inst) + 0x00000011U), 0x00000101U
+#define BF_EN_FDUC_A2_FNCO_OVR_Q_IRQ0_INFO(inst)         ((uint32_t)(inst) + 0x00000011U), 0x00000102U
+#define BF_EN_FDUC_A2_FNCO_OVR_Q_IRQ1_INFO(inst)         ((uint32_t)(inst) + 0x00000011U), 0x00000103U
+#define BF_EN_FDUC_A3_FNCO_OVR_I_IRQ0_INFO(inst)         ((uint32_t)(inst) + 0x00000011U), 0x00000104U
+#define BF_EN_FDUC_A3_FNCO_OVR_I_IRQ1_INFO(inst)         ((uint32_t)(inst) + 0x00000011U), 0x00000105U
+#define BF_EN_FDUC_A3_FNCO_OVR_Q_IRQ0_INFO(inst)         ((uint32_t)(inst) + 0x00000011U), 0x00000106U
+#define BF_EN_FDUC_A3_FNCO_OVR_Q_IRQ1_INFO(inst)         ((uint32_t)(inst) + 0x00000011U), 0x00000107U
 
-#define REG_SL0_FDUC0_HB_OVERFLOW0_ADDR(inst)            ((inst) + 0x00000012)
-#define BF_IRQ_FDUC_A0_HB1_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000012), 0x00000100
-#define BF_IRQ_FDUC_A0_HB2_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000012), 0x00000101
-#define BF_IRQ_FDUC_A0_HB3_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000012), 0x00000102
-#define BF_IRQ_FDUC_A0_HB4_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000012), 0x00000103
-#define BF_IRQ_FDUC_A0_HB5_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000012), 0x00000104
-#define BF_IRQ_FDUC_A0_HB6_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000012), 0x00000105
-#define BF_IRQ_FDUC_OVER_FLOW_ALL_INFO(inst)             ((inst) + 0x00000012), 0x00000106
+#define REG_SL0_FDUC0_HB_OVERFLOW0_ADDR(inst)            ((uint32_t)(inst) + 0x00000012U)
+#define BF_IRQ_FDUC_A0_HB1_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000012U), 0x00000100U
+#define BF_IRQ_FDUC_A0_HB2_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000012U), 0x00000101U
+#define BF_IRQ_FDUC_A0_HB3_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000012U), 0x00000102U
+#define BF_IRQ_FDUC_A0_HB4_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000012U), 0x00000103U
+#define BF_IRQ_FDUC_A0_HB5_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000012U), 0x00000104U
+#define BF_IRQ_FDUC_A0_HB6_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000012U), 0x00000105U
+#define BF_IRQ_FDUC_OVER_FLOW_ALL_INFO(inst)             ((uint32_t)(inst) + 0x00000012U), 0x00000106U
 
-#define REG_SL0_FDUC0_HB_OVERFLOW1_ADDR(inst)            ((inst) + 0x00000013)
-#define BF_IRQ_FDUC_A0_HB1_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000013), 0x00000100
-#define BF_IRQ_FDUC_A0_HB2_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000013), 0x00000101
-#define BF_IRQ_FDUC_A0_HB3_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000013), 0x00000102
-#define BF_IRQ_FDUC_A0_HB4_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000013), 0x00000103
-#define BF_IRQ_FDUC_A0_HB5_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000013), 0x00000104
-#define BF_IRQ_FDUC_A0_HB6_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000013), 0x00000105
+#define REG_SL0_FDUC0_HB_OVERFLOW1_ADDR(inst)            ((uint32_t)(inst) + 0x00000013U)
+#define BF_IRQ_FDUC_A0_HB1_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000013U), 0x00000100U
+#define BF_IRQ_FDUC_A0_HB2_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000013U), 0x00000101U
+#define BF_IRQ_FDUC_A0_HB3_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000013U), 0x00000102U
+#define BF_IRQ_FDUC_A0_HB4_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000013U), 0x00000103U
+#define BF_IRQ_FDUC_A0_HB5_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000013U), 0x00000104U
+#define BF_IRQ_FDUC_A0_HB6_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000013U), 0x00000105U
 
-#define REG_SL0_FDUC1_HB_OVERFLOW0_ADDR(inst)            ((inst) + 0x00000014)
-#define BF_IRQ_FDUC_A1_HB1_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000014), 0x00000100
-#define BF_IRQ_FDUC_A1_HB2_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000014), 0x00000101
-#define BF_IRQ_FDUC_A1_HB3_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000014), 0x00000102
-#define BF_IRQ_FDUC_A1_HB4_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000014), 0x00000103
-#define BF_IRQ_FDUC_A1_HB5_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000014), 0x00000104
-#define BF_IRQ_FDUC_A1_HB6_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000014), 0x00000105
+#define REG_SL0_FDUC1_HB_OVERFLOW0_ADDR(inst)            ((uint32_t)(inst) + 0x00000014U)
+#define BF_IRQ_FDUC_A1_HB1_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000014U), 0x00000100U
+#define BF_IRQ_FDUC_A1_HB2_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000014U), 0x00000101U
+#define BF_IRQ_FDUC_A1_HB3_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000014U), 0x00000102U
+#define BF_IRQ_FDUC_A1_HB4_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000014U), 0x00000103U
+#define BF_IRQ_FDUC_A1_HB5_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000014U), 0x00000104U
+#define BF_IRQ_FDUC_A1_HB6_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000014U), 0x00000105U
 
-#define REG_SL0_FDUC1_HB_OVERFLOW1_ADDR(inst)            ((inst) + 0x00000015)
-#define BF_IRQ_FDUC_A1_HB1_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000015), 0x00000100
-#define BF_IRQ_FDUC_A1_HB2_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000015), 0x00000101
-#define BF_IRQ_FDUC_A1_HB3_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000015), 0x00000102
-#define BF_IRQ_FDUC_A1_HB4_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000015), 0x00000103
-#define BF_IRQ_FDUC_A1_HB5_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000015), 0x00000104
-#define BF_IRQ_FDUC_A1_HB6_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000015), 0x00000105
+#define REG_SL0_FDUC1_HB_OVERFLOW1_ADDR(inst)            ((uint32_t)(inst) + 0x00000015U)
+#define BF_IRQ_FDUC_A1_HB1_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000015U), 0x00000100U
+#define BF_IRQ_FDUC_A1_HB2_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000015U), 0x00000101U
+#define BF_IRQ_FDUC_A1_HB3_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000015U), 0x00000102U
+#define BF_IRQ_FDUC_A1_HB4_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000015U), 0x00000103U
+#define BF_IRQ_FDUC_A1_HB5_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000015U), 0x00000104U
+#define BF_IRQ_FDUC_A1_HB6_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000015U), 0x00000105U
 
-#define REG_SL0_FNCO_OVERFLOW_ADDR(inst)                 ((inst) + 0x00000016)
-#define BF_IRQ_FDUC_A0_FNCO_I_OVER_FLOW0_INFO(inst)      ((inst) + 0x00000016), 0x00000100
-#define BF_IRQ_FDUC_A0_FNCO_I_OVER_FLOW1_INFO(inst)      ((inst) + 0x00000016), 0x00000101
-#define BF_IRQ_FDUC_A0_FNCO_Q_OVER_FLOW0_INFO(inst)      ((inst) + 0x00000016), 0x00000102
-#define BF_IRQ_FDUC_A0_FNCO_Q_OVER_FLOW1_INFO(inst)      ((inst) + 0x00000016), 0x00000103
-#define BF_IRQ_FDUC_A1_FNCO_I_OVER_FLOW0_INFO(inst)      ((inst) + 0x00000016), 0x00000104
-#define BF_IRQ_FDUC_A1_FNCO_I_OVER_FLOW1_INFO(inst)      ((inst) + 0x00000016), 0x00000105
-#define BF_IRQ_FDUC_A1_FNCO_Q_OVER_FLOW0_INFO(inst)      ((inst) + 0x00000016), 0x00000106
-#define BF_IRQ_FDUC_A1_FNCO_Q_OVER_FLOW1_INFO(inst)      ((inst) + 0x00000016), 0x00000107
+#define REG_SL0_FNCO_OVERFLOW_ADDR(inst)                 ((uint32_t)(inst) + 0x00000016U)
+#define BF_IRQ_FDUC_A0_FNCO_I_OVER_FLOW0_INFO(inst)      ((uint32_t)(inst) + 0x00000016U), 0x00000100U
+#define BF_IRQ_FDUC_A0_FNCO_I_OVER_FLOW1_INFO(inst)      ((uint32_t)(inst) + 0x00000016U), 0x00000101U
+#define BF_IRQ_FDUC_A0_FNCO_Q_OVER_FLOW0_INFO(inst)      ((uint32_t)(inst) + 0x00000016U), 0x00000102U
+#define BF_IRQ_FDUC_A0_FNCO_Q_OVER_FLOW1_INFO(inst)      ((uint32_t)(inst) + 0x00000016U), 0x00000103U
+#define BF_IRQ_FDUC_A1_FNCO_I_OVER_FLOW0_INFO(inst)      ((uint32_t)(inst) + 0x00000016U), 0x00000104U
+#define BF_IRQ_FDUC_A1_FNCO_I_OVER_FLOW1_INFO(inst)      ((uint32_t)(inst) + 0x00000016U), 0x00000105U
+#define BF_IRQ_FDUC_A1_FNCO_Q_OVER_FLOW0_INFO(inst)      ((uint32_t)(inst) + 0x00000016U), 0x00000106U
+#define BF_IRQ_FDUC_A1_FNCO_Q_OVER_FLOW1_INFO(inst)      ((uint32_t)(inst) + 0x00000016U), 0x00000107U
 
-#define REG_SL1_FDUC0_HB_OVERFLOW0_ADDR(inst)            ((inst) + 0x00000017)
-#define BF_IRQ_FDUC_A2_HB1_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000017), 0x00000100
-#define BF_IRQ_FDUC_A2_HB2_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000017), 0x00000101
-#define BF_IRQ_FDUC_A2_HB3_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000017), 0x00000102
-#define BF_IRQ_FDUC_A2_HB4_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000017), 0x00000103
-#define BF_IRQ_FDUC_A2_HB5_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000017), 0x00000104
-#define BF_IRQ_FDUC_A2_HB6_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000017), 0x00000105
+#define REG_SL1_FDUC0_HB_OVERFLOW0_ADDR(inst)            ((uint32_t)(inst) + 0x00000017U)
+#define BF_IRQ_FDUC_A2_HB1_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000017U), 0x00000100U
+#define BF_IRQ_FDUC_A2_HB2_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000017U), 0x00000101U
+#define BF_IRQ_FDUC_A2_HB3_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000017U), 0x00000102U
+#define BF_IRQ_FDUC_A2_HB4_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000017U), 0x00000103U
+#define BF_IRQ_FDUC_A2_HB5_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000017U), 0x00000104U
+#define BF_IRQ_FDUC_A2_HB6_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000017U), 0x00000105U
 
-#define REG_SL1_FDUC0_HB_OVERFLOW1_ADDR(inst)            ((inst) + 0x00000018)
-#define BF_IRQ_FDUC_A2_HB1_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000018), 0x00000100
-#define BF_IRQ_FDUC_A2_HB2_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000018), 0x00000101
-#define BF_IRQ_FDUC_A2_HB3_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000018), 0x00000102
-#define BF_IRQ_FDUC_A2_HB4_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000018), 0x00000103
-#define BF_IRQ_FDUC_A2_HB5_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000018), 0x00000104
-#define BF_IRQ_FDUC_A2_HB6_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x00000018), 0x00000105
+#define REG_SL1_FDUC0_HB_OVERFLOW1_ADDR(inst)            ((uint32_t)(inst) + 0x00000018U)
+#define BF_IRQ_FDUC_A2_HB1_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000018U), 0x00000100U
+#define BF_IRQ_FDUC_A2_HB2_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000018U), 0x00000101U
+#define BF_IRQ_FDUC_A2_HB3_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000018U), 0x00000102U
+#define BF_IRQ_FDUC_A2_HB4_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000018U), 0x00000103U
+#define BF_IRQ_FDUC_A2_HB5_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000018U), 0x00000104U
+#define BF_IRQ_FDUC_A2_HB6_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000018U), 0x00000105U
 
-#define REG_SL1_FDUC1_HB_OVERFLOW0_ADDR(inst)            ((inst) + 0x00000019)
-#define BF_IRQ_FDUC_A3_HB1_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000019), 0x00000100
-#define BF_IRQ_FDUC_A3_HB2_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000019), 0x00000101
-#define BF_IRQ_FDUC_A3_HB3_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000019), 0x00000102
-#define BF_IRQ_FDUC_A3_HB4_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000019), 0x00000103
-#define BF_IRQ_FDUC_A3_HB5_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000019), 0x00000104
-#define BF_IRQ_FDUC_A3_HB6_I_OVER_FLOW_INFO(inst)        ((inst) + 0x00000019), 0x00000105
+#define REG_SL1_FDUC1_HB_OVERFLOW0_ADDR(inst)            ((uint32_t)(inst) + 0x00000019U)
+#define BF_IRQ_FDUC_A3_HB1_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000019U), 0x00000100U
+#define BF_IRQ_FDUC_A3_HB2_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000019U), 0x00000101U
+#define BF_IRQ_FDUC_A3_HB3_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000019U), 0x00000102U
+#define BF_IRQ_FDUC_A3_HB4_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000019U), 0x00000103U
+#define BF_IRQ_FDUC_A3_HB5_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000019U), 0x00000104U
+#define BF_IRQ_FDUC_A3_HB6_I_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x00000019U), 0x00000105U
 
-#define REG_SL1_FDUC1_HB_OVERFLOW1_ADDR(inst)            ((inst) + 0x0000001A)
-#define BF_IRQ_FDUC_A3_HB1_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x0000001A), 0x00000100
-#define BF_IRQ_FDUC_A3_HB2_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x0000001A), 0x00000101
-#define BF_IRQ_FDUC_A3_HB3_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x0000001A), 0x00000102
-#define BF_IRQ_FDUC_A3_HB4_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x0000001A), 0x00000103
-#define BF_IRQ_FDUC_A3_HB5_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x0000001A), 0x00000104
-#define BF_IRQ_FDUC_A3_HB6_Q_OVER_FLOW_INFO(inst)        ((inst) + 0x0000001A), 0x00000105
+#define REG_SL1_FDUC1_HB_OVERFLOW1_ADDR(inst)            ((uint32_t)(inst) + 0x0000001AU)
+#define BF_IRQ_FDUC_A3_HB1_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x0000001AU), 0x00000100U
+#define BF_IRQ_FDUC_A3_HB2_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x0000001AU), 0x00000101U
+#define BF_IRQ_FDUC_A3_HB3_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x0000001AU), 0x00000102U
+#define BF_IRQ_FDUC_A3_HB4_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x0000001AU), 0x00000103U
+#define BF_IRQ_FDUC_A3_HB5_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x0000001AU), 0x00000104U
+#define BF_IRQ_FDUC_A3_HB6_Q_OVER_FLOW_INFO(inst)        ((uint32_t)(inst) + 0x0000001AU), 0x00000105U
 
-#define REG_SL1_FNCO_OVERFLOW_ADDR(inst)                 ((inst) + 0x0000001B)
-#define BF_IRQ_FDUC_A2_FNCO_I_OVER_FLOW0_INFO(inst)      ((inst) + 0x0000001B), 0x00000100
-#define BF_IRQ_FDUC_A2_FNCO_I_OVER_FLOW1_INFO(inst)      ((inst) + 0x0000001B), 0x00000101
-#define BF_IRQ_FDUC_A2_FNCO_Q_OVER_FLOW0_INFO(inst)      ((inst) + 0x0000001B), 0x00000102
-#define BF_IRQ_FDUC_A2_FNCO_Q_OVER_FLOW1_INFO(inst)      ((inst) + 0x0000001B), 0x00000103
-#define BF_IRQ_FDUC_A3_FNCO_I_OVER_FLOW0_INFO(inst)      ((inst) + 0x0000001B), 0x00000104
-#define BF_IRQ_FDUC_A3_FNCO_I_OVER_FLOW1_INFO(inst)      ((inst) + 0x0000001B), 0x00000105
-#define BF_IRQ_FDUC_A3_FNCO_Q_OVER_FLOW0_INFO(inst)      ((inst) + 0x0000001B), 0x00000106
-#define BF_IRQ_FDUC_A3_FNCO_Q_OVER_FLOW1_INFO(inst)      ((inst) + 0x0000001B), 0x00000107
+#define REG_SL1_FNCO_OVERFLOW_ADDR(inst)                 ((uint32_t)(inst) + 0x0000001BU)
+#define BF_IRQ_FDUC_A2_FNCO_I_OVER_FLOW0_INFO(inst)      ((uint32_t)(inst) + 0x0000001BU), 0x00000100U
+#define BF_IRQ_FDUC_A2_FNCO_I_OVER_FLOW1_INFO(inst)      ((uint32_t)(inst) + 0x0000001BU), 0x00000101U
+#define BF_IRQ_FDUC_A2_FNCO_Q_OVER_FLOW0_INFO(inst)      ((uint32_t)(inst) + 0x0000001BU), 0x00000102U
+#define BF_IRQ_FDUC_A2_FNCO_Q_OVER_FLOW1_INFO(inst)      ((uint32_t)(inst) + 0x0000001BU), 0x00000103U
+#define BF_IRQ_FDUC_A3_FNCO_I_OVER_FLOW0_INFO(inst)      ((uint32_t)(inst) + 0x0000001BU), 0x00000104U
+#define BF_IRQ_FDUC_A3_FNCO_I_OVER_FLOW1_INFO(inst)      ((uint32_t)(inst) + 0x0000001BU), 0x00000105U
+#define BF_IRQ_FDUC_A3_FNCO_Q_OVER_FLOW0_INFO(inst)      ((uint32_t)(inst) + 0x0000001BU), 0x00000106U
+#define BF_IRQ_FDUC_A3_FNCO_Q_OVER_FLOW1_INFO(inst)      ((uint32_t)(inst) + 0x0000001BU), 0x00000107U
 
-#define REG_CDUC_DAC_ENABLES_ADDR(inst)                  ((inst) + 0x0000001C)
-#define BF_CDUC_DAC_ENABLES0_INFO(inst)                  ((inst) + 0x0000001C), 0x00000200
-#define BF_CDUC_DAC_ENABLES1_INFO(inst)                  ((inst) + 0x0000001C), 0x00000202
-#define BF_CDUC_DAC_ENABLES2_INFO(inst)                  ((inst) + 0x0000001C), 0x00000204
-#define BF_CDUC_DAC_ENABLES3_INFO(inst)                  ((inst) + 0x0000001C), 0x00000206
+#define REG_CDUC_DAC_ENABLES_ADDR(inst)                  ((uint32_t)(inst) + 0x0000001CU)
+#define BF_CDUC_DAC_ENABLES0_INFO(inst)                  ((uint32_t)(inst) + 0x0000001CU), 0x00000200U
+#define BF_CDUC_DAC_ENABLES1_INFO(inst)                  ((uint32_t)(inst) + 0x0000001CU), 0x00000202U
+#define BF_CDUC_DAC_ENABLES2_INFO(inst)                  ((uint32_t)(inst) + 0x0000001CU), 0x00000204U
+#define BF_CDUC_DAC_ENABLES3_INFO(inst)                  ((uint32_t)(inst) + 0x0000001CU), 0x00000206U
 
-#define REG_DUC_EN_CFG_ADDR(inst)                        ((inst) + 0x0000001D)
-#define BF_CDUC_EN_INFO(inst)                            ((inst) + 0x0000001D), 0x00000400
-#define BF_CDUC_SPI_EN_INFO(inst)                        ((inst) + 0x0000001D), 0x00000106
-#define BF_FDUC_SPI_EN_INFO(inst)                        ((inst) + 0x0000001D), 0x00000107
+#define REG_DUC_EN_CFG_ADDR(inst)                        ((uint32_t)(inst) + 0x0000001DU)
+#define BF_CDUC_EN_INFO(inst)                            ((uint32_t)(inst) + 0x0000001DU), 0x00000400U
+#define BF_CDUC_SPI_EN_INFO(inst)                        ((uint32_t)(inst) + 0x0000001DU), 0x00000106U
+#define BF_FDUC_SPI_EN_INFO(inst)                        ((uint32_t)(inst) + 0x0000001DU), 0x00000107U
 
-#define REG_FDUC_EN_SPI_ADDR(inst)                       ((inst) + 0x0000001E)
-#define BF_FDUC_EN_INFO(inst)                            ((inst) + 0x0000001E), 0x00000800
+#define REG_FDUC_EN_SPI_ADDR(inst)                       ((uint32_t)(inst) + 0x0000001EU)
+#define BF_FDUC_EN_INFO(inst)                            ((uint32_t)(inst) + 0x0000001EU), 0x00000800U
 
-#define REG_FDUC_TEST_MUX_ADDR(inst)                     ((inst) + 0x0000001F)
-#define BF_FDUC_TEST_MUX_INFO(inst)                      ((inst) + 0x0000001F), 0x00000600
+#define REG_FDUC_TEST_MUX_ADDR(inst)                     ((uint32_t)(inst) + 0x0000001FU)
+#define BF_FDUC_TEST_MUX_INFO(inst)                      ((uint32_t)(inst) + 0x0000001FU), 0x00000600U
 
-#define REG_CFIR_DATA_CTRL_ADDR(inst)                    ((inst) + 0x00000020)
-#define BF_CFIR1_SAME_AS_CFIR0_EN_INFO(inst)             ((inst) + 0x00000020), 0x00000100
-
-#ifdef USE_PRIVATE_BF
-#define REG_LNX_DBG_MUX_SEL_ADDR(inst)                   ((inst) + 0x00000021)
-#define BF_LNX_DBG_MUX_SEL_INFO(inst)                    ((inst) + 0x00000021), 0x00000400
-#endif /* USE_PRIVATE_BF */
+#define REG_CFIR_DATA_CTRL_ADDR(inst)                    ((uint32_t)(inst) + 0x00000020U)
+#define BF_CFIR1_SAME_AS_CFIR0_EN_INFO(inst)             ((uint32_t)(inst) + 0x00000020U), 0x00000100U
 
 #ifdef USE_PRIVATE_BF
-#define REG_CFIR_FSRC_DBG_CNT_EN_ADDR(inst)              ((inst) + 0x00000022)
-#define BF_CFIR_FSRC_DBG_CNT_EN_INFO(inst)               ((inst) + 0x00000022), 0x00001000
-#endif /* USE_PRIVATE_BF */
-
-#define REG_CFIR_FSRC_DBG_CNT_EN1_ADDR(inst)             ((inst) + 0x00000023)
-
-#ifdef USE_PRIVATE_BF
-#define REG_CFIR_FSRC_DBG_MUX_SEL_ADDR(inst)             ((inst) + 0x00000024)
-#define BF_CFIR_FSRC_DBG_MUX_SEL_INFO(inst)              ((inst) + 0x00000024), 0x00000400
-#endif /* USE_PRIVATE_BF */
-
-#define REG_LB1_CFG_TX_MISC_ADDR(inst)                   ((inst) + 0x00000025)
-#define BF_LB1_EN_INFO(inst)                             ((inst) + 0x00000025), 0x00000400
-#define BF_LB1_RDPTR_SYNC_RSTVAL_SL0_INFO(inst)          ((inst) + 0x00000025), 0x00000204
-#define BF_LB1_RDPTR_SYNC_RSTVAL_SL1_INFO(inst)          ((inst) + 0x00000025), 0x00000206
-
-#define REG_LB1_SHIFT_CTRL_ADDR(inst)                    ((inst) + 0x00000026)
-#define BF_SL0_LB1_SHIFT_INFO(inst)                      ((inst) + 0x00000026), 0x00000200
-#define BF_SL1_LB1_SHIFT_INFO(inst)                      ((inst) + 0x00000026), 0x00000202
-#define BF_SL0_LB1_SHIFT_8T8R_INFO(inst)                 ((inst) + 0x00000026), 0x00000204
-#define BF_SL1_LB1_SHIFT_8T8R_INFO(inst)                 ((inst) + 0x00000026), 0x00000206
-
-#define REG_LB2_CFG0_ADDR(inst)                          ((inst) + 0x00000027)
-#define BF_LB2_EN_INFO(inst)                             ((inst) + 0x00000027), 0x00000800
-
-#define REG_LB2_CFG1_ADDR(inst)                          ((inst) + 0x00000028)
-#define BF_LB2_RDPTR_SYNC_RSTVAL_SL00_INFO(inst)         ((inst) + 0x00000028), 0x00000200
-#define BF_LB2_RDPTR_SYNC_RSTVAL_SL01_INFO(inst)         ((inst) + 0x00000028), 0x00000202
-#define BF_LB2_RDPTR_SYNC_RSTVAL_SL10_INFO(inst)         ((inst) + 0x00000028), 0x00000204
-#define BF_LB2_RDPTR_SYNC_RSTVAL_SL11_INFO(inst)         ((inst) + 0x00000028), 0x00000206
-
-#define REG_ZCD_SEL_TX_ADDR(inst)                        ((inst) + 0x00000029)
-#define BF_ZCD_SEL_TAP1_TX_MISC_INFO(inst)               ((inst) + 0x00000029), 0x00000400
-#define BF_ZCD_SEL_TAP2_TX_MISC_INFO(inst)               ((inst) + 0x00000029), 0x00000404
-
-#ifdef USE_PRIVATE_BF
-#define REG_LINX_DBG_CNT_EN_TX_MISC_ADDR(inst)           ((inst) + 0x0000033E)
-#define BF_LNX_DBG_CNT_EN_INFO(inst)                     ((inst) + 0x0000033E), 0x00000800
-#endif /* USE_PRIVATE_BF */
-
-#define REG_PROCESS_MON_SEL_ADDR(inst)                   ((inst) + 0x0000033F)
-#define BF_PROCESS_MON_SEL_INFO(inst)                    ((inst) + 0x0000033F), 0x00000800
-
-#define REG_JESD_LBK_REGISTER_ADDR(inst)                 ((inst) + 0x00000340)
-#define BF_JESD_LBK_MODE_INFO(inst)                      ((inst) + 0x00000340), 0x00000100
-#ifdef USE_PRIVATE_BF
-#define BF_JESD_LBK_MODE_PTR_INFO(inst)                  ((inst) + 0x00000340), 0x00000201
-#endif /* USE_PRIVATE_BF */
-#ifdef USE_PRIVATE_BF
-#define BF_JESD_LBK_MODE_PTR_OVERRIDE_TX_MISC_INFO(inst) ((inst) + 0x00000340), 0x00000103
+#define REG_LNX_DBG_MUX_SEL_ADDR(inst)                   ((uint32_t)(inst) + 0x00000021U)
+#define BF_LNX_DBG_MUX_SEL_INFO(inst)                    ((uint32_t)(inst) + 0x00000021U), 0x00000400U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LB1_BIST_CFG_TX_MISC_ADDR(inst)              ((inst) + 0x00000341)
-#define BF_LB1_BIST_SIGN_RD_EN_INFO(inst)                ((inst) + 0x00000341), 0x00000100
-#define BF_LB1_BIST_SIGN_RD_MODE_INFO(inst)              ((inst) + 0x00000341), 0x00000101
-#define BF_LB1_BIST_SIGN_RD_CLR_INFO(inst)               ((inst) + 0x00000341), 0x00000102
-#define BF_LB1_BIST_ZERO_NOT_SENSITIVE_INFO(inst)        ((inst) + 0x00000341), 0x00000103
+#define REG_CFIR_FSRC_DBG_CNT_EN_ADDR(inst)              ((uint32_t)(inst) + 0x00000022U)
+#define BF_CFIR_FSRC_DBG_CNT_EN_INFO(inst)               ((uint32_t)(inst) + 0x00000022U), 0x00001000U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_CFIR_FSRC_DBG_CNT_EN1_ADDR(inst)             ((uint32_t)(inst) + 0x00000023U)
+
+#ifdef USE_PRIVATE_BF
+#define REG_CFIR_FSRC_DBG_MUX_SEL_ADDR(inst)             ((uint32_t)(inst) + 0x00000024U)
+#define BF_CFIR_FSRC_DBG_MUX_SEL_INFO(inst)              ((uint32_t)(inst) + 0x00000024U), 0x00000400U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_LB1_CFG_TX_MISC_ADDR(inst)                   ((uint32_t)(inst) + 0x00000025U)
+#define BF_LB1_EN_INFO(inst)                             ((uint32_t)(inst) + 0x00000025U), 0x00000400U
+#define BF_LB1_RDPTR_SYNC_RSTVAL_SL0_INFO(inst)          ((uint32_t)(inst) + 0x00000025U), 0x00000204U
+#define BF_LB1_RDPTR_SYNC_RSTVAL_SL1_INFO(inst)          ((uint32_t)(inst) + 0x00000025U), 0x00000206U
+
+#define REG_LB1_SHIFT_CTRL_ADDR(inst)                    ((uint32_t)(inst) + 0x00000026U)
+#define BF_SL0_LB1_SHIFT_INFO(inst)                      ((uint32_t)(inst) + 0x00000026U), 0x00000200U
+#define BF_SL1_LB1_SHIFT_INFO(inst)                      ((uint32_t)(inst) + 0x00000026U), 0x00000202U
+#define BF_SL0_LB1_SHIFT_8T8R_INFO(inst)                 ((uint32_t)(inst) + 0x00000026U), 0x00000204U
+#define BF_SL1_LB1_SHIFT_8T8R_INFO(inst)                 ((uint32_t)(inst) + 0x00000026U), 0x00000206U
+
+#define REG_LB2_CFG0_ADDR(inst)                          ((uint32_t)(inst) + 0x00000027U)
+#define BF_LB2_EN_INFO(inst)                             ((uint32_t)(inst) + 0x00000027U), 0x00000800U
+
+#define REG_LB2_CFG1_ADDR(inst)                          ((uint32_t)(inst) + 0x00000028U)
+#define BF_LB2_RDPTR_SYNC_RSTVAL_SL00_INFO(inst)         ((uint32_t)(inst) + 0x00000028U), 0x00000200U
+#define BF_LB2_RDPTR_SYNC_RSTVAL_SL01_INFO(inst)         ((uint32_t)(inst) + 0x00000028U), 0x00000202U
+#define BF_LB2_RDPTR_SYNC_RSTVAL_SL10_INFO(inst)         ((uint32_t)(inst) + 0x00000028U), 0x00000204U
+#define BF_LB2_RDPTR_SYNC_RSTVAL_SL11_INFO(inst)         ((uint32_t)(inst) + 0x00000028U), 0x00000206U
+
+#define REG_ZCD_SEL_TX_ADDR(inst)                        ((uint32_t)(inst) + 0x00000029U)
+#define BF_ZCD_SEL_TAP1_TX_MISC_INFO(inst)               ((uint32_t)(inst) + 0x00000029U), 0x00000400U
+#define BF_ZCD_SEL_TAP2_TX_MISC_INFO(inst)               ((uint32_t)(inst) + 0x00000029U), 0x00000404U
+
+#ifdef USE_PRIVATE_BF
+#define REG_LINX_DBG_CNT_EN_TX_MISC_ADDR(inst)           ((uint32_t)(inst) + 0x0000033EU)
+#define BF_LNX_DBG_CNT_EN_INFO(inst)                     ((uint32_t)(inst) + 0x0000033EU), 0x00000800U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_PROCESS_MON_SEL_ADDR(inst)                   ((uint32_t)(inst) + 0x0000033FU)
+#define BF_PROCESS_MON_SEL_INFO(inst)                    ((uint32_t)(inst) + 0x0000033FU), 0x00000800U
+
+#define REG_JESD_LBK_REGISTER_ADDR(inst)                 ((uint32_t)(inst) + 0x00000340U)
+#define BF_JESD_LBK_MODE_INFO(inst)                      ((uint32_t)(inst) + 0x00000340U), 0x00000100U
+#ifdef USE_PRIVATE_BF
+#define BF_JESD_LBK_MODE_PTR_INFO(inst)                  ((uint32_t)(inst) + 0x00000340U), 0x00000201U
+#endif /* USE_PRIVATE_BF */
+#ifdef USE_PRIVATE_BF
+#define BF_JESD_LBK_MODE_PTR_OVERRIDE_TX_MISC_INFO(inst) ((uint32_t)(inst) + 0x00000340U), 0x00000103U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LB1_BIST_RD_SEL_ADDR(inst)                   ((inst) + 0x00000342)
-#define BF_LB1_BIST_SIGN_RD_SEL_INFO(inst)               ((inst) + 0x00000342), 0x00000500
+#define REG_LB1_BIST_CFG_TX_MISC_ADDR(inst)              ((uint32_t)(inst) + 0x00000341U)
+#define BF_LB1_BIST_SIGN_RD_EN_INFO(inst)                ((uint32_t)(inst) + 0x00000341U), 0x00000100U
+#define BF_LB1_BIST_SIGN_RD_MODE_INFO(inst)              ((uint32_t)(inst) + 0x00000341U), 0x00000101U
+#define BF_LB1_BIST_SIGN_RD_CLR_INFO(inst)               ((uint32_t)(inst) + 0x00000341U), 0x00000102U
+#define BF_LB1_BIST_ZERO_NOT_SENSITIVE_INFO(inst)        ((uint32_t)(inst) + 0x00000341U), 0x00000103U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LB1_BIST_SIGN_LSB_ADDR(inst)                 ((inst) + 0x00000343)
-#define BF_LB1_BIST_SIGNATURE_INFO(inst)                 ((inst) + 0x00000343), 0x00001800
-#endif /* USE_PRIVATE_BF */
-
-#define REG_LB1_BIST_SIGN_MID_ADDR(inst)                 ((inst) + 0x00000344)
-
-#define REG_LB1_BIST_SIGN_MSB_ADDR(inst)                 ((inst) + 0x00000345)
-
-#ifdef USE_PRIVATE_BF
-#define REG_LB2_BIST_CFG_TX_MISC_ADDR(inst)              ((inst) + 0x00000346)
-#define BF_LB2_BIST_SIGN_RD_EN_INFO(inst)                ((inst) + 0x00000346), 0x00000100
-#define BF_LB2_BIST_SIGN_RD_MODE_INFO(inst)              ((inst) + 0x00000346), 0x00000101
-#define BF_LB2_BIST_SIGN_RD_CLR_INFO(inst)               ((inst) + 0x00000346), 0x00000102
-#define BF_LB2_BIST_ZERO_NOT_SENSITIVE_INFO(inst)        ((inst) + 0x00000346), 0x00000103
+#define REG_LB1_BIST_RD_SEL_ADDR(inst)                   ((uint32_t)(inst) + 0x00000342U)
+#define BF_LB1_BIST_SIGN_RD_SEL_INFO(inst)               ((uint32_t)(inst) + 0x00000342U), 0x00000500U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LB2_BIST_RD_SEL_ADDR(inst)                   ((inst) + 0x00000347)
-#define BF_LB2_BIST_SIGN_RD_SEL_INFO(inst)               ((inst) + 0x00000347), 0x00000400
+#define REG_LB1_BIST_SIGN_LSB_ADDR(inst)                 ((uint32_t)(inst) + 0x00000343U)
+#define BF_LB1_BIST_SIGNATURE_INFO(inst)                 ((uint32_t)(inst) + 0x00000343U), 0x00001800U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_LB1_BIST_SIGN_MID_ADDR(inst)                 ((uint32_t)(inst) + 0x00000344U)
+
+#define REG_LB1_BIST_SIGN_MSB_ADDR(inst)                 ((uint32_t)(inst) + 0x00000345U)
+
+#ifdef USE_PRIVATE_BF
+#define REG_LB2_BIST_CFG_TX_MISC_ADDR(inst)              ((uint32_t)(inst) + 0x00000346U)
+#define BF_LB2_BIST_SIGN_RD_EN_INFO(inst)                ((uint32_t)(inst) + 0x00000346U), 0x00000100U
+#define BF_LB2_BIST_SIGN_RD_MODE_INFO(inst)              ((uint32_t)(inst) + 0x00000346U), 0x00000101U
+#define BF_LB2_BIST_SIGN_RD_CLR_INFO(inst)               ((uint32_t)(inst) + 0x00000346U), 0x00000102U
+#define BF_LB2_BIST_ZERO_NOT_SENSITIVE_INFO(inst)        ((uint32_t)(inst) + 0x00000346U), 0x00000103U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LB2_BIST_SIGN_LSB_ADDR(inst)                 ((inst) + 0x00000348)
-#define BF_LB2_BIST_SIGNATURE_INFO(inst)                 ((inst) + 0x00000348), 0x00001800
+#define REG_LB2_BIST_RD_SEL_ADDR(inst)                   ((uint32_t)(inst) + 0x00000347U)
+#define BF_LB2_BIST_SIGN_RD_SEL_INFO(inst)               ((uint32_t)(inst) + 0x00000347U), 0x00000400U
 #endif /* USE_PRIVATE_BF */
-
-#define REG_LB2_BIST_SIGN_MID_ADDR(inst)                 ((inst) + 0x00000349)
-
-#define REG_LB2_BIST_SIGN_MSB_ADDR(inst)                 ((inst) + 0x0000034A)
 
 #ifdef USE_PRIVATE_BF
-#define REG_MODE_8T8R_TX_MISC_ADDR(inst)                 ((inst) + 0x0000034B)
-#define BF_MODE_8T8R_TX_MISC_INFO(inst)                  ((inst) + 0x0000034B), 0x00000100
+#define REG_LB2_BIST_SIGN_LSB_ADDR(inst)                 ((uint32_t)(inst) + 0x00000348U)
+#define BF_LB2_BIST_SIGNATURE_INFO(inst)                 ((uint32_t)(inst) + 0x00000348U), 0x00001800U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_LB_RDPTR_CTRL_ADDR(inst)                     ((inst) + 0x0000034C)
-#define BF_LB1_RDPTR_RSTVAL_OVERRIDE_SL0_INFO(inst)      ((inst) + 0x0000034C), 0x00000100
-#define BF_LB1_RDPTR_RSTVAL_OVERRIDE_SL1_INFO(inst)      ((inst) + 0x0000034C), 0x00000101
-#define BF_LB2_RDPTR_RSTVAL_OVERRIDE_SL00_INFO(inst)     ((inst) + 0x0000034C), 0x00000102
-#define BF_LB2_RDPTR_RSTVAL_OVERRIDE_SL01_INFO(inst)     ((inst) + 0x0000034C), 0x00000103
-#define BF_LB2_RDPTR_RSTVAL_OVERRIDE_SL10_INFO(inst)     ((inst) + 0x0000034C), 0x00000104
-#define BF_LB2_RDPTR_RSTVAL_OVERRIDE_SL11_INFO(inst)     ((inst) + 0x0000034C), 0x00000105
+#define REG_LB2_BIST_SIGN_MID_ADDR(inst)                 ((uint32_t)(inst) + 0x00000349U)
 
-#endif /* __ADI_APOLLO_BF_TX_MISC_H__ */
+#define REG_LB2_BIST_SIGN_MSB_ADDR(inst)                 ((uint32_t)(inst) + 0x0000034AU)
+
+#ifdef USE_PRIVATE_BF
+#define REG_MODE_8T8R_TX_MISC_ADDR(inst)                 ((uint32_t)(inst) + 0x0000034BU)
+#define BF_MODE_8T8R_TX_MISC_INFO(inst)                  ((uint32_t)(inst) + 0x0000034BU), 0x00000100U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_LB_RDPTR_CTRL_ADDR(inst)                     ((uint32_t)(inst) + 0x0000034CU)
+#define BF_LB1_RDPTR_RSTVAL_OVERRIDE_SL0_INFO(inst)      ((uint32_t)(inst) + 0x0000034CU), 0x00000100U
+#define BF_LB1_RDPTR_RSTVAL_OVERRIDE_SL1_INFO(inst)      ((uint32_t)(inst) + 0x0000034CU), 0x00000101U
+#define BF_LB2_RDPTR_RSTVAL_OVERRIDE_SL00_INFO(inst)     ((uint32_t)(inst) + 0x0000034CU), 0x00000102U
+#define BF_LB2_RDPTR_RSTVAL_OVERRIDE_SL01_INFO(inst)     ((uint32_t)(inst) + 0x0000034CU), 0x00000103U
+#define BF_LB2_RDPTR_RSTVAL_OVERRIDE_SL10_INFO(inst)     ((uint32_t)(inst) + 0x0000034CU), 0x00000104U
+#define BF_LB2_RDPTR_RSTVAL_OVERRIDE_SL11_INFO(inst)     ((uint32_t)(inst) + 0x0000034CU), 0x00000105U
+
+#endif /* ADI_APOLLO_BF_TX_MISC_H__ */
 /*! @} */

@@ -12,19 +12,19 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_JRX_PHY_IFX_H__
-#define __ADI_APOLLO_BF_JRX_PHY_IFX_H__
+#ifndef ADI_APOLLO_BF_JRX_PHY_IFX_H__
+#define ADI_APOLLO_BF_JRX_PHY_IFX_H__
 
 /*============= D E F I N E S ==============*/
-#define JRX_PHY_IFX_JRX_TX_DIGITAL0                  0x61614000
-#define JRX_PHY_IFX_JRX_TX_DIGITAL1                  0x61E14000
+#define JRX_PHY_IFX_JRX_TX_DIGITAL0                  0x61614000U
+#define JRX_PHY_IFX_JRX_TX_DIGITAL1                  0x61E14000U
 
 #ifdef USE_PRIVATE_BF
-#define REG_JRX_PHY_IFX_LANE_PHY_SPLIT_ADDR(inst, n) ((inst) + 0x00000000 + 1 * (n))
-#define BF_JRX_IFX_LOG2_SPLIT_INFO(inst, n)          ((inst) + 0x00000000 + 1 * (n)), 0x00000200
-#define BF_JRX_IFX_LANE_SEL_INFO(inst, n)            ((inst) + 0x00000000 + 1 * (n)), 0x00000502
-#define BF_JRX_IFX_LANE_INVERSE_INFO(inst, n)        ((inst) + 0x00000000 + 1 * (n)), 0x00000107
+#define REG_JRX_PHY_IFX_LANE_PHY_SPLIT_ADDR(inst, n) ((uint32_t)(inst) + 0x00000000U + 1U * (uint32_t)(n))
+#define BF_JRX_IFX_LOG2_SPLIT_INFO(inst, n)          ((uint32_t)(inst) + 0x00000000U + 1U * (uint32_t)(n)), 0x00000200U
+#define BF_JRX_IFX_LANE_SEL_INFO(inst, n)            ((uint32_t)(inst) + 0x00000000U + 1U * (uint32_t)(n)), 0x00000502U
+#define BF_JRX_IFX_LANE_INVERSE_INFO(inst, n)        ((uint32_t)(inst) + 0x00000000U + 1U * (uint32_t)(n)), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
-#endif /* __ADI_APOLLO_BF_JRX_PHY_IFX_H__ */
+#endif /* ADI_APOLLO_BF_JRX_PHY_IFX_H__ */
 /*! @} */

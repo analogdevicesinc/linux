@@ -22,22 +22,22 @@
 #include "adi_apollo_hal.h"
 
 /*==================== P U B L I C   A P I   C O D E ====================*/
-static uint32_t calc_tx_hsdout_base(int32_t index);
+static uint32_t calc_tx_hsdout_base(uint32_t index);
 
 int32_t adi_apollo_invsinc_enable(adi_apollo_device_t *device, adi_apollo_blk_sel_t invsincs, const uint8_t enable)
 {
     int32_t err;
-    uint8_t i;
+    uint32_t i;
     adi_apollo_blk_sel_t invsinc;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_INVSINC_BLK_SEL_MASK(invsincs);
-    
+
     for (i = 0; i < ADI_APOLLO_NUM_INVSINC; i++) {
-        invsinc = invsincs & (ADI_APOLLO_INVSINC_A0 << i) & (device->dev_info.is_8t8r ? 0xff : 0x33);
-        if (invsinc > 0) {
+        invsinc = (adi_apollo_blk_sel_t)(invsincs & ((uint32_t)ADI_APOLLO_INVSINC_A0 << i) & ((device->dev_info.is_8t8r != 0U) ? 0xffU : 0x33U));
+        if (invsinc > 0U) {
             regmap_base_addr = calc_tx_hsdout_base(i);
 
 	        /* Enable INVSINC CLK */
@@ -48,8 +48,8 @@ int32_t adi_apollo_invsinc_enable(adi_apollo_device_t *device, adi_apollo_blk_se
             err = adi_apollo_hal_bf_set(device, BF_INVSINC_EN_INFO(regmap_base_addr), enable);
             ADI_APOLLO_ERROR_RETURN(err);
   
-            if (device->dev_info.is_8t8r == 0) { // In 4T4R, in the current design, Invsinc enable control uses 2 bits to control each slice.
-                regmap_base_addr = calc_tx_hsdout_base(i + 2); 
+            if (device->dev_info.is_8t8r == 0U) { // In 4T4R, in the current design, Invsinc enable control uses 2 bits to control each slice.
+                regmap_base_addr = calc_tx_hsdout_base(i + 2U); 
 
                 err = adi_apollo_hal_bf_set(device, BF_INVSINC_EN_INFO(regmap_base_addr), enable);
                 ADI_APOLLO_ERROR_RETURN(err);
@@ -57,14 +57,14 @@ int32_t adi_apollo_invsinc_enable(adi_apollo_device_t *device, adi_apollo_blk_se
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 
 int32_t adi_apollo_invsinc_inspect(adi_apollo_device_t *device, adi_apollo_blk_sel_t invsincs, adi_apollo_invsinc_inspect_t *invsinc_inspect)
 {
     int32_t err;
-    uint8_t i;
+    uint32_t i;
     adi_apollo_blk_sel_t invsinc;
     uint32_t regmap_base_addr = 0;
 
@@ -75,8 +75,8 @@ int32_t adi_apollo_invsinc_inspect(adi_apollo_device_t *device, adi_apollo_blk_s
     ADI_APOLLO_INVSINC_BLK_SEL_MASK(invsincs);
 
     for (i = 0; i < ADI_APOLLO_NUM_INVSINC; i++) {
-        invsinc = invsincs & (ADI_APOLLO_INVSINC_A0 << i);
-        if (invsinc > 0) {
+        invsinc = (adi_apollo_blk_sel_t)(invsincs & ((uint32_t)ADI_APOLLO_INVSINC_A0 << i));
+        if (invsinc > 0U) {
             regmap_base_addr = calc_tx_hsdout_base(i);
 
 	        /* Get INVSINC CLK enable state */
@@ -91,10 +91,10 @@ int32_t adi_apollo_invsinc_inspect(adi_apollo_device_t *device, adi_apollo_blk_s
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
-static uint32_t calc_tx_hsdout_base(int32_t index)
+static uint32_t calc_tx_hsdout_base(uint32_t index)
 {
     static uint32_t tx_hsdout_regmap[ADI_APOLLO_DAC_NUM] = {
         TX_HSDOUT0_TX_SLICE_0_TX_DIGITAL0,      /* A0 */

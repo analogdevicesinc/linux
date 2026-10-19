@@ -14,16 +14,16 @@
  * @{
  */
  
-#ifndef __ADI_APOLLO_GPIO_TYPES_H__
-#define __ADI_APOLLO_GPIO_TYPES_H__
+#ifndef ADI_APOLLO_GPIO_TYPES_H__
+#define ADI_APOLLO_GPIO_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
 #include "adi_apollo_common.h"
 
 /*============= D E F I N E S ==============*/
-#define ADI_APOLLO_NUM_CMOS_GPIO                 35     /*! [34:00] */
-#define ADI_APOLLO_NUM_GPIO                      51     /*! [50:35] */
+#define ADI_APOLLO_NUM_CMOS_GPIO                 35U    /*! [34:00] */
+#define ADI_APOLLO_NUM_GPIO                      51U    /*! [50:35] */
 
 /*!
 * \brief Enumerates Sync Pads 
@@ -58,6 +58,8 @@ typedef enum {
 
 /*!
 * \brief Enumerates Quick Config Profiles
+* Note that the AD9084/AD9088 Device User Guide takes precedence over GPIO Pinmux & Pin Interrupt User Guide
+* in respect of the numbering of quick config profiles.
 */
 typedef enum {
     ADI_APOLLO_QUICK_CFG_DISABLE    = 0,     /*!<Disable quick config and allow custom routings */
@@ -279,5 +281,5 @@ typedef enum {
     ADI_APOLLO_DEBUG_STAGE_3  = 3        /*!CMOS Debug stage 3 */
 } adi_apollo_gpio_cmos_debug_stage_e;
 
-#endif /* __ADI_APOLLO_GPIO_TYPES_H__ */
+#endif /* ADI_APOLLO_GPIO_TYPES_H__ */
 /*! @} */

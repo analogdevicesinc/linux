@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_SERDES
  * @{
  */
-#ifndef __ADI_APOLLO_SERDES_TYPES_H__
-#define __ADI_APOLLO_SERDES_TYPES_H__
+#ifndef ADI_APOLLO_SERDES_TYPES_H__
+#define ADI_APOLLO_SERDES_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -190,6 +190,6 @@ typedef struct
     int8_t  eye_heights_at_spo[ADI_APOLLO_SERDES_JRX_VERT_EYE_TEST_RESP_BUF_SIZE];  /*!< Test results buffer */
 } adi_apollo_serdes_jrx_vert_eye_resp_t;
 
-#endif /* __ADI_APOLLO_SERDES_TYPES_H__ */
+#endif /* ADI_APOLLO_SERDES_TYPES_H__ */
 
 /*! @} */

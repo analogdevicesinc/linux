@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_RXEN
  * @{
  */
-#ifndef __ADI_APOLLO_RXEN_LOCAL_H__
-#define __ADI_APOLLO_RXEN_LOCAL_H__
+#ifndef ADI_APOLLO_RXEN_LOCAL_H__
+#define ADI_APOLLO_RXEN_LOCAL_H__
 
 /*============= I N C L U D E S ============*/
 
@@ -23,8 +23,6 @@
 extern "C" {
 #endif
 
-uint32_t calc_txen_power_ctrl_base(int32_t adc_index);
-uint32_t calc_rx_enable_base(int32_t index);
 
 #ifndef CLIENT_IGNORE
 #endif /* CLIENT_IGNORE*/
@@ -33,5 +31,5 @@ uint32_t calc_rx_enable_base(int32_t index);
 }
 #endif
 
-#endif /* __ADI_APOLLO_RXEN_LOCAL_H__ */
+#endif /* ADI_APOLLO_RXEN_LOCAL_H__ */
 /*! @} */

@@ -93,7 +93,7 @@ int32_t adi_apollo_private_device_hsci_manual_linkup_configure(adi_apollo_device
     err = hsci_manual_linkup_enable_set(device, 0, 0x00);
     ADI_CMS_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_private_device_hsci_auto_linkup_configure(adi_apollo_device_t *device)
@@ -142,7 +142,7 @@ int32_t adi_apollo_private_device_hsci_auto_linkup_configure(adi_apollo_device_t
         // Calculate rxclk_adj value based on AUTO_LINK_TABLE
         // If valid rxclk_adj value isn't found, flip the MOSI_CLK_INV Bit and set error flag
         err = calc_rxclk_adj_from_link_table(device, apollo_alink_table, &calc_rx_clk_adj);
-        if (err == API_CMS_ERROR_HSCI_LINK_UP) {
+        if (err == (int32_t)API_CMS_ERROR_HSCI_LINK_UP) {
             hscim_mosi_clk_inv ^= 0x01;
             hscim_mosi_clk_inv &= 0x01;
             rx_calc_err_status = 1;
@@ -153,7 +153,7 @@ int32_t adi_apollo_private_device_hsci_auto_linkup_configure(adi_apollo_device_t
         // Calculate txclk_adj value based on HSCIM_LINK_TABLE
         // If valid txclk_adj value isn't found, flip the MISO_CLK_INV Bit and set error flag
         err = calc_txclk_adj_from_link_table(device, hscim_alink_table, &calc_tx_clk_adj);
-        if (err == API_CMS_ERROR_HSCI_LINK_UP) {
+        if (err == (int32_t)API_CMS_ERROR_HSCI_LINK_UP) {
             hscim_miso_clk_inv ^= 0x01;
             hscim_miso_clk_inv &= 0x01;
             tx_calc_err_status = 1;
@@ -162,7 +162,7 @@ int32_t adi_apollo_private_device_hsci_auto_linkup_configure(adi_apollo_device_t
         }
 
         // If any tx/rxclk_adj value is invalid, disable HSCI auto linkup on Apollo and FPGA
-        if ((rx_calc_err_status != 0) || (tx_calc_err_status != 0)) {
+        if ((rx_calc_err_status != 0U) || (tx_calc_err_status != 0U)) {
             err = hsci_auto_linkup_enable_set(device, 0, hscim_mosi_clk_inv, hscim_miso_clk_inv);
             ADI_CMS_ERROR_RETURN(err);
 
@@ -171,17 +171,19 @@ int32_t adi_apollo_private_device_hsci_auto_linkup_configure(adi_apollo_device_t
         } else {
             auto_linkup_achieved = 1;
         }
-    } while ((auto_linkup_achieved != 1) && (retry_count < 5));
+    } while ((auto_linkup_achieved != 1U) && (retry_count < 5U));
 
-    if (auto_linkup_achieved == 0x01) {
+    if (auto_linkup_achieved == 0x01U) {
         ADI_APOLLO_LOG_MSG("Apollo HSCI Auto Link: Established.");
     } else {
         ADI_APOLLO_LOG_MSG("Apollo HSCI Auto Link: *** FAILED ***.");
-        ADI_CMS_ERROR_RETURN(API_CMS_ERROR_HSCI_LINK_UP);
+        err = (int32_t)API_CMS_ERROR_HSCI_LINK_UP;
     }
+    ADI_CMS_ERROR_RETURN(err);
 
     // Readback CLK setting updated during Auto linkup procedure
-    apollo_hsci_auto_link_clk_values_get(device, &auto_rxclk_inv, &auto_rxclk_adj, &auto_txclk_inv, &auto_txclk_adj);
+    err = apollo_hsci_auto_link_clk_values_get(device, &auto_rxclk_inv, &auto_rxclk_adj, &auto_txclk_inv, &auto_txclk_adj);
+    ADI_APOLLO_ERROR_RETURN(err);
     ADI_CMS_ERROR_RETURN(err);
 
     // Disable HSCI Auto linkup on Apollo and FPGA
@@ -192,7 +194,7 @@ int32_t adi_apollo_private_device_hsci_auto_linkup_configure(adi_apollo_device_t
     err = apollo_hsci_clk_values_set(device, auto_rxclk_inv, calc_rx_clk_adj, auto_txclk_inv, calc_tx_clk_adj);
     ADI_CMS_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 static int32_t hsci_manual_linkup_enable_set(adi_apollo_device_t *device, uint8_t enable, uint16_t link_up_signal_bits)
@@ -200,7 +202,7 @@ static int32_t hsci_manual_linkup_enable_set(adi_apollo_device_t *device, uint8_
     int32_t err = 0;
 
     ADI_CMS_NULL_PTR_CHECK(device);
-    ADI_APOLLO_INVALID_PARAM_RETURN(enable > 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(enable > 1U);
 
     // Enable HSCI port On Apollo
     err = adi_apollo_hal_bf_set(device, BF_HSCI_EN_INFO, 1);
@@ -221,24 +223,27 @@ static int32_t hsci_manual_linkup_enable_set(adi_apollo_device_t *device, uint8_
     err = adi_apollo_hal_delay_us(device, 1000);
     ADI_CMS_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 static int32_t calc_rxclk_adj_from_eyediagram(adi_apollo_device_t *device, uint16_t eye_diagram, uint8_t *calc_rx_clk_adj)
 {
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
+
     ADI_APOLLO_LOG_VAR(ADI_CMS_LOG_API, "Apollo EYE_DIAGRAM: 0x%04X.", eye_diagram);
 
-    if (!adi_api_utils_check_consecutive_ones_bounded(eye_diagram, FIVE_CONSECUTIVE_1S_VAL, FIVE_CONSECUTIVE_1S_INDEX_BOUNDS, calc_rx_clk_adj)) {
+    if (adi_api_utils_check_consecutive_ones_bounded(eye_diagram, FIVE_CONSECUTIVE_1S_VAL, FIVE_CONSECUTIVE_1S_INDEX_BOUNDS, calc_rx_clk_adj) == 0) {
         ADI_APOLLO_LOG_VAR(ADI_CMS_LOG_API, "There are 5 consecutive 1's in the Apollo's Eye-Diagram. Rx_clk_adj centered at index %d.", *calc_rx_clk_adj);
-    } else if (!adi_api_utils_check_consecutive_ones_bounded(eye_diagram, THREE_CONSECUTIVE_1S_VAL, THREE_CONSECUTIVE_1S_INDEX_BOUNDS, calc_rx_clk_adj)) {
+    } else if (adi_api_utils_check_consecutive_ones_bounded(eye_diagram, THREE_CONSECUTIVE_1S_VAL, THREE_CONSECUTIVE_1S_INDEX_BOUNDS, calc_rx_clk_adj) == 0) {
         ADI_APOLLO_LOG_VAR(ADI_CMS_LOG_API, "There are 3 consecutive 1's in the Apollo's Eye-Diagram. Rx_clk_adj centered at index %d.", *calc_rx_clk_adj);
     } else {
         *calc_rx_clk_adj = 0;   // 0 is an invalid clk_adj value
         ADI_APOLLO_LOG_ERR("There are no consecutive 1's of length 3 or 5, in Apollo's Eye-Diagram.");
-        ADI_CMS_ERROR_RETURN(API_CMS_ERROR_HSCI_LINK_UP);
+        err = (int32_t)API_CMS_ERROR_HSCI_LINK_UP;
     }
+    ADI_CMS_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 static int32_t hsci_auto_linkup_enable_set(adi_apollo_device_t *device, uint8_t enable, uint8_t hscim_mosi_clk_inv, uint8_t hscim_miso_clk_inv)
@@ -249,9 +254,9 @@ static int32_t hsci_auto_linkup_enable_set(adi_apollo_device_t *device, uint8_t 
     uint8_t link_active = 0;
 
     ADI_CMS_NULL_PTR_CHECK(device);
-    ADI_APOLLO_INVALID_PARAM_RETURN(enable > 1);
-    ADI_APOLLO_INVALID_PARAM_RETURN(hscim_mosi_clk_inv > 1);
-    ADI_APOLLO_INVALID_PARAM_RETURN(hscim_miso_clk_inv > 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(enable > 1U);
+    ADI_APOLLO_INVALID_PARAM_RETURN(hscim_mosi_clk_inv > 1U);
+    ADI_APOLLO_INVALID_PARAM_RETURN(hscim_miso_clk_inv > 1U);
 
     // Enables (or disables) txclk_adj value to be overridden during auto linkup
     err = adi_apollo_hal_bf_set(device, BF_TXCLK_ADJ_OVERRIDE_INFO, enable);
@@ -271,68 +276,74 @@ static int32_t hsci_auto_linkup_enable_set(adi_apollo_device_t *device, uint8_t 
 
     // When enabled, check if HSCI Link is established on Apollo
     // And when disabled, soft resets the HSCI port on Apollo
-    if (enable) {
+    if (enable != 0U) {
         for (i = 0; i < retry_count; ++i) {
             err = adi_apollo_hal_bf_get(device, BF_LINK_ACTIVE_INFO, &link_active, 1);
             ADI_CMS_ERROR_RETURN(err);
 
-            if (link_active == 0x01) {
+            if (link_active == 0x01U) {
                 ADI_APOLLO_LOG_MSG("Apollo HSCI Auto Link: Active.");
                 break;
-            } else if ((link_active == 0x00) && (i < (retry_count - 1))) {
+            } else if ((link_active == 0x00U) && (i < (retry_count - 1U))) {
                 ADI_APOLLO_LOG_MSG("Waiting for link to establish...");
                 err = adi_apollo_hal_delay_us(device, 1000);
-                ADI_CMS_ERROR_RETURN(err);
             } else {
                 ADI_APOLLO_LOG_MSG("Apollo HSCI Auto Link: *** FAILED ***.");
-                ADI_CMS_ERROR_RETURN(API_CMS_ERROR_OPERATION_TIMEOUT);
+                err = (int32_t)API_CMS_ERROR_OPERATION_TIMEOUT;
             }
+            ADI_CMS_ERROR_RETURN(err);
         }
     } else {
         err = apollo_hsci_reset(device, 0);
         ADI_CMS_ERROR_RETURN(err);
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 
 static int32_t calc_rxclk_adj_from_link_table(adi_apollo_device_t *device, uint16_t apollo_alink_table, uint8_t *calc_rx_clk_adj)
 {
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
+
     ADI_APOLLO_LOG_VAR(ADI_CMS_LOG_API, "Apollo AUTO_LINK_TABLE: 0x%04X.", apollo_alink_table);
 
-    if (!adi_api_utils_check_consecutive_ones_bounded(apollo_alink_table, SEVEN_CONSECUTIVE_1S_VAL, SEVEN_CONSECUTIVE_1S_INDEX_BOUNDS, calc_rx_clk_adj)) {
+    if (adi_api_utils_check_consecutive_ones_bounded(apollo_alink_table, SEVEN_CONSECUTIVE_1S_VAL, SEVEN_CONSECUTIVE_1S_INDEX_BOUNDS, calc_rx_clk_adj) == 0) {
         ADI_APOLLO_LOG_VAR(ADI_CMS_LOG_API, "There are 7 consecutive 1's in the Apollo's AUTO_LINK_TABLE. Rx_clk_adj centered at index %d.", *calc_rx_clk_adj);
-    } else if (!adi_api_utils_check_consecutive_ones_bounded(apollo_alink_table, FIVE_CONSECUTIVE_1S_VAL, FIVE_CONSECUTIVE_1S_INDEX_BOUNDS, calc_rx_clk_adj)) {
+    } else if (adi_api_utils_check_consecutive_ones_bounded(apollo_alink_table, FIVE_CONSECUTIVE_1S_VAL, FIVE_CONSECUTIVE_1S_INDEX_BOUNDS, calc_rx_clk_adj) == 0) {
         ADI_APOLLO_LOG_VAR(ADI_CMS_LOG_API, "There are 5 consecutive 1's in the Apollo's AUTO_LINK_TABLE. Rx_clk_adj centered at index %d.", *calc_rx_clk_adj);
-    } else if (!adi_api_utils_check_consecutive_ones_bounded(apollo_alink_table, THREE_CONSECUTIVE_1S_VAL, THREE_CONSECUTIVE_1S_INDEX_BOUNDS, calc_rx_clk_adj)) {
+    } else if (adi_api_utils_check_consecutive_ones_bounded(apollo_alink_table, THREE_CONSECUTIVE_1S_VAL, THREE_CONSECUTIVE_1S_INDEX_BOUNDS, calc_rx_clk_adj) == 0) {
         ADI_APOLLO_LOG_VAR(ADI_CMS_LOG_API, "There are 3 consecutive 1's in the Apollo's AUTO_LINK_TABLE. Rx_clk_adj centered at index %d.", *calc_rx_clk_adj);
     } else {
         *calc_rx_clk_adj = 0;   // 0 is an invalid clk_adj value
         ADI_APOLLO_LOG_ERR("There are no consecutive 1's of length 3, 5 or 7, in Apollo's AUTO_LINK_TABLE.");
-        ADI_CMS_ERROR_RETURN(API_CMS_ERROR_HSCI_LINK_UP);
+        err = (int32_t)API_CMS_ERROR_HSCI_LINK_UP;
     }
+    ADI_CMS_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 static int32_t calc_txclk_adj_from_link_table(adi_apollo_device_t *device, uint16_t hscim_alink_table, uint8_t *calc_tx_clk_adj)
 {
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
+
     ADI_APOLLO_LOG_VAR(ADI_CMS_LOG_API, "FPGA HSCI_M ALINK_TABLE: 0x%04X.", hscim_alink_table);
 
-    if (!adi_api_utils_check_consecutive_ones_bounded(hscim_alink_table, SEVEN_CONSECUTIVE_1S_VAL, SEVEN_CONSECUTIVE_1S_INDEX_BOUNDS, calc_tx_clk_adj)) {
+    if (adi_api_utils_check_consecutive_ones_bounded(hscim_alink_table, SEVEN_CONSECUTIVE_1S_VAL, SEVEN_CONSECUTIVE_1S_INDEX_BOUNDS, calc_tx_clk_adj) == 0) {
         ADI_APOLLO_LOG_VAR(ADI_CMS_LOG_API, "There are 7 consecutive 1's in the FPGA's ALINK_TABLE. Tx_clk_adj centered at index %d.", *calc_tx_clk_adj);
-    } else if (!adi_api_utils_check_consecutive_ones_bounded(hscim_alink_table, FIVE_CONSECUTIVE_1S_VAL, FIVE_CONSECUTIVE_1S_INDEX_BOUNDS, calc_tx_clk_adj)) {
+    } else if (adi_api_utils_check_consecutive_ones_bounded(hscim_alink_table, FIVE_CONSECUTIVE_1S_VAL, FIVE_CONSECUTIVE_1S_INDEX_BOUNDS, calc_tx_clk_adj) == 0) {
         ADI_APOLLO_LOG_VAR(ADI_CMS_LOG_API, "There are 5 consecutive 1's in the FPGA's ALINK_TABLE. Tx_clk_adj centered at index %d.", *calc_tx_clk_adj);
-    } else if (!adi_api_utils_check_consecutive_ones_bounded(hscim_alink_table, THREE_CONSECUTIVE_1S_VAL, THREE_CONSECUTIVE_1S_INDEX_BOUNDS, calc_tx_clk_adj)) {
+    } else if (adi_api_utils_check_consecutive_ones_bounded(hscim_alink_table, THREE_CONSECUTIVE_1S_VAL, THREE_CONSECUTIVE_1S_INDEX_BOUNDS, calc_tx_clk_adj) == 0) {
         ADI_APOLLO_LOG_VAR(ADI_CMS_LOG_API, "There are 3 consecutive 1's in the FPGA's ALINK_TABLE. Tx_clk_adj centered at index %d.", *calc_tx_clk_adj);
     } else {
         *calc_tx_clk_adj = 0;   // 0 is an invalid clk_adj value
         ADI_APOLLO_LOG_ERR("There are no consecutive 1's of length 3, 5 or 7, in FPGA's ALINK_TABLE.");
-        ADI_CMS_ERROR_RETURN(API_CMS_ERROR_HSCI_LINK_UP);
+        err = (int32_t)API_CMS_ERROR_HSCI_LINK_UP;
     }
+    ADI_CMS_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 
@@ -341,10 +352,10 @@ static int32_t apollo_hsci_clk_values_set(adi_apollo_device_t *device, uint8_t r
     int32_t err = 0;
 
     ADI_CMS_NULL_PTR_CHECK(device);
-    ADI_APOLLO_INVALID_PARAM_RETURN(rx_inv > 1);
-    ADI_APOLLO_INVALID_PARAM_RETURN(rx_adj > 15);
-    ADI_APOLLO_INVALID_PARAM_RETURN(tx_inv > 1);
-    ADI_APOLLO_INVALID_PARAM_RETURN(tx_adj > 15);
+    ADI_APOLLO_INVALID_PARAM_RETURN(rx_inv > 1U);
+    ADI_APOLLO_INVALID_PARAM_RETURN(rx_adj > 15U);
+    ADI_APOLLO_INVALID_PARAM_RETURN(tx_inv > 1U);
+    ADI_APOLLO_INVALID_PARAM_RETURN(tx_adj > 15U);
 
     // Set Rx CLK Invert.
     err = adi_apollo_hal_bf_set(device, BF_HSCI_RXCLK_INV_INFO, rx_inv);
@@ -364,7 +375,7 @@ static int32_t apollo_hsci_clk_values_set(adi_apollo_device_t *device, uint8_t r
 
     ADI_APOLLO_LOG_VAR(ADI_CMS_LOG_API, "Set HSCI_  RXCLK_INV: %02d  RXCLK_ADJ: %02d  TXCLK_INV: %02d  TXCLK_ADJ: %02d.", rx_inv, rx_adj, tx_inv, tx_adj);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 static int32_t apollo_hsci_clk_values_get(adi_apollo_device_t *device, uint8_t *rx_inv, uint8_t *rx_adj, uint8_t *tx_inv, uint8_t *tx_adj)
@@ -396,7 +407,7 @@ static int32_t apollo_hsci_clk_values_get(adi_apollo_device_t *device, uint8_t *
     ADI_APOLLO_LOG_VAR(ADI_CMS_LOG_API, "Get HSCI_  RXCLK_INV: %02d  RXCLK_ADJ: %02d  TXCLK_INV: %02d  TXCLK_ADJ: %02d.",
                        *rx_inv, *rx_adj, *tx_inv, *tx_adj);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 
@@ -429,7 +440,7 @@ static int32_t apollo_hsci_auto_link_clk_values_get(adi_apollo_device_t *device,
     ADI_APOLLO_LOG_VAR(ADI_CMS_LOG_API, "Get AUTO_  RXCLK_INV: %02d  RXCLK_ADJ: %02d  TXCLK_INV: %02d  TXCLK_ADJ: %02d.",
                        *auto_rx_inv, *auto_rx_adj, *auto_tx_inv, *auto_tx_adj);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 
@@ -440,9 +451,9 @@ static int32_t apollo_hsci_reset(adi_apollo_device_t *device, uint8_t do_hard_rs
     uint32_t info = 0;
 
     ADI_CMS_NULL_PTR_CHECK(device);
-    ADI_APOLLO_INVALID_PARAM_RETURN(do_hard_rst > 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(do_hard_rst > 1U);
 
-    info = (do_hard_rst == 1) ? BF_INFO_EXTRACT(BF_HSCI_HARD_RESET_INFO) : BF_INFO_EXTRACT(BF_HSCI_SOFT_RESET_INFO);
+    info = (do_hard_rst == 1U) ? BF_INFO_EXTRACT(BF_HSCI_HARD_RESET_INFO) : BF_INFO_EXTRACT(BF_HSCI_SOFT_RESET_INFO);
 
     err = adi_apollo_hal_bf_set(device, reg, info, 1);
     ADI_CMS_ERROR_RETURN(err);
@@ -453,7 +464,7 @@ static int32_t apollo_hsci_reset(adi_apollo_device_t *device, uint8_t do_hard_rs
     err = adi_apollo_hal_bf_set(device, reg, info, 0);
     ADI_CMS_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 static int32_t apollo_hsci_debug_clk_values_get(adi_apollo_device_t *device)
@@ -472,7 +483,7 @@ static int32_t apollo_hsci_debug_clk_values_get(adi_apollo_device_t *device)
     err = apollo_hsci_auto_link_clk_values_get(device, &rx_inv, &rx_adj, &tx_inv, &tx_adj);
     ADI_CMS_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 static int32_t apollo_hsci_debug_error_reg_get(adi_apollo_device_t *device)
@@ -517,15 +528,15 @@ static int32_t apollo_hsci_debug_error_reg_get(adi_apollo_device_t *device)
     ADI_CMS_ERROR_RETURN(err);
     ADI_APOLLO_LOG_VAR(ADI_CMS_LOG_API, "HSCI_ERR_INFO      (0x%08X): 0x%02X.", REG_HSCI_ERR_INFO_ADDR, reg_read);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 
 uint8_t adi_apollo_private_device_lockout_get(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_private_device_feat_lockout_e feat)
 {
-    return (terminal == ADI_APOLLO_RX ? 
-           (device->dev_info.lockout_mask.rx_lockout_mask & (1ul << feat)) : 
-           (device->dev_info.lockout_mask.tx_lockout_mask & (1ul << feat))) != 0;
+    return ((terminal == ADI_APOLLO_RX) ?
+           (device->dev_info.lockout_mask.rx_lockout_mask & (1UL << feat)) :
+           (device->dev_info.lockout_mask.tx_lockout_mask & (1UL << feat))) != 0;
 }
 
 /*! @} */

@@ -12,693 +12,693 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_MASTER_BIAS_CTRL_H__
-#define __ADI_APOLLO_BF_MASTER_BIAS_CTRL_H__
+#ifndef ADI_APOLLO_BF_MASTER_BIAS_CTRL_H__
+#define ADI_APOLLO_BF_MASTER_BIAS_CTRL_H__
 
 /*============= D E F I N E S ==============*/
-#define MBIAS0                                                  0x4C001800
-#define MBIAS1                                                  0x4C001C00
+#define MBIAS0                                                  0x4C001800U
+#define MBIAS1                                                  0x4C001C00U
 
-#define REG_MBIAS_IGEN_PWRDWN_ADDR(inst)                        ((inst) + 0x00000100)
-#define BF_MBIAS_IGEN_PD_INFO(inst)                             ((inst) + 0x00000100), 0x00000100
-#define BF_MBIAS_TRIM_COMP_PD_INFO(inst)                        ((inst) + 0x00000100), 0x00000101
-#define BF_MBIAS_TRIM_COMP_PD_RD_INFO(inst)                     ((inst) + 0x00000100), 0x00000104
+#define REG_MBIAS_IGEN_PWRDWN_ADDR(inst)                        ((uint32_t)(inst) + 0x00000100U)
+#define BF_MBIAS_IGEN_PD_INFO(inst)                             ((uint32_t)(inst) + 0x00000100U), 0x00000100U
+#define BF_MBIAS_TRIM_COMP_PD_INFO(inst)                        ((uint32_t)(inst) + 0x00000100U), 0x00000101U
+#define BF_MBIAS_TRIM_COMP_PD_RD_INFO(inst)                     ((uint32_t)(inst) + 0x00000100U), 0x00000104U
 
-#define REG_MBIAS_BG_CTAT_TRIM_ADDR(inst)                       ((inst) + 0x00000101)
-#define BF_MBIAS_BG_CTAT_INFO(inst)                             ((inst) + 0x00000101), 0x00000400
-#define BF_MBIAS_BG_CTAT_D_INFO(inst)                           ((inst) + 0x00000101), 0x00000104
-#define BF_MBIAS_BG_CURVE_D_IN_INFO(inst)                       ((inst) + 0x00000101), 0x00000105
+#define REG_MBIAS_BG_CTAT_TRIM_ADDR(inst)                       ((uint32_t)(inst) + 0x00000101U)
+#define BF_MBIAS_BG_CTAT_INFO(inst)                             ((uint32_t)(inst) + 0x00000101U), 0x00000400U
+#define BF_MBIAS_BG_CTAT_D_INFO(inst)                           ((uint32_t)(inst) + 0x00000101U), 0x00000104U
+#define BF_MBIAS_BG_CURVE_D_IN_INFO(inst)                       ((uint32_t)(inst) + 0x00000101U), 0x00000105U
 
-#define REG_MBIAS_TRIM_AUTO_ADDR(inst)                          ((inst) + 0x00000102)
-#define BF_MBIAS_TRIM_AUTO_INFO(inst)                           ((inst) + 0x00000102), 0x00000100
+#define REG_MBIAS_TRIM_AUTO_ADDR(inst)                          ((uint32_t)(inst) + 0x00000102U)
+#define BF_MBIAS_TRIM_AUTO_INFO(inst)                           ((uint32_t)(inst) + 0x00000102U), 0x00000100U
 
-#define REG_MBIAS_BG_PTAT_TRIM_ADDR(inst)                       ((inst) + 0x00000103)
-#define BF_MBIAS_BG_PTAT_INFO(inst)                             ((inst) + 0x00000103), 0x00000600
+#define REG_MBIAS_BG_PTAT_TRIM_ADDR(inst)                       ((uint32_t)(inst) + 0x00000103U)
+#define BF_MBIAS_BG_PTAT_INFO(inst)                             ((uint32_t)(inst) + 0x00000103U), 0x00000600U
 
-#define REG_MBIAS_BG_LEVEL_TRIM_ADDR(inst)                      ((inst) + 0x00000104)
-#define BF_MBIAS_BG_LEVEL_INFO(inst)                            ((inst) + 0x00000104), 0x00000800
+#define REG_MBIAS_BG_LEVEL_TRIM_ADDR(inst)                      ((uint32_t)(inst) + 0x00000104U)
+#define BF_MBIAS_BG_LEVEL_INFO(inst)                            ((uint32_t)(inst) + 0x00000104U), 0x00000800U
 
-#define REG_MBIAS_IGEN_TRIM_CODE_ADDR(inst)                     ((inst) + 0x00000105)
-#define BF_MBIAS_IGEN_PTATR_INFO(inst)                          ((inst) + 0x00000105), 0x00000600
+#define REG_MBIAS_IGEN_TRIM_CODE_ADDR(inst)                     ((uint32_t)(inst) + 0x00000105U)
+#define BF_MBIAS_IGEN_PTATR_INFO(inst)                          ((uint32_t)(inst) + 0x00000105U), 0x00000600U
 
-#define REG_MBIAS_DEGEN_TRIM_CODE_ADDR(inst)                    ((inst) + 0x00000106)
-#define BF_MBIAS_DEGEN_TRIM_CODE_INFO(inst)                     ((inst) + 0x00000106), 0x00000300
+#define REG_MBIAS_DEGEN_TRIM_CODE_ADDR(inst)                    ((uint32_t)(inst) + 0x00000106U)
+#define BF_MBIAS_DEGEN_TRIM_CODE_INFO(inst)                     ((uint32_t)(inst) + 0x00000106U), 0x00000300U
 
-#define REG_MBIAS_IGEN_RTRIM_ADDR(inst)                         ((inst) + 0x00000107)
-#define BF_MBIAS_RTRIM_TRIGGER_MANUAL_INFO(inst)                ((inst) + 0x00000107), 0x00000100
-#define BF_MBIAS_RTRIM_BYP_TRIGGERDEL_INFO(inst)                ((inst) + 0x00000107), 0x00000101
-#define BF_MBIAS_RTRIM_CODE_SELECT_INFO(inst)                   ((inst) + 0x00000107), 0x00000102
-#define BF_MBIAS_DEGEN_TRIM_CODE_SELECT_INFO(inst)              ((inst) + 0x00000107), 0x00000103
-#define BF_MBIAS_RTRIM_RESETB_INFO(inst)                        ((inst) + 0x00000107), 0x00000104
-#define BF_MBIAS_TRIM_REPEAT_INFO(inst)                         ((inst) + 0x00000107), 0x00000105
-#define BF_MBIAS_RTRIM_CHOP_CNTL_INFO(inst)                     ((inst) + 0x00000107), 0x00000206
+#define REG_MBIAS_IGEN_RTRIM_ADDR(inst)                         ((uint32_t)(inst) + 0x00000107U)
+#define BF_MBIAS_RTRIM_TRIGGER_MANUAL_INFO(inst)                ((uint32_t)(inst) + 0x00000107U), 0x00000100U
+#define BF_MBIAS_RTRIM_BYP_TRIGGERDEL_INFO(inst)                ((uint32_t)(inst) + 0x00000107U), 0x00000101U
+#define BF_MBIAS_RTRIM_CODE_SELECT_INFO(inst)                   ((uint32_t)(inst) + 0x00000107U), 0x00000102U
+#define BF_MBIAS_DEGEN_TRIM_CODE_SELECT_INFO(inst)              ((uint32_t)(inst) + 0x00000107U), 0x00000103U
+#define BF_MBIAS_RTRIM_RESETB_INFO(inst)                        ((uint32_t)(inst) + 0x00000107U), 0x00000104U
+#define BF_MBIAS_TRIM_REPEAT_INFO(inst)                         ((uint32_t)(inst) + 0x00000107U), 0x00000105U
+#define BF_MBIAS_RTRIM_CHOP_CNTL_INFO(inst)                     ((uint32_t)(inst) + 0x00000107U), 0x00000206U
 
 #ifdef USE_PRIVATE_BF
-#define REG_MBIAS_IGEN_RTRIM_RB_ADDR(inst)                      ((inst) + 0x00000108)
-#define BF_MBIAS_IGEN_PTATR_CODE_RB_INFO(inst)                  ((inst) + 0x00000108), 0x00000600
-#define BF_MBIAS_IGEN_PTATR_TRIM_DONE_INFO(inst)                ((inst) + 0x00000108), 0x00000106
+#define REG_MBIAS_IGEN_RTRIM_RB_ADDR(inst)                      ((uint32_t)(inst) + 0x00000108U)
+#define BF_MBIAS_IGEN_PTATR_CODE_RB_INFO(inst)                  ((uint32_t)(inst) + 0x00000108U), 0x00000600U
+#define BF_MBIAS_IGEN_PTATR_TRIM_DONE_INFO(inst)                ((uint32_t)(inst) + 0x00000108U), 0x00000106U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_MBIAS_DEGEN_TRIM_RB_ADDR(inst)                      ((inst) + 0x00000109)
-#define BF_MBIAS_DEGEN_TRIM_CODE_RB_INFO(inst)                  ((inst) + 0x00000109), 0x00000300
+#define REG_MBIAS_DEGEN_TRIM_RB_ADDR(inst)                      ((uint32_t)(inst) + 0x00000109U)
+#define BF_MBIAS_DEGEN_TRIM_CODE_RB_INFO(inst)                  ((uint32_t)(inst) + 0x00000109U), 0x00000300U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_MBIAS_IGEN_MISC_ADDR(inst)                          ((inst) + 0x0000010A)
-#define BF_MBIAS_AMUX_SEL_INFO(inst)                            ((inst) + 0x0000010A), 0x00000400
+#define REG_MBIAS_IGEN_MISC_ADDR(inst)                          ((uint32_t)(inst) + 0x0000010AU)
+#define BF_MBIAS_AMUX_SEL_INFO(inst)                            ((uint32_t)(inst) + 0x0000010AU), 0x00000400U
 
-#define REG_MBIAS_IGEN_MISC2_ADDR(inst)                         ((inst) + 0x0000010B)
-#define BF_MBIAS_SPARE_INFO(inst)                               ((inst) + 0x0000010B), 0x00000800
+#define REG_MBIAS_IGEN_MISC2_ADDR(inst)                         ((uint32_t)(inst) + 0x0000010BU)
+#define BF_MBIAS_SPARE_INFO(inst)                               ((uint32_t)(inst) + 0x0000010BU), 0x00000800U
 
-#define REG_MBIAS_EN_CTRL_ADDR(inst)                            ((inst) + 0x0000010C)
-#define BF_MBIAS_DFT_EN_INFO(inst)                              ((inst) + 0x0000010C), 0x00000100
-#define BF_MBIAS_BANDGAP_VREF_EN_INFO(inst)                     ((inst) + 0x0000010C), 0x00000104
+#define REG_MBIAS_EN_CTRL_ADDR(inst)                            ((uint32_t)(inst) + 0x0000010CU)
+#define BF_MBIAS_DFT_EN_INFO(inst)                              ((uint32_t)(inst) + 0x0000010CU), 0x00000100U
+#define BF_MBIAS_BANDGAP_VREF_EN_INFO(inst)                     ((uint32_t)(inst) + 0x0000010CU), 0x00000104U
 
-#define REG_MBIAS_BYPASS_RES_CTRL_ADDR(inst)                    ((inst) + 0x0000010D)
-#define BF_MBIAS_BYPASS_BIAS_RES_INFO(inst)                     ((inst) + 0x0000010D), 0x00000100
-#define BF_MBIAS_BYPASS_ICON_RES_INFO(inst)                     ((inst) + 0x0000010D), 0x00000204
+#define REG_MBIAS_BYPASS_RES_CTRL_ADDR(inst)                    ((uint32_t)(inst) + 0x0000010DU)
+#define BF_MBIAS_BYPASS_BIAS_RES_INFO(inst)                     ((uint32_t)(inst) + 0x0000010DU), 0x00000100U
+#define BF_MBIAS_BYPASS_ICON_RES_INFO(inst)                     ((uint32_t)(inst) + 0x0000010DU), 0x00000204U
 
-#define REG_MBIAS_CALCLK_CTRL_ADDR(inst)                        ((inst) + 0x0000010E)
-#define BF_MBIAS_CALCLK_EN_INFO(inst)                           ((inst) + 0x0000010E), 0x00000100
-#define BF_MBIAS_CALCLK_SEL_INFO(inst)                          ((inst) + 0x0000010E), 0x00000101
-#define BF_MBIAS_CALCLK_DIV_INFO(inst)                          ((inst) + 0x0000010E), 0x00000204
+#define REG_MBIAS_CALCLK_CTRL_ADDR(inst)                        ((uint32_t)(inst) + 0x0000010EU)
+#define BF_MBIAS_CALCLK_EN_INFO(inst)                           ((uint32_t)(inst) + 0x0000010EU), 0x00000100U
+#define BF_MBIAS_CALCLK_SEL_INFO(inst)                          ((uint32_t)(inst) + 0x0000010EU), 0x00000101U
+#define BF_MBIAS_CALCLK_DIV_INFO(inst)                          ((uint32_t)(inst) + 0x0000010EU), 0x00000204U
 
-#define REG_TUNER_CALCLK_CTRL_ADDR(inst)                        ((inst) + 0x0000010F)
-#define BF_TUNER_CALCLK_EN_INFO(inst)                           ((inst) + 0x0000010F), 0x00000100
-#define BF_TUNER_CALCLK_DIV_INFO(inst)                          ((inst) + 0x0000010F), 0x00000204
+#define REG_TUNER_CALCLK_CTRL_ADDR(inst)                        ((uint32_t)(inst) + 0x0000010FU)
+#define BF_TUNER_CALCLK_EN_INFO(inst)                           ((uint32_t)(inst) + 0x0000010FU), 0x00000100U
+#define BF_TUNER_CALCLK_DIV_INFO(inst)                          ((uint32_t)(inst) + 0x0000010FU), 0x00000204U
 
-#define REG_TUNER_RESET_ADDR(inst)                              ((inst) + 0x00000110)
-#define BF_TUNER_RESET_INFO(inst)                               ((inst) + 0x00000110), 0x00000100
+#define REG_TUNER_RESET_ADDR(inst)                              ((uint32_t)(inst) + 0x00000110U)
+#define BF_TUNER_RESET_INFO(inst)                               ((uint32_t)(inst) + 0x00000110U), 0x00000100U
 
-#define REG_ADC_CLK_DIV_CTRL_ADDR(inst)                         ((inst) + 0x00000122)
-#define BF_ADC_CLK_PATH_EN_INFO(inst)                           ((inst) + 0x00000122), 0x00000100
-#define BF_ADC_DIVBY2_INFO(inst)                                ((inst) + 0x00000122), 0x00000104
+#define REG_ADC_CLK_DIV_CTRL_ADDR(inst)                         ((uint32_t)(inst) + 0x00000122U)
+#define BF_ADC_CLK_PATH_EN_INFO(inst)                           ((uint32_t)(inst) + 0x00000122U), 0x00000100U
+#define BF_ADC_DIVBY2_INFO(inst)                                ((uint32_t)(inst) + 0x00000122U), 0x00000104U
 
-#define REG_DAC_CLK_DIV_CTRL_ADDR(inst)                         ((inst) + 0x00000123)
-#define BF_DAC_CLK_PATH_EN_INFO(inst)                           ((inst) + 0x00000123), 0x00000100
-#define BF_DAC_DIVBY2_INFO(inst)                                ((inst) + 0x00000123), 0x00000104
+#define REG_DAC_CLK_DIV_CTRL_ADDR(inst)                         ((uint32_t)(inst) + 0x00000123U)
+#define BF_DAC_CLK_PATH_EN_INFO(inst)                           ((uint32_t)(inst) + 0x00000123U), 0x00000100U
+#define BF_DAC_DIVBY2_INFO(inst)                                ((uint32_t)(inst) + 0x00000123U), 0x00000104U
 
-#define REG_ADC_CLK_INV_ADDR(inst)                              ((inst) + 0x00000124)
-#define BF_ADC_INCLK_INVERT0_INFO(inst)                         ((inst) + 0x00000124), 0x00000100
-#define BF_ADC_INCLK_INVERT1_INFO(inst)                         ((inst) + 0x00000124), 0x00000104
+#define REG_ADC_CLK_INV_ADDR(inst)                              ((uint32_t)(inst) + 0x00000124U)
+#define BF_ADC_INCLK_INVERT0_INFO(inst)                         ((uint32_t)(inst) + 0x00000124U), 0x00000100U
+#define BF_ADC_INCLK_INVERT1_INFO(inst)                         ((uint32_t)(inst) + 0x00000124U), 0x00000104U
 
-#define REG_DBG_CLK_CTRL_ADDR(inst)                             ((inst) + 0x00000125)
-#define BF_DEBUG_CLK_EN_INFO(inst)                              ((inst) + 0x00000125), 0x00000100
-#define BF_DEBUG_CLK_SEL_INFO(inst)                             ((inst) + 0x00000125), 0x00000204
+#define REG_DBG_CLK_CTRL_ADDR(inst)                             ((uint32_t)(inst) + 0x00000125U)
+#define BF_DEBUG_CLK_EN_INFO(inst)                              ((uint32_t)(inst) + 0x00000125U), 0x00000100U
+#define BF_DEBUG_CLK_SEL_INFO(inst)                             ((uint32_t)(inst) + 0x00000125U), 0x00000204U
 
-#define REG_ADC_DBG_CTRL_ADDR(inst)                             ((inst) + 0x00000126)
-#define BF_ADC_DEBUG_EN_INFO(inst)                              ((inst) + 0x00000126), 0x00000100
-#define BF_ADC_DEBUG_SEL0_INFO(inst)                            ((inst) + 0x00000126), 0x00000204
-#define BF_ADC_DEBUG_SEL1_INFO(inst)                            ((inst) + 0x00000126), 0x00000206
+#define REG_ADC_DBG_CTRL_ADDR(inst)                             ((uint32_t)(inst) + 0x00000126U)
+#define BF_ADC_DEBUG_EN_INFO(inst)                              ((uint32_t)(inst) + 0x00000126U), 0x00000100U
+#define BF_ADC_DEBUG_SEL0_INFO(inst)                            ((uint32_t)(inst) + 0x00000126U), 0x00000204U
+#define BF_ADC_DEBUG_SEL1_INFO(inst)                            ((uint32_t)(inst) + 0x00000126U), 0x00000206U
 
-#define REG_DAC_DBG_CTRL_ADDR(inst)                             ((inst) + 0x00000127)
-#define BF_DAC_DEBUG_EN_INFO(inst)                              ((inst) + 0x00000127), 0x00000100
-#define BF_DAC_DEBUG_SEL0_INFO(inst)                            ((inst) + 0x00000127), 0x00000204
-#define BF_DAC_DEBUG_SEL1_INFO(inst)                            ((inst) + 0x00000127), 0x00000206
+#define REG_DAC_DBG_CTRL_ADDR(inst)                             ((uint32_t)(inst) + 0x00000127U)
+#define BF_DAC_DEBUG_EN_INFO(inst)                              ((uint32_t)(inst) + 0x00000127U), 0x00000100U
+#define BF_DAC_DEBUG_SEL0_INFO(inst)                            ((uint32_t)(inst) + 0x00000127U), 0x00000204U
+#define BF_DAC_DEBUG_SEL1_INFO(inst)                            ((uint32_t)(inst) + 0x00000127U), 0x00000206U
 
-#define REG_CK_EN_CTRL_ADDR(inst)                               ((inst) + 0x00000128)
-#define BF_EN_CK_TO_ADC_INFO(inst)                              ((inst) + 0x00000128), 0x00000100
-#define BF_EN_CK_TO_DAC_INFO(inst)                              ((inst) + 0x00000128), 0x00000101
-#define BF_EN_CK_TO_MCS_MASTER_BIAS_CTRL_INFO(inst)             ((inst) + 0x00000128), 0x00000104
+#define REG_CK_EN_CTRL_ADDR(inst)                               ((uint32_t)(inst) + 0x00000128U)
+#define BF_EN_CK_TO_ADC_INFO(inst)                              ((uint32_t)(inst) + 0x00000128U), 0x00000100U
+#define BF_EN_CK_TO_DAC_INFO(inst)                              ((uint32_t)(inst) + 0x00000128U), 0x00000101U
+#define BF_EN_CK_TO_MCS_MASTER_BIAS_CTRL_INFO(inst)             ((uint32_t)(inst) + 0x00000128U), 0x00000104U
 
-#define REG_CK_DEBUG_CTRL_ADDR(inst)                            ((inst) + 0x00000129)
-#define BF_ADC_LATENCY_DEBUG_EN_INFO(inst)                      ((inst) + 0x00000129), 0x00000100
-#define BF_ADC_SYNC_DEBUG_EN_INFO(inst)                         ((inst) + 0x00000129), 0x00000101
-#define BF_DAC_LATENCY_DEBUG_EN_INFO(inst)                      ((inst) + 0x00000129), 0x00000104
-#define BF_DAC_SYNC_DEBUG_EN_INFO(inst)                         ((inst) + 0x00000129), 0x00000105
+#define REG_CK_DEBUG_CTRL_ADDR(inst)                            ((uint32_t)(inst) + 0x00000129U)
+#define BF_ADC_LATENCY_DEBUG_EN_INFO(inst)                      ((uint32_t)(inst) + 0x00000129U), 0x00000100U
+#define BF_ADC_SYNC_DEBUG_EN_INFO(inst)                         ((uint32_t)(inst) + 0x00000129U), 0x00000101U
+#define BF_DAC_LATENCY_DEBUG_EN_INFO(inst)                      ((uint32_t)(inst) + 0x00000129U), 0x00000104U
+#define BF_DAC_SYNC_DEBUG_EN_INFO(inst)                         ((uint32_t)(inst) + 0x00000129U), 0x00000105U
 
-#define REG_MPU_SEL_ADDR(inst)                                  ((inst) + 0x0000012A)
-#define BF_MPU_SELECT_B_INFO(inst)                              ((inst) + 0x0000012A), 0x00000800
+#define REG_MPU_SEL_ADDR(inst)                                  ((uint32_t)(inst) + 0x0000012AU)
+#define BF_MPU_SELECT_B_INFO(inst)                              ((uint32_t)(inst) + 0x0000012AU), 0x00000800U
 
-#define REG_MPU_CTRL_ADDR(inst)                                 ((inst) + 0x0000012B)
-#define BF_MPU_EN_B_INFO(inst)                                  ((inst) + 0x0000012B), 0x00000100
-#define BF_MPU_BUS_PRECHARGE_B_INFO(inst)                       ((inst) + 0x0000012B), 0x00000404
+#define REG_MPU_CTRL_ADDR(inst)                                 ((uint32_t)(inst) + 0x0000012BU)
+#define BF_MPU_EN_B_INFO(inst)                                  ((uint32_t)(inst) + 0x0000012BU), 0x00000100U
+#define BF_MPU_BUS_PRECHARGE_B_INFO(inst)                       ((uint32_t)(inst) + 0x0000012BU), 0x00000404U
 
-#define REG_MPU_SPARE_ADDR(inst)                                ((inst) + 0x0000012C)
-#define BF_MPU_SPARE_INFO(inst)                                 ((inst) + 0x0000012C), 0x00000800
+#define REG_MPU_SPARE_ADDR(inst)                                ((uint32_t)(inst) + 0x0000012CU)
+#define BF_MPU_SPARE_INFO(inst)                                 ((uint32_t)(inst) + 0x0000012CU), 0x00000800U
 
-#define REG_TEMPS_MAIN_00_MASTER_BIAS_CTRL_ADDR(inst)           ((inst) + 0x00000130)
-#define BF_TEMPS_RESET_MASTER_BIAS_CTRL_INFO(inst)              ((inst) + 0x00000130), 0x00000100
-#define BF_TEMPS_START_MEASUREMENT_MASTER_BIAS_CTRL_INFO(inst)  ((inst) + 0x00000130), 0x00000101
-#define BF_TEMPS_MEASUREMENT_READY_MASTER_BIAS_CTRL_INFO(inst)  ((inst) + 0x00000130), 0x00000104
+#define REG_TEMPS_MAIN_00_MASTER_BIAS_CTRL_ADDR(inst)           ((uint32_t)(inst) + 0x00000130U)
+#define BF_TEMPS_RESET_MASTER_BIAS_CTRL_INFO(inst)              ((uint32_t)(inst) + 0x00000130U), 0x00000100U
+#define BF_TEMPS_START_MEASUREMENT_MASTER_BIAS_CTRL_INFO(inst)  ((uint32_t)(inst) + 0x00000130U), 0x00000101U
+#define BF_TEMPS_MEASUREMENT_READY_MASTER_BIAS_CTRL_INFO(inst)  ((uint32_t)(inst) + 0x00000130U), 0x00000104U
 
-#define REG_TEMPS_MAIN_01_MASTER_BIAS_CTRL_ADDR(inst)           ((inst) + 0x00000131)
+#define REG_TEMPS_MAIN_01_MASTER_BIAS_CTRL_ADDR(inst)           ((uint32_t)(inst) + 0x00000131U)
 
-#define REG_TEMPS_MAIN_02_MASTER_BIAS_CTRL_ADDR(inst)           ((inst) + 0x00000132)
-#define BF_TEMPS_TEMPERATURE_MASTER_BIAS_CTRL_INFO(inst)        ((inst) + 0x00000132), 0x00000C00
+#define REG_TEMPS_MAIN_02_MASTER_BIAS_CTRL_ADDR(inst)           ((uint32_t)(inst) + 0x00000132U)
+#define BF_TEMPS_TEMPERATURE_MASTER_BIAS_CTRL_INFO(inst)        ((uint32_t)(inst) + 0x00000132U), 0x00000C00U
 
-#define REG_TEMPS_MAIN_03_MASTER_BIAS_CTRL_ADDR(inst)           ((inst) + 0x00000133)
-#define BF_TEMPS_OFFSET_ADJ_MASTER_BIAS_CTRL_INFO(inst)         ((inst) + 0x00000133), 0x00000700
+#define REG_TEMPS_MAIN_03_MASTER_BIAS_CTRL_ADDR(inst)           ((uint32_t)(inst) + 0x00000133U)
+#define BF_TEMPS_OFFSET_ADJ_MASTER_BIAS_CTRL_INFO(inst)         ((uint32_t)(inst) + 0x00000133U), 0x00000700U
 
-#define REG_TEMPS_MAIN_04_MASTER_BIAS_CTRL_ADDR(inst)           ((inst) + 0x00000134)
-#define BF_TEMPS_SLOPE_ADJ_MASTER_BIAS_CTRL_INFO(inst)          ((inst) + 0x00000134), 0x00000800
-
-#ifdef USE_PRIVATE_BF
-#define REG_TEMPS_PD_RESET_MASTER_BIAS_CTRL_ADDR(inst)          ((inst) + 0x00000135)
-#define BF_TEMPS_CLK_PD_MASTER_BIAS_CTRL_INFO(inst)             ((inst) + 0x00000135), 0x00000100
-#define BF_TEMPS_STARTUP_PD_MASTER_BIAS_CTRL_INFO(inst)         ((inst) + 0x00000135), 0x00000101
-#define BF_TEMPS_PTAT_PD_MASTER_BIAS_CTRL_INFO(inst)            ((inst) + 0x00000135), 0x00000102
-#define BF_TEMPS_REF_PD_MASTER_BIAS_CTRL_INFO(inst)             ((inst) + 0x00000135), 0x00000103
-#define BF_TEMPS_ADC_PD_MASTER_BIAS_CTRL_INFO(inst)             ((inst) + 0x00000135), 0x00000104
-#define BF_TEMPS_RESET_ADC_MASTER_BIAS_CTRL_INFO(inst)          ((inst) + 0x00000135), 0x00000107
-#endif /* USE_PRIVATE_BF */
+#define REG_TEMPS_MAIN_04_MASTER_BIAS_CTRL_ADDR(inst)           ((uint32_t)(inst) + 0x00000134U)
+#define BF_TEMPS_SLOPE_ADJ_MASTER_BIAS_CTRL_INFO(inst)          ((uint32_t)(inst) + 0x00000134U), 0x00000800U
 
 #ifdef USE_PRIVATE_BF
-#define REG_TEMPS_BIAS_PTAT_MASTER_BIAS_CTRL_ADDR(inst)         ((inst) + 0x00000136)
-#define BF_TEMPS_CURR_PTAT_MASTER_BIAS_CTRL_INFO(inst)          ((inst) + 0x00000136), 0x00000600
+#define REG_TEMPS_PD_RESET_MASTER_BIAS_CTRL_ADDR(inst)          ((uint32_t)(inst) + 0x00000135U)
+#define BF_TEMPS_CLK_PD_MASTER_BIAS_CTRL_INFO(inst)             ((uint32_t)(inst) + 0x00000135U), 0x00000100U
+#define BF_TEMPS_STARTUP_PD_MASTER_BIAS_CTRL_INFO(inst)         ((uint32_t)(inst) + 0x00000135U), 0x00000101U
+#define BF_TEMPS_PTAT_PD_MASTER_BIAS_CTRL_INFO(inst)            ((uint32_t)(inst) + 0x00000135U), 0x00000102U
+#define BF_TEMPS_REF_PD_MASTER_BIAS_CTRL_INFO(inst)             ((uint32_t)(inst) + 0x00000135U), 0x00000103U
+#define BF_TEMPS_ADC_PD_MASTER_BIAS_CTRL_INFO(inst)             ((uint32_t)(inst) + 0x00000135U), 0x00000104U
+#define BF_TEMPS_RESET_ADC_MASTER_BIAS_CTRL_INFO(inst)          ((uint32_t)(inst) + 0x00000135U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TEMPS_BIAS_REF_MASTER_BIAS_CTRL_ADDR(inst)          ((inst) + 0x00000137)
-#define BF_TEMPS_CURR_REF_MASTER_BIAS_CTRL_INFO(inst)           ((inst) + 0x00000137), 0x00000600
+#define REG_TEMPS_BIAS_PTAT_MASTER_BIAS_CTRL_ADDR(inst)         ((uint32_t)(inst) + 0x00000136U)
+#define BF_TEMPS_CURR_PTAT_MASTER_BIAS_CTRL_INFO(inst)          ((uint32_t)(inst) + 0x00000136U), 0x00000600U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TEMPS_BIAS_IAMP_MASTER_BIAS_CTRL_ADDR(inst)         ((inst) + 0x00000138)
-#define BF_TEMPS_CURR_IAMP1_MASTER_BIAS_CTRL_INFO(inst)         ((inst) + 0x00000138), 0x00000400
-#define BF_TEMPS_CURR_IAMP2_MASTER_BIAS_CTRL_INFO(inst)         ((inst) + 0x00000138), 0x00000404
+#define REG_TEMPS_BIAS_REF_MASTER_BIAS_CTRL_ADDR(inst)          ((uint32_t)(inst) + 0x00000137U)
+#define BF_TEMPS_CURR_REF_MASTER_BIAS_CTRL_INFO(inst)           ((uint32_t)(inst) + 0x00000137U), 0x00000600U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TEMPS_BIAS_VCM_MASTER_BIAS_CTRL_ADDR(inst)          ((inst) + 0x00000139)
-#define BF_TEMPS_CURR_VCM_MASTER_BIAS_CTRL_INFO(inst)           ((inst) + 0x00000139), 0x00000400
+#define REG_TEMPS_BIAS_IAMP_MASTER_BIAS_CTRL_ADDR(inst)         ((uint32_t)(inst) + 0x00000138U)
+#define BF_TEMPS_CURR_IAMP1_MASTER_BIAS_CTRL_INFO(inst)         ((uint32_t)(inst) + 0x00000138U), 0x00000400U
+#define BF_TEMPS_CURR_IAMP2_MASTER_BIAS_CTRL_INFO(inst)         ((uint32_t)(inst) + 0x00000138U), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TEMPS_BIAS_COMP_MASTER_BIAS_CTRL_ADDR(inst)         ((inst) + 0x0000013A)
-#define BF_TEMPS_CURR_FLASHO_N_MASTER_BIAS_CTRL_INFO(inst)      ((inst) + 0x0000013A), 0x00000400
-#define BF_TEMPS_CURR_FLASHO_P_MASTER_BIAS_CTRL_INFO(inst)      ((inst) + 0x0000013A), 0x00000404
+#define REG_TEMPS_BIAS_VCM_MASTER_BIAS_CTRL_ADDR(inst)          ((uint32_t)(inst) + 0x00000139U)
+#define BF_TEMPS_CURR_VCM_MASTER_BIAS_CTRL_INFO(inst)           ((uint32_t)(inst) + 0x00000139U), 0x00000400U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TEMPS_MUX_IN_MASTER_BIAS_CTRL_ADDR(inst)            ((inst) + 0x0000013B)
-#define BF_TEMPS_SEL_MUX_VP_MASTER_BIAS_CTRL_INFO(inst)         ((inst) + 0x0000013B), 0x00000300
-#define BF_TEMPS_SEL_MUX_VM_MASTER_BIAS_CTRL_INFO(inst)         ((inst) + 0x0000013B), 0x00000304
+#define REG_TEMPS_BIAS_COMP_MASTER_BIAS_CTRL_ADDR(inst)         ((uint32_t)(inst) + 0x0000013AU)
+#define BF_TEMPS_CURR_FLASHO_N_MASTER_BIAS_CTRL_INFO(inst)      ((uint32_t)(inst) + 0x0000013AU), 0x00000400U
+#define BF_TEMPS_CURR_FLASHO_P_MASTER_BIAS_CTRL_INFO(inst)      ((uint32_t)(inst) + 0x0000013AU), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TEMPS_MUX_BG_CLK_MASTER_BIAS_CTRL_ADDR(inst)        ((inst) + 0x0000013C)
-#define BF_TEMPS_SEL_MUX_BG_MASTER_BIAS_CTRL_INFO(inst)         ((inst) + 0x0000013C), 0x00000300
-#define BF_TEMPS_CLK_MUX_MASTER_BIAS_CTRL_INFO(inst)            ((inst) + 0x0000013C), 0x00000104
+#define REG_TEMPS_MUX_IN_MASTER_BIAS_CTRL_ADDR(inst)            ((uint32_t)(inst) + 0x0000013BU)
+#define BF_TEMPS_SEL_MUX_VP_MASTER_BIAS_CTRL_INFO(inst)         ((uint32_t)(inst) + 0x0000013BU), 0x00000300U
+#define BF_TEMPS_SEL_MUX_VM_MASTER_BIAS_CTRL_INFO(inst)         ((uint32_t)(inst) + 0x0000013BU), 0x00000304U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TEMPS_TEST_CTRL_MASTER_BIAS_CTRL_ADDR(inst)         ((inst) + 0x0000013D)
-#define BF_TEMPS_TEST_MODE_MASTER_BIAS_CTRL_INFO(inst)          ((inst) + 0x0000013D), 0x00000200
-#define BF_TEMPS_WAIT_TO_MEASURE_MASTER_BIAS_CTRL_INFO(inst)    ((inst) + 0x0000013D), 0x00000302
-#define BF_TEMPS_WAKE_SETTING_MASTER_BIAS_CTRL_INFO(inst)       ((inst) + 0x0000013D), 0x00000305
+#define REG_TEMPS_MUX_BG_CLK_MASTER_BIAS_CTRL_ADDR(inst)        ((uint32_t)(inst) + 0x0000013CU)
+#define BF_TEMPS_SEL_MUX_BG_MASTER_BIAS_CTRL_INFO(inst)         ((uint32_t)(inst) + 0x0000013CU), 0x00000300U
+#define BF_TEMPS_CLK_MUX_MASTER_BIAS_CTRL_INFO(inst)            ((uint32_t)(inst) + 0x0000013CU), 0x00000104U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TEMPS_TEST_STATE_STEP_MASTER_BIAS_CTRL_ADDR(inst)   ((inst) + 0x0000013E)
-#define BF_TEMPS_TEST_STATE_ADVANCE_MASTER_BIAS_CTRL_INFO(inst) ((inst) + 0x0000013E), 0x00000100
-#define BF_TEMPS_TEST_STATE_MASTER_BIAS_CTRL_INFO(inst)         ((inst) + 0x0000013E), 0x00000101
-#define BF_TEMPS_MEASURE_CONTROL_MASTER_BIAS_CTRL_INFO(inst)    ((inst) + 0x0000013E), 0x00000204
+#define REG_TEMPS_TEST_CTRL_MASTER_BIAS_CTRL_ADDR(inst)         ((uint32_t)(inst) + 0x0000013DU)
+#define BF_TEMPS_TEST_MODE_MASTER_BIAS_CTRL_INFO(inst)          ((uint32_t)(inst) + 0x0000013DU), 0x00000200U
+#define BF_TEMPS_WAIT_TO_MEASURE_MASTER_BIAS_CTRL_INFO(inst)    ((uint32_t)(inst) + 0x0000013DU), 0x00000302U
+#define BF_TEMPS_WAKE_SETTING_MASTER_BIAS_CTRL_INFO(inst)       ((uint32_t)(inst) + 0x0000013DU), 0x00000305U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TEMPS_MUX_OBS_CTRL_MASTER_BIAS_CTRL_ADDR(inst)      ((inst) + 0x0000013F)
-#define BF_TEMPS_MUX_OBS_CTRL_MASTER_BIAS_CTRL_INFO(inst)       ((inst) + 0x0000013F), 0x00000800
+#define REG_TEMPS_TEST_STATE_STEP_MASTER_BIAS_CTRL_ADDR(inst)   ((uint32_t)(inst) + 0x0000013EU)
+#define BF_TEMPS_TEST_STATE_ADVANCE_MASTER_BIAS_CTRL_INFO(inst) ((uint32_t)(inst) + 0x0000013EU), 0x00000100U
+#define BF_TEMPS_TEST_STATE_MASTER_BIAS_CTRL_INFO(inst)         ((uint32_t)(inst) + 0x0000013EU), 0x00000101U
+#define BF_TEMPS_MEASURE_CONTROL_MASTER_BIAS_CTRL_INFO(inst)    ((uint32_t)(inst) + 0x0000013EU), 0x00000204U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TEMPS_MUX_OBS_MASTER_BIAS_CTRL_ADDR(inst)           ((inst) + 0x00000140)
-#define BF_TEMPS_MUX_OBS_MASTER_BIAS_CTRL_INFO(inst)            ((inst) + 0x00000140), 0x00000800
+#define REG_TEMPS_MUX_OBS_CTRL_MASTER_BIAS_CTRL_ADDR(inst)      ((uint32_t)(inst) + 0x0000013FU)
+#define BF_TEMPS_MUX_OBS_CTRL_MASTER_BIAS_CTRL_INFO(inst)       ((uint32_t)(inst) + 0x0000013FU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
-
-#define REG_TEMPS_TEST_SPARE_00_MASTER_BIAS_CTRL_ADDR(inst)     ((inst) + 0x00000141)
 
 #ifdef USE_PRIVATE_BF
-#define REG_TEMPS_TEST_SPARE_01_MASTER_BIAS_CTRL_ADDR(inst)     ((inst) + 0x00000142)
-#define BF_TEMPS_CTRL_MASTER_BIAS_CTRL_INFO(inst)               ((inst) + 0x00000142), 0x00001000
+#define REG_TEMPS_MUX_OBS_MASTER_BIAS_CTRL_ADDR(inst)           ((uint32_t)(inst) + 0x00000140U)
+#define BF_TEMPS_MUX_OBS_MASTER_BIAS_CTRL_INFO(inst)            ((uint32_t)(inst) + 0x00000140U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_TEMPS_ADC_AWAKE_ADDR(inst)                          ((inst) + 0x00000143)
-#define BF_TEMPS_ADC_AWAKE_INFO(inst)                           ((inst) + 0x00000143), 0x00000100
+#define REG_TEMPS_TEST_SPARE_00_MASTER_BIAS_CTRL_ADDR(inst)     ((uint32_t)(inst) + 0x00000141U)
 
-#define REG_MB_DAC_GAIN0_LSB_ADDR(inst)                         ((inst) + 0x00000150)
-#define BF_MBIAS_DAC_GAIN0_INFO(inst)                           ((inst) + 0x00000150), 0x00000A00
+#ifdef USE_PRIVATE_BF
+#define REG_TEMPS_TEST_SPARE_01_MASTER_BIAS_CTRL_ADDR(inst)     ((uint32_t)(inst) + 0x00000142U)
+#define BF_TEMPS_CTRL_MASTER_BIAS_CTRL_INFO(inst)               ((uint32_t)(inst) + 0x00000142U), 0x00001000U
+#endif /* USE_PRIVATE_BF */
 
-#define REG_MB_DAC_GAIN0_MSB_ADDR(inst)                         ((inst) + 0x00000151)
+#define REG_TEMPS_ADC_AWAKE_ADDR(inst)                          ((uint32_t)(inst) + 0x00000143U)
+#define BF_TEMPS_ADC_AWAKE_INFO(inst)                           ((uint32_t)(inst) + 0x00000143U), 0x00000100U
 
-#define REG_MB_DAC_GAIN1_LSB_ADDR(inst)                         ((inst) + 0x00000152)
-#define BF_MBIAS_DAC_GAIN1_INFO(inst)                           ((inst) + 0x00000152), 0x00000A00
+#define REG_MB_DAC_GAIN0_LSB_ADDR(inst)                         ((uint32_t)(inst) + 0x00000150U)
+#define BF_MBIAS_DAC_GAIN0_INFO(inst)                           ((uint32_t)(inst) + 0x00000150U), 0x00000A00U
 
-#define REG_MB_DAC_GAIN1_MSB_ADDR(inst)                         ((inst) + 0x00000153)
+#define REG_MB_DAC_GAIN0_MSB_ADDR(inst)                         ((uint32_t)(inst) + 0x00000151U)
 
-#define REG_MB_DAC_GAIN2_LSB_ADDR(inst)                         ((inst) + 0x00000154)
-#define BF_MBIAS_DAC_GAIN2_INFO(inst)                           ((inst) + 0x00000154), 0x00000A00
+#define REG_MB_DAC_GAIN1_LSB_ADDR(inst)                         ((uint32_t)(inst) + 0x00000152U)
+#define BF_MBIAS_DAC_GAIN1_INFO(inst)                           ((uint32_t)(inst) + 0x00000152U), 0x00000A00U
 
-#define REG_MB_DAC_GAIN2_MSB_ADDR(inst)                         ((inst) + 0x00000155)
+#define REG_MB_DAC_GAIN1_MSB_ADDR(inst)                         ((uint32_t)(inst) + 0x00000153U)
 
-#define REG_MB_DAC_GAIN3_LSB_ADDR(inst)                         ((inst) + 0x00000156)
-#define BF_MBIAS_DAC_GAIN3_INFO(inst)                           ((inst) + 0x00000156), 0x00000A00
+#define REG_MB_DAC_GAIN2_LSB_ADDR(inst)                         ((uint32_t)(inst) + 0x00000154U)
+#define BF_MBIAS_DAC_GAIN2_INFO(inst)                           ((uint32_t)(inst) + 0x00000154U), 0x00000A00U
 
-#define REG_MB_DAC_GAIN3_MSB_ADDR(inst)                         ((inst) + 0x00000157)
+#define REG_MB_DAC_GAIN2_MSB_ADDR(inst)                         ((uint32_t)(inst) + 0x00000155U)
 
-#define REG_MB_DAC_BLD_GAIN0_LSB_ADDR(inst)                     ((inst) + 0x00000158)
-#define BF_MBIAS_DAC_BLD_GAIN0_INFO(inst)                       ((inst) + 0x00000158), 0x00000A00
+#define REG_MB_DAC_GAIN3_LSB_ADDR(inst)                         ((uint32_t)(inst) + 0x00000156U)
+#define BF_MBIAS_DAC_GAIN3_INFO(inst)                           ((uint32_t)(inst) + 0x00000156U), 0x00000A00U
 
-#define REG_MB_DAC_BLD_GAIN0_MSB_ADDR(inst)                     ((inst) + 0x00000159)
+#define REG_MB_DAC_GAIN3_MSB_ADDR(inst)                         ((uint32_t)(inst) + 0x00000157U)
 
-#define REG_MB_DAC_BLD_GAIN1_LSB_ADDR(inst)                     ((inst) + 0x0000015A)
-#define BF_MBIAS_DAC_BLD_GAIN1_INFO(inst)                       ((inst) + 0x0000015A), 0x00000A00
+#define REG_MB_DAC_BLD_GAIN0_LSB_ADDR(inst)                     ((uint32_t)(inst) + 0x00000158U)
+#define BF_MBIAS_DAC_BLD_GAIN0_INFO(inst)                       ((uint32_t)(inst) + 0x00000158U), 0x00000A00U
 
-#define REG_MB_DAC_BLD_GAIN1_MSB_ADDR(inst)                     ((inst) + 0x0000015B)
+#define REG_MB_DAC_BLD_GAIN0_MSB_ADDR(inst)                     ((uint32_t)(inst) + 0x00000159U)
 
-#define REG_MB_DAC_BLD_GAIN2_LSB_ADDR(inst)                     ((inst) + 0x0000015C)
-#define BF_MBIAS_DAC_BLD_GAIN2_INFO(inst)                       ((inst) + 0x0000015C), 0x00000A00
+#define REG_MB_DAC_BLD_GAIN1_LSB_ADDR(inst)                     ((uint32_t)(inst) + 0x0000015AU)
+#define BF_MBIAS_DAC_BLD_GAIN1_INFO(inst)                       ((uint32_t)(inst) + 0x0000015AU), 0x00000A00U
 
-#define REG_MB_DAC_BLD_GAIN2_MSB_ADDR(inst)                     ((inst) + 0x0000015D)
+#define REG_MB_DAC_BLD_GAIN1_MSB_ADDR(inst)                     ((uint32_t)(inst) + 0x0000015BU)
 
-#define REG_MB_DAC_BLD_GAIN3_LSB_ADDR(inst)                     ((inst) + 0x0000015E)
-#define BF_MBIAS_DAC_BLD_GAIN3_INFO(inst)                       ((inst) + 0x0000015E), 0x00000A00
+#define REG_MB_DAC_BLD_GAIN2_LSB_ADDR(inst)                     ((uint32_t)(inst) + 0x0000015CU)
+#define BF_MBIAS_DAC_BLD_GAIN2_INFO(inst)                       ((uint32_t)(inst) + 0x0000015CU), 0x00000A00U
 
-#define REG_MB_DAC_BLD_GAIN3_MSB_ADDR(inst)                     ((inst) + 0x0000015F)
+#define REG_MB_DAC_BLD_GAIN2_MSB_ADDR(inst)                     ((uint32_t)(inst) + 0x0000015DU)
 
-#define REG_DIV_DLYPATH_ADDR(inst)                              ((inst) + 0x00000160)
-#define BF_DIV_EN_DELAY_INFO(inst)                              ((inst) + 0x00000160), 0x00000100
-#define BF_DIV_PD_TESTPATH_INFO(inst)                           ((inst) + 0x00000160), 0x00000104
+#define REG_MB_DAC_BLD_GAIN3_LSB_ADDR(inst)                     ((uint32_t)(inst) + 0x0000015EU)
+#define BF_MBIAS_DAC_BLD_GAIN3_INFO(inst)                       ((uint32_t)(inst) + 0x0000015EU), 0x00000A00U
 
-#define REG_ADC_DIV_DLYPATH_ADDR(inst)                          ((inst) + 0x00000161)
-#define BF_ADC_DIV_EN_DELAY_INFO(inst)                          ((inst) + 0x00000161), 0x00000100
-#define BF_ADC_DIV_PD_TESTPATH_INFO(inst)                       ((inst) + 0x00000161), 0x00000104
+#define REG_MB_DAC_BLD_GAIN3_MSB_ADDR(inst)                     ((uint32_t)(inst) + 0x0000015FU)
 
-#define REG_TRIG_CTRL_MASTER_BIAS_CTRL_ADDR(inst)               ((inst) + 0x00000162)
-#define BF_TRIGGER_ENABLE_INFO(inst)                            ((inst) + 0x00000162), 0x00000200
-#define BF_TRIGGER_SCHMITT_ENABLE_INFO(inst)                    ((inst) + 0x00000162), 0x00000104
+#define REG_DIV_DLYPATH_ADDR(inst)                              ((uint32_t)(inst) + 0x00000160U)
+#define BF_DIV_EN_DELAY_INFO(inst)                              ((uint32_t)(inst) + 0x00000160U), 0x00000100U
+#define BF_DIV_PD_TESTPATH_INFO(inst)                           ((uint32_t)(inst) + 0x00000160U), 0x00000104U
 
-#define REG_PD_DACDIV_CTRL_ADDR(inst)                           ((inst) + 0x00000163)
-#define BF_PD_DAC_DIV_TO_DAC01_INFO(inst)                       ((inst) + 0x00000163), 0x00000100
-#define BF_PD_DAC_DIV_TO_DAC23_INFO(inst)                       ((inst) + 0x00000163), 0x00000101
-#define BF_PD_DAC_CORNER_TO_DIV_INFO(inst)                      ((inst) + 0x00000163), 0x00000104
+#define REG_ADC_DIV_DLYPATH_ADDR(inst)                          ((uint32_t)(inst) + 0x00000161U)
+#define BF_ADC_DIV_EN_DELAY_INFO(inst)                          ((uint32_t)(inst) + 0x00000161U), 0x00000100U
+#define BF_ADC_DIV_PD_TESTPATH_INFO(inst)                       ((uint32_t)(inst) + 0x00000161U), 0x00000104U
 
-#define REG_CC_CLK_CORN_ADDR(inst)                              ((inst) + 0x00000165)
-#define BF_CC_CLK_CORN_INFO(inst)                               ((inst) + 0x00000165), 0x00000100
-#define BF_CC_COMP_CORN_INFO(inst)                              ((inst) + 0x00000165), 0x00000104
+#define REG_TRIG_CTRL_MASTER_BIAS_CTRL_ADDR(inst)               ((uint32_t)(inst) + 0x00000162U)
+#define BF_TRIGGER_ENABLE_INFO(inst)                            ((uint32_t)(inst) + 0x00000162U), 0x00000200U
+#define BF_TRIGGER_SCHMITT_ENABLE_INFO(inst)                    ((uint32_t)(inst) + 0x00000162U), 0x00000104U
 
-#define REG_CC_CORN_CFG0_ADDR(inst)                             ((inst) + 0x00000166)
-#define BF_CC_CONFIG_CORN_INFO(inst)                            ((inst) + 0x00000166), 0x00001000
+#define REG_PD_DACDIV_CTRL_ADDR(inst)                           ((uint32_t)(inst) + 0x00000163U)
+#define BF_PD_DAC_DIV_TO_DAC01_INFO(inst)                       ((uint32_t)(inst) + 0x00000163U), 0x00000100U
+#define BF_PD_DAC_DIV_TO_DAC23_INFO(inst)                       ((uint32_t)(inst) + 0x00000163U), 0x00000101U
+#define BF_PD_DAC_CORNER_TO_DIV_INFO(inst)                      ((uint32_t)(inst) + 0x00000163U), 0x00000104U
 
-#define REG_CC_CORN_CFG1_ADDR(inst)                             ((inst) + 0x00000167)
+#define REG_CC_CLK_CORN_ADDR(inst)                              ((uint32_t)(inst) + 0x00000165U)
+#define BF_CC_CLK_CORN_INFO(inst)                               ((uint32_t)(inst) + 0x00000165U), 0x00000100U
+#define BF_CC_COMP_CORN_INFO(inst)                              ((uint32_t)(inst) + 0x00000165U), 0x00000104U
 
-#define REG_CC_CLK_S_ADDR(inst)                                 ((inst) + 0x00000168)
-#define BF_CC_CLK_S_INFO(inst)                                  ((inst) + 0x00000168), 0x00000100
-#define BF_CC_COMP_S_INFO(inst)                                 ((inst) + 0x00000168), 0x00000104
+#define REG_CC_CORN_CFG0_ADDR(inst)                             ((uint32_t)(inst) + 0x00000166U)
+#define BF_CC_CONFIG_CORN_INFO(inst)                            ((uint32_t)(inst) + 0x00000166U), 0x00001000U
 
-#define REG_CC_S_CFG0_ADDR(inst)                                ((inst) + 0x00000169)
-#define BF_CC_CONFIG_S_INFO(inst)                               ((inst) + 0x00000169), 0x00001000
+#define REG_CC_CORN_CFG1_ADDR(inst)                             ((uint32_t)(inst) + 0x00000167U)
 
-#define REG_CC_S_CFG1_ADDR(inst)                                ((inst) + 0x0000016A)
+#define REG_CC_CLK_S_ADDR(inst)                                 ((uint32_t)(inst) + 0x00000168U)
+#define BF_CC_CLK_S_INFO(inst)                                  ((uint32_t)(inst) + 0x00000168U), 0x00000100U
+#define BF_CC_COMP_S_INFO(inst)                                 ((uint32_t)(inst) + 0x00000168U), 0x00000104U
 
-#define REG_CC_CLK_01_ADDR(inst)                                ((inst) + 0x0000016B)
-#define BF_CC_CLK_01_INFO(inst)                                 ((inst) + 0x0000016B), 0x00000100
-#define BF_CC_COMP_01_INFO(inst)                                ((inst) + 0x0000016B), 0x00000104
+#define REG_CC_S_CFG0_ADDR(inst)                                ((uint32_t)(inst) + 0x00000169U)
+#define BF_CC_CONFIG_S_INFO(inst)                               ((uint32_t)(inst) + 0x00000169U), 0x00001000U
 
-#define REG_CC_01_CFG0_ADDR(inst)                               ((inst) + 0x0000016C)
-#define BF_CC_CONFIG_01_INFO(inst)                              ((inst) + 0x0000016C), 0x00001000
+#define REG_CC_S_CFG1_ADDR(inst)                                ((uint32_t)(inst) + 0x0000016AU)
 
-#define REG_CC_01_CFG1_ADDR(inst)                               ((inst) + 0x0000016D)
+#define REG_CC_CLK_01_ADDR(inst)                                ((uint32_t)(inst) + 0x0000016BU)
+#define BF_CC_CLK_01_INFO(inst)                                 ((uint32_t)(inst) + 0x0000016BU), 0x00000100U
+#define BF_CC_COMP_01_INFO(inst)                                ((uint32_t)(inst) + 0x0000016BU), 0x00000104U
 
-#define REG_CC_CLK_23_ADDR(inst)                                ((inst) + 0x0000016E)
-#define BF_CC_CLK_23_INFO(inst)                                 ((inst) + 0x0000016E), 0x00000100
-#define BF_CC_COMP_23_INFO(inst)                                ((inst) + 0x0000016E), 0x00000104
+#define REG_CC_01_CFG0_ADDR(inst)                               ((uint32_t)(inst) + 0x0000016CU)
+#define BF_CC_CONFIG_01_INFO(inst)                              ((uint32_t)(inst) + 0x0000016CU), 0x00001000U
 
-#define REG_CC_23_CFG0_ADDR(inst)                               ((inst) + 0x0000016F)
-#define BF_CC_CONFIG_23_INFO(inst)                              ((inst) + 0x0000016F), 0x00001000
+#define REG_CC_01_CFG1_ADDR(inst)                               ((uint32_t)(inst) + 0x0000016DU)
 
-#define REG_CC_23_CFG1_ADDR(inst)                               ((inst) + 0x00000170)
+#define REG_CC_CLK_23_ADDR(inst)                                ((uint32_t)(inst) + 0x0000016EU)
+#define BF_CC_CLK_23_INFO(inst)                                 ((uint32_t)(inst) + 0x0000016EU), 0x00000100U
+#define BF_CC_COMP_23_INFO(inst)                                ((uint32_t)(inst) + 0x0000016EU), 0x00000104U
 
-#define REG_CC_CLK_ADC_ADDR(inst)                               ((inst) + 0x00000171)
-#define BF_CC_CLK_ADC_INFO(inst)                                ((inst) + 0x00000171), 0x00000100
-#define BF_CC_COMP_ADC_INFO(inst)                               ((inst) + 0x00000171), 0x00000104
-#define BF_CC_COMP_ADC1_INFO(inst)                              ((inst) + 0x00000171), 0x00000105
+#define REG_CC_23_CFG0_ADDR(inst)                               ((uint32_t)(inst) + 0x0000016FU)
+#define BF_CC_CONFIG_23_INFO(inst)                              ((uint32_t)(inst) + 0x0000016FU), 0x00001000U
 
-#define REG_CC_ADC_CFG0_ADDR(inst)                              ((inst) + 0x00000172)
-#define BF_CC_CONFIG_ADC_INFO(inst)                             ((inst) + 0x00000172), 0x00001000
+#define REG_CC_23_CFG1_ADDR(inst)                               ((uint32_t)(inst) + 0x00000170U)
 
-#define REG_CC_ADC_CFG1_ADDR(inst)                              ((inst) + 0x00000173)
+#define REG_CC_CLK_ADC_ADDR(inst)                               ((uint32_t)(inst) + 0x00000171U)
+#define BF_CC_CLK_ADC_INFO(inst)                                ((uint32_t)(inst) + 0x00000171U), 0x00000100U
+#define BF_CC_COMP_ADC_INFO(inst)                               ((uint32_t)(inst) + 0x00000171U), 0x00000104U
+#define BF_CC_COMP_ADC1_INFO(inst)                              ((uint32_t)(inst) + 0x00000171U), 0x00000105U
 
-#define REG_ADC_LPU_CTRL_ADDR(inst)                             ((inst) + 0x00000174)
-#define BF_DIG_VENUSLPU_CHOP_INFO(inst)                         ((inst) + 0x00000174), 0x00000100
-#define BF_DIG_VENUSLPU_BUFBYPASS_INFO(inst)                    ((inst) + 0x00000174), 0x00000101
-#define BF_DIG_VENUSLPU_SEL_INFO(inst)                          ((inst) + 0x00000174), 0x00000404
+#define REG_CC_ADC_CFG0_ADDR(inst)                              ((uint32_t)(inst) + 0x00000172U)
+#define BF_CC_CONFIG_ADC_INFO(inst)                             ((uint32_t)(inst) + 0x00000172U), 0x00001000U
 
-#define REG_ADC_INV_CTRL0_ADDR(inst)                            ((inst) + 0x00000175)
-#define BF_EN_ADC_INV0_INFO(inst)                               ((inst) + 0x00000175), 0x00000100
-#define BF_EN_ADC_INV0_XC_INFO(inst)                            ((inst) + 0x00000175), 0x00000204
+#define REG_CC_ADC_CFG1_ADDR(inst)                              ((uint32_t)(inst) + 0x00000173U)
 
-#define REG_ADC_INV_CTRL1_ADDR(inst)                            ((inst) + 0x00000176)
-#define BF_EN_ADC_INV1_INFO(inst)                               ((inst) + 0x00000176), 0x00000100
-#define BF_EN_ADC_INV1_XC_INFO(inst)                            ((inst) + 0x00000176), 0x00000204
+#define REG_ADC_LPU_CTRL_ADDR(inst)                             ((uint32_t)(inst) + 0x00000174U)
+#define BF_DIG_VENUSLPU_CHOP_INFO(inst)                         ((uint32_t)(inst) + 0x00000174U), 0x00000100U
+#define BF_DIG_VENUSLPU_BUFBYPASS_INFO(inst)                    ((uint32_t)(inst) + 0x00000174U), 0x00000101U
+#define BF_DIG_VENUSLPU_SEL_INFO(inst)                          ((uint32_t)(inst) + 0x00000174U), 0x00000404U
 
-#define REG_EN_CK_CC_AMUX_CTRL_ADDR(inst)                       ((inst) + 0x00000177)
-#define BF_EN_CK_CC_AMUX_CORNER_INFO(inst)                      ((inst) + 0x00000177), 0x00000100
-#define BF_EN_CK_CC_AMUX_ADC0_INFO(inst)                        ((inst) + 0x00000177), 0x00000101
-#define BF_EN_CK_CC_AMUX_ADC1_INFO(inst)                        ((inst) + 0x00000177), 0x00000102
-#define BF_EN_CK_CC_AMUX_DAC_INFO(inst)                         ((inst) + 0x00000177), 0x00000104
-#define BF_EN_CK_CC_AMUX_DAC01_INFO(inst)                       ((inst) + 0x00000177), 0x00000105
-#define BF_EN_CK_CC_AMUX_DAC23_INFO(inst)                       ((inst) + 0x00000177), 0x00000106
+#define REG_ADC_INV_CTRL0_ADDR(inst)                            ((uint32_t)(inst) + 0x00000175U)
+#define BF_EN_ADC_INV0_INFO(inst)                               ((uint32_t)(inst) + 0x00000175U), 0x00000100U
+#define BF_EN_ADC_INV0_XC_INFO(inst)                            ((uint32_t)(inst) + 0x00000175U), 0x00000204U
 
-#define REG_DAC_CK_PATH_EN_CTRL_ADDR(inst)                      ((inst) + 0x00000178)
-#define BF_DAC_CLK_PATH_EN01_INFO(inst)                         ((inst) + 0x00000178), 0x00000100
-#define BF_DAC_CLK_PATH_EN23_INFO(inst)                         ((inst) + 0x00000178), 0x00000101
+#define REG_ADC_INV_CTRL1_ADDR(inst)                            ((uint32_t)(inst) + 0x00000176U)
+#define BF_EN_ADC_INV1_INFO(inst)                               ((uint32_t)(inst) + 0x00000176U), 0x00000100U
+#define BF_EN_ADC_INV1_XC_INFO(inst)                            ((uint32_t)(inst) + 0x00000176U), 0x00000204U
 
-#define REG_DIG_DAC01_TMU_ADDR(inst)                            ((inst) + 0x00000179)
-#define BF_DIG_DAC01_TMU_LPU_BUFBYPASS_INFO(inst)               ((inst) + 0x00000179), 0x00000100
-#define BF_DIG_DAC01_TMU_LPU_CHOP_INFO(inst)                    ((inst) + 0x00000179), 0x00000101
-#define BF_DIG_DAC01_TMU_LPU_SEL_INFO(inst)                     ((inst) + 0x00000179), 0x00000404
+#define REG_EN_CK_CC_AMUX_CTRL_ADDR(inst)                       ((uint32_t)(inst) + 0x00000177U)
+#define BF_EN_CK_CC_AMUX_CORNER_INFO(inst)                      ((uint32_t)(inst) + 0x00000177U), 0x00000100U
+#define BF_EN_CK_CC_AMUX_ADC0_INFO(inst)                        ((uint32_t)(inst) + 0x00000177U), 0x00000101U
+#define BF_EN_CK_CC_AMUX_ADC1_INFO(inst)                        ((uint32_t)(inst) + 0x00000177U), 0x00000102U
+#define BF_EN_CK_CC_AMUX_DAC_INFO(inst)                         ((uint32_t)(inst) + 0x00000177U), 0x00000104U
+#define BF_EN_CK_CC_AMUX_DAC01_INFO(inst)                       ((uint32_t)(inst) + 0x00000177U), 0x00000105U
+#define BF_EN_CK_CC_AMUX_DAC23_INFO(inst)                       ((uint32_t)(inst) + 0x00000177U), 0x00000106U
 
-#define REG_DIG_DAC23_TMU_ADDR(inst)                            ((inst) + 0x0000017A)
-#define BF_DIG_DAC23_TMU_LPU_BUFBYPASS_INFO(inst)               ((inst) + 0x0000017A), 0x00000100
-#define BF_DIG_DAC23_TMU_LPU_CHOP_INFO(inst)                    ((inst) + 0x0000017A), 0x00000101
-#define BF_DIG_DAC23_TMU_LPU_SEL_INFO(inst)                     ((inst) + 0x0000017A), 0x00000404
+#define REG_DAC_CK_PATH_EN_CTRL_ADDR(inst)                      ((uint32_t)(inst) + 0x00000178U)
+#define BF_DAC_CLK_PATH_EN01_INFO(inst)                         ((uint32_t)(inst) + 0x00000178U), 0x00000100U
+#define BF_DAC_CLK_PATH_EN23_INFO(inst)                         ((uint32_t)(inst) + 0x00000178U), 0x00000101U
 
-#define REG_CC_SKEW_DET0_ADDR(inst)                             ((inst) + 0x0000017B)
-#define BF_CC_ADC_DET_DUTY_SET_ADC0_INFO(inst)                  ((inst) + 0x0000017B), 0x00000300
-#define BF_CC_ADC_DET_DUTY_SET_ADC1_INFO(inst)                  ((inst) + 0x0000017B), 0x00000304
+#define REG_DIG_DAC01_TMU_ADDR(inst)                            ((uint32_t)(inst) + 0x00000179U)
+#define BF_DIG_DAC01_TMU_LPU_BUFBYPASS_INFO(inst)               ((uint32_t)(inst) + 0x00000179U), 0x00000100U
+#define BF_DIG_DAC01_TMU_LPU_CHOP_INFO(inst)                    ((uint32_t)(inst) + 0x00000179U), 0x00000101U
+#define BF_DIG_DAC01_TMU_LPU_SEL_INFO(inst)                     ((uint32_t)(inst) + 0x00000179U), 0x00000404U
 
-#define REG_CC_SKEW_DET1_ADDR(inst)                             ((inst) + 0x0000017C)
-#define BF_CC_SKEW_DET_TRIM_DAC01_INFO(inst)                    ((inst) + 0x0000017C), 0x00000400
-#define BF_CC_SKEW_DET_TRIM_DAC23_INFO(inst)                    ((inst) + 0x0000017C), 0x00000404
+#define REG_DIG_DAC23_TMU_ADDR(inst)                            ((uint32_t)(inst) + 0x0000017AU)
+#define BF_DIG_DAC23_TMU_LPU_BUFBYPASS_INFO(inst)               ((uint32_t)(inst) + 0x0000017AU), 0x00000100U
+#define BF_DIG_DAC23_TMU_LPU_CHOP_INFO(inst)                    ((uint32_t)(inst) + 0x0000017AU), 0x00000101U
+#define BF_DIG_DAC23_TMU_LPU_SEL_INFO(inst)                     ((uint32_t)(inst) + 0x0000017AU), 0x00000404U
 
-#define REG_CC_SKEW_DET2_ADDR(inst)                             ((inst) + 0x0000017D)
-#define BF_CC_SKEW_DET_TRIM_CORNER_INFO(inst)                   ((inst) + 0x0000017D), 0x00000400
-#define BF_CC_SKEW_DET_TRIM_DACC2S_INFO(inst)                   ((inst) + 0x0000017D), 0x00000404
+#define REG_CC_SKEW_DET0_ADDR(inst)                             ((uint32_t)(inst) + 0x0000017BU)
+#define BF_CC_ADC_DET_DUTY_SET_ADC0_INFO(inst)                  ((uint32_t)(inst) + 0x0000017BU), 0x00000300U
+#define BF_CC_ADC_DET_DUTY_SET_ADC1_INFO(inst)                  ((uint32_t)(inst) + 0x0000017BU), 0x00000304U
 
-#define REG_CC_SKEW_DET3_ADDR(inst)                             ((inst) + 0x0000017E)
-#define BF_CC_SKEW_DET_TRIM_ADC_INFO(inst)                      ((inst) + 0x0000017E), 0x00000400
+#define REG_CC_SKEW_DET1_ADDR(inst)                             ((uint32_t)(inst) + 0x0000017CU)
+#define BF_CC_SKEW_DET_TRIM_DAC01_INFO(inst)                    ((uint32_t)(inst) + 0x0000017CU), 0x00000400U
+#define BF_CC_SKEW_DET_TRIM_DAC23_INFO(inst)                    ((uint32_t)(inst) + 0x0000017CU), 0x00000404U
 
-#define REG_C2B_TL2_CKP_R_PUP_ADDR(inst)                        ((inst) + 0x00000180)
-#define BF_C2B_TL2_CLKP_R_PUP_INFO(inst)                        ((inst) + 0x00000180), 0x00000500
+#define REG_CC_SKEW_DET2_ADDR(inst)                             ((uint32_t)(inst) + 0x0000017DU)
+#define BF_CC_SKEW_DET_TRIM_CORNER_INFO(inst)                   ((uint32_t)(inst) + 0x0000017DU), 0x00000400U
+#define BF_CC_SKEW_DET_TRIM_DACC2S_INFO(inst)                   ((uint32_t)(inst) + 0x0000017DU), 0x00000404U
 
-#define REG_C2B_TL2_CKP_R_PDN_ADDR(inst)                        ((inst) + 0x00000181)
-#define BF_C2B_TL2_CLKP_R_PDN_INFO(inst)                        ((inst) + 0x00000181), 0x00000500
+#define REG_CC_SKEW_DET3_ADDR(inst)                             ((uint32_t)(inst) + 0x0000017EU)
+#define BF_CC_SKEW_DET_TRIM_ADC_INFO(inst)                      ((uint32_t)(inst) + 0x0000017EU), 0x00000400U
 
-#define REG_C2B_TL2_CKN_R_PUP_ADDR(inst)                        ((inst) + 0x00000182)
-#define BF_C2B_TL2_CLKN_R_PUP_INFO(inst)                        ((inst) + 0x00000182), 0x00000500
+#define REG_C2B_TL2_CKP_R_PUP_ADDR(inst)                        ((uint32_t)(inst) + 0x00000180U)
+#define BF_C2B_TL2_CLKP_R_PUP_INFO(inst)                        ((uint32_t)(inst) + 0x00000180U), 0x00000500U
 
-#define REG_C2B_TL2_CKN_R_PDN_ADDR(inst)                        ((inst) + 0x00000183)
-#define BF_C2B_TL2_CLKN_R_PDN_INFO(inst)                        ((inst) + 0x00000183), 0x00000500
+#define REG_C2B_TL2_CKP_R_PDN_ADDR(inst)                        ((uint32_t)(inst) + 0x00000181U)
+#define BF_C2B_TL2_CLKP_R_PDN_INFO(inst)                        ((uint32_t)(inst) + 0x00000181U), 0x00000500U
 
-#define REG_C2B_TL2_CKP_C_ADDR(inst)                            ((inst) + 0x00000184)
-#define BF_C2B_TL2_CLKP_C_INFO(inst)                            ((inst) + 0x00000184), 0x00000500
+#define REG_C2B_TL2_CKN_R_PUP_ADDR(inst)                        ((uint32_t)(inst) + 0x00000182U)
+#define BF_C2B_TL2_CLKN_R_PUP_INFO(inst)                        ((uint32_t)(inst) + 0x00000182U), 0x00000500U
 
-#define REG_C2B_TL2_CKN_C_ADDR(inst)                            ((inst) + 0x00000185)
-#define BF_C2B_TL2_CLKN_C_INFO(inst)                            ((inst) + 0x00000185), 0x00000500
+#define REG_C2B_TL2_CKN_R_PDN_ADDR(inst)                        ((uint32_t)(inst) + 0x00000183U)
+#define BF_C2B_TL2_CLKN_R_PDN_INFO(inst)                        ((uint32_t)(inst) + 0x00000183U), 0x00000500U
 
-#define REG_C2B_TL2_SYNC_RC_ADDR(inst)                          ((inst) + 0x00000186)
-#define BF_C2B_TL2_SYNC_R_INFO(inst)                            ((inst) + 0x00000186), 0x00000200
-#define BF_C2B_TL2_SYNC_C_INFO(inst)                            ((inst) + 0x00000186), 0x00000204
+#define REG_C2B_TL2_CKP_C_ADDR(inst)                            ((uint32_t)(inst) + 0x00000184U)
+#define BF_C2B_TL2_CLKP_C_INFO(inst)                            ((uint32_t)(inst) + 0x00000184U), 0x00000500U
 
-#define REG_C2B_TL2_CK_RTERM_ADDR(inst)                         ((inst) + 0x00000187)
-#define BF_C2B_TL2_CLKP_RTERM_PUP_INFO(inst)                    ((inst) + 0x00000187), 0x00000200
-#define BF_C2B_TL2_CLKP_RTERM_PDN_INFO(inst)                    ((inst) + 0x00000187), 0x00000202
-#define BF_C2B_TL2_CLKN_RTERM_PUP_INFO(inst)                    ((inst) + 0x00000187), 0x00000204
-#define BF_C2B_TL2_CLKN_RTERM_PDN_INFO(inst)                    ((inst) + 0x00000187), 0x00000206
+#define REG_C2B_TL2_CKN_C_ADDR(inst)                            ((uint32_t)(inst) + 0x00000185U)
+#define BF_C2B_TL2_CLKN_C_INFO(inst)                            ((uint32_t)(inst) + 0x00000185U), 0x00000500U
 
-#define REG_ADC_TL1_CKP_R_PUP_ADDR(inst)                        ((inst) + 0x00000188)
-#define BF_ADC_TL1_CLKP_R_PUP_INFO(inst)                        ((inst) + 0x00000188), 0x00000500
+#define REG_C2B_TL2_SYNC_RC_ADDR(inst)                          ((uint32_t)(inst) + 0x00000186U)
+#define BF_C2B_TL2_SYNC_R_INFO(inst)                            ((uint32_t)(inst) + 0x00000186U), 0x00000200U
+#define BF_C2B_TL2_SYNC_C_INFO(inst)                            ((uint32_t)(inst) + 0x00000186U), 0x00000204U
 
-#define REG_ADC_TL1_CKP_R_PDN_ADDR(inst)                        ((inst) + 0x00000189)
-#define BF_ADC_TL1_CLKP_R_PDN_INFO(inst)                        ((inst) + 0x00000189), 0x00000500
+#define REG_C2B_TL2_CK_RTERM_ADDR(inst)                         ((uint32_t)(inst) + 0x00000187U)
+#define BF_C2B_TL2_CLKP_RTERM_PUP_INFO(inst)                    ((uint32_t)(inst) + 0x00000187U), 0x00000200U
+#define BF_C2B_TL2_CLKP_RTERM_PDN_INFO(inst)                    ((uint32_t)(inst) + 0x00000187U), 0x00000202U
+#define BF_C2B_TL2_CLKN_RTERM_PUP_INFO(inst)                    ((uint32_t)(inst) + 0x00000187U), 0x00000204U
+#define BF_C2B_TL2_CLKN_RTERM_PDN_INFO(inst)                    ((uint32_t)(inst) + 0x00000187U), 0x00000206U
 
-#define REG_ADC_TL1_CKN_R_PUP_ADDR(inst)                        ((inst) + 0x0000018A)
-#define BF_ADC_TL1_CLKN_R_PUP_INFO(inst)                        ((inst) + 0x0000018A), 0x00000500
+#define REG_ADC_TL1_CKP_R_PUP_ADDR(inst)                        ((uint32_t)(inst) + 0x00000188U)
+#define BF_ADC_TL1_CLKP_R_PUP_INFO(inst)                        ((uint32_t)(inst) + 0x00000188U), 0x00000500U
 
-#define REG_ADC_TL1_CKN_R_PDN_ADDR(inst)                        ((inst) + 0x0000018B)
-#define BF_ADC_TL1_CLKN_R_PDN_INFO(inst)                        ((inst) + 0x0000018B), 0x00000500
+#define REG_ADC_TL1_CKP_R_PDN_ADDR(inst)                        ((uint32_t)(inst) + 0x00000189U)
+#define BF_ADC_TL1_CLKP_R_PDN_INFO(inst)                        ((uint32_t)(inst) + 0x00000189U), 0x00000500U
 
-#define REG_ADC_TL1_CKP_C_ADDR(inst)                            ((inst) + 0x0000018C)
-#define BF_ADC_TL1_CLKP_C_INFO(inst)                            ((inst) + 0x0000018C), 0x00000500
+#define REG_ADC_TL1_CKN_R_PUP_ADDR(inst)                        ((uint32_t)(inst) + 0x0000018AU)
+#define BF_ADC_TL1_CLKN_R_PUP_INFO(inst)                        ((uint32_t)(inst) + 0x0000018AU), 0x00000500U
 
-#define REG_ADC_TL1_CKN_C_ADDR(inst)                            ((inst) + 0x0000018D)
-#define BF_ADC_TL1_CLKN_C_INFO(inst)                            ((inst) + 0x0000018D), 0x00000500
+#define REG_ADC_TL1_CKN_R_PDN_ADDR(inst)                        ((uint32_t)(inst) + 0x0000018BU)
+#define BF_ADC_TL1_CLKN_R_PDN_INFO(inst)                        ((uint32_t)(inst) + 0x0000018BU), 0x00000500U
 
-#define REG_ADC_TL1_SYNC_RC_ADDR(inst)                          ((inst) + 0x0000018E)
-#define BF_ADC_TL1_SYNC_R_INFO(inst)                            ((inst) + 0x0000018E), 0x00000200
-#define BF_ADC_TL1_SYNC_C_INFO(inst)                            ((inst) + 0x0000018E), 0x00000204
+#define REG_ADC_TL1_CKP_C_ADDR(inst)                            ((uint32_t)(inst) + 0x0000018CU)
+#define BF_ADC_TL1_CLKP_C_INFO(inst)                            ((uint32_t)(inst) + 0x0000018CU), 0x00000500U
 
-#define REG_ADC_TL1_CK_RTERM_ADDR(inst)                         ((inst) + 0x0000018F)
-#define BF_ADC_TL1_CLKP_RTERM_PUP_INFO(inst)                    ((inst) + 0x0000018F), 0x00000200
-#define BF_ADC_TL1_CLKP_RTERM_PDN_INFO(inst)                    ((inst) + 0x0000018F), 0x00000202
-#define BF_ADC_TL1_CLKN_RTERM_PUP_INFO(inst)                    ((inst) + 0x0000018F), 0x00000204
-#define BF_ADC_TL1_CLKN_RTERM_PDN_INFO(inst)                    ((inst) + 0x0000018F), 0x00000206
+#define REG_ADC_TL1_CKN_C_ADDR(inst)                            ((uint32_t)(inst) + 0x0000018DU)
+#define BF_ADC_TL1_CLKN_C_INFO(inst)                            ((uint32_t)(inst) + 0x0000018DU), 0x00000500U
 
-#define REG_ADC_TL2_CKP_R_PUP_ADDR(inst)                        ((inst) + 0x00000190)
-#define BF_ADC_TL2_CLKP_R_PUP_INFO(inst)                        ((inst) + 0x00000190), 0x00000500
+#define REG_ADC_TL1_SYNC_RC_ADDR(inst)                          ((uint32_t)(inst) + 0x0000018EU)
+#define BF_ADC_TL1_SYNC_R_INFO(inst)                            ((uint32_t)(inst) + 0x0000018EU), 0x00000200U
+#define BF_ADC_TL1_SYNC_C_INFO(inst)                            ((uint32_t)(inst) + 0x0000018EU), 0x00000204U
 
-#define REG_ADC_TL2_CKP_R_PDN_ADDR(inst)                        ((inst) + 0x00000191)
-#define BF_ADC_TL2_CLKP_R_PDN_INFO(inst)                        ((inst) + 0x00000191), 0x00000500
+#define REG_ADC_TL1_CK_RTERM_ADDR(inst)                         ((uint32_t)(inst) + 0x0000018FU)
+#define BF_ADC_TL1_CLKP_RTERM_PUP_INFO(inst)                    ((uint32_t)(inst) + 0x0000018FU), 0x00000200U
+#define BF_ADC_TL1_CLKP_RTERM_PDN_INFO(inst)                    ((uint32_t)(inst) + 0x0000018FU), 0x00000202U
+#define BF_ADC_TL1_CLKN_RTERM_PUP_INFO(inst)                    ((uint32_t)(inst) + 0x0000018FU), 0x00000204U
+#define BF_ADC_TL1_CLKN_RTERM_PDN_INFO(inst)                    ((uint32_t)(inst) + 0x0000018FU), 0x00000206U
 
-#define REG_ADC_TL2_CKN_R_PUP_ADDR(inst)                        ((inst) + 0x00000192)
-#define BF_ADC_TL2_CLKN_R_PUP_INFO(inst)                        ((inst) + 0x00000192), 0x00000500
+#define REG_ADC_TL2_CKP_R_PUP_ADDR(inst)                        ((uint32_t)(inst) + 0x00000190U)
+#define BF_ADC_TL2_CLKP_R_PUP_INFO(inst)                        ((uint32_t)(inst) + 0x00000190U), 0x00000500U
 
-#define REG_ADC_TL2_CKN_R_PDN_ADDR(inst)                        ((inst) + 0x00000193)
-#define BF_ADC_TL2_CLKN_R_PDN_INFO(inst)                        ((inst) + 0x00000193), 0x00000500
+#define REG_ADC_TL2_CKP_R_PDN_ADDR(inst)                        ((uint32_t)(inst) + 0x00000191U)
+#define BF_ADC_TL2_CLKP_R_PDN_INFO(inst)                        ((uint32_t)(inst) + 0x00000191U), 0x00000500U
 
-#define REG_ADC_TL2_CKP_C_ADDR(inst)                            ((inst) + 0x00000194)
-#define BF_ADC_TL2_CLKP_C_INFO(inst)                            ((inst) + 0x00000194), 0x00000500
+#define REG_ADC_TL2_CKN_R_PUP_ADDR(inst)                        ((uint32_t)(inst) + 0x00000192U)
+#define BF_ADC_TL2_CLKN_R_PUP_INFO(inst)                        ((uint32_t)(inst) + 0x00000192U), 0x00000500U
 
-#define REG_ADC_TL2_CKN_C_ADDR(inst)                            ((inst) + 0x00000195)
-#define BF_ADC_TL2_CLKN_C_INFO(inst)                            ((inst) + 0x00000195), 0x00000500
+#define REG_ADC_TL2_CKN_R_PDN_ADDR(inst)                        ((uint32_t)(inst) + 0x00000193U)
+#define BF_ADC_TL2_CLKN_R_PDN_INFO(inst)                        ((uint32_t)(inst) + 0x00000193U), 0x00000500U
 
-#define REG_ADC_TL2_SYNC_RC_ADDR(inst)                          ((inst) + 0x00000196)
-#define BF_ADC_TL2_SYNC_R_INFO(inst)                            ((inst) + 0x00000196), 0x00000200
-#define BF_ADC_TL2_SYNC_C_INFO(inst)                            ((inst) + 0x00000196), 0x00000204
+#define REG_ADC_TL2_CKP_C_ADDR(inst)                            ((uint32_t)(inst) + 0x00000194U)
+#define BF_ADC_TL2_CLKP_C_INFO(inst)                            ((uint32_t)(inst) + 0x00000194U), 0x00000500U
 
-#define REG_ADC_TL2_CK_RTERM_ADDR(inst)                         ((inst) + 0x00000197)
-#define BF_ADC_TL2_CLKP_RTERM_PUP_INFO(inst)                    ((inst) + 0x00000197), 0x00000200
-#define BF_ADC_TL2_CLKP_RTERM_PDN_INFO(inst)                    ((inst) + 0x00000197), 0x00000202
-#define BF_ADC_TL2_CLKN_RTERM_PUP_INFO(inst)                    ((inst) + 0x00000197), 0x00000204
-#define BF_ADC_TL2_CLKN_RTERM_PDN_INFO(inst)                    ((inst) + 0x00000197), 0x00000206
+#define REG_ADC_TL2_CKN_C_ADDR(inst)                            ((uint32_t)(inst) + 0x00000195U)
+#define BF_ADC_TL2_CLKN_C_INFO(inst)                            ((uint32_t)(inst) + 0x00000195U), 0x00000500U
 
-#define REG_C2S_CKP_R_PUP_ADDR(inst)                            ((inst) + 0x00000198)
-#define BF_C2S_CLKP_R_PUP_INFO(inst)                            ((inst) + 0x00000198), 0x00000500
+#define REG_ADC_TL2_SYNC_RC_ADDR(inst)                          ((uint32_t)(inst) + 0x00000196U)
+#define BF_ADC_TL2_SYNC_R_INFO(inst)                            ((uint32_t)(inst) + 0x00000196U), 0x00000200U
+#define BF_ADC_TL2_SYNC_C_INFO(inst)                            ((uint32_t)(inst) + 0x00000196U), 0x00000204U
 
-#define REG_C2S_CKP_R_PDN_ADDR(inst)                            ((inst) + 0x00000199)
-#define BF_C2S_CLKP_R_PDN_INFO(inst)                            ((inst) + 0x00000199), 0x00000500
+#define REG_ADC_TL2_CK_RTERM_ADDR(inst)                         ((uint32_t)(inst) + 0x00000197U)
+#define BF_ADC_TL2_CLKP_RTERM_PUP_INFO(inst)                    ((uint32_t)(inst) + 0x00000197U), 0x00000200U
+#define BF_ADC_TL2_CLKP_RTERM_PDN_INFO(inst)                    ((uint32_t)(inst) + 0x00000197U), 0x00000202U
+#define BF_ADC_TL2_CLKN_RTERM_PUP_INFO(inst)                    ((uint32_t)(inst) + 0x00000197U), 0x00000204U
+#define BF_ADC_TL2_CLKN_RTERM_PDN_INFO(inst)                    ((uint32_t)(inst) + 0x00000197U), 0x00000206U
 
-#define REG_C2S_CKN_R_PUP_ADDR(inst)                            ((inst) + 0x0000019A)
-#define BF_C2S_CLKN_R_PUP_INFO(inst)                            ((inst) + 0x0000019A), 0x00000500
+#define REG_C2S_CKP_R_PUP_ADDR(inst)                            ((uint32_t)(inst) + 0x00000198U)
+#define BF_C2S_CLKP_R_PUP_INFO(inst)                            ((uint32_t)(inst) + 0x00000198U), 0x00000500U
 
-#define REG_C2S_CKN_R_PDN_ADDR(inst)                            ((inst) + 0x0000019B)
-#define BF_C2S_CLKN_R_PDN_INFO(inst)                            ((inst) + 0x0000019B), 0x00000500
+#define REG_C2S_CKP_R_PDN_ADDR(inst)                            ((uint32_t)(inst) + 0x00000199U)
+#define BF_C2S_CLKP_R_PDN_INFO(inst)                            ((uint32_t)(inst) + 0x00000199U), 0x00000500U
 
-#define REG_C2S_CKP_C_ADDR(inst)                                ((inst) + 0x0000019C)
-#define BF_C2S_CLKP_C_INFO(inst)                                ((inst) + 0x0000019C), 0x00000500
+#define REG_C2S_CKN_R_PUP_ADDR(inst)                            ((uint32_t)(inst) + 0x0000019AU)
+#define BF_C2S_CLKN_R_PUP_INFO(inst)                            ((uint32_t)(inst) + 0x0000019AU), 0x00000500U
 
-#define REG_C2S_CKN_C_ADDR(inst)                                ((inst) + 0x0000019D)
-#define BF_C2S_CLKN_C_INFO(inst)                                ((inst) + 0x0000019D), 0x00000500
+#define REG_C2S_CKN_R_PDN_ADDR(inst)                            ((uint32_t)(inst) + 0x0000019BU)
+#define BF_C2S_CLKN_R_PDN_INFO(inst)                            ((uint32_t)(inst) + 0x0000019BU), 0x00000500U
 
-#define REG_C2S_SYNC_RC_ADDR(inst)                              ((inst) + 0x0000019E)
-#define BF_C2S_SYNC_R_INFO(inst)                                ((inst) + 0x0000019E), 0x00000200
-#define BF_C2S_SYNC_C_INFO(inst)                                ((inst) + 0x0000019E), 0x00000204
+#define REG_C2S_CKP_C_ADDR(inst)                                ((uint32_t)(inst) + 0x0000019CU)
+#define BF_C2S_CLKP_C_INFO(inst)                                ((uint32_t)(inst) + 0x0000019CU), 0x00000500U
 
-#define REG_C2S_CK_RTERM_ADDR(inst)                             ((inst) + 0x0000019F)
-#define BF_C2S_CLKP_RTERM_PUP_INFO(inst)                        ((inst) + 0x0000019F), 0x00000200
-#define BF_C2S_CLKP_RTERM_PDN_INFO(inst)                        ((inst) + 0x0000019F), 0x00000202
-#define BF_C2S_CLKN_RTERM_PUP_INFO(inst)                        ((inst) + 0x0000019F), 0x00000204
-#define BF_C2S_CLKN_RTERM_PDN_INFO(inst)                        ((inst) + 0x0000019F), 0x00000206
+#define REG_C2S_CKN_C_ADDR(inst)                                ((uint32_t)(inst) + 0x0000019DU)
+#define BF_C2S_CLKN_C_INFO(inst)                                ((uint32_t)(inst) + 0x0000019DU), 0x00000500U
 
-#define REG_S01_CKP_R_PUP_ADDR(inst)                            ((inst) + 0x000001A0)
-#define BF_S01_CLKP_R_PUP_INFO(inst)                            ((inst) + 0x000001A0), 0x00000500
+#define REG_C2S_SYNC_RC_ADDR(inst)                              ((uint32_t)(inst) + 0x0000019EU)
+#define BF_C2S_SYNC_R_INFO(inst)                                ((uint32_t)(inst) + 0x0000019EU), 0x00000200U
+#define BF_C2S_SYNC_C_INFO(inst)                                ((uint32_t)(inst) + 0x0000019EU), 0x00000204U
 
-#define REG_S01_CKP_R_PDN_ADDR(inst)                            ((inst) + 0x000001A1)
-#define BF_S01_CLKP_R_PDN_INFO(inst)                            ((inst) + 0x000001A1), 0x00000500
+#define REG_C2S_CK_RTERM_ADDR(inst)                             ((uint32_t)(inst) + 0x0000019FU)
+#define BF_C2S_CLKP_RTERM_PUP_INFO(inst)                        ((uint32_t)(inst) + 0x0000019FU), 0x00000200U
+#define BF_C2S_CLKP_RTERM_PDN_INFO(inst)                        ((uint32_t)(inst) + 0x0000019FU), 0x00000202U
+#define BF_C2S_CLKN_RTERM_PUP_INFO(inst)                        ((uint32_t)(inst) + 0x0000019FU), 0x00000204U
+#define BF_C2S_CLKN_RTERM_PDN_INFO(inst)                        ((uint32_t)(inst) + 0x0000019FU), 0x00000206U
 
-#define REG_S01_CKN_R_PUP_ADDR(inst)                            ((inst) + 0x000001A2)
-#define BF_S01_CLKN_R_PUP_INFO(inst)                            ((inst) + 0x000001A2), 0x00000500
+#define REG_S01_CKP_R_PUP_ADDR(inst)                            ((uint32_t)(inst) + 0x000001A0U)
+#define BF_S01_CLKP_R_PUP_INFO(inst)                            ((uint32_t)(inst) + 0x000001A0U), 0x00000500U
 
-#define REG_S01_CKN_R_PDN_ADDR(inst)                            ((inst) + 0x000001A3)
-#define BF_S01_CLKN_R_PDN_INFO(inst)                            ((inst) + 0x000001A3), 0x00000500
+#define REG_S01_CKP_R_PDN_ADDR(inst)                            ((uint32_t)(inst) + 0x000001A1U)
+#define BF_S01_CLKP_R_PDN_INFO(inst)                            ((uint32_t)(inst) + 0x000001A1U), 0x00000500U
 
-#define REG_S01_CKP_C_ADDR(inst)                                ((inst) + 0x000001A4)
-#define BF_S01_CLKP_C_INFO(inst)                                ((inst) + 0x000001A4), 0x00000500
+#define REG_S01_CKN_R_PUP_ADDR(inst)                            ((uint32_t)(inst) + 0x000001A2U)
+#define BF_S01_CLKN_R_PUP_INFO(inst)                            ((uint32_t)(inst) + 0x000001A2U), 0x00000500U
 
-#define REG_S01_CKN_C_ADDR(inst)                                ((inst) + 0x000001A5)
-#define BF_S01_CLKN_C_INFO(inst)                                ((inst) + 0x000001A5), 0x00000500
+#define REG_S01_CKN_R_PDN_ADDR(inst)                            ((uint32_t)(inst) + 0x000001A3U)
+#define BF_S01_CLKN_R_PDN_INFO(inst)                            ((uint32_t)(inst) + 0x000001A3U), 0x00000500U
 
-#define REG_S01_SYNC_RC_ADDR(inst)                              ((inst) + 0x000001A6)
-#define BF_S01_SYNC_R_INFO(inst)                                ((inst) + 0x000001A6), 0x00000200
-#define BF_S01_SYNC_C_INFO(inst)                                ((inst) + 0x000001A6), 0x00000204
+#define REG_S01_CKP_C_ADDR(inst)                                ((uint32_t)(inst) + 0x000001A4U)
+#define BF_S01_CLKP_C_INFO(inst)                                ((uint32_t)(inst) + 0x000001A4U), 0x00000500U
 
-#define REG_S01_CK_RTERM_ADDR(inst)                             ((inst) + 0x000001A7)
-#define BF_S01_CLKP_RTERM_PUP_INFO(inst)                        ((inst) + 0x000001A7), 0x00000200
-#define BF_S01_CLKP_RTERM_PDN_INFO(inst)                        ((inst) + 0x000001A7), 0x00000202
-#define BF_S01_CLKN_RTERM_PUP_INFO(inst)                        ((inst) + 0x000001A7), 0x00000204
-#define BF_S01_CLKN_RTERM_PDN_INFO(inst)                        ((inst) + 0x000001A7), 0x00000206
+#define REG_S01_CKN_C_ADDR(inst)                                ((uint32_t)(inst) + 0x000001A5U)
+#define BF_S01_CLKN_C_INFO(inst)                                ((uint32_t)(inst) + 0x000001A5U), 0x00000500U
 
-#define REG_S23_CKP_R_PUP_ADDR(inst)                            ((inst) + 0x000001A8)
-#define BF_S23_CLKP_R_PUP_INFO(inst)                            ((inst) + 0x000001A8), 0x00000500
+#define REG_S01_SYNC_RC_ADDR(inst)                              ((uint32_t)(inst) + 0x000001A6U)
+#define BF_S01_SYNC_R_INFO(inst)                                ((uint32_t)(inst) + 0x000001A6U), 0x00000200U
+#define BF_S01_SYNC_C_INFO(inst)                                ((uint32_t)(inst) + 0x000001A6U), 0x00000204U
 
-#define REG_S23_CKP_R_PDN_ADDR(inst)                            ((inst) + 0x000001A9)
-#define BF_S23_CLKP_R_PDN_INFO(inst)                            ((inst) + 0x000001A9), 0x00000500
+#define REG_S01_CK_RTERM_ADDR(inst)                             ((uint32_t)(inst) + 0x000001A7U)
+#define BF_S01_CLKP_RTERM_PUP_INFO(inst)                        ((uint32_t)(inst) + 0x000001A7U), 0x00000200U
+#define BF_S01_CLKP_RTERM_PDN_INFO(inst)                        ((uint32_t)(inst) + 0x000001A7U), 0x00000202U
+#define BF_S01_CLKN_RTERM_PUP_INFO(inst)                        ((uint32_t)(inst) + 0x000001A7U), 0x00000204U
+#define BF_S01_CLKN_RTERM_PDN_INFO(inst)                        ((uint32_t)(inst) + 0x000001A7U), 0x00000206U
 
-#define REG_S23_CKN_R_PUP_ADDR(inst)                            ((inst) + 0x000001AA)
-#define BF_S23_CLKN_R_PUP_INFO(inst)                            ((inst) + 0x000001AA), 0x00000500
+#define REG_S23_CKP_R_PUP_ADDR(inst)                            ((uint32_t)(inst) + 0x000001A8U)
+#define BF_S23_CLKP_R_PUP_INFO(inst)                            ((uint32_t)(inst) + 0x000001A8U), 0x00000500U
 
-#define REG_S23_CKN_R_PDN_ADDR(inst)                            ((inst) + 0x000001AB)
-#define BF_S23_CLKN_R_PDN_INFO(inst)                            ((inst) + 0x000001AB), 0x00000500
+#define REG_S23_CKP_R_PDN_ADDR(inst)                            ((uint32_t)(inst) + 0x000001A9U)
+#define BF_S23_CLKP_R_PDN_INFO(inst)                            ((uint32_t)(inst) + 0x000001A9U), 0x00000500U
 
-#define REG_S23_CKP_C_ADDR(inst)                                ((inst) + 0x000001AC)
-#define BF_S23_CLKP_C_INFO(inst)                                ((inst) + 0x000001AC), 0x00000500
+#define REG_S23_CKN_R_PUP_ADDR(inst)                            ((uint32_t)(inst) + 0x000001AAU)
+#define BF_S23_CLKN_R_PUP_INFO(inst)                            ((uint32_t)(inst) + 0x000001AAU), 0x00000500U
 
-#define REG_S23_CKN_C_ADDR(inst)                                ((inst) + 0x000001AD)
-#define BF_S23_CLKN_C_INFO(inst)                                ((inst) + 0x000001AD), 0x00000500
+#define REG_S23_CKN_R_PDN_ADDR(inst)                            ((uint32_t)(inst) + 0x000001ABU)
+#define BF_S23_CLKN_R_PDN_INFO(inst)                            ((uint32_t)(inst) + 0x000001ABU), 0x00000500U
 
-#define REG_S23_SYNC_RC_ADDR(inst)                              ((inst) + 0x000001AE)
-#define BF_S23_SYNC_R_INFO(inst)                                ((inst) + 0x000001AE), 0x00000200
-#define BF_S23_SYNC_C_INFO(inst)                                ((inst) + 0x000001AE), 0x00000204
+#define REG_S23_CKP_C_ADDR(inst)                                ((uint32_t)(inst) + 0x000001ACU)
+#define BF_S23_CLKP_C_INFO(inst)                                ((uint32_t)(inst) + 0x000001ACU), 0x00000500U
 
-#define REG_S23_CK_RTERM_ADDR(inst)                             ((inst) + 0x000001AF)
-#define BF_S23_CLKP_RTERM_PUP_INFO(inst)                        ((inst) + 0x000001AF), 0x00000200
-#define BF_S23_CLKP_RTERM_PDN_INFO(inst)                        ((inst) + 0x000001AF), 0x00000202
-#define BF_S23_CLKN_RTERM_PUP_INFO(inst)                        ((inst) + 0x000001AF), 0x00000204
-#define BF_S23_CLKN_RTERM_PDN_INFO(inst)                        ((inst) + 0x000001AF), 0x00000206
+#define REG_S23_CKN_C_ADDR(inst)                                ((uint32_t)(inst) + 0x000001ADU)
+#define BF_S23_CLKN_C_INFO(inst)                                ((uint32_t)(inst) + 0x000001ADU), 0x00000500U
 
-#define REG_CCSS_CLK_CTRL_ADDR(inst)                            ((inst) + 0x000001B0)
-#define BF_CCSS_CLK_EN_INFO(inst)                               ((inst) + 0x000001B0), 0x00000100
-#define BF_CCSS_FSM_PRN_RESET_INFO(inst)                        ((inst) + 0x000001B0), 0x00000101
-#define BF_CCSS_CLK_DIV_INFO(inst)                              ((inst) + 0x000001B0), 0x00000204
+#define REG_S23_SYNC_RC_ADDR(inst)                              ((uint32_t)(inst) + 0x000001AEU)
+#define BF_S23_SYNC_R_INFO(inst)                                ((uint32_t)(inst) + 0x000001AEU), 0x00000200U
+#define BF_S23_SYNC_C_INFO(inst)                                ((uint32_t)(inst) + 0x000001AEU), 0x00000204U
 
-#define REG_CCSS_RST_CTRL_ADDR(inst)                            ((inst) + 0x000001B1)
-#define BF_CCSS_FSM_RESET_INFO(inst)                            ((inst) + 0x000001B1), 0x00000100
-#define BF_CCSS_REGMAP_RESET_INFO(inst)                         ((inst) + 0x000001B1), 0x00000101
-#define BF_CCSS_SPI_RDEN_INFO(inst)                             ((inst) + 0x000001B1), 0x00000102
-#define BF_CCSS_SPI_WREN_INFO(inst)                             ((inst) + 0x000001B1), 0x00000103
-#define BF_CCSS_FSM_STATE_INFO(inst)                            ((inst) + 0x000001B1), 0x00000404
+#define REG_S23_CK_RTERM_ADDR(inst)                             ((uint32_t)(inst) + 0x000001AFU)
+#define BF_S23_CLKP_RTERM_PUP_INFO(inst)                        ((uint32_t)(inst) + 0x000001AFU), 0x00000200U
+#define BF_S23_CLKP_RTERM_PDN_INFO(inst)                        ((uint32_t)(inst) + 0x000001AFU), 0x00000202U
+#define BF_S23_CLKN_RTERM_PUP_INFO(inst)                        ((uint32_t)(inst) + 0x000001AFU), 0x00000204U
+#define BF_S23_CLKN_RTERM_PDN_INFO(inst)                        ((uint32_t)(inst) + 0x000001AFU), 0x00000206U
 
-#define REG_CCSS_ACT_SEL_ADDR(inst)                             ((inst) + 0x000001B2)
-#define BF_CCSS_FSM_ACT_SEL_INFO(inst)                          ((inst) + 0x000001B2), 0x00000300
-#define BF_CCSS_FSM_RCDAC_PN_SEL_INFO(inst)                     ((inst) + 0x000001B2), 0x00000204
-#define BF_CCSS_FSM_UPDN_SEL_INFO(inst)                         ((inst) + 0x000001B2), 0x00000107
+#define REG_CCSS_CLK_CTRL_ADDR(inst)                            ((uint32_t)(inst) + 0x000001B0U)
+#define BF_CCSS_CLK_EN_INFO(inst)                               ((uint32_t)(inst) + 0x000001B0U), 0x00000100U
+#define BF_CCSS_FSM_PRN_RESET_INFO(inst)                        ((uint32_t)(inst) + 0x000001B0U), 0x00000101U
+#define BF_CCSS_CLK_DIV_INFO(inst)                              ((uint32_t)(inst) + 0x000001B0U), 0x00000204U
 
-#define REG_CCSS_SWIT_TIME_ADDR(inst)                           ((inst) + 0x000001B3)
-#define BF_CCSS_FSM_SWITCH_TIME_INFO(inst)                      ((inst) + 0x000001B3), 0x00000800
+#define REG_CCSS_RST_CTRL_ADDR(inst)                            ((uint32_t)(inst) + 0x000001B1U)
+#define BF_CCSS_FSM_RESET_INFO(inst)                            ((uint32_t)(inst) + 0x000001B1U), 0x00000100U
+#define BF_CCSS_REGMAP_RESET_INFO(inst)                         ((uint32_t)(inst) + 0x000001B1U), 0x00000101U
+#define BF_CCSS_SPI_RDEN_INFO(inst)                             ((uint32_t)(inst) + 0x000001B1U), 0x00000102U
+#define BF_CCSS_SPI_WREN_INFO(inst)                             ((uint32_t)(inst) + 0x000001B1U), 0x00000103U
+#define BF_CCSS_FSM_STATE_INFO(inst)                            ((uint32_t)(inst) + 0x000001B1U), 0x00000404U
 
-#define REG_CCSS_FSM_CTRL_ADDR(inst)                            ((inst) + 0x000001B4)
-#define BF_CCSS_FSM_START_INFO(inst)                            ((inst) + 0x000001B4), 0x00000100
-#define BF_CCSS_FSM_INIT_INFO(inst)                             ((inst) + 0x000001B4), 0x00000101
-#define BF_CCSS_FSM_PULL_UP_DONE_INFO(inst)                     ((inst) + 0x000001B4), 0x00000104
-#define BF_CCSS_FSM_PULL_DN_DONE_INFO(inst)                     ((inst) + 0x000001B4), 0x00000105
-#define BF_CCSS_FSM_BOUNDARY_HIT_INFO(inst)                     ((inst) + 0x000001B4), 0x00000106
-#define BF_CCSS_FSM_INIT_DONE_INFO(inst)                        ((inst) + 0x000001B4), 0x00000107
+#define REG_CCSS_ACT_SEL_ADDR(inst)                             ((uint32_t)(inst) + 0x000001B2U)
+#define BF_CCSS_FSM_ACT_SEL_INFO(inst)                          ((uint32_t)(inst) + 0x000001B2U), 0x00000300U
+#define BF_CCSS_FSM_RCDAC_PN_SEL_INFO(inst)                     ((uint32_t)(inst) + 0x000001B2U), 0x00000204U
+#define BF_CCSS_FSM_UPDN_SEL_INFO(inst)                         ((uint32_t)(inst) + 0x000001B2U), 0x00000107U
 
-#define REG_CCSS_REGCLK_DIV_ADDR(inst)                          ((inst) + 0x000001B5)
-#define BF_CCSS_FSM_REGCLK_DIV_INFO(inst)                       ((inst) + 0x000001B5), 0x00000800
+#define REG_CCSS_SWIT_TIME_ADDR(inst)                           ((uint32_t)(inst) + 0x000001B3U)
+#define BF_CCSS_FSM_SWITCH_TIME_INFO(inst)                      ((uint32_t)(inst) + 0x000001B3U), 0x00000800U
 
-#define REG_C2C_CC_ACT_NEW_RTERM_ADDR(inst)                     ((inst) + 0x000001BA)
-#define BF_C2C_CC_ACT_NEW_CLKP_RTERM_PUP_INFO(inst)             ((inst) + 0x000001BA), 0x00000200
-#define BF_C2C_CC_ACT_NEW_CLKP_RTERM_PDN_INFO(inst)             ((inst) + 0x000001BA), 0x00000202
-#define BF_C2C_CC_ACT_NEW_CLKN_RTERM_PUP_INFO(inst)             ((inst) + 0x000001BA), 0x00000204
-#define BF_C2C_CC_ACT_NEW_CLKN_RTERM_PDN_INFO(inst)             ((inst) + 0x000001BA), 0x00000206
+#define REG_CCSS_FSM_CTRL_ADDR(inst)                            ((uint32_t)(inst) + 0x000001B4U)
+#define BF_CCSS_FSM_START_INFO(inst)                            ((uint32_t)(inst) + 0x000001B4U), 0x00000100U
+#define BF_CCSS_FSM_INIT_INFO(inst)                             ((uint32_t)(inst) + 0x000001B4U), 0x00000101U
+#define BF_CCSS_FSM_PULL_UP_DONE_INFO(inst)                     ((uint32_t)(inst) + 0x000001B4U), 0x00000104U
+#define BF_CCSS_FSM_PULL_DN_DONE_INFO(inst)                     ((uint32_t)(inst) + 0x000001B4U), 0x00000105U
+#define BF_CCSS_FSM_BOUNDARY_HIT_INFO(inst)                     ((uint32_t)(inst) + 0x000001B4U), 0x00000106U
+#define BF_CCSS_FSM_INIT_DONE_INFO(inst)                        ((uint32_t)(inst) + 0x000001B4U), 0x00000107U
 
-#define REG_C2C_CC_ACT_NEW_CLKP_RPUP_ADDR(inst)                 ((inst) + 0x000001BB)
-#define BF_C2C_CC_ACT_NEW_CLKP_R_PUP_INFO(inst)                 ((inst) + 0x000001BB), 0x00000500
+#define REG_CCSS_REGCLK_DIV_ADDR(inst)                          ((uint32_t)(inst) + 0x000001B5U)
+#define BF_CCSS_FSM_REGCLK_DIV_INFO(inst)                       ((uint32_t)(inst) + 0x000001B5U), 0x00000800U
 
-#define REG_C2C_CC_ACT_NEW_CLKP_RPDN_ADDR(inst)                 ((inst) + 0x000001BC)
-#define BF_C2C_CC_ACT_NEW_CLKP_R_PDN_INFO(inst)                 ((inst) + 0x000001BC), 0x00000500
+#define REG_C2C_CC_ACT_NEW_RTERM_ADDR(inst)                     ((uint32_t)(inst) + 0x000001BAU)
+#define BF_C2C_CC_ACT_NEW_CLKP_RTERM_PUP_INFO(inst)             ((uint32_t)(inst) + 0x000001BAU), 0x00000200U
+#define BF_C2C_CC_ACT_NEW_CLKP_RTERM_PDN_INFO(inst)             ((uint32_t)(inst) + 0x000001BAU), 0x00000202U
+#define BF_C2C_CC_ACT_NEW_CLKN_RTERM_PUP_INFO(inst)             ((uint32_t)(inst) + 0x000001BAU), 0x00000204U
+#define BF_C2C_CC_ACT_NEW_CLKN_RTERM_PDN_INFO(inst)             ((uint32_t)(inst) + 0x000001BAU), 0x00000206U
 
-#define REG_C2C_CC_ACT_NEW_CLKP_C_ADDR(inst)                    ((inst) + 0x000001BD)
-#define BF_C2C_CC_ACT_NEW_CLKP_C_INFO(inst)                     ((inst) + 0x000001BD), 0x00000500
+#define REG_C2C_CC_ACT_NEW_CLKP_RPUP_ADDR(inst)                 ((uint32_t)(inst) + 0x000001BBU)
+#define BF_C2C_CC_ACT_NEW_CLKP_R_PUP_INFO(inst)                 ((uint32_t)(inst) + 0x000001BBU), 0x00000500U
 
-#define REG_C2C_CC_ACT_NEW_CLKN_RPUP_ADDR(inst)                 ((inst) + 0x000001BE)
-#define BF_C2C_CC_ACT_NEW_CLKN_R_PUP_INFO(inst)                 ((inst) + 0x000001BE), 0x00000500
+#define REG_C2C_CC_ACT_NEW_CLKP_RPDN_ADDR(inst)                 ((uint32_t)(inst) + 0x000001BCU)
+#define BF_C2C_CC_ACT_NEW_CLKP_R_PDN_INFO(inst)                 ((uint32_t)(inst) + 0x000001BCU), 0x00000500U
 
-#define REG_C2C_CC_ACT_NEW_CLKN_RPDN_ADDR(inst)                 ((inst) + 0x000001BF)
-#define BF_C2C_CC_ACT_NEW_CLKN_R_PDN_INFO(inst)                 ((inst) + 0x000001BF), 0x00000500
+#define REG_C2C_CC_ACT_NEW_CLKP_C_ADDR(inst)                    ((uint32_t)(inst) + 0x000001BDU)
+#define BF_C2C_CC_ACT_NEW_CLKP_C_INFO(inst)                     ((uint32_t)(inst) + 0x000001BDU), 0x00000500U
 
-#define REG_C2C_CC_ACT_NEW_CLKN_C_ADDR(inst)                    ((inst) + 0x000001C0)
-#define BF_C2C_CC_ACT_NEW_CLKN_C_INFO(inst)                     ((inst) + 0x000001C0), 0x00000500
+#define REG_C2C_CC_ACT_NEW_CLKN_RPUP_ADDR(inst)                 ((uint32_t)(inst) + 0x000001BEU)
+#define BF_C2C_CC_ACT_NEW_CLKN_R_PUP_INFO(inst)                 ((uint32_t)(inst) + 0x000001BEU), 0x00000500U
 
-#define REG_C2C_CC_ACT_NEW_SYNC_ADDR(inst)                      ((inst) + 0x000001C1)
-#define BF_C2C_CC_ACT_NEW_SYNC_R_INFO(inst)                     ((inst) + 0x000001C1), 0x00000200
-#define BF_C2C_CC_ACT_NEW_SYNC_C_INFO(inst)                     ((inst) + 0x000001C1), 0x00000204
+#define REG_C2C_CC_ACT_NEW_CLKN_RPDN_ADDR(inst)                 ((uint32_t)(inst) + 0x000001BFU)
+#define BF_C2C_CC_ACT_NEW_CLKN_R_PDN_INFO(inst)                 ((uint32_t)(inst) + 0x000001BFU), 0x00000500U
 
-#define REG_C2A_CC_ACT_NEW_RTERM_ADDR(inst)                     ((inst) + 0x000001C2)
-#define BF_C2A_CC_ACT_NEW_CLKP_RTERM_PUP_INFO(inst)             ((inst) + 0x000001C2), 0x00000200
-#define BF_C2A_CC_ACT_NEW_CLKP_RTERM_PDN_INFO(inst)             ((inst) + 0x000001C2), 0x00000202
-#define BF_C2A_CC_ACT_NEW_CLKN_RTERM_PUP_INFO(inst)             ((inst) + 0x000001C2), 0x00000204
-#define BF_C2A_CC_ACT_NEW_CLKN_RTERM_PDN_INFO(inst)             ((inst) + 0x000001C2), 0x00000206
+#define REG_C2C_CC_ACT_NEW_CLKN_C_ADDR(inst)                    ((uint32_t)(inst) + 0x000001C0U)
+#define BF_C2C_CC_ACT_NEW_CLKN_C_INFO(inst)                     ((uint32_t)(inst) + 0x000001C0U), 0x00000500U
 
-#define REG_C2A_CC_ACT_NEW_CLKP_RPUP_ADDR(inst)                 ((inst) + 0x000001C3)
-#define BF_C2A_CC_ACT_NEW_CLKP_R_PUP_INFO(inst)                 ((inst) + 0x000001C3), 0x00000500
+#define REG_C2C_CC_ACT_NEW_SYNC_ADDR(inst)                      ((uint32_t)(inst) + 0x000001C1U)
+#define BF_C2C_CC_ACT_NEW_SYNC_R_INFO(inst)                     ((uint32_t)(inst) + 0x000001C1U), 0x00000200U
+#define BF_C2C_CC_ACT_NEW_SYNC_C_INFO(inst)                     ((uint32_t)(inst) + 0x000001C1U), 0x00000204U
 
-#define REG_C2A_CC_ACT_NEW_CLKP_RPDN_ADDR(inst)                 ((inst) + 0x000001C4)
-#define BF_C2A_CC_ACT_NEW_CLKP_R_PDN_INFO(inst)                 ((inst) + 0x000001C4), 0x00000500
+#define REG_C2A_CC_ACT_NEW_RTERM_ADDR(inst)                     ((uint32_t)(inst) + 0x000001C2U)
+#define BF_C2A_CC_ACT_NEW_CLKP_RTERM_PUP_INFO(inst)             ((uint32_t)(inst) + 0x000001C2U), 0x00000200U
+#define BF_C2A_CC_ACT_NEW_CLKP_RTERM_PDN_INFO(inst)             ((uint32_t)(inst) + 0x000001C2U), 0x00000202U
+#define BF_C2A_CC_ACT_NEW_CLKN_RTERM_PUP_INFO(inst)             ((uint32_t)(inst) + 0x000001C2U), 0x00000204U
+#define BF_C2A_CC_ACT_NEW_CLKN_RTERM_PDN_INFO(inst)             ((uint32_t)(inst) + 0x000001C2U), 0x00000206U
 
-#define REG_C2A_CC_ACT_NEW_CLKP_C_ADDR(inst)                    ((inst) + 0x000001C5)
-#define BF_C2A_CC_ACT_NEW_CLKP_C_INFO(inst)                     ((inst) + 0x000001C5), 0x00000500
+#define REG_C2A_CC_ACT_NEW_CLKP_RPUP_ADDR(inst)                 ((uint32_t)(inst) + 0x000001C3U)
+#define BF_C2A_CC_ACT_NEW_CLKP_R_PUP_INFO(inst)                 ((uint32_t)(inst) + 0x000001C3U), 0x00000500U
 
-#define REG_C2A_CC_ACT_NEW_CLKN_RPUP_ADDR(inst)                 ((inst) + 0x000001C6)
-#define BF_C2A_CC_ACT_NEW_CLKN_R_PUP_INFO(inst)                 ((inst) + 0x000001C6), 0x00000500
+#define REG_C2A_CC_ACT_NEW_CLKP_RPDN_ADDR(inst)                 ((uint32_t)(inst) + 0x000001C4U)
+#define BF_C2A_CC_ACT_NEW_CLKP_R_PDN_INFO(inst)                 ((uint32_t)(inst) + 0x000001C4U), 0x00000500U
 
-#define REG_C2A_CC_ACT_NEW_CLKN_RPDN_ADDR(inst)                 ((inst) + 0x000001C7)
-#define BF_C2A_CC_ACT_NEW_CLKN_R_PDN_INFO(inst)                 ((inst) + 0x000001C7), 0x00000500
+#define REG_C2A_CC_ACT_NEW_CLKP_C_ADDR(inst)                    ((uint32_t)(inst) + 0x000001C5U)
+#define BF_C2A_CC_ACT_NEW_CLKP_C_INFO(inst)                     ((uint32_t)(inst) + 0x000001C5U), 0x00000500U
 
-#define REG_C2A_CC_ACT_NEW_CLKN_C_ADDR(inst)                    ((inst) + 0x000001C8)
-#define BF_C2A_CC_ACT_NEW_CLKN_C_INFO(inst)                     ((inst) + 0x000001C8), 0x00000500
+#define REG_C2A_CC_ACT_NEW_CLKN_RPUP_ADDR(inst)                 ((uint32_t)(inst) + 0x000001C6U)
+#define BF_C2A_CC_ACT_NEW_CLKN_R_PUP_INFO(inst)                 ((uint32_t)(inst) + 0x000001C6U), 0x00000500U
 
-#define REG_C2A_CC_ACT_NEW_SYNC_ADDR(inst)                      ((inst) + 0x000001C9)
-#define BF_C2A_CC_ACT_NEW_SYNC_R_INFO(inst)                     ((inst) + 0x000001C9), 0x00000200
-#define BF_C2A_CC_ACT_NEW_SYNC_C_INFO(inst)                     ((inst) + 0x000001C9), 0x00000204
+#define REG_C2A_CC_ACT_NEW_CLKN_RPDN_ADDR(inst)                 ((uint32_t)(inst) + 0x000001C7U)
+#define BF_C2A_CC_ACT_NEW_CLKN_R_PDN_INFO(inst)                 ((uint32_t)(inst) + 0x000001C7U), 0x00000500U
 
-#define REG_C2S_CC_ACT_NEW_RTERM_ADDR(inst)                     ((inst) + 0x000001CA)
-#define BF_C2S_CC_ACT_NEW_CLKP_RTERM_PUP_INFO(inst)             ((inst) + 0x000001CA), 0x00000200
-#define BF_C2S_CC_ACT_NEW_CLKP_RTERM_PDN_INFO(inst)             ((inst) + 0x000001CA), 0x00000202
-#define BF_C2S_CC_ACT_NEW_CLKN_RTERM_PUP_INFO(inst)             ((inst) + 0x000001CA), 0x00000204
-#define BF_C2S_CC_ACT_NEW_CLKN_RTERM_PDN_INFO(inst)             ((inst) + 0x000001CA), 0x00000206
+#define REG_C2A_CC_ACT_NEW_CLKN_C_ADDR(inst)                    ((uint32_t)(inst) + 0x000001C8U)
+#define BF_C2A_CC_ACT_NEW_CLKN_C_INFO(inst)                     ((uint32_t)(inst) + 0x000001C8U), 0x00000500U
 
-#define REG_C2S_CC_ACT_NEW_CLKP_RPUP_ADDR(inst)                 ((inst) + 0x000001CB)
-#define BF_C2S_CC_ACT_NEW_CLKP_R_PUP_INFO(inst)                 ((inst) + 0x000001CB), 0x00000500
+#define REG_C2A_CC_ACT_NEW_SYNC_ADDR(inst)                      ((uint32_t)(inst) + 0x000001C9U)
+#define BF_C2A_CC_ACT_NEW_SYNC_R_INFO(inst)                     ((uint32_t)(inst) + 0x000001C9U), 0x00000200U
+#define BF_C2A_CC_ACT_NEW_SYNC_C_INFO(inst)                     ((uint32_t)(inst) + 0x000001C9U), 0x00000204U
 
-#define REG_C2S_CC_ACT_NEW_CLKP_RPDN_ADDR(inst)                 ((inst) + 0x000001CC)
-#define BF_C2S_CC_ACT_NEW_CLKP_R_PDN_INFO(inst)                 ((inst) + 0x000001CC), 0x00000500
+#define REG_C2S_CC_ACT_NEW_RTERM_ADDR(inst)                     ((uint32_t)(inst) + 0x000001CAU)
+#define BF_C2S_CC_ACT_NEW_CLKP_RTERM_PUP_INFO(inst)             ((uint32_t)(inst) + 0x000001CAU), 0x00000200U
+#define BF_C2S_CC_ACT_NEW_CLKP_RTERM_PDN_INFO(inst)             ((uint32_t)(inst) + 0x000001CAU), 0x00000202U
+#define BF_C2S_CC_ACT_NEW_CLKN_RTERM_PUP_INFO(inst)             ((uint32_t)(inst) + 0x000001CAU), 0x00000204U
+#define BF_C2S_CC_ACT_NEW_CLKN_RTERM_PDN_INFO(inst)             ((uint32_t)(inst) + 0x000001CAU), 0x00000206U
 
-#define REG_C2S_CC_ACT_NEW_CLKP_C_ADDR(inst)                    ((inst) + 0x000001CD)
-#define BF_C2S_CC_ACT_NEW_CLKP_C_INFO(inst)                     ((inst) + 0x000001CD), 0x00000500
+#define REG_C2S_CC_ACT_NEW_CLKP_RPUP_ADDR(inst)                 ((uint32_t)(inst) + 0x000001CBU)
+#define BF_C2S_CC_ACT_NEW_CLKP_R_PUP_INFO(inst)                 ((uint32_t)(inst) + 0x000001CBU), 0x00000500U
 
-#define REG_C2S_CC_ACT_NEW_CLKN_RPUP_ADDR(inst)                 ((inst) + 0x000001CE)
-#define BF_C2S_CC_ACT_NEW_CLKN_R_PUP_INFO(inst)                 ((inst) + 0x000001CE), 0x00000500
+#define REG_C2S_CC_ACT_NEW_CLKP_RPDN_ADDR(inst)                 ((uint32_t)(inst) + 0x000001CCU)
+#define BF_C2S_CC_ACT_NEW_CLKP_R_PDN_INFO(inst)                 ((uint32_t)(inst) + 0x000001CCU), 0x00000500U
 
-#define REG_C2S_CC_ACT_NEW_CLKN_RPDN_ADDR(inst)                 ((inst) + 0x000001CF)
-#define BF_C2S_CC_ACT_NEW_CLKN_R_PDN_INFO(inst)                 ((inst) + 0x000001CF), 0x00000500
+#define REG_C2S_CC_ACT_NEW_CLKP_C_ADDR(inst)                    ((uint32_t)(inst) + 0x000001CDU)
+#define BF_C2S_CC_ACT_NEW_CLKP_C_INFO(inst)                     ((uint32_t)(inst) + 0x000001CDU), 0x00000500U
 
-#define REG_C2S_CC_ACT_NEW_CLKN_C_ADDR(inst)                    ((inst) + 0x000001D0)
-#define BF_C2S_CC_ACT_NEW_CLKN_C_INFO(inst)                     ((inst) + 0x000001D0), 0x00000500
+#define REG_C2S_CC_ACT_NEW_CLKN_RPUP_ADDR(inst)                 ((uint32_t)(inst) + 0x000001CEU)
+#define BF_C2S_CC_ACT_NEW_CLKN_R_PUP_INFO(inst)                 ((uint32_t)(inst) + 0x000001CEU), 0x00000500U
 
-#define REG_C2S_CC_ACT_NEW_SYNC_ADDR(inst)                      ((inst) + 0x000001D1)
-#define BF_C2S_CC_ACT_NEW_SYNC_R_INFO(inst)                     ((inst) + 0x000001D1), 0x00000200
-#define BF_C2S_CC_ACT_NEW_SYNC_C_INFO(inst)                     ((inst) + 0x000001D1), 0x00000204
+#define REG_C2S_CC_ACT_NEW_CLKN_RPDN_ADDR(inst)                 ((uint32_t)(inst) + 0x000001CFU)
+#define BF_C2S_CC_ACT_NEW_CLKN_R_PDN_INFO(inst)                 ((uint32_t)(inst) + 0x000001CFU), 0x00000500U
 
-#define REG_DACSENSE_01_CTRL0_ADDR(inst)                        ((inst) + 0x000001D2)
-#define BF_DACSENSE_REF_LVL_LO_01_INFO(inst)                    ((inst) + 0x000001D2), 0x00000200
-#define BF_DACSENSE_REF_LVL_HI_01_INFO(inst)                    ((inst) + 0x000001D2), 0x00000202
-#define BF_DACSENSE_DACVOLT_SEL_01_INFO(inst)                   ((inst) + 0x000001D2), 0x00000204
-#define BF_DACSENSE_DAC_SEL_SPARE_01_INFO(inst)                 ((inst) + 0x000001D2), 0x00000206
+#define REG_C2S_CC_ACT_NEW_CLKN_C_ADDR(inst)                    ((uint32_t)(inst) + 0x000001D0U)
+#define BF_C2S_CC_ACT_NEW_CLKN_C_INFO(inst)                     ((uint32_t)(inst) + 0x000001D0U), 0x00000500U
 
-#define REG_DACSENSE_01_CTRL1_ADDR(inst)                        ((inst) + 0x000001D3)
-#define BF_DACSENSE_REF_SEL_01_INFO(inst)                       ((inst) + 0x000001D3), 0x00000100
-#define BF_DACSENSE_DAC_SEL_01_INFO(inst)                       ((inst) + 0x000001D3), 0x00000101
-#define BF_DACSENSE_EN_01_INFO(inst)                            ((inst) + 0x000001D3), 0x00000104
-#define BF_DACSENSE_AMUX_EN_01_INFO(inst)                       ((inst) + 0x000001D3), 0x00000105
-#define BF_DACSENSE_COMPCLK_01_INFO(inst)                       ((inst) + 0x000001D3), 0x00000106
-#define BF_DACSENSE_COMP_VALUE_01_INFO(inst)                    ((inst) + 0x000001D3), 0x00000107
+#define REG_C2S_CC_ACT_NEW_SYNC_ADDR(inst)                      ((uint32_t)(inst) + 0x000001D1U)
+#define BF_C2S_CC_ACT_NEW_SYNC_R_INFO(inst)                     ((uint32_t)(inst) + 0x000001D1U), 0x00000200U
+#define BF_C2S_CC_ACT_NEW_SYNC_C_INFO(inst)                     ((uint32_t)(inst) + 0x000001D1U), 0x00000204U
 
-#define REG_DACSENSE_23_CTRL0_ADDR(inst)                        ((inst) + 0x000001D4)
-#define BF_DACSENSE_REF_LVL_LO_23_INFO(inst)                    ((inst) + 0x000001D4), 0x00000200
-#define BF_DACSENSE_REF_LVL_HI_23_INFO(inst)                    ((inst) + 0x000001D4), 0x00000202
-#define BF_DACSENSE_DACVOLT_SEL_23_INFO(inst)                   ((inst) + 0x000001D4), 0x00000204
-#define BF_DACSENSE_DAC_SEL_SPARE_23_INFO(inst)                 ((inst) + 0x000001D4), 0x00000206
+#define REG_DACSENSE_01_CTRL0_ADDR(inst)                        ((uint32_t)(inst) + 0x000001D2U)
+#define BF_DACSENSE_REF_LVL_LO_01_INFO(inst)                    ((uint32_t)(inst) + 0x000001D2U), 0x00000200U
+#define BF_DACSENSE_REF_LVL_HI_01_INFO(inst)                    ((uint32_t)(inst) + 0x000001D2U), 0x00000202U
+#define BF_DACSENSE_DACVOLT_SEL_01_INFO(inst)                   ((uint32_t)(inst) + 0x000001D2U), 0x00000204U
+#define BF_DACSENSE_DAC_SEL_SPARE_01_INFO(inst)                 ((uint32_t)(inst) + 0x000001D2U), 0x00000206U
 
-#define REG_DACSENSE_23_CTRL1_ADDR(inst)                        ((inst) + 0x000001D5)
-#define BF_DACSENSE_REF_SEL_23_INFO(inst)                       ((inst) + 0x000001D5), 0x00000100
-#define BF_DACSENSE_DAC_SEL_23_INFO(inst)                       ((inst) + 0x000001D5), 0x00000101
-#define BF_DACSENSE_EN_23_INFO(inst)                            ((inst) + 0x000001D5), 0x00000104
-#define BF_DACSENSE_AMUX_EN_23_INFO(inst)                       ((inst) + 0x000001D5), 0x00000105
-#define BF_DACSENSE_COMPCLK_23_INFO(inst)                       ((inst) + 0x000001D5), 0x00000106
-#define BF_DACSENSE_COMP_VALUE_23_INFO(inst)                    ((inst) + 0x000001D5), 0x00000107
+#define REG_DACSENSE_01_CTRL1_ADDR(inst)                        ((uint32_t)(inst) + 0x000001D3U)
+#define BF_DACSENSE_REF_SEL_01_INFO(inst)                       ((uint32_t)(inst) + 0x000001D3U), 0x00000100U
+#define BF_DACSENSE_DAC_SEL_01_INFO(inst)                       ((uint32_t)(inst) + 0x000001D3U), 0x00000101U
+#define BF_DACSENSE_EN_01_INFO(inst)                            ((uint32_t)(inst) + 0x000001D3U), 0x00000104U
+#define BF_DACSENSE_AMUX_EN_01_INFO(inst)                       ((uint32_t)(inst) + 0x000001D3U), 0x00000105U
+#define BF_DACSENSE_COMPCLK_01_INFO(inst)                       ((uint32_t)(inst) + 0x000001D3U), 0x00000106U
+#define BF_DACSENSE_COMP_VALUE_01_INFO(inst)                    ((uint32_t)(inst) + 0x000001D3U), 0x00000107U
 
-#endif /* __ADI_APOLLO_BF_MASTER_BIAS_CTRL_H__ */
+#define REG_DACSENSE_23_CTRL0_ADDR(inst)                        ((uint32_t)(inst) + 0x000001D4U)
+#define BF_DACSENSE_REF_LVL_LO_23_INFO(inst)                    ((uint32_t)(inst) + 0x000001D4U), 0x00000200U
+#define BF_DACSENSE_REF_LVL_HI_23_INFO(inst)                    ((uint32_t)(inst) + 0x000001D4U), 0x00000202U
+#define BF_DACSENSE_DACVOLT_SEL_23_INFO(inst)                   ((uint32_t)(inst) + 0x000001D4U), 0x00000204U
+#define BF_DACSENSE_DAC_SEL_SPARE_23_INFO(inst)                 ((uint32_t)(inst) + 0x000001D4U), 0x00000206U
+
+#define REG_DACSENSE_23_CTRL1_ADDR(inst)                        ((uint32_t)(inst) + 0x000001D5U)
+#define BF_DACSENSE_REF_SEL_23_INFO(inst)                       ((uint32_t)(inst) + 0x000001D5U), 0x00000100U
+#define BF_DACSENSE_DAC_SEL_23_INFO(inst)                       ((uint32_t)(inst) + 0x000001D5U), 0x00000101U
+#define BF_DACSENSE_EN_23_INFO(inst)                            ((uint32_t)(inst) + 0x000001D5U), 0x00000104U
+#define BF_DACSENSE_AMUX_EN_23_INFO(inst)                       ((uint32_t)(inst) + 0x000001D5U), 0x00000105U
+#define BF_DACSENSE_COMPCLK_23_INFO(inst)                       ((uint32_t)(inst) + 0x000001D5U), 0x00000106U
+#define BF_DACSENSE_COMP_VALUE_23_INFO(inst)                    ((uint32_t)(inst) + 0x000001D5U), 0x00000107U
+
+#endif /* ADI_APOLLO_BF_MASTER_BIAS_CTRL_H__ */
 /*! @} */

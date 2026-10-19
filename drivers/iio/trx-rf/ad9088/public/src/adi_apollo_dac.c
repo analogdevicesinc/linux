@@ -22,33 +22,21 @@
 #include "adi_apollo_mailbox.h"
 
 
-#define ADI_APOLLO_DAC_DECODER_ENABLE_UINT8                 0        /*!< Enable decoder */
-#define ADI_APOLLO_DAC_BIAS_FORCE_STANDBY_EN_UINT8          4        /*!< Bias force standby enable */
-#define ADI_APOLLO_DAC_CLK_DUTYCTRL_OFFSET_PRG_UINT8        5        /*!< ADI_APOLLO_DAC_CLK_TRIM_2 */
-#define ADI_APOLLO_DAC_CLK_PHASECTRL_OFFSET_PRG_UINT8       6        /*!< ADI_APOLLO_DAC_CLK_TRIM_3 */
-#define ADI_APOLLO_DAC_CLK_PHASECTRL_SKEW_PRG_UINT8         7        /*!< ADI_APOLLO_DAC_CLK_TRIM_1 */
+#define ADI_APOLLO_DAC_DECODER_ENABLE_UINT8                 0U       /*!< Enable decoder */
+#define ADI_APOLLO_DAC_BIAS_FORCE_STANDBY_EN_UINT8          4U       /*!< Bias force standby enable */
+#define ADI_APOLLO_DAC_CLK_DUTYCTRL_OFFSET_PRG_UINT8        5U       /*!< ADI_APOLLO_DAC_CLK_TRIM_2 */
+#define ADI_APOLLO_DAC_CLK_PHASECTRL_OFFSET_PRG_UINT8       6U       /*!< ADI_APOLLO_DAC_CLK_TRIM_3 */
+#define ADI_APOLLO_DAC_CLK_PHASECTRL_SKEW_PRG_UINT8         7U       /*!< ADI_APOLLO_DAC_CLK_TRIM_1 */
 
 
-static uint32_t calc_tx_hsdout_base(int32_t idx);
+static uint32_t calc_tx_hsdout_base(uint32_t index);
 static uint8_t calc_dac_trim_param(adi_apollo_dac_clk_trim_e trim_attr);
 
 int32_t adi_apollo_dac_clk_trim_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t dacs, adi_apollo_dac_clk_trim_e trim_attr, uint8_t trim_val)
 {
     int32_t err;
     uint8_t i;
-    adi_apollo_mailbox_cmd_set_ctrl_t set_ctrl_cmd = {
-        .sys_cal_object_id = APOLLO_CPU_OBJID_IC_DAC_TX,
-        .ctrl_cmd          = CTRL_CMD_PARAM_SET,
-        .data_buffer[0]    = calc_dac_trim_param(trim_attr),
-        .data_buffer[1]    = 0,
-        .data_buffer[2]    = 0,
-        .data_buffer[3]    = 0,
-        .data_buffer[4]    = trim_val,
-        .data_buffer[5]    = 0,
-        .data_buffer[6]    = 0,
-        .data_buffer[7]    = 0,
-        .length            = 8
-    };
+    adi_apollo_mailbox_cmd_set_ctrl_t set_ctrl_cmd;
     adi_apollo_mailbox_resp_set_ctrl_t set_ctrl_resp = {0};
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
@@ -56,70 +44,86 @@ int32_t adi_apollo_dac_clk_trim_set(adi_apollo_device_t *device, adi_apollo_blk_
     ADI_CMS_RANGE_CHECK(trim_attr, ADI_APOLLO_DAC_CLK_TRIM_1, ADI_APOLLO_DAC_CLK_TRIM_3);
     ADI_APOLLO_DAC_BLK_SEL_MASK(dacs);
 
+    /* Initialize mailbox command after validation passes */
+    set_ctrl_cmd.sys_cal_object_id = (uint32_t)APOLLO_CPU_OBJID_IC_DAC_TX;
+    set_ctrl_cmd.ctrl_cmd          = (uint32_t)CTRL_CMD_PARAM_SET;
+    set_ctrl_cmd.data_buffer[0]    = calc_dac_trim_param(trim_attr);
+    set_ctrl_cmd.data_buffer[1]    = 0;
+    set_ctrl_cmd.data_buffer[2]    = 0;
+    set_ctrl_cmd.data_buffer[3]    = 0;
+    set_ctrl_cmd.data_buffer[4]    = trim_val;
+    set_ctrl_cmd.data_buffer[5]    = 0;
+    set_ctrl_cmd.data_buffer[6]    = 0;
+    set_ctrl_cmd.data_buffer[7]    = 0;
+    set_ctrl_cmd.length            = 8;
+
     for (i = 0; i < ADI_APOLLO_DAC_NUM; i++) {
-        if ( (dacs & (ADI_APOLLO_DAC_A0 << i)) > 0 ) {
+        if ( (dacs & (uint16_t)((uint32_t)ADI_APOLLO_DAC_A0 << i)) > 0U ) {
             set_ctrl_cmd.channel_num = i;
 
             err = adi_apollo_mailbox_set_ctrl(device, &set_ctrl_cmd, &set_ctrl_resp);
-            if (err != API_CMS_ERROR_OK) {
-                adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Error from adi_apollo_mailbox_set_ctrl() %d", err);
-                return err;
+            if (err != (int32_t)API_CMS_ERROR_OK) {
+                (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Error from adi_apollo_mailbox_set_ctrl() %d", err);
+                ADI_CMS_RETURN(err);
             }
-            if (set_ctrl_resp.status != API_CMS_ERROR_OK) {
-                adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Mailbox Response Status Error from adi_apollo_mailbox_set_ctrl() 0x%X", set_ctrl_resp.status);
-                return API_CMS_ERROR_MAILBOX_RESP_STATUS;
+            if (set_ctrl_resp.status != (uint32_t)API_CMS_ERROR_OK) {
+                (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Mailbox Response Status Error from adi_apollo_mailbox_set_ctrl() 0x%X", set_ctrl_resp.status);
+                ADI_CMS_RETURN(API_CMS_ERROR_MAILBOX_RESP_STATUS);
             }
-            adi_apollo_hal_delay_us(device, 100 * 1000);
+            err = adi_apollo_hal_delay_us(device, 100 * 1000);
+            ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_dac_clk_trim_get(adi_apollo_device_t *device, adi_apollo_blk_sel_t dacs, adi_apollo_dac_clk_trim_e trim_attr, uint8_t *trim_val)
 {
     int32_t err;
     uint8_t i;
-    adi_apollo_mailbox_cmd_set_ctrl_t set_ctrl_cmd = {
-        .sys_cal_object_id = APOLLO_CPU_OBJID_IC_DAC_TX,
-        .ctrl_cmd          = CTRL_CMD_PARAM_GET,
-        .data_buffer[0]    = calc_dac_trim_param(trim_attr),
-        .data_buffer[1]    = 0,
-        .data_buffer[2]    = 0,
-        .data_buffer[3]    = 0,
-        .length            = 4
-    };
+    adi_apollo_mailbox_cmd_set_ctrl_t set_ctrl_cmd;
     adi_apollo_mailbox_resp_set_ctrl_t set_ctrl_resp = {0};
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(trim_val);
     ADI_CMS_RANGE_CHECK(trim_attr, ADI_APOLLO_DAC_CLK_TRIM_1, ADI_APOLLO_DAC_CLK_TRIM_3);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(dacs) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(dacs) != 1U);
     ADI_APOLLO_DAC_BLK_SEL_MASK(dacs);
 
+    /* Initialize mailbox command after validation passes */
+    set_ctrl_cmd.sys_cal_object_id = (uint32_t)APOLLO_CPU_OBJID_IC_DAC_TX;
+    set_ctrl_cmd.ctrl_cmd          = (uint32_t)CTRL_CMD_PARAM_GET;
+    set_ctrl_cmd.data_buffer[0]    = calc_dac_trim_param(trim_attr);
+    set_ctrl_cmd.data_buffer[1]    = 0;
+    set_ctrl_cmd.data_buffer[2]    = 0;
+    set_ctrl_cmd.data_buffer[3]    = 0;
+    set_ctrl_cmd.length            = 4;
+
     for (i = 0; i < ADI_APOLLO_DAC_NUM; i++) {
-        if ( (dacs & (ADI_APOLLO_DAC_A0 << i)) > 0 ) {
+        if ( (dacs & (uint16_t)((uint32_t)ADI_APOLLO_DAC_A0 << i)) > 0U ) {
             set_ctrl_cmd.channel_num = i;
             break;
         }
     }
 
     err = adi_apollo_mailbox_set_ctrl(device, &set_ctrl_cmd, &set_ctrl_resp);
-    if (err != API_CMS_ERROR_OK) {
-        adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Error from adi_apollo_mailbox_set_ctrl() %d", err);
-        return err;
+    if (err != (int32_t)API_CMS_ERROR_OK) {
+        (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Error from adi_apollo_mailbox_set_ctrl() %d", err);
+        ADI_CMS_RETURN(err);
     }
 
-    if (set_ctrl_resp.status != API_CMS_ERROR_OK) {
-        adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Mailbox Response Status Error from adi_apollo_mailbox_set_ctrl() 0x%X", set_ctrl_resp.status);
-        return API_CMS_ERROR_MAILBOX_RESP_STATUS;
+    if (set_ctrl_resp.status != (uint32_t)API_CMS_ERROR_OK) {
+        (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Mailbox Response Status Error from adi_apollo_mailbox_set_ctrl() 0x%X", set_ctrl_resp.status);
+        ADI_CMS_RETURN(API_CMS_ERROR_MAILBOX_RESP_STATUS);
     }
 
     /* Extract DAC Trim info from response structure */
+    ADI_APOLLO_MAILBOX_RESP_LENGTH_CHECK(set_ctrl_resp, 5U);
     *trim_val = set_ctrl_resp.data_buffer[4];
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_dac_scrambler_enable_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t scrambler_sel, uint8_t enable)
@@ -134,8 +138,8 @@ int32_t adi_apollo_dac_scrambler_enable_set(adi_apollo_device_t *device, adi_apo
     ADI_APOLLO_DAC_BLK_SEL_MASK(scrambler_sel);
 
     for (i = 0; i < ADI_APOLLO_DAC_NUM; i++) {
-        scrambler_chan = scrambler_sel & (ADI_APOLLO_DAC_A0 << i);
-        if (scrambler_chan > 0) {
+        scrambler_chan = scrambler_sel & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_DAC_A0 << i);
+        if (scrambler_chan > 0U) {
             regmap_base_addr = calc_tx_hsdout_base(i);
 
             /*  Enable DAC Scrambler */
@@ -144,7 +148,7 @@ int32_t adi_apollo_dac_scrambler_enable_set(adi_apollo_device_t *device, adi_apo
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 
@@ -157,12 +161,12 @@ int32_t adi_apollo_dac_scrambler_enable_get(adi_apollo_device_t *device, adi_apo
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(scrambler_sel) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(scrambler_sel) != 1U);
     ADI_APOLLO_DAC_BLK_SEL_MASK(scrambler_sel);
 
     for (i = 0; i < ADI_APOLLO_DAC_NUM; i++) {
-        scrambler_chan = scrambler_sel & (ADI_APOLLO_DAC_A0 << i);
-        if (scrambler_chan > 0) {
+        scrambler_chan = scrambler_sel & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_DAC_A0 << i);
+        if (scrambler_chan > 0U) {
             regmap_base_addr = calc_tx_hsdout_base(i);
 
 	        /* Get Scrambler enable status */
@@ -172,7 +176,7 @@ int32_t adi_apollo_dac_scrambler_enable_get(adi_apollo_device_t *device, adi_apo
             break;      /* only one chan per call */
         }
     }
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_dac_data_enable(adi_apollo_device_t *device, adi_apollo_blk_sel_t dacs, uint8_t enable)
@@ -180,8 +184,8 @@ int32_t adi_apollo_dac_data_enable(adi_apollo_device_t *device, adi_apollo_blk_s
     int32_t err;
     uint8_t i;
     adi_apollo_mailbox_cmd_set_ctrl_t set_ctrl_cmd = {
-        .sys_cal_object_id = APOLLO_CPU_OBJID_IC_DAC_TX,
-        .ctrl_cmd          = CTRL_CMD_PARAM_SET,
+        .sys_cal_object_id = (uint32_t)APOLLO_CPU_OBJID_IC_DAC_TX,
+        .ctrl_cmd          = (uint32_t)CTRL_CMD_PARAM_SET,
         .data_buffer[0]    = ADI_APOLLO_DAC_DECODER_ENABLE_UINT8,
         .data_buffer[1]    = 0,
         .data_buffer[2]    = 0,
@@ -196,27 +200,29 @@ int32_t adi_apollo_dac_data_enable(adi_apollo_device_t *device, adi_apollo_blk_s
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
-    ADI_CMS_RANGE_CHECK(enable, 0, 1);
+    /* Lower bound check (< 0) omitted - parameter is unsigned */
+    ADI_APOLLO_INVALID_PARAM_RETURN(enable > 1U);
     ADI_APOLLO_DAC_BLK_SEL_MASK(dacs);
 
     for (i = 0; i < ADI_APOLLO_DAC_NUM; i++) {
-        if ( (dacs & (ADI_APOLLO_DAC_A0 << i)) > 0 ) {
+        if ( (dacs & (uint16_t)((uint32_t)ADI_APOLLO_DAC_A0 << i)) > 0U ) {
             set_ctrl_cmd.channel_num = i;
 
             err = adi_apollo_mailbox_set_ctrl(device, &set_ctrl_cmd, &set_ctrl_resp);
-            if (err != API_CMS_ERROR_OK) {
-                adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Error from adi_apollo_mailbox_set_ctrl() %d", err);
-                return err;
+            if (err != (int32_t)API_CMS_ERROR_OK) {
+                (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Error from adi_apollo_mailbox_set_ctrl() %d", err);
+                ADI_CMS_RETURN(err);
             }
-            if (set_ctrl_resp.status != API_CMS_ERROR_OK) {
-                adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Mailbox Response Status Error from adi_apollo_mailbox_set_ctrl() 0x%X", set_ctrl_resp.status);
-                return API_CMS_ERROR_MAILBOX_RESP_STATUS;
+            if (set_ctrl_resp.status != (uint32_t)API_CMS_ERROR_OK) {
+                (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Mailbox Response Status Error from adi_apollo_mailbox_set_ctrl() 0x%X", set_ctrl_resp.status);
+                ADI_CMS_RETURN(API_CMS_ERROR_MAILBOX_RESP_STATUS);
             }
-            adi_apollo_hal_delay_us(device, 100 * 1000);
+            err = adi_apollo_hal_delay_us(device, 100 * 1000);
+            ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_dac_standby_lock_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t dacs, uint8_t lock_state)
@@ -224,8 +230,8 @@ int32_t adi_apollo_dac_standby_lock_set(adi_apollo_device_t *device, adi_apollo_
     int32_t err;
     uint8_t i;
     adi_apollo_mailbox_cmd_set_ctrl_t set_ctrl_cmd = {
-        .sys_cal_object_id = APOLLO_CPU_OBJID_IC_DAC_TX,
-        .ctrl_cmd          = CTRL_CMD_PARAM_SET,
+        .sys_cal_object_id = (uint32_t)APOLLO_CPU_OBJID_IC_DAC_TX,
+        .ctrl_cmd          = (uint32_t)CTRL_CMD_PARAM_SET,
         .data_buffer[0]    = ADI_APOLLO_DAC_BIAS_FORCE_STANDBY_EN_UINT8,
         .data_buffer[1]    = 0,
         .data_buffer[2]    = 0,
@@ -240,27 +246,28 @@ int32_t adi_apollo_dac_standby_lock_set(adi_apollo_device_t *device, adi_apollo_
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
-    ADI_APOLLO_INVALID_PARAM_RETURN(lock_state > 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(lock_state > 1U);
     ADI_APOLLO_DAC_BLK_SEL_MASK(dacs);
 
     for (i = 0; i < ADI_APOLLO_DAC_NUM; i++) {
-        if ( (dacs & (ADI_APOLLO_DAC_A0 << i)) > 0 ) {
+        if ( (dacs & (uint16_t)((uint32_t)ADI_APOLLO_DAC_A0 << i)) > 0U ) {
             set_ctrl_cmd.channel_num = i;
 
             err = adi_apollo_mailbox_set_ctrl(device, &set_ctrl_cmd, &set_ctrl_resp);
-            if (err != API_CMS_ERROR_OK) {
-                adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Error from adi_apollo_mailbox_set_ctrl() %d", err);
-                return err;
+            if (err != (int32_t)API_CMS_ERROR_OK) {
+                (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Error from adi_apollo_mailbox_set_ctrl() %d", err);
+                ADI_CMS_RETURN(err);
             }
-            if (set_ctrl_resp.status != API_CMS_ERROR_OK) {
-                adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Mailbox Response Status Error from adi_apollo_mailbox_set_ctrl() 0x%X", set_ctrl_resp.status);
-                return API_CMS_ERROR_MAILBOX_RESP_STATUS;
+            if (set_ctrl_resp.status != (uint32_t)API_CMS_ERROR_OK) {
+                (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Mailbox Response Status Error from adi_apollo_mailbox_set_ctrl() 0x%X", set_ctrl_resp.status);
+                ADI_CMS_RETURN(API_CMS_ERROR_MAILBOX_RESP_STATUS);
             }
-            adi_apollo_hal_delay_us(device, 100 * 1000);
+            err = adi_apollo_hal_delay_us(device, 100 * 1000);
+            ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_dac_standby_lock_get(adi_apollo_device_t *device, adi_apollo_blk_sel_t dacs, uint8_t *lock_state)
@@ -268,8 +275,8 @@ int32_t adi_apollo_dac_standby_lock_get(adi_apollo_device_t *device, adi_apollo_
     int32_t err;
     uint8_t i;
     adi_apollo_mailbox_cmd_set_ctrl_t set_ctrl_cmd = {
-        .sys_cal_object_id = APOLLO_CPU_OBJID_IC_DAC_TX,
-        .ctrl_cmd          = CTRL_CMD_PARAM_GET,
+        .sys_cal_object_id = (uint32_t)APOLLO_CPU_OBJID_IC_DAC_TX,
+        .ctrl_cmd          = (uint32_t)CTRL_CMD_PARAM_GET,
         .data_buffer[0]    = ADI_APOLLO_DAC_BIAS_FORCE_STANDBY_EN_UINT8,
         .data_buffer[1]    = 0,
         .data_buffer[2]    = 0,
@@ -281,35 +288,36 @@ int32_t adi_apollo_dac_standby_lock_get(adi_apollo_device_t *device, adi_apollo_
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(lock_state);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(dacs) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(dacs) != 1U);
     ADI_APOLLO_DAC_BLK_SEL_MASK(dacs);
 
     for (i = 0; i < ADI_APOLLO_DAC_NUM; i++) {
-        if ( (dacs & (ADI_APOLLO_DAC_A0 << i)) > 0 ) {
+        if ( (dacs & (uint16_t)((uint32_t)ADI_APOLLO_DAC_A0 << i)) > 0U ) {
             set_ctrl_cmd.channel_num = i;
             break;
         }
     }
 
     err = adi_apollo_mailbox_set_ctrl(device, &set_ctrl_cmd, &set_ctrl_resp);
-    if (err != API_CMS_ERROR_OK) {
-        adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Error from adi_apollo_mailbox_set_ctrl() %d", err);
-        return err;
+    if (err != (int32_t)API_CMS_ERROR_OK) {
+        (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Error from adi_apollo_mailbox_set_ctrl() %d", err);
+        ADI_CMS_RETURN(err);
     }
 
-    if (set_ctrl_resp.status != API_CMS_ERROR_OK) {
-        adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Mailbox Response Status Error from adi_apollo_mailbox_set_ctrl() 0x%X", set_ctrl_resp.status);
-        return API_CMS_ERROR_MAILBOX_RESP_STATUS;
+    if (set_ctrl_resp.status != (uint32_t)API_CMS_ERROR_OK) {
+        (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "Mailbox Response Status Error from adi_apollo_mailbox_set_ctrl() 0x%X", set_ctrl_resp.status);
+        ADI_CMS_RETURN(API_CMS_ERROR_MAILBOX_RESP_STATUS);
     }
 
     /* Extract DAC STANDBY Control lock state info from response structure */
+    ADI_APOLLO_MAILBOX_RESP_LENGTH_CHECK(set_ctrl_resp, 5U);
     *lock_state = set_ctrl_resp.data_buffer[4];
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 
-__maybe_unused uint32_t calc_tx_hsdout_base(int32_t index)
+static uint32_t calc_tx_hsdout_base(uint32_t index)
 {
     /*
      * This table is organized for DAC context usage (fifo, scrambler) of hsdout,
@@ -331,8 +339,7 @@ __maybe_unused uint32_t calc_tx_hsdout_base(int32_t index)
 
 static uint8_t calc_dac_trim_param(adi_apollo_dac_clk_trim_e trim_attr)
 {
-    ADI_CMS_RANGE_CHECK(trim_attr, ADI_APOLLO_DAC_CLK_TRIM_1, ADI_APOLLO_DAC_CLK_TRIM_3);
-
+    /* Note: trim_attr is validated by caller before this function is called */
     if (trim_attr == ADI_APOLLO_DAC_CLK_TRIM_1) {
         return ADI_APOLLO_DAC_CLK_PHASECTRL_SKEW_PRG_UINT8;
     } else if (trim_attr == ADI_APOLLO_DAC_CLK_TRIM_2) {

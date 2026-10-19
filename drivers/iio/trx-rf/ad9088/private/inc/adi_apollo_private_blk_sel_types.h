@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_PRIVATE_DEVICE
  * @{
  */
-#ifndef __ADI_APOLLO_PRIVATE_BLK_SEL_TYPES_H__
-#define __ADI_APOLLO_PRIVATE_BLK_SEL_TYPES_H__
+#ifndef ADI_APOLLO_PRIVATE_BLK_SEL_TYPES_H__
+#define ADI_APOLLO_PRIVATE_BLK_SEL_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 
@@ -34,5 +34,5 @@
 #define ADI_APOLLO_SMON_BLK_SEL_MASK(sel)       (sel) = (device->dev_info.blk_sel_mask.smon & (sel))
 #define ADI_APOLLO_SNIFFER_BLK_SEL_MASK(sel)    (sel) = (device->dev_info.blk_sel_mask.sniffer & (sel))
 
-#endif /* __ADI_APOLLO_PRIVATE_BLK_SEL_TYPES_H__ */
+#endif /* ADI_APOLLO_PRIVATE_BLK_SEL_TYPES_H__ */
 /*! @} */

@@ -12,15 +12,15 @@
  * @{
  */
 
-#ifndef __ADI_APOLLO_HAL_REGIO_SPI_TYPES_H__
-#define __ADI_APOLLO_HAL_REGIO_SPI_TYPES_H__
+#ifndef ADI_APOLLO_HAL_REGIO_SPI_TYPES_H__
+#define ADI_APOLLO_HAL_REGIO_SPI_TYPES_H__
 
 #include "adi_cms_api_common.h"
 #include "adi_apollo_hal_types.h"
 #include "adi_apollo_device_types.h"
 #include "adi_apollo_hal_regio.h"
 
-#define ADI_APOLLO_DIRECT_SPI_REGION_LEN 0x4000ul
+#define ADI_APOLLO_DIRECT_SPI_REGION_LEN 0x4000UL
 
 /*!
  * \brief SPI transaction data size
@@ -76,6 +76,6 @@ typedef struct {
 } adi_apollo_hal_regio_spi_desc_t;
 #endif /* CLIENT_IGNORE*/
 
-#endif /* __ADI_APOLLO_HAL_REGIO_SPI_TYPES_H__ */
+#endif /* ADI_APOLLO_HAL_REGIO_SPI_TYPES_H__ */
 
 /*! @} */

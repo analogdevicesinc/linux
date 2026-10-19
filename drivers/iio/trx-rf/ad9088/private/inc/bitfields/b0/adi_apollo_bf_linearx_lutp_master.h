@@ -12,59 +12,59 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_LINEARX_LUTP_MASTER_H__
-#define __ADI_APOLLO_BF_LINEARX_LUTP_MASTER_H__
+#ifndef ADI_APOLLO_BF_LINEARX_LUTP_MASTER_H__
+#define ADI_APOLLO_BF_LINEARX_LUTP_MASTER_H__
 
 /*============= D E F I N E S ==============*/
-#define LINEARX_LUTP_MASTER_RX_LINEARX_REG32_0_RX_SLICE_0_RX_DIGITAL0 0x60220200
-#define LINEARX_LUTP_MASTER_RX_LINEARX_REG32_1_RX_SLICE_0_RX_DIGITAL0 0x60228200
-#define LINEARX_LUTP_MASTER_RX_LINEARX_REG32_0_RX_SLICE_1_RX_DIGITAL0 0x60420200
-#define LINEARX_LUTP_MASTER_RX_LINEARX_REG32_1_RX_SLICE_1_RX_DIGITAL0 0x60428200
-#define LINEARX_LUTP_MASTER_RX_LINEARX_REG32_0_RX_SLICE_0_RX_DIGITAL1 0x60A20200
-#define LINEARX_LUTP_MASTER_RX_LINEARX_REG32_1_RX_SLICE_0_RX_DIGITAL1 0x60A28200
-#define LINEARX_LUTP_MASTER_RX_LINEARX_REG32_0_RX_SLICE_1_RX_DIGITAL1 0x60C20200
-#define LINEARX_LUTP_MASTER_RX_LINEARX_REG32_1_RX_SLICE_1_RX_DIGITAL1 0x60C28200
-#define LINEARX_LUTP_MASTER_TX_LINEARX_REG32_0_TX_SLICE_0_TX_DIGITAL0 0x61220200
-#define LINEARX_LUTP_MASTER_TX_LINEARX_REG32_1_TX_SLICE_0_TX_DIGITAL0 0x61228200
-#define LINEARX_LUTP_MASTER_TX_LINEARX_REG32_0_TX_SLICE_1_TX_DIGITAL0 0x61420200
-#define LINEARX_LUTP_MASTER_TX_LINEARX_REG32_1_TX_SLICE_1_TX_DIGITAL0 0x61428200
-#define LINEARX_LUTP_MASTER_TX_LINEARX_REG32_0_TX_SLICE_0_TX_DIGITAL1 0x61A20200
-#define LINEARX_LUTP_MASTER_TX_LINEARX_REG32_1_TX_SLICE_0_TX_DIGITAL1 0x61A28200
-#define LINEARX_LUTP_MASTER_TX_LINEARX_REG32_0_TX_SLICE_1_TX_DIGITAL1 0x61C20200
-#define LINEARX_LUTP_MASTER_TX_LINEARX_REG32_1_TX_SLICE_1_TX_DIGITAL1 0x61C28200
+#define LINEARX_LUTP_MASTER_RX_LINEARX_REG32_0_RX_SLICE_0_RX_DIGITAL0 0x60220200U
+#define LINEARX_LUTP_MASTER_RX_LINEARX_REG32_1_RX_SLICE_0_RX_DIGITAL0 0x60228200U
+#define LINEARX_LUTP_MASTER_RX_LINEARX_REG32_0_RX_SLICE_1_RX_DIGITAL0 0x60420200U
+#define LINEARX_LUTP_MASTER_RX_LINEARX_REG32_1_RX_SLICE_1_RX_DIGITAL0 0x60428200U
+#define LINEARX_LUTP_MASTER_RX_LINEARX_REG32_0_RX_SLICE_0_RX_DIGITAL1 0x60A20200U
+#define LINEARX_LUTP_MASTER_RX_LINEARX_REG32_1_RX_SLICE_0_RX_DIGITAL1 0x60A28200U
+#define LINEARX_LUTP_MASTER_RX_LINEARX_REG32_0_RX_SLICE_1_RX_DIGITAL1 0x60C20200U
+#define LINEARX_LUTP_MASTER_RX_LINEARX_REG32_1_RX_SLICE_1_RX_DIGITAL1 0x60C28200U
+#define LINEARX_LUTP_MASTER_TX_LINEARX_REG32_0_TX_SLICE_0_TX_DIGITAL0 0x61220200U
+#define LINEARX_LUTP_MASTER_TX_LINEARX_REG32_1_TX_SLICE_0_TX_DIGITAL0 0x61228200U
+#define LINEARX_LUTP_MASTER_TX_LINEARX_REG32_0_TX_SLICE_1_TX_DIGITAL0 0x61420200U
+#define LINEARX_LUTP_MASTER_TX_LINEARX_REG32_1_TX_SLICE_1_TX_DIGITAL0 0x61428200U
+#define LINEARX_LUTP_MASTER_TX_LINEARX_REG32_0_TX_SLICE_0_TX_DIGITAL1 0x61A20200U
+#define LINEARX_LUTP_MASTER_TX_LINEARX_REG32_1_TX_SLICE_0_TX_DIGITAL1 0x61A28200U
+#define LINEARX_LUTP_MASTER_TX_LINEARX_REG32_0_TX_SLICE_1_TX_DIGITAL1 0x61C20200U
+#define LINEARX_LUTP_MASTER_TX_LINEARX_REG32_1_TX_SLICE_1_TX_DIGITAL1 0x61C28200U
 
-#define REG_LINEARX_LUTP_MASTER_START_ADDR(inst)                      ((inst) + 0x00000000)
-#define BF_LUTP_MASTER_START_INFO(inst)                               ((inst) + 0x00000000), 0x00000100
+#define REG_LINEARX_LUTP_MASTER_START_ADDR(inst)                      ((uint32_t)(inst) + 0x00000000U)
+#define BF_LUTP_MASTER_START_INFO(inst)                               ((uint32_t)(inst) + 0x00000000U), 0x00000100U
 
-#define REG_LINEARX_LUTP_MASTER_HCONFIG_ADDR(inst)                    ((inst) + 0x00000004)
-#define BF_LUTP_MASTER_HSCALE_INFO(inst)                              ((inst) + 0x00000004), 0x00000300
-#define BF_LUTP_MASTER_POLY_ORDER_INFO(inst)                          ((inst) + 0x00000004), 0x00000308
-#define BF_LUTP_MASTER_HOUTPUT_BITS_INFO(inst)                        ((inst) + 0x00000004), 0x00000410
+#define REG_LINEARX_LUTP_MASTER_HCONFIG_ADDR(inst)                    ((uint32_t)(inst) + 0x00000004U)
+#define BF_LUTP_MASTER_HSCALE_INFO(inst)                              ((uint32_t)(inst) + 0x00000004U), 0x00000300U
+#define BF_LUTP_MASTER_POLY_ORDER_INFO(inst)                          ((uint32_t)(inst) + 0x00000004U), 0x00000308U
+#define BF_LUTP_MASTER_HOUTPUT_BITS_INFO(inst)                        ((uint32_t)(inst) + 0x00000004U), 0x00000410U
 
-#define REG_LINEARX_LUTP_MASTER_CCONFIG_ADDR(inst)                    ((inst) + 0x00000008)
-#define BF_LUTP_MASTER_CENABLE_INFO(inst)                             ((inst) + 0x00000008), 0x00000100
-#define BF_LUTP_MASTER_CSCALE_INFO(inst)                              ((inst) + 0x00000008), 0x00000308
-#define BF_LUTP_MASTER_CTAP_CNT_INFO(inst)                            ((inst) + 0x00000008), 0x00000510
-#define BF_LUTP_MASTER_COUTPUT_BITS_INFO(inst)                        ((inst) + 0x00000008), 0x00000418
+#define REG_LINEARX_LUTP_MASTER_CCONFIG_ADDR(inst)                    ((uint32_t)(inst) + 0x00000008U)
+#define BF_LUTP_MASTER_CENABLE_INFO(inst)                             ((uint32_t)(inst) + 0x00000008U), 0x00000100U
+#define BF_LUTP_MASTER_CSCALE_INFO(inst)                              ((uint32_t)(inst) + 0x00000008U), 0x00000308U
+#define BF_LUTP_MASTER_CTAP_CNT_INFO(inst)                            ((uint32_t)(inst) + 0x00000008U), 0x00000510U
+#define BF_LUTP_MASTER_COUTPUT_BITS_INFO(inst)                        ((uint32_t)(inst) + 0x00000008U), 0x00000418U
 
-#define REG_LINEARX_LUTP_MASTER_HCCONFIG_ADDR(inst)                   ((inst) + 0x0000000C)
-#define BF_LUTP_MASTER_START_OFFSET_INFO(inst)                        ((inst) + 0x0000000C), 0x00000800
-#define BF_LUTP_MASTER_LUT_SIZE_INFO(inst)                            ((inst) + 0x0000000C), 0x00000908
+#define REG_LINEARX_LUTP_MASTER_HCCONFIG_ADDR(inst)                   ((uint32_t)(inst) + 0x0000000CU)
+#define BF_LUTP_MASTER_START_OFFSET_INFO(inst)                        ((uint32_t)(inst) + 0x0000000CU), 0x00000800U
+#define BF_LUTP_MASTER_LUT_SIZE_INFO(inst)                            ((uint32_t)(inst) + 0x0000000CU), 0x00000908U
 
-#define REG_LINEARX_LUTP_MASTER_IRQ_ENABLE_ADDR(inst)                 ((inst) + 0x00000010)
-#define BF_LUTP_MASTER_IRQ_EN_INFO(inst)                              ((inst) + 0x00000010), 0x00000100
+#define REG_LINEARX_LUTP_MASTER_IRQ_ENABLE_ADDR(inst)                 ((uint32_t)(inst) + 0x00000010U)
+#define BF_LUTP_MASTER_IRQ_EN_INFO(inst)                              ((uint32_t)(inst) + 0x00000010U), 0x00000100U
 
-#define REG_LINEARX_LUTP_MASTER_DONE_ADDR(inst)                       ((inst) + 0x00000014)
-#define BF_LUTP_MASTER_DONE_INFO(inst)                                ((inst) + 0x00000014), 0x00000100
+#define REG_LINEARX_LUTP_MASTER_DONE_ADDR(inst)                       ((uint32_t)(inst) + 0x00000014U)
+#define BF_LUTP_MASTER_DONE_INFO(inst)                                ((uint32_t)(inst) + 0x00000014U), 0x00000100U
 
-#define REG_LINEARX_LUTP_MASTER_DONE_CLEAR_ADDR(inst)                 ((inst) + 0x00000018)
-#define BF_LUTP_MASTER_DONE_CLEAR_INFO(inst)                          ((inst) + 0x00000018), 0x00000100
+#define REG_LINEARX_LUTP_MASTER_DONE_CLEAR_ADDR(inst)                 ((uint32_t)(inst) + 0x00000018U)
+#define BF_LUTP_MASTER_DONE_CLEAR_INFO(inst)                          ((uint32_t)(inst) + 0x00000018U), 0x00000100U
 
-#define REG_LINEARX_LUTP_HCOEFFS_ADDR(inst, n)                        ((inst) + 0x0000001C + 4 * (n))
-#define BF_LUTP_MASTER_HCOEFFS_INFO(inst, n)                          ((inst) + 0x0000001C + 4 * (n)), 0x00001000
+#define REG_LINEARX_LUTP_HCOEFFS_ADDR(inst, n)                        ((uint32_t)(inst) + 0x0000001CU + 4U * (uint32_t)(n))
+#define BF_LUTP_MASTER_HCOEFFS_INFO(inst, n)                          ((uint32_t)(inst) + 0x0000001CU + 4U * (uint32_t)(n)), 0x00001000U
 
-#define REG_LINEARX_LUTP_CCOEFFS_ADDR(inst, n)                        ((inst) + 0x0000039C + 4 * (n))
-#define BF_LUTP_MASTER_CCOEFFS_INFO(inst, n)                          ((inst) + 0x0000039C + 4 * (n)), 0x00001000
+#define REG_LINEARX_LUTP_CCOEFFS_ADDR(inst, n)                        ((uint32_t)(inst) + 0x0000039CU + 4U * (uint32_t)(n))
+#define BF_LUTP_MASTER_CCOEFFS_INFO(inst, n)                          ((uint32_t)(inst) + 0x0000039CU + 4U * (uint32_t)(n)), 0x00001000U
 
-#endif /* __ADI_APOLLO_BF_LINEARX_LUTP_MASTER_H__ */
+#endif /* ADI_APOLLO_BF_LINEARX_LUTP_MASTER_H__ */
 /*! @} */

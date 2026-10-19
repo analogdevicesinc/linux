@@ -12,61 +12,61 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_JRX_TEST_H__
-#define __ADI_APOLLO_BF_JRX_TEST_H__
+#ifndef ADI_APOLLO_BF_JRX_TEST_H__
+#define ADI_APOLLO_BF_JRX_TEST_H__
 
 /*============= D E F I N E S ==============*/
-#define JRX_TEST_JRX_TX_DIGITAL0                         0x61600000
-#define JRX_TEST_JRX_TX_DIGITAL1                         0x61E00000
+#define JRX_TEST_JRX_TX_DIGITAL0                         0x61600000U
+#define JRX_TEST_JRX_TX_DIGITAL1                         0x61E00000U
 
 #ifdef USE_PRIVATE_BF
-#define REG_JRX_TEST_CONFIG0_ADDR(inst)                  ((inst) + 0x00000000)
-#define BF_JRX_TEST_LANE_CLEAR_ERRORS_INFO(inst)         ((inst) + 0x00000000), 0x00000100
-#define BF_JRX_TEST_LANE_UPDATE_ERROR_COUNT_INFO(inst)   ((inst) + 0x00000000), 0x00000101
-#define BF_JRX_TEST_PRBS_SWAP_ENDIANNESS_INFO(inst)      ((inst) + 0x00000000), 0x00000103
-#define BF_JRX_TEST_SAMPLE_UPDATE_ERROR_COUNT_INFO(inst) ((inst) + 0x00000000), 0x00000104
-#define BF_JRX_TEST_SAMPLE_CLEAR_ERRORS_INFO(inst)       ((inst) + 0x00000000), 0x00000105
-#define BF_JRX_TEST_SAMPLE_INVALID_DATA_FLAG_INFO(inst)  ((inst) + 0x00000000), 0x00000106
-#define BF_JRX_TEST_SAMPLE_ERROR_FLAG_INFO(inst)         ((inst) + 0x00000000), 0x00000107
+#define REG_JRX_TEST_CONFIG0_ADDR(inst)                  ((uint32_t)(inst) + 0x00000000U)
+#define BF_JRX_TEST_LANE_CLEAR_ERRORS_INFO(inst)         ((uint32_t)(inst) + 0x00000000U), 0x00000100U
+#define BF_JRX_TEST_LANE_UPDATE_ERROR_COUNT_INFO(inst)   ((uint32_t)(inst) + 0x00000000U), 0x00000101U
+#define BF_JRX_TEST_PRBS_SWAP_ENDIANNESS_INFO(inst)      ((uint32_t)(inst) + 0x00000000U), 0x00000103U
+#define BF_JRX_TEST_SAMPLE_UPDATE_ERROR_COUNT_INFO(inst) ((uint32_t)(inst) + 0x00000000U), 0x00000104U
+#define BF_JRX_TEST_SAMPLE_CLEAR_ERRORS_INFO(inst)       ((uint32_t)(inst) + 0x00000000U), 0x00000105U
+#define BF_JRX_TEST_SAMPLE_INVALID_DATA_FLAG_INFO(inst)  ((uint32_t)(inst) + 0x00000000U), 0x00000106U
+#define BF_JRX_TEST_SAMPLE_ERROR_FLAG_INFO(inst)         ((uint32_t)(inst) + 0x00000000U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_JRX_TEST_SAMPLE_ERROR_COUNT_ADDR(inst)       ((inst) + 0x00000001)
-#define BF_JRX_TEST_SAMPLE_ERROR_COUNT_INFO(inst)        ((inst) + 0x00000001), 0x00000800
+#define REG_JRX_TEST_SAMPLE_ERROR_COUNT_ADDR(inst)       ((uint32_t)(inst) + 0x00000001U)
+#define BF_JRX_TEST_SAMPLE_ERROR_COUNT_INFO(inst)        ((uint32_t)(inst) + 0x00000001U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_JRX_TEST_CONFIG1_ADDR(inst)                  ((inst) + 0x00000002)
-#define BF_JRX_TEST_MODE_INFO(inst)                      ((inst) + 0x00000002), 0x00000300
-#define BF_JRX_TEST_SOURCE_INFO(inst)                    ((inst) + 0x00000002), 0x00000107
+#define REG_JRX_TEST_CONFIG1_ADDR(inst)                  ((uint32_t)(inst) + 0x00000002U)
+#define BF_JRX_TEST_MODE_INFO(inst)                      ((uint32_t)(inst) + 0x00000002U), 0x00000300U
+#define BF_JRX_TEST_SOURCE_INFO(inst)                    ((uint32_t)(inst) + 0x00000002U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_JRX_TEST_LANE_STATUS_ADDR(inst, n)           ((inst) + 0x00000003 + 1 * (n))
-#define BF_JRX_TEST_LANE_INV_INFO(inst, n)               ((inst) + 0x00000003 + 1 * (n)), 0x00000105
-#define BF_JRX_TEST_LANE_INVALID_DATA_FLAG_INFO(inst, n) ((inst) + 0x00000003 + 1 * (n)), 0x00000106
-#define BF_JRX_TEST_LANE_ERROR_FLAG_INFO(inst, n)        ((inst) + 0x00000003 + 1 * (n)), 0x00000107
+#define REG_JRX_TEST_LANE_STATUS_ADDR(inst, n)           ((uint32_t)(inst) + 0x00000003U + 1U * (uint32_t)(n))
+#define BF_JRX_TEST_LANE_INV_INFO(inst, n)               ((uint32_t)(inst) + 0x00000003U + 1U * (uint32_t)(n)), 0x00000105U
+#define BF_JRX_TEST_LANE_INVALID_DATA_FLAG_INFO(inst, n) ((uint32_t)(inst) + 0x00000003U + 1U * (uint32_t)(n)), 0x00000106U
+#define BF_JRX_TEST_LANE_ERROR_FLAG_INFO(inst, n)        ((uint32_t)(inst) + 0x00000003U + 1U * (uint32_t)(n)), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_JRX_TEST_LANE_ERROR_COUNT0_ADDR(inst, n)     ((inst) + 0x00000013 + 1 * (n))
-#define BF_JRX_TEST_LANE_ERROR_COUNT_INFO(inst, n)       ((inst) + 0x00000013 + 1 * (n)), 0x00001800
+#define REG_JRX_TEST_LANE_ERROR_COUNT0_ADDR(inst, n)     ((uint32_t)(inst) + 0x00000013U + 1U * (uint32_t)(n))
+#define BF_JRX_TEST_LANE_ERROR_COUNT_INFO(inst, n)       ((uint32_t)(inst) + 0x00000013U + 1U * (uint32_t)(n)), 0x00001800U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_JRX_TEST_LANE_ERROR_COUNT1_ADDR(inst, n)     ((inst) + 0x00000023 + 1 * (n))
+#define REG_JRX_TEST_LANE_ERROR_COUNT1_ADDR(inst, n)     ((uint32_t)(inst) + 0x00000023U + 1U * (uint32_t)(n))
 
-#define REG_JRX_TEST_LANE_ERROR_COUNT2_ADDR(inst, n)     ((inst) + 0x00000033 + 1 * (n))
+#define REG_JRX_TEST_LANE_ERROR_COUNT2_ADDR(inst, n)     ((uint32_t)(inst) + 0x00000033U + 1U * (uint32_t)(n))
 
 #ifdef USE_PRIVATE_BF
-#define REG_JRX_TEST_USER_DATA0_ADDR(inst)               ((inst) + 0x00000043)
-#define BF_JRX_TEST_USER_DATA_INFO(inst)                 ((inst) + 0x00000043), 0x00002000
+#define REG_JRX_TEST_USER_DATA0_ADDR(inst)               ((uint32_t)(inst) + 0x00000043U)
+#define BF_JRX_TEST_USER_DATA_INFO(inst)                 ((uint32_t)(inst) + 0x00000043U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_JRX_TEST_USER_DATA1_ADDR(inst)               ((inst) + 0x00000044)
+#define REG_JRX_TEST_USER_DATA1_ADDR(inst)               ((uint32_t)(inst) + 0x00000044U)
 
-#define REG_JRX_TEST_USER_DATA2_ADDR(inst)               ((inst) + 0x00000045)
+#define REG_JRX_TEST_USER_DATA2_ADDR(inst)               ((uint32_t)(inst) + 0x00000045U)
 
-#define REG_JRX_TEST_USER_DATA3_ADDR(inst)               ((inst) + 0x00000046)
+#define REG_JRX_TEST_USER_DATA3_ADDR(inst)               ((uint32_t)(inst) + 0x00000046U)
 
-#endif /* __ADI_APOLLO_BF_JRX_TEST_H__ */
+#endif /* ADI_APOLLO_BF_JRX_TEST_H__ */
 /*! @} */

@@ -25,25 +25,27 @@
 int32_t adi_apollo_rx_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, adi_apollo_rxpath_t *config, adi_apollo_jesd_tx_cfg_t *jtx_config)
 {
     int32_t err;
-    uint8_t i;
+    uint32_t i;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(config);
     ADI_APOLLO_NULL_POINTER_RETURN(jtx_config);
-    ADI_APOLLO_INVALID_PARAM_RETURN((side > ADI_APOLLO_NUM_SIDES - 1));
+    ADI_APOLLO_INVALID_PARAM_RETURN((side >= ADI_APOLLO_NUM_SIDES));
 
     /* Release RX datapath DP reset */
-    adi_apollo_rxmisc_dp_reset(device, (adi_apollo_side_select_e)(1 << side), 0);
+    uint32_t side_mask = 1U << side;
+    err = adi_apollo_rxmisc_dp_reset(device, (adi_apollo_side_select_e)side_mask, 0);
+    ADI_APOLLO_ERROR_RETURN(err);
 
     /* CDDC/CNCO config */
-    for(i = 0; i < ADI_APOLLO_CDDCS_PER_SIDE; i ++) {
+    for(i = 0; i < (uint32_t)ADI_APOLLO_CDDCS_PER_SIDE; i ++) {
         err = adi_apollo_rx_cddc_configure(device, side, (adi_apollo_cddc_idx_e)i, &(config->rx_cddc[i]));
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
     /* FDDC/FNCO config */
-    for(i = 0; i < ADI_APOLLO_FDDCS_PER_SIDE; i ++) {
+    for(i = 0; i < (uint32_t)ADI_APOLLO_FDDCS_PER_SIDE; i ++) {
         err = adi_apollo_rx_fddc_configure(device, side, (adi_apollo_fddc_idx_e)i, &(config->rx_fddc[i]));
         ADI_APOLLO_ERROR_RETURN(err);
     }
@@ -53,23 +55,23 @@ int32_t adi_apollo_rx_configure(adi_apollo_device_t *device, adi_apollo_sides_e 
     ADI_APOLLO_ERROR_RETURN(err);
 
     /* PFILT CONFIG */
-    if (!adi_apollo_private_device_lockout_get(device, ADI_APOLLO_RX, ADI_APOLLO_EC_PFILT_LOCK)) {
-        for(i = 0; i < ADI_APOLLO_PFILTS_PER_SIDE; i ++) {
+    if (adi_apollo_private_device_lockout_get(device, ADI_APOLLO_RX, ADI_APOLLO_EC_PFILT_LOCK) == 0U) {
+        for(i = 0; i < (uint32_t)ADI_APOLLO_PFILTS_PER_SIDE; i ++) {
             err = adi_apollo_rx_pfilt_configure(device, side, (adi_apollo_pfilt_idx_e)i, &(config->rx_pfilt[i]));
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
     /* CFIR config */
-    if (!adi_apollo_private_device_lockout_get(device, ADI_APOLLO_RX, ADI_APOLLO_EC_CFIR_LOCK)) {
-        for(i = 0; i < ADI_APOLLO_CFIRS_PER_SIDE; i ++) {
+    if (adi_apollo_private_device_lockout_get(device, ADI_APOLLO_RX, ADI_APOLLO_EC_CFIR_LOCK) == 0U) {
+        for(i = 0; i < (uint32_t)ADI_APOLLO_CFIRS_PER_SIDE; i ++) {
             err = adi_apollo_rx_cfir_configure(device, side, (adi_apollo_cfir_idx_e)i, &(config->rx_cfir[i]));
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
    /* FSRC config */
-   if (!adi_apollo_private_device_lockout_get(device, ADI_APOLLO_RX, ADI_APOLLO_EC_FSRC_LOCK)) {
+   if (adi_apollo_private_device_lockout_get(device, ADI_APOLLO_RX, ADI_APOLLO_EC_FSRC_LOCK) == 0U) {
        for (i = 0; i < ADI_APOLLO_FSRC_PER_SIDE_NUM; i++) {
             err = adi_apollo_rx_fsrc_configure(device, side, (uint8_t)i, &(config->rx_fsrc));
             ADI_APOLLO_ERROR_RETURN(err);
@@ -77,26 +79,26 @@ int32_t adi_apollo_rx_configure(adi_apollo_device_t *device, adi_apollo_sides_e 
    }
 
    /* DFORMAT config */
-   for (i = 0; i < ADI_APOLLO_JESD_LINKS; i++) {        // # of JESD links per side
+   for (i = 0; i < (uint32_t)ADI_APOLLO_JESD_LINKS; i++) {        // # of JESD links per side
        err = adi_apollo_rx_dformat_configure(device, side, (adi_apollo_jesd_links_e)i, &(config->rx_dformat[i]), &(jtx_config->tx_link_cfg[i]));
        ADI_APOLLO_ERROR_RETURN(err);
    }
 
    /* SMON config */
-   for (i = 0; i < ADI_APOLLO_SMONS_PER_SIDE; i++) {
+   for (i = 0; i < (uint32_t)ADI_APOLLO_SMONS_PER_SIDE; i++) {
        err = adi_apollo_rx_smon_configure(device, side, (adi_apollo_smon_idx_e)i, &(config->rx_smon[i]));
        ADI_APOLLO_ERROR_RETURN(err);
    }
-
-   return API_CMS_ERROR_OK;
+   
+   ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_rx_cddc_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, adi_apollo_cddc_idx_e idx, adi_apollo_cddc_cfg_t *config)
 {
     int32_t err;
-    uint8_t cddc_sel;
-    uint8_t cnco_sel;
-    int cnco_idx;
+    uint16_t cddc_sel;
+    uint16_t cnco_sel;
+    int32_t cnco_idx;
     adi_apollo_cddc_pgm_t ddc_pgm_config;
     adi_apollo_cnco_pgm_t nco_pgm_config;
     adi_apollo_coarse_nco_hop_t nco_hop_profile_config;
@@ -111,25 +113,25 @@ int32_t adi_apollo_rx_cddc_configure(adi_apollo_device_t *device, adi_apollo_sid
 
     /* Program the coarse ddc */
     ddc_pgm_config.dcm = config->drc_ratio;
-    ddc_pgm_config.fine_bypass = config->fine_bypass;
+    ddc_pgm_config.fine_bypass = (uint8_t)config->fine_bypass;
     ddc_pgm_config.link_num = config->link_num;
     ddc_pgm_config.debug_clkoff_n = config->debug_cddc_clkoff_n;
-    ddc_pgm_config.hb1_filt_dly_en = config->hb1_filt_dly_en;
-    ddc_pgm_config.hb2_filt_dly_en = config->hb2_filt_dly_en;
+    ddc_pgm_config.hb1_filt_dly_en = (uint8_t)config->hb1_filt_dly_en;
+    ddc_pgm_config.hb2_filt_dly_en = (uint8_t)config->hb2_filt_dly_en;
     ddc_pgm_config.tb1_filt_dly = config->tb1_filt_dly_cycles;
-    ddc_pgm_config.hb1_gain_6db_en = config->hb1_gain_6db_en;
-    ddc_pgm_config.tb1_gain_6db_en = config->tb1_gain_6db_en;
+    ddc_pgm_config.hb1_gain_6db_en = (uint8_t)config->hb1_gain_6db_en;
+    ddc_pgm_config.tb1_gain_6db_en = (uint8_t)config->tb1_gain_6db_en;
     err = adi_apollo_cddc_pgm(device, cddc_sel, &ddc_pgm_config);
     ADI_APOLLO_ERROR_RETURN(err);
 
     /* Program the CNCOs (there are two CNCOs per CDDC) */
     for (cnco_idx = 0; cnco_idx < ADI_APOLLO_NUM_NCOS_PER_DRC; cnco_idx++) {
 
-        cnco_sel = cddc_sel << (2 * cnco_idx);       // Selects A0/A2, A1/A3, ... B1/B3 (pairs for 8t8r)
+        cnco_sel = (uint16_t)(cddc_sel << (2 * cnco_idx));       // Selects A0/A2, A1/A3, ... B1/B3 (pairs for 8t8r)
 
         /* Program the coarse nco */
-        nco_pgm_config.drc_en = config->nco[cnco_idx].drc_en;
-        nco_pgm_config.debug_drc_clkoff_n = config->nco[cnco_idx].debug_cdrc_clkoff_n;
+        nco_pgm_config.drc_en = (uint8_t)config->nco[cnco_idx].drc_en;
+        nco_pgm_config.debug_drc_clkoff_n = (uint8_t)config->nco[cnco_idx].debug_cdrc_clkoff_n;
         nco_pgm_config.profile_num = 0;
         nco_pgm_config.profile_sel_mode = config->nco[cnco_idx].nco_profile_sel_mode;
         nco_pgm_config.cmplx_mxr_scale_en = config->nco[cnco_idx].cmplx_mxr_mult_scale_en;
@@ -178,12 +180,12 @@ int32_t adi_apollo_rx_cddc_configure(adi_apollo_device_t *device, adi_apollo_sid
         err = adi_apollo_cnco_pow_set(device, ADI_APOLLO_RX, cnco_sel, 0, 1, config->nco[cnco_idx].nco_phase_offset);
         ADI_APOLLO_ERROR_RETURN(err);
     }
-
+    
     // Trigger selection mux here
     err = adi_apollo_trigts_cdrc_trig_sel_mux_set(device, ADI_APOLLO_RX, cddc_sel, ADI_APOLLO_TRIG_SPI);
     ADI_APOLLO_ERROR_RETURN(err);
-
-    return API_CMS_ERROR_OK;
+    
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 
@@ -192,7 +194,7 @@ int32_t adi_apollo_rx_fddc_configure(adi_apollo_device_t *device, adi_apollo_sid
     int32_t err;
     uint16_t fddc_sel;
     uint16_t fnco_sel;
-    int fnco_idx;
+    int32_t fnco_idx;
     adi_apollo_fddc_pgm_t ddc_pgm_config;
     adi_apollo_fnco_pgm_t nco_pgm_config;
     adi_apollo_fine_nco_hop_t nco_hop_profile_config;
@@ -200,7 +202,7 @@ int32_t adi_apollo_rx_fddc_configure(adi_apollo_device_t *device, adi_apollo_sid
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(config);
-    ADI_APOLLO_INVALID_PARAM_RETURN((idx > ADI_APOLLO_FDDCS_PER_SIDE-1))
+    ADI_APOLLO_INVALID_PARAM_RETURN((idx >= ADI_APOLLO_FDDCS_PER_SIDE))
 
     /* Determine block api select from index */
     fddc_sel = ADI_APOLLO_FDDC_IDX2B(side, idx);
@@ -209,24 +211,24 @@ int32_t adi_apollo_rx_fddc_configure(adi_apollo_device_t *device, adi_apollo_sid
     ddc_pgm_config.dcm = config->drc_ratio;
     ddc_pgm_config.debug_clkoff_n = config->debug_fddc_clkoff_n;
     ddc_pgm_config.link_num = config->link_num;
-    ddc_pgm_config.hb1_gain_6db_en = config->hb1_gain_6db_en;
+    ddc_pgm_config.hb1_gain_6db_en = (uint8_t)config->hb1_gain_6db_en;
     err = adi_apollo_fddc_pgm(device, fddc_sel, &ddc_pgm_config);
     ADI_APOLLO_ERROR_RETURN(err);
 
     /* Program the FNCOs (there are two FNCOs per FDDC) */
     for (fnco_idx = 0; fnco_idx < ADI_APOLLO_NUM_NCOS_PER_DRC; fnco_idx++) {
 
-        fnco_sel = fddc_sel << (4 * fnco_idx);       // Selects A0/A4, A1/A5, ... B3/B7 (pairs for 8t8r)
+        fnco_sel = (uint16_t)(fddc_sel << (4 * fnco_idx));       // Selects A0/A4, A1/A5, ... B3/B7 (pairs for 8t8r)
 
         /* Program fine nco */
-        nco_pgm_config.drc_en = config->nco[fnco_idx].drc_en;
-        nco_pgm_config.debug_drc_clkoff_n = config->nco[fnco_idx].debug_fdrc_clkoff_n;
+        nco_pgm_config.drc_en = (uint8_t)config->nco[fnco_idx].drc_en;
+        nco_pgm_config.debug_drc_clkoff_n = (uint8_t)config->nco[fnco_idx].debug_fdrc_clkoff_n;
         nco_pgm_config.if_mode = config->nco[fnco_idx].nco_if_mode;
         nco_pgm_config.mixer_sel = config->nco[fnco_idx].drc_mxr_sel;
         nco_pgm_config.cmplx_mxr_scale_en = config->nco[fnco_idx].cmplx_mxr_mult_scale_en;
         nco_pgm_config.profile_num = 0;
         nco_pgm_config.profile_sel_mode = config->nco[fnco_idx].nco_profile_sel_mode;
-        nco_pgm_config.hop_mode_en = config->nco[fnco_idx].hop_mode_en;
+        nco_pgm_config.hop_mode_en = (uint8_t)config->nco[fnco_idx].hop_mode_en;
         nco_pgm_config.main_phase_inc =  config->nco[fnco_idx].nco_phase_inc;
         nco_pgm_config.main_phase_offset = config->nco[fnco_idx].nco_phase_offset;
         nco_pgm_config.drc_phase_inc_frac_a = config->nco[fnco_idx].nco_phase_inc_frac_a;
@@ -270,7 +272,7 @@ int32_t adi_apollo_rx_fddc_configure(adi_apollo_device_t *device, adi_apollo_sid
     err = adi_apollo_trigts_fdrc_trig_sel_mux_set(device, ADI_APOLLO_RX, fddc_sel, ADI_APOLLO_TRIG_SPI);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_rx_pfilt_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, adi_apollo_pfilt_idx_e idx_pfilt, adi_apollo_pfilt_cfg_t *config)
@@ -284,7 +286,7 @@ int32_t adi_apollo_rx_pfilt_configure(adi_apollo_device_t *device, adi_apollo_si
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(config);
-    ADI_APOLLO_INVALID_PARAM_RETURN((idx_pfilt > ADI_APOLLO_PFILTS_PER_SIDE-1))
+    ADI_APOLLO_INVALID_PARAM_RETURN((idx_pfilt >= ADI_APOLLO_PFILTS_PER_SIDE))
         
     /* In a 4T4R part, there is one pfilt on each side (side A and Side B), "pfilt 0" => pfilt A0 on side A and pfilt B0 on side B
      * In an 8T8R part, there are two pfilts on each side => pfilt A0 and A1 on side A, and pfilt B0 and B1 on side B
@@ -293,12 +295,12 @@ int32_t adi_apollo_rx_pfilt_configure(adi_apollo_device_t *device, adi_apollo_si
      * This function's job is to program the 8 banks on the side passed into the function
      * This function should not try to program the upper 4 banks into A1/B1 if this is not an 8T8R part
      */
-    adi_apollo_blk_sel_t pfiltsMsk = (device->dev_info.is_8t8r) ? ADI_APOLLO_PFILT_ALL : ADI_APOLLO_PFILT_ALL_4T4R;
+    adi_apollo_blk_sel_t pfiltsMsk = (device->dev_info.is_8t8r) ? (adi_apollo_blk_sel_t)ADI_APOLLO_PFILT_ALL : (adi_apollo_blk_sel_t)ADI_APOLLO_PFILT_ALL_4T4R;
     
-    for (coeff_set_idx = 0; coeff_set_idx<ADI_APOLLO_PFILT_COEFF_SETS; coeff_set_idx++) {        
+    for (coeff_set_idx = 0; coeff_set_idx<(uint8_t)ADI_APOLLO_PFILT_COEFF_SETS; coeff_set_idx++) {        
         
         /* From the coefficient index, find what filter (on a side) is programmed: A0/B0 (0) or A1/B1 (1) */
-        adi_apollo_blk_sel_t pfiltForThisCoeffSet = (coeff_set_idx / (ADI_APOLLO_PFILT_COEFF_SETS / 2));
+        adi_apollo_blk_sel_t pfiltForThisCoeffSet = (adi_apollo_blk_sel_t)(coeff_set_idx / (ADI_APOLLO_PFILT_COEFF_SETS / 2));
         
         /* Create the adi_apollo_blk_sel_t mask from the side and filter number, excluding A1/B1 if 4T4R
          * Coefficient set 0 (i.e. Bank 0), pfiltForThisCoeffSet will equal 0, pfilts will be 0001 (if sideA), 0100 (if sideB)
@@ -312,16 +314,16 @@ int32_t adi_apollo_rx_pfilt_configure(adi_apollo_device_t *device, adi_apollo_si
          * 
          * These values will be masked by 0101 for 4T4R and by 1111 for 8T8R
          */
-        adi_apollo_blk_sel_t pfilts = pfiltsMsk & (ADI_APOLLO_PFILT_IDX2B(side, pfiltForThisCoeffSet));
+        adi_apollo_blk_sel_t pfilts = pfiltsMsk & ADI_APOLLO_PFILT_IDX2B(side, pfiltForThisCoeffSet);        
         
         /* Only program the coefficients if the filter exists */
-        if (pfilts > 0) {
-        
-            /* Program pfilt coefficient sets */
+        if (pfilts > 0U) {
+            /* Program pfilt coefficient sets
+             * Use modulo to wrap coeff_set_idx 4-7 to bank 0-3 for PFILT A1/B1 in 8T8R */
             err = adi_apollo_pfilt_coeff_pgm(device,
                 ADI_APOLLO_RX,
                 pfilts,
-                ADI_APOLLO_PFILT_COEFF_IDX2B(coeff_set_idx),
+                ADI_APOLLO_PFILT_COEFF_IDX2B(coeff_set_idx % ADI_APOLLO_PFILT_BANK_NUM),
                 config->coeffs[coeff_set_idx],
                 ADI_APOLLO_PFILT_COEFFS);
             ADI_APOLLO_ERROR_RETURN(err);
@@ -340,7 +342,7 @@ int32_t adi_apollo_rx_pfilt_configure(adi_apollo_device_t *device, adi_apollo_si
             err = adi_apollo_pfilt_gain_dly_pgm(device,
                 ADI_APOLLO_RX,
                 pfilts,
-                ADI_APOLLO_PFILT_COEFF_IDX2B(coeff_set_idx),
+                ADI_APOLLO_PFILT_COEFF_IDX2B(coeff_set_idx % ADI_APOLLO_PFILT_BANK_NUM),
                 &blk_gain_dly_config);
             ADI_APOLLO_ERROR_RETURN(err);
         }
@@ -353,20 +355,20 @@ int32_t adi_apollo_rx_pfilt_configure(adi_apollo_device_t *device, adi_apollo_si
      * i_mode[1] and q_mode[1] for pfilt 1
      */
     blk_mode_config.data = config->real_data;
-    blk_mode_config.add_sub_sel = config->add_sub_sel;
+    blk_mode_config.add_sub_sel = (uint8_t)config->add_sub_sel;
     blk_mode_config.dq_mode = device->dev_info.is_8t8r ? ADI_APOLLO_PFILT_QUAD_MODE : ADI_APOLLO_PFILT_DUAL_MODE;
-    blk_mode_config.mode_switch = config->mode_switch;    
+    blk_mode_config.mode_switch = (uint8_t)config->mode_switch;    
     
     /* Program the PFIR sets for 4T4R or 8T8R */
-    for (ctrl_sets_idx = 0; ctrl_sets_idx < ADI_APOLLO_PFILT_CTRL_SETS; ctrl_sets_idx++)
+    for (ctrl_sets_idx = 0; ctrl_sets_idx < (uint8_t)ADI_APOLLO_PFILT_CTRL_SETS; ctrl_sets_idx++)
     {
-        blk_mode_config.pfir_i_mode[ctrl_sets_idx] = config->enable ? config->i_mode[ctrl_sets_idx] : ADI_APOLLO_PFILT_MODE_DISABLED;
-        blk_mode_config.pfir_q_mode[ctrl_sets_idx] = config->enable ? config->q_mode[ctrl_sets_idx] : ADI_APOLLO_PFILT_MODE_DISABLED;        
+        blk_mode_config.pfir_i_mode[ctrl_sets_idx] = (adi_apollo_pfilt_mode_e)(config->enable ? config->i_mode[ctrl_sets_idx] : ADI_APOLLO_PFILT_MODE_DISABLED);
+        blk_mode_config.pfir_q_mode[ctrl_sets_idx] = (adi_apollo_pfilt_mode_e)(config->enable ? config->q_mode[ctrl_sets_idx] : ADI_APOLLO_PFILT_MODE_DISABLED);        
         
-        adi_apollo_blk_sel_t pfilts = pfiltsMsk & (ADI_APOLLO_PFILT_IDX2B(side, ctrl_sets_idx));
+        adi_apollo_blk_sel_t pfilts = pfiltsMsk & ADI_APOLLO_PFILT_IDX2B(side, ctrl_sets_idx);
 
         /* Only program the mode if the filter exists */
-        if (pfilts > 0) {
+        if (pfilts > 0U) {
         
             err = adi_apollo_pfilt_mode_pgm(device,
                 ADI_APOLLO_RX,
@@ -376,7 +378,7 @@ int32_t adi_apollo_rx_pfilt_configure(adi_apollo_device_t *device, adi_apollo_si
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_rx_rxpath_misc_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, adi_apollo_rxpath_misc_t *config)
@@ -398,12 +400,12 @@ int32_t adi_apollo_rx_rxpath_misc_configure(adi_apollo_device_t *device, adi_apo
     ADI_APOLLO_ERROR_RETURN(err);
 
     /* RX datapath clock config and low sample rate  */
-    rx_misc_pgm_params.datapath_clk = ADI_APOLLO_DATAPATH_CLK_ENABLE_INPHASE | ADI_APOLLO_DATAPATH_CLK_ENABLE_QPHASE;
+    rx_misc_pgm_params.datapath_clk = (uint8_t)ADI_APOLLO_DATAPATH_CLK_ENABLE_INPHASE | (uint8_t)ADI_APOLLO_DATAPATH_CLK_ENABLE_QPHASE;
     rx_misc_pgm_params.low_samp_en = config->low_samp_en;
     err = adi_apollo_rxmisc_pgm(device, ADI_APOLLO_SIDE_IDX2B(side), &rx_misc_pgm_params);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_rx_cfir_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, adi_apollo_cfir_idx_e idx_cfir, adi_apollo_cfir_cfg_t *config)
@@ -417,12 +419,12 @@ int32_t adi_apollo_rx_cfir_configure(adi_apollo_device_t *device, adi_apollo_sid
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(config);
-    ADI_APOLLO_INVALID_PARAM_RETURN((idx_cfir > ADI_APOLLO_CFIRS_PER_SIDE-1))
+    ADI_APOLLO_INVALID_PARAM_RETURN((idx_cfir >= ADI_APOLLO_CFIRS_PER_SIDE))
 
     /* CFIR top parameters */
-    blk_mode_config.cfir_bypass = config->enable ? 0 : 1; //Bypass config
-    blk_mode_config.cfir_sparse_filt_en = config->sparse_mode;
-    blk_mode_config.cfir_32taps_en = config->cfir_mode; //cfir_32taps_en config
+    blk_mode_config.cfir_bypass = config->enable ? (uint8_t)0 : (uint8_t)1; //Bypass config
+    blk_mode_config.cfir_sparse_filt_en = (uint8_t)config->sparse_mode;
+    blk_mode_config.cfir_32taps_en = 0; /* Deprecated - 32-tap mode not supported */
     blk_mode_config.cfir_coeff_transfer = 0; //coeff_transfer should go from 0 to 1
 
     err = adi_apollo_cfir_pgm(device, ADI_APOLLO_RX, ADI_APOLLO_CFIR_IDX2B(side, idx_cfir), &blk_mode_config);
@@ -468,7 +470,7 @@ int32_t adi_apollo_rx_cfir_configure(adi_apollo_device_t *device, adi_apollo_sid
             ADI_APOLLO_CFIR_DP_ALL, ADI_APOLLO_CFIR_PROFILE_0);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_rx_fsrc_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, uint8_t idx_fsrc, adi_apollo_fsrc_cfg_t *config)
@@ -479,33 +481,33 @@ int32_t adi_apollo_rx_fsrc_configure(adi_apollo_device_t *device, adi_apollo_sid
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(config);
-    ADI_APOLLO_INVALID_PARAM_RETURN((idx_fsrc > ADI_APOLLO_FSRC_PER_SIDE_NUM-1))
+    ADI_APOLLO_INVALID_PARAM_RETURN((idx_fsrc >= ADI_APOLLO_FSRC_PER_SIDE_NUM))
 
     /* Program fsrc */
     blk_mode_config.fsrc_rate_int = config->fsrc_rate_int;
     blk_mode_config.fsrc_rate_frac_a = config->fsrc_rate_frac_a;
     blk_mode_config.fsrc_rate_frac_b = config->fsrc_rate_frac_b;
     blk_mode_config.sample_frac_delay = config->fsrc_delay;
-    blk_mode_config.fsrc_en0 = config->enable0;
-    blk_mode_config.fsrc_en1 = config->enable1;
+    blk_mode_config.fsrc_en0 = (uint8_t)config->enable0;
+    blk_mode_config.fsrc_en1 = (uint8_t)config->enable1;
     blk_mode_config.gain_reduction = config->gain_reduction;
-    blk_mode_config.ptr_overwrite = config->ptr_overwrite;
+    blk_mode_config.ptr_overwrite = (uint8_t)config->ptr_overwrite;
     blk_mode_config.ptr_syncrstval = config->ptr_syncrstval;
-    blk_mode_config.fsrc_data_mult_dither_en = config->data_mult_dither_en;
-    blk_mode_config.fsrc_dither_en = config->dither_en;
-    blk_mode_config.fsrc_4t4r_split = config->split_4t4r;
-    blk_mode_config.fsrc_bypass = (config->enable0 || config->enable1) ? 0 : 1;
-    blk_mode_config.fsrc_1x_mode = config->mode_1x;
+    blk_mode_config.fsrc_data_mult_dither_en = (uint8_t)config->data_mult_dither_en;
+    blk_mode_config.fsrc_dither_en = (uint8_t)config->dither_en;
+    blk_mode_config.fsrc_4t4r_split = (uint8_t)config->split_4t4r;
+    blk_mode_config.fsrc_bypass = (config->enable0 || config->enable1) ? (uint8_t)0 : (uint8_t)1;
+    blk_mode_config.fsrc_1x_mode = (uint8_t)config->mode_1x;
 
     err = adi_apollo_fsrc_pgm(device, ADI_APOLLO_RX,
                                         ADI_APOLLO_FSRC_IDX2B(side, idx_fsrc),
                                         &blk_mode_config);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
-int32_t adi_apollo_rx_dformat_configure(adi_apollo_device_t *device, adi_apollo_sides_e side,
+int32_t adi_apollo_rx_dformat_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, 
         adi_apollo_jesd_links_e link_idx, adi_apollo_dformat_cfg_t *config, adi_apollo_jesd_tx_link_cfg_t *jtx_link_config)
 {
     int32_t err;
@@ -514,25 +516,25 @@ int32_t adi_apollo_rx_dformat_configure(adi_apollo_device_t *device, adi_apollo_
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(jtx_link_config);
     ADI_APOLLO_NULL_POINTER_RETURN(config);
-    ADI_APOLLO_INVALID_PARAM_RETURN((side > ADI_APOLLO_NUM_SIDES - 1));
-    ADI_APOLLO_INVALID_PARAM_RETURN((link_idx > ADI_APOLLO_JESD_LINKS - 1))
+    ADI_APOLLO_INVALID_PARAM_RETURN((side >= ADI_APOLLO_NUM_SIDES));
+    ADI_APOLLO_INVALID_PARAM_RETURN((link_idx >= ADI_APOLLO_JESD_LINKS))
 
     adi_apollo_dformat_pgm_t dformat_config = {
         .dcm_ratio = jtx_link_config->link_dp_ratio,
         .total_dcm = jtx_link_config->link_total_ratio,
-        .link_en = jtx_link_config->link_in_use,
-        .dfor_ddc_dither_en = config->ddc_dither_en,
-        .dfor_inv = config->inv,
+        .link_en = (uint8_t)jtx_link_config->link_in_use,
+        .dfor_ddc_dither_en = (uint8_t)config->ddc_dither_en,
+        .dfor_inv = (uint8_t)config->inv,
         .dfor_res = (adi_apollo_chip_output_res_e)config->res,
         .dfor_sel = (adi_apollo_dformat_sel_e)config->sel,
-        .invalid_en = config->rm_fifo.invalid_en,
-        .sample_repeat_en = config->rm_fifo.sample_repeat_en
+        .invalid_en = (uint8_t)config->rm_fifo.invalid_en,
+        .sample_repeat_en = (uint8_t)config->rm_fifo.sample_repeat_en
     };
 
     err = adi_apollo_dformat_pgm(device, ADI_APOLLO_DFMT_IDX2B(side, link_idx), &dformat_config);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_rx_smon_configure(adi_apollo_device_t *device, adi_apollo_sides_e side, adi_apollo_smon_idx_e idx,
@@ -543,27 +545,27 @@ int32_t adi_apollo_rx_smon_configure(adi_apollo_device_t *device, adi_apollo_sid
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(config);
-    ADI_APOLLO_INVALID_PARAM_RETURN((side > ADI_APOLLO_NUM_SIDES - 1));
-    ADI_APOLLO_INVALID_PARAM_RETURN((idx > ADI_APOLLO_SMONS_PER_SIDE - 1))
+    ADI_APOLLO_INVALID_PARAM_RETURN((side >= ADI_APOLLO_NUM_SIDES));
+    ADI_APOLLO_INVALID_PARAM_RETURN((idx >= ADI_APOLLO_SMONS_PER_SIDE))
 
     adi_apollo_smon_pgm_t smon_pgm = {
         .sframer_mode_en = (config->sframer_mode == ADI_APOLLO_RX_SMON_FRAMER_MODE_5B) ? ADI_APOLLO_SFRAMER_FIVE_BIT_ENABLE : ADI_APOLLO_SFRAMER_TEN_BIT_ENABLE,
         .smon_period = config->period,
         .thresh_low = config->thresh_low,
         .thresh_high = config->thresh_high,
-        .sync_en = config->sync_en,
-        .sync_next = config->sync_next,
-        .sframer_en = config->sframer_en,
+        .sync_en = (uint8_t)config->sync_en,
+        .sync_next = (uint8_t)config->sync_next,
+        .sframer_en = (uint8_t)config->sframer_en,
         .sframer_mode = config->sframer_mode,
         .sframer_insel = 2, // only peak mag in framer supported
-        .peak_en = config->peak_en,
+        .peak_en = (uint8_t)config->peak_en,
         .status_rdsel = 1, // only peak mag in reg readback supported
         .jlink_sel = config->jlink_sel,
-        .gpio_en = config->gpio_en
+        .gpio_en = (uint8_t)config->gpio_en
     };
     err = adi_apollo_smon_pgm(device, ADI_APOLLO_SMON_IDX2B(side, idx), &smon_pgm);
     ADI_CMS_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 /*! @} */

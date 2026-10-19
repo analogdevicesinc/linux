@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_PFILT
  * @{
  */
-#ifndef __ADI_APOLLO_PFILT_LOCAL_H__
-#define __ADI_APOLLO_PFILT_LOCAL_H__
+#ifndef ADI_APOLLO_PFILT_LOCAL_H__
+#define ADI_APOLLO_PFILT_LOCAL_H__
 
 /*============= I N C L U D E S ============*/
 
@@ -23,10 +23,6 @@
 extern "C" {
 #endif
 
-uint32_t calc_pfilt_base(adi_apollo_terminal_e terminal, int32_t pfilt_index);
-uint32_t calc_pfilt_coeff_base(adi_apollo_terminal_e terminal, int32_t global_bank_base);
-	
-
 #ifndef CLIENT_IGNORE
 #endif /* CLIENT_IGNORE*/
 
@@ -34,5 +30,5 @@ uint32_t calc_pfilt_coeff_base(adi_apollo_terminal_e terminal, int32_t global_ba
 }
 #endif
 
-#endif /* __ADI_APOLLO_PFILT_LOCAL_H__ */
+#endif /* ADI_APOLLO_PFILT_LOCAL_H__ */
 /*! @} */

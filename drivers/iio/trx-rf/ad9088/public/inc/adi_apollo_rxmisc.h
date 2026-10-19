@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_RXMISC
  * @{
  */
-#ifndef __ADI_APOLLO_RXMISC_H__
-#define __ADI_APOLLO_RXMISC_H__
+#ifndef ADI_APOLLO_RXMISC_H__
+#define ADI_APOLLO_RXMISC_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_rxmisc_types.h"
@@ -66,5 +66,5 @@ int32_t adi_apollo_rxmisc_dp_reset(adi_apollo_device_t *device, adi_apollo_side_
 }
 #endif
 
-#endif /* __ADI_APOLLO_RXMISC_H__ */
+#endif /* ADI_APOLLO_RXMISC_H__ */
 /*! @} */

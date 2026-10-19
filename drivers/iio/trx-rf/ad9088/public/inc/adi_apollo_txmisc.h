@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_TXMISC
  * @{
  */
-#ifndef __ADI_APOLLO_TXMISC_H__
-#define __ADI_APOLLO_TXMISC_H__
+#ifndef ADI_APOLLO_TXMISC_H__
+#define ADI_APOLLO_TXMISC_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_txmisc_types.h"
@@ -62,13 +62,13 @@ int32_t adi_apollo_txmisc_cduc_dac_enable_set(adi_apollo_device_t *device, const
  * \brief  Inspect TX crossbars and low sample enable
  *
  * \param[in]   device              Context variable - Pointer to the APOLLO device data structure
- * \param[in]   side                Target side \ref adi_apollo_side_select_e
+ * \param[in]   side_sel            Target side \ref adi_apollo_side_select_e
  * \param[out]  txmisc_inspect      Pointer to tx path inspect struct \ref adi_apollo_txpath_inspect_t
  *
  * \return API_CMS_ERROR_OK                     Completed successfully
  * \return <0                                   Failed. \ref adi_cms_error_e for details.
  */
-int32_t adi_apollo_txmisc_inspect(adi_apollo_device_t *device, uint16_t side, adi_apollo_txmisc_inspect_t *txmisc_inspect);
+int32_t adi_apollo_txmisc_inspect(adi_apollo_device_t *device, uint16_t side_sel, adi_apollo_txmisc_inspect_t *txmisc_inspect);
 
 #ifndef CLIENT_IGNORE
 
@@ -78,5 +78,5 @@ int32_t adi_apollo_txmisc_inspect(adi_apollo_device_t *device, uint16_t side, ad
 }
 #endif
 
-#endif /* __ADI_APOLLO_TXMISC_H__ */
+#endif /* ADI_APOLLO_TXMISC_H__ */
 /*! @} */

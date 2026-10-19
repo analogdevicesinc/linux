@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_SMON
  * @{
  */
-#ifndef __ADI_APOLLO_SMON_H__
-#define __ADI_APOLLO_SMON_H__
+#ifndef ADI_APOLLO_SMON_H__
+#define ADI_APOLLO_SMON_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_smon_types.h"
@@ -153,5 +153,5 @@ int32_t adi_apollo_smon_peak_val_from_cap_get(adi_apollo_device_t *device, adi_a
 }
 #endif
 
-#endif /* __ADI_APOLLO_SMON_H__ */
+#endif /* ADI_APOLLO_SMON_H__ */
 /*! @} */

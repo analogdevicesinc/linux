@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_CDDC
  * @{
  */
-#ifndef __ADI_APOLLO_DDC_LOCAL_H__
-#define __ADI_APOLLO_DDC_LOCAL_H__
+#ifndef ADI_APOLLO_DDC_LOCAL_H__
+#define ADI_APOLLO_DDC_LOCAL_H__
 
 /*============= I N C L U D E S ============*/
 
@@ -23,8 +23,7 @@
 extern "C" {
 #endif
 
-uint32_t calc_rx_cddc_base(int32_t cddc_index);
-uint32_t calc_rx_fddc_base(int32_t fddc_index);
+/* No exports - all functions are static within their respective .c files */
 
 #ifndef CLIENT_IGNORE
 #endif /* CLIENT_IGNORE*/
@@ -33,5 +32,5 @@ uint32_t calc_rx_fddc_base(int32_t fddc_index);
 }
 #endif
 
-#endif /* __ADI_APOLLO_DDC_LOCAL_H__ */
+#endif /* ADI_APOLLO_DDC_LOCAL_H__ */
 /*! @} */

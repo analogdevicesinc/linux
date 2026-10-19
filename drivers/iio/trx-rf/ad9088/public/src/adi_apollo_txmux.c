@@ -30,8 +30,10 @@
 int32_t adi_apollo_txmux_summer_block_set(adi_apollo_device_t *device, const uint16_t summers, const uint16_t fducs_connected)
 {
     int32_t err;
-    uint8_t fduc, fducs, fduc_sel_mask;
-    uint16_t i, j, reg_ofst, summer;
+    uint8_t fduc, fducs;
+    uint32_t fduc_sel_mask;
+    uint32_t i, j;
+    uint16_t reg_ofst, summer;
     uint32_t regmap_base_addr = 0;
 
     /* align summer reg A                   A0    A1    A2    A3   */
@@ -46,86 +48,90 @@ int32_t adi_apollo_txmux_summer_block_set(adi_apollo_device_t *device, const uin
     ADI_APOLLO_LOG_FUNC();
 
     for (i = 0; i < ADI_APOLLO_TX_SUMMER_NUM; i ++) {
-        summer = summers & (ADI_APOLLO_TX_SUMMER_A0 << i);
+        summer = (uint16_t)(summers & ((uint32_t)ADI_APOLLO_TX_SUMMER_A0 << i));
 
-        if (summer > 0) {
+        if (summer > 0U) {
             regmap_base_addr = calc_tx_misc_base(i / ADI_APOLLO_TX_SUMMER_PER_SIDE_NUM);
 
             // Determine proper fduc enable register
             reg_ofst = reg_ofst_tab[i % ADI_APOLLO_TX_SUMMER_PER_SIDE_NUM];
 
-            fducs = (i < ADI_APOLLO_TX_SUMMER_PER_SIDE_NUM) ? fducs_connected : fducs_connected >> ADI_APOLLO_FDUC_PER_SIDE_NUM;
+            fducs = (uint8_t)((i < ADI_APOLLO_TX_SUMMER_PER_SIDE_NUM) ? fducs_connected : (fducs_connected >> ADI_APOLLO_FDUC_PER_SIDE_NUM));
 
             fduc_sel_mask = 0;
             for (j = 0; j < ADI_APOLLO_FDUC_PER_SIDE_NUM; j++) {
-                fduc = fducs & (ADI_APOLLO_FDUC_A0 << j);
-                if (fduc > 0) {
-                    fduc_sel_mask |= (device->dev_info.is_8t8r == 1) ? fduc_sel_map_8t8r[j] : (1<<j);
+                fduc = (uint8_t)(fducs & ((uint32_t)ADI_APOLLO_FDUC_A0 << j));
+                if (fduc > 0U) {
+                    fduc_sel_mask |= (device->dev_info.is_8t8r == 1U) ? fduc_sel_map_8t8r[j] : (1U<<j);
                 }
             }
-            err = adi_apollo_hal_reg_set(device, REG_FDUC_ENABLES00_ADDR(regmap_base_addr + reg_ofst), fduc_sel_mask);
+            err = adi_apollo_hal_reg_set(device, REG_FDUC_ENABLES00_ADDR(regmap_base_addr + reg_ofst), (uint8_t)fduc_sel_mask);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_txmux_hsdout_set(adi_apollo_device_t *device, adi_apollo_side_select_e side_sel, const uint8_t dac[], const uint32_t length)
 {
     int32_t err;
-    uint16_t i;
+    uint32_t i;
     uint8_t xbar = 0;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(side_sel, ADI_APOLLO_SIDE_NONE, ADI_APOLLO_SIDE_ALL);
     ADI_APOLLO_INVALID_PARAM_RETURN(length > ADI_APOLLO_NUM_DAC_PER_SIDE);
 
     for (i = 0; i < length; i ++) {
-        xbar |= (0x03 & dac[i]) << (2*i);
+        xbar |= (uint8_t)((0x03 & dac[i]) << (2*i)); 
     }
 
-    if ((side_sel & ADI_APOLLO_SIDE_A) > 0) {
+    if ((side_sel & (uint8_t)ADI_APOLLO_SIDE_A) > 0U) {
         regmap_base_addr = calc_tx_misc_base(0);
         err = adi_apollo_hal_bf_set(device, BF_HS_XBAR_CTRL_INFO(regmap_base_addr), (uint8_t)xbar);
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    if ((side_sel & ADI_APOLLO_SIDE_B) > 0) {
+    if ((side_sel & (uint8_t)ADI_APOLLO_SIDE_B) > 0U) {
         regmap_base_addr = calc_tx_misc_base(1);
         err = adi_apollo_hal_bf_set(device, BF_HS_XBAR_CTRL_INFO(regmap_base_addr), (uint8_t)xbar);
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_txmux_modsw_set(adi_apollo_device_t *device, adi_apollo_side_select_e side_sel, adi_apollo_modsw_select_e modsw0, adi_apollo_modsw_select_e modsw1)
 {
     int32_t err;
-    uint8_t side, side_index;
+    uint8_t side;
+    uint32_t side_index;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(modsw0, ADI_APOLLO_MODSW_0, ADI_APOLLO_MODSW_3);
+    ADI_CMS_RANGE_CHECK(modsw1, ADI_APOLLO_MODSW_0, ADI_APOLLO_MODSW_3);
 
     for (side_index = 0;  side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        side = side_sel & (ADI_APOLLO_SIDE_A << side_index);
-        if (side > 0) {
+        side = (uint8_t)(side_sel & (uint8_t)((uint32_t)ADI_APOLLO_SIDE_A << side_index));
+        if (side > 0U) {
             regmap_base_addr = calc_tx_misc_base(side_index);
 
-            err = adi_apollo_hal_bf_set(device, BF_MODSW0_INFO(regmap_base_addr), modsw0);
+            err = adi_apollo_hal_bf_set(device, BF_MODSW0_INFO(regmap_base_addr), (uint64_t)modsw0);
             ADI_APOLLO_ERROR_RETURN(err);
 
-            if (device->dev_info.is_8t8r) {
-                err = adi_apollo_hal_bf_set(device, BF_MODSW1_INFO(regmap_base_addr), modsw1);
+            if (device->dev_info.is_8t8r != 0U) {
+                err = adi_apollo_hal_bf_set(device, BF_MODSW1_INFO(regmap_base_addr), (uint64_t)modsw1);
                 ADI_APOLLO_ERROR_RETURN(err);
             }
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 /*! @} */

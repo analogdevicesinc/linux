@@ -11,17 +11,17 @@
  * \addtogroup ADI_APOLLO_FDUC
  * @{
  */
-#ifndef __ADI_APOLLO_FDUC_TYPES_H__
-#define __ADI_APOLLO_FDUC_TYPES_H__
+#ifndef ADI_APOLLO_FDUC_TYPES_H__
+#define ADI_APOLLO_FDUC_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
 #include "adi_apollo_common.h"
 
 /*============= D E F I N E S ==============*/
-#define ADI_APOLLO_FDUC_NUM              16
-#define ADI_APOLLO_FDUC_PER_SIDE_NUM     8
-#define ADI_APOLLO_FDUC_INT_DLY_NUM      6
+#define ADI_APOLLO_FDUC_NUM              16U
+#define ADI_APOLLO_FDUC_PER_SIDE_NUM     8U
+#define ADI_APOLLO_FDUC_INT_DLY_NUM      6U
 
 /*!
  * \brief Enumerates Tx fine DUC select
@@ -90,5 +90,5 @@ typedef struct {
     uint8_t     fduc_spi_en;                            /*!< Enable(1) or disable(0) the duc if fduc_spien_en is enabled */
 } adi_apollo_fduc_inspect_t;
 
-#endif /* __ADI_APOLLO_FDUC_TYPES_H__ */
+#endif /* ADI_APOLLO_FDUC_TYPES_H__ */
 /*! @} */

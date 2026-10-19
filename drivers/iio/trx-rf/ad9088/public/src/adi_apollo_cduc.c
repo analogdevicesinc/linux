@@ -27,6 +27,7 @@
 #include "adi_utils.h"
 
 static const uint8_t cduc_sel_to_reg_bit[4] = { 0x01, 0x04, 0x10, 0x40 };
+static uint32_t calc_tx_cduc_base(uint32_t idx);
 
 /*==================== P U B L I C   A P I   C O D E ====================*/
 
@@ -41,10 +42,10 @@ int32_t adi_apollo_cduc_interp_set(adi_apollo_device_t *device, adi_apollo_blk_s
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_CDUC_BLK_SEL_MASK(cducs);
 
-    for (i = 0; i < ADI_APOLLO_CDUC_NUM; i ++) {
-        cduc = cducs & (ADI_APOLLO_CDUC_A0 << i);
+    for (i = 0U; i < ADI_APOLLO_CDUC_NUM; i ++) {
+        cduc = (uint16_t)(cducs & ((uint32_t)ADI_APOLLO_CDUC_A0 << i));
 
-        if (cduc > 0) {
+        if (cduc > 0U) {
             regmap_base_addr = calc_tx_cduc_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_POST_INTERP_INFO(regmap_base_addr), interp);
@@ -52,7 +53,7 @@ int32_t adi_apollo_cduc_interp_set(adi_apollo_device_t *device, adi_apollo_blk_s
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cduc_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel_t cducs, const adi_apollo_cduc_pgm_t *config)
@@ -67,10 +68,10 @@ int32_t adi_apollo_cduc_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel_t cd
     ADI_APOLLO_NULL_POINTER_RETURN(config);
     ADI_APOLLO_CDUC_BLK_SEL_MASK(cducs);
 
-    for (i = 0; i < ADI_APOLLO_CDUC_NUM; i ++) {
-        cduc = cducs & (ADI_APOLLO_CDUC_A0 << i);
+    for (i = 0U; i < ADI_APOLLO_CDUC_NUM; i ++) {
+        cduc = (uint16_t)(cducs & ((uint32_t)ADI_APOLLO_CDUC_A0 << i));
 
-        if (cduc > 0) {
+        if (cduc > 0U) {
             regmap_base_addr = calc_tx_cduc_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_POST_INTERP_INFO(regmap_base_addr), config->interp);
@@ -97,7 +98,7 @@ int32_t adi_apollo_cduc_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel_t cd
     err = adi_apollo_cduc_enable_set(device, cducs, config->cduc_spien_en, config->cduc_spi_en);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cduc_enable_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t cducs, uint8_t cduc_spien_en, uint8_t cduc_spi_en)
@@ -107,8 +108,8 @@ int32_t adi_apollo_cduc_enable_set(adi_apollo_device_t *device, adi_apollo_blk_s
     uint8_t side_index;
     uint8_t bf_cduc_en = 0;
     uint8_t bits2change[2] = {
-        (cducs >> 0)                            & ((1 << ADI_APOLLO_CDUC_PER_SIDE_NUM) - 1),
-        (cducs >> ADI_APOLLO_CDUC_PER_SIDE_NUM) & ((1 << ADI_APOLLO_CDUC_PER_SIDE_NUM) - 1)
+        (uint8_t)(((unsigned int)cducs >> 0U)                            & ((1U << ADI_APOLLO_CDUC_PER_SIDE_NUM) - 1U)),
+        (uint8_t)(((unsigned int)cducs >> ADI_APOLLO_CDUC_PER_SIDE_NUM) & ((1U << ADI_APOLLO_CDUC_PER_SIDE_NUM) - 1U))
     };
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
@@ -116,23 +117,26 @@ int32_t adi_apollo_cduc_enable_set(adi_apollo_device_t *device, adi_apollo_blk_s
     ADI_APOLLO_CDUC_BLK_SEL_MASK(cducs);
 
     for (side_index = 0;  side_index < ADI_APOLLO_NUM_SIDES; side_index++) {
-        if (bits2change[side_index]) {
+        if (bits2change[side_index] != 0U) {
             regmap_base_addr = calc_tx_misc_base(side_index); // One tx_misc regmap per side
 
-            err = adi_apollo_hal_bf_set(device, BF_CDUC_SPI_EN_INFO(regmap_base_addr), cduc_spien_en ? 1 : 0);
+            err = adi_apollo_hal_bf_set(device, BF_CDUC_SPI_EN_INFO(regmap_base_addr), cduc_spien_en ? 1ULL : 0ULL);
             ADI_APOLLO_ERROR_RETURN(err);
 
             err = adi_apollo_hal_bf_get(device, BF_CDUC_EN_INFO(regmap_base_addr), &bf_cduc_en, sizeof(bf_cduc_en));
             ADI_APOLLO_ERROR_RETURN(err);
 
-            bf_cduc_en &= ~bits2change[side_index];
-            bf_cduc_en |= (cduc_spi_en ? bits2change[side_index] : 0);
+            bf_cduc_en &= (uint8_t)~bits2change[side_index];
+            {
+                unsigned int mask = (cduc_spi_en ? bits2change[side_index] : 0U);
+                bf_cduc_en |= (uint8_t)mask;
+            }
             err = adi_apollo_hal_bf_set(device, BF_CDUC_EN_INFO(regmap_base_addr), bf_cduc_en);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cduc_inspect(adi_apollo_device_t *device, adi_apollo_blk_sel_t cduc, adi_apollo_cduc_inspect_t *cduc_inspect)
@@ -142,19 +146,20 @@ int32_t adi_apollo_cduc_inspect(adi_apollo_device_t *device, adi_apollo_blk_sel_
     uint8_t duc_en_cfg_reg;
     uint32_t regmap_base_addr = 0;
     adi_apollo_blk_sel_t cduc_x;
-    adi_apollo_cnco_inspect_t cnco_inspect = {{0}};
+    adi_apollo_cnco_inspect_t cnco_inspect;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    (void)memset(&cnco_inspect, 0, sizeof(cnco_inspect));
     ADI_APOLLO_NULL_POINTER_RETURN(cduc_inspect);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(cduc)!= 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(cduc)!= 1U);
     ADI_APOLLO_CDUC_BLK_SEL_MASK(cduc);
 
     // For 8t8r, regmap is shared for each split CDUC (A0/A2, A1/A3, ...)
-    cduc_x = ((cduc & 0xCC) >> 2) | (cduc & 0x33);
+    cduc_x = (uint16_t)(((cduc & 0xCCU) >> 2) | (cduc & 0x33U));
 
-    for(i = 0; i < ADI_APOLLO_CDUC_NUM; i ++) {
-        if ((cduc & (ADI_APOLLO_CDUC_A0 << i)) > 0) {
+    for(i = 0U; i < ADI_APOLLO_CDUC_NUM; i ++) {
+        if ((cduc & (uint16_t)((uint32_t)ADI_APOLLO_CDUC_A0 << i)) > 0U) {
             regmap_base_addr = calc_tx_cduc_base(i);
 
             // CNCO A0-A1, B0-B1
@@ -163,8 +168,8 @@ int32_t adi_apollo_cduc_inspect(adi_apollo_device_t *device, adi_apollo_blk_sel_
             cduc_inspect->dp_cfg.nco[0] = cnco_inspect.dp_cfg;
 
             // CNCO A2-A3, B2-B3
-            if (device->dev_info.is_8t8r) {
-                err = adi_apollo_cnco_inspect(device, ADI_APOLLO_TX, (cduc_x << 2), &cnco_inspect);
+            if (device->dev_info.is_8t8r != 0U) {
+                err = adi_apollo_cnco_inspect(device, ADI_APOLLO_TX, (uint16_t)(cduc_x << 2), &cnco_inspect);
                 ADI_APOLLO_ERROR_RETURN(err);
                 cduc_inspect->dp_cfg.nco[1] = cnco_inspect.dp_cfg;
             }
@@ -202,7 +207,7 @@ int32_t adi_apollo_cduc_inspect(adi_apollo_device_t *device, adi_apollo_blk_sel_
 
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cduc_interp_bf_to_val(adi_apollo_device_t* device, adi_apollo_cduc_ratio_e bf_enum, uint32_t* val)
@@ -224,10 +229,10 @@ int32_t adi_apollo_cduc_interp_bf_to_val(adi_apollo_device_t* device, adi_apollo
 
     default:
         ADI_APOLLO_LOG_ERR("Invalid adi_apollo_cduc_ratio_e enum");
-        return API_CMS_ERROR_INVALID_PARAM;
+        ADI_CMS_RETURN(API_CMS_ERROR_INVALID_PARAM);
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cduc_irq_enable_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t cducs, uint8_t enable)
@@ -240,19 +245,19 @@ int32_t adi_apollo_cduc_irq_enable_set(adi_apollo_device_t *device, adi_apollo_b
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_CDUC_BLK_SEL_MASK(cducs);
 
-    for(i = 0; i < ADI_APOLLO_CDUC_NUM; i ++) {
-        if ((cducs & (ADI_APOLLO_CDUC_A0 << i)) > 0) {
+    for(i = 0U; i < ADI_APOLLO_CDUC_NUM; i ++) {
+        if ((cducs & (uint16_t)((uint32_t)ADI_APOLLO_CDUC_A0 << i)) > 0U) {
             regmap_base_addr = calc_tx_cduc_base(i);
 
-            err = adi_apollo_hal_bf_set(device, BF_CDUC_IRQ_EN0_INFO(regmap_base_addr), enable ? 0x3FF : 0);
+            err = adi_apollo_hal_bf_set(device, BF_CDUC_IRQ_EN0_INFO(regmap_base_addr), enable ? 0x3FFULL : 0ULL);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
-uint32_t calc_tx_cduc_base(int32_t idx)
+static uint32_t calc_tx_cduc_base(uint32_t idx)
 {
     static const uint32_t tx_cduc_regmap[ADI_APOLLO_CDUC_NUM] = {
         TX_CDUC_TX_SLICE_0_TX_DIGITAL0, TX_CDUC_TX_SLICE_1_TX_DIGITAL0, TX_CDUC_TX_SLICE_0_TX_DIGITAL0, TX_CDUC_TX_SLICE_1_TX_DIGITAL0,

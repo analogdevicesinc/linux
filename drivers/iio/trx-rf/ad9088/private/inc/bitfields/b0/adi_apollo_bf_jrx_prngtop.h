@@ -12,40 +12,40 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_JRX_PRNGTOP_H__
-#define __ADI_APOLLO_BF_JRX_PRNGTOP_H__
+#ifndef ADI_APOLLO_BF_JRX_PRNGTOP_H__
+#define ADI_APOLLO_BF_JRX_PRNGTOP_H__
 
 /*============= D E F I N E S ==============*/
-#define JRX_PRNGTOP_JRX_TX_DIGITAL0            0x61624000
-#define JRX_PRNGTOP_JRX_TX_DIGITAL1            0x61E24000
+#define JRX_PRNGTOP_JRX_TX_DIGITAL0            0x61624000U
+#define JRX_PRNGTOP_JRX_TX_DIGITAL1            0x61E24000U
 
-#define REG_PRNGTOP_CTRL_ADDR(inst)            ((inst) + 0x00000000)
+#define REG_PRNGTOP_CTRL_ADDR(inst)            ((uint32_t)(inst) + 0x00000000U)
 #ifdef USE_PRIVATE_BF
-#define BF_TX_GLOBAL_BIST_ENABLE_INFO(inst)    ((inst) + 0x00000000), 0x00000100
+#define BF_TX_GLOBAL_BIST_ENABLE_INFO(inst)    ((uint32_t)(inst) + 0x00000000U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
-#define BF_TX_GLOBAL_BIST_START_INFO(inst)     ((inst) + 0x00000000), 0x00000101
+#define BF_TX_GLOBAL_BIST_START_INFO(inst)     ((uint32_t)(inst) + 0x00000000U), 0x00000101U
 #ifdef USE_PRIVATE_BF
-#define BF_TX_GLOBAL_BIST_MODE_INFO(inst)      ((inst) + 0x00000000), 0x00000102
+#define BF_TX_GLOBAL_BIST_MODE_INFO(inst)      ((uint32_t)(inst) + 0x00000000U), 0x00000102U
 #endif /* USE_PRIVATE_BF */
 #ifdef USE_PRIVATE_BF
-#define BF_TX_GLOBAL_BIST_FLUSH_LEN_INFO(inst) ((inst) + 0x00000000), 0x00000203
-#endif /* USE_PRIVATE_BF */
-
-#ifdef USE_PRIVATE_BF
-#define REG_PRNGTOP_STATUS_ADDR(inst)          ((inst) + 0x00000001)
-#define BF_TX_GLOBAL_BIST_CLR_INFO(inst)       ((inst) + 0x00000001), 0x00000100
-#define BF_TX_GLOBAL_BIST_RUN_INFO(inst)       ((inst) + 0x00000001), 0x00000101
-#define BF_TX_GLOBAL_BIST_DONE_INFO(inst)      ((inst) + 0x00000001), 0x00000102
+#define BF_TX_GLOBAL_BIST_FLUSH_LEN_INFO(inst) ((uint32_t)(inst) + 0x00000000U), 0x00000203U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_BIST_LENGTH_LSB_ADDR(inst)         ((inst) + 0x00000002)
-#define BF_TX_GLOBAL_BIST_LENGTH_INFO(inst)    ((inst) + 0x00000002), 0x00001300
+#define REG_PRNGTOP_STATUS_ADDR(inst)          ((uint32_t)(inst) + 0x00000001U)
+#define BF_TX_GLOBAL_BIST_CLR_INFO(inst)       ((uint32_t)(inst) + 0x00000001U), 0x00000100U
+#define BF_TX_GLOBAL_BIST_RUN_INFO(inst)       ((uint32_t)(inst) + 0x00000001U), 0x00000101U
+#define BF_TX_GLOBAL_BIST_DONE_INFO(inst)      ((uint32_t)(inst) + 0x00000001U), 0x00000102U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_BIST_LENGTH_MID_ADDR(inst)         ((inst) + 0x00000003)
+#ifdef USE_PRIVATE_BF
+#define REG_BIST_LENGTH_LSB_ADDR(inst)         ((uint32_t)(inst) + 0x00000002U)
+#define BF_TX_GLOBAL_BIST_LENGTH_INFO(inst)    ((uint32_t)(inst) + 0x00000002U), 0x00001300U
+#endif /* USE_PRIVATE_BF */
 
-#define REG_BIST_LENGTH_MSB_ADDR(inst)         ((inst) + 0x00000004)
+#define REG_BIST_LENGTH_MID_ADDR(inst)         ((uint32_t)(inst) + 0x00000003U)
 
-#endif /* __ADI_APOLLO_BF_JRX_PRNGTOP_H__ */
+#define REG_BIST_LENGTH_MSB_ADDR(inst)         ((uint32_t)(inst) + 0x00000004U)
+
+#endif /* ADI_APOLLO_BF_JRX_PRNGTOP_H__ */
 /*! @} */

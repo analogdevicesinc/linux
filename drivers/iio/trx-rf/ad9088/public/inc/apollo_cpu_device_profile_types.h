@@ -18,7 +18,7 @@
 
 #define ADI_APOLLO_PROFILE_VERSION_MAJOR         10            /*!< Major */
 #define ADI_APOLLO_PROFILE_VERSION_MINOR         1             /*!< Minor */
-#define ADI_APOLLO_PROFILE_VERSION_PATCH         2             /*!< Patch */
+#define ADI_APOLLO_PROFILE_VERSION_PATCH         3             /*!< Patch */
 
 #define ADI_APOLLO_DACS_PER_SIDE                 4             /*!< #DACs per side. */
 #define ADI_APOLLO_ADCS_PER_SIDE                 4             /*!< #Max ADCs per side. (8T8R) */
@@ -2392,9 +2392,9 @@ ADI_APOLLO_PACK_FINISH
  */
 typedef enum adi_apollo_cfg_sw_trim {
     ADI_APOLLO_SW_TRIM_NOT_SET = 0,     /*!< SW Trim is not set for this profile may not work with SW1/3 trim levels */
-    ADI_APOLLO_SW_TRIM_1       = 1u,    /*!< This profile is suitable for SW1, SW3, SW5 trim levels. */
-    ADI_APOLLO_SW_TRIM_3       = 3u,    /*!< This profile is suitable for SW3, SW5 trim levels. */
-    ADI_APOLLO_SW_TRIM_5       = 5u     /*!< This profile is suitable only for SW5 trim levels. */
+    ADI_APOLLO_SW_TRIM_1       = 1u,    /*!< SW1, SW3, SW5 supported */
+    ADI_APOLLO_SW_TRIM_3       = 3u,    /*!< SW3, SW5 supported */
+    ADI_APOLLO_SW_TRIM_5       = 5u     /*!< SW5 supported */
 } ADI_APOLLO_PACK_ENUM adi_apollo_cfg_sw_trim_e;
 
 
@@ -2410,6 +2410,23 @@ typedef struct adi_apollo_profile_cfg {
 } adi_apollo_profile_cfg_t;
 ADI_APOLLO_PACK_FINISH
 
+typedef enum adi_apollo_cfg_reserved_cfg_layout_e
+{
+    // --- field sizes ---
+    ADI_APOLLO_RESERVED_CFG_TRACKING_WINDOW_SIZE_BYTES = 8,     /*!< sizeof(uint32_t[ADI_APOLLO_MAX_NUM_ADF4382]) = sizeof(uint32_t[2]) = 8 */
+    ADI_APOLLO_RESERVED_CFG_DEVICE_CLOCK_SIZE_BYTES    = 8,     /*!< sizeof(uint64_t) = 8 */
+
+    // --- byte offsets ---
+    ADI_APOLLO_RESERVED_CFG_SW_TRIM_POSITION                 = 2U,   /*!< hardcoded */
+    ADI_APOLLO_RESERVED_CFG_TRACKING_WINDOW_INITIAL_POSITION = 4U,   /*!< hardcoded */
+    ADI_APOLLO_RESERVED_CFG_SIDEA_DEVICE_CLOCK_M             = 12U,  /*!< ADI_APOLLO_RESERVED_CFG_TRACKING_WINDOW_INITIAL_POSITION + ADI_APOLLO_RESERVED_CFG_TRACKING_WINDOW_SIZE_BYTES = 4 + 8 = 12 */
+    ADI_APOLLO_RESERVED_CFG_SIDEA_DEVICE_CLOCK_N             = 20U,  /*!< ADI_APOLLO_RESERVED_CFG_SIDEA_DEVICE_CLOCK_M + ADI_APOLLO_RESERVED_CFG_DEVICE_CLOCK_SIZE_BYTES = 12 + 8 = 20 */
+    ADI_APOLLO_RESERVED_CFG_SIDEB_DEVICE_CLOCK_M             = 28U,  /*!< ADI_APOLLO_RESERVED_CFG_SIDEA_DEVICE_CLOCK_N + ADI_APOLLO_RESERVED_CFG_DEVICE_CLOCK_SIZE_BYTES = 20 + 8 = 28 */
+    ADI_APOLLO_RESERVED_CFG_SIDEB_DEVICE_CLOCK_N             = 36U,  /*!< ADI_APOLLO_RESERVED_CFG_SIDEB_DEVICE_CLOCK_M + ADI_APOLLO_RESERVED_CFG_DEVICE_CLOCK_SIZE_BYTES = 28 + 8 = 36 */
+
+    // --- overflow guard: reserved_cfg is uint8_t[64] = 64 bytes ---
+    ADI_APOLLO_RESERVED_CFG_REMAINING_BYTES                  = 20U,  /*!< 64 - ADI_APOLLO_RESERVED_CFG_SIDEB_DEVICE_CLOCK_N - ADI_APOLLO_RESERVED_CFG_DEVICE_CLOCK_SIZE_BYTES = 64 - 36 - 8 = 20 */
+} ADI_APOLLO_PACK_ENUM adi_apollo_cfg_reserved_cfg_layout_e;
 
 /**
  * \brief Apollo Top Profile Structure

@@ -8,11 +8,11 @@
  */
 
 /*!
- * \addtogroup ADI_APOLLO_GPIO
+ * \addtogroup ADI_APOLLO_GPIO_HOP
  * @{
  */
-#ifndef __ADI_APOLLO_GPIO_HOP_H__
-#define __ADI_APOLLO_GPIO_HOP_H__
+#ifndef ADI_APOLLO_GPIO_HOP_H__
+#define ADI_APOLLO_GPIO_HOP_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_gpio.h"
@@ -28,12 +28,12 @@ extern "C" {
  * \brief  Set up GPIO profile selection for user-defined gpio configuration (no quick config)
  *
  * \param[in]  device         Context variable - Pointer to the APOLLO device data structure
- * \param[in]  profile        Profile select struct \ref adi_apollo_gpio_hop_profile_t
+ * \param[in]  config         Profile select struct \ref adi_apollo_gpio_hop_profile_t
  *
  * \return API_CMS_ERROR_OK                     API Completed Successfully
  * \return <0                                   Failed. \ref adi_cms_error_e for details.
  */
-int32_t adi_apollo_gpio_hop_profile_configure(adi_apollo_device_t *device, const adi_apollo_gpio_hop_profile_t *profile);
+int32_t adi_apollo_gpio_hop_profile_configure(adi_apollo_device_t *device, const adi_apollo_gpio_hop_profile_t *config);
 
 /**
  * \brief  GPIO profile select bit calculation
@@ -54,14 +54,14 @@ int32_t adi_apollo_gpio_hop_profile_calc(adi_apollo_device_t *device, const adi_
  *
  * \param[in]  device         Context variable - Pointer to the APOLLO device data structure
  * \param[in]  config         Quick config profile (valid 1234568) \ref adi_apollo_gpio_quick_cfg_profile_e
- * \param[in]  profile        Profile number to select
+ * \param[in]  number         Profile number to select
  * \param[out] mask           GPIO mask to set
  * \param[out] value          GPIO values if corresponding bit in mask is set
  *
  * \return API_CMS_ERROR_OK                     API Completed Successfully
  * \return <0                                   Failed. \ref adi_cms_error_e for details.
  */
-int32_t adi_apollo_gpio_hop_profile_qc_calc(adi_apollo_device_t *device, adi_apollo_gpio_quick_cfg_profile_e config, uint8_t profile, uint64_t *mask, uint64_t *value);
+int32_t adi_apollo_gpio_hop_profile_qc_calc(adi_apollo_device_t *device, adi_apollo_gpio_quick_cfg_profile_e config, uint8_t number, uint64_t *mask, uint64_t *value);
 
 
 /**
@@ -336,5 +336,5 @@ int32_t adi_apollo_gpio_hop_bmem_delay_enable_set(adi_apollo_device_t *device, u
 }
 #endif
     
-#endif /*__ADI_APOLLO_GPIO_HOP_H__ */
+#endif /* ADI_APOLLO_GPIO_HOP_H__ */
 /*! @} */

@@ -12,12 +12,12 @@
  * \addtogroup ADI_API_CONFIG
  * @{
  */
-#ifndef __ADI_CMS_API_CONFIG_H__
-#define __ADI_CMS_API_CONFIG_H__
+#ifndef ADI_CMS_API_CONFIG_H_
+#define ADI_CMS_API_CONFIG_H_
 
 /*============= D E F I N E S ==============*/
 #define ADI_REPORT_VERBOSE    ADI_CMS_LOG_ALL   /*!< verbose log report control */
 #define ADI_INVALID_POINTER   0                 /*!< invalid pointer address    */
 
-#endif /* __ADI_API_CONFIG_H__ */
+#endif /* ADI_CMS_API_CONFIG_H_ */
 /*! @} */

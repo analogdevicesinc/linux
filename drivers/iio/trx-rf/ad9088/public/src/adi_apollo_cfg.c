@@ -25,9 +25,9 @@
 #include "adi_apollo_sysclk_cond.h"
 #include "adi_utils.h"
 
-#define ADI_APOLLO_CONV_IDX_CONV(is_8t8r, idx, per_side) (is_8t8r) ? (idx) : (((idx) / (per_side/2)) + ((idx) % (per_side)))
+#define ADI_APOLLO_CONV_IDX_CONV(is_8t8r, idx, per_side) (uint8_t)((is_8t8r) ? (idx) : ((((idx) / ((per_side)/2)) + ((idx) % (per_side)))))
 
-static uint32_t calc_adc_cal_cfg_reg(int32_t idx);
+static uint32_t calc_adc_cal_cfg_reg(uint32_t idx);
 static uint32_t calc_dac_cal_cfg_reg(int32_t idx);
 static int32_t cal_data_size_addr_get(adi_apollo_device_t *device, uint8_t idx,
         uint32_t cal_obj_siz, uint32_t cal_obj_ofst, uint32_t obj_ptr, uint32_t siz_ptr,
@@ -50,8 +50,8 @@ int32_t adi_apollo_cfg_data_path(adi_apollo_device_t *device, adi_apollo_top_t *
     ADI_APOLLO_LOG_FUNC();
 
     /* RX path config */
-    for(i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
-        err = adi_apollo_rx_configure(device, i, &(config->rx_path[i]), &(config->jtx[i]));
+    for(i = 0; i < (uint8_t)ADI_APOLLO_NUM_SIDES; i++) {
+        err = adi_apollo_rx_configure(device, (adi_apollo_sides_e)i, &(config->rx_path[i]), &(config->jtx[i]));
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
@@ -60,8 +60,8 @@ int32_t adi_apollo_cfg_data_path(adi_apollo_device_t *device, adi_apollo_top_t *
     ADI_APOLLO_ERROR_RETURN(err);
 
     /* TX path config*/
-    for(i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
-        err = adi_apollo_tx_configure(device, i, &(config->tx_path[i]), &(config->jrx[i]));
+    for(i = 0; i < (uint8_t)ADI_APOLLO_NUM_SIDES; i++) {
+        err = adi_apollo_tx_configure(device, (adi_apollo_sides_e)i, &(config->tx_path[i]), &(config->jrx[i]));
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
@@ -82,7 +82,7 @@ int32_t adi_apollo_cfg_data_path(adi_apollo_device_t *device, adi_apollo_top_t *
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_adc_init_cal_cfg_set(adi_apollo_device_t *device, const uint16_t adcs, adi_apollo_init_cal_cfg_e init_cal_cfg)
@@ -96,17 +96,17 @@ int32_t adi_apollo_cfg_adc_init_cal_cfg_set(adi_apollo_device_t *device, const u
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_INVALID_PARAM_RETURN(!is_init_cal_cfg_valid(init_cal_cfg));
 
-    for(i = 0; i < ADI_APOLLO_ADC_NUM; i ++) {
-        adc = adcs & (ADI_APOLLO_ADC_A0 << i);
-        if (adc > 0) {
+    for(i = 0U; i < ADI_APOLLO_ADC_NUM; i ++) {
+        adc = (uint16_t)(adcs & ((uint32_t)ADI_APOLLO_ADC_A0 << i));
+        if (adc > 0U) {
             init_cal_cfg_reg = calc_adc_cal_cfg_reg(i);
 
-            err = adi_apollo_hal_bf_set(device, ADI_APOLLO_WARMBOOT_CFG_BASE_ADDR + init_cal_cfg_reg, (i % 2 == 0) ? 0x00000400 : 0x00000404, init_cal_cfg);
+            err = adi_apollo_hal_bf_set(device, ADI_APOLLO_WARMBOOT_CFG_BASE_ADDR + init_cal_cfg_reg, ((i % 2U) == 0U) ? 0x00000400U : 0x00000404U, (uint64_t)init_cal_cfg);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_clk_cond_cal_cfg_set(adi_apollo_device_t *device, adi_apollo_sysclock_cond_cfg_e cc_cal_cfg)
@@ -116,9 +116,9 @@ int32_t adi_apollo_cfg_clk_cond_cal_cfg_set(adi_apollo_device_t *device, adi_apo
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_INVALID_PARAM_RETURN(!is_clk_cond_cal_cfg_valid(cc_cal_cfg));
-    err = adi_apollo_hal_bf_set(device, ADI_APOLLO_WARMBOOT_CFG_BASE_ADDR + ADI_APOLLO_WARMBOOT_CFG_SYSCLK_CONDITIONING, 0x00000400, cc_cal_cfg);
+    err = adi_apollo_hal_bf_set(device, ADI_APOLLO_WARMBOOT_CFG_BASE_ADDR + ADI_APOLLO_WARMBOOT_CFG_SYSCLK_CONDITIONING, 0x00000400, (uint64_t)cc_cal_cfg);
     ADI_APOLLO_ERROR_RETURN(err);
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_dac_init_cal_cfg_set(adi_apollo_device_t *device, const uint16_t dacs, adi_apollo_init_cal_cfg_e init_cal_cfg)
@@ -130,18 +130,19 @@ int32_t adi_apollo_cfg_dac_init_cal_cfg_set(adi_apollo_device_t *device, const u
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(init_cal_cfg, ADI_APOLLO_INIT_CAL_DISABLED, ADI_APOLLO_INIT_CAL_ENABLED_WARMBOOT_FROM_USER);
 
-    for(i = 0; i < ADI_APOLLO_DAC_NUM; i ++) {
-        dac = dacs & (ADI_APOLLO_DAC_A0 << i);
-        if (dac > 0) {
+    for(i = 0U; i < ADI_APOLLO_DAC_NUM; i ++) {
+        dac = (uint16_t)(dacs & ((uint32_t)ADI_APOLLO_DAC_A0 << i));
+        if (dac > 0U) {
             init_cal_cfg_reg = calc_dac_cal_cfg_reg(i);
 
-            err = adi_apollo_hal_bf_set(device, ADI_APOLLO_WARMBOOT_CFG_BASE_ADDR + init_cal_cfg_reg, (i % 2 == 0) ? 0x00000400 : 0x00000404, init_cal_cfg);
+            err = adi_apollo_hal_bf_set(device, ADI_APOLLO_WARMBOOT_CFG_BASE_ADDR + init_cal_cfg_reg, ((i % 2U) == 0U) ? 0x00000400U : 0x00000404U, (uint64_t)init_cal_cfg);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_serdes_rx_init_cal_cfg_set(adi_apollo_device_t *device, const uint16_t serdes, adi_apollo_init_cal_cfg_e init_cal_cfg)
@@ -152,16 +153,17 @@ int32_t adi_apollo_cfg_serdes_rx_init_cal_cfg_set(adi_apollo_device_t *device, c
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(init_cal_cfg, ADI_APOLLO_INIT_CAL_DISABLED, ADI_APOLLO_INIT_CAL_ENABLED_WARMBOOT_FROM_USER);
 
-    for(i = 0; i < ADI_APOLLO_NUM_JRX_SERDES_12PACKS; i ++) {
-        s = serdes & (ADI_APOLLO_TXRX_SERDES_12PACK_A << i);
-        if (s > 0) {
-            err = adi_apollo_hal_bf_set(device, ADI_APOLLO_WARMBOOT_CFG_BASE_ADDR + ADI_APOLLO_WARMBOOT_CFG_SERDES_RX_1_0, (i % 2 == 0) ? 0x00000400 : 0x00000404, init_cal_cfg);
+    for(i = 0U; i < ADI_APOLLO_NUM_JRX_SERDES_12PACKS; i ++) {
+        s = (uint16_t)(serdes & ((uint32_t)ADI_APOLLO_TXRX_SERDES_12PACK_A << i));
+        if (s > 0U) {
+            err = adi_apollo_hal_bf_set(device, ADI_APOLLO_WARMBOOT_CFG_BASE_ADDR + ADI_APOLLO_WARMBOOT_CFG_SERDES_RX_1_0, ((i % 2U) == 0U) ? 0x00000400U : 0x00000404U, (uint64_t)init_cal_cfg);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_serdes_tx_init_cal_cfg_set(adi_apollo_device_t *device, const uint16_t serdes, adi_apollo_init_cal_cfg_e init_cal_cfg)
@@ -172,16 +174,17 @@ int32_t adi_apollo_cfg_serdes_tx_init_cal_cfg_set(adi_apollo_device_t *device, c
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(init_cal_cfg, ADI_APOLLO_INIT_CAL_DISABLED, ADI_APOLLO_INIT_CAL_ENABLED_WARMBOOT_FROM_USER);
 
-    for(i = 0; i < ADI_APOLLO_NUM_JTX_SERDES_12PACKS; i ++) {
-        s = serdes & (ADI_APOLLO_TXRX_SERDES_12PACK_A << i);
-        if (s > 0) {
-            err = adi_apollo_hal_bf_set(device, ADI_APOLLO_WARMBOOT_CFG_BASE_ADDR + ADI_APOLLO_WARMBOOT_CFG_SERDES_TX_1_0, (i % 2 == 0) ? 0x00000400 : 0x00000404, init_cal_cfg);
+    for(i = 0U; i < ADI_APOLLO_NUM_JTX_SERDES_12PACKS; i ++) {
+        s = (uint16_t)(serdes & ((uint32_t)ADI_APOLLO_TXRX_SERDES_12PACK_A << i));
+        if (s > 0U) {
+            err = adi_apollo_hal_bf_set(device, ADI_APOLLO_WARMBOOT_CFG_BASE_ADDR + ADI_APOLLO_WARMBOOT_CFG_SERDES_TX_1_0, ((i % 2U) == 0U) ? 0x00000400U : 0x00000404U, (uint64_t)init_cal_cfg);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_adc_cal_data_set(adi_apollo_device_t *device, const uint16_t adcs, uint8_t mode, uint8_t cal_data[], uint32_t len)
@@ -196,13 +199,13 @@ int32_t adi_apollo_cfg_adc_cal_data_set(adi_apollo_device_t *device, const uint1
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(cal_data);
-    ADI_APOLLO_INVALID_PARAM_RETURN(mode > 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(mode > 1U);
 
     cal_data_offset = (mode == ADI_APOLLO_ADC_CAL_SEQUENTIAL_MODE) ? ADI_APOLLO_ADC_CAL_STRUCT_SEQ_DATA_OFFSET : ADI_APOLLO_ADC_CAL_STRUCT_RAND_DATA_OFFSET;
 
-    for(i = 0; i < ADI_APOLLO_ADC_NUM; i++) {
-        adc = adcs & (ADI_APOLLO_ADC_A0 << i);
-        if (adc > 0) {
+    for(i = 0U; i < ADI_APOLLO_ADC_NUM; i++) {
+        adc = (uint16_t)(adcs & ((uint32_t)ADI_APOLLO_ADC_A0 << i));
+        if (adc > 0U) {
             /* Get the cal data size and address location */
             err = cal_data_size_addr_get(device,
                     ADI_APOLLO_CONV_IDX_CONV(device->dev_info.is_8t8r, i, ADI_APOLLO_ADC_PER_SIDE_NUM),
@@ -211,8 +214,8 @@ int32_t adi_apollo_cfg_adc_cal_data_set(adi_apollo_device_t *device, const uint1
                     &size_bytes, &address);
             ADI_APOLLO_ERROR_RETURN(err);
 
-            if (size_bytes != len - 4) {        /* Assumes incoming data has 4-byte crc */
-                return API_CMS_ERROR_ERROR;     /* cal_data size fw mismatch */
+            if (size_bytes != (len - 4U)) {        /* Assumes incoming data has 4-byte crc */
+                ADI_CMS_RETURN(API_CMS_ERROR_ERROR);     /* cal_data size fw mismatch */
             }
 
             /* Stream cal data to core */
@@ -221,7 +224,7 @@ int32_t adi_apollo_cfg_adc_cal_data_set(adi_apollo_device_t *device, const uint1
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_dac_cal_data_set(adi_apollo_device_t *device, const uint16_t dacs, uint8_t cal_data[], uint32_t len)
@@ -236,9 +239,9 @@ int32_t adi_apollo_cfg_dac_cal_data_set(adi_apollo_device_t *device, const uint1
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(cal_data);
 
-    for(i = 0; i < ADI_APOLLO_DAC_NUM; i ++) {
-        dac = dacs & (ADI_APOLLO_DAC_A0 << i);
-        if (dac > 0) {
+    for(i = 0U; i < ADI_APOLLO_DAC_NUM; i ++) {
+        dac = (uint16_t)(dacs & ((uint32_t)ADI_APOLLO_DAC_A0 << i));
+        if (dac > 0U) {
             /* Get the cal data size and address location */
             err = cal_data_size_addr_get(device, i,
                     ADI_APOLLO_DAC_CAL_OBJ_SIZE, ADI_APOLLO_DAC_CAL_OBJ_OFFSET,
@@ -246,8 +249,8 @@ int32_t adi_apollo_cfg_dac_cal_data_set(adi_apollo_device_t *device, const uint1
                     &size_bytes, &address);
             ADI_APOLLO_ERROR_RETURN(err);
 
-            if (size_bytes != len - 4) {        /* Assumes incoming data has 4-byte crc */
-                return API_CMS_ERROR_ERROR;     /* cal_data size fw mismatch */
+            if (size_bytes != (len - 4U)) {        /* Assumes incoming data has 4-byte crc */
+                ADI_CMS_RETURN(API_CMS_ERROR_ERROR);     /* cal_data size fw mismatch */
             }
 
             /* Stream cal data to core */
@@ -256,7 +259,7 @@ int32_t adi_apollo_cfg_dac_cal_data_set(adi_apollo_device_t *device, const uint1
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_serdes_rx_cal_data_set(adi_apollo_device_t *device, const uint16_t serdes, uint8_t cal_data[], uint32_t len)
@@ -271,9 +274,9 @@ int32_t adi_apollo_cfg_serdes_rx_cal_data_set(adi_apollo_device_t *device, const
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(cal_data);
 
-    for(i = 0; i < ADI_APOLLO_NUM_JTX_SERDES_12PACKS; i ++) {
-        s = serdes & (ADI_APOLLO_TXRX_SERDES_12PACK_A << i);
-        if (s > 0) {
+    for(i = 0U; i < ADI_APOLLO_NUM_JTX_SERDES_12PACKS; i ++) {
+        s = (uint16_t)(serdes & ((uint32_t)ADI_APOLLO_TXRX_SERDES_12PACK_A << i));
+        if (s > 0U) {
             /* Get the cal data size and address location */
             err = cal_data_size_addr_get(device, i,
                 ADI_APOLLO_SERDES_RX_CAL_OBJ_SIZE, ADI_APOLLO_SERDES_RX_CAL_OBJ_OFFSET,
@@ -282,8 +285,8 @@ int32_t adi_apollo_cfg_serdes_rx_cal_data_set(adi_apollo_device_t *device, const
 
             ADI_APOLLO_ERROR_RETURN(err);
 
-            if (size_bytes != len - 4) {        /* Assumes incoming data has 4-byte crc */
-                return API_CMS_ERROR_ERROR;     /* cal_data size fw mismatch */
+            if (size_bytes != (len - 4U)) {        /* Assumes incoming data has 4-byte crc */
+                ADI_CMS_RETURN(API_CMS_ERROR_ERROR);     /* cal_data size fw mismatch */
             }
 
             /* Stream cal data to core */
@@ -293,7 +296,7 @@ int32_t adi_apollo_cfg_serdes_rx_cal_data_set(adi_apollo_device_t *device, const
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_serdes_tx_cal_data_set(adi_apollo_device_t *device, const uint16_t serdes, uint8_t cal_data[], uint32_t len)
@@ -308,9 +311,9 @@ int32_t adi_apollo_cfg_serdes_tx_cal_data_set(adi_apollo_device_t *device, const
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(cal_data);
 
-    for(i = 0; i < ADI_APOLLO_NUM_JTX_SERDES_12PACKS; i ++) {
-        s = serdes & (ADI_APOLLO_TXRX_SERDES_12PACK_A << i);
-        if (s > 0) {
+    for(i = 0U; i < ADI_APOLLO_NUM_JTX_SERDES_12PACKS; i ++) {
+        s = (uint16_t)(serdes & ((uint32_t)ADI_APOLLO_TXRX_SERDES_12PACK_A << i));
+        if (s > 0U) {
             /* Get the cal data size and address location */
             err = cal_data_size_addr_get(device, i,
                     ADI_APOLLO_SERDES_TX_CAL_OBJ_SIZE, ADI_APOLLO_SERDES_TX_CAL_OBJ_OFFSET,
@@ -318,8 +321,8 @@ int32_t adi_apollo_cfg_serdes_tx_cal_data_set(adi_apollo_device_t *device, const
                     &size_bytes, &address);
             ADI_APOLLO_ERROR_RETURN(err);
 
-            if (size_bytes != len - 4) {        /* Assumes incoming data has 4-byte crc */
-                return API_CMS_ERROR_ERROR;     /* cal_data size fw mismatch */
+            if (size_bytes != (len - 4U)) {        /* Assumes incoming data has 4-byte crc */
+                ADI_CMS_RETURN(API_CMS_ERROR_ERROR);     /* cal_data size fw mismatch */
             }
 
             /* Stream cal data to core */
@@ -329,7 +332,7 @@ int32_t adi_apollo_cfg_serdes_tx_cal_data_set(adi_apollo_device_t *device, const
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_clk_cond_cal_data_set(adi_apollo_device_t *device, const uint16_t sides, uint8_t cal_data[], uint32_t len)
@@ -344,17 +347,17 @@ int32_t adi_apollo_cfg_clk_cond_cal_data_set(adi_apollo_device_t *device, const 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(cal_data);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(sides) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(sides) != 1U);
 
     for (i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
-        side = sides & (ADI_APOLLO_SIDE_A << i);
-        if (side > 0) {
+        side = (uint16_t)(sides & ((uint32_t)ADI_APOLLO_SIDE_A << i));
+        if (side > 0U) {
             /* Get the cal data size and address location */
             err = adi_apollo_cfg_clk_cond_cal_data_len_get(device, &size_bytes);
             ADI_APOLLO_ERROR_RETURN(err);
 
             if (size_bytes != len) {
-                return API_CMS_ERROR_INVALID_PARAM;
+                ADI_CMS_RETURN(API_CMS_ERROR_INVALID_PARAM);
             }
 
             address_ptr = (side == ADI_APOLLO_SIDE_A) ? APOLLO_CPU_1_FW_CLK_COND_0_CALDATA_PTR : APOLLO_CPU_1_FW_CLK_COND_1_CALDATA_PTR;
@@ -367,7 +370,7 @@ int32_t adi_apollo_cfg_clk_cond_cal_data_set(adi_apollo_device_t *device, const 
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_clk_cond_cal_data_get(adi_apollo_device_t* device, const uint16_t sides, uint8_t cal_data[], uint32_t len)
@@ -382,17 +385,17 @@ int32_t adi_apollo_cfg_clk_cond_cal_data_get(adi_apollo_device_t* device, const 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(cal_data);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(sides) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(sides) != 1U);
 
     for (i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
-        side = sides & (ADI_APOLLO_SIDE_A << i);
-        if (side > 0) {
+        side = (uint16_t)(sides & ((uint32_t)ADI_APOLLO_SIDE_A << i));
+        if (side > 0U) {
             /* Get the cal data size and address location */
             err = adi_apollo_cfg_clk_cond_cal_data_len_get(device, &size_bytes);
             ADI_APOLLO_ERROR_RETURN(err);
 
             if (size_bytes != len) {
-                return API_CMS_ERROR_INVALID_PARAM;
+                ADI_CMS_RETURN(API_CMS_ERROR_INVALID_PARAM);
             }
             address_ptr = (side == ADI_APOLLO_SIDE_A) ? APOLLO_CPU_1_FW_CLK_COND_0_CALDATA_PTR : APOLLO_CPU_1_FW_CLK_COND_1_CALDATA_PTR;
             err = adi_apollo_hal_reg32_get(device, address_ptr, &address);
@@ -406,7 +409,7 @@ int32_t adi_apollo_cfg_clk_cond_cal_data_get(adi_apollo_device_t* device, const 
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_adc_cal_data_get(adi_apollo_device_t *device, const uint16_t adcs, uint8_t mode, uint8_t cal_data[], uint32_t len)
@@ -421,14 +424,14 @@ int32_t adi_apollo_cfg_adc_cal_data_get(adi_apollo_device_t *device, const uint1
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(cal_data);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(adcs) != 1);
-    ADI_APOLLO_INVALID_PARAM_RETURN(mode > 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(adcs) != 1U);
+    ADI_APOLLO_INVALID_PARAM_RETURN(mode > 1U);
 
     cal_data_offset = (mode == ADI_APOLLO_ADC_CAL_SEQUENTIAL_MODE) ? ADI_APOLLO_ADC_CAL_STRUCT_SEQ_DATA_OFFSET : ADI_APOLLO_ADC_CAL_STRUCT_RAND_DATA_OFFSET;
 
-    for(i = 0; i < ADI_APOLLO_ADC_NUM; i++) {
-        adc = adcs & (ADI_APOLLO_ADC_A0 << i);
-        if (adc > 0) {
+    for(i = 0U; i < ADI_APOLLO_ADC_NUM; i++) {
+        adc = (uint16_t)(adcs & ((uint32_t)ADI_APOLLO_ADC_A0 << i));
+        if (adc > 0U) {
             /* Get the cal data size and address location */
             err = cal_data_size_addr_get(device,
                     ADI_APOLLO_CONV_IDX_CONV(device->dev_info.is_8t8r, i, ADI_APOLLO_ADC_PER_SIDE_NUM),
@@ -437,8 +440,8 @@ int32_t adi_apollo_cfg_adc_cal_data_get(adi_apollo_device_t *device, const uint1
                     &size_bytes, &address);
             ADI_APOLLO_ERROR_RETURN(err);
 
-            if (size_bytes != len - 4) {        /* size_bytes is size of cal data, not including 32-bit CRC */
-                return API_CMS_ERROR_ERROR;     /* cal_data size FW mismatch */
+            if (size_bytes != (len - 4U)) {        /* size_bytes is size of cal data, not including 32-bit CRC */
+                ADI_CMS_RETURN(API_CMS_ERROR_ERROR);     /* cal_data size FW mismatch */
             }
 
             /* Stream cal data from core */
@@ -448,7 +451,7 @@ int32_t adi_apollo_cfg_adc_cal_data_get(adi_apollo_device_t *device, const uint1
             break;
         }
     }
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_dac_cal_data_get(adi_apollo_device_t *device, const uint16_t dacs, uint8_t cal_data[], uint32_t len)
@@ -462,11 +465,11 @@ int32_t adi_apollo_cfg_dac_cal_data_get(adi_apollo_device_t *device, const uint1
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(cal_data);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(dacs) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(dacs) != 1U);
 
-    for(i = 0; i < ADI_APOLLO_DAC_NUM; i++) {
-        dac = dacs & (ADI_APOLLO_DAC_A0 << i);
-        if (dac > 0) {
+    for(i = 0U; i < ADI_APOLLO_DAC_NUM; i++) {
+        dac = (uint16_t)(dacs & ((uint32_t)ADI_APOLLO_DAC_A0 << i));
+        if (dac > 0U) {
             /* Get the cal data size and address location */
             err = cal_data_size_addr_get(device,
                     ADI_APOLLO_CONV_IDX_CONV(device->dev_info.is_8t8r, i, ADI_APOLLO_DAC_PER_SIDE_NUM),
@@ -475,8 +478,8 @@ int32_t adi_apollo_cfg_dac_cal_data_get(adi_apollo_device_t *device, const uint1
                     &size_bytes, &address);
             ADI_APOLLO_ERROR_RETURN(err);
 
-            if (size_bytes != len - 4) {        /* size_bytes is size of cal data, not including 32-bit CRC */
-                return API_CMS_ERROR_ERROR;     /* cal_data size FW mismatch */
+            if (size_bytes != (len - 4U)) {        /* size_bytes is size of cal data, not including 32-bit CRC */
+                ADI_CMS_RETURN(API_CMS_ERROR_ERROR);     /* cal_data size FW mismatch */
             }
 
             /* Stream cal data from core */
@@ -486,7 +489,7 @@ int32_t adi_apollo_cfg_dac_cal_data_get(adi_apollo_device_t *device, const uint1
             break;
         }
     }
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_serdes_rx_cal_data_get(adi_apollo_device_t* device, const uint16_t serdes, uint8_t cal_data[], uint32_t len)
@@ -500,11 +503,11 @@ int32_t adi_apollo_cfg_serdes_rx_cal_data_get(adi_apollo_device_t* device, const
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(cal_data);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(serdes) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(serdes) != 1U);
 
-    for (i = 0; i < ADI_APOLLO_NUM_JTX_SERDES_12PACKS; i++) {
-        s = serdes & (ADI_APOLLO_TXRX_SERDES_12PACK_A << i);
-        if (s > 0) {
+    for (i = 0U; i < ADI_APOLLO_NUM_JTX_SERDES_12PACKS; i++) {
+        s = (uint16_t)(serdes & ((uint32_t)ADI_APOLLO_TXRX_SERDES_12PACK_A << i));
+        if (s > 0U) {
             /* Get the cal data size and address location */
             err = cal_data_size_addr_get(device, i,
                 ADI_APOLLO_SERDES_RX_CAL_OBJ_SIZE, ADI_APOLLO_SERDES_RX_CAL_OBJ_OFFSET,
@@ -512,8 +515,8 @@ int32_t adi_apollo_cfg_serdes_rx_cal_data_get(adi_apollo_device_t* device, const
                 &size_bytes, &address);
             ADI_APOLLO_ERROR_RETURN(err);
 
-            if (size_bytes != len - 4) {        /* size_bytes is size of cal data, not including 32-bit CRC */
-                return API_CMS_ERROR_ERROR;     /* cal_data size FW mismatch */
+            if (size_bytes != (len - 4U)) {        /* size_bytes is size of cal data, not including 32-bit CRC */
+                ADI_CMS_RETURN(API_CMS_ERROR_ERROR);     /* cal_data size FW mismatch */
             }
 
             /* Stream cal data from core */
@@ -523,7 +526,7 @@ int32_t adi_apollo_cfg_serdes_rx_cal_data_get(adi_apollo_device_t* device, const
             break;
         }
     }
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_serdes_tx_cal_data_get(adi_apollo_device_t* device, const uint16_t serdes, uint8_t cal_data[], uint32_t len)
@@ -537,11 +540,11 @@ int32_t adi_apollo_cfg_serdes_tx_cal_data_get(adi_apollo_device_t* device, const
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(cal_data);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(serdes) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(serdes) != 1U);
 
-    for (i = 0; i < ADI_APOLLO_NUM_JTX_SERDES_12PACKS; i++) {
-        s = serdes & (ADI_APOLLO_TXRX_SERDES_12PACK_A << i);
-        if (s > 0) {
+    for (i = 0U; i < ADI_APOLLO_NUM_JTX_SERDES_12PACKS; i++) {
+        s = (uint16_t)(serdes & ((uint32_t)ADI_APOLLO_TXRX_SERDES_12PACK_A << i));
+        if (s > 0U) {
             /* Get the cal data size and address location */
             err = cal_data_size_addr_get(device, i,
                 ADI_APOLLO_SERDES_TX_CAL_OBJ_SIZE, ADI_APOLLO_SERDES_TX_CAL_OBJ_OFFSET,
@@ -549,8 +552,8 @@ int32_t adi_apollo_cfg_serdes_tx_cal_data_get(adi_apollo_device_t* device, const
                 &size_bytes, &address);
             ADI_APOLLO_ERROR_RETURN(err);
 
-            if (size_bytes != len - 4) {        /* size_bytes is size of cal data, not including 32-bit CRC */
-                return API_CMS_ERROR_ERROR;     /* cal_data size FW mismatch */
+            if (size_bytes != (len - 4U)) {        /* size_bytes is size of cal data, not including 32-bit CRC */
+                ADI_CMS_RETURN(API_CMS_ERROR_ERROR);     /* cal_data size FW mismatch */
             }
 
             /* Stream cal data from core */
@@ -560,18 +563,18 @@ int32_t adi_apollo_cfg_serdes_tx_cal_data_get(adi_apollo_device_t* device, const
             break;
         }
     }
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_adc_cal_data_len_get(adi_apollo_device_t* device, uint8_t mode, uint32_t* len)
 {
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
     uint8_t cal_data_offset;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(len);
-    ADI_APOLLO_INVALID_PARAM_RETURN(mode > 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(mode > 1U);
 
     cal_data_offset = (mode == ADI_APOLLO_ADC_CAL_SEQUENTIAL_MODE) ? ADI_APOLLO_ADC_CAL_STRUCT_SEQ_DATA_OFFSET : ADI_APOLLO_ADC_CAL_STRUCT_RAND_DATA_OFFSET;
 
@@ -582,14 +585,14 @@ int32_t adi_apollo_cfg_adc_cal_data_len_get(adi_apollo_device_t* device, uint8_t
         len);
 
     /* Add 32-bit checksum */
-    *len += 4;
+    *len += 4U;
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 int32_t adi_apollo_cfg_dac_cal_data_len_get(adi_apollo_device_t* device, uint32_t* len)
 {
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
@@ -602,14 +605,14 @@ int32_t adi_apollo_cfg_dac_cal_data_len_get(adi_apollo_device_t* device, uint32_
         len);
 
     /* Add 32-bit checksum */
-    *len += 4;
+    *len += 4U;
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 int32_t adi_apollo_cfg_serdes_rx_cal_data_len_get(adi_apollo_device_t* device, uint32_t* len)
 {
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
@@ -622,14 +625,14 @@ int32_t adi_apollo_cfg_serdes_rx_cal_data_len_get(adi_apollo_device_t* device, u
         len);
 
     /* Add 32-bit checksum */
-    *len += 4;
+    *len += 4U;
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 int32_t adi_apollo_cfg_serdes_tx_cal_data_len_get(adi_apollo_device_t* device, uint32_t* len)
 {
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
@@ -642,9 +645,9 @@ int32_t adi_apollo_cfg_serdes_tx_cal_data_len_get(adi_apollo_device_t* device, u
         len);
 
     /* Add 32-bit checksum */
-    *len += 4;
+    *len += 4U;
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 int32_t adi_apollo_cfg_profile_type_version_get(adi_apollo_device_t *device, adi_apollo_profile_version_t *ver)
@@ -657,7 +660,7 @@ int32_t adi_apollo_cfg_profile_type_version_get(adi_apollo_device_t *device, adi
     ver->minor = ADI_APOLLO_PROFILE_VERSION_MINOR;
     ver->patch = ADI_APOLLO_PROFILE_VERSION_PATCH;
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_serdes_rx_bridging_cal_cfg_set(adi_apollo_device_t *device, uint8_t bridging_cal_runs)
@@ -666,17 +669,18 @@ int32_t adi_apollo_cfg_serdes_rx_bridging_cal_cfg_set(adi_apollo_device_t *devic
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
-    ADI_CMS_RANGE_CHECK(bridging_cal_runs, 0, 3);
+    /* Lower bound check (< 0) omitted - bridging_cal_runs is unsigned */
+    ADI_APOLLO_INVALID_PARAM_RETURN(bridging_cal_runs > 3U);
 
-    err = adi_apollo_hal_reg_set(device, (ADI_APOLLO_WARMBOOT_CFG_BASE_ADDR + ADI_APOLLO_SERDES_RX_NUM_BRIDGING_CALS), (0x80 | bridging_cal_runs));
+    err = adi_apollo_hal_reg_set(device, (ADI_APOLLO_WARMBOOT_CFG_BASE_ADDR + ADI_APOLLO_SERDES_RX_NUM_BRIDGING_CALS), (0x80U | bridging_cal_runs));
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cfg_clk_cond_cal_data_len_get(adi_apollo_device_t* device, uint32_t* len)
 {
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
@@ -687,7 +691,7 @@ int32_t adi_apollo_cfg_clk_cond_cal_data_len_get(adi_apollo_device_t* device, ui
     */
     *len = ADI_APOLLO_CLK_COND_CAL_DATA_LEN_BYTES;
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 static int32_t cal_data_len_get(adi_apollo_device_t* device,
@@ -700,10 +704,10 @@ static int32_t cal_data_len_get(adi_apollo_device_t* device,
     err = adi_apollo_hal_reg32_get(device, siz_ptr, &cal_size_p);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    err = adi_apollo_hal_reg32_get(device, cal_size_p + cal_obj_ofst, size);    /* Size in bytes, doesn't include 4-byte crc */
+    err = adi_apollo_hal_reg32_get(device, (cal_size_p + cal_obj_ofst), size);    /* Size in bytes, doesn't include 4-byte crc */
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 static int32_t cal_data_size_addr_get(adi_apollo_device_t *device, uint8_t idx,
@@ -721,13 +725,13 @@ static int32_t cal_data_size_addr_get(adi_apollo_device_t *device, uint8_t idx,
     err = adi_apollo_hal_reg32_get(device, siz_ptr, &cal_size_p);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    err = adi_apollo_hal_reg32_get(device, cal_size_p + cal_obj_ofst, size);    /* Size doesn't include 4-byte crc */
+    err = adi_apollo_hal_reg32_get(device, (cal_size_p + cal_obj_ofst), size);    /* Size doesn't include 4-byte crc */
     ADI_APOLLO_ERROR_RETURN(err);
 
-    err = adi_apollo_hal_reg32_get(device, cal_data_addr_p + cal_offset + cal_obj_ofst, address);   /* Mem address of core's cal data */
+    err = adi_apollo_hal_reg32_get(device, ((cal_data_addr_p + cal_offset) + cal_obj_ofst), address);   /* Mem address of core's cal data */
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 static uint8_t is_init_cal_cfg_valid(adi_apollo_init_cal_cfg_e init_cal_cfg) {
@@ -738,7 +742,9 @@ static uint8_t is_init_cal_cfg_valid(adi_apollo_init_cal_cfg_e init_cal_cfg) {
         case ADI_APOLLO_INIT_CAL_ENABLED:
         case ADI_APOLLO_INIT_CAL_ENABLED_WARMBOOT_FROM_NVM:
         case ADI_APOLLO_INIT_CAL_ENABLED_WARMBOOT_FROM_USER:
-        return 1;
+            return 1;
+        default:
+            break;
     }
 
     return 0;
@@ -750,13 +756,15 @@ static uint8_t is_clk_cond_cal_cfg_valid(adi_apollo_sysclock_cond_cfg_e cc_cal_c
         case ADI_APOLLO_SYSCLKCONDITIONING_DISABLED:
         case ADI_APOLLO_SYSCLKCONDITIONING_ENABLED_WARMBOOT_FROM_USER:
         case ADI_APOLLO_SYSCLKCONDITIONING_DISABLED_WARMBOOT_FROM_USER:
-        return 1;
+            return 1;
+        default:
+            break;
     }
 
     return 0;
 }
 
-static uint32_t calc_adc_cal_cfg_reg(int32_t idx)
+static uint32_t calc_adc_cal_cfg_reg(uint32_t idx)
 {
     static uint32_t cal_cfg_reg_addr[] = {
         ADI_APOLLO_WARMBOOT_CFG_ADC_A1_A0,        /* A1:A0 */
@@ -764,7 +772,7 @@ static uint32_t calc_adc_cal_cfg_reg(int32_t idx)
         ADI_APOLLO_WARMBOOT_CFG_ADC_B1_B0,        /* B1:B0 */
         ADI_APOLLO_WARMBOOT_CFG_ADC_B3_B2,        /* B3:B2 */
     };
-    return cal_cfg_reg_addr[idx/2];
+    return cal_cfg_reg_addr[idx/2U];
 }
 
 static uint32_t calc_dac_cal_cfg_reg(int32_t idx)

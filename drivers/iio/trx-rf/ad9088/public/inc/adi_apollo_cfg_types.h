@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_CFG
  * @{
  */
-#ifndef __ADI_APOLLO_CFG_TYPES_H__
-#define __ADI_APOLLO_CFG_TYPES_H__
+#ifndef ADI_APOLLO_CFG_TYPES_H__
+#define ADI_APOLLO_CFG_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -21,51 +21,51 @@
 
 /*============= D E F I N E S ==============*/
 /* Scratch registers for warmboot INT_CAL_CFG flags. Each module uses 4 bits. */
-#define ADI_APOLLO_WARMBOOT_CFG_BASE_ADDR               0x47000200
+#define ADI_APOLLO_WARMBOOT_CFG_BASE_ADDR               0x47000200U
 
-#define ADI_APOLLO_WARMBOOT_CFG_SERDES_RX_1_0               163
-#define ADI_APOLLO_WARMBOOT_CFG_SERDES_TX_1_0               164
+#define ADI_APOLLO_WARMBOOT_CFG_SERDES_RX_1_0               163U
+#define ADI_APOLLO_WARMBOOT_CFG_SERDES_TX_1_0               164U
 
-#define ADI_APOLLO_WARMBOOT_CFG_ADC_A1_A0                   165
-#define ADI_APOLLO_WARMBOOT_CFG_ADC_A3_A2                   166
-#define ADI_APOLLO_WARMBOOT_CFG_ADC_B1_B0                   167
-#define ADI_APOLLO_WARMBOOT_CFG_ADC_B3_B2                   168
+#define ADI_APOLLO_WARMBOOT_CFG_ADC_A1_A0                   165U
+#define ADI_APOLLO_WARMBOOT_CFG_ADC_A3_A2                   166U
+#define ADI_APOLLO_WARMBOOT_CFG_ADC_B1_B0                   167U
+#define ADI_APOLLO_WARMBOOT_CFG_ADC_B3_B2                   168U
 
-#define ADI_APOLLO_WARMBOOT_CFG_DAC_A1_A0                   169
-#define ADI_APOLLO_WARMBOOT_CFG_DAC_A3_A2                   170
-#define ADI_APOLLO_WARMBOOT_CFG_DAC_B1_B0                   171
-#define ADI_APOLLO_WARMBOOT_CFG_DAC_B3_B2                   172
+#define ADI_APOLLO_WARMBOOT_CFG_DAC_A1_A0                   169U
+#define ADI_APOLLO_WARMBOOT_CFG_DAC_A3_A2                   170U
+#define ADI_APOLLO_WARMBOOT_CFG_DAC_B1_B0                   171U
+#define ADI_APOLLO_WARMBOOT_CFG_DAC_B3_B2                   172U
 
-#define ADI_APOLLO_WARMBOOT_CFG_LINEARX_RX_A1_A0            173
-#define ADI_APOLLO_WARMBOOT_CFG_LINEARX_RX_A3_A2            174
-#define ADI_APOLLO_WARMBOOT_CFG_LINEARX_RX_B1_B0            175
-#define ADI_APOLLO_WARMBOOT_CFG_LINEARX_RX_B3_B2            176
+#define ADI_APOLLO_WARMBOOT_CFG_LINEARX_RX_A1_A0            173U
+#define ADI_APOLLO_WARMBOOT_CFG_LINEARX_RX_A3_A2            174U
+#define ADI_APOLLO_WARMBOOT_CFG_LINEARX_RX_B1_B0            175U
+#define ADI_APOLLO_WARMBOOT_CFG_LINEARX_RX_B3_B2            176U
 
-#define ADI_APOLLO_WARMBOOT_CFG_LINEARX_TX_A1_A0            177
-#define ADI_APOLLO_WARMBOOT_CFG_LINEARX_TX_A3_A2            178
-#define ADI_APOLLO_WARMBOOT_CFG_LINEARX_TX_B1_B0            179
-#define ADI_APOLLO_WARMBOOT_CFG_LINEARX_TX_B3_B2            180
+#define ADI_APOLLO_WARMBOOT_CFG_LINEARX_TX_A1_A0            177U
+#define ADI_APOLLO_WARMBOOT_CFG_LINEARX_TX_A3_A2            178U
+#define ADI_APOLLO_WARMBOOT_CFG_LINEARX_TX_B1_B0            179U
+#define ADI_APOLLO_WARMBOOT_CFG_LINEARX_TX_B3_B2            180U
 
-#define ADI_APOLLO_WARMBOOT_CFG_SYSCLK_CONDITIONING         182
+#define ADI_APOLLO_WARMBOOT_CFG_SYSCLK_CONDITIONING         182U
 
-#define ADI_APOLLO_SERDES_RX_NUM_BRIDGING_CALS              196
+#define ADI_APOLLO_SERDES_RX_NUM_BRIDGING_CALS              196U
 
-#define ADI_APOLLO_DAC_CAL_OBJ_SIZE                         24
-#define ADI_APOLLO_DAC_CAL_OBJ_OFFSET                       20
-#define ADI_APOLLO_SERDES_RX_CAL_OBJ_SIZE                   24
-#define ADI_APOLLO_SERDES_RX_CAL_OBJ_OFFSET                 20
-#define ADI_APOLLO_SERDES_TX_CAL_OBJ_SIZE                   24
-#define ADI_APOLLO_SERDES_TX_CAL_OBJ_OFFSET                 20
+#define ADI_APOLLO_DAC_CAL_OBJ_SIZE                         24U
+#define ADI_APOLLO_DAC_CAL_OBJ_OFFSET                       20U
+#define ADI_APOLLO_SERDES_RX_CAL_OBJ_SIZE                   24U
+#define ADI_APOLLO_SERDES_RX_CAL_OBJ_OFFSET                 20U
+#define ADI_APOLLO_SERDES_TX_CAL_OBJ_SIZE                   24U
+#define ADI_APOLLO_SERDES_TX_CAL_OBJ_OFFSET                 20U
 
-#define ADI_APOLLO_ADC_CAL_STRUCT_SIZE                      28
-#define ADI_APOLLO_ADC_CAL_STRUCT_RAND_DATA_OFFSET          20
-#define ADI_APOLLO_ADC_CAL_STRUCT_SEQ_DATA_OFFSET           24
+#define ADI_APOLLO_ADC_CAL_STRUCT_SIZE                      28U
+#define ADI_APOLLO_ADC_CAL_STRUCT_RAND_DATA_OFFSET          20U
+#define ADI_APOLLO_ADC_CAL_STRUCT_SEQ_DATA_OFFSET           24U
 
-#define ADI_APOLLO_ADC_CAL_RANDOM_MODE                      00
-#define ADI_APOLLO_ADC_CAL_SEQUENTIAL_MODE                  01
+#define ADI_APOLLO_ADC_CAL_RANDOM_MODE                      0U
+#define ADI_APOLLO_ADC_CAL_SEQUENTIAL_MODE                  1U
 
 /* This register states if the TDC/firmware MCS is in progress and if the synch is achieved */
-#define ADI_APOLLO_MCS_OPERATION_AND_SYNCH_STATUS       181
+#define ADI_APOLLO_MCS_OPERATION_AND_SYNCH_STATUS       181U
 
 /* Warm boot fw calibration object locations */
 #define ADI_APOLLO_CPU_1_FW_ADC_RX_OBJ_PTR              (0x21000534U)         /*!< ADC Rx object pointer */
@@ -113,6 +113,6 @@ typedef enum
     ADI_APOLLO_SYSCLKCONDITIONING_DISABLED_WARMBOOT_FROM_USER = 3,       /*!< No clock conditioning calibration - start with cal data from user */
 } adi_apollo_sysclock_cond_cfg_e;
 
-#endif /* __ADI_APOLLO_CFG_TYPES_H__ */
+#endif /* ADI_APOLLO_CFG_TYPES_H__ */
 
 /*! @} */

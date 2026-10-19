@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_FSRC
  * @{
  */
-#ifndef __ADI_APOLLO_FSRC_H__
-#define __ADI_APOLLO_FSRC_H__
+#ifndef ADI_APOLLO_FSRC_H__
+#define ADI_APOLLO_FSRC_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_fsrc_types.h"
@@ -141,6 +141,86 @@ int32_t adi_apollo_fsrc_ratio_set(adi_apollo_device_t* device, adi_apollo_termin
  */
 int32_t adi_apollo_fsrc_mode_1x_enable_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrcs, uint8_t enable);
 
+/**
+ * \brief Enable/disable FSRC FIFO pointer overwrite mode
+ *
+ * Controls whether FSRC FIFO reset pointer values come from regmap (manual control)
+ * or are auto-calculated by hardware. Dynamic fractional delay updates require
+ * manual control mode (enable=1).
+ *
+ * Note: Fractional delay registers are shared per FSRC pair (A0&A1, B0&B1).
+ *       Selecting either member of a pair (e.g., FSRC_A0) will affect both FSRCs in that pair.
+ *
+ * Typical usage sequence:
+ * 1) Call this function to enable overwrite mode: adi_apollo_fsrc_ptr_overwrite_enable(..., 1)
+ * 2) Call adi_apollo_clk_mcs_oneshot_sync() to initialize FSRC state
+ * 3) At runtime: call adi_apollo_fsrc_sample_frac_delay_set() before each dynamic reconfig
+ *
+ * \param[in]  device   Context variable - Pointer to APOLLO device
+ * \param[in]  terminal Target terminal \ref adi_apollo_terminal_e
+ * \param[in]  fsrcs    Target FSRC selection bitmask \ref adi_apollo_fsrc_sel_e
+ * \param[in]  enable   0=hardware auto-calculate (default), 1=use regmap values (manual control)
+ *
+ * \return API_CMS_ERROR_OK    API Completed Successfully
+ * \return <0                  Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_fsrc_ptr_overwrite_enable(adi_apollo_device_t *device,
+    adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrcs, uint8_t enable);
+
+/**
+ * \brief Update FSRC FIFO pointer sync reset value (Debug function)
+ *
+ * Reads current FSRC internal state (ns_rs) and calculates/updates the FIFO pointer
+ * reset value (ptrsyncrstval) using the formula: ptrsyncrstval = 4*(ns_rs+1)-1
+ *
+ * This function is typically not required for normal fractional delay updates.
+ * It may be needed only for specialized debug scenarios.
+ *
+ * Note: Fractional delay registers are shared per FSRC pair (A0&A1, B0&B1).
+ *       Selecting either member of a pair (e.g., FSRC_A0) will update both FSRCs in that pair.
+ *
+ * Prerequisite: adi_apollo_fsrc_ptr_overwrite_enable() must have been called with enable=1
+ *
+ * \param[in]  device   Context variable - Pointer to APOLLO device
+ * \param[in]  terminal Target terminal \ref adi_apollo_terminal_e
+ * \param[in]  fsrcs    Target FSRC selection bitmask \ref adi_apollo_fsrc_sel_e
+ *
+ * \return API_CMS_ERROR_OK    API Completed Successfully
+ * \return <0                  Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_fsrc_ptr_syncrstval_update(adi_apollo_device_t *device,
+    adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrcs);
+
+/**
+ * \brief Set FSRC fractional sample delay
+ *
+ * Updates the fractional delay applied to FSRC output samples. The delay is specified
+ * as a fraction of one sample period using a 16-bit value.
+ *
+ * For decimation: Delays FSRC output by (sample_frac_delay / 65536) * output_sample_period
+ * For interpolation: Delays FSRC output by (sample_frac_delay / 65536) * input_sample_period
+ *
+ * Note: Fractional delay registers are shared per FSRC pair (A0&A1, B0&B1).
+ *       Selecting either member of a pair (e.g., FSRC_A0) will set the delay for both FSRCs in that pair.
+ *
+ * Typical usage sequence for dynamic updates:
+ * 1) Attenuate data path (optional, to mask glitches)
+ * 2) Call this function to set new delay value
+ * 3) Trigger dynamic reconfiguration: adi_apollo_clk_mcs_man_reconfig_sync()
+ * 4) Restore data path gain
+ *
+ * \param[in]  device              Context variable - Pointer to APOLLO device
+ * \param[in]  terminal            Target terminal \ref adi_apollo_terminal_e
+ * \param[in]  fsrcs               Target FSRC selection bitmask \ref adi_apollo_fsrc_sel_e
+ * \param[in]  sample_frac_delay   Fractional delay (0-65535, 16-bit)
+ *                                  0 = no delay, 65535 ≈ 1 sample period delay
+ *
+ * \return API_CMS_ERROR_OK    API Completed Successfully
+ * \return <0                  Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_fsrc_sample_frac_delay_set(adi_apollo_device_t *device,
+    adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t fsrcs, uint16_t sample_frac_delay);
+
 #ifndef CLIENT_IGNORE
 
 #endif /* CLIENT_IGNORE*/
@@ -149,5 +229,5 @@ int32_t adi_apollo_fsrc_mode_1x_enable_set(adi_apollo_device_t *device, adi_apol
 }
 #endif
 
-#endif /* __ADI_APOLLO_FSRC_H__ */
+#endif /* ADI_APOLLO_FSRC_H__ */
 /*! @} */

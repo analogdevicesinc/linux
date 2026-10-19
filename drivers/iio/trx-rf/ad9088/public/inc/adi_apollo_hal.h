@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_HAL
  * @{
  */
-#ifndef __APOLLO_HAL_H__
-#define __APOLLO_HAL_H__
+#ifndef APOLLO_HAL_H__
+#define APOLLO_HAL_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -198,6 +198,22 @@ int32_t adi_apollo_hal_paged_reg_set(adi_apollo_device_t *device, uint32_t reg, 
 int32_t adi_apollo_hal_paged_reg32_set(adi_apollo_device_t *device, uint32_t reg, uint32_t data);
 
 /**
+ * \brief Write a contiguous run of bytes starting at a paged register using SPI streaming mode.
+ *
+ * The bytes are written to consecutive, auto-incrementing addresses in a single
+ * transaction (the Apollo SPI slave's default streaming mode). No HSCI equivalent.
+ *
+ * \param[in] device   Context variable - Pointer to the APOLLO device data structure
+ * \param[in] reg      Start register to write, offset from the paged base address. \ref adi_apollo_hal_paged_base_addr_set
+ * \param[in] data     Byte buffer to write to consecutive addresses
+ * \param[in] data_len Number of bytes to write
+ *
+ * \return API_CMS_ERROR_OK                     API Completed Successfully
+ * \return <0                                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_hal_paged_stream_set(adi_apollo_device_t *device, uint32_t reg, uint8_t data[], uint32_t data_len);
+
+/**
  * \brief  8-bit register stream writes.
  *
  * \param[in] device          Context variable - Pointer to the APOLLO device data structure
@@ -361,7 +377,6 @@ int32_t adi_apollo_hal_auto_linkup(adi_apollo_device_t *device, uint8_t enable, 
  * \note   Retrive HSCIM ALINK_TABLE after Apollo's link_active is set
  *
  * \param[in]  device                Context variable - Pointer to the APOLLO device data structure
- * \param[in]  enable                Set 1 to enable auto link-up
  * \param[out] hscim_alink_table     Pointer to a variable that stores link table value from HSCI_M
  *
  * \return API_CMS_ERROR_OK          API Completed Successfully
@@ -427,15 +442,15 @@ int32_t adi_apollo_hal_reset_pin_ctrl(adi_apollo_device_t *device, uint8_t enabl
  * \brief Calls the platform log_write function
  *
  * \note log_write is optional.
- * 
+ *
  * \param[in] device    Context variable - Pointer to the APOLLO device data structure
- * \param[in] type      Type of log message. \ref adi_cms_log_type_e
+ * \param[in] log_type  Type of log message. \ref adi_cms_log_type_e
  * \param[in] comment   Comment string
- *  
+ *
  * \return API_CMS_ERROR_OK                     API Completed Successfully
  * \return <0                                   Failed. \ref adi_cms_error_e for details.
  */
-int32_t adi_apollo_hal_log_write(adi_apollo_device_t *device, adi_cms_log_type_e type, const char* comment, ...);
+int32_t adi_apollo_hal_log_write(adi_apollo_device_t *device, adi_cms_log_type_e log_type, const char* comment, ...);
 
 /**
  * \brief Wait for a bitfield to clear
