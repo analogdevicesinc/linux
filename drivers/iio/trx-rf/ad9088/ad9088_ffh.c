@@ -152,6 +152,98 @@ static int ad9088_read_gpio_hop_array(struct ad9088_phy *phy, const char *propna
 	return len;
 }
 
+static int ad9088_ffh_fnco_profile_set(struct ad9088_phy *phy,
+				       const struct iio_chan_spec *chan,
+				       const struct ad9088_chan_map *map,
+				       u8 index, s64 freq)
+{
+	adi_apollo_fine_nco_chan_pgm_t fnco_chan_config = { };
+	u8 dir = chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX;
+	u8 fnco_num = ad9088_ffh_fnco_num(map);
+	u16 fnco_en = BIT(fnco_num);
+	adi_apollo_cduc_ratio_e tx_ratio;
+	adi_apollo_cddc_ratio_e rx_ratio;
+	u64 ftw, f, tmp;
+	u32 cddc_dcm;
+	int ret;
+
+	/* Needs to be enabled to apply */
+	ret = adi_apollo_fnco_hop_enable(&phy->ad9088, dir, fnco_en, true);
+	ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_fnco_hop_enable");
+	if (ret)
+		return ret;
+
+	if (chan->output) {
+		tx_ratio = phy->profile.tx_path[map->side].tx_cduc[map->cddc_pi].drc_ratio;
+		ret = adi_apollo_cduc_interp_bf_to_val(&phy->ad9088, tx_ratio, &cddc_dcm);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_cduc_interp_bf_to_val");
+		if (ret)
+			return ret;
+
+		f = phy->profile.dac_cfg[map->side].dac_sampling_rate_Hz;
+	} else {
+		rx_ratio = phy->profile.rx_path[map->side].rx_cddc[map->cddc_pi].drc_ratio;
+		ret = adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, rx_ratio, &cddc_dcm);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_cddc_dcm_bf_to_val");
+		if (ret)
+			return ret;
+
+		f = phy->profile.adc_cfg[map->side].adc_sampling_rate_Hz;
+	}
+
+	adi_ad9088_calc_nco_ftw(phy, f, freq, cddc_dcm, 32, &ftw, &tmp, &tmp);
+	fnco_chan_config.drc_phase_inc = ftw;
+
+	ret = adi_apollo_fnco_chan_pgm(&phy->ad9088, dir, fnco_en, index, &fnco_chan_config);
+	ret = ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_fnco_chan_pgm");
+	if (ret)
+		return ret;
+
+	phy->ffh.dir[dir].fnco.frequency[fnco_num][index] = freq;
+
+	/* Restore state */
+	ret = adi_apollo_fnco_hop_enable(&phy->ad9088, dir, fnco_en,
+					 phy->ffh.dir[dir].fnco.en[fnco_num]);
+	return ad9088_check_apollo_error(&phy->spi->dev, ret, "adi_apollo_fnco_hop_enable");
+}
+
+/**
+ * ad9088_ffh_fnco_follow - Apply a main FNCO frequency to the active hop profile
+ * @phy: Device handle
+ * @chan: IIO channel
+ * @map: Channel map
+ * @freq: FNCO frequency in Hz
+ *
+ * Once hopping is enabled the FNCO runs from the hop profiles and ignores its
+ * main phase increment. In DIRECT_REGMAP mode, write the frequency to the
+ * selected profile too, so that channel_nco_frequency keeps taking effect.
+ * In the GPIO and trigger modes the active profile is not under register
+ * control, so only the main phase increment is set.
+ *
+ * Return: 0 on success, negative error code otherwise
+ */
+int ad9088_ffh_fnco_follow(struct ad9088_phy *phy, const struct iio_chan_spec *chan,
+			   const struct ad9088_chan_map *map, s64 freq)
+{
+	u8 dir = chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX;
+	u8 fnco_num = ad9088_ffh_fnco_num(map);
+	u8 select;
+
+	if (fnco_num >= ADI_APOLLO_FNCO_NUM)
+		return -EINVAL;
+
+	if (!phy->ffh.dir[dir].fnco.en[fnco_num] ||
+	    phy->ffh.dir[dir].fnco.mode[fnco_num] != ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP)
+		return 0;
+
+	/* Stored incremented by 1, 0 means profile 0 was never selected */
+	select = phy->ffh.dir[dir].fnco.select[fnco_num];
+
+	return ad9088_ffh_fnco_profile_set(phy, chan, map, select ? select - 1 : 0, freq);
+}
+
 int ad9088_ffh_probe(struct ad9088_phy *phy)
 {
 	adi_apollo_fine_nco_hop_t fnco_hop_config = { };
@@ -324,7 +416,7 @@ ssize_t ad9088_ext_info_read_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		index = phy->ffh.dir[dir].fnco.index[fnco_num];
 		if (index >= ADI_APOLLO_FNCO_PROFILE_NUM)
 			return -EINVAL;
-		return sysfs_emit(buf, "%llu\n",
+		return sysfs_emit(buf, "%lld\n",
 				  phy->ffh.dir[dir].fnco.frequency[fnco_num][index]);
 	case FFH_FNCO_SELECT:
 		/* Stored incremented by 1 so that 0 flags "not selected" */
@@ -357,19 +449,15 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 	u8 dir = chan->output ? ADI_APOLLO_TX : ADI_APOLLO_RX;
 	struct ad9088_phy *phy = conv->phy;
 	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
-	adi_apollo_fine_nco_chan_pgm_t fnco_chan_config = { };
-	adi_apollo_cduc_ratio_e tx_ratio;
-	adi_apollo_cddc_ratio_e rx_ratio;
 	u8 fnco_num, cnco_num;
 	u8 index;
 	u32 ftw_u32;
-	u32 cddc_dcm;
 	u16 fnco_en, cnco_en;
 	bool hop_enable, gpio_mode, gpio_mode_old;
 	u64 val;
 	u64 ftw_u64, f, tmp;
 	int ret;
-	s64 sel;
+	s64 sel, freq;
 	u8 mode;
 
 	if (!map)
@@ -394,7 +482,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		phy->ffh.dir[dir].fnco.index[fnco_num] = val;
 		return len;
 	case FFH_FNCO_FREQUENCY:
-		ret = kstrtou64(buf, 10, &val);
+		ret = kstrtos64(buf, 10, &freq);
 		if (ret)
 			return -EINVAL;
 
@@ -402,51 +490,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		if (index >= ADI_APOLLO_FNCO_PROFILE_NUM)
 			return -EINVAL;
 
-		/* Needs to be enabled to apply */
-		ret = adi_apollo_fnco_hop_enable(&phy->ad9088, dir, fnco_en, true);
-		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					       "adi_apollo_fnco_hop_enable");
-		if (ret)
-			return ret;
-
-		if (chan->output) {
-			tx_ratio = phy->profile.tx_path[map->side].tx_cduc[map->cddc_pi].drc_ratio;
-			ret = adi_apollo_cduc_interp_bf_to_val(&phy->ad9088, tx_ratio, &cddc_dcm);
-			ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-						       "adi_apollo_cduc_interp_bf_to_val");
-			if (ret)
-				return ret;
-
-			f = phy->profile.dac_cfg[map->side].dac_sampling_rate_Hz;
-		} else {
-			rx_ratio = phy->profile.rx_path[map->side].rx_cddc[map->cddc_pi].drc_ratio;
-			ret = adi_apollo_cddc_dcm_bf_to_val(&phy->ad9088, rx_ratio, &cddc_dcm);
-			ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-						       "adi_apollo_cddc_dcm_bf_to_val");
-			if (ret)
-				return ret;
-
-			f = phy->profile.adc_cfg[map->side].adc_sampling_rate_Hz;
-		}
-
-		adi_ad9088_calc_nco_ftw(phy, f, val, cddc_dcm, 32, &ftw_u64, &tmp, &tmp);
-		ftw_u32 = ftw_u64;
-		fnco_chan_config.drc_phase_inc = ftw_u32;
-
-		ret = adi_apollo_fnco_chan_pgm(&phy->ad9088, dir, fnco_en,
-					       index, &fnco_chan_config);
-		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					       "adi_apollo_fnco_chan_pgm");
-		if (ret)
-			return ret;
-
-		phy->ffh.dir[dir].fnco.frequency[fnco_num][index] = val;
-
-		/* Restore state */
-		ret = adi_apollo_fnco_hop_enable(&phy->ad9088, dir, fnco_en,
-						 phy->ffh.dir[dir].fnco.en[fnco_num]);
-		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
-					       "adi_apollo_fnco_hop_enable");
+		ret = ad9088_ffh_fnco_profile_set(phy, chan, map, index, freq);
 		if (ret)
 			return ret;
 		return len;

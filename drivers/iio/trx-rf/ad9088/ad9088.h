@@ -154,7 +154,7 @@ struct ad9088_clock {
 struct _ad9088_ffh {
 	struct {
 		u8 index[ADI_APOLLO_FNCO_NUM];
-		u64 frequency[ADI_APOLLO_FNCO_NUM][ADI_APOLLO_FNCO_PROFILE_NUM];
+		s64 frequency[ADI_APOLLO_FNCO_NUM][ADI_APOLLO_FNCO_PROFILE_NUM];
 		u8 select[ADI_APOLLO_FNCO_NUM];
 		bool en[ADI_APOLLO_FNCO_NUM];
 		u8 mode[ADI_APOLLO_FNCO_NUM];
@@ -390,6 +390,8 @@ const struct ad9088_chan_map *ad9088_get_chan_map(struct ad9088_phy *phy,
 						  const struct iio_chan_spec *chan);
 int ad9088_gpio_claim(struct ad9088_phy *phy, u32 pin, const char *owner);
 int ad9088_ffh_probe(struct ad9088_phy *phy);
+int ad9088_ffh_fnco_follow(struct ad9088_phy *phy, const struct iio_chan_spec *chan,
+			   const struct ad9088_chan_map *map, s64 freq);
 ssize_t ad9088_ext_info_read_ffh(struct iio_dev *indio_dev, uintptr_t private,
 				 const struct iio_chan_spec *chan, char *buf);
 ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
