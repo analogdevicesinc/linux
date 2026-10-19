@@ -54,35 +54,52 @@ static void intel_dp_aux_unpack(u32 src, u8 *dst, int dst_bytes)
 		dst[i] = src >> ((3 - i) * 8);
 }
 
+static bool
+__intel_dp_aux_wait_done(struct intel_dp *intel_dp, unsigned int timeout_ms,
+			 u32 *status)
+{
+	struct intel_display *display = to_intel_display(intel_dp);
+	intel_reg_t ch_ctl = intel_dp->aux_ch_ctl_reg(intel_dp);
+
+	if (intel_parent_irq_enabled(display)) {
+#define C (((*status = intel_de_read(display, ch_ctl)) & DP_AUX_CH_CTL_SEND_BUSY) == 0)
+		return wait_event_timeout(display->gmbus.wait_queue, C,
+					  msecs_to_jiffies_timeout(timeout_ms));
+#undef C
+	} else {
+		return intel_de_wait_ms(display, ch_ctl,
+					DP_AUX_CH_CTL_SEND_BUSY, 0,
+					timeout_ms, status) == 0;
+	}
+}
+
 static u32
 intel_dp_aux_wait_done(struct intel_dp *intel_dp)
 {
 	struct intel_display *display = to_intel_display(intel_dp);
-	intel_reg_t ch_ctl = intel_dp->aux_ch_ctl_reg(intel_dp);
+	/*
+	 * The HW timeout is 4ms, but a downstream LTTPR recovering from a
+	 * power state transition can keep the engine busy much longer, so
+	 * give it up to 100ms before giving up.
+	 */
 	const unsigned int timeout_ms = 10;
-	bool done = true;
+	const unsigned int stuck_timeout_ms = 100;
 	u32 status;
-	int ret;
 
-	if (intel_parent_irq_enabled(display)) {
-#define C (((status = intel_de_read(display, ch_ctl)) & DP_AUX_CH_CTL_SEND_BUSY) == 0)
-		done = wait_event_timeout(display->gmbus.wait_queue, C,
-					  msecs_to_jiffies_timeout(timeout_ms));
+	if (__intel_dp_aux_wait_done(intel_dp, timeout_ms, &status))
+		return status;
 
-#undef C
-	} else {
-		ret = intel_de_wait_ms(display, ch_ctl,
-				       DP_AUX_CH_CTL_SEND_BUSY, 0,
-				       timeout_ms, &status);
+	drm_dbg_kms(display->drm,
+		    "%s: did not complete or timeout within %ums (status 0x%08x), waiting for the AUX engine to recover\n",
+		    intel_dp->aux.name, timeout_ms, status);
 
-		if (ret == -ETIMEDOUT)
-			done = false;
-	}
+	if (__intel_dp_aux_wait_done(intel_dp, stuck_timeout_ms - timeout_ms,
+				     &status))
+		return status;
 
-	if (!done)
-		drm_err(display->drm,
-			"%s: did not complete or timeout within %ums (status 0x%08x)\n",
-			intel_dp->aux.name, timeout_ms, status);
+	drm_err(display->drm,
+		"%s: did not complete or timeout within %ums (status 0x%08x)\n",
+		intel_dp->aux.name, stuck_timeout_ms, status);
 
 	return status;
 }
@@ -333,9 +350,9 @@ intel_dp_aux_xfer(struct intel_dp *intel_dp,
 		const u32 status = intel_de_read(display, ch_ctl);
 
 		if (status != intel_dp->aux_busy_last_status) {
-			drm_WARN(display->drm, 1,
-				 "%s: not started (status 0x%08x)\n",
-				 intel_dp->aux.name, status);
+			drm_err(display->drm,
+				"%s: not started (status 0x%08x)\n",
+				intel_dp->aux.name, status);
 			intel_dp->aux_busy_last_status = status;
 		}
 
@@ -368,6 +385,16 @@ intel_dp_aux_xfer(struct intel_dp *intel_dp,
 			intel_de_write(display, ch_ctl, send_ctl);
 
 			status = intel_dp_aux_wait_done(intel_dp);
+
+			/*
+			 * The bspecs specify that we cannot change any fields
+			 * while Send Busy is asserted.  Leave the stuck engine
+			 * alone, the caller will retry the transaction later.
+			 */
+			if (status & DP_AUX_CH_CTL_SEND_BUSY) {
+				ret = -EBUSY;
+				goto out;
+			}
 
 			/* Clear done status and any errors */
 			intel_de_write(display, ch_ctl,
