@@ -15,7 +15,6 @@
 #include <linux/i2c.h>
 #include <linux/kstrtox.h>
 #include <linux/module.h>
-#include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/regmap.h>
 #include <linux/rtc.h>
@@ -138,7 +137,6 @@ struct abx80x_priv {
 	struct rtc_device *rtc;
 	struct regmap *regmap;
 	struct watchdog_device wdog;
-	struct mutex lock;
 	int irq;
 };
 
@@ -249,8 +247,6 @@ static int abx80x_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	buf[ABX8XX_REG_YR] = bin2bcd(tm->tm_year - 100);
 	buf[ABX8XX_REG_WD] = tm->tm_wday;
 
-	guard(mutex)(&priv->lock);
-
 	err = regmap_bulk_write(priv->regmap, ABX8XX_REG_HTH, buf,
 				sizeof(buf));
 	if (err < 0) {
@@ -274,7 +270,7 @@ static irqreturn_t abx80x_handle_irq(int irq, void *dev_id)
 	unsigned int status, status_flags_clear;
 	int err;
 
-	guard(mutex)(&priv->lock);
+	guard(rtc_ops)(rtc);
 
 	err = regmap_read(priv->regmap, ABX8XX_REG_STATUS, &status);
 	if (err < 0)
@@ -349,8 +345,6 @@ static int abx80x_set_alarm(struct device *dev, struct rtc_wkalrm *t)
 	alarm[4] = bin2bcd(t->time.tm_mday);
 	alarm[5] = bin2bcd(t->time.tm_mon + 1);
 
-	guard(mutex)(&priv->lock);
-
 	err = regmap_bulk_write(priv->regmap, ABX8XX_REG_AHTH,
 				alarm, sizeof(alarm));
 	if (err < 0) {
@@ -391,7 +385,7 @@ static int abx80x_rtc_set_autocalibration(struct device *dev,
 		flags |= (ABX8XX_OSC_ACAL_1024 | ABX8XX_OSC_ACAL_512);
 	}
 
-	guard(mutex)(&priv->lock);
+	guard(rtc_ops)(priv->rtc);
 
 	/* Unlock write access to Oscillator Control Register */
 	if (abx80x_write_config_key(dev, ABX8XX_CFG_KEY_OSC) < 0)
@@ -473,7 +467,7 @@ static ssize_t oscillator_store(struct device *dev,
 		return -EINVAL;
 	}
 
-	guard(mutex)(&priv->lock);
+	guard(rtc_ops)(priv->rtc);
 
 	/* Unlock write access on Oscillator Control register */
 	if (abx80x_write_config_key(dev->parent, ABX8XX_CFG_KEY_OSC) < 0)
@@ -523,8 +517,6 @@ static int abx80x_alarm_irq_enable(struct device *dev, unsigned int enabled)
 	struct abx80x_priv *priv = dev_get_drvdata(dev);
 	int err;
 
-	guard(mutex)(&priv->lock);
-
 	if (enabled)
 		err = regmap_write(priv->regmap, ABX8XX_REG_IRQ,
 				   ABX8XX_IRQ_IM_1_4 | ABX8XX_IRQ_AIE);
@@ -551,10 +543,8 @@ static int abx80x_ioctl(struct device *dev, unsigned int cmd, unsigned long arg)
 		return put_user(tmp, (unsigned int __user *)arg);
 
 	case RTC_VL_CLR:
-		scoped_guard(mutex, &priv->lock) {
-			err = regmap_update_bits(priv->regmap, ABX8XX_REG_STATUS,
-						 ABX8XX_STATUS_BLF, 0);
-		}
+		err = regmap_update_bits(priv->regmap, ABX8XX_REG_STATUS,
+					 ABX8XX_STATUS_BLF, 0);
 
 		return err;
 
@@ -623,7 +613,7 @@ static int __abx80x_wdog_set_timeout(struct watchdog_device *wdog,
 	struct abx80x_priv *priv = watchdog_get_drvdata(wdog);
 	u8 val = ABX8XX_WDT_WDS | timeout_bits(timeout);
 
-	guard(mutex)(&priv->lock);
+	guard(rtc_ops)(priv->rtc);
 
 	/*
 	 * Writing any timeout to the WDT register resets the watchdog timer.
@@ -710,7 +700,7 @@ static int abx80x_nvmem_xfer(struct abx80x_priv *priv, unsigned int offset,
 		len = min(lower + bytes, (size_t)ABX8XX_SRAM_WIN_SIZE) - lower;
 		len = min_t(u8, len, I2C_SMBUS_BLOCK_MAX);
 
-		guard(mutex)(&priv->lock);
+		guard(rtc_ops)(priv->rtc);
 
 		ret = regmap_update_bits(priv->regmap, ABX8XX_REG_EXTRAM,
 					 ABX8XX_EXTRAM_XADS, upper);
@@ -806,9 +796,6 @@ static int abx80x_probe(struct device *dev, struct regmap *regmap, int irq,
 	priv->rtc->ops = &abx80x_rtc_ops;
 	priv->irq = irq;
 	priv->regmap = regmap;
-	err = devm_mutex_init(dev, &priv->lock);
-	if (err)
-		return err;
 
 	dev_set_drvdata(dev, priv);
 
