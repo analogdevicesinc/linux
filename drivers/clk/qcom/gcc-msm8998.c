@@ -2254,32 +2254,6 @@ static struct clk_branch gcc_mmss_noc_cfg_ahb_clk = {
 	},
 };
 
-static struct clk_branch gcc_mmss_qm_ahb_clk = {
-	.halt_reg = 0x9030,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x9030,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_mmss_qm_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_mmss_qm_core_clk = {
-	.halt_reg = 0x900c,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x900c,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_mmss_qm_core_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_mmss_sys_noc_axi_clk = {
 	.halt_reg = 0x9000,
 	.halt_check = BRANCH_HALT,
@@ -3068,8 +3042,6 @@ static struct clk_regmap *gcc_msm8998_clocks[] = {
 	[GCC_HMSS_RBCPR_CLK] = &gcc_hmss_rbcpr_clk.clkr,
 	[GCC_HMSS_TRIG_CLK] = &gcc_hmss_trig_clk.clkr,
 	[GCC_MMSS_NOC_CFG_AHB_CLK] = &gcc_mmss_noc_cfg_ahb_clk.clkr,
-	[GCC_MMSS_QM_AHB_CLK] = &gcc_mmss_qm_ahb_clk.clkr,
-	[GCC_MMSS_QM_CORE_CLK] = &gcc_mmss_qm_core_clk.clkr,
 	[GCC_MMSS_SYS_NOC_AXI_CLK] = &gcc_mmss_sys_noc_axi_clk.clkr,
 	[GCC_MSS_AT_CLK] = &gcc_mss_at_clk.clkr,
 	[GCC_PCIE_0_AUX_CLK] = &gcc_pcie_0_aux_clk.clkr,
@@ -3298,6 +3270,8 @@ static const struct regmap_config gcc_msm8998_regmap_config = {
 static const u32 gcc_msm8998_critical_cbcrs[] = {
 	0x7100c, /* GCC_GPU_BIMC_GFX_SRC_CLK */
 	0x71018, /* GCC_GPU_SNOC_DVM_GFX_CLK */
+	0x9030, /* GCC_MMSS_QM_AHB_CLK */
+	0x900c, /* GCC_MMSS_QM_CORE_CLK */
 };
 
 static const struct qcom_cc_driver_data gcc_msm8998_driver_data = {
