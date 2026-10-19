@@ -16,9 +16,8 @@
 
 void osf_core_init(struct osf_device *osf, struct device *dev)
 {
-	*osf = (struct osf_device) {
-		.dev = dev,
-	};
+	memset(osf, 0, sizeof(*osf));
+	osf->dev = dev;
 	mutex_init(&osf->latest_lock);
 }
 
