@@ -458,6 +458,11 @@ static int gfx_v12_0_ring_test_ring(struct amdgpu_ring *ring)
 	int r;
 
 	WREG32(scratch, 0xCAFEDEAD);
+	/*
+	 * Read the value back so the posted write reaches the register before
+	 * the CP writes the test value; otherwise it can overwrite the result.
+	 */
+	RREG32(scratch);
 	r = amdgpu_ring_alloc(ring, 5);
 	if (r) {
 		drm_err(adev_to_drm(adev),
