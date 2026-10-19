@@ -1050,14 +1050,19 @@ int adf_rl_init(struct adf_accel_dev *accel_dev)
 {
 	struct adf_hw_device_data *hw_data = GET_HW_DATA(accel_dev);
 	struct adf_rl_hw_data *rl_hw_data = &hw_data->rl_data;
+	enum adf_base_services svc;
 	struct adf_rl *rl;
 	int ret = 0;
 
-	/* Validate device parameters */
-	if (RL_VALIDATE_NON_ZERO(rl_hw_data->max_tp[SVC_ASYM]) ||
-	    RL_VALIDATE_NON_ZERO(rl_hw_data->max_tp[SVC_SYM]) ||
-	    RL_VALIDATE_NON_ZERO(rl_hw_data->max_tp[SVC_DC]) ||
-	    RL_VALIDATE_NON_ZERO(rl_hw_data->scan_interval) ||
+	for (svc = 0; svc < SVC_BASE_COUNT; svc++) {
+		if (adf_is_service_enabled(accel_dev, svc) &&
+		    RL_VALIDATE_NON_ZERO(rl_hw_data->max_tp[svc])) {
+			ret = -EOPNOTSUPP;
+			goto err_ret;
+		}
+	}
+
+	if (RL_VALIDATE_NON_ZERO(rl_hw_data->scan_interval) ||
 	    RL_VALIDATE_NON_ZERO(rl_hw_data->pcie_scale_div) ||
 	    RL_VALIDATE_NON_ZERO(rl_hw_data->pcie_scale_mul) ||
 	    RL_VALIDATE_NON_ZERO(rl_hw_data->scale_ref)) {
