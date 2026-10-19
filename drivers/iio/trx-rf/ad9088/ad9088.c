@@ -1790,6 +1790,10 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
+		ret = ad9088_ffh_fnco_follow(phy, chan, map, readin);
+		if (ret)
+			return ret;
+
 		if (chan->output) {
 			struct adi_apollo_txpath *tx = &phy->profile.tx_path[map->side];
 
