@@ -64,6 +64,7 @@ int adf_rl_send_admin_init_msg(struct adf_accel_dev *accel_dev,
 	/* For symmetric crypto, slice tokens are relative to the UCS slice */
 	slices_int->cph_cnt = slices_resp.ucs_cnt;
 	slices_int->cpr_cnt = slices_resp.cpr_cnt;
+	slices_int->wcp_cnt = slices_resp.wcp_cnt;
 
 	return 0;
 }
