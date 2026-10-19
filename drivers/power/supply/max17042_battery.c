@@ -148,15 +148,23 @@ static int max17042_get_status(struct max17042_chip *chip, int *status)
 {
 	int ret, charge_full, charge_now;
 	int current_now;
+	bool supplied, full;
 	u32 data;
 
 	ret = power_supply_am_i_supplied(chip->battery);
-	if (ret < 0) {
-		*status = POWER_SUPPLY_STATUS_UNKNOWN;
-		return 0;
-	}
 	if (ret == 0) {
 		*status = POWER_SUPPLY_STATUS_DISCHARGING;
+		return 0;
+	}
+
+	/*
+	 * A negative value means no supplier is described, e.g. a charger the
+	 * bootloader left running that no driver owns. The gauge's own current
+	 * sense still tells which way charge flows, so use it when it's there.
+	 */
+	supplied = ret > 0;
+	if (!supplied && !chip->enable_current_sense) {
+		*status = POWER_SUPPLY_STATUS_UNKNOWN;
 		return 0;
 	}
 
@@ -178,7 +186,8 @@ static int max17042_get_status(struct max17042_chip *chip, int *status)
 	if (ret < 0)
 		return ret;
 
-	if ((charge_full - charge_now) <= MAX17042_FULL_THRESHOLD) {
+	full = (charge_full - charge_now) <= MAX17042_FULL_THRESHOLD;
+	if (supplied && full) {
 		*status = POWER_SUPPLY_STATUS_FULL;
 		return 0;
 	}
@@ -200,6 +209,8 @@ static int max17042_get_status(struct max17042_chip *chip, int *status)
 
 	if (current_now > 0)
 		*status = POWER_SUPPLY_STATUS_CHARGING;
+	else if (full && current_now == 0)
+		*status = POWER_SUPPLY_STATUS_FULL;
 	else
 		*status = POWER_SUPPLY_STATUS_DISCHARGING;
 
