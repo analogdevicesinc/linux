@@ -427,6 +427,7 @@ void BPF_STRUCT_OPS(qmap_enqueue, struct task_struct *p, u64 enq_flags)
 	static u32 user_cnt, kernel_cnt;
 	task_ctx_t *taskc;
 	int idx = weight_to_idx(p->scx.weight);
+	bool lowpri = p->scx.weight < 2 && !(p->flags & PF_KTHREAD);
 	s32 cid;
 
 	if (enq_flags & SCX_ENQ_REENQ) {
@@ -587,7 +588,7 @@ void BPF_STRUCT_OPS(qmap_enqueue, struct task_struct *p, u64 enq_flags)
 	}
 
 	/* see lowpri_timerfn() */
-	if (p->scx.weight < 2 && !(p->flags & PF_KTHREAD) && !(enq_flags & SCX_ENQ_REENQ)) {
+	if (lowpri && !(enq_flags & SCX_ENQ_REENQ)) {
 		scx_bpf_dsq_insert(p, LOWPRI_DSQ, slice_ns, enq_flags);
 		return;
 	}
@@ -606,8 +607,12 @@ void BPF_STRUCT_OPS(qmap_enqueue, struct task_struct *p, u64 enq_flags)
 	 * higher priority scheduling class, just re-enqueue the task directly
 	 * on the global DSQ. As we want another CPU to pick it up, find and
 	 * kick an idle cid.
+	 *
+	 * A lowpri task goes to its FIFO instead. qmap_dispatch() consumes
+	 * SHARED_DSQ ahead of the FIFOs, and enough lowpri tasks coming back
+	 * from LOWPRI_DSQ would keep it non-empty and starve every other task.
 	 */
-	if (enq_flags & SCX_ENQ_REENQ) {
+	if ((enq_flags & SCX_ENQ_REENQ) && !lowpri) {
 		s32 cid;
 
 		scx_bpf_dsq_insert(p, SHARED_DSQ, 0, enq_flags);
@@ -1357,7 +1362,7 @@ struct {
 
 /*
  * Nice 19 tasks are put into the lowpri DSQ. Every 10ms, reenq is triggered and
- * the tasks are transferred to SHARED_DSQ.
+ * qmap_enqueue() queues the tasks on their FIFO.
  */
 static int lowpri_timerfn(void *map, int *key, struct bpf_timer *timer)
 {
