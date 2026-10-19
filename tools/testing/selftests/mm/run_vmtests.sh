@@ -53,6 +53,8 @@ separated by spaces:
 	test madvise(2) MADV_GUARD_INSTALL and MADV_GUARD_REMOVE options
 - madv_populate
 	test memadvise(2) MADV_POPULATE_{READ,WRITE} options
+- madv_cold_pageout
+	test madvise(2) MADV_COLD and MADV_PAGEOUT
 - memfd_secret
 	test memfd_secret(2)
 - process_mrelease
@@ -342,6 +344,9 @@ CATEGORY="madv_guard" run_test ./guard-regions
 
 # MADV_POPULATE_READ and MADV_POPULATE_WRITE tests
 CATEGORY="madv_populate" run_test ./madv_populate
+
+# MADV_COLD and MADV_PAGEOUT tests
+CATEGORY="madv_cold_pageout" run_test ./madv_cold_pageout
 
 # PROCESS_MADV test
 CATEGORY="process_madv" run_test ./process_madv
