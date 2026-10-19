@@ -12,1102 +12,1102 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_VENUS_SCAL_OPEN_H__
-#define __ADI_APOLLO_BF_VENUS_SCAL_OPEN_H__
+#ifndef ADI_APOLLO_BF_VENUS_SCAL_OPEN_H__
+#define ADI_APOLLO_BF_VENUS_SCAL_OPEN_H__
 
 /*============= D E F I N E S ==============*/
-#define VENUS_SCAL_REGMAP0_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60282800
-#define VENUS_SCAL_REGMAP1_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60283000
-#define VENUS_SCAL_REGMAP2_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60283800
-#define VENUS_SCAL_REGMAP3_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60284000
-#define VENUS_SCAL_REGMAP4_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60284800
-#define VENUS_SCAL_REGMAP5_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60285000
-#define VENUS_SCAL_REGMAP6_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60285800
-#define VENUS_SCAL_REGMAP7_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60286000
-#define VENUS_SCAL_REGMAP0_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60482800
-#define VENUS_SCAL_REGMAP1_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60483000
-#define VENUS_SCAL_REGMAP2_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60483800
-#define VENUS_SCAL_REGMAP3_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60484000
-#define VENUS_SCAL_REGMAP4_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60484800
-#define VENUS_SCAL_REGMAP5_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60485000
-#define VENUS_SCAL_REGMAP6_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60485800
-#define VENUS_SCAL_REGMAP7_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60486000
-#define VENUS_SCAL_REGMAP0_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A82800
-#define VENUS_SCAL_REGMAP1_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A83000
-#define VENUS_SCAL_REGMAP2_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A83800
-#define VENUS_SCAL_REGMAP3_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A84000
-#define VENUS_SCAL_REGMAP4_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A84800
-#define VENUS_SCAL_REGMAP5_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A85000
-#define VENUS_SCAL_REGMAP6_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A85800
-#define VENUS_SCAL_REGMAP7_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A86000
-#define VENUS_SCAL_REGMAP0_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C82800
-#define VENUS_SCAL_REGMAP1_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C83000
-#define VENUS_SCAL_REGMAP2_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C83800
-#define VENUS_SCAL_REGMAP3_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C84000
-#define VENUS_SCAL_REGMAP4_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C84800
-#define VENUS_SCAL_REGMAP5_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C85000
-#define VENUS_SCAL_REGMAP6_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C85800
-#define VENUS_SCAL_REGMAP7_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C86000
+#define VENUS_SCAL_REGMAP0_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60282800U
+#define VENUS_SCAL_REGMAP1_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60283000U
+#define VENUS_SCAL_REGMAP2_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60283800U
+#define VENUS_SCAL_REGMAP3_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60284000U
+#define VENUS_SCAL_REGMAP4_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60284800U
+#define VENUS_SCAL_REGMAP5_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60285000U
+#define VENUS_SCAL_REGMAP6_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60285800U
+#define VENUS_SCAL_REGMAP7_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60286000U
+#define VENUS_SCAL_REGMAP0_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60482800U
+#define VENUS_SCAL_REGMAP1_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60483000U
+#define VENUS_SCAL_REGMAP2_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60483800U
+#define VENUS_SCAL_REGMAP3_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60484000U
+#define VENUS_SCAL_REGMAP4_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60484800U
+#define VENUS_SCAL_REGMAP5_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60485000U
+#define VENUS_SCAL_REGMAP6_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60485800U
+#define VENUS_SCAL_REGMAP7_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60486000U
+#define VENUS_SCAL_REGMAP0_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A82800U
+#define VENUS_SCAL_REGMAP1_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A83000U
+#define VENUS_SCAL_REGMAP2_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A83800U
+#define VENUS_SCAL_REGMAP3_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A84000U
+#define VENUS_SCAL_REGMAP4_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A84800U
+#define VENUS_SCAL_REGMAP5_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A85000U
+#define VENUS_SCAL_REGMAP6_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A85800U
+#define VENUS_SCAL_REGMAP7_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A86000U
+#define VENUS_SCAL_REGMAP0_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C82800U
+#define VENUS_SCAL_REGMAP1_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C83000U
+#define VENUS_SCAL_REGMAP2_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C83800U
+#define VENUS_SCAL_REGMAP3_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C84000U
+#define VENUS_SCAL_REGMAP4_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C84800U
+#define VENUS_SCAL_REGMAP5_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C85000U
+#define VENUS_SCAL_REGMAP6_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C85800U
+#define VENUS_SCAL_REGMAP7_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C86000U
 
-#define REG_SCAL_SCRATCH_BEGIN_VENUS_SCAL__OPEN_ADDR(inst)          ((inst) + 0x00000000)
-#define BF_SCAL_SCRATCH_BEGIN_VENUS_SCAL__OPEN_INFO(inst)           ((inst) + 0x00000000), 0x00002000
+#define REG_SCAL_SCRATCH_BEGIN_VENUS_SCAL__OPEN_ADDR(inst)          ((uint32_t)(inst) + 0x00000000U)
+#define BF_SCAL_SCRATCH_BEGIN_VENUS_SCAL__OPEN_INFO(inst)           ((uint32_t)(inst) + 0x00000000U), 0x00002000U
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0004_VENUS_SCAL__OPEN_ADDR(inst, n)               ((inst) + 0x00000004 + 4 * (n))
-#define BF_BF_507BA89F_VENUS_SCAL__OPEN_INFO(inst, n)               ((inst) + 0x00000004 + 4 * (n)), 0x00001108
+#define REG_REG_0X0004_VENUS_SCAL__OPEN_ADDR(inst, n)               ((uint32_t)(inst) + 0x00000004U + 4U * (uint32_t)(n))
+#define BF_BF_507BA89F_VENUS_SCAL__OPEN_INFO(inst, n)               ((uint32_t)(inst) + 0x00000004U + 4U * (uint32_t)(n)), 0x00001108U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X001C_VENUS_SCAL__OPEN_ADDR(inst, n)               ((inst) + 0x0000001C + 4 * (n))
-#define BF_BF_A4C77B32_VENUS_SCAL__OPEN_INFO(inst, n)               ((inst) + 0x0000001C + 4 * (n)), 0x00001308
+#define REG_REG_0X001C_VENUS_SCAL__OPEN_ADDR(inst, n)               ((uint32_t)(inst) + 0x0000001CU + 4U * (uint32_t)(n))
+#define BF_BF_A4C77B32_VENUS_SCAL__OPEN_INFO(inst, n)               ((uint32_t)(inst) + 0x0000001CU + 4U * (uint32_t)(n)), 0x00001308U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0034_VENUS_SCAL__OPEN_ADDR(inst, n)               ((inst) + 0x00000034 + 4 * (n))
-#define BF_BF_4C11EC69_INFO(inst, n)                                ((inst) + 0x00000034 + 4 * (n)), 0x00002000
+#define REG_REG_0X0034_VENUS_SCAL__OPEN_ADDR(inst, n)               ((uint32_t)(inst) + 0x00000034U + 4U * (uint32_t)(n))
+#define BF_BF_4C11EC69_INFO(inst, n)                                ((uint32_t)(inst) + 0x00000034U + 4U * (uint32_t)(n)), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X004C_VENUS_SCAL__OPEN_ADDR(inst, n)               ((inst) + 0x0000004C + 4 * (n))
-#define BF_BF_4520F3B2_INFO(inst, n)                                ((inst) + 0x0000004C + 4 * (n)), 0x00002000
+#define REG_REG_0X004C_VENUS_SCAL__OPEN_ADDR(inst, n)               ((uint32_t)(inst) + 0x0000004CU + 4U * (uint32_t)(n))
+#define BF_BF_4520F3B2_INFO(inst, n)                                ((uint32_t)(inst) + 0x0000004CU + 4U * (uint32_t)(n)), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0084_VENUS_SCAL__OPEN_ADDR(inst, n)               ((inst) + 0x00000084 + 4 * (n))
-#define BF_BF_28B73B48_VENUS_SCAL__OPEN_INFO(inst, n)               ((inst) + 0x00000084 + 4 * (n)), 0x00001508
+#define REG_REG_0X0084_VENUS_SCAL__OPEN_ADDR(inst, n)               ((uint32_t)(inst) + 0x00000084U + 4U * (uint32_t)(n))
+#define BF_BF_28B73B48_VENUS_SCAL__OPEN_INFO(inst, n)               ((uint32_t)(inst) + 0x00000084U + 4U * (uint32_t)(n)), 0x00001508U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0134_VENUS_SCAL__OPEN_ADDR(inst, n)               ((inst) + 0x00000134 + 4 * (n))
-#define BF_BF_9165E1BF_INFO(inst, n)                                ((inst) + 0x00000134 + 4 * (n)), 0x00002000
+#define REG_REG_0X0134_VENUS_SCAL__OPEN_ADDR(inst, n)               ((uint32_t)(inst) + 0x00000134U + 4U * (uint32_t)(n))
+#define BF_BF_9165E1BF_INFO(inst, n)                                ((uint32_t)(inst) + 0x00000134U + 4U * (uint32_t)(n)), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0158_VENUS_SCAL__OPEN_ADDR(inst, n)               ((inst) + 0x00000158 + 4 * (n))
-#define BF_BF_60B7FE5A_INFO(inst, n)                                ((inst) + 0x00000158 + 4 * (n)), 0x00002000
+#define REG_REG_0X0158_VENUS_SCAL__OPEN_ADDR(inst, n)               ((uint32_t)(inst) + 0x00000158U + 4U * (uint32_t)(n))
+#define BF_BF_60B7FE5A_INFO(inst, n)                                ((uint32_t)(inst) + 0x00000158U + 4U * (uint32_t)(n)), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X017C_VENUS_SCAL__OPEN_ADDR(inst, n)               ((inst) + 0x0000017C + 4 * (n))
-#define BF_BF_E957A710_INFO(inst, n)                                ((inst) + 0x0000017C + 4 * (n)), 0x00002000
+#define REG_REG_0X017C_VENUS_SCAL__OPEN_ADDR(inst, n)               ((uint32_t)(inst) + 0x0000017CU + 4U * (uint32_t)(n))
+#define BF_BF_E957A710_INFO(inst, n)                                ((uint32_t)(inst) + 0x0000017CU + 4U * (uint32_t)(n)), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X01A0_VENUS_SCAL__OPEN_ADDR(inst, n)               ((inst) + 0x000001A0 + 4 * (n))
-#define BF_BF_E2EF3B98_INFO(inst, n)                                ((inst) + 0x000001A0 + 4 * (n)), 0x00002000
+#define REG_REG_0X01A0_VENUS_SCAL__OPEN_ADDR(inst, n)               ((uint32_t)(inst) + 0x000001A0U + 4U * (uint32_t)(n))
+#define BF_BF_E2EF3B98_INFO(inst, n)                                ((uint32_t)(inst) + 0x000001A0U + 4U * (uint32_t)(n)), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X01E4_VENUS_SCAL__OPEN_ADDR(inst, n)               ((inst) + 0x000001E4 + 4 * (n))
-#define BF_BF_BA0DA821_INFO(inst, n)                                ((inst) + 0x000001E4 + 4 * (n)), 0x00002000
+#define REG_REG_0X01E4_VENUS_SCAL__OPEN_ADDR(inst, n)               ((uint32_t)(inst) + 0x000001E4U + 4U * (uint32_t)(n))
+#define BF_BF_BA0DA821_INFO(inst, n)                                ((uint32_t)(inst) + 0x000001E4U + 4U * (uint32_t)(n)), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0204_VENUS_SCAL__OPEN_ADDR(inst, n)               ((inst) + 0x00000204 + 4 * (n))
-#define BF_BF_92C0547B_VENUS_SCAL__OPEN_INFO(inst, n)               ((inst) + 0x00000204 + 4 * (n)), 0x00001508
+#define REG_REG_0X0204_VENUS_SCAL__OPEN_ADDR(inst, n)               ((uint32_t)(inst) + 0x00000204U + 4U * (uint32_t)(n))
+#define BF_BF_92C0547B_VENUS_SCAL__OPEN_INFO(inst, n)               ((uint32_t)(inst) + 0x00000204U + 4U * (uint32_t)(n)), 0x00001508U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X020C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000020C)
-#define BF_BF_D3211CFA_INFO(inst)                                   ((inst) + 0x0000020C), 0x00002000
+#define REG_REG_0X020C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000020CU)
+#define BF_BF_D3211CFA_INFO(inst)                                   ((uint32_t)(inst) + 0x0000020CU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X022C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000022C)
-#define BF_BF_C96B1B9D_INFO(inst)                                   ((inst) + 0x0000022C), 0x00004000
+#define REG_REG_0X022C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000022CU)
+#define BF_BF_C96B1B9D_INFO(inst)                                   ((uint32_t)(inst) + 0x0000022CU), 0x00004000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_REG_0X024C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000024C)
+#define REG_REG_0X024C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000024CU)
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0400_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000400)
-#define BF_BF_21E3283D_INFO(inst)                                   ((inst) + 0x00000400), 0x00004000
+#define REG_REG_0X0400_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000400U)
+#define BF_BF_21E3283D_INFO(inst)                                   ((uint32_t)(inst) + 0x00000400U), 0x00004000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_REG_0X0404_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000404)
+#define REG_REG_0X0404_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000404U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0408_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000408)
-#define BF_BF_4BD87248_INFO(inst)                                   ((inst) + 0x00000408), 0x00002000
+#define REG_REG_0X0408_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000408U)
+#define BF_BF_4BD87248_INFO(inst)                                   ((uint32_t)(inst) + 0x00000408U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_REG_0X040C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000040C)
+#define REG_REG_0X040C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000040CU)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_4D25EF5C_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000040C), 0x00000200
+#define BF_BF_4D25EF5C_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000040CU), 0x00000200U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_4D25EF5C_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000040C), 0x00000102
+#define BF_BF_4D25EF5C_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000040CU), 0x00000102U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_48F55CE0_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000040C), 0x00000203
+#define BF_BF_48F55CE0_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000040CU), 0x00000203U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_48F55CE0_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000040C), 0x00000105
+#define BF_BF_48F55CE0_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000040CU), 0x00000105U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_38DA1C3D_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000040C), 0x00000206
+#define BF_BF_38DA1C3D_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000040CU), 0x00000206U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_38DA1C3D_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000040C), 0x00000108
+#define BF_BF_38DA1C3D_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000040CU), 0x00000108U
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0410_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000410)
-#define BF_BF_96BCC18D_INFO(inst)                                   ((inst) + 0x00000410), 0x00004000
+#define REG_REG_0X0410_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000410U)
+#define BF_BF_96BCC18D_INFO(inst)                                   ((uint32_t)(inst) + 0x00000410U), 0x00004000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_REG_0X0414_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000414)
+#define REG_REG_0X0414_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000414U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0418_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000418)
-#define BF_BF_CC931EEA_INFO(inst)                                   ((inst) + 0x00000418), 0x00004000
+#define REG_REG_0X0418_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000418U)
+#define BF_BF_CC931EEA_INFO(inst)                                   ((uint32_t)(inst) + 0x00000418U), 0x00004000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_REG_0X041C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000041C)
+#define REG_REG_0X041C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000041CU)
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0420_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000420)
-#define BF_BF_66BBAEBB_INFO(inst)                                   ((inst) + 0x00000420), 0x00004000
+#define REG_REG_0X0420_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000420U)
+#define BF_BF_66BBAEBB_INFO(inst)                                   ((uint32_t)(inst) + 0x00000420U), 0x00004000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_REG_0X0424_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000424)
+#define REG_REG_0X0424_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000424U)
 
-#define REG_REG_0X0428_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000428)
+#define REG_REG_0X0428_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000428U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_BAD86450_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000428), 0x00000600
+#define BF_BF_BAD86450_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000428U), 0x00000600U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_BAD86450_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000428), 0x00000106
+#define BF_BF_BAD86450_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000428U), 0x00000106U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_0D9CF522_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000428), 0x00000607
+#define BF_BF_0D9CF522_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000428U), 0x00000607U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_0D9CF522_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000428), 0x0000010D
+#define BF_BF_0D9CF522_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000428U), 0x0000010DU
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X042C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000042C)
-#define BF_BF_B62785DB_INFO(inst)                                   ((inst) + 0x0000042C), 0x00002000
+#define REG_REG_0X042C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000042CU)
+#define BF_BF_B62785DB_INFO(inst)                                   ((uint32_t)(inst) + 0x0000042CU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0430_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000430)
-#define BF_BF_733BBA6A_INFO(inst)                                   ((inst) + 0x00000430), 0x00002000
+#define REG_REG_0X0430_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000430U)
+#define BF_BF_733BBA6A_INFO(inst)                                   ((uint32_t)(inst) + 0x00000430U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0434_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000434)
-#define BF_BF_47486732_INFO(inst)                                   ((inst) + 0x00000434), 0x00002000
+#define REG_REG_0X0434_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000434U)
+#define BF_BF_47486732_INFO(inst)                                   ((uint32_t)(inst) + 0x00000434U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0438_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000438)
-#define BF_BF_454B21FC_INFO(inst)                                   ((inst) + 0x00000438), 0x00002000
+#define REG_REG_0X0438_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000438U)
+#define BF_BF_454B21FC_INFO(inst)                                   ((uint32_t)(inst) + 0x00000438U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X043C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000043C)
-#define BF_BF_3BB2B179_INFO(inst)                                   ((inst) + 0x0000043C), 0x00002000
+#define REG_REG_0X043C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000043CU)
+#define BF_BF_3BB2B179_INFO(inst)                                   ((uint32_t)(inst) + 0x0000043CU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0440_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000440)
-#define BF_BF_0D3C03A5_INFO(inst)                                   ((inst) + 0x00000440), 0x00002000
+#define REG_REG_0X0440_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000440U)
+#define BF_BF_0D3C03A5_INFO(inst)                                   ((uint32_t)(inst) + 0x00000440U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0444_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000444)
-#define BF_BF_53142F7C_INFO(inst)                                   ((inst) + 0x00000444), 0x00002000
+#define REG_REG_0X0444_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000444U)
+#define BF_BF_53142F7C_INFO(inst)                                   ((uint32_t)(inst) + 0x00000444U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0448_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000448)
-#define BF_BF_FF13351A_INFO(inst)                                   ((inst) + 0x00000448), 0x00004000
+#define REG_REG_0X0448_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000448U)
+#define BF_BF_FF13351A_INFO(inst)                                   ((uint32_t)(inst) + 0x00000448U), 0x00004000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_REG_0X044C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000044C)
+#define REG_REG_0X044C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000044CU)
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0450_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000450)
-#define BF_BF_246FD1C9_INFO(inst)                                   ((inst) + 0x00000450), 0x00004000
+#define REG_REG_0X0450_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000450U)
+#define BF_BF_246FD1C9_INFO(inst)                                   ((uint32_t)(inst) + 0x00000450U), 0x00004000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_REG_0X0454_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000454)
+#define REG_REG_0X0454_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000454U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0458_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000458)
-#define BF_BF_AC57581C_INFO(inst)                                   ((inst) + 0x00000458), 0x00002000
+#define REG_REG_0X0458_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000458U)
+#define BF_BF_AC57581C_INFO(inst)                                   ((uint32_t)(inst) + 0x00000458U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X045C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000045C)
-#define BF_BF_F6B2636C_INFO(inst)                                   ((inst) + 0x0000045C), 0x00002000
+#define REG_REG_0X045C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000045CU)
+#define BF_BF_F6B2636C_INFO(inst)                                   ((uint32_t)(inst) + 0x0000045CU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0460_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000460)
-#define BF_BF_5D22C096_INFO(inst)                                   ((inst) + 0x00000460), 0x00002000
+#define REG_REG_0X0460_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000460U)
+#define BF_BF_5D22C096_INFO(inst)                                   ((uint32_t)(inst) + 0x00000460U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0464_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000464)
-#define BF_BF_83558BC6_INFO(inst)                                   ((inst) + 0x00000464), 0x00002000
+#define REG_REG_0X0464_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000464U)
+#define BF_BF_83558BC6_INFO(inst)                                   ((uint32_t)(inst) + 0x00000464U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0468_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000468)
-#define BF_BF_D4C5F783_INFO(inst)                                   ((inst) + 0x00000468), 0x00002000
+#define REG_REG_0X0468_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000468U)
+#define BF_BF_D4C5F783_INFO(inst)                                   ((uint32_t)(inst) + 0x00000468U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_REG_0X046C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000046C)
+#define REG_REG_0X046C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000046CU)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_04FC627D_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000046C), 0x00000800
+#define BF_BF_04FC627D_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000046CU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_04FC627D_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000046C), 0x00000108
+#define BF_BF_04FC627D_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000046CU), 0x00000108U
 
-#define REG_REG_0X0470_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000470)
+#define REG_REG_0X0470_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000470U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_89FA30CF_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000470), 0x00000400
+#define BF_BF_89FA30CF_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000470U), 0x00000400U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_89FA30CF_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000470), 0x00000104
+#define BF_BF_89FA30CF_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000470U), 0x00000104U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_83063494_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000470), 0x00000405
+#define BF_BF_83063494_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000470U), 0x00000405U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_83063494_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000470), 0x00000109
+#define BF_BF_83063494_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000470U), 0x00000109U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_6073B2AA_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000470), 0x0000040A
+#define BF_BF_6073B2AA_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000470U), 0x0000040AU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_6073B2AA_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000470), 0x0000010E
+#define BF_BF_6073B2AA_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000470U), 0x0000010EU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_56C106E1_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000470), 0x0000040F
+#define BF_BF_56C106E1_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000470U), 0x0000040FU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_56C106E1_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000470), 0x00000113
+#define BF_BF_56C106E1_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000470U), 0x00000113U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_34407588_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000470), 0x00000414
+#define BF_BF_34407588_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000470U), 0x00000414U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_34407588_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000470), 0x00000118
+#define BF_BF_34407588_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000470U), 0x00000118U
 
-#define REG_REG_0X0474_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000474)
+#define REG_REG_0X0474_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000474U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_DAD827A3_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000474), 0x00000100
+#define BF_BF_DAD827A3_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000474U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_DAD827A3_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000474), 0x00000101
+#define BF_BF_DAD827A3_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000474U), 0x00000101U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_7BA7C73B_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000474), 0x00000102
+#define BF_BF_7BA7C73B_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000474U), 0x00000102U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_7BA7C73B_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000474), 0x00000103
+#define BF_BF_7BA7C73B_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000474U), 0x00000103U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_DBA82E9D_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000474), 0x00000104
+#define BF_BF_DBA82E9D_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000474U), 0x00000104U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_DBA82E9D_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000474), 0x00000105
+#define BF_BF_DBA82E9D_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000474U), 0x00000105U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_3098C59C_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000474), 0x00000106
+#define BF_BF_3098C59C_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000474U), 0x00000106U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_3098C59C_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000474), 0x00000107
+#define BF_BF_3098C59C_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000474U), 0x00000107U
 
-#define REG_REG_0X0478_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000478)
+#define REG_REG_0X0478_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000478U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_45F7874C_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000478), 0x00000400
+#define BF_BF_45F7874C_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000478U), 0x00000400U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_45F7874C_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000478), 0x00000104
+#define BF_BF_45F7874C_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000478U), 0x00000104U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_32F08E3A_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000478), 0x00000405
+#define BF_BF_32F08E3A_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000478U), 0x00000405U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_32F08E3A_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000478), 0x00000109
+#define BF_BF_32F08E3A_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000478U), 0x00000109U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_D797E7BF_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000478), 0x0000040A
+#define BF_BF_D797E7BF_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000478U), 0x0000040AU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_D797E7BF_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000478), 0x0000010E
+#define BF_BF_D797E7BF_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000478U), 0x0000010EU
 
-#define REG_REG_0X047C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000047C)
+#define REG_REG_0X047C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000047CU)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_A432F804_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000047C), 0x00000100
+#define BF_BF_A432F804_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000047CU), 0x00000100U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_A432F804_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000047C), 0x00000101
+#define BF_BF_A432F804_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000047CU), 0x00000101U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_59DA3AA0_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000047C), 0x00000102
+#define BF_BF_59DA3AA0_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000047CU), 0x00000102U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_59DA3AA0_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000047C), 0x00000103
+#define BF_BF_59DA3AA0_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000047CU), 0x00000103U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_48B52FAE_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000047C), 0x00000104
+#define BF_BF_48B52FAE_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000047CU), 0x00000104U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_48B52FAE_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000047C), 0x00000105
+#define BF_BF_48B52FAE_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000047CU), 0x00000105U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_CEDBB6EE_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000047C), 0x00000106
+#define BF_BF_CEDBB6EE_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000047CU), 0x00000106U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_CEDBB6EE_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000047C), 0x00000107
+#define BF_BF_CEDBB6EE_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000047CU), 0x00000107U
 
-#define REG_REG_0X0480_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000480)
+#define REG_REG_0X0480_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000480U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_821BF1CA_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000480), 0x00000300
+#define BF_BF_821BF1CA_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000480U), 0x00000300U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_821BF1CA_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000480), 0x00000103
+#define BF_BF_821BF1CA_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000480U), 0x00000103U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_27DD70A9_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000480), 0x00000104
+#define BF_BF_27DD70A9_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000480U), 0x00000104U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_27DD70A9_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000480), 0x00000105
+#define BF_BF_27DD70A9_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000480U), 0x00000105U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_AD4714AD_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000480), 0x00000206
+#define BF_BF_AD4714AD_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000480U), 0x00000206U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_AD4714AD_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000480), 0x00000108
+#define BF_BF_AD4714AD_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000480U), 0x00000108U
 
-#define REG_REG_0X0484_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000484)
+#define REG_REG_0X0484_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000484U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_5CA2D2B4_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000484), 0x00000100
+#define BF_BF_5CA2D2B4_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000484U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_5CA2D2B4_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000484), 0x00000101
+#define BF_BF_5CA2D2B4_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000484U), 0x00000101U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_CC0429E4_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000484), 0x00000102
+#define BF_BF_CC0429E4_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000484U), 0x00000102U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_CC0429E4_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000484), 0x00000103
+#define BF_BF_CC0429E4_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000484U), 0x00000103U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_67599BD7_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000484), 0x00000104
+#define BF_BF_67599BD7_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000484U), 0x00000104U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_67599BD7_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000484), 0x00000105
+#define BF_BF_67599BD7_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000484U), 0x00000105U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_B9D7C00F_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000484), 0x00000106
+#define BF_BF_B9D7C00F_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000484U), 0x00000106U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_B9D7C00F_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000484), 0x00000107
+#define BF_BF_B9D7C00F_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000484U), 0x00000107U
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0488_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000488)
-#define BF_BF_EC9E82E8_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000488), 0x00000800
-#define BF_BF_0818209E_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000488), 0x00000808
-#define BF_BF_B416D230_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000488), 0x00000810
-#define BF_BF_EACE3FE4_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000488), 0x00000818
+#define REG_REG_0X0488_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000488U)
+#define BF_BF_EC9E82E8_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000488U), 0x00000800U
+#define BF_BF_0818209E_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000488U), 0x00000808U
+#define BF_BF_B416D230_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000488U), 0x00000810U
+#define BF_BF_EACE3FE4_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000488U), 0x00000818U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_REG_0X048C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000048C)
+#define REG_REG_0X048C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000048CU)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_ED7193DA_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000048C), 0x00000100
+#define BF_BF_ED7193DA_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000048CU), 0x00000100U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_ED7193DA_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000048C), 0x00000101
+#define BF_BF_ED7193DA_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000048CU), 0x00000101U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_9F9E1975_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000048C), 0x00000102
+#define BF_BF_9F9E1975_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000048CU), 0x00000102U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_9F9E1975_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000048C), 0x00000103
+#define BF_BF_9F9E1975_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000048CU), 0x00000103U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_25552B6D_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000048C), 0x00000104
+#define BF_BF_25552B6D_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000048CU), 0x00000104U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_25552B6D_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000048C), 0x00000105
+#define BF_BF_25552B6D_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000048CU), 0x00000105U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_5E7E18C6_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000048C), 0x00000106
+#define BF_BF_5E7E18C6_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000048CU), 0x00000106U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_5E7E18C6_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000048C), 0x00000107
+#define BF_BF_5E7E18C6_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000048CU), 0x00000107U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_F4D789F1_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000048C), 0x00000108
+#define BF_BF_F4D789F1_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000048CU), 0x00000108U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_F4D789F1_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000048C), 0x00000109
+#define BF_BF_F4D789F1_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000048CU), 0x00000109U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_E1F9065C_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000048C), 0x0000010A
+#define BF_BF_E1F9065C_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000048CU), 0x0000010AU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_E1F9065C_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000048C), 0x0000010B
+#define BF_BF_E1F9065C_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000048CU), 0x0000010BU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_5B7943BD_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000048C), 0x0000010C
+#define BF_BF_5B7943BD_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000048CU), 0x0000010CU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_5B7943BD_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000048C), 0x0000010D
+#define BF_BF_5B7943BD_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000048CU), 0x0000010DU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_684D9C7E_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000048C), 0x0000010E
+#define BF_BF_684D9C7E_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000048CU), 0x0000010EU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_684D9C7E_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000048C), 0x0000010F
+#define BF_BF_684D9C7E_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000048CU), 0x0000010FU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_B483B9CE_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000048C), 0x00000112
+#define BF_BF_B483B9CE_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000048CU), 0x00000112U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_B483B9CE_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000048C), 0x00000113
+#define BF_BF_B483B9CE_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000048CU), 0x00000113U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_C967ACFB_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000048C), 0x00000114
+#define BF_BF_C967ACFB_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000048CU), 0x00000114U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_C967ACFB_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000048C), 0x00000115
+#define BF_BF_C967ACFB_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000048CU), 0x00000115U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_9580F3CE_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000048C), 0x00000116
+#define BF_BF_9580F3CE_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000048CU), 0x00000116U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_9580F3CE_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000048C), 0x00000117
+#define BF_BF_9580F3CE_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000048CU), 0x00000117U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_5B4B40B3_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000048C), 0x00000118
+#define BF_BF_5B4B40B3_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000048CU), 0x00000118U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_5B4B40B3_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000048C), 0x00000119
+#define BF_BF_5B4B40B3_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000048CU), 0x00000119U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_6A3A083B_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000048C), 0x0000011A
+#define BF_BF_6A3A083B_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000048CU), 0x0000011AU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_6A3A083B_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000048C), 0x0000011B
+#define BF_BF_6A3A083B_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000048CU), 0x0000011BU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_D5CAD3F6_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000048C), 0x0000021C
+#define BF_BF_D5CAD3F6_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000048CU), 0x0000021CU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_D5CAD3F6_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x0000048C), 0x0000011E
+#define BF_BF_D5CAD3F6_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x0000048CU), 0x0000011EU
 
-#define REG_REG_0X0490_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000490)
+#define REG_REG_0X0490_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000490U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_37ABA1A8_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000490), 0x00000100
+#define BF_BF_37ABA1A8_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000490U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_37ABA1A8_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000490), 0x00000101
+#define BF_BF_37ABA1A8_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000490U), 0x00000101U
 
-#define REG_REG_0X0494_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000494)
+#define REG_REG_0X0494_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000494U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_4A6EADD0_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000494), 0x00000500
+#define BF_BF_4A6EADD0_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000494U), 0x00000500U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_4A6EADD0_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000494), 0x00000105
+#define BF_BF_4A6EADD0_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000494U), 0x00000105U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_13A16383_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000494), 0x00000306
+#define BF_BF_13A16383_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000494U), 0x00000306U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_13A16383_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000494), 0x00000109
+#define BF_BF_13A16383_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000494U), 0x00000109U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_C3BD2E36_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000494), 0x0000040A
+#define BF_BF_C3BD2E36_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000494U), 0x0000040AU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_C3BD2E36_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000494), 0x0000010E
+#define BF_BF_C3BD2E36_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000494U), 0x0000010EU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_49DD6537_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000494), 0x0000030F
+#define BF_BF_49DD6537_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000494U), 0x0000030FU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_49DD6537_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000494), 0x00000112
+#define BF_BF_49DD6537_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000494U), 0x00000112U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_FC7B85A0_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000494), 0x00000113
+#define BF_BF_FC7B85A0_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000494U), 0x00000113U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_FC7B85A0_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000494), 0x00000114
+#define BF_BF_FC7B85A0_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000494U), 0x00000114U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_A946AEFC_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000494), 0x00000115
+#define BF_BF_A946AEFC_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000494U), 0x00000115U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_A946AEFC_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000494), 0x00000116
+#define BF_BF_A946AEFC_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000494U), 0x00000116U
 
-#define REG_REG_0X0498_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000498)
+#define REG_REG_0X0498_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000498U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_A0BA0FAB_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000498), 0x00000100
+#define BF_BF_A0BA0FAB_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000498U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_A0BA0FAB_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000498), 0x00000101
+#define BF_BF_A0BA0FAB_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000498U), 0x00000101U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_1A41BF89_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000498), 0x00000102
+#define BF_BF_1A41BF89_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000498U), 0x00000102U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_1A41BF89_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000498), 0x00000103
+#define BF_BF_1A41BF89_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000498U), 0x00000103U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_73E79897_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000498), 0x00000104
+#define BF_BF_73E79897_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000498U), 0x00000104U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_73E79897_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000498), 0x00000105
+#define BF_BF_73E79897_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000498U), 0x00000105U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_54B73BD8_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000498), 0x00000106
+#define BF_BF_54B73BD8_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000498U), 0x00000106U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_54B73BD8_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000498), 0x00000107
+#define BF_BF_54B73BD8_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000498U), 0x00000107U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_B0654939_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000498), 0x00000108
+#define BF_BF_B0654939_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000498U), 0x00000108U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_B0654939_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000498), 0x00000109
+#define BF_BF_B0654939_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000498U), 0x00000109U
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X049C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000049C)
-#define BF_BF_0B8DA998_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000049C), 0x00000500
-#define BF_BF_40FAAB06_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000049C), 0x00000107
-#define BF_BF_9D6BE1C4_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000049C), 0x00000408
-#define BF_BF_72EE83E6_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000049C), 0x0000020D
-#define BF_BF_6751217C_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000049C), 0x00000410
-#define BF_BF_0ABC4A65_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000049C), 0x00000418
-#define BF_BF_7465262C_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000049C), 0x0000031D
+#define REG_REG_0X049C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000049CU)
+#define BF_BF_0B8DA998_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000049CU), 0x00000500U
+#define BF_BF_40FAAB06_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000049CU), 0x00000107U
+#define BF_BF_9D6BE1C4_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000049CU), 0x00000408U
+#define BF_BF_72EE83E6_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000049CU), 0x0000020DU
+#define BF_BF_6751217C_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000049CU), 0x00000410U
+#define BF_BF_0ABC4A65_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000049CU), 0x00000418U
+#define BF_BF_7465262C_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000049CU), 0x0000031DU
 #endif /* USE_PRIVATE_BF */
 
-#define REG_REG_0X04A0_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004A0)
+#define REG_REG_0X04A0_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004A0U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_D9F03C0D_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004A0), 0x00001000
+#define BF_BF_D9F03C0D_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004A0U), 0x00001000U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_D9F03C0D_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004A0), 0x00000110
+#define BF_BF_D9F03C0D_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004A0U), 0x00000110U
 
-#define REG_REG_0X04A4_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004A4)
+#define REG_REG_0X04A4_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004A4U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_C5EB3B6B_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004A4), 0x00000C00
+#define BF_BF_C5EB3B6B_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004A4U), 0x00000C00U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_C5EB3B6B_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004A4), 0x0000010C
+#define BF_BF_C5EB3B6B_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004A4U), 0x0000010CU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_E123593E_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004A4), 0x0000080D
+#define BF_BF_E123593E_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004A4U), 0x0000080DU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_E123593E_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004A4), 0x00000115
+#define BF_BF_E123593E_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004A4U), 0x00000115U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_393452C1_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004A4), 0x00000416
+#define BF_BF_393452C1_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004A4U), 0x00000416U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_393452C1_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004A4), 0x0000011A
+#define BF_BF_393452C1_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004A4U), 0x0000011AU
 
-#define REG_REG_0X04A8_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004A8)
+#define REG_REG_0X04A8_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004A8U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_762E9A1B_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004A8), 0x00000100
+#define BF_BF_762E9A1B_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004A8U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_762E9A1B_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004A8), 0x00000101
+#define BF_BF_762E9A1B_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004A8U), 0x00000101U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_EFCC4262_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004A8), 0x00000102
+#define BF_BF_EFCC4262_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004A8U), 0x00000102U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_EFCC4262_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004A8), 0x00000103
+#define BF_BF_EFCC4262_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004A8U), 0x00000103U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_5E9A28EB_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004A8), 0x00000104
+#define BF_BF_5E9A28EB_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004A8U), 0x00000104U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_5E9A28EB_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004A8), 0x00000105
+#define BF_BF_5E9A28EB_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004A8U), 0x00000105U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_1BCD2E5C_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004A8), 0x00000106
+#define BF_BF_1BCD2E5C_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004A8U), 0x00000106U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_1BCD2E5C_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004A8), 0x00000107
+#define BF_BF_1BCD2E5C_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004A8U), 0x00000107U
 
-#define REG_REG_0X04AC_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004AC)
+#define REG_REG_0X04AC_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004ACU)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_2D4E0C9F_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004AC), 0x00000300
+#define BF_BF_2D4E0C9F_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004ACU), 0x00000300U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_2D4E0C9F_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004AC), 0x00000103
+#define BF_BF_2D4E0C9F_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004ACU), 0x00000103U
 
-#define REG_REG_0X04B0_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004B0)
+#define REG_REG_0X04B0_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004B0U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_C0973401_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004B0), 0x00000300
+#define BF_BF_C0973401_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004B0U), 0x00000300U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_C0973401_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004B0), 0x00000103
+#define BF_BF_C0973401_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004B0U), 0x00000103U
 
-#define REG_REG_0X04B4_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004B4)
+#define REG_REG_0X04B4_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004B4U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_D04D53CC_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004B4), 0x00000300
+#define BF_BF_D04D53CC_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004B4U), 0x00000300U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_D04D53CC_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004B4), 0x00000103
+#define BF_BF_D04D53CC_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004B4U), 0x00000103U
 
-#define REG_REG_0X04B8_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004B8)
+#define REG_REG_0X04B8_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004B8U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_1CC10689_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004B8), 0x00000300
+#define BF_BF_1CC10689_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004B8U), 0x00000300U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_1CC10689_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004B8), 0x00000103
+#define BF_BF_1CC10689_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004B8U), 0x00000103U
 
-#define REG_REG_0X04BC_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004BC)
+#define REG_REG_0X04BC_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004BCU)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_28BB343D_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004BC), 0x00000300
+#define BF_BF_28BB343D_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004BCU), 0x00000300U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_28BB343D_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004BC), 0x00000103
+#define BF_BF_28BB343D_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004BCU), 0x00000103U
 
-#define REG_REG_0X04C0_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004C0)
+#define REG_REG_0X04C0_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004C0U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_56104F9F_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004C0), 0x00000500
+#define BF_BF_56104F9F_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004C0U), 0x00000500U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_56104F9F_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004C0), 0x00000105
+#define BF_BF_56104F9F_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004C0U), 0x00000105U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_15ACCE3B_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004C0), 0x00000506
+#define BF_BF_15ACCE3B_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004C0U), 0x00000506U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_15ACCE3B_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004C0), 0x0000010B
+#define BF_BF_15ACCE3B_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004C0U), 0x0000010BU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_7A15F80D_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004C0), 0x0000050C
+#define BF_BF_7A15F80D_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004C0U), 0x0000050CU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_7A15F80D_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004C0), 0x00000111
+#define BF_BF_7A15F80D_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004C0U), 0x00000111U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_99D1F504_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004C0), 0x00000512
+#define BF_BF_99D1F504_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004C0U), 0x00000512U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_99D1F504_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004C0), 0x00000117
+#define BF_BF_99D1F504_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004C0U), 0x00000117U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_71632961_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004C0), 0x00000518
+#define BF_BF_71632961_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004C0U), 0x00000518U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_71632961_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004C0), 0x0000011D
+#define BF_BF_71632961_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004C0U), 0x0000011DU
 
-#define REG_REG_0X04C4_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004C4)
+#define REG_REG_0X04C4_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004C4U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_C515FC1B_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004C4), 0x0000010A
+#define BF_BF_C515FC1B_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004C4U), 0x0000010AU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_C515FC1B_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004C4), 0x0000010B
+#define BF_BF_C515FC1B_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004C4U), 0x0000010BU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_BF9D4E01_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004C4), 0x0000010C
+#define BF_BF_BF9D4E01_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004C4U), 0x0000010CU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_BF9D4E01_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004C4), 0x0000010D
+#define BF_BF_BF9D4E01_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004C4U), 0x0000010DU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_17A918A1_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004C4), 0x0000010E
+#define BF_BF_17A918A1_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004C4U), 0x0000010EU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_17A918A1_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004C4), 0x0000010F
+#define BF_BF_17A918A1_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004C4U), 0x0000010FU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_F585D73C_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004C4), 0x00000110
+#define BF_BF_F585D73C_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004C4U), 0x00000110U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_F585D73C_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004C4), 0x00000111
+#define BF_BF_F585D73C_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004C4U), 0x00000111U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_60D96D7E_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004C4), 0x00000112
+#define BF_BF_60D96D7E_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004C4U), 0x00000112U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_60D96D7E_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004C4), 0x00000113
+#define BF_BF_60D96D7E_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004C4U), 0x00000113U
 
-#define REG_REG_0X04C8_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004C8)
+#define REG_REG_0X04C8_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004C8U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_6E6DD6A6_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004C8), 0x00000100
+#define BF_BF_6E6DD6A6_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004C8U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_6E6DD6A6_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004C8), 0x00000101
+#define BF_BF_6E6DD6A6_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004C8U), 0x00000101U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_75358B68_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004C8), 0x00000104
+#define BF_BF_75358B68_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004C8U), 0x00000104U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_75358B68_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004C8), 0x00000105
+#define BF_BF_75358B68_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004C8U), 0x00000105U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_7260E949_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004C8), 0x00000108
+#define BF_BF_7260E949_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004C8U), 0x00000108U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_7260E949_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004C8), 0x00000109
+#define BF_BF_7260E949_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004C8U), 0x00000109U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_7DDCFB88_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004C8), 0x0000050A
+#define BF_BF_7DDCFB88_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004C8U), 0x0000050AU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_7DDCFB88_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004C8), 0x0000010F
+#define BF_BF_7DDCFB88_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004C8U), 0x0000010FU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_815F65AE_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004C8), 0x00000110
+#define BF_BF_815F65AE_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004C8U), 0x00000110U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_815F65AE_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004C8), 0x00000111
+#define BF_BF_815F65AE_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004C8U), 0x00000111U
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X04CC_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004CC)
-#define BF_BF_92EE659F_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000100
-#define BF_BF_9CE5B3DD_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000101
-#define BF_BF_997ED7A2_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000102
-#define BF_BF_8773591D_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000103
-#define BF_BF_2B51C820_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000104
-#define BF_BF_33785069_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000105
-#define BF_BF_43B42B61_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000106
-#define BF_BF_990DB6C3_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000107
-#define BF_BF_8AE80AAE_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000108
-#define BF_BF_ECF1FE4C_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000109
-#define BF_BF_3B9FA7CD_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x0000010A
-#define BF_BF_F3ABEC40_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x0000010B
-#define BF_BF_4459CB53_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x0000010C
-#define BF_BF_9626B1AE_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x0000010D
-#define BF_BF_F071661E_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x0000010E
-#define BF_BF_C9385D2A_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x0000010F
-#define BF_BF_905990E8_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000110
-#define BF_BF_ECC16671_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000111
-#define BF_BF_2D25984B_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000112
-#define BF_BF_90FE67B3_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000113
-#define BF_BF_46178217_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000114
-#define BF_BF_DA03E966_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000115
-#define BF_BF_9B05C98F_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000116
-#define BF_BF_D274852B_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000117
-#define BF_BF_54915CD0_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000118
-#define BF_BF_FE0CAE4C_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004CC), 0x00000119
+#define REG_REG_0X04CC_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004CCU)
+#define BF_BF_92EE659F_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000100U
+#define BF_BF_9CE5B3DD_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000101U
+#define BF_BF_997ED7A2_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000102U
+#define BF_BF_8773591D_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000103U
+#define BF_BF_2B51C820_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000104U
+#define BF_BF_33785069_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000105U
+#define BF_BF_43B42B61_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000106U
+#define BF_BF_990DB6C3_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000107U
+#define BF_BF_8AE80AAE_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000108U
+#define BF_BF_ECF1FE4C_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000109U
+#define BF_BF_3B9FA7CD_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x0000010AU
+#define BF_BF_F3ABEC40_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x0000010BU
+#define BF_BF_4459CB53_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x0000010CU
+#define BF_BF_9626B1AE_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x0000010DU
+#define BF_BF_F071661E_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x0000010EU
+#define BF_BF_C9385D2A_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x0000010FU
+#define BF_BF_905990E8_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000110U
+#define BF_BF_ECC16671_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000111U
+#define BF_BF_2D25984B_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000112U
+#define BF_BF_90FE67B3_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000113U
+#define BF_BF_46178217_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000114U
+#define BF_BF_DA03E966_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000115U
+#define BF_BF_9B05C98F_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000116U
+#define BF_BF_D274852B_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000117U
+#define BF_BF_54915CD0_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000118U
+#define BF_BF_FE0CAE4C_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004CCU), 0x00000119U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_REG_0X04D4_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004D4)
+#define REG_REG_0X04D4_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004D4U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_C53B812B_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004D4), 0x00000100
+#define BF_BF_C53B812B_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004D4U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_C53B812B_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004D4), 0x00000101
+#define BF_BF_C53B812B_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004D4U), 0x00000101U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_EB0FA4A2_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004D4), 0x00000102
+#define BF_BF_EB0FA4A2_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004D4U), 0x00000102U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_EB0FA4A2_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004D4), 0x00000103
+#define BF_BF_EB0FA4A2_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004D4U), 0x00000103U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_97354A59_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004D4), 0x00000404
+#define BF_BF_97354A59_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004D4U), 0x00000404U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_97354A59_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004D4), 0x00000108
+#define BF_BF_97354A59_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004D4U), 0x00000108U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_CB643805_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004D4), 0x00000409
+#define BF_BF_CB643805_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004D4U), 0x00000409U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_CB643805_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004D4), 0x0000010D
+#define BF_BF_CB643805_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004D4U), 0x0000010DU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_D2561460_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004D4), 0x0000010E
+#define BF_BF_D2561460_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004D4U), 0x0000010EU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_D2561460_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004D4), 0x0000010F
+#define BF_BF_D2561460_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004D4U), 0x0000010FU
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X04DC_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004DC)
-#define BF_BF_0F880F25_INFO(inst)                                   ((inst) + 0x000004DC), 0x00002000
+#define REG_REG_0X04DC_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004DCU)
+#define BF_BF_0F880F25_INFO(inst)                                   ((uint32_t)(inst) + 0x000004DCU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_REG_0X04E0_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004E0)
+#define REG_REG_0X04E0_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004E0U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_3F7D6943_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004E0), 0x00000200
+#define BF_BF_3F7D6943_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004E0U), 0x00000200U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_3F7D6943_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004E0), 0x00000102
+#define BF_BF_3F7D6943_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004E0U), 0x00000102U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_1A6F84CA_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004E0), 0x00000203
+#define BF_BF_1A6F84CA_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004E0U), 0x00000203U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_1A6F84CA_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004E0), 0x00000105
+#define BF_BF_1A6F84CA_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004E0U), 0x00000105U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_ADA50B94_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004E0), 0x00000206
+#define BF_BF_ADA50B94_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004E0U), 0x00000206U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_ADA50B94_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004E0), 0x00000108
+#define BF_BF_ADA50B94_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004E0U), 0x00000108U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_77976C72_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004E0), 0x00000209
+#define BF_BF_77976C72_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004E0U), 0x00000209U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_77976C72_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004E0), 0x0000010B
+#define BF_BF_77976C72_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004E0U), 0x0000010BU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_07F52F79_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004E0), 0x0000020C
+#define BF_BF_07F52F79_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004E0U), 0x0000020CU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_07F52F79_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004E0), 0x0000010E
+#define BF_BF_07F52F79_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004E0U), 0x0000010EU
 
-#define REG_REG_0X04E4_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004E4)
+#define REG_REG_0X04E4_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004E4U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_0DD44427_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004E4), 0x00000400
+#define BF_BF_0DD44427_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004E4U), 0x00000400U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_0DD44427_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004E4), 0x00000104
+#define BF_BF_0DD44427_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004E4U), 0x00000104U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_BF879925_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004E4), 0x00000405
+#define BF_BF_BF879925_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004E4U), 0x00000405U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_BF879925_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004E4), 0x00000109
+#define BF_BF_BF879925_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004E4U), 0x00000109U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_1476FFA8_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004E4), 0x0000040A
+#define BF_BF_1476FFA8_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004E4U), 0x0000040AU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_1476FFA8_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004E4), 0x0000010E
+#define BF_BF_1476FFA8_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004E4U), 0x0000010EU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_001C94C5_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004E4), 0x0000040F
+#define BF_BF_001C94C5_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004E4U), 0x0000040FU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_001C94C5_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004E4), 0x00000113
+#define BF_BF_001C94C5_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004E4U), 0x00000113U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_B3E34C3B_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004E4), 0x00000414
+#define BF_BF_B3E34C3B_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004E4U), 0x00000414U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_B3E34C3B_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004E4), 0x00000118
+#define BF_BF_B3E34C3B_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004E4U), 0x00000118U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_92ECC13C_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004E4), 0x00000119
+#define BF_BF_92ECC13C_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004E4U), 0x00000119U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_92ECC13C_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004E4), 0x0000011A
+#define BF_BF_92ECC13C_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004E4U), 0x0000011AU
 
-#define REG_REG_0X04E8_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004E8)
+#define REG_REG_0X04E8_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004E8U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_B5424714_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004E8), 0x00000300
+#define BF_BF_B5424714_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004E8U), 0x00000300U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_B5424714_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004E8), 0x00000103
+#define BF_BF_B5424714_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004E8U), 0x00000103U
 
-#define REG_REG_0X04EC_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004EC)
+#define REG_REG_0X04EC_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004ECU)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_3EBE01A9_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004EC), 0x00000102
+#define BF_BF_3EBE01A9_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004ECU), 0x00000102U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_3EBE01A9_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004EC), 0x00000103
+#define BF_BF_3EBE01A9_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004ECU), 0x00000103U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_B2862FC4_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004EC), 0x00000D04
+#define BF_BF_B2862FC4_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004ECU), 0x00000D04U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_B2862FC4_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004EC), 0x00000111
+#define BF_BF_B2862FC4_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004ECU), 0x00000111U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_3DB03CBF_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004EC), 0x00000D12
+#define BF_BF_3DB03CBF_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004ECU), 0x00000D12U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_3DB03CBF_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x000004EC), 0x0000011F
+#define BF_BF_3DB03CBF_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x000004ECU), 0x0000011FU
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X04F0_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004F0)
-#define BF_BF_00A846A3_INFO(inst)                                   ((inst) + 0x000004F0), 0x00002000
+#define REG_REG_0X04F0_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004F0U)
+#define BF_BF_00A846A3_INFO(inst)                                   ((uint32_t)(inst) + 0x000004F0U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X04F4_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004F4)
-#define BF_BF_4188D5E1_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004F4), 0x00002000
+#define REG_REG_0X04F4_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004F4U)
+#define BF_BF_4188D5E1_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004F4U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X04F8_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004F8)
-#define BF_BF_2FC68603_INFO(inst)                                   ((inst) + 0x000004F8), 0x00002000
+#define REG_REG_0X04F8_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004F8U)
+#define BF_BF_2FC68603_INFO(inst)                                   ((uint32_t)(inst) + 0x000004F8U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X04FC_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000004FC)
-#define BF_BF_2F9A8F1A_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000004FC), 0x00002000
+#define REG_REG_0X04FC_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000004FCU)
+#define BF_BF_2F9A8F1A_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000004FCU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0500_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000500)
-#define BF_BF_6E25F661_INFO(inst)                                   ((inst) + 0x00000500), 0x00002000
+#define REG_REG_0X0500_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000500U)
+#define BF_BF_6E25F661_INFO(inst)                                   ((uint32_t)(inst) + 0x00000500U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0504_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000504)
-#define BF_BF_4FA1F584_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000504), 0x00002000
+#define REG_REG_0X0504_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000504U)
+#define BF_BF_4FA1F584_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000504U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0508_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000508)
-#define BF_BF_82793082_INFO(inst)                                   ((inst) + 0x00000508), 0x00002000
+#define REG_REG_0X0508_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000508U)
+#define BF_BF_82793082_INFO(inst)                                   ((uint32_t)(inst) + 0x00000508U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X050C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000050C)
-#define BF_BF_0B81DFC5_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000050C), 0x00002000
+#define REG_REG_0X050C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000050CU)
+#define BF_BF_0B81DFC5_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000050CU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0510_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000510)
-#define BF_BF_784B0F75_INFO(inst)                                   ((inst) + 0x00000510), 0x00002000
+#define REG_REG_0X0510_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000510U)
+#define BF_BF_784B0F75_INFO(inst)                                   ((uint32_t)(inst) + 0x00000510U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0514_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000514)
-#define BF_BF_A4A947A9_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000514), 0x00002000
+#define REG_REG_0X0514_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000514U)
+#define BF_BF_A4A947A9_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000514U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0518_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000518)
-#define BF_BF_58ECDFC2_INFO(inst)                                   ((inst) + 0x00000518), 0x00002000
+#define REG_REG_0X0518_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000518U)
+#define BF_BF_58ECDFC2_INFO(inst)                                   ((uint32_t)(inst) + 0x00000518U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X051C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000051C)
-#define BF_BF_D1D80148_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000051C), 0x00002000
+#define REG_REG_0X051C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000051CU)
+#define BF_BF_D1D80148_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000051CU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0520_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000520)
-#define BF_BF_D1607095_INFO(inst)                                   ((inst) + 0x00000520), 0x00002000
+#define REG_REG_0X0520_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000520U)
+#define BF_BF_D1607095_INFO(inst)                                   ((uint32_t)(inst) + 0x00000520U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0524_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000524)
-#define BF_BF_708AD7DF_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000524), 0x00002000
+#define REG_REG_0X0524_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000524U)
+#define BF_BF_708AD7DF_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000524U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0528_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000528)
-#define BF_BF_DFE4D7DD_INFO(inst)                                   ((inst) + 0x00000528), 0x00002000
+#define REG_REG_0X0528_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000528U)
+#define BF_BF_DFE4D7DD_INFO(inst)                                   ((uint32_t)(inst) + 0x00000528U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X052C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000052C)
-#define BF_BF_75851DAC_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000052C), 0x00002000
+#define REG_REG_0X052C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000052CU)
+#define BF_BF_75851DAC_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000052CU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0530_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000530)
-#define BF_BF_AA64DED9_INFO(inst)                                   ((inst) + 0x00000530), 0x00002000
+#define REG_REG_0X0530_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000530U)
+#define BF_BF_AA64DED9_INFO(inst)                                   ((uint32_t)(inst) + 0x00000530U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0534_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000534)
-#define BF_BF_C3ED8B31_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000534), 0x00002000
+#define REG_REG_0X0534_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000534U)
+#define BF_BF_C3ED8B31_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000534U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0538_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000538)
-#define BF_BF_B4B5A6C1_INFO(inst)                                   ((inst) + 0x00000538), 0x00002000
+#define REG_REG_0X0538_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000538U)
+#define BF_BF_B4B5A6C1_INFO(inst)                                   ((uint32_t)(inst) + 0x00000538U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X053C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000053C)
-#define BF_BF_7855ACBB_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000053C), 0x00002000
+#define REG_REG_0X053C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000053CU)
+#define BF_BF_7855ACBB_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000053CU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0540_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000540)
-#define BF_BF_29A47F0D_INFO(inst)                                   ((inst) + 0x00000540), 0x00002000
+#define REG_REG_0X0540_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000540U)
+#define BF_BF_29A47F0D_INFO(inst)                                   ((uint32_t)(inst) + 0x00000540U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0544_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000544)
-#define BF_BF_4B3AFE05_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000544), 0x00002000
+#define REG_REG_0X0544_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000544U)
+#define BF_BF_4B3AFE05_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000544U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0548_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000548)
-#define BF_BF_C47668E5_INFO(inst)                                   ((inst) + 0x00000548), 0x00002000
+#define REG_REG_0X0548_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000548U)
+#define BF_BF_C47668E5_INFO(inst)                                   ((uint32_t)(inst) + 0x00000548U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X054C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000054C)
-#define BF_BF_CF9F3639_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000054C), 0x00002000
+#define REG_REG_0X054C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000054CU)
+#define BF_BF_CF9F3639_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000054CU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0550_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000550)
-#define BF_BF_82E004D1_INFO(inst)                                   ((inst) + 0x00000550), 0x00002000
+#define REG_REG_0X0550_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000550U)
+#define BF_BF_82E004D1_INFO(inst)                                   ((uint32_t)(inst) + 0x00000550U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0554_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000554)
-#define BF_BF_D392D19B_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000554), 0x00002000
+#define REG_REG_0X0554_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000554U)
+#define BF_BF_D392D19B_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000554U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0558_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000558)
-#define BF_BF_3AD01442_INFO(inst)                                   ((inst) + 0x00000558), 0x00002000
+#define REG_REG_0X0558_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000558U)
+#define BF_BF_3AD01442_INFO(inst)                                   ((uint32_t)(inst) + 0x00000558U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X055C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000055C)
-#define BF_BF_AB82BE1F_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000055C), 0x00002000
+#define REG_REG_0X055C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000055CU)
+#define BF_BF_AB82BE1F_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000055CU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0560_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000560)
-#define BF_BF_1AFAA34A_INFO(inst)                                   ((inst) + 0x00000560), 0x00002000
+#define REG_REG_0X0560_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000560U)
+#define BF_BF_1AFAA34A_INFO(inst)                                   ((uint32_t)(inst) + 0x00000560U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0564_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000564)
-#define BF_BF_4EE09902_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000564), 0x00002000
+#define REG_REG_0X0564_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000564U)
+#define BF_BF_4EE09902_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000564U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0568_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000568)
-#define BF_BF_5D9EC428_INFO(inst)                                   ((inst) + 0x00000568), 0x00002000
+#define REG_REG_0X0568_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000568U)
+#define BF_BF_5D9EC428_INFO(inst)                                   ((uint32_t)(inst) + 0x00000568U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X056C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000056C)
-#define BF_BF_ACDFF011_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000056C), 0x00002000
+#define REG_REG_0X056C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000056CU)
+#define BF_BF_ACDFF011_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000056CU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0570_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000570)
-#define BF_BF_37EBFAB1_INFO(inst)                                   ((inst) + 0x00000570), 0x00002000
+#define REG_REG_0X0570_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000570U)
+#define BF_BF_37EBFAB1_INFO(inst)                                   ((uint32_t)(inst) + 0x00000570U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0574_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000574)
-#define BF_BF_1E874AC1_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000574), 0x00002000
+#define REG_REG_0X0574_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000574U)
+#define BF_BF_1E874AC1_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000574U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0578_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000578)
-#define BF_BF_AB02A333_INFO(inst)                                   ((inst) + 0x00000578), 0x00002000
+#define REG_REG_0X0578_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000578U)
+#define BF_BF_AB02A333_INFO(inst)                                   ((uint32_t)(inst) + 0x00000578U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X057C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000057C)
-#define BF_BF_A5CB372A_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000057C), 0x00002000
+#define REG_REG_0X057C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000057CU)
+#define BF_BF_A5CB372A_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000057CU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0580_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000580)
-#define BF_BF_A0DDEC2F_INFO(inst)                                   ((inst) + 0x00000580), 0x00002000
+#define REG_REG_0X0580_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000580U)
+#define BF_BF_A0DDEC2F_INFO(inst)                                   ((uint32_t)(inst) + 0x00000580U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0584_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000584)
-#define BF_BF_3EE65425_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000584), 0x00002000
+#define REG_REG_0X0584_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000584U)
+#define BF_BF_3EE65425_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000584U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0588_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000588)
-#define BF_BF_21335A8D_INFO(inst)                                   ((inst) + 0x00000588), 0x00002000
+#define REG_REG_0X0588_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000588U)
+#define BF_BF_21335A8D_INFO(inst)                                   ((uint32_t)(inst) + 0x00000588U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X058C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000058C)
-#define BF_BF_6434B1F4_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000058C), 0x00002000
+#define REG_REG_0X058C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000058CU)
+#define BF_BF_6434B1F4_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000058CU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0590_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000590)
-#define BF_BF_4D12CF33_INFO(inst)                                   ((inst) + 0x00000590), 0x00002000
+#define REG_REG_0X0590_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000590U)
+#define BF_BF_4D12CF33_INFO(inst)                                   ((uint32_t)(inst) + 0x00000590U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0594_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000594)
-#define BF_BF_962412FE_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000594), 0x00002000
+#define REG_REG_0X0594_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000594U)
+#define BF_BF_962412FE_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000594U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0598_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000598)
-#define BF_BF_5BB1C70F_INFO(inst)                                   ((inst) + 0x00000598), 0x00002000
+#define REG_REG_0X0598_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000598U)
+#define BF_BF_5BB1C70F_INFO(inst)                                   ((uint32_t)(inst) + 0x00000598U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X059C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000059C)
-#define BF_BF_23FA173C_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000059C), 0x00002000
+#define REG_REG_0X059C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000059CU)
+#define BF_BF_23FA173C_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000059CU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05A0_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005A0)
-#define BF_BF_9512FD04_INFO(inst)                                   ((inst) + 0x000005A0), 0x00002000
+#define REG_REG_0X05A0_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005A0U)
+#define BF_BF_9512FD04_INFO(inst)                                   ((uint32_t)(inst) + 0x000005A0U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05A4_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005A4)
-#define BF_BF_2CF7CF41_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000005A4), 0x00002000
+#define REG_REG_0X05A4_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005A4U)
+#define BF_BF_2CF7CF41_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000005A4U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05A8_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005A8)
-#define BF_BF_4963956F_INFO(inst)                                   ((inst) + 0x000005A8), 0x00002000
+#define REG_REG_0X05A8_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005A8U)
+#define BF_BF_4963956F_INFO(inst)                                   ((uint32_t)(inst) + 0x000005A8U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05AC_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005AC)
-#define BF_BF_249EE9F7_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000005AC), 0x00002000
+#define REG_REG_0X05AC_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005ACU)
+#define BF_BF_249EE9F7_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000005ACU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05B0_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005B0)
-#define BF_BF_AD599480_INFO(inst)                                   ((inst) + 0x000005B0), 0x00002000
+#define REG_REG_0X05B0_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005B0U)
+#define BF_BF_AD599480_INFO(inst)                                   ((uint32_t)(inst) + 0x000005B0U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05B4_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005B4)
-#define BF_BF_503461ED_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000005B4), 0x00002000
+#define REG_REG_0X05B4_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005B4U)
+#define BF_BF_503461ED_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000005B4U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05B8_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005B8)
-#define BF_BF_D89B2244_INFO(inst)                                   ((inst) + 0x000005B8), 0x00002000
+#define REG_REG_0X05B8_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005B8U)
+#define BF_BF_D89B2244_INFO(inst)                                   ((uint32_t)(inst) + 0x000005B8U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05BC_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005BC)
-#define BF_BF_29476181_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000005BC), 0x00002000
+#define REG_REG_0X05BC_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005BCU)
+#define BF_BF_29476181_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000005BCU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05C0_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005C0)
-#define BF_BF_744E1013_INFO(inst)                                   ((inst) + 0x000005C0), 0x00002000
+#define REG_REG_0X05C0_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005C0U)
+#define BF_BF_744E1013_INFO(inst)                                   ((uint32_t)(inst) + 0x000005C0U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05C4_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005C4)
-#define BF_BF_B9E86EFE_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000005C4), 0x00002000
+#define REG_REG_0X05C4_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005C4U)
+#define BF_BF_B9E86EFE_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000005C4U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05C8_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005C8)
-#define BF_BF_8FAABBBA_INFO(inst)                                   ((inst) + 0x000005C8), 0x00002000
+#define REG_REG_0X05C8_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005C8U)
+#define BF_BF_8FAABBBA_INFO(inst)                                   ((uint32_t)(inst) + 0x000005C8U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05CC_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005CC)
-#define BF_BF_3925C0DE_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000005CC), 0x00002000
+#define REG_REG_0X05CC_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005CCU)
+#define BF_BF_3925C0DE_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000005CCU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05D0_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005D0)
-#define BF_BF_15410123_INFO(inst)                                   ((inst) + 0x000005D0), 0x00002000
+#define REG_REG_0X05D0_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005D0U)
+#define BF_BF_15410123_INFO(inst)                                   ((uint32_t)(inst) + 0x000005D0U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05D4_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005D4)
-#define BF_BF_94B7FB06_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000005D4), 0x00002000
+#define REG_REG_0X05D4_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005D4U)
+#define BF_BF_94B7FB06_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000005D4U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05D8_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005D8)
-#define BF_BF_DEAED8DB_INFO(inst)                                   ((inst) + 0x000005D8), 0x00002000
+#define REG_REG_0X05D8_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005D8U)
+#define BF_BF_DEAED8DB_INFO(inst)                                   ((uint32_t)(inst) + 0x000005D8U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05DC_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005DC)
-#define BF_BF_BC512F04_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000005DC), 0x00002000
+#define REG_REG_0X05DC_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005DCU)
+#define BF_BF_BC512F04_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000005DCU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05E0_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005E0)
-#define BF_BF_ADC1F655_INFO(inst)                                   ((inst) + 0x000005E0), 0x00002000
+#define REG_REG_0X05E0_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005E0U)
+#define BF_BF_ADC1F655_INFO(inst)                                   ((uint32_t)(inst) + 0x000005E0U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05E4_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005E4)
-#define BF_BF_D0EFDFC6_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000005E4), 0x00002000
+#define REG_REG_0X05E4_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005E4U)
+#define BF_BF_D0EFDFC6_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000005E4U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05E8_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005E8)
-#define BF_BF_D14D7EB7_INFO(inst)                                   ((inst) + 0x000005E8), 0x00002000
+#define REG_REG_0X05E8_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005E8U)
+#define BF_BF_D14D7EB7_INFO(inst)                                   ((uint32_t)(inst) + 0x000005E8U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05EC_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005EC)
-#define BF_BF_42723B74_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x000005EC), 0x00002000
+#define REG_REG_0X05EC_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005ECU)
+#define BF_BF_42723B74_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x000005ECU), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X05F0_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x000005F0)
-#define BF_BF_BAC0A92F_INFO(inst)                                   ((inst) + 0x000005F0), 0x00002000
+#define REG_REG_0X05F0_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x000005F0U)
+#define BF_BF_BAC0A92F_INFO(inst)                                   ((uint32_t)(inst) + 0x000005F0U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_REG_0X0600_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000600)
+#define REG_REG_0X0600_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000600U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_466C700F_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000600), 0x00000300
+#define BF_BF_466C700F_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000600U), 0x00000300U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_466C700F_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000600), 0x00000103
+#define BF_BF_466C700F_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000600U), 0x00000103U
 
-#define REG_REG_0X0604_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000604)
+#define REG_REG_0X0604_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000604U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_ED93AE22_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000604), 0x00000100
+#define BF_BF_ED93AE22_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000604U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_ED93AE22_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000604), 0x00000101
+#define BF_BF_ED93AE22_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000604U), 0x00000101U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_242F3948_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000604), 0x00000102
+#define BF_BF_242F3948_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000604U), 0x00000102U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_242F3948_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000604), 0x00000103
+#define BF_BF_242F3948_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000604U), 0x00000103U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_151077EC_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000604), 0x00000504
+#define BF_BF_151077EC_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000604U), 0x00000504U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_151077EC_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000604), 0x00000109
+#define BF_BF_151077EC_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000604U), 0x00000109U
 
-#define REG_REG_0X0608_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x00000608)
+#define REG_REG_0X0608_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x00000608U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_45ACACF6_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x00000608), 0x00000300
+#define BF_BF_45ACACF6_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x00000608U), 0x00000300U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_45ACACF6_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((inst) + 0x00000608), 0x00000103
+#define BF_BF_45ACACF6_WEB_VENUS_SCAL__OPEN_INFO(inst)              ((uint32_t)(inst) + 0x00000608U), 0x00000103U
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X060C_VENUS_SCAL__OPEN_ADDR(inst)                  ((inst) + 0x0000060C)
-#define BF_BF_A226534A_VENUS_SCAL__OPEN_INFO(inst)                  ((inst) + 0x0000060C), 0x00000800
+#define REG_REG_0X060C_VENUS_SCAL__OPEN_ADDR(inst)                  ((uint32_t)(inst) + 0x0000060CU)
+#define BF_BF_A226534A_VENUS_SCAL__OPEN_INFO(inst)                  ((uint32_t)(inst) + 0x0000060CU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_SCAL_SCRATCH_END_VENUS_SCAL__OPEN_ADDR(inst)            ((inst) + 0x000007FC)
-#define BF_SCAL_SCRATCH_END_VENUS_SCAL__OPEN_INFO(inst)             ((inst) + 0x000007FC), 0x00002000
+#define REG_SCAL_SCRATCH_END_VENUS_SCAL__OPEN_ADDR(inst)            ((uint32_t)(inst) + 0x000007FCU)
+#define BF_SCAL_SCRATCH_END_VENUS_SCAL__OPEN_INFO(inst)             ((uint32_t)(inst) + 0x000007FCU), 0x00002000U
 
-#endif /* __ADI_APOLLO_BF_VENUS_SCAL_OPEN_H__ */
+#endif /* ADI_APOLLO_BF_VENUS_SCAL_OPEN_H__ */
 /*! @} */

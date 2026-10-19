@@ -25,19 +25,21 @@
 
 #include "adi_apollo_config.h"
 #include "adi_apollo_hal.h"
-
 #include "adi_utils.h"
 
-#define FRAMER_5_SUB_FRAME_NUM_BITS         5
-#define FRAMER_5_SUB_FRAME_ID_NUM_BITS      (1 * FRAMER_5_SUB_FRAME_NUM_BITS)
-#define FRAMER_5_SUB_FRAME_DATA_NUM_BITS    (4 * FRAMER_5_SUB_FRAME_NUM_BITS)
-#define FRAMER_5_SUB_FRAME_IDLE_NUM_BITS    (1 * FRAMER_5_SUB_FRAME_NUM_BITS)
+/* Forward declaration for static helper function */
+static uint32_t calc_smon_base(uint32_t smon_index);
+
+#define FRAMER_5_SUB_FRAME_NUM_BITS         5U
+#define FRAMER_5_SUB_FRAME_ID_NUM_BITS      (1U * FRAMER_5_SUB_FRAME_NUM_BITS)
+#define FRAMER_5_SUB_FRAME_DATA_NUM_BITS    (4U * FRAMER_5_SUB_FRAME_NUM_BITS)
+#define FRAMER_5_SUB_FRAME_IDLE_NUM_BITS    (1U * FRAMER_5_SUB_FRAME_NUM_BITS)
 #define FRAMER_5_MIN_SAMPLES                (FRAMER_5_SUB_FRAME_ID_NUM_BITS + FRAMER_5_SUB_FRAME_DATA_NUM_BITS + FRAMER_5_SUB_FRAME_IDLE_NUM_BITS)
 
-#define FRAMER_10_SUB_FRAME_NUM_BITS         10
-#define FRAMER_10_SUB_FRAME_ID_NUM_BITS      (1 * FRAMER_10_SUB_FRAME_NUM_BITS)
-#define FRAMER_10_SUB_FRAME_DATA_NUM_BITS    (2 * FRAMER_10_SUB_FRAME_NUM_BITS)
-#define FRAMER_10_SUB_FRAME_IDLE_NUM_BITS    (1 * FRAMER_10_SUB_FRAME_NUM_BITS)
+#define FRAMER_10_SUB_FRAME_NUM_BITS         10U
+#define FRAMER_10_SUB_FRAME_ID_NUM_BITS      (1U * FRAMER_10_SUB_FRAME_NUM_BITS)
+#define FRAMER_10_SUB_FRAME_DATA_NUM_BITS    (2U * FRAMER_10_SUB_FRAME_NUM_BITS)
+#define FRAMER_10_SUB_FRAME_IDLE_NUM_BITS    (1U * FRAMER_10_SUB_FRAME_NUM_BITS)
 #define FRAMER_10_MIN_SAMPLES                (FRAMER_10_SUB_FRAME_ID_NUM_BITS + FRAMER_10_SUB_FRAME_DATA_NUM_BITS + FRAMER_10_SUB_FRAME_IDLE_NUM_BITS)
 
 typedef int32_t (*framer_sof_get_t)(int16_t *samples, uint32_t num_samples, uint32_t ofst, uint16_t smon_ctrl_bit_mask, uint32_t *sof_idx);
@@ -63,12 +65,12 @@ int32_t adi_apollo_smon_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel_t sm
     ADI_APOLLO_NULL_POINTER_RETURN(config);
     ADI_APOLLO_SMON_BLK_SEL_MASK(smons);
 
-    for (i = 0; i < ADI_APOLLO_SMON_NUM; i++) {
-        smon = smons & (ADI_APOLLO_SMON_A0 << i);
-        if (smon > 0) {
+    for (i = 0U; i < ADI_APOLLO_SMON_NUM; i++) {
+        smon = (uint16_t)(smons & ((uint32_t)ADI_APOLLO_SMON_A0 << i));
+        if (smon > 0U) {
             regmap_base_addr = calc_smon_base(i);
-            
-            err = adi_apollo_hal_bf_set(device, BF_SMON_SFRAMER_MODE_EN_INFO(regmap_base_addr), config->sframer_mode_en);
+
+            err = adi_apollo_hal_bf_set(device, BF_SMON_SFRAMER_MODE_EN_INFO(regmap_base_addr), (uint64_t)config->sframer_mode_en);
             ADI_APOLLO_ERROR_RETURN(err);
             err = adi_apollo_hal_bf_set(device, BF_SMON_PERIOD_INFO(regmap_base_addr), config->smon_period);
             ADI_APOLLO_ERROR_RETURN(err);
@@ -97,12 +99,13 @@ int32_t adi_apollo_smon_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel_t sm
         }
     }
         
-    return API_CMS_ERROR_OK; 
+    ADI_CMS_RETURN(API_CMS_ERROR_OK); 
 }
 
 int32_t adi_apollo_smon_dfor_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel_t links, adi_apollo_blk_sel_t fddcs, adi_apollo_smon_dfor_pgm_t *config)
 {
-    int32_t err, i;
+    int32_t err;
+    uint32_t i;
     adi_apollo_blk_sel_t fddc;
     uint32_t regmap_base_addr = 0;
 
@@ -111,11 +114,11 @@ int32_t adi_apollo_smon_dfor_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel
     ADI_APOLLO_NULL_POINTER_RETURN(config);
     ADI_APOLLO_FDDC_BLK_SEL_MASK(fddcs);
 
-    for (i = 0; i < ADI_APOLLO_NUM_JTX_LINKS; i++) {
-        if ((1 << i) & links) {
+    for (i = 0U; i < ADI_APOLLO_NUM_JTX_LINKS; i++) {
+        if (((1U << i) & links) != 0U) {
             regmap_base_addr = calc_jtx_dformat_base(i);
             
-            if ((i % ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0) {                                                                     /* LINK 0 (A0/B0) */
+            if ((i % ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE) == 0U) {                                                                     /* LINK 0 (A0/B0) */
                 err = adi_apollo_hal_bf_set(device, BF_DFORMAT_CTRL_BIT_0_SEL_0_INFO(regmap_base_addr), config->ctrl_bit_0);
                 ADI_APOLLO_ERROR_RETURN(err);
                 err = adi_apollo_hal_bf_set(device, BF_DFORMAT_CTRL_BIT_1_SEL_0_INFO(regmap_base_addr), config->ctrl_bit_1);
@@ -134,67 +137,84 @@ int32_t adi_apollo_smon_dfor_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel
     }
 
     /* Select SMON status bits for the fine DDCs */
-    for (i = 0; i < ADI_APOLLO_FDDC_NUM; i++) {
-        fddc = fddcs & (ADI_APOLLO_FDDC_A0 << i);
-        if (fddc > 0) {
+    for (i = 0U; i < ADI_APOLLO_FDDC_NUM; i++) {
+        fddc = (uint16_t)(fddcs & ((uint32_t)ADI_APOLLO_FDDC_A0 << i));
+        if (fddc > 0U) {
             regmap_base_addr = calc_jtx_dformat_base((i / ADI_APOLLO_FDDC_PER_SIDE_NUM) * ADI_APOLLO_NUM_JTX_LINKS_PER_SIDE);
 
             switch (i % ADI_APOLLO_FDDC_PER_SIDE_NUM) {
                 case 0:
+                {
                     err = adi_apollo_hal_bf_set(device, BF_FINE0_ADC_I_SEL_INFO(regmap_base_addr), config->fine_adc_i_sel[i]);
                     ADI_APOLLO_ERROR_RETURN(err);
                     err = adi_apollo_hal_bf_set(device, BF_FINE0_ADC_Q_SEL_INFO(regmap_base_addr), config->fine_adc_q_sel[i]);
                     ADI_APOLLO_ERROR_RETURN(err);
                     break;
+                }
                 case 1:
+                {
                     err = adi_apollo_hal_bf_set(device, BF_FINE1_ADC_I_SEL_INFO(regmap_base_addr), config->fine_adc_i_sel[i]);
                     ADI_APOLLO_ERROR_RETURN(err);
                     err = adi_apollo_hal_bf_set(device, BF_FINE1_ADC_Q_SEL_INFO(regmap_base_addr), config->fine_adc_q_sel[i]);
                     ADI_APOLLO_ERROR_RETURN(err);
                     break;
+                }
                 case 2:
+                {
                     err = adi_apollo_hal_bf_set(device, BF_FINE2_ADC_I_SEL_INFO(regmap_base_addr), config->fine_adc_i_sel[i]);
                     ADI_APOLLO_ERROR_RETURN(err);
                     err = adi_apollo_hal_bf_set(device, BF_FINE2_ADC_Q_SEL_INFO(regmap_base_addr), config->fine_adc_q_sel[i]);
                     ADI_APOLLO_ERROR_RETURN(err);
                     break;
+                }
                 case 3:
+                {
                     err = adi_apollo_hal_bf_set(device, BF_FINE3_ADC_I_SEL_INFO(regmap_base_addr), config->fine_adc_i_sel[i]);
                     ADI_APOLLO_ERROR_RETURN(err);
                     err = adi_apollo_hal_bf_set(device, BF_FINE3_ADC_Q_SEL_INFO(regmap_base_addr), config->fine_adc_q_sel[i]);
                     ADI_APOLLO_ERROR_RETURN(err);
                     break;
-                    
+                }
                 /* FINE4-FINE7 is 8T8R only */
                 case 4:
+                {
                     err = adi_apollo_hal_bf_set(device, BF_FINE4_ADC_I_SEL_INFO(regmap_base_addr), config->fine_adc_i_sel[i]);
                     ADI_APOLLO_ERROR_RETURN(err);
                     err = adi_apollo_hal_bf_set(device, BF_FINE4_ADC_Q_SEL_INFO(regmap_base_addr), config->fine_adc_q_sel[i]);
                     ADI_APOLLO_ERROR_RETURN(err);
                     break;
+                }
                 case 5:
+                {
                     err = adi_apollo_hal_bf_set(device, BF_FINE5_ADC_I_SEL_INFO(regmap_base_addr), config->fine_adc_i_sel[i]);
                     ADI_APOLLO_ERROR_RETURN(err);
                     err = adi_apollo_hal_bf_set(device, BF_FINE5_ADC_Q_SEL_INFO(regmap_base_addr), config->fine_adc_q_sel[i]);
                     ADI_APOLLO_ERROR_RETURN(err);
                     break;
+                }
                 case 6:
+                {
                     err = adi_apollo_hal_bf_set(device, BF_FINE6_ADC_I_SEL_INFO(regmap_base_addr), config->fine_adc_i_sel[i]);
                     ADI_APOLLO_ERROR_RETURN(err);
                     err = adi_apollo_hal_bf_set(device, BF_FINE6_ADC_Q_SEL_INFO(regmap_base_addr), config->fine_adc_q_sel[i]);
                     ADI_APOLLO_ERROR_RETURN(err);
                     break;
+                }
                 case 7:
+                {
                     err = adi_apollo_hal_bf_set(device, BF_FINE7_ADC_I_SEL_INFO(regmap_base_addr), config->fine_adc_i_sel[i]);
                     ADI_APOLLO_ERROR_RETURN(err);
                     err = adi_apollo_hal_bf_set(device, BF_FINE7_ADC_Q_SEL_INFO(regmap_base_addr), config->fine_adc_q_sel[i]);
                     ADI_APOLLO_ERROR_RETURN(err);
                     break;
+                }
+                default:
+                    break;
             }
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_smon_status_update(adi_apollo_device_t *device, adi_apollo_blk_sel_t smons, uint8_t update)
@@ -208,9 +228,9 @@ int32_t adi_apollo_smon_status_update(adi_apollo_device_t *device, adi_apollo_bl
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_SMON_BLK_SEL_MASK(smons);
 
-    for (i = 0; i < ADI_APOLLO_SMON_NUM; i++) {
-        smon = smons & (ADI_APOLLO_SMON_A0 << i);
-        if (smon > 0) {
+    for (i = 0U; i < ADI_APOLLO_SMON_NUM; i++) {
+        smon = (uint16_t)(smons & ((uint32_t)ADI_APOLLO_SMON_A0 << i));
+        if (smon > 0U) {
             regmap_base_addr = calc_smon_base(i);
             
             err = adi_apollo_hal_bf_set(device, BF_SMON_STATUS_UPDATE_INFO(regmap_base_addr), update); //Toggle bit
@@ -218,7 +238,7 @@ int32_t adi_apollo_smon_status_update(adi_apollo_device_t *device, adi_apollo_bl
         }
     }
             
-    return API_CMS_ERROR_OK; 
+    ADI_CMS_RETURN(API_CMS_ERROR_OK); 
 }
 
 int32_t adi_apollo_smon_read(adi_apollo_device_t *device, adi_apollo_blk_sel_t smons, adi_apollo_smon_read_t *data)
@@ -234,23 +254,23 @@ int32_t adi_apollo_smon_read(adi_apollo_device_t *device, adi_apollo_blk_sel_t s
     ADI_CMS_SINGLE_SELECT_CHECK(smons);
     ADI_APOLLO_SMON_BLK_SEL_MASK(smons);
 
-    for (i = 0; i < ADI_APOLLO_SMON_NUM; i++) {
-        smon = smons & (ADI_APOLLO_SMON_A0 << i);
-        if (smon > 0) {
+    for (i = 0U; i < ADI_APOLLO_SMON_NUM; i++) {
+        smon = (uint16_t)(smons & ((uint32_t)ADI_APOLLO_SMON_A0 << i));
+        if (smon > 0U) {
             regmap_base_addr = calc_smon_base(i);
             
             err = adi_apollo_hal_bf_get(device, BF_SMON_STATUS_FCNT_INFO(regmap_base_addr), &data->status_fcnt, 1);
             ADI_APOLLO_ERROR_RETURN(err);
 
             data->status = 0;           
-            for (j = 0; j < ADI_APOLLO_SMON_STATUS_SIZE; j++) {
+            for (j = 0U; j < ADI_APOLLO_SMON_STATUS_SIZE; j++) {
                 err = adi_apollo_hal_bf_get(device, BF_SMON_STATUS_INFO(regmap_base_addr, j), &reg8, 1);
                 ADI_APOLLO_ERROR_RETURN(err);
-                data->status |= reg8 << (j*8);
+                data->status |= (uint32_t)reg8 << (j* 8U);
             }
         }
     }        
-    return API_CMS_ERROR_OK; 
+    ADI_CMS_RETURN(API_CMS_ERROR_OK); 
 }
 
 int32_t adi_apollo_smon_peak_val_get(adi_apollo_device_t *device, adi_apollo_blk_sel_t smons, uint16_t *pk_val)
@@ -269,9 +289,9 @@ int32_t adi_apollo_smon_peak_val_get(adi_apollo_device_t *device, adi_apollo_blk
     ADI_CMS_SINGLE_SELECT_CHECK(smons);
     ADI_APOLLO_SMON_BLK_SEL_MASK(smons);
 
-    for (i = 0; i < ADI_APOLLO_SMON_NUM; i++) {
-        smon = smons & (ADI_APOLLO_SMON_A0 << i);
-        if (smon > 0) {
+    for (i = 0U; i < ADI_APOLLO_SMON_NUM; i++) {
+        smon = (uint16_t)(smons & ((uint32_t)ADI_APOLLO_SMON_A0 << i));
+        if (smon > 0U) {
             regmap_base_addr = calc_smon_base(i);
 
             // Toggle for pk val update
@@ -281,20 +301,20 @@ int32_t adi_apollo_smon_peak_val_get(adi_apollo_device_t *device, adi_apollo_blk
             ADI_APOLLO_ERROR_RETURN(err);
 
             status = 0;
-            for (j = 0; j < ADI_APOLLO_SMON_STATUS_SIZE; j++) {
+            for (j = 0U; j < ADI_APOLLO_SMON_STATUS_SIZE; j++) {
                 err = adi_apollo_hal_bf_get(device, BF_SMON_STATUS_INFO(regmap_base_addr, j), &reg8, 1);
                 ADI_APOLLO_ERROR_RETURN(err);
-                status |= reg8 << (j * 8);
+                status |= (uint32_t)reg8 << (j * 8U);
             }
 
-            *pk_val = (uint16_t)((status & 0x000ffe00) >> 9);
+            *pk_val = (uint16_t)((status & 0x000ffe00U) >> 9U);
 
             /* Only one get result per call */
             break;
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_smon_thresh_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t smons, uint16_t thresh_low, uint16_t thresh_high)
@@ -311,9 +331,9 @@ int32_t adi_apollo_smon_thresh_set(adi_apollo_device_t *device, adi_apollo_blk_s
     ADI_APOLLO_INVALID_PARAM_RETURN(thresh_low > thresh_high);
     ADI_APOLLO_SMON_BLK_SEL_MASK(smons);
 
-    for (i = 0; i < ADI_APOLLO_SMON_NUM; i++) {
-        smon = smons & (ADI_APOLLO_SMON_A0 << i);
-        if (smon > 0) {
+    for (i = 0U; i < ADI_APOLLO_SMON_NUM; i++) {
+        smon = (uint16_t)(smons & ((uint32_t)ADI_APOLLO_SMON_A0 << i));
+        if (smon > 0U) {
             regmap_base_addr = calc_smon_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_SMON_THRESH_LOW_INFO(regmap_base_addr), thresh_low);
@@ -323,7 +343,7 @@ int32_t adi_apollo_smon_thresh_set(adi_apollo_device_t *device, adi_apollo_blk_s
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_smon_thresh_get(adi_apollo_device_t *device, adi_apollo_blk_sel_t smons, uint16_t *thresh_low, uint16_t *thresh_high)
@@ -340,9 +360,9 @@ int32_t adi_apollo_smon_thresh_get(adi_apollo_device_t *device, adi_apollo_blk_s
     ADI_CMS_SINGLE_SELECT_CHECK(smons);
     ADI_APOLLO_SMON_BLK_SEL_MASK(smons);
 
-    for (i = 0; i < ADI_APOLLO_SMON_NUM; i++) {
-        smon = smons & (ADI_APOLLO_SMON_A0 << i);
-        if (smon > 0) {
+    for (i = 0U; i < ADI_APOLLO_SMON_NUM; i++) {
+        smon = (uint16_t)(smons & ((uint32_t)ADI_APOLLO_SMON_A0 << i));
+        if (smon > 0U) {
             regmap_base_addr = calc_smon_base(i);
 
             err = adi_apollo_hal_bf_get(device, BF_SMON_THRESH_LOW_INFO(regmap_base_addr), (uint8_t *) thresh_low, sizeof(*thresh_low));
@@ -355,7 +375,7 @@ int32_t adi_apollo_smon_thresh_get(adi_apollo_device_t *device, adi_apollo_blk_s
         }
     }
     
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_smon_inspect(adi_apollo_device_t *device, adi_apollo_blk_sel_t smons, adi_apollo_smon_inspect_t *smon_inspect)
@@ -371,9 +391,9 @@ int32_t adi_apollo_smon_inspect(adi_apollo_device_t *device, adi_apollo_blk_sel_
     ADI_CMS_SINGLE_SELECT_CHECK(smons);
     ADI_APOLLO_SMON_BLK_SEL_MASK(smons);
 
-    for (i = 0; i < ADI_APOLLO_SMON_NUM; i++) {
-        smon = smons & (ADI_APOLLO_SMON_A0 << i);
-        if (smon > 0) {
+    for (i = 0U; i < ADI_APOLLO_SMON_NUM; i++) {
+        smon = (uint16_t)(smons & ((uint32_t)ADI_APOLLO_SMON_A0 << i));
+        if (smon > 0U) {
             regmap_base_addr = calc_smon_base(i);
 
             err = adi_apollo_hal_bf_get(device, BF_SMON_PERIOD_INFO(regmap_base_addr), (uint8_t *) &(smon_inspect->dp_cfg.period), sizeof(smon_inspect->dp_cfg.period));
@@ -402,7 +422,7 @@ int32_t adi_apollo_smon_inspect(adi_apollo_device_t *device, adi_apollo_blk_sel_
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_smon_peak_val_from_cap_get(adi_apollo_device_t *device, adi_apollo_blk_sel_t smons,
@@ -426,18 +446,18 @@ int32_t adi_apollo_smon_peak_val_from_cap_get(adi_apollo_device_t *device, adi_a
     ADI_CMS_SINGLE_SELECT_CHECK(smons);
     ADI_APOLLO_SMON_BLK_SEL_MASK(smons);
 
-    for (i = 0; i < ADI_APOLLO_SMON_NUM; i++) {
-        smon = smons & (ADI_APOLLO_SMON_A0 << i);
+    for (i = 0U; i < ADI_APOLLO_SMON_NUM; i++) {
+        smon = (uint16_t)(smons & ((uint32_t)ADI_APOLLO_SMON_A0 << i));
 
-        if (smon > 0) {
+        if (smon > 0U) {
             regmap_base_addr = calc_smon_base(i);
 
             err = adi_apollo_hal_bf_get(device, BF_SMON_SFRAMER_MODE_INFO(regmap_base_addr), &framer_mode, sizeof(framer_mode));
             ADI_APOLLO_ERROR_RETURN(err);
 
             // Assign the 5-bit or 10-bit framer de-serialization methods
-            sof_get = (framer_mode == ADI_APOLLO_SMON_SFRAMER_TEN_BIT) ? sof_framer10_get : sof_framer5_get;
-            pk_val_get = (framer_mode == ADI_APOLLO_SMON_SFRAMER_TEN_BIT) ? peak_val_framer10_get : peak_val_framer5_get;
+            sof_get = (framer_mode == (uint8_t)ADI_APOLLO_SMON_SFRAMER_TEN_BIT) ? sof_framer10_get : sof_framer5_get;
+            pk_val_get = (framer_mode == (uint8_t)ADI_APOLLO_SMON_SFRAMER_TEN_BIT) ? peak_val_framer10_get : peak_val_framer5_get;
 
             /* Find the start of frame */
             err = sof_get(cap_array, cap_len, offset, smon_ctrl_bit_mask, sof_idx);
@@ -449,27 +469,27 @@ int32_t adi_apollo_smon_peak_val_from_cap_get(adi_apollo_device_t *device, adi_a
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 static int32_t sof_framer5_get(int16_t *samples, uint32_t num_samples, uint32_t ofst, uint16_t smon_ctrl_bit_mask, uint32_t *sof_idx)
 {
-    int32_t s_idx;
-    int32_t k_idx;
+    uint32_t s_idx;
+    uint32_t k_idx;
     uint8_t sof_found = 0;
     int16_t key_seq[11] = {1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0};
-    int32_t key_seq_len = sizeof(key_seq) / sizeof(key_seq[0]);
+    uint32_t key_seq_len = sizeof(key_seq) / sizeof(key_seq[0]);
 
     *sof_idx = 0;
 
     if ((num_samples - ofst) < FRAMER_5_MIN_SAMPLES) {
-        return API_CMS_ERROR_SMON_FRAMER_MIN_SAMPLES_ERROR;
+        ADI_CMS_RETURN(API_CMS_ERROR_SMON_FRAMER_MIN_SAMPLES_ERROR);
     }
     
-    for (s_idx = ofst; s_idx < num_samples - key_seq_len; s_idx++) {
+    for (s_idx = ofst; s_idx < (num_samples - key_seq_len); s_idx++) {
         sof_found = 0;
         for (k_idx = 0; k_idx < key_seq_len; k_idx++) {
-            if (((samples[s_idx + k_idx] & smon_ctrl_bit_mask) ? 1 : 0) != key_seq[k_idx]) {
+            if ((((uint16_t)samples[s_idx + k_idx] & smon_ctrl_bit_mask) ? 1 : 0) != key_seq[k_idx]) {
                 break;
             }
         }
@@ -479,61 +499,62 @@ static int32_t sof_framer5_get(int16_t *samples, uint32_t num_samples, uint32_t 
         }
     }
 
-    if (sof_found) {
+    if (sof_found != 0U) {
         *sof_idx = s_idx + FRAMER_5_SUB_FRAME_IDLE_NUM_BITS; // Skip over last idle sub-frame, advance to start of identifier sub-frame
     } else {
-        return API_CMS_ERROR_SMON_FRAMER_SOF_NOT_FOUND;
+        ADI_CMS_RETURN(API_CMS_ERROR_SMON_FRAMER_SOF_NOT_FOUND);
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
  }
 
 static int32_t peak_val_framer5_get(int16_t *samples, uint32_t num_samples, uint32_t sof_idx, uint16_t smon_ctrl_bit_mask, uint16_t *peak_val)
 {
 
     *peak_val = 0;
-    int16_t shft = 15;
+    uint16_t shft = 15U;
 
     if ((num_samples - sof_idx - FRAMER_5_SUB_FRAME_ID_NUM_BITS) < (FRAMER_5_SUB_FRAME_DATA_NUM_BITS)) {
-        return API_CMS_ERROR_SMON_FRAMER_MIN_SAMPLES_ERROR;
+        ADI_CMS_RETURN(API_CMS_ERROR_SMON_FRAMER_MIN_SAMPLES_ERROR);
     }
 
     // Skip over identifier sub-frame
-    for (int i = FRAMER_5_SUB_FRAME_ID_NUM_BITS; i < (FRAMER_5_SUB_FRAME_ID_NUM_BITS + FRAMER_5_SUB_FRAME_DATA_NUM_BITS); i++) {
-        if (!(i % FRAMER_5_SUB_FRAME_NUM_BITS)) {
+    for (uint32_t i = FRAMER_5_SUB_FRAME_ID_NUM_BITS; i < (FRAMER_5_SUB_FRAME_ID_NUM_BITS + FRAMER_5_SUB_FRAME_DATA_NUM_BITS); i++) {
+        if ((i % FRAMER_5_SUB_FRAME_NUM_BITS) == 0U) {
             continue; // skip sub-frame leading 0 start bit
         }
 
-        *peak_val |= ((samples[sof_idx + i] & smon_ctrl_bit_mask) ? 1 : 0) << shft;
+        uint32_t bit_value = (((uint16_t)samples[sof_idx + i] & smon_ctrl_bit_mask) ? 1U : 0U) << shft;
+        *peak_val |= (uint16_t)bit_value;
         shft--;
     }
 
     *peak_val = ((uint16_t)(*peak_val)) >> 5; // shift down to 11 bits (resolution of peak hold detector)
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 static int32_t sof_framer10_get(int16_t *samples, uint32_t num_samples, uint32_t ofst, uint16_t smon_ctrl_bit_mask, uint32_t *sof_idx)
 {
-    int32_t s_idx;
-    int32_t k_idx;
+    uint32_t s_idx;
+    uint32_t k_idx;
     uint8_t sof_found = 0;
     int16_t key_seq[20] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  0,  0, 0, 0, 0, 0, 0, 0, 1,  1};
-    int32_t key_seq_len = sizeof(key_seq) / sizeof(key_seq[0]);
+    uint32_t key_seq_len = sizeof(key_seq) / sizeof(key_seq[0]);
 
     *sof_idx = 0;
 
     if ((num_samples - ofst) < FRAMER_10_MIN_SAMPLES) {
-        return API_CMS_ERROR_SMON_FRAMER_MIN_SAMPLES_ERROR;
+        ADI_CMS_RETURN(API_CMS_ERROR_SMON_FRAMER_MIN_SAMPLES_ERROR);
     }
 
-    for (s_idx = ofst; s_idx < num_samples - key_seq_len; s_idx++) {
+    for (s_idx = ofst; s_idx < (num_samples - key_seq_len); s_idx++) {
         sof_found = 0;
         for (k_idx = 0; k_idx < key_seq_len; k_idx++) {
 
             //printf("%6d    %d\n", s_idx + k_idx, ((samples[s_idx + k_idx] & ctrl_bit_mask) ? 1 : 0));
 
-            if (((samples[s_idx + k_idx] & smon_ctrl_bit_mask) ? 1 : 0) != key_seq[k_idx]) {
+            if ((((uint16_t)samples[s_idx + k_idx] & smon_ctrl_bit_mask) ? 1 : 0) != key_seq[k_idx]) {
                 break;
             }
         }
@@ -543,39 +564,40 @@ static int32_t sof_framer10_get(int16_t *samples, uint32_t num_samples, uint32_t
         }
     }
 
-    if (sof_found) {
+    if (sof_found != 0U) {
         *sof_idx = s_idx + FRAMER_10_SUB_FRAME_IDLE_NUM_BITS; // Skip over last idle sub-frame, advance to start of identifier sub-frame
     } else {
-        return API_CMS_ERROR_SMON_FRAMER_SOF_NOT_FOUND;
+        ADI_CMS_RETURN(API_CMS_ERROR_SMON_FRAMER_SOF_NOT_FOUND);
     }
 
-    return API_CMS_ERROR_OK;}
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);}
 
 static int32_t peak_val_framer10_get(int16_t *samples, uint32_t num_samples, uint32_t sof_idx, uint16_t smon_ctrl_bit_mask, uint16_t *peak_val)
 {
     *peak_val = 0;
-    int16_t shft = 15;
+    uint16_t shft = 15U;
 
     if ((num_samples - sof_idx - FRAMER_10_SUB_FRAME_ID_NUM_BITS) < (FRAMER_10_SUB_FRAME_DATA_NUM_BITS)) {
-        return API_CMS_ERROR_SMON_FRAMER_MIN_SAMPLES_ERROR;
+        ADI_CMS_RETURN(API_CMS_ERROR_SMON_FRAMER_MIN_SAMPLES_ERROR);
     }
 
     // Skip over identifier sub-frame
-    for (int i = FRAMER_10_SUB_FRAME_ID_NUM_BITS; i < (FRAMER_10_SUB_FRAME_ID_NUM_BITS + FRAMER_10_SUB_FRAME_DATA_NUM_BITS); i++) {
-        if ( (i % FRAMER_10_SUB_FRAME_NUM_BITS == 0) || (i %FRAMER_10_SUB_FRAME_NUM_BITS == 9) ) {
+    for (uint32_t i = FRAMER_10_SUB_FRAME_ID_NUM_BITS; i < (FRAMER_10_SUB_FRAME_ID_NUM_BITS + FRAMER_10_SUB_FRAME_DATA_NUM_BITS); i++) {
+        if ( ((i % FRAMER_10_SUB_FRAME_NUM_BITS) == 0U) || ((i % FRAMER_10_SUB_FRAME_NUM_BITS) == 9U) ) {
             continue; // skip sub-frame start and stop sub-frame bits
         }
 
-        *peak_val |= ((samples[sof_idx + i] & smon_ctrl_bit_mask) ? 1 : 0) << shft;
+        uint32_t bit_value = (((uint16_t)samples[sof_idx + i] & smon_ctrl_bit_mask) ? 1U : 0U) << shft;
+        *peak_val |= (uint16_t)bit_value;
         shft--;
     }
 
     *peak_val = ((uint16_t)(*peak_val)) >> 5; // shift down to 11 bits (resolution of peak hold detector)
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
-uint32_t calc_smon_base(int32_t smon_index)
+static uint32_t calc_smon_base(uint32_t smon_index)
 {
     static uint32_t rx_smon_regmap[ADI_APOLLO_SMON_NUM] = {
         RX_SMON0_RX_SLICE_0_RX_DIGITAL0, RX_SMON0_RX_SLICE_1_RX_DIGITAL0,

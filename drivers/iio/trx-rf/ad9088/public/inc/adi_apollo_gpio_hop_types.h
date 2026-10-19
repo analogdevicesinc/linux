@@ -10,12 +10,12 @@
  */
 
 /*!
- * \addtogroup ADI_APOLLO_GPIO
+ * \addtogroup ADI_APOLLO_GPIO_HOP
  * @{
  */
  
-#ifndef __ADI_APOLLO_GPIO_HOP_TYPES_H__
-#define __ADI_APOLLO_GPIO_HOP_TYPES_H__
+#ifndef ADI_APOLLO_GPIO_HOP_TYPES_H__
+#define ADI_APOLLO_GPIO_HOP_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -23,13 +23,13 @@
 
 /*============= D E F I N E S ==============*/
 
-#define ADI_APOLLO_GPIO_HOP_PROFILE_BIT_NUMBER 5
-#define ADI_APOLLO_GPIO_HOP_BLOCK_BIT_NUMBER 4
-#define ADI_APOLLO_GPIO_HOP_SIDE_BIT_NUMBER 1
-#define ADI_APOLLO_GPIO_HOP_SLICE_BIT_NUMBER 3
-#define ADI_APOLLO_GPIO_HOP_TERMINAL_BIT_NUMBER 2
+#define ADI_APOLLO_GPIO_HOP_PROFILE_BIT_NUMBER 5U
+#define ADI_APOLLO_GPIO_HOP_BLOCK_BIT_NUMBER 4U
+#define ADI_APOLLO_GPIO_HOP_SIDE_BIT_NUMBER 1U
+#define ADI_APOLLO_GPIO_HOP_SLICE_BIT_NUMBER 3U
+#define ADI_APOLLO_GPIO_HOP_TERMINAL_BIT_NUMBER 2U
 
-#define ADI_APOLLO_GPIO_HOP_IDX_NONE -1        /*!< Use to indicate that a gpio bit is not to be used. I.e. pfilt profile needs only 2 bits, [26, 27, -1, -1, -1] */
+#define ADI_APOLLO_GPIO_HOP_IDX_NONE 0xFFU /*!< Use to indicate that a gpio bit is not to be used. I.e. pfilt profile needs only 2 bits, [26, 27, ADI_APOLLO_GPIO_HOP_IDX_NONE, ADI_APOLLO_GPIO_HOP_IDX_NONE, ADI_APOLLO_GPIO_HOP_IDX_NONE] */
 
 /*!
 * \brief Enumerates Tx/Rx hop parameter selection
@@ -102,5 +102,5 @@ typedef struct {
     uint8_t index[ADI_APOLLO_GPIO_HOP_TERMINAL_BIT_NUMBER];  /*!< GPIO indexes for terminal select bits */
 } adi_apollo_gpio_hop_terminal_t;
 
-#endif /* __ADI_APOLLO_GPIO_HOP_TYPES_H__ */
+#endif /* ADI_APOLLO_GPIO_HOP_TYPES_H__ */
 /*! @} */

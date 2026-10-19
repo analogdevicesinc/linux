@@ -14,8 +14,8 @@
  * @{
  */
  
-#ifndef __ADI_APOLLO_SNIFFER_TYPES_H__
-#define __ADI_APOLLO_SNIFFER_TYPES_H__
+#ifndef ADI_APOLLO_SNIFFER_TYPES_H__
+#define ADI_APOLLO_SNIFFER_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -23,7 +23,7 @@
 
 /*============= D E F I N E S ==============*/
 #define ADI_APOLLO_SNIFFER_FFT_LENGTH                512
-#define ADI_APOLLO_SNIFFER_NUM                       2
+#define ADI_APOLLO_SNIFFER_NUM                       2U
 
 /*!
 * \brief Enumerates selection between gpio and regmap input
@@ -120,5 +120,5 @@ typedef struct {
    adi_apollo_sniffer_mode_e data_mode;                  /*!< Sniffer mode during data capture \ref adi_apollo_sniffer_mode_e */
 } adi_apollo_sniffer_fft_data_t; 
 
-#endif /* __ADI_APOLLO_SNIFFER_TYPES_H__ */
+#endif /* ADI_APOLLO_SNIFFER_TYPES_H__ */
 /*! @} */

@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_PRIVATE_DEVICE
  * @{
  */
-#ifndef __ADI_APOLLO_PRIVATE_BLK_SEL_H__
-#define __ADI_APOLLO_PRIVATE_BLK_SEL_H__
+#ifndef ADI_APOLLO_PRIVATE_BLK_SEL_H__
+#define ADI_APOLLO_PRIVATE_BLK_SEL_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_common.h"
@@ -40,5 +40,5 @@ int32_t adi_apollo_private_blk_sel_mask_set(adi_apollo_device_t *device);
 }
 #endif
 
-#endif /* __ADI_APOLLO_PRIVATE_BLK_SEL_H__ */
+#endif /* ADI_APOLLO_PRIVATE_BLK_SEL_H__ */
 /*! @} */

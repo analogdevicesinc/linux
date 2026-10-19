@@ -12,62 +12,62 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_TXRX_ENABLE_H__
-#define __ADI_APOLLO_BF_TXRX_ENABLE_H__
+#ifndef ADI_APOLLO_BF_TXRX_ENABLE_H__
+#define ADI_APOLLO_BF_TXRX_ENABLE_H__
 
 /*============= D E F I N E S ==============*/
-#define TXRX_ENABLE_RX_DIGITAL0            0x60020000
-#define TXRX_ENABLE_RX_DIGITAL1            0x60820000
-#define TXRX_ENABLE_TX_SLICE_0_TX_DIGITAL0 0x6120A000
-#define TXRX_ENABLE_TX_SLICE_1_TX_DIGITAL0 0x6140A000
-#define TXRX_ENABLE_TX_SLICE_0_TX_DIGITAL1 0x61A0A000
-#define TXRX_ENABLE_TX_SLICE_1_TX_DIGITAL1 0x61C0A000
+#define TXRX_ENABLE_RX_DIGITAL0            0x60020000U
+#define TXRX_ENABLE_RX_DIGITAL1            0x60820000U
+#define TXRX_ENABLE_TX_SLICE_0_TX_DIGITAL0 0x6120A000U
+#define TXRX_ENABLE_TX_SLICE_1_TX_DIGITAL0 0x6140A000U
+#define TXRX_ENABLE_TX_SLICE_0_TX_DIGITAL1 0x61A0A000U
+#define TXRX_ENABLE_TX_SLICE_1_TX_DIGITAL1 0x61C0A000U
 
-#define REG_TXRX_ENABLE_CTRL_ADDR(inst, n) ((inst) + 0x00000000 + 15 * (n))
-#define BF_ENABLE_POL_INFO(inst, n)        ((inst) + 0x00000000 + 15 * (n)), 0x00000100
-#define BF_ENABLE_SPI_INFO(inst, n)        ((inst) + 0x00000000 + 15 * (n)), 0x00000101
-#define BF_ENABLE_SPIEN_INFO(inst, n)      ((inst) + 0x00000000 + 15 * (n)), 0x00000102
+#define REG_TXRX_ENABLE_CTRL_ADDR(inst, n) ((uint32_t)(inst) + 0x00000000U + 15U * (uint32_t)(n))
+#define BF_ENABLE_POL_INFO(inst, n)        ((uint32_t)(inst) + 0x00000000U + 15U * (uint32_t)(n)), 0x00000100U
+#define BF_ENABLE_SPI_INFO(inst, n)        ((uint32_t)(inst) + 0x00000000U + 15U * (uint32_t)(n)), 0x00000101U
+#define BF_ENABLE_SPIEN_INFO(inst, n)      ((uint32_t)(inst) + 0x00000000U + 15U * (uint32_t)(n)), 0x00000102U
 
-#define REG_SLICE_SEL_ADDR(inst, n)        ((inst) + 0x00000001 + 15 * (n))
-#define BF_SLICE_SEL_INFO(inst, n)         ((inst) + 0x00000001 + 15 * (n)), 0x00000400
+#define REG_SLICE_SEL_ADDR(inst, n)        ((uint32_t)(inst) + 0x00000001U + 15U * (uint32_t)(n))
+#define BF_SLICE_SEL_INFO(inst, n)         ((uint32_t)(inst) + 0x00000001U + 15U * (uint32_t)(n)), 0x00000400U
 
-#define REG_LINX_SEL_ADDR(inst, n)         ((inst) + 0x00000002 + 15 * (n))
-#define BF_LINX_SEL_INFO(inst, n)          ((inst) + 0x00000002 + 15 * (n)), 0x00000400
+#define REG_LINX_SEL_ADDR(inst, n)         ((uint32_t)(inst) + 0x00000002U + 15U * (uint32_t)(n))
+#define BF_LINX_SEL_INFO(inst, n)          ((uint32_t)(inst) + 0x00000002U + 15U * (uint32_t)(n)), 0x00000400U
 
-#define REG_PFILT_SEL_ADDR(inst, n)        ((inst) + 0x00000003 + 15 * (n))
-#define BF_PFILT_SEL_INFO(inst, n)         ((inst) + 0x00000003 + 15 * (n)), 0x00000200
+#define REG_PFILT_SEL_ADDR(inst, n)        ((uint32_t)(inst) + 0x00000003U + 15U * (uint32_t)(n))
+#define BF_PFILT_SEL_INFO(inst, n)         ((uint32_t)(inst) + 0x00000003U + 15U * (uint32_t)(n)), 0x00000200U
 
-#define REG_CDUC_CDDC_SEL_ADDR(inst, n)    ((inst) + 0x00000004 + 15 * (n))
-#define BF_CDUC_CDDC_SEL_INFO(inst, n)     ((inst) + 0x00000004 + 15 * (n)), 0x00000400
+#define REG_CDUC_CDDC_SEL_ADDR(inst, n)    ((uint32_t)(inst) + 0x00000004U + 15U * (uint32_t)(n))
+#define BF_CDUC_CDDC_SEL_INFO(inst, n)     ((uint32_t)(inst) + 0x00000004U + 15U * (uint32_t)(n)), 0x00000400U
 
-#define REG_FDUC_FDDC_SEL_ADDR(inst, n)    ((inst) + 0x00000005 + 15 * (n))
-#define BF_FDUC_FDDC_SEL_INFO(inst, n)     ((inst) + 0x00000005 + 15 * (n)), 0x00000800
+#define REG_FDUC_FDDC_SEL_ADDR(inst, n)    ((uint32_t)(inst) + 0x00000005U + 15U * (uint32_t)(n))
+#define BF_FDUC_FDDC_SEL_INFO(inst, n)     ((uint32_t)(inst) + 0x00000005U + 15U * (uint32_t)(n)), 0x00000800U
 
-#define REG_CFIR_SEL_ADDR(inst, n)         ((inst) + 0x00000006 + 15 * (n))
-#define BF_CFIR_SEL_INFO(inst, n)          ((inst) + 0x00000006 + 15 * (n)), 0x00000200
+#define REG_CFIR_SEL_ADDR(inst, n)         ((uint32_t)(inst) + 0x00000006U + 15U * (uint32_t)(n))
+#define BF_CFIR_SEL_INFO(inst, n)          ((uint32_t)(inst) + 0x00000006U + 15U * (uint32_t)(n)), 0x00000200U
 
-#define REG_FSRC_SEL_ADDR(inst, n)         ((inst) + 0x00000007 + 15 * (n))
-#define BF_FSRC_SEL_INFO(inst, n)          ((inst) + 0x00000007 + 15 * (n)), 0x00000200
+#define REG_FSRC_SEL_ADDR(inst, n)         ((uint32_t)(inst) + 0x00000007U + 15U * (uint32_t)(n))
+#define BF_FSRC_SEL_INFO(inst, n)          ((uint32_t)(inst) + 0x00000007U + 15U * (uint32_t)(n)), 0x00000200U
 
-#define REG_JRX_JTX_LINK_SEL_ADDR(inst, n) ((inst) + 0x00000008 + 15 * (n))
-#define BF_JRX_JTX_LINK_SEL_INFO(inst, n)  ((inst) + 0x00000008 + 15 * (n)), 0x00000200
+#define REG_JRX_JTX_LINK_SEL_ADDR(inst, n) ((uint32_t)(inst) + 0x00000008U + 15U * (uint32_t)(n))
+#define BF_JRX_JTX_LINK_SEL_INFO(inst, n)  ((uint32_t)(inst) + 0x00000008U + 15U * (uint32_t)(n)), 0x00000200U
 
-#define REG_JRX_JTX_PHY_SEL0_ADDR(inst, n) ((inst) + 0x00000009 + 15 * (n))
-#define BF_JRX_JTX_PHY_SEL_INFO(inst, n)   ((inst) + 0x00000009 + 15 * (n)), 0x00000C00
+#define REG_JRX_JTX_PHY_SEL0_ADDR(inst, n) ((uint32_t)(inst) + 0x00000009U + 15U * (uint32_t)(n))
+#define BF_JRX_JTX_PHY_SEL_INFO(inst, n)   ((uint32_t)(inst) + 0x00000009U + 15U * (uint32_t)(n)), 0x00000C00U
 
-#define REG_JRX_JTX_PHY_SEL1_ADDR(inst, n) ((inst) + 0x0000000A + 15 * (n))
+#define REG_JRX_JTX_PHY_SEL1_ADDR(inst, n) ((uint32_t)(inst) + 0x0000000AU + 15U * (uint32_t)(n))
 
-#define REG_MODSW_SEL_ADDR(inst, n)        ((inst) + 0x0000000B + 15 * (n))
-#define BF_MODSW_SEL_INFO(inst, n)         ((inst) + 0x0000000B + 15 * (n)), 0x00000100
+#define REG_MODSW_SEL_ADDR(inst, n)        ((uint32_t)(inst) + 0x0000000BU + 15U * (uint32_t)(n))
+#define BF_MODSW_SEL_INFO(inst, n)         ((uint32_t)(inst) + 0x0000000BU + 15U * (uint32_t)(n)), 0x00000100U
 
-#define REG_INVSINC_SEL_ADDR(inst, n)      ((inst) + 0x0000000C + 15 * (n))
-#define BF_INVSINC_SEL_INFO(inst, n)       ((inst) + 0x0000000C + 15 * (n)), 0x00000400
+#define REG_INVSINC_SEL_ADDR(inst, n)      ((uint32_t)(inst) + 0x0000000CU + 15U * (uint32_t)(n))
+#define BF_INVSINC_SEL_INFO(inst, n)       ((uint32_t)(inst) + 0x0000000CU + 15U * (uint32_t)(n)), 0x00000400U
 
-#define REG_GAIN_SEL_ADDR(inst, n)         ((inst) + 0x0000000D + 15 * (n))
-#define BF_GAIN_SEL_INFO(inst, n)          ((inst) + 0x0000000D + 15 * (n)), 0x00000400
+#define REG_GAIN_SEL_ADDR(inst, n)         ((uint32_t)(inst) + 0x0000000DU + 15U * (uint32_t)(n))
+#define BF_GAIN_SEL_INFO(inst, n)          ((uint32_t)(inst) + 0x0000000DU + 15U * (uint32_t)(n)), 0x00000400U
 
-#define REG_SRD_SEL_ADDR(inst, n)          ((inst) + 0x0000000E + 15 * (n))
-#define BF_SRD_SEL_INFO(inst, n)           ((inst) + 0x0000000E + 15 * (n)), 0x00000400
+#define REG_SRD_SEL_ADDR(inst, n)          ((uint32_t)(inst) + 0x0000000EU + 15U * (uint32_t)(n))
+#define BF_SRD_SEL_INFO(inst, n)           ((uint32_t)(inst) + 0x0000000EU + 15U * (uint32_t)(n)), 0x00000400U
 
-#endif /* __ADI_APOLLO_BF_TXRX_ENABLE_H__ */
+#endif /* ADI_APOLLO_BF_TXRX_ENABLE_H__ */
 /*! @} */

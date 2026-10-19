@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_MCS_CAL
  * @{
  */
-#ifndef __ADI_APOLLO_MCS_CAL_TYPES_H__
-#define __ADI_APOLLO_MCS_CAL_TYPES_H__
+#ifndef ADI_APOLLO_MCS_CAL_TYPES_H__
+#define ADI_APOLLO_MCS_CAL_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
@@ -46,42 +46,42 @@
  * MCS Parameter Enumerations
  */
 typedef enum {
-    MCS_PARAMS_ALL                                  = 0,       /*!< Set the entire MCS FW config structure. */
-    MCS_USE_SIDE_A_AS_REFERENCE_UINT8               = 1,       /*!< Set to 1, Side A is used as reference when aligning or comparing against Side B while using Center TDC. */
-    MCS_USE_GAPPED_SYSREF_UINT8                     = 2,       /*!< Set to 1, External SysRef is 'Gapped-Periodic'. Meaning, the signal randomly misses cycles. The nominal period of External SysRef must be Exactly the same as internal SysRef period.*/
-    MCS_LEAVE_SYSREF_RECEIVER_ON_POST_SYNC_UINT8    = 3,       /*!< If set to 1, Apollo's External SysRef receiver is left turned on post MCS init Calibration.Set to 1 if running MCS Tracking calibration. */
-    MCS_TRACK_ABORT_UINT8                           = 4,       /*!< Set to 1, MCS Tracking calibration will clear configuration variables, including ADF4382 Current DAC correction values, and will enter idle, waiting for users to configure the next action. */
-    MCS_TRACK_HALT_UINT8                            = 5,       /*!< Set to 1, MCS Tracking calibration will bypass MCS tracking calibration. It will not use TDC or send commands to ADF4382.*/
-    MCS_TRACK_INITIALIZE_UINT8                      = 6,       /*!< Set to 1, MCS Tracking calibration will take the user-defined track_start_coarse, track_start_fine, track_start_bleed_pol, maxFineCode, maxCoarseCode track_win, and adi_apollo_track_target as initial values for MCS Tracking calibration. */
-    MCS_TRACK_FOREGROUND_UINT8                      = 7,       /*!< It can only be used after track_initialize has finished. Set to 1, track_foreground will run TDC measurements and send ADF4382 correction signals at a faster rate than track_background. */
-    MCS_TRACK_FORCE_FOREGROUND_UINT8                = 8,       /*!< It can only be used after track_initialize has finished. Set to 1, track_force_foreground will execute track_foreground. It is self-clearing. It can be written to 1 to re-run foreground. */
-    MCS_TRACK_BACKGROUND_0_UINT8                    = 9,       /*!< Set to 1, MCS tracking calibration will measure time differences with TDC, and send correction signals to the single or side A's ADF4382. Up to 1 correction signal will be sent per second.*/
-    MCS_TRACK_BACKGROUND_1_UINT8                    = 10,      /*!< Set to 1, MCS tracking calibration will measure time differences with TDC, and send correction signals to Side B's ADF4382. Up to 1 correction signal will be sent per second.*/
-    MCS_TRACK_COARSE_JUMP_0_UINT8                   = 11,      /*!< Set to 1 to allow the single or side A's ADF4382 to do one Coarse DAC adjustment. */
-    MCS_TRACK_COARSE_JUMP_1_UINT8                   = 12,      /*!< Set to 1 to allow side B's ADF4382 to do one Coarse DAC adjustment. */
-    MCS_TRACK_FORCE_BACKGROUND_STEP_0_UINT8         = 13,      /*!< Allows for one track_background calibration cycle to be performed with the single or side A's ADF4382 while tracking calibration is halted. It may or may not send a strobe signal to the single or side A's ADF4382 */
-    MCS_TRACK_FORCE_BACKGROUND_STEP_1_UINT8         = 14,      /*!< Allows for one track_background calibration cycle to be performed with side B's ADF4382 while tracking calibration is halted. It may or may not send a strobe signal to the single or side A's ADF4382 */
-    MCS_MEASUREMENT_DECIMATION_RATE_UINT16          = 15,      /*!< Controls the number of External sysref measurements that MCS digital performs using TDC. If set to 65535, the total number of measurements are: 16*(65535 + 1) = 1048576. */
-    MCS_REFERENCE_PERIOD_C_UINT64                   = 16,      /*!< External sysref period driven to the center sysref receiver in femtoseconds. Must be non-zero in any MCS init or tracking mode. */
-    MCS_REFERENCE_PERIOD_A_UINT64                   = 17,      /*!< Usually, External sysref period driven to the Side A's sysref receiver in femtoseconds. Must be non-zero in any MCS init or tracking mode. If MCS Init Cal mode = 3, 4, or 5, and use_side_A_as_reference == 0; then, the Internal SysRef period in femtoseconds of the B-side's Internal Sysref should be provided. */
-    MCS_REFERENCE_PERIOD_B_UINT64                   = 18,      /*!< Usually, External sysref period driven to the Side B's sysref receiver in femtoseconds. Must be non-zero in any MCS init or tracking mode. If MCS Init Cal mode = 3, 4, or 5, and use_side_A_as_reference == 1; then, the Internal SysRef period in femtoseconds of the B-side's Internal Sysref should be provided. */
-    MCS_OFFSET_C_FEMTOSECONDS_INT64                 = 19,      /*!< Desired time difference between the rising edge of Center MCS's Internal sysref and the rising edge of Center External SysRef. Notice, we can only adjust in steps of 1 high-speed clock period during MCS init Cal. */
-    MCS_OFFSET_A_FEMTOSECONDS_INT64                 = 20,      /*!< Desired time difference between the rising edge of Side A MCS's Internal sysref and the rising edge of its reference sysref. Notice, we can only adjust in steps of 1 high-speed clock period during MCS init Cal. */
-    MCS_OFFSET_B_FEMTOSECONDS_INT64                 = 21,      /*!< Desired time difference between the rising edge of Side B MCS's Internal sysref and the rising edge of it reference sysref. Notice, we can only adjust in steps of 1 high-speed clock period during MCS init Cal. */
-    MCS_ADF4382_DEL_MODE_UINT8                      = 22,      /*!< Equivalent to DEL_MODE in ADF4382 datasheet. */
-    MCS_ADF4382_TRACK_START_COARSE_UINT8            = 23,      /*!< User-Defined starting value for Coarse DAC Correction. */
-    MCS_ADF4382_TRACK_START_BLEED_POL_UINT8         = 24,      /*!< User-Defined starting value for DAC Bleed Polarity. */
-    MCS_ADF4382_TRACK_POLARITY_SELECT_UINT8         = 25,      /*!< Set to 1 to invert the polarity of correction. */
-    MCS_ADF4382_PHASE_ADJUSTMENT_UINT8              = 26,      /*!< Increments on the ADF4382's Bleed Current Correction DAC per strobe. Must be programmed to match register phase_adjustment on ADF4382. */
-    MCS_ADF4382_TRACK_START_FINE_UINT16             = 27,      /*!< User-Defined starting value for Fine DAC Correction. */
-    MCS_ADF4382_DELSTR_GPIO_0_UINT8                 = 28,      /*!< AD9084's GPIO to be used as DELSTR for the single or Side A's ADF4382. */
-    MCS_ADF4382_DELSTR_GPIO_1_UINT8                 = 29,      /*!< AD9084's GPIO to be used as DELSTR for Side B's ADF4382. */
-    MCS_ADF4382_DELADJ_GPIO_0_UINT8                 = 30,      /*!< AD9084's GPIO to be used as DELADJ for the single or Side A's ADF4382. */
-    MCS_ADF4382_DELADJ_GPIO_1_UINT8                 = 31,      /*!< AD9084's GPIO to be used as DELADJ for Side B's ADF4382. */
-    MCS_ADF4382_TRACK_WIN_UINT32                    = 32,      /*!< Time in in absolute-value femtoseconds allowed for internal sysref to drift with respect to external sysref before MCS Tracking Calibration sends adjustments to ADF4382. */
-    MCS_ADF4382_TRACK_TARGET_0_INT32                = 33,      /*!< Time offset in picoseconds between the rising edge of internal and External sysref for the single or Side A's ADF4382. */
-    MCS_ADF4382_TRACK_TARGET_1_INT32                = 34,      /*!< Time offset in picoseconds between the rising edge of internal and External sysref for Side B's ADF4382. */
-    MCS_PARAMETER_LAST                              = 0xFF
+    MCS_PARAMS_ALL                                  = 0U,       /*!< Set the entire MCS FW config structure. */
+    MCS_USE_SIDE_A_AS_REFERENCE_UINT8               = 1U,       /*!< Set to 1, Side A is used as reference when aligning or comparing against Side B while using Center TDC. */
+    MCS_USE_GAPPED_SYSREF_UINT8                     = 2U,       /*!< Set to 1, External SysRef is 'Gapped-Periodic'. Meaning, the signal randomly misses cycles. The nominal period of External SysRef must be Exactly the same as internal SysRef period.*/
+    MCS_LEAVE_SYSREF_RECEIVER_ON_POST_SYNC_UINT8    = 3U,       /*!< If set to 1, Apollo's External SysRef receiver is left turned on post MCS init Calibration.Set to 1 if running MCS Tracking calibration. */
+    MCS_TRACK_ABORT_UINT8                           = 4U,       /*!< Set to 1, MCS Tracking calibration will clear configuration variables, including ADF4382 Current DAC correction values, and will enter idle, waiting for users to configure the next action. */
+    MCS_TRACK_HALT_UINT8                            = 5U,       /*!< Set to 1, MCS Tracking calibration will bypass MCS tracking calibration. It will not use TDC or send commands to ADF4382.*/
+    MCS_TRACK_INITIALIZE_UINT8                      = 6U,       /*!< Set to 1, MCS Tracking calibration will take the user-defined track_start_coarse, track_start_fine, track_start_bleed_pol, maxFineCode, maxCoarseCode track_win, and adi_apollo_track_target as initial values for MCS Tracking calibration. */
+    MCS_TRACK_FOREGROUND_UINT8                      = 7U,       /*!< It can only be used after track_initialize has finished. Set to 1, track_foreground will run TDC measurements and send ADF4382 correction signals at a faster rate than track_background. */
+    MCS_TRACK_FORCE_FOREGROUND_UINT8                = 8U,       /*!< It can only be used after track_initialize has finished. Set to 1, track_force_foreground will execute track_foreground. It is self-clearing. It can be written to 1 to re-run foreground. */
+    MCS_TRACK_BACKGROUND_0_UINT8                    = 9U,       /*!< Set to 1, MCS tracking calibration will measure time differences with TDC, and send correction signals to the single or side A's ADF4382. Up to 1 correction signal will be sent per second.*/
+    MCS_TRACK_BACKGROUND_1_UINT8                    = 10U,      /*!< Set to 1, MCS tracking calibration will measure time differences with TDC, and send correction signals to Side B's ADF4382. Up to 1 correction signal will be sent per second.*/
+    MCS_TRACK_COARSE_JUMP_0_UINT8                   = 11U,      /*!< Set to 1 to allow the single or side A's ADF4382 to do one Coarse DAC adjustment. */
+    MCS_TRACK_COARSE_JUMP_1_UINT8                   = 12U,      /*!< Set to 1 to allow side B's ADF4382 to do one Coarse DAC adjustment. */
+    MCS_TRACK_FORCE_BACKGROUND_STEP_0_UINT8         = 13U,      /*!< Allows for one track_background calibration cycle to be performed with the single or side A's ADF4382 while tracking calibration is halted. It may or may not send a strobe signal to the single or side A's ADF4382 */
+    MCS_TRACK_FORCE_BACKGROUND_STEP_1_UINT8         = 14U,      /*!< Allows for one track_background calibration cycle to be performed with side B's ADF4382 while tracking calibration is halted. It may or may not send a strobe signal to the single or side A's ADF4382 */
+    MCS_MEASUREMENT_DECIMATION_RATE_UINT16          = 15U,      /*!< Controls the number of External sysref measurements that MCS digital performs using TDC. If set to 65535, the total number of measurements are: 16*(65535 + 1) = 1048576. */
+    MCS_REFERENCE_PERIOD_C_UINT64                   = 16U,      /*!< External sysref period driven to the center sysref receiver in femtoseconds. Must be non-zero in any MCS init or tracking mode. */
+    MCS_REFERENCE_PERIOD_A_UINT64                   = 17U,      /*!< Usually, External sysref period driven to the Side A's sysref receiver in femtoseconds. Must be non-zero in any MCS init or tracking mode. If MCS Init Cal mode = 3U, 4, or 5, and use_side_A_as_reference == 0; then, the Internal SysRef period in femtoseconds of the B-side's Internal Sysref should be provided. */
+    MCS_REFERENCE_PERIOD_B_UINT64                   = 18U,      /*!< Usually, External sysref period driven to the Side B's sysref receiver in femtoseconds. Must be non-zero in any MCS init or tracking mode. If MCS Init Cal mode = 3U, 4, or 5, and use_side_A_as_reference == 1; then, the Internal SysRef period in femtoseconds of the B-side's Internal Sysref should be provided. */
+    MCS_OFFSET_C_FEMTOSECONDS_INT64                 = 19U,      /*!< Desired time difference between the rising edge of Center MCS's Internal sysref and the rising edge of Center External SysRef. Notice, we can only adjust in steps of 1 high-speed clock period during MCS init Cal. */
+    MCS_OFFSET_A_FEMTOSECONDS_INT64                 = 20U,      /*!< Desired time difference between the rising edge of Side A MCS's Internal sysref and the rising edge of its reference sysref. Notice, we can only adjust in steps of 1 high-speed clock period during MCS init Cal. */
+    MCS_OFFSET_B_FEMTOSECONDS_INT64                 = 21U,      /*!< Desired time difference between the rising edge of Side B MCS's Internal sysref and the rising edge of it reference sysref. Notice, we can only adjust in steps of 1 high-speed clock period during MCS init Cal. */
+    MCS_ADF4382_DEL_MODE_UINT8                      = 22U,      /*!< Equivalent to DEL_MODE in ADF4382 datasheet. */
+    MCS_ADF4382_TRACK_START_COARSE_UINT8            = 23U,      /*!< User-Defined starting value for Coarse DAC Correction. */
+    MCS_ADF4382_TRACK_START_BLEED_POL_UINT8         = 24U,      /*!< User-Defined starting value for DAC Bleed Polarity. */
+    MCS_ADF4382_TRACK_POLARITY_SELECT_UINT8         = 25U,      /*!< Set to 1 to invert the polarity of correction. */
+    MCS_ADF4382_PHASE_ADJUSTMENT_UINT8              = 26U,      /*!< Increments on the ADF4382's Bleed Current Correction DAC per strobe. Must be programmed to match register phase_adjustment on ADF4382. */
+    MCS_ADF4382_TRACK_START_FINE_UINT16             = 27U,      /*!< User-Defined starting value for Fine DAC Correction. */
+    MCS_ADF4382_DELSTR_GPIO_0_UINT8                 = 28U,      /*!< AD9084's GPIO to be used as DELSTR for the single or Side A's ADF4382. */
+    MCS_ADF4382_DELSTR_GPIO_1_UINT8                 = 29U,      /*!< AD9084's GPIO to be used as DELSTR for Side B's ADF4382. */
+    MCS_ADF4382_DELADJ_GPIO_0_UINT8                 = 30U,      /*!< AD9084's GPIO to be used as DELADJ for the single or Side A's ADF4382. */
+    MCS_ADF4382_DELADJ_GPIO_1_UINT8                 = 31U,      /*!< AD9084's GPIO to be used as DELADJ for Side B's ADF4382. */
+    MCS_ADF4382_TRACK_WIN_UINT32                    = 32U,      /*!< Time in in absolute-value femtoseconds allowed for internal sysref to drift with respect to external sysref before MCS Tracking Calibration sends adjustments to ADF4382. */
+    MCS_ADF4382_TRACK_TARGET_0_INT32                = 33U,      /*!< Time offset in picoseconds between the rising edge of internal and External sysref for the single or Side A's ADF4382. */
+    MCS_ADF4382_TRACK_TARGET_1_INT32                = 34U,      /*!< Time offset in picoseconds between the rising edge of internal and External sysref for Side B's ADF4382. */
+    MCS_PARAMETER_LAST                              = 0xFFU
 } ADI_APOLLO_PACK_ENUM adi_apollo_mcs_parameter_e;
 
 /**
@@ -326,5 +326,5 @@ typedef struct {
 } adi_apollo_mcs_t;)
 #endif // !CLIENT_IGNORE
 
-#endif /* __ADI_APOLLO_MCS_CAL_TYPES_H__ */
+#endif /* ADI_APOLLO_MCS_CAL_TYPES_H__ */
 /*! @} */

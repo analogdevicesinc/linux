@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_PRIVATE_DEVICE
  * @{
  */
-#ifndef __ADI_APOLLO_PRIVATE_DEVICE_TYPES_H__
-#define __ADI_APOLLO_PRIVATE_DEVICE_TYPES_H__
+#ifndef ADI_APOLLO_PRIVATE_DEVICE_TYPES_H__
+#define ADI_APOLLO_PRIVATE_DEVICE_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 
@@ -43,5 +43,5 @@ typedef enum
     ADI_APOLLO_EC_LPBK123_LOCK              = 13,   /*! bit=1 lock out lpbk mode 1, 2, and 3. */
 } adi_apollo_private_device_feat_lockout_e;
 
-#endif /* __ADI_APOLLO_PRIVATE_DEVICE_TYPES_H__ */
+#endif /* ADI_APOLLO_PRIVATE_DEVICE_TYPES_H__ */
 /*! @} */

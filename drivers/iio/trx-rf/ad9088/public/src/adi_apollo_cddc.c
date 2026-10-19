@@ -34,6 +34,8 @@
 #include "adi_apollo_hal.h"
 #include "adi_utils.h"
 
+static uint32_t calc_rx_cddc_base(uint32_t cddc_index);
+
 /*==================== P U B L I C   A P I   C O D E ====================*/
 
 int32_t adi_apollo_cddc_dcm_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t cddcs, adi_apollo_cddc_ratio_e dcm)
@@ -47,17 +49,17 @@ int32_t adi_apollo_cddc_dcm_set(adi_apollo_device_t *device, adi_apollo_blk_sel_
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_CDDC_BLK_SEL_MASK(cddcs);
 
-    for(i = 0; i < ADI_APOLLO_CDDC_NUM; i ++) {
-        cddc = cddcs & (ADI_APOLLO_CDDC_A0 << i);
-        if (cddc > 0) {
+    for(i = 0U; i < ADI_APOLLO_CDDC_NUM; i ++) {
+        cddc = (uint16_t)(cddcs & ((uint32_t)ADI_APOLLO_CDDC_A0 << i));
+        if (cddc > 0U) {
             regmap_base_addr = calc_rx_cddc_base(i);
 
-            err = adi_apollo_hal_bf_set(device, BF_COARSE_DDC_DEC_SEL_INFO(regmap_base_addr), dcm);
+            err = adi_apollo_hal_bf_set(device, BF_COARSE_DDC_DEC_SEL_INFO(regmap_base_addr), (uint64_t)dcm);
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cddc_link_num_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t cddcs, uint8_t link_num)
@@ -71,9 +73,9 @@ int32_t adi_apollo_cddc_link_num_set(adi_apollo_device_t *device, adi_apollo_blk
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_CDDC_BLK_SEL_MASK(cddcs);
 
-    for(i = 0; i < ADI_APOLLO_CDDC_NUM; i ++) {
-        cddc = cddcs & (ADI_APOLLO_CDDC_A0 << i);
-        if (cddc > 0) {
+    for(i = 0U; i < ADI_APOLLO_CDDC_NUM; i ++) {
+        cddc = (uint16_t)(cddcs & ((uint32_t)ADI_APOLLO_CDDC_A0 << i));
+        if (cddc > 0U) {
             regmap_base_addr = calc_rx_cddc_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_LINK_NUM_RX_CDDC_INFO(regmap_base_addr), link_num);
@@ -81,7 +83,7 @@ int32_t adi_apollo_cddc_link_num_set(adi_apollo_device_t *device, adi_apollo_blk
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cddc_debug_clkoff_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t cddcs, uint8_t clkoff_n)
@@ -95,9 +97,9 @@ int32_t adi_apollo_cddc_debug_clkoff_set(adi_apollo_device_t *device, adi_apollo
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_CDDC_BLK_SEL_MASK(cddcs);
 
-    for(i = 0; i < ADI_APOLLO_CDDC_NUM; i ++) {
-        cddc = cddcs & (ADI_APOLLO_CDDC_A0 << i);
-        if (cddc > 0) {
+    for(i = 0U; i < ADI_APOLLO_CDDC_NUM; i ++) {
+        cddc = (uint16_t)(cddcs & ((uint32_t)ADI_APOLLO_CDDC_A0 << i));
+        if (cddc > 0U) {
             regmap_base_addr = calc_rx_cddc_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_CDDC_CLK_EN_INFO(regmap_base_addr), clkoff_n);
@@ -105,7 +107,7 @@ int32_t adi_apollo_cddc_debug_clkoff_set(adi_apollo_device_t *device, adi_apollo
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cddc_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel_t cddcs, adi_apollo_cddc_pgm_t *config)
@@ -120,12 +122,12 @@ int32_t adi_apollo_cddc_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel_t cd
     ADI_APOLLO_NULL_POINTER_RETURN(config);
     ADI_APOLLO_CDDC_BLK_SEL_MASK(cddcs);
 
-    for(i = 0; i < ADI_APOLLO_CDDC_NUM; i ++) {
-        cddc = cddcs & (ADI_APOLLO_CDDC_A0 << i);
-        if (cddc > 0) {
+    for(i = 0U; i < ADI_APOLLO_CDDC_NUM; i ++) {
+        cddc = (uint16_t)(cddcs & ((uint32_t)ADI_APOLLO_CDDC_A0 << i));
+        if (cddc > 0U) {
             regmap_base_addr = calc_rx_cddc_base(i);
 
-            err = adi_apollo_hal_bf_set(device, BF_COARSE_DDC_DEC_SEL_INFO(regmap_base_addr), config->dcm);
+            err = adi_apollo_hal_bf_set(device, BF_COARSE_DDC_DEC_SEL_INFO(regmap_base_addr), (uint64_t)config->dcm);
             ADI_APOLLO_ERROR_RETURN(err);
             err = adi_apollo_hal_bf_set(device, BF_LINK_NUM_RX_CDDC_INFO(regmap_base_addr), config->link_num);
             ADI_APOLLO_ERROR_RETURN(err);
@@ -137,7 +139,7 @@ int32_t adi_apollo_cddc_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel_t cd
             ADI_APOLLO_ERROR_RETURN(err);
             err = adi_apollo_hal_bf_set(device, BF_HB2_DEL_RX_CDDC_INFO(regmap_base_addr), config->hb2_filt_dly_en);
             ADI_APOLLO_ERROR_RETURN(err);
-            err = adi_apollo_hal_bf_set(device, BF_TB1_DEL_INFO(regmap_base_addr), config->tb1_filt_dly);
+            err = adi_apollo_hal_bf_set(device, BF_TB1_DEL_INFO(regmap_base_addr), (uint64_t)config->tb1_filt_dly);
             ADI_APOLLO_ERROR_RETURN(err);
             err = adi_apollo_hal_bf_set(device, BF_HB1_GAIN_EN_RX_CDDC_INFO(regmap_base_addr), config->hb1_gain_6db_en);
             ADI_APOLLO_ERROR_RETURN(err);
@@ -146,7 +148,7 @@ int32_t adi_apollo_cddc_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel_t cd
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cddc_inspect(adi_apollo_device_t *device, adi_apollo_blk_sel_t cddc, adi_apollo_cddc_inspect_t *cddc_inspect)
@@ -155,19 +157,20 @@ int32_t adi_apollo_cddc_inspect(adi_apollo_device_t *device, adi_apollo_blk_sel_
     uint8_t i;
     uint32_t regmap_base_addr = 0;
     adi_apollo_blk_sel_t cddc_x;
-    adi_apollo_cnco_inspect_t cnco_inspect = {{0}};
+    adi_apollo_cnco_inspect_t cnco_inspect;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    (void)memset(&cnco_inspect, 0, sizeof(cnco_inspect));
     ADI_APOLLO_NULL_POINTER_RETURN(cddc_inspect);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(cddc) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(cddc) != 1U);
     ADI_APOLLO_CDDC_BLK_SEL_MASK(cddc);
 
     // For 8t8r, regmap is shared for each split CDUC (A0/A2, A1/A3, ...)
-    cddc_x = ((cddc & 0xCC) >> 2) | (cddc & 0x33);
+    cddc_x = (uint16_t)(((cddc & 0xCCU) >> 2) | (cddc & 0x33U));
 
-    for(i = 0; i < ADI_APOLLO_CDDC_NUM; i ++) {
-        if ((cddc & (ADI_APOLLO_CDDC_A0 << i)) > 0) {
+    for(i = 0U; i < ADI_APOLLO_CDDC_NUM; i ++) {
+        if ((cddc & (uint16_t)((uint32_t)ADI_APOLLO_CDDC_A0 << i)) > 0U) {
             regmap_base_addr = calc_rx_cddc_base(i);
 
             // CNCO A0-A1, B0-B1
@@ -176,8 +179,8 @@ int32_t adi_apollo_cddc_inspect(adi_apollo_device_t *device, adi_apollo_blk_sel_
             cddc_inspect->dp_cfg.nco[0] = cnco_inspect.dp_cfg;
 
             // CNCO A2-A3, B2-B3
-            if (device->dev_info.is_8t8r) {
-                err = adi_apollo_cnco_inspect(device, ADI_APOLLO_RX, (cddc_x << 2), &cnco_inspect);
+            if (device->dev_info.is_8t8r != 0U) {
+                err = adi_apollo_cnco_inspect(device, ADI_APOLLO_RX, (uint16_t)(cddc_x << 2), &cnco_inspect);
                 ADI_APOLLO_ERROR_RETURN(err);
                 cddc_inspect->dp_cfg.nco[1] = cnco_inspect.dp_cfg;
             }
@@ -204,7 +207,7 @@ int32_t adi_apollo_cddc_inspect(adi_apollo_device_t *device, adi_apollo_blk_sel_
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cddc_fine_bypass_enable(adi_apollo_device_t *device, adi_apollo_blk_sel_t cddcs, uint8_t bypass_enable)
@@ -218,9 +221,9 @@ int32_t adi_apollo_cddc_fine_bypass_enable(adi_apollo_device_t *device, adi_apol
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_CDDC_BLK_SEL_MASK(cddcs);
 
-    for(i = 0; i < ADI_APOLLO_CDDC_NUM; i ++) {
-        cddc = cddcs & (ADI_APOLLO_CDDC_A0 << i);
-        if (cddc > 0) {
+    for(i = 0U; i < ADI_APOLLO_CDDC_NUM; i ++) {
+        cddc = (uint16_t)(cddcs & ((uint32_t)ADI_APOLLO_CDDC_A0 << i));
+        if (cddc > 0U) {
             regmap_base_addr = calc_rx_cddc_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_FINE_BYPASS_INFO(regmap_base_addr), bypass_enable);
@@ -228,7 +231,7 @@ int32_t adi_apollo_cddc_fine_bypass_enable(adi_apollo_device_t *device, adi_apol
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cddc_dcm_bf_to_val(adi_apollo_device_t *device, adi_apollo_cddc_ratio_e bf_enum, uint32_t *val)
@@ -242,58 +245,60 @@ int32_t adi_apollo_cddc_dcm_bf_to_val(adi_apollo_device_t *device, adi_apollo_cd
         case ADI_APOLLO_CDDC_RATIO_2:
         case ADI_APOLLO_CDDC_RATIO_3:
         case ADI_APOLLO_CDDC_RATIO_4:
-            *val = bf_enum + 1;
-        break;
+            *val = (uint32_t)bf_enum + 1U;
+            break;
 
         case ADI_APOLLO_CDDC_RATIO_6:
             *val = 6;
-        break;
+            break;
 
         case ADI_APOLLO_CDDC_RATIO_12:
             *val = 12;
-        break;
+            break;
 
         default:
             ADI_APOLLO_LOG_ERR("Invalid adi_apollo_cddc_ratio_e enum");
-            return API_CMS_ERROR_INVALID_PARAM;
+            ADI_CMS_RETURN(API_CMS_ERROR_INVALID_PARAM);
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cddc_gain_enable_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t cddcs, uint16_t filt_sel, uint8_t enable)
 {
-    int32_t err;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
     uint16_t i;
     adi_apollo_blk_sel_t cddc;
     uint32_t regmap_base_addr = 0;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
+    ADI_APOLLO_INVALID_PARAM_RETURN((filt_sel & (uint16_t)~ADI_APOLLO_CDDC_GAIN_ALL) != 0U);
     ADI_APOLLO_CDDC_BLK_SEL_MASK(cddcs);
+    ADI_APOLLO_INVALID_PARAM_RETURN((cddcs & (uint16_t)~ADI_APOLLO_CDDC_ALL) != 0U);
 
-    for (i = 0; i < ADI_APOLLO_CDDC_NUM; i++) {
-        cddc = cddcs & (ADI_APOLLO_CDDC_A0 << i);
-        if (cddc > 0) {
+    for (i = 0U; i < ADI_APOLLO_CDDC_NUM; i++) {
+        cddc = (uint16_t)(cddcs & ((uint32_t)ADI_APOLLO_CDDC_A0 << i));
+        if (cddc > 0U) {
             regmap_base_addr = calc_rx_cddc_base(i);
 
-            if ((filt_sel & ADI_APOLLO_CDDC_GAIN_HB1) != 0) {
-                err = adi_apollo_hal_bf_set(device, BF_HB1_GAIN_EN_RX_CDDC_INFO(regmap_base_addr), (enable != 0) ? 1 : 0);
+            if ((filt_sel & (uint8_t)ADI_APOLLO_CDDC_GAIN_HB1) != 0) {
+                err = adi_apollo_hal_bf_set(device, BF_HB1_GAIN_EN_RX_CDDC_INFO(regmap_base_addr), (enable != 0U) ? 1ULL : 0ULL);
             }
-            if ((filt_sel & ADI_APOLLO_CDDC_GAIN_TB1) != 0) {
-                err = adi_apollo_hal_bf_set(device, BF_TB1_GAIN_EN_INFO(regmap_base_addr), (enable != 0) ? 1 : 0);
+            if ((filt_sel & (uint8_t)ADI_APOLLO_CDDC_GAIN_TB1) != 0) {
+                err = adi_apollo_hal_bf_set(device, BF_TB1_GAIN_EN_INFO(regmap_base_addr), (enable != 0U) ? 1ULL : 0ULL);
             }
 
             ADI_APOLLO_ERROR_RETURN(err);
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_cddc_gain_enable_get(adi_apollo_device_t *device, adi_apollo_blk_sel_t cddcs, uint16_t filt_sel, uint8_t *enable)
 {
-    int32_t err;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
     uint16_t i;
     adi_apollo_blk_sel_t cddc;
     uint32_t regmap_base_addr = 0;
@@ -301,19 +306,21 @@ int32_t adi_apollo_cddc_gain_enable_get(adi_apollo_device_t *device, adi_apollo_
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(enable);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(cddcs) != 1);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(filt_sel) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(cddcs) != 1U);
+    ADI_APOLLO_INVALID_PARAM_RETURN((filt_sel & (uint16_t)~ADI_APOLLO_CDDC_GAIN_ALL) != 0U);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(filt_sel) != 1U);
     ADI_APOLLO_CDDC_BLK_SEL_MASK(cddcs);
+    ADI_APOLLO_INVALID_PARAM_RETURN((cddcs & (uint16_t)~ADI_APOLLO_CDDC_ALL) != 0U);
 
-    for (i = 0; i < ADI_APOLLO_CDDC_NUM; i++) {
-        cddc = cddcs & (ADI_APOLLO_CDDC_A0 << i);
-        if (cddc > 0) {
+    for (i = 0U; i < ADI_APOLLO_CDDC_NUM; i++) {
+        cddc = (uint16_t)(cddcs & ((uint32_t)ADI_APOLLO_CDDC_A0 << i));
+        if (cddc > 0U) {
             regmap_base_addr = calc_rx_cddc_base(i);
 
-            if ((filt_sel & ADI_APOLLO_CDDC_GAIN_HB1) != 0) {
+            if ((filt_sel & (uint8_t)ADI_APOLLO_CDDC_GAIN_HB1) != 0) {
                 err = adi_apollo_hal_bf_get(device, BF_HB1_GAIN_EN_RX_CDDC_INFO(regmap_base_addr), enable, sizeof(*enable));
             }
-            if ((filt_sel & ADI_APOLLO_CDDC_GAIN_TB1) != 0) {
+            if ((filt_sel & (uint8_t)ADI_APOLLO_CDDC_GAIN_TB1) != 0) {
                 err = adi_apollo_hal_bf_get(device, BF_TB1_GAIN_EN_INFO(regmap_base_addr), enable, sizeof(*enable));
             }
             ADI_APOLLO_ERROR_RETURN(err);
@@ -322,12 +329,12 @@ int32_t adi_apollo_cddc_gain_enable_get(adi_apollo_device_t *device, adi_apollo_
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 
 
-uint32_t calc_rx_cddc_base(int32_t cddc_index)
+static uint32_t calc_rx_cddc_base(uint32_t cddc_index)
 {
     static uint32_t rx_cddc_regmap[ADI_APOLLO_CDDC_NUM] = {
         RX_CDDC_RX_SLICE_0_RX_DIGITAL0, RX_CDDC_RX_SLICE_1_RX_DIGITAL0,

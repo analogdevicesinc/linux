@@ -12,23 +12,23 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_TXRX_STREAMPROC_CONFIG_H__
-#define __ADI_APOLLO_BF_TXRX_STREAMPROC_CONFIG_H__
+#ifndef ADI_APOLLO_BF_TXRX_STREAMPROC_CONFIG_H__
+#define ADI_APOLLO_BF_TXRX_STREAMPROC_CONFIG_H__
 
 /*============= D E F I N E S ==============*/
-#define RX_STREAMPROC_CONFIG_RX_DIGITAL0                            0x60022000
-#define RX_STREAMPROC_CONFIG_RX_DIGITAL1                            0x60822000
-#define TX_STREAMPROC_CONFIG_TX_TOP_TX_DIGITAL0                     0x61021000
-#define TX_STREAMPROC_CONFIG_TX_TOP_TX_DIGITAL1                     0x61821000
+#define RX_STREAMPROC_CONFIG_RX_DIGITAL0                            0x60022000U
+#define RX_STREAMPROC_CONFIG_RX_DIGITAL1                            0x60822000U
+#define TX_STREAMPROC_CONFIG_TX_TOP_TX_DIGITAL0                     0x61021000U
+#define TX_STREAMPROC_CONFIG_TX_TOP_TX_DIGITAL1                     0x61821000U
 
-#define REG_STREAMPROC_1US_COUNT_ADDR(inst)                         ((inst) + 0x00000000)
-#define BF_REFERENCE_CLOCK_CYCLES_TXRX_STREAMPROC_CONFIG_INFO(inst) ((inst) + 0x00000000), 0x00000800
+#define REG_STREAMPROC_1US_COUNT_ADDR(inst)                         ((uint32_t)(inst) + 0x00000000U)
+#define BF_REFERENCE_CLOCK_CYCLES_TXRX_STREAMPROC_CONFIG_INFO(inst) ((uint32_t)(inst) + 0x00000000U), 0x00000800U
 
-#define REG_STREAMPROC_REG_RD_DELAY_ADDR(inst)                      ((inst) + 0x00000001)
-#define BF_STREAMPROC_REG_RD_DELAY_INFO(inst)                       ((inst) + 0x00000001), 0x00000400
+#define REG_STREAMPROC_REG_RD_DELAY_ADDR(inst)                      ((uint32_t)(inst) + 0x00000001U)
+#define BF_STREAMPROC_REG_RD_DELAY_INFO(inst)                       ((uint32_t)(inst) + 0x00000001U), 0x00000400U
 
-#define REG_STREAMPROC_EVENT_TRIG_MASK_ADDR(inst)                   ((inst) + 0x00000002)
-#define BF_STREAMPROC_EVENT_TRIG_MASK_INFO(inst)                    ((inst) + 0x00000002), 0x00000800
+#define REG_STREAMPROC_EVENT_TRIG_MASK_ADDR(inst)                   ((uint32_t)(inst) + 0x00000002U)
+#define BF_STREAMPROC_EVENT_TRIG_MASK_INFO(inst)                    ((uint32_t)(inst) + 0x00000002U), 0x00000800U
 
-#endif /* __ADI_APOLLO_BF_TXRX_STREAMPROC_CONFIG_H__ */
+#endif /* ADI_APOLLO_BF_TXRX_STREAMPROC_CONFIG_H__ */
 /*! @} */

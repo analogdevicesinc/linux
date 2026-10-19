@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_MAILBOX_HANDLER_LOCAL
  * @{
  */
-#ifndef __ADI_APOLLO_MAILBOX_HANDLER_LOCAL_H__
-#define __ADI_APOLLO_MAILBOX_HANDLER_LOCAL_H__
+#ifndef ADI_APOLLO_MAILBOX_HANDLER_LOCAL_H__
+#define ADI_APOLLO_MAILBOX_HANDLER_LOCAL_H__
 
 /*============= I N C L U D E S ============*/
 
@@ -35,5 +35,5 @@ int32_t adi_apollo_mailbox_xfer(adi_apollo_device_t *device, adi_apollo_mailbox_
 }
 #endif
 
-#endif /* __ADI_APOLLO_MAILBOX_HANDLER_LOCAL_H__ */
+#endif /* ADI_APOLLO_MAILBOX_HANDLER_LOCAL_H__ */
 /*! @} */

@@ -12,48 +12,48 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_RC_TUNER_ANALOG_H__
-#define __ADI_APOLLO_BF_RC_TUNER_ANALOG_H__
+#ifndef ADI_APOLLO_BF_RC_TUNER_ANALOG_H__
+#define ADI_APOLLO_BF_RC_TUNER_ANALOG_H__
 
 /*============= D E F I N E S ==============*/
-#define RC_TUNER0                             0x4C001B00
-#define RC_TUNER1                             0x4C001F00
+#define RC_TUNER0                             0x4C001B00U
+#define RC_TUNER1                             0x4C001F00U
 
-#define REG_RC_TUNER_CTRL_ADDR(inst)          ((inst) + 0x00000000)
-#define BF_RXADC_PD_INFO(inst)                ((inst) + 0x00000000), 0x00000100
-#define BF_RXADC_RCAL_START_INFO(inst)        ((inst) + 0x00000000), 0x00000101
-#define BF_RXADC_CCAL_START_INFO(inst)        ((inst) + 0x00000000), 0x00000102
-#define BF_RXADC_PD_REF_INFO(inst)            ((inst) + 0x00000000), 0x00000103
+#define REG_RC_TUNER_CTRL_ADDR(inst)          ((uint32_t)(inst) + 0x00000000U)
+#define BF_RXADC_PD_INFO(inst)                ((uint32_t)(inst) + 0x00000000U), 0x00000100U
+#define BF_RXADC_RCAL_START_INFO(inst)        ((uint32_t)(inst) + 0x00000000U), 0x00000101U
+#define BF_RXADC_CCAL_START_INFO(inst)        ((uint32_t)(inst) + 0x00000000U), 0x00000102U
+#define BF_RXADC_PD_REF_INFO(inst)            ((uint32_t)(inst) + 0x00000000U), 0x00000103U
 
-#define REG_RC_TUNER_CAP_MSB_ADDR(inst)       ((inst) + 0x00000001)
+#define REG_RC_TUNER_CAP_MSB_ADDR(inst)       ((uint32_t)(inst) + 0x00000001U)
 
-#define REG_RC_TUNER_CAP_LSB_ADDR(inst)       ((inst) + 0x00000002)
-#define BF_RXADC_CAP_SCALE_CONST_INFO(inst)   ((inst) + 0x00000002), 0x00000C00
+#define REG_RC_TUNER_CAP_LSB_ADDR(inst)       ((uint32_t)(inst) + 0x00000002U)
+#define BF_RXADC_CAP_SCALE_CONST_INFO(inst)   ((uint32_t)(inst) + 0x00000002U), 0x00000C00U
 
-#define REG_RC_TUNER_CAP_SCALE_MSB_ADDR(inst) ((inst) + 0x00000003)
+#define REG_RC_TUNER_CAP_SCALE_MSB_ADDR(inst) ((uint32_t)(inst) + 0x00000003U)
 
-#define REG_RC_TUNER_CAP_SCALE_LSB_ADDR(inst) ((inst) + 0x00000004)
-#define BF_RXADC_G_SCALE_CONST_INFO(inst)     ((inst) + 0x00000004), 0x00000C00
+#define REG_RC_TUNER_CAP_SCALE_LSB_ADDR(inst) ((uint32_t)(inst) + 0x00000004U)
+#define BF_RXADC_G_SCALE_CONST_INFO(inst)     ((uint32_t)(inst) + 0x00000004U), 0x00000C00U
 
-#define REG_RC_TUNER_MEAS1_LSB_ADDR(inst)     ((inst) + 0x00000005)
-#define BF_RXADC_G_MEASURED_1_INFO(inst)      ((inst) + 0x00000005), 0x00000C00
+#define REG_RC_TUNER_MEAS1_LSB_ADDR(inst)     ((uint32_t)(inst) + 0x00000005U)
+#define BF_RXADC_G_MEASURED_1_INFO(inst)      ((uint32_t)(inst) + 0x00000005U), 0x00000C00U
 
-#define REG_RC_TUNER_MEAS1_MSB_ADDR(inst)     ((inst) + 0x00000006)
+#define REG_RC_TUNER_MEAS1_MSB_ADDR(inst)     ((uint32_t)(inst) + 0x00000006U)
 
-#define REG_RC_TUNER_MEAS2_MSB_ADDR(inst)     ((inst) + 0x00000007)
+#define REG_RC_TUNER_MEAS2_MSB_ADDR(inst)     ((uint32_t)(inst) + 0x00000007U)
 
-#define REG_RC_TUNER_MEAS2_LSB_ADDR(inst)     ((inst) + 0x00000008)
-#define BF_RXADC_G_MEASURED_2_INFO(inst)      ((inst) + 0x00000008), 0x00000C00
+#define REG_RC_TUNER_MEAS2_LSB_ADDR(inst)     ((uint32_t)(inst) + 0x00000008U)
+#define BF_RXADC_G_MEASURED_2_INFO(inst)      ((uint32_t)(inst) + 0x00000008U), 0x00000C00U
 
-#define REG_RC_TUNER_COUNT_N1_MSB_ADDR(inst)  ((inst) + 0x00000009)
+#define REG_RC_TUNER_COUNT_N1_MSB_ADDR(inst)  ((uint32_t)(inst) + 0x00000009U)
 
-#define REG_RC_TUNER_COUNT_N1_LSB_ADDR(inst)  ((inst) + 0x0000000A)
-#define BF_RXADC_N1_COUNT_INFO(inst)          ((inst) + 0x0000000A), 0x00000B00
+#define REG_RC_TUNER_COUNT_N1_LSB_ADDR(inst)  ((uint32_t)(inst) + 0x0000000AU)
+#define BF_RXADC_N1_COUNT_INFO(inst)          ((uint32_t)(inst) + 0x0000000AU), 0x00000B00U
 
-#define REG_RC_TUNER_COUNT_N2_MSB_ADDR(inst)  ((inst) + 0x0000000B)
+#define REG_RC_TUNER_COUNT_N2_MSB_ADDR(inst)  ((uint32_t)(inst) + 0x0000000BU)
 
-#define REG_RC_TUNER_COUNT_N2_LSB_ADDR(inst)  ((inst) + 0x0000000C)
-#define BF_RXADC_N2_COUNT_INFO(inst)          ((inst) + 0x0000000C), 0x00000B00
+#define REG_RC_TUNER_COUNT_N2_LSB_ADDR(inst)  ((uint32_t)(inst) + 0x0000000CU)
+#define BF_RXADC_N2_COUNT_INFO(inst)          ((uint32_t)(inst) + 0x0000000CU), 0x00000B00U
 
-#endif /* __ADI_APOLLO_BF_RC_TUNER_ANALOG_H__ */
+#endif /* ADI_APOLLO_BF_RC_TUNER_ANALOG_H__ */
 /*! @} */

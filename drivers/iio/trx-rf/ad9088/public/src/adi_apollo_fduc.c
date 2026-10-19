@@ -31,6 +31,7 @@
 static const uint8_t fduc_sel_to_reg_bit[8] = { 0x01, 0x04, 0x10, 0x40, 0x02, 0x08, 0x20, 0x80 };
 
 uint32_t calc_fduc_irq_offset(int32_t idx);
+static uint32_t calc_tx_fduc_base(uint32_t idx);
 
 /*==================== P U B L I C   A P I   C O D E ====================*/
 
@@ -45,9 +46,9 @@ int32_t adi_apollo_fduc_interp_set(adi_apollo_device_t *device, adi_apollo_blk_s
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_FDUC_BLK_SEL_MASK(fducs);
 
-    for (i = 0; i < ADI_APOLLO_FDUC_NUM; i++) {
-        fduc = fducs & (ADI_APOLLO_FDUC_A0 << i);
-        if (fduc > 0) {
+    for (i = 0U; i < ADI_APOLLO_FDUC_NUM; i++) {
+        fduc = fducs & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FDUC_A0 << i);
+        if (fduc > 0U) {
             regmap_base_addr = calc_tx_fduc_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_FDUC_INTERP_INFO(regmap_base_addr), interp);
@@ -55,7 +56,7 @@ int32_t adi_apollo_fduc_interp_set(adi_apollo_device_t *device, adi_apollo_blk_s
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fduc_subdp_gain_enable(adi_apollo_device_t *device, adi_apollo_blk_sel_t fducs, uint8_t enable)
@@ -69,9 +70,9 @@ int32_t adi_apollo_fduc_subdp_gain_enable(adi_apollo_device_t *device, adi_apoll
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_FDUC_BLK_SEL_MASK(fducs);
 
-    for (i = 0; i < ADI_APOLLO_FDUC_NUM; i++) {
-        fduc = fducs & (ADI_APOLLO_FDUC_A0 << i);
-        if (fduc > 0) {
+    for (i = 0U; i < ADI_APOLLO_FDUC_NUM; i++) {
+        fduc = fducs & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FDUC_A0 << i);
+        if (fduc > 0U) {
             regmap_base_addr = calc_tx_fduc_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_SUB_DP_GAIN_EN_INFO(regmap_base_addr), enable);
@@ -79,7 +80,7 @@ int32_t adi_apollo_fduc_subdp_gain_enable(adi_apollo_device_t *device, adi_apoll
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fduc_subdp_gain_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t fducs, uint16_t gain)
@@ -93,9 +94,9 @@ int32_t adi_apollo_fduc_subdp_gain_set(adi_apollo_device_t *device, adi_apollo_b
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_FDUC_BLK_SEL_MASK(fducs);
 
-    for (i = 0; i < ADI_APOLLO_FDUC_NUM; i++) {
-        fduc = fducs & (ADI_APOLLO_FDUC_A0 << i);
-        if (fduc > 0) {
+    for (i = 0U; i < ADI_APOLLO_FDUC_NUM; i++) {
+        fduc = fducs & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FDUC_A0 << i);
+        if (fduc > 0U) {
             regmap_base_addr = calc_tx_fduc_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_SUBDP_GAIN_INFO(regmap_base_addr), gain);
@@ -103,7 +104,7 @@ int32_t adi_apollo_fduc_subdp_gain_set(adi_apollo_device_t *device, adi_apollo_b
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fduc_int_tdly_hb_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t fducs, uint8_t dly)
@@ -117,9 +118,9 @@ int32_t adi_apollo_fduc_int_tdly_hb_set(adi_apollo_device_t *device, adi_apollo_
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_FDUC_BLK_SEL_MASK(fducs);
 
-    for (i = 0; i < ADI_APOLLO_FDUC_NUM; i++) {
-        fduc = fducs & (ADI_APOLLO_FDUC_A0 << i);
-        if (fduc > 0) {
+    for (i = 0U; i < ADI_APOLLO_FDUC_NUM; i++) {
+        fduc = fducs & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FDUC_A0 << i);
+        if (fduc > 0U) {
             regmap_base_addr = calc_tx_fduc_base(i);
 
             err = adi_apollo_hal_reg_set(device, REG_INT_TIME_DELAY_ADDR(regmap_base_addr), dly);
@@ -127,7 +128,7 @@ int32_t adi_apollo_fduc_int_tdly_hb_set(adi_apollo_device_t *device, adi_apollo_
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fduc_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel_t fducs, const adi_apollo_fduc_pgm_t *config)
@@ -142,10 +143,10 @@ int32_t adi_apollo_fduc_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel_t fd
     ADI_APOLLO_NULL_POINTER_RETURN(config);
     ADI_APOLLO_FDUC_BLK_SEL_MASK(fducs);
 
-    for (i = 0; i < ADI_APOLLO_FDUC_NUM; i++) {
-        fduc = fducs & (ADI_APOLLO_FDUC_A0 << i);
+    for (i = 0U; i < ADI_APOLLO_FDUC_NUM; i++) {
+        fduc = fducs & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FDUC_A0 << i);
 
-        if (fduc > 0) {
+        if (fduc > 0U) {
             regmap_base_addr = calc_tx_fduc_base(i);
 
             err = adi_apollo_hal_bf_set(device, BF_FDUC_INTERP_INFO(regmap_base_addr), config->interp);
@@ -166,7 +167,7 @@ int32_t adi_apollo_fduc_pgm(adi_apollo_device_t *device, adi_apollo_blk_sel_t fd
     err = adi_apollo_fduc_enable_set(device, fducs, config->fduc_spien_en, config->fduc_spi_en);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fduc_inspect(adi_apollo_device_t *device, adi_apollo_blk_sel_t fduc, adi_apollo_fduc_inspect_t *fduc_inspect)
@@ -176,19 +177,20 @@ int32_t adi_apollo_fduc_inspect(adi_apollo_device_t *device, adi_apollo_blk_sel_
     uint8_t fduc_en_reg;
     uint32_t regmap_base_addr = 0;
     adi_apollo_blk_sel_t fduc_x;
-    adi_apollo_fnco_inspect_t fnco_inspect = {{0}};
+    adi_apollo_fnco_inspect_t fnco_inspect;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(fduc_inspect);
-    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(fduc) != 1);
+    ADI_APOLLO_INVALID_PARAM_RETURN(adi_api_utils_num_selected(fduc) != 1U);
     ADI_APOLLO_FDUC_BLK_SEL_MASK(fduc);
+    (void)memset(&fnco_inspect, 0, sizeof(fnco_inspect));
 
     // For 8t8r, regmap is shared for each split FDUC (A0/A4, A1/A5, ...)
-    fduc_x = ((fduc & 0xF0F0) >> 4) | (fduc & 0x0F0F);
+    fduc_x = (adi_apollo_blk_sel_t)(((fduc & 0xF0F0U) >> 4) | (fduc & 0x0F0FU));
 
-    for (i = 0; i < ADI_APOLLO_FDUC_NUM; i++) {
-        if ((fduc_x & (ADI_APOLLO_FDUC_A0 << i)) > 0) {
+    for (i = 0U; i < ADI_APOLLO_FDUC_NUM; i++) {
+        if ((fduc_x & (uint16_t)((uint32_t)ADI_APOLLO_FDUC_A0 << i)) > 0U) {
             regmap_base_addr = calc_tx_fduc_base(i);
 
             // FNCO A0-A3, B0-B3
@@ -197,8 +199,8 @@ int32_t adi_apollo_fduc_inspect(adi_apollo_device_t *device, adi_apollo_blk_sel_
             fduc_inspect->dp_cfg.nco[0] = fnco_inspect.dp_cfg;
 
             // FNCO A4-A7, B4-B7
-            if (device->dev_info.is_8t8r) {
-                err = adi_apollo_fnco_inspect(device, ADI_APOLLO_TX, (fduc_x << 4), &fnco_inspect);
+            if (device->dev_info.is_8t8r != 0U) {
+                err = adi_apollo_fnco_inspect(device, ADI_APOLLO_TX, (adi_apollo_blk_sel_t)(fduc_x << 4), &fnco_inspect);
                 ADI_APOLLO_ERROR_RETURN(err);
                 fduc_inspect->dp_cfg.nco[1] = fnco_inspect.dp_cfg;
             }
@@ -230,7 +232,7 @@ int32_t adi_apollo_fduc_inspect(adi_apollo_device_t *device, adi_apollo_blk_sel_
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fduc_enable_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t fducs, uint8_t fduc_spien_en, uint8_t fduc_spi_en)
@@ -250,15 +252,15 @@ int32_t adi_apollo_fduc_enable_set(adi_apollo_device_t *device, adi_apollo_blk_s
 
     for (i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
 
-        fducs_side = (fducs >> ((i == 0) ? 0 : ADI_APOLLO_FDUC_PER_SIDE_NUM)) & sel_mask;
+        fducs_side = (adi_apollo_blk_sel_t)((fducs >> ((i == 0U) ? 0U : ADI_APOLLO_FDUC_PER_SIDE_NUM)) & sel_mask);
 
-        if (!fducs_side) {
+        if (fducs_side == 0U) {
             continue;
         }
 
         regmap_base_addr = calc_tx_misc_base(i);        // Regmap base address for side
 
-        err = adi_apollo_hal_bf_set(device, BF_FDUC_SPI_EN_INFO(regmap_base_addr), fduc_spien_en != 0 ? 1 : 0); // enable spi control for side
+        err = adi_apollo_hal_bf_set(device, BF_FDUC_SPI_EN_INFO(regmap_base_addr), (fduc_spien_en != 0U) ? 1ULL : 0ULL); // enable spi control for side
         ADI_APOLLO_ERROR_RETURN(err);
 
         err = adi_apollo_hal_reg_get(device, REG_FDUC_EN_SPI_ADDR(regmap_base_addr), &fduc_en_reg);
@@ -266,24 +268,25 @@ int32_t adi_apollo_fduc_enable_set(adi_apollo_device_t *device, adi_apollo_blk_s
 
         fduc_en_reg_mask = 0;
         fduc_en_reg_val = 0;
-        for (j = 0; j < ADI_APOLLO_FDUC_PER_SIDE_NUM; j++) {
-            fduc = fducs_side & (ADI_APOLLO_FDUC_A0 << j);
+        for (j = 0U; j < ADI_APOLLO_FDUC_PER_SIDE_NUM; j++) {
+            fduc = fducs_side & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FDUC_A0 << j);
 
             /* Only modify selected FDUCs */
-            if (fduc) {
+            if (fduc != 0U) {
+                unsigned int mask_bits = (fduc_sel_to_reg_bit[j] & (fduc_spi_en ? 0xFFU : 0x00U));
                 fduc_en_reg_mask |= fduc_sel_to_reg_bit[j];
-                fduc_en_reg_val |= (fduc_sel_to_reg_bit[j] & (fduc_spi_en ? 0xFF : 00));
+                fduc_en_reg_val |= (uint8_t)mask_bits;
             }
         }
 
-        fduc_en_reg &= ~(fduc_en_reg_mask);
+        fduc_en_reg &= (uint8_t)(~(fduc_en_reg_mask));
         fduc_en_reg |= fduc_en_reg_val;
 
         err = adi_apollo_hal_reg_set(device, REG_FDUC_EN_SPI_ADDR(regmap_base_addr), fduc_en_reg);  // set the FDUC enable mask
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 
@@ -303,13 +306,14 @@ int32_t adi_apollo_fduc_interp_bf_to_val(adi_apollo_device_t* device, adi_apollo
     case ADI_APOLLO_FDUC_RATIO_64:
         *val = bf_enum;
         break;
-
     default:
+    {
         ADI_APOLLO_LOG_ERR("Invalid adi_apollo_fduc_ratio_e enum");
-        return API_CMS_ERROR_INVALID_PARAM;
+        ADI_CMS_RETURN(API_CMS_ERROR_INVALID_PARAM);
+    }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_fduc_irq_enable_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t fducs, uint8_t enable)
@@ -323,9 +327,9 @@ int32_t adi_apollo_fduc_irq_enable_set(adi_apollo_device_t *device, adi_apollo_b
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_FDUC_BLK_SEL_MASK(fducs);
 
-    for (fduc_index = 0;  fduc_index < ADI_APOLLO_FDUC_NUM; fduc_index++) {
-        fduc = fducs & (ADI_APOLLO_FDUC_A0 << fduc_index);
-        if (fduc > 0) {
+    for (fduc_index = 0U;  fduc_index < ADI_APOLLO_FDUC_NUM; fduc_index++) {
+        fduc = fducs & (adi_apollo_blk_sel_t)((uint32_t)ADI_APOLLO_FDUC_A0 << fduc_index);
+        if (fduc > 0U) {
             regmap_base_addr = calc_tx_misc_base(fduc_index / ADI_APOLLO_FDUC_PER_SIDE_NUM);
             regmap_offset = calc_fduc_irq_offset(fduc % ADI_APOLLO_FDUC_PER_SIDE_NUM);
             
@@ -334,10 +338,10 @@ int32_t adi_apollo_fduc_irq_enable_set(adi_apollo_device_t *device, adi_apollo_b
         }
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
-uint32_t calc_tx_fduc_base(int32_t idx)
+static uint32_t calc_tx_fduc_base(uint32_t idx)
 {
     static const uint32_t tx_fduc_regmap[ADI_APOLLO_FDUC_NUM] = {
         TX_FDUC0_TX_SLICE_0_TX_DIGITAL0, TX_FDUC1_TX_SLICE_0_TX_DIGITAL0, TX_FDUC0_TX_SLICE_1_TX_DIGITAL0, TX_FDUC1_TX_SLICE_1_TX_DIGITAL0,

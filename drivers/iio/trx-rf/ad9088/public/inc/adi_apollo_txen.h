@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_TXEN
  * @{
  */
-#ifndef __ADI_APOLLO_TXEN_H__
-#define __ADI_APOLLO_TXEN_H__
+#ifndef ADI_APOLLO_TXEN_H__
+#define ADI_APOLLO_TXEN_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_txen_types.h"
@@ -118,6 +118,31 @@ int32_t adi_apollo_txen_pwrup_ctrl_sel_cnt_rate_set(adi_apollo_device_t *device,
  */
 int32_t adi_apollo_txen_pwrup_ctrl_sm_en_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t dacs, uint8_t sm_en);
 
+/**
+ * \brief Configure channel(s) to be controlled by a specific TXen signal.
+ *
+ * Simplified configuration for enabling/disabling TX datapaths via GPIO,
+ * without requiring direct use of adi_apollo_txen_pwrup_ctrl_config_set()
+ * and adi_apollo_txen_config_set().
+ *
+ * Configures the CONV_POW_ONOFF, POWER_CTRL and TXRX_ENABLE blocks to route
+ * the selected TXen source to control the specified TX datapath destinations.
+ *
+ * \param[in]  device              Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  tx_enable           TXen source input select. \ref adi_apollo_rxtx_enable_e
+ * \param[in]  dest_tx_sel         Bitmask of one or more datapaths. \ref adi_apollo_txen_en_select_e
+ * \param[in]  delay_rise_ns       Rise delay in nanoseconds (0 = no delay)
+ * \param[in]  delay_fall_ns       Fall delay in nanoseconds (0 = no delay)
+ * \param[in]  pa_delay_rise_ns    Delay between datapath enable and PA enable on rising edge in nanoseconds
+ * \param[in]  pa_delay_fall_ns    Delay between TxEN falling and PA disable in nanoseconds
+ *
+ * \return API_CMS_ERROR_OK                     API Completed Successfully
+ * \return <0                                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_txen_set(adi_apollo_device_t *device, adi_apollo_rxtx_enable_e tx_enable,
+    adi_apollo_txen_en_select_e dest_tx_sel, uint32_t delay_rise_ns, uint32_t delay_fall_ns,
+    uint32_t pa_delay_rise_ns, uint32_t pa_delay_fall_ns);
+
 #ifndef CLIENT_IGNORE
 
 #endif /* CLIENT_IGNORE*/
@@ -126,5 +151,5 @@ int32_t adi_apollo_txen_pwrup_ctrl_sm_en_set(adi_apollo_device_t *device, adi_ap
 }
 #endif
 
-#endif /* __ADI_APOLLO_TXEN_H__ */
+#endif /* ADI_APOLLO_TXEN_H__ */
 /*! @} */

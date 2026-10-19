@@ -27,29 +27,30 @@ int32_t adi_apollo_sysclk_cond_cal(adi_apollo_device_t* device)
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
 
-    adi_apollo_hal_log_write(device, ADI_CMS_LOG_API, "Starting clock conditioning cal (can take up to %d secs)...\n", ADI_APOLLO_SYSCLK_COND_CENTER_MAX_TO);
+    (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_API, "Starting clock conditioning cal (can take up to %d secs)...\n", ADI_APOLLO_SYSCLK_COND_CENTER_MAX_TO);
 
     /*** ADC and SERDES tracking cals must be disabled ***/
 
     /*
      * Run clock conditioning calibration
     */
-    cc_cmd.clk_path_segment = APOLLO_SYSCLK_ALL_WITH_RINGOSC_SWITCH;
-    if (err = adi_apollo_mailbox_sysclk_conditioning(device, &cc_cmd, &sysclk_cond_resp), err != API_CMS_ERROR_OK) {
-        adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "adi_apollo_sysclk_cond_cal returned err = %d", err);
+    cc_cmd.clk_path_segment = (uint8_t)APOLLO_SYSCLK_ALL_WITH_RINGOSC_SWITCH;
+    err = adi_apollo_mailbox_sysclk_conditioning(device, &cc_cmd, &sysclk_cond_resp);
+    if (err != (int32_t)API_CMS_ERROR_OK) {
+        (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "adi_apollo_sysclk_cond_cal returned err = %d", err);
         goto end;
     }
-    if (sysclk_cond_resp.status != APOLLO_CPU_NO_ERROR) {
-        adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "adi_apollo_sysclk_cond_cal response = %d", sysclk_cond_resp.status);
-        err = API_CMS_ERROR_ERROR;
+    if (sysclk_cond_resp.status != (uint32_t)APOLLO_CPU_NO_ERROR) {
+        (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "adi_apollo_sysclk_cond_cal response = %d", sysclk_cond_resp.status);
+        err = (int32_t)API_CMS_ERROR_ERROR;
         goto end;
     }
     else {
-        adi_apollo_hal_log_write(device, ADI_CMS_LOG_API, "End clock conditioning: OK");
+        (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_API, "End clock conditioning: OK");
     }
 
 end:
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 int32_t adi_apollo_sysclk_cond_bg_cal_start(adi_apollo_device_t* device)
@@ -61,16 +62,18 @@ int32_t adi_apollo_sysclk_cond_bg_cal_start(adi_apollo_device_t* device)
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
 
-    cc_cmd.clk_path_segment = APOLLO_SYSCLK_START_BG_CAL;
-    if (err = adi_apollo_mailbox_sysclk_conditioning(device, &cc_cmd, &sysclk_cond_resp), err != API_CMS_ERROR_OK) {
-        adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "adi_apollo_mailbox_sysclk_conditioning returned err = %d", err);
-    }
-    if (sysclk_cond_resp.status != APOLLO_CPU_NO_ERROR) {
-        adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "adi_apollo_sysclk_bg_cond_caldata_start_validate response = %d", sysclk_cond_resp.status);
-        err = API_CMS_ERROR_ERROR;
+    cc_cmd.clk_path_segment = (uint8_t)APOLLO_SYSCLK_START_BG_CAL;
+    err = adi_apollo_mailbox_sysclk_conditioning(device, &cc_cmd, &sysclk_cond_resp);
+    if (err != (int32_t)API_CMS_ERROR_OK) {
+        (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "adi_apollo_mailbox_sysclk_conditioning returned err = %d", err);
+    } else if (sysclk_cond_resp.status != (uint32_t)APOLLO_CPU_NO_ERROR) {
+        (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "adi_apollo_sysclk_bg_cond_caldata_start_validate response = %d", sysclk_cond_resp.status);
+        err = (int32_t)API_CMS_ERROR_ERROR;
+    } else {
+        err = (int32_t)API_CMS_ERROR_OK;
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(err);
 }
 
 int32_t adi_apollo_sysclk_cond_bg_cal_stop(adi_apollo_device_t* device)
@@ -82,16 +85,18 @@ int32_t adi_apollo_sysclk_cond_bg_cal_stop(adi_apollo_device_t* device)
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
 
-    cc_cmd.clk_path_segment = APOLLO_SYSCLK_STOP_BG_CAL;
-    if (err = adi_apollo_mailbox_sysclk_conditioning(device, &cc_cmd, &sysclk_cond_resp), err != API_CMS_ERROR_OK) {
-        adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "adi_apollo_mailbox_sysclk_conditioning returned err = %d", err);
-    }
-    if (sysclk_cond_resp.status != APOLLO_CPU_NO_ERROR) {
-        adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "adi_apollo_sysclk_bg_cond_caldata_stop_validate response = %d", sysclk_cond_resp.status);
-        err = API_CMS_ERROR_ERROR;
+    cc_cmd.clk_path_segment = (uint8_t)APOLLO_SYSCLK_STOP_BG_CAL;
+    err = adi_apollo_mailbox_sysclk_conditioning(device, &cc_cmd, &sysclk_cond_resp);
+    if (err != (int32_t)API_CMS_ERROR_OK) {
+        (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "adi_apollo_mailbox_sysclk_conditioning returned err = %d", err);
+    } else if (sysclk_cond_resp.status != (uint32_t)APOLLO_CPU_NO_ERROR) {
+        (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "adi_apollo_sysclk_bg_cond_caldata_stop_validate response = %d", sysclk_cond_resp.status);
+        err = (int32_t)API_CMS_ERROR_ERROR;
+    } else {
+        err = (int32_t)API_CMS_ERROR_OK;
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(err);
 }
 
 int32_t adi_apollo_sysclk_cond_bg_cal_resume(adi_apollo_device_t* device)
@@ -104,14 +109,16 @@ int32_t adi_apollo_sysclk_cond_bg_cal_resume(adi_apollo_device_t* device)
     ADI_APOLLO_LOG_FUNC();
 
     cc_cmd.clk_path_segment = APOLLO_SYSCLK_RESUME_BG_CAL;
-    if (err = adi_apollo_mailbox_sysclk_conditioning(device, &cc_cmd, &sysclk_cond_resp), err != API_CMS_ERROR_OK) {
-        adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "adi_apollo_mailbox_sysclk_conditioning returned err = %d", err);
-    }
-    if (sysclk_cond_resp.status != APOLLO_CPU_NO_ERROR) {
-        adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "adi_apollo_sysclk_bg_cond_caldata_resume_validate response = %d", sysclk_cond_resp.status);
-        err = API_CMS_ERROR_ERROR;
+    err = adi_apollo_mailbox_sysclk_conditioning(device, &cc_cmd, &sysclk_cond_resp);
+    if (err != (int32_t)API_CMS_ERROR_OK) {
+        (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "adi_apollo_mailbox_sysclk_conditioning returned err = %d", err);
+    } else if (sysclk_cond_resp.status != (uint32_t)APOLLO_CPU_NO_ERROR) {
+        (void)adi_apollo_hal_log_write(device, ADI_CMS_LOG_ERR, "adi_apollo_sysclk_bg_cond_caldata_resume_validate response = %d", sysclk_cond_resp.status);
+        err = (int32_t)API_CMS_ERROR_ERROR;
+    } else {
+        err = (int32_t)API_CMS_ERROR_OK;
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(err);
 }
 /*! @} */

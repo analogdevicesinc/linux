@@ -7,8 +7,8 @@
  *            associated analog devices software license agreement.
  */
 
-#ifndef __ADI_APOLLO_HAL_REGIO_LOCAL_H__
-#define __ADI_APOLLO_HAL_REGIO_LOCAL_H__
+#ifndef ADI_APOLLO_HAL_REGIO_LOCAL_H__
+#define ADI_APOLLO_HAL_REGIO_LOCAL_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_hal_regio_spi_types.h"
@@ -16,7 +16,7 @@
 
 /*============= D E F I N E S ==============*/
 
-#define ADI_APOLLO_HAL_REGIO_NOMASK 0
+#define ADI_APOLLO_HAL_REGIO_NOMASK 0U
 #define ADI_APOLLO_HAL_REGIO_NOT_PAGED 0
 #define ADI_APOLLO_HAL_REGIO_PAGED  1
 
@@ -29,6 +29,7 @@ typedef int32_t (*adi_apollo_hal_regio_rd_reg_poll_t)           (void *desc, uin
 typedef int32_t (*adi_apollo_hal_regio_set_page_base_addr_t)    (void *desc, uint32_t address);
 typedef int32_t (*adi_apollo_hal_regio_wr_reg_paged_t)          (void *desc, uint32_t address, uint8_t data);
 typedef int32_t (*adi_apollo_hal_regio_wr_reg32_paged_t)        (void *desc, uint32_t address, uint32_t data);
+typedef int32_t (*adi_apollo_hal_regio_wr_data_paged_t)         (void *desc, uint32_t address, uint8_t *data, uint32_t data_len);
 typedef int32_t (*adi_apollo_hal_regio_stream_wr_reg_t)         (void *desc, uint32_t address, uint8_t *data, uint32_t data_len_bytes, uint8_t is_cont);
 typedef int32_t (*adi_apollo_hal_regio_stream_wr_reg32_t)       (void *desc, uint32_t address, uint32_t *data, uint32_t data_len_words, uint8_t is_cont);
 typedef int32_t (*adi_apollo_hal_regio_stream_rd_reg_t)         (void *desc, uint32_t address, uint8_t *data, uint32_t data_len_bytes, uint8_t is_cont);
@@ -55,6 +56,7 @@ typedef struct {
     adi_apollo_hal_regio_set_page_base_addr_t set_page_base_addr;
     adi_apollo_hal_regio_wr_reg_paged_t wr_reg_paged;
     adi_apollo_hal_regio_wr_reg32_paged_t wr_reg32_paged;
+    adi_apollo_hal_regio_wr_data_paged_t wr_data_paged;
 
     /* Streaming ops */
     adi_apollo_hal_regio_stream_wr_reg_t stream_wr_reg;
@@ -85,4 +87,4 @@ int32_t adi_apollo_l_hal_regio_hsci_init(adi_apollo_hal_regio_hsci_desc_t *desc)
 }
 #endif
 
-#endif /* __ADI_APOLLO_HAL_REGIO_LOCAL_H__ */
+#endif /* ADI_APOLLO_HAL_REGIO_LOCAL_H__ */

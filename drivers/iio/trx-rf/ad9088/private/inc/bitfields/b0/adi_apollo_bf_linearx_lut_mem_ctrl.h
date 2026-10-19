@@ -12,270 +12,270 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_LINEARX_LUT_MEM_CTRL_H__
-#define __ADI_APOLLO_BF_LINEARX_LUT_MEM_CTRL_H__
+#ifndef ADI_APOLLO_BF_LINEARX_LUT_MEM_CTRL_H__
+#define ADI_APOLLO_BF_LINEARX_LUT_MEM_CTRL_H__
 
 /*============= D E F I N E S ==============*/
-#define LINEARX_LUT_MEM_CTRL_RX_LINEARX_REG32_0_RX_SLICE_0_RX_DIGITAL0 0x60220B00
-#define LINEARX_LUT_MEM_CTRL_RX_LINEARX_REG32_1_RX_SLICE_0_RX_DIGITAL0 0x60228B00
-#define LINEARX_LUT_MEM_CTRL_RX_LINEARX_REG32_0_RX_SLICE_1_RX_DIGITAL0 0x60420B00
-#define LINEARX_LUT_MEM_CTRL_RX_LINEARX_REG32_1_RX_SLICE_1_RX_DIGITAL0 0x60428B00
-#define LINEARX_LUT_MEM_CTRL_RX_LINEARX_REG32_0_RX_SLICE_0_RX_DIGITAL1 0x60A20B00
-#define LINEARX_LUT_MEM_CTRL_RX_LINEARX_REG32_1_RX_SLICE_0_RX_DIGITAL1 0x60A28B00
-#define LINEARX_LUT_MEM_CTRL_RX_LINEARX_REG32_0_RX_SLICE_1_RX_DIGITAL1 0x60C20B00
-#define LINEARX_LUT_MEM_CTRL_RX_LINEARX_REG32_1_RX_SLICE_1_RX_DIGITAL1 0x60C28B00
-#define LINEARX_LUT_MEM_CTRL_TX_LINEARX_REG32_0_TX_SLICE_0_TX_DIGITAL0 0x61220B00
-#define LINEARX_LUT_MEM_CTRL_TX_LINEARX_REG32_1_TX_SLICE_0_TX_DIGITAL0 0x61228B00
-#define LINEARX_LUT_MEM_CTRL_TX_LINEARX_REG32_0_TX_SLICE_1_TX_DIGITAL0 0x61420B00
-#define LINEARX_LUT_MEM_CTRL_TX_LINEARX_REG32_1_TX_SLICE_1_TX_DIGITAL0 0x61428B00
-#define LINEARX_LUT_MEM_CTRL_TX_LINEARX_REG32_0_TX_SLICE_0_TX_DIGITAL1 0x61A20B00
-#define LINEARX_LUT_MEM_CTRL_TX_LINEARX_REG32_1_TX_SLICE_0_TX_DIGITAL1 0x61A28B00
-#define LINEARX_LUT_MEM_CTRL_TX_LINEARX_REG32_0_TX_SLICE_1_TX_DIGITAL1 0x61C20B00
-#define LINEARX_LUT_MEM_CTRL_TX_LINEARX_REG32_1_TX_SLICE_1_TX_DIGITAL1 0x61C28B00
+#define LINEARX_LUT_MEM_CTRL_RX_LINEARX_REG32_0_RX_SLICE_0_RX_DIGITAL0 0x60220B00U
+#define LINEARX_LUT_MEM_CTRL_RX_LINEARX_REG32_1_RX_SLICE_0_RX_DIGITAL0 0x60228B00U
+#define LINEARX_LUT_MEM_CTRL_RX_LINEARX_REG32_0_RX_SLICE_1_RX_DIGITAL0 0x60420B00U
+#define LINEARX_LUT_MEM_CTRL_RX_LINEARX_REG32_1_RX_SLICE_1_RX_DIGITAL0 0x60428B00U
+#define LINEARX_LUT_MEM_CTRL_RX_LINEARX_REG32_0_RX_SLICE_0_RX_DIGITAL1 0x60A20B00U
+#define LINEARX_LUT_MEM_CTRL_RX_LINEARX_REG32_1_RX_SLICE_0_RX_DIGITAL1 0x60A28B00U
+#define LINEARX_LUT_MEM_CTRL_RX_LINEARX_REG32_0_RX_SLICE_1_RX_DIGITAL1 0x60C20B00U
+#define LINEARX_LUT_MEM_CTRL_RX_LINEARX_REG32_1_RX_SLICE_1_RX_DIGITAL1 0x60C28B00U
+#define LINEARX_LUT_MEM_CTRL_TX_LINEARX_REG32_0_TX_SLICE_0_TX_DIGITAL0 0x61220B00U
+#define LINEARX_LUT_MEM_CTRL_TX_LINEARX_REG32_1_TX_SLICE_0_TX_DIGITAL0 0x61228B00U
+#define LINEARX_LUT_MEM_CTRL_TX_LINEARX_REG32_0_TX_SLICE_1_TX_DIGITAL0 0x61420B00U
+#define LINEARX_LUT_MEM_CTRL_TX_LINEARX_REG32_1_TX_SLICE_1_TX_DIGITAL0 0x61428B00U
+#define LINEARX_LUT_MEM_CTRL_TX_LINEARX_REG32_0_TX_SLICE_0_TX_DIGITAL1 0x61A20B00U
+#define LINEARX_LUT_MEM_CTRL_TX_LINEARX_REG32_1_TX_SLICE_0_TX_DIGITAL1 0x61A28B00U
+#define LINEARX_LUT_MEM_CTRL_TX_LINEARX_REG32_0_TX_SLICE_1_TX_DIGITAL1 0x61C20B00U
+#define LINEARX_LUT_MEM_CTRL_TX_LINEARX_REG32_1_TX_SLICE_1_TX_DIGITAL1 0x61C28B00U
 
-#define REG_LINEARX_HSRAM_MUX_SEL0_ADDR(inst)                          ((inst) + 0x00000000)
-#define BF_HSRAM_MUX_SEL0_INFO(inst)                                   ((inst) + 0x00000000), 0x00000300
-#define BF_HSRAM_MUX_SEL1_INFO(inst)                                   ((inst) + 0x00000000), 0x00000304
-#define BF_HSRAM_MUX_SEL2_INFO(inst)                                   ((inst) + 0x00000000), 0x00000308
-#define BF_HSRAM_MUX_SEL3_INFO(inst)                                   ((inst) + 0x00000000), 0x0000030C
-#define BF_HSRAM_MUX_SEL4_INFO(inst)                                   ((inst) + 0x00000000), 0x00000310
-#define BF_HSRAM_MUX_SEL5_INFO(inst)                                   ((inst) + 0x00000000), 0x00000314
-#define BF_HSRAM_MUX_SEL6_INFO(inst)                                   ((inst) + 0x00000000), 0x00000318
-#define BF_HSRAM_MUX_SEL7_INFO(inst)                                   ((inst) + 0x00000000), 0x0000031C
+#define REG_LINEARX_HSRAM_MUX_SEL0_ADDR(inst)                          ((uint32_t)(inst) + 0x00000000U)
+#define BF_HSRAM_MUX_SEL0_INFO(inst)                                   ((uint32_t)(inst) + 0x00000000U), 0x00000300U
+#define BF_HSRAM_MUX_SEL1_INFO(inst)                                   ((uint32_t)(inst) + 0x00000000U), 0x00000304U
+#define BF_HSRAM_MUX_SEL2_INFO(inst)                                   ((uint32_t)(inst) + 0x00000000U), 0x00000308U
+#define BF_HSRAM_MUX_SEL3_INFO(inst)                                   ((uint32_t)(inst) + 0x00000000U), 0x0000030CU
+#define BF_HSRAM_MUX_SEL4_INFO(inst)                                   ((uint32_t)(inst) + 0x00000000U), 0x00000310U
+#define BF_HSRAM_MUX_SEL5_INFO(inst)                                   ((uint32_t)(inst) + 0x00000000U), 0x00000314U
+#define BF_HSRAM_MUX_SEL6_INFO(inst)                                   ((uint32_t)(inst) + 0x00000000U), 0x00000318U
+#define BF_HSRAM_MUX_SEL7_INFO(inst)                                   ((uint32_t)(inst) + 0x00000000U), 0x0000031CU
 
-#define REG_LINEARX_HSRAM_MUX_SEL1_ADDR(inst)                          ((inst) + 0x00000004)
-#define BF_HSRAM_MUX_SEL8_INFO(inst)                                   ((inst) + 0x00000004), 0x00000300
-#define BF_HSRAM_MUX_SEL9_INFO(inst)                                   ((inst) + 0x00000004), 0x00000304
-#define BF_HSRAM_MUX_SEL10_INFO(inst)                                  ((inst) + 0x00000004), 0x00000308
-#define BF_HSRAM_MUX_SEL11_INFO(inst)                                  ((inst) + 0x00000004), 0x0000030C
-#define BF_HSRAM_MUX_SEL12_INFO(inst)                                  ((inst) + 0x00000004), 0x00000310
-#define BF_HSRAM_MUX_SEL13_INFO(inst)                                  ((inst) + 0x00000004), 0x00000314
-#define BF_HSRAM_MUX_SEL14_INFO(inst)                                  ((inst) + 0x00000004), 0x00000318
-#define BF_HSRAM_MUX_SEL15_INFO(inst)                                  ((inst) + 0x00000004), 0x0000031C
+#define REG_LINEARX_HSRAM_MUX_SEL1_ADDR(inst)                          ((uint32_t)(inst) + 0x00000004U)
+#define BF_HSRAM_MUX_SEL8_INFO(inst)                                   ((uint32_t)(inst) + 0x00000004U), 0x00000300U
+#define BF_HSRAM_MUX_SEL9_INFO(inst)                                   ((uint32_t)(inst) + 0x00000004U), 0x00000304U
+#define BF_HSRAM_MUX_SEL10_INFO(inst)                                  ((uint32_t)(inst) + 0x00000004U), 0x00000308U
+#define BF_HSRAM_MUX_SEL11_INFO(inst)                                  ((uint32_t)(inst) + 0x00000004U), 0x0000030CU
+#define BF_HSRAM_MUX_SEL12_INFO(inst)                                  ((uint32_t)(inst) + 0x00000004U), 0x00000310U
+#define BF_HSRAM_MUX_SEL13_INFO(inst)                                  ((uint32_t)(inst) + 0x00000004U), 0x00000314U
+#define BF_HSRAM_MUX_SEL14_INFO(inst)                                  ((uint32_t)(inst) + 0x00000004U), 0x00000318U
+#define BF_HSRAM_MUX_SEL15_INFO(inst)                                  ((uint32_t)(inst) + 0x00000004U), 0x0000031CU
 
-#define REG_LINEARX_HSRAM_MUX_SEL2_ADDR(inst)                          ((inst) + 0x00000008)
-#define BF_UPDATE_HSRAM_MUX_SEL0_INFO(inst)                            ((inst) + 0x00000008), 0x00000300
-#define BF_UPDATE_HSRAM_MUX_SEL1_INFO(inst)                            ((inst) + 0x00000008), 0x00000304
+#define REG_LINEARX_HSRAM_MUX_SEL2_ADDR(inst)                          ((uint32_t)(inst) + 0x00000008U)
+#define BF_UPDATE_HSRAM_MUX_SEL0_INFO(inst)                            ((uint32_t)(inst) + 0x00000008U), 0x00000300U
+#define BF_UPDATE_HSRAM_MUX_SEL1_INFO(inst)                            ((uint32_t)(inst) + 0x00000008U), 0x00000304U
 
-#define REG_LINEARX_CSRAM_MUX_SEL0_ADDR(inst)                          ((inst) + 0x00000010)
-#define BF_CSRAM_MUX_SEL0_INFO(inst)                                   ((inst) + 0x00000010), 0x00000300
-#define BF_CSRAM_MUX_SEL1_INFO(inst)                                   ((inst) + 0x00000010), 0x00000304
-#define BF_CSRAM_MUX_SEL2_INFO(inst)                                   ((inst) + 0x00000010), 0x00000308
-#define BF_CSRAM_MUX_SEL3_INFO(inst)                                   ((inst) + 0x00000010), 0x0000030C
-#define BF_CSRAM_MUX_SEL4_INFO(inst)                                   ((inst) + 0x00000010), 0x00000310
-#define BF_CSRAM_MUX_SEL5_INFO(inst)                                   ((inst) + 0x00000010), 0x00000314
-#define BF_CSRAM_MUX_SEL6_INFO(inst)                                   ((inst) + 0x00000010), 0x00000318
-#define BF_CSRAM_MUX_SEL7_INFO(inst)                                   ((inst) + 0x00000010), 0x0000031C
+#define REG_LINEARX_CSRAM_MUX_SEL0_ADDR(inst)                          ((uint32_t)(inst) + 0x00000010U)
+#define BF_CSRAM_MUX_SEL0_INFO(inst)                                   ((uint32_t)(inst) + 0x00000010U), 0x00000300U
+#define BF_CSRAM_MUX_SEL1_INFO(inst)                                   ((uint32_t)(inst) + 0x00000010U), 0x00000304U
+#define BF_CSRAM_MUX_SEL2_INFO(inst)                                   ((uint32_t)(inst) + 0x00000010U), 0x00000308U
+#define BF_CSRAM_MUX_SEL3_INFO(inst)                                   ((uint32_t)(inst) + 0x00000010U), 0x0000030CU
+#define BF_CSRAM_MUX_SEL4_INFO(inst)                                   ((uint32_t)(inst) + 0x00000010U), 0x00000310U
+#define BF_CSRAM_MUX_SEL5_INFO(inst)                                   ((uint32_t)(inst) + 0x00000010U), 0x00000314U
+#define BF_CSRAM_MUX_SEL6_INFO(inst)                                   ((uint32_t)(inst) + 0x00000010U), 0x00000318U
+#define BF_CSRAM_MUX_SEL7_INFO(inst)                                   ((uint32_t)(inst) + 0x00000010U), 0x0000031CU
 
-#define REG_LINEARX_CSRAM_MUX_SEL1_ADDR(inst)                          ((inst) + 0x00000014)
-#define BF_CSRAM_MUX_SEL8_INFO(inst)                                   ((inst) + 0x00000014), 0x00000300
-#define BF_CSRAM_MUX_SEL9_INFO(inst)                                   ((inst) + 0x00000014), 0x00000304
-#define BF_CSRAM_MUX_SEL10_INFO(inst)                                  ((inst) + 0x00000014), 0x00000308
-#define BF_CSRAM_MUX_SEL11_INFO(inst)                                  ((inst) + 0x00000014), 0x0000030C
-#define BF_CSRAM_MUX_SEL12_INFO(inst)                                  ((inst) + 0x00000014), 0x00000310
-#define BF_CSRAM_MUX_SEL13_INFO(inst)                                  ((inst) + 0x00000014), 0x00000314
-#define BF_CSRAM_MUX_SEL14_INFO(inst)                                  ((inst) + 0x00000014), 0x00000318
-#define BF_CSRAM_MUX_SEL15_INFO(inst)                                  ((inst) + 0x00000014), 0x0000031C
+#define REG_LINEARX_CSRAM_MUX_SEL1_ADDR(inst)                          ((uint32_t)(inst) + 0x00000014U)
+#define BF_CSRAM_MUX_SEL8_INFO(inst)                                   ((uint32_t)(inst) + 0x00000014U), 0x00000300U
+#define BF_CSRAM_MUX_SEL9_INFO(inst)                                   ((uint32_t)(inst) + 0x00000014U), 0x00000304U
+#define BF_CSRAM_MUX_SEL10_INFO(inst)                                  ((uint32_t)(inst) + 0x00000014U), 0x00000308U
+#define BF_CSRAM_MUX_SEL11_INFO(inst)                                  ((uint32_t)(inst) + 0x00000014U), 0x0000030CU
+#define BF_CSRAM_MUX_SEL12_INFO(inst)                                  ((uint32_t)(inst) + 0x00000014U), 0x00000310U
+#define BF_CSRAM_MUX_SEL13_INFO(inst)                                  ((uint32_t)(inst) + 0x00000014U), 0x00000314U
+#define BF_CSRAM_MUX_SEL14_INFO(inst)                                  ((uint32_t)(inst) + 0x00000014U), 0x00000318U
+#define BF_CSRAM_MUX_SEL15_INFO(inst)                                  ((uint32_t)(inst) + 0x00000014U), 0x0000031CU
 
-#define REG_LINEARX_CSRAM_MUX_SEL2_ADDR(inst)                          ((inst) + 0x00000018)
-#define BF_UPDATE_CSRAM_MUX_SEL0_INFO(inst)                            ((inst) + 0x00000018), 0x00000300
-#define BF_UPDATE_CSRAM_MUX_SEL1_INFO(inst)                            ((inst) + 0x00000018), 0x00000304
+#define REG_LINEARX_CSRAM_MUX_SEL2_ADDR(inst)                          ((uint32_t)(inst) + 0x00000018U)
+#define BF_UPDATE_CSRAM_MUX_SEL0_INFO(inst)                            ((uint32_t)(inst) + 0x00000018U), 0x00000300U
+#define BF_UPDATE_CSRAM_MUX_SEL1_INFO(inst)                            ((uint32_t)(inst) + 0x00000018U), 0x00000304U
 
-#define REG_LINEARX_PATH_MUX_SEL0_ADDR(inst)                           ((inst) + 0x00000020)
-#define BF_HSRAM_PATH_MUX_SEL0_INFO(inst)                              ((inst) + 0x00000020), 0x00000100
-#define BF_HSRAM_PATH_MUX_SEL1_INFO(inst)                              ((inst) + 0x00000020), 0x00000101
-#define BF_HSRAM_PATH_MUX_SEL2_INFO(inst)                              ((inst) + 0x00000020), 0x00000102
-#define BF_HSRAM_PATH_MUX_SEL3_INFO(inst)                              ((inst) + 0x00000020), 0x00000103
-#define BF_HSRAM_PATH_MUX_SEL4_INFO(inst)                              ((inst) + 0x00000020), 0x00000104
-#define BF_HSRAM_PATH_MUX_SEL5_INFO(inst)                              ((inst) + 0x00000020), 0x00000105
-#define BF_HSRAM_PATH_MUX_SEL6_INFO(inst)                              ((inst) + 0x00000020), 0x00000106
-#define BF_HSRAM_PATH_MUX_SEL7_INFO(inst)                              ((inst) + 0x00000020), 0x00000107
-#define BF_HSRAM_PATH_MUX_SEL8_INFO(inst)                              ((inst) + 0x00000020), 0x00000108
-#define BF_HSRAM_PATH_MUX_SEL9_INFO(inst)                              ((inst) + 0x00000020), 0x00000109
-#define BF_HSRAM_PATH_MUX_SEL10_INFO(inst)                             ((inst) + 0x00000020), 0x0000010A
-#define BF_HSRAM_PATH_MUX_SEL11_INFO(inst)                             ((inst) + 0x00000020), 0x0000010B
-#define BF_HSRAM_PATH_MUX_SEL12_INFO(inst)                             ((inst) + 0x00000020), 0x0000010C
-#define BF_HSRAM_PATH_MUX_SEL13_INFO(inst)                             ((inst) + 0x00000020), 0x0000010D
-#define BF_HSRAM_PATH_MUX_SEL14_INFO(inst)                             ((inst) + 0x00000020), 0x0000010E
-#define BF_HSRAM_PATH_MUX_SEL15_INFO(inst)                             ((inst) + 0x00000020), 0x0000010F
+#define REG_LINEARX_PATH_MUX_SEL0_ADDR(inst)                           ((uint32_t)(inst) + 0x00000020U)
+#define BF_HSRAM_PATH_MUX_SEL0_INFO(inst)                              ((uint32_t)(inst) + 0x00000020U), 0x00000100U
+#define BF_HSRAM_PATH_MUX_SEL1_INFO(inst)                              ((uint32_t)(inst) + 0x00000020U), 0x00000101U
+#define BF_HSRAM_PATH_MUX_SEL2_INFO(inst)                              ((uint32_t)(inst) + 0x00000020U), 0x00000102U
+#define BF_HSRAM_PATH_MUX_SEL3_INFO(inst)                              ((uint32_t)(inst) + 0x00000020U), 0x00000103U
+#define BF_HSRAM_PATH_MUX_SEL4_INFO(inst)                              ((uint32_t)(inst) + 0x00000020U), 0x00000104U
+#define BF_HSRAM_PATH_MUX_SEL5_INFO(inst)                              ((uint32_t)(inst) + 0x00000020U), 0x00000105U
+#define BF_HSRAM_PATH_MUX_SEL6_INFO(inst)                              ((uint32_t)(inst) + 0x00000020U), 0x00000106U
+#define BF_HSRAM_PATH_MUX_SEL7_INFO(inst)                              ((uint32_t)(inst) + 0x00000020U), 0x00000107U
+#define BF_HSRAM_PATH_MUX_SEL8_INFO(inst)                              ((uint32_t)(inst) + 0x00000020U), 0x00000108U
+#define BF_HSRAM_PATH_MUX_SEL9_INFO(inst)                              ((uint32_t)(inst) + 0x00000020U), 0x00000109U
+#define BF_HSRAM_PATH_MUX_SEL10_INFO(inst)                             ((uint32_t)(inst) + 0x00000020U), 0x0000010AU
+#define BF_HSRAM_PATH_MUX_SEL11_INFO(inst)                             ((uint32_t)(inst) + 0x00000020U), 0x0000010BU
+#define BF_HSRAM_PATH_MUX_SEL12_INFO(inst)                             ((uint32_t)(inst) + 0x00000020U), 0x0000010CU
+#define BF_HSRAM_PATH_MUX_SEL13_INFO(inst)                             ((uint32_t)(inst) + 0x00000020U), 0x0000010DU
+#define BF_HSRAM_PATH_MUX_SEL14_INFO(inst)                             ((uint32_t)(inst) + 0x00000020U), 0x0000010EU
+#define BF_HSRAM_PATH_MUX_SEL15_INFO(inst)                             ((uint32_t)(inst) + 0x00000020U), 0x0000010FU
 
-#define REG_LINEARX_PATH_MUX_SEL1_ADDR(inst)                           ((inst) + 0x00000024)
-#define BF_CSRAM_PATH_MUX_SEL0_INFO(inst)                              ((inst) + 0x00000024), 0x00000100
-#define BF_CSRAM_PATH_MUX_SEL1_INFO(inst)                              ((inst) + 0x00000024), 0x00000101
-#define BF_CSRAM_PATH_MUX_SEL2_INFO(inst)                              ((inst) + 0x00000024), 0x00000102
-#define BF_CSRAM_PATH_MUX_SEL3_INFO(inst)                              ((inst) + 0x00000024), 0x00000103
-#define BF_CSRAM_PATH_MUX_SEL4_INFO(inst)                              ((inst) + 0x00000024), 0x00000104
-#define BF_CSRAM_PATH_MUX_SEL5_INFO(inst)                              ((inst) + 0x00000024), 0x00000105
-#define BF_CSRAM_PATH_MUX_SEL6_INFO(inst)                              ((inst) + 0x00000024), 0x00000106
-#define BF_CSRAM_PATH_MUX_SEL7_INFO(inst)                              ((inst) + 0x00000024), 0x00000107
-#define BF_CSRAM_PATH_MUX_SEL8_INFO(inst)                              ((inst) + 0x00000024), 0x00000108
-#define BF_CSRAM_PATH_MUX_SEL9_INFO(inst)                              ((inst) + 0x00000024), 0x00000109
-#define BF_CSRAM_PATH_MUX_SEL10_INFO(inst)                             ((inst) + 0x00000024), 0x0000010A
-#define BF_CSRAM_PATH_MUX_SEL11_INFO(inst)                             ((inst) + 0x00000024), 0x0000010B
-#define BF_CSRAM_PATH_MUX_SEL12_INFO(inst)                             ((inst) + 0x00000024), 0x0000010C
-#define BF_CSRAM_PATH_MUX_SEL13_INFO(inst)                             ((inst) + 0x00000024), 0x0000010D
-#define BF_CSRAM_PATH_MUX_SEL14_INFO(inst)                             ((inst) + 0x00000024), 0x0000010E
-#define BF_CSRAM_PATH_MUX_SEL15_INFO(inst)                             ((inst) + 0x00000024), 0x0000010F
+#define REG_LINEARX_PATH_MUX_SEL1_ADDR(inst)                           ((uint32_t)(inst) + 0x00000024U)
+#define BF_CSRAM_PATH_MUX_SEL0_INFO(inst)                              ((uint32_t)(inst) + 0x00000024U), 0x00000100U
+#define BF_CSRAM_PATH_MUX_SEL1_INFO(inst)                              ((uint32_t)(inst) + 0x00000024U), 0x00000101U
+#define BF_CSRAM_PATH_MUX_SEL2_INFO(inst)                              ((uint32_t)(inst) + 0x00000024U), 0x00000102U
+#define BF_CSRAM_PATH_MUX_SEL3_INFO(inst)                              ((uint32_t)(inst) + 0x00000024U), 0x00000103U
+#define BF_CSRAM_PATH_MUX_SEL4_INFO(inst)                              ((uint32_t)(inst) + 0x00000024U), 0x00000104U
+#define BF_CSRAM_PATH_MUX_SEL5_INFO(inst)                              ((uint32_t)(inst) + 0x00000024U), 0x00000105U
+#define BF_CSRAM_PATH_MUX_SEL6_INFO(inst)                              ((uint32_t)(inst) + 0x00000024U), 0x00000106U
+#define BF_CSRAM_PATH_MUX_SEL7_INFO(inst)                              ((uint32_t)(inst) + 0x00000024U), 0x00000107U
+#define BF_CSRAM_PATH_MUX_SEL8_INFO(inst)                              ((uint32_t)(inst) + 0x00000024U), 0x00000108U
+#define BF_CSRAM_PATH_MUX_SEL9_INFO(inst)                              ((uint32_t)(inst) + 0x00000024U), 0x00000109U
+#define BF_CSRAM_PATH_MUX_SEL10_INFO(inst)                             ((uint32_t)(inst) + 0x00000024U), 0x0000010AU
+#define BF_CSRAM_PATH_MUX_SEL11_INFO(inst)                             ((uint32_t)(inst) + 0x00000024U), 0x0000010BU
+#define BF_CSRAM_PATH_MUX_SEL12_INFO(inst)                             ((uint32_t)(inst) + 0x00000024U), 0x0000010CU
+#define BF_CSRAM_PATH_MUX_SEL13_INFO(inst)                             ((uint32_t)(inst) + 0x00000024U), 0x0000010DU
+#define BF_CSRAM_PATH_MUX_SEL14_INFO(inst)                             ((uint32_t)(inst) + 0x00000024U), 0x0000010EU
+#define BF_CSRAM_PATH_MUX_SEL15_INFO(inst)                             ((uint32_t)(inst) + 0x00000024U), 0x0000010FU
 
-#define REG_LINEARX_HSRAM_SD_ADDR(inst)                                ((inst) + 0x00000030)
-#define BF_HSRAM_SD_INFO(inst)                                         ((inst) + 0x00000030), 0x00001200
+#define REG_LINEARX_HSRAM_SD_ADDR(inst)                                ((uint32_t)(inst) + 0x00000030U)
+#define BF_HSRAM_SD_INFO(inst)                                         ((uint32_t)(inst) + 0x00000030U), 0x00001200U
 
-#define REG_LINEARX_HSRAM_SLP_ADDR(inst)                               ((inst) + 0x00000034)
-#define BF_HSRAM_SLP_INFO(inst)                                        ((inst) + 0x00000034), 0x00001200
+#define REG_LINEARX_HSRAM_SLP_ADDR(inst)                               ((uint32_t)(inst) + 0x00000034U)
+#define BF_HSRAM_SLP_INFO(inst)                                        ((uint32_t)(inst) + 0x00000034U), 0x00001200U
 
-#define REG_LINEARX_HSRAM_DSLP_ADDR(inst)                              ((inst) + 0x00000038)
-#define BF_HSRAM_DSLP_INFO(inst)                                       ((inst) + 0x00000038), 0x00001200
+#define REG_LINEARX_HSRAM_DSLP_ADDR(inst)                              ((uint32_t)(inst) + 0x00000038U)
+#define BF_HSRAM_DSLP_INFO(inst)                                       ((uint32_t)(inst) + 0x00000038U), 0x00001200U
 
-#define REG_LINEARX_CSRAM_SD0_ADDR(inst)                               ((inst) + 0x00000040)
-#define BF_CSRAM_SD_INST0_INFO(inst)                                   ((inst) + 0x00000040), 0x00001200
+#define REG_LINEARX_CSRAM_SD0_ADDR(inst)                               ((uint32_t)(inst) + 0x00000040U)
+#define BF_CSRAM_SD_INST0_INFO(inst)                                   ((uint32_t)(inst) + 0x00000040U), 0x00001200U
 
-#define REG_LINEARX_CSRAM_SD1_ADDR(inst)                               ((inst) + 0x00000044)
-#define BF_CSRAM_SD_INST1_INFO(inst)                                   ((inst) + 0x00000044), 0x00001200
+#define REG_LINEARX_CSRAM_SD1_ADDR(inst)                               ((uint32_t)(inst) + 0x00000044U)
+#define BF_CSRAM_SD_INST1_INFO(inst)                                   ((uint32_t)(inst) + 0x00000044U), 0x00001200U
 
-#define REG_LINEARX_CSRAM_SD2_ADDR(inst)                               ((inst) + 0x00000048)
-#define BF_CSRAM_SD_INST2_INFO(inst)                                   ((inst) + 0x00000048), 0x00001200
+#define REG_LINEARX_CSRAM_SD2_ADDR(inst)                               ((uint32_t)(inst) + 0x00000048U)
+#define BF_CSRAM_SD_INST2_INFO(inst)                                   ((uint32_t)(inst) + 0x00000048U), 0x00001200U
 
-#define REG_LINEARX_CSRAM_SLP0_ADDR(inst)                              ((inst) + 0x00000050)
-#define BF_CSRAM_SLP_INST0_INFO(inst)                                  ((inst) + 0x00000050), 0x00001200
+#define REG_LINEARX_CSRAM_SLP0_ADDR(inst)                              ((uint32_t)(inst) + 0x00000050U)
+#define BF_CSRAM_SLP_INST0_INFO(inst)                                  ((uint32_t)(inst) + 0x00000050U), 0x00001200U
 
-#define REG_LINEARX_CSRAM_SLP1_ADDR(inst)                              ((inst) + 0x00000054)
-#define BF_CSRAM_SLP_INST1_INFO(inst)                                  ((inst) + 0x00000054), 0x00001200
+#define REG_LINEARX_CSRAM_SLP1_ADDR(inst)                              ((uint32_t)(inst) + 0x00000054U)
+#define BF_CSRAM_SLP_INST1_INFO(inst)                                  ((uint32_t)(inst) + 0x00000054U), 0x00001200U
 
-#define REG_LINEARX_CSRAM_SLP2_ADDR(inst)                              ((inst) + 0x00000058)
-#define BF_CSRAM_SLP_INST2_INFO(inst)                                  ((inst) + 0x00000058), 0x00001200
+#define REG_LINEARX_CSRAM_SLP2_ADDR(inst)                              ((uint32_t)(inst) + 0x00000058U)
+#define BF_CSRAM_SLP_INST2_INFO(inst)                                  ((uint32_t)(inst) + 0x00000058U), 0x00001200U
 
-#define REG_LINEARX_CSRAM_DSLP0_ADDR(inst)                             ((inst) + 0x00000060)
-#define BF_CSRAM_DSLP_INST0_INFO(inst)                                 ((inst) + 0x00000060), 0x00001200
+#define REG_LINEARX_CSRAM_DSLP0_ADDR(inst)                             ((uint32_t)(inst) + 0x00000060U)
+#define BF_CSRAM_DSLP_INST0_INFO(inst)                                 ((uint32_t)(inst) + 0x00000060U), 0x00001200U
 
-#define REG_LINEARX_CSRAM_DSLP1_ADDR(inst)                             ((inst) + 0x00000064)
-#define BF_CSRAM_DSLP_INST1_INFO(inst)                                 ((inst) + 0x00000064), 0x00001200
+#define REG_LINEARX_CSRAM_DSLP1_ADDR(inst)                             ((uint32_t)(inst) + 0x00000064U)
+#define BF_CSRAM_DSLP_INST1_INFO(inst)                                 ((uint32_t)(inst) + 0x00000064U), 0x00001200U
 
-#define REG_LINEARX_CSRAM_DSLP2_ADDR(inst)                             ((inst) + 0x00000068)
-#define BF_CSRAM_DSLP_INST2_INFO(inst)                                 ((inst) + 0x00000068), 0x00001200
+#define REG_LINEARX_CSRAM_DSLP2_ADDR(inst)                             ((uint32_t)(inst) + 0x00000068U)
+#define BF_CSRAM_DSLP_INST2_INFO(inst)                                 ((uint32_t)(inst) + 0x00000068U), 0x00001200U
 
-#define REG_LINEARX_SRAM_PARITY_CFG_ADDR(inst)                         ((inst) + 0x00000070)
-#define BF_HSRAM_EN_PARITY_CHK_INFO(inst)                              ((inst) + 0x00000070), 0x00000100
-#define BF_CSRAM_EN_PARITY_CHK_INFO(inst)                              ((inst) + 0x00000070), 0x00000101
-#define BF_HSRAM_EN_PARITY_RB_INFO(inst)                               ((inst) + 0x00000070), 0x00000102
-#define BF_CSRAM_EN_PARITY_RB_INFO(inst)                               ((inst) + 0x00000070), 0x00000103
-#define BF_HSRAM_EN_PARITY_ERR_IRQ_INFO(inst)                          ((inst) + 0x00000070), 0x00000104
-#define BF_CSRAM_EN_PARITY_ERR_IRQ_INFO(inst)                          ((inst) + 0x00000070), 0x00000105
+#define REG_LINEARX_SRAM_PARITY_CFG_ADDR(inst)                         ((uint32_t)(inst) + 0x00000070U)
+#define BF_HSRAM_EN_PARITY_CHK_INFO(inst)                              ((uint32_t)(inst) + 0x00000070U), 0x00000100U
+#define BF_CSRAM_EN_PARITY_CHK_INFO(inst)                              ((uint32_t)(inst) + 0x00000070U), 0x00000101U
+#define BF_HSRAM_EN_PARITY_RB_INFO(inst)                               ((uint32_t)(inst) + 0x00000070U), 0x00000102U
+#define BF_CSRAM_EN_PARITY_RB_INFO(inst)                               ((uint32_t)(inst) + 0x00000070U), 0x00000103U
+#define BF_HSRAM_EN_PARITY_ERR_IRQ_INFO(inst)                          ((uint32_t)(inst) + 0x00000070U), 0x00000104U
+#define BF_CSRAM_EN_PARITY_ERR_IRQ_INFO(inst)                          ((uint32_t)(inst) + 0x00000070U), 0x00000105U
 
-#define REG_LINEARX_SRAM_PARITY_ERR_ADDR(inst)                         ((inst) + 0x00000074)
-#define BF_HSRAM_PARITY_ERR_IRQ_INFO(inst)                             ((inst) + 0x00000074), 0x00000100
-#define BF_CSRAM_PARITY_ERR_IRQ_INFO(inst)                             ((inst) + 0x00000074), 0x00000101
+#define REG_LINEARX_SRAM_PARITY_ERR_ADDR(inst)                         ((uint32_t)(inst) + 0x00000074U)
+#define BF_HSRAM_PARITY_ERR_IRQ_INFO(inst)                             ((uint32_t)(inst) + 0x00000074U), 0x00000100U
+#define BF_CSRAM_PARITY_ERR_IRQ_INFO(inst)                             ((uint32_t)(inst) + 0x00000074U), 0x00000101U
 
-#define REG_LINEARX_HSRAM_PARITY_ERR0_ADDR(inst)                       ((inst) + 0x00000080)
-#define BF_HSRAM0_PARITY_ERR_INFO(inst)                                ((inst) + 0x00000080), 0x00000400
-#define BF_HSRAM1_PARITY_ERR_INFO(inst)                                ((inst) + 0x00000080), 0x00000404
-#define BF_HSRAM2_PARITY_ERR_INFO(inst)                                ((inst) + 0x00000080), 0x00000408
-#define BF_HSRAM3_PARITY_ERR_INFO(inst)                                ((inst) + 0x00000080), 0x0000040C
-#define BF_HSRAM4_PARITY_ERR_INFO(inst)                                ((inst) + 0x00000080), 0x00000410
-#define BF_HSRAM5_PARITY_ERR_INFO(inst)                                ((inst) + 0x00000080), 0x00000414
-#define BF_HSRAM6_PARITY_ERR_INFO(inst)                                ((inst) + 0x00000080), 0x00000418
-#define BF_HSRAM7_PARITY_ERR_INFO(inst)                                ((inst) + 0x00000080), 0x0000041C
+#define REG_LINEARX_HSRAM_PARITY_ERR0_ADDR(inst)                       ((uint32_t)(inst) + 0x00000080U)
+#define BF_HSRAM0_PARITY_ERR_INFO(inst)                                ((uint32_t)(inst) + 0x00000080U), 0x00000400U
+#define BF_HSRAM1_PARITY_ERR_INFO(inst)                                ((uint32_t)(inst) + 0x00000080U), 0x00000404U
+#define BF_HSRAM2_PARITY_ERR_INFO(inst)                                ((uint32_t)(inst) + 0x00000080U), 0x00000408U
+#define BF_HSRAM3_PARITY_ERR_INFO(inst)                                ((uint32_t)(inst) + 0x00000080U), 0x0000040CU
+#define BF_HSRAM4_PARITY_ERR_INFO(inst)                                ((uint32_t)(inst) + 0x00000080U), 0x00000410U
+#define BF_HSRAM5_PARITY_ERR_INFO(inst)                                ((uint32_t)(inst) + 0x00000080U), 0x00000414U
+#define BF_HSRAM6_PARITY_ERR_INFO(inst)                                ((uint32_t)(inst) + 0x00000080U), 0x00000418U
+#define BF_HSRAM7_PARITY_ERR_INFO(inst)                                ((uint32_t)(inst) + 0x00000080U), 0x0000041CU
 
-#define REG_LINEARX_HSRAM_PARITY_ERR1_ADDR(inst)                       ((inst) + 0x00000084)
-#define BF_HSRAM8_PARITY_ERR_INFO(inst)                                ((inst) + 0x00000084), 0x00000400
-#define BF_HSRAM9_PARITY_ERR_INFO(inst)                                ((inst) + 0x00000084), 0x00000404
-#define BF_HSRAM10_PARITY_ERR_INFO(inst)                               ((inst) + 0x00000084), 0x00000408
-#define BF_HSRAM11_PARITY_ERR_INFO(inst)                               ((inst) + 0x00000084), 0x0000040C
-#define BF_HSRAM12_PARITY_ERR_INFO(inst)                               ((inst) + 0x00000084), 0x00000410
-#define BF_HSRAM13_PARITY_ERR_INFO(inst)                               ((inst) + 0x00000084), 0x00000414
-#define BF_HSRAM14_PARITY_ERR_INFO(inst)                               ((inst) + 0x00000084), 0x00000418
-#define BF_HSRAM15_PARITY_ERR_INFO(inst)                               ((inst) + 0x00000084), 0x0000041C
+#define REG_LINEARX_HSRAM_PARITY_ERR1_ADDR(inst)                       ((uint32_t)(inst) + 0x00000084U)
+#define BF_HSRAM8_PARITY_ERR_INFO(inst)                                ((uint32_t)(inst) + 0x00000084U), 0x00000400U
+#define BF_HSRAM9_PARITY_ERR_INFO(inst)                                ((uint32_t)(inst) + 0x00000084U), 0x00000404U
+#define BF_HSRAM10_PARITY_ERR_INFO(inst)                               ((uint32_t)(inst) + 0x00000084U), 0x00000408U
+#define BF_HSRAM11_PARITY_ERR_INFO(inst)                               ((uint32_t)(inst) + 0x00000084U), 0x0000040CU
+#define BF_HSRAM12_PARITY_ERR_INFO(inst)                               ((uint32_t)(inst) + 0x00000084U), 0x00000410U
+#define BF_HSRAM13_PARITY_ERR_INFO(inst)                               ((uint32_t)(inst) + 0x00000084U), 0x00000414U
+#define BF_HSRAM14_PARITY_ERR_INFO(inst)                               ((uint32_t)(inst) + 0x00000084U), 0x00000418U
+#define BF_HSRAM15_PARITY_ERR_INFO(inst)                               ((uint32_t)(inst) + 0x00000084U), 0x0000041CU
 
-#define REG_LINEARX_HSRAM_PARITY_ERR2_ADDR(inst)                       ((inst) + 0x00000088)
-#define BF_UPDATE_HSRAM0_PARITY_ERR_INFO(inst)                         ((inst) + 0x00000088), 0x00000400
-#define BF_UPDATE_HSRAM1_PARITY_ERR_INFO(inst)                         ((inst) + 0x00000088), 0x00000404
+#define REG_LINEARX_HSRAM_PARITY_ERR2_ADDR(inst)                       ((uint32_t)(inst) + 0x00000088U)
+#define BF_UPDATE_HSRAM0_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x00000088U), 0x00000400U
+#define BF_UPDATE_HSRAM1_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x00000088U), 0x00000404U
 
-#define REG_LINEARX_CSRAM_PARITY_ERR0_ADDR(inst)                       ((inst) + 0x00000090)
-#define BF_CSRAM0_INST0_PARITY_ERR_INFO(inst)                          ((inst) + 0x00000090), 0x00000400
-#define BF_CSRAM1_INST0_PARITY_ERR_INFO(inst)                          ((inst) + 0x00000090), 0x00000404
-#define BF_CSRAM2_INST0_PARITY_ERR_INFO(inst)                          ((inst) + 0x00000090), 0x00000408
-#define BF_CSRAM3_INST0_PARITY_ERR_INFO(inst)                          ((inst) + 0x00000090), 0x0000040C
-#define BF_CSRAM4_INST0_PARITY_ERR_INFO(inst)                          ((inst) + 0x00000090), 0x00000410
-#define BF_CSRAM5_INST0_PARITY_ERR_INFO(inst)                          ((inst) + 0x00000090), 0x00000414
-#define BF_CSRAM6_INST0_PARITY_ERR_INFO(inst)                          ((inst) + 0x00000090), 0x00000418
-#define BF_CSRAM7_INST0_PARITY_ERR_INFO(inst)                          ((inst) + 0x00000090), 0x0000041C
+#define REG_LINEARX_CSRAM_PARITY_ERR0_ADDR(inst)                       ((uint32_t)(inst) + 0x00000090U)
+#define BF_CSRAM0_INST0_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x00000090U), 0x00000400U
+#define BF_CSRAM1_INST0_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x00000090U), 0x00000404U
+#define BF_CSRAM2_INST0_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x00000090U), 0x00000408U
+#define BF_CSRAM3_INST0_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x00000090U), 0x0000040CU
+#define BF_CSRAM4_INST0_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x00000090U), 0x00000410U
+#define BF_CSRAM5_INST0_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x00000090U), 0x00000414U
+#define BF_CSRAM6_INST0_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x00000090U), 0x00000418U
+#define BF_CSRAM7_INST0_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x00000090U), 0x0000041CU
 
-#define REG_LINEARX_CSRAM_PARITY_ERR1_ADDR(inst)                       ((inst) + 0x00000094)
-#define BF_CSRAM8_INST0_PARITY_ERR_INFO(inst)                          ((inst) + 0x00000094), 0x00000400
-#define BF_CSRAM9_INST0_PARITY_ERR_INFO(inst)                          ((inst) + 0x00000094), 0x00000404
-#define BF_CSRAM10_INST0_PARITY_ERR_INFO(inst)                         ((inst) + 0x00000094), 0x00000408
-#define BF_CSRAM11_INST0_PARITY_ERR_INFO(inst)                         ((inst) + 0x00000094), 0x0000040C
-#define BF_CSRAM12_INST0_PARITY_ERR_INFO(inst)                         ((inst) + 0x00000094), 0x00000410
-#define BF_CSRAM13_INST0_PARITY_ERR_INFO(inst)                         ((inst) + 0x00000094), 0x00000414
-#define BF_CSRAM14_INST0_PARITY_ERR_INFO(inst)                         ((inst) + 0x00000094), 0x00000418
-#define BF_CSRAM15_INST0_PARITY_ERR_INFO(inst)                         ((inst) + 0x00000094), 0x0000041C
+#define REG_LINEARX_CSRAM_PARITY_ERR1_ADDR(inst)                       ((uint32_t)(inst) + 0x00000094U)
+#define BF_CSRAM8_INST0_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x00000094U), 0x00000400U
+#define BF_CSRAM9_INST0_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x00000094U), 0x00000404U
+#define BF_CSRAM10_INST0_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x00000094U), 0x00000408U
+#define BF_CSRAM11_INST0_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x00000094U), 0x0000040CU
+#define BF_CSRAM12_INST0_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x00000094U), 0x00000410U
+#define BF_CSRAM13_INST0_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x00000094U), 0x00000414U
+#define BF_CSRAM14_INST0_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x00000094U), 0x00000418U
+#define BF_CSRAM15_INST0_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x00000094U), 0x0000041CU
 
-#define REG_LINEARX_CSRAM_PARITY_ERR2_ADDR(inst)                       ((inst) + 0x00000098)
-#define BF_UPDATE_CSRAM0_INST0_PARITY_ERR_INFO(inst)                   ((inst) + 0x00000098), 0x00000400
-#define BF_UPDATE_CSRAM1_INST0_PARITY_ERR_INFO(inst)                   ((inst) + 0x00000098), 0x00000404
+#define REG_LINEARX_CSRAM_PARITY_ERR2_ADDR(inst)                       ((uint32_t)(inst) + 0x00000098U)
+#define BF_UPDATE_CSRAM0_INST0_PARITY_ERR_INFO(inst)                   ((uint32_t)(inst) + 0x00000098U), 0x00000400U
+#define BF_UPDATE_CSRAM1_INST0_PARITY_ERR_INFO(inst)                   ((uint32_t)(inst) + 0x00000098U), 0x00000404U
 
-#define REG_LINEARX_CSRAM_PARITY_ERR3_ADDR(inst)                       ((inst) + 0x000000A0)
-#define BF_CSRAM0_INST1_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000A0), 0x00000400
-#define BF_CSRAM1_INST1_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000A0), 0x00000404
-#define BF_CSRAM2_INST1_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000A0), 0x00000408
-#define BF_CSRAM3_INST1_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000A0), 0x0000040C
-#define BF_CSRAM4_INST1_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000A0), 0x00000410
-#define BF_CSRAM5_INST1_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000A0), 0x00000414
-#define BF_CSRAM6_INST1_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000A0), 0x00000418
-#define BF_CSRAM7_INST1_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000A0), 0x0000041C
+#define REG_LINEARX_CSRAM_PARITY_ERR3_ADDR(inst)                       ((uint32_t)(inst) + 0x000000A0U)
+#define BF_CSRAM0_INST1_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000A0U), 0x00000400U
+#define BF_CSRAM1_INST1_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000A0U), 0x00000404U
+#define BF_CSRAM2_INST1_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000A0U), 0x00000408U
+#define BF_CSRAM3_INST1_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000A0U), 0x0000040CU
+#define BF_CSRAM4_INST1_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000A0U), 0x00000410U
+#define BF_CSRAM5_INST1_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000A0U), 0x00000414U
+#define BF_CSRAM6_INST1_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000A0U), 0x00000418U
+#define BF_CSRAM7_INST1_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000A0U), 0x0000041CU
 
-#define REG_LINEARX_CSRAM_PARITY_ERR4_ADDR(inst)                       ((inst) + 0x000000A4)
-#define BF_CSRAM8_INST1_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000A4), 0x00000400
-#define BF_CSRAM9_INST1_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000A4), 0x00000404
-#define BF_CSRAM10_INST1_PARITY_ERR_INFO(inst)                         ((inst) + 0x000000A4), 0x00000408
-#define BF_CSRAM11_INST1_PARITY_ERR_INFO(inst)                         ((inst) + 0x000000A4), 0x0000040C
-#define BF_CSRAM12_INST1_PARITY_ERR_INFO(inst)                         ((inst) + 0x000000A4), 0x00000410
-#define BF_CSRAM13_INST1_PARITY_ERR_INFO(inst)                         ((inst) + 0x000000A4), 0x00000414
-#define BF_CSRAM14_INST1_PARITY_ERR_INFO(inst)                         ((inst) + 0x000000A4), 0x00000418
-#define BF_CSRAM15_INST1_PARITY_ERR_INFO(inst)                         ((inst) + 0x000000A4), 0x0000041C
+#define REG_LINEARX_CSRAM_PARITY_ERR4_ADDR(inst)                       ((uint32_t)(inst) + 0x000000A4U)
+#define BF_CSRAM8_INST1_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000A4U), 0x00000400U
+#define BF_CSRAM9_INST1_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000A4U), 0x00000404U
+#define BF_CSRAM10_INST1_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x000000A4U), 0x00000408U
+#define BF_CSRAM11_INST1_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x000000A4U), 0x0000040CU
+#define BF_CSRAM12_INST1_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x000000A4U), 0x00000410U
+#define BF_CSRAM13_INST1_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x000000A4U), 0x00000414U
+#define BF_CSRAM14_INST1_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x000000A4U), 0x00000418U
+#define BF_CSRAM15_INST1_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x000000A4U), 0x0000041CU
 
-#define REG_LINEARX_CSRAM_PARITY_ERR5_ADDR(inst)                       ((inst) + 0x000000A8)
-#define BF_UPDATE_CSRAM0_INST1_PARITY_ERR_INFO(inst)                   ((inst) + 0x000000A8), 0x00000400
-#define BF_UPDATE_CSRAM1_INST1_PARITY_ERR_INFO(inst)                   ((inst) + 0x000000A8), 0x00000404
+#define REG_LINEARX_CSRAM_PARITY_ERR5_ADDR(inst)                       ((uint32_t)(inst) + 0x000000A8U)
+#define BF_UPDATE_CSRAM0_INST1_PARITY_ERR_INFO(inst)                   ((uint32_t)(inst) + 0x000000A8U), 0x00000400U
+#define BF_UPDATE_CSRAM1_INST1_PARITY_ERR_INFO(inst)                   ((uint32_t)(inst) + 0x000000A8U), 0x00000404U
 
-#define REG_LINEARX_CSRAM_PARITY_ERR6_ADDR(inst)                       ((inst) + 0x000000B0)
-#define BF_CSRAM0_INST2_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000B0), 0x00000400
-#define BF_CSRAM1_INST2_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000B0), 0x00000404
-#define BF_CSRAM2_INST2_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000B0), 0x00000408
-#define BF_CSRAM3_INST2_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000B0), 0x0000040C
-#define BF_CSRAM4_INST2_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000B0), 0x00000410
-#define BF_CSRAM5_INST2_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000B0), 0x00000414
-#define BF_CSRAM6_INST2_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000B0), 0x00000418
-#define BF_CSRAM7_INST2_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000B0), 0x0000041C
+#define REG_LINEARX_CSRAM_PARITY_ERR6_ADDR(inst)                       ((uint32_t)(inst) + 0x000000B0U)
+#define BF_CSRAM0_INST2_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000B0U), 0x00000400U
+#define BF_CSRAM1_INST2_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000B0U), 0x00000404U
+#define BF_CSRAM2_INST2_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000B0U), 0x00000408U
+#define BF_CSRAM3_INST2_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000B0U), 0x0000040CU
+#define BF_CSRAM4_INST2_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000B0U), 0x00000410U
+#define BF_CSRAM5_INST2_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000B0U), 0x00000414U
+#define BF_CSRAM6_INST2_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000B0U), 0x00000418U
+#define BF_CSRAM7_INST2_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000B0U), 0x0000041CU
 
-#define REG_LINEARX_CSRAM_PARITY_ERR7_ADDR(inst)                       ((inst) + 0x000000B4)
-#define BF_CSRAM8_INST2_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000B4), 0x00000400
-#define BF_CSRAM9_INST2_PARITY_ERR_INFO(inst)                          ((inst) + 0x000000B4), 0x00000404
-#define BF_CSRAM10_INST2_PARITY_ERR_INFO(inst)                         ((inst) + 0x000000B4), 0x00000408
-#define BF_CSRAM11_INST2_PARITY_ERR_INFO(inst)                         ((inst) + 0x000000B4), 0x0000040C
-#define BF_CSRAM12_INST2_PARITY_ERR_INFO(inst)                         ((inst) + 0x000000B4), 0x00000410
-#define BF_CSRAM13_INST2_PARITY_ERR_INFO(inst)                         ((inst) + 0x000000B4), 0x00000414
-#define BF_CSRAM14_INST2_PARITY_ERR_INFO(inst)                         ((inst) + 0x000000B4), 0x00000418
-#define BF_CSRAM15_INST2_PARITY_ERR_INFO(inst)                         ((inst) + 0x000000B4), 0x0000041C
+#define REG_LINEARX_CSRAM_PARITY_ERR7_ADDR(inst)                       ((uint32_t)(inst) + 0x000000B4U)
+#define BF_CSRAM8_INST2_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000B4U), 0x00000400U
+#define BF_CSRAM9_INST2_PARITY_ERR_INFO(inst)                          ((uint32_t)(inst) + 0x000000B4U), 0x00000404U
+#define BF_CSRAM10_INST2_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x000000B4U), 0x00000408U
+#define BF_CSRAM11_INST2_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x000000B4U), 0x0000040CU
+#define BF_CSRAM12_INST2_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x000000B4U), 0x00000410U
+#define BF_CSRAM13_INST2_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x000000B4U), 0x00000414U
+#define BF_CSRAM14_INST2_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x000000B4U), 0x00000418U
+#define BF_CSRAM15_INST2_PARITY_ERR_INFO(inst)                         ((uint32_t)(inst) + 0x000000B4U), 0x0000041CU
 
-#define REG_LINEARX_CSRAM_PARITY_ERR8_ADDR(inst)                       ((inst) + 0x000000B8)
-#define BF_UPDATE_CSRAM0_INST2_PARITY_ERR_INFO(inst)                   ((inst) + 0x000000B8), 0x00000400
-#define BF_UPDATE_CSRAM1_INST2_PARITY_ERR_INFO(inst)                   ((inst) + 0x000000B8), 0x00000404
+#define REG_LINEARX_CSRAM_PARITY_ERR8_ADDR(inst)                       ((uint32_t)(inst) + 0x000000B8U)
+#define BF_UPDATE_CSRAM0_INST2_PARITY_ERR_INFO(inst)                   ((uint32_t)(inst) + 0x000000B8U), 0x00000400U
+#define BF_UPDATE_CSRAM1_INST2_PARITY_ERR_INFO(inst)                   ((uint32_t)(inst) + 0x000000B8U), 0x00000404U
 
-#define REG_LINEARX_HSRAM_CLK_EN_ADDR(inst)                            ((inst) + 0x000000C0)
-#define BF_HSRAM_CLK_EN_INFO(inst)                                     ((inst) + 0x000000C0), 0x00001200
+#define REG_LINEARX_HSRAM_CLK_EN_ADDR(inst)                            ((uint32_t)(inst) + 0x000000C0U)
+#define BF_HSRAM_CLK_EN_INFO(inst)                                     ((uint32_t)(inst) + 0x000000C0U), 0x00001200U
 
-#define REG_LINEARX_CSRAM_CLK_EN0_ADDR(inst)                           ((inst) + 0x000000C4)
-#define BF_CSRAM_CLK_EN_INST0_INFO(inst)                               ((inst) + 0x000000C4), 0x00001200
+#define REG_LINEARX_CSRAM_CLK_EN0_ADDR(inst)                           ((uint32_t)(inst) + 0x000000C4U)
+#define BF_CSRAM_CLK_EN_INST0_INFO(inst)                               ((uint32_t)(inst) + 0x000000C4U), 0x00001200U
 
-#define REG_LINEARX_CSRAM_CLK_EN1_ADDR(inst)                           ((inst) + 0x000000C8)
-#define BF_CSRAM_CLK_EN_INST1_INFO(inst)                               ((inst) + 0x000000C8), 0x00001200
+#define REG_LINEARX_CSRAM_CLK_EN1_ADDR(inst)                           ((uint32_t)(inst) + 0x000000C8U)
+#define BF_CSRAM_CLK_EN_INST1_INFO(inst)                               ((uint32_t)(inst) + 0x000000C8U), 0x00001200U
 
-#define REG_LINEARX_CSRAM_CLK_EN2_ADDR(inst)                           ((inst) + 0x000000CC)
-#define BF_CSRAM_CLK_EN_INST2_INFO(inst)                               ((inst) + 0x000000CC), 0x00001200
+#define REG_LINEARX_CSRAM_CLK_EN2_ADDR(inst)                           ((uint32_t)(inst) + 0x000000CCU)
+#define BF_CSRAM_CLK_EN_INST2_INFO(inst)                               ((uint32_t)(inst) + 0x000000CCU), 0x00001200U
 
-#define REG_LINEARX_RESET_CLK_MUX_ADDR(inst)                           ((inst) + 0x000000D0)
-#define BF_HSRAM_RESET_CLK_MUX_INFO(inst)                              ((inst) + 0x000000D0), 0x00000100
-#define BF_CSRAM_RESET_CLK_MUX_INFO(inst)                              ((inst) + 0x000000D0), 0x00000101
+#define REG_LINEARX_RESET_CLK_MUX_ADDR(inst)                           ((uint32_t)(inst) + 0x000000D0U)
+#define BF_HSRAM_RESET_CLK_MUX_INFO(inst)                              ((uint32_t)(inst) + 0x000000D0U), 0x00000100U
+#define BF_CSRAM_RESET_CLK_MUX_INFO(inst)                              ((uint32_t)(inst) + 0x000000D0U), 0x00000101U
 
-#endif /* __ADI_APOLLO_BF_LINEARX_LUT_MEM_CTRL_H__ */
+#endif /* ADI_APOLLO_BF_LINEARX_LUT_MEM_CTRL_H__ */
 /*! @} */

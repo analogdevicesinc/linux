@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_CFIR
  * @{
  */
-#ifndef __ADI_APOLLO_CFIR_H__
-#define __ADI_APOLLO_CFIR_H__
+#ifndef ADI_APOLLO_CFIR_H__
+#define ADI_APOLLO_CFIR_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_cfir_types.h"
@@ -194,6 +194,6 @@ int32_t adi_apollo_cfir_next_hop_num_set(adi_apollo_device_t *device, adi_apollo
 }
 #endif
 
-#endif /* __ADI_APOLLO_CFIR_H__ */
+#endif /* ADI_APOLLO_CFIR_H__ */
 /*! @} */
 

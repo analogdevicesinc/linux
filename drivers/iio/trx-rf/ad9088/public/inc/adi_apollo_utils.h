@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_UTILS
  * @{
  */
-#ifndef __ADI_APOLLO_UTILS_H__
-#define __ADI_APOLLO_UTILS_H__
+#ifndef ADI_APOLLO_UTILS_H__
+#define ADI_APOLLO_UTILS_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_types.h"
@@ -55,5 +55,5 @@ int32_t adi_apollo_utils_side_from_dac_select_get(adi_apollo_device_t *device, u
 }
 #endif
 
-#endif /* __ADI_APOLLO_UTILS_H__ */
+#endif /* ADI_APOLLO_UTILS_H__ */
 /*! @} */

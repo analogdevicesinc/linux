@@ -12,52 +12,52 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_TXRX_POSTFSRC_RECONF_H__
-#define __ADI_APOLLO_BF_TXRX_POSTFSRC_RECONF_H__
+#ifndef ADI_APOLLO_BF_TXRX_POSTFSRC_RECONF_H__
+#define ADI_APOLLO_BF_TXRX_POSTFSRC_RECONF_H__
 
 /*============= D E F I N E S ==============*/
-#define TXRX_POSTFSRC_RECONF_RX_SLICE_0_RX_DIGITAL0             0x603AE000
-#define TXRX_POSTFSRC_RECONF_RX_SLICE_1_RX_DIGITAL0             0x605AE000
-#define TXRX_POSTFSRC_RECONF_RX_SLICE_0_RX_DIGITAL1             0x60BAE000
-#define TXRX_POSTFSRC_RECONF_RX_SLICE_1_RX_DIGITAL1             0x60DAE000
-#define TXRX_POSTFSRC_RECONF_TX_SLICE_0_TX_DIGITAL0             0x61317000
-#define TXRX_POSTFSRC_RECONF_TX_SLICE_1_TX_DIGITAL0             0x61517000
-#define TXRX_POSTFSRC_RECONF_TX_SLICE_0_TX_DIGITAL1             0x61B17000
-#define TXRX_POSTFSRC_RECONF_TX_SLICE_1_TX_DIGITAL1             0x61D17000
+#define TXRX_POSTFSRC_RECONF_RX_SLICE_0_RX_DIGITAL0             0x603AE000U
+#define TXRX_POSTFSRC_RECONF_RX_SLICE_1_RX_DIGITAL0             0x605AE000U
+#define TXRX_POSTFSRC_RECONF_RX_SLICE_0_RX_DIGITAL1             0x60BAE000U
+#define TXRX_POSTFSRC_RECONF_RX_SLICE_1_RX_DIGITAL1             0x60DAE000U
+#define TXRX_POSTFSRC_RECONF_TX_SLICE_0_TX_DIGITAL0             0x61317000U
+#define TXRX_POSTFSRC_RECONF_TX_SLICE_1_TX_DIGITAL0             0x61517000U
+#define TXRX_POSTFSRC_RECONF_TX_SLICE_0_TX_DIGITAL1             0x61B17000U
+#define TXRX_POSTFSRC_RECONF_TX_SLICE_1_TX_DIGITAL1             0x61D17000U
 
-#define REG_POSTFSRC_RECONF_LCM0_ADDR(inst)                     ((inst) + 0x000002EB)
-#define BF_POSTFSRC_LCM_INFO(inst)                              ((inst) + 0x000002EB), 0x00001000
+#define REG_POSTFSRC_RECONF_LCM0_ADDR(inst)                     ((uint32_t)(inst) + 0x000002EBU)
+#define BF_POSTFSRC_LCM_INFO(inst)                              ((uint32_t)(inst) + 0x000002EBU), 0x00001000U
 
-#define REG_POSTFSRC_RECONF_LCM1_ADDR(inst)                     ((inst) + 0x000002EC)
-
-#ifdef USE_PRIVATE_BF
-#define REG_POSTFSRC_SM_STATE_ADDR(inst)                        ((inst) + 0x000002F3)
-#define BF_POSTFSRC_SM_STATE_INFO(inst)                         ((inst) + 0x000002F3), 0x00000400
-#endif /* USE_PRIVATE_BF */
-
-#define REG_RECONFIG_RAMP_WIDTH_TXRX_POSTFSRC_RECONF_ADDR(inst) ((inst) + 0x000002F4)
-#define BF_RECONFIG_RAMP_WIDTH_TXRX_POSTFSRC_RECONF_INFO(inst)  ((inst) + 0x000002F4), 0x00000500
+#define REG_POSTFSRC_RECONF_LCM1_ADDR(inst)                     ((uint32_t)(inst) + 0x000002ECU)
 
 #ifdef USE_PRIVATE_BF
-#define REG_RECONFIG_ERROR_STATUS_ADDR(inst)                    ((inst) + 0x000002F5)
-#define BF_TIME_ERROR_STATUS_TXRX_POSTFSRC_RECONF_INFO(inst)    ((inst) + 0x000002F5), 0x00000100
+#define REG_POSTFSRC_SM_STATE_ADDR(inst)                        ((uint32_t)(inst) + 0x000002F3U)
+#define BF_POSTFSRC_SM_STATE_INFO(inst)                         ((uint32_t)(inst) + 0x000002F3U), 0x00000400U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_POSTFSRC_NEWCLK_DLY_ADDR(inst)                      ((inst) + 0x000002F6)
-#define BF_NEWCLK_DLY_TXRX_POSTFSRC_RECONF_INFO(inst)           ((inst) + 0x000002F6), 0x00000500
-
-#define REG_POSTFSRC_RECONFIG_DONE_ADDR(inst)                   ((inst) + 0x000002F7)
-#define BF_RECONFIG_DONE_INFO(inst)                             ((inst) + 0x000002F7), 0x00000100
+#define REG_RECONFIG_RAMP_WIDTH_TXRX_POSTFSRC_RECONF_ADDR(inst) ((uint32_t)(inst) + 0x000002F4U)
+#define BF_RECONFIG_RAMP_WIDTH_TXRX_POSTFSRC_RECONF_INFO(inst)  ((uint32_t)(inst) + 0x000002F4U), 0x00000500U
 
 #ifdef USE_PRIVATE_BF
-#define REG_POSTFSRC_FORCE_NEWCLK_ADDR(inst)                    ((inst) + 0x000002F8)
-#define BF_FORCE_NEWCLK_TXRX_POSTFSRC_RECONF_INFO(inst)         ((inst) + 0x000002F8), 0x00000100
+#define REG_RECONFIG_ERROR_STATUS_ADDR(inst)                    ((uint32_t)(inst) + 0x000002F5U)
+#define BF_TIME_ERROR_STATUS_TXRX_POSTFSRC_RECONF_INFO(inst)    ((uint32_t)(inst) + 0x000002F5U), 0x00000100U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_POSTFSRC_NEWCLK_DLY_ADDR(inst)                      ((uint32_t)(inst) + 0x000002F6U)
+#define BF_NEWCLK_DLY_TXRX_POSTFSRC_RECONF_INFO(inst)           ((uint32_t)(inst) + 0x000002F6U), 0x00000500U
+
+#define REG_POSTFSRC_RECONFIG_DONE_ADDR(inst)                   ((uint32_t)(inst) + 0x000002F7U)
+#define BF_RECONFIG_DONE_INFO(inst)                             ((uint32_t)(inst) + 0x000002F7U), 0x00000100U
+
+#ifdef USE_PRIVATE_BF
+#define REG_POSTFSRC_FORCE_NEWCLK_ADDR(inst)                    ((uint32_t)(inst) + 0x000002F8U)
+#define BF_FORCE_NEWCLK_TXRX_POSTFSRC_RECONF_INFO(inst)         ((uint32_t)(inst) + 0x000002F8U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_EXTRA_RECONFIG_DLY_ADDR(inst)                       ((inst) + 0x000002F9)
-#define BF_EXTRA_RECONFIG_DLY_INFO(inst)                        ((inst) + 0x000002F9), 0x00000400
+#define REG_EXTRA_RECONFIG_DLY_ADDR(inst)                       ((uint32_t)(inst) + 0x000002F9U)
+#define BF_EXTRA_RECONFIG_DLY_INFO(inst)                        ((uint32_t)(inst) + 0x000002F9U), 0x00000400U
 #endif /* USE_PRIVATE_BF */
 
-#endif /* __ADI_APOLLO_BF_TXRX_POSTFSRC_RECONF_H__ */
+#endif /* ADI_APOLLO_BF_TXRX_POSTFSRC_RECONF_H__ */
 /*! @} */
