@@ -4687,6 +4687,26 @@ static void snd_usb_apply_db_scale(struct usb_mixer_interface *mixer,
 	kctl->vd[0].access &= ~SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK;
 }
 
+static void snd_usb_apply_db_scale_val(struct usb_mixer_interface *mixer,
+				       struct usb_mixer_elem_info *cval, struct snd_kcontrol *kctl,
+				       const unsigned int *scale, const char *desc,
+				       int min, int max, int res)
+{
+	snd_usb_apply_db_scale(mixer, cval, kctl, scale, desc);
+
+	usb_audio_info(mixer->chip,
+		       "overriding [%s] val (%d/%d/%d => %d/%d/%d) to fit %s dB scale quirk\n",
+		       kctl->id.name, cval->min, cval->max, cval->res, min, max, res, desc);
+
+	/*
+	 * We are not fixing the cached values, as get_relative_value() will
+	 * ensure userspace always sees compliant ones.
+	 */
+	cval->min = min;
+	cval->max = max;
+	cval->res = res;
+}
+
 static void snd_usb_mixer_fu_quirk_linear_scale(struct usb_mixer_interface *mixer,
 						struct usb_mixer_elem_info *cval,
 						struct snd_kcontrol *kctl)
@@ -4747,6 +4767,81 @@ static void snd_dragonfly_quirk_db_scale(struct usb_mixer_interface *mixer,
 		 * At least a 0..53 variant (hw v1.0) exists.
 		 */
 		snd_usb_apply_db_scale(mixer, cval, kctl, NULL, "DragonFly");
+	}
+}
+
+static void snd_ab13x_quirks(struct usb_mixer_interface *mixer, struct usb_mixer_elem_info *cval,
+			     struct snd_kcontrol *kctl)
+{
+	/*
+	 * Volume mapping based on voltage level measurement @ 1000Hz:
+	 * +--------+--------+-----------+---------+----------+--------+
+	 * |  hex   |  dec   | dec => dB | mVrms * | mV => dB |  res   |
+	 * +--------+--------+-----------+---------+----------+--------+
+	 * | 0xd300 | -11520 |    -45.00 |         |          |        |
+	 * | 0xdb5a |  -9382 |    -36.65 |   1.285 |   -26.68 | 2138 # |
+	 * | 0xe2d0 |  -7472 |    -29.19 |   4.104 |   -21.63 | 1910 # |
+	 * | 0xe7cc |  -6196 |    -24.20 |  13.693 |   -16.40 | 1276 # |
+	 * | 0xeb8c |  -5236 |    -20.45 |  26.71  |   -13.50 |  960   |
+	 * | 0xee8d |  -4467 |    -17.45 |  42.29  |   -11.50 |  769   |
+	 * | 0xf10e |  -3826 |    -14.95 |  66.81  |    -9.52 |  641   |
+	 * | 0xf335 |  -3275 |    -12.79 |  94.43  |    -8.01 |  551   |
+	 * | 0xf517 |  -2793 |    -10.91 | 133.25  |    -6.52 |  482   |
+	 * | 0xf6c5 |  -2363 |     -9.23 | 168.73  |    -5.49 |  430   |
+	 * | 0xf847 |  -1977 |     -7.72 | 212.05  |    -4.50 |  386   |
+	 * | 0xf9a7 |  -1625 |     -6.35 | 267.1   |    -3.50 |  352   |
+	 * | 0xfae9 |  -1303 |     -5.09 | 336.3   |    -2.50 |  322   |
+	 * | 0xfc13 |  -1005 |     -3.93 | 377.4   |    -2.00 |  298   |
+	 * | 0xfd27 |   -729 |     -2.85 | 423.6   |    -1.50 |  276   |
+	 * | 0xfe29 |   -471 |     -1.84 | 475.3   |    -1.00 |  258   |
+	 * | 0xff69 |   -151 |     -0.59 | 533.1   |    -0.50 |  320   |
+	 * | 0x0000 |      0 |      0.00 | 597.7   |     0.00 |  151   |
+	 * +--------+--------+-----------+---------+----------+--------+
+	 *
+	 * Footnote *: measured through a power amplifier's loopback line out
+	 * to ensure high input impedance (see #). The raw voltage at 0x0000
+	 * without going through a power amplifier is 677mVrms.
+	 *
+	 * Footnote #: low output power. Even the impedance of a multimeter is
+	 * too low, causing a massive voltage drop (-10dB!), which means that
+	 * they are inaudible when connected to earphones. Do not expose them.
+	 *
+	 * The volume control mixer has uneven resolutions in reality. Setting
+	 * any value between [0xd300, 0xdb5a] results in the same audible volume
+	 * as 0xdb5a, (0xdb5a, 0xe2d0] results in the same audible volume as
+	 * 0xe2d0, and so on. The read back value always acts like res == 1.
+	 */
+	static const DECLARE_TLV_DB_RANGE(scale,
+		 0,  0, TLV_DB_SCALE_ITEM(-1350, 0, 0), /*                             -5500 */
+		 1,  3, TLV_DB_SCALE_ITEM(-1150, 0, 0), /*               -5200, -4900, -4600 */
+		 4,  5, TLV_DB_SCALE_ITEM( -952, 0, 0), /*                      -4300, -4000 */
+		 6,  7, TLV_DB_SCALE_ITEM( -801, 0, 0), /*                      -3700, -3400 */
+		 8,  9, TLV_DB_SCALE_ITEM( -652, 0, 0), /*                      -3100, -2800 */
+		10, 13, TLV_DB_MINMAX_ITEM(-550, -250), /*        -2500, -2200, -1900, -1600 */
+		14, 18, TLV_DB_MINMAX_ITEM(-200,    0), /* -1300, -1000,  -700,  -400,  -100 */
+	);
+
+	if (cval->min == -11520 && cval->max == 0 && cval->res == 1) {
+		if (!deconflict_playback_tlv_quirks(mixer, kctl))
+			return;
+
+		/*
+		 * These values are carefully chosen so that volume steps with
+		 * 0.5dB or 1.0dB resolution can be approximately represented
+		 * togother.
+		 *
+		 * It's literally a miracle that these values can flawlessly
+		 * align to 100.
+		 */
+		snd_usb_apply_db_scale_val(mixer, cval, kctl, scale, "AB13X", -5500, -100, 300);
+	} else if (cval->min == 0 && cval->max == 8191 && cval->res == 1) {
+		/* The final effects will be printed later. */
+		usb_audio_info(mixer->chip, "applying AB13X Capture quirk (0/8191/1 variant)\n");
+
+		if (deconflict_capture_tlv_quirks(mixer, kctl))
+			snd_usb_mixer_fu_quirk_linear_scale(mixer, cval, kctl);
+	} else {
+		usb_audio_dbg(mixer->chip, "not applying AB13X quirk on unknown variant\n");
 	}
 }
 
@@ -4817,6 +4912,10 @@ void snd_usb_mixer_fu_apply_quirk(struct usb_mixer_interface *mixer,
 				  struct snd_kcontrol *kctl)
 {
 	switch (mixer->chip->usb_id) {
+	case USB_ID(0x001f, 0x0b21): /* AB13X Headset Adapter */
+		if (cval->control == UAC_FU_VOLUME)
+			snd_ab13x_quirks(mixer, cval, kctl);
+		break;
 	case USB_ID(0x21b4, 0x0081): /* AudioQuest DragonFly */
 		if (unitid == 7 && cval->control == UAC_FU_VOLUME)
 			snd_dragonfly_quirk_db_scale(mixer, cval, kctl);
