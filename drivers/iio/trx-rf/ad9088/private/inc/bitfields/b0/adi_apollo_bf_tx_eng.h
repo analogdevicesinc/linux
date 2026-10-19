@@ -12,96 +12,96 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_TX_ENG_H__
-#define __ADI_APOLLO_BF_TX_ENG_H__
+#ifndef ADI_APOLLO_BF_TX_ENG_H__
+#define ADI_APOLLO_BF_TX_ENG_H__
 
 /*============= D E F I N E S ==============*/
-#define TX_ENG_TX_TOP_TX_DIGITAL0      0x61010000
-#define TX_ENG_TX_TOP_TX_DIGITAL1      0x61810000
+#define TX_ENG_TX_TOP_TX_DIGITAL0      0x61010000U
+#define TX_ENG_TX_TOP_TX_DIGITAL1      0x61810000U
 
 #ifdef USE_PRIVATE_BF
-#define REG_FHB1_CLK_DEBUG0_ADDR(inst) ((inst) + 0x00000000)
-#define BF_FHB1_FORCE_ON_INFO(inst)    ((inst) + 0x00000000), 0x00000800
+#define REG_FHB1_CLK_DEBUG0_ADDR(inst) ((uint32_t)(inst) + 0x00000000U)
+#define BF_FHB1_FORCE_ON_INFO(inst)    ((uint32_t)(inst) + 0x00000000U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FHB1_CLK_DEBUG1_ADDR(inst) ((inst) + 0x00000001)
-#define BF_FHB1_FORCE_OFF_INFO(inst)   ((inst) + 0x00000001), 0x00000800
+#define REG_FHB1_CLK_DEBUG1_ADDR(inst) ((uint32_t)(inst) + 0x00000001U)
+#define BF_FHB1_FORCE_OFF_INFO(inst)   ((uint32_t)(inst) + 0x00000001U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FHB2_CLK_DEBUG0_ADDR(inst) ((inst) + 0x00000002)
-#define BF_FHB2_FORCE_ON_INFO(inst)    ((inst) + 0x00000002), 0x00000800
+#define REG_FHB2_CLK_DEBUG0_ADDR(inst) ((uint32_t)(inst) + 0x00000002U)
+#define BF_FHB2_FORCE_ON_INFO(inst)    ((uint32_t)(inst) + 0x00000002U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FHB2_CLK_DEBUG1_ADDR(inst) ((inst) + 0x00000003)
-#define BF_FHB2_FORCE_OFF_INFO(inst)   ((inst) + 0x00000003), 0x00000800
+#define REG_FHB2_CLK_DEBUG1_ADDR(inst) ((uint32_t)(inst) + 0x00000003U)
+#define BF_FHB2_FORCE_OFF_INFO(inst)   ((uint32_t)(inst) + 0x00000003U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FHB3_CLK_DEBUG0_ADDR(inst) ((inst) + 0x00000004)
-#define BF_FHB3_FORCE_ON_INFO(inst)    ((inst) + 0x00000004), 0x00000800
+#define REG_FHB3_CLK_DEBUG0_ADDR(inst) ((uint32_t)(inst) + 0x00000004U)
+#define BF_FHB3_FORCE_ON_INFO(inst)    ((uint32_t)(inst) + 0x00000004U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FHB3_CLK_DEBUG1_ADDR(inst) ((inst) + 0x00000005)
-#define BF_FHB3_FORCE_OFF_INFO(inst)   ((inst) + 0x00000005), 0x00000800
+#define REG_FHB3_CLK_DEBUG1_ADDR(inst) ((uint32_t)(inst) + 0x00000005U)
+#define BF_FHB3_FORCE_OFF_INFO(inst)   ((uint32_t)(inst) + 0x00000005U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FHB4_CLK_DEBUG0_ADDR(inst) ((inst) + 0x00000006)
-#define BF_FHB4_FORCE_ON_INFO(inst)    ((inst) + 0x00000006), 0x00000800
+#define REG_FHB4_CLK_DEBUG0_ADDR(inst) ((uint32_t)(inst) + 0x00000006U)
+#define BF_FHB4_FORCE_ON_INFO(inst)    ((uint32_t)(inst) + 0x00000006U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FHB4_CLK_DEBUG1_ADDR(inst) ((inst) + 0x00000007)
-#define BF_FHB4_FORCE_OFF_INFO(inst)   ((inst) + 0x00000007), 0x00000800
+#define REG_FHB4_CLK_DEBUG1_ADDR(inst) ((uint32_t)(inst) + 0x00000007U)
+#define BF_FHB4_FORCE_OFF_INFO(inst)   ((uint32_t)(inst) + 0x00000007U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FHB5_CLK_DEBUG0_ADDR(inst) ((inst) + 0x00000008)
-#define BF_FHB5_FORCE_ON_INFO(inst)    ((inst) + 0x00000008), 0x00000800
+#define REG_FHB5_CLK_DEBUG0_ADDR(inst) ((uint32_t)(inst) + 0x00000008U)
+#define BF_FHB5_FORCE_ON_INFO(inst)    ((uint32_t)(inst) + 0x00000008U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FHB5_CLK_DEBUG1_ADDR(inst) ((inst) + 0x00000009)
-#define BF_FHB5_FORCE_OFF_INFO(inst)   ((inst) + 0x00000009), 0x00000800
+#define REG_FHB5_CLK_DEBUG1_ADDR(inst) ((uint32_t)(inst) + 0x00000009U)
+#define BF_FHB5_FORCE_OFF_INFO(inst)   ((uint32_t)(inst) + 0x00000009U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FHB6_CLK_DEBUG0_ADDR(inst) ((inst) + 0x0000000A)
-#define BF_FHB6_FORCE_ON_INFO(inst)    ((inst) + 0x0000000A), 0x00000800
+#define REG_FHB6_CLK_DEBUG0_ADDR(inst) ((uint32_t)(inst) + 0x0000000AU)
+#define BF_FHB6_FORCE_ON_INFO(inst)    ((uint32_t)(inst) + 0x0000000AU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_FHB6_CLK_DEBUG1_ADDR(inst) ((inst) + 0x0000000B)
-#define BF_FHB6_FORCE_OFF_INFO(inst)   ((inst) + 0x0000000B), 0x00000800
+#define REG_FHB6_CLK_DEBUG1_ADDR(inst) ((uint32_t)(inst) + 0x0000000BU)
+#define BF_FHB6_FORCE_OFF_INFO(inst)   ((uint32_t)(inst) + 0x0000000BU), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_CHB1_CLK_DEBUG_ADDR(inst)  ((inst) + 0x0000000C)
-#define BF_FORCE_CHB1_ON_INFO(inst)    ((inst) + 0x0000000C), 0x00000400
-#define BF_FORCE_CHB1_OFF_INFO(inst)   ((inst) + 0x0000000C), 0x00000404
+#define REG_CHB1_CLK_DEBUG_ADDR(inst)  ((uint32_t)(inst) + 0x0000000CU)
+#define BF_FORCE_CHB1_ON_INFO(inst)    ((uint32_t)(inst) + 0x0000000CU), 0x00000400U
+#define BF_FORCE_CHB1_OFF_INFO(inst)   ((uint32_t)(inst) + 0x0000000CU), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_CTB1_CLK_DEBUG_ADDR(inst)  ((inst) + 0x0000000D)
-#define BF_FORCE_CTB1_ON_INFO(inst)    ((inst) + 0x0000000D), 0x00000400
-#define BF_FORCE_CTB1_OFF_INFO(inst)   ((inst) + 0x0000000D), 0x00000404
+#define REG_CTB1_CLK_DEBUG_ADDR(inst)  ((uint32_t)(inst) + 0x0000000DU)
+#define BF_FORCE_CTB1_ON_INFO(inst)    ((uint32_t)(inst) + 0x0000000DU), 0x00000400U
+#define BF_FORCE_CTB1_OFF_INFO(inst)   ((uint32_t)(inst) + 0x0000000DU), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_CHB2_CLK_DEBUG_ADDR(inst)  ((inst) + 0x0000000E)
-#define BF_FORCE_CHB2_ON_INFO(inst)    ((inst) + 0x0000000E), 0x00000400
-#define BF_FORCE_CHB2_OFF_INFO(inst)   ((inst) + 0x0000000E), 0x00000404
+#define REG_CHB2_CLK_DEBUG_ADDR(inst)  ((uint32_t)(inst) + 0x0000000EU)
+#define BF_FORCE_CHB2_ON_INFO(inst)    ((uint32_t)(inst) + 0x0000000EU), 0x00000400U
+#define BF_FORCE_CHB2_OFF_INFO(inst)   ((uint32_t)(inst) + 0x0000000EU), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_CHB3_CLK_DEBUG_ADDR(inst)  ((inst) + 0x0000000F)
-#define BF_FORCE_CHB3_ON_INFO(inst)    ((inst) + 0x0000000F), 0x00000400
-#define BF_FORCE_CHB3_OFF_INFO(inst)   ((inst) + 0x0000000F), 0x00000404
+#define REG_CHB3_CLK_DEBUG_ADDR(inst)  ((uint32_t)(inst) + 0x0000000FU)
+#define BF_FORCE_CHB3_ON_INFO(inst)    ((uint32_t)(inst) + 0x0000000FU), 0x00000400U
+#define BF_FORCE_CHB3_OFF_INFO(inst)   ((uint32_t)(inst) + 0x0000000FU), 0x00000404U
 #endif /* USE_PRIVATE_BF */
 
-#endif /* __ADI_APOLLO_BF_TX_ENG_H__ */
+#endif /* ADI_APOLLO_BF_TX_ENG_H__ */
 /*! @} */

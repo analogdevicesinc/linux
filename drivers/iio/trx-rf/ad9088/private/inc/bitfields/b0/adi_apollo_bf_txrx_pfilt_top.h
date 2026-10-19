@@ -12,117 +12,117 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_TXRX_PFILT_TOP_H__
-#define __ADI_APOLLO_BF_TXRX_PFILT_TOP_H__
+#ifndef ADI_APOLLO_BF_TXRX_PFILT_TOP_H__
+#define ADI_APOLLO_BF_TXRX_PFILT_TOP_H__
 
 /*============= D E F I N E S ==============*/
-#define RX_PFILT_TOP_RX_SLICE_0_RX_DIGITAL0       0x60362000
-#define RX_PFILT_TOP_RX_SLICE_1_RX_DIGITAL0       0x60562000
-#define RX_PFILT_TOP_RX_SLICE_0_RX_DIGITAL1       0x60B62000
-#define RX_PFILT_TOP_RX_SLICE_1_RX_DIGITAL1       0x60D62000
-#define TX_PFILT_TOP_TX_SLICE_0_TX_DIGITAL0       0x61304000
-#define TX_PFILT_TOP_TX_SLICE_1_TX_DIGITAL0       0x61504000
-#define TX_PFILT_TOP_TX_SLICE_0_TX_DIGITAL1       0x61B04000
-#define TX_PFILT_TOP_TX_SLICE_1_TX_DIGITAL1       0x61D04000
+#define RX_PFILT_TOP_RX_SLICE_0_RX_DIGITAL0       0x60362000U
+#define RX_PFILT_TOP_RX_SLICE_1_RX_DIGITAL0       0x60562000U
+#define RX_PFILT_TOP_RX_SLICE_0_RX_DIGITAL1       0x60B62000U
+#define RX_PFILT_TOP_RX_SLICE_1_RX_DIGITAL1       0x60D62000U
+#define TX_PFILT_TOP_TX_SLICE_0_TX_DIGITAL0       0x61304000U
+#define TX_PFILT_TOP_TX_SLICE_1_TX_DIGITAL0       0x61504000U
+#define TX_PFILT_TOP_TX_SLICE_0_TX_DIGITAL1       0x61B04000U
+#define TX_PFILT_TOP_TX_SLICE_1_TX_DIGITAL1       0x61D04000U
 
-#define REG_PFIR_MODE_ADDR(inst, n)               ((inst) + 0x0000000C + 1 * (n))
-#define BF_PFIR_I_MODE_INFO(inst, n)              ((inst) + 0x0000000C + 1 * (n)), 0x00000400
-#define BF_PFIR_Q_MODE_INFO(inst, n)              ((inst) + 0x0000000C + 1 * (n)), 0x00000404
+#define REG_PFIR_MODE_ADDR(inst, n)               ((uint32_t)(inst) + 0x0000000CU + 1U * (uint32_t)(n))
+#define BF_PFIR_I_MODE_INFO(inst, n)              ((uint32_t)(inst) + 0x0000000CU + 1U * (uint32_t)(n)), 0x00000400U
+#define BF_PFIR_Q_MODE_INFO(inst, n)              ((uint32_t)(inst) + 0x0000000CU + 1U * (uint32_t)(n)), 0x00000404U
 
 #ifdef USE_PRIVATE_BF
-#define REG_LEGACY_PFIR_I_GAIN_ADDR(inst, n)      ((inst) + 0x0000000E + 1 * (n))
-#define BF_LEGACY_PFIR_IX_GAIN_INFO(inst, n)      ((inst) + 0x0000000E + 1 * (n)), 0x00000300
-#define BF_LEGACY_PFIR_IY_GAIN_INFO(inst, n)      ((inst) + 0x0000000E + 1 * (n)), 0x00000303
+#define REG_LEGACY_PFIR_I_GAIN_ADDR(inst, n)      ((uint32_t)(inst) + 0x0000000EU + 1U * (uint32_t)(n))
+#define BF_LEGACY_PFIR_IX_GAIN_INFO(inst, n)      ((uint32_t)(inst) + 0x0000000EU + 1U * (uint32_t)(n)), 0x00000300U
+#define BF_LEGACY_PFIR_IY_GAIN_INFO(inst, n)      ((uint32_t)(inst) + 0x0000000EU + 1U * (uint32_t)(n)), 0x00000303U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_LEGACY_PFIR_Q_GAIN_ADDR(inst, n)      ((inst) + 0x00000010 + 1 * (n))
-#define BF_LEGACY_PFIR_QX_GAIN_INFO(inst, n)      ((inst) + 0x00000010 + 1 * (n)), 0x00000300
-#define BF_LEGACY_PFIR_QY_GAIN_INFO(inst, n)      ((inst) + 0x00000010 + 1 * (n)), 0x00000303
+#define REG_LEGACY_PFIR_Q_GAIN_ADDR(inst, n)      ((uint32_t)(inst) + 0x00000010U + 1U * (uint32_t)(n))
+#define BF_LEGACY_PFIR_QX_GAIN_INFO(inst, n)      ((uint32_t)(inst) + 0x00000010U + 1U * (uint32_t)(n)), 0x00000300U
+#define BF_LEGACY_PFIR_QY_GAIN_INFO(inst, n)      ((uint32_t)(inst) + 0x00000010U + 1U * (uint32_t)(n)), 0x00000303U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_PFIR_BIST_CTRL_ADDR(inst, n)          ((inst) + 0x00000012 + 1 * (n))
+#define REG_PFIR_BIST_CTRL_ADDR(inst, n)          ((uint32_t)(inst) + 0x00000012U + 1U * (uint32_t)(n))
 #ifdef USE_PRIVATE_BF
-#define BF_PFIR_BIST_EN_INFO(inst, n)             ((inst) + 0x00000012 + 1 * (n)), 0x00000100
-#endif /* USE_PRIVATE_BF */
-#ifdef USE_PRIVATE_BF
-#define BF_PFIR_BIST_INIT_INFO(inst, n)           ((inst) + 0x00000012 + 1 * (n)), 0x00000101
+#define BF_PFIR_BIST_EN_INFO(inst, n)             ((uint32_t)(inst) + 0x00000012U + 1U * (uint32_t)(n)), 0x00000100U
 #endif /* USE_PRIVATE_BF */
 #ifdef USE_PRIVATE_BF
-#define BF_PFIR_BIST_EN_STATUS_INFO(inst, n)      ((inst) + 0x00000012 + 1 * (n)), 0x00000102
+#define BF_PFIR_BIST_INIT_INFO(inst, n)           ((uint32_t)(inst) + 0x00000012U + 1U * (uint32_t)(n)), 0x00000101U
 #endif /* USE_PRIVATE_BF */
 #ifdef USE_PRIVATE_BF
-#define BF_DITHER_DIS_INFO(inst, n)               ((inst) + 0x00000012 + 1 * (n)), 0x00000103
+#define BF_PFIR_BIST_EN_STATUS_INFO(inst, n)      ((uint32_t)(inst) + 0x00000012U + 1U * (uint32_t)(n)), 0x00000102U
 #endif /* USE_PRIVATE_BF */
-#define BF_OUTPUT_DITHER_EN_INFO(inst, n)         ((inst) + 0x00000012 + 1 * (n)), 0x00000104
+#ifdef USE_PRIVATE_BF
+#define BF_DITHER_DIS_INFO(inst, n)               ((uint32_t)(inst) + 0x00000012U + 1U * (uint32_t)(n)), 0x00000103U
+#endif /* USE_PRIVATE_BF */
+#define BF_OUTPUT_DITHER_EN_INFO(inst, n)         ((uint32_t)(inst) + 0x00000012U + 1U * (uint32_t)(n)), 0x00000104U
 
 #ifdef USE_PRIVATE_BF
-#define REG_DELAY_SETTING_ADDR(inst, n)           ((inst) + 0x00000014 + 1 * (n))
-#define BF_DELAY_SETTING_INFO(inst, n)            ((inst) + 0x00000014 + 1 * (n)), 0x00000800
+#define REG_DELAY_SETTING_ADDR(inst, n)           ((uint32_t)(inst) + 0x00000014U + 1U * (uint32_t)(n))
+#define BF_DELAY_SETTING_INFO(inst, n)            ((uint32_t)(inst) + 0x00000014U + 1U * (uint32_t)(n)), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_PFIR_COEFF_TRANSFER_ADDR(inst, n)     ((inst) + 0x00000016 + 1 * (n))
-#define BF_PFIR_COEFF_TRANSFER_INFO(inst, n)      ((inst) + 0x00000016 + 1 * (n)), 0x00000100
+#define REG_PFIR_COEFF_TRANSFER_ADDR(inst, n)     ((uint32_t)(inst) + 0x00000016U + 1U * (uint32_t)(n))
+#define BF_PFIR_COEFF_TRANSFER_INFO(inst, n)      ((uint32_t)(inst) + 0x00000016U + 1U * (uint32_t)(n)), 0x00000100U
 
 #ifdef USE_PRIVATE_BF
-#define REG_PFIR_BIST_CRC_LSB_ADDR(inst, n)       ((inst) + 0x00000018 + 1 * (n))
-#define BF_PFIR_BIST_CRC_INFO(inst, n)            ((inst) + 0x00000018 + 1 * (n)), 0x00001000
+#define REG_PFIR_BIST_CRC_LSB_ADDR(inst, n)       ((uint32_t)(inst) + 0x00000018U + 1U * (uint32_t)(n))
+#define BF_PFIR_BIST_CRC_INFO(inst, n)            ((uint32_t)(inst) + 0x00000018U + 1U * (uint32_t)(n)), 0x00001000U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_PFIR_BIST_CRC_MSB_ADDR(inst, n)       ((inst) + 0x0000001A + 1 * (n))
+#define REG_PFIR_BIST_CRC_MSB_ADDR(inst, n)       ((uint32_t)(inst) + 0x0000001AU + 1U * (uint32_t)(n))
 
-#define REG_HC_PROG_DELAY_ADDR(inst, n)           ((inst) + 0x0000001C + 1 * (n))
-#define BF_HC_PROG_DELAY_INFO(inst, n)            ((inst) + 0x0000001C + 1 * (n)), 0x00000700
+#define REG_HC_PROG_DELAY_ADDR(inst, n)           ((uint32_t)(inst) + 0x0000001CU + 1U * (uint32_t)(n))
+#define BF_HC_PROG_DELAY_INFO(inst, n)            ((uint32_t)(inst) + 0x0000001CU + 1U * (uint32_t)(n)), 0x00000700U
 
-#define REG_MODE_AND_DATA_TYPE_SEL_ADDR(inst)     ((inst) + 0x00000024)
-#define BF_QUAD_MODE_INFO(inst)                   ((inst) + 0x00000024), 0x00000100
-#define BF_REAL_DATA_INFO(inst)                   ((inst) + 0x00000024), 0x00000101
-#define BF_MODE_SWITCH_INFO(inst)                 ((inst) + 0x00000024), 0x00000102
-#define BF_ADD_SUB_SEL_INFO(inst)                 ((inst) + 0x00000024), 0x00000103
+#define REG_MODE_AND_DATA_TYPE_SEL_ADDR(inst)     ((uint32_t)(inst) + 0x00000024U)
+#define BF_QUAD_MODE_INFO(inst)                   ((uint32_t)(inst) + 0x00000024U), 0x00000100U
+#define BF_REAL_DATA_INFO(inst)                   ((uint32_t)(inst) + 0x00000024U), 0x00000101U
+#define BF_MODE_SWITCH_INFO(inst)                 ((uint32_t)(inst) + 0x00000024U), 0x00000102U
+#define BF_ADD_SUB_SEL_INFO(inst)                 ((uint32_t)(inst) + 0x00000024U), 0x00000103U
 
-#define REG_PFILT_TRIGGER_EN_ADDR(inst)           ((inst) + 0x00000025)
-#define BF_PFILT_TRIGGER_EN_INFO(inst)            ((inst) + 0x00000025), 0x00000100
+#define REG_PFILT_TRIGGER_EN_ADDR(inst)           ((uint32_t)(inst) + 0x00000025U)
+#define BF_PFILT_TRIGGER_EN_INFO(inst)            ((uint32_t)(inst) + 0x00000025U), 0x00000100U
 
-#define REG_PFILT_CONTROL_ADDR(inst)              ((inst) + 0x00000026)
-#define BF_EQ_GPIO_EN_INFO(inst)                  ((inst) + 0x00000026), 0x00000100
-#define BF_GPIO_CONFIG1_INFO(inst)                ((inst) + 0x00000026), 0x00000101
-#define BF_DISABLE_ORX_INFO(inst)                 ((inst) + 0x00000026), 0x00000402
+#define REG_PFILT_CONTROL_ADDR(inst)              ((uint32_t)(inst) + 0x00000026U)
+#define BF_EQ_GPIO_EN_INFO(inst)                  ((uint32_t)(inst) + 0x00000026U), 0x00000100U
+#define BF_GPIO_CONFIG1_INFO(inst)                ((uint32_t)(inst) + 0x00000026U), 0x00000101U
+#define BF_DISABLE_ORX_INFO(inst)                 ((uint32_t)(inst) + 0x00000026U), 0x00000402U
 
-#define REG_RD_COEFF_PAGE_SEL_ADDR(inst, n)       ((inst) + 0x00000027 + 1 * (n))
-#define BF_RD_COEFF_PAGE_SEL_INFO(inst, n)        ((inst) + 0x00000027 + 1 * (n)), 0x00000200
+#define REG_RD_COEFF_PAGE_SEL_ADDR(inst, n)       ((uint32_t)(inst) + 0x00000027U + 1U * (uint32_t)(n))
+#define BF_RD_COEFF_PAGE_SEL_INFO(inst, n)        ((uint32_t)(inst) + 0x00000027U + 1U * (uint32_t)(n)), 0x00000200U
 
 #ifdef USE_PRIVATE_BF
-#define REG_EIGER_MODE_ADDR(inst)                 ((inst) + 0x00000029)
-#define BF_EIGER_MODE_INFO(inst)                  ((inst) + 0x00000029), 0x00000800
+#define REG_EIGER_MODE_ADDR(inst)                 ((uint32_t)(inst) + 0x00000029U)
+#define BF_EIGER_MODE_INFO(inst)                  ((uint32_t)(inst) + 0x00000029U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_PFIR_I_GAIN_ADDR(inst, n)             ((inst) + 0x00000030 + 1 * (n))
-#define BF_PFIR_IX_GAIN_INFO(inst, n)             ((inst) + 0x00000030 + 1 * (n)), 0x00000400
-#define BF_PFIR_IY_GAIN_INFO(inst, n)             ((inst) + 0x00000030 + 1 * (n)), 0x00000404
+#define REG_PFIR_I_GAIN_ADDR(inst, n)             ((uint32_t)(inst) + 0x00000030U + 1U * (uint32_t)(n))
+#define BF_PFIR_IX_GAIN_INFO(inst, n)             ((uint32_t)(inst) + 0x00000030U + 1U * (uint32_t)(n)), 0x00000400U
+#define BF_PFIR_IY_GAIN_INFO(inst, n)             ((uint32_t)(inst) + 0x00000030U + 1U * (uint32_t)(n)), 0x00000404U
 
-#define REG_PFIR_Q_GAIN_ADDR(inst, n)             ((inst) + 0x00000048 + 1 * (n))
-#define BF_PFIR_QX_GAIN_INFO(inst, n)             ((inst) + 0x00000048 + 1 * (n)), 0x00000400
-#define BF_PFIR_QY_GAIN_INFO(inst, n)             ((inst) + 0x00000048 + 1 * (n)), 0x00000404
+#define REG_PFIR_Q_GAIN_ADDR(inst, n)             ((uint32_t)(inst) + 0x00000048U + 1U * (uint32_t)(n))
+#define BF_PFIR_QX_GAIN_INFO(inst, n)             ((uint32_t)(inst) + 0x00000048U + 1U * (uint32_t)(n)), 0x00000400U
+#define BF_PFIR_QY_GAIN_INFO(inst, n)             ((uint32_t)(inst) + 0x00000048U + 1U * (uint32_t)(n)), 0x00000404U
 
-#define REG_PFIR_IX_SCALAR_GAIN_ADDR(inst, n)     ((inst) + 0x00000060 + 1 * (n))
-#define BF_PFIR_IX_SCALAR_GAIN_INFO(inst, n)      ((inst) + 0x00000060 + 1 * (n)), 0x00000600
+#define REG_PFIR_IX_SCALAR_GAIN_ADDR(inst, n)     ((uint32_t)(inst) + 0x00000060U + 1U * (uint32_t)(n))
+#define BF_PFIR_IX_SCALAR_GAIN_INFO(inst, n)      ((uint32_t)(inst) + 0x00000060U + 1U * (uint32_t)(n)), 0x00000600U
 
-#define REG_PFIR_IY_SCALAR_GAIN_ADDR(inst, n)     ((inst) + 0x00000078 + 1 * (n))
-#define BF_PFIR_IY_SCALAR_GAIN_INFO(inst, n)      ((inst) + 0x00000078 + 1 * (n)), 0x00000600
+#define REG_PFIR_IY_SCALAR_GAIN_ADDR(inst, n)     ((uint32_t)(inst) + 0x00000078U + 1U * (uint32_t)(n))
+#define BF_PFIR_IY_SCALAR_GAIN_INFO(inst, n)      ((uint32_t)(inst) + 0x00000078U + 1U * (uint32_t)(n)), 0x00000600U
 
-#define REG_PFIR_QX_SCALAR_GAIN_ADDR(inst, n)     ((inst) + 0x00000090 + 1 * (n))
-#define BF_PFIR_QX_SCALAR_GAIN_INFO(inst, n)      ((inst) + 0x00000090 + 1 * (n)), 0x00000600
+#define REG_PFIR_QX_SCALAR_GAIN_ADDR(inst, n)     ((uint32_t)(inst) + 0x00000090U + 1U * (uint32_t)(n))
+#define BF_PFIR_QX_SCALAR_GAIN_INFO(inst, n)      ((uint32_t)(inst) + 0x00000090U + 1U * (uint32_t)(n)), 0x00000600U
 
-#define REG_PFIR_QY_SCALAR_GAIN_ADDR(inst, n)     ((inst) + 0x00000108 + 1 * (n))
-#define BF_PFIR_QY_SCALAR_GAIN_INFO(inst, n)      ((inst) + 0x00000108 + 1 * (n)), 0x00000600
+#define REG_PFIR_QY_SCALAR_GAIN_ADDR(inst, n)     ((uint32_t)(inst) + 0x00000108U + 1U * (uint32_t)(n))
+#define BF_PFIR_QY_SCALAR_GAIN_INFO(inst, n)      ((uint32_t)(inst) + 0x00000108U + 1U * (uint32_t)(n)), 0x00000600U
 
-#define REG_PFILT_IRQ_ENABLE_ADDR(inst)           ((inst) + 0x00000110)
-#define BF_IRQ_ENABLE_I_TXRX_PFILT_TOP_INFO(inst) ((inst) + 0x00000110), 0x00000100
-#define BF_IRQ_ENABLE_Q_TXRX_PFILT_TOP_INFO(inst) ((inst) + 0x00000110), 0x00000101
+#define REG_PFILT_IRQ_ENABLE_ADDR(inst)           ((uint32_t)(inst) + 0x00000110U)
+#define BF_IRQ_ENABLE_I_TXRX_PFILT_TOP_INFO(inst) ((uint32_t)(inst) + 0x00000110U), 0x00000100U
+#define BF_IRQ_ENABLE_Q_TXRX_PFILT_TOP_INFO(inst) ((uint32_t)(inst) + 0x00000110U), 0x00000101U
 
-#define REG_PFILT_IRQ_STATUS_ADDR(inst)           ((inst) + 0x00000111)
-#define BF_IRQ_STATUS_I_TXRX_PFILT_TOP_INFO(inst) ((inst) + 0x00000111), 0x00000100
-#define BF_IRQ_STATUS_Q_TXRX_PFILT_TOP_INFO(inst) ((inst) + 0x00000111), 0x00000101
+#define REG_PFILT_IRQ_STATUS_ADDR(inst)           ((uint32_t)(inst) + 0x00000111U)
+#define BF_IRQ_STATUS_I_TXRX_PFILT_TOP_INFO(inst) ((uint32_t)(inst) + 0x00000111U), 0x00000100U
+#define BF_IRQ_STATUS_Q_TXRX_PFILT_TOP_INFO(inst) ((uint32_t)(inst) + 0x00000111U), 0x00000101U
 
-#endif /* __ADI_APOLLO_BF_TXRX_PFILT_TOP_H__ */
+#endif /* ADI_APOLLO_BF_TXRX_PFILT_TOP_H__ */
 /*! @} */

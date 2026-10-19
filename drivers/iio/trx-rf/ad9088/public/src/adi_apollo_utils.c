@@ -30,16 +30,18 @@ int32_t adi_apollo_utils_side_from_dac_select_get(adi_apollo_device_t *device, u
 /*==================== L O C A L   A P I   C O D E ====================*/
 
 static int32_t converter_to_sides(adi_apollo_device_t* device, uint16_t converter, uint16_t *side_select) {
-    adi_apollo_side_select_e sel = 0;
-    
-    if (converter & ADI_APOLLO_ADC_A_ALL) {
-        sel = sel | ADI_APOLLO_SIDE_A;
+    uint16_t sel = (uint16_t)ADI_APOLLO_SIDE_NONE;
+
+    (void)device;  // Mark as intentionally unused
+
+    if ((converter & (uint16_t)ADI_APOLLO_ADC_A_ALL) != 0) {
+        sel |= (uint16_t)ADI_APOLLO_SIDE_A;
     }
-    if (converter & ADI_APOLLO_ADC_B_ALL) {
-        sel = sel | ADI_APOLLO_SIDE_B;
+    if ((converter & (uint16_t)ADI_APOLLO_ADC_B_ALL) != 0) {
+        sel |= (uint16_t)ADI_APOLLO_SIDE_B;
     }
     *side_select = sel;
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 /*! @} */

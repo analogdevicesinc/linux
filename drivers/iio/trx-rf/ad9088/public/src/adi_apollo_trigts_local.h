@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_TRIG
  * @{
  */
-#ifndef __ADI_APOLLO_TRIG_TS_LOCAL_H__
-#define __ADI_APOLLO_TRIG_TS_LOCAL_H__
+#ifndef ADI_APOLLO_TRIG_TS_LOCAL_H__
+#define ADI_APOLLO_TRIG_TS_LOCAL_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_common.h"
@@ -24,7 +24,6 @@
 extern "C" {
 #endif
 
-uint32_t calc_trigts_base(adi_apollo_terminal_e terminal, int32_t side_index);
 
 #ifndef CLIENT_IGNORE
 #endif /* CLIENT_IGNORE*/
@@ -33,5 +32,5 @@ uint32_t calc_trigts_base(adi_apollo_terminal_e terminal, int32_t side_index);
 }
 #endif
 
-#endif /* __ADI_APOLLO_TRIG_TS_LOCAL_H__ */
+#endif /* ADI_APOLLO_TRIG_TS_LOCAL_H__ */
 /*! @} */

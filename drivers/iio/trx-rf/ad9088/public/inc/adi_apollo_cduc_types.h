@@ -11,16 +11,16 @@
  * \addtogroup ADI_APOLLO_CDUC
  * @{
  */
-#ifndef __ADI_APOLLO_CDUC_TYPES_H__
-#define __ADI_APOLLO_CDUC_TYPES_H__
+#ifndef ADI_APOLLO_CDUC_TYPES_H__
+#define ADI_APOLLO_CDUC_TYPES_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_cms_api_common.h"
 #include "adi_apollo_common.h"
 
 /*============= D E F I N E S ==============*/
-#define ADI_APOLLO_CDUC_NUM              8
-#define ADI_APOLLO_CDUC_PER_SIDE_NUM     4
+#define ADI_APOLLO_CDUC_NUM              8U
+#define ADI_APOLLO_CDUC_PER_SIDE_NUM     4U
 
 /*!
  * \brief Enumerates TX coarse DUC select
@@ -73,5 +73,5 @@ typedef struct {
     uint8_t cduc_spi_en;                                /*!< Enable(1) or disable(0) the duc if cduc_spien_en is enabled */
 } adi_apollo_cduc_inspect_t;
 
-#endif /* __ADI_APOLLO_CDUC_TYPES_H__ */
+#endif /* ADI_APOLLO_CDUC_TYPES_H__ */
 /*! @} */

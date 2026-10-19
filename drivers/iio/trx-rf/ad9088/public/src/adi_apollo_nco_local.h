@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_CNCO
  * @{
  */
-#ifndef __ADI_APOLLO_NCO_LOCAL_H__
-#define __ADI_APOLLO_NCO_LOCAL_H__
+#ifndef ADI_APOLLO_NCO_LOCAL_H__
+#define ADI_APOLLO_NCO_LOCAL_H__
 
 /*============= I N C L U D E S ============*/
 
@@ -23,11 +23,10 @@
 extern "C" {
 #endif
 
-uint32_t calc_rx_cnco_base(int32_t idx);
-uint32_t calc_rx_fnco_base(int32_t idx);
-uint32_t calc_tx_cnco_base(int32_t idx);
-uint32_t calc_tx_fnco_base(int32_t idx);
-
+uint32_t calc_rx_cnco_base(uint32_t idx);
+uint32_t calc_rx_fnco_base(uint32_t idx);
+uint32_t calc_tx_cnco_base(uint32_t idx);
+uint32_t calc_tx_fnco_base(uint32_t idx);
 
 #ifndef CLIENT_IGNORE
 #endif /* CLIENT_IGNORE*/
@@ -36,5 +35,5 @@ uint32_t calc_tx_fnco_base(int32_t idx);
 }
 #endif
 
-#endif /* __ADI_APOLLO_NCO_LOCAL_H__ */
+#endif /* ADI_APOLLO_NCO_LOCAL_H__ */
 /*! @} */

@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_TRIGGER_TS
  * @{
  */
-#ifndef __ADI_APOLLO_TRIGGER_TS_H__
-#define __ADI_APOLLO_TRIGGER_TS_H__
+#ifndef ADI_APOLLO_TRIGGER_TS_H__
+#define ADI_APOLLO_TRIGGER_TS_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_trigts_types.h"
@@ -28,14 +28,14 @@ extern "C" {
  * \param[in]   device        Context variable - Pointer to the APOLLO device data structure
  * \param[in]   terminal      Target terminal \ref adi_apollo_terminal_e
  * \param[in]   side_sel      Target side  \ref adi_apollo_side_select_e
- * \param[in]   trig_masters  trigger masters selection \ref adi_apollo_trig_mst_sel_e
+ * \param[in]   trig_msts  trigger masters selection \ref adi_apollo_trig_mst_sel_e
  * \param[in]   config        Configuration parameters. \ref adi_apollo_trig_mst_config_t
  *
  * \return API_CMS_ERROR_OK   API Completed Successfully
  * \return <0                 Failed. \ref adi_cms_error_e for details.
  */
 int32_t adi_apollo_trigts_mst_config(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_side_select_e side_sel,
-                                   uint32_t trig_masters, adi_apollo_trig_mst_config_t *config);
+                                   uint32_t trig_msts, adi_apollo_trig_mst_config_t *config);
 
 /**
  * \brief       Gets the trigger master configuration
@@ -43,14 +43,14 @@ int32_t adi_apollo_trigts_mst_config(adi_apollo_device_t *device, adi_apollo_ter
  * \param[in]   device        Context variable - Pointer to the APOLLO device data structure
  * \param[in]   terminal      Target terminal \ref adi_apollo_terminal_e
  * \param[in]   side_sel      Target side  \ref adi_apollo_side_select_e
- * \param[in]   trig_masters  trigger masters selection \ref adi_apollo_trig_mst_sel_e
+ * \param[in]   trig_msts  trigger masters selection \ref adi_apollo_trig_mst_sel_e
  * \param[out]  config        Current trig mst configuration. \ref adi_apollo_trig_mst_config_t
  *
  * \return API_CMS_ERROR_OK   API Completed Successfully
  * \return <0                 Failed. \ref adi_cms_error_e for details.
  */
 int32_t adi_apollo_trigts_mst_inspect(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_side_select_e side_sel,
-                                   uint32_t trig_masters, adi_apollo_trig_mst_config_t *config);
+                                   uint32_t trig_msts, adi_apollo_trig_mst_config_t *config);
 
 /**
  * \brief       Enables Mute trigger feature
@@ -58,14 +58,14 @@ int32_t adi_apollo_trigts_mst_inspect(adi_apollo_device_t *device, adi_apollo_te
  * \param[in]   device        Context variable - Pointer to the APOLLO device data structure
  * \param[in]   terminal      Target terminal \ref adi_apollo_terminal_e
  * \param[in]   side_sel      Target side  \ref adi_apollo_side_select_e
- * \param[in]   trig_masters  trigger masters selection \ref adi_apollo_trig_mst_sel_e
+ * \param[in]   trig_msts  trigger masters selection \ref adi_apollo_trig_mst_sel_e
  * \param[in]   trigger_mute  Enable trigger mute. \ref adi_apollo_trig_mute_sel_e
  *
  * \return API_CMS_ERROR_OK   API Completed Successfully
  * \return <0                 Failed. \ref adi_cms_error_e for details.
  */
 int32_t adi_apollo_trigts_mst_mute(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_side_select_e side_sel,
-                                 uint32_t trig_masters, adi_apollo_trig_mute_sel_e trigger_mute);
+                                 uint32_t trig_msts, adi_apollo_trig_mute_sel_e trigger_mute);
 
 /**
  * \brief       Selects which mute mask to use for muting after specified count number
@@ -73,14 +73,14 @@ int32_t adi_apollo_trigts_mst_mute(adi_apollo_device_t *device, adi_apollo_termi
  * \param[in]   device        Context variable - Pointer to the APOLLO device data structure
  * \param[in]   terminal      Target terminal \ref adi_apollo_terminal_e
  * \param[in]   side_sel      Target side  \ref adi_apollo_side_select_e
- * \param[in]   trig_masters  trigger masters selection \ref adi_apollo_trig_mst_sel_e
+ * \param[in]   trig_msts  trigger masters selection \ref adi_apollo_trig_mst_sel_e
  * \param[in]   trigger_mute  Which trigger counter register to use for trigger mute. \ref adi_apollo_trig_mute_mask_e
  *
  * \return API_CMS_ERROR_OK   API Completed Successfully
  * \return <0                 Failed. \ref adi_cms_error_e for details.
  */
 int32_t adi_apollo_trigts_mst_mute_mask_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_side_select_e side_sel,
-                                 uint32_t trig_masters, adi_apollo_trig_mute_mask_e trigger_mute);
+                                 uint32_t trig_msts, adi_apollo_trig_mute_mask_e trigger_mute);
 
 /**
  * \brief       Sets the number of pulses to enable trigger master before muting
@@ -344,5 +344,5 @@ int32_t adi_apollo_trigts_ext_trig_no_dr_setup(adi_apollo_device_t *device, adi_
 }
 #endif
 
-#endif /* __ADI_APOLLO_TRIGGER_TS_H__ */
+#endif /* ADI_APOLLO_TRIGGER_TS_H__ */
 /*! @} */

@@ -12,114 +12,114 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_TX_BIST_TEST_H__
-#define __ADI_APOLLO_BF_TX_BIST_TEST_H__
+#ifndef ADI_APOLLO_BF_TX_BIST_TEST_H__
+#define ADI_APOLLO_BF_TX_BIST_TEST_H__
 
 /*============= D E F I N E S ==============*/
-#define TX_BIST_TEST_HSDOUT0_TX_SLICE_0_TX_DIGITAL0   0x6120C000
-#define TX_BIST_TEST_HSDOUT1_TX_SLICE_0_TX_DIGITAL0   0x6120C040
-#define TX_BIST_TEST_LINEARX_TX_SLICE_0_TX_DIGITAL0   0x6123C080
-#define TX_BIST_TEST_PFILT_TX_SLICE_0_TX_DIGITAL0     0x61305040
-#define TX_BIST_TEST_FDUC_TX_SLICE_0_TX_DIGITAL0      0x6130D000
-#define TX_BIST_TEST_FSRC_CFIR_TX_SLICE_0_TX_DIGITAL0 0x61316040
-#define TX_BIST_TEST_CDUC_TX_SLICE_0_TX_DIGITAL0      0x6133B000
-#define TX_BIST_TEST_HSDOUT0_TX_SLICE_1_TX_DIGITAL0   0x6140C000
-#define TX_BIST_TEST_HSDOUT1_TX_SLICE_1_TX_DIGITAL0   0x6140C040
-#define TX_BIST_TEST_LINEARX_TX_SLICE_1_TX_DIGITAL0   0x6143C080
-#define TX_BIST_TEST_PFILT_TX_SLICE_1_TX_DIGITAL0     0x61505040
-#define TX_BIST_TEST_FDUC_TX_SLICE_1_TX_DIGITAL0      0x6150D000
-#define TX_BIST_TEST_FSRC_CFIR_TX_SLICE_1_TX_DIGITAL0 0x61516040
-#define TX_BIST_TEST_CDUC_TX_SLICE_1_TX_DIGITAL0      0x6153B000
-#define TX_BIST_TEST_HSDOUT0_TX_SLICE_0_TX_DIGITAL1   0x61A0C000
-#define TX_BIST_TEST_HSDOUT1_TX_SLICE_0_TX_DIGITAL1   0x61A0C040
-#define TX_BIST_TEST_LINEARX_TX_SLICE_0_TX_DIGITAL1   0x61A3C080
-#define TX_BIST_TEST_PFILT_TX_SLICE_0_TX_DIGITAL1     0x61B05040
-#define TX_BIST_TEST_FDUC_TX_SLICE_0_TX_DIGITAL1      0x61B0D000
-#define TX_BIST_TEST_FSRC_CFIR_TX_SLICE_0_TX_DIGITAL1 0x61B16040
-#define TX_BIST_TEST_CDUC_TX_SLICE_0_TX_DIGITAL1      0x61B3B000
-#define TX_BIST_TEST_HSDOUT0_TX_SLICE_1_TX_DIGITAL1   0x61C0C000
-#define TX_BIST_TEST_HSDOUT1_TX_SLICE_1_TX_DIGITAL1   0x61C0C040
-#define TX_BIST_TEST_LINEARX_TX_SLICE_1_TX_DIGITAL1   0x61C3C080
-#define TX_BIST_TEST_PFILT_TX_SLICE_1_TX_DIGITAL1     0x61D05040
-#define TX_BIST_TEST_FDUC_TX_SLICE_1_TX_DIGITAL1      0x61D0D000
-#define TX_BIST_TEST_FSRC_CFIR_TX_SLICE_1_TX_DIGITAL1 0x61D16040
-#define TX_BIST_TEST_CDUC_TX_SLICE_1_TX_DIGITAL1      0x61D3B000
+#define TX_BIST_TEST_HSDOUT0_TX_SLICE_0_TX_DIGITAL0   0x6120C000U
+#define TX_BIST_TEST_HSDOUT1_TX_SLICE_0_TX_DIGITAL0   0x6120C040U
+#define TX_BIST_TEST_LINEARX_TX_SLICE_0_TX_DIGITAL0   0x6123C080U
+#define TX_BIST_TEST_PFILT_TX_SLICE_0_TX_DIGITAL0     0x61305040U
+#define TX_BIST_TEST_FDUC_TX_SLICE_0_TX_DIGITAL0      0x6130D000U
+#define TX_BIST_TEST_FSRC_CFIR_TX_SLICE_0_TX_DIGITAL0 0x61316040U
+#define TX_BIST_TEST_CDUC_TX_SLICE_0_TX_DIGITAL0      0x6133B000U
+#define TX_BIST_TEST_HSDOUT0_TX_SLICE_1_TX_DIGITAL0   0x6140C000U
+#define TX_BIST_TEST_HSDOUT1_TX_SLICE_1_TX_DIGITAL0   0x6140C040U
+#define TX_BIST_TEST_LINEARX_TX_SLICE_1_TX_DIGITAL0   0x6143C080U
+#define TX_BIST_TEST_PFILT_TX_SLICE_1_TX_DIGITAL0     0x61505040U
+#define TX_BIST_TEST_FDUC_TX_SLICE_1_TX_DIGITAL0      0x6150D000U
+#define TX_BIST_TEST_FSRC_CFIR_TX_SLICE_1_TX_DIGITAL0 0x61516040U
+#define TX_BIST_TEST_CDUC_TX_SLICE_1_TX_DIGITAL0      0x6153B000U
+#define TX_BIST_TEST_HSDOUT0_TX_SLICE_0_TX_DIGITAL1   0x61A0C000U
+#define TX_BIST_TEST_HSDOUT1_TX_SLICE_0_TX_DIGITAL1   0x61A0C040U
+#define TX_BIST_TEST_LINEARX_TX_SLICE_0_TX_DIGITAL1   0x61A3C080U
+#define TX_BIST_TEST_PFILT_TX_SLICE_0_TX_DIGITAL1     0x61B05040U
+#define TX_BIST_TEST_FDUC_TX_SLICE_0_TX_DIGITAL1      0x61B0D000U
+#define TX_BIST_TEST_FSRC_CFIR_TX_SLICE_0_TX_DIGITAL1 0x61B16040U
+#define TX_BIST_TEST_CDUC_TX_SLICE_0_TX_DIGITAL1      0x61B3B000U
+#define TX_BIST_TEST_HSDOUT0_TX_SLICE_1_TX_DIGITAL1   0x61C0C000U
+#define TX_BIST_TEST_HSDOUT1_TX_SLICE_1_TX_DIGITAL1   0x61C0C040U
+#define TX_BIST_TEST_LINEARX_TX_SLICE_1_TX_DIGITAL1   0x61C3C080U
+#define TX_BIST_TEST_PFILT_TX_SLICE_1_TX_DIGITAL1     0x61D05040U
+#define TX_BIST_TEST_FDUC_TX_SLICE_1_TX_DIGITAL1      0x61D0D000U
+#define TX_BIST_TEST_FSRC_CFIR_TX_SLICE_1_TX_DIGITAL1 0x61D16040U
+#define TX_BIST_TEST_CDUC_TX_SLICE_1_TX_DIGITAL1      0x61D3B000U
 
-#define REG_TX_BIST_CTRL_ADDR(inst)                   ((inst) + 0x00000000)
+#define REG_TX_BIST_CTRL_ADDR(inst)                   ((uint32_t)(inst) + 0x00000000U)
 #ifdef USE_PRIVATE_BF
-#define BF_TX_BIST_ENABLE_INFO(inst)                  ((inst) + 0x00000000), 0x00000100
+#define BF_TX_BIST_ENABLE_INFO(inst)                  ((uint32_t)(inst) + 0x00000000U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
 #ifdef USE_PRIVATE_BF
-#define BF_TX_BIST_FLUSH_LEN_INFO(inst)               ((inst) + 0x00000000), 0x00000201
+#define BF_TX_BIST_FLUSH_LEN_INFO(inst)               ((uint32_t)(inst) + 0x00000000U), 0x00000201U
 #endif /* USE_PRIVATE_BF */
 #ifdef USE_PRIVATE_BF
-#define BF_TX_BIST_ZERO_NOT_SENSITIVE_INFO(inst)      ((inst) + 0x00000000), 0x00000103
+#define BF_TX_BIST_ZERO_NOT_SENSITIVE_INFO(inst)      ((uint32_t)(inst) + 0x00000000U), 0x00000103U
 #endif /* USE_PRIVATE_BF */
 #ifdef USE_PRIVATE_BF
-#define BF_TX_BIST_DAC_START_INFO(inst)               ((inst) + 0x00000000), 0x00000104
+#define BF_TX_BIST_DAC_START_INFO(inst)               ((uint32_t)(inst) + 0x00000000U), 0x00000104U
 #endif /* USE_PRIVATE_BF */
-#define BF_TX_BIST_HOLD_NCO_INFO(inst)                ((inst) + 0x00000000), 0x00000105
+#define BF_TX_BIST_HOLD_NCO_INFO(inst)                ((uint32_t)(inst) + 0x00000000U), 0x00000105U
 
 #ifdef USE_PRIVATE_BF
-#define REG_TX_BIST_STATUS_ADDR(inst)                 ((inst) + 0x00000001)
-#define BF_TX_BIST_CLR_INFO(inst)                     ((inst) + 0x00000001), 0x00000100
-#define BF_TX_BIST_RUN_INFO(inst)                     ((inst) + 0x00000001), 0x00000101
-#define BF_TX_BIST_DONE_INFO(inst)                    ((inst) + 0x00000001), 0x00000102
-#endif /* USE_PRIVATE_BF */
-
-#ifdef USE_PRIVATE_BF
-#define REG_TX_BIST_LEN_LSB_ADDR(inst)                ((inst) + 0x00000002)
-#define BF_TX_BIST_LENGTH_INFO(inst)                  ((inst) + 0x00000002), 0x00001300
-#endif /* USE_PRIVATE_BF */
-
-#define REG_TX_BIST_LEN_MID_ADDR(inst)                ((inst) + 0x00000003)
-
-#define REG_TX_BIST_LEN_MSB_ADDR(inst)                ((inst) + 0x00000004)
-
-#ifdef USE_PRIVATE_BF
-#define REG_TX_BIST_READ_CTRL_ADDR(inst)              ((inst) + 0x00000005)
-#define BF_TX_BIST_SIGN_RD_MODE_INFO(inst)            ((inst) + 0x00000005), 0x00000100
-#define BF_TX_BIST_SIGN_RD_SEL_INFO(inst)             ((inst) + 0x00000005), 0x00000501
-#define BF_TX_BIST_SIGN_RD_CLR_INFO(inst)             ((inst) + 0x00000005), 0x00000106
-#define BF_TX_BIST_SIGN_RD_EN_INFO(inst)              ((inst) + 0x00000005), 0x00000107
+#define REG_TX_BIST_STATUS_ADDR(inst)                 ((uint32_t)(inst) + 0x00000001U)
+#define BF_TX_BIST_CLR_INFO(inst)                     ((uint32_t)(inst) + 0x00000001U), 0x00000100U
+#define BF_TX_BIST_RUN_INFO(inst)                     ((uint32_t)(inst) + 0x00000001U), 0x00000101U
+#define BF_TX_BIST_DONE_INFO(inst)                    ((uint32_t)(inst) + 0x00000001U), 0x00000102U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TX_BIST_SIGN_LSB_ADDR(inst)               ((inst) + 0x00000006)
-#define BF_TX_BIST_SIGNATURE_INFO(inst)               ((inst) + 0x00000006), 0x00001800
+#define REG_TX_BIST_LEN_LSB_ADDR(inst)                ((uint32_t)(inst) + 0x00000002U)
+#define BF_TX_BIST_LENGTH_INFO(inst)                  ((uint32_t)(inst) + 0x00000002U), 0x00001300U
 #endif /* USE_PRIVATE_BF */
 
-#define REG_TX_BIST_SIGN_MID_ADDR(inst)               ((inst) + 0x00000007)
+#define REG_TX_BIST_LEN_MID_ADDR(inst)                ((uint32_t)(inst) + 0x00000003U)
 
-#define REG_TX_BIST_SIGN_MSB_ADDR(inst)               ((inst) + 0x00000008)
-
-#ifdef USE_PRIVATE_BF
-#define REG_TX_BIST_GLOBAL_STATUS_ADDR(inst)          ((inst) + 0x00000009)
-#define BF_TX_G_BIST_ENABLE_INFO(inst)                ((inst) + 0x00000009), 0x00000100
-#define BF_TX_G_BIST_MODE_INFO(inst)                  ((inst) + 0x00000009), 0x00000101
-#define BF_TX_G_BIST_CLR_INFO(inst)                   ((inst) + 0x00000009), 0x00000102
-#define BF_TX_G_BIST_RUN_INFO(inst)                   ((inst) + 0x00000009), 0x00000103
-#endif /* USE_PRIVATE_BF */
+#define REG_TX_BIST_LEN_MSB_ADDR(inst)                ((uint32_t)(inst) + 0x00000004U)
 
 #ifdef USE_PRIVATE_BF
-#define REG_TX_BIST_LB0_CTRL_ADDR(inst, n)            ((inst) + 0x0000000A + 1 * (n))
-#define BF_TX_LPBK_ADC_BIST_MODE_SEL_INFO(inst, n)    ((inst) + 0x0000000A + 1 * (n)), 0x00000100
-#define BF_TX_LPBK_ADC_BIST_INVERT_INFO(inst, n)      ((inst) + 0x0000000A + 1 * (n)), 0x00000101
-#define BF_TX_LPBK_ADC_BIST_ENABLE_INFO(inst, n)      ((inst) + 0x0000000A + 1 * (n)), 0x00000102
-#define BF_TX_LPBK_ADC_BIST_START_INFO(inst, n)       ((inst) + 0x0000000A + 1 * (n)), 0x00000103
+#define REG_TX_BIST_READ_CTRL_ADDR(inst)              ((uint32_t)(inst) + 0x00000005U)
+#define BF_TX_BIST_SIGN_RD_MODE_INFO(inst)            ((uint32_t)(inst) + 0x00000005U), 0x00000100U
+#define BF_TX_BIST_SIGN_RD_SEL_INFO(inst)             ((uint32_t)(inst) + 0x00000005U), 0x00000501U
+#define BF_TX_BIST_SIGN_RD_CLR_INFO(inst)             ((uint32_t)(inst) + 0x00000005U), 0x00000106U
+#define BF_TX_BIST_SIGN_RD_EN_INFO(inst)              ((uint32_t)(inst) + 0x00000005U), 0x00000107U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TX_BIST_LB0_STATUS_ADDR(inst, n)          ((inst) + 0x0000000E + 1 * (n))
-#define BF_TX_LPBK_ADC_BIST_DONE_INFO(inst, n)        ((inst) + 0x0000000E + 1 * (n)), 0x00000100
-#define BF_TX_LPBK_ADC_BIST_PASS_INFO(inst, n)        ((inst) + 0x0000000E + 1 * (n)), 0x00000101
-#define BF_TX_LPBK_ADC_BIST_FAIL_INFO(inst, n)        ((inst) + 0x0000000E + 1 * (n)), 0x00000102
+#define REG_TX_BIST_SIGN_LSB_ADDR(inst)               ((uint32_t)(inst) + 0x00000006U)
+#define BF_TX_BIST_SIGNATURE_INFO(inst)               ((uint32_t)(inst) + 0x00000006U), 0x00001800U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_TX_BIST_SIGN_MID_ADDR(inst)               ((uint32_t)(inst) + 0x00000007U)
+
+#define REG_TX_BIST_SIGN_MSB_ADDR(inst)               ((uint32_t)(inst) + 0x00000008U)
+
+#ifdef USE_PRIVATE_BF
+#define REG_TX_BIST_GLOBAL_STATUS_ADDR(inst)          ((uint32_t)(inst) + 0x00000009U)
+#define BF_TX_G_BIST_ENABLE_INFO(inst)                ((uint32_t)(inst) + 0x00000009U), 0x00000100U
+#define BF_TX_G_BIST_MODE_INFO(inst)                  ((uint32_t)(inst) + 0x00000009U), 0x00000101U
+#define BF_TX_G_BIST_CLR_INFO(inst)                   ((uint32_t)(inst) + 0x00000009U), 0x00000102U
+#define BF_TX_G_BIST_RUN_INFO(inst)                   ((uint32_t)(inst) + 0x00000009U), 0x00000103U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_TX_BIST_LB0_ERROR_ADDR(inst, n)           ((inst) + 0x00000012 + 1 * (n))
-#define BF_TX_LPBK_ADC_BIST_ERRORS_INFO(inst, n)      ((inst) + 0x00000012 + 1 * (n)), 0x00000800
+#define REG_TX_BIST_LB0_CTRL_ADDR(inst, n)            ((uint32_t)(inst) + 0x0000000AU + 1U * (uint32_t)(n))
+#define BF_TX_LPBK_ADC_BIST_MODE_SEL_INFO(inst, n)    ((uint32_t)(inst) + 0x0000000AU + 1U * (uint32_t)(n)), 0x00000100U
+#define BF_TX_LPBK_ADC_BIST_INVERT_INFO(inst, n)      ((uint32_t)(inst) + 0x0000000AU + 1U * (uint32_t)(n)), 0x00000101U
+#define BF_TX_LPBK_ADC_BIST_ENABLE_INFO(inst, n)      ((uint32_t)(inst) + 0x0000000AU + 1U * (uint32_t)(n)), 0x00000102U
+#define BF_TX_LPBK_ADC_BIST_START_INFO(inst, n)       ((uint32_t)(inst) + 0x0000000AU + 1U * (uint32_t)(n)), 0x00000103U
 #endif /* USE_PRIVATE_BF */
 
-#endif /* __ADI_APOLLO_BF_TX_BIST_TEST_H__ */
+#ifdef USE_PRIVATE_BF
+#define REG_TX_BIST_LB0_STATUS_ADDR(inst, n)          ((uint32_t)(inst) + 0x0000000EU + 1U * (uint32_t)(n))
+#define BF_TX_LPBK_ADC_BIST_DONE_INFO(inst, n)        ((uint32_t)(inst) + 0x0000000EU + 1U * (uint32_t)(n)), 0x00000100U
+#define BF_TX_LPBK_ADC_BIST_PASS_INFO(inst, n)        ((uint32_t)(inst) + 0x0000000EU + 1U * (uint32_t)(n)), 0x00000101U
+#define BF_TX_LPBK_ADC_BIST_FAIL_INFO(inst, n)        ((uint32_t)(inst) + 0x0000000EU + 1U * (uint32_t)(n)), 0x00000102U
+#endif /* USE_PRIVATE_BF */
+
+#ifdef USE_PRIVATE_BF
+#define REG_TX_BIST_LB0_ERROR_ADDR(inst, n)           ((uint32_t)(inst) + 0x00000012U + 1U * (uint32_t)(n))
+#define BF_TX_LPBK_ADC_BIST_ERRORS_INFO(inst, n)      ((uint32_t)(inst) + 0x00000012U + 1U * (uint32_t)(n)), 0x00000800U
+#endif /* USE_PRIVATE_BF */
+
+#endif /* ADI_APOLLO_BF_TX_BIST_TEST_H__ */
 /*! @} */

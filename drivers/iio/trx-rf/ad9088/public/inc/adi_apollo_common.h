@@ -13,8 +13,8 @@
  * \addtogroup ADI_APOLLO_COMMON
  * @{
  */
-#ifndef __ADI_APOLLO_COMMON_H__
-#define __ADI_APOLLO_COMMON_H__
+#ifndef ADI_APOLLO_COMMON_H__
+#define ADI_APOLLO_COMMON_H__
  
 
  /*============= I N C L U D E S ============*/
@@ -33,5 +33,5 @@ extern "C" {
 }
 #endif
 
-#endif /* __ADI_APOLLO_COMMON_H__ */
+#endif /* ADI_APOLLO_COMMON_H__ */
 /*! @} */

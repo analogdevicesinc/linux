@@ -110,21 +110,20 @@ static int ad9088_ffh_gpio_hop_exit(struct ad9088_phy *phy, bool fnco, u8 termin
  * @array: Output array to fill
  * @count: Maximum number of elements to read
  *
- * Reads GPIO indices from device tree and fills the array. Missing values
- * are filled with ADI_APOLLO_GPIO_HOP_IDX_NONE (-1). Each GPIO is claimed for
- * @propname.
+ * Reads GPIO indices from device tree and fills the array. Missing values,
+ * and entries set to -1 or ADI_APOLLO_GPIO_HOP_IDX_NONE, are filled with
+ * ADI_APOLLO_GPIO_HOP_IDX_NONE. Each GPIO is claimed for @propname.
  *
  * Return: Number of GPIOs read, 0 if property not found, negative error code
  * otherwise
  */
 static int ad9088_read_gpio_hop_array(struct ad9088_phy *phy, const char *propname,
-				      s8 *array, size_t count)
+				      u8 *array, size_t count)
 {
 	struct device *dev = &phy->spi->dev;
 	u32 tmp[ADI_APOLLO_GPIO_HOP_PROFILE_BIT_NUMBER]; /* max number */
 	int ret, len, i;
 
-	/* Initialize all to NONE (-1) */
 	for (i = 0; i < count; i++)
 		array[i] = ADI_APOLLO_GPIO_HOP_IDX_NONE;
 
@@ -140,13 +139,14 @@ static int ad9088_read_gpio_hop_array(struct ad9088_phy *phy, const char *propna
 
 	/* Copy to output array */
 	for (i = 0; i < len; i++) {
-		array[i] = tmp[i];
-		if (array[i] == ADI_APOLLO_GPIO_HOP_IDX_NONE)
+		if (tmp[i] == U32_MAX || tmp[i] == ADI_APOLLO_GPIO_HOP_IDX_NONE)
 			continue;
 
 		ret = ad9088_gpio_claim(phy, tmp[i], propname);
 		if (ret)
 			return ret;
+
+		array[i] = tmp[i];
 	}
 
 	return len;
@@ -201,7 +201,7 @@ int ad9088_ffh_probe(struct ad9088_phy *phy)
 
 	/* Read GPIO hop profile configuration directly into phy structure */
 	n_gpios = ad9088_read_gpio_hop_array(phy, "adi,gpio-hop-profile",
-					     (s8 *)phy->gpio_hop_profile.index,
+					     phy->gpio_hop_profile.index,
 					     ADI_APOLLO_GPIO_HOP_PROFILE_BIT_NUMBER);
 	if (n_gpios < 0)
 		return n_gpios;
@@ -218,7 +218,7 @@ int ad9088_ffh_probe(struct ad9088_phy *phy)
 
 	/* Read GPIO hop block configuration directly into phy structure */
 	n_gpios = ad9088_read_gpio_hop_array(phy, "adi,gpio-hop-block",
-					     (s8 *)phy->gpio_hop_block.index,
+					     phy->gpio_hop_block.index,
 					     ADI_APOLLO_GPIO_HOP_BLOCK_BIT_NUMBER);
 	if (n_gpios < 0)
 		return n_gpios;
@@ -235,7 +235,7 @@ int ad9088_ffh_probe(struct ad9088_phy *phy)
 
 	/* Read GPIO hop side configuration directly into phy structure */
 	n_gpios = ad9088_read_gpio_hop_array(phy, "adi,gpio-hop-side",
-					     (s8 *)phy->gpio_hop_side.index,
+					     phy->gpio_hop_side.index,
 					     ADI_APOLLO_GPIO_HOP_SIDE_BIT_NUMBER);
 	if (n_gpios < 0)
 		return n_gpios;
@@ -252,7 +252,7 @@ int ad9088_ffh_probe(struct ad9088_phy *phy)
 
 	/* Read GPIO hop slice configuration directly into phy structure */
 	n_gpios = ad9088_read_gpio_hop_array(phy, "adi,gpio-hop-slice",
-					     (s8 *)phy->gpio_hop_slice.index,
+					     phy->gpio_hop_slice.index,
 					     ADI_APOLLO_GPIO_HOP_SLICE_BIT_NUMBER);
 	if (n_gpios < 0)
 		return n_gpios;
@@ -269,7 +269,7 @@ int ad9088_ffh_probe(struct ad9088_phy *phy)
 
 	/* Read GPIO hop terminal configuration directly into phy structure */
 	n_gpios = ad9088_read_gpio_hop_array(phy, "adi,gpio-hop-terminal",
-					     (s8 *)phy->gpio_hop_terminal.index,
+					     phy->gpio_hop_terminal.index,
 					     ADI_APOLLO_GPIO_HOP_TERMINAL_BIT_NUMBER);
 	if (n_gpios < 0)
 		return n_gpios;

@@ -12,186 +12,186 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_STREAMPROC_H__
-#define __ADI_APOLLO_BF_STREAMPROC_H__
+#ifndef ADI_APOLLO_BF_STREAMPROC_H__
+#define ADI_APOLLO_BF_STREAMPROC_H__
 
 /*============= D E F I N E S ==============*/
-#define MAIN_STREAM_PROC                             0x46B00000
-#define RX_STREAM_PROC_RX_SLICE_0_RX_DIGITAL0        0x603BB000
-#define RX_STREAM_PROC_RX_SLICE_1_RX_DIGITAL0        0x605BB000
-#define RX_STREAM_PROC_RX_SLICE_0_RX_DIGITAL1        0x60BBB000
-#define RX_STREAM_PROC_RX_SLICE_1_RX_DIGITAL1        0x60DBB000
-#define TX_STREAM_PROC_TX_SLICE_0_TX_DIGITAL0        0x6133C000
-#define TX_STREAM_PROC_TX_SLICE_1_TX_DIGITAL0        0x6153C000
-#define TX_STREAM_PROC_TX_SLICE_0_TX_DIGITAL1        0x61B3C000
-#define TX_STREAM_PROC_TX_SLICE_1_TX_DIGITAL1        0x61D3C000
+#define MAIN_STREAM_PROC                             0x46B00000U
+#define RX_STREAM_PROC_RX_SLICE_0_RX_DIGITAL0        0x603BB000U
+#define RX_STREAM_PROC_RX_SLICE_1_RX_DIGITAL0        0x605BB000U
+#define RX_STREAM_PROC_RX_SLICE_0_RX_DIGITAL1        0x60BBB000U
+#define RX_STREAM_PROC_RX_SLICE_1_RX_DIGITAL1        0x60DBB000U
+#define TX_STREAM_PROC_TX_SLICE_0_TX_DIGITAL0        0x6133C000U
+#define TX_STREAM_PROC_TX_SLICE_1_TX_DIGITAL0        0x6153C000U
+#define TX_STREAM_PROC_TX_SLICE_0_TX_DIGITAL1        0x61B3C000U
+#define TX_STREAM_PROC_TX_SLICE_1_TX_DIGITAL1        0x61D3C000U
 
-#define REG_SP_TRIGGER_STREAM_ADDR(inst)             ((inst) + 0x00000000)
-#define BF_STREAM_NUMBER_INFO(inst)                  ((inst) + 0x00000000), 0x00000800
-#define BF_TRIGGER_STREAM_INFO(inst)                 ((inst) + 0x00000000), 0x0000011E
-#define BF_STREAM_ERROR_STREAMPROC_INFO(inst)        ((inst) + 0x00000000), 0x0000011F
+#define REG_SP_TRIGGER_STREAM_ADDR(inst)             ((uint32_t)(inst) + 0x00000000U)
+#define BF_STREAM_NUMBER_INFO(inst)                  ((uint32_t)(inst) + 0x00000000U), 0x00000800U
+#define BF_TRIGGER_STREAM_INFO(inst)                 ((uint32_t)(inst) + 0x00000000U), 0x0000011EU
+#define BF_STREAM_ERROR_STREAMPROC_INFO(inst)        ((uint32_t)(inst) + 0x00000000U), 0x0000011FU
 
-#define REG_SP_DBG_CTL_ADDR(inst)                    ((inst) + 0x00000004)
-#define BF_DBG_EN_STREAMPROC_INFO(inst)              ((inst) + 0x00000004), 0x00000100
-#define BF_DBG_MODE_INFO(inst)                       ((inst) + 0x00000004), 0x00000201
-#define BF_DBG_TRIG_MODE_INFO(inst)                  ((inst) + 0x00000004), 0x00000304
-#define BF_DBG_IRQ_MASK_INFO(inst)                   ((inst) + 0x00000004), 0x00000108
-#define BF_DBG_RDBK_MODE_INFO(inst)                  ((inst) + 0x00000004), 0x00000109
-#define BF_DBG_HALT_RESUME_MASK_INFO(inst)           ((inst) + 0x00000004), 0x0000010C
+#define REG_SP_DBG_CTL_ADDR(inst)                    ((uint32_t)(inst) + 0x00000004U)
+#define BF_DBG_EN_STREAMPROC_INFO(inst)              ((uint32_t)(inst) + 0x00000004U), 0x00000100U
+#define BF_DBG_MODE_INFO(inst)                       ((uint32_t)(inst) + 0x00000004U), 0x00000201U
+#define BF_DBG_TRIG_MODE_INFO(inst)                  ((uint32_t)(inst) + 0x00000004U), 0x00000304U
+#define BF_DBG_IRQ_MASK_INFO(inst)                   ((uint32_t)(inst) + 0x00000004U), 0x00000108U
+#define BF_DBG_RDBK_MODE_INFO(inst)                  ((uint32_t)(inst) + 0x00000004U), 0x00000109U
+#define BF_DBG_HALT_RESUME_MASK_INFO(inst)           ((uint32_t)(inst) + 0x00000004U), 0x0000010CU
 
-#define REG_SP_DBG_HALT_CTL_ADDR(inst)               ((inst) + 0x00000008)
-#define BF_STREAM_HALT_INFO(inst)                    ((inst) + 0x00000008), 0x00000100
-#define BF_STREAM_RESUME_INFO(inst)                  ((inst) + 0x00000008), 0x00000101
+#define REG_SP_DBG_HALT_CTL_ADDR(inst)               ((uint32_t)(inst) + 0x00000008U)
+#define BF_STREAM_HALT_INFO(inst)                    ((uint32_t)(inst) + 0x00000008U), 0x00000100U
+#define BF_STREAM_RESUME_INFO(inst)                  ((uint32_t)(inst) + 0x00000008U), 0x00000101U
 
-#define REG_SP_DBG_RDBK_CTL_ADDR(inst)               ((inst) + 0x0000000C)
-#define BF_DBG_RDBK_STICKY_INFO(inst)                ((inst) + 0x0000000C), 0x00000100
+#define REG_SP_DBG_RDBK_CTL_ADDR(inst)               ((uint32_t)(inst) + 0x0000000CU)
+#define BF_DBG_RDBK_STICKY_INFO(inst)                ((uint32_t)(inst) + 0x0000000CU), 0x00000100U
 
-#define REG_SP_BKPT_PC_VAL_ADDR(inst)                ((inst) + 0x00000010)
-#define BF_BKPT_PC_VAL_INFO(inst)                    ((inst) + 0x00000010), 0x00001000
+#define REG_SP_BKPT_PC_VAL_ADDR(inst)                ((uint32_t)(inst) + 0x00000010U)
+#define BF_BKPT_PC_VAL_INFO(inst)                    ((uint32_t)(inst) + 0x00000010U), 0x00001000U
 
-#define REG_SP_ERRORED_STREAM_NUM_ADDR(inst)         ((inst) + 0x00000014)
-#define BF_ERRORED_STREAM_NUMBER_INFO(inst)          ((inst) + 0x00000014), 0x00000800
+#define REG_SP_ERRORED_STREAM_NUM_ADDR(inst)         ((uint32_t)(inst) + 0x00000014U)
+#define BF_ERRORED_STREAM_NUMBER_INFO(inst)          ((uint32_t)(inst) + 0x00000014U), 0x00000800U
 
-#define REG_SP_RDBK_BKPT_PC_ADDR(inst)               ((inst) + 0x00000018)
-#define BF_RDBK_BKPT_PC_INFO(inst)                   ((inst) + 0x00000018), 0x00001000
+#define REG_SP_RDBK_BKPT_PC_ADDR(inst)               ((uint32_t)(inst) + 0x00000018U)
+#define BF_RDBK_BKPT_PC_INFO(inst)                   ((uint32_t)(inst) + 0x00000018U), 0x00001000U
 
-#define REG_SP_RDBK_CURR_PC_ADDR(inst)               ((inst) + 0x0000001C)
-#define BF_RDBK_CURR_PC_INFO(inst)                   ((inst) + 0x0000001C), 0x00001000
+#define REG_SP_RDBK_CURR_PC_ADDR(inst)               ((uint32_t)(inst) + 0x0000001CU)
+#define BF_RDBK_CURR_PC_INFO(inst)                   ((uint32_t)(inst) + 0x0000001CU), 0x00001000U
 
-#define REG_SP_RDBK_INSTR1_INSTR2_ADDR(inst)         ((inst) + 0x00000020)
-#define BF_RDBK_INSTR1_INFO(inst)                    ((inst) + 0x00000020), 0x00000800
-#define BF_RDBK_INSTR2_INFO(inst)                    ((inst) + 0x00000020), 0x00000808
-#define BF_RDBK_DUAL_ISSUE_INFO(inst)                ((inst) + 0x00000020), 0x00000110
+#define REG_SP_RDBK_INSTR1_INSTR2_ADDR(inst)         ((uint32_t)(inst) + 0x00000020U)
+#define BF_RDBK_INSTR1_INFO(inst)                    ((uint32_t)(inst) + 0x00000020U), 0x00000800U
+#define BF_RDBK_INSTR2_INFO(inst)                    ((uint32_t)(inst) + 0x00000020U), 0x00000808U
+#define BF_RDBK_DUAL_ISSUE_INFO(inst)                ((uint32_t)(inst) + 0x00000020U), 0x00000110U
 
-#define REG_SP_RDBK_ERROR_VAL_ADDR(inst)             ((inst) + 0x00000024)
-#define BF_RDBK_ERROR_VAL_INFO(inst)                 ((inst) + 0x00000024), 0x00000A00
+#define REG_SP_RDBK_ERROR_VAL_ADDR(inst)             ((uint32_t)(inst) + 0x00000024U)
+#define BF_RDBK_ERROR_VAL_INFO(inst)                 ((uint32_t)(inst) + 0x00000024U), 0x00000A00U
 
-#define REG_SP_RDBK_R0_ADDR(inst)                    ((inst) + 0x00000028)
-#define BF_RDBK_R0_INFO(inst)                        ((inst) + 0x00000028), 0x00002000
+#define REG_SP_RDBK_R0_ADDR(inst)                    ((uint32_t)(inst) + 0x00000028U)
+#define BF_RDBK_R0_INFO(inst)                        ((uint32_t)(inst) + 0x00000028U), 0x00002000U
 
-#define REG_SP_RDBK_R1_ADDR(inst)                    ((inst) + 0x0000002C)
-#define BF_RDBK_R1_INFO(inst)                        ((inst) + 0x0000002C), 0x00002000
+#define REG_SP_RDBK_R1_ADDR(inst)                    ((uint32_t)(inst) + 0x0000002CU)
+#define BF_RDBK_R1_INFO(inst)                        ((uint32_t)(inst) + 0x0000002CU), 0x00002000U
 
-#define REG_SP_RDBK_R2_ADDR(inst)                    ((inst) + 0x00000030)
-#define BF_RDBK_R2_INFO(inst)                        ((inst) + 0x00000030), 0x00002000
+#define REG_SP_RDBK_R2_ADDR(inst)                    ((uint32_t)(inst) + 0x00000030U)
+#define BF_RDBK_R2_INFO(inst)                        ((uint32_t)(inst) + 0x00000030U), 0x00002000U
 
-#define REG_SP_RDBK_R3_ADDR(inst)                    ((inst) + 0x00000034)
-#define BF_RDBK_R3_INFO(inst)                        ((inst) + 0x00000034), 0x00002000
+#define REG_SP_RDBK_R3_ADDR(inst)                    ((uint32_t)(inst) + 0x00000034U)
+#define BF_RDBK_R3_INFO(inst)                        ((uint32_t)(inst) + 0x00000034U), 0x00002000U
 
-#define REG_SP_RDBK_R4_ADDR(inst)                    ((inst) + 0x00000038)
-#define BF_RDBK_R4_INFO(inst)                        ((inst) + 0x00000038), 0x00002000
+#define REG_SP_RDBK_R4_ADDR(inst)                    ((uint32_t)(inst) + 0x00000038U)
+#define BF_RDBK_R4_INFO(inst)                        ((uint32_t)(inst) + 0x00000038U), 0x00002000U
 
-#define REG_SP_RDBK_R5_ADDR(inst)                    ((inst) + 0x0000003C)
-#define BF_RDBK_R5_INFO(inst)                        ((inst) + 0x0000003C), 0x00002000
+#define REG_SP_RDBK_R5_ADDR(inst)                    ((uint32_t)(inst) + 0x0000003CU)
+#define BF_RDBK_R5_INFO(inst)                        ((uint32_t)(inst) + 0x0000003CU), 0x00002000U
 
-#define REG_SP_RDBK_R6_ADDR(inst)                    ((inst) + 0x00000040)
-#define BF_RDBK_R6_INFO(inst)                        ((inst) + 0x00000040), 0x00002000
+#define REG_SP_RDBK_R6_ADDR(inst)                    ((uint32_t)(inst) + 0x00000040U)
+#define BF_RDBK_R6_INFO(inst)                        ((uint32_t)(inst) + 0x00000040U), 0x00002000U
 
-#define REG_SP_RDBK_R7_ADDR(inst)                    ((inst) + 0x00000044)
-#define BF_RDBK_R7_INFO(inst)                        ((inst) + 0x00000044), 0x00002000
+#define REG_SP_RDBK_R7_ADDR(inst)                    ((uint32_t)(inst) + 0x00000044U)
+#define BF_RDBK_R7_INFO(inst)                        ((uint32_t)(inst) + 0x00000044U), 0x00002000U
 
-#define REG_SP_RDBK_RSEG_ADDR(inst)                  ((inst) + 0x00000048)
-#define BF_RDBK_RSEG_INFO(inst)                      ((inst) + 0x00000048), 0x00001000
+#define REG_SP_RDBK_RSEG_ADDR(inst)                  ((uint32_t)(inst) + 0x00000048U)
+#define BF_RDBK_RSEG_INFO(inst)                      ((uint32_t)(inst) + 0x00000048U), 0x00001000U
 
-#define REG_SP_RDBK_TIMEOUT_COUNT_ADDR(inst)         ((inst) + 0x0000004C)
-#define BF_TIMEOUT_TIMER_COUNT_INFO(inst)            ((inst) + 0x0000004C), 0x00001000
+#define REG_SP_RDBK_TIMEOUT_COUNT_ADDR(inst)         ((uint32_t)(inst) + 0x0000004CU)
+#define BF_TIMEOUT_TIMER_COUNT_INFO(inst)            ((uint32_t)(inst) + 0x0000004CU), 0x00001000U
 
-#define REG_SP_RDBK_LAST_EXECUTED_STREAM_ADDR(inst)  ((inst) + 0x00000050)
-#define BF_RDBK_LAST_EXECUTED_STREAM_INFO(inst)      ((inst) + 0x00000050), 0x00000800
+#define REG_SP_RDBK_LAST_EXECUTED_STREAM_ADDR(inst)  ((uint32_t)(inst) + 0x00000050U)
+#define BF_RDBK_LAST_EXECUTED_STREAM_INFO(inst)      ((uint32_t)(inst) + 0x00000050U), 0x00000800U
 
-#define REG_SP_AHB_CTL_ADDR(inst)                    ((inst) + 0x00000054)
-#define BF_HRESP_MASK_INFO(inst)                     ((inst) + 0x00000054), 0x00000100
-#define BF_POSTED_HRESP_MASK_INFO(inst)              ((inst) + 0x00000054), 0x00000101
+#define REG_SP_AHB_CTL_ADDR(inst)                    ((uint32_t)(inst) + 0x00000054U)
+#define BF_HRESP_MASK_INFO(inst)                     ((uint32_t)(inst) + 0x00000054U), 0x00000100U
+#define BF_POSTED_HRESP_MASK_INFO(inst)              ((uint32_t)(inst) + 0x00000054U), 0x00000101U
 
-#define REG_SP_DCACHE_RD_DATA1_ADDR(inst)            ((inst) + 0x00000058)
-#define BF_RDBK_DCACHE_RD_DATA1_INFO(inst)           ((inst) + 0x00000058), 0x00002000
+#define REG_SP_DCACHE_RD_DATA1_ADDR(inst)            ((uint32_t)(inst) + 0x00000058U)
+#define BF_RDBK_DCACHE_RD_DATA1_INFO(inst)           ((uint32_t)(inst) + 0x00000058U), 0x00002000U
 
-#define REG_SP_DCACHE_RD_DATA2_ADDR(inst)            ((inst) + 0x0000005C)
-#define BF_RDBK_DCACHE_RD_DATA2_INFO(inst)           ((inst) + 0x0000005C), 0x00001000
+#define REG_SP_DCACHE_RD_DATA2_ADDR(inst)            ((uint32_t)(inst) + 0x0000005CU)
+#define BF_RDBK_DCACHE_RD_DATA2_INFO(inst)           ((uint32_t)(inst) + 0x0000005CU), 0x00001000U
 
-#define REG_SP_PREV_CURR_PC_N_RD_DATA2_ADDR(inst, n) ((inst) + 0x00000060 + 4 * (n))
-#define BF_PREV_CURR_PC_INFO(inst, n)                ((inst) + 0x00000060 + 4 * (n)), 0x00001000
-#define BF_PREV_DCACHE_RD_DATA2_INFO(inst, n)        ((inst) + 0x00000060 + 4 * (n)), 0x00001010
+#define REG_SP_PREV_CURR_PC_N_RD_DATA2_ADDR(inst, n) ((uint32_t)(inst) + 0x00000060U + 4U * (uint32_t)(n))
+#define BF_PREV_CURR_PC_INFO(inst, n)                ((uint32_t)(inst) + 0x00000060U + 4U * (uint32_t)(n)), 0x00001000U
+#define BF_PREV_DCACHE_RD_DATA2_INFO(inst, n)        ((uint32_t)(inst) + 0x00000060U + 4U * (uint32_t)(n)), 0x00001010U
 
-#define REG_SP_PREV_DCACHE_RD_DATA1_ADDR(inst, n)    ((inst) + 0x00000070 + 4 * (n))
-#define BF_PREV_DCACHE_RD_DATA1_INFO(inst, n)        ((inst) + 0x00000070 + 4 * (n)), 0x00002000
+#define REG_SP_PREV_DCACHE_RD_DATA1_ADDR(inst, n)    ((uint32_t)(inst) + 0x00000070U + 4U * (uint32_t)(n))
+#define BF_PREV_DCACHE_RD_DATA1_INFO(inst, n)        ((uint32_t)(inst) + 0x00000070U + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_SP_PREV_INSTR1_INSTR2_ADDR(inst, n)      ((inst) + 0x00000080 + 4 * (n))
-#define BF_PREV_INSTR1_INFO(inst, n)                 ((inst) + 0x00000080 + 4 * (n)), 0x00000800
-#define BF_PREV_INSTR2_INFO(inst, n)                 ((inst) + 0x00000080 + 4 * (n)), 0x00000808
-#define BF_PREV_DUAL_ISSUE_INFO(inst, n)             ((inst) + 0x00000080 + 4 * (n)), 0x00000110
+#define REG_SP_PREV_INSTR1_INSTR2_ADDR(inst, n)      ((uint32_t)(inst) + 0x00000080U + 4U * (uint32_t)(n))
+#define BF_PREV_INSTR1_INFO(inst, n)                 ((uint32_t)(inst) + 0x00000080U + 4U * (uint32_t)(n)), 0x00000800U
+#define BF_PREV_INSTR2_INFO(inst, n)                 ((uint32_t)(inst) + 0x00000080U + 4U * (uint32_t)(n)), 0x00000808U
+#define BF_PREV_DUAL_ISSUE_INFO(inst, n)             ((uint32_t)(inst) + 0x00000080U + 4U * (uint32_t)(n)), 0x00000110U
 
-#define REG_SP_PREV_R0_ADDR(inst, n)                 ((inst) + 0x00000090 + 4 * (n))
-#define BF_PREV_R0_INFO(inst, n)                     ((inst) + 0x00000090 + 4 * (n)), 0x00002000
+#define REG_SP_PREV_R0_ADDR(inst, n)                 ((uint32_t)(inst) + 0x00000090U + 4U * (uint32_t)(n))
+#define BF_PREV_R0_INFO(inst, n)                     ((uint32_t)(inst) + 0x00000090U + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_SP_PREV_R1_ADDR(inst, n)                 ((inst) + 0x000000A0 + 4 * (n))
-#define BF_PREV_R1_INFO(inst, n)                     ((inst) + 0x000000A0 + 4 * (n)), 0x00002000
+#define REG_SP_PREV_R1_ADDR(inst, n)                 ((uint32_t)(inst) + 0x000000A0U + 4U * (uint32_t)(n))
+#define BF_PREV_R1_INFO(inst, n)                     ((uint32_t)(inst) + 0x000000A0U + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_SP_PREV_R2_ADDR(inst, n)                 ((inst) + 0x000000B0 + 4 * (n))
-#define BF_PREV_R2_INFO(inst, n)                     ((inst) + 0x000000B0 + 4 * (n)), 0x00002000
+#define REG_SP_PREV_R2_ADDR(inst, n)                 ((uint32_t)(inst) + 0x000000B0U + 4U * (uint32_t)(n))
+#define BF_PREV_R2_INFO(inst, n)                     ((uint32_t)(inst) + 0x000000B0U + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_SP_PREV_R3_ADDR(inst, n)                 ((inst) + 0x000000C0 + 4 * (n))
-#define BF_PREV_R3_INFO(inst, n)                     ((inst) + 0x000000C0 + 4 * (n)), 0x00002000
+#define REG_SP_PREV_R3_ADDR(inst, n)                 ((uint32_t)(inst) + 0x000000C0U + 4U * (uint32_t)(n))
+#define BF_PREV_R3_INFO(inst, n)                     ((uint32_t)(inst) + 0x000000C0U + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_SP_PREV_R4_ADDR(inst, n)                 ((inst) + 0x000000D0 + 4 * (n))
-#define BF_PREV_R4_INFO(inst, n)                     ((inst) + 0x000000D0 + 4 * (n)), 0x00002000
+#define REG_SP_PREV_R4_ADDR(inst, n)                 ((uint32_t)(inst) + 0x000000D0U + 4U * (uint32_t)(n))
+#define BF_PREV_R4_INFO(inst, n)                     ((uint32_t)(inst) + 0x000000D0U + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_SP_PREV_R5_ADDR(inst, n)                 ((inst) + 0x000000E0 + 4 * (n))
-#define BF_PREV_R5_INFO(inst, n)                     ((inst) + 0x000000E0 + 4 * (n)), 0x00002000
+#define REG_SP_PREV_R5_ADDR(inst, n)                 ((uint32_t)(inst) + 0x000000E0U + 4U * (uint32_t)(n))
+#define BF_PREV_R5_INFO(inst, n)                     ((uint32_t)(inst) + 0x000000E0U + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_SP_PREV_R6_ADDR(inst, n)                 ((inst) + 0x000000F0 + 4 * (n))
-#define BF_PREV_R6_INFO(inst, n)                     ((inst) + 0x000000F0 + 4 * (n)), 0x00002000
+#define REG_SP_PREV_R6_ADDR(inst, n)                 ((uint32_t)(inst) + 0x000000F0U + 4U * (uint32_t)(n))
+#define BF_PREV_R6_INFO(inst, n)                     ((uint32_t)(inst) + 0x000000F0U + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_SP_PREV_R7_ADDR(inst, n)                 ((inst) + 0x00000100 + 4 * (n))
-#define BF_PREV_R7_INFO(inst, n)                     ((inst) + 0x00000100 + 4 * (n)), 0x00002000
+#define REG_SP_PREV_R7_ADDR(inst, n)                 ((uint32_t)(inst) + 0x00000100U + 4U * (uint32_t)(n))
+#define BF_PREV_R7_INFO(inst, n)                     ((uint32_t)(inst) + 0x00000100U + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_SP_PREV_RSEG_N_TIMEOUT_VAL_ADDR(inst, n) ((inst) + 0x00000110 + 4 * (n))
-#define BF_PREV_RSEG_INFO(inst, n)                   ((inst) + 0x00000110 + 4 * (n)), 0x00001000
-#define BF_PREV_TIMEOUT_TIMER_COUNT_INFO(inst, n)    ((inst) + 0x00000110 + 4 * (n)), 0x00001010
+#define REG_SP_PREV_RSEG_N_TIMEOUT_VAL_ADDR(inst, n) ((uint32_t)(inst) + 0x00000110U + 4U * (uint32_t)(n))
+#define BF_PREV_RSEG_INFO(inst, n)                   ((uint32_t)(inst) + 0x00000110U + 4U * (uint32_t)(n)), 0x00001000U
+#define BF_PREV_TIMEOUT_TIMER_COUNT_INFO(inst, n)    ((uint32_t)(inst) + 0x00000110U + 4U * (uint32_t)(n)), 0x00001010U
 
-#define REG_SP_TIMER_EVENT_STATUS_ADDR(inst)         ((inst) + 0x00000120)
-#define BF_EXTERNAL_TIMER_STATUS_INFO(inst)          ((inst) + 0x00000120), 0x00000800
-#define BF_FIFO_EVENTS_PENDING_INFO(inst)            ((inst) + 0x00000120), 0x00000808
+#define REG_SP_TIMER_EVENT_STATUS_ADDR(inst)         ((uint32_t)(inst) + 0x00000120U)
+#define BF_EXTERNAL_TIMER_STATUS_INFO(inst)          ((uint32_t)(inst) + 0x00000120U), 0x00000800U
+#define BF_FIFO_EVENTS_PENDING_INFO(inst)            ((uint32_t)(inst) + 0x00000120U), 0x00000808U
 
-#define REG_SP_AHB_FETCH_ADDR_ADDR(inst)             ((inst) + 0x00000124)
-#define BF_AHB_FETCH_ADDR_INFO(inst)                 ((inst) + 0x00000124), 0x00002000
+#define REG_SP_AHB_FETCH_ADDR_ADDR(inst)             ((uint32_t)(inst) + 0x00000124U)
+#define BF_AHB_FETCH_ADDR_INFO(inst)                 ((uint32_t)(inst) + 0x00000124U), 0x00002000U
 
-#define REG_SP_REGBUS_ADDR_ADDR(inst)                ((inst) + 0x00000128)
-#define BF_REGBUS_ADDR_INFO(inst)                    ((inst) + 0x00000128), 0x00002000
+#define REG_SP_REGBUS_ADDR_ADDR(inst)                ((uint32_t)(inst) + 0x00000128U)
+#define BF_REGBUS_ADDR_INFO(inst)                    ((uint32_t)(inst) + 0x00000128U), 0x00002000U
 
-#define REG_SP_REGBUS_SIZE_ADDR(inst)                ((inst) + 0x0000012C)
-#define BF_REGBUS_SIZE_INFO(inst)                    ((inst) + 0x0000012C), 0x00000100
+#define REG_SP_REGBUS_SIZE_ADDR(inst)                ((uint32_t)(inst) + 0x0000012CU)
+#define BF_REGBUS_SIZE_INFO(inst)                    ((uint32_t)(inst) + 0x0000012CU), 0x00000100U
 
-#define REG_SP_PREV_TIMER_EVENT_STATUS_ADDR(inst, n) ((inst) + 0x00000130 + 4 * (n))
-#define BF_PREV_EXTERNAL_TIMER_STATUS_INFO(inst, n)  ((inst) + 0x00000130 + 4 * (n)), 0x00000800
-#define BF_PREV_FIFO_EVENTS_PENDING_INFO(inst, n)    ((inst) + 0x00000130 + 4 * (n)), 0x00000808
+#define REG_SP_PREV_TIMER_EVENT_STATUS_ADDR(inst, n) ((uint32_t)(inst) + 0x00000130U + 4U * (uint32_t)(n))
+#define BF_PREV_EXTERNAL_TIMER_STATUS_INFO(inst, n)  ((uint32_t)(inst) + 0x00000130U + 4U * (uint32_t)(n)), 0x00000800U
+#define BF_PREV_FIFO_EVENTS_PENDING_INFO(inst, n)    ((uint32_t)(inst) + 0x00000130U + 4U * (uint32_t)(n)), 0x00000808U
 
-#define REG_SP_PREV_AHB_FETCH_ADDR_ADDR(inst, n)     ((inst) + 0x00000140 + 4 * (n))
-#define BF_PREV_AHB_FETCH_ADDR_INFO(inst, n)         ((inst) + 0x00000140 + 4 * (n)), 0x00002000
+#define REG_SP_PREV_AHB_FETCH_ADDR_ADDR(inst, n)     ((uint32_t)(inst) + 0x00000140U + 4U * (uint32_t)(n))
+#define BF_PREV_AHB_FETCH_ADDR_INFO(inst, n)         ((uint32_t)(inst) + 0x00000140U + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_SP_PREV_REGBUS_ADDR_ADDR(inst, n)        ((inst) + 0x00000150 + 4 * (n))
-#define BF_PREV_REGBUS_ADDR_INFO(inst, n)            ((inst) + 0x00000150 + 4 * (n)), 0x00002000
+#define REG_SP_PREV_REGBUS_ADDR_ADDR(inst, n)        ((uint32_t)(inst) + 0x00000150U + 4U * (uint32_t)(n))
+#define BF_PREV_REGBUS_ADDR_INFO(inst, n)            ((uint32_t)(inst) + 0x00000150U + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_SP_PREV_REGBUS_SIZE_ADDR(inst, n)        ((inst) + 0x00000160 + 4 * (n))
-#define BF_PREV_REGBUS_SIZE_INFO(inst, n)            ((inst) + 0x00000160 + 4 * (n)), 0x00000100
+#define REG_SP_PREV_REGBUS_SIZE_ADDR(inst, n)        ((uint32_t)(inst) + 0x00000160U + 4U * (uint32_t)(n))
+#define BF_PREV_REGBUS_SIZE_INFO(inst, n)            ((uint32_t)(inst) + 0x00000160U + 4U * (uint32_t)(n)), 0x00000100U
 
-#define REG_SP_EVENT_MISS_ADDR(inst)                 ((inst) + 0x00000170)
-#define BF_EVENT_MISS_IRQ_MASK_INFO(inst)            ((inst) + 0x00000170), 0x00000100
+#define REG_SP_EVENT_MISS_ADDR(inst)                 ((uint32_t)(inst) + 0x00000170U)
+#define BF_EVENT_MISS_IRQ_MASK_INFO(inst)            ((uint32_t)(inst) + 0x00000170U), 0x00000100U
 
-#define REG_SP_EVENT_MISS_STATUS0_ADDR(inst)         ((inst) + 0x00000174)
-#define BF_EVENT_MISS0_INFO(inst)                    ((inst) + 0x00000174), 0x00002000
+#define REG_SP_EVENT_MISS_STATUS0_ADDR(inst)         ((uint32_t)(inst) + 0x00000174U)
+#define BF_EVENT_MISS0_INFO(inst)                    ((uint32_t)(inst) + 0x00000174U), 0x00002000U
 
-#define REG_SP_EVENT_MISS_STATUS1_ADDR(inst)         ((inst) + 0x00000178)
-#define BF_EVENT_MISS1_INFO(inst)                    ((inst) + 0x00000178), 0x00002000
+#define REG_SP_EVENT_MISS_STATUS1_ADDR(inst)         ((uint32_t)(inst) + 0x00000178U)
+#define BF_EVENT_MISS1_INFO(inst)                    ((uint32_t)(inst) + 0x00000178U), 0x00002000U
 
-#define REG_SP_EVENT_MISS_STATUS2_ADDR(inst)         ((inst) + 0x0000017C)
-#define BF_EVENT_MISS2_INFO(inst)                    ((inst) + 0x0000017C), 0x00002000
+#define REG_SP_EVENT_MISS_STATUS2_ADDR(inst)         ((uint32_t)(inst) + 0x0000017CU)
+#define BF_EVENT_MISS2_INFO(inst)                    ((uint32_t)(inst) + 0x0000017CU), 0x00002000U
 
-#define REG_SP_EVENT_MISS_STATUS3_ADDR(inst)         ((inst) + 0x00000180)
-#define BF_EVENT_MISS3_INFO(inst)                    ((inst) + 0x00000180), 0x00002000
+#define REG_SP_EVENT_MISS_STATUS3_ADDR(inst)         ((uint32_t)(inst) + 0x00000180U)
+#define BF_EVENT_MISS3_INFO(inst)                    ((uint32_t)(inst) + 0x00000180U), 0x00002000U
 
-#define REG_SP_CALL_FUNC_TRACE_ADDR(inst)            ((inst) + 0x00000184)
-#define BF_CALL_FUNC_TRACE_INFO(inst)                ((inst) + 0x00000184), 0x00000100
+#define REG_SP_CALL_FUNC_TRACE_ADDR(inst)            ((uint32_t)(inst) + 0x00000184U)
+#define BF_CALL_FUNC_TRACE_INFO(inst)                ((uint32_t)(inst) + 0x00000184U), 0x00000100U
 
-#endif /* __ADI_APOLLO_BF_STREAMPROC_H__ */
+#endif /* ADI_APOLLO_BF_STREAMPROC_H__ */
 /*! @} */

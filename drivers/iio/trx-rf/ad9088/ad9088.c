@@ -5515,8 +5515,15 @@ static int ad9088_fw_provider_get(adi_apollo_fw_provider_t *obj,
 		"app_signed_encrypted_prod_B/flash_image_0x01030000.bin",
 		"app_signed_encrypted_prod_B/flash_image_0x20000000.bin",
 		"app_signed_encrypted_prod_B/flash_image_0x02000000.bin",
-		"app_signed_encrypted_prod_B/flash_image_0x21000000.bin"
+		"app_signed_encrypted_prod_B/flash_image_0x21000000.bin",
+
+		"AD9088_stream_image.bin",
 	};
+
+	if (fw_id >= ADI_APOLLO_FW_ID_MAX || !fw_file[fw_id]) {
+		dev_err(dev, "No firmware file for image %d\n", fw_id);
+		return -ENOENT;
+	}
 
 	ret = request_firmware(&phy->fw, fw_file[fw_id], dev);
 	if (ret) {

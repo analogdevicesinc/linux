@@ -30,13 +30,13 @@
 #include "adi_apollo_bf_custom.h"
 
 /*============= D A T A ====================*/
-static uint16_t apollo_api_revision[3] = { 2, 0, 10 };
+static uint16_t apollo_api_revision[3] = { 2, 2, 8 };
 
 static adi_apollo_mailbox_cmd_set_enabled_temp_sensors_t temp_senors_cmd = {
-        .temp_sensor_mask = ADI_APOLLO_DEVTEMP_MASK_SERDESPLL |
-            ADI_APOLLO_DEVTEMP_MASK_MPU_A | ADI_APOLLO_DEVTEMP_MASK_MPU_B |
-            ADI_APOLLO_DEVTEMP_MASK_LPU_VENUS_A | ADI_APOLLO_DEVTEMP_MASK_LPU_VENUS_B |
-            ADI_APOLLO_DEVTEMP_MASK_LPU_CK_CORNER_A | ADI_APOLLO_DEVTEMP_MASK_LPU_CK_CORNER_B | ADI_APOLLO_DEVTEMP_MASK_LPU_CK_CENTER
+        .temp_sensor_mask = (uint32_t)ADI_APOLLO_DEVTEMP_MASK_SERDESPLL |
+            (uint32_t)ADI_APOLLO_DEVTEMP_MASK_MPU_A | (uint32_t)ADI_APOLLO_DEVTEMP_MASK_MPU_B |
+            (uint32_t)ADI_APOLLO_DEVTEMP_MASK_LPU_VENUS_A | (uint32_t)ADI_APOLLO_DEVTEMP_MASK_LPU_VENUS_B |
+            (uint32_t)ADI_APOLLO_DEVTEMP_MASK_LPU_CK_CORNER_A | (uint32_t)ADI_APOLLO_DEVTEMP_MASK_LPU_CK_CORNER_B | (uint32_t)ADI_APOLLO_DEVTEMP_MASK_LPU_CK_CENTER
 };
 
 /*============= C O D E ====================*/
@@ -52,7 +52,7 @@ int32_t adi_apollo_device_spi_register_set(adi_apollo_device_t *device, uint32_t
     err = adi_apollo_hal_reg_set(device, addr, data);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_device_spi_register_get(adi_apollo_device_t *device, uint32_t addr, uint8_t *data)
@@ -65,7 +65,7 @@ int32_t adi_apollo_device_spi_register_get(adi_apollo_device_t *device, uint32_t
     err = adi_apollo_hal_reg_get(device, addr, data);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_device_api_revision_get(adi_apollo_device_t *device, uint16_t *rev_major, uint16_t *rev_minor, uint16_t *rev_rc)
@@ -80,7 +80,7 @@ int32_t adi_apollo_device_api_revision_get(adi_apollo_device_t *device, uint16_t
     *rev_minor = apollo_api_revision[1];
     *rev_rc    = apollo_api_revision[2];
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_device_reset(adi_apollo_device_t *device, adi_apollo_reset_e reset_opt)
@@ -127,7 +127,7 @@ int32_t adi_apollo_device_reset(adi_apollo_device_t *device, adi_apollo_reset_e 
     device->hal_info.spi0_desc.page_base_addr = 0;
     device->hal_info.spi1_desc.page_base_addr = 0;
     
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_device_init(adi_apollo_device_t *device)
@@ -154,12 +154,12 @@ int32_t adi_apollo_device_init(adi_apollo_device_t *device)
     ADI_APOLLO_ERROR_RETURN(err);
 
     /* Configure device hsci */
-    if (device->hal_info.hsci_desc.is_used) {
+    if (device->hal_info.hsci_desc.is_used != 0U) {
         err = adi_apollo_device_hsci_configure(device, &device->hal_info.hsci_desc.hsci_config);
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_device_deinit(adi_apollo_device_t *device)
@@ -167,7 +167,7 @@ int32_t adi_apollo_device_deinit(adi_apollo_device_t *device)
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_device_chip_id_get(adi_apollo_device_t *device, adi_cms_chip_id_t *chip_id)
@@ -188,14 +188,14 @@ int32_t adi_apollo_device_chip_id_get(adi_apollo_device_t *device, adi_cms_chip_
 
     err = adi_apollo_hal_reg_get(device, REG_PRODUCT_ID_1_ADDR, &reg_val);
     ADI_APOLLO_ERROR_RETURN(err);
-    chip_id->prod_id |= (reg_val << 8);
+    chip_id->prod_id |= (uint16_t)((uint16_t)reg_val << 8);
 
     err = adi_apollo_hal_reg_get(device, REG_CHIP_GRADE_ADDR, &reg_val);
     ADI_APOLLO_ERROR_RETURN(err);
     chip_id->prod_grade   = (reg_val >> 4);
-    chip_id->dev_revision = (reg_val & 0x0F);
+    chip_id->dev_revision = (reg_val & 0x0FU);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_device_laminate_id_get(adi_apollo_device_t *device, uint8_t *id)
@@ -228,9 +228,9 @@ int32_t adi_apollo_device_si_grade_get(adi_apollo_device_t *device, uint8_t *si_
     err = adi_apollo_hal_reg_get(device, REG_EC_ANA_BYTE2_ADDR, &reg_val);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    *si_grade = (reg_val & 0x01);
+    *si_grade = (reg_val & 0x01U);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_device_sw_mxfe_get(adi_apollo_device_t *device, adi_apollo_device_sw_variant_mxfe_e *mxfe)
@@ -245,11 +245,11 @@ int32_t adi_apollo_device_sw_mxfe_get(adi_apollo_device_t *device, adi_apollo_de
     err = adi_apollo_hal_reg_get(device, REG_PART_VARIANT_SW_MXFE_ADDR, &reg_val);
     ADI_APOLLO_ERROR_RETURN(err);
     
-    *mxfe = (reg_val <= 2) ?
+    *mxfe = (reg_val <= 2U) ?
             (adi_apollo_device_sw_variant_mxfe_e)reg_val : 
             ADI_APOLLO_DEVICE_SW_VARIANT_INVALID;
     
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_device_sw_trim_get(adi_apollo_device_t *device, adi_apollo_device_sw_variant_trim_e *sw_trim)
@@ -275,7 +275,7 @@ int32_t adi_apollo_device_sw_trim_get(adi_apollo_device_t *device, adi_apollo_de
             break;
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_device_trx_config_get(adi_apollo_device_t *device, adi_apollo_device_rev_trx_config_e *trx_cfg)
@@ -291,9 +291,10 @@ int32_t adi_apollo_device_trx_config_get(adi_apollo_device_t *device, adi_apollo
     ADI_APOLLO_ERROR_RETURN(err);
 
     /* Bit 7 indicates 4T4R (0) or 8T8R (1) */
-	*trx_cfg = (adi_apollo_device_rev_trx_config_e)((reg_val & 0x80) >> 7);
+    uint8_t bit_value = (reg_val & 0x80U) >> 7;
+	*trx_cfg = (adi_apollo_device_rev_trx_config_e)bit_value;
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_device_rx_type_get(adi_apollo_device_t *device, adi_apollo_device_rev_rx_type_e *rx_type)
@@ -309,9 +310,10 @@ int32_t adi_apollo_device_rx_type_get(adi_apollo_device_t *device, adi_apollo_de
     ADI_APOLLO_ERROR_RETURN(err);
 
     /* Bit 5 indicates Differential (0) or single-ended (1) */
-	*rx_type = (adi_apollo_device_rev_rx_type_e)((reg_val & 0x40) >> 6);
+    uint8_t bit_value = (uint8_t)((reg_val & 0x40U) >> 6);
+	*rx_type = (adi_apollo_device_rev_rx_type_e)bit_value;
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_device_board_variant_and_rev_get(adi_apollo_device_t *device, adi_apollo_device_board_var_and_rev_info_t *board_var_rev)
@@ -346,8 +348,40 @@ int32_t adi_apollo_device_board_variant_and_rev_get(adi_apollo_device_t *device,
 	err = adi_apollo_device_rx_type_get(device, &board_var_rev->rx_type);
 	ADI_APOLLO_ERROR_RETURN(err);
 	
-	return API_CMS_ERROR_OK;
+	ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
+
+int32_t adi_apollo_device_txrx_variant_emulate(adi_apollo_device_t *device, adi_apollo_device_sw_variant_mxfe_e mxfe)
+{
+    int32_t err;
+
+    ADI_APOLLO_NULL_POINTER_RETURN(device);
+    ADI_APOLLO_LOG_FUNC();
+    ADI_CMS_RANGE_CHECK(mxfe, ADI_APOLLO_DEVICE_SW_VARIANT_TX_ONLY, ADI_APOLLO_DEVICE_SW_VARIANT_RX_ONLY);
+
+    err = adi_apollo_hal_reg_set(device, REG_PART_VARIANT_EMULATE_SW_MXFE_ADDR, 0x80U | (uint8_t)mxfe);
+    ADI_APOLLO_ERROR_RETURN(err);
+
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
+}
+
+int32_t adi_apollo_device_sw_trim_emulate(adi_apollo_device_t *device, adi_apollo_device_sw_variant_trim_e sw_trim)
+{
+    int32_t err;
+
+    ADI_APOLLO_NULL_POINTER_RETURN(device);
+    ADI_APOLLO_LOG_FUNC();
+    ADI_APOLLO_INVALID_PARAM_RETURN(sw_trim != ADI_APOLLO_DEVICE_SW_VARIANT_TRIM_SW1 &&
+                                    sw_trim != ADI_APOLLO_DEVICE_SW_VARIANT_TRIM_SW3 &&
+                                    sw_trim != ADI_APOLLO_DEVICE_SW_VARIANT_TRIM_SW5);
+
+    err = adi_apollo_hal_reg_set(device, REG_PART_VARIANT_EMULATE_SW_TRIM_ADDR, 0x80U | (uint8_t)sw_trim);
+    ADI_APOLLO_ERROR_RETURN(err);
+
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
+}
+
+
 
 int32_t adi_apollo_device_hw_open(adi_apollo_device_t *device, adi_apollo_reset_e reset_opt)
 {
@@ -385,25 +419,28 @@ int32_t adi_apollo_device_hw_open(adi_apollo_device_t *device, adi_apollo_reset_
     }
 
     /* Store the block selection mask for device type (is_8t8r mask be established) */
-    adi_apollo_private_blk_sel_mask_set(device);
+    err = adi_apollo_private_blk_sel_mask_set(device);
+    ADI_APOLLO_ERROR_RETURN(err);
 
     /* Configure device hsci */
-    if (device->hal_info.hsci_desc.is_used) {
+    if (device->hal_info.hsci_desc.is_used != 0U) {
         err = adi_apollo_device_hsci_configure(device, &device->hal_info.hsci_desc.hsci_config);
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_device_hw_close(adi_apollo_device_t *device)
 {
-    return API_CMS_ERROR_OK;
+    (void)device;  // Mark as intentionally unused
+    
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_device_spi_configure(adi_apollo_device_t *device, adi_apollo_device_spi_settings_t *spi_config, uint8_t spi_num)
 {
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
     uint8_t reg_val = 0x00;
     void *active_regio_save;
 
@@ -413,29 +450,34 @@ int32_t adi_apollo_device_spi_configure(adi_apollo_device_t *device, adi_apollo_
 
     /* To init spi0 or spi1, spi0 must be active */
     if (!device->hal_info.spi0_desc.is_used) {
-        return API_CMS_ERROR_ERROR;
+        ADI_CMS_RETURN(API_CMS_ERROR_ERROR);
     }
 
     /* Assemble spi init register val */
-    reg_val |= (spi_config->sdo == ADI_APOLLO_DEVICE_SPI_SDIO) ? 0x00 : 0x18;                   /* 3-wire : 4-wire */
-    reg_val |= (spi_config->addr_inc == ADI_APOLLO_DEVICE_SPI_ADDR_DEC_AUTO) ? 0x00 : 0x24;     /* dec : incr */
-    reg_val |= (spi_config->msb == ADI_APOLLO_DEVICE_SPI_MSB_FIRST) ? 0x00 : 0x42;              /* MSB first : LSB first */
+    {
+        unsigned int sdo_bits = (spi_config->sdo == ADI_APOLLO_DEVICE_SPI_SDIO) ? 0x00U : 0x18U;
+        unsigned int addr_bits = (spi_config->addr_inc == ADI_APOLLO_DEVICE_SPI_ADDR_DEC_AUTO) ? 0x00U : 0x24U;
+        unsigned int msb_bits = (spi_config->msb == ADI_APOLLO_DEVICE_SPI_MSB_FIRST) ? 0x00U : 0x42U;
+        reg_val |= (uint8_t)sdo_bits;      /* 3-wire : 4-wire */
+        reg_val |= (uint8_t)addr_bits;     /* dec : incr */
+        reg_val |= (uint8_t)msb_bits;      /* MSB first : LSB first */
+    }
 
     /* Set active regio to spi0, save current active one (e.g. hsci) */
     active_regio_save = device->hal_info.active_regio;
     device->hal_info.active_regio = &device->hal_info.spi0_desc.base_regio;
 
-    if (spi_num == 1) {
-        if (device->hal_info.spi1_desc.is_used) {
+    if (spi_num == 1U) {
+        if (device->hal_info.spi1_desc.is_used != 0U) {
             err = adi_apollo_hal_reg_set(device, REG_SPI1_ENABLE_ADDR, 0x01);       /* Enable spi1 (using spi0) */
             device->hal_info.active_regio = &device->hal_info.spi1_desc.base_regio;
         }
         else {
-            err = API_CMS_ERROR_ERROR;
+            err = (int32_t)API_CMS_ERROR_ERROR;
         }
     }
 
-    if (err == API_CMS_ERROR_OK) {
+    if (err == (int32_t)API_CMS_ERROR_OK) {
         err = adi_apollo_hal_reg_set(device, REG_SPI_FIFO_MODE_REG_ADDR, 0);
         ADI_APOLLO_ERROR_RETURN(err);
 
@@ -448,18 +490,18 @@ int32_t adi_apollo_device_spi_configure(adi_apollo_device_t *device, adi_apollo_
         device->hal_info.active_regio = active_regio_save;
     }
 
-    return err;
+    ADI_CMS_RETURN(err);
 }
 
 int32_t adi_apollo_device_hsci_configure(adi_apollo_device_t *device, adi_apollo_device_hsci_settings_t *hsci_config)
 {
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_NULL_POINTER_RETURN(hsci_config);
 
-    if (hsci_config->auto_linkup_en == 1) {
+    if (hsci_config->auto_linkup_en == 1U) {
         err = adi_apollo_private_device_hsci_auto_linkup_configure(device);
         ADI_APOLLO_ERROR_RETURN(err);
     } else {
@@ -467,12 +509,13 @@ int32_t adi_apollo_device_hsci_configure(adi_apollo_device_t *device, adi_apollo
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_device_uuid_get(adi_apollo_device_t *device, uint8_t uuid[], uint32_t uuid_len)
 {
-    int32_t err, i;
+    int32_t err;
+    uint32_t i;
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
     ADI_APOLLO_INVALID_PARAM_RETURN(uuid_len != ADI_APOLLO_UUID_NUM_BYTES);
@@ -482,12 +525,12 @@ int32_t adi_apollo_device_uuid_get(adi_apollo_device_t *device, uint8_t uuid[], 
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_device_tmu_enable(adi_apollo_device_t *device)
 {
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
     ADI_APOLLO_LOG_FUNC();
@@ -496,12 +539,12 @@ int32_t adi_apollo_device_tmu_enable(adi_apollo_device_t *device)
     err = adi_apollo_mailbox_set_enabled_temp_sensors(device, &temp_senors_cmd, &temp_sensors_resp);
     ADI_APOLLO_ERROR_RETURN(err);
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 int32_t adi_apollo_device_tmu_get(adi_apollo_device_t *device, adi_apollo_device_tmu_data_t *tmu_data)
 {
-    int32_t err = API_CMS_ERROR_OK;
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
     adi_apollo_device_tmu_index_e temp_degrees_celsius_index;
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
@@ -528,7 +571,85 @@ int32_t adi_apollo_device_tmu_get(adi_apollo_device_t *device, adi_apollo_device
 
     tmu_data->temp_degrees_celsius_avg = get_temp_resp.temp_data.temp_degrees_celsius_avg;
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
+}
+
+int32_t adi_apollo_device_temp_alarm_threshold_set(adi_apollo_device_t *device, int16_t high_threshold_dc, int16_t low_threshold_dc)
+{
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
+
+    ADI_APOLLO_NULL_POINTER_RETURN(device);
+    ADI_APOLLO_LOG_FUNC();
+
+    adi_apollo_mailbox_cmd_set_temp_alarm_thresholds_t cmd = {
+        .high_threshold_dc = high_threshold_dc,
+        .low_threshold_dc  = low_threshold_dc
+    };
+    adi_apollo_mailbox_resp_set_temp_alarm_thresholds_t resp;
+    err = adi_apollo_mailbox_set_temp_alarm_thresholds(device, &cmd, &resp);
+    ADI_APOLLO_ERROR_RETURN(err);
+
+    if (resp.status != (uint32_t)APOLLO_CPU_NO_ERROR) {
+        ADI_APOLLO_LOG_MSG_VAR("adi_apollo_device_temp_alarm_threshold_set: mailbox response status error: %u", resp.status);
+        err = (int32_t)API_CMS_ERROR_MAILBOX_RESP_STATUS;
+        ADI_APOLLO_ERROR_RETURN(err);
+    }
+
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
+}
+
+int32_t adi_apollo_device_temp_alarm_threshold_get(adi_apollo_device_t *device, int16_t *high_threshold_dc, int16_t *low_threshold_dc)
+{
+    int32_t err = (int32_t)API_CMS_ERROR_OK;
+
+    ADI_APOLLO_NULL_POINTER_RETURN(device);
+    ADI_APOLLO_LOG_FUNC();
+    ADI_APOLLO_NULL_POINTER_RETURN(high_threshold_dc);
+    ADI_APOLLO_NULL_POINTER_RETURN(low_threshold_dc);
+
+    adi_apollo_mailbox_resp_get_temp_alarm_thresholds_t resp;
+    err = adi_apollo_mailbox_get_temp_alarm_thresholds(device, &resp);
+    ADI_APOLLO_ERROR_RETURN(err);
+
+    if (resp.status != (uint32_t)APOLLO_CPU_NO_ERROR) {
+        ADI_APOLLO_LOG_MSG_VAR("adi_apollo_device_temp_alarm_threshold_get: mailbox response status error: %u", resp.status);
+        err = (int32_t)API_CMS_ERROR_MAILBOX_RESP_STATUS;
+        ADI_APOLLO_ERROR_RETURN(err);
+    }
+
+    *high_threshold_dc = resp.high_threshold_dc;
+    *low_threshold_dc  = resp.low_threshold_dc;
+
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
+}
+
+int32_t adi_apollo_device_shutdown(adi_apollo_device_t *device, uint32_t wait_time_between_grps_in_us)
+{
+	int32_t err = (int32_t)API_CMS_ERROR_OK;
+
+	ADI_APOLLO_NULL_POINTER_RETURN(device);
+	ADI_APOLLO_LOG_FUNC();
+
+	/* Validate wait time range: 10-20us as per specification */
+	if ((wait_time_between_grps_in_us < 10U) || (wait_time_between_grps_in_us > 20U)) {
+		ADI_APOLLO_LOG_MSG_VAR("adi_apollo_device_shutdown: Invalid wait time: %u us (must be 10-20us)", wait_time_between_grps_in_us);
+		err = (int32_t)API_CMS_ERROR_INVALID_PARAM;
+		ADI_APOLLO_ERROR_RETURN(err);
+	}
+
+	adi_apollo_mailbox_resp_shutdown_t shutdown_resp;
+	adi_apollo_mailbox_cmd_shutdown_t cmd = {
+		.wait_time_between_grps = wait_time_between_grps_in_us
+	};
+	err = adi_apollo_mailbox_shutdown(device, &cmd, &shutdown_resp);
+	ADI_APOLLO_ERROR_RETURN(err);
+
+	if (shutdown_resp.status != APOLLO_CPU_NO_ERROR) {
+		ADI_APOLLO_LOG_MSG_VAR("adi_apollo_device_shutdown: mailbox response status error: %u", shutdown_resp.status);
+		err = (int32_t)API_CMS_ERROR_MAILBOX_RESP_STATUS;
+		ADI_APOLLO_ERROR_RETURN(err);
+	}
+	ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 /* Configure device spi */
@@ -538,7 +659,7 @@ static int32_t configure_spi(adi_apollo_device_t *device)
 
     ADI_APOLLO_NULL_POINTER_RETURN(device);
 
-    if (device->hal_info.spi0_desc.is_used) {
+    if (device->hal_info.spi0_desc.is_used != 0U) {
         err = adi_apollo_hal_active_protocol_set(device, ADI_APOLLO_HAL_PROTOCOL_SPI0);
         ADI_APOLLO_ERROR_RETURN(err);
 
@@ -546,12 +667,12 @@ static int32_t configure_spi(adi_apollo_device_t *device)
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    if (device->hal_info.spi1_desc.is_used) {
+    if (device->hal_info.spi1_desc.is_used != 0U) {
         err = adi_apollo_device_spi_configure(device, &device->hal_info.spi1_desc.spi_config, 1);
         ADI_APOLLO_ERROR_RETURN(err);
     }
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 /* Initialize device context info */
@@ -566,10 +687,10 @@ static int32_t device_context_init(adi_apollo_device_t* device)
     err = adi_apollo_hal_bf_get(device, BF_MASK_REVISION_MAJOR_INFO, &rev_major, sizeof(rev_major));
     ADI_APOLLO_ERROR_RETURN(err);
 
-    device->dev_info.is_8t8r = (rev_major >> 3) & 1;
+    device->dev_info.is_8t8r = (rev_major >> 3U) & 1U;
     ADI_APOLLO_LOG_VAR(ADI_CMS_LOG_API, "Device config: %s", device->dev_info.is_8t8r ? "8T8R" : "4T4R");
 
-    return API_CMS_ERROR_OK;
+    ADI_CMS_RETURN(API_CMS_ERROR_OK);
 }
 
 /*! @} */

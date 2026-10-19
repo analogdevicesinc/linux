@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_JRX
  * @{
  */
-#ifndef __ADI_APOLLO_JRX_H__
-#define __ADI_APOLLO_JRX_H__
+#ifndef ADI_APOLLO_JRX_H__
+#define ADI_APOLLO_JRX_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_jrx_types.h"
@@ -409,17 +409,45 @@ int32_t adi_apollo_jrx_j204c_irq_clear(adi_apollo_device_t *device,
     const uint16_t links,
     const uint32_t irqs);
 
+/**
+ * \brief  Configure invalid samples for JRX wrapper
+ *
+ * \param[in]  device        Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  side          Target side (0=Side A, 1=Side B)
+ * \param[in]  idx_fsrc      FSRC index
+ * \param[in]  enable        Enable invalid samples (0=disable, 1=enable)
+ * \param[in]  num_samples   Number of invalid samples (ns_minus1 from JESD config)
+ *
+ * \return API_CMS_ERROR_OK       API Completed Successfully
+ * \return <0                     Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_jrx_invalid_samples_set(adi_apollo_device_t *device,
+    adi_apollo_sides_e side,
+    uint8_t idx_fsrc,
+    uint8_t enable,
+    uint8_t num_samples);
+
 #ifndef CLIENT_IGNORE
-	
+
+/**
+ * \brief  Enable or disable JESD RX sample repeat mode
+ *
+ * \param[in]  device       Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  link_sides   Target link mask \ref adi_apollo_jesd_link_select_e
+ * \param[in]  enable       Enable sample repeat (0=disable, 1=enable)
+ *
+ * \return API_CMS_ERROR_OK    API Completed Successfully
+ * \return <0                  Failed. \ref adi_cms_error_e for details.
+ */
 int32_t adi_apollo_jesd_rx_sample_repeat_en(adi_apollo_device_t *device,
 	const uint16_t link_sides,
 	uint8_t enable);
-	
+
 #endif /* CLIENT_IGNORE*/
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __ADI_APOLLO_JRX_H__ */
+#endif /* ADI_APOLLO_JRX_H__ */
 /*! @} */

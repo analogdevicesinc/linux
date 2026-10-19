@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_CNCO
  * @{
  */
-#ifndef __ADI_APOLLO_CNCO_H__
-#define __ADI_APOLLO_CNCO_H__
+#ifndef ADI_APOLLO_CNCO_H__
+#define ADI_APOLLO_CNCO_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_cnco_types.h"
@@ -36,8 +36,31 @@ extern "C" {
  * \return API_CMS_ERROR_OK                     API Completed Successfully
  * \return <0                                   Failed. \ref adi_cms_error_e for details.
  */
-int32_t adi_apollo_cnco_profile_load(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t cncos, 
+int32_t adi_apollo_cnco_profile_load(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t cncos,
                 adi_apollo_nco_profile_word_sel_e word_sel, uint8_t first, uint32_t words[], uint32_t length);
+
+/**
+ * \brief  Functionally equivalent to adi_apollo_cnco_profile_load but executes faster.
+ *
+ * Executes faster by allowing both phase increment and offset to be specified in a single call and 
+ * by using SPI streaming transactions.
+ *
+ * \param[in]  device        Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  terminal      Target terminal \ref adi_apollo_terminal_e
+ * \param[in]  cncos         Target CNCOs \ref adi_apollo_coarse_nco_select_e
+ * \param[in]  inc_first     First profile to load phase increment (0 - 15). Used when inc_length > 0.
+ * \param[in]  inc_words     Array of phase increment words (32-bit). Used when inc_length > 0.
+ * \param[in]  inc_length    Number of increment profiles to load (0 to skip). (inc_first + inc_length must be <= 16)
+ * \param[in]  offset_first  First profile to load phase offset (0 - 15). Used when offset_length > 0.
+ * \param[in]  offset_words  Array of phase offset words (32-bit). Used when offset_length > 0.
+ * \param[in]  offset_length Number of offset profiles to load (0 to skip). (offset_first + offset_length must be <= 16)
+ *
+ * \return API_CMS_ERROR_OK                     API Completed Successfully
+ * \return <0                                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_cnco_profile_load_fast(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t cncos,
+                uint8_t inc_first, uint32_t inc_words[], uint32_t inc_length,
+                uint8_t offset_first, uint32_t offset_words[], uint32_t offset_length);
 
 /**
  * \brief  COARSE NCO HOP Enable
@@ -227,6 +250,29 @@ int32_t adi_apollo_cnco_active_profile_set(adi_apollo_device_t *device, adi_apol
  */
 int32_t adi_apollo_cnco_next_hop_num_set(adi_apollo_device_t *device, adi_apollo_terminal_e terminal, adi_apollo_blk_sel_t cncos, int16_t hop_num);
 
+/**
+ * \brief  Reads active phase increment and offset for a range of coarse NCO profiles
+ *
+ * Saves the current active profile, iterates profiles [first, first+length), reads each
+ * profile's phase increment and offset via the active-register path, then restores the
+ * original active profile. cnco must select a single CNCO instance.
+ *
+ * \param[in]  device       Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  terminal     Target terminal \ref adi_apollo_terminal_e
+ * \param[in]  cnco         Single target CNCO \ref adi_apollo_coarse_nco_select_e
+ * \param[in]  first          First profile index (0 to ADI_APOLLO_CNCO_PROFILE_NUM-1)
+ * \param[out] phase_inc      Array receiving phase increment words
+ * \param[in]  phase_inc_len  Number of entries in phase_inc (first + phase_inc_len must be <= ADI_APOLLO_CNCO_PROFILE_NUM)
+ * \param[out] phase_offset   Array receiving phase offset words
+ * \param[in]  phase_off_len  Number of entries in phase_offset (must equal phase_inc_len)
+ *
+ * \return API_CMS_ERROR_OK                     API Completed Successfully
+ * \return <0                                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_cnco_active_profile_read(adi_apollo_device_t *device, adi_apollo_terminal_e terminal,
+                adi_apollo_blk_sel_t cnco, uint8_t first,
+                uint32_t phase_inc[], uint32_t phase_inc_len, uint32_t phase_offset[], uint32_t phase_off_len);
+
 #ifndef CLIENT_IGNORE
 
 #endif /* CLIENT_IGNORE*/
@@ -235,5 +281,5 @@ int32_t adi_apollo_cnco_next_hop_num_set(adi_apollo_device_t *device, adi_apollo
 }
 #endif
 
-#endif /* __ADI_APOLLO_CNCO_H__ */
+#endif /* ADI_APOLLO_CNCO_H__ */
 /*! @} */

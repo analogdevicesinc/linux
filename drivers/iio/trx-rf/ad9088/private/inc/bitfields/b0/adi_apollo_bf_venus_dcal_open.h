@@ -12,359 +12,359 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_VENUS_DCAL_OPEN_H__
-#define __ADI_APOLLO_BF_VENUS_DCAL_OPEN_H__
+#ifndef ADI_APOLLO_BF_VENUS_DCAL_OPEN_H__
+#define ADI_APOLLO_BF_VENUS_DCAL_OPEN_H__
 
 /*============= D E F I N E S ==============*/
-#define VENUS_DCAL_REGMAP_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60280000
-#define VENUS_DCAL_REGMAP_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60480000
-#define VENUS_DCAL_REGMAP_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A80000
-#define VENUS_DCAL_REGMAP_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C80000
+#define VENUS_DCAL_REGMAP_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL0 0x60280000U
+#define VENUS_DCAL_REGMAP_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL0 0x60480000U
+#define VENUS_DCAL_REGMAP_ADC32_ANALOG_REGS_RX_SLICE_0_RX_DIGITAL1 0x60A80000U
+#define VENUS_DCAL_REGMAP_ADC32_ANALOG_REGS_RX_SLICE_1_RX_DIGITAL1 0x60C80000U
 
-#define REG_DCAL_SCRATCH_BEGIN_ADDR(inst)                          ((inst) + 0x00000000)
-#define BF_DCAL_SCRATCH_BEGIN_INFO(inst)                           ((inst) + 0x00000000), 0x00002000
+#define REG_DCAL_SCRATCH_BEGIN_ADDR(inst)                          ((uint32_t)(inst) + 0x00000000U)
+#define BF_DCAL_SCRATCH_BEGIN_INFO(inst)                           ((uint32_t)(inst) + 0x00000000U), 0x00002000U
 
-#define REG_REG_0X0004_VENUS_DCAL__OPEN_ADDR(inst)                 ((inst) + 0x00000004)
+#define REG_REG_0X0004_VENUS_DCAL__OPEN_ADDR(inst)                 ((uint32_t)(inst) + 0x00000004U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_65905AEB_INFO(inst)                                  ((inst) + 0x00000004), 0x00000800
+#define BF_BF_65905AEB_INFO(inst)                                  ((uint32_t)(inst) + 0x00000004U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_65905AEB_WEB_INFO(inst)                              ((inst) + 0x00000004), 0x00000108
+#define BF_BF_65905AEB_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000004U), 0x00000108U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_153627F9_INFO(inst)                                  ((inst) + 0x00000004), 0x00000810
+#define BF_BF_153627F9_INFO(inst)                                  ((uint32_t)(inst) + 0x00000004U), 0x00000810U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_153627F9_WEB_INFO(inst)                              ((inst) + 0x00000004), 0x00000118
+#define BF_BF_153627F9_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000004U), 0x00000118U
 
-#define REG_REG_0X0008_VENUS_DCAL__OPEN_ADDR(inst)                 ((inst) + 0x00000008)
+#define REG_REG_0X0008_VENUS_DCAL__OPEN_ADDR(inst)                 ((uint32_t)(inst) + 0x00000008U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_1D1898C8_INFO(inst)                                  ((inst) + 0x00000008), 0x00000800
+#define BF_BF_1D1898C8_INFO(inst)                                  ((uint32_t)(inst) + 0x00000008U), 0x00000800U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_1D1898C8_WEB_INFO(inst)                              ((inst) + 0x00000008), 0x00000108
+#define BF_BF_1D1898C8_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000008U), 0x00000108U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_D8B905EC_INFO(inst)                                  ((inst) + 0x00000008), 0x00000810
+#define BF_BF_D8B905EC_INFO(inst)                                  ((uint32_t)(inst) + 0x00000008U), 0x00000810U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_D8B905EC_WEB_INFO(inst)                              ((inst) + 0x00000008), 0x00000118
+#define BF_BF_D8B905EC_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000008U), 0x00000118U
 
-#define REG_CUST_CONV_CTRL_ADDR(inst, n)                           ((inst) + 0x0000000C + 4 * (n))
-#define BF_TPAT_MODE_SEL_INFO(inst, n)                             ((inst) + 0x0000000C + 4 * (n)), 0x00000410
-#define BF_TPAT_INVERT_INFO(inst, n)                               ((inst) + 0x0000000C + 4 * (n)), 0x00000115
-#define BF_TPAT_RESTART_INFO(inst, n)                              ((inst) + 0x0000000C + 4 * (n)), 0x00000117
+#define REG_CUST_CONV_CTRL_ADDR(inst, n)                           ((uint32_t)(inst) + 0x0000000CU + 4U * (uint32_t)(n))
+#define BF_TPAT_MODE_SEL_INFO(inst, n)                             ((uint32_t)(inst) + 0x0000000CU + 4U * (uint32_t)(n)), 0x00000410U
+#define BF_TPAT_INVERT_INFO(inst, n)                               ((uint32_t)(inst) + 0x0000000CU + 4U * (uint32_t)(n)), 0x00000115U
+#define BF_TPAT_RESTART_INFO(inst, n)                              ((uint32_t)(inst) + 0x0000000CU + 4U * (uint32_t)(n)), 0x00000117U
 
-#define REG_CUST_USR_PAT_ADDR(inst, n)                             ((inst) + 0x0000002C + 4 * (n))
-#define BF_TPAT_USR_PAT_INFO(inst, n)                              ((inst) + 0x0000002C + 4 * (n)), 0x00001000
+#define REG_CUST_USR_PAT_ADDR(inst, n)                             ((uint32_t)(inst) + 0x0000002CU + 4U * (uint32_t)(n))
+#define BF_TPAT_USR_PAT_INFO(inst, n)                              ((uint32_t)(inst) + 0x0000002CU + 4U * (uint32_t)(n)), 0x00001000U
 
-#define REG_REG_0X003C_VENUS_DCAL__OPEN_ADDR(inst, n)              ((inst) + 0x0000003C + 4 * (n))
+#define REG_REG_0X003C_VENUS_DCAL__OPEN_ADDR(inst, n)              ((uint32_t)(inst) + 0x0000003CU + 4U * (uint32_t)(n))
 #ifdef USE_PRIVATE_BF
-#define BF_BF_F3500F69_INFO(inst, n)                               ((inst) + 0x0000003C + 4 * (n)), 0x00000210
+#define BF_BF_F3500F69_INFO(inst, n)                               ((uint32_t)(inst) + 0x0000003CU + 4U * (uint32_t)(n)), 0x00000210U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_F3500F69_WEB_INFO(inst, n)                           ((inst) + 0x0000003C + 4 * (n)), 0x00000112
+#define BF_BF_F3500F69_WEB_INFO(inst, n)                           ((uint32_t)(inst) + 0x0000003CU + 4U * (uint32_t)(n)), 0x00000112U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_FE706944_INFO(inst, n)                               ((inst) + 0x0000003C + 4 * (n)), 0x00000116
+#define BF_BF_FE706944_INFO(inst, n)                               ((uint32_t)(inst) + 0x0000003CU + 4U * (uint32_t)(n)), 0x00000116U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_FE706944_WEB_INFO(inst, n)                           ((inst) + 0x0000003C + 4 * (n)), 0x00000117
+#define BF_BF_FE706944_WEB_INFO(inst, n)                           ((uint32_t)(inst) + 0x0000003CU + 4U * (uint32_t)(n)), 0x00000117U
 
-#define REG_REG_0X005C_VENUS_DCAL__OPEN_ADDR(inst)                 ((inst) + 0x0000005C)
+#define REG_REG_0X005C_VENUS_DCAL__OPEN_ADDR(inst)                 ((uint32_t)(inst) + 0x0000005CU)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_C3ED7542_INFO(inst)                                  ((inst) + 0x0000005C), 0x00000100
+#define BF_BF_C3ED7542_INFO(inst)                                  ((uint32_t)(inst) + 0x0000005CU), 0x00000100U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_C3ED7542_WEB_INFO(inst)                              ((inst) + 0x0000005C), 0x00000101
+#define BF_BF_C3ED7542_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000005CU), 0x00000101U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_6FF193DE_INFO(inst)                                  ((inst) + 0x0000005C), 0x00000102
+#define BF_BF_6FF193DE_INFO(inst)                                  ((uint32_t)(inst) + 0x0000005CU), 0x00000102U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_6FF193DE_WEB_INFO(inst)                              ((inst) + 0x0000005C), 0x00000103
+#define BF_BF_6FF193DE_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000005CU), 0x00000103U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_952F97F2_INFO(inst)                                  ((inst) + 0x0000005C), 0x00000104
+#define BF_BF_952F97F2_INFO(inst)                                  ((uint32_t)(inst) + 0x0000005CU), 0x00000104U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_952F97F2_WEB_INFO(inst)                              ((inst) + 0x0000005C), 0x00000105
+#define BF_BF_952F97F2_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000005CU), 0x00000105U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_A1FA7FB8_INFO(inst)                                  ((inst) + 0x0000005C), 0x00000106
+#define BF_BF_A1FA7FB8_INFO(inst)                                  ((uint32_t)(inst) + 0x0000005CU), 0x00000106U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_A1FA7FB8_WEB_INFO(inst)                              ((inst) + 0x0000005C), 0x00000107
+#define BF_BF_A1FA7FB8_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000005CU), 0x00000107U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_C8C93406_INFO(inst)                                  ((inst) + 0x0000005C), 0x00000108
+#define BF_BF_C8C93406_INFO(inst)                                  ((uint32_t)(inst) + 0x0000005CU), 0x00000108U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_C8C93406_WEB_INFO(inst)                              ((inst) + 0x0000005C), 0x00000109
+#define BF_BF_C8C93406_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000005CU), 0x00000109U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_2F45D307_INFO(inst)                                  ((inst) + 0x0000005C), 0x0000010A
+#define BF_BF_2F45D307_INFO(inst)                                  ((uint32_t)(inst) + 0x0000005CU), 0x0000010AU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_2F45D307_WEB_INFO(inst)                              ((inst) + 0x0000005C), 0x0000010B
+#define BF_BF_2F45D307_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000005CU), 0x0000010BU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_066FBC7D_INFO(inst)                                  ((inst) + 0x0000005C), 0x0000010C
+#define BF_BF_066FBC7D_INFO(inst)                                  ((uint32_t)(inst) + 0x0000005CU), 0x0000010CU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_066FBC7D_WEB_INFO(inst)                              ((inst) + 0x0000005C), 0x0000010D
+#define BF_BF_066FBC7D_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000005CU), 0x0000010DU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_F9C55881_INFO(inst)                                  ((inst) + 0x0000005C), 0x0000010E
+#define BF_BF_F9C55881_INFO(inst)                                  ((uint32_t)(inst) + 0x0000005CU), 0x0000010EU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_F9C55881_WEB_INFO(inst)                              ((inst) + 0x0000005C), 0x0000010F
+#define BF_BF_F9C55881_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000005CU), 0x0000010FU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_AE88D120_INFO(inst)                                  ((inst) + 0x0000005C), 0x0000011E
+#define BF_BF_AE88D120_INFO(inst)                                  ((uint32_t)(inst) + 0x0000005CU), 0x0000011EU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_AE88D120_WEB_INFO(inst)                              ((inst) + 0x0000005C), 0x0000011F
+#define BF_BF_AE88D120_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000005CU), 0x0000011FU
 
-#define REG_REG_0X0060_VENUS_DCAL__OPEN_ADDR(inst)                 ((inst) + 0x00000060)
+#define REG_REG_0X0060_VENUS_DCAL__OPEN_ADDR(inst)                 ((uint32_t)(inst) + 0x00000060U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_C0C064C6_INFO(inst)                                  ((inst) + 0x00000060), 0x00000100
+#define BF_BF_C0C064C6_INFO(inst)                                  ((uint32_t)(inst) + 0x00000060U), 0x00000100U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_C0C064C6_WEB_INFO(inst)                              ((inst) + 0x00000060), 0x00000101
+#define BF_BF_C0C064C6_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000060U), 0x00000101U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_186A7DF7_INFO(inst)                                  ((inst) + 0x00000060), 0x00000102
+#define BF_BF_186A7DF7_INFO(inst)                                  ((uint32_t)(inst) + 0x00000060U), 0x00000102U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_186A7DF7_WEB_INFO(inst)                              ((inst) + 0x00000060), 0x00000103
+#define BF_BF_186A7DF7_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000060U), 0x00000103U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_00791309_INFO(inst)                                  ((inst) + 0x00000060), 0x00000104
+#define BF_BF_00791309_INFO(inst)                                  ((uint32_t)(inst) + 0x00000060U), 0x00000104U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_00791309_WEB_INFO(inst)                              ((inst) + 0x00000060), 0x00000105
+#define BF_BF_00791309_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000060U), 0x00000105U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_27A5E948_INFO(inst)                                  ((inst) + 0x00000060), 0x00000106
+#define BF_BF_27A5E948_INFO(inst)                                  ((uint32_t)(inst) + 0x00000060U), 0x00000106U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_27A5E948_WEB_INFO(inst)                              ((inst) + 0x00000060), 0x00000107
+#define BF_BF_27A5E948_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000060U), 0x00000107U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_D79258B3_INFO(inst)                                  ((inst) + 0x00000060), 0x00000108
+#define BF_BF_D79258B3_INFO(inst)                                  ((uint32_t)(inst) + 0x00000060U), 0x00000108U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_D79258B3_WEB_INFO(inst)                              ((inst) + 0x00000060), 0x00000109
+#define BF_BF_D79258B3_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000060U), 0x00000109U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_E8110471_INFO(inst)                                  ((inst) + 0x00000060), 0x0000010A
+#define BF_BF_E8110471_INFO(inst)                                  ((uint32_t)(inst) + 0x00000060U), 0x0000010AU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_E8110471_WEB_INFO(inst)                              ((inst) + 0x00000060), 0x0000010B
+#define BF_BF_E8110471_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000060U), 0x0000010BU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_2C9ED7B9_INFO(inst)                                  ((inst) + 0x00000060), 0x0000010C
+#define BF_BF_2C9ED7B9_INFO(inst)                                  ((uint32_t)(inst) + 0x00000060U), 0x0000010CU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_2C9ED7B9_WEB_INFO(inst)                              ((inst) + 0x00000060), 0x0000010D
+#define BF_BF_2C9ED7B9_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000060U), 0x0000010DU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_E61D6D80_INFO(inst)                                  ((inst) + 0x00000060), 0x0000010E
+#define BF_BF_E61D6D80_INFO(inst)                                  ((uint32_t)(inst) + 0x00000060U), 0x0000010EU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_E61D6D80_WEB_INFO(inst)                              ((inst) + 0x00000060), 0x0000010F
+#define BF_BF_E61D6D80_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000060U), 0x0000010FU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_6D8FDD12_INFO(inst)                                  ((inst) + 0x00000060), 0x0000011E
+#define BF_BF_6D8FDD12_INFO(inst)                                  ((uint32_t)(inst) + 0x00000060U), 0x0000011EU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_6D8FDD12_WEB_INFO(inst)                              ((inst) + 0x00000060), 0x0000011F
+#define BF_BF_6D8FDD12_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000060U), 0x0000011FU
 
-#define REG_REG_0X0068_VENUS_DCAL__OPEN_ADDR(inst)                 ((inst) + 0x00000068)
+#define REG_REG_0X0068_VENUS_DCAL__OPEN_ADDR(inst)                 ((uint32_t)(inst) + 0x00000068U)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_799FD906_INFO(inst)                                  ((inst) + 0x00000068), 0x00000102
+#define BF_BF_799FD906_INFO(inst)                                  ((uint32_t)(inst) + 0x00000068U), 0x00000102U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_799FD906_WEB_INFO(inst)                              ((inst) + 0x00000068), 0x00000103
+#define BF_BF_799FD906_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000068U), 0x00000103U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_AEC1FBD9_INFO(inst)                                  ((inst) + 0x00000068), 0x00000804
+#define BF_BF_AEC1FBD9_INFO(inst)                                  ((uint32_t)(inst) + 0x00000068U), 0x00000804U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_AEC1FBD9_WEB_INFO(inst)                              ((inst) + 0x00000068), 0x0000010C
+#define BF_BF_AEC1FBD9_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000068U), 0x0000010CU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_8AE41084_INFO(inst)                                  ((inst) + 0x00000068), 0x0000080D
+#define BF_BF_8AE41084_INFO(inst)                                  ((uint32_t)(inst) + 0x00000068U), 0x0000080DU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_8AE41084_WEB_INFO(inst)                              ((inst) + 0x00000068), 0x00000115
+#define BF_BF_8AE41084_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000068U), 0x00000115U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_B9811EB3_INFO(inst)                                  ((inst) + 0x00000068), 0x00000816
+#define BF_BF_B9811EB3_INFO(inst)                                  ((uint32_t)(inst) + 0x00000068U), 0x00000816U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_B9811EB3_WEB_INFO(inst)                              ((inst) + 0x00000068), 0x0000011E
+#define BF_BF_B9811EB3_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000068U), 0x0000011EU
 
-#define REG_REG_0X006C_VENUS_DCAL__OPEN_ADDR(inst)                 ((inst) + 0x0000006C)
+#define REG_REG_0X006C_VENUS_DCAL__OPEN_ADDR(inst)                 ((uint32_t)(inst) + 0x0000006CU)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_B76A3C34_INFO(inst)                                  ((inst) + 0x0000006C), 0x00000100
+#define BF_BF_B76A3C34_INFO(inst)                                  ((uint32_t)(inst) + 0x0000006CU), 0x00000100U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_B76A3C34_WEB_INFO(inst)                              ((inst) + 0x0000006C), 0x00000101
+#define BF_BF_B76A3C34_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000006CU), 0x00000101U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_133FECF5_INFO(inst)                                  ((inst) + 0x0000006C), 0x00000102
+#define BF_BF_133FECF5_INFO(inst)                                  ((uint32_t)(inst) + 0x0000006CU), 0x00000102U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_133FECF5_WEB_INFO(inst)                              ((inst) + 0x0000006C), 0x00000103
+#define BF_BF_133FECF5_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000006CU), 0x00000103U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_4DC5BF86_INFO(inst)                                  ((inst) + 0x0000006C), 0x00000804
+#define BF_BF_4DC5BF86_INFO(inst)                                  ((uint32_t)(inst) + 0x0000006CU), 0x00000804U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_4DC5BF86_WEB_INFO(inst)                              ((inst) + 0x0000006C), 0x0000010C
+#define BF_BF_4DC5BF86_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000006CU), 0x0000010CU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_23F81451_INFO(inst)                                  ((inst) + 0x0000006C), 0x0000080D
+#define BF_BF_23F81451_INFO(inst)                                  ((uint32_t)(inst) + 0x0000006CU), 0x0000080DU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_23F81451_WEB_INFO(inst)                              ((inst) + 0x0000006C), 0x00000115
+#define BF_BF_23F81451_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000006CU), 0x00000115U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_A403BA02_INFO(inst)                                  ((inst) + 0x0000006C), 0x00000816
+#define BF_BF_A403BA02_INFO(inst)                                  ((uint32_t)(inst) + 0x0000006CU), 0x00000816U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_A403BA02_WEB_INFO(inst)                              ((inst) + 0x0000006C), 0x0000011E
-
-#ifdef USE_PRIVATE_BF
-#define REG_REG_0X0070_VENUS_DCAL__OPEN_ADDR(inst)                 ((inst) + 0x00000070)
-#define BF_BF_69891E46_INFO(inst)                                  ((inst) + 0x00000070), 0x00000800
-#define BF_BF_CC510E0C_INFO(inst)                                  ((inst) + 0x00000070), 0x00000808
-#endif /* USE_PRIVATE_BF */
+#define BF_BF_A403BA02_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000006CU), 0x0000011EU
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0074_VENUS_DCAL__OPEN_ADDR(inst)                 ((inst) + 0x00000074)
-#define BF_BF_F5C7267F_INFO(inst)                                  ((inst) + 0x00000074), 0x00000408
-#define BF_BF_42F4D459_INFO(inst)                                  ((inst) + 0x00000074), 0x0000010D
-#define BF_BF_0E519C6B_INFO(inst)                                  ((inst) + 0x00000074), 0x0000010E
-#define BF_BF_1D4E994A_INFO(inst)                                  ((inst) + 0x00000074), 0x0000010F
-#define BF_BF_D243CEBC_INFO(inst)                                  ((inst) + 0x00000074), 0x00000418
+#define REG_REG_0X0070_VENUS_DCAL__OPEN_ADDR(inst)                 ((uint32_t)(inst) + 0x00000070U)
+#define BF_BF_69891E46_INFO(inst)                                  ((uint32_t)(inst) + 0x00000070U), 0x00000800U
+#define BF_BF_CC510E0C_INFO(inst)                                  ((uint32_t)(inst) + 0x00000070U), 0x00000808U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0078_VENUS_DCAL__OPEN_ADDR(inst)                 ((inst) + 0x00000078)
-#define BF_BF_FDEC5891_INFO(inst)                                  ((inst) + 0x00000078), 0x00000408
-#define BF_BF_9812E42B_INFO(inst)                                  ((inst) + 0x00000078), 0x0000010D
-#define BF_BF_00877BB4_INFO(inst)                                  ((inst) + 0x00000078), 0x0000010E
-#define BF_BF_D8AD3486_INFO(inst)                                  ((inst) + 0x00000078), 0x0000010F
-#endif /* USE_PRIVATE_BF */
-
-#define REG_REG_0X007C_VENUS_DCAL__OPEN_ADDR(inst)                 ((inst) + 0x0000007C)
-#ifdef USE_PRIVATE_BF
-#define BF_BF_B0EEA13E_INFO(inst)                                  ((inst) + 0x0000007C), 0x00000300
-#endif /* USE_PRIVATE_BF */
-#define BF_BF_B0EEA13E_WEB_INFO(inst)                              ((inst) + 0x0000007C), 0x00000103
-#ifdef USE_PRIVATE_BF
-#define BF_BF_125BD416_INFO(inst)                                  ((inst) + 0x0000007C), 0x00000304
-#endif /* USE_PRIVATE_BF */
-#define BF_BF_125BD416_WEB_INFO(inst)                              ((inst) + 0x0000007C), 0x00000107
-#ifdef USE_PRIVATE_BF
-#define BF_BF_FAFF7B1A_INFO(inst)                                  ((inst) + 0x0000007C), 0x00000308
-#endif /* USE_PRIVATE_BF */
-#define BF_BF_FAFF7B1A_WEB_INFO(inst)                              ((inst) + 0x0000007C), 0x0000010B
-#ifdef USE_PRIVATE_BF
-#define BF_BF_F3337F4F_INFO(inst)                                  ((inst) + 0x0000007C), 0x0000030C
-#endif /* USE_PRIVATE_BF */
-#define BF_BF_F3337F4F_WEB_INFO(inst)                              ((inst) + 0x0000007C), 0x0000010F
-#ifdef USE_PRIVATE_BF
-#define BF_BF_DA710C92_INFO(inst)                                  ((inst) + 0x0000007C), 0x00000310
-#endif /* USE_PRIVATE_BF */
-#define BF_BF_DA710C92_WEB_INFO(inst)                              ((inst) + 0x0000007C), 0x00000113
-#ifdef USE_PRIVATE_BF
-#define BF_BF_D36F4FAA_INFO(inst)                                  ((inst) + 0x0000007C), 0x00000314
-#endif /* USE_PRIVATE_BF */
-#define BF_BF_D36F4FAA_WEB_INFO(inst)                              ((inst) + 0x0000007C), 0x00000117
-#ifdef USE_PRIVATE_BF
-#define BF_BF_140A522B_INFO(inst)                                  ((inst) + 0x0000007C), 0x00000318
-#endif /* USE_PRIVATE_BF */
-#define BF_BF_140A522B_WEB_INFO(inst)                              ((inst) + 0x0000007C), 0x0000011B
-#ifdef USE_PRIVATE_BF
-#define BF_BF_A3EC1B9D_INFO(inst)                                  ((inst) + 0x0000007C), 0x0000031C
-#endif /* USE_PRIVATE_BF */
-#define BF_BF_A3EC1B9D_WEB_INFO(inst)                              ((inst) + 0x0000007C), 0x0000011F
-
-#ifdef USE_PRIVATE_BF
-#define REG_REG_0X0080_VENUS_DCAL__OPEN_ADDR(inst)                 ((inst) + 0x00000080)
-#define BF_BF_FBEE0B3C_INFO(inst)                                  ((inst) + 0x00000080), 0x00000800
-#define BF_BF_E0086C88_INFO(inst)                                  ((inst) + 0x00000080), 0x00000808
-#define BF_BF_B04EAF9B_INFO(inst)                                  ((inst) + 0x00000080), 0x00000810
-#define BF_BF_C62F9DD2_INFO(inst)                                  ((inst) + 0x00000080), 0x00000818
+#define REG_REG_0X0074_VENUS_DCAL__OPEN_ADDR(inst)                 ((uint32_t)(inst) + 0x00000074U)
+#define BF_BF_F5C7267F_INFO(inst)                                  ((uint32_t)(inst) + 0x00000074U), 0x00000408U
+#define BF_BF_42F4D459_INFO(inst)                                  ((uint32_t)(inst) + 0x00000074U), 0x0000010DU
+#define BF_BF_0E519C6B_INFO(inst)                                  ((uint32_t)(inst) + 0x00000074U), 0x0000010EU
+#define BF_BF_1D4E994A_INFO(inst)                                  ((uint32_t)(inst) + 0x00000074U), 0x0000010FU
+#define BF_BF_D243CEBC_INFO(inst)                                  ((uint32_t)(inst) + 0x00000074U), 0x00000418U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0084_VENUS_DCAL__OPEN_ADDR(inst)                 ((inst) + 0x00000084)
-#define BF_BF_7A860592_INFO(inst)                                  ((inst) + 0x00000084), 0x00000800
-#define BF_BF_4EC5642D_INFO(inst)                                  ((inst) + 0x00000084), 0x00000810
-#define BF_BF_BFAE9EFF_INFO(inst)                                  ((inst) + 0x00000084), 0x00000818
+#define REG_REG_0X0078_VENUS_DCAL__OPEN_ADDR(inst)                 ((uint32_t)(inst) + 0x00000078U)
+#define BF_BF_FDEC5891_INFO(inst)                                  ((uint32_t)(inst) + 0x00000078U), 0x00000408U
+#define BF_BF_9812E42B_INFO(inst)                                  ((uint32_t)(inst) + 0x00000078U), 0x0000010DU
+#define BF_BF_00877BB4_INFO(inst)                                  ((uint32_t)(inst) + 0x00000078U), 0x0000010EU
+#define BF_BF_D8AD3486_INFO(inst)                                  ((uint32_t)(inst) + 0x00000078U), 0x0000010FU
 #endif /* USE_PRIVATE_BF */
 
-#define REG_REG_0X0088_VENUS_DCAL__OPEN_ADDR(inst)                 ((inst) + 0x00000088)
+#define REG_REG_0X007C_VENUS_DCAL__OPEN_ADDR(inst)                 ((uint32_t)(inst) + 0x0000007CU)
 #ifdef USE_PRIVATE_BF
-#define BF_BF_353CD723_INFO(inst)                                  ((inst) + 0x00000088), 0x00000100
+#define BF_BF_B0EEA13E_INFO(inst)                                  ((uint32_t)(inst) + 0x0000007CU), 0x00000300U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_353CD723_WEB_INFO(inst)                              ((inst) + 0x00000088), 0x00000101
+#define BF_BF_B0EEA13E_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000007CU), 0x00000103U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_B214D2A2_INFO(inst)                                  ((inst) + 0x00000088), 0x00000102
+#define BF_BF_125BD416_INFO(inst)                                  ((uint32_t)(inst) + 0x0000007CU), 0x00000304U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_B214D2A2_WEB_INFO(inst)                              ((inst) + 0x00000088), 0x00000103
-
-#define REG_REG_0X008C_VENUS_DCAL__OPEN_ADDR(inst)                 ((inst) + 0x0000008C)
+#define BF_BF_125BD416_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000007CU), 0x00000107U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_6877F9DB_INFO(inst)                                  ((inst) + 0x0000008C), 0x00000100
+#define BF_BF_FAFF7B1A_INFO(inst)                                  ((uint32_t)(inst) + 0x0000007CU), 0x00000308U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_6877F9DB_WEB_INFO(inst)                              ((inst) + 0x0000008C), 0x00000101
+#define BF_BF_FAFF7B1A_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000007CU), 0x0000010BU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_F13E8147_INFO(inst)                                  ((inst) + 0x0000008C), 0x00000102
+#define BF_BF_F3337F4F_INFO(inst)                                  ((uint32_t)(inst) + 0x0000007CU), 0x0000030CU
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_F13E8147_WEB_INFO(inst)                              ((inst) + 0x0000008C), 0x00000103
+#define BF_BF_F3337F4F_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000007CU), 0x0000010FU
 #ifdef USE_PRIVATE_BF
-#define BF_BF_724868B0_INFO(inst)                                  ((inst) + 0x0000008C), 0x00000104
+#define BF_BF_DA710C92_INFO(inst)                                  ((uint32_t)(inst) + 0x0000007CU), 0x00000310U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_724868B0_WEB_INFO(inst)                              ((inst) + 0x0000008C), 0x00000105
+#define BF_BF_DA710C92_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000007CU), 0x00000113U
 #ifdef USE_PRIVATE_BF
-#define BF_BF_7005A3C2_INFO(inst)                                  ((inst) + 0x0000008C), 0x00000106
+#define BF_BF_D36F4FAA_INFO(inst)                                  ((uint32_t)(inst) + 0x0000007CU), 0x00000314U
 #endif /* USE_PRIVATE_BF */
-#define BF_BF_7005A3C2_WEB_INFO(inst)                              ((inst) + 0x0000008C), 0x00000107
-
+#define BF_BF_D36F4FAA_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000007CU), 0x00000117U
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0090_VENUS_DCAL__OPEN_ADDR(inst, n)              ((inst) + 0x00000090 + 4 * (n))
-#define BF_BF_E4D1D250_INFO(inst, n)                               ((inst) + 0x00000090 + 4 * (n)), 0x00002000
+#define BF_BF_140A522B_INFO(inst)                                  ((uint32_t)(inst) + 0x0000007CU), 0x00000318U
 #endif /* USE_PRIVATE_BF */
-
+#define BF_BF_140A522B_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000007CU), 0x0000011BU
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X00A0_VENUS_DCAL__OPEN_ADDR(inst, n)              ((inst) + 0x000000A0 + 4 * (n))
-#define BF_BF_0ADCCC43_INFO(inst, n)                               ((inst) + 0x000000A0 + 4 * (n)), 0x00002000
+#define BF_BF_A3EC1B9D_INFO(inst)                                  ((uint32_t)(inst) + 0x0000007CU), 0x0000031CU
 #endif /* USE_PRIVATE_BF */
+#define BF_BF_A3EC1B9D_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000007CU), 0x0000011FU
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X00B0_VENUS_DCAL__OPEN_ADDR(inst, n)              ((inst) + 0x000000B0 + 4 * (n))
-#define BF_BF_85081AEA_INFO(inst, n)                               ((inst) + 0x000000B0 + 4 * (n)), 0x00002000
-#endif /* USE_PRIVATE_BF */
-
-#ifdef USE_PRIVATE_BF
-#define REG_REG_0X00C0_VENUS_DCAL__OPEN_ADDR(inst, n)              ((inst) + 0x000000C0 + 4 * (n))
-#define BF_BF_CAADE6EB_INFO(inst, n)                               ((inst) + 0x000000C0 + 4 * (n)), 0x00002000
+#define REG_REG_0X0080_VENUS_DCAL__OPEN_ADDR(inst)                 ((uint32_t)(inst) + 0x00000080U)
+#define BF_BF_FBEE0B3C_INFO(inst)                                  ((uint32_t)(inst) + 0x00000080U), 0x00000800U
+#define BF_BF_E0086C88_INFO(inst)                                  ((uint32_t)(inst) + 0x00000080U), 0x00000808U
+#define BF_BF_B04EAF9B_INFO(inst)                                  ((uint32_t)(inst) + 0x00000080U), 0x00000810U
+#define BF_BF_C62F9DD2_INFO(inst)                                  ((uint32_t)(inst) + 0x00000080U), 0x00000818U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X00D0_VENUS_DCAL__OPEN_ADDR(inst, n)              ((inst) + 0x000000D0 + 4 * (n))
-#define BF_BF_A9E91F37_INFO(inst, n)                               ((inst) + 0x000000D0 + 4 * (n)), 0x00002000
+#define REG_REG_0X0084_VENUS_DCAL__OPEN_ADDR(inst)                 ((uint32_t)(inst) + 0x00000084U)
+#define BF_BF_7A860592_INFO(inst)                                  ((uint32_t)(inst) + 0x00000084U), 0x00000800U
+#define BF_BF_4EC5642D_INFO(inst)                                  ((uint32_t)(inst) + 0x00000084U), 0x00000810U
+#define BF_BF_BFAE9EFF_INFO(inst)                                  ((uint32_t)(inst) + 0x00000084U), 0x00000818U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_REG_0X0088_VENUS_DCAL__OPEN_ADDR(inst)                 ((uint32_t)(inst) + 0x00000088U)
+#ifdef USE_PRIVATE_BF
+#define BF_BF_353CD723_INFO(inst)                                  ((uint32_t)(inst) + 0x00000088U), 0x00000100U
+#endif /* USE_PRIVATE_BF */
+#define BF_BF_353CD723_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000088U), 0x00000101U
+#ifdef USE_PRIVATE_BF
+#define BF_BF_B214D2A2_INFO(inst)                                  ((uint32_t)(inst) + 0x00000088U), 0x00000102U
+#endif /* USE_PRIVATE_BF */
+#define BF_BF_B214D2A2_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x00000088U), 0x00000103U
+
+#define REG_REG_0X008C_VENUS_DCAL__OPEN_ADDR(inst)                 ((uint32_t)(inst) + 0x0000008CU)
+#ifdef USE_PRIVATE_BF
+#define BF_BF_6877F9DB_INFO(inst)                                  ((uint32_t)(inst) + 0x0000008CU), 0x00000100U
+#endif /* USE_PRIVATE_BF */
+#define BF_BF_6877F9DB_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000008CU), 0x00000101U
+#ifdef USE_PRIVATE_BF
+#define BF_BF_F13E8147_INFO(inst)                                  ((uint32_t)(inst) + 0x0000008CU), 0x00000102U
+#endif /* USE_PRIVATE_BF */
+#define BF_BF_F13E8147_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000008CU), 0x00000103U
+#ifdef USE_PRIVATE_BF
+#define BF_BF_724868B0_INFO(inst)                                  ((uint32_t)(inst) + 0x0000008CU), 0x00000104U
+#endif /* USE_PRIVATE_BF */
+#define BF_BF_724868B0_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000008CU), 0x00000105U
+#ifdef USE_PRIVATE_BF
+#define BF_BF_7005A3C2_INFO(inst)                                  ((uint32_t)(inst) + 0x0000008CU), 0x00000106U
+#endif /* USE_PRIVATE_BF */
+#define BF_BF_7005A3C2_WEB_INFO(inst)                              ((uint32_t)(inst) + 0x0000008CU), 0x00000107U
+
+#ifdef USE_PRIVATE_BF
+#define REG_REG_0X0090_VENUS_DCAL__OPEN_ADDR(inst, n)              ((uint32_t)(inst) + 0x00000090U + 4U * (uint32_t)(n))
+#define BF_BF_E4D1D250_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000090U + 4U * (uint32_t)(n)), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X00E0_VENUS_DCAL__OPEN_ADDR(inst, n)              ((inst) + 0x000000E0 + 4 * (n))
-#define BF_BF_902169B2_INFO(inst, n)                               ((inst) + 0x000000E0 + 4 * (n)), 0x00002000
+#define REG_REG_0X00A0_VENUS_DCAL__OPEN_ADDR(inst, n)              ((uint32_t)(inst) + 0x000000A0U + 4U * (uint32_t)(n))
+#define BF_BF_0ADCCC43_INFO(inst, n)                               ((uint32_t)(inst) + 0x000000A0U + 4U * (uint32_t)(n)), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X00F0_VENUS_DCAL__OPEN_ADDR(inst, n)              ((inst) + 0x000000F0 + 4 * (n))
-#define BF_BF_DC00DB1E_INFO(inst, n)                               ((inst) + 0x000000F0 + 4 * (n)), 0x00002000
+#define REG_REG_0X00B0_VENUS_DCAL__OPEN_ADDR(inst, n)              ((uint32_t)(inst) + 0x000000B0U + 4U * (uint32_t)(n))
+#define BF_BF_85081AEA_INFO(inst, n)                               ((uint32_t)(inst) + 0x000000B0U + 4U * (uint32_t)(n)), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0100_VENUS_DCAL__OPEN_ADDR(inst, n)              ((inst) + 0x00000100 + 4 * (n))
-#define BF_BF_ECD9C66D_INFO(inst, n)                               ((inst) + 0x00000100 + 4 * (n)), 0x00002000
+#define REG_REG_0X00C0_VENUS_DCAL__OPEN_ADDR(inst, n)              ((uint32_t)(inst) + 0x000000C0U + 4U * (uint32_t)(n))
+#define BF_BF_CAADE6EB_INFO(inst, n)                               ((uint32_t)(inst) + 0x000000C0U + 4U * (uint32_t)(n)), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0110_ADDR(inst, n)                               ((inst) + 0x00000110 + 4 * (n))
-#define BF_BF_472B2E6F_INFO(inst, n)                               ((inst) + 0x00000110 + 4 * (n)), 0x00002000
+#define REG_REG_0X00D0_VENUS_DCAL__OPEN_ADDR(inst, n)              ((uint32_t)(inst) + 0x000000D0U + 4U * (uint32_t)(n))
+#define BF_BF_A9E91F37_INFO(inst, n)                               ((uint32_t)(inst) + 0x000000D0U + 4U * (uint32_t)(n)), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0588_VENUS_DCAL__OPEN_ADDR(inst, n)              ((inst) + 0x00000588 + 4 * (n))
-#define BF_BF_965DC444_INFO(inst, n)                               ((inst) + 0x00000588 + 4 * (n)), 0x00000300
-#define BF_BF_3C848DBF_INFO(inst, n)                               ((inst) + 0x00000588 + 4 * (n)), 0x00000103
-#define BF_BF_DDBE019C_INFO(inst, n)                               ((inst) + 0x00000588 + 4 * (n)), 0x00000304
-#define BF_BF_97D3C301_INFO(inst, n)                               ((inst) + 0x00000588 + 4 * (n)), 0x00000107
-#define BF_BF_44D750FF_INFO(inst, n)                               ((inst) + 0x00000588 + 4 * (n)), 0x00000308
-#define BF_BF_DF2C7815_INFO(inst, n)                               ((inst) + 0x00000588 + 4 * (n)), 0x0000010B
-#define BF_BF_F0197C39_INFO(inst, n)                               ((inst) + 0x00000588 + 4 * (n)), 0x0000030C
-#define BF_BF_6DDF402C_INFO(inst, n)                               ((inst) + 0x00000588 + 4 * (n)), 0x0000010F
-#define BF_BF_A668FCF5_INFO(inst, n)                               ((inst) + 0x00000588 + 4 * (n)), 0x00000310
-#define BF_BF_49F2951C_INFO(inst, n)                               ((inst) + 0x00000588 + 4 * (n)), 0x00000113
-#define BF_BF_08731E8D_INFO(inst, n)                               ((inst) + 0x00000588 + 4 * (n)), 0x00000314
-#define BF_BF_002240B3_INFO(inst, n)                               ((inst) + 0x00000588 + 4 * (n)), 0x00000117
-#define BF_BF_30FD0FFB_INFO(inst, n)                               ((inst) + 0x00000588 + 4 * (n)), 0x00000318
-#define BF_BF_45F810DF_INFO(inst, n)                               ((inst) + 0x00000588 + 4 * (n)), 0x0000011B
-#define BF_BF_340F1D9F_INFO(inst, n)                               ((inst) + 0x00000588 + 4 * (n)), 0x0000031C
-#define BF_BF_2153268E_INFO(inst, n)                               ((inst) + 0x00000588 + 4 * (n)), 0x0000011F
+#define REG_REG_0X00E0_VENUS_DCAL__OPEN_ADDR(inst, n)              ((uint32_t)(inst) + 0x000000E0U + 4U * (uint32_t)(n))
+#define BF_BF_902169B2_INFO(inst, n)                               ((uint32_t)(inst) + 0x000000E0U + 4U * (uint32_t)(n)), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X07FC_ADDR(inst)                                  ((inst) + 0x000007FC)
-#define BF_BF_6155D3A1_INFO(inst)                                  ((inst) + 0x000007FC), 0x00000300
+#define REG_REG_0X00F0_VENUS_DCAL__OPEN_ADDR(inst, n)              ((uint32_t)(inst) + 0x000000F0U + 4U * (uint32_t)(n))
+#define BF_BF_DC00DB1E_INFO(inst, n)                               ((uint32_t)(inst) + 0x000000F0U + 4U * (uint32_t)(n)), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0800_ADDR(inst, n)                               ((inst) + 0x00000800 + 4 * (n))
-#define BF_BF_51CC7466_INFO(inst, n)                               ((inst) + 0x00000800 + 4 * (n)), 0x00002000
+#define REG_REG_0X0100_VENUS_DCAL__OPEN_ADDR(inst, n)              ((uint32_t)(inst) + 0x00000100U + 4U * (uint32_t)(n))
+#define BF_BF_ECD9C66D_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000100U + 4U * (uint32_t)(n)), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0814_ADDR(inst)                                  ((inst) + 0x00000814)
-#define BF_BF_B8021B85_INFO(inst)                                  ((inst) + 0x00000814), 0x00000400
+#define REG_REG_0X0110_ADDR(inst, n)                               ((uint32_t)(inst) + 0x00000110U + 4U * (uint32_t)(n))
+#define BF_BF_472B2E6F_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000110U + 4U * (uint32_t)(n)), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_REG_0X0818_ADDR(inst)                                  ((inst) + 0x00000818)
-#define BF_BF_69C7D5DE_INFO(inst)                                  ((inst) + 0x00000818), 0x00000200
+#define REG_REG_0X0588_VENUS_DCAL__OPEN_ADDR(inst, n)              ((uint32_t)(inst) + 0x00000588U + 4U * (uint32_t)(n))
+#define BF_BF_965DC444_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000588U + 4U * (uint32_t)(n)), 0x00000300U
+#define BF_BF_3C848DBF_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000588U + 4U * (uint32_t)(n)), 0x00000103U
+#define BF_BF_DDBE019C_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000588U + 4U * (uint32_t)(n)), 0x00000304U
+#define BF_BF_97D3C301_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000588U + 4U * (uint32_t)(n)), 0x00000107U
+#define BF_BF_44D750FF_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000588U + 4U * (uint32_t)(n)), 0x00000308U
+#define BF_BF_DF2C7815_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000588U + 4U * (uint32_t)(n)), 0x0000010BU
+#define BF_BF_F0197C39_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000588U + 4U * (uint32_t)(n)), 0x0000030CU
+#define BF_BF_6DDF402C_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000588U + 4U * (uint32_t)(n)), 0x0000010FU
+#define BF_BF_A668FCF5_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000588U + 4U * (uint32_t)(n)), 0x00000310U
+#define BF_BF_49F2951C_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000588U + 4U * (uint32_t)(n)), 0x00000113U
+#define BF_BF_08731E8D_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000588U + 4U * (uint32_t)(n)), 0x00000314U
+#define BF_BF_002240B3_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000588U + 4U * (uint32_t)(n)), 0x00000117U
+#define BF_BF_30FD0FFB_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000588U + 4U * (uint32_t)(n)), 0x00000318U
+#define BF_BF_45F810DF_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000588U + 4U * (uint32_t)(n)), 0x0000011BU
+#define BF_BF_340F1D9F_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000588U + 4U * (uint32_t)(n)), 0x0000031CU
+#define BF_BF_2153268E_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000588U + 4U * (uint32_t)(n)), 0x0000011FU
 #endif /* USE_PRIVATE_BF */
 
-#define REG_DCAL_SCRATCH_END_ADDR(inst)                            ((inst) + 0x00001FFC)
-#define BF_DCAL_SCRATCH_END_INFO(inst)                             ((inst) + 0x00001FFC), 0x00002000
+#ifdef USE_PRIVATE_BF
+#define REG_REG_0X07FC_ADDR(inst)                                  ((uint32_t)(inst) + 0x000007FCU)
+#define BF_BF_6155D3A1_INFO(inst)                                  ((uint32_t)(inst) + 0x000007FCU), 0x00000300U
+#endif /* USE_PRIVATE_BF */
 
-#endif /* __ADI_APOLLO_BF_VENUS_DCAL_OPEN_H__ */
+#ifdef USE_PRIVATE_BF
+#define REG_REG_0X0800_ADDR(inst, n)                               ((uint32_t)(inst) + 0x00000800U + 4U * (uint32_t)(n))
+#define BF_BF_51CC7466_INFO(inst, n)                               ((uint32_t)(inst) + 0x00000800U + 4U * (uint32_t)(n)), 0x00002000U
+#endif /* USE_PRIVATE_BF */
+
+#ifdef USE_PRIVATE_BF
+#define REG_REG_0X0814_ADDR(inst)                                  ((uint32_t)(inst) + 0x00000814U)
+#define BF_BF_B8021B85_INFO(inst)                                  ((uint32_t)(inst) + 0x00000814U), 0x00000400U
+#endif /* USE_PRIVATE_BF */
+
+#ifdef USE_PRIVATE_BF
+#define REG_REG_0X0818_ADDR(inst)                                  ((uint32_t)(inst) + 0x00000818U)
+#define BF_BF_69C7D5DE_INFO(inst)                                  ((uint32_t)(inst) + 0x00000818U), 0x00000200U
+#endif /* USE_PRIVATE_BF */
+
+#define REG_DCAL_SCRATCH_END_ADDR(inst)                            ((uint32_t)(inst) + 0x00001FFCU)
+#define BF_DCAL_SCRATCH_END_INFO(inst)                             ((uint32_t)(inst) + 0x00001FFCU), 0x00002000U
+
+#endif /* ADI_APOLLO_BF_VENUS_DCAL_OPEN_H__ */
 /*! @} */

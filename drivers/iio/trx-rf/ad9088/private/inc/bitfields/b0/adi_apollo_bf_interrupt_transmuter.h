@@ -12,36 +12,36 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_INTERRUPT_TRANSMUTER_H__
-#define __ADI_APOLLO_BF_INTERRUPT_TRANSMUTER_H__
+#ifndef ADI_APOLLO_BF_INTERRUPT_TRANSMUTER_H__
+#define ADI_APOLLO_BF_INTERRUPT_TRANSMUTER_H__
 
 /*============= D E F I N E S ==============*/
-#define REG_INTERRUPT_ENABLE_ADDR(n)            (0x46800000 + 4 * (n))
-#define BF_INTERRUPT_ENABLE_INFO(n)             (0x46800000 + 4 * (n)), 0x00002000
+#define REG_INTERRUPT_ENABLE_ADDR(n)            (0x46800000U + 4U * (uint32_t)(n))
+#define BF_INTERRUPT_ENABLE_INFO(n)             (0x46800000U + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_LEVEL_EDGEB_ADDR(n)                 (0x46800044 + 4 * (n))
-#define BF_LEVEL_EDGEB_INFO(n)                  (0x46800044 + 4 * (n)), 0x00002000
+#define REG_LEVEL_EDGEB_ADDR(n)                 (0x46800044U + 4U * (uint32_t)(n))
+#define BF_LEVEL_EDGEB_INFO(n)                  (0x46800044U + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_POS_MASK_ADDR(n)                    (0x46800088 + 4 * (n))
-#define BF_INT_POS_MASK_INFO(n)                 (0x46800088 + 4 * (n)), 0x00002000
+#define REG_POS_MASK_ADDR(n)                    (0x46800088U + 4U * (uint32_t)(n))
+#define BF_INT_POS_MASK_INFO(n)                 (0x46800088U + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_NEG_MASK_ADDR(n)                    (0x468000CC + 4 * (n))
-#define BF_INT_NEG_MASK_INFO(n)                 (0x468000CC + 4 * (n)), 0x00002000
+#define REG_NEG_MASK_ADDR(n)                    (0x468000CCU + 4U * (uint32_t)(n))
+#define BF_INT_NEG_MASK_INFO(n)                 (0x468000CCU + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_TRIGGER_ADDR(n)                     (0x46800110 + 4 * (n))
-#define BF_TRIGGER_INFO(n)                      (0x46800110 + 4 * (n)), 0x00002000
+#define REG_TRIGGER_ADDR(n)                     (0x46800110U + 4U * (uint32_t)(n))
+#define BF_TRIGGER_INFO(n)                      (0x46800110U + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_STATUS_INTERRUPT_TRANSMUTER_ADDR(n) (0x46800154 + 4 * (n))
-#define BF_INT_STATUS_INFO(n)                   (0x46800154 + 4 * (n)), 0x00002000
+#define REG_STATUS_INTERRUPT_TRANSMUTER_ADDR(n) (0x46800154U + 4U * (uint32_t)(n))
+#define BF_INT_STATUS_INFO(n)                   (0x46800154U + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_RAW_STATUS_ADDR(n)                  (0x46800198 + 4 * (n))
-#define BF_RAW_STATUS_INFO(n)                   (0x46800198 + 4 * (n)), 0x00002000
+#define REG_RAW_STATUS_ADDR(n)                  (0x46800198U + 4U * (uint32_t)(n))
+#define BF_RAW_STATUS_INFO(n)                   (0x46800198U + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_EDGE_STATUS_ADDR(n)                 (0x468001DC + 4 * (n))
-#define BF_EDGE_STATUS_INFO(n)                  (0x468001DC + 4 * (n)), 0x00002000
+#define REG_EDGE_STATUS_ADDR(n)                 (0x468001DCU + 4U * (uint32_t)(n))
+#define BF_EDGE_STATUS_INFO(n)                  (0x468001DCU + 4U * (uint32_t)(n)), 0x00002000U
 
-#define REG_MASTER_ID_READ_ADDR                 0x46800220
-#define BF_MASTER_ID_INFO                       0x46800220, 0x00002000
+#define REG_MASTER_ID_READ_ADDR                 0x46800220U
+#define BF_MASTER_ID_INFO                       0x46800220U, 0x00002000U
 
-#endif /* __ADI_APOLLO_BF_INTERRUPT_TRANSMUTER_H__ */
+#endif /* ADI_APOLLO_BF_INTERRUPT_TRANSMUTER_H__ */
 /*! @} */

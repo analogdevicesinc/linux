@@ -8,11 +8,11 @@
  */
 
 /*!
- * \addtogroup ADI_APOLLO_CLK
+ * \addtogroup ADI_APOLLO_CLK_MCS
  * @{
  */
-#ifndef __ADI_APOLLO_CLK_MCS_H__
-#define __ADI_APOLLO_CLK_MCS_H__
+#ifndef ADI_APOLLO_CLK_MCS_H__
+#define ADI_APOLLO_CLK_MCS_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_clk_mcs_types.h"
@@ -366,7 +366,7 @@ int32_t adi_apollo_clk_mcs_sysref_en_set(adi_apollo_device_t *device, uint8_t en
  * \brief Get the MCS SYSREF receiver enable state
  *
  * \param[in] device        Context variable - Pointer to the APOLLO device data structure
- * \param[out] enable		Pointer to sysref receiver enable result
+ * \param[out] enable       Pointer to sysref receiver enable result
  *
  * \return API_CMS_ERROR_OK     API Completed Successfully
  * \return <0                   Failed. \ref adi_cms_error_e for details.
@@ -482,6 +482,125 @@ int32_t adi_apollo_clk_mcs_input_power_status_get(adi_apollo_device_t *device, a
  */
 int32_t adi_apollo_clk_mcs_dig_clk_mask_set(adi_apollo_device_t *device, uint8_t enable);
 
+/**
+ * \brief Set the SYSREF error window threshold
+ *
+ * \param[in] device          Context variable - Pointer to the APOLLO device data structure.
+ * \param[in] err_window_a    Error window threshold for center (single clock) or side A (dual clock) in high-speed clock cycles (0-127)
+ * \param[in] err_window_b    Error window threshold for side B (dual clock only) in high-speed clock cycles (0-127). Ignored in single clock mode.
+ *
+ * \return API_CMS_ERROR_OK     API Completed Successfully
+ * \return <0                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_clk_mcs_sysref_err_window_set(adi_apollo_device_t *device, uint8_t err_window_a, uint8_t err_window_b);
+
+/**
+ * \brief Get the SYSREF error window threshold
+ *
+ * \param[in]  device         Context variable - Pointer to the APOLLO device data structure.
+ * \param[out] err_window_a   Pointer to error window threshold result for center (single clock) or side A (dual clock)
+ * \param[out] err_window_b   Pointer to error window threshold result for side B (dual clock only). Set to 0 in single clock mode.
+ *
+ * \return API_CMS_ERROR_OK     API Completed Successfully
+ * \return <0                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_clk_mcs_sysref_err_window_get(adi_apollo_device_t *device, uint8_t *err_window_a, uint8_t *err_window_b);
+
+/**
+ * \brief Get the SYSREF within error window status
+ *
+ * \param[in]  device    Context variable - Pointer to the APOLLO device data structure.
+ * \param[out] status_a  SYSREF within error window status for center (single clock) or side A (dual clock). 1 = within window, 0 = outside window
+ * \param[out] status_b  SYSREF within error window status for side B (dual clock only). 1 = within window, 0 = outside window
+ *
+ * \return API_CMS_ERROR_OK     API Completed Successfully
+ * \return <0                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_clk_mcs_sysref_within_errwindow_get(adi_apollo_device_t *device, uint8_t *status_a, uint8_t *status_b);
+
+/**
+ * \brief Set the programmable SYSREF delay
+ *
+ * \param[in] device                Context variable - Pointer to the APOLLO device data structure.
+ * \param[in] delay_fclk_cycles_a   Delay for center (single clock) or side A (dual clock) in FCLK cycles (0-4095)
+ * \param[in] delay_fclk_cycles_b   Delay for side B (dual clock only) in FCLK cycles (0-4095). Ignored in single clock mode.
+ *
+ * \return API_CMS_ERROR_OK     API Completed Successfully
+ * \return <0                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_clk_mcs_sysref_delay_set(adi_apollo_device_t *device, uint16_t delay_fclk_cycles_a, uint16_t delay_fclk_cycles_b);
+
+/**
+ * \brief Get the programmable SYSREF delay
+ *
+ * \param[in]  device                Context variable - Pointer to the APOLLO device data structure.
+ * \param[out] delay_fclk_cycles_a   Pointer to SYSREF delay result for center (single clock) or side A (dual clock) in FCLK cycles
+ * \param[out] delay_fclk_cycles_b   Pointer to SYSREF delay result for side B (dual clock only) in FCLK cycles. Set to 0 in single clock mode.
+ *
+ * \return API_CMS_ERROR_OK     API Completed Successfully
+ * \return <0                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_clk_mcs_sysref_delay_get(adi_apollo_device_t *device, uint16_t *delay_fclk_cycles_a, uint16_t *delay_fclk_cycles_b);
+
+/**
+ * \brief Set the SYSREF averaging control
+ *
+ * \param[in] device           Context variable - Pointer to the APOLLO device data structure.
+ * \param[in] average_count_a  Number of SYSREF samples to average for center (single clock) or side A (dual clock) (0-7). 0 = disabled, 1-7 = 2^average_count samples
+ * \param[in] average_count_b  Number of SYSREF samples to average for side B (dual clock only) (0-7). Ignored in single clock mode.
+ *
+ * \return API_CMS_ERROR_OK     API Completed Successfully
+ * \return <0                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_clk_mcs_sysref_average_set(adi_apollo_device_t *device, uint8_t average_count_a, uint8_t average_count_b);
+
+/**
+ * \brief Get the SYSREF averaging control
+ *
+ * \param[in]  device           Context variable - Pointer to the APOLLO device data structure.
+ * \param[out] average_count_a  Pointer to SYSREF averaging control result for center (single clock) or side A (dual clock)
+ * \param[out] average_count_b  Pointer to SYSREF averaging control result for side B (dual clock only). Set to 0 in single clock mode.
+ *
+ * \return API_CMS_ERROR_OK     API Completed Successfully
+ * \return <0                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_clk_mcs_sysref_average_get(adi_apollo_device_t *device, uint8_t *average_count_a, uint8_t *average_count_b);
+
+/**
+ * \brief Get the SYSREF setup and hold detector indicators
+ *
+ * This function enables the setup/hold detector circuit and reads the detector values which
+ * indicate the timing relationship between the external SYSREF and the high-speed clock.
+ * This is useful for validating SYSREF alignment and ensuring proper timing margins.
+ *
+ * For clocking mode 0, both spare_select values (0 and 1) should be read to get complete
+ * setup/hold information across both clock phases.
+ *
+ * Setup/Hold interpretation (from APOLLOBACK-4960):
+ * - sh_before=0, sh_after=0: Good timing
+ * - sh_before=1, sh_after=0: Good timing
+ * - sh_before=2, sh_after=0: Good timing
+ * - sh_before=2, sh_after=2: Good timing
+ * - sh_before=0, sh_after=2: Good timing
+ * - sh_before=0, sh_after=3: Good timing
+ * - sh_before=1, sh_after=1: Good timing
+ * - sh_before=3, sh_after=1: Good timing
+ * - sh_before=3, sh_after=0: Keep-out window (not good)
+ *
+ * \param[in]  device        Context variable - Pointer to the APOLLO device data structure.
+ * \param[in]  spare_select  Segment selector (0 or 1). For clocking mode 0, both segments should be read.
+ * \param[out] sh_before_a   Setup/hold indicator before the clock edge for center (single clock) or side A (dual clock) (2 bits: 0-3)
+ * \param[out] sh_after_a    Setup/hold indicator after the clock edge for center (single clock) or side A (dual clock) (2 bits: 0-3)
+ * \param[out] sh_before_b   Setup/hold indicator before the clock edge for side B (dual clock only) (2 bits: 0-3). Set to 0 in single clock mode.
+ * \param[out] sh_after_b    Setup/hold indicator after the clock edge for side B (dual clock only) (2 bits: 0-3). Set to 0 in single clock mode.
+ *
+ * \return API_CMS_ERROR_OK     API Completed Successfully
+ * \return <0                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_clk_mcs_sysref_setup_hold_get(adi_apollo_device_t *device, uint8_t spare_select,
+                                                   uint8_t *sh_before_a, uint8_t *sh_after_a,
+                                                   uint8_t *sh_before_b, uint8_t *sh_after_b);
+
 #ifndef CLIENT_IGNORE
 #endif /* CLIENT_IGNORE*/
 
@@ -489,6 +608,6 @@ int32_t adi_apollo_clk_mcs_dig_clk_mask_set(adi_apollo_device_t *device, uint8_t
 }
 #endif
 
-#endif /* __ADI_APOLLO_CLK_MCS_H__ */
+#endif /* ADI_APOLLO_CLK_MCS_H__ */
 /*! @} */
 

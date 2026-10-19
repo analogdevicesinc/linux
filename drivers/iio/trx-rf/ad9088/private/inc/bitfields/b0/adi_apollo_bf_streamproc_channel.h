@@ -12,66 +12,66 @@
  * @addtogroup APOLLO_BF
  * @{
  */
-#ifndef __ADI_APOLLO_BF_STREAMPROC_CHANNEL_H__
-#define __ADI_APOLLO_BF_STREAMPROC_CHANNEL_H__
+#ifndef ADI_APOLLO_BF_STREAMPROC_CHANNEL_H__
+#define ADI_APOLLO_BF_STREAMPROC_CHANNEL_H__
 
 /*============= D E F I N E S ==============*/
-#define RX_STREAM_PROC_CHANNEL_RX_SLICE_0_RX_DIGITAL0         0x603BC000
-#define RX_STREAM_PROC_CHANNEL_RX_SLICE_1_RX_DIGITAL0         0x605BC000
-#define RX_STREAM_PROC_CHANNEL_RX_SLICE_0_RX_DIGITAL1         0x60BBC000
-#define RX_STREAM_PROC_CHANNEL_RX_SLICE_1_RX_DIGITAL1         0x60DBC000
-#define TX_STREAM_PROC_CHANNEL_TX_SLICE_0_TX_DIGITAL0         0x6133D000
-#define TX_STREAM_PROC_CHANNEL_TX_SLICE_1_TX_DIGITAL0         0x6153D000
-#define TX_STREAM_PROC_CHANNEL_TX_SLICE_0_TX_DIGITAL1         0x61B3D000
-#define TX_STREAM_PROC_CHANNEL_TX_SLICE_1_TX_DIGITAL1         0x61D3D000
+#define RX_STREAM_PROC_CHANNEL_RX_SLICE_0_RX_DIGITAL0         0x603BC000U
+#define RX_STREAM_PROC_CHANNEL_RX_SLICE_1_RX_DIGITAL0         0x605BC000U
+#define RX_STREAM_PROC_CHANNEL_RX_SLICE_0_RX_DIGITAL1         0x60BBC000U
+#define RX_STREAM_PROC_CHANNEL_RX_SLICE_1_RX_DIGITAL1         0x60DBC000U
+#define TX_STREAM_PROC_CHANNEL_TX_SLICE_0_TX_DIGITAL0         0x6133D000U
+#define TX_STREAM_PROC_CHANNEL_TX_SLICE_1_TX_DIGITAL0         0x6153D000U
+#define TX_STREAM_PROC_CHANNEL_TX_SLICE_0_TX_DIGITAL1         0x61B3D000U
+#define TX_STREAM_PROC_CHANNEL_TX_SLICE_1_TX_DIGITAL1         0x61D3D000U
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_CONFIG_0_ADDR(inst)                        ((inst) + 0x00000000)
-#define BF_STREAM_ECC_ERROR_CLEAR_INFO(inst)                  ((inst) + 0x00000000), 0x00000100
-#define BF_CH_RISE_STREAM_ERROR_INFO(inst)                    ((inst) + 0x00000000), 0x00000104
-#define BF_STREAM_ECC_ERROR_SENSITIVITY_INFO(inst)            ((inst) + 0x00000000), 0x00000108
-#define BF_STREAM_PROC_ADDR_STREAMPROC_CHANNEL_INFO(inst)     ((inst) + 0x00000000), 0x0000040C
-#define BF_STREAM_RESET_STREAMPROC_CHANNEL_INFO(inst)         ((inst) + 0x00000000), 0x00000110
-#define BF_RUN_STREAM_NUM_INFO(inst)                          ((inst) + 0x00000000), 0x00000818
+#define REG_STREAM_CONFIG_0_ADDR(inst)                        ((uint32_t)(inst) + 0x00000000U)
+#define BF_STREAM_ECC_ERROR_CLEAR_INFO(inst)                  ((uint32_t)(inst) + 0x00000000U), 0x00000100U
+#define BF_CH_RISE_STREAM_ERROR_INFO(inst)                    ((uint32_t)(inst) + 0x00000000U), 0x00000104U
+#define BF_STREAM_ECC_ERROR_SENSITIVITY_INFO(inst)            ((uint32_t)(inst) + 0x00000000U), 0x00000108U
+#define BF_STREAM_PROC_ADDR_STREAMPROC_CHANNEL_INFO(inst)     ((uint32_t)(inst) + 0x00000000U), 0x0000040CU
+#define BF_STREAM_RESET_STREAMPROC_CHANNEL_INFO(inst)         ((uint32_t)(inst) + 0x00000000U), 0x00000110U
+#define BF_RUN_STREAM_NUM_INFO(inst)                          ((uint32_t)(inst) + 0x00000000U), 0x00000818U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_CONFIG_1_ADDR(inst)                        ((inst) + 0x00000004)
-#define BF_STREAM_BASE_STREAMPROC_CHANNEL_INFO(inst)          ((inst) + 0x00000004), 0x00001000
-#define BF_LAST_STREAM_NUM_STREAMPROC_CHANNEL_INFO(inst)      ((inst) + 0x00000004), 0x00000810
-#define BF_MASK_CH_RISE_STREAM_TO_CORE_INFO(inst)             ((inst) + 0x00000004), 0x00000118
-#define BF_STREAM_PROC_RDEN_STREAMPROC_CHANNEL_INFO(inst)     ((inst) + 0x00000004), 0x0000011C
+#define REG_STREAM_CONFIG_1_ADDR(inst)                        ((uint32_t)(inst) + 0x00000004U)
+#define BF_STREAM_BASE_STREAMPROC_CHANNEL_INFO(inst)          ((uint32_t)(inst) + 0x00000004U), 0x00001000U
+#define BF_LAST_STREAM_NUM_STREAMPROC_CHANNEL_INFO(inst)      ((uint32_t)(inst) + 0x00000004U), 0x00000810U
+#define BF_MASK_CH_RISE_STREAM_TO_CORE_INFO(inst)             ((uint32_t)(inst) + 0x00000004U), 0x00000118U
+#define BF_STREAM_PROC_RDEN_STREAMPROC_CHANNEL_INFO(inst)     ((uint32_t)(inst) + 0x00000004U), 0x0000011CU
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_CONFIG_2_ADDR(inst)                        ((inst) + 0x00000008)
-#define BF_COMPLETED_STREAM_NUM_STREAMPROC_CHANNEL_INFO(inst) ((inst) + 0x00000008), 0x00000800
-#define BF_CH_FALL_STREAM_ERROR_INFO(inst)                    ((inst) + 0x00000008), 0x00000108
-#define BF_STREAM_ECC_ENABLE_INFO(inst)                       ((inst) + 0x00000008), 0x0000010C
-#define BF_STREAM_ECC_ERROR_INFO(inst)                        ((inst) + 0x00000008), 0x00000110
-#define BF_CH_ENABLE_READBACK_INFO(inst)                      ((inst) + 0x00000008), 0x00000114
-#define BF_MASK_CH_FALL_STREAM_TO_CORE_INFO(inst)             ((inst) + 0x00000008), 0x00000118
-#define BF_STREAM_ERROR_STREAMPROC_CHANNEL_INFO(inst)         ((inst) + 0x00000008), 0x0000011C
+#define REG_STREAM_CONFIG_2_ADDR(inst)                        ((uint32_t)(inst) + 0x00000008U)
+#define BF_COMPLETED_STREAM_NUM_STREAMPROC_CHANNEL_INFO(inst) ((uint32_t)(inst) + 0x00000008U), 0x00000800U
+#define BF_CH_FALL_STREAM_ERROR_INFO(inst)                    ((uint32_t)(inst) + 0x00000008U), 0x00000108U
+#define BF_STREAM_ECC_ENABLE_INFO(inst)                       ((uint32_t)(inst) + 0x00000008U), 0x0000010CU
+#define BF_STREAM_ECC_ERROR_INFO(inst)                        ((uint32_t)(inst) + 0x00000008U), 0x00000110U
+#define BF_CH_ENABLE_READBACK_INFO(inst)                      ((uint32_t)(inst) + 0x00000008U), 0x00000114U
+#define BF_MASK_CH_FALL_STREAM_TO_CORE_INFO(inst)             ((uint32_t)(inst) + 0x00000008U), 0x00000118U
+#define BF_STREAM_ERROR_STREAMPROC_CHANNEL_INFO(inst)         ((uint32_t)(inst) + 0x00000008U), 0x0000011CU
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_CONFIG_3_ADDR(inst)                        ((inst) + 0x0000000C)
-#define BF_STREAM_ECC_ERROR_TAG_INFO(inst)                    ((inst) + 0x0000000C), 0x00000C00
-#define BF_MASK_CH_ANT_RISE_STREAM_TO_CORE_INFO(inst)         ((inst) + 0x0000000C), 0x0000010C
-#define BF_MASK_CH_ANT_FALL_STREAM_TO_CORE_INFO(inst)         ((inst) + 0x0000000C), 0x00000110
-#define BF_CH_ENABLE_PIN_INVERT_INFO(inst)                    ((inst) + 0x0000000C), 0x00000114
-#define BF_CH_ANT_ENABLE_PIN_INVERT_INFO(inst)                ((inst) + 0x0000000C), 0x00000118
+#define REG_STREAM_CONFIG_3_ADDR(inst)                        ((uint32_t)(inst) + 0x0000000CU)
+#define BF_STREAM_ECC_ERROR_TAG_INFO(inst)                    ((uint32_t)(inst) + 0x0000000CU), 0x00000C00U
+#define BF_MASK_CH_ANT_RISE_STREAM_TO_CORE_INFO(inst)         ((uint32_t)(inst) + 0x0000000CU), 0x0000010CU
+#define BF_MASK_CH_ANT_FALL_STREAM_TO_CORE_INFO(inst)         ((uint32_t)(inst) + 0x0000000CU), 0x00000110U
+#define BF_CH_ENABLE_PIN_INVERT_INFO(inst)                    ((uint32_t)(inst) + 0x0000000CU), 0x00000114U
+#define BF_CH_ANT_ENABLE_PIN_INVERT_INFO(inst)                ((uint32_t)(inst) + 0x0000000CU), 0x00000118U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_PROC_READBACK_DATA_ADDR(inst)              ((inst) + 0x00000010)
-#define BF_STREAM_PROC_DATA_STREAMPROC_CHANNEL_INFO(inst)     ((inst) + 0x00000010), 0x00002000
+#define REG_STREAM_PROC_READBACK_DATA_ADDR(inst)              ((uint32_t)(inst) + 0x00000010U)
+#define BF_STREAM_PROC_DATA_STREAMPROC_CHANNEL_INFO(inst)     ((uint32_t)(inst) + 0x00000010U), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
 #ifdef USE_PRIVATE_BF
-#define REG_STREAM_PROC_SCRATCH_ADDR(inst, n)                 ((inst) + 0x00000014 + 4 * (n))
-#define BF_STREAM_SCRATCH_INFO(inst, n)                       ((inst) + 0x00000014 + 4 * (n)), 0x00002000
+#define REG_STREAM_PROC_SCRATCH_ADDR(inst, n)                 ((uint32_t)(inst) + 0x00000014U + 4U * (uint32_t)(n))
+#define BF_STREAM_SCRATCH_INFO(inst, n)                       ((uint32_t)(inst) + 0x00000014U + 4U * (uint32_t)(n)), 0x00002000U
 #endif /* USE_PRIVATE_BF */
 
-#endif /* __ADI_APOLLO_BF_STREAMPROC_CHANNEL_H__ */
+#endif /* ADI_APOLLO_BF_STREAMPROC_CHANNEL_H__ */
 /*! @} */

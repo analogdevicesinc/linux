@@ -11,8 +11,8 @@
  * \addtogroup ADI_APOLLO_RXEN
  * @{
  */
-#ifndef __ADI_APOLLO_RXEN_H__
-#define __ADI_APOLLO_RXEN_H__
+#ifndef ADI_APOLLO_RXEN_H__
+#define ADI_APOLLO_RXEN_H__
 
 /*============= I N C L U D E S ============*/
 #include "adi_apollo_rxen_types.h"
@@ -139,6 +139,27 @@ int32_t adi_apollo_rxen_ctrl_set(adi_apollo_device_t *device,  adi_apollo_blk_se
  */
 int32_t adi_apollo_rxen_spien_set(adi_apollo_device_t *device, adi_apollo_blk_sel_t  dig_enables, uint8_t spi_en);
 
+/**
+ * \brief Configure channel(s) to be controlled by a specific RXen signal.
+ * 
+ * Simplified configuration for enabling/disabling RX datapaths via GPIO,
+ * without requiring direct use of adi_apollo_rxen_pwrup_ctrl_config_set()
+ * and adi_apollo_rxen_config_set().
+ *
+ * Configures the CONV_POW_ONOFF, POWER_CTRL and TXRX_ENABLE blocks to route
+ * the selected RXen source to the specified RX datapath destinations.
+ *
+ * \param[in]  device              Context variable - Pointer to the APOLLO device data structure
+ * \param[in]  rx_enable           RXen source input select. \ref adi_apollo_rxtx_enable_e
+ * \param[in]  dest_rx_sel         Bitmask of one or more datapaths. \ref adi_apollo_rxen_en_select_e
+ * \param[in]  delay_rise_ns       Rise delay in nanoseconds (0 = no delay)
+ * \param[in]  delay_fall_ns       Fall delay in nanoseconds (0 = no delay)
+ *
+ * \return API_CMS_ERROR_OK                     API Completed Successfully
+ * \return <0                                   Failed. \ref adi_cms_error_e for details.
+ */
+int32_t adi_apollo_rxen_set(adi_apollo_device_t *device, adi_apollo_rxtx_enable_e rx_enable, adi_apollo_rxen_en_select_e dest_rx_sel, uint32_t delay_rise_ns, uint32_t delay_fall_ns);
+
 
 #ifndef CLIENT_IGNORE
 
@@ -148,5 +169,5 @@ int32_t adi_apollo_rxen_spien_set(adi_apollo_device_t *device, adi_apollo_blk_se
 }
 #endif
 
-#endif /* __ADI_APOLLO_RXEN_H__ */
+#endif /* ADI_APOLLO_RXEN_H__ */
 /*! @} */
