@@ -28,23 +28,26 @@
  */
 
 #define CHIP_GFX12 37
-#define CHIP_GC_12_0_3 38
+#define CHIP_GC_12_0_3_REV_0 38
+#define CHIP_GC_12_0_3_REV_1 39
 
-#define HAVE_XNACK (ASIC_FAMILY == CHIP_GC_12_0_3)
-#define HAVE_57BIT_ADDRESS (ASIC_FAMILY == CHIP_GC_12_0_3)
-#define HAVE_BANKED_VGPRS (ASIC_FAMILY == CHIP_GC_12_0_3)
-#define NUM_NAMED_BARRIERS (ASIC_FAMILY == CHIP_GC_12_0_3 ? 0x10 : 0)
-#define HAVE_CLUSTER_BARRIER (ASIC_FAMILY == CHIP_GC_12_0_3)
-#define CLUSTER_BARRIER_SERIALIZE_WORKAROUND (ASIC_FAMILY == CHIP_GC_12_0_3)
+#define HAVE_XNACK (ASIC_FAMILY >= CHIP_GC_12_0_3_REV_0)
+#define HAVE_57BIT_ADDRESS (ASIC_FAMILY >= CHIP_GC_12_0_3_REV_0)
+#define HAVE_BANKED_VGPRS (ASIC_FAMILY >= CHIP_GC_12_0_3_REV_0)
+#define NUM_NAMED_BARRIERS (ASIC_FAMILY >= CHIP_GC_12_0_3_REV_0 ? 0x10 : 0)
+#define HAVE_CLUSTER_BARRIER (ASIC_FAMILY >= CHIP_GC_12_0_3_REV_0)
+#define CLUSTER_BARRIER_SERIALIZE_WORKAROUND (ASIC_FAMILY >= CHIP_GC_12_0_3_REV_0)
 #define RELAXED_SCHEDULING_IN_TRAP (ASIC_FAMILY == CHIP_GFX12)
-#define HAVE_INSTRUCTION_FIXUP (ASIC_FAMILY == CHIP_GC_12_0_3)
+#define HAVE_VOP3PX_FIXUP (ASIC_FAMILY == CHIP_GC_12_0_3_REV_0)
+#define HAVE_VGPR_MSB_FIXUP (ASIC_FAMILY >= CHIP_GC_12_0_3_REV_0)
+#define HAVE_INSTRUCTION_FIXUP (HAVE_VOP3PX_FIXUP || HAVE_VGPR_MSB_FIXUP)
 
 #define SINGLE_STEP_MISSED_WORKAROUND 1	//workaround for lost TRAP_AFTER_INST exception when SAVECTX raised
 #define HAVE_VALU_SGPR_HAZARD (ASIC_FAMILY == CHIP_GFX12)
-#define HAVE_HT_TRAP_ID_WA (ASIC_FAMILY >= CHIP_GFX12)
-#define WAVE32_ONLY (ASIC_FAMILY == CHIP_GC_12_0_3)
-#define SAVE_TTMPS_IN_SGPR_BLOCK (ASIC_FAMILY >= CHIP_GC_12_0_3)
-#define VMEM_ON_TRAP_ENTRY_WA (ASIC_FAMILY == CHIP_GC_12_0_3)
+#define HAVE_HT_TRAP_ID_WA 1
+#define WAVE32_ONLY (ASIC_FAMILY >= CHIP_GC_12_0_3_REV_0)
+#define SAVE_TTMPS_IN_SGPR_BLOCK (ASIC_FAMILY >= CHIP_GC_12_0_3_REV_0)
+#define VMEM_ON_TRAP_ENTRY_WA (ASIC_FAMILY >= CHIP_GC_12_0_3_REV_0)
 
 #if HAVE_XNACK && !WAVE32_ONLY
 # error
@@ -76,7 +79,7 @@ var SQ_WAVE_LDS_ALLOC_LDS_SIZE_SIZE		= 9
 var SQ_WAVE_GPR_ALLOC_VGPR_SIZE_SIZE		= 8
 var SQ_WAVE_GPR_ALLOC_VGPR_SIZE_SHIFT		= 12
 
-#if ASIC_FAMILY < CHIP_GC_12_0_3
+#if ASIC_FAMILY < CHIP_GC_12_0_3_REV_0
 var SQ_WAVE_LDS_ALLOC_GRANULARITY		= 9
 #else
 var SQ_WAVE_LDS_ALLOC_GRANULARITY		= 10
@@ -707,7 +710,7 @@ L_SAVE_HWREG:
 	write_hwreg_to_v2(s_save_tmp)
 #endif
 
-#if ASIC_FAMILY >= CHIP_GC_12_0_3
+#if ASIC_FAMILY >= CHIP_GC_12_0_3_REV_0
 	s_getreg_b32	s_save_tmp, hwreg(HW_REG_WAVE_SCHED_MODE)
 	write_hwreg_to_v2(s_save_tmp)
 #endif
@@ -1281,7 +1284,7 @@ L_SKIP_TRAP_CLUSTER_BARRIER_SIGNAL:
 L_SKIP_CLUSTER_BARRIER_RESTORE:
 #endif
 
-#if ASIC_FAMILY >= CHIP_GC_12_0_3
+#if ASIC_FAMILY >= CHIP_GC_12_0_3_REV_0
 	s_load_b32	s_restore_tmp, [s_restore_addr_lo, s_restore_addr_hi], null scope:SCOPE_SYS offset:0x40
 	s_wait_kmcnt	0
 	s_setreg_b32	hwreg(HW_REG_WAVE_SCHED_MODE), s_restore_tmp
@@ -1393,7 +1396,7 @@ function get_sgpr_size_bytes
 end
 
 function get_hwreg_size_bytes
-#if ASIC_FAMILY >= CHIP_GC_12_0_3
+#if ASIC_FAMILY >= CHIP_GC_12_0_3_REV_0
 	return 512
 #else
 	return 128
@@ -1550,6 +1553,7 @@ function fixup_instruction
 	// Instruction is 1 DWORD otherwise
 
 L_FIXUP_ONE_DWORD:
+#if HAVE_VGPR_MSB_FIXUP
 	// Check if TTMP15 contains the value for S_SET_VGPR_MSB instruction
 	s_and_b32	ttmp10, ttmp15, 0xffff0000				// Check encoding in upper 16 bits
 	s_cmp_eq_u32	ttmp10, 0xbf860000					// Check if SOPP (9b'10_1111111) and S_SET_VGPR_MSB (7b'0000110)
@@ -1560,6 +1564,7 @@ L_FIXUP_ONE_DWORD:
 	s_lshr_b32	ttmp13, ttmp13, 6					// Shift SIMM[13:8] into 7:2, Src2, Src1, Src0
 	s_or_b32	ttmp10, ttmp10, ttmp13					// Src2, Src1, Src0, Dst --> format in MODE register
 	s_setreg_b32	hwreg(HW_REG_WAVE_MODE, 12, 8), ttmp10			// Write value into MODE[19:12]
+#endif
 	s_branch	L_FIXUP_DONE
 
 L_FIXUP_NOT_VOP12C:
@@ -1586,10 +1591,12 @@ L_FIXUP_NOT_VOP12C:
 	// Not VOP1, VOP2, VOPC, VOP3, VOP3SD, VOPD, or VOPD3.
 	// Check if we are in the middle of VOP3PX.
 	s_and_b32	ttmp13, ttmp14, 0xffff0000				// Bits 31:16
+#if HAVE_VOP3PX_FIXUP
 	s_cmp_eq_u32	ttmp13, 0xcc330000					// If 31:16 = 0xcc33, this is 8 bytes past VOP3PX
 	s_cbranch_scc1	L_FIXUP_VOP3PX_MIDDLE
 	s_cmp_eq_u32	ttmp13, 0xcc880000					// If 31:16 = 0xcc88, this is 8 bytes past VOP3PX
 	s_cbranch_scc1	L_FIXUP_VOP3PX_MIDDLE
+#endif
 	// Might be in VOP3P, but we must ensure we are not VOP3PX2
 	s_cmp_eq_u32	ttmp13, 0xcc350000					// If 31:16 = 0xcc35, this is VOP3PX2
 	s_cbranch_scc1	L_FIXUP_DONE						// If VOP3PX2, no fixup needed
@@ -1651,10 +1658,12 @@ L_FIXUP_THREE_DWORD:
 	s_mov_b32	ttmp15, ttmp3						// Move possible S_SET_VGPR_MSB into ttmp15
 	s_branch	L_FIXUP_ONE_DWORD					// Go to common logic that checks if it is S_SET_VGPR_MSB
 
+#if HAVE_VOP3PX_FIXUP
 L_FIXUP_VOP3PX_MIDDLE:
 	s_sub_co_u32	ttmp0, ttmp0, 8						// Rewind PC 8 bytes to beginning of instruction
 	s_sub_co_ci_u32	ttmp1, ttmp1, 0
 	s_branch	L_FIXUP_TWO_DWORD					// 2 DWORD inst (2nd half of a 4 DWORD inst)
+#endif
 
 L_FIXUP_DONE:
 	s_wait_kmcnt	0							// Ensure load of ttmp2 and ttmp3 is done
