@@ -348,17 +348,38 @@ intel_dp_aux_xfer(struct intel_dp *intel_dp,
 
 	if (try == 3) {
 		const u32 status = intel_de_read(display, ch_ctl);
+		/*
+		 * If we recently left the engine busy ourselves, treat it as
+		 * still recovering for up to a second, the longest LTTPR
+		 * stall we've seen.  Otherwise someone else is using the
+		 * channel, or it's hung.
+		 */
+		const unsigned int left_busy_timeout_ms = 1000;
 
-		if (status != intel_dp->aux_busy_last_status) {
-			drm_err(display->drm,
-				"%s: not started (status 0x%08x)\n",
-				intel_dp->aux.name, status);
-			intel_dp->aux_busy_last_status = status;
+		if (intel_dp->dp_aux.left_busy &&
+		    time_is_after_jiffies64(intel_dp->dp_aux.left_busy_since +
+					    msecs_to_jiffies(left_busy_timeout_ms))) {
+			drm_dbg_kms(display->drm,
+				    "%s: not started, still waiting for the AUX engine to recover (status 0x%08x)\n",
+				    intel_dp->aux.name, status);
+		} else {
+			intel_dp->dp_aux.left_busy = false;
+
+			if (status != intel_dp->aux_busy_last_status) {
+				drm_err(display->drm,
+					"%s: not started (status 0x%08x)\n",
+					intel_dp->aux.name, status);
+				intel_dp->aux_busy_last_status = status;
+			}
 		}
 
 		ret = -EBUSY;
 		goto out;
 	}
+
+	/* the engine recovered, report a new busy period again */
+	intel_dp->dp_aux.left_busy = false;
+	intel_dp->aux_busy_last_status = 0;
 
 	/* Only 5 data registers! */
 	if (drm_WARN_ON(display->drm, send_bytes > 20 || recv_size > 20)) {
@@ -392,6 +413,8 @@ intel_dp_aux_xfer(struct intel_dp *intel_dp,
 			 * alone, the caller will retry the transaction later.
 			 */
 			if (status & DP_AUX_CH_CTL_SEND_BUSY) {
+				intel_dp->dp_aux.left_busy = true;
+				intel_dp->dp_aux.left_busy_since = get_jiffies_64();
 				ret = -EBUSY;
 				goto out;
 			}
