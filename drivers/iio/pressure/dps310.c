@@ -9,6 +9,7 @@
  *   c0 * 0.5 + c1 * T_raw / kT °C
  */
 
+#include <linux/bitfield.h>
 #include <linux/cleanup.h>
 #include <linux/devm-helpers.h>
 #include <linux/i2c.h>
@@ -42,7 +43,9 @@
 #define  DPS310_PRS_PRC_BITS	GENMASK(3, 0)
 #define DPS310_TMP_CFG		0x07
 #define  DPS310_TMP_RATE_BITS	GENMASK(6, 4)
+#define   DPS310_TMP_RATE_1SPS	0
 #define  DPS310_TMP_PRC_BITS	GENMASK(3, 0)
+#define   DPS310_TMP_PRC_1	0
 #define  DPS310_TMP_EXT		BIT(7)
 #define DPS310_MEAS_CFG		0x08
 #define  DPS310_MEAS_CTRL_BITS	GENMASK(2, 0)
@@ -63,6 +66,9 @@
 #define  DPS310_FIFO_FLUSH	BIT(7)
 #define  DPS310_RESET_MAGIC	0x09
 #define DPS310_COEF_BASE	0x10
+#define DPS310_COEF_LEN		18
+
+#define MAX_COEF_LEN		18
 
 /* Section 4.8: 32 shared entries. Stops when full, so late drains lose data */
 #define DPS310_FIFO_DEPTH	32
@@ -99,10 +105,23 @@ static const int scale_factors[] = {
 	2088960,
 };
 
+struct dps310_chip_info {
+	const char *name;
+	bool coef_for_ext_sensor;
+	u8 coef_len;
+};
+
+static const struct dps310_chip_info dps310_chip_info = {
+	.name = "dps310",
+	.coef_for_ext_sensor = true,
+	.coef_len = DPS310_COEF_LEN,
+};
+
 struct dps310_data {
 	struct i2c_client *client;
 	struct regmap *regmap;
 	struct mutex lock;	/* Lock for sequential HW access functions */
+	const struct dps310_chip_info *info;
 
 	s32 c0, c1;
 	s32 c00, c10, c20, c30, c01, c11, c21;
@@ -179,13 +198,13 @@ static const struct iio_chan_spec dps310_channels[] = {
 static int dps310_get_coefs(struct dps310_data *data)
 {
 	int rc;
-	u8 coef[18];
+	u8 coef[MAX_COEF_LEN];
 	u32 c0, c1;
 	u32 c00, c10, c20, c30, c01, c11, c21;
 
 	/* Read all sensor calibration coefficients from the COEF registers. */
 	rc = regmap_bulk_read(data->regmap, DPS310_COEF_BASE, coef,
-			      sizeof(coef));
+			      data->info->coef_len);
 	if (rc < 0)
 		return rc;
 
@@ -281,11 +300,11 @@ static int dps310_startup(struct dps310_data *data)
 	if (rc)
 		return rc;
 
-	/*
-	 * Set up external (MEMS) temperature sensor in single sample, one
-	 * measurement per second mode
-	 */
-	rc = regmap_write(data->regmap, DPS310_TMP_CFG, DPS310_TMP_EXT);
+	rc = regmap_write(data->regmap, DPS310_TMP_CFG,
+			  FIELD_PREP(DPS310_TMP_PRC_BITS, DPS310_TMP_PRC_1) |
+			  FIELD_PREP(DPS310_TMP_RATE_BITS, DPS310_TMP_RATE_1SPS) |
+			  FIELD_PREP(DPS310_TMP_EXT,
+				     data->info->coef_for_ext_sensor));
 	if (rc)
 		return rc;
 
@@ -1347,7 +1366,11 @@ static int dps310_probe(struct i2c_client *client)
 	if (rc)
 		return rc;
 
-	iio->name = DPS310_DEV_NAME;
+	data->info = i2c_get_match_data(client);
+	if (!data->info)
+		return -ENODATA;
+
+	iio->name = data->info->name;
 	iio->channels = dps310_channels;
 	iio->num_channels = ARRAY_SIZE(dps310_channels);
 	iio->info = &dps310_info;
@@ -1394,13 +1417,13 @@ static int dps310_probe(struct i2c_client *client)
 }
 
 static const struct i2c_device_id dps310_id[] = {
-	{ .name = DPS310_DEV_NAME },
+	{ .name = "dps310", .driver_data = (kernel_ulong_t)&dps310_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, dps310_id);
 
 static const struct acpi_device_id dps310_acpi_match[] = {
-	{ .id = "IFX3100" },
+	{ .id = "IFX3100", .driver_data = (kernel_ulong_t)&dps310_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, dps310_acpi_match);
