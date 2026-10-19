@@ -4651,6 +4651,72 @@ void snd_usb_mixer_rc_memory_change(struct usb_mixer_interface *mixer,
 	}
 }
 
+static void snd_usb_apply_db_scale(struct usb_mixer_interface *mixer,
+				   struct usb_mixer_elem_info *cval, struct snd_kcontrol *kctl,
+				   const unsigned int *scale, const char *desc)
+{
+	if (!scale) {
+		usb_audio_info(mixer->chip, "clearing %s dB scale on [%s] (%d/%d/%d)\n",
+			       desc, kctl->id.name, cval->min, cval->max, cval->res);
+
+		kctl->tlv.p = NULL;
+		kctl->vd[0].access &= ~(SNDRV_CTL_ELEM_ACCESS_TLV_READ |
+					SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK);
+		return;
+	}
+
+	usb_audio_info(mixer->chip, "applying %s dB scale quirk on [%s] (%d/%d/%d)\n",
+		       desc, kctl->id.name, cval->min, cval->max, cval->res);
+
+	if (kctl->vd[0].access & SNDRV_CTL_ELEM_ACCESS_TLV_READ &&
+	    !(kctl->vd[0].access & SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK)) {
+		usb_audio_warn(mixer->chip,
+			       "%s dB scale quirk overrides the previously applied one on [%s]\n",
+			       desc, kctl->id.name);
+	} else if (cval->min_mute) {
+		/*
+		 * We are clearing SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK,
+		 * resulting in min_mute becoming a no-op.
+		 */
+		usb_audio_warn(mixer->chip, "%s dB scale quirk overrides MIN_MUTE on [%s]\n",
+			       desc, kctl->id.name);
+	}
+
+	kctl->tlv.p = scale;
+	kctl->vd[0].access |= SNDRV_CTL_ELEM_ACCESS_TLV_READ;
+	kctl->vd[0].access &= ~SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK;
+}
+
+static void snd_usb_mixer_fu_quirk_linear_scale(struct usb_mixer_interface *mixer,
+						struct usb_mixer_elem_info *cval,
+						struct snd_kcontrol *kctl)
+{
+	static const DECLARE_TLV_DB_LINEAR(scale, TLV_DB_GAIN_MUTE, 0);
+
+	snd_usb_apply_db_scale(mixer, cval, kctl, scale, "linear volume");
+}
+
+/* Respect quirks set by module parameters or quirk flags table. */
+static inline bool deconflict_playback_tlv_quirks(struct usb_mixer_interface *mixer,
+						  struct snd_kcontrol *kctl)
+{
+	const u64 playback_quirk_flags = (QUIRK_FLAG_MIXER_PLAYBACK_MIN_MUTE |
+					  QUIRK_FLAG_MIXER_PLAYBACK_LINEAR_VOL);
+
+	return (!(mixer->chip->quirk_flags & playback_quirk_flags) &&
+		strstr(kctl->id.name, "Playback"));
+}
+
+static inline bool deconflict_capture_tlv_quirks(struct usb_mixer_interface *mixer,
+						 struct snd_kcontrol *kctl)
+{
+	const u64 capture_quirk_flags = (QUIRK_FLAG_MIXER_CAPTURE_MIN_MUTE |
+					 QUIRK_FLAG_MIXER_CAPTURE_LINEAR_VOL);
+
+	return (!(mixer->chip->quirk_flags & capture_quirk_flags) &&
+		strstr(kctl->id.name, "Capture"));
+}
+
 static void snd_dragonfly_quirk_db_scale(struct usb_mixer_interface *mixer,
 					 struct usb_mixer_elem_info *cval,
 					 struct snd_kcontrol *kctl)
@@ -4671,18 +4737,16 @@ static void snd_dragonfly_quirk_db_scale(struct usb_mixer_interface *mixer,
 		41, 50, TLV_DB_MINMAX_ITEM(-441, 0),
 	);
 
-	if (cval->min == 0 && cval->max == 50) {
-		usb_audio_info(mixer->chip, "applying DragonFly dB scale quirk (0-50 variant)\n");
-		kctl->tlv.p = scale;
-		kctl->vd[0].access |= SNDRV_CTL_ELEM_ACCESS_TLV_READ;
-		kctl->vd[0].access &= ~SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK;
+	if (!deconflict_playback_tlv_quirks(mixer, kctl))
+		return;
 
+	if (cval->min == 0 && cval->max == 50) {
+		snd_usb_apply_db_scale(mixer, cval, kctl, scale, "DragonFly");
 	} else if (cval->min == 0 && cval->max <= 1000) {
 		/* Some other clearly broken DragonFly variant.
 		 * At least a 0..53 variant (hw v1.0) exists.
 		 */
-		usb_audio_info(mixer->chip, "ignoring too narrow dB range on a DragonFly device");
-		kctl->vd[0].access &= ~SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK;
+		snd_usb_apply_db_scale(mixer, cval, kctl, NULL, "DragonFly");
 	}
 }
 
@@ -4750,25 +4814,6 @@ triggered:
 	usb_audio_dbg(chip, "something wrong in kctl name %s\n", id->name);
 }
 
-static void snd_usb_mixer_fu_quirk_linear_scale(struct usb_mixer_interface *mixer,
-						struct usb_mixer_elem_info *cval,
-						struct snd_kcontrol *kctl)
-{
-	static const DECLARE_TLV_DB_LINEAR(scale, TLV_DB_GAIN_MUTE, 0);
-
-	if (cval->min_mute) {
-		/*
-		 * We are clearing SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK,
-		 * resulting in min_mute being a no-op.
-		 */
-		usb_audio_warn(mixer->chip, "LINEAR_VOL overrides MIN_MUTE\n");
-	}
-
-	kctl->tlv.p = scale;
-	kctl->vd[0].access |= SNDRV_CTL_ELEM_ACCESS_TLV_READ;
-	kctl->vd[0].access &= ~SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK;
-}
-
 void snd_usb_mixer_fu_apply_quirk(struct usb_mixer_interface *mixer,
 				  struct usb_mixer_elem_info *cval, int unitid,
 				  struct snd_kcontrol *kctl)
@@ -4801,18 +4846,12 @@ void snd_usb_mixer_fu_apply_quirk(struct usb_mixer_interface *mixer,
 		}
 
 	if (mixer->chip->quirk_flags & QUIRK_FLAG_MIXER_PLAYBACK_LINEAR_VOL)
-		if (cval->control == UAC_FU_VOLUME && strstr(kctl->id.name, "Playback")) {
-			usb_audio_info(mixer->chip,
-				       "applying playback linear volume quirk\n");
+		if (cval->control == UAC_FU_VOLUME && strstr(kctl->id.name, "Playback"))
 			snd_usb_mixer_fu_quirk_linear_scale(mixer, cval, kctl);
-		}
 
 	if (mixer->chip->quirk_flags & QUIRK_FLAG_MIXER_CAPTURE_LINEAR_VOL)
-		if (cval->control == UAC_FU_VOLUME && strstr(kctl->id.name, "Capture")) {
-			usb_audio_info(mixer->chip,
-				       "applying capture linear volume quirk\n");
+		if (cval->control == UAC_FU_VOLUME && strstr(kctl->id.name, "Capture"))
 			snd_usb_mixer_fu_quirk_linear_scale(mixer, cval, kctl);
-		}
 
 	/* ALSA-ify some Plantronics headset control names */
 	if (USB_ID_VENDOR(mixer->chip->usb_id) == 0x047f &&
