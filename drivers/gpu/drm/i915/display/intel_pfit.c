@@ -182,8 +182,8 @@ static int ilk_pfit_check_cloning(const struct intel_crtc_state *crtc_state)
 }
 
 /* adjusted_mode has been preset to be the panel's fixed mode */
-static int ilk_panel_fitting(struct intel_crtc_state *crtc_state,
-			     const struct drm_connector_state *conn_state)
+static int ilk_pfit_compute_config(struct intel_crtc_state *crtc_state,
+				   const struct drm_connector_state *conn_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -438,7 +438,7 @@ static void i9xx_scale_aspect(struct intel_crtc_state *crtc_state,
 	}
 }
 
-static int intel_gmch_pfit_check_timings(const struct intel_crtc_state *crtc_state)
+static int i9xx_pfit_check_timings(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -470,8 +470,8 @@ static int intel_gmch_pfit_check_timings(const struct intel_crtc_state *crtc_sta
 	return 0;
 }
 
-static int gmch_panel_fitting(struct intel_crtc_state *crtc_state,
-			      const struct drm_connector_state *conn_state)
+static int i9xx_pfit_compute_config(struct intel_crtc_state *crtc_state,
+				    const struct drm_connector_state *conn_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -479,6 +479,7 @@ static int gmch_panel_fitting(struct intel_crtc_state *crtc_state,
 	struct drm_display_mode *adjusted_mode = &crtc_state->hw.adjusted_mode;
 	int pipe_src_w = drm_rect_width(&crtc_state->pipe_src);
 	int pipe_src_h = drm_rect_height(&crtc_state->pipe_src);
+	int ret;
 
 	/* Native modes don't need fitting */
 	if (adjusted_mode->crtc_hdisplay == pipe_src_w &&
@@ -566,7 +567,11 @@ out:
 	if ((pfit_control & PFIT_ENABLE) == 0)
 		return 0;
 
-	return intel_gmch_pfit_check_timings(crtc_state);
+	ret = i9xx_pfit_check_timings(crtc_state);
+	if (ret)
+		return ret;
+
+	return 0;
 }
 
 enum drm_mode_status
@@ -585,9 +590,9 @@ int intel_pfit_compute_config(struct intel_crtc_state *crtc_state,
 	struct intel_display *display = to_intel_display(crtc_state);
 
 	if (HAS_GMCH(display))
-		return gmch_panel_fitting(crtc_state, conn_state);
+		return i9xx_pfit_compute_config(crtc_state, conn_state);
 	else
-		return ilk_panel_fitting(crtc_state, conn_state);
+		return ilk_pfit_compute_config(crtc_state, conn_state);
 }
 
 void ilk_pfit_enable(const struct intel_crtc_state *crtc_state)
