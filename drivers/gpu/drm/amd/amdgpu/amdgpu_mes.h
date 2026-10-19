@@ -170,12 +170,24 @@ struct amdgpu_mes {
 	uint32_t			dbgext_num_xcc;
 	uint32_t			dbgext_num_pipes;
 
+	/*
+	 * One bit per (xcc, pipe) region, at xcc * dbgext_num_pipes + pipe.
+	 * Cleared while that XCC's MES is reset so the drain skips a region
+	 * whose zone header is being rebuilt.  dbgext_active stays set for
+	 * the whole device while selected XCCs restart.
+	 */
+	DECLARE_BITMAP(dbgext_armed_regions, AMDGPU_MAX_MES_INST_PIPES);
+
 	/* armed: FW attached + reader/irq running */
 	bool					dbgext_active;
 
 	struct work_struct		dbgext_work;
 	struct task_struct		*dbgext_reader;		/* polling fallback */
 	struct mutex			dbgext_lock;		/* serializes runtime start/stop */
+	/* serializes region drain vs reseed */
+	struct mutex			dbgext_drain_lock;
+	/* publishes use_irq to the IH path */
+	spinlock_t			dbgext_notify_lock;
 
 	/* runtime-requested size (KB); 0 = follow module param */
 	uint32_t			dbgext_runtime_kb;
@@ -492,6 +504,13 @@ struct amdgpu_mes_funcs {
 	 */
 	int (*enable_dbgext_irq)(struct amdgpu_mes *mes, bool enable);
 
+	/*
+	 * Per-XCC variant used when one MES instance restarts.
+	 * xcc_id is the logical XCC.
+	 */
+	int (*enable_dbgext_irq_xcc)(struct amdgpu_mes *mes, bool enable,
+				     u32 xcc_id);
+
 	int (*reset_hw_queue)(struct amdgpu_mes *mes,
 			      struct mes_reset_queue_input *input);
 
@@ -562,6 +581,15 @@ void amdgpu_mes_fini(struct amdgpu_device *adev);
 int amdgpu_mes_dbgext_start(struct amdgpu_device *adev);
 void amdgpu_mes_dbgext_stop(struct amdgpu_device *adev);
 void amdgpu_mes_dbgext_notify(struct amdgpu_device *adev, u32 context_data);
+
+/*
+ * Drop or restore dbgext for one logical XCC without tearing down the
+ * device-wide reader or the other XCCs' regions.  Disarm before that XCC's
+ * MES is reset; rearm after both MES pipes on the XCC can accept API packets
+ * again.
+ */
+void amdgpu_mes_dbgext_disarm_xcc(struct amdgpu_device *adev, u32 xcc_id);
+int amdgpu_mes_dbgext_rearm_xcc(struct amdgpu_device *adev, u32 xcc_id);
 
 /*
  * MES host-interrupt context dword (IH src_data[0]), same overlay as KMD
