@@ -89,8 +89,8 @@
 
 /* Make sure sleep time is <= 30ms for usleep_range */
 #define DPS310_POLL_SLEEP_US(t)		min(30000, (t) / 8)
-/* Silently handle error in rate value here */
-#define DPS310_POLL_TIMEOUT_US(rc)	((rc) <= 0 ? 1000000 : 1000000 / (rc))
+/* A period plus a measurement time; silently handle error in rate value */
+#define DPS310_POLL_TIMEOUT_US(rc)	(2 * USEC_PER_SEC / max(rc, 1))
 
 #define DPS310_PRS_BASE		DPS310_PRS_B0
 #define DPS310_TMP_BASE		DPS310_TMP_B0
@@ -392,6 +392,18 @@ static int dps310_get_temp_precision(struct dps310_data *data, int *val)
 	return 0;
 }
 
+/*
+ * A sample measured before a ratio change would be scaled with the new one.
+ * Reading it clears its ready bit, so the next read waits for a new sample.
+ */
+static int dps310_drop_sample(struct dps310_data *data, unsigned int reg)
+	__must_hold(&data->lock)
+{
+	u8 val[3];
+
+	return regmap_bulk_read(data->regmap, reg, val, sizeof(val));
+}
+
 static int dps310_set_pres_precision(struct dps310_data *data, int val)
 	__must_hold(&data->lock)
 {
@@ -407,8 +419,12 @@ static int dps310_set_pres_precision(struct dps310_data *data, int val)
 	if (rc)
 		return rc;
 
-	return regmap_update_bits(data->regmap, DPS310_PRS_CFG,
-				  DPS310_PRS_PRC_BITS, ilog2(val));
+	rc = regmap_update_bits(data->regmap, DPS310_PRS_CFG,
+				DPS310_PRS_PRC_BITS, ilog2(val));
+	if (rc)
+		return rc;
+
+	return dps310_drop_sample(data, DPS310_PRS_BASE);
 }
 
 static int dps310_set_temp_precision(struct dps310_data *data, int val)
@@ -426,8 +442,12 @@ static int dps310_set_temp_precision(struct dps310_data *data, int val)
 	if (rc)
 		return rc;
 
-	return regmap_update_bits(data->regmap, DPS310_TMP_CFG,
-				  DPS310_TMP_PRC_BITS, ilog2(val));
+	rc = regmap_update_bits(data->regmap, DPS310_TMP_CFG,
+				DPS310_TMP_PRC_BITS, ilog2(val));
+	if (rc)
+		return rc;
+
+	return dps310_drop_sample(data, DPS310_TMP_BASE);
 }
 
 static int dps310_set_pres_samp_freq(struct dps310_data *data, int freq)
@@ -689,6 +709,7 @@ static int dps310_write_raw(struct iio_dev *iio,
 			    int val2, long mask)
 {
 	struct dps310_data *data = iio_priv(iio);
+	int rc;
 
 	/* Reconfiguring mid-capture would change the values being captured */
 	IIO_DEV_ACQUIRE_DIRECT_MODE(iio, claim);
@@ -715,10 +736,24 @@ static int dps310_write_raw(struct iio_dev *iio,
 	case IIO_CHAN_INFO_OVERSAMPLING_RATIO:
 		switch (chan->type) {
 		case IIO_PRESSURE:
-			return dps310_set_pres_precision(data, val);
+			rc = dps310_set_pres_precision(data, val);
+			if (rc)
+				return rc;
+
+			/* A measurement already running finishes at the old ratio */
+			return dps310_read_pres_raw_locked(data);
 
 		case IIO_TEMP:
-			return dps310_set_temp_precision(data, val);
+			rc = dps310_set_temp_precision(data, val);
+			if (rc)
+				return rc;
+
+			/* The next sample is the one cached for pressure compensation */
+			rc = dps310_read_temp_raw_locked(data);
+			if (rc)
+				return rc;
+
+			return dps310_read_temp_raw_locked(data);
 
 		default:
 			return -EINVAL;
