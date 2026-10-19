@@ -661,12 +661,18 @@ static void pvscsi_complete_request(struct pvscsi_adapter *adapter,
 }
 
 /*
- * barrier usage : Since the PVSCSI device is emulated, there could be cases
- * where we may want to serialize some accesses between the driver and the
- * emulation layer. We use compiler barriers instead of the more expensive
- * memory barriers because PVSCSI is only supported on X86 which has strong
- * memory access ordering.
+ * The completion consumer index must be incremented only after the completion
+ * entry is read. The read memory barrier combined with READ/WRITE_ONCE
+ * ensures that all reads from the entry happen before the increment.
  */
+static void pvscsi_increment_cons_idx(u32 *cons_idx)
+{
+	u32 new_cons_idx;
+	dma_rmb();
+	new_cons_idx = READ_ONCE(*cons_idx) + 1;
+	WRITE_ONCE(*cons_idx, new_cons_idx);
+}
+
 static void pvscsi_process_completion_ring(struct pvscsi_adapter *adapter)
 {
 	struct PVSCSIRingsState *s = adapter->rings_state;
@@ -677,21 +683,14 @@ static void pvscsi_process_completion_ring(struct pvscsi_adapter *adapter)
 		struct PVSCSIRingCmpDesc *e = ring + (s->cmpConsIdx &
 						      MASK(cmp_entries));
 		/*
-		 * This barrier() ensures that *e is not dereferenced while
+		 * This barrier ensures that *e is not dereferenced while
 		 * the device emulation still writes data into the slot.
 		 * Since the device emulation advances s->cmpProdIdx only after
 		 * updating the slot we want to check it first.
 		 */
-		barrier();
+		dma_rmb();
 		pvscsi_complete_request(adapter, e);
-		/*
-		 * This barrier() ensures that compiler doesn't reorder write
-		 * to s->cmpConsIdx before the read of (*e) inside
-		 * pvscsi_complete_request. Otherwise, device emulation may
-		 * overwrite *e before we had a chance to read it.
-		 */
-		barrier();
-		s->cmpConsIdx++;
+		pvscsi_increment_cons_idx(&s->cmpConsIdx);
 	}
 }
 
@@ -775,7 +774,11 @@ static int pvscsi_queue_ring(struct pvscsi_adapter *adapter,
 
 	e->context = pvscsi_map_context(adapter, ctx);
 
-	barrier();
+	/*
+	 * Ensure writes to the request entry are done before
+	 * transferring ownership.
+	 */
+	dma_wmb();
 
 	s->reqProdIdx++;
 
@@ -1116,10 +1119,9 @@ static void pvscsi_process_msg_ring(const struct pvscsi_adapter *adapter)
 		struct PVSCSIRingMsgDesc *e = ring + (s->msgConsIdx &
 						      MASK(msg_entries));
 
-		barrier();
+		dma_rmb();
 		pvscsi_process_msg(adapter, e);
-		barrier();
-		s->msgConsIdx++;
+		pvscsi_increment_cons_idx(&s->msgConsIdx);
 	}
 }
 
