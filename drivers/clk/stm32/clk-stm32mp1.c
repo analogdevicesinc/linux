@@ -755,6 +755,7 @@ struct stm32_pll_obj {
 
 #define PLL_ON		BIT(0)
 #define PLL_RDY		BIT(1)
+#define PLL_DIV_PQR_EN	GENMASK(6, 4)
 #define DIVN_MASK	0x1FF
 #define DIVM_MASK	0x3F
 #define DIVM_SHIFT	16
@@ -820,8 +821,12 @@ static void pll_disable(struct clk_hw *hw)
 	spin_lock_irqsave(clk_elem->lock, flags);
 
 	reg = readl_relaxed(clk_elem->reg);
-	reg &= ~PLL_ON;
-	writel_relaxed(reg, clk_elem->reg);
+
+	/* Keep the PLL on as long as one of its P/Q/R outputs is enabled */
+	if (!(reg & PLL_DIV_PQR_EN)) {
+		reg &= ~PLL_ON;
+		writel_relaxed(reg, clk_elem->reg);
+	}
 
 	spin_unlock_irqrestore(clk_elem->lock, flags);
 }
