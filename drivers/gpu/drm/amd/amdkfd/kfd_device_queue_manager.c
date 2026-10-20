@@ -1093,6 +1093,41 @@ static int destroy_queue_nocpsch(struct device_queue_manager *dqm,
 	return retval;
 }
 
+/* Caller must hold the DQM lock and ensure the queue is unmapped. */
+static void update_queue_mqd(struct device_queue_manager *dqm, struct queue *q,
+			     struct qcm_process_device *qpd,
+			     struct mqd_update_info *minfo)
+{
+	struct mqd_manager *mqd_mgr =
+		dqm->mqd_mgrs[get_mqd_type_from_queue_type(q->properties.type)];
+	bool prev_active = q->properties.is_active;
+
+	mqd_mgr->update_mqd(mqd_mgr, q->mqd, &q->properties, minfo);
+
+	/*
+	 * Queue properties can change before the updater takes the DQM lock,
+	 * so even a perfcount update can change queue activity. Keep the
+	 * counters used to build the runlist in sync with the updated state.
+	 */
+	if (q->properties.is_active && !prev_active) {
+		increment_queue_count(dqm, qpd, q);
+	} else if (!q->properties.is_active && prev_active) {
+		decrement_queue_count(dqm, qpd, q);
+	} else if (q->gws && !q->properties.is_gws) {
+		if (q->properties.is_active) {
+			dqm->gws_queue_count++;
+			qpd->mapped_gws_queue = true;
+		}
+		q->properties.is_gws = true;
+	} else if (!q->gws && q->properties.is_gws) {
+		if (q->properties.is_active) {
+			dqm->gws_queue_count--;
+			qpd->mapped_gws_queue = false;
+		}
+		q->properties.is_gws = false;
+	}
+}
+
 static int update_queue_locked(struct device_queue_manager *dqm, struct queue *q,
 			struct mqd_update_info *minfo)
 {
@@ -1109,7 +1144,7 @@ static int update_queue_locked(struct device_queue_manager *dqm, struct queue *q
 	mqd_mgr = dqm->mqd_mgrs[get_mqd_type_from_queue_type(
 			q->properties.type)];
 
-	/* Save previous activity state for counters */
+	/* Save the activity state for queue removal. */
 	prev_active = q->properties.is_active;
 
 	/* Make sure the queue is unmapped before updating the MQD */
@@ -1150,31 +1185,7 @@ static int update_queue_locked(struct device_queue_manager *dqm, struct queue *q
 		}
 	}
 
-	mqd_mgr->update_mqd(mqd_mgr, q->mqd, &q->properties, minfo);
-
-	/*
-	 * check active state vs. the previous state and modify
-	 * counter accordingly. map_queues_cpsch uses the
-	 * dqm->active_queue_count to determine whether a new runlist must be
-	 * uploaded.
-	 */
-	if (q->properties.is_active && !prev_active) {
-		increment_queue_count(dqm, &pdd->qpd, q);
-	} else if (!q->properties.is_active && prev_active) {
-		decrement_queue_count(dqm, &pdd->qpd, q);
-	} else if (q->gws && !q->properties.is_gws) {
-		if (q->properties.is_active) {
-			dqm->gws_queue_count++;
-			pdd->qpd.mapped_gws_queue = true;
-		}
-		q->properties.is_gws = true;
-	} else if (!q->gws && q->properties.is_gws) {
-		if (q->properties.is_active) {
-			dqm->gws_queue_count--;
-			pdd->qpd.mapped_gws_queue = false;
-		}
-		q->properties.is_gws = false;
-	}
+	update_queue_mqd(dqm, q, &pdd->qpd, minfo);
 
 	if (dqm->sched_policy != KFD_SCHED_POLICY_NO_HWS) {
 		if (!dqm->dev->kfd->shared_resources.enable_mes)
@@ -1215,19 +1226,39 @@ static void set_perfcount(struct device_queue_manager *dqm, int enable)
 	struct qcm_process_device *qpd;
 	struct queue *q;
 	struct mqd_update_info minfo = { 0 };
+	bool batch;
 
 	if (!dqm)
 		return;
 
 	minfo.update_flag = (enable == 1 ? UPDATE_FLAG_PERFCOUNT_ENABLE :
 						 UPDATE_FLAG_PERFCOUNT_DISABLE);
+	/* Preempt the non-MES HWS runlist once for all compute MQD updates. */
+	batch = dqm->sched_policy != KFD_SCHED_POLICY_NO_HWS &&
+		!dqm->dev->kfd->shared_resources.enable_mes;
+
 	dqm_lock(dqm);
+	if (batch && unmap_queues_cpsch(dqm, KFD_UNMAP_QUEUES_FILTER_DYNAMIC_QUEUES,
+					0, USE_DEFAULT_GRACE_PERIOD, false))
+		goto out;
+
 	list_for_each_entry(cur, &dqm->queues, list) {
 		qpd = cur->qpd;
+		if (batch && qpd_to_pdd(qpd)->has_reset_queue)
+			continue;
 		list_for_each_entry(q, &qpd->queues_list, list) {
-			update_queue_locked(dqm, q, &minfo);
+			if (!batch) {
+				update_queue_locked(dqm, q, &minfo);
+				continue;
+			}
+			if (q->properties.type == KFD_QUEUE_TYPE_COMPUTE)
+				update_queue_mqd(dqm, q, qpd, &minfo);
 		}
 	}
+
+	if (batch)
+		map_queues_cpsch(dqm);
+out:
 	dqm_unlock(dqm);
 }
 
