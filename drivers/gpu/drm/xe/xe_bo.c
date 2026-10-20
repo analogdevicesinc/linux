@@ -992,6 +992,38 @@ static void xe_bo_set_purgeable_shrinker(struct xe_bo *bo,
 	}
 }
 
+/*
+ * Change @bo's TTM LRU priority to @priority. @bo's dma-resv must be held.
+ *
+ * Private, user BOs of non-fault-mode VMs have bo->ttm.bulk_move set to their
+ * VM's LRU bulk-move range (see xe_bo_create_user()), which tracks a
+ * contiguous [first, last] run of resources per (mem_type, priority) bucket.
+ * Writing bo->ttm.priority while the BO is still attached to that range would
+ * leave the resource linked in the old priority's bucket while the bulk-move
+ * code looks it up under the new one, corrupting both buckets. Temporarily
+ * detaching the BO from its bulk-move range moves it with a plain, non-bulk
+ * LRU update instead, and reattaching afterwards re-inserts it into the new
+ * priority's bucket.
+ */
+static void xe_bo_update_ttm_priority(struct xe_bo *bo, int priority)
+{
+	struct ttm_lru_bulk_move *bulk = bo->ttm.bulk_move;
+
+	xe_bo_assert_held(bo);
+
+	if (bo->ttm.priority == priority)
+		return;
+
+	if (bulk)
+		ttm_bo_set_bulk_move(&bo->ttm, NULL);
+
+	bo->ttm.priority = priority;
+	ttm_bo_move_to_lru_tail_unlocked(&bo->ttm);
+
+	if (bulk)
+		ttm_bo_set_bulk_move(&bo->ttm, bulk);
+}
+
 /**
  * xe_bo_set_purgeable_state() - Set BO purgeable state with validation
  * @bo: Buffer object
@@ -1001,6 +1033,10 @@ static void xe_bo_set_purgeable_shrinker(struct xe_bo *bo,
  * transitions. Once a BO is PURGED, it cannot transition to any other state.
  * Invalid transitions are caught with xe_assert(). Shrinker page accounting
  * is updated automatically.
+ *
+ * A WILLNEED -> DONTNEED transition also lowers the BO's TTM LRU priority to
+ * XE_BO_PRIORITY_LOW. Conversely, a DONTNEED -> WILLNEED transition restores
+ * XE_BO_PRIORITY_NORMAL.
  */
 void xe_bo_set_purgeable_state(struct xe_bo *bo,
 			       enum xe_madv_purgeable_state new_state)
@@ -1017,6 +1053,13 @@ void xe_bo_set_purgeable_state(struct xe_bo *bo,
 	/* Once purged, always purged - cannot transition out */
 	xe_assert(xe, !(bo->purgeable.state == XE_MADV_PURGEABLE_PURGED &&
 			new_state != XE_MADV_PURGEABLE_PURGED));
+
+	if (new_state == XE_MADV_PURGEABLE_DONTNEED &&
+	    bo->purgeable.state == XE_MADV_PURGEABLE_WILLNEED)
+		xe_bo_update_ttm_priority(bo, XE_BO_PRIORITY_LOW);
+	else if (new_state == XE_MADV_PURGEABLE_WILLNEED &&
+		 bo->purgeable.state == XE_MADV_PURGEABLE_DONTNEED)
+		xe_bo_update_ttm_priority(bo, XE_BO_PRIORITY_NORMAL);
 
 	bo->purgeable.state = new_state;
 	xe_bo_set_purgeable_shrinker(bo, new_state);

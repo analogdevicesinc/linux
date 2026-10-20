@@ -133,6 +133,9 @@ static int __xe_shrinker_walk(struct xe_shrinker *shrinker,
 		}
 
 		ttm_bo_lru_for_each_reserved_guarded(&curs, man, &arg, ttm_bo) {
+			if (flags.purge && ttm_bo->priority > XE_BO_PRIORITY_LOW)
+				break;
+
 			if (!ttm_bo_shrink_suitable(ttm_bo, ctx))
 				continue;
 

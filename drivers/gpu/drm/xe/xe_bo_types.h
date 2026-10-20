@@ -24,7 +24,13 @@ struct xe_exec_queue;
 
 #define XE_BO_MAX_PLACEMENTS	3
 
-/* TODO: To be selected with VM_MADVISE */
+/*
+ * TTM LRU priority bands. The LRU is walked in ascending priority order, so
+ * XE_BO_PRIORITY_LOW objects are the first candidates for eviction and
+ * shrinking. BOs advised DONTNEED through DRM_XE_MADVISE live at
+ * XE_BO_PRIORITY_LOW, everything else at XE_BO_PRIORITY_NORMAL.
+ */
+#define	XE_BO_PRIORITY_LOW	0
 #define	XE_BO_PRIORITY_NORMAL	1
 
 /**
