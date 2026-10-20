@@ -120,7 +120,7 @@ static const char * const ref3_parents[] = {
 };
 
 static const char * const ref4_parents[] = {
-	"ck_hsi", "ck_hse", "ck_csi"
+	"ck_hsi", "ck_hse", "ck_csi", "i2s_ckin"
 };
 
 static const char * const cpu_src[] = {
