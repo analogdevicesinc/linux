@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ADAQ23878 on ZedBoard, two-lane HDL. Test only, not for submission.
+ *
+ * hdl_project: <adaq2387x/zed with ADC_RES=18, TWOLANES=1>
+ */
+#include "zynq-zed-adaq2387x.dtsi"
+
+/ {
+	adc {
+		compatible = "adi,adaq23878";
+		clocks = <&ext_clk>;
+		io-backends = <&axi_adc>;
+		pwms = <&axi_pwm_gen 0 0 0>, <&axi_pwm_gen 1 0 0>;
+		pwm-names = "cnv", "clk_gate";
+		vref-supply = <&vref>;
+		adi,use-two-lanes;
+		/* Pin-strapped gain */
+		adi,gain-milli = <870>;
+	};
+};
