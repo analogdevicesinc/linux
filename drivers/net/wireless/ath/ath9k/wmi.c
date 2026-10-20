@@ -204,10 +204,20 @@ void ath9k_fatal_work(struct work_struct *work)
 
 static void ath9k_wmi_rsp_callback(struct wmi *wmi, struct sk_buff *skb)
 {
+	u32 len;
+
 	skb_pull(skb, sizeof(struct wmi_cmd_hdr));
 
-	if (wmi->cmd_rsp_buf != NULL && wmi->cmd_rsp_len != 0)
-		memcpy(wmi->cmd_rsp_buf, skb->data, wmi->cmd_rsp_len);
+	if (wmi->cmd_rsp_buf != NULL && wmi->cmd_rsp_len != 0) {
+		/*
+		 * The firmware may send a shorter (even empty) response than
+		 * the caller's buffer, e.g. for commands that return nothing.
+		 * Copy only what was received and zero the rest.
+		 */
+		len = min(skb->len, wmi->cmd_rsp_len);
+		memcpy(wmi->cmd_rsp_buf, skb->data, len);
+		memset(wmi->cmd_rsp_buf + len, 0, wmi->cmd_rsp_len - len);
+	}
 
 	complete(&wmi->cmd_wait);
 }
