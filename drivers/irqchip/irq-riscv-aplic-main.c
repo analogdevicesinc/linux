@@ -116,7 +116,11 @@ static struct syscore aplic_syscore = {
 	.ops = &aplic_syscore_ops,
 };
 
-static bool aplic_syscore_registered __ro_after_init;
+/*
+ * Not __ro_after_init: probe can be deferred (e.g. MSI mode waiting for the
+ * IMSIC) and complete after the init memory is made read-only.
+ */
+static bool aplic_syscore_registered;
 
 static void aplic_syscore_init(void)
 {
