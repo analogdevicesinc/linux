@@ -1345,6 +1345,7 @@ int bio_iov_iter_get_pages(struct bio *bio, struct iov_iter *iter,
 			   unsigned len_align_mask)
 {
 	iov_iter_extraction_t flags = 0;
+	struct iov_iter saved_iter;
 	int ret;
 
 	if (WARN_ON_ONCE(bio_flagged(bio, BIO_CLONED)))
@@ -1366,6 +1367,7 @@ int bio_iov_iter_get_pages(struct bio *bio, struct iov_iter *iter,
 	if (bio->bi_bdev && blk_queue_pci_p2pdma(bio->bi_bdev->bd_disk->queue))
 		flags |= ITER_ALLOW_P2PDMA;
 
+	saved_iter = *iter;
 	do {
 		ssize_t size;
 
@@ -1406,6 +1408,7 @@ out_release_pages:
 	bio_release_pages(bio, false);
 	bio_clear_flag(bio, BIO_PAGE_PINNED);
 	bio->bi_vcnt = 0;
+	*iter = saved_iter;
 	return -EINVAL;
 }
 
