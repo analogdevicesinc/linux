@@ -3115,7 +3115,8 @@ retry:
 		if (r < 0)
 			pfn = KVM_PFN_ERR_FAULT;
 	} else {
-		if ((kfp->flags & FOLL_NOWAIT) &&
+		/* Note, GUP returns '0' if retry is needed. */
+		if (!npages && (kfp->flags & FOLL_NOWAIT) &&
 		    vma_is_valid(vma, kfp->flags & FOLL_WRITE))
 			pfn = KVM_PFN_ERR_NEEDS_IO;
 		else
