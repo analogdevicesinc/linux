@@ -484,6 +484,11 @@ LIBBPF_API int bpf_link_create(int prog_fd, int target_fd,
 			       enum bpf_attach_type attach_type,
 			       const struct bpf_link_create_opts *opts);
 
+LIBBPF_API int bpf_link_create_log(int prog_fd, int target_fd,
+				   enum bpf_attach_type attach_type,
+				   const struct bpf_link_create_opts *opts,
+				   struct bpf_log_opts *log_opts);
+
 LIBBPF_API int bpf_link_detach(int link_fd);
 
 struct bpf_link_update_opts {
