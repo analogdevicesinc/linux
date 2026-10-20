@@ -3574,11 +3574,9 @@ static int ata_eh_maybe_retry_flush(struct ata_device *dev)
 	unsigned int err_mask;
 	int rc = 0;
 
-	/* did flush fail for this device? */
-	if (!ata_tag_valid(link->active_tag))
-		return 0;
-
 	qc = __ata_qc_from_tag(ap, link->active_tag);
+	if (!qc)
+		return 0;
 	if (qc->dev != dev || (qc->tf.command != ATA_CMD_FLUSH_EXT &&
 			       qc->tf.command != ATA_CMD_FLUSH))
 		return 0;
