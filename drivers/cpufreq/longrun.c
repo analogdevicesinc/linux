@@ -18,7 +18,7 @@
 
 static struct cpufreq_driver	longrun_driver;
 
-/**
+/*
  * longrun_{low,high}_freq is needed for the conversion of cpufreq kHz
  * values into per cent values. In TMTA microcode, the following is valid:
  * performance_pctg = (current_freq - low_freq)/(high_freq - low_freq)
