@@ -3125,7 +3125,7 @@ static long do_pagemap_scan(struct mm_struct *mm, unsigned long uarg)
 	size_t n_ranges_out = 0;
 	int ret;
 
-	if (!mm || !mmget_not_zero(mm))
+	if (!mmget_not_zero(mm))
 		return -ESRCH;
 
 	ret = pagemap_scan_get_args(&p.arg, uarg);
