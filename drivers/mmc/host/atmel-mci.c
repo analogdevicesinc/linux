@@ -2589,9 +2589,6 @@ static void atmci_remove(struct platform_device *pdev)
 
 	pm_runtime_get_sync(dev);
 
-	if (host->buffer)
-		dma_free_coherent(dev, host->buf_size, host->buffer, host->buf_phys_addr);
-
 	for (i = 0; i < ATMCI_MAX_NR_SLOTS; i++) {
 		if (host->slot[i])
 			atmci_cleanup_slot(host->slot[i], i);
@@ -2608,6 +2605,9 @@ static void atmci_remove(struct platform_device *pdev)
 	free_irq(platform_get_irq(pdev, 0), host);
 
 	cancel_work_sync(&host->bh_work);
+
+	if (host->buffer)
+		dma_free_coherent(dev, host->buf_size, host->buffer, host->buf_phys_addr);
 
 	clk_disable_unprepare(host->mck);
 
