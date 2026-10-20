@@ -117,6 +117,8 @@
 #define CM_EMMCDIV		0x1c4
 #define CM_EMMC2CTL		0x1d0
 #define CM_EMMC2DIV		0x1d4
+#define CM_GISBCTL		0x1d8
+#define CM_GISBDIV		0x1dc
 
 /* General bits for the CM_*CTL regs */
 # define CM_ENABLE			BIT(4)
@@ -2096,6 +2098,20 @@ static const struct bcm2835_clk_desc clk_desc_array[] = {
 		.int_bits = 4,
 		.frac_bits = 8,
 		.tcnt_mux = 42),
+
+	/*
+	 * GISB clock (only available for BCM2711): the STB peripheral
+	 * register bus, set up by the firmware. The GENET MDIO controller
+	 * derives its MDC from it.
+	 */
+	[BCM2711_CLOCK_GISB]	= REGISTER_PER_CLK(
+		SOC_BCM2711,
+		.name = "gisb",
+		.ctl_reg = CM_GISBCTL,
+		.div_reg = CM_GISBDIV,
+		.int_bits = 4,
+		.frac_bits = 8,
+		.flags = CLK_IS_CRITICAL),
 
 	/* General purpose (GPIO) clocks */
 	[BCM2835_CLOCK_GP0]	= REGISTER_PER_CLK(
