@@ -1,0 +1,482 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
+/*
+ * Linear Technology LTC2387 ADC driver
+ *
+ * Copyright 2022 - 2026 Analog Devices Inc.
+ */
+
+#include <linux/clk.h>
+#include <linux/device.h>
+#include <linux/err.h>
+#include <linux/iio/backend.h>
+#include <linux/iio/iio.h>
+#include <linux/iio/sysfs.h>
+#include <linux/kernel.h>
+#include <linux/math64.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
+#include <linux/property.h>
+#include <linux/pwm.h>
+#include <linux/regulator/consumer.h>
+#include <linux/mod_devicetable.h>
+
+#define LTC2387_VREF		4096
+#define LTC2387_T_CNVH		8
+
+/*
+ * Minimal value for t_{FIRSTCLK} according to
+ * https://www.analog.com/media/en/technical-documentation/data-sheets/238718fa.pdf
+ * is 65 ns. Add some slack because there is some rounding involved in the PWM
+ * driver. With the PWM driver rounding to the nearest possible value, targeting
+ * 70 ns works for input clk rates >= 100 MHz.
+ */
+#define LTC2387_T_FIRSTCLK_NS	70
+
+#define KHz 1000
+#define MHz (1000 * KHz)
+
+#define LTC2378_MULTIPLE_CHAN(_idx, _storagebits, _realbits, _shift)	\
+	{								\
+		.type = IIO_VOLTAGE,					\
+		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),\
+		.indexed = 1,						\
+		.channel = _idx,					\
+		.scan_index = _idx,					\
+		.scan_type = {						\
+			.sign = 's',					\
+			.storagebits = _storagebits,			\
+			.realbits = _realbits,				\
+			.shift = _shift,				\
+		},							\
+	}
+
+#define LTC2378_CHAN(_realbits, _storagebits)				\
+	{								\
+		.type = IIO_VOLTAGE,					\
+		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),\
+		.scan_type = {						\
+			.sign = 's',					\
+			.storagebits = _storagebits,			\
+			.realbits = _realbits,				\
+		},							\
+	}
+
+enum ltc2387_lane_modes {
+	ONE_LANE = 0,
+	TWO_LANES = 1
+};
+
+enum ltc2387_id {
+	ID_LTC2387_16,
+	ID_LTC2387_16_X4,
+	ID_LTC2387_18,
+	ID_LTC2387_18_X4,
+	ID_ADAQ23875,
+	ID_ADAQ23876,
+	ID_ADAQ23878,
+};
+
+struct ltc2387_info {
+	const char *name;
+	struct iio_chan_spec channels[4];
+	unsigned int test_pattern[2];
+	int num_channels;
+	int resolution;
+	/* Gain * 1000 when adi,gain-milli is absent; unity for the bare parts. */
+	u32 default_gain_milli;
+};
+
+#define LTC2387_TEST_PATTERN_16 {					\
+	[ONE_LANE]  = 0b1010000001111111,				\
+	[TWO_LANES] = 0b1100110000111111,				\
+}
+
+#define LTC2387_TEST_PATTERN_18 {					\
+	[ONE_LANE]  = 0b101000000111111100,				\
+	[TWO_LANES] = 0b110011000011111100,				\
+}
+
+static const struct ltc2387_info ltc2387_infos[] = {
+	[ID_LTC2387_16] = {
+		.name = "ltc2387-16",
+		.default_gain_milli = 1000,
+		.resolution = 16,
+		.test_pattern = LTC2387_TEST_PATTERN_16,
+		.channels = { LTC2378_CHAN(16, 16) },
+		.num_channels = 1,
+	},
+	[ID_LTC2387_16_X4] = {
+		.name = "ltc2387-16-x4",
+		.default_gain_milli = 1000,
+		.resolution = 16,
+		.test_pattern = LTC2387_TEST_PATTERN_16,
+		.channels = {
+			LTC2378_MULTIPLE_CHAN(0, 64, 16, 0),
+			LTC2378_MULTIPLE_CHAN(1, 64, 16, 16),
+			LTC2378_MULTIPLE_CHAN(2, 64, 16, 32),
+			LTC2378_MULTIPLE_CHAN(3, 64, 16, 48),
+		},
+		.num_channels = 4,
+	},
+	[ID_LTC2387_18] = {
+		.name = "ltc2387-18",
+		.default_gain_milli = 1000,
+		.resolution = 18,
+		.test_pattern = LTC2387_TEST_PATTERN_18,
+		.channels = { LTC2378_CHAN(18, 32) },
+		.num_channels = 1,
+	},
+	[ID_LTC2387_18_X4] = {
+		.name = "ltc2387-18-x4",
+		.default_gain_milli = 1000,
+		.resolution = 18,
+		.test_pattern = LTC2387_TEST_PATTERN_18,
+		.channels = {
+			LTC2378_MULTIPLE_CHAN(0, 128, 18, 0),
+			LTC2378_MULTIPLE_CHAN(1, 128, 18, 32),
+			LTC2378_MULTIPLE_CHAN(2, 128, 18, 64),
+			LTC2378_MULTIPLE_CHAN(3, 128, 18, 96),
+		},
+		.num_channels = 4,
+	},
+	[ID_ADAQ23875] = {
+		.name = "adaq23875",
+		.default_gain_milli = 2000,
+		.resolution = 16,
+		.test_pattern = LTC2387_TEST_PATTERN_16,
+		.channels = { LTC2378_CHAN(16, 16) },
+		.num_channels = 1,
+	},
+	[ID_ADAQ23876] = {
+		.name = "adaq23876",
+		.default_gain_milli = 0,
+		.resolution = 16,
+		.test_pattern = LTC2387_TEST_PATTERN_16,
+		.channels = { LTC2378_CHAN(16, 16) },
+		.num_channels = 1,
+	},
+	[ID_ADAQ23878] = {
+		.name = "adaq23878",
+		.default_gain_milli = 0,
+		.resolution = 18,
+		.test_pattern = LTC2387_TEST_PATTERN_18,
+		.channels = { LTC2378_CHAN(18, 32) },
+		.num_channels = 1,
+	},
+};
+
+struct ltc2387_dev {
+	const struct ltc2387_info *device_info;
+	enum ltc2387_lane_modes lane_mode;
+	unsigned long ref_clk_rate;
+	struct iio_backend *back;
+	struct pwm_device *clk_gate;
+	struct regulator *vref;
+	struct pwm_device *cnv;
+	struct clk *ref_clk;
+
+	unsigned int vref_mv;
+	u32 sampling_freq;
+	u32 gain_milli;
+};
+
+static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
+{
+	unsigned long long ref_clk_period_ns;
+	struct pwm_waveform clk_gate_wf = { }, cnv_wf = { };
+	unsigned long long period_cycles;
+	int ret, clk_en_time;
+	u32 rem;
+
+	if (freq <= 0 || freq > ltc->ref_clk_rate)
+		return -EINVAL;
+
+	ref_clk_period_ns = DIV_ROUND_UP(NSEC_PER_SEC, ltc->ref_clk_rate);
+
+	cnv_wf.duty_length_ns = ref_clk_period_ns;
+
+	/*
+	 * The goal here is that the PWM is configured with a minimal period not
+	 * less than 1 / freq (with freq measured in Hz).
+	 *
+	 * When a period P (measured in ns) is passed to pwm_apply_state(), the
+	 * actually implemented period is:
+	 *
+	 *      round_down(P * R / NSEC_PER_SEC) / R
+	 *
+	 * (measured in s) with R = ltc->ref_clk_rate. So we have:
+	 *
+	 *        round_down(P * R / NSEC_PER_SEC) / R ≥ 1 / freq
+	 *      ⟺ round_down(P * R / NSEC_PER_SEC) ≥ R / freq
+	 *
+	 * With the LHS being integer this is equivalent to:
+	 *
+	 *        round_down(P * R / NSEC_PER_SEC) ≥ round_up(R / freq)
+	 *      ⟺ P * R / NSEC_PER_SEC ≥ round_up(R / freq)
+	 *      ⟺ P ≥ round_up(R / freq) * NSEC_PER_SEC / R
+	 */
+
+	cnv_wf.period_length_ns =
+		div_u64_rem((u64)DIV_ROUND_UP(ltc->ref_clk_rate, freq) * NSEC_PER_SEC,
+			    ltc->ref_clk_rate, &rem);
+	if (rem)
+		cnv_wf.period_length_ns += 1;
+
+	/* Gate the active period of the clock (see page 10-13 for both LTC's) */
+	if (ltc->lane_mode == TWO_LANES)
+		clk_en_time = DIV_ROUND_UP_ULL(ltc->device_info->resolution, 4);
+	else
+		clk_en_time = DIV_ROUND_UP_ULL(ltc->device_info->resolution, 2);
+
+	clk_gate_wf.duty_length_ns = ref_clk_period_ns * clk_en_time;
+	clk_gate_wf.duty_offset_ns = LTC2387_T_FIRSTCLK_NS;
+
+	if (cnv_wf.period_length_ns < clk_gate_wf.duty_length_ns)
+		cnv_wf.period_length_ns = clk_gate_wf.duty_length_ns + ref_clk_period_ns;
+
+	clk_gate_wf.period_length_ns = cnv_wf.period_length_ns;
+
+	if (clk_gate_wf.duty_offset_ns >= clk_gate_wf.period_length_ns)
+		div64_u64_rem(clk_gate_wf.duty_offset_ns,
+			      clk_gate_wf.period_length_ns,
+			      &clk_gate_wf.duty_offset_ns);
+
+	ret = pwm_set_waveform_might_sleep(ltc->cnv, &cnv_wf, false);
+	if (ret < 0)
+		return ret;
+
+	ret = pwm_set_waveform_might_sleep(ltc->clk_gate, &clk_gate_wf, false);
+	if (ret < 0)
+		return ret;
+
+	period_cycles = mul_u64_u32_div(cnv_wf.period_length_ns,
+					ltc->ref_clk_rate, NSEC_PER_SEC);
+	if (!period_cycles)
+		return -EINVAL;
+
+	ltc->sampling_freq = DIV_ROUND_CLOSEST_ULL(ltc->ref_clk_rate,
+						   period_cycles);
+
+	return 0;
+}
+
+static int ltc2387_setup(struct iio_dev *indio_dev)
+{
+	struct ltc2387_dev *ltc = iio_priv(indio_dev);
+	struct device *dev = indio_dev->dev.parent;
+
+	if (device_property_present(dev, "adi,use-two-lanes"))
+		ltc->lane_mode = TWO_LANES;
+
+	return ltc2387_set_sampling_freq(ltc, 15 * MHz);
+}
+
+static int ltc2387_read_raw(struct iio_dev *indio_dev,
+			    const struct iio_chan_spec *chan,
+			    int *val, int *val2, long info)
+{
+	struct ltc2387_dev *ltc = iio_priv(indio_dev);
+
+	switch (info) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		*val = ltc->sampling_freq;
+		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_SCALE:
+		/* Referred to the SMA input, so divided by the front-end gain. */
+		*val = ltc->vref_mv * 2 * 1000;
+		*val2 = ltc->gain_milli << chan->scan_type.realbits;
+		return IIO_VAL_FRACTIONAL;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int ltc2387_write_raw(struct iio_dev *indio_dev,
+			     struct iio_chan_spec const *chan,
+			     int val, int val2, long info)
+{
+	struct ltc2387_dev *ltc = iio_priv(indio_dev);
+
+	switch (info) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return ltc2387_set_sampling_freq(ltc, val);
+
+	default:
+		return -EINVAL;
+	}
+}
+
+static void ltc2387_pwm_disable(void *data)
+{
+	pwm_disable(data);
+}
+
+static void ltc2387_regulator_disable(void *data)
+{
+	regulator_disable(data);
+}
+
+static void ltc2387_clk_disable(void *data)
+{
+	clk_disable_unprepare(data);
+}
+
+static const struct iio_info ltc2387_info = {
+	.read_raw = ltc2387_read_raw,
+	.write_raw = ltc2387_write_raw,
+};
+
+static const struct of_device_id ltc2387_of_match[] = {
+	{
+		.compatible = "lltc,ltc2387-16",
+		.data = &ltc2387_infos[ID_LTC2387_16]
+	}, {
+		.compatible = "lltc,ltc2387-16-x4",
+		.data = &ltc2387_infos[ID_LTC2387_16_X4]
+	}, {
+		.compatible = "lltc,ltc2387-18",
+		.data = &ltc2387_infos[ID_LTC2387_18]
+	}, {
+		.compatible = "lltc,ltc2387-18-x4",
+		.data = &ltc2387_infos[ID_LTC2387_18_X4]
+	}, {
+		.compatible = "adi,adaq23875",
+		.data = &ltc2387_infos[ID_ADAQ23875]
+	}, {
+		.compatible = "adi,adaq23876",
+		.data = &ltc2387_infos[ID_ADAQ23876]
+	}, {
+		.compatible = "adi,adaq23878",
+		.data = &ltc2387_infos[ID_ADAQ23878]
+	},
+	{}
+};
+MODULE_DEVICE_TABLE(of, ltc2387_of_match);
+
+static int ltc2387_probe(struct platform_device *pdev)
+{
+	struct iio_dev			*indio_dev;
+	struct ltc2387_dev		*ltc;
+	int				ret;
+
+	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*ltc));
+	if (!indio_dev)
+		return -ENOMEM;
+
+	ltc = iio_priv(indio_dev);
+
+	ltc->vref = devm_regulator_get_optional(&pdev->dev, "vref");
+	if (!IS_ERR(ltc->vref)) {
+		ret = regulator_enable(ltc->vref);
+		if (ret) {
+			dev_err(&pdev->dev, "Can't enable vref regulator\n");
+			return ret;
+		}
+		ret = regulator_get_voltage(ltc->vref);
+		if (ret < 0)
+			return ret;
+
+		ltc->vref_mv = ret / 1000;
+		ret = devm_add_action_or_reset(&pdev->dev,
+					       ltc2387_regulator_disable,
+					       ltc->vref);
+		if (ret)
+			return ret;
+	} else {
+		if (PTR_ERR(ltc->vref) != -ENODEV)
+			return PTR_ERR(ltc->vref);
+
+		ltc->vref_mv = LTC2387_VREF; /* Internal vref is used */
+	}
+
+	ltc->ref_clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(ltc->ref_clk))
+		return PTR_ERR(ltc->ref_clk);
+
+	ret = clk_prepare_enable(ltc->ref_clk);
+	if (ret)
+		return ret;
+
+	ret = devm_add_action_or_reset(&pdev->dev, ltc2387_clk_disable,
+				       ltc->ref_clk);
+	if (ret)
+		return ret;
+	ltc->ref_clk_rate = clk_get_rate(ltc->ref_clk);
+
+	ltc->clk_gate = devm_pwm_get(&pdev->dev, "clk_gate");
+	if (IS_ERR(ltc->clk_gate))
+		return PTR_ERR(ltc->clk_gate);
+
+	ret = devm_add_action_or_reset(&pdev->dev, ltc2387_pwm_disable,
+				       ltc->clk_gate);
+	if (ret)
+		return ret;
+
+	ltc->cnv = devm_pwm_get(&pdev->dev, "cnv");
+	if (IS_ERR(ltc->cnv))
+		return PTR_ERR(ltc->cnv);
+
+	ret = devm_add_action_or_reset(&pdev->dev, ltc2387_pwm_disable,
+				       ltc->cnv);
+
+	if (ret)
+		return ret;
+
+	ltc->device_info = device_get_match_data(&pdev->dev);
+	if (!ltc->device_info)
+		return -EINVAL;
+
+	ltc->gain_milli = ltc->device_info->default_gain_milli;
+	device_property_read_u32(&pdev->dev, "adi,gain-milli", &ltc->gain_milli);
+	if (!ltc->gain_milli)
+		return dev_err_probe(&pdev->dev, -EINVAL,
+				     "adi,gain-milli must be nonzero\n");
+
+	indio_dev->channels = ltc->device_info->channels;
+	indio_dev->num_channels = ltc->device_info->num_channels;
+	indio_dev->dev.parent = &pdev->dev;
+	indio_dev->name = ltc->device_info->name;
+	indio_dev->info = &ltc2387_info;
+
+	ltc->back = devm_iio_backend_get(&pdev->dev, NULL);
+	if (IS_ERR(ltc->back))
+		return dev_err_probe(&pdev->dev, PTR_ERR(ltc->back),
+				     "failed to get IIO backend\n");
+
+	ret = devm_iio_backend_request_buffer(&pdev->dev, ltc->back, indio_dev);
+	if (ret)
+		return ret;
+
+	ret = devm_iio_backend_enable(&pdev->dev, ltc->back);
+	if (ret)
+		return ret;
+
+	/* axi_ltc2387 has a single capture channel carrying every scan element. */
+	ret = iio_backend_chan_enable(ltc->back, 0);
+	if (ret)
+		return ret;
+
+	ret = ltc2387_setup(indio_dev);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "\nltc2387 setup failed\n");
+		return ret;
+	}
+
+	return devm_iio_device_register(&pdev->dev, indio_dev);
+}
+
+static struct platform_driver ltc2387_driver = {
+	.probe          = ltc2387_probe,
+	.driver         = {
+		.name   = "ltc2387",
+		.of_match_table = ltc2387_of_match,
+	},
+};
+module_platform_driver(ltc2387_driver);
+
+MODULE_AUTHOR("Sergiu Cuciurean <sergiu.cuciurean@analog.com>");
+MODULE_DESCRIPTION("Linear Technology LTC2387 ADC");
+MODULE_LICENSE("Dual BSD/GPL");
+MODULE_IMPORT_NS("IIO_BACKEND");
