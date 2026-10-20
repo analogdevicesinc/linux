@@ -3734,15 +3734,6 @@ static void kick_sync_wait_bal_cb(struct rq *rq)
 	s32 cpu;
 
 	/*
-	 * This callback is queued once the pick is final and flushed within
-	 * @rq's own scheduling pass. If a lock taker on a foreign CPU ever
-	 * flushes it, the snapshots are unrelated to that CPU. Don't get in the
-	 * way and leave the wait pending for @rq's next pick.
-	 */
-	if (unlikely(cpu_of(rq) != smp_processor_id()))
-		return;
-
-	/*
 	 * Clear only when the wait actually runs. The callback can be dropped
 	 * without running (e.g., proxy exec zaps the balance callbacks and
 	 * picks again when find_proxy_task() fails), in which case the next
