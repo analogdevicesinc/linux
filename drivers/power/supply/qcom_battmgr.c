@@ -88,6 +88,7 @@ enum qcom_battmgr_variant {
 #define USB_ADAP_TYPE			7
 #define USB_MOISTURE_DET_EN		8
 #define USB_MOISTURE_DET_STS		9
+#define USB_TEMP			10
 
 #define BATTMGR_WLS_PROPERTY_GET	0x34
 #define BATTMGR_WLS_PROPERTY_SET	0x35
@@ -299,6 +300,7 @@ struct qcom_battmgr_usb {
 	unsigned int current_max;
 	unsigned int current_limit;
 	unsigned int usb_type;
+	int temperature;
 };
 
 struct qcom_battmgr_wireless {
@@ -1049,6 +1051,7 @@ static const u8 sm8350_usb_prop_map[] = {
 	[POWER_SUPPLY_PROP_CURRENT_MAX] = USB_CURR_MAX,
 	[POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT] = USB_INPUT_CURR_LIMIT,
 	[POWER_SUPPLY_PROP_USB_TYPE] = USB_ADAP_TYPE,
+	[POWER_SUPPLY_PROP_TEMP] = USB_TEMP,
 };
 
 static int qcom_battmgr_usb_sm8350_update(struct qcom_battmgr *battmgr,
@@ -1108,6 +1111,9 @@ static int qcom_battmgr_usb_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_USB_TYPE:
 		val->intval = battmgr->usb.usb_type;
+		break;
+	case POWER_SUPPLY_PROP_TEMP:
+		val->intval = battmgr->usb.temperature;
 		break;
 	default:
 		return -EINVAL;
@@ -1173,6 +1179,7 @@ static const enum power_supply_property sm8350_usb_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
 	POWER_SUPPLY_PROP_USB_TYPE,
+	POWER_SUPPLY_PROP_TEMP,
 };
 
 static const struct power_supply_desc sm8350_usb_psy_desc = {
@@ -1648,6 +1655,10 @@ static void qcom_battmgr_sm8350_callback(struct qcom_battmgr *battmgr,
 			break;
 		case USB_ADAP_TYPE:
 			battmgr->usb.usb_type = le32_to_cpu(resp->intval.value);
+			break;
+		case USB_TEMP:
+			battmgr->usb.temperature =
+				DIV_ROUND_CLOSEST((int)le32_to_cpu(resp->intval.value), 10);
 			break;
 		default:
 			dev_warn(battmgr->dev, "unknown property %#x\n", property);
