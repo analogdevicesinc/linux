@@ -911,9 +911,7 @@ static int init_hash_tables(struct dm_snapshot *s)
 
 static void merge_shutdown(struct dm_snapshot *s)
 {
-	clear_bit_unlock(RUNNING_MERGE, &s->state_bits);
-	smp_mb__after_atomic();
-	wake_up_bit(&s->state_bits, RUNNING_MERGE);
+	clear_and_wake_up_bit(RUNNING_MERGE, &s->state_bits);
 }
 
 static struct bio *__release_queued_bios_after_merge(struct dm_snapshot *s)
@@ -1292,6 +1290,20 @@ static int snapshot_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		ti->error = "Couldn't create exception store";
 		r = -EINVAL;
 		goto bad_store;
+	}
+
+	/*
+	 * snapshot-merge requires the optional prepare_merge/commit_merge
+	 * callbacks; the transient exception store does not implement them.
+	 * The handover path checks this in __validate_exception_handover(),
+	 * but a directly constructed snapshot-merge never goes through it.
+	 */
+	if (dm_target_is_snapshot_merge(ti) &&
+	    (!s->store->type->prepare_merge ||
+	     !s->store->type->commit_merge)) {
+		ti->error = "Snapshot exception store does not support snapshot-merge.";
+		r = -EINVAL;
+		goto bad_hash_tables;
 	}
 
 	argv += args_used;

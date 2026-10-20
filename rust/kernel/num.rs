@@ -5,6 +5,8 @@
 use core::ops;
 
 pub mod bounded;
+pub mod casts;
+
 pub use bounded::*;
 
 /// Designates unsigned primitive types.
@@ -13,9 +15,14 @@ pub enum Unsigned {}
 /// Designates signed primitive types.
 pub enum Signed {}
 
+mod private {
+    pub trait Sealed {}
+}
+
 /// Describes core properties of integer types.
 pub trait Integer:
-    Sized
+    private::Sealed
+    + Sized
     + Copy
     + Clone
     + PartialEq
@@ -54,6 +61,8 @@ pub trait Integer:
 macro_rules! impl_integer {
     ($($type:ty: $signedness:ty), *) => {
         $(
+        impl private::Sealed for $type {}
+
         impl Integer for $type {
             type Signedness = $signedness;
 

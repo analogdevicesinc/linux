@@ -220,15 +220,11 @@ static unsigned long imsic_mrif_atomic_rmw(struct imsic_mrif *mrif,
 {
 	unsigned long old_val = 0, tmp = 0;
 
-	__asm__ __volatile__ (
-		"0:	lr.w.aq   %1, %0\n"
-		"	and       %2, %1, %3\n"
-		"	or        %2, %2, %4\n"
-		"	sc.w.rl   %2, %2, %0\n"
-		"	bnez      %2, 0b"
-		: "+A" (*ptr), "+r" (old_val), "+r" (tmp)
-		: "r" (~wr_mask), "r" (new_val & wr_mask)
-		: "memory");
+	new_val &= wr_mask;
+	old_val = READ_ONCE(*ptr);
+	do {
+		tmp = (old_val & ~wr_mask) | new_val;
+	} while (!try_cmpxchg(ptr, &old_val, tmp));
 
 	return old_val;
 }
@@ -969,9 +965,14 @@ int kvm_riscv_aia_imsic_rw_attr(struct kvm *kvm, unsigned long type,
 	if (!vcpu)
 		return -ENODEV;
 
+	if (mutex_lock_killable(&vcpu->mutex))
+		return -EINTR;
+
 	imsic = vcpu->arch.aia_context.imsic_state;
-	if (!imsic)
-		return -ENODEV;
+	if (!imsic) {
+		rc = -ENODEV;
+		goto out_unlock;
+	}
 	isel = KVM_DEV_RISCV_AIA_IMSIC_GET_ISEL(type);
 
 	read_lock_irqsave(&imsic->vsfile_lock, flags);
@@ -995,6 +996,8 @@ int kvm_riscv_aia_imsic_rw_attr(struct kvm *kvm, unsigned long type,
 		rc = imsic_vsfile_rw(vsfile_hgei, vsfile_cpu, imsic->nr_eix,
 				     isel, write, val);
 
+out_unlock:
+	mutex_unlock(&vcpu->mutex);
 	return rc;
 }
 
@@ -1108,7 +1111,7 @@ int kvm_riscv_vcpu_aia_imsic_init(struct kvm_vcpu *vcpu)
 		return -EINVAL;
 
 	/* Allocate IMSIC context */
-	imsic = kzalloc_obj(*imsic);
+	imsic = kzalloc_obj(*imsic, GFP_KERNEL_ACCOUNT);
 	if (!imsic)
 		return -ENOMEM;
 	vcpu->arch.aia_context.imsic_state = imsic;
@@ -1121,7 +1124,7 @@ int kvm_riscv_vcpu_aia_imsic_init(struct kvm_vcpu *vcpu)
 	imsic->vsfile_hgei = imsic->vsfile_cpu = -1;
 
 	/* Setup IMSIC SW-file */
-	swfile_page = alloc_pages(GFP_KERNEL | __GFP_ZERO,
+	swfile_page = alloc_pages(GFP_KERNEL_ACCOUNT | __GFP_ZERO,
 				  get_order(sizeof(*imsic->swfile)));
 	if (!swfile_page) {
 		ret = -ENOMEM;

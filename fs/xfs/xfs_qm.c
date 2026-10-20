@@ -128,7 +128,7 @@ xfs_qm_dqpurge(
 	struct xfs_quotainfo	*qi = dqp->q_mount->m_quotainfo;
 
 	spin_lock(&dqp->q_lockref.lock);
-	if (dqp->q_lockref.count > 0 || __lockref_is_dead(&dqp->q_lockref)) {
+	if (dqp->q_lockref.count > 0 || lockref_is_dead(&dqp->q_lockref)) {
 		spin_unlock(&dqp->q_lockref.lock);
 		return -EAGAIN;
 	}
@@ -429,7 +429,7 @@ xfs_qm_dquot_isolate(
 	 * from the LRU, leave it for the freeing task to complete the freeing
 	 * process rather than risk it being free from under us here.
 	 */
-	if (__lockref_is_dead(&dqp->q_lockref))
+	if (lockref_is_dead(&dqp->q_lockref))
 		goto out_miss_unlock;
 
 	/*
@@ -1432,16 +1432,22 @@ xfs_qm_flush_one(
 
 	error = xfs_dquot_use_attached_buf(dqp, &bp);
 	if (error)
-		goto out_unlock;
+		goto out_dqflock;
 	if (!bp) {
 		error = -EFSCORRUPTED;
-		goto out_unlock;
+		goto out_dqflock;
 	}
 
 	error = xfs_qm_dqflush(dqp, bp);
 	if (!error)
 		xfs_buf_delwri_queue(bp, buffer_list);
 	xfs_buf_relse(bp);
+	mutex_unlock(&dqp->q_qlock);
+	xfs_qm_dqrele(dqp);
+	return error;
+
+out_dqflock:
+	xfs_dqfunlock(dqp);
 out_unlock:
 	mutex_unlock(&dqp->q_qlock);
 	xfs_qm_dqrele(dqp);

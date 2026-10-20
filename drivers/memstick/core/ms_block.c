@@ -1338,6 +1338,10 @@ static int msb_ftl_initialize(struct msb_data *msb)
 		return 0;
 
 	msb->zone_count = msb->block_count / MS_BLOCKS_IN_ZONE;
+	if (msb->block_count > MS_MAX_ZONES * MS_BLOCKS_IN_ZONE) {
+		pr_err("Too many blocks: %d\n", msb->block_count);
+		return -EINVAL;
+	}
 	msb->logical_block_count = msb->zone_count * 496 - 2;
 
 	msb->used_blocks_bitmap = bitmap_zalloc(msb->block_count, GFP_KERNEL);
@@ -2199,6 +2203,8 @@ static void msb_remove(struct memstick_dev *card)
 	mutex_lock(&msb_disk_lock);
 	msb_data_clear(msb);
 	mutex_unlock(&msb_disk_lock);
+
+	destroy_workqueue(msb->io_queue);
 
 	put_disk(msb->disk);
 	memstick_set_drvdata(card, NULL);

@@ -16,6 +16,7 @@
 
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_modes.h>
+#include <drm/drm_of.h>
 #include <drm/drm_panel.h>
 
 #include <video/mipi_display.h>
@@ -2562,16 +2563,19 @@ static int ili9881c_dsi_probe(struct mipi_dsi_device *dsi)
 				     "Couldn't get our power regulator\n");
 
 	ctx->iovcc = devm_regulator_get_optional(&dsi->dev, "iovcc");
-	if (IS_ERR(ctx->iovcc))
-		return dev_err_probe(&dsi->dev, PTR_ERR(ctx->iovcc),
+	if (IS_ERR(ctx->iovcc)) {
+		if (PTR_ERR(ctx->iovcc) != -ENODEV)
+			return dev_err_probe(&dsi->dev, PTR_ERR(ctx->iovcc),
 				     "Couldn't get our iovcc regulator\n");
+		ctx->iovcc = NULL;
+	}
 
 	ctx->reset = devm_gpiod_get_optional(&dsi->dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(ctx->reset))
 		return dev_err_probe(&dsi->dev, PTR_ERR(ctx->reset),
 				     "Couldn't get our reset GPIO\n");
 
-	ret = of_drm_get_panel_orientation(dsi->dev.of_node, &ctx->orientation);
+	ret = drm_of_get_panel_orientation(dsi->dev.of_node, &ctx->orientation);
 	if (ret) {
 		dev_err(&dsi->dev, "%pOF: failed to get orientation: %d\n",
 			dsi->dev.of_node, ret);

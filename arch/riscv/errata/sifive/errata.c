@@ -51,6 +51,22 @@ static bool errata_cip_1200_check_func(unsigned long  arch_id, unsigned long imp
 	return true;
 }
 
+static bool errata_mal_9092_check_func(unsigned long  arch_id, unsigned long impid)
+{
+	/*
+	 * Affected cores:
+	 * Architecture ID: 0x8000000000000109
+	 * Implementation ID: 0x19251031, 0x19251217, 0x19260320
+	 */
+
+	if (arch_id != 0x8000000000000109)
+		return false;
+	if (impid != 0x19251031 && impid != 0x19251217 && impid != 0x19260320)
+		return false;
+
+	return true;
+}
+
 static struct errata_info_t errata_list[ERRATA_SIFIVE_NUMBER] = {
 	{
 		.name = "cip-453",
@@ -59,6 +75,10 @@ static struct errata_info_t errata_list[ERRATA_SIFIVE_NUMBER] = {
 	{
 		.name = "cip-1200",
 		.check_func = errata_cip_1200_check_func
+	},
+	{
+		.name = "mal-9092",
+		.check_func = errata_mal_9092_check_func
 	},
 };
 
@@ -93,10 +113,8 @@ void sifive_errata_patch_func(struct alt_entry *begin, struct alt_entry *end,
 	for (alt = begin; alt < end; alt++) {
 		if (alt->vendor_id != SIFIVE_VENDOR_ID)
 			continue;
-		if (alt->patch_id >= ERRATA_SIFIVE_NUMBER) {
-			WARN(1, "This errata id:%d is not in kernel errata list", alt->patch_id);
+		if (alt->patch_id >= ERRATA_SIFIVE_NUMBER)
 			continue;
-		}
 
 		tmp = (1U << alt->patch_id);
 		if (cpu_req_errata & tmp) {

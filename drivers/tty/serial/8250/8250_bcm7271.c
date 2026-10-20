@@ -1099,10 +1099,8 @@ static int brcmuart_probe(struct platform_device *pdev)
 		}
 		ret = devm_request_irq(dev, dma_irq, brcmuart_isr,
 				IRQF_SHARED, "uart DMA irq", &new_port->port);
-		if (ret) {
-			dev_err_probe(dev, ret, "unable to register IRQ handler\n");
+		if (ret)
 			goto err1;
-		}
 	}
 	platform_set_drvdata(pdev, priv);
 	brcmuart_init_debugfs(priv, dev_name(&pdev->dev));
@@ -1123,8 +1121,8 @@ static void brcmuart_remove(struct platform_device *pdev)
 	struct brcmuart_priv *priv = platform_get_drvdata(pdev);
 
 	debugfs_remove_recursive(priv->debugfs_dir);
-	hrtimer_cancel(&priv->hrt);
 	serial8250_unregister_port(priv->line);
+	hrtimer_cancel(&priv->hrt);
 	brcmuart_free_bufs(&pdev->dev, priv);
 	if (priv->dma_enabled)
 		brcmuart_arbitration(priv, 0);

@@ -7,7 +7,6 @@
 
 #include <linux/slab.h>
 #include <linux/mempool.h>
-#include <linux/delay.h>
 #include "internal.h"
 
 static void netfs_free_request(struct work_struct *work);
@@ -26,33 +25,47 @@ struct netfs_io_request *netfs_alloc_request(struct address_space *mapping,
 	struct netfs_io_request *rreq;
 	mempool_t *mempool = ctx->ops->request_pool ?: &netfs_request_pool;
 	struct kmem_cache *cache = mempool->pool_data;
+	gfp_t gfp = GFP_KERNEL;
 	int ret;
 
-	for (;;) {
-		rreq = mempool_alloc(mempool, GFP_KERNEL);
-		if (rreq)
-			break;
-		msleep(10);
+	/* Writeback is part of memory reclaim and must not fail due to ENOMEM. */
+	if (origin == NETFS_WRITEBACK || origin == NETFS_WRITEBACK_SINGLE) {
+		gfp = GFP_NOFS; /* Allows use of mempools. */
+
+		rreq = mempool_alloc(mempool, gfp);
+	} else {
+		rreq = mempool_alloc_noreserve(mempool, gfp);
+		if (!rreq)
+			return ERR_PTR(-ENOMEM);
 	}
 
 	memset(rreq, 0, kmem_cache_size(cache));
 	INIT_WORK(&rreq->cleanup_work, netfs_free_request);
-	rreq->start	= start;
-	rreq->len	= len;
-	rreq->origin	= origin;
-	rreq->netfs_ops	= ctx->ops;
-	rreq->mapping	= mapping;
-	rreq->inode	= inode;
-	rreq->i_size	= i_size_read(inode);
-	rreq->debug_id	= atomic_inc_return(&debug_ids);
-	rreq->wsize	= INT_MAX;
+	rreq->gfp		= gfp;
+	rreq->start		= start;
+	rreq->collected_to	= start;
+	rreq->cleaned_to	= start;
+	rreq->len		= len;
+	rreq->progress_at	= 0;
+	rreq->origin		= origin;
+	rreq->netfs_ops		= ctx->ops;
+	rreq->mapping		= mapping;
+	rreq->inode		= inode;
+	rreq->i_size		= i_size_read(inode);
+	rreq->debug_id		= atomic_inc_return(&debug_ids);
+	rreq->wsize		= INT_MAX;
 	rreq->io_streams[0].sreq_max_len = ULONG_MAX;
 	rreq->io_streams[0].sreq_max_segs = 0;
 	spin_lock_init(&rreq->lock);
-	INIT_LIST_HEAD(&rreq->io_streams[0].subrequests);
-	INIT_LIST_HEAD(&rreq->io_streams[1].subrequests);
 	init_waitqueue_head(&rreq->waitq);
 	refcount_set(&rreq->ref, 2);
+
+	for (int s = 0; s < NR_IO_STREAMS; s++) {
+		struct netfs_io_stream *stream = &rreq->io_streams[s];
+
+		INIT_LIST_HEAD(&stream->subrequests);
+		stream->collected_to = rreq->start;
+	}
 
 	if (origin == NETFS_READAHEAD ||
 	    origin == NETFS_READPAGE ||
@@ -200,13 +213,12 @@ struct netfs_io_subrequest *netfs_alloc_subrequest(struct netfs_io_request *rreq
 	mempool_t *mempool = rreq->netfs_ops->subrequest_pool ?: &netfs_subrequest_pool;
 	struct kmem_cache *cache = mempool->pool_data;
 
-	for (;;) {
-		subreq = mempool_alloc(rreq->netfs_ops->subrequest_pool ?: &netfs_subrequest_pool,
-				       GFP_KERNEL);
-		if (subreq)
-			break;
-		msleep(10);
-	}
+	if (rreq->gfp == GFP_KERNEL)
+		subreq = mempool_alloc_noreserve(mempool, rreq->gfp);
+	else
+		subreq = mempool_alloc(mempool, rreq->gfp);
+	if (!subreq)
+		return NULL;
 
 	memset(subreq, 0, kmem_cache_size(cache));
 	INIT_WORK(&subreq->work, NULL);

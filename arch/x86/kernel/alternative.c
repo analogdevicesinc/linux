@@ -6,6 +6,9 @@
 #include <linux/vmalloc.h>
 #include <linux/memory.h>
 #include <linux/execmem.h>
+#include <linux/cleanup.h>
+#include <linux/kgdb.h>
+#include <linux/mmap_lock.h>
 
 #include <asm/text-patching.h>
 #include <asm/insn.h>
@@ -40,15 +43,6 @@ static int __init debug_alt(char *str)
 	return 1;
 }
 __setup("debug-alternative", debug_alt);
-
-static int noreplace_smp;
-
-static int __init setup_noreplace_smp(char *str)
-{
-	noreplace_smp = 1;
-	return 1;
-}
-__setup("noreplace-smp", setup_noreplace_smp);
 
 #define DPRINTK(type, fmt, args...)					\
 do {									\
@@ -1207,6 +1201,41 @@ static bool cfi_debug __ro_after_init;
 bool cfi_bhi __ro_after_init = false;
 #endif
 
+#ifdef CONFIG_FINEIBT
+/*
+ * <fineibt_preamble_start>:
+ *  0:   f3 0f 1e fa             endbr64
+ *  4:   2d 78 56 34 12          sub    $0x12345678, %eax
+ *  9:   2e 0f 85 03 00 00 00    jne,pn 13 <fineibt_preamble_start+0x13>
+ * 10:   0f 1f 40 d6             nopl   -0x2a(%rax)
+ *
+ * Note that the JNE target is the 0xD6 byte inside the NOPL, this decodes as
+ * UDB on x86_64 and raises #UD.
+ */
+asm(	".pushsection .rodata				\n"
+	"fineibt_preamble_start:			\n"
+	"	endbr64					\n"
+	"	subl	$0x12345678, %eax		\n"
+	"fineibt_preamble_bhi:				\n"
+	"	cs jne.d32 fineibt_preamble_start+0x13	\n"
+	"#fineibt_func:					\n"
+	"	nopl	-42(%rax)			\n"
+	"fineibt_preamble_end:				\n"
+	".popsection\n"
+);
+
+extern u8 fineibt_preamble_start[];
+extern u8 fineibt_preamble_bhi[];
+extern u8 fineibt_preamble_end[];
+
+#define fineibt_preamble_size (fineibt_preamble_end - fineibt_preamble_start)
+#define fineibt_preamble_bhi  (fineibt_preamble_bhi - fineibt_preamble_start)
+#define fineibt_preamble_ud   0x13
+#define fineibt_preamble_hash 5
+
+#define fineibt_prefix_size (fineibt_preamble_size - ENDBR_INSN_SIZE)
+#endif /* CONFIG_FINEIBT */
+
 #ifdef CONFIG_CFI
 u32 cfi_get_func_hash(void *func)
 {
@@ -1214,9 +1243,11 @@ u32 cfi_get_func_hash(void *func)
 
 	func -= cfi_get_offset();
 	switch (cfi_mode) {
+#ifdef CONFIG_FINEIBT
 	case CFI_FINEIBT:
-		func += 7;
+		func += fineibt_preamble_hash;
 		break;
+#endif
 	case CFI_KCFI:
 		func += 1;
 		break;
@@ -1356,40 +1387,21 @@ early_param("cfi", cfi_parse_cmdline);
  *  "Make conditional jumps most often not taken: The efficiency and throughput
  *   for not-taken branches is better than for taken branches on most
  *   processors. Therefore, it is good to place the most frequent branch first"
- */
-
-/*
- * <fineibt_preamble_start>:
- *  0:   f3 0f 1e fa             endbr64
- *  4:   2d 78 56 34 12          sub    $0x12345678, %eax
- *  9:   2e 0f 85 03 00 00 00    jne,pn 13 <fineibt_preamble_start+0x13>
- * 10:   0f 1f 40 d6             nopl   -0x2a(%rax)
  *
- * Note that the JNE target is the 0xD6 byte inside the NOPL, this decodes as
- * UDB on x86_64 and raises #UD.
+ * NOTE: Update the kCFI caller sequence to make use of this observation:
+ *
+ * kCFI						kCFI-OPT
+ *
+ * caller:					caller:
+ *	movl	$(-0x12345678),%r10d	 // 6	     movl	$(-0x12345678),%r10d	 // 6
+ *	addl	$-15(%r11),%r10d	 // 4	     addl	$-15(%r11),%r10d	 // 4
+ *	je	1f			 // 2	     jne	. + 3                    // 2
+ *	ud2				 // 2        test	$0xd6, %al		 // 2
+ * 1:	cs call	__x86_indirect_thunk_r11 // 6	1:   cs call	__x86_indirect_thunk_r11 // 6
+ *
+ * This new test clobbers eflags, but those are clobbered by the hash test
+ * anyway.
  */
-asm(	".pushsection .rodata				\n"
-	"fineibt_preamble_start:			\n"
-	"	endbr64					\n"
-	"	subl	$0x12345678, %eax		\n"
-	"fineibt_preamble_bhi:				\n"
-	"	cs jne.d32 fineibt_preamble_start+0x13	\n"
-	"#fineibt_func:					\n"
-	"	nopl	-42(%rax)			\n"
-	"fineibt_preamble_end:				\n"
-	".popsection\n"
-);
-
-extern u8 fineibt_preamble_start[];
-extern u8 fineibt_preamble_bhi[];
-extern u8 fineibt_preamble_end[];
-
-#define fineibt_preamble_size (fineibt_preamble_end - fineibt_preamble_start)
-#define fineibt_preamble_bhi  (fineibt_preamble_bhi - fineibt_preamble_start)
-#define fineibt_preamble_ud   0x13
-#define fineibt_preamble_hash 5
-
-#define fineibt_prefix_size (fineibt_preamble_size - ENDBR_INSN_SIZE)
 
 /*
  * <fineibt_caller_start>:
@@ -1443,7 +1455,8 @@ asm(	".pushsection .rodata				\n"
 	"fineibt_paranoid_start:			\n"
 	"	mov	$0x12345678, %eax		\n"
 	"	cmpl	-11(%r11), %eax			\n"
-	"	cs lea	-0x10(%r11), %r11		\n"
+	"	.byte	0x2e				\n"
+	"	lea	-0x10(%r11), %r11		\n"
 	"#fineibt_caller_size:                          \n"
 	"	jne	fineibt_paranoid_start+0xd	\n"
 	"fineibt_paranoid_ind:				\n"
@@ -1518,8 +1531,9 @@ static int cfi_disable_callers(s32 *start, s32 *end)
 static int cfi_enable_callers(s32 *start, s32 *end)
 {
 	/*
-	 * Re-enable kCFI, undo what cfi_disable_callers() did.
+	 * Re-enable (and update) kCFI, undo what cfi_disable_callers() did.
 	 */
+	const u8 udne[] = { 0x75, 0x01, 0xa8, 0xd6 };
 	const u8 mov[] = { 0x41, 0xba };
 	s32 *s;
 
@@ -1532,6 +1546,10 @@ static int cfi_enable_callers(s32 *start, s32 *end)
 		if (!hash) /* nocfi callers */
 			continue;
 
+		/*
+		 * See the kCFI/FineIBT comment above -- update note.
+		 */
+		text_poke_early(addr + 10, udne, 4);
 		text_poke_early(addr, mov, 2);
 	}
 
@@ -1775,8 +1793,8 @@ static int cfi_rewrite_callers(s32 *start, s32 *end)
 #define FINEIBT_WARN(_f, _v) \
 	WARN_ONCE((_f) != (_v), "FineIBT: " #_f " %ld != %d\n", _f, _v)
 
-static void __apply_fineibt(s32 *start_retpoline, s32 *end_retpoline,
-			    s32 *start_cfi, s32 *end_cfi, bool builtin)
+static void __init_or_module __apply_fineibt(s32 *start_retpoline, s32 *end_retpoline,
+					     s32 *start_cfi, s32 *end_cfi, bool builtin)
 {
 	int ret;
 
@@ -2088,8 +2106,8 @@ bool decode_fineibt_insn(struct pt_regs *regs, unsigned long *target, u32 *type)
 
 #else /* !CONFIG_FINEIBT: */
 
-static void __apply_fineibt(s32 *start_retpoline, s32 *end_retpoline,
-			    s32 *start_cfi, s32 *end_cfi, bool builtin)
+static void __init_or_module __apply_fineibt(s32 *start_retpoline, s32 *end_retpoline,
+					     s32 *start_cfi, s32 *end_cfi, bool builtin)
 {
 	if (IS_ENABLED(CONFIG_CFI) && builtin)
 		pr_info("CFI: Using standard kCFI\n");
@@ -2101,166 +2119,13 @@ static void poison_cfi(void *addr) { }
 
 #endif /* !CONFIG_FINEIBT */
 
-void apply_fineibt(s32 *start_retpoline, s32 *end_retpoline,
-		   s32 *start_cfi, s32 *end_cfi)
+void __init_or_module apply_fineibt(s32 *start_retpoline, s32 *end_retpoline,
+				    s32 *start_cfi, s32 *end_cfi)
 {
 	return __apply_fineibt(start_retpoline, end_retpoline,
 			       start_cfi, end_cfi,
 			       /* .builtin = */ false);
 }
-
-#ifdef CONFIG_SMP
-static void alternatives_smp_lock(const s32 *start, const s32 *end,
-				  u8 *text, u8 *text_end)
-{
-	const s32 *poff;
-
-	for (poff = start; poff < end; poff++) {
-		u8 *ptr = (u8 *)poff + *poff;
-
-		if (!*poff || ptr < text || ptr >= text_end)
-			continue;
-		/* turn DS segment override prefix into lock prefix */
-		if (*ptr == 0x3e)
-			text_poke(ptr, ((unsigned char []){0xf0}), 1);
-	}
-}
-
-static void alternatives_smp_unlock(const s32 *start, const s32 *end,
-				    u8 *text, u8 *text_end)
-{
-	const s32 *poff;
-
-	for (poff = start; poff < end; poff++) {
-		u8 *ptr = (u8 *)poff + *poff;
-
-		if (!*poff || ptr < text || ptr >= text_end)
-			continue;
-		/* turn lock prefix into DS segment override prefix */
-		if (*ptr == 0xf0)
-			text_poke(ptr, ((unsigned char []){0x3E}), 1);
-	}
-}
-
-struct smp_alt_module {
-	/* what is this ??? */
-	struct module	*mod;
-	char		*name;
-
-	/* ptrs to lock prefixes */
-	const s32	*locks;
-	const s32	*locks_end;
-
-	/* .text segment, needed to avoid patching init code ;) */
-	u8		*text;
-	u8		*text_end;
-
-	struct list_head next;
-};
-static LIST_HEAD(smp_alt_modules);
-static bool uniproc_patched = false;	/* protected by text_mutex */
-
-void __init_or_module alternatives_smp_module_add(struct module *mod,
-						  char *name,
-						  void *locks, void *locks_end,
-						  void *text,  void *text_end)
-{
-	struct smp_alt_module *smp;
-
-	mutex_lock(&text_mutex);
-	if (!uniproc_patched)
-		goto unlock;
-
-	if (num_possible_cpus() == 1)
-		/* Don't bother remembering, we'll never have to undo it. */
-		goto smp_unlock;
-
-	smp = kzalloc_obj(*smp);
-	if (NULL == smp)
-		/* we'll run the (safe but slow) SMP code then ... */
-		goto unlock;
-
-	smp->mod	= mod;
-	smp->name	= name;
-	smp->locks	= locks;
-	smp->locks_end	= locks_end;
-	smp->text	= text;
-	smp->text_end	= text_end;
-	DPRINTK(SMP, "locks %p -> %p, text %p -> %p, name %s\n",
-		smp->locks, smp->locks_end,
-		smp->text, smp->text_end, smp->name);
-
-	list_add_tail(&smp->next, &smp_alt_modules);
-smp_unlock:
-	alternatives_smp_unlock(locks, locks_end, text, text_end);
-unlock:
-	mutex_unlock(&text_mutex);
-}
-
-void __init_or_module alternatives_smp_module_del(struct module *mod)
-{
-	struct smp_alt_module *item;
-
-	mutex_lock(&text_mutex);
-	list_for_each_entry(item, &smp_alt_modules, next) {
-		if (mod != item->mod)
-			continue;
-		list_del(&item->next);
-		kfree(item);
-		break;
-	}
-	mutex_unlock(&text_mutex);
-}
-
-void alternatives_enable_smp(void)
-{
-	struct smp_alt_module *mod;
-
-	/* Why bother if there are no other CPUs? */
-	BUG_ON(num_possible_cpus() == 1);
-
-	mutex_lock(&text_mutex);
-
-	if (uniproc_patched) {
-		pr_info("switching to SMP code\n");
-		BUG_ON(num_online_cpus() != 1);
-		clear_cpu_cap(&boot_cpu_data, X86_FEATURE_UP);
-		clear_cpu_cap(&cpu_data(0), X86_FEATURE_UP);
-		list_for_each_entry(mod, &smp_alt_modules, next)
-			alternatives_smp_lock(mod->locks, mod->locks_end,
-					      mod->text, mod->text_end);
-		uniproc_patched = false;
-	}
-	mutex_unlock(&text_mutex);
-}
-
-/*
- * Return 1 if the address range is reserved for SMP-alternatives.
- * Must hold text_mutex.
- */
-int alternatives_text_reserved(void *start, void *end)
-{
-	struct smp_alt_module *mod;
-	const s32 *poff;
-	u8 *text_start = start;
-	u8 *text_end = end;
-
-	lockdep_assert_held(&text_mutex);
-
-	list_for_each_entry(mod, &smp_alt_modules, next) {
-		if (mod->text > text_end || mod->text_end < text_start)
-			continue;
-		for (poff = mod->locks; poff < mod->locks_end; poff++) {
-			const u8 *ptr = (const u8 *)poff + *poff;
-
-			if (text_start <= ptr && text_end > ptr)
-				return 1;
-		}
-	}
-
-	return 0;
-}
-#endif /* CONFIG_SMP */
 
 /*
  * Self-test for the INT3 based CALL emulation code.
@@ -2312,6 +2177,7 @@ int3_exception_notify(struct notifier_block *self, unsigned long val, void *data
 	unsigned long selftest = (unsigned long)&int3_selftest_asm;
 	struct die_args *args = data;
 	struct pt_regs *regs = args->regs;
+	unsigned long ip;
 
 	OPTIMIZER_HIDE_VAR(selftest);
 
@@ -2324,7 +2190,8 @@ int3_exception_notify(struct notifier_block *self, unsigned long val, void *data
 	if (regs->ip - INT3_INSN_SIZE != selftest)
 		return NOTIFY_DONE;
 
-	int3_emulate_call(regs, (unsigned long)&int3_selftest_callee);
+	ip = regs->ip - INT3_INSN_SIZE + CALL_INSN_SIZE;
+	int3_emulate_call(regs, ip, (unsigned long)&int3_selftest_callee);
 	return NOTIFY_STOP;
 }
 
@@ -2440,39 +2307,11 @@ void __init alternative_instructions(void)
 
 	ibt_restore(ibt);
 
-#ifdef CONFIG_SMP
-	/* Patch to UP if other cpus not imminent. */
-	if (!noreplace_smp && (num_present_cpus() == 1 || setup_max_cpus <= 1)) {
-		uniproc_patched = true;
-		alternatives_smp_module_add(NULL, "core kernel",
-					    __smp_locks, __smp_locks_end,
-					    _text, _etext);
-	}
-#endif
-
 	restart_nmi();
 	alternatives_patched = 1;
 
 	alt_reloc_selftest();
 }
-
-#ifdef CONFIG_SMP
-/*
- * With CONFIG_DEFERRED_STRUCT_PAGE_INIT enabled we can free_init_pages() only
- * after the deferred initialization of the memory map is complete.
- */
-static int __init free_smp_locks(void)
-{
-	if (!uniproc_patched || num_possible_cpus() == 1) {
-		free_init_pages("SMP alternatives",
-				(unsigned long)__smp_locks,
-				(unsigned long)__smp_locks_end);
-	}
-
-	return 0;
-}
-arch_initcall(free_smp_locks);
-#endif
 
 /**
  * text_poke_early - Update instructions on a live kernel at boot time
@@ -2543,6 +2382,38 @@ static void text_poke_memset(void *dst, const void *src, size_t len)
 
 typedef void text_poke_f(void *dst, const void *src, size_t len);
 
+static void __poke_vmalloc_pages(struct page **pages, void *addr,
+				 bool cross_page_boundary)
+{
+	pages[0] = vmalloc_to_page(addr);
+	if (cross_page_boundary)
+		pages[1] = vmalloc_to_page(addr + PAGE_SIZE);
+}
+
+static void poke_vmalloc_pages(struct page **pages, void *addr,
+			       bool cross_page_boundary)
+{
+	if (in_dbg_master()) {
+		/*
+		 * If called from kgdb cannot sleep, but all other CPUs stopped
+		 * anyway so safe to proceed without locks
+		 */
+		__poke_vmalloc_pages(pages, addr, cross_page_boundary);
+	} else {
+		/*
+		 * execmem ROX ranges are shared between modules and can be
+		 * collapsed to huge PMD entries, and this collapse can happen
+		 * concurrently with a racing set_memory_rox().
+		 *
+		 * Prevent vmalloc_to_page() from racing by acquiring an
+		 * init_mm read lock which pairs with the init_mm write lock in
+		 * cpa_collapse_large_pages().
+		 */
+		guard(mmap_read_lock)(&init_mm);
+		__poke_vmalloc_pages(pages, addr, cross_page_boundary);
+	}
+}
+
 static void *__text_poke(text_poke_f func, void *addr, const void *src, size_t len)
 {
 	bool cross_page_boundary = offset_in_page(addr) + len > PAGE_SIZE;
@@ -2560,9 +2431,7 @@ static void *__text_poke(text_poke_f func, void *addr, const void *src, size_t l
 	BUG_ON(!after_bootmem);
 
 	if (!core_kernel_text((unsigned long)addr)) {
-		pages[0] = vmalloc_to_page(addr);
-		if (cross_page_boundary)
-			pages[1] = vmalloc_to_page(addr + PAGE_SIZE);
+		poke_vmalloc_pages(pages, addr, cross_page_boundary);
 	} else {
 		pages[0] = virt_to_page(addr);
 		WARN_ON(!PageReserved(pages[0]));
@@ -2892,7 +2761,7 @@ noinstr int smp_text_poke_int3_handler(struct pt_regs *regs)
 		break;
 
 	case CALL_INSN_OPCODE:
-		int3_emulate_call(regs, (long)ip + tpl->disp);
+		int3_emulate_call(regs, (long)ip, (long)ip + tpl->disp);
 		break;
 
 	case JMP32_INSN_OPCODE:

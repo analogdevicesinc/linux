@@ -35,6 +35,7 @@
 #include <linux/time.h>
 #include <linux/mm.h>
 #include <linux/mman.h>
+#include <linux/pseudo_fs.h>
 #include <linux/ptrace.h>
 #include <linux/dma-buf.h>
 #include <linux/processor.h>
@@ -70,18 +71,54 @@ static const struct class kfd_class = {
 };
 
 /*
- * Cache the address space of the chardev on first open so that the reset
- * path can drop all userspace mappings of doorbell and MMIO ranges via
- * unmap_mapping_range().
+ * Private pseudo-filesystem for KFD, Provides a stable, module-owned
+ * inode whose address_space is the unmap target for all /dev/kfd
+ * openers during GPU reset.
  */
-static struct address_space *kfd_dev_mapping;
+static struct vfsmount *kfd_fs_mnt;
+static int kfd_fs_cnt;
+
+static int kfd_fs_init_fs_context(struct fs_context *fc)
+{
+	return init_pseudo(fc, 0x4b464400 /* "KFD" */) ? 0 : -ENOMEM;
+}
+
+static struct file_system_type kfd_fs_type = {
+	.name		= "kfd",
+	.init_fs_context = kfd_fs_init_fs_context,
+	.kill_sb	= kill_anon_super,
+};
+
+static struct inode *kfd_fs_inode_new(void)
+{
+	struct inode *inode;
+	int r;
+
+	r = simple_pin_fs(&kfd_fs_type, &kfd_fs_mnt, &kfd_fs_cnt);
+	if (r < 0)
+		return ERR_PTR(r);
+
+	inode = alloc_anon_inode(kfd_fs_mnt->mnt_sb);
+	if (IS_ERR(inode))
+		simple_release_fs(&kfd_fs_mnt, &kfd_fs_cnt);
+
+	return inode;
+}
+
+static void kfd_fs_inode_free(struct inode *inode)
+{
+	if (inode) {
+		iput(inode);
+		simple_release_fs(&kfd_fs_mnt, &kfd_fs_cnt);
+	}
+}
+
+static struct inode *kfd_anon_inode;
 
 void kfd_dev_unmap_mapping_range(loff_t const holebegin, loff_t const holelen)
 {
-	struct address_space *mapping = READ_ONCE(kfd_dev_mapping);
-
-	if (mapping)
-		unmap_mapping_range(mapping, holebegin, holelen, 1);
+	if (kfd_anon_inode)
+		unmap_mapping_range(kfd_anon_inode->i_mapping, holebegin, holelen, 1);
 }
 
 static inline struct kfd_process_device *kfd_lock_pdd_by_id(struct kfd_process *p, __u32 gpu_id)
@@ -107,6 +144,13 @@ int kfd_chardev_init(void)
 {
 	int err = 0;
 
+	kfd_anon_inode = kfd_fs_inode_new();
+	if (IS_ERR(kfd_anon_inode)) {
+		err = PTR_ERR(kfd_anon_inode);
+		kfd_anon_inode = NULL;
+		return err;
+	}
+
 	kfd_char_dev_major = register_chrdev(0, kfd_dev_name, &kfd_fops);
 	err = kfd_char_dev_major;
 	if (err < 0)
@@ -130,6 +174,8 @@ err_device_create:
 err_class_create:
 	unregister_chrdev(kfd_char_dev_major, kfd_dev_name);
 err_register_chrdev:
+	kfd_fs_inode_free(kfd_anon_inode);
+	kfd_anon_inode = NULL;
 	return err;
 }
 
@@ -138,6 +184,8 @@ void kfd_chardev_exit(void)
 	device_destroy(&kfd_class, MKDEV(kfd_char_dev_major, 0));
 	class_unregister(&kfd_class);
 	unregister_chrdev(kfd_char_dev_major, kfd_dev_name);
+	kfd_fs_inode_free(kfd_anon_inode);
+	kfd_anon_inode = NULL;
 	kfd_device = NULL;
 }
 
@@ -150,12 +198,7 @@ static int kfd_open(struct inode *inode, struct file *filep)
 	if (iminor(inode) != 0)
 		return -ENODEV;
 
-	/*
-	 * /dev/kfd is a single chardev so all opens share one inode. Cache
-	 * its address_space on the first open for use by the reset path.
-	 */
-	if (!READ_ONCE(kfd_dev_mapping))
-		cmpxchg(&kfd_dev_mapping, NULL, inode->i_mapping);
+	filep->f_mapping = kfd_anon_inode->i_mapping;
 
 	is_32bit_user_mode = in_compat_syscall();
 
@@ -1200,7 +1243,8 @@ static int kfd_ioctl_alloc_memory_of_gpu(struct file *filep,
 
 		if (flags & KFD_IOC_ALLOC_MEM_FLAGS_AQL_QUEUE_MEM)
 			size >>= 1;
-		atomic64_add(PAGE_ALIGN(size), &pdd->vram_usage);
+		size = PAGE_ALIGN(size);
+		atomic64_add(size, &pdd->vram_usage);
 	}
 
 	mutex_unlock(&p->mutex);
@@ -1783,7 +1827,7 @@ static int kfd_ptl_control(struct kfd_process_device *pdd, bool enable)
 	uint32_t ptl_state = enable ? 1 : 0;
 	int ret;
 
-	if (!ptl->hw_supported)
+	if (ptl->hw_supported_state != AMDGPU_PTL_HW_SUPPORTED)
 		return -EOPNOTSUPP;
 
 	if (!pdd->dev->kfd2kgd || !pdd->dev->kfd2kgd->ptl_ctrl)
@@ -1803,6 +1847,9 @@ int kfd_ptl_disable_request(struct kfd_process_device *pdd,
 	struct amdgpu_device *adev = pdd->dev->adev;
 	struct amdgpu_ptl *ptl = &adev->psp.ptl;
 	int ret = 0;
+
+	if (ptl->hw_supported_state != AMDGPU_PTL_HW_SUPPORTED)
+		return -EOPNOTSUPP;
 
 	mutex_lock(&ptl->mutex);
 
@@ -1832,6 +1879,9 @@ int kfd_ptl_disable_release(struct kfd_process_device *pdd,
 	struct amdgpu_device *adev = pdd->dev->adev;
 	struct amdgpu_ptl *ptl = &adev->psp.ptl;
 	int ret = 0;
+
+	if (ptl->hw_supported_state != AMDGPU_PTL_HW_SUPPORTED)
+		return -EOPNOTSUPP;
 
 	mutex_lock(&ptl->mutex);
 
@@ -1914,13 +1964,13 @@ static int criu_checkpoint_devices(struct kfd_process *p,
 	struct kfd_criu_device_bucket *device_buckets = NULL;
 	int ret = 0, i;
 
-	device_buckets = kvcalloc(num_devices, sizeof(*device_buckets), GFP_KERNEL);
+	device_buckets = kvzalloc_objs(*device_buckets, num_devices);
 	if (!device_buckets) {
 		ret = -ENOMEM;
 		goto exit;
 	}
 
-	device_priv = kvcalloc(num_devices, sizeof(*device_priv), GFP_KERNEL);
+	device_priv = kvzalloc_objs(*device_priv, num_devices);
 	if (!device_priv) {
 		ret = -ENOMEM;
 		goto exit;
@@ -2040,17 +2090,17 @@ static int criu_checkpoint_bos(struct kfd_process *p,
 	int ret = 0, pdd_index, bo_index = 0, id;
 	void *mem;
 
-	bo_buckets = kvcalloc(num_bos, sizeof(*bo_buckets), GFP_KERNEL);
+	bo_buckets = kvzalloc_objs(*bo_buckets, num_bos);
 	if (!bo_buckets)
 		return -ENOMEM;
 
-	bo_privs = kvcalloc(num_bos, sizeof(*bo_privs), GFP_KERNEL);
+	bo_privs = kvzalloc_objs(*bo_privs, num_bos);
 	if (!bo_privs) {
 		ret = -ENOMEM;
 		goto exit;
 	}
 
-	files = kvcalloc(num_bos, sizeof(struct file *), GFP_KERNEL);
+	files = kvzalloc_objs(struct file *, num_bos);
 	if (!files) {
 		ret = -ENOMEM;
 		goto exit;
@@ -2581,7 +2631,7 @@ static int criu_restore_bos(struct kfd_process *p,
 	if (!bo_buckets)
 		return -ENOMEM;
 
-	files = kvcalloc(args->num_bos, sizeof(struct file *), GFP_KERNEL);
+	files = kvzalloc_objs(struct file *, args->num_bos);
 	if (!files) {
 		ret = -ENOMEM;
 		goto exit;
@@ -3109,10 +3159,14 @@ static int kfd_ioctl_set_debug_trap(struct file *filep, struct kfd_process *p, v
 		goto out;
 	}
 
-	/* Check if target is still PTRACED. */
+	/*
+	 * Verify debugger has permission to debug target process.
+	 * For cross-process debugging, require active ptrace relationship.
+	 * This applies to ALL operations to prevent unauthorized interference.
+	 */
 	rcu_read_lock();
-	if (target != p && args->op != KFD_IOC_DBG_TRAP_DISABLE
-				&& ptrace_parent(target->lead_thread) != current) {
+	if (target != p && ptrace_parent(target->lead_thread) != current
+			&& target->debugger_process != p) {
 		pr_err("PID %i is not PTRACED and cannot be debugged\n", args->pid);
 		r = -EPERM;
 	}
@@ -3300,6 +3354,11 @@ static int kfd_ioctl_create_process(struct file *filep, struct kfd_process *p, v
 	}
 
 	filep->private_data = process;
+	ret = kfd_debugfs_add_process(process);
+	if (ret)
+		pr_warn("Failed to create debugfs entry for the kfd_process, ret = %d\n",
+			ret);
+
 	mutex_unlock(&kfd_processes_mutex);
 
 	ret = kfd_create_process_sysfs(process);
@@ -3314,7 +3373,7 @@ static int kfd_ioctl_create_process(struct file *filep, struct kfd_process *p, v
 	return 0;
 }
 
-static inline uint32_t profile_lock_device(struct kfd_process *p,
+static inline int profile_lock_device(struct kfd_process *p,
 					   uint32_t gpu_id, uint32_t op)
 {
 	struct kfd_process_device *pdd;
@@ -3341,7 +3400,7 @@ static inline uint32_t profile_lock_device(struct kfd_process *p,
 			kfd->profiler_process = p;
 			status = 0;
 			mutex_unlock(&kfd->profiler_lock);
-			if (ptl->hw_supported) {
+			if (ptl->hw_supported_state == AMDGPU_PTL_HW_SUPPORTED) {
 				status = kfd_ptl_disable_request(pdd, p);
 				if (status != 0)
 					dev_err(kfd_device,
@@ -3359,7 +3418,7 @@ static inline uint32_t profile_lock_device(struct kfd_process *p,
 		status = 0;
 		mutex_unlock(&kfd->profiler_lock);
 
-		if (ptl->hw_supported) {
+		if (ptl->hw_supported_state == AMDGPU_PTL_HW_SUPPORTED) {
 			status = kfd_ptl_disable_release(pdd, p);
 			if (status)
 				dev_err(kfd_device,
@@ -3707,10 +3766,10 @@ static int kfd_mmio_mmap(struct kfd_node *dev, struct kfd_process *process,
 				vma->vm_page_prot);
 }
 
-
 static int kfd_mmap(struct file *filep, struct vm_area_struct *vma)
 {
 	struct kfd_process *process;
+	struct kfd_process_device *pdd;
 	struct kfd_node *dev = NULL;
 	unsigned long mmap_offset;
 	unsigned int gpu_id;
@@ -3724,8 +3783,10 @@ static int kfd_mmap(struct file *filep, struct vm_area_struct *vma)
 
 	mmap_offset = vma->vm_pgoff << PAGE_SHIFT;
 	gpu_id = KFD_MMAP_GET_GPU_ID(mmap_offset);
-	if (gpu_id)
-		dev = kfd_device_by_id(gpu_id);
+
+	pdd = kfd_process_device_data_by_id(process, gpu_id);
+	if (pdd)
+		dev = pdd->dev;
 
 	switch (mmap_offset & KFD_MMAP_TYPE_MASK) {
 	case KFD_MMAP_TYPE_DOORBELL:
@@ -3734,7 +3795,8 @@ static int kfd_mmap(struct file *filep, struct vm_area_struct *vma)
 		return kfd_doorbell_mmap(dev, process, vma);
 
 	case KFD_MMAP_TYPE_EVENTS:
-		return kfd_event_mmap(process, vma);
+		pr_warn("KFD_MMAP_TYPE_EVENTS is no longer supported\n");
+		return -EINVAL;
 
 	case KFD_MMAP_TYPE_RESERVED_MEM:
 		pr_warn("KFD_MMAP_TYPE_RESERVED_MEM is no longer supported\n");

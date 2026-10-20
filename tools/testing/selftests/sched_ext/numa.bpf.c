@@ -19,23 +19,41 @@ UEI_DEFINE(uei);
 
 const volatile unsigned int __COMPAT_SCX_PICK_IDLE_IN_NODE;
 
-static bool is_cpu_idle(s32 cpu, int node)
+static void validate_local_idle_state(void)
 {
 	const struct cpumask *idle_cpumask;
-	bool idle;
+	struct task_struct *curr;
+	s32 cpu = bpf_get_smp_processor_id();
+	int node = __COMPAT_scx_bpf_cpu_node(cpu);
+	bool cpu_is_idle, curr_is_idle;
+
+	bpf_rcu_read_lock();
+	curr = scx_bpf_cpu_curr(cpu);
+	curr_is_idle = curr && (curr->flags & PF_IDLE);
+	bpf_rcu_read_unlock();
 
 	idle_cpumask = __COMPAT_scx_bpf_get_idle_cpumask_node(node);
-	idle = bpf_cpumask_test_cpu(cpu, idle_cpumask);
+	cpu_is_idle = bpf_cpumask_test_cpu(cpu, idle_cpumask);
 	scx_bpf_put_cpumask(idle_cpumask);
 
-	return idle;
+	/*
+	 * Unlike a remote picked CPU, the local CPU cannot go through an
+	 * idle re-pick while this callback is running. If it is running a
+	 * non-idle scheduling context, it must not be advertised as idle
+	 * in its node's idle cpumask.
+	 */
+	if (!curr_is_idle && cpu_is_idle)
+		scx_bpf_error("running CPU %d should be marked as busy", cpu);
 }
 
 s32 BPF_STRUCT_OPS(numa_select_cpu,
 		   struct task_struct *p, s32 prev_cpu, u64 wake_flags)
 {
-	int node = __COMPAT_scx_bpf_cpu_node(scx_bpf_task_cpu(p));
+	s32 task_cpu = scx_bpf_task_cpu(p);
+	int node = __COMPAT_scx_bpf_cpu_node(task_cpu);
 	s32 cpu;
+
+	validate_local_idle_state();
 
 	/*
 	 * We could just use __COMPAT_scx_bpf_pick_any_cpu_node() here,
@@ -48,8 +66,15 @@ s32 BPF_STRUCT_OPS(numa_select_cpu,
 		cpu = __COMPAT_scx_bpf_pick_any_cpu_node(p->cpus_ptr, node,
 						__COMPAT_SCX_PICK_IDLE_IN_NODE);
 
-	if (is_cpu_idle(cpu, node))
-		scx_bpf_error("CPU %d should be marked as busy", cpu);
+	/*
+	 * @task_cpu may be outside of p->cpus_ptr if @p's affinity
+	 * changed while it was sleeping. This means it's possible for
+	 * p->cpus_ptr to not include any CPUs from @node.
+	 * If we failed to find a cpu in @node, check if @task_cpu
+	 * is outside of p->cpus_ptr and just return @prev_cpu if it is.
+	 */
+	if (cpu < 0 && !bpf_cpumask_test_cpu(task_cpu, p->cpus_ptr))
+		return prev_cpu;
 
 	if (__COMPAT_scx_bpf_cpu_node(cpu) != node)
 		scx_bpf_error("CPU %d should be in node %d", cpu, node);

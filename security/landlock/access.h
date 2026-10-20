@@ -19,7 +19,7 @@
 
 /*
  * All access rights that are denied by default whether they are handled or not
- * by a ruleset/layer.  This must be ORed with all ruleset->access_masks[]
+ * by a ruleset/layer.  This must be ORed with all domain->handled_masks[]
  * entries when we need to get the absolute handled access masks, see
  * landlock_upgrade_handled_access_masks().
  */
@@ -61,6 +61,10 @@ union access_masks_all {
 static_assert(sizeof(typeof_member(union access_masks_all, masks)) ==
 	      sizeof(typeof_member(union access_masks_all, all)));
 
+#define _LANDLOCK_LAYER_MASK_PADDING                              \
+	(BITS_PER_TYPE(access_mask_t) - LANDLOCK_NUM_ACCESS_MAX - \
+	 IS_ENABLED(CONFIG_SECURITY_LANDLOCK_LOG))
+
 /**
  * struct layer_mask - The access rights and rule flags for a layer.
  *
@@ -74,13 +78,17 @@ struct layer_mask {
 	 * @access: The unfulfilled access rights for this layer.
 	 */
 	access_mask_t access : LANDLOCK_NUM_ACCESS_MAX;
-#ifdef CONFIG_AUDIT
+#ifdef CONFIG_SECURITY_LANDLOCK_LOG
 	/**
 	 * @quiet: Whether we have encountered a rule with the quiet flag for
 	 * this layer.  Used to control logging.
 	 */
 	access_mask_t quiet : 1;
-#endif /* CONFIG_AUDIT */
+#endif /* CONFIG_SECURITY_LANDLOCK_LOG */
+	/**
+	 * @__pad: Padding for the compiler's bitfield initialization.
+	 */
+	access_mask_t __pad : _LANDLOCK_LAYER_MASK_PADDING;
 } __packed __aligned(sizeof(access_mask_t));
 
 /*

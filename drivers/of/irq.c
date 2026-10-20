@@ -563,7 +563,9 @@ const struct cpumask *of_irq_get_affinity(struct device_node *dev, int index)
 	of_phandle_args_to_fwspec(oirq.np, oirq.args, oirq.args_count,
 				  &fwspec);
 
-	if (irq_populate_fwspec_info(&fwspec, &info))
+	rc = irq_populate_fwspec_info(&fwspec, &info);
+	of_node_put(oirq.np);
+	if (rc)
 		return NULL;
 
 	return info.affinity;
@@ -752,6 +754,8 @@ void __init of_irq_init(const struct of_device_id *matches)
 
 	list_for_each_entry_safe(desc, temp_desc, &intc_parent_list, list) {
 		list_del(&desc->list);
+		of_node_put(desc->interrupt_parent);
+		of_node_put(desc->dev);
 		kfree(desc);
 	}
 err:

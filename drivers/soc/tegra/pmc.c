@@ -3074,15 +3074,18 @@ static int tegra_pmc_probe(struct platform_device *pdev)
 		}
 	}
 
-	err = devm_register_sys_off_handler(&pdev->dev,
-					    SYS_OFF_MODE_RESTART,
-					    SYS_OFF_PRIO_LOW,
-					    tegra_pmc_restart_handler,
-					    pmc);
-	if (err) {
-		dev_err(&pdev->dev, "failed to register sys-off handler: %d\n",
-			err);
-		return err;
+	if (dev_to_node(&pdev->dev) == NUMA_NO_NODE) {
+		err = devm_register_sys_off_handler(&pdev->dev,
+						    SYS_OFF_MODE_RESTART,
+						    SYS_OFF_PRIO_LOW,
+						    tegra_pmc_restart_handler,
+						    pmc);
+		if (err) {
+			dev_err(&pdev->dev,
+				"failed to register sys-off handler: %d\n",
+				err);
+			return err;
+		}
 	}
 
 	/*
@@ -3148,6 +3151,7 @@ static int tegra_pmc_probe(struct platform_device *pdev)
 
 #if defined(CONFIG_ARM)
 	mutex_lock(&early_pmc->powergates_lock);
+	early_pmc->rate = pmc->rate;
 	iounmap(early_pmc->base);
 	early_pmc->base = pmc->base;
 	mutex_unlock(&early_pmc->powergates_lock);

@@ -1199,50 +1199,39 @@ void mlx5e_stats_rmon_get(struct mlx5e_priv *priv,
 void mlx5e_stats_ts_get(struct mlx5e_priv *priv,
 			struct ethtool_ts_stats *ts_stats)
 {
-	int i, j;
+	u16 nch = mlx5e_stats_nch_read(priv);
+	int i, tc;
 
-	mutex_lock(&priv->state_lock);
+	ts_stats->pkts = 0;
 
+	for (i = 0; i < nch; i++) {
+		struct mlx5e_channel_stats *channel_stats =
+			priv->channel_stats[i];
+
+		for (tc = 0; tc < priv->max_opened_tc; tc++)
+			ts_stats->pkts += channel_stats->sq[tc].timestamps;
+	}
+
+	/* Accumulate DMA and port timestamp counters so values stay monotonic
+	 * across channel teardown and mode switches.
+	 */
 	if (priv->tx_ptp_opened) {
-		struct mlx5e_ptp *ptp = priv->channels.ptp;
-
-		ts_stats->pkts = 0;
+		/* Err and Lost stats are only relevant for port timestamping,
+		 * as the DMA layer will always successfully timestamp packets.
+		 */
 		ts_stats->err = 0;
 		ts_stats->lost = 0;
 
-		if (!ptp)
-			goto out;
-
-		/* Aggregate stats across all TCs */
-		for (i = 0; i < ptp->num_tc; i++) {
+		for (tc = 0; tc < priv->max_opened_tc; tc++) {
 			struct mlx5e_ptp_cq_stats *stats =
-				ptp->ptpsq[i].cq_stats;
+				&priv->ptp_stats.cq[tc];
 
 			ts_stats->pkts += stats->cqe;
 			ts_stats->err += stats->abort + stats->err_cqe +
-				stats->late_cqe;
+					stats->late_cqe;
 			ts_stats->lost += stats->lost_cqe;
 		}
-	} else {
-		/* DMA layer will always successfully timestamp packets. Other
-		 * counters do not make sense for this layer.
-		 */
-		ts_stats->pkts = 0;
-
-		/* Aggregate stats across all SQs */
-		for (j = 0; j < priv->channels.num; j++) {
-			struct mlx5e_channel *c = priv->channels.c[j];
-
-			for (i = 0; i < c->num_tc; i++) {
-				struct mlx5e_sq_stats *stats = c->sq[i].stats;
-
-				ts_stats->pkts += stats->timestamps;
-			}
-		}
 	}
-
-out:
-	mutex_unlock(&priv->state_lock);
 }
 
 #define PPORT_PHY_LAYER_OFF(c) \
@@ -1550,7 +1539,7 @@ static bool fec_rs_validate_hist_type(int mode, int hist_type)
 
 static u8
 fec_rs_histogram_fill_ranges(struct mlx5e_priv *priv, int mode,
-			     const struct ethtool_fec_hist_range **ranges)
+			     struct ethtool_fec_hist_range *ranges)
 {
 	struct mlx5_core_dev *mdev = priv->mdev;
 	u32 out[MLX5_ST_SZ_DW(pphcr_reg)] = {0};
@@ -1558,8 +1547,6 @@ fec_rs_histogram_fill_ranges(struct mlx5e_priv *priv, int mode,
 	int sz = MLX5_ST_SZ_BYTES(pphcr_reg);
 	u8 hist_type, num_of_bins;
 
-	memset(priv->fec_ranges, 0,
-	       ETHTOOL_FEC_HIST_MAX * sizeof(*priv->fec_ranges));
 	MLX5_SET(pphcr_reg, in, local_port, 1);
 	if (mlx5_core_access_reg(mdev, in, sz, out, sz, MLX5_REG_PPHCR, 0, 0))
 		return 0;
@@ -1575,12 +1562,11 @@ fec_rs_histogram_fill_ranges(struct mlx5e_priv *priv, int mode,
 	for (int i = 0; i < num_of_bins; i++) {
 		void *bin_range = MLX5_ADDR_OF(pphcr_reg, out, bin_range[i]);
 
-		priv->fec_ranges[i].high = MLX5_GET(bin_range_layout, bin_range,
-						    high_val);
-		priv->fec_ranges[i].low = MLX5_GET(bin_range_layout, bin_range,
-						   low_val);
+		ranges[i].high = MLX5_GET(bin_range_layout, bin_range,
+					  high_val);
+		ranges[i].low = MLX5_GET(bin_range_layout, bin_range,
+					 low_val);
 	}
-	*ranges = priv->fec_ranges;
 
 	return num_of_bins;
 }
@@ -1622,10 +1608,12 @@ static void fec_set_histograms_stats(struct mlx5e_priv *priv, int mode,
 	case MLX5E_FEC_LLRS_272_257_1:
 	case MLX5E_FEC_RS_544_514_INTERLEAVED_QUAD:
 		num_of_bins =
-			fec_rs_histogram_fill_ranges(priv, mode, &hist->ranges);
-		if (num_of_bins)
+			fec_rs_histogram_fill_ranges(priv, mode, hist->ranges_buf);
+		if (num_of_bins) {
+			hist->ranges = hist->ranges_buf;
 			return fec_rs_histogram_fill_stats(priv, num_of_bins,
 							   hist);
+		}
 		break;
 	default:
 		return;

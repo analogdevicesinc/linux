@@ -121,42 +121,6 @@ static inline unsigned int exttable_size(struct extended_sigtable *et)
 	return et->count * EXT_SIGNATURE_SIZE + EXT_HEADER_SIZE;
 }
 
-
-/*
- * Use CPUID to generate a "vfm" value. Useful before cpuinfo_x86
- * structures are populated.
- */
-static u32 intel_cpuid_vfm(void)
-{
-	u32 eax   = cpuid_eax(1);
-	u32 fam   = x86_family(eax);
-	u32 model = x86_model(eax);
-
-	return IFM(fam, model);
-}
-
-u32 intel_get_platform_id(void)
-{
-	unsigned int val[2];
-
-	if (x86_hypervisor_present)
-		return 0;
-
-	/*
-	 * This can be called early. Use CPUID directly instead of
-	 * relying on cpuinfo_x86 which may not be fully initialized.
-	 * The PII does not have MSR_IA32_PLATFORM_ID. Everything
-	 * before _it_ has no microcode (for Linux at least).
-	 */
-	if (intel_cpuid_vfm() <= INTEL_PENTIUM_II_KLAMATH)
-		return 0;
-
-	/* get processor flags from MSR 0x17 */
-	native_rdmsr(MSR_IA32_PLATFORM_ID, val[0], val[1]);
-
-	return (val[1] >> 18) & 7;
-}
-
 void intel_collect_cpu_info(struct cpu_signature *sig)
 {
 	sig->sig = cpuid_eax(1);
@@ -345,6 +309,26 @@ static void save_microcode_patch(struct microcode_intel *patch)
 		pr_err("Unable to allocate microcode memory size: %u\n", size);
 }
 
+static bool revision_is_safe(struct cpu_signature *sig, u32 rev)
+{
+	u32 vfm = IFM(x86_family(sig->sig), x86_model(sig->sig));
+
+	/*
+	 * Erratum GNR98 can cause #MCs if "jumping over" revision 0x1000405.
+	 * Avoid the jumps.
+	 */
+	if (vfm == INTEL_GRANITERAPIDS_X &&
+	    x86_stepping(sig->sig) == 1 &&
+	    sig->pf & 0x95 &&
+	    sig->rev < 0x1000405 &&
+	    rev > 0x1000405) {
+		pr_err_once("Erratum GNR98: skipping revision 0x%x.\n", rev);
+		return false;
+	}
+
+	return true;
+}
+
 /* Scan blob for microcode matching the boot CPUs family, model, stepping */
 static __init struct microcode_intel *scan_microcode(void *data, size_t size,
 						     struct ucode_cpu_info *uci,
@@ -364,6 +348,9 @@ static __init struct microcode_intel *scan_microcode(void *data, size_t size,
 			break;
 
 		if (!intel_find_matching_signature(data, &uci->cpu_sig))
+			continue;
+
+		if (!revision_is_safe(&uci->cpu_sig, mc_header->rev))
 			continue;
 
 		/*
@@ -912,6 +899,9 @@ static enum ucode_state parse_microcode_blobs(int cpu, struct iov_iter *iter)
 			continue;
 
 		if (!intel_find_matching_signature(mc, &uci->cpu_sig))
+			continue;
+
+		if (!revision_is_safe(&uci->cpu_sig, mc_header.rev))
 			continue;
 
 		is_safe = ucode_validate_minrev(&mc_header);

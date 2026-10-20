@@ -75,8 +75,8 @@ void mtd_virt_concat_destroy_joins(void)
 		if (item->concat) {
 			mtd_device_unregister(mtd);
 			kfree(mtd->name);
-			mtd_concat_destroy(mtd);
 			mtd_virt_concat_put_mtd_devices(item->concat);
+			mtd_concat_destroy(mtd);
 		}
 	}
 }
@@ -126,8 +126,8 @@ int mtd_virt_concat_destroy(struct mtd_info *mtd)
 		if (concat->mtd.name) {
 			del_mtd_device(&concat->mtd);
 			kfree(concat->mtd.name);
-			mtd_concat_destroy(&concat->mtd);
 			mtd_virt_concat_put_mtd_devices(item->concat);
+			mtd_concat_destroy(&concat->mtd);
 		}
 
 		for (idx = 0; idx < item->count; idx++)
@@ -166,7 +166,7 @@ static int mtd_virt_concat_create_item(struct device_node *parts,
 			return 0;
 	}
 
-	item = kzalloc_flex(*item, nodes, count, GFP_KERNEL);
+	item = kzalloc_flex(*item, nodes, count);
 	if (!item)
 		return -ENOMEM;
 
@@ -182,7 +182,7 @@ static int mtd_virt_concat_create_item(struct device_node *parts,
 	for (i = 1; i < count; i++)
 		item->nodes[i] = of_parse_phandle(parts, CONCAT_PROP, (i - 1));
 
-	concat = kzalloc_flex(*concat, subdev, count, GFP_KERNEL);
+	concat = kzalloc_flex(*concat, subdev, count);
 	if (!concat) {
 		kfree(item);
 		return -ENOMEM;
@@ -321,8 +321,10 @@ int mtd_virt_concat_create_join(void)
 
 			if (concat->mtd.name) {
 				ret = memcmp(concat->mtd.name, name, name_sz);
-				if (ret == 0)
+				if (ret == 0) {
+					kfree(name);
 					continue;
+				}
 			}
 			mtd = mtd_concat_create(concat->subdev, concat->num_subdev, name);
 			if (!mtd) {

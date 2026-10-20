@@ -145,7 +145,7 @@ static int adis16136_debugfs_init(struct iio_dev *indio_dev)
 	struct adis16136 *adis16136 = iio_priv(indio_dev);
 	struct dentry *d = iio_get_debugfs_dentry(indio_dev);
 
-	debugfs_create_file_unsafe("serial_number", 0400,
+	debugfs_create_file("serial_number", 0400,
 		d, adis16136, &adis16136_serial_fops);
 	debugfs_create_file_unsafe("product_id", 0400,
 		d, adis16136, &adis16136_product_id_fops);
@@ -563,10 +563,10 @@ static int adis16136_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id adis16136_ids[] = {
-	{ "adis16133", ID_ADIS16133 },
-	{ "adis16135", ID_ADIS16135 },
-	{ "adis16136", ID_ADIS16136 },
-	{ "adis16137", ID_ADIS16137 },
+	{ .name = "adis16133", .driver_data = ID_ADIS16133 },
+	{ .name = "adis16135", .driver_data = ID_ADIS16135 },
+	{ .name = "adis16136", .driver_data = ID_ADIS16136 },
+	{ .name = "adis16137", .driver_data = ID_ADIS16137 },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, adis16136_ids);

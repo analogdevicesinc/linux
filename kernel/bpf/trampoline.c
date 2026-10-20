@@ -401,6 +401,7 @@ static struct bpf_trampoline *bpf_trampoline_lookup(u64 key, unsigned long ip)
 	head = &trampoline_ip_table[hash_64(tr->ip, TRAMPOLINE_HASH_BITS)];
 	hlist_add_head(&tr->hlist_ip, head);
 	refcount_set(&tr->refcnt, 1);
+	INIT_LIST_HEAD(&tr->images);
 	for (i = 0; i < BPF_TRAMP_MAX; i++)
 		INIT_HLIST_HEAD(&tr->progs_hlist[i]);
 out:
@@ -529,21 +530,58 @@ bpf_trampoline_get_progs(const struct bpf_trampoline *tr, int *total, bool *ip_a
 	return tnodes;
 }
 
+/*
+ * The arena base against which save_args() converts the arguments marked
+ * with BTF_FMODEL_ARENA_ARG. Only the struct_ops indirect trampoline
+ * converts: it dispatches to a single prog whose arena is known at
+ * generation time. Return 0 when there is nothing to convert.
+ */
+u64 bpf_tramp_arena_base(const struct btf_func_model *m,
+			 struct bpf_tramp_nodes *tnodes, u32 flags)
+{
+	const struct bpf_prog *prog;
+	int i;
+
+	if (!(flags & BPF_TRAMP_F_INDIRECT) ||
+	    tnodes[BPF_TRAMP_FENTRY].nr_nodes != 1)
+		return 0;
+
+	for (i = 0; i < m->nr_args; i++)
+		if (m->arg_flags[i] & BTF_FMODEL_ARENA_ARG)
+			break;
+	if (i == m->nr_args)
+		return 0;
+
+	/* Verification rejects an arena argument without an arena. */
+	prog = tnodes[BPF_TRAMP_FENTRY].nodes[0]->link->prog;
+	if (WARN_ON_ONCE(!prog->aux->arena))
+		return 0;
+
+	return bpf_arena_get_kern_vm_start(prog->aux->arena);
+}
+
 static void bpf_tramp_image_free(struct bpf_tramp_image *im)
 {
 	bpf_image_ksym_del(&im->ksym);
 	arch_free_bpf_trampoline(im->image, im->size);
 	bpf_jit_uncharge_modmem(im->size);
 	percpu_ref_exit(&im->pcref);
+	kfree(im->skips);
 	kfree_rcu(im, rcu);
 }
 
 static void __bpf_tramp_image_put_deferred(struct work_struct *work)
 {
 	struct bpf_tramp_image *im;
+	struct bpf_trampoline *tr;
 
 	im = container_of(work, struct bpf_tramp_image, work);
+	tr = im->tr;
+	trampoline_lock(tr);
+	list_del(&im->list);
+	trampoline_unlock(tr);
 	bpf_tramp_image_free(im);
+	bpf_trampoline_put(tr);
 }
 
 /* callback, fexit step 3 or fentry step 2 */
@@ -571,7 +609,7 @@ static void __bpf_tramp_image_put_rcu_tasks(struct rcu_head *rcu)
 	struct bpf_tramp_image *im;
 
 	im = container_of(rcu, struct bpf_tramp_image, rcu);
-	if (im->ip_after_call)
+	if (im->call_orig)
 		/* the case of fmod_ret/fexit trampoline and CONFIG_PREEMPTION=y */
 		percpu_ref_kill(&im->pcref);
 	else
@@ -591,9 +629,9 @@ static void bpf_tramp_image_put(struct bpf_tramp_image *im)
 	 *
 	 * The trampoline is unreachable before bpf_tramp_image_put().
 	 *
-	 * First, patch the trampoline to avoid calling into fexit progs.
-	 * The progs will be freed even if the original function is still
-	 * executing or sleeping.
+	 * Progs are patched out of the image when they are detached, see
+	 * bpf_trampoline_skip_prog(), so they can be freed even if a task is
+	 * still in the image.
 	 * In case of CONFIG_PREEMPT=y use call_rcu_tasks() to wait on
 	 * first few asm instructions to execute and call into
 	 * __bpf_tramp_enter->percpu_ref_get.
@@ -607,11 +645,7 @@ static void bpf_tramp_image_put(struct bpf_tramp_image *im)
 	 * percpu_ref_kill will be waiting for. Hence the first
 	 * call_rcu_tasks() is not necessary.
 	 */
-	if (im->ip_after_call) {
-		int err = bpf_arch_text_poke(im->ip_after_call, BPF_MOD_NOP,
-					     BPF_MOD_JUMP, NULL,
-					     im->ip_epilogue);
-		WARN_ON(err);
+	if (im->call_orig) {
 		if (IS_ENABLED(CONFIG_TASKS_RCU))
 			call_rcu_tasks(&im->rcu, __bpf_tramp_image_put_rcu_tasks);
 		else
@@ -628,7 +662,7 @@ static void bpf_tramp_image_put(struct bpf_tramp_image *im)
 	call_rcu_tasks_trace(&im->rcu, __bpf_tramp_image_put_rcu_tasks);
 }
 
-static struct bpf_tramp_image *bpf_tramp_image_alloc(u64 key, int size)
+static struct bpf_tramp_image *bpf_tramp_image_alloc(u64 key, int size, int nr_progs)
 {
 	struct bpf_tramp_image *im;
 	struct bpf_ksym *ksym;
@@ -638,6 +672,10 @@ static struct bpf_tramp_image *bpf_tramp_image_alloc(u64 key, int size)
 	im = kzalloc_obj(*im);
 	if (!im)
 		goto out;
+
+	im->skips = kzalloc_objs(*im->skips, nr_progs);
+	if (!im->skips)
+		goto out_free_im;
 
 	err = bpf_jit_charge_modmem(size);
 	if (err)
@@ -665,9 +703,17 @@ out_free_image:
 out_uncharge:
 	bpf_jit_uncharge_modmem(size);
 out_free_im:
+	kfree(im->skips);
 	kfree(im);
 out:
 	return ERR_PTR(err);
+}
+
+void bpf_trampoline_set_flags(struct bpf_trampoline *tr, u32 flags)
+{
+	trampoline_lock(tr);
+	tr->flags |= flags;
+	trampoline_unlock(tr);
 }
 
 static int bpf_trampoline_update(struct bpf_trampoline *tr, bool lock_direct_mutex,
@@ -734,11 +780,12 @@ again:
 		goto out;
 	}
 
-	im = bpf_tramp_image_alloc(tr->key, size);
+	im = bpf_tramp_image_alloc(tr->key, size, total);
 	if (IS_ERR(im)) {
 		err = PTR_ERR(im);
 		goto out;
 	}
+	im->call_orig = tr->flags & BPF_TRAMP_F_CALL_ORIG;
 
 	err = arch_prepare_bpf_trampoline(im, im->image, im->image + size,
 					  &tr->func.model, tr->flags, tnodes,
@@ -769,8 +816,14 @@ again:
 #endif
 
 out_free:
-	if (err)
+	if (err) {
 		bpf_tramp_image_free(im);
+	} else {
+		/* track the image until it is freed, for bpf_trampoline_skip_prog() */
+		refcount_inc(&tr->refcnt);
+		im->tr = tr;
+		list_add(&im->list, &tr->images);
+	}
 out:
 	/* If any error happens, restore previous flags */
 	if (err)
@@ -870,6 +923,7 @@ static int bpf_trampoline_add_prog(struct bpf_trampoline *tr,
 	}
 
 	hlist_add_head(&node->tramp_hlist, prog_list);
+	node->link->prog->aux->tramp_linked = true;
 	if (kind == BPF_TRAMP_FSESSION) {
 		tr->progs_cnt[BPF_TRAMP_FENTRY]++;
 		fexit = fsession_exit(node);
@@ -881,6 +935,41 @@ static int bpf_trampoline_add_prog(struct bpf_trampoline *tr,
 		tr->progs_cnt[kind]++;
 	}
 	return 0;
+}
+
+/*
+ * Patch the nop in front of a prog call to a jump over it. A task can be
+ * preempted anywhere in the image, so archs that need several instructions for
+ * a jump of any range patch a single near branch here instead.
+ */
+int __weak arch_bpf_trampoline_skip(void *nop, void *target)
+{
+	return bpf_arch_text_poke(nop, BPF_MOD_NOP, BPF_MOD_JUMP, NULL, target);
+}
+
+/*
+ * prog was detached and can be freed, but tasks may still be running in images
+ * that call it, sleeping in an earlier prog for example. They can be in any
+ * image that is not freed yet, not only in cur_image, so patch all of them to
+ * jump over prog.
+ */
+static void bpf_trampoline_skip_prog(struct bpf_trampoline *tr, struct bpf_prog *prog)
+{
+	struct bpf_tramp_image *im;
+	int i, err;
+
+	list_for_each_entry(im, &tr->images, list) {
+		for (i = 0; i < im->nr_skips; i++) {
+			struct bpf_tramp_skip *skip = &im->skips[i];
+
+			if (skip->prog != prog)
+				continue;
+			err = arch_bpf_trampoline_skip(skip->nop, skip->target);
+			WARN_ON_ONCE(err);
+			/* not a nop anymore, and prog's address can be reused */
+			skip->prog = NULL;
+		}
+	}
 }
 
 static void bpf_trampoline_remove_prog(struct bpf_trampoline *tr,
@@ -900,6 +989,7 @@ static void bpf_trampoline_remove_prog(struct bpf_trampoline *tr,
 	}
 	hlist_del_init(&node->tramp_hlist);
 	tr->progs_cnt[kind]--;
+	bpf_trampoline_skip_prog(tr, node->link->prog);
 }
 
 static int __bpf_trampoline_link_prog(struct bpf_tramp_node *node,
@@ -913,6 +1003,13 @@ static int __bpf_trampoline_link_prog(struct bpf_tramp_node *node,
 	int cnt = 0, i;
 
 	kind = bpf_attach_type_to_tramp(node->link->prog);
+	/*
+	 * Arena ctx args are converted only by struct_ops indirect
+	 * trampolines. They must never be attached to a generic trampoline.
+	 */
+	if (WARN_ON_ONCE(bpf_prog_has_arena_ctx_arg(node->link->prog)))
+		return -ENOTSUPP;
+
 	if (tr->extension_prog)
 		/* cannot attach fentry/fexit if extension prog is attached.
 		 * cannot overwrite extension prog either.
@@ -997,12 +1094,15 @@ static void bpf_shim_tramp_link_release(struct bpf_link *link)
 {
 	struct bpf_shim_tramp_link *shim_link =
 		container_of(link, struct bpf_shim_tramp_link, link.link);
+	int err;
 
 	/* paired with 'shim_link->trampoline = tr' in bpf_trampoline_link_cgroup_shim */
 	if (!shim_link->trampoline)
 		return;
 
-	WARN_ON_ONCE(bpf_trampoline_unlink_prog(&shim_link->link.node, shim_link->trampoline, NULL));
+	err = bpf_trampoline_unlink_prog(&shim_link->link.node, shim_link->trampoline, NULL);
+	WARN_ONCE(err, "bpf_trampoline_unlink_prog failed: %d\n", err);
+
 	bpf_trampoline_put(shim_link->trampoline);
 }
 
@@ -1198,11 +1298,9 @@ void bpf_trampoline_put(struct bpf_trampoline *tr)
 		if (WARN_ON_ONCE(!hlist_empty(&tr->progs_hlist[i])))
 			goto out;
 
-	/* This code will be executed even when the last bpf_tramp_image
-	 * is alive. All progs are detached from the trampoline and the
-	 * trampoline image is patched with jmp into epilogue to skip
-	 * fexit progs. The fentry-only trampoline will be freed via
-	 * multiple rcu callbacks.
+	/*
+	 * All progs are detached and the last image has been freed, images
+	 * hold a reference on the trampoline until then.
 	 */
 	hlist_del(&tr->hlist_key);
 	hlist_del(&tr->hlist_ip);
@@ -1536,6 +1634,7 @@ static int register_fentry_multi(struct bpf_trampoline *tr, struct bpf_tramp_ima
 	if (bpf_trampoline_use_jmp(tr->flags))
 		addr = ftrace_jmp_set(addr);
 
+	tr->func.ftrace_managed = true;
 	ftrace_hash_add(data->reg, data->entry, ip, addr);
 	tr->cur_image = im;
 	return 0;
@@ -1584,7 +1683,17 @@ static void bpf_trampoline_multi_attach_init(struct bpf_trampoline *tr)
 
 static void bpf_trampoline_multi_attach_free(struct bpf_trampoline *tr)
 {
-	if (tr->multi_attach.old_image)
+	/*
+	 * Only free old_image if it is no longer the active image.
+	 * When bpf_trampoline_update() fails before modify_fentry_multi()/
+	 * unregister_fentry_multi() is called, cur_image is unchanged
+	 * (cur_image == old_image) and ftrace still points to it. Freeing
+	 * it would cause a UAF when ftrace calls into the freed memory.
+	 * On success, cur_image is either a new image or NULL, so
+	 * old_image != cur_image means the image is stale.
+	 */
+	if (tr->multi_attach.old_image &&
+	    tr->multi_attach.old_image != tr->cur_image)
 		bpf_tramp_image_put(tr->multi_attach.old_image);
 
 	tr->multi_attach.old_image = NULL;
@@ -1708,19 +1817,21 @@ rollback_put:
 	return err;
 }
 
-int bpf_trampoline_multi_detach(struct bpf_prog *prog, struct bpf_tracing_multi_link *link)
+void bpf_trampoline_multi_detach(struct bpf_prog *prog,
+				 struct bpf_tracing_multi_link *link)
 {
 	struct bpf_tracing_multi_data *data = &link->data;
 	struct bpf_tracing_multi_node *mnode;
-	int i;
+	int i, err;
 
 	trampoline_lock_all();
 
 	for_each_mnode(mnode, link) {
 		data->entry = &mnode->entry;
 		bpf_trampoline_multi_attach_init(mnode->trampoline);
-		WARN_ON_ONCE(__bpf_trampoline_unlink_prog(&mnode->node, mnode->trampoline,
-					NULL, &trampoline_multi_ops, data));
+		err = __bpf_trampoline_unlink_prog(&mnode->node, mnode->trampoline, NULL,
+					&trampoline_multi_ops, data);
+		WARN_ONCE(err, "__bpf_trampoline_unlink_prog failed: %d\n", err);
 	}
 
 	if (ftrace_hash_count(data->unreg))
@@ -1737,7 +1848,6 @@ int bpf_trampoline_multi_detach(struct bpf_prog *prog, struct bpf_tracing_multi_
 		bpf_trampoline_put(mnode->trampoline);
 
 	clear_tracing_multi_data(data);
-	return 0;
 }
 
 #undef for_each_mnode_cnt

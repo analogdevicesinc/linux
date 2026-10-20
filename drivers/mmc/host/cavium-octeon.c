@@ -240,21 +240,15 @@ static int octeon_mmc_probe(struct platform_device *pdev)
 			ret = devm_request_irq(&pdev->dev, mmc_irq[i],
 					       cvm_mmc_interrupt,
 					       0, cvm_mmc_irq_names[i], host);
-			if (ret < 0) {
-				dev_err(&pdev->dev, "Error: devm_request_irq %d\n",
-					mmc_irq[i]);
+			if (ret < 0)
 				return ret;
-			}
 		}
 	} else {
 		ret = devm_request_irq(&pdev->dev, mmc_irq[0],
 				       cvm_mmc_interrupt, 0, KBUILD_MODNAME,
 				       host);
-		if (ret < 0) {
-			dev_err(&pdev->dev, "Error: devm_request_irq %d\n",
-				mmc_irq[0]);
+		if (ret < 0)
 			return ret;
-		}
 	}
 
 	host->global_pwr_gpiod = devm_gpiod_get_optional(&pdev->dev,
@@ -301,9 +295,12 @@ static void octeon_mmc_remove(struct platform_device *pdev)
 	u64 dma_cfg;
 	int i;
 
-	for (i = 0; i < CAVIUM_MAX_MMC; i++)
+	for (i = 0; i < CAVIUM_MAX_MMC; i++) {
 		if (host->slot[i])
 			cvm_mmc_of_slot_remove(host->slot[i]);
+		if (host->slot_pdev[i])
+			of_platform_device_destroy(&host->slot_pdev[i]->dev, NULL);
+	}
 
 	dma_cfg = readq(host->dma_base + MIO_EMM_DMA_CFG(host));
 	dma_cfg &= ~MIO_EMM_DMA_CFG_EN;

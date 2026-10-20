@@ -210,7 +210,37 @@ static const int vhost_scsi_bits[] = {
 #define VHOST_SCSI_MAX_EVENT	128
 
 static unsigned vhost_scsi_max_io_vqs = 128;
-module_param_named(max_io_vqs, vhost_scsi_max_io_vqs, uint, 0644);
+
+static int vhost_scsi_set_max_io_vqs(const char *val,
+				     const struct kernel_param *kp)
+{
+	unsigned int max_io_vqs;
+	int ret;
+
+	ret = kstrtouint(val, 0, &max_io_vqs);
+	if (ret)
+		return ret;
+
+	if (max_io_vqs > VHOST_SCSI_MAX_IO_VQ) {
+		pr_err("Invalid max_io_vqs of %u. Using %u.\n",
+		       max_io_vqs, VHOST_SCSI_MAX_IO_VQ);
+		max_io_vqs = VHOST_SCSI_MAX_IO_VQ;
+	} else if (!max_io_vqs) {
+		pr_err("Invalid max_io_vqs of 0. Using 1.\n");
+		max_io_vqs = 1;
+	}
+
+	WRITE_ONCE(vhost_scsi_max_io_vqs, max_io_vqs);
+	return 0;
+}
+
+static const struct kernel_param_ops vhost_scsi_max_io_vqs_op = {
+	.set = vhost_scsi_set_max_io_vqs,
+	.get = param_get_uint,
+};
+
+module_param_cb(max_io_vqs, &vhost_scsi_max_io_vqs_op,
+		&vhost_scsi_max_io_vqs, 0644);
 MODULE_PARM_DESC(max_io_vqs, "Set the max number of IO virtqueues a vhost scsi device can support. The default is 128. The max is 1024.");
 
 struct vhost_scsi_virtqueue {
@@ -972,6 +1002,9 @@ vhost_scsi_mapal(struct vhost_scsi *vs, struct vhost_scsi_cmd *cmd,
 	if (prot_bytes) {
 		sgl_count = vhost_scsi_calc_sgls(prot_iter, prot_bytes,
 						 VHOST_SCSI_PREALLOC_PROT_SGLS);
+		if (sgl_count < 0)
+			return sgl_count;
+
 		cmd->prot_table.sgl = cmd->prot_sgl;
 		ret = sg_alloc_table_chained(&cmd->prot_table, sgl_count,
 					     cmd->prot_table.sgl,
@@ -1416,6 +1449,11 @@ vhost_scsi_handle_vq(struct vhost_scsi *vs, struct vhost_virtqueue *vq)
 			 * actual data payload length.
 			 */
 			if (prot_bytes) {
+				if (prot_bytes >= exp_data_len) {
+					vq_err(vq, "Protection data exceeds payload length\n");
+					goto err;
+				}
+
 				exp_data_len -= prot_bytes;
 				prot_iter = data_iter;
 				iov_iter_truncate(&prot_iter, prot_bytes);
@@ -2219,6 +2257,7 @@ static int vhost_scsi_set_features(struct vhost_scsi *vs, u64 features)
 {
 	struct vhost_virtqueue *vq;
 	bool is_log, was_log;
+	u64 old_features;
 	int i;
 
 	if (features & ~VHOST_SCSI_FEATURES)
@@ -2233,6 +2272,14 @@ static int vhost_scsi_set_features(struct vhost_scsi *vs, u64 features)
 
 	if (!vs->dev.nvqs)
 		goto out;
+
+	old_features = vs->vqs[0].vq.acked_features;
+	if (vs->vs_tpg &&
+	    ((features ^ old_features) &
+	     ~(1ULL << VHOST_F_LOG_ALL))) {
+		mutex_unlock(&vs->dev.mutex);
+		return -EBUSY;
+	}
 
 	is_log = features & (1 << VHOST_F_LOG_ALL);
 	/*
@@ -2273,21 +2320,14 @@ static int vhost_scsi_open(struct inode *inode, struct file *f)
 	struct vhost_scsi_virtqueue *svq;
 	struct vhost_scsi *vs;
 	struct vhost_virtqueue **vqs;
-	int r = -ENOMEM, i, nvqs = vhost_scsi_max_io_vqs;
+	int r = -ENOMEM, i, nvqs;
 
 	vs = kvzalloc_obj(*vs);
 	if (!vs)
 		goto err_vs;
 	vs->inline_sg_cnt = vhost_scsi_inline_sg_cnt;
 
-	if (nvqs > VHOST_SCSI_MAX_IO_VQ) {
-		pr_err("Invalid max_io_vqs of %d. Using %d.\n", nvqs,
-		       VHOST_SCSI_MAX_IO_VQ);
-		nvqs = VHOST_SCSI_MAX_IO_VQ;
-	} else if (nvqs == 0) {
-		pr_err("Invalid max_io_vqs of %d. Using 1.\n", nvqs);
-		nvqs = 1;
-	}
+	nvqs = READ_ONCE(vhost_scsi_max_io_vqs);
 	nvqs += VHOST_SCSI_VQ_IO;
 
 	vs->old_inflight = kmalloc_objs(*vs->old_inflight, nvqs,
@@ -2295,7 +2335,7 @@ static int vhost_scsi_open(struct inode *inode, struct file *f)
 	if (!vs->old_inflight)
 		goto err_inflight;
 
-	vs->vqs = kmalloc_objs(*vs->vqs, nvqs, GFP_KERNEL | __GFP_ZERO);
+	vs->vqs = kvzalloc_objs(*vs->vqs, nvqs);
 	if (!vs->vqs)
 		goto err_vqs;
 
@@ -2331,7 +2371,7 @@ static int vhost_scsi_open(struct inode *inode, struct file *f)
 	return 0;
 
 err_local_vqs:
-	kfree(vs->vqs);
+	kvfree(vs->vqs);
 err_vqs:
 	kfree(vs->old_inflight);
 err_inflight:
@@ -2352,7 +2392,7 @@ static int vhost_scsi_release(struct inode *inode, struct file *f)
 	vhost_dev_stop(&vs->dev);
 	vhost_dev_cleanup(&vs->dev);
 	kfree(vs->dev.vqs);
-	kfree(vs->vqs);
+	kvfree(vs->vqs);
 	kfree(vs->old_inflight);
 	kvfree(vs);
 	return 0;
@@ -2426,9 +2466,10 @@ vhost_scsi_ioctl(struct file *f,
 	default:
 		mutex_lock(&vs->dev.mutex);
 		r = vhost_dev_ioctl(&vs->dev, ioctl, argp);
-		/* TODO: flush backend after dev ioctl. */
 		if (r == -ENOIOCTLCMD)
 			r = vhost_vring_ioctl(&vs->dev, ioctl, argp);
+		else
+			vhost_scsi_flush(vs);
 		mutex_unlock(&vs->dev.mutex);
 		return r;
 	}

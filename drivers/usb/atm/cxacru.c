@@ -700,6 +700,8 @@ static int cxacru_cm(struct cxacru_data *instance, enum cxacru_cm_request cm,
 	ret = offd;
 	usb_dbg(instance->usbatm, "cm %#x\n", cm);
 fail:
+	if (ret < 0)
+		usb_kill_urb(instance->rcv_urb);
 	mutex_unlock(&instance->cm_serialize);
 err:
 	return ret;
@@ -1231,8 +1233,6 @@ static void cxacru_unbind(struct usbatm_data *usbatm_instance,
 		struct usb_interface *intf)
 {
 	struct cxacru_data *instance = usbatm_instance->driver_data;
-	int is_polling = 1;
-
 	usb_dbg(usbatm_instance, "cxacru_unbind entered\n");
 
 	if (!instance) {
@@ -1243,17 +1243,11 @@ static void cxacru_unbind(struct usbatm_data *usbatm_instance,
 	mutex_lock(&instance->poll_state_serialize);
 	BUG_ON(instance->poll_state == CXPOLL_SHUTDOWN);
 
-	/* ensure that status polling continues unless
-	 * it has already stopped */
-	if (instance->poll_state == CXPOLL_STOPPED)
-		is_polling = 0;
-
 	/* stop polling from being stopped or started */
 	instance->poll_state = CXPOLL_SHUTDOWN;
 	mutex_unlock(&instance->poll_state_serialize);
 
-	if (is_polling)
-		cancel_delayed_work_sync(&instance->poll_work);
+	cancel_delayed_work_sync(&instance->poll_work);
 
 	usb_kill_urb(instance->snd_urb);
 	usb_kill_urb(instance->rcv_urb);

@@ -73,6 +73,9 @@ static int bd79703_write_raw(struct iio_dev *idev,
 {
 	struct bd79703_data *data = iio_priv(idev);
 
+	if (mask != IIO_CHAN_INFO_RAW)
+		return -EINVAL;
+
 	if (val < 0 || val >= 1 << BD79703_DAC_BITS)
 		return -EINVAL;
 
@@ -214,10 +217,10 @@ static int bd79703_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id bd79703_id[] = {
-	{ "bd79700", (kernel_ulong_t)&bd79700_chip_data },
-	{ "bd79701", (kernel_ulong_t)&bd79701_chip_data },
-	{ "bd79702", (kernel_ulong_t)&bd79702_chip_data },
-	{ "bd79703", (kernel_ulong_t)&bd79703_chip_data },
+	{ .name = "bd79700", .driver_data = (kernel_ulong_t)&bd79700_chip_data },
+	{ .name = "bd79701", .driver_data = (kernel_ulong_t)&bd79701_chip_data },
+	{ .name = "bd79702", .driver_data = (kernel_ulong_t)&bd79702_chip_data },
+	{ .name = "bd79703", .driver_data = (kernel_ulong_t)&bd79703_chip_data },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, bd79703_id);

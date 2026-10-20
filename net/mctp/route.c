@@ -825,7 +825,7 @@ static struct mctp_sk_key *mctp_lookup_prealloc_tag(struct mctp_sock *msk,
 
 	spin_lock_irqsave(&mns->keys_lock, flags);
 
-	hlist_for_each_entry(tmp, &mns->keys, hlist) {
+	hlist_for_each_entry(tmp, &msk->keys, sklist) {
 		if (tmp->net != netid)
 			continue;
 
@@ -998,14 +998,29 @@ int mctp_route_lookup(struct net *net, unsigned int dnet,
 			mtu = mtu ?: rt->mtu;
 
 		if (rt->dst_type == MCTP_ROUTE_DIRECT) {
-			mctp_eid_t saddr = mctp_dev_saddr(rt->dev);
+			mctp_eid_t saddr;
+
+			/* rt->dev may be going away concurrently: its last
+			 * reference is dropped in mctp_dev_put(), which frees
+			 * mdev->addrs that mctp_dev_saddr() reads, and
+			 * mctp_dst_from_route() takes a reference on it.  Pin
+			 * it before use, and skip a device that is already
+			 * dead rather than resurrecting it.
+			 */
+			if (!refcount_inc_not_zero(&rt->dev->refs))
+				break;
+
+			saddr = mctp_dev_saddr(rt->dev);
 
 			/* cannot do gateway-ed routes without a src  */
-			if (saddr == MCTP_ADDR_NULL && depth != 0)
+			if (saddr == MCTP_ADDR_NULL && depth != 0) {
+				mctp_dev_put(rt->dev);
 				break;
+			}
 
 			if (dst)
 				mctp_dst_from_route(dst, daddr, saddr, mtu, rt);
+			mctp_dev_put(rt->dev);
 			rc = 0;
 			break;
 

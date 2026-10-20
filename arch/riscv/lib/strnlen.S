@@ -83,8 +83,29 @@ strnlen_zbb:
 	sub	t3, t3, t2
 	slli	t2, t2, 3
 
-	/* Aligned boundary. */
-	add	t4, a0, a1
+	/*
+	 * Aligned boundary.  Use the address of the last valid byte
+	 * (s + count - 1) to avoid loading a word past the count
+	 * boundary in the loop below.  count == 0 is handled above.
+	 *
+	 * Saturate the boundary when s + count would wrap around (very
+	 * large counts, e.g. SIZE_MAX passed by FORTIFY strcat/strlcat
+	 * with a destination whose size is unknown at compile time).
+	 * Without this, the wrapped boundary lands before s and the
+	 * pre-loop guard below always exits, returning a truncated
+	 * length.
+	 *
+	 * Clamping the increment to ~s (== SIZE_MAX - s) keeps the
+	 * computation branchless and wrap-free:
+	 *
+	 *     s + min(count - 1, ~s) == saturating_add(s, count - 1)
+	 *
+	 * Saturating makes the scan equivalent to strlen().
+	 */
+	addi	t4, a1, -1	/* count - 1 */
+	not	t1, a0		/* SIZE_MAX - s */
+	minu	t4, t4, t1	/* clamp, so s + t4 can never wrap */
+	add	t4, a0, t4	/* saturated s + count - 1 */
 	andi	t4, t4, -SZREG
 
 	/* Get the first word.  */
@@ -119,6 +140,9 @@ strnlen_zbb:
 	minu	a0, a0, a1
 
 	bgtu	t3, a0, 2f
+
+	/* All remaining bytes are in the first word, no loop needed. */
+	bgeu	t0, t4, 2f
 
 	/* Prepare for the word comparison loop. */
 	addi	t2, t0, SZREG

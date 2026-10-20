@@ -12,7 +12,6 @@
 #include <linux/spinlock.h>
 #include <linux/sched/mm.h>
 #include <linux/interrupt.h>
-#include <linux/profile.h>
 #include <linux/mm.h>
 #include <linux/cpu.h>
 #include <linux/irq.h>
@@ -22,6 +21,7 @@
 #include <linux/irqdomain.h>
 #include <linux/export.h>
 #include <linux/of_fdt.h>
+#include <linux/string.h>
 
 #include <asm/mach_desc.h>
 #include <asm/setup.h>
@@ -43,9 +43,10 @@ static int __init arc_get_cpu_map(const char *name, struct cpumask *cpumask)
 {
 	unsigned long dt_root = of_get_flat_dt_root();
 	const char *buf;
+	int len;
 
-	buf = of_get_flat_dt_prop(dt_root, name, NULL);
-	if (!buf)
+	buf = of_get_flat_dt_prop(dt_root, name, &len);
+	if (!buf || !memchr(buf, '\0', len))
 		return -EINVAL;
 
 	if (cpulist_parse(buf, cpumask))

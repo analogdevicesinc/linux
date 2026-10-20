@@ -17,6 +17,7 @@
 #include <asm/hypervisor.h>
 
 static size_t pkvm_granule;
+DEFINE_STATIC_KEY_FALSE_RO(pkvm_guest);
 
 static int arm_smccc_do_one_page(u32 func_id, phys_addr_t phys)
 {
@@ -82,8 +83,8 @@ static int mmio_guard_ioremap_hook(phys_addr_t phys, size_t size,
 	if (protval != PROT_DEVICE_nGnRE && protval != PROT_DEVICE_nGnRnE)
 		return 0;
 
+	end = PAGE_ALIGN(phys + size);
 	phys = PAGE_ALIGN_DOWN(phys);
-	end = phys + PAGE_ALIGN(size);
 
 	while (phys < end) {
 		const int func_id = ARM_SMCCC_VENDOR_HYP_KVM_MMIO_GUARD_FUNC_ID;
@@ -120,4 +121,6 @@ void pkvm_init_hyp_services(void)
 
 	if (kvm_arm_hyp_service_available(ARM_SMCCC_KVM_FUNC_MMIO_GUARD))
 		arm64_ioremap_prot_hook_register(&mmio_guard_ioremap_hook);
+
+	static_branch_enable(&pkvm_guest);
 }

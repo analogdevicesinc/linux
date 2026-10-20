@@ -18,6 +18,7 @@
 #include <linux/file.h>
 #include <linux/fcntl.h>
 #include <linux/fs.h>
+#include <linux/fs_struct.h>
 #include <scsi/scsi_proto.h>
 #include <linux/unaligned.h>
 
@@ -1573,7 +1574,7 @@ core_scsi3_decode_spec_i_port(
 
 			iport_ptr = NULL;
 			tid_found = target_parse_pr_out_transport_id(tmp_tpg,
-					ptr, &tid_len, &iport_ptr, i_str);
+					ptr, tpdl, &tid_len, &iport_ptr, i_str);
 			if (!tid_found)
 				continue;
 			/*
@@ -1969,7 +1970,8 @@ static int __core_scsi3_write_aptpl_to_file(
 	if (!path)
 		return -ENOMEM;
 
-	file = filp_open(path, flags, 0600);
+	scoped_with_init_fs()
+		file = filp_open(path, flags, 0600);
 	if (IS_ERR(file)) {
 		pr_err("filp_open(%s) for APTPL metadata"
 			" failed\n", path);
@@ -3285,16 +3287,13 @@ core_scsi3_emulate_pro_register_and_move(struct se_cmd *cmd, u64 res_key,
 		goto out;
 	}
 	tid_found = target_parse_pr_out_transport_id(dest_se_tpg,
-			&buf[24], &tmp_tid_len, &iport_ptr, initiator_str);
+			&buf[24], tid_len, &tmp_tid_len, &iport_ptr, initiator_str);
 	if (!tid_found) {
 		pr_err("SPC-3 PR REGISTER_AND_MOVE: Unable to locate"
 			" initiator_str from Transport ID\n");
 		ret = TCM_INVALID_PARAMETER_LIST;
 		goto out;
 	}
-
-	transport_kunmap_data_sg(cmd);
-	buf = NULL;
 
 	pr_debug("SPC-3 PR [%s] Extracted initiator %s identifier: %s"
 		" %s\n", dest_tf_ops->fabric_name, (iport_ptr != NULL) ?
@@ -3532,6 +3531,11 @@ after_iport_check:
 	core_scsi3_update_and_write_aptpl(cmd->se_dev, aptpl);
 
 	core_scsi3_put_pr_reg(dest_pr_reg);
+	/*
+	 * iport_ptr aliases the PR-OUT parameter list mapped above, so the
+	 * buffer is unmapped only here on success (and at out: on error).
+	 */
+	transport_kunmap_data_sg(cmd);
 	return 0;
 out:
 	if (buf)

@@ -3446,7 +3446,6 @@ queue_timedout_job(struct drm_sched_job *sched_job)
 
 static void queue_free_job(struct drm_sched_job *sched_job)
 {
-	drm_sched_job_cleanup(sched_job);
 	panthor_job_put(sched_job);
 }
 
@@ -3502,6 +3501,7 @@ group_create_queue(struct panthor_group *group,
 	struct drm_sched_init_args sched_args = {
 		.ops = &panthor_queue_sched_ops,
 		.submit_wq = group->ptdev->scheduler->wq,
+		.num_rqs = 1,
 		/*
 		 * The credit limit argument tells us the total number of
 		 * instructions across all CS slots in the ringbuffer, with
@@ -3672,6 +3672,9 @@ int panthor_group_create(struct panthor_file *pfile,
 	if (hweight64(group_args->compute_core_mask) < group_args->max_compute_cores ||
 	    hweight64(group_args->fragment_core_mask) < group_args->max_fragment_cores ||
 	    hweight64(group_args->tiler_core_mask) < group_args->max_tiler_cores)
+		return -EINVAL;
+
+	if (group_args->queues.count > sched->cs_slot_count)
 		return -EINVAL;
 
 	group = kzalloc_obj(*group);

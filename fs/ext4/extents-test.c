@@ -126,11 +126,6 @@ struct kunit_ext_test_param {
 	struct kunit_ext_data_state exp_data_state[3];
 };
 
-static void ext_kill_sb(struct super_block *sb)
-{
-	generic_shutdown_super(sb);
-}
-
 static int ext_init_fs_context(struct fs_context *fc)
 {
 	return 0;
@@ -138,13 +133,13 @@ static int ext_init_fs_context(struct fs_context *fc)
 
 static int ext_set(struct super_block *sb, struct fs_context *fc)
 {
-	return 0;
+	return set_anon_super_fc(sb, fc);
 }
 
 static struct file_system_type ext_fs_type = {
 	.name		 = "extents test",
 	.init_fs_context = ext_init_fs_context,
-	.kill_sb	 = ext_kill_sb,
+	.kill_sb	 = kill_anon_super,
 };
 
 static void extents_kunit_exit(struct kunit *test)
@@ -156,6 +151,7 @@ static void extents_kunit_exit(struct kunit *test)
 
 	sbi = k_ctx.k_ei->vfs_inode.i_sb->s_fs_info;
 	ext4_es_unregister_shrinker(sbi);
+	ext4_es_destroy_stats(sbi);
 	deactivate_super(sbi->s_sb);
 	kfree(sbi);
 	kfree(k_ctx.k_ei);
@@ -345,6 +341,7 @@ out:
 	k_ctx.k_data = NULL;
 
 	ext4_es_unregister_shrinker(sbi);
+	ext4_es_destroy_stats(sbi);
 out_deactivate:
 	deactivate_locked_super(sb);
 	kfree(sbi);

@@ -327,7 +327,7 @@ static void gmc_v12_0_flush_gpu_tlb(struct amdgpu_device *adev, uint32_t vmid,
 		return;
 	}
 
-	gmc_v12_0_flush_vm_hub(adev, vmid, vmhub, 0);
+	gmc_v12_0_flush_vm_hub(adev, vmid, vmhub, flush_type);
 	return;
 }
 
@@ -679,10 +679,6 @@ static int gmc_v12_0_late_init(struct amdgpu_ip_block *ip_block)
 	int r;
 
 	r = amdgpu_gmc_allocate_vm_inv_eng(adev);
-	if (r)
-		return r;
-
-	r = amdgpu_gmc_ras_late_init(adev);
 	if (r)
 		return r;
 

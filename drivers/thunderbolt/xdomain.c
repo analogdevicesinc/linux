@@ -377,6 +377,10 @@ static int tb_xdp_properties_request(struct tb_ctl *ctl, u64 route,
 
 		len += sizeof(res->hdr.xd_hdr) / 4;
 		len -= sizeof(*res) / 4;
+		if (len > TB_XDP_PROPERTIES_MAX_DATA_LENGTH) {
+			ret = -EINVAL;
+			goto err;
+		}
 
 		if (res->offset != req.offset) {
 			ret = -EINVAL;
@@ -968,6 +972,9 @@ tb_xdp_schedule_request(struct tb *tb, const struct tb_xdp_header *hdr,
  */
 int tb_register_service_driver(struct tb_service_driver *drv)
 {
+	if (!drv->probe)
+		return -EINVAL;
+
 	drv->driver.bus = &tb_bus_type;
 	return driver_register(&drv->driver);
 }

@@ -85,8 +85,6 @@
 #define PPPOE_HASH_SIZE (1 << PPPOE_HASH_BITS)
 #define PPPOE_HASH_MASK	(PPPOE_HASH_SIZE - 1)
 
-static int __pppoe_xmit(struct sock *sk, struct sk_buff *skb);
-
 static const struct proto_ops pppoe_ops;
 static const struct ppp_channel_ops pppoe_chan_ops;
 
@@ -825,6 +823,7 @@ static int pppoe_sendmsg(struct socket *sock, struct msghdr *m,
 	dev_hard_header(skb, dev, ETH_P_PPP_SES,
 			po->pppoe_pa.remote, NULL, total_len);
 
+	ph = pppoe_hdr(skb);
 	memcpy(ph, &hdr, sizeof(struct pppoe_hdr));
 
 	ph->length = htons(total_len);
@@ -838,11 +837,13 @@ end:
 
 /************************************************************************
  *
- * xmit function for internal use.
+ * xmit function called by generic PPP driver
+ * sends PPP frame over PPPoE socket
  *
  ***********************************************************************/
-static int __pppoe_xmit(struct sock *sk, struct sk_buff *skb)
+static int pppoe_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 {
+	struct sock *sk = chan->private;
 	struct pppox_sock *po = pppox_sk(sk);
 	struct net_device *dev = po->pppoe_dev;
 	struct pppoe_hdr *ph;
@@ -890,18 +891,6 @@ static int __pppoe_xmit(struct sock *sk, struct sk_buff *skb)
 abort:
 	kfree_skb(skb);
 	return 1;
-}
-
-/************************************************************************
- *
- * xmit function called by generic PPP driver
- * sends PPP frame over PPPoE socket
- *
- ***********************************************************************/
-static int pppoe_xmit(struct ppp_channel *chan, struct sk_buff *skb)
-{
-	struct sock *sk = chan->private;
-	return __pppoe_xmit(sk, skb);
 }
 
 static int pppoe_fill_forward_path(struct net_device_path_ctx *ctx,

@@ -13,7 +13,7 @@ static bool ovl_is_escaped_xattr(struct super_block *sb, const char *name)
 			       OVL_XATTR_ESCAPE_USER_PREFIX_LEN) == 0;
 	else
 		return strncmp(name, OVL_XATTR_ESCAPE_TRUSTED_PREFIX,
-			       OVL_XATTR_ESCAPE_TRUSTED_PREFIX_LEN - 1) == 0;
+			       OVL_XATTR_ESCAPE_TRUSTED_PREFIX_LEN) == 0;
 }
 
 static bool ovl_is_own_xattr(struct super_block *sb, const char *name)
@@ -84,6 +84,7 @@ static int ovl_xattr_get(struct dentry *dentry, struct inode *inode, const char 
 	struct path realpath;
 
 	ovl_i_path_real(inode, &realpath);
+	/* Use vfs_getxattr(), not __vfs_getxattr(): it idmaps the security.capability rootid. */
 	with_ovl_creds(dentry->d_sb)
 		return vfs_getxattr(mnt_idmap(realpath.mnt), realpath.dentry, name, value, size);
 }

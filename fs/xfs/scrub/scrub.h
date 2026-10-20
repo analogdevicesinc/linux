@@ -11,7 +11,7 @@ struct xfs_scrub;
 struct xchk_relax {
 	unsigned long	next_resched;
 	unsigned int	resched_nr;
-	bool		interruptible;
+	bool		killable;
 };
 
 /* Yield to the scheduler at most 10x per second. */
@@ -21,7 +21,7 @@ struct xchk_relax {
 	(struct xchk_relax){ \
 		.next_resched	= XCHK_RELAX_NEXT, \
 		.resched_nr	= 0, \
-		.interruptible	= true, \
+		.killable	= true, \
 	}
 
 /*
@@ -40,12 +40,12 @@ static inline int xchk_maybe_relax(struct xchk_relax *widget)
 		return 0;
 	widget->resched_nr = 0;
 
-	if (unlikely(widget->next_resched <= jiffies)) {
+	if (unlikely(time_after_eq(jiffies, widget->next_resched))) {
 		cond_resched();
 		widget->next_resched = XCHK_RELAX_NEXT;
 	}
 
-	if (widget->interruptible && fatal_signal_pending(current))
+	if (widget->killable && fatal_signal_pending(current))
 		return -EINTR;
 
 	return 0;
@@ -261,7 +261,6 @@ static inline int xchk_nothing(struct xfs_scrub *sc)
 }
 
 /* Metadata scrubbers */
-int xchk_tester(struct xfs_scrub *sc);
 int xchk_superblock(struct xfs_scrub *sc);
 int xchk_agf(struct xfs_scrub *sc);
 int xchk_agfl(struct xfs_scrub *sc);

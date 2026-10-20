@@ -638,7 +638,7 @@ static int sca3000_write_raw_samp_freq(struct sca3000_state *st, int val)
 
 	if (val == base_freq / 2)
 		ctrlval |= SCA3000_REG_OUT_CTRL_BUF_DIV_2;
-	if (val == base_freq / 4)
+	else if (val == base_freq / 4)
 		ctrlval |= SCA3000_REG_OUT_CTRL_BUF_DIV_4;
 	else if (val != base_freq)
 		return -EINVAL;
@@ -1504,10 +1504,10 @@ static int sca3000_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id sca3000_id[] = {
-	{ "sca3000_d01", (kernel_ulong_t)&sca3000_chip_info_d01 },
-	{ "sca3000_e02", (kernel_ulong_t)&sca3000_chip_info_e02 },
-	{ "sca3000_e04", (kernel_ulong_t)&sca3000_chip_info_e04 },
-	{ "sca3000_e05", (kernel_ulong_t)&sca3000_chip_info_e05 },
+	{ .name = "sca3000_d01", .driver_data = (kernel_ulong_t)&sca3000_chip_info_d01 },
+	{ .name = "sca3000_e02", .driver_data = (kernel_ulong_t)&sca3000_chip_info_e02 },
+	{ .name = "sca3000_e04", .driver_data = (kernel_ulong_t)&sca3000_chip_info_e04 },
+	{ .name = "sca3000_e05", .driver_data = (kernel_ulong_t)&sca3000_chip_info_e05 },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, sca3000_id);

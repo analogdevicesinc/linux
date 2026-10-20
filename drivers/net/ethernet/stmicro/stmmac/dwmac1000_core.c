@@ -194,7 +194,7 @@ static void dwmac1000_set_filter(struct mac_device_info *hw,
 	dwmac1000_set_mchash(ioaddr, mc_filter, mcbitslog2);
 
 	/* Handle multiple unicast addresses (perfect filtering) */
-	if (netdev_uc_count(dev) > perfect_addr_number)
+	if (netdev_uc_count(dev) + 1 > perfect_addr_number)
 		/* Switch to promiscuous mode if more than unicast
 		 * addresses are requested than supported by hardware.
 		 */
@@ -311,6 +311,12 @@ static int dwmac1000_irq_status(struct stmmac_priv *priv,
 
 	if (intr_status & (PCS_ANE_IRQ | PCS_LINK_IRQ))
 		stmmac_integrated_pcs_irq(priv, intr_status, x);
+
+	/* Reading RGSMIIIS clears the interrupt the MAC reset unmasks. */
+	if (intr_status & PCS_RGSMIIIS_IRQ) {
+		readl(ioaddr + GMAC_RGSMIIIS);
+		x->irq_rgmii_n++;
+	}
 
 	return ret;
 }

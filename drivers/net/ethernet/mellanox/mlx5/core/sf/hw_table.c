@@ -317,7 +317,7 @@ int mlx5_sf_hw_table_init(struct mlx5_core_dev *dev)
 
 	num_spfs = mlx5_esw_get_num_spfs(dev);
 	num_hwc = MLX5_SF_HWC_FIRST_SPF + num_spfs;
-	table->hwc = kcalloc(num_hwc, sizeof(*table->hwc), GFP_KERNEL);
+	table->hwc = kzalloc_objs(*table->hwc, num_hwc);
 	if (!table->hwc) {
 		err = -ENOMEM;
 		goto hwc_alloc_err;
@@ -458,4 +458,26 @@ void mlx5_sf_hw_table_destroy(struct mlx5_core_dev *dev)
 bool mlx5_sf_hw_table_supported(const struct mlx5_core_dev *dev)
 {
 	return !!dev->priv.sf_hw_table;
+}
+
+void mlx5_sf_hw_table_esw_changed_event_handler(struct mlx5_core_dev *dev)
+{
+	struct mlx5_sf_hw_table *table;
+	struct mlx5_sf_hwc_table *hwc;
+	int i;
+
+	table = dev->priv.sf_hw_table;
+	if (!table)
+		return;
+
+	mutex_lock(&table->table_lock);
+	hwc = &table->hwc[MLX5_SF_HWC_EXT_HOST];
+	for (i = 0; i < hwc->max_fn; i++) {
+		struct mlx5_sf_hw *sf_hw;
+
+		sf_hw = &hwc->sfs[i];
+		if (sf_hw->allocated && sf_hw->pending_delete)
+			mlx5_sf_hw_table_hwc_sf_free(dev, hwc, i);
+	}
+	mutex_unlock(&table->table_lock);
 }

@@ -25,7 +25,7 @@
 #include <linux/pagemap.h>
 #include <linux/kthread.h>
 #include <linux/writeback.h>
-#include <linux/blkdev.h>
+#include <linux/blk_plug.h>
 #include <linux/backing-dev.h>
 #include <linux/tracepoint.h>
 #include <linux/device.h>
@@ -299,6 +299,7 @@ void __inode_attach_wb(struct inode *inode, struct folio *folio)
 	if (unlikely(cmpxchg(&inode->i_wb, NULL, wb)))
 		wb_put(wb);
 }
+EXPORT_SYMBOL_GPL(__inode_attach_wb);
 
 /**
  * inode_cgwb_move_to_attached - put the inode onto wb->b_attached list
@@ -726,19 +727,34 @@ static bool isw_prepare_wbs_switch(struct bdi_writeback *new_wb,
 				   struct inode_switch_wbs_context *isw,
 				   struct list_head *list, int *nr)
 {
-	struct inode *inode;
+	struct inode *inode, *tmp;
+	LIST_HEAD(scanned);
+	bool full = false;
 
-	list_for_each_entry(inode, list, i_io_list) {
+	/*
+	 * Walk from the oldest end and move scanned inodes to the newest
+	 * end, so the next scan resumes at unscanned inodes instead of
+	 * re-walking an ever-growing run of prepared and skipped ones.
+	 * For b_dirty_time this keeps the oldest unscanned inode at the
+	 * end move_expired_inodes() picks from; b_attached is unordered.
+	 */
+	list_for_each_entry_safe_reverse(inode, tmp, list, i_io_list) {
+		list_move(&inode->i_io_list, &scanned);
+
 		if (!inode_prepare_wbs_switch(inode, new_wb))
 			continue;
 
 		isw->inodes[*nr] = inode;
 		(*nr)++;
 
-		if (*nr >= WB_MAX_INODES_PER_ISW - 1)
-			return true;
+		if (*nr >= WB_MAX_INODES_PER_ISW - 1) {
+			full = true;
+			break;
+		}
 	}
-	return false;
+	list_splice(&scanned, list);
+
+	return full;
 }
 
 /**
@@ -1851,6 +1867,22 @@ __writeback_single_inode(struct inode *inode, struct writeback_control *wbc)
 		if (ret == 0)
 			ret = err;
 	}
+
+	/*
+	 * Do we need to wait for inode metadata IO possibly submitted
+	 * by previous WB_SYNC_NONE writeback?
+	 */
+	if (wbc->sync_mode == WB_SYNC_ALL && !wbc->for_sync &&
+	    inode_state_read_once(inode) & I_METADATA_WRITEBACK) {
+		int err;
+
+		spin_lock(&inode->i_lock);
+		inode_state_clear(inode, I_METADATA_WRITEBACK);
+		spin_unlock(&inode->i_lock);
+		err = inode->i_sb->s_op->sync_inode_metadata(inode, wbc);
+		if (ret == 0)
+			ret = err;
+	}
 	wbc->unpinned_netfs_wb = false;
 	trace_writeback_single_inode(inode, wbc, nr_to_write);
 	return ret;
@@ -1892,14 +1924,17 @@ static int writeback_single_inode(struct inode *inode,
 	/*
 	 * If the inode is already fully clean, then there's nothing to do.
 	 *
-	 * For data-integrity syncs we also need to check whether any pages are
-	 * still under writeback, e.g. due to prior WB_SYNC_NONE writeback.  If
-	 * there are any such pages, we'll need to wait for them.
+	 * For data-integrity syncs we also need to check whether any folios or
+	 * metadata are still under writeback, e.g. due to prior WB_SYNC_NONE
+	 * writeback. If there, we'll need to wait for them.
 	 */
-	if (!(inode_state_read(inode) & I_DIRTY_ALL) &&
-	    (wbc->sync_mode != WB_SYNC_ALL ||
-	     !mapping_tagged(inode->i_mapping, PAGECACHE_TAG_WRITEBACK)))
-		goto out;
+	if (!(inode_state_read(inode) & I_DIRTY_ALL)) {
+		if (wbc->sync_mode != WB_SYNC_ALL)
+			goto out;
+		if (!mapping_tagged(inode->i_mapping, PAGECACHE_TAG_WRITEBACK) &&
+		    !(inode_state_read(inode) & I_METADATA_WRITEBACK))
+			goto out;
+	}
 	inode_state_set(inode, I_SYNC);
 	wbc_attach_and_unlock_inode(wbc, inode);
 

@@ -935,7 +935,7 @@ static int zynqmp_qspi_read_op(struct zynqmp_qspi *xqspi, u8 rx_nbits,
  *
  * Return:	Always 0
  */
-static int __maybe_unused zynqmp_qspi_suspend(struct device *dev)
+static int zynqmp_qspi_suspend(struct device *dev)
 {
 	struct zynqmp_qspi *xqspi = dev_get_drvdata(dev);
 	struct spi_controller *ctlr = xqspi->ctlr;
@@ -959,7 +959,7 @@ static int __maybe_unused zynqmp_qspi_suspend(struct device *dev)
  *
  * Return:	0 on success; error value otherwise
  */
-static int __maybe_unused zynqmp_qspi_resume(struct device *dev)
+static int zynqmp_qspi_resume(struct device *dev)
 {
 	struct zynqmp_qspi *xqspi = dev_get_drvdata(dev);
 	struct spi_controller *ctlr = xqspi->ctlr;
@@ -979,7 +979,7 @@ static int __maybe_unused zynqmp_qspi_resume(struct device *dev)
  *
  * Return:	Always 0
  */
-static int __maybe_unused zynqmp_runtime_suspend(struct device *dev)
+static int zynqmp_runtime_suspend(struct device *dev)
 {
 	struct zynqmp_qspi *xqspi = dev_get_drvdata(dev);
 
@@ -997,7 +997,7 @@ static int __maybe_unused zynqmp_runtime_suspend(struct device *dev)
  *
  * Return:	0 on success and error value on error
  */
-static int __maybe_unused zynqmp_runtime_resume(struct device *dev)
+static int zynqmp_runtime_resume(struct device *dev)
 {
 	struct zynqmp_qspi *xqspi = dev_get_drvdata(dev);
 	int ret;
@@ -1186,9 +1186,8 @@ return_err:
 }
 
 static const struct dev_pm_ops zynqmp_qspi_dev_pm_ops = {
-	SET_RUNTIME_PM_OPS(zynqmp_runtime_suspend,
-			   zynqmp_runtime_resume, NULL)
-	SET_SYSTEM_SLEEP_PM_OPS(zynqmp_qspi_suspend, zynqmp_qspi_resume)
+	RUNTIME_PM_OPS(zynqmp_runtime_suspend, zynqmp_runtime_resume, NULL)
+	SYSTEM_SLEEP_PM_OPS(zynqmp_qspi_suspend, zynqmp_qspi_resume)
 };
 
 static const struct qspi_platform_data versal_qspi_def = {
@@ -1374,15 +1373,49 @@ static void zynqmp_qspi_remove(struct platform_device *pdev)
 	clk_disable_unprepare(xqspi->pclk);
 }
 
+static void zynqmp_qspi_shutdown(struct platform_device *pdev)
+{
+	struct zynqmp_qspi *xqspi = platform_get_drvdata(pdev);
+	int ret;
+
+	/*
+	 * Stop the queue and reject any later transfer first, so the write
+	 * below cannot cut into a message that is still being executed.
+	 * Unlike ->suspend this cannot abort on error: a controller left
+	 * mastering the bus is worse than a truncated transfer.
+	 */
+	ret = spi_controller_suspend(xqspi->ctlr);
+	if (ret)
+		dev_warn(&pdev->dev, "could not stop the queue: %d\n", ret);
+
+	/*
+	 * Only a runtime suspended controller can be left alone: its clocks
+	 * are gated, so it cannot be mastering the bus, and its registers
+	 * must not be accessed either.  Any other answer means it may be
+	 * running and has to be stopped.  In particular, on a kernel built
+	 * without runtime PM this returns -EINVAL, and there the clocks
+	 * enabled in probe() are never gated at all.
+	 */
+	ret = pm_runtime_get_if_in_use(&pdev->dev);
+	if (!ret)
+		return;
+
+	zynqmp_gqspi_write(xqspi, GQSPI_EN_OFST, 0x0);
+
+	if (ret > 0)
+		pm_runtime_put_noidle(&pdev->dev);
+}
+
 MODULE_DEVICE_TABLE(of, zynqmp_qspi_of_match);
 
 static struct platform_driver zynqmp_qspi_driver = {
 	.probe = zynqmp_qspi_probe,
 	.remove = zynqmp_qspi_remove,
+	.shutdown = zynqmp_qspi_shutdown,
 	.driver = {
 		.name = "zynqmp-qspi",
 		.of_match_table = zynqmp_qspi_of_match,
-		.pm = &zynqmp_qspi_dev_pm_ops,
+		.pm = pm_ptr(&zynqmp_qspi_dev_pm_ops),
 	},
 };
 

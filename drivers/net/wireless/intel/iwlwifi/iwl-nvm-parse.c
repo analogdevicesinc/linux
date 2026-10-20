@@ -85,16 +85,7 @@ static const u16 iwl_nvm_channels[] = {
 	149, 153, 157, 161, 165
 };
 
-static const u16 iwl_ext_nvm_channels[] = {
-	/* 2.4 GHz */
-	1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
-	/* 5 GHz */
-	36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88, 92,
-	96, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144,
-	149, 153, 157, 161, 165, 169, 173, 177, 181
-};
-
-static const u16 iwl_uhb_nvm_channels[] = {
+static const u16 iwl_unii9_nvm_channels[] = {
 	/* 2.4 GHz */
 	1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
 	/* 5 GHz */
@@ -105,12 +96,16 @@ static const u16 iwl_uhb_nvm_channels[] = {
 	1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49, 53, 57, 61, 65, 69,
 	73, 77, 81, 85, 89, 93, 97, 101, 105, 109, 113, 117, 121, 125, 129,
 	133, 137, 141, 145, 149, 153, 157, 161, 165, 169, 173, 177, 181, 185,
-	189, 193, 197, 201, 205, 209, 213, 217, 221, 225, 229, 233
+	189, 193, 197, 201, 205, 209, 213, 217, 221, 225, 229, 233,
+
+	/* UNII-9 */
+	237, 241, 245, 249, 253
 };
 
 #define IWL_NVM_NUM_CHANNELS		ARRAY_SIZE(iwl_nvm_channels)
-#define IWL_NVM_NUM_CHANNELS_EXT	ARRAY_SIZE(iwl_ext_nvm_channels)
-#define IWL_NVM_NUM_CHANNELS_UHB	ARRAY_SIZE(iwl_uhb_nvm_channels)
+#define IWL_NVM_NUM_CHANNELS_EXT	51
+#define IWL_NVM_NUM_CHANNELS_UHB	110
+#define IWL_NVM_NUM_CHANNELS_UNII9	ARRAY_SIZE(iwl_unii9_nvm_channels)
 #define NUM_2GHZ_CHANNELS		14
 #define NUM_5GHZ_CHANNELS		37
 #define FIRST_2GHZ_HT_MINUS		5
@@ -230,6 +225,18 @@ enum iwl_reg_capa_flags_v5 {
 	REG_CAPA_V5_11BN_DISABLED		= BIT(17),
 }; /* GEO_CHANNEL_CAPABILITIES_API_S_VER_4, 5 */
 
+/**
+ * enum iwl_reg_capa_flags_v6 - global capability flags,
+ *	applicable from MCC response version 10 onwards.
+ * Response v6 includes all members of iwl_reg_capa_flags_v5; only v6-specific
+ * additions are listed here.
+ * @REG_CAPA_V6_EHT_PUNCTURING_ENABLED: EHT puncturing is enabled for this
+ *	regulatory domain.
+ */
+enum iwl_reg_capa_flags_v6 {
+	REG_CAPA_V6_EHT_PUNCTURING_ENABLED	= BIT(18),
+}; /* GEO_CHANNEL_CAPABILITIES_API_S_VER_6 */
+
 /*
 * API v2 for reg_capa_flags is relevant from version 6 and onwards of the
 * MCC update command response.
@@ -240,6 +247,11 @@ enum iwl_reg_capa_flags_v5 {
  * MCC update command response.
  */
 #define REG_CAPA_V4_RESP_VER	8
+
+/* API v6 for reg_capa_flags is relevant from version 10 and onwards of the
+ * MCC update command response.
+ */
+#define REG_CAPA_V6_RESP_VER	10
 
 static inline void iwl_nvm_print_channel_flags(struct device *dev, u32 level,
 					       int chan, u32 flags)
@@ -351,12 +363,15 @@ static int iwl_init_channel_map(struct iwl_trans *trans,
 	int num_of_ch;
 	const u16 *nvm_chan;
 
-	if (cfg->uhb_supported) {
+	if (cfg->unii9_supported) {
+		num_of_ch = IWL_NVM_NUM_CHANNELS_UNII9;
+		nvm_chan = iwl_unii9_nvm_channels;
+	} else if (cfg->uhb_supported) {
 		num_of_ch = IWL_NVM_NUM_CHANNELS_UHB;
-		nvm_chan = iwl_uhb_nvm_channels;
+		nvm_chan = iwl_unii9_nvm_channels;
 	} else if (cfg->nvm_type == IWL_NVM_EXT) {
 		num_of_ch = IWL_NVM_NUM_CHANNELS_EXT;
-		nvm_chan = iwl_ext_nvm_channels;
+		nvm_chan = iwl_unii9_nvm_channels;
 	} else {
 		num_of_ch = IWL_NVM_NUM_CHANNELS;
 		nvm_chan = iwl_nvm_channels;
@@ -699,7 +714,8 @@ static const struct ieee80211_sband_iftype_data iwl_iftype_cap[] = {
 			.mac.mac_cap = {
 				[0] = IEEE80211_UHR_MAC_CAP0_NPCA_SUPP |
 				      IEEE80211_UHR_MAC_CAP0_DPS_SUPP,
-				[1] = IEEE80211_UHR_MAC_CAP1_DUO_SUPP,
+				[1] = IEEE80211_UHR_MAC_CAP1_DUO_SUPP |
+				      IEEE80211_UHR_MAC_CAP1_DBE_SUPP,
 			},
 		},
 	},
@@ -1441,7 +1457,9 @@ iwl_parse_mei_nvm_data(struct iwl_trans *trans, const struct iwl_rf_cfg *cfg,
 	u8 rx_chains = fw->valid_rx_ant;
 	u8 tx_chains = fw->valid_rx_ant;
 
-	if (cfg->uhb_supported)
+	if (cfg->unii9_supported)
+		data = kzalloc_flex(*data, channels, IWL_NVM_NUM_CHANNELS_UNII9);
+	else if (cfg->uhb_supported)
 		data = kzalloc_flex(*data, channels, IWL_NVM_NUM_CHANNELS_UHB);
 	else
 		data = kzalloc_flex(*data, channels, IWL_NVM_NUM_CHANNELS_EXT);
@@ -1506,7 +1524,9 @@ iwl_parse_nvm_data(struct iwl_trans *trans, const struct iwl_rf_cfg *cfg,
 	u16 lar_config;
 	const __le16 *ch_section;
 
-	if (cfg->uhb_supported)
+	if (cfg->unii9_supported)
+		data = kzalloc_flex(*data, channels, IWL_NVM_NUM_CHANNELS_UNII9);
+	else if (cfg->uhb_supported)
 		data = kzalloc_flex(*data, channels, IWL_NVM_NUM_CHANNELS_UHB);
 	else if (cfg->nvm_type != IWL_NVM_EXT)
 		data = kzalloc_flex(*data, channels, IWL_NVM_NUM_CHANNELS);
@@ -1685,6 +1705,13 @@ static struct iwl_reg_capa iwl_get_reg_capa(u32 flags, u8 resp_ver)
 {
 	struct iwl_reg_capa reg_capa = {};
 
+	if (resp_ver >= REG_CAPA_V6_RESP_VER) {
+		if (flags & REG_CAPA_V6_EHT_PUNCTURING_ENABLED)
+			reg_capa.puncturing_status = IWL_PUNCTURING_STATUS_ENABLED;
+		else
+			reg_capa.puncturing_status = IWL_PUNCTURING_STATUS_DISABLED;
+	}
+
 	if (resp_ver >= REG_CAPA_V4_RESP_VER) {
 		reg_capa.allow_40mhz = true;
 		reg_capa.allow_80mhz = flags & REG_CAPA_V5_80MHZ_ALLOWED;
@@ -1711,7 +1738,8 @@ static struct iwl_reg_capa iwl_get_reg_capa(u32 flags, u8 resp_ver)
 struct ieee80211_regdomain *
 iwl_parse_nvm_mcc_info(struct iwl_trans *trans,
 		       int num_of_ch, __le32 *channels, u16 fw_mcc,
-		       u16 geo_info, u32 cap, u8 resp_ver)
+		       u16 geo_info, u32 cap, u8 resp_ver,
+		       enum iwl_puncturing_status *puncturing_status)
 {
 	const struct iwl_rf_cfg *cfg = trans->cfg;
 	struct device *dev = trans->dev;
@@ -1727,12 +1755,15 @@ iwl_parse_nvm_mcc_info(struct iwl_trans *trans,
 	int max_num_ch;
 	struct iwl_reg_capa reg_capa;
 
-	if (cfg->uhb_supported) {
+	if (cfg->unii9_supported) {
+		max_num_ch = IWL_NVM_NUM_CHANNELS_UNII9;
+		nvm_chan = iwl_unii9_nvm_channels;
+	} else if (cfg->uhb_supported) {
 		max_num_ch = IWL_NVM_NUM_CHANNELS_UHB;
-		nvm_chan = iwl_uhb_nvm_channels;
+		nvm_chan = iwl_unii9_nvm_channels;
 	} else if (cfg->nvm_type == IWL_NVM_EXT) {
 		max_num_ch = IWL_NVM_NUM_CHANNELS_EXT;
-		nvm_chan = iwl_ext_nvm_channels;
+		nvm_chan = iwl_unii9_nvm_channels;
 	} else {
 		max_num_ch = IWL_NVM_NUM_CHANNELS;
 		nvm_chan = iwl_nvm_channels;
@@ -1770,6 +1801,9 @@ iwl_parse_nvm_mcc_info(struct iwl_trans *trans,
 
 	/* parse regulatory capability flags */
 	reg_capa = iwl_get_reg_capa(cap, resp_ver);
+
+	if (puncturing_status)
+		*puncturing_status = reg_capa.puncturing_status;
 
 	for (ch_idx = 0; ch_idx < num_of_ch; ch_idx++) {
 		enum nl80211_band band =
@@ -2087,12 +2121,25 @@ struct iwl_nvm_data *iwl_get_nvm(struct iwl_trans *trans,
 	struct iwl_nvm_get_info_rsp_v3 *rsp_v3;
 	bool v4 = fw_has_api(&fw->ucode_capa,
 			     IWL_UCODE_TLV_API_REGULATORY_NVM_INFO);
-	size_t rsp_size = v4 ? sizeof(*rsp) : sizeof(*rsp_v3);
+	size_t rsp_size;
 	void *channel_profile;
 
 	ret = iwl_trans_send_cmd(trans, &hcmd);
 	if (ret)
 		return ERR_PTR(ret);
+
+	switch (iwl_fw_lookup_notif_ver(fw, REGULATORY_AND_NVM_GROUP,
+					NVM_GET_INFO, 0)) {
+	case 5:
+		rsp_size = sizeof(struct iwl_nvm_get_info_rsp);
+		break;
+	case 4:
+		rsp_size = sizeof(struct iwl_nvm_get_info_rsp_v4);
+		break;
+	default:
+		rsp_size = sizeof(struct iwl_nvm_get_info_rsp_v3);
+		break;
+	}
 
 	if (WARN(iwl_rx_packet_payload_len(hcmd.resp_pkt) != rsp_size,
 		 "Invalid payload len in NVM response from FW %d",
@@ -2107,7 +2154,7 @@ struct iwl_nvm_data *iwl_get_nvm(struct iwl_trans *trans,
 	if (empty_otp)
 		IWL_INFO(trans, "OTP is empty\n");
 
-	nvm = kzalloc_flex(*nvm, channels, IWL_NUM_CHANNELS_V2);
+	nvm = kzalloc_flex(*nvm, channels, IWL_NUM_CHANNELS_V3);
 	if (!nvm) {
 		ret = -ENOMEM;
 		goto out;

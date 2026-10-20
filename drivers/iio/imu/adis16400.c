@@ -280,7 +280,7 @@ static void adis16400_debugfs_init(struct iio_dev *indio_dev)
 		return;
 
 	if (st->variant->flags & ADIS16400_HAS_SERIAL_NUMBER)
-		debugfs_create_file_unsafe("serial_number", 0400,
+		debugfs_create_file("serial_number", 0400,
 				d, st, &adis16400_serial_number_fops);
 	if (st->variant->flags & ADIS16400_HAS_PROD_ID)
 		debugfs_create_file_unsafe("product_id", 0400,
@@ -1189,21 +1189,21 @@ static int adis16400_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id adis16400_id[] = {
-	{ "adis16300", (kernel_ulong_t)&adis16300_chip_info },
-	{ "adis16305", (kernel_ulong_t)&adis16300_chip_info },
-	{ "adis16334", (kernel_ulong_t)&adis16334_chip_info },
-	{ "adis16350", (kernel_ulong_t)&adis16350_chip_info },
-	{ "adis16354", (kernel_ulong_t)&adis16350_chip_info },
-	{ "adis16355", (kernel_ulong_t)&adis16350_chip_info },
-	{ "adis16360", (kernel_ulong_t)&adis16360_chip_info },
-	{ "adis16362", (kernel_ulong_t)&adis16362_chip_info },
-	{ "adis16364", (kernel_ulong_t)&adis16364_chip_info },
-	{ "adis16365", (kernel_ulong_t)&adis16360_chip_info },
-	{ "adis16367", (kernel_ulong_t)&adis16367_chip_info },
-	{ "adis16400", (kernel_ulong_t)&adis16400_chip_info },
-	{ "adis16405", (kernel_ulong_t)&adis16400_chip_info },
-	{ "adis16445", (kernel_ulong_t)&adis16445_chip_info },
-	{ "adis16448", (kernel_ulong_t)&adis16448_chip_info },
+	{ .name = "adis16300", .driver_data = (kernel_ulong_t)&adis16300_chip_info },
+	{ .name = "adis16305", .driver_data = (kernel_ulong_t)&adis16300_chip_info },
+	{ .name = "adis16334", .driver_data = (kernel_ulong_t)&adis16334_chip_info },
+	{ .name = "adis16350", .driver_data = (kernel_ulong_t)&adis16350_chip_info },
+	{ .name = "adis16354", .driver_data = (kernel_ulong_t)&adis16350_chip_info },
+	{ .name = "adis16355", .driver_data = (kernel_ulong_t)&adis16350_chip_info },
+	{ .name = "adis16360", .driver_data = (kernel_ulong_t)&adis16360_chip_info },
+	{ .name = "adis16362", .driver_data = (kernel_ulong_t)&adis16362_chip_info },
+	{ .name = "adis16364", .driver_data = (kernel_ulong_t)&adis16364_chip_info },
+	{ .name = "adis16365", .driver_data = (kernel_ulong_t)&adis16360_chip_info },
+	{ .name = "adis16367", .driver_data = (kernel_ulong_t)&adis16367_chip_info },
+	{ .name = "adis16400", .driver_data = (kernel_ulong_t)&adis16400_chip_info },
+	{ .name = "adis16405", .driver_data = (kernel_ulong_t)&adis16400_chip_info },
+	{ .name = "adis16445", .driver_data = (kernel_ulong_t)&adis16445_chip_info },
+	{ .name = "adis16448", .driver_data = (kernel_ulong_t)&adis16448_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, adis16400_id);
