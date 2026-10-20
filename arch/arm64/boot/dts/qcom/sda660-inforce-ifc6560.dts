@@ -167,7 +167,7 @@
 		reg = <0x39>, <0x66>;
 		reg-names = "main", "edid";
 
-		interrupt-parent = <&pm660l_gpios>;
+		interrupt-parent = <&pm660_gpios>;
 		interrupts = <11 IRQ_TYPE_EDGE_FALLING>;
 
 		clocks = <&rpmcc RPM_SMD_BB_CLK2>;
