@@ -147,6 +147,12 @@ void inv_sensors_timestamp_interrupt(struct inv_sensors_timestamp *ts,
 	/* update delta timestamps and estimated period */
 	it = &ts->delta;
 	ts->delta_counter += sample_nb;
+	/* reset in case of odr change */
+	if (ts->new_mult) {
+		it->lo = 0;
+		it->up = 0;
+		ts->delta_counter = 0;
+	}
 	delta = timestamp - it->up;
 	delta_threshold = INV_SENSORS_TIMESTAMP_MIN(INV_SENSORS_MIN_IT_DELTA, ts->chip.jitter);
 	if (delta >= delta_threshold) {
@@ -166,7 +172,7 @@ void inv_sensors_timestamp_interrupt(struct inv_sensors_timestamp *ts,
 	it->lo = it->up;
 	it->up = timestamp;
 	delta = it->up - it->lo;
-	if (it->lo != 0) {
+	if (it->lo != 0 && !ts->new_mult) {
 		/* compute period and check validity */
 		period = div_s64(delta, sample_nb);
 		valid = inv_validate_period(ts, period);
