@@ -2497,11 +2497,13 @@ config SND_SOC_WCD937X
 	depends on SND_SOC_WCD937X_SDW
 	tristate
 	depends on SOUNDWIRE || !SOUNDWIRE
+	depends on TYPEC || !TYPEC
 	select SND_SOC_WCD_CLASSH
 	select SND_SOC_WCD_COMMON
 
 config SND_SOC_WCD937X_SDW
 	tristate "WCD9370/WCD9375 Codec - SDW"
+	depends on TYPEC || !TYPEC
 	select SND_SOC_WCD937X
 	select SND_SOC_WCD_MBHC
 	select REGMAP_IRQ
