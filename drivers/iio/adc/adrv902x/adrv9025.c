@@ -1742,7 +1742,7 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 			ret = adi_adrv9025_RxGainSet(phy->madDevice, &rxGain,
 						     1);
 			if (ret)
-				adrv9025_dev_err(phy);
+				ret = adrv9025_dev_err(phy);
 		}
 		break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
