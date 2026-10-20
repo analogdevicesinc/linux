@@ -5,7 +5,7 @@
 #include <linux/platform_data/x86/int3472.h>
 
 static const struct int3472_discrete_quirks lenovo_miix_510_quirks = {
-	.avdd_second_sensor = "i2c-OVTI2680:00",
+	.power_enable_second_sensor = "i2c-OVTI2680:00",
 };
 
 const struct dmi_system_id skl_int3472_discrete_quirks[] = {
