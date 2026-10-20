@@ -624,7 +624,7 @@ static const struct llcc_slice_config glymur_data[] = {
 	}
 };
 
-static const struct llcc_slice_config ipq5424_data[] =  {
+static const struct llcc_slice_config ipq5424_data[] = {
 	{
 		.usecase_id = LLCC_PPE_RXDESC,
 		.slice_id = 1,
@@ -1236,7 +1236,7 @@ static const struct llcc_slice_config nord_data[] = {
 	},
 };
 
-static const struct llcc_slice_config sa8775p_data[] =  {
+static const struct llcc_slice_config sa8775p_data[] = {
 	{
 		.usecase_id = LLCC_CPUSS,
 		.slice_id = 1,
@@ -1784,7 +1784,7 @@ static const struct llcc_slice_config sar2130p_data[] = {
 	},
 };
 
-static const struct llcc_slice_config sc7180_data[] =  {
+static const struct llcc_slice_config sc7180_data[] = {
 	{
 		.usecase_id = LLCC_CPUSS,
 		.slice_id = 1,
@@ -1821,7 +1821,7 @@ static const struct llcc_slice_config sc7180_data[] =  {
 	},
 };
 
-static const struct llcc_slice_config sc7280_data[] =  {
+static const struct llcc_slice_config sc7280_data[] = {
 	{
 		.usecase_id = LLCC_CPUSS,
 		.slice_id = 1,
@@ -2343,7 +2343,8 @@ static const struct llcc_slice_config sdm670_data[] = {
 	},
 };
 
-static const struct llcc_slice_config sdm845_data[] =  {{
+static const struct llcc_slice_config sdm845_data[] = {
+	{
 		.usecase_id = LLCC_CPUSS,
 		.slice_id = 1,
 		.max_cap = 2816,
@@ -2541,7 +2542,7 @@ static const struct llcc_slice_config shikra_data[] = {
 	},
 };
 
-static const struct llcc_slice_config sm6350_data[] =  {
+static const struct llcc_slice_config sm6350_data[] = {
 	{
 		.usecase_id = LLCC_CPUSS,
 		.slice_id = 1,
@@ -2604,7 +2605,7 @@ static const struct llcc_slice_config sm6350_data[] =  {
 	},
 };
 
-static const struct llcc_slice_config sm7150_data[] =  {
+static const struct llcc_slice_config sm7150_data[] = {
 	{
 		.usecase_id = LLCC_CPUSS,
 		.slice_id = 1,
@@ -2651,7 +2652,7 @@ static const struct llcc_slice_config sm7150_data[] =  {
 	},
 };
 
-static const struct llcc_slice_config sm8150_data[] =  {
+static const struct llcc_slice_config sm8150_data[] = {
 	{
 		.usecase_id = LLCC_CPUSS,
 		.slice_id = 1,
@@ -2844,7 +2845,7 @@ static const struct llcc_slice_config sm8150_data[] =  {
 	},
 };
 
-static const struct llcc_slice_config sm8250_data[] =  {
+static const struct llcc_slice_config sm8250_data[] = {
 	{
 		.usecase_id = LLCC_CPUSS,
 		.slice_id = 1,
@@ -2985,7 +2986,7 @@ static const struct llcc_slice_config sm8250_data[] =  {
 	},
 };
 
-static const struct llcc_slice_config sm8350_data[] =  {
+static const struct llcc_slice_config sm8350_data[] = {
 	{
 		.usecase_id = LLCC_CPUSS,
 		.slice_id = 1,
@@ -3158,7 +3159,7 @@ static const struct llcc_slice_config sm8350_data[] =  {
 	},
 };
 
-static const struct llcc_slice_config sm8450_data[] =  {
+static const struct llcc_slice_config sm8450_data[] = {
 	{
 		.usecase_id = LLCC_CPUSS,
 		.slice_id = 1,
@@ -3367,7 +3368,7 @@ static const struct llcc_slice_config sm8450_data[] =  {
 	},
 };
 
-static const struct llcc_slice_config sm8550_data[] =  {
+static const struct llcc_slice_config sm8550_data[] = {
 	{
 		.usecase_id = LLCC_CPUSS,
 		.slice_id = 1,
