@@ -1566,6 +1566,9 @@ static struct file_system_type pipe_fs_type = {
 
 static ulong round_pipe_size_ul(ulong size)
 {
+	if (size > UINT_MAX)
+		return 0;
+
 	return round_pipe_size(size);
 }
 
