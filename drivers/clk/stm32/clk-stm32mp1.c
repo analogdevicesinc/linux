@@ -2090,7 +2090,8 @@ static const struct clock_config stm32mp1_clock_cfg[] = {
 	GATE(CK_DBG, "ck_sys_dbg", "ck_axi", CLK_IGNORE_UNUSED,
 	     RCC_DBGCFGR, 8, 0),
 
-	COMPOSITE(CK_TRACE, "ck_trace", ck_trace_src, CLK_OPS_PARENT_ENABLE,
+	COMPOSITE(CK_TRACE, "ck_trace", ck_trace_src,
+		  CLK_OPS_PARENT_ENABLE | CLK_IGNORE_UNUSED,
 		  _GATE(RCC_DBGCFGR, 9, 0),
 		  _NO_MUX,
 		  _DIV(RCC_DBGCFGR, 0, 3, 0, ck_trace_div_table)),
