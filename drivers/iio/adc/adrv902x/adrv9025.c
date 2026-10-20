@@ -1183,9 +1183,11 @@ static int adrv9025_set_obs_rx_path(struct iio_dev *indio_dev,
 			sel_gpio = (chan->channel > CHAN_OBS_RX1) ?
 				   phy->orx_ctrl_d_gpio : phy->orx_ctrl_b_gpio;
 
+		if (!sel_gpio)
+			return -ENODEV;
+
 		/* select line: mode 1 = second ORx of the pair => assert */
-		if (sel_gpio)
-			gpiod_set_value_cansleep(sel_gpio, mode ? 1 : 0);
+		gpiod_set_value_cansleep(sel_gpio, mode ? 1 : 0);
 
 		/* selecting changes routing; re-assert the split crossbar */
 		ret = adrv9025_orx_xbar_reassert(phy);
@@ -1241,7 +1243,10 @@ static int adrv9025_get_obs_rx_path(struct iio_dev *indio_dev,
 			sel_gpio = (chan->channel > CHAN_OBS_RX1) ?
 				   phy->orx_ctrl_d_gpio : phy->orx_ctrl_b_gpio;
 
-		ret = sel_gpio ? gpiod_get_value_cansleep(sel_gpio) : 0;
+		if (!sel_gpio)
+			return -ENODEV;
+
+		ret = gpiod_get_value_cansleep(sel_gpio);
 		if (ret < 0)
 			return ret;	/* gpiolib errno, not a MADAPI error */
 
@@ -1501,8 +1506,12 @@ static int adrv9025_phy_read_raw(struct iio_dev *indio_dev,
 					phy->orx_ctrl_c_gpio :
 					phy->orx_ctrl_a_gpio;
 
-				*val = en_gpio ?
-				       !!gpiod_get_value_cansleep(en_gpio) : 0;
+				if (!en_gpio) {
+					ret = -ENODEV;
+					goto out;
+				}
+
+				*val = !!gpiod_get_value_cansleep(en_gpio);
 				break;
 			}
 			case ADI_ADRV9025_ORX_EN_SPI_MODE:
@@ -1656,6 +1665,11 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 					(chan->channel > CHAN_OBS_RX1) ?
 					phy->orx_ctrl_c_gpio :
 					phy->orx_ctrl_a_gpio;
+
+				if (!en_gpio) {
+					ret = -ENODEV;
+					break;
+				}
 
 				gpiod_set_value_cansleep(en_gpio, val ? 1 : 0);
 
