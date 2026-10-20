@@ -157,6 +157,7 @@ read_profile(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 	ssize_t read;
 	char *pnt;
 	unsigned int sample_step = (unsigned int)(1UL << prof_shift);
+	size_t not_copied;
 
 	if (p >= (prof_len+1)*sizeof(unsigned int))
 		return 0;
@@ -166,15 +167,21 @@ read_profile(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 
 	while (p < sizeof(unsigned int) && count > 0) {
 		if (put_user(*((char *)(&sample_step)+p), buf))
-			return -EFAULT;
+			goto out;
 		buf++; p++; count--; read++;
 	}
-	pnt = (char *)prof_buffer + p - sizeof(atomic_t);
-	if (copy_to_user(buf, (void *)pnt, count))
-		return -EFAULT;
-	read += count;
+	if (count) {
+		pnt = (char *)prof_buffer + p - sizeof(atomic_t);
+		not_copied = copy_to_user(buf, pnt, count);
+		read += count - not_copied;
+		if (not_copied)
+			goto out;
+	}
 	*ppos += read;
 	return read;
+out:
+	*ppos += read;
+	return read ? read : -EFAULT;
 }
 
 /* default is to not implement this call */
