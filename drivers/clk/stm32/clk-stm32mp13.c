@@ -16,6 +16,9 @@
 #define STM32MP1_RESET_ID_MASK GENMASK(15, 0)
 #define RCC_CLR_OFFSET		0x4
 
+/* Number of clock identifiers of the binding: highest ID + 1 */
+#define STM32MP13_LAST_CLK	(SAI2 + 1)
+
 /* STM32 Gates definition */
 enum enum_gate_cfg {
 	GATE_MCO1,
@@ -1523,7 +1526,7 @@ static const struct stm32_rcc_match_data stm32mp13_data = {
 	.num_clocks	= ARRAY_SIZE(stm32mp13_clock_cfg),
 	.clock_data	= &stm32mp13_clock_data,
 	.check_security = &stm32mp13_clock_is_provided_by_secure,
-	.maxbinding	= STM32MP1_LAST_CLK,
+	.maxbinding	= STM32MP13_LAST_CLK,
 	.reset_data	= &stm32mp13_reset_data,
 };
 
