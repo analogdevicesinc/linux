@@ -18,6 +18,7 @@
 #define CGBC_GPIO_CMD_SET	0x65
 #define CGBC_GPIO_CMD_DIR_GET	0x66
 #define CGBC_GPIO_CMD_DIR_SET	0x67
+#define CGBC_GPIO_CMD_ENA_RD	0x84
 
 struct cgbc_gpio_data {
 	struct gpio_chip	chip;
@@ -146,6 +147,30 @@ static int cgbc_gpio_get_direction(struct gpio_chip *chip, unsigned int offset)
 		return GPIO_LINE_DIRECTION_IN;
 }
 
+static int cgbc_gpio_init_valid_mask(struct gpio_chip *chip,
+				     unsigned long *valid_mask,
+				     unsigned int ngpios)
+{
+	struct cgbc_gpio_data *gpio = gpiochip_get_data(chip);
+	struct cgbc_device_data *cgbc = gpio->cgbc;
+	int ret;
+	u8 val;
+
+	ret = cgbc_gpio_cmd(cgbc, CGBC_GPIO_CMD_ENA_RD, 0, 0, &val);
+	if (ret)
+		return ret;
+
+	*valid_mask = val;
+
+	ret = cgbc_gpio_cmd(cgbc, CGBC_GPIO_CMD_ENA_RD, 1, 0, &val);
+	if (ret)
+		return ret;
+
+	*valid_mask |= (val << 8);
+
+	return 0;
+}
+
 static int cgbc_gpio_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -172,6 +197,7 @@ static int cgbc_gpio_probe(struct platform_device *pdev)
 	chip->get_direction = cgbc_gpio_get_direction;
 	chip->get = cgbc_gpio_get;
 	chip->set = cgbc_gpio_set;
+	chip->init_valid_mask = cgbc_gpio_init_valid_mask;
 	chip->ngpio = CGBC_GPIO_NGPIO;
 
 	ret = devm_mutex_init(dev, &gpio->lock);
