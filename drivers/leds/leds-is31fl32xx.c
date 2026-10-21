@@ -194,7 +194,8 @@ static int is31fl3293_reset(struct is31fl32xx_priv *priv)
 	for (i = 0; i < priv->num_leds; i++) {
 		struct is31fl32xx_led_data *led_data = &priv->leds[i];
 		int current_level_reg = IS31FL3293_CL_REG + led_data->channel - 1;
-		int microamp = max(led_data->max_microamp, IS31FL3293_MAX_MICROAMP);
+		u32 microamp = min_not_zero(led_data->max_microamp,
+					    IS31FL3293_MAX_MICROAMP);
 		int current_level = (microamp * 0xff) / IS31FL3293_MAX_MICROAMP;
 
 		ret = is31fl32xx_write(priv, current_level_reg, current_level);
