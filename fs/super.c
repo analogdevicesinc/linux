@@ -1689,18 +1689,23 @@ static void fs_bdev_sync(struct block_device *bdev)
 
 	mutex_unlock(&bdev->bd_holder_lock);
 
-	for_each_dev_super(sb, &cursor) {
-		if (!super_lock_shared(sb)) {
-			if (super_wait_shutdown_killable(sb)) {
-				super_dev_walk_end(&cursor);
-				put_super(sb);
-				return;
-			}
+	for_each_dev_super_killable(sb, &cursor) {
+		int ret;
+
+		ret = super_lock_killable(sb, false);
+		if (!ret) {
+			if (sb->s_root && (sb->s_flags & SB_ACTIVE))
+				sync_filesystem(sb);
+			super_unlock_shared(sb);
 			continue;
 		}
-		if (sb->s_root && (sb->s_flags & SB_ACTIVE))
-			sync_filesystem(sb);
-		super_unlock_shared(sb);
+		if (ret == -ENOENT)
+			ret = super_wait_shutdown_killable(sb);
+		if (ret) {
+			super_dev_walk_end(&cursor);
+			put_super(sb);
+			return;
+		}
 	}
 }
 
