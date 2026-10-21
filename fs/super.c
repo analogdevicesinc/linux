@@ -560,16 +560,26 @@ static void super_dev_put(struct super_dev *sd)
 	put_super(sb);
 }
 
+/* Unhash the cursor of a walk that stops early. */
+static void super_dev_walk_end(struct super_dev *cursor)
+{
+	guard(spinlock)(&super_dev_lock);
+	hash_del(&cursor->sd_hash);
+}
+
 /*
  * Return the superblock of the next claim behind @cursor with a passive
  * reference and put @prev. The mount of a superblock that isn't born yet may
  * still drop its claim, so wait for it to be born or to die and look again.
+ * If the wait in @state is interrupted the walk ends.
  */
 static struct super_block *super_dev_next(struct super_dev *cursor,
-					  struct super_block *prev)
+					  struct super_block *prev,
+					  unsigned int state)
 {
 	struct super_block *sb;
 	struct super_dev *sd;
+	int ret;
 
 	if (prev)
 		put_super(prev);
@@ -596,20 +606,27 @@ static struct super_block *super_dev_next(struct super_dev *cursor,
 				return sb;
 			}
 		}
-		wait_var_event(&sb->s_flags, super_flags(sb, SB_BORN | SB_DYING));
+		ret = wait_var_event_state(&sb->s_flags,
+					   super_flags(sb, SB_BORN | SB_DYING),
+					   state);
 		put_super(sb);
+		if (ret) {
+			super_dev_walk_end(cursor);
+			return NULL;
+		}
 	}
 }
 
-/* Unhash the cursor of a walk that stops early. */
-static void super_dev_walk_end(struct super_dev *cursor)
-{
-	guard(spinlock)(&super_dev_lock);
-	hash_del(&cursor->sd_hash);
-}
+#define __for_each_dev_super(sb, cursor, state)			\
+	for (sb = super_dev_next(cursor, NULL, state); sb;		\
+	     sb = super_dev_next(cursor, sb, state))
 
 #define for_each_dev_super(sb, cursor) \
-	for (sb = super_dev_next(cursor, NULL); sb; sb = super_dev_next(cursor, sb))
+	__for_each_dev_super(sb, cursor, TASK_UNINTERRUPTIBLE)
+
+/* Stop the walk on a fatal signal. */
+#define for_each_dev_super_killable(sb, cursor) \
+	__for_each_dev_super(sb, cursor, TASK_KILLABLE)
 
 static void kill_super_notify(struct super_block *sb)
 {
@@ -1143,11 +1160,18 @@ struct super_block *user_get_super(dev_t dev, bool excl)
 	struct super_dev cursor = { .sd_dev = dev };
 	struct super_block *sb;
 
-	for_each_dev_super(sb, &cursor) {
-		if (super_lock(sb, excl)) {
-			super_dev_walk_end(&cursor);
-			return sb;
+	for_each_dev_super_killable(sb, &cursor) {
+		int ret;
+
+		ret = super_lock_killable(sb, excl);
+		if (ret == -ENOENT)
+			continue;
+		super_dev_walk_end(&cursor);
+		if (ret) {
+			put_super(sb);
+			return NULL;
 		}
+		return sb;
 	}
 	return NULL;
 }
