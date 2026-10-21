@@ -357,32 +357,31 @@ static int rpr0521_set_power_state(struct rpr0521_data *data, bool on,
 	 * Note: If either measurement is re-enabled before _suspend(),
 	 * both stay enabled until _suspend().
 	 */
-	if (on)
-		ret = pm_runtime_resume_and_get(&data->client->dev);
-	else
-		ret = pm_runtime_put_autosuspend(&data->client->dev);
+	if (!on) {
+		pm_runtime_put_autosuspend(&data->client->dev);
+
+		return 0;
+	}
+
+	ret = pm_runtime_resume_and_get(&data->client->dev);
 	if (ret < 0) {
-		dev_err(&data->client->dev,
-			"Failed: rpr0521_set_power_state for %d, ret %d\n",
-			on, ret);
+		dev_err(&data->client->dev, "Failed to resume: %d\n", ret);
 		return ret;
 	}
 
-	if (on) {
-		/* If _resume() was not called, enable measurement now. */
-		if (data->als_ps_need_en) {
-			ret = rpr0521_als_enable(data, RPR0521_MODE_ALS_ENABLE);
-			if (ret)
-				return ret;
-			data->als_ps_need_en = false;
-		}
+	/* If _resume() was not called, enable measurement now. */
+	if (data->als_ps_need_en) {
+		ret = rpr0521_als_enable(data, RPR0521_MODE_ALS_ENABLE);
+		if (ret)
+			return ret;
+		data->als_ps_need_en = false;
+	}
 
-		if (data->pxs_ps_need_en) {
-			ret = rpr0521_pxs_enable(data, RPR0521_MODE_PXS_ENABLE);
-			if (ret)
-				return ret;
-			data->pxs_ps_need_en = false;
-		}
+	if (data->pxs_ps_need_en) {
+		ret = rpr0521_pxs_enable(data, RPR0521_MODE_PXS_ENABLE);
+		if (ret)
+			return ret;
+		data->pxs_ps_need_en = false;
 	}
 #endif
 	return 0;
@@ -545,17 +544,14 @@ static int rpr0521_buffer_preenable(struct iio_dev *indio_dev)
 
 static int rpr0521_buffer_postdisable(struct iio_dev *indio_dev)
 {
-	int err;
 	struct rpr0521_data *data = iio_priv(indio_dev);
 
 	mutex_lock(&data->lock);
-	err = rpr0521_set_power_state(data, false,
-		(RPR0521_MODE_PXS_MASK | RPR0521_MODE_ALS_MASK));
+	rpr0521_set_power_state(data, false,
+				RPR0521_MODE_PXS_MASK | RPR0521_MODE_ALS_MASK);
 	mutex_unlock(&data->lock);
-	if (err)
-		dev_err(&data->client->dev, "_buffer_postdisable fail\n");
 
-	return err;
+	return 0;
 }
 
 static const struct iio_buffer_setup_ops rpr0521_buffer_setup_ops = {
@@ -718,12 +714,7 @@ static int rpr0521_read_info_raw(struct rpr0521_data *data,
 	ret = regmap_bulk_read(data->regmap,
 			       rpr0521_data_reg[chan->address].address,
 			       &raw_data, sizeof(raw_data));
-	if (ret < 0) {
-		rpr0521_set_power_state(data, false, device_mask);
-		return ret;
-	}
-
-	ret = rpr0521_set_power_state(data, false, device_mask);
+	rpr0521_set_power_state(data, false, device_mask);
 	if (ret < 0)
 		return ret;
 
