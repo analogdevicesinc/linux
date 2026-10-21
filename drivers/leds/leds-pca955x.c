@@ -525,19 +525,23 @@ static int pca955x_gpio_direction_output(struct gpio_chip *gc,
 }
 #endif /* CONFIG_LEDS_PCA955X_GPIO */
 
+static void pca955x_fwnode_put(void *data)
+{
+	fwnode_handle_put(data);
+}
+
 static int pca955x_parse_fwnode(struct pca955x *pca955x)
 {
 	struct device *dev = &pca955x->client->dev;
 	u8 bits = pca955x->chipdef->bits;
 	struct pca955x_led *led;
-	struct fwnode_handle *child;
 	int count;
 
 	count = device_get_child_node_count(dev);
 	if (count > bits)
 		return -ENODEV;
 
-	device_for_each_child_node(dev, child) {
+	device_for_each_child_node_scoped(dev, child) {
 		u32 reg;
 		int res;
 
@@ -546,8 +550,17 @@ static int pca955x_parse_fwnode(struct pca955x *pca955x)
 			continue;
 
 		led = &pca955x->leds[reg];
+		if (led->fwnode)
+			devm_release_action(dev, pca955x_fwnode_put,
+					    led->fwnode);
 		led->type = PCA955X_TYPE_LED;
-		led->fwnode = child;
+		led->fwnode = fwnode_handle_get(child);
+
+		res = devm_add_action_or_reset(dev,
+					       pca955x_fwnode_put, led->fwnode);
+		if (res)
+			return res;
+
 		led->default_state = led_init_default_state_get(child);
 
 		fwnode_property_read_u32(child, "type", &led->type);
