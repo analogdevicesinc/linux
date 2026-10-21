@@ -59,18 +59,13 @@
 	pinctrl-names = "default";
 	reset-gpio = <&gpio4 28 GPIO_ACTIVE_LOW>;
 	status = "okay";
+};
 
-	root@0,0 {
-		compatible = "pci16c3,abcd";
-		reg = <0x00000000 0 0 0 0>;
-		#address-cells = <3>;
-		#size-cells = <2>;
-
-		/* Intel i210 */
-		pcie_eth: ethernet@1,0 {
-			compatible = "pci8086,157b";
-			reg = <0x00010000 0 0 0 0>;
-		};
+&pcie0_port0 {
+	/* Intel i210 */
+	pcie_eth: ethernet@0,0 {
+		compatible = "pci8086,157b";
+		reg = <0x00010000 0 0 0 0>;
 	};
 };
 
