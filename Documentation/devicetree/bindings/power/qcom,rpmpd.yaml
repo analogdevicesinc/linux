@@ -76,6 +76,7 @@ properties:
       - items:
           - enum:
               - qcom,msm8937-rpmpd
+              - qcom,msm8952-rpmpd
           - const: qcom,msm8917-rpmpd
       - items:
           - enum:
