@@ -273,6 +273,8 @@ static void led_flash_init_sysfs_groups(struct led_classdev_flash *fled_cdev)
 	if (ops->fault_get)
 		flash_groups[num_sysfs_groups++] = &led_flash_fault_group;
 
+	flash_groups[num_sysfs_groups] = NULL;
+
 	led_cdev->groups = flash_groups;
 }
 
