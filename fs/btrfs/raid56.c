@@ -395,8 +395,9 @@ static bool is_data_stripe_page(struct btrfs_raid_bio *rbio, int page_nr)
 	const int sector_nr = page_nr_to_sector_nr(rbio, page_nr);
 
 	/*
-	 * We have ensured PAGE_SIZE is aligned with sectorsize, thus
-	 * we won't have a page which is half data half parity.
+	 * The caller has ensured stripe_len >= PAGE_SIZE, and PAGE_SIZE is
+	 * aligned with sectorsize, thus we won't have a page which is half
+	 * data half parity.
 	 *
 	 * Thus if the first sector of the page belongs to data stripes, then
 	 * the full page belongs to data stripes.
@@ -416,6 +417,9 @@ static void steal_rbio(struct btrfs_raid_bio *src, struct btrfs_raid_bio *dest)
 	int i;
 
 	if (!test_bit(RBIO_CACHE_READY_BIT, &src->flags))
+		return;
+	/* Data and P/Q can be mixed into a page, skip stealing. */
+	if (src->bioc->stripe_len < PAGE_SIZE)
 		return;
 
 	for (i = 0; i < dest->nr_pages; i++) {
@@ -624,12 +628,13 @@ static void cache_rbio(struct btrfs_raid_bio *rbio)
 static int rbio_is_full(struct btrfs_raid_bio *rbio)
 {
 	unsigned long size = rbio->bio_list_bytes;
+	const u32 stripe_len = rbio->bioc->stripe_len;
 	int ret = 1;
 
 	spin_lock(&rbio->bio_list_lock);
-	if (size != rbio->nr_data * BTRFS_STRIPE_LEN)
+	if (size != rbio->nr_data * stripe_len)
 		ret = 0;
-	BUG_ON(size > rbio->nr_data * BTRFS_STRIPE_LEN);
+	BUG_ON(size > rbio->nr_data * stripe_len);
 	spin_unlock(&rbio->bio_list_lock);
 
 	return ret;
@@ -1041,11 +1046,12 @@ static phys_addr_t sector_paddr_in_rbio(struct btrfs_raid_bio *rbio,
 static struct btrfs_raid_bio *alloc_rbio(struct btrfs_fs_info *fs_info,
 					 struct btrfs_io_context *bioc)
 {
+	const u32 stripe_len = bioc->stripe_len;
 	const unsigned int real_stripes = bioc->num_stripes - bioc->replace_nr_stripes;
-	const unsigned int stripe_npages = BTRFS_STRIPE_LEN >> PAGE_SHIFT;
-	const unsigned int num_pages = stripe_npages * real_stripes;
+	const unsigned int num_pages = round_up(stripe_len * real_stripes, PAGE_SIZE) >>
+				       PAGE_SHIFT;
 	const unsigned int stripe_nsectors =
-		BTRFS_STRIPE_LEN >> fs_info->sectorsize_bits;
+		stripe_len >> fs_info->sectorsize_bits;
 	const unsigned int num_sectors = stripe_nsectors * real_stripes;
 	const unsigned int step = min(fs_info->sectorsize, PAGE_SIZE);
 	const unsigned int sector_nsteps = fs_info->sectorsize / step;
@@ -1105,7 +1111,6 @@ static struct btrfs_raid_bio *alloc_rbio(struct btrfs_fs_info *fs_info,
 	rbio->nr_pages = num_pages;
 	rbio->nr_sectors = num_sectors;
 	rbio->real_stripes = real_stripes;
-	rbio->stripe_npages = stripe_npages;
 	rbio->stripe_nsectors = stripe_nsectors;
 	rbio->sector_nsteps = sector_nsteps;
 	refcount_set(&rbio->refs, 1);
@@ -1134,9 +1139,17 @@ static int alloc_rbio_pages(struct btrfs_raid_bio *rbio)
 /* only allocate pages for p/q stripes */
 static int alloc_rbio_parity_pages(struct btrfs_raid_bio *rbio)
 {
-	const int data_pages = rbio->nr_data * rbio->stripe_npages;
+	int data_pages;
 	int ret;
 
+	/*
+	 * Page size larger than stripe size, we can not only allocate
+	 * pages for P/Q stripes.
+	 */
+	if (rbio->bioc->stripe_len < PAGE_SIZE)
+		return alloc_rbio_pages(rbio);
+
+	data_pages = rbio->nr_data * (rbio->bioc->stripe_len >> PAGE_SHIFT);
 	ret = btrfs_alloc_page_array(rbio->nr_pages - data_pages,
 				     rbio->stripe_pages + data_pages, GFP_NOFS);
 	if (ret < 0)
@@ -1274,7 +1287,7 @@ static int rbio_add_io_paddrs(struct btrfs_raid_bio *rbio, struct bio_list *bio_
 
 	/* put a new bio on the list */
 	bio = bio_alloc(stripe->dev->bdev,
-			max(BTRFS_STRIPE_LEN >> PAGE_SHIFT, 1),
+			max(rbio->bioc->stripe_len >> PAGE_SHIFT, 1),
 			op, GFP_NOFS);
 	bio->bi_iter.bi_sector = disk_start >> SECTOR_SHIFT;
 	bio->bi_private = rbio;
@@ -1715,9 +1728,13 @@ static void submit_read_wait_bio_list(struct btrfs_raid_bio *rbio,
 
 static int alloc_rbio_data_pages(struct btrfs_raid_bio *rbio)
 {
-	const int data_pages = rbio->nr_data * rbio->stripe_npages;
+	int data_pages;
 	int ret;
 
+	if (rbio->bioc->stripe_len < PAGE_SIZE)
+		return alloc_rbio_pages(rbio);
+
+	data_pages = rbio->nr_data * (rbio->bioc->stripe_len >> PAGE_SHIFT);
 	ret = btrfs_alloc_page_array(data_pages, rbio->stripe_pages, GFP_NOFS);
 	if (ret < 0)
 		return ret;
@@ -1804,7 +1821,7 @@ static void rbio_add_bio(struct btrfs_raid_bio *rbio, struct bio *orig_bio)
 
 	ASSERT_RBIO_LOGICAL(orig_logical >= full_stripe_start &&
 			    orig_logical + orig_len <= full_stripe_start +
-			    rbio->nr_data * BTRFS_STRIPE_LEN,
+			    rbio->nr_data * rbio->bioc->stripe_len,
 			    rbio, orig_logical);
 
 	bio_list_add(&rbio->bio_list, orig_bio);
@@ -3012,6 +3029,7 @@ void raid56_parity_cache_data_folios(struct btrfs_raid_bio *rbio,
 	struct btrfs_fs_info *fs_info = rbio->bioc->fs_info;
 	const u64 offset_in_full_stripe = data_logical -
 					  rbio->bioc->full_stripe_logical;
+	const u32 stripe_len = rbio->bioc->stripe_len;
 	int ret;
 
 	/*
@@ -3027,19 +3045,20 @@ void raid56_parity_cache_data_folios(struct btrfs_raid_bio *rbio,
 		return;
 
 	/* data_logical must be at stripe boundary and inside the full stripe. */
-	ASSERT(IS_ALIGNED(offset_in_full_stripe, BTRFS_STRIPE_LEN));
-	ASSERT(offset_in_full_stripe < (rbio->nr_data << BTRFS_STRIPE_LEN_SHIFT));
+	ASSERT(IS_ALIGNED(offset_in_full_stripe, stripe_len));
+	ASSERT(offset_in_full_stripe < (rbio->nr_data << ilog2(stripe_len)));
 
 	for (unsigned int cur_off = offset_in_full_stripe;
-	     cur_off < offset_in_full_stripe + BTRFS_STRIPE_LEN;
+	     cur_off < offset_in_full_stripe + stripe_len;
 	     cur_off += PAGE_SIZE) {
 		const unsigned int pindex = cur_off >> PAGE_SHIFT;
+		const u32 cur_len = min(stripe_len, PAGE_SIZE);
 
-		ASSERT(cur_off - offset_in_full_stripe + PAGE_SIZE <= BTRFS_STRIPE_LEN);
-		memcpy_to_page(rbio->stripe_pages[pindex], 0,
-			       vaddr + cur_off - offset_in_full_stripe, PAGE_SIZE);
+		ASSERT(cur_off - offset_in_full_stripe + cur_len <= stripe_len);
+		memcpy_to_page(rbio->stripe_pages[pindex], offset_in_page(cur_off),
+			       vaddr + cur_off - offset_in_full_stripe, cur_len);
 	}
 	bitmap_set(rbio->stripe_uptodate_bitmap,
 		   offset_in_full_stripe >> fs_info->sectorsize_bits,
-		   BTRFS_STRIPE_LEN >> fs_info->sectorsize_bits);
+		   stripe_len >> fs_info->sectorsize_bits);
 }
