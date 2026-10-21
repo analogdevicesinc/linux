@@ -1617,10 +1617,10 @@ static void sanitise_mte_tags(struct kvm *kvm, kvm_pfn_t pfn,
 	}
 
 	if (folio_test_hugetlb(folio)) {
-		/* Hugetlb has MTE flags set on head page only */
+		/* A hugetlb folio is marked tagged as a whole, so clear every page */
 		if (folio_try_hugetlb_mte_tagging(folio)) {
-			for (i = 0; i < nr_pages; i++, page++)
-				mte_clear_page_tags(page_address(page));
+			for (i = 0; i < folio_nr_pages(folio); i++)
+				mte_clear_page_tags(page_address(folio_page(folio, i)));
 			folio_set_hugetlb_mte_tagged(folio);
 		}
 		return;
