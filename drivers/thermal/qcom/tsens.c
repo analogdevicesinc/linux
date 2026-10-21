@@ -1377,7 +1377,7 @@ static int tsens_register(struct tsens_priv *priv)
 	return ret;
 }
 
-static int tsens_probe(struct platform_device *pdev)
+static int tsens_probe_common(struct platform_device *pdev)
 {
 	int ret, i;
 	struct device *dev;
@@ -1451,6 +1451,41 @@ static int tsens_probe(struct platform_device *pdev)
 	ret = tsens_register(priv);
 	if (!ret)
 		tsens_debug_init(pdev);
+
+	return ret;
+}
+
+static void tsens_release_resources(void *data)
+{
+	struct device *dev = data;
+
+	devres_release_group(dev->parent, dev);
+}
+
+static int tsens_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	int ret;
+
+	/*
+	 * DT-backed devices own their managed resources directly. Legacy devices
+	 * created by the Global Clock Controller (GCC) driver have no OF node and
+	 * use the parent's firmware data and managed resources instead. Group
+	 * those resources so the child releases them on probe failure or unbind.
+	 */
+	if (dev->of_node)
+		return tsens_probe_common(pdev);
+
+	/* Tie resources allocated on the parent to the TSENS lifetime. */
+	if (!devres_open_group(dev->parent, dev, GFP_KERNEL))
+		return -ENOMEM;
+
+	ret = devm_add_action_or_reset(dev, tsens_release_resources, dev);
+	if (ret)
+		return ret;
+
+	ret = tsens_probe_common(pdev);
+	devres_close_group(dev->parent, dev);
 
 	return ret;
 }
