@@ -510,7 +510,7 @@ static void __remove_rbio_from_cache(struct btrfs_raid_bio *rbio)
 			if (!list_empty(&rbio->hash_list)) {
 				list_del_init(&rbio->hash_list);
 				refcount_dec(&rbio->refs);
-				BUG_ON(!list_empty(&rbio->plug_list));
+				ASSERT(list_empty(&rbio->plug_list));
 			}
 		}
 	}
@@ -634,7 +634,7 @@ static int rbio_is_full(struct btrfs_raid_bio *rbio)
 	spin_lock(&rbio->bio_list_lock);
 	if (size != rbio->nr_data * stripe_len)
 		ret = 0;
-	BUG_ON(size > rbio->nr_data * stripe_len);
+	ASSERT(size <= rbio->nr_data * stripe_len);
 	spin_unlock(&rbio->bio_list_lock);
 
 	return ret;
@@ -881,7 +881,7 @@ static noinline void unlock_stripe(struct btrfs_raid_bio *rbio)
 		    test_bit(RBIO_CACHE_BIT, &rbio->flags)) {
 			keep_cache = true;
 			clear_bit(RBIO_RMW_LOCKED_BIT, &rbio->flags);
-			BUG_ON(!bio_list_empty(&rbio->bio_list));
+			ASSERT(bio_list_empty(&rbio->bio_list));
 			goto done;
 		}
 
@@ -2719,7 +2719,7 @@ static int finish_parity_scrub(struct btrfs_raid_bio *rbio)
 	unsigned long *pbitmap = &rbio->finish_pbitmap;
 	int nr_data = rbio->nr_data;
 	int sectornr;
-	bool has_qstripe;
+	const bool has_qstripe = rbio->bioc->map_type & BTRFS_BLOCK_GROUP_RAID6;
 	struct page *page;
 	phys_addr_t p_paddr = INVALID_PADDR;
 	phys_addr_t q_paddr = INVALID_PADDR;
@@ -2728,13 +2728,6 @@ static int finish_parity_scrub(struct btrfs_raid_bio *rbio)
 	int ret;
 
 	bio_list_init(&bio_list);
-
-	if (rbio->real_stripes - rbio->nr_data == 1)
-		has_qstripe = false;
-	else if (rbio->real_stripes - rbio->nr_data == 2)
-		has_qstripe = true;
-	else
-		BUG();
 
 	/*
 	 * Replace is running and our P/Q stripe is being replaced, then we
