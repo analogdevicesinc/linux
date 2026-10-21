@@ -375,6 +375,11 @@ static void led_clamp_align(struct led_flash_setting *s)
 {
 	u32 v, offset;
 
+	if (!s->step) {
+		s->val = clamp(s->val, s->min, s->max);
+		return;
+	}
+
 	v = s->val + s->step / 2;
 	v = clamp(v, s->min, s->max);
 	offset = v - s->min;
