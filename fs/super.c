@@ -1031,6 +1031,7 @@ enum super_iter_flags_t {
 	SUPER_ITER_UNLOCKED	= (1U << 0),
 	SUPER_ITER_REVERSE	= (1U << 1),
 	SUPER_ITER_WAIT_SHUTDOWN = (1U << 2),
+	SUPER_ITER_SKIP_UNBORN	= (1U << 3),
 };
 
 static inline struct super_block *first_super(enum super_iter_flags_t flags)
@@ -1060,6 +1061,10 @@ static int __iterate_supers(void (*f)(struct super_block *, void *), void *arg,
 	     !list_entry_is_head(sb, &super_blocks, s_list);
 	     sb = next_super(sb, flags)) {
 		if (super_flags(sb, SB_DYING))
+			continue;
+
+		if ((flags & SUPER_ITER_SKIP_UNBORN) &&
+		    !super_flags(sb, SB_BORN))
 			continue;
 
 		if (!refcount_inc_not_zero(&sb->s_passive))
@@ -1103,12 +1108,16 @@ void iterate_supers(void (*f)(struct super_block *, void *), void *arg)
  * down writes it out.  Wait for that, so that it is on disk as well by the time
  * the walk is over.
  *
+ * A superblock which is still being set up isn't passed to @f either, and
+ * isn't waited for.  Nobody can have written to it yet.
+ *
  * Return: 0 if all the superblocks were seen, -ERESTARTSYS if the task was
  *         killed while it waited for one.
  */
 int iterate_supers_sync(void (*f)(struct super_block *, void *), void *arg)
 {
-	return __iterate_supers(f, arg, SUPER_ITER_WAIT_SHUTDOWN);
+	return __iterate_supers(f, arg, SUPER_ITER_WAIT_SHUTDOWN |
+					SUPER_ITER_SKIP_UNBORN);
 }
 
 /**
