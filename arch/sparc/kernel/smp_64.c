@@ -924,6 +924,7 @@ extern unsigned long xcall_kgdb_capture;
 
 #ifdef DCACHE_ALIASING_POSSIBLE
 extern unsigned long xcall_flush_dcache_page_cheetah;
+extern unsigned long xcall_flush_dcache_all;
 #endif
 extern unsigned long xcall_flush_dcache_page_spitfire;
 
@@ -1033,6 +1034,23 @@ void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
 
 	preempt_enable();
 }
+
+#ifdef DCACHE_ALIASING_POSSIBLE
+void flush_dcache_all(void)
+{
+	unsigned long size, line_size;
+
+	if (tlb_type == hypervisor)
+		return;
+
+	preempt_disable();
+	size = local_cpu_data().dcache_size;
+	line_size = local_cpu_data().dcache_line_size;
+	smp_cross_call(&xcall_flush_dcache_all, 0, size, line_size);
+	__flush_dcache_all(size, line_size);
+	preempt_enable();
+}
+#endif
 
 #ifdef CONFIG_KGDB
 void kgdb_roundup_cpus(void)
