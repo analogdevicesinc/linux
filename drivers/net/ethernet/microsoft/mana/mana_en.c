@@ -9,7 +9,6 @@
 #include <linux/ethtool.h>
 #include <linux/filter.h>
 #include <linux/mm.h>
-#include <linux/pci.h>
 #include <linux/export.h>
 #include <linux/skbuff.h>
 
@@ -20,6 +19,7 @@
 #include <net/xdp.h>
 
 #include <net/mana/mana.h>
+
 #include <net/mana/mana_auxiliary.h>
 #include <net/mana/hw_channel.h>
 
@@ -3754,10 +3754,9 @@ static int mana_dealloc_queues(struct net_device *ndev)
 				tsleep <<= 1;
 			}
 			if (atomic_read(&txq->pending_sends)) {
-				err =
-				    pcie_flr(to_pci_dev(gd->gdma_context->dev));
+				err = mana_gd_dev_reset(gd->gdma_context);
 				if (err) {
-					netdev_err(ndev, "flr failed %d with %d pkts pending in txq %u\n",
+					netdev_err(ndev, "device reset failed %d with %d pkts pending in txq %u\n",
 						   err,
 					    atomic_read(&txq->pending_sends),
 					    txq->gdma_txq_id);
@@ -3987,7 +3986,9 @@ static int add_adev(struct gdma_dev *gd, const char *name)
 
 	/* madev is owned by the auxiliary device */
 	madev = NULL;
-	ret = auxiliary_device_add(adev);
+	/* Keep match names independent of the common module's name. */
+	ret = __auxiliary_device_add(adev,
+				     gd->gdma_context->bus_ops->adev_prefix);
 	if (ret)
 		goto add_fail;
 
@@ -4059,6 +4060,9 @@ int mana_rdma_service_event(struct gdma_context *gc, enum gdma_service_type even
 		/* RDMA device is not detected on pci */
 		return 0;
 	}
+
+	if (!gc->service_wq)
+		return -EOPNOTSUPP;
 
 	serv_work = kzalloc_obj(*serv_work, GFP_ATOMIC);
 	if (!serv_work)
@@ -4221,6 +4225,7 @@ out:
 
 	return err;
 }
+EXPORT_SYMBOL_NS(mana_probe, "NET_MANA");
 
 void mana_remove(struct gdma_dev *gd, bool suspending)
 {
@@ -4299,6 +4304,7 @@ void mana_remove(struct gdma_dev *gd, bool suspending)
 	kfree(ac);
 	dev_dbg(dev, "%s succeeded\n", __func__);
 }
+EXPORT_SYMBOL_NS(mana_remove, "NET_MANA");
 
 int mana_rdma_probe(struct gdma_dev *gd)
 {
@@ -4334,6 +4340,7 @@ int mana_rdma_probe(struct gdma_dev *gd)
 
 	return err;
 }
+EXPORT_SYMBOL_NS(mana_rdma_probe, "NET_MANA");
 
 void mana_rdma_remove(struct gdma_dev *gd)
 {
@@ -4354,6 +4361,7 @@ void mana_rdma_remove(struct gdma_dev *gd)
 
 	mana_gd_deregister_device(gd);
 }
+EXPORT_SYMBOL_NS(mana_rdma_remove, "NET_MANA");
 
 struct net_device *mana_get_primary_netdev(struct mana_context *ac,
 					   u32 port_index,

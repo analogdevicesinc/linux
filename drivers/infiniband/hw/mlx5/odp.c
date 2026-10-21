@@ -953,7 +953,7 @@ int mlx5_ib_init_dmabuf_mr(struct mlx5_ib_mr *mr, struct ib_pd *pd)
 	int ret;
 
 	if (mr->data_direct)
-		pdn = dev->ddr.pdn;
+		pdn = dev->mdev->data_direct->pdn;
 	else
 		pdn = to_mpd(pd)->pdn;
 

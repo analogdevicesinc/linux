@@ -219,10 +219,8 @@ static void test_determine_chan_mode(struct kunit *test)
 	/* To force EHT downgrade to HE on punctured 80 MHz downgraded to 40 MHz */
 	set_bit(IEEE80211_HW_DISALLOW_PUNCTURING, t_sdata->local.hw.flags);
 
-	if (params->strict)
-		set_bit(IEEE80211_HW_STRICT, t_sdata->local.hw.flags);
-	else
-		clear_bit(IEEE80211_HW_STRICT, t_sdata->local.hw.flags);
+	assign_bit(IEEE80211_HW_STRICT, t_sdata->local.hw.flags,
+		   params->strict);
 
 	t_sdata->sdata->u.mgd.ht_capa_mask = params->ht_capa_mask;
 	t_sdata->sdata->u.mgd.vht_capa = params->vht_capa;

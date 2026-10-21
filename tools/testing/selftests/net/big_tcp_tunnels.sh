@@ -145,7 +145,8 @@ do_test() {
 			    route change 192.168.2.0/24 dev tun0 initcwnd 100
 		else
 			ip -netns "$CLIENT_NS" -6 \
-			    route change 2001:db8::2:0/112 dev tun0 initcwnd 100
+			    route change 2001:db8::2:0/112 dev tun0 initcwnd 100 \
+			    metric 256
 		fi
 	else
 		ip netns exec "$CLIENT_NS" \

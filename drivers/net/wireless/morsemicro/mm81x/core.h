@@ -192,7 +192,12 @@ struct mm81x_sta {
 	bool tid_tx[IEEE80211_NUM_TIDS];
 	bool tid_start_tx[IEEE80211_NUM_TIDS];
 	u8 tid_params[IEEE80211_NUM_TIDS];
-	int max_bw_mhz;
+
+	/*
+	 * We really should be using link_sta::bandwidth but
+	 * that requires non-trivial work.
+	 */
+	int max_rx_bw_mhz;
 	struct mm81x_rc_sta rc;
 	struct mmrc_rate last_sta_tx_rate;
 	s16 avg_rssi;

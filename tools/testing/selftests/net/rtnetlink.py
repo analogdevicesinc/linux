@@ -314,11 +314,122 @@ def ipv6_route_del_reason_absent() -> None:
                         "user deletion must not carry del-reason")
 
 
+def _insert_and_get_addrs_ipv4(test_addrs: list[str], scopes: list[str]) -> list[str]:
+    with NetNS() as ns, NetNSEnter(str(ns)):
+        dev_name = "dummy_dev"
+
+        ip(f"link add name {dev_name} type dummy", ns=str(ns))
+        for test_addr, scope in zip(test_addrs, scopes):
+            ip(f"address add {test_addr}/24 dev {dev_name} scope {scope}", ns=str(ns))
+
+        rtnl = RtnlAddrFamily()
+        addrs = rtnl.getaddr({"ifa-family": socket.AF_INET}, dump=True)
+        return [addr["address"] for addr in addrs]
+
+
+def ipv4_verify_same_scope_addr_order() -> None:
+    """
+    After inserting multiple same scope IPv4 addresses, their order
+    must be the same as the insertion order. The only aspect affecting
+    this are primary addresses, which precede secondary ones.
+    """
+
+    primary_first = ["192.0.2.1", "203.0.113.1", "192.0.2.2", "203.0.113.2"]
+    scopes = ["global"] * 4
+    expected_result = primary_first
+    resulting_list = _insert_and_get_addrs_ipv4(primary_first, scopes)
+    ksft_eq(resulting_list, expected_result, "Unexpected IPv4 address order")
+
+    subnet_first = ["192.0.2.1", "192.0.2.2", "203.0.113.1", "203.0.113.2"]
+    # Scope and expected result stay the same.
+    resulting_list = _insert_and_get_addrs_ipv4(subnet_first, scopes)
+    ksft_eq(resulting_list, expected_result, "Unexpected IPv4 address order")
+
+
+def ipv4_verify_inter_scope_addr_order() -> None:
+    """
+    When IPv4 addresses from different scopes are inserted,
+    primary link local addresses must precede global ones.
+
+    Address ordering across different scopes has also
+    been attempted to be patched, bringing in a new risk of a user-space
+    regression, similar to the same scope equivalent. This will further
+    consolidate the implementation differences of both protocols.
+    """
+
+    test_addrs = ["192.0.2.1", "203.0.113.1", "192.0.2.2", "203.0.113.2"]
+
+    link_first = ["link", "global", "link", "global"]
+    expected_result = test_addrs
+    resulting_list = _insert_and_get_addrs_ipv4(test_addrs, link_first)
+    ksft_eq(resulting_list, expected_result, "Unexpected IPv4 address order across scopes")
+
+    global_first = ["global", "link", "global", "link"]
+    expected_result = ["203.0.113.1", "192.0.2.1", "192.0.2.2", "203.0.113.2"]
+    resulting_list = _insert_and_get_addrs_ipv4(test_addrs, global_first)
+    ksft_eq(resulting_list, expected_result, "Unexpected IPv4 address order across scopes")
+
+
+def _insert_and_get_addrs_ipv6(test_addrs: list[str]) -> list[str]:
+    with NetNS() as ns, NetNSEnter(str(ns)):
+        dev_name = "dummy_dev"
+
+        ip(f"link add name {dev_name} type dummy", ns=str(ns))
+        for test_addr in test_addrs:
+            ip(f"address add {test_addr}/64 dev {dev_name}", ns=str(ns))
+
+        rtnl = RtnlAddrFamily()
+        addrs = rtnl.getaddr({"ifa-family": socket.AF_INET6}, dump=True)
+        return [addr["address"] for addr in addrs]
+
+
+def ipv6_verify_same_scope_addr_order() -> None:
+    """
+    After inserting multiple same scope IPv6 addresses, their order
+    must be the _reverse_ of the insertion order.
+
+    While this behaviour is different from how IPv4 acts,
+    updating the IPv6 implementation to act the same way
+    has proved to cause user-space application regressions
+    (particularly in NetworkManager). This behaviour is being
+    tested to consolidate it as being expected and correct.
+    """
+
+    addr_list = ["2001:db8::1", "2001:db8::2", "2001:db8::3"]
+    expected_result = addr_list[::-1]
+    resulting_list = _insert_and_get_addrs_ipv6(addr_list)
+    ksft_eq(resulting_list, expected_result, "Unexpected IPv6 address order")
+
+
+def ipv6_verify_inter_scope_addr_order() -> None:
+    """
+    Inserted IPv6 addresses from different scopes must have
+    global primary address precede link local ones. This again
+    is the _reverse_ of how IPv4 addresses are ordered.
+
+    To prevent potential user-space regressions with IPv6
+    addresses, the inter-scope insertion order is also being tested.
+    """
+
+    global_first = ["2001:db8::1", "fe80::1", "2001:db8::2", "fe80::2"]
+    # Not only must the global addresses be first, but their insertion order must be reversed.
+    expected_result = ["2001:db8::2", "2001:db8::1", "fe80::2", "fe80::1"]
+    resulting_list = _insert_and_get_addrs_ipv6(global_first)
+    ksft_eq(resulting_list, expected_result, "Unexpected IPv6 address order across scopes")
+
+    link_first = ["fe80::1", "2001:db8::1", "fe80::2", "2001:db8::2"]
+    # Expected result stays the same.
+    resulting_list = _insert_and_get_addrs_ipv6(link_first)
+    ksft_eq(resulting_list, expected_result, "Unexpected IPv6 address order across scopes")
+
+
 def main() -> None:
     ksft_run([dump_mcaddr_check, dump_mcaddr6_check, ipv4_devconf_notify,
               ipv6_route_del_reason_expired,
               ipv6_route_del_reason_ra_withdrawn,
-              ipv6_route_del_reason_absent])
+              ipv6_route_del_reason_absent,
+              ipv4_verify_same_scope_addr_order, ipv4_verify_inter_scope_addr_order,
+              ipv6_verify_same_scope_addr_order, ipv6_verify_inter_scope_addr_order])
     ksft_exit()
 
 if __name__ == "__main__":

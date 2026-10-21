@@ -986,7 +986,8 @@ class Struct:
         self.family = family
         self.space_name = space_name
         self.attr_set = family.attr_sets[space_name]
-        # Use list to catch comparisons with empty sets
+        # Stored by reference, _load_nested_set_nest() fills the list in
+        # after constructing us.
         self._inherited = inherited if inherited is not None else []
         self.inherited = []
         self.fixed_header = None
@@ -1038,9 +1039,11 @@ class Struct:
         return self.attr_list
 
     def set_inherited(self, new_inherited):
+        if self.submsg:
+            raise Exception("Nesting a sub-message as an attribute set not supported")
         if self._inherited != new_inherited:
-            raise Exception("Inheriting different members not supported")
-        self.inherited = [c_lower(x) for x in sorted(self._inherited)]
+            raise Exception("Inheriting different members, or a different order, not supported")
+        self.inherited = [c_lower(x) for x in self._inherited]
 
     def external_selectors(self):
         sels = []
@@ -1394,7 +1397,7 @@ class Family(SpecFamily):
                 pns_key_list.append(name)
 
     def _load_nested_set_nest(self, spec):
-        inherit = set()
+        inherit = []
         nested = spec['nested-attributes']
         if nested not in self.root_sets:
             if nested not in self.pure_nested_structs:
@@ -1407,9 +1410,9 @@ class Family(SpecFamily):
         if 'type-value' in spec:
             if nested in self.root_sets:
                 raise Exception("Inheriting members to a space used as root not supported")
-            inherit.update(set(spec['type-value']))
+            inherit.extend(spec['type-value'])
         elif spec['type'] == 'indexed-array':
-            inherit.add('idx')
+            inherit.append('idx')
         self.pure_nested_structs[nested].set_inherited(inherit)
 
         return nested

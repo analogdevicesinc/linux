@@ -820,13 +820,13 @@ static bool valid_regdb(const u8 *data, unsigned int size)
 	country = &hdr->country[0];
 	while ((u8 *)(country + 1) <= data + size) {
 		if (!country->coll_ptr)
-			break;
+			return true;
 		if (!valid_country(data, size, country))
 			return false;
 		country++;
 	}
 
-	return true;
+	return false;
 }
 
 static void set_wmm_rule(const struct fwdb_header *db,
@@ -2361,6 +2361,10 @@ static bool reg_wdev_chan_valid(struct wiphy *wiphy, struct wireless_dev *wdev)
 	}
 
 	for (link = 0; link < ARRAY_SIZE(wdev->links); link++) {
+		struct cfg80211_beaconing_check_config config = {
+			.iftype = iftype,
+			.relax = true,
+		};
 		struct ieee80211_channel *chan;
 
 		if (!wdev->valid_links && link > 0)
@@ -2373,6 +2377,7 @@ static bool reg_wdev_chan_valid(struct wiphy *wiphy, struct wireless_dev *wdev)
 			if (!wdev->links[link].ap.beacon_interval)
 				continue;
 			chandef = wdev->links[link].ap.chandef;
+			config.reg_power = wdev->links[link].ap.reg_power;
 			break;
 		case NL80211_IFTYPE_MESH_POINT:
 			if (!wdev->u.mesh.beacon_interval)
@@ -2426,8 +2431,8 @@ static bool reg_wdev_chan_valid(struct wiphy *wiphy, struct wireless_dev *wdev)
 		case NL80211_IFTYPE_P2P_GO:
 		case NL80211_IFTYPE_ADHOC:
 		case NL80211_IFTYPE_MESH_POINT:
-			ret = cfg80211_reg_can_beacon_relax(wiphy, &chandef,
-							    iftype);
+			ret = cfg80211_reg_check_beaconing(wiphy, &chandef,
+							   &config);
 			if (!ret)
 				return ret;
 			break;

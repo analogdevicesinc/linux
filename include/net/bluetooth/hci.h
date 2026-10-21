@@ -473,6 +473,9 @@ enum {
 	HCI_MESH,
 	HCI_MESH_SENDING,
 
+	HCI_HW_RFKILLED,
+	HCI_SW_RFKILLED,
+
 	__HCI_NUM_FLAGS,
 };
 
@@ -2527,6 +2530,7 @@ struct hci_le_conn_interval_group {
 
 struct hci_rp_le_read_conn_interval {
 	__u8	status;
+	__u8	min;
 	__u8	num_grps;
 	struct hci_le_conn_interval_group grps[];
 } __packed;

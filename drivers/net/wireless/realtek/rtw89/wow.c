@@ -669,10 +669,12 @@ static struct ieee80211_key_conf *rtw89_wow_gtk_rekey(struct rtw89_dev *rtwdev,
 	if (ieee80211_vif_is_mld(wow_vif))
 		key = ieee80211_gtk_rekey_add(wow_vif, keyidx, gtk,
 					      cipher_info->len,
-					      rtwvif_link->link_id);
+					      rtwvif_link->link_id,
+					      false);
 	else
 		key = ieee80211_gtk_rekey_add(wow_vif, keyidx, gtk,
-					      cipher_info->len, -1);
+					      cipher_info->len, -1,
+					      false);
 
 	kfree(rekey_conf);
 	if (IS_ERR(key)) {

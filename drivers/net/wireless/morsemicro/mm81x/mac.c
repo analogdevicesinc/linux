@@ -66,6 +66,9 @@
 /* HW restart delay time before terminating hardware IF work items */
 #define MM81X_HW_RESTART_DELAY_MS 20
 
+/* Maximum number of multicast frames to release after a DTIM beacon */
+#define MM81X_MAX_MC_FRAMES_AFTER_DTIM 4
+
 /* clang-format off */
 
 /* mm81x chips do not support 16MHz */
@@ -322,7 +325,7 @@ static int mm81x_mac_ops_start(struct ieee80211_hw *hw)
 	return 0;
 }
 
-static int mm81x_tx_h_get_max_bw(struct mm81x *mors)
+static int mm81x_tx_h_get_max_tx_bw(struct mm81x *mors)
 {
 	return MM81X_FW_SUPP(&mors->fw_caps, 8MHZ) ? 8 :
 	       MM81X_FW_SUPP(&mors->fw_caps, 4MHZ) ? 4 :
@@ -445,39 +448,6 @@ static void mm81x_beacon_h_fill_tx_info(struct mm81x *mors,
 			cpu_to_le32(MM81X_TX_CONF_FLAGS_IMMEDIATE_REPORT);
 }
 
-static void mm81x_mac_beacon_work(struct work_struct *work)
-{
-	struct mm81x_vif *mors_vif =
-		from_work(mors_vif, work, u.ap.beacon_work);
-	struct mm81x *mors = mm81x_vif_to_mors(mors_vif);
-	struct mm81x_skbq *mq;
-	struct sk_buff *beacon;
-	struct ieee80211_vif *vif = mm81x_vif_to_ieee80211_vif(mors_vif);
-	struct mm81x_skb_tx_info tx_info = { 0 };
-	int num_bcn_vifs = atomic_read(&mors->num_bcn_vifs);
-
-	mq = mm81x_hif_get_tx_beacon_queue(mors);
-	if (!mq) {
-		dev_err(mors->dev, "no matching beacon Q found");
-		return;
-	}
-
-	if (mm81x_skbq_count(mq) >= num_bcn_vifs) {
-		dev_err(mors->dev,
-			"previous beacon not consumed, dropping req [id:%d]",
-			mors_vif->id);
-		return;
-	}
-
-	beacon = ieee80211_beacon_get(mors->hw, vif, false);
-	if (!beacon)
-		return;
-
-	mm81x_beacon_h_fill_tx_info(mors, &tx_info, mors_vif,
-				    cfg80211_chandef_s1g_pri_width(&mors->chandef));
-	mm81x_skbq_skb_tx(mq, &beacon, &tx_info, MM81X_SKB_CHAN_BEACON);
-}
-
 void mm81x_mac_beacon_irq_handle(struct mm81x *mors, u32 status)
 {
 	int vif_id;
@@ -495,15 +465,6 @@ void mm81x_mac_beacon_irq_handle(struct mm81x *mors, u32 status)
 			queue_work(system_bh_wq, &mors_vif->u.ap.beacon_work);
 		}
 	}
-}
-
-static void mm81x_mac_beacon_init(struct mm81x_vif *mors_vif)
-{
-	struct mm81x *mors = mm81x_vif_to_mors(mors_vif);
-
-	INIT_WORK(&mors_vif->u.ap.beacon_work, mm81x_mac_beacon_work);
-	mm81x_mac_beacon_irq_enable(mors_vif, true);
-	atomic_inc(&mors->num_bcn_vifs);
 }
 
 static struct hw_scan_tlv_hdr mm81x_hw_scan_h_pack_tlv_hdr(u16 tag, u16 len)
@@ -1281,38 +1242,54 @@ static void mm81x_tx_h_fill_info(struct mm81x *mors,
 	}
 }
 
+static int mm81x_tx_h_get_bw(struct mm81x *mors, struct ieee80211_sta *sta,
+			     struct sk_buff *skb, bool is_mgmt)
+{
+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	struct mm81x_sta *mors_sta = NULL;
+	int tx_bw_mhz;
+
+	if (ieee80211_is_probe_resp(hdr->frame_control))
+		return 1;
+
+	if (is_mgmt || info->control.flags & IEEE80211_TX_CTRL_PORT_CTRL_PROTO)
+		return cfg80211_chandef_s1g_pri_width(&mors->chandef);
+
+	/*
+	 * In AP mode group addressed frames go out at the primary width so
+	 * that every associated STA can receive them, including any that
+	 * cannot support the operating width.
+	 */
+	if (info->control.vif->type == NL80211_IFTYPE_AP &&
+	    is_multicast_ether_addr(ieee80211_get_DA(hdr)))
+		return cfg80211_chandef_s1g_pri_width(&mors->chandef);
+
+	if (sta)
+		mors_sta = (struct mm81x_sta *)sta->drv_priv;
+
+	tx_bw_mhz = min(mm81x_tx_h_get_max_tx_bw(mors),
+			cfg80211_chandef_get_width(&mors->chandef));
+	if (mors_sta && mors_sta->max_rx_bw_mhz)
+		tx_bw_mhz = min(tx_bw_mhz, mors_sta->max_rx_bw_mhz);
+
+	return tx_bw_mhz;
+}
+
 static void mm81x_mac_ops_tx(struct ieee80211_hw *hw,
 			     struct ieee80211_tx_control *control,
 			     struct sk_buff *skb)
 {
-	struct mm81x *mors = hw->priv;
-	struct mm81x_skbq *mq = NULL;
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct ieee80211_vif *vif = info->control.vif;
-	struct mm81x_skb_tx_info tx_info = { 0 };
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	bool is_mgmt = ieee80211_is_mgmt(hdr->frame_control);
-	int tx_bw_mhz = cfg80211_chandef_get_width(&mors->chandef);
 	struct ieee80211_sta *sta = control->sta;
-	int max_tx_bw = 0, sta_max_bw_mhz = 0;
+	struct mm81x_skb_tx_info tx_info = { 0 };
+	struct mm81x *mors = hw->priv;
+	struct mm81x_skbq *mq;
 
-	if (sta) {
-		struct mm81x_sta *mors_sta = (struct mm81x_sta *)sta->drv_priv;
-
-		sta_max_bw_mhz = mors_sta->max_bw_mhz;
-	}
-
-	max_tx_bw = mm81x_tx_h_get_max_bw(mors);
-	tx_bw_mhz = min(max_tx_bw, tx_bw_mhz);
-
-	if (is_mgmt)
-		tx_bw_mhz = cfg80211_chandef_s1g_pri_width(&mors->chandef);
-	if (sta_max_bw_mhz)
-		tx_bw_mhz = min(tx_bw_mhz, sta_max_bw_mhz);
-	if (ieee80211_is_probe_resp(hdr->frame_control))
-		tx_bw_mhz = 1;
-
-	mm81x_tx_h_fill_info(mors, &tx_info, skb, vif, tx_bw_mhz, sta);
+	mm81x_tx_h_fill_info(mors, &tx_info, skb, info->control.vif,
+			     mm81x_tx_h_get_bw(mors, sta, skb, is_mgmt), sta);
 
 	if (mm81x_tx_h_ps_filtered_for_sta(mors, skb, sta))
 		return;
@@ -1326,6 +1303,65 @@ static void mm81x_mac_ops_tx(struct ieee80211_hw *hw,
 	mm81x_skbq_skb_tx(mq, &skb, &tx_info,
 			  (is_mgmt) ? MM81X_SKB_CHAN_MGMT :
 				      MM81X_SKB_CHAN_DATA);
+}
+
+static void mm81x_mac_send_buffered_bc(struct mm81x *mors,
+				       struct ieee80211_vif *vif)
+{
+	int count = MM81X_MAX_MC_FRAMES_AFTER_DTIM;
+	struct ieee80211_tx_control control = { 0 };
+	struct sk_buff *bc_frame;
+
+	while (count-- &&
+	       (bc_frame = ieee80211_get_buffered_bc(mors->hw, vif))) {
+		IEEE80211_SKB_CB(bc_frame)->control.vif = vif;
+		mm81x_mac_ops_tx(mors->hw, &control, bc_frame);
+	}
+}
+
+static void mm81x_mac_beacon_work(struct work_struct *work)
+{
+	struct mm81x_vif *mors_vif =
+		from_work(mors_vif, work, u.ap.beacon_work);
+	struct mm81x *mors = mm81x_vif_to_mors(mors_vif);
+	struct mm81x_skbq *mq;
+	struct sk_buff *beacon;
+	struct ieee80211_vif *vif = mm81x_vif_to_ieee80211_vif(mors_vif);
+	struct mm81x_skb_tx_info tx_info = { 0 };
+	int num_bcn_vifs = atomic_read(&mors->num_bcn_vifs);
+
+	mq = mm81x_hif_get_tx_beacon_queue(mors);
+	if (!mq) {
+		dev_err(mors->dev, "no matching beacon Q found");
+		return;
+	}
+
+	if (mm81x_skbq_count(mq) >= num_bcn_vifs) {
+		dev_err(mors->dev,
+			"previous beacon not consumed, dropping req [id:%d]",
+			mors_vif->id);
+		return;
+	}
+
+	beacon = ieee80211_beacon_get(mors->hw, vif, false);
+	if (!beacon)
+		return;
+
+	mm81x_beacon_h_fill_tx_info(mors, &tx_info, mors_vif,
+				    cfg80211_chandef_s1g_pri_width(&mors->chandef));
+	mm81x_skbq_skb_tx(mq, &beacon, &tx_info, MM81X_SKB_CHAN_BEACON);
+
+	if (!test_bit(MM81X_STATE_DATA_QS_STOPPED, &mors->state_flags))
+		mm81x_mac_send_buffered_bc(mors, vif);
+}
+
+static void mm81x_mac_beacon_init(struct mm81x_vif *mors_vif)
+{
+	struct mm81x *mors = mm81x_vif_to_mors(mors_vif);
+
+	INIT_WORK(&mors_vif->u.ap.beacon_work, mm81x_mac_beacon_work);
+	mm81x_mac_beacon_irq_enable(mors_vif, true);
+	atomic_inc(&mors->num_bcn_vifs);
 }
 
 static void mm81x_mac_ops_stop(struct ieee80211_hw *hw, bool suspend)
@@ -1690,6 +1726,9 @@ static int mm81x_mac_ops_sta_state(struct ieee80211_hw *hw,
 			mors_vif->u.ap.num_stas++;
 		else if (vif->type == NL80211_IFTYPE_STATION)
 			mors_vif->u.sta.is_assoc = true;
+
+		mors_sta->max_rx_bw_mhz =
+			S1G_SUPP_CH_WIDTH_MAX(sta->deflink.s1g_cap.cap);
 	}
 
 	if (new_state < old_state && new_state == IEEE80211_STA_NONE) {
@@ -2014,6 +2053,13 @@ static void mm81x_mac_ops_flush(struct ieee80211_hw *hw,
 		mm81x_mac_wait_queues(mors);
 }
 
+static bool mm81x_mac_ops_tx_frames_pending(struct ieee80211_hw *hw)
+{
+	struct mm81x *mors = hw->priv;
+
+	return mm81x_mac_has_tx_pending(mors);
+}
+
 static int mm81x_mac_ops_set_rts_threshold(struct ieee80211_hw *hw,
 					   int radio_idx, u32 value)
 {
@@ -2239,6 +2285,7 @@ static const struct ieee80211_ops mm81x_ops = {
 	.configure_filter = mm81x_mac_ops_configure_filter,
 	.sta_state = mm81x_mac_ops_sta_state,
 	.flush = mm81x_mac_ops_flush,
+	.tx_frames_pending = mm81x_mac_ops_tx_frames_pending,
 	.set_frag_threshold = mm81x_mac_set_frag_threshold,
 	.set_rts_threshold = mm81x_mac_ops_set_rts_threshold,
 	.sta_statistics = mm81x_mac_ops_sta_statistics,
