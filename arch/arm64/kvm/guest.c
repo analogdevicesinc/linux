@@ -1029,7 +1029,6 @@ int kvm_vm_ioctl_mte_copy_tags(struct kvm *kvm,
 		void *maddr;
 		unsigned long num_tags;
 		struct folio *folio;
-		unsigned long i;
 
 		if (!page) {
 			ret = -EFAULT;
@@ -1063,11 +1062,12 @@ int kvm_vm_ioctl_mte_copy_tags(struct kvm *kvm,
 			 * tags. A hugetlb folio is marked tagged as a whole,
 			 * so its first tagging clears every page.
 			 */
-			if (!folio_test_hugetlb(folio))
+			if (folio_test_hugetlb(folio)) {
+				if (folio_try_hugetlb_mte_tagging(folio))
+					mte_clear_folio_tags(folio);
+			} else {
 				try_page_mte_tagging(page);
-			else if (folio_try_hugetlb_mte_tagging(folio))
-				for (i = 0; i < folio_nr_pages(folio); i++)
-					mte_clear_page_tags(page_address(folio_page(folio, i)));
+			}
 			num_tags = mte_copy_tags_from_user(maddr, tags,
 							MTE_GRANULES_PER_PAGE);
 
