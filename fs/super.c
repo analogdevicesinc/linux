@@ -105,15 +105,28 @@ static bool super_flags(const struct super_block *sb, unsigned int flags)
  * creation will succeed and SB_BORN is set by vfs_get_tree() or we're
  * woken and we'll see SB_DYING.
  *
+ * A superblock which is being shut down is not waited for, see
+ * super_wait_shutdown() and super_wait_shutdown_killable() for that.
+ *
  * The caller must have acquired a temporary reference on @sb->s_passive.
  *
  * Return: The function returns true if SB_BORN was set and with
- *         s_umount held. The function returns false if SB_DYING was
- *         set and without s_umount held.
+ *         s_umount held. The function returns false if the superblock
+ *         is being shut down or SB_DYING was set and without s_umount
+ *         held.
  */
 static __must_check bool super_lock(struct super_block *sb, bool excl)
 {
 	lockdep_assert_not_held(&sb->s_umount);
+
+	/*
+	 * The last active reference is dropped with s_umount held, which
+	 * stays held until SB_DYING is set, and there is no getting a new
+	 * one.  All there is to find at the end of that wait is SB_DYING,
+	 * and it can be a long one: the filesystem is written out first.
+	 */
+	if (!atomic_read(&sb->s_active))
+		return false;
 
 	/* wait until the superblock is ready or dying */
 	wait_var_event(&sb->s_flags, super_flags(sb, SB_BORN | SB_DYING));
@@ -136,6 +149,40 @@ static __must_check bool super_lock(struct super_block *sb, bool excl)
 
 	WARN_ON_ONCE(!(sb->s_flags & SB_BORN));
 	return true;
+}
+
+/**
+ * super_wait_shutdown_killable - wait for a superblock being shut down
+ * @sb: superblock super_lock() failed on
+ *
+ * For those who have nothing to do on a superblock which is going away, but
+ * who promise their caller that what it had to write has been written.
+ *
+ * Only for callers which give up altogether when they are killed.  If what
+ * comes after the wait happens either way, the wait must not be cut short.
+ *
+ * The caller must have acquired a temporary reference on @sb->s_passive.
+ *
+ * Return: 0 once generic_shutdown_super() is done with @sb, -ERESTARTSYS if
+ *         the task was killed first.
+ */
+static int super_wait_shutdown_killable(struct super_block *sb)
+{
+	return wait_var_event_killable(&sb->s_flags, super_flags(sb, SB_DYING));
+}
+
+/**
+ * super_wait_shutdown - wait for a superblock being shut down
+ * @sb: superblock super_lock() failed on
+ *
+ * For callers of which the rest happens whether they are killed or not, and
+ * must not happen while the filesystem is still being written out.
+ *
+ * The caller must have acquired a temporary reference on @sb->s_passive.
+ */
+static void super_wait_shutdown(struct super_block *sb)
+{
+	wait_var_event(&sb->s_flags, super_flags(sb, SB_DYING));
 }
 
 /* wait and try to acquire read-side of @sb->s_umount */
@@ -599,12 +646,14 @@ EXPORT_SYMBOL(deactivate_super);
  * superblock to either become SB_BORN or for it to pass through
  * sb->kill() and be marked as SB_DEAD.
  *
- * Return: This returns true if an active reference could be acquired,
- *         false if not.
+ * Return: 0 if an active reference could be acquired, -EAGAIN if the
+ *         superblock is gone and the caller should look again,
+ *         -ERESTARTSYS if the task was killed while waiting for that.
  */
-static bool grab_super(struct super_block *sb)
+static int grab_super(struct super_block *sb)
 {
 	bool locked;
+	int ret;
 
 	refcount_inc(&sb->s_passive);
 	spin_unlock(&sb_lock);
@@ -612,13 +661,13 @@ static bool grab_super(struct super_block *sb)
 	if (locked) {
 		if (atomic_inc_not_zero(&sb->s_active)) {
 			put_super(sb);
-			return true;
+			return 0;
 		}
 		super_unlock_excl(sb);
 	}
-	wait_var_event(&sb->s_flags, super_flags(sb, SB_DEAD));
+	ret = wait_var_event_killable(&sb->s_flags, super_flags(sb, SB_DEAD));
 	put_super(sb);
-	return false;
+	return ret ? ret : -EAGAIN;
 }
 
 /*
@@ -887,9 +936,12 @@ share_extant_sb:
 			warnfc(fc, "reusing existing filesystem in another namespace not allowed");
 		return ERR_PTR(-EBUSY);
 	}
-	if (!grab_super(old))
+	err = grab_super(old);
+	if (err == -EAGAIN)
 		goto retry;
 	destroy_unused_super(s);
+	if (err)
+		return ERR_PTR(err);
 	return old;
 }
 EXPORT_SYMBOL(sget_fc);
@@ -911,6 +963,7 @@ void drop_super_exclusive(struct super_block *sb)
 enum super_iter_flags_t {
 	SUPER_ITER_UNLOCKED	= (1U << 0),
 	SUPER_ITER_REVERSE	= (1U << 1),
+	SUPER_ITER_WAIT_SHUTDOWN = (1U << 2),
 };
 
 static inline struct super_block *first_super(enum super_iter_flags_t flags)
@@ -928,10 +981,11 @@ static inline struct super_block *next_super(struct super_block *sb,
 	return list_next_entry(sb, s_list);
 }
 
-static void __iterate_supers(void (*f)(struct super_block *, void *), void *arg,
-			     enum super_iter_flags_t flags)
+static int __iterate_supers(void (*f)(struct super_block *, void *), void *arg,
+			    enum super_iter_flags_t flags)
 {
 	struct super_block *sb, *p = NULL;
+	int ret = 0;
 
 	spin_lock(&sb_lock);
 
@@ -951,21 +1005,43 @@ static void __iterate_supers(void (*f)(struct super_block *, void *), void *arg,
 		} else if (super_lock_shared(sb)) {
 			f(sb, arg);
 			super_unlock_shared(sb);
+		} else if (flags & SUPER_ITER_WAIT_SHUTDOWN) {
+			ret = super_wait_shutdown_killable(sb);
 		}
 
 		if (p)
 			put_super(p);
 		p = sb;
 		spin_lock(&sb_lock);
+		if (ret)
+			break;
 	}
 	spin_unlock(&sb_lock);
 	if (p)
 		put_super(p);
+	return ret;
 }
 
 void iterate_supers(void (*f)(struct super_block *, void *), void *arg)
 {
 	__iterate_supers(f, arg, 0);
+}
+
+/**
+ * iterate_supers_sync - iterate_supers() for syncing all filesystems
+ * @f: function to call
+ * @arg: argument to pass to it
+ *
+ * A superblock which is being shut down isn't passed to @f, whoever shuts it
+ * down writes it out.  Wait for that, so that it is on disk as well by the time
+ * the walk is over.
+ *
+ * Return: 0 if all the superblocks were seen, -ERESTARTSYS if the task was
+ *         killed while it waited for one.
+ */
+int iterate_supers_sync(void (*f)(struct super_block *, void *), void *arg)
+{
+	return __iterate_supers(f, arg, SUPER_ITER_WAIT_SHUTDOWN);
 }
 
 /**
@@ -1136,8 +1212,11 @@ static void do_emergency_remount_callback(struct super_block *sb, void *unused)
 {
 	struct fs_context *fc = NULL;
 
-	if (!super_lock_excl(sb))
+	if (!super_lock_excl(sb)) {
+		/* the unmount writes the filesystem out, wait for that */
+		super_wait_shutdown(sb);
 		return;
+	}
 
 	/* Make sure no reference put under s_umount is the last one. */
 	atomic_inc(&sb->s_active);
@@ -1236,8 +1315,11 @@ static void filesystems_freeze_callback(struct super_block *sb, void *freeze_all
 	if (!freeze_all_ptr && !(sb->s_type->fs_flags & FS_POWER_FREEZE))
 		return;
 
-	if (!get_active_super(sb))
+	if (!get_active_super(sb)) {
+		/* an unmount from a workqueue isn't stopped by the freezer */
+		super_wait_shutdown(sb);
 		return;
+	}
 
 	if (sb->s_op->freeze_super)
 		sb->s_op->freeze_super(sb, FREEZE_EXCL | FREEZE_HOLDER_KERNEL,
@@ -1505,8 +1587,12 @@ static void fs_bdev_mark_dead(struct block_device *bdev, bool surprise)
 	mutex_unlock(&bdev->bd_holder_lock);
 
 	for_each_dev_super(sb, &cursor) {
-		if (!super_lock_shared(sb))
+		if (!super_lock_shared(sb)) {
+			/* don't take the device away from under an unmount */
+			if (!surprise)
+				super_wait_shutdown(sb);
 			continue;
+		}
 		if (sb->s_root && (sb->s_flags & SB_ACTIVE)) {
 			if (!sb->s_op->remove_bdev ||
 			    sb->s_op->remove_bdev(sb, bdev)) {
@@ -1530,8 +1616,14 @@ static void fs_bdev_sync(struct block_device *bdev)
 	mutex_unlock(&bdev->bd_holder_lock);
 
 	for_each_dev_super(sb, &cursor) {
-		if (!super_lock_shared(sb))
+		if (!super_lock_shared(sb)) {
+			if (super_wait_shutdown_killable(sb)) {
+				super_dev_walk_end(&cursor);
+				put_super(sb);
+				return;
+			}
 			continue;
+		}
 		if (sb->s_root && (sb->s_flags & SB_ACTIVE))
 			sync_filesystem(sb);
 		super_unlock_shared(sb);
@@ -1563,8 +1655,11 @@ static int fs_bdev_freeze(struct block_device *bdev)
 	mutex_unlock(&bdev->bd_holder_lock);
 
 	for_each_dev_super(sb, &cursor) {
-		if (!get_active_super(sb))
+		if (!get_active_super(sb)) {
+			/* an unmount writes to the device until it is done */
+			super_wait_shutdown(sb);
 			continue;
+		}
 		err = fs_super_freeze(sb);
 		if (err && !error)
 			error = err;
