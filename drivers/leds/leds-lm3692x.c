@@ -470,7 +470,10 @@ static int lm3692x_probe(struct i2c_client *client)
 	if (!led)
 		return -ENOMEM;
 
-	mutex_init(&led->lock);
+	ret = devm_mutex_init(&client->dev, &led->lock);
+	if (ret)
+		return ret;
+
 	led->client = client;
 	led->led_dev.brightness_set_blocking = lm3692x_brightness_set;
 	led->model_id = id->driver_data;
@@ -500,7 +503,6 @@ static void lm3692x_remove(struct i2c_client *client)
 	struct lm3692x_led *led = i2c_get_clientdata(client);
 
 	lm3692x_leds_disable(led);
-	mutex_destroy(&led->lock);
 }
 
 static const struct i2c_device_id lm3692x_id[] = {
