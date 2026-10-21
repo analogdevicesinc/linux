@@ -79,17 +79,17 @@ nbio_v6_3_2_doorbell_layout = {
 
 static u32 nbio_v6_3_2_get_pcie_index_offset(struct amdgpu_device *adev)
 {
-	return SOC15_REG_OFFSET(NBIO, 0, regBIF_BX0_PCIE_INDEX2);
+	return SOC15_REG_OFFSET(NBIO, 0, regBIF_BX_PF0_RSMU_INDEX);
 }
 
 static u32 nbio_v6_3_2_get_pcie_data_offset(struct amdgpu_device *adev)
 {
-	return SOC15_REG_OFFSET(NBIO, 0, regBIF_BX0_PCIE_DATA2);
+	return SOC15_REG_OFFSET(NBIO, 0, regBIF_BX_PF0_RSMU_DATA);
 }
 
 static u32 nbio_v6_3_2_get_pcie_index_hi_offset(struct amdgpu_device *adev)
 {
-	return SOC15_REG_OFFSET(NBIO, 0, regBIF_BX0_PCIE_INDEX2_HI);
+	return SOC15_REG_OFFSET(NBIO, 0, regBIF_BX_PF0_RSMU_INDEX_HI);
 }
 
 static u32 nbio_v6_3_2_get_rev_id(struct amdgpu_device *adev)
