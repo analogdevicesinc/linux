@@ -30,6 +30,7 @@
 #include "xe_exec_queue.h"
 #include "xe_gt.h"
 #include "xe_migrate.h"
+#include "xe_module.h"
 #include "xe_pagefault.h"
 #include "xe_pat.h"
 #include "xe_pm.h"
@@ -700,7 +701,7 @@ static void xe_vm_clear_fault_entries(struct xe_vm *vm)
 	vm->faults.len = 0;
 }
 
-static int xe_vma_ops_alloc(struct xe_vma_ops *vops, bool array_of_binds)
+static noinline int xe_vma_ops_alloc(struct xe_vma_ops *vops, bool array_of_binds)
 {
 	int i;
 
@@ -1268,7 +1269,14 @@ static void vma_destroy_cb(struct dma_fence *fence,
 	struct xe_vma *vma = container_of(cb, struct xe_vma, destroy_cb);
 
 	INIT_WORK(&vma->destroy_work, vma_destroy_work_func);
-	queue_work(system_dfl_wq, &vma->destroy_work);
+
+	/*
+	 * The destroy work puts a vm reference which may put the last
+	 * device reference. Hence we can't queue this work on the device
+	 * destroy queue since that may deadlock. Use the module-wide
+	 * destroy queue.
+	 */
+	xe_destroy_wq_queue(&vma->destroy_work);
 }
 
 static void xe_vm_assert_write_mode_or_garbage_collector(struct xe_vm *vm)
@@ -2070,8 +2078,12 @@ static void xe_vm_free(struct drm_gpuvm *gpuvm)
 {
 	struct xe_vm *vm = container_of(gpuvm, struct xe_vm, gpuvm);
 
-	/* To destroy the VM we need to be able to sleep */
-	queue_work(system_dfl_wq, &vm->destroy_work);
+	/*
+	 * To destroy the VM we need to be able to sleep.
+	 * drm_gpuvm keeps at least one device reference at this
+	 * point so xe->destroy_wq must still be alive.
+	 */
+	queue_work(vm->xe->destroy_wq, &vm->destroy_work);
 }
 
 struct xe_vm *xe_vm_lookup(struct xe_file *xef, u32 id)

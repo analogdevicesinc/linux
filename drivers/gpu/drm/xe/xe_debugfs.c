@@ -31,6 +31,7 @@
 #include "xe_sriov_pf_debugfs.h"
 #include "xe_sriov_vf.h"
 #include "xe_step.h"
+#include "xe_sysctrl_debugfs.h"
 #include "xe_tile_debugfs.h"
 #include "xe_ttm_vram_mgr.h"
 #include "xe_vsec.h"
@@ -835,6 +836,9 @@ void xe_debugfs_register(struct xe_device *xe)
 	xe_psmi_debugfs_register(xe);
 
 	xe_fault_inject_debugfs_register(xe, root);
+
+	if (xe->info.has_sysctrl)
+		xe_sysctrl_debugfs_register(&xe->sc, root);
 
 	if (IS_SRIOV_PF(xe))
 		xe_sriov_pf_debugfs_register(xe, root);
