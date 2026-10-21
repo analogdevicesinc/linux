@@ -1320,7 +1320,7 @@ gpio_virtuser_lookup_entry_config_transitory_store(struct config_item *item,
 
 CONFIGFS_ATTR(gpio_virtuser_lookup_entry_config_, transitory);
 
-static struct configfs_attribute *gpio_virtuser_lookup_entry_config_attrs[] = {
+static const struct configfs_attribute *const gpio_virtuser_lookup_entry_config_attrs[] = {
 	&gpio_virtuser_lookup_entry_config_attr_key,
 	&gpio_virtuser_lookup_entry_config_attr_offset,
 	&gpio_virtuser_lookup_entry_config_attr_drive,
@@ -1571,7 +1571,7 @@ gpio_virtuser_device_config_live_store(struct config_item *item,
 
 CONFIGFS_ATTR(gpio_virtuser_device_config_, live);
 
-static struct configfs_attribute *gpio_virtuser_device_config_attrs[] = {
+static const struct configfs_attribute *const gpio_virtuser_device_config_attrs[] = {
 	&gpio_virtuser_device_config_attr_dev_name,
 	&gpio_virtuser_device_config_attr_live,
 	NULL
@@ -1600,7 +1600,7 @@ configfs_item_operations gpio_virtuser_lookup_entry_config_item_ops = {
 static const struct
 config_item_type gpio_virtuser_lookup_entry_config_group_type = {
 	.ct_item_ops	= &gpio_virtuser_lookup_entry_config_item_ops,
-	.ct_attrs	= gpio_virtuser_lookup_entry_config_attrs,
+	.ct_attrs_const	= gpio_virtuser_lookup_entry_config_attrs,
 	.ct_owner	= THIS_MODULE,
 };
 
@@ -1716,7 +1716,7 @@ static const struct configfs_group_operations gpio_virtuser_device_config_group_
 static const struct config_item_type gpio_virtuser_device_config_group_type = {
 	.ct_group_ops	= &gpio_virtuser_device_config_group_ops,
 	.ct_item_ops	= &gpio_virtuser_device_config_item_ops,
-	.ct_attrs	= gpio_virtuser_device_config_attrs,
+	.ct_attrs_const	= gpio_virtuser_device_config_attrs,
 	.ct_owner	= THIS_MODULE,
 };
 
