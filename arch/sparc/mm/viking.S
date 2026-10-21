@@ -38,6 +38,9 @@ sun4dsmp_flush_tlb_spin:
 viking_flush_page:
 	sethi	%hi(PAGE_OFFSET), %g2
 	sub	%o0, %g2, %g3
+	sethi	%hi(phys_base), %g2
+	ld	[%g2 + %lo(phys_base)], %g2
+	add	%g3, %g2, %g3		! + phys_base = physical address
 	srl	%g3, 12, %g1		! ppage >> 12
 
 	clr	%o1			! set counter, 0 - 127
@@ -91,6 +94,9 @@ viking_flush_page:
 viking_mxcc_flush_page:
 	sethi	%hi(PAGE_OFFSET), %g2
 	sub	%o0, %g2, %g3
+	sethi	%hi(phys_base), %g2
+	ld	[%g2 + %lo(phys_base)], %g2
+	add	%g3, %g2, %g3			! + phys_base = physical address
 	sub	%g3, -PAGE_SIZE, %g3		! ppage + PAGE_SIZE
 	sethi	%hi(MXCC_SRCSTREAM), %o3	! assume %hi(MXCC_SRCSTREAM) == %hi(MXCC_DESTSTREAM)
 	mov	0x10, %g2			! set cacheable bit
