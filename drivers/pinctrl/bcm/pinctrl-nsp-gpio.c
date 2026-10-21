@@ -64,6 +64,7 @@ struct nsp_gpio {
 	struct pinctrl_dev *pctl;
 	struct pinctrl_desc pctldesc;
 	raw_spinlock_t lock;
+	unsigned long both_edges;
 };
 
 enum base_type {
@@ -122,6 +123,18 @@ static inline bool nsp_get_bit(struct nsp_gpio *chip, enum base_type address,
 		return !!(readl(chip->base + reg) & BIT(gpio));
 }
 
+static void nsp_gpio_irq_rearm_both(struct nsp_gpio *chip, unsigned int gpio)
+{
+	bool level, new_level;
+
+	do {
+		level = nsp_get_bit(chip, REG, NSP_GPIO_DATA_IN, gpio);
+		/* A high input needs the falling edge and vice versa. */
+		nsp_set_bit(chip, REG, NSP_GPIO_EVENT_INT_POLARITY, gpio, level);
+		new_level = nsp_get_bit(chip, REG, NSP_GPIO_DATA_IN, gpio);
+	} while (level != new_level);
+}
+
 static irqreturn_t nsp_gpio_irq_handler(int irq, void *data)
 {
 	struct gpio_chip *gc = (struct gpio_chip *)data;
@@ -157,10 +170,18 @@ static void nsp_gpio_irq_ack(struct irq_data *d)
 	unsigned gpio = d->hwirq;
 	u32 val = BIT(gpio);
 	u32 trigger_type;
+	unsigned long flags;
 
 	trigger_type = irq_get_trigger_type(d->irq);
-	if (trigger_type & IRQ_TYPE_EDGE_BOTH)
+	if (trigger_type & IRQ_TYPE_EDGE_BOTH) {
 		writel(val, chip->base + NSP_GPIO_EVENT);
+
+		if (test_bit(gpio, &chip->both_edges)) {
+			raw_spin_lock_irqsave(&chip->lock, flags);
+			nsp_gpio_irq_rearm_both(chip, gpio);
+			raw_spin_unlock_irqrestore(&chip->lock, flags);
+		}
+	}
 }
 
 /*
@@ -203,6 +224,8 @@ static void nsp_gpio_irq_unmask(struct irq_data *d)
 
 	gpiochip_enable_irq(gc, irqd_to_hwirq(d));
 	raw_spin_lock_irqsave(&chip->lock, flags);
+	if (test_bit(d->hwirq, &chip->both_edges))
+		nsp_gpio_irq_rearm_both(chip, d->hwirq);
 	nsp_gpio_irq_set_mask(d, true);
 	raw_spin_unlock_irqrestore(&chip->lock, flags);
 }
@@ -229,6 +252,14 @@ static int nsp_gpio_irq_set_type(struct irq_data *d, unsigned int type)
 		falling = true;
 		break;
 
+	case IRQ_TYPE_EDGE_BOTH:
+		/* The controller has a single edge polarity bit. Emulate both
+		 * edges by initially arming the edge opposite to the input and
+		 * switching polarity after every interrupt.
+		 */
+		falling = nsp_get_bit(chip, REG, NSP_GPIO_DATA_IN, gpio);
+		break;
+
 	case IRQ_TYPE_LEVEL_HIGH:
 		level_low = false;
 		break;
@@ -243,6 +274,8 @@ static int nsp_gpio_irq_set_type(struct irq_data *d, unsigned int type)
 		raw_spin_unlock_irqrestore(&chip->lock, flags);
 		return -EINVAL;
 	}
+	__assign_bit(gpio, &chip->both_edges,
+		     (type & IRQ_TYPE_SENSE_MASK) == IRQ_TYPE_EDGE_BOTH);
 
 	nsp_set_bit(chip, REG, NSP_GPIO_EVENT_INT_POLARITY, gpio, falling);
 	nsp_set_bit(chip, REG, NSP_GPIO_INT_POLARITY, gpio, level_low);
