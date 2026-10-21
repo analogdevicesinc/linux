@@ -1044,7 +1044,18 @@ int btrfs_check_chunk_valid(const struct btrfs_fs_info *fs_info,
 			  logical, length);
 		return -EUCLEAN;
 	}
-	if (unlikely(!is_power_of_2(stripe_len) || stripe_len != BTRFS_STRIPE_LEN)) {
+
+	/*
+	 * For now the "stripe_len != BTRFS_STRIPE_LEN" will cover all cases,
+	 * but the power_of_2 and stripe_len >= sectorsize and
+	 * stripe_len <= BTRFS_STRIPE_LEN are the requirements for future
+	 * stripe_len support.
+	 *
+	 * In the future, "stripe_len != BTRFS_STRIPE_LEN" will be removed.
+	 */
+	if (unlikely(stripe_len != BTRFS_STRIPE_LEN ||
+		     !is_power_of_2(stripe_len) || stripe_len < sectorsize ||
+		     stripe_len > BTRFS_STRIPE_LEN)) {
 		chunk_err(fs_info, leaf, chunk, logical,
 			  "invalid chunk stripe length: %llu",
 			  stripe_len);
