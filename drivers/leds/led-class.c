@@ -549,9 +549,10 @@ int led_classdev_register_ext(struct device *parent,
 	if (led_cdev->flags & LED_BRIGHT_HW_CHANGED) {
 		ret = led_add_brightness_hw_changed(led_cdev);
 		if (ret) {
+			led_sysfs_disable(led_cdev);
+			mutex_unlock(&led_cdev->led_access);
 			device_unregister(led_cdev->dev);
 			led_cdev->dev = NULL;
-			mutex_unlock(&led_cdev->led_access);
 			return ret;
 		}
 	}
