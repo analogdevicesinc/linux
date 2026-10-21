@@ -570,7 +570,7 @@ static int lm3532_parse_node(struct lm3532_data *priv)
 
 	priv->regulator = devm_regulator_get(&priv->client->dev, "vin");
 	if (IS_ERR(priv->regulator))
-		priv->regulator = NULL;
+		return PTR_ERR(priv->regulator);
 
 	ret = device_property_read_u32(&priv->client->dev, "ramp-up-us",
 				       &ramp_time);
