@@ -30321,6 +30321,15 @@ M:	Borislav Petkov <bp@alien8.de>
 S:	Maintained
 F:	arch/x86/kernel/cpu/microcode/*
 
+X86_ENERGY_PERF_POLICY UTILITY
+M:	"Len Brown" <lenb@kernel.org>
+L:	linux-pm@vger.kernel.org
+S:	Supported
+Q:	https://patchwork.kernel.org/project/linux-pm/list/
+B:	https://bugzilla.kernel.org
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/lenb/linux.git x86_energy_perf_policy
+F:	tools/power/x86/x86_energy_perf_policy/
+
 X86 MM
 M:	Dave Hansen <dave.hansen@linux.intel.com>
 M:	Andy Lutomirski <luto@kernel.org>
