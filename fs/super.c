@@ -1569,8 +1569,12 @@ static void fs_bdev_mark_dead(struct block_device *bdev, bool surprise)
 	mutex_unlock(&bdev->bd_holder_lock);
 
 	for_each_dev_super(sb, &cursor) {
-		if (!super_lock_shared(sb))
+		if (!super_lock_shared(sb)) {
+			/* don't take the device away from under an unmount */
+			if (!surprise)
+				super_wait_shutdown(sb);
 			continue;
+		}
 		if (sb->s_root && (sb->s_flags & SB_ACTIVE)) {
 			if (!sb->s_op->remove_bdev ||
 			    sb->s_op->remove_bdev(sb, bdev)) {
@@ -1594,8 +1598,14 @@ static void fs_bdev_sync(struct block_device *bdev)
 	mutex_unlock(&bdev->bd_holder_lock);
 
 	for_each_dev_super(sb, &cursor) {
-		if (!super_lock_shared(sb))
+		if (!super_lock_shared(sb)) {
+			if (super_wait_shutdown_killable(sb)) {
+				super_dev_walk_end(&cursor);
+				put_super(sb);
+				return;
+			}
 			continue;
+		}
 		if (sb->s_root && (sb->s_flags & SB_ACTIVE))
 			sync_filesystem(sb);
 		super_unlock_shared(sb);
@@ -1627,8 +1637,11 @@ static int fs_bdev_freeze(struct block_device *bdev)
 	mutex_unlock(&bdev->bd_holder_lock);
 
 	for_each_dev_super(sb, &cursor) {
-		if (!get_active_super(sb))
+		if (!get_active_super(sb)) {
+			/* an unmount writes to the device until it is done */
+			super_wait_shutdown(sb);
 			continue;
+		}
 		err = fs_super_freeze(sb);
 		if (err && !error)
 			error = err;
