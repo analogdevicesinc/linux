@@ -437,12 +437,14 @@ static int aat1290_led_external_strobe_set(struct v4l2_flash *v4l2_flash,
 	led->movie_mode = false;
 	led_cdev->brightness = 0;
 
-	pinctrl = devm_pinctrl_get_select(&led->pdev->dev,
-						enable ? "isp" : "host");
+	pinctrl = pinctrl_get_select(&led->pdev->dev,
+				     enable ? "isp" : "host");
 	if (IS_ERR(pinctrl)) {
 		dev_warn(&led->pdev->dev, "Unable to switch strobe source.\n");
 		return PTR_ERR(pinctrl);
 	}
+
+	pinctrl_put(pinctrl);
 
 	return 0;
 }
