@@ -358,6 +358,9 @@ struct amdgpu_virt {
 
 	/* hibernate and resume with different VF feature for xgmi enabled system */
 	bool is_xgmi_node_migrate_enabled;
+
+	/* RMA status maintained by the VF itself, set on IDH_UNRECOV_ERR_NOTIFICATION. */
+	bool unrecov_err;
 };
 
 struct amdgpu_video_codec_info;
