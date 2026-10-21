@@ -2,8 +2,10 @@
 
 CFLAGS += $(KHDR_INCLUDES)
 TEST_GEN_PROGS := devpts_pts anon_inode_test kernfs_test fclog ustat_test rw_hint_test
-TEST_GEN_PROGS += idmapped_tmpfile
+TEST_GEN_PROGS += idmapped_tmpfile fspick_reconfigure_test
 TEST_GEN_PROGS_EXTENDED := dnotify_test
+
+LOCAL_HDRS += wrappers.h freeze/loop_util.h
 
 include ../lib.mk
 
