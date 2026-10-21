@@ -138,6 +138,26 @@ static __must_check bool super_lock(struct super_block *sb, bool excl)
 	return true;
 }
 
+/**
+ * super_wait_shutdown_killable - wait for a superblock being shut down
+ * @sb: superblock super_lock() failed on
+ *
+ * For those who have nothing to do on a superblock which is going away, but
+ * who promise their caller that what it had to write has been written.
+ *
+ * Only for callers which give up altogether when they are killed.  If what
+ * comes after the wait happens either way, the wait must not be cut short.
+ *
+ * The caller must have acquired a temporary reference on @sb->s_passive.
+ *
+ * Return: 0 once generic_shutdown_super() is done with @sb, -ERESTARTSYS if
+ *         the task was killed first.
+ */
+static int super_wait_shutdown_killable(struct super_block *sb)
+{
+	return wait_var_event_killable(&sb->s_flags, super_flags(sb, SB_DYING));
+}
+
 /* wait and try to acquire read-side of @sb->s_umount */
 static inline bool super_lock_shared(struct super_block *sb)
 {
@@ -911,6 +931,7 @@ void drop_super_exclusive(struct super_block *sb)
 enum super_iter_flags_t {
 	SUPER_ITER_UNLOCKED	= (1U << 0),
 	SUPER_ITER_REVERSE	= (1U << 1),
+	SUPER_ITER_WAIT_SHUTDOWN = (1U << 2),
 };
 
 static inline struct super_block *first_super(enum super_iter_flags_t flags)
@@ -928,10 +949,11 @@ static inline struct super_block *next_super(struct super_block *sb,
 	return list_next_entry(sb, s_list);
 }
 
-static void __iterate_supers(void (*f)(struct super_block *, void *), void *arg,
-			     enum super_iter_flags_t flags)
+static int __iterate_supers(void (*f)(struct super_block *, void *), void *arg,
+			    enum super_iter_flags_t flags)
 {
 	struct super_block *sb, *p = NULL;
+	int ret = 0;
 
 	spin_lock(&sb_lock);
 
@@ -951,21 +973,43 @@ static void __iterate_supers(void (*f)(struct super_block *, void *), void *arg,
 		} else if (super_lock_shared(sb)) {
 			f(sb, arg);
 			super_unlock_shared(sb);
+		} else if (flags & SUPER_ITER_WAIT_SHUTDOWN) {
+			ret = super_wait_shutdown_killable(sb);
 		}
 
 		if (p)
 			put_super(p);
 		p = sb;
 		spin_lock(&sb_lock);
+		if (ret)
+			break;
 	}
 	spin_unlock(&sb_lock);
 	if (p)
 		put_super(p);
+	return ret;
 }
 
 void iterate_supers(void (*f)(struct super_block *, void *), void *arg)
 {
 	__iterate_supers(f, arg, 0);
+}
+
+/**
+ * iterate_supers_sync - iterate_supers() for syncing all filesystems
+ * @f: function to call
+ * @arg: argument to pass to it
+ *
+ * A superblock which is being shut down isn't passed to @f, whoever shuts it
+ * down writes it out.  Wait for that, so that it is on disk as well by the time
+ * the walk is over.
+ *
+ * Return: 0 if all the superblocks were seen, -ERESTARTSYS if the task was
+ *         killed while it waited for one.
+ */
+int iterate_supers_sync(void (*f)(struct super_block *, void *), void *arg)
+{
+	return __iterate_supers(f, arg, SUPER_ITER_WAIT_SHUTDOWN);
 }
 
 /**
@@ -1136,8 +1180,11 @@ static void do_emergency_remount_callback(struct super_block *sb, void *unused)
 {
 	struct fs_context *fc = NULL;
 
-	if (!super_lock_excl(sb))
+	if (!super_lock_excl(sb)) {
+		/* the unmount writes the filesystem out, wait for that */
+		super_wait_shutdown_killable(sb);
 		return;
+	}
 
 	/* Make sure no reference put under s_umount is the last one. */
 	atomic_inc(&sb->s_active);
