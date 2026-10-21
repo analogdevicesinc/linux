@@ -5519,8 +5519,8 @@ void unmap_hugepage_range(struct vm_area_struct *vma, unsigned long start,
  * from other VMAs and let the children be SIGKILLed if they are faulting the
  * same region.
  */
-static void unmap_ref_private(struct mm_struct *mm, struct vm_area_struct *vma,
-			      struct folio *folio, unsigned long address)
+static void unmap_ref_private(struct vm_area_struct *vma, struct folio *folio,
+			      unsigned long address)
 {
 	struct hstate *h = hstate_vma(vma);
 	struct vm_area_struct *iter_vma;
@@ -5696,7 +5696,7 @@ retry_avoidcopy:
 			hugetlb_vma_unlock_read(vma);
 			mutex_unlock(&hugetlb_fault_mutex_table[hash]);
 
-			unmap_ref_private(mm, vma, old_folio, vmf->address);
+			unmap_ref_private(vma, old_folio, vmf->address);
 
 			mutex_lock(&hugetlb_fault_mutex_table[hash]);
 			hugetlb_vma_lock_read(vma);
