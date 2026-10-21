@@ -637,6 +637,13 @@ struct WRITE_REG {
 struct READ_REG {
 	uint32_t                  reg_offset;
 	uint64_t                  buffer_addr;
+	union {
+		struct {
+			uint32_t read64Bits : 1;
+			uint32_t reserved : 31;
+		} bits;
+		uint32_t all;
+	} option;
 };
 
 enum WRM_OPERATION {

@@ -21,6 +21,7 @@
 
 #include "amdgpu.h"
 #include "amdgpu_ras.h"
+#include "soc15_common.h"
 
 int amdgpu_nbio_ras_sw_init(struct amdgpu_device *adev)
 {
@@ -93,4 +94,153 @@ void amdgpu_nbio_program_aspm(struct amdgpu_device *adev)
 
 	if (adev->nbio.funcs->program_aspm)
 		adev->nbio.funcs->program_aspm(adev);
+}
+
+static int amdgpu_nbio_set_doorbell_field(u32 *reg, u32 mask, u32 value)
+{
+	u32 shift;
+
+	if (!mask)
+		return value ? -EOPNOTSUPP : 0;
+
+	shift = __ffs(mask);
+	if (value > (mask >> shift))
+		return -ERANGE;
+
+	*reg |= (value << shift) & mask;
+	return 0;
+}
+
+int amdgpu_nbio_build_doorbell_entry(
+	struct amdgpu_device *adev,
+	const struct amdgpu_nbio_doorbell_fields *fields,
+	u32 *ctrl, u32 *ctrl1)
+{
+	const struct amdgpu_nbio_doorbell_layout *layout;
+	int r;
+
+	if (!fields || !ctrl)
+		return -EINVAL;
+
+	layout = adev->nbio.doorbell_layout;
+	if (!layout)
+		return -EINVAL;
+
+	*ctrl = 0;
+	if (ctrl1)
+		*ctrl1 = 0;
+
+	r = amdgpu_nbio_set_doorbell_field(ctrl, layout->ctrl.enable,
+					   fields->enable);
+	if (r)
+		return r;
+	r = amdgpu_nbio_set_doorbell_field(ctrl, layout->ctrl.awid,
+					   fields->awid);
+	if (r)
+		return r;
+	r = amdgpu_nbio_set_doorbell_field(ctrl, layout->ctrl.fence_enable,
+					   fields->fence_enable);
+	if (r)
+		return r;
+	r = amdgpu_nbio_set_doorbell_field(ctrl, layout->ctrl.range_offset,
+					   fields->range_offset);
+	if (r)
+		return r;
+	r = amdgpu_nbio_set_doorbell_field(ctrl, layout->ctrl.range_size,
+					   fields->range_size);
+	if (r)
+		return r;
+	r = amdgpu_nbio_set_doorbell_field(ctrl, layout->ctrl.disable_64bit,
+					   fields->disable_64bit);
+	if (r)
+		return r;
+	r = amdgpu_nbio_set_doorbell_field(ctrl,
+					   layout->ctrl.deduct_range_offset,
+					   fields->deduct_range_offset);
+	if (r)
+		return r;
+	r = amdgpu_nbio_set_doorbell_field(ctrl, layout->ctrl.drop,
+					   fields->drop);
+	if (r)
+		return r;
+	r = amdgpu_nbio_set_doorbell_field(ctrl, layout->ctrl.awaddr_31_28,
+					   fields->awaddr_31_28);
+	if (r)
+		return r;
+
+	if (!ctrl1)
+		return 0;
+	if (!layout->has_ctrl1)
+		return -EOPNOTSUPP;
+
+	r = amdgpu_nbio_set_doorbell_field(ctrl1,
+					   layout->ctrl1.target_port_type,
+					   fields->target_port_type);
+	if (r)
+		return r;
+	r = amdgpu_nbio_set_doorbell_field(ctrl1,
+					   layout->ctrl1.target_die_id,
+					   fields->target_die_id);
+	if (r)
+		return r;
+	r = amdgpu_nbio_set_doorbell_field(ctrl1,
+					   layout->ctrl1.target_port_id,
+					   fields->target_port_id);
+	if (r)
+		return r;
+	r = amdgpu_nbio_set_doorbell_field(ctrl1,
+					   layout->ctrl1.override_poison_data,
+					   fields->override_poison_data);
+	if (r)
+		return r;
+	r = amdgpu_nbio_set_doorbell_field(ctrl1,
+					   layout->ctrl1.disable_4k_page_decode,
+					   fields->disable_4k_page_decode);
+	if (r)
+		return r;
+
+	return 0;
+}
+
+void amdgpu_nbio_program_doorbell_entry(
+	struct amdgpu_device *adev,
+	enum amdgpu_nbio_doorbell_client client,
+	u32 instance, const u32 *ctrl, const u32 *ctrl1)
+{
+	struct amdgpu_nbio_doorbell_entries *entries;
+	struct amdgpu_nbio_doorbell_entry *entry;
+
+	if (WARN_ON_ONCE(client >= AMDGPU_NBIO_DOORBELL_CLIENT_COUNT))
+		return;
+
+	entries = &adev->nbio.doorbell_entries[client];
+	if (WARN_ON_ONCE(instance >= entries->num_entries))
+		return;
+
+	entry = &entries->entry[instance];
+	if (WARN_ON_ONCE(!entry->ctrl_reg))
+		return;
+
+	if (entry->use_ext) {
+		/* CTRL1 programming is not needed when use_ext is set. */
+		if (WARN_ON_ONCE(entry->ctrl1_reg || ctrl1))
+			return;
+
+		WREG32_PCIE_EXT(
+			(adev->reg_offset[NBIO_HWIP][entry->reg_inst]
+			 [entry->ctrl_reg_base_idx] + entry->ctrl_reg) * 4 +
+			amdgpu_reg_get_smn_base64(
+				adev, NBIO_HWIP, entry->reg_inst),
+			ctrl ? *ctrl : 0);
+		return;
+	}
+
+	if (WARN_ON_ONCE(ctrl1 && !entry->ctrl1_reg))
+		return;
+
+	/* A NULL CTRL disables and clears the entry. */
+	WREG32_SOC15_IP(NBIO, entry->ctrl_reg, ctrl ? *ctrl : 0);
+	if (entry->ctrl1_reg && (!ctrl || ctrl1))
+		WREG32_SOC15_IP(NBIO, entry->ctrl1_reg,
+				    ctrl ? *ctrl1 : 0);
 }

@@ -395,7 +395,7 @@ static void event_interrupt_wq_v12_1(struct kfd_node *node,
 		}
 
 	} else if (KFD_IRQ_IS_FENCE(client_id, source_id)) {
-		kfd_process_close_interrupt_drain(pasid);
+		amdgpu_pasid_drain_irq_done(pasid);
 	}
 }
 

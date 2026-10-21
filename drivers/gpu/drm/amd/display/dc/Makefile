@@ -74,6 +74,7 @@ FILES += core/dc_hw_sequencer.o
 FILES += core/dc_link_enc_cfg.o
 FILES += core/dc_link_exports.o
 FILES += core/dc_resource.o
+FILES += core/dc_resource_helper.o
 FILES += core/dc_sink.o
 FILES += core/dc_stat.o
 FILES += core/dc_state.o

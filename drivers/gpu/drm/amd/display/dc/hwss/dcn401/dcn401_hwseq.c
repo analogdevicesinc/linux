@@ -818,6 +818,15 @@ enum dc_status dcn401_enable_stream_timing(
 
 	hws->funcs.blank_pixel_data(dc, pipe_ctx, true);
 
+	/* Legacy code path will enable DSC during DPMS on sequence. Since DSC
+	 * HW block programming is independent from link and stream encoder operations, it
+	 * has moved to hwss and should be called when enabling/disabling OTG.
+	 */
+	if (stream->timing.flags.DSC && pipe_ctx->stream_res.dsc) {
+		if (dc->hwss.configure_dsc)
+			dc->hwss.configure_dsc(pipe_ctx, true);
+	}
+
 	/* VTG is  within DCHUB command block. DCFCLK is always on */
 	if (false == pipe_ctx->stream_res.tg->funcs->enable_crtc(pipe_ctx->stream_res.tg)) {
 		BREAK_TO_DEBUGGER();
@@ -2116,6 +2125,15 @@ void dcn401_reset_back_end_for_pipe(
 
 			pipe_ctx->stream_res.tg->funcs->disable_crtc(pipe_ctx->stream_res.tg);
 
+			/* Legacy code path will enable DSC during DPMS on sequence. Since DSC
+			 * HW block programming is independent from backend operations, it
+			 * has moved to hwss and should be called when enabling/disabling OTG.
+			 */
+			if (pipe_ctx->stream_res.dsc) {
+				if (dc->hwss.configure_dsc)
+					dc->hwss.configure_dsc(pipe_ctx, false);
+			}
+
 			pipe_ctx->stream_res.tg->funcs->enable_optc_clock(pipe_ctx->stream_res.tg, false);
 		}
 		if (pipe_ctx->stream_res.tg->funcs->set_odm_bypass)
@@ -2705,6 +2723,17 @@ void dcn401_program_front_end_for_ctx(
 			pipe->plane_res.hubp->funcs->hubp_wait_pipe_read_start(pipe->plane_res.hubp);
 		}
 	}
+
+	/* Debug (DM SystemDisplayEnable, driver disabled): force solid-color DPG
+	 * output last, after all normal pipe/OPP programming, so it isn't overwritten.
+	 */
+	if (dc->debug.force_dpg_on_flip && hws->funcs.blank_pixel_data) {
+		for (i = 0; i < dc->res_pool->pipe_count; i++) {
+			pipe = &context->res_ctx.pipe_ctx[i];
+			if (resource_is_pipe_type(pipe, OTG_MASTER))
+				hws->funcs.blank_pixel_data(dc, pipe, true);
+		}
+	}
 }
 
 void dcn401_post_unlock_program_front_end(
@@ -3130,7 +3159,8 @@ void dcn401_plane_atomic_power_down(struct dc *dc,
 	DC_LOG_DEBUG(
 			"Power gated front end %d\n", hubp->inst);
 
-	if (hws->funcs.dpp_root_clock_control)
+	if (hws->funcs.dpp_root_clock_control &&
+	    hwss_is_dpp_root_clock_control_allowed(hws, false))
 		hws->funcs.dpp_root_clock_control(hws, dpp->inst, false);
 }
 
@@ -3598,10 +3628,10 @@ void dcn401_post_unlock_reset_opp_sequence(
 	}
 }
 
-void dcn401_dc_ip_request_cntl(struct dc *dc, bool enable)
+void dcn401_dc_ip_request_cntl(struct dce_hwseq *hws, bool enable)
 {
-	struct dce_hwseq *hws = dc->hwseq;
-
+	if (!hws || !hws->ctx || !hws->regs || !hws->shifts || !hws->masks)
+		return;
 	if (REG(DC_IP_REQUEST_CNTL))
 		REG_SET(DC_IP_REQUEST_CNTL, 0, IP_REQUEST_EN, enable ? 1 : 0);
 }

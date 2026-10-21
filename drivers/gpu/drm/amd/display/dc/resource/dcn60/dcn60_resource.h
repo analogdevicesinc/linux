@@ -370,6 +370,12 @@ bool dcn50_program_mcache_pipe_config(struct dc_state *context,
 	SRI_ARR(CM_TEST_DEBUG_DATA, CM, id),                                     \
 	SRI_ARR(FORMAT_CONTROL, CNVC_CFG, id),                                   \
 	SRI_ARR(CNVC_SURFACE_PIXEL_FORMAT, CNVC_CFG, id),                        \
+	SRI_ARR(CNVC_UPSP_CLAMP, CNVC_CFG, id),                                  \
+	SRI_ARR(CNVC_UPSP_MODE, CNVC_CFG, id),                                   \
+	SRI_ARR(CNVC_UPSP_H_COEF_P0, CNVC_CFG, id),                              \
+	SRI_ARR(CNVC_UPSP_H_COEF_P1, CNVC_CFG, id),                              \
+	SRI_ARR(CNVC_UPSP_V_COEF_P0, CNVC_CFG, id),                              \
+	SRI_ARR(CNVC_UPSP_V_COEF_P1, CNVC_CFG, id),                              \
 	SRI_ARR(CURSOR0_CONTROL, CM_CUR, id),                                    \
 	SRI_ARR(CURSOR0_COLOR0, CM_CUR, id),                                     \
 	SRI_ARR(CURSOR0_COLOR1, CM_CUR, id),                                     \

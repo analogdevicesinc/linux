@@ -1059,6 +1059,7 @@ static void dcn6_rq_dlg_get_dlg_reg(
 static void dcn6_rq_dlg_get_wm_regs(const struct dml2_display_cfg *display_cfg, const struct dml2_core_internal_display_mode_lib *mode_lib, const struct dml2_utm_soc_bb *utm_soc_bb, struct dml2_dchub_watermark_regs *wm_regs)
 {
 	double refclk_freq_in_mhz = (display_cfg->overrides.hw.dlg_ref_clk_mhz > 0) ? (double)display_cfg->overrides.hw.dlg_ref_clk_mhz : utm_soc_bb->dchub_refclk_mhz;
+	unsigned int u0_10_fixed_point_scale = 1U << 10;
 
 	wm_regs->fclk_pstate = (int unsigned)(mode_lib->mp.Watermark.FCLKChangeWatermark * refclk_freq_in_mhz);
 	wm_regs->sr_enter = (int unsigned)(mode_lib->mp.Watermark.StutterEnterPlusExitWatermark * refclk_freq_in_mhz);
@@ -1074,8 +1075,8 @@ static void dcn6_rq_dlg_get_wm_regs(const struct dml2_display_cfg *display_cfg, 
 	wm_regs->usr = (int unsigned)(mode_lib->mp.Watermark.USRRetrainingWatermark * refclk_freq_in_mhz);
 	wm_regs->refcyc_per_trip_to_mem = (unsigned int)(mode_lib->mp.UrgentLatency * refclk_freq_in_mhz);
 	wm_regs->refcyc_per_meta_trip_to_mem = (unsigned int)(mode_lib->mp.MetaTripToMemory * refclk_freq_in_mhz);
-	wm_regs->frac_urg_bw_flip = (unsigned int)(mode_lib->mp.FractionOfUrgentBandwidthImmediateFlip * 1000);
-	wm_regs->frac_urg_bw_nom = (unsigned int)(mode_lib->mp.FractionOfUrgentBandwidth * 1000);
+	wm_regs->frac_urg_bw_flip = (unsigned int)math_min2(math_ceil(mode_lib->mp.FractionOfUrgentBandwidthImmediateFlip * u0_10_fixed_point_scale), u0_10_fixed_point_scale - 1);
+	wm_regs->frac_urg_bw_nom = (unsigned int)math_min2(math_ceil(mode_lib->mp.FractionOfUrgentBandwidth * u0_10_fixed_point_scale), u0_10_fixed_point_scale - 1);
 }
 
 void dcn6_get_pipe_regs(const struct dml2_display_cfg *display_cfg,
@@ -1752,8 +1753,9 @@ void dcn6_calculate_pstate_schedule_windows(
 		det_fill_delay_otg_vlines = (int)(math_ceil(det_fill_delay_us[k] / otg_vline_time_us[k]));
 		reserved_vblank_otg_vlines = (int)(math_ceil(reserved_vblank_us[k] / otg_vline_time_us[k]));
 
-		allow_start_otg_vlines = v_blank_end[k] + det_fill_delay_otg_vlines;
-		allow_end_otg_vlines = v_blank_start[k] - (blackout_otg_vlines - reserved_vblank_otg_vlines);
+		/* for vactive only, make relative to vblank end */
+		allow_start_otg_vlines = det_fill_delay_otg_vlines;
+		allow_end_otg_vlines = v_blank_start[k] - v_blank_end[k] - (blackout_otg_vlines - reserved_vblank_otg_vlines);
 
 		/* Convert them back to time since the start of a frame */
 		allow_start_us[k] = allow_start_otg_vlines * otg_vline_time_us[k];

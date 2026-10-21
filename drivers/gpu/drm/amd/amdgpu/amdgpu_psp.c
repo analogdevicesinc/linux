@@ -958,9 +958,13 @@ psp_cmd_submit_buf(struct psp_context *psp,
 				psp->cmd_resp_buf_mem->resp.status);
 		/* If any firmware (including CAP) load fails under SRIOV, it should
 		 * return failure to stop the VF from initializing.
+		 * A VCN firmware load failure must also stop initialization.
 		 * Also return failure in case of timeout
 		 */
-		if ((ucode && amdgpu_sriov_vf(psp->adev)) || !timeout) {
+		if ((ucode &&
+		    (amdgpu_sriov_vf(psp->adev) ||
+		    ucode->ucode_id == AMDGPU_UCODE_ID_VCN)) ||
+		    !timeout) {
 			ret = -EINVAL;
 			goto exit;
 		}

@@ -922,7 +922,8 @@ union dpcd_dprx_feature_enumeration_list_cont_1 {
 		uint8_t AS_SDP_FIRST_HALF_LINE_OR_3840_PIXEL_CYCLE_WINDOW_NOT_SUPPORTED: 1;
 		uint8_t RESERVED0: 2;
 		uint8_t VSC_EXT_SDP_VER1_SUPPORT: 1;
-		uint8_t RESERVED1: 3;
+		uint8_t AS_SDP_VERSION_3_SUPPORTED: 1;
+		uint8_t RESERVED1: 2;
 	} bits;
 	uint8_t raw;
 };

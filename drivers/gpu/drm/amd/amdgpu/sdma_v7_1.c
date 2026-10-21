@@ -795,7 +795,7 @@ static int sdma_v7_1_reset_queue(struct amdgpu_ring *ring,
 
 	amdgpu_ring_reset_helper_begin(ring, timedout_fence);
 
-	r = amdgpu_mes_reset_legacy_queue(adev, ring, vmid, true, 0);
+	r = amdgpu_mes_reset_legacy_queue(adev, ring, vmid, false, 0);
 	if (r)
 		return r;
 
@@ -857,47 +857,47 @@ static int sdma_v7_1_inst_start(struct amdgpu_device *adev,
 static int sdma_v7_1_mqd_init(struct amdgpu_device *adev, void *mqd,
 			      struct amdgpu_mqd_prop *prop)
 {
-	struct v12_sdma_mqd *m = mqd;
+	struct v12_1_sdma_mqd *m = mqd;
 	uint64_t wb_gpu_addr;
 
-	m->sdmax_rlcx_rb_cntl =
+	m->sdmax_queuen_rb_cntl =
 		order_base_2(prop->queue_size / 4) << SDMA0_SDMA_QUEUE0_RB_CNTL__RB_SIZE__SHIFT |
 		1 << SDMA0_SDMA_QUEUE0_RB_CNTL__RPTR_WRITEBACK_ENABLE__SHIFT |
 		4 << SDMA0_SDMA_QUEUE0_RB_CNTL__RPTR_WRITEBACK_TIMER__SHIFT |
 		1 << SDMA0_SDMA_QUEUE0_RB_CNTL__MCU_WPTR_POLL_ENABLE__SHIFT;
 
-	m->sdmax_rlcx_rb_base = lower_32_bits(prop->hqd_base_gpu_addr >> 8);
-	m->sdmax_rlcx_rb_base_hi = upper_32_bits(prop->hqd_base_gpu_addr >> 8);
+	m->sdmax_queuen_rb_base = lower_32_bits(prop->hqd_base_gpu_addr >> 8);
+	m->sdmax_queuen_rb_base_hi = upper_32_bits(prop->hqd_base_gpu_addr >> 8);
 
 	wb_gpu_addr = prop->wptr_gpu_addr;
-	m->sdmax_rlcx_rb_wptr_poll_addr_lo = lower_32_bits(wb_gpu_addr);
-	m->sdmax_rlcx_rb_wptr_poll_addr_hi = upper_32_bits(wb_gpu_addr);
+	m->sdmax_queuen_rb_wptr_poll_addr_lo = lower_32_bits(wb_gpu_addr);
+	m->sdmax_queuen_rb_wptr_poll_addr_hi = upper_32_bits(wb_gpu_addr);
 
 	wb_gpu_addr = prop->rptr_gpu_addr;
-	m->sdmax_rlcx_rb_rptr_addr_lo = lower_32_bits(wb_gpu_addr);
-	m->sdmax_rlcx_rb_rptr_addr_hi = upper_32_bits(wb_gpu_addr);
+	m->sdmax_queuen_rb_rptr_addr_lo = lower_32_bits(wb_gpu_addr);
+	m->sdmax_queuen_rb_rptr_addr_hi = upper_32_bits(wb_gpu_addr);
 
-	m->sdmax_rlcx_ib_cntl = RREG32_SOC15_IP(GC, sdma_v7_1_get_reg_offset(adev, 0,
+	m->sdmax_queuen_ib_cntl = RREG32_SOC15_IP(GC, sdma_v7_1_get_reg_offset(adev, 0,
 							regSDMA0_SDMA_QUEUE0_IB_CNTL));
 
-	m->sdmax_rlcx_doorbell_offset =
+	m->sdmax_queuen_doorbell_offset =
 		prop->doorbell_index << SDMA0_SDMA_QUEUE0_DOORBELL_OFFSET__OFFSET__SHIFT;
 
-	m->sdmax_rlcx_doorbell = REG_SET_FIELD(0, SDMA0_SDMA_QUEUE0_DOORBELL, ENABLE, 1);
+	m->sdmax_queuen_doorbell = REG_SET_FIELD(0, SDMA0_SDMA_QUEUE0_DOORBELL, ENABLE, 1);
 
-	m->sdmax_rlcx_doorbell_log = 0;
-	m->sdmax_rlcx_rb_aql_cntl = 0x4000;	//regSDMA0_SDMA_QUEUE0_RB_AQL_CNTL_DEFAULT;
-	m->sdmax_rlcx_dummy_reg = 0xf;	//regSDMA0_SDMA_QUEUE0_DUMMY_REG_DEFAULT;
+	m->sdmax_queuen_doorbell_log = 0;
+	m->sdmax_queuen_rb_aql_cntl = 0x4000;	//regSDMA0_SDMA_QUEUE0_RB_AQL_CNTL_DEFAULT;
+	m->sdmax_queuen_dummy_reg = 0xf;	//regSDMA0_SDMA_QUEUE0_DUMMY_REG_DEFAULT;
 
-	m->sdmax_rlcx_csa_addr_lo = lower_32_bits(prop->csa_addr);
-	m->sdmax_rlcx_csa_addr_hi = upper_32_bits(prop->csa_addr);
+	m->sdmax_queuen_csa_addr_lo = lower_32_bits(prop->csa_addr);
+	m->sdmax_queuen_csa_addr_hi = upper_32_bits(prop->csa_addr);
 
 	return 0;
 }
 
 static void sdma_v7_1_set_mqd_funcs(struct amdgpu_device *adev)
 {
-	adev->mqds[AMDGPU_HW_IP_DMA].mqd_size = sizeof(struct v12_sdma_mqd);
+	adev->mqds[AMDGPU_HW_IP_DMA].mqd_size = sizeof(struct v12_1_sdma_mqd);
 	adev->mqds[AMDGPU_HW_IP_DMA].init_mqd = sdma_v7_1_mqd_init;
 }
 
@@ -1333,8 +1333,7 @@ static int sdma_v7_1_sw_init(struct amdgpu_ip_block *ip_block)
 
 	adev->sdma.supported_reset =
 		amdgpu_get_soft_full_reset_mask(&adev->sdma.instance[0].ring);
-	if (!amdgpu_sriov_vf(adev) &&
-	    !adev->debug_disable_gpu_ring_reset)
+	if (!adev->debug_disable_gpu_ring_reset)
 		adev->sdma.supported_reset |= AMDGPU_RESET_TYPE_PER_QUEUE;
 
 	r = amdgpu_sdma_sysfs_reset_mask_init(adev);

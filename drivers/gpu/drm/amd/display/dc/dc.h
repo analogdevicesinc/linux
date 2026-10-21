@@ -68,7 +68,7 @@ struct dcn_dsc_reg_state;
 struct dcn_optc_reg_state;
 struct dcn_dccg_reg_state;
 
-#define DC_VER "3.2.401"
+#define DC_VER "3.2.403"
 
 /**
  * MAX_SURFACES - representative of the upper bound of surfaces that can be piped to a single CRTC
@@ -1188,6 +1188,7 @@ struct dc_debug_options {
 	bool enable_dmcub_surface_flip;
 	bool usbc_combo_phy_reset_wa;
 	bool force_fva;
+	bool force_dpg_on_flip;
 	int max_frl_rate;
 	unsigned int  force_frl_rate;
 	bool ignore_ffe;
@@ -1331,6 +1332,7 @@ struct dc_debug_options {
 	uint8_t iommu_mismatch_temp_wka;
 	bool disable_dynamic_expansion_for_test_pattern;
 	bool psr_phy_force_phy_power_down_up_level_2;
+	bool dmub_send_az_pme_restore;
 	uint32_t dml21_custom_derate_num_dpms;
 	uint32_t dml21_custom_derate_at_dpm[DML2_MAX_NUM_DPM_LVL];
 	bool override_utm_client_qc_profile;

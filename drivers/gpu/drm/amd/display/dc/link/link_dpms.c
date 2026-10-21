@@ -717,21 +717,94 @@ static bool dp_set_hblank_reduction_on_rx(struct pipe_ctx *pipe_ctx)
 	return result;
 }
 
-
-/* The stream with these settings can be sent (unblanked) only after DSC was enabled on RX first,
- * i.e. after dp_enable_dsc_on_rx() had been called
+/* TODO - There is overlapping functionality between link_set_dsc_pps_packet,
+ * and set_encoder_dsc_config, the two functions should be refactored to avoid code duplication.
  */
-void link_set_dsc_on_stream(struct pipe_ctx *pipe_ctx, bool enable)
+static void set_encoder_dsc_config(struct pipe_ctx *pipe_ctx,
+		struct dsc_config *dsc_cfg,
+		struct dsc_optc_config *dsc_optc_cfg,
+		bool enable)
 {
-	/* TODO: Move this to HWSS as this is hardware programming sequence not a
-	 * link layer sequence
-	 */
+	struct dc *dc = pipe_ctx->stream->ctx->dc;
+	struct display_stream_compressor *dsc = pipe_ctx->stream_res.dsc;
+	struct dc_stream_state *stream = pipe_ctx->stream;
+	enum optc_dsc_mode optc_dsc_mode;
+	int odm_count = 1;
+	struct pipe_ctx *odm_pipe;
+	DC_LOGGER_INIT(dsc->ctx->logger);
+
+	for (odm_pipe = pipe_ctx->next_odm_pipe; odm_pipe; odm_pipe = odm_pipe->next_odm_pipe)
+		odm_count++;
+
+	if (enable) {
+		optc_dsc_mode = dsc_optc_cfg->is_pixel_format_444 ?
+				OPTC_DSC_ENABLED_444 : OPTC_DSC_ENABLED_NATIVE_SUBSAMPLED;
+
+		if (dc_is_dp_signal(stream->signal) && !dp_is_128b_132b_signal(pipe_ctx)) {
+			DC_LOG_DSC("Setting stream encoder DSC config for engine %d:", (int)pipe_ctx->stream_res.stream_enc->id);
+			dsc_optc_config_log(dsc, dsc_optc_cfg);
+			if (pipe_ctx->stream_res.stream_enc->funcs->dp_set_dsc_config)
+				pipe_ctx->stream_res.stream_enc->funcs->dp_set_dsc_config(pipe_ctx->stream_res.stream_enc,
+										optc_dsc_mode,
+										dsc_optc_cfg->bytes_per_pixel,
+										dsc_optc_cfg->slice_width);
+
+			/* PPS SDP is set elsewhere because it has to be done after DIG FE is connected to DIG BE */
+		} else if (dc_is_hdmi_frl_signal(stream->signal)) {
+			uint8_t dsc_packed_pps[128];
+			struct dc_crtc_timing patched_crtc_timing = stream->timing;
+
+			DC_LOG_DSC("Setting stream encoder DSC config for engine %d:", (int)pipe_ctx->stream_res.hpo_frl_stream_enc->id);
+			dsc_optc_config_log(dsc, dsc_optc_cfg);
+			dsc_cfg->dc_dsc_cfg.num_slices_h *= odm_count;
+			dsc_cfg->pic_width *= odm_count;
+			dsc_cfg->dsc_padding = pipe_ctx->dsc_padding_params.dsc_hactive_padding;
+			if (dc->debug.enable_hblank_borrow)
+				dsc_cfg->pic_width = stream->timing.h_addressable;
+			dsc->funcs->dsc_get_packed_pps(dsc, dsc_cfg, &dsc_packed_pps[0]);
+			pipe_ctx->stream_res.hpo_frl_stream_enc->funcs->hdmi_frl_set_dsc_config(
+					pipe_ctx->stream_res.hpo_frl_stream_enc, &patched_crtc_timing, &dsc_packed_pps[0]);
+		}
+
+		return;
+	}
+
+	if (dc_is_dp_signal(stream->signal)) {
+		if (dp_is_128b_132b_signal(pipe_ctx))
+			pipe_ctx->stream_res.hpo_dp_stream_enc->funcs->dp_set_dsc_pps_info_packet(
+										pipe_ctx->stream_res.hpo_dp_stream_enc,
+										false,
+										NULL,
+										true);
+		else {
+			if (pipe_ctx->stream_res.stream_enc->funcs->dp_set_dsc_config)
+				pipe_ctx->stream_res.stream_enc->funcs->dp_set_dsc_config(
+							pipe_ctx->stream_res.stream_enc,
+							OPTC_DSC_DISABLED, 0, 0);
+			pipe_ctx->stream_res.stream_enc->funcs->dp_set_dsc_pps_info_packet(
+							pipe_ctx->stream_res.stream_enc, false, NULL, true);
+		}
+	} else if (dc_is_hdmi_frl_signal(stream->signal)) {
+		pipe_ctx->stream_res.hpo_frl_stream_enc->funcs->hdmi_frl_set_dsc_config(
+				pipe_ctx->stream_res.hpo_frl_stream_enc, &stream->timing, NULL);
+	}
+}
+
+/* Legacy implementation of DSC configuration sequence. DSC HW block programming
+ * is independent of stream encoder and link configuration operations, and should
+ * be configured separately during front-end programming, not within link DPMS sequences.
+ */
+static bool configure_dsc_hw_block(struct pipe_ctx *pipe_ctx, bool enable,
+		struct dsc_config *dsc_cfg, struct dsc_optc_config *dsc_optc_cfg)
+{
 	struct display_stream_compressor *dsc = pipe_ctx->stream_res.dsc;
 	struct dc *dc = pipe_ctx->stream->ctx->dc;
 	struct dc_stream_state *stream = pipe_ctx->stream;
 	struct pipe_ctx *odm_pipe;
-	int opp_cnt = 1;
 	struct dccg *dccg = dc->res_pool->dccg;
+	int opp_cnt = 1;
+	DC_LOGGER_INIT(dsc->ctx->logger);
+
 	/* It has been found that when DSCCLK is lower than 16Mhz, we will get DCN
 	 * register access hung. When DSCCLk is based on refclk, DSCCLk is always a
 	 * fixed value higher than 16Mhz so the issue doesn't occur. When DSCCLK is
@@ -741,35 +814,34 @@ void link_set_dsc_on_stream(struct pipe_ctx *pipe_ctx, bool enable)
 	 * based on fixed value refclk when timing is smaller than 3x16Mhz (i.e
 	 * 48Mhz) pixel clock to avoid hitting this problem.
 	 */
-	bool should_use_dto_dscclk = (dccg->funcs->set_dto_dscclk != NULL) &&
+	bool should_use_dto_dscclk = dccg->funcs->set_dto_dscclk &&
 			stream->timing.pix_clk_100hz > 480000;
-	DC_LOGGER_INIT(dsc->ctx->logger);
 
 	for (odm_pipe = pipe_ctx->next_odm_pipe; odm_pipe; odm_pipe = odm_pipe->next_odm_pipe)
 		opp_cnt++;
 
 	if (enable) {
-		struct dsc_config dsc_cfg;
-		struct dsc_optc_config dsc_optc_cfg = {0};
 		enum optc_dsc_mode optc_dsc_mode;
+		memset(dsc_cfg, 0, sizeof(*dsc_cfg));
+		memset(dsc_optc_cfg, 0, sizeof(*dsc_optc_cfg));
 
 		/* Enable DSC hw block */
-		dsc_cfg.pic_width = (stream->timing.h_addressable + pipe_ctx->dsc_padding_params.dsc_hactive_padding +
+		dsc_cfg->pic_width = (stream->timing.h_addressable + pipe_ctx->dsc_padding_params.dsc_hactive_padding +
 				stream->timing.h_border_left + stream->timing.h_border_right) / opp_cnt;
-		dsc_cfg.pic_height = stream->timing.v_addressable + stream->timing.v_border_top + stream->timing.v_border_bottom;
-		dsc_cfg.pixel_encoding = stream->timing.pixel_encoding;
-		dsc_cfg.color_depth = stream->timing.display_color_depth;
-		dsc_cfg.is_odm = pipe_ctx->next_odm_pipe ? true : false;
-		dsc_cfg.dc_dsc_cfg = stream->timing.dsc_cfg;
-		ASSERT(dsc_cfg.dc_dsc_cfg.num_slices_h % opp_cnt == 0);
-		dsc_cfg.dc_dsc_cfg.num_slices_h /= opp_cnt;
-		dsc_cfg.dsc_padding = 0;
+		dsc_cfg->pic_height = stream->timing.v_addressable + stream->timing.v_border_top + stream->timing.v_border_bottom;
+		dsc_cfg->pixel_encoding = stream->timing.pixel_encoding;
+		dsc_cfg->color_depth = stream->timing.display_color_depth;
+		dsc_cfg->is_odm = pipe_ctx->next_odm_pipe != NULL;
+		dsc_cfg->dc_dsc_cfg = stream->timing.dsc_cfg;
+		ASSERT(dsc_cfg->dc_dsc_cfg.num_slices_h % opp_cnt == 0);
+		dsc_cfg->dc_dsc_cfg.num_slices_h /= opp_cnt;
+		dsc_cfg->dsc_padding = 0;
 
 		if (should_use_dto_dscclk)
-			dccg->funcs->set_dto_dscclk(dccg, dsc->inst, dsc_cfg.dc_dsc_cfg.num_slices_h);
-		if (!dsc->funcs->dsc_prepare_config(dsc, &dsc_cfg, &dsc_optc_cfg)) {
+			dccg->funcs->set_dto_dscclk(dccg, dsc->inst, dsc_cfg->dc_dsc_cfg.num_slices_h);
+		if (!dsc->funcs->dsc_prepare_config(dsc, dsc_cfg, dsc_optc_cfg)) {
 			ASSERT(false);
-			return;
+			return false;
 		}
 		dsc->funcs->dsc_set_config(dsc);
 		dsc->funcs->dsc_enable(dsc, pipe_ctx->stream_res.opp->inst);
@@ -778,112 +850,92 @@ void link_set_dsc_on_stream(struct pipe_ctx *pipe_ctx, bool enable)
 
 			ASSERT(odm_dsc);
 			if (!odm_dsc)
-				return;
+				return false;
 			if (should_use_dto_dscclk)
-				dccg->funcs->set_dto_dscclk(dccg, odm_dsc->inst, dsc_cfg.dc_dsc_cfg.num_slices_h);
-			if (!odm_dsc->funcs->dsc_prepare_config(odm_dsc, &dsc_cfg, &dsc_optc_cfg)) {
+				dccg->funcs->set_dto_dscclk(dccg, odm_dsc->inst,
+						dsc_cfg->dc_dsc_cfg.num_slices_h);
+			if (!odm_dsc->funcs->dsc_prepare_config(odm_dsc, dsc_cfg, dsc_optc_cfg)) {
 				ASSERT(false);
-				return;
+				return false;
 			}
 			odm_dsc->funcs->dsc_set_config(odm_dsc);
 			odm_dsc->funcs->dsc_enable(odm_dsc, odm_pipe->stream_res.opp->inst);
 		}
-		dsc_cfg.dc_dsc_cfg.num_slices_h *= opp_cnt;
-		dsc_cfg.pic_width *= opp_cnt;
-		dsc_cfg.dsc_padding = pipe_ctx->dsc_padding_params.dsc_hactive_padding;
-
-		optc_dsc_mode = dsc_optc_cfg.is_pixel_format_444 ? OPTC_DSC_ENABLED_444 : OPTC_DSC_ENABLED_NATIVE_SUBSAMPLED;
-
-		/* Enable DSC in encoder */
-		if (dc_is_dp_signal(stream->signal) && !dp_is_128b_132b_signal(pipe_ctx)) {
-			DC_LOG_DSC("Setting stream encoder DSC config for engine %d:", (int)pipe_ctx->stream_res.stream_enc->id);
-			dsc_optc_config_log(dsc, &dsc_optc_cfg);
-			if (pipe_ctx->stream_res.stream_enc->funcs->dp_set_dsc_config)
-				pipe_ctx->stream_res.stream_enc->funcs->dp_set_dsc_config(pipe_ctx->stream_res.stream_enc,
-										optc_dsc_mode,
-										dsc_optc_cfg.bytes_per_pixel,
-										dsc_optc_cfg.slice_width);
-
-			/* PPS SDP is set elsewhere because it has to be done after DIG FE is connected to DIG BE */
-		}
-		else if (dc_is_hdmi_frl_signal(stream->signal)) {
-			uint8_t dsc_packed_pps[128];
-			struct dc_crtc_timing patched_crtc_timing = stream->timing;
-
-			DC_LOG_DSC("Setting stream encoder DSC config for engine %d:", (int)pipe_ctx->stream_res.hpo_frl_stream_enc->id);
-			dsc_optc_config_log(dsc, &dsc_optc_cfg);
-
-			/* if we are borrowing from hblank, h_addressable and  pic_width need to be adjusted */
-			if (dc->debug.enable_hblank_borrow) {
-				dsc_cfg.pic_width = stream->timing.h_addressable;
-			}
-
-			dsc->funcs->dsc_get_packed_pps(dsc, &dsc_cfg, &dsc_packed_pps[0]);
-			pipe_ctx->stream_res.hpo_frl_stream_enc->funcs->hdmi_frl_set_dsc_config(
-					pipe_ctx->stream_res.hpo_frl_stream_enc, &patched_crtc_timing, &dsc_packed_pps[0]);
-		}
+		optc_dsc_mode = dsc_optc_cfg->is_pixel_format_444 ? OPTC_DSC_ENABLED_444 : OPTC_DSC_ENABLED_NATIVE_SUBSAMPLED;
 
 		/* Enable DSC in OPTC */
 		DC_LOG_DSC("Setting optc DSC config for tg instance %d:", pipe_ctx->stream_res.tg->inst);
-		dsc_optc_config_log(dsc, &dsc_optc_cfg);
+		dsc_optc_config_log(dsc, dsc_optc_cfg);
 		pipe_ctx->stream_res.tg->funcs->set_dsc_config(pipe_ctx->stream_res.tg,
 							optc_dsc_mode,
-							dsc_optc_cfg.bytes_per_pixel,
-							dsc_optc_cfg.slice_width);
+							dsc_optc_cfg->bytes_per_pixel,
+							dsc_optc_cfg->slice_width);
+		return true;
+	}
+
+	/* disable DSC in OPTC */
+	pipe_ctx->stream_res.tg->funcs->set_dsc_config(
+			pipe_ctx->stream_res.tg,
+			OPTC_DSC_DISABLED, 0, 0);
+
+	for (odm_pipe = pipe_ctx; odm_pipe; odm_pipe = odm_pipe->next_odm_pipe) {
+		odm_pipe->stream_res.dsc->funcs->dsc_disconnect(odm_pipe->stream_res.dsc);
+
+		/*
+		 * dsc_disconnect is a double buffered register.
+		 * by the time we call dsc_disable, dsc may still remain
+		 * connected to OPP. In this case OPTC will no longer
+		 * get correct pixel data because DSCC is off. However
+		 * we also can't wait for the  disconnect pending
+		 * complete, because this function can be called
+		 * with/without OTG master lock acquired. When the lock
+		 * is acquired we will never get pending complete until
+		 * we release the lock later. So there is no easy way to
+		 * solve this problem especially when the lock is
+		 * acquired. DSC is a front end hw block it should be
+		 * programmed as part of front end sequence, where the
+		 * commit sequence without lock and update sequence
+		 * with lock are completely separated. However because
+		 * we are programming dsc as part of back end link
+		 * programming sequence, we don't know if front end OPTC
+		 * master lock is acquired. The back end should be
+		 * agnostic to front end lock. DSC programming shouldn't
+		 * belong to this sequence.
+		 */
+		odm_pipe->stream_res.dsc->funcs->dsc_disable(odm_pipe->stream_res.dsc);
+		if (dccg->funcs->set_ref_dscclk)
+			dccg->funcs->set_ref_dscclk(dccg, odm_pipe->stream_res.dsc->inst);
+	}
+	return true;
+}
+
+/* The stream with these settings can be sent (unblanked) only after DSC was enabled on RX first,
+ * i.e. after dp_enable_dsc_on_rx() had been called
+ */
+void link_set_dsc_on_stream(struct pipe_ctx *pipe_ctx, bool enable)
+{
+	struct dc *dc = pipe_ctx->stream->ctx->dc;
+	struct dsc_config dsc_cfg = {0};
+	struct dsc_optc_config dsc_optc_cfg = {0};
+
+	if (!pipe_ctx->stream_res.dsc) {
+		ASSERT(false);
+		return;
+	}
+
+	if (dc->hwss.configure_dsc) {
+		/* If the hwss configure_dsc function is supported, then DSC will be programmed
+		 * in the same sequence of OTG enable/disable. Thus, we don't need to configure
+		 * the DSC hw block here.
+		 */
+		set_encoder_dsc_config(pipe_ctx, &dsc_cfg, &dsc_optc_cfg, false);
 	} else {
-		/* disable DSC in OPTC */
-		pipe_ctx->stream_res.tg->funcs->set_dsc_config(
-				pipe_ctx->stream_res.tg,
-				OPTC_DSC_DISABLED, 0, 0);
-
-		/* disable DSC in stream encoder */
-		if (dc_is_dp_signal(stream->signal)) {
-			if (dp_is_128b_132b_signal(pipe_ctx))
-				pipe_ctx->stream_res.hpo_dp_stream_enc->funcs->dp_set_dsc_pps_info_packet(
-										pipe_ctx->stream_res.hpo_dp_stream_enc,
-										false,
-										NULL,
-										true);
-			else {
-				if (pipe_ctx->stream_res.stream_enc->funcs->dp_set_dsc_config)
-					pipe_ctx->stream_res.stream_enc->funcs->dp_set_dsc_config(
-							pipe_ctx->stream_res.stream_enc,
-							OPTC_DSC_DISABLED, 0, 0);
-				pipe_ctx->stream_res.stream_enc->funcs->dp_set_dsc_pps_info_packet(
-							pipe_ctx->stream_res.stream_enc, false, NULL, true);
-			}
-		}
-		else if (dc_is_hdmi_frl_signal(stream->signal))
-			pipe_ctx->stream_res.hpo_frl_stream_enc->funcs->hdmi_frl_set_dsc_config(
-					pipe_ctx->stream_res.hpo_frl_stream_enc, &stream->timing, NULL);
-
-		/* disable DSC block */
-		for (odm_pipe = pipe_ctx; odm_pipe; odm_pipe = odm_pipe->next_odm_pipe) {
-			odm_pipe->stream_res.dsc->funcs->dsc_disconnect(odm_pipe->stream_res.dsc);
-			/*
-			 * TODO - dsc_disconnect is a double buffered register.
-			 * by the time we call dsc_disable, dsc may still remain
-			 * connected to OPP. In this case OPTC will no longer
-			 * get correct pixel data because DSCC is off. However
-			 * we also can't wait for the  disconnect pending
-			 * complete, because this function can be called
-			 * with/without OTG master lock acquired. When the lock
-			 * is acquired we will never get pending complete until
-			 * we release the lock later. So there is no easy way to
-			 * solve this problem especially when the lock is
-			 * acquired. DSC is a front end hw block it should be
-			 * programmed as part of front end sequence, where the
-			 * commit sequence without lock and update sequence
-			 * with lock are completely separated. However because
-			 * we are programming dsc as part of back end link
-			 * programming sequence, we don't know if front end OPTC
-			 * master lock is acquired. The back end should be
-			 * agnostic to front end lock. DSC programming shouldn't
-			 * belong to this sequence.
-			 */
-			odm_pipe->stream_res.dsc->funcs->dsc_disable(odm_pipe->stream_res.dsc);
-			if (dccg->funcs->set_ref_dscclk)
-				dccg->funcs->set_ref_dscclk(dccg, odm_pipe->stream_res.dsc->inst);
+		if (enable) {
+			if (configure_dsc_hw_block(pipe_ctx, true, &dsc_cfg, &dsc_optc_cfg))
+				set_encoder_dsc_config(pipe_ctx, &dsc_cfg, &dsc_optc_cfg, true);
+		} else {
+			set_encoder_dsc_config(pipe_ctx, &dsc_cfg, &dsc_optc_cfg, false);
+			configure_dsc_hw_block(pipe_ctx, false, &dsc_cfg, &dsc_optc_cfg);
 		}
 	}
 }
@@ -2038,6 +2090,8 @@ static enum dc_status enable_link_hdmi_frl(struct pipe_ctx *pipe_ctx)
 		pipe_ctx->stream_res.hpo_frl_stream_enc->funcs->hdmi_frl_enable(
 			pipe_ctx->stream_res.hpo_frl_stream_enc,
 			pipe_ctx->stream_res.tg->inst);
+	} else if (link_stat == LINK_RESULT_NO_TIMEOUT) {
+		return status;
 	} else {
 		status = DC_FAIL_HDMI_FRL_LINK_TRAINING;
 		stream->link->frl_link_settings.frl_link_rate = 0;

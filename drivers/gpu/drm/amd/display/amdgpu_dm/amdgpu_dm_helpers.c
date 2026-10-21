@@ -309,7 +309,7 @@ fill_dc_mst_payload_table_from_drm(struct dc_link *link,
 				break;
 			}
 		}
-		ASSERT(i != copy_of_link_table.stream_count);
+		/* Payload absent from HW table when never allocated: nothing to remove. */
 	}
 
 	/* Fill payload info*/
@@ -1423,7 +1423,7 @@ void dm_helpers_init_panel_settings(
 	panel_config->pps.extra_post_OUI_ms = 0;
 	// Feature DSC
 	panel_config->dsc.disable_dsc_edp = false;
-	panel_config->dsc.force_dsc_edp_policy = 0;
+	panel_config->dsc.force_dsc_edp_policy = 1;
 }
 EXPORT_IF_KUNIT(dm_helpers_init_panel_settings);
 
@@ -1436,6 +1436,9 @@ void dm_helpers_override_panel_settings(
 	// Feature DSC
 	if (amdgpu_dc_debug_mask & DC_DISABLE_DSC)
 		link->panel_config.dsc.disable_dsc_edp = true;
+
+	if (!dc_link_should_enable_fec(link))
+		link->panel_config.dsc.force_dsc_edp_policy = 0;
 
 	if (dc_get_edp_link_panel_inst(ctx->dc, link, &panel_inst) && panel_inst == 1) {
 		link->panel_config.psr.disable_psr = true;

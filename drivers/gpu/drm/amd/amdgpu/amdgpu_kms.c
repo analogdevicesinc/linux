@@ -780,9 +780,16 @@ int amdgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file *filp)
 
 		return copy_to_user(out, &count, min(size, 4u)) ? -EFAULT : 0;
 	}
-	case AMDGPU_INFO_TIMESTAMP:
+	case AMDGPU_INFO_TIMESTAMP: {
+		PM_RUNTIME_ACQUIRE_IF_ENABLED_AUTOSUSPEND(dev->dev, pm);
+
+		ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
+		if (ret)
+			return ret;
+
 		ui64 = amdgpu_gfx_get_gpu_clock_counter(adev);
 		return copy_to_user(out, &ui64, min(size, 8u)) ? -EFAULT : 0;
+	}
 	case AMDGPU_INFO_FW_VERSION: {
 		struct drm_amdgpu_info_firmware fw_info;
 
@@ -906,6 +913,12 @@ int amdgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file *filp)
 		if (info->read_mmr_reg.count > 128)
 			return -EINVAL;
 
+		PM_RUNTIME_ACQUIRE_IF_ENABLED_AUTOSUSPEND(dev->dev, pm);
+
+		ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
+		if (ret)
+			return ret;
+
 		regs = kmalloc_array(info->read_mmr_reg.count, sizeof(*regs),
 				     GFP_KERNEL);
 		if (!regs)
@@ -939,6 +952,13 @@ int amdgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file *filp)
 		struct drm_amdgpu_info_device *dev_info;
 		uint64_t vm_size;
 		uint32_t pcie_gen_mask, pcie_width_mask;
+
+		/* The clock limits are only available while the SMU is up. */
+		PM_RUNTIME_ACQUIRE_IF_ENABLED_AUTOSUSPEND(dev->dev, pm);
+
+		ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
+		if (ret)
+			return ret;
 
 		dev_info = kzalloc_obj(*dev_info);
 		if (!dev_info)
@@ -1167,6 +1187,12 @@ int amdgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file *filp)
 		}
 	}
 	case AMDGPU_INFO_SENSOR: {
+		PM_RUNTIME_ACQUIRE_IF_ENABLED_AUTOSUSPEND(dev->dev, pm);
+
+		ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
+		if (ret)
+			return ret;
+
 		if (!adev->pm.dpm_enabled)
 			return -ENOENT;
 
@@ -1405,24 +1431,24 @@ int amdgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file *filp)
 				return ret;
 
 			ret = copy_to_user(out, &meta_info,
-						min((size_t)size, sizeof(meta_info))) ? -EFAULT : 0;
-			return 0;
+						min((size_t)size, sizeof(meta_info)));
+			return ret ? -EFAULT : 0;
 		case AMDGPU_HW_IP_COMPUTE:
 			ret = amdgpu_userq_metadata_info_compute(adev, info, &meta_info.compute);
 			if (ret)
 				return ret;
 
 			ret = copy_to_user(out, &meta_info,
-						min((size_t)size, sizeof(meta_info))) ? -EFAULT : 0;
-			return 0;
+						min((size_t)size, sizeof(meta_info)));
+			return ret ? -EFAULT : 0;
 		case AMDGPU_HW_IP_DMA:
 			ret = amdgpu_userq_metadata_info_sdma(adev, info, &meta_info.sdma);
 			if (ret)
 				return ret;
 
 			ret = copy_to_user(out, &meta_info,
-						min((size_t)size, sizeof(meta_info))) ? -EFAULT : 0;
-			return 0;
+						min((size_t)size, sizeof(meta_info)));
+			return ret ? -EFAULT : 0;
 		default:
 			return -EINVAL;
 		}
@@ -1507,6 +1533,8 @@ int amdgpu_driver_open_kms(struct drm_device *dev, struct drm_file *file_priv)
 	r = amdgpu_vm_init(adev, &fpriv->vm, fpriv->xcp_id);
 	if (r)
 		goto error_pasid;
+
+	init_completion(&fpriv->irq_drain_done);
 
 	pasid = amdgpu_pasid_alloc(16, fpriv);
 	if (pasid < 0) {
@@ -1643,6 +1671,7 @@ void amdgpu_driver_release_kms(struct drm_device *dev)
 {
 	struct amdgpu_device *adev = drm_to_adev(dev);
 
+	amdgpu_xcp_dev_fini(adev);
 	amdgpu_device_fini_sw(adev);
 	pci_set_drvdata(adev->pdev, NULL);
 }

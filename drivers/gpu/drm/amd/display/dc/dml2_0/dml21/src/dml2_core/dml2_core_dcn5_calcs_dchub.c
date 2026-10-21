@@ -5344,6 +5344,7 @@ void dcn5_adjust_pixel_clock_for_progressive_to_interlace_unit(const struct dml2
 static void dcn5_rq_dlg_get_wm_regs(const struct dml2_display_cfg *display_cfg, const struct dml2_core_internal_display_mode_lib *mode_lib, const struct dml2_utm_soc_bb *utm_soc_bb, struct dml2_dchub_watermark_regs *wm_regs)
 {
 	double refclk_freq_in_mhz = (display_cfg->overrides.hw.dlg_ref_clk_mhz > 0) ? (double)display_cfg->overrides.hw.dlg_ref_clk_mhz : utm_soc_bb->dchub_refclk_mhz;
+	unsigned int u0_10_fixed_point_scale = 1U << 10;
 
 	wm_regs->fclk_pstate = (int unsigned)(mode_lib->mp.Watermark.FCLKChangeWatermark * refclk_freq_in_mhz);
 	wm_regs->sr_enter = (int unsigned)(mode_lib->mp.Watermark.StutterEnterPlusExitWatermark * refclk_freq_in_mhz);
@@ -5356,8 +5357,8 @@ static void dcn5_rq_dlg_get_wm_regs(const struct dml2_display_cfg *display_cfg, 
 	wm_regs->usr = (int unsigned)(mode_lib->mp.Watermark.USRRetrainingWatermark * refclk_freq_in_mhz);
 	wm_regs->refcyc_per_trip_to_mem = (unsigned int)(mode_lib->mp.UrgentLatency * refclk_freq_in_mhz);
 	wm_regs->refcyc_per_meta_trip_to_mem = (unsigned int)(mode_lib->mp.MetaTripToMemory * refclk_freq_in_mhz);
-	wm_regs->frac_urg_bw_flip = (unsigned int)(mode_lib->mp.FractionOfUrgentBandwidthImmediateFlip * 1000);
-	wm_regs->frac_urg_bw_nom = (unsigned int)(mode_lib->mp.FractionOfUrgentBandwidth * 1000);
+	wm_regs->frac_urg_bw_flip = (unsigned int)math_min2(math_ceil(mode_lib->mp.FractionOfUrgentBandwidthImmediateFlip * u0_10_fixed_point_scale), u0_10_fixed_point_scale - 1);
+	wm_regs->frac_urg_bw_nom = (unsigned int)math_min2(math_ceil(mode_lib->mp.FractionOfUrgentBandwidth * u0_10_fixed_point_scale), u0_10_fixed_point_scale - 1);
 }
 
 void dcn5_get_mcif_arb_params(const struct dml2_core_internal_display_mode_lib *mode_lib, struct dml2_mcif_global_register_set *out)

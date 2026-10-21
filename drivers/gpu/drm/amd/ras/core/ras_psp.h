@@ -196,6 +196,9 @@ int ras_psp_sideload_ras_ta(struct ras_core_context *ras_core,
 		struct ras_psp_ta_load *ta_load);
 int ras_psp_unsideload_ras_ta(struct ras_core_context *ras_core,
 		struct ras_psp_ta_unload *ras_ta_unload);
+int ras_psp_invoke_ras_ta(struct ras_core_context *ras_core,
+		uint32_t session_id, uint32_t cmd_id,
+		void *shared_buf, uint32_t shared_buf_len);
 int ras_psp_enable_features(struct ras_core_context *ras_core,
 	struct ras_ta_enable_features_input *info, bool enable);
 int ras_psp_trigger_error(struct ras_core_context *ras_core,

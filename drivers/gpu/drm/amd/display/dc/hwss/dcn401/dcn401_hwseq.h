@@ -185,7 +185,7 @@ void dcn401_post_unlock_reset_opp_sequence(
 		struct pipe_ctx *opp_head,
 		struct block_sequence_state *seq_state);
 
-void dcn401_dc_ip_request_cntl(struct dc *dc, bool enable);
+void dcn401_dc_ip_request_cntl(struct dce_hwseq *hws, bool enable);
 
 void dcn401_enable_plane_sequence(struct dc *dc, struct pipe_ctx *pipe_ctx,
 				 struct dc_state *context,

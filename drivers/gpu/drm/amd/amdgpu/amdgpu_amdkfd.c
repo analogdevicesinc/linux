@@ -789,7 +789,7 @@ void amdgpu_amdkfd_set_compute_idle(struct amdgpu_device *adev, bool idle)
 bool amdgpu_amdkfd_is_kfd_vmid(struct amdgpu_device *adev, u32 vmid)
 {
 	if (adev->kfd.dev)
-		return vmid >= adev->vm_manager.first_kfd_vmid;
+		return !!(adev->vm_manager.vmid_uq_mask_gfxhub & BIT(vmid));
 
 	return false;
 }
