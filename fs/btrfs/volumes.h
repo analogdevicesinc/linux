@@ -515,6 +515,7 @@ struct btrfs_discard_stripe {
  */
 struct btrfs_io_context {
 	refcount_t refs;
+	u32 stripe_len;
 	struct btrfs_fs_info *fs_info;
 	/* Taken from struct btrfs_chunk_map::type. */
 	u64 map_type;

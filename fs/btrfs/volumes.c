@@ -7411,6 +7411,7 @@ int btrfs_map_block(struct btrfs_fs_info *fs_info, enum btrfs_map_op op,
 		ret = -ENOMEM;
 		goto out;
 	}
+	bioc->stripe_len = map->stripe_len;
 	bioc->map_type = map->type;
 	bioc->use_rst = io_geom.use_rst;
 
