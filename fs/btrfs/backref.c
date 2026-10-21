@@ -2549,7 +2549,8 @@ static int build_ino_list(u64 inum, u64 offset, u64 num_bytes, u64 root, void *c
 }
 
 int iterate_inodes_from_logical(u64 logical, struct btrfs_fs_info *fs_info,
-				void *ctx, bool ignore_offset)
+				void *ctx, bool ignore_offset,
+				bool search_commit_root)
 {
 	struct btrfs_backref_walk_ctx walk_ctx = { 0 };
 	int ret;
@@ -2575,7 +2576,8 @@ int iterate_inodes_from_logical(u64 logical, struct btrfs_fs_info *fs_info,
 		walk_ctx.extent_item_pos = logical - found_key.objectid;
 	walk_ctx.fs_info = fs_info;
 
-	return iterate_extent_inodes(&walk_ctx, false, build_ino_list, ctx);
+	return iterate_extent_inodes(&walk_ctx, search_commit_root,
+				     build_ino_list, ctx);
 }
 
 static int inode_to_path(u64 inum, u32 name_len, unsigned long name_off,
