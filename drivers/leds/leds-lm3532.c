@@ -649,6 +649,11 @@ static int lm3532_parse_node(struct lm3532_data *priv)
 			return ret;
 		}
 
+		for (int j = 0; j < led->num_leds; j++) {
+			if (led->led_strings[j] >= LM3532_MAX_LED_STRINGS)
+				return -EINVAL;
+		}
+
 		led->priv = priv;
 		led->led_dev.brightness_set_blocking = lm3532_brightness_set;
 
