@@ -5,6 +5,7 @@
  * Copyright (C) 2019 Linaro Ltd.
  */
 
+#include <linux/cleanup.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/pm.h>
@@ -364,48 +365,28 @@ out_unlock:
 	return ret;
 }
 
-static int  fxas21002c_pm_get(struct fxas21002c_data *data)
-{
-	return pm_runtime_resume_and_get(regmap_get_device(data->regmap));
-}
-
-static int  fxas21002c_pm_put(struct fxas21002c_data *data)
-{
-	struct device *dev = regmap_get_device(data->regmap);
-
-	return pm_runtime_put_autosuspend(dev);
-}
-
 static int fxas21002c_temp_get(struct fxas21002c_data *data, int *val)
 {
 	struct device *dev = regmap_get_device(data->regmap);
 	unsigned int temp;
 	int ret;
 
-	mutex_lock(&data->lock);
-	ret = fxas21002c_pm_get(data);
-	if (ret < 0)
-		goto data_unlock;
+	guard(mutex)(&data->lock);
+
+	PM_RUNTIME_ACQUIRE_AUTOSUSPEND(dev, pm);
+	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
+	if (ret)
+		return ret;
 
 	ret = regmap_field_read(data->regmap_fields[F_TEMP], &temp);
 	if (ret < 0) {
 		dev_err(dev, "failed to read temp: %d\n", ret);
-		fxas21002c_pm_put(data);
-		goto data_unlock;
+		return ret;
 	}
 
 	*val = sign_extend32(temp, 7);
 
-	ret = fxas21002c_pm_put(data);
-	if (ret < 0)
-		goto data_unlock;
-
-	ret = IIO_VAL_INT;
-
-data_unlock:
-	mutex_unlock(&data->lock);
-
-	return ret;
+	return IIO_VAL_INT;
 }
 
 static int fxas21002c_axis_get(struct fxas21002c_data *data,
@@ -415,31 +396,23 @@ static int fxas21002c_axis_get(struct fxas21002c_data *data,
 	__be16 axis_be;
 	int ret;
 
-	mutex_lock(&data->lock);
-	ret = fxas21002c_pm_get(data);
-	if (ret < 0)
-		goto data_unlock;
+	guard(mutex)(&data->lock);
+
+	PM_RUNTIME_ACQUIRE_AUTOSUSPEND(dev, pm);
+	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
+	if (ret)
+		return ret;
 
 	ret = regmap_bulk_read(data->regmap, FXAS21002C_AXIS_TO_REG(index),
 			       &axis_be, sizeof(axis_be));
 	if (ret < 0) {
 		dev_err(dev, "failed to read axis: %d: %d\n", index, ret);
-		fxas21002c_pm_put(data);
-		goto data_unlock;
+		return ret;
 	}
 
 	*val = sign_extend32(be16_to_cpu(axis_be), 15);
 
-	ret = fxas21002c_pm_put(data);
-	if (ret < 0)
-		goto data_unlock;
-
-	ret = IIO_VAL_INT;
-
-data_unlock:
-	mutex_unlock(&data->lock);
-
-	return ret;
+	return IIO_VAL_INT;
 }
 
 static int fxas21002c_odr_get(struct fxas21002c_data *data, int *odr)
@@ -725,10 +698,11 @@ static irqreturn_t fxas21002c_trigger_handler(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct fxas21002c_data *data = iio_priv(indio_dev);
+	struct device *dev = regmap_get_device(data->regmap);
 	int ret;
 
 	mutex_lock(&data->lock);
-	ret = fxas21002c_pm_get(data);
+	ret = pm_runtime_resume_and_get(dev);
 	if (ret < 0)
 		goto out_unlock;
 
@@ -741,7 +715,7 @@ static irqreturn_t fxas21002c_trigger_handler(int irq, void *p)
 					   data->timestamp);
 
 out_pm_put:
-	fxas21002c_pm_put(data);
+	pm_runtime_put_autosuspend(dev);
 
 out_unlock:
 	mutex_unlock(&data->lock);
