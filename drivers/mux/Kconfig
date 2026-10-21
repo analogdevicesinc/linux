@@ -70,6 +70,19 @@ config MUX_MMIO
 	  To compile the driver as a module, choose M here: the module will
 	  be called mux-mmio.
 
+config MUX_RZV2H_VBENCTL
+	tristate "Renesas RZ/V2H VBENCTL VBUS_SEL mux driver"
+	depends on RESET_RZV2H_USB2PHY || COMPILE_TEST
+	select REGMAP
+	select AUXILIARY_BUS
+	default RESET_RZV2H_USB2PHY
+	help
+	  Support for the VBENCTL VBUS_SEL mux implemented on Renesas
+	  RZ/V2H SoCs.
+
+	  To compile the driver as a module, choose M here: the module will
+	  be called mux-rzv2h-vbenctl.
+
 endmenu
 
 endif # MULTIPLEXER
