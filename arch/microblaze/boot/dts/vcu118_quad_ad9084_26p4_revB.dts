@@ -10,7 +10,7 @@
  * Copyright (C) 2024 Analog Devices Inc.
  */
 
-#define DEVICE_PROFILE_NAME	"id01_uc43.bin"
+#define DEVICE_PROFILE_NAME	"204C_M4_L2_NP16_12p8_8x4_4x4.bin"
 
 #define MHz			1000000
 

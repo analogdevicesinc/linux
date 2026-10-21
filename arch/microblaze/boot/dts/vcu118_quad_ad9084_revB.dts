@@ -21,7 +21,7 @@
 #define fmc_spi axi_spi
 
 #ifndef DEVICE_PROFILE_NAME
-#define DEVICE_PROFILE_NAME	"id01_uc42.bin"
+#define DEVICE_PROFILE_NAME	"204C_M4_L2_NP16_12p8_8x8_4x8.bin"
 #endif
 
 //#define HSCI_FIXED_TIMING_PAR	1
