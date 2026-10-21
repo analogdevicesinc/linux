@@ -104,9 +104,9 @@
 	};
 };
 
-&pci_root {
+&pcie_port0 {
 	/* Intel Corporation I210 Gigabit Network Connection */
-	switch_nic: ethernet@3,0 {
+	switch_nic: ethernet@0,0 {
 		compatible = "pci8086,1533";
 		reg = <0x00010000 0 0 0 0>;
 	};
