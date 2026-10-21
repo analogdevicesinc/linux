@@ -31,6 +31,7 @@
 
 #include <linux/console.h>
 #include <linux/export.h>
+#include <linux/stringify.h>
 
 #include <drm/clients/drm_fbdev_helper.h>
 #include <drm/drm_atomic.h>
