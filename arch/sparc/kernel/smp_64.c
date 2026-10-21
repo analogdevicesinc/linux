@@ -801,6 +801,15 @@ static void xcall_deliver(u64 data0, u64 data1, u64 data2, const cpumask_t *mask
 	local_irq_save(flags);
 
 	this_cpu = smp_processor_id();
+
+	/* The mondo block and cpu list are not set up until init_IRQ(),
+	 * so do not touch them unless there is a cpu to send to.
+	 */
+	if (cpumask_any_and_but(mask, cpu_online_mask, this_cpu) >= nr_cpu_ids) {
+		local_irq_restore(flags);
+		return;
+	}
+
 	tb = &trap_block[this_cpu];
 
 	mondo = __va(tb->cpu_mondo_block_pa);
