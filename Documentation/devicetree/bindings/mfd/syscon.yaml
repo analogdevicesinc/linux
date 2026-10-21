@@ -121,6 +121,7 @@ properties:
               - rockchip,rk3528-qos
               - rockchip,rk3562-qos
               - rockchip,rk3568-qos
+              - rockchip,rk3572-qos
               - rockchip,rk3576-qos
               - rockchip,rk3588-qos
               - rockchip,rv1126-qos
