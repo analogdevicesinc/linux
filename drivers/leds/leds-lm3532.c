@@ -615,14 +615,16 @@ static int lm3532_parse_node(struct lm3532_data *priv)
 			return ret;
 		}
 
-		if (fwnode_property_present(child, "led-max-microamp") &&
-		    fwnode_property_read_u32(child, "led-max-microamp",
-					     &led->full_scale_current))
-			dev_err(&priv->client->dev,
-				"Failed getting led-max-microamp\n");
-		else
-			led->full_scale_current = min(led->full_scale_current,
-						      LM3532_FS_CURR_MAX);
+		if (fwnode_property_present(child, "led-max-microamp")) {
+			if (fwnode_property_read_u32(child, "led-max-microamp",
+						     &led->full_scale_current))
+				dev_err(&priv->client->dev,
+					"Failed getting led-max-microamp\n");
+			else
+				led->full_scale_current = clamp(led->full_scale_current,
+								LM3532_FS_CURR_MIN,
+								LM3532_FS_CURR_MAX);
+		}
 
 		if (led->mode == LM3532_BL_MODE_ALS) {
 			led->mode = LM3532_ALS_CTRL;
