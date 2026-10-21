@@ -1591,8 +1591,8 @@ static const struct clk_ops samsung_a9fraco_clk_min_ops = {
 static void __init _samsung_clk_register_pll(struct samsung_clk_provider *ctx,
 				const struct samsung_pll_clock *pll_clk)
 {
+	struct clk_init_data init = {};
 	struct samsung_clk_pll *pll;
-	struct clk_init_data init;
 	unsigned int len = 0;
 	int ret;
 
