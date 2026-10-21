@@ -5161,6 +5161,7 @@
 			snps,usb3_lpm_capable;
 
 			wakeup-source;
+			dma-coherent;
 
 			status = "disabled";
 		};
@@ -5217,6 +5218,7 @@
 
 			maximum-speed = "high-speed";
 			wakeup-source;
+			dma-coherent;
 
 			status = "disabled";
 		};
