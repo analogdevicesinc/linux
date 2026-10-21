@@ -110,6 +110,7 @@ struct bus_type {
 	bool driver_override;
 };
 
+int __must_check companion_bus_register(const struct bus_type *bus);
 int __must_check bus_register(const struct bus_type *bus);
 
 void bus_unregister(const struct bus_type *bus);
