@@ -63,6 +63,13 @@ static inline void __super_lock(struct super_block *sb, bool excl)
 		down_read(&sb->s_umount);
 }
 
+static inline int __super_lock_killable(struct super_block *sb, bool excl)
+{
+	if (excl)
+		return down_write_killable(&sb->s_umount);
+	return down_read_killable(&sb->s_umount);
+}
+
 static inline void super_unlock(struct super_block *sb, bool excl)
 {
 	if (excl)
@@ -95,6 +102,60 @@ static bool super_flags(const struct super_block *sb, unsigned int flags)
 	return smp_load_acquire(&sb->s_flags) & flags;
 }
 
+/*
+ * Returns 0 with s_umount held, -ENOENT if the superblock is going away, or,
+ * if @killable, the error from a wait which was cut short.
+ */
+static int super_lock_common(struct super_block *sb, bool excl, bool killable)
+{
+	int ret = 0;
+
+	lockdep_assert_not_held(&sb->s_umount);
+
+	/*
+	 * The last active reference is dropped with s_umount held, which
+	 * stays held until SB_DYING is set, and there is no getting a new
+	 * one.  All there is to find at the end of that wait is SB_DYING,
+	 * and it can be a long one: the filesystem is written out first.
+	 */
+	if (!atomic_read(&sb->s_active))
+		return -ENOENT;
+
+	/* wait until the superblock is ready or dying */
+	if (killable)
+		ret = wait_var_event_killable(&sb->s_flags,
+					      super_flags(sb, SB_BORN | SB_DYING));
+	else
+		wait_var_event(&sb->s_flags,
+			       super_flags(sb, SB_BORN | SB_DYING));
+	if (ret)
+		return ret;
+
+	/* Don't pointlessly acquire s_umount. */
+	if (super_flags(sb, SB_DYING))
+		return -ENOENT;
+
+	if (killable)
+		ret = __super_lock_killable(sb, excl);
+	else
+		__super_lock(sb, excl);
+	if (ret)
+		return ret;
+
+	/*
+	 * Has gone through generic_shutdown_super() in the meantime.
+	 * @sb->s_root is NULL and @sb->s_active is 0. No one needs to
+	 * grab a reference to this. Tell them so.
+	 */
+	if (sb->s_flags & SB_DYING) {
+		super_unlock(sb, excl);
+		return -ENOENT;
+	}
+
+	WARN_ON_ONCE(!(sb->s_flags & SB_BORN));
+	return 0;
+}
+
 /**
  * super_lock - wait for superblock to become ready and lock it
  * @sb: superblock to wait for
@@ -117,38 +178,25 @@ static bool super_flags(const struct super_block *sb, unsigned int flags)
  */
 static __must_check bool super_lock(struct super_block *sb, bool excl)
 {
-	lockdep_assert_not_held(&sb->s_umount);
+	return !super_lock_common(sb, excl, false);
+}
 
-	/*
-	 * The last active reference is dropped with s_umount held, which
-	 * stays held until SB_DYING is set, and there is no getting a new
-	 * one.  All there is to find at the end of that wait is SB_DYING,
-	 * and it can be a long one: the filesystem is written out first.
-	 */
-	if (!atomic_read(&sb->s_active))
-		return false;
-
-	/* wait until the superblock is ready or dying */
-	wait_var_event(&sb->s_flags, super_flags(sb, SB_BORN | SB_DYING));
-
-	/* Don't pointlessly acquire s_umount. */
-	if (super_flags(sb, SB_DYING))
-		return false;
-
-	__super_lock(sb, excl);
-
-	/*
-	 * Has gone through generic_shutdown_super() in the meantime.
-	 * @sb->s_root is NULL and @sb->s_active is 0. No one needs to
-	 * grab a reference to this. Tell them so.
-	 */
-	if (sb->s_flags & SB_DYING) {
-		super_unlock(sb, excl);
-		return false;
-	}
-
-	WARN_ON_ONCE(!(sb->s_flags & SB_BORN));
-	return true;
+/**
+ * super_lock_killable - killable super_lock()
+ * @sb: superblock to wait for
+ * @excl: whether exclusive access is required
+ *
+ * Only for callers which give up altogether when they are killed.
+ *
+ * The caller must have acquired a temporary reference on @sb->s_passive.
+ *
+ * Return: 0 if SB_BORN was set and with s_umount held. Without s_umount held,
+ *         -ENOENT if the superblock is being shut down or SB_DYING was set,
+ *         -EINTR or -ERESTARTSYS if the task was killed.
+ */
+static __must_check int super_lock_killable(struct super_block *sb, bool excl)
+{
+	return super_lock_common(sb, excl, true);
 }
 
 /**
@@ -647,25 +695,27 @@ EXPORT_SYMBOL(deactivate_super);
  * sb->kill() and be marked as SB_DEAD.
  *
  * Return: 0 if an active reference could be acquired, -EAGAIN if the
- *         superblock is gone and the caller should look again,
- *         -ERESTARTSYS if the task was killed while waiting for that.
+ *         superblock is gone and the caller should look again, -EINTR or
+ *         -ERESTARTSYS if the task was killed while waiting for either.
  */
 static int grab_super(struct super_block *sb)
 {
-	bool locked;
 	int ret;
 
 	refcount_inc(&sb->s_passive);
 	spin_unlock(&sb_lock);
-	locked = super_lock_excl(sb);
-	if (locked) {
+	ret = super_lock_killable(sb, true);
+	if (!ret) {
 		if (atomic_inc_not_zero(&sb->s_active)) {
 			put_super(sb);
 			return 0;
 		}
 		super_unlock_excl(sb);
+		ret = -ENOENT;
 	}
-	ret = wait_var_event_killable(&sb->s_flags, super_flags(sb, SB_DEAD));
+	if (ret == -ENOENT)
+		ret = wait_var_event_killable(&sb->s_flags,
+					      super_flags(sb, SB_DEAD));
 	put_super(sb);
 	return ret ? ret : -EAGAIN;
 }
