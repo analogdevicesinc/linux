@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
 /*
- * Copyright (C) 2012-2014, 2018-2023, 2025 Intel Corporation
+ * Copyright (C) 2012-2014, 2018-2023, 2025-2026 Intel Corporation
  * Copyright (C) 2013-2015 Intel Mobile Communications GmbH
  * Copyright (C) 2016-2017 Intel Deutschland GmbH
  */
@@ -1225,6 +1225,9 @@ static ssize_t iwl_dbgfs_indirection_tbl_write(struct iwl_mvm *mvm,
 			     IWL_RSS_HASH_TYPE_IPV6_PAYLOAD,
 	};
 	int ret, i, num_repeats, nbytes = count / 2;
+
+	if (!nbytes || nbytes > sizeof(cmd.indirection_table))
+		return -EINVAL;
 
 	ret = hex2bin(cmd.indirection_table, buf, nbytes);
 	if (ret)
