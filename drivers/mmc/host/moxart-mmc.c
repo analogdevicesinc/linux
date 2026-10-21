@@ -684,13 +684,25 @@ static void moxart_remove(struct platform_device *pdev)
 	struct mmc_host *mmc = dev_get_drvdata(&pdev->dev);
 	struct moxart_host *host = mmc_priv(mmc);
 
-	if (!IS_ERR_OR_NULL(host->dma_chan_tx))
-		dma_release_channel(host->dma_chan_tx);
-	if (!IS_ERR_OR_NULL(host->dma_chan_rx))
-		dma_release_channel(host->dma_chan_rx);
+	/*
+	 * Stop the MMC host before releasing DMA channels.
+	 * Keep controller interrupts enabled during MMC teardown.
+	 */
 	mmc_remove_host(mmc);
 
 	writel(0, host->base + REG_INTERRUPT_MASK);
+
+	if (!IS_ERR_OR_NULL(host->dma_chan_tx)) {
+		dmaengine_terminate_sync(host->dma_chan_tx);
+		dma_release_channel(host->dma_chan_tx);
+		host->dma_chan_tx = NULL;
+	}
+	if (!IS_ERR_OR_NULL(host->dma_chan_rx)) {
+		dmaengine_terminate_sync(host->dma_chan_rx);
+		dma_release_channel(host->dma_chan_rx);
+		host->dma_chan_rx = NULL;
+	}
+
 	writel(0, host->base + REG_POWER_CONTROL);
 	writel(readl(host->base + REG_CLOCK_CONTROL) | CLK_OFF,
 	       host->base + REG_CLOCK_CONTROL);
