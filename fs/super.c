@@ -1100,6 +1100,21 @@ void iterate_supers(void (*f)(struct super_block *, void *), void *arg)
 }
 
 /**
+ * iterate_supers_born - iterate_supers() without the wait
+ * @f: function to call
+ * @arg: argument to pass to it
+ *
+ * Doesn't wait for superblocks which are still being set up, they are not
+ * passed to @f.  For callers which are after what has piled up in a filesystem
+ * in use.  Not for callers which have to get at every superblock there is: one
+ * which is skipped may be in use a moment later.
+ */
+void iterate_supers_born(void (*f)(struct super_block *, void *), void *arg)
+{
+	__iterate_supers(f, arg, SUPER_ITER_SKIP_UNBORN);
+}
+
+/**
  * iterate_supers_sync - iterate_supers() for syncing all filesystems
  * @f: function to call
  * @arg: argument to pass to it
