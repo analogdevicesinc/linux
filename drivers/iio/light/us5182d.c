@@ -366,45 +366,36 @@ static int us5182d_set_power_state(struct us5182d_data *data, bool on)
 	if (on)
 		return pm_runtime_resume_and_get(&data->client->dev);
 
-	return pm_runtime_put_autosuspend(&data->client->dev);
+	pm_runtime_put_autosuspend(&data->client->dev);
+
+	return 0;
 }
 
 static int us5182d_read_value(struct us5182d_data *data,
 			      struct iio_chan_spec const *chan)
 {
-	int ret, value;
+	int ret;
 
 	mutex_lock(&data->lock);
 
 	if (data->power_mode == US5182D_ONESHOT) {
 		ret = us5182d_oneshot_en(data);
 		if (ret < 0)
-			goto out_err;
+			goto out;
 	}
 
 	ret = us5182d_set_power_state(data, true);
 	if (ret < 0)
-		goto out_err;
+		goto out;
 
 	if (chan->type == IIO_LIGHT)
 		ret = us5182d_get_als(data);
 	else
 		ret = us5182d_get_px(data);
-	if (ret < 0)
-		goto out_poweroff;
 
-	value = ret;
-
-	ret = us5182d_set_power_state(data, false);
-	if (ret < 0)
-		goto out_err;
-
-	mutex_unlock(&data->lock);
-	return value;
-
-out_poweroff:
 	us5182d_set_power_state(data, false);
-out_err:
+
+out:
 	mutex_unlock(&data->lock);
 	return ret;
 }
@@ -676,11 +667,8 @@ static int us5182d_write_event_config(struct iio_dev *indio_dev,
 		goto err;
 	}
 
-	if (!state) {
-		ret = us5182d_set_power_state(data, false);
-		if (ret < 0)
-			goto err;
-	}
+	if (!state)
+		us5182d_set_power_state(data, false);
 
 	if (!data->falling_en && !data->rising_en && !data->default_continuous)
 		data->power_mode = US5182D_ONESHOT;
