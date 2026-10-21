@@ -2627,10 +2627,13 @@ int gpiod_request_commit(struct gpio_desc *desc, const char *label)
 
 	ret = desc_set_label(desc, label ? : "?");
 	if (ret)
-		goto out_clear_bit;
+		goto out_free_gpio;
 
 	return 0;
 
+out_free_gpio:
+	if (guard.gc->free)
+		guard.gc->free(guard.gc, offset);
 out_clear_bit:
 	clear_bit(GPIOD_FLAG_REQUESTED, &desc->flags);
 	return ret;
@@ -2679,6 +2682,8 @@ void gpiod_free_commit(struct gpio_desc *desc)
 		clear_bit(GPIOD_FLAG_BIAS_DISABLE, &flags);
 		clear_bit(GPIOD_FLAG_EDGE_RISING, &flags);
 		clear_bit(GPIOD_FLAG_EDGE_FALLING, &flags);
+		clear_bit(GPIOD_FLAG_EVENT_CLOCK_REALTIME, &flags);
+		clear_bit(GPIOD_FLAG_EVENT_CLOCK_HTE, &flags);
 		clear_bit(GPIOD_FLAG_IS_HOGGED, &flags);
 #ifdef CONFIG_OF_DYNAMIC
 		WRITE_ONCE(desc->hog, NULL);
@@ -3842,7 +3847,7 @@ int gpiod_set_array_value_complex(bool raw, bool can_sleep,
 				  unsigned long *value_bitmap)
 {
 	struct gpio_chip *gc;
-	int i = 0, ret;
+	int i = 0, ret = 0;
 
 	/*
 	 * Validate array_info against desc_array and its size.
@@ -3920,8 +3925,10 @@ int gpiod_set_array_value_complex(bool raw, bool can_sleep,
 			int hwgpio = gpiod_hwgpio(desc);
 			int value = test_bit(i, value_bitmap);
 
-			if (unlikely(!test_bit(GPIOD_FLAG_IS_OUT, &desc->flags)))
-				return -EPERM;
+			if (unlikely(!test_bit(GPIOD_FLAG_IS_OUT, &desc->flags))) {
+				ret = -EPERM;
+				goto cleanup_bitmap;
+			}
 
 			/*
 			 * Pins applicable for fast input but not for
@@ -3954,10 +3961,10 @@ int gpiod_set_array_value_complex(bool raw, bool can_sleep,
 		} while ((i < array_size) &&
 			 gpio_device_chip_cmp(desc_array[i]->gdev, guard.gc));
 		/* push collected bits to outputs */
-		ret = 0;
 		if (count != 0)
 			ret = gpiochip_set_multiple(guard.gc, mask, bits);
 
+cleanup_bitmap:
 		if (mask != fastpath_mask)
 			bitmap_free(mask);
 		if (bits != fastpath_bits)
