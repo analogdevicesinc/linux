@@ -7626,6 +7626,12 @@ Kernel parameters
 			Format: {ipi}
 			ipi: switch to IPI-based TLB flushing
 
+	toolong_nmi_panic= [X86]
+			Cause a panic upon return from an NMI handler
+			that took longer than the specified number
+			of milliseconds.  The default value of zero
+			suppresses these panics.
+
 	topology=	[S390,EARLY]
 			Format: {off | on}
 			Specify if the kernel should make use of the cpu
