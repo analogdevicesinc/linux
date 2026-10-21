@@ -95,6 +95,10 @@ struct file_attr;
 #include <linux/error-injection.h>
 #include <trace/syscall.h>
 
+#ifdef CONFIG_KAPI_RUNTIME_CHECKS
+#include <linux/kapi_syscall.h>
+#endif
+
 #ifdef CONFIG_ARCH_HAS_SYSCALL_WRAPPER
 /*
  * It may be useful for an architecture to override the definitions of the
@@ -238,6 +242,41 @@ static inline int is_syscall_trace_event(struct trace_event_call *tp_event)
 
 #define __PROTECT(...) asmlinkage_protect(__VA_ARGS__)
 
+#ifdef CONFIG_KAPI_RUNTIME_CHECKS
+/*
+ * Convert integers as (s64)(a) does, and pointers through unsigned long so
+ * they are not sign-extended on 32-bit. (unsigned long)(t)0 is an integer
+ * constant expression only if t is an integer type.
+ */
+#define __SC_CAST_TO_S64(t, a)						\
+	((__force s64)__builtin_choose_expr(				\
+		__is_constexpr((__force unsigned long)(t)0),		\
+		(a), (__force unsigned long)(a)))
+
+#define __KAPI_DO_SYS(name)	__do_kapi_sys##name
+#define __KAPI_SYSCALL_DEFINEx(x, name, ...)				\
+	static inline long __do_kapi_sys##name(__MAP(x, __SC_DECL, __VA_ARGS__)) \
+	{								\
+		const struct kernel_api_spec *__spec = kapi_get_spec("sys" #name); \
+		long ret;						\
+									\
+		if (__spec) {						\
+			s64 __params[x] = { __MAP(x, __SC_CAST_TO_S64, __VA_ARGS__) }; \
+			int __ret = kapi_validate_syscall_params(__spec, __params, x); \
+									\
+			if (__ret)					\
+				return __ret;				\
+		}							\
+		ret = __do_sys##name(__MAP(x, __SC_ARGS, __VA_ARGS__));	\
+		if (__spec)						\
+			kapi_validate_syscall_return(__spec, (s64)ret);	\
+		return ret;						\
+	}
+#else
+#define __KAPI_DO_SYS(name)	__do_sys##name
+#define __KAPI_SYSCALL_DEFINEx(x, name, ...)
+#endif
+
 /*
  * The asmlinkage stub is aliased to a function named __se_sys_*() which
  * sign-extends 32-bit ints to longs whenever needed. The actual work is
@@ -256,10 +295,11 @@ static inline int is_syscall_trace_event(struct trace_event_call *tp_event)
 		__attribute__((alias(__stringify(__se_sys##name))));	\
 	ALLOW_ERROR_INJECTION(sys##name, ERRNO);			\
 	static inline long __do_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__));\
+	__KAPI_SYSCALL_DEFINEx(x, name, __VA_ARGS__)			\
 	asmlinkage long __se_sys##name(__MAP(x,__SC_LONG,__VA_ARGS__));	\
 	asmlinkage long __se_sys##name(__MAP(x,__SC_LONG,__VA_ARGS__))	\
 	{								\
-		long ret = __do_sys##name(__MAP(x,__SC_CAST,__VA_ARGS__));\
+		long ret = __KAPI_DO_SYS(name)(__MAP(x,__SC_CAST,__VA_ARGS__));\
 		__MAP(x,__SC_TEST,__VA_ARGS__);				\
 		__PROTECT(x, ret,__MAP(x,__SC_ARGS,__VA_ARGS__));	\
 		return ret;						\
