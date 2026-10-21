@@ -623,9 +623,9 @@ extern const struct btrfs_raid_attr btrfs_raid_array[BTRFS_NR_RAID_TYPES];
 
 struct btrfs_chunk_map {
 	struct rb_node rb_node;
-	/* For mount time dev extent verification. */
-	int verified_stripes;
 	refcount_t refs;
+	u16 num_stripes;
+	u16 sub_stripes;
 	u64 start;
 	u64 chunk_len;
 	u64 dev_extent_size;
@@ -638,8 +638,8 @@ struct btrfs_chunk_map {
 	 */
 	u64 type;
 	u64 on_disk_type;
-	int num_stripes;
-	int sub_stripes;
+	/* For mount time dev extent verification. */
+	u16 verified_stripes;
 	struct btrfs_io_stripe stripes[];
 };
 
