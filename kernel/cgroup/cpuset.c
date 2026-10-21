@@ -60,6 +60,7 @@ static const char * const perr_strings[] = {
 	[PERR_HKEEPING]  = "partition config conflicts with housekeeping setup",
 	[PERR_ACCESS]    = "Enable partition not permitted",
 	[PERR_REMOTE]    = "Have remote partition underneath",
+	[PERR_ISOPARENT] = "Root partition is not allowed with isolated parent",
 };
 
 /*
@@ -168,7 +169,6 @@ static cpumask_var_t	isolated_hk_cpus;	/* T */
  * It can be set in
  *  - update_partition_sd_lb()
  *  - update_cpumasks_hier()
- *  - cpuset_update_flag()
  *  - cpuset_hotplug_update_tasks()
  *  - cpuset_handle_hotplug()
  *
@@ -629,7 +629,7 @@ static inline void free_tmpmasks(struct tmpmasks *tmp)
  *
  * Return: Pointer to newly allocated cpuset on success, NULL on failure
  */
-static struct cpuset *dup_or_alloc_cpuset(struct cpuset *cs)
+struct cpuset *dup_or_alloc_cpuset(struct cpuset *cs)
 {
 	struct cpuset *trial;
 
@@ -670,7 +670,7 @@ static struct cpuset *dup_or_alloc_cpuset(struct cpuset *cs)
  * free_cpuset - free the cpuset
  * @cs: the cpuset to be freed
  */
-static inline void free_cpuset(struct cpuset *cs)
+void free_cpuset(struct cpuset *cs)
 {
 	free_cpumask_var(cs->cpus_allowed);
 	free_cpumask_var(cs->effective_cpus);
@@ -764,7 +764,7 @@ static inline bool mems_excl_conflict(struct cpuset *cs1, struct cpuset *cs2)
  * Return 0 if valid, -errno if not.
  */
 
-static int validate_change(struct cpuset *cur, struct cpuset *trial)
+int validate_change(struct cpuset *cur, struct cpuset *trial)
 {
 	struct cgroup_subsys_state *css;
 	struct cpuset *c, *par;
@@ -792,8 +792,8 @@ static int validate_change(struct cpuset *cur, struct cpuset *trial)
 	 * For v1, effective_cpus == cpus_allowed & user_xcpus() returns
 	 * cpus_allowed.
 	 *
-	 * For v2, is_cpu_exclusive() & is_sched_load_balance() are true only
-	 * for non-isolated partition root. At this point, the target
+	 * For v2, is_partition_valid(cur) & is_sched_load_balance() are true
+	 * only for non-isolated partition root. At this point, the target
 	 * effective_cpus isn't computed yet. user_xcpus() is the best
 	 * approximation.
 	 *
@@ -802,7 +802,8 @@ static int validate_change(struct cpuset *cur, struct cpuset *trial)
 	 * becomes an issue.
 	 */
 	ret = -EBUSY;
-	if (is_cpu_exclusive(cur) && is_sched_load_balance(cur) &&
+	if ((is_partition_valid(cur) || (!cpuset_v2() && is_cpu_exclusive(cur))) &&
+	    is_sched_load_balance(cur) &&
 	    !cpuset_cpumask_can_shrink(cur->effective_cpus, user_xcpus(trial)))
 		goto out;
 
@@ -1195,25 +1196,6 @@ static void update_sibling_cpumasks(struct cpuset *parent, struct cpuset *cs,
 				    struct tmpmasks *tmp);
 
 /*
- * Update partition exclusive flag
- *
- * Return: 0 if successful, an error code otherwise
- */
-static int update_partition_exclusive_flag(struct cpuset *cs, int new_prs)
-{
-	bool exclusive = (new_prs > PRS_MEMBER);
-
-	if (exclusive && !is_cpu_exclusive(cs)) {
-		if (cpuset_update_flag(CS_CPU_EXCLUSIVE, cs, 1))
-			return PERR_NOTEXCL;
-	} else if (!exclusive && is_cpu_exclusive(cs)) {
-		/* Turning off CS_CPU_EXCLUSIVE will not return error */
-		cpuset_update_flag(CS_CPU_EXCLUSIVE, cs, 0);
-	}
-	return 0;
-}
-
-/*
  * Update partition load balance flag and/or rebuild sched domain
  *
  * Changing load balance flag will automatically call
@@ -1237,10 +1219,7 @@ static void update_partition_sd_lb(struct cpuset *cs, int old_prs)
 	}
 	if (new_lb != !!is_sched_load_balance(cs)) {
 		rebuild_domains = true;
-		if (new_lb)
-			set_bit(CS_SCHED_LOAD_BALANCE, &cs->flags);
-		else
-			clear_bit(CS_SCHED_LOAD_BALANCE, &cs->flags);
+		assign_bit(CS_SCHED_LOAD_BALANCE, &cs->flags, new_lb);
 	}
 
 	if (rebuild_domains)
@@ -1271,11 +1250,9 @@ static void reset_partition_data(struct cpuset *cs)
 
 	lockdep_assert_held(&callback_lock);
 
-	if (cpumask_empty(cs->exclusive_cpus)) {
+	if (cpumask_empty(cs->exclusive_cpus))
 		cpumask_clear(cs->effective_xcpus);
-		if (is_cpu_exclusive(cs))
-			clear_bit(CS_CPU_EXCLUSIVE, &cs->flags);
-	}
+
 	if (!cpumask_and(cs->effective_cpus, parent->effective_cpus, cs->cpus_allowed))
 		cpumask_copy(cs->effective_cpus, parent->effective_cpus);
 }
@@ -1377,63 +1354,85 @@ static void partition_xcpus_del(int old_prs, struct cpuset *parent,
 }
 
 /*
- * isolated_cpus_can_update - check for isolated & nohz_full conflicts
- * @add_cpus: cpu mask for cpus that are going to be isolated
- * @del_cpus: cpu mask for cpus that are no longer isolated, can be NULL
- * Return: false if there is conflict, true otherwise
+ * prstate_housekeeping_conflict - check for partition & housekeeping conflicts
+ * @new_prs: new partition root state to be checked
+ * @parent_prs: Parent partition root state
+ * @new_cpus: the set of new effective xcpus in the current cpuset
+ * @del_cpus: old CPUs going to be removed from current cpuset, can be NULL
+ * Return: true if there is conflict, false otherwise
  *
- * If nohz_full is enabled and we have isolated CPUs, their combination must
- * still leave housekeeping CPUs.
- *
- * TBD: Should consider merging this function into
- *      prstate_housekeeping_conflict().
+ * There are two different housekeeping conflicts to be checked:
+ * 1) If new_prs is PRS_ROOT, none of the @new_cpus can be a boot-time isolated
+ *    CPU. IOW, the whole @new_cpus must be a subset of HK_TYPE_DOMAIN_BOOT.
+ * 2) If nohz_full is enabled and we have isolated CPUs, their combination must
+ *    still leave housekeeping CPUs. This check is only needed if new_prs
+ *    differs from parent_prs and one of them is PRS_ISOLATED.
  */
-static bool isolated_cpus_can_update(struct cpumask *add_cpus,
-				     struct cpumask *del_cpus)
+static bool prstate_housekeeping_conflict(int new_prs, int parent_prs,
+					  struct cpumask *new_cpus,
+					  struct cpumask *del_cpus)
 {
 	cpumask_var_t full_hk_cpus;
-	int res = true;
+	int res;
 
-	if (!housekeeping_enabled(HK_TYPE_KERNEL_NOISE))
+	WARN_ON_ONCE(parent_prs <= 0);
+	if (!new_prs)
+		return false;
+
+	/*
+	 * For a currently invalid partition root state, do the check assuming
+	 * that it may be converted back to valid.
+	 *
+	 * There are code paths where an invalid partition may be reverted back
+	 * to a valid partition but we still need to run the housekeeping check
+	 * before the conversion happens to make sure the switch is valid. We
+	 * can either do the negative to positive PRS switch individually in all
+	 * these code paths or do it here which I think will make the code a bit
+	 * easier to read.
+	 */
+	if (new_prs < 0)
+		new_prs = -new_prs;
+
+	if (housekeeping_enabled(HK_TYPE_DOMAIN_BOOT) && (new_prs == PRS_ROOT) &&
+	    !cpumask_subset(new_cpus, housekeeping_cpumask(HK_TYPE_DOMAIN_BOOT)))
 		return true;
 
-	if (del_cpus && cpumask_weight_and(del_cpus,
-			housekeeping_cpumask(HK_TYPE_KERNEL_NOISE)))
-		return true;
+	/*
+	 * Exit 2nd check early and return false if
+	 * 1) there is no boot time isolated nohz_full CPU
+	 * 2) parent and child has the same partition state
+	 * 3) new_prs is PRS_ROOT, parent_prs is PRS_ISOLATED and no CPU will
+	 *    be returned back to the parent.
+	 */
+	if (!housekeeping_enabled(HK_TYPE_KERNEL_NOISE) ||
+	    (new_prs == parent_prs) ||
+	    ((new_prs == PRS_ROOT) && (!del_cpus || cpumask_empty(del_cpus))))
+		return false;
+
+	/*
+	 * Now make sure that @new_cpus contains new CPUs to be isolated and
+	 * @del_cpus contains isolated CPUs to be un-isolated.
+	 * With the guards above, @new_cpus can't be NULL after the swap.
+	 */
+	if (parent_prs == PRS_ISOLATED)
+		swap(new_cpus, del_cpus);
+
+	if (del_cpus &&
+	   (cpumask_first_and_and(del_cpus, housekeeping_cpumask(HK_TYPE_KERNEL_NOISE),
+				   cpu_active_mask) < nr_cpu_ids))
+		return false;
 
 	if (!alloc_cpumask_var(&full_hk_cpus, GFP_KERNEL))
-		return false;
+		return true;
 
 	cpumask_and(full_hk_cpus, housekeeping_cpumask(HK_TYPE_KERNEL_NOISE),
 		    housekeeping_cpumask(HK_TYPE_DOMAIN));
 	cpumask_andnot(full_hk_cpus, full_hk_cpus, isolated_cpus);
 	cpumask_and(full_hk_cpus, full_hk_cpus, cpu_active_mask);
-	if (!cpumask_weight_andnot(full_hk_cpus, add_cpus))
-		res = false;
+	res = !cpumask_weight_andnot(full_hk_cpus, new_cpus);
 
 	free_cpumask_var(full_hk_cpus);
 	return res;
-}
-
-/*
- * prstate_housekeeping_conflict - check for partition & housekeeping conflicts
- * @prstate: partition root state to be checked
- * @new_cpus: cpu mask
- * Return: true if there is conflict, false otherwise
- *
- * CPUs outside of HK_TYPE_DOMAIN_BOOT, if defined, can only be used in an
- * isolated partition.
- */
-static bool prstate_housekeeping_conflict(int prstate, struct cpumask *new_cpus)
-{
-	if (!housekeeping_enabled(HK_TYPE_DOMAIN_BOOT))
-		return false;
-
-	if ((prstate != PRS_ISOLATED) &&
-	    !cpumask_subset(new_cpus, housekeeping_cpumask(HK_TYPE_DOMAIN_BOOT)))
-		return true;
-
-	return false;
 }
 
 /*
@@ -1617,9 +1616,7 @@ static int remote_partition_enable(struct cpuset *cs, int new_prs,
 		return PERR_INVCPUS;
 	if (cpumask_intersects(tmp->new_cpus, subpartitions_cpus))
 		return PERR_NOCPUS;
-	if (((new_prs == PRS_ISOLATED) &&
-	     !isolated_cpus_can_update(tmp->new_cpus, NULL)) ||
-	    prstate_housekeeping_conflict(new_prs, tmp->new_cpus))
+	if (prstate_housekeeping_conflict(new_prs, PRS_ROOT, tmp->new_cpus, NULL))
 		return PERR_HKEEPING;
 
 	spin_lock_irq(&callback_lock);
@@ -1721,8 +1718,8 @@ static void remote_cpus_update(struct cpuset *cs, struct cpumask *xcpus,
 		else if (cpumask_intersects(tmp->addmask, subpartitions_cpus) ||
 			 cpumask_subset(top_cpuset.effective_cpus, tmp->addmask))
 			WRITE_ONCE(cs->prs_err, PERR_NOCPUS);
-		else if ((prs == PRS_ISOLATED) &&
-			 !isolated_cpus_can_update(tmp->addmask, tmp->delmask))
+		else if (prstate_housekeeping_conflict(prs, PRS_ROOT,
+						       excpus, tmp->delmask))
 			WRITE_ONCE(cs->prs_err, PERR_HKEEPING);
 		if (cs->prs_err)
 			goto invalidate;
@@ -1864,11 +1861,7 @@ static int update_parent_effective_cpumask(struct cpuset *cs, int cmd,
 		if (cpumask_empty(xcpus))
 			return PERR_INVCPUS;
 
-		if (prstate_housekeeping_conflict(new_prs, xcpus))
-			return PERR_HKEEPING;
-
-		if ((new_prs == PRS_ISOLATED) && (new_prs != parent_prs) &&
-		    !isolated_cpus_can_update(xcpus, NULL))
+		if (prstate_housekeeping_conflict(new_prs, parent_prs, xcpus, NULL))
 			return PERR_HKEEPING;
 
 		if (tasks_nocpu_error(parent, cs, xcpus))
@@ -1907,6 +1900,10 @@ static int update_parent_effective_cpumask(struct cpuset *cs, int cmd,
 			part_error = PERR_CPUSEMPTY;
 			goto write_error;
 		}
+		if ((parent_prs == PRS_ISOLATED) && (old_prs == -PRS_ROOT)) {
+			part_error = PERR_ISOPARENT;
+			goto write_error;
+		}
 
 		/* Check newmask again, whether cpus are available for parent/cs */
 		nocpu |= tasks_nocpu_error(parent, cs, newmask);
@@ -1938,22 +1935,6 @@ static int update_parent_effective_cpumask(struct cpuset *cs, int cmd,
 			cpumask_andnot(tmp->delmask, newmask, cs->effective_xcpus);
 			deleting = cpumask_and(tmp->delmask, tmp->delmask,
 					       parent->effective_xcpus);
-		}
-
-		/*
-		 * TBD: Invalidate a currently valid child root partition may
-		 * still break isolated_cpus_can_update() rule if parent is an
-		 * isolated partition.
-		 */
-		if (is_partition_valid(cs) && (old_prs != parent_prs)) {
-			if ((parent_prs == PRS_ROOT) &&
-			    /* Adding to parent means removing isolated CPUs */
-			    !isolated_cpus_can_update(tmp->delmask, tmp->addmask))
-				part_error = PERR_HKEEPING;
-			if ((parent_prs == PRS_ISOLATED) &&
-			    /* Adding to parent means adding isolated CPUs */
-			    !isolated_cpus_can_update(tmp->addmask, tmp->delmask))
-				part_error = PERR_HKEEPING;
 		}
 
 		/*
@@ -1998,6 +1979,13 @@ static int update_parent_effective_cpumask(struct cpuset *cs, int cmd,
 				adding = cpumask_and(tmp->addmask,
 						     cs->effective_xcpus,
 						     parent->effective_xcpus);
+		} else if ((parent_prs == PRS_ISOLATED) &&
+			   ((old_prs == PRS_ROOT) || (old_prs == -PRS_ROOT))) {
+			part_error = PERR_ISOPARENT;
+			if (old_prs == PRS_ROOT) {
+				cpumask_copy(tmp->addmask, cs->effective_xcpus);
+				adding = true;
+			}
 		} else if (is_partition_invalid(cs) && !cpumask_empty(xcpus) &&
 			   cpumask_subset(xcpus, parent->effective_xcpus)) {
 			struct cgroup_subsys_state *css;
@@ -2005,9 +1993,15 @@ static int update_parent_effective_cpumask(struct cpuset *cs, int cmd,
 			bool exclusive = true;
 
 			/*
-			 * Convert invalid partition to valid has to
-			 * pass the cpu exclusivity test.
+			 * Convert invalid partition to valid has to pass the
+			 * cpu exclusivity test as well as the housekeeping
+			 * check.
 			 */
+			if (prstate_housekeeping_conflict(cs->partition_root_state,
+							  parent_prs, xcpus, NULL)) {
+				part_error = PERR_HKEEPING;
+				goto write_error;
+			}
 			rcu_read_lock();
 			cpuset_for_each_child(child, css, parent) {
 				if (child == cs)
@@ -2053,19 +2047,6 @@ write_error:
 		return 0;
 
 	/*
-	 * Transitioning between invalid to valid or vice versa may require
-	 * changing CS_CPU_EXCLUSIVE. In the case of partcmd_update,
-	 * validate_change() has already been successfully called and
-	 * CPU lists in cs haven't been updated yet. So defer it to later.
-	 */
-	if ((old_prs != new_prs) && (cmd != partcmd_update))  {
-		int err = update_partition_exclusive_flag(cs, new_prs);
-
-		if (err)
-			return err;
-	}
-
-	/*
 	 * Change the parent's effective_cpus & effective_xcpus (top cpuset
 	 * only).
 	 *
@@ -2086,9 +2067,6 @@ write_error:
 		partition_xcpus_add(new_prs, parent, tmp->delmask);
 
 	spin_unlock_irq(&callback_lock);
-
-	if ((old_prs != new_prs) && (cmd == partcmd_update))
-		update_partition_exclusive_flag(cs, new_prs);
 
 	if (adding || deleting) {
 		cpuset_update_tasks_cpumask(parent, tmp->addmask);
@@ -2175,6 +2153,25 @@ static void compute_partition_effective_cpumask(struct cpuset *cs,
 			       child->effective_xcpus);
 	}
 	rcu_read_unlock();
+}
+
+/*
+ * ancestor_partition - Find and return the closest valid partition root ancestor
+ * @cs: the current cpuset
+ *
+ * Return: The closet partition root ancestor cpuset
+ */
+static struct cpuset *ancestor_partition(struct cpuset *cs)
+{
+	struct cpuset *ancestor = parent_cs(cs);
+
+	/*
+	 * The top_cpuset is always a valid partition root which will stop
+	 * the loop if it is reached.
+	 */
+	while (!is_partition_valid(ancestor))
+		ancestor = parent_cs(ancestor);
+	return ancestor;
 }
 
 /*
@@ -2269,7 +2266,10 @@ update_parent_effective:
 		 * cpuset if the parent's effective_cpus changes.
 		 */
 		if ((cp != cs) && old_prs) {
-			switch (parent->partition_root_state) {
+			int parent_prs = parent->partition_root_state;
+			struct cpumask *del_cpus = NULL;
+
+			switch (parent_prs) {
 			case PRS_ROOT:
 			case PRS_ISOLATED:
 				update_parent = true;
@@ -2277,12 +2277,37 @@ update_parent_effective:
 
 			default:
 				/*
-				 * When parent is not a partition root or is
-				 * invalid, child partition roots become
-				 * invalid too.
+				 * When parent is not a valid partition root,
+				 * child partition roots become invalid too.
+				 *
+				 * For a to be invalidated isolated partition,
+				 * its isolated CPUs may or may not need to be
+				 * removed from isolated_cpus depending on if
+				 * its closest partition root ancestor is a root
+				 * or isolated partition. With a PRS_ISOLATED
+				 * ancestor, the CPUs are checked against its
+				 * effective xcpus to see if any of them needed
+				 * to be removed.
 				 */
 				if (is_partition_valid(cp))
-					new_prs = -cp->partition_root_state;
+					new_prs = -old_prs;
+
+				if (old_prs == PRS_ISOLATED) {
+					struct cpuset *ancestor = ancestor_partition(cp);
+
+					if (ancestor->partition_root_state == PRS_ROOT)
+						del_cpus = cp->effective_xcpus;
+					else if (cpumask_andnot(tmp->delmask,
+								cp->effective_xcpus,
+								ancestor->effective_xcpus))
+						del_cpus = tmp->delmask;
+
+					if (del_cpus) {
+						spin_lock_irq(&callback_lock);
+						isolated_cpus_update(old_prs, new_prs, del_cpus);
+						spin_unlock_irq(&callback_lock);
+					}
+				}
 				WRITE_ONCE(cp->prs_err,
 					   is_partition_invalid(parent)
 					   ? PERR_INVPARENT : PERR_NOTPART);
@@ -2330,10 +2355,8 @@ get_css:
 		 */
 		if (cpuset_v2() && !is_partition_valid(cp) &&
 		    (is_sched_load_balance(parent) != is_sched_load_balance(cp))) {
-			if (is_sched_load_balance(parent))
-				set_bit(CS_SCHED_LOAD_BALANCE, &cp->flags);
-			else
-				clear_bit(CS_SCHED_LOAD_BALANCE, &cp->flags);
+			assign_bit(CS_SCHED_LOAD_BALANCE, &cp->flags,
+				   is_sched_load_balance(parent));
 		}
 
 		/*
@@ -2433,10 +2456,6 @@ static enum prs_errcode validate_partition(struct cpuset *cs, struct cpuset *tri
 	if (cpumask_empty(trialcs->effective_xcpus))
 		return PERR_INVCPUS;
 
-	if (prstate_housekeeping_conflict(trialcs->partition_root_state,
-					  trialcs->effective_xcpus))
-		return PERR_HKEEPING;
-
 	if (tasks_nocpu_error(parent, cs, trialcs->effective_xcpus))
 		return PERR_NOCPUS;
 
@@ -2453,7 +2472,7 @@ static enum prs_errcode validate_partition(struct cpuset *cs, struct cpuset *tri
  * CPU modifications may cause a partition to be disabled or require state updates.
  */
 static void partition_cpus_change(struct cpuset *cs, struct cpuset *trialcs,
-					struct tmpmasks *tmp)
+				  struct tmpmasks *tmp)
 {
 	enum prs_errcode prs_err;
 
@@ -2461,6 +2480,22 @@ static void partition_cpus_change(struct cpuset *cs, struct cpuset *trialcs,
 		return;
 
 	prs_err = validate_partition(cs, trialcs);
+	if (!prs_err && !cpumask_empty(trialcs->effective_xcpus)) {
+		int prs = cs->partition_root_state;
+		int parent_prs = is_remote_partition(cs)
+			       ? PRS_ROOT : parent_cs(cs)->partition_root_state;
+		/*
+		 * Check for housekeeping conflict by passing the whole
+		 * effective_xcpus as well as those CPUs that are to be
+		 * removed from cs as delmask.
+		 */
+		cpumask_andnot(tmp->delmask, cs->effective_xcpus, trialcs->effective_xcpus);
+		if (parent_prs > 0 &&
+		    prstate_housekeeping_conflict(prs, parent_prs,
+						  trialcs->effective_xcpus, tmp->delmask))
+			prs_err = PERR_HKEEPING;
+	}
+
 	if (prs_err) {
 		WRITE_ONCE(cs->prs_err, prs_err);
 		trialcs->prs_err = prs_err;
@@ -2891,59 +2926,6 @@ bool current_cpuset_is_being_rebound(void)
 	return ret;
 }
 
-/*
- * cpuset_update_flag - read a 0 or a 1 in a file and update associated flag
- * bit:		the bit to update (see cpuset_flagbits_t)
- * cs:		the cpuset to update
- * turning_on: 	whether the flag is being set or cleared
- *
- * Call with cpuset_mutex held.
- */
-
-int cpuset_update_flag(cpuset_flagbits_t bit, struct cpuset *cs,
-		       int turning_on)
-{
-	struct cpuset *trialcs;
-	int balance_flag_changed;
-	int spread_page_changed;
-	int err;
-
-	trialcs = dup_or_alloc_cpuset(cs);
-	if (!trialcs)
-		return -ENOMEM;
-
-	if (turning_on)
-		set_bit(bit, &trialcs->flags);
-	else
-		clear_bit(bit, &trialcs->flags);
-
-	err = validate_change(cs, trialcs);
-	if (err < 0)
-		goto out;
-
-	balance_flag_changed = (is_sched_load_balance(cs) !=
-				is_sched_load_balance(trialcs));
-
-	spread_page_changed = is_spread_page(cs) != is_spread_page(trialcs);
-
-	spin_lock_irq(&callback_lock);
-	cs->flags = trialcs->flags;
-	spin_unlock_irq(&callback_lock);
-
-	if (!cpumask_empty(trialcs->cpus_allowed) && balance_flag_changed) {
-		if (cpuset_v2())
-			cpuset_force_rebuild();
-		else
-			rebuild_sched_domains_locked();
-	}
-
-	if (spread_page_changed)
-		cpuset1_update_tasks_flags(cs);
-out:
-	free_cpuset(trialcs);
-	return err;
-}
-
 /**
  * update_prstate - update partition_root_state
  * @cs: the cpuset to update
@@ -2957,7 +2939,9 @@ static int update_prstate(struct cpuset *cs, int new_prs)
 	int err = PERR_NONE, old_prs = cs->partition_root_state;
 	struct cpuset *parent = parent_cs(cs);
 	struct tmpmasks tmpmask;
+	int parent_prs = parent->partition_root_state;
 	bool isolcpus_updated = false;
+	bool disable_partition = false;
 
 	if (old_prs == new_prs)
 		return 0;
@@ -2970,10 +2954,6 @@ static int update_prstate(struct cpuset *cs, int new_prs)
 
 	if (alloc_tmpmasks(&tmpmask))
 		return -ENOMEM;
-
-	err = update_partition_exclusive_flag(cs, new_prs);
-	if (err)
-		goto out;
 
 	if (!old_prs) {
 		/*
@@ -3005,26 +2985,45 @@ static int update_prstate(struct cpuset *cs, int new_prs)
 			enum partition_cmd cmd = (new_prs == PRS_ROOT)
 					       ? partcmd_enable : partcmd_enablei;
 
+			/*
+			 * It is not allowed to create a root partition under
+			 * an isolated parent partition.
+			 */
+			if ((new_prs == PRS_ROOT) && (parent_prs == PRS_ISOLATED)) {
+				err = PERR_ISOPARENT;
+				goto out;
+			}
 			err = update_parent_effective_cpumask(cs, cmd, NULL, &tmpmask);
 		} else {
 			err = remote_partition_enable(cs, new_prs, &tmpmask);
 		}
 	} else if (old_prs && new_prs) {
+		int parent_prs = is_remote_partition(cs)
+				 ? PRS_ROOT : parent->partition_root_state;
+
 		/*
 		 * A change in load balance state only, no change in cpumasks.
 		 * Need to update isolated_cpus.
 		 */
-		if (((new_prs == PRS_ISOLATED) &&
-		     !isolated_cpus_can_update(cs->effective_xcpus, NULL)) ||
-		    prstate_housekeeping_conflict(new_prs, cs->effective_xcpus))
+		if (prstate_housekeeping_conflict(new_prs, parent_prs,
+						  cs->effective_xcpus, NULL))
 			err = PERR_HKEEPING;
-		else
+		else if (parent_prs == PRS_ISOLATED)
+			err = PERR_ISOPARENT;
+
+		if (!err)
 			isolcpus_updated = true;
+		else
+			disable_partition = true;
 	} else {
 		/*
 		 * Switching back to member is always allowed even if it
 		 * disables child partitions.
 		 */
+		disable_partition = true;
+	}
+
+	if (disable_partition) {
 		if (is_remote_partition(cs))
 			remote_partition_disable(cs, &tmpmask);
 		else
@@ -3033,18 +3032,15 @@ static int update_prstate(struct cpuset *cs, int new_prs)
 
 		/*
 		 * Invalidation of child partitions will be done in
-		 * update_cpumasks_hier().
+		 * update_cpumasks_hier() below.
 		 */
 	}
 out:
 	/*
-	 * Make partition invalid & disable CS_CPU_EXCLUSIVE if an error
-	 * happens.
+	 * Make partition invalid if an error happens.
 	 */
-	if (err) {
+	if (err)
 		new_prs = -new_prs;
-		update_partition_exclusive_flag(cs, new_prs);
-	}
 
 	spin_lock_irq(&callback_lock);
 	cs->partition_root_state = new_prs;
@@ -3055,8 +3051,8 @@ out:
 		isolated_cpus_update(old_prs, new_prs, cs->effective_xcpus);
 	spin_unlock_irq(&callback_lock);
 
-	/* Force update if switching back to member & update effective_xcpus */
-	update_cpumasks_hier(cs, &tmpmask, !new_prs);
+	/* Force update if partition is disabled & update effective_xcpus */
+	update_cpumasks_hier(cs, &tmpmask, disable_partition);
 
 	/* A newly created partition must have effective_xcpus set */
 	WARN_ON_ONCE(!old_prs && (new_prs > 0)
@@ -3066,8 +3062,6 @@ out:
 	update_partition_sd_lb(cs, old_prs);
 
 	notify_partition_change(cs, old_prs);
-	if (force_sd_rebuild)
-		rebuild_sched_domains_locked();
 	free_tmpmasks(&tmpmask);
 	return 0;
 }
@@ -3706,21 +3700,12 @@ static int cpuset_css_online(struct cgroup_subsys_state *css)
 	return 0;
 }
 
-/*
- * If the cpuset being removed has its flag 'sched_load_balance'
- * enabled, then simulate turning sched_load_balance off, which
- * will call rebuild_sched_domains_locked(). That is not needed
- * in the default hierarchy where only changes in partition
- * will cause repartitioning.
- */
 static void cpuset_css_offline(struct cgroup_subsys_state *css)
 {
 	struct cpuset *cs = css_cs(css);
 
 	cpuset_full_lock();
-	if (!cpuset_v2() && is_sched_load_balance(cs))
-		cpuset_update_flag(CS_SCHED_LOAD_BALANCE, cs, 0);
-
+	cpuset1_offline_css(cs);
 	cpuset_dec();
 	cpuset_full_unlock();
 }
@@ -4336,7 +4321,7 @@ int cpuset_num_cpus(struct cgroup *cgrp)
 	int nr = num_online_cpus();
 	struct cpuset *cs;
 
-	if (is_in_v2_mode()) {
+	if (cpuset_v2()) {
 		guard(rcu)();
 		cs = css_cs(cgroup_e_css(cgrp, &cpuset_cgrp_subsys));
 		if (cs)
@@ -4378,10 +4363,21 @@ nodemask_t cpuset_mems_allowed(struct task_struct *tsk)
  * @nodemask: the nodemask to be checked
  *
  * Are any of the nodes in the nodemask allowed in current->mems_allowed?
+ *
+ * A cpuset update rebinds the task's mempolicy and changes mems_allowed in
+ * separate steps, so retry if an update raced with the check.
  */
 int cpuset_nodemask_valid_mems_allowed(const nodemask_t *nodemask)
 {
-	return nodes_intersects(*nodemask, current->mems_allowed);
+	unsigned int seq;
+	int ret;
+
+	do {
+		seq = read_mems_allowed_begin();
+		ret = nodes_intersects(*nodemask, current->mems_allowed);
+	} while (read_mems_allowed_retry(seq));
+
+	return ret;
 }
 
 /*
