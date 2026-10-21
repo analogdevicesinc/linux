@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 // Copyright (C) 2020 Luca Weiss <luca@z3ntu.xyz>
 
+#include <linux/devm-helpers.h>
 #include <linux/gpio/consumer.h>
 #include <linux/led-class-flash.h>
 #include <linux/module.h>
@@ -237,7 +238,10 @@ static int sgm3140_probe(struct platform_device *pdev)
 	 */
 	priv->timeout = min(priv->max_timeout, FLASH_TIMEOUT_DEFAULT);
 
-	INIT_DELAYED_WORK(&priv->powerdown_work, sgm3140_powerdown_work);
+	ret = devm_delayed_work_autocancel(&pdev->dev, &priv->powerdown_work,
+					   sgm3140_powerdown_work);
+	if (ret)
+		goto err;
 
 	fled_cdev = &priv->fled_cdev;
 	led_cdev = &fled_cdev->led_cdev;
@@ -285,8 +289,6 @@ err:
 static void sgm3140_remove(struct platform_device *pdev)
 {
 	struct sgm3140 *priv = platform_get_drvdata(pdev);
-
-	cancel_delayed_work_sync(&priv->powerdown_work);
 
 	v4l2_flash_release(priv->v4l2_flash);
 }
