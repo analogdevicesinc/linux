@@ -630,7 +630,6 @@ int amdgpu_vm_validate(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 
 	dma_resv_assert_held(vm->root.bo->tbo.base.resv);
 	if (vm->generation != new_vm_generation) {
-		vm->generation = new_vm_generation;
 		amdgpu_vm_bo_reset_state_machine(vm);
 		amdgpu_vm_fini_entities(vm);
 		r = amdgpu_vm_init_entities(adev, vm);
@@ -645,8 +644,17 @@ int amdgpu_vm_validate(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 
 		vm->update_funcs->map_table(to_amdgpu_bo_vm(bo_base->bo));
 		bo_base->moved = true;
+
+		if (vm->generation != new_vm_generation) {
+			r = amdgpu_vm_pt_clear(adev, vm, to_amdgpu_bo_vm(bo_base->bo), false);
+			if (r)
+				return r;
+		}
+
 		amdgpu_vm_bo_needs_update(bo_base);
 	}
+
+	vm->generation = new_vm_generation;
 
 	/*
 	 * As soon as all page tables are in place we can start updating them
