@@ -86,8 +86,11 @@ static int zstd_compress_one(struct acomp_req *req, struct zstd_ctx *ctx,
 
 	out_len = zstd_compress_cctx(ctx->cctx, dst, req->dlen, src, req->slen,
 				     &ctx->params);
-	if (zstd_is_error(out_len))
+	if (zstd_is_error(out_len)) {
+		if (zstd_get_error_code(out_len) == ZSTD_error_dstSize_tooSmall)
+			return -ENOSPC;
 		return -EINVAL;
+	}
 
 	*dlen = out_len;
 

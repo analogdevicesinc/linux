@@ -34,7 +34,7 @@ static int __lzo_compress(const u8 *src, unsigned int slen,
 	err = lzo1x_1_compress_safe(src, slen, dst, &tmp_len, ctx);
 
 	if (err != LZO_E_OK)
-		return -EINVAL;
+		return err == LZO_E_OUTPUT_OVERRUN ? -ENOSPC : -EINVAL;
 
 	*dlen = tmp_len;
 	return 0;
