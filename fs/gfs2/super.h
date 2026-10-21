@@ -35,6 +35,10 @@ int gfs2_lookup_in_master_dir(struct gfs2_sbd *sdp, char *filename,
 
 int gfs2_make_fs_rw(struct gfs2_sbd *sdp);
 void gfs2_make_fs_ro(struct gfs2_sbd *sdp);
+int gfs2_freeze_super(struct super_block *sb, enum freeze_holder who,
+		      const void *freeze_owner);
+int gfs2_thaw_super(struct super_block *sb, enum freeze_holder who,
+		    const void *freeze_owner);
 void gfs2_online_uevent(struct gfs2_sbd *sdp);
 void gfs2_destroy_threads(struct gfs2_sbd *sdp);
 int gfs2_statfs_init(struct gfs2_sbd *sdp);
