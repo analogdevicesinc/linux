@@ -417,6 +417,9 @@ static s32 aat1290_brightness_to_intensity(struct v4l2_flash *v4l2_flash,
 	struct led_classdev_flash *fled_cdev = v4l2_flash->fled_cdev;
 	struct aat1290_led *led = fled_cdev_to_led(fled_cdev);
 
+	if (brightness == LED_OFF)
+		return 0;
+
 	return led->mm_current_scale[brightness - 1];
 }
 
