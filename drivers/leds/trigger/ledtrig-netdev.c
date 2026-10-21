@@ -279,6 +279,8 @@ static int set_device_name(struct led_netdev_data *trigger_data,
 	struct net_device *new_dev = NULL;
 	char device_name[IFNAMSIZ];
 
+	ASSERT_RTNL();
+
 	if (size >= IFNAMSIZ)
 		return -EINVAL;
 
@@ -292,7 +294,6 @@ static int set_device_name(struct led_netdev_data *trigger_data,
 	/*
 	 * Lock order: rtnl_lock -> netdev instance lock -> trigger_data lock.
 	 */
-	rtnl_lock();
 	if (device_name[0]) {
 		new_dev = dev_get_by_name(&init_net, device_name);
 		if (new_dev)
@@ -319,7 +320,6 @@ static int set_device_name(struct led_netdev_data *trigger_data,
 	mutex_unlock(&trigger_data->lock);
 	if (new_dev)
 		netdev_unlock_ops(new_dev);
-	rtnl_unlock();
 
 	return 0;
 }
@@ -331,7 +331,9 @@ static ssize_t device_name_store(struct device *dev,
 	struct led_netdev_data *trigger_data = led_trigger_get_drvdata(dev);
 	int ret;
 
+	rtnl_lock();
 	ret = set_device_name(trigger_data, buf, size);
+	rtnl_unlock();
 
 	if (ret < 0)
 		return ret;
@@ -760,6 +762,7 @@ static int netdev_trig_activate(struct led_classdev *led_cdev)
 	 * Init already enabled mode in hw control.
 	 */
 	if (supports_hw_control(led_cdev)) {
+		rtnl_lock();
 		dev = led_cdev->hw_control_get_device(led_cdev);
 		if (dev) {
 			const char *name = dev_name(dev);
@@ -771,6 +774,7 @@ static int netdev_trig_activate(struct led_classdev *led_cdev)
 			if (!rc)
 				trigger_data->mode = mode;
 		}
+		rtnl_unlock();
 	}
 
 	led_set_trigger_data(led_cdev, trigger_data);
