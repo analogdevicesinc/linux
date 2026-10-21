@@ -3510,7 +3510,6 @@ xfs_alloc_read_agf(
 		bool	ok = true;
 
 		ok &= pag->pagf_freeblks == be32_to_cpu(agf->agf_freeblks);
-		ok &= pag->pagf_freeblks == be32_to_cpu(agf->agf_freeblks);
 		ok &= pag->pagf_btreeblks == be32_to_cpu(agf->agf_btreeblks);
 		ok &= pag->pagf_flcount == be32_to_cpu(agf->agf_flcount);
 		ok &= pag->pagf_longest == be32_to_cpu(agf->agf_longest);
