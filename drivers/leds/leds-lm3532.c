@@ -707,12 +707,10 @@ static int lm3532_probe(struct i2c_client *client)
 	i2c_set_clientdata(client, drvdata);
 
 	ret = lm3532_parse_node(drvdata);
-	if (ret) {
-		dev_err(&client->dev, "Failed to parse node\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(&client->dev, ret, "Failed to parse node\n");
 
-	return ret;
+	return 0;
 }
 
 static const struct of_device_id of_lm3532_leds_match[] = {
