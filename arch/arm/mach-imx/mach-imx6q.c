@@ -8,9 +8,7 @@
 #include <linux/irqchip.h>
 #include <linux/of_platform.h>
 #include <linux/pci.h>
-#include <linux/phy.h>
 #include <linux/regmap.h>
-#include <linux/micrel_phy.h>
 #include <linux/mfd/syscon.h>
 #include <linux/mfd/syscon/imx6q-iomuxc-gpr.h>
 #include <asm/mach/arch.h>
