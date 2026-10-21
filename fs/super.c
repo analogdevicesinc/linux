@@ -646,12 +646,14 @@ EXPORT_SYMBOL(deactivate_super);
  * superblock to either become SB_BORN or for it to pass through
  * sb->kill() and be marked as SB_DEAD.
  *
- * Return: This returns true if an active reference could be acquired,
- *         false if not.
+ * Return: 0 if an active reference could be acquired, -EAGAIN if the
+ *         superblock is gone and the caller should look again,
+ *         -ERESTARTSYS if the task was killed while waiting for that.
  */
-static bool grab_super(struct super_block *sb)
+static int grab_super(struct super_block *sb)
 {
 	bool locked;
+	int ret;
 
 	refcount_inc(&sb->s_passive);
 	spin_unlock(&sb_lock);
@@ -659,13 +661,13 @@ static bool grab_super(struct super_block *sb)
 	if (locked) {
 		if (atomic_inc_not_zero(&sb->s_active)) {
 			put_super(sb);
-			return true;
+			return 0;
 		}
 		super_unlock_excl(sb);
 	}
-	wait_var_event(&sb->s_flags, super_flags(sb, SB_DEAD));
+	ret = wait_var_event_killable(&sb->s_flags, super_flags(sb, SB_DEAD));
 	put_super(sb);
-	return false;
+	return ret ? ret : -EAGAIN;
 }
 
 /*
@@ -934,9 +936,12 @@ share_extant_sb:
 			warnfc(fc, "reusing existing filesystem in another namespace not allowed");
 		return ERR_PTR(-EBUSY);
 	}
-	if (!grab_super(old))
+	err = grab_super(old);
+	if (err == -EAGAIN)
 		goto retry;
 	destroy_unused_super(s);
+	if (err)
+		return ERR_PTR(err);
 	return old;
 }
 EXPORT_SYMBOL(sget_fc);
