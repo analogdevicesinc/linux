@@ -425,7 +425,7 @@ static u8 ds2482_w1_set_pullup(void *data, int delay)
 
 	/* if delay is non-zero activate the pullup,
 	 * the strong pullup will be automatically deactivated
-	 * by the master, so do not explicitly deactive it
+	 * by the master, so do not explicitly deactivate it
 	 */
 	if (delay) {
 		/* both waits are crucial, otherwise devices might not be

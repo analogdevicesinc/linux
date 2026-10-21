@@ -67,7 +67,7 @@ void w1_unregister_family(struct w1_family *fent)
 	}
 	spin_unlock(&w1_flock);
 
-	/* deatch devices using this family code */
+	/* detach devices using this family code */
 	w1_reconnect_slaves(fent, 0);
 
 	while (atomic_read(&fent->refcnt)) {
