@@ -158,6 +158,20 @@ static int super_wait_shutdown_killable(struct super_block *sb)
 	return wait_var_event_killable(&sb->s_flags, super_flags(sb, SB_DYING));
 }
 
+/**
+ * super_wait_shutdown - wait for a superblock being shut down
+ * @sb: superblock super_lock() failed on
+ *
+ * For callers of which the rest happens whether they are killed or not, and
+ * must not happen while the filesystem is still being written out.
+ *
+ * The caller must have acquired a temporary reference on @sb->s_passive.
+ */
+static void super_wait_shutdown(struct super_block *sb)
+{
+	wait_var_event(&sb->s_flags, super_flags(sb, SB_DYING));
+}
+
 /* wait and try to acquire read-side of @sb->s_umount */
 static inline bool super_lock_shared(struct super_block *sb)
 {
@@ -1182,7 +1196,7 @@ static void do_emergency_remount_callback(struct super_block *sb, void *unused)
 
 	if (!super_lock_excl(sb)) {
 		/* the unmount writes the filesystem out, wait for that */
-		super_wait_shutdown_killable(sb);
+		super_wait_shutdown(sb);
 		return;
 	}
 
@@ -1283,8 +1297,11 @@ static void filesystems_freeze_callback(struct super_block *sb, void *freeze_all
 	if (!freeze_all_ptr && !(sb->s_type->fs_flags & FS_POWER_FREEZE))
 		return;
 
-	if (!get_active_super(sb))
+	if (!get_active_super(sb)) {
+		/* an unmount from a workqueue isn't stopped by the freezer */
+		super_wait_shutdown(sb);
 		return;
+	}
 
 	if (sb->s_op->freeze_super)
 		sb->s_op->freeze_super(sb, FREEZE_EXCL | FREEZE_HOLDER_KERNEL,
