@@ -1589,6 +1589,8 @@ static int btrfs_load_block_group_raid0(struct btrfs_block_group *bg,
 					u64 last_alloc)
 {
 	struct btrfs_fs_info *fs_info = bg->fs_info;
+	const u32 stripe_len = map->stripe_len;
+	const u8 stripe_shift = map->stripe_shift;
 	u64 stripe_nr = 0, stripe_offset = 0;
 	u64 prev_offset = 0;
 	u32 stripe_index = 0;
@@ -1612,18 +1614,18 @@ static int btrfs_load_block_group_raid0(struct btrfs_block_group *bg,
 		    zone_info[i].alloc_offset == WP_CONVENTIONAL)
 			continue;
 
-		stripe_nr = zone_info[i].alloc_offset >> BTRFS_STRIPE_LEN_SHIFT;
-		stripe_offset = zone_info[i].alloc_offset & BTRFS_STRIPE_LEN_MASK;
+		stripe_nr = zone_info[i].alloc_offset >> stripe_shift;
+		stripe_offset = zone_info[i].alloc_offset & (stripe_len - 1);
 		if (stripe_offset == 0 && stripe_nr > 0) {
 			stripe_nr--;
-			stripe_offset = BTRFS_STRIPE_LEN;
+			stripe_offset = stripe_len;
 		}
-		alloc = ((stripe_nr * map->num_stripes + i) << BTRFS_STRIPE_LEN_SHIFT) +
+		alloc = ((stripe_nr * map->num_stripes + i) << stripe_shift) +
 			stripe_offset;
 		last_alloc = max(last_alloc, alloc);
 
 		/* Partially written stripe found. It should be last. */
-		if (zone_info[i].alloc_offset & BTRFS_STRIPE_LEN_MASK)
+		if (!IS_ALIGNED(zone_info[i].alloc_offset, stripe_len))
 			break;
 	}
 	stripe_nr = 0;
@@ -1632,8 +1634,8 @@ static int btrfs_load_block_group_raid0(struct btrfs_block_group *bg,
 	if (last_alloc) {
 		u32 factor = map->num_stripes;
 
-		stripe_nr = last_alloc >> BTRFS_STRIPE_LEN_SHIFT;
-		stripe_offset = last_alloc & BTRFS_STRIPE_LEN_MASK;
+		stripe_nr = last_alloc >> stripe_shift;
+		stripe_offset = last_alloc & (stripe_len - 1);
 		stripe_nr = div_u64_rem(stripe_nr, factor, &stripe_index);
 	}
 
@@ -1644,11 +1646,10 @@ static int btrfs_load_block_group_raid0(struct btrfs_block_group *bg,
 		if (zone_info[i].alloc_offset == WP_CONVENTIONAL) {
 			has_conventional = true;
 			zone_info[i].alloc_offset =
-				btrfs_stripe_nr_to_offset(stripe_nr,
-							  map->stripe_len);
+				btrfs_stripe_nr_to_offset(stripe_nr, stripe_len);
 
 			if (stripe_index > i)
-				zone_info[i].alloc_offset += BTRFS_STRIPE_LEN;
+				zone_info[i].alloc_offset += stripe_len;
 			else if (stripe_index == i)
 				zone_info[i].alloc_offset += stripe_offset;
 		}
@@ -1663,7 +1664,8 @@ static int btrfs_load_block_group_raid0(struct btrfs_block_group *bg,
 			}
 
 			if (unlikely(has_partial &&
-				     (zone_info[i].alloc_offset & BTRFS_STRIPE_LEN_MASK))) {
+				     !IS_ALIGNED(zone_info[i].alloc_offset,
+						 stripe_len))) {
 				btrfs_err(fs_info,
 				"zoned: multiple partial written stripe found in block group %llu",
 					  bg->start);
@@ -1672,7 +1674,7 @@ static int btrfs_load_block_group_raid0(struct btrfs_block_group *bg,
 		}
 		prev_offset = zone_info[i].alloc_offset;
 
-		if ((zone_info[i].alloc_offset & BTRFS_STRIPE_LEN_MASK) != 0)
+		if (!IS_ALIGNED(zone_info[i].alloc_offset, stripe_len))
 			has_partial = true;
 
 		if (test_bit(0, active) != test_bit(i, active)) {
@@ -1688,7 +1690,7 @@ static int btrfs_load_block_group_raid0(struct btrfs_block_group *bg,
 
 	/* Check if all devices stay in the same stripe row. */
 	if (unlikely(zone_info[0].alloc_offset -
-		     zone_info[map->num_stripes - 1].alloc_offset > BTRFS_STRIPE_LEN)) {
+		     zone_info[map->num_stripes - 1].alloc_offset > stripe_len)) {
 		btrfs_err(fs_info, "zoned: stripe gap too large in block group %llu", bg->start);
 		return -EIO;
 	}
@@ -1712,6 +1714,8 @@ static int btrfs_load_block_group_raid10(struct btrfs_block_group *bg,
 	u64 AUTO_KFREE(raid0_allocs);
 	u64 stripe_nr = 0, stripe_offset = 0;
 	u32 stripe_index = 0;
+	const u32 stripe_len = map->stripe_len;
+	const u8 stripe_shift = map->stripe_shift;
 	bool has_partial = false, has_conventional = false;
 	u64 prev_offset = 0;
 
@@ -1759,16 +1763,16 @@ static int btrfs_load_block_group_raid10(struct btrfs_block_group *bg,
 			return -EIO;
 		}
 
-		stripe_nr = alloc >> BTRFS_STRIPE_LEN_SHIFT;
-		stripe_offset = alloc & BTRFS_STRIPE_LEN_MASK;
+		stripe_nr = alloc >> stripe_shift;
+		stripe_offset = alloc & (stripe_len - 1);
 		if (stripe_offset == 0 && stripe_nr > 0) {
 			stripe_nr--;
-			stripe_offset = BTRFS_STRIPE_LEN;
+			stripe_offset = stripe_len;
 		}
 
 		alloc = ((stripe_nr * (map->num_stripes / map->sub_stripes) +
-			  (i / map->sub_stripes)) <<
-			 BTRFS_STRIPE_LEN_SHIFT) + stripe_offset;
+			  (i / map->sub_stripes)) << stripe_shift) +
+			stripe_offset;
 		last_alloc = max(last_alloc, alloc);
 	}
 	stripe_nr = 0;
@@ -1777,8 +1781,8 @@ static int btrfs_load_block_group_raid10(struct btrfs_block_group *bg,
 	if (last_alloc) {
 		u32 factor = map->num_stripes / map->sub_stripes;
 
-		stripe_nr = last_alloc >> BTRFS_STRIPE_LEN_SHIFT;
-		stripe_offset = last_alloc & BTRFS_STRIPE_LEN_MASK;
+		stripe_nr = last_alloc >> stripe_shift;
+		stripe_offset = last_alloc & (stripe_len - 1);
 		stripe_nr = div_u64_rem(stripe_nr, factor, &stripe_index);
 	}
 
@@ -1788,10 +1792,10 @@ static int btrfs_load_block_group_raid10(struct btrfs_block_group *bg,
 		if (raid0_allocs[idx] == WP_CONVENTIONAL) {
 			has_conventional = true;
 			raid0_allocs[idx] = btrfs_stripe_nr_to_offset(stripe_nr,
-								map->stripe_len);
+								      stripe_len);
 
 			if (stripe_index > idx)
-				raid0_allocs[idx] += BTRFS_STRIPE_LEN;
+				raid0_allocs[idx] += stripe_len;
 			else if (stripe_index == idx)
 				raid0_allocs[idx] += stripe_offset;
 		}
@@ -1807,7 +1811,8 @@ static int btrfs_load_block_group_raid10(struct btrfs_block_group *bg,
 				}
 
 				if (unlikely(has_partial &&
-					     (raid0_allocs[idx] & BTRFS_STRIPE_LEN_MASK))) {
+					     !IS_ALIGNED(raid0_allocs[idx],
+							 stripe_len))) {
 					btrfs_err(fs_info,
 					"zoned: multiple partial written stripe found in block group %llu",
 						  bg->start);
@@ -1816,7 +1821,7 @@ static int btrfs_load_block_group_raid10(struct btrfs_block_group *bg,
 			}
 			prev_offset = raid0_allocs[idx];
 
-			if ((raid0_allocs[idx] & BTRFS_STRIPE_LEN_MASK) != 0)
+			if (!IS_ALIGNED(raid0_allocs[idx], stripe_len))
 				has_partial = true;
 		}
 
@@ -1839,7 +1844,7 @@ static int btrfs_load_block_group_raid10(struct btrfs_block_group *bg,
 
 	/* Check if all devices stay in the same stripe row. */
 	if (unlikely(zone_info[0].alloc_offset -
-		     zone_info[map->num_stripes - 1].alloc_offset > BTRFS_STRIPE_LEN)) {
+		     zone_info[map->num_stripes - 1].alloc_offset > stripe_len)) {
 		btrfs_err(fs_info, "zoned: stripe gap too large in block group %llu",
 			  bg->start);
 		return -EIO;
