@@ -640,6 +640,8 @@ struct btrfs_chunk_map {
 	u64 on_disk_type;
 	/* For mount time dev extent verification. */
 	u16 verified_stripes;
+	u8 stripe_shift;
+	u32 stripe_len;
 	struct btrfs_io_stripe stripes[];
 };
 

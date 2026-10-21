@@ -6166,6 +6166,12 @@ struct btrfs_chunk_map *btrfs_alloc_chunk_map(int num_stripes, gfp_t gfp)
 	refcount_set(&map->refs, 1);
 	RB_CLEAR_NODE(&map->rb_node);
 
+	/*
+	 * Initialize the default stripe len, selftests will utilize them
+	 * without an on-disk chunk item.
+	 */
+	map->stripe_len = BTRFS_STRIPE_LEN;
+	map->stripe_shift = ilog2(map->stripe_len);
 	return map;
 }
 
@@ -6203,6 +6209,8 @@ static struct btrfs_block_group *create_chunk(struct btrfs_trans_handle *trans,
 	map->on_disk_type = type;
 	map->sub_stripes = ctl->sub_stripes;
 	map->num_stripes = ctl->num_stripes;
+	map->stripe_len = BTRFS_STRIPE_LEN;
+	map->stripe_shift = ilog2(BTRFS_STRIPE_LEN);
 	set_real_chunk_type(map);
 
 	for (int i = 0; i < ctl->ndevs; i++) {
@@ -6381,7 +6389,7 @@ int btrfs_chunk_alloc_add_chunk_item(struct btrfs_trans_handle *trans,
 
 	btrfs_set_stack_chunk_length(chunk, bg->length);
 	btrfs_set_stack_chunk_owner(chunk, BTRFS_EXTENT_TREE_OBJECTID);
-	btrfs_set_stack_chunk_stripe_len(chunk, BTRFS_STRIPE_LEN);
+	btrfs_set_stack_chunk_stripe_len(chunk, map->stripe_len);
 	btrfs_set_stack_chunk_type(chunk, map->on_disk_type);
 	btrfs_set_stack_chunk_num_stripes(chunk, map->num_stripes);
 	btrfs_set_stack_chunk_io_align(chunk, BTRFS_STRIPE_LEN);
@@ -7781,6 +7789,8 @@ static int read_one_chunk(struct btrfs_key *key, struct extent_buffer *leaf,
 	map->chunk_len = length;
 	map->num_stripes = num_stripes;
 	map->on_disk_type = type;
+	map->stripe_len = btrfs_chunk_stripe_len(leaf, chunk);
+	map->stripe_shift = ilog2(map->stripe_len);
 	/*
 	 * We can't use the sub_stripes value, as for profiles other than
 	 * RAID10, they may have 0 as sub_stripes for filesystems created by
