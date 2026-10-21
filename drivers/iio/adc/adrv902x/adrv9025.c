@@ -594,6 +594,22 @@ static IIO_DEVICE_ATTR(calibrate_ext_path_delay_en, 0644,
 		       adrv9025_phy_show, adrv9025_phy_store,
 		       ADRV9025_INIT_CAL | (ADI_ADRV9025_EXTERNAL_PATH_DELAY << 8));
 
+static IIO_DEVICE_ATTR(calibrate_orx_qec_en, 0644,
+		       adrv9025_phy_show, adrv9025_phy_store,
+		       ADRV9025_INIT_CAL | (ADI_ADRV9025_ORX_QEC_INIT << 8));
+
+static IIO_DEVICE_ATTR(calibrate_orx_lo_delay_en, 0644,
+		       adrv9025_phy_show, adrv9025_phy_store,
+		       ADRV9025_INIT_CAL | (ADI_ADRV9025_ORX_LO_DELAY << 8));
+
+static IIO_DEVICE_ATTR(calibrate_adc_en, 0644,
+		       adrv9025_phy_show, adrv9025_phy_store,
+		       ADRV9025_INIT_CAL | (ADI_ADRV9025_ADC_TUNER << 8));
+
+static IIO_DEVICE_ATTR(calibrate_orx_adc_en, 0644,
+		       adrv9025_phy_show, adrv9025_phy_store,
+		       ADRV9025_INIT_CAL | (ADI_ADRV9025_ORX_TIA << 8));
+
 static IIO_DEVICE_ATTR(calibrate_mask, 0644, adrv9025_phy_show,
 		       adrv9025_phy_store, ADRV9025_CAL_MASK);
 
@@ -638,6 +654,10 @@ static struct attribute *adrv9026_phy_attributes[] = {
 	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_ext_path_delay_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_orx_qec_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_orx_lo_delay_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_adc_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_orx_adc_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_mask.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_error.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
@@ -654,6 +674,10 @@ static struct attribute *adrv9029_phy_attributes[] = {
 	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_ext_path_delay_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_orx_qec_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_orx_lo_delay_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_adc_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_orx_adc_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_mask.dev_attr.attr,
 	&iio_dev_attr_dpd_tx_mask.dev_attr.attr,
 	&iio_dev_attr_dpd_reset.dev_attr.attr,
