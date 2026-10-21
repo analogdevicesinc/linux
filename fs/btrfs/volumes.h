@@ -722,9 +722,10 @@ static inline unsigned long btrfs_chunk_item_size(int num_stripes)
  * @stripe_nr is u32, with left shift it can overflow u32 for chunks larger
  * than 4G.  This does the proper type cast to avoid overflow.
  */
-static inline u64 btrfs_stripe_nr_to_offset(u32 stripe_nr)
+static inline u64 btrfs_stripe_nr_to_offset(u32 stripe_nr, u32 stripe_len)
 {
-	return (u64)stripe_nr << BTRFS_STRIPE_LEN_SHIFT;
+	ASSERT(is_power_of_2(stripe_len) && stripe_len <= BTRFS_STRIPE_LEN);
+	return (u64)stripe_nr << ilog2(stripe_len);
 }
 
 void btrfs_get_bioc(struct btrfs_io_context *bioc);

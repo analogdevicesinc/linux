@@ -1425,7 +1425,8 @@ static int get_raid56_logic_offset(u64 physical, int num,
 		u32 stripe_index;
 		u32 rot;
 
-		*offset = last_offset + btrfs_stripe_nr_to_offset(i);
+		*offset = last_offset + btrfs_stripe_nr_to_offset(i,
+							map->stripe_len);
 
 		stripe_nr = (u32)(*offset >> map->stripe_shift) / data_stripes;
 
@@ -1439,7 +1440,7 @@ static int get_raid56_logic_offset(u64 physical, int num,
 		if (stripe_index < num)
 			j++;
 	}
-	*offset = last_offset + btrfs_stripe_nr_to_offset(j);
+	*offset = last_offset + btrfs_stripe_nr_to_offset(j, map->stripe_len);
 	return 1;
 }
 
@@ -1924,7 +1925,8 @@ static void submit_initial_group_read(struct scrub_ctx *sctx,
 	ASSERT(first_slot + nr_stripes <= SCRUB_TOTAL_STRIPES);
 
 	scrub_throttle_dev_io(sctx, sctx->stripes[0].dev,
-			      btrfs_stripe_nr_to_offset(nr_stripes));
+			      btrfs_stripe_nr_to_offset(nr_stripes,
+						sctx->stripes[0].stripe_len));
 	blk_start_plug(&plug);
 	for (int i = 0; i < nr_stripes; i++) {
 		struct scrub_stripe *stripe = &sctx->stripes[first_slot + i];
@@ -2102,7 +2104,7 @@ static int scrub_raid56_cached_parity(struct scrub_ctx *sctx,
 	struct btrfs_raid_bio *rbio;
 	struct bio bio;
 	const int data_stripes = nr_data_stripes(map);
-	u64 length = btrfs_stripe_nr_to_offset(data_stripes);
+	u64 length = btrfs_stripe_nr_to_offset(data_stripes, map->stripe_len);
 	int ret;
 
 	bio_init(&bio, NULL, NULL, 0, REQ_OP_READ);
@@ -2151,6 +2153,7 @@ static int scrub_raid56_parity_stripe(struct scrub_ctx *sctx,
 	BTRFS_PATH_AUTO_RELEASE(csum_path);
 	struct scrub_stripe *stripe;
 	bool all_empty = true;
+	const u32 stripe_len = map->stripe_len;
 	const int data_stripes = nr_data_stripes(map);
 	unsigned long extent_bitmap = 0;
 	int ret;
@@ -2191,14 +2194,15 @@ static int scrub_raid56_parity_stripe(struct scrub_ctx *sctx,
 			      data_stripes) >> map->stripe_shift;
 		stripe_index = (i + rot) % map->num_stripes;
 		physical = map->stripes[stripe_index].physical +
-			   btrfs_stripe_nr_to_offset(rot);
+			   btrfs_stripe_nr_to_offset(rot, stripe_len);
 
 		scrub_reset_stripe(stripe);
 		set_bit(SCRUB_STRIPE_FLAG_NO_REPORT, &stripe->state);
 		ret = scrub_find_fill_first_stripe(bg, &extent_path, &csum_path,
 				map->stripes[stripe_index].dev, physical, 1,
-				full_stripe_start + btrfs_stripe_nr_to_offset(i),
-				map->stripe_len, stripe);
+				full_stripe_start +
+				btrfs_stripe_nr_to_offset(i, stripe_len),
+				stripe_len, stripe);
 		if (ret < 0)
 			return ret;
 		/*
@@ -2207,7 +2211,7 @@ static int scrub_raid56_parity_stripe(struct scrub_ctx *sctx,
 		 */
 		if (ret > 0) {
 			stripe->logical = full_stripe_start +
-					  btrfs_stripe_nr_to_offset(i);
+					  btrfs_stripe_nr_to_offset(i, stripe_len);
 			stripe->dev = map->stripes[stripe_index].dev;
 			stripe->mirror_num = 1;
 			set_bit(SCRUB_STRIPE_FLAG_INITIALIZED, &stripe->state);
@@ -2348,7 +2352,8 @@ static u64 simple_stripe_full_stripe_len(const struct btrfs_chunk_map *map)
 	ASSERT(map->type & (BTRFS_BLOCK_GROUP_RAID0 |
 			    BTRFS_BLOCK_GROUP_RAID10));
 
-	return btrfs_stripe_nr_to_offset(map->num_stripes / map->sub_stripes);
+	return btrfs_stripe_nr_to_offset(map->num_stripes / map->sub_stripes,
+					 map->stripe_len);
 }
 
 /* Get the logical bytenr for the stripe */
@@ -2364,8 +2369,8 @@ static u64 simple_stripe_get_logical(struct btrfs_chunk_map *map,
 	 * (stripe_index / sub_stripes) gives how many data stripes we need to
 	 * skip.
 	 */
-	return btrfs_stripe_nr_to_offset(stripe_index / map->sub_stripes) +
-	       bg->start;
+	return btrfs_stripe_nr_to_offset(stripe_index / map->sub_stripes,
+					 map->stripe_len) + bg->start;
 }
 
 /* Get the mirror number for the stripe */
@@ -2504,7 +2509,8 @@ static noinline_for_stack int scrub_stripe(struct scrub_ctx *sctx,
 	}
 	if (profile & (BTRFS_BLOCK_GROUP_RAID0 | BTRFS_BLOCK_GROUP_RAID10)) {
 		ret = scrub_simple_stripe(sctx, bg, map, scrub_dev, stripe_index);
-		offset = btrfs_stripe_nr_to_offset(stripe_index / map->sub_stripes);
+		offset = btrfs_stripe_nr_to_offset(stripe_index / map->sub_stripes,
+						   stripe_len);
 		goto out;
 	}
 
@@ -2519,7 +2525,7 @@ static noinline_for_stack int scrub_stripe(struct scrub_ctx *sctx,
 
 	/* Initialize @offset in case we need to go to out: label */
 	get_raid56_logic_offset(physical, stripe_index, map, &offset, NULL);
-	increment = btrfs_stripe_nr_to_offset(nr_data_stripes(map));
+	increment = btrfs_stripe_nr_to_offset(nr_data_stripes(map), stripe_len);
 
 	/*
 	 * Due to the rotation, for RAID56 it's better to iterate each stripe

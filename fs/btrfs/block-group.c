@@ -2302,7 +2302,8 @@ int btrfs_rmap_block(struct btrfs_fs_info *fs_info, u64 chunk_start,
 
 	/* For RAID5/6 adjust to a full IO stripe length */
 	if (map->type & BTRFS_BLOCK_GROUP_RAID56_MASK)
-		io_stripe_size = btrfs_stripe_nr_to_offset(nr_data_stripes(map));
+		io_stripe_size = btrfs_stripe_nr_to_offset(nr_data_stripes(map),
+							   map->stripe_len);
 
 	buf = kzalloc_objs(u64, map->num_stripes, GFP_NOFS);
 	if (!buf) {

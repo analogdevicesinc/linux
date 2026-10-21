@@ -1643,7 +1643,9 @@ static int btrfs_load_block_group_raid0(struct btrfs_block_group *bg,
 
 		if (zone_info[i].alloc_offset == WP_CONVENTIONAL) {
 			has_conventional = true;
-			zone_info[i].alloc_offset = btrfs_stripe_nr_to_offset(stripe_nr);
+			zone_info[i].alloc_offset =
+				btrfs_stripe_nr_to_offset(stripe_nr,
+							  map->stripe_len);
 
 			if (stripe_index > i)
 				zone_info[i].alloc_offset += BTRFS_STRIPE_LEN;
@@ -1785,7 +1787,8 @@ static int btrfs_load_block_group_raid10(struct btrfs_block_group *bg,
 
 		if (raid0_allocs[idx] == WP_CONVENTIONAL) {
 			has_conventional = true;
-			raid0_allocs[idx] = btrfs_stripe_nr_to_offset(stripe_nr);
+			raid0_allocs[idx] = btrfs_stripe_nr_to_offset(stripe_nr,
+								map->stripe_len);
 
 			if (stripe_index > idx)
 				raid0_allocs[idx] += BTRFS_STRIPE_LEN;
