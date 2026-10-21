@@ -284,8 +284,6 @@ static int set_device_name(struct led_netdev_data *trigger_data,
 	if (size >= IFNAMSIZ)
 		return -EINVAL;
 
-	cancel_delayed_work_sync(&trigger_data->work);
-
 	memcpy(device_name, name, size);
 	device_name[size] = 0;
 	if (size > 0 && device_name[size - 1] == '\n')
@@ -300,6 +298,8 @@ static int set_device_name(struct led_netdev_data *trigger_data,
 			netdev_lock_ops(new_dev);
 	}
 	mutex_lock(&trigger_data->lock);
+
+	cancel_delayed_work_sync(&trigger_data->work);
 
 	dev_put(trigger_data->net_dev);
 	trigger_data->net_dev = new_dev;
@@ -384,7 +384,7 @@ static ssize_t netdev_led_attr_store(struct device *dev, const char *buf,
 {
 	struct led_netdev_data *trigger_data = led_trigger_get_drvdata(dev);
 	struct led_classdev *led_cdev = trigger_data->led_cdev;
-	unsigned long state, mode = trigger_data->mode;
+	unsigned long state, mode;
 	int ret;
 	int bit;
 
@@ -416,6 +416,9 @@ static ssize_t netdev_led_attr_store(struct device *dev, const char *buf,
 		return -EINVAL;
 	}
 
+	mutex_lock(&trigger_data->lock);
+
+	mode = trigger_data->mode;
 	assign_bit(bit, &mode, state);
 
 	if (test_bit(TRIGGER_NETDEV_LINK, &mode) &&
@@ -428,8 +431,10 @@ static ssize_t netdev_led_attr_store(struct device *dev, const char *buf,
 	     test_bit(TRIGGER_NETDEV_LINK_25000, &mode) ||
 	     test_bit(TRIGGER_NETDEV_LINK_40000, &mode) ||
 	     test_bit(TRIGGER_NETDEV_LINK_50000, &mode) ||
-	     test_bit(TRIGGER_NETDEV_LINK_100000, &mode)))
+	     test_bit(TRIGGER_NETDEV_LINK_100000, &mode))) {
+		mutex_unlock(&trigger_data->lock);
 		return -EINVAL;
+	}
 
 	cancel_delayed_work_sync(&trigger_data->work);
 
@@ -437,10 +442,14 @@ static ssize_t netdev_led_attr_store(struct device *dev, const char *buf,
 	trigger_data->hw_control = can_hw_control(trigger_data);
 
 	if (!led_cdev->brightness_set && !led_cdev->brightness_set_blocking &&
-	    !trigger_data->hw_control)
+	    !trigger_data->hw_control) {
+		mutex_unlock(&trigger_data->lock);
 		return -EOPNOTSUPP;
+	}
 
 	set_baseline_state(trigger_data);
+
+	mutex_unlock(&trigger_data->lock);
 
 	return size;
 }
@@ -493,12 +502,16 @@ static ssize_t interval_store(struct device *dev,
 	unsigned long value;
 	int ret;
 
-	if (trigger_data->hw_control)
-		return -EINVAL;
-
 	ret = kstrtoul(buf, 0, &value);
 	if (ret)
 		return ret;
+
+	mutex_lock(&trigger_data->lock);
+
+	if (trigger_data->hw_control) {
+		mutex_unlock(&trigger_data->lock);
+		return -EINVAL;
+	}
 
 	/* impose some basic bounds on the timer interval */
 	if (value >= 5 && value <= 10000) {
@@ -507,6 +520,8 @@ static ssize_t interval_store(struct device *dev,
 		atomic_set(&trigger_data->interval, msecs_to_jiffies(value));
 		set_baseline_state(trigger_data);	/* resets timer */
 	}
+
+	mutex_unlock(&trigger_data->lock);
 
 	return size;
 }
@@ -628,9 +643,9 @@ static int netdev_trig_notify(struct notifier_block *nb,
 	      (evt == NETDEV_REGISTER && !strcmp(dev->name, trigger_data->device_name))))
 		return NOTIFY_DONE;
 
-	cancel_delayed_work_sync(&trigger_data->work);
-
 	mutex_lock(&trigger_data->lock);
+
+	cancel_delayed_work_sync(&trigger_data->work);
 
 	trigger_data->carrier_link_up = false;
 	trigger_data->link_speed = SPEED_UNKNOWN;
