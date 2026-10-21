@@ -286,6 +286,9 @@ static int aw2013_probe_dt(struct aw2013 *chip)
 			continue;
 		}
 
+		if (i >= AW2013_MAX_LEDS)
+			return -EINVAL;
+
 		led = &chip->leds[i];
 		led->num = source;
 		led->chip = chip;
