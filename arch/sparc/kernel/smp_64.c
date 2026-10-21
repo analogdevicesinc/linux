@@ -991,8 +991,9 @@ void smp_flush_dcache_folio_impl(struct folio *folio, int cpu)
 	put_cpu();
 }
 
-void flush_dcache_folio_all(struct mm_struct *mm, struct folio *folio)
+void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
 {
+	struct folio *folio = page_folio(page);
 	void *pg_addr;
 	u64 data0;
 
@@ -1005,7 +1006,7 @@ void flush_dcache_folio_all(struct mm_struct *mm, struct folio *folio)
 	atomic_inc(&dcpage_flushes);
 #endif
 	data0 = 0;
-	pg_addr = folio_address(folio);
+	pg_addr = page_address(page);
 	if (tlb_type == spitfire) {
 		data0 = ((u64)&xcall_flush_dcache_page_spitfire);
 		if (folio_flush_mapping(folio) != NULL)
@@ -1016,18 +1017,19 @@ void flush_dcache_folio_all(struct mm_struct *mm, struct folio *folio)
 #endif
 	}
 	if (data0) {
-		unsigned int i, nr = folio_nr_pages(folio);
-
-		for (i = 0; i < nr; i++) {
-			xcall_deliver(data0, __pa(pg_addr),
-				      (u64) pg_addr, cpu_online_mask);
+		xcall_deliver(data0, __pa(pg_addr),
+			      (u64)pg_addr, cpu_online_mask);
 #ifdef CONFIG_DEBUG_DCFLUSH
-			atomic_inc(&dcpage_flushes_xcall);
+		atomic_inc(&dcpage_flushes_xcall);
 #endif
-			pg_addr += PAGE_SIZE;
-		}
 	}
-	__local_flush_dcache_folio(folio);
+#ifdef DCACHE_ALIASING_POSSIBLE
+	__flush_dcache_page(pg_addr,
+			    tlb_type == spitfire && folio_flush_mapping(folio));
+#else
+	if (tlb_type == spitfire && folio_flush_mapping(folio))
+		__flush_icache_page(__pa(pg_addr));
+#endif
 
 	preempt_enable();
 }
