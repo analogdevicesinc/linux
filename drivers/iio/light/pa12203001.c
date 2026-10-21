@@ -154,13 +154,12 @@ static inline int pa12203001_px_enable(struct pa12203001_data *data, u8 enable)
 	return 0;
 }
 
-static int pa12203001_set_power_state(struct pa12203001_data *data, bool on,
-				      u8 mask)
+static int pa12203001_runtime_resume_and_get(struct pa12203001_data *data, u8 mask)
 {
 #ifdef CONFIG_PM
 	int ret;
 
-	if (on && (mask & PA12203001_ALS_EN_MASK)) {
+	if (mask & PA12203001_ALS_EN_MASK) {
 		mutex_lock(&data->lock);
 		if (data->px_enabled) {
 			ret = pa12203001_als_enable(data,
@@ -173,7 +172,7 @@ static int pa12203001_set_power_state(struct pa12203001_data *data, bool on,
 		mutex_unlock(&data->lock);
 	}
 
-	if (on && (mask & PA12203001_PX_EN_MASK)) {
+	if (mask & PA12203001_PX_EN_MASK) {
 		mutex_lock(&data->lock);
 		if (data->als_enabled) {
 			ret = pa12203001_px_enable(data, PA12203001_PX_EN_MASK);
@@ -185,10 +184,7 @@ static int pa12203001_set_power_state(struct pa12203001_data *data, bool on,
 		mutex_unlock(&data->lock);
 	}
 
-	if (on)
-		return pm_runtime_resume_and_get(&data->client->dev);
-
-	return pm_runtime_put_autosuspend(&data->client->dev);
+	return pm_runtime_resume_and_get(&data->client->dev);
 
 err:
 	mutex_unlock(&data->lock);
@@ -213,7 +209,7 @@ static int pa12203001_read_raw(struct iio_dev *indio_dev,
 		switch (chan->type) {
 		case IIO_LIGHT:
 			dev_mask = PA12203001_ALS_EN_MASK;
-			ret = pa12203001_set_power_state(data, true, dev_mask);
+			ret = pa12203001_runtime_resume_and_get(data, dev_mask);
 			if (ret < 0)
 				return ret;
 			/*
@@ -226,13 +222,11 @@ static int pa12203001_read_raw(struct iio_dev *indio_dev,
 				goto reg_err;
 
 			*val = le16_to_cpu(reg_word);
-			ret = pa12203001_set_power_state(data, false, dev_mask);
-			if (ret < 0)
-				return ret;
+			pm_runtime_put_autosuspend(&data->client->dev);
 			break;
 		case IIO_PROXIMITY:
 			dev_mask = PA12203001_PX_EN_MASK;
-			ret = pa12203001_set_power_state(data, true, dev_mask);
+			ret = pa12203001_runtime_resume_and_get(data, dev_mask);
 			if (ret < 0)
 				return ret;
 			ret = regmap_read(data->map, PA12203001_REG_PDH,
@@ -241,9 +235,7 @@ static int pa12203001_read_raw(struct iio_dev *indio_dev,
 				goto reg_err;
 
 			*val = reg_byte;
-			ret = pa12203001_set_power_state(data, false, dev_mask);
-			if (ret < 0)
-				return ret;
+			pm_runtime_put_autosuspend(&data->client->dev);
 			break;
 		default:
 			return -EINVAL;
@@ -262,7 +254,7 @@ static int pa12203001_read_raw(struct iio_dev *indio_dev,
 	}
 
 reg_err:
-	pa12203001_set_power_state(data, false, dev_mask);
+	pm_runtime_put_autosuspend(&data->client->dev);
 	return ret;
 }
 
