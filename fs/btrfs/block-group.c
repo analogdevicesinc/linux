@@ -2297,7 +2297,7 @@ int btrfs_rmap_block(struct btrfs_fs_info *fs_info, u64 chunk_start,
 		return -EIO;
 
 	data_stripe_length = map->dev_extent_size;
-	io_stripe_size = BTRFS_STRIPE_LEN;
+	io_stripe_size = map->stripe_len;
 	chunk_start = map->start;
 
 	/* For RAID5/6 adjust to a full IO stripe length */
@@ -2322,9 +2322,9 @@ int btrfs_rmap_block(struct btrfs_fs_info *fs_info, u64 chunk_start,
 			continue;
 
 		stripe_nr = (physical - map->stripes[i].physical) >>
-			    BTRFS_STRIPE_LEN_SHIFT;
+			    map->stripe_shift;
 		offset = (physical - map->stripes[i].physical) &
-			 BTRFS_STRIPE_LEN_MASK;
+			 (map->stripe_len - 1);
 
 		if (map->type & (BTRFS_BLOCK_GROUP_RAID0 |
 				 BTRFS_BLOCK_GROUP_RAID10))

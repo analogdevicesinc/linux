@@ -6168,8 +6168,8 @@ struct btrfs_chunk_map *btrfs_alloc_chunk_map(int num_stripes, gfp_t gfp)
 	RB_CLEAR_NODE(&map->rb_node);
 
 	/*
-	 * Initialize the default stripe len, selftests will utilize them
-	 * without an on-disk chunk item.
+	 * Initialize the default stripe len, selftests and some other call
+	 * sites relies on the sane default value.
 	 */
 	map->stripe_len = BTRFS_STRIPE_LEN;
 	map->stripe_shift = ilog2(map->stripe_len);
@@ -6210,8 +6210,6 @@ static struct btrfs_block_group *create_chunk(struct btrfs_trans_handle *trans,
 	map->on_disk_type = type;
 	map->sub_stripes = ctl->sub_stripes;
 	map->num_stripes = ctl->num_stripes;
-	map->stripe_len = BTRFS_STRIPE_LEN;
-	map->stripe_shift = ilog2(BTRFS_STRIPE_LEN);
 	set_real_chunk_type(map);
 
 	for (int i = 0; i < ctl->ndevs; i++) {
@@ -6393,8 +6391,8 @@ int btrfs_chunk_alloc_add_chunk_item(struct btrfs_trans_handle *trans,
 	btrfs_set_stack_chunk_stripe_len(chunk, map->stripe_len);
 	btrfs_set_stack_chunk_type(chunk, map->on_disk_type);
 	btrfs_set_stack_chunk_num_stripes(chunk, map->num_stripes);
-	btrfs_set_stack_chunk_io_align(chunk, BTRFS_STRIPE_LEN);
-	btrfs_set_stack_chunk_io_width(chunk, BTRFS_STRIPE_LEN);
+	btrfs_set_stack_chunk_io_align(chunk, map->stripe_len);
+	btrfs_set_stack_chunk_io_width(chunk, map->stripe_len);
 	btrfs_set_stack_chunk_sector_size(chunk, fs_info->sectorsize);
 	btrfs_set_stack_chunk_sub_stripes(chunk, map->sub_stripes);
 
@@ -6832,14 +6830,14 @@ struct btrfs_discard_stripe *btrfs_map_discard(struct btrfs_fs_info *fs_info,
 	 * stripe_nr counts the total number of stripes we have to stride
 	 * to get to this block
 	 */
-	stripe_nr = offset >> BTRFS_STRIPE_LEN_SHIFT;
+	stripe_nr = offset >> map->stripe_shift;
 
 	/* stripe_offset is the offset of this block in its stripe */
 	stripe_offset = offset - btrfs_stripe_nr_to_offset(stripe_nr,
 							   stripe_len);
 
-	stripe_nr_end = round_up(offset + length, BTRFS_STRIPE_LEN) >>
-			BTRFS_STRIPE_LEN_SHIFT;
+	stripe_nr_end = round_up(offset + length, stripe_len) >>
+			map->stripe_shift;
 	stripe_cnt = stripe_nr_end - stripe_nr;
 	stripe_end_offset = btrfs_stripe_nr_to_offset(stripe_nr_end, stripe_len) -
 			    (offset + length);
@@ -6894,7 +6892,7 @@ struct btrfs_discard_stripe *btrfs_map_discard(struct btrfs_fs_info *fs_info,
 								      stripe_len);
 
 			if (i / sub_stripes < remaining_stripes)
-				stripes[i].length += BTRFS_STRIPE_LEN;
+				stripes[i].length += stripe_len;
 
 			/*
 			 * Special for the first stripe and
@@ -7035,8 +7033,8 @@ static u64 btrfs_max_io_len(struct btrfs_chunk_map *map, u64 offset,
 	 * Stripe_nr is the stripe where this block falls.  stripe_offset is
 	 * the offset of this block in its stripe.
 	 */
-	io_geom->stripe_offset = offset & BTRFS_STRIPE_LEN_MASK;
-	io_geom->stripe_nr = offset >> BTRFS_STRIPE_LEN_SHIFT;
+	io_geom->stripe_offset = offset & (stripe_len - 1);
+	io_geom->stripe_nr = offset >> map->stripe_shift;
 	ASSERT(io_geom->stripe_offset < U32_MAX,
 	       "stripe_offset=%llu", io_geom->stripe_offset);
 
@@ -7077,7 +7075,7 @@ static u64 btrfs_max_io_len(struct btrfs_chunk_map *map, u64 offset,
 	 * a single disk).
 	 */
 	if (map->type & BTRFS_BLOCK_GROUP_STRIPE_MASK)
-		return BTRFS_STRIPE_LEN - io_geom->stripe_offset;
+		return stripe_len - io_geom->stripe_offset;
 	return U64_MAX;
 }
 
@@ -7741,11 +7739,20 @@ static struct btrfs_device *handle_missing_device(struct btrfs_fs_info *fs_info,
 	return dev;
 }
 
-static bool is_same_chunk_map(const struct btrfs_chunk_map *map, u64 logical,
-			      u64 length, u64 type, u16 num_stripes)
+static bool is_same_chunk_map(const struct btrfs_chunk_map *map,
+			      const struct extent_buffer *leaf,
+			      const struct btrfs_chunk *chunk,
+			      u64 logical)
 {
-	if (map->start != logical || map->chunk_len != length ||
-	    map->on_disk_type != type || map->num_stripes != num_stripes)
+	if (unlikely(map->start != logical))
+		return false;
+	if (unlikely(map->chunk_len != btrfs_chunk_length(leaf, chunk)))
+		return false;
+	if (unlikely(map->on_disk_type != btrfs_chunk_type(leaf, chunk)))
+		return false;
+	if (unlikely(map->stripe_len != btrfs_chunk_stripe_len(leaf, chunk)))
+		return false;
+	if (unlikely(map->num_stripes != btrfs_chunk_num_stripes(leaf, chunk)))
 		return false;
 	return true;
 }
@@ -7760,6 +7767,7 @@ static int read_one_chunk(struct btrfs_key *key, struct extent_buffer *leaf,
 	u64 length;
 	u64 devid;
 	u64 type;
+	u32 stripe_len;
 	u8 uuid[BTRFS_UUID_SIZE];
 	int index;
 	int num_stripes;
@@ -7770,6 +7778,7 @@ static int read_one_chunk(struct btrfs_key *key, struct extent_buffer *leaf,
 	length = btrfs_chunk_length(leaf, chunk);
 	type = btrfs_chunk_type(leaf, chunk);
 	index = btrfs_bg_flags_to_raid_index(type);
+	stripe_len = btrfs_chunk_stripe_len(leaf, chunk);
 	num_stripes = btrfs_chunk_num_stripes(leaf, chunk);
 
 #if BITS_PER_LONG == 32
@@ -7783,8 +7792,7 @@ static int read_one_chunk(struct btrfs_key *key, struct extent_buffer *leaf,
 
 	/* Already mapped? Check if the existing one matches. */
 	if (map) {
-		if (unlikely(!is_same_chunk_map(map, logical, length,
-						type, num_stripes))) {
+		if (unlikely(!is_same_chunk_map(map, leaf, chunk, logical))) {
 			btrfs_err(fs_info,
 		"existing chunk %llu doesn't match the new one at %llu",
 				  map->start, logical);
@@ -7804,7 +7812,7 @@ static int read_one_chunk(struct btrfs_key *key, struct extent_buffer *leaf,
 	map->chunk_len = length;
 	map->num_stripes = num_stripes;
 	map->on_disk_type = type;
-	map->stripe_len = btrfs_chunk_stripe_len(leaf, chunk);
+	map->stripe_len = stripe_len;
 	map->stripe_shift = ilog2(map->stripe_len);
 	/*
 	 * We can't use the sub_stripes value, as for profiles other than
@@ -9087,14 +9095,14 @@ static void map_raid56_repair_block(struct btrfs_io_context *bioc,
 				   btrfs_stripe_nr_to_offset(i, bioc->stripe_len);
 
 		if (logical >= stripe_start &&
-		    logical < stripe_start + BTRFS_STRIPE_LEN)
+		    logical < stripe_start + bioc->stripe_len)
 			break;
 	}
 	ASSERT(i < data_stripes, "i=%d data_stripes=%d", i, data_stripes);
 	smap->dev = bioc->stripes[i].dev;
 	smap->physical = bioc->stripes[i].physical +
 			((logical - bioc->full_stripe_logical) &
-			 BTRFS_STRIPE_LEN_MASK);
+			 (bioc->stripe_len - 1));
 }
 
 /*
