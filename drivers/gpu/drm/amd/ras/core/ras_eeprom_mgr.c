@@ -26,7 +26,6 @@
 #include "ras.h"
 #include "eeprom.h"
 #include "eeprom_fw.h"
-#include "ras_mp1.h"
 
 static bool __ras_eeprom_disabled(struct ras_core_context *ras_core)
 {
@@ -37,36 +36,24 @@ static const struct ras_eeprom_ops *ras_eeprom_mgr_get_ip_func(
 				struct ras_core_context *ras_core, uint32_t ip_version)
 {
 	struct ras_eeprom_mgr *mgr = &ras_core->eeprom_mgr;
-	int ret = 0;
-	u32 status = 0;
-
-	ret = ras_mp1_check_feature_status(ras_core,
-		(enum ras_mp1_feature_id)RAS_CORE_FW_FEATURE_BIT__RAS_EEPROM, &status);
-	if (ret)
-		RAS_DEV_ERR(ras_core->dev, "Check RAS EEPROM feature failed, ret=%d", ret);
 
 	switch (ip_version) {
 	case IP_VERSION(13, 0, 6):
 	case IP_VERSION(13, 0, 12):
 	case IP_VERSION(13, 0, 14):
-	case IP_VERSION(13, 0, 15):
 		mgr->eeprom_early_init_service_supported = false;
-		break;
+		return &ras_drv_eeprom_ops;
+	case IP_VERSION(13, 0, 15):
 	case IP_VERSION(15, 0, 8):
 		mgr->eeprom_early_init_service_supported = true;
-		break;
+		mgr->fw_record_enabled = true;
+		return &ras_fw_eeprom_ops;
 	default:
 		RAS_DEV_ERR(ras_core->dev,
 			"EEPROM(MP1) ip version(0x%x) is not supported!\n", ip_version);
-		return NULL;
 	}
 
-	if (status) {
-		mgr->fw_record_enabled = true;
-		return &ras_fw_eeprom_ops;
-	} else {
-		return &ras_drv_eeprom_ops;
-	}
+	return NULL;
 }
 
 int ras_eeprom_mgr_sw_init(struct ras_core_context *ras_core)
@@ -98,7 +85,7 @@ int ras_eeprom_mgr_sw_init(struct ras_core_context *ras_core)
 	mgr->ras_err_threshold = param_cfg.eeprom_record_threshold_count;
 	mgr->work_mode_over_thresh = param_cfg.work_mode_over_thresh;
 	mgr->eeprom_ip_version = param_cfg.eeprom_ip_version;
-	mgr->eeprom_ops = ras_eeprom_mgr_get_ip_func(ras_core, mgr->eeprom_ip_version);
+	mgr->eeprom_ops = ras_eeprom_mgr_get_ip_func(ras_core, ras_core->config->psp_ip_version);
 	if (!mgr->eeprom_ops)
 		return -ENODEV;
 
