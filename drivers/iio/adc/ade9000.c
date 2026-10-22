@@ -561,6 +561,15 @@ static const struct iio_chan_spec_ext_info ade9000_ext_info[] = {
 	.scan_index = -1						\
 }
 
+/*
+ * The entry macros below carry their own trailing comma so that parts without
+ * a total reactive power register can expand to nothing.
+ */
+#define ADE9000_POWER_REACTIVE_ENTRY(num)				\
+	ADE9000_POWER_REACTIVE_CHANNEL(num),
+
+#define ADE9000_NO_POWER_REACTIVE_ENTRY(num)
+
 #define ADE9000_POWER_APPARENT_CHANNEL(num) {				\
 	.type = IIO_POWER,						\
 	.channel = num,							\
@@ -618,8 +627,10 @@ static const struct iio_chan_spec_ext_info ade9000_ext_info[] = {
 /*
  * Declare a full channel array. @altvoltage_rms picks the RMS voltage channel
  * variant so parts without dip/swell hardware (e.g. ADE9078) omit those events.
+ * @power_reactive picks the total reactive power entry so parts that only
+ * compute fundamental reactive power omit that channel.
  */
-#define ADE9000_DECLARE_CHANNELS(_name, altvoltage_rms)			      \
+#define ADE9000_DECLARE_CHANNELS(_name, altvoltage_rms, power_reactive)	      \
 	static const struct iio_chan_spec _name[] = {			      \
 		/* Phase A channels */					      \
 		ADE9000_CURRENT_CHANNEL(ADE9000_PHASE_A_NR),		      \
@@ -627,7 +638,7 @@ static const struct iio_chan_spec_ext_info ade9000_ext_info[] = {
 		ADE9000_ALTCURRENT_RMS_CHANNEL(ADE9000_PHASE_A_NR),	      \
 		altvoltage_rms(ADE9000_PHASE_A_NR),			      \
 		ADE9000_POWER_ACTIVE_CHANNEL(ADE9000_PHASE_A_NR),	      \
-		ADE9000_POWER_REACTIVE_CHANNEL(ADE9000_PHASE_A_NR),	      \
+		power_reactive(ADE9000_PHASE_A_NR)			      \
 		ADE9000_POWER_APPARENT_CHANNEL(ADE9000_PHASE_A_NR),	      \
 		ADE9000_ENERGY_ACTIVE_CHANNEL(ADE9000_PHASE_A_NR,	      \
 					      ADE9000_REG_AWATTHR_LO),	      \
@@ -642,7 +653,7 @@ static const struct iio_chan_spec_ext_info ade9000_ext_info[] = {
 		ADE9000_ALTCURRENT_RMS_CHANNEL(ADE9000_PHASE_B_NR),	      \
 		altvoltage_rms(ADE9000_PHASE_B_NR),			      \
 		ADE9000_POWER_ACTIVE_CHANNEL(ADE9000_PHASE_B_NR),	      \
-		ADE9000_POWER_REACTIVE_CHANNEL(ADE9000_PHASE_B_NR),	      \
+		power_reactive(ADE9000_PHASE_B_NR)			      \
 		ADE9000_POWER_APPARENT_CHANNEL(ADE9000_PHASE_B_NR),	      \
 		ADE9000_ENERGY_ACTIVE_CHANNEL(ADE9000_PHASE_B_NR,	      \
 					      ADE9000_REG_BWATTHR_LO),	      \
@@ -657,7 +668,7 @@ static const struct iio_chan_spec_ext_info ade9000_ext_info[] = {
 		ADE9000_ALTCURRENT_RMS_CHANNEL(ADE9000_PHASE_C_NR),	      \
 		altvoltage_rms(ADE9000_PHASE_C_NR),			      \
 		ADE9000_POWER_ACTIVE_CHANNEL(ADE9000_PHASE_C_NR),	      \
-		ADE9000_POWER_REACTIVE_CHANNEL(ADE9000_PHASE_C_NR),	      \
+		power_reactive(ADE9000_PHASE_C_NR)			      \
 		ADE9000_POWER_APPARENT_CHANNEL(ADE9000_PHASE_C_NR),	      \
 		ADE9000_ENERGY_ACTIVE_CHANNEL(ADE9000_PHASE_C_NR,	      \
 					      ADE9000_REG_CWATTHR_LO),	      \
@@ -668,8 +679,10 @@ static const struct iio_chan_spec_ext_info ade9000_ext_info[] = {
 		ADE9000_POWER_FACTOR_CHANNEL(ADE9000_PHASE_C_NR),	      \
 	}
 
-ADE9000_DECLARE_CHANNELS(ade9000_channels, ADE9000_ALTVOLTAGE_RMS_CHANNEL);
-ADE9000_DECLARE_CHANNELS(ade9078_channels, ADE9000_ALTVOLTAGE_RMS_CHANNEL_NO_EVENTS);
+ADE9000_DECLARE_CHANNELS(ade9000_channels, ADE9000_ALTVOLTAGE_RMS_CHANNEL,
+			 ADE9000_POWER_REACTIVE_ENTRY);
+ADE9000_DECLARE_CHANNELS(ade9078_channels, ADE9000_ALTVOLTAGE_RMS_CHANNEL_NO_EVENTS,
+			 ADE9000_POWER_REACTIVE_ENTRY);
 
 /*
  * Full-scale codes referred from the respective datasheets. These are the
