@@ -2406,9 +2406,6 @@ static int gfx_v12_1_xcc_kcq_resume(struct amdgpu_device *adev,
 	struct amdgpu_ring *ring = NULL;
 	int r = 0, i;
 
-	if (!amdgpu_async_gfx_ring)
-		gfx_v12_1_xcc_cp_compute_enable(adev, true, xcc_id);
-
 	for (i = 0; i < adev->gfx.num_compute_rings; i++) {
 		ring = &adev->gfx.compute_ring[i + xcc_id * adev->gfx.num_compute_rings];
 

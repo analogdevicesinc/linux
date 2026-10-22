@@ -224,7 +224,6 @@ int amdgpu_smu_pptable_id = -1;
 uint amdgpu_dc_feature_mask = DC_MULTI_MON_PP_MCLK_SWITCH_MASK | DC_FRL_MASK;
 uint amdgpu_dc_debug_mask;
 uint amdgpu_dc_visual_confirm;
-int amdgpu_async_gfx_ring = 1;
 int amdgpu_mcbp = -1;
 int amdgpu_discovery = -1;
 int amdgpu_mes_log_enable;
@@ -667,14 +666,6 @@ module_param_named(cik_support, amdgpu_cik_support, int, 0444);
 MODULE_PARM_DESC(smu_memory_pool_size,
 	"reserve gtt for smu debug usage, 0 = disable,0x1 = 256Mbyte, 0x2 = 512Mbyte, 0x4 = 1 Gbyte, 0x8 = 2GByte");
 module_param_named(smu_memory_pool_size, amdgpu_smu_memory_pool_size, uint, 0444);
-
-/**
- * DOC: async_gfx_ring (int)
- * It is used to enable gfx rings that could be configured with different prioritites or equal priorities
- */
-MODULE_PARM_DESC(async_gfx_ring,
-	"Asynchronous GFX rings that could be configured with either different priorities (HP3D ring and LP3D ring), or equal priorities (0 = disabled, 1 = enabled (default))");
-module_param_named(async_gfx_ring, amdgpu_async_gfx_ring, int, 0444);
 
 /**
  * DOC: mcbp (int)

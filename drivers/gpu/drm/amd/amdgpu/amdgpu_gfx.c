@@ -148,7 +148,7 @@ void amdgpu_gfx_parse_disable_cu(struct amdgpu_device *adev, unsigned int *mask,
 
 static bool amdgpu_gfx_is_graphics_multipipe_capable(struct amdgpu_device *adev)
 {
-	return amdgpu_async_gfx_ring && adev->gfx.me.num_pipe_per_me > 1;
+	return adev->gfx.me.num_pipe_per_me > 1;
 }
 
 static bool amdgpu_gfx_is_compute_multipipe_capable(struct amdgpu_device *adev)
@@ -447,7 +447,7 @@ int amdgpu_gfx_mqd_sw_init(struct amdgpu_device *adev,
 		}
 	}
 
-	if (adev->asic_type >= CHIP_NAVI10 && amdgpu_async_gfx_ring) {
+	if (adev->gfx.me.num_queue_per_pipe > 1) {
 		/* create MQD for each KGQ */
 		for (i = 0; i < adev->gfx.num_gfx_rings; i++) {
 			ring = &adev->gfx.gfx_ring[i];
@@ -503,7 +503,7 @@ void amdgpu_gfx_mqd_sw_fini(struct amdgpu_device *adev, int xcc_id)
 	int i, j;
 	struct amdgpu_kiq *kiq = &adev->gfx.kiq[xcc_id];
 
-	if (adev->asic_type >= CHIP_NAVI10 && amdgpu_async_gfx_ring) {
+	if (adev->gfx.me.num_queue_per_pipe > 1) {
 		for (i = 0; i < adev->gfx.num_gfx_rings; i++) {
 			ring = &adev->gfx.gfx_ring[i];
 			kfree(adev->gfx.me.mqd_backup[i]);
