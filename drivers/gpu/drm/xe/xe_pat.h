@@ -57,8 +57,17 @@ int xe_pat_dump(struct xe_gt *gt, struct drm_printer *p);
 int xe_pat_dump_sw_config(struct xe_gt *gt, struct drm_printer *p);
 
 /**
+ * xe_pat_index_is_valid - Check whether the given pat_index is valid.
+ * @xe: xe device
+ * @pat_index: The pat_index to query
+ *
+ * Return: true if the pat_index entry is valid, false if reserved.
+ */
+bool xe_pat_index_is_valid(struct xe_device *xe, u16 pat_index);
+
+/**
  * xe_pat_index_get_coh_mode - Extract the coherency mode for the given
- * pat_index.
+ * pat_index. Index must be valid for the hw.
  * @xe: xe device
  * @pat_index: The pat_index to query
  */

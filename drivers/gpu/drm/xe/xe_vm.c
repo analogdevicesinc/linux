@@ -3811,17 +3811,13 @@ static int vm_bind_ioctl_check_args(struct xe_device *xe, struct xe_vm *vm,
 
 		pat_index = array_index_nospec(pat_index, xe->pat.n_entries);
 		(*bind_ops)[i].pat_index = pat_index;
-		coh_mode = xe_pat_index_get_coh_mode(xe, pat_index);
-		comp_en = xe_pat_index_get_comp_en(xe, pat_index);
-		if (XE_IOCTL_DBG(xe, !coh_mode)) { /* hw reserved */
+		if (XE_IOCTL_DBG(xe, !xe_pat_index_is_valid(xe, pat_index))) {
 			err = -EINVAL;
 			goto free_bind_ops;
 		}
 
-		if (XE_WARN_ON(coh_mode > XE_COH_2WAY)) {
-			err = -EINVAL;
-			goto free_bind_ops;
-		}
+		coh_mode = xe_pat_index_get_coh_mode(xe, pat_index);
+		comp_en = xe_pat_index_get_comp_en(xe, pat_index);
 
 		if (XE_IOCTL_DBG(xe, op > DRM_XE_VM_BIND_OP_PREFETCH) ||
 		    XE_IOCTL_DBG(xe, flags & ~SUPPORTED_FLAGS) ||
