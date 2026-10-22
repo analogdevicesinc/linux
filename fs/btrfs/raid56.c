@@ -1061,22 +1061,21 @@ static int alloc_rbio_pages(struct btrfs_raid_bio *rbio)
 	return 0;
 }
 
-/* only allocate pages for p/q stripes */
+/*
+ * Allocate pages that cover P/Q blocks.
+ *
+ * For stripe_len < PAGE_SIZE case, we can allocate a page that cover both
+ * data and P/Q blocks.
+ */
 static int alloc_rbio_parity_pages(struct btrfs_raid_bio *rbio)
 {
-	int data_pages;
+	const unsigned int first_pq_page = round_down(rbio->nr_data *
+					rbio->bioc->stripe_len, PAGE_SIZE) >>
+					PAGE_SHIFT;
 	int ret;
 
-	/*
-	 * Page size larger than stripe size, we can not only allocate
-	 * pages for P/Q stripes.
-	 */
-	if (rbio->bioc->stripe_len < PAGE_SIZE)
-		return alloc_rbio_pages(rbio);
-
-	data_pages = rbio->nr_data * (rbio->bioc->stripe_len >> PAGE_SHIFT);
-	ret = btrfs_alloc_page_array(rbio->nr_pages - data_pages,
-				     rbio->stripe_pages + data_pages, GFP_NOFS);
+	ret = btrfs_alloc_page_array(rbio->nr_pages - first_pq_page,
+				     rbio->stripe_pages + first_pq_page, GFP_NOFS);
 	if (ret < 0)
 		return ret;
 
@@ -1653,13 +1652,10 @@ static void submit_read_wait_bio_list(struct btrfs_raid_bio *rbio,
 
 static int alloc_rbio_data_pages(struct btrfs_raid_bio *rbio)
 {
-	int data_pages;
+	const unsigned int data_pages = round_up(rbio->nr_data *
+			rbio->bioc->stripe_len, PAGE_SIZE) >> PAGE_SHIFT;
 	int ret;
 
-	if (rbio->bioc->stripe_len < PAGE_SIZE)
-		return alloc_rbio_pages(rbio);
-
-	data_pages = rbio->nr_data * (rbio->bioc->stripe_len >> PAGE_SHIFT);
 	ret = btrfs_alloc_page_array(data_pages, rbio->stripe_pages, GFP_NOFS);
 	if (ret < 0)
 		return ret;
