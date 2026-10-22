@@ -1124,7 +1124,7 @@ static void kvm_apic_disabled_lapic_found(struct kvm *kvm)
 {
 	if (!kvm->arch.disabled_lapic_found) {
 		kvm->arch.disabled_lapic_found = true;
-		pr_info("Disabled LAPIC found during irq injection\n");
+		pr_info_ratelimited("Disabled LAPIC found during irq injection\n");
 	}
 }
 
@@ -1360,7 +1360,7 @@ int __kvm_irq_delivery_to_apic(struct kvm *kvm, struct kvm_lapic *src,
 
 	if (irq->dest_mode == APIC_DEST_PHYSICAL &&
 	    irq->dest_id == 0xff && kvm_lowest_prio_delivery(irq)) {
-		pr_info("apic: phys broadcast and lowest prio\n");
+		pr_info_ratelimited("apic: phys broadcast and lowest prio\n");
 		irq->delivery_mode = APIC_DM_FIXED;
 	}
 
@@ -1827,8 +1827,8 @@ static int kvm_lapic_reg_read(struct kvm_lapic *apic, u32 offset, int len,
 		memcpy(data, (char *)&result + alignment, len);
 		break;
 	default:
-		printk(KERN_ERR "Local APIC read with len = %x, "
-		       "should be 1,2, or 4 instead\n", len);
+		pr_err_ratelimited("Local APIC read with len = %x, should be 1,2, or 4 instead\n",
+				   len);
 		break;
 	}
 	return 0;
