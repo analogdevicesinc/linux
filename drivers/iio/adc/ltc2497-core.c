@@ -6,7 +6,10 @@
  * Copyright (C) 2017 Analog Devices Inc.
  */
 
+#include <linux/cleanup.h>
 #include <linux/delay.h>
+#include <linux/device/devres.h>
+#include <linux/gfp.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/driver.h>
 #include <linux/math64.h>
@@ -22,19 +25,24 @@
 #define LTC2497_SIGN			BIT(3)
 
 /*
- * Output-rate modes, indexed by ltc2497core_driverdata.speed_2x
- * (0 = 1x, the power-on default; 1 = 2x, LTC2499 only).  The advertised
- * sampling_frequency and the conversion-time budget are two views of the same
- * mode, so they are kept in lock-step here.
+ * Output-rate modes as [rejection][{1x, 2x}], each a (Hz, microHz) pair taken
+ * as 1 / t_CONV typ for that combination.  The advertised sampling_frequency
+ * and the conversion-time budget are two views of the same mode, so the rows
+ * here are kept in lock-step with ltc2497core_conv_time_ms_tbl.
  */
-static const int ltc2497core_samp_freq_avail[] = {
-	6, 800000,	/* 1x: ~6.8 Hz  (1 / t_CONV_1 typ 146.9ms) */
-	13, 600000,	/* 2x: ~13.6 Hz (1 / t_CONV_2 typ  73.6ms) */
+static const int ltc2497core_samp_freq_avail[][4] = {
+	[LTC2499_REJECT_50_60]	= { 6, 800000, 13, 600000 },
+	[LTC2499_REJECT_50]	= { 6, 240000, 12, 450000 },
+	[LTC2499_REJECT_60]	= { 7, 490000, 14, 950000 },
 };
 
-static const unsigned int ltc2497core_conv_time_ms_tbl[] = {
-	LTC2497_CONV_TIME_1X_MS,		/* 1x */
-	LTC2499_CONV_TIME_2X_MS,		/* 2x */
+static const unsigned int ltc2497core_conv_time_ms_tbl[][2] = {
+	[LTC2499_REJECT_50_60]	= { LTC2497_CONV_TIME_50_60_1X_MS,
+				    LTC2499_CONV_TIME_50_60_2X_MS },
+	[LTC2499_REJECT_50]	= { LTC2499_CONV_TIME_50_1X_MS,
+				    LTC2499_CONV_TIME_50_2X_MS },
+	[LTC2499_REJECT_60]	= { LTC2499_CONV_TIME_60_1X_MS,
+				    LTC2499_CONV_TIME_60_2X_MS },
 };
 
 static unsigned int ltc2497core_conv_time_ms(struct ltc2497core_driverdata *ddata,
@@ -42,13 +50,14 @@ static unsigned int ltc2497core_conv_time_ms(struct ltc2497core_driverdata *ddat
 {
 	/*
 	 * SPD is ignored by the part during a temperature measurement: it
-	 * always converts at 1x, so budget the 1x time regardless of the
+	 * always converts at 1x, but the rejection selection still applies, so
+	 * budget the 1x cell of the current rejection row regardless of the
 	 * selected voltage-channel mode.
 	 */
 	if (address == LTC2497_TEMP_ADDR)
-		return ltc2497core_conv_time_ms_tbl[0];
+		return ltc2497core_conv_time_ms_tbl[ddata->rejection][0];
 
-	return ltc2497core_conv_time_ms_tbl[ddata->speed_2x];
+	return ltc2497core_conv_time_ms_tbl[ddata->rejection][ddata->speed_2x];
 }
 
 static int ltc2497core_wait_conv(struct ltc2497core_driverdata *ddata,
@@ -192,11 +201,11 @@ static int ltc2497core_read_raw(struct iio_dev *indio_dev,
 		/*
 		 * Only advertised on the voltage channels of parts with a speed
 		 * mode; the sampling frequency is a property of the selected 1x/2x
-		 * mode, not of an individual conversion.
+		 * mode and rejection mode, not of an individual conversion.
 		 */
 		mutex_lock(&ddata->lock);
-		*val = ltc2497core_samp_freq_avail[ddata->speed_2x * 2];
-		*val2 = ltc2497core_samp_freq_avail[ddata->speed_2x * 2 + 1];
+		*val = ltc2497core_samp_freq_avail[ddata->rejection][ddata->speed_2x * 2];
+		*val2 = ltc2497core_samp_freq_avail[ddata->rejection][ddata->speed_2x * 2 + 1];
 		mutex_unlock(&ddata->lock);
 
 		return IIO_VAL_INT_PLUS_MICRO;
@@ -211,13 +220,17 @@ static int ltc2497core_read_avail(struct iio_dev *indio_dev,
 				  const int **vals, int *type, int *length,
 				  long mask)
 {
-	switch (mask) {
-	case IIO_CHAN_INFO_SAMP_FREQ:
-		*vals = ltc2497core_samp_freq_avail;
-		*type = IIO_VAL_INT_PLUS_MICRO;
-		*length = ARRAY_SIZE(ltc2497core_samp_freq_avail);
-		return IIO_AVAIL_LIST;
+	struct ltc2497core_driverdata *ddata = iio_priv(indio_dev);
 
+	switch (mask) {
+	case IIO_CHAN_INFO_SAMP_FREQ: {
+		guard(mutex)(&ddata->lock);
+
+		*vals = ltc2497core_samp_freq_avail[ddata->rejection];
+		*type = IIO_VAL_INT_PLUS_MICRO;
+		*length = ARRAY_SIZE(ltc2497core_samp_freq_avail[0]);
+		return IIO_AVAIL_LIST;
+	}
 	default:
 		return -EINVAL;
 	}
@@ -228,24 +241,26 @@ static int ltc2497core_write_raw(struct iio_dev *indio_dev,
 				 int val, int val2, long mask)
 {
 	struct ltc2497core_driverdata *ddata = iio_priv(indio_dev);
+	const int *avail;
 	unsigned int i;
-	bool speed_2x;
 
 	switch (mask) {
-	case IIO_CHAN_INFO_SAMP_FREQ:
-		/* Match the (val, val2) pair against the advertised rates. */
-		for (i = 0; i < ARRAY_SIZE(ltc2497core_samp_freq_avail); i += 2) {
-			if (val == ltc2497core_samp_freq_avail[i] &&
-			    val2 == ltc2497core_samp_freq_avail[i + 1])
+	case IIO_CHAN_INFO_SAMP_FREQ: {
+		guard(mutex)(&ddata->lock);
+
+		/*
+		 * Match the (val, val2) pair against the rates advertised for
+		 * the rejection mode currently selected.
+		 */
+		avail = ltc2497core_samp_freq_avail[ddata->rejection];
+		for (i = 0; i < ARRAY_SIZE(ltc2497core_samp_freq_avail[0]); i += 2) {
+			if (val == avail[i] && val2 == avail[i + 1])
 				break;
 		}
-		if (i == ARRAY_SIZE(ltc2497core_samp_freq_avail))
+		if (i == ARRAY_SIZE(ltc2497core_samp_freq_avail[0]))
 			return -EINVAL;
 
-		speed_2x = i / 2;
-
-		mutex_lock(&ddata->lock);
-		ddata->speed_2x = speed_2x;
+		ddata->speed_2x = i / 2;
 		/*
 		 * The new speed only takes effect once the second command byte
 		 * is reprogrammed, so force the next read to reprogram rather
@@ -259,14 +274,72 @@ static int ltc2497core_write_raw(struct iio_dev *indio_dev,
 		 * untouched here.
 		 */
 		ddata->addr_prev = LTC2497_CONFIG_DEFAULT;
-		mutex_unlock(&ddata->lock);
 
 		return 0;
-
+	}
 	default:
 		return -EINVAL;
 	}
 }
+
+static const char * const ltc2497core_filter_modes_str[] = {
+	[LTC2499_REJECT_50_60]	= "50_60",
+	[LTC2499_REJECT_50]	= "50",
+	[LTC2499_REJECT_60]	= "60",
+};
+
+static int ltc2497core_set_filter_mode(struct iio_dev *indio_dev,
+				       const struct iio_chan_spec *chan,
+				       unsigned int val)
+{
+	struct ltc2497core_driverdata *ddata = iio_priv(indio_dev);
+
+	guard(mutex)(&ddata->lock);
+
+	ddata->rejection = val;
+	/*
+	 * The new rejection mode only takes effect once the second command byte
+	 * is reprogrammed, so force the next read to reprogram rather than reuse
+	 * the value already latched for this address.  LTC2497_CONFIG_DEFAULT is
+	 * not a valid channel/temperature address, so it is a safe re-arm
+	 * sentinel (as used at probe).
+	 *
+	 * A conversion started under the old rejection mode may still be in
+	 * flight; its own duration (conv_time_prev), not the new mode's, still
+	 * gates the next reprogram, so the timing state is left untouched here.
+	 */
+	ddata->addr_prev = LTC2497_CONFIG_DEFAULT;
+
+	return 0;
+}
+
+static int ltc2497core_get_filter_mode(struct iio_dev *indio_dev,
+				       const struct iio_chan_spec *chan)
+{
+	struct ltc2497core_driverdata *ddata = iio_priv(indio_dev);
+
+	guard(mutex)(&ddata->lock);
+
+	return ddata->rejection;
+}
+
+static const struct iio_enum ltc2497core_filter_mode_enum = {
+	.items = ltc2497core_filter_modes_str,
+	.num_items = ARRAY_SIZE(ltc2497core_filter_modes_str),
+	.set = ltc2497core_set_filter_mode,
+	.get = ltc2497core_get_filter_mode,
+};
+
+/*
+ * Rejection applies to voltage and temperature alike, so the attribute is
+ * device-wide.
+ */
+static const struct iio_chan_spec_ext_info ltc2497core_ext_info[] = {
+	IIO_ENUM("filter_mode", IIO_SHARED_BY_ALL, &ltc2497core_filter_mode_enum),
+	IIO_ENUM_AVAILABLE("filter_mode", IIO_SHARED_BY_ALL,
+			   &ltc2497core_filter_mode_enum),
+	{ }
+};
 
 #define LTC2497_CHAN(_chan, _addr, _ds_name, _extra_mask) { \
 	.type = IIO_VOLTAGE, \
@@ -380,6 +453,21 @@ int ltc2497core_probe(struct device *dev, struct iio_dev *indio_dev)
 	else
 		indio_dev->num_channels = ARRAY_SIZE(ltc2497core_channel) - 1;
 
+	if (ddata->chip_info->has_rejection_mode) {
+		struct iio_chan_spec *channels;
+
+		channels = devm_kmemdup(dev, indio_dev->channels,
+					indio_dev->num_channels * sizeof(*channels),
+					GFP_KERNEL);
+		if (!channels)
+			return -ENOMEM;
+
+		for (unsigned int i = 0; i < indio_dev->num_channels; i++)
+			channels[i].ext_info = ltc2497core_ext_info;
+
+		indio_dev->channels = channels;
+	}
+
 	ret = ddata->result_and_measure(ddata, LTC2497_CONFIG_DEFAULT, NULL);
 	if (ret < 0)
 		return ret;
@@ -404,8 +492,11 @@ int ltc2497core_probe(struct device *dev, struct iio_dev *indio_dev)
 
 	ddata->addr_prev = LTC2497_CONFIG_DEFAULT;
 	ddata->time_prev = ktime_get();
-	/* Power-on default mode is 1x; a conversion is already in flight. */
-	ddata->conv_time_prev = LTC2497_CONV_TIME_1X_MS;
+	/*
+	 * Power-on default is simultaneous 50/60Hz rejection at 1x; a conversion
+	 * is already in flight.
+	 */
+	ddata->conv_time_prev = LTC2497_CONV_TIME_50_60_1X_MS;
 
 	mutex_init(&ddata->lock);
 
