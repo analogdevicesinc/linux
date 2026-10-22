@@ -82,6 +82,25 @@ static size_t get_sec_buf_len(unsigned int rate, unsigned long channels, snd_pcm
 	return rate * channels * snd_pcm_format_physical_width(format) / 8;
 }
 
+/*
+ * Check interleaved capture data against the patterns. Return the offset of the first wrong
+ * byte, or -1 if all bytes match.
+ */
+static long find_capture_mismatch(const unsigned char *it, struct pcmtest_test_params *params)
+{
+	size_t i, cur_ch, pos_in_ch;
+
+	for (i = 0; i < params->sec_buf_len * params->time; i++) {
+		cur_ch = (i / params->sample_size) % CH_NUM;
+		pos_in_ch = i / params->sample_size / CH_NUM * params->sample_size
+			    + (i % params->sample_size);
+		if (it[i] != patterns[cur_ch].buf[pos_in_ch % patterns[cur_ch].len])
+			return i;
+	}
+
+	return -1;
+}
+
 static int setup_handle(snd_pcm_t **handle, snd_pcm_sw_params_t *swparams,
 			snd_pcm_hw_params_t *hwparams, struct pcmtest_test_params *params,
 			int card, snd_pcm_stream_t stream)
@@ -207,9 +226,7 @@ TEST_F(pcmtest, playback) {
  */
 TEST_F(pcmtest, capture) {
 	snd_pcm_t *handle;
-	unsigned char *it;
 	snd_pcm_sframes_t read_res;
-	int i, cur_ch, pos_in_ch;
 	void *samples;
 	struct pcmtest_test_params *params = &self->params;
 
@@ -226,13 +243,7 @@ TEST_F(pcmtest, capture) {
 	read_res = snd_pcm_readi(handle, samples, params->rate * params->time);
 	ASSERT_EQ(read_res, params->rate * params->time);
 	snd_pcm_close(handle);
-	it = (unsigned char *)samples;
-	for (i = 0; i < self->params.sec_buf_len * self->params.time; i++) {
-		cur_ch = (i / params->sample_size) % CH_NUM;
-		pos_in_ch = i / params->sample_size / CH_NUM * params->sample_size
-			    + (i % params->sample_size);
-		ASSERT_EQ(it[i], patterns[cur_ch].buf[pos_in_ch % patterns[cur_ch].len]);
-	}
+	ASSERT_EQ(find_capture_mismatch(samples, params), -1);
 	free(samples);
 }
 
