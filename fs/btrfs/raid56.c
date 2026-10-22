@@ -307,55 +307,8 @@ static int rbio_bucket(struct btrfs_raid_bio *rbio)
 	return hash_64(num >> 16, BTRFS_STRIPE_HASH_TABLE_BITS);
 }
 
-/* Get the sector number of the first sector covered by @page_nr. */
-static u32 page_nr_to_sector_nr(struct btrfs_raid_bio *rbio, unsigned int page_nr)
-{
-	u32 sector_nr;
-
-	ASSERT(page_nr < rbio->nr_pages);
-
-	sector_nr = (page_nr << PAGE_SHIFT) >> rbio->bioc->fs_info->sectorsize_bits;
-	ASSERT(sector_nr < rbio->nr_sectors);
-	return sector_nr;
-}
-
 /*
- * Get the number of sectors covered by @page_nr.
- *
- * For bs > ps cases, the result will always be 1.
- * For bs <= ps cases, the result will be ps / bs.
- */
-static u32 page_nr_to_num_sectors(struct btrfs_raid_bio *rbio, unsigned int page_nr)
-{
-	struct btrfs_fs_info *fs_info = rbio->bioc->fs_info;
-	u32 nr_sectors;
-
-	ASSERT(page_nr < rbio->nr_pages);
-
-	nr_sectors = round_up(PAGE_SIZE, fs_info->sectorsize) >> fs_info->sectorsize_bits;
-	ASSERT(nr_sectors > 0);
-	return nr_sectors;
-}
-
-static __maybe_unused bool full_page_sectors_uptodate(struct btrfs_raid_bio *rbio,
-						      unsigned int page_nr)
-{
-	const u32 sector_nr = page_nr_to_sector_nr(rbio, page_nr);
-	const u32 nr_bits = page_nr_to_num_sectors(rbio, page_nr);
-	int i;
-
-	ASSERT(page_nr < rbio->nr_pages);
-	ASSERT(sector_nr + nr_bits < rbio->nr_sectors);
-
-	for (i = sector_nr; i < sector_nr + nr_bits; i++) {
-		if (!test_bit(i, rbio->stripe_uptodate_bitmap))
-			return false;
-	}
-	return true;
-}
-
-/*
- * Update the stripe_sectors[] array to use correct page and pgoff
+ * Update the stripe_paddrs[] array to use correct paddr.
  *
  * Should be called every time any page pointer in stripes_pages[] got modified.
  */
@@ -370,82 +323,48 @@ static void index_stripe_sectors(struct btrfs_raid_bio *rbio)
 		int page_index = offset >> PAGE_SHIFT;
 
 		ASSERT(page_index < rbio->nr_pages);
-		if (!rbio->stripe_pages[page_index])
+		if (!rbio->stripe_pages[page_index]) {
+			rbio->stripe_paddrs[i] = INVALID_PADDR;
 			continue;
+		}
 
 		rbio->stripe_paddrs[i] = page_to_phys(rbio->stripe_pages[page_index]) +
 					 offset_in_page(offset);
 	}
 }
 
-static void steal_rbio_page(struct btrfs_raid_bio *src,
-			    struct btrfs_raid_bio *dest, int page_nr)
-{
-	const u32 sector_nr = page_nr_to_sector_nr(src, page_nr);
-	const u32 nr_bits = page_nr_to_num_sectors(src, page_nr);
-
-	ASSERT(page_nr < src->nr_pages);
-	ASSERT(sector_nr + nr_bits < src->nr_sectors);
-
-	if (dest->stripe_pages[page_nr])
-		__free_page(dest->stripe_pages[page_nr]);
-	dest->stripe_pages[page_nr] = src->stripe_pages[page_nr];
-	src->stripe_pages[page_nr] = NULL;
-
-	/* Also update the stripe_uptodate_bitmap bits. */
-	bitmap_set(dest->stripe_uptodate_bitmap, sector_nr, nr_bits);
-}
-
-static bool is_data_stripe_page(struct btrfs_raid_bio *rbio, int page_nr)
-{
-	const int sector_nr = page_nr_to_sector_nr(rbio, page_nr);
-
-	/*
-	 * The caller has ensured stripe_len >= PAGE_SIZE, and PAGE_SIZE is
-	 * aligned with sectorsize, thus we won't have a page which is half
-	 * data half parity.
-	 *
-	 * Thus if the first sector of the page belongs to data stripes, then
-	 * the full page belongs to data stripes.
-	 */
-	return (sector_nr < rbio_nr_data_sectors(rbio));
-}
-
 /*
- * Stealing an rbio means taking all the uptodate pages from the stripe array
- * in the source rbio and putting them into the destination rbio.
+ * Stealing an rbio means taking all pages containing data blocks from the
+ * stripe array in the source rbio and putting them into the destination rbio.
  *
- * This will also update the involved stripe_sectors[] which are referring to
+ * This will also update the involved stripe_paddrs[] which are referring to
  * the old pages.
  */
 static void steal_rbio(struct btrfs_raid_bio *src, struct btrfs_raid_bio *dest)
 {
-	int i;
+	const u32 nr_data_blocks = rbio_nr_data_sectors(src);
+	const u32 last_data_pos = nr_data_blocks << src->bioc->fs_info->sectorsize_bits;
+	const u32 last_pindex = round_up(last_data_pos, PAGE_SIZE) >> PAGE_SHIFT;
 
 	if (!test_bit(RBIO_CACHE_READY_BIT, &src->flags))
 		return;
-	/* Data and P/Q can be mixed into a page, skip stealing. */
-	if (src->bioc->stripe_len < PAGE_SIZE)
-		return;
 
-	for (i = 0; i < dest->nr_pages; i++) {
-		struct page *p = src->stripe_pages[i];
+	/* All data blocks in the src should be uptodate. */
+	ASSERT(bitmap_full(src->stripe_uptodate_bitmap, nr_data_blocks));
 
-		/*
-		 * We don't need to steal P/Q pages as they will always be
-		 * regenerated for RMW or full write anyway.
-		 */
-		if (!is_data_stripe_page(src, i))
-			continue;
+	/* Steal all pages that contains any data block. */
+	for (int i = 0; i < last_pindex; i++) {
+		ASSERT(src->stripe_pages[i]);
 
-		/*
-		 * If @src already has RBIO_CACHE_READY_BIT, it should have
-		 * all data stripe pages present and uptodate.
-		 */
-		ASSERT(p);
-		ASSERT(full_page_sectors_uptodate(src, i));
-		steal_rbio_page(src, dest, i);
+		if (dest->stripe_pages[i])
+			__free_page(dest->stripe_pages[i]);
+		dest->stripe_pages[i] = src->stripe_pages[i];
+		src->stripe_pages[i] = NULL;
 	}
+
+	/* Only data blocks should be set uptodate. */
+	bitmap_set(dest->stripe_uptodate_bitmap, 0, nr_data_blocks);
+
 	index_stripe_sectors(dest);
 	index_stripe_sectors(src);
 }
