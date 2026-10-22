@@ -5,6 +5,7 @@
  *
  * Copyright 2023 Ivan Orlov <ivan.orlov0322@gmail.com>
  */
+#include <errno.h>
 #include <string.h>
 #include <alsa/asoundlib.h>
 #include "kselftest_harness.h"
@@ -56,6 +57,20 @@ static int read_patterns(void)
 	}
 
 	return 0;
+}
+
+static int set_param(const char *name, int value)
+{
+	char path[128];
+	FILE *f;
+
+	sprintf(path, "/sys/module/snd_pcmtest/parameters/%s", name);
+	f = fopen(path, "w");
+	if (!f)
+		return -1;
+	fprintf(f, "%d", value);
+
+	return fclose(f) ? -1 : 0;
 }
 
 static int get_test_results(char *debug_name)
@@ -141,6 +156,10 @@ FIXTURE(pcmtest) {
 };
 
 FIXTURE_TEARDOWN(pcmtest) {
+	set_param("inject_open_err", 0);
+	set_param("inject_hwpars_err", 0);
+	set_param("inject_prepare_err", 0);
+	set_param("inject_trigger_err", 0);
 }
 
 FIXTURE_SETUP(pcmtest) {
@@ -340,6 +359,76 @@ TEST_F(pcmtest, reset_ioctl) {
 	snd_pcm_reset(handle);
 	test_res = get_test_results("ioctl_test");
 	ASSERT_EQ(test_res, 1);
+	snd_pcm_close(handle);
+}
+
+/*
+ * Here we check that an error from each PCM callback reaches user space. The driver returns
+ * the error while the matching 'inject_*_err' parameter is set, and works again once it is
+ * cleared.
+ */
+TEST_F(pcmtest, open_err) {
+	snd_pcm_t *handle;
+	char pcm_name[32];
+
+	sprintf(pcm_name, "hw:%d,0,0", self->card);
+
+	ASSERT_EQ(set_param("inject_open_err", 1), 0);
+	ASSERT_EQ(snd_pcm_open(&handle, pcm_name, SND_PCM_STREAM_PLAYBACK, 0), -EBUSY);
+
+	ASSERT_EQ(set_param("inject_open_err", 0), 0);
+	ASSERT_EQ(snd_pcm_open(&handle, pcm_name, SND_PCM_STREAM_PLAYBACK, 0), 0);
+	snd_pcm_close(handle);
+}
+
+TEST_F(pcmtest, hw_params_err) {
+	snd_pcm_t *handle;
+	char pcm_name[32];
+
+	snd_pcm_hw_params_alloca(&self->hwparams);
+	sprintf(pcm_name, "hw:%d,0,0", self->card);
+	ASSERT_EQ(snd_pcm_open(&handle, pcm_name, SND_PCM_STREAM_PLAYBACK, 0), 0);
+	ASSERT_EQ(snd_pcm_hw_params_any(handle, self->hwparams), 0);
+
+	ASSERT_EQ(set_param("inject_hwpars_err", 1), 0);
+	ASSERT_EQ(snd_pcm_hw_params(handle, self->hwparams), -EBUSY);
+
+	ASSERT_EQ(set_param("inject_hwpars_err", 0), 0);
+	ASSERT_EQ(snd_pcm_hw_params(handle, self->hwparams), 0);
+	snd_pcm_close(handle);
+}
+
+TEST_F(pcmtest, prepare_err) {
+	snd_pcm_t *handle;
+
+	snd_pcm_sw_params_alloca(&self->swparams);
+	snd_pcm_hw_params_alloca(&self->hwparams);
+	ASSERT_EQ(setup_handle(&handle, self->swparams, self->hwparams, &self->params,
+			       self->card, SND_PCM_STREAM_PLAYBACK), 0);
+
+	ASSERT_EQ(set_param("inject_prepare_err", 1), 0);
+	ASSERT_EQ(snd_pcm_prepare(handle), -EINVAL);
+
+	ASSERT_EQ(set_param("inject_prepare_err", 0), 0);
+	ASSERT_EQ(snd_pcm_prepare(handle), 0);
+	snd_pcm_close(handle);
+}
+
+TEST_F(pcmtest, trigger_err) {
+	snd_pcm_t *handle;
+
+	snd_pcm_sw_params_alloca(&self->swparams);
+	snd_pcm_hw_params_alloca(&self->hwparams);
+	ASSERT_EQ(setup_handle(&handle, self->swparams, self->hwparams, &self->params,
+			       self->card, SND_PCM_STREAM_CAPTURE), 0);
+
+	ASSERT_EQ(set_param("inject_trigger_err", 1), 0);
+	ASSERT_EQ(snd_pcm_start(handle), -EINVAL);
+	ASSERT_EQ(snd_pcm_state(handle), SND_PCM_STATE_PREPARED);
+
+	ASSERT_EQ(set_param("inject_trigger_err", 0), 0);
+	ASSERT_EQ(snd_pcm_start(handle), 0);
+	ASSERT_EQ(snd_pcm_state(handle), SND_PCM_STATE_RUNNING);
 	snd_pcm_close(handle);
 }
 
