@@ -1972,8 +1972,10 @@ static ssize_t smu_v15_0_8_get_gpu_metrics(struct smu_context *smu, void **table
 			gpu_metrics->xgmi_link_status[j] = ret;
 	}
 
-	gpu_metrics->xgmi_read_data_acc = SMUQ10_ROUND(metrics->XgmiReadBandwidthAcc);
-	gpu_metrics->xgmi_write_data_acc = SMUQ10_ROUND(metrics->XgmiWriteBandwidthAcc);
+	gpu_metrics->xgmi_read_bandwidth_acc =
+		SMUQ10_ROUND(metrics->XgmiReadBandwidthAcc);
+	gpu_metrics->xgmi_write_bandwidth_acc =
+		SMUQ10_ROUND(metrics->XgmiWriteBandwidthAcc);
 
 	for (i = 0; i < NUM_XCC(adev->gfx.xcc_mask); ++i) {
 		inst = GET_INST(GC, i);

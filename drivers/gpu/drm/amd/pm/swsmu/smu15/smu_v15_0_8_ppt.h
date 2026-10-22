@@ -143,10 +143,10 @@ typedef struct {
 	SMU_ARRAY(SMU_MATTR(XGMI_LINK_STATUS), SMU_MUNIT(NONE),                \
 		  SMU_MTYPE(U16), xgmi_link_status,                            \
 		  SMU_15_0_8_NUM_XGMI_LINKS);                                  \
-	SMU_SCALAR(SMU_MATTR(XGMI_READ_DATA_ACC), SMU_MUNIT(DATA_1),           \
-		   SMU_MTYPE(U64), xgmi_read_data_acc);                        \
-	SMU_SCALAR(SMU_MATTR(XGMI_WRITE_DATA_ACC), SMU_MUNIT(DATA_1),          \
-		   SMU_MTYPE(U64), xgmi_write_data_acc);                                  \
+	SMU_SCALAR(SMU_MATTR(XGMI_READ_BANDWIDTH_ACC), SMU_MUNIT(BW_1),        \
+		   SMU_MTYPE(U64), xgmi_read_bandwidth_acc);                   \
+	SMU_SCALAR(SMU_MATTR(XGMI_WRITE_BANDWIDTH_ACC), SMU_MUNIT(BW_1),       \
+		   SMU_MTYPE(U64), xgmi_write_bandwidth_acc);                  \
 	SMU_SCALAR(SMU_MATTR(FIRMWARE_TIMESTAMP), SMU_MUNIT(TIME_2),           \
 		   SMU_MTYPE(U64), firmware_timestamp);                        \
 	SMU_ARRAY(SMU_MATTR(CURRENT_GFXCLK), SMU_MUNIT(CLOCK_1),               \
