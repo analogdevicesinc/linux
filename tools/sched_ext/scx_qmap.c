@@ -294,7 +294,7 @@ restart:
 	optind = 1;
 	skel = SCX_OPS_CID_OPEN(qmap_ops, scx_qmap);
 
-	skel->rodata->slice_ns = __COMPAT_ENUM_OR_ZERO("scx_public_consts", "SCX_SLICE_DFL");
+	skel->rodata->slice_ns = skel->rodata->__SCX_SLICE_DFL;
 	skel->rodata->max_tasks = 16384;
 
 	while ((opt = getopt(argc, argv,
@@ -512,14 +512,10 @@ restart:
 		       (unsigned long long)qa->nr_expedited_remote,
 		       (unsigned long long)qa->nr_expedited_from_timer,
 		       (unsigned long long)qa->nr_expedited_lost);
-		if (__COMPAT_has_ksym("scx_bpf_cidperf_cur"))
-			printf("cpuperf: cur min/avg/max=%u/%u/%u target min/avg/max=%u/%u/%u\n",
-			       qa->cpuperf_min,
-			       qa->cpuperf_avg,
-			       qa->cpuperf_max,
-			       qa->cpuperf_target_min,
-			       qa->cpuperf_target_avg,
-			       qa->cpuperf_target_max);
+		printf("cpuperf: cur min/avg/max=%u/%u/%u target min/avg/max=%u/%u/%u\n",
+		       qa->cpuperf_min, qa->cpuperf_avg, qa->cpuperf_max,
+		       qa->cpuperf_target_min, qa->cpuperf_target_avg,
+		       qa->cpuperf_target_max);
 
 		invoke_flush_alloc(skel);
 		print_hier(qa, &hprev, own_cgid);
