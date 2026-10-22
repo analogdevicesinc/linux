@@ -78,7 +78,7 @@ int ocfs2_fileattr_get(struct dentry *dentry, struct file_kattr *fa)
 	flags = OCFS2_I(inode)->ip_attr;
 	ocfs2_inode_unlock(inode, 0);
 
-	fileattr_fill_flags(fa, flags & OCFS2_FL_VISIBLE);
+	fileattr_fill_flags(fa, flags & FS_FL_USER_VISIBLE);
 
 	return status;
 }
@@ -105,11 +105,11 @@ int ocfs2_fileattr_set(const struct mnt_idmap *idmap,
 	}
 
 	if (!S_ISDIR(inode->i_mode))
-		flags &= ~OCFS2_DIRSYNC_FL;
+		flags &= ~FS_DIRSYNC_FL;
 
 	oldflags = ocfs2_inode->ip_attr;
-	flags = flags & OCFS2_FL_MODIFIABLE;
-	flags |= oldflags & ~OCFS2_FL_MODIFIABLE;
+	flags = flags & FS_FL_USER_MODIFIABLE;
+	flags |= oldflags & ~FS_FL_USER_MODIFIABLE;
 
 	/* Check already done by VFS, but repeat with ocfs lock */
 	status = -EPERM;
