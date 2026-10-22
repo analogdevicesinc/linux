@@ -430,17 +430,17 @@ static struct gpio_desc *of_get_named_gpiod_flags(const struct device_node *np,
 		return ERR_PTR(ret);
 	}
 
+	struct device_node *chip_np __free(device_node) = gpiospec.np;
+
 	struct gpio_device *gdev __free(gpio_device_put) =
 				of_find_gpio_device_by_xlate(&gpiospec);
-	if (!gdev) {
-		desc = ERR_PTR(-EPROBE_DEFER);
-		goto out;
-	}
+	if (!gdev)
+		return ERR_PTR(-EPROBE_DEFER);
 
 	desc = of_xlate_and_get_gpiod_flags(gpio_device_get_chip(gdev),
 					    &gpiospec, flags);
 	if (IS_ERR(desc))
-		goto out;
+		return desc;
 
 	if (flags)
 		of_gpio_flags_quirks(np, propname, flags, index);
@@ -448,9 +448,6 @@ static struct gpio_desc *of_get_named_gpiod_flags(const struct device_node *np,
 	pr_debug("%s: parsed '%s' property of node '%pOF[%d]' - status (%d)\n",
 		 __func__, propname, np, index,
 		 PTR_ERR_OR_ZERO(desc));
-
-out:
-	of_node_put(gpiospec.np);
 
 	return desc;
 }
