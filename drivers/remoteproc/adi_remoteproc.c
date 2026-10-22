@@ -165,7 +165,6 @@ struct adi_rproc_data {
 	enum adi_rproc_rpmsg_state rpmsg_state;
 	u64 l1_da_range[2];
 	u64 l2_da_range[2];
-	u32 verify;
 	struct adi_sharc_resource_table *adi_rsc_table;
 	struct sharc_resource_table *loaded_rsc_table;
 };
@@ -239,11 +238,6 @@ static void ldr_load(struct adi_rproc_data *rproc_data)
 	u8 *virbuf = (u8 *) rproc_data->mem_virt;
 	dma_addr_t phybuf = rproc_data->mem_handle;
 	int offset;
-// part of verify buffer code
-//	int i;
-//	uint32_t verfied = 0;
-//	uint8_t *pCompareBuffer;
-//	uint8_t *pVerifyBuffer;
 	struct dma_chan *chan = dma_find_channel(DMA_MEMCPY);
 	struct dma_async_tx_descriptor *tx;
 	struct completion cmp;
@@ -278,29 +272,6 @@ static void ldr_load(struct adi_rproc_data *rproc_data)
 							       block_hdr->target_addr,
 							       phybuf + sizeof(struct ldr_hdr),
 							       block_hdr->byte_count, 0);
-
-//				if (rproc_data->verify) {
-//					@todo implement verification
-//					pCompareBuffer = virbuf + sizeof(struct ldr_hdr);
-//					pVerifyBuffer = virbuf + rproc_data->fw_size;
-//
-//					dma_memcpy(phybuf + rproc_data->fw_size,
-//							   block_hdr->target_addr,
-//							   block_hdr->byte_count);
-//
-//					/* check the data */
-//					for (i = 0; i < block_hdr->byte_count; i++) {
-//						if (pCompareBuffer[i] != pVerifyBuffer[i]) {
-//							dev_err(rproc_data->dev,
-//								    "dirty data, compare[%d]:0x%x,"
-//									"verify[%d]:0x%x\n",
-//									i, pCompareBuffer[i], i,
-//									pVerifyBuffer[i]);
-//							verfied++;
-//							break;
-//						}
-//					}
-//				}
 			}
 
 			if (!tx) {
@@ -324,13 +295,6 @@ static void ldr_load(struct adi_rproc_data *rproc_data)
 		virbuf += offset;
 		phybuf += offset;
 	} while (1);
-
-//	if (rproc_data->verify) {
-//		if (verfied == 0)
-//			dev_err(rproc_data->dev, "success to verify all the data\n");
-//		else
-//			dev_err(rproc_data->dev, "fail to verify all the data %d\n", verfied);
-//	}
 }
 
 static int adi_valid_firmware(struct rproc *rproc, const struct firmware *fw)
@@ -944,12 +908,6 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto free_workqueue;
 	}
-
-	rproc_data->verify = 0;
-	of_property_read_u32(np, "adi,verify", &rproc_data->verify);
-	rproc_data->verify = !!rproc_data->verify;
-	if (rproc_data->verify)
-		dev_info(dev, "Load verification enabled\n");
 
 	rproc_data->dev = &pdev->dev;
 	rproc_data->core_id = core_id;
