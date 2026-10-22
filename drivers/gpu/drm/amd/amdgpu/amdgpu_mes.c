@@ -565,6 +565,7 @@ int amdgpu_mes_detect_and_reset_hung_queues(struct amdgpu_device *adev,
 	for (i = 0; i < adev->mes.hung_queue_hqd_info_offset; i++) {
 		/* Finding hung queues where db_array[i] is a valid doorbell */
 		if (db_array[i] != AMDGPU_MES_INVALID_DB_OFFSET) {
+			dev_dbg(adev->dev, "MES: hung queue doorbell 0x%x\n", db_array[i]);
 			hung_db_array[i] = db_array[i];
 			*hung_db_num += 1;
 		}

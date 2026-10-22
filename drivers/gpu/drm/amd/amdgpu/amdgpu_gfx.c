@@ -2504,15 +2504,21 @@ int amdgpu_gfx_reset_mes_compute(struct amdgpu_device *adev,
 	 */
 	r = amdgpu_mes_suspend(adev, xcc_id);
 	/* if suspend all success, it should no hang queue */
-	if (!r)
+	if (!r) {
+		dev_dbg(adev->dev, "Suspend all succeeds. xcc_id %d\n", xcc_id);
 		/* always reset the KCQ/userq since we need to signal the fence
 		 * and we could be stuck in a loop which is preemptable.
 		 */
 		goto fence_reset;
+	}
 	r = amdgpu_mes_detect_and_reset_hung_queues(adev, AMDGPU_RING_TYPE_COMPUTE,
 						    true, &num_hung, adev->gfx.mec.mes_hung_db_array, xcc_id);
-	if (r)
+	if (r) {
+		dev_dbg(adev->dev, "MES fails on detecting hung queues\n");
 		goto out;
+	}
+	dev_dbg(adev->dev, "Detected %d hung queues\n", num_hung);
+
 	if (hung_queue_count)
 		*hung_queue_count = num_hung;
 
@@ -2539,6 +2545,8 @@ fence_reset:
 		pipe = hqd_info[i].pipe_index;
 		queue = hqd_info[i].queue_index;
 		queue_type = hqd_info[i].queue_type;
+		dev_dbg(adev->dev, "Hung queue: queue_id %d at pipe %d type %d\n",
+					queue, pipe, queue_type);
 
 		/* reset any KCQs */
 		r = amdgpu_gfx_reset_mes_kcq(adev, ring,
