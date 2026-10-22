@@ -6737,21 +6737,13 @@ int vmx_handle_exit(struct kvm_vcpu *vcpu, fastpath_t exit_fastpath)
 	if (vmx->vt.emulation_required)
 		return handle_invalid_guest_state(vcpu);
 
-	if (exit_reason.failed_vmentry) {
+	if (exit_reason.failed_vmentry || unlikely(vmx->fail)) {
 		dump_vmcs(vcpu);
 		vcpu->run->exit_reason = KVM_EXIT_FAIL_ENTRY;
-		vcpu->run->fail_entry.hardware_entry_failure_reason
-			= exit_reason.full;
+		vcpu->run->fail_entry.hardware_entry_failure_reason =
+			vmx->fail ? vmcs_read32(VM_INSTRUCTION_ERROR) : exit_reason.full;
 		vcpu->run->fail_entry.cpu = vcpu->arch.last_vmentry_cpu;
-		return 0;
-	}
 
-	if (unlikely(vmx->fail)) {
-		dump_vmcs(vcpu);
-		vcpu->run->exit_reason = KVM_EXIT_FAIL_ENTRY;
-		vcpu->run->fail_entry.hardware_entry_failure_reason
-			= vmcs_read32(VM_INSTRUCTION_ERROR);
-		vcpu->run->fail_entry.cpu = vcpu->arch.last_vmentry_cpu;
 		vmx->fail = 0;
 		return 0;
 	}
