@@ -1,17 +1,22 @@
 .. SPDX-License-Identifier: GPL-2.0
 
-==============================
-ADE9000/ADE9078/ADE9430 driver
-==============================
+======================================
+ADE9000/ADE9039/ADE9078/ADE9430 driver
+======================================
 
-+This driver supports Analog Devices' ADE9000, ADE9078 and ADE9430 energy
-+measurement ICs on SPI bus.
-ICs on SPI bus.
+This driver supports the following Analog Devices energy measurement ICs on
+SPI bus:
+
+* ADE9000
+* ADE9039
+* ADE9078
+* ADE9430
 
 1. Supported devices
 ====================
 
 * `ADE9000 <https://www.analog.com/media/en/technical-documentation/data-sheets/ADE9000.pdf>`_
+* `ADE9039 <https://www.analog.com/media/en/technical-documentation/data-sheets/ADE9039.pdf>`_
 * `ADE9078 <https://www.analog.com/media/en/technical-documentation/data-sheets/ADE9078.pdf>`_
 * `ADE9430 <https://www.analog.com/media/en/technical-documentation/data-sheets/ADE9430.pdf>`_
 
@@ -24,9 +29,15 @@ for the entire channel including a programmable gain amplifier (PGA) and an
 analog-to-digital converter (ADC).
 
 The ADE9078 and ADE9430 do not provide the on-chip dip/swell (sag) detection
-available on the ADE9000, so the RMS voltage swell/dip events described below are
-only available on the ADE9000. The ADE9430 additionally has no on-chip digital
-integrator and instead uses an external analog integrator for Rogowski coils.
+available on the ADE9000 and the ADE9039, so the RMS voltage swell/dip events
+described below are only available on those two parts. The ADE9430 additionally
+has no on-chip digital integrator and instead uses an external analog integrator
+for Rogowski coils.
+
+The ADE9039 computes only fundamental reactive power and has no total reactive
+power register, so the ``in_power[0-2]_reactive_*`` files described below are
+not present on that part. The reactive energy files are unaffected, as every
+supported part accumulates fundamental reactive energy.
 
 2. Device attributes
 ====================
