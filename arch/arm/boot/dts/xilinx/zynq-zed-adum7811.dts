@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices EV-ADuM7811-8FMCZ
+ * https://www.analog.com/en/products/adum7811.html
+ *
+ * hdl_project: <ad7405_fmc/zed>
+ * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/ad7405_fmc
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+
+/dts-v1/;
+#include "zynq-zed-ad7405.dts"
+
+&ad7405 {
+	compatible = "adi,adum7811";
+};
+
+&axi_clk_gen {
+	assigned-clock-rates = <50000000>;
+};
