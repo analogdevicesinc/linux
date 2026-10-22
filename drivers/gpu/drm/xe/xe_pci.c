@@ -824,6 +824,7 @@ static int xe_info_init_early(struct xe_device *xe,
 		desc->has_sriov;
 	xe->info.has_sysctrl = desc->has_sysctrl;
 	xe->info.has_temp_sentinel = desc->has_temp_sentinel;
+	xe->info.require_force_probe = desc->require_force_probe;
 	xe->info.skip_guc_pc = desc->skip_guc_pc;
 	xe->info.skip_pcode = desc->skip_pcode;
 	xe->info.needs_scratch = desc->needs_scratch;
