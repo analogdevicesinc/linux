@@ -5440,9 +5440,11 @@ static int enter_vmx_operation(struct kvm_vcpu *vcpu)
 
 out_shadow_vmcs:
 	kfree(vmx->nested.cached_shadow_vmcs12);
+	vmx->nested.cached_shadow_vmcs12 = NULL;
 
 out_cached_shadow_vmcs12:
 	kfree(vmx->nested.cached_vmcs12);
+	vmx->nested.cached_vmcs12 = NULL;
 
 out_cached_vmcs12:
 	free_loaded_vmcs(&vmx->nested.vmcs02);
