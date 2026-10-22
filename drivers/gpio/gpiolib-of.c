@@ -676,6 +676,35 @@ static struct gpio_desc *of_find_trigger_gpio(struct device_node *np,
 }
 #endif
 
+#if IS_ENABLED(CONFIG_SND_SOC_TWL4030)
+static struct gpio_desc *of_find_twl4030_gpio(struct device_node *np,
+					      const char *con_id,
+					      unsigned int idx,
+					      enum of_gpio_flags *of_flags)
+{
+	const char *legacy_id = "ti,hs_extmute_gpio";
+	struct gpio_desc *desc;
+
+	if (!con_id || strcmp(con_id, "ti,hs_extmute"))
+		return ERR_PTR(-ENOENT);
+
+	if (!of_node_name_eq(np, "codec"))
+		return ERR_PTR(-ENOENT);
+
+	struct device_node *parent __free(device_node) = of_get_parent(np);
+	if (!parent)
+		return ERR_PTR(-ENOENT);
+
+	if (!of_device_is_compatible(parent, "ti,twl4030-audio"))
+		return ERR_PTR(-ENOENT);
+
+	desc = of_get_named_gpiod_flags(np, legacy_id, idx, of_flags);
+	if (!gpiod_not_found(desc))
+		pr_info("%s is using legacy gpio name '%s' instead of '%s-gpios'\n",
+			of_node_full_name(np), legacy_id, con_id);
+	return desc;
+}
+#endif
 
 typedef struct gpio_desc *(*of_find_gpio_quirk)(struct device_node *np,
 						const char *con_id,
@@ -688,6 +717,9 @@ static const of_find_gpio_quirk of_find_gpio_quirks[] = {
 #endif
 #if IS_ENABLED(CONFIG_LEDS_TRIGGER_GPIO)
 	of_find_trigger_gpio,
+#endif
+#if IS_ENABLED(CONFIG_SND_SOC_TWL4030)
+	of_find_twl4030_gpio,
 #endif
 	NULL
 };
