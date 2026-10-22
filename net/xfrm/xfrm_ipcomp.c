@@ -67,7 +67,7 @@ static int ipcomp_post_acomp(struct sk_buff *skb, int err, int hlen)
 
 	/* Only update truesize on input. */
 	if (!hlen)
-		skb->truesize += dlen;
+		skb->truesize += PAGE_ALIGN(dlen);
 	skb->data_len = dlen;
 	skb->len += dlen;
 
