@@ -38,7 +38,6 @@
 /delete-node/ &video_mem;
 /delete-node/ &wifi;
 /delete-node/ &wlan_ce_mem;
-/delete-node/ &wlan_fw_mem;
 /delete-node/ &wpss_mem;
 /delete-node/ &xbl_mem;
 
