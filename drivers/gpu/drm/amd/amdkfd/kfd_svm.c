@@ -1428,6 +1428,7 @@ svm_range_unmap_from_gpu(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 {
 	uint64_t init_pte_value = adev->gmc.init_pte_flags;
 	uint64_t gpu_start, gpu_end;
+	int ret;
 
 	/* Convert CPU page range to GPU page range */
 	gpu_start = start * AMDGPU_GPU_PAGES_IN_CPU_PAGE;
@@ -1436,14 +1437,13 @@ svm_range_unmap_from_gpu(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 	pr_debug("CPU[0x%llx 0x%llx] -> GPU[0x%llx 0x%llx]\n", start, last,
 		gpu_start, gpu_end);
 
-	if (!amdgpu_vm_ready(vm)) {
-		pr_debug("VM not ready, canceling unmap\n");
-		return -EINVAL;
-	}
-
-	return amdgpu_vm_update_range(adev, vm, false, true, true, false, NULL, gpu_start,
+	ret = amdgpu_vm_update_range(adev, vm, false, true, true, false, NULL, gpu_start,
 				      gpu_end, init_pte_value, 0, 0, NULL, NULL,
 				      fence);
+	/* EBUSY here means "vm not ready for updates because it in the process of evicting."
+	 * If that is true, it's safe to not update the range now since the vm is not in use.
+	 */
+	return ret == -EBUSY ? 0 : ret;
 }
 
 static int
