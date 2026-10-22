@@ -298,8 +298,6 @@ static int amdgpu_virt_ras_get_cper_records(struct ras_core_context *ras_core,
 		return RAS_CMD__ERROR_GENERIC;
 	}
 
-	memset(out_buf, 0, req->buf_size);
-
 	for (i = 0; i < req->cper_num; i++) {
 		batch_id = req->cper_start_id + i;
 		if (batch_id >= overview->last_batch_id)

@@ -1091,7 +1091,6 @@ static int ras_eeprom_sw_init(struct ras_core_context *ras_core,
 		return -ENOMEM;
 
 	mgr->ras_eeprom = control;
-	memset(control, 0, sizeof(*control));
 
 	control->mgr = mgr;
 	control->max_read_len = param->max_i2c_read_len;
