@@ -2670,6 +2670,11 @@ sub exclude_global_initialisers {
 sub is_userspace {
     my ($realfile) = @_;
 
+    # Kernel code under tools/: test modules, mocks, code generator templates.
+    return 0 if ($realfile =~ m@^tools/testing/(?:cxl|nvdimm|crypto)/@ ||
+             $realfile =~ m@^tools/testing/selftests/(?:bpf/test_kmods|livepatch/test_modules|mm/page_frag|net/bench/page_pool)/@ ||
+             $realfile =~ m@^tools/(?:power/cpupower/debug/kernel|virtio/vhost_test|verification/rvgen)/@);
+
     return $userspace if (defined $userspace);
 
     return ($realfile =~ m@^tools/@ ||
