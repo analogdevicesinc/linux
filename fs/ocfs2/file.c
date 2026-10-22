@@ -1969,7 +1969,7 @@ out:
  */
 static int __ocfs2_change_file_space(struct file *file, struct inode *inode,
 				     loff_t f_pos, unsigned int cmd,
-				     struct ocfs2_space_resv *sr,
+				     struct space_resv *sr,
 				     int change_size)
 {
 	int ret;
@@ -2033,8 +2033,8 @@ static int __ocfs2_change_file_space(struct file *file, struct inode *inode,
 	}
 	size = sr->l_start + sr->l_len;
 
-	if (cmd == OCFS2_IOC_RESVSP || cmd == OCFS2_IOC_RESVSP64 ||
-	    cmd == OCFS2_IOC_UNRESVSP || cmd == OCFS2_IOC_UNRESVSP64) {
+	if (cmd == FS_IOC_RESVSP || cmd == FS_IOC_RESVSP64 ||
+	    cmd == FS_IOC_UNRESVSP || cmd == FS_IOC_UNRESVSP64) {
 		if (sr->l_len <= 0) {
 			ret = -EINVAL;
 			goto out_inode_unlock;
@@ -2051,8 +2051,8 @@ static int __ocfs2_change_file_space(struct file *file, struct inode *inode,
 
 	down_write(&OCFS2_I(inode)->ip_alloc_sem);
 	switch (cmd) {
-	case OCFS2_IOC_RESVSP:
-	case OCFS2_IOC_RESVSP64:
+	case FS_IOC_RESVSP:
+	case FS_IOC_RESVSP64:
 		/*
 		 * This takes unsigned offsets, but the signed ones we
 		 * pass have been checked against overflow above.
@@ -2060,8 +2060,8 @@ static int __ocfs2_change_file_space(struct file *file, struct inode *inode,
 		ret = ocfs2_allocate_unwritten_extents(inode, sr->l_start,
 						       sr->l_len);
 		break;
-	case OCFS2_IOC_UNRESVSP:
-	case OCFS2_IOC_UNRESVSP64:
+	case FS_IOC_UNRESVSP:
+	case FS_IOC_UNRESVSP64:
 		ret = ocfs2_remove_inode_range(inode, di_bh, sr->l_start,
 					       sr->l_len);
 		break;
@@ -2115,16 +2115,16 @@ out:
 }
 
 int ocfs2_change_file_space(struct file *file, unsigned int cmd,
-			    struct ocfs2_space_resv *sr)
+			    struct space_resv *sr)
 {
 	struct inode *inode = file_inode(file);
 	struct ocfs2_super *osb = OCFS2_SB(inode->i_sb);
 	int ret;
 
-	if ((cmd == OCFS2_IOC_RESVSP || cmd == OCFS2_IOC_RESVSP64) &&
+	if ((cmd == FS_IOC_RESVSP || cmd == FS_IOC_RESVSP64) &&
 	    !ocfs2_writes_unwritten_extents(osb))
 		return -ENOTTY;
-	else if ((cmd == OCFS2_IOC_UNRESVSP || cmd == OCFS2_IOC_UNRESVSP64) &&
+	else if ((cmd == FS_IOC_UNRESVSP || cmd == FS_IOC_UNRESVSP64) &&
 		 !ocfs2_sparse_alloc(osb))
 		return -ENOTTY;
 
@@ -2147,9 +2147,9 @@ static long ocfs2_fallocate(struct file *file, int mode, loff_t offset,
 {
 	struct inode *inode = file_inode(file);
 	struct ocfs2_super *osb = OCFS2_SB(inode->i_sb);
-	struct ocfs2_space_resv sr;
+	struct space_resv sr;
 	int change_size = 1;
-	int cmd = OCFS2_IOC_RESVSP64;
+	int cmd = FS_IOC_RESVSP64;
 	int ret = 0;
 
 	if (mode & ~(FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE))
@@ -2166,7 +2166,7 @@ static long ocfs2_fallocate(struct file *file, int mode, loff_t offset,
 	}
 
 	if (mode & FALLOC_FL_PUNCH_HOLE)
-		cmd = OCFS2_IOC_UNRESVSP64;
+		cmd = FS_IOC_UNRESVSP64;
 
 	sr.l_whence = 0;
 	sr.l_start = (s64)offset;
