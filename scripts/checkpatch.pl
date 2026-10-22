@@ -7224,8 +7224,8 @@ sub process {
 			     "unchecked sscanf return value\n" . "$here\n$stat_real\n");
 		}
 
-# check for simple sscanf that should be kstrto<foo>
-		if ($perl_version_ok &&
+# check for simple sscanf that should be kstrto<foo> (not available in userspace)
+		if ($perl_version_ok && !is_userspace($realfile) &&
 		    defined $stat &&
 		    $line =~ /\bsscanf\b/) {
 			my $lc = $stat =~ tr@\n@@;
