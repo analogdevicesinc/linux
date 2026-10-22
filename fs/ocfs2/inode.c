@@ -107,16 +107,16 @@ void ocfs2_set_inode_flags(struct inode *inode)
 	inode->i_flags &= ~(S_IMMUTABLE |
 		S_SYNC | S_APPEND | S_NOATIME | S_DIRSYNC);
 
-	if (flags & OCFS2_IMMUTABLE_FL)
+	if (flags & FS_IMMUTABLE_FL)
 		inode->i_flags |= S_IMMUTABLE;
 
-	if (flags & OCFS2_SYNC_FL)
+	if (flags & FS_SYNC_FL)
 		inode->i_flags |= S_SYNC;
-	if (flags & OCFS2_APPEND_FL)
+	if (flags & FS_APPEND_FL)
 		inode->i_flags |= S_APPEND;
-	if (flags & OCFS2_NOATIME_FL)
+	if (flags & FS_NOATIME_FL)
 		inode->i_flags |= S_NOATIME;
-	if (flags & OCFS2_DIRSYNC_FL)
+	if (flags & FS_DIRSYNC_FL)
 		inode->i_flags |= S_DIRSYNC;
 }
 
@@ -125,18 +125,18 @@ void ocfs2_get_inode_flags(struct ocfs2_inode_info *oi)
 {
 	unsigned int flags = oi->vfs_inode.i_flags;
 
-	oi->ip_attr &= ~(OCFS2_SYNC_FL|OCFS2_APPEND_FL|
-			OCFS2_IMMUTABLE_FL|OCFS2_NOATIME_FL|OCFS2_DIRSYNC_FL);
+	oi->ip_attr &= ~(FS_SYNC_FL | FS_APPEND_FL | FS_IMMUTABLE_FL |
+			FS_NOATIME_FL | FS_DIRSYNC_FL);
 	if (flags & S_SYNC)
-		oi->ip_attr |= OCFS2_SYNC_FL;
+		oi->ip_attr |= FS_SYNC_FL;
 	if (flags & S_APPEND)
-		oi->ip_attr |= OCFS2_APPEND_FL;
+		oi->ip_attr |= FS_APPEND_FL;
 	if (flags & S_IMMUTABLE)
-		oi->ip_attr |= OCFS2_IMMUTABLE_FL;
+		oi->ip_attr |= FS_IMMUTABLE_FL;
 	if (flags & S_NOATIME)
-		oi->ip_attr |= OCFS2_NOATIME_FL;
+		oi->ip_attr |= FS_NOATIME_FL;
 	if (flags & S_DIRSYNC)
-		oi->ip_attr |= OCFS2_DIRSYNC_FL;
+		oi->ip_attr |= FS_DIRSYNC_FL;
 }
 
 struct inode *ocfs2_ilookup(struct super_block *sb, u64 blkno)
