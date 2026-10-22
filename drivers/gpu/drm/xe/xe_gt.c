@@ -68,6 +68,7 @@
 #include "xe_uc_fw.h"
 #include "xe_vm.h"
 #include "xe_wa.h"
+#include "xe_wedge.h"
 #include "xe_wopcm.h"
 
 #define GRDOM_RESET_TIMEOUT_MS	5
@@ -950,7 +951,7 @@ static void gt_reset_worker(struct work_struct *w)
 	unsigned int fw_ref;
 	int err;
 
-	if (xe_device_wedged(gt_to_xe(gt)))
+	if (xe_wedged(gt_to_xe(gt)))
 		goto err_pm_put;
 
 	if (xe_device_is_in_reset(gt_to_xe(gt)))
@@ -1009,8 +1010,7 @@ err_out:
 
 err_fail:
 	xe_log_err_fatal(gt, GT, err, "reset failed\n");
-	xe_device_declare_wedged(gt_to_xe(gt),
-				 DRM_WEDGE_RECOVERY_REBIND | DRM_WEDGE_RECOVERY_BUS_RESET);
+	xe_wedge_declare(gt_to_xe(gt), DRM_WEDGE_RECOVERY_REBIND | DRM_WEDGE_RECOVERY_BUS_RESET);
 err_pm_put:
 	xe_pm_runtime_put(gt_to_xe(gt));
 }
@@ -1217,19 +1217,19 @@ static void gt_wedge_worker(struct work_struct *w)
 {
 	struct xe_gt *gt = container_of(w, typeof(*gt), wedge.worker);
 
-	xe_uc_declare_wedged(&gt->uc);
+	xe_uc_wedge_declare(&gt->uc);
 	xe_tlb_inval_reset(&gt->tlb_inval);
 	xe_pm_runtime_put(gt_to_xe(gt));
 }
 
 /**
- * xe_gt_declare_wedged() - Declare GT wedged
+ * xe_gt_wedge_declare() - Declare GT wedged
  * @gt: the GT object
  *
  * Wedge the GT which stops all submission, saves desired debug state, and
  * cleans up anything which could timeout.
  */
-void xe_gt_declare_wedged(struct xe_gt *gt)
+void xe_gt_wedge_declare(struct xe_gt *gt)
 {
 	struct xe_device *xe = gt_to_xe(gt);
 

@@ -211,11 +211,6 @@ bool xe_device_is_l2_flush_optimized(struct xe_device *xe);
 void xe_device_td_flush(struct xe_device *xe);
 void xe_device_l2_flush(struct xe_device *xe, bool force);
 
-static inline bool xe_device_wedged(struct xe_device *xe)
-{
-	return atomic_read(&xe->wedged.flag);
-}
-
 #ifdef CONFIG_DRM_XE_DEBUG_PAGE_SIZE
 static inline bool xe_debug_page_size_supported(struct xe_device *xe)
 {
@@ -263,10 +258,6 @@ static inline bool xe_debug_page_size_mode_is_mixed(struct xe_device *xe)
 	return false;
 }
 #endif
-
-void xe_device_declare_wedged(struct xe_device *xe, unsigned long method);
-int xe_device_validate_wedged_mode(struct xe_device *xe, unsigned int mode);
-const char *xe_wedged_mode_to_string(enum xe_wedged_mode mode);
 
 struct xe_file *xe_file_get(struct xe_file *xef);
 void xe_file_put(struct xe_file *xef);

@@ -19,6 +19,7 @@
 #include "xe_sysctrl_mailbox.h"
 #include "xe_sysctrl_mailbox_types.h"
 #include "xe_ttm_vram_mgr.h"
+#include "xe_wedge.h"
 
 /* Any non-null entry marks the page as offlined by firmware */
 #define XE_RAS_PAGE_OFFLINED		xa_mk_value(1)
@@ -563,7 +564,7 @@ static u8 handle_core_compute_errors(struct xe_ras_error_array *arr)
 
 static void punit_error_handler(struct xe_device *xe)
 {
-	xe_device_declare_wedged(xe, DRM_WEDGE_RECOVERY_COLD_RESET);
+	xe_wedge_declare(xe, DRM_WEDGE_RECOVERY_COLD_RESET);
 }
 
 static u8 handle_soc_internal_errors(struct xe_device *xe, struct xe_ras_error_array *arr)

@@ -81,6 +81,7 @@
 #include "xe_vsec.h"
 #include "xe_wait_user_fence.h"
 #include "xe_wa.h"
+#include "xe_wedge.h"
 
 #include <generated/xe_device_wa_oob.h>
 #include <generated/xe_wa_oob.h>
@@ -238,7 +239,7 @@ static long xe_drm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	struct xe_device *xe = to_xe_device(file_priv->minor->dev);
 	long ret;
 
-	if (xe_device_wedged(xe))
+	if (xe_wedged(xe))
 		return -ECANCELED;
 
 	ACQUIRE(xe_pm_runtime_ioctl, pm)(xe);
@@ -256,7 +257,7 @@ static long xe_drm_compat_ioctl(struct file *file, unsigned int cmd, unsigned lo
 	struct xe_device *xe = to_xe_device(file_priv->minor->dev);
 	long ret;
 
-	if (xe_device_wedged(xe))
+	if (xe_wedged(xe))
 		return -ECANCELED;
 
 	ACQUIRE(xe_pm_runtime_ioctl, pm)(xe);
@@ -697,16 +698,6 @@ static int xe_device_vram_alloc(struct xe_device *xe)
 	return 0;
 }
 
-static void wedged_work(struct work_struct *work);
-static void xe_device_wedged_fini(struct drm_device *drm, void *arg);
-
-static int xe_device_wedged_init(struct xe_device *xe)
-{
-	INIT_WORK(&xe->wedged.work, wedged_work);
-
-	return drmm_add_action_or_reset(&xe->drm, xe_device_wedged_fini, xe);
-}
-
 /**
  * xe_device_probe_early: Device early probe
  * @xe: xe device instance
@@ -766,16 +757,11 @@ int xe_device_probe_early(struct xe_device *xe)
 	 */
 	assert_lmem_ready(xe);
 
-	xe->wedged.mode = xe_device_validate_wedged_mode(xe, xe_modparam.wedged_mode) ?
-			  XE_DEFAULT_WEDGED_MODE : xe_modparam.wedged_mode;
-	drm_dbg(&xe->drm, "wedged_mode: setting mode (%u) %s\n",
-		xe->wedged.mode, xe_wedged_mode_to_string(xe->wedged.mode));
-
 	err = xe_device_vram_alloc(xe);
 	if (err)
 		return err;
 
-	err = xe_device_wedged_init(xe);
+	err = xe_wedge_init(xe);
 	if (err)
 		return err;
 
@@ -863,14 +849,6 @@ static void detect_preproduction_hw(struct xe_device *xe)
 		xe_err(xe, "Pre-production workarounds for this platform have already been removed.\n");
 		add_taint(TAINT_MACHINE_CHECK, LOCKDEP_STILL_OK);
 	}
-}
-
-static void xe_device_wedged_fini(struct drm_device *drm, void *arg)
-{
-	struct xe_device *xe = arg;
-
-	if (atomic_read(&xe->wedged.flag))
-		xe_pm_runtime_put(xe);
 }
 
 #ifdef CONFIG_DRM_XE_DEBUG_PAGE_SIZE
@@ -1116,7 +1094,7 @@ int xe_device_probe(struct xe_device *xe)
 	/*
 	 * Process and log any errors detected by hardware. Possible results can
 	 * include declaring the device as wedged, which must be done only after
-	 * xe_device_wedged_fini() is registered.
+	 * xe_wedge_fini() is registered.
 	 */
 	xe_ras_process_errors(xe);
 
@@ -1353,153 +1331,6 @@ u64 xe_device_canonicalize_addr(struct xe_device *xe, u64 address)
 u64 xe_device_uncanonicalize_addr(struct xe_device *xe, u64 address)
 {
 	return address & GENMASK_ULL(xe->info.va_bits - 1, 0);
-}
-
-/**
- * DOC: Xe Device Wedging
- *
- * Xe driver uses drm device wedged uevent as documented in Documentation/gpu/drm-uapi.rst.
- * When device is in wedged state, every IOCTL will be blocked and GT cannot
- * be used. The conditions under which the driver declares the device wedged
- * depend on the wedged mode configuration (see &enum xe_wedged_mode). The
- * default recovery method for a wedged state is rebind/bus-reset.
- *
- * Another recovery method is vendor-specific. Below are the cases that send
- * ``WEDGED=vendor-specific`` recovery method in drm device wedged uevent.
- *
- * Case: Firmware Flash
- * --------------------
- *
- * Identification Hint
- * +++++++++++++++++++
- *
- * ``WEDGED=vendor-specific`` drm device wedged uevent with
- * :ref:`Runtime Survivability mode <xe-survivability-mode>` is used to notify
- * admin/userspace consumer about the need for a firmware flash.
- *
- * Recovery Procedure
- * ++++++++++++++++++
- *
- * Once ``WEDGED=vendor-specific`` drm device wedged uevent is received, follow
- * the below steps
- *
- * - Check Runtime Survivability mode sysfs.
- *   If enabled, firmware flash is required to recover the device.
- *
- *   /sys/bus/pci/devices/<device>/survivability_mode
- *
- * - Admin/userspace consumer can use firmware flashing tools like fwupd to flash
- *   firmware and restore device to normal operation.
- */
-
-static void wedged_work(struct work_struct *work)
-{
-	struct xe_device *xe = container_of(work, struct xe_device, wedged.work);
-
-	/* Notify userspace of wedged device */
-	drm_dev_wedged_event(&xe->drm, xe->wedged.method, NULL);
-}
-
-#define WEDGED_URL	"https://docs.kernel.org/gpu/drm-uapi.html#device-wedging"
-#define XE_BUG_URL	"https://gitlab.freedesktop.org/drm/xe/kernel/issues/new"
-
-/**
- * xe_device_declare_wedged - Declare device wedged
- * @xe: xe device instance
- * @method: method(s) to be used for recovery
- *
- * This is a final state that can only be cleared with the recovery method
- * specified in the drm wedged uevent.
- *
- * In this state every IOCTL will be blocked so the GT cannot be used.
- * In general it will be called upon any critical error such as gt reset
- * failure or guc loading failure. Userspace will be notified of this state
- * through device wedged uevent.
- * If xe.wedged module parameter is set to 2, this function will be called
- * on every single execution timeout (a.k.a. GPU hang) right after devcoredump
- * snapshot capture. In this mode, GT reset won't be attempted so the state of
- * the issue is preserved for further debugging.
- */
-void xe_device_declare_wedged(struct xe_device *xe, unsigned long method)
-{
-	struct xe_gt *gt;
-	u8 id;
-
-	if (xe->wedged.mode == XE_WEDGED_MODE_NEVER) {
-		drm_dbg(&xe->drm, "Wedged mode is forcibly disabled\n");
-		return;
-	}
-
-	if (!atomic_xchg(&xe->wedged.flag, 1)) {
-		xe->needs_flr_on_fini = true;
-		xe_pm_runtime_get_noresume(xe);
-
-		xe_log_err_fatal(xe, WEDGED, -EIO, "Device declared wedged!\n");
-		xe_err_once(xe, "IOCTLs and executions are now blocked!\n"
-			    "For recovery procedure, refer to %s\n"
-			    "Please file a _new_ bug report at %s\n",
-			    WEDGED_URL, XE_BUG_URL);
-
-		for_each_initialized_gt(gt, xe, id)
-			xe_gt_declare_wedged(gt);
-
-		/*
-		 * XE_WEDGED_MODE_UPON_ANY_HANG_NO_RESET is intended for debugging
-		 * hangs, so wedge the device with 'none' recovery method and have
-		 * it available to the user for debugging.
-		 */
-		if (xe->wedged.mode == XE_WEDGED_MODE_UPON_ANY_HANG_NO_RESET)
-			xe->wedged.method = DRM_WEDGE_RECOVERY_NONE;
-		else
-			xe->wedged.method = method;
-
-		schedule_work(&xe->wedged.work);
-	}
-}
-
-/**
- * xe_device_validate_wedged_mode - Check if given mode is supported
- * @xe: the &xe_device
- * @mode: requested mode to validate
- *
- * Check whether the provided wedged mode is supported.
- *
- * Return: 0 if mode is supported, error code otherwise.
- */
-int xe_device_validate_wedged_mode(struct xe_device *xe, unsigned int mode)
-{
-	if (mode > XE_WEDGED_MODE_UPON_ANY_HANG_NO_RESET) {
-		drm_dbg(&xe->drm, "wedged_mode: invalid value (%u)\n", mode);
-		return -EINVAL;
-	} else if (mode == XE_WEDGED_MODE_UPON_ANY_HANG_NO_RESET && (IS_SRIOV_VF(xe) ||
-		   (IS_SRIOV_PF(xe) && !IS_ENABLED(CONFIG_DRM_XE_DEBUG)))) {
-		drm_dbg(&xe->drm, "wedged_mode: (%u) %s mode is not supported for %s\n",
-			mode, xe_wedged_mode_to_string(mode),
-			xe_sriov_mode_to_string(xe_device_sriov_mode(xe)));
-		return -EPERM;
-	}
-
-	return 0;
-}
-
-/**
- * xe_wedged_mode_to_string - Convert enum value to string.
- * @mode: the &xe_wedged_mode to convert
- *
- * Returns: wedged mode as a user friendly string.
- */
-const char *xe_wedged_mode_to_string(enum xe_wedged_mode mode)
-{
-	switch (mode) {
-	case XE_WEDGED_MODE_NEVER:
-		return "never";
-	case XE_WEDGED_MODE_UPON_CRITICAL_ERROR:
-		return "upon-critical-error";
-	case XE_WEDGED_MODE_UPON_ANY_HANG_NO_RESET:
-		return "upon-any-hang-no-reset";
-	default:
-		return "<invalid>";
-	}
 }
 
 /**

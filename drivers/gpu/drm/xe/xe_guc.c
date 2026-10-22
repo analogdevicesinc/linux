@@ -1831,13 +1831,13 @@ int xe_guc_print_info(struct xe_guc *guc, struct drm_printer *p)
 }
 
 /**
- * xe_guc_declare_wedged() - Declare GuC wedged
+ * xe_guc_wedge_declare() - Declare GuC wedged
  * @guc: the GuC object
  *
  * Wedge the GuC which stops all submission, saves desired debug state, and
  * cleans up anything which could timeout.
  */
-void xe_guc_declare_wedged(struct xe_guc *guc)
+void xe_guc_wedge_declare(struct xe_guc *guc)
 {
 	xe_gt_assert(guc_to_gt(guc), guc_to_xe(guc)->wedged.mode);
 

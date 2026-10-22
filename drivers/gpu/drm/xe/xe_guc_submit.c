@@ -50,6 +50,7 @@
 #include "xe_trace.h"
 #include "xe_uc_fw.h"
 #include "xe_vm.h"
+#include "xe_wedge.h"
 
 #define XE_GUC_EXEC_QUEUE_CGP_CONTEXT_ERROR_LEN		6
 
@@ -1455,10 +1456,10 @@ static bool guc_submit_hint_wedged(struct xe_guc *guc)
 	if (xe->wedged.mode != XE_WEDGED_MODE_UPON_ANY_HANG_NO_RESET)
 		return false;
 
-	if (xe_device_wedged(xe))
+	if (xe_wedged(xe))
 		return true;
 
-	xe_device_declare_wedged(xe, DRM_WEDGE_RECOVERY_REBIND | DRM_WEDGE_RECOVERY_BUS_RESET);
+	xe_wedge_declare(xe, DRM_WEDGE_RECOVERY_REBIND | DRM_WEDGE_RECOVERY_BUS_RESET);
 
 	return true;
 }
@@ -1671,7 +1672,7 @@ guc_exec_queue_timedout_job(struct drm_sched_job *drm_job)
 	if (!exec_queue_killed(q))
 		wedged = guc_submit_hint_wedged(exec_queue_to_guc(q));
 	else
-		wedged = xe_device_wedged(xe);
+		wedged = xe_wedged(xe);
 
 	/*
 	 * Only tag as GPU hang if this is the original timeout, not a
@@ -1791,8 +1792,8 @@ trigger_reset:
 	}
 
 	if (wedge_device)
-		xe_device_declare_wedged(gt_to_xe(q->gt),
-					 DRM_WEDGE_RECOVERY_REBIND | DRM_WEDGE_RECOVERY_BUS_RESET);
+		xe_wedge_declare(gt_to_xe(q->gt),
+				 DRM_WEDGE_RECOVERY_REBIND | DRM_WEDGE_RECOVERY_BUS_RESET);
 
 	/*
 	 * We want the job added back to the pending list so it gets freed; this
@@ -2557,7 +2558,7 @@ retry:
 						       WAIT_COND, HZ * 5);
 	}
 
-	if (!blocking && vf_recovery(guc) && !xe_device_wedged(xe))
+	if (!blocking && vf_recovery(guc) && !xe_wedged(xe))
 		return -EAGAIN;
 
 	if (!ret)
@@ -2817,7 +2818,7 @@ int xe_guc_submit_reset_prepare(struct xe_guc *guc)
 
 void xe_guc_submit_reset_wait(struct xe_guc *guc)
 {
-	wait_event(guc->ct.wq, xe_device_wedged(guc_to_xe(guc)) ||
+	wait_event(guc->ct.wq, xe_wedged(guc_to_xe(guc)) ||
 		   !xe_guc_read_stopped(guc));
 }
 
