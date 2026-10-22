@@ -297,13 +297,15 @@ static const struct xe_pat_table_entry xe3p_lpg_pat_table[] = {
 
 bool xe_pat_index_is_valid(struct xe_device *xe, u16 pat_index)
 {
-	WARN_ON(pat_index >= xe->pat.n_entries);
+	if (WARN_ON(pat_index >= xe->pat.n_entries))
+		return false;
+
 	return xe->pat.table[pat_index].valid;
 }
 
 u16 xe_pat_index_get_coh_mode(struct xe_device *xe, u16 pat_index)
 {
-	WARN_ON(pat_index >= xe->pat.n_entries);
+	WARN_ON(!xe_pat_index_is_valid(xe, pat_index));
 	WARN_ON(!xe->pat.table[pat_index].coh_mode ||
 		xe->pat.table[pat_index].coh_mode > XE_COH_2WAY);
 	return xe->pat.table[pat_index].coh_mode;
@@ -311,13 +313,13 @@ u16 xe_pat_index_get_coh_mode(struct xe_device *xe, u16 pat_index)
 
 bool xe_pat_index_get_comp_en(struct xe_device *xe, u16 pat_index)
 {
-	WARN_ON(pat_index >= xe->pat.n_entries);
+	WARN_ON(!xe_pat_index_is_valid(xe, pat_index));
 	return !!(xe->pat.table[pat_index].value & XE2_COMP_EN);
 }
 
 u16 xe_pat_index_get_l3_policy(struct xe_device *xe, u16 pat_index)
 {
-	WARN_ON(pat_index >= xe->pat.n_entries);
+	WARN_ON(!xe_pat_index_is_valid(xe, pat_index));
 
 	return REG_FIELD_GET(XE2_L3_POLICY, xe->pat.table[pat_index].value);
 }
