@@ -857,7 +857,7 @@
 };
 
 /* Verdin UART_4, used for Bluetooth on Wi-Fi/Bluetooth SKUs */
-&uart4 {
+uart_mcu: &uart4 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart4>;
 };
