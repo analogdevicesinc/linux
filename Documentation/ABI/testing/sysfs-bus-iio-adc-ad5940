@@ -1,0 +1,7 @@
+What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY-voltageZ_name
+Date:		October 2026
+KernelVersion:	6.12
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Channel label assigned in devicetree, used to tell userspace
+		users which channel this is.
