@@ -664,6 +664,7 @@ bool amdgpu_gfx_is_master_xcc(struct amdgpu_device *adev, int xcc_id);
 int amdgpu_gfx_sysfs_init(struct amdgpu_device *adev);
 void amdgpu_gfx_sysfs_fini(struct amdgpu_device *adev);
 int amdgpu_gfx_reset_mes_compute(struct amdgpu_device *adev,
+				 struct amdgpu_xcp *xcp,
 				 struct amdgpu_ring *ring,
 				 struct amdgpu_fence *guilty_fence,
 				 struct amdgpu_usermode_queue *uq,

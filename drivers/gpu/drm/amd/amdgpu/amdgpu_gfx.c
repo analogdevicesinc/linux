@@ -2470,6 +2470,7 @@ static int amdgpu_gfx_reset_mes_kcq(struct amdgpu_device *adev,
 }
 
 int amdgpu_gfx_reset_mes_compute(struct amdgpu_device *adev,
+				 struct amdgpu_xcp *xcp,
 				 struct amdgpu_ring *ring,
 				 struct amdgpu_fence *guilty_fence,
 				 struct amdgpu_usermode_queue *uq,
@@ -2486,6 +2487,14 @@ int amdgpu_gfx_reset_mes_compute(struct amdgpu_device *adev,
 	struct amdgpu_gfx_deferred_entry deferred_end[AMDGPU_MAX_COMPUTE_RINGS + 1];
 	int n_deferred = 0;
 	int ring_err;
+	uint32_t xcc_mask, xcc_id = 0, xcp_id = 0;
+
+	if (xcp) {
+		amdgpu_xcp_get_inst_details(xcp, AMDGPU_XCP_GFX, &xcc_mask);
+		/* master xcc in the partition */
+		xcc_id = ffs(xcc_mask) - 1;
+		xcp_id = xcp->id;
+	}
 
 	guard(mutex)(&adev->gfx.mec.reset_mutex);
 	/* stop the drm schedulers for all compute queues */
@@ -2493,7 +2502,7 @@ int amdgpu_gfx_reset_mes_compute(struct amdgpu_device *adev,
 	/* suspend all will determine which queues are hung.
 	 * reset detect will return the array of bad queue doorbells
 	 */
-	r = amdgpu_mes_suspend(adev, 0);
+	r = amdgpu_mes_suspend(adev, xcc_id);
 	/* if suspend all success, it should no hang queue */
 	if (!r)
 		/* always reset the KCQ/userq since we need to signal the fence
@@ -2501,7 +2510,7 @@ int amdgpu_gfx_reset_mes_compute(struct amdgpu_device *adev,
 		 */
 		goto fence_reset;
 	r = amdgpu_mes_detect_and_reset_hung_queues(adev, AMDGPU_RING_TYPE_COMPUTE,
-						    true, &num_hung, adev->gfx.mec.mes_hung_db_array, 0);
+						    true, &num_hung, adev->gfx.mec.mes_hung_db_array, xcc_id);
 	if (r)
 		goto out;
 	if (hung_queue_count)
@@ -2543,7 +2552,7 @@ fence_reset:
 			n_deferred++;
 		}
 		/* reset any KFD queues */
-		r = amdgpu_amdkfd_reset_mes_queue(adev, 0, queue_type, pipe, queue,
+		r = amdgpu_amdkfd_reset_mes_queue(adev, xcp_id, queue_type, pipe, queue,
 						  adev->gfx.mec.mes_hung_db_array[i]);
 		if (r)
 			goto out;
@@ -2574,7 +2583,7 @@ fence_reset:
 
 out:
 	/* resume all will enable the non-hung queues */
-	amdgpu_mes_resume(adev, 0);
+	amdgpu_mes_resume(adev, xcc_id);
 
 	/* Now CP is running again — replay backed-up commands and ring
 	 * doorbells on each reset queue.
