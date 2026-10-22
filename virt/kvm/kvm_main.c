@@ -4481,10 +4481,7 @@ static int kvm_vcpu_pre_fault_memory(struct kvm_vcpu *vcpu,
 		}
 
 		r = kvm_arch_vcpu_pre_fault_memory(vcpu, range);
-		if (WARN_ON_ONCE(r == 0 || r == -EIO))
-			break;
-
-		if (r < 0)
+		if (WARN_ON_ONCE(!r) || r < 0)
 			break;
 
 		range->size -= r;
