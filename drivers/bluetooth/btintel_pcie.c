@@ -4001,6 +4001,7 @@ static void btintel_pcie_inc_recovery_count(struct pci_dev *pdev,
 	}
 }
 
+#ifdef CONFIG_ACPI
 static int btintel_pcie_acpi_reset_method(struct btintel_pcie_data *data)
 {
 	union acpi_object *obj, argv4;
@@ -4054,6 +4055,13 @@ static int btintel_pcie_acpi_reset_method(struct btintel_pcie_data *data)
 	pci_dev_unlock(data->pdev);
 	return ret;
 }
+#else
+static int btintel_pcie_acpi_reset_method(struct btintel_pcie_data *data)
+{
+	bt_dev_err(data->hdev, "No support for ACPI, cold boot");
+	return -EOPNOTSUPP;
+}
+#endif
 
 static void btintel_pcie_perform_pldr(struct btintel_pcie_data *data)
 {
