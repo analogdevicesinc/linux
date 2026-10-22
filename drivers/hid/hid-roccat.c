@@ -160,12 +160,18 @@ exit_unlock:
 static __poll_t roccat_poll(struct file *file, poll_table *wait)
 {
 	struct roccat_reader *reader = file->private_data;
+	bool avail;
+
 	poll_wait(file, &reader->device->wait, wait);
-	if (reader->cbuf_start != reader->device->cbuf_end)
-		return EPOLLIN | EPOLLRDNORM;
+
 	if (!roccat_device_available(reader->device))
 		return EPOLLERR | EPOLLHUP;
-	return 0;
+
+	mutex_lock(&reader->device->cbuf_lock);
+	avail = (reader->cbuf_start != reader->device->cbuf_end);
+	mutex_unlock(&reader->device->cbuf_lock);
+
+	return avail ? EPOLLIN | EPOLLRDNORM : 0;
 }
 
 static int roccat_open(struct inode *inode, struct file *file)
