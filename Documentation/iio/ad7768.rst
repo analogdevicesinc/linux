@@ -45,14 +45,13 @@ The AD7768 family supports three power and performance modes:
 * **Median mode** - Balanced power and performance
 * **Fast mode** - Highest performance with maximum sampling rates
 
-The driver initializes the device in fast mode and uses the maximum fast-mode
-output data rate as the default sampling frequency.
+The driver selects the power mode from the device-wide modulator frequency.
+It uses the lowest-power mode whose recommended maximum modulator frequency
+supports the requested operating point. At the overlapping 1.024 MHz and
+4.096 MHz boundaries, this selects low power and median mode, respectively.
 
-When buffered capture starts, the driver selects the lowest-noise mode that can
-produce the requested output data rates for all enabled channels. Where output
-data rates overlap, fast mode is preferred over median mode, and median mode is
-preferred over low power mode. This prioritizes the lower RMS noise and higher
-dynamic range offered by a faster mode at the same output data rate.
+The device is initialized with the highest supported modulator frequency and
+the maximum output data rate available at that frequency.
 
 Data output configuration
 -------------------------
@@ -88,12 +87,13 @@ Channel modes
 * **Mode B** - Second set of filter and decimation settings
 
 The hardware provides two mode profiles (A and B), each holding one
-(frequency, filter) combination. When buffered capture is started,
-enabled channels are grouped by their configured (frequency, filter)
-pair. Up to two distinct groups are supported; the driver automatically
-assigns each group to a mode slot and programs the hardware accordingly.
-If the enabled channels request more than two distinct pairs, buffer setup
-fails and capture does not start.
+(decimation, filter) combination. When buffered capture is started, enabled
+channels are grouped by their configured (sampling frequency, filter) pair.
+Because all channels share the same modulator frequency, each sampling
+frequency maps to one decimation setting. Up to two distinct groups are
+supported; the driver automatically assigns each group to a mode slot and
+programs the hardware accordingly. If the enabled channels request more than
+two distinct pairs, buffer setup fails and capture does not start.
 
 Precharge and reference buffers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -157,7 +157,7 @@ GPIO3 remain available in these configurations.
 Device attributes
 =================
 
-The following IIO attributes are available for each enabled channel:
+The driver exposes the following per-channel and device-wide IIO attributes:
 
 Voltage scale
 -------------
@@ -186,10 +186,29 @@ Sampling frequency
      - Requested sampling frequency in Hz for channel N. Enabled channels are
        grouped into up to two profiles at capture time.
    * - ``in_voltage<N>_sampling_frequency_available``
-     - Available sampling frequencies in Hz for channel N across all power
-       modes, based on the master clock frequency. Buffer setup fails if no
-       single power mode supports the frequencies requested by all enabled
-       channels.
+     - Available sampling frequencies in Hz for channel N at the currently
+       selected modulator frequency. These correspond to the x32, x64, x128,
+       x256, x512, and x1024 digital-filter decimation settings.
+
+Modulator frequency
+-------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - Attribute
+     - Description
+   * - ``modulator_frequency``
+     - Requested device-wide ADC modulator frequency in Hz. The selected
+       frequency determines the MCLK divider and power mode that are applied
+       when buffered capture starts. Changing it preserves each channel's
+       digital-filter decimation setting and updates the requested channel
+       sampling frequencies accordingly. It can be changed only while buffered
+       capture is disabled.
+   * - ``modulator_frequency_available``
+     - Available modulator frequencies in Hz, calculated from the master clock
+       using the supported MCLK/32, MCLK/8, and MCLK/4 divider settings.
 
 Filter configuration
 ---------------------
@@ -248,6 +267,10 @@ Example usage
 
 	# Update sampling frequency for channel 0
 	echo 8000 > /sys/bus/iio/devices/iio:device0/in_voltage0_sampling_frequency
+
+	# List and select a device-wide modulator frequency
+	cat /sys/bus/iio/devices/iio:device0/modulator_frequency_available
+	echo 4096000 > /sys/bus/iio/devices/iio:device0/modulator_frequency
 
 	# Read current filter type for channel 0
 	cat /sys/bus/iio/devices/iio:device0/in_voltage0_filter_type
