@@ -349,7 +349,6 @@ EXPORT_SYMBOL_NS_GPL(__adis_check_status, IIO_ADISLIB);
 int __adis_reset(struct adis *adis)
 {
 	int ret;
-	const struct adis_timeout *timeouts = adis->data->timeouts;
 
 	ret = __adis_write_reg_8(adis, adis->data->glob_cmd_reg,
 				 ADIS_GLOB_CMD_SW_RESET);
@@ -357,8 +356,6 @@ int __adis_reset(struct adis *adis)
 		dev_err(&adis->spi->dev, "Failed to reset device: %d\n", ret);
 		return ret;
 	}
-
-	msleep(timeouts->sw_reset_ms);
 
 	return 0;
 }
@@ -422,9 +419,10 @@ int __adis_initial_startup(struct adis *adis)
 		gpiod_set_value_cansleep(gpio, 0);
 		msleep(timeouts->reset_ms);
 	} else {
-		ret = __adis_reset(adis);
+		ret = adis->ops->reset(adis);
 		if (ret)
 			return ret;
+		msleep(timeouts->sw_reset_ms);
 	}
 
 	ret = adis_self_test(adis);
