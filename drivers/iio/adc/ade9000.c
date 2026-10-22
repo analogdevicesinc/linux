@@ -681,6 +681,8 @@ static const struct iio_chan_spec_ext_info ade9000_ext_info[] = {
 
 ADE9000_DECLARE_CHANNELS(ade9000_channels, ADE9000_ALTVOLTAGE_RMS_CHANNEL,
 			 ADE9000_POWER_REACTIVE_ENTRY);
+ADE9000_DECLARE_CHANNELS(ade9039_channels, ADE9000_ALTVOLTAGE_RMS_CHANNEL,
+			 ADE9000_NO_POWER_REACTIVE_ENTRY);
 ADE9000_DECLARE_CHANNELS(ade9078_channels, ADE9000_ALTVOLTAGE_RMS_CHANNEL_NO_EVENTS,
 			 ADE9000_POWER_REACTIVE_ENTRY);
 
@@ -695,6 +697,16 @@ static const struct ade9000_chip_info ade9000_chip_info = {
 	.rms_full_scale_codes = 52702092,
 	.watt_full_scale_codes = 20694066,
 	.pcf_full_scale_codes = 74532013,
+	.has_digital_integrator = true,
+};
+
+static const struct ade9000_chip_info ade9039_chip_info = {
+	.name = "ade9039",
+	.channels = ade9039_channels,
+	.num_channels = ARRAY_SIZE(ade9039_channels),
+	.rms_full_scale_codes = 52866837,
+	.watt_full_scale_codes = 20823646,
+	.pcf_full_scale_codes = 74680000,
 	.has_digital_integrator = true,
 };
 
@@ -1883,6 +1895,7 @@ static int ade9000_probe(struct spi_device *spi)
 
 static const struct spi_device_id ade9000_id[] = {
 	{ .name = "ade9000", .driver_data = (kernel_ulong_t)&ade9000_chip_info },
+	{ .name = "ade9039", .driver_data = (kernel_ulong_t)&ade9039_chip_info },
 	{ .name = "ade9078", .driver_data = (kernel_ulong_t)&ade9078_chip_info },
 	{ .name = "ade9430", .driver_data = (kernel_ulong_t)&ade9430_chip_info },
 	{ }
@@ -1891,6 +1904,7 @@ MODULE_DEVICE_TABLE(spi, ade9000_id);
 
 static const struct of_device_id ade9000_of_match[] = {
 	{ .compatible = "adi,ade9000", .data = &ade9000_chip_info },
+	{ .compatible = "adi,ade9039", .data = &ade9039_chip_info },
 	{ .compatible = "adi,ade9078", .data = &ade9078_chip_info },
 	{ .compatible = "adi,ade9430", .data = &ade9430_chip_info },
 	{ }

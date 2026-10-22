@@ -601,6 +601,7 @@ config ADE9000
 	  highly accurate, multiphase energy and power quality monitoring
 	  integrated circuits:
 	    - ADE9000
+	    - ADE9039
 	    - ADE9078
 	    - ADE9430
 
