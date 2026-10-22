@@ -350,6 +350,15 @@ int vce_v1_0_start(struct radeon_device *rdev)
 		return r;
 	}
 
+	/*
+	 * Enable the trap interrupt so that VCE fences are processed.
+	 * CIK also gets here but has VCE_SYS_INT_EN elsewhere and enables
+	 * it in vce_v2_0_resume().
+	 */
+	if (rdev->family < CHIP_BONAIRE)
+		WREG32_P(VCE_SYS_INT_EN, VCE_SYS_INT_TRAP_INTERRUPT_EN,
+			 ~VCE_SYS_INT_TRAP_INTERRUPT_EN);
+
 	return 0;
 }
 
