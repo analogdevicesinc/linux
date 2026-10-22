@@ -44,4 +44,13 @@ static inline void pci_configure_of_wake_gpio(struct pci_dev *dev) { }
 static inline void pci_remove_of_wake_gpio(struct pci_dev *dev) { }
 #endif
 
+#ifdef CONFIG_PCI_DYNAMIC_OF_NODES
+int devm_of_pci_make_dev_node(struct pci_dev *pdev);
+#else
+static inline int devm_of_pci_make_dev_node(struct pci_dev *pdev)
+{
+	return -ENOENT;
+}
+#endif
+
 #endif
