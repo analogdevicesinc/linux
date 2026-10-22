@@ -7,6 +7,7 @@
  */
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 #include <alsa/asoundlib.h>
 #include "kselftest_harness.h"
 
@@ -360,6 +361,54 @@ TEST_F(pcmtest, reset_ioctl) {
 	test_res = get_test_results("ioctl_test");
 	ASSERT_EQ(test_res, 1);
 	snd_pcm_close(handle);
+}
+
+/*
+ * Here we pause a capture stream halfway. The core does not read the hardware pointer while
+ * the stream is paused, so a driver that keeps running only shows up after the release, as a
+ * jump of the pointer. The data must also continue where it stopped, so the whole buffer still
+ * matches the patterns.
+ */
+TEST_F(pcmtest, capture_pause) {
+	snd_pcm_t *handle;
+	snd_pcm_sframes_t read_res, paused_avail, avail, frames, half;
+	unsigned char *samples;
+	struct pcmtest_test_params *params = &self->params;
+
+	samples = calloc(params->sec_buf_len * params->time, 1);
+	ASSERT_NE(samples, NULL);
+
+	snd_pcm_sw_params_alloca(&self->swparams);
+	snd_pcm_hw_params_alloca(&self->hwparams);
+	ASSERT_EQ(setup_handle(&handle, self->swparams, self->hwparams, params,
+			       self->card, SND_PCM_STREAM_CAPTURE), 0);
+
+	frames = params->rate * params->time;
+	half = frames / 2;
+	read_res = snd_pcm_readi(handle, samples, half);
+	ASSERT_EQ(read_res, half);
+
+	ASSERT_EQ(snd_pcm_pause(handle, 1), 0);
+	ASSERT_EQ(snd_pcm_state(handle), SND_PCM_STATE_PAUSED);
+	paused_avail = snd_pcm_avail(handle);
+	ASSERT_GE(paused_avail, 0);
+	usleep(500000);
+
+	/*
+	 * At 8000 Hz the pause is 4000 frames long. Allow a tenth of a second (800 frames) for
+	 * the release.
+	 */
+	ASSERT_EQ(snd_pcm_pause(handle, 0), 0);
+	avail = snd_pcm_avail(handle);
+	ASSERT_GE(avail, 0);
+	ASSERT_LT(avail - paused_avail, (snd_pcm_sframes_t)params->rate / 10);
+	read_res = snd_pcm_readi(handle, samples + snd_pcm_frames_to_bytes(handle, half),
+				 frames - half);
+	ASSERT_EQ(read_res, frames - half);
+	snd_pcm_close(handle);
+
+	ASSERT_EQ(find_capture_mismatch(samples, params), -1);
+	free(samples);
 }
 
 /*
