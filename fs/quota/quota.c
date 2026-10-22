@@ -66,7 +66,7 @@ static int quota_sync_all(int type)
 
 	ret = security_quotactl(Q_SYNC, type, 0, NULL);
 	if (!ret)
-		iterate_supers(quota_sync_one, &type);
+		iterate_supers_born(quota_sync_one, &type);
 	return ret;
 }
 
