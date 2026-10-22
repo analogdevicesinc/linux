@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+/*
+ * Copyright (c) Toradex
+ *
+ * Reserve the UART that the module assigns to its Cortex-M core, labelled
+ * uart_mcu in the module device tree, so that Linux does not claim it.
+ */
+
+/dts-v1/;
+/plugin/;
+
+&uart_mcu {
+	status = "reserved";
+};
