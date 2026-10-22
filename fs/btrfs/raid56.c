@@ -246,6 +246,12 @@ static void memcpy_from_bio_to_stripe(struct btrfs_raid_bio *rbio, unsigned int 
 	}
 }
 
+/* Return how many data blocks there is inside the rbio. */
+static unsigned int rbio_nr_data_sectors(const struct btrfs_raid_bio *rbio)
+{
+	return rbio->nr_data * rbio->stripe_nsectors;
+}
+
 /*
  * caching an rbio means to copy anything from the
  * bio_sectors array into the stripe_pages array.  We
@@ -272,7 +278,7 @@ static void cache_rbio_pages(struct btrfs_raid_bio *rbio)
 			 * a data sector it should still be uptodate as it is
 			 * read from disk.
 			 */
-			if (i < rbio->nr_data * rbio->stripe_nsectors)
+			if (i < rbio_nr_data_sectors(rbio))
 				ASSERT(test_bit(i, rbio->stripe_uptodate_bitmap));
 			continue;
 		}
@@ -402,7 +408,7 @@ static bool is_data_stripe_page(struct btrfs_raid_bio *rbio, int page_nr)
 	 * Thus if the first sector of the page belongs to data stripes, then
 	 * the full page belongs to data stripes.
 	 */
-	return (sector_nr < rbio->nr_data * rbio->stripe_nsectors);
+	return (sector_nr < rbio_nr_data_sectors(rbio));
 }
 
 /*
@@ -1559,7 +1565,7 @@ static void set_rbio_range_error(struct btrfs_raid_bio *rbio, struct bio *bio)
 		     rbio->bioc->full_stripe_logical;
 	int total_nr_sector = offset >> fs_info->sectorsize_bits;
 
-	ASSERT(total_nr_sector < rbio->nr_data * rbio->stripe_nsectors);
+	ASSERT(total_nr_sector < rbio_nr_data_sectors(rbio));
 
 	bitmap_set(rbio->error_bitmap, total_nr_sector,
 		   bio->bi_iter.bi_size >> fs_info->sectorsize_bits);
@@ -1669,7 +1675,7 @@ static void verify_bio_data_sectors(struct btrfs_raid_bio *rbio,
 		return;
 
 	/* P/Q stripes, they have no data csum to verify against. */
-	if (total_sector_nr >= rbio->nr_data * rbio->stripe_nsectors)
+	if (total_sector_nr >= rbio_nr_data_sectors(rbio))
 		return;
 
 	for (struct bvec_iter iter = init_bvec_iter_for_bio(bio);
@@ -2303,9 +2309,9 @@ static void fill_data_csums(struct btrfs_raid_bio *rbio)
 {
 	struct btrfs_fs_info *fs_info = rbio->bioc->fs_info;
 	struct btrfs_root *csum_root;
+	const unsigned int nr_data_sectors = rbio_nr_data_sectors(rbio);
 	const u64 start = rbio->bioc->full_stripe_logical;
-	const u32 len = (rbio->nr_data * rbio->stripe_nsectors) <<
-			fs_info->sectorsize_bits;
+	const u32 len = nr_data_sectors << fs_info->sectorsize_bits;
 	int ret;
 
 	/* The rbio should not have its csum buffer initialized. */
@@ -2326,10 +2332,8 @@ static void fill_data_csums(struct btrfs_raid_bio *rbio)
 	    rbio->bioc->map_type & BTRFS_BLOCK_GROUP_METADATA)
 		return;
 
-	rbio->csum_buf = kzalloc(rbio->nr_data * rbio->stripe_nsectors *
-				 fs_info->csum_size, GFP_NOFS);
-	rbio->csum_bitmap = bitmap_zalloc(rbio->nr_data * rbio->stripe_nsectors,
-					  GFP_NOFS);
+	rbio->csum_buf = kzalloc(nr_data_sectors * fs_info->csum_size, GFP_NOFS);
+	rbio->csum_bitmap = bitmap_zalloc(nr_data_sectors, GFP_NOFS);
 	if (!rbio->csum_buf || !rbio->csum_bitmap) {
 		ret = -ENOMEM;
 		goto error;
@@ -2445,9 +2449,10 @@ static void submit_write_bios(struct btrfs_raid_bio *rbio,
  */
 static bool need_read_stripe_sectors(struct btrfs_raid_bio *rbio)
 {
+	const unsigned int nr_data_sectors = rbio_nr_data_sectors(rbio);
 	int i;
 
-	for (i = 0; i < rbio->nr_data * rbio->stripe_nsectors; i++) {
+	for (i = 0; i < nr_data_sectors; i++) {
 		phys_addr_t paddr = rbio->stripe_paddrs[i * rbio->sector_nsteps];
 
 		/*
