@@ -6006,7 +6006,7 @@ static void ext4_wait_for_tail_page_commit(struct inode *inode)
  *
  * Called with inode->i_rwsem down.
  */
-int ext4_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
+int ext4_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 		 struct iattr *attr)
 {
 	struct inode *inode = d_inode(dentry);
@@ -6263,7 +6263,7 @@ u32 ext4_dio_alignment(struct inode *inode)
 	return 1; /* use the iomap defaults */
 }
 
-int ext4_getattr(struct mnt_idmap *idmap, const struct path *path,
+int ext4_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		 struct kstat *stat, u32 request_mask, unsigned int query_flags)
 {
 	struct inode *inode = d_inode(path->dentry);
@@ -6318,21 +6318,18 @@ int ext4_getattr(struct mnt_idmap *idmap, const struct path *path,
 		stat->attributes |= STATX_ATTR_IMMUTABLE;
 	if (flags & EXT4_NODUMP_FL)
 		stat->attributes |= STATX_ATTR_NODUMP;
-	if (flags & EXT4_VERITY_FL)
-		stat->attributes |= STATX_ATTR_VERITY;
 
 	stat->attributes_mask |= (STATX_ATTR_APPEND |
 				  STATX_ATTR_COMPRESSED |
 				  STATX_ATTR_ENCRYPTED |
 				  STATX_ATTR_IMMUTABLE |
-				  STATX_ATTR_NODUMP |
-				  STATX_ATTR_VERITY);
+				  STATX_ATTR_NODUMP);
 
 	generic_fillattr(idmap, request_mask, inode, stat);
 	return 0;
 }
 
-int ext4_file_getattr(struct mnt_idmap *idmap,
+int ext4_file_getattr(const struct mnt_idmap *idmap,
 		      const struct path *path, struct kstat *stat,
 		      u32 request_mask, unsigned int query_flags)
 {

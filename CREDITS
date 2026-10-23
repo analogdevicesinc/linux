@@ -57,7 +57,7 @@ S: Longford, Ireland
 S: Sydney, Australia
 
 N: Tigran A. Aivazian
-E: tigran@aivazian.fsnet.co.uk
+E: aivazian.tigran@gmail.com
 W: http://www.moses.uklinux.net/patches
 D: BFS filesystem
 D: Intel IA32 CPU microcode update support
@@ -3112,6 +3112,11 @@ S: Spain
 N: Peter Oruba
 D: AMD Microcode loader driver
 S: Germany
+
+N: Pierre Ossman
+D: MMC maintainer 2006-2009
+D: First SDIO implementation
+S: Sweden
 
 N: Jens Osterkamp
 E: jens@de.ibm.com

@@ -422,7 +422,7 @@ static const struct xattr_handler sockfs_xattr_handler = {
 };
 
 static int sockfs_security_xattr_set(const struct xattr_handler *handler,
-				     struct mnt_idmap *idmap,
+				     const struct mnt_idmap *idmap,
 				     struct dentry *dentry, struct inode *inode,
 				     const char *suffix, const void *value,
 				     size_t size, int flags)
@@ -447,7 +447,7 @@ static int sockfs_user_xattr_get(const struct xattr_handler *handler,
 }
 
 static int sockfs_user_xattr_set(const struct xattr_handler *handler,
-				 struct mnt_idmap *idmap,
+				 const struct mnt_idmap *idmap,
 				 struct dentry *dentry, struct inode *inode,
 				 const char *suffix, const void *value,
 				 size_t size, int flags)
@@ -670,7 +670,7 @@ static ssize_t sockfs_listxattr(struct dentry *dentry, char *buffer,
 	return used;
 }
 
-static int sockfs_setattr(struct mnt_idmap *idmap,
+static int sockfs_setattr(const struct mnt_idmap *idmap,
 			  struct dentry *dentry, struct iattr *iattr)
 {
 	int err = simple_setattr(&nop_mnt_idmap, dentry, iattr);
@@ -2850,7 +2850,7 @@ int __sys_sendmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
 					     &msg_sys, flags, &used_address, MSG_EOR);
 			if (err < 0)
 				break;
-			err = __put_user(err, &compat_entry->msg_len);
+			err = put_user(err, &compat_entry->msg_len);
 			++compat_entry;
 		} else {
 			err = ___sys_sendmsg(sock,
@@ -2943,16 +2943,16 @@ static int ____sys_recvmsg(struct socket *sock, struct msghdr *msg_sys,
 		if (err < 0)
 			goto out;
 	}
-	err = __put_user((msg_sys->msg_flags & ~MSG_CMSG_COMPAT),
-			 COMPAT_FLAGS(msg));
+	err = put_user((msg_sys->msg_flags & ~MSG_CMSG_COMPAT),
+		       COMPAT_FLAGS(msg));
 	if (err)
 		goto out;
 	if (MSG_CMSG_COMPAT & flags)
-		err = __put_user((unsigned long)msg_sys->msg_control - cmsg_ptr,
-				 &msg_compat->msg_controllen);
+		err = put_user((unsigned long)msg_sys->msg_control - cmsg_ptr,
+			       &msg_compat->msg_controllen);
 	else
-		err = __put_user((unsigned long)msg_sys->msg_control - cmsg_ptr,
-				 &msg->msg_controllen);
+		err = put_user((unsigned long)msg_sys->msg_control - cmsg_ptr,
+			       &msg->msg_controllen);
 	if (err)
 		goto out;
 	err = len;
@@ -3064,7 +3064,7 @@ static int do_recvmmsg(int fd, struct mmsghdr __user *mmsg,
 					     datagrams);
 			if (err < 0)
 				break;
-			err = __put_user(err, &compat_entry->msg_len);
+			err = put_user(err, &compat_entry->msg_len);
 			++compat_entry;
 		} else {
 			err = ___sys_recvmsg(sock,

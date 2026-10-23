@@ -111,7 +111,7 @@ struct mount_kattr {
 	unsigned int lookup_flags;
 	enum mount_kattr_flags_t kflags;
 	struct user_namespace *mnt_userns;
-	struct mnt_idmap *mnt_idmap;
+	const struct mnt_idmap *mnt_idmap;
 };
 
 /* /sys/fs */
@@ -3168,7 +3168,8 @@ static struct mnt_namespace *get_detached_copy(const struct path *path, unsigned
 			ns->seq_origin = src_mnt_ns->ns.ns_id;
 	}
 
-	mnt = __do_loopback(path, (flags & AT_RECURSIVE), CL_COPY_MNT_NS_FILE);
+	mnt = __do_loopback(path, (flags & AT_RECURSIVE),
+			    (flags & OPEN_TREE_DROP_MNTNS_MOUNTS) ? 0 : CL_COPY_MNT_NS_FILE);
 	if (IS_ERR(mnt)) {
 		emptied_ns = ns;
 		return ERR_CAST(mnt);
@@ -3320,7 +3321,18 @@ static struct file *vfs_open_tree(int dfd, const char __user *filename, unsigned
 
 	if (flags & ~(AT_EMPTY_PATH | AT_NO_AUTOMOUNT | AT_RECURSIVE |
 		      AT_SYMLINK_NOFOLLOW | OPEN_TREE_CLONE |
-		      OPEN_TREE_CLOEXEC | OPEN_TREE_NAMESPACE))
+		      OPEN_TREE_CLOEXEC | OPEN_TREE_NAMESPACE |
+		      OPEN_TREE_DROP_MNTNS_MOUNTS))
+		return ERR_PTR(-EINVAL);
+
+	/*
+	 * Only meaningful when a tree is copied recursively: a non-recursive
+	 * clone has no submounts to drop.  OPEN_TREE_NAMESPACE never copies
+	 * pinned mount namespaces, so there the flag is a no-op.
+	 */
+	if ((flags & OPEN_TREE_DROP_MNTNS_MOUNTS) &&
+	    (!(flags & AT_RECURSIVE) ||
+	     !(flags & (OPEN_TREE_CLONE | OPEN_TREE_NAMESPACE))))
 		return ERR_PTR(-EINVAL);
 
 	if ((flags & (AT_RECURSIVE | OPEN_TREE_CLONE | OPEN_TREE_NAMESPACE)) ==
@@ -4272,7 +4284,7 @@ int path_mount(const char *dev_name, const struct path *path,
 	if (flags & SB_MANDLOCK)
 		warn_mandlock();
 
-	/* Default to relatime unless overriden */
+	/* Default to relatime unless overridden */
 	if (!(flags & MS_NOATIME))
 		mnt_flags |= MNT_RELATIME;
 
@@ -4350,8 +4362,7 @@ static void dec_mnt_namespaces(struct ucounts *ucounts)
 
 static void free_mnt_ns(struct mnt_namespace *ns)
 {
-	if (!is_anon_ns(ns))
-		ns_common_free(ns);
+	ns_common_free(ns);
 	dec_mnt_namespaces(ns->ucounts);
 	/* the last active reference is gone, no mark can show up anymore */
 	fsnotify_mntns_delete(ns);
@@ -4405,8 +4416,6 @@ struct mnt_namespace *copy_mnt_ns(u64 flags, struct mnt_namespace *ns,
 	struct mount *old;
 	struct mount *new;
 	int copy_flags;
-
-	BUG_ON(!ns);
 
 	if (likely(!(flags & CLONE_NEWNS))) {
 		get_mnt_ns(ns);
@@ -4703,16 +4712,16 @@ SYSCALL_DEFINE3(fsmount, int, fs_fd, unsigned int, flags,
 
 	FD_PREPARE(fdf, (flags & FSMOUNT_CLOEXEC) ? O_CLOEXEC : 0,
 		   dentry_open(&new_path, O_PATH, fc->cred));
-	if (fdf.err) {
+	if (fdf->fd < 0) {
 		dissolve_on_fput(no_free_ptr(new_path.mnt));
-		return fdf.err;
+		return fdf->fd;
 	}
 
 	/*
 	 * Attach to an apparent O_PATH fd with a note that we
 	 * need to unmount it, not just simply put it.
 	 */
-	fd_prepare_file(fdf)->f_mode |= FMODE_NEED_UNMOUNT;
+	fdf->file->f_mode |= FMODE_NEED_UNMOUNT;
 	return fd_publish(fdf);
 }
 
@@ -5058,7 +5067,7 @@ static int mount_setattr_prepare(struct mount_kattr *kattr, struct mount *mnt)
 
 static void do_idmap_mount(const struct mount_kattr *kattr, struct mount *mnt)
 {
-	struct mnt_idmap *old_idmap;
+	const struct mnt_idmap *old_idmap;
 
 	if (!kattr->mnt_idmap)
 		return;
@@ -5101,7 +5110,7 @@ static int do_mount_setattr(const struct path *path, struct mount_kattr *kattr)
 		return -EINVAL;
 
 	if (kattr->mnt_userns) {
-		struct mnt_idmap *mnt_idmap;
+		const struct mnt_idmap *mnt_idmap;
 
 		mnt_idmap = alloc_mnt_idmap(kattr->mnt_userns);
 		if (IS_ERR(mnt_idmap))
@@ -5364,12 +5373,12 @@ SYSCALL_DEFINE5(open_tree_attr, int, dfd, const char __user *, filename,
 		return -EINVAL;
 
 	FD_PREPARE(fdf, flags, vfs_open_tree(dfd, filename, flags));
-	if (fdf.err)
-		return fdf.err;
+	if (fdf->fd < 0)
+		return fdf->fd;
 
 	if (uattr) {
 		struct mount_kattr kattr = {};
-		struct file *file = fd_prepare_file(fdf);
+		struct file *file = fdf->file;
 		int ret;
 
 		if (flags & OPEN_TREE_CLONE)
@@ -5412,7 +5421,7 @@ struct kstatmount {
 	struct statmount __user *buf;
 	size_t bufsize;
 	struct vfsmount *mnt;
-	struct mnt_idmap *idmap;
+	const struct mnt_idmap *idmap;
 	u64 mask;
 	struct path root;
 	struct seq_file seq;

@@ -327,6 +327,17 @@ F:	drivers/acpi/acpica/
 F:	include/acpi/
 F:	tools/power/acpi/
 
+ACPI CPPC
+M:	"Rafael J. Wysocki" <rafael@kernel.org>
+M:	Christian Loehle <christian.loehle@arm.com>
+L:	linux-acpi@vger.kernel.org
+L:	linux-pm@vger.kernel.org
+S:	Maintained
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/rafael/linux-pm
+F:	Documentation/admin-guide/acpi/cppc_sysfs.rst
+F:	drivers/acpi/cppc_acpi.c
+F:	include/acpi/cppc_acpi.h
+
 ACPI FOR ARM64 (ACPI/arm64)
 M:	Lorenzo Pieralisi <lpieralisi@kernel.org>
 M:	Hanjun Guo <guohanjun@huawei.com>
@@ -2076,8 +2087,7 @@ S:	Supported
 F:	arch/arm64/boot/dts/apm/
 
 APPLIED MICRO (APM) X-GENE SOC EDAC
-M:	Khuong Dinh <khuong@os.amperecomputing.com>
-S:	Supported
+S:	Orphan
 F:	Documentation/devicetree/bindings/edac/apm,xgene-edac.yaml
 F:	drivers/edac/xgene_edac.c
 
@@ -3273,6 +3283,7 @@ F:	Documentation/devicetree/bindings/arm/ux500.yaml
 F:	Documentation/devicetree/bindings/arm/ux500/
 F:	Documentation/devicetree/bindings/gpio/st,nomadik-gpio.yaml
 F:	Documentation/devicetree/bindings/i2c/st,nomadik-i2c.yaml
+F:	Documentation/devicetree/bindings/power/stericsson,ux500-pm-domains.yaml
 F:	arch/arm/boot/dts/st/ste-*
 F:	arch/arm/mach-nomadik/
 F:	arch/arm/mach-ux500/
@@ -3949,10 +3960,16 @@ R:	Mark Rutland <mark.rutland@arm.com>
 L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
 S:	Maintained
 T:	git git://git.kernel.org/pub/scm/linux/kernel/git/arm64/linux.git
+F:	Documentation/ABI/testing/sysfs-firmware-cca
 F:	Documentation/arch/arm64/
 F:	arch/arm64/
+F:	drivers/firmware/arm_rmm/
 F:	drivers/virt/coco/arm-cca-guest/
 F:	drivers/virt/coco/pkvm-guest/
+F:	include/linux/arm-rmi-cmds.h
+F:	include/linux/arm-rsi-cmds.h
+F:	include/linux/arm-smccc-rmi.h
+F:	include/linux/arm-smccc-rsi.h
 F:	tools/testing/selftests/arm64/
 X:	arch/arm64/boot/dts/
 X:	arch/arm64/configs/defconfig
@@ -4439,6 +4456,15 @@ S:	Orphan
 F:	Documentation/devicetree/bindings/sound/axentia,*
 F:	sound/soc/atmel/tse850-pcm5142.c
 
+AXIADO SGPIO DRIVER
+M:	Petar Stepanovic <pstepanovic@axiado.com>
+M:	SriNavmani A <srinavmani@axiado.com>
+M:	Prasad Bolisetty <pbolisetty@axiado.com>
+L:	linux-gpio@vger.kernel.org
+S:	Supported
+F:	Documentation/devicetree/bindings/gpio/axiado,ax3005-sgpio.yaml
+F:	drivers/gpio/gpio-axiado-sgpio.c
+
 AXIS ARTPEC ARM64 SoC SUPPORT
 M:	Jesper Nilsson <jesper.nilsson@axis.com>
 M:	Lars Persson <lars.persson@axis.com>
@@ -4627,17 +4653,11 @@ S:	Odd Fixes
 F:	Documentation/block/bfq-iosched.rst
 F:	block/bfq-*
 
-BFS FILE SYSTEM
-M:	"Tigran A. Aivazian" <aivazian.tigran@gmail.com>
-S:	Maintained
-F:	Documentation/filesystems/bfs.rst
-F:	fs/bfs/
-F:	include/uapi/linux/bfs_fs.h
-
 BITMAP API
 M:	Yury Norov <yury.norov@gmail.com>
 R:	Rasmus Villemoes <linux@rasmusvillemoes.dk>
 S:	Maintained
+F:	include/linux/bitfield-fix-width.h
 F:	include/linux/bitfield.h
 F:	include/linux/bitmap-str.h
 F:	include/linux/bitmap.h
@@ -4658,6 +4678,7 @@ F:	lib/find_bit_benchmark.c
 F:	lib/region_alloc_benchmark.c
 F:	lib/test_bitmap.c
 F:	lib/tests/cpumask_kunit.c
+F:	tools/include/linux/bitfield-fix-width.h
 F:	tools/include/linux/bitfield.h
 F:	tools/include/linux/bitmap.h
 F:	tools/include/linux/bits.h
@@ -6605,6 +6626,7 @@ S:	Supported
 F:	fs/configfs/
 F:	include/linux/configfs.h
 F:	samples/configfs/
+F:	tools/testing/selftests/filesystems/configfs/
 
 CONFIGFS [RUST]
 M:	Andreas Hindborg <a.hindborg@kernel.org>
@@ -6718,6 +6740,22 @@ F:	tools/testing/selftests/cgroup/test_hugetlb_memcg.c
 F:	tools/testing/selftests/cgroup/test_kmem.c
 F:	tools/testing/selftests/cgroup/test_memcontrol.c
 
+COREBOOT CFR FIRMWARE ATTRIBUTES DRIVER
+M:	Sean Rhodes <sean@starlabs.systems>
+L:	chrome-platform@lists.linux.dev
+S:	Maintained
+F:	drivers/firmware/coreboot/coreboot-cfr.c
+
+COREBOOT FIRMWARE DRIVERS
+M:	Tzung-Bi Shih <tzungbi@kernel.org>
+R:	Brian Norris <briannorris@chromium.org>
+R:	Julius Werner <jwerner@chromium.org>
+L:	chrome-platform@lists.linux.dev
+S:	Maintained
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/chrome-platform/linux.git
+F:	drivers/firmware/coreboot/
+F:	include/linux/coreboot.h
+
 CORETEMP HARDWARE MONITORING DRIVER
 L:	linux-hwmon@vger.kernel.org
 S:	Orphan
@@ -6765,7 +6803,7 @@ M:	"Rafael J. Wysocki" <rafael@kernel.org>
 M:	Viresh Kumar <viresh.kumar@linaro.org>
 R:	Jie Zhan <zhanjie9@hisilicon.com>
 R:	Lifeng Zheng <zhenglifeng1@huawei.com>
-R:	Pierre Gondois <pierre.gondois@arm.com>
+R:	Christian Loehle <christian.loehle@arm.com>
 R:	Sumit Gupta <sumitg@nvidia.com>
 L:	linux-pm@vger.kernel.org
 S:	Maintained
@@ -6981,6 +7019,8 @@ L:	linux-crypto@vger.kernel.org
 S:	Maintained
 T:	git https://git.kernel.org/pub/scm/linux/kernel/git/ebiggers/linux.git libcrypto-next
 T:	git https://git.kernel.org/pub/scm/linux/kernel/git/ebiggers/linux.git libcrypto-fixes
+F:	Documentation/crypto/libcrypto*
+F:	include/linux/siphash.h
 F:	lib/crypto/
 F:	scripts/crypto/
 
@@ -7496,6 +7536,7 @@ F:	rust/kernel/io.rs
 F:	rust/kernel/io/
 F:	rust/kernel/irq.rs
 F:	rust/kernel/irq/
+F:	rust/macros/io/
 
 DEVICE RESOURCE MANAGEMENT HELPERS
 M:	Hans de Goede <hansg@kernel.org>
@@ -7958,6 +7999,7 @@ DRIVER CORE, KOBJECTS, DEBUGFS AND SYSFS
 M:	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 M:	"Rafael J. Wysocki" <rafael@kernel.org>
 M:	Danilo Krummrich <dakr@kernel.org>
+M:	Johan Hovold <johan@kernel.org>
 L:	driver-core@lists.linux.dev
 S:	Supported
 T:	git git://git.kernel.org/pub/scm/linux/kernel/git/driver-core/driver-core.git
@@ -9451,6 +9493,11 @@ L:	linux-edac@vger.kernel.org
 S:	Orphan
 F:	drivers/edac/i3000_edac.c
 
+EDAC-I3200
+L:	linux-edac@vger.kernel.org
+S:	Orphan
+F:	drivers/edac/i3200_edac.c
+
 EDAC-I5000
 L:	linux-edac@vger.kernel.org
 S:	Maintained
@@ -9475,9 +9522,8 @@ S:	Maintained
 F:	drivers/edac/i7core_edac.c
 
 EDAC-I82975X
-M:	"Arvind R." <arvino55@gmail.com>
 L:	linux-edac@vger.kernel.org
-S:	Maintained
+S:	Orphan
 F:	drivers/edac/i82975x_edac.c
 
 EDAC-IE31200
@@ -9488,10 +9534,16 @@ F:	drivers/edac/ie31200_edac.c
 
 EDAC-IGEN6
 M:	Tony Luck <tony.luck@intel.com>
-R:	Qiuxu Zhuo <qiuxu.zhuo@intel.com>
+R:	Qiuxu Zhuo <qzhuo@nvidia.com>
 L:	linux-edac@vger.kernel.org
 S:	Maintained
 F:	drivers/edac/igen6_edac.c
+
+EDAC-INTEL-BFF-RESET
+M:	Tony Luck <tony.luck@intel.com>
+L:	linux-edac@vger.kernel.org
+S:	Maintained
+F:	drivers/edac/intel-bff.c
 
 EDAC-MPC85XX
 L:	linux-edac@vger.kernel.org
@@ -9527,7 +9579,7 @@ F:	drivers/edac/qcom_edac.c
 
 EDAC-SBRIDGE
 M:	Tony Luck <tony.luck@intel.com>
-R:	Qiuxu Zhuo <qiuxu.zhuo@intel.com>
+R:	Qiuxu Zhuo <qzhuo@nvidia.com>
 L:	linux-edac@vger.kernel.org
 S:	Maintained
 F:	drivers/edac/sb_edac.c
@@ -9543,6 +9595,11 @@ M:	Tero Kristo <kristo@kernel.org>
 L:	linux-edac@vger.kernel.org
 S:	Odd Fixes
 F:	drivers/edac/ti_edac.c
+
+EDAC-X38
+L:	linux-edac@vger.kernel.org
+S:	Orphan
+F:	drivers/edac/x38_edac.c
 
 EDIROL UA-101/UA-1000 DRIVER
 M:	Clemens Ladisch <clemens@ladisch.de>
@@ -9683,14 +9740,14 @@ EROFS FILE SYSTEM
 M:	Gao Xiang <xiang@kernel.org>
 M:	Chao Yu <chao@kernel.org>
 R:	Yue Hu <zbestahu@gmail.com>
-R:	Jeffle Xu <jefflexu@linux.alibaba.com>
+R:	Jingbo Xu <jefflexu@163.com>
 R:	Sandeep Dhavale <dhavale@google.com>
 R:	Hongbo Li <hongbohbli@tencent.com>
 R:	Chunhai Guo <guochunhai@vivo.com>
 L:	linux-erofs@lists.ozlabs.org
 S:	Maintained
 W:	https://erofs.docs.kernel.org
-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/xiang/erofs.git
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/xiang/erofs.git dev
 F:	Documentation/ABI/testing/sysfs-fs-erofs
 F:	Documentation/filesystems/erofs.rst
 F:	fs/erofs/
@@ -9978,6 +10035,7 @@ F:	net/core/failover.c
 FANOTIFY
 M:	Jan Kara <jack@suse.cz>
 R:	Amir Goldstein <amir73il@gmail.com>
+R:	Matt Bobrowski <matt@bobrowski.net>
 L:	linux-fsdevel@vger.kernel.org
 S:	Maintained
 F:	fs/notify/fanotify/
@@ -10182,6 +10240,14 @@ F:	drivers/firewire/
 F:	include/linux/firewire.h
 F:	include/uapi/linux/firewire*.h
 F:	tools/firewire/
+
+FIRMWARE ATTRIBUTES CLASS
+M:	Hans de Goede <hansg@kernel.org>
+M:	Ilpo Järvinen <ilpo.jarvinen@linux.intel.com>
+L:	platform-driver-x86@vger.kernel.org
+S:	Maintained
+F:	drivers/firmware/firmware_attributes_class.c
+F:	include/linux/firmware_attributes.h
 
 FIRMWARE FRAMEWORK FOR ARMV8-A
 M:	Sudeep Holla <sudeep.holla@kernel.org>
@@ -10659,7 +10725,8 @@ M:	Jaegeuk Kim <jaegeuk@kernel.org>
 L:	linux-fscrypt@vger.kernel.org
 S:	Supported
 Q:	https://patchwork.kernel.org/project/linux-fscrypt/list/
-T:	git https://git.kernel.org/pub/scm/fs/fscrypt/linux.git
+T:	git https://git.kernel.org/pub/scm/fs/fscrypt/linux.git for-next
+T:	git https://git.kernel.org/pub/scm/fs/fscrypt/linux.git for-current
 F:	Documentation/filesystems/fscrypt.rst
 F:	fs/crypto/
 F:	include/linux/fscrypt.h
@@ -10706,7 +10773,8 @@ M:	Theodore Y. Ts'o <tytso@mit.edu>
 L:	fsverity@lists.linux.dev
 S:	Supported
 Q:	https://patchwork.kernel.org/project/fsverity/list/
-T:	git https://git.kernel.org/pub/scm/fs/fsverity/linux.git
+T:	git https://git.kernel.org/pub/scm/fs/fsverity/linux.git for-next
+T:	git https://git.kernel.org/pub/scm/fs/fsverity/linux.git for-current
 F:	Documentation/filesystems/fsverity.rst
 F:	fs/verity/
 F:	include/linux/fsverity.h
@@ -11062,8 +11130,8 @@ M:	Vincenzo Frascino <vincenzo.frascino@arm.com>
 L:	linux-kernel@vger.kernel.org
 S:	Maintained
 T:	git git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip.git timers/vdso
-F:	include/asm-generic/vdso/vsyscall.h
 F:	include/linux/vdso_datastore.h
+F:	include/linux/vdso_time.h
 F:	include/vdso/
 F:	kernel/time/namespace_vdso.c
 F:	kernel/time/vsyscall.c
@@ -11136,16 +11204,6 @@ L:	netdev@vger.kernel.org
 S:	Maintained
 F:	Documentation/networking/device_drivers/ethernet/google/gve.rst
 F:	drivers/net/ethernet/google
-
-GOOGLE FIRMWARE DRIVERS
-M:	Tzung-Bi Shih <tzungbi@kernel.org>
-R:	Brian Norris <briannorris@chromium.org>
-R:	Julius Werner <jwerner@chromium.org>
-L:	chrome-platform@lists.linux.dev
-S:	Maintained
-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/chrome-platform/linux.git
-F:	drivers/firmware/google/
-F:	include/linux/coreboot.h
 
 GOOGLE TENSOR SoC SUPPORT
 M:	Peter Griffin <peter.griffin@linaro.org>
@@ -14057,6 +14115,7 @@ Q:	https://patchwork.kernel.org/project/linux-kbuild/list/
 T:	git git://git.kernel.org/pub/scm/linux/kernel/git/kbuild/linux.git
 F:	Documentation/kbuild/kconfig*
 F:	scripts/Kconfig.include
+F:	scripts/Kconfig.toolchain
 F:	scripts/kconfig/
 
 KCORE
@@ -14138,6 +14197,7 @@ F:	scripts/basic/
 F:	scripts/clang-tools/
 F:	scripts/container
 F:	scripts/dummy-tools/
+F:	scripts/gen_init*
 F:	scripts/include/
 F:	scripts/install.sh
 F:	scripts/mk*
@@ -14412,6 +14472,7 @@ S:	Supported
 T:	git git://git.kernel.org/pub/scm/linux/kernel/git/driver-core/driver-core.git
 F:	fs/kernfs/
 F:	include/linux/kernfs.h
+F:	tools/testing/selftests/filesystems/kernfs_test.c
 
 KEXEC
 M:	Andrew Morton <akpm@linux-foundation.org>
@@ -15282,6 +15343,7 @@ F:	rust/helpers/mutex.c
 F:	rust/helpers/spinlock.c
 F:	rust/kernel/sync/lock.rs
 F:	rust/kernel/sync/lock/
+F:	rust/kernel/sync/lockdep.rs
 F:	rust/kernel/sync/locked_by.rs
 X:	kernel/locking/locktorture.c
 
@@ -18381,6 +18443,12 @@ F:	scripts/module*
 F:	tools/testing/selftests/kmod/
 F:	tools/testing/selftests/module/
 
+MONOLITHIC POWER SYSTEM MPQ4210 REGULATOR DRIVER
+M:	Tapio Reijonen <tapio.reijonen@vaisala.com>
+S:	Maintained
+F:	Documentation/devicetree/bindings/regulator/mps,mpq4210.yaml
+F:	drivers/regulator/mpq4210.c
+
 MONOLITHIC POWER SYSTEM PMIC DRIVER
 M:	Saravanan Sekar <sravanhome@gmail.com>
 S:	Maintained
@@ -18452,7 +18520,9 @@ M:	James Morse <james.morse@arm.com>
 M:	Ben Horgan <ben.horgan@arm.com>
 R:	Reinette Chatre <reinette.chatre@intel.com>
 R:	Fenghua Yu <fenghuay@nvidia.com>
+L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
 S:	Maintained
+F:	Documentation/arch/arm64/mpam.rst
 F:	drivers/resctrl/mpam_*
 F:	drivers/resctrl/test_mpam_*
 F:	include/linux/arm_mpam.h
@@ -23029,6 +23099,12 @@ S:	Maintained
 F:	Documentation/devicetree/bindings/spi/realtek,rtl9301-snand.yaml
 F:	drivers/spi/spi-realtek-rtl-snand.c
 
+REALTEK SPI-NOR
+M:	Jyan Chou <jyanchou@realtek.com>
+M:	Yu-Chun Lin <eleanor.lin@realtek.com>
+S:	Supported
+F:	drivers/spi/spi-rtk-nor.c
+
 REALTEK SYSTIMER DRIVER
 M:	Hao-Wen Ting <haowen.ting@realtek.com>
 S:	Maintained
@@ -23313,6 +23389,13 @@ L:	linux-renesas-soc@vger.kernel.org
 S:	Maintained
 F:	Documentation/devicetree/bindings/rtc/renesas,rzn1-rtc.yaml
 F:	drivers/rtc/rtc-rzn1.c
+
+RENESAS RZ/N1 TIMERS DRIVER
+M:	Herve Codina <herve.codina@bootlin.com>
+L:	linux-renesas-soc@vger.kernel.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/timer/renesas,rzn1-timer.yaml
+F:	drivers/clocksource/timer-rzn1.c
 
 RENESAS RZ/N1 USBF CONTROLLER DRIVER
 M:	Herve Codina <herve.codina@bootlin.com>
@@ -23605,6 +23688,14 @@ F:	drivers/irqchip/irq-riscv-rpmi-sysmsi.c
 F:	drivers/mailbox/riscv-sbi-mpxy-mbox.c
 F:	include/linux/mailbox/riscv-rpmi-message.h
 
+RISC-V RPMI DEVICE POWER DRIVER
+M:	Joshua Yeong <joshua.yeong@starfivetech.com>
+L:	linux-riscv@lists.infradead.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/power/riscv,rpmi-device-power.yaml
+F:	Documentation/devicetree/bindings/power/riscv,rpmi-mpxy-device-power.yaml
+F:	drivers/pmdomain/riscv/
+
 RISC-V SPACEMIT SoC Support
 M:	Yixun Lan <dlan@kernel.org>
 L:	linux-riscv@lists.infradead.org
@@ -23839,6 +23930,7 @@ F:	drivers/clk/clk-bd718x7.c
 F:	drivers/gpio/gpio-bd71815.c
 F:	drivers/gpio/gpio-bd71828.c
 F:	drivers/gpio/gpio-bd72720.c
+F:	drivers/gpio/gpio-bd73800.c
 F:	drivers/mfd/rohm-bd71828.c
 F:	drivers/mfd/rohm-bd718x7.c
 F:	drivers/mfd/rohm-bd9576.c
@@ -23858,6 +23950,7 @@ F:	include/linux/mfd/rohm-bd71815.h
 F:	include/linux/mfd/rohm-bd71828.h
 F:	include/linux/mfd/rohm-bd718x7.h
 F:	include/linux/mfd/rohm-bd72720.h
+F:	include/linux/mfd/rohm-bd73800.h
 F:	include/linux/mfd/rohm-bd957x.h
 F:	include/linux/mfd/rohm-bd96801.h
 F:	include/linux/mfd/rohm-bd96802.h
@@ -23991,6 +24084,7 @@ K:	\b(?i:rust)\b
 
 RUST [ALLOC]
 M:	Danilo Krummrich <dakr@kernel.org>
+M:	Alice Ryhl <aliceryhl@google.com>
 R:	Lorenzo Stoakes <ljs@kernel.org>
 R:	Vlastimil Babka <vbabka@kernel.org>
 R:	Liam R. Howlett <liam@infradead.org>
@@ -24007,6 +24101,15 @@ R:	Yury Norov <yury.norov@gmail.com>
 L:	rust-for-linux@vger.kernel.org
 S:	Maintained
 F:	rust/kernel/bitfield.rs
+
+RUST [BUG]
+M:	FUJITA Tomonori <fujita.tomonori@gmail.com>
+L:	rust-for-linux@vger.kernel.org
+S:	Maintained
+F:	rust/helpers/bug.c
+F:	rust/kernel/bug.rs
+F:	rust/kernel/generated_arch_reachable_asm.rs.S
+F:	rust/kernel/generated_arch_warn_asm.rs.S
 
 RUST [INTEROP]
 M:	Joel Fernandes <joelagnelf@nvidia.com>
@@ -24315,6 +24418,14 @@ F:	Documentation/devicetree/bindings/firmware/google,gs101-acpm-ipc.yaml
 F:	drivers/clk/samsung/clk-acpm.c
 F:	drivers/firmware/samsung/exynos-acpm*
 F:	include/linux/firmware/samsung/exynos-acpm-protocol.h
+
+SAMSUNG EXYNOS ACPM THERMAL DRIVER
+M:	Tudor Ambarus <tudor.ambarus@linaro.org>
+L:	linux-kernel@vger.kernel.org
+L:	linux-samsung-soc@vger.kernel.org
+S:	Supported
+F:	Documentation/devicetree/bindings/thermal/google,gs101-tmu-top.yaml
+F:	drivers/thermal/samsung/acpm-tmu.c
 
 SAMSUNG EXYNOS MAILBOX DRIVER
 M:	Tudor Ambarus <tudor.ambarus@linaro.org>
@@ -24712,6 +24823,13 @@ L:	linux-mmc@vger.kernel.org
 S:	Maintained
 F:	drivers/mmc/host/sdhci-brcmstb*
 
+SECURE DIGITAL HOST CONTROLLER INTERFACE (SDHCI) CADENCE DRIVER
+M:	Tanmay Kathpalia <tanmay.kathpalia@altera.com>
+L:	linux-mmc@vger.kernel.org
+S:	Supported
+F:	Documentation/devicetree/bindings/mmc/cdns,sd6hc.yaml
+F:	drivers/mmc/host/sdhci-cadence*
+
 SECURE DIGITAL HOST CONTROLLER INTERFACE (SDHCI) DRIVER
 M:	Adrian Hunter <adrian.hunter@intel.com>
 L:	linux-mmc@vger.kernel.org
@@ -24769,7 +24887,9 @@ M:	Sudeep Holla <sudeep.holla@kernel.org>
 L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
 S:	Maintained
 F:	drivers/firmware/smccc/
+F:	include/linux/arm-smccc-bus.h
 F:	include/linux/arm-smccc.h
+F:	include/linux/device-id/arm_smccc.h
 
 SECURITY CONTACT
 M:	Security Officers <security@kernel.org>
@@ -25138,13 +25258,6 @@ S:	Supported
 F:	drivers/gpio/gpio-siox.c
 F:	drivers/siox/*
 F:	include/trace/events/siox.h
-
-SIPHASH PRF ROUTINES
-M:	Jason A. Donenfeld <Jason@zx2c4.com>
-S:	Maintained
-F:	include/linux/siphash.h
-F:	lib/siphash.c
-F:	lib/tests/siphash_kunit.c
 
 SIS 190 ETHERNET DRIVER
 M:	Francois Romieu <romieu@fr.zoreil.com>
@@ -26245,6 +26358,15 @@ F:	rust/helpers/jump_label.c
 F:	rust/kernel/generated_arch_static_branch_asm.rs.S
 F:	rust/kernel/jump_label.rs
 
+STEAL GOVERNOR DRIVER
+M:	Shrikanth Hegde <sshegde@linux.ibm.com>
+R:	Yury Norov <yury.norov@gmail.com>
+L:	linux-kernel@vger.kernel.org
+S:	Maintained
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip.git sched/core
+F:	Documentation/driver-api/steal-governor.rst
+F:	drivers/virt/steal_governor.c
+
 STI AUDIO (ASoC) DRIVERS
 M:	Arnaud Pouliquen <arnaud.pouliquen@foss.st.com>
 L:	linux-sound@vger.kernel.org
@@ -26832,11 +26954,6 @@ L:	tech-board-discuss@lists.linux.dev
 S:	Maintained
 F:	Documentation/process/contribution-maturity-model.rst
 F:	Documentation/process/researcher-guidelines.rst
-
-TECHNOLOGIC SYSTEMS TS-5500 PLATFORM SUPPORT
-M:	"Savoir-faire Linux Inc." <kernel@savoirfairelinux.com>
-S:	Maintained
-F:	arch/x86/platform/ts5500/
 
 TECHNOTREND USB IR RECEIVER
 M:	Sean Young <sean@mess.org>
@@ -29323,11 +29440,6 @@ L:	linux-hwmon@vger.kernel.org
 S:	Maintained
 F:	drivers/hwmon/vt8231.c
 
-VUB300 USB to SDIO/SD/MMC bridge chip
-L:	linux-mmc@vger.kernel.org
-S:	Orphan
-F:	drivers/mmc/host/vub300.c
-
 W1 DALLAS'S 1-WIRE BUS
 M:	Krzysztof Kozlowski <krzk@kernel.org>
 S:	Maintained
@@ -29939,6 +30051,16 @@ F:	Documentation/devicetree/bindings/misc/xlnx,sd-fec.yaml
 F:	Documentation/misc-devices/xilinx_sdfec.rst
 F:	drivers/misc/xilinx_sdfec.c
 F:	include/uapi/misc/xilinx_sdfec.h
+
+XILINX SMMU CSR IRQ DRIVER
+M:	Anirudha Sarangi <anirudha.sarangi@amd.com>
+M:	Tushar Nimkar <tushar.nimkar@amd.com>
+L:	git@amd.com
+L:	linux-arm-kernel@lists.infradead.org
+L:	linux-kernel@vger.kernel.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/interrupt-controller/xlnx,versal-net-smmu-csr.yaml
+F:	drivers/irqchip/irq-xilinx-smmu-csr.c
 
 XILINX TRNG DRIVER
 M:	Mounika Botcha <mounika.botcha@amd.com>
