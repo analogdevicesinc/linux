@@ -26,7 +26,7 @@
 #include <linux/unaligned.h>
 #include <linux/units.h>
 
-#define AD4134_RESET_TIME_US			(10 * USEC_PER_SEC)
+#define AD4134_RESET_TIME_US			10
 
 #define AD4134_REG_READ_MASK			BIT(7)
 #define AD4134_SPI_MAX_XFER_LEN			3
@@ -442,6 +442,7 @@ static int ad4134_probe(struct spi_device *spi)
 		return dev_err_probe(dev, PTR_ERR(rst),
 				     "failed to get and deassert reset\n");
 
+	fsleep(AD4134_RESET_TIME_US);
 	crc8_populate_msb(ad4134_spi_crc_table, AD4134_SPI_CRC_POLYNOM);
 
 	st->regmap = devm_regmap_init(dev, NULL, st, &ad4134_regmap_config);
