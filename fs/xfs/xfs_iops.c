@@ -416,10 +416,10 @@ xfs_vn_unlink(
 	/*
 	 * With unlink, the VFS makes the dentry "negative": no inode,
 	 * but still hashed. This is incompatible with case-insensitive
-	 * mode, so invalidate (unhash) the dentry in CI-mode.
+	 * mode, so unhash the dentry in CI-mode.
 	 */
 	if (xfs_has_asciici(XFS_M(dir->i_sb)))
-		d_invalidate(dentry);
+		d_drop(dentry);
 	return 0;
 }
 
