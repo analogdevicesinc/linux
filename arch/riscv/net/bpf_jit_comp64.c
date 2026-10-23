@@ -15,7 +15,6 @@
 #include <asm/percpu.h>
 #include "bpf_jit.h"
 
-#define RV_MAX_REG_ARGS 8
 #define RV_FENTRY_NINSNS 2
 #define RV_FENTRY_NBYTES (RV_FENTRY_NINSNS * 4)
 /* imm that allows emit_imm to emit max count insns */
@@ -23,11 +22,11 @@
 /* fentry and TCC init insns will be skipped on tailcall */
 #define RV_TAILCALL_OFFSET ((RV_FENTRY_NINSNS + 1) * 4)
 
-#define RV_REG_TCC RV_REG_A6
+#define RV_REG_TCC RV_REG_T5
 #define RV_REG_ARENA RV_REG_S7 /* For storing arena_vm_start */
 
 static const int regmap[] = {
-	[BPF_REG_0] =	RV_REG_A5,
+	[BPF_REG_0] =	RV_REG_T6,
 	[BPF_REG_1] =	RV_REG_A0,
 	[BPF_REG_2] =	RV_REG_A1,
 	[BPF_REG_3] =	RV_REG_A2,
@@ -47,13 +46,13 @@ static const int pt_regmap[] = {
 	[RV_REG_A2] = offsetof(struct pt_regs, a2),
 	[RV_REG_A3] = offsetof(struct pt_regs, a3),
 	[RV_REG_A4] = offsetof(struct pt_regs, a4),
-	[RV_REG_A5] = offsetof(struct pt_regs, a5),
 	[RV_REG_S1] = offsetof(struct pt_regs, s1),
 	[RV_REG_S2] = offsetof(struct pt_regs, s2),
 	[RV_REG_S3] = offsetof(struct pt_regs, s3),
 	[RV_REG_S4] = offsetof(struct pt_regs, s4),
 	[RV_REG_S5] = offsetof(struct pt_regs, s5),
 	[RV_REG_T0] = offsetof(struct pt_regs, t0),
+	[RV_REG_T6] = offsetof(struct pt_regs, t6),
 };
 
 enum {
@@ -239,7 +238,7 @@ static void __build_epilogue(bool is_tail_call, struct rv_jit_context *ctx)
 	emit_addi(RV_REG_SP, RV_REG_SP, stack_adjust, ctx);
 	/* Set return value. */
 	if (!is_tail_call)
-		emit_addiw(RV_REG_A0, RV_REG_A5, 0, ctx);
+		emit_addiw(RV_REG_A0, regmap[BPF_REG_0], 0, ctx);
 	emit_jalr(RV_REG_ZERO, is_tail_call ? RV_REG_T3 : RV_REG_RA,
 		  is_tail_call ? RV_TAILCALL_OFFSET : 0, ctx);
 }
@@ -498,6 +497,18 @@ static void emit_ldx(u8 rd, s16 off, u8 rs, u8 size, bool sign_ext,
 	ctx->ex_jmp_off = ctx->ninsns;
 }
 
+static void emit_stack_arg_ldx(u8 rd, s16 off, struct rv_jit_context *ctx)
+{
+	int idx = off / 8 - 1;
+
+	if (idx < RV_EXTRA_STK_ARGS) {
+		emit_mv(rd, RV_REG_A5 + idx, ctx);
+		return;
+	}
+
+	emit_ldx_insn(rd, (idx - RV_EXTRA_STK_ARGS) * 8, RV_REG_FP, BPF_DW, false, ctx);
+}
+
 static void emit_st(u8 rd, s16 off, s32 imm, u8 size, struct rv_jit_context *ctx)
 {
 	emit_imm(RV_REG_T1, imm, ctx);
@@ -515,6 +526,19 @@ static void emit_st(u8 rd, s16 off, s32 imm, u8 size, struct rv_jit_context *ctx
 	ctx->ex_jmp_off = ctx->ninsns;
 }
 
+static void emit_stack_arg_st(s16 off, s32 imm, struct rv_jit_context *ctx)
+{
+	int idx = -off / 8 - 1;
+
+	if (idx < RV_EXTRA_STK_ARGS) {
+		emit_imm(RV_REG_A5 + idx, imm, ctx);
+		return;
+	}
+
+	emit_imm(RV_REG_T1, imm, ctx);
+	emit_stx_insn(RV_REG_SP, (idx - RV_EXTRA_STK_ARGS) * 8, RV_REG_T1, BPF_DW, ctx);
+}
+
 static void emit_stx(u8 rd, s16 off, u8 rs, u8 size, struct rv_jit_context *ctx)
 {
 	if (is_12b_int(off)) {
@@ -529,6 +553,18 @@ static void emit_stx(u8 rd, s16 off, u8 rs, u8 size, struct rv_jit_context *ctx)
 	ctx->ex_insn_off = ctx->ninsns;
 	emit_stx_insn(RV_REG_T1, 0, rs, size, ctx);
 	ctx->ex_jmp_off = ctx->ninsns;
+}
+
+static void emit_stack_arg_stx(s16 off, u8 rs, struct rv_jit_context *ctx)
+{
+	int idx = -off / 8 - 1;
+
+	if (idx < RV_EXTRA_STK_ARGS) {
+		emit_mv(RV_REG_A5 + idx, rs, ctx);
+		return;
+	}
+
+	emit_stx_insn(RV_REG_SP, (idx - RV_EXTRA_STK_ARGS) * 8, rs, BPF_DW, ctx);
 }
 
 static int emit_atomic_ld_st(u8 rd, u8 rs, const struct bpf_insn *insn,
@@ -747,6 +783,8 @@ static int add_exception_handler(const struct bpf_insn *insn, int dst_reg,
 	if (BPF_MODE(insn->code) != BPF_PROBE_MEM &&
 	    BPF_MODE(insn->code) != BPF_PROBE_MEMSX &&
 	    BPF_MODE(insn->code) != BPF_PROBE_MEM32 &&
+	    !(BPF_MODE(insn->code) == BPF_PROBE_MEM32SX &&
+	      BPF_CLASS(insn->code) == BPF_LDX) &&
 	    BPF_MODE(insn->code) != BPF_PROBE_ATOMIC)
 		return 0;
 
@@ -822,6 +860,24 @@ static int gen_jump_or_nops(void *target, void *ip, u32 *insns, bool is_call)
 	return emit_jump_and_link(is_call ? RV_REG_T0 : RV_REG_ZERO, rvoff, false, &ctx);
 }
 
+int arch_bpf_trampoline_skip(void *nop, void *target)
+{
+	u32 old_insn = rv_nop();
+	u32 new_insn = rv_jal(RV_REG_ZERO, (target - nop) >> 1);
+	int ret;
+
+	if (memcmp(nop, &old_insn, sizeof(old_insn)))
+		return -EFAULT;
+
+	cpus_read_lock();
+	mutex_lock(&text_mutex);
+	ret = patch_text(nop, &new_insn, sizeof(new_insn));
+	mutex_unlock(&text_mutex);
+	cpus_read_unlock();
+
+	return ret;
+}
+
 int bpf_arch_text_poke(void *ip, enum bpf_text_poke_type old_t,
 		       enum bpf_text_poke_type new_t, void *old_addr,
 		       void *new_addr)
@@ -857,7 +913,8 @@ int bpf_arch_text_poke(void *ip, enum bpf_text_poke_type old_t,
 	return ret;
 }
 
-static void store_args(int nr_arg_slots, int args_off, struct rv_jit_context *ctx)
+static void store_args(int nr_arg_slots, int args_off, int stack_args_off,
+		       struct rv_jit_context *ctx)
 {
 	int i;
 
@@ -865,8 +922,8 @@ static void store_args(int nr_arg_slots, int args_off, struct rv_jit_context *ct
 		if (i < RV_MAX_REG_ARGS) {
 			emit_sd(RV_REG_FP, -args_off, RV_REG_A0 + i, ctx);
 		} else {
-			/* skip slots for T0 and FP of traced function */
-			emit_ld(RV_REG_T1, 16 + (i - RV_MAX_REG_ARGS) * 8, RV_REG_FP, ctx);
+			emit_ld(RV_REG_T1, stack_args_off +
+				(i - RV_MAX_REG_ARGS) * 8, RV_REG_FP, ctx);
 			emit_sd(RV_REG_FP, -args_off, RV_REG_T1, ctx);
 		}
 		args_off -= 8;
@@ -904,12 +961,17 @@ static void emit_store_stack_imm64(u8 reg, int stack_off, u64 imm64,
 	emit_sd(RV_REG_FP, stack_off, reg, ctx);
 }
 
-static int invoke_bpf_prog(struct bpf_tramp_node *node, int args_off, int retval_off,
-			   int run_ctx_off, bool save_ret, struct rv_jit_context *ctx)
+static int invoke_bpf_prog(struct bpf_tramp_image *im, struct bpf_tramp_node *node,
+			   int args_off, int retval_off, int run_ctx_off, bool save_ret,
+			   struct rv_jit_context *ctx)
 {
 	int ret, branch_off;
 	struct bpf_prog *p = node->link->prog;
 	int cookie_off = offsetof(struct bpf_tramp_run_ctx, bpf_cookie);
+	void *skip = ctx->ro_insns + ctx->ninsns;
+
+	/* nop, patched to a jal over this prog when it is detached */
+	emit(rv_nop(), ctx);
 
 	if (node->cookie)
 		emit_store_stack_imm64(RV_REG_T1, -run_ctx_off + cookie_off, node->cookie, ctx);
@@ -962,13 +1024,17 @@ static int invoke_bpf_prog(struct bpf_tramp_node *node, int args_off, int retval
 	/* arg3: &run_ctx */
 	emit_addi(RV_REG_A2, RV_REG_FP, -run_ctx_off, ctx);
 	ret = emit_call((const u64)bpf_trampoline_exit(p), true, ctx);
+	if (ret)
+		return ret;
 
-	return ret;
+	bpf_tramp_image_add_skip(im, p, skip, ctx->ro_insns + ctx->ninsns);
+	return 0;
 }
 
-static int invoke_bpf(struct bpf_tramp_nodes *tn, int args_off, int retval_off,
-		      int run_ctx_off, int func_meta_off, bool save_ret, u64 func_meta,
-		      int cookie_off, struct rv_jit_context *ctx)
+static int invoke_bpf(struct bpf_tramp_image *im, struct bpf_tramp_nodes *tn,
+		      int args_off, int retval_off, int run_ctx_off, int func_meta_off,
+		      bool save_ret, u64 func_meta, int cookie_off,
+		      struct rv_jit_context *ctx)
 {
 	int i, cur_cookie = (cookie_off - args_off) / 8;
 
@@ -981,8 +1047,8 @@ static int invoke_bpf(struct bpf_tramp_nodes *tn, int args_off, int retval_off,
 			emit_store_stack_imm64(RV_REG_T1, -func_meta_off, meta, ctx);
 			cur_cookie--;
 		}
-		err = invoke_bpf_prog(tn->nodes[i], args_off, retval_off, run_ctx_off,
-				      save_ret, ctx);
+		err = invoke_bpf_prog(im, tn->nodes[i], args_off, retval_off,
+				      run_ctx_off, save_ret, ctx);
 		if (err)
 			return err;
 	}
@@ -1073,7 +1139,7 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im,
 
 	save_ret = flags & (BPF_TRAMP_F_CALL_ORIG | BPF_TRAMP_F_RET_FENTRY_RET);
 	if (save_ret)
-		stack_size += 16; /* Save both A5 (BPF R0) and A0 */
+		stack_size += 16; /* Save both RV_REG_T6 (BPF R0) and RV_REG_A0 */
 	retval_off = stack_size;
 
 	stack_size += nr_arg_slots * 8;
@@ -1152,7 +1218,12 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im,
 	func_meta = nr_arg_slots;
 	emit_store_stack_imm64(RV_REG_T1, -func_meta_off, func_meta, ctx);
 
-	store_args(nr_arg_slots, args_off, ctx);
+	/*
+	 * A direct struct_ops call has its first stack argument at the incoming
+	 * SP, which the trampoline keeps as FP. The fentry path pushes the
+	 * parent frame first, so its incoming stack arguments start at FP + 16.
+	 */
+	store_args(nr_arg_slots, args_off, is_struct_ops ? 0 : 16, ctx);
 
 	if (bpf_fsession_cnt(tnodes)) {
 		/* clear all session cookies' value */
@@ -1170,7 +1241,7 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im,
 	}
 
 	if (fentry->nr_nodes) {
-		ret = invoke_bpf(fentry, args_off, retval_off, run_ctx_off, func_meta_off,
+		ret = invoke_bpf(im, fentry, args_off, retval_off, run_ctx_off, func_meta_off,
 				 flags & BPF_TRAMP_F_RET_FENTRY_RET, func_meta, cookie_off, ctx);
 		if (ret)
 			return ret;
@@ -1184,7 +1255,7 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im,
 		/* cleanup to avoid garbage return value confusion */
 		emit_sd(RV_REG_FP, -retval_off, RV_REG_ZERO, ctx);
 		for (i = 0; i < fmod_ret->nr_nodes; i++) {
-			ret = invoke_bpf_prog(fmod_ret->nodes[i], args_off, retval_off,
+			ret = invoke_bpf_prog(im, fmod_ret->nodes[i], args_off, retval_off,
 					      run_ctx_off, true, ctx);
 			if (ret)
 				goto out;
@@ -1211,10 +1282,6 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im,
 			emit_sd(RV_REG_FP, -tcc_off, RV_REG_TCC, ctx);
 		emit_sd(RV_REG_FP, -retval_off, RV_REG_A0, ctx);
 		emit_sd(RV_REG_FP, -(retval_off - 8), regmap[BPF_REG_0], ctx);
-		im->ip_after_call = ctx->ro_insns + ctx->ninsns;
-		/* 2 nops reserved for auipc+jalr pair */
-		emit(rv_nop(), ctx);
-		emit(rv_nop(), ctx);
 	}
 
 	/* update branches saved in invoke_bpf_mod_ret with bnez */
@@ -1230,14 +1297,13 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im,
 		emit_store_stack_imm64(RV_REG_T1, -func_meta_off, func_meta, ctx);
 
 	if (fexit->nr_nodes) {
-		ret = invoke_bpf(fexit, args_off, retval_off, run_ctx_off, func_meta_off,
+		ret = invoke_bpf(im, fexit, args_off, retval_off, run_ctx_off, func_meta_off,
 				 false, func_meta, cookie_off, ctx);
 		if (ret)
 			goto out;
 	}
 
 	if (flags & BPF_TRAMP_F_CALL_ORIG) {
-		im->ip_epilogue = ctx->ro_insns + ctx->ninsns;
 		emit_imm(RV_REG_A0, ctx->insns ? (const s64)im : RV_MAX_COUNT_IMM, ctx);
 		ret = emit_call((const u64)__bpf_tramp_exit, true, ctx);
 		if (ret)
@@ -1299,7 +1365,7 @@ out:
 int arch_bpf_trampoline_size(const struct btf_func_model *m, u32 flags,
 			     struct bpf_tramp_nodes *tnodes, void *func_addr)
 {
-	struct bpf_tramp_image im;
+	struct bpf_tramp_image im = {};
 	struct rv_jit_context ctx;
 	int ret;
 
@@ -1653,6 +1719,11 @@ int bpf_jit_emit_insn(const struct bpf_insn *insn, struct rv_jit_context *ctx,
 			emit_zextw(rd, rd, ctx);
 		break;
 
+	/* JUMP reg */
+	case BPF_JMP | BPF_JA | BPF_X:
+		emit_jalr(RV_REG_ZERO, rd, 0, ctx);
+		break;
+
 	/* JUMP off */
 	case BPF_JMP | BPF_JA:
 	case BPF_JMP32 | BPF_JA:
@@ -1822,11 +1893,21 @@ int bpf_jit_emit_insn(const struct bpf_insn *insn, struct rv_jit_context *ctx,
 				return -EINVAL;
 
 			for (idx = 0; idx < fm->nr_args; idx++) {
-				u8 reg = bpf_to_rv_reg(BPF_REG_1 + idx, ctx);
 				bool sign = fm->arg_flags[idx] & BTF_FMODEL_SIGNED_ARG;
+				u8 arg_sz = fm->arg_size[idx];
 
-				if (sign_extend(reg, reg, fm->arg_size[idx], sign, ctx))
-					return -EINVAL;
+				if (arg_sz == 8 || (arg_sz != 4 && !sign))
+					continue;
+
+				if (idx < RV_MAX_REG_ARGS) {
+					if (sign_extend(RV_REG_A0 + idx, RV_REG_A0 + idx, arg_sz, sign, ctx))
+						return -EINVAL;
+				} else {
+					emit_ld(RV_REG_T1, (idx - RV_MAX_REG_ARGS) * 8, RV_REG_SP, ctx);
+					if (sign_extend(RV_REG_T1, RV_REG_T1, arg_sz, sign, ctx))
+						return -EINVAL;
+					emit_sd(RV_REG_SP, (idx - RV_MAX_REG_ARGS) * 8, RV_REG_T1, ctx);
+				}
 			}
 		}
 
@@ -1851,6 +1932,13 @@ int bpf_jit_emit_insn(const struct bpf_insn *insn, struct rv_jit_context *ctx,
 			emit_mv(bpf_to_rv_reg(BPF_REG_0, ctx), RV_REG_A0, ctx);
 		break;
 	}
+
+	/* indirect call to a bpf subprog via the address in rd */
+	case BPF_JMP | BPF_CALL | BPF_X:
+		mark_call(ctx);
+		emit_jalr(RV_REG_RA, rd, 0, ctx);
+		break;
+
 	/* tail call */
 	case BPF_JMP | BPF_TAIL_CALL:
 		if (emit_bpf_tail_call(i, ctx))
@@ -1908,18 +1996,27 @@ int bpf_jit_emit_insn(const struct bpf_insn *insn, struct rv_jit_context *ctx,
 	case BPF_LDX | BPF_PROBE_MEM32 | BPF_H:
 	case BPF_LDX | BPF_PROBE_MEM32 | BPF_W:
 	case BPF_LDX | BPF_PROBE_MEM32 | BPF_DW:
+	/* LDX | PROBE_MEM32SX: dst = *(signed size *)(src + RV_REG_ARENA + off) */
+	case BPF_LDX | BPF_PROBE_MEM32SX | BPF_B:
+	case BPF_LDX | BPF_PROBE_MEM32SX | BPF_H:
+	case BPF_LDX | BPF_PROBE_MEM32SX | BPF_W:
 	{
 		bool sign_ext;
 
 		sign_ext = BPF_MODE(insn->code) == BPF_MEMSX ||
-			   BPF_MODE(insn->code) == BPF_PROBE_MEMSX;
+			   BPF_MODE(insn->code) == BPF_PROBE_MEMSX ||
+			   BPF_MODE(insn->code) == BPF_PROBE_MEM32SX;
 
-		if (BPF_MODE(insn->code) == BPF_PROBE_MEM32) {
+		if (BPF_MODE(insn->code) == BPF_PROBE_MEM32 ||
+		    BPF_MODE(insn->code) == BPF_PROBE_MEM32SX) {
 			emit_add(RV_REG_T2, rs, RV_REG_ARENA, ctx);
 			rs = RV_REG_T2;
 		}
 
-		emit_ldx(rd, off, rs, BPF_SIZE(code), sign_ext, ctx);
+		if (is_stack_arg_ldx(insn))
+			emit_stack_arg_ldx(rd, off, ctx);
+		else
+			emit_ldx(rd, off, rs, BPF_SIZE(code), sign_ext, ctx);
 
 		ret = add_exception_handler(insn, rd, ctx);
 		if (ret)
@@ -1949,7 +2046,10 @@ int bpf_jit_emit_insn(const struct bpf_insn *insn, struct rv_jit_context *ctx,
 			rd = RV_REG_T3;
 		}
 
-		emit_st(rd, off, imm, BPF_SIZE(code), ctx);
+		if (is_stack_arg_st(insn))
+			emit_stack_arg_st(off, imm, ctx);
+		else
+			emit_st(rd, off, imm, BPF_SIZE(code), ctx);
 
 		ret = add_exception_handler(insn, REG_DONT_CLEAR_MARKER, ctx);
 		if (ret)
@@ -1971,7 +2071,10 @@ int bpf_jit_emit_insn(const struct bpf_insn *insn, struct rv_jit_context *ctx,
 			rd = RV_REG_T2;
 		}
 
-		emit_stx(rd, off, rs, BPF_SIZE(code), ctx);
+		if (is_stack_arg_stx(insn))
+			emit_stack_arg_stx(off, rs, ctx);
+		else
+			emit_stx(rd, off, rs, BPF_SIZE(code), ctx);
 
 		ret = add_exception_handler(insn, REG_DONT_CLEAR_MARKER, ctx);
 		if (ret)
@@ -2021,9 +2124,9 @@ int bpf_jit_emit_insn(const struct bpf_insn *insn, struct rv_jit_context *ctx,
 
 void bpf_jit_build_prologue(struct rv_jit_context *ctx, bool is_subprog)
 {
-	int i, stack_adjust = 0, store_offset, bpf_stack_adjust;
+	int i, stack_adjust = 0, store_offset, bpf_stack_adjust = ctx->stack_arg_sz;
 
-	bpf_stack_adjust = round_up(ctx->prog->aux->stack_depth, STACK_ALIGN);
+	bpf_stack_adjust += round_up(ctx->prog->aux->stack_depth, STACK_ALIGN);
 	if (bpf_stack_adjust)
 		mark_fp(ctx);
 
@@ -2121,6 +2224,11 @@ bool bpf_jit_supports_kfunc_call(void)
 	return true;
 }
 
+bool bpf_jit_supports_kfunc_ret_reg_pair(void)
+{
+	return true;
+}
+
 bool bpf_jit_supports_ptr_xchg(void)
 {
 	return true;
@@ -2128,7 +2236,15 @@ bool bpf_jit_supports_ptr_xchg(void)
 
 bool bpf_jit_supports_arena(void)
 {
-	return true;
+	/*
+	 * The arena range tree uses kmalloc_nolock(), which needs
+	 * cmpxchg128, provided by ZACAS on riscv.
+	 */
+#ifdef system_has_cmpxchg128
+	return system_has_cmpxchg128();
+#else
+	return false;
+#endif
 }
 
 bool bpf_jit_supports_insn(struct bpf_insn *insn, bool in_arena)
@@ -2140,10 +2256,6 @@ bool bpf_jit_supports_insn(struct bpf_insn *insn, bool in_arena)
 			if (insn->imm == BPF_CMPXCHG)
 				return rv_ext_enabled(ZACAS);
 			break;
-		case BPF_LDX | BPF_MEMSX | BPF_B:
-		case BPF_LDX | BPF_MEMSX | BPF_H:
-		case BPF_LDX | BPF_MEMSX | BPF_W:
-			return false;
 		}
 	}
 
@@ -2178,6 +2290,16 @@ bool bpf_jit_supports_subprog_tailcalls(void)
 }
 
 bool bpf_jit_supports_timed_may_goto(void)
+{
+	return true;
+}
+
+bool bpf_jit_supports_stack_args(void)
+{
+	return true;
+}
+
+bool bpf_jit_supports_callx(void)
 {
 	return true;
 }

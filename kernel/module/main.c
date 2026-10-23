@@ -2723,6 +2723,10 @@ static int find_module_sections(struct module *mod, struct load_info *info)
 	mod->btf_base_data = any_section_objs(info, ".BTF.base", 1,
 					      &mod->btf_base_data_size);
 #endif
+#if IS_ENABLED(CONFIG_DEBUG_INFO_BTF_INLINE)
+	mod->btf_inline_data = any_section_objs(info, ".BTF.inline", 1,
+						&mod->btf_inline_data_size);
+#endif
 #ifdef CONFIG_JUMP_LABEL
 	mod->jump_entries = section_objs(info, "__jump_table",
 					sizeof(*mod->jump_entries),
@@ -3177,6 +3181,9 @@ static noinline int do_init_module(struct module *mod)
 	mod->btf_data = NULL;
 	mod->btf_base_data = NULL;
 #endif
+#if IS_ENABLED(CONFIG_DEBUG_INFO_BTF_INLINE)
+	mod->btf_inline_data = NULL;
+#endif
 	/*
 	 * We want to free module_init, but be aware that kallsyms may be
 	 * walking this within an RCU read section. In all the failure paths, we
@@ -3581,8 +3588,9 @@ static int load_module(struct load_info *info, const char __user *uargs,
 			goto sysfs_cleanup;
 	}
 
-	if (codetag_load_module(mod))
-		goto sysfs_cleanup;
+	err = codetag_load_module(mod);
+	if (err)
+		goto livepatch_cleanup;
 
 	/* Get rid of temporary copy. */
 	free_copy(info, flags);
@@ -3592,6 +3600,9 @@ static int load_module(struct load_info *info, const char __user *uargs,
 
 	return do_init_module(mod);
 
+ livepatch_cleanup:
+	if (is_livepatch_module(mod))
+		free_module_elf(mod);
  sysfs_cleanup:
 	mod_sysfs_teardown(mod);
  coming_cleanup:

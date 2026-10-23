@@ -25,9 +25,11 @@ TEST_PROGS := \
 	cmsg_so_mark.sh \
 	cmsg_so_priority.sh \
 	cmsg_time.sh \
+	cork_fragsize.py \
 	double_udp_encap.sh \
 	drop_monitor_tests.sh \
 	ecmp_rehash.sh \
+	exception_cache.sh \
 	fcnal-ipv4.sh \
 	fcnal-ipv6.sh \
 	fcnal-other.sh \
@@ -102,7 +104,6 @@ TEST_PROGS := \
 	stress_reuseport_listen.sh \
 	tcp_ecmp_failover.sh \
 	tcp_fastopen_backup_key.sh \
-	test_bpf.sh \
 	test_bridge_backup_port.sh \
 	test_bridge_neigh_suppress.sh \
 	test_ingress_egress_chaining.sh \
@@ -197,6 +198,7 @@ TEST_GEN_PROGS := \
 	tap \
 	tcp_port_share \
 	tls \
+	udp_splice_checksum \
 # end of TEST_GEN_PROGS
 
 TEST_FILES := \
