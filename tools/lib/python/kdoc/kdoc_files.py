@@ -94,13 +94,14 @@ class KdocConfig():
     """
     def __init__(self, verbose=False, werror=False, wreturn=False,
                  wshort_desc=False, wcontents_before_sections=False,
-                 logger=None):
+                 logger=None, apispec=False):
 
         self.verbose = verbose
         self.werror = werror
         self.wreturn = wreturn
         self.wshort_desc =  wshort_desc
         self.wcontents_before_sections = wcontents_before_sections
+        self.apispec = apispec
 
         if logger:
             self.log = logger
@@ -158,6 +159,10 @@ class KernelFiles():
 
     ``yaml_content``
         Defines what will be inside the YAML file.
+
+    ``apispec``
+        If True, also parse the kernel API specification sections used
+        by the ``-apispec`` output. Default: False.
 
     Note:
         There are two type of parsers defined here:
@@ -232,7 +237,8 @@ class KernelFiles():
     def __init__(self, verbose=False, out_style=None, xforms=None,
                  werror=False, wreturn=False, wshort_desc=False,
                  wcontents_before_sections=False,
-                 yaml_file=None, yaml_content=None, logger=None):
+                 yaml_file=None, yaml_content=None, logger=None,
+                 apispec=False):
         """
         Initialize startup variables and parse all files.
         """
@@ -271,7 +277,7 @@ class KernelFiles():
         # used to send control configuration to KernelDoc class. As such,
         # those variables are read-only inside the KernelDoc.
         self.config = KdocConfig(verbose, werror, wreturn, wshort_desc,
-                                 wcontents_before_sections, logger)
+                                 wcontents_before_sections, logger, apispec)
 
         # Override log warning, as we want to count errors
         self.config.warning = self.warning
