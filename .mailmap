@@ -89,6 +89,10 @@ Andrej Shadura <andrew@shadura.me> <andrew@beldisplaytech.com>
 Andrew Donnellan <andrew+kernel@donnellan.id.au> <andrew@donnellan.id.au>
 Andrew Donnellan <andrew+kernel@donnellan.id.au> <ajd@linux.ibm.com>
 Andrew Donnellan <andrew+kernel@donnellan.id.au> <andrew.donnellan@au1.ibm.com>
+Andrew Jones <andrew.jones@linux.dev> <ajones@ventanamicro.com>
+Andrew Jones <andrew.jones@linux.dev> <andrew.jones@oss.qualcomm.com>
+Andrew Jones <andrew.jones@linux.dev> <anjones@nvidia.com>
+Andrew Jones <andrew.jones@linux.dev> <drjones@redhat.com>
 Andrew Morton <akpm@linux-foundation.org>
 Andrew Murray <amurray@thegoodpenguin.co.uk> <amurray@embedded-bits.co.uk>
 Andrew Murray <amurray@thegoodpenguin.co.uk> <andrew.murray@arm.com>
@@ -602,6 +606,8 @@ Marek Lindner <marek.lindner@mailbox.org> <lindner_marek@yahoo.de>
 Marek Lindner <marek.lindner@mailbox.org> <mareklindner@neomailbox.ch>
 Mark Brown <broonie@sirena.org.uk>
 Mark Starovoytov <mstarovo@pm.me> <mstarovoitov@marvell.com>
+Markus Mayer <markus.mayer@broadcom.com> <mmayer@broadcom.com>
+Markus Mayer <markus.mayer@broadcom.com> <markus.mayer@linaro.org>
 Markus Schneider-Pargmann <msp@baylibre.com> <mpa@pengutronix.de>
 Mark Yao <markyao0591@gmail.com> <mark.yao@rock-chips.com>
 Martin K. Petersen <mkp@kernel.org> <martin.petersen@oracle.com>
