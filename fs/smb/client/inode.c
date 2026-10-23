@@ -1977,24 +1977,31 @@ static int __cifs_unlink(struct inode *dir, struct dentry *dentry, bool sillyren
 	__u32 dosattr = 0, origattr = 0;
 	struct TCP_Server_Info *server;
 	struct iattr *attrs = NULL;
-	bool rehash = false;
+	bool unblock = false;
 
 	cifs_dbg(FYI, "cifs_unlink, dir=0x%p, dentry=0x%p\n", dir, dentry);
 
 	if (unlikely(cifs_forced_shutdown(cifs_sb)))
 		return smb_EIO(smb_eio_trace_forced_shutdown);
 
-	/* Unhash dentry in advance to prevent any concurrent opens */
-	spin_lock(&dentry->d_lock);
-	if (!d_unhashed(dentry)) {
-		__d_drop(dentry);
-		rehash = true;
-	}
-	spin_unlock(&dentry->d_lock);
-
 	tlink = cifs_sb_tlink(cifs_sb);
 	if (IS_ERR(tlink))
 		return PTR_ERR(tlink);
+
+	/* opens might already be blocked by rename */
+	if (!(dentry->d_flags & DCACHE_PRIVATE)) {
+		/*
+		 * Block opens - and all lookups that involve d_revalidate.
+		 * This guarantees that if another thread tries to open(), it
+		 * will either block, or will increment d_count()
+		 * before we test it below.
+		 */
+		spin_lock(&dentry->d_lock);
+		dentry->d_flags |= DCACHE_PRIVATE;
+		spin_unlock(&dentry->d_lock);
+		unblock = true;
+	}
+
 	tcon = tlink_tcon(tlink);
 	server = tcon->ses->server;
 
@@ -2116,8 +2123,13 @@ unlink_out:
 	kfree(attrs);
 	free_xid(xid);
 	cifs_put_tlink(tlink);
-	if (rehash)
-		d_rehash(dentry);
+	/* Allow lookups/opens */
+	if (unblock) {
+		spin_lock(&dentry->d_lock);
+		store_release_wake_up(&dentry->d_flags,
+				      dentry->d_flags &~ DCACHE_PRIVATE);
+		spin_unlock(&dentry->d_lock);
+	}
 	return rc;
 }
 
@@ -2545,7 +2557,6 @@ cifs_rename2(const struct mnt_idmap *idmap, struct inode *source_dir,
 	struct cifs_sb_info *cifs_sb;
 	struct tcon_link *tlink;
 	struct cifs_tcon *tcon;
-	bool rehash = false;
 	unsigned int xid;
 	int rc, tmprc;
 	int retry_count = 0;
@@ -2561,20 +2572,20 @@ cifs_rename2(const struct mnt_idmap *idmap, struct inode *source_dir,
 	if (unlikely(cifs_forced_shutdown(cifs_sb)))
 		return smb_EIO(smb_eio_trace_forced_shutdown);
 
-	/*
-	 * Prevent any concurrent opens on the target by unhashing the dentry.
-	 * VFS already unhashes the target when renaming directories.
-	 */
-	if (d_is_positive(target_dentry) && !d_is_dir(target_dentry)) {
-		if (!d_unhashed(target_dentry)) {
-			d_drop(target_dentry);
-			rehash = true;
-		}
-	}
-
 	tlink = cifs_sb_tlink(cifs_sb);
 	if (IS_ERR(tlink))
 		return PTR_ERR(tlink);
+
+	/*
+	 * Block opens - and all lookups that involve d_revalidate.
+	 * This guarantees that if another thread tries to open(), it
+	 * will either block, or will increment d_count()
+	 * before we test it in __cifs_unlink().
+	 */
+	spin_lock(&target_dentry->d_lock);
+	target_dentry->d_flags |= DCACHE_PRIVATE;
+	spin_unlock(&target_dentry->d_lock);
+
 	tcon = tlink_tcon(tlink);
 	server = tcon->ses->server;
 
@@ -2614,8 +2625,6 @@ cifs_rename2(const struct mnt_idmap *idmap, struct inode *source_dir,
 		}
 	}
 
-	if (!rc)
-		rehash = false;
 	/*
 	 * No-replace is the natural behavior for CIFS, so skip unlink hacks.
 	 */
@@ -2707,8 +2716,6 @@ unlink_target:
 			}
 			rc = cifs_do_rename(xid, source_dentry, from_name,
 					    target_dentry, to_name);
-			if (!rc)
-				rehash = false;
 		}
 	}
 
@@ -2722,8 +2729,11 @@ unlink_target:
 	CIFS_I(source_dir)->time = CIFS_I(target_dir)->time = 0;
 
 cifs_rename_exit:
-	if (rehash)
-		d_rehash(target_dentry);
+	/* Allow lookups/opens */
+	spin_lock(&target_dentry->d_lock);
+	store_release_wake_up(&target_dentry->d_flags,
+			      target_dentry->d_flags &~ DCACHE_PRIVATE);
+	spin_unlock(&target_dentry->d_lock);
 	kfree(info_buf_source);
 	free_dentry_path(page2);
 	free_dentry_path(page1);
