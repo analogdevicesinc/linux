@@ -4007,9 +4007,8 @@ static int __init rcu_torture_fwd_prog_init(void)
 	} else if (fwd_progress < 0) {
 		fwd_progress = nr_cpu_ids;
 	}
-	if ((!cur_ops->sync && !cur_ops->call) ||
-	    (!cur_ops->cbflood_max && (!cur_ops->stall_dur || cur_ops->stall_dur() <= 0)) ||
-	    cur_ops == &rcu_busted_ops) {
+	if (!cur_ops->sync || ((!cur_ops->call || !cur_ops->cb_barrier || !cur_ops->cbflood_max) &&
+	    (!cur_ops->stall_dur || cur_ops->stall_dur() <= 0))) {
 		VERBOSE_TOROUT_STRING("rcu_torture_fwd_prog_init: Disabled, unsupported by RCU flavor under test");
 		fwd_progress = 0;
 		return 0;
