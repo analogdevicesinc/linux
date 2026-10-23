@@ -585,7 +585,7 @@ targets += $(filter-out $(single-subdir-goals), $(MAKECMDGOALS))
 targets := $(filter-out $(PHONY), $(targets))
 
 # Now that targets is fully known, include dtb rules if needed
-ifneq ($(need-dtbslist)$(dtb-y)$(dtb-)$(filter %.dtb %.dtb.o %.dtbo.o,$(targets)),)
+ifneq ($(need-dtbslist)$(dtb-y)$(dtb-) $(filter %.dtb %.dtbo %.dtb.o %.dtbo.o,$(targets)),)
 include $(srctree)/scripts/Makefile.dtbs
 endif
 

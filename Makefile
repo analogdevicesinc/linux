@@ -302,7 +302,7 @@ no-dot-config-targets := $(clean-targets) \
 			 run-command
 no-sync-config-targets := $(no-dot-config-targets) %install modules_sign kernelrelease \
 			  image_name
-single-targets := %.a %.i %.ko %.lds %.ll %.lst %.mod %.o %.rsi %.s %.header-check %/
+single-targets := %.a %.i %.ko %.lds %.ll %.lst %.mod %.o %.rsi %.s %.header-check %.dtb %.dtbo %/
 
 config-build	:=
 mixed-build	:=
@@ -1675,12 +1675,6 @@ dtbindingtree := Documentation/devicetree/bindings
 
 ifneq ($(dtstree),)
 
-%.dtb: dtbs_prepare
-	$(Q)$(MAKE) $(build)=$(dtstree) $(dtstree)/$@
-
-%.dtbo: dtbs_prepare
-	$(Q)$(MAKE) $(build)=$(dtstree) $(dtstree)/$@
-
 PHONY += dtbs dtbs_prepare dtbs_install dtbs_check
 dtbs: dtbs_prepare
 	$(Q)$(MAKE) $(build)=$(dtstree) need-dtbslist=1
@@ -1695,7 +1689,7 @@ export CHECK_DTBS=y
 endif
 
 ifneq ($(CHECK_DTBS),)
-dtbs_prepare: dt_binding_schemas
+scripts_dtc: dt_binding_schemas
 endif
 
 dtbs_check: dtbs
@@ -2205,6 +2199,8 @@ modpost: $(if $(single-build),, $(if $(KBUILD_BUILTIN), vmlinux.o)) \
 #
 #   make foo/bar/baz/
 
+single-build-prep := prepare
+
 ifdef single-build
 
 # .ko is special because modpost is needed
@@ -2227,7 +2223,23 @@ ifneq ($(KBUILD_MODPOST_NOFINAL),1)
 endif
 	$(Q)rm -f modules.order
 
+# Resolve legacy DTB paths only in directories of the architecture's DTS tree.
+# Composite DTBs may not have a matching DTS file.
+ifneq ($(dtstree),)
+single-dtb := $(filter-out $(dtstree)/%, $(filter %.dtb %.dtbo, $(single-no-ko)))
+single-dtb := $(foreach f,$(single-dtb), $(if $(wildcard $(srctree)/$(dtstree)/$(dir $(f))),$(f)))
+single-no-ko := $(filter-out $(single-dtb), $(single-no-ko)) $(addprefix $(dtstree)/, $(single-dtb))
+endif
+
 single-goals := $(addprefix $(build-dir)/, $(single-no-ko))
+
+# DT-only targets need host tools, but no architecture-specific preparation.
+ifneq ($(dtstree),)
+single-dt-patterns := $(addprefix $(dtstree)/,%.dtb %.dtbo)
+ifeq ($(filter-out $(single-dt-patterns),$(single-no-ko)),)
+single-build-prep := dtbs_prepare
+endif
+endif
 
 KBUILD_MODULES := y
 
@@ -2240,7 +2252,7 @@ prepare: outputmakefile
 # make menuconfig etc.
 # Error messages still appears in the original language
 PHONY += $(build-dir)
-$(build-dir): prepare
+$(build-dir): $(single-build-prep)
 	$(Q)$(MAKE) $(build)=$@ need-builtin=1 need-modorder=1 $(single-goals)
 
 clean-dirs := $(addprefix _clean_, $(clean-dirs))
