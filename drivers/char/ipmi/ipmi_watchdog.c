@@ -1166,13 +1166,13 @@ static int action_op(const char *inval, char *outval)
 	int rv;
 
 	if (outval)
-		strcpy(outval, action);
+		strscpy(outval, action, sizeof(action));
 
 	if (!inval)
 		return 0;
 	rv = action_op_set_val(inval);
 	if (!rv)
-		strcpy(action, inval);
+		strscpy(action, inval, sizeof(action));
 	return rv;
 }
 
@@ -1198,13 +1198,13 @@ static int preaction_op(const char *inval, char *outval)
 	int rv;
 
 	if (outval)
-		strcpy(outval, preaction);
+		strscpy(outval, preaction, sizeof(preaction));
 
 	if (!inval)
 		return 0;
 	rv = preaction_op_set_val(inval);
 	if (!rv)
-		strcpy(preaction, inval);
+		strscpy(preaction, inval, sizeof(preaction));
 	return 0;
 }
 
@@ -1226,14 +1226,14 @@ static int preop_op(const char *inval, char *outval)
 	int rv;
 
 	if (outval)
-		strcpy(outval, preop);
+		strscpy(outval, preop, sizeof(preop));
 
 	if (!inval)
 		return 0;
 
 	rv = preop_op_set_val(inval);
 	if (!rv)
-		strcpy(preop, inval);
+		strscpy(preop, inval, sizeof(preop));
 	return 0;
 }
 
