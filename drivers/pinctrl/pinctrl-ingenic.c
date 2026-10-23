@@ -2411,6 +2411,8 @@ static int x1600_i2s_data_rx_pins[] = { 0x35, };
 static int x1600_i2s_clk_rx_pins[] = { 0x37, 0x38, };
 static int x1600_i2s_clk_tx_pins[] = { 0x3b, 0x3c, };
 static int x1600_i2s_sysclk_pins[] = { 0x36, 0x3a, };
+static int x1600_i2s_sysclk_rx_pins[] = { 0x36, };
+static int x1600_i2s_sysclk_tx_pins[] = { 0x3a, };
 
 static int x1600_cim_pins[] = {
 	0x14, 0x16, 0x15, 0x18, 0x13,
@@ -2494,6 +2496,8 @@ static const struct group_desc x1600_groups[] = {
 	INGENIC_PIN_GROUP("i2s-clk-rx", x1600_i2s_clk_rx, 0),
 	INGENIC_PIN_GROUP("i2s-clk-tx", x1600_i2s_clk_tx, 0),
 	INGENIC_PIN_GROUP("i2s-sysclk", x1600_i2s_sysclk, 0),
+	INGENIC_PIN_GROUP("i2s-sysclk-rx", x1600_i2s_sysclk_rx, 0),
+	INGENIC_PIN_GROUP("i2s-sysclk-tx", x1600_i2s_sysclk_tx, 0),
 	INGENIC_PIN_GROUP("cim-data", x1600_cim, 2),
 	INGENIC_PIN_GROUP("slcd-8bit", x1600_slcd_8bit, 1),
 	INGENIC_PIN_GROUP("slcd-16bit", x1600_slcd_16bit, 1),
@@ -2541,6 +2545,7 @@ static const char * const x1600_i2c1_groups[] = { "i2c1-data-b-15", "i2c1-data-b
 
 static const char * const x1600_i2s_groups[] = {
 	"i2s-data-tx", "i2s-data-rx", "i2s-clk-rx", "i2s-clk-tx", "i2s-sysclk",
+	"i2s-sysclk-rx", "i2s-sysclk-tx",
 };
 
 static const char * const x1600_cim_groups[] = { "cim-data", };
