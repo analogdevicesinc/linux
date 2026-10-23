@@ -404,8 +404,6 @@ void btrfs_add_bg_to_space_info(struct btrfs_fs_info *info,
 	btrfs_try_granting_tickets(space_info);
 	spin_unlock(&space_info->lock);
 
-	block_group->space_info = space_info;
-
 	index = btrfs_bg_flags_to_raid_index(block_group->flags);
 	down_write(&space_info->groups_sem);
 	list_add_tail(&block_group->list, &space_info->block_groups[index]);
