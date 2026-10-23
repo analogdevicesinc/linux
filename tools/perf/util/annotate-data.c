@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <inttypes.h>
 #include <linux/zalloc.h>
 
@@ -221,12 +222,18 @@ static bool data_type_less(struct rb_node *node_a, const struct rb_node *node_b)
 	return strcmp(a->self.type_name, b->self.type_name) < 0;
 }
 
+/*
+ * A broken type can point back at one of its own ancestors: bound the
+ * nesting so it doesn't recurse until the stack is gone.
+ */
+#define MAX_MEMBER_DEPTH 32
+
 /* Recursively add new members for struct/union */
 static int __add_member_cb(Dwarf_Die *die, void *arg)
 {
 	struct annotated_member *parent = arg;
-	struct annotated_member *member;
-	Dwarf_Die member_type, die_mem;
+	struct annotated_member *member, *prev;
+	Dwarf_Die die_mem;
 	Dwarf_Word size, loc, bit_size = 0;
 	Dwarf_Attribute attr;
 	struct strbuf sb;
@@ -235,21 +242,31 @@ static int __add_member_cb(Dwarf_Die *die, void *arg)
 	if (dwarf_tag(die) != DW_TAG_member)
 		return DIE_FIND_CB_SIBLING;
 
+	if (die_get_real_type(die, &die_mem) == NULL)
+		return DIE_FIND_CB_SIBLING;
+
 	member = zalloc(sizeof(*member));
 	if (member == NULL)
 		return DIE_FIND_CB_END;
 
-	strbuf_init(&sb, 32);
-	die_get_typename(die, &sb);
+	if (strbuf_init(&sb, 32) < 0) {
+		free(member);
+		return DIE_FIND_CB_END;
+	}
 
-	__die_get_real_type(die, &member_type);
-	if (dwarf_tag(&member_type) == DW_TAG_typedef)
-		die_get_real_type(&member_type, &die_mem);
-	else
-		die_mem = member_type;
+	if (die_get_typename(die, &sb) < 0)
+		strbuf_add(&sb, "(unknown type)", 14);
 
-	if (dwarf_aggregate_size(&die_mem, &size) < 0)
-		size = 0;
+	if (dwarf_aggregate_size(&die_mem, &size) < 0 || size == 0) {
+		if (dwarf_tag(&die_mem) == DW_TAG_array_type) { /* flex-array? */
+			die_get_real_type(&die_mem, &die_mem);
+			member->is_flex_array = true;
+			if (dwarf_aggregate_size(&die_mem, &size) < 0)
+				size = 0;
+		} else {
+			size = 0;
+		}
+	}
 
 	if (dwarf_attr_integrate(die, DW_AT_data_member_location, &attr)) {
 		if (dwarf_formudata(&attr, &loc) != 0) {
@@ -289,13 +306,29 @@ static int __add_member_cb(Dwarf_Die *die, void *arg)
 	}
 	member->size = size;
 	member->offset = loc + parent->offset;
+	member->depth = parent->depth + 1;
 	INIT_LIST_HEAD(&member->children);
-	list_add_tail(&member->node, &parent->children);
+
+	list_for_each_entry_reverse(prev, &parent->children, node) {
+		if (prev->offset <= member->offset)
+			break;
+	}
+	list_add(&member->node, &prev->node);
 
 	tag = dwarf_tag(&die_mem);
 	switch (tag) {
-	case DW_TAG_structure_type:
 	case DW_TAG_union_type:
+		member->is_union = true;
+		/* fall through */
+	case DW_TAG_structure_type:
+		/* Only aggregates have children to expand, so only they get truncated. */
+		if (member->depth >= MAX_MEMBER_DEPTH) {
+			/* Consumed by the JSON exporter added in a later series. */
+			member->truncated = true;
+			pr_debug_dtp("member nesting limit reached at %s\n",
+				     member->type_name ?: "(unknown type)");
+			break;
+		}
 		die_find_child(&die_mem, __add_member_cb, member, &die_mem);
 		break;
 	default:
@@ -324,20 +357,84 @@ static void delete_members(struct annotated_member *member)
 	}
 }
 
-static int fill_member_name(char *buf, size_t sz, struct annotated_member *m,
-			    int offset, bool first)
+static struct annotated_member *find_flex_array(struct annotated_member *m)
 {
 	struct annotated_member *child;
+
+	if (list_empty(&m->children))
+		return NULL;
+
+	if (m->is_union) {
+		list_for_each_entry(child, &m->children, node) {
+			if (child->is_flex_array)
+				return child;
+		}
+		list_for_each_entry(child, &m->children, node) {
+			struct annotated_member *grand_child;
+
+			grand_child = find_flex_array(child);
+			if (grand_child)
+				return grand_child;
+		}
+		return NULL;
+	}
+
+	child = list_last_entry(&m->children, struct annotated_member, node);
+	if (child->is_flex_array)
+		return child;
+
+	return find_flex_array(child);
+}
+
+static struct annotated_member *get_flex_array_member(struct annotated_data_type *adt)
+{
+	return find_flex_array(&adt->self);
+}
+
+static int fill_member_name(char *buf, size_t sz, struct annotated_member *m,
+			    int offset, bool first, bool has_flex_array)
+{
+	struct annotated_member *child;
+	bool found = false;
+	int len;
 
 	if (list_empty(&m->children))
 		return 0;
 
 	list_for_each_entry(child, &m->children, node) {
-		int len;
-
 		if (offset < child->offset || offset >= child->offset + child->size)
 			continue;
 
+		found = true;
+		break;
+	}
+
+	if (!found && has_flex_array) {
+		/*
+		 * It may have an intermediate struct that has another struct that
+		 * contains a flex array.  In that case, the outer struct itself is
+		 * has no array and the size is less than the offset so the above
+		 * logic won't find the outer struct at the offset.
+		 */
+		child = find_flex_array(m);
+		if (child == NULL || offset < child->offset)
+			return 0;
+
+		/* find the immediate child that includes a flex array */
+		if (m->is_union) {
+			list_for_each_entry(child, &m->children, node) {
+				if (child->is_flex_array || find_flex_array(child)) {
+					found = true;
+					break;
+				}
+			}
+		} else {
+			child = list_last_entry(&m->children, struct annotated_member, node);
+			found = true;
+		}
+	}
+
+	if (found) {
 		/* It can have anonymous struct/union members */
 		if (child->var_name) {
 			len = scnprintf(buf, sz, "%s%s",
@@ -347,15 +444,18 @@ static int fill_member_name(char *buf, size_t sz, struct annotated_member *m,
 			len = 0;
 		}
 
-		return fill_member_name(buf + len, sz - len, child, offset, first) + len;
+		return fill_member_name(buf + len, sz - len, child, offset, first,
+					has_flex_array) + len;
 	}
+
 	return 0;
 }
 
 int annotated_data_type__get_member_name(struct annotated_data_type *adt,
 					 char *buf, size_t sz, int member_offset)
 {
-	return fill_member_name(buf, sz, &adt->self, member_offset, /*first=*/true);
+	return fill_member_name(buf, sz, &adt->self, member_offset, /*first=*/true,
+				adt->flex_array);
 }
 
 static struct annotated_data_type *dso__findnew_data_type(struct dso *dso,
@@ -399,6 +499,7 @@ static struct annotated_data_type *dso__findnew_data_type(struct dso *dso,
 	result->self.type_name = type_name;
 	result->self.size = size;
 	INIT_LIST_HEAD(&result->self.children);
+	result->flex_array = die_has_flex_array(type_die);
 
 	if (symbol_conf.annotate_data_member)
 		add_member_types(result, type_die);
@@ -517,13 +618,30 @@ static bool is_better_type(Dwarf_Die *type_a, Dwarf_Die *type_b)
 	return false;
 }
 
+static enum type_match_result check_type_offset(Dwarf_Die *type_die, int offset)
+{
+	Dwarf_Word size;
+
+	/* Get the size of the actual type */
+	if (dwarf_aggregate_size(type_die, &size) < 0)
+		return PERF_TMR_NO_SIZE;
+
+	/* Minimal sanity check */
+	if (offset < 0)
+		return PERF_TMR_BAD_OFFSET;
+
+	if ((unsigned)offset >= size && !die_has_flex_array(type_die))
+		return PERF_TMR_BAD_OFFSET;
+
+	return PERF_TMR_OK;
+}
+
 /* The type info will be saved in @type_die */
 static enum type_match_result check_variable(struct data_loc_info *dloc,
 					     Dwarf_Die *var_die,
 					     Dwarf_Die *type_die, int reg,
 					     int offset, bool is_fbreg)
 {
-	Dwarf_Word size;
 	bool needs_pointer = true;
 	Dwarf_Die sized_type;
 
@@ -554,15 +672,7 @@ static enum type_match_result check_variable(struct data_loc_info *dloc,
 	else
 		sized_type = *type_die;
 
-	/* Get the size of the actual type */
-	if (dwarf_aggregate_size(&sized_type, &size) < 0)
-		return PERF_TMR_NO_SIZE;
-
-	/* Minimal sanity check */
-	if ((unsigned)offset >= size)
-		return PERF_TMR_BAD_OFFSET;
-
-	return PERF_TMR_OK;
+	return check_type_offset(&sized_type, offset);
 }
 
 struct type_state_stack *find_stack_state(struct type_state *state,
@@ -645,6 +755,8 @@ struct global_var_entry {
 	u64 start;
 	u64 end;
 	u64 die_offset;
+	int die_tag;
+	bool from_alt;	/* die_offset is relative to the alt (dwz) file */
 };
 
 static int global_var_cmp(const void *_key, const struct rb_node *node)
@@ -682,7 +794,7 @@ static struct global_var_entry *global_var__find(struct data_loc_info *dloc, u64
 }
 
 static bool global_var__add(struct data_loc_info *dloc, u64 addr,
-			    const char *name, Dwarf_Die *type_die)
+			    const char *name, Dwarf_Die *type_die, bool from_alt)
 {
 	struct dso *dso = map__dso(dloc->ms->map);
 	struct global_var_entry *gvar;
@@ -704,6 +816,8 @@ static bool global_var__add(struct data_loc_info *dloc, u64 addr,
 	gvar->start = addr;
 	gvar->end = addr + size;
 	gvar->die_offset = dwarf_dieoffset(type_die);
+	gvar->die_tag = dwarf_tag(type_die);
+	gvar->from_alt = from_alt;
 
 	rb_add(&gvar->node, dso__global_vars(dso), global_var_less);
 	return true;
@@ -778,12 +892,14 @@ static void global_var__collect(struct data_loc_info *dloc)
 			if (pos->reg != -1)
 				continue;
 
-			if (!dwarf_offdie(dwarf, pos->die_off, &type_die))
+			if (!die_get_type_die(dwarf, pos->die_off, pos->die_tag,
+					      pos->from_alt, &type_die))
 				continue;
 
 			get_global_var_info(dloc, pos->addr, &var_name, &var_offset);
 
-			global_var__add(dloc, pos->addr, var_name, &type_die);
+			global_var__add(dloc, pos->addr, var_name, &type_die,
+					pos->from_alt);
 		}
 
 		delete_var_types(var_types);
@@ -808,7 +924,8 @@ bool get_global_var_type(Dwarf_Die *cu_die, struct data_loc_info *dloc,
 
 	gvar = global_var__find(dloc, var_addr);
 	if (gvar) {
-		if (!dwarf_offdie(dloc->di->dbg, gvar->die_offset, type_die))
+		if (!die_get_type_die(dloc->di->dbg, gvar->die_offset,
+				      gvar->die_tag, gvar->from_alt, type_die))
 			return false;
 
 		*var_offset = var_addr - gvar->start;
@@ -838,7 +955,8 @@ bool get_global_var_type(Dwarf_Die *cu_die, struct data_loc_info *dloc,
 
 ok:
 	/* The address should point to the start of the variable */
-	global_var__add(dloc, var_addr - *var_offset, var_name, type_die);
+	global_var__add(dloc, var_addr - *var_offset, var_name, type_die,
+			!die_same_file(cu_die, type_die));
 	return true;
 }
 
@@ -893,7 +1011,8 @@ static void update_var_state(struct type_state *state, struct data_loc_info *dlo
 				continue;
 		}
 		/* Get the type DIE using the offset */
-		if (!dwarf_offdie(dloc->di->dbg, var->die_off, &mem_die))
+		if (!die_get_type_die(dloc->di->dbg, var->die_off,
+				      var->die_tag, var->from_alt, &mem_die))
 			continue;
 
 		if (var->reg == DWARF_REG_FB || var->reg == fbreg || var->reg == state->stack_reg) {
@@ -1112,7 +1231,6 @@ static enum type_match_result check_matching_type(struct type_state *state,
 						  struct disasm_line *dl,
 						  Dwarf_Die *type_die)
 {
-	Dwarf_Word size;
 	u32 insn_offset = dl->al.offset;
 	int reg = dloc->op->reg1;
 	int offset = dloc->op->offset;
@@ -1166,12 +1284,7 @@ again:
 		else
 			sized_type = *type_die;
 
-		/* Get the size of the actual type */
-		if (dwarf_aggregate_size(&sized_type, &size) < 0 ||
-		    (unsigned)dloc->type_offset >= size)
-			return PERF_TMR_BAD_OFFSET;
-
-		return PERF_TMR_OK;
+		return check_type_offset(&sized_type, dloc->type_offset);
 	}
 
 	if (state->regs[reg].kind == TSR_KIND_POINTER) {
@@ -1190,12 +1303,7 @@ again:
 
 		dloc->type_offset = dloc->op->offset + state->regs[reg].offset;
 
-		/* Get the size of the actual type */
-		if (dwarf_aggregate_size(type_die, &size) < 0 ||
-		    (unsigned)dloc->type_offset >= size)
-			return PERF_TMR_BAD_OFFSET;
-
-		return PERF_TMR_OK;
+		return check_type_offset(type_die, dloc->type_offset);
 	}
 
 	if (state->regs[reg].kind == TSR_KIND_PERCPU_POINTER) {
@@ -1209,9 +1317,7 @@ again:
 
 		dloc->type_offset = dloc->op->offset;
 
-		/* Get the size of the actual type */
-		if (dwarf_aggregate_size(type_die, &size) < 0 ||
-		    (unsigned)dloc->type_offset >= size)
+		if (check_type_offset(type_die, dloc->type_offset) != PERF_TMR_OK)
 			return PERF_TMR_BAIL_OUT;
 
 		return PERF_TMR_OK;
@@ -1735,6 +1841,7 @@ struct annotated_data_type *find_data_type(struct data_loc_info *dloc)
 {
 	struct dso *dso = map__dso(dloc->ms->map);
 	Dwarf_Die type_die;
+	struct annotated_data_type *result;
 
 	/*
 	 * The type offset is the same as instruction offset by default.
@@ -1747,45 +1854,66 @@ struct annotated_data_type *find_data_type(struct data_loc_info *dloc)
 	if (find_data_type_die(dloc, &type_die) < 0)
 		return NULL;
 
-	return dso__findnew_data_type(dso, &type_die);
+	result = dso__findnew_data_type(dso, &type_die);
+	if (result == NULL)
+		return NULL;
+
+	if (result->flex_array && dloc->type_offset > result->self.size) {
+		struct annotated_member *flex_array = get_flex_array_member(result);
+
+		if (flex_array && flex_array->size > 0) {
+			int offset = dloc->type_offset;
+
+			/* adjust offset in the flex array */
+			offset -= flex_array->offset;
+			offset %= flex_array->size;
+			offset += flex_array->offset;
+
+			dloc->type_offset = offset;
+		}
+	}
+	return result;
+}
+
+static size_t data_type_hash(long key, void *ctx __maybe_unused)
+{
+	return key;
+}
+
+static bool data_type_equal(long key1, long key2, void *ctx __maybe_unused)
+{
+	return key1 == key2;
 }
 
 static int alloc_data_type_histograms(struct annotated_data_type *adt, int nr_entries)
 {
 	int i;
-	size_t sz = sizeof(struct type_hist);
 
-	sz += sizeof(struct type_hist_entry) * adt->self.size;
-
-	/* Allocate a table of pointers for each event */
+	/* Allocate a histogram for each event */
 	adt->histograms = calloc(nr_entries, sizeof(*adt->histograms));
 	if (adt->histograms == NULL)
 		return -ENOMEM;
 
-	/*
-	 * Each histogram is allocated for the whole size of the type.
-	 * TODO: Probably we can move the histogram to members.
-	 */
 	for (i = 0; i < nr_entries; i++) {
-		adt->histograms[i] = zalloc(sz);
-		if (adt->histograms[i] == NULL)
-			goto err;
+		hashmap__init(&adt->histograms[i].samples, data_type_hash,
+			      data_type_equal, /*ctx=*/NULL);
 	}
 
 	adt->nr_histograms = nr_entries;
 	return 0;
-
-err:
-	while (--i >= 0)
-		zfree(&(adt->histograms[i]));
-	zfree(&adt->histograms);
-	return -ENOMEM;
 }
 
 static void delete_data_type_histograms(struct annotated_data_type *adt)
 {
-	for (int i = 0; i < adt->nr_histograms; i++)
-		zfree(&(adt->histograms[i]));
+	for (int i = 0; i < adt->nr_histograms; i++) {
+		struct hashmap *map = &adt->histograms[i].samples;
+		struct hashmap_entry *pos, *tmp;
+		size_t bkt;
+
+		hashmap__for_each_entry_safe(map, pos, tmp, bkt)
+			free(pos->pvalue);
+		hashmap__clear(map);
+	}
 
 	zfree(&adt->histograms);
 	adt->nr_histograms = 0;
@@ -1824,6 +1952,7 @@ int annotated_data_type__update_samples(struct annotated_data_type *adt,
 					int nr_samples, u64 period)
 {
 	struct type_hist *h;
+	struct type_hist_entry *entry;
 
 	if (adt == NULL)
 		return 0;
@@ -1835,15 +1964,26 @@ int annotated_data_type__update_samples(struct annotated_data_type *adt,
 			return -1;
 	}
 
-	if (offset < 0 || offset >= adt->self.size)
+	if (offset < 0 || (offset >= adt->self.size && !adt->flex_array))
 		return -1;
 
-	h = adt->histograms[evsel->core.idx];
+	h = &adt->histograms[evsel->core.idx];
 
 	h->nr_samples += nr_samples;
-	h->addr[offset].nr_samples += nr_samples;
 	h->period += period;
-	h->addr[offset].period += period;
+
+	if (!hashmap__find(&h->samples, offset, &entry)) {
+		entry = zalloc(sizeof(*entry));
+		if (entry == NULL)
+			return -1;
+
+		if (hashmap__append(&h->samples, offset, entry) < 0) {
+			free(entry);
+			return -1;
+		}
+	}
+	entry->nr_samples += nr_samples;
+	entry->period += period;
 	return 0;
 }
 
@@ -1911,14 +2051,14 @@ static void print_annotated_data_type(struct annotated_data_type *mem_type,
 				      struct evsel *evsel, int indent)
 {
 	struct annotated_member *child;
-	struct type_hist *h = mem_type->histograms[evsel->core.idx];
+	struct type_hist *h;
 	int i, nr_events = 0, samples = 0;
 	u64 period = 0;
 	int width = symbol_conf.show_total_period ? 11 : 7;
 	struct evsel *pos;
 
 	for_each_group_evsel(pos, evsel) {
-		h = mem_type->histograms[pos->core.idx];
+		h = &mem_type->histograms[pos->core.idx];
 
 		if (symbol_conf.skip_empty &&
 		    evsel__hists(pos)->stats.nr_samples == 0)
@@ -1927,8 +2067,13 @@ static void print_annotated_data_type(struct annotated_data_type *mem_type,
 		samples = 0;
 		period = 0;
 		for (i = 0; i < member->size; i++) {
-			samples += h->addr[member->offset + i].nr_samples;
-			period += h->addr[member->offset + i].period;
+			struct type_hist_entry *entry;
+
+			if (!hashmap__find(&h->samples, member->offset + i, &entry))
+				continue;
+
+			samples += entry->nr_samples;
+			period += entry->period;
 		}
 		print_annotated_data_value(h, period, samples);
 		nr_events++;
