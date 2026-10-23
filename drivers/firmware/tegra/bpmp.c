@@ -3,6 +3,7 @@
  * Copyright (c) 2016, NVIDIA CORPORATION.  All rights reserved.
  */
 
+#include <linux/acpi.h>
 #include <linux/clk/tegra.h>
 #include <linux/genalloc.h>
 #include <linux/mailbox_client.h>
@@ -11,8 +12,10 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/pm.h>
+#include <linux/property.h>
 #include <linux/semaphore.h>
 #include <linux/sched/clock.h>
+#include <linux/slab.h>
 
 #include <soc/tegra/bpmp.h>
 #include <soc/tegra/bpmp-abi.h>
@@ -23,6 +26,12 @@
 #define MSG_ACK		BIT(0)
 #define MSG_RING	BIT(1)
 #define TAG_SZ		32
+#define TEGRA_BPMP_ACPI_BMRQ_DATA_SZ	3960U
+
+struct tegra_bpmp_acpi_message {
+	u64 status;
+	u8 *data;
+};
 
 static inline const struct tegra_bpmp_ops *
 channel_to_ops(struct tegra_bpmp_channel *channel)
@@ -343,11 +352,95 @@ static ssize_t tegra_bpmp_channel_write(struct tegra_bpmp_channel *channel,
 
 static int __maybe_unused tegra_bpmp_resume(struct device *dev);
 
+#ifdef CONFIG_ACPI
+static int tegra_bpmp_transfer_acpi(struct tegra_bpmp *bpmp,
+				    struct tegra_bpmp_message *msg)
+{
+	struct acpi_buffer output = { ACPI_ALLOCATE_BUFFER, NULL };
+	struct acpi_buffer response = { ACPI_ALLOCATE_BUFFER, NULL };
+	struct acpi_buffer format = { sizeof("NB"), "NB" };
+	struct acpi_object_list param_list;
+	union acpi_object params[2];
+	struct tegra_bpmp_acpi_message *reply;
+	acpi_status status;
+	size_t data_len;
+	int err = 0;
+
+	params[0].type = ACPI_TYPE_INTEGER;
+	params[0].integer.value = msg->mrq;
+
+	params[1].type = ACPI_TYPE_BUFFER;
+	params[1].buffer.length = msg->tx.size;
+	params[1].buffer.pointer = (u8 *)msg->tx.data;
+
+	param_list.count = 2;
+	param_list.pointer = params;
+
+	status = acpi_evaluate_object(ACPI_HANDLE(bpmp->dev), "BMRQ",
+				      &param_list, &output);
+	if (ACPI_FAILURE(status)) {
+		acpi_evaluation_failure_warn(ACPI_HANDLE(bpmp->dev), "BMRQ",
+					     status);
+		return -ENODEV;
+	}
+
+	status = acpi_extract_package(output.pointer, &format, &response);
+	if (ACPI_FAILURE(status)) {
+		dev_err(bpmp->dev, "BMRQ: invalid response package: %s\n",
+			acpi_format_exception(status));
+		err = -ENODATA;
+		goto out;
+	}
+
+	if (response.length < sizeof(*reply)) {
+		dev_err(bpmp->dev, "BMRQ: response too short\n");
+		err = -ENODATA;
+		goto out;
+	}
+
+	reply = response.pointer;
+	data_len = response.length - sizeof(*reply);
+	if (data_len > TEGRA_BPMP_ACPI_BMRQ_DATA_SZ) {
+		dev_err(bpmp->dev, "BMRQ: reply buffer too large (%zu)\n",
+			data_len);
+		err = -EINVAL;
+		goto out;
+	}
+
+	msg->rx.ret = (int)reply->status;
+
+	if (msg->rx.data && msg->rx.size) {
+		if (data_len < msg->rx.size) {
+			dev_err(bpmp->dev, "BMRQ: response data too short\n");
+			err = -ENODATA;
+			goto out;
+		}
+
+		memcpy(msg->rx.data, reply->data, msg->rx.size);
+	}
+
+out:
+	kfree(response.pointer);
+	kfree(output.pointer);
+
+	return err;
+}
+#else
+static int tegra_bpmp_transfer_acpi(struct tegra_bpmp *bpmp,
+				    struct tegra_bpmp_message *msg)
+{
+	return -EOPNOTSUPP;
+}
+#endif
+
 int tegra_bpmp_transfer_atomic(struct tegra_bpmp *bpmp,
 			       struct tegra_bpmp_message *msg)
 {
 	struct tegra_bpmp_channel *channel;
 	int err;
+
+	if (WARN_ON(ACPI_HANDLE(bpmp->dev)))
+		return -EOPNOTSUPP;
 
 	if (WARN_ON(!irqs_disabled()))
 		return -EPERM;
@@ -389,18 +482,12 @@ int tegra_bpmp_transfer_atomic(struct tegra_bpmp *bpmp,
 }
 EXPORT_SYMBOL_GPL(tegra_bpmp_transfer_atomic);
 
-int tegra_bpmp_transfer(struct tegra_bpmp *bpmp,
-			struct tegra_bpmp_message *msg)
+static int tegra_bpmp_transfer_channel(struct tegra_bpmp *bpmp,
+				       struct tegra_bpmp_message *msg)
 {
 	struct tegra_bpmp_channel *channel;
 	unsigned long timeout;
 	int err;
-
-	if (WARN_ON(irqs_disabled()))
-		return -EPERM;
-
-	if (!tegra_bpmp_message_valid(msg))
-		return -EINVAL;
 
 	if (bpmp->suspended) {
 		/* Reset BPMP IPC channels during resume based on flags passed */
@@ -427,6 +514,21 @@ int tegra_bpmp_transfer(struct tegra_bpmp *bpmp,
 
 	return tegra_bpmp_channel_read(channel, msg->rx.data, msg->rx.size,
 				       &msg->rx.ret);
+}
+
+int tegra_bpmp_transfer(struct tegra_bpmp *bpmp,
+			struct tegra_bpmp_message *msg)
+{
+	if (WARN_ON(irqs_disabled()))
+		return -EPERM;
+
+	if (!tegra_bpmp_message_valid(msg))
+		return -EINVAL;
+
+	if (ACPI_HANDLE(bpmp->dev))
+		return tegra_bpmp_transfer_acpi(bpmp, msg);
+
+	return tegra_bpmp_transfer_channel(bpmp, msg);
 }
 EXPORT_SYMBOL_GPL(tegra_bpmp_transfer);
 
@@ -606,11 +708,17 @@ static int tegra_bpmp_ping(struct tegra_bpmp *bpmp)
 	msg.rx.data = &response;
 	msg.rx.size = sizeof(response);
 
-	local_irq_save(flags);
 	start = ktime_get();
-	err = tegra_bpmp_transfer_atomic(bpmp, &msg);
+
+	if (ACPI_HANDLE(bpmp->dev)) {
+		err = tegra_bpmp_transfer(bpmp, &msg);
+	} else {
+		local_irq_save(flags);
+		err = tegra_bpmp_transfer_atomic(bpmp, &msg);
+		local_irq_restore(flags);
+	}
+
 	end = ktime_get();
-	local_irq_restore(flags);
 
 	if (!err)
 		dev_dbg(bpmp->dev,
@@ -631,6 +739,9 @@ static int tegra_bpmp_get_firmware_tag_old(struct tegra_bpmp *bpmp, char *tag,
 	dma_addr_t phys;
 	void *virt;
 	int err;
+
+	if (ACPI_HANDLE(bpmp->dev))
+		return -EOPNOTSUPP;
 
 	if (size != TAG_SZ)
 		return -EINVAL;
@@ -733,19 +844,119 @@ void tegra_bpmp_handle_rx(struct tegra_bpmp *bpmp)
 	spin_unlock(&bpmp->lock);
 }
 
-static int tegra_bpmp_probe(struct platform_device *pdev)
+
+/*
+ * MBWT controls are not exposed through ordinary host MMIO and are accessed
+ * through BPMP firmware requests. These helpers provide the request wrappers
+ * used by bandwidth control callers.
+ */
+bool tegra_bpmp_mbwt_cmd_is_supported(struct tegra_bpmp *bpmp,
+				      unsigned int cmd_code)
 {
-	struct tegra_bpmp *bpmp;
-	char tag[TAG_SZ];
-	size_t size;
+	struct mrq_sochub_mbwt_request request = {
+		.cmd = CMD_SOCHUB_MBWT_QUERY_ABI,
+		.query_abi.cmd_code = cmd_code,
+	};
+	struct tegra_bpmp_message msg = {
+		.mrq = MRQ_SOCHUB_MBWT,
+		.tx = {
+			.data = &request,
+			.size = sizeof(request),
+		},
+	};
 	int err;
 
-	bpmp = devm_kzalloc(&pdev->dev, sizeof(*bpmp), GFP_KERNEL);
-	if (!bpmp)
-		return -ENOMEM;
+	err = tegra_bpmp_transfer(bpmp, &msg);
+	if (err || msg.rx.ret)
+		return false;
 
-	bpmp->soc = of_device_get_match_data(&pdev->dev);
-	bpmp->dev = &pdev->dev;
+	return true;
+}
+
+int tegra_bpmp_mbwt_get(struct tegra_bpmp *bpmp, unsigned int instance,
+			unsigned int vc_type, unsigned int *bandwidth)
+{
+	struct mrq_sochub_mbwt_request request = {
+		.cmd = CMD_SOCHUB_MBWT_GET_BW,
+		.get_bw = {
+			.instance = instance,
+			.vc_type = vc_type,
+		},
+	};
+	struct mrq_sochub_mbwt_response response = {};
+	struct tegra_bpmp_message msg = {
+		.mrq = MRQ_SOCHUB_MBWT,
+		.tx = {
+			.data = &request,
+			.size = sizeof(request),
+		},
+		.rx = {
+			.data = &response,
+			.size = sizeof(response),
+		},
+	};
+	int err;
+
+	if (!bandwidth)
+		return -EINVAL;
+
+	err = tegra_bpmp_transfer(bpmp, &msg);
+	if (err) {
+		dev_err(bpmp->dev, "MBWT get bandwidth transfer failed: %d\n",
+			err);
+		return err;
+	}
+
+	if (msg.rx.ret) {
+		dev_err(bpmp->dev, "MBWT get bandwidth failed: BPMP error %d\n",
+			msg.rx.ret);
+		return -EIO;
+	}
+
+	*bandwidth = response.get_bw.bw;
+
+	return 0;
+}
+
+int tegra_bpmp_mbwt_set(struct tegra_bpmp *bpmp, unsigned int instance,
+			unsigned int vc_type, unsigned int bandwidth)
+{
+	struct mrq_sochub_mbwt_request request = {
+		.cmd = CMD_SOCHUB_MBWT_SET_BW,
+		.set_bw = {
+			.instance = instance,
+			.vc_type = vc_type,
+			.bw = bandwidth,
+		},
+	};
+	struct tegra_bpmp_message msg = {
+		.mrq = MRQ_SOCHUB_MBWT,
+		.tx = {
+			.data = &request,
+			.size = sizeof(request),
+		},
+	};
+	int err;
+
+	err = tegra_bpmp_transfer(bpmp, &msg);
+	if (err) {
+		dev_err(bpmp->dev, "MBWT set bandwidth transfer failed: %d\n",
+			err);
+		return err;
+	}
+
+	if (msg.rx.ret) {
+		dev_err(bpmp->dev, "MBWT set bandwidth failed: BPMP error %d\n",
+			msg.rx.ret);
+		return -EIO;
+	}
+
+	return 0;
+}
+
+int tegra_bpmp_init_channels(struct tegra_bpmp *bpmp)
+{
+	size_t size;
 
 	INIT_LIST_HEAD(&bpmp->mrqs);
 	spin_lock_init(&bpmp->lock);
@@ -755,30 +966,104 @@ static int tegra_bpmp_probe(struct platform_device *pdev)
 
 	size = BITS_TO_LONGS(bpmp->threaded.count) * sizeof(long);
 
-	bpmp->threaded.allocated = devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
+	bpmp->threaded.allocated = devm_kzalloc(bpmp->dev, size, GFP_KERNEL);
 	if (!bpmp->threaded.allocated)
 		return -ENOMEM;
 
-	bpmp->threaded.busy = devm_kzalloc(&pdev->dev, size, GFP_KERNEL);
+	bpmp->threaded.busy = devm_kzalloc(bpmp->dev, size, GFP_KERNEL);
 	if (!bpmp->threaded.busy)
 		return -ENOMEM;
 
 	spin_lock_init(&bpmp->atomic_tx_lock);
-	bpmp->tx_channel = devm_kzalloc(&pdev->dev, sizeof(*bpmp->tx_channel),
+	bpmp->tx_channel = devm_kzalloc(bpmp->dev, sizeof(*bpmp->tx_channel),
 					GFP_KERNEL);
 	if (!bpmp->tx_channel)
 		return -ENOMEM;
 
-	bpmp->rx_channel = devm_kzalloc(&pdev->dev, sizeof(*bpmp->rx_channel),
-	                                GFP_KERNEL);
+	bpmp->rx_channel = devm_kzalloc(bpmp->dev, sizeof(*bpmp->rx_channel),
+					GFP_KERNEL);
 	if (!bpmp->rx_channel)
 		return -ENOMEM;
 
-	bpmp->threaded_channels = devm_kcalloc(&pdev->dev, bpmp->threaded.count,
+	bpmp->threaded_channels = devm_kcalloc(bpmp->dev, bpmp->threaded.count,
 					       sizeof(*bpmp->threaded_channels),
 					       GFP_KERNEL);
 	if (!bpmp->threaded_channels)
 		return -ENOMEM;
+
+	return 0;
+}
+
+int tegra_bpmp_init_ping(struct tegra_bpmp *bpmp)
+{
+	int err;
+
+	err = tegra_bpmp_request_mrq(bpmp, MRQ_PING,
+				     tegra_bpmp_mrq_handle_ping, bpmp);
+	if (err < 0)
+		return err;
+
+	err = tegra_bpmp_ping(bpmp);
+	if (err < 0) {
+		dev_err(bpmp->dev, "failed to ping BPMP: %d\n", err);
+		goto free_mrq;
+	}
+
+	return 0;
+
+free_mrq:
+	tegra_bpmp_free_mrq(bpmp, MRQ_PING, bpmp);
+
+	return err;
+}
+
+void tegra_bpmp_deinit_ping(struct tegra_bpmp *bpmp)
+{
+	tegra_bpmp_free_mrq(bpmp, MRQ_PING, bpmp);
+}
+
+int tegra_bpmp_init_dt_providers(struct tegra_bpmp *bpmp)
+{
+	struct device *dev = bpmp->dev;
+	int err;
+
+	err = of_platform_default_populate(dev->of_node, NULL, dev);
+	if (err < 0)
+		return err;
+
+	if (of_property_present(dev->of_node, "#clock-cells")) {
+		err = tegra_bpmp_init_clocks(bpmp);
+		if (err < 0)
+			return err;
+	}
+
+	if (of_property_present(dev->of_node, "#reset-cells")) {
+		err = tegra_bpmp_init_resets(bpmp);
+		if (err < 0)
+			return err;
+	}
+
+	if (of_property_present(dev->of_node, "#power-domain-cells")) {
+		err = tegra_bpmp_init_powergates(bpmp);
+		if (err < 0)
+			return err;
+	}
+
+	return 0;
+}
+
+static int tegra_bpmp_probe(struct platform_device *pdev)
+{
+	struct tegra_bpmp *bpmp;
+	char tag[TAG_SZ];
+	int err;
+
+	bpmp = devm_kzalloc(&pdev->dev, sizeof(*bpmp), GFP_KERNEL);
+	if (!bpmp)
+		return -ENOMEM;
+
+	bpmp->soc = device_get_match_data(&pdev->dev);
+	bpmp->dev = &pdev->dev;
 
 	platform_set_drvdata(pdev, bpmp);
 
@@ -786,46 +1071,23 @@ static int tegra_bpmp_probe(struct platform_device *pdev)
 	if (err < 0)
 		return err;
 
-	err = tegra_bpmp_request_mrq(bpmp, MRQ_PING,
-				     tegra_bpmp_mrq_handle_ping, bpmp);
-	if (err < 0)
-		goto deinit;
-
-	err = tegra_bpmp_ping(bpmp);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to ping BPMP: %d\n", err);
-		goto free_mrq;
-	}
-
 	err = tegra_bpmp_get_firmware_tag(bpmp, tag, sizeof(tag));
 	if (err < 0) {
 		dev_err(&pdev->dev, "failed to get firmware tag: %d\n", err);
-		goto free_mrq;
+		goto deinit;
 	}
 
 	dev_info(&pdev->dev, "firmware: %.*s\n", (int)sizeof(tag), tag);
 
-	err = of_platform_default_populate(pdev->dev.of_node, NULL, &pdev->dev);
+	if (bpmp->soc->ops->init_providers) {
+		err = bpmp->soc->ops->init_providers(bpmp);
+		if (err < 0)
+			goto deinit;
+	}
+
+	err = tegra_bpmp_init_sysfs(bpmp);
 	if (err < 0)
-		goto free_mrq;
-
-	if (of_property_present(pdev->dev.of_node, "#clock-cells")) {
-		err = tegra_bpmp_init_clocks(bpmp);
-		if (err < 0)
-			goto free_mrq;
-	}
-
-	if (of_property_present(pdev->dev.of_node, "#reset-cells")) {
-		err = tegra_bpmp_init_resets(bpmp);
-		if (err < 0)
-			goto free_mrq;
-	}
-
-	if (of_property_present(pdev->dev.of_node, "#power-domain-cells")) {
-		err = tegra_bpmp_init_powergates(bpmp);
-		if (err < 0)
-			goto free_mrq;
-	}
+		dev_err(&pdev->dev, "failed to initialize sysfs: %d\n", err);
 
 	err = tegra_bpmp_init_debugfs(bpmp);
 	if (err < 0)
@@ -833,8 +1095,6 @@ static int tegra_bpmp_probe(struct platform_device *pdev)
 
 	return 0;
 
-free_mrq:
-	tegra_bpmp_free_mrq(bpmp, MRQ_PING, bpmp);
 deinit:
 	if (bpmp->soc->ops->deinit)
 		bpmp->soc->ops->deinit(bpmp);
@@ -857,7 +1117,7 @@ static int __maybe_unused tegra_bpmp_resume(struct device *dev)
 
 	bpmp->suspended = false;
 
-	if (bpmp->soc->ops->resume)
+	if (bpmp->soc->ops && bpmp->soc->ops->resume)
 		return bpmp->soc->ops->resume(bpmp);
 	else
 		return 0;
@@ -929,10 +1189,86 @@ static const struct of_device_id tegra_bpmp_match[] = {
 	{ }
 };
 
+#ifdef CONFIG_ACPI
+#define TEGRA_BPMP_MBWT_VC_PCIE_READ	0
+#define TEGRA_BPMP_MBWT_VC_PCIE_WRITE	1
+#define TEGRA_BPMP_MBWT_VC_NVCLINK	2
+
+static const struct tegra_bpmp_mbwt_vc tegra_bpmp_acpi_mbwt_vcs[] = {
+	{ .name = "pcie_read", .type = TEGRA_BPMP_MBWT_VC_PCIE_READ },
+	{ .name = "pcie_write", .type = TEGRA_BPMP_MBWT_VC_PCIE_WRITE },
+	{ .name = "nvclink", .type = TEGRA_BPMP_MBWT_VC_NVCLINK },
+};
+
+static const struct tegra_bpmp_mbwt_group tegra_bpmp_acpi_mbwt_groups[] = {
+	{
+		.name = "pcie0",
+		.id = 0,
+		.vcs = tegra_bpmp_acpi_mbwt_vcs,
+		.num_vcs = ARRAY_SIZE(tegra_bpmp_acpi_mbwt_vcs)
+	}, {
+		.name = "pcie1",
+		.id = 1,
+		.vcs = tegra_bpmp_acpi_mbwt_vcs,
+		.num_vcs = ARRAY_SIZE(tegra_bpmp_acpi_mbwt_vcs)
+	}, {
+		.name = "pcie2",
+		.id = 2,
+		.vcs = tegra_bpmp_acpi_mbwt_vcs,
+		.num_vcs = ARRAY_SIZE(tegra_bpmp_acpi_mbwt_vcs)
+	}, {
+		.name = "pcie3",
+		.id = 3,
+		.vcs = tegra_bpmp_acpi_mbwt_vcs,
+		.num_vcs = ARRAY_SIZE(tegra_bpmp_acpi_mbwt_vcs)
+	}, {
+		.name = "pcie4",
+		.id = 4,
+		.vcs = tegra_bpmp_acpi_mbwt_vcs,
+		.num_vcs = ARRAY_SIZE(tegra_bpmp_acpi_mbwt_vcs)
+	}, {
+		.name = "pcie5",
+		.id = 5,
+		.vcs = tegra_bpmp_acpi_mbwt_vcs,
+		.num_vcs = ARRAY_SIZE(tegra_bpmp_acpi_mbwt_vcs)
+	},
+};
+
+static const struct tegra_bpmp_mbwt_soc tegra_bpmp_acpi_mbwt_soc = {
+	.groups = tegra_bpmp_acpi_mbwt_groups,
+	.num_groups = ARRAY_SIZE(tegra_bpmp_acpi_mbwt_groups),
+};
+
+static int tegra_bpmp_acpi_init(struct tegra_bpmp *bpmp)
+{
+	return tegra_bpmp_ping(bpmp);
+}
+
+static const struct tegra_bpmp_ops tegra_bpmp_acpi_ops = {
+	.init = tegra_bpmp_acpi_init,
+};
+
+static const struct tegra_bpmp_soc tegra_bpmp_acpi_soc = {
+	.ops = &tegra_bpmp_acpi_ops,
+	.mbwt = &tegra_bpmp_acpi_mbwt_soc,
+};
+
+static const struct acpi_device_id tegra_bpmp_acpi_match[] = {
+	{
+		.id = "NVDA3001",
+		.driver_data = (kernel_ulong_t)&tegra_bpmp_acpi_soc,
+	},
+	{ }
+};
+#endif
+
 static struct platform_driver tegra_bpmp_driver = {
 	.driver = {
 		.name = "tegra-bpmp",
 		.of_match_table = tegra_bpmp_match,
+#ifdef CONFIG_ACPI
+		.acpi_match_table = tegra_bpmp_acpi_match,
+#endif
 		.pm = &tegra_bpmp_pm_ops,
 		.suppress_bind_attrs = true,
 	},
