@@ -46,6 +46,16 @@ properties:
   resets:
     maxItems: 1
 
+  snps,native-both-edge:
+    description: |
+      The DW APB GPIO IP instance was synthesized with the GPIO_INT_BOTH_EDGE
+      feature, which allows detecting both signal edges in hardware through
+      the GPIO_INT_BOTHEDGE register. When set, IRQ_TYPE_EDGE_BOTH is
+      implemented with that register instead of toggling GPIO_INT_POLARITY in
+      software from the interrupt handler. Controllers without the feature
+      must not set this property, as the register does not exist there.
+    type: boolean
+
 patternProperties:
   "^gpio-(port|controller)@[0-9a-f]+$":
     type: object
