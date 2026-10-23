@@ -35,6 +35,7 @@
 #include <linux/soc/adi/icc.h>
 #include <linux/soc/adi/spu.h>
 #include "remoteproc_internal.h"
+#include "remoteproc_elf_helpers.h"
 
 /* location of bootrom that loops idle */
 #define SHARC_IDLE_ADDR			(0x00090004)
@@ -76,6 +77,15 @@ struct ldr_hdr {
 	u32 target_addr;
 	u32 byte_count;
 	u32 argument;
+};
+
+enum adi_rproc_variant {
+	SC5XX_RPROC_SHARC,
+	SC5XX_RPROC_SHARCFX,
+};
+
+struct adi_rproc_config {
+	enum adi_rproc_variant variant;
 };
 
 struct sharc_resource_table {
@@ -161,12 +171,16 @@ struct adi_rproc_data {
 	int firmware_format;
 	void __iomem *L1_shared_base;
 	void __iomem *L2_shared_base;
+	/* Physical bases of the two windows above, for MDMA */
+	phys_addr_t l1_phys_base;
+	phys_addr_t l2_phys_base;
 	struct workqueue_struct *core_workqueue;
 	enum adi_rproc_rpmsg_state rpmsg_state;
 	u64 l1_da_range[2];
 	u64 l2_da_range[2];
 	struct adi_sharc_resource_table *adi_rsc_table;
 	struct sharc_resource_table *loaded_rsc_table;
+	const struct adi_rproc_config *cfg;
 };
 
 static int adi_core_set_svect(struct adi_rproc_data *rproc_data,
@@ -181,13 +195,16 @@ static int adi_core_start(struct adi_rproc_data *rproc_data)
 {
 	int ret = 0;
 
-	if (rproc_data->adi_rsc_table != NULL) {
+	if (rproc_data->adi_rsc_table && rproc_data->loaded_rsc_table) {
 		rproc_data->rpmsg_state = ADI_RP_RPMSG_WAITING;
 		ret = devm_request_threaded_irq(rproc_data->dev,
 						rproc_data->icc_irq, NULL,
 						sharc_virtio_irq_threaded_handler,
 						rproc_data->icc_irq_flags,
 						"ICC virtio IRQ", rproc_data);
+	} else {
+		/* No resource table loaded: no ICC IRQ for adi_core_stop() to free */
+		rproc_data->rpmsg_state = ADI_RP_RPMSG_TIMED_OUT;
 	}
 	if (ret) {
 		dev_err(rproc_data->dev, "Fail to request ICC IRQ\n");
@@ -205,7 +222,7 @@ static int adi_core_reset(struct adi_rproc_data *rproc_data)
 static int adi_core_stop(struct adi_rproc_data *rproc_data)
 {
 	/* After time out the irq is already released */
-	if (rproc_data->adi_rsc_table != NULL) {
+	if (rproc_data->adi_rsc_table) {
 		if (rproc_data->rpmsg_state != ADI_RP_RPMSG_TIMED_OUT)
 			devm_free_irq(rproc_data->dev, rproc_data->icc_irq, rproc_data);
 	}
@@ -227,6 +244,52 @@ static void load_callback(void *p)
 	struct completion *cmp = p;
 
 	complete(cmp);
+}
+
+static int adi_mdma_run(struct adi_rproc_data *rproc_data,
+			struct dma_chan *chan,
+			struct dma_async_tx_descriptor *tx)
+{
+	struct completion cmp;
+
+	init_completion(&cmp);
+	tx->callback = load_callback;
+	tx->callback_param = &cmp;
+	dmaengine_submit(tx);
+	dma_async_issue_pending(chan);
+
+	if (!wait_for_completion_timeout(&cmp, CORE_INIT_TIMEOUT)) {
+		dev_err(rproc_data->dev, "Timed out waiting for firmware dma\n");
+		dmaengine_terminate_sync(chan);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
+static int adi_mdma_memcpy(struct adi_rproc_data *rproc_data,
+			   struct dma_chan *chan, dma_addr_t dst,
+			   dma_addr_t src, size_t len)
+{
+	struct dma_async_tx_descriptor *tx;
+
+	tx = dmaengine_prep_dma_memcpy(chan, dst, src, len, 0);
+	if (!tx)
+		return -ENOMEM;
+
+	return adi_mdma_run(rproc_data, chan, tx);
+}
+
+static int adi_mdma_memset(struct adi_rproc_data *rproc_data,
+			   struct dma_chan *chan, dma_addr_t dst, size_t len)
+{
+	struct dma_async_tx_descriptor *tx;
+
+	tx = dmaengine_prep_dma_memset(chan, dst, 0, len, 0);
+	if (!tx)
+		return -ENOMEM;
+
+	return adi_mdma_run(rproc_data, chan, tx);
 }
 
 /* @todo this needs to return status */
@@ -299,6 +362,7 @@ static void ldr_load(struct adi_rproc_data *rproc_data)
 
 static int adi_valid_firmware(struct rproc *rproc, const struct firmware *fw)
 {
+	struct adi_rproc_data *rproc_data = rproc->priv;
 	struct ldr_hdr *adi_ldr_hdr = (struct ldr_hdr *)fw->data;
 
 	if (!adi_ldr_hdr->byte_count &&
@@ -308,6 +372,9 @@ static int adi_valid_firmware(struct rproc *rproc, const struct firmware *fw)
 		return ADI_FW_LDR;
 
 	if (!rproc_elf_sanity_check(rproc, fw)) {
+		if (rproc_data->cfg->variant == SC5XX_RPROC_SHARCFX)
+			return ADI_FW_ELF;
+
 		dev_err(&rproc->dev, "ELF format not supported\n");
 		return -EOPNOTSUPP;
 	}
@@ -328,8 +395,9 @@ static void disable_spu(void)
 	adi_spu_set_securep(SPU_MDMA0_DST_ID, false);
 }
 
-static int adi_ldr_load(struct adi_rproc_data *rproc_data,
-						const struct firmware *fw)
+/* Copy the firmware into a coherent buffer that MDMA can read from */
+static int adi_fw_stage(struct adi_rproc_data *rproc_data,
+			const struct firmware *fw)
 {
 	rproc_data->fw_size = fw->size;
 	if (!rproc_data->mem_virt) {
@@ -345,11 +413,130 @@ static int adi_ldr_load(struct adi_rproc_data *rproc_data,
 
 	memcpy((char *)rproc_data->mem_virt, fw->data, fw->size);
 
+	return 0;
+}
+
+static int adi_ldr_load(struct adi_rproc_data *rproc_data,
+			const struct firmware *fw)
+{
+	int ret;
+
+	ret = adi_fw_stage(rproc_data, fw);
+	if (ret)
+		return ret;
+
 	enable_spu();
 	ldr_load(rproc_data);
 	disable_spu();
 
 	return 0;
+}
+
+/*
+ * adi_rproc_da_to_pa: translate a core device address range into an Arm
+ * physical address, 0 if it is not entirely inside the L1 or L2 window
+ */
+static phys_addr_t adi_rproc_da_to_pa(struct adi_rproc_data *rproc_data,
+				      u64 da, size_t len)
+{
+	if (da >= rproc_data->l1_da_range[0] &&
+	    da + len <= rproc_data->l1_da_range[1])
+		return rproc_data->l1_phys_base + (da - rproc_data->l1_da_range[0]);
+
+	if (da >= rproc_data->l2_da_range[0] &&
+	    da + len <= rproc_data->l2_da_range[1])
+		return rproc_data->l2_phys_base + (da - rproc_data->l2_da_range[0]);
+
+	return 0;
+}
+
+/*
+ * adi_elf_load: load the ELF PT_LOAD segments over MDMA
+ *
+ * The SHARC-FX memories reject the byte and halfword stores that
+ * rproc_elf_load_segments() would issue through memcpy_toio(), so the
+ * segments are written the same way ldr_load() writes LDR blocks: from the
+ * staged firmware, queued in order on the memcpy channel, with only the last
+ * transfer signalling completion.
+ */
+static int adi_elf_load(struct adi_rproc_data *rproc_data,
+			const struct firmware *fw)
+{
+	struct device *dev = rproc_data->dev;
+	u8 class = fw_elf_get_class(fw);
+	u32 phdr_size = elf_size_of_phdr(class);
+	const void *ehdr = fw->data;
+	const void *phdrs = fw->data + elf_hdr_get_e_phoff(class, ehdr);
+	u16 phnum = elf_hdr_get_e_phnum(class, ehdr);
+	struct dma_chan *chan;
+	const void *phdr;
+	int i, ret = 0;
+
+	chan = dma_find_channel(DMA_MEMCPY);
+	if (!chan) {
+		dev_err(dev, "Could not find dma memcpy channel\n");
+		return -ENODEV;
+	}
+
+	ret = adi_fw_stage(rproc_data, fw);
+	if (ret)
+		return ret;
+
+	enable_spu();
+
+	for (i = 0, phdr = phdrs; i <= phnum; i++, phdr += phdr_size) {
+		u64 da = elf_phdr_get_p_paddr(class, phdr);
+		u64 memsz = elf_phdr_get_p_memsz(class, phdr);
+		u64 filesz = elf_phdr_get_p_filesz(class, phdr);
+		u64 offset = elf_phdr_get_p_offset(class, phdr);
+		phys_addr_t pa;
+
+		if (elf_phdr_get_p_type(class, phdr) != PT_LOAD || !memsz)
+			continue;
+
+		if (filesz > memsz || offset + filesz > fw->size) {
+			dev_err(dev, "bad phdr filesz 0x%llx memsz 0x%llx offset 0x%llx\n",
+				filesz, memsz, offset);
+			ret = -EINVAL;
+			break;
+		}
+
+		pa = adi_rproc_da_to_pa(rproc_data, da, memsz);
+		if (!pa) {
+			dev_err(dev, "bad phdr da 0x%llx mem 0x%llx\n", da, memsz);
+			ret = -EINVAL;
+			break;
+		}
+
+		if (filesz) {
+			ret = adi_mdma_memcpy(rproc_data, chan, pa,
+					      rproc_data->mem_handle + offset,
+					      filesz);
+			if (ret)
+				break;
+		}
+
+		if (memsz > filesz) {
+			ret = adi_mdma_memset(rproc_data, chan, pa + filesz,
+					      memsz - filesz);
+			if (ret)
+				break;
+		}
+	}
+
+	disable_spu();
+
+	/*
+	 * The segments are in place or the load failed, and no stop follows a
+	 * failed load: either way the staged copy is no longer needed.
+	 */
+	dma_free_coherent(dev, rproc_data->fw_size * MEMORY_COUNT,
+			  rproc_data->mem_virt, rproc_data->mem_handle);
+
+	rproc_data->mem_virt = NULL;
+	rproc_data->fw_size = 0;
+
+	return ret;
 }
 
 /*
@@ -368,7 +555,7 @@ static int adi_rproc_load(struct rproc *rproc, const struct firmware *fw)
 		ret = adi_ldr_load(rproc_data, fw);
 		break;
 	case ADI_FW_ELF:
-		ret = rproc_elf_load_segments(rproc, fw);
+		ret = adi_elf_load(rproc_data, fw);
 		break;
 	default:
 		WARN(1, "Invalid rproc_data->firmware_format\n");
@@ -390,9 +577,19 @@ static int adi_rproc_load(struct rproc *rproc, const struct firmware *fw)
 static int adi_rproc_start(struct rproc *rproc)
 {
 	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
+	unsigned long svect = rproc_data->ldr_load_addr;
 	int ret;
 
-	ret = adi_core_set_svect(rproc_data, rproc_data->ldr_load_addr);
+	/* ldr_load() records the LDR entry, an ELF gives it in its header */
+	if (rproc_data->firmware_format == ADI_FW_ELF) {
+		if (!rproc->bootaddr) {
+			dev_err(rproc_data->dev, "No entry point for ELF firmware\n");
+			return -EINVAL;
+		}
+		svect = rproc->bootaddr;
+	}
+
+	ret = adi_core_set_svect(rproc_data, svect);
 	if (ret)
 		return ret;
 
@@ -510,6 +707,11 @@ static int adi_rproc_parse_fw(struct rproc *rproc, const struct firmware *fw)
 		break;
 	case ADI_FW_ELF:
 		ret = rproc_elf_load_rsc_table(rproc, fw);
+		/* An image without a resource table still runs, without rpmsg */
+		if (ret == -EINVAL) {
+			dev_dbg(dev, "No resource table in firmware, rpmsg disabled\n");
+			return 0;
+		}
 		break;
 	default:
 		WARN(1, "Invalid rproc_data->firmware_format\n");
@@ -518,6 +720,13 @@ static int adi_rproc_parse_fw(struct rproc *rproc, const struct firmware *fw)
 
 	if (ret < 0)
 		return ret;
+
+	/* The vring setup below writes through struct sharc_resource_table */
+	if (rproc->table_sz < sizeof(struct sharc_resource_table)) {
+		dev_err(dev, "Resource table too small (%zu < %zu)\n",
+			rproc->table_sz, sizeof(struct sharc_resource_table));
+		return -EINVAL;
+	}
 
 	/* Set defaults */
 	rsc_table = (struct sharc_resource_table *)rproc->cached_table;
@@ -735,16 +944,15 @@ static u64 adi_rproc_get_boot_addr(struct rproc *rproc, const struct firmware *f
 static void *adi_rproc_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *unused)
 {
 	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
-	void __iomem *L1_shared_base = rproc_data->L1_shared_base;
-	void __iomem *L2_shared_base = rproc_data->L2_shared_base;
+
 	void *ret = NULL;
 
 	if (da >= rproc_data->l1_da_range[0] && da + len <= rproc_data->l1_da_range[1])
-		ret = L1_shared_base + (da - rproc_data->l1_da_range[0]);
+		ret = rproc_data->l1_phys_base + (da - rproc_data->l1_da_range[0]);
 	else if (da >= rproc_data->l2_da_range[0] && da + len <= rproc_data->l2_da_range[1])
-		ret = L2_shared_base + (da - rproc_data->l2_da_range[0]);
+		ret = rproc_data->l2_phys_base + (da - rproc_data->l2_da_range[0]);
 
-	return ret;
+	return NULL;
 }
 
 static const struct rproc_ops adi_rproc_ops = {
@@ -762,6 +970,7 @@ static const struct rproc_ops adi_rproc_ops = {
 static int adi_remoteproc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	const struct adi_rproc_config *cfg;
 	struct adi_rproc_data *rproc_data;
 	struct device_node *np = dev->of_node;
 	struct device_node *node;
@@ -772,6 +981,10 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	u32 addr[2];
 	int ret, core_id;
 	const char *name;
+
+	cfg = of_device_get_match_data(dev);
+	if (!cfg)
+		return dev_err_probe(dev, -ENODEV, "No variant configuration\n");
 
 	ret = of_property_read_string(np, "firmware-name", &name);
 	if (ret)
@@ -787,6 +1000,7 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	rproc_data = (struct adi_rproc_data *)rproc->priv;
+	rproc_data->cfg = cfg;
 	platform_set_drvdata(pdev, rproc);
 
 	ret = of_parse_phandle_with_fixed_args(np, "adi,svect", 1, 0,
@@ -894,6 +1108,7 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto free_workqueue;
 	}
+	rproc_data->l1_phys_base = res->start;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res) {
@@ -908,6 +1123,7 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto free_workqueue;
 	}
+	rproc_data->l2_phys_base = res->start;
 
 	rproc_data->dev = &pdev->dev;
 	rproc_data->core_id = core_id;
@@ -951,9 +1167,17 @@ static void adi_remoteproc_remove(struct platform_device *pdev)
 	mbox_free_channel(rproc_data->kick_chan);
 }
 
+static const struct adi_rproc_config sc5xx_rproc_cfg = {
+	.variant = SC5XX_RPROC_SHARC,
+};
+
+static const struct adi_rproc_config sc8xx_rproc_cfg = {
+	.variant = SC5XX_RPROC_SHARCFX,
+};
+
 static const struct of_device_id adi_rproc_of_match[] = {
-	{ .compatible = "adi,adsp-sc598-rproc" },
-	{ .compatible = "adi,adsp-sc846-rproc" },
+	{ .compatible = "adi,adsp-sc598-rproc", .data = &sc5xx_rproc_cfg },
+	{ .compatible = "adi,adsp-sc846-rproc", .data = &sc8xx_rproc_cfg },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, adi_rproc_of_match);
