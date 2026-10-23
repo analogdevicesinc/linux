@@ -38,6 +38,7 @@ enum lm75_type {		/* keep sorted in alphabetical order */
 	max6625,
 	max6626,
 	max31725,
+	max31875,
 	mcp980x,
 	nct7715,
 	p3t1750,
@@ -221,6 +222,16 @@ static const struct lm75_params device_params[] = {
 	[max31725] = {
 		.default_resolution = 16,
 		.default_sample_time = MSEC_PER_SEC / 20,
+	},
+	[max31875] = {
+		.config_reg_16bits = true,
+		.set_mask = 2 << 13,	/* 10-bit resolution */
+		.clr_mask = 3 << 13 | 3 << 9,	/* resolution, 4 s conversion rate */
+		.default_resolution = 10,
+		.default_sample_time = 4000,
+		.num_sample_times = 4,
+		.sample_times = (unsigned int []){ 125, 250, 1000, 4000 },
+		.alarm = true,
 	},
 	[tcn75] = {
 		.default_resolution = 9,
@@ -431,6 +442,9 @@ static int lm75_read(struct device *dev, enum hwmon_sensor_types type,
 			case tmp112:
 				*val = !!(regval & BIT(13)) == !!(regval & BIT(2));
 				break;
+			case max31875:
+				*val = !!(regval & BIT(7));
+				break;
 			default:
 				return -EINVAL;
 			}
@@ -502,6 +516,13 @@ static int lm75_update_interval(struct device *dev, long val)
 	case as6200:
 		err = regmap_update_bits(data->regmap, LM75_REG_CONF,
 					 0xc000, (3 - index) << 14);
+		if (err < 0)
+			return err;
+		data->sample_time = data->params->sample_times[index];
+		break;
+	case max31875:
+		err = regmap_update_bits(data->regmap, LM75_REG_CONF,
+					 0x0600, (3 - index) << 9);
 		if (err < 0)
 			return err;
 		data->sample_time = data->params->sample_times[index];
@@ -782,7 +803,11 @@ static int lm75_generic_probe(struct device *dev, const char *name,
 	data->orig_conf = status;
 
 	/* Enforce polarity active-low (default) or active-high (devicetree) */
-	pol_mask = LM75_ALERT_POLARITY_HIGH_BIT;
+	if (data->kind == max31875)
+		pol_mask = 0;	/* no alert polarity bit */
+	else
+		pol_mask = LM75_ALERT_POLARITY_HIGH_BIT;
+
 	clr_mask = data->params->clr_mask | pol_mask;
 	set_mask = data->params->set_mask & ~pol_mask;
 	if (device_property_read_bool(dev, "ti,alert-polarity-active-high"))
@@ -855,6 +880,7 @@ static const struct i2c_device_id lm75_i2c_ids[] = {
 	{ .name = "max6626", .driver_data = max6626 },
 	{ .name = "max31725", .driver_data = max31725 },
 	{ .name = "max31726", .driver_data = max31725 },
+	{ .name = "max31875", .driver_data = max31875 },
 	{ .name = "mcp980x", .driver_data = mcp980x },
 	{ .name = "nct7715", .driver_data = nct7715 },
 	{ .name = "p3t1750", .driver_data = p3t1750 },
@@ -912,6 +938,10 @@ static const struct of_device_id lm75_of_match[] = {
 	{
 		.compatible = "adi,adt75",
 		.data = (void *)adt75
+	},
+	{
+		.compatible = "adi,max31875",
+		.data = (void *)max31875
 	},
 	{
 		.compatible = "ams,as6200",
