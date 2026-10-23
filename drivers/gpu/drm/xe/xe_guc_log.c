@@ -5,7 +5,7 @@
 
 #include "xe_guc_log.h"
 
-#include <linux/fault-inject.h>
+#include <linux/error-injection.h>
 #if IS_ENABLED(CONFIG_DRM_XE_COMPRESS_DUMP)
 #include <linux/zstd.h>
 #endif
