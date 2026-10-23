@@ -3511,9 +3511,13 @@ int hci_write_ssp_mode_sync(struct hci_dev *hdev, u8 mode)
 	return hci_write_sc_support_sync(hdev, 0x01);
 }
 
+static int hci_le_set_host_feature_sync(struct hci_dev *hdev, u16 bit,
+					u8 value);
+
 int hci_write_le_host_supported_sync(struct hci_dev *hdev, u8 le, u8 simul)
 {
 	struct hci_cp_write_le_host_supported cp;
+	int err;
 
 	if (!hci_dev_test_flag(hdev, HCI_LE_ENABLED) ||
 	    !lmp_bredr_capable(hdev))
@@ -3531,8 +3535,16 @@ int hci_write_le_host_supported_sync(struct hci_dev *hdev, u8 le, u8 simul)
 	cp.le = le;
 	cp.simul = simul;
 
-	return __hci_cmd_sync_status(hdev, HCI_OP_WRITE_LE_HOST_SUPPORTED,
-				     sizeof(cp), &cp, HCI_CMD_TIMEOUT);
+	err = __hci_cmd_sync_status(hdev, HCI_OP_WRITE_LE_HOST_SUPPORTED,
+				    sizeof(cp), &cp, HCI_CMD_TIMEOUT);
+	if (err || !cis_capable(hdev))
+		return err;
+
+	/* The CIS host feature is set during init based on LE being enabled,
+	 * which is not repeated when LE is enabled afterwards, e.g. while the
+	 * controller is still auto powered on, so update it here.
+	 */
+	return hci_le_set_host_feature_sync(hdev, 32, iso_enabled(hdev));
 }
 
 static int hci_powered_update_adv_sync(struct hci_dev *hdev)
@@ -5948,11 +5960,11 @@ static int hci_le_connect_cancel_sync(struct hci_dev *hdev,
 	/* Return reason if scanning since the connection shall probably be
 	 * cleanup directly.
 	 */
-	if (test_bit(HCI_CONN_SCANNING, &conn->flags))
+	if (test_bit(HCI_CONN_SCANNING, conn->flags))
 		return reason;
 
 	if (conn->role == HCI_ROLE_SLAVE ||
-	    test_and_set_bit(HCI_CONN_CANCEL, &conn->flags))
+	    test_and_set_bit(HCI_CONN_CANCEL, conn->flags))
 		return 0;
 
 	return __hci_cmd_sync_status(hdev, HCI_OP_LE_CREATE_CONN_CANCEL,
@@ -5974,7 +5986,7 @@ static int hci_connect_cancel_sync(struct hci_dev *hdev, struct hci_conn *conn,
 		 * then an HCI_LE_CIS_Established event shall also be sent for
 		 * this CIS with the Status Operation Cancelled by Host (0x44).
 		 */
-		if (test_bit(HCI_CONN_CREATE_CIS, &conn->flags))
+		if (test_bit(HCI_CONN_CREATE_CIS, conn->flags))
 			return hci_disconnect_sync(hdev, conn, reason);
 
 		/* CIS with no Create CIS sent have nothing to cancel */
@@ -6972,7 +6984,7 @@ static int hci_le_create_conn_sync(struct hci_dev *hdev, void *data)
 
 	bt_dev_dbg(hdev, "conn %p", conn);
 
-	clear_bit(HCI_CONN_SCANNING, &conn->flags);
+	clear_bit(HCI_CONN_SCANNING, conn->flags);
 	conn->state = BT_CONNECT;
 
 	/* If requested to connect as peripheral use directed advertising */
@@ -7039,7 +7051,7 @@ static int hci_le_create_conn_sync(struct hci_dev *hdev, void *data)
 	/* Mark create connection in flight so hci_cancel_connect_sync() can
 	 * cancel it while blocking on the connection complete event.
 	 */
-	set_bit(HCI_CONN_CREATE, &conn->flags);
+	set_bit(HCI_CONN_CREATE, conn->flags);
 
 	/* Send command LE Extended Create Connection if supported */
 	if (use_ext_conn(hdev)) {
@@ -7076,7 +7088,7 @@ static int hci_le_create_conn_sync(struct hci_dev *hdev, void *data)
 				       conn->conn_timeout, NULL);
 
 done:
-	clear_bit(HCI_CONN_CREATE, &conn->flags);
+	clear_bit(HCI_CONN_CREATE, conn->flags);
 
 	if (err == -ETIMEDOUT)
 		hci_le_connect_cancel_sync(hdev, conn, 0x00);
@@ -7123,7 +7135,7 @@ int hci_le_create_cis_sync(struct hci_dev *hdev)
 
 	/* Wait until previous Create CIS has completed */
 	list_for_each_entry_rcu(conn, &hdev->conn_hash.list, list) {
-		if (test_bit(HCI_CONN_CREATE_CIS, &conn->flags))
+		if (test_bit(HCI_CONN_CREATE_CIS, conn->flags))
 			goto done;
 	}
 
@@ -7159,7 +7171,7 @@ int hci_le_create_cis_sync(struct hci_dev *hdev)
 		    conn->iso_qos.ucast.cig != cig)
 			continue;
 
-		set_bit(HCI_CONN_CREATE_CIS, &conn->flags);
+		set_bit(HCI_CONN_CREATE_CIS, conn->flags);
 		cis->acl_handle = cpu_to_le16(conn->parent->handle);
 		cis->cis_handle = cpu_to_le16(conn->handle);
 		timeout = conn->conn_timeout;
@@ -7362,14 +7374,14 @@ static int hci_acl_create_conn_sync(struct hci_dev *hdev, void *data)
 	/* Mark create connection in flight so hci_cancel_connect_sync() can
 	 * cancel it while blocking on the connection complete event.
 	 */
-	set_bit(HCI_CONN_CREATE, &conn->flags);
+	set_bit(HCI_CONN_CREATE, conn->flags);
 
 	err = __hci_cmd_sync_status_sk(hdev, HCI_OP_CREATE_CONN,
 				       sizeof(cp), &cp,
 				       HCI_EV_CONN_COMPLETE,
 				       conn->conn_timeout, NULL);
 
-	clear_bit(HCI_CONN_CREATE, &conn->flags);
+	clear_bit(HCI_CONN_CREATE, conn->flags);
 
 	return err;
 }
@@ -7458,7 +7470,7 @@ static int hci_acl_cancel_create_conn_sync(struct hci_dev *hdev,
 	mutex_lock(&hdev->cmd_sync_work_lock);
 
 	/* In flight: this connection owns the pending request, cancel it. */
-	if (test_bit(HCI_CONN_CREATE, &conn->flags)) {
+	if (test_bit(HCI_CONN_CREATE, conn->flags)) {
 		hci_cmd_sync_cancel(hdev, ECANCELED);
 		goto unlock;
 	}
@@ -7489,7 +7501,7 @@ static int hci_le_cancel_create_conn_sync(struct hci_dev *hdev,
 	 */
 	mutex_lock(&hdev->cmd_sync_work_lock);
 
-	if (test_bit(HCI_CONN_CREATE, &conn->flags)) {
+	if (test_bit(HCI_CONN_CREATE, conn->flags)) {
 		hci_cmd_sync_cancel(hdev, ECANCELED);
 		goto unlock;
 	}
@@ -7516,7 +7528,7 @@ static int hci_cis_cancel_create_conn_sync(struct hci_dev *hdev,
 	 */
 	mutex_lock(&hdev->cmd_sync_work_lock);
 
-	if (test_bit(HCI_CONN_CREATE_CIS, &conn->flags))
+	if (test_bit(HCI_CONN_CREATE_CIS, conn->flags))
 		hci_cmd_sync_cancel(hdev, ECANCELED);
 
 	mutex_unlock(&hdev->cmd_sync_work_lock);
@@ -7653,7 +7665,7 @@ static void create_pa_complete(struct hci_dev *hdev, void *data, int err)
 	hci_dev_lock(hdev);
 
 	if (hci_conn_valid(hdev, conn))
-		clear_bit(HCI_CONN_CREATE_PA_SYNC, &conn->flags);
+		clear_bit(HCI_CONN_CREATE_PA_SYNC, conn->flags);
 
 	if (!err)
 		goto unlock;
@@ -7665,7 +7677,7 @@ static void create_pa_complete(struct hci_dev *hdev, void *data, int err)
 	if (IS_ERR(pa_sync))
 		goto unlock;
 
-	set_bit(HCI_CONN_PA_SYNC_FAILED, &pa_sync->flags);
+	set_bit(HCI_CONN_PA_SYNC_FAILED, pa_sync->flags);
 
 	/* Notify iso layer */
 	hci_connect_cfm(pa_sync, bt_status(err));
@@ -7738,7 +7750,7 @@ static int hci_le_pa_create_sync(struct hci_dev *hdev, void *data)
 	 * program the address in the allow list so PA advertisements can be
 	 * received.
 	 */
-	set_bit(HCI_CONN_CREATE_PA_SYNC, &conn->flags);
+	set_bit(HCI_CONN_CREATE_PA_SYNC, conn->flags);
 
 	hci_update_passive_scan_sync(hdev);
 
@@ -7841,7 +7853,7 @@ static void create_big_complete(struct hci_dev *hdev, void *data, int err)
 	if (err == -ECANCELED)
 		goto done;
 
-	clear_bit(HCI_CONN_CREATE_BIG_SYNC, &conn->flags);
+	clear_bit(HCI_CONN_CREATE_BIG_SYNC, conn->flags);
 
 done:
 	hci_conn_put(conn);
@@ -7858,7 +7870,7 @@ static int hci_le_big_create_sync(struct hci_dev *hdev, void *data)
 	if (!hci_conn_valid(hdev, conn))
 		return -ECANCELED;
 
-	set_bit(HCI_CONN_CREATE_BIG_SYNC, &conn->flags);
+	set_bit(HCI_CONN_CREATE_BIG_SYNC, conn->flags);
 
 	memset(cp, 0, sizeof(*cp));
 	cp->handle = qos->bcast.big;
