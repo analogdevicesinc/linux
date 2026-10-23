@@ -206,6 +206,31 @@ dying:
 	return -ENOENT;
 }
 
+static inline void super_unlock_guard(struct super_block *sb,
+				      enum super_lock_flags_t flags)
+{
+	if (!IS_ERR_OR_NULL(sb))
+		super_unlock(sb, flags);
+}
+
+/* Unlocks with the flags it locked with. */
+__DEFINE_CLASS_IS_CONDITIONAL(super_lock, true);
+__DEFINE_UNLOCK_GUARD(super_lock, struct super_block,
+		      super_unlock_guard(_T->lock, _T->flags),
+		      enum super_lock_flags_t flags);
+
+static inline class_super_lock_t
+class_super_lock_constructor(struct super_block *sb, enum super_lock_flags_t flags)
+{
+	class_super_lock_t _t = { .lock = sb, .flags = flags };
+	int ret;
+
+	ret = super_lock(sb, flags);
+	if (ret)
+		_t.lock = ERR_PTR(ret);
+	return _t;
+}
+
 /* wake waiters */
 #define SUPER_WAKE_FLAGS (SB_BORN | SB_DYING | SB_DEAD)
 static void super_wake(struct super_block *sb, unsigned int flag)
@@ -1040,13 +1065,13 @@ static int __iterate_supers(void (*f)(struct super_block *, void *), void *arg,
 		if (flags & SUPER_ITER_UNLOCKED) {
 			f(sb, arg);
 		} else {
-			ret = super_lock(sb, lock_flags);
-			if (!ret) {
+			ACQUIRE(super_lock, lock)(sb, lock_flags);
+
+			ret = ACQUIRE_ERR(super_lock, &lock);
+			if (!ret)
 				f(sb, arg);
-				super_unlock_shared(sb);
-			} else if (ret == -ENOENT) {
+			else if (ret == -ENOENT)
 				ret = 0;
-			}
 		}
 
 		if (p)
@@ -1128,10 +1153,8 @@ void iterate_supers_type(struct file_system_type *type,
 
 		spin_unlock(&sb_lock);
 
-		if (!super_lock(sb, 0)) {
+		scoped_guard(super_lock, sb, 0)
 			f(sb, arg);
-			super_unlock_shared(sb);
-		}
 
 		if (p)
 			put_super(p);
@@ -1278,18 +1301,18 @@ static void do_emergency_remount_callback(struct super_block *sb, void *unused)
 	struct fs_context *fc = NULL;
 
 	/* the unmount writes the filesystem out, wait for that */
-	if (super_lock(sb, SUPER_LOCK_EXCL | SUPER_LOCK_WAIT_SHUTDOWN))
-		return;
-
-	/* Make sure no reference put under s_umount is the last one. */
-	atomic_inc(&sb->s_active);
-	if (sb->s_bdev && !sb_rdonly(sb)) {
-		fc = fs_context_for_reconfigure(sb->s_root,
-					SB_RDONLY | SB_FORCE, SB_RDONLY);
-		if (!IS_ERR(fc) && parse_monolithic_mount_data(fc, NULL) == 0)
-			(void)reconfigure_super(fc);
+	scoped_cond_guard(super_lock, return, sb,
+			  SUPER_LOCK_EXCL | SUPER_LOCK_WAIT_SHUTDOWN) {
+		/* Make sure no reference put under s_umount is the last one. */
+		atomic_inc(&sb->s_active);
+		if (sb->s_bdev && !sb_rdonly(sb)) {
+			fc = fs_context_for_reconfigure(sb->s_root,
+						SB_RDONLY | SB_FORCE, SB_RDONLY);
+			if (!IS_ERR(fc) &&
+			    parse_monolithic_mount_data(fc, NULL) == 0)
+				(void)reconfigure_super(fc);
+		}
 	}
-	super_unlock_excl(sb);
 
 	/*
 	 * Our active reference may be the last one by now, so only drop it
@@ -1322,13 +1345,9 @@ void emergency_remount(void)
 static inline bool get_active_super(struct super_block *sb,
 				    enum super_lock_flags_t flags)
 {
-	bool active = false;
-
-	if (!super_lock(sb, SUPER_LOCK_EXCL | flags)) {
-		active = atomic_inc_not_zero(&sb->s_active);
-		super_unlock_excl(sb);
-	}
-	return active;
+	scoped_guard(super_lock, sb, SUPER_LOCK_EXCL | flags)
+		return atomic_inc_not_zero(&sb->s_active);
+	return false;
 }
 
 static void do_thaw_all_callback(struct super_block *sb, void *unused)
@@ -1650,7 +1669,9 @@ static void fs_bdev_mark_dead(struct block_device *bdev, bool surprise)
 
 	for_each_dev_super(sb, &cursor) {
 		/* don't take the device away from under an unmount */
-		if (super_lock(sb, surprise ? 0 : SUPER_LOCK_WAIT_SHUTDOWN))
+		ACQUIRE(super_lock, lock)(sb, surprise ? 0 :
+					      SUPER_LOCK_WAIT_SHUTDOWN);
+		if (ACQUIRE_ERR(super_lock, &lock))
 			continue;
 		if (sb->s_root && (sb->s_flags & SB_ACTIVE)) {
 			if (!sb->s_op->remove_bdev ||
@@ -1663,7 +1684,6 @@ static void fs_bdev_mark_dead(struct block_device *bdev, bool surprise)
 					sb->s_op->shutdown(sb);
 			}
 		}
-		super_unlock_shared(sb);
 	}
 }
 
@@ -1675,10 +1695,10 @@ static void fs_bdev_sync(struct block_device *bdev)
 	mutex_unlock(&bdev->bd_holder_lock);
 
 	for_each_dev_super_killable(sb, &cursor) {
-		int ret;
+		ACQUIRE(super_lock, lock)(sb, SUPER_LOCK_KILLABLE |
+					      SUPER_LOCK_WAIT_SHUTDOWN);
+		int ret = ACQUIRE_ERR(super_lock, &lock);
 
-		ret = super_lock(sb, SUPER_LOCK_KILLABLE |
-				     SUPER_LOCK_WAIT_SHUTDOWN);
 		if (ret == -ENOENT)
 			continue;
 		if (ret) {
@@ -1688,7 +1708,6 @@ static void fs_bdev_sync(struct block_device *bdev)
 		}
 		if (sb->s_root && (sb->s_flags & SB_ACTIVE))
 			sync_filesystem(sb);
-		super_unlock_shared(sb);
 	}
 }
 
