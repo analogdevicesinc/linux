@@ -8,6 +8,7 @@
 // Author: Lucas Tanure <lucas.tanure@cirrus.com>
 
 #include <linux/dev_printk.h>
+#include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>

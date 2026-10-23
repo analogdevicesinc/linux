@@ -27,7 +27,6 @@
  */
 #include <linux/module.h>
 #include <linux/overflow.h>
-#include <linux/pagemap.h>
 #include <linux/pci.h>
 #include <linux/dma-buf.h>
 #include <linux/dma-fence-unwrap.h>

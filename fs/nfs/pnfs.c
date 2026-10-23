@@ -30,6 +30,7 @@
 #include <linux/nfs_fs.h>
 #include <linux/nfs_page.h>
 #include <linux/module.h>
+#include <linux/pagemap.h>
 #include <linux/sort.h>
 #include "internal.h"
 #include "pnfs.h"
