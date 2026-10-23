@@ -477,6 +477,13 @@ ecryptfs_verify_auth_tok_from_key(struct key *auth_tok_key,
 		rc = -EINVAL;
 		goto out;
 	}
+	if ((*auth_tok)->token_type == ECRYPTFS_PASSWORD &&
+	    (*auth_tok)->token.password.session_key_encryption_key_bytes >
+	    ECRYPTFS_MAX_KEY_BYTES) {
+		printk(KERN_ERR "Invalid password auth_tok session key size\n");
+		rc = -EINVAL;
+		goto out;
+	}
 out:
 	return rc;
 }
