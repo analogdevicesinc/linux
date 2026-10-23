@@ -379,8 +379,7 @@ int btrfs_init_space_info(struct btrfs_fs_info *fs_info)
 	return ret;
 }
 
-void btrfs_add_bg_to_space_info(struct btrfs_fs_info *info,
-				struct btrfs_block_group *block_group)
+void btrfs_add_bg_to_space_info(struct btrfs_block_group *block_group)
 {
 	struct btrfs_space_info *space_info = block_group->space_info;
 	int factor, index;

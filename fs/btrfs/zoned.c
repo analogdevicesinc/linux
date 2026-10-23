@@ -2870,7 +2870,7 @@ again:
 			if (reloc_sinfo->block_group_kobjs[index] == NULL)
 				btrfs_sysfs_add_block_group_type(bg);
 
-			btrfs_add_bg_to_space_info(fs_info, bg);
+			btrfs_add_bg_to_space_info(bg);
 		}
 
 		fs_info->data_reloc_bg = bg->start;
