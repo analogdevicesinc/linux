@@ -1208,23 +1208,36 @@ char *cifs_silly_fullpath(struct dentry *dentry)
 	unsigned char name[CIFS_SILLYNAME_LEN + 1];
 	int retries = 0, max_retries = 16;
 	size_t namesize = sizeof(name);
-	struct dentry *sdentry = NULL;
+	struct dentry *sdentry = NULL, *alias;
 	char *path;
 
 	do {
 		dput(sdentry);
 		scnprintf(name, namesize, CIFS_SILLYNAME_PREFIX "%x",
 			  atomic_inc_return(&cifs_sillycounter));
-		sdentry = lookup_noperm(&QSTR(name), dentry->d_parent);
+		sdentry = d_alloc_trylock(dentry->d_parent, &QSTR(name));
+		if (sdentry == ERR_PTR(-EWOULDBLOCK)) {
+			sdentry = NULL;
+			continue;
+		}
 		if (IS_ERR(sdentry))
 			return ERR_CAST(sdentry);
-		if (d_is_negative(sdentry)) {
-			dput(sdentry);
-			path = alloc_parent_path(dentry, CIFS_SILLYNAME_LEN);
-			if (!IS_ERR(path))
-				strcat(path, name);
-			return path;
+		if (!d_in_lookup(sdentry))
+			continue;
+		alias = cifs_lookup(sdentry->d_parent->d_inode, sdentry, 0);
+		d_lookup_done(sdentry);
+		/* It is safest to return -EBUSY if there is an error in lookup */
+		if (IS_ERR(alias))
+			break;
+		if (alias || d_is_positive(sdentry)) {
+			dput(alias);
+			continue;
 		}
+		dput(sdentry);
+		path = alloc_parent_path(dentry, CIFS_SILLYNAME_LEN);
+		if (!IS_ERR(path))
+			strcat(path, name);
+		return path;
 	} while (++retries < max_retries);
 	dput(sdentry);
 	return ERR_PTR(-EBUSY);
