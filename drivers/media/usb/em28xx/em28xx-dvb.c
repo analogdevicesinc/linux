@@ -737,33 +737,35 @@ static void pctv_520e_init(struct em28xx *dev)
 				regs[i].r, regs[i].len);
 };
 
+static int em28xx_pctv_290e_set_lna_gpio(struct em28xx *dev, u32 lna)
+{
+#ifdef CONFIG_GPIOLIB_LEGACY
+	struct em28xx_dvb *dvb = dev->dvb;
+	int ret;
+
+	ret = gpio_request(dvb->lna_gpio, NULL);
+	if (ret) {
+		dev_err(&dev->intf->dev, "gpio request failed %d\n", ret);
+	} else {
+		gpio_direction_output(dvb->lna_gpio, !!(lna == 1));
+		gpio_free(dvb->lna_gpio);
+	}
+
+	return ret;
+#else
+	dev_warn(&dev->intf->dev, "%s: LNA control is disabled (lna=%u)\n",
+		 KBUILD_MODNAME, lna);
+	return 0;
+#endif
+}
+
 static int em28xx_pctv_290e_set_lna(struct dvb_frontend *fe)
 {
 	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
 	struct em28xx_i2c_bus *i2c_bus = fe->dvb->priv;
 	struct em28xx *dev = i2c_bus->dev;
-#ifdef CONFIG_GPIOLIB_LEGACY
-	struct em28xx_dvb *dvb = dev->dvb;
-	int ret;
-	unsigned long flags;
 
-	if (c->lna == 1)
-		flags = GPIOF_OUT_INIT_HIGH; /* enable LNA */
-	else
-		flags = GPIOF_OUT_INIT_LOW; /* disable LNA */
-
-	ret = gpio_request_one(dvb->lna_gpio, flags, NULL);
-	if (ret)
-		dev_err(&dev->intf->dev, "gpio request failed %d\n", ret);
-	else
-		gpio_free(dvb->lna_gpio);
-
-	return ret;
-#else
-	dev_warn(&dev->intf->dev, "%s: LNA control is disabled (lna=%u)\n",
-		 KBUILD_MODNAME, c->lna);
-	return 0;
-#endif
+	return em28xx_pctv_290e_set_lna_gpio(dev, c->lna);
 }
 
 static int em28xx_pctv_292e_set_lna(struct dvb_frontend *fe)
@@ -1920,19 +1922,10 @@ static int em28xx_dvb_init(struct em28xx *dev)
 				goto out_free;
 			}
 
-#ifdef CONFIG_GPIOLIB_LEGACY
 			/* enable LNA for DVB-T, DVB-T2 and DVB-C */
-			result = gpio_request_one(dvb->lna_gpio,
-						  GPIOF_OUT_INIT_LOW, NULL);
-			if (result)
-				dev_err(&dev->intf->dev,
-					"gpio request failed %d\n",
-					result);
-			else
-				gpio_free(dvb->lna_gpio);
+			em28xx_pctv_290e_set_lna_gpio(dev, 0);
 
-			result = 0; /* continue even set LNA fails */
-#endif
+			/* continue even set LNA fails */
 			dvb->fe[0]->ops.set_lna = em28xx_pctv_290e_set_lna;
 		}
 

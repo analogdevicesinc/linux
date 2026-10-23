@@ -108,7 +108,8 @@ static void spitz_presuspend(void)
 	PGSR2 |= GPIO_bit(SPITZ_GPIO_KEY_STROBE0);
 
 	pxa2xx_mfp_config(&gpio18_config, 1);
-	gpio_request_one(18, GPIOF_OUT_INIT_HIGH, "Unknown");
+	gpio_request(18, "Unknown");
+	gpio_direction_output(18, 1);
 	gpio_free(18);
 
 	PRER = GPIO_bit(SPITZ_GPIO_KEY_INT);
