@@ -96,6 +96,24 @@ struct mem_cgroup_per_node {
 	__cacheline_group_end_aligned(memcg_pn_read_mostly);
 
 	/*
+	 * Touched only when the memcg is reparented or freed. Placed right
+	 * after memcg_pn_read_mostly because CPUs with spatial prefetching
+	 * (eg most Intel CPUs) fetch cachelines in 128-byte aligned pairs.
+	 * This keeps the read-mostly line, which every lruvec stat update
+	 * reads, from being paired with the LRU list heads, which are written
+	 * constantly under lru_lock.
+	 */
+	__cacheline_group_begin_aligned(memcg_pn_cold);
+	/*
+	 * orig_objcg preserves a pointer (and a reference) to the original
+	 * objcg until the end of life of memcg.
+	 */
+	struct obj_cgroup	*orig_objcg;
+	/* list of inherited objcgs, protected by objcg_lock */
+	struct list_head objcg_list;
+	__cacheline_group_end_aligned(memcg_pn_cold);
+
+	/*
 	 * Keep lruvec on its own lines. Sharing them with lru_zone_size[]
 	 * regressed, see commit f59adcf59332 ("mm: memcg: add cacheline
 	 * padding after lruvec in mem_cgroup_per_node").
@@ -114,17 +132,6 @@ struct mem_cgroup_per_node {
 	atomic_t		slab_unreclaimable;
 #endif
 	__cacheline_group_end_aligned(memcg_pn_write_hot);
-
-	/* Touched only when the memcg is reparented or freed. */
-	__cacheline_group_begin_aligned(memcg_pn_cold);
-	/*
-	 * orig_objcg preserves a pointer (and a reference) to the original
-	 * objcg until the end of life of memcg.
-	 */
-	struct obj_cgroup	*orig_objcg;
-	/* list of inherited objcgs, protected by objcg_lock */
-	struct list_head objcg_list;
-	__cacheline_group_end_aligned(memcg_pn_cold);
 };
 
 struct mem_cgroup_threshold {
