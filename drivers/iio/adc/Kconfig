@@ -1588,14 +1588,18 @@ config RZN1_ADC
 	  module will be called rzn1-adc.
 
 config RZT2H_ADC
-	tristate "Renesas RZ/T2H / RZ/N2H ADC driver"
+	tristate "Renesas RZ/T2H / RZ/N2H (and similar SoCs) ADC driver"
 	depends on ARCH_RENESAS || COMPILE_TEST
 	select IIO_ADC_HELPER
 	select IIO_BUFFER
 	select IIO_KFIFO_BUF
+	select POWER_SEQUENCING
 	help
-	  Say yes here to build support for the ADC found in Renesas
-	  RZ/T2H / RZ/N2H SoCs.
+	  Say yes here to build support for the ADC found in Renesas SoCs:
+	  - RZ/N2H
+	  - RZ/T2H
+	  - RZ/V2H(P)
+	  - RZ/V2N
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called rzt2h_adc.
