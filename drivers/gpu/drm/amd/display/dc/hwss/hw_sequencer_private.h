@@ -135,6 +135,9 @@ struct hwseq_private_funcs {
 			struct dce_hwseq *hws,
 			unsigned int dpp_inst,
 			bool clock_on);
+	bool (*is_dpp_root_clock_control_supported)(
+			bool root_clock_optimization_dpp,
+			bool clock_on);
 	void (*dpstream_root_clock_control)(
 			struct dce_hwseq *hws,
 			unsigned int dpp_inst,
@@ -225,7 +228,7 @@ struct hwseq_private_funcs {
 			struct hubp *primary_hubp);
 	void (*wait_for_pipe_update_if_needed)(struct dc *dc, struct pipe_ctx *pipe_ctx, bool is_surface_update_only);
 	void (*set_wait_for_update_needed_for_pipe)(struct dc *dc, struct pipe_ctx *pipe_ctx);
-	void (*dc_ip_request_cntl)(struct dc *dc, bool enable);
+	void (*dc_ip_request_cntl)(struct dce_hwseq *hws, bool enable);
 	void (*program_cm_hist)(struct dc *dc,
 		struct pipe_ctx *pipe_ctx,
 		const struct dc_plane_state *plane_state);

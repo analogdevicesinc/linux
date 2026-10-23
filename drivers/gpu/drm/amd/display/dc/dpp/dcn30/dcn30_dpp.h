@@ -629,7 +629,8 @@ void dpp3_cnv_setup(
 		enum expansion_mode mode,
 		struct dc_csc_transform input_csc_color_matrix,
 		enum dc_color_space input_color_space,
-		struct cnv_alpha_2bit_lut *alpha_2bit_lut);
+		struct cnv_alpha_2bit_lut *alpha_2bit_lut,
+		enum upsp_mode upsp_mode);
 
 void dpp3_program_CM_bias(
 		struct dpp *dpp_base,
@@ -649,6 +650,12 @@ void dpp3_set_pre_degam(struct dpp *dpp_base,
 void dpp3_set_cursor_attributes(
 		struct dpp *dpp_base,
 		struct dc_cursor_attributes *cursor_attributes);
+
+void dpp3_program_pre_csc(
+		struct dpp *dpp_base,
+		enum dc_color_space color_space,
+		enum dcn10_input_csc_select input_select,
+		const struct out_csc_color_matrix *tbl_entry);
 
 void dpp3_program_post_csc(
 		struct dpp *dpp_base,

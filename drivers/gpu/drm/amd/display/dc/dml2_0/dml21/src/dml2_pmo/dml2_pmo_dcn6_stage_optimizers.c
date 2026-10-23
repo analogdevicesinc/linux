@@ -407,14 +407,20 @@ static bool dcn6_update_worksheet_for_pstate_admissibility(struct dml2_optimizat
 		enum dml2_pstate_type pstate_type)
 {
 	const double vblank_ratio = 0.8;
-	unsigned int plane_index, stream_index;
-	double ideal_relative_disallow, ideal_disallow_time_us, disallow_time_us;
+	const double min_vblank_unreserved_ratio = 0.15;
+	const double min_vblank_unreserved_time_us = 50.0;
+	// min reserved for prefetch + 1 line lost for max vstartup
+	const unsigned int min_vblank_unreserved_otg_vlines = 4 + 1;
+
+	unsigned int plane_index, stream_index, stream_index1;
+	double ideal_disallow_time_us, disallow_time_us;
 	double extra_time_required_us;
 	double vblank_time_us;
 	double min_unreserved_vblank_time_us;
 	double min_det_fill_delay_us;
 	double delta_max_det_fill_delay_us;
 	double delta_reserved_vblank_time_us;
+	double smallest_allow_us;
 
 	int max_vactive_det_fill_delay_us;
 	long reserved_vblank_time_ns;
@@ -428,54 +434,67 @@ static bool dcn6_update_worksheet_for_pstate_admissibility(struct dml2_optimizat
 	 * configs failing pstate admissibility tend to have a large vblank to vactive ratio.
 	 */
 
-	ideal_relative_disallow = 1.0;
-	if (display_config->num_streams > 1) {
-		/* The disallow region should be less than (0.5) ^ (number of displays - 1) * total frame time
-		* Calculation assumes identical displays / timings when performing the scheduling check
-		* Make the relative disallow 5% smaller than the ideal case to add extra margin
-		*/
-		ideal_relative_disallow = (double)math_pow(0.5, (float)(display_config->num_streams - 1)) * 0.95;
-	}
-
 	for (stream_index = 0; stream_index < display_config->num_streams; stream_index++) {
 		disallow_time_us = per_stream_pstate_meta[stream_index].method_vactive.common.disallow_time_us;
-		ideal_disallow_time_us = per_stream_pstate_meta[stream_index].method_vactive.common.period_us * ideal_relative_disallow;
+		ideal_disallow_time_us = disallow_time_us;
 
-		extra_time_required_us = 0.0;
+		/* find the smallest active to build the heurisitic for ideal disallow */
+		smallest_allow_us = 0.0;
+		for (stream_index1 = 0; stream_index1 < display_config->num_streams; stream_index1++) {
+			if (stream_index != stream_index1 &&
+					(smallest_allow_us == 0.0 ||
+					per_stream_pstate_meta[stream_index1].method_vactive.common.allow_time_us < smallest_allow_us)) {
+				smallest_allow_us = per_stream_pstate_meta[stream_index1].method_vactive.common.allow_time_us;
+			}
+		}
+
 		delta_max_det_fill_delay_us = 0.0;
 		delta_reserved_vblank_time_us = 0.0;
-		if (disallow_time_us > ideal_disallow_time_us) {
-			/* minimum unreserved 15% of blank, or 50us left over for prefetch */
-			vblank_time_us = display_config->stream_descriptors[stream_index].timing.vblank_nom *
+		if (worksheet->fclk_ppt_temp_read_pstate.index > 0) {
+			if (smallest_allow_us > 0.0 && display_config->num_streams > 1) {
+				ideal_disallow_time_us = smallest_allow_us / math_pow(2.0, (float)display_config->num_streams - 2) *
+					(1.0 / (2.0 - math_pow(2.0, (float)(2 - display_config->num_streams))));
+			}
+
+			extra_time_required_us = 0.0;
+			delta_max_det_fill_delay_us = 0.0;
+			delta_reserved_vblank_time_us = 0.0;
+			if (disallow_time_us > ideal_disallow_time_us) {
+				/* minimum unreserved 15% of blank, or 50us left over for prefetch */
+				vblank_time_us = display_config->stream_descriptors[stream_index].timing.vblank_nom *
 					per_stream_pstate_meta[stream_index].otg_vline_time_us;
-			min_unreserved_vblank_time_us = math_min2(vblank_time_us * 0.15, 50);
+				min_unreserved_vblank_time_us = math_max2(
+					per_stream_pstate_meta[stream_index].otg_vline_time_us * min_vblank_unreserved_otg_vlines,
+					math_min2(vblank_time_us * min_vblank_unreserved_ratio,
+						min_vblank_unreserved_time_us));
 
-			/* minmum of blackout time (~2x VActive bandwidth) */
-			min_det_fill_delay_us = per_stream_pstate_meta[stream_index].blackout_otg_vlines *
+				/* minmum of blackout time (~2x VActive bandwidth) */
+				min_det_fill_delay_us = per_stream_pstate_meta[stream_index].blackout_otg_vlines *
 					per_stream_pstate_meta[stream_index].otg_vline_time_us;
 
-			extra_time_required_us = disallow_time_us - ideal_disallow_time_us;
+				extra_time_required_us = disallow_time_us - ideal_disallow_time_us;
 
-			/* try compressing VActive fill first */
-			delta_max_det_fill_delay_us = math_min2(extra_time_required_us * (1.0 - vblank_ratio),
+				/* try compressing VActive fill first */
+				delta_max_det_fill_delay_us = math_min2(extra_time_required_us * (1.0 - vblank_ratio),
 					math_max2(0.0,
-					per_stream_pstate_meta[stream_index].method_vactive.max_vactive_det_fill_delay_us - min_det_fill_delay_us));
-			delta_max_det_fill_delay_us = math_floor2(delta_max_det_fill_delay_us, per_stream_pstate_meta[stream_index].otg_vline_time_us);
-			extra_time_required_us -= delta_max_det_fill_delay_us;
+						per_stream_pstate_meta[stream_index].method_vactive.max_vactive_det_fill_delay_us - min_det_fill_delay_us));
+				delta_max_det_fill_delay_us = math_floor2(delta_max_det_fill_delay_us, per_stream_pstate_meta[stream_index].otg_vline_time_us);
+				extra_time_required_us -= delta_max_det_fill_delay_us;
 
-			/* try reserving VBlank */
-			delta_reserved_vblank_time_us = math_min2(extra_time_required_us,
+				/* try reserving VBlank */
+				delta_reserved_vblank_time_us = math_min2(extra_time_required_us,
 					math_max2(0.0,
-					vblank_time_us - per_stream_pstate_meta[stream_index].method_vactive.reserved_vblank_required_us - min_unreserved_vblank_time_us));
-			delta_reserved_vblank_time_us = math_floor2(delta_reserved_vblank_time_us, per_stream_pstate_meta[stream_index].otg_vline_time_us);
-			extra_time_required_us -= delta_reserved_vblank_time_us;
+						vblank_time_us - per_stream_pstate_meta[stream_index].method_vactive.reserved_vblank_required_us - min_unreserved_vblank_time_us));
+				delta_reserved_vblank_time_us = math_floor2(delta_reserved_vblank_time_us, per_stream_pstate_meta[stream_index].otg_vline_time_us);
+				extra_time_required_us -= delta_reserved_vblank_time_us;
 
-			if (extra_time_required_us > 0.0 &&
+				if (extra_time_required_us > 0.0 &&
 					per_stream_pstate_meta[stream_index].method_vactive.max_vactive_det_fill_delay_us > math_ceil2(delta_max_det_fill_delay_us + extra_time_required_us, per_stream_pstate_meta[stream_index].otg_vline_time_us)) {
-				/* final attempt to compress fill time */
-				delta_max_det_fill_delay_us = delta_max_det_fill_delay_us + extra_time_required_us;
-				delta_max_det_fill_delay_us = math_ceil2(delta_max_det_fill_delay_us, per_stream_pstate_meta[stream_index].otg_vline_time_us);
-				extra_time_required_us = 0.0;
+					/* final attempt to compress fill time */
+					delta_max_det_fill_delay_us = delta_max_det_fill_delay_us + extra_time_required_us;
+					delta_max_det_fill_delay_us = math_ceil2(delta_max_det_fill_delay_us, per_stream_pstate_meta[stream_index].otg_vline_time_us);
+					extra_time_required_us = 0.0;
+				}
 			}
 		}
 
@@ -1688,7 +1707,7 @@ static void dml2_pmo_dcn6_stage_optimizer_fclk_ppt_temp_read_pstate_init(
 		struct dml2_pmo_stage_optimizer *stage, struct dml2_optimization_worksheet *worksheet)
 {
 	DML_LOG_COMP_IF_ENTER();
-	worksheet->fclk_ppt_temp_read_pstate.is_attempted = false;
+	worksheet->fclk_ppt_temp_read_pstate.index = 0;
 	memset(&stage->func_locals->fclk_ppt_temp_read_pstate_optimize, 0,
 			sizeof(struct dml2_stage_optimizer_fclk_ppt_temp_read_pstate_optimize_locals));
 	DML_LOG_COMP_IF_EXIT();
@@ -1712,12 +1731,10 @@ static bool dml2_pmo_dcn6_stage_optimizer_fclk_ppt_temp_read_pstate_optimize_nex
 
 	DML_LOG_COMP_IF_ENTER();
 
-	if (worksheet->fclk_ppt_temp_read_pstate.is_attempted) {
+	if (worksheet->fclk_ppt_temp_read_pstate.index >= 2) {
 		DML_LOG_COMP_IF_EXIT();
 		return false;
 	}
-
-	worksheet->fclk_ppt_temp_read_pstate.is_attempted = true;
 
 	if (display_config->overrides.all_streams_blanked)
 		goto exit;
@@ -1760,6 +1777,8 @@ static bool dml2_pmo_dcn6_stage_optimizer_fclk_ppt_temp_read_pstate_optimize_nex
 			DML_LOG_VERBOSE("fclk_ppt_temp_read pstate not admissible with current worksheet, adjusting the reserved vblank time\n");
 		}
 	}
+
+	worksheet->fclk_ppt_temp_read_pstate.index++;
 
 exit:
 	DML_LOG_DEBUG("%s exit with should_continue = %s\n", __func__, modified ? "true" : "false");

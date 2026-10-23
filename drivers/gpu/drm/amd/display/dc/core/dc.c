@@ -446,6 +446,48 @@ static bool set_long_vtotal(struct dc *dc, struct dc_stream_state *stream, struc
 	return false;
 }
 
+/* A hardware re-init resets the OTG DRR registers while stream->adjust keeps the
+ * pre-reset values, so those values represent has to be marked stale.
+ */
+static void invalidate_drr_adjust(struct dc *dc)
+{
+	int i;
+
+	if (!dc->current_state)
+		return;
+
+	for (i = 0; i < dc->current_state->stream_count; i++)
+		if (dc->current_state->streams[i])
+			dc->current_state->streams[i]->timing_adjust_pending = true;
+}
+
+/* apply_ctx_to_hw() skips controller programming for a pipe it considers unchanged, so a
+ * commit on its own does not guarantee the OTG matches stream->adjust. Settle anything
+ * still outstanding here - dc_stream_adjust_vmin_vmax() cannot, because it short circuits
+ * when the requested v_totals are unchanged, which is permanent for a stream that is not
+ * driving DRR.
+ */
+static void program_pending_drr_adjust(struct dc *dc, struct dc_state *context)
+{
+	int i;
+
+	if (!dc->hwss.set_drr)
+		return;
+
+	for (i = 0; i < MAX_PIPES; i++) {
+		struct pipe_ctx *pipe = &context->res_ctx.pipe_ctx[i];
+
+		if (!resource_is_pipe_type(pipe, OTG_MASTER) || !pipe->stream_res.tg)
+			continue;
+
+		if (!pipe->stream->timing_adjust_pending)
+			continue;
+
+		dc_exit_ips_for_hw_access(dc);
+		dc->hwss.set_drr(&pipe, 1, pipe->stream->adjust);
+	}
+}
+
 /**
  * dc_stream_get_last_used_drr_vtotal - Looks up the pipe context of
  * dc_stream_state and gets the last VTOTAL used by DRR (Dynamic Refresh Rate)
@@ -1342,6 +1384,9 @@ bool dc_stream_adjust_vmin_vmax(struct dc *dc,
 {
 	int i;
 	bool drr_unchanged;
+	bool exceeds_max_v_total = dc->caps.max_v_total != 0 &&
+			(adjust->v_total_max > dc->caps.max_v_total ||
+			 adjust->v_total_min > dc->caps.max_v_total);
 
 	/*
 	 * Don't adjust DRR while there's bandwidth optimizations pending to
@@ -1351,7 +1396,7 @@ bool dc_stream_adjust_vmin_vmax(struct dc *dc,
 		if (dc->optimized_required &&
 			(stream->adjust.v_total_max != adjust->v_total_max ||
 			stream->adjust.v_total_min != adjust->v_total_min)) {
-			stream->adjust.timing_adjust_pending = true;
+			stream->timing_adjust_pending = true;
 			return false;
 		}
 	}
@@ -1359,7 +1404,7 @@ bool dc_stream_adjust_vmin_vmax(struct dc *dc,
 	/* timing_adjust_pending tracks whether stream->adjust still describes the
 	 * OTG, so a cleared flag plus matching values means hw is already current.
 	 */
-	drr_unchanged = !stream->adjust.timing_adjust_pending &&
+	drr_unchanged = !stream->timing_adjust_pending &&
 			stream->adjust.v_total_min == adjust->v_total_min &&
 			stream->adjust.v_total_max == adjust->v_total_max &&
 			stream->adjust.v_total_mid == adjust->v_total_mid &&
@@ -1369,6 +1414,12 @@ bool dc_stream_adjust_vmin_vmax(struct dc *dc,
 	if (drr_unchanged)
 		return true;
 
+	/* leave stream->adjust describing the OTG rather than latching
+	 * a pending adjustment that no later call can ever clear.
+	 */
+	if (exceeds_max_v_total && !adjust->allow_otg_v_count_halt)
+		return false;
+
 	dc_exit_ips_for_hw_access(dc);
 
 	stream->adjust.v_total_max = adjust->v_total_max;
@@ -1376,16 +1427,15 @@ bool dc_stream_adjust_vmin_vmax(struct dc *dc,
 	stream->adjust.v_total_mid_frame_num = adjust->v_total_mid_frame_num;
 	stream->adjust.v_total_min = adjust->v_total_min;
 	stream->adjust.allow_otg_v_count_halt = adjust->allow_otg_v_count_halt;
+	/* Only cleared once the new values have actually reached an OTG. */
+	stream->timing_adjust_pending = true;
 
-	if (dc->caps.max_v_total != 0 &&
-		(adjust->v_total_max > dc->caps.max_v_total || adjust->v_total_min > dc->caps.max_v_total)) {
-		if (adjust->allow_otg_v_count_halt) {
-			stream->adjust.timing_adjust_pending = false;
-			return set_long_vtotal(dc, stream, adjust);
-		}
-		/* Nothing reached hw, so stream->adjust no longer describes the OTG. */
-		stream->adjust.timing_adjust_pending = true;
-		return false;
+	if (exceeds_max_v_total) {
+		if (!set_long_vtotal(dc, stream, adjust))
+			return false;
+
+		stream->timing_adjust_pending = false;
+		return true;
 	}
 
 	for (i = 0; i < MAX_PIPES; i++) {
@@ -1395,7 +1445,7 @@ bool dc_stream_adjust_vmin_vmax(struct dc *dc,
 			dc->hwss.set_drr(&pipe,
 					1,
 					*adjust);
-			stream->adjust.timing_adjust_pending = false;
+			stream->timing_adjust_pending = false;
 
 			if (dc->debug.visual_confirm == VISUAL_CONFIRM_BOOSTED_REFRESH_RATE) {
 				if (pipe->stream && pipe->plane_state) {
@@ -2398,6 +2448,8 @@ static enum dc_status dc_commit_state_no_check(struct dc *dc, struct dc_state *c
 		return result;
 	}
 
+	program_pending_drr_adjust(dc, context);
+
 	dc_trigger_sync(dc, context);
 
 	/* Full update should unconditionally be triggered when dc_commit_state_no_check is called */
@@ -2554,8 +2606,10 @@ enum dc_status dc_commit_streams(struct dc *dc, struct dc_commit_streams_params 
 		return res;
 
 	if (!streams_changed(dc, params->streams, params->stream_count) &&
-			dc->current_state->power_source == params->power_source)
+			dc->current_state->power_source == params->power_source) {
+		program_pending_drr_adjust(dc, dc->current_state);
 		return res;
+	}
 
 	dc_exit_ips_for_hw_access(dc);
 
@@ -3580,11 +3634,9 @@ static void copy_stream_update_to_stream(struct dc *dc,
 
 	if (update->crtc_timing_adjust) {
 		if (stream->adjust.v_total_min != update->crtc_timing_adjust->v_total_min ||
-			stream->adjust.v_total_max != update->crtc_timing_adjust->v_total_max ||
-			stream->adjust.timing_adjust_pending)
-			update->crtc_timing_adjust->timing_adjust_pending = true;
+			stream->adjust.v_total_max != update->crtc_timing_adjust->v_total_max)
+			stream->timing_adjust_pending = true;
 		stream->adjust = *update->crtc_timing_adjust;
-		update->crtc_timing_adjust->timing_adjust_pending = false;
 	}
 
 	if (update->dpms_off)
@@ -4192,7 +4244,9 @@ static void commit_planes_do_stream_update_sequence(struct dc *dc,
 				resource_build_info_frame(pipe_ctx);
 				add_update_info_frame_sequence(&seq_state, pipe_ctx);
 
-				if (dc_is_dp_signal(pipe_ctx->stream->signal))
+				/* The step only writes DPCD when the debug flag is set, so gate emission on it here. */
+				if (dc_is_dp_signal(pipe_ctx->stream->signal) &&
+						dc->debug.enable_driver_sequence_debug)
 					hwss_add_dp_trace_source_sequence(&seq_state,
 							pipe_ctx->stream->link,
 							DPCD_SOURCE_SEQ_AFTER_UPDATE_INFO_FRAME);
@@ -6308,6 +6362,8 @@ void dc_set_power_state(struct dc *dc, enum dc_acpi_cm_power_state power_state)
 		dc_dmub_srv_notify_fw_dc_power_state(dc->ctx->dmub_srv, power_state);
 
 		dc->hwss.init_hw(dc);
+
+		invalidate_drr_adjust(dc);
 
 		if (dc->hwss.init_sys_ctx != NULL &&
 			dc->vm_pa_config.valid) {

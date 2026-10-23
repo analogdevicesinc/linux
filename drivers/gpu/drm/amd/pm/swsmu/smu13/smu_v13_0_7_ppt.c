@@ -1578,7 +1578,6 @@ static int smu_v13_0_7_od_edit_dpm_table(struct smu_context *smu,
 	struct amdgpu_device *adev = smu->adev;
 	uint32_t offset_of_voltageoffset;
 	int32_t minimum, maximum;
-	uint32_t feature_ctrlmask;
 	int i, ret = 0;
 
 	switch (type) {
@@ -1900,22 +1899,17 @@ static int smu_v13_0_7_od_edit_dpm_table(struct smu_context *smu,
 			if (ret)
 				return ret;
 		} else {
-			feature_ctrlmask = od_table->OverDriveTable.FeatureCtrlMask;
 			memcpy(od_table,
 					table_context->boot_overdrive_table,
 					sizeof(OverDriveTableExternal_t));
-			od_table->OverDriveTable.FeatureCtrlMask = feature_ctrlmask;
+			od_table->OverDriveTable.FeatureCtrlMask = 0;
+			table_context->user_od_feature_mask = 0;
 		}
 		fallthrough;
 
 	case PP_OD_COMMIT_DPM_TABLE:
-		/*
-		 * The member below instructs PMFW the settings focused in
-		 * this single operation.
-		 * `uint32_t FeatureCtrlMask;`
-		 * It does not contain actual informations about user's custom
-		 * settings. Thus we do not cache it.
-		 */
+		table_context->user_od_feature_mask =
+			od_table->OverDriveTable.FeatureCtrlMask;
 		offset_of_voltageoffset = offsetof(OverDriveTable_t, VoltageOffsetPerZoneBoundary);
 		if (memcmp((u8 *)od_table + offset_of_voltageoffset,
 			   table_context->user_overdrive_table + offset_of_voltageoffset,
@@ -1928,7 +1922,6 @@ static int smu_v13_0_7_od_edit_dpm_table(struct smu_context *smu,
 				return ret;
 			}
 
-			od_table->OverDriveTable.FeatureCtrlMask = 0;
 			memcpy(table_context->user_overdrive_table + offset_of_voltageoffset,
 			       (u8 *)od_table + offset_of_voltageoffset,
 			       sizeof(OverDriveTableExternal_t) - offset_of_voltageoffset);
@@ -2097,7 +2090,8 @@ static ssize_t smu_v13_0_7_get_gpu_metrics(struct smu_context *smu,
 					       metrics->Vcn1ActivityPercentage);
 
 	gpu_metrics->average_socket_power = metrics->AverageSocketPower;
-	if (smu->smc_fw_version <= 0x00521400)
+	if (smu->smc_fw_version <= 0x00521400 ||
+	    smu->smc_fw_version >= 0x00526200)
 		gpu_metrics->energy_accumulator = metrics->EnergyAccumulator;
 
 	if (metrics->AverageGfxActivity <= SMU_13_0_7_BUSY_THRESHOLD)
@@ -2203,6 +2197,7 @@ static int smu_v13_0_7_set_default_od_settings(struct smu_context *smu)
 		       boot_od_table,
 		       sizeof(OverDriveTableExternal_t));
 		smu->user_dpm_profile.user_od = false;
+		smu->smu_table.user_od_feature_mask = 0;
 	} else if (smu->user_dpm_profile.user_od) {
 		memcpy(&user_od_table_bak,
 		       user_od_table,
@@ -2253,11 +2248,8 @@ static int smu_v13_0_7_restore_user_od_settings(struct smu_context *smu)
 	OverDriveTableExternal_t *user_od_table = table_context->user_overdrive_table;
 	int res;
 
-	user_od_table->OverDriveTable.FeatureCtrlMask = BIT(PP_OD_FEATURE_GFXCLK_BIT) |
-							BIT(PP_OD_FEATURE_UCLK_BIT) |
-							BIT(PP_OD_FEATURE_GFX_VF_CURVE_BIT) |
-							BIT(PP_OD_FEATURE_FAN_CURVE_BIT) |
-							BIT(PP_OD_FEATURE_ZERO_FAN_BIT);
+	user_od_table->OverDriveTable.FeatureCtrlMask =
+		table_context->user_od_feature_mask;
 	res = smu_v13_0_7_upload_overdrive_table(smu, user_od_table);
 	user_od_table->OverDriveTable.FeatureCtrlMask = 0;
 	if (res == 0)
@@ -2444,7 +2436,21 @@ static int smu_v13_0_7_init_ppt_limits(struct smu_context *smu)
 static int smu_v13_0_7_get_power_profile_mode(struct smu_context *smu, char *buf)
 {
 	DpmActivityMonitorCoeffIntExternal_t *activity_monitor_external;
-	uint32_t i, j, size = 0;
+	DpmActivityMonitorCoeffInt_t *activity_monitor;
+	static const char * const title[] = {
+		"PROFILE_INDEX(NAME)",
+		"CLOCK_TYPE(NAME)",
+		"ActiveHystLimit",
+		"IdleHystLimit",
+		"FPS",
+		"MinActiveFreqType",
+		"MinActiveFreq",
+		"BoosterFreqType",
+		"BoosterFreq",
+		"PD_Data_limit_c",
+		"PD_Data_error_coeff",
+		"PD_Data_error_rate_coeff"};
+	u32 i, size = 0;
 	int16_t workload_type = 0;
 	int result = 0;
 
@@ -2456,12 +2462,9 @@ static int smu_v13_0_7_get_power_profile_mode(struct smu_context *smu, char *buf
 	if (!activity_monitor_external)
 		return -ENOMEM;
 
-	size += sysfs_emit_at(buf, size, "                              ");
-	for (i = 0; i <= PP_SMC_POWER_PROFILE_WINDOW3D; i++)
-		size += sysfs_emit_at(buf, size, "%d %-14s%s", i, amdgpu_pp_profile_name[i],
-			(i == smu->power_profile_mode) ? "* " : "  ");
-
-	size += sysfs_emit_at(buf, size, "\n");
+	size += sysfs_emit_at(buf, size, "%16s %s %s %s %s %s %s %s %s %s %s %s\n",
+		title[0], title[1], title[2], title[3], title[4], title[5],
+		title[6], title[7], title[8], title[9], title[10], title[11]);
 
 	for (i = 0; i <= PP_SMC_POWER_PROFILE_WINDOW3D; i++) {
 		/* conv PP_SMC_POWER_PROFILE* to WORKLOAD_PPLIB_*_BIT */
@@ -2482,31 +2485,50 @@ static int smu_v13_0_7_get_power_profile_mode(struct smu_context *smu, char *buf
 			dev_err(smu->adev->dev, "[%s] Failed to get activity monitor!", __func__);
 			goto out;
 		}
+
+		activity_monitor =
+			&activity_monitor_external[i].DpmActivityMonitorCoeffInt;
+
+		size += sysfs_emit_at(buf, size, "%2d %14s%s:\n",
+			i, amdgpu_pp_profile_name[i],
+			(i == smu->power_profile_mode) ? "*" : " ");
+
+		size += sysfs_emit_at(buf, size,
+			"%19s %d(%13s) %7d %7d %7d %7d %7d",
+			" ",
+			0,
+			"GFXCLK",
+			activity_monitor->Gfx_ActiveHystLimit,
+			activity_monitor->Gfx_IdleHystLimit,
+			activity_monitor->Gfx_FPS,
+			activity_monitor->Gfx_MinActiveFreqType,
+			activity_monitor->Gfx_MinActiveFreq);
+
+		size += sysfs_emit_at(buf, size, "%7d %7d %7d %7d %7d\n",
+			activity_monitor->Gfx_BoosterFreqType,
+			activity_monitor->Gfx_BoosterFreq,
+			activity_monitor->Gfx_PD_Data_limit_c,
+			activity_monitor->Gfx_PD_Data_error_coeff,
+			activity_monitor->Gfx_PD_Data_error_rate_coeff);
+
+		size += sysfs_emit_at(buf, size,
+			"%19s %d(%13s) %7d %7d %7d %7d %7d",
+			" ",
+			1,
+			"FCLK",
+			activity_monitor->Fclk_ActiveHystLimit,
+			activity_monitor->Fclk_IdleHystLimit,
+			activity_monitor->Fclk_FPS,
+			activity_monitor->Fclk_MinActiveFreqType,
+			activity_monitor->Fclk_MinActiveFreq);
+
+		size += sysfs_emit_at(buf, size, "%7d %7d %7d %7d %7d\n",
+			activity_monitor->Fclk_BoosterFreqType,
+			activity_monitor->Fclk_BoosterFreq,
+			activity_monitor->Fclk_PD_Data_limit_c,
+			activity_monitor->Fclk_PD_Data_error_coeff,
+			activity_monitor->Fclk_PD_Data_error_rate_coeff);
 	}
-
-#define PRINT_DPM_MONITOR(field)									\
-do {													\
-	size += sysfs_emit_at(buf, size, "%-30s", #field);						\
-	for (j = 0; j <= PP_SMC_POWER_PROFILE_WINDOW3D; j++)						\
-		size += sysfs_emit_at(buf, size, "%-18d", activity_monitor_external[j].DpmActivityMonitorCoeffInt.field);		\
-	size += sysfs_emit_at(buf, size, "\n");								\
-} while (0)
-
-	PRINT_DPM_MONITOR(Gfx_ActiveHystLimit);
-	PRINT_DPM_MONITOR(Gfx_IdleHystLimit);
-	PRINT_DPM_MONITOR(Gfx_FPS);
-	PRINT_DPM_MONITOR(Gfx_MinActiveFreqType);
-	PRINT_DPM_MONITOR(Gfx_BoosterFreqType);
-	PRINT_DPM_MONITOR(Gfx_MinActiveFreq);
-	PRINT_DPM_MONITOR(Gfx_BoosterFreq);
-	PRINT_DPM_MONITOR(Fclk_ActiveHystLimit);
-	PRINT_DPM_MONITOR(Fclk_IdleHystLimit);
-	PRINT_DPM_MONITOR(Fclk_FPS);
-	PRINT_DPM_MONITOR(Fclk_MinActiveFreqType);
-	PRINT_DPM_MONITOR(Fclk_BoosterFreqType);
-	PRINT_DPM_MONITOR(Fclk_MinActiveFreq);
-	PRINT_DPM_MONITOR(Fclk_BoosterFreq);
-#undef PRINT_DPM_MONITOR
 
 	result = size;
 out:
@@ -2689,7 +2711,10 @@ static int smu_v13_0_7_set_ppt_limit(struct smu_context *smu,
 
 		if (current_od_table.OverDriveTable.Ppt) {
 			od_table->OverDriveTable.Ppt = 0;
-			od_table->OverDriveTable.FeatureCtrlMask |= 1U << PP_OD_FEATURE_PPT_BIT;
+			table_context->user_od_feature_mask &=
+				~(1U << PP_OD_FEATURE_PPT_BIT);
+			od_table->OverDriveTable.FeatureCtrlMask =
+				table_context->user_od_feature_mask;
 
 			ret = smu_v13_0_7_upload_overdrive_table(smu, od_table);
 			if (ret) {
@@ -2704,7 +2729,9 @@ static int smu_v13_0_7_set_ppt_limit(struct smu_context *smu,
 			return ret;
 
 		od_table->OverDriveTable.Ppt = (limit * 100) / msg_limit - 100;
-		od_table->OverDriveTable.FeatureCtrlMask |= 1U << PP_OD_FEATURE_PPT_BIT;
+		table_context->user_od_feature_mask |= 1U << PP_OD_FEATURE_PPT_BIT;
+		od_table->OverDriveTable.FeatureCtrlMask =
+			table_context->user_od_feature_mask;
 
 		ret = smu_v13_0_7_upload_overdrive_table(smu, od_table);
 		if (ret) {

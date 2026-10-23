@@ -100,6 +100,78 @@ void dpp30_read_reg_state(struct dpp *dpp_base, struct dcn_dpp_reg_state *dpp_re
 	dpp_reg_state->mpc_size = REG_READ(MPC_SIZE);
 }
 
+void dpp3_program_pre_csc(
+		struct dpp *dpp_base,
+		enum dc_color_space color_space,
+		enum dcn10_input_csc_select input_select,
+		const struct out_csc_color_matrix *tbl_entry)
+{
+	int i;
+	enum dcn10_input_csc_select select;
+	struct color_matrices_reg gam_regs;
+	struct dcn3_dpp *dpp = TO_DCN30_DPP(dpp_base);
+	int arr_size = sizeof(dpp_input_csc_matrix)/sizeof(struct dpp_input_csc_matrix);
+	const uint16_t *regval = NULL;
+	uint32_t cur_select = 0;
+
+	if (input_select == INPUT_CSC_SELECT_BYPASS) {
+		REG_SET(PRE_CSC_MODE, 0, PRE_CSC_MODE, 0);
+		return;
+	}
+
+	if (tbl_entry == NULL) {
+		for (i = 0; i < arr_size; i++)
+			if (dpp_input_csc_matrix[i].color_space == color_space) {
+				regval = dpp_input_csc_matrix[i].regval;
+				break;
+			}
+
+		if (regval == NULL) {
+			BREAK_TO_DEBUGGER();
+			return;
+		}
+	} else {
+		regval = tbl_entry->regval;
+	}
+
+	/* determine which CSC matrix (icsc or coma) we are using
+	 * currently.  select the alternate set to double buffer
+	 * the CSC update so CSC is updated on frame boundary
+	 */
+	REG_GET(PRE_CSC_MODE,
+			PRE_CSC_MODE_CURRENT, &cur_select);
+
+	if (cur_select != INPUT_CSC_SELECT_ICSC)
+		select = INPUT_CSC_SELECT_ICSC;
+	else
+		select = INPUT_CSC_SELECT_COMA;
+
+	gam_regs.shifts.csc_c11 = dpp->tf_shift->PRE_CSC_C11;
+	gam_regs.masks.csc_c11  = dpp->tf_mask->PRE_CSC_C11;
+	gam_regs.shifts.csc_c12 = dpp->tf_shift->PRE_CSC_C12;
+	gam_regs.masks.csc_c12 = dpp->tf_mask->PRE_CSC_C12;
+
+	if (select == INPUT_CSC_SELECT_ICSC) {
+
+		gam_regs.csc_c11_c12 = REG(PRE_CSC_C11_C12);
+		gam_regs.csc_c33_c34 = REG(PRE_CSC_C33_C34);
+
+	} else {
+
+		gam_regs.csc_c11_c12 = REG(PRE_CSC_B_C11_C12);
+		gam_regs.csc_c33_c34 = REG(PRE_CSC_B_C33_C34);
+
+	}
+
+	cm_helper_program_color_matrices(
+			dpp->base.ctx,
+			regval,
+			&gam_regs);
+
+	REG_SET(PRE_CSC_MODE, 0,
+			PRE_CSC_MODE, select);
+}
+
 /*program post scaler scs block in dpp CM*/
 void dpp3_program_post_csc(
 		struct dpp *dpp_base,
@@ -223,8 +295,10 @@ void dpp3_cnv_setup (
 		enum expansion_mode mode,
 		struct dc_csc_transform input_csc_color_matrix,
 		enum dc_color_space input_color_space,
-		struct cnv_alpha_2bit_lut *alpha_2bit_lut)
+		struct cnv_alpha_2bit_lut *alpha_2bit_lut,
+		enum upsp_mode upsp_mode)
 {
+	(void)upsp_mode;
 	struct dcn3_dpp *dpp = TO_DCN30_DPP(dpp_base);
 	uint32_t pixel_format = 0;
 	uint32_t alpha_en = 1;

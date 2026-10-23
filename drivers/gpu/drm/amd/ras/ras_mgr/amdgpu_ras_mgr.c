@@ -543,6 +543,9 @@ static int amdgpu_ras_mgr_resume(struct amdgpu_ip_block *ip_block)
 	if (!ras_mgr->ras_is_ready)
 		return 0;
 
+	if (amdgpu_sriov_vf(adev))
+		return 0;
+
 	ret = ras_psp_reload_firmwares(ras_mgr->ras_core, 0);
 	if (ret)
 		RAS_DEV_ERR(adev,

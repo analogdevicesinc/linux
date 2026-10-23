@@ -2606,3 +2606,20 @@ void dc_dmub_srv_hubbub_set_riommu_pctrl(const struct dc_context *ctx, uint32_t 
 
 	dc_wake_and_execute_dmub_cmd(ctx, &cmd, DM_DMUB_WAIT_TYPE_WAIT);
 }
+
+void dc_dmub_srv_nbif_az_pme_restore(const struct dc_context *ctx, uint32_t az_inst)
+{
+	union dmub_rb_cmd cmd;
+
+	az_inst =  (az_inst < 0x7) ? az_inst : 0; //dcnhw max aud_end point is 7
+
+	memset(&cmd, 0, sizeof(cmd));
+
+	cmd.nbif_az_pme_restore.header.type = DMUB_CMD__NBIF_AZ_PME_RESTORE;
+	cmd.nbif_az_pme_restore.header.payload_bytes = sizeof(cmd.nbif_az_pme_restore.data);
+
+	cmd.nbif_az_pme_restore.data.az_inst = az_inst & 0xF;
+
+	/* AZ must be out of D3 before the endpoint is accessed, so wait for completion */
+	dc_wake_and_execute_dmub_cmd(ctx, &cmd, DM_DMUB_WAIT_TYPE_WAIT);
+}

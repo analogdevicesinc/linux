@@ -2035,14 +2035,27 @@ static void dm_test_outbox_init_null_dc(struct kunit *test)
 static void dm_test_hpd_init_empty_connectors(struct kunit *test)
 {
 	struct amdgpu_device *adev;
+	struct dc_link *link;
+	struct dc *dc;
 
 	adev = dm_kunit_alloc_adev(test);
 
 	/*
-	 * With an empty connector list the per-connector loop is skipped and
-	 * the initial clear loop relies on amdgpu_dm_irq_set() being a no-op
-	 * for a NULL dc, so init must complete without touching the DC.
+	 * The initial clear loop walks adev->dm.dc->links, so a DC with a
+	 * populated irq service is required. With an empty connector list the
+	 * per-connector loop is skipped, so init must complete after only the
+	 * clear loop runs.
 	 */
+	dc = dm_test_alloc_dc_with_irq_service(test, &dm_test_irq_service_funcs_dcn10);
+	adev->dm.dc = dc;
+
+	link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
+	link->irq_source_hpd = DC_IRQ_SOURCE_HPD1;
+	link->irq_source_hpd_rx = DC_IRQ_SOURCE_HPD1RX;
+	dc->links[0] = link;
+	dc->link_count = 1;
+
 	amdgpu_dm_hpd_init(adev);
 }
 
@@ -2070,13 +2083,17 @@ static void dm_test_hpd_init_fini_with_connectors(struct kunit *test)
 	struct drm_connector *wbconn;
 	struct amdgpu_device *adev;
 	struct dc_link *link;
+	struct dc *dc;
 
 	adev = dm_kunit_alloc_adev(test);
 
+	/* The clear loop walks dc->links, so set up a DC with an irq service. */
+	dc = dm_test_alloc_dc_with_irq_service(test, &dm_test_irq_service_funcs_dcn10);
+	adev->dm.dc = dc;
+
 	/*
 	 * num_hpd = 0 forces irq_type >= num_hpd so the loop takes the HW
-	 * fallback (amdgpu_dm_irq_set()) instead of amdgpu_irq_get(); with a
-	 * NULL dc that fallback is a safe no-op.
+	 * fallback (amdgpu_dm_irq_set()) instead of amdgpu_irq_get().
 	 */
 	adev->mode_info.num_hpd = 0;
 
@@ -2102,8 +2119,10 @@ static void dm_test_hpd_init_fini_with_connectors(struct kunit *test)
 	link->irq_source_hpd = DC_IRQ_SOURCE_HPD1;
 	link->irq_source_hpd_rx = DC_IRQ_SOURCE_HPD1RX;
 	aconn->dc_link = link;
+	dc->links[0] = link;
+	dc->link_count = 1;
 
-	/* DC is absent (NULL), so the HW writes are NULL-safe no-ops. */
+	/* The irq service stubs accept the HW writes without register access. */
 	amdgpu_dm_hpd_init(adev);
 	amdgpu_dm_hpd_fini(adev);
 }
@@ -2117,9 +2136,14 @@ static void dm_test_hpd_init_fini_analog_connector(struct kunit *test)
 	struct amdgpu_dm_connector *aconn;
 	struct amdgpu_device *adev;
 	struct dc_link *link;
+	struct dc *dc;
 
 	adev = dm_kunit_alloc_adev(test);
 	adev->mode_info.num_hpd = 0;
+
+	/* The clear loop walks dc->links, so set up a DC with an irq service. */
+	dc = dm_test_alloc_dc_with_irq_service(test, &dm_test_irq_service_funcs_dcn10);
+	adev->dm.dc = dc;
 
 	aconn = kunit_kzalloc(test, sizeof(*aconn), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, aconn);
@@ -2136,6 +2160,8 @@ static void dm_test_hpd_init_fini_analog_connector(struct kunit *test)
 	/* An analog connector id makes the loop request polling. */
 	link->link_id.id = CONNECTOR_ID_VGA;
 	aconn->dc_link = link;
+	dc->links[0] = link;
+	dc->link_count = 1;
 
 	/* use_polling becomes true, so init must enable KMS polling. */
 	amdgpu_dm_hpd_init(adev);
@@ -2155,8 +2181,13 @@ static void dm_test_hpd_init_fini_irq_ref(struct kunit *test)
 	struct amdgpu_dm_connector *aconn;
 	struct amdgpu_device *adev;
 	struct dc_link *link;
+	struct dc *dc;
 
 	adev = dm_kunit_alloc_adev(test);
+
+	/* The clear loop walks dc->links, so set up a DC with an irq service. */
+	dc = dm_test_alloc_dc_with_irq_service(test, &dm_test_irq_service_funcs_dcn10);
+	adev->dm.dc = dc;
 
 	/*
 	 * num_hpd >= 1 makes irq_type (0) < num_hpd, so the loop takes the
@@ -2180,6 +2211,8 @@ static void dm_test_hpd_init_fini_irq_ref(struct kunit *test)
 	link->irq_source_hpd = DC_IRQ_SOURCE_HPD1;
 	link->irq_source_hpd_rx = DC_IRQ_SOURCE_INVALID;
 	aconn->dc_link = link;
+	dc->links[0] = link;
+	dc->link_count = 1;
 
 	amdgpu_dm_hpd_init(adev);
 	amdgpu_dm_hpd_fini(adev);
@@ -2199,6 +2232,9 @@ static void dm_test_hpd_init_skips_connector_without_link(struct kunit *test)
 
 	adev = dm_kunit_alloc_adev(test);
 	adev->mode_info.num_hpd = 0;
+
+	/* The clear loop walks dc->links, so set up a DC with an irq service. */
+	adev->dm.dc = dm_test_alloc_dc_with_irq_service(test, &dm_test_irq_service_funcs_dcn10);
 
 	aconn = kunit_kzalloc(test, sizeof(*aconn), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, aconn);

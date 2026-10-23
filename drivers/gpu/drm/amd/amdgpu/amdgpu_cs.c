@@ -1157,6 +1157,20 @@ static int amdgpu_cs_vm_handling(struct amdgpu_cs_parser *p)
 			return r;
 	}
 
+	if (fpriv->seq64_va) {
+		bo_va = fpriv->seq64_va;
+		r = amdgpu_vm_bo_update(adev, bo_va, false);
+		if (r) {
+			DRM_ERROR("failed to do vm_bo_update on userq sem\n");
+			return r;
+		}
+
+		r = amdgpu_sync_fence(&p->sync, bo_va->last_pt_update,
+				      GFP_KERNEL);
+		if (r)
+			return r;
+	}
+
 	/* FIXME: In theory this loop shouldn't be needed any more when
 	 * amdgpu_vm_handle_moved handles all moved BOs that are reserved
 	 * with p->ticket. But removing it caused test regressions, so I'm

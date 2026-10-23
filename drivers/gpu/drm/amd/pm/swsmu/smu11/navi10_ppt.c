@@ -1439,15 +1439,15 @@ static int navi10_force_clk_levels(struct smu_context *smu,
 
 		ret = smu_v11_0_get_dpm_freq_by_index(smu, clk_type, soft_min_level, &min_freq);
 		if (ret)
-			return 0;
+			return ret;
 
 		ret = smu_v11_0_get_dpm_freq_by_index(smu, clk_type, soft_max_level, &max_freq);
 		if (ret)
-			return 0;
+			return ret;
 
 		ret = smu_v11_0_set_soft_freq_limited_range(smu, clk_type, min_freq, max_freq, false);
 		if (ret)
-			return 0;
+			return ret;
 		break;
 	case SMU_DCEFCLK:
 		dev_info(smu->adev->dev, "Setting DCEFCLK min/max dpm level is not supported!\n");

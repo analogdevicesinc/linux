@@ -1192,6 +1192,10 @@ enum dmub_dc_bls_command_type {
 	 * Placeholder for block-level initialization of the DCHVM
 	 */
 	DMUB_CMD__DC_BLS_DCHVM_INIT = 0,
+	/**
+	 * Runs the fixed DCN hardware init sequence.
+	 */
+	DMUB_CMD__DC_BLS_DCN_INIT = 1,
 };
 
 /**
@@ -2798,8 +2802,11 @@ union dmub_fams2_stream_static_sub_state_v2 {
 
 struct dmub_fams2_stream_static_state {
 	enum fams2_stream_type type;
-	uint32_t otg_vline_time_ns;
-	uint32_t otg_vline_time_ticks;
+	union {
+		uint32_t otg_vline_time_ns; // used by DCN4
+		uint32_t otg_vline_time_ps; // used by DCN6+
+	};
+	uint32_t otg_vline_time_ticks; // U22.10 fixed point, see FAMS2_OTG_VLINE_TIME_TICKS_U22_10_FRAC_BITS
 	uint16_t htotal;
 	uint16_t vtotal; // nominal vtotal
 	uint16_t vblank_start;
@@ -2831,8 +2838,11 @@ struct dmub_fams2_stream_static_state {
 
 struct dmub_fams2_cmd_stream_static_base_state {
 	enum fams2_stream_type type;
-	uint32_t otg_vline_time_ns;
-	uint32_t otg_vline_time_ticks;
+	union {
+		uint32_t otg_vline_time_ns; // used by DCN4
+		uint32_t otg_vline_time_ps; // used by DCN6+
+	};
+	uint32_t otg_vline_time_ticks; // U22.10 fixed point, see FAMS2_OTG_VLINE_TIME_TICKS_U22_10_FRAC_BITS
 	uint16_t htotal;
 	uint16_t vtotal; // nominal vtotal
 	uint16_t vblank_start;
@@ -7622,6 +7632,17 @@ struct dmub_rb_cmd_boot_time_crc_init {
 };
 
 /**
+ * Definition of a DMUB_CMD__DC_BLS_DCN_INIT command.
+ *
+ * Runs a fixed DCN hardware init sequence after the pre-OS to post-OS
+ * transition. Carries no payload; anything driver-configurable is
+ * programmed by the driver after this command completes.
+ */
+struct dmub_rb_cmd_dc_bls_dcn_init {
+	struct dmub_cmd_header header; /**< Command header */
+};
+
+/**
  * union dmub_rb_cmd - DMUB inbox command.
  */
 union dmub_rb_cmd {
@@ -8020,6 +8041,11 @@ union dmub_rb_cmd {
 	 * Definition of a DMUB_CMD__BOOT_TIME_CRC_INIT command.
 	 */
 	struct dmub_rb_cmd_boot_time_crc_init boot_time_crc_init;
+
+	/**
+	 * Definition of a DMUB_CMD__DC_BLS_DCN_INIT command.
+	 */
+	struct dmub_rb_cmd_dc_bls_dcn_init dc_bls_dcn_init;
 
 	/**
 	 * Definition of a DMUB_CMD__PANEL_POLARITY_ENABLE command.

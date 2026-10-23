@@ -1059,7 +1059,8 @@ static void power_on_plane_resources(
 {
 	DC_LOGGER_INIT(hws->ctx);
 
-	if (hws->funcs.dpp_root_clock_control)
+	if (hws->funcs.dpp_root_clock_control &&
+	    hwss_is_dpp_root_clock_control_allowed(hws, true))
 		hws->funcs.dpp_root_clock_control(hws, plane_id, true);
 
 	if (REG(DC_IP_REQUEST_CNTL)) {
@@ -1349,12 +1350,7 @@ static void dcn10_reset_back_end_for_pipe(
 	 * screen only, the dpms_off would be true but
 	 * VBIOS lit up eDP, so check link status too.
 	 */
-	if (link->connector_signal == SIGNAL_TYPE_EDP &&
-	    link->forced_psr_active) {
-		/* forced psr is active for seamless switch; skip dpms-off. */
-		if (pipe_ctx->stream_res.audio)
-			dc->hwss.disable_audio_stream(pipe_ctx);
-	} else if (!pipe_ctx->stream->dpms_off || link->link_status.link_active)
+	if (!pipe_ctx->stream->dpms_off || link->link_status.link_active)
 		dc->link_srv->set_dpms_off(pipe_ctx);
 	else if (pipe_ctx->stream_res.audio)
 		dc->hwss.disable_audio_stream(pipe_ctx);
@@ -1378,15 +1374,13 @@ static void dcn10_reset_back_end_for_pipe(
 	 * parent pipe.
 	 */
 	if (pipe_ctx->top_pipe == NULL) {
-		if (!(link->connector_signal == SIGNAL_TYPE_EDP &&
-			link->forced_psr_active)) {
-			if (pipe_ctx->stream_res.abm)
-				dc->hwss.set_abm_immediate_disable(pipe_ctx);
 
-			pipe_ctx->stream_res.tg->funcs->disable_crtc(pipe_ctx->stream_res.tg);
+		if (pipe_ctx->stream_res.abm)
+			dc->hwss.set_abm_immediate_disable(pipe_ctx);
 
-			pipe_ctx->stream_res.tg->funcs->enable_optc_clock(pipe_ctx->stream_res.tg, false);
-		}
+		pipe_ctx->stream_res.tg->funcs->disable_crtc(pipe_ctx->stream_res.tg);
+
+		pipe_ctx->stream_res.tg->funcs->enable_optc_clock(pipe_ctx->stream_res.tg, false);
 		set_drr_and_clear_adjust_pending(pipe_ctx, pipe_ctx->stream, NULL);
 		if (dc_is_hdmi_tmds_signal(pipe_ctx->stream->signal))
 			pipe_ctx->stream->link->phy_state.symclk_ref_cnts.otg = 0;
@@ -1566,7 +1560,8 @@ void dcn10_plane_atomic_power_down(struct dc *dc,
 				"Power gated front end %d\n", hubp->inst);
 	}
 
-	if (hws->funcs.dpp_root_clock_control)
+	if (hws->funcs.dpp_root_clock_control &&
+	    hwss_is_dpp_root_clock_control_allowed(hws, false))
 		hws->funcs.dpp_root_clock_control(hws, dpp->inst, false);
 }
 
@@ -2941,7 +2936,8 @@ static void dcn10_update_dpp(struct dpp *dpp, struct dc_plane_state *plane_state
 			EXPANSION_MODE_ZERO,
 			plane_state->input_csc_color_matrix,
 			plane_state->color_space,
-			NULL);
+			NULL,
+			0);
 
 	//set scale and bias registers
 	build_prescale_params(&bns_params, plane_state);
