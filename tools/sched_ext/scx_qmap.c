@@ -427,7 +427,7 @@ restart:
 			u32 ppt = strtoul(optarg, NULL, 0);
 
 			if (!ppt)
-				ppt = __COMPAT_ENUM_OR_ZERO("scx_consts", "SCX_RESCUE_DISABLE");
+				ppt = skel->rodata->__SCX_RESCUE_DISABLE;
 			skel->struct_ops.qmap_ops->rescue_bandwidth_ppt = ppt;
 			break;
 		}
