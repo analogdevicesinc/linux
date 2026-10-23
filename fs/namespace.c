@@ -1897,9 +1897,11 @@ static void shrink_submounts(struct mount *mnt);
 
 static int do_umount_root(struct super_block *sb)
 {
-	int ret = 0;
+	int ret;
 
-	down_write(&sb->s_umount);
+	ret = down_write_killable(&sb->s_umount);
+	if (ret)
+		return ret;
 	if (!sb_rdonly(sb)) {
 		struct fs_context *fc;
 
