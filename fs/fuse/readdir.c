@@ -11,6 +11,7 @@
 #include <linux/pagemap.h>
 #include <linux/highmem.h>
 #include <linux/vmalloc.h>
+#include <linux/namei.h>
 
 static bool fuse_use_readdirplus(struct inode *dir, struct dir_context *ctx)
 {
@@ -34,11 +35,11 @@ static void fuse_add_dirent_to_cache(struct file *file,
 	struct fuse_inode *fi = get_fuse_inode(file_inode(file));
 	size_t reclen = FUSE_DIRENT_SIZE(dirent);
 	pgoff_t index;
-	struct page *page;
+	struct folio *folio;
 	loff_t size;
 	u64 version;
 	unsigned int offset;
-	void *addr;
+	size_t folio_offset;
 
 	/* Dirent doesn't fit in readdir cache page?  Skip caching. */
 	if (reclen > PAGE_SIZE)
@@ -64,13 +65,11 @@ static void fuse_add_dirent_to_cache(struct file *file,
 	}
 	spin_unlock(&fi->rdc.lock);
 
-	if (offset) {
-		page = find_lock_page(file->f_mapping, index);
-	} else {
-		page = find_or_create_page(file->f_mapping, index,
-					   mapping_gfp_mask(file->f_mapping));
-	}
-	if (!page)
+	if (offset)
+		folio = filemap_lock_folio(file->f_mapping, index);
+	else
+		folio = filemap_grab_folio(file->f_mapping, index);
+	if (IS_ERR(folio))
 		return;
 
 	spin_lock(&fi->rdc.lock);
@@ -79,19 +78,21 @@ static void fuse_add_dirent_to_cache(struct file *file,
 	    WARN_ON(fi->rdc.pos != pos))
 		goto unlock;
 
-	addr = kmap_local_page(page);
+	folio_offset = offset_in_folio(folio, (index << PAGE_SHIFT) + offset);
 	if (!offset) {
-		clear_page(addr);
-		SetPageUptodate(page);
+		folio_fill_tail(folio, folio_offset, (const char *)dirent,
+				reclen);
+		folio_mark_uptodate(folio);
+	} else {
+		memcpy_to_folio(folio, folio_offset, (const char *)dirent,
+				reclen);
 	}
-	memcpy(addr + offset, dirent, reclen);
-	kunmap_local(addr);
 	fi->rdc.size = (index << PAGE_SHIFT) + offset + reclen;
 	fi->rdc.pos = dirent->off;
 unlock:
 	spin_unlock(&fi->rdc.lock);
-	unlock_page(page);
-	put_page(page);
+	folio_unlock(folio);
+	folio_put(folio);
 }
 
 static void fuse_readdir_cache_end(struct file *file, loff_t pos)
@@ -195,14 +196,11 @@ static int fuse_direntplus_link(struct file *file,
 	fc = get_fuse_conn(dir);
 	epoch = atomic_read(&fc->epoch);
 
-	name.hash = full_name_hash(parent, name.name, name.len);
-	dentry = d_lookup(parent, &name);
-	if (!dentry) {
 retry:
-		dentry = d_alloc_parallel(parent, &name);
-		if (IS_ERR(dentry))
-			return PTR_ERR(dentry);
-	}
+	dentry = d_alloc_trylock(parent, &name);
+	if (IS_ERR(dentry))
+		return PTR_ERR(dentry);
+
 	if (!d_in_lookup(dentry)) {
 		struct fuse_inode *fi;
 		inode = d_inode(dentry);
@@ -502,7 +500,7 @@ static int fuse_readdir_cached(struct file *file, struct dir_context *ctx)
 	enum fuse_parse_result res;
 	pgoff_t index;
 	unsigned int size;
-	struct page *page;
+	struct folio *folio;
 	void *addr;
 
 	/* Seeked?  If so, reset the cache stream */
@@ -580,42 +578,44 @@ retry_locked:
 	if (offset_in_page(ff->readdir.cache_off) == size)
 		return 0;
 
-	page = find_get_page_flags(file->f_mapping, index,
-				   FGP_ACCESSED | FGP_LOCK);
-	/* Page gone missing, then re-added to cache, but not initialized? */
-	if (page && !PageUptodate(page)) {
-		unlock_page(page);
-		put_page(page);
-		page = NULL;
+	folio = __filemap_get_folio(file->f_mapping, index,
+				    FGP_ACCESSED | FGP_LOCK, 0);
+	if (IS_ERR(folio))
+		folio = NULL;
+	/* Folio gone missing, then re-added to cache, but not initialized? */
+	if (folio && !folio_test_uptodate(folio)) {
+		folio_unlock(folio);
+		folio_put(folio);
+		folio = NULL;
 	}
 	spin_lock(&fi->rdc.lock);
-	if (!page) {
+	if (!folio) {
 		/*
-		 * Uh-oh: page gone missing, cache is useless
+		 * Uh-oh: folio gone missing, cache is useless
 		 */
 		if (fi->rdc.version == ff->readdir.version)
 			fuse_rdc_reset(inode);
 		goto retry_locked;
 	}
 
-	/* Make sure it's still the same version after getting the page. */
+	/* Make sure it's still the same version after getting the folio. */
 	if (ff->readdir.version != fi->rdc.version) {
 		spin_unlock(&fi->rdc.lock);
-		unlock_page(page);
-		put_page(page);
+		folio_unlock(folio);
+		folio_put(folio);
 		goto retry;
 	}
 	spin_unlock(&fi->rdc.lock);
 
 	/*
-	 * Contents of the page are now protected against changing by holding
-	 * the page lock.
+	 * Contents of the folio are now protected against changing by holding
+	 * the folio lock.
 	 */
-	addr = kmap_local_page(page);
+	addr = kmap_local_folio(folio, 0);
 	res = fuse_parse_cache(ff, addr, size, ctx);
 	kunmap_local(addr);
-	unlock_page(page);
-	put_page(page);
+	folio_unlock(folio);
+	folio_put(folio);
 
 	if (res == FOUND_ERR)
 		return -EIO;
