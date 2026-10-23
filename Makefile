@@ -1677,7 +1677,7 @@ ifneq ($(dtstree),)
 
 PHONY += dtbs dtbs_prepare dtbs_install dtbs_check
 dtbs: dtbs_prepare
-	$(Q)$(MAKE) $(build)=$(dtstree) need-dtbslist=1
+	$(Q)$(MAKE) $(dtstree)/
 
 # include/config/kernel.release is actually needed when installing DTBs because
 # INSTALL_DTBS_PATH contains $(KERNELRELEASE). However, we do not want to make
@@ -2200,6 +2200,7 @@ modpost: $(if $(single-build),, $(if $(KBUILD_BUILTIN), vmlinux.o)) \
 #   make foo/bar/baz/
 
 single-build-prep := prepare
+single-dtbslist-arg :=
 
 ifdef single-build
 
@@ -2235,9 +2236,13 @@ single-goals := $(addprefix $(build-dir)/, $(single-no-ko))
 
 # DT-only targets need host tools, but no architecture-specific preparation.
 ifneq ($(dtstree),)
-single-dt-patterns := $(addprefix $(dtstree)/,%.dtb %.dtbo)
+single-dt-patterns := $(dtstree)/ $(addprefix $(dtstree)/,%.dtb %.dtbo %/)
+ifneq ($(filter $(single-dt-patterns),$(single-no-ko)),)
+single-dtbslist-arg := need-dtbslist=y
+endif
 ifeq ($(filter-out $(single-dt-patterns),$(single-no-ko)),)
 single-build-prep := dtbs_prepare
+single-dtbslist-arg := need-dtbslist=y
 endif
 endif
 
@@ -2253,7 +2258,8 @@ prepare: outputmakefile
 # Error messages still appears in the original language
 PHONY += $(build-dir)
 $(build-dir): $(single-build-prep)
-	$(Q)$(MAKE) $(build)=$@ need-builtin=1 need-modorder=1 $(single-goals)
+	$(Q)$(MAKE) $(build)=$@ need-builtin=1 need-modorder=1 \
+		$(single-dtbslist-arg) $(single-goals)
 
 clean-dirs := $(addprefix _clean_, $(clean-dirs))
 PHONY += $(clean-dirs) clean
