@@ -502,6 +502,175 @@ __naked void bad_helper_write(void)
 	: __clobber_all);
 }
 
+/*
+ * A helper buffer or a callee's pointer that reaches a fastcall spill slot
+ * must keep the spill/fill pair and the stack that covers it. Only load
+ * these programs: without the fix, they access kernel stack outside their
+ * frame.
+ *
+ * Uninitialized outputs without CAP_PERFMON have no explicit stack accesses.
+ */
+SEC("tc")
+__log_level(4)
+__msg_unpriv("subprog 0 (helper_uninit_stack) main {{.*}} stack 64")
+__xlated_unpriv("*(u64 *)(r10 -8) = r1")
+__xlated_unpriv("...")
+__xlated_unpriv("r1 = *(u64 *)(r10 -8)")
+__caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
+__success_unpriv
+__naked void helper_uninit_stack(void)
+{
+	asm volatile (
+	"*(u64 *)(r10 - 8) = r1;"
+	"call %[bpf_get_smp_processor_id];"
+	"r1 = *(u64 *)(r10 - 8);"
+	"r2 = 0;"
+	"r3 = r10;"
+	"r3 += -64;"
+	"r4 = 8;"
+	"call %[bpf_skb_load_bytes];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_get_smp_processor_id),
+	  __imm(bpf_skb_load_bytes)
+	: __clobber_all);
+}
+
+/* Same output in the caller's stack, passed to the helper by a callee. */
+static __used __naked void helper_uninit_stack_callee(void)
+{
+	asm volatile (
+	"r3 = r2;"
+	"r2 = 0;"
+	"r4 = 8;"
+	"call %[bpf_skb_load_bytes];"
+	"exit;"
+	:
+	: __imm(bpf_skb_load_bytes)
+	: __clobber_all);
+}
+
+SEC("tc")
+__log_level(4)
+__msg_unpriv("subprog 0 (helper_uninit_stack_caller) main {{.*}} stack 64")
+__xlated_unpriv("*(u64 *)(r10 -8) = r1")
+__xlated_unpriv("...")
+__xlated_unpriv("r1 = *(u64 *)(r10 -8)")
+__caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
+__success_unpriv
+__naked void helper_uninit_stack_caller(void)
+{
+	asm volatile (
+	"*(u64 *)(r10 - 8) = r1;"
+	"call %[bpf_get_smp_processor_id];"
+	"r1 = *(u64 *)(r10 - 8);"
+	"r2 = r10;"
+	"r2 += -64;"
+	"call helper_uninit_stack_callee;"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_get_smp_processor_id)
+	: __clobber_all);
+}
+
+/* A helper input whose only initialization is the fastcall spill. */
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, __u32);
+	__type(value, __u64);
+} fastcall_map SEC(".maps");
+
+SEC("tc")
+__log_level(4)
+__msg("subprog 0 (helper_reads_fastcall_spill) main {{.*}} stack 8")
+__xlated("*(u64 *)(r10 -8) = r1")
+__xlated("...")
+__xlated("r1 = *(u64 *)(r10 -8)")
+__success
+__naked void helper_reads_fastcall_spill(void)
+{
+	asm volatile (
+	"r1 = 0;"
+	"*(u64 *)(r10 - 8) = r1;"
+	"call %[bpf_get_smp_processor_id];"
+	"r1 = *(u64 *)(r10 - 8);"
+	"r1 = %[fastcall_map] ll;"
+	"r2 = r10;"
+	"r2 += -8;"
+	"call %[bpf_map_lookup_elem];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_get_smp_processor_id),
+	  __imm(bpf_map_lookup_elem),
+	  __imm_addr(fastcall_map)
+	: __clobber_all);
+}
+
+/* A callee load from the caller's fastcall spill slot. */
+static __used __naked void read_caller_stack_callee(void)
+{
+	asm volatile (
+	"r0 = *(u64 *)(r1 + 0);"
+	"exit;"
+	::: __clobber_all);
+}
+
+SEC("raw_tp")
+__log_level(4)
+__msg("subprog 0 (callee_reads_fastcall_spill) main {{.*}} stack 8")
+__xlated("*(u64 *)(r10 -8) = r1")
+__xlated("...")
+__xlated("r1 = *(u64 *)(r10 -8)")
+__success
+__naked void callee_reads_fastcall_spill(void)
+{
+	asm volatile (
+	"r1 = 1;"
+	"*(u64 *)(r10 - 8) = r1;"
+	"call %[bpf_get_smp_processor_id];"
+	"r1 = *(u64 *)(r10 - 8);"
+	"r1 = r10;"
+	"r1 += -8;"
+	"call read_caller_stack_callee;"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_get_smp_processor_id)
+	: __clobber_all);
+}
+
+/* A zero-sized buffer touches no stack, the rewrite is still applied. */
+SEC("raw_tp")
+__arch_x86_64
+__log_level(4)
+__msg("subprog 0 (helper_zero_size_buffer) main {{.*}} stack 0")
+__xlated("0: r1 = 1")
+__xlated("1: r0 =")
+__success
+__naked void helper_zero_size_buffer(void)
+{
+	asm volatile (
+	"r1 = 1;"
+	"*(u64 *)(r10 - 8) = r1;"
+	"call %[bpf_get_smp_processor_id];"
+	"r1 = *(u64 *)(r10 - 8);"
+	"r1 = r10;"
+	"r1 += -64;"
+	"r2 = 0;"
+	"r3 = 0;"
+	"call %[bpf_probe_read_kernel];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_get_smp_processor_id),
+	  __imm(bpf_probe_read_kernel)
+	: __clobber_all);
+}
+
 SEC("raw_tp")
 __arch_x86_64
 /* main, not patched */
@@ -618,6 +787,116 @@ __naked void helper_call_does_not_prevent_bpf_fastcall(void)
 	:
 	: __imm(bpf_get_smp_processor_id),
 	  __imm(bpf_get_prandom_u32)
+	: __clobber_all);
+}
+
+/* A jump to the first spill executes the whole pattern, rewrite is safe. */
+SEC("raw_tp")
+__arch_x86_64
+__log_level(4)
+__msg("subprog 0 (jump_to_first_spill) main {{.*}} stack 0")
+__xlated("2: if r0 == 0x2a goto pc+0")
+__xlated("3: r0 = ")
+__xlated("4: r0 = &(void __percpu *)(r0)")
+__success
+__naked void jump_to_first_spill(void)
+{
+	asm volatile (
+	"call %[bpf_get_prandom_u32];"
+	"r1 = 1;"
+	"if r0 == 42 goto l0_%=;"
+"l0_%=:"
+	"*(u64 *)(r10 - 8) = r1;"
+	"call %[bpf_get_smp_processor_id];"
+	"r1 = *(u64 *)(r10 - 8);"
+	"exit;"
+	:
+	: __imm(bpf_get_prandom_u32),
+	  __imm(bpf_get_smp_processor_id)
+	: __clobber_all);
+}
+
+/* A jump to the call skips the spill, the pattern must be kept. */
+SEC("raw_tp")
+__arch_x86_64
+__log_level(4)
+__msg("subprog 0 (jump_to_call) main {{.*}} stack 8")
+__xlated("2: if r0 == 0x2a goto pc+1")
+__xlated("3: *(u64 *)(r10 -8) = r1")
+__xlated("...")
+__xlated("7: r1 = *(u64 *)(r10 -8)")
+__success
+__naked void jump_to_call(void)
+{
+	asm volatile (
+	"call %[bpf_get_prandom_u32];"
+	"r1 = 1;"
+	"if r0 == 42 goto l0_%=;"
+	"*(u64 *)(r10 - 8) = r1;"
+"l0_%=:"
+	"call %[bpf_get_smp_processor_id];"
+	"r1 = *(u64 *)(r10 - 8);"
+	"exit;"
+	:
+	: __imm(bpf_get_prandom_u32),
+	  __imm(bpf_get_smp_processor_id)
+	: __clobber_all);
+}
+
+/* A jump to the fill skips the spill, the pattern must be kept. */
+SEC("raw_tp")
+__arch_x86_64
+__log_level(4)
+__msg("subprog 0 (jump_to_fill) main {{.*}} stack 8")
+__xlated("2: if r0 == 0x2a goto pc+4")
+__xlated("3: *(u64 *)(r10 -8) = r1")
+__xlated("...")
+__xlated("7: r1 = *(u64 *)(r10 -8)")
+__success
+__naked void jump_to_fill(void)
+{
+	asm volatile (
+	"call %[bpf_get_prandom_u32];"
+	"r1 = 1;"
+	"if r0 == 42 goto l0_%=;"
+	"*(u64 *)(r10 - 8) = r1;"
+	"call %[bpf_get_smp_processor_id];"
+"l0_%=:"
+	"r1 = *(u64 *)(r10 - 8);"
+	"exit;"
+	:
+	: __imm(bpf_get_prandom_u32),
+	  __imm(bpf_get_smp_processor_id)
+	: __clobber_all);
+}
+
+/* Same as above, but the fill is entered by an unconditional jump. */
+SEC("raw_tp")
+__arch_x86_64
+__log_level(4)
+__msg("subprog 0 (unconditional_jump_to_fill) main {{.*}} stack 8")
+__xlated("3: *(u64 *)(r10 -8) = r1")
+__xlated("...")
+__xlated("7: r1 = *(u64 *)(r10 -8)")
+__xlated("8: exit")
+__xlated("9: goto pc-3")
+__success
+__naked void unconditional_jump_to_fill(void)
+{
+	asm volatile (
+	"call %[bpf_get_prandom_u32];"
+	"r1 = 1;"
+	"if r0 == 42 goto l1_%=;"
+	"*(u64 *)(r10 - 8) = r1;"
+	"call %[bpf_get_smp_processor_id];"
+"l0_%=:"
+	"r1 = *(u64 *)(r10 - 8);"
+	"exit;"
+"l1_%=:"
+	"goto l0_%=;"
+	:
+	: __imm(bpf_get_prandom_u32),
+	  __imm(bpf_get_smp_processor_id)
 	: __clobber_all);
 }
 
