@@ -442,7 +442,8 @@ register_shm_helper(struct tee_context *ctx, struct iov_iter *iter, u32 flags,
 		goto err_free_shm;
 	}
 
-	shm->pages = kzalloc_objs(*shm->pages, num_pages);
+	shm->pages = kzalloc_objs(*shm->pages, num_pages,
+				  GFP_KERNEL | __GFP_NOWARN);
 	if (!shm->pages) {
 		ret = ERR_PTR(-ENOMEM);
 		goto err_free_shm;
