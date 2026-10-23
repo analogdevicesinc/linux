@@ -104,6 +104,10 @@ properties:
       GPIO connected to ODR pin. Used to sample ADC data in minimum I/O mode.
     maxItems: 1
 
+  pwms:
+    description: PWM signal connected to the ODR pin.
+    maxItems: 1
+
   mux-states:
     description:
       mux controller node to route SDO and DOUT0 signals from peripheral to
@@ -257,9 +261,11 @@ examples:
             reg = <0>;
 
             spi-max-frequency = <1000000>;
+            spi-rx-bus-width = <1>, <1>, <1>, <1>; /* 4 lanes of 1 bit each */
 
             reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
             powerdown-gpios = <&gpio0 88 GPIO_ACTIVE_LOW>;
+            pwms = <&ad4134_odr_generator 1 1000000 0>;
 
             clocks = <&sys_clk>;
             clock-names = "clkin";
