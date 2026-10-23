@@ -111,7 +111,7 @@ static const struct regmap_range ad4134_regmap_rd_range[] = {
 	regmap_reg_range(AD4134_IFACE_CONFIG_A_REG, AD4134_SILICON_REV_REG),
 	regmap_reg_range(AD4134_SCRATCH_PAD_REG, AD4134_PW_DOWN_CTRL_REG),
 	regmap_reg_range(AD4134_DEVICE_STATUS_REG, AD4134_AIN_OR_ERROR_REG),
-	regmap_reg_range(AD4134_CH_VREG(0), AD4134_CH_VREG(AD4134_NUM_CHANNELS)),
+	regmap_reg_range(AD4134_CH_VREG(0), AD4134_CH_VREG(AD4134_NUM_CHANNELS - 1)),
 };
 
 static const struct regmap_range ad4134_regmap_wr_range[] = {
@@ -244,7 +244,7 @@ static const struct regmap_config ad4134_regmap_config = {
 	.reg_write = ad4134_reg_write,
 	.rd_table = &ad4134_regmap_rd_table,
 	.wr_table = &ad4134_regmap_wr_table,
-	.max_register = AD4134_CH_VREG(ARRAY_SIZE(ad4134_chan_set)),
+	.max_register = AD4134_CH_VREG(AD4134_NUM_CHANNELS - 1),
 };
 
 static int ad4134_read_raw(struct iio_dev *indio_dev,
