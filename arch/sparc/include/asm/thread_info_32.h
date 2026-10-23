@@ -110,6 +110,7 @@ register struct thread_info *current_thread_info_reg asm("g6");
 #define TIF_POLLING_NRFLAG	9	/* true if poll_idle() is polling
 					 * TIF_NEED_RESCHED */
 #define TIF_MEMDIE		10	/* is terminating due to OOM killer */
+#define TIF_SECCOMP		11	/* secure computing */
 
 /* as above, but as bit values */
 #define _TIF_SYSCALL_TRACE	(1<<TIF_SYSCALL_TRACE)
@@ -119,6 +120,7 @@ register struct thread_info *current_thread_info_reg asm("g6");
 #define _TIF_NOTIFY_SIGNAL	(1<<TIF_NOTIFY_SIGNAL)
 #define _TIF_USEDFPU		(1<<TIF_USEDFPU)
 #define _TIF_POLLING_NRFLAG	(1<<TIF_POLLING_NRFLAG)
+#define _TIF_SECCOMP		(1<<TIF_SECCOMP)
 
 #define _TIF_DO_NOTIFY_RESUME_MASK	(_TIF_NOTIFY_RESUME | \
 					 _TIF_SIGPENDING | _TIF_NOTIFY_SIGNAL)

@@ -172,7 +172,8 @@ asmlinkage int do_sys_sigstack(struct sigstack __user *ssptr,
                                unsigned long sp);
 
 /* ptrace_32.c */
-asmlinkage int syscall_trace(struct pt_regs *regs, int syscall_exit_p);
+asmlinkage int syscall_trace_enter(struct pt_regs *regs);
+asmlinkage void syscall_trace_leave(struct pt_regs *regs);
 
 /* unaligned_32.c */
 asmlinkage void kernel_unaligned_trap(struct pt_regs *regs, unsigned int insn);
