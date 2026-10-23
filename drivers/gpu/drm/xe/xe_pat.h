@@ -42,8 +42,10 @@ struct xe_pat_table_entry {
 /**
  * xe_pat_init_early - SW initialization, setting up data based on device
  * @xe: xe device
+ *
+ * Return: 0 on success or a negative error code on failure.
  */
-void xe_pat_init_early(struct xe_device *xe);
+int xe_pat_init_early(struct xe_device *xe);
 
 /**
  * xe_pat_init - Program HW PAT table
@@ -55,8 +57,18 @@ int xe_pat_dump(struct xe_gt *gt, struct drm_printer *p);
 int xe_pat_dump_sw_config(struct xe_gt *gt, struct drm_printer *p);
 
 /**
+ * xe_pat_index_is_valid - Check whether the given pat_index is valid. Index
+ * must be within valid range.
+ * @xe: xe device
+ * @pat_index: The pat_index to query
+ *
+ * Return: true if the pat_index entry is valid, false if reserved.
+ */
+bool xe_pat_index_is_valid(struct xe_device *xe, u16 pat_index);
+
+/**
  * xe_pat_index_get_coh_mode - Extract the coherency mode for the given
- * pat_index.
+ * pat_index. Index must be valid for the hw.
  * @xe: xe device
  * @pat_index: The pat_index to query
  */
@@ -64,7 +76,7 @@ u16 xe_pat_index_get_coh_mode(struct xe_device *xe, u16 pat_index);
 
 /**
  * xe_pat_index_get_comp_en - Extract the compression enable flag for
- * the given pat_index.
+ * the given pat_index. Index must be valid for the hw.
  * @xe: xe device
  * @pat_index: The pat_index to query
  *
@@ -77,6 +89,7 @@ bool xe_pat_index_get_comp_en(struct xe_device *xe, u16 pat_index);
 #define XE_L3_POLICY_UC		3 /* Uncached */
 /**
  * xe_pat_index_get_l3_policy - Extract the L3 policy for the given pat_index.
+ * Index must be valid for the hw.
  * @xe: xe device
  * @pat_index: The pat_index to query
  */

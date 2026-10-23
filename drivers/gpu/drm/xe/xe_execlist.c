@@ -5,6 +5,7 @@
 
 #include "xe_execlist.h"
 
+#include <drm/drm_drv.h>
 #include <drm/drm_managed.h>
 
 #include "instructions/xe_mi_commands.h"
@@ -21,6 +22,7 @@
 #include "xe_macros.h"
 #include "xe_mmio.h"
 #include "xe_mocs.h"
+#include "xe_module.h"
 #include "xe_ring_ops_types.h"
 #include "xe_sched_job.h"
 
@@ -402,6 +404,7 @@ static void execlist_exec_queue_destroy_async(struct work_struct *w)
 	spin_unlock_irqrestore(&exl->port->lock, flags);
 
 	xe_exec_queue_fini(q);
+	drm_dev_put(&xe->drm);
 }
 
 static void execlist_exec_queue_kill(struct xe_exec_queue *q)
@@ -411,8 +414,9 @@ static void execlist_exec_queue_kill(struct xe_exec_queue *q)
 
 static void execlist_exec_queue_destroy(struct xe_exec_queue *q)
 {
+	drm_dev_get(&gt_to_xe(q->gt)->drm);
 	INIT_WORK(&q->execlist->destroy_async, execlist_exec_queue_destroy_async);
-	queue_work(system_dfl_wq, &q->execlist->destroy_async);
+	xe_destroy_wq_queue(&q->execlist->destroy_async);
 }
 
 static int execlist_exec_queue_set_priority(struct xe_exec_queue *q,

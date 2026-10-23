@@ -62,7 +62,7 @@ void xe_guc_reset_wait(struct xe_guc *guc);
 void xe_guc_stop_prepare(struct xe_guc *guc);
 void xe_guc_stop(struct xe_guc *guc);
 int xe_guc_start(struct xe_guc *guc);
-void xe_guc_declare_wedged(struct xe_guc *guc);
+void xe_guc_wedge_declare(struct xe_guc *guc);
 bool xe_guc_using_main_gamctrl_queues(struct xe_guc *guc);
 bool xe_guc_has_paging_engine(struct xe_guc *guc);
 

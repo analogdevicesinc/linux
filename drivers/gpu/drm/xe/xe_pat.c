@@ -16,6 +16,7 @@
 #include "xe_force_wake.h"
 #include "xe_gt.h"
 #include "xe_gt_mcr.h"
+#include "xe_log.h"
 #include "xe_mmio.h"
 #include "xe_sriov.h"
 #include "xe_wa.h"
@@ -93,29 +94,29 @@ struct xe_pat_ops {
 };
 
 static const struct xe_pat_table_entry xelp_pat_table[] = {
-	[0] = { XELP_PAT_WB, XE_COH_1WAY },
-	[1] = { XELP_PAT_WC, XE_COH_NONE },
-	[2] = { XELP_PAT_WT, XE_COH_NONE },
-	[3] = { XELP_PAT_UC, XE_COH_NONE },
+	[0] = { XELP_PAT_WB, XE_COH_1WAY, 1 },
+	[1] = { XELP_PAT_WC, XE_COH_NONE, 1 },
+	[2] = { XELP_PAT_WT, XE_COH_NONE, 1 },
+	[3] = { XELP_PAT_UC, XE_COH_NONE, 1 },
 };
 
 static const struct xe_pat_table_entry xehpc_pat_table[] = {
-	[0] = { XELP_PAT_UC, XE_COH_NONE },
-	[1] = { XELP_PAT_WC, XE_COH_NONE },
-	[2] = { XELP_PAT_WT, XE_COH_NONE },
-	[3] = { XELP_PAT_WB, XE_COH_1WAY },
-	[4] = { XEHPC_PAT_CLOS(1) | XELP_PAT_WT, XE_COH_NONE },
-	[5] = { XEHPC_PAT_CLOS(1) | XELP_PAT_WB, XE_COH_1WAY },
-	[6] = { XEHPC_PAT_CLOS(2) | XELP_PAT_WT, XE_COH_NONE },
-	[7] = { XEHPC_PAT_CLOS(2) | XELP_PAT_WB, XE_COH_1WAY },
+	[0] = { XELP_PAT_UC, XE_COH_NONE, 1 },
+	[1] = { XELP_PAT_WC, XE_COH_NONE, 1 },
+	[2] = { XELP_PAT_WT, XE_COH_NONE, 1 },
+	[3] = { XELP_PAT_WB, XE_COH_1WAY, 1 },
+	[4] = { XEHPC_PAT_CLOS(1) | XELP_PAT_WT, XE_COH_NONE, 1 },
+	[5] = { XEHPC_PAT_CLOS(1) | XELP_PAT_WB, XE_COH_1WAY, 1 },
+	[6] = { XEHPC_PAT_CLOS(2) | XELP_PAT_WT, XE_COH_NONE, 1 },
+	[7] = { XEHPC_PAT_CLOS(2) | XELP_PAT_WB, XE_COH_1WAY, 1 },
 };
 
 static const struct xe_pat_table_entry xelpg_pat_table[] = {
-	[0] = { XELPG_PAT_0_WB, XE_COH_NONE },
-	[1] = { XELPG_PAT_1_WT, XE_COH_NONE },
-	[2] = { XELPG_PAT_3_UC, XE_COH_NONE },
-	[3] = { XELPG_PAT_0_WB | XELPG_2_COH_1W, XE_COH_1WAY },
-	[4] = { XELPG_PAT_0_WB | XELPG_3_COH_2W, XE_COH_2WAY },
+	[0] = { XELPG_PAT_0_WB, XE_COH_NONE, 1 },
+	[1] = { XELPG_PAT_1_WT, XE_COH_NONE, 1 },
+	[2] = { XELPG_PAT_3_UC, XE_COH_NONE, 1 },
+	[3] = { XELPG_PAT_0_WB | XELPG_2_COH_1W, XE_COH_1WAY, 1 },
+	[4] = { XELPG_PAT_0_WB | XELPG_3_COH_2W, XE_COH_2WAY, 1 },
 };
 
 /*
@@ -294,21 +295,31 @@ static const struct xe_pat_table_entry xe3p_lpg_pat_table[] = {
 	[31] = XE2_PAT( 0, 0, 3, 0, 3, 3 ),
 };
 
+bool xe_pat_index_is_valid(struct xe_device *xe, u16 pat_index)
+{
+	if (WARN_ON(pat_index >= xe->pat.n_entries))
+		return false;
+
+	return xe->pat.table[pat_index].valid;
+}
+
 u16 xe_pat_index_get_coh_mode(struct xe_device *xe, u16 pat_index)
 {
-	WARN_ON(pat_index >= xe->pat.n_entries);
+	WARN_ON(!xe_pat_index_is_valid(xe, pat_index));
+	WARN_ON(!xe->pat.table[pat_index].coh_mode ||
+		xe->pat.table[pat_index].coh_mode > XE_COH_2WAY);
 	return xe->pat.table[pat_index].coh_mode;
 }
 
 bool xe_pat_index_get_comp_en(struct xe_device *xe, u16 pat_index)
 {
-	WARN_ON(pat_index >= xe->pat.n_entries);
+	WARN_ON(!xe_pat_index_is_valid(xe, pat_index));
 	return !!(xe->pat.table[pat_index].value & XE2_COMP_EN);
 }
 
 u16 xe_pat_index_get_l3_policy(struct xe_device *xe, u16 pat_index)
 {
-	WARN_ON(pat_index >= xe->pat.n_entries);
+	WARN_ON(!xe_pat_index_is_valid(xe, pat_index));
 
 	return REG_FIELD_GET(XE2_L3_POLICY, xe->pat.table[pat_index].value);
 }
@@ -590,7 +601,13 @@ static const struct xe_pat_ops xe3p_xpc_pat_ops = {
 	.entry_dump = xe3p_xpc_pat_entry_dump,
 };
 
-void xe_pat_init_early(struct xe_device *xe)
+/**
+ * xe_pat_init_early() - Init early pat table operation.
+ * @xe: the &xe_device
+ *
+ * Return: 0 on success or a negative error code on failure.
+ */
+int xe_pat_init_early(struct xe_device *xe)
 {
 	xe->pat.idx[XE_CACHE_WB_COMPRESSION] = XE_PAT_INVALID_IDX;
 	xe->pat.idx[XE_CACHE_NONE_COMPRESSION] = XE_PAT_INVALID_IDX;
@@ -686,14 +703,18 @@ void xe_pat_init_early(struct xe_device *xe)
 		 * raise an error rather than trying to silently inherit the
 		 * most recent platform's behavior.
 		 */
-		drm_err(&xe->drm, "Missing PAT table for platform with graphics version %d.%02d!\n",
-			GRAPHICS_VER(xe), GRAPHICS_VERx100(xe) % 100);
+		xe_log_err(xe, PAT, -ENODATA,
+			   "Missing PAT table for platform with graphics version %d.%02d!\n",
+			   GRAPHICS_VER(xe), GRAPHICS_VERx100(xe) % 100);
+		return -ENODATA;
 	}
 
+	xe_assert(xe, xe->pat.ops);
 	xe_assert(xe, xe->pat.ops->dump);
 	xe_assert(xe, xe->pat.ops->program_graphics);
 	xe_assert(xe, MEDIA_VER(xe) < 13 || xe->pat.ops->program_media);
 	xe_assert(xe, GRAPHICS_VER(xe) < 20 || xe->pat.ops->entry_dump);
+	return 0;
 }
 
 void xe_pat_init(struct xe_gt *gt)

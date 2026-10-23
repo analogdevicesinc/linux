@@ -6,6 +6,9 @@
 #include "xe_guc_log.h"
 
 #include <linux/fault-inject.h>
+#if IS_ENABLED(CONFIG_DRM_XE_COMPRESS_DUMP)
+#include <linux/zstd.h>
+#endif
 
 #include <linux/utsname.h>
 #include <drm/drm_managed.h>
@@ -175,6 +178,7 @@ void xe_guc_log_snapshot_free(struct xe_guc_log_snapshot *snapshot)
 		kfree(snapshot->copy);
 	}
 
+	xe_guc_dump_cache_fini(&snapshot->dump_cache);
 	kfree(snapshot);
 }
 
@@ -226,16 +230,207 @@ struct xe_guc_log_snapshot *xe_guc_log_snapshot_capture(struct xe_guc_log *log, 
 	return snapshot;
 }
 
+#if IS_ENABLED(CONFIG_DRM_XE_COMPRESS_DUMP)
+static void xe_guc_compress_blob(struct xe_gt *gt, struct xe_guc_dump_cache *cache,
+				 void **chunks, int num_chunks,
+				 size_t chunk_size, size_t total_size)
+{
+	zstd_parameters params;
+	zstd_cstream *cstream;
+	zstd_out_buffer outbuf;
+	size_t wksp_size, dst_size;
+	size_t remain, ret;
+	void *wksp = NULL;
+	char *dst = NULL;
+	int i;
+
+	/* One shot only: every later print replays whatever this pass produced. */
+	cache->attempted = true;
+
+	/*
+	 * Pass 0 as estimated_src_size to use zstd level-3 defaults
+	 * (windowLog=18, 256KB window). Passing the full total_size would
+	 * cause zstd to inflate windowLog proportionally (e.g. windowLog=24
+	 * for a 19MB log), making the workspace tens of MB.  With 0, the
+	 * workspace stays ~1.5MB, well within kmalloc limits.
+	 */
+	params = zstd_get_params(3, 0);
+
+	wksp_size = zstd_cstream_workspace_bound(&params.cParams);
+	wksp = kvzalloc(wksp_size, GFP_KERNEL);
+	if (!wksp)
+		goto err;
+
+	dst_size = zstd_compress_bound(total_size);
+	/*
+	 * zstd may only write dst_size bytes, but xe_print_blob_ascii85() reads
+	 * the blob a u32 at a time and so touches up to three bytes past the
+	 * last compressed byte. Round-up allocation to a u32 boundary rather than
+	 * rely on dst_size happening to be aligned. kvzalloc() leaves that
+	 * padding zeroed, which also keeps the encoded tail reproducible.
+	 */
+	dst = kvzalloc(round_up(dst_size, sizeof(u32)), GFP_KERNEL);
+	if (!dst)
+		goto err;
+
+	cstream = zstd_init_cstream(&params, 0, wksp, wksp_size);
+	if (!cstream) {
+		xe_gt_err(gt, "failed to init zstd cstream\n");
+		goto err;
+	}
+
+	outbuf.dst = dst;
+	outbuf.size = dst_size;
+	outbuf.pos = 0;
+
+	remain = total_size;
+	for (i = 0; i < num_chunks && remain; i++) {
+		size_t size = min(chunk_size, remain);
+		zstd_in_buffer inbuf = { .src = chunks[i], .size = size, .pos = 0 };
+
+		while (inbuf.pos < inbuf.size) {
+			/*
+			 * zstd only guarantees forward progress while the output
+			 * buffer has room. zstd_compress_bound() sizes dst so that
+			 * a single frame always fits, but never risk spinning
+			 * forever in an error-dump path.
+			 */
+			if (outbuf.pos == outbuf.size) {
+				xe_gt_err(gt, "zstd output buffer exhausted\n");
+				goto err;
+			}
+
+			ret = zstd_compress_stream(cstream, &outbuf, &inbuf);
+			if (ZSTD_isError(ret)) {
+				xe_gt_err(gt, "zstd_compress_stream failed: %s\n",
+					  ZSTD_getErrorName(ret));
+				goto err;
+			}
+		}
+		remain -= size;
+	}
+
+	/*
+	 * zstd_end_stream() must be called until it returns 0, otherwise the
+	 * frame epilogue is missing and no decompressor will accept the result.
+	 * Running out of output before that happens is a hard error, not a
+	 * reason to stop.
+	 */
+	do {
+		if (outbuf.pos == outbuf.size) {
+			xe_gt_err(gt, "zstd output buffer exhausted\n");
+			goto err;
+		}
+
+		ret = zstd_end_stream(cstream, &outbuf);
+		if (ZSTD_isError(ret)) {
+			xe_gt_err(gt, "zstd_end_stream failed: %s\n",
+				  ZSTD_getErrorName(ret));
+			goto err;
+		}
+	} while (ret);
+
+	cache->data = dst;
+	cache->size = outbuf.pos;
+	kvfree(wksp);
+	return;
+
+err:
+	kvfree(dst);
+	kvfree(wksp);
+}
+#endif
+
 /**
- * xe_guc_log_snapshot_print - dump a previously saved copy of the GuC log to some useful location
- * @snapshot: a snapshot of the GuC log
- * @p: the printer object to output to
+ * xe_guc_dump_cache_fini - release a dump blob's compression cache
+ * @cache: cache embedded in the snapshot being freed
  */
-void xe_guc_log_snapshot_print(struct xe_guc_log_snapshot *snapshot, struct drm_printer *p)
+void xe_guc_dump_cache_fini(struct xe_guc_dump_cache *cache)
+{
+	kvfree(cache->data);
+	cache->data = NULL;
+	cache->size = 0;
+}
+
+/**
+ * xe_guc_print_blob - Print binary data (compressed or uncompressed) as ascii85
+ * @gt: GT structure for error reporting
+ * @p: drm_printer for output
+ * @length_label: label prefix for the length/metadata line (e.g. "[LOG]" or "[CTB]")
+ * @data_label: label for the ascii85 blob (e.g. "[LOG].data" or "[CTB].data")
+ * @chunks: array of pointers to source data chunks
+ * @num_chunks: number of elements in @chunks
+ * @chunk_size: nominal size of each chunk; the last chunk may hold fewer valid bytes
+ * @total_size: total uncompressed byte count across all chunks
+ * @cache: per-snapshot compression cache, zeroed at capture time
+ *
+ * If CONFIG_DRM_XE_COMPRESS_DUMP is enabled, compresses @total_size bytes using
+ * zstd level-3 streaming compression and prints the result via @p using ascii85
+ * encoding. Otherwise, directly prints the uncompressed data.
+ *
+ * The compressed blob is produced once and kept in @cache, because a snapshot
+ * is printed repeatedly: __xe_devcoredump_read() measures the output before
+ * emitting it, and re-emits it a chunk at a time. Compressing per pass would
+ * let the measured size and the emitted bytes disagree.
+ *
+ * If compression fails the raw data is printed instead, so the dump is never
+ * lost. @cache->attempted latches that decision, so every later pass makes the same
+ * choice and produces byte-identical output.
+ */
+void xe_guc_print_blob(struct xe_gt *gt __maybe_unused, struct drm_printer *p,
+		       const char *length_label, const char *data_label,
+		       void **chunks, int num_chunks,
+		       size_t chunk_size, size_t total_size,
+		       struct xe_guc_dump_cache *cache __maybe_unused)
 {
 	size_t remain;
 	int i;
 
+#if IS_ENABLED(CONFIG_DRM_XE_COMPRESS_DUMP)
+	if (!cache->attempted)
+		xe_guc_compress_blob(gt, cache, chunks, num_chunks,
+				     chunk_size, total_size);
+
+	if (cache->data) {
+		drm_printf(p, "%s.length: 0x%zx -> 0x%zx Algo: ZSTD\n",
+			   length_label, total_size, cache->size);
+		xe_print_blob_ascii85(p, data_label, '\n', cache->data, 0,
+				      round_up(cache->size, sizeof(u32)));
+		return;
+	}
+
+	/* Compression failed - fallback to emit the blob uncompressed. */
+#endif
+
+	drm_printf(p, "%s.length: 0x%zx Algo: RAW\n", length_label, total_size);
+
+	/*
+	 * Print each chunk directly without merging into a single buffer.
+	 * xe_print_blob_ascii85() supports multiple calls - use suffix=0
+	 * for all but the last chunk to omit the newline between chunks.
+	 */
+	remain = total_size;
+	for (i = 0; i < num_chunks && remain; i++) {
+		size_t size = min(chunk_size, remain);
+		const char *prefix = i ? NULL : data_label;
+		/* Add suffix only on the last chunk */
+		char suffix = (remain == size) ? '\n' : 0;
+
+		xe_print_blob_ascii85(p, prefix, suffix, chunks[i], 0,
+				      DIV_ROUND_UP(size, sizeof(u32)) * sizeof(u32));
+		remain -= size;
+	}
+}
+
+/**
+ * xe_guc_log_snapshot_print - dump a previously saved copy of the GuC log to some useful location
+ * @snapshot: a snapshot of the GuC log
+ * @p: the printer object to output to
+ * @gt: GT structure of the GuC log
+ */
+void xe_guc_log_snapshot_print(struct xe_guc_log_snapshot *snapshot, struct drm_printer *p,
+			       struct xe_gt *gt)
+{
 	if (!snapshot) {
 		drm_printf(p, "GuC log snapshot not allocated!\n");
 		return;
@@ -249,16 +444,10 @@ void xe_guc_log_snapshot_print(struct xe_guc_log_snapshot *snapshot, struct drm_
 	drm_printf(p, "GuC timestamp: 0x%08llX [%llu]\n", snapshot->stamp, snapshot->stamp);
 	drm_printf(p, "Log level: %u\n", snapshot->level);
 
-	drm_printf(p, "[LOG].length: 0x%zx\n", snapshot->size);
-	remain = snapshot->size;
-	for (i = 0; i < snapshot->num_chunks; i++) {
-		size_t size = min(GUC_LOG_CHUNK_SIZE, remain);
-		const char *prefix = i ? NULL : "[LOG].data";
-		char suffix = i == snapshot->num_chunks - 1 ? '\n' : 0;
-
-		xe_print_blob_ascii85(p, prefix, suffix, snapshot->copy[i], 0, size);
-		remain -= size;
-	}
+	xe_guc_print_blob(gt, p, "[LOG]", "[LOG].data",
+			  snapshot->copy, snapshot->num_chunks,
+			  GUC_LOG_CHUNK_SIZE, snapshot->size,
+			  &snapshot->dump_cache);
 }
 
 static inline void lfd_output_binary(struct drm_printer *p, char *buf, int buf_size)
@@ -599,12 +788,13 @@ void xe_guc_log_print_dmesg(struct xe_guc_log *log)
 void xe_guc_log_print(struct xe_guc_log *log, struct drm_printer *p)
 {
 	struct xe_guc_log_snapshot *snapshot;
+	struct xe_gt *gt = log_to_gt(log);
 
 	drm_printf(p, "**** GuC Log ****\n");
 
 	snapshot = xe_guc_log_snapshot_capture(log, false);
-	drm_printf(p, "CS reference clock: %u\n", log_to_gt(log)->info.reference_clock);
-	xe_guc_log_snapshot_print(snapshot, p);
+	drm_printf(p, "CS reference clock: %u\n", gt->info.reference_clock);
+	xe_guc_log_snapshot_print(snapshot, p, gt);
 	xe_guc_log_snapshot_free(snapshot);
 }
 

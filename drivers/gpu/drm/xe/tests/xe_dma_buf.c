@@ -195,6 +195,79 @@ out:
 	drm_gem_object_put(&bo->ttm.base);
 }
 
+/*
+ * Reproduce the move_notify crash path: an imported BO whose ttm.resource is
+ * NULL (as happens mid-teardown) must survive xe_dma_buf_move_notify(), which
+ * evicts it via xe_bo_evict() -> xe_evict_flags(), instead of dereferencing
+ * the NULL resource.
+ */
+static void xe_test_dmabuf_move_notify_no_resource(struct xe_device *xe)
+{
+	struct kunit *test = kunit_get_current_test();
+	struct dma_buf_test_params *params = to_dma_buf_test_params(test->priv);
+	struct drm_gem_object *import;
+	struct dma_buf *dmabuf;
+	struct xe_bo *bo;
+
+	/* Needs a separate, dynamically attached importer bo with move_notify. */
+	if (!params->force_different_devices || !is_dynamic(params))
+		return;
+
+	kunit_info(test, "running %s\n", __func__);
+	bo = xe_bo_create_user(xe, NULL, PAGE_SIZE, DRM_XE_GEM_CPU_CACHING_WC,
+			       params->mem_mask, NULL);
+	if (IS_ERR(bo)) {
+		KUNIT_FAIL(test, "xe_bo_create() failed with err=%ld\n",
+			   PTR_ERR(bo));
+		return;
+	}
+
+	dmabuf = xe_gem_prime_export(&bo->ttm.base, 0);
+	if (IS_ERR(dmabuf)) {
+		KUNIT_FAIL(test, "xe_gem_prime_export() failed with err=%ld\n",
+			   PTR_ERR(dmabuf));
+		goto out;
+	}
+	bo->ttm.base.dma_buf = dmabuf;
+
+	import = xe_gem_prime_import(&xe->drm, dmabuf);
+	if (IS_ERR(import)) {
+		KUNIT_FAIL(test, "xe_gem_prime_import failed with err=%ld\n",
+			   PTR_ERR(import));
+	} else {
+		struct xe_bo *import_bo = gem_to_xe_bo(import);
+		struct ttm_operation_ctx ctx = {
+			.interruptible = false,
+			.gfp_retry_mayfail = true,
+		};
+		struct ttm_placement empty = {};
+		int ret;
+
+		xe_bo_lock(import_bo, false);
+
+		/*
+		 * Gut the importer to drop its resource the same way ttm does
+		 * on teardown (validate to an empty placement), leaving a live,
+		 * still-attached BO with no resource.
+		 */
+		ret = ttm_bo_validate(&import_bo->ttm, &empty, &ctx);
+		KUNIT_EXPECT_EQ(test, ret, 0);
+		KUNIT_EXPECT_TRUE(test, !import_bo->ttm.resource);
+
+		/* Crash path: move_notify -> xe_bo_evict -> xe_evict_flags. */
+		xe_dma_buf_move_notify(import->import_attach);
+		KUNIT_EXPECT_TRUE(test, !import_bo->ttm.resource);
+
+		xe_bo_unlock(import_bo);
+		drm_gem_object_put(import);
+	}
+
+	bo->ttm.base.dma_buf = NULL;
+	dma_buf_put(dmabuf);
+out:
+	drm_gem_object_put(&bo->ttm.base);
+}
+
 static const struct dma_buf_attach_ops nop2p_attach_ops = {
 	.allow_peer2peer = false,
 	.invalidate_mappings = xe_dma_buf_move_notify
@@ -272,6 +345,22 @@ static int dma_buf_run_device(struct xe_device *xe)
 		p.base.id = XE_TEST_LIVE_DMA_BUF;
 		test->priv = &p;
 		xe_test_dmabuf_import_same_driver(xe);
+	}
+
+	/*
+	 * Regression for the move_notify NULL-resource crash. Independent of
+	 * residency, so run once with a dynamic, different-device attachment.
+	 */
+	{
+		struct dma_buf_test_params p = {
+			.mem_mask = XE_BO_FLAG_SYSTEM,
+			.attach_ops = &xe_dma_buf_attach_ops,
+			.force_different_devices = true,
+		};
+
+		p.base.id = XE_TEST_LIVE_DMA_BUF;
+		test->priv = &p;
+		xe_test_dmabuf_move_notify_no_resource(xe);
 	}
 
 	/* A non-zero return would halt iteration over driver devices */

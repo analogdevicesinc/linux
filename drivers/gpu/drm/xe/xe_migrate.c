@@ -2187,23 +2187,104 @@ static bool xe_migrate_vram_use_pde(struct drm_pagemap_addr *sram_addr,
 #define XE_CACHELINE_BYTES	64ull
 #define XE_CACHELINE_MASK	(XE_CACHELINE_BYTES - 1)
 
-static u32 xe_migrate_copy_pitch(struct xe_device *xe, u32 len)
+static u32 xe_migrate_copy_pitch(struct xe_device *xe, u32 len, u64 dst_addr)
 {
+	u64 align_check = len | dst_addr;
 	u32 pitch;
 
-	if (IS_ALIGNED(len, PAGE_SIZE))
+	if (IS_ALIGNED(align_check, PAGE_SIZE))
 		pitch = PAGE_SIZE;
-	else if (IS_ALIGNED(len, SZ_4K))
+	else if (IS_ALIGNED(align_check, SZ_4K))
 		pitch = SZ_4K;
-	else if (IS_ALIGNED(len, SZ_256))
+	else if (IS_ALIGNED(align_check, SZ_256))
 		pitch = SZ_256;
-	else if (IS_ALIGNED(len, 4))
+	else if (IS_ALIGNED(align_check, 4))
 		pitch = 4;
 	else
 		pitch = 1;
 
 	xe_assert(xe, pitch > 1 || xe->info.has_mem_copy_instr);
 	return pitch;
+}
+
+/**
+ * xe_migrate_dst_pitch() - Determine max pitch supported by dst alignment
+ * @dst_addr: Destination address (page offset)
+ *
+ * Returns the largest pitch (PAGE_SIZE, SZ_4K, SZ_256, or 4) that dst_addr
+ * supports based solely on its alignment. Returns 1 if not even 4-byte aligned.
+ */
+static u32 xe_migrate_dst_pitch(u64 dst_addr)
+{
+	if (IS_ALIGNED(dst_addr, PAGE_SIZE))
+		return PAGE_SIZE;
+	if (IS_ALIGNED(dst_addr, SZ_4K))
+		return SZ_4K;
+	if (IS_ALIGNED(dst_addr, SZ_256))
+		return SZ_256;
+	if (IS_ALIGNED(dst_addr, 4))
+		return 4;
+	return 1;
+}
+
+/**
+ * xe_migrate_bytes_to_align() - Calculate bytes needed to reach target alignment
+ * @dst_addr: Current destination address
+ * @alignment: Target alignment (PAGE_SIZE, SZ_4K, SZ_256, or 4)
+ *
+ * Returns: Number of bytes to copy to reach the target alignment.
+ */
+static u32 xe_migrate_bytes_to_align(u64 dst_addr, u32 alignment)
+{
+	return round_up(dst_addr, alignment) - dst_addr;
+}
+
+/**
+ * xe_migrate_best_alignment() - Find the best alignment reachable within max_bytes
+ * @dst_addr: Current destination address
+ * @max_bytes: Maximum bytes we can copy to reach alignment (typically U16_MAX)
+ *
+ * Returns the largest alignment (PAGE_SIZE, SZ_4K, SZ_256, or 4) that dst_addr
+ * can reach by copying at most max_bytes. Returns 0 if already at best alignment
+ * or if no useful alignment can be reached.
+ */
+static u32 xe_migrate_best_alignment(u64 dst_addr, u32 max_bytes)
+{
+	u32 bytes_to_page = xe_migrate_bytes_to_align(dst_addr, PAGE_SIZE);
+	u32 bytes_to_4k = xe_migrate_bytes_to_align(dst_addr, SZ_4K);
+	u32 bytes_to_256 = xe_migrate_bytes_to_align(dst_addr, SZ_256);
+	u32 bytes_to_4 = xe_migrate_bytes_to_align(dst_addr, 4);
+
+	if (bytes_to_page == 0)
+		return 0;
+
+	if (bytes_to_page <= max_bytes)
+		return PAGE_SIZE;
+
+	if (bytes_to_4k > 0 && bytes_to_4k <= max_bytes)
+		return SZ_4K;
+
+	if (bytes_to_256 > 0 && bytes_to_256 <= max_bytes)
+		return SZ_256;
+
+	if (bytes_to_4 > 0 && bytes_to_4 <= max_bytes)
+		return 4;
+
+	return 0;
+}
+
+/**
+ * xe_migrate_aligned_copy_len() - Calculate the aligned copy length for matrix copy
+ * @len: Remaining bytes
+ * @pitch: The pitch to use for matrix copy
+ *
+ * Returns: Length rounded down to pitch, or 0 if less than pitch.
+ */
+static u32 xe_migrate_aligned_copy_len(u32 len, u32 pitch)
+{
+	if (len < pitch)
+		return 0;
+	return round_down(len, pitch);
 }
 
 static struct dma_fence *xe_migrate_vram(struct xe_migrate *m,
@@ -2224,15 +2305,10 @@ static struct dma_fence *xe_migrate_vram(struct xe_migrate *m,
 	struct xe_bb *bb;
 	u32 update_idx, pt_slot = 0;
 	unsigned long npages = DIV_ROUND_UP(len + sram_offset, PAGE_SIZE);
-	unsigned int pitch = xe_migrate_copy_pitch(xe, len);
+	unsigned int pitch;
 	int err;
 	unsigned long i, j;
 	bool use_pde = xe_migrate_vram_use_pde(sram_addr, len + sram_offset);
-
-	if (!xe->info.has_mem_copy_instr &&
-	    drm_WARN_ON(&xe->drm,
-			(!IS_ALIGNED(len, pitch)) || (sram_offset | vram_addr) & XE_CACHELINE_MASK))
-		return ERR_PTR(-EOPNOTSUPP);
 
 	xe_assert(xe, npages * PAGE_SIZE <= MAX_PREEMPTDISABLE_TRANSFER);
 
@@ -2283,6 +2359,15 @@ static struct dma_fence *xe_migrate_vram(struct xe_migrate *m,
 			dst_L0_ofs = m->large_page_copy_ofs + sram_offset;
 		else
 			dst_L0_ofs = xe_migrate_vm_addr(pt_slot, 0) + sram_offset;
+	}
+
+	pitch = xe_migrate_copy_pitch(xe, len, dst_L0_ofs);
+	if (!xe->info.has_mem_copy_instr &&
+	    drm_WARN_ON(&xe->drm,
+			(!IS_ALIGNED(len, pitch)) ||
+			(sram_offset | vram_addr) & XE_CACHELINE_MASK)) {
+		err = -EOPNOTSUPP;
+		goto err;
 	}
 
 	bb->cs[bb->len++] = MI_BATCH_BUFFER_END;
@@ -2527,7 +2612,6 @@ int xe_migrate_access_memory(struct xe_migrate *m, struct xe_bo *bo,
 		u64 vram_addr = vram_region_gpu_offset(bo->ttm.resource) +
 			cursor.start;
 		int current_bytes;
-		u32 pitch;
 
 		if (cursor.size > MAX_PREEMPTDISABLE_TRANSFER)
 			current_bytes = min_t(int, bytes_left,
@@ -2535,13 +2619,62 @@ int xe_migrate_access_memory(struct xe_migrate *m, struct xe_bo *bo,
 		else
 			current_bytes = min_t(int, bytes_left, cursor.size);
 
-		pitch = xe_migrate_copy_pitch(xe, current_bytes);
-		if (xe->info.has_mem_copy_instr)
-			current_bytes = min_t(int, current_bytes, U16_MAX * pitch);
-		else
-			current_bytes = min_t(int, current_bytes,
-					      round_down(S16_MAX * pitch,
-							 XE_CACHELINE_BYTES));
+		{
+			/*
+			 * Optimized copy strategy to minimize number of jobs:
+			 * 1. Linear copy to align dst to best reachable alignment
+			 * 2. Matrix copy for bulk data copy
+			 * 3. Single linear copy for remaining bytes
+			 *
+			 * The phase logic controls transfer chunking; emit_copy() selects
+			 * MEM_COPY_CMD or XY_FAST_COPY_BLT based on hardware support.
+			 */
+			u64 dst_addr = write ? vram_addr :
+					       (unsigned long)buf & ~PAGE_MASK;
+			u32 max_linear = xe->info.has_mem_copy_instr ? U16_MAX :
+					 round_down(S16_MAX, XE_CACHELINE_BYTES);
+			u32 best_align = xe_migrate_best_alignment(dst_addr, max_linear);
+			u32 bytes_to_align = best_align ?
+					     xe_migrate_bytes_to_align(dst_addr, best_align) : 0;
+
+			if (bytes_to_align > 0 && bytes_to_align <= (u32)current_bytes) {
+				/*
+				 * Phase 1: Linear copy to reach best alignment.
+				 * Copy just enough bytes to align dst_addr.
+				 */
+				current_bytes = min_t(int, bytes_to_align, max_linear);
+			} else if (IS_ALIGNED(dst_addr, 4)) {
+				/*
+				 * Phase 2: Matrix copy for aligned bulk data.
+				 * Use the best pitch that dst alignment supports,
+				 * then round down len to that pitch.
+				 */
+				u32 dst_pitch = xe_migrate_dst_pitch(dst_addr);
+				u32 aligned_len = xe_migrate_aligned_copy_len(current_bytes,
+								      dst_pitch);
+
+				if (aligned_len >= dst_pitch) {
+					u32 max_bytes = xe->info.has_mem_copy_instr ?
+							U16_MAX * dst_pitch :
+							round_down(S16_MAX * dst_pitch,
+								   XE_CACHELINE_BYTES);
+
+					current_bytes = min_t(int, aligned_len, max_bytes);
+				} else {
+					/*
+					 * Phase 3: Linear copy for remainder.
+					 * Not enough for matrix copy - do single linear copy.
+					 */
+					current_bytes = min_t(int, current_bytes, max_linear);
+				}
+			} else {
+				/*
+				 * Phase 3: Linear copy for remainder.
+				 * dst not 4-aligned and can't reach alignment - linear copy.
+				 */
+				current_bytes = min_t(int, current_bytes, max_linear);
+			}
+		}
 
 		__fence = xe_migrate_vram(m, current_bytes,
 					  (unsigned long)buf & ~PAGE_MASK,
@@ -2563,7 +2696,7 @@ int xe_migrate_access_memory(struct xe_migrate *m, struct xe_bo *bo,
 
 		buf += current_bytes;
 		offset += current_bytes;
-		current_page = (int)(buf - orig_buf) / PAGE_SIZE;
+		current_page = (int)(buf - orig_buf + page_offset) / PAGE_SIZE;
 		bytes_left -= current_bytes;
 		if (bytes_left)
 			xe_res_next(&cursor, current_bytes);
