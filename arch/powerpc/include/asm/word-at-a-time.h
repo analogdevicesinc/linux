@@ -5,6 +5,7 @@
  * Word-at-a-time interfaces for PowerPC.
  */
 #include <linux/bitops.h>
+#include <linux/instrumented.h>
 #include <linux/wordpart.h>
 #include <asm/asm-compat.h>
 #include <asm/extable.h>
@@ -167,6 +168,9 @@ static inline unsigned long prep_zero_mask(unsigned long a, unsigned long bits, 
 static inline unsigned long load_unaligned_zeropad(const void *addr)
 {
 	unsigned long ret, offset, tmp;
+
+	/* Check only the first byte, the rest may lie past the object */
+	instrument_read(addr, 1);
 
 	asm(
 	"1:	" PPC_LL "%[ret], 0(%[addr])\n"
