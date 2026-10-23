@@ -6,8 +6,6 @@
 #include "local.h"
 
 int x2apic_phys;
-
-static struct apic apic_x2apic_phys;
 u32 x2apic_max_apicid __ro_after_init = UINT_MAX;
 
 void __init x2apic_set_max_apicid(u32 apicid)
@@ -110,10 +108,7 @@ static int x2apic_phys_probe(void)
 	if (!x2apic_mode)
 		return 0;
 
-	if (x2apic_phys || x2apic_fadt_phys())
-		return 1;
-
-	return apic == &apic_x2apic_phys;
+	return x2apic_phys || x2apic_fadt_phys();
 }
 
 u32 x2apic_get_apic_id(u32 id)
@@ -121,7 +116,7 @@ u32 x2apic_get_apic_id(u32 id)
 	return id;
 }
 
-static struct apic apic_x2apic_phys __ro_after_init = {
+struct apic apic_x2apic_phys __ro_after_init = {
 
 	.name				= "physical x2apic",
 	.probe				= x2apic_phys_probe,
