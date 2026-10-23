@@ -103,6 +103,17 @@ static bool super_flags(const struct super_block *sb, unsigned int flags)
 }
 
 /*
+ * Wait for one of @sb_flags to be set on @sb, sleeping in @state.  Returns 0
+ * or -ERESTARTSYS if @state allowed the wait to be cut short.
+ */
+static int super_wait(struct super_block *sb, unsigned int sb_flags,
+		      unsigned int state)
+{
+	return wait_var_event_state(&sb->s_flags, super_flags(sb, sb_flags),
+				    state);
+}
+
+/*
  * Returns 0 with s_umount held, -ENOENT if the superblock is going away, or,
  * if @killable, the error from a wait which was cut short.
  */
@@ -122,12 +133,8 @@ static int super_lock_common(struct super_block *sb, bool excl, bool killable)
 		return -ENOENT;
 
 	/* wait until the superblock is ready or dying */
-	if (killable)
-		ret = wait_var_event_killable(&sb->s_flags,
-					      super_flags(sb, SB_BORN | SB_DYING));
-	else
-		wait_var_event(&sb->s_flags,
-			       super_flags(sb, SB_BORN | SB_DYING));
+	ret = super_wait(sb, SB_BORN | SB_DYING,
+			 killable ? TASK_KILLABLE : TASK_UNINTERRUPTIBLE);
 	if (ret)
 		return ret;
 
@@ -216,7 +223,7 @@ static __must_check int super_lock_killable(struct super_block *sb, bool excl)
  */
 static int super_wait_shutdown_killable(struct super_block *sb)
 {
-	return wait_var_event_killable(&sb->s_flags, super_flags(sb, SB_DYING));
+	return super_wait(sb, SB_DYING, TASK_KILLABLE);
 }
 
 /**
@@ -230,7 +237,7 @@ static int super_wait_shutdown_killable(struct super_block *sb)
  */
 static void super_wait_shutdown(struct super_block *sb)
 {
-	wait_var_event(&sb->s_flags, super_flags(sb, SB_DYING));
+	super_wait(sb, SB_DYING, TASK_UNINTERRUPTIBLE);
 }
 
 /* wait and try to acquire read-side of @sb->s_umount */
@@ -606,9 +613,7 @@ static struct super_block *super_dev_next(struct super_dev *cursor,
 				return sb;
 			}
 		}
-		ret = wait_var_event_state(&sb->s_flags,
-					   super_flags(sb, SB_BORN | SB_DYING),
-					   state);
+		ret = super_wait(sb, SB_BORN | SB_DYING, state);
 		put_super(sb);
 		if (ret) {
 			super_dev_walk_end(cursor);
@@ -731,8 +736,7 @@ static int grab_super(struct super_block *sb)
 		ret = -ENOENT;
 	}
 	if (ret == -ENOENT)
-		ret = wait_var_event_killable(&sb->s_flags,
-					      super_flags(sb, SB_DEAD));
+		ret = super_wait(sb, SB_DEAD, TASK_KILLABLE);
 	put_super(sb);
 	return ret ? ret : -EAGAIN;
 }
