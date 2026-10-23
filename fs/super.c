@@ -990,6 +990,7 @@ enum super_iter_flags_t {
 	SUPER_ITER_REVERSE	= (1U << 1),
 	SUPER_ITER_WAIT_SHUTDOWN = (1U << 2),
 	SUPER_ITER_SKIP_UNBORN	= (1U << 3),
+	SUPER_ITER_KILLABLE	= (1U << 4),
 };
 
 static inline struct super_block *first_super(enum super_iter_flags_t flags)
@@ -1010,8 +1011,14 @@ static inline struct super_block *next_super(struct super_block *sb,
 static int __iterate_supers(void (*f)(struct super_block *, void *), void *arg,
 			    enum super_iter_flags_t flags)
 {
+	enum super_lock_flags_t lock_flags = 0;
 	struct super_block *sb, *p = NULL;
 	int ret = 0;
+
+	if (flags & SUPER_ITER_WAIT_SHUTDOWN)
+		lock_flags |= SUPER_LOCK_WAIT_SHUTDOWN;
+	if (flags & SUPER_ITER_KILLABLE)
+		lock_flags |= SUPER_LOCK_KILLABLE;
 
 	spin_lock(&sb_lock);
 
@@ -1032,12 +1039,14 @@ static int __iterate_supers(void (*f)(struct super_block *, void *), void *arg,
 
 		if (flags & SUPER_ITER_UNLOCKED) {
 			f(sb, arg);
-		} else if (!super_lock(sb, 0)) {
-			f(sb, arg);
-			super_unlock_shared(sb);
-		} else if (flags & SUPER_ITER_WAIT_SHUTDOWN) {
-			/* whoever shuts it down writes it out, wait for that */
-			ret = super_wait(sb, SB_DYING, TASK_KILLABLE);
+		} else {
+			ret = super_lock(sb, lock_flags);
+			if (!ret) {
+				f(sb, arg);
+				super_unlock_shared(sb);
+			} else if (ret == -ENOENT) {
+				ret = 0;
+			}
 		}
 
 		if (p)
@@ -1085,12 +1094,13 @@ void iterate_supers_born(void (*f)(struct super_block *, void *), void *arg)
  * A superblock which is still being set up isn't passed to @f either, and
  * isn't waited for.  Nobody can have written to it yet.
  *
- * Return: 0 if all the superblocks were seen, -ERESTARTSYS if the task was
- *         killed while it waited for one.
+ * Return: 0 if all the superblocks were seen, -EINTR or -ERESTARTSYS if the
+ *         task was killed while it waited for one.
  */
 int iterate_supers_sync(void (*f)(struct super_block *, void *), void *arg)
 {
 	return __iterate_supers(f, arg, SUPER_ITER_WAIT_SHUTDOWN |
+					SUPER_ITER_KILLABLE |
 					SUPER_ITER_SKIP_UNBORN);
 }
 
