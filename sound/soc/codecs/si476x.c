@@ -193,6 +193,12 @@ static int si476x_codec_hw_params(struct snd_pcm_substream *substream,
 		goto out;
 	}
 
+	/*
+	 * ASoC only marks the DAI hw_params as done when .hw_params() returns 0.
+	 * Since snd_soc_component_update_bits() may return 1, explicitly
+	 * return 0 to ensure the DAI is correctly marked.
+	 */
+	err = 0;
 out:
 	si476x_core_unlock(core);
 
