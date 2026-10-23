@@ -75,8 +75,7 @@
  * lux values.
  */
 struct opt4001_chip_info {
-	int mul;
-	int div;
+	struct s32_fract ratio;
 	const char *name;
 };
 
@@ -88,14 +87,12 @@ struct opt4001_chip {
 };
 
 static const struct opt4001_chip_info opt4001_sot_5x3_info = {
-	.mul = 4375,
-	.div = 10000000,
+	.ratio = { .numerator = 4375, .denominator = 10000000 },
 	.name = "opt4001-sot-5x3"
 };
 
 static const struct opt4001_chip_info opt4001_picostar_info = {
-	.mul = 3125,
-	.div = 10000000,
+	.ratio = { .numerator = 3125, .denominator = 10000000 },
 	.name = "opt4001-picostar"
 };
 
@@ -199,8 +196,8 @@ static int opt4001_read_lux_value(struct iio_dev *indio_dev,
 		return -EIO;
 
 	lux_raw = lux_raw << exp;
-	lux_raw = lux_raw * chip->chip_info->mul;
-	*val = div_u64_rem(lux_raw, chip->chip_info->div, &rem);
+	lux_raw = lux_raw * chip->chip_info->ratio.numerator;
+	*val = div_u64_rem(lux_raw, chip->chip_info->ratio.denominator, &rem);
 	*val2 = rem * 100;
 
 	return IIO_VAL_INT_PLUS_NANO;
