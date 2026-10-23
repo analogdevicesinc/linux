@@ -514,12 +514,14 @@ config OPT3001
 	  opt3001.
 
 config OPT4001
-	tristate "Texas Instruments OPT4001 Light Sensor"
+	tristate "Texas Instruments OPT4001 and compatible Light Sensors"
 	depends on I2C
 	select REGMAP_I2C
 	help
 	  If you say Y or M here, you get support for Texas Instruments
-	  OPT4001 Ambient Light Sensor.
+	  Ambient Light Sensors:
+	  - OPT4001
+	  - OPT4041
 
 	  If built as a dynamically linked module, it will be called
 	  opt4001.
