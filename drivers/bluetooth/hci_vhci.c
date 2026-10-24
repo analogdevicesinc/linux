@@ -701,6 +701,8 @@ static int vhci_release(struct inode *inode, struct file *file)
 	if (hdev) {
 		if (!IS_ERR_OR_NULL(hdev->debugfs))
 			vhci_debugfs_remove(hdev);
+		/* Drain work queued by the last force_suspend writers. */
+		flush_work(&data->suspend_work);
 		hci_unregister_dev(hdev);
 		hci_free_dev(hdev);
 	}
