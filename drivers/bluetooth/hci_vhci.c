@@ -524,7 +524,9 @@ static inline ssize_t vhci_get_user(struct vhci_data *data,
 	case HCI_ACLDATA_PKT:
 	case HCI_SCODATA_PKT:
 	case HCI_ISODATA_PKT:
+		mutex_lock(&data->open_mutex);
 		if (!data->hdev) {
+			mutex_unlock(&data->open_mutex);
 			kfree_skb(skb);
 			return -ENODEV;
 		}
@@ -532,6 +534,7 @@ static inline ssize_t vhci_get_user(struct vhci_data *data,
 		hci_skb_pkt_type(skb) = pkt_type;
 
 		ret = hci_recv_frame(data->hdev, skb);
+		mutex_unlock(&data->open_mutex);
 		break;
 
 	case HCI_VENDOR_PKT:
