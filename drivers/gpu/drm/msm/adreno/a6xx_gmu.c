@@ -1247,8 +1247,12 @@ static int a6xx_gmu_secure_init(struct a6xx_gpu *a6xx_gpu)
 			goto done;
 		}
 
-		ret = qcom_scm_gpu_init_regs(QCOM_SCM_GPU_ALWAYS_EN_REQ |
-					     QCOM_SCM_GPU_TSENSE_EN_REQ);
+		u32 gpu_req = QCOM_SCM_GPU_ALWAYS_EN_REQ | QCOM_SCM_GPU_TSENSE_EN_REQ;
+
+		if (adreno_gpu->info->a6xx->clx_tbl)
+			gpu_req |= QCOM_SCM_GPU_CLX_EN_REQ;
+
+		ret = qcom_scm_gpu_init_regs(gpu_req);
 		if (ret) {
 			dev_warn_once(gpu->dev->dev,
 				"SCM call failed\n");
