@@ -69,7 +69,7 @@ A árvore do KVM x86 não possui sua própria janela de merge oficial, mas há u
 acima para correções destinadas ao lançamento atual).
 
 Cronograma
-----------
+~~~~~~~~~~
 As submissões são normalmente revisadas e aplicadas em ordem FIFO (primeiro a
 entrar, primeiro a sair), com alguma margem de manobra para o tamanho de uma
 série, patches que estão "cache hot", etc. Correções (fixes), especialmente para
