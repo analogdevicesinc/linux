@@ -4340,21 +4340,43 @@ static inline int open_to_namei_flags(int flag)
 
 static int may_o_create(const struct mnt_idmap *idmap,
 			const struct path *dir, struct dentry *dentry,
-			umode_t mode)
+			int open_flag, umode_t mode)
 {
-	int error = security_path_mknod(dir, dentry, mode, 0);
+	struct inode *dir_inode = dir->dentry->d_inode;
+	bool create_dir = O_IS_MKDIR(open_flag);
+	int error;
+
+	WARN_ON_ONCE(create_dir && !S_ISDIR(mode));
+
+	if (create_dir)
+		error = security_path_mkdir(dir, dentry, mode);
+	else
+		error = security_path_mknod(dir, dentry, mode, 0);
 	if (error)
 		return error;
 
 	if (!fsuidgid_has_mapping(dir->dentry->d_sb, idmap))
 		return -EOVERFLOW;
 
-	error = inode_permission(idmap, dir->dentry->d_inode,
-				 MAY_WRITE | MAY_EXEC);
+	error = inode_permission(idmap, dir_inode, MAY_WRITE | MAY_EXEC);
 	if (error)
 		return error;
 
-	return security_inode_create(idmap, dir->dentry->d_inode, dentry, mode);
+	if (create_dir)
+		error = security_inode_mkdir(idmap, dir_inode, dentry, mode);
+	else
+		error = security_inode_create(idmap, dir_inode, dentry, mode);
+
+	return error;
+}
+
+static inline umode_t o_create_mode(const struct mnt_idmap *idmap, const struct inode *dir,
+				    int open_flag, umode_t mode)
+{
+	if (O_IS_MKDIR(open_flag))
+		return vfs_prepare_mode(idmap, dir, mode, S_IRWXUGO | S_ISVTX, S_IFDIR);
+	else
+		return vfs_prepare_mode(idmap, dir, mode, S_IALLUGO, S_IFREG);
 }
 
 /**
@@ -4390,8 +4412,10 @@ static struct dentry *atomic_open(const struct path *path, struct dentry *dentry
 
 	file->__f_path.dentry = DENTRY_NOT_SET;
 	file->__f_path.mnt = path->mnt;
+
 	error = dir_inode->i_op->atomic_open(dir_inode, dentry, file,
-				       open_to_namei_flags(open_flag), mode);
+					     open_to_namei_flags(open_flag), mode);
+
 	d_lookup_done(dentry);
 
 	if (!error) {
@@ -4435,18 +4459,24 @@ static struct dentry *atomic_open(const struct path *path, struct dentry *dentry
 			error = create_error;
 		}
 		dput(dentry);
-		dentry = ERR_PTR(error);
-	} else {
-		if (file->f_mode & FMODE_CREATED)
-			fsnotify_create(dir_inode, dentry);
-		if (file->f_mode & FMODE_OPENED)
-			fsnotify_open(file);
+		return ERR_PTR(error);
 	}
 
+	if (file->f_mode & FMODE_CREATED) {
+		if (d_is_dir(dentry))
+			fsnotify_mkdir(dir_inode, dentry);
+		else
+			fsnotify_create(dir_inode, dentry);
+	}
+	if (file->f_mode & FMODE_OPENED)
+		fsnotify_open(file);
 
 	return dentry;
 }
 
+static inline
+struct dentry *vfs_mkdir_no_perm(const struct mnt_idmap *, struct inode *, struct dentry *,
+				 umode_t, struct delegated_inode *);
 /*
  * Look up and maybe create and open the last component.
  *
@@ -4468,6 +4498,7 @@ static struct dentry *lookup_open(struct nameidata *nd, struct file *file,
 	const struct mnt_idmap *idmap;
 	struct dentry *dir = nd->path.dentry;
 	struct inode *dir_inode = dir->d_inode;
+	bool create_dir = O_IS_MKDIR(op->open_flag);
 	int open_flag;
 	struct dentry *dentry;
 	int error, create_error;
@@ -4481,6 +4512,9 @@ retry:
 	mode = op->mode;
 	create_error = 0;
 	shared_flag = (open_flag & O_CREAT) ? 0 : LOOKUP_SHARED;
+
+	if (create_dir && (dir_inode->i_sb->s_iflags & SB_I_NO_ATOMIC_MKDIR))
+		return ERR_PTR(-EOPNOTSUPP);
 
 	if (open_flag & (O_CREAT | O_TRUNC | O_WRONLY | O_RDWR)) {
 		got_write = !mnt_want_write(nd->path.mnt);
@@ -4543,10 +4577,10 @@ retry:
 	if (open_flag & O_CREAT) {
 		if (open_flag & O_EXCL)
 			open_flag &= ~O_TRUNC;
-		mode = vfs_prepare_mode(idmap, dir_inode, mode, mode, mode);
+		mode = o_create_mode(idmap, dir_inode, open_flag, mode);
 		if (likely(got_write))
 			create_error = may_o_create(idmap, &nd->path,
-						    dentry, mode);
+						    dentry, open_flag, mode);
 		else
 			create_error = -EROFS;
 	}
@@ -4591,12 +4625,32 @@ retry:
 		goto out_dput;
 	}
 
-	if (!dir_inode->i_op->create) {
+	/* mimic operation missing errnos of vfs_mkdir/vfs_create */
+	if (create_dir && !dir_inode->i_op->mkdir) {
+		error = -EPERM;
+		goto out_dput;
+	}
+	if (!create_dir && !dir_inode->i_op->create) {
 		error = -EACCES;
 		goto out_dput;
 	}
 
-	error = vfs_create_no_perm(idmap, dentry, mode, &delegated_inode);
+	if (create_dir) {
+		struct dentry *res = vfs_mkdir_no_perm(idmap, dir_inode, dentry, mode,
+						       &delegated_inode);
+		error = PTR_ERR_OR_ZERO(res);
+		if (!error) {
+			dentry = res;
+			/*
+			 * Filesystems whose ->mkdir() may leave the dentry
+			 * negative must set SB_I_NO_ATOMIC_MKDIR.
+			 */
+			if (WARN_ON_ONCE(d_is_negative(dentry)))
+				error = -EIO;
+		}
+	} else {
+		error = vfs_create_no_perm(idmap, dentry, mode, &delegated_inode);
+	}
 	if (error)
 		goto out_dput;
 
@@ -4728,7 +4782,7 @@ static struct dentry *lookup_fast_for_open(struct nameidata *nd, int open_flag)
 	struct dentry *dentry;
 
 	if (open_flag & O_CREAT) {
-		if (trailing_slashes(&nd->last))
+		if (trailing_slashes(&nd->last) && !(open_flag & O_DIRECTORY))
 			return ERR_PTR(-EISDIR);
 
 		/* Don't bother on an O_EXCL create */
@@ -4765,6 +4819,13 @@ static const char *open_last_lookups(struct nameidata *nd,
 	if (nd->last_type != LAST_NORM) {
 		if (nd->depth)
 			put_link(nd);
+		/*
+		 * Return -EOPNOTSUPP consistently, not -EEXIST, for paths
+		 * ending in . or .., as lookup_open() does for other names.
+		 */
+		if (O_IS_MKDIR(open_flag) &&
+		    (nd->path.dentry->d_sb->s_iflags & SB_I_NO_ATOMIC_MKDIR))
+			return ERR_PTR(-EOPNOTSUPP);
 		return handle_dots(nd, nd->last_type);
 	}
 
@@ -4829,7 +4890,7 @@ static int do_open(struct nameidata *nd,
 	if (open_flag & O_CREAT) {
 		if ((open_flag & O_EXCL) && !(file->f_mode & FMODE_CREATED))
 			return -EEXIST;
-		if (d_is_dir(nd->path.dentry))
+		if (!(open_flag & O_DIRECTORY) && d_is_dir(nd->path.dentry))
 			return -EISDIR;
 		error = may_create_in_sticky(idmap, nd,
 					     d_backing_inode(nd->path.dentry));
@@ -5176,7 +5237,7 @@ inline struct dentry *start_creating_user_path(
 EXPORT_SYMBOL(start_creating_user_path);
 
 /**
- * dentry_create - Create and open a file
+ * dentry_create - Create and open a regular file
  * @path: path to create
  * @flags: O\_ flags
  * @mode: mode bits for new file
@@ -5213,7 +5274,7 @@ struct file *dentry_create(struct path *path, int flags, umode_t mode,
 		path->dentry = dir;
 		mode = vfs_prepare_mode(idmap, dir_inode, mode, S_IALLUGO, S_IFREG);
 
-		create_error = may_o_create(idmap, path, dentry, mode);
+		create_error = may_o_create(idmap, path, dentry, flags, mode);
 		if (create_error)
 			flags &= ~O_CREAT;
 
@@ -5383,7 +5444,7 @@ SYSCALL_DEFINE3(mknod, const char __user *, filename, umode_t, mode, unsigned, d
 }
 
 static inline
-struct dentry *vfs_mkdir_no_perm(struct mnt_idmap *idmap, struct inode *dir,
+struct dentry *vfs_mkdir_no_perm(const struct mnt_idmap *idmap, struct inode *dir,
 				 struct dentry *dentry, umode_t mode,
 				 struct delegated_inode *di)
 {
