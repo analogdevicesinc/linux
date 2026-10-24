@@ -776,8 +776,8 @@ struct btrfs_device *btrfs_find_device(const struct btrfs_fs_devices *fs_devices
 				       const struct btrfs_dev_lookup_args *args);
 int btrfs_shrink_device(struct btrfs_device *device, u64 new_size);
 int btrfs_init_new_device(struct btrfs_fs_info *fs_info, const char *path);
-struct file *btrfs_open_device_deny_freeze(const char *path,
-					   struct super_block *sb);
+struct file *btrfs_open_device_deny_freeze(struct btrfs_fs_info *fs_info,
+					   const char *path);
 int btrfs_balance(struct btrfs_fs_info *fs_info,
 		  struct btrfs_balance_control *bctl,
 		  struct btrfs_ioctl_balance_args *bargs);

@@ -499,8 +499,10 @@ btrfs_get_bdev_and_sb(const char *device_path, blk_mode_t flags, void *holder,
 	if (flush)
 		sync_blockdev(bdev);
 	if (holder) {
-		ret = set_blocksize(*bdev_file, BTRFS_BDEV_BLOCKSIZE);
+		ret = bdev_validate_blocksize(bdev, BTRFS_BDEV_BLOCKSIZE);
 		if (ret) {
+			btrfs_err(NULL, "device %s doesn't support blocksize %u",
+				  device_path, BTRFS_BDEV_BLOCKSIZE);
 			fs_bdev_file_release(*bdev_file, holder);
 			goto error;
 		}
@@ -1468,9 +1470,7 @@ static bool btrfs_skip_registration(struct btrfs_super_block *disk_super,
 }
 
 /*
- * Look for a btrfs signature on a device. This may be called out of the mount path
- * and we are not allowed to call set_blocksize during the scan. The superblock
- * is read via pagecache.
+ * Look for a btrfs signature on a device. The superblock is read via pagecache.
  *
  * With @mount_arg_dev it's a scan during mount time that will always register
  * the device or return an error. Multi-device and seeding devices are registered
@@ -2919,13 +2919,13 @@ next_slot:
 }
 
 /*
- * Open @path for @sb with freezing denied before the holder claim is published,
+ * Open @path for @fs_info->sb with freezing denied before the holder claim is published,
  * so a racing bdev_freeze() can never reach a claim a device add or replace may
  * still abort.  The deny is taken on a throwaway non-holder probe open, then the
  * holder is opened by the probe's dev_t.  Balanced by the caller.
  */
-struct file *btrfs_open_device_deny_freeze(const char *path,
-					   struct super_block *sb)
+struct file *btrfs_open_device_deny_freeze(struct btrfs_fs_info *fs_info,
+					   const char *path)
 {
 	struct file *probe_file, *bdev_file;
 	int ret;
@@ -2942,9 +2942,21 @@ struct file *btrfs_open_device_deny_freeze(const char *path,
 	}
 
 	bdev_file = fs_bdev_file_open_by_dev(file_bdev(probe_file)->bd_dev,
-					     BLK_OPEN_WRITE, sb, sb);
-	if (IS_ERR(bdev_file))
+					     BLK_OPEN_WRITE, fs_info->sb, fs_info->sb);
+	if (IS_ERR(bdev_file)) {
 		bdev_allow_freeze(file_bdev(probe_file));
+		goto out;
+	}
+
+	ret = bdev_validate_blocksize(file_bdev(bdev_file), BTRFS_BDEV_BLOCKSIZE);
+	if (ret < 0) {
+		fs_bdev_file_release(bdev_file, fs_info->sb);
+		bdev_allow_freeze(file_bdev(probe_file));
+		btrfs_err(fs_info, "device %s doesn't support blocksize %u",
+			  path, BTRFS_BDEV_BLOCKSIZE);
+		bdev_file = ERR_PTR(ret);
+	}
+out:
 	bdev_fput(probe_file);
 	return bdev_file;
 }
@@ -2968,7 +2980,7 @@ int btrfs_init_new_device(struct btrfs_fs_info *fs_info, const char *device_path
 		return -EROFS;
 
 	/* Forbid freezing until the device is a committed member (or unwound). */
-	bdev_file = btrfs_open_device_deny_freeze(device_path, fs_info->sb);
+	bdev_file = btrfs_open_device_deny_freeze(fs_info, device_path);
 	if (IS_ERR(bdev_file))
 		return PTR_ERR(bdev_file);
 
@@ -3043,7 +3055,6 @@ int btrfs_init_new_device(struct btrfs_fs_info *fs_info, const char *device_path
 	 */
 	atomic_inc(&device->dev_stats_ccnt);
 	device->dev_stats_valid = 1;
-	set_blocksize(device->bdev_file, BTRFS_BDEV_BLOCKSIZE);
 
 	if (seeding_dev) {
 		/* GFP_KERNEL allocation must not be under device_list_mutex */
