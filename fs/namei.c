@@ -4489,10 +4489,11 @@ retry:
 		 * a different error; we'll be dropping this one anyway.
 		 */
 	}
+
 	if (shared_flag)
-		inode_lock_shared(dir_inode);
+		inode_lock_shared_nested(dir_inode, I_MUTEX_PARENT);
 	else
-		inode_lock(dir_inode);
+		inode_lock_nested(dir_inode, I_MUTEX_PARENT);
 
 	if (unlikely(IS_DEADDIR(dir_inode))) {
 		dentry = ERR_PTR(-ENOENT);
