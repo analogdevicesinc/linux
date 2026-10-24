@@ -1895,12 +1895,34 @@ static struct dentry *lookup_fast(struct nameidata *nd)
 	return dentry;
 }
 
+/*
+ * If @dentry is in-lookup, look it up in @dir through ->lookup().  Returns
+ * the dentry to use from now on: @dentry itself, or the dentry or ERR_PTR()
+ * that ->lookup() returned instead, in which case @dentry is dropped.
+ */
+static struct dentry *finish_lookup(struct inode *dir, struct dentry *dentry,
+				unsigned int flags)
+{
+	struct dentry *res;
+
+	if (!d_in_lookup(dentry))
+		return dentry;
+
+	res = dir->i_op->lookup(dir, dentry, flags);
+	d_lookup_done(dentry);
+	if (unlikely(res)) {
+		dput(dentry);
+		return res;
+	}
+	return dentry;
+}
+
 /* Fast lookup failed, do it the slow way */
 static struct dentry *__lookup_slow(const struct qstr *name,
 				    struct dentry *dir,
 				    unsigned int flags)
 {
-	struct dentry *dentry, *old;
+	struct dentry *dentry;
 	struct inode *inode = dir->d_inode;
 
 	/* Don't go there if it's already dead */
@@ -1919,17 +1941,10 @@ again:
 				goto again;
 			}
 			dput(dentry);
-			dentry = ERR_PTR(error);
-		}
-	} else {
-		old = inode->i_op->lookup(inode, dentry, flags);
-		d_lookup_done(dentry);
-		if (unlikely(old)) {
-			dput(dentry);
-			dentry = old;
+			return ERR_PTR(error);
 		}
 	}
-	return dentry;
+	return finish_lookup(inode, dentry, flags);
 }
 
 static noinline struct dentry *lookup_slow(const struct qstr *name,
@@ -4594,19 +4609,9 @@ retry:
 		goto out;
 	}
 
-	if (d_in_lookup(dentry)) {
-		struct dentry *res = dir_inode->i_op->lookup(dir_inode, dentry,
-							     nd->flags | shared_flag);
-		d_lookup_done(dentry);
-		if (unlikely(res)) {
-			if (IS_ERR(res)) {
-				error = PTR_ERR(res);
-				goto out_dput;
-			}
-			dput(dentry);
-			dentry = res;
-		}
-	}
+	dentry = finish_lookup(dir_inode, dentry, nd->flags | shared_flag);
+	if (IS_ERR(dentry))
+		goto out;
 
 	if (dentry->d_inode || !(op->open_flag & O_CREAT)) {
 		/*
