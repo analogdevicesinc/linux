@@ -30,12 +30,16 @@ static DEFINE_MUTEX(profile_lock);
 /* Serialize registration and sysfs updates without blocking sysfs callbacks. */
 static DEFINE_MUTEX(profile_registration_lock);
 static LIST_HEAD(profile_handlers);
+#ifdef CONFIG_PLATFORM_PROFILE_LEGACY
 static struct kobject *compat_kobj;
+#endif
 
 static void profile_notify(void)
 {
+#ifdef CONFIG_PLATFORM_PROFILE_LEGACY
 	if (compat_kobj)
 		sysfs_notify(compat_kobj, NULL, "platform_profile");
+#endif
 }
 
 static int profile_update(void);
@@ -310,6 +314,12 @@ static int _aggregate_choices(struct device *dev, void *arg)
 	return 0;
 }
 
+#ifdef CONFIG_PLATFORM_PROFILE_LEGACY
+static void profile_legacy_notice(void)
+{
+	pr_notice_once("The ACPI platform_profile sysfs interface is deprecated and planned for removal after the 2028 LTS kernel once userspace has migrated; use /sys/class/platform-profile/ instead\n");
+}
+
 /**
  * _remove_hidden_choices - Remove hidden choices from aggregate data
  * @dev: The device
@@ -348,6 +358,8 @@ static ssize_t platform_profile_choices_show(struct kobject *kobj,
 	};
 	int err;
 
+	profile_legacy_notice();
+
 	scoped_cond_guard(mutex_intr, return -ERESTARTSYS, &profile_lock) {
 		err = profile_for_each_handler(&data, _aggregate_choices);
 		if (err)
@@ -365,6 +377,7 @@ static ssize_t platform_profile_choices_show(struct kobject *kobj,
 
 	return _commmon_choices_show(data.aggregate, buf);
 }
+#endif
 
 /**
  * _aggregate_profiles - Aggregate the profiles across providers
@@ -409,6 +422,7 @@ static int _store_and_notify(struct device *dev, void *data)
 	return _notify_class_profile(dev, NULL);
 }
 
+#ifdef CONFIG_PLATFORM_PROFILE_LEGACY
 /**
  * platform_profile_show - Show the current aggregate profile
  * @kobj: The kobject
@@ -423,6 +437,8 @@ static ssize_t platform_profile_show(struct kobject *kobj,
 {
 	enum platform_profile_option profile = PLATFORM_PROFILE_LAST;
 	int err;
+
+	profile_legacy_notice();
 
 	scoped_cond_guard(mutex_intr, return -ERESTARTSYS, &profile_lock) {
 		err = profile_for_each_handler(&profile, _aggregate_profiles);
@@ -456,6 +472,8 @@ static ssize_t platform_profile_store(struct kobject *kobj,
 	};
 	int ret;
 	int i;
+
+	profile_legacy_notice();
 
 	/* Scan for a matching profile */
 	i = sysfs_match_string(profile_names, buf);
@@ -507,6 +525,44 @@ static int profile_update(void)
 
 	return 0;
 }
+
+static int profile_compat_init(void)
+{
+	int err;
+
+	compat_kobj = platform_profile_compat_kobj();
+	if (!compat_kobj)
+		return 0;
+
+	err = sysfs_create_group(compat_kobj, &platform_profile_group);
+	if (err)
+		kobject_put(compat_kobj);
+
+	return err;
+}
+
+static void profile_compat_exit(void)
+{
+	if (compat_kobj) {
+		sysfs_remove_group(compat_kobj, &platform_profile_group);
+		kobject_put(compat_kobj);
+	}
+}
+#else
+static int profile_update(void)
+{
+	return 0;
+}
+
+static int profile_compat_init(void)
+{
+	return 0;
+}
+
+static void profile_compat_exit(void)
+{
+}
+#endif
 
 /**
  * platform_profile_notify - Notify the provider and aggregate sysfs interfaces
@@ -735,24 +791,16 @@ static int __init platform_profile_init(void)
 	if (err)
 		return err;
 
-	compat_kobj = platform_profile_compat_kobj();
-	if (compat_kobj) {
-		err = sysfs_create_group(compat_kobj, &platform_profile_group);
-		if (err) {
-			kobject_put(compat_kobj);
-			class_unregister(&platform_profile_class);
-		}
-	}
+	err = profile_compat_init();
+	if (err)
+		class_unregister(&platform_profile_class);
 
 	return err;
 }
 
 static void __exit platform_profile_exit(void)
 {
-	if (compat_kobj) {
-		sysfs_remove_group(compat_kobj, &platform_profile_group);
-		kobject_put(compat_kobj);
-	}
+	profile_compat_exit();
 	class_unregister(&platform_profile_class);
 }
 subsys_initcall_sync(platform_profile_init);

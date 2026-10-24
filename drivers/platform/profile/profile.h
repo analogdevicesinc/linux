@@ -5,7 +5,7 @@
 #include <linux/kconfig.h>
 #include <linux/kobject.h>
 
-#ifdef CONFIG_ACPI
+#ifdef CONFIG_PLATFORM_PROFILE_LEGACY
 struct kobject *platform_profile_compat_kobj(void);
 #else
 static inline struct kobject *platform_profile_compat_kobj(void)

@@ -2,4 +2,4 @@
 obj-$(CONFIG_PLATFORM_PROFILE) += platform_profile.o
 
 platform_profile-y := core.o
-platform_profile-$(CONFIG_ACPI) += acpi.o
+platform_profile-$(CONFIG_PLATFORM_PROFILE_LEGACY) += acpi.o

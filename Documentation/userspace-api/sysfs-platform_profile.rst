@@ -26,11 +26,20 @@ The firmware-independent userspace interface is available under
 ``/sys/class/platform-profile/platform-profile-X/``, with ``name``,
 ``choices`` and ``profile`` attributes for each registered provider.
 
-On ACPI systems, ``/sys/firmware/acpi/platform_profile_choices`` and
+On ACPI systems with ``CONFIG_PLATFORM_PROFILE_LEGACY`` enabled,
+``/sys/firmware/acpi/platform_profile_choices`` and
 ``/sys/firmware/acpi/platform_profile`` remain available as compatibility
 interfaces for aggregate profile selection across registered providers.
-On non-ACPI systems, userspace selects profiles through the individual
-provider class devices.
+New userspace should select profiles through the individual provider class
+devices. These remain available when the legacy interface is disabled and
+on non-ACPI systems. Kernel profile cycling also remains available without
+the legacy interface.
+
+The legacy aggregate interface is deprecated. Removal is intended after the
+2028 LTS kernel, once userspace has migrated to released software using the
+class devices. Compatibility remains enabled by default during the migration;
+the date alone does not trigger removal. Accessing either legacy attribute
+emits a one-time kernel notice directing userspace to the class interface.
 
 Note that this API is only for selecting the platform profile, it is
 NOT a goal of this API to allow monitoring the resulting performance
@@ -70,7 +79,7 @@ Multiple driver support
 When multiple drivers on a system advertise a platform profile handler, the
 platform profile handler core will only advertise the profiles that are
 common between all drivers to the ``/sys/firmware/acpi`` interfaces, when
-ACPI is active.
+ACPI is active and ``CONFIG_PLATFORM_PROFILE_LEGACY`` is enabled.
 
 This is to ensure there is no ambiguity on what the profile names mean when
 all handlers don't support a profile.
