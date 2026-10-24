@@ -1,5 +1,7 @@
 .. SPDX-License-Identifier: GPL-2.0
 
+.. _pt_BR_email_clients:
+
 Informações sobre clientes de email para Linux
 ==============================================
 
@@ -321,14 +323,14 @@ Para colocar juízo no editor interno, faça o seguinte:
 
   - Defina ``mailnews.send_plaintext_flowed`` como ``false``
 
-    - Altere ``mailnews.wraplength`` de ``72`` para ``0`` **ou** instale a
-      extensão "Toggle Line Wrap"
+  - Altere ``mailnews.wraplength`` de ``72`` para ``0`` **ou** instale a
+    extensão "Toggle Line Wrap"
 
-      https://github.com/jan-kiszka/togglelinewrap
+    https://github.com/jan-kiszka/togglelinewrap
 
-      https://addons.thunderbird.net/thunderbird/addon/toggle-line-wrap
+    https://addons.thunderbird.net/thunderbird/addon/toggle-line-wrap
 
-      para controlar esse registro dinamicamente.
+    para controlar esse registro dinamicamente.
 
 - Não escreva mensagens em HTML! Vá até a janela principal
   :menuselection:`Menu Principal-->Configurações da Conta-->suaconta@servidor.algo-->Composição e Endereçamento`!
