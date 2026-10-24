@@ -229,7 +229,7 @@ static int alpine_msix_init(struct device_node *node, struct device_node *parent
 		return -ENOMEM;
 	priv->msi_map = msi_map;
 
-	pr_debug("Registering %d msixs, starting at %d\n", priv->num_spis, priv->spi_first);
+	pr_debug("Registering %u MSIs, starting at SPI %u\n", priv->num_spis, priv->spi_first);
 
 	ret = alpine_msix_init_domains(priv, node);
 	if (ret)
