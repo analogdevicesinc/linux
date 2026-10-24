@@ -1297,7 +1297,7 @@ static struct dentry *kernfs_iop_mkdir(const struct mnt_idmap *idmap,
 	struct inode *inode;
 
 	if (!scops || !scops->mkdir)
-		return ERR_PTR(-EPERM);
+		return ERR_PTR(-EOPNOTSUPP);
 
 	inode = new_inode(dir->i_sb);
 	if (!inode)
