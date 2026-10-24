@@ -4173,7 +4173,7 @@ static inline umode_t vfs_prepare_mode(const struct mnt_idmap *idmap,
 }
 
 static inline
-int vfs_create_no_perm(struct mnt_idmap *idmap, struct dentry *dentry,
+int vfs_create_no_perm(const struct mnt_idmap *idmap, struct dentry *dentry,
 		       umode_t mode, struct delegated_inode *di)
 {
 	struct inode *dir = d_inode(dentry->d_parent);
@@ -4436,7 +4436,13 @@ static struct dentry *atomic_open(const struct path *path, struct dentry *dentry
 		}
 		dput(dentry);
 		dentry = ERR_PTR(error);
+	} else {
+		if (file->f_mode & FMODE_CREATED)
+			fsnotify_create(dir_inode, dentry);
+		if (file->f_mode & FMODE_OPENED)
+			fsnotify_open(file);
 	}
+
 
 	return dentry;
 }
@@ -4589,22 +4595,12 @@ retry:
 		goto out_dput;
 	}
 
-	error = try_break_deleg(dir_inode, LEASE_BREAK_DIR_CREATE, &delegated_inode);
-	if (error)
-		goto out_dput;
-
-	error = dir_inode->i_op->create(idmap, dir_inode, dentry, mode);
+	error = vfs_create_no_perm(idmap, dentry, mode, &delegated_inode);
 	if (error)
 		goto out_dput;
 
 	file->f_mode |= FMODE_CREATED;
 out:
-	if (!IS_ERR(dentry)) {
-		if (file->f_mode & FMODE_CREATED)
-			fsnotify_create(dir_inode, dentry);
-		if (file->f_mode & FMODE_OPENED)
-			fsnotify_open(file);
-	}
 	if (shared_flag)
 		inode_unlock_shared(dir_inode);
 	else
@@ -5231,13 +5227,6 @@ struct file *dentry_create(struct path *path, int flags, umode_t mode,
 		else
 			/* Drop the extra reference */
 			dput(orig_dentry);
-
-		if (!error) {
-			if (file->f_mode & FMODE_CREATED)
-				fsnotify_create(dir->d_inode, dentry);
-			if (file->f_mode & FMODE_OPENED)
-				fsnotify_open(file);
-		}
 
 		path->dentry = dentry;
 
