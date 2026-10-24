@@ -1156,6 +1156,19 @@ static inline u64 __scale_tsc(u64 ratio, u64 tsc)
 	return mul_u64_u64_shr(tsc, ratio, kvm_caps.tsc_scaling_ratio_frac_bits);
 }
 
+/*
+ * Use the current tsc_khz, not the one at load time, as the TSC frequency can
+ * be refined after KVM is initialized.  Make sure the user can only configure
+ * tsc_khz values that fit into a signed integer, otherwise KVM_GET_TSC_KHZ
+ * would return a negative value and confuse userspace.  A min value is not
+ * calculated because it will always be 1 on all machines.
+ */
+static u32 kvm_max_guest_tsc_khz(void)
+{
+	return min(0x7fffffffULL,
+		   __scale_tsc(kvm_caps.max_tsc_scaling_ratio, tsc_khz));
+}
+
 u64 kvm_scale_tsc(u64 tsc, u64 ratio)
 {
 	u64 _tsc = tsc;
@@ -3728,7 +3741,7 @@ long kvm_arch_vcpu_ioctl(struct file *filp,
 		user_tsc_khz = (u32)arg;
 
 		if (kvm_caps.has_tsc_control &&
-		    user_tsc_khz > kvm_caps.max_guest_tsc_khz)
+		    user_tsc_khz > kvm_max_guest_tsc_khz())
 			goto out;
 
 		if (user_tsc_khz == 0)
@@ -4678,7 +4691,7 @@ set_identity_unlock:
 		user_tsc_khz = (u32)arg;
 
 		if (kvm_caps.has_tsc_control &&
-		    user_tsc_khz > kvm_caps.max_guest_tsc_khz)
+		    user_tsc_khz > kvm_max_guest_tsc_khz())
 			goto out;
 
 		if (user_tsc_khz == 0)
@@ -6734,7 +6747,6 @@ static void kvm_hyperv_tsc_notifier(void)
 		for_each_present_cpu(cpu)
 			per_cpu(cpu_tsc_khz, cpu) = tsc_khz;
 	}
-	kvm_caps.max_guest_tsc_khz = tsc_khz;
 
 	list_for_each_entry(kvm, &vm_list, vm_list) {
 		__kvm_start_pvclock_update(kvm);
@@ -7173,18 +7185,6 @@ int kvm_x86_vendor_init(struct kvm_x86_init_ops *ops)
 	if (!tdp_enabled)
 		kvm_caps.supported_quirks &= ~KVM_X86_QUIRK_IGNORE_GUEST_PAT;
 
-	if (kvm_caps.has_tsc_control) {
-		/*
-		 * Make sure the user can only configure tsc_khz values that
-		 * fit into a signed integer, otherwise KVM_GET_TSC_KHZ would
-		 * return a negative value and confuse userspace.
-		 * A min value is not calculated because it will always
-		 * be 1 on all machines.
-		 */
-		u64 max = min(0x7fffffffULL,
-			      __scale_tsc(kvm_caps.max_tsc_scaling_ratio, tsc_khz));
-		kvm_caps.max_guest_tsc_khz = max;
-	}
 	kvm_caps.default_tsc_scaling_ratio = 1ULL << kvm_caps.tsc_scaling_ratio_frac_bits;
 	kvm_init_msr_lists();
 	return 0;

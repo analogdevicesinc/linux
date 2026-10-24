@@ -260,8 +260,6 @@ struct kvm_x86_pmu_event_filter;
 struct kvm_caps {
 	/* control of guest tsc rate supported? */
 	bool has_tsc_control;
-	/* maximum supported tsc_khz for guests */
-	u32  max_guest_tsc_khz;
 	/* number of bits of the fractional part of the TSC scaling ratio */
 	u8   tsc_scaling_ratio_frac_bits;
 	/* maximum allowed value of TSC scaling ratio */
