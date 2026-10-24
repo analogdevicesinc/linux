@@ -8,6 +8,7 @@
  */
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
@@ -76,9 +77,9 @@ struct act8945a_charger {
 	struct power_supply *psy;
 	struct power_supply_desc desc;
 	struct regmap *regmap;
-	struct work_struct work;
+	/* Serialize status updates from both IRQ threads. */
+	struct mutex status_lock;
 
-	bool init_done;
 	struct gpio_desc *lbo_gpio;
 	struct gpio_desc *chglev_gpio;
 };
@@ -430,22 +431,14 @@ static unsigned int act8945a_set_supply_type(struct act8945a_charger *charger,
 	return 0;
 }
 
-static void act8945a_work(struct work_struct *work)
-{
-	struct act8945a_charger *charger =
-			container_of(work, struct act8945a_charger, work);
-
-	act8945a_set_supply_type(charger, &charger->desc.type);
-
-	power_supply_changed(charger->psy);
-}
-
 static irqreturn_t act8945a_status_changed(int irq, void *dev_id)
 {
 	struct act8945a_charger *charger = dev_id;
 
-	if (charger->init_done)
-		schedule_work(&charger->work);
+	mutex_lock(&charger->status_lock);
+	act8945a_set_supply_type(charger, &charger->desc.type);
+	power_supply_changed(charger->psy);
+	mutex_unlock(&charger->status_lock);
 
 	return IRQ_HANDLED;
 }
@@ -489,13 +482,6 @@ static int act8945a_charger_config(struct device *dev,
 		dev_err(dev, "unable to claim gpio \"lbo\": %d\n", err);
 		return err;
 	}
-
-	ret = devm_request_irq(dev, gpiod_to_irq(charger->lbo_gpio),
-			       act8945a_status_changed,
-			       (IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING),
-			       "act8945a_lbo_detect", charger);
-	if (ret)
-		dev_info(dev, "failed to request gpio \"lbo\" IRQ\n");
 
 	charger->chglev_gpio = devm_gpiod_get_optional(dev,
 						       "active-semi,chglev",
@@ -581,6 +567,8 @@ static int act8945a_charger_probe(struct platform_device *pdev)
 	if (!charger)
 		return -ENOMEM;
 
+	mutex_init(&charger->status_lock);
+
 	charger->regmap = dev_get_regmap(pdev->dev.parent, NULL);
 	if (!charger->regmap) {
 		dev_err(&pdev->dev, "Parent did not provide regmap\n");
@@ -617,31 +605,27 @@ static int act8945a_charger_probe(struct platform_device *pdev)
 		return PTR_ERR(charger->psy);
 	}
 
-	ret = devm_request_irq(&pdev->dev, irq, act8945a_status_changed,
-			       IRQF_TRIGGER_FALLING, "act8945a_interrupt",
-			       charger);
+	ret = devm_request_threaded_irq(&pdev->dev,
+					gpiod_to_irq(charger->lbo_gpio), NULL,
+					act8945a_status_changed,
+					IRQF_TRIGGER_FALLING |
+					IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+					"act8945a_lbo_detect", charger);
+	if (ret)
+		dev_info(&pdev->dev, "failed to request gpio \"lbo\" IRQ\n");
+
+	ret = devm_request_threaded_irq(&pdev->dev, irq, NULL,
+					act8945a_status_changed,
+					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+					"act8945a_interrupt", charger);
 	if (ret)
 		return ret;
-
-	platform_set_drvdata(pdev, charger);
-
-	INIT_WORK(&charger->work, act8945a_work);
 
 	ret = act8945a_enable_interrupt(charger);
 	if (ret)
 		return -EIO;
 
-	charger->init_done = true;
-
 	return 0;
-}
-
-static void act8945a_charger_remove(struct platform_device *pdev)
-{
-	struct act8945a_charger *charger = platform_get_drvdata(pdev);
-
-	charger->init_done = false;
-	cancel_work_sync(&charger->work);
 }
 
 static struct platform_driver act8945a_charger_driver = {
@@ -649,7 +633,6 @@ static struct platform_driver act8945a_charger_driver = {
 		.name = "act8945a-charger",
 	},
 	.probe	= act8945a_charger_probe,
-	.remove	= act8945a_charger_remove,
 };
 module_platform_driver(act8945a_charger_driver);
 
