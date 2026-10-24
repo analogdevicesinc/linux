@@ -7,11 +7,11 @@ Subsistema de Rede do Linux (netdev)
 tl;dr
 -----
 
-- **Direcione seu patch para uma árvore** – use ``[PATCH net]``para correções
+- **Direcione seu patch para uma árvore** – use ``[PATCH net]`` para correções
   ou ``[PATCH net-next]`` para novas funcionalidades.
 - **Tag Fixes** – para correções, a tag ``Fixes:`` é obrigatória,
   independentemente da árvore de destino.
-- **Tamanho da série** – não envie séries grandes (> 15 patches);divida-as em
+- **Tamanho da série** – não envie séries grandes (> 15 patches); divida-as em
   partes menores.
 - **Intervalo de envio** – não reenvie seus patches dentro de um período de 24
   horas.
@@ -70,7 +70,7 @@ mesclagem (*merge window*) e o ``net-next`` está fechado.
 ------------------------------
 
 Existem duas árvores de rede (repositórios git) em jogo. Ambas são coordenadas
-por David Miller, o mantenedor principal de rede. Há a árvore ``net``e a árvore
+por David Miller, o mantenedor principal de rede. Há a árvore ``net`` e a árvore
 ``net-next``. Como você provavelmente pode adivinhar pelos nomes, a árvore
 ``net`` é para correções de código existente já na árvore mainline de Linus, e a
 ``net-next`` é para onde o novo código vai para o lançamento futuro.
@@ -81,7 +81,7 @@ Você pode encontrar as árvores aqui:
 
 Relacionando isso ao desenvolvimento do kernel: no início da janela de mesclagem
 (*merge window*) de 2 semanas, a árvore ``net-next`` será fechada, sem novas
-mudanças ou funcionalidades. O conteúdo novo acumulado nas últimas 10 semanas
+mudanças ou funcionalidades. O conteúdo novo acumulado nas últimas ~10 semanas
 será passado para a mainline/Linus via um *pull request* para a vX.Y ao mesmo
 tempo, a árvore ``net`` começará a acumular correções para este conteúdo enviado
 relacionado à vX.Y.
@@ -117,6 +117,8 @@ Finalmente, a vX.Y é lançada e todo o ciclo recomeça.
 
 Revisão de patches da netdev
 ----------------------------
+
+.. _pt_BR_patch_status:
 
 Status do patch
 ~~~~~~~~~~~~~~~
@@ -168,7 +170,7 @@ transportaram; portanto, se você tiver problemas para encontrar seu patch,
 anexe o valor do ``Message-ID`` à URL acima.
 
 Atualizando o status do patch
------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Colaboradores e revisores não têm permissões para atualizar o estado do patch
 diretamente no patchwork. O Patchwork não expõe muitas informações sobre o
@@ -216,26 +218,48 @@ comentários e respostas cheguem após uma semana de silêncio. Se um
 patch não estiver mais ativo no patchwork e a thread ficar inativa por mais de
 uma semana - esclareça os próximos passos e/ou envie a próxima versão.
 
-Especificamente para envios de RFC, se ninguém responder em uma semana  ou os
+Especificamente para envios de RFC, se ninguém responder em uma semana - ou os
 revisores perderam o envio ou não têm opiniões fortes a respeito. Se o código
 estiver pronto, reenvie como um PATCH.
+
+Há 2 serviços que fornecem ativamente revisões geradas por LLM para os patches
+enviados:
+
+- https://sashiko.dev/
+- https://netdev-ai.bots.linux.dev/sashiko/
+
+ambos usam a infraestrutura do Sashiko sobre modelos diferentes. As revisões
+ficam disponíveis após 24h. Espera-se que os autores dos patches analisem
+proativamente as revisões geradas por IA e tratem esse feedback como qualquer
+outro tipo de revisão: discutindo-o ou atendendo-o. Em ambos os casos, espera-se
+uma resposta na lista de discussão.
+
+Os autores são fortemente encorajados a executar revisões por LLM nos patches
+antes de enviá-los de fato. Séries grandes que gerem uma quantidade
+significativa de feedback gerado por IA provavelmente receberão pouca atenção
+dos mantenedores e revisores.
 
 E-mails dizendo apenas "ping" ou "bump" são considerados rudes. Se você não
 conseguir identificar o status do patch pelo patchwork ou onde a discussão
 parou - descreva sua melhor suposição e pergunte se ela está correta. Por
 exemplo::
 
-  Não entendo quais são os próximos passos. A Pessoa X parece estar  descontente
+  Não entendo quais são os próximos passos. A Pessoa X parece estar descontente
   com A; devo fazer B e enviar novamente os patches?
+
+Não entre em contato com mantenedores ou revisores por e-mail privado e/ou
+outros canais de comunicação: toda a discussão deve permanecer pública, e pedir
+atenção especial é, na melhor das hipóteses, injusto com a comunidade.
 
 .. _Solicitações de mudanças:
 
 Mudanças solicitadas
 ~~~~~~~~~~~~~~~~~~~~
 
-Patches marcados como ``Changes Requested`` precisam ser revisados. A nova
-versão deve vir com um registro de alterações (changelog),
-preferencialmente incluindo links para as postagens anteriores, por exemplo::
+Patches :ref:`marcados<pt_BR_patch_status>` como ``Changes Requested``
+precisam ser revisados. A nova versão deve vir com um registro de alterações
+(changelog), preferencialmente incluindo links para as postagens anteriores,
+por exemplo::
 
   [PATCH net-next v3] net: faz as vacas dizerem "muuu"
 
@@ -292,8 +316,8 @@ incrementais são preferidas.
 Embora antigamente as submissões para a netdev não devessem carregar tags
 explícitas ``CC: stable@vger.kernel.org``, esse não é mais o caso hoje em dia.
 Por favor, siga as regras padrão de estabilidade em
-``Documentation/process/stable-kernel-rules.rst``, e certifique-se de incluir as
-tags Fixes apropriadas!
+:ref:`Documentation/process/stable-kernel-rules.rst <stable_kernel_rules>`,
+e certifique-se de incluir as tags Fixes apropriadas!
 
 Correções de segurança
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -359,7 +383,8 @@ Se for o seu primeiro patch, envie-o para si mesmo por e-mail para que você
 possa testar a aplicação em uma árvore sem patches para confirmar que a
 infraestrutura não o danificou.
 
-Finalmente, volte e leia ``Documentation/process/submitting-patches.rst``
+Finalmente, volte e leia
+:ref:`Documentation/process/submitting-patches.rst <pt_BR_submittingpatches>`
 para ter certeza de que não está repetindo algum erro comum documentado lá.
 
 Indicando a árvore de destino
@@ -399,8 +424,10 @@ Este limite tem o objetivo de focar o esforço do desenvolvedor nos testes dos
 patches antes da revisão upstream, auxiliando a qualidade das submissões
 upstream e aliviando a carga sobre os revisores.
 
-Ordenação de variáveis locais ("árvore invertida", "RCS")
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. _pt_BR_rcs:
+
+Ordenação de variáveis locais ("árvore de Natal invertida", "RCS")
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A netdev tem uma convenção para ordenar variáveis locais em funções. Ordene as
 linhas de declaração de variáveis da mais longa para a mais curta, por exemplo::
@@ -416,7 +443,7 @@ Precedência de formatação
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Ao trabalhar em código existente que utiliza formatação não padrão, faça com
-que seu código siga as diretrizes mais recentes, para que, eventualmente,
+que seu código siga as diretrizes mais recentes, para que, com o tempo,
 todo o código no domínio da netdev esteja no formato preferido.
 
 Uso de construções gerenciadas por dispositivo e cleanup.h
@@ -445,7 +472,7 @@ contexto de outro trabalho. Por exemplo:
 
 * Tratar avisos do ``checkpatch.pl`` e outros avisos triviais de estilo de
   codificação
-* Tratar problemas de Ordenação de variáveis locais
+* Tratar problemas de :ref:`Ordenação de variáveis locais<pt_BR_rcs>`
 * Conversões para APIs gerenciadas por dispositivo (auxiliares ``devm_``)
 
 Isso ocorre porque se considera que a agitação (*churn*) que tais mudanças
@@ -516,10 +543,11 @@ falha no núcleo que são difíceis de exercitar com um driver real.
 ``netdevsim`` em si **não** é considerado um caso de uso/usuário.
 Você também deve implementar as novas APIs em um driver real.
 
-Não damos garantias de que o ``netdevsim`` mudará no futuro de uma forma que
-quebraria o que normalmente seria considerado uAPI.  O ``netdevsim`` é reservado
-apenas para uso por testes upstream, portanto, quaisquer novos recursos do
-``netdevsim`` devem ser acompanhados de selftests em ``tools/testing/selftests/``.
+Não damos garantias de que o ``netdevsim`` não mudará no futuro de uma forma
+que quebraria o que normalmente seria considerado uAPI. O ``netdevsim`` é
+reservado apenas para uso por testes upstream, portanto, quaisquer novos
+recursos do ``netdevsim`` devem ser acompanhados de selftests em
+``tools/testing/selftests/``.
 
 Status de suporte para drivers
 ------------------------------
@@ -579,7 +607,7 @@ Orientações para revisores
 
 Revisar patches de outras pessoas na lista é altamente incentivado,
 independentemente do nível de experiência. Para orientações gerais e dicas
-úteis, consulte `revisão de tópicos avançados de desenvolvimento`.
+úteis, consulte :ref:`pt_BR_development_advancedtopics_reviews`.
 
 É seguro assumir que os mantenedores da netdev conhecem a comunidade e o nível
 de experiência dos revisores. Os revisores não devem se preocupar com o fato de
@@ -588,8 +616,8 @@ seus comentários impedirem ou desviarem o fluxo de patches. Uma tag Reviewed-by
 "Posso atestar que este código está correto".
 
 Revisores são fortemente incentivados a fazer uma revisão mais aprofundada das
-submissões e não focar exclusivamente em questões triviais ou subjetivas, como
-formatação de código, tags, etc.
+submissões e não focar exclusivamente em questões de processo, triviais ou
+subjetivas, como formatação de código, tags, etc.
 
 Depoimentos / feedback
 ----------------------
