@@ -104,6 +104,8 @@ static int alpine_msix_middle_domain_alloc(struct irq_domain *domain, unsigned i
 	struct alpine_msix_data *priv = domain->host_data;
 	int sgi, err, i;
 
+	pr_debug("trying to allocate %u MSIs starting from %u\n", nr_irqs, virq);
+
 	sgi = alpine_msix_allocate_sgi(priv, nr_irqs);
 	if (sgi < 0)
 		return sgi;
@@ -116,6 +118,9 @@ static int alpine_msix_middle_domain_alloc(struct irq_domain *domain, unsigned i
 		irq_domain_set_hwirq_and_chip(domain, virq + i, sgi + i,
 					      &middle_irq_chip, priv);
 	}
+
+	pr_debug("allocated %u MSIs starting from %u\n", nr_irqs, virq);
+
 	return 0;
 
 err_sgi:
@@ -132,6 +137,8 @@ static void alpine_msix_middle_domain_free(struct irq_domain *domain, unsigned i
 
 	irq_domain_free_irqs_parent(domain, virq, nr_irqs);
 	alpine_msix_free_sgi(priv, d->hwirq, nr_irqs);
+
+	pr_debug("freed %u MSIs starting from %u\n", nr_irqs, virq);
 }
 
 static const struct irq_domain_ops alpine_msix_middle_domain_ops = {
@@ -234,6 +241,9 @@ static int alpine_msix_init(struct device_node *node, struct device_node *parent
 	ret = alpine_msix_init_domains(priv, node);
 	if (ret)
 		return ret;
+
+	pr_info("initialized successfully, SPI %u to %u\n",
+		priv->spi_first, priv->spi_first + priv->num_spis - 1);
 
 	retain_and_null_ptr(priv);
 	retain_and_null_ptr(msi_map);
