@@ -20,8 +20,13 @@ você não tiver certeza sobre quais informações são úteis. As seguintes
 informações são absolutamente necessárias em **qualquer** relatório de falha de
 segurança:
 
-  * **versão do kernel afetada**: sem indicação de versão, seu relatório não
-    será processado. Uma parte significativa dos relatórios é de bugs que já
+  * **intervalo de versões do kernel afetadas**: sem indicação de versão, seu
+    relatório não será processado. Observe que uma versão dependente do tempo,
+    como "o mainline mais recente", não é aceitável. É necessário um
+    identificador estável, como o ID de um commit ou uma versão exata. Versões
+    que designam kernels que não vêm do kernel.org (como kernels de
+    distribuições) não têm significado para os mantenedores e não serão
+    processadas. Uma parte significativa dos relatórios é de bugs que já
     foram corrigidos, portanto, é extremamente importante que as
     vulnerabilidades sejam verificadas em versões recentes (árvore de
     desenvolvimento ou a versão estável mais recente), pelo menos verificando
@@ -31,7 +36,7 @@ segurança:
     mostrando sua manifestação, e por que você considera o comportamento
     observado como um problema no Kernel, é necessária.
 
-  * **reproduzir**: os desenvolvedores precisarão ser capazes de reproduzir o
+  * **reprodutor**: os desenvolvedores precisarão ser capazes de reproduzir o
     problema para considerar uma correção como eficaz. Isso inclui tanto uma
     maneira de acionar o problema quanto uma maneira de confirmar que ele
     ocorre. Será necessário um reprodutor com dependências de baixa
@@ -87,7 +92,7 @@ apenas bugs comuns que foram qualificados incorretamente como bugs de segurança
 devido à falta de conhecimento do modelo de ameaças do kernel Linux, conforme
 descrito em Documentation/process/threat-model.rst, e deveriam ter sido
 enviados através dos canais normais descritos em
-Documentation/admin-guide/reporting-issues.rst
+Documentation/admin-guide/reporting-issues.rst, em vez disso.
 
 A lista de segurança existe para bugs urgentes que concedem a um atacante uma
 capacidade que ele não deveria ter em um sistema de produção corretamente
@@ -175,7 +180,7 @@ ou este para a lista mais ampla::
   dev1@example.com, dev2@example.org, dev3@example.com, dev4@example.org
 
 Se a esta altura você ainda estiver enfrentando dificuldades para identificar
-os mantenedores corretos, e apenas neste caso, é possível enviar seu
+os mantenedores corretos, **e apenas neste caso**, é possível enviar seu
 relatório apenas para a equipe de segurança do kernel Linux. Sua mensagem
 será triada e você receberá instruções sobre quem contatar, se necessário.
 Sua mensagem poderá igualmente ser encaminhada como está para os mantenedores
@@ -203,8 +208,8 @@ a tornar esses relatórios desnecessariamente difíceis de lidar:
   * **Formatação**: A maioria dos relatórios gerados por IA está repleta de
     tags Markdown. Essas decorações complicam a busca por informações
     importantes e não sobrevivem aos processos de citação envolvidos no
-    encaminhamento ou nas respostas. Por favor, sempre converta seu relatório
-    para texto simples sem quaisquer decorações de formatação antes de
+    encaminhamento ou nas respostas. Por favor, **sempre converta seu relatório
+    para texto simples** sem quaisquer decorações de formatação antes de
     enviá-lo.
 
   * **Avaliação de Impacto**: Muitos relatórios gerados por IA carecem de uma
@@ -216,17 +221,17 @@ a tornar esses relatórios desnecessariamente difíceis de lidar:
     especulativas. Faça com que sua ferramenta leia esta documentação como
     parte do processo de avaliação.
 
-  * **Reproduzidor**: As ferramentas baseadas em IA são frequentemente capazes
-    de gerar reproduzidores. Por favor, certifique-se sempre de que sua
-    ferramenta forneça um e teste-o exaustivamente. Se o reproduzidor não
+  * **Reprodutor**: As ferramentas baseadas em IA são frequentemente capazes
+    de gerar reprodutores. Por favor, certifique-se sempre de que sua
+    ferramenta forneça um e **teste-o exaustivamente**. Se o reprodutor não
     funcionar, ou se a ferramenta não puder produzir um, a validade do
     relatório deve ser seriamente questionada. Observe que, como o relatório
-    será postado em uma lista pública, o reproduzidor só deve ser compartilhado
+    será postado em uma lista pública, o reprodutor só deve ser compartilhado
     mediante solicitação dos mantenedores.
 
   * **Propor uma Correção:** muitas ferramentas de IA são na verdade melhores
     em escrever código do que em avaliá-lo. Por favor, peça à sua ferramenta
-    para propor uma correção e teste-a antes de relatar o problema.
+    para propor uma correção e **teste-a** antes de relatar o problema.
     Se a correção não puder ser testada porque depende de hardware raro ou de
     protocolos de rede quase extintos, é provável que o problema não seja um
     bug de segurança. Em qualquer caso, se uma correção for proposta, ela deve
@@ -244,6 +249,30 @@ arquivos obsoletos). Nesses casos, não há necessidade de consumir o tempo de
 um mantenedor com um relatório sem importância. Se o problema for claramente
 trivial e publicamente detectável, você deve relatá-lo diretamente às listas
 de discussão públicas.
+
+No mínimo, ao usar um assistente de IA para encontrar e relatar bugs, faça com
+que o assistente leia este arquivo e o Documentation/process/threat-model.rst
+antes de prosseguir, e que ele siga o procedimento descrito em
+coding-assistants.rst: trabalhar em uma árvore mainline atualizada e anotar o
+ID do commit, verificar se o bug é real, escrever uma correção, compilá-la sem
+avisos e sem apontamentos do checkpatch, fazer o commit com uma tag Fixes e
+identificar os mantenedores com o get_maintainer.pl.
+
+Além desse procedimento, o assistente de IA **DEVE**:
+
+1. Preparar um relatório em texto simples explicando o problema. Ele deve
+   conter os quatro itens listados no topo deste arquivo como absolutamente
+   necessários: a versão afetada ou o ID do commit anotado ao seguir o
+   procedimento acima, a descrição do problema, o reprodutor ou o seu status,
+   e as condições de acionamento.
+2. Iniciar o relatório com uma seção temporária listando os endereços dos
+   destinatários (mantenedores+lista para o patch, apenas mantenedores para o
+   relatório e o reprodutor), e com instruções lembrando o relator de verificar
+   se o seu cliente de e-mail está configurado corretamente (veja
+   email-clients.rst), e deixar a cargo do relator a remoção dessa seção
+   temporária.
+
+Um processo mais detalhado é descrito em https://github.com/masoncl/kres.git.
 
 Enviando o relatório
 --------------------
