@@ -543,6 +543,25 @@
 	i2c-scl-falling-time-ns = <30>;
 	status = "okay";
 
+	p5_gpio: gpio@20 {
+		compatible = "onnn,pca9655", "nxp,pca9555";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		/* All 16 lines go to pins 4-19 of the P5 GPIO header */
+		gpio-line-names = "PIN_4", "PIN_5", "PIN_6", "PIN_7",
+				  "PIN_8", "PIN_9", "PIN_10", "PIN_11",
+				  "PIN_12", "PIN_13", "PIN_14", "PIN_15",
+				  "PIN_16", "PIN_17", "PIN_18", "PIN_19";
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <RK_PB1 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&exp16_int_l>;
+		vcc-supply = <&vcc3v3_sys_s3>;
+	};
+
 	temp@4c {
 		compatible = "national,lm75";
 		reg = <0x4c>;
@@ -580,6 +599,12 @@
 
 		user1_btn: user1-btn {
 			rockchip,pins = <0 RK_PA3 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
+	expander {
+		exp16_int_l: exp16-int-l {
+			rockchip,pins = <0 RK_PB1 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 
