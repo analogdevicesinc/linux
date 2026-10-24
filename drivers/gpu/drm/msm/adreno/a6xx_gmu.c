@@ -76,6 +76,13 @@ static irqreturn_t a6xx_hfi_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+bool a6xx_gmu_scales_bw(struct a6xx_gmu *gmu)
+{
+	struct a6xx_gpu *a6xx_gpu = container_of(gmu, struct a6xx_gpu, gmu);
+
+	return a6xx_gpu->base.info->a6xx->bcms && gmu->nr_gpu_bws > 1;
+}
+
 bool a6xx_gmu_sptprac_is_on(struct a6xx_gmu *gmu)
 {
 	u32 val;
@@ -169,7 +176,6 @@ void a6xx_gmu_set_freq(struct msm_gpu *gpu, struct dev_pm_opp *opp,
 		       bool suspended)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
-	const struct a6xx_info *info = adreno_gpu->info->a6xx;
 	struct a6xx_gpu *a6xx_gpu = to_a6xx_gpu(adreno_gpu);
 	struct a6xx_gmu *gmu = &a6xx_gpu->gmu;
 	u32 perf_index;
@@ -187,7 +193,7 @@ void a6xx_gmu_set_freq(struct msm_gpu *gpu, struct dev_pm_opp *opp,
 			break;
 
 	/* If enabled, find the corresponding DDR bandwidth index */
-	if (info->bcms && gmu->nr_gpu_bws > 1) {
+	if (a6xx_gmu_scales_bw(gmu)) {
 		unsigned int bw = dev_pm_opp_get_bw(opp, true, 0);
 
 		for (bw_index = 0; bw_index < gmu->nr_gpu_bws - 1; bw_index++) {
@@ -1393,6 +1399,10 @@ int a6xx_gmu_resume(struct a6xx_gpu *a6xx_gpu)
 	/* Set the GPU to the current freq */
 	a6xx_gmu_set_initial_freq(gpu, gmu);
 
+	/* Clear the boot bus quota to allow GMU-driven BW scaling */
+	if (a6xx_gmu_scales_bw(gmu))
+		dev_pm_opp_set_opp(&gpu->pdev->dev, NULL);
+
 	return 0;
 
 disable_irq:
@@ -1913,7 +1923,7 @@ static int a6xx_gmu_rpmh_votes_init(struct a6xx_gmu *gmu)
 		gmu->gmu_freqs, gmu->nr_gmu_freqs, "cx.lvl", "mx.lvl");
 
 	/* Build the interconnect votes */
-	if (info->bcms && gmu->nr_gpu_bws > 1)
+	if (a6xx_gmu_scales_bw(gmu))
 		ret |= a6xx_gmu_rpmh_bw_votes_init(adreno_gpu, info, gmu);
 
 	return ret;
