@@ -632,6 +632,20 @@ static struct es9039_fir_ctl es9039_fir4x = {
 	.stage_4x = true,
 };
 
+/*
+ * The FIR coefficient controls take raw coefficients and nothing else:
+ * tlv[] carries taps * ES9039_COEFF_BYTES bytes with no type/length header.
+ * snd_soc_bytes_tlv_callback() passes the user pointer to .put unchanged,
+ * so a header would be loaded as coefficients. wm_adsp uses the same
+ * convention and SOF embeds a header of its own, so the choice is stated
+ * here rather than left to be inferred.
+ *
+ * The driver cannot enforce it. The callback clamps the count it passes on
+ * to .max, which is exactly taps * ES9039_COEFF_BYTES, so the size check in
+ * es9039_fir_put() can only reject a short write. An over-long one - a
+ * header followed by a full coefficient set - arrives truncated to .max,
+ * passes the check, and loads the header words as the first taps.
+ */
 #define ES9039_FIR(xname, xctl)						\
 {									\
 	.iface	= SNDRV_CTL_ELEM_IFACE_MIXER,				\
