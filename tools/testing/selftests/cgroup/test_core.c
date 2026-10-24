@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <sched.h>
 #include <stdio.h>
@@ -568,6 +569,39 @@ static void *dummy_thread_fn(void *arg)
 }
 
 /*
+ * Count the threads of the current process, or return -1 if any of them
+ * is not in @cgroup. Unlike reading cgroup.threads, this is not affected
+ * by other migrations happening at the same time.
+ */
+static int count_threads_in_cgroup(const char *root, const char *cgroup)
+{
+	char line[PATH_MAX];
+	struct dirent *de;
+	int cnt = 0;
+	DIR *dir;
+
+	snprintf(line, sizeof(line), CG_PATH_FORMAT, cgroup + strlen(root));
+
+	dir = opendir("/proc/self/task");
+	if (!dir)
+		return -1;
+
+	while ((de = readdir(dir))) {
+		if (de->d_name[0] == '.')
+			continue;
+
+		if (proc_read_strstr(atoi(de->d_name), false, "cgroup", line)) {
+			cnt = -1;
+			break;
+		}
+		cnt++;
+	}
+
+	closedir(dir);
+	return cnt;
+}
+
+/*
  * Test threadgroup migration.
  * All threads of a process are migrated together.
  */
@@ -597,7 +631,7 @@ static int test_cgcore_proc_migration(const char *root)
 	}
 
 	cg_enter_current(dst);
-	if (cg_read_lc(dst, CG_THREADS_FILE) != n_threads + 1)
+	if (count_threads_in_cgroup(root, dst) != n_threads + 1)
 		goto cleanup;
 
 	ret = KSFT_PASS;
