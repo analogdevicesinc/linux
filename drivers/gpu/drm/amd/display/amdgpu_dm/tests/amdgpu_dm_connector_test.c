@@ -4213,7 +4213,8 @@ struct dm_test_stream_ctx {
 	struct drm_display_mode *mode;
 };
 
-static struct dm_test_stream_ctx *dm_test_stream_ctx_alloc(struct kunit *test)
+static struct dm_test_stream_ctx *
+dm_test_stream_ctx_alloc_type(struct kunit *test, int connector_type)
 {
 	struct dm_test_stream_ctx *ctx;
 	struct device *dev;
@@ -4234,7 +4235,7 @@ static struct dm_test_stream_ctx *dm_test_stream_ctx_alloc(struct kunit *test)
 	KUNIT_ASSERT_EQ(test,
 		drmm_connector_init(ctx->drm, &ctx->aconnector->base,
 				    &dm_test_connector_funcs,
-				    DRM_MODE_CONNECTOR_DisplayPort, NULL), 0);
+				    connector_type, NULL), 0);
 
 	ctx->dc_ctx = kunit_kzalloc(test, sizeof(*ctx->dc_ctx), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, ctx->dc_ctx);
@@ -4259,6 +4260,11 @@ static struct dm_test_stream_ctx *dm_test_stream_ctx_alloc(struct kunit *test)
 	ctx->mode->clock = 148500;
 
 	return ctx;
+}
+
+static struct dm_test_stream_ctx *dm_test_stream_ctx_alloc(struct kunit *test)
+{
+	return dm_test_stream_ctx_alloc_type(test, DRM_MODE_CONNECTOR_DisplayPort);
 }
 
 /**
@@ -4577,6 +4583,215 @@ static void dm_test_create_stream_hdmi_vsif(struct kunit *test)
 
 	dc_stream_release(stream);
 	dc_sink_release(sink);
+}
+
+enum dm_test_native {
+	/*
+	 * The list also keeps a 3840x2400 mode at half the native clock, as if
+	 * mode_valid had rejected the native timing and no limit applied
+	 */
+	DM_TEST_NATIVE_LISTED = BIT(0),
+	/* The scaled mode is the preferred one */
+	DM_TEST_NATIVE_PREFERRED = BIT(1),
+	DM_TEST_NATIVE_NO_CLOCK = BIT(2),
+	DM_TEST_NATIVE_NO_EDID = BIT(3),
+};
+
+/*
+ * Build a stream after a probe with size limits below the native mode, such as
+ * fbdev emulation's. That probe leaves only a 1920x1200 scaled mode in the
+ * connector's mode list, while the encoder keeps the 3840x2400 native mode.
+ * @flags is a mask of enum dm_test_native
+ */
+static struct dc_stream_state *
+dm_test_native_mode_stream(struct kunit *test, int connector_type, unsigned int flags)
+{
+	static const u8 edid[EDID_LENGTH];
+	struct dm_test_stream_ctx *ctx = dm_test_stream_ctx_alloc_type(test, connector_type);
+	struct amdgpu_encoder *aenc;
+	struct dc_stream_state *stream;
+	struct drm_display_mode *native;
+
+	aenc = drmm_kzalloc(ctx->drm, sizeof(*aenc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aenc);
+	KUNIT_ASSERT_EQ(test, drmm_encoder_init(ctx->drm, &aenc->base, NULL,
+						DRM_MODE_ENCODER_TMDS, NULL), 0);
+	KUNIT_ASSERT_EQ(test, drm_connector_attach_encoder(&ctx->aconnector->base, &aenc->base), 0);
+
+	native = &aenc->native_mode;
+	native->clock = 592500;
+	native->hdisplay = 3840;
+	native->hsync_start = 3888;
+	native->hsync_end = 3920;
+	native->htotal = 4000;
+	native->vdisplay = 2400;
+	native->vsync_start = 2403;
+	native->vsync_end = 2409;
+	native->vtotal = 2469;
+	/* Cached by the first, unlimited probe */
+	drm_mode_copy(&ctx->aconnector->freesync_vid_base, native);
+
+	drm_mode_copy(ctx->mode, native);
+	ctx->mode->hdisplay = 1920;
+	ctx->mode->vdisplay = 1200;
+	drm_mode_set_crtcinfo(ctx->mode, CRTC_INTERLACE_HALVE_V);
+	dm_test_stream_add_mode(test, ctx, flags & DM_TEST_NATIVE_PREFERRED ?
+				DRM_MODE_TYPE_PREFERRED : 0);
+
+	/* After the scaled mode, so that taking the first mode can't pass */
+	if (flags & DM_TEST_NATIVE_LISTED) {
+		struct drm_display_mode *listed = drm_mode_duplicate(ctx->drm, ctx->mode);
+
+		KUNIT_ASSERT_NOT_NULL(test, listed);
+		listed->hdisplay = native->hdisplay;
+		listed->vdisplay = native->vdisplay;
+		listed->clock /= 2;
+		drm_mode_set_crtcinfo(listed, CRTC_INTERLACE_HALVE_V);
+		list_add_tail(&listed->head, &ctx->aconnector->base.modes);
+	}
+	ctx->dm_state->scaling = RMX_FULL;
+
+	if (flags & DM_TEST_NATIVE_NO_CLOCK)
+		native->clock = 0;
+	if (!(flags & DM_TEST_NATIVE_NO_EDID)) {
+		ctx->aconnector->drm_edid = drm_edid_alloc(edid, sizeof(edid));
+		KUNIT_ASSERT_NOT_NULL(test, ctx->aconnector->drm_edid);
+	}
+
+	stream = create_stream_for_sink(&ctx->aconnector->base, ctx->mode,
+					ctx->dm_state, NULL, 8,
+					PIXEL_ENCODING_RGB, false);
+
+	drm_edid_free(ctx->aconnector->drm_edid);
+	ctx->aconnector->drm_edid = NULL;
+	KUNIT_ASSERT_NOT_NULL(test, stream);
+
+	return stream;
+}
+
+/* Expect the stream to be driven with the 1920x1200 mode left in the list */
+static void dm_test_expect_first_mode(struct kunit *test, struct dc_stream_state *stream)
+{
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.h_addressable, 1920);
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.v_addressable, 1200);
+	KUNIT_EXPECT_EQ(test, (int)stream->src.width, 1920);
+	KUNIT_EXPECT_EQ(test, (int)stream->src.height, 1200);
+	dc_stream_release(stream);
+}
+
+/**
+ * dm_test_create_stream_native_mode_pruned_edp - Test eDP gets native timing
+ * @test: The KUnit test context
+ *
+ * The scaled mode must still be driven with the panel's native timing, kept in
+ * the encoder
+ */
+static void dm_test_create_stream_native_mode_pruned_edp(struct kunit *test)
+{
+	struct dc_stream_state *stream =
+		dm_test_native_mode_stream(test, DRM_MODE_CONNECTOR_eDP, 0);
+
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.h_addressable, 3840);
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.v_addressable, 2400);
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.pix_clk_100hz, 5925000);
+	KUNIT_EXPECT_EQ(test, (int)stream->src.width, 1920);
+	KUNIT_EXPECT_EQ(test, (int)stream->src.height, 1200);
+	dc_stream_release(stream);
+}
+
+/**
+ * dm_test_create_stream_native_mode_pruned_lvds - Test LVDS gets native timing
+ * @test: The KUnit test context
+ */
+static void dm_test_create_stream_native_mode_pruned_lvds(struct kunit *test)
+{
+	struct dc_stream_state *stream =
+		dm_test_native_mode_stream(test, DRM_MODE_CONNECTOR_LVDS, 0);
+
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.h_addressable, 3840);
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.v_addressable, 2400);
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.pix_clk_100hz, 5925000);
+	KUNIT_EXPECT_EQ(test, (int)stream->src.width, 1920);
+	KUNIT_EXPECT_EQ(test, (int)stream->src.height, 1200);
+	dc_stream_release(stream);
+}
+
+/**
+ * dm_test_create_stream_native_mode_pruned_hdmi - Test HDMI uses the first mode
+ * @test: The KUnit test context
+ *
+ * On a connector that is not a panel, mode_valid may have dropped the native
+ * mode, so the first mode left in the list must drive the timing
+ */
+static void dm_test_create_stream_native_mode_pruned_hdmi(struct kunit *test)
+{
+	dm_test_expect_first_mode(test,
+				  dm_test_native_mode_stream(test, DRM_MODE_CONNECTOR_HDMIA, 0));
+}
+
+/**
+ * dm_test_create_stream_native_size_listed_edp - Test eDP prefers a listed mode
+ * @test: The KUnit test context
+ *
+ * When the mode list still has a mode of the native size, that mode's timing
+ * must drive the panel instead of the encoder's copy, which mode_valid may
+ * have rejected
+ */
+static void dm_test_create_stream_native_size_listed_edp(struct kunit *test)
+{
+	struct dc_stream_state *stream =
+		dm_test_native_mode_stream(test, DRM_MODE_CONNECTOR_eDP,
+					   DM_TEST_NATIVE_LISTED);
+
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.h_addressable, 3840);
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.v_addressable, 2400);
+	KUNIT_EXPECT_EQ(test, (int)stream->timing.pix_clk_100hz, 2962500);
+	KUNIT_EXPECT_EQ(test, (int)stream->src.width, 1920);
+	KUNIT_EXPECT_EQ(test, (int)stream->src.height, 1200);
+	dc_stream_release(stream);
+}
+
+/**
+ * dm_test_create_stream_native_preferred_edp - Test a listed preferred mode
+ * wins on eDP
+ * @test: The KUnit test context
+ */
+static void dm_test_create_stream_native_preferred_edp(struct kunit *test)
+{
+	dm_test_expect_first_mode(test,
+				  dm_test_native_mode_stream(test, DRM_MODE_CONNECTOR_eDP,
+							     DM_TEST_NATIVE_LISTED |
+							     DM_TEST_NATIVE_PREFERRED));
+}
+
+/**
+ * dm_test_create_stream_native_mode_no_clock_edp - Test an empty native mode
+ * isn't used
+ * @test: The KUnit test context
+ *
+ * amdgpu_dm_get_native_mode() zeroes the clock and then copies only a
+ * preferred mode at the head of probed_modes. When there is none, the size
+ * left in the encoder is stale and must not pick a listed mode
+ */
+static void dm_test_create_stream_native_mode_no_clock_edp(struct kunit *test)
+{
+	dm_test_expect_first_mode(test,
+				  dm_test_native_mode_stream(test, DRM_MODE_CONNECTOR_eDP,
+							     DM_TEST_NATIVE_LISTED |
+							     DM_TEST_NATIVE_NO_CLOCK));
+}
+
+/**
+ * dm_test_create_stream_native_mode_no_edid_edp - Test the fallback needs an
+ * EDID
+ * @test: The KUnit test context
+ */
+static void dm_test_create_stream_native_mode_no_edid_edp(struct kunit *test)
+{
+	dm_test_expect_first_mode(test,
+				  dm_test_native_mode_stream(test, DRM_MODE_CONNECTOR_eDP,
+							     DM_TEST_NATIVE_LISTED |
+							     DM_TEST_NATIVE_NO_EDID));
 }
 
 /* Tests for amdgpu_dm_connector_detect() */
@@ -10300,6 +10515,13 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_create_stream_dp_vsc_colorimetry),
 	KUNIT_CASE(dm_test_create_stream_dp_colorimetry_quirk),
 	KUNIT_CASE(dm_test_create_stream_hdmi_vsif),
+	KUNIT_CASE(dm_test_create_stream_native_mode_pruned_edp),
+	KUNIT_CASE(dm_test_create_stream_native_mode_pruned_lvds),
+	KUNIT_CASE(dm_test_create_stream_native_mode_pruned_hdmi),
+	KUNIT_CASE(dm_test_create_stream_native_size_listed_edp),
+	KUNIT_CASE(dm_test_create_stream_native_preferred_edp),
+	KUNIT_CASE(dm_test_create_stream_native_mode_no_clock_edp),
+	KUNIT_CASE(dm_test_create_stream_native_mode_no_edid_edp),
 	/* amdgpu_dm_connector_detect */
 	KUNIT_CASE(dm_test_detect_force_on),
 	KUNIT_CASE(dm_test_detect_force_on_digital),
