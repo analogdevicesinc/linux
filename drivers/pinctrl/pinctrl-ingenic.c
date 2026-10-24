@@ -2452,6 +2452,7 @@ static int x1600_pwm_pwm6_b20_pins[] = { 0x34, };
 static int x1600_pwm_pwm7_b10_pins[] = { 0x2a, };
 static int x1600_pwm_pwm7_b21_pins[] = { 0x35, };
 
+static int x1600_rtc32k_pins[] = { 0x5a, };
 static int x1600_mac_pins[] = {
 	0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c,
 };
@@ -2511,6 +2512,7 @@ static const struct group_desc x1600_groups[] = {
 	INGENIC_PIN_GROUP("pwm7-b10", x1600_pwm_pwm7_b10, 1),
 	INGENIC_PIN_GROUP("pwm7-b21", x1600_pwm_pwm7_b21, 2),
 	INGENIC_PIN_GROUP("mac", x1600_mac, 1),
+	INGENIC_PIN_GROUP("rtc32k", x1600_rtc32k, 0),
 };
 
 static const char * const x1600_uart0_groups[] = { "uart0-data", "uart0-hwflow", };
@@ -2557,6 +2559,7 @@ static const char * const x1600_pwm6_groups[] = { "pwm6-b9", "pwm6-b20", };
 static const char * const x1600_pwm7_groups[] = { "pwm7-b10", "pwm7-b21", };
 
 static const char * const x1600_mac_groups[] = { "mac", };
+static const char * const x1600_rtc32k_groups[] = { "rtc32k", };
 
 static const struct pinfunction x1600_functions[] = {
 	INGENIC_PIN_FUNCTION("uart0", x1600_uart0),
@@ -2581,6 +2584,7 @@ static const struct pinfunction x1600_functions[] = {
 	INGENIC_PIN_FUNCTION("pwm6", x1600_pwm6),
 	INGENIC_PIN_FUNCTION("pwm7", x1600_pwm7),
 	INGENIC_PIN_FUNCTION("mac", x1600_mac),
+	INGENIC_PIN_FUNCTION("rtc32k", x1600_rtc32k),
 };
 
 static const struct ingenic_chip_info x1600_chip_info = {
