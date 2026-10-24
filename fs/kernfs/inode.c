@@ -204,7 +204,8 @@ static void kernfs_init_inode(struct kernfs_node *kn, struct inode *inode)
 	inode->i_generation = kernfs_gen(kn);
 
 	set_default_inode_attr(inode, kn->mode);
-	kernfs_refresh_inode(kn, inode);
+	scoped_guard(rwsem_read, &kernfs_root(kn)->kernfs_iattr_rwsem)
+		kernfs_refresh_inode(kn, inode);
 
 	/* initialize inode according to type */
 	switch (kernfs_type(kn)) {
