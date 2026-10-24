@@ -1461,8 +1461,8 @@ static void a6xx_gmu_shutdown(struct a6xx_gmu *gmu)
 
 	ret = gmu_poll_timeout(gmu,
 		REG_A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, val,
-		!(val & A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS_GPUBUSYIGNAHB),
-		100, 10000);
+		!(val & A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS_CXGXCPUBUSYIGNAHB),
+		100, 100000);
 
 	/*
 	 * Let the user know we failed to slumber but don't worry too
