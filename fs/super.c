@@ -55,24 +55,32 @@ static char *sb_writers_name[SB_FREEZE_LEVELS] = {
 	"sb_internal",
 };
 
-static inline void __super_lock(struct super_block *sb, bool excl)
+enum super_lock_flags_t {
+	SUPER_LOCK_EXCL		= (1U << 0),
+	SUPER_LOCK_KILLABLE	= (1U << 1),
+	SUPER_LOCK_WAIT_SHUTDOWN = (1U << 2),
+};
+
+static inline int __super_lock(struct super_block *sb,
+			       enum super_lock_flags_t flags)
 {
-	if (excl)
+	if (flags & SUPER_LOCK_KILLABLE) {
+		if (flags & SUPER_LOCK_EXCL)
+			return down_write_killable(&sb->s_umount);
+		return down_read_killable(&sb->s_umount);
+	}
+
+	if (flags & SUPER_LOCK_EXCL)
 		down_write(&sb->s_umount);
 	else
 		down_read(&sb->s_umount);
+	return 0;
 }
 
-static inline int __super_lock_killable(struct super_block *sb, bool excl)
+static inline void super_unlock(struct super_block *sb,
+				enum super_lock_flags_t flags)
 {
-	if (excl)
-		return down_write_killable(&sb->s_umount);
-	return down_read_killable(&sb->s_umount);
-}
-
-static inline void super_unlock(struct super_block *sb, bool excl)
-{
-	if (excl)
+	if (flags & SUPER_LOCK_EXCL)
 		up_write(&sb->s_umount);
 	else
 		up_read(&sb->s_umount);
@@ -80,17 +88,17 @@ static inline void super_unlock(struct super_block *sb, bool excl)
 
 static inline void __super_lock_excl(struct super_block *sb)
 {
-	__super_lock(sb, true);
+	__super_lock(sb, SUPER_LOCK_EXCL);
 }
 
 static inline void super_unlock_excl(struct super_block *sb)
 {
-	super_unlock(sb, true);
+	super_unlock(sb, SUPER_LOCK_EXCL);
 }
 
 static inline void super_unlock_shared(struct super_block *sb)
 {
-	super_unlock(sb, false);
+	super_unlock(sb, 0);
 }
 
 static bool super_flags(const struct super_block *sb, unsigned int flags)
@@ -103,12 +111,54 @@ static bool super_flags(const struct super_block *sb, unsigned int flags)
 }
 
 /*
- * Returns 0 with s_umount held, -ENOENT if the superblock is going away, or,
- * if @killable, the error from a wait which was cut short.
+ * Wait for one of @sb_flags to be set on @sb, sleeping in @state.  Returns 0
+ * or -ERESTARTSYS if @state allowed the wait to be cut short.
  */
-static int super_lock_common(struct super_block *sb, bool excl, bool killable)
+static int super_wait(struct super_block *sb, unsigned int sb_flags,
+		      unsigned int state)
 {
-	int ret = 0;
+	return wait_var_event_state(&sb->s_flags, super_flags(sb, sb_flags),
+				    state);
+}
+
+/**
+ * super_lock - wait for superblock to become ready and lock it
+ * @sb: superblock to wait for
+ * @flags: SUPER_LOCK_* flags
+ *
+ * If the superblock has neither passed through vfs_get_tree() or
+ * generic_shutdown_super() yet wait for it to happen. Either superblock
+ * creation will succeed and SB_BORN is set by vfs_get_tree() or we're
+ * woken and we'll see SB_DYING.
+ *
+ * With SUPER_LOCK_EXCL s_umount is taken for writing, otherwise for reading.
+ *
+ * A superblock which is being shut down is not waited for unless
+ * SUPER_LOCK_WAIT_SHUTDOWN is passed.  That is for those who have nothing to
+ * do on a superblock which is going away, but who promise their caller that
+ * what it had to write has been written, or who must not carry on while the
+ * filesystem is still being written out.  The wait is over once
+ * generic_shutdown_super() is done with @sb, and -ENOENT is still returned.
+ *
+ * With SUPER_LOCK_KILLABLE all the waiting can be cut short by a fatal
+ * signal.  That is only for callers which give up altogether when they are
+ * killed.  If what comes after the wait happens either way, the wait must
+ * not be cut short.
+ *
+ * The caller must have acquired a temporary reference on @sb->s_passive.
+ *
+ * Return: 0 if SB_BORN was set and with s_umount held. Without s_umount held,
+ *         -ENOENT if the superblock is being shut down or SB_DYING was set,
+ *         -EINTR or -ERESTARTSYS if the task was killed.
+ */
+static __must_check int super_lock(struct super_block *sb,
+				   enum super_lock_flags_t flags)
+{
+	unsigned int state = TASK_UNINTERRUPTIBLE;
+	int ret;
+
+	if (flags & SUPER_LOCK_KILLABLE)
+		state = TASK_KILLABLE;
 
 	lockdep_assert_not_held(&sb->s_umount);
 
@@ -119,26 +169,18 @@ static int super_lock_common(struct super_block *sb, bool excl, bool killable)
 	 * and it can be a long one: the filesystem is written out first.
 	 */
 	if (!atomic_read(&sb->s_active))
-		return -ENOENT;
+		goto dying;
 
 	/* wait until the superblock is ready or dying */
-	if (killable)
-		ret = wait_var_event_killable(&sb->s_flags,
-					      super_flags(sb, SB_BORN | SB_DYING));
-	else
-		wait_var_event(&sb->s_flags,
-			       super_flags(sb, SB_BORN | SB_DYING));
+	ret = super_wait(sb, SB_BORN | SB_DYING, state);
 	if (ret)
 		return ret;
 
 	/* Don't pointlessly acquire s_umount. */
 	if (super_flags(sb, SB_DYING))
-		return -ENOENT;
+		goto dying;
 
-	if (killable)
-		ret = __super_lock_killable(sb, excl);
-	else
-		__super_lock(sb, excl);
+	ret = __super_lock(sb, flags);
 	if (ret)
 		return ret;
 
@@ -148,101 +190,45 @@ static int super_lock_common(struct super_block *sb, bool excl, bool killable)
 	 * grab a reference to this. Tell them so.
 	 */
 	if (sb->s_flags & SB_DYING) {
-		super_unlock(sb, excl);
-		return -ENOENT;
+		super_unlock(sb, flags);
+		goto dying;
 	}
 
 	WARN_ON_ONCE(!(sb->s_flags & SB_BORN));
 	return 0;
+
+dying:
+	if (flags & SUPER_LOCK_WAIT_SHUTDOWN) {
+		ret = super_wait(sb, SB_DYING, state);
+		if (ret)
+			return ret;
+	}
+	return -ENOENT;
 }
 
-/**
- * super_lock - wait for superblock to become ready and lock it
- * @sb: superblock to wait for
- * @excl: whether exclusive access is required
- *
- * If the superblock has neither passed through vfs_get_tree() or
- * generic_shutdown_super() yet wait for it to happen. Either superblock
- * creation will succeed and SB_BORN is set by vfs_get_tree() or we're
- * woken and we'll see SB_DYING.
- *
- * A superblock which is being shut down is not waited for, see
- * super_wait_shutdown() and super_wait_shutdown_killable() for that.
- *
- * The caller must have acquired a temporary reference on @sb->s_passive.
- *
- * Return: The function returns true if SB_BORN was set and with
- *         s_umount held. The function returns false if the superblock
- *         is being shut down or SB_DYING was set and without s_umount
- *         held.
- */
-static __must_check bool super_lock(struct super_block *sb, bool excl)
+static inline void super_unlock_guard(struct super_block *sb,
+				      enum super_lock_flags_t flags)
 {
-	return !super_lock_common(sb, excl, false);
+	if (!IS_ERR_OR_NULL(sb))
+		super_unlock(sb, flags);
 }
 
-/**
- * super_lock_killable - killable super_lock()
- * @sb: superblock to wait for
- * @excl: whether exclusive access is required
- *
- * Only for callers which give up altogether when they are killed.
- *
- * The caller must have acquired a temporary reference on @sb->s_passive.
- *
- * Return: 0 if SB_BORN was set and with s_umount held. Without s_umount held,
- *         -ENOENT if the superblock is being shut down or SB_DYING was set,
- *         -EINTR or -ERESTARTSYS if the task was killed.
- */
-static __must_check int super_lock_killable(struct super_block *sb, bool excl)
-{
-	return super_lock_common(sb, excl, true);
-}
+/* Unlocks with the flags it locked with. */
+__DEFINE_CLASS_IS_CONDITIONAL(super_lock, true);
+__DEFINE_UNLOCK_GUARD(super_lock, struct super_block,
+		      super_unlock_guard(_T->lock, _T->flags),
+		      enum super_lock_flags_t flags);
 
-/**
- * super_wait_shutdown_killable - wait for a superblock being shut down
- * @sb: superblock super_lock() failed on
- *
- * For those who have nothing to do on a superblock which is going away, but
- * who promise their caller that what it had to write has been written.
- *
- * Only for callers which give up altogether when they are killed.  If what
- * comes after the wait happens either way, the wait must not be cut short.
- *
- * The caller must have acquired a temporary reference on @sb->s_passive.
- *
- * Return: 0 once generic_shutdown_super() is done with @sb, -ERESTARTSYS if
- *         the task was killed first.
- */
-static int super_wait_shutdown_killable(struct super_block *sb)
+static inline class_super_lock_t
+class_super_lock_constructor(struct super_block *sb, enum super_lock_flags_t flags)
 {
-	return wait_var_event_killable(&sb->s_flags, super_flags(sb, SB_DYING));
-}
+	class_super_lock_t _t = { .lock = sb, .flags = flags };
+	int ret;
 
-/**
- * super_wait_shutdown - wait for a superblock being shut down
- * @sb: superblock super_lock() failed on
- *
- * For callers of which the rest happens whether they are killed or not, and
- * must not happen while the filesystem is still being written out.
- *
- * The caller must have acquired a temporary reference on @sb->s_passive.
- */
-static void super_wait_shutdown(struct super_block *sb)
-{
-	wait_var_event(&sb->s_flags, super_flags(sb, SB_DYING));
-}
-
-/* wait and try to acquire read-side of @sb->s_umount */
-static inline bool super_lock_shared(struct super_block *sb)
-{
-	return super_lock(sb, false);
-}
-
-/* wait and try to acquire write-side of @sb->s_umount */
-static inline bool super_lock_excl(struct super_block *sb)
-{
-	return super_lock(sb, true);
+	ret = super_lock(sb, flags);
+	if (ret)
+		_t.lock = ERR_PTR(ret);
+	return _t;
 }
 
 /* wake waiters */
@@ -606,9 +592,7 @@ static struct super_block *super_dev_next(struct super_dev *cursor,
 				return sb;
 			}
 		}
-		ret = wait_var_event_state(&sb->s_flags,
-					   super_flags(sb, SB_BORN | SB_DYING),
-					   state);
+		ret = super_wait(sb, SB_BORN | SB_DYING, state);
 		put_super(sb);
 		if (ret) {
 			super_dev_walk_end(cursor);
@@ -721,7 +705,7 @@ static int grab_super(struct super_block *sb)
 
 	refcount_inc(&sb->s_passive);
 	spin_unlock(&sb_lock);
-	ret = super_lock_killable(sb, true);
+	ret = super_lock(sb, SUPER_LOCK_EXCL | SUPER_LOCK_KILLABLE);
 	if (!ret) {
 		if (atomic_inc_not_zero(&sb->s_active)) {
 			put_super(sb);
@@ -731,8 +715,7 @@ static int grab_super(struct super_block *sb)
 		ret = -ENOENT;
 	}
 	if (ret == -ENOENT)
-		ret = wait_var_event_killable(&sb->s_flags,
-					      super_flags(sb, SB_DEAD));
+		ret = super_wait(sb, SB_DEAD, TASK_KILLABLE);
 	put_super(sb);
 	return ret ? ret : -EAGAIN;
 }
@@ -1032,6 +1015,7 @@ enum super_iter_flags_t {
 	SUPER_ITER_REVERSE	= (1U << 1),
 	SUPER_ITER_WAIT_SHUTDOWN = (1U << 2),
 	SUPER_ITER_SKIP_UNBORN	= (1U << 3),
+	SUPER_ITER_KILLABLE	= (1U << 4),
 };
 
 static inline struct super_block *first_super(enum super_iter_flags_t flags)
@@ -1052,8 +1036,14 @@ static inline struct super_block *next_super(struct super_block *sb,
 static int __iterate_supers(void (*f)(struct super_block *, void *), void *arg,
 			    enum super_iter_flags_t flags)
 {
+	enum super_lock_flags_t lock_flags = 0;
 	struct super_block *sb, *p = NULL;
 	int ret = 0;
+
+	if (flags & SUPER_ITER_WAIT_SHUTDOWN)
+		lock_flags |= SUPER_LOCK_WAIT_SHUTDOWN;
+	if (flags & SUPER_ITER_KILLABLE)
+		lock_flags |= SUPER_LOCK_KILLABLE;
 
 	spin_lock(&sb_lock);
 
@@ -1074,11 +1064,14 @@ static int __iterate_supers(void (*f)(struct super_block *, void *), void *arg,
 
 		if (flags & SUPER_ITER_UNLOCKED) {
 			f(sb, arg);
-		} else if (super_lock_shared(sb)) {
-			f(sb, arg);
-			super_unlock_shared(sb);
-		} else if (flags & SUPER_ITER_WAIT_SHUTDOWN) {
-			ret = super_wait_shutdown_killable(sb);
+		} else {
+			ACQUIRE(super_lock, lock)(sb, lock_flags);
+
+			ret = ACQUIRE_ERR(super_lock, &lock);
+			if (!ret)
+				f(sb, arg);
+			else if (ret == -ENOENT)
+				ret = 0;
 		}
 
 		if (p)
@@ -1126,12 +1119,13 @@ void iterate_supers_born(void (*f)(struct super_block *, void *), void *arg)
  * A superblock which is still being set up isn't passed to @f either, and
  * isn't waited for.  Nobody can have written to it yet.
  *
- * Return: 0 if all the superblocks were seen, -ERESTARTSYS if the task was
- *         killed while it waited for one.
+ * Return: 0 if all the superblocks were seen, -EINTR or -ERESTARTSYS if the
+ *         task was killed while it waited for one.
  */
 int iterate_supers_sync(void (*f)(struct super_block *, void *), void *arg)
 {
 	return __iterate_supers(f, arg, SUPER_ITER_WAIT_SHUTDOWN |
+					SUPER_ITER_KILLABLE |
 					SUPER_ITER_SKIP_UNBORN);
 }
 
@@ -1151,8 +1145,6 @@ void iterate_supers_type(struct file_system_type *type,
 
 	spin_lock(&sb_lock);
 	hlist_for_each_entry(sb, &type->fs_supers, s_instances) {
-		bool locked;
-
 		if (super_flags(sb, SB_DYING))
 			continue;
 
@@ -1161,11 +1153,8 @@ void iterate_supers_type(struct file_system_type *type,
 
 		spin_unlock(&sb_lock);
 
-		locked = super_lock_shared(sb);
-		if (locked) {
+		scoped_guard(super_lock, sb, 0)
 			f(sb, arg);
-			super_unlock_shared(sb);
-		}
 
 		if (p)
 			put_super(p);
@@ -1187,7 +1176,8 @@ struct super_block *user_get_super(dev_t dev, bool excl)
 	for_each_dev_super_killable(sb, &cursor) {
 		int ret;
 
-		ret = super_lock_killable(sb, excl);
+		ret = super_lock(sb, (excl ? SUPER_LOCK_EXCL : 0) |
+				     SUPER_LOCK_KILLABLE);
 		if (ret == -ENOENT)
 			continue;
 		super_dev_walk_end(&cursor);
@@ -1310,21 +1300,19 @@ static void do_emergency_remount_callback(struct super_block *sb, void *unused)
 {
 	struct fs_context *fc = NULL;
 
-	if (!super_lock_excl(sb)) {
-		/* the unmount writes the filesystem out, wait for that */
-		super_wait_shutdown(sb);
-		return;
+	/* the unmount writes the filesystem out, wait for that */
+	scoped_cond_guard(super_lock, return, sb,
+			  SUPER_LOCK_EXCL | SUPER_LOCK_WAIT_SHUTDOWN) {
+		/* Make sure no reference put under s_umount is the last one. */
+		atomic_inc(&sb->s_active);
+		if (sb->s_bdev && !sb_rdonly(sb)) {
+			fc = fs_context_for_reconfigure(sb->s_root,
+						SB_RDONLY | SB_FORCE, SB_RDONLY);
+			if (!IS_ERR(fc) &&
+			    parse_monolithic_mount_data(fc, NULL) == 0)
+				(void)reconfigure_super(fc);
+		}
 	}
-
-	/* Make sure no reference put under s_umount is the last one. */
-	atomic_inc(&sb->s_active);
-	if (sb->s_bdev && !sb_rdonly(sb)) {
-		fc = fs_context_for_reconfigure(sb->s_root,
-					SB_RDONLY | SB_FORCE, SB_RDONLY);
-		if (!IS_ERR(fc) && parse_monolithic_mount_data(fc, NULL) == 0)
-			(void)reconfigure_super(fc);
-	}
-	super_unlock_excl(sb);
 
 	/*
 	 * Our active reference may be the last one by now, so only drop it
@@ -1354,20 +1342,17 @@ void emergency_remount(void)
 	}
 }
 
-static inline bool get_active_super(struct super_block *sb)
+static inline bool get_active_super(struct super_block *sb,
+				    enum super_lock_flags_t flags)
 {
-	bool active = false;
-
-	if (super_lock_excl(sb)) {
-		active = atomic_inc_not_zero(&sb->s_active);
-		super_unlock_excl(sb);
-	}
-	return active;
+	scoped_guard(super_lock, sb, SUPER_LOCK_EXCL | flags)
+		return atomic_inc_not_zero(&sb->s_active);
+	return false;
 }
 
 static void do_thaw_all_callback(struct super_block *sb, void *unused)
 {
-	if (!get_active_super(sb))
+	if (!get_active_super(sb, 0))
 		return;
 
 	/* fs_bdev_thaw() acquires s_umount so it must not be held here */
@@ -1375,7 +1360,7 @@ static void do_thaw_all_callback(struct super_block *sb, void *unused)
 		while (sb->s_bdev && !bdev_thaw(sb->s_bdev))
 			pr_warn("Emergency Thaw on %pg\n", sb->s_bdev);
 
-	if (super_lock_excl(sb))
+	if (!super_lock(sb, SUPER_LOCK_EXCL))
 		thaw_super_locked(sb, FREEZE_HOLDER_USERSPACE, NULL);
 	deactivate_super(sb);
 }
@@ -1413,11 +1398,9 @@ static void filesystems_freeze_callback(struct super_block *sb, void *freeze_all
 	if (!freeze_all_ptr && !(sb->s_type->fs_flags & FS_POWER_FREEZE))
 		return;
 
-	if (!get_active_super(sb)) {
-		/* an unmount from a workqueue isn't stopped by the freezer */
-		super_wait_shutdown(sb);
+	/* an unmount from a workqueue isn't stopped by the freezer */
+	if (!get_active_super(sb, SUPER_LOCK_WAIT_SHUTDOWN))
 		return;
-	}
 
 	if (sb->s_op->freeze_super)
 		sb->s_op->freeze_super(sb, FREEZE_EXCL | FREEZE_HOLDER_KERNEL,
@@ -1444,7 +1427,7 @@ static void filesystems_thaw_callback(struct super_block *sb, void *unused)
 	if (!sb->s_op->freeze_fs && !sb->s_op->freeze_super)
 		return;
 
-	if (!get_active_super(sb))
+	if (!get_active_super(sb, 0))
 		return;
 
 	if (sb->s_op->thaw_super)
@@ -1664,7 +1647,7 @@ static int fs_super_thaw(struct super_block *sb)
 	}
 
 	/* The caller holds an active reference. */
-	if (WARN_ON_ONCE(!super_lock_excl(sb)))
+	if (WARN_ON_ONCE(super_lock(sb, SUPER_LOCK_EXCL)))
 		return 0;
 
 	/* FITHAW or an emergency thaw may have dropped the freeze already. */
@@ -1685,12 +1668,11 @@ static void fs_bdev_mark_dead(struct block_device *bdev, bool surprise)
 	mutex_unlock(&bdev->bd_holder_lock);
 
 	for_each_dev_super(sb, &cursor) {
-		if (!super_lock_shared(sb)) {
-			/* don't take the device away from under an unmount */
-			if (!surprise)
-				super_wait_shutdown(sb);
+		/* don't take the device away from under an unmount */
+		ACQUIRE(super_lock, lock)(sb, surprise ? 0 :
+					      SUPER_LOCK_WAIT_SHUTDOWN);
+		if (ACQUIRE_ERR(super_lock, &lock))
 			continue;
-		}
 		if (sb->s_root && (sb->s_flags & SB_ACTIVE)) {
 			if (!sb->s_op->remove_bdev ||
 			    sb->s_op->remove_bdev(sb, bdev)) {
@@ -1702,7 +1684,6 @@ static void fs_bdev_mark_dead(struct block_device *bdev, bool surprise)
 					sb->s_op->shutdown(sb);
 			}
 		}
-		super_unlock_shared(sb);
 	}
 }
 
@@ -1714,22 +1695,19 @@ static void fs_bdev_sync(struct block_device *bdev)
 	mutex_unlock(&bdev->bd_holder_lock);
 
 	for_each_dev_super_killable(sb, &cursor) {
-		int ret;
+		ACQUIRE(super_lock, lock)(sb, SUPER_LOCK_KILLABLE |
+					      SUPER_LOCK_WAIT_SHUTDOWN);
+		int ret = ACQUIRE_ERR(super_lock, &lock);
 
-		ret = super_lock_killable(sb, false);
-		if (!ret) {
-			if (sb->s_root && (sb->s_flags & SB_ACTIVE))
-				sync_filesystem(sb);
-			super_unlock_shared(sb);
-			continue;
-		}
 		if (ret == -ENOENT)
-			ret = super_wait_shutdown_killable(sb);
+			continue;
 		if (ret) {
 			super_dev_walk_end(&cursor);
 			put_super(sb);
 			return;
 		}
+		if (sb->s_root && (sb->s_flags & SB_ACTIVE))
+			sync_filesystem(sb);
 	}
 }
 
@@ -1758,11 +1736,9 @@ static int fs_bdev_freeze(struct block_device *bdev)
 	mutex_unlock(&bdev->bd_holder_lock);
 
 	for_each_dev_super(sb, &cursor) {
-		if (!get_active_super(sb)) {
-			/* an unmount writes to the device until it is done */
-			super_wait_shutdown(sb);
+		/* an unmount writes to the device until it is done */
+		if (!get_active_super(sb, SUPER_LOCK_WAIT_SHUTDOWN))
 			continue;
-		}
 		err = fs_super_freeze(sb);
 		if (err && !error)
 			error = err;
@@ -1816,7 +1792,7 @@ static int fs_bdev_thaw(struct block_device *bdev)
 	mutex_unlock(&bdev->bd_holder_lock);
 
 	for_each_dev_super(sb, &cursor) {
-		if (!get_active_super(sb))
+		if (!get_active_super(sb, 0))
 			continue;
 		err = fs_super_thaw(sb);
 		if (err && !error)
@@ -2513,7 +2489,7 @@ int freeze_super(struct super_block *sb, enum freeze_holder who, const void *fre
 {
 	int ret;
 
-	if (!super_lock_excl(sb)) {
+	if (super_lock(sb, SUPER_LOCK_EXCL)) {
 		WARN_ONCE(1, "Dying superblock while freezing!");
 		return -EINVAL;
 	}
@@ -2680,7 +2656,7 @@ out_unlock:
 int thaw_super(struct super_block *sb, enum freeze_holder who,
 	       const void *freeze_owner)
 {
-	if (!super_lock_excl(sb)) {
+	if (super_lock(sb, SUPER_LOCK_EXCL)) {
 		WARN_ONCE(1, "Dying superblock while thawing!");
 		return -EINVAL;
 	}
