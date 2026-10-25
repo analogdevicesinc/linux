@@ -73,7 +73,7 @@ static int max16601_read_word(struct i2c_client *client, int page, int phase,
 {
 	const struct pmbus_driver_info *info = pmbus_get_driver_info(client);
 	struct max16601_data *data = to_max16601_data(info);
-	u8 buf[I2C_SMBUS_BLOCK_MAX + 1];
+	u8 buf[I2C_SMBUS_BLOCK_MAX];
 	int ret;
 
 	switch (page) {
@@ -90,7 +90,7 @@ static int max16601_read_word(struct i2c_client *client, int page, int phase,
 				return ret;
 			ret = i2c_smbus_read_block_data(client,
 							REG_PHASE_REPORTING,
-							buf);
+							sizeof(buf), buf);
 			if (ret < 0)
 				return ret;
 			if (ret < 6)
@@ -278,7 +278,8 @@ static int max16601_get_id(struct i2c_client *client)
 	enum chips id;
 	int ret;
 
-	ret = i2c_smbus_read_block_data(client, PMBUS_IC_DEVICE_ID, buf);
+	ret = i2c_smbus_read_block_data(client, PMBUS_IC_DEVICE_ID,
+					sizeof(buf) - 1, buf);
 	if (ret < 0 || ret < 11)
 		return -ENODEV;
 
