@@ -38,10 +38,6 @@ raid6_pq-$(CONFIG_RISCV_ISA_V)	+= riscv/rvv.o \
 				   riscv/recov_rvv.o
 raid6_pq-$(CONFIG_S390)		+= s390/s390vx8.o \
 				   s390/recov_s390xc.o
-ifeq ($(CONFIG_X86),y)
-raid6_pq-$(CONFIG_X86_32)	+= x86/mmx.o \
-				   x86/sse1.o
-endif
 raid6_pq-$(CONFIG_X86)		+= x86/sse2.o \
 				   x86/avx2.o \
 				   x86/avx512.o \
