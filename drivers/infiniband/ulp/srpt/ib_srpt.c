@@ -979,6 +979,12 @@ static int srpt_alloc_rw_ctxs(struct srpt_send_ioctx *ioctx,
 		u32 size = be32_to_cpu(db->len);
 		u32 rkey = be32_to_cpu(db->key);
 
+		if (size == 0) {
+			pr_err("received SRP_CMD buffer descriptor with zero length\n");
+			ret = -EINVAL;
+			goto unwind;
+		}
+
 		ret = target_alloc_sgl(&ctx->sg, &ctx->nents, size, false,
 				i < nbufs - 1);
 		if (ret)
