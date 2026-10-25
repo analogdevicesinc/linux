@@ -916,7 +916,7 @@ static int mes_v12_1_detect_and_reset_hung_queues(struct amdgpu_mes *mes,
 	mes_reset_queue_pkt.queue_type =
 		convert_to_mes_queue_type(input->queue_type);
 	mes_reset_queue_pkt.doorbell_offset_addr =
-		mes->hung_queue_db_array_gpu_addr[0];
+		mes->hung_queue_db_array_gpu_addr;
 
 	if (input->detect_only)
 		mes_reset_queue_pkt.hang_detect_only = 1;
