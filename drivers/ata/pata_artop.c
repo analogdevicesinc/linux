@@ -390,6 +390,8 @@ static int artop_init_one (struct pci_dev *pdev, const struct pci_device_id *id)
 		.port_ops	= &artop6260_ops,
 	};
 	const struct ata_port_info *ppi[] = { NULL, NULL };
+	void __iomem *bmdma;
+	u8 cfg;
 	int rc;
 
 	ata_print_version_once(&pdev->dev, DRV_VERSION);
@@ -406,10 +408,17 @@ static int artop_init_one (struct pci_dev *pdev, const struct pci_device_id *id)
 		ppi[0] = &info_626x;
 		break;
 	case 2:		/* 6280 or 6280 + fast */
-		if (inb(pci_resource_start(pdev, 4)) & 0x10)
+		bmdma = pci_iomap(pdev, 4, 1);
+		if (!bmdma)
+			return -ENOMEM;
+
+		cfg = ioread8(bmdma);
+		if (cfg & 0x10)
 			ppi[0] = &info_628x_fast;
 		else
 			ppi[0] = &info_628x;
+
+		pci_iounmap(pdev, bmdma);
 		break;
 	}
 
