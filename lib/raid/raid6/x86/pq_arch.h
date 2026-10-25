@@ -2,10 +2,6 @@
 
 #include <asm/cpufeature.h>
 
-extern const struct raid6_calls raid6_mmxx1;
-extern const struct raid6_calls raid6_mmxx2;
-extern const struct raid6_calls raid6_sse1x1;
-extern const struct raid6_calls raid6_sse1x2;
 extern const struct raid6_calls raid6_sse2x1;
 extern const struct raid6_calls raid6_sse2x2;
 extern const struct raid6_calls raid6_sse2x4;
@@ -50,13 +46,6 @@ static inline bool raid6_has_sse2(void)
 		    boot_cpu_has(X86_FEATURE_XMM2);
 }
 
-static inline bool raid6_has_sse1_or_mmxext(void)
-{
-	return boot_cpu_has(X86_FEATURE_MMX) &&
-		(boot_cpu_has(X86_FEATURE_XMM) ||
-		 boot_cpu_has(X86_FEATURE_MMXEXT));
-}
-
 static __always_inline void __init arch_raid6_init(void)
 {
 	if (raid6_has_avx2()) {
@@ -78,13 +67,6 @@ static __always_inline void __init arch_raid6_init(void)
 			raid6_algo_add(&raid6_sse2x4);
 	} else {
 		raid6_algo_add_default();
-		if (raid6_has_sse1_or_mmxext()) {
-			raid6_algo_add(&raid6_sse1x1);
-			raid6_algo_add(&raid6_sse1x2);
-		} else if (boot_cpu_has(X86_FEATURE_MMX)) {
-			raid6_algo_add(&raid6_mmxx1);
-			raid6_algo_add(&raid6_mmxx2);
-		}
 	}
 
 	if (raid6_has_avx512())
