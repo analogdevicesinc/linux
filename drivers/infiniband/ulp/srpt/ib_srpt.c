@@ -1117,6 +1117,7 @@ static int srpt_get_desc_tbl(struct srpt_recv_ioctx *recv_ioctx,
 		struct srp_indirect_buf *idb = srpt_get_desc_buf(srp_cmd);
 		int nbufs = be32_to_cpu(idb->table_desc.len) /
 				sizeof(struct srp_direct_buf);
+		size_t desc_off = (uintptr_t)idb - (uintptr_t)srp_cmd;
 
 		if (nbufs >
 		    (srp_cmd->data_out_desc_cnt + srp_cmd->data_in_desc_cnt)) {
@@ -1125,6 +1126,18 @@ static int srpt_get_desc_tbl(struct srpt_recv_ioctx *recv_ioctx,
 			       srp_cmd->data_in_desc_cnt,
 			       be32_to_cpu(idb->table_desc.len),
 			       sizeof(struct srp_direct_buf));
+			return -EINVAL;
+		}
+
+		if (nbufs == 0) {
+			pr_err("received SRP_CMD with an empty indirect descriptor table\n");
+			return -EINVAL;
+		}
+
+		if (desc_off + struct_size(idb, desc_list, nbufs) >
+		    recv_ioctx->byte_len) {
+			pr_err("received SRP_CMD indirect table (%d descriptors) that does not fit the %d-byte IU\n",
+			       nbufs, recv_ioctx->byte_len);
 			return -EINVAL;
 		}
 
