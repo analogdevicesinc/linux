@@ -110,7 +110,7 @@ register unsigned long *current_stack_pointer __asm__ ("$30");
 	0; })
 
 #define GET_UNALIGN_CTL(task,value)	({				\
-	__u32 status = task_thread_info(task)->status & ~UAC_BITMASK;	\
+	__u32 status = task_thread_info(task)->status & UAC_BITMASK;	\
 	__u32 res = 0;							\
 	if (status & TS_UAC_NOPRINT)					\
 		res |= PR_UNALIGN_NOPRINT;				\
