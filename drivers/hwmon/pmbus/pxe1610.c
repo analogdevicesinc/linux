@@ -110,7 +110,7 @@ static int pxe1610_probe(struct i2c_client *client)
 				     "Failed to set page 0\n");
 
 	/* Read Manufacturer id */
-	ret = i2c_smbus_read_block_data(client, PMBUS_MFR_ID, buf);
+	ret = i2c_smbus_read_block_data(client, PMBUS_MFR_ID, sizeof(buf), buf);
 	if (ret < 0) {
 		dev_err(&client->dev, "Failed to read PMBUS_MFR_ID\n");
 		return ret;
