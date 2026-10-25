@@ -85,7 +85,7 @@ static int ucd9200_probe(struct i2c_client *client)
 		return -ENODEV;
 
 	ret = i2c_smbus_read_block_data(client, UCD9200_DEVICE_ID,
-					block_buffer);
+					sizeof(block_buffer) - 1, block_buffer);
 	if (ret < 0) {
 		dev_err(&client->dev, "Failed to read device ID\n");
 		return ret;
@@ -117,7 +117,7 @@ static int ucd9200_probe(struct i2c_client *client)
 		return -ENOMEM;
 
 	ret = i2c_smbus_read_block_data(client, UCD9200_PHASE_INFO,
-					block_buffer);
+					sizeof(block_buffer) - 1, block_buffer);
 	if (ret < 0) {
 		dev_err(&client->dev, "Failed to read phase information\n");
 		return ret;
