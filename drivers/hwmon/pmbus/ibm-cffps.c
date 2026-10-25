@@ -490,14 +490,15 @@ static int ibm_cffps_probe(struct i2c_client *client)
 		u16 ccin_revision = 0;
 		u16 ccin_version = CFFPS_CCIN_VERSION_1;
 		int ccin = i2c_smbus_read_word_swapped(client, CFFPS_CCIN_CMD);
-		char mfg_id[I2C_SMBUS_BLOCK_MAX + 2] = { 0 };
+		char mfg_id[I2C_SMBUS_BLOCK_MAX + 1] = { 0 };
 
 		if (ccin > 0) {
 			ccin_revision = FIELD_GET(CFFPS_CCIN_REVISION, ccin);
 			ccin_version = FIELD_GET(CFFPS_CCIN_VERSION, ccin);
 		}
 
-		rc = i2c_smbus_read_block_data(client, PMBUS_MFR_ID, mfg_id);
+		rc = i2c_smbus_read_block_data(client, PMBUS_MFR_ID,
+					       sizeof(mfg_id) - 1, mfg_id);
 		if (rc < 0) {
 			dev_err(&client->dev, "Failed to read Manufacturer ID\n");
 			return rc;
