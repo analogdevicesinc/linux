@@ -155,7 +155,8 @@ static int ltc4286_probe(struct i2c_client *client)
 	u32 rsense;
 	int vrange_nval, vrange_oval;
 
-	ret = i2c_smbus_read_block_data(client, PMBUS_MFR_ID, block_buffer);
+	ret = i2c_smbus_read_block_data(client, PMBUS_MFR_ID,
+					sizeof(block_buffer) - 1, block_buffer);
 	if (ret < 0) {
 		return dev_err_probe(&client->dev, ret,
 				     "Failed to read manufacturer id\n");
@@ -171,11 +172,14 @@ static int ltc4286_probe(struct i2c_client *client)
 				     "Manufacturer id mismatch\n");
 	}
 
-	ret = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL, block_buffer);
+	ret = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL,
+					sizeof(block_buffer) - 1, block_buffer);
 	if (ret < 0) {
 		return dev_err_probe(&client->dev, ret,
 				     "Failed to read manufacturer model\n");
 	}
+
+	block_buffer[ret] = '\0';
 
 	for (mid = ltc4286_id; mid->name[0]; mid++) {
 		if (!strncasecmp(mid->name, block_buffer, strlen(mid->name)))
