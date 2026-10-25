@@ -183,7 +183,8 @@ static int kb9002_fw_read(struct kb9002_data *data, u16 reg, u32 *val)
 	if (ret < 0)
 		return ret;
 
-	ret = i2c_smbus_read_block_data(client, KB9002_CC_FW_READ_DATA, rbuf);
+	ret = i2c_smbus_read_block_data(client, KB9002_CC_FW_READ_DATA,
+					sizeof(rbuf), rbuf);
 	if (ret < 0)
 		return ret;
 	if (ret < (int)(sizeof(addr) + sizeof(*val)))
@@ -208,7 +209,8 @@ static int kb9002_smbus_hw_read(struct kb9002_data *data, u32 reg, u32 *val)
 	if (ret < 0)
 		return ret;
 
-	ret = i2c_smbus_read_block_data(client, KB9002_CC_HW_READ_DATA, rbuf);
+	ret = i2c_smbus_read_block_data(client, KB9002_CC_HW_READ_DATA,
+					sizeof(rbuf), rbuf);
 	if (ret < 0)
 		return ret;
 	if (ret < (int)(sizeof(addr) + sizeof(*val)))
