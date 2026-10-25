@@ -1007,7 +1007,7 @@ static int simple_write_end(const struct kiocb *iocb,
 	 * No need to use i_size_read() here, the i_size
 	 * cannot change under us because we hold the i_rwsem.
 	 */
-	if (last_pos > inode->i_size)
+	if (copied && last_pos > inode->i_size)
 		i_size_write(inode, last_pos);
 
 	folio_mark_dirty(folio);
