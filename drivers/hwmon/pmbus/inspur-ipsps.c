@@ -62,7 +62,7 @@ static ssize_t ipsps_string_show(struct device *dev,
 	struct sensor_device_attribute *attr = to_sensor_dev_attr(devattr);
 
 	reg = ipsps_regs[attr->index];
-	rc = i2c_smbus_read_block_data(client, reg, data);
+	rc = i2c_smbus_read_block_data(client, reg, sizeof(data) - 1, data);
 	if (rc < 0)
 		return rc;
 
@@ -84,7 +84,7 @@ static ssize_t ipsps_fw_version_show(struct device *dev,
 	struct sensor_device_attribute *attr = to_sensor_dev_attr(devattr);
 
 	reg = ipsps_regs[attr->index];
-	rc = i2c_smbus_read_block_data(client, reg, data);
+	rc = i2c_smbus_read_block_data(client, reg, sizeof(data), data);
 	if (rc < 0)
 		return rc;
 
