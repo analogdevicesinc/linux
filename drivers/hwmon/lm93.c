@@ -871,8 +871,6 @@ static int lm93_write_word(struct i2c_client *client, u8 reg, u16 value)
 	return result;
 }
 
-static u8 lm93_block_buffer[I2C_SMBUS_BLOCK_MAX];
-
 /*
  * read block data into values, retry if not expected length
  * fbn => index to lm93_block_read_cmds table
@@ -884,7 +882,8 @@ static void lm93_read_block(struct i2c_client *client, u8 fbn, u8 *values)
 
 	for (i = 1; i <= MAX_RETRIES; i++) {
 		result = i2c_smbus_read_block_data(client,
-			lm93_block_read_cmds[fbn].cmd, lm93_block_buffer);
+			lm93_block_read_cmds[fbn].cmd,
+			lm93_block_read_cmds[fbn].len, values);
 
 		if (result == lm93_block_read_cmds[fbn].len) {
 			break;
@@ -894,13 +893,6 @@ static void lm93_read_block(struct i2c_client *client, u8 fbn, u8 *values)
 				 lm93_block_read_cmds[fbn].cmd);
 			mdelay(i + 3);
 		}
-	}
-
-	if (result == lm93_block_read_cmds[fbn].len) {
-		memcpy(values, lm93_block_buffer,
-		       lm93_block_read_cmds[fbn].len);
-	} else {
-		/* <TODO> what to do in case of error? */
 	}
 }
 
