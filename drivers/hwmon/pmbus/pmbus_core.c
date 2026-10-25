@@ -559,7 +559,8 @@ int pmbus_read_smbus_i2c_block_data(struct i2c_client *client, u8 reg, char *dat
 	if (i2c_check_functionality(client->adapter,
 				    I2C_FUNC_SMBUS_READ_BLOCK_DATA)) {
 		pmbus_wait(client);
-		ret = i2c_smbus_read_block_data(client, reg, data_buf);
+		ret = i2c_smbus_read_block_data(client, reg,
+						I2C_SMBUS_BLOCK_MAX, data_buf);
 		pmbus_update_ts(client, 0);
 		return ret;
 	}
