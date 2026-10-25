@@ -290,7 +290,7 @@ static int zl6100_probe(struct i2c_client *client)
 		return -ENODEV;
 
 	ret = i2c_smbus_read_block_data(client, ZL6100_DEVICE_ID,
-					device_id);
+					sizeof(device_id) - 1, device_id);
 	if (ret < 0) {
 		dev_err(&client->dev, "Failed to read device ID\n");
 		return ret;
