@@ -66,11 +66,13 @@ static int max15301_probe(struct i2c_client *client)
 				     | I2C_FUNC_SMBUS_BLOCK_DATA))
 		return -ENODEV;
 
-	status = i2c_smbus_read_block_data(client, PMBUS_IC_DEVICE_ID, device_id);
+	status = i2c_smbus_read_block_data(client, PMBUS_IC_DEVICE_ID,
+					   sizeof(device_id) - 1, device_id);
 	if (status < 0) {
 		dev_err(&client->dev, "Failed to read Device Id\n");
 		return status;
 	}
+	device_id[status] = '\0';
 	for (mid = max15301_id; mid->name[0]; mid++) {
 		if (!strncasecmp(mid->name, device_id, strlen(mid->name)))
 			break;
