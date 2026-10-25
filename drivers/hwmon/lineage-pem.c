@@ -130,20 +130,15 @@ struct pem_data {
 static int pem_read_block(struct i2c_client *client, u8 command, u8 *data,
 			  int data_len)
 {
-	u8 block_buffer[I2C_SMBUS_BLOCK_MAX];
 	int result;
 
-	result = i2c_smbus_read_block_data(client, command, block_buffer);
+	result = i2c_smbus_read_block_data(client, command, data_len, data);
 	if (unlikely(result < 0))
-		goto abort;
-	if (unlikely(result == 0xff || result != data_len)) {
-		result = -EIO;
-		goto abort;
-	}
-	memcpy(data, block_buffer, data_len);
-	result = 0;
-abort:
-	return result;
+		return result;
+	if (unlikely(result == 0xff || result != data_len))
+		return -EIO;
+
+	return 0;
 }
 
 static struct pem_data *pem_update_device(struct device *dev)
