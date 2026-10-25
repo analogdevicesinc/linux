@@ -110,7 +110,8 @@ static int tps53679_identify_chip(struct i2c_client *client,
 		return -ENODEV;
 	}
 
-	ret = i2c_smbus_read_block_data(client, PMBUS_IC_DEVICE_ID, buf);
+	ret = i2c_smbus_read_block_data(client, PMBUS_IC_DEVICE_ID,
+					sizeof(buf), buf);
 	if (ret <= 0)
 		return ret < 0 ? ret : -EIO;
 
@@ -176,7 +177,8 @@ static int tps53681_identify(struct i2c_client *client,
 static int tps536xx_read_block(struct i2c_client *client, u8 reg, u8 *buf,
 			       bool retry_without_pec)
 {
-	int ret = i2c_smbus_read_block_data(client, reg, buf);
+	int ret = i2c_smbus_read_block_data(client, reg,
+					    I2C_SMBUS_BLOCK_MAX, buf);
 
 	/*
 	 * Some TPS536C7 samples return an invalid PEC on the device-ID and
@@ -186,7 +188,8 @@ static int tps536xx_read_block(struct i2c_client *client, u8 reg, u8 *buf,
 	if (ret == -EBADMSG && retry_without_pec &&
 	    (client->flags & I2C_CLIENT_PEC)) {
 		client->flags &= ~I2C_CLIENT_PEC;
-		ret = i2c_smbus_read_block_data(client, reg, buf);
+		ret = i2c_smbus_read_block_data(client, reg,
+						I2C_SMBUS_BLOCK_MAX, buf);
 		client->flags |= I2C_CLIENT_PEC;
 	}
 	return ret;
