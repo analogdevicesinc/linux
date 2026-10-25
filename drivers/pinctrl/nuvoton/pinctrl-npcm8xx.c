@@ -2,6 +2,7 @@
 // Copyright (c) 2020 Nuvoton Technology corporation.
 
 #include <linux/bits.h>
+#include <linux/cleanup.h>
 #include <linux/device.h>
 #include <linux/gpio/driver.h>
 #include <linux/gpio/generic.h>
@@ -2457,7 +2458,7 @@ static int npcm8xx_gpio_fw(struct npcm8xx_pinctrl *pctrl)
 	struct gpio_generic_chip_config config;
 	struct fwnode_reference_args args;
 	struct device *dev = pctrl->dev;
-	struct fwnode_handle *child;
+	struct fwnode_handle *child __free(fwnode_handle) = NULL;
 	int ret = -ENXIO;
 	int id = 0, i;
 
@@ -2483,6 +2484,7 @@ static int npcm8xx_gpio_fw(struct npcm8xx_pinctrl *pctrl)
 		ret = fwnode_property_get_reference_args(child, "gpio-ranges", NULL, 3, 0, &args);
 		if (ret < 0)
 			return dev_err_probe(dev, ret, "gpio-ranges fail for GPIO bank %u\n", id);
+		fwnode_handle_put(args.fwnode);
 
 		ret = fwnode_irq_get(child, 0);
 		if (ret < 0)
