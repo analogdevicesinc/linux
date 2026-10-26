@@ -104,8 +104,6 @@ struct max2035x_plc {
 	void (*handle_events)(struct max2035x_plc *plc, unsigned long events);
 
 	struct max2035x_plc_irq_data *irq_data;
-	unsigned long pending_events;
-	struct work_struct work;
 };
 
 struct max2035x_plc_irq_map {

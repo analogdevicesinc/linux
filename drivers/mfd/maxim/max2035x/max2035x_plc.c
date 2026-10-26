@@ -7,7 +7,6 @@
  */
 
 #include <linux/platform_device.h>
-#include <linux/workqueue.h>
 #include <linux/interrupt.h>
 #include <linux/regmap.h>
 
@@ -375,20 +374,12 @@ static void max20357_plc_handle_events(struct max2035x_plc *plc, unsigned long e
 static irqreturn_t max2035x_plc_irq_handler(int irq, void *data)
 {
 	struct max2035x_plc_irq_data *irq_d = data;
+	struct max2035x_plc *plc = irq_d->plc;
 
-	set_bit(irq_d->event, &irq_d->plc->pending_events);
-	schedule_work(&irq_d->plc->work);
+	if (plc->handle_events)
+		plc->handle_events(plc, BIT(irq_d->event));
 
 	return IRQ_HANDLED;
-}
-
-static void max2035x_plc_work(struct work_struct *work)
-{
-	struct max2035x_plc *plc = container_of(work, struct max2035x_plc, work);
-	unsigned long events = xchg(&plc->pending_events, 0);
-
-	if (events && plc->handle_events)
-		plc->handle_events(plc, events);
 }
 
 static int max2035x_plc_probe(struct platform_device *pdev)
@@ -404,8 +395,6 @@ static int max2035x_plc_probe(struct platform_device *pdev)
 	plc->dev = &pdev->dev;
 	plc->chip = chip;
 	plc->ram_regmap = chip->ram_regmap;
-
-	INIT_WORK(&plc->work, max2035x_plc_work);
 
 	if (chip->type == MAX20355) {
 		plc->irq_map = max20355_plc_irq_map;
