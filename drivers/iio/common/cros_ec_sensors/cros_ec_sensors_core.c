@@ -181,9 +181,8 @@ int cros_ec_sensors_push_data(struct iio_dev *indio_dev,
 			      s64 timestamp)
 {
 	struct cros_ec_sensors_core_state *st = iio_priv(indio_dev);
-	s16 *out;
+	unsigned int i, j;
 	s64 delta;
-	unsigned int i;
 
 	/*
 	 * Ignore samples if the buffer is not set: it is needed if the ODR is
@@ -192,19 +191,17 @@ int cros_ec_sensors_push_data(struct iio_dev *indio_dev,
 	if (!iio_device_try_claim_buffer_mode(indio_dev))
 		return 0;
 
-	out = (s16 *)st->samples;
-	iio_for_each_active_channel(indio_dev, i) {
-		*out = data[i];
-		out++;
-	}
+	j = 0;
+	iio_for_each_active_channel(indio_dev, i)
+		st->scan.channels[j++] = data[i];
 
 	if (iio_device_get_clock(indio_dev) != CLOCK_BOOTTIME)
 		delta = iio_get_time_ns(indio_dev) - cros_ec_get_time_ns();
 	else
 		delta = 0;
 
-	iio_push_to_buffers_with_timestamp(indio_dev, st->samples,
-					   timestamp + delta);
+	iio_push_to_buffers_with_ts(indio_dev, &st->scan, sizeof(st->scan),
+				    timestamp + delta);
 
 	iio_device_release_buffer_mode(indio_dev);
 	return 0;
@@ -718,17 +715,17 @@ irqreturn_t cros_ec_sensors_capture(int irq, void *p)
 	mutex_lock(&st->cmd_lock);
 
 	/* Clear capture data. */
-	memset(st->samples, 0, indio_dev->scan_bytes);
+	memset(&st->scan, 0, sizeof(st->scan));
 
 	/* Read data based on which channels are enabled in scan mask. */
 	ret = st->read_ec_sensors_data(indio_dev,
 				       *(indio_dev->active_scan_mask),
-				       (s16 *)st->samples);
+				       st->scan.channels);
 	if (ret < 0)
 		goto done;
 
-	iio_push_to_buffers_with_timestamp(indio_dev, st->samples,
-					   iio_get_time_ns(indio_dev));
+	iio_push_to_buffers_with_ts(indio_dev, &st->scan, sizeof(st->scan),
+				    iio_get_time_ns(indio_dev));
 
 done:
 	/*

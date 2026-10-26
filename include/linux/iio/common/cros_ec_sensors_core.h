@@ -24,12 +24,6 @@ enum {
 /* EC returns sensor values using signed 16 bit registers */
 #define CROS_EC_SENSOR_BITS 16
 
-/*
- * 4 16 bit channels are allowed.
- * Good enough for current sensors, they use up to 3 16 bit vectors.
- */
-#define CROS_EC_SAMPLE_SIZE  (sizeof(s64) * 2)
-
 typedef irqreturn_t (*cros_ec_sensors_capture_t)(int irq, void *p);
 
 /**
@@ -48,10 +42,9 @@ typedef irqreturn_t (*cros_ec_sensors_capture_t)(int irq, void *p);
  * @calib:			calibration parameters. Note that trigger
  *				captured data will always provide the calibrated
  *				data
- * @samples:			static array to hold data from a single capture.
- *				For each channel we need 2 bytes, except for
- *				the timestamp. The timestamp is always last and
- *				is always 8-byte aligned.
+ * @scan:			structure to hold data from a single capture.
+ *				Up to 4 16 bit channels, followed by an 8-byte
+ *				aligned timestamp.
  * @read_ec_sensors_data:	function used for accessing sensors values
  * @fifo_max_event_count:	Size of the EC sensor FIFO
  * @frequencies:		Table of known available frequencies:
@@ -75,7 +68,10 @@ struct cros_ec_sensors_core_state {
 		u16 scale;
 	} calib[CROS_EC_SENSOR_MAX_AXIS];
 	s8 sign[CROS_EC_SENSOR_MAX_AXIS];
-	u8 samples[CROS_EC_SAMPLE_SIZE] __aligned(8);
+	struct {
+		s16 channels[4];
+		aligned_s64 timestamp;
+	} scan;
 
 	int (*read_ec_sensors_data)(struct iio_dev *indio_dev,
 				    unsigned long scan_mask, s16 *data);
