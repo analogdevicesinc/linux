@@ -259,7 +259,7 @@
 		compatible = "st,st33ktpm2xi2c", "tcg,tpm-tis-i2c";
 		reg = <0x2e>;
 		label = "tpm";
-		reset-gpios = <&pca9534 0 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&pca9534 0 GPIO_ACTIVE_LOW>;
 	};
 };
 
