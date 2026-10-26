@@ -283,8 +283,6 @@ static int max2035x_probe(struct i2c_client *client)
 		dev_warn(chip->dev, "No IRQ configured\n");
 	}
 
-	dev_info(chip->dev, "%s core probed\n", info->name);
-
 	ret = devm_mfd_add_devices(chip->dev, PLATFORM_DEVID_AUTO,
 				   info->cells, info->num_cells, NULL, 0, NULL);
 	if (ret)
