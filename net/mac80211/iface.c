@@ -2374,9 +2374,6 @@ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
 
 	ieee80211_init_frag_cache(&sdata->frags);
 
-	wiphy_delayed_work_init(&sdata->dec_tailroom_needed_wk,
-				ieee80211_delayed_tailroom_dec);
-
 	for (i = 0; i < NUM_NL80211_BANDS; i++) {
 		struct ieee80211_supported_band *sband;
 		sband = local->hw.wiphy->bands[i];

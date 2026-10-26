@@ -81,15 +81,14 @@ static void increment_tailroom_need_count(struct ieee80211_sub_if_data *sdata)
 	sdata->crypto_tx_tailroom_needed_cnt++;
 }
 
-static void decrease_tailroom_need_count(struct ieee80211_sub_if_data *sdata,
-					 int delta)
+static void decrease_tailroom_need_count(struct ieee80211_sub_if_data *sdata)
 {
 	lockdep_assert_wiphy(sdata->local->hw.wiphy);
 
-	WARN_ON_ONCE(sdata->crypto_tx_tailroom_needed_cnt < delta);
+	WARN_ON_ONCE(!sdata->crypto_tx_tailroom_needed_cnt);
 
-	update_vlan_tailroom_need_count(sdata, -delta);
-	sdata->crypto_tx_tailroom_needed_cnt -= delta;
+	update_vlan_tailroom_need_count(sdata, -1);
+	sdata->crypto_tx_tailroom_needed_cnt--;
 }
 
 static bool ieee80211_key_needs_tailroom(struct ieee80211_key *key)
@@ -102,6 +101,25 @@ static bool ieee80211_key_needs_tailroom(struct ieee80211_key *key)
 	return !(key->flags & KEY_FLAG_UPLOADED_TO_HARDWARE);
 }
 
+static void ieee80211_key_set_uploaded(struct ieee80211_key *key,
+				       bool uploaded)
+{
+	bool needed = ieee80211_key_needs_tailroom(key);
+	bool needs;
+
+	if (uploaded)
+		key->flags |= KEY_FLAG_UPLOADED_TO_HARDWARE;
+	else
+		key->flags &= ~KEY_FLAG_UPLOADED_TO_HARDWARE;
+
+	needs = ieee80211_key_needs_tailroom(key);
+	if (needs && !needed)
+		increment_tailroom_need_count(key->sdata);
+	else if (!needs && needed)
+		decrease_tailroom_need_count(key->sdata);
+}
+
+/* the key must already be accounted for in the tailroom count */
 static int ieee80211_key_enable_hw_accel(struct ieee80211_key *key)
 {
 	struct ieee80211_sub_if_data *sdata = key->sdata;
@@ -112,17 +130,8 @@ static int ieee80211_key_enable_hw_accel(struct ieee80211_key *key)
 	lockdep_assert_wiphy(key->local->hw.wiphy);
 
 	if (key->flags & KEY_FLAG_TAINTED) {
-		/* If we get here, it's during resume and the key is
-		 * tainted so shouldn't be used/programmed any more.
-		 * However, its flags may still indicate that it was
-		 * programmed into the device (since we're in resume)
-		 * so clear that flag now to avoid trying to remove
-		 * it again later.
-		 */
-		if (!ieee80211_key_needs_tailroom(key))
-			increment_tailroom_need_count(sdata);
-
-		key->flags &= ~KEY_FLAG_UPLOADED_TO_HARDWARE;
+		/* only during reconfig, it shouldn't be programmed any more */
+		ieee80211_key_set_uploaded(key, false);
 		return -EINVAL;
 	}
 
@@ -183,10 +192,7 @@ static int ieee80211_key_enable_hw_accel(struct ieee80211_key *key)
 			  sta ? &sta->sta : NULL, &key->conf);
 
 	if (!ret) {
-		key->flags |= KEY_FLAG_UPLOADED_TO_HARDWARE;
-
-		if (!ieee80211_key_needs_tailroom(key))
-			decrease_tailroom_need_count(sdata, 1);
+		ieee80211_key_set_uploaded(key, true);
 
 		WARN_ON((key->conf.flags & IEEE80211_KEY_FLAG_PUT_IV_SPACE) &&
 			(key->conf.flags & IEEE80211_KEY_FLAG_GENERATE_IV));
@@ -255,9 +261,6 @@ static void ieee80211_key_disable_hw_accel(struct ieee80211_key *key)
 	    !(sdata->vif.active_links & BIT(key->conf.link_id)))
 		return;
 
-	if (!ieee80211_key_needs_tailroom(key))
-		increment_tailroom_need_count(sdata);
-
 	pubsta = sta ? &sta->sta : NULL;
 	/* unless requested otherwise, NULL out the STA for client group keys */
 	if (sdata->vif.type == NL80211_IFTYPE_STATION &&
@@ -265,7 +268,8 @@ static void ieee80211_key_disable_hw_accel(struct ieee80211_key *key)
 	    !ieee80211_hw_check(&key->local->hw, PER_STA_AP_GTK))
 		pubsta = NULL;
 
-	key->flags &= ~KEY_FLAG_UPLOADED_TO_HARDWARE;
+	ieee80211_key_set_uploaded(key, false);
+
 	ret = drv_set_key(key->local, DISABLE_KEY, sdata, pubsta, &key->conf);
 
 	if (ret)
@@ -576,6 +580,10 @@ static int ieee80211_key_replace(struct ieee80211_sub_if_data *sdata,
 		ieee80211_pairwise_rekey(old, new);
 	}
 
+	/* enabling the new key in hardware may reduce it again */
+	if (new && ieee80211_key_needs_tailroom(new))
+		increment_tailroom_need_count(sdata);
+
 	if (old) {
 		if (old->flags & KEY_FLAG_UPLOADED_TO_HARDWARE) {
 			ieee80211_key_disable_hw_accel(old);
@@ -588,14 +596,15 @@ static int ieee80211_key_replace(struct ieee80211_sub_if_data *sdata,
 			ret = ieee80211_key_enable_hw_accel(new);
 		} else if (new->conf.link_id < 0 || !sdata->vif.active_links ||
 			 BIT(new->conf.link_id) & sdata->vif.active_links) {
-			new->flags |= KEY_FLAG_UPLOADED_TO_HARDWARE;
-			if (!ieee80211_key_needs_tailroom(new))
-				decrease_tailroom_need_count(sdata, 1);
+			ieee80211_key_set_uploaded(new, true);
 		}
 	}
 
-	if (ret)
+	if (ret) {
+		if (new && ieee80211_key_needs_tailroom(new))
+			decrease_tailroom_need_count(sdata);
 		return ret;
+	}
 
 	if (new) {
 		spin_lock_bh(&sdata->local->key_lock);
@@ -662,6 +671,9 @@ static int ieee80211_key_replace(struct ieee80211_sub_if_data *sdata,
 		spin_lock_bh(&sdata->local->key_lock);
 		list_del(&old->list);
 		spin_unlock_bh(&sdata->local->key_lock);
+
+		if (ieee80211_key_needs_tailroom(old))
+			decrease_tailroom_need_count(sdata);
 	}
 
 	return 0;
@@ -839,36 +851,20 @@ static void ieee80211_key_free_common(struct ieee80211_key *key)
 	kfree_sensitive(key);
 }
 
-static void __ieee80211_key_cleanup(struct ieee80211_key *key,
-				    bool delay_tailroom)
+static void __ieee80211_key_cleanup(struct ieee80211_key *key)
 {
-	if (key->local) {
-		struct ieee80211_sub_if_data *sdata = key->sdata;
-
+	if (key->local)
 		ieee80211_debugfs_key_remove(key);
-
-		if (delay_tailroom) {
-			/* see ieee80211_delayed_tailroom_dec */
-			sdata->crypto_tx_tailroom_pending_dec++;
-			wiphy_delayed_work_queue(sdata->local->hw.wiphy,
-						 &sdata->dec_tailroom_needed_wk,
-						 HZ / 2);
-		} else {
-			decrease_tailroom_need_count(sdata, 1);
-		}
-	}
 }
 
-static void __ieee80211_key_destroy(struct ieee80211_key *key,
-				    bool delay_tailroom)
+static void __ieee80211_key_destroy(struct ieee80211_key *key)
 {
-	__ieee80211_key_cleanup(key, delay_tailroom);
+	__ieee80211_key_cleanup(key);
 
 	ieee80211_key_free_common(key);
 }
 
-static void ieee80211_key_destroy(struct ieee80211_key *key,
-				  bool delay_tailroom)
+static void ieee80211_key_destroy(struct ieee80211_key *key)
 {
 	if (!key)
 		return;
@@ -879,7 +875,7 @@ static void ieee80211_key_destroy(struct ieee80211_key *key,
 	 */
 	synchronize_net();
 
-	__ieee80211_key_destroy(key, delay_tailroom);
+	__ieee80211_key_destroy(key);
 }
 
 void ieee80211_key_free_unused(struct ieee80211_key *key)
@@ -928,12 +924,6 @@ int ieee80211_key_link(struct ieee80211_sub_if_data *sdata,
 		       struct ieee80211_key_slot *slot,
 		       struct ieee80211_key *key)
 {
-	/*
-	 * We want to delay tailroom updates only for station - in that
-	 * case it helps roaming speed, but in other cases it hurts and
-	 * can cause warnings to appear.
-	 */
-	bool delay_tailroom = sdata->vif.type == NL80211_IFTYPE_STATION;
 	bool pairwise = key->conf.flags & IEEE80211_KEY_FLAG_PAIRWISE;
 	static atomic_t key_color = ATOMIC_INIT(0);
 	struct ieee80211_key *old_key = NULL;
@@ -1005,18 +995,15 @@ int ieee80211_key_link(struct ieee80211_sub_if_data *sdata,
 		goto out;
 	}
 
-	increment_tailroom_need_count(sdata);
-
 	ret = ieee80211_key_replace(sdata, slot, old_key, key);
 	if (ret) {
-		decrease_tailroom_need_count(sdata, 1);
 		key->local = NULL;
 		key->sdata = NULL;
 		goto out;
 	}
 
 	ieee80211_debugfs_key_add(key);
-	ieee80211_key_destroy(old_key, delay_tailroom);
+	ieee80211_key_destroy(old_key);
 
 	return 0;
  out:
@@ -1025,8 +1012,7 @@ int ieee80211_key_link(struct ieee80211_sub_if_data *sdata,
 }
 
 void ieee80211_key_free(struct ieee80211_sub_if_data *sdata,
-			struct ieee80211_key_slot *slot,
-			bool delay_tailroom)
+			struct ieee80211_key_slot *slot)
 {
 	struct ieee80211_key *key;
 
@@ -1037,7 +1023,7 @@ void ieee80211_key_free(struct ieee80211_sub_if_data *sdata,
 	/* replace key with nothing if it was ever used */
 	if (key->sdata)
 		ieee80211_key_replace(key->sdata, slot, key, NULL);
-	ieee80211_key_destroy(key, delay_tailroom);
+	ieee80211_key_destroy(key);
 }
 
 void ieee80211_reenable_keys(struct ieee80211_sub_if_data *sdata)
@@ -1048,18 +1034,17 @@ void ieee80211_reenable_keys(struct ieee80211_sub_if_data *sdata)
 	lockdep_assert_wiphy(sdata->local->hw.wiphy);
 
 	sdata->crypto_tx_tailroom_needed_cnt = 0;
-	sdata->crypto_tx_tailroom_pending_dec = 0;
 
 	if (sdata->vif.type == NL80211_IFTYPE_AP) {
-		list_for_each_entry(vlan, &sdata->u.ap.vlans, u.vlan.list) {
+		list_for_each_entry(vlan, &sdata->u.ap.vlans, u.vlan.list)
 			vlan->crypto_tx_tailroom_needed_cnt = 0;
-			vlan->crypto_tx_tailroom_pending_dec = 0;
-		}
 	}
 
 	if (ieee80211_sdata_running(sdata)) {
 		list_for_each_entry(key, &sdata->key_list, list) {
-			if (!(key->flags & KEY_FLAG_TAINTED))
+			/* the device was reset, it's no longer uploaded */
+			key->flags &= ~KEY_FLAG_UPLOADED_TO_HARDWARE;
+			if (ieee80211_key_needs_tailroom(key))
 				increment_tailroom_need_count(sdata);
 			ieee80211_key_enable_hw_accel(key);
 		}
@@ -1169,10 +1154,6 @@ EXPORT_SYMBOL(ieee80211_iter_keys_atomic);
 static void ieee80211_free_keys_iface(struct ieee80211_sub_if_data *sdata,
 				      struct list_head *keys)
 {
-	decrease_tailroom_need_count(sdata,
-				     sdata->crypto_tx_tailroom_pending_dec);
-	sdata->crypto_tx_tailroom_pending_dec = 0;
-
 	ieee80211_debugfs_key_remove_mgmt_default(sdata);
 	ieee80211_debugfs_key_remove_beacon_default(sdata);
 
@@ -1239,7 +1220,7 @@ void ieee80211_free_key_list(struct ieee80211_local *local,
 	lockdep_assert_wiphy(local->hw.wiphy);
 
 	list_for_each_entry_safe(key, tmp, keys, list)
-		__ieee80211_key_destroy(key, false);
+		__ieee80211_key_destroy(key);
 }
 
 void ieee80211_free_keys(struct ieee80211_sub_if_data *sdata,
@@ -1250,9 +1231,6 @@ void ieee80211_free_keys(struct ieee80211_sub_if_data *sdata,
 	struct ieee80211_sub_if_data *master;
 	struct ieee80211_key *key, *tmp;
 	LIST_HEAD(keys);
-
-	wiphy_delayed_work_cancel(local->hw.wiphy,
-				  &sdata->dec_tailroom_needed_wk);
 
 	lockdep_assert_wiphy(local->hw.wiphy);
 
@@ -1271,7 +1249,7 @@ void ieee80211_free_keys(struct ieee80211_sub_if_data *sdata,
 	if (!list_empty(&keys) || force_synchronize)
 		synchronize_net();
 	list_for_each_entry_safe(key, tmp, &keys, list)
-		__ieee80211_key_destroy(key, false);
+		__ieee80211_key_destroy(key);
 
 	if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN) {
 		if (sdata->bss) {
@@ -1283,14 +1261,12 @@ void ieee80211_free_keys(struct ieee80211_sub_if_data *sdata,
 				     master->crypto_tx_tailroom_needed_cnt);
 		}
 	} else {
-		WARN_ON_ONCE(sdata->crypto_tx_tailroom_needed_cnt ||
-			     sdata->crypto_tx_tailroom_pending_dec);
+		WARN_ON_ONCE(sdata->crypto_tx_tailroom_needed_cnt);
 	}
 
 	if (sdata->vif.type == NL80211_IFTYPE_AP) {
 		list_for_each_entry(vlan, &sdata->u.ap.vlans, u.vlan.list)
-			WARN_ON_ONCE(vlan->crypto_tx_tailroom_needed_cnt ||
-				     vlan->crypto_tx_tailroom_pending_dec);
+			WARN_ON_ONCE(vlan->crypto_tx_tailroom_needed_cnt);
 	}
 }
 
@@ -1316,8 +1292,7 @@ void ieee80211_unlink_link_sta_keys(struct ieee80211_local *local,
 		if (WARN(ret, "failed to remove STA link key (%d)\n", ret))
 			continue;
 		list_add(&key->list, &link_sta->key_destroy_list);
-		__ieee80211_key_cleanup(key, key->sdata->vif.type ==
-					     NL80211_IFTYPE_STATION);
+		__ieee80211_key_cleanup(key);
 	}
 
 	for (int i = 0; i < ARRAY_SIZE(link_sta->rx_cigtk); i++) {
@@ -1332,8 +1307,7 @@ void ieee80211_unlink_link_sta_keys(struct ieee80211_local *local,
 		if (WARN(ret, "failed to remove STA link key (%d)\n", ret))
 			continue;
 		list_add(&key->list, &link_sta->key_destroy_list);
-		__ieee80211_key_cleanup(key, key->sdata->vif.type ==
-					     NL80211_IFTYPE_STATION);
+		__ieee80211_key_cleanup(key);
 	}
 }
 
@@ -1364,38 +1338,8 @@ void ieee80211_free_sta_keys(struct ieee80211_local *local,
 		if (!key)
 			continue;
 		ieee80211_key_replace(key->sdata, &slot, key, NULL);
-		__ieee80211_key_destroy(key, key->sdata->vif.type ==
-					NL80211_IFTYPE_STATION);
+		__ieee80211_key_destroy(key);
 	}
-}
-
-void ieee80211_delayed_tailroom_dec(struct wiphy *wiphy,
-				    struct wiphy_work *wk)
-{
-	struct ieee80211_sub_if_data *sdata;
-
-	sdata = container_of(wk, struct ieee80211_sub_if_data,
-			     dec_tailroom_needed_wk.work);
-
-	/*
-	 * The reason for the delayed tailroom needed decrementing is to
-	 * make roaming faster: during roaming, all keys are first deleted
-	 * and then new keys are installed. The first new key causes the
-	 * crypto_tx_tailroom_needed_cnt to go from 0 to 1, which invokes
-	 * the cost of synchronize_net() (which can be slow). Avoid this
-	 * by deferring the crypto_tx_tailroom_needed_cnt decrementing on
-	 * key removal for a while, so if we roam the value is larger than
-	 * zero and no 0->1 transition happens.
-	 *
-	 * The cost is that if the AP switching was from an AP with keys
-	 * to one without, we still allocate tailroom while it would no
-	 * longer be needed. However, in the typical (fast) roaming case
-	 * within an ESS this usually won't happen.
-	 */
-
-	decrease_tailroom_need_count(sdata,
-				     sdata->crypto_tx_tailroom_pending_dec);
-	sdata->crypto_tx_tailroom_pending_dec = 0;
 }
 
 void ieee80211_gtk_rekey_notify(struct ieee80211_vif *vif, const u8 *bssid,

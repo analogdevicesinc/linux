@@ -512,8 +512,6 @@ static void ieee80211_restart_work(struct work_struct *work)
 							      WLAN_REASON_UNSPECIFIED,
 							      false);
 		}
-		wiphy_delayed_work_flush(local->hw.wiphy,
-					 &sdata->dec_tailroom_needed_wk);
 	}
 	ieee80211_scan_cancel(local);
 

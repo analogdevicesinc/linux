@@ -773,7 +773,7 @@ static int ieee80211_del_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 	if (!rcu_access_pointer(*slot.key))
 		return -ENOENT;
 
-	ieee80211_key_free(sdata, &slot, sdata->vif.type == NL80211_IFTYPE_STATION);
+	ieee80211_key_free(sdata, &slot);
 
 	return 0;
 }

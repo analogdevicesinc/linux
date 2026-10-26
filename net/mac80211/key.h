@@ -191,8 +191,7 @@ int ieee80211_key_link(struct ieee80211_sub_if_data *sdata,
 		       struct ieee80211_key *key);
 int ieee80211_set_tx_key(struct ieee80211_key *key);
 void ieee80211_key_free(struct ieee80211_sub_if_data *sdata,
-			struct ieee80211_key_slot *slot,
-			bool delay_tailroom);
+			struct ieee80211_key_slot *slot);
 void ieee80211_key_free_unused(struct ieee80211_key *key);
 void ieee80211_set_default_key(struct ieee80211_link_data *link, int idx,
 			       bool uni, bool multi);
@@ -215,7 +214,5 @@ void ieee80211_reenable_keys(struct ieee80211_sub_if_data *sdata);
 int ieee80211_key_switch_links(struct ieee80211_sub_if_data *sdata,
 			       unsigned long del_links_mask,
 			       unsigned long add_links_mask);
-void ieee80211_delayed_tailroom_dec(struct wiphy *wiphy,
-				    struct wiphy_work *wk);
 
 #endif /* IEEE80211_KEY_H */
