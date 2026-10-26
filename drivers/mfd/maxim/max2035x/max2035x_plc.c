@@ -240,12 +240,17 @@ static void max20355_plc_handle_events(struct max2035x_plc *plc, unsigned long e
 		max2035x_read_ram_data(plc, rx_buf, MAX2035X_RAM_SIZE);
 
 		ret = regmap_read(chip->regmap, MAX20355_REG_PLC_CONFIG5, &reg_val);
-		if (!ret && (reg_val & MAX20355_PLC_CFG5_RAM_IS_FULL_BIT)) {
-			regmap_write(chip->regmap, MAX20355_REG_PLC_CONFIG5,
-				     reg_val | MAX20355_PLC_CFG5_RAM_IS_FULL_BIT);
-			ret = regmap_read(chip->regmap, MAX20355_REG_PLC_CONFIG5, &reg_val);
-			if (!ret && (reg_val & MAX20355_PLC_CFG5_RAM_IS_FULL_BIT))
-				dev_warn(plc->dev, "RAM_is_full not cleared (0x%02x)\n", reg_val);
+		if (ret) {
+			dev_err(plc->dev, "Failed to read PLC_CONFIG5: %d\n", ret);
+			return;
+		}
+		if (reg_val & MAX20355_PLC_CFG5_RAM_IS_FULL_BIT) {
+			ret = regmap_write(chip->regmap, MAX20355_REG_PLC_CONFIG5,
+					   reg_val | MAX20355_PLC_CFG5_RAM_IS_FULL_BIT);
+			if (ret) {
+				dev_err(plc->dev, "Failed to clear RAM_is_full: %d\n", ret);
+				return;
+			}
 		}
 	}
 
@@ -312,13 +317,17 @@ static void max20357_plc_handle_events(struct max2035x_plc *plc, unsigned long e
 		max2035x_read_ram_data(plc, rx_buf, MAX2035X_RAM_SIZE);
 
 		ret = regmap_read(chip->regmap, MAX20357_REG_PLC_CONFIG4, &reg_val);
-		if (!ret && (reg_val & MAX20357_PLC_CFG4_RAM_IS_FULL_BIT)) {
-			regmap_write(chip->regmap, MAX20357_REG_PLC_CONFIG4,
-				     reg_val | MAX20357_PLC_CFG4_RAM_IS_FULL_BIT);
-			ret = regmap_read(chip->regmap, MAX20357_REG_PLC_CONFIG4, &reg_val);
-			if (!ret && (reg_val & MAX20357_PLC_CFG4_RAM_IS_FULL_BIT))
-				dev_warn(plc->dev, "CH%d RAM_is_full not cleared (0x%02x)\n",
-					 chip->channel_id, reg_val);
+		if (ret) {
+			dev_err(plc->dev, "Failed to read PLC_CONFIG4: %d\n", ret);
+			return;
+		}
+		if (reg_val & MAX20357_PLC_CFG4_RAM_IS_FULL_BIT) {
+			ret = regmap_write(chip->regmap, MAX20357_REG_PLC_CONFIG4,
+					   reg_val | MAX20357_PLC_CFG4_RAM_IS_FULL_BIT);
+			if (ret) {
+				dev_err(plc->dev, "Failed to clear RAM_is_full: %d\n", ret);
+				return;
+			}
 		}
 	}
 
