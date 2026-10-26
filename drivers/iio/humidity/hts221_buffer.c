@@ -179,8 +179,8 @@ static irqreturn_t hts221_buffer_handler_thread(int irq, void *p)
 	if (err < 0)
 		goto out;
 
-	iio_push_to_buffers_with_timestamp(iio_dev, &hw->scan,
-					   iio_get_time_ns(iio_dev));
+	iio_push_to_buffers_with_ts(iio_dev, &hw->scan, sizeof(hw->scan),
+				    iio_get_time_ns(iio_dev));
 
 out:
 	iio_trigger_notify_done(hw->trig);
