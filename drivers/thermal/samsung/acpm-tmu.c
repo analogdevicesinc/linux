@@ -68,6 +68,7 @@ struct acpm_tmu_sensor {
 	struct thermal_zone_device *tzd;
 	struct acpm_tmu_priv *priv;
 	struct mutex lock; /* protects sensor state */
+	enum thermal_device_mode mode;
 	bool enabled;
 };
 
@@ -188,9 +189,12 @@ static int acpm_tmu_control(struct acpm_tmu_priv *priv, bool on)
 		if (!sensor->tzd)
 			continue;
 
-		mutex_lock(&sensor->lock);
-		ret = acpm_tmu_op_tz_control(sensor, on);
-		mutex_unlock(&sensor->lock);
+		scoped_guard(mutex, &sensor->lock) {
+			ret = 0;
+			if (sensor->mode == THERMAL_DEVICE_ENABLED &&
+			    sensor->enabled != on)
+				ret = acpm_tmu_op_tz_control(sensor, on);
+		}
 		if (ret && !err)
 			err = ret;
 	}
@@ -313,7 +317,34 @@ static int acpm_tmu_set_trips(struct thermal_zone_device *tz, int low, int high)
 	return ret;
 }
 
+static int acpm_tmu_change_mode(struct thermal_zone_device *tz,
+				enum thermal_device_mode mode)
+{
+	struct acpm_tmu_sensor *sensor = thermal_zone_device_priv(tz);
+	struct acpm_tmu_priv *priv = sensor->priv;
+	struct device *dev = priv->dev;
+	bool enable = (mode == THERMAL_DEVICE_ENABLED);
+	int ret;
+
+	ret = pm_runtime_resume_and_get(dev);
+	if (ret)
+		return ret;
+
+	scoped_guard(mutex, &sensor->lock) {
+		ret = 0;
+		if (sensor->enabled != enable)
+			ret = acpm_tmu_op_tz_control(sensor, enable);
+		if (!ret)
+			sensor->mode = mode;
+	}
+
+	pm_runtime_put_autosuspend(dev);
+
+	return ret;
+}
+
 static const struct thermal_zone_device_ops acpm_tmu_sensor_ops = {
+	.change_mode = acpm_tmu_change_mode,
 	.get_temp = acpm_tmu_get_temp,
 	.set_trips = acpm_tmu_set_trips,
 };
@@ -463,17 +494,17 @@ static int acpm_tmu_probe(struct platform_device *pdev)
 
 	for (i = 0; i < priv->num_sensors; i++) {
 		struct acpm_tmu_sensor *sensor = &priv->sensors[i];
+		struct thermal_zone_device *tzd;
 
 		mutex_init(&sensor->lock);
 		sensor->group = &data->sensor_groups[i];
 		sensor->priv = priv;
 
-		sensor->tzd = devm_thermal_of_zone_register(dev, i, sensor,
-							    &acpm_tmu_sensor_ops);
-		if (IS_ERR(sensor->tzd)) {
-			ret = PTR_ERR(sensor->tzd);
+		tzd = devm_thermal_of_zone_register(dev, i, sensor,
+						    &acpm_tmu_sensor_ops);
+		if (IS_ERR(tzd)) {
+			ret = PTR_ERR(tzd);
 			if (ret == -ENODEV) {
-				sensor->tzd = NULL;
 				dev_dbg(dev, "Sensor %d not used in DT, skipping\n", i);
 				continue;
 			}
@@ -481,17 +512,7 @@ static int acpm_tmu_probe(struct platform_device *pdev)
 			ret = dev_err_probe(dev, ret, "Failed to register sensor %d\n", i);
 			goto err_rollback;
 		}
-
-		mutex_lock(&sensor->lock);
-		ret = acpm_tmu_op_tz_control(sensor, true);
-		mutex_unlock(&sensor->lock);
-		if (ret) {
-			ret = dev_err_probe(dev, ret, "Failed to enable sensor %d\n", i);
-			goto err_rollback;
-		}
-
-		thermal_zone_device_update(sensor->tzd,
-					   THERMAL_EVENT_UNSPECIFIED);
+		sensor->tzd = tzd;
 
 		ret = devm_thermal_add_hwmon_sysfs(dev, sensor->tzd);
 		if (ret)
