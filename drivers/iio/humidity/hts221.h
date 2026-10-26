@@ -41,7 +41,7 @@ struct hts221_hw {
 	struct {
 		__le16 channels[2];
 		aligned_s64 ts;
-	} scan;
+	} scan __aligned(IIO_DMA_MINALIGN);
 };
 
 extern const struct dev_pm_ops hts221_pm_ops;
