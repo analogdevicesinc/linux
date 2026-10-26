@@ -432,6 +432,7 @@ static irqreturn_t bmi160_trigger_handler(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct bmi160_data *data = iio_priv(indio_dev);
+	IIO_DECLARE_BUFFER_WITH_TS(__le16, scan, 6) = { };
 	int i, ret, j = 0, base = BMI160_REG_DATA_MAGN_XOUT_L;
 	__le16 sample;
 
@@ -440,10 +441,10 @@ static irqreturn_t bmi160_trigger_handler(int irq, void *p)
 				       &sample, sizeof(sample));
 		if (ret)
 			goto done;
-		data->buf[j++] = sample;
+		scan[j++] = sample;
 	}
 
-	iio_push_to_buffers_with_timestamp(indio_dev, data->buf, pf->timestamp);
+	iio_push_to_buffers_with_ts(indio_dev, scan, sizeof(scan), pf->timestamp);
 done:
 	iio_trigger_notify_done(indio_dev->trig);
 	return IRQ_HANDLED;
