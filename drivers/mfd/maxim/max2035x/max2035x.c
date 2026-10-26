@@ -40,19 +40,19 @@ static const struct regmap_config max2035x_ram_regmap_cfg = {
 };
 
 static const struct mfd_cell max20355_cells[] = {
-	MFD_CELL_OF("max20355-plc", NULL, NULL, 0, 0, "adi,max20355-plc"),
-	MFD_CELL_OF("max20355-fuelgauge", NULL, NULL, 0, 0, "adi,max20355-fuelgauge"),
-	MFD_CELL_OF("max20355-battery", NULL, NULL, 0, 0, "adi,max20355-battery"),
-	MFD_CELL_OF("max20355-gpio", NULL, NULL, 0, 0, "adi,max20355-gpio"),
-	MFD_CELL_OF("max20355-regulator", NULL, NULL, 0, 0, "adi,max20355-regulator"),
+	MFD_CELL_NAME("max20355-plc"),
+	MFD_CELL_NAME("max20355-fuelgauge"),
+	MFD_CELL_NAME("max20355-battery"),
+	MFD_CELL_NAME("max20355-gpio"),
+	MFD_CELL_NAME("max20355-regulator"),
 };
 
 static const struct mfd_cell max20357_cells[] = {
-	MFD_CELL_OF("max20357-plc", NULL, NULL, 0, 0, "adi,max20357-plc"),
-	MFD_CELL_OF("max20357-fuelgauge", NULL, NULL, 0, 0, "adi,max20357-fuelgauge"),
-	MFD_CELL_OF("max20357-battery", NULL, NULL, 0, 0, "adi,max20357-battery"),
-	MFD_CELL_OF("max20357-charger", NULL, NULL, 0, 0, "adi,max20357-charger"),
-	MFD_CELL_OF("max20357-gpio", NULL, NULL, 0, 0, "adi,max20357-gpio"),
+	MFD_CELL_NAME("max20357-plc"),
+	MFD_CELL_NAME("max20357-fuelgauge"),
+	MFD_CELL_NAME("max20357-battery"),
+	MFD_CELL_NAME("max20357-charger"),
+	MFD_CELL_NAME("max20357-gpio"),
 };
 
 static const struct regmap_irq max20355_irqs[] = {
