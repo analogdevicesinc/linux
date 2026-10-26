@@ -701,7 +701,9 @@ static int kirkwood_i2s_dev_probe(struct platform_device *pdev)
 			priv->extclk = ERR_PTR(-EINVAL);
 		} else {
 			dev_info(&pdev->dev, "found external clock\n");
-			clk_prepare_enable(priv->extclk);
+			err = clk_prepare_enable(priv->extclk);
+			if (err < 0)
+				return err;
 			soc_dai = kirkwood_i2s_dai_extclk;
 		}
 	}
