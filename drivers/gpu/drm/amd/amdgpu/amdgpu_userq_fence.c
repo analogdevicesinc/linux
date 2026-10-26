@@ -130,8 +130,10 @@ static void
 amdgpu_userq_fence_put_fence_drv_array(struct amdgpu_userq_fence *userq_fence)
 {
 	unsigned long i;
+
 	for (i = 0; i < userq_fence->fence_drv_array_count; i++)
 		amdgpu_userq_fence_driver_put(userq_fence->fence_drv_array[i]);
+
 	userq_fence->fence_drv_array_count = 0;
 }
 
