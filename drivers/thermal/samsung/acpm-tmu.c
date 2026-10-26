@@ -161,7 +161,7 @@ static int acpm_tmu_control(struct acpm_tmu_priv *priv, bool on)
 	int i, ret, err = 0;
 
 	ret = pm_runtime_resume_and_get(dev);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	for (i = 0; i < priv->num_sensors; i++) {
@@ -205,7 +205,7 @@ static int acpm_tmu_get_temp(struct thermal_zone_device *tz, int *temp)
 		return -ENODATA;
 
 	ret = pm_runtime_resume_and_get(dev);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	scoped_guard(mutex, &sensor->lock) {
@@ -463,7 +463,7 @@ static int acpm_tmu_probe(struct platform_device *pdev)
 		return dev_err_probe(dev, ret, "Failed to enable runtime PM\n");
 
 	ret = pm_runtime_resume_and_get(dev);
-	if (ret < 0)
+	if (ret)
 		return dev_err_probe(dev, ret, "Failed to resume device\n");
 
 	ret = acpm_handle->ops->tmu.init(acpm_handle, priv->mbox_chan_id);
