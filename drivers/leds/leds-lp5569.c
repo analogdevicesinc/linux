@@ -30,6 +30,8 @@
  * 0xe0 engine 3 muxing info (1 page)
  */
 #define LP5569_PAGES_PER_ENGINE		4
+#define LP5569_PROG_PAGE_BASE		0
+#define LP5569_MUX_PAGE_BASE		12
 
 #define LP5569_REG_ENABLE		0x00
 #define   LP5569_ENABLE			BIT(6)
@@ -503,6 +505,8 @@ static struct lp55xx_device_config lp5569_cfg = {
 		.addr = LP5569_REG_LED_CTRL_BASE,
 	},
 	.pages_per_engine   = LP5569_PAGES_PER_ENGINE,
+	.prog_page_base     = LP5569_PROG_PAGE_BASE,
+	.mux_page_base      = LP5569_MUX_PAGE_BASE,
 	.max_channel  = LP5569_MAX_LEDS,
 	.post_init_device   = lp5569_post_init_device,
 	.brightness_fn      = lp55xx_led_brightness,
