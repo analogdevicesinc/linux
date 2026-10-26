@@ -11,7 +11,7 @@
 struct max2035x_battery_data {
 	u16 designcap;
 	u16 dpacc;
-	u16	dqacc;
+	u16 dqacc;
 	u16 ichgterm;
 	u16 learncfg;
 	u16 misccfg;
