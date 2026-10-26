@@ -1373,8 +1373,10 @@ static int jesd204_overlay_has_device(struct device_node *node)
 	int i = 0;
 
 	for_each_available_child_of_node(node, dn) {
-		if (of_property_read_bool(dn, "jesd204-device"))
+		if (of_property_read_bool(node, "jesd204-device"))
 			i++;
+
+		i += jesd204_overlay_has_device(dn);
 	}
 
 	return i;
