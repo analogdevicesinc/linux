@@ -118,8 +118,8 @@ static irqreturn_t vcnl4035_trigger_consumer_handler(int irq, void *p)
 	}
 
 	buffer.als_data = val;
-	iio_push_to_buffers_with_timestamp(indio_dev, &buffer,
-					   iio_get_time_ns(indio_dev));
+	iio_push_to_buffers_with_ts(indio_dev, &buffer, sizeof(buffer),
+				    iio_get_time_ns(indio_dev));
 
 fail_read:
 	iio_trigger_notify_done(indio_dev->trig);
