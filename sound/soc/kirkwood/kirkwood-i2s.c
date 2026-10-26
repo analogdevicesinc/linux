@@ -687,10 +687,9 @@ static int kirkwood_i2s_dev_probe(struct platform_device *pdev)
 	}
 
 	priv->clk = devm_clk_get(&pdev->dev, np ? "internal" : NULL);
-	if (IS_ERR(priv->clk)) {
-		dev_err(&pdev->dev, "no clock\n");
-		return PTR_ERR(priv->clk);
-	}
+	if (IS_ERR(priv->clk))
+		return dev_err_probe(&pdev->dev, PTR_ERR(priv->clk),
+				     "no clock\n");
 
 	priv->extclk = devm_clk_get(&pdev->dev, "extclk");
 	if (IS_ERR(priv->extclk)) {
@@ -726,10 +725,8 @@ static int kirkwood_i2s_dev_probe(struct platform_device *pdev)
 
 	err = snd_soc_register_component(&pdev->dev, &kirkwood_soc_component,
 					 soc_dai, 2);
-	if (err) {
-		dev_err(&pdev->dev, "snd_soc_register_component failed\n");
+	if (err)
 		goto err_component;
-	}
 
 	kirkwood_i2s_init(priv);
 
