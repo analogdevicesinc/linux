@@ -1598,8 +1598,9 @@ static int wm8903_hw_params(struct snd_pcm_substream *substream,
  * micdet_cfg in the platform data.  Using this function will force on
  * the microphone bias for the device.
  */
-int wm8903_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *jack,
-		      int det, int shrt)
+static int wm8903_mic_detect(struct snd_soc_component *component,
+			     struct snd_soc_jack *jack,
+			     int det, int shrt)
 {
 	struct wm8903_priv *wm8903 = snd_soc_component_get_drvdata(component);
 	int irq_mask = WM8903_MICDET_EINT | WM8903_MICSHRT_EINT;
@@ -1636,7 +1637,6 @@ int wm8903_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(wm8903_mic_detect);
 
 static int wm8903_set_jack(struct snd_soc_component *component,
 			   struct snd_soc_jack *jack, void *data)
