@@ -164,8 +164,6 @@ static int max20355_check_plc_status(struct max2035x_plc *plc, int target_slave)
 	if (ret)
 		return ret;
 
-	reg_val &= 0xFF;
-
 	if (reg_val)
 		dev_dbg(plc->dev, "PLC_%d cmd status 0x%02x\n", target_slave, reg_val);
 
@@ -181,8 +179,6 @@ static int max20357_check_plc_status(struct max2035x_plc *plc, int slave_num)
 	ret = regmap_read(chip->regmap, MAX20357_REG_STATUS4, &reg_val);
 	if (ret)
 		return ret;
-
-	reg_val &= 0xFF;
 
 	if (reg_val)
 		dev_dbg(plc->dev, "CH%d cmd status 0x%02x\n", slave_num, reg_val);
