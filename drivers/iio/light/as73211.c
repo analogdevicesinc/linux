@@ -695,7 +695,8 @@ static irqreturn_t as73211_trigger_handler(int irq __always_unused, void *p)
 		}
 	}
 
-	iio_push_to_buffers_with_timestamp(indio_dev, &scan, iio_get_time_ns(indio_dev));
+	iio_push_to_buffers_with_ts(indio_dev, &scan, sizeof(scan),
+				    iio_get_time_ns(indio_dev));
 
 done:
 	mutex_unlock(&data->mutex);
