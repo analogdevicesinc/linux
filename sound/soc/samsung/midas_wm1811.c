@@ -425,8 +425,7 @@ static int midas_late_probe(struct snd_soc_card *card)
 		if (ret)
 			return ret;
 
-		wm8958_mic_detect(aif1_dai->component, &priv->headset_jack,
-				  NULL, NULL, NULL, NULL);
+		snd_soc_component_set_jack(aif1_dai->component, &priv->headset_jack, NULL);
 	} else {
 		/* Some devices (n8000, t310) use a GPIO to detect the jack. */
 		ret = snd_soc_card_jack_new_pins(card, "Headset",
