@@ -710,7 +710,7 @@ static int kirkwood_i2s_dev_probe(struct platform_device *pdev)
 
 	err = clk_prepare_enable(priv->clk);
 	if (err < 0)
-		return err;
+		goto err_clk;
 
 	/* Some sensible defaults - this reflects the powerup values */
 	priv->ctl_play = KIRKWOOD_PLAYCTL_SIZE_24;
@@ -734,10 +734,11 @@ static int kirkwood_i2s_dev_probe(struct platform_device *pdev)
 
 	return 0;
 
- err_component:
+err_component:
+	clk_disable_unprepare(priv->clk);
+err_clk:
 	if (!IS_ERR(priv->extclk))
 		clk_disable_unprepare(priv->extclk);
-	clk_disable_unprepare(priv->clk);
 
 	return err;
 }
