@@ -3493,6 +3493,7 @@ static int toshiba_acpi_probe(struct platform_device *pdev)
 		if (ret < 0) {
 			pr_err("Unable to register iio device\n");
 			iio_device_free(dev->indio_dev);
+			dev->indio_dev = NULL;
 		}
 	}
 iio_error:
