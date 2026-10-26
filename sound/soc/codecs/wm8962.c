@@ -3601,9 +3601,16 @@ static void wm8962_remove(struct snd_soc_component *component)
 	wm8962_free_beep(component);
 }
 
+static int wm8962_set_jack(struct snd_soc_component *component,
+			   struct snd_soc_jack *jack, void *data)
+{
+	return wm8962_mic_detect(component, jack);
+}
+
 static const struct snd_soc_component_driver soc_component_dev_wm8962 = {
 	.probe			= wm8962_probe,
 	.remove			= wm8962_remove,
+	.set_jack		= wm8962_set_jack,
 	.set_bias_level		= wm8962_set_bias_level,
 	.set_pll		= wm8962_set_fll,
 	.use_pmdown_time	= 1,
