@@ -32,7 +32,7 @@
 #include "amdgpu.h"
 #include "amdgpu_trace.h"
 
-#define AMDGPU_USERQ_MAX_HANDLES	(1U << 16)
+#define AMDGPU_USERQ_MAX_HANDLES	BIT(16)
 
 static const struct dma_fence_ops amdgpu_userq_fence_ops;
 
