@@ -664,6 +664,11 @@ static const struct iio_chan_spec fxas21002c_channels[] = {
 	FXAS21002C_CHANNEL(Z),
 };
 
+static const unsigned long fxas21002c_scan_masks[] = {
+	BIT(CHANNEL_SCAN_INDEX_X) | BIT(CHANNEL_SCAN_INDEX_Y) | BIT(CHANNEL_SCAN_INDEX_Z),
+	0
+};
+
 static const struct iio_info fxas21002c_info = {
 	.attrs			= &fxas21002c_attrs_group,
 	.read_raw		= &fxas21002c_read_raw,
@@ -920,6 +925,7 @@ int fxas21002c_core_probe(struct device *dev, struct regmap *regmap, int irq,
 
 	indio_dev->channels = fxas21002c_channels;
 	indio_dev->num_channels = ARRAY_SIZE(fxas21002c_channels);
+	indio_dev->available_scan_masks = fxas21002c_scan_masks;
 	indio_dev->name = name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &fxas21002c_info;
