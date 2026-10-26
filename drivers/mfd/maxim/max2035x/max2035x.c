@@ -12,6 +12,7 @@
 #include <linux/mfd/core.h>
 #include <linux/interrupt.h>
 #include <linux/of.h>
+#include <linux/property.h>
 #include <linux/regmap.h>
 
 #include "max2035x.h"
@@ -203,8 +204,8 @@ static int max2035x_probe(struct i2c_client *client)
 	chip->type = (info == &max20355_variant) ? MAX20355 : MAX20357;
 
 	if (chip->type == MAX20357) {
-		ret = of_property_read_u32(client->dev.of_node, "adi,plc-channel",
-					   &chip->channel_id);
+		ret = device_property_read_u32(&client->dev, "adi,plc-channel",
+					      &chip->channel_id);
 		if (ret)
 			return dev_err_probe(&client->dev, ret,
 					     "missing adi,plc-channel property\n");
