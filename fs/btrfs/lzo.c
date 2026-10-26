@@ -234,9 +234,8 @@ static int copy_compressed_data_to_bio(struct btrfs_fs_info *fs_info,
 				return -ENOMEM;
 		}
 
-		kaddr = kmap_local_folio(*out_folio, foffset);
-		memcpy(kaddr, compressed_data + *total_out - copy_start, copy_len);
-		kunmap_local(kaddr);
+		memcpy_to_folio(*out_folio, foffset,
+				compressed_data + *total_out - copy_start, copy_len);
 		ret = write_and_queue_folio(out_bio, out_folio, total_out, copy_len);
 		if (ret < 0)
 			return ret;
