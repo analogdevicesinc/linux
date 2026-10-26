@@ -39,14 +39,13 @@ struct steal_governor {
 	ktime_t			time;
 	u64			steal;
 	unsigned long		delay;
-	unsigned int		interval_ms;
 	unsigned int		high_threshold;
 	unsigned int		low_threshold;
 	struct delayed_work	work;
 };
 
 static struct steal_governor sg_ctx = {
-	.interval_ms	=	1000,	/* 1 second */
+	.delay		=	HZ,	/* 1 second */
 	.high_threshold =	500,	/* 5% */
 	.low_threshold	=	200,	/* 2% */
 };
@@ -74,15 +73,21 @@ static int param_set_interval_ms(const char *val, const struct kernel_param *kp)
 		return -EINVAL;
 	}
 
-	return param_set_uint(val, kp);
+	*(unsigned long *)kp->arg = msecs_to_jiffies(interval);
+	return 0;
+}
+
+static int param_get_interval_ms(char *buffer, const struct kernel_param *kp)
+{
+	return sprintf(buffer, "%u\n", jiffies_to_msecs(*(unsigned long *)kp->arg));
 }
 
 static const struct kernel_param_ops interval_ms_ops = {
 	.set = param_set_interval_ms,
-	.get = param_get_uint,
+	.get = param_get_interval_ms,
 };
 
-module_param_cb(interval_ms, &interval_ms_ops, &sg_ctx.interval_ms, 0444);
+module_param_cb(interval_ms, &interval_ms_ops, &sg_ctx.delay, 0444);
 MODULE_PARM_DESC(interval_ms,
 		 "Sampling frequency in milliseconds. default: 1000");
 
@@ -270,13 +275,12 @@ static int __init steal_governor_init(void)
 		return -EINVAL;
 	}
 
-	sg_ctx.delay = msecs_to_jiffies(sg_ctx.interval_ms);
 	INIT_DELAYED_WORK(&sg_ctx.work, steal_governor_loop);
 	sg_ctx.steal = get_system_steal_time();
 	sg_ctx.time = ktime_get();
 	schedule_delayed_work(&sg_ctx.work, sg_ctx.delay);
 	pr_info("enabled. interval: %ums, high_threshold: %u, low_threshold: %u\n",
-		sg_ctx.interval_ms, sg_ctx.high_threshold, sg_ctx.low_threshold);
+		jiffies_to_msecs(sg_ctx.delay), sg_ctx.high_threshold, sg_ctx.low_threshold);
 
 	return 0;
 }
