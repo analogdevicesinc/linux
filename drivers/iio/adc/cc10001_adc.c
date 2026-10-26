@@ -55,7 +55,6 @@ struct cc10001_adc_device {
 	void __iomem *reg_base;
 	struct clk *adc_clk;
 	struct regulator *reg;
-	u16 *buf;
 
 	bool shared;
 	struct mutex lock;
@@ -133,6 +132,7 @@ static u16 cc10001_adc_poll_done(struct iio_dev *indio_dev,
 
 static irqreturn_t cc10001_adc_trigger_h(int irq, void *p)
 {
+	IIO_DECLARE_BUFFER_WITH_TS(u16, data, CC10001_ADC_NUM_CHANNELS) = { };
 	struct cc10001_adc_device *adc_dev;
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev;
@@ -140,12 +140,10 @@ static irqreturn_t cc10001_adc_trigger_h(int irq, void *p)
 	unsigned int channel;
 	unsigned int scan_idx;
 	bool sample_invalid;
-	u16 *data;
 	int i;
 
 	indio_dev = pf->indio_dev;
 	adc_dev = iio_priv(indio_dev);
-	data = adc_dev->buf;
 
 	mutex_lock(&adc_dev->lock);
 
@@ -178,8 +176,8 @@ done:
 	mutex_unlock(&adc_dev->lock);
 
 	if (!sample_invalid)
-		iio_push_to_buffers_with_timestamp(indio_dev, data,
-						   iio_get_time_ns(indio_dev));
+		iio_push_to_buffers_with_ts(indio_dev, data, sizeof(data),
+					    iio_get_time_ns(indio_dev));
 	iio_trigger_notify_done(indio_dev->trig);
 
 	return IRQ_HANDLED;
@@ -241,22 +239,8 @@ static int cc10001_adc_read_raw(struct iio_dev *indio_dev,
 	}
 }
 
-static int cc10001_update_scan_mode(struct iio_dev *indio_dev,
-				    const unsigned long *scan_mask)
-{
-	struct cc10001_adc_device *adc_dev = iio_priv(indio_dev);
-
-	kfree(adc_dev->buf);
-	adc_dev->buf = kmalloc(indio_dev->scan_bytes, GFP_KERNEL);
-	if (!adc_dev->buf)
-		return -ENOMEM;
-
-	return 0;
-}
-
 static const struct iio_info cc10001_adc_info = {
 	.read_raw = &cc10001_adc_read_raw,
-	.update_scan_mode = &cc10001_update_scan_mode,
 };
 
 static int cc10001_adc_channel_init(struct iio_dev *indio_dev,
