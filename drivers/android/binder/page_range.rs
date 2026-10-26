@@ -66,7 +66,7 @@ impl Shrinker {
     }
 
     /// Register this shrinker with the kernel.
-    pub(crate) fn register(&'static self, name: &CStr) -> Result<()> {
+    pub(crate) fn register(&'static self, name: &CStr) -> Result {
         // SAFETY: These fields are not yet used, so it's okay to zero them.
         unsafe {
             self.inner.get().write(ptr::null_mut());
@@ -352,7 +352,7 @@ impl ShrinkablePageRange {
     /// Make sure that the given pages are allocated and mapped.
     ///
     /// Must not be called from an atomic context.
-    pub(crate) fn use_range(&self, start: usize, end: usize) -> Result<()> {
+    pub(crate) fn use_range(&self, start: usize, end: usize) -> Result {
         if start >= end {
             return Ok(());
         }
@@ -398,7 +398,7 @@ impl ShrinkablePageRange {
     ///
     /// Assumes that `i` is in bounds.
     #[cold]
-    unsafe fn use_page_slow(&self, i: usize) -> Result<()> {
+    unsafe fn use_page_slow(&self, i: usize) -> Result {
         let new_page = Page::alloc_page(GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO)?;
 
         let mm_mutex = self.mm_lock.lock();
@@ -439,22 +439,9 @@ impl ShrinkablePageRange {
         // workqueue.
         let mm = MmWithUser::into_mmput_async(self.mm.mmget_not_zero().ok_or(ESRCH)?);
         {
-            let vma_read;
-            let mmap_read;
-            let vma = if let Some(ret) = mm.lock_vma_under_rcu(vma_addr) {
-                vma_read = ret;
-                check_vma(&vma_read, self)
-            } else {
-                mmap_read = mm.mmap_read_lock();
-                mmap_read
-                    .vma_lookup(vma_addr)
-                    .and_then(|vma| check_vma(vma, self))
-            };
-
-            match vma {
-                Some(vma) => vma.vm_insert_page(user_page_addr, &new_page)?,
-                None => return Err(ESRCH),
-            }
+            let vma_read_guard = mm.vma_start_read_unlocked(vma_addr).ok_or(ESRCH)?;
+            let vma = check_vma(&vma_read_guard, self).ok_or(ESRCH)?;
+            vma.vm_insert_page(user_page_addr, &new_page)?;
         }
 
         let inner = self.lock.lock();

@@ -22,6 +22,7 @@
 #include <linux/hugetlb.h>
 #include <linux/kfence.h>
 #include <linux/execmem.h>
+#include <linux/vmemmap-optimization.h>
 
 #include <asm/alternative.h>
 #include <asm/fixmap.h>
@@ -185,7 +186,7 @@ void __init arch_mm_preinit(void)
 		 */
 		unsigned long size =
 			DIV_ROUND_UP(memblock_phys_mem_size(), 1024);
-		swiotlb_adjust_size(min(swiotlb_size_or_default(), size));
+		swiotlb_adjust_size(min(swiotlb_default_pool_size(), size));
 		swiotlb = true;
 		swiotlb_flags |= SWIOTLB_ANY;
 	}
