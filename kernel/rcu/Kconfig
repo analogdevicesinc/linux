@@ -56,6 +56,7 @@ config RCU_EXPERT
 config TINY_SRCU
 	bool
 	default y if TINY_RCU
+	select IRQ_WORK
 	help
 	  This option selects the single-CPU non-preemptible version of SRCU.
 
