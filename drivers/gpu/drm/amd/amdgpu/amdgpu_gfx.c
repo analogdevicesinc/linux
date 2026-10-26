@@ -1015,6 +1015,97 @@ void amdgpu_gfx_off_ctrl_immediate(struct amdgpu_device *adev, bool enable)
 	amdgpu_gfx_do_off_ctrl(adev, enable, true);
 }
 
+/*
+ * Force the perfmon clock on, or restore the saved state; @save records the old
+ * one. Called with perfmon_clk_mutex held and GFXOFF disallowed.
+ */
+static void amdgpu_gfx_perfmon_clk_program(struct amdgpu_device *adev,
+					   bool force_on, bool save)
+{
+	int i, num_xcc = NUM_XCC(adev->gfx.xcc_mask);
+
+	lockdep_assert_held(&adev->gfx.perfmon_clk_mutex);
+
+	for (i = 0; i < num_xcc; i++) {
+		bool on = force_on || test_bit(i, &adev->gfx.perfmon_clk_restore_mask);
+		bool in_safe_mode = adev->gfx.rlc.in_safe_mode[i];
+		bool was_on;
+
+		if (!in_safe_mode)
+			amdgpu_gfx_rlc_enter_safe_mode(adev, i);
+		was_on = adev->gfx.funcs->set_perfmon_clk_override(adev, i, on);
+		if (!in_safe_mode)
+			amdgpu_gfx_rlc_exit_safe_mode(adev, i);
+
+		if (save)
+			assign_bit(i, &adev->gfx.perfmon_clk_restore_mask, was_on);
+	}
+}
+
+/*
+ * Refcounted override that keeps the perfmon clock on for profilers. The last
+ * put restores the previous state. Each hold keeps GFXOFF disallowed, as a
+ * GFXOFF exit restores the register. Returns -EOPNOTSUPP if the ASIC can't do it.
+ *
+ * GFXOFF control takes pm.mutex, which clock gating holds around
+ * perfmon_clk_mutex, so it must be called without perfmon_clk_mutex held.
+ */
+int amdgpu_gfx_perfmon_clk_override(struct amdgpu_device *adev, bool enable)
+{
+	int r = 0;
+
+	if (amdgpu_sriov_vf(adev) || !adev->gfx.funcs ||
+	    !adev->gfx.funcs->set_perfmon_clk_override)
+		return -EOPNOTSUPP;
+
+	if (enable)
+		amdgpu_gfx_off_ctrl(adev, false);
+
+	mutex_lock(&adev->gfx.perfmon_clk_mutex);
+	if (enable) {
+		if (!adev->gfx.perfmon_clk_override_count++)
+			amdgpu_gfx_perfmon_clk_program(adev, true, true);
+	} else if (WARN_ON_ONCE(!adev->gfx.perfmon_clk_override_count)) {
+		r = -EINVAL;
+	} else if (!--adev->gfx.perfmon_clk_override_count) {
+		amdgpu_gfx_perfmon_clk_program(adev, false, false);
+	}
+	mutex_unlock(&adev->gfx.perfmon_clk_mutex);
+
+	if (!enable && !r)
+		amdgpu_gfx_off_ctrl(adev, true);
+
+	return r;
+}
+
+/*
+ * Program the perfmon clock for clock gating. While overridden, only record
+ * the state for the final restore. Called with perfmon_clk_mutex held.
+ */
+void amdgpu_gfx_perfmon_clk_update(struct amdgpu_device *adev, int xcc_id, bool on)
+{
+	lockdep_assert_held(&adev->gfx.perfmon_clk_mutex);
+
+	if (adev->gfx.perfmon_clk_override_count)
+		assign_bit(xcc_id, &adev->gfx.perfmon_clk_restore_mask, on);
+	else
+		adev->gfx.funcs->set_perfmon_clk_override(adev, xcc_id, on);
+}
+
+/* Re-apply the override after resume/reset reprogrammed clock gating. */
+void amdgpu_gfx_perfmon_clk_restore(struct amdgpu_device *adev)
+{
+	if (!adev->gfx.funcs || !adev->gfx.funcs->set_perfmon_clk_override)
+		return;
+
+	amdgpu_gfx_off_ctrl(adev, false);
+	mutex_lock(&adev->gfx.perfmon_clk_mutex);
+	if (adev->gfx.perfmon_clk_override_count)
+		amdgpu_gfx_perfmon_clk_program(adev, true, false);
+	mutex_unlock(&adev->gfx.perfmon_clk_mutex);
+	amdgpu_gfx_off_ctrl(adev, true);
+}
+
 int amdgpu_set_gfx_off_residency(struct amdgpu_device *adev, bool value)
 {
 	int r = 0;

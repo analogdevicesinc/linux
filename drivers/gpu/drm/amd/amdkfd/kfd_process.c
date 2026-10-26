@@ -1176,12 +1176,32 @@ static void kfd_process_free_outstanding_kfd_bos(struct kfd_process *p)
 
 static void kfd_process_profiler_release(struct kfd_process *p, struct kfd_process_device *pdd)
 {
+	struct amdgpu_device *adev = pdd->dev->adev;
+	int puts = 0;
+
 	mutex_lock(&pdd->dev->kfd->profiler_lock);
 	if (pdd->dev->kfd->profiler_process == p) {
 		pdd->qpd.dqm->ops.set_perfcount(pdd->qpd.dqm, 0);
 		pdd->dev->kfd->profiler_process = NULL;
+		puts++;
+	}
+	if (pdd->perfmon_clk_req) {
+		pdd->perfmon_clk_req = false;
+		puts++;
 	}
 	mutex_unlock(&pdd->dev->kfd->profiler_lock);
+
+	/*
+	 * Nothing is held on the kfd_create_process() error path, which holds
+	 * kfd_processes_mutex and so must not wait for a reset.
+	 */
+	if (!puts)
+		return;
+
+	down_read(&adev->reset_domain->sem);
+	while (puts--)
+		amdgpu_gfx_perfmon_clk_override(adev, false);
+	up_read(&adev->reset_domain->sem);
 }
 
 static void kfd_process_destroy_pdds(struct kfd_process *p)

@@ -895,6 +895,8 @@ struct kfd_process_device {
 	u32 pasid;
 	/* Indicates this process has requested PTL stay disabled */
 	bool ptl_disable_req;
+	/* Holds a dispatch-mode perfmon clock override until released or exit */
+	bool perfmon_clk_req;
 };
 
 #define qpd_to_pdd(x) container_of(x, struct kfd_process_device, qpd)
