@@ -127,6 +127,7 @@ static const struct regmap_config gs101_regmap_config = {
 	.reg_stride = 4,
 	.val_bits = 32,
 	.use_relaxed_mmio = true,
+	.disable_locking = true,
 	.max_register = GS101_REG_INTPEND(15),
 };
 
