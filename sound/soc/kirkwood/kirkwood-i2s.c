@@ -59,11 +59,11 @@ static int armada_38x_i2s_init_quirk(struct platform_device *pdev,
 
 	priv->pll_config = devm_platform_ioremap_resource_byname(pdev, "pll_regs");
 	if (IS_ERR(priv->pll_config))
-		return -ENOMEM;
+		return PTR_ERR(priv->pll_config);
 
 	priv->soc_control = devm_platform_ioremap_resource_byname(pdev, "soc_ctrl");
 	if (IS_ERR(priv->soc_control))
-		return -ENOMEM;
+		return PTR_ERR(priv->soc_control);
 
 	/* Select one of exceptive modes: I2S or S/PDIF */
 	reg_val = readl(priv->soc_control);
