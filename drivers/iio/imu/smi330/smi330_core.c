@@ -628,7 +628,8 @@ static irqreturn_t smi330_trigger_handler(int irq, void *p)
 	if (ret)
 		goto out;
 
-	iio_push_to_buffers_with_timestamp(indio_dev, data->buf, pf->timestamp);
+	iio_push_to_buffers_with_ts(indio_dev, data->buf, sizeof(data->buf),
+				    pf->timestamp);
 
 out:
 	iio_trigger_notify_done(indio_dev->trig);
