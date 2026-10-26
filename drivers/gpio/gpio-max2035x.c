@@ -10,7 +10,7 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 
-#include "../mfd/maxim/max2035x/max2035x.h"
+#include <linux/mfd/max2035x.h>
 
 #define MAX2035X_REG_GPIO1		0x58
 #define MAX2035X_REG_GPIO_RDB1		0x5C

@@ -11,9 +11,9 @@
 #include <linux/of.h>
 #include <linux/math64.h>
 
-#include "../../mfd/maxim/max2035x/max2035x.h"
-#include "../../mfd/maxim/max2035x/max2035x_registers.h"
-#include "../../mfd/maxim/max2035x/max2035x_fuelgauge.h"
+#include <linux/mfd/max2035x.h>
+#include <linux/mfd/max2035x_registers.h>
+#include "max2035x_fuelgauge.h"
 
 #define MAX2035X_I2C_ADDR_FG	0x36
 

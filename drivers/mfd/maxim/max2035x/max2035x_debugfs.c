@@ -12,8 +12,8 @@
 #include <linux/seq_file.h>
 #include <linux/completion.h>
 
-#include "max2035x.h"
-#include "max2035x_registers.h"
+#include <linux/mfd/max2035x.h>
+#include <linux/mfd/max2035x_registers.h>
 #include "max2035x_plc.h"
 
 #define MAX2035X_RAM_SIZE		128

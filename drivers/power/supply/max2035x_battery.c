@@ -12,8 +12,8 @@
 #include <linux/regmap.h>
 #include <linux/math64.h>
 
-#include "../../mfd/maxim/max2035x/max2035x.h"
-#include "../../mfd/maxim/max2035x/max2035x_registers.h"
+#include <linux/mfd/max2035x.h>
+#include <linux/mfd/max2035x_registers.h>
 
 struct max2035x_bat_regs {
 	u8 soc_byte1;

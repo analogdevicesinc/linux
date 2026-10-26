@@ -15,8 +15,8 @@
 #include <linux/property.h>
 #include <linux/regmap.h>
 
-#include "../../mfd/maxim/max2035x/max2035x.h"
-#include "../../mfd/maxim/max2035x/max2035x_registers.h"
+#include <linux/mfd/max2035x.h>
+#include <linux/mfd/max2035x_registers.h>
 
 struct max20357_charger {
 	struct device *dev;

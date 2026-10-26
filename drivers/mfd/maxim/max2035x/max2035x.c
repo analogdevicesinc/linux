@@ -15,9 +15,9 @@
 #include <linux/property.h>
 #include <linux/regmap.h>
 
-#include "max2035x.h"
+#include <linux/mfd/max2035x.h>
+#include <linux/mfd/max2035x_registers.h>
 #include "max2035x_plc.h"
-#include "max2035x_registers.h"
 
 static const struct regmap_config max2035x_regmap_cfg = {
 	.reg_bits = 8,
