@@ -121,9 +121,11 @@
 #define PHY_CNFG_PAD_SP_MASK		GENMASK(19, 16) /* bits [19:16] */
 #define PHY_CNFG_PAD_SP			0x0c /* PMOS TX drive strength */
 #define PHY_CNFG_PAD_SP_SG2042		0x09 /* PMOS TX drive strength for SG2042 */
+#define PHY_CNFG_PAD_SP_SC846		0x09 /* PMOS TX drive strength control for ADSP-SC846 */
 #define PHY_CNFG_PAD_SN_MASK		GENMASK(23, 20) /* bits [23:20] */
 #define PHY_CNFG_PAD_SN			0x0c /* NMOS TX drive strength */
 #define PHY_CNFG_PAD_SN_SG2042		0x08 /* NMOS TX drive strength for SG2042 */
+#define PHY_CNFG_PAD_SN_SC846		0x08 /* NMOS TX drive strength for ADSP-SC846 */
 
 /* PHY command/response pad settings */
 #define PHY_CMDPAD_CNFG_R	(DWC_MSHC_PTR_PHY_R + 0x04)
@@ -150,9 +152,11 @@
 
 #define PHY_PAD_TXSLEW_CTRL_P_MASK	GENMASK(8, 5) /* bits [8:5] */
 #define PHY_PAD_TXSLEW_CTRL_P		0x3 /* Slew control for P-Type pad TX */
+#define PHY_PAD_TXSLEW_CTRL_P_SC846	0x2 /* Slew control for P-Type pad TX for SC846 */
 #define PHY_PAD_TXSLEW_CTRL_N_MASK	GENMASK(12, 9) /* bits [12:9] */
 #define PHY_PAD_TXSLEW_CTRL_N		0x3 /* Slew control for N-Type pad TX */
 #define PHY_PAD_TXSLEW_CTRL_N_SG2042	0x2 /* Slew control for N-Type pad TX for SG2042 */
+#define PHY_PAD_TXSLEW_CTRL_N_SC846	0x2 /* Slew control for N-Type pad TX for SC846 */
 
 /* PHY CLK delay line settings */
 #define PHY_SDCLKDL_CNFG_R		(DWC_MSHC_PTR_PHY_R + 0x1d)
@@ -1120,6 +1124,73 @@ static int sg2042_init(struct device *dev, struct sdhci_host *host,
 					     ARRAY_SIZE(clk_ids), clk_ids);
 }
 
+static int sc846_phy_init(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct dwcmshc_priv *priv = sdhci_pltfm_priv(pltfm_host);
+	u32 phy_cnfg, val;
+	u16 reg, pad;
+	int ret;
+
+	reg = sdhci_readw(host, priv->vendor_specific_area1 + DWCMSHC_EMMC_CONTROL);
+	reg |= DWCMSHC_CARD_IS_EMMC;
+	sdhci_writew(host, reg, priv->vendor_specific_area1 + DWCMSHC_EMMC_CONTROL);
+
+	phy_cnfg = FIELD_PREP(PHY_CNFG_PAD_SN_MASK, PHY_CNFG_PAD_SN_SC846) |
+		   FIELD_PREP(PHY_CNFG_PAD_SP_MASK, PHY_CNFG_PAD_SP_SC846);
+
+	/* Configure PHY while held in reset. */
+	sdhci_writel(host, phy_cnfg, PHY_CNFG_R);
+
+	pad = PHY_PAD_RXSEL_1V8;
+	pad |= FIELD_PREP(PHY_PAD_TXSLEW_CTRL_N_MASK, PHY_PAD_TXSLEW_CTRL_N_SC846) |
+	       FIELD_PREP(PHY_PAD_TXSLEW_CTRL_P_MASK, PHY_PAD_TXSLEW_CTRL_P_SC846) |
+	       FIELD_PREP(PHY_PAD_WEAKPULL_MASK, PHY_PAD_WEAKPULL_PULLUP);
+
+	sdhci_writew(host, pad, PHY_CMDPAD_CNFG_R);
+	sdhci_writew(host, pad, PHY_DATAPAD_CNFG_R);
+	sdhci_writew(host, pad, PHY_RSTNPAD_CNFG_R);
+
+	pad = FIELD_PREP(PHY_PAD_TXSLEW_CTRL_N_MASK, PHY_PAD_TXSLEW_CTRL_N_SC846) |
+	      FIELD_PREP(PHY_PAD_TXSLEW_CTRL_P_MASK, PHY_PAD_TXSLEW_CTRL_P_SC846);
+
+	sdhci_writew(host, pad, PHY_CLKPAD_CNFG_R);
+
+	ret = readl_poll_timeout_atomic(host->ioaddr + PHY_CNFG_R, val,
+					val & PHY_CNFG_PHY_PWRGOOD_MASK,
+					1, 1000);
+	if (ret)
+		return ret;
+
+	sdhci_writel(host, phy_cnfg | PHY_CNFG_RSTN_DEASSERT,
+		     PHY_CNFG_R);
+
+	return 0;
+}
+
+static void sc846_sdhci_reset(struct sdhci_host *host, u8 mask)
+{
+	int ret;
+
+	dwcmshc_reset(host, mask);
+
+	if (mask & SDHCI_RESET_ALL) {
+		ret = sc846_phy_init(host);
+		if (ret)
+			dev_err(mmc_dev(host->mmc),
+				"SC846 PHY initialization failed: %d\n", ret);
+	}
+}
+
+static int sc846_init(struct device *dev, struct sdhci_host *host,
+		      struct dwcmshc_priv *dwc_priv)
+{
+	static const char * const clk_ids[] = { "timer" };
+
+	return dwcmshc_get_enable_other_clks(dev, dwc_priv,
+					     ARRAY_SIZE(clk_ids), clk_ids);
+}
+
 static const struct sdhci_ops sdhci_dwcmshc_ops = {
 	.set_clock		= sdhci_set_clock,
 	.set_bus_width		= sdhci_set_bus_width,
@@ -1194,6 +1265,16 @@ static const struct sdhci_ops sdhci_dwcmshc_sg2042_ops = {
 	.platform_execute_tuning = th1520_execute_tuning,
 };
 
+static const struct sdhci_ops sdhci_dwcmshc_sc846_ops = {
+	.set_clock		= sdhci_set_clock,
+	.set_bus_width		= sdhci_set_bus_width,
+	.set_uhs_signaling	= dwcmshc_set_uhs_signaling,
+	.get_max_clock		= dwcmshc_get_max_clock,
+	.reset			= sc846_sdhci_reset,
+	.adma_write_desc	= dwcmshc_adma_write_desc,
+	.irq			= dwcmshc_cqe_irq_handler,
+};
+
 static const struct dwcmshc_pltfm_data sdhci_dwcmshc_pdata = {
 	.pdata = {
 		.ops = &sdhci_dwcmshc_ops,
@@ -1261,6 +1342,15 @@ static const struct dwcmshc_pltfm_data sdhci_dwcmshc_sg2042_pdata = {
 		.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 	},
 	.init = sg2042_init,
+};
+
+static const struct dwcmshc_pltfm_data sdhci_dwcmshc_sc846_pdata = {
+	.pdata = {
+		.ops = &sdhci_dwcmshc_sc846_ops,
+		.quirks = SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN,
+		.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+	},
+	.init = sc846_init,
 };
 
 static const struct cqhci_host_ops dwcmshc_cqhci_ops = {
@@ -1362,6 +1452,10 @@ static const struct of_device_id sdhci_dwcmshc_dt_ids[] = {
 	{
 		.compatible = "sophgo,sg2042-dwcmshc",
 		.data = &sdhci_dwcmshc_sg2042_pdata,
+	},
+	{
+		.compatible = "adi,adsp-sc846-dwcmshc",
+		.data = &sdhci_dwcmshc_sc846_pdata,
 	},
 	{},
 };
