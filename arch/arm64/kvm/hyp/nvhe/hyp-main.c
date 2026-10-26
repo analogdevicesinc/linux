@@ -1197,7 +1197,8 @@ DEFINE_KVM_HOST_HCALL0(u64, __vgic_v3_get_gic_config)
 
 DEFINE_KVM_HOST_HCALL0(void, __vgic_v3_init_lrs)
 {
-	__vgic_v3_init_lrs();
+	if (hyp_gicv3_nr_lr)
+		__vgic_v3_init_lrs();
 }
 
 DEFINE_KVM_HOST_HCALL(void, __vgic_v3_save_aprs,
@@ -1547,7 +1548,6 @@ static const hcall_t host_hcall[] = {
 	HANDLE_FUNC(__pkvm_create_private_mapping),
 	HANDLE_FUNC(__pkvm_cpu_set_vector),
 	HANDLE_FUNC(__kvm_enable_ssbs),
-	HANDLE_FUNC(__vgic_v3_init_lrs),
 	HANDLE_FUNC(__vgic_v3_get_gic_config),
 	HANDLE_FUNC(__pkvm_hyp_alloc_selftest),
 	HANDLE_FUNC(__pkvm_prot_finalize),
@@ -1569,6 +1569,7 @@ static const hcall_t host_hcall[] = {
 	HANDLE_FUNC(__tracing_reset),
 	HANDLE_FUNC(__tracing_enable_event),
 	HANDLE_FUNC(__tracing_write_event),
+	HANDLE_FUNC(__vgic_v3_init_lrs),
 	HANDLE_FUNC(__vgic_v3_save_aprs),
 	HANDLE_FUNC(__vgic_v3_restore_vmcr_aprs),
 	HANDLE_FUNC(__vgic_v5_make_resident),
