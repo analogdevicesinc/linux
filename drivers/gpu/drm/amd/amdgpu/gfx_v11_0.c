@@ -587,6 +587,8 @@ static int gfx_v11_0_ring_test_ring(struct amdgpu_ring *ring)
 	int r;
 
 	WREG32(scratch, 0xCAFEDEAD);
+	/* Flush the posted write before the CP writes the test value. */
+	RREG32(scratch);
 	r = amdgpu_ring_alloc(ring, 5);
 	if (r) {
 		drm_err(adev_to_drm(adev), "cp failed to lock ring %d (%d).\n",
