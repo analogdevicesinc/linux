@@ -18,11 +18,8 @@
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/of.h>
-#include <linux/of_device.h>
-#include <linux/clk-provider.h>
 #include <linux/regmap.h>
 #include <linux/iio/iio.h>
-#include <linux/iio/sysfs.h>
 #include <linux/clk.h>
 
 #include "cf_axi_adc.h"
@@ -33,12 +30,8 @@
 #define ADA4355_REG_DEVICE_INDEX            0x05
 #define ADA4355_REG_TRANFER                 0xFF
 #define ADA4355_REG_POWER_MODES             0x08
-#define ADA4355_REG_CLOCK                   0x09
-#define ADA4355_REG_CLOCK_DIVIDE            0x0B
 #define ADA4355_REG_TEST_MODE               0x0D
 #define ADA4355_REG_OUTPUT_MODE             0x14
-#define ADA4355_REG_OUTPUT_ADJUST           0x15
-#define ADA4355_REG_OUTPUT_PHASE            0x16
 #define ADA4355_REG_USER_PATT1_LSB          0x19
 #define ADA4355_REG_USER_PATT1_MSB          0x1A
 #define ADA4355_REG_USER_PATT2_LSB          0x1B
@@ -46,11 +39,9 @@
 #define ADA4355_REG_SERIAL_OUT_DATA_CNTRL   0x21
 #define ADA4355_REG_SERIAL_CHANNEL_STATUS   0x22
 #define ADA4355_REG_RESOLUTION_SAMPLE_RATE  0x100
-#define ADA4355_REG_USER_IN_OUT_CNTRL       0x101
 
 /* ADA4355_REG_POWER_MODES (0x08) */
 #define ADA4355_DIGITAL_RESET               GENMASK(1, 0)
-#define ADA4355_NORMAL_OPERATION            0xFC
 
 /* CHIP_ID — shared by ADA4355 and ADA4356 */
 #define ADA4355_CHIP_ID                     0x8B
@@ -154,7 +145,6 @@ struct ada4355_state {
 	struct spi_device	*spi;
 	struct regmap		*regmap;
 	struct clk		*clk;
-	struct mutex		lock;
 	unsigned int		num_lanes;
 	struct gpio_descs	*gsel;
 	unsigned int		gain_mode;
@@ -314,8 +304,7 @@ static int ada4355_set_gain_mode(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	scoped_guard(mutex, &st->lock)
-		ret = ada4355_apply_gain_mode(st, mode);
+	ret = ada4355_apply_gain_mode(st, mode);
 
 	iio_device_release_direct_mode(indio_dev);
 
@@ -356,8 +345,7 @@ static int ada4355_set_filter_mode(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	scoped_guard(mutex, &st->lock)
-		ada4355_apply_filter_mode(st, mode);
+	ada4355_apply_filter_mode(st, mode);
 
 	iio_device_release_direct_mode(indio_dev);
 
@@ -479,7 +467,7 @@ static int ada4355_post_setup(struct iio_dev *indio_dev)
 	struct ada4355_state *st = ada4355_get_data(indio_dev);
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct device *dev = &conv->spi->dev;
-	u8 pn_status[3][IDELAY_ENTRIES];
+	u8 pn_status[ADA4355_FRAME_DELAY_LANE][IDELAY_ENTRIES];
 	int opt_delay, c;
 	u32 s;
 	int ret;
@@ -939,7 +927,6 @@ static int ada4355_probe(struct spi_device *spi)
 	st = iio_priv(indio_dev);
 	st->regmap = regmap;
 	st->spi = spi;
-	mutex_init(&st->lock);
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (!conv)
