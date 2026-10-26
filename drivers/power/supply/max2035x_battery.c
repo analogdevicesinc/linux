@@ -6,7 +6,6 @@
  * Reads fuel gauge data from PLC mirror registers in the main I2C block.
  */
 
-#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
