@@ -101,14 +101,6 @@ struct hx711_data {
 	const struct hx711_chip_info	*chip_info;
 	struct mutex		lock;
 	/*
-	 * triggered buffer
-	 * 2x32-bit channel + 64-bit naturally aligned timestamp
-	 */
-	struct {
-		u32 channel[2];
-		aligned_s64 timestamp;
-	} buffer;
-	/*
 	 * delay after a rising edge on SCK until the data is ready DOUT
 	 * this is dependent on the hx711 where the datasheet tells a
 	 * maximum value of 100 ns
@@ -397,20 +389,20 @@ static irqreturn_t hx711_trigger(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct hx711_data *hx711_data = iio_priv(indio_dev);
+	struct {
+		u32 channel[2];
+		aligned_s64 timestamp;
+	} scan = { };
 	int i, j = 0;
 
 	mutex_lock(&hx711_data->lock);
 
-	memset(&hx711_data->buffer, 0, sizeof(hx711_data->buffer));
-
 	iio_for_each_active_channel(indio_dev, i) {
-		hx711_data->buffer.channel[j] =
-			hx711_reset_read(hx711_data, &indio_dev->channels[i]);
+		scan.channel[j] = hx711_reset_read(hx711_data, &indio_dev->channels[i]);
 		j++;
 	}
 
-	iio_push_to_buffers_with_timestamp(indio_dev, &hx711_data->buffer,
-							pf->timestamp);
+	iio_push_to_buffers_with_ts(indio_dev, &scan, sizeof(scan), pf->timestamp);
 
 	mutex_unlock(&hx711_data->lock);
 
