@@ -44,13 +44,7 @@ struct ad7766 {
 	struct spi_transfer xfer;
 	struct spi_message msg;
 
-	/*
-	 * DMA (thus cache coherency maintenance) may require the
-	 * transfer buffers to live in their own cache lines.
-	 * Make the buffer large enough for one 24 bit sample and one 64 bit
-	 * aligned 64 bit timestamp.
-	 */
-	unsigned char data[ALIGN(3, sizeof(s64)) + sizeof(s64)]	__aligned(IIO_DMA_MINALIGN);
+	IIO_DECLARE_DMA_BUFFER_WITH_TS(s32, data, 1);
 };
 
 /*
@@ -74,8 +68,8 @@ static irqreturn_t ad7766_trigger_handler(int irq, void *p)
 	if (ret < 0)
 		goto done;
 
-	iio_push_to_buffers_with_timestamp(indio_dev, ad7766->data,
-		pf->timestamp);
+	iio_push_to_buffers_with_ts(indio_dev, ad7766->data,
+				    sizeof(ad7766->data), pf->timestamp);
 done:
 	iio_trigger_notify_done(indio_dev->trig);
 
@@ -269,7 +263,7 @@ static int ad7766_probe(struct spi_device *spi)
 	ad7766->spi = spi;
 
 	/* First byte always 0 */
-	ad7766->xfer.rx_buf = &ad7766->data[1];
+	ad7766->xfer.rx_buf = (u8 *)ad7766->data + 1;
 	ad7766->xfer.len = 3;
 
 	spi_message_init(&ad7766->msg);
