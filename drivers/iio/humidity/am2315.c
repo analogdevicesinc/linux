@@ -42,11 +42,6 @@ static const struct am2315_chip_info am2320_chip_info = {
 struct am2315_data {
 	struct i2c_client *client;
 	struct mutex lock;
-	/* Ensure timestamp is naturally aligned */
-	struct {
-		s16 chans[2];
-		aligned_s64 timestamp;
-	} scan;
 };
 
 struct am2315_sensor_data {
@@ -173,27 +168,27 @@ static irqreturn_t am2315_trigger_handler(int irq, void *p)
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct am2315_data *data = iio_priv(indio_dev);
 	struct am2315_sensor_data sensor_data;
+	struct {
+		s16 chans[2];
+		aligned_s64 timestamp;
+	} scan = { };
 
 	ret = am2315_read_data(data, &sensor_data);
 	if (ret < 0)
 		goto err;
 
-	mutex_lock(&data->lock);
 	if (*(indio_dev->active_scan_mask) == AM2315_ALL_CHANNEL_MASK) {
-		data->scan.chans[0] = sensor_data.hum_data;
-		data->scan.chans[1] = sensor_data.temp_data;
+		scan.chans[0] = sensor_data.hum_data;
+		scan.chans[1] = sensor_data.temp_data;
 	} else {
 		i = 0;
 		iio_for_each_active_channel(indio_dev, bit) {
-			data->scan.chans[i] = (bit ? sensor_data.temp_data :
-					       sensor_data.hum_data);
+			scan.chans[i] = bit ? sensor_data.temp_data : sensor_data.hum_data;
 			i++;
 		}
 	}
-	mutex_unlock(&data->lock);
 
-	iio_push_to_buffers_with_timestamp(indio_dev, &data->scan,
-					   pf->timestamp);
+	iio_push_to_buffers_with_ts(indio_dev, &scan, sizeof(scan), pf->timestamp);
 err:
 	iio_trigger_notify_done(indio_dev->trig);
 	return IRQ_HANDLED;
