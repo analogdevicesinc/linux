@@ -19,20 +19,20 @@
 #include "xe_sysctrl_mailbox_types.h"
 
 struct xe_sysctrl_mailbox_msg_hdr {
-	__le32 data;
-} __packed;
+	u32 data;
+};
 
 #define XE_SYSCTRL_HDR_GROUP_ID(hdr) \
-	FIELD_GET(SYSCTRL_HDR_GROUP_ID_MASK, le32_to_cpu((hdr)->data))
+	FIELD_GET(SYSCTRL_HDR_GROUP_ID_MASK, (hdr)->data)
 
 #define XE_SYSCTRL_HDR_COMMAND(hdr) \
-	FIELD_GET(SYSCTRL_HDR_COMMAND_MASK, le32_to_cpu((hdr)->data))
+	FIELD_GET(SYSCTRL_HDR_COMMAND_MASK, (hdr)->data)
 
 #define XE_SYSCTRL_HDR_IS_RESPONSE(hdr) \
-	FIELD_GET(SYSCTRL_HDR_IS_RESPONSE, le32_to_cpu((hdr)->data))
+	FIELD_GET(SYSCTRL_HDR_IS_RESPONSE, (hdr)->data)
 
 #define XE_SYSCTRL_HDR_RESULT(hdr) \
-	FIELD_GET(SYSCTRL_HDR_RESULT_MASK, le32_to_cpu((hdr)->data))
+	FIELD_GET(SYSCTRL_HDR_RESULT_MASK, (hdr)->data)
 
 static bool sysctrl_wait_bit_clear(struct xe_sysctrl *sc, u32 bit_mask,
 				   unsigned int timeout_ms)
@@ -126,8 +126,8 @@ static int sysctrl_prepare_command(struct xe_device *xe,
 		return -ENOMEM;
 
 	hdr = (struct xe_sysctrl_mailbox_msg_hdr *)buffer;
-	hdr->data = cpu_to_le32(FIELD_PREP(SYSCTRL_HDR_GROUP_ID_MASK, group_id) |
-				     FIELD_PREP(SYSCTRL_HDR_COMMAND_MASK, command));
+	hdr->data = FIELD_PREP(SYSCTRL_HDR_GROUP_ID_MASK, group_id) |
+		    FIELD_PREP(SYSCTRL_HDR_COMMAND_MASK, command);
 
 	if (data_in && data_in_len)
 		memcpy(buffer + sizeof(*hdr), data_in, data_in_len);
@@ -334,6 +334,9 @@ void xe_sysctrl_create_command(struct xe_sysctrl_mailbox_command *command, u8 gr
  * If a response is expected, @cmd->data_out must point to a buffer of
  * size @cmd->data_out_len supplied by caller.
  *
+ * @cmd->timeout_ms specifies the response timeout in milliseconds.
+ * A value of 0 uses %XE_SYSCTRL_MB_DEFAULT_TIMEOUT_MS.
+ *
  * On success, @rdata_len is updated with number of valid response bytes
  * returned by firmware, bounded by @cmd->data_out_len.
  *
@@ -347,6 +350,7 @@ int xe_sysctrl_send_command(struct xe_sysctrl *sc,
 	u8 group_id, command_code;
 	u8 *mbox_cmd = NULL;
 	size_t cmd_size = 0;
+	unsigned int timeout_ms;
 	int ret;
 
 	guard(xe_pm_runtime_noresume)(xe);
@@ -360,6 +364,7 @@ int xe_sysctrl_send_command(struct xe_sysctrl *sc,
 
 	group_id = XE_SYSCTRL_APP_HDR_GROUP_ID(&cmd->header);
 	command_code = XE_SYSCTRL_APP_HDR_COMMAND(&cmd->header);
+	timeout_ms = cmd->timeout_ms ?: XE_SYSCTRL_MB_DEFAULT_TIMEOUT_MS;
 
 	might_sleep();
 
@@ -375,7 +380,7 @@ int xe_sysctrl_send_command(struct xe_sysctrl *sc,
 
 	ret = sysctrl_send_command(sc, mbox_cmd, cmd_size,
 				   cmd->data_out, cmd->data_out_len, rdata_len,
-				   XE_SYSCTRL_MB_DEFAULT_TIMEOUT_MS);
+				   timeout_ms);
 	if (ret)
 		xe_err(xe, "sysctrl: Mailbox command failed: %pe\n", ERR_PTR(ret));
 

@@ -61,7 +61,7 @@ static inline struct nsproxy *create_nsproxy(void)
 	return nsproxy;
 }
 
-static inline void nsproxy_free(struct nsproxy *ns)
+void nsproxy_free(struct nsproxy *ns)
 {
 	put_mnt_ns(ns->mnt_ns);
 	put_uts_ns(ns->uts_ns);
@@ -385,6 +385,12 @@ out:
 
 static inline int validate_ns(struct nsset *nsset, struct ns_common *ns)
 {
+	int ret;
+
+	ret = security_namespace_install(nsset, ns);
+	if (ret)
+		return ret;
+
 	return ns->ops->install(nsset, ns);
 }
 

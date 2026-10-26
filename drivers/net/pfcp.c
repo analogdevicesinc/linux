@@ -65,6 +65,13 @@ static int pfcp_encap_recv(struct sock *sk, struct sk_buff *skb)
 		goto drop;
 
 	unparsed = pfcp_hdr(skb);
+	if (unparsed->flags & PFCP_SEID_FLAG) {
+		if (unlikely(!pskb_may_pull(skb, PFCP_HLEN +
+					    offsetofend(struct pfcphdr_session,
+							seid))))
+			goto drop;
+		unparsed = pfcp_hdr(skb);
+	}
 
 	ip_tunnel_flags_zero(flags);
 	tun_dst = udp_tun_rx_dst(skb, sk->sk_family, flags, 0,
@@ -74,7 +81,7 @@ static int pfcp_encap_recv(struct sock *sk, struct sk_buff *skb)
 
 	md = ip_tunnel_info_opts(&tun_dst->u.tun_info);
 	if (unlikely(!md))
-		goto drop;
+		goto drop_dst;
 
 	if (unparsed->flags & PFCP_SEID_FLAG)
 		pfcp_session_recv(pfcp, skb, md);
@@ -87,7 +94,7 @@ static int pfcp_encap_recv(struct sock *sk, struct sk_buff *skb)
 	if (unlikely(iptunnel_pull_header(skb, PFCP_HLEN, skb->protocol,
 					  !net_eq(sock_net(sk),
 					  dev_net(pfcp->dev)))))
-		goto drop;
+		goto drop_dst;
 
 	skb_dst_set(skb, (struct dst_entry *)tun_dst);
 
@@ -98,6 +105,8 @@ static int pfcp_encap_recv(struct sock *sk, struct sk_buff *skb)
 	gro_cells_receive(&pfcp->gro_cells, skb);
 
 	return 0;
+drop_dst:
+	dst_release(&tun_dst->dst);
 drop:
 	kfree_skb(skb);
 	return 0;

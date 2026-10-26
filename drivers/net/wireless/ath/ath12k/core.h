@@ -15,7 +15,6 @@
 #include <linux/ctype.h>
 #include <linux/firmware.h>
 #include <linux/of_reserved_mem.h>
-#include <linux/panic_notifier.h>
 #include <linux/average.h>
 #include <linux/of.h>
 #include <linux/rhashtable.h>
@@ -928,15 +927,6 @@ struct ath12k_wsi_info {
 	u32 hw_link_id_base;
 };
 
-struct ath12k_dp_profile_params {
-	u32 tx_comp_ring_size;
-	u32 rxdma_monitor_buf_ring_size;
-	u32 rxdma_monitor_dst_ring_size;
-	u32 num_pool_tx_desc;
-	u32 rx_desc_count;
-	u32 rx_release_ring_size;
-};
-
 struct ath12k_mem_profile_based_param {
 	u32 num_vdevs;
 	u32 max_client_single;
@@ -1138,8 +1128,6 @@ struct ath12k_base {
 	} acpi;
 
 #endif /* CONFIG_ACPI */
-
-	struct notifier_block panic_nb;
 
 	struct ath12k_hw_group *ag;
 	struct ath12k_wsi_info wsi_info;

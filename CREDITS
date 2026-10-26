@@ -57,7 +57,7 @@ S: Longford, Ireland
 S: Sydney, Australia
 
 N: Tigran A. Aivazian
-E: tigran@aivazian.fsnet.co.uk
+E: aivazian.tigran@gmail.com
 W: http://www.moses.uklinux.net/patches
 D: BFS filesystem
 D: Intel IA32 CPU microcode update support
@@ -1717,6 +1717,10 @@ S: Talstr. 1
 S: D - 72072 Tuebingen
 S: Germany
 
+N: Vaibhav Hiremath
+E: hvaibhav.linux@gmail.com
+D: Greybus Arche Platform driver
+
 N: Richard Hirst
 E: richard@sleepie.demon.co.uk
 E: rhirst@linuxcare.com
@@ -3113,6 +3117,11 @@ N: Peter Oruba
 D: AMD Microcode loader driver
 S: Germany
 
+N: Pierre Ossman
+D: MMC maintainer 2006-2009
+D: First SDIO implementation
+S: Sweden
+
 N: Jens Osterkamp
 E: jens@de.ibm.com
 D: Maintainer of Spidernet network driver for Cell
@@ -4413,6 +4422,18 @@ E: matthew@wil.cx
 W: ftp://ftp.uk.linux.org/pub/linux/people/willy/
 D: Linux/PARISC hacker.  Filesystem hacker.  Random other hacking.  Custom
 D: PPC port hacking.
+
+N: Dan J Williams
+D: Technical Advisory Board member
+D: Asynchronous Transfers/Transforms (IOAT) API, Compute Express Link (CXL),
+D: Device Direct Access (DAX), Filesystem Direct Access (DAX),
+D: Intel I/OAT DMA driver, libnvdimm BTT: block translation table,
+D: libnvdimm PMEM: persistent memory driver,
+D: libnvdimm: non-volatile memory device subsystem,
+D: Trusted Execution Environment Security Manager (TSM)
+D: Intel C600 SAS driver (ISCI)
+D: Intel XScale IOP SOC
+D: MDRAID IMSM external metadata format
 
 N: G\"unter Windau
 E: gunter@mbfys.kun.nl

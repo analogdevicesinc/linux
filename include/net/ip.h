@@ -74,6 +74,13 @@ static inline unsigned int ip_hdrlen(const struct sk_buff *skb)
 	return ip_hdr(skb)->ihl * 4;
 }
 
+static inline int ip_check_csum_start(const struct sk_buff *skb)
+{
+	if (unlikely(skb->csum_start < skb->network_header + ip_hdrlen(skb)))
+		return -EINVAL;
+	return 0;
+}
+
 struct ipcm_cookie {
 	struct sockcm_cookie	sockc;
 	__be32			addr;
@@ -584,6 +591,13 @@ static inline void ip_select_ident_segs(struct net *net, struct sk_buff *skb,
 {
 	struct iphdr *iph = ip_hdr(skb);
 
+	/* RFC 6864: the IPv4 ID of atomic datagrams has no meaning.
+	 * DF packets without ignore_df can not be fragmented.
+	 */
+	if ((iph->frag_off & htons(IP_DF)) && !skb->ignore_df) {
+		iph->id = 0;
+		return;
+	}
 	/* We had many attacks based on IPID, use the private
 	 * generator as much as we can.
 	 */
@@ -598,17 +612,13 @@ static inline void ip_select_ident_segs(struct net *net, struct sk_buff *skb,
 			val = atomic_read(&inet_sk(sk)->inet_id);
 			atomic_set(&inet_sk(sk)->inet_id, val + segs);
 		} else {
-			val = atomic_add_return(segs, &inet_sk(sk)->inet_id);
+			val = atomic_fetch_add(segs, &inet_sk(sk)->inet_id);
 		}
 		iph->id = htons(val);
 		return;
 	}
-	if ((iph->frag_off & htons(IP_DF)) && !skb->ignore_df) {
-		iph->id = 0;
-	} else {
-		/* Unfortunately we need the big hammer to get a suitable IPID */
-		__ip_select_ident(net, iph, segs);
-	}
+	/* Unfortunately we need the big hammer to get a suitable IPID */
+	__ip_select_ident(net, iph, segs);
 }
 
 static inline void ip_select_ident(struct net *net, struct sk_buff *skb,

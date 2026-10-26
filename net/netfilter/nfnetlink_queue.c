@@ -40,6 +40,7 @@
 #include <linux/udp.h>
 #include <net/gre.h>
 #include <net/gso.h>
+#include <net/ip.h>
 #include <net/sock.h>
 #include <net/tcp_states.h>
 #include <net/netfilter/nf_queue.h>
@@ -674,6 +675,12 @@ nla_put_failure:
 
 static int nf_queue_checksum_help(struct sk_buff *entskb)
 {
+	if (entskb->protocol == htons(ETH_P_IP)) {
+		if (!pskb_network_may_pull(entskb, sizeof(struct iphdr)) ||
+		    ip_check_csum_start(entskb))
+			return -EINVAL;
+	}
+
 	if (skb_csum_is_sctp(entskb))
 		return skb_crc32c_csum_help(entskb);
 
@@ -1559,9 +1566,39 @@ static struct notifier_block nfqnl_dev_notifier = {
 	.notifier_call	= nfqnl_rcv_dev_event,
 };
 
-static void nfqnl_nf_hook_drop(struct net *net)
+/* Match the entries whose hook_index points into the hook array that
+ * __nf_unregister_net_hook() replaces when it removes @ops.
+ *
+ * ops->pf/hooknum name the hook as registered; entry->state.pf/hook
+ * name the array actually traversed - they differ only for NFPROTO_INET.
+ * Every other family uses the array of its own name.
+ */
+static int nf_hook_cmp(struct nf_queue_entry *entry, unsigned long ops_ptr)
+{
+	const struct nf_hook_ops *ops = (const struct nf_hook_ops *)ops_ptr;
+	unsigned int hooknum = ops->hooknum;
+	u8 pf = ops->pf;
+
+	/* same translation as nf_static_key_inc() */
+	if (pf == NFPROTO_INET && hooknum == NF_INET_INGRESS) {
+		pf = NFPROTO_NETDEV;
+		hooknum = NF_NETDEV_INGRESS;
+	}
+
+	if (entry->state.hook != hooknum)
+		return 0;
+
+	if (pf == NFPROTO_INET)
+		return entry->state.pf == NFPROTO_IPV4 ||
+		       entry->state.pf == NFPROTO_IPV6;
+
+	return entry->state.pf == pf;
+}
+
+static void nfqnl_nf_hook_drop(struct net *net, const struct nf_hook_ops *ops)
 {
 	struct nfnl_queue_net *q = nfnl_queue_pernet(net);
+	nfqnl_cmpfn cmpfn = NULL;
 	int i;
 
 	/* This function is also called on net namespace error unwind,
@@ -1574,12 +1611,19 @@ static void nfqnl_nf_hook_drop(struct net *net)
 	if (!q)
 		return;
 
+	/* ops is NULL when the caller is not unregistering a hook but
+	 * removing an object queued packets may reference, every entry
+	 * has to go
+	 */
+	if (ops)
+		cmpfn = nf_hook_cmp;
+
 	for (i = 0; i < INSTANCE_BUCKETS; i++) {
 		struct nfqnl_instance *inst;
 		struct hlist_head *head = &q->instance_table[i];
 
 		hlist_for_each_entry_rcu(inst, head, hlist)
-			nfqnl_flush(inst, NULL, 0);
+			nfqnl_flush(inst, cmpfn, (unsigned long)ops);
 	}
 }
 

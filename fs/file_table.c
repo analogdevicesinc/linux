@@ -122,7 +122,7 @@ unsigned long get_max_files(void)
 }
 EXPORT_SYMBOL_GPL(get_max_files);
 
-#if defined(CONFIG_SYSCTL) && defined(CONFIG_PROC_FS)
+#ifdef CONFIG_SYSCTL
 
 /*
  * Handle nr_files sysctl
@@ -520,7 +520,8 @@ static void __fput(struct file *file)
 	dput(dentry);
 	if (unlikely(mode & FMODE_NEED_UNMOUNT))
 		dissolve_on_fput(mnt);
-	mntput(mnt);
+	else
+		mntput(mnt);
 out:
 	file_free(file);
 }

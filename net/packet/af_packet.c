@@ -398,6 +398,10 @@ static inline struct page * __pure pgv_to_page(void *addr)
 	return virt_to_page(addr);
 }
 
+/* Timestamp bits that may be set in addition to the frame state */
+static const u32 tp_status_ts_mask = TP_STATUS_TS_SOFTWARE |
+				     TP_STATUS_TS_RAW_HARDWARE;
+
 static void __packet_set_status(struct packet_sock *po, void *frame, int status)
 {
 	union tpacket_uhdr h;
@@ -519,6 +523,7 @@ static void *packet_lookup_frame(const struct packet_sock *po,
 {
 	unsigned int pg_vec_pos, frame_offset;
 	union tpacket_uhdr h;
+	u32 mask = 0;
 
 	pg_vec_pos = position / rb->frames_per_block;
 	frame_offset = position % rb->frames_per_block;
@@ -526,7 +531,10 @@ static void *packet_lookup_frame(const struct packet_sock *po,
 	h.raw = rb->pg_vec[pg_vec_pos].buffer +
 		(frame_offset * rb->frame_size);
 
-	if (status != __packet_get_status(po, h.raw))
+	if (rb == &po->tx_ring && status == TP_STATUS_AVAILABLE)
+		mask = tp_status_ts_mask;
+
+	if (status != (__packet_get_status(po, h.raw) & ~mask))
 		return NULL;
 
 	return h.raw;
@@ -1911,7 +1919,8 @@ static int packet_rcv_spkt(struct sk_buff *skb, struct net_device *dev,
 
 	spkt = &PACKET_SKB_CB(skb)->sa.pkt;
 
-	skb_push(skb, skb->data - skb_mac_header(skb));
+	if (dev_has_header(dev))
+		skb_push(skb, skb->data - skb_mac_header(skb));
 
 	/*
 	 *	The SOCK_PACKET socket receives _all_ frames.
@@ -1942,8 +1951,7 @@ static void packet_parse_headers(struct sk_buff *skb, struct socket *sock)
 	/* On TX skb->data is the L2 header; anchor it for all socket types. */
 	skb_reset_mac_header(skb);
 
-	if ((!skb->protocol || skb->protocol == htons(ETH_P_ALL)) &&
-	    sock->type == SOCK_RAW)
+	if (!skb->protocol && sock->type == SOCK_RAW)
 		skb->protocol = dev_parse_header_protocol(skb);
 
 	skb_probe_transport_header(skb);
@@ -2613,7 +2621,8 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
 	struct page *page;
 	int err;
 
-	skb->protocol = proto;
+	if (proto != htons(ETH_P_ALL))
+		skb->protocol = proto;
 	skb->dev = dev;
 	skb->priority = sockc->priority;
 	skb->mark = sockc->mark;
@@ -2676,8 +2685,6 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
 
 	if (unlikely(!skb->len))
 		return -EINVAL;
-
-	packet_parse_headers(skb, sock);
 
 	return tp_len;
 }
@@ -2918,8 +2925,12 @@ tpacket_error:
 				tp_len = -EINVAL;
 				goto tpacket_error;
 			}
-			virtio_net_hdr_set_proto(skb, &vnet_hdr);
 		}
+
+		packet_parse_headers(skb, po->sk.sk_socket);
+
+		if (has_vnet_hdr)
+			virtio_net_hdr_set_proto(skb, &vnet_hdr);
 
 		uarg = kmalloc(sizeof(*uarg), GFP_KERNEL);
 		if (unlikely(!uarg)) {
@@ -2947,7 +2958,7 @@ tpacket_error:
 		if (unlikely(err != 0)) {
 			if (err > 0)
 				err = net_xmit_errno(err);
-			if (err && __packet_get_status(po, ph) ==
+			if (err && (__packet_get_status(po, ph) & ~tp_status_ts_mask) ==
 				   TP_STATUS_AVAILABLE) {
 				/* skb was destructed already */
 				skb = NULL;
@@ -3121,7 +3132,8 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
 		goto out_free;
 	}
 
-	skb->protocol = proto;
+	if (proto != htons(ETH_P_ALL))
+		skb->protocol = proto;
 	skb->dev = dev;
 	skb->priority = sockc.priority;
 	skb->mark = sockc.mark;
@@ -3130,15 +3142,17 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
 	if (unlikely(extra_len == 4))
 		skb->no_fcs = 1;
 
-	packet_parse_headers(skb, sock);
-
 	if (vnet_hdr_sz) {
 		err = virtio_net_hdr_to_skb(skb, &vnet_hdr, vio_le());
 		if (err)
 			goto out_free;
 		len += vnet_hdr_sz;
-		virtio_net_hdr_set_proto(skb, &vnet_hdr);
 	}
+
+	packet_parse_headers(skb, sock);
+
+	if (vnet_hdr_sz)
+		virtio_net_hdr_set_proto(skb, &vnet_hdr);
 
 	err = packet_xmit(po, skb);
 
@@ -4857,16 +4871,13 @@ static void packet_seq_stop(struct seq_file *seq, void *v)
 static int packet_seq_show(struct seq_file *seq, void *v)
 {
 	if (v == SEQ_START_TOKEN)
-		seq_printf(seq,
-			   "%*sRefCnt Type Proto  Iface R Rmem   User   Inode\n",
-			   IS_ENABLED(CONFIG_64BIT) ? -17 : -9, "sk");
+		seq_puts(seq, "sk RefCnt Type Proto  Iface R Rmem   User   Inode\n");
 	else {
 		struct sock *s = sk_entry(v);
 		const struct packet_sock *po = pkt_sk(s);
 
 		seq_printf(seq,
-			   "%pK %-6d %-4d %04x   %-5d %1d %-6u %-6u %-6llu\n",
-			   s,
+			   "0  %-6d %-4d %04x   %-5d %1d %-6u %-6u %-6llu\n",
 			   refcount_read(&s->sk_refcnt),
 			   s->sk_type,
 			   ntohs(READ_ONCE(po->num)),

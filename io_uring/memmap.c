@@ -180,6 +180,7 @@ static int io_region_allocate_pages(struct io_mapped_region *mr,
 	size_t size = io_region_size(mr);
 	unsigned long nr_allocated;
 	struct page **pages;
+	struct page *page;
 
 	pages = kvmalloc_objs(*pages, mr->nr_pages, gfp);
 	if (!pages)
@@ -192,6 +193,13 @@ static int io_region_allocate_pages(struct io_mapped_region *mr,
 
 	nr_allocated = alloc_pages_bulk_node(gfp, NUMA_NO_NODE,
 					     mr->nr_pages, pages);
+	while (nr_allocated < mr->nr_pages) {
+		page = alloc_page(gfp);
+		if (!page)
+			break;
+
+		pages[nr_allocated++] = page;
+	}
 	if (nr_allocated != mr->nr_pages) {
 		if (nr_allocated)
 			release_pages(pages, nr_allocated);
@@ -204,7 +212,7 @@ done:
 	return 0;
 }
 
-int io_create_region(struct io_ring_ctx *ctx, struct io_mapped_region *mr,
+int io_create_region(struct user_struct *user, struct io_mapped_region *mr,
 		     struct io_uring_region_desc *reg,
 		     unsigned long mmap_offset)
 {
@@ -230,8 +238,8 @@ int io_create_region(struct io_ring_ctx *ctx, struct io_mapped_region *mr,
 		return -EOVERFLOW;
 
 	nr_pages = reg->size >> PAGE_SHIFT;
-	if (ctx->user) {
-		ret = __io_account_mem(ctx->user, nr_pages);
+	if (user) {
+		ret = __io_account_mem(user, nr_pages);
 		if (ret)
 			return ret;
 	}
@@ -240,7 +248,7 @@ int io_create_region(struct io_ring_ctx *ctx, struct io_mapped_region *mr,
 	if (reg->flags & IORING_MEM_REGION_TYPE_USER)
 		ret = io_region_pin_pages(mr, reg);
 	else
-		ret = io_region_allocate_pages(mr, reg, mmap_offset, ctx->user);
+		ret = io_region_allocate_pages(mr, reg, mmap_offset, user);
 	if (ret)
 		goto out_free;
 
@@ -249,7 +257,7 @@ int io_create_region(struct io_ring_ctx *ctx, struct io_mapped_region *mr,
 		goto out_free;
 	return 0;
 out_free:
-	io_free_region(ctx->user, mr);
+	io_free_region(user, mr);
 	return ret;
 }
 
