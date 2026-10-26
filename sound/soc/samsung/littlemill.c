@@ -302,11 +302,7 @@ static int littlemill_late_probe(struct snd_soc_card *card)
 	if (ret)
 		return ret;
 
-	/* This will check device compatibility itself */
-	wm8958_mic_detect(component, &littlemill_headset, NULL, NULL, NULL, NULL);
-
-	/* As will this */
-	wm8994_mic_detect(component, &littlemill_headset, 1);
+	snd_soc_component_set_jack(component, &littlemill_headset, NULL);
 
 	return 0;
 }
