@@ -200,7 +200,7 @@ static int acpm_tmu_get_temp(struct thermal_zone_device *tz, int *temp)
 	 * after PM resume.
 	 */
 	if (!sensor->enabled)
-		return -EAGAIN;
+		return -ENODATA;
 
 	ret = pm_runtime_resume_and_get(dev);
 	if (ret < 0)
@@ -208,7 +208,7 @@ static int acpm_tmu_get_temp(struct thermal_zone_device *tz, int *temp)
 
 	scoped_guard(mutex, &sensor->lock) {
 		if (!sensor->enabled) {
-			ret = -EAGAIN;
+			ret = -ENODATA;
 		} else {
 			ret = ops->read_temp(handle, priv->mbox_chan_id,
 					     sensor->group->id, &acpm_temp);
