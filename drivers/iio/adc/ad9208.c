@@ -106,6 +106,19 @@ struct ad9208_phy {
 	struct ad9208_ddc ddc[4];
 };
 
+static const int ad9208_testmodes_value[] = {
+	[AD9208_TESTMODE_OFF] = AD9208_TESTMODE_OFF_VALUE,
+	[AD9208_TESTMODE_MIDSCALE_SHORT] = AD9208_TESTMODE_MIDSCALE_SHORT_VALUE,
+	[AD9208_TESTMODE_POS_FULLSCALE] = AD9208_TESTMODE_POS_FULLSCALE_VALUE,
+	[AD9208_TESTMODE_NEG_FULLSCALE] = AD9208_TESTMODE_NEG_FULLSCALE_VALUE,
+	[AD9208_TESTMODE_ALT_CHECKERBOARD] = AD9208_TESTMODE_ALT_CHECKERBOARD_VALUE,
+	[AD9208_TESTMODE_PN23_SEQ] = AD9208_TESTMODE_PN23_SEQ_VALUE,
+	[AD9208_TESTMODE_PN9_SEQ] = AD9208_TESTMODE_PN9_SEQ_VALUE,
+	[AD9208_TESTMODE_ONE_ZERO_TOGGLE] = AD9208_TESTMODE_ONE_ZERO_TOGGLE_VALUE,
+	[AD9208_TESTMODE_USER] = AD9208_TESTMODE_USER_VALUE,
+	[AD9208_TESTMODE_RAMP] = AD9208_TESTMODE_RAMP_VALUE,
+};
+
 static int ad9208_udelay(void *user_data, unsigned int us)
 {
 	usleep_range(us, (us * 110) / 100);
@@ -174,7 +187,7 @@ static int ad9208_testmode_set(struct iio_dev *indio_dev, unsigned int chan,
 
 	ad9208_adc_set_channel_select(&phy->ad9208, BIT(chan & 1));
 	/* FIXME: Add support for DDC testmodes */
-	ret = ad9208_register_write(&phy->ad9208, AD9208_REG_TEST_MODE, mode);
+	ret = ad9208_register_write(&phy->ad9208, AD9208_REG_TEST_MODE, ad9208_testmodes_value[mode]);
 	conv->testmode[chan] = mode;
 	ad9208_adc_set_channel_select(&phy->ad9208, AD9208_ADC_CH_ALL);
 
