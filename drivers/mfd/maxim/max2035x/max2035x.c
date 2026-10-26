@@ -228,7 +228,7 @@ static int max2035x_probe(struct i2c_client *client)
 	if (ret)
 		return dev_err_probe(chip->dev, ret, "No response from device\n");
 
-	dev_info(chip->dev, "Analog Devices %s detected, rev=0x%02x, channel_id=%d\n",
+	dev_dbg(chip->dev, "Analog Devices %s detected, rev=0x%02x, channel_id=%d\n",
 		 info->name, rev & 0xFF, chip->channel_id);
 
 	i2c_set_clientdata(client, chip);
