@@ -1229,8 +1229,7 @@ void ieee80211_free_key_list(struct ieee80211_local *local,
 		ieee80211_key_destroy(key);
 }
 
-void ieee80211_free_keys(struct ieee80211_sub_if_data *sdata,
-			 bool force_synchronize)
+void ieee80211_free_keys(struct ieee80211_sub_if_data *sdata)
 {
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_sub_if_data *vlan;
@@ -1252,8 +1251,6 @@ void ieee80211_free_keys(struct ieee80211_sub_if_data *sdata,
 
 	WARN_ON(!list_empty(&sdata->key_list));
 
-	if (force_synchronize)
-		synchronize_net();
 	list_for_each_entry_safe(key, tmp, &keys, list)
 		ieee80211_key_destroy(key);
 

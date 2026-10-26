@@ -205,8 +205,7 @@ void ieee80211_remove_link_keys(struct ieee80211_link_data *link,
 				struct list_head *keys);
 void ieee80211_free_key_list(struct ieee80211_local *local,
 			     struct list_head *keys);
-void ieee80211_free_keys(struct ieee80211_sub_if_data *sdata,
-			 bool force_synchronize);
+void ieee80211_free_keys(struct ieee80211_sub_if_data *sdata);
 void ieee80211_unlink_link_sta_keys(struct ieee80211_local *local,
 				    struct link_sta_info *link_sta);
 void ieee80211_free_sta_keys(struct ieee80211_local *local,
