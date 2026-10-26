@@ -829,7 +829,8 @@ int inv_icm42600_gyro_parse_fifo(struct iio_dev *indio_dev)
 		/* convert 8 bits FIFO temperature in high resolution format */
 		buffer.temp = temp ? (*temp * 64) : 0;
 		ts_val = inv_sensors_timestamp_pop(ts);
-		iio_push_to_buffers_with_timestamp(indio_dev, &buffer, ts_val);
+		iio_push_to_buffers_with_ts(indio_dev, &buffer, sizeof(buffer),
+					    ts_val);
 	}
 
 	return 0;
