@@ -30,8 +30,7 @@ struct scmi_iio_priv {
 	struct iio_dev *indio_dev;
 	/* lock to protect against multiple access to the device */
 	struct mutex lock;
-	/* adding one additional channel for timestamp */
-	s64 iio_buf[SCMI_IIO_NUM_OF_AXIS + 1];
+	IIO_DECLARE_BUFFER_WITH_TS(s64, iio_buf, SCMI_IIO_NUM_OF_AXIS);
 	struct notifier_block sensor_update_nb;
 	u32 *freq_avail;
 };
@@ -78,8 +77,8 @@ static int scmi_iio_sensor_update_cb(struct notifier_block *nb,
 	}
 
 	scmi_iio_dev = sensor->indio_dev;
-	iio_push_to_buffers_with_timestamp(scmi_iio_dev, sensor->iio_buf,
-					   time_ns);
+	iio_push_to_buffers_with_ts(scmi_iio_dev, sensor->iio_buf,
+				    sizeof(sensor->iio_buf), time_ns);
 	return NOTIFY_OK;
 }
 
