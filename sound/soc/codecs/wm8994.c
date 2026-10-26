@@ -3540,8 +3540,8 @@ static void wm8994_handle_pdata(struct wm8994_priv *wm8994)
  * Configuration of detection levels is available via the micbias1_lvl
  * and micbias2_lvl platform data members.
  */
-int wm8994_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *jack,
-		      int micbias)
+static int wm8994_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *jack,
+			     int micbias)
 {
 	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
 	struct wm8994_priv *wm8994 = snd_soc_component_get_drvdata(component);
@@ -3608,7 +3608,6 @@ int wm8994_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(wm8994_mic_detect);
 
 static void wm8994_mic_work(struct work_struct *work)
 {
@@ -3959,9 +3958,9 @@ static void wm1811_jackdet_bootstrap(struct work_struct *work)
  * flexiblity a callback is provided which allows a completely custom
  * detection algorithm.
  */
-int wm8958_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *jack,
-		      wm1811_micdet_cb det_cb, void *det_cb_data,
-		      wm1811_mic_id_cb id_cb, void *id_cb_data)
+static int wm8958_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *jack,
+			     wm1811_micdet_cb det_cb, void *det_cb_data,
+			     wm1811_mic_id_cb id_cb, void *id_cb_data)
 {
 	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
 	struct wm8994_priv *wm8994 = snd_soc_component_get_drvdata(component);
@@ -4050,7 +4049,6 @@ int wm8958_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(wm8958_mic_detect);
 
 static void wm8958_mic_work(struct work_struct *work)
 {
