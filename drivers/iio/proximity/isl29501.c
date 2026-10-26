@@ -948,7 +948,7 @@ static irqreturn_t isl29501_trigger_handler(int irq, void *p)
 		scan.data = value;
 	}
 
-	iio_push_to_buffers_with_timestamp(indio_dev, &scan, pf->timestamp);
+	iio_push_to_buffers_with_ts(indio_dev, &scan, sizeof(scan), pf->timestamp);
 	iio_trigger_notify_done(indio_dev->trig);
 
 	return IRQ_HANDLED;
