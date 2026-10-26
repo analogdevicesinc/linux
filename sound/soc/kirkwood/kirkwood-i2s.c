@@ -748,9 +748,9 @@ static void kirkwood_i2s_dev_remove(struct platform_device *pdev)
 	struct kirkwood_dma_data *priv = dev_get_drvdata(&pdev->dev);
 
 	snd_soc_unregister_component(&pdev->dev);
+	clk_disable_unprepare(priv->clk);
 	if (!IS_ERR(priv->extclk))
 		clk_disable_unprepare(priv->extclk);
-	clk_disable_unprepare(priv->clk);
 }
 
 #ifdef CONFIG_OF
