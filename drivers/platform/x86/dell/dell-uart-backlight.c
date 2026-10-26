@@ -279,7 +279,9 @@ static int dell_uart_bl_serdev_probe(struct serdev_device *serdev)
 	if (!dell_bl)
 		return -ENOMEM;
 
-	mutex_init(&dell_bl->mutex);
+	ret = devm_mutex_init(dev, &dell_bl->mutex);
+	if (ret)
+		return ret;
 	init_waitqueue_head(&dell_bl->wait_queue);
 	dell_bl->dev = dev;
 
