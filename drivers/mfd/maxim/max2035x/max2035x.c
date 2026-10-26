@@ -182,6 +182,11 @@ static const struct of_device_id max2035x_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, max2035x_of_match);
 
+static void max2035x_unregister_i2c(void *data)
+{
+	i2c_unregister_device(data);
+}
+
 static int max2035x_probe(struct i2c_client *client)
 {
 	const struct max2035x_variant *info;
@@ -235,7 +240,7 @@ static int max2035x_probe(struct i2c_client *client)
 				     "Failed to create fuelgauge device\n");
 
 	ret = devm_add_action_or_reset(chip->dev,
-			(void (*)(void *))i2c_unregister_device, chip->fuelgauge);
+			max2035x_unregister_i2c, chip->fuelgauge);
 	if (ret)
 		return ret;
 
@@ -253,7 +258,7 @@ static int max2035x_probe(struct i2c_client *client)
 				     "Failed to create RAM device\n");
 
 	ret = devm_add_action_or_reset(chip->dev,
-			(void (*)(void *))i2c_unregister_device, chip->ram);
+			max2035x_unregister_i2c, chip->ram);
 	if (ret)
 		return ret;
 
