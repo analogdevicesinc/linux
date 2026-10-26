@@ -376,40 +376,74 @@ int fat_ent_read(struct inode *inode, struct fat_entry *fatent, int entry)
 	return ops->ent_get(fatent);
 }
 
-/* FIXME: We can write the blocks as more big chunk. */
+static int fat_mirror_one(struct super_block *sb, struct buffer_head **bhs,
+			  int nr_bhs, int target)
+{
+	struct msdos_sb_info *sbi = MSDOS_SB(sb);
+	sector_t backup_fat = sbi->fat_length * target;
+	/*
+	 * Use the value of MAX_BUF_PER_PAGE for 4K pages. This reduces stack
+	 * usage on large-page architectures as callers may already have a
+	 * MAX_BUF_PER_PAGE-sized array in their stack.
+	 */
+	struct buffer_head *dirty[8];
+	struct buffer_head *c_bh;
+	int err, n, nr_dirty;
+
+	nr_dirty = 0;
+	err = 0;
+	for (n = 0; n < nr_bhs; n++) {
+		c_bh = sb_getblk(sb, backup_fat + bhs[n]->b_blocknr);
+		if (!c_bh) {
+			err = -ENOMEM;
+			goto error;
+		}
+		/* Avoid race with userspace read via bdev */
+		lock_buffer(c_bh);
+		memcpy(c_bh->b_data, bhs[n]->b_data, sb->s_blocksize);
+		set_buffer_uptodate(c_bh);
+		unlock_buffer(c_bh);
+		mmb_mark_buffer_dirty(c_bh,
+			&MSDOS_I(sbi->fat_inode)->i_metadata_bhs);
+		if (sb->s_flags & SB_SYNCHRONOUS) {
+			dirty[nr_dirty] = c_bh;
+			++nr_dirty;
+			if (nr_dirty == ARRAY_SIZE(dirty)) {
+				err = fat_sync_bhs(dirty, nr_dirty);
+				fat_brelse_array(dirty, nr_dirty);
+				nr_dirty = 0;
+				if (err)
+					goto error;
+			}
+		} else {
+			brelse(c_bh);
+		}
+	}
+
+error:
+	if (nr_dirty) {
+		int err2 = fat_sync_bhs(dirty, nr_dirty);
+		if (!err)
+			err = err2;
+		fat_brelse_array(dirty, nr_dirty);
+	}
+
+	return err;
+}
+
 static int fat_mirror_bhs(struct super_block *sb, struct buffer_head **bhs,
 			  int nr_bhs)
 {
 	struct msdos_sb_info *sbi = MSDOS_SB(sb);
-	struct buffer_head *c_bh;
-	int err, n, copy;
+	int copy;
 
-	err = 0;
 	for (copy = 1; copy < sbi->fats; copy++) {
-		sector_t backup_fat = sbi->fat_length * copy;
-
-		for (n = 0; n < nr_bhs; n++) {
-			c_bh = sb_getblk(sb, backup_fat + bhs[n]->b_blocknr);
-			if (!c_bh) {
-				err = -ENOMEM;
-				goto error;
-			}
-			/* Avoid race with userspace read via bdev */
-			lock_buffer(c_bh);
-			memcpy(c_bh->b_data, bhs[n]->b_data, sb->s_blocksize);
-			set_buffer_uptodate(c_bh);
-			unlock_buffer(c_bh);
-			mmb_mark_buffer_dirty(c_bh,
-				&MSDOS_I(sbi->fat_inode)->i_metadata_bhs);
-			if (sb->s_flags & SB_SYNCHRONOUS)
-				err = sync_dirty_buffer(c_bh);
-			brelse(c_bh);
-			if (err)
-				goto error;
-		}
+		int err = fat_mirror_one(sb, bhs, nr_bhs, copy);
+		if (err)
+			return err;
 	}
-error:
-	return err;
+
+	return 0;
 }
 
 int fat_ent_write(struct inode *inode, struct fat_entry *fatent,
