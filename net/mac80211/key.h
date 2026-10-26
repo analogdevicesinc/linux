@@ -131,6 +131,8 @@ struct ieee80211_key {
 
 	unsigned int color;
 
+	struct rcu_work free_work;
+
 	/*
 	 * key config, must be last because it contains key
 	 * material as variable length member
@@ -207,7 +209,6 @@ void ieee80211_free_keys(struct ieee80211_sub_if_data *sdata,
 			 bool force_synchronize);
 void ieee80211_unlink_link_sta_keys(struct ieee80211_local *local,
 				    struct link_sta_info *link_sta);
-void ieee80211_free_link_sta_keys(struct link_sta_info *link_sta);
 void ieee80211_free_sta_keys(struct ieee80211_local *local,
 			     struct sta_info *sta);
 void ieee80211_reenable_keys(struct ieee80211_sub_if_data *sdata);

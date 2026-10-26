@@ -1748,6 +1748,8 @@ void ieee80211_unregister_hw(struct ieee80211_hw *hw)
 	skb_queue_purge(&local->skb_queue_unreliable);
 
 	wiphy_unregister(local->hw.wiphy);
+	/* keys are freed via queue_rcu_work() */
+	rcu_barrier();
 	destroy_workqueue(local->workqueue);
 	ieee80211_led_exit(local);
 	kfree(local->int_scan_req);

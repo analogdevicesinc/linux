@@ -353,7 +353,6 @@ struct sta_info *sta_info_get_by_idx(struct ieee80211_sub_if_data *sdata,
 static void sta_info_free_link(struct link_sta_info *link_sta)
 {
 	free_percpu(link_sta->pcpu_rx_stats);
-	ieee80211_free_link_sta_keys(link_sta);
 }
 
 static void sta_link_free_rcu(struct rcu_head *head)
@@ -560,8 +559,6 @@ static int sta_info_alloc_link(struct ieee80211_local *local,
 {
 	struct ieee80211_hw *hw = &local->hw;
 	int i;
-
-	INIT_LIST_HEAD(&link_info->key_destroy_list);
 
 	if (ieee80211_hw_check(hw, USES_RSS)) {
 		link_info->pcpu_rx_stats =
@@ -1586,7 +1583,6 @@ static void __sta_info_destroy_part2(struct sta_info *sta, bool recalc)
 			continue;
 
 		ieee80211_unlink_link_sta_keys(local, link_sta);
-		ieee80211_free_link_sta_keys(link_sta);
 	}
 
 	ieee80211_free_sta_keys(local, sta);

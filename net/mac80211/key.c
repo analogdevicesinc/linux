@@ -864,31 +864,24 @@ static void ieee80211_key_free_common(struct ieee80211_key *key)
 	kfree_sensitive(key);
 }
 
-static void __ieee80211_key_cleanup(struct ieee80211_key *key)
+static void ieee80211_key_free_work(struct work_struct *wk)
 {
-	if (key->local)
-		ieee80211_debugfs_key_remove(key);
-}
+	struct ieee80211_key *key;
 
-static void __ieee80211_key_destroy(struct ieee80211_key *key)
-{
-	__ieee80211_key_cleanup(key);
-
+	key = container_of(to_rcu_work(wk), struct ieee80211_key, free_work);
 	ieee80211_key_free_common(key);
 }
 
+/* the key must no longer be reachable, it's freed after an RCU grace period */
 static void ieee80211_key_destroy(struct ieee80211_key *key)
 {
 	if (!key)
 		return;
 
-	/*
-	 * Synchronize so the TX path can no longer be using this
-	 * key before we free/remove it.
-	 */
-	synchronize_net();
+	ieee80211_debugfs_key_remove(key);
 
-	__ieee80211_key_destroy(key);
+	INIT_RCU_WORK(&key->free_work, ieee80211_key_free_work);
+	queue_rcu_work(key->local->workqueue, &key->free_work);
 }
 
 void ieee80211_key_free_unused(struct ieee80211_key *key)
@@ -1233,7 +1226,7 @@ void ieee80211_free_key_list(struct ieee80211_local *local,
 	lockdep_assert_wiphy(local->hw.wiphy);
 
 	list_for_each_entry_safe(key, tmp, keys, list)
-		__ieee80211_key_destroy(key);
+		ieee80211_key_destroy(key);
 }
 
 void ieee80211_free_keys(struct ieee80211_sub_if_data *sdata,
@@ -1259,10 +1252,10 @@ void ieee80211_free_keys(struct ieee80211_sub_if_data *sdata,
 
 	WARN_ON(!list_empty(&sdata->key_list));
 
-	if (!list_empty(&keys) || force_synchronize)
+	if (force_synchronize)
 		synchronize_net();
 	list_for_each_entry_safe(key, tmp, &keys, list)
-		__ieee80211_key_destroy(key);
+		ieee80211_key_destroy(key);
 
 	if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN) {
 		if (sdata->bss) {
@@ -1304,8 +1297,7 @@ void ieee80211_unlink_link_sta_keys(struct ieee80211_local *local,
 		ret = ieee80211_key_replace(key->sdata, &slot, key, NULL);
 		if (WARN(ret, "failed to remove STA link key (%d)\n", ret))
 			continue;
-		list_add(&key->list, &link_sta->key_destroy_list);
-		__ieee80211_key_cleanup(key);
+		ieee80211_key_destroy(key);
 	}
 
 	for (int i = 0; i < ARRAY_SIZE(link_sta->rx_cigtk); i++) {
@@ -1319,18 +1311,7 @@ void ieee80211_unlink_link_sta_keys(struct ieee80211_local *local,
 		ret = ieee80211_key_replace(key->sdata, &slot, key, NULL);
 		if (WARN(ret, "failed to remove STA link key (%d)\n", ret))
 			continue;
-		list_add(&key->list, &link_sta->key_destroy_list);
-		__ieee80211_key_cleanup(key);
-	}
-}
-
-void ieee80211_free_link_sta_keys(struct link_sta_info *link_sta)
-{
-	struct ieee80211_key *key, *tmp;
-
-	list_for_each_entry_safe(key, tmp, &link_sta->key_destroy_list, list) {
-		list_del(&key->list);
-		ieee80211_key_free_common(key);
+		ieee80211_key_destroy(key);
 	}
 }
 
@@ -1351,7 +1332,7 @@ void ieee80211_free_sta_keys(struct ieee80211_local *local,
 		if (!key)
 			continue;
 		ieee80211_key_replace(key->sdata, &slot, key, NULL);
-		__ieee80211_key_destroy(key);
+		ieee80211_key_destroy(key);
 	}
 }
 

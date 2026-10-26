@@ -522,7 +522,6 @@ struct ieee80211_fragment_cache {
  * @uhr_dbe_enabled: for STAs as clients to an AP interface indicates
  *	DBE is enabled by the STA
  * @debugfs_dir: debug filesystem directory dentry
- * @key_destroy_list: used during removal, keys to destroy
  * @pub: public (driver visible) link STA data
  */
 struct link_sta_info {
@@ -581,8 +580,6 @@ struct link_sta_info {
 #ifdef CONFIG_MAC80211_DEBUGFS
 	struct dentry *debugfs_dir;
 #endif
-
-	struct list_head key_destroy_list;
 
 	struct ieee80211_link_sta *pub;
 };
