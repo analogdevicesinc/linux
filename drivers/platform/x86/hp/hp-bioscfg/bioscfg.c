@@ -162,11 +162,11 @@ int hp_enforce_single_line_input(char *buf, size_t count)
 {
 	char *p;
 
-	p = memchr(buf, '\n', count);
+	p = strnchrnul(buf, count, '\n');
 
 	if (p == buf + count - 1)
 		*p = '\0'; /* strip trailing newline */
-	else if (p)
+	else if (p < buf + count - 1)
 		return -EINVAL;  /* enforce single line input */
 
 	return 0;
