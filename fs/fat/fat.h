@@ -479,6 +479,7 @@ void fat_truncate_time(struct inode *inode, struct timespec64 *now,
 int fat_update_time(struct inode *inode, enum fs_update_time type,
 		unsigned int flags);
 extern int fat_sync_bhs(struct buffer_head **bhs, int nr_bhs);
+void fat_brelse_array(struct buffer_head *bhs[], int n);
 
 int fat_cache_init(void);
 void fat_cache_destroy(void);
