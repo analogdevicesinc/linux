@@ -1638,6 +1638,17 @@ int wm8903_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *
 }
 EXPORT_SYMBOL_GPL(wm8903_mic_detect);
 
+static int wm8903_set_jack(struct snd_soc_component *component,
+			   struct snd_soc_jack *jack, void *data)
+{
+	int *shrt = data;
+
+	if (!jack)
+		return wm8903_mic_detect(component, NULL, 0, 0);
+
+	return wm8903_mic_detect(component, jack, SND_JACK_MICROPHONE, shrt ? *shrt : 0);
+}
+
 static irqreturn_t wm8903_irq(int irq, void *data)
 {
 	struct wm8903_priv *wm8903 = data;
@@ -1902,6 +1913,7 @@ static void wm8903_free_gpio(struct wm8903_priv *wm8903)
 static const struct snd_soc_component_driver soc_component_dev_wm8903 = {
 	.resume			= wm8903_resume,
 	.set_bias_level		= wm8903_set_bias_level,
+	.set_jack		= wm8903_set_jack,
 	.seq_notifier		= wm8903_seq_notifier,
 	.controls		= wm8903_snd_controls,
 	.num_controls		= ARRAY_SIZE(wm8903_snd_controls),
