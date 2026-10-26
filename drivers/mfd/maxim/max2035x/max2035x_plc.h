@@ -112,6 +112,16 @@ struct max2035x_plc_irq_map {
 	unsigned int event;	/* enum max20355_plc_event or enum max20357_plc_event */
 };
 
+#define MAX20355_PLC_IRQ_MAP_SIZE	26
+#define MAX20357_PLC_IRQ_MAP_SIZE	41
+
+extern const struct max2035x_plc_irq_map max20355_plc_irq_map[MAX20355_PLC_IRQ_MAP_SIZE];
+extern const struct max2035x_plc_irq_map max20357_plc_irq_map[MAX20357_PLC_IRQ_MAP_SIZE];
+void max20355_plc_handle_events(struct max2035x_plc *plc, unsigned long events);
+void max20357_plc_handle_events(struct max2035x_plc *plc, unsigned long events);
+
+int max2035x_plc_setup(struct device *dev, struct max2035x *chip);
+
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 void max2035x_debugfs_init(struct max2035x_plc *plc);
 void max2035x_debugfs_exit(struct max2035x_plc *plc);
@@ -119,8 +129,5 @@ void max2035x_debugfs_exit(struct max2035x_plc *plc);
 static inline void max2035x_debugfs_init(struct max2035x_plc *plc) {}
 static inline void max2035x_debugfs_exit(struct max2035x_plc *plc) {}
 #endif
-
-int max2035x_plc_init(void);
-void max2035x_plc_exit(void);
 
 #endif /* __MAX2035X_PLC_H__ */

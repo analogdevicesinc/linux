@@ -24,16 +24,7 @@ static const struct regmap_config max2035x_regmap_cfg = {
 	.val_bits = 8,
 };
 
-#define MAX2035X_RAM_SIZE	128
-
-static const struct regmap_config max2035x_ram_regmap_cfg = {
-	.reg_bits = 8,
-	.val_bits = 8,
-	.max_register = MAX2035X_RAM_SIZE - 1,
-};
-
 static const struct mfd_cell max20355_cells[] = {
-	MFD_CELL_NAME("max20355-plc"),
 	MFD_CELL_NAME("max20355-fuelgauge"),
 	MFD_CELL_NAME("max20355-battery"),
 	MFD_CELL_NAME("max20355-gpio"),
@@ -41,7 +32,6 @@ static const struct mfd_cell max20355_cells[] = {
 };
 
 static const struct mfd_cell max20357_cells[] = {
-	MFD_CELL_NAME("max20357-plc"),
 	MFD_CELL_NAME("max20357-fuelgauge"),
 	MFD_CELL_NAME("max20357-battery"),
 	MFD_CELL_NAME("max20357-charger"),
@@ -157,6 +147,9 @@ static const struct max2035x_variant max20355_variant = {
 	.cells = max20355_cells,
 	.num_cells = ARRAY_SIZE(max20355_cells),
 	.irq_chip = &max20355_irq_chip,
+	.plc_irq_map = max20355_plc_irq_map,
+	.plc_irq_map_size = MAX20355_PLC_IRQ_MAP_SIZE,
+	.plc_handle_events = max20355_plc_handle_events,
 };
 
 static const struct max2035x_variant max20357_variant = {
@@ -167,6 +160,9 @@ static const struct max2035x_variant max20357_variant = {
 	.cells = max20357_cells,
 	.num_cells = ARRAY_SIZE(max20357_cells),
 	.irq_chip = &max20357_irq_chip,
+	.plc_irq_map = max20357_plc_irq_map,
+	.plc_irq_map_size = MAX20357_PLC_IRQ_MAP_SIZE,
+	.plc_handle_events = max20357_plc_handle_events,
 };
 
 static const struct of_device_id max2035x_of_match[] = {
@@ -175,11 +171,6 @@ static const struct of_device_id max2035x_of_match[] = {
 	{ }
 };
 MODULE_DEVICE_TABLE(of, max2035x_of_match);
-
-static void max2035x_unregister_i2c(void *data)
-{
-	i2c_unregister_device(data);
-}
 
 static int max2035x_probe(struct i2c_client *client)
 {
@@ -227,24 +218,6 @@ static int max2035x_probe(struct i2c_client *client)
 
 	i2c_set_clientdata(client, chip);
 
-	chip->ram = i2c_new_ancillary_device(client, "ram", info->i2c_addr_ram);
-	if (IS_ERR(chip->ram))
-		return dev_err_probe(chip->dev, PTR_ERR(chip->ram),
-				     "Failed to create RAM device\n");
-
-	ret = devm_add_action_or_reset(chip->dev,
-			max2035x_unregister_i2c, chip->ram);
-	if (ret)
-		return ret;
-
-	i2c_set_clientdata(chip->ram, chip);
-
-	chip->ram_regmap = devm_regmap_init_i2c(chip->ram,
-						&max2035x_ram_regmap_cfg);
-	if (IS_ERR(chip->ram_regmap))
-		return dev_err_probe(chip->dev, PTR_ERR(chip->ram_regmap),
-				     "Failed to initialize RAM regmap\n");
-
 	if (chip->irq > 0) {
 		ret = devm_regmap_add_irq_chip(chip->dev, chip->regmap,
 					       chip->irq,
@@ -257,6 +230,10 @@ static int max2035x_probe(struct i2c_client *client)
 	} else {
 		dev_warn(chip->dev, "No IRQ configured\n");
 	}
+
+	ret = max2035x_plc_setup(chip->dev, chip);
+	if (ret)
+		return ret;
 
 	ret = devm_mfd_add_devices(chip->dev, PLATFORM_DEVID_AUTO,
 				   info->cells, info->num_cells, NULL, 0, NULL);
@@ -283,30 +260,7 @@ static struct i2c_driver max2035x_driver = {
 	.id_table = max2035x_id,
 };
 
-static int __init max2035x_init(void)
-{
-	int ret;
-
-	ret = max2035x_plc_init();
-	if (ret)
-		return ret;
-
-	ret = i2c_add_driver(&max2035x_driver);
-	if (ret) {
-		max2035x_plc_exit();
-		return ret;
-	}
-
-	return 0;
-}
-module_init(max2035x_init);
-
-static void __exit max2035x_exit(void)
-{
-	i2c_del_driver(&max2035x_driver);
-	max2035x_plc_exit();
-}
-module_exit(max2035x_exit);
+module_i2c_driver(max2035x_driver);
 
 MODULE_DESCRIPTION("Analog Devices MAX2035x MFD core Driver");
 MODULE_AUTHOR("Judy Na <judy.na@analog.com>");

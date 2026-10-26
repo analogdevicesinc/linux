@@ -2,11 +2,11 @@
 /*
  * Copyright (c) 2026 Analog Devices, Inc.
  *
- * Analog Devices MAX20355 PLC (Power Line Communication) driver
+ * Analog Devices MAX2035x PLC (Power Line Communication) helper
  * Shared PLC engine for MAX20355 (Master) and MAX20357 (Slave)
  */
 
-#include <linux/platform_device.h>
+#include <linux/i2c.h>
 #include <linux/interrupt.h>
 #include <linux/regmap.h>
 
@@ -15,7 +15,13 @@
 #include "max2035x_plc.h"
 #define MAX2035X_RAM_SIZE	128
 
-static const struct max2035x_plc_irq_map max20355_plc_irq_map[] = {
+static const struct regmap_config max2035x_ram_regmap_cfg = {
+	.reg_bits = 8,
+	.val_bits = 8,
+	.max_register = MAX2035X_RAM_SIZE - 1,
+};
+
+const struct max2035x_plc_irq_map max20355_plc_irq_map[MAX20355_PLC_IRQ_MAP_SIZE] = {
 	{ 0, MAX20355_INT0_ITF_RDY_STS_BIT,     MAX20355_PLC_EVENT_ITF_READY },
 	{ 0, MAX20355_INT0_CH1_CON_BIT,         MAX20355_PLC_EVENT_CH1_CONNECTED },
 	{ 0, MAX20355_INT0_CH2_CON_BIT,         MAX20355_PLC_EVENT_CH2_CONNECTED },
@@ -47,7 +53,7 @@ static const struct max2035x_plc_irq_map max20355_plc_irq_map[] = {
 	{ 3, MAX20355_INT3_URT_MODDONE1_BIT,    MAX20355_PLC_EVENT_CH1_UART_MODE_DONE },
 };
 
-static const struct max2035x_plc_irq_map max20357_plc_irq_map[] = {
+const struct max2035x_plc_irq_map max20357_plc_irq_map[MAX20357_PLC_IRQ_MAP_SIZE] = {
 	{ 0, MAX20357_INT0_PLC_SUMACT_BIT,      MAX20357_PLC_EVENT_SUM_CUR_LIMIT },
 	{ 0, MAX20357_INT0_PLC_SUMCURR_BIT,     MAX20357_PLC_EVENT_SUM_CUR },
 	{ 0, MAX20357_INT0_CHG_THRM_REG_BIT,    MAX20357_PLC_EVENT_CHG_THM_SHDN },
@@ -185,7 +191,7 @@ static int max20357_check_plc_status(struct max2035x_plc *plc, int channel)
 	return reg_val;
 }
 
-static void max20355_plc_handle_events(struct max2035x_plc *plc, unsigned long events)
+void max20355_plc_handle_events(struct max2035x_plc *plc, unsigned long events)
 {
 	struct max2035x *chip = plc->chip;
 	unsigned int reg_val;
@@ -291,7 +297,7 @@ static void max20355_plc_handle_events(struct max2035x_plc *plc, unsigned long e
 		dev_dbg(plc->dev, "PLC_1 UART mode entry done\n");
 }
 
-static void max20357_plc_handle_events(struct max2035x_plc *plc, unsigned long events)
+void max20357_plc_handle_events(struct max2035x_plc *plc, unsigned long events)
 {
 	struct max2035x *chip = plc->chip;
 	unsigned int reg_val;
@@ -396,31 +402,50 @@ static void max2035x_debugfs_cleanup(void *data)
 	max2035x_debugfs_exit(data);
 }
 
-static int max2035x_plc_probe(struct platform_device *pdev)
+static void max2035x_plc_unregister_i2c(void *data)
 {
-	struct max2035x *chip = dev_get_drvdata(pdev->dev.parent);
+	i2c_unregister_device(data);
+}
+
+int max2035x_plc_setup(struct device *dev, struct max2035x *chip)
+{
+	const struct max2035x_variant *info = chip->info;
+	struct i2c_client *parent_i2c = to_i2c_client(chip->dev);
+	struct i2c_client *ram_client;
 	struct max2035x_plc *plc;
 	int i, ret, virq;
 
-	plc = devm_kzalloc(&pdev->dev, sizeof(*plc), GFP_KERNEL);
+	plc = devm_kzalloc(dev, sizeof(*plc), GFP_KERNEL);
 	if (!plc)
 		return -ENOMEM;
 
-	plc->dev = &pdev->dev;
+	plc->dev = dev;
 	plc->chip = chip;
-	plc->ram_regmap = chip->ram_regmap;
 
-	if (chip->type == MAX20355) {
-		plc->irq_map = max20355_plc_irq_map;
-		plc->irq_map_size = ARRAY_SIZE(max20355_plc_irq_map);
-		plc->handle_events = max20355_plc_handle_events;
-	} else {
-		plc->irq_map = max20357_plc_irq_map;
-		plc->irq_map_size = ARRAY_SIZE(max20357_plc_irq_map);
-		plc->handle_events = max20357_plc_handle_events;
-	}
+	/* Create RAM ancillary I2C device and regmap */
+	ram_client = i2c_new_ancillary_device(parent_i2c, "ram",
+					      info->i2c_addr_ram);
+	if (IS_ERR(ram_client))
+		return dev_err_probe(dev, PTR_ERR(ram_client),
+				     "Failed to create RAM device\n");
 
-	plc->irq_data = devm_kcalloc(&pdev->dev, plc->irq_map_size,
+	ret = devm_add_action_or_reset(dev, max2035x_plc_unregister_i2c,
+				       ram_client);
+	if (ret)
+		return ret;
+
+	plc->ram_regmap = devm_regmap_init_i2c(ram_client,
+					       &max2035x_ram_regmap_cfg);
+	if (IS_ERR(plc->ram_regmap))
+		return dev_err_probe(dev, PTR_ERR(plc->ram_regmap),
+				     "Failed to initialize RAM regmap\n");
+
+	/* Set PLC variant data from chip_info */
+	plc->irq_map = info->plc_irq_map;
+	plc->irq_map_size = info->plc_irq_map_size;
+	plc->handle_events = info->plc_handle_events;
+
+	plc->irq_data = devm_kcalloc(dev, plc->irq_map_size,
 				     sizeof(*plc->irq_data), GFP_KERNEL);
 	if (!plc->irq_data)
 		return -ENOMEM;
@@ -432,16 +457,16 @@ static int max2035x_plc_probe(struct platform_device *pdev)
 
 			virq = regmap_irq_get_virq(chip->irq_data, i);
 			if (virq < 0)
-				return dev_err_probe(&pdev->dev, virq,
+				return dev_err_probe(dev, virq,
 						     "Failed to get virq for event %d\n", i);
 
-			ret = devm_request_threaded_irq(&pdev->dev, virq, NULL,
+			ret = devm_request_threaded_irq(dev, virq, NULL,
 							max2035x_plc_irq_handler,
 							IRQF_ONESHOT,
-							dev_name(&pdev->dev),
+							dev_name(dev),
 							&plc->irq_data[i]);
 			if (ret)
-				return dev_err_probe(&pdev->dev, ret,
+				return dev_err_probe(dev, ret,
 						     "Failed to request virq %d (event %d)\n",
 						     virq, i);
 		}
@@ -451,39 +476,7 @@ static int max2035x_plc_probe(struct platform_device *pdev)
 
 	max2035x_initialize(chip);
 
-	platform_set_drvdata(pdev, plc);
-
 	max2035x_debugfs_init(plc);
 
-	return devm_add_action_or_reset(&pdev->dev,
-					max2035x_debugfs_cleanup, plc);
-}
-
-static struct platform_driver max20355_plc_driver = {
-	.driver = {
-		.name = "max20355-plc",
-	},
-	.probe = max2035x_plc_probe,
-};
-
-static struct platform_driver max20357_plc_driver = {
-	.driver = {
-		.name = "max20357-plc",
-	},
-	.probe = max2035x_plc_probe,
-};
-
-static struct platform_driver * const plc_drivers[] = {
-	&max20355_plc_driver,
-	&max20357_plc_driver,
-};
-
-int __init max2035x_plc_init(void)
-{
-	return platform_register_drivers(plc_drivers, ARRAY_SIZE(plc_drivers));
-}
-
-void max2035x_plc_exit(void)
-{
-	platform_unregister_drivers(plc_drivers, ARRAY_SIZE(plc_drivers));
+	return devm_add_action_or_reset(dev, max2035x_debugfs_cleanup, plc);
 }

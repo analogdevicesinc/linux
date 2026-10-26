@@ -34,15 +34,15 @@ struct max2035x_variant {
 	const struct mfd_cell *cells;
 	int num_cells;
 	const struct regmap_irq_chip *irq_chip;
+	const struct max2035x_plc_irq_map *plc_irq_map;
+	int plc_irq_map_size;
+	void (*plc_handle_events)(struct max2035x_plc *plc, unsigned long events);
 };
 
 struct max2035x {
 	struct device *dev;
 	struct regmap *regmap;
-	struct regmap *ram_regmap;
 	const struct max2035x_variant *info;
-
-	struct i2c_client *ram;
 
 	struct max2035x_plc *plc_data;
 
