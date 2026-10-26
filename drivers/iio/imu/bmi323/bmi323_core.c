@@ -1069,7 +1069,7 @@ static int __bmi323_fifo_flush(struct iio_dev *indio_dev)
 {
 	struct bmi323_data *data = iio_priv(indio_dev);
 	int i, ret, fifo_lvl, frame_count, bit, index;
-	__le16 *frame, *pchannels;
+	__le16 *frame;
 	u64 sample_period;
 	s64 tstamp;
 
@@ -1108,15 +1108,13 @@ static int __bmi323_fifo_flush(struct iio_dev *indio_dev)
 
 	for (i = 0; i < frame_count; i++) {
 		frame = &data->fifo_buff[i * BMI323_FIFO_FRAME_LENGTH];
-		pchannels = &data->buffer.channels[0];
 
 		index = 0;
-		for_each_set_bit(bit, indio_dev->active_scan_mask,
-				 BMI323_CHAN_MAX)
-			pchannels[index++] = frame[bit];
+		iio_for_each_active_channel(indio_dev, bit)
+			data->buffer.channels[index++] = frame[bit];
 
-		iio_push_to_buffers_with_timestamp(indio_dev, &data->buffer,
-						   tstamp);
+		iio_push_to_buffers_with_ts(indio_dev, &data->buffer,
+					    sizeof(data->buffer), tstamp);
 
 		tstamp += sample_period;
 	}
@@ -1425,8 +1423,7 @@ static irqreturn_t bmi323_trigger_handler(int irq, void *p)
 		if (ret)
 			goto out;
 	} else {
-		for_each_set_bit(bit, indio_dev->active_scan_mask,
-				 BMI323_CHAN_MAX) {
+		iio_for_each_active_channel(indio_dev, bit) {
 			ret = regmap_raw_read(data->regmap,
 					      BMI323_ACCEL_X_REG + bit,
 					      &data->buffer.channels[index++],
@@ -1436,8 +1433,9 @@ static irqreturn_t bmi323_trigger_handler(int irq, void *p)
 		}
 	}
 
-	iio_push_to_buffers_with_timestamp(indio_dev, &data->buffer,
-					   iio_get_time_ns(indio_dev));
+	iio_push_to_buffers_with_ts(indio_dev, &data->buffer,
+				    sizeof(data->buffer),
+				    iio_get_time_ns(indio_dev));
 
 out:
 	iio_trigger_notify_done(indio_dev->trig);
