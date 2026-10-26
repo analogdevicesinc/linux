@@ -2547,6 +2547,14 @@ static ssize_t target_dev_alua_lu_gp_store(struct config_item *item,
 
 	spin_lock(&lu_gp_mem->lu_gp_mem_lock);
 	lu_gp = lu_gp_mem->lu_gp;
+	if (!lu_gp && !lu_gp_new) {
+		/*
+		 * The LU group association has already been cleared, so
+		 * there is nothing left to do.
+		 */
+		spin_unlock(&lu_gp_mem->lu_gp_mem_lock);
+		return count;
+	}
 	if (lu_gp) {
 		/*
 		 * Clearing an existing lu_gp association, and replacing
