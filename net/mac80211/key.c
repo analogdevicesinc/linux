@@ -93,6 +93,19 @@ static void decrease_tailroom_need_count(struct ieee80211_sub_if_data *sdata)
 
 static bool ieee80211_key_needs_tailroom(struct ieee80211_key *key)
 {
+	/* non-pairwise keys from a station are only for RX */
+	if (key->sta && !(key->conf.flags & IEEE80211_KEY_FLAG_PAIRWISE))
+		return false;
+
+	/* management frames always have tailroom reserved */
+	switch (key->conf.cipher) {
+	case WLAN_CIPHER_SUITE_AES_CMAC:
+	case WLAN_CIPHER_SUITE_BIP_CMAC_256:
+	case WLAN_CIPHER_SUITE_BIP_GMAC_128:
+	case WLAN_CIPHER_SUITE_BIP_GMAC_256:
+		return false;
+	}
+
 	if (key->conf.flags & (IEEE80211_KEY_FLAG_GENERATE_MMIC |
 			       IEEE80211_KEY_FLAG_PUT_MIC_SPACE |
 			       IEEE80211_KEY_FLAG_RESERVE_TAILROOM))
