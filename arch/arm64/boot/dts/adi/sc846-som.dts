@@ -72,6 +72,13 @@
 	status = "okay";
 };
 
+&mmc0 {
+	non-removable;
+	no-sd;
+	no-sdio;
+	status = "okay";
+};
+
 &i2c5 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c5_pins>;
