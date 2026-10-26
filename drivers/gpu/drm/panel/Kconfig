@@ -978,6 +978,23 @@ config DRM_PANEL_SAMSUNG_AMS639RQ08
 	  Say Y or M here if you want to enable support for the
 	  Samsung AMS639RQ08 FHD Plus (2340x1080@60Hz) CMD mode panel.
 
+config DRM_PANEL_SAMSUNG_AMS644VK04
+	tristate "Samsung AMS644VK04 panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	depends on GPIOLIB
+	depends on REGULATOR
+	select DRM_DISPLAY_DSC_HELPER
+	select DRM_DISPLAY_HELPER
+	help
+	  Say Y or M here if you want to enable support for the
+	  Samsung AMS644VK04 FHD Plus (1080x2400) DSC command mode AMOLED
+	  panel, found in the OnePlus Nord.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called panel-samsung-ams644vk04.
+
 config DRM_PANEL_SAMSUNG_S6E88A0_AMS427AP24
 	tristate "Samsung AMS427AP24 panel with S6E88A0 controller"
 	depends on GPIOLIB && OF && REGULATOR
