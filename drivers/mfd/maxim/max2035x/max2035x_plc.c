@@ -417,10 +417,9 @@ static int max2035x_plc_probe(struct platform_device *pdev)
 			plc->irq_data[i].event = plc->irq_map[i].event;
 
 			virq = regmap_irq_get_virq(chip->irq_data, i);
-			if (virq < 0) {
-				dev_err(&pdev->dev, "Failed to get virq for event %d\n", i);
-				continue;
-			}
+			if (virq < 0)
+				return dev_err_probe(&pdev->dev, virq,
+						     "Failed to get virq for event %d\n", i);
 
 			ret = devm_request_threaded_irq(&pdev->dev, virq, NULL,
 							max2035x_plc_irq_handler,
@@ -428,8 +427,9 @@ static int max2035x_plc_probe(struct platform_device *pdev)
 							dev_name(&pdev->dev),
 							&plc->irq_data[i]);
 			if (ret)
-				dev_warn(&pdev->dev, "Failed to request virq %d (event %d)\n",
-					 virq, i);
+				return dev_err_probe(&pdev->dev, ret,
+						     "Failed to request virq %d (event %d)\n",
+						     virq, i);
 		}
 	}
 
