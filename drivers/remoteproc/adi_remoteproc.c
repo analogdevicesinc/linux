@@ -822,7 +822,7 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	if (!rproc)
 		return -ENOMEM;
 
-	rproc_data = (struct adi_rproc_data *)rproc->priv;
+	rproc_data = rproc->priv;
 	platform_set_drvdata(pdev, rproc);
 
 	ret = of_parse_phandle_with_fixed_args(np, "adi,svect", 1, 0,
