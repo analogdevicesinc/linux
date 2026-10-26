@@ -3244,7 +3244,7 @@ static irqreturn_t wm8962_irq(int irq, void *data)
  *
  * If no jack is supplied detection will be disabled.
  */
-int wm8962_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *jack)
+static int wm8962_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *jack)
 {
 	struct wm8962_priv *wm8962 = snd_soc_component_get_drvdata(component);
 	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
@@ -3282,7 +3282,6 @@ int wm8962_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(wm8962_mic_detect);
 
 static int beep_rates[] = {
 	500, 1000, 2000, 4000,
