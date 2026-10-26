@@ -20,7 +20,6 @@
 static const struct regmap_config max2035x_regmap_cfg = {
 	.reg_bits = 8,
 	.val_bits = 8,
-	.cache_type = REGCACHE_NONE,
 };
 
 static const struct regmap_config max2035x_fg_regmap_cfg = {
@@ -28,7 +27,6 @@ static const struct regmap_config max2035x_fg_regmap_cfg = {
 	.val_bits = 16,
 	.max_register = 0xFF,
 	.val_format_endian = REGMAP_ENDIAN_LITTLE,
-	.cache_type = REGCACHE_NONE,
 };
 
 #define MAX2035X_RAM_SIZE	128
@@ -37,7 +35,6 @@ static const struct regmap_config max2035x_ram_regmap_cfg = {
 	.reg_bits = 8,
 	.val_bits = 8,
 	.max_register = MAX2035X_RAM_SIZE - 1,
-	.cache_type = REGCACHE_NONE,
 };
 
 static const struct mfd_cell max20355_cells[] = {
