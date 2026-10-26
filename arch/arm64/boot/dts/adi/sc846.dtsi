@@ -600,12 +600,13 @@
 		};
 
 		mmc0: mmc@31152000 {
-			compatible = "snps,dwcmshc-sdhci";
+			compatible = "adi,adsp-sc846-dwcmshc", "snps,dwcmshc-sdhci";
 			reg = <0x31152000 0x1000>;
 			interrupts = <GIC_SPI 214 IRQ_TYPE_LEVEL_HIGH>; /* Status */
 				     /*<GIC_SPI 215 IRQ_TYPE_LEVEL_HIGH>;*/ /* Wakeup */
-			clocks = <&clk ADSP_SC846_CLK_MSHC>;
-			clock-names = "core";
+			clocks = <&clk ADSP_SC846_CLK_MSHC>,
+				 <&clk ADSP_SC846_CLK_CGU0_SYSCLK>;
+			clock-names = "core", "timer";
 			bus-width = <8>;
 			status = "disabled";
 		};
