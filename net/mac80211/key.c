@@ -75,36 +75,10 @@ update_vlan_tailroom_need_count(struct ieee80211_sub_if_data *sdata, int delta)
 
 static void increment_tailroom_need_count(struct ieee80211_sub_if_data *sdata)
 {
-	/*
-	 * When this count is zero, SKB resizing for allocating tailroom
-	 * for IV or MMIC is skipped. But, this check has created two race
-	 * cases in xmit path while transiting from zero count to one:
-	 *
-	 * 1. SKB resize was skipped because no key was added but just before
-	 * the xmit key is added and SW encryption kicks off.
-	 *
-	 * 2. SKB resize was skipped because all the keys were hw planted but
-	 * just before xmit one of the key is deleted and SW encryption kicks
-	 * off.
-	 *
-	 * In both the above case SW encryption will find not enough space for
-	 * tailroom and exits with WARN_ON. (See WARN_ONs at wpa.c)
-	 *
-	 * Solution has been explained at
-	 * http://mid.gmane.org/1308590980.4322.19.camel@jlt3.sipsolutions.net
-	 */
-
 	lockdep_assert_wiphy(sdata->local->hw.wiphy);
 
 	update_vlan_tailroom_need_count(sdata, 1);
-
-	if (!sdata->crypto_tx_tailroom_needed_cnt++) {
-		/*
-		 * Flush all XMIT packets currently using HW encryption or no
-		 * encryption at all if the count transition is from 0 -> 1.
-		 */
-		synchronize_net();
-	}
+	sdata->crypto_tx_tailroom_needed_cnt++;
 }
 
 static void decrease_tailroom_need_count(struct ieee80211_sub_if_data *sdata,
