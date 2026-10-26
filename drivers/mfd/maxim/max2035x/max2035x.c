@@ -16,6 +16,7 @@
 #include <linux/regmap.h>
 
 #include "max2035x.h"
+#include "max2035x_plc.h"
 #include "max2035x_registers.h"
 
 static const struct regmap_config max2035x_regmap_cfg = {

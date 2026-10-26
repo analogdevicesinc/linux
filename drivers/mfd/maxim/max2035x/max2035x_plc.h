@@ -120,4 +120,7 @@ static inline void max2035x_debugfs_init(struct max2035x_plc *plc) {}
 static inline void max2035x_debugfs_exit(struct max2035x_plc *plc) {}
 #endif
 
+int max2035x_plc_init(void);
+void max2035x_plc_exit(void);
+
 #endif /* __MAX2035X_PLC_H__ */

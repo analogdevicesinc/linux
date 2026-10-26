@@ -55,7 +55,4 @@ struct max2035x {
 	enum max2035x_type type;
 };
 
-int max2035x_plc_init(void);
-void max2035x_plc_exit(void);
-
 #endif /* __LINUX_MFD_MAX2035X_H__ */
