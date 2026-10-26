@@ -161,7 +161,6 @@ struct adi_rproc_data {
 	int firmware_format;
 	void __iomem *L1_shared_base;
 	void __iomem *L2_shared_base;
-	struct workqueue_struct *core_workqueue;
 	enum adi_rproc_rpmsg_state rpmsg_state;
 	u64 l1_da_range[2];
 	u64 l2_da_range[2];
@@ -913,28 +912,23 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		rproc_data->adi_rsc_table = NULL;
 	}
 
-	rproc_data->core_workqueue = alloc_workqueue("Core workqueue",
-		WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
-	if (!rproc_data->core_workqueue)
-		goto free_mbox;
-
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		ret = dev_err_probe(dev, -ENODEV, "Cannot get L1 base address (reg 0)\n");
-		goto free_workqueue;
+		goto free_mbox;
 	}
 	rproc_data->L1_shared_base = devm_ioremap_wc(dev,
 						     res->start,
 						     resource_size(res));
 	if (!rproc_data->L1_shared_base) {
 		ret = -ENOMEM;
-		goto free_workqueue;
+		goto free_mbox;
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res) {
 		ret = dev_err_probe(dev, -ENODEV, "Cannot get L2 base address (reg 1)\n");
-		goto free_workqueue;
+		goto free_mbox;
 	}
 	rproc_data->L2_shared_base = devm_ioremap_wc(dev,
 						     res->start,
@@ -942,7 +936,7 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	if (!rproc_data->L2_shared_base) {
 		dev_err(dev, "Cannot map L2 shared memory\n");
 		ret = -ENOMEM;
-		goto free_workqueue;
+		goto free_mbox;
 	}
 
 	rproc_data->verify = 0;
@@ -973,9 +967,6 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 put_dmaengine:
 	dmaengine_put();
 
-free_workqueue:
-	destroy_workqueue(rproc_data->core_workqueue);
-
 free_mbox:
 	mbox_free_channel(rproc_data->kick_chan);
 
@@ -989,7 +980,6 @@ static void adi_remoteproc_remove(struct platform_device *pdev)
 
 	rproc_del(rproc);
 	dmaengine_put();
-	destroy_workqueue(rproc_data->core_workqueue);
 	mbox_free_channel(rproc_data->kick_chan);
 }
 
