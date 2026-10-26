@@ -541,6 +541,8 @@ static int acpm_tmu_suspend(struct device *dev)
 	const struct acpm_tmu_ops *ops = &handle->ops->tmu;
 	int ret, restore_ret;
 
+	disable_irq(priv->irq);
+
 	ret = acpm_tmu_control(priv, false);
 	if (ret)
 		goto err_restore_sensors;
@@ -568,6 +570,8 @@ err_restore_sensors:
 		dev_err(dev, "Failed to re-enable TMU after suspend failure: %d\n",
 			restore_ret);
 
+	enable_irq(priv->irq);
+
 	return ret;
 }
 
@@ -580,14 +584,19 @@ static int acpm_tmu_resume(struct device *dev)
 
 	ret = pm_runtime_force_resume(dev);
 	if (ret)
-		return ret;
+		goto out_enable_irq;
 
 	/* APB clock not required for this specific msg */
 	ret = ops->resume(handle, priv->mbox_chan_id);
 	if (ret)
-		return ret;
+		goto out_enable_irq;
 
-	return acpm_tmu_control(priv, true);
+	ret = acpm_tmu_control(priv, true);
+
+out_enable_irq:
+	enable_irq(priv->irq);
+
+	return ret;
 }
 
 static int acpm_tmu_runtime_suspend(struct device *dev)
