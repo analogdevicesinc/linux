@@ -114,7 +114,7 @@ static int max2035x_initialize(struct max2035x *chip)
 	return 0;
 }
 
-static int max20355_check_moisture_status(struct max2035x_plc *plc, int target_slave)
+static int max20355_check_moisture_status(struct max2035x_plc *plc, int channel)
 {
 	struct max2035x *chip = plc->chip;
 	unsigned int reg_val;
@@ -124,18 +124,18 @@ static int max20355_check_moisture_status(struct max2035x_plc *plc, int target_s
 	if (ret)
 		return ret;
 
-	if (target_slave == 1)
+	if (channel == 1)
 		moi_status = reg_val & MAX20355_STATUS0_PLC1_MOI_DET_BIT;
-	else if (target_slave == 2)
+	else if (channel == 2)
 		moi_status = (reg_val & MAX20355_STATUS0_PLC2_MOI_DET_BIT) >> MAX20355_STATUS0_PLC2_MOI_DET_SHIFT;
 
 	dev_dbg(plc->dev, "PLC_%d moisture %s (0x%02x)\n",
-		target_slave, moi_status ? "detected" : "not detected", reg_val);
+		channel, moi_status ? "detected" : "not detected", reg_val);
 
 	return 0;
 }
 
-static int max20357_check_moisture_status(struct max2035x_plc *plc, int slave_num)
+static int max20357_check_moisture_status(struct max2035x_plc *plc, int channel)
 {
 	struct max2035x *chip = plc->chip;
 	unsigned int reg_val;
@@ -148,15 +148,15 @@ static int max20357_check_moisture_status(struct max2035x_plc *plc, int slave_nu
 	moi_status = (reg_val & MAX20357_STATUS5_PLC_MOI_DET_BIT) >> MAX20357_STATUS5_PLC_MOI_DET_SHIFT;
 
 	dev_dbg(plc->dev, "CH%d moisture %s (0x%02x)\n",
-		slave_num, moi_status ? "detected" : "not detected", reg_val);
+		channel, moi_status ? "detected" : "not detected", reg_val);
 
 	return moi_status;
 }
 
-static int max20355_check_plc_status(struct max2035x_plc *plc, int target_slave)
+static int max20355_check_plc_status(struct max2035x_plc *plc, int channel)
 {
 	struct max2035x *chip = plc->chip;
-	u8 status_reg = (target_slave == 1) ? MAX20355_REG_STATUS1 : MAX20355_REG_STATUS2;
+	u8 status_reg = (channel == 1) ? MAX20355_REG_STATUS1 : MAX20355_REG_STATUS2;
 	unsigned int reg_val;
 	int ret;
 
@@ -165,12 +165,12 @@ static int max20355_check_plc_status(struct max2035x_plc *plc, int target_slave)
 		return ret;
 
 	if (reg_val)
-		dev_dbg(plc->dev, "PLC_%d cmd status 0x%02x\n", target_slave, reg_val);
+		dev_dbg(plc->dev, "PLC_%d cmd status 0x%02x\n", channel, reg_val);
 
 	return reg_val;
 }
 
-static int max20357_check_plc_status(struct max2035x_plc *plc, int slave_num)
+static int max20357_check_plc_status(struct max2035x_plc *plc, int channel)
 {
 	struct max2035x *chip = plc->chip;
 	unsigned int reg_val;
@@ -181,7 +181,7 @@ static int max20357_check_plc_status(struct max2035x_plc *plc, int slave_num)
 		return ret;
 
 	if (reg_val)
-		dev_dbg(plc->dev, "CH%d cmd status 0x%02x\n", slave_num, reg_val);
+		dev_dbg(plc->dev, "CH%d cmd status 0x%02x\n", channel, reg_val);
 
 	return reg_val;
 }
