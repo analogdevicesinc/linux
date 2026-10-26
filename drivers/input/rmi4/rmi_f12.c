@@ -278,9 +278,9 @@ static irqreturn_t rmi_f12_attention(int irq, void *ctx)
 		}
 	}
 
-	if (f12->data1)
+	if (f12->data1 && valid_bytes > f12->data1_offset)
 		rmi_f12_process_objects(f12, &sensor->data_pkt[f12->data1_offset],
-					valid_bytes);
+					valid_bytes - f12->data1_offset);
 
 	input_mt_sync_frame(sensor->input);
 
