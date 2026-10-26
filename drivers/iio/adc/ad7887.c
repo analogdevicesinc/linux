@@ -63,7 +63,7 @@ struct ad7887_state {
 	struct spi_transfer		xfer[4];
 	struct spi_message		msg[3];
 	struct spi_message		*ring_msg;
-	unsigned char			tx_cmd_buf[4];
+	unsigned char			tx_cmd_buf[4] __aligned(IIO_DMA_MINALIGN);
 
 	/*
 	 * DMA (thus cache coherency maintenance) may require the
