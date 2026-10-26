@@ -391,6 +391,11 @@ static irqreturn_t max2035x_plc_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static void max2035x_debugfs_cleanup(void *data)
+{
+	max2035x_debugfs_exit(data);
+}
+
 static int max2035x_plc_probe(struct platform_device *pdev)
 {
 	struct max2035x *chip = dev_get_drvdata(pdev->dev.parent);
@@ -450,17 +455,8 @@ static int max2035x_plc_probe(struct platform_device *pdev)
 
 	max2035x_debugfs_init(plc);
 
-	return 0;
-}
-
-static void max2035x_plc_remove(struct platform_device *pdev)
-{
-	struct max2035x_plc *plc = platform_get_drvdata(pdev);
-
-	if (!plc)
-		return;
-
-	max2035x_debugfs_exit(plc);
+	return devm_add_action_or_reset(&pdev->dev,
+					max2035x_debugfs_cleanup, plc);
 }
 
 static struct platform_driver max20355_plc_driver = {
@@ -468,7 +464,6 @@ static struct platform_driver max20355_plc_driver = {
 		.name = "max20355-plc",
 	},
 	.probe = max2035x_plc_probe,
-	.remove = max2035x_plc_remove,
 };
 
 static struct platform_driver max20357_plc_driver = {
@@ -476,7 +471,6 @@ static struct platform_driver max20357_plc_driver = {
 		.name = "max20357-plc",
 	},
 	.probe = max2035x_plc_probe,
-	.remove = max2035x_plc_remove,
 };
 
 static struct platform_driver * const plc_drivers[] = {
