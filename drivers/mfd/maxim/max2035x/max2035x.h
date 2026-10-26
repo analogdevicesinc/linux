@@ -13,7 +13,6 @@
 /* I2C Slave Addresses (7-bit) */
 #define MAX20355_I2C_ADDR_PLC	0x28
 #define MAX20357_I2C_ADDR_PLC	0x15
-#define MAX2035X_I2C_ADDR_FG	0x36
 #define MAX20355_I2C_ADDR_RAM	0x50
 #define MAX20357_I2C_ADDR_RAM	0x55
 
@@ -40,11 +39,9 @@ struct max2035x_variant {
 struct max2035x {
 	struct device *dev;
 	struct regmap *regmap;
-	struct regmap *fg_regmap;
 	struct regmap *ram_regmap;
 	const struct max2035x_variant *info;
 
-	struct i2c_client *fuelgauge;
 	struct i2c_client *ram;
 
 	struct max2035x_plc *plc_data;

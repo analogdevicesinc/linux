@@ -4,7 +4,9 @@
  *
  * Analog Devices MAX2035x Fuelgauge Driver
  */
+#include <linux/i2c.h>
 #include <linux/platform_device.h>
+#include <linux/regmap.h>
 #include <linux/workqueue.h>
 #include <linux/of.h>
 #include <linux/math64.h>
@@ -12,6 +14,15 @@
 #include "../../mfd/maxim/max2035x/max2035x.h"
 #include "../../mfd/maxim/max2035x/max2035x_registers.h"
 #include "../../mfd/maxim/max2035x/max2035x_fuelgauge.h"
+
+#define MAX2035X_I2C_ADDR_FG	0x36
+
+static const struct regmap_config max2035x_fg_regmap_cfg = {
+	.reg_bits = 8,
+	.val_bits = 16,
+	.max_register = 0xFF,
+	.val_format_endian = REGMAP_ENDIAN_LITTLE,
+};
 
 static int max2035x_read_fuelgauge_repcap(struct max2035x_fuelgauge *fuelgauge)
 {
@@ -478,11 +489,35 @@ step_3_2:
 	return 0;
 }
 
+static void max2035x_fg_unregister_i2c(void *data)
+{
+	i2c_unregister_device(data);
+}
+
 static int max2035x_fuelgauge_probe(struct platform_device *pdev)
 {
 	struct max2035x *chip = dev_get_drvdata(pdev->dev.parent);
+	struct i2c_client *parent_i2c = to_i2c_client(chip->dev);
 	struct max2035x_fuelgauge *fuelgauge;
+	struct i2c_client *fg_client;
+	struct regmap *fg_regmap;
 	int ret;
+
+	fg_client = i2c_new_ancillary_device(parent_i2c, "fuel-gauge",
+					     MAX2035X_I2C_ADDR_FG);
+	if (IS_ERR(fg_client))
+		return dev_err_probe(&pdev->dev, PTR_ERR(fg_client),
+				     "Failed to create fuelgauge I2C device\n");
+
+	ret = devm_add_action_or_reset(&pdev->dev,
+				       max2035x_fg_unregister_i2c, fg_client);
+	if (ret)
+		return ret;
+
+	fg_regmap = devm_regmap_init_i2c(fg_client, &max2035x_fg_regmap_cfg);
+	if (IS_ERR(fg_regmap))
+		return dev_err_probe(&pdev->dev, PTR_ERR(fg_regmap),
+				     "Failed to initialize fuelgauge regmap\n");
 
 	fuelgauge = devm_kzalloc(&pdev->dev, sizeof(*fuelgauge), GFP_KERNEL);
 	if (!fuelgauge)
@@ -494,7 +529,7 @@ static int max2035x_fuelgauge_probe(struct platform_device *pdev)
 
 	fuelgauge->dev = &pdev->dev;
 	fuelgauge->chip = chip;
-	fuelgauge->regmap = chip->fg_regmap;
+	fuelgauge->regmap = fg_regmap;
 
 	/* Set rsense to 200 mohm */
 	fuelgauge->rsense_mohm = 200;

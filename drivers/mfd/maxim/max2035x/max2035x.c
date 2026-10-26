@@ -24,13 +24,6 @@ static const struct regmap_config max2035x_regmap_cfg = {
 	.val_bits = 8,
 };
 
-static const struct regmap_config max2035x_fg_regmap_cfg = {
-	.reg_bits = 8,
-	.val_bits = 16,
-	.max_register = 0xFF,
-	.val_format_endian = REGMAP_ENDIAN_LITTLE,
-};
-
 #define MAX2035X_RAM_SIZE	128
 
 static const struct regmap_config max2035x_ram_regmap_cfg = {
@@ -233,25 +226,6 @@ static int max2035x_probe(struct i2c_client *client)
 		 info->name, rev & 0xFF, chip->channel_id);
 
 	i2c_set_clientdata(client, chip);
-
-	chip->fuelgauge = i2c_new_ancillary_device(client, "fuel-gauge",
-						    MAX2035X_I2C_ADDR_FG);
-	if (IS_ERR(chip->fuelgauge))
-		return dev_err_probe(chip->dev, PTR_ERR(chip->fuelgauge),
-				     "Failed to create fuelgauge device\n");
-
-	ret = devm_add_action_or_reset(chip->dev,
-			max2035x_unregister_i2c, chip->fuelgauge);
-	if (ret)
-		return ret;
-
-	i2c_set_clientdata(chip->fuelgauge, chip);
-
-	chip->fg_regmap = devm_regmap_init_i2c(chip->fuelgauge,
-					       &max2035x_fg_regmap_cfg);
-	if (IS_ERR(chip->fg_regmap))
-		return dev_err_probe(chip->dev, PTR_ERR(chip->fg_regmap),
-				     "Failed to initialize FG regmap\n");
 
 	chip->ram = i2c_new_ancillary_device(client, "ram", info->i2c_addr_ram);
 	if (IS_ERR(chip->ram))
