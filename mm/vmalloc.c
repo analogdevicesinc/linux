@@ -3271,7 +3271,13 @@ struct vm_struct *__get_vm_area_node(unsigned long size,
 	struct vm_struct *area;
 	unsigned long requested_size = size;
 
-	BUG_ON(in_nmi() || in_hardirq());
+	/* IRQ re-entrancy -> irq_exit() -> process softirq. */
+	if (in_serving_softirq())
+		return NULL;
+
+	if (WARN_ON_ONCE(in_nmi() || in_hardirq()))
+		return NULL;
+
 	size = ALIGN(size, 1ul << shift);
 	if (unlikely(!size))
 		return NULL;
