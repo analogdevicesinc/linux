@@ -54,6 +54,17 @@ struct ieee80211_mesh_fast_tx;
 #define IEEE80211_ENCRYPT_HEADROOM 8
 #define IEEE80211_ENCRYPT_TAILROOM 26 /* current max: GMAC/CMAC-256 MME */
 
+/* tailroom accounting can race with TX, expand if needed */
+static inline int ieee80211_crypto_tx_tailroom(struct sk_buff *skb, int tail)
+{
+	int tail_need = tail - skb_tailroom(skb);
+
+	if (!tail || likely(tail_need <= 0 && !skb_cloned(skb)))
+		return 0;
+
+	return pskb_expand_head(skb, 0, max(tail_need, 0), GFP_ATOMIC);
+}
+
 /* power level hasn't been configured (or set to automatic) */
 #define IEEE80211_UNSET_POWER_LEVEL	INT_MIN
 
