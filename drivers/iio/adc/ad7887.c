@@ -16,6 +16,8 @@
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
 
+#include <asm/byteorder.h>
+
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
@@ -65,13 +67,7 @@ struct ad7887_state {
 	struct spi_message		*ring_msg;
 	unsigned char			tx_cmd_buf[4] __aligned(IIO_DMA_MINALIGN);
 
-	/*
-	 * DMA (thus cache coherency maintenance) may require the
-	 * transfer buffers to live in their own cache lines.
-	 * Buffer needs to be large enough to hold two 16 bit samples and a
-	 * 64 bit aligned 64 bit timestamp.
-	 */
-	unsigned char data[ALIGN(4, sizeof(s64)) + sizeof(s64)] __aligned(IIO_DMA_MINALIGN);
+	IIO_DECLARE_DMA_BUFFER_WITH_TS(__be16, data, 2);
 };
 
 enum ad7887_supported_device_ids {
@@ -119,8 +115,8 @@ static irqreturn_t ad7887_trigger_handler(int irq, void *p)
 	if (b_sent)
 		goto done;
 
-	iio_push_to_buffers_with_timestamp(indio_dev, st->data,
-		iio_get_time_ns(indio_dev));
+	iio_push_to_buffers_with_ts(indio_dev, st->data, sizeof(st->data),
+				    iio_get_time_ns(indio_dev));
 done:
 	iio_trigger_notify_done(indio_dev->trig);
 
@@ -138,7 +134,7 @@ static int ad7887_scan_direct(struct ad7887_state *st, unsigned ch)
 	if (ret)
 		return ret;
 
-	return (st->data[(ch * 2)] << 8) | st->data[(ch * 2) + 1];
+	return be16_to_cpu(st->data[ch]);
 }
 
 static int ad7887_read_raw(struct iio_dev *indio_dev,
@@ -296,7 +292,7 @@ static int ad7887_probe(struct spi_device *spi)
 		st->xfer[1].tx_buf = &st->tx_cmd_buf[2];
 		st->xfer[1].len = 2;
 
-		st->xfer[2].rx_buf = &st->data[2];
+		st->xfer[2].rx_buf = &st->data[1];
 		st->xfer[2].tx_buf = &st->tx_cmd_buf[0];
 		st->xfer[2].len = 2;
 
@@ -304,7 +300,7 @@ static int ad7887_probe(struct spi_device *spi)
 		spi_message_add_tail(&st->xfer[1], &st->msg[AD7887_CH0_CH1]);
 		spi_message_add_tail(&st->xfer[2], &st->msg[AD7887_CH0_CH1]);
 
-		st->xfer[3].rx_buf = &st->data[2];
+		st->xfer[3].rx_buf = &st->data[1];
 		st->xfer[3].tx_buf = &st->tx_cmd_buf[2];
 		st->xfer[3].len = 2;
 
