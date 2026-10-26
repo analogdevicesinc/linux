@@ -48,13 +48,11 @@ struct ssp_data;
  * struct ssp_sensor_data - Sensor object
  * @process_data:	Callback to feed sensor data.
  * @type:		Used sensor type.
- * @buffer:		Received data buffer.
  */
 struct ssp_sensor_data {
 	int (*process_data)(struct iio_dev *indio_dev, void *buf,
 			    int64_t timestamp);
 	enum ssp_sensor_type type;
-	u8 *buffer;
 };
 
 void ssp_register_consumer(struct iio_dev *indio_dev,
