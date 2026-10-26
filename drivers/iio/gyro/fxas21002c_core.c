@@ -341,28 +341,21 @@ static int fxas21002c_write(struct fxas21002c_data *data,
 	int actual_mode;
 	int ret;
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
 
 	actual_mode = fxas21002c_mode_get(data);
-	if (actual_mode < 0) {
-		ret = actual_mode;
-		goto out_unlock;
-	}
+	if (actual_mode < 0)
+		return actual_mode;
 
 	ret = fxas21002c_mode_set(data, FXAS21002C_MODE_READY);
 	if (ret < 0)
-		goto out_unlock;
+		return ret;
 
 	ret = regmap_field_write(data->regmap_fields[field], bits);
 	if (ret < 0)
-		goto out_unlock;
+		return ret;
 
-	ret = fxas21002c_mode_set(data, data->prev_mode);
-
-out_unlock:
-	mutex_unlock(&data->lock);
-
-	return ret;
+	return fxas21002c_mode_set(data, data->prev_mode);
 }
 
 static int fxas21002c_temp_get(struct fxas21002c_data *data, int *val)
@@ -420,19 +413,15 @@ static int fxas21002c_odr_get(struct fxas21002c_data *data, int *odr)
 	unsigned int odr_bits;
 	int ret;
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
+
 	ret = regmap_field_read(data->regmap_fields[F_DR], &odr_bits);
 	if (ret < 0)
-		goto data_unlock;
+		return ret;
 
 	*odr = fxas21002c_odr_hz_from_value(data, odr_bits);
 
-	ret = IIO_VAL_INT;
-
-data_unlock:
-	mutex_unlock(&data->lock);
-
-	return ret;
+	return IIO_VAL_INT;
 }
 
 static int fxas21002c_odr_set(struct fxas21002c_data *data, int odr)
@@ -451,19 +440,15 @@ static int fxas21002c_lpf_get(struct fxas21002c_data *data, int *val2)
 	unsigned int bw_bits;
 	int ret;
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
+
 	ret = regmap_field_read(data->regmap_fields[F_BW], &bw_bits);
 	if (ret < 0)
-		goto data_unlock;
+		return ret;
 
 	*val2 = fxas21002c_lpf_bw_from_value(data, bw_bits) * 10000;
 
-	ret = IIO_VAL_INT_PLUS_MICRO;
-
-data_unlock:
-	mutex_unlock(&data->lock);
-
-	return ret;
+	return IIO_VAL_INT_PLUS_MICRO;
 }
 
 static int fxas21002c_lpf_set(struct fxas21002c_data *data, int bw)
@@ -495,19 +480,15 @@ static int fxas21002c_hpf_get(struct fxas21002c_data *data, int *val2)
 	unsigned int sel_bits;
 	int ret;
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
+
 	ret = regmap_field_read(data->regmap_fields[F_SEL], &sel_bits);
 	if (ret < 0)
-		goto data_unlock;
+		return ret;
 
 	*val2 = fxas21002c_hpf_sel_from_value(data, sel_bits);
 
-	ret = IIO_VAL_INT_PLUS_MICRO;
-
-data_unlock:
-	mutex_unlock(&data->lock);
-
-	return ret;
+	return IIO_VAL_INT_PLUS_MICRO;
 }
 
 static int fxas21002c_hpf_set(struct fxas21002c_data *data, int sel)
@@ -527,23 +508,19 @@ static int fxas21002c_scale_get(struct fxas21002c_data *data, int *val)
 	int scale;
 	int ret;
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
+
 	ret = regmap_field_read(data->regmap_fields[F_FS], &fs_bits);
 	if (ret < 0)
-		goto data_unlock;
+		return ret;
 
 	scale = fxas21002c_range_fs_from_value(data, fs_bits);
-	if (scale < 0) {
-		ret = scale;
-		goto data_unlock;
-	}
+	if (scale < 0)
+		return scale;
 
 	*val = scale;
 
-data_unlock:
-	mutex_unlock(&data->lock);
-
-	return ret;
+	return 0;
 }
 
 static int fxas21002c_scale_set(struct fxas21002c_data *data, int range)
