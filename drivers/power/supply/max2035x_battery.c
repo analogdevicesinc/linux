@@ -9,7 +9,6 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
-#include <linux/property.h>
 #include <linux/regmap.h>
 #include <linux/math64.h>
 
@@ -181,7 +180,6 @@ static int max2035x_battery_probe(struct platform_device *pdev)
 	desc->num_properties = ARRAY_SIZE(max2035x_bat_properties);
 
 	psy_cfg.drv_data = bat;
-	psy_cfg.fwnode = dev_fwnode(&pdev->dev);
 
 	return PTR_ERR_OR_ZERO(devm_power_supply_register(&pdev->dev,
 							   desc, &psy_cfg));
