@@ -50,6 +50,21 @@ config AD525X_DPOT_SPI
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad525x_dpot-spi.
 
+config ADI_PCIE_OF_OVERLAY
+	tristate "Analog Devices PCIe endpoint device-tree overlay"
+	depends on PCI && OF_OVERLAY && OF_IRQ
+	select PCI_DYNAMIC_OF_NODES
+	help
+	  Driver for Analog Devices PCIe endpoints whose internals are
+	  described by a firmware-provided DT overlay (a simple-bus with
+	  BAR-derived ranges). It applies the overlay under the endpoint's
+	  OF node, registers an irqdomain backed by the axi_pcie_intc core
+	  behind BAR0 over MSI/MSI-X or shared INTx, and lets stock
+	  subsystem drivers probe the resulting platform devices.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adi-pcie-of-overlay.
+
 config DUMMY_IRQ
 	tristate "Dummy IRQ handler"
 	help
