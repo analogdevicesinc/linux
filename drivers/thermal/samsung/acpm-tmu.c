@@ -172,7 +172,7 @@ static void acpm_tmu_control_rollback(struct acpm_tmu_priv *priv, int start_idx)
 	}
 }
 
-static int acpm_tmu_control(struct acpm_tmu_priv *priv, bool on, bool rollback)
+static int acpm_tmu_control(struct acpm_tmu_priv *priv, bool on)
 {
 	struct device *dev = priv->dev;
 	int i, ret, err = 0;
@@ -191,16 +191,8 @@ static int acpm_tmu_control(struct acpm_tmu_priv *priv, bool on, bool rollback)
 		mutex_lock(&sensor->lock);
 		ret = acpm_tmu_op_tz_control(sensor, on);
 		mutex_unlock(&sensor->lock);
-		if (ret) {
-			if (!err)
-				err = ret;
-
-			/* On enable, stop on first error if rollback is requested */
-			if (on && rollback) {
-				acpm_tmu_control_rollback(priv, i - 1);
-				break;
-			}
-		}
+		if (ret && !err)
+			err = ret;
 	}
 
 	pm_runtime_put_sync(dev);
@@ -539,7 +531,7 @@ static void acpm_tmu_remove(struct platform_device *pdev)
 	 * immediately, preventing clock leaks when the driver is removed.
 	 */
 	pm_runtime_dont_use_autosuspend(&pdev->dev);
-	acpm_tmu_control(priv, false, false);
+	acpm_tmu_control(priv, false);
 }
 
 static int acpm_tmu_suspend(struct device *dev)
@@ -549,7 +541,7 @@ static int acpm_tmu_suspend(struct device *dev)
 	const struct acpm_tmu_ops *ops = &handle->ops->tmu;
 	int ret, restore_ret;
 
-	ret = acpm_tmu_control(priv, false, false);
+	ret = acpm_tmu_control(priv, false);
 	if (ret)
 		goto err_restore_sensors;
 
@@ -571,7 +563,7 @@ err_resume_acpm:
 			restore_ret);
 
 err_restore_sensors:
-	restore_ret = acpm_tmu_control(priv, true, false);
+	restore_ret = acpm_tmu_control(priv, true);
 	if (restore_ret)
 		dev_err(dev, "Failed to re-enable TMU after suspend failure: %d\n",
 			restore_ret);
@@ -584,34 +576,18 @@ static int acpm_tmu_resume(struct device *dev)
 	struct acpm_tmu_priv *priv = dev_get_drvdata(dev);
 	struct acpm_handle *handle = priv->handle;
 	const struct acpm_tmu_ops *ops = &handle->ops->tmu;
-	int ret, restore_ret;
+	int ret;
+
+	ret = pm_runtime_force_resume(dev);
+	if (ret)
+		return ret;
 
 	/* APB clock not required for this specific msg */
 	ret = ops->resume(handle, priv->mbox_chan_id);
 	if (ret)
 		return ret;
 
-	ret = pm_runtime_force_resume(dev);
-	if (ret)
-		goto err_suspend_acpm;
-
-	ret = acpm_tmu_control(priv, true, true);
-	if (ret)
-		goto err_suspend_pm;
-
-	return 0;
-
-err_suspend_pm:
-	restore_ret = pm_runtime_force_suspend(dev);
-	if (restore_ret)
-		dev_err(dev, "Failed to force suspend during resume rollback: %d\n",
-			restore_ret);
-err_suspend_acpm:
-	restore_ret = ops->suspend(handle, priv->mbox_chan_id);
-	if (restore_ret)
-		dev_err(dev, "Failed to suspend ACPM during resume rollback: %d\n",
-			restore_ret);
-	return ret;
+	return acpm_tmu_control(priv, true);
 }
 
 static int acpm_tmu_runtime_suspend(struct device *dev)
