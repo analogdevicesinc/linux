@@ -70,8 +70,7 @@ struct lmp91000_data {
 
 	struct completion completion;
 	u8 chan_select;
-	/* 64-bit data + 64-bit naturally aligned timestamp */
-	u32 buffer[4] __aligned(8);
+	u32 buffer[2];
 };
 
 static const struct iio_chan_spec lmp91000_channels[] = {
@@ -135,15 +134,17 @@ static irqreturn_t lmp91000_buffer_handler(int irq, void *private)
 	struct iio_poll_func *pf = private;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct lmp91000_data *data = iio_priv(indio_dev);
+	struct {
+		s32 chan;
+		aligned_s64 ts;
+	} scan = { };
 	int ret, val;
-
-	memset(data->buffer, 0, sizeof(data->buffer));
 
 	ret = lmp91000_read(data, LMP91000_REG_MODECN_3LEAD, &val);
 	if (!ret) {
-		data->buffer[0] = val;
-		iio_push_to_buffers_with_timestamp(indio_dev, data->buffer,
-						   iio_get_time_ns(indio_dev));
+		scan.chan = val;
+		iio_push_to_buffers_with_ts(indio_dev, &scan, sizeof(scan),
+					    iio_get_time_ns(indio_dev));
 	}
 
 	iio_trigger_notify_done(indio_dev->trig);
