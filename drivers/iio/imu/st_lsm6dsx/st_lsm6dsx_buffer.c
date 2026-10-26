@@ -496,9 +496,10 @@ int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 				if (gyro_sensor->samples_to_discard > 0)
 					gyro_sensor->samples_to_discard--;
 				else
-					iio_push_to_buffers_with_timestamp(
+					iio_push_to_buffers_with_ts(
 						hw->iio_devs[ST_LSM6DSX_ID_GYRO],
 						&hw->scan[ST_LSM6DSX_ID_GYRO],
+						sizeof(hw->scan[ST_LSM6DSX_ID_GYRO]),
 						gyro_sensor->ts_ref + ts);
 				gyro_sip--;
 			}
@@ -510,16 +511,18 @@ int st_lsm6dsx_read_fifo(struct st_lsm6dsx_hw *hw)
 				if (acc_sensor->samples_to_discard > 0)
 					acc_sensor->samples_to_discard--;
 				else
-					iio_push_to_buffers_with_timestamp(
+					iio_push_to_buffers_with_ts(
 						hw->iio_devs[ST_LSM6DSX_ID_ACC],
 						&hw->scan[ST_LSM6DSX_ID_ACC],
+						sizeof(hw->scan[ST_LSM6DSX_ID_ACC]),
 						acc_sensor->ts_ref + ts);
 				acc_sip--;
 			}
 			if (ext_sip > 0 && !(sip % ext_sensor->decimator)) {
-				iio_push_to_buffers_with_timestamp(
+				iio_push_to_buffers_with_ts(
 					hw->iio_devs[ST_LSM6DSX_ID_EXT0],
 					&hw->scan[ST_LSM6DSX_ID_EXT0],
+					sizeof(hw->scan[ST_LSM6DSX_ID_EXT0]),
 					ext_sensor->ts_ref + ts);
 				ext_sip--;
 			}
@@ -549,7 +552,7 @@ static bool st_lsm6dsx_check_data(u8 tag, __le16 *data)
 }
 
 static int st_lsm6dsx_push_tagged_data(struct st_lsm6dsx_hw *hw, u8 tag,
-				       __le16 *data, s64 ts)
+				       __le16 *data, size_t len, s64 ts)
 {
 	struct st_lsm6dsx_sensor *sensor;
 	struct iio_dev *iio_dev;
@@ -597,8 +600,7 @@ static int st_lsm6dsx_push_tagged_data(struct st_lsm6dsx_hw *hw, u8 tag,
 	}
 
 	sensor = iio_priv(iio_dev);
-	iio_push_to_buffers_with_timestamp(iio_dev, data,
-					   ts + sensor->ts_ref);
+	iio_push_to_buffers_with_ts(iio_dev, data, len, ts + sensor->ts_ref);
 
 	return 0;
 }
@@ -617,7 +619,7 @@ int st_lsm6dsx_read_tagged_fifo(struct st_lsm6dsx_hw *hw)
 	u16 fifo_len, fifo_diff_mask;
 	/*
 	 * Alignment needed as this can ultimately be passed to a
-	 * call to iio_push_to_buffers_with_timestamp() which
+	 * call to iio_push_to_buffers_with_ts() which
 	 * must be passed a buffer that is aligned to 8 bytes so
 	 * as to allow insertion of a naturally aligned timestamp.
 	 */
@@ -690,6 +692,7 @@ int st_lsm6dsx_read_tagged_fifo(struct st_lsm6dsx_hw *hw)
 			} else {
 				st_lsm6dsx_push_tagged_data(hw, tag,
 							    iio_buff.data,
+							    sizeof(iio_buff),
 							    ts);
 			}
 		}
