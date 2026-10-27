@@ -80,12 +80,6 @@ static DECLARE_WAIT_QUEUE_HEAD(async_done);
 
 static atomic_t entry_count;
 
-static long long microseconds_since(ktime_t start)
-{
-	ktime_t now = ktime_get();
-	return ktime_to_ns(ktime_sub(now, start)) >> 10;
-}
-
 static async_cookie_t lowest_in_progress(struct async_domain *domain)
 {
 	struct async_entry *first = NULL;
@@ -130,7 +124,7 @@ static void async_run_entry_fn(struct work_struct *work)
 
 	pr_debug("initcall %lli_%pS returned after %lld usecs\n",
 		 (long long)entry->cookie, entry->func,
-		 microseconds_since(calltime));
+		 ktime_us_delta(ktime_get(), calltime));
 
 	/* 2) remove self from the pending queues */
 	spin_lock_irqsave(&async_lock, flags);
@@ -317,7 +311,7 @@ void async_synchronize_cookie_domain(async_cookie_t cookie, struct async_domain 
 	wait_event(async_done, lowest_in_progress(domain) >= cookie);
 
 	pr_debug("async_continuing @ %i after %lli usec\n", task_pid_nr(current),
-		 microseconds_since(starttime));
+		 ktime_us_delta(ktime_get(), starttime));
 }
 EXPORT_SYMBOL_GPL(async_synchronize_cookie_domain);
 
