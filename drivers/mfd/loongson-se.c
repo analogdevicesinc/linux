@@ -169,6 +169,23 @@ static irqreturn_t se_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static void loongson_se_stop(void *data)
+{
+	struct loongson_se *se = data;
+	struct loongson_se_controller_cmd cmd = {};
+
+	mutex_lock(&se->engine_init_lock);
+
+	cmd.command_id = SE_CMD_STOP;
+	loongson_se_send_controller_cmd(se, &cmd);
+
+	spin_lock_irq(&se->dev_lock);
+	writel(0, se->base + SE_S2LINT_EN);
+	spin_unlock_irq(&se->dev_lock);
+
+	mutex_unlock(&se->engine_init_lock);
+}
+
 static int loongson_se_init(struct loongson_se *se, dma_addr_t addr, int size)
 {
 	struct loongson_se_controller_cmd cmd = {};
@@ -176,21 +193,36 @@ static int loongson_se_init(struct loongson_se *se, dma_addr_t addr, int size)
 
 	cmd.command_id = SE_CMD_START;
 	err = loongson_se_send_controller_cmd(se, &cmd);
-	if (err)
+	if (err) {
+		writel(0, se->base + SE_S2LINT_EN);
 		return err;
+	}
 
 	cmd.command_id = SE_CMD_SET_DMA;
 	cmd.info[0] = lower_32_bits(addr);
 	cmd.info[1] = upper_32_bits(addr);
 	cmd.info[2] = size;
 
-	return loongson_se_send_controller_cmd(se, &cmd);
+	err = loongson_se_send_controller_cmd(se, &cmd);
+	if (err) {
+		loongson_se_stop(se);
+		return err;
+	}
+
+	return 0;
 }
 
 static const struct mfd_cell engines[] = {
 	{ .name = "loongson-rng" },
 	{ .name = "tpm_loongson" },
 };
+
+static void loongson_se_shutdown(struct platform_device *pdev)
+{
+	struct loongson_se *se = platform_get_drvdata(pdev);
+
+	loongson_se_stop(se);
+}
 
 static int loongson_se_probe(struct platform_device *pdev)
 {
@@ -225,11 +257,11 @@ static int loongson_se_probe(struct platform_device *pdev)
 	if (IS_ERR(se->base))
 		return PTR_ERR(se->base);
 
-	writel(SE_INT_ALL, se->base + SE_S2LINT_EN);
-
 	nr_irq = platform_irq_count(pdev);
 	if (nr_irq <= 0)
 		return -ENODEV;
+
+	writel(SE_INT_ALL, se->base + SE_S2LINT_CL);
 
 	for (i = 0; i < nr_irq; i++) {
 		irq = platform_get_irq(pdev, i);
@@ -238,7 +270,13 @@ static int loongson_se_probe(struct platform_device *pdev)
 			dev_err(dev, "failed to request IRQ: %d\n", irq);
 	}
 
+	writel(SE_INT_ALL, se->base + SE_S2LINT_EN);
+
 	err = loongson_se_init(se, paddr, se->dmam_size);
+	if (err)
+		return err;
+
+	err = devm_add_action_or_reset(dev, loongson_se_stop, se);
 	if (err)
 		return err;
 
@@ -253,8 +291,9 @@ static const struct acpi_device_id loongson_se_acpi_match[] = {
 MODULE_DEVICE_TABLE(acpi, loongson_se_acpi_match);
 
 static struct platform_driver loongson_se_driver = {
-	.probe   = loongson_se_probe,
-	.driver  = {
+	.probe    = loongson_se_probe,
+	.shutdown = loongson_se_shutdown,
+	.driver   = {
 		.name  = "loongson-se",
 		.acpi_match_table = loongson_se_acpi_match,
 	},
