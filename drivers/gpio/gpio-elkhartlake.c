@@ -59,7 +59,7 @@ static int ehl_gpio_probe(struct auxiliary_device *adev, const struct auxiliary_
 }
 
 static const struct auxiliary_device_id ehl_gpio_ids[] = {
-	{ EHL_PSE_IO_NAME "." EHL_PSE_GPIO_NAME },
+	{ .name = EHL_PSE_IO_NAME "." EHL_PSE_GPIO_NAME },
 	{ }
 };
 MODULE_DEVICE_TABLE(auxiliary, ehl_gpio_ids);

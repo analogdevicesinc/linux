@@ -230,7 +230,7 @@ static int usbio_gpio_probe(struct auxiliary_device *adev,
 }
 
 static const struct auxiliary_device_id usbio_gpio_id_table[] = {
-	{ "usbio.usbio-gpio" },
+	{ .name = "usbio.usbio-gpio" },
 	{ }
 };
 MODULE_DEVICE_TABLE(auxiliary, usbio_gpio_id_table);

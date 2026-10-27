@@ -201,7 +201,7 @@ static int ltc4283_gpio_probe(struct auxiliary_device *adev,
 }
 
 static const struct auxiliary_device_id ltc4283_aux_id_table[] = {
-	{ "ltc4283.gpio" },
+	{ .name = "ltc4283.gpio" },
 	{ }
 };
 MODULE_DEVICE_TABLE(auxiliary, ltc4283_aux_id_table);
