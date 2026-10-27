@@ -18294,7 +18294,7 @@ F:	Documentation/devicetree/bindings/iio/adc/microchip,mcp3911.yaml
 F:	drivers/iio/adc/mcp3911.c
 
 MICROCHIP MCP47A1 DAC DRIVER
-M:	Joshua Crofts <joshua.crofts1@gmail.com>
+M:	Joshua Crofts <crofts@kernel.org>
 S:	Maintained
 F:	Documentation/devicetree/bindings/iio/dac/microchip,mcp47a1.yaml
 F:	drivers/iio/dac/mcp47a1.c
@@ -29856,7 +29856,7 @@ F:	Documentation/devicetree/bindings/iio/light/vishay,veml6030.yaml
 F:	drivers/iio/light/veml3235.c
 
 VISHAY VEML3328 RGB IR LIGHT SENSOR DRIVER
-M:	Joshua Crofts <joshua.crofts1@gmail.com>
+M:	Joshua Crofts <crofts@kernel.org>
 S:	Maintained
 F:	drivers/iio/light/veml3328.c
 
