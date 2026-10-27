@@ -795,8 +795,12 @@ int xe_guc_init(struct xe_guc *guc)
 	if (!xe_uc_fw_is_enabled(&guc->fw))
 		return 0;
 
-	/* Disable page reclaim if GuC FW does not support */
-	if (GUC_SUBMIT_VER(guc) < MAKE_GUC_VER(1, 14, 0))
+	/*
+	 * Disable page reclaim hw assist if GuC FW does not support it
+	 * yet or a hw WA requires disabling it in VF mode.
+	 */
+	if (GUC_SUBMIT_VER(guc) < MAKE_GUC_VER(1, 14, 0) ||
+	    (IS_SRIOV_VF(xe) && XE_GT_WA(gt, 14028709524)))
 		xe->info.has_page_reclaim_hw_assist = false;
 
 	/* Disable indirect_ring_state if missing GuC 70.53+ WA 14025515070. */
