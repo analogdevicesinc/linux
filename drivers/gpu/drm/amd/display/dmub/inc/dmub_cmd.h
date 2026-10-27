@@ -2623,6 +2623,8 @@ struct dmub_fams2_alternate_stream_dynamic_state {
 	uint8_t cursor_size[3]; //  Cursor array per plane for now - if we assume a single cursor, then we don't need an array
 	uint8_t disabled_pipe_mask; // bitmask of pipes with RECOUT_HEIGHT == 0 (disabled)
 	struct plane_pipe_rect pipe_viewports[4];
+	uint8_t tmz_id[3]; // TMZ ID per plane
+	uint8_t pad; // to maintain alignment
 	/* outputs: */
 	uint16_t subvp_start_line_a[3];
 	uint16_t subvp_height_a[3];
@@ -2693,7 +2695,6 @@ struct dmub_fams2_cmd_alternate_stream_static_state {
 			uint8_t vertical_access : 1; // vertical_access = 1 means 90 or 270 rotation
 			uint8_t access_direction : 1; // access_direction = 1 means bigger to smaller coordinations (e.g., scan from 2160 to 0 as opposed to regular 0 to 2160)
 			uint8_t dcc : 1;
-			uint8_t tmz : 1; // TODO: Need to assign outside of DML (DML not aware of TMZ)
 		} bits;
 		uint8_t all;
 	} config[3];
@@ -2982,6 +2983,11 @@ enum dmub_cmd_idle_opt_type {
 	 * DCN notify to release HW.
 	 */
 	 DMUB_CMD__IDLE_OPT_RELEASE_HW = 4,
+
+	/**
+	 * DCN allow or disallow Z8.
+	 */
+	DMUB_CMD__IDLE_OPT_SET_Z8_ALLOW = 5,
 };
 
 /**
@@ -3033,6 +3039,25 @@ struct dmub_idle_opt_set_dc_power_state_data {
 struct dmub_rb_cmd_idle_opt_set_dc_power_state {
 	struct dmub_cmd_header header; /**< header */
 	struct dmub_idle_opt_set_dc_power_state_data data;
+};
+
+/**
+ * union dmub_idle_opt_set_z8_allow_data - Data passed to FW in a DMUB_CMD__IDLE_OPT_SET_Z8_ALLOW command.
+ */
+union dmub_idle_opt_set_z8_allow_data {
+	struct {
+		uint32_t allow: 1; /**< 0: disallow Z8, 1: allow Z8 */
+		uint32_t reserved: 31; /**< Reserved for expansion; sender zeroes */
+	} bits; /**< bitfields */
+	uint32_t all; /**< union of all bitfields */
+};
+
+/**
+ * struct dmub_rb_cmd_idle_opt_set_z8_allow - Data passed to FW in a DMUB_CMD__IDLE_OPT_SET_Z8_ALLOW command.
+ */
+struct dmub_rb_cmd_idle_opt_set_z8_allow {
+	struct dmub_cmd_header header; /**< header */
+	union dmub_idle_opt_set_z8_allow_data data; /**< Z8 allow policy */
 };
 
 /**
@@ -7946,6 +7971,10 @@ union dmub_rb_cmd {
 	 * Definition of a DMUB_CMD__IDLE_OPT_SET_DC_POWER_STATE command.
 	 */
 	struct dmub_rb_cmd_idle_opt_set_dc_power_state idle_opt_set_dc_power_state;
+	/**
+	 * Definition of a DMUB_CMD__IDLE_OPT_SET_Z8_ALLOW command.
+	 */
+	struct dmub_rb_cmd_idle_opt_set_z8_allow idle_opt_set_z8_allow;
 	/*
 	 * Definition of a DMUB_CMD__REPLAY_COPY_SETTINGS command.
 	 */
