@@ -373,6 +373,8 @@ int off_cpu_write(struct perf_session *session)
 			data.array[n++] = 0;
 		if (sample_type & PERF_SAMPLE_TIME)
 			data.array[n++] = tstamp;
+		if (sample_type & PERF_SAMPLE_ID)
+			data.array[n++] = sid;
 		if (sample_type & PERF_SAMPLE_CPU)
 			data.array[n++] = 0;
 		if (sample_type & PERF_SAMPLE_PERIOD)
