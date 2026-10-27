@@ -106,7 +106,6 @@ struct loongson_se_engine *loongson_se_init_engine(struct device *dev, int id)
 
 	engine->se = se;
 	engine->id = id;
-	init_completion(&engine->completion);
 
 	/* Divide DMA memory equally among all engines */
 	engine->buffer_size = se->dmam_size / SE_ENGINE_MAX;
@@ -199,12 +198,14 @@ static int loongson_se_probe(struct platform_device *pdev)
 	int nr_irq, irq, err, i;
 	dma_addr_t paddr;
 
-	se = devm_kmalloc_obj(dev, *se);
+	se = devm_kzalloc_obj(dev, *se);
 	if (!se)
 		return -ENOMEM;
 
 	dev_set_drvdata(dev, se);
 	init_completion(&se->cmd_completion);
+	for (i = 0; i < SE_ENGINE_MAX; i++)
+		init_completion(&se->engines[i].completion);
 	spin_lock_init(&se->dev_lock);
 	mutex_init(&se->engine_init_lock);
 
