@@ -122,6 +122,7 @@ struct dml2_utm_soc_bb {
 	double hostvm_inefficiency_fraction;
 	unsigned int max_lsdma_bandwidth_kbps;
 	unsigned int dchub_refclk_mhz;
+	unsigned int dprefclk_mhz;
 	unsigned int max_outstanding_reqs;
 	unsigned long return_bus_width_bytes;
 	double phy_downspread_percent;

@@ -1151,14 +1151,32 @@ static void dcn5_ms_calculate_dscclk_required(
 }
 
 static bool dcn5_ms_check_dscclk_support(
-		struct dml2_core_internal_display_mode_lib *mode_lib)
+		struct dml2_core_internal_display_mode_lib *mode_lib, const struct dml2_utm_soc_bb *utm_soc_bb)
 {
 	unsigned int k;
 	bool support = true;
 
-	for (k = 0; k < mode_lib->ms.num_active_planes; k++)
+	for (k = 0; k < mode_lib->ms.num_active_planes; k++) {
 		if (mode_lib->ms.required_dscclk_freq_mhz[k] > mode_lib->ms.max_dscclk_freq_mhz)
 			support = false;
+
+		unsigned int num_dsc_units;
+
+		if (mode_lib->ms.ODMMode[k] == dml2_odm_mode_combine_4to1)
+			num_dsc_units = 4;
+		else if (mode_lib->ms.ODMMode[k] == dml2_odm_mode_combine_3to1)
+			num_dsc_units = 3;
+		else if (mode_lib->ms.ODMMode[k] == dml2_odm_mode_combine_2to1)
+			num_dsc_units = 2;
+		else
+			num_dsc_units = 1;
+
+		if (mode_lib->ms.required_dscclk_freq_mhz[k] > ((double)utm_soc_bb->dprefclk_mhz / 5.0) &&
+				(mode_lib->ms.support.NumberOfDSCSlices[k] / num_dsc_units) == 1) {
+			support = false;
+		}
+	}
+
 	return support;
 }
 
@@ -2844,7 +2862,7 @@ static bool dcn5_mode_support(struct dml2_core_calcs_mode_support_ex *in_out_par
 
 	dcn5_ms_calculate_dscclk_required(display_cfg, mode_lib);
 
-	mode_lib->ms.support.DSCCLKRequiredMoreThanSupported = !dcn5_ms_check_dscclk_support(mode_lib);
+	mode_lib->ms.support.DSCCLKRequiredMoreThanSupported = !dcn5_ms_check_dscclk_support(mode_lib, utm_soc_bb);
 
 	dcn5_ms_check_dsc_engine_supports(display_cfg, mode_lib);
 
