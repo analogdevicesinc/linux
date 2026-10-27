@@ -10741,6 +10741,14 @@ F:	drivers/perf/fsl_imx8_ddr_perf.c
 F:	drivers/perf/fsl_imx9_ddr_perf.c
 F:	tools/perf/pmu-events/arch/arm64/freescale/
 
+FREESCALE IMX GPIO DRIVER
+M:	Peng Fan <peng.fan@nxp.com>
+L:	linux-gpio@vger.kernel.org
+L:	imx@lists.linux.dev
+S:	Maintained
+F:	Documentation/devicetree/bindings/gpio/fsl-imx-gpio.yaml
+F:	drivers/gpio/gpio-mxc.c
+
 FREESCALE IMX I2C DRIVER
 M:	Oleksij Rempel <o.rempel@pengutronix.de>
 R:	Pengutronix Kernel Team <kernel@pengutronix.de>
