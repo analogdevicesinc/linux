@@ -4472,6 +4472,27 @@ QUIRK_RME_DIGIFACE(0x3fa0),
 	}
 },
 
+/*
+ * CVT Touch Device (1ff7:0f33) is a USB composite device with HID + UAC
+ * audio interfaces. The device iProduct is "Touch Device" but Windows
+ * displays the audio function as "MAXHUB Speaker" (from iTerminal).
+ * Override the card shortname to match the Windows display name, while
+ * keeping normal stream/mixer creation (ifnum = QUIRK_NO_INTERFACE).
+ */
+{
+	.match_flags = USB_DEVICE_ID_MATCH_DEVICE |
+		       USB_DEVICE_ID_MATCH_INT_CLASS |
+		       USB_DEVICE_ID_MATCH_INT_SUBCLASS,
+	.idVendor = 0x1ff7,
+	.idProduct = 0x0f33,
+	.bInterfaceClass = USB_CLASS_AUDIO,
+	.bInterfaceSubClass = USB_SUBCLASS_AUDIOCONTROL,
+	.driver_info = (unsigned long) &(const struct snd_usb_audio_quirk) {
+		.product_name = "MAXHUB Speaker",
+		.ifnum = QUIRK_NO_INTERFACE,
+	}
+},
+
 #undef QUIRK_AF16RIG_CLOCK
 #undef QUIRK_AF16RIG
 
