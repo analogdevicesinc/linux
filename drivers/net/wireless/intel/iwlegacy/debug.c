@@ -679,46 +679,6 @@ il_dbgfs_qos_read(struct file *file, char __user *user_buf, size_t count,
 	return simple_read_from_buffer(user_buf, count, ppos, buf, pos);
 }
 
-static ssize_t
-il_dbgfs_disable_ht40_write(struct file *file, const char __user *user_buf,
-			    size_t count, loff_t *ppos)
-{
-	struct il_priv *il = file->private_data;
-	char buf[8];
-	int buf_size;
-	int ht40;
-
-	memset(buf, 0, sizeof(buf));
-	buf_size = min(count, sizeof(buf) - 1);
-	if (copy_from_user(buf, user_buf, buf_size))
-		return -EFAULT;
-	if (sscanf(buf, "%d", &ht40) != 1)
-		return -EFAULT;
-	if (!il_is_any_associated(il))
-		il->disable_ht40 = ht40 ? true : false;
-	else {
-		IL_ERR("Sta associated with AP - "
-		       "Change to 40MHz channel support is not allowed\n");
-		return -EINVAL;
-	}
-
-	return count;
-}
-
-static ssize_t
-il_dbgfs_disable_ht40_read(struct file *file, char __user *user_buf,
-			   size_t count, loff_t *ppos)
-{
-	struct il_priv *il = file->private_data;
-	char buf[100];
-	int pos = 0;
-	const size_t bufsz = sizeof(buf);
-
-	pos +=
-	    scnprintf(buf + pos, bufsz - pos, "11n 40MHz Mode: %s\n",
-		      il->disable_ht40 ? "Disabled" : "Enabled");
-	return simple_read_from_buffer(user_buf, count, ppos, buf, pos);
-}
 
 DEBUGFS_READ_WRITE_FILE_OPS(sram);
 DEBUGFS_READ_FILE_OPS(nvm);
@@ -726,7 +686,6 @@ DEBUGFS_READ_FILE_OPS(stations);
 DEBUGFS_READ_FILE_OPS(status);
 DEBUGFS_READ_WRITE_FILE_OPS(interrupt);
 DEBUGFS_READ_FILE_OPS(qos);
-DEBUGFS_READ_WRITE_FILE_OPS(disable_ht40);
 
 static ssize_t
 il_dbgfs_tx_queue_read(struct file *file, char __user *user_buf, size_t count,
@@ -1226,7 +1185,6 @@ il_dbgfs_register(struct il_priv *il, const char *name)
 	DEBUGFS_ADD_FILE(status, dir_data, 0400);
 	DEBUGFS_ADD_FILE(interrupt, dir_data, 0600);
 	DEBUGFS_ADD_FILE(qos, dir_data, 0400);
-	DEBUGFS_ADD_FILE(disable_ht40, dir_data, 0600);
 	DEBUGFS_ADD_FILE(rx_stats, dir_debug, 0400);
 	DEBUGFS_ADD_FILE(tx_stats, dir_debug, 0400);
 	DEBUGFS_ADD_FILE(rx_queue, dir_debug, 0400);

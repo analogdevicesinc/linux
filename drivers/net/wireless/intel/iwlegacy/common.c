@@ -3583,11 +3583,6 @@ il_is_ht40_tx_allowed(struct il_priv *il, struct ieee80211_sta_ht_cap *ht_cap)
 	if (ht_cap && !ht_cap->ht_supported)
 		return false;
 
-#ifdef CONFIG_IWLEGACY_DEBUGFS
-	if (il->disable_ht40)
-		return false;
-#endif
-
 	return il_is_channel_extension(il, il->band,
 				       le16_to_cpu(il->staging.channel),
 				       il->ht.extension_chan_offset);
