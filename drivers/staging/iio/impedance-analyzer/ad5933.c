@@ -672,7 +672,9 @@ static int ad5933_probe(struct i2c_client *client)
 	i2c_set_clientdata(client, indio_dev);
 	st->client = client;
 
-	mutex_init(&st->lock);
+	ret = devm_mutex_init(&client->dev, &st->lock);
+	if (ret)
+		return ret;
 
 	ret = devm_regulator_get_enable_read_voltage(&client->dev, "vdd");
 	if (ret < 0)
