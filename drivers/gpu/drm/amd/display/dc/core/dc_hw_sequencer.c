@@ -6269,6 +6269,14 @@ bool hwss_add_dsc_sequence_for_stream(struct block_sequence_state *seq_state,
 	dsc = top_pipe->stream_res.dsc;
 	stream = top_pipe->stream;
 
+	/* In some timing-sensitive sequences, the stream may be reset before
+	 * powered on (DPMS on). This will cause DSC disablement to be skipped.
+	 * Thus, we should skip the DSC sequence if the stream is powered off.
+	 * DSC should be programmed at some later point when the stream is powered on.
+	 */
+	if (stream->dpms_off)
+		return false;
+
 	if (stream->ctx && stream->ctx->dc && stream->ctx->dc->res_pool)
 		dccg = stream->ctx->dc->res_pool->dccg;
 
