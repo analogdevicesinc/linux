@@ -1949,6 +1949,8 @@ static int ionic_qp_sq_init(struct ionic_ibdev *dev, struct ionic_ctx *ctx,
 		return rc;
 	}
 
+	qp->sq_color = true;
+
 	rc = -EINVAL;
 
 	if (max_wr < 0 || max_wr > 0xffff)
@@ -2662,6 +2664,7 @@ static void ionic_reset_qp(struct ionic_ibdev *dev, struct ionic_qp *qp)
 		qp->sq_msn_cons = 0;
 		qp->sq.prod = 0;
 		qp->sq.cons = 0;
+		qp->sq_color = true;
 		spin_unlock(&qp->sq_lock);
 	}
 

@@ -306,6 +306,7 @@ struct ionic_qp {
 	u8			sq_cmb;
 	bool			sq_flush;
 	bool			sq_flush_rcvd;
+	bool			sq_color;
 
 	struct ionic_rq		rq;
 

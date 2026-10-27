@@ -820,6 +820,9 @@ static void ionic_prep_base(struct ionic_qp *qp,
 
 	wqe->base.wqe_idx = cpu_to_le64(qp->sq.prod);
 
+	if (qp->sq_color)
+		wqe->base.flags |= cpu_to_be16(IONIC_V1_FLAG_COLOR);
+
 	if (wr->send_flags & IB_SEND_FENCE)
 		wqe->base.flags |= cpu_to_be16(IONIC_V1_FLAG_FENCE);
 
@@ -843,6 +846,7 @@ static void ionic_prep_base(struct ionic_qp *qp,
 	}
 
 	ionic_queue_produce(&qp->sq);
+	qp->sq_color = ionic_color_wrap(qp->sq.prod, qp->sq_color);
 }
 
 static int ionic_prep_common(struct ionic_qp *qp,
