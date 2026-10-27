@@ -8049,6 +8049,9 @@ EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_inc_or_dec_irq_window_inhibit);
 
 static void vcpu_scan_ioapic(struct kvm_vcpu *vcpu)
 {
+	unsigned long *eoi_exit_bitmap = vcpu->arch.ioapic_handled_vectors;
+	DECLARE_BITMAP(__eoi_exit_bitmap, 256) __maybe_unused;
+
 	if (!kvm_apic_present(vcpu))
 		return;
 
@@ -8066,17 +8069,14 @@ static void vcpu_scan_ioapic(struct kvm_vcpu *vcpu)
 
 #ifdef CONFIG_KVM_HYPERV
 	if (to_hv_vcpu(vcpu)) {
-		u64 eoi_exit_bitmap[4];
-
-		bitmap_or((ulong *)eoi_exit_bitmap,
+		bitmap_or(__eoi_exit_bitmap,
 			  vcpu->arch.ioapic_handled_vectors,
 			  to_hv_synic(vcpu)->vec_bitmap, 256);
-		kvm_x86_call(load_eoi_exitmap)(vcpu, eoi_exit_bitmap);
-		return;
+
+		eoi_exit_bitmap = __eoi_exit_bitmap;
 	}
 #endif
-	kvm_x86_call(load_eoi_exitmap)(
-		vcpu, (u64 *)vcpu->arch.ioapic_handled_vectors);
+	kvm_x86_call(load_eoi_exitmap)(vcpu, (u64 *)eoi_exit_bitmap);
 }
 
 void kvm_arch_guest_memory_reclaimed(struct kvm *kvm)
