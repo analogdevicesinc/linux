@@ -450,6 +450,28 @@ static void hazptr_torture_defer(struct hazptr_pending *hppp, struct torture_ran
 }
 
 /*
+ * Release the specified CPU's set of deferred/pending hazard pointers.
+ */
+static void hazptr_torture_do_one_pending(int cpu, struct torture_random_state *trsp)
+{
+	struct hazptr_pending *hppp;
+	struct hazptr_pending *hppp1;
+	struct llist_head *llhp;
+	struct llist_node *llnp;
+
+	llhp = per_cpu_ptr(&hazptr_pending, cpu);
+	llnp = llist_del_all(llhp);
+	if (!llnp)
+		return;
+	llist_for_each_entry_safe(hppp, hppp1, llnp, hpp_node) {
+		hazptr_torture_reader_tail(hppp, trsp);
+		atomic_long_inc(per_cpu_ptr(&hazptr_torture_releases_undefer,
+					    raw_smp_processor_id()));
+		kfree(hppp);
+	}
+}
+
+/*
  * Hazard-pointer torture reader kthread.  Repeatedly dereferences
  * hazptr_torture_current, incrementing the corresponding element of the
  * pipeline array.  The counter in the element should never be greater
@@ -512,30 +534,12 @@ static int hazptr_torture_reader(void *arg)
 			schedule_timeout_interruptible(HZ / 5);
 		stutter_wait("hazptr_torture_reader");
 	} while (!torture_must_stop());
+	// Each reader clears all CPUs, so nothing is left after all
+	// readers exit their for_each_possible_cpu() loops.
+	for_each_possible_cpu(cpu)
+		hazptr_torture_do_one_pending(cpu, &rand);
 	torture_kthread_stopping("hazptr_torture_reader");
 	return 0;
-}
-
-/*
- * Release the specified CPU's set of deferred/pending hazard pointers.
- */
-static void hazptr_torture_do_one_pending(int cpu, struct torture_random_state *trsp)
-{
-	struct hazptr_pending *hppp;
-	struct hazptr_pending *hppp1;
-	struct llist_head *llhp;
-	struct llist_node *llnp;
-
-	llhp = per_cpu_ptr(&hazptr_pending, cpu);
-	llnp = llist_del_all(llhp);
-	if (!llnp)
-		return;
-	llist_for_each_entry_safe(hppp, hppp1, llnp, hpp_node) {
-		hazptr_torture_reader_tail(hppp, trsp);
-		atomic_long_inc(per_cpu_ptr(&hazptr_torture_releases_undefer,
-					    raw_smp_processor_id()));
-		kfree(hppp);
-	}
 }
 
 /*
@@ -560,6 +564,7 @@ static int hazptr_torture_do_pending(void *arg)
 		// Omit stutter_wait() because this function needs to do cleanup.
 	} while (!torture_must_stop());
 	torture_kthread_stopping("hazptr_torture_do_pending");
+	// Readers clean up after themselves before exit.
 	return 0;
 }
 
