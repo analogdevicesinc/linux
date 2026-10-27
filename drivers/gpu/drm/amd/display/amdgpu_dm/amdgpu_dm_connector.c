@@ -1405,6 +1405,11 @@ STATIC_IFN_KUNIT bool is_duplicate_mode(struct amdgpu_dm_connector *aconnector,
 			return true;
 	}
 
+	list_for_each_entry(m, &aconnector->base.modes, head) {
+		if (drm_mode_equal(m, mode))
+			return true;
+	}
+
 	return false;
 }
 

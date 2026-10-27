@@ -1135,6 +1135,7 @@ static void dm_test_is_duplicate_mode_empty_list(struct kunit *test)
 	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, aconnector);
 
+	INIT_LIST_HEAD(&aconnector->base.modes);
 	INIT_LIST_HEAD(&aconnector->base.probed_modes);
 	mode.hdisplay = 1920;
 	mode.vdisplay = 1080;
@@ -1155,6 +1156,34 @@ static void dm_test_is_duplicate_mode_match(struct kunit *test)
 	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, aconnector);
 
+	INIT_LIST_HEAD(&aconnector->base.modes);
+	INIT_LIST_HEAD(&aconnector->base.probed_modes);
+	existing.hdisplay = 1920;
+	existing.vdisplay = 1080;
+	existing.clock = 148500;
+	list_add_tail(&existing.head, &aconnector->base.modes);
+
+	candidate.hdisplay = 1920;
+	candidate.vdisplay = 1080;
+	candidate.clock = 148500;
+
+	KUNIT_EXPECT_TRUE(test, is_duplicate_mode(aconnector, &candidate));
+}
+
+/**
+ * dm_test_is_duplicate_mode_probed_match - Test probed mode duplicate match
+ * @test: The KUnit test context
+ */
+static void dm_test_is_duplicate_mode_probed_match(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector;
+	struct drm_display_mode existing = {};
+	struct drm_display_mode candidate = {};
+
+	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+
+	INIT_LIST_HEAD(&aconnector->base.modes);
 	INIT_LIST_HEAD(&aconnector->base.probed_modes);
 	existing.hdisplay = 1920;
 	existing.vdisplay = 1080;
@@ -1182,10 +1211,11 @@ static void dm_test_is_duplicate_mode_no_match(struct kunit *test)
 	KUNIT_ASSERT_NOT_NULL(test, aconnector);
 
 	INIT_LIST_HEAD(&aconnector->base.probed_modes);
+	INIT_LIST_HEAD(&aconnector->base.modes);
 	existing.hdisplay = 1920;
 	existing.vdisplay = 1080;
 	existing.clock = 148500;
-	list_add_tail(&existing.head, &aconnector->base.probed_modes);
+	list_add_tail(&existing.head, &aconnector->base.modes);
 
 	candidate.hdisplay = 2560;
 	candidate.vdisplay = 1440;
@@ -1207,12 +1237,13 @@ static void dm_test_is_duplicate_mode_same_size_different_clock(struct kunit *te
 
 	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, aconnector);
-
 	INIT_LIST_HEAD(&aconnector->base.probed_modes);
+
+	INIT_LIST_HEAD(&aconnector->base.modes);
 	existing.hdisplay = 1920;
 	existing.vdisplay = 1080;
 	existing.clock = 148500;
-	list_add_tail(&existing.head, &aconnector->base.probed_modes);
+	list_add_tail(&existing.head, &aconnector->base.modes);
 
 	candidate.hdisplay = 1920;
 	candidate.vdisplay = 1080;
@@ -10052,6 +10083,7 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	/* is_duplicate_mode */
 	KUNIT_CASE(dm_test_is_duplicate_mode_empty_list),
 	KUNIT_CASE(dm_test_is_duplicate_mode_match),
+	KUNIT_CASE(dm_test_is_duplicate_mode_probed_match),
 	KUNIT_CASE(dm_test_is_duplicate_mode_no_match),
 	KUNIT_CASE(dm_test_is_duplicate_mode_same_size_different_clock),
 	/* amdgpu_dm_get_encoder_crtc_mask */
