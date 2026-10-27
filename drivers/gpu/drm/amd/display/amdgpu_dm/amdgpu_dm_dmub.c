@@ -160,6 +160,68 @@ bool dm_register_dmub_notify_callback(struct amdgpu_device *adev,
 }
 EXPORT_IF_KUNIT(dm_register_dmub_notify_callback);
 
+
+/**
+ * dm_get_alt_channel_pstate_switch_aperture - Set the vactive p-state switch apertures.
+ * @adev: amdgpu device containing the discovered apertures
+ * @hw_params: DMUB hardware parameters to populate
+ *
+ * Reads both apertures before populating the DMUB parameters and DML2 config.
+ * Translates their base addresses into MC space for DML2. If either aperture
+ * is unavailable, the feature remains disabled.
+ */
+static void
+dm_get_alt_channel_pstate_switch_aperture(struct amdgpu_device *adev,
+					   struct dmub_srv_hw_params *hw_params)
+{
+	static const u32 region_ids[] = {
+		G7_PSTATE_APERTURE1_ID,
+		G7_PSTATE_APERTURE2_ID,
+	};
+	struct mem_reserved_info apertures[ARRAY_SIZE(region_ids)];
+	u64 aperture_mc_bases[ARRAY_SIZE(region_ids)];
+	u32 i;
+	int r;
+
+	/* Region IDs 5 and 6 identify the p-state switch apertures 1 and 2.
+	 * Do not publish partial aperture configuration if either lookup fails.
+	 */
+	for (i = 0; i < ARRAY_SIZE(region_ids); i++) {
+		r = amdgpu_discovery_get_mem_reserved_region_by_id(adev,
+								region_ids[i], &apertures[i]);
+		if (r) {
+			drm_warn(adev_to_drm(adev),
+				 "P-state switching during vactive unavailable: aperture %u lookup failed (%d)\n",
+				 region_ids[i], r);
+			return;
+		}
+
+		if (!apertures[i].reserved_region_size ||
+		    apertures[i].reserved_region_size >= (0xfffULL << 20)) {
+			drm_warn(adev_to_drm(adev),
+				 "P-state switching during vactive unavailable: aperture %u has invalid size\n",
+				 region_ids[i]);
+			return;
+		}
+
+		/* DML2 requires the reserved-region base in MC address space. */
+		aperture_mc_bases[i] = apertures[i].reserved_region_start +
+			adev->gmc.fb_start - adev->vm_manager.vram_base_offset;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(region_ids); i++) {
+		hw_params->soc_fb_info.alt_channel_region_base[i] = aperture_mc_bases[i];
+		hw_params->soc_fb_info.alt_channel_region_size[i] =
+			apertures[i].reserved_region_size;
+		/* DML consumes the MC base address bits [47:16]. */
+		adev->dm.dc->dml2_options.alt_ch_cfg.region_base_addr_47_16[i] =
+				(u32)(aperture_mc_bases[i] >> 16);
+		adev->dm.dc->dml2_options.alt_ch_cfg.region_size_bytes[i] =
+				(u32)apertures[i].reserved_region_size;
+	}
+}
+
+
 int dm_dmub_hw_init(struct amdgpu_device *adev)
 {
 	const struct dmcub_firmware_header_v1_0 *hdr;
@@ -261,6 +323,7 @@ int dm_dmub_hw_init(struct amdgpu_device *adev)
 	memset(&hw_params, 0, sizeof(hw_params));
 	hw_params.soc_fb_info.fb_base = adev->gmc.fb_start;
 	hw_params.soc_fb_info.fb_offset = adev->vm_manager.vram_base_offset;
+	dm_get_alt_channel_pstate_switch_aperture(adev, &hw_params);
 
 	/* backdoor load firmware and trigger dmub running */
 	if (adev->firmware.load_type != AMDGPU_FW_LOAD_PSP)
