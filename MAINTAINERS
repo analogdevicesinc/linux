@@ -2310,9 +2310,7 @@ F:	drivers/clk/adi/*
 F:	drivers/clocksource/timer-adi-adsp-sc5xx.c
 F:	drivers/dma/adi-dma.c
 F:	drivers/dma/adi-dma.h
-F:	drivers/gpio/gpio-adi-adsp-port.c
 F:	drivers/i2c/busses/i2c-adi-twi.c
-F:	drivers/irqchip/irq-adi-adsp.c
 F:	drivers/misc/adi/
 F:	drivers/net/ethernet/stmicro/stmmac/dwmac-adi.c
 F:	drivers/pinctrl/adi/
@@ -2325,7 +2323,6 @@ F:	drivers/usb/musb/adi.h
 F:	drivers/watchdog/adi_wdt.c
 F:	include/dt-bindings/clock/adi-sc5xx-clock.h
 F:	include/dt-bindings/pinctrl/adi-adsp-sru.h
-F:	include/dt-bindings/pinctrl/adi-adsp.h
 F:	include/linux/soc/adi/
 F:	include/sound/sc5xx-dai.h
 F:	sound/soc/adi/sc5xx*
