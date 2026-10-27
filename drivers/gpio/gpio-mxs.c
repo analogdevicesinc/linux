@@ -250,8 +250,8 @@ static int mxs_gpio_get_direction(struct gpio_chip *gc, unsigned int offset)
 }
 
 static const struct of_device_id mxs_gpio_dt_ids[] = {
-	{ .compatible = "fsl,imx23-gpio", .data = (void *) IMX23_GPIO, },
-	{ .compatible = "fsl,imx28-gpio", .data = (void *) IMX28_GPIO, },
+	{ .compatible = "fsl,imx23-gpio", .data = (void *)IMX23_GPIO },
+	{ .compatible = "fsl,imx28-gpio", .data = (void *)IMX28_GPIO },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, mxs_gpio_dt_ids);

@@ -188,8 +188,8 @@ static int xgene_gpio_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id xgene_gpio_of_match[] = {
-	{ .compatible = "apm,xgene-gpio", },
-	{},
+	{ .compatible = "apm,xgene-gpio" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, xgene_gpio_of_match);
 

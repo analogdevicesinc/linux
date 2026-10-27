@@ -209,7 +209,7 @@ static int lp3943_gpio_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id lp3943_gpio_of_match[] = {
-	{ .compatible = "ti,lp3943-gpio", },
+	{ .compatible = "ti,lp3943-gpio" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, lp3943_gpio_of_match);

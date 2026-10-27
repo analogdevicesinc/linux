@@ -787,7 +787,7 @@ fail:
 
 static const struct of_device_id brcmstb_gpio_of_match[] = {
 	{ .compatible = "brcm,brcmstb-gpio" },
-	{},
+	{ }
 };
 
 MODULE_DEVICE_TABLE(of, brcmstb_gpio_of_match);

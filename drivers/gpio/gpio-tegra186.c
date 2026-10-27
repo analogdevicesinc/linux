@@ -1559,49 +1559,49 @@ static const struct tegra_gpio_soc tegra410_system_soc = {
 static const struct of_device_id tegra186_gpio_of_match[] = {
 	{
 		.compatible = "nvidia,tegra186-gpio",
-		.data = &tegra186_main_soc
+		.data = &tegra186_main_soc,
 	}, {
 		.compatible = "nvidia,tegra186-gpio-aon",
-		.data = &tegra186_aon_soc
+		.data = &tegra186_aon_soc,
 	}, {
 		.compatible = "nvidia,tegra194-gpio",
-		.data = &tegra194_main_soc
+		.data = &tegra194_main_soc,
 	}, {
 		.compatible = "nvidia,tegra194-gpio-aon",
-		.data = &tegra194_aon_soc
+		.data = &tegra194_aon_soc,
 	}, {
 		.compatible = "nvidia,tegra234-gpio",
-		.data = &tegra234_main_soc
+		.data = &tegra234_main_soc,
 	}, {
 		.compatible = "nvidia,tegra234-gpio-aon",
-		.data = &tegra234_aon_soc
+		.data = &tegra234_aon_soc,
 	}, {
 		.compatible = "nvidia,tegra238-gpio",
-		.data = &tegra238_main_soc
+		.data = &tegra238_main_soc,
 	}, {
 		.compatible = "nvidia,tegra238-gpio-aon",
-		.data = &tegra238_aon_soc
+		.data = &tegra238_aon_soc,
 	}, {
 		.compatible = "nvidia,tegra256-gpio",
-		.data = &tegra256_main_soc
+		.data = &tegra256_main_soc,
 	}, {
 		.compatible = "nvidia,tegra264-gpio",
-		.data = &tegra264_main_soc
+		.data = &tegra264_main_soc,
 	}, {
 		.compatible = "nvidia,tegra264-gpio-aon",
-		.data = &tegra264_aon_soc
+		.data = &tegra264_aon_soc,
 	}, {
 		.compatible = "nvidia,tegra264-gpio-uphy",
-		.data = &tegra264_uphy_soc
+		.data = &tegra264_uphy_soc,
 	}, {
 		.compatible = "nvidia,tegra268-gpio",
-		.data = &tegra268_main_soc
+		.data = &tegra268_main_soc,
 	}, {
 		.compatible = "nvidia,tegra268-gpio-aon",
-		.data = &tegra268_aon_soc
+		.data = &tegra268_aon_soc,
 	}, {
 		.compatible = "nvidia,tegra268-gpio-uphy",
-		.data = &tegra268_uphy_soc
+		.data = &tegra268_uphy_soc,
 	}, {
 		/* sentinel */
 	}

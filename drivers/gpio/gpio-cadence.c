@@ -170,13 +170,13 @@ static const struct irq_chip cdns_gpio_irqchip = {
 static const struct of_device_id cdns_of_ids[] = {
 	{
 		.compatible = "axiado,ax3000-gpio",
-		.data = &ax3000_gpio_quirks
+		.data = &ax3000_gpio_quirks,
 	},
 	{
 		.compatible = "cdns,gpio-r1p02",
-		.data = &cdns_default_quirks
+		.data = &cdns_default_quirks,
 	},
-	{ /* sentinel */ },
+	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, cdns_of_ids);
 

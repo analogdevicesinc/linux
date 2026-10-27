@@ -306,17 +306,17 @@ static const struct mpc8xxx_gpio_devtype mpc8xxx_gpio_devtype_default = {
 };
 
 static const struct of_device_id mpc8xxx_gpio_ids[] = {
-	{ .compatible = "fsl,mpc8314-gpio", },
-	{ .compatible = "fsl,mpc8349-gpio", },
-	{ .compatible = "fsl,mpc8572-gpio", .data = &mpc8572_gpio_devtype, },
-	{ .compatible = "fsl,mpc8610-gpio", },
-	{ .compatible = "fsl,mpc5121-gpio", .data = &mpc512x_gpio_devtype, },
-	{ .compatible = "fsl,mpc5125-gpio", .data = &mpc5125_gpio_devtype, },
-	{ .compatible = "fsl,pq3-gpio",     },
-	{ .compatible = "fsl,ls1028a-gpio", },
-	{ .compatible = "fsl,ls1088a-gpio", },
-	{ .compatible = "fsl,qoriq-gpio",   },
-	{}
+	{ .compatible = "fsl,mpc8314-gpio" },
+	{ .compatible = "fsl,mpc8349-gpio" },
+	{ .compatible = "fsl,mpc8572-gpio", .data = &mpc8572_gpio_devtype },
+	{ .compatible = "fsl,mpc8610-gpio" },
+	{ .compatible = "fsl,mpc5121-gpio", .data = &mpc512x_gpio_devtype },
+	{ .compatible = "fsl,mpc5125-gpio", .data = &mpc5125_gpio_devtype },
+	{ .compatible = "fsl,pq3-gpio" },
+	{ .compatible = "fsl,ls1028a-gpio" },
+	{ .compatible = "fsl,ls1088a-gpio" },
+	{ .compatible = "fsl,qoriq-gpio" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, mpc8xxx_gpio_ids);
 

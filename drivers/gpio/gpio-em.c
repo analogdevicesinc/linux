@@ -357,8 +357,8 @@ static int em_gio_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id em_gio_dt_ids[] = {
-	{ .compatible = "renesas,em-gio", },
-	{},
+	{ .compatible = "renesas,em-gio" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, em_gio_dt_ids);
 

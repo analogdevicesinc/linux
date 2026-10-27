@@ -121,7 +121,7 @@ static const struct of_device_id octeon_gpio_match[] = {
 	{
 		.compatible = "cavium,octeon-3860-gpio",
 	},
-	{},
+	{ }
 };
 MODULE_DEVICE_TABLE(of, octeon_gpio_match);
 

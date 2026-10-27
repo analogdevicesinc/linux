@@ -594,11 +594,11 @@ static const struct aspeed_sgpio_pdata ast2700_sgpiom_pdata = {
 };
 
 static const struct of_device_id aspeed_sgpio_of_table[] = {
-	{ .compatible = "aspeed,ast2400-sgpio", .data = &ast2400_sgpio_pdata, },
-	{ .compatible = "aspeed,ast2500-sgpio", .data = &ast2400_sgpio_pdata, },
-	{ .compatible = "aspeed,ast2600-sgpiom", .data = &ast2600_sgpiom_pdata, },
-	{ .compatible = "aspeed,ast2700-sgpiom", .data = &ast2700_sgpiom_pdata, },
-	{}
+	{ .compatible = "aspeed,ast2400-sgpio", .data = &ast2400_sgpio_pdata },
+	{ .compatible = "aspeed,ast2500-sgpio", .data = &ast2400_sgpio_pdata },
+	{ .compatible = "aspeed,ast2600-sgpiom", .data = &ast2600_sgpiom_pdata },
+	{ .compatible = "aspeed,ast2700-sgpiom", .data = &ast2700_sgpiom_pdata },
+	{ }
 };
 
 MODULE_DEVICE_TABLE(of, aspeed_sgpio_of_table);

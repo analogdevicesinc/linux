@@ -321,7 +321,7 @@ static const struct of_device_id ftgpio_gpio_of_match[] = {
 	{
 		.compatible = "faraday,ftgpio010",
 	},
-	{},
+	{ }
 };
 MODULE_DEVICE_TABLE(of, ftgpio_gpio_of_match);
 

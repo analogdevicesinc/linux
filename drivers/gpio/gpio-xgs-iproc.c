@@ -310,7 +310,7 @@ static void iproc_gpio_remove(struct platform_device *pdev)
 
 static const struct of_device_id bcm_iproc_gpio_of_match[] = {
 	{ .compatible = "brcm,iproc-gpio-cca" },
-	{}
+	{ }
 };
 MODULE_DEVICE_TABLE(of, bcm_iproc_gpio_of_match);
 

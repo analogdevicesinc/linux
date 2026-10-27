@@ -196,7 +196,7 @@ static int tps65218_gpio_probe(struct platform_device *pdev)
 
 static const struct of_device_id tps65218_dt_match[] = {
 	{ .compatible = "ti,tps65218-gpio" },
-	{  }
+	{ }
 };
 MODULE_DEVICE_TABLE(of, tps65218_dt_match);
 

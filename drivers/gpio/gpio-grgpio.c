@@ -442,9 +442,9 @@ static int grgpio_probe(struct platform_device *ofdev)
 }
 
 static const struct of_device_id grgpio_match[] = {
-	{.name = "GAISLER_GPIO"},
-	{.name = "01_01a"},
-	{},
+	{ .name = "GAISLER_GPIO" },
+	{ .name = "01_01a" },
+	{ }
 };
 
 MODULE_DEVICE_TABLE(of, grgpio_match);

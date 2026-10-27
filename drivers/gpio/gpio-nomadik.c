@@ -715,9 +715,9 @@ static int nmk_gpio_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id nmk_gpio_match[] = {
-	{ .compatible = "st,nomadik-gpio", },
-	{ .compatible = "mobileye,eyeq5-gpio", },
-	{}
+	{ .compatible = "st,nomadik-gpio" },
+	{ .compatible = "mobileye,eyeq5-gpio" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, nmk_gpio_match);
 

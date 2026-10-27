@@ -487,7 +487,7 @@ mt7621_gpio_probe(struct platform_device *pdev)
 
 static const struct of_device_id mt7621_gpio_match[] = {
 	{ .compatible = "mediatek,mt7621-gpio" },
-	{},
+	{ }
 };
 MODULE_DEVICE_TABLE(of, mt7621_gpio_match);
 

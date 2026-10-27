@@ -334,7 +334,7 @@ static void xgene_gpio_sb_remove(struct platform_device *pdev)
 
 static const struct of_device_id xgene_gpio_sb_of_match[] = {
 	{ .compatible = "apm,xgene-gpio-sb" },
-	{}
+	{ }
 };
 MODULE_DEVICE_TABLE(of, xgene_gpio_sb_of_match);
 

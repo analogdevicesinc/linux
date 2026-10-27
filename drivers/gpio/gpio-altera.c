@@ -260,8 +260,8 @@ skip_irq:
 }
 
 static const struct of_device_id altera_gpio_of_match[] = {
-	{ .compatible = "altr,pio-1.0", },
-	{},
+	{ .compatible = "altr,pio-1.0" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, altera_gpio_of_match);
 

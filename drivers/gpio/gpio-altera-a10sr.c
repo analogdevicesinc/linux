@@ -96,7 +96,7 @@ static int altr_a10sr_gpio_probe(struct platform_device *pdev)
 
 static const struct of_device_id altr_a10sr_gpio_of_match[] = {
 	{ .compatible = "altr,a10sr-gpio" },
-	{ },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, altr_a10sr_gpio_of_match);
 

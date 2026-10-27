@@ -315,7 +315,7 @@ static int xway_stp_probe(struct platform_device *pdev)
 
 static const struct of_device_id xway_stp_match[] = {
 	{ .compatible = "lantiq,gpio-stp-xway" },
-	{},
+	{ }
 };
 MODULE_DEVICE_TABLE(of, xway_stp_match);
 

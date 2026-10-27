@@ -303,8 +303,8 @@ static int hlwd_gpio_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id hlwd_gpio_match[] = {
-	{ .compatible = "nintendo,hollywood-gpio", },
-	{},
+	{ .compatible = "nintendo,hollywood-gpio" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, hlwd_gpio_match);
 

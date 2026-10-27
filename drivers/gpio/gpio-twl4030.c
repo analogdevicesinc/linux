@@ -604,8 +604,8 @@ no_irqs:
 }
 
 static const struct of_device_id twl_gpio_match[] = {
-	{ .compatible = "ti,twl4030-gpio", },
-	{ },
+	{ .compatible = "ti,twl4030-gpio" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, twl_gpio_match);
 

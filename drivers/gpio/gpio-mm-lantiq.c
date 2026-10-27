@@ -134,7 +134,7 @@ static int ltq_mm_probe(struct platform_device *pdev)
 
 static const struct of_device_id ltq_mm_match[] = {
 	{ .compatible = "lantiq,gpio-mm" },
-	{},
+	{ }
 };
 MODULE_DEVICE_TABLE(of, ltq_mm_match);
 

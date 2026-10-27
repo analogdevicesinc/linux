@@ -280,7 +280,7 @@ static int rda_gpio_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id rda_gpio_of_match[] = {
-	{ .compatible = "rda,8810pl-gpio", },
+	{ .compatible = "rda,8810pl-gpio" },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, rda_gpio_of_match);

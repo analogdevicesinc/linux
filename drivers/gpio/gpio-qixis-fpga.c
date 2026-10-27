@@ -91,8 +91,7 @@ static const struct of_device_id qixis_cpld_gpio_of_match[] = {
 		.compatible = "fsl,ls1046aqds-fpga-gpio-stat-pres2",
 		.data = &ls1046aqds_stat_pres2_cfg,
 	},
-
-	{}
+	{ }
 };
 MODULE_DEVICE_TABLE(of, qixis_cpld_gpio_of_match);
 

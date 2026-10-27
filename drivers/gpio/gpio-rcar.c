@@ -492,7 +492,7 @@ static const struct of_device_id gpio_rcar_of_table[] = {
 		.data = &gpio_rcar_info_gen1,
 	}, {
 		/* Terminator */
-	},
+	}
 };
 
 MODULE_DEVICE_TABLE(of, gpio_rcar_of_table);

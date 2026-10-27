@@ -152,8 +152,8 @@ static int moxtet_gpio_probe(struct device *dev)
 }
 
 static const struct of_device_id moxtet_gpio_dt_ids[] = {
-	{ .compatible = "cznic,moxtet-gpio", },
-	{},
+	{ .compatible = "cznic,moxtet-gpio" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, moxtet_gpio_dt_ids);
 

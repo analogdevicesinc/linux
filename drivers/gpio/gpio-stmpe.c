@@ -533,7 +533,7 @@ static int stmpe_gpio_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id stmpe_gpio_of_matches[] = {
-	{ .compatible = "st,stmpe-gpio", },
+	{ .compatible = "st,stmpe-gpio" },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, stmpe_gpio_of_matches);

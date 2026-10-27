@@ -132,7 +132,7 @@ static const struct of_device_id ts4900_gpio_of_match_table[] = {
 		.compatible = "technologic,ts7970-gpio",
 		.data = (void *)TS7970_GPIO_IN,
 	},
-	{ /* sentinel */ },
+	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, ts4900_gpio_of_match_table);
 

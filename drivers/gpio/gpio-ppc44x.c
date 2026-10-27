@@ -190,7 +190,7 @@ static const struct of_device_id ppc44x_gpio_match[] = {
 	{
 		.compatible = "ibm,ppc4xx-gpio",
 	},
-	{},
+	{ }
 };
 MODULE_DEVICE_TABLE(of, ppc44x_gpio_match);
 

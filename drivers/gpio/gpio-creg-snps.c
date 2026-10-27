@@ -125,10 +125,10 @@ static const struct creg_layout axs10x_flsh_cs_ctl = {
 static const struct of_device_id creg_gpio_ids[] = {
 	{
 		.compatible = "snps,creg-gpio-axs10x",
-		.data = &axs10x_flsh_cs_ctl
+		.data = &axs10x_flsh_cs_ctl,
 	}, {
 		.compatible = "snps,creg-gpio-hsdk",
-		.data = &hsdk_cs_ctl
+		.data = &hsdk_cs_ctl,
 	}, { /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, creg_gpio_ids);

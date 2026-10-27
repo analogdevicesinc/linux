@@ -194,7 +194,7 @@ static inline bool mxc_gpio_has_power_off(struct mxc_gpio_port *port)
 #define MXC_ICR_MASK(gpio)	(0x3U << (((gpio) & 0xf) << 1))
 
 static const struct of_device_id mxc_gpio_dt_ids[] = {
-	{ .compatible = "fsl,imx1-gpio", .data =  &imx1_imx21_gpio_hwdata },
+	{ .compatible = "fsl,imx1-gpio", .data = &imx1_imx21_gpio_hwdata },
 	{ .compatible = "fsl,imx21-gpio", .data = &imx1_imx21_gpio_hwdata },
 	{ .compatible = "fsl,imx31-gpio", .data = &imx31_gpio_hwdata },
 	{ .compatible = "fsl,imx35-gpio", .data = &imx35_gpio_hwdata },

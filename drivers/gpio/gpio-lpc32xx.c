@@ -535,8 +535,8 @@ static int lpc32xx_gpio_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id lpc32xx_gpio_of_match[] = {
-	{ .compatible = "nxp,lpc3220-gpio", },
-	{ },
+	{ .compatible = "nxp,lpc3220-gpio" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, lpc32xx_gpio_of_match);
 

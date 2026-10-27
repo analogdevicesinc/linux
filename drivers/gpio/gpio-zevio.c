@@ -210,8 +210,8 @@ static int zevio_gpio_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id zevio_gpio_of_match[] = {
-	{ .compatible = "lsi,zevio-gpio", },
-	{ },
+	{ .compatible = "lsi,zevio-gpio" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, zevio_gpio_of_match);
 

@@ -274,8 +274,8 @@ static int macsmc_gpio_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id macsmc_gpio_of_table[] = {
-	{ .compatible = "apple,smc-gpio", },
-	{}
+	{ .compatible = "apple,smc-gpio" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, macsmc_gpio_of_table);
 

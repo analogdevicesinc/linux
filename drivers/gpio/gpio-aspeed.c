@@ -1292,11 +1292,11 @@ static const struct aspeed_gpio_config ast2700_config =
 	};
 
 static const struct of_device_id aspeed_gpio_of_table[] = {
-	{ .compatible = "aspeed,ast2400-gpio", .data = &ast2400_config, },
-	{ .compatible = "aspeed,ast2500-gpio", .data = &ast2500_config, },
-	{ .compatible = "aspeed,ast2600-gpio", .data = &ast2600_config, },
-	{ .compatible = "aspeed,ast2700-gpio", .data = &ast2700_config, },
-	{}
+	{ .compatible = "aspeed,ast2400-gpio", .data = &ast2400_config },
+	{ .compatible = "aspeed,ast2500-gpio", .data = &ast2500_config },
+	{ .compatible = "aspeed,ast2600-gpio", .data = &ast2600_config },
+	{ .compatible = "aspeed,ast2700-gpio", .data = &ast2700_config },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, aspeed_gpio_of_table);
 

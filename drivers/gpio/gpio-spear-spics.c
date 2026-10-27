@@ -155,7 +155,7 @@ err_dt_data:
 
 static const struct of_device_id spics_gpio_of_match[] = {
 	{ .compatible = "st,spear-spics-gpio" },
-	{}
+	{ }
 };
 MODULE_DEVICE_TABLE(of, spics_gpio_of_match);
 

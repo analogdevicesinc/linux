@@ -506,8 +506,8 @@ static const struct i2c_device_id adnp_i2c_id[] = {
 MODULE_DEVICE_TABLE(i2c, adnp_i2c_id);
 
 static const struct of_device_id adnp_of_match[] = {
-	{ .compatible = "ad,gpio-adnp", },
-	{ },
+	{ .compatible = "ad,gpio-adnp" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, adnp_of_match);
 

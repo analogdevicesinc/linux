@@ -487,8 +487,8 @@ static int gpio_mockup_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id gpio_mockup_of_match[] = {
-	{ .compatible = "gpio-mockup", },
-	{},
+	{ .compatible = "gpio-mockup" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, gpio_mockup_of_match);
 

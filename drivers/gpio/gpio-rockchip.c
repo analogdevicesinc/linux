@@ -806,9 +806,9 @@ static void rockchip_gpio_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id rockchip_gpio_match[] = {
-	{ .compatible = "rockchip,gpio-bank", },
+	{ .compatible = "rockchip,gpio-bank" },
 	{ .compatible = "rockchip,rk3188-gpio-bank0" },
-	{ },
+	{ }
 };
 
 static struct platform_driver rockchip_gpio_driver = {
