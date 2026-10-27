@@ -201,6 +201,7 @@ static void usb_int_callback(struct urb *urb)
 		break;
 	case -ECONNRESET:
 	case -ENOENT:
+	case -EPIPE:
 	case -ESHUTDOWN:
 		return;
 	default:
