@@ -339,8 +339,10 @@ MODULE_ALIAS_FS("debugfs");
  * doesn't exist or an error occurs, %NULL will be returned.  The returned
  * dentry must be passed to dput() when it is no longer needed.
  *
- * If debugfs is not enabled in the kernel, the value -%ENODEV will be
- * returned.
+ * If debugfs is not enabled in the kernel build, the value ERR_PTR(-ENODEV)
+ * will be returned. If debugfs is enabled in the kernel build but is disabled
+ * by using "debugfs=off" on the kernel command line, the value %NULL
+ * will be returned.
  */
 struct dentry *debugfs_lookup(const char *name, struct dentry *parent)
 {
@@ -562,8 +564,10 @@ EXPORT_SYMBOL_GPL(debugfs_create_file_size);
  * you are responsible here.)  If an error occurs, ERR_PTR(-ERROR) will be
  * returned.
  *
- * If debugfs is not enabled in the kernel, the value -%ENODEV will be
- * returned.
+ * If debugfs is not enabled in the kernel build, the value ERR_PTR(-ENODEV)
+ * will be returned. If debugfs is enabled in the kernel build but is disabled
+ * by using "debugfs=off" on the kernel command line, the value ERR_PTR(-EPERM)
+ * will be returned.
  *
  * NOTE: it's expected that most callers should _ignore_ the errors returned
  * by this function. Other debugfs functions handle the fact that the "dentry"
@@ -660,8 +664,10 @@ EXPORT_SYMBOL(debugfs_create_automount);
  * unloaded, you are responsible here.)  If an error occurs, ERR_PTR(-ERROR)
  * will be returned.
  *
- * If debugfs is not enabled in the kernel, the value -%ENODEV will be
- * returned.
+ * If debugfs is not enabled in the kernel build, the value ERR_PTR(-ENODEV)
+ * will be returned. If debugfs is enabled in the kernel build but is disabled
+ * by using "debugfs=off" on the kernel command line, the value ERR_PTR(-EPERM)
+ * will be returned.
  */
 struct dentry *debugfs_create_symlink(const char *name, struct dentry *parent,
 				      const char *target)
@@ -818,8 +824,10 @@ EXPORT_SYMBOL_GPL(debugfs_lookup_and_remove);
  *
  * This function will return 0 on success and -E... on failure.
  *
- * If debugfs is not enabled in the kernel, the value -%ENODEV will be
- * returned.
+ * If debugfs is not enabled in the kernel build, the value %-ENODEV
+ * will be returned. If debugfs is enabled in the kernel build but is disabled
+ * by using "debugfs=off" on the kernel command line, the value %0
+ * will be returned.
  */
 int __printf(2, 3) debugfs_change_name(struct dentry *dentry, const char *fmt, ...)
 {
