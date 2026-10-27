@@ -721,6 +721,7 @@ static void dcn6_populate_fams2_programming(const struct dml2_core_internal_disp
 			break;
 		}
 	}
+	base_programming->config.bits.imm_restore_drr = true; // enable immediate restore unconditionally for DCN6
 
 	switch (pstate_method) {
 	case dml2_pstate_method_vactive:
