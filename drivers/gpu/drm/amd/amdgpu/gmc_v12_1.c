@@ -630,15 +630,19 @@ static void gmc_v12_1_get_mtypes(struct amdgpu_device *adev,
 				 unsigned int *mtype_remote)
 {
 	bool is_aid_a1 = SOC_V1_0_DIE_REV_AID(adev->rev_id) == 1;
+	bool is_xcd_a0 = SOC_V1_0_DIE_REV_XCD(adev->rev_id) == 0;
 
-	/* Local memory: ASIC default depends on the AID stepping. */
-	*mtype_local = is_aid_a1 ? MTYPE_RW : MTYPE_NC;
+	/* Local memory: Only AID A1 support MTYPE_RW. On AID A0 the default
+	 * MTYPE depends on the XCD revision due to ISA changes
+	 */
+	*mtype_local = is_aid_a1 ? MTYPE_RW :
+		       is_xcd_a0 ? MTYPE_NC : MTYPE_UC;
 	if (amdgpu_mtype_local == 0)
 		*mtype_local = MTYPE_RW;
 	else if (amdgpu_mtype_local == 1)
 		*mtype_local = MTYPE_NC;
 	else if (amdgpu_mtype_local == 2)
-		DRM_INFO_ONCE("MTYPE_CC not supported for local memory\n");
+		*mtype_local = MTYPE_UC;
 
 	/* Remote memory defaults to MTYPE_UC on GFX 12.1. */
 	*mtype_remote = MTYPE_UC;
@@ -648,7 +652,8 @@ static void gmc_v12_1_get_mtypes(struct amdgpu_device *adev,
 		*mtype_remote = MTYPE_UC;
 
 	DRM_INFO_ONCE("Using %s for local memory and %s for remote memory\n",
-		      *mtype_local == MTYPE_RW ? "MTYPE_RW" : "MTYPE_NC",
+		      *mtype_local == MTYPE_RW ? "MTYPE_RW" :
+		      *mtype_local == MTYPE_NC ? "MTYPE_NC" : "MTYPE_UC",
 		      *mtype_remote == MTYPE_NC ? "MTYPE_NC" : "MTYPE_UC");
 }
 
