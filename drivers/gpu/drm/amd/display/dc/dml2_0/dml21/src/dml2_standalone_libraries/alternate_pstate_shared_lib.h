@@ -81,6 +81,7 @@ struct calculate_lsdma_copy_params {
 	/* inputs */
 	struct dmub_fams2_cmd_stream_static_base_state *base;
 	struct dmub_fams2_cmd_alternate_stream_static_state *alternate_static_state;
+	struct dmub_fams2_alternate_stream_dynamic_state *alternate_stream_dynamic_state;
 	uint8_t plane_index;
 	struct svp_params svp[2]; // array of 2 for svp0 and svp1
 	struct svp_params svp_c[2]; // array of 2 for svp0 and svp1

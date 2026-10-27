@@ -989,7 +989,7 @@ static void populate_lsdma(
 static void populate_copy_params(struct calculate_lsdma_copy_params *p, uint8_t svp_idx, uint8_t pipe_idx)
 {
 	struct dmub_fams2_cmd_alternate_stream_static_state *state = p->alternate_static_state;
-	struct plane_pipe_rect *pipe_vp = &p->alternate_static_state->pipe_viewports[pipe_idx];
+	struct plane_pipe_rect *pipe_vp = &p->alternate_stream_dynamic_state->pipe_viewports[pipe_idx];
 
 	populate_lsdma(state, &pipe_vp->luma, &p->svp[svp_idx], p->plane_index, pipe_idx, false, &p->out[svp_idx]);
 	if (state->config[p->plane_index].bits.is_multi_planar) {
