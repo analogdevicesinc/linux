@@ -182,6 +182,9 @@ void hazptr_note_context_switch(void)
 		if (!slot->addr)
 			continue;
 #ifdef CONFIG_HAZPTR_DEBUG
+		WARN_ONCE(item->ctx.ctx->slot != slot,
+			"Hazard Pointer (addr=%p) in per-CPU slot %u recorded with an owner that uses another slot.",
+			slot->addr, idx);
 		item->ctx.ctx->detach_cpu = true;
 #endif
 		hazptr_promote_to_backup_slot(item->ctx.ctx, slot);
@@ -284,6 +287,8 @@ void hazptr_release_debug(struct hazptr_ctx *ctx, void *addr)
 	int pid = current->pid, cpu = smp_processor_id();
 	bool warn_remote_cpu = !ctx->detach_cpu && ctx->acquire_cpu != cpu,
 	     warn_remote_task = !ctx->detach_task && ctx->acquire_pid != pid;
+	struct hazptr_slot *slot = ctx->slot;
+	struct hazptr_slot_item *item;
 
 	WARN_ONCE(warn_remote_cpu || warn_remote_task,
 		"Hazard Pointer (addr=%p) released on remote %s without %s. Acquire: caller=%pS, pid=%d, cpu=%d. Release: pid=%d, cpu=%d.",
@@ -291,6 +296,14 @@ void hazptr_release_debug(struct hazptr_ctx *ctx, void *addr)
 		warn_remote_task ? "task" : "cpu",
 		warn_remote_task ? "being detached from task" : "context switch",
 		(void *) ctx->acquire_caller, ctx->acquire_pid, ctx->acquire_cpu, pid, cpu);
+
+	if (hazptr_slot_is_backup(ctx, slot) || !READ_ONCE(slot->addr))
+		return;
+	/* Whoever claimed a per-CPU slot must be recorded as its owner. */
+	item = container_of(slot, struct hazptr_slot_item, slot);
+	WARN_ONCE(item->ctx.ctx != ctx,
+		"Hazard Pointer (addr=%p) released from a per-CPU slot recorded with another owner. Acquire: caller=%pS, pid=%d, cpu=%d.",
+		addr, (void *) ctx->acquire_caller, ctx->acquire_pid, ctx->acquire_cpu);
 }
 #else
 static inline void hazptr_release_debug(struct hazptr_ctx *ctx, void *addr) { }
