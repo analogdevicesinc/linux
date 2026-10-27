@@ -37,6 +37,8 @@ torture_param(int, irq_release, -1,
 	      "Release hazard pointers from irq handlers once per specified #, zero to disable");
 torture_param(int, kthread_do_pending_ms, -1,
 	      "Delay between cleanups for deferred hazard pointers (ms), zero to disable");
+torture_param(int, nest_acquire, 2,
+	      "Nest a second hazard pointer once per specified # of reader acquires, zero to disable");
 torture_param(int, nreaders, -1, "Number of hazard-pointer reader threads");
 torture_param(bool, nwriters, 1, "Number of hazard-pointer writer threads, 0 or 1");
 torture_param(int, onoff_holdoff, 0, "Time after boot before CPU hotplugs (s)");
@@ -472,6 +474,22 @@ static void hazptr_torture_do_one_pending(int cpu, struct torture_random_state *
 }
 
 /*
+ * Acquire and release a second hazard pointer while the caller holds one.
+ * If the caller's hazard pointer is in this CPU's slot 0, this acquisition
+ * takes the slow path, which first tries another per-CPU slot and can race
+ * there with hazptr_torture_acquire() handlers.
+ */
+static void hazptr_torture_nested_reader(struct torture_random_state *trsp)
+{
+	struct hazptr_pending hpp;
+
+	hpp.hpp_htp = cur_ops->readlock(&hpp.hpp_hc);
+	atomic_long_inc(per_cpu_ptr(&hazptr_torture_acquires, raw_smp_processor_id()));
+	if (hpp.hpp_htp)
+		hazptr_torture_reader_tail(&hpp, trsp);
+}
+
+/*
  * Hazard-pointer torture reader kthread.  Repeatedly dereferences
  * hazptr_torture_current, incrementing the corresponding element of the
  * pipeline array.  The counter in the element should never be greater
@@ -519,6 +537,8 @@ static int hazptr_torture_reader(void *arg)
 			schedule_timeout_interruptible(HZ / 10);
 			continue;
 		}
+		if (nest_acquire && !(torture_random(&rand) % nest_acquire))
+			hazptr_torture_nested_reader(&rand);
 		if (time_after(jiffies, lastsleep) && !torture_must_stop()) {
 			torture_hrtimeout_us(500, 1000, &rand);
 			lastsleep = jiffies + 10;
@@ -723,6 +743,7 @@ hazptr_torture_print_module_parms(struct hazptr_torture_ops *cur_ops, const char
 	pr_alert("%s" TORTURE_FLAG
 		 "--- %s: nreaders=%d nwriters=%d "
 		 "defer_modulus=%d irq_acquire=%d irq_release=%d kthread_do_pending_ms=%d "
+		 "nest_acquire=%d "
 		 "onoff_interval=%d onoff_holdoff=%d "
 		 "preempt_duration=%d preempt_interval=%d "
 		 "reader_sleep_us=%d "
@@ -730,6 +751,7 @@ hazptr_torture_print_module_parms(struct hazptr_torture_ops *cur_ops, const char
 		 "verbose=%d\n",
 		 torture_type, tag, nrealreaders, nwriters,
 		 defer_modulus, irq_acquire, irq_release, kthread_do_pending_ms,
+		 nest_acquire,
 		 onoff_interval, onoff_holdoff,
 		 preempt_duration, preempt_interval,
 		 reader_sleep_us,
@@ -886,6 +908,11 @@ static int __init hazptr_torture_init(void)
 		pr_alert("Cannot have irq_release (%d) < -1, disabling.\n", irq_release);
 		WARN_ON(IS_BUILTIN(CONFIG_HAZPTR_TORTURE_TEST));
 		irq_release = 0;
+	}
+	if (nest_acquire < 0) {
+		pr_alert("Cannot have negative nest_acquire (%d), disabling.\n", nest_acquire);
+		WARN_ON(IS_BUILTIN(CONFIG_HAZPTR_TORTURE_TEST));
+		nest_acquire = 0;
 	}
 	reader_tasks = kzalloc_objs(reader_tasks[0], nrealreaders);
 	for (i = 0; i < nrealreaders; i++) {

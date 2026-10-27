@@ -1982,6 +1982,12 @@ Kernel parameters
 			is equal to zero, in which case it instead
 			defaults to zero (disabled).
 
+	hazptrtorture.nest_acquire= [KNL]
+			Acquire a second, nested hazard pointer on
+			average one out of the specified number of
+			reader acquisitions.  Zero disables.  Defaults
+			to two.
+
 	hazptrtorture.nreaders= [KNL]
 			Number of hazard-pointer reader kthreads, each
 			of which repeatedly acquires and releases hazard
