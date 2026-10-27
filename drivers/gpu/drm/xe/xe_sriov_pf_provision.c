@@ -56,9 +56,11 @@ static void pf_unprovision_vfs(struct xe_device *xe, unsigned int num_vfs)
 	unsigned int id;
 	unsigned int n;
 
+	lockdep_assert_held(xe_sriov_pf_master_mutex(xe));
+
 	for_each_gt(gt, xe, id)
 		for (n = 1; n <= num_vfs; n++)
-			xe_gt_sriov_pf_config_release(gt, n, true);
+			xe_gt_sriov_pf_config_release_locked(gt, n, true);
 }
 
 static void pf_unprovision_all_vfs(struct xe_device *xe)
@@ -97,6 +99,8 @@ int xe_sriov_pf_provision_vfs(struct xe_device *xe, unsigned int num_vfs)
 int xe_sriov_pf_unprovision_vfs(struct xe_device *xe, unsigned int num_vfs)
 {
 	xe_assert(xe, IS_SRIOV_PF(xe));
+
+	guard(mutex)(xe_sriov_pf_master_mutex(xe));
 
 	if (!pf_auto_provisioning_mode(xe))
 		return 0;
@@ -165,6 +169,8 @@ int xe_sriov_pf_reprovision_default(struct xe_device *xe)
 int xe_sriov_pf_provision_set_mode(struct xe_device *xe, enum xe_sriov_provisioning_mode mode)
 {
 	xe_assert(xe, IS_SRIOV_PF(xe));
+
+	guard(mutex)(xe_sriov_pf_master_mutex(xe));
 
 	if (mode == xe->sriov.pf.provision.mode)
 		return 0;
