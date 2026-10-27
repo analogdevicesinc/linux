@@ -37,12 +37,16 @@ struct loongson_se_controller_cmd {
 	u32 info[7];
 };
 
-static int loongson_se_poll(struct loongson_se *se, u32 int_bit)
+static int loongson_se_poll(struct loongson_se *se, u32 int_bit,
+			    struct completion *completion)
 {
 	u32 status;
 	int err;
 
 	spin_lock_irq(&se->dev_lock);
+
+	writel(int_bit, se->base + SE_S2LINT_CL);
+	reinit_completion(completion);
 
 	/* Notify the controller that the engine needs to be started */
 	writel(int_bit, se->base + SE_L2SINT_SET);
@@ -66,11 +70,13 @@ static int loongson_se_send_controller_cmd(struct loongson_se *se,
 	for (i = 0; i < SE_SEND_CMD_REG_LEN; i++)
 		writel(send_cmd[i], se->base + SE_SEND_CMD_REG + i * 4);
 
-	err = loongson_se_poll(se, SE_INT_CONTROLLER);
+	err = loongson_se_poll(se, SE_INT_CONTROLLER, &se->cmd_completion);
 	if (err)
 		return err;
 
-	return wait_for_completion_interruptible(&se->cmd_completion);
+	wait_for_completion(&se->cmd_completion);
+
+	return 0;
 }
 
 int loongson_se_send_engine_cmd(struct loongson_se_engine *engine)
@@ -80,12 +86,15 @@ int loongson_se_send_engine_cmd(struct loongson_se_engine *engine)
 	 * where to obtain engine commands from. Now all we need to
 	 * do is notify the controller that the engine needs to be started.
 	 */
-	int err = loongson_se_poll(engine->se, BIT(engine->id));
+	int err = loongson_se_poll(engine->se, BIT(engine->id),
+				   &engine->completion);
 
 	if (err)
 		return err;
 
-	return wait_for_completion_interruptible(&engine->completion);
+	wait_for_completion(&engine->completion);
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(loongson_se_send_engine_cmd);
 
