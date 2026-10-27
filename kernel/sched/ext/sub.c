@@ -36,7 +36,7 @@ static DEFINE_STATIC_KEY_FALSE(__scx_ops_cid_sched_updated_enabled);
 static s32 scx_nr_ops_cid_sched_updated;	/* such scheds, under scx_enable_mutex */
 
 /* latched at root enable before any rescue runs */
-static s32 scx_rescue_bw_1024;
+s32 scx_rescue_bw_1024;			/* 0 if disabled, see scx_rescue_enabled() */
 static s64 scx_rescue_quantum_ns;
 static s64 scx_rescue_sat_delta_ns;
 static unsigned long scx_rescue_decay_halflife;
@@ -428,9 +428,7 @@ void scx_init_root_caps(struct scx_sched *sch)
 /* unserved remainder of @rq's rescuee's admitted slice, 0 once fully served */
 static s64 scx_rescue_slice_remaining(struct rq *rq)
 {
-	s64 served = rq->scx.rescue.curr->se.sum_exec_runtime - rq->scx.rescue.exec_snap;
-
-	return max(rq->scx.rescue.slice - served, 0);
+	return max(rq->scx.rescue.slice - rq->scx.rescue.served, 0);
 }
 
 /*
@@ -466,6 +464,14 @@ void scx_rescue_charge(struct rq *rq, s64 delta_exec)
 	lockdep_assert_rq_held(rq);
 
 	/*
+	 * Count @delta_exec as served before the clamp below, which bounds only
+	 * the budget charge. update_curr_scx() took the same delta off the
+	 * slice, so a slice set to the unserved remainder, as escalation does,
+	 * reaches zero when the remainder does, see scx_rescue_keep().
+	 */
+	rq->scx.rescue.served += delta_exec;
+
+	/*
 	 * A rescue slice is bounded by one quantum and tick-driven expiry can
 	 * overshoot by up to a tick. Clamp to avoid wild over-charges on VMs.
 	 */
@@ -473,9 +479,13 @@ void scx_rescue_charge(struct rq *rq, s64 delta_exec)
 
 	rq->scx.rescue.budget -= delta_exec;
 
-	/* per-cpu usage average feeds the overload victim pick */
-	pcpu = per_cpu_ptr(scx_task_sched(rq->scx.rescue.curr)->pcpu,
-			   cpu_of(rq));
+	/*
+	 * The per-cpu usage average feeds the overload victim pick. Charge the
+	 * sched running the rescuee, which is the host while the rescuee's
+	 * owner is bypassing.
+	 */
+	pcpu = per_cpu_ptr(scx_exec_sched(scx_task_sched(rq->scx.rescue.curr),
+					  cpu_of(rq))->pcpu, cpu_of(rq));
 	pcpu->rescue_avg = scx_rescue_decay_avg(pcpu) + delta_exec;
 
 	if (!scx_rescue_slice_remaining(rq))
@@ -501,19 +511,20 @@ void scx_rescue_end(struct rq *rq)
 }
 
 /**
- * scx_rescue_keep - Keep the rescue going for a preempted-out rescuee
+ * scx_rescue_keep - Keep the rescue going past a zeroed slice
  * @rq: rq @p is running on
- * @p: task under rescue whose slice is exhausted
+ * @p: task under rescue
  *
- * Called from put_prev_task_scx() to decide what an exhausted slice means for
- * the rescuee. scx_rescue_charge() ends the rescue the moment the admitted
+ * Decide what an exhausted slice means for the rescuee. dispatch_one() calls
+ * this when nothing else is runnable and put_prev_task_scx() when another task
+ * won the pick. scx_rescue_charge() ends the rescue the moment the admitted
  * slice is fully served, so arriving here with the rescue still open means @p
- * was preempted. Restore the unserved remainder and return %true - @p stays the
- * rescuee and the caller reinserts it at the tail of the local DSQ, behind
- * whatever preempted the rescuee.
+ * was preempted. Restore the unserved remainder and return %true. @p stays the
+ * rescuee. dispatch_one() keeps it running and put_prev_task_scx() reinserts it
+ * at the tail of the local DSQ, behind whatever preempted the rescuee.
  *
- * Return %false to end the rescue instead - the slice is already fully served,
- * @p is leaving the rq or bypass is dismantling rescues.
+ * Return %false to end the rescue instead - the slice is already fully served
+ * or @p is leaving the rq.
  */
 bool scx_rescue_keep(struct rq *rq, struct task_struct *p)
 {
@@ -521,11 +532,12 @@ bool scx_rescue_keep(struct rq *rq, struct task_struct *p)
 
 	lockdep_assert_rq_held(rq);
 
-	if (!remaining || !(p->scx.flags & SCX_TASK_QUEUED) ||
-	    scx_bypassing(scx_task_sched(p), cpu_of(rq)))
+	if (!remaining || !(p->scx.flags & SCX_TASK_QUEUED))
 		return false;
 
-	scx_set_task_slice(p, remaining);
+	/* never called on a protected rescuee, so the write can't be refused */
+	if (WARN_ON_ONCE(!scx_set_task_slice(p, remaining)))
+		return false;
 	return true;
 }
 
@@ -607,10 +619,10 @@ static void scx_rescue_timer_arm(struct rq *rq)
  * @p: task being admitted, off any DSQ
  * @slice: CPU time to grant
  *
- * The schedulers keep their normal control over @p and may preempt or reslice
- * it. @slice is measured on served CPU time against the snapshot taken here, so
- * neither shortens the rescue, see scx_rescue_charge() and scx_rescue_keep().
- * Prolonged denial escalates into protected execution, see
+ * The slice is a kernel slice, see %SCX_TASK_KERNEL_SLICE. The schedulers may
+ * preempt @p or shorten its slice, never extend it. @slice is measured on
+ * served CPU time, so neither shortens the rescue, see scx_rescue_charge() and
+ * scx_rescue_keep(). Prolonged denial escalates into protected execution, see
  * scx_rescue_timerfn().
  */
 static void scx_rescue_admit(struct rq *rq, struct task_struct *p, s64 slice)
@@ -620,8 +632,9 @@ static void scx_rescue_admit(struct rq *rq, struct task_struct *p, s64 slice)
 
 	rq->scx.rescue.curr = p;
 	rq->scx.rescue.slice = slice;
-	rq->scx.rescue.exec_snap = p->se.sum_exec_runtime;
+	rq->scx.rescue.served = 0;
 	scx_set_task_slice(p, slice);
+	p->scx.flags |= SCX_TASK_KERNEL_SLICE;
 	scx_rescue_timer_arm(rq);
 }
 
@@ -656,7 +669,8 @@ static bool scx_rescue_try_admit(struct rq *rq, struct task_struct *p)
  * If the oldest waiter on @rq's rescue DSQ has been queued for too long, rescue
  * demand on this cpu persistently exceeds the configured bandwidth. Eject the
  * sub with the highest recent rescue consumption instead of letting the
- * scheduler stall path blame the waiter's owner, who may just be crowded out.
+ * scheduler stall path blame the sched running the waiter, which may just be
+ * crowded out.
  */
 static void scx_rescue_check_overload(struct rq *rq)
 {
@@ -877,9 +891,11 @@ void scx_rescue_init(struct rq *rq)
  * %SCX_ENQ_PREEMPT_LAZY are also cleared on a fallback migration-disabled
  * admission.
  *
- * Bypass doesn't need special-casing as a bypassing sched's tasks are enqueued
- * to and run by its nearest non-bypassing ancestor. If root is bypassing, it
- * always holds all caps.
+ * bypass_enq_target_dsq() also calls this with the host as @sch when the host
+ * lacks %SCX_CAP_BASE on @rq's cid, if rescue is enabled or @p must run on the
+ * cpu, migration-disabled or with a migration pending. The bypassed task is
+ * then admitted or diverted like a capless %SCX_ENQ_RESCUE insert by the host
+ * itself.
  */
 struct scx_dispatch_q *__scx_resolve_local_dsq(struct scx_sched *sch, struct rq *rq,
 					       struct task_struct *p, u64 *enq_flags)
@@ -922,7 +938,7 @@ struct scx_dispatch_q *__scx_resolve_local_dsq(struct scx_sched *sch, struct rq 
 	scx_divert_strip_flags(p, enq_flags);
 
 	/* the enqueuer opted for rescue instead of rejection and reenqueue */
-	if ((*enq_flags & SCX_ENQ_RESCUE) && likely(scx_rescue_bw_1024)) {
+	if (scx_rescue_enabled() && (*enq_flags & SCX_ENQ_RESCUE)) {
 		__scx_add_event(sch, SCX_EV_SUB_RESCUE, 1);
 		if (scx_rescue_try_admit(rq, p))
 			return &rq->scx.local_dsq;
@@ -1231,6 +1247,14 @@ void __scx_process_sync_ecaps(struct rq *rq, struct task_struct *prev)
 		lost = old & ~ecaps;
 		gained = ecaps & ~old;
 		lost_all |= lost;
+
+		/*
+		 * The bypass DSQ on this cpu is no longer consumed, so drain
+		 * it. A bypassing sched's own bypass DSQs are empty, as its
+		 * tasks sit on the host's.
+		 */
+		if ((lost & SCX_CAP_BASE) && !scx_bypassing(pcpu->sch, cpu))
+			scx_bypass_lb_kick(pcpu->sch);
 
 		/*
 		 * Tell the sched and its parent that the sched's effective caps
@@ -1646,8 +1670,9 @@ static void scx_rehome_task(struct scx_sched *to, struct task_struct *p)
  *
  * Used when @to must take over @p but failed to initialize it. Bypass keeps
  * scheduling decisions away from @to but @p can still trigger its task ops,
- * which may confuse the BPF side. @to is dying anyway. The exit paths skip
- * %NONE tasks (see __scx_disable_and_exit_task() and switched_from_scx()).
+ * which may confuse the BPF side. @to is dying anyway. The exit paths call no
+ * op on a %NONE task. __scx_disable_and_exit_task() and switched_from_scx()
+ * only reset its fields, see scx_reset_task_fields().
  */
 static void scx_punt_task(struct scx_sched *to, struct task_struct *p)
 {
@@ -2721,6 +2746,12 @@ __bpf_kfunc_start_defs();
  * Allows a parent scheduler to trigger dispatching on one of its direct
  * child schedulers. The child scheduler runs its dispatch operation to
  * move tasks from dispatch queues to the local runqueue.
+ *
+ * Dispatch into a child while the local DSQ is empty, when the cpu needs a
+ * task. A child holding only %SCX_CAP_ENQ_IMMED can insert only IMMED tasks,
+ * and the consume of its bypassing descendants' bypass DSQs is one such insert.
+ * With a task already queued on the local DSQ, such an insert fails and the
+ * task is reenqueued.
  *
  * Returns: true on success, false if cgroup_id is invalid, not a direct
  * child, or caller lacks dispatch permission.

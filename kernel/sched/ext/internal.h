@@ -924,8 +924,9 @@ struct sched_ext_ops {
 	 * ops.sub_attach() and any change since are reported then. A cpu that
 	 * isn't online at that point reports them once it comes online.
 	 * Deliveries continue while this sched bypasses. Its tasks are then on
-	 * the bypass DSQs, where this op can't insert or move them. Deliveries
-	 * stop once this sched is being disabled.
+	 * the bypass DSQs, under rescue or admitted to a local DSQ, where this
+	 * op can't insert or move them. Deliveries stop once this sched is
+	 * being disabled.
 	 *
 	 * Until this sched is being disabled, whenever an op of this sched runs
 	 * under a cid's rq lock, its effective caps on the cid are the @after
@@ -1343,8 +1344,10 @@ struct scx_event_stats {
 	s64		SCX_EV_SLICE_CLAMPED;
 
 	/*
-	 * The number of times a slice extension was denied because the
-	 * scheduler lacked baseline cpu access on the task's cpu.
+	 * The number of times a slice write was refused. A raise is refused
+	 * without baseline cpu access on the task's cpu and on a kernel slice.
+	 * Every write is refused on a protected slice, a preemption's zeroing
+	 * included.
 	 */
 	s64		SCX_EV_SLICE_DENIED;
 
@@ -2157,12 +2160,13 @@ static const char *scx_enable_state_str[] = {
  *   4. Lock src_rq (where the task currently lives)
  *   5. Verify p->scx.holding_cpu == current CPU, if not, dequeue won the
  *      race (dequeue clears holding_cpu to -1 when it takes the task), in
- *      this case migration is aborted
- *   6. If src_rq == dst_rq: clear holding_cpu and enqueue directly
- *      into dst_rq's local DSQ (no lock swap needed)
+ *      this case migration is aborted. Otherwise the claim is confirmed and
+ *      holding_cpu is cleared here, see unlink_dsq_and_switch_rq_lock()
+ *   6. If src_rq == dst_rq: enqueue directly into dst_rq's local DSQ (no lock
+ *      swap needed)
  *   7. Otherwise, verify under src_rq lock that the task can be moved to dst_rq
- *      (CPU affinity, migration_disabled, etc.). If not, clear holding_cpu,
- *      leave the task on src_rq, and enqueue it on the fallback DSQ.
+ *      (CPU affinity, migration_disabled, etc.). If not, leave the task on
+ *      src_rq, and enqueue it on the fallback DSQ.
  *   8. Otherwise (i.e. if the task can be moved to dst_rq), call
  *      move_remote_task_to_local_dsq(), which releases src_rq, locks dst_rq,
  *      and performs the deactivate/activate migration cycle
@@ -2328,6 +2332,7 @@ void scx_cgroup_unlock(void);
 s32 scx_alloc_kern_arena_objs(struct scx_sched *sch);
 void scx_disable_bypass_dsp(struct scx_sched *sch);
 void scx_bypass(struct scx_sched *sch, bool bypass);
+void scx_bypass_lb_kick(struct scx_sched *sch);
 s32 scx_link_sched(struct scx_sched *sch);
 void scx_unlink_sched(struct scx_sched *sch);
 void scx_disable_dump(struct scx_sched *sch);

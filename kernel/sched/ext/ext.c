@@ -388,8 +388,12 @@ static const struct sched_class *scx_setscheduler_class(struct task_struct *p)
 	return __setscheduler_class(p->policy, p->prio);
 }
 
-static struct scx_dispatch_q *bypass_enq_target_dsq(struct scx_sched *sch, s32 cpu)
+static struct scx_dispatch_q *bypass_enq_target_dsq(struct scx_sched *sch, struct rq *rq,
+						    struct task_struct *p, u64 *enq_flags)
 {
+	struct scx_sched *host = scx_exec_sched(sch, cpu_of(rq));
+	struct scx_dispatch_q *dsq;
+
 	/*
 	 * If @sch is a sub-sched which is bypassing, its tasks should go into
 	 * the bypass DSQs of the nearest ancestor which is not bypassing. The
@@ -400,8 +404,29 @@ static struct scx_dispatch_q *bypass_enq_target_dsq(struct scx_sched *sch, s32 c
 	 * Whenever a sched starts bypassing, all runnable tasks in its subtree
 	 * are re-enqueued after scx_bypassing() is turned on, guaranteeing that
 	 * all tasks are transferred to the right DSQs.
+	 *
+	 * A cpu's dispatch only descends into a host holding %SCX_CAP_BASE on
+	 * it, so the bypass DSQ of a host without BASE here is never consumed.
+	 * Send @p to rescue on this cpu instead, resolving against @host.
+	 * scx_dispatch_enqueue() resolves a local DSQ again, against the
+	 * bypassing @sch. %SCX_ENQ_IGNORE_CAPS makes that second resolution
+	 * admit @p.
+	 *
+	 * A migration-disabled task can't leave this cpu, and a task with a
+	 * migration pending must run here until the migration moves it. Either
+	 * would wait on the unconsumed bypass DSQ until the host regains BASE.
+	 * Resolve them too when rescue is disabled. The resolution admits both
+	 * to the local DSQ, as it does any insert of such a task.
 	 */
-	return scx_bypass_dsq(scx_exec_sched(sch, cpu), cpu);
+	if (unlikely(scx_missing_caps(host, cpu_of(rq), SCX_CAP_BASE)) &&
+	    (scx_rescue_enabled() || is_migration_disabled(p) || p->migration_pending)) {
+		*enq_flags |= SCX_ENQ_RESCUE;
+		dsq = scx_resolve_local_dsq(host, rq, p, enq_flags);
+		*enq_flags |= SCX_ENQ_IGNORE_CAPS;
+	} else {
+		dsq = scx_bypass_dsq(host, cpu_of(rq));
+	}
+	return dsq;
 }
 
 /**
@@ -1385,7 +1410,8 @@ enum scx_slice_oob_consts {
  * p->scx.slice_oob, applied under @p's rq lock at the next slice consideration.
  *
  * While %SCX_TASK_PROTECTED is set, every scheduler-reachable slice update is
- * refused. See set_task_slice_keep_oob().
+ * refused. See set_task_slice_keep_oob(). A kernel slice, see
+ * %SCX_TASK_KERNEL_SLICE, can be shortened but not extended.
  *
  * dsq_vtime orders the next PRIQ insertion and has no running-side consumer, so
  * scx_bpf_task_set_dsq_vtime() writes it directly. Fork-time init and direct
@@ -1472,8 +1498,8 @@ bool scx_set_task_slice(struct task_struct *p, u64 slice)
  * @rq: rq @p is on
  * @p: task of interest
  *
- * End what rides on the slice - the protection, and the rescue if @p is being
- * rescued.
+ * End what rides on the slice - the protection, the kernel's ownership of the
+ * slice, and the rescue if @p is being rescued.
  *
  * A dequeue normally ends the slice too. The exception is a save/restore pair
  * on the running task. Attribute changes like renice cycle the task through
@@ -1485,7 +1511,7 @@ void scx_task_slice_ended(struct rq *rq, struct task_struct *p)
 {
 	lockdep_assert_rq_held(rq);
 
-	p->scx.flags &= ~SCX_TASK_PROTECTED;
+	p->scx.flags &= ~(SCX_TASK_PROTECTED | SCX_TASK_KERNEL_SLICE);
 	if (unlikely(p == scx_rescuee(rq)))
 		scx_rescue_end(rq);
 }
@@ -1511,9 +1537,9 @@ static void set_task_slice_oob(struct scx_sched *sch, struct task_struct *p, u64
 /*
  * Apply a pending out-of-band slice request under @rq's lock. A request whose
  * packed id no longer matches @p's current owner is dropped. An extension needs
- * baseline cpu access on @p's cid, shortening is always allowed, and a
- * protected slice refuses both. %SCX_EV_SLICE_DENIED counts the denials. See
- * the write rules above.
+ * baseline cpu access on @p's cid and is refused on a kernel slice. Shortening
+ * is always allowed. A protected slice refuses both. %SCX_EV_SLICE_DENIED
+ * counts the denials. See the write rules above.
  */
 static void apply_task_slice_oob(struct rq *rq, struct task_struct *p)
 {
@@ -1537,7 +1563,8 @@ static void apply_task_slice_oob(struct rq *rq, struct task_struct *p)
 	slice = dur == SCX_SLICE_OOB_DUR_MASK ? SCX_SLICE_INF : dur;
 
 	if (slice > p->scx.slice &&
-	    unlikely(scx_missing_caps(scx_task_sched(p), cpu_of(rq), SCX_CAP_BASE))) {
+	    unlikely(scx_task_has_kernel_slice(p) ||
+		     scx_missing_caps(scx_task_sched(p), cpu_of(rq), SCX_CAP_BASE))) {
 		__scx_add_event(scx_task_sched(p), SCX_EV_SLICE_DENIED, 1);
 		return;
 	}
@@ -1567,6 +1594,35 @@ static void apply_slice_vtime(struct task_struct *p, u64 slice, u64 vtime, u64 e
 
 	if (enq_flags & SCX_ENQ_DSQ_PRIQ)
 		p->scx.dsq_vtime = vtime;
+}
+
+/*
+ * refill_task_slice_dfl() supplies a slice when the scheduler left none and
+ * expire_task_slice() takes it away to force the task off the cpu. Neither
+ * touches a kernel slice, see %SCX_TASK_KERNEL_SLICE.
+ */
+static void refill_task_slice_dfl(struct scx_sched *sch, struct task_struct *p)
+{
+	if (scx_task_has_kernel_slice(p))
+		return;
+
+	/*
+	 * A default refill is not an explicit request, so it must not drop a
+	 * pending out-of-band one, which is applied when @p next runs.
+	 */
+	set_task_slice_keep_oob(p, READ_ONCE(sch->slice_dfl));
+	__scx_add_event(sch, SCX_EV_REFILL_SLICE_DFL, 1);
+}
+
+static void expire_task_slice(struct task_struct *p)
+{
+	/*
+	 * Unlike the refill above, an expiry supersedes a pending out-of-band
+	 * request. A kept request would be applied at the next
+	 * update_curr_scx() and undo the expiry.
+	 */
+	if (!scx_task_has_kernel_slice(p))
+		scx_set_task_slice(p, 0);
 }
 
 static void update_curr_scx(struct rq *rq)
@@ -1660,16 +1716,6 @@ static void dsq_dec_nr(struct scx_dispatch_q *dsq, struct task_struct *p)
 
 		rq->scx.nr_immed--;
 	}
-}
-
-static void refill_task_slice_dfl(struct scx_sched *sch, struct task_struct *p)
-{
-	/*
-	 * A default refill is not an explicit request, so it must not drop a
-	 * pending out-of-band one, which is applied when @p next runs.
-	 */
-	set_task_slice_keep_oob(p, READ_ONCE(sch->slice_dfl));
-	__scx_add_event(sch, SCX_EV_REFILL_SLICE_DFL, 1);
 }
 
 /*
@@ -2217,10 +2263,30 @@ void scx_do_enqueue_task(struct rq *rq, struct task_struct *p, u64 enq_flags,
 	p->scx.flags &= ~SCX_TASK_IMMED;
 
 	/*
+	 * If !scx_rq_online(), we already told the BPF scheduler that the CPU
+	 * is offline and are just running the hotplug path. Don't bother the
+	 * BPF scheduler.
+	 */
+	if (!scx_rq_online(rq))
+		goto local;
+
+	if (scx_bypassing(sch, cpu_of(rq))) {
+		__scx_add_event(sch, SCX_EV_BYPASS_DISPATCH, 1);
+		goto bypass;
+	}
+
+	/*
 	 * A task reenqueued too many times without running means the scheduler
 	 * keeps re-deciding a placement it can't honor, e.g. re-inserting to a
 	 * cid it lacks caps on. Eject the owning scheduler and strand the task
 	 * to be picked up during sched exit.
+	 *
+	 * Bypass guarantees that every runnable task keeps running, and the
+	 * disable relies on that to take sleeping locks. The kernel places the
+	 * tasks of a bypassing scheduler and those on an offline rq, and
+	 * counting their reenqueues could strand a task under bypass and
+	 * deadlock the disable on a lock the task holds, so both tests stay
+	 * above the count.
 	 */
 	if (enq_flags & SCX_ENQ_REENQ) {
 		if (++p->scx.reenq_cnt > 1)
@@ -2232,19 +2298,6 @@ void scx_do_enqueue_task(struct rq *rq, struct task_struct *p, u64 enq_flags,
 				   p->comm, p->pid, p->scx.reenq_cnt);
 			goto out;
 		}
-	}
-
-	/*
-	 * If !scx_rq_online(), we already told the BPF scheduler that the CPU
-	 * is offline and are just running the hotplug path. Don't bother the
-	 * BPF scheduler.
-	 */
-	if (!scx_rq_online(rq))
-		goto local;
-
-	if (scx_bypassing(sch, cpu_of(rq))) {
-		__scx_add_event(sch, SCX_EV_BYPASS_DISPATCH, 1);
-		goto bypass;
 	}
 
 	if (p->scx.ddsp_dsq_id != SCX_DSQ_INVALID)
@@ -2325,7 +2378,7 @@ global:
 	dsq = find_global_dsq(sch, task_cpu(p));
 	goto enqueue;
 bypass:
-	dsq = bypass_enq_target_dsq(sch, task_cpu(p));
+	dsq = bypass_enq_target_dsq(sch, rq, p, &enq_flags);
 	goto enqueue;
 
 enqueue:
@@ -2458,8 +2511,9 @@ static void ops_dequeue(struct rq *rq, struct task_struct *p, u64 deq_flags)
 	/*
 	 * Don't reset runnable_at. If @p is waiting, the wait continues across
 	 * temporary dequeues, e.g. for a migration or an attribute change.
-	 * scx_disable_task() ends it if @p leaves its scheduler. scx_bypass()
-	 * restarts it when its requeue can change the sched running @p.
+	 * scx_reset_task_fields() ends it if @p leaves its sched's control.
+	 * scx_bypass() restarts it when its requeue can change the sched
+	 * running @p.
 	 */
 	clr_task_runnable(p, false);
 
@@ -2865,7 +2919,6 @@ static void scx_proxy_reject_task(struct scx_sched *sch, struct rq *rq,
 	lockdep_assert_rq_held(rq);
 	WARN_ON_ONCE(p->scx.flags & SCX_TASK_REENQ_REASON_MASK);
 
-	p->scx.holding_cpu = -1;
 	p->scx.flags |= SCX_TASK_REENQ_PROXY;
 	scx_divert_strip_flags(p, &enq_flags);
 
@@ -2899,8 +2952,9 @@ static void scx_proxy_reject_task(struct scx_sched *sch, struct rq *rq,
  * tell whether we lost to dequeue by testing whether the holding_cpu still
  * points to this CPU. See scx_dispatch_dequeue() for the counterpart.
  *
- * On return, @dsq is unlocked and @src_rq is locked. Returns %true if @p is
- * still valid and detached from @dsq. %false if lost to dequeue.
+ * On return, @dsq is unlocked and @src_rq is locked. Return %true if @p is
+ * still valid and detached from @dsq, with holding_cpu cleared. Return %false
+ * if @p was lost to a dequeue.
  */
 static bool unlink_dsq_and_switch_rq_lock(struct task_struct *p,
 					  struct scx_dispatch_q *dsq,
@@ -2923,11 +2977,13 @@ static bool unlink_dsq_and_switch_rq_lock(struct task_struct *p,
 	if (likely(p->scx.holding_cpu == cpu) && !WARN_ON_ONCE(src_rq != task_rq(p))) {
 		/*
 		 * Keep ->dsq set until we own @src_rq so that a racing dequeue
-		 * can find @dsq and clear holding_cpu. Once ownership is
-		 * confirmed, clear it under @src_rq so that deactivate_task()
-		 * takes the !dsq path instead of retaking @dsq->lock.
+		 * can find @dsq and clear holding_cpu. Once we own @src_rq, the
+		 * handshake is over. Clear ->dsq so that deactivate_task()
+		 * takes the !dsq path instead of retaking @dsq->lock. Clear
+		 * holding_cpu with it so that no caller has to.
 		 */
 		p->scx.dsq = NULL;
+		p->scx.holding_cpu = -1;
 		scx_wait_dispatching(p);
 		return true;
 	}
@@ -3163,20 +3219,21 @@ static void dispatch_to_local_dsq(struct scx_sched *sch, struct rq *rq,
 	    !WARN_ON_ONCE(src_rq != task_rq(p))) {
 		bool fallback = false;
 
+		/* the handshake is over, see unlink_dsq_and_switch_rq_lock() */
+		p->scx.holding_cpu = -1;
+
 		/*
 		 * If @p is staying on the same rq, there's no need to go
 		 * through the full deactivate/activate cycle. Optimize by
 		 * abbreviating move_remote_task_to_local_dsq().
 		 */
 		if (src_rq == dst_rq) {
-			p->scx.holding_cpu = -1;
 			scx_dispatch_enqueue(sch, dst_rq, &dst_rq->scx.local_dsq, p,
 					     slice, vtime, enq_flags | SCX_ENQ_APPLY_SLICE);
 		} else if (unlikely(task_proxy_unsafe_to_move(p))) {
 			fallback = true;
 			scx_proxy_reject_task(sch, src_rq, p, enq_flags);
 		} else if (unlikely(!task_can_run_on_remote_rq(sch, p, dst_rq, true))) {
-			p->scx.holding_cpu = -1;
 			fallback = true;
 			scx_dispatch_enqueue(sch, src_rq, find_global_dsq(sch, task_cpu(p)),
 					     p, slice, vtime,
@@ -3346,17 +3403,32 @@ static enum scx_dsp_verdict dispatch_one(struct rq *rq, struct task_struct *prev
 		update_curr_scx(rq);
 
 		/*
+		 * Under bypass, @prev's slice can't be trusted as a cpu-form
+		 * scheduler can write it directly from BPF. Skipping the keep
+		 * below is not enough as the post-dispatch test in
+		 * scx_dispatch_sched() would keep @prev on the same slice.
+		 *
+		 * Expire it as the bypass tick would, so that neither test
+		 * keeps @prev on it and @prev rotates through the bypass
+		 * enqueue. A kernel slice is left alone and the keep below
+		 * keeps @prev on it, see %SCX_TASK_KERNEL_SLICE.
+		 *
+		 * TODO: Once the cpu form is deprecated and the kfuncs refuse
+		 * slice raises from a bypassing scheduler, slices can be
+		 * trusted under bypass. This expiry, the bypass tick's zeroing
+		 * and the related slice handling can then be cleaned up.
+		 */
+		if (scx_bypassing(scx_task_sched(prev), cpu))
+			expire_task_slice(prev);
+
+		/*
 		 * If @prev is runnable & has slice left, it has priority and
 		 * fetching more just increases latency for the fetched tasks.
 		 * Tell pick_task_scx() to keep running @prev. If the BPF
 		 * scheduler wants to handle this explicitly, it should
 		 * implement ->cpu_release().
-		 *
-		 * See scx_disable_workfn() for the explanation on the bypassing
-		 * test.
 		 */
-		if ((prev->scx.flags & SCX_TASK_QUEUED) && prev->scx.slice &&
-		    !scx_bypassing(scx_task_sched(prev), cpu)) {
+		if ((prev->scx.flags & SCX_TASK_QUEUED) && prev->scx.slice) {
 			verdict = SCX_DSP_PREV;
 			goto has_tasks;
 		}
@@ -3387,6 +3459,34 @@ static enum scx_dsp_verdict dispatch_one(struct rq *rq, struct task_struct *prev
 			verdict = SCX_DSP_PREV;
 			goto has_tasks;
 		}
+
+		/*
+		 * The scheduler preempts a rescuee like any other task by
+		 * zeroing its slice. The grant survives the preemption. The
+		 * rescuee gets the unserved remainder back and runs again
+		 * behind whatever the scheduler wanted to run first.
+		 *
+		 * Two sites restore the remainder. When another task won the
+		 * pick, put_prev_task_scx() restores it and queues the rescuee
+		 * at the tail of the local DSQ.
+		 *
+		 * When nothing else is runnable, the cpu must not go idle with
+		 * the rescuee queued. The keep above takes a rescuee whose
+		 * scheduler holds %SCX_CAP_BASE here and doesn't take the last
+		 * task through %SCX_OPS_ENQ_LAST.
+		 *
+		 * The pick then ends its zeroed slice, and the rescue with it,
+		 * and refills a default slice. The task continues as an
+		 * ordinary one, which is fine as its scheduler holds BASE here.
+		 *
+		 * For any other rescuee, a reinsert from put_prev_task_scx()
+		 * would come after the pick settled on idle. Keep it running on
+		 * the remainder here.
+		 */
+		if (unlikely(prev == scx_rescuee(rq)) && scx_rescue_keep(rq, prev)) {
+			verdict = SCX_DSP_PREV;
+			goto has_tasks;
+		}
 	}
 	rq->scx.flags &= ~SCX_RQ_IN_DISPATCH;
 	return SCX_DSP_NONE;
@@ -3401,8 +3501,12 @@ has_tasks:
 	 *
 	 * - A non-IMMED HEAD task can get queued in front of an IMMED task
 	 *   between the IMMED queueing and the subsequent scheduling event.
+	 *
+	 * - When dispatch keeps @prev, even a lone IMMED task queued during the
+	 *   dispatch can't run right away.
 	 */
-	if (unlikely(rq->scx.local_dsq.nr > 1 && rq->scx.nr_immed))
+	if (unlikely((rq->scx.local_dsq.nr > 1 || verdict == SCX_DSP_PREV) &&
+		     rq->scx.nr_immed))
 		scx_schedule_reenq_local(rq, 0);
 
 	rq->scx.flags &= ~SCX_RQ_IN_DISPATCH;
@@ -3599,6 +3703,8 @@ static void put_prev_task_scx(struct rq *rq, struct task_struct *p,
 			 (rq->scx.flags & SCX_RQ_PROXY_PENDING);
 	bool proxy_block = rq->scx.flags & SCX_RQ_PROXY_BLOCKING;
 	bool rescue_keep = false;
+	bool going_idle = !proxy_put && next &&
+			  sched_class_above(&ext_sched_class, next->sched_class);
 
 	rq->scx.flags &= ~SCX_RQ_PROXY_PENDING;
 
@@ -3606,17 +3712,6 @@ static void put_prev_task_scx(struct rq *rq, struct task_struct *p,
 	smp_store_release(&rq->scx.kick_sync, rq->scx.kick_sync + 1);
 
 	update_curr_scx(rq);
-
-	/*
-	 * If the slice is consumed, protection ends with it. A rescuee
-	 * preempted beforehand keeps going, see scx_rescue_keep().
-	 */
-	if (!p->scx.slice) {
-		if (unlikely(p == scx_rescuee(rq)))
-			rescue_keep = scx_rescue_keep(rq, p);
-		if (!rescue_keep)
-			scx_task_slice_ended(rq, p);
-	}
 
 	/*
 	 * Preserve the running session when proxy execution refreshes the same
@@ -3628,6 +3723,22 @@ static void put_prev_task_scx(struct rq *rq, struct task_struct *p,
 			SCX_CALL_OP_TASK(sch, stopping, rq, p, !proxy_block);
 
 		p->scx.flags &= ~SCX_TASK_RUN_TRACKED;
+	}
+
+	/*
+	 * If the slice is consumed, protection ends with it.
+	 *
+	 * A rescuee keeps going when a preemption or ops.stopping() zeroed its
+	 * slice. Here another task won the pick. scx_rescue_keep() restores the
+	 * unserved remainder and the reinsert below queues the rescuee at the
+	 * tail of the local DSQ. When nothing else is runnable, dispatch_one()
+	 * keeps the rescuee running on the remainder instead.
+	 */
+	if (!p->scx.slice) {
+		if (unlikely(p == scx_rescuee(rq)))
+			rescue_keep = scx_rescue_keep(rq, p);
+		if (!rescue_keep)
+			scx_task_slice_ended(rq, p);
 	}
 
 	if (p->scx.flags & SCX_TASK_QUEUED) {
@@ -3655,11 +3766,12 @@ static void put_prev_task_scx(struct rq *rq, struct task_struct *p,
 		 * the CPU isn't busy, proxy resolution is only retrying through
 		 * idle, so keep the donor where it can be picked again.
 		 *
-		 * An open rescue must keep @p on the local DSQ even if the
-		 * scheduler zeroed the slice in ops.stopping() above.
+		 * A task with a kernel slice stays on the local DSQ even while
+		 * @sch bypasses. Under bypass, rescue runs @p when the host
+		 * lacks %SCX_CAP_BASE, see bypass_enq_target_dsq().
 		 */
-		if ((p->scx.slice || unlikely(p == scx_rescuee(rq))) &&
-		    !scx_bypassing(sch, cpu_of(rq))) {
+		if (p->scx.slice && (!scx_bypassing(sch, cpu_of(rq)) ||
+				     scx_task_has_kernel_slice(p))) {
 			if ((p->scx.flags & SCX_TASK_IMMED) && !proxy_put) {
 				p->scx.flags |= SCX_TASK_REENQ_PREEMPTED;
 				scx_do_enqueue_task(rq, p, SCX_ENQ_REENQ, -1);
@@ -3667,11 +3779,15 @@ static void put_prev_task_scx(struct rq *rq, struct task_struct *p,
 				u64 enq_flags = 0;
 
 				/*
-				 * Keep a preempted rescue going. If preempted
-				 * by another SCX task, append to the local DSQ,
-				 * see scx_rescue_keep().
+				 * The enqueue caps gate the scheduler's
+				 * placement. The kernel placed a kernel-slice
+				 * task here itself, so reinsert it without a
+				 * cap check, at the head like any preempted
+				 * task. When scx_rescue_keep() restored a slice
+				 * the scheduler zeroed, the scheduler wanted
+				 * something else to run first, so append.
 				 */
-				if (unlikely(p == scx_rescuee(rq))) {
+				if (unlikely(scx_task_has_kernel_slice(p))) {
 					enq_flags |= SCX_ENQ_IGNORE_CAPS;
 					if (!rescue_keep)
 						enq_flags |= SCX_ENQ_HEAD;
@@ -3699,25 +3815,28 @@ static void put_prev_task_scx(struct rq *rq, struct task_struct *p,
 		 * locally runnable and can legitimately go idle with @p still
 		 * runnable (see do_pick_task_scx()).
 		 */
-		if (!proxy_put && next &&
-		    sched_class_above(&ext_sched_class, next->sched_class) &&
-		    scx_task_can_stay_on_cpu(rq, p)) {
+		if (going_idle && scx_task_can_stay_on_cpu(rq, p)) {
 			WARN_ON_ONCE(!sched_core_enabled(rq) &&
 				     !(sch->ops.flags & SCX_OPS_ENQ_LAST));
 			scx_do_enqueue_task(rq, p, SCX_ENQ_LAST, -1);
-
-			/*
-			 * A task put on the local DSQ runs, as anywhere else.
-			 * Here the insert can't reschedule on its own: the pick
-			 * has settled on @next and @p is still curr, so
-			 * resched_curr() would flag @p and __schedule() clears
-			 * that right after the pick. Flag @next instead.
-			 */
-			if (p->scx.dsq == &rq->scx.local_dsq)
-				set_tsk_need_resched(next);
 		} else {
 			scx_do_enqueue_task(rq, p, 0, -1);
 		}
+
+		/*
+		 * @p may be on the local DSQ now. With %SCX_ENQ_LAST the
+		 * scheduler can put the last runnable task there. The plain
+		 * insert runs when @p cannot stay on this cpu, and rescue can
+		 * still admit it here.
+		 *
+		 * The cpu must not go idle with @p queued on its local DSQ. The
+		 * usual resched doesn't work: the pick has settled on @next and
+		 * @p is still curr, so resched_curr() would set need_resched on
+		 * @p, which __schedule() clears right after the pick. Set it on
+		 * @next instead.
+		 */
+		if (going_idle && p->scx.dsq == &rq->scx.local_dsq)
+			set_tsk_need_resched(next);
 	}
 
 switch_class:
@@ -4369,7 +4488,7 @@ static void task_tick_scx(struct rq *rq, struct task_struct *donor, int queued)
 	 * management.
 	 */
 	if (scx_bypassing(sch, cpu_of(rq)))
-		scx_set_task_slice(donor, 0);
+		expire_task_slice(donor);
 	else if (SCX_HAS_OP(sch, tick))
 		SCX_CALL_OP_TASK(sch, tick, rq, donor);
 
@@ -4530,6 +4649,34 @@ void scx_enable_task(struct scx_sched *sch, struct task_struct *p)
 	scx_set_task_state(p, SCX_TASK_ENABLED);
 }
 
+/**
+ * scx_reset_task_fields - Reset what @p carries from its sched's control
+ * @rq: @p's rq, locked
+ * @p: task leaving its sched's control
+ *
+ * The vtime, the slice and what rides on it, the reenqueue count and the
+ * watchdog wait belong to the sched while it controls @p. The control ends when
+ * @p is taken off the sched or leaves the ext class while staying on the sched.
+ * Reset them so that @p starts clean wherever it goes.
+ */
+static void scx_reset_task_fields(struct rq *rq, struct task_struct *p)
+{
+	lockdep_assert_rq_held(rq);
+
+	p->scx.dsq_vtime = 0;
+	scx_task_slice_ended(rq, p);
+	scx_set_task_slice(p, 0);
+	p->scx.reenq_cnt = 0;
+
+	/*
+	 * If @p is runnable but not running, its wait started at runnable_at,
+	 * which ops_dequeue() didn't reset. Leaving the sched's control ends
+	 * the wait. Reset runnable_at the next time @p is enqueued on SCX, so
+	 * that the watchdog doesn't count the time @p spends elsewhere.
+	 */
+	p->scx.flags |= SCX_TASK_RESET_RUNNABLE_AT;
+}
+
 static void scx_disable_task(struct scx_sched *sch, struct task_struct *p)
 {
 	struct rq *rq = task_rq(p);
@@ -4542,23 +4689,6 @@ static void scx_disable_task(struct scx_sched *sch, struct task_struct *p)
 	if (SCX_HAS_OP(sch, disable))
 		SCX_CALL_OP_TASK(sch, disable, rq, p);
 	scx_set_task_state(p, SCX_TASK_READY);
-
-	/*
-	 * Reset the SCX-managed fields when @p leaves the BPF scheduler's
-	 * control, after ops.disable() has observed their final values.
-	 */
-	p->scx.dsq_vtime = 0;
-	scx_task_slice_ended(rq, p);
-	scx_set_task_slice(p, 0);
-	p->scx.reenq_cnt = 0;
-
-	/*
-	 * If @p is runnable but not running, its wait started at runnable_at,
-	 * which ops_dequeue() didn't reset. Leaving @sch ends the wait. Reset
-	 * runnable_at the next time @p is enqueued on SCX, so that the watchdog
-	 * doesn't count the time @p spends elsewhere.
-	 */
-	p->scx.flags |= SCX_TASK_RESET_RUNNABLE_AT;
 
 	/*
 	 * Verify the task is not in BPF scheduler's custody. If flag
@@ -4579,6 +4709,11 @@ void __scx_disable_and_exit_task(struct scx_sched *sch, struct task_struct *p)
 
 	switch (scx_get_task_state(p)) {
 	case SCX_TASK_NONE:
+		/*
+		 * No op to call, but @p may still carry @sch's state, e.g. a
+		 * task punted by scx_fail_parent() and being rescued.
+		 */
+		scx_reset_task_fields(task_rq(p), p);
 		return;
 	case SCX_TASK_INIT:
 		args.cancelled = true;
@@ -4587,6 +4722,8 @@ void __scx_disable_and_exit_task(struct scx_sched *sch, struct task_struct *p)
 		break;
 	case SCX_TASK_ENABLED:
 		scx_disable_task(sch, p);
+		/* after ops.disable() has seen the final values */
+		scx_reset_task_fields(task_rq(p), p);
 		break;
 	default:
 		WARN_ON_ONCE(true);
@@ -4894,11 +5031,13 @@ static void switched_from_scx(struct rq *rq, struct task_struct *p)
 	 * parent's own teardown). There is nothing to disable; calling
 	 * scx_disable_task() would WARN on the non-%ENABLED state and trigger a
 	 * NONE -> READY validation failure.
+	 *
+	 * Either way, reset @p after ops.disable() has seen the final values. A
+	 * %NONE @p can still be a rescuee under the parent.
 	 */
-	if (scx_get_task_state(p) == SCX_TASK_NONE)
-		return;
-
-	scx_disable_task(scx_task_sched(p), p);
+	if (scx_get_task_state(p) != SCX_TASK_NONE)
+		scx_disable_task(scx_task_sched(p), p);
+	scx_reset_task_fields(rq, p);
 }
 
 static void switched_to_scx(struct rq *rq, struct task_struct *p) {}
@@ -4981,7 +5120,8 @@ static void process_ddsp_deferred_locals(struct rq *rq)
  * %SCX_TASK_REENQ_IMMED. If the BPF scheduler dispatches back to the same local
  * DSQ with %SCX_ENQ_IMMED while the CPU is still unavailable, this triggers
  * another reenq cycle. Repetitions are bounded by %SCX_REENQ_MAX_REPEAT in
- * scx_do_enqueue_task(), which ejects the task's owning scheduler.
+ * scx_do_enqueue_task(), which ejects the task's owning scheduler. A bypassing
+ * scheduler's tasks are placed by the kernel instead and are not counted.
  */
 static bool local_task_should_reenq(struct rq *rq, struct task_struct *p,
 				    u64 *reenq_flags, u32 *reason)
@@ -4991,7 +5131,7 @@ static bool local_task_should_reenq(struct rq *rq, struct task_struct *p,
 	first = !(*reenq_flags & SCX_REENQ_TSR_NOT_FIRST);
 	*reenq_flags |= SCX_REENQ_TSR_NOT_FIRST;
 
-	if (unlikely((p->scx.flags & SCX_TASK_PROTECTED) || p == scx_rescuee(rq)))
+	if (unlikely((p->scx.flags & SCX_TASK_PROTECTED) || scx_task_has_kernel_slice(p)))
 		return false;
 
 	*reason = SCX_TASK_REENQ_KFUNC;
@@ -5094,7 +5234,7 @@ static u32 reenq_local(struct scx_sched *sch, struct rq *rq, u64 reenq_flags)
 	if ((reenq_flags & SCX_REENQ_CAP_REVOKE) &&
 	    rq->donor->sched_class == &ext_sched_class &&
 	    scx_task_reenq_on_cap_revoke(rq, rq->donor)) {
-		scx_set_task_slice(rq->donor, 0);
+		expire_task_slice(rq->donor);
 		resched_curr(rq);
 	}
 
@@ -5276,7 +5416,8 @@ static void process_deferred_reenq_users(struct rq *rq)
  *
  * A task can be re-rejected repeatedly. Reenqueues are bounded per task by
  * SCX_REENQ_MAX_REPEAT in scx_do_enqueue_task(), which ejects the owning
- * scheduler.
+ * scheduler. A bypassing scheduler's tasks are placed by the kernel instead and
+ * are not counted.
  */
 static void scx_reenq_reject(struct rq *rq)
 {
@@ -6491,6 +6632,110 @@ bool scx_hardlockup(int cpu)
 	return true;
 }
 
+/**
+ * bypass_lb_reenq_home - Reenqueue a task at its home from the balancer
+ * @rq: @p's home rq, locked
+ * @p: task off any DSQ, taken from the bypass DSQ of @dsq_cpu
+ * @dsq_cpu: cpu whose bypass DSQ gave up @p
+ *
+ * @p came off the bypass DSQ of @dsq_cpu with no donee able to take it. A drain
+ * sends a migration-disabled @p here unless the donee picked for it is its
+ * home, as every other cpu refuses it. The enqueue sends @p to rescue when the
+ * host lacks %SCX_CAP_BASE at home and rescue is enabled, and to the home's
+ * bypass DSQ otherwise. When @p must run at home, migration-disabled or with a
+ * migration pending, and the host lacks BASE there, it is admitted to the
+ * home's local DSQ in either case, see bypass_enq_target_dsq(). No DSQ lock may
+ * be held, as the enqueue takes one.
+ */
+static void bypass_lb_reenq_home(struct rq *rq, struct task_struct *p, s32 dsq_cpu)
+{
+	lockdep_assert_rq_held(rq);
+
+	WARN_ON_ONCE(p->scx.flags & SCX_TASK_REENQ_REASON_MASK);
+	p->scx.flags |= SCX_TASK_REENQ_CAP;
+	p->scx.reenq_reason_caps = SCX_CAP_BASE;
+	p->scx.reenq_reason_cid = __scx_cpu_to_cid(dsq_cpu);
+	scx_do_enqueue_task(rq, p, SCX_ENQ_REENQ, -1);
+}
+
+/**
+ * bypass_lb_can_move - Test whether @p can move to the bypass DSQ of @donee
+ * @sch: host sched whose bypass DSQs are balanced
+ * @p: task on a bypass DSQ of @sch, homed anywhere
+ * @donee: cpu whose bypass DSQ would receive @p, -1 for none
+ *
+ * @p's rq lock pins @p's affinity. Without it the answer is a hint. A task
+ * whose donee is its own cpu can always run there, and
+ * task_can_run_on_remote_rq() warns when asked about a task's own cpu.
+ */
+static bool bypass_lb_can_move(struct scx_sched *sch, struct task_struct *p, s32 donee)
+{
+	return donee >= 0 && (donee == task_cpu(p) ||
+			      task_can_run_on_remote_rq(sch, p, cpu_rq(donee), false));
+}
+
+/**
+ * bypass_lb_move - Move one task off a bypass DSQ for the balancer
+ * @sch: host sched whose bypass DSQs are balanced
+ * @donor_rq: rq of the cpu whose bypass DSQ gives up @p, locked
+ * @donor_dsq: @sch's bypass DSQ on @donor_rq's cpu, locked
+ * @p: task on @donor_dsq, homed anywhere
+ * @donee: cpu whose bypass DSQ receives @p, -1 for none
+ *
+ * Take @p off @donor_dsq and insert it into the bypass DSQ of @donee. The
+ * caller tests bypass_lb_can_move() without @p's rq lock for a task homed
+ * elsewhere, and not at all for a drain, so the test is repeated here under
+ * @p's rq lock. A task that fails it is not put back, as the host may no longer
+ * consume @donor_dsq. bypass_lb_reenq_home() reenqueues it at its home instead.
+ *
+ * The insert and the reenqueue run under @p's rq lock. A task homed on
+ * @donor_rq is dequeued in place. unlink_dsq_and_switch_rq_lock() takes one
+ * homed elsewhere off and switches the rq lock from @donor_rq to its own. The
+ * switch can lose to a dequeue, and @p then belongs to the dequeuer.
+ *
+ * @donor_rq and @donor_dsq are locked on entry and on return. @donor_dsq is
+ * unlocked in between, and @donor_rq too while the lock is switched, so the
+ * caller's walk must find its place in @donor_dsq again after the call.
+ *
+ * Return the cpu that received @p, or -1 if @p was lost to a dequeue.
+ */
+static s32 bypass_lb_move(struct scx_sched *sch, struct rq *donor_rq,
+			  struct scx_dispatch_q *donor_dsq, struct task_struct *p, s32 donee)
+{
+	struct rq *rq = task_rq(p);
+	s32 ret;
+
+	lockdep_assert_rq_held(donor_rq);
+	lockdep_assert_held(&donor_dsq->lock);
+
+	if (rq == donor_rq) {
+		scx_wait_dispatching(p);
+		dispatch_dequeue_locked(p, donor_dsq);
+		raw_spin_unlock(&donor_dsq->lock);
+	} else if (!unlink_dsq_and_switch_rq_lock(p, donor_dsq, donor_rq, rq)) {
+		/* lost to a dequeue, @p is the dequeuer's now */
+		ret = -1;
+		goto out;
+	}
+
+	if (bypass_lb_can_move(sch, p, donee)) {
+		scx_dispatch_enqueue(sch, rq, scx_bypass_dsq(sch, donee), p, 0, 0, 0);
+		ret = donee;
+	} else {
+		/*
+		 * No donee, or @p can't run on it. Reenqueue @p at home
+		 * instead, see bypass_lb_reenq_home().
+		 */
+		bypass_lb_reenq_home(rq, p, cpu_of(donor_rq));
+		ret = cpu_of(rq);
+	}
+out:
+	if (rq != donor_rq)
+		switch_rq_lock(rq, donor_rq);
+	raw_spin_lock(&donor_dsq->lock);
+	return ret;
+}
+
 static u32 bypass_lb_cpu(struct scx_sched *sch, s32 donor,
 			 struct cpumask *donee_mask, struct cpumask *resched_mask,
 			 u32 nr_donor_target, u32 nr_donee_target)
@@ -6506,87 +6751,94 @@ static u32 bypass_lb_cpu(struct scx_sched *sch, s32 donor,
 	 * All we want to guarantee is reasonable forward progress. No reason to
 	 * fine tune. Assuming every task on @donor_dsq runs their full slice,
 	 * consider offloading iff the total queued duration is over the
-	 * threshold.
+	 * threshold. A zero target is a drain and empties the DSQ regardless.
 	 */
 	min_delta_us = READ_ONCE(scx_bypass_lb_intv_us) / SCX_BYPASS_LB_MIN_DELTA_DIV;
-	if (delta < DIV_ROUND_UP(min_delta_us, READ_ONCE(scx_slice_bypass_us)))
+	if (nr_donor_target &&
+	    delta < DIV_ROUND_UP(min_delta_us, READ_ONCE(scx_slice_bypass_us)))
 		return 0;
 
 	raw_spin_rq_lock_irq(donor_rq);
 	raw_spin_lock(&donor_dsq->lock);
+	/* bound the walk to the tasks queued now, see the seq test below */
+	cursor.priv = donor_dsq->seq;
 	list_add(&cursor.node, &donor_dsq->list);
 resume:
 	n = container_of(&cursor, struct task_struct, scx.dsq_list);
 	n = nldsq_next_task(donor_dsq, n, false);
 
 	while ((p = n)) {
-		struct scx_dispatch_q *donee_dsq;
-		int donee;
+		s32 donee, cpu;
 
 		n = nldsq_next_task(donor_dsq, n, false);
 
 		if (donor_dsq->nr <= nr_donor_target)
 			break;
 
-		if (cpumask_empty(donee_mask))
+		/*
+		 * Without a donee, a balancing donor has nothing to do. A drain
+		 * still sends its tasks home.
+		 */
+		if (cpumask_empty(donee_mask) && nr_donor_target)
 			break;
 
 		/*
-		 * If an earlier pass placed @p on @donor_dsq from a different
-		 * CPU and the donee hasn't consumed it yet, @p is still on the
-		 * previous CPU and task_rq(@p) != @donor_rq. @p can't be moved
-		 * without its rq locked. Skip.
+		 * A task queued after the walk began, including one the walk
+		 * itself reenqueued, is left for the next pass.
 		 */
-		if (task_rq(p) != donor_rq)
+		if (u32_before(cursor.priv, p->scx.dsq_seq))
 			continue;
 
+		/*
+		 * A balancing donor leaves a task that can't move where it is.
+		 * A home reenqueue would push one homed on the donor to the
+		 * back of @donor_dsq on every pass. A drain sends it home.
+		 */
 		donee = cpumask_any_and_distribute(donee_mask, p->cpus_ptr);
 		if (donee >= nr_cpu_ids)
-			continue;
-
-		donee_dsq = scx_bypass_dsq(sch, donee);
-
-		/*
-		 * $p's rq is not locked but $p's DSQ lock protects its
-		 * scheduling properties making this test safe.
-		 */
-		if (!task_can_run_on_remote_rq(sch, p, cpu_rq(donee), false))
+			donee = -1;
+		if (nr_donor_target && !bypass_lb_can_move(sch, p, donee))
 			continue;
 
 		/*
-		 * Moving $p from one non-local DSQ to another. The source rq
-		 * and DSQ are already locked. Do an abbreviated dequeue and
-		 * then perform enqueue without unlocking $donor_dsq.
-		 *
-		 * We don't want to drop and reacquire the lock on each
-		 * iteration as @donor_dsq can be very long and potentially
-		 * highly contended. Donee DSQs are less likely to be contended.
-		 * The nested locking is safe as only this LB moves tasks
-		 * between bypass DSQs.
+		 * The move drops @donor_dsq's lock, and the rq lock too when
+		 * @p is homed elsewhere. The donor cpu's dispatch and its
+		 * enqueuers can reach @donor_dsq then. Park the cursor behind
+		 * @p and resume from it afterwards. The seq test above keeps a
+		 * task enqueued meanwhile out of the pass.
 		 */
-		dispatch_dequeue_locked(p, donor_dsq);
-		scx_dispatch_enqueue(sch, cpu_rq(donee), donee_dsq, p, 0, 0, SCX_ENQ_NESTED);
+		list_move(&cursor.node, &p->scx.dsq_list.node);
+		cpu = bypass_lb_move(sch, donor_rq, donor_dsq, p, donee);
+		if (cpu >= 0) {
+			/*
+			 * @cpu might have been idle and need to be woken up.
+			 * No need to be clever. Reschedule every cpu that
+			 * receives tasks.
+			 */
+			cpumask_set_cpu(cpu, resched_mask);
 
-		/*
-		 * $donee might have been idle and need to be woken up. No need
-		 * to be clever. Kick every CPU that receives tasks.
-		 */
-		cpumask_set_cpu(donee, resched_mask);
+			if (READ_ONCE(scx_bypass_dsq(sch, cpu)->nr) >= nr_donee_target)
+				cpumask_clear_cpu(cpu, donee_mask);
 
-		if (READ_ONCE(donee_dsq->nr) >= nr_donee_target)
-			cpumask_clear_cpu(donee, donee_mask);
-
-		nr_balanced++;
-		if (!(nr_balanced % SCX_BYPASS_LB_BATCH) && n) {
-			list_move_tail(&cursor.node, &n->scx.dsq_list.node);
-			raw_spin_unlock(&donor_dsq->lock);
-			scx_rq_lock_drop(donor_rq);
-			raw_spin_rq_unlock_irq(donor_rq);
-			cpu_relax();
-			raw_spin_rq_lock_irq(donor_rq);
-			raw_spin_lock(&donor_dsq->lock);
-			goto resume;
+			/*
+			 * The rq lock is held across the walk, not cycled per
+			 * move. @donor_dsq can be very long and contended, and
+			 * the rq lock is what keeps its consumer and enqueuers
+			 * away while the walk cycles the DSQ lock. The rare
+			 * move of a task homed elsewhere does switch it away,
+			 * see the cursor comment above. The walk can still take
+			 * a while, so let the cpu breathe every so often.
+			 */
+			if (!(++nr_balanced % SCX_BYPASS_LB_BATCH)) {
+				raw_spin_unlock(&donor_dsq->lock);
+				scx_rq_lock_drop(donor_rq);
+				raw_spin_rq_unlock_irq(donor_rq);
+				cpu_relax();
+				raw_spin_rq_lock_irq(donor_rq);
+				raw_spin_lock(&donor_dsq->lock);
+			}
 		}
+		goto resume;
 	}
 
 	list_del_init(&cursor.node);
@@ -6602,6 +6854,7 @@ static void bypass_lb_node(struct scx_sched *sch, int node)
 	const struct cpumask *node_mask = cpumask_of_node(node);
 	struct cpumask *donee_mask = sch->bypass_lb_donee_cpumask;
 	struct cpumask *resched_mask = sch->bypass_lb_resched_cpumask;
+	u32 intv_us = READ_ONCE(scx_bypass_lb_intv_us);
 	u32 nr_tasks = 0, nr_cpus = 0, nr_balanced = 0;
 	u32 nr_target, nr_donor_target;
 	u32 before_min = U32_MAX, before_max = 0;
@@ -6613,13 +6866,15 @@ static void bypass_lb_node(struct scx_sched *sch, int node)
 		u32 nr = READ_ONCE(scx_bypass_dsq(sch, cpu)->nr);
 
 		nr_tasks += nr;
-		nr_cpus++;
+		/* only a cpu whose dispatch consumes its DSQ is capacity */
+		if (!scx_missing_caps(sch, cpu, SCX_CAP_BASE))
+			nr_cpus++;
 
 		before_min = min(nr, before_min);
 		before_max = max(nr, before_max);
 	}
 
-	if (!nr_cpus)
+	if (!nr_tasks)
 		return;
 
 	/*
@@ -6627,27 +6882,39 @@ static void bypass_lb_node(struct scx_sched *sch, int node)
 	 * balancing to fill donee CPUs up to $nr_target. Once targets are
 	 * calculated, find the donee CPUs.
 	 */
-	nr_target = DIV_ROUND_UP(nr_tasks, nr_cpus);
+	nr_target = nr_cpus ? DIV_ROUND_UP(nr_tasks, nr_cpus) : 0;
 	nr_donor_target = DIV_ROUND_UP(nr_target * SCX_BYPASS_LB_DONOR_PCT, 100);
 
 	cpumask_clear(donee_mask);
 	for_each_cpu_and(cpu, cpu_online_mask, node_mask) {
-		if (READ_ONCE(scx_bypass_dsq(sch, cpu)->nr) < nr_target)
+		/* a donee's DSQ is consumed only if @sch holds %SCX_CAP_BASE */
+		if (READ_ONCE(scx_bypass_dsq(sch, cpu)->nr) < nr_target &&
+		    !scx_missing_caps(sch, cpu, SCX_CAP_BASE))
 			cpumask_set_cpu(cpu, donee_mask);
 	}
 
-	/* iterate !donee CPUs and see if they should be offloaded */
+	/*
+	 * Offload the !donee cpus. A cpu where the host lost %SCX_CAP_BASE no
+	 * longer consumes its DSQ. Drain it as a donor with a target of zero. A
+	 * zero interval disables the balancing, not the drain.
+	 */
 	cpumask_clear(resched_mask);
 	for_each_cpu_and(cpu, cpu_online_mask, node_mask) {
-		if (cpumask_empty(donee_mask))
-			break;
-		if (cpumask_test_cpu(cpu, donee_mask))
+		u32 target = nr_donor_target;
+
+		if (unlikely(scx_missing_caps(sch, cpu, SCX_CAP_BASE))) {
+			/* the mask may predate the loss, keep this cpu out */
+			cpumask_clear_cpu(cpu, donee_mask);
+			target = 0;
+		} else if (!intv_us || cpumask_empty(donee_mask) ||
+			   cpumask_test_cpu(cpu, donee_mask)) {
 			continue;
-		if (READ_ONCE(scx_bypass_dsq(sch, cpu)->nr) <= nr_donor_target)
+		}
+		if (READ_ONCE(scx_bypass_dsq(sch, cpu)->nr) <= target)
 			continue;
 
 		nr_balanced += bypass_lb_cpu(sch, cpu, donee_mask, resched_mask,
-					     nr_donor_target, nr_target);
+					     target, nr_target);
 	}
 
 	for_each_cpu(cpu, resched_mask)
@@ -6686,9 +6953,28 @@ static void scx_bypass_lb_timerfn(struct timer_list *timer)
 	for_each_node_with_cpus(node)
 		bypass_lb_node(sch, node);
 
+	/*
+	 * A kick during this run can leave the timer pending at now, see
+	 * scx_bypass_lb_kick(). timer_reduce() only brings the expiry forward,
+	 * so that kick is kept.
+	 */
 	intv_us = READ_ONCE(scx_bypass_lb_intv_us);
 	if (intv_us)
-		mod_timer(timer, jiffies + usecs_to_jiffies(intv_us));
+		timer_reduce(timer, jiffies + usecs_to_jiffies(intv_us));
+}
+
+/**
+ * scx_bypass_lb_kick - Run the bypass load balancer now
+ * @sch: sched that lost %SCX_CAP_BASE on a cpu
+ *
+ * @sch no longer consumes its bypass DSQ on that cpu. Have the balancer drain
+ * it without waiting for the next interval, see bypass_lb_node(). A loss during
+ * a run leaves the timer pending at now, and the run that follows sees it.
+ */
+void scx_bypass_lb_kick(struct scx_sched *sch)
+{
+	if (scx_bypass_dsp_enabled(sch))
+		mod_timer(&sch->bypass_lb_timer, jiffies);
 }
 
 static bool inc_bypass_depth(struct scx_sched *sch)
@@ -6757,11 +7043,12 @@ static void enable_bypass_dsp(struct scx_sched *sch)
 
 	/*
 	 * The LB timer will stop running if bypass dispatch is disabled. Start
-	 * after enabling bypass dispatch.
+	 * after enabling bypass dispatch. A kick from a BASE loss can have set
+	 * the timer to expire now in the meantime, see scx_bypass_lb_kick().
+	 * timer_reduce() keeps that expiry.
 	 */
-	if (intv_us && !timer_pending(&host->bypass_lb_timer))
-		mod_timer(&host->bypass_lb_timer,
-			  jiffies + usecs_to_jiffies(intv_us));
+	if (intv_us)
+		timer_reduce(&host->bypass_lb_timer, jiffies + usecs_to_jiffies(intv_us));
 }
 
 /* may be called without holding scx_bypass_lock */
@@ -6835,11 +7122,13 @@ static void unbypass_renotify_idle(struct rq *rq, struct scx_sched *pos,
  * - ops.dispatch() is ignored.
  *
  * - ops.sub_ecaps_updated() and ops.sub_child_ecaps_updated() are still called.
- *   The bypassed tasks are on the bypass DSQs, out of their reach.
+ *   The bypassed tasks are on the bypass DSQs, under rescue or admitted to a
+ *   local DSQ, out of their reach.
  *
- * - dispatch_one() does not report %SCX_DSP_PREV on non-zero slice as slice
- *   can't be trusted. Whenever a tick triggers, the running task is rotated to
- *   the tail of the queue.
+ * - dispatch_one() expires prev's slice before its keep test as the slice can't
+ *   be trusted. Each tick does the same and rotates the running task to the
+ *   tail of the queue. A kernel slice is left alone, see
+ *   %SCX_TASK_KERNEL_SLICE.
  *
  * - pick_next_task() suppresses zero slice warning.
  *
@@ -6949,7 +7238,7 @@ void scx_bypass(struct scx_sched *sch, bool bypass)
 			if (bypass)
 				scx_task_slice_ended(rq, p);
 			else if (!scx_task_can_stay_on_cpu(rq, p))
-				scx_set_task_slice(p, 0);
+				expire_task_slice(p);
 		}
 
 		/*
@@ -10354,10 +10643,12 @@ __bpf_kfunc_start_defs();
  * rules above for the ownership model.
  *
  * Raising the slice is honored only while the scheduler holds %SCX_CAP_BASE on
- * @p's cpu, otherwise it is counted in %SCX_EV_SLICE_DENIED. Shortening is
- * always allowed. On the stashed path the slice is packed into an atomic64_t
- * with the scheduler id and a flag bit, so a slice too large to fit is clamped
- * and counted in %SCX_EV_SLICE_CLAMPED. %SCX_SLICE_INF is preserved.
+ * @p's cpu, and never on a kernel slice, see %SCX_TASK_KERNEL_SLICE. Shortening
+ * is honored unless @p is protected, see %SCX_TASK_PROTECTED, which refuses
+ * every write. A refused write is counted in %SCX_EV_SLICE_DENIED. On the
+ * stashed path the slice is packed into an atomic64_t with the scheduler id and
+ * a flag bit, so a slice too large to fit is clamped and counted in
+ * %SCX_EV_SLICE_CLAMPED. %SCX_SLICE_INF is preserved.
  *
  * Return %true on success, %false if @p is not on the calling scheduler.
  */
@@ -10395,9 +10686,13 @@ __bpf_kfunc bool scx_bpf_task_set_slice(struct task_struct *p, u64 slice,
 		return true;
 	}
 
-	/* under the rq lock: apply now, extensions gated on baseline access */
+	/*
+	 * @p's rq is locked, so apply now. An extension needs baseline access
+	 * and is refused on a kernel slice.
+	 */
 	if (slice > p->scx.slice &&
-	    unlikely(scx_missing_caps(sch, cpu_of(locked_rq), SCX_CAP_BASE))) {
+	    unlikely(scx_task_has_kernel_slice(p) ||
+		     scx_missing_caps(sch, cpu_of(locked_rq), SCX_CAP_BASE))) {
 		__scx_add_event(sch, SCX_EV_SLICE_DENIED, 1);
 		return true;
 	}
@@ -11822,19 +12117,28 @@ static const struct btf_kfunc_id_set scx_kfunc_set_any = {
 };
 
 /*
- * Kfuncs which may take the rq lock on their unlocked path.
+ * Kfuncs that tracing programs can't call. A tracing program can run in any
+ * kernel context, including with an rq lock held. scx_locked_rq() only tracks
+ * rq locks held across SCX callbacks and returns NULL there.
  *
- * A tracing program can execute in any kernel context, including ones which
- * already hold the rq lock (e.g. sched_switch). scx_locked_rq() only tracks
- * rq locks taken for SCX callbacks, so from such a context it returns NULL
- * and these kfuncs would acquire the already held rq lock again and deadlock
- * the CPU. They cannot be made safe for tracing programs, so keep them off
- * the tracing hook. Members must also stay in scx_kfunc_ids_any so that
- * struct_ops and syscall programs keep their access.
+ * scx_bpf_cpuperf_set() and scx_bpf_cidperf_set() take the target cpu's rq lock
+ * when scx_locked_rq() returns NULL. Taking it while the context already holds
+ * an rq lock, the same one or another cpu's, can deadlock.
+ *
+ * Before returning, scx_bpf_sub_grant() and scx_bpf_sub_revoke() invoke
+ * ops.sub_caps_updated() of the sub-schedulers whose caps changed, so those ops
+ * run in the tracing program's context. No SCX op expects to run from an
+ * arbitrary tracing context. One that calls scx_bpf_cidperf_set() hits the
+ * deadlock above.
+ *
+ * Members must also stay in scx_kfunc_ids_any so that struct_ops and syscall
+ * programs keep their access.
  */
 BTF_KFUNCS_START(scx_kfunc_ids_no_tracing)
 BTF_ID_FLAGS(func, scx_bpf_cpuperf_set, KF_IMPLICIT_ARGS)
 BTF_ID_FLAGS(func, scx_bpf_cidperf_set, KF_IMPLICIT_ARGS)
+BTF_ID_FLAGS(func, scx_bpf_sub_grant, KF_IMPLICIT_ARGS)
+BTF_ID_FLAGS(func, scx_bpf_sub_revoke, KF_IMPLICIT_ARGS)
 BTF_KFUNCS_END(scx_kfunc_ids_no_tracing)
 
 /*
