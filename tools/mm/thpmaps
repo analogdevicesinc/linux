@@ -263,8 +263,8 @@ def thp_parse(vma, kpageflags, ranges, indexes, vfns, pfns, anons, heads):
             if flags & KPF_COMPOUND_TAIL:
                 nr = index_end - int(folios[-1])
                 folios = folios[:-1]
-                index_end -= nr
                 stats['anon' if anons[index_end - 1] else 'file']['partial'] += nr
+                index_end -= nr
 
         # Account fully mapped THPs in the middle of the range.
         if len(folios):
