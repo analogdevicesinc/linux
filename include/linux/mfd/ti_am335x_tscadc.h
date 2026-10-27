@@ -177,9 +177,7 @@ struct ti_tscadc_dev {
 
 static inline struct ti_tscadc_dev *ti_tscadc_dev_get(struct platform_device *p)
 {
-	struct ti_tscadc_dev **tscadc_dev = p->dev.platform_data;
-
-	return *tscadc_dev;
+	return dev_get_drvdata(p->dev.parent);
 }
 
 static inline bool ti_adc_with_touchscreen(struct ti_tscadc_dev *tscadc)

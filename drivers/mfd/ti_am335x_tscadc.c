@@ -268,8 +268,6 @@ static	int ti_tscadc_probe(struct platform_device *pdev)
 		cell = &tscadc->cells[cell_idx++];
 		cell->name = tscadc->data->secondary_feature_name;
 		cell->of_compatible = tscadc->data->secondary_feature_compatible;
-		cell->platform_data = &tscadc;
-		cell->pdata_size = sizeof(tscadc);
 	}
 
 	/* ADC Cell */
@@ -277,16 +275,15 @@ static	int ti_tscadc_probe(struct platform_device *pdev)
 		cell = &tscadc->cells[cell_idx++];
 		cell->name = tscadc->data->adc_feature_name;
 		cell->of_compatible = tscadc->data->adc_feature_compatible;
-		cell->platform_data = &tscadc;
-		cell->pdata_size = sizeof(tscadc);
 	}
+
+	platform_set_drvdata(pdev, tscadc);
 
 	err = mfd_add_devices(&pdev->dev, PLATFORM_DEVID_AUTO,
 			      tscadc->cells, cell_idx, NULL, 0, NULL);
 	if (err < 0)
 		goto err_disable_clk;
 
-	platform_set_drvdata(pdev, tscadc);
 	return 0;
 
 err_disable_clk:
