@@ -2142,24 +2142,6 @@ int xe_gt_sriov_pf_config_set_fair_locked(struct xe_gt *gt, unsigned int vfid,
 	return result;
 }
 
-/**
- * xe_gt_sriov_pf_config_set_fair - Provision many VFs with fair resources.
- * @gt: the &xe_gt
- * @vfid: starting VF identifier (can't be 0)
- * @num_vfs: number of VFs to provision (can't be 0)
- *
- * This function can only be called on PF.
- *
- * Return: 0 on success or a negative error code on failure.
- */
-int xe_gt_sriov_pf_config_set_fair(struct xe_gt *gt, unsigned int vfid,
-				   unsigned int num_vfs)
-{
-	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
-
-	return xe_gt_sriov_pf_config_set_fair_locked(gt, vfid, num_vfs);
-}
-
 static const char *exec_quantum_unit(u32 exec_quantum)
 {
 	return exec_quantum ? "ms" : "(infinity)";
@@ -2853,22 +2835,6 @@ int xe_gt_sriov_pf_config_set_fair_sched_locked(struct xe_gt *gt, unsigned int n
 	}
 
 	return result;
-}
-
-/**
- * xe_gt_sriov_pf_config_set_fair_sched() - Provision PF and VFs with fair scheduling.
- * @gt: the &xe_gt
- * @num_vfs: number of VFs to provision (can't be 0)
- *
- * This function can only be called on PF.
- *
- * Return: 0 on success or a negative error code on failure.
- */
-int xe_gt_sriov_pf_config_set_fair_sched(struct xe_gt *gt, unsigned int num_vfs)
-{
-	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
-
-	return xe_gt_sriov_pf_config_set_fair_sched_locked(gt, num_vfs);
 }
 
 static int pf_provision_threshold(struct xe_gt *gt, unsigned int vfid,

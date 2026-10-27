@@ -40,10 +40,12 @@ static int pf_provision_vfs(struct xe_device *xe, unsigned int num_vfs)
 	int result = 0;
 	int err;
 
+	lockdep_assert_held(xe_sriov_pf_master_mutex(xe));
+
 	for_each_gt(gt, xe, id) {
-		err = xe_gt_sriov_pf_config_set_fair_sched(gt, num_vfs);
+		err = xe_gt_sriov_pf_config_set_fair_sched_locked(gt, num_vfs);
 		result = result ?: err;
-		err = xe_gt_sriov_pf_config_set_fair(gt, VFID(1), num_vfs);
+		err = xe_gt_sriov_pf_config_set_fair_locked(gt, VFID(1), num_vfs);
 		result = result ?: err;
 	}
 
@@ -80,6 +82,8 @@ static void pf_unprovision_all_vfs(struct xe_device *xe)
 int xe_sriov_pf_provision_vfs(struct xe_device *xe, unsigned int num_vfs)
 {
 	xe_assert(xe, IS_SRIOV_PF(xe));
+
+	guard(mutex)(xe_sriov_pf_master_mutex(xe));
 
 	if (!pf_auto_provisioning_mode(xe))
 		return 0;
