@@ -2953,16 +2953,15 @@ static const struct mfd_cell db8500_prcmu_devs[] = {
 
 static int db8500_prcmu_register_ab8500(struct device *parent)
 {
-	struct device_node *np;
-	struct resource ab850x_resource;
-	const struct mfd_cell ab8500_cell = {
+	static struct resource ab850x_resource;
+	static const struct mfd_cell ab8500_cell = {
 		.name = "ab8500-core",
 		.of_compatible = "stericsson,ab8500",
 		.id = AB8500_VERSION_AB8500,
 		.resources = &ab850x_resource,
 		.num_resources = 1,
 	};
-	const struct mfd_cell ab8505_cell = {
+	static const struct mfd_cell ab8505_cell = {
 		.name = "ab8505-core",
 		.of_compatible = "stericsson,ab8505",
 		.id = AB8500_VERSION_AB8505,
@@ -2970,6 +2969,7 @@ static int db8500_prcmu_register_ab8500(struct device *parent)
 		.num_resources = 1,
 	};
 	const struct mfd_cell *ab850x_cell;
+	struct device_node *np;
 
 	if (!parent->of_node)
 		return -ENODEV;
