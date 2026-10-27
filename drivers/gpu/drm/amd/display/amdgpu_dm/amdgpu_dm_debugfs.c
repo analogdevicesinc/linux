@@ -3524,14 +3524,20 @@ static int disallow_edp_enter_replay_set(void *data, u64 val)
 static int dmub_trace_mask_set(void *data, u64 val)
 {
 	struct amdgpu_device *adev = data;
-	struct dmub_srv *srv = adev->dm.dc->ctx->dmub_srv->dmub;
+	struct dc_dmub_srv *dc_dmub_srv;
+	struct dmub_srv *srv;
 	enum dmub_gpint_command cmd;
 	u64 mask = 0xffff;
 	u8 shift = 0;
 	u32 res;
 	int i;
 
-	if (!srv->fw_version)
+	if (!adev->dm.dc || !adev->dm.dc->ctx || !adev->dm.dc->ctx->dmub_srv)
+		return -EINVAL;
+
+	dc_dmub_srv = adev->dm.dc->ctx->dmub_srv;
+	srv = dc_dmub_srv->dmub;
+	if (!srv || !srv->fw_version)
 		return -EINVAL;
 
 	for (i = 0;  i < 4; i++) {
@@ -3568,13 +3574,19 @@ static int dmub_trace_mask_show(void *data, u64 *val)
 {
 	enum dmub_gpint_command cmd = DMUB_GPINT__GET_TRACE_BUFFER_MASK_WORD0;
 	struct amdgpu_device *adev = data;
-	struct dmub_srv *srv = adev->dm.dc->ctx->dmub_srv->dmub;
+	struct dc_dmub_srv *dc_dmub_srv;
+	struct dmub_srv *srv;
 	u8 shift = 0;
 	u64 raw = 0;
 	u64 res = 0;
 	int i = 0;
 
-	if (!srv->fw_version)
+	if (!adev->dm.dc || !adev->dm.dc->ctx || !adev->dm.dc->ctx->dmub_srv)
+		return -EINVAL;
+
+	dc_dmub_srv = adev->dm.dc->ctx->dmub_srv;
+	srv = dc_dmub_srv->dmub;
+	if (!srv || !srv->fw_version)
 		return -EINVAL;
 
 	while (i < 4) {
