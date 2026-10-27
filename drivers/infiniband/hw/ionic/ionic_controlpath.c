@@ -2195,8 +2195,8 @@ static int ionic_rq_init(struct ionic_ibdev *dev, struct ionic_ctx *ctx,
 			 struct ionic_tbl_buf *buf, int max_wr, int max_sge,
 			 int rq_spec, struct ib_udata *udata)
 {
-	int rc = 0, i;
 	u32 wqe_size;
+	int rc = 0;
 
 	rc = -EINVAL;
 
@@ -2258,16 +2258,11 @@ static int ionic_rq_init(struct ionic_ibdev *dev, struct ionic_ctx *ctx,
 
 		ionic_queue_dbell_init(&rq->q, rq->qid);
 
-		rq->meta = kmalloc_objs(*rq->meta, (u32)rq->q.mask + 1);
+		rq->meta = kzalloc_objs(*rq->meta, (u32)rq->q.mask + 1);
 		if (!rq->meta) {
 			rc = -ENOMEM;
 			goto err_rq_meta;
 		}
-
-		for (i = 0; i < rq->q.mask; ++i)
-			rq->meta[i].next = &rq->meta[i + 1];
-		rq->meta[i].next = IONIC_META_LAST;
-		rq->meta_head = &rq->meta[0];
 	}
 
 	ionic_rq_init_cmb(dev, rq, udata);
@@ -2638,7 +2633,6 @@ static void ionic_reset_qp(struct ionic_ibdev *dev, struct ionic_qp *qp)
 {
 	unsigned long irqflags;
 	struct ionic_cq *cq;
-	int i;
 
 	local_irq_save(irqflags);
 
@@ -2673,12 +2667,9 @@ static void ionic_reset_qp(struct ionic_ibdev *dev, struct ionic_qp *qp)
 		qp->rq.flush = false;
 		qp->rq.q.prod = 0;
 		qp->rq.q.cons = 0;
-		if (qp->rq.meta) {
-			for (i = 0; i < qp->rq.q.mask; ++i)
-				qp->rq.meta[i].next = &qp->rq.meta[i + 1];
-			qp->rq.meta[i].next = IONIC_META_LAST;
-		}
-		qp->rq.meta_head = &qp->rq.meta[0];
+		if (qp->rq.meta)
+			memset(qp->rq.meta, 0,
+			       (qp->rq.q.mask + 1) * sizeof(*qp->rq.meta));
 		spin_unlock(&qp->rq.lock);
 	}
 
