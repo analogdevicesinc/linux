@@ -313,9 +313,6 @@ static int etm_parse_event_config(struct etm_drvdata *drvdata,
 	struct perf_event_attr *attr = &event->attr;
 	u8 ts_level;
 
-	if (!attr)
-		return -EINVAL;
-
 	/* Clear configuration from previous run */
 	memset(curr_config, 0, sizeof(struct etm_config));
 
