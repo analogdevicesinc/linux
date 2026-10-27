@@ -470,7 +470,7 @@ static int ls2k_bmc_parse_mode(struct pci_dev *pdev, struct simplefb_platform_da
 
 static int ls2k_bmc_probe(struct pci_dev *dev, const struct pci_device_id *id)
 {
-	struct simplefb_platform_data pd;
+	struct simplefb_platform_data *pd;
 	struct ls2k_bmc_ddata *ddata;
 	resource_size_t base;
 	int ret;
@@ -489,12 +489,16 @@ static int ls2k_bmc_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	if (ret)
 		return ret;
 
-	ret = ls2k_bmc_parse_mode(dev, &pd);
+	pd = devm_kzalloc(&dev->dev, sizeof(*pd), GFP_KERNEL);
+	if (!pd)
+		return -ENOMEM;
+
+	ret = ls2k_bmc_parse_mode(dev, pd);
 	if (ret)
 		return ret;
 
-	ls2k_bmc_cells[LS2K_BMC_DISPLAY].platform_data = &pd;
-	ls2k_bmc_cells[LS2K_BMC_DISPLAY].pdata_size = sizeof(pd);
+	ls2k_bmc_cells[LS2K_BMC_DISPLAY].platform_data = pd;
+	ls2k_bmc_cells[LS2K_BMC_DISPLAY].pdata_size = sizeof(*pd);
 	base = pci_resource_start(dev, 0) + LS2K_DISPLAY_RES_START;
 
 	/* Remove conflicting efifb device */
