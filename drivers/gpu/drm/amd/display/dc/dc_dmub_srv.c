@@ -46,12 +46,14 @@ static void dc_dmub_srv_construct(struct dc_dmub_srv *dc_srv, struct dc *dc,
 {
 	dc_srv->dmub = dmub;
 	dc_srv->ctx = dc->ctx;
+	dc_srv->disable_timeout = dc->debug.disable_timeout;
+	dc_srv->enable_dmu_recovery = dc->debug.enable_dmu_recovery;
 }
 
 static void dc_dmub_srv_handle_failure(struct dc_dmub_srv *dc_dmub_srv)
 {
 	dc_dmub_srv_log_diagnostic_data(dc_dmub_srv);
-	if (dc_dmub_srv->ctx->dc->debug.enable_dmu_recovery)
+	if (dc_dmub_srv->enable_dmu_recovery)
 		dm_helpers_dmu_timeout(dc_dmub_srv->ctx);
 }
 
@@ -92,7 +94,7 @@ bool dc_dmub_srv_wait_for_pending(struct dc_dmub_srv *dc_dmub_srv)
 
 	do {
 		status = dmub_srv_wait_for_pending(dmub, DMUB_CMD_DEFAULT_MAX_WAIT_US);
-	} while (dc_dmub_srv->ctx->dc->debug.disable_timeout && status != DMUB_STATUS_OK);
+	} while (dc_dmub_srv->disable_timeout && status != DMUB_STATUS_OK);
 
 	if (status != DMUB_STATUS_OK) {
 		DC_ERROR("Error waiting for DMUB idle: status=%d\n", status);
@@ -162,7 +164,7 @@ static bool dc_dmub_srv_reg_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_s
 		/* confirm no messages pending */
 		do {
 			status = dmub_srv_wait_for_idle(dmub, timeout_us);
-		} while (dc_dmub_srv->ctx->dc->debug.disable_timeout && status != DMUB_STATUS_OK);
+		} while (dc_dmub_srv->disable_timeout && status != DMUB_STATUS_OK);
 
 		/* queue command */
 		if (status == DMUB_STATUS_OK)
@@ -218,7 +220,7 @@ static bool dc_dmub_srv_fb_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_sr
 
 			do {
 					status = dmub_srv_wait_for_inbox_free(dmub, timeout_us, count - i);
-			} while (dc_dmub_srv->ctx->dc->debug.disable_timeout && status != DMUB_STATUS_OK);
+			} while (dc_dmub_srv->disable_timeout && status != DMUB_STATUS_OK);
 
 			/* Requeue the command. */
 			status = dmub_srv_fb_cmd_queue(dmub, &cmd_list[i]);
@@ -333,7 +335,7 @@ bool dc_dmub_srv_wait_for_idle(struct dc_dmub_srv *dc_dmub_srv,
 	if (wait_type != DM_DMUB_WAIT_TYPE_NO_WAIT) {
 		do {
 			status = dmub_srv_wait_for_idle(dmub, timeout_us);
-		} while (dc_dmub_srv->ctx->dc->debug.disable_timeout && status != DMUB_STATUS_OK);
+		} while (dc_dmub_srv->disable_timeout && status != DMUB_STATUS_OK);
 
 		if (status != DMUB_STATUS_OK) {
 			DC_LOG_DEBUG("No reply for DMUB command: status=%d\n", status);
@@ -1359,7 +1361,7 @@ bool dc_dmub_srv_is_hw_pwr_up(struct dc_dmub_srv *dc_dmub_srv, bool wait)
 	dc_ctx = dc_dmub_srv->ctx;
 
 	if (wait) {
-		if (dc_dmub_srv->ctx->dc->debug.disable_timeout) {
+		if (dc_dmub_srv->disable_timeout) {
 			do {
 				status = dmub_srv_wait_for_hw_pwr_up(dc_dmub_srv->dmub, 500000);
 			} while (status != DMUB_STATUS_OK);
@@ -1853,11 +1855,10 @@ bool dc_wake_and_execute_gpint(const struct dc_context *ctx, enum dmub_gpint_com
 	return result;
 }
 
-static void dc_dmub_srv_rb_based_fams2_update_config(struct dc *dc,
-		struct dc_state *context,
-		bool enable)
+static void dc_dmub_srv_rb_based_fams2_update_config(struct dc_dmub_srv *dc_dmub_srv,
+		const struct dc_dmub_fams2_config_data *data)
 {
-	uint32_t num_cmds = 1;
+	uint32_t cmd_count = 1;
 	uint32_t i;
 	union dmub_rb_cmd cmd[2 * MAX_STREAMS + 1];
 	struct dmub_rb_cmd_fams2 *global_cmd = &cmd[0].fams2_config;
@@ -1869,19 +1870,21 @@ static void dc_dmub_srv_rb_based_fams2_update_config(struct dc *dc,
 	global_cmd->header.payload_bytes =
 			sizeof(struct dmub_rb_cmd_fams2) - sizeof(struct dmub_cmd_header);
 
-	if (enable) {
+	if (data->enable) {
 		/* send global configuration parameters */
-		memcpy(&global_cmd->config.global, &context->bw_ctx.bw.dcn.fams2_global_config, sizeof(struct dmub_cmd_fams2_global_config));
+		memcpy(&global_cmd->config.global, &data->global, sizeof(struct dmub_cmd_fams2_global_config));
 
 		/* copy static feature configuration overrides */
-		global_cmd->config.global.features.bits.enable_stall_recovery = dc->debug.fams2_config.bits.enable_stall_recovery;
-		global_cmd->config.global.features.bits.enable_debug = dc->debug.fams2_config.bits.enable_debug;
-		global_cmd->config.global.features.bits.enable_offload_flip = dc->debug.fams2_config.bits.enable_offload_flip;
+		global_cmd->config.global.features.bits.enable_stall_recovery =
+				data->features.bits.enable_stall_recovery;
+		global_cmd->config.global.features.bits.enable_debug = data->features.bits.enable_debug;
+		global_cmd->config.global.features.bits.enable_offload_flip = data->features.bits.enable_offload_flip;
 
 		/* construct per-stream configs */
-		for (i = 0; i < context->bw_ctx.bw.dcn.fams2_global_config.num_streams; i++) {
+		for (i = 0; i < data->global.num_streams; i++) {
 			struct dmub_rb_cmd_fams2 *stream_base_cmd = &cmd[i+1].fams2_config;
-			struct dmub_rb_cmd_fams2 *stream_sub_state_cmd = &cmd[i+1+context->bw_ctx.bw.dcn.fams2_global_config.num_streams].fams2_config;
+			struct dmub_rb_cmd_fams2 *stream_sub_state_cmd =
+					&cmd[i+1+data->global.num_streams].fams2_config;
 
 			/* configure command header */
 			stream_base_cmd->header.type = DMUB_CMD__FW_ASSISTED_MCLK_SWITCH;
@@ -1896,38 +1899,37 @@ static void dc_dmub_srv_rb_based_fams2_update_config(struct dc *dc,
 			stream_sub_state_cmd->header.multi_cmd_pending = 1;
 			/* copy stream static base state */
 			memcpy(&stream_base_cmd->config,
-					&context->bw_ctx.bw.dcn.fams2_stream_base_params[i],
+					&data->stream_base[i],
 					sizeof(union dmub_cmd_fams2_config));
 			/* copy stream static sub state */
 			memcpy(&stream_sub_state_cmd->config,
-					&context->bw_ctx.bw.dcn.fams2_stream_sub_params[i],
+					&data->stream_sub[i],
 					sizeof(union dmub_cmd_fams2_config));
 
 			/* temp override */
-			stream_base_cmd->config.stream_v1.base.config.bits.imm_restore_drr = dc->debug.fams2_imm_restore_drr;
+			stream_base_cmd->config.stream_v1.base.config.bits.imm_restore_drr = data->imm_restore_drr;
 		}
 	}
 
 	/* apply feature configuration based on current driver state */
-	global_cmd->config.global.features.bits.enable_visual_confirm = dc->debug.visual_confirm == VISUAL_CONFIRM_FAMS2;
-	global_cmd->config.global.features.bits.enable = enable && context->bw_ctx.bw.dcn.fams2_global_config.features.bits.enable;
-	global_cmd->config.global.features.bits.enable_ppt_check = dc->debug.fams2_config.bits.enable_ppt_check;
+	global_cmd->config.global.features.bits.enable_visual_confirm = data->visual_confirm;
+	global_cmd->config.global.features.bits.enable = data->enable && data->global.features.bits.enable;
+	global_cmd->config.global.features.bits.enable_ppt_check = data->features.bits.enable_ppt_check;
 
-	if (enable) {
+	if (data->enable) {
 		/* set multi pending for global, and unset for last stream cmd */
 		global_cmd->header.multi_cmd_pending = 1;
-		cmd[2 * context->bw_ctx.bw.dcn.fams2_global_config.num_streams].fams2_config.header.multi_cmd_pending = 0;
-		num_cmds += 2 * context->bw_ctx.bw.dcn.fams2_global_config.num_streams;
+		cmd[2 * data->global.num_streams].fams2_config.header.multi_cmd_pending = 0;
+		cmd_count += 2 * data->global.num_streams;
 	}
 
-	dm_execute_dmub_cmd_list(dc->ctx, num_cmds, cmd, DM_DMUB_WAIT_TYPE_WAIT);
+	dm_execute_dmub_cmd_list(dc_dmub_srv->ctx, cmd_count, cmd, DM_DMUB_WAIT_TYPE_WAIT);
 }
 
-static void dc_dmub_srv_ib_based_fams2_update_config(struct dc *dc,
-		struct dc_state *context,
-		bool enable)
+static void dc_dmub_srv_ib_based_fams2_update_config(struct dc_dmub_srv *dc_dmub_srv,
+		const struct dc_dmub_fams2_config_data *data)
 {
-	struct dmub_fams2_config_v2 *config = (struct dmub_fams2_config_v2 *)dc->ctx->dmub_srv->dmub->ib_mem_gart.cpu_addr;
+	struct dmub_fams2_config_v2 *config = (struct dmub_fams2_config_v2 *)dc_dmub_srv->dmub->ib_mem_gart.cpu_addr;
 	union dmub_rb_cmd cmd;
 	uint32_t i;
 
@@ -1937,51 +1939,54 @@ static void dc_dmub_srv_ib_based_fams2_update_config(struct dc *dc,
 	cmd.ib_fams2_config.header.type = DMUB_CMD__FW_ASSISTED_MCLK_SWITCH;
 	cmd.ib_fams2_config.header.sub_type = DMUB_CMD__FAMS2_IB_CONFIG;
 
-	cmd.ib_fams2_config.ib_data.src.quad_part = dc->ctx->dmub_srv->dmub->ib_mem_gart.gpu_addr;
+	cmd.ib_fams2_config.ib_data.src.quad_part = dc_dmub_srv->dmub->ib_mem_gart.gpu_addr;
 	cmd.ib_fams2_config.ib_data.size = sizeof(*config);
 
-	if (enable) {
+	if (data->enable) {
 		/* send global configuration parameters */
-		memcpy(&config->global, &context->bw_ctx.bw.dcn.fams2_global_config,
+		memcpy(&config->global, &data->global,
 			sizeof(struct dmub_cmd_fams2_global_config));
 
 		/* copy static feature configuration overrides */
-		config->global.features.bits.enable_stall_recovery = dc->debug.fams2_config.bits.enable_stall_recovery;
-		config->global.features.bits.enable_offload_flip = dc->debug.fams2_config.bits.enable_offload_flip;
-		config->global.features.bits.enable_debug = dc->debug.fams2_config.bits.enable_debug;
-		config->global.features.bits.alternate_channel_workaround = dc->debug.fams2_config.bits.alternate_channel_workaround;
+		config->global.features.bits.enable_stall_recovery = data->features.bits.enable_stall_recovery;
+		config->global.features.bits.enable_offload_flip = data->features.bits.enable_offload_flip;
+		config->global.features.bits.enable_debug = data->features.bits.enable_debug;
+		config->global.features.bits.alternate_channel_workaround =
+				data->features.bits.alternate_channel_workaround;
 
 		/* construct per-stream configs */
-		for (i = 0; i < context->bw_ctx.bw.dcn.fams2_global_config.num_streams; i++) {
+		for (i = 0; i < data->global.num_streams; i++) {
 			/* copy stream static base state */
 			memcpy(&config->stream_v1[i].base,
-				&context->bw_ctx.bw.dcn.fams2_stream_base_params[i],
+				&data->stream_base[i],
 				sizeof(config->stream_v1[i].base));
 
 			/* copy stream static sub-state */
 			memcpy(&config->stream_v1[i].sub_state,
-				&context->bw_ctx.bw.dcn.fams2_stream_sub_params_v2[i],
+				&data->stream_sub_v2[i],
 				sizeof(config->stream_v1[i].sub_state));
 		}
 	}
 
-	config->global.features.bits.enable_visual_confirm = dc->debug.visual_confirm == VISUAL_CONFIRM_FAMS2;
-	config->global.features.bits.enable = enable && context->bw_ctx.bw.dcn.fams2_global_config.features.bits.enable;
-	config->global.features.bits.enable_ppt_check = dc->debug.fams2_config.bits.enable_ppt_check;
+	config->global.features.bits.enable_visual_confirm = data->visual_confirm;
+	config->global.features.bits.enable = data->enable && data->global.features.bits.enable;
+	config->global.features.bits.enable_ppt_check = data->features.bits.enable_ppt_check;
 
-	dmub_srv_flush_buffer_mem(dc->ctx->dmub_srv->dmub, &dc->ctx->dmub_srv->dmub->ib_mem_gart);
+	dmub_srv_flush_buffer_mem(dc_dmub_srv->dmub, &dc_dmub_srv->dmub->ib_mem_gart);
 
-	dm_execute_dmub_cmd_list(dc->ctx, 1, &cmd, DM_DMUB_WAIT_TYPE_WAIT);
+	dm_execute_dmub_cmd_list(dc_dmub_srv->ctx, 1, &cmd, DM_DMUB_WAIT_TYPE_WAIT);
 }
 
-void dc_dmub_srv_fams2_update_config(struct dc *dc,
-		struct dc_state *context,
-		bool enable)
+void dc_dmub_srv_fams2_update_config(struct dc_dmub_srv *dc_dmub_srv,
+		const struct dc_dmub_fams2_config_data *data)
 {
-	if (dc->debug.fams_version.major == 2)
-		dc_dmub_srv_rb_based_fams2_update_config(dc, context, enable);
-	if (dc->debug.fams_version.major == 3)
-		dc_dmub_srv_ib_based_fams2_update_config(dc, context, enable);
+	if (!dc_dmub_srv || !dc_dmub_srv->dmub)
+		return;
+
+	if (data->fams_version_major == 2)
+		dc_dmub_srv_rb_based_fams2_update_config(dc_dmub_srv, data);
+	if (data->fams_version_major == 3)
+		dc_dmub_srv_ib_based_fams2_update_config(dc_dmub_srv, data);
 }
 
 void dc_dmub_srv_fams2_drr_update(struct dc *dc,
@@ -2023,7 +2028,7 @@ void dc_dmub_srv_fams2_passthrough_flip(
 	int num_cmds = 0;
 	struct dc_stream_status *stream_status = dc_stream_get_status(stream);
 
-	if (surface_count <= 0 || stream_status == NULL)
+	if (surface_count <= 0 || stream_status == NULL || !dc->ctx->dmub_srv)
 		return;
 
 	memset(cmds, 0, sizeof(union dmub_rb_cmd) * MAX_PLANES);

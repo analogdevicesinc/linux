@@ -36,6 +36,7 @@
 #include "dsc/dsc.h"
 #include "link_service_types.h"
 #include "dmub/inc/dmub_cmd.h"
+#include "dc_dmub_srv.h"
 
 struct pipe_ctx;
 struct dc_state;
@@ -357,6 +358,11 @@ struct wait_for_dcc_meta_propagation_params {
 struct dmub_hw_control_lock_fast_params {
 	struct dc_dmub_srv *dmub_srv;
 	union dmub_inbox0_cmd_lock_hw command;
+};
+
+struct dmub_fams2_update_config_params {
+	struct dc_dmub_srv *dmub_srv;
+	struct dc_dmub_fams2_config_data data;
 };
 
 struct program_surface_config_params {
@@ -1214,6 +1220,7 @@ union block_sequence_params {
 	struct subvp_save_surf_addr subvp_save_surf_addr;
 	struct wait_for_dcc_meta_propagation_params wait_for_dcc_meta_propagation_params;
 	struct dmub_hw_control_lock_fast_params dmub_hw_control_lock_fast_params;
+	struct dmub_fams2_update_config_params dmub_fams2_update_config_params;
 	struct program_surface_config_params program_surface_config_params;
 	struct program_mcache_id_and_split_coordinate program_mcache_id_and_split_coordinate;
 	struct control_cm_hist_params control_cm_hist_params;
@@ -1596,6 +1603,7 @@ enum block_sequence_func {
 	HUBBUB_INIT_CRB,
 	HUBBUB_SET_REQUEST_LIMIT,
 	BIOS_IS_ACCELERATED_MODE,
+	DMUB_FAMS2_UPDATE_CONFIG,
 	/* This must be the last value in this enum, add new ones above */
 	HWSS_BLOCK_SEQUENCE_FUNC_COUNT
 };
@@ -1907,9 +1915,10 @@ struct hw_sequencer_funcs {
 	bool (*dmub_hw_control_lock)(struct dc *dc,
 			struct dc_state *context,
 			bool lock);
-	void (*fams2_update_config)(struct dc *dc,
+	bool (*fams2_build_update_config)(struct dc *dc,
 			struct dc_state *context,
-			bool enable);
+			bool enable,
+			struct dc_dmub_fams2_config_data *data);
 	bool (*is_dmub_hw_lock_supported)(const struct dc *dc);
 	void (*set_long_vtotal)(struct pipe_ctx **pipe_ctx, int num_pipes, uint32_t v_total_min, uint32_t v_total_max);
 	void (*program_outstanding_updates)(struct dc *dc,
@@ -3024,5 +3033,9 @@ void hwss_add_hubbub_program_compbuf_segments(struct block_sequence_state *seq_s
 void hwss_dmub_hw_control_lock_fast(union block_sequence_params *params);
 void hwss_add_dmub_hw_control_lock_fast(struct block_sequence_state *seq_state,
 		struct dc *dc, bool lock);
+
+void hwss_dmub_fams2_update_config(union block_sequence_params *params);
+void hwss_add_dmub_fams2_update_config(struct block_sequence_state *seq_state,
+		struct dc *dc, struct dc_state *context, bool enable);
 
 #endif /* __DC_HW_SEQUENCER_H__ */

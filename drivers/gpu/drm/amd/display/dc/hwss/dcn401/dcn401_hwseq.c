@@ -1464,8 +1464,11 @@ void dcn401_prepare_bandwidth(struct dc *dc,
 	}
 
 	if (dc->debug.fams2_config.bits.enable) {
+		struct dc_dmub_fams2_config_data fams2_data;
+
 		dcn401_dmub_hw_control_lock(dc, context, true);
-		dcn401_fams2_update_config(dc, context, false);
+		if (dcn401_fams2_build_update_config(dc, context, false, &fams2_data))
+			dc_dmub_srv_fams2_update_config(dc->ctx->dmub_srv, &fams2_data);
 		dcn401_dmub_hw_control_lock(dc, context, false);
 	}
 
@@ -1518,9 +1521,9 @@ void dcn401_prepare_bandwidth_sequence(struct dc *dc,
 	}
 
 	if (dc->debug.fams2_config.bits.enable) {
-		dcn401_dmub_hw_control_lock(dc, context, true);
-		dcn401_fams2_update_config(dc, context, false);
-		dcn401_dmub_hw_control_lock(dc, context, false);
+		hwss_add_dmub_hw_control_lock_fast(seq_state, dc, true);
+		hwss_add_dmub_fams2_update_config(seq_state, dc, context, false);
+		hwss_add_dmub_hw_control_lock_fast(seq_state, dc, false);
 	}
 
 	if (p_state_change_support != context->bw_ctx.bw.dcn.clk.p_state_change_support)
@@ -1536,8 +1539,11 @@ void dcn401_optimize_bandwidth(
 
 	/* enable fams2 if needed */
 	if (dc->debug.fams2_config.bits.enable) {
+		struct dc_dmub_fams2_config_data fams2_data;
+
 		dcn401_dmub_hw_control_lock(dc, context, true);
-		dcn401_fams2_update_config(dc, context, true);
+		if (dcn401_fams2_build_update_config(dc, context, true, &fams2_data))
+			dc_dmub_srv_fams2_update_config(dc->ctx->dmub_srv, &fams2_data);
 		dcn401_dmub_hw_control_lock(dc, context, false);
 	}
 
@@ -1594,9 +1600,9 @@ void dcn401_optimize_bandwidth_sequence(struct dc *dc,
 
 	/* enable fams2 if needed */
 	if (dc->debug.fams2_config.bits.enable) {
-		dcn401_dmub_hw_control_lock(dc, context, true);
-		dcn401_fams2_update_config(dc, context, true);
-		dcn401_dmub_hw_control_lock(dc, context, false);
+		hwss_add_dmub_hw_control_lock_fast(seq_state, dc, true);
+		hwss_add_dmub_fams2_update_config(seq_state, dc, context, true);
+		hwss_add_dmub_hw_control_lock_fast(seq_state, dc, false);
 	}
 
 	hwss_add_hubbub_program_watermarks(seq_state, dc, hubbub,
@@ -1653,20 +1659,34 @@ bool dcn401_is_dmub_hw_lock_supported(const struct dc *dc)
 	return dc && dc->ctx && dc->ctx->dmub_srv && dc->ctx->dmub_srv->dmub;
 }
 
-void dcn401_fams2_update_config(struct dc *dc, struct dc_state *context, bool enable)
+/* Returns false when there is nothing to send. */
+bool dcn401_fams2_build_update_config(struct dc *dc, struct dc_state *context, bool enable,
+		struct dc_dmub_fams2_config_data *data)
 {
-	bool fams2_info_required;
-	bool fams2_enabled;
-	bool fams2_legacy_no_fams2;
+	memset(data, 0, sizeof(*data));
 
 	if (!dc->ctx || !dc->ctx->dmub_srv || !dc->debug.fams2_config.bits.enable)
-		return;
+		return false;
 
-	fams2_enabled = context->bw_ctx.bw.dcn.fams2_global_config.features.bits.enable != 0u;
-	fams2_legacy_no_fams2 = context->bw_ctx.bw.dcn.fams2_global_config.features.bits.legacy_method_no_fams2 != 0u;
-	fams2_info_required = fams2_enabled || fams2_legacy_no_fams2;
+	data->fams_version_major = dc->debug.fams_version.major;
+	data->features = dc->debug.fams2_config;
+	data->imm_restore_drr = dc->debug.fams2_imm_restore_drr;
+	data->visual_confirm = dc->debug.visual_confirm == VISUAL_CONFIRM_FAMS2;
 
-	dc_dmub_srv_fams2_update_config(dc, context, enable && fams2_info_required);
+	if (context) {
+		const struct dmub_cmd_fams2_global_config *global =
+			&context->bw_ctx.bw.dcn.fams2_global_config;
+		bool fams2_info_required = global->features.bits.enable != 0u ||
+				global->features.bits.legacy_method_no_fams2 != 0u;
+
+		data->global = *global;
+		data->stream_base = context->bw_ctx.bw.dcn.fams2_stream_base_params;
+		data->stream_sub = context->bw_ctx.bw.dcn.fams2_stream_sub_params;
+		data->stream_sub_v2 = context->bw_ctx.bw.dcn.fams2_stream_sub_params_v2;
+		data->enable = enable && fams2_info_required;
+	}
+
+	return true;
 }
 
 static void update_dsc_for_odm_change(struct dc *dc, struct dc_state *context,
@@ -1915,9 +1935,11 @@ void dcn401_unblank_stream(struct pipe_ctx *pipe_ctx,
 
 void dcn401_hardware_release(struct dc *dc)
 {
+	struct dc_dmub_fams2_config_data fams2_data;
+
 	if (!dc->debug.disable_force_pstate_allow_on_hw_release) {
-		if (dc->ctx->dmub_srv && dc->debug.fams2_config.bits.enable)
-			dc_dmub_srv_fams2_update_config(dc, dc->current_state, false);
+		if (dcn401_fams2_build_update_config(dc, dc->current_state, false, &fams2_data))
+			dc_dmub_srv_fams2_update_config(dc->ctx->dmub_srv, &fams2_data);
 
 		/* If pstate unsupported, or still supported
 		* by firmware, force it supported by dcn
@@ -1938,8 +1960,8 @@ void dcn401_hardware_release(struct dc *dc)
 			dc->clk_mgr->funcs->update_clocks(dc->clk_mgr, dc->current_state, true);
 		}
 
-		if (dc->ctx->dmub_srv && dc->debug.fams2_config.bits.enable)
-			dc_dmub_srv_fams2_update_config(dc, dc->current_state, false);
+		if (dcn401_fams2_build_update_config(dc, dc->current_state, false, &fams2_data))
+			dc_dmub_srv_fams2_update_config(dc->ctx->dmub_srv, &fams2_data);
 	}
 }
 
