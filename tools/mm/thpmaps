@@ -295,7 +295,7 @@ def thp_parse(vma, kpageflags, ranges, indexes, vfns, pfns, anons, heads):
 
     def flatten_sub(type, subtype, stats):
         param = f"{type}-thp-pte-{subtype}-{{}}kB"
-        for od, nr in enumerate(stats[2:], 2):
+        for od, nr in enumerate(stats[1:], 1):
             rstats[param.format(odkb(od))] = {'type': type, 'value': nrkb(nr)}
 
     def flatten_type(type, stats):
