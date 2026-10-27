@@ -774,17 +774,18 @@ static u64 pf_profile_fair_ggtt(struct xe_gt *gt, unsigned int num_vfs)
 }
 
 /**
- * xe_gt_sriov_pf_config_set_fair_ggtt - Provision many VFs with fair GGTT.
+ * xe_gt_sriov_pf_config_set_fair_ggtt_locked - Provision many VFs with fair GGTT.
  * @gt: the &xe_gt (can't be media)
  * @vfid: starting VF identifier (can't be 0)
  * @num_vfs: number of VFs to provision
  *
+ * The caller must hold the master PF mutex.
  * This function can only be called on PF.
  *
  * Return: 0 on success or a negative error code on failure.
  */
-int xe_gt_sriov_pf_config_set_fair_ggtt(struct xe_gt *gt, unsigned int vfid,
-					unsigned int num_vfs)
+int xe_gt_sriov_pf_config_set_fair_ggtt_locked(struct xe_gt *gt, unsigned int vfid,
+					       unsigned int num_vfs)
 {
 	u64 profile = pf_profile_fair_ggtt(gt, num_vfs);
 	u64 fair;
@@ -793,7 +794,7 @@ int xe_gt_sriov_pf_config_set_fair_ggtt(struct xe_gt *gt, unsigned int vfid,
 	xe_gt_assert(gt, num_vfs);
 	xe_gt_assert(gt, xe_gt_is_main_type(gt));
 
-	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
+	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
 
 	fair = pf_estimate_fair_ggtt(gt, num_vfs);
 	if (!fair)
@@ -1205,17 +1206,18 @@ static u32 pf_estimate_fair_ctxs(struct xe_gt *gt, unsigned int num_vfs)
 }
 
 /**
- * xe_gt_sriov_pf_config_set_fair_ctxs - Provision many VFs with fair GuC context IDs.
+ * xe_gt_sriov_pf_config_set_fair_ctxs_locked - Provision many VFs with fair GuC context IDs.
  * @gt: the &xe_gt
  * @vfid: starting VF identifier (can't be 0)
  * @num_vfs: number of VFs to provision (can't be 0)
  *
+ * The caller must hold the master PF mutex.
  * This function can only be called on PF.
  *
  * Return: 0 on success or a negative error code on failure.
  */
-int xe_gt_sriov_pf_config_set_fair_ctxs(struct xe_gt *gt, unsigned int vfid,
-					unsigned int num_vfs)
+int xe_gt_sriov_pf_config_set_fair_ctxs_locked(struct xe_gt *gt, unsigned int vfid,
+					       unsigned int num_vfs)
 {
 	u32 profile = pf_profile_fair_ctxs(gt, num_vfs);
 	u32 fair;
@@ -1223,7 +1225,7 @@ int xe_gt_sriov_pf_config_set_fair_ctxs(struct xe_gt *gt, unsigned int vfid,
 	xe_gt_assert(gt, vfid);
 	xe_gt_assert(gt, num_vfs);
 
-	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
+	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
 
 	fair = pf_estimate_fair_ctxs(gt, num_vfs);
 	if (!fair)
@@ -1487,17 +1489,18 @@ static u32 pf_estimate_fair_dbs(struct xe_gt *gt, unsigned int num_vfs)
 }
 
 /**
- * xe_gt_sriov_pf_config_set_fair_dbs - Provision many VFs with fair GuC doorbell  IDs.
+ * xe_gt_sriov_pf_config_set_fair_dbs_locked - Provision many VFs with fair GuC doorbell  IDs.
  * @gt: the &xe_gt
  * @vfid: starting VF identifier (can't be 0)
  * @num_vfs: number of VFs to provision (can't be 0)
  *
+ * The caller must hold the master PF mutex.
  * This function can only be called on PF.
  *
  * Return: 0 on success or a negative error code on failure.
  */
-int xe_gt_sriov_pf_config_set_fair_dbs(struct xe_gt *gt, unsigned int vfid,
-				       unsigned int num_vfs)
+int xe_gt_sriov_pf_config_set_fair_dbs_locked(struct xe_gt *gt, unsigned int vfid,
+					      unsigned int num_vfs)
 {
 	u32 profile = pf_profile_fair_dbs(gt, num_vfs);
 	u32 fair;
@@ -1505,7 +1508,7 @@ int xe_gt_sriov_pf_config_set_fair_dbs(struct xe_gt *gt, unsigned int vfid,
 	xe_gt_assert(gt, vfid);
 	xe_gt_assert(gt, num_vfs);
 
-	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
+	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
 
 	fair = pf_estimate_fair_dbs(gt, num_vfs);
 	if (!fair)
@@ -2062,17 +2065,18 @@ static bool pf_needs_provision_lmem(struct xe_gt *gt, unsigned int first_vf,
 }
 
 /**
- * xe_gt_sriov_pf_config_set_fair_lmem - Provision many VFs with fair LMEM.
+ * xe_gt_sriov_pf_config_set_fair_lmem_locked - Provision many VFs with fair LMEM.
  * @gt: the &xe_gt (can't be media)
  * @vfid: starting VF identifier (can't be 0)
  * @num_vfs: number of VFs to provision (can't be 0)
  *
+ * The caller must hold the master PF mutex.
  * This function can only be called on PF.
  *
  * Return: 0 on success or a negative error code on failure.
  */
-int xe_gt_sriov_pf_config_set_fair_lmem(struct xe_gt *gt, unsigned int vfid,
-					unsigned int num_vfs)
+int xe_gt_sriov_pf_config_set_fair_lmem_locked(struct xe_gt *gt, unsigned int vfid,
+					       unsigned int num_vfs)
 {
 	u64 profile;
 	u64 fair;
@@ -2084,7 +2088,7 @@ int xe_gt_sriov_pf_config_set_fair_lmem(struct xe_gt *gt, unsigned int vfid,
 	if (!xe_device_has_lmtt(gt_to_xe(gt)))
 		return 0;
 
-	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
+	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
 
 	if (!pf_needs_provision_lmem(gt, vfid, num_vfs))
 		return 0;
@@ -2103,6 +2107,42 @@ int xe_gt_sriov_pf_config_set_fair_lmem(struct xe_gt *gt, unsigned int vfid,
 }
 
 /**
+ * xe_gt_sriov_pf_config_set_fair_locked() - Provision many VFs with fair resources.
+ * @gt: the &xe_gt
+ * @vfid: starting VF identifier (can't be 0)
+ * @num_vfs: number of VFs to provision (can't be 0)
+ *
+ * The caller must hold the master PF mutex.
+ * This function can only be called on PF.
+ *
+ * Return: 0 on success or a negative error code on failure.
+ */
+int xe_gt_sriov_pf_config_set_fair_locked(struct xe_gt *gt, unsigned int vfid,
+					  unsigned int num_vfs)
+{
+	int result = 0;
+	int err;
+
+	xe_gt_assert(gt, vfid);
+	xe_gt_assert(gt, num_vfs);
+
+	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
+
+	if (xe_gt_is_main_type(gt)) {
+		err = xe_gt_sriov_pf_config_set_fair_ggtt_locked(gt, vfid, num_vfs);
+		result = result ?: err;
+		err = xe_gt_sriov_pf_config_set_fair_lmem_locked(gt, vfid, num_vfs);
+		result = result ?: err;
+	}
+	err = xe_gt_sriov_pf_config_set_fair_ctxs_locked(gt, vfid, num_vfs);
+	result = result ?: err;
+	err = xe_gt_sriov_pf_config_set_fair_dbs_locked(gt, vfid, num_vfs);
+	result = result ?: err;
+
+	return result;
+}
+
+/**
  * xe_gt_sriov_pf_config_set_fair - Provision many VFs with fair resources.
  * @gt: the &xe_gt
  * @vfid: starting VF identifier (can't be 0)
@@ -2115,24 +2155,9 @@ int xe_gt_sriov_pf_config_set_fair_lmem(struct xe_gt *gt, unsigned int vfid,
 int xe_gt_sriov_pf_config_set_fair(struct xe_gt *gt, unsigned int vfid,
 				   unsigned int num_vfs)
 {
-	int result = 0;
-	int err;
+	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
 
-	xe_gt_assert(gt, vfid);
-	xe_gt_assert(gt, num_vfs);
-
-	if (xe_gt_is_main_type(gt)) {
-		err = xe_gt_sriov_pf_config_set_fair_ggtt(gt, vfid, num_vfs);
-		result = result ?: err;
-		err = xe_gt_sriov_pf_config_set_fair_lmem(gt, vfid, num_vfs);
-		result = result ?: err;
-	}
-	err = xe_gt_sriov_pf_config_set_fair_ctxs(gt, vfid, num_vfs);
-	result = result ?: err;
-	err = xe_gt_sriov_pf_config_set_fair_dbs(gt, vfid, num_vfs);
-	result = result ?: err;
-
-	return result;
+	return xe_gt_sriov_pf_config_set_fair_locked(gt, vfid, num_vfs);
 }
 
 static const char *exec_quantum_unit(u32 exec_quantum)
