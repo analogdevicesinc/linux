@@ -42,6 +42,11 @@ static const struct qcom_ubwc_cfg_data ubwc_2_0_hbb15 = {
 	.highest_bank_bit = 15,
 };
 
+static const struct qcom_ubwc_cfg_data ubwc_3_0_hbb14 = {
+	.ubwc_enc_version = UBWC_3_0,
+	.highest_bank_bit = 14,
+};
+
 static const struct qcom_ubwc_cfg_data ubwc_3_0_hbb15 = {
 	.ubwc_enc_version = UBWC_3_0,
 	.highest_bank_bit = 15,
@@ -168,6 +173,7 @@ static const struct of_device_id qcom_ubwc_configs[] __maybe_unused = {
 	{ .compatible = "qcom,sm7125", .data = &ubwc_2_0_hbb14, },
 	{ .compatible = "qcom,sm7150", .data = &ubwc_2_0_hbb14, },
 	{ .compatible = "qcom,sm7225", .data = &ubwc_2_0_hbb14, },
+	{ .compatible = "qcom,sm7250", .data = &ubwc_3_0_hbb14, },
 	{ .compatible = "qcom,sm7325", .data = &ubwc_3_1_hbb14, },
 	{ .compatible = "qcom,sm8150", .data = &ubwc_3_0_hbb15, },
 	{ .compatible = "qcom,sm8250", .data = &ubwc_4_0_hbb16, },
