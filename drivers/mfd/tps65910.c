@@ -437,6 +437,17 @@ static int tps65910_power_off(struct sys_off_data *data)
 	return NOTIFY_DONE;
 }
 
+static int tps65910_restart(struct sys_off_data *data)
+{
+	struct tps65910 *tps65910 = data->cb_data;
+
+	regmap_update_bits(tps65910->regmap, TPS65910_DEVCTRL,
+			   DEVCTRL_DEV_OFF_RST_MASK | DEVCTRL_DEV_ON_MASK,
+			   DEVCTRL_DEV_OFF_RST_MASK);
+
+	return NOTIFY_DONE;
+}
+
 static int tps65910_i2c_probe(struct i2c_client *i2c)
 {
 	const struct i2c_device_id *id = i2c_client_get_device_id(i2c);
@@ -520,6 +531,12 @@ static int tps65910_i2c_probe(struct i2c_client *i2c)
 		if (ret)
 			return dev_err_probe(&i2c->dev, ret,
 					     "failed to register power-off handler\n");
+
+		ret = devm_register_restart_handler(&i2c->dev,
+						    tps65910_restart, tps65910);
+		if (ret)
+			return dev_err_probe(&i2c->dev, ret,
+					     "failed to register restart handler\n");
 	}
 
 	ret = devm_mfd_add_devices(tps65910->dev, -1,
