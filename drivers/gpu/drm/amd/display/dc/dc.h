@@ -1350,6 +1350,8 @@ struct dc_debug_options {
 	uint32_t dml21_custom_derate_at_dpm[DML2_MAX_NUM_DPM_LVL];
 	bool override_utm_client_qc_profile;
 	uint8_t utm_client_qc_profiles[4];
+	/* keep HW viewport unchanged by shrinking only recout for visual confirm */
+	bool visual_confirm_full_viewport;
 };
 
 
