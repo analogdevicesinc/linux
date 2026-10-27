@@ -574,7 +574,7 @@ struct amdgpu_psp_funcs {
 	(psp)->funcs->update_spirom((psp), fw_pri_mc_addr) : -EINVAL)
 
 #define psp_dump_spirom(psp, fw_pri_mc_addr) \
-	((psp)->funcs->dump_spirom ? \
+	(((psp)->funcs && (psp)->funcs->dump_spirom) ? \
 	(psp)->funcs->dump_spirom((psp), fw_pri_mc_addr) : -EINVAL)
 
 #define psp_vbflash_status(psp) \
