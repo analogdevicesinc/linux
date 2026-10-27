@@ -88,6 +88,17 @@ config IRQ_MSI_LIB
 	bool
 	select GENERIC_MSI_IRQ
 
+config ADI_ADSP_PINT
+	tristate "Analog Devices ADSP PINT interrupt controller driver"
+	depends on OF
+	select IRQ_DOMAIN
+	help
+	  This driver is for the Pin Interrupt (PINT) controller found on ADI
+	  ADSP SoCs. Say Y if you require GPIO interrupts.
+
+	  The driver can also be built as a module. If so, the module will be
+	  called irq-adi-adsp-pint.
+
 config ARMADA_370_XP_IRQ
 	bool
 	select GENERIC_IRQ_CHIP

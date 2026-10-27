@@ -6,6 +6,7 @@ menuconfig ARCH_SC5XX
 	select PINCTRL
 	select COUNTER
 	select SERIAL_ADI_UART4
+	select ADI_ADSP_PINT
 	select COMMON_CLK
 	select GENERIC_IRQ_MULTI_HANDLER
 	select VFP
