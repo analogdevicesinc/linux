@@ -26,7 +26,7 @@ struct loongson_se {
 	struct completion cmd_completion;
 
 	void *dmam_base;
-	int dmam_size;
+	u32 dmam_size;
 
 	struct mutex engine_init_lock;
 	struct loongson_se_engine engines[SE_ENGINE_MAX];
@@ -101,8 +101,13 @@ EXPORT_SYMBOL_GPL(loongson_se_send_engine_cmd);
 struct loongson_se_engine *loongson_se_init_engine(struct device *dev, int id)
 {
 	struct loongson_se *se = dev_get_drvdata(dev);
-	struct loongson_se_engine *engine = &se->engines[id];
 	struct loongson_se_controller_cmd cmd = {};
+	struct loongson_se_engine *engine;
+
+	if (id <= 0 || id >= SE_ENGINE_MAX)
+		return NULL;
+
+	engine = &se->engines[id];
 
 	engine->se = se;
 	engine->id = id;
@@ -186,7 +191,7 @@ static void loongson_se_stop(void *data)
 	mutex_unlock(&se->engine_init_lock);
 }
 
-static int loongson_se_init(struct loongson_se *se, dma_addr_t addr, int size)
+static int loongson_se_init(struct loongson_se *se, dma_addr_t addr, u32 size)
 {
 	struct loongson_se_controller_cmd cmd = {};
 	int err;
@@ -249,6 +254,9 @@ static int loongson_se_probe(struct platform_device *pdev)
 	if (device_property_read_u32(dev, "dmam_size", &se->dmam_size))
 		return -ENODEV;
 
+	if ((se->dmam_size / SE_ENGINE_MAX) < (SE_ENGINE_MAX * 2 * SE_ENGINE_CMD_SIZE))
+		return -EINVAL;
+
 	se->dmam_base = dmam_alloc_coherent(dev, se->dmam_size, &paddr, GFP_KERNEL);
 	if (!se->dmam_base)
 		return -ENOMEM;
@@ -258,16 +266,21 @@ static int loongson_se_probe(struct platform_device *pdev)
 		return PTR_ERR(se->base);
 
 	nr_irq = platform_irq_count(pdev);
-	if (nr_irq <= 0)
+	if (!nr_irq)
 		return -ENODEV;
+	if (nr_irq < 0)
+		return nr_irq;
 
 	writel(SE_INT_ALL, se->base + SE_S2LINT_CL);
 
 	for (i = 0; i < nr_irq; i++) {
 		irq = platform_get_irq(pdev, i);
+		if (irq < 0)
+			return irq;
+
 		err = devm_request_irq(dev, irq, se_irq_handler, 0, "loongson-se", se);
 		if (err)
-			dev_err(dev, "failed to request IRQ: %d\n", irq);
+			return dev_err_probe(dev, err, "Failed to request IRQ: %d\n", irq);
 	}
 
 	writel(SE_INT_ALL, se->base + SE_S2LINT_EN);
