@@ -100,6 +100,7 @@ struct dsc_enc_caps {
 	union dsc_color_formats color_formats;
 	union dsc_color_depth color_depth;
 	int32_t max_total_throughput_mps; /* Maximum total throughput with all the slices combined */
+	int32_t single_slice_config_throughput_mps;
 	int32_t max_slice_width;
 	uint32_t bpp_increment_div; /* bpp increment divisor, e.g. if 16, it's 1/16th of a bit */
 	bool is_frl;

@@ -1778,6 +1778,35 @@ static void dcn60_execute_clk_mgr_block_sequence_bls(struct clk_mgr *clk_mgr_bas
 	dcn60_execute_block_sequence(clk_mgr_base, clk_mgr60->num_block_sequence_steps);
 }
 
+static unsigned int dcn60_get_max_clock_khz(struct clk_mgr *clk_mgr_base, enum clk_type clk_type)
+{
+	struct clk_mgr_internal *clk_mgr = TO_CLK_MGR_INTERNAL(clk_mgr_base);
+
+	unsigned int num_clk_levels;
+
+	switch (clk_type) {
+	case CLK_TYPE_DISPCLK:
+		num_clk_levels = clk_mgr->base.bw_params->clk_table.num_entries_per_clk.num_dispclk_levels;
+		return dcn60_is_ppclk_dpm_enabled(clk_mgr, PPCLK_DISPCLK) ?
+				clk_mgr->base.bw_params->clk_table.entries[num_clk_levels - 1].dispclk_mhz * 1000 :
+				clk_mgr->base.boot_snapshot.dispclk;
+	case CLK_TYPE_DPPCLK:
+		num_clk_levels = clk_mgr->base.bw_params->clk_table.num_entries_per_clk.num_dppclk_levels;
+		return dcn60_is_ppclk_dpm_enabled(clk_mgr, PPCLK_DPPCLK) ?
+				clk_mgr->base.bw_params->clk_table.entries[num_clk_levels - 1].dppclk_mhz * 1000 :
+				clk_mgr->base.boot_snapshot.dppclk;
+	case CLK_TYPE_DSCCLK:
+		num_clk_levels = clk_mgr->base.bw_params->clk_table.num_entries_per_clk.num_dispclk_levels;
+		return dcn60_is_ppclk_dpm_enabled(clk_mgr, PPCLK_DISPCLK) ?
+				clk_mgr->base.bw_params->clk_table.entries[num_clk_levels - 1].dispclk_mhz * 1000 / 6 :
+				clk_mgr->base.boot_snapshot.dispclk / 6;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static struct clk_mgr_funcs dcn60_funcs = {
 		.get_dp_ref_clk_frequency = dcn10_get_dp_ref_freq_khz,
 		.get_dtb_ref_clk_frequency = dcn60_get_dtb_ref_freq_khz,
@@ -1790,7 +1819,7 @@ static struct clk_mgr_funcs dcn60_funcs = {
 		.enable_pme_wa = dcn60_enable_pme_wa,
 		.is_smu_present = dcn60_is_smu_present,
 		.get_dispclk_from_dentist = NULL,
-		.get_max_clock_khz = dcn401_get_max_clock_khz,
+		.get_max_clock_khz = dcn60_get_max_clock_khz,
 		.override_memory_bandwidth_request = dcn60_override_memory_bandwidth_request,
 		.get_requested_memory_qos = dcn60_get_requested_memory_qos,
 		.set_idle_power_optimizations = dcn60_set_idle_power_optimizations,

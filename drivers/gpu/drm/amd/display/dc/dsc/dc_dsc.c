@@ -1057,7 +1057,7 @@ static void build_dsc_enc_caps(
 	unsigned int max_dscclk_khz;
 	unsigned int num_dsc;
 	unsigned int max_odm_combine_factor;
-	struct dsc_enc_caps single_dsc_enc_caps;
+	struct dsc_enc_caps single_dsc_enc_caps = {0};
 
 	struct dc *dc;
 
@@ -1082,6 +1082,7 @@ static void build_dsc_enc_caps(
 	dsc_enc_caps->bpp_increment_div = single_dsc_enc_caps.bpp_increment_div;
 	dsc_enc_caps->color_formats.raw = single_dsc_enc_caps.color_formats.raw;
 	dsc_enc_caps->color_depth.raw = single_dsc_enc_caps.color_depth.raw;
+	dsc_enc_caps->single_slice_config_throughput_mps = single_dsc_enc_caps.single_slice_config_throughput_mps;
 
 	/* expand per DSC capabilities to global */
 	max_odm_combine_factor = dc->caps.max_odm_combine_factor;
@@ -1868,6 +1869,27 @@ static bool setup_dsc_config(
 	while (min_slices_h <= max_slices_h) {
 		int pix_clk_per_slice_khz = dsc_div_by_10_round_up(timing->pix_clk_100hz) / min_slices_h;
 		if (pix_clk_per_slice_khz <= sink_per_slice_throughput_mps * 1000)
+			break;
+
+		min_slices_h = inc_num_slices(dsc_common_caps.slice_caps, min_slices_h);
+	}
+
+	/* Increase minimum slice count to meet DSC encoder clock and dynamic ODM limitations.
+	 *
+	 * Make sure that dynamic ODM can't create a config where there is 1 slice per ODM pipe and
+	 * the required 1-slice throughput exceeds single_slice_config_throughput_mps.
+	 * E.g. a 2-to-1 ODM config with 4 total slices transitioning to 4-to-1 ODM.
+	 *
+	 * Also prevent a single-slice non-ODM config where 1-slice throughput exceeds
+	 * single_slice_config_throughput_mps.
+	 */
+	while (min_slices_h <= max_slices_h && dsc_enc_caps->single_slice_config_throughput_mps) {
+		int pix_clk_per_slice_khz = dsc_div_by_10_round_up(timing->pix_clk_100hz) / min_slices_h;
+		/* Don't care about this condition if there is a minimum of 2 slices per ODM at max split */
+		if (min_slices_h > 4)
+			break;
+		if (min_slices_h <= 4 &&
+				pix_clk_per_slice_khz <= (dsc_enc_caps->single_slice_config_throughput_mps * 1000))
 			break;
 
 		min_slices_h = inc_num_slices(dsc_common_caps.slice_caps, min_slices_h);
