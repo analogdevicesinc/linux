@@ -229,7 +229,7 @@ union dpcd_training_lane_set {
 		uint8_t MAX_SWING_REACHED:1;
 		uint8_t VOLTAGE_SWING_SET:2;
 #else
-	#error ARCH not defined!
+	#error "Endianness not defined! Missing LITTLEENDIAN_CPU or BIGENDIAN_CPU"
 #endif
 	} bits;
 
