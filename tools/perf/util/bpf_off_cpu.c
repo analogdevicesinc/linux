@@ -95,7 +95,7 @@ static void off_cpu_start(void *arg)
 		int cpu_nr = pcpu.cpu;
 
 		err = bpf_map__update_elem(skel->maps.offcpu_output, &cpu_nr, sizeof(int),
-					   xyarray__entry(evsel->core.fd, cpu_nr, 0),
+					   xyarray__entry(evsel->core.fd, i, 0),
 					   sizeof(int), BPF_ANY);
 		if (err) {
 			pr_err("Failed to update perf event map for direct off-cpu dumping\n");
