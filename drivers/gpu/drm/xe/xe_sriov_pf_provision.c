@@ -154,6 +154,29 @@ int xe_sriov_pf_reprovision_default(struct xe_device *xe)
 	return pf_reprovision_default(xe);
 }
 
+static int pf_change_mode(struct xe_device *xe, enum xe_sriov_provisioning_mode mode, void *who)
+{
+	lockdep_assert_held(xe_sriov_pf_master_mutex(xe));
+
+	if (mode == xe->sriov.pf.provision.mode)
+		return 0;
+
+	if (mode == XE_SRIOV_PROVISIONING_MODE_AUTO) {
+		if (xe_sriov_pf_num_vfs(xe)) {
+			xe_sriov_dbg(xe, "can't restore %s: VFs must be disabled!\n",
+				     mode_to_string(mode));
+			return -EBUSY;
+		}
+		pf_unprovision_all_vfs(xe);
+	}
+
+	xe_sriov_dbg(xe, "mode %s changed to %s by %ps\n",
+		     mode_to_string(xe->sriov.pf.provision.mode),
+		     mode_to_string(mode), who);
+	xe->sriov.pf.provision.mode = mode;
+	return 0;
+}
+
 /**
  * xe_sriov_pf_provision_set_mode() - Change VFs provision mode.
  * @xe: the PF &xe_device
@@ -176,23 +199,7 @@ int xe_sriov_pf_provision_set_mode(struct xe_device *xe, enum xe_sriov_provision
 
 	guard(mutex)(xe_sriov_pf_master_mutex(xe));
 
-	if (mode == xe->sriov.pf.provision.mode)
-		return 0;
-
-	if (mode == XE_SRIOV_PROVISIONING_MODE_AUTO) {
-		if (xe_sriov_pf_num_vfs(xe)) {
-			xe_sriov_dbg(xe, "can't restore %s: VFs must be disabled!\n",
-				     mode_to_string(mode));
-			return -EBUSY;
-		}
-		pf_unprovision_all_vfs(xe);
-	}
-
-	xe_sriov_dbg(xe, "mode %s changed to %s by %ps\n",
-		     mode_to_string(xe->sriov.pf.provision.mode),
-		     mode_to_string(mode), __builtin_return_address(0));
-	xe->sriov.pf.provision.mode = mode;
-	return 0;
+	return pf_change_mode(xe, mode, __builtin_return_address(0));
 }
 
 /**
