@@ -21,7 +21,7 @@
 #include "dc_state_priv.h"
 #include "atomfirmware.h"
 
-#include "dcn401/dcn401_smu14_driver_if.h"
+#include "dcn60/dcn60_smu_driver_if.h"
 
 #include "dcn/dcn_6_0_0_offset.h"
 #include "dcn/dcn_6_0_0_sh_mask.h"
