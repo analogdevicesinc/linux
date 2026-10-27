@@ -36,18 +36,18 @@
 
 /* device type dependent stuff */
 struct mxc_gpio_hwdata {
-	unsigned dr_reg;
-	unsigned gdir_reg;
-	unsigned psr_reg;
-	unsigned icr1_reg;
-	unsigned icr2_reg;
-	unsigned imr_reg;
-	unsigned isr_reg;
+	unsigned int dr_reg;
+	unsigned int gdir_reg;
+	unsigned int psr_reg;
+	unsigned int icr1_reg;
+	unsigned int icr2_reg;
+	unsigned int imr_reg;
+	unsigned int isr_reg;
 	int edge_sel_reg;
-	unsigned low_level;
-	unsigned high_level;
-	unsigned rise_edge;
-	unsigned fall_edge;
+	unsigned int low_level;
+	unsigned int high_level;
+	unsigned int rise_edge;
+	unsigned int fall_edge;
 };
 
 struct mxc_gpio_reg_saved {
@@ -367,7 +367,7 @@ static int mxc_gpio_init_gc(struct mxc_gpio_port *port, int irq_base)
 	return rv;
 }
 
-static int mxc_gpio_to_irq(struct gpio_chip *gc, unsigned offset)
+static int mxc_gpio_to_irq(struct gpio_chip *gc, unsigned int offset)
 {
 	struct mxc_gpio_port *port = gpiochip_get_data(gc);
 
