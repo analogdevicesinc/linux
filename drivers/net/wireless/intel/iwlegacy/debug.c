@@ -1265,30 +1265,6 @@ il_dbgfs_force_reset_write(struct file *file, const char __user *user_buf,
 	return ret ? ret : count;
 }
 
-static ssize_t
-il_dbgfs_wd_timeout_write(struct file *file, const char __user *user_buf,
-			  size_t count, loff_t *ppos)
-{
-
-	struct il_priv *il = file->private_data;
-	char buf[8];
-	int buf_size;
-	int timeout;
-
-	memset(buf, 0, sizeof(buf));
-	buf_size = min(count, sizeof(buf) - 1);
-	if (copy_from_user(buf, user_buf, buf_size))
-		return -EFAULT;
-	if (sscanf(buf, "%d", &timeout) != 1)
-		return -EINVAL;
-	if (timeout < 0 || timeout > IL_MAX_WD_TIMEOUT)
-		timeout = IL_DEF_WD_TIMEOUT;
-
-	il->cfg->wd_timeout = timeout;
-	il_setup_watchdog(il);
-	return count;
-}
-
 DEBUGFS_READ_FILE_OPS(rx_stats);
 DEBUGFS_READ_FILE_OPS(tx_stats);
 DEBUGFS_READ_FILE_OPS(rx_queue);
@@ -1306,7 +1282,6 @@ DEBUGFS_READ_WRITE_FILE_OPS(missed_beacon);
 DEBUGFS_READ_WRITE_FILE_OPS(force_reset);
 DEBUGFS_READ_FILE_OPS(rxon_flags);
 DEBUGFS_READ_FILE_OPS(rxon_filter_flags);
-DEBUGFS_WRITE_FILE_OPS(wd_timeout);
 
 /*
  * Create the debugfs files and directories
@@ -1353,7 +1328,6 @@ il_dbgfs_register(struct il_priv *il, const char *name)
 		DEBUGFS_ADD_FILE(chain_noise, dir_debug, 0400);
 	DEBUGFS_ADD_FILE(rxon_flags, dir_debug, 0200);
 	DEBUGFS_ADD_FILE(rxon_filter_flags, dir_debug, 0200);
-	DEBUGFS_ADD_FILE(wd_timeout, dir_debug, 0200);
 	if (il->cfg->sensitivity_calib_by_driver)
 		DEBUGFS_ADD_BOOL(disable_sensitivity, dir_rf,
 				 &il->disable_sens_cal);

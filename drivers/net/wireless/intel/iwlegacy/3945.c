@@ -2670,7 +2670,6 @@ static const struct il_cfg il3945_bg_cfg = {
 	.set_l0s = false,
 	.use_bsm = true,
 	.led_compensation = 64,
-	.wd_timeout = IL_DEF_WD_TIMEOUT,
 
 	.regulatory_bands = {
 		EEPROM_REGULATORY_BAND_1_CHANNELS,
@@ -2699,7 +2698,6 @@ static const struct il_cfg il3945_abg_cfg = {
 	.set_l0s = false,
 	.use_bsm = true,
 	.led_compensation = 64,
-	.wd_timeout = IL_DEF_WD_TIMEOUT,
 
 	.regulatory_bands = {
 		EEPROM_REGULATORY_BAND_1_CHANNELS,
