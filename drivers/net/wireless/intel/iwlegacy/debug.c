@@ -494,85 +494,6 @@ il_dbgfs_nvm_read(struct file *file, char __user *user_buf, size_t count,
 }
 
 static ssize_t
-il_dbgfs_channels_read(struct file *file, char __user *user_buf, size_t count,
-		       loff_t *ppos)
-{
-	struct il_priv *il = file->private_data;
-	struct ieee80211_channel *channels = NULL;
-	const struct ieee80211_supported_band *supp_band = NULL;
-	int pos = 0, i, bufsz = PAGE_SIZE;
-	char *buf;
-	ssize_t ret;
-
-	if (!test_bit(S_GEO_CONFIGURED, &il->status))
-		return -EAGAIN;
-
-	buf = kzalloc(bufsz, GFP_KERNEL);
-	if (!buf) {
-		IL_ERR("Can not allocate Buffer\n");
-		return -ENOMEM;
-	}
-
-	supp_band = il_get_hw_mode(il, NL80211_BAND_2GHZ);
-	if (supp_band) {
-		channels = supp_band->channels;
-
-		pos +=
-		    scnprintf(buf + pos, bufsz - pos,
-			      "Displaying %d channels in 2.4GHz band 802.11bg):\n",
-			      supp_band->n_channels);
-
-		for (i = 0; i < supp_band->n_channels; i++)
-			pos +=
-			    scnprintf(buf + pos, bufsz - pos,
-				      "%d: %ddBm: BSS%s%s, %s.\n",
-				      channels[i].hw_value,
-				      channels[i].max_power,
-				      channels[i].
-				      flags & IEEE80211_CHAN_RADAR ?
-				      " (IEEE 802.11h required)" : "",
-				      ((channels[i].
-					flags & IEEE80211_CHAN_NO_IR) ||
-				       (channels[i].
-					flags & IEEE80211_CHAN_RADAR)) ? "" :
-				      ", IBSS",
-				      channels[i].
-				      flags & IEEE80211_CHAN_NO_IR ?
-				      "passive only" : "active/passive");
-	}
-	supp_band = il_get_hw_mode(il, NL80211_BAND_5GHZ);
-	if (supp_band) {
-		channels = supp_band->channels;
-
-		pos +=
-		    scnprintf(buf + pos, bufsz - pos,
-			      "Displaying %d channels in 5.2GHz band (802.11a)\n",
-			      supp_band->n_channels);
-
-		for (i = 0; i < supp_band->n_channels; i++)
-			pos +=
-			    scnprintf(buf + pos, bufsz - pos,
-				      "%d: %ddBm: BSS%s%s, %s.\n",
-				      channels[i].hw_value,
-				      channels[i].max_power,
-				      channels[i].
-				      flags & IEEE80211_CHAN_RADAR ?
-				      " (IEEE 802.11h required)" : "",
-				      ((channels[i].
-					flags & IEEE80211_CHAN_NO_IR) ||
-				       (channels[i].
-					flags & IEEE80211_CHAN_RADAR)) ? "" :
-				      ", IBSS",
-				      channels[i].
-				      flags & IEEE80211_CHAN_NO_IR ?
-				      "passive only" : "active/passive");
-	}
-	ret = simple_read_from_buffer(user_buf, count, ppos, buf, pos);
-	kfree(buf);
-	return ret;
-}
-
-static ssize_t
 il_dbgfs_status_read(struct file *file, char __user *user_buf, size_t count,
 		     loff_t *ppos)
 {
@@ -802,7 +723,6 @@ il_dbgfs_disable_ht40_read(struct file *file, char __user *user_buf,
 DEBUGFS_READ_WRITE_FILE_OPS(sram);
 DEBUGFS_READ_FILE_OPS(nvm);
 DEBUGFS_READ_FILE_OPS(stations);
-DEBUGFS_READ_FILE_OPS(channels);
 DEBUGFS_READ_FILE_OPS(status);
 DEBUGFS_READ_WRITE_FILE_OPS(interrupt);
 DEBUGFS_READ_FILE_OPS(qos);
@@ -1303,7 +1223,6 @@ il_dbgfs_register(struct il_priv *il, const char *name)
 	DEBUGFS_ADD_FILE(nvm, dir_data, 0400);
 	DEBUGFS_ADD_FILE(sram, dir_data, 0600);
 	DEBUGFS_ADD_FILE(stations, dir_data, 0400);
-	DEBUGFS_ADD_FILE(channels, dir_data, 0400);
 	DEBUGFS_ADD_FILE(status, dir_data, 0400);
 	DEBUGFS_ADD_FILE(interrupt, dir_data, 0600);
 	DEBUGFS_ADD_FILE(qos, dir_data, 0400);
