@@ -8,17 +8,15 @@
 
 #include "sc846-som-ezkit.dts"
 
-&pinctrl0 {
+&pinctrl {
 	xspi1_quad: xspi1-quad-pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('F', 2,  ADI_ADSP_PINFUNC_ALT0)>, /* SEL1 */
-				 <ADI_ADSP_PINMUX('E', 11, ADI_ADSP_PINFUNC_ALT0)>, /* CLK */
-				 <ADI_ADSP_PINMUX('E', 8,  ADI_ADSP_PINFUNC_ALT0)>, /* D0 */
-				 <ADI_ADSP_PINMUX('E', 7,  ADI_ADSP_PINFUNC_ALT0)>, /* D1 */
-				 <ADI_ADSP_PINMUX('E', 9,  ADI_ADSP_PINFUNC_ALT0)>, /* D2 */
-				 <ADI_ADSP_PINMUX('E', 10, ADI_ADSP_PINFUNC_ALT0)>, /* D3 */
-				 <ADI_ADSP_PINMUX('E', 12, ADI_ADSP_PINFUNC_ALT0)>; /* PHY read loopback */
-		};
+		pinmux = <ADSP_SC846_PF02__XSPI1_SEL1
+			  ADSP_SC846_PE11__XSPI1_CLK
+			  ADSP_SC846_PE08__XSPI1_COTI
+			  ADSP_SC846_PE07__XSPI1_CITO
+			  ADSP_SC846_PE09__XSPI1_D2
+			  ADSP_SC846_PE10__XSPI1_D3
+			  ADSP_SC846_PE12__XSPI1_CLK>; /* PHY read loopback */
 	};
 };
 
