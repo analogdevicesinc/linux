@@ -59,15 +59,6 @@
 	cs-gpios = <&gpio2 15 GPIO_ACTIVE_LOW>;
 	pinctrl-0 = <&pinctrl_ecspi4>;
 	pinctrl-names = "default";
-	status = "okay";
-
-	spidev@0 {
-		compatible = "dh,dhcom-board";
-		reg = <0>;
-		spi-cpha;
-		spi-cpol;
-		spi-max-frequency = <54000000>;
-	};
 };
 
 &gpio1 {
