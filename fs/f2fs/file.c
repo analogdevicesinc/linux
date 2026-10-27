@@ -74,13 +74,8 @@ static int f2fs_zero_post_eof_page(struct inode *inode,
 					loff_t new_size, bool lock, bool writeback)
 {
 	loff_t old_size = i_size_read(inode);
-	bool strict =
-		F2FS_OPTION(F2FS_I_SB(inode)).fsync_mode == FSYNC_MODE_STRICT;
 
 	if (old_size >= new_size)
-		return 0;
-
-	if (!strict && mapping_empty(inode->i_mapping))
 		return 0;
 
 	if (lock)
@@ -90,14 +85,9 @@ static int f2fs_zero_post_eof_page(struct inode *inode,
 	if (lock)
 		filemap_invalidate_unlock(inode->i_mapping);
 
-	if (!writeback || !strict)
+	if (!writeback)
 		return 0;
-	/*
-	 * In fsync_mode=strict, when we expand an unaligned EOF size, we
-	 * should zero post EOF data and writeback the data immediately,
-	 * so that it can avoid exposing stale data after metadata flush
-	 * and POR.
-	 */
+
 	return do_zero_post_eof_page(inode, new_size);
 }
 
