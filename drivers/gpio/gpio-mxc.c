@@ -484,7 +484,7 @@ static int mxc_gpio_probe(struct platform_device *pdev)
 
 	irq_count = platform_irq_count(pdev);
 	if (irq_count < 0)
-		return irq_count;
+		return dev_err_probe(dev, irq_count, "Failed to count irq\n");
 
 	if (irq_count > 1) {
 		port->irq_high = platform_get_irq(pdev, 1);
@@ -499,7 +499,7 @@ static int mxc_gpio_probe(struct platform_device *pdev)
 	/* the controller clock is optional */
 	port->clk = devm_clk_get_optional_enabled(dev, NULL);
 	if (IS_ERR(port->clk))
-		return PTR_ERR(port->clk);
+		return dev_err_probe(dev, PTR_ERR(port->clk), "Failed to get clk\n");
 
 	pm_runtime_get_noresume(dev);
 
@@ -532,7 +532,7 @@ static int mxc_gpio_probe(struct platform_device *pdev)
 
 	err = gpio_generic_chip_init(&port->gen_gc, &config);
 	if (err)
-		return err;
+		return dev_err_probe(dev, err, "Failed to init gpio chip\n");
 
 	port->gen_gc.gc.request = mxc_gpio_request;
 	port->gen_gc.gc.free = mxc_gpio_free;
@@ -548,7 +548,7 @@ static int mxc_gpio_probe(struct platform_device *pdev)
 
 	irq_base = devm_irq_alloc_descs(dev, -1, 0, 32, numa_node_id());
 	if (irq_base < 0)
-		return irq_base;
+		return dev_err_probe(dev, irq_base, "Failed to alloc irq desc\n");
 
 	d_info = (struct irq_domain_info) {
 		.fwnode		= dev_fwnode(dev),
@@ -561,14 +561,15 @@ static int mxc_gpio_probe(struct platform_device *pdev)
 
 	port->domain = devm_irq_domain_instantiate(dev, &d_info);
 	if (IS_ERR(port->domain))
-		return PTR_ERR(port->domain);
+		return dev_err_probe(dev, PTR_ERR(port->domain),
+				     "Failed to create irq domain\n");
 
 	irq_domain_set_pm_device(port->domain, dev);
 
 	/* gpio-mxc can be a generic irq chip */
 	err = mxc_gpio_init_gc(port, irq_base);
 	if (err < 0)
-		return err;
+		return dev_err_probe(dev, err, "Failed to init generic irq chip\n");
 
 	/*
 	 * Register the GPIO chip last: devm_gpiochip_add_data() makes the
@@ -577,7 +578,7 @@ static int mxc_gpio_probe(struct platform_device *pdev)
 	 */
 	err = devm_gpiochip_add_data(dev, &port->gen_gc.gc, port);
 	if (err)
-		return err;
+		return dev_err_probe(dev, err, "Failed to add gpiochip data\n");
 
 	list_add_tail(&port->node, &mxc_gpio_ports);
 
