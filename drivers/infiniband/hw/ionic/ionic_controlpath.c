@@ -1121,21 +1121,25 @@ struct ib_mr *ionic_alloc_mr(struct ib_pd *ibpd, enum ib_mr_type type,
 
 	mr->flags = IONIC_MRF_PHYS_MR;
 
-	rc = ionic_pgtbl_init(dev, &mr->buf, mr->umem, 0, max_sg, PAGE_SIZE);
-	if (rc)
-		goto err_pgtbl;
-
-	mr->buf.tbl_pages = 0;
-
+	mr->buf.tbl_pages = max_sg;
 	rc = ionic_create_mr_cmd(dev, pd, mr, 0, 0);
 	if (rc)
 		goto err_cmd;
 
+	rc = ionic_pgtbl_init(dev, &mr->buf, NULL, 0, max_sg, 0);
+	if (rc)
+		goto err_pgtbl;
+
+	/* NIC reservation was already posted. tbl_pages means "mapped". */
+	mr->buf.tbl_pages = 0;
+
 	return &mr->ibmr;
 
-err_cmd:
-	ionic_pgtbl_unbuf(dev, &mr->buf);
 err_pgtbl:
+	/* Keep the id if the NIC still holds the MR. */
+	if (ionic_destroy_mr_cmd(dev, mr->mrid))
+		goto err_mrid;
+err_cmd:
 	ionic_put_mrid(dev, mr->mrid);
 err_mrid:
 	kfree(mr);
