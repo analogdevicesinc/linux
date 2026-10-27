@@ -1495,6 +1495,11 @@ static void dm_test_set_transfer_funcs_with_luts(struct kunit *test)
 
 	memset(tf, 0, sizeof(*tf));
 	tf->type = TF_TYPE_DISTRIBUTED_POINTS;
+	tf->tf = TRANSFER_FUNCTION_SRGB;
+	KUNIT_EXPECT_EQ(test, __set_output_tf(tf, lut, MAX_COLOR_LUT_ENTRIES, false), 0);
+
+	memset(tf, 0, sizeof(*tf));
+	tf->type = TF_TYPE_DISTRIBUTED_POINTS;
 	tf->tf = TRANSFER_FUNCTION_LINEAR;
 	KUNIT_EXPECT_EQ(test,
 			__set_output_tf_32(tf, lut32, MAX_COLOR_LUT_ENTRIES, false),
@@ -2266,6 +2271,13 @@ static void dm_test_update_plane_color_mgmt_maps_crtc_degamma_lut(struct kunit *
 			(int)TF_TYPE_DISTRIBUTED_POINTS);
 	KUNIT_EXPECT_EQ(test, (int)f.dc_plane_state->in_transfer_func.tf,
 			(int)TRANSFER_FUNCTION_SRGB);
+
+	/* Without legacy sRGB regamma the CRTC LUT applies on a linear base. */
+	f.crtc_state->cm_is_degamma_srgb = false;
+	ret = amdgpu_dm_update_plane_color_mgmt(f.crtc_state, plane_state, f.dc_plane_state);
+	KUNIT_EXPECT_EQ(test, ret, 0);
+	KUNIT_EXPECT_EQ(test, (int)f.dc_plane_state->in_transfer_func.tf,
+			(int)TRANSFER_FUNCTION_LINEAR);
 }
 
 /**
@@ -2298,6 +2310,12 @@ static void dm_test_update_plane_color_mgmt_plane_degamma_lut(struct kunit *test
 	struct drm_plane_state *plane_state = &f.dm_plane_state->base;
 	struct drm_color_lut *lut;
 	int ret;
+
+	/* A wrongly sized plane LUT is ignored and the DGM stays bypassed. */
+	f.dm_plane_state->degamma_lut = dm_test_make_lut_blob(test, 128);
+	ret = amdgpu_dm_update_plane_color_mgmt(f.crtc_state, plane_state, f.dc_plane_state);
+	KUNIT_EXPECT_EQ(test, ret, 0);
+	KUNIT_EXPECT_EQ(test, (int)f.dc_plane_state->in_transfer_func.type, (int)TF_TYPE_BYPASS);
 
 	f.dm_plane_state->degamma_lut =
 		dm_test_make_lut_blob(test, MAX_COLOR_LUT_ENTRIES);
