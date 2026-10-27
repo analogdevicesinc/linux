@@ -1351,6 +1351,7 @@ struct dc_panel_config {
 		unsigned int replay_enable_option;
 		bool enable_frame_skipping;
 		bool enable_teams_optimization;
+		uint16_t frame_update_interval;
 	} psr;
 	/* ABM */
 	struct varib {
