@@ -99,10 +99,9 @@ static const struct irq_domain_ops ioc3_irq_domain_ops = {
 	.unmap = ioc3_irq_domain_unmap,
 };
 
-static void ioc3_irq_handler(struct irq_desc *desc)
+static irqreturn_t ioc3_irq_handler(int irq, void *data)
 {
-	struct irq_domain *domain = irq_desc_get_handler_data(desc);
-	struct ioc3_priv_data *ipd = domain->host_data;
+	struct ioc3_priv_data *ipd = data;
 	struct ioc3 __iomem *regs = ipd->regs;
 	u32 pending, mask;
 
@@ -110,10 +109,12 @@ static void ioc3_irq_handler(struct irq_desc *desc)
 	mask = readl(&regs->sio_ies);
 	pending &= mask; /* Mask off not enabled interrupts */
 
-	if (pending)
-		generic_handle_domain_irq(domain, __ffs(pending));
-	else
-		spurious_interrupt();
+	if (pending) {
+		generic_handle_domain_irq_safe(ipd->domain, __ffs(pending));
+		return IRQ_HANDLED;
+	}
+
+	return IRQ_NONE;
 }
 
 /*
@@ -133,6 +134,7 @@ static int ioc3_irq_domain_setup(struct ioc3_priv_data *ipd, int irq)
 {
 	struct irq_domain *domain;
 	struct fwnode_handle *fn;
+	int ret = -ENOMEM;
 
 	fn = irq_domain_alloc_named_fwnode("IOC3");
 	if (!fn)
@@ -146,13 +148,19 @@ static int ioc3_irq_domain_setup(struct ioc3_priv_data *ipd, int irq)
 
 	ipd->domain = domain;
 
-	irq_set_chained_handler_and_data(irq, ioc3_irq_handler, domain);
+	ret = request_irq(irq, ioc3_irq_handler, IRQF_SHARED, "IOC3", ipd);
+	if (ret) {
+		irq_domain_remove(domain);
+		irq_domain_free_fwnode(fn);
+		ipd->domain = NULL;
+		goto err;
+	}
 	ipd->domain_irq = irq;
 	return 0;
 
 err:
 	dev_err(&ipd->pdev->dev, "irq domain setup failed\n");
-	return -ENOMEM;
+	return ret;
 }
 
 static const struct resource ioc3_uarta_resources[] = {
@@ -614,9 +622,9 @@ static int ioc3_mfd_probe(struct pci_dev *pdev,
 		if (ipd->domain) {
 			struct fwnode_handle *fn = ipd->domain->fwnode;
 
+			free_irq(ipd->domain_irq, (void *)ipd);
 			irq_domain_remove(ipd->domain);
 			irq_domain_free_fwnode(fn);
-			free_irq(ipd->domain_irq, (void *)ipd);
 		}
 		pci_iounmap(pdev, regs);
 		goto out_disable_device;
@@ -644,9 +652,9 @@ static void ioc3_mfd_remove(struct pci_dev *pdev)
 	if (ipd->domain) {
 		struct fwnode_handle *fn = ipd->domain->fwnode;
 
+		free_irq(ipd->domain_irq, (void *)ipd);
 		irq_domain_remove(ipd->domain);
 		irq_domain_free_fwnode(fn);
-		free_irq(ipd->domain_irq, (void *)ipd);
 	}
 	pci_iounmap(pdev, ipd->regs);
 	pci_disable_device(pdev);
