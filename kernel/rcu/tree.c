@@ -25,6 +25,7 @@
 #include <linux/rcupdate_wait.h>
 #include <linux/interrupt.h>
 #include <linux/llist.h>
+#include <linux/ratelimit.h>
 #include <linux/sched.h>
 #include <linux/sched/debug.h>
 #include <linux/nmi.h>
@@ -3154,9 +3155,12 @@ static void check_cb_ovld(struct rcu_data *rdp)
  * already disabled, and a drain of a remote CPU re-issues onto the draining
  * CPU.
  */
+static DEFINE_RATELIMIT_STATE(rcu_dup_rs,
+			      DEFAULT_RATELIMIT_INTERVAL,
+			      DEFAULT_RATELIMIT_BURST);
+
 static void rcu_do_enqueue(struct rcu_head *head, rcu_callback_t func, bool lazy_in)
 {
-	static atomic_t doublefrees;
 	unsigned long flags;
 	bool lazy;
 	struct rcu_data *rdp;
@@ -3167,9 +3171,10 @@ static void rcu_do_enqueue(struct rcu_head *head, rcu_callback_t func, bool lazy
 		 * Use rcu:rcu_callback trace event to find the previous
 		 * time callback was passed to call_rcu().
 		 */
-		if (atomic_inc_return(&doublefrees) < 4) {
+		if (__ratelimit(&rcu_dup_rs)) {
 			pr_err("%s(): Double-freed CB %p->%pS()!!!  ", __func__, head, head->func);
 			mem_dump_obj(head);
+			dump_stack();
 		}
 		WRITE_ONCE(head->func, rcu_leak_callback);
 		return;
