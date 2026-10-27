@@ -674,9 +674,25 @@ static void clocks_init(struct device *dev)
 /*----------------------------------------------------------------------*/
 
 
+static void twl6030_power_off(void)
+{
+	int err;
+	u8 val;
+
+	err = twl_i2c_read_u8(TWL_MODULE_PM_MASTER, &val, TWL6030_PHOENIX_DEV_ON);
+	if (err)
+		return;
+
+	val |= TWL6030_APP_DEVOFF | TWL6030_CON_DEVOFF | TWL6030_MOD_DEVOFF;
+	twl_i2c_write_u8(TWL_MODULE_PM_MASTER, val, TWL6030_PHOENIX_DEV_ON);
+}
+
 static void twl_remove(struct i2c_client *client)
 {
 	unsigned i, num_slaves;
+
+	if (pm_power_off == twl6030_power_off)
+		pm_power_off = NULL;
 
 	if (twl_class_is_4030())
 		twl4030_exit_irq();
@@ -692,19 +708,6 @@ static void twl_remove(struct i2c_client *client)
 		twl->client = NULL;
 	}
 	twl_priv->ready = false;
-}
-
-static void twl6030_power_off(void)
-{
-	int err;
-	u8 val;
-
-	err = twl_i2c_read_u8(TWL_MODULE_PM_MASTER, &val, TWL6030_PHOENIX_DEV_ON);
-	if (err)
-		return;
-
-	val |= TWL6030_APP_DEVOFF | TWL6030_CON_DEVOFF | TWL6030_MOD_DEVOFF;
-	twl_i2c_write_u8(TWL_MODULE_PM_MASTER, val, TWL6030_PHOENIX_DEV_ON);
 }
 
 
