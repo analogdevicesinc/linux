@@ -1707,9 +1707,21 @@ static void dml2_pmo_dcn6_stage_optimizer_fclk_ppt_temp_read_pstate_init(
 		struct dml2_pmo_stage_optimizer *stage, struct dml2_optimization_worksheet *worksheet)
 {
 	DML_LOG_COMP_IF_ENTER();
+
+	static const enum dml2_pstate_type pstate_type_list[] = {
+		dml2_pstate_type_fclk,
+		dml2_pstate_type_ppt,
+		dml2_pstate_type_temp_read,
+	};
+
 	worksheet->fclk_ppt_temp_read_pstate.index = 0;
 	memset(&stage->func_locals->fclk_ppt_temp_read_pstate_optimize, 0,
 			sizeof(struct dml2_stage_optimizer_fclk_ppt_temp_read_pstate_optimize_locals));
+	memcpy(worksheet->fclk_ppt_temp_read_pstate.pstate_type_list, pstate_type_list,
+			sizeof(pstate_type_list));
+	worksheet->fclk_ppt_temp_read_pstate.num_pstate_types = ARRAY_SIZE(pstate_type_list);
+
+	DML_ASSERT_MSG(worksheet->fclk_ppt_temp_read_pstate.num_pstate_types < dml2_pstate_type_count, "Too many pstate types defined");
 	DML_LOG_COMP_IF_EXIT();
 }
 
@@ -1717,11 +1729,6 @@ static bool dml2_pmo_dcn6_stage_optimizer_fclk_ppt_temp_read_pstate_optimize_nex
 		struct dml2_pmo_stage_optimizer *stage, struct dml2_optimization_worksheet *worksheet)
 {
 	const struct dml2_pmo_instance *pmo = stage->pmo;
-	const enum dml2_pstate_type pstate_type_list[3] = {
-		dml2_pstate_type_fclk,
-		dml2_pstate_type_ppt,
-		dml2_pstate_type_temp_read,
-	};
 	struct dml2_stage_optimizer_fclk_ppt_temp_read_pstate_optimize_locals *l
 			= &stage->func_locals->fclk_ppt_temp_read_pstate_optimize;
 	const struct dml2_display_cfg *display_config = worksheet->orig_dispcfg;
@@ -1739,9 +1746,9 @@ static bool dml2_pmo_dcn6_stage_optimizer_fclk_ppt_temp_read_pstate_optimize_nex
 	if (display_config->overrides.all_streams_blanked)
 		goto exit;
 
-	for (i = 0; i < 3; i++) {
+	for (i = 0; i < worksheet->fclk_ppt_temp_read_pstate.num_pstate_types; i++) {
 		dcn6_get_params_for_pstate_type(pmo, worksheet,
-				pstate_type_list[i],
+				worksheet->fclk_ppt_temp_read_pstate.pstate_type_list[i],
 				&l->pstate_allow_delay_us,
 				&l->pstate_blackout_us,
 				&l->pstate_watermark_us);
@@ -1761,7 +1768,7 @@ static bool dml2_pmo_dcn6_stage_optimizer_fclk_ppt_temp_read_pstate_optimize_nex
 			dcn6_build_pstate_meta_per_stream(display_config,
 					pmo->ip_caps,
 					worksheet,
-					pstate_type_list[i],
+					worksheet->fclk_ppt_temp_read_pstate.pstate_type_list[i],
 					l->pstate_watermark_us,
 					l->pstate_blackout_us,
 					l->pstate_allow_delay_us,
@@ -1772,7 +1779,7 @@ static bool dml2_pmo_dcn6_stage_optimizer_fclk_ppt_temp_read_pstate_optimize_nex
 
 		/* always update the worksheet with latest requirements */
 		if (dcn6_update_worksheet_for_pstate_admissibility(worksheet,
-				l->per_stream_pstate_meta, pstate_type_list[i])) {
+				l->per_stream_pstate_meta, worksheet->fclk_ppt_temp_read_pstate.pstate_type_list[i])) {
 			modified = true;
 			DML_LOG_VERBOSE("fclk_ppt_temp_read pstate not admissible with current worksheet, adjusting the reserved vblank time\n");
 		}

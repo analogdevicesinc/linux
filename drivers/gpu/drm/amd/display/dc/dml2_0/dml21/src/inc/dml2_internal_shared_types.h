@@ -644,6 +644,9 @@ struct dml2_optimization_worksheet {
 
 	struct {
 		unsigned int index;
+
+		enum dml2_pstate_type pstate_type_list[dml2_pstate_type_count];
+		unsigned int num_pstate_types;
 	} fclk_ppt_temp_read_pstate;
 
 	/*
