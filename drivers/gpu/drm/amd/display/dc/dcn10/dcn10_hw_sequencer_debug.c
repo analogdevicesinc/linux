@@ -524,7 +524,7 @@ static unsigned int dcn10_get_link_states(struct dc *dc, char *pBuf, unsigned in
 	unsigned int i;
 
 	chars_printed = snprintf_count(pBuf, remaining_buffer,
-		"link,enc,hpd,dig_en,dig_mode,dig_fe,src_otg,preferred_otg,phy_on,phy_active\n");
+		"link,enc,hpd,dig_en,dig_mode,dig_fe,src_otg,preferred_otg\n");
 	remaining_buffer -= chars_printed;
 	pBuf += chars_printed;
 
@@ -532,8 +532,6 @@ static unsigned int dcn10_get_link_states(struct dc *dc, char *pBuf, unsigned in
 		struct dc_link *link = dc->links[i];
 		struct link_encoder *enc = link ? link->link_enc : NULL;
 		int hpd = -1, dig_en = -1, dig_mode = -1, dig_fe = -1, src_otg = -1;
-		int phy_on = -1, phy_active = -1;
-		struct link_enc_state s = {0};
 
 		if (!enc || link->connector_signal == SIGNAL_TYPE_VIRTUAL)
 			continue;
@@ -548,19 +546,11 @@ static unsigned int dcn10_get_link_states(struct dc *dc, char *pBuf, unsigned in
 			dig_fe = enc->funcs->get_dig_frontend(enc);
 			src_otg = dcn10_dig_source_otg(dc, dig_fe);
 		}
-		s.rdpcs_phy_reset = HW_STATE_NOT_READ;
-		s.rdpcs_tx_data_en = HW_STATE_NOT_READ;
-		if (enc->funcs->read_state)
-			enc->funcs->read_state(enc, &s);
-		if (s.rdpcs_phy_reset != HW_STATE_NOT_READ)
-			phy_on = s.rdpcs_phy_reset == 0;
-		if (s.rdpcs_tx_data_en != HW_STATE_NOT_READ)
-			phy_active = s.rdpcs_tx_data_en != 0;
 
 		chars_printed = snprintf_count(pBuf, remaining_buffer,
-			"%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+			"%d,%d,%d,%d,%d,%d,%d,%d\n",
 			i, enc->transmitter, hpd, dig_en, dig_mode, dig_fe,
-			src_otg, enc->preferred_engine, phy_on, phy_active);
+			src_otg, enc->preferred_engine);
 		remaining_buffer -= chars_printed;
 		pBuf += chars_printed;
 	}
