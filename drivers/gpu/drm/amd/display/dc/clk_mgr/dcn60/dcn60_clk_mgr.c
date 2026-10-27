@@ -1458,7 +1458,9 @@ static unsigned int dcn60_build_bandwidth_clocks_block_sequence_with_action(
 				!action->alt_ch.disable
 				&& (action->alt_ch.enable
 						|| clk_mgr_base->clks.alt_ch_pstate_switch);
-		block_sequence[num_steps].params.indicate_pstate_status_params.wait_resp = false;
+		block_sequence[num_steps].params.indicate_pstate_status_params.wait_resp =
+				action->fams.enable
+				|| clk_mgr_base->clks.fw_based_mclk_switching;
 		block_sequence[num_steps].func = CLK_MGR60_INDICATE_PSTATE_STATUS;
 		num_steps++;
 	}
