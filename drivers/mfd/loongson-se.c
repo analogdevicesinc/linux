@@ -199,7 +199,10 @@ static int loongson_se_probe(struct platform_device *pdev)
 	spin_lock_init(&se->dev_lock);
 	mutex_init(&se->engine_init_lock);
 
-	dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
+	err = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
+	if (err)
+		return err;
+
 	if (device_property_read_u32(dev, "dmam_size", &se->dmam_size))
 		return -ENODEV;
 
