@@ -2,7 +2,7 @@
 /*
  * Microchip MCP47A1 DAC driver
  *
- * Copyright (c) 2026 Joshua Crofts <joshua.crofts1@gmail.com>
+ * Copyright (c) 2026 Joshua Crofts <crofts@kernel.org>
  *
  * Datasheet: https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/DataSheets/25154A.pdf
  */
@@ -161,6 +161,6 @@ static struct i2c_driver mcp47a1_driver = {
 };
 module_i2c_driver(mcp47a1_driver);
 
-MODULE_AUTHOR("Joshua Crofts <joshua.crofts1@gmail.com>");
+MODULE_AUTHOR("Joshua Crofts <crofts@kernel.org>");
 MODULE_DESCRIPTION("Microchip MCP47A1 DAC Driver");
 MODULE_LICENSE("GPL");

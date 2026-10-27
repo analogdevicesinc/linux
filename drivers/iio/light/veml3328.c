@@ -2,7 +2,7 @@
 /*
  * Vishay VEML3328 RGBCIR light sensor driver
  *
- * Copyright (c) 2026 Joshua Crofts <joshua.crofts1@gmail.com>
+ * Copyright (c) 2026 Joshua Crofts <crofts@kernel.org>
  *
  * Datasheet: https://www.vishay.com/docs/84968/veml3328.pdf
  */
@@ -440,6 +440,6 @@ static struct i2c_driver veml3328_driver = {
 };
 module_i2c_driver(veml3328_driver);
 
-MODULE_AUTHOR("Joshua Crofts <joshua.crofts1@gmail.com>");
+MODULE_AUTHOR("Joshua Crofts <crofts@kernel.org>");
 MODULE_DESCRIPTION("VEML3328 RGBCIR Light Sensor");
 MODULE_LICENSE("GPL");
