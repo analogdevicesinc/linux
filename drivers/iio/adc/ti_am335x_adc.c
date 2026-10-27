@@ -635,7 +635,7 @@ static int tiadc_probe(struct platform_device *pdev)
 
 	adc_dev = iio_priv(indio_dev);
 
-	adc_dev->mfd_tscadc = ti_tscadc_dev_get(pdev);
+	adc_dev->mfd_tscadc = dev_get_drvdata(pdev->dev.parent);
 	tiadc_parse_dt(pdev, adc_dev);
 
 	indio_dev->name = dev_name(&pdev->dev);
