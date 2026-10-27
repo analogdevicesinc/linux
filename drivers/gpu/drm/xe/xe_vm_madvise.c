@@ -407,6 +407,10 @@ static bool madvise_args_are_sane(struct xe_device *xe, const struct drm_xe_madv
 
 		if (XE_IOCTL_DBG(xe, args->pat_index.reserved))
 			return false;
+
+		if (XE_IOCTL_DBG(xe, xe_pat_wa_14026539277_reserved(xe, pat_index)))
+			return false;
+
 		break;
 	}
 	case DRM_XE_VMA_ATTR_PURGEABLE_STATE:
