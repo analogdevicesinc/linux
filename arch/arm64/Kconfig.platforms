@@ -350,6 +350,7 @@ config ARCH_SC59X_64
 	select ADI_ADSP_PINT
 	select SPI_ADI
 	select COUNTER
+	select PINCTRL_ADSP
 	help
 		This enables support for Analog Devices Incorporated's
 		Family of ARM64 processors
@@ -364,6 +365,7 @@ config ARCH_SC84X
 	select ADI_ADSP_PINT
 	select SPI_ADI
 	select COMMON_CLK_ADI_SC846
+	select PINCTRL_ADSP
 	help
 		This enables support for Analog Devices Incorporated's
 		SC84X family of ARM64 processors.
