@@ -43,6 +43,7 @@ enum {
 	INTEL_TLV_OTP_BDADDR,
 	INTEL_TLV_UNLOCKED_STATE,
 	INTEL_TLV_GIT_SHA1,
+	INTEL_TLV_FIPS_STS = 0x3b,
 	INTEL_TLV_UNLOCK_POLICY = 0x3c,
 	INTEL_TLV_PLATFORM_ID = 0x3d,
 	INTEL_TLV_FW_ID = 0x50
@@ -112,6 +113,7 @@ struct intel_version_tlv {
 	bdaddr_t otp_bd_addr;
 	u8	unlock_policy;
 	u8	platform_id[6];
+	u8	crc_sts, sec_sts, patch_sts;
 };
 
 struct intel_version {
@@ -331,6 +333,8 @@ int btintel_shutdown_combined(struct hci_dev *hdev);
 void btintel_hw_error(struct hci_dev *hdev, u8 code);
 void btintel_print_fseq_info(struct hci_dev *hdev);
 int btintel_acpi_reset_method(struct hci_dev *hdev);
+int btintel_check_fips_status(struct hci_dev *hdev,
+			      struct intel_version_tlv *ver);
 #else
 
 static inline int btintel_check_bdaddr(struct hci_dev *hdev)
@@ -467,5 +471,11 @@ static inline void btintel_print_fseq_info(struct hci_dev *hdev)
 static inline int btintel_acpi_reset_method(struct hci_dev *hdev)
 {
 	return -ENODEV;
+}
+
+static inline int btintel_check_fips_status(struct hci_dev *hdev,
+					    struct intel_version_tlv *ver)
+{
+	return -EOPNOTSUPP;
 }
 #endif

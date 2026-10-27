@@ -3786,13 +3786,16 @@ exit_error:
 	return err;
 }
 
-static int btintel_pcie_setup_internal(struct hci_dev *hdev)
+static int btintel_pcie_setup_internal(struct hci_dev *hdev,
+				       bool *fips_crc_failed)
 {
 	struct btintel_pcie_data *data = hci_get_drvdata(hdev);
 	const u8 param[1] = { 0xFF };
 	struct intel_version_tlv ver_tlv;
 	struct sk_buff *skb;
 	int err;
+
+	*fips_crc_failed = false;
 
 	BT_DBG("%s", hdev->name);
 
@@ -3855,6 +3858,12 @@ static int btintel_pcie_setup_internal(struct hci_dev *hdev)
 		/* Display version information of TLV type */
 		btintel_version_info_tlv(hdev, &ver_tlv);
 
+		err = btintel_check_fips_status(hdev, &ver_tlv);
+		if (err) {
+			*fips_crc_failed = (err == -ENOEXEC);
+			goto exit_error;
+		}
+
 		/* Apply the device specific HCI quirks for TLV based devices
 		 *
 		 * All TLV based devices support WBS
@@ -3900,8 +3909,13 @@ static int btintel_pcie_setup(struct hci_dev *hdev)
 {
 	int err, fw_dl_retry = 0;
 	struct btintel_pcie_data *data = hci_get_drvdata(hdev);
+	bool fips_crc_failed;
 
-	while ((err = btintel_pcie_setup_internal(hdev)) && fw_dl_retry++ < 1) {
+	while ((err = btintel_pcie_setup_internal(hdev, &fips_crc_failed)) &&
+	       fw_dl_retry++ < 1) {
+		if (fips_crc_failed)
+			break;
+
 		bt_dev_err(hdev, "Firmware download retry count: %d",
 			   fw_dl_retry);
 		btintel_pcie_dump_debug_registers(hdev);
