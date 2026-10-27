@@ -201,6 +201,7 @@ properties:
 
       - items:
           - enum:
+              - microsoft,surface-laptop-8-13p8
               - qcom,mahua-crd
           - const: qcom,mahua
 
