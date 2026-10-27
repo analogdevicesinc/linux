@@ -62,13 +62,15 @@ static int dynamic_funnel_enable_hw(struct funnel_drvdata *drvdata, int port)
 		rc = coresight_claim_device_unlocked(csdev);
 		if (rc)
 			goto done;
+
+		/* Update priorities while all ports are disabled */
+		writel_relaxed(drvdata->priority, drvdata->base + FUNNEL_PRICTL);
 	}
 
 	functl &= ~FUNNEL_HOLDTIME_MASK;
 	functl |= FUNNEL_HOLDTIME;
 	functl |= (1 << port);
 	writel_relaxed(functl, drvdata->base + FUNNEL_FUNCTL);
-	writel_relaxed(drvdata->priority, drvdata->base + FUNNEL_PRICTL);
 done:
 	CS_LOCK(drvdata->base);
 	return rc;
