@@ -4568,9 +4568,6 @@ set_identity_unlock:
 		r = -EFAULT;
 		if (copy_from_user(&u.ps, argp, sizeof(struct kvm_pit_state)))
 			goto out;
-		r = -ENXIO;
-		if (!kvm->arch.vpit)
-			goto out;
 		r = kvm_vm_ioctl_get_pit(kvm, &u.ps);
 		if (r)
 			goto out;
@@ -4585,18 +4582,11 @@ set_identity_unlock:
 		if (copy_from_user(&u.ps, argp, sizeof(u.ps)))
 			goto out;
 		mutex_lock(&kvm->lock);
-		r = -ENXIO;
-		if (!kvm->arch.vpit)
-			goto set_pit_out;
 		r = kvm_vm_ioctl_set_pit(kvm, &u.ps);
-set_pit_out:
 		mutex_unlock(&kvm->lock);
 		break;
 	}
 	case KVM_GET_PIT2: {
-		r = -ENXIO;
-		if (!kvm->arch.vpit)
-			goto out;
 		r = kvm_vm_ioctl_get_pit2(kvm, &u.ps2);
 		if (r)
 			goto out;
@@ -4611,11 +4601,7 @@ set_pit_out:
 		if (copy_from_user(&u.ps2, argp, sizeof(u.ps2)))
 			goto out;
 		mutex_lock(&kvm->lock);
-		r = -ENXIO;
-		if (!kvm->arch.vpit)
-			goto set_pit2_out;
 		r = kvm_vm_ioctl_set_pit2(kvm, &u.ps2);
-set_pit2_out:
 		mutex_unlock(&kvm->lock);
 		break;
 	}
@@ -4623,9 +4609,6 @@ set_pit2_out:
 		struct kvm_reinject_control control;
 		r =  -EFAULT;
 		if (copy_from_user(&control, argp, sizeof(control)))
-			goto out;
-		r = -ENXIO;
-		if (!kvm->arch.vpit)
 			goto out;
 		r = kvm_vm_ioctl_reinject(kvm, &control);
 		break;
