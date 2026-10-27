@@ -883,11 +883,24 @@ static int smu_early_init(struct amdgpu_ip_block *ip_block)
 
 	r = smu_set_funcs(adev);
 	if (r)
-		return r;
+		goto free_smu;
 
 	smu_feature_init(smu, SMU_FEATURE_NUM_DEFAULT);
 
-	return smu_init_microcode(smu);
+	r = smu_init_microcode(smu);
+	if (r) {
+		smu_fini_microcode(smu);
+		goto free_smu;
+	}
+
+	return 0;
+
+free_smu:
+	adev->powerplay.pp_handle = NULL;
+	adev->powerplay.pp_funcs = NULL;
+	kfree(smu);
+
+	return r;
 }
 
 static int smu_set_default_dpm_table(struct smu_context *smu)
@@ -1243,7 +1256,7 @@ static int smu_smc_table_sw_init(struct smu_context *smu)
 	ret = smu_init_power(smu);
 	if (ret) {
 		dev_err(smu->adev->dev, "Failed to init smu_init_power!\n");
-		return ret;
+		goto fini_tables;
 	}
 
 	/*
@@ -1251,21 +1264,35 @@ static int smu_smc_table_sw_init(struct smu_context *smu)
 	 */
 	ret = smu_init_fb_allocations(smu);
 	if (ret)
-		return ret;
+		goto fini_power;
 
 	ret = smu_alloc_memory_pool(smu);
 	if (ret)
-		return ret;
+		goto free_memory_pool;
 
 	ret = smu_alloc_dummy_read_table(smu);
 	if (ret)
-		return ret;
+		goto free_dummy_read_table;
 
 	ret = smu_i2c_init(smu);
 	if (ret)
-		return ret;
+		goto fini_i2c;
 
 	return 0;
+
+fini_i2c:
+	smu_i2c_fini(smu);
+free_dummy_read_table:
+	smu_free_dummy_read_table(smu);
+free_memory_pool:
+	smu_free_memory_pool(smu);
+	smu_fini_fb_allocations(smu);
+fini_power:
+	smu_fini_power(smu);
+fini_tables:
+	smu_fini_smc_tables(smu);
+
+	return ret;
 }
 
 static int smu_smc_table_sw_fini(struct smu_context *smu)
