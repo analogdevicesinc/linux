@@ -39,10 +39,16 @@ properties:
         description:
           Enable the use of an external mute for headset pop reduction.
 
+      ti,hs_extmute-gpios:
+        description:
+          The GPIO specifier for the external mute control.
+        maxItems: 1
+
       ti,hs_extmute_gpio:
         $ref: /schemas/types.yaml#/definitions/phandle-array
         description:
-          The GPIO specifier for the external mute control.
+          Deprecated legacy name for ti,hs_extmute-gpios.
+        deprecated: true
         maxItems: 1
 
       ti,offset_cncl_path:
