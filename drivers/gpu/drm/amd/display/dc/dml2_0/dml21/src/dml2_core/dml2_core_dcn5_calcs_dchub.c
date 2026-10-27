@@ -4893,7 +4893,7 @@ void dcn5_calculate_vm_group_and_request_times(
 			num_group_per_lower_vm_stage_pref = num_group_per_lower_vm_stage;
 
 			if (display_cfg->plane_descriptors[k].tdlut.setup_for_tdlut && display_cfg->gpuvm_enable) {
-				num_group_per_lower_vm_stage_pref += (unsigned int) math_ceil2(tdlut_pte_bytes_per_frame[k] / vm_group_bytes[k], 1);
+				num_group_per_lower_vm_stage_pref += (unsigned int) math_ceil2((double) tdlut_pte_bytes_per_frame[k] / (double) vm_group_bytes[k], 1);
 				if (display_cfg->gpuvm_max_page_table_levels >= 2)
 					num_group_per_lower_vm_stage_pref += 1; // tdpe0 group
 			}
