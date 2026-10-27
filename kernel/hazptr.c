@@ -112,6 +112,10 @@ void *__hazptr_acquire(struct hazptr_ctx *ctx, void * const *addr_p)
 	 *   synchronize forward progress.
 	 */
 	slot = hazptr_chain_backup_slot(ctx);
+#ifdef CONFIG_HAZPTR_DEBUG
+	/* Unlike a per-CPU slot, the backup slot can be released on any CPU. */
+	ctx->detach_cpu = true;
+#endif
 	WRITE_ONCE(slot->addr, HAZPTR_WILDCARD);	/* Store B */
 
 	/* Memory ordering: Store B before Load A. */
