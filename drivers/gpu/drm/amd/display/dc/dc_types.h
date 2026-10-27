@@ -1271,6 +1271,8 @@ struct replay_config {
 	bool received_frame_skipping_error_hpd;
 	/* Live capture with CVT is activated */
 	bool live_capture_with_cvt_activated;
+	/* Bypass link_off_frame_count == 0 check to allow Replay in general_ui scenario */
+	bool bypass_link_off_frame_cnt_check;
 };
 
 /* Replay feature flags*/
