@@ -509,6 +509,7 @@ struct snd_ice1712_card_info {
 	const char *name;
 	const char *model;
 	const char *driver;
+	int (*eeprom_init)(struct snd_ice1712 *ice);
 	int (*chip_init)(struct snd_ice1712 *);
 	void (*chip_exit)(struct snd_ice1712 *);
 	int (*build_controls)(struct snd_ice1712 *);
