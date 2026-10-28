@@ -975,6 +975,9 @@ static vm_fault_t exfat_page_mkwrite(struct vm_fault *vmf)
 	vm_fault_t ret;
 	loff_t new_valid_size, mmap_valid_size, fault_page_start;
 
+	if (exfat_forced_shutdown(inode->i_sb))
+		return vmf_fs_error(-EIO);
+
 	if (!inode_trylock(inode))
 		return VM_FAULT_RETRY;
 

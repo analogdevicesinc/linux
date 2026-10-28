@@ -1287,8 +1287,6 @@ static int svc_tcp_recvfrom(struct svc_rqst *rqstp)
 
 	rqstp->rq_xprt_ctxt   = NULL;
 	rqstp->rq_prot	      = IPPROTO_TCP;
-	assign_bit(RQ_LOCAL, &rqstp->rq_flags,
-		   test_bit(XPT_LOCAL, &svsk->sk_xprt.xpt_flags));
 
 	/* Completing one message stops ->read_sock with whatever
 	 * follows still queued, and no path from here re-arms XPT_DATA.

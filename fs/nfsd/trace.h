@@ -2293,25 +2293,6 @@ TRACE_EVENT(nfsd_ctl_time,
 	)
 );
 
-TRACE_EVENT(nfsd_ctl_recoverydir,
-	TP_PROTO(
-		const struct net *net,
-		const char *recdir
-	),
-	TP_ARGS(net, recdir),
-	TP_STRUCT__entry(
-		__field(unsigned int, netns_ino)
-		__string(recdir, recdir)
-	),
-	TP_fast_assign(
-		__entry->netns_ino = net->ns.inum;
-		__assign_str(recdir);
-	),
-	TP_printk("recdir=%s",
-		__get_str(recdir)
-	)
-);
-
 TRACE_EVENT(nfsd_end_grace,
 	TP_PROTO(
 		const struct net *net

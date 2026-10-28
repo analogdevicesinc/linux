@@ -93,7 +93,8 @@ xdr_nfsace_encode(struct xdr_array2_desc *desc, void *elem)
 int nfsacl_encode(struct xdr_buf *buf, unsigned int base, struct inode *inode,
 		  struct posix_acl *acl, int encode_entries, int typeflag)
 {
-	int entries = (acl && acl->a_count) ? max_t(int, acl->a_count, 4) : 0;
+	int entries = (acl && acl->a_count >= 3) ?
+		      max_t(int, acl->a_count, 4) : 0;
 	struct nfsacl_encode_desc nfsacl_desc = {
 		.desc = {
 			.elem_size = 12,
@@ -156,7 +157,8 @@ bool nfs_stream_encode_acl(struct xdr_stream *xdr, struct inode *inode,
 			   int typeflag)
 {
 	const size_t elem_size = XDR_UNIT * 3;
-	u32 entries = (acl && acl->a_count) ? max_t(int, acl->a_count, 4) : 0;
+	u32 entries = (acl && acl->a_count >= 3) ?
+		      max_t(int, acl->a_count, 4) : 0;
 	struct nfsacl_encode_desc nfsacl_desc = {
 		.desc = {
 			.elem_size = elem_size,

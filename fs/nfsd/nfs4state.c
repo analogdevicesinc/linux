@@ -1649,7 +1649,7 @@ static unsigned int clientid_hashval(u32 id)
 
 static unsigned int clientstr_hashval(struct xdr_netobj name)
 {
-	return opaque_hashval(name.data, 8) & CLIENT_HASH_MASK;
+	return opaque_hashval(name.data, name.len) & CLIENT_HASH_MASK;
 }
 
 /*
@@ -1781,6 +1781,7 @@ static void nfs4_free_ol_stateid(struct nfs4_stid *stid)
 static void nfs4_free_lock_stateid(struct nfs4_stid *stid)
 {
 	struct nfs4_ol_stateid *stp = openlockstateid(stid);
+	struct nfs4_ol_stateid *open_stp = stp->st_openstp;
 	struct nfs4_lockowner *lo = lockowner(stp->st_stateowner);
 	struct nfsd_file *nf;
 
@@ -1791,6 +1792,8 @@ static void nfs4_free_lock_stateid(struct nfs4_stid *stid)
 		nfsd_file_put(nf);
 	}
 	nfs4_free_ol_stateid(stid);
+	if (open_stp)
+		nfs4_put_stid(&open_stp->st_stid);
 }
 
 /*
@@ -2082,6 +2085,7 @@ static void revoke_one_stid(struct nfsd_net *nn, struct nfs4_client *clp,
 			atomic_inc(&clp->cl_admin_revoked);
 		}
 		spin_unlock(&clp->cl_lock);
+		nfsd4_stop_layout_fence(layoutstateid(stid));
 		nfsd4_close_layout(layoutstateid(stid));
 		drop_stid_export(clp, stid);
 		break;
@@ -2102,7 +2106,7 @@ static void revoke_one_stid(struct nfsd_net *nn, struct nfs4_client *clp,
  * The clients which own the states will subsequently be notified that the
  * states have been "admin-revoked".
  *
- * Context: Caller must hold nfsd_mutex with NFSD_NET_UP set.  Outside
+ * Context: Caller must hold nn->nfsd_mutex with NFSD_NET_UP set.  Outside
  *          that window nn->conf_id_hashtbl is unallocated or freed,
  *          so the walk would dereference a NULL or dangling pointer.
  */
@@ -2111,7 +2115,7 @@ void nfsd4_revoke_states(struct nfsd_net *nn, struct super_block *sb)
 	unsigned int idhashval;
 	unsigned int sc_types;
 
-	lockdep_assert_held(&nfsd_mutex);
+	lockdep_assert_held(&nn->nfsd_mutex);
 
 	sc_types = SC_TYPE_OPEN | SC_TYPE_LOCK | SC_TYPE_DELEG | SC_TYPE_LAYOUT;
 
@@ -2190,7 +2194,7 @@ static struct nfs4_stid *find_one_export_stid(struct nfs4_client *clp,
  * Userspace (exportfs -u) sends this after removing the last client
  * for a path, enabling the underlying filesystem to be unmounted.
  *
- * Context: Caller must hold nfsd_mutex with NFSD_NET_UP set.  Outside
+ * Context: Caller must hold nn->nfsd_mutex with NFSD_NET_UP set.  Outside
  *          that window nn->conf_id_hashtbl is unallocated or freed,
  *          so the walk would dereference a NULL or dangling pointer.
  */
@@ -2199,7 +2203,7 @@ void nfsd4_revoke_export_states(struct nfsd_net *nn, const struct path *path)
 	unsigned int idhashval;
 	unsigned int sc_types;
 
-	lockdep_assert_held(&nfsd_mutex);
+	lockdep_assert_held(&nn->nfsd_mutex);
 
 	sc_types = SC_TYPE_OPEN | SC_TYPE_LOCK | SC_TYPE_DELEG | SC_TYPE_LAYOUT;
 
@@ -2803,6 +2807,15 @@ static void __free_client(struct kref *k)
 	idr_destroy(&clp->cl_stateids);
 	kfree(clp->cl_ra);
 	kmem_cache_free(client_slab, clp);
+}
+
+/**
+ * nfsd4_get_client - acquire a reference on an nfs4_client
+ * @clp: the client to be acquired
+ */
+void nfsd4_get_client(struct nfs4_client *clp)
+{
+	kref_get(&clp->cl_nfsdfs.cl_ref);
 }
 
 /**
@@ -4810,7 +4823,7 @@ static struct nfsd4_conn *__nfsd4_find_conn(struct svc_xprt *xpt, struct nfsd4_s
 }
 
 static __be32 nfsd4_match_existing_connection(struct svc_rqst *rqst,
-		struct nfsd4_session *session, u32 req, struct nfsd4_conn **conn)
+		struct nfsd4_session *session, u32 req)
 {
 	struct nfs4_client *clp = session->se_client;
 	struct svc_xprt *xpt = rqst->rq_xprt;
@@ -4832,9 +4845,10 @@ static __be32 nfsd4_match_existing_connection(struct svc_rqst *rqst,
 		status = nfs_ok;
 	else
 		status = nfserr_inval;
+	if (status == nfs_ok &&
+	    (req == NFS4_CDFC4_FORE_OR_BOTH || req == NFS4_CDFC4_BACK))
+		c->cn_flags |= NFS4_CDFC4_BACK;
 	spin_unlock(&clp->cl_lock);
-	if (status == nfs_ok && conn)
-		*conn = c;
 	return status;
 }
 
@@ -4859,12 +4873,8 @@ __be32 nfsd4_bind_conn_to_session(struct svc_rqst *rqstp,
 	status = nfserr_wrong_cred;
 	if (!nfsd4_mach_creds_match(session->se_client, rqstp))
 		goto out;
-	status = nfsd4_match_existing_connection(rqstp, session,
-			bcts->dir, &conn);
+	status = nfsd4_match_existing_connection(rqstp, session, bcts->dir);
 	if (status == nfs_ok) {
-		if (bcts->dir == NFS4_CDFC4_FORE_OR_BOTH ||
-				bcts->dir == NFS4_CDFC4_BACK)
-			conn->cn_flags |= NFS4_CDFC4_BACK;
 		nfsd4_probe_callback(session->se_client);
 		goto out;
 	}
@@ -5861,6 +5871,7 @@ static void nfsd4_drop_revoked_stid(struct nfs4_stid *s)
 		ls = layoutstateid(s);
 		list_del_init(&ls->ls_perclnt);
 		spin_unlock(&cl->cl_lock);
+		nfsd4_stop_layout_fence(ls);
 		nfs4_put_stid(s);
 		break;
 	default:
@@ -9301,6 +9312,7 @@ retry:
 			exp_get(open_stp->st_stid.sc_export);
 	stp->st_access_bmap = 0;
 	stp->st_deny_bmap = open_stp->st_deny_bmap;
+	refcount_inc(&open_stp->st_stid.sc_count);
 	stp->st_openstp = open_stp;
 	spin_lock(&fp->fi_lock);
 	list_add(&stp->st_locks, &open_stp->st_locks);
@@ -9959,19 +9971,6 @@ alloc_reclaim(void)
 	return kmalloc_obj(struct nfs4_client_reclaim);
 }
 
-bool
-nfs4_has_reclaimed_state(struct xdr_netobj name, struct nfsd_net *nn)
-{
-	struct nfs4_client_reclaim *crp;
-	bool found;
-
-	down_read(&nn->reclaim_str_hashtbl_lock);
-	crp = nfsd4_find_reclaim_client(name, nn);
-	found = (crp && crp->cr_clp);
-	up_read(&nn->reclaim_str_hashtbl_lock);
-	return found;
-}
-
 /*
  * failure => all reset bets are off, nfserr_no_grace...
  */
@@ -9985,12 +9984,12 @@ nfs4_client_to_reclaim(struct xdr_netobj name, struct xdr_netobj princhash,
 	down_write(&nn->reclaim_str_hashtbl_lock);
 
 	/*
-	 * A reclaim record for this client name may already exist (for
-	 * example, populated at boot from the recovery directory before
-	 * an in-grace RECLAIM_COMPLETE or an nfsdcld downcall delivers
-	 * the same name). Dedup here so reclaim_str_hashtbl_size stays
-	 * equal to the number of distinct client names; inc_reclaim_complete
-	 * relies on that equality to end the grace period via the fast path.
+	 * A reclaim record for this client name may already exist:
+	 * nfsdcld can deliver the same name more than once during the
+	 * boot-time downcall stream. Dedup here so reclaim_str_hashtbl_size
+	 * stays equal to the number of distinct client names;
+	 * inc_reclaim_complete relies on that equality to end the grace
+	 * period via the fast path.
 	 */
 	crp = nfsd4_find_reclaim_client(name, nn);
 	if (crp) {

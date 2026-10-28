@@ -261,11 +261,16 @@ const struct iomap_ops exfat_write_iomap_ops = {
 static ssize_t exfat_writeback_range(struct iomap_writepage_ctx *wpc,
 		struct folio *folio, u64 offset, unsigned int len, u64 end_pos)
 {
+	struct inode *inode = wpc->inode;
+
+	if (exfat_forced_shutdown(inode->i_sb))
+		return -EIO;
+
 	if (offset < wpc->iomap.offset ||
 	    offset >= wpc->iomap.offset + wpc->iomap.length) {
 		int error;
 
-		error = __exfat_iomap_begin(wpc->inode, offset, len,
+		error = __exfat_iomap_begin(inode, offset, len,
 				0, &wpc->iomap, false);
 		if (error)
 			return error;
