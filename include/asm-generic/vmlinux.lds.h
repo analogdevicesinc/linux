@@ -296,6 +296,19 @@
 #define TRACE_SYSCALLS()
 #endif
 
+#ifdef CONFIG_KAPI_SPEC
+/*
+ * .kapi_specs is an array of pointers (see DEFINE_KERNEL_API_SPEC()). Align
+ * __start_kapi_specs to at least pointer alignment so that no padding
+ * separates it from the first entry.
+ */
+#define KAPI_SPECS()							\
+	. = ALIGN(8);							\
+	BOUNDED_SECTION_BY(.kapi_specs, _kapi_specs)
+#else
+#define KAPI_SPECS()
+#endif
+
 #ifdef CONFIG_BPF_EVENTS
 #define BPF_RAW_TP() STRUCT_ALIGN();				\
 	BOUNDED_SECTION_BY(__bpf_raw_tp_map, __bpf_raw_tp)
@@ -485,6 +498,7 @@
 		. = ALIGN(8);						\
 		BOUNDED_SECTION_BY(__tracepoints_ptrs, ___tracepoints_ptrs) \
 		*(__tracepoints_strings)/* Tracepoints: strings */	\
+		KAPI_SPECS()						\
 	}								\
 									\
 	.rodata1          : AT(ADDR(.rodata1) - LOAD_OFFSET) {		\

@@ -175,6 +175,32 @@ ifneq ($(KBUILD_EXTRA_WARN),)
 endif
 endif
 
+ifeq ($(CONFIG_KAPI_SPEC),y)
+# kernel-doc -apispec emits a spec only for comments with two or more KAPI
+# sections; pick files with a contexts: (or context-flags:) line and one more
+# KAPI section.
+has-apispec = $(if $(strip $(1)),$(shell \
+	grep -lE '^[[:space:]]*\*[[:space:]]*(contexts|context-flags):' $(1) 2>/dev/null | \
+	xargs -r grep -lE '^[[:space:]]*\*[[:space:]]*(api-type|param|error|capability|signal|lock|state-trans|constraint|side-effect|long-desc):'))
+apispec-c-files := $(call has-apispec, \
+	$(patsubst $(obj)/%.o,$(src)/%.c, \
+		$(filter-out %/built-in.a,$(real-obj-y))))
+apispec-y := $(patsubst $(src)/%.c,$(obj)/%.apispec.h,$(apispec-c-files))
+always-y += $(apispec-y)
+targets += $(apispec-y)
+
+quiet_cmd_apispec = APISPEC $@
+      cmd_apispec = PYTHONDONTWRITEBYTECODE=1 $(PYTHON3) $(KERNELDOC) -apispec \
+                    $(KDOCFLAGS) $< > $@
+
+$(obj)/%.apispec.h: $(src)/%.c $(KERNELDOC) \
+		$(wildcard $(srctree)/tools/lib/python/kdoc/*.py) FORCE
+	$(call if_changed,apispec)
+
+$(apispec-y:.apispec.h=.o): $(obj)/%.o: $(obj)/%.apispec.h
+$(apispec-y:.apispec.h=.o): private c_flags += -include $(obj)/$*.apispec.h
+endif
+
 # Compile C sources (.c)
 # ---------------------------------------------------------------------------
 
