@@ -673,7 +673,7 @@ static void nested_save_pending_event_to_vmcb12(struct vcpu_svm *svm,
 		}
 
 	} else if (vcpu->arch.nmi_injected) {
-		exit_int_info = SVM_EVTINJ_VALID | SVM_EVTINJ_TYPE_NMI;
+		exit_int_info = SVM_EVTINJ_VALID | SVM_EVTINJ_TYPE_NMI | NMI_VECTOR;
 
 	} else if (vcpu->arch.interrupt.injected) {
 		nr = vcpu->arch.interrupt.nr;
