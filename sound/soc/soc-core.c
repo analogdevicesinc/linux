@@ -1246,8 +1246,7 @@ void snd_soc_unregister_card(struct snd_soc_card *card)
 {
 	guard(mutex)(&client_mutex);
 
-	snd_soc_card_unbind(card);
-	list_del(&card->list);
+	snd_soc_card_unbind(card, false);
 
 	dev_dbg(card->dev, "ASoC: Unregistered card '%s'\n", card->name);
 }
@@ -1401,16 +1400,11 @@ static void convert_endianness_formats(struct snd_soc_pcm_stream *stream)
 static void snd_soc_del_component_unlocked(struct snd_soc_component *component)
 {
 	struct snd_soc_card *card = component->card;
-	bool instantiated;
 
 	snd_soc_unregister_dais(component);
 
-	if (card) {
-		instantiated = card->instantiated;
-		snd_soc_card_unbind(card);
-		if (instantiated)
-			list_add(&card->list, &unbind_card_list);
-	}
+	if (card)
+		snd_soc_card_unbind(card, true);
 
 	list_del(&component->list);
 }

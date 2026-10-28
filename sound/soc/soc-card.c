@@ -17,7 +17,7 @@
 #include <sound/jack.h>
 #include "soc-internal.h"
 
-LIST_HEAD(unbind_card_list);
+static LIST_HEAD(unbind_card_list);
 
 #define soc_card_ret(dai, ret) _soc_card_ret(dai, __func__, ret)
 static inline int _soc_card_ret(struct snd_soc_card *card,
@@ -892,7 +892,7 @@ static void snd_soc_remove_device_links(struct snd_soc_card *card)
 	}
 }
 
-void snd_soc_card_unbind(struct snd_soc_card *card)
+void snd_soc_card_unbind(struct snd_soc_card *card, bool reuse)
 {
 	if (snd_soc_card_is_instantiated(card)) {
 		card->instantiated = false;
@@ -900,7 +900,13 @@ void snd_soc_card_unbind(struct snd_soc_card *card)
 		snd_soc_remove_device_links(card);
 
 		snd_soc_card_cleanup_resources(card);
+
+		if (reuse)
+			list_add(&card->list, &unbind_card_list);
 	}
+
+	if (!reuse)
+		list_del(&card->list);
 }
 
 static int snd_soc_card_bind(struct snd_soc_card *card)
