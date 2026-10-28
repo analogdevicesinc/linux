@@ -647,6 +647,7 @@ static int bnxt_qplib_process_qp_event(struct bnxt_qplib_rcfw *rcfw,
 				       struct creq_qp_event *qp_event,
 				       u32 *num_wait)
 {
+	struct creq_cq_error_notification *cq_err_event;
 	struct creq_qp_error_notification *err_event;
 	struct bnxt_qplib_hwq *hwq = &rcfw->cmdq.hwq;
 	struct bnxt_qplib_crsqe *crsqe;
@@ -661,6 +662,13 @@ static int bnxt_qplib_process_qp_event(struct bnxt_qplib_rcfw *rcfw,
 	pdev = rcfw->pdev;
 	print_hex_dump_bytes("event: ", DUMP_PREFIX_OFFSET, qp_event, sizeof(*qp_event));
 	switch (qp_event->event) {
+	case CREQ_QP_EVENT_EVENT_CQ_ERROR_NOTIFICATION:
+		cq_err_event = (struct creq_cq_error_notification *)qp_event;
+		dev_dbg(&pdev->dev,
+			"Received CQ error notification cqid 0x%x, reason 0x%x\n",
+			le32_to_cpu(cq_err_event->xid),
+			cq_err_event->cq_err_reason);
+		break;
 	case CREQ_QP_EVENT_EVENT_QP_ERROR_NOTIFICATION:
 		err_event = (struct creq_qp_error_notification *)qp_event;
 		qp_id = le32_to_cpu(err_event->xid);
