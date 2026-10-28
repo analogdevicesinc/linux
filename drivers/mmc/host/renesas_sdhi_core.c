@@ -107,15 +107,6 @@ static int renesas_sdhi_clk_enable(struct tmio_mmc_host *host)
 		return ret;
 
 	/*
-	 * The clock driver may not know what maximum frequency
-	 * actually works, so it should be set with the max-frequency
-	 * property which will already have been read to f_max.  If it
-	 * was missing, assume the current frequency is the maximum.
-	 */
-	if (!mmc->f_max)
-		mmc->f_max = clk_get_rate(priv->clk);
-
-	/*
 	 * Minimum frequency is the minimum input clock frequency
 	 * divided by our maximum divider.
 	 */
@@ -131,6 +122,17 @@ static int renesas_sdhi_clk_enable(struct tmio_mmc_host *host)
 	renesas_sdhi_sdbuf_width(host, 16);
 
 	return 0;
+}
+
+static unsigned int renesas_sdhi_clk_get_rate(struct tmio_mmc_host *host,
+					      struct clk *clk)
+{
+	unsigned int freq = clk_get_rate(clk);
+
+	if (host->pdata->flags & TMIO_MMC_INTERNAL_DIVIDER)
+		freq /= 2;
+
+	return freq;
 }
 
 static unsigned int renesas_sdhi_clk_update(struct tmio_mmc_host *host,
@@ -149,7 +151,7 @@ static unsigned int renesas_sdhi_clk_update(struct tmio_mmc_host *host,
 	 * clock during tuning, so we don't change the external clock setup.
 	 */
 	if (!(host->pdata->flags & TMIO_MMC_MIN_RCAR2) || mmc_doing_tune(host->mmc))
-		return clk_get_rate(priv->clk);
+		return renesas_sdhi_clk_get_rate(host, priv->clk);
 
 	if (priv->clkh) {
 		/* HS400 with 4TAP needs different clock settings */
@@ -192,10 +194,15 @@ static unsigned int renesas_sdhi_clk_update(struct tmio_mmc_host *host,
 
 	clk_set_rate(ref_clk, best_freq);
 
-	if (priv->clkh)
-		clk_set_rate(priv->clk, best_freq >> clkh_shift);
+	if (priv->clkh) {
+		/* internal /2 divider is always active here */
+		if (host->pdata->flags & TMIO_MMC_INTERNAL_DIVIDER)
+			clkh_shift--;
 
-	return clk_get_rate(priv->clk);
+		clk_set_rate(priv->clk, best_freq >> clkh_shift);
+	}
+
+	return renesas_sdhi_clk_get_rate(host, priv->clk);
 }
 
 static void renesas_sdhi_set_clock(struct tmio_mmc_host *host,
@@ -1254,6 +1261,22 @@ int renesas_sdhi_probe(struct platform_device *pdev,
 	ret = renesas_sdhi_clk_enable(host);
 	if (ret)
 		return ret;
+
+	/*
+	 * The clock driver may not know the maximum working frequency, so it
+	 * should come from the 'max-frequency' property. If it is missing,
+	 * assume the current rate is the maximum. SoCs with an internal
+	 * divider can't do that, because the current rate is not
+	 * meaningful for them, so the property is mandatory there.
+	 */
+	if (!host->mmc->f_max) {
+		if (mmc_data->flags & TMIO_MMC_INTERNAL_DIVIDER) {
+			ret = dev_err_probe(dev, -EINVAL, "max-frequency is required\n");
+			goto edisclk;
+		}
+
+		host->mmc->f_max = clk_get_rate(priv->clk);
+	}
 
 	rcfg.of_node = of_get_available_child_by_name(dev->of_node, "vqmmc-regulator");
 	if (rcfg.of_node) {
