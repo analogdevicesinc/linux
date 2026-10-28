@@ -2471,6 +2471,9 @@ out:
 		spin_lock(&rbio->bio_list_lock);
 		set_bit(RBIO_RMW_LOCKED_BIT, &rbio->flags);
 		spin_unlock(&rbio->bio_list_lock);
+
+		/* Failed write, don't cache for page stealing. */
+		clear_bit(RBIO_CACHE_READY_BIT, &rbio->flags);
 	}
 	rbio_orig_end_io(rbio, errno_to_blk_status(ret));
 }
