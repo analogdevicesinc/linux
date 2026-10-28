@@ -515,7 +515,7 @@ static void nested_ept_new_eptp(struct kvm_vcpu *vcpu)
 
 static void nested_ept_init_mmu_context(struct kvm_vcpu *vcpu)
 {
-	WARN_ON(mmu_is_nested(vcpu));
+	WARN_ON_ONCE(mmu_is_nested(vcpu));
 
 	vcpu->arch.mmu = &vcpu->arch.guest_mmu;
 	nested_ept_new_eptp(vcpu);
@@ -1310,7 +1310,7 @@ static void nested_vmx_transition_tlb_flush(struct kvm_vcpu *vcpu,
 	}
 
 	/* L2 should never have a VPID if VPID is disabled. */
-	WARN_ON(!enable_vpid);
+	WARN_ON_ONCE(!enable_vpid);
 
 	/*
 	 * VPID is enabled and in use by vmcs12.  If vpid12 is changing, then
@@ -1693,7 +1693,7 @@ static void copy_shadow_to_vmcs12(struct vcpu_vmx *vmx)
 	unsigned long val;
 	int i;
 
-	if (WARN_ON(!shadow_vmcs))
+	if (WARN_ON_ONCE(!shadow_vmcs))
 		return;
 
 	preempt_disable();
@@ -1728,7 +1728,7 @@ static void copy_vmcs12_to_shadow(struct vcpu_vmx *vmx)
 	unsigned long val;
 	int i, q;
 
-	if (WARN_ON(!shadow_vmcs))
+	if (WARN_ON_ONCE(!shadow_vmcs))
 		return;
 
 	vmcs_load(shadow_vmcs);
@@ -4971,7 +4971,7 @@ static void nested_vmx_restore_host_state(struct kvm_vcpu *vcpu)
 		if (vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP)
 			kvm_set_dr(vcpu, 7, DR7_FIXED_1);
 		else
-			WARN_ON(kvm_set_dr(vcpu, 7, vmcs_readl(GUEST_DR7)));
+			WARN_ON_ONCE(kvm_set_dr(vcpu, 7, vmcs_readl(GUEST_DR7)));
 	}
 
 	/* Reload DEBUGCTL to ensure vmcs01 has a fresh FREEZE_IN_SMM value. */
@@ -5401,7 +5401,7 @@ static struct vmcs *alloc_shadow_vmcs(struct kvm_vcpu *vcpu)
 	 * doesn't support virtualization of VMCS shadowing, so vmcs01 should
 	 * always be the loaded VMCS.
 	 */
-	if (WARN_ON(loaded_vmcs != &vmx->vmcs01 || loaded_vmcs->shadow_vmcs))
+	if (WARN_ON_ONCE(loaded_vmcs != &vmx->vmcs01 || loaded_vmcs->shadow_vmcs))
 		return loaded_vmcs->shadow_vmcs;
 
 	loaded_vmcs->shadow_vmcs = alloc_vmcs(true);

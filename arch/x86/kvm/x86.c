@@ -370,7 +370,7 @@ static int exception_type(int vector)
 {
 	unsigned int mask;
 
-	if (WARN_ON(vector > 31 || vector == NMI_VECTOR))
+	if (WARN_ON_ONCE(vector > 31 || vector == NMI_VECTOR))
 		return EXCPT_INTERRUPT;
 
 	mask = 1 << vector;
@@ -4907,7 +4907,7 @@ static int kvm_fetch_guest_virt(struct x86_emulate_ctxt *ctxt,
 		return X86EMUL_PROPAGATE_FAULT;
 
 	offset = addr & (PAGE_SIZE-1);
-	if (WARN_ON(offset + bytes > PAGE_SIZE))
+	if (WARN_ON_ONCE(offset + bytes > PAGE_SIZE))
 		bytes = (unsigned)PAGE_SIZE - offset;
 	ret = kvm_vcpu_read_guest_page(vcpu, gpa >> PAGE_SHIFT, val,
 				       offset, bytes);
@@ -5167,7 +5167,7 @@ static int emulator_read_write_onepage(unsigned long addr, void *val,
 	bytes -= handled;
 	val += handled;
 
-	WARN_ON(vcpu->mmio_nr_fragments >= KVM_MAX_MMIO_FRAGMENTS);
+	WARN_ON_ONCE(vcpu->mmio_nr_fragments >= KVM_MAX_MMIO_FRAGMENTS);
 	frag = &vcpu->mmio_fragments[vcpu->mmio_nr_fragments++];
 	frag->gpa = gpa;
 	if (write && bytes <= 8u) {
@@ -7044,7 +7044,7 @@ static int kvm_x86_check_processor_compatibility(void)
 	 * compatible, i.e. KVM should never perform a compatibility check on
 	 * an offline CPU.
 	 */
-	WARN_ON(!cpu_online(cpu));
+	WARN_ON_ONCE(!cpu_online(cpu));
 
 	if (__cr4_reserved_bits(cpu_has, c) !=
 	    __cr4_reserved_bits(cpu_has, &boot_cpu_data))
@@ -7785,7 +7785,7 @@ static int kvm_check_and_inject_events(struct kvm_vcpu *vcpu,
 			vcpu->arch.nmi_injected = true;
 			kvm_x86_call(inject_nmi)(vcpu);
 			can_inject = false;
-			WARN_ON(kvm_x86_call(nmi_allowed)(vcpu, true) < 0);
+			WARN_ON_ONCE(kvm_x86_call(nmi_allowed)(vcpu, true) < 0);
 		}
 		if (vcpu->arch.nmi_pending)
 			kvm_x86_call(enable_nmi_window)(vcpu);
@@ -7802,7 +7802,7 @@ static int kvm_check_and_inject_events(struct kvm_vcpu *vcpu,
 			if (likely(irq != -1)) {
 				kvm_queue_interrupt(vcpu, irq, false);
 				kvm_x86_call(inject_irq)(vcpu, false);
-				WARN_ON(kvm_x86_call(interrupt_allowed)(vcpu, true) < 0);
+				WARN_ON_ONCE(kvm_x86_call(interrupt_allowed)(vcpu, true) < 0);
 			} else {
 				kvm_warn_on_lost_irq(vcpu);
 			}
@@ -8472,8 +8472,8 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 	 * KVM_DEBUGREG_WONT_EXIT again.
 	 */
 	if (unlikely(vcpu->arch.switch_db_regs & KVM_DEBUGREG_WONT_EXIT)) {
-		WARN_ON(vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP);
-		WARN_ON(vcpu->arch.switch_db_regs & KVM_DEBUGREG_AUTO_SWITCH);
+		WARN_ON_ONCE(vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP);
+		WARN_ON_ONCE(vcpu->arch.switch_db_regs & KVM_DEBUGREG_AUTO_SWITCH);
 		kvm_x86_call(sync_dirty_debug_regs)(vcpu);
 		kvm_update_dr0123(vcpu);
 		vcpu->arch.dr6 |= kvm_get_dr6_fixed_1(vcpu);
@@ -10042,7 +10042,7 @@ void __user * __x86_set_memory_region(struct kvm *kvm, int id, gpa_t gpa,
 
 	lockdep_assert_held(&kvm->slots_lock);
 
-	if (WARN_ON(id >= KVM_MEM_SLOTS_NUM))
+	if (WARN_ON_ONCE(id >= KVM_MEM_SLOTS_NUM))
 		return ERR_PTR_USR(-EINVAL);
 
 	slot = id_to_memslot(slots, id);

@@ -43,7 +43,7 @@ void kvm_mmu_uninit_tdp_mmu(struct kvm *kvm)
 #ifdef CONFIG_KVM_PROVE_MMU
 	KVM_MMU_WARN_ON(atomic64_read(&kvm->arch.tdp_mmu_pages));
 #endif
-	WARN_ON(!list_empty(&kvm->arch.tdp_mmu_roots));
+	WARN_ON_ONCE(!list_empty(&kvm->arch.tdp_mmu_roots));
 
 	/*
 	 * Ensure that all the outstanding RCU callbacks to free shadow pages
@@ -1368,7 +1368,7 @@ static bool __kvm_tdp_mmu_age_gfn_range(struct kvm *kvm,
 	 * this helper must NOT be used to unmap GFNs, as it processes only
 	 * valid roots!
 	 */
-	WARN_ON(types & ~KVM_VALID_ROOTS);
+	WARN_ON_ONCE(types & ~KVM_VALID_ROOTS);
 
 	guard(rcu)();
 	for_each_tdp_mmu_root_rcu(kvm, root, range->slot->as_id, types) {

@@ -2063,7 +2063,7 @@ static void apic_timer_expired(struct kvm_lapic *apic, bool from_timer_fn)
 		ktimer->expired_tscdeadline = ktimer->tscdeadline;
 
 	if (!from_timer_fn && apic->apicv_active && vcpu->wants_to_run) {
-		WARN_ON(kvm_get_running_vcpu() != vcpu);
+		WARN_ON_ONCE(kvm_get_running_vcpu() != vcpu);
 		kvm_apic_inject_pending_timer_irqs(apic);
 		return;
 	}
@@ -2273,7 +2273,7 @@ static void cancel_hv_timer(struct kvm_lapic *apic)
 {
 	lockdep_assert_preemption_disabled();
 
-	WARN_ON(!apic->lapic_timer.hv_timer_in_use);
+	WARN_ON_ONCE(!apic->lapic_timer.hv_timer_in_use);
 	kvm_x86_call(cancel_hv_timer)(apic->vcpu);
 	apic->lapic_timer.hv_timer_in_use = false;
 }
@@ -2360,7 +2360,7 @@ void kvm_lapic_expired_hv_timer(struct kvm_vcpu *vcpu)
 	/* If the preempt notifier has already run, it also called apic_timer_expired */
 	if (!apic->lapic_timer.hv_timer_in_use)
 		goto out;
-	WARN_ON(kvm_vcpu_is_blocking(vcpu));
+	WARN_ON_ONCE(kvm_vcpu_is_blocking(vcpu));
 	apic_timer_expired(apic, false);
 	cancel_hv_timer(apic);
 
@@ -2393,7 +2393,7 @@ void kvm_lapic_restart_hv_timer(struct kvm_vcpu *vcpu)
 {
 	struct kvm_lapic *apic = vcpu->arch.apic;
 
-	WARN_ON(!apic->lapic_timer.hv_timer_in_use);
+	WARN_ON_ONCE(!apic->lapic_timer.hv_timer_in_use);
 	restart_apic_timer(apic);
 }
 

@@ -1597,7 +1597,7 @@ static void svm_set_vintr(struct vcpu_svm *svm)
 	/*
 	 * The following fields are ignored when AVIC is enabled
 	 */
-	WARN_ON(kvm_vcpu_apicv_activated(&svm->vcpu));
+	WARN_ON_ONCE(kvm_vcpu_apicv_activated(&svm->vcpu));
 
 	svm_set_intercept(svm, INTERCEPT_VINTR);
 
@@ -1632,8 +1632,8 @@ static void svm_clear_vintr(struct vcpu_svm *svm)
 	if (is_guest_mode(&svm->vcpu)) {
 		svm->vmcb01.ptr->control.int_ctl &= ~V_IRQ_INJECTION_BITS_MASK;
 
-		WARN_ON((svm->vmcb->control.int_ctl & V_TPR_MASK) !=
-			(svm->nested.ctl.int_ctl & V_TPR_MASK));
+		WARN_ON_ONCE((svm->vmcb->control.int_ctl & V_TPR_MASK) !=
+			     (svm->nested.ctl.int_ctl & V_TPR_MASK));
 
 		svm->vmcb->control.int_ctl |= svm->nested.ctl.int_ctl &
 			V_IRQ_INJECTION_BITS_MASK;
@@ -2665,7 +2665,7 @@ static int cr_interception(struct kvm_vcpu *vcpu)
 			err = kvm_set_cr8(vcpu, val);
 			break;
 		default:
-			WARN(1, "unhandled write to CR%d", cr);
+			WARN_ONCE(1, "unhandled write to CR%d", cr);
 			kvm_queue_exception(vcpu, UD_VECTOR);
 			return 1;
 		}
@@ -2687,7 +2687,7 @@ static int cr_interception(struct kvm_vcpu *vcpu)
 			val = kvm_get_cr8(vcpu);
 			break;
 		default:
-			WARN(1, "unhandled read from CR%d", cr);
+			WARN_ONCE(1, "unhandled read from CR%d", cr);
 			kvm_queue_exception(vcpu, UD_VECTOR);
 			return 1;
 		}
@@ -2724,7 +2724,7 @@ static int cr_trap(struct kvm_vcpu *vcpu)
 		ret = kvm_set_cr8(vcpu, new_value);
 		break;
 	default:
-		WARN(1, "unhandled CR%d write trap", cr);
+		WARN_ONCE(1, "unhandled CR%d write trap", cr);
 		kvm_queue_exception(vcpu, UD_VECTOR);
 		return 1;
 	}

@@ -409,7 +409,7 @@ static void kvm_pit_load_count(struct kvm_pit *pit, int channel, u32 val,
 
 	if (hpet_legacy_start) {
 		/* save existing mode for later reenablement */
-		WARN_ON(channel != 0);
+		WARN_ON_ONCE(channel != 0);
 		saved_mode = pit->pit_state.channels[0].mode;
 		pit->pit_state.channels[0].mode = 0xff; /* disable timer */
 		pit_load_count(pit, channel, val);
