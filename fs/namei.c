@@ -1571,11 +1571,19 @@ static int follow_automount(struct path *path, int *count, unsigned lookup_flags
 	return finish_automount(dentry->d_op->d_automount(path), path);
 }
 
+/* WALK_HELD: the walk holds @dentry already, it didn't find it by name */
 enum walk_flags {
 	WALK_TRAILING	= (1 << 0),
 	WALK_MORE	= (1 << 1),
 	WALK_NOFOLLOW	= (1 << 2),
+	WALK_HELD	= (1 << 3),
 };
+
+static inline bool mountpoint_removed(const struct path *path)
+{
+	return unlikely(cant_mount(path->dentry)) &&
+	       d_unhashed(path->dentry) && !path_mounted(path);
+}
 
 /*
  * mount traversal - out-of-line part.  One note on ->d_flags accesses -
@@ -1584,7 +1592,8 @@ enum walk_flags {
  * sufficient for ->d_inode and ->d_flags consistency.
  */
 static int __traverse_mounts(struct path *path, unsigned flags, bool *jumped,
-			     int *count, unsigned lookup_flags)
+			     int *count, unsigned lookup_flags,
+			     enum walk_flags walk_flags)
 {
 	struct vfsmount *mnt = path->mnt;
 	bool need_mntput = false;
@@ -1621,6 +1630,11 @@ static int __traverse_mounts(struct path *path, unsigned flags, bool *jumped,
 				}
 				continue;
 			}
+			if (!(walk_flags & WALK_HELD) &&
+			    mountpoint_removed(path)) {
+				ret = -ESTALE;
+				break;
+			}
 		}
 
 		if (!(flags & DCACHE_NEED_AUTOMOUNT))
@@ -1645,7 +1659,8 @@ static int __traverse_mounts(struct path *path, unsigned flags, bool *jumped,
 }
 
 static inline int traverse_mounts(struct path *path, bool *jumped,
-				  int *count, unsigned lookup_flags)
+				  int *count, unsigned lookup_flags,
+				  enum walk_flags walk_flags)
 {
 	unsigned flags = smp_load_acquire(&path->dentry->d_flags);
 
@@ -1656,7 +1671,8 @@ static inline int traverse_mounts(struct path *path, bool *jumped,
 			return -ENOENT;
 		return 0;
 	}
-	return __traverse_mounts(path, flags, jumped, count, lookup_flags);
+	return __traverse_mounts(path, flags, jumped, count, lookup_flags,
+				 walk_flags);
 }
 
 int follow_down_one(struct path *path)
@@ -1684,7 +1700,7 @@ int follow_down(struct path *path, unsigned int flags)
 {
 	struct vfsmount *mnt = path->mnt;
 	bool jumped;
-	int ret = traverse_mounts(path, &jumped, NULL, flags);
+	int ret = traverse_mounts(path, &jumped, NULL, flags, 0);
 
 	if (path->mnt != mnt)
 		mntput(mnt);
@@ -1738,7 +1754,7 @@ static bool __follow_mount_rcu(struct nameidata *nd, struct path *path)
 }
 
 static inline int handle_mounts(struct nameidata *nd, struct dentry *dentry,
-			  struct path *path)
+			  struct path *path, enum walk_flags flags)
 {
 	bool jumped;
 	int ret;
@@ -1758,7 +1774,8 @@ static inline int handle_mounts(struct nameidata *nd, struct dentry *dentry,
 		if (unlikely(!try_to_unlazy_next(nd, dentry)))
 			return -ECHILD;
 	}
-	ret = traverse_mounts(path, &jumped, &nd->total_link_count, nd->flags);
+	ret = traverse_mounts(path, &jumped, &nd->total_link_count, nd->flags,
+			      flags);
 	if (jumped)
 		nd->state |= ND_JUMPED;
 	if (unlikely(ret)) {
@@ -2111,7 +2128,7 @@ static noinline const char *step_into_slowpath(struct nameidata *nd,
 	struct inode *inode;
 	int err;
 
-	err = handle_mounts(nd, dentry, &path);
+	err = handle_mounts(nd, dentry, &path, flags);
 	if (unlikely(err < 0))
 		return ERR_PTR(err);
 	inode = path.dentry->d_inode;
@@ -2251,7 +2268,7 @@ static const char *handle_dots(struct nameidata *nd, enum last_type type)
 			parent = follow_dotdot(nd);
 		if (IS_ERR(parent))
 			return ERR_CAST(parent);
-		error = step_into(nd, WALK_NOFOLLOW, parent);
+		error = step_into(nd, WALK_NOFOLLOW | WALK_HELD, parent);
 		if (unlikely(error))
 			return error;
 
@@ -2805,7 +2822,8 @@ static int handle_lookup_down(struct nameidata *nd)
 	if (!(nd->flags & LOOKUP_RCU))
 		dget(nd->path.dentry);
 	nd->next_seq = nd->seq;
-	return PTR_ERR(step_into(nd, WALK_NOFOLLOW, nd->path.dentry));
+	return PTR_ERR(step_into(nd, WALK_NOFOLLOW | WALK_HELD,
+				 nd->path.dentry));
 }
 
 /* Returns 0 and nd will be valid on success; Returns error, otherwise. */

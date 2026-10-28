@@ -221,7 +221,10 @@ struct mnt_cover {
 	struct hlist_node pin;		/* mp->m_covers, keeps the mountpoint */
 	struct dentry *dentry;
 	struct mountpoint *mp;
-	struct rcu_head rcu;
+	union {
+		bool root;		/* mount sat on its parent's root */
+		struct rcu_head rcu;	/* valid once the cover is dropped */
+	};
 };
 
 static int mnt_alloc_id(struct mount *mnt)
@@ -970,13 +973,18 @@ mountpoint:
 /*
  * vfsmount lock must be held.  Additionally, the caller is responsible
  * for serializing calls for given disposal list.
+ *
+ * A removed name keeps DCACHE_MOUNTED so that a walk which found the
+ * name earlier continues walking mounts and fails. The bit dies with the
+ * dentry or in d_delete().
  */
 static void maybe_free_mountpoint(struct mountpoint *mp, struct list_head *list)
 {
 	if (hlist_empty(&mp->m_list) && hlist_empty(&mp->m_covers)) {
 		struct dentry *dentry = mp->m_dentry;
 		spin_lock(&dentry->d_lock);
-		dentry->d_flags &= ~DCACHE_MOUNTED;
+		if (!cant_mount(dentry))
+			dentry->d_flags &= ~DCACHE_MOUNTED;
 		spin_unlock(&dentry->d_lock);
 		dput_to_list(dentry, list);
 		hlist_del(&mp->m_hash);
@@ -1061,6 +1069,15 @@ static void umount_mnt(struct mount *mnt)
 }
 
 /*
+ * Is @m reached through the name of its mountpoint? A mount on the root
+ * of its parent isn't: the walk gets there by crossing onto the parent.
+ */
+static bool reached_by_name(const struct mount *m)
+{
+	return m->mnt_mountpoint != m->mnt_parent->mnt.mnt_root;
+}
+
+/*
  * @mnt is unmounted together with its parent and would have stayed attached
  * to it. Leave its cover behind before it is detached so that a lookup on the
  * parent at the mountpoint keeps finding a mount instead of what @mnt covered.
@@ -1074,6 +1091,7 @@ static void leave_cover(struct mount *mnt)
 	mnt->mnt_cover = NULL;
 	cover->dentry = mnt->mnt_mountpoint;
 	cover->mp = mnt->mnt_mp;
+	cover->root = !reached_by_name(mnt);
 	/* keeps the mountpoint once @mnt has let go of it */
 	hlist_add_head(&cover->pin, &cover->mp->m_covers);
 	hlist_add_head_rcu(&cover->node, &mnt->mnt_parent->mnt_covers);
@@ -2104,23 +2122,24 @@ static int do_umount(struct mount *mnt, int flags)
 }
 
 /*
- * __detach_mounts - lazily unmount all mounts on the specified dentry
+ * __detach_mounts - lazily unmount the mounts on the specified dentry
  *
  * During unlink, rmdir, and d_drop it is possible to loose the path
  * to an existing mountpoint, and wind up leaking the mount.
  * detach_mounts allows lazily unmounting those mounts instead of
  * leaking them.
  *
- * The dentry is unhashed before the mounts go so that no lookup finds
- * what they covered. The caller removes it for good afterwards.
+ * A cover on the root of its parent dies with the parent like an fd
+ * would for regular mounts.
  *
  * The caller may hold dentry->d_inode->i_rwsem.
  */
 void __detach_mounts(struct dentry *dentry)
 {
 	struct pinned_mountpoint mp = {};
+	bool removed = cant_mount(dentry);
+	struct hlist_node *node, *n;
 	struct mnt_cover *cover;
-	struct hlist_node *n;
 	struct mount *mnt;
 
 	guard(namespace_excl)();
@@ -2132,13 +2151,24 @@ void __detach_mounts(struct dentry *dentry)
 	/* the name goes first, what covered it goes second */
 	d_drop(dentry);
 	event++;
-	while (mp.node.next) {
-		mnt = hlist_entry(mp.node.next, struct mount, mnt_mp_list);
+	/* the mounts after the pin still need a look */
+	while ((node = mp.node.next)) {
+		mnt = hlist_entry(node, struct mount, mnt_mp_list);
+		if (removed && !reached_by_name(mnt)) {
+			/* it stays, move the pin past it */
+			hlist_del(&mp.node);
+			hlist_add_behind(&mp.node, node);
+			continue;
+		}
+		/* goes, umount_tree() takes it and its children off the list */
 		umount_tree(mnt, UMOUNT_COVER);
 	}
-	/* the dentry goes away, so do the covers left behind on it */
-	hlist_for_each_entry_safe(cover, n, &mp.mp->m_covers, pin)
+	hlist_for_each_entry_safe(cover, n, &mp.mp->m_covers, pin) {
+		/* same rule as for the mounts above */
+		if (removed && cover->root)
+			continue;
 		drop_cover(cover, &ex_mountpoints);
+	}
 	unpin_mountpoint(&mp);
 }
 
