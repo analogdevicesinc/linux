@@ -38,15 +38,12 @@
 #include <sound/soc.h>
 #include <sound/soc-dpcm.h>
 #include <sound/soc-topology.h>
-#include <sound/soc-link.h>
-#include <sound/initval.h>
 #include "soc-internal.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/asoc.h>
 
 DEFINE_MUTEX(client_mutex);
-static LIST_HEAD(unbind_card_list);
 
 /*
  * This is used if driver don't need to have CPU/Codec/Platform
@@ -425,7 +422,7 @@ free_rtd:
 	return NULL;
 }
 
-static void snd_soc_flush_all_delayed_work(struct snd_soc_card *card)
+void snd_soc_flush_all_delayed_work(struct snd_soc_card *card)
 {
 	struct snd_soc_pcm_runtime *rtd;
 
@@ -1074,412 +1071,6 @@ int snd_soc_runtime_set_dai_fmt(struct snd_soc_pcm_runtime *rtd,
 }
 EXPORT_SYMBOL_GPL(snd_soc_runtime_set_dai_fmt);
 
-static void soc_check_tplg_fes(struct snd_soc_card *card)
-{
-	struct snd_soc_component *component;
-	struct snd_soc_dai_link *dai_link;
-	int i;
-
-	for_each_component(component) {
-
-		/* does this component override BEs ? */
-		if (!component->driver->ignore_machine)
-			continue;
-
-		/* for this machine ? */
-		if (!strcmp(component->driver->ignore_machine,
-			    card->dev->driver->name))
-			goto match;
-		if (strcmp(component->driver->ignore_machine,
-			   dev_name(card->dev)))
-			continue;
-match:
-		/* machine matches, so override the rtd data */
-		for_each_card_prelinks(card, i, dai_link) {
-
-			/* ignore this FE */
-			if (dai_link->dynamic) {
-				dai_link->ignore = true;
-				continue;
-			}
-
-			dev_dbg(card->dev, "info: override BE DAI link %s\n",
-				dai_link->name);
-
-			/* override platform component */
-			if (!dai_link->platforms) {
-				dev_err(card->dev, "init platform error");
-				continue;
-			}
-
-			if (component->dev->of_node)
-				dai_link->platforms->of_node = component->dev->of_node;
-			else
-				dai_link->platforms->name = component->name;
-
-			/* convert non BE into BE */
-			dai_link->no_pcm = 1;
-
-			/*
-			 * override any BE fixups
-			 * see
-			 *	snd_soc_link_be_hw_params_fixup()
-			 */
-			dai_link->be_hw_params_fixup =
-				component->driver->be_hw_params_fixup;
-
-			/*
-			 * most BE links don't set stream name, so set it to
-			 * dai link name if it's NULL to help bind widgets.
-			 */
-			if (!dai_link->stream_name)
-				dai_link->stream_name = dai_link->name;
-		}
-
-		/* Inform userspace we are using alternate topology */
-		snd_soc_card_set_topology_name(card, component->driver->topology_name_prefix);
-	}
-}
-
-#define soc_setup_card_name(card, name, name1, name2) \
-	__soc_setup_card_name(card, name, sizeof(name), name1, name2)
-static void __soc_setup_card_name(struct snd_soc_card *card,
-				  char *name, int len,
-				  const char *name1, const char *name2)
-{
-	const char *src = name1 ? name1 : name2;
-	int i;
-
-	snprintf(name, len, "%s", src);
-
-	if (name != card->snd_card->driver)
-		return;
-
-	/*
-	 * Name normalization (driver field)
-	 *
-	 * The driver name is somewhat special, as it's used as a key for
-	 * searches in the user-space.
-	 *
-	 * ex)
-	 *	"abcd??efg" -> "abcd__efg"
-	 */
-	for (i = 0; i < len; i++) {
-		switch (name[i]) {
-		case '_':
-		case '-':
-		case '\0':
-			break;
-		default:
-			if (!isalnum(name[i]))
-				name[i] = '_';
-			break;
-		}
-	}
-
-	/*
-	 * The driver field should contain a valid string from the user view.
-	 * The wrapping usually does not work so well here. Set a smaller string
-	 * in the specific ASoC driver.
-	 */
-	if (strlen(src) > len - 1)
-		dev_err(card->dev, "ASoC: driver name too long '%s' -> '%s'\n", src, name);
-}
-
-static void soc_cleanup_card_resources(struct snd_soc_card *card)
-{
-	struct snd_soc_pcm_runtime *rtd, *n;
-
-	if (card->snd_card)
-		snd_card_disconnect_sync(card->snd_card);
-
-	snd_soc_dapm_shutdown(card);
-
-	/* release machine specific resources */
-	for_each_card_rtds(card, rtd)
-		if (rtd->initialized)
-			snd_soc_link_exit(rtd);
-	/* flush delayed work before removing DAIs and DAPM widgets */
-	snd_soc_flush_all_delayed_work(card);
-
-	/* remove and free each DAI */
-	snd_soc_card_link_dais_remove(card);
-	snd_soc_card_link_components_remove(card);
-
-	for_each_card_rtds_safe(card, rtd, n)
-		snd_soc_remove_pcm_runtime(card, rtd);
-
-	/* remove auxiliary devices */
-	snd_soc_card_aux_remove(card);
-	snd_soc_card_aux_unbind(card);
-
-	snd_soc_dapm_free(snd_soc_card_to_dapm(card));
-	snd_soc_card_debugfs_cleanup(card);
-
-	/* remove the card */
-	snd_soc_card_remove(card);
-
-	if (card->snd_card) {
-		snd_card_free(card->snd_card);
-		card->snd_card = NULL;
-	}
-}
-
-static void snd_soc_remove_device_links(struct snd_soc_card *card)
-{
-	struct snd_soc_component *component;
-
-	for_each_card_components(card, component) {
-		if (component->card_device_link) {
-			device_link_del(component->card_device_link);
-			component->card_device_link = NULL;
-		}
-	}
-}
-
-static void snd_soc_unbind_card(struct snd_soc_card *card)
-{
-	if (snd_soc_card_is_instantiated(card)) {
-		card->instantiated = false;
-
-		snd_soc_remove_device_links(card);
-
-		soc_cleanup_card_resources(card);
-	}
-}
-
-static int snd_soc_bind_card(struct snd_soc_card *card)
-{
-	struct snd_soc_pcm_runtime *rtd;
-	struct snd_soc_component *component;
-	struct snd_soc_dapm_context *dapm = snd_soc_card_to_dapm(card);
-	int ret;
-
-	snd_soc_card_mutex_lock_root(card);
-	snd_soc_card_fill_dummy_dai(card);
-
-	snd_soc_dapm_init(dapm, card, NULL);
-	list_del_init(&card->list);
-
-	/* check whether any platform is ignore machine FE and using topology */
-	soc_check_tplg_fes(card);
-
-	/* bind aux_devs too */
-	ret = snd_soc_card_aux_bind(card);
-	if (ret < 0)
-		goto probe_end;
-
-	/* add predefined DAI links to the list */
-	card->num_rtd = 0;
-	ret = snd_soc_add_pcm_runtimes(card, card->dai_link, card->num_links);
-	if (ret < 0)
-		goto probe_end;
-
-	/* card bind complete so register a sound card */
-	ret = snd_card_new(card->dev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1,
-			card->owner, 0, &card->snd_card);
-	if (ret < 0) {
-		dev_err(card->dev,
-			"ASoC: can't create sound card for card %s: %d\n",
-			card->name, ret);
-		goto probe_end;
-	}
-
-	snd_soc_card_debugfs_init(card);
-
-	snd_soc_card_resume_init(card);
-
-	ret = snd_soc_dapm_new_controls(dapm, card->dapm_widgets,
-					card->num_dapm_widgets);
-	if (ret < 0)
-		goto probe_end;
-
-	ret = snd_soc_dapm_new_controls(dapm, card->of_dapm_widgets,
-					card->num_of_dapm_widgets);
-	if (ret < 0)
-		goto probe_end;
-
-	/* initialise the sound card only once */
-	ret = snd_soc_card_probe(card);
-	if (ret < 0)
-		goto probe_end;
-
-	/* probe all components used by DAI links on this card */
-	ret = snd_soc_card_link_components_probe(card);
-	if (ret < 0) {
-		if (ret != -EPROBE_DEFER) {
-			dev_err(card->dev,
-				"ASoC: failed to instantiate card %d\n", ret);
-		}
-		goto probe_end;
-	}
-
-	/* probe auxiliary components */
-	ret = snd_soc_card_aux_probe(card);
-	if (ret < 0) {
-		dev_err(card->dev,
-			"ASoC: failed to probe aux component %d\n", ret);
-		goto probe_end;
-	}
-
-	/* probe all DAI links on this card */
-	ret = snd_soc_card_link_dais_probe(card);
-	if (ret < 0) {
-		dev_err(card->dev,
-			"ASoC: failed to instantiate card %d\n", ret);
-		goto probe_end;
-	}
-
-	for_each_card_rtds(card, rtd) {
-		ret = snd_soc_card_init_pcm_runtime(card, rtd);
-		if (ret < 0)
-			goto probe_end;
-	}
-
-	snd_soc_dapm_link_dai_widgets(card);
-	snd_soc_dapm_connect_dai_link_widgets(card);
-
-	ret = snd_soc_add_card_controls(card, card->controls,
-					card->num_controls);
-	if (ret < 0)
-		goto probe_end;
-
-	ret = snd_soc_dapm_add_routes(dapm, card->dapm_routes,
-				      card->num_dapm_routes);
-	if (ret < 0)
-		goto probe_end;
-
-	ret = snd_soc_dapm_add_routes(dapm, card->of_dapm_routes,
-				      card->num_of_dapm_routes);
-	if (ret < 0)
-		goto probe_end;
-
-	/* try to set some sane longname if DMI is available */
-	snd_soc_card_set_dmi_name(card);
-
-	soc_setup_card_name(card, card->snd_card->shortname,
-			    card->name, NULL);
-	soc_setup_card_name(card, card->snd_card->longname,
-			    card->long_name, card->name);
-	soc_setup_card_name(card, card->snd_card->driver,
-			    card->driver_name, card->name);
-
-	if (card->components) {
-		/* the current implementation of snd_component_add() accepts */
-		/* multiple components in the string separated by space, */
-		/* but the string collision (identical string) check might */
-		/* not work correctly */
-		ret = snd_component_add(card->snd_card, card->components);
-		if (ret < 0) {
-			dev_err(card->dev, "ASoC: %s snd_component_add() failed: %d\n",
-				card->name, ret);
-			goto probe_end;
-		}
-	}
-
-	/*
-	 * Add device_link from card to component so that system_suspend
-	 * will be done in the correct order. The card must suspend first
-	 * to stop audio activity before the components suspend.
-	 *
-	 * If a driver pair already have a link in the opposite direction
-	 * they must manage their own suspend order.
-	 */
-	for_each_card_components(card, component) {
-		if (card->dev == component->dev)
-			continue;
-
-		component->card_device_link = device_link_add(card->dev,
-							      component->dev,
-							      DL_FLAG_STATELESS);
-		if (!component->card_device_link) {
-			dev_warn(card->dev, "Could not create device link to %s\n",
-				 dev_name(component->dev));
-		}
-	}
-
-	ret = snd_soc_card_late_probe(card);
-	if (ret < 0)
-		goto probe_end;
-
-	ret = snd_soc_dapm_ignore_suspend_widgets(card);
-	if (ret < 0)
-		goto probe_end;
-
-	snd_soc_dapm_new_widgets(card);
-	for_each_card_components(card, component) {
-		ret = snd_soc_component_fixup_controls(component);
-		if (ret < 0)
-			goto probe_end;
-	}
-	snd_soc_card_fixup_controls(card);
-
-	ret = snd_card_register(card->snd_card);
-	if (ret < 0) {
-		dev_err(card->dev, "ASoC: failed to register soundcard %d\n",
-				ret);
-		goto probe_end;
-	}
-
-	card->instantiated = 1;
-	snd_soc_dapm_mark_endpoints_dirty(card);
-	snd_soc_dapm_sync(dapm);
-
-	/* deactivate pins to sleep state */
-	for_each_card_components(card, component)
-		if (!snd_soc_component_active(component))
-			pinctrl_pm_select_sleep_state(component->dev);
-
-probe_end:
-	if (ret < 0) {
-		snd_soc_remove_device_links(card);
-		soc_cleanup_card_resources(card);
-	}
-
-	if (ret == -EPROBE_DEFER) {
-		list_add(&card->list, &unbind_card_list);
-		ret = 0;
-	}
-	snd_soc_card_mutex_unlock(card);
-
-	return ret;
-}
-
-static void devm_card_bind_release(struct device *dev, void *res)
-{
-	snd_soc_unregister_card(*(struct snd_soc_card **)res);
-}
-
-static int devm_snd_soc_bind_card(struct device *dev, struct snd_soc_card *card)
-{
-	struct snd_soc_card **ptr;
-	int ret;
-
-	/* The procedure may be called many times during the lifetime of the card. */
-	devres_destroy(dev, devm_card_bind_release, NULL, NULL);
-
-	ptr = devres_alloc(devm_card_bind_release, sizeof(*ptr), GFP_KERNEL);
-	if (!ptr)
-		return -ENOMEM;
-
-	ret = snd_soc_bind_card(card);
-	if (ret == 0) {
-		*ptr = card;
-		devres_add(dev, ptr);
-	} else {
-		devres_free(ptr);
-	}
-
-	return ret;
-}
-
-static int call_soc_bind_card(struct snd_soc_card *card)
-{
-	if (card->devres_dev)
-		return devm_snd_soc_bind_card(card->devres_dev, card);
-	return snd_soc_bind_card(card);
-}
-
 /* probes a new socdev */
 static int soc_probe(struct platform_device *pdev)
 {
@@ -1641,7 +1232,7 @@ int snd_soc_register_card(struct snd_soc_card *card)
 
 	guard(mutex)(&client_mutex);
 
-	return call_soc_bind_card(card);
+	return snd_soc_card_bind_call(card);
 }
 EXPORT_SYMBOL_GPL(snd_soc_register_card);
 
@@ -1655,7 +1246,7 @@ void snd_soc_unregister_card(struct snd_soc_card *card)
 {
 	guard(mutex)(&client_mutex);
 
-	snd_soc_unbind_card(card);
+	snd_soc_card_unbind(card);
 	list_del(&card->list);
 
 	dev_dbg(card->dev, "ASoC: Unregistered card '%s'\n", card->name);
@@ -1816,7 +1407,7 @@ static void snd_soc_del_component_unlocked(struct snd_soc_component *component)
 
 	if (card) {
 		instantiated = card->instantiated;
-		snd_soc_unbind_card(card);
+		snd_soc_card_unbind(card);
 		if (instantiated)
 			list_add(&card->list, &unbind_card_list);
 	}
@@ -1893,7 +1484,7 @@ int snd_soc_component_register(struct snd_soc_component *component,
 	list_add(&component->list, snd_soc_component_get_list_head());
 
 	list_for_each_entry_safe(card, c, &unbind_card_list, list)
-		call_soc_bind_card(card);
+		snd_soc_card_bind_call(card);
 
 err_cleanup:
 	if (ret < 0)
