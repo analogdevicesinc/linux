@@ -11,6 +11,14 @@
 
 #![expect(unused_imports)]
 
+use core::{
+    marker::PhantomData,
+    ops::{
+        Deref,
+        DerefMut, //
+    }, //
+};
+
 use kernel::{
     bitfield,
     num::Bounded, //
@@ -29,6 +37,66 @@ pub(crate) type KeyId = u16;
 
 /// The index of an NVKV value.
 pub(crate) type Index = Bounded<u64, 12>;
+
+/// A static association between an NVKV key `KEY_ID` and the storage of its value.
+///
+/// Use with the encoder or decoder macros `nvkv_encode!` and `nvkv_decode!` to let them know how to
+/// map the value `Key<T, KEY_ID, As>` to/from encoded data. For brevity, `As` inserts an additional
+/// conversion ([`From`]) to avoid having to implement [`Encodable`] for many types. For example,
+/// enums that are easily convertible to a u32 can have `As = u32` and rely on the existing encoding
+/// for u32.
+pub(crate) struct Key<T, const KEY_ID: KeyId, As = T>(T, PhantomData<As>);
+
+impl<T, const KEY_ID: KeyId, As> Key<T, KEY_ID, As> {
+    /// The maximum size in bytes we allow to materialize on the stack while
+    /// encoding or decoding a [`Key`]. This is checked at compile time.
+    const MAX_STACK_SIZE: usize = 32;
+}
+
+impl<T, const KEY_ID: KeyId, As> From<T> for Key<T, KEY_ID, As> {
+    fn from(value: T) -> Self {
+        Self(value, PhantomData)
+    }
+}
+
+impl<'a, T, const KEY_ID: KeyId, As, const N: usize> From<&'a [T; N]> for Key<&'a [T], KEY_ID, As> {
+    fn from(value: &'a [T; N]) -> Self {
+        Self(&value[..], PhantomData)
+    }
+}
+
+impl<T, const KEY_ID: KeyId, As> Deref for Key<T, KEY_ID, As> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T, const KEY_ID: KeyId, As> DerefMut for Key<T, KEY_ID, As> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<T: Default, const KEY_ID: KeyId, As> Default for Key<T, KEY_ID, As> {
+    fn default() -> Self {
+        Self(T::default(), PhantomData)
+    }
+}
+
+/// A value with a specific index that encodes under the NVKV key `KEY_ID`.
+pub(crate) struct IndexedKey<T, const KEY_ID: KeyId> {
+    index: Index,
+    value: T,
+}
+
+impl<T, const KEY_ID: KeyId> IndexedKey<T, KEY_ID> {
+    /// Creates a key with the given index and value.
+    pub(crate) fn new(index: Index, value: T) -> Self {
+        Self { index, value }
+    }
+}
 
 bitfield! {
     /// The op word that starts each NVKV operation.

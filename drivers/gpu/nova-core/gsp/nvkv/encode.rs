@@ -8,10 +8,136 @@ use zerocopy::Immutable;
 
 use super::{
     Index,
+    IndexedKey,
+    Key,
     KeyId,
     Op,
     Opcode, //
 };
+
+/// A type that can encode itself into an [`Encoder`].
+pub(crate) trait Encodable {
+    /// Encodes `self` into `encoder`.
+    fn encode(&self, encoder: &mut Encoder) -> Result;
+}
+
+/// Defines a struct together with its [`Encodable`] implementation.
+///
+/// The implementation encodes each field in declaration order. Each field type must implement
+/// [`Encodable`], which is done already for types like `Key<T, KEY_ID>`.
+///
+/// Use a lifetime on the struct if its fields borrow data, for example, `Key<&'a [u8], KEY>`.
+///
+/// # Examples
+///
+/// ```
+/// nvkv_encode! {
+///     struct Request {
+///         id: Key<u32, 0x0001>,
+///         name: Key<&'static [u8], 0x0002>,
+///     }
+/// }
+/// ```
+#[cfg_attr(not(CONFIG_KUNIT = "y"), expect(unused_macros))]
+macro_rules! nvkv_encode {
+    (
+        $(#[$attr:meta])*
+        $vis:vis struct $name:ident $(<$lt:lifetime>)? {
+            $(
+                $(#[$field_attr:meta])*
+                $field_vis:vis $field:ident : $ty:ty
+            ),* $(,)?
+        }
+    ) => {
+        $(#[$attr])*
+        $vis struct $name $(<$lt>)? {
+            $(
+                $(#[$field_attr])*
+                $field_vis $field: $ty,
+            )*
+        }
+
+        impl $(<$lt>)? $crate::gsp::nvkv::Encodable for $name $(<$lt>)? {
+            fn encode(&self, encoder: &mut $crate::gsp::nvkv::Encoder) -> ::kernel::error::Result {
+                $( $crate::gsp::nvkv::Encodable::encode(&self.$field, encoder)?; )*
+                Ok(())
+            }
+        }
+    };
+}
+
+impl<const KEY_ID: KeyId> Encodable for IndexedKey<u32, KEY_ID> {
+    fn encode(&self, encoder: &mut Encoder) -> Result {
+        encoder.encode_u32(KEY_ID, self.index, self.value)
+    }
+}
+
+impl<const KEY_ID: KeyId> Encodable for IndexedKey<u64, KEY_ID> {
+    fn encode(&self, encoder: &mut Encoder) -> Result {
+        encoder.encode_u64(KEY_ID, self.index, self.value)
+    }
+}
+
+impl<const KEY_ID: KeyId> Encodable for IndexedKey<&[u8], KEY_ID> {
+    fn encode(&self, encoder: &mut Encoder) -> Result {
+        encoder.encode_array8(KEY_ID, self.index, self.value)
+    }
+}
+
+impl<const KEY_ID: KeyId> Encodable for IndexedKey<&[u32], KEY_ID> {
+    fn encode(&self, encoder: &mut Encoder) -> Result {
+        encoder.encode_array32(KEY_ID, self.index, self.value)
+    }
+}
+
+impl<const KEY_ID: KeyId> Encodable for IndexedKey<&[u64], KEY_ID> {
+    fn encode(&self, encoder: &mut Encoder) -> Result {
+        encoder.encode_array64(KEY_ID, self.index, self.value)
+    }
+}
+
+impl<const N: usize, const KEY_ID: KeyId> Encodable for IndexedKey<[u8; N], KEY_ID> {
+    fn encode(&self, encoder: &mut Encoder) -> Result {
+        encoder.encode_array8(KEY_ID, self.index, &self.value)
+    }
+}
+
+impl<const N: usize, const KEY_ID: KeyId> Encodable for IndexedKey<[u32; N], KEY_ID> {
+    fn encode(&self, encoder: &mut Encoder) -> Result {
+        encoder.encode_array32(KEY_ID, self.index, &self.value)
+    }
+}
+
+impl<const N: usize, const KEY_ID: KeyId> Encodable for IndexedKey<[u64; N], KEY_ID> {
+    fn encode(&self, encoder: &mut Encoder) -> Result {
+        encoder.encode_array64(KEY_ID, self.index, &self.value)
+    }
+}
+
+impl<T, const KEY_ID: KeyId, As> Encodable for Key<T, KEY_ID, As>
+where
+    IndexedKey<As, KEY_ID>: Encodable,
+    As: From<T>,
+    T: Copy,
+{
+    fn encode(&self, encoder: &mut Encoder) -> Result {
+        const_assert!(
+            size_of::<T>() <= Self::MAX_STACK_SIZE && size_of::<As>() <= Self::MAX_STACK_SIZE,
+            "`Key` here would materialize too large a value on the stack"
+        );
+
+        IndexedKey::new(Index::new::<0>(), As::from(self.0)).encode(encoder)
+    }
+}
+
+impl<T: Encodable> Encodable for Option<T> {
+    fn encode(&self, encoder: &mut Encoder) -> Result {
+        if let Some(value) = self {
+            value.encode(encoder)?;
+        }
+        Ok(())
+    }
+}
 
 /// An encoder for an NVKV stream.
 pub(crate) struct Encoder {
@@ -186,6 +312,153 @@ mod tests {
         );
         assert_eq!(encoded[8], ARRAY64_VALUE[0]);
         assert_eq!(encoded[9], ARRAY64_VALUE[1]);
+
+        Ok(())
+    }
+
+    // Tests that encoding via the `nvkv_encode!` macro works correctly.
+    #[test]
+    fn encode_typed_struct() -> Result {
+        const U32_KEY: KeyId = 0x0001;
+        const U64_KEY: KeyId = 0x0002;
+        const NAME_KEY: KeyId = 0x0003;
+        const FIXED_KEY: KeyId = 0x0004;
+        const OPT_KEY: KeyId = 0x0005;
+        const INDEXED_KEY: KeyId = 0x0006;
+        const CONVERTED_KEY: KeyId = 0x0007;
+        const INNER_KEY: KeyId = 0x0008;
+
+        // A value that is encoded as the `u32` it converts to.
+        #[derive(Clone, Copy)]
+        enum TestEnum {
+            Value = 3,
+        }
+
+        impl From<TestEnum> for u32 {
+            fn from(value: TestEnum) -> Self {
+                value as u32
+            }
+        }
+
+        nvkv_encode! {
+            struct Inner {
+                x: Key<u32, INNER_KEY>,
+            }
+        }
+
+        nvkv_encode! {
+            struct TypedRequest<'a> {
+                a: Key<u32, U32_KEY>,
+                b: Key<u64, U64_KEY>,
+                name: Key<&'a [u8], NAME_KEY>,
+                fixed: Key<[u8; 4], FIXED_KEY>,
+                opt: Option<Key<u32, OPT_KEY>>,
+                indexed: IndexedKey<u32, INDEXED_KEY>,
+                converted: Key<TestEnum, CONVERTED_KEY, u32>,
+                nested: Option<Inner>,
+            }
+        }
+
+        const U32_VALUE: u32 = 0x89ab_cdef;
+        const U64_VALUE: u64 = 0x0123_4567_89ab_cdef;
+        const INDEXED_VALUE: u32 = 0x1234_5678;
+        const INNER_VALUE: u32 = 0x0bad_f00d;
+
+        let index5 = Index::new::<5>();
+        let request = TypedRequest {
+            a: U32_VALUE.into(),
+            b: U64_VALUE.into(),
+            name: b"name\0".into(),
+            fixed: [1u8, 2, 3, 4].into(),
+            opt: None,
+            indexed: IndexedKey::new(index5, INDEXED_VALUE),
+            converted: TestEnum::Value.into(),
+            nested: Some(Inner {
+                x: INNER_VALUE.into(),
+            }),
+        };
+
+        let mut encoder = Encoder::new();
+        request.encode(&mut encoder)?;
+        let encoded = encoder.finish();
+
+        // `opt` is `None` and is not encoded.
+        assert_eq!(encoded.len(), 10);
+
+        let index0 = Index::new::<0>();
+        // `a`: IMM32 with the value in the `Op`.
+        assert_eq!(
+            encoded[0],
+            Op::zeroed()
+                .with_key(U32_KEY)
+                .with_index(index0)
+                .with_opcode(Opcode::Imm32)
+                .with_value(U32_VALUE)
+                .into_raw()
+        );
+        // `b`: a single-key SEQ64 followed by the value.
+        assert_eq!(
+            encoded[1],
+            Op::zeroed()
+                .with_key(U64_KEY)
+                .with_index(index0)
+                .with_opcode(Opcode::Seq64)
+                .with_value(1)
+                .into_raw()
+        );
+        assert_eq!(encoded[2], U64_VALUE);
+        // `name`: ARRAY8 of 5 bytes, zero-padded to one `u64`.
+        assert_eq!(
+            encoded[3],
+            Op::zeroed()
+                .with_key(NAME_KEY)
+                .with_index(index0)
+                .with_opcode(Opcode::Array8)
+                .with_value(5)
+                .into_raw()
+        );
+        assert_eq!(encoded[4], u64::from_le_bytes(*b"name\0\0\0\0"));
+        // `fixed`: ARRAY8 of 4 bytes, zero-padded to one `u64`.
+        assert_eq!(
+            encoded[5],
+            Op::zeroed()
+                .with_key(FIXED_KEY)
+                .with_index(index0)
+                .with_opcode(Opcode::Array8)
+                .with_value(4)
+                .into_raw()
+        );
+        assert_eq!(encoded[6], u64::from_le_bytes([1, 2, 3, 4, 0, 0, 0, 0]));
+        // `indexed`: IMM32 with a non-zero index in the `Op`.
+        assert_eq!(
+            encoded[7],
+            Op::zeroed()
+                .with_key(INDEXED_KEY)
+                .with_index(index5)
+                .with_opcode(Opcode::Imm32)
+                .with_value(INDEXED_VALUE)
+                .into_raw()
+        );
+        // `converted`: IMM32 with the `u32` that `TestEnum::Value` converts to.
+        assert_eq!(
+            encoded[8],
+            Op::zeroed()
+                .with_key(CONVERTED_KEY)
+                .with_index(index0)
+                .with_opcode(Opcode::Imm32)
+                .with_value(3)
+                .into_raw()
+        );
+        // `nested`: IMM32 with the single `u32` it contains.
+        assert_eq!(
+            encoded[9],
+            Op::zeroed()
+                .with_key(INNER_KEY)
+                .with_index(index0)
+                .with_opcode(Opcode::Imm32)
+                .with_value(INNER_VALUE)
+                .into_raw()
+        );
 
         Ok(())
     }
