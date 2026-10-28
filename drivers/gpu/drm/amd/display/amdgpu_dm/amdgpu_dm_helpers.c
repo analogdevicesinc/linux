@@ -309,7 +309,7 @@ fill_dc_mst_payload_table_from_drm(struct dc_link *link,
 				break;
 			}
 		}
-		ASSERT(i != copy_of_link_table.stream_count);
+		/* Payload absent from HW table when never allocated: nothing to remove. */
 	}
 
 	/* Fill payload info*/
@@ -531,7 +531,7 @@ void dm_helpers_dp_mst_update_mst_mgr_for_deallocation(
 
 	amdgpu_dm_set_mst_status(&aconnector->mst_status, set_flag, true);
 	amdgpu_dm_set_mst_status(&aconnector->mst_status, clr_flag, false);
- }
+}
 EXPORT_IF_KUNIT(dm_helpers_dp_mst_update_mst_mgr_for_deallocation);
 
 void dm_dtn_log_begin(struct dc_context *ctx,
@@ -1244,6 +1244,26 @@ void populate_hdmi_info_from_connector(bool enable_frl, struct drm_hdmi_info *hd
 }
 EXPORT_IF_KUNIT(populate_hdmi_info_from_connector);
 
+static void dm_helpers_wait_for_edid_ready(struct dc_link *link,
+					   struct i2c_adapter *ddc)
+{
+	const unsigned int retry_count = 50;
+	const unsigned int retry_interval_ms = 20;
+	unsigned int retry;
+
+	if (!ddc || link->dpcd_caps.dongle_type !=
+			DISPLAY_DONGLE_DP_DVI_DONGLE)
+		return;
+
+	for (retry = 0; retry < retry_count; retry++) {
+		if (drm_probe_ddc(ddc))
+			return;
+
+		if (retry + 1 < retry_count)
+			msleep(retry_interval_ms);
+	}
+}
+
 enum dc_edid_status dm_helpers_read_local_edid(
 		struct dc_context *ctx,
 		struct dc_link *link,
@@ -1267,6 +1287,8 @@ enum dc_edid_status dm_helpers_read_local_edid(
 
 	if (link->dc->hwss.prepare_ddc)
 		link->dc->hwss.prepare_ddc(link);
+
+	dm_helpers_wait_for_edid_ready(link, ddc);
 
 	/* some dongles read edid incorrectly the first time,
 	 * do check sum and retry to make sure read correct edid.
@@ -1423,7 +1445,7 @@ void dm_helpers_init_panel_settings(
 	panel_config->pps.extra_post_OUI_ms = 0;
 	// Feature DSC
 	panel_config->dsc.disable_dsc_edp = false;
-	panel_config->dsc.force_dsc_edp_policy = 0;
+	panel_config->dsc.force_dsc_edp_policy = 1;
 }
 EXPORT_IF_KUNIT(dm_helpers_init_panel_settings);
 
@@ -1436,6 +1458,9 @@ void dm_helpers_override_panel_settings(
 	// Feature DSC
 	if (amdgpu_dc_debug_mask & DC_DISABLE_DSC)
 		link->panel_config.dsc.disable_dsc_edp = true;
+
+	if (!dc_link_should_enable_fec(link))
+		link->panel_config.dsc.force_dsc_edp_policy = 0;
 
 	if (dc_get_edp_link_panel_inst(ctx->dc, link, &panel_inst) && panel_inst == 1) {
 		link->panel_config.psr.disable_psr = true;

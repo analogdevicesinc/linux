@@ -745,6 +745,7 @@ static int gmc_v11_0_sw_init(struct amdgpu_ip_block *ip_block)
 {
 	int r, vram_width = 0, vram_type = 0, vram_vendor = 0;
 	struct amdgpu_device *adev = ip_block->adev;
+	unsigned int last_kq_vmid;
 
 	adev->mmhub.funcs->init(adev);
 
@@ -851,15 +852,16 @@ static int gmc_v11_0_sw_init(struct amdgpu_ip_block *ip_block)
 	/*
 	 * number of VMs
 	 * VMID 0 is reserved for System
-	 * amdgpu graphics/compute will use VMIDs 1-7
-	 * amdkfd will use VMIDs 8-15
+	 * amdgpu graphics/compute kernel queues will use VMIDs 1-7
+	 * amdkfd/MES user queues will use VMIDs 8-15
 	 */
-	adev->vm_manager.first_kfd_vmid = adev->gfx.disable_kq ? 1 : 8;
+	last_kq_vmid = adev->gfx.disable_kq ? 0 : 7;
 
-	amdgpu_vmid_mgr_set_vmid_mask(adev,
-				      GENMASK(adev->vm_manager.first_kfd_vmid - 1, 1),
-				      false);
-	amdgpu_vmid_mgr_set_vmid_mask(adev, GENMASK(AMDGPU_NUM_VMID - 1, 1), true);
+	/* Reserve the last VMID for SPM */
+	adev->vm_manager.spm_vmid = AMDGPU_NUM_VMID - 1;
+
+	amdgpu_vmid_mgr_set_vmid_mask(adev, GENMASK(last_kq_vmid, 1),
+				      GENMASK(AMDGPU_NUM_VMID - 1, 1));
 
 	amdgpu_vm_manager_init(adev);
 

@@ -612,7 +612,6 @@ struct amdgpu_firmware {
 	/* firmwares are loaded by psp instead of smu from vega10 */
 	const struct amdgpu_psp_funcs *funcs;
 	struct amdgpu_bo *rbuf;
-	struct mutex mutex;
 
 	/* gpu info firmware data pointer */
 	const struct firmware *gpu_info_fw;

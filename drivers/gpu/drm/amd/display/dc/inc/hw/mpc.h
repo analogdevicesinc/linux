@@ -298,6 +298,7 @@ struct mpcc_state {
 	uint32_t overlap_only;
 	uint32_t idle;
 	uint32_t busy;
+	uint32_t cur_vupdate_lock;
 	uint32_t shaper_lut_mode;
 	uint32_t lut3d_mode;
 	uint32_t lut3d_bit_depth;

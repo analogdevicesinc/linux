@@ -430,7 +430,8 @@ static int __check_ras_ta_cmd_resp(struct ras_core_context *ras_core,
 }
 
 static int send_ras_ta_runtime_cmd(struct ras_core_context *ras_core,
-			enum ras_ta_cmd_id cmd_id, void *in, uint32_t in_size,
+			uint32_t session_id, enum ras_ta_cmd_id cmd_id,
+			void *in, uint32_t in_size,
 			void *out, uint32_t out_size)
 {
 	struct ras_ta_ctx *ta_ctx = &ras_core->ras_psp.ta_ctx;
@@ -471,7 +472,7 @@ static int send_ras_ta_runtime_cmd(struct ras_core_context *ras_core,
 	memcpy(&ras_cmd->ras_in_message, in, in_size);
 
 	invoke_cmd.ta_cmd_id = cmd_id;
-	invoke_cmd.session_id = ta_ctx->session_id;
+	invoke_cmd.session_id = session_id;
 
 	ret = send_psp_cmd(ras_core, GFX_CMD_ID_INVOKE_CMD,
 			&invoke_cmd, sizeof(invoke_cmd), &resp);
@@ -498,10 +499,15 @@ static int send_ras_ta_runtime_cmd(struct ras_core_context *ras_core,
 		goto unlock;
 	}
 
-	if (!ras_cmd->ras_status && out && out_size)
+	/* Hand the TA output back regardless of status; ret carries the status. */
+	if (out && out_size)
 		memcpy(out, &ras_cmd->ras_out_message, out_size);
 
-	ret = __check_ras_ta_cmd_resp(ras_core, ras_cmd);
+	/* cmd from user space requires special handling for CHECK_ACA_BANK_ERROR_TYPES */
+	if (cmd_id == RAS_TA_CMD_ID__CHECK_ACA_BANK_ERROR_TYPES)
+		__check_ras_ta_cmd_resp(ras_core, ras_cmd);
+	else
+		ret = __check_ras_ta_cmd_resp(ras_core, ras_cmd);
 
 unlock:
 	mutex_unlock(&ta_ctx->ta_mutex);
@@ -540,7 +546,9 @@ static int trigger_ras_ta_error(struct ras_core_context *ras_core,
 	dev_mask &= RAS_TA_INST_MASK;
 	info->sub_block_index |= dev_mask;
 
-	return send_ras_ta_runtime_cmd(ras_core, RAS_TA_CMD_ID__TRIGGER_ERROR,
+	return send_ras_ta_runtime_cmd(ras_core,
+				ras_core->ras_psp.ta_ctx.session_id,
+				RAS_TA_CMD_ID__TRIGGER_ERROR,
 				info, sizeof(*info), NULL, 0);
 }
 
@@ -789,6 +797,21 @@ int ras_psp_unsideload_ras_ta(struct ras_core_context *ras_core,
 	return unload_ras_ta_fw(ras_core, ras_ta_unload);
 }
 
+int ras_psp_invoke_ras_ta(struct ras_core_context *ras_core,
+		uint32_t session_id, uint32_t cmd_id,
+		void *shared_buf, uint32_t shared_buf_len)
+{
+	/* The debugfs caller hands over a full ras_ta_cmd shared buffer. */
+	struct ras_ta_cmd *ras_cmd = shared_buf;
+
+	if (!shared_buf || shared_buf_len < sizeof(*ras_cmd))
+		return -EINVAL;
+
+	return send_ras_ta_runtime_cmd(ras_core, session_id, cmd_id,
+			&ras_cmd->ras_in_message, sizeof(ras_cmd->ras_in_message),
+			&ras_cmd->ras_out_message, sizeof(ras_cmd->ras_out_message));
+}
+
 int ras_psp_reload_firmwares(struct ras_core_context *ras_core,
 		uint32_t flags)
 {
@@ -814,7 +837,7 @@ int ras_psp_enable_features(struct ras_core_context *ras_core,
 		return -ENOEXEC;
 	}
 
-	return send_ras_ta_runtime_cmd(ras_core,
+	return send_ras_ta_runtime_cmd(ras_core, ta_ctx->session_id,
 			enable ? RAS_TA_CMD_ID__ENABLE_FEATURES :
 				 RAS_TA_CMD_ID__DISABLE_FEATURES,
 			info, sizeof(*info), NULL, 0);
@@ -850,8 +873,9 @@ int ras_psp_query_address(struct ras_core_context *ras_core,
 	if (!addr_in || !addr_out)
 		return -EINVAL;
 
-	return send_ras_ta_runtime_cmd(ras_core, RAS_TA_CMD_ID__QUERY_ADDRESS,
-		addr_in, sizeof(*addr_in), addr_out, sizeof(*addr_out));
+	return send_ras_ta_runtime_cmd(ras_core, ta_ctx->session_id,
+		RAS_TA_CMD_ID__QUERY_ADDRESS, addr_in, sizeof(*addr_in),
+		addr_out, sizeof(*addr_out));
 }
 
 int ras_psp_sw_init(struct ras_core_context *ras_core)

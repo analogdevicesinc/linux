@@ -27,6 +27,32 @@
 #include "smu_cmn.h"
 #include "soc15_common.h"
 
+#include "amdgpu_xgmi.h"
+
+struct smu_context *smu_get_primary_dev(struct smu_context *smu)
+{
+	struct amdgpu_device *adev = smu->adev;
+	struct amdgpu_hive_info *hive;
+	struct amdgpu_device *peer;
+
+	if (adev->gmc.xgmi.physical_node_id == 0)
+		return smu;
+
+	hive = amdgpu_get_xgmi_hive(adev);
+	if (!hive)
+		return NULL;
+
+	list_for_each_entry(peer, &hive->device_list, gmc.xgmi.head) {
+		if (peer->gmc.xgmi.physical_node_id == 0) {
+			amdgpu_put_xgmi_hive(hive);
+			return peer->powerplay.pp_handle;
+		}
+	}
+
+	amdgpu_put_xgmi_hive(hive);
+	return NULL;
+}
+
 /*
  * DO NOT use these for err/warn/info/debug messages.
  * Use dev_err, dev_warn, dev_info and dev_dbg instead.
@@ -1387,11 +1413,12 @@ int smu_cmn_print_dpm_clk_levels(struct smu_context *smu,
 				 uint32_t cur_clk, char *buf, int *offset)
 {
 	uint32_t min_clk, max_clk, level_index, count;
+	uint32_t nearest_level = 0, nearest_diff = U32_MAX;
 	uint32_t freq_values[3];
+	uint32_t clk_diff, level_clk;
 	int size, lvl, i;
 	bool is_fine_grained;
 	bool is_deep_sleep;
-	bool freq_match;
 
 	if (!dpm_table || !buf)
 		return -EINVAL;
@@ -1403,23 +1430,41 @@ int smu_cmn_print_dpm_clk_levels(struct smu_context *smu,
 	min_clk = SMU_DPM_TABLE_MIN(dpm_table);
 	max_clk = SMU_DPM_TABLE_MAX(dpm_table);
 
-	/* Deep sleep - current clock < min_clock/2, TBD: cur_clk = 0 as GFXOFF */
-	is_deep_sleep = cur_clk < min_clk / 2;
+	/* A clock below DPM0 is reported as a special deep-sleep level. */
+	is_deep_sleep = cur_clk < min_clk;
 	if (is_deep_sleep) {
 		size += sysfs_emit_at(buf, size, "S: %uMhz *\n", cur_clk);
 		level_index = 1;
 	}
 
+	/*
+	 * Discrete tables mark the level nearest to the current clock.  Clamp
+	 * clocks above the advertised range to the last level.  Fine-grained
+	 * tables keep reporting the actual current clock between min and max.
+	 */
 	if (!is_fine_grained || count == 1) {
+		if (!is_deep_sleep) {
+			if (cur_clk >= max_clk) {
+				nearest_level = count - 1;
+			} else {
+				for (i = 0; i < count; i++) {
+					level_clk = dpm_table->dpm_levels[i].value;
+					clk_diff = cur_clk > level_clk ?
+						   cur_clk - level_clk : level_clk - cur_clk;
+					if (clk_diff < nearest_diff) {
+						nearest_diff = clk_diff;
+						nearest_level = i;
+					}
+				}
+			}
+		}
+
 		for (i = 0; i < count; i++) {
-			freq_match = !is_deep_sleep &&
-				     smu_cmn_freqs_match(
-					     cur_clk,
-					     dpm_table->dpm_levels[i].value);
 			size += sysfs_emit_at(buf, size, "%d: %uMhz %s\n",
 					      level_index + i,
 					      dpm_table->dpm_levels[i].value,
-					      freq_match ? "*" : "");
+					      (!is_deep_sleep &&
+					       i == nearest_level) ? "*" : "");
 		}
 	} else {
 		count = 2;

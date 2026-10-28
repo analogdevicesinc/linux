@@ -784,6 +784,9 @@ struct kfd_process_device {
 	/* per-process-per device QCM data structure */
 	struct qcm_process_device qpd;
 
+	/* Serializes process doorbell allocation for this device */
+	struct mutex doorbell_mutex;
+
 	/*Apertures*/
 	uint64_t lds_base;
 	uint64_t lds_limit;
@@ -870,6 +873,7 @@ struct kfd_process_device {
 	uint32_t spi_dbg_override;
 	uint32_t spi_dbg_launch_mode;
 	uint32_t watch_points[4];
+	uint64_t watch_addresses[4];
 	uint32_t alloc_watch_ids;
 
 	/*
@@ -1037,10 +1041,6 @@ struct kfd_process {
 	uint64_t exception_enable_mask;
 	uint64_t exception_status;
 
-	/* Used to drain stale interrupts */
-	wait_queue_head_t wait_irq_drain;
-	bool irq_drain_is_open;
-
 	/* shared virtual memory registered by this process */
 	struct svm_range_list svms;
 
@@ -1130,6 +1130,7 @@ void kfd_unref_process(struct kfd_process *p);
 int kfd_process_evict_queues(struct kfd_process *p, uint32_t trigger);
 int kfd_process_restore_queues(struct kfd_process *p);
 void kfd_suspend_all_processes(void);
+void kfd_process_wait_gpu_reset_complete(struct kfd_process *p);
 int kfd_resume_all_processes(void);
 
 struct kfd_process_device *kfd_process_device_data_by_id(struct kfd_process *process,
@@ -1252,9 +1253,7 @@ bool enqueue_ih_ring_entry(struct kfd_node *kfd, const void *ih_ring_entry);
 bool interrupt_is_wanted(struct kfd_node *dev,
 				const uint32_t *ih_ring_entry,
 				uint32_t *patched_ihre, bool *flag);
-int kfd_process_drain_interrupts(struct kfd_process_device *pdd);
-void kfd_process_close_interrupt_drain(unsigned int pasid);
-
+void kfd_process_drain_interrupts(struct kfd_process_device *pdd);
 /* amdkfd Apertures */
 int kfd_init_apertures(struct kfd_process *process);
 

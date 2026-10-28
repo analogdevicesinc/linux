@@ -353,11 +353,12 @@ static void update_mqd_sdma(struct mqd_manager *mm, void *mqd,
 
 	m->sdmax_rlcx_dummy_reg = SDMA_RLC_DUMMY_DEFAULT;
 
-	/* Allow context switch so we don't cross-process starve with a massive
-	* command buffer of long-running SDMA commands
-	* sdmax_rlcx_ib_cntl represent SDMA_QUEUE0_IB_CNTL register
-	*/
-	m->sdmax_rlcx_ib_cntl |= SDMA0_QUEUE0_IB_CNTL__SWITCH_INSIDE_IB_MASK;
+	/* Enable IB execution; allow context switch inside an IB so one
+	 * queue cannot starve the engine.
+	 */
+	m->sdmax_rlcx_ib_cntl |=
+		SDMA0_QUEUE0_IB_CNTL__IB_ENABLE_MASK |
+		SDMA0_QUEUE0_IB_CNTL__SWITCH_INSIDE_IB_MASK;
 
 	q->is_active = QUEUE_IS_ACTIVE(*q);
 }
@@ -393,6 +394,8 @@ static void restore_mqd(struct mqd_manager *mm, void **mqd,
 
 	memset(m, 0, AMDGPU_MQD_SIZE_ALIGN(mm->mqd_size));
 	memcpy(m, mqd_src, sizeof(*m));
+	kfd_mqd_restore_ctl_stack(&m->cp_hqd_cntl_stack_size, &m->cp_hqd_cntl_stack_offset,
+				  &m->cp_hqd_wg_state_offset, qp->ctl_stack_size);
 
 	/* Update MQD base address to the newly allocated location */
 	m->cp_mqd_base_addr_lo = lower_32_bits(addr);

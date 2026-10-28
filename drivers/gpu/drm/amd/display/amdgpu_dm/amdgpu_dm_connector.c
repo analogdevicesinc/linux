@@ -1289,10 +1289,10 @@ static void apply_dsc_policy_for_stream(struct amdgpu_dm_connector *aconnector,
 	link_bandwidth_kbps = dc_link_bandwidth_kbps(aconnector->dc_link,
 							dc_link_get_link_cap(aconnector->dc_link));
 
-	if (aconnector->dc_link->ep_type == DISPLAY_ENDPOINT_USB4_DPIA &&
-	    aconnector->dc_link->dpia_bw_alloc_config.bw_alloc_enabled) {
+	if (aconnector->dc_link->ep_type == DISPLAY_ENDPOINT_USB4_DPIA) {
 		dsc_options.max_target_bpp_limit_override_x16 = 8 * 16;
-		dsc_options.force_dsc_when_not_needed = true;
+		if (aconnector->dc_link->dpia_bw_alloc_config.bw_alloc_enabled)
+			dsc_options.force_dsc_when_not_needed = true;
 	}
 
 	/* Set DSC policy according to dsc_clock_en */
@@ -1395,6 +1395,21 @@ static void apply_dsc_policy_for_stream(struct amdgpu_dm_connector *aconnector,
 }
 #endif
 
+STATIC_IFN_KUNIT bool is_duplicate_mode(struct amdgpu_dm_connector *aconnector,
+					const struct drm_display_mode *mode)
+{
+	struct drm_display_mode *m;
+
+	list_for_each_entry(m, &aconnector->base.probed_modes, head) {
+		if (drm_mode_equal(m, mode))
+			return true;
+	}
+
+	return false;
+}
+
+EXPORT_IF_KUNIT(is_duplicate_mode);
+
 void amdgpu_dm_update_stream_scaling_settings(struct drm_device *dev,
 					   const struct drm_display_mode *mode,
 					   const struct dm_connector_state *dm_state,
@@ -1464,13 +1479,14 @@ create_stream_for_sink(struct drm_connector *connector,
 	struct drm_device *dev = connector->dev;
 	struct amdgpu_dm_connector *aconnector = NULL;
 	struct drm_display_mode *preferred_mode = NULL;
+	struct drm_display_mode *connector_mode;
 	const struct drm_connector_state *con_state = &dm_state->base;
 	struct dc_stream_state *stream = NULL;
 	struct drm_display_mode mode;
 	struct drm_display_mode saved_mode;
 	struct drm_display_mode *freesync_mode = NULL;
-	bool native_mode_found = false;
 	bool recalculate_timing = false;
+	bool unadvertised_mode = false;
 	bool scale = dm_state->scaling != RMX_OFF;
 	int mode_refresh;
 	int preferred_refresh = 0;
@@ -1520,14 +1536,14 @@ create_stream_for_sink(struct drm_connector *connector,
 	stream->timing.flags.LTE_340MCSC_SCRAMBLE =
 		connector->display_info.hdmi.scdc.scrambling.low_rates;
 
-	list_for_each_entry(preferred_mode, &connector->modes, head) {
+	list_for_each_entry(connector_mode, &connector->modes, head) {
 		/* Search for preferred mode */
-		if (preferred_mode->type & DRM_MODE_TYPE_PREFERRED) {
-			native_mode_found = true;
+		if (connector_mode->type & DRM_MODE_TYPE_PREFERRED) {
+			preferred_mode = connector_mode;
 			break;
 		}
 	}
-	if (!native_mode_found)
+	if (!preferred_mode)
 		preferred_mode = list_first_entry_or_null(
 				&connector->modes,
 				struct drm_display_mode,
@@ -1557,6 +1573,13 @@ create_stream_for_sink(struct drm_connector *connector,
 					&mode, preferred_mode, scale);
 
 			preferred_refresh = drm_mode_vrefresh(preferred_mode);
+			unadvertised_mode = !is_duplicate_mode(aconnector, drm_mode);
+
+			if (unadvertised_mode && dm_state->scaling == RMX_OFF)
+				drm_dbg_driver(dev,
+					       "Unadvertised mode %dx%d@%d with RMX_OFF\n",
+					       drm_mode->hdisplay, drm_mode->vdisplay,
+					       drm_mode_vrefresh(drm_mode));
 		}
 	}
 
@@ -2334,7 +2357,7 @@ amdgpu_dm_create_validate_stream_for_sink(struct drm_connector *connector,
 	 * Since we check for it a few times below, cache the result.
 	 */
 	is_hdmi_ep = (signal == SIGNAL_TYPE_HDMI_TYPE_A ||
-		     signal == SIGNAL_TYPE_HDMI_FRL 	||
+		     signal == SIGNAL_TYPE_HDMI_FRL	||
 		     aconnector->dc_link->dpcd_caps.dongle_type ==
 			     DISPLAY_DONGLE_DP_HDMI_CONVERTER);
 	is_dp_or_hdmi = dc_is_hdmi_signal(signal) || dc_is_dp_signal(signal);
@@ -3005,19 +3028,6 @@ STATIC_IFN_KUNIT void amdgpu_dm_connector_ddc_get_modes(struct drm_connector *co
 }
 EXPORT_IF_KUNIT(amdgpu_dm_connector_ddc_get_modes);
 
-STATIC_IFN_KUNIT bool is_duplicate_mode(struct amdgpu_dm_connector *aconnector,
-			      struct drm_display_mode *mode)
-{
-	struct drm_display_mode *m;
-
-	list_for_each_entry(m, &aconnector->base.probed_modes, head) {
-		if (drm_mode_equal(m, mode))
-			return true;
-	}
-
-	return false;
-}
-EXPORT_IF_KUNIT(is_duplicate_mode);
 
 STATIC_IFN_KUNIT uint add_fs_modes(struct amdgpu_dm_connector *aconnector)
 {
@@ -3780,10 +3790,9 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 		parse_edid_displayid_vrr(connector, edid);
 
 	has_vsdb = get_amd_vsdb(amdgpu_dm_connector, &vsdb_info) != 0;
+	amdgpu_dm_connector->vsdb_info = vsdb_info;
 
 	if (has_vsdb) {
-		amdgpu_dm_connector->vsdb_info = vsdb_info;
-
 		/* copy refresh rate info as long as VSDB advertises FreeSync */
 		if (vsdb_info.freesync_supported) {
 			amdgpu_dm_connector->min_vfreq = vsdb_info.min_refresh_rate_hz;
@@ -3905,12 +3914,6 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 		connector->display_info.monitor_range.min_vfreq =
 			amdgpu_dm_connector->min_vfreq;
 	}
-
-	/* HDMI/PCON without an EDID FreeSync VCP code is not FreeSync-capable. */
-	if ((sink->sink_signal == SIGNAL_TYPE_HDMI_TYPE_A ||
-	     as_type == FREESYNC_TYPE_PCON_IN_WHITELIST) &&
-	    !sink->edid_caps.freesync_vcp_code)
-		freesync_capable = false;
 
 	/* Handle MCCS */
 	if (do_mccs) {

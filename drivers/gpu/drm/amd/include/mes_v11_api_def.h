@@ -637,6 +637,13 @@ struct WRITE_REG {
 struct READ_REG {
 	uint32_t                  reg_offset;
 	uint64_t                  buffer_addr;
+	union {
+		struct {
+			uint32_t read64Bits : 1;
+			uint32_t reserved : 31;
+		} bits;
+		uint32_t all;
+	} option;
 };
 
 enum WRM_OPERATION {
@@ -676,6 +683,9 @@ struct SET_SHADER_DEBUGGER {
 	uint32_t spi_gdbg_per_vmid_cntl;
 	uint32_t tcp_watch_cntl[4]; /* TCP_WATCHx_CNTL */
 	uint32_t trap_en;
+	uint32_t tcp_watch_addr_lo[4]; /* TCP_WATCHx_ADDR_L */
+	uint32_t tcp_watch_addr_hi[4]; /* TCP_WATCHx_ADDR_H */
+	uint32_t process_context_array_index;
 };
 
 enum MESAPI_MISC__CHANGE_CONFIG_OPTION {

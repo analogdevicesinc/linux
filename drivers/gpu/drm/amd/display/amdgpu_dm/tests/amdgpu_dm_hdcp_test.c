@@ -1352,9 +1352,9 @@ static void dm_test_hdcp_destroy_frees_and_removes_sysfs(struct kunit *test)
 	INIT_DELAYED_WORK(&work->watchdog_timer_dwork, dummy_work_fn);
 	INIT_DELAYED_WORK(&work->property_validate_dwork, dummy_work_fn);
 
-	work->srm = kzalloc(16, GFP_KERNEL);
+	work->srm = kzalloc_objs(*work->srm, 16);
 	KUNIT_ASSERT_NOT_NULL(test, work->srm);
-	work->srm_temp = kzalloc(16, GFP_KERNEL);
+	work->srm_temp = kzalloc_objs(*work->srm_temp, 16);
 	KUNIT_ASSERT_NOT_NULL(test, work->srm_temp);
 
 	kobj = setup_destroy_sysfs(test, work);

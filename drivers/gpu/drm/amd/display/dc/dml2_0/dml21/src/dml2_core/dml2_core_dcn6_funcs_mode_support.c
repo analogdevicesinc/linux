@@ -126,7 +126,8 @@ bool dcn6_ms_check_scaler_support(
 	for (k = 0; k < display_cfg->num_planes; k++) {
 		plane = &display_cfg->plane_descriptors[k];
 		if (plane->composition.scaler_info.enabled == false
-				&& (dml2_core_utils_is_420(plane->pixel_format) || dml2_core_utils_is_422_planar(plane->pixel_format) || dml2_core_utils_is_422_packed(plane->pixel_format)
+			&& (((dml2_core_utils_is_420(plane->pixel_format) || dml2_core_utils_is_422_planar(plane->pixel_format)
+					|| dml2_core_utils_is_422_packed(plane->pixel_format)) && plane->composition.scaler_info.upsp_enabled == false)
 						|| plane->composition.scaler_info.plane0.h_ratio != 1.0
 						|| plane->composition.scaler_info.plane0.h_taps != 1.0
 						|| plane->composition.scaler_info.plane0.v_ratio != 1.0

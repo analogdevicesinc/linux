@@ -572,6 +572,8 @@ static int mes_v12_1_misc_op(struct amdgpu_mes *mes,
 	case MES_MISC_OP_READ_REG:
 		misc_pkt.opcode = MESAPI_MISC__READ_REG;
 		misc_pkt.read_reg.buffer_addr = input->read_reg.buffer_addr;
+		misc_pkt.read_reg.option.bits.read64Bits =
+			input->read_reg.read64_bits;
 		mes_v12_1_get_rrmt(input->read_reg.reg_offset,
 				   GET_INST(GC, input->xcc_id),
 				   &misc_pkt.read_reg.rrmt_opt,
@@ -622,6 +624,12 @@ static int mes_v12_1_misc_op(struct amdgpu_mes *mes,
 		memcpy(misc_pkt.set_shader_debugger.tcp_watch_cntl,
 				input->set_shader_debugger.tcp_watch_cntl,
 				sizeof(misc_pkt.set_shader_debugger.tcp_watch_cntl));
+		for (int i = 0; i < 4; i++) {
+			misc_pkt.set_shader_debugger.tcp_watch_addr_lo[i] =
+				lower_32_bits(input->set_shader_debugger.watch_addresses[i]);
+			misc_pkt.set_shader_debugger.tcp_watch_addr_hi[i] =
+				upper_32_bits(input->set_shader_debugger.watch_addresses[i]) & 0xffff;
+		}
 		misc_pkt.set_shader_debugger.trap_en = input->set_shader_debugger.trap_en;
 		break;
 	case MES_MISC_OP_CHANGE_CONFIG:

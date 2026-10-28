@@ -258,9 +258,9 @@ static void dm_test_plane_layer_index_cmp_equal(struct kunit *test)
 	struct dc_surface_update sa, sb;
 
 	plane_a = kunit_kzalloc(test, sizeof(*plane_a), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, plane_a);
+	KUNIT_ASSERT_NOT_NULL(test, plane_a);
 	plane_b = kunit_kzalloc(test, sizeof(*plane_b), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, plane_b);
+	KUNIT_ASSERT_NOT_NULL(test, plane_b);
 
 	plane_a->layer_index = 5;
 	plane_b->layer_index = 5;
@@ -281,9 +281,9 @@ static void dm_test_plane_layer_index_cmp_descending(struct kunit *test)
 	struct dc_surface_update sa, sb;
 
 	plane_a = kunit_kzalloc(test, sizeof(*plane_a), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, plane_a);
+	KUNIT_ASSERT_NOT_NULL(test, plane_a);
 	plane_b = kunit_kzalloc(test, sizeof(*plane_b), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, plane_b);
+	KUNIT_ASSERT_NOT_NULL(test, plane_b);
 
 	plane_a->layer_index = 3;
 	plane_b->layer_index = 7;
@@ -305,9 +305,9 @@ static void dm_test_plane_layer_index_cmp_ascending(struct kunit *test)
 	struct dc_surface_update sa, sb;
 
 	plane_a = kunit_kzalloc(test, sizeof(*plane_a), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, plane_a);
+	KUNIT_ASSERT_NOT_NULL(test, plane_a);
 	plane_b = kunit_kzalloc(test, sizeof(*plane_b), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, plane_b);
+	KUNIT_ASSERT_NOT_NULL(test, plane_b);
 
 	plane_a->layer_index = 9;
 	plane_b->layer_index = 2;
@@ -763,7 +763,7 @@ static void dm_test_multisync_trigger_disabled(struct kunit *test)
 	struct dc_stream_state *stream;
 
 	stream = kunit_kzalloc(test, sizeof(*stream), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, stream);
+	KUNIT_ASSERT_NOT_NULL(test, stream);
 
 	stream->triggered_crtc_reset.enabled = false;
 	stream->triggered_crtc_reset.event = CRTC_EVENT_VSYNC_FALLING;
@@ -788,9 +788,9 @@ static void dm_test_multisync_trigger_rising(struct kunit *test)
 	struct dc_stream_state *master;
 
 	stream = kunit_kzalloc(test, sizeof(*stream), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, stream);
+	KUNIT_ASSERT_NOT_NULL(test, stream);
 	master = kunit_kzalloc(test, sizeof(*master), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, master);
+	KUNIT_ASSERT_NOT_NULL(test, master);
 
 	master->timing.flags.VSYNC_POSITIVE_POLARITY = 1;
 	stream->triggered_crtc_reset.enabled = true;
@@ -814,9 +814,9 @@ static void dm_test_multisync_trigger_falling(struct kunit *test)
 	struct dc_stream_state *master;
 
 	stream = kunit_kzalloc(test, sizeof(*stream), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, stream);
+	KUNIT_ASSERT_NOT_NULL(test, stream);
 	master = kunit_kzalloc(test, sizeof(*master), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, master);
+	KUNIT_ASSERT_NOT_NULL(test, master);
 
 	master->timing.flags.VSYNC_POSITIVE_POLARITY = 0;
 	stream->triggered_crtc_reset.enabled = true;
@@ -842,9 +842,9 @@ static void dm_test_master_stream_highest_refresh(struct kunit *test)
 	struct dc_stream_state *stream_set[2];
 
 	stream0 = kunit_kzalloc(test, sizeof(*stream0), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, stream0);
+	KUNIT_ASSERT_NOT_NULL(test, stream0);
 	stream1 = kunit_kzalloc(test, sizeof(*stream1), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, stream1);
+	KUNIT_ASSERT_NOT_NULL(test, stream1);
 	stream_set[0] = stream0;
 	stream_set[1] = stream1;
 
@@ -880,9 +880,9 @@ static void dm_test_master_stream_defaults_to_first(struct kunit *test)
 	struct dc_stream_state *stream_set[2];
 
 	stream0 = kunit_kzalloc(test, sizeof(*stream0), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, stream0);
+	KUNIT_ASSERT_NOT_NULL(test, stream0);
 	stream1 = kunit_kzalloc(test, sizeof(*stream1), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, stream1);
+	KUNIT_ASSERT_NOT_NULL(test, stream1);
 	stream_set[0] = stream0;
 	stream_set[1] = stream1;
 

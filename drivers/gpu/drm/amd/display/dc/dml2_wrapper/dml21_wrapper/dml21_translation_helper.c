@@ -828,6 +828,9 @@ static void populate_dml21_plane_config_from_plane_state(struct dml2_context *dm
 	plane->composition.rect_out_height_spans_vactive =
 		plane_state->dst_rect.height >= stream->src.height &&
 		stream->dst.height >= (int)stream->timing.v_addressable;
+
+	if (plane_state->ctx->dc->debug.force_mpc_combine)
+		plane->overrides.mpcc_combine_factor = plane_state->ctx->dc->debug.force_mpc_combine;
 }
 
 //TODO : Could be possibly moved to a common helper layer.
@@ -1027,8 +1030,8 @@ void dml21_copy_clocks_to_dc_state(struct dml2_context *in_ctx, struct dc_state 
 	context->bw_ctx.bw.dcn.clk.subvp_prefetch_dramclk_khz = in_ctx->v21.mode_programming.programming->min_clocks.dcn4x.svp_prefetch_no_throttle.uclk_khz;
 	context->bw_ctx.bw.dcn.clk.subvp_prefetch_fclk_khz = in_ctx->v21.mode_programming.programming->min_clocks.dcn4x.svp_prefetch_no_throttle.fclk_khz;
 	context->bw_ctx.bw.dcn.clk.utm_latency_ub_index = 0; /* TODO - derive from qos model */
-	context->bw_ctx.bw.dcn.clk.utm_nominal_bandwidth_lb_Kbps = (unsigned int) in_ctx->v21.mode_programming.programming->qos_bound.bandwidth_lb.dcn5.non_urgent_bandwidth_kbps;
-	context->bw_ctx.bw.dcn.clk.utm_urgent_bandwidth_lb_Kbps = (unsigned int) in_ctx->v21.mode_programming.programming->qos_bound.bandwidth_lb.dcn5.urgent_bandwidth_kbps;
+	context->bw_ctx.bw.dcn.clk.utm_nominal_bandwidth_lb_KBps = (unsigned int) in_ctx->v21.mode_programming.programming->qos_bound.bandwidth_lb.dcn5.non_urgent_bandwidth_kbps;
+	context->bw_ctx.bw.dcn.clk.utm_urgent_bandwidth_lb_KBps = (unsigned int) in_ctx->v21.mode_programming.programming->qos_bound.bandwidth_lb.dcn5.urgent_bandwidth_kbps;
 	context->bw_ctx.bw.dcn.clk.stutter_efficiency.base_efficiency = (uint8_t)in_ctx->v21.mode_programming.programming->stutter.base_percent_efficiency;
 	context->bw_ctx.bw.dcn.clk.stutter_efficiency.low_power_efficiency = (uint8_t)in_ctx->v21.mode_programming.programming->stutter.low_power_percent_efficiency;
 	context->bw_ctx.bw.dcn.clk.stutter_efficiency.z8_stutter_efficiency = (uint8_t)in_ctx->v21.mode_programming.programming->informative.power_management.z8.stutter_efficiency;
@@ -1168,8 +1171,8 @@ void dml21_init_min_clocks_for_dc_state(struct dml2_context *in_ctx, struct dc_s
 	min_clocks->subvp_prefetch_fclk_khz = 0;
 	min_clocks->phyclk_khz = in_ctx->v21.dml_init.soc_bb.clk_table.phyclk.clk_values_khz[lowest_dpm_state_index];
 	min_clocks->utm_latency_ub_index = 0; /* TODO - derive from qos model */
-	min_clocks->utm_nominal_bandwidth_lb_Kbps = 0;
-	min_clocks->utm_urgent_bandwidth_lb_Kbps = 0;
+	min_clocks->utm_nominal_bandwidth_lb_KBps = 0;
+	min_clocks->utm_urgent_bandwidth_lb_KBps = 0;
 	min_clocks->stutter_efficiency.base_efficiency = 1;
 	min_clocks->stutter_efficiency.low_power_efficiency = 1;
 	min_clocks->stutter_efficiency.z8_stutter_efficiency = 1;

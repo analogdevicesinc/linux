@@ -566,22 +566,6 @@ TRACE_EVENT(amdgpu_ib_pipe_sync,
 		      __get_str(ring), __entry->ctx, __entry->seqno)
 );
 
-TRACE_EVENT(amdgpu_reset_reg_dumps,
-	    TP_PROTO(uint32_t address, uint32_t value),
-	    TP_ARGS(address, value),
-	    TP_STRUCT__entry(
-			     __field(uint32_t, address)
-			     __field(uint32_t, value)
-			     ),
-	    TP_fast_assign(
-			   __entry->address = address;
-			   __entry->value = value;
-			   ),
-	    TP_printk("amdgpu register dump 0x%x: 0x%x",
-		      __entry->address,
-		      __entry->value)
-);
-
 DECLARE_EVENT_CLASS(amdgpu_userq_queue,
 	    TP_PROTO(struct amdgpu_usermode_queue *queue),
 	    TP_ARGS(queue),

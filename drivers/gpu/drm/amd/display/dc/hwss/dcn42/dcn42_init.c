@@ -163,6 +163,7 @@ static const struct hwseq_private_funcs dcn42_private_funcs = {
 	.reset_back_end_for_pipe = dcn401_reset_back_end_for_pipe,
 	.program_cm_hist = dcn42_program_cm_hist,
 	.dpp_root_clock_control = dcn35_dpp_root_clock_control,
+	.is_dpp_root_clock_control_supported = dcn35_is_dpp_root_clock_control_supported,
 	.dpstream_root_clock_control = dcn35_dpstream_root_clock_control,
 	.hdmistream_root_clock_control = dcn35_hdmistream_root_clock_control,
 	.physymclk_root_clock_control = dcn35_physymclk_root_clock_control,

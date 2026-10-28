@@ -2756,6 +2756,7 @@ static int ips_residency_show(struct seq_file *m, void *unused)
 		seq_printf(m, "ISP query failed\n");
 	} else {
 		unsigned int pct, frac;
+
 		pct = info.residency_millipercent / 1000;
 		frac = info.residency_millipercent % 1000;
 
@@ -2995,64 +2996,6 @@ static ssize_t hdmi_cec_state_write(struct file *f, const char __user *buf,
 	return size;
 }
 
-/**
- * hdmi_automation_enable - Enable/Disable HDMI automation feature
- * @f: file structure.
- * @buf: userspace buffer. set to '1' to enable; '0' to disable automation feature.
- * @size: size of buffer from userpsace.
- * @pos: unused.
- *
- * Return size on success, error code on failure
- */
-static ssize_t hdmi_automation_enable(struct file *f, const char __user *buf,
-	size_t size, loff_t *pos)
-{
-	struct amdgpu_dm_connector *aconnector = file_inode(f)->i_private;
-	char *wr_buf = NULL;
-	const uint32_t wr_buf_size = 40;
-	int max_param_num = 1;
-	uint8_t param_nums = 0;
-	long param[2];
-	bool hdmi_comp_auto;
-
-	if (size == 0)
-		return -EINVAL;
-
-	wr_buf = kcalloc(wr_buf_size, sizeof(char), GFP_KERNEL);
-	if (!wr_buf)
-		return -ENOSPC;
-
-	if (parse_write_buffer_into_params(wr_buf, wr_buf_size,
-					   (long *)param, buf,
-					   max_param_num,
-					   &param_nums)) {
-		kfree(wr_buf);
-		return -EINVAL;
-	}
-
-	if (param_nums <= 0) {
-		kfree(wr_buf);
-		DRM_DEBUG_DRIVER("user data not be read\n");
-		return -EINVAL;
-	}
-
-	switch (param[0]) {
-	case 0:
-		hdmi_comp_auto = false;
-		break;
-	case 1:
-	default:
-		hdmi_comp_auto = true;
-		break;
-	}
-
-	/* Persist setting across sink re-detection/hotplug. */
-	aconnector->hdmi_comp_auto = hdmi_comp_auto;
-
-	kfree(wr_buf);
-	return size;
-}
-
 DEFINE_SHOW_ATTRIBUTE(dp_dsc_fec_support);
 DEFINE_SHOW_ATTRIBUTE(dmub_fw_state);
 DEFINE_SHOW_ATTRIBUTE(dmub_tracebuffer);
@@ -3171,12 +3114,6 @@ static const struct file_operations dp_mst_link_settings_debugfs_fops = {
 	.llseek = default_llseek
 };
 
-static const struct file_operations hdmi_automation_debugfs_fops = {
-	.owner = THIS_MODULE,
-	.write = hdmi_automation_enable,
-	.llseek = default_llseek
-};
-
 static const struct {
 	char *name;
 	const struct file_operations *fops;
@@ -3209,8 +3146,7 @@ static const struct {
 	const struct file_operations *fops;
 } hdmi_debugfs_entries[] = {
 		{"hdcp_sink_capability", &hdcp_sink_capability_fops},
-		{"hdmi_cec_state", &hdmi_cec_state_fops},
-		{"hdmi_automation", &hdmi_automation_debugfs_fops}
+		{"hdmi_cec_state", &hdmi_cec_state_fops}
 };
 
 /*
@@ -3975,6 +3911,8 @@ void connector_debugfs_init(struct amdgpu_dm_connector *connector)
 					    0644, dir, connector,
 					    hdmi_debugfs_entries[i].fops);
 		}
+
+		debugfs_create_bool("hdmi_automation", 0644, dir, &connector->hdmi_comp_auto);
 	}
 }
 

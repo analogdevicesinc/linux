@@ -28,6 +28,13 @@
 
 #include "dcn30/dcn30_dio_link_encoder.h"
 
+#define LINK_ENCODER_PHY_STATE_MASK_SH_LIST_DCN401(mask_sh) \
+	LE_SF(RDPCSTX0_RDPCSTX_PHY_CNTL0, RDPCS_PHY_RESET, mask_sh),\
+	LE_SF(RDPCSTX0_RDPCSTX_PHY_CNTL3, RDPCS_PHY_DP_TX0_DATA_EN, mask_sh),\
+	LE_SF(RDPCSTX0_RDPCSTX_PHY_CNTL3, RDPCS_PHY_DP_TX1_DATA_EN, mask_sh),\
+	LE_SF(RDPCSTX0_RDPCSTX_PHY_CNTL3, RDPCS_PHY_DP_TX2_DATA_EN, mask_sh),\
+	LE_SF(RDPCSTX0_RDPCSTX_PHY_CNTL3, RDPCS_PHY_DP_TX3_DATA_EN, mask_sh)
+
 #define LINK_ENCODER_MASK_SH_LIST_DCN401(mask_sh) \
 	LE_SF(DIG0_DIG_BE_EN_CNTL, DIG_BE_ENABLE, mask_sh),\
 	LE_SF(DIG0_DIG_BE_CNTL, DIG_RB_SWITCH_EN, mask_sh),\
@@ -150,6 +157,7 @@ enum signal_type dcn401_get_dig_mode(
 	struct link_encoder *enc);
 
 bool dcn401_is_dig_enabled(struct link_encoder *enc);
+void dcn401_link_encoder_read_state(struct link_encoder *enc, struct link_enc_state *s);
 
 enum signal_type dcn401_get_dig_mode(struct link_encoder *enc);
 

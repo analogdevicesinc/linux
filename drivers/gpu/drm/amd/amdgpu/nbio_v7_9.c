@@ -32,6 +32,131 @@
 
 #define NPS_MODE_MASK 0x000000FFL
 
+static const struct amdgpu_nbio_doorbell_layout
+nbio_v7_9_doorbell_layout = {
+	.ctrl = {
+		.enable = REG_FIELD_MASK(
+			S2A_DOORBELL_ENTRY_0_CTRL,
+			S2A_DOORBELL_PORT0_ENABLE),
+		.awid = REG_FIELD_MASK(
+			S2A_DOORBELL_ENTRY_0_CTRL,
+			S2A_DOORBELL_PORT0_AWID),
+		.fence_enable = REG_FIELD_MASK(
+			S2A_DOORBELL_ENTRY_0_CTRL,
+			S2A_DOORBELL_PORT0_FENCE_ENABLE),
+		.range_offset = REG_FIELD_MASK(
+			S2A_DOORBELL_ENTRY_0_CTRL,
+			S2A_DOORBELL_PORT0_RANGE_OFFSET),
+		.range_size = REG_FIELD_MASK(
+			S2A_DOORBELL_ENTRY_0_CTRL,
+			S2A_DOORBELL_PORT0_RANGE_SIZE),
+		.disable_64bit = REG_FIELD_MASK(
+			S2A_DOORBELL_ENTRY_0_CTRL,
+			S2A_DOORBELL_PORT0_64BIT_SUPPORT_DIS),
+		.deduct_range_offset = REG_FIELD_MASK(
+			S2A_DOORBELL_ENTRY_0_CTRL,
+			S2A_DOORBELL_PORT0_NEED_DEDUCT_RANGE_OFFSET),
+		.awaddr_31_28 = REG_FIELD_MASK(
+			S2A_DOORBELL_ENTRY_0_CTRL,
+			S2A_DOORBELL_PORT0_AWADDR_31_28_VALUE),
+	},
+};
+
+static void nbio_v7_9_init_doorbell_entry_registers(
+	struct amdgpu_device *adev)
+{
+	static const u8 sdma_port[] = { 1, 2, 5, 6 };
+	struct amdgpu_nbio_doorbell_entries *entries;
+	u32 ctrl_base, dev_inst, local_inst;
+	int i;
+
+	memset(adev->nbio.doorbell_entries, 0,
+	       sizeof(adev->nbio.doorbell_entries));
+	adev->nbio.doorbell_layout = &nbio_v7_9_doorbell_layout;
+
+	ctrl_base = SOC15_REG_OFFSET(NBIO, 0,
+				     regS2A_DOORBELL_ENTRY_0_CTRL);
+
+	entries = &adev->nbio.doorbell_entries[
+		AMDGPU_NBIO_DOORBELL_CLIENT_IH];
+	entries->num_entries = 1;
+	entries->entry[0].port = 3;
+	entries->entry[0].ctrl_reg = ctrl_base + 3;
+
+	/*
+	 * Unlike IH, SDMA and VCN use global SMN addresses. Their callers invoke
+	 * the callbacks once per available instance to cover all AIDs across the
+	 * die.
+	 */
+	entries = &adev->nbio.doorbell_entries[
+		AMDGPU_NBIO_DOORBELL_CLIENT_SDMA];
+	entries->num_entries = adev->sdma.num_instances;
+	if (WARN_ON_ONCE(entries->num_entries >
+			 AMDGPU_NBIO_MAX_DOORBELL_INSTANCES) ||
+	    WARN_ON_ONCE(entries->num_entries &&
+			 !adev->sdma.num_inst_per_aid)) {
+		entries->num_entries = 0;
+		return;
+	}
+	for (i = 0; i < entries->num_entries; i++) {
+		dev_inst = GET_INST(SDMA0, i);
+		local_inst = dev_inst % adev->sdma.num_inst_per_aid;
+		if (WARN_ON_ONCE(local_inst >= ARRAY_SIZE(sdma_port))) {
+			entries->num_entries = 0;
+			return;
+		}
+		entries->entry[i].port = sdma_port[local_inst];
+		entries->entry[i].ctrl_reg =
+			regS2A_DOORBELL_ENTRY_0_CTRL + sdma_port[local_inst];
+		entries->entry[i].use_ext = true;
+		entries->entry[i].reg_inst = adev->sdma.instance[i].aid_id;
+		entries->entry[i].ctrl_reg_base_idx =
+			regS2A_DOORBELL_ENTRY_0_CTRL_BASE_IDX;
+	}
+
+	entries = &adev->nbio.doorbell_entries[
+		AMDGPU_NBIO_DOORBELL_CLIENT_VCN];
+	entries->num_entries = fls(adev->aid_mask);
+	if (WARN_ON_ONCE(entries->num_entries >
+			 AMDGPU_NBIO_MAX_DOORBELL_INSTANCES)) {
+		entries->num_entries = 0;
+		return;
+	}
+	for_each_inst(i, adev->aid_mask) {
+		entries->entry[i].port = 4;
+		entries->entry[i].ctrl_reg = regS2A_DOORBELL_ENTRY_4_CTRL;
+		entries->entry[i].use_ext = true;
+		entries->entry[i].reg_inst = i;
+		entries->entry[i].ctrl_reg_base_idx =
+			regS2A_DOORBELL_ENTRY_4_CTRL_BASE_IDX;
+	}
+}
+
+static u32 nbio_v7_9_build_doorbell_range(u32 range_offset,
+					  u32 range_size, u32 fence_enable)
+{
+	u32 doorbell_range = 0;
+
+	doorbell_range = REG_SET_FIELD(doorbell_range,
+		DOORBELL0_CTRL_ENTRY_0, BIF_DOORBELL0_RANGE_OFFSET_ENTRY,
+		range_offset);
+	doorbell_range = REG_SET_FIELD(doorbell_range,
+		DOORBELL0_CTRL_ENTRY_0, BIF_DOORBELL0_RANGE_SIZE_ENTRY,
+		range_size);
+	doorbell_range = REG_SET_FIELD(doorbell_range,
+		DOORBELL0_CTRL_ENTRY_0, DOORBELL0_FENCE_ENABLE_ENTRY,
+		fence_enable);
+
+	return doorbell_range;
+}
+
+static void nbio_v7_9_program_doorbell_range(struct amdgpu_device *adev,
+					      u32 entry, u32 doorbell_range)
+{
+	WREG32_SOC15_OFFSET(NBIO, 0, regDOORBELL0_CTRL_ENTRY_0,
+			     entry, doorbell_range);
+}
+
 static void nbio_v7_9_remap_hdp_registers(struct amdgpu_device *adev)
 {
 	WREG32_SOC15(NBIO, 0, regBIF_BX0_REMAP_HDP_MEM_FLUSH_CNTL,
@@ -76,160 +201,80 @@ static u32 nbio_v7_9_get_memsize(struct amdgpu_device *adev)
 static void nbio_v7_9_sdma_doorbell_range(struct amdgpu_device *adev, int instance,
 			bool use_doorbell, int doorbell_index, int doorbell_size)
 {
-	u32 doorbell_range = 0, doorbell_ctrl = 0;
-	int aid_id, dev_inst;
+	static const u8 sdma_awid[] = { 0xe, 0x8, 0x9, 0xa };
+	static const u8 sdma_awaddr[] = { 0x1, 0x2, 0x8, 0x9 };
+	struct amdgpu_nbio_doorbell_fields fields = {
+		.enable = true,
+		.range_size = doorbell_size,
+	};
+	u32 doorbell_range, ctrl;
+	int aid_id, dev_inst, local_inst;
 
 	dev_inst = GET_INST(SDMA0, instance);
 	aid_id = adev->sdma.instance[instance].aid_id;
+	local_inst = dev_inst % adev->sdma.num_inst_per_aid;
 
-	if (use_doorbell == false)
+	if (WARN_ON_ONCE((unsigned int)local_inst >= ARRAY_SIZE(sdma_awid)))
 		return;
 
-	doorbell_range =
-		REG_SET_FIELD(doorbell_range, DOORBELL0_CTRL_ENTRY_0,
-			BIF_DOORBELL0_RANGE_OFFSET_ENTRY, doorbell_index);
-	doorbell_range =
-		REG_SET_FIELD(doorbell_range, DOORBELL0_CTRL_ENTRY_0,
-			BIF_DOORBELL0_RANGE_SIZE_ENTRY, doorbell_size);
-	doorbell_ctrl =
-		REG_SET_FIELD(doorbell_ctrl, S2A_DOORBELL_ENTRY_1_CTRL,
-			S2A_DOORBELL_PORT1_ENABLE, 1);
-	doorbell_ctrl =
-		REG_SET_FIELD(doorbell_ctrl, S2A_DOORBELL_ENTRY_1_CTRL,
-			S2A_DOORBELL_PORT1_RANGE_SIZE, doorbell_size);
-
-	switch (dev_inst % adev->sdma.num_inst_per_aid) {
-	case 0:
-		WREG32_SOC15_OFFSET(NBIO, 0, regDOORBELL0_CTRL_ENTRY_1,
-			4 * aid_id, doorbell_range);
-
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-					S2A_DOORBELL_ENTRY_1_CTRL,
-					S2A_DOORBELL_PORT1_AWID, 0xe);
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-					S2A_DOORBELL_ENTRY_1_CTRL,
-					S2A_DOORBELL_PORT1_RANGE_OFFSET, 0xe);
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-					S2A_DOORBELL_ENTRY_1_CTRL,
-					S2A_DOORBELL_PORT1_AWADDR_31_28_VALUE,
-					0x1);
-		WREG32_SOC15_EXT(NBIO, aid_id, regS2A_DOORBELL_ENTRY_1_CTRL,
-			aid_id, doorbell_ctrl);
-		break;
-	case 1:
-		WREG32_SOC15_OFFSET(NBIO, 0, regDOORBELL0_CTRL_ENTRY_2,
-			4 * aid_id, doorbell_range);
-
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-					S2A_DOORBELL_ENTRY_1_CTRL,
-					S2A_DOORBELL_PORT1_AWID, 0x8);
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-					S2A_DOORBELL_ENTRY_1_CTRL,
-					S2A_DOORBELL_PORT1_RANGE_OFFSET, 0x8);
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-					S2A_DOORBELL_ENTRY_1_CTRL,
-					S2A_DOORBELL_PORT1_AWADDR_31_28_VALUE,
-					0x2);
-		WREG32_SOC15_EXT(NBIO, aid_id, regS2A_DOORBELL_ENTRY_2_CTRL,
-			aid_id, doorbell_ctrl);
-		break;
-	case 2:
-		WREG32_SOC15_OFFSET(NBIO, 0, regDOORBELL0_CTRL_ENTRY_3,
-			4 * aid_id, doorbell_range);
-
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-					S2A_DOORBELL_ENTRY_1_CTRL,
-					S2A_DOORBELL_PORT1_AWID, 0x9);
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-					S2A_DOORBELL_ENTRY_1_CTRL,
-					S2A_DOORBELL_PORT1_RANGE_OFFSET, 0x9);
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-					S2A_DOORBELL_ENTRY_1_CTRL,
-					S2A_DOORBELL_PORT1_AWADDR_31_28_VALUE,
-					0x8);
-		WREG32_SOC15_EXT(NBIO, aid_id, regS2A_DOORBELL_ENTRY_5_CTRL,
-			aid_id, doorbell_ctrl);
-		break;
-	case 3:
-		WREG32_SOC15_OFFSET(NBIO, 0, regDOORBELL0_CTRL_ENTRY_4,
-			4 * aid_id, doorbell_range);
-
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-					S2A_DOORBELL_ENTRY_1_CTRL,
-					S2A_DOORBELL_PORT1_AWID, 0xa);
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-					S2A_DOORBELL_ENTRY_1_CTRL,
-					S2A_DOORBELL_PORT1_RANGE_OFFSET, 0xa);
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-					S2A_DOORBELL_ENTRY_1_CTRL,
-					S2A_DOORBELL_PORT1_AWADDR_31_28_VALUE,
-					0x9);
-		WREG32_SOC15_EXT(NBIO, aid_id, regS2A_DOORBELL_ENTRY_6_CTRL,
-			aid_id, doorbell_ctrl);
-		break;
-	default:
-		break;
+	if (!use_doorbell) {
+		nbio_v7_9_program_doorbell_range(adev,
+			1 + local_inst + 4 * aid_id, 0);
+		amdgpu_nbio_program_doorbell_entry(adev,
+			AMDGPU_NBIO_DOORBELL_CLIENT_SDMA, instance,
+			NULL, NULL);
+		return;
 	}
+
+	doorbell_range = nbio_v7_9_build_doorbell_range(
+		doorbell_index, doorbell_size, 0);
+	fields.awid = sdma_awid[local_inst];
+	fields.range_offset = fields.awid;
+	fields.awaddr_31_28 = sdma_awaddr[local_inst];
+	if (WARN_ON_ONCE(amdgpu_nbio_build_doorbell_entry(
+			adev, &fields, &ctrl, NULL)))
+		return;
+
+	nbio_v7_9_program_doorbell_range(adev,
+		1 + local_inst + 4 * aid_id, doorbell_range);
+	amdgpu_nbio_program_doorbell_entry(adev,
+		AMDGPU_NBIO_DOORBELL_CLIENT_SDMA, instance, &ctrl, NULL);
 }
 
 static void nbio_v7_9_vcn_doorbell_range(struct amdgpu_device *adev, bool use_doorbell,
 					 int doorbell_index, int instance)
 {
-	u32 doorbell_range = 0, doorbell_ctrl = 0;
+	struct amdgpu_nbio_doorbell_fields fields = {
+		.enable = true,
+		.awid = 0x4,
+		.range_offset = 0x4,
+		.awaddr_31_28 = 0x4,
+	};
+	u32 doorbell_range, ctrl;
 	u32 aid_id = instance;
 	u32 range_size;
 
-	if (use_doorbell) {
-		range_size = (amdgpu_ip_version(adev, GC_HWIP, 0) ==
+	if (!use_doorbell) {
+		nbio_v7_9_program_doorbell_range(adev, 17 + aid_id, 0);
+		amdgpu_nbio_program_doorbell_entry(adev,
+			AMDGPU_NBIO_DOORBELL_CLIENT_VCN, aid_id,
+			NULL, NULL);
+		return;
+	}
+
+	range_size = (amdgpu_ip_version(adev, GC_HWIP, 0) ==
 						IP_VERSION(9, 5, 0)) ?
 						0xb : 0x9;
-		doorbell_range = REG_SET_FIELD(doorbell_range,
-				DOORBELL0_CTRL_ENTRY_0,
-				BIF_DOORBELL0_RANGE_OFFSET_ENTRY,
-				doorbell_index);
-		doorbell_range = REG_SET_FIELD(doorbell_range,
-				DOORBELL0_CTRL_ENTRY_0,
-				BIF_DOORBELL0_RANGE_SIZE_ENTRY,
-				range_size);
-		if (aid_id)
-			doorbell_range = REG_SET_FIELD(doorbell_range,
-					DOORBELL0_CTRL_ENTRY_0,
-					DOORBELL0_FENCE_ENABLE_ENTRY,
-					0x4);
+	doorbell_range = nbio_v7_9_build_doorbell_range(
+		doorbell_index, range_size, aid_id ? 0x4 : 0);
+	fields.range_size = range_size;
+	if (WARN_ON_ONCE(amdgpu_nbio_build_doorbell_entry(
+			adev, &fields, &ctrl, NULL)))
+		return;
 
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-				S2A_DOORBELL_ENTRY_1_CTRL,
-				S2A_DOORBELL_PORT1_ENABLE, 1);
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-				S2A_DOORBELL_ENTRY_1_CTRL,
-				S2A_DOORBELL_PORT1_AWID, 0x4);
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-				S2A_DOORBELL_ENTRY_1_CTRL,
-				S2A_DOORBELL_PORT1_RANGE_OFFSET, 0x4);
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-				S2A_DOORBELL_ENTRY_1_CTRL,
-				S2A_DOORBELL_PORT1_RANGE_SIZE, range_size);
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-				S2A_DOORBELL_ENTRY_1_CTRL,
-				S2A_DOORBELL_PORT1_AWADDR_31_28_VALUE, 0x4);
-
-		WREG32_SOC15_OFFSET(NBIO, 0, regDOORBELL0_CTRL_ENTRY_17,
-					aid_id, doorbell_range);
-		WREG32_SOC15_EXT(NBIO, aid_id, regS2A_DOORBELL_ENTRY_4_CTRL,
-				aid_id, doorbell_ctrl);
-	} else {
-		doorbell_range = REG_SET_FIELD(doorbell_range,
-				DOORBELL0_CTRL_ENTRY_0,
-				BIF_DOORBELL0_RANGE_SIZE_ENTRY, 0);
-		doorbell_ctrl = REG_SET_FIELD(doorbell_ctrl,
-				S2A_DOORBELL_ENTRY_1_CTRL,
-				S2A_DOORBELL_PORT1_RANGE_SIZE, 0);
-
-		WREG32_SOC15_OFFSET(NBIO, 0, regDOORBELL0_CTRL_ENTRY_17,
-					aid_id, doorbell_range);
-		WREG32_SOC15_EXT(NBIO, aid_id, regS2A_DOORBELL_ENTRY_4_CTRL,
-				aid_id, doorbell_ctrl);
-	}
+	nbio_v7_9_program_doorbell_range(adev, 17 + aid_id, doorbell_range);
+	amdgpu_nbio_program_doorbell_entry(adev,
+		AMDGPU_NBIO_DOORBELL_CLIENT_VCN, aid_id, &ctrl, NULL);
 }
 
 static void nbio_v7_9_enable_doorbell_aperture(struct amdgpu_device *adev,
@@ -266,44 +311,28 @@ static void nbio_v7_9_enable_doorbell_selfring_aperture(struct amdgpu_device *ad
 static void nbio_v7_9_ih_doorbell_range(struct amdgpu_device *adev,
 					bool use_doorbell, int doorbell_index)
 {
-	u32 ih_doorbell_range = 0, ih_doorbell_ctrl = 0;
+	const struct amdgpu_nbio_doorbell_fields fields = {
+		.enable = true,
+		.range_size = 0x8,
+	};
+	u32 doorbell_range, ctrl;
 
-	if (use_doorbell) {
-		ih_doorbell_range = REG_SET_FIELD(ih_doorbell_range,
-				DOORBELL0_CTRL_ENTRY_0,
-				BIF_DOORBELL0_RANGE_OFFSET_ENTRY,
-				doorbell_index);
-		ih_doorbell_range = REG_SET_FIELD(ih_doorbell_range,
-				DOORBELL0_CTRL_ENTRY_0,
-				BIF_DOORBELL0_RANGE_SIZE_ENTRY,
-				0x8);
-
-		ih_doorbell_ctrl = REG_SET_FIELD(ih_doorbell_ctrl,
-				S2A_DOORBELL_ENTRY_1_CTRL,
-				S2A_DOORBELL_PORT1_ENABLE, 1);
-		ih_doorbell_ctrl = REG_SET_FIELD(ih_doorbell_ctrl,
-				S2A_DOORBELL_ENTRY_1_CTRL,
-				S2A_DOORBELL_PORT1_AWID, 0);
-		ih_doorbell_ctrl = REG_SET_FIELD(ih_doorbell_ctrl,
-				S2A_DOORBELL_ENTRY_1_CTRL,
-				S2A_DOORBELL_PORT1_RANGE_OFFSET, 0);
-		ih_doorbell_ctrl = REG_SET_FIELD(ih_doorbell_ctrl,
-				S2A_DOORBELL_ENTRY_1_CTRL,
-				S2A_DOORBELL_PORT1_RANGE_SIZE, 0x8);
-		ih_doorbell_ctrl = REG_SET_FIELD(ih_doorbell_ctrl,
-				S2A_DOORBELL_ENTRY_1_CTRL,
-				S2A_DOORBELL_PORT1_AWADDR_31_28_VALUE, 0);
-	} else {
-		ih_doorbell_range = REG_SET_FIELD(ih_doorbell_range,
-				DOORBELL0_CTRL_ENTRY_0,
-				BIF_DOORBELL0_RANGE_SIZE_ENTRY, 0);
-		ih_doorbell_ctrl = REG_SET_FIELD(ih_doorbell_ctrl,
-				S2A_DOORBELL_ENTRY_1_CTRL,
-				S2A_DOORBELL_PORT1_RANGE_SIZE, 0);
+	if (!use_doorbell) {
+		nbio_v7_9_program_doorbell_range(adev, 0, 0);
+		amdgpu_nbio_program_doorbell_entry(adev,
+			AMDGPU_NBIO_DOORBELL_CLIENT_IH, 0, NULL, NULL);
+		return;
 	}
 
-	WREG32_SOC15(NBIO, 0, regDOORBELL0_CTRL_ENTRY_0, ih_doorbell_range);
-	WREG32_SOC15(NBIO, 0, regS2A_DOORBELL_ENTRY_3_CTRL, ih_doorbell_ctrl);
+	doorbell_range = nbio_v7_9_build_doorbell_range(
+		doorbell_index, 0x8, 0);
+	if (WARN_ON_ONCE(amdgpu_nbio_build_doorbell_entry(
+			adev, &fields, &ctrl, NULL)))
+		return;
+
+	nbio_v7_9_program_doorbell_range(adev, 0, doorbell_range);
+	amdgpu_nbio_program_doorbell_entry(adev,
+		AMDGPU_NBIO_DOORBELL_CLIENT_IH, 0, &ctrl, NULL);
 }
 
 
@@ -435,6 +464,8 @@ static void nbio_v7_9_init_registers(struct amdgpu_device *adev)
 {
 	u32 inst_mask;
 	int i;
+
+	nbio_v7_9_init_doorbell_entry_registers(adev);
 
 	WREG32_SOC15(NBIO, 0, regXCC_DOORBELL_FENCE,
 		0xff & ~(adev->gfx.xcc_mask));

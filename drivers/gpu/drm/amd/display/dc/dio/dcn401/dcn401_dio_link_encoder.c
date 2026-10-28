@@ -364,6 +364,26 @@ bool dcn401_is_dig_enabled(struct link_encoder *enc)
 	return (clk_enabled == 1 && dig_enabled == 1);
 }
 
+void dcn401_link_encoder_read_state(struct link_encoder *enc, struct link_enc_state *s)
+{
+	struct dcn10_link_encoder *enc10 = TO_DCN10_LINK_ENC(enc);
+	uint32_t tx0 = 0, tx1 = 0, tx2 = 0, tx3 = 0;
+
+	link_enc2_read_state(enc, s);
+
+	if (enc10->link_regs->RDPCSTX_PHY_CNTL0)
+		REG_GET(RDPCSTX_PHY_CNTL0, RDPCS_PHY_RESET, &s->rdpcs_phy_reset);
+
+	if (enc10->link_regs->RDPCSTX_PHY_CNTL3) {
+		REG_GET_4(RDPCSTX_PHY_CNTL3,
+			  RDPCS_PHY_DP_TX0_DATA_EN, &tx0,
+			  RDPCS_PHY_DP_TX1_DATA_EN, &tx1,
+			  RDPCS_PHY_DP_TX2_DATA_EN, &tx2,
+			  RDPCS_PHY_DP_TX3_DATA_EN, &tx3);
+		s->rdpcs_tx_data_en = tx0 | tx1 << 1 | tx2 << 2 | tx3 << 3;
+	}
+}
+
 enum signal_type dcn401_get_dig_mode(
 	struct link_encoder *enc)
 {
@@ -399,7 +419,7 @@ void dcn401_setup_ri_pj_check_in_sw_or_hw_mode(
 }
 
 static const struct link_encoder_funcs dcn401_link_enc_funcs = {
-	.read_state = link_enc2_read_state,
+	.read_state = dcn401_link_encoder_read_state,
 	.validate_output_with_stream =
 			dcn30_link_encoder_validate_output_with_stream,
 	.hw_init = enc401_hw_init,

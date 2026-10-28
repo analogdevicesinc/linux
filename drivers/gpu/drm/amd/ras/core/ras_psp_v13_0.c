@@ -80,13 +80,23 @@ static int ras_psp_v13_0_get_ras_block_maps(struct ras_core_context *ras_core,
 static int ras_psp_v13_0_get_ras_hw_caps(struct ras_core_context *ras_core,
 				struct ras_hw_caps *ras_cap)
 {
-	uint32_t ras_hw_cap, bit;
+	uint32_t ras_hw_cap = 0, bit;
 	uint32_t i;
 
 	if (!ras_cap)
 		return -EINVAL;
 
-	ras_hw_cap = RAS_DEV_RREG32_SOC15(ras_core->dev, MP0, 0, regMP0_SMN_C2PMSG_127);
+	/*
+	 * driver only manages a few IP block RAS fearure
+	 * when GPU is connected CPU through XGMI
+	 */
+	if (RAS_DEV_IS_APP_APU(ras_core->dev)) {
+		ras_hw_cap |= (1 << AMDGPU_RAS_BLOCK__GFX |
+					   1 << AMDGPU_RAS_BLOCK__SDMA |
+					   1 << AMDGPU_RAS_BLOCK__MMHUB);
+	} else {
+		ras_hw_cap = RAS_DEV_RREG32_SOC15(ras_core->dev, MP0, 0, regMP0_SMN_C2PMSG_127);
+	}
 
 	ras_cap->poison_supported = true;
 	ras_cap->flex_mca_enabled = false;

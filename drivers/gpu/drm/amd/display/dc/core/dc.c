@@ -446,6 +446,48 @@ static bool set_long_vtotal(struct dc *dc, struct dc_stream_state *stream, struc
 	return false;
 }
 
+/* A hardware re-init resets the OTG DRR registers while stream->adjust keeps the
+ * pre-reset values, so those values represent has to be marked stale.
+ */
+static void invalidate_drr_adjust(struct dc *dc)
+{
+	int i;
+
+	if (!dc->current_state)
+		return;
+
+	for (i = 0; i < dc->current_state->stream_count; i++)
+		if (dc->current_state->streams[i])
+			dc->current_state->streams[i]->timing_adjust_pending = true;
+}
+
+/* apply_ctx_to_hw() skips controller programming for a pipe it considers unchanged, so a
+ * commit on its own does not guarantee the OTG matches stream->adjust. Settle anything
+ * still outstanding here - dc_stream_adjust_vmin_vmax() cannot, because it short circuits
+ * when the requested v_totals are unchanged, which is permanent for a stream that is not
+ * driving DRR.
+ */
+static void program_pending_drr_adjust(struct dc *dc, struct dc_state *context)
+{
+	int i;
+
+	if (!dc->hwss.set_drr)
+		return;
+
+	for (i = 0; i < MAX_PIPES; i++) {
+		struct pipe_ctx *pipe = &context->res_ctx.pipe_ctx[i];
+
+		if (!resource_is_pipe_type(pipe, OTG_MASTER) || !pipe->stream_res.tg)
+			continue;
+
+		if (!pipe->stream->timing_adjust_pending)
+			continue;
+
+		dc_exit_ips_for_hw_access(dc);
+		dc->hwss.set_drr(&pipe, 1, pipe->stream->adjust);
+	}
+}
+
 /**
  * dc_stream_get_last_used_drr_vtotal - Looks up the pipe context of
  * dc_stream_state and gets the last VTOTAL used by DRR (Dynamic Refresh Rate)
@@ -902,31 +944,23 @@ void dc_stream_set_static_screen_params(struct dc *dc,
 
 static void dc_destruct_update_scratch_pool(struct dc *dc)
 {
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(dc->update_scratch_pool); i++) {
-		kfree(dc->update_scratch_pool[i]);
-		dc->update_scratch_pool[i] = NULL;
-		dc->update_scratch_in_use[i] = false;
-	}
+	dc_memory_pool_destroy(dc->update_scratch_pool);
 }
 
 static bool dc_construct_update_scratch_pool(struct dc *dc)
 {
-	unsigned int i;
+	// +1 to allow updates not tied to any specific stream
+	const size_t size = sizeof(struct dc_update_scratch_space);
+	const size_t capacity = MAX_STREAMS + 1;
 
-	for (i = 0; i < ARRAY_SIZE(dc->update_scratch_pool); i++) {
-		dc->update_scratch_pool[i] = kzalloc_obj(struct dc_update_scratch_space);
-		if (!dc->update_scratch_pool[i])
-			return false;
-		dc->update_scratch_in_use[i] = false;
-	}
-
-	return true;
+	dc->update_scratch_pool = dc_memory_pool_create(size, capacity);
+	return dc->update_scratch_pool != NULL;
 }
 
 static void dc_destruct(struct dc *dc)
 {
+	unsigned int i;
+
 	// reset link encoder assignment table on destruct
 	if (dc->res_pool && dc->res_pool->funcs->link_encs_assign &&
 			!dc->config.unify_link_enc_assignment)
@@ -937,6 +971,13 @@ static void dc_destruct(struct dc *dc)
 	if (dc->current_state) {
 		dc_state_release(dc->current_state);
 		dc->current_state = NULL;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(dc->scratch_dc_context); i++) {
+		if (dc->scratch_dc_context[i]) {
+			dc_state_release(dc->scratch_dc_context[i]);
+			dc->scratch_dc_context[i] = NULL;
+		}
 	}
 
 	destroy_links(dc);
@@ -1177,6 +1218,22 @@ static bool dc_construct(struct dc *dc,
 		goto fail;
 	}
 
+	/* Pre-allocate the states used by the no-allocation update path, only
+	 * for DMs that ask for it.
+	 */
+	if (dc->config.preallocate_scratch_state) {
+		unsigned int scratch_idx;
+
+		for (scratch_idx = 0; scratch_idx < ARRAY_SIZE(dc->scratch_dc_context); scratch_idx++) {
+			dc->scratch_dc_context[scratch_idx] = dc_state_create(dc, NULL);
+
+			if (!dc->scratch_dc_context[scratch_idx]) {
+				dm_error("%s: failed to create scratch ctx\n", __func__);
+				goto fail;
+			}
+		}
+	}
+
 	if (!dc_construct_update_scratch_pool(dc)) {
 		dm_error("%s: failed to create update scratch pool\n", __func__);
 		goto fail;
@@ -1342,6 +1399,9 @@ bool dc_stream_adjust_vmin_vmax(struct dc *dc,
 {
 	int i;
 	bool drr_unchanged;
+	bool exceeds_max_v_total = dc->caps.max_v_total != 0 &&
+			(adjust->v_total_max > dc->caps.max_v_total ||
+			 adjust->v_total_min > dc->caps.max_v_total);
 
 	/*
 	 * Don't adjust DRR while there's bandwidth optimizations pending to
@@ -1351,7 +1411,7 @@ bool dc_stream_adjust_vmin_vmax(struct dc *dc,
 		if (dc->optimized_required &&
 			(stream->adjust.v_total_max != adjust->v_total_max ||
 			stream->adjust.v_total_min != adjust->v_total_min)) {
-			stream->adjust.timing_adjust_pending = true;
+			stream->timing_adjust_pending = true;
 			return false;
 		}
 	}
@@ -1359,7 +1419,7 @@ bool dc_stream_adjust_vmin_vmax(struct dc *dc,
 	/* timing_adjust_pending tracks whether stream->adjust still describes the
 	 * OTG, so a cleared flag plus matching values means hw is already current.
 	 */
-	drr_unchanged = !stream->adjust.timing_adjust_pending &&
+	drr_unchanged = !stream->timing_adjust_pending &&
 			stream->adjust.v_total_min == adjust->v_total_min &&
 			stream->adjust.v_total_max == adjust->v_total_max &&
 			stream->adjust.v_total_mid == adjust->v_total_mid &&
@@ -1369,6 +1429,12 @@ bool dc_stream_adjust_vmin_vmax(struct dc *dc,
 	if (drr_unchanged)
 		return true;
 
+	/* leave stream->adjust describing the OTG rather than latching
+	 * a pending adjustment that no later call can ever clear.
+	 */
+	if (exceeds_max_v_total && !adjust->allow_otg_v_count_halt)
+		return false;
+
 	dc_exit_ips_for_hw_access(dc);
 
 	stream->adjust.v_total_max = adjust->v_total_max;
@@ -1376,16 +1442,15 @@ bool dc_stream_adjust_vmin_vmax(struct dc *dc,
 	stream->adjust.v_total_mid_frame_num = adjust->v_total_mid_frame_num;
 	stream->adjust.v_total_min = adjust->v_total_min;
 	stream->adjust.allow_otg_v_count_halt = adjust->allow_otg_v_count_halt;
+	/* Only cleared once the new values have actually reached an OTG. */
+	stream->timing_adjust_pending = true;
 
-	if (dc->caps.max_v_total != 0 &&
-		(adjust->v_total_max > dc->caps.max_v_total || adjust->v_total_min > dc->caps.max_v_total)) {
-		if (adjust->allow_otg_v_count_halt) {
-			stream->adjust.timing_adjust_pending = false;
-			return set_long_vtotal(dc, stream, adjust);
-		}
-		/* Nothing reached hw, so stream->adjust no longer describes the OTG. */
-		stream->adjust.timing_adjust_pending = true;
-		return false;
+	if (exceeds_max_v_total) {
+		if (!set_long_vtotal(dc, stream, adjust))
+			return false;
+
+		stream->timing_adjust_pending = false;
+		return true;
 	}
 
 	for (i = 0; i < MAX_PIPES; i++) {
@@ -1395,7 +1460,7 @@ bool dc_stream_adjust_vmin_vmax(struct dc *dc,
 			dc->hwss.set_drr(&pipe,
 					1,
 					*adjust);
-			stream->adjust.timing_adjust_pending = false;
+			stream->timing_adjust_pending = false;
 
 			if (dc->debug.visual_confirm == VISUAL_CONFIRM_BOOSTED_REFRESH_RATE) {
 				if (pipe->stream && pipe->plane_state) {
@@ -2398,6 +2463,8 @@ static enum dc_status dc_commit_state_no_check(struct dc *dc, struct dc_state *c
 		return result;
 	}
 
+	program_pending_drr_adjust(dc, context);
+
 	dc_trigger_sync(dc, context);
 
 	/* Full update should unconditionally be triggered when dc_commit_state_no_check is called */
@@ -2554,8 +2621,10 @@ enum dc_status dc_commit_streams(struct dc *dc, struct dc_commit_streams_params 
 		return res;
 
 	if (!streams_changed(dc, params->streams, params->stream_count) &&
-			dc->current_state->power_source == params->power_source)
+			dc->current_state->power_source == params->power_source) {
+		program_pending_drr_adjust(dc, dc->current_state);
 		return res;
+	}
 
 	dc_exit_ips_for_hw_access(dc);
 
@@ -3580,11 +3649,9 @@ static void copy_stream_update_to_stream(struct dc *dc,
 
 	if (update->crtc_timing_adjust) {
 		if (stream->adjust.v_total_min != update->crtc_timing_adjust->v_total_min ||
-			stream->adjust.v_total_max != update->crtc_timing_adjust->v_total_max ||
-			stream->adjust.timing_adjust_pending)
-			update->crtc_timing_adjust->timing_adjust_pending = true;
+			stream->adjust.v_total_max != update->crtc_timing_adjust->v_total_max)
+			stream->timing_adjust_pending = true;
 		stream->adjust = *update->crtc_timing_adjust;
-		update->crtc_timing_adjust->timing_adjust_pending = false;
 	}
 
 	if (update->dpms_off)
@@ -3776,6 +3843,29 @@ static void restore_minimal_pipe_split_policy(struct dc *dc,
 }
 
 /**
+ * dc_state_acquire_scratch: Pick a pre-allocated state safe to build into.
+ * @dc: DC context
+ *
+ * Skips the buffer installed as @dc->current_state, since building into it
+ * would mean copying a state onto itself.
+ *
+ * Return: a usable scratch state, or NULL if none were pre-allocated.
+ */
+static struct dc_state *dc_state_acquire_scratch(struct dc *dc)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(dc->scratch_dc_context); i++) {
+		struct dc_state *scratch = dc->scratch_dc_context[i];
+
+		if (scratch && scratch != dc->current_state)
+			return scratch;
+	}
+
+	return NULL;
+}
+
+/**
  * update_planes_and_stream_state() - The function takes planes and stream
  * updates as inputs and determines the appropriate update type. If update type
  * is FULL, the function allocates a new context, populates and validates it.
@@ -3881,7 +3971,24 @@ static bool update_planes_and_stream_state(struct dc *dc,
 			new_planes[i] = srf_updates[i].surface;
 
 		/* initialize scratch memory for building context */
-		context = dc_state_create_copy(dc->current_state);
+		if (!dc->config.use_preallocated_state) {
+			context = dc_state_create_copy(dc->current_state);
+		} else {
+			context = dc_state_acquire_scratch(dc);
+
+			if (context) {
+				// Drop the references this buffer still holds from its
+				// previous use; dc_state_copy() overwrites the pointers
+				// without releasing them.
+				dc_state_destruct(context);
+				dc_state_copy(context, dc->current_state);
+
+				// Balance the reference that the commit path consumes
+				// when it installs this as current_state, so the buffer
+				// stays owned by dc->scratch_dc_context[] as well.
+				dc_state_retain(context);
+			}
+		}
 		if (context == NULL) {
 			DC_ERROR("Failed to allocate new validate context!\n");
 			return false;
@@ -3962,6 +4069,8 @@ static bool update_planes_and_stream_state(struct dc *dc,
 	return true;
 
 fail:
+	// For a scratch buffer this drops the reference taken above, leaving it
+	// owned by dc->scratch_dc_context[] rather than freeing it.
 	dc_state_release(context);
 
 	return false;
@@ -4192,7 +4301,9 @@ static void commit_planes_do_stream_update_sequence(struct dc *dc,
 				resource_build_info_frame(pipe_ctx);
 				add_update_info_frame_sequence(&seq_state, pipe_ctx);
 
-				if (dc_is_dp_signal(pipe_ctx->stream->signal))
+				/* The step only writes DPCD when the debug flag is set, so gate emission on it here. */
+				if (dc_is_dp_signal(pipe_ctx->stream->signal) &&
+						dc->debug.enable_driver_sequence_debug)
 					hwss_add_dp_trace_source_sequence(&seq_state,
 							pipe_ctx->stream->link,
 							DPCD_SOURCE_SEQ_AFTER_UPDATE_INFO_FRAME);
@@ -5972,32 +6083,17 @@ static void clear_update_bits(struct dc_surface_update *srf_updates,
 
 static struct dc_update_scratch_space *dc_update_scratch_acquire(struct dc *dc)
 {
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(dc->update_scratch_pool); i++) {
-		if (dc->update_scratch_in_use[i])
-			continue;
-
-		dc->update_scratch_in_use[i] = true;
-		return dc->update_scratch_pool[i];
-	}
+	void *p = dc_memory_pool_acquire(dc->update_scratch_pool);
 
 	/* TODO: add recoverable scratch acquisition failure handling. */
-	ASSERT(false);
-	return NULL;
+	ASSERT(p);
+	return p;
 }
 
 static void dc_update_scratch_release(struct dc *dc,
 		struct dc_update_scratch_space *scratch)
 {
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(dc->update_scratch_pool); i++) {
-		if (dc->update_scratch_pool[i] == scratch) {
-			dc->update_scratch_in_use[i] = false;
-			return;
-		}
-	}
+	dc_memory_pool_release(dc->update_scratch_pool, scratch);
 }
 
 /**
@@ -6308,6 +6404,8 @@ void dc_set_power_state(struct dc *dc, enum dc_acpi_cm_power_state power_state)
 		dc_dmub_srv_notify_fw_dc_power_state(dc->ctx->dmub_srv, power_state);
 
 		dc->hwss.init_hw(dc);
+
+		invalidate_drr_adjust(dc);
 
 		if (dc->hwss.init_sys_ctx != NULL &&
 			dc->vm_pa_config.valid) {
@@ -8060,6 +8158,16 @@ static bool update_planes_and_stream_prepare_v3(
 	}
 
 	ASSERT(scratch->update_type >= UPDATE_TYPE_FULL);
+
+	/* The minimal-transition fallbacks below allocate, so the scratch path
+	 * commits the new context directly - possibly a non-seamless pipe-topology
+	 * transition. Placed after the suspend above to keep the cleanup resume
+	 * balanced.
+	 */
+	if (scratch->dc->config.use_preallocated_state) {
+		scratch->flow = UPDATE_V3_FLOW_NEW_CONTEXT_SEAMLESS;
+		return true;
+	}
 
 	const bool seamless = scratch->dc->hwss.is_pipe_topology_transition_seamless(
 			scratch->dc,

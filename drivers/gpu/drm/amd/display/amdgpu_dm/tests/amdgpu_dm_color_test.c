@@ -71,7 +71,7 @@ static void dm_test_is_lut_linear_with_linear_lut(struct kunit *test)
 	int i;
 
 	lut = kunit_kcalloc(test, size, sizeof(*lut), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, lut);
+	KUNIT_ASSERT_NOT_NULL(test, lut);
 
 	for (i = 0; i < size; i++) {
 		uint16_t val = (uint16_t)(i * MAX_DRM_LUT_VALUE / (size - 1));
@@ -91,7 +91,7 @@ static void dm_test_is_lut_linear_with_nonlinear_lut(struct kunit *test)
 	int i;
 
 	lut = kunit_kcalloc(test, size, sizeof(*lut), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, lut);
+	KUNIT_ASSERT_NOT_NULL(test, lut);
 
 	/* Fill with all-max values: clearly non-linear */
 	for (i = 0; i < size; i++) {
@@ -110,7 +110,7 @@ static void dm_test_is_lut_linear_rgb_mismatch(struct kunit *test)
 	int i;
 
 	lut = kunit_kcalloc(test, size, sizeof(*lut), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, lut);
+	KUNIT_ASSERT_NOT_NULL(test, lut);
 
 	for (i = 0; i < size; i++) {
 		uint16_t val = (uint16_t)(i * MAX_DRM_LUT_VALUE / (size - 1));
@@ -1871,7 +1871,7 @@ dm_test_colorop_setup(struct kunit *test, enum drm_colorop_type type)
 	KUNIT_ASSERT_NOT_NULL(test, f.colorop_state);
 	f.colorop_state->colorop = f.colorop;
 
-	colorops = kunit_kcalloc(test, 1, sizeof(*colorops), GFP_KERNEL);
+	colorops = kunit_kzalloc(test, sizeof(*colorops), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, colorops);
 	colorops[0].ptr = f.colorop;
 	colorops[0].new_state = f.colorop_state;

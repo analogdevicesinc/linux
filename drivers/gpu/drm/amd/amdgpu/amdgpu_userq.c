@@ -1077,6 +1077,13 @@ retry_lock:
 		if (unlikely(ret))
 			goto unlock_all;
 
+		/*
+		 * Userqueues never go through amdgpu_vm_flush(), so this is
+		 * the only place that can rebind the SPM VMID's page table
+		 * for a userqueue-held reservation.
+		 */
+		amdgpu_vm_spm_update(adev, vm);
+
 		/* This locks and validates the remaining evicted BOs */
 		ret = amdgpu_userq_bo_validate(adev, &exec, vm);
 		drm_exec_retry_on_contention(&exec);

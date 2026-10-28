@@ -58,8 +58,10 @@ void dpp401_dpp_setup(
 	enum expansion_mode mode,
 	struct dc_csc_transform input_csc_color_matrix,
 	enum dc_color_space input_color_space,
-	struct cnv_alpha_2bit_lut *alpha_2bit_lut)
+	struct cnv_alpha_2bit_lut *alpha_2bit_lut,
+	enum upsp_mode upsp_mode)
 {
+	(void)upsp_mode;
 	struct dcn401_dpp *dpp = TO_DCN401_DPP(dpp_base);
 	uint32_t pixel_format = 0;
 	uint32_t alpha_en = 1;

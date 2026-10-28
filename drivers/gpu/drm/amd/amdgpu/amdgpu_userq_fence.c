@@ -384,7 +384,9 @@ static int amdgpu_userq_fence_read_wptr(struct amdgpu_device *adev,
 			goto lock_error;
 
 		mapping = amdgpu_vm_bo_lookup_mapping(queue->vm, addr);
-		if (!mapping || !mapping->bo_va->base.bo) {
+		/* Imported dma-bufs can't be CPU mapped with amdgpu_bo_kmap(). */
+		if (!mapping || !mapping->bo_va->base.bo ||
+		    drm_gem_is_imported(&mapping->bo_va->base.bo->tbo.base)) {
 			ret = -EINVAL;
 			goto lock_error;
 		}

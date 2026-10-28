@@ -43,7 +43,7 @@ bool kfd_dbg_ev_raise(uint64_t event_mask,
 			unsigned int source_id, bool use_worker,
 			void *exception_data,
 			size_t exception_data_size);
-int kfd_dbg_trap_disable(struct kfd_process *target);
+int kfd_dbg_trap_disable(struct kfd_process *target, bool drain_irqs);
 int kfd_dbg_trap_enable(struct kfd_process *target, uint32_t fd,
 			void __user *runtime_info,
 			uint32_t *runtime_info_size);
