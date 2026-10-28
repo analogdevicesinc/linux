@@ -4519,7 +4519,6 @@ bool lru_gen_look_around(struct page_vma_mapped_walk *pvmw, unsigned int nr)
 enum {
 	MEMCG_LRU_NOP,
 	MEMCG_LRU_TAIL,
-	MEMCG_LRU_OLD,
 	MEMCG_LRU_YOUNG,
 };
 
@@ -4541,8 +4540,6 @@ static void lru_gen_rotate_memcg(struct lruvec *lruvec, int op)
 	/* see the comment on MEMCG_NR_GENS */
 	if (op == MEMCG_LRU_TAIL)
 		seg = MEMCG_LRU_TAIL;
-	else if (op == MEMCG_LRU_OLD)
-		new = get_memcg_gen(pgdat->memcg_lru.seq);
 	else if (op == MEMCG_LRU_YOUNG)
 		new = get_memcg_gen(pgdat->memcg_lru.seq + 1);
 	else
@@ -4552,11 +4549,7 @@ static void lru_gen_rotate_memcg(struct lruvec *lruvec, int op)
 	WRITE_ONCE(lruvec->lrugen.gen, new);
 
 	hlist_nulls_del_rcu(&lruvec->lrugen.list);
-
-	if (op == MEMCG_LRU_OLD)
-		hlist_nulls_add_head_rcu(&lruvec->lrugen.list, &pgdat->memcg_lru.fifo[new][bin]);
-	else
-		hlist_nulls_add_tail_rcu(&lruvec->lrugen.list, &pgdat->memcg_lru.fifo[new][bin]);
+	hlist_nulls_add_tail_rcu(&lruvec->lrugen.list, &pgdat->memcg_lru.fifo[new][bin]);
 
 	pgdat->memcg_lru.nr_memcgs[old]--;
 	pgdat->memcg_lru.nr_memcgs[new]++;
@@ -4591,17 +4584,6 @@ void lru_gen_online_memcg(struct mem_cgroup *memcg)
 		pgdat->memcg_lru.nr_memcgs[gen]++;
 
 		spin_unlock_irq(&pgdat->memcg_lru.lock);
-	}
-}
-
-void lru_gen_offline_memcg(struct mem_cgroup *memcg)
-{
-	int nid;
-
-	for_each_node(nid) {
-		struct lruvec *lruvec = mem_cgroup_lruvec(memcg, NODE_DATA(nid));
-
-		lru_gen_rotate_memcg(lruvec, MEMCG_LRU_OLD);
 	}
 }
 

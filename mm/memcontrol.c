@@ -4509,7 +4509,6 @@ static void mem_cgroup_css_offline(struct cgroup_subsys_state *css)
 	memcg_reparent_objcgs(memcg);
 	reparent_shrinker_deferred(memcg);
 	wb_memcg_offline(memcg);
-	lru_gen_offline_memcg(memcg);
 
 	drain_all_stock(memcg);
 
