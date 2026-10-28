@@ -25,6 +25,7 @@
 #include <linux/fs.h>
 #include <linux/iomap.h>
 #include <linux/mm.h>
+#include <linux/swap.h>
 #include <linux/percpu.h>
 #include <linux/slab.h>
 #include <linux/capability.h>

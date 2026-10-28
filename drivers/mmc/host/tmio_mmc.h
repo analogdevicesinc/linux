@@ -18,7 +18,6 @@
 #include <linux/highmem.h>
 #include <linux/io.h>
 #include <linux/mutex.h>
-#include <linux/pagemap.h>
 #include <linux/scatterlist.h>
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
