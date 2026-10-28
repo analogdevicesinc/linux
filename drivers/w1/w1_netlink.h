@@ -14,7 +14,7 @@
 /**
  * enum w1_cn_msg_flags - bitfield flags for struct cn_msg.flags
  *
- * @W1_CN_BUNDLE: Request bundling replies into fewer messagse.  Be prepared
+ * @W1_CN_BUNDLE: Request bundling replies into fewer messages.  Be prepared
  * to handle multiple struct cn_msg, struct w1_netlink_msg, and
  * struct w1_netlink_cmd in one packet.
  */

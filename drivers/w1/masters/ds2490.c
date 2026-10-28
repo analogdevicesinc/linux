@@ -561,7 +561,7 @@ static int ds_write_bit(struct ds_device *dev, u8 bit)
 
 	/* Set COMM_ICP to write without a readback.  Note, this will
 	 * produce one time slot, a down followed by an up with COMM_D
-	 * only determing the timing.
+	 * only determining the timing.
 	 */
 	err = ds_send_control(dev, COMM_BIT_IO | COMM_IM | COMM_ICP |
 		(bit ? COMM_D : 0), 0);
@@ -690,7 +690,7 @@ static void ds9490r_search(void *data, struct w1_master *master,
 	 * If the number of devices found is less than or equal to the
 	 * search_limit, that number of IDs will be returned.  If there are
 	 * more, search_limit IDs will be returned followed by a non-zero
-	 * discrepency value.
+	 * discrepancy value.
 	 */
 	struct ds_device *dev = data;
 	int err;
