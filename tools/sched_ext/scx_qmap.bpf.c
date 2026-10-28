@@ -10,6 +10,10 @@
  * - Core-sched support.
  * - Hierarchical sub-scheduling: delegating cpus to child cgroup schedulers.
  *
+ * scx_qmap is often used to exercise sched_ext features as they land. It is
+ * coupled with the kernel it ships with and uses its sched_ext interfaces
+ * directly. It isn't expected to load on other kernels.
+ *
  * Base design: Five FIFOs (arena-backed doubly-linked lists through per-task
  * context). A task is assigned to a FIFO by its compound weight. Each cpu
  * round-robins the FIFOs, dispatching more from higher ones.
@@ -423,6 +427,7 @@ void BPF_STRUCT_OPS(qmap_enqueue, struct task_struct *p, u64 enq_flags)
 	static u32 user_cnt, kernel_cnt;
 	task_ctx_t *taskc;
 	int idx = weight_to_idx(p->scx.weight);
+	bool lowpri = p->scx.weight < 2 && !(p->flags & PF_KTHREAD);
 	s32 cid;
 
 	if (enq_flags & SCX_ENQ_REENQ) {
@@ -583,14 +588,13 @@ void BPF_STRUCT_OPS(qmap_enqueue, struct task_struct *p, u64 enq_flags)
 	}
 
 	/* see lowpri_timerfn() */
-	if (__COMPAT_has_generic_reenq() &&
-	    p->scx.weight < 2 && !(p->flags & PF_KTHREAD) && !(enq_flags & SCX_ENQ_REENQ)) {
+	if (lowpri && !(enq_flags & SCX_ENQ_REENQ)) {
 		scx_bpf_dsq_insert(p, LOWPRI_DSQ, slice_ns, enq_flags);
 		return;
 	}
 
 	/* if select_cid() wasn't called, try direct dispatch */
-	if (!__COMPAT_is_enq_cpu_selected(enq_flags) &&
+	if (!(enq_flags & SCX_ENQ_CPU_SELECTED) &&
 	    (cid = pick_direct_dispatch_cid(p, scx_bpf_task_cid(p), taskc)) >= 0) {
 		__sync_fetch_and_add(&qa.nr_ddsp_from_enq, 1);
 		scx_bpf_dsq_insert(p, SCX_DSQ_LOCAL_ON | cid, slice_ns,
@@ -603,8 +607,12 @@ void BPF_STRUCT_OPS(qmap_enqueue, struct task_struct *p, u64 enq_flags)
 	 * higher priority scheduling class, just re-enqueue the task directly
 	 * on the global DSQ. As we want another CPU to pick it up, find and
 	 * kick an idle cid.
+	 *
+	 * A lowpri task goes to its FIFO instead. qmap_dispatch() consumes
+	 * SHARED_DSQ ahead of the FIFOs, and enough lowpri tasks coming back
+	 * from LOWPRI_DSQ would keep it non-empty and starve every other task.
 	 */
-	if (enq_flags & SCX_ENQ_REENQ) {
+	if ((enq_flags & SCX_ENQ_REENQ) && !lowpri) {
 		s32 cid;
 
 		scx_bpf_dsq_insert(p, SHARED_DSQ, 0, enq_flags);
@@ -1316,7 +1324,7 @@ static int monitor_timerfn(void *map, int *key, struct bpf_timer *timer)
 
 		dump_shared_dsq();
 
-		__COMPAT_scx_bpf_events(&events, sizeof(events));
+		scx_bpf_events(&events, sizeof(events));
 
 		bpf_printk("%35s: %lld", "SCX_EV_SELECT_CPU_FALLBACK",
 			   scx_read_event(&events, SCX_EV_SELECT_CPU_FALLBACK));
@@ -1354,7 +1362,7 @@ struct {
 
 /*
  * Nice 19 tasks are put into the lowpri DSQ. Every 10ms, reenq is triggered and
- * the tasks are transferred to SHARED_DSQ.
+ * qmap_enqueue() queues the tasks on their FIFO.
  */
 static int lowpri_timerfn(void *map, int *key, struct bpf_timer *timer)
 {
@@ -2097,17 +2105,15 @@ s32 BPF_STRUCT_OPS_SLEEPABLE(qmap_init)
 	if (ret)
 		return ret;
 
-	if (__COMPAT_has_generic_reenq()) {
-		/* see lowpri_timerfn() */
-		timer = bpf_map_lookup_elem(&lowpri_timer, &key);
-		if (!timer)
-			return -ESRCH;
-		bpf_timer_init(timer, &lowpri_timer, CLOCK_MONOTONIC);
-		bpf_timer_set_callback(timer, lowpri_timerfn);
-		ret = bpf_timer_start(timer, LOWPRI_INTV_NS, 0);
-		if (ret)
-			return ret;
-	}
+	/* see lowpri_timerfn() */
+	timer = bpf_map_lookup_elem(&lowpri_timer, &key);
+	if (!timer)
+		return -ESRCH;
+	bpf_timer_init(timer, &lowpri_timer, CLOCK_MONOTONIC);
+	bpf_timer_set_callback(timer, lowpri_timerfn);
+	ret = bpf_timer_start(timer, LOWPRI_INTV_NS, 0);
+	if (ret)
+		return ret;
 
 	/* sub-sched: drive the boundary-cid round-robin from a bpf timer */
 	timer = bpf_map_lookup_elem(&round_robin_timer, &key);
@@ -2180,34 +2186,15 @@ s32 BPF_STRUCT_OPS(qmap_sub_attach, struct scx_sub_attach_args *args)
 void BPF_STRUCT_OPS(qmap_sub_detach, struct scx_sub_detach_args *args)
 {
 	u64 cgid = args->ops->sub_cgroup_id;
-	s32 nr_cids = qa.nr_cids;
-	s32 pos = qa.part.rr_pos;
-	u64 holder_cgid;
-	bool reset_pool;
-	s32 i, cid;
-
-	if (nr_cids < 0 || nr_cids > SCX_QMAP_MAX_CPUS || pos < 0 || pos >= MAX_PARTS) {
-		scx_bpf_error("-ERANGE");
-		return;
-	}
+	s32 i;
 
 	/*
-	 * The child's caps are gone without a report, see ops.sub_detach().
-	 * cpuperf targets persist until the next write. Reset the child's excl
-	 * cids, and the pool unless another child holds it: that child's revoke
-	 * report or its own detach resets it then.
+	 * qmap_sub_child_ecaps_updated() has reset the cpuperf targets on the
+	 * loss reports.
 	 */
-	holder_cgid = qa.part.rr_slots[pos];
-	reset_pool = !holder_cgid || holder_cgid == cgid;
-
 	for (i = 0; i < MAX_SUB_SCHEDS; i++) {
 		if (qa.sub_sched_ctxs[i].cgroup_id != cgid)
 			continue;
-
-		bpf_arena_for(cid, 0, nr_cids)
-			if (cmask_test(cid, &qa.sub_sched_ctxs[i].granted_cids.mask) ||
-			    (reset_pool && cmask_test(cid, &qa.rr_cids.mask)))
-				scx_bpf_cidperf_set(cid, SCX_CPUPERF_ONE);
 
 		qa.sub_sched_ctxs[i].cgroup_id = 0;
 		qa.sub_sched_ctxs[i].weight = 100;
