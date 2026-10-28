@@ -609,8 +609,7 @@ struct of_phandle_args *snd_soc_copy_dai_args(struct device *dev,
 }
 EXPORT_SYMBOL_GPL(snd_soc_copy_dai_args);
 
-static struct snd_soc_component *soc_find_component(
-	const struct snd_soc_dai_link_component *dlc)
+struct snd_soc_component *snd_soc_find_component(const struct snd_soc_dai_link_component *dlc)
 {
 	struct snd_soc_component *component;
 
@@ -696,7 +695,7 @@ static int soc_dai_link_sanity_check(struct snd_soc_card *card,
 		 * Defer card registration if codec component is not added to
 		 * component list.
 		 */
-		if (!soc_find_component(dlc))
+		if (!snd_soc_find_component(dlc))
 			goto component_not_found;
 	}
 
@@ -717,7 +716,7 @@ static int soc_dai_link_sanity_check(struct snd_soc_card *card,
 		 * Defer card registration if platform component is not added to
 		 * component list.
 		 */
-		if (!soc_find_component(dlc))
+		if (!snd_soc_find_component(dlc))
 			goto component_not_found;
 	}
 
@@ -742,7 +741,7 @@ static int soc_dai_link_sanity_check(struct snd_soc_card *card,
 			/*
 			 * Defer card registration if Component is not added
 			 */
-			if (!soc_find_component(dlc))
+			if (!snd_soc_find_component(dlc))
 				goto component_not_found;
 		}
 	}
@@ -1075,37 +1074,6 @@ int snd_soc_runtime_set_dai_fmt(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(snd_soc_runtime_set_dai_fmt);
-
-static void soc_unbind_aux_dev(struct snd_soc_card *card)
-{
-	struct snd_soc_component *component, *_component;
-
-	for_each_card_auxs_safe(card, component, _component) {
-		/* for snd_soc_component_init() */
-		snd_soc_component_set_aux(component, NULL);
-		list_del(&component->card_aux_list);
-	}
-}
-
-static int soc_bind_aux_dev(struct snd_soc_card *card)
-{
-	struct snd_soc_component *component;
-	struct snd_soc_aux_dev *aux;
-	int i;
-
-	for_each_card_pre_auxs(card, i, aux) {
-		/* codecs, usually analog devices */
-		component = soc_find_component(&aux->dlc);
-		if (!component)
-			return -EPROBE_DEFER;
-
-		/* for snd_soc_component_init() */
-		snd_soc_component_set_aux(component, aux);
-		/* see for_each_card_auxs */
-		list_add(&component->card_aux_list, &card->aux_comp_list);
-	}
-	return 0;
-}
 
 static int soc_probe_aux_devices(struct snd_soc_card *card)
 {
@@ -1441,7 +1409,7 @@ static void soc_cleanup_card_resources(struct snd_soc_card *card)
 
 	/* remove auxiliary devices */
 	soc_remove_aux_devices(card);
-	soc_unbind_aux_dev(card);
+	snd_soc_card_aux_unbind(card);
 
 	snd_soc_dapm_free(snd_soc_card_to_dapm(card));
 	snd_soc_card_debugfs_cleanup(card);
@@ -1495,7 +1463,7 @@ static int snd_soc_bind_card(struct snd_soc_card *card)
 	soc_check_tplg_fes(card);
 
 	/* bind aux_devs too */
-	ret = soc_bind_aux_dev(card);
+	ret = snd_soc_card_aux_bind(card);
 	if (ret < 0)
 		goto probe_end;
 
@@ -2795,7 +2763,7 @@ int snd_soc_get_dai_id(struct device_node *ep)
 	ret = -ENOTSUPP;
 
 	scoped_guard(mutex, &client_mutex) {
-		struct snd_soc_component *component = soc_find_component(&dlc);
+		struct snd_soc_component *component = snd_soc_find_component(&dlc);
 
 		if (component)
 			ret = snd_soc_component_of_xlate_dai_id(component, ep);

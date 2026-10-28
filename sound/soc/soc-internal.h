@@ -27,6 +27,8 @@ void snd_soc_card_link_dais_remove(struct snd_soc_card *card);
 int snd_soc_card_link_dais_probe(struct snd_soc_card *card);
 void snd_soc_card_link_components_remove(struct snd_soc_card *card);
 int snd_soc_card_link_components_probe(struct snd_soc_card *card);
+void snd_soc_card_aux_unbind(struct snd_soc_card *card);
+int snd_soc_card_aux_bind(struct snd_soc_card *card);
 
 /*
  * In soc-core
@@ -38,6 +40,7 @@ char *snd_soc_fmt_multiple_name(struct device *dev, struct snd_soc_dai_driver *d
 int snd_soc_add_controls(struct snd_card *card, struct device *dev,
 			 const struct snd_kcontrol_new *controls, int num_controls,
 			 const char *prefix, void *data);
+struct snd_soc_component *snd_soc_find_component(const struct snd_soc_dai_link_component *dlc);
 #ifdef CONFIG_PM_SLEEP
 void snd_soc_playback_digital_mute(struct snd_soc_card *card, int mute);
 void snd_soc_dapm_suspend_resume(struct snd_soc_card *card, int event);

@@ -236,6 +236,37 @@ int snd_soc_card_link_components_probe(struct snd_soc_card *card)
 	return 0;
 }
 
+void snd_soc_card_aux_unbind(struct snd_soc_card *card)
+{
+	struct snd_soc_component *component, *_component;
+
+	for_each_card_auxs_safe(card, component, _component) {
+		/* for snd_soc_component_init() */
+		snd_soc_component_set_aux(component, NULL);
+		list_del(&component->card_aux_list);
+	}
+}
+
+int snd_soc_card_aux_bind(struct snd_soc_card *card)
+{
+	struct snd_soc_component *component;
+	struct snd_soc_aux_dev *aux;
+	int i;
+
+	for_each_card_pre_auxs(card, i, aux) {
+		/* codecs, usually analog devices */
+		component = snd_soc_find_component(&aux->dlc);
+		if (!component)
+			return -EPROBE_DEFER;
+
+		/* for snd_soc_component_init() */
+		snd_soc_component_set_aux(component, aux);
+		/* see for_each_card_auxs */
+		list_add(&component->card_aux_list, &card->aux_comp_list);
+	}
+	return 0;
+}
+
 struct snd_kcontrol *snd_soc_card_get_kcontrol(struct snd_soc_card *soc_card,
 					       const char *name)
 {
