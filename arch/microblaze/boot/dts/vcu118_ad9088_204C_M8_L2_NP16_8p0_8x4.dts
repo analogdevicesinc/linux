@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9088 8T8R
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9084
+ * https://wiki.analog.com/resources/eval/user-guides/ad9084_fmca_ebz/ad9084_fmca_ebz_hdl
+ *
+ * hdl_project: <ad9084_ebz/vcu118>
+ * board_revision: <Rev.C>
+ *
+ * make JESD_MODE=64B66B ASYMMETRIC_A_B_MODE=1
+ *      RX_LANE_RATE=16.5 TX_LANE_RATE=16.5 RX_B_LANE_RATE=16.5 TX_B_LANE_RATE=16.5
+ *      RX_JESD_M=8 TX_JESD_M=8 RX_JESD_L=2 TX_JESD_L=2 RX_JESD_S=1 TX_JESD_S=1
+ *      RX_JESD_NP=16 TX_JESD_NP=16 RX_B_JESD_M=8 TX_B_JESD_M=8 RX_B_JESD_L=2
+ *      TX_B_JESD_L=2 RX_B_JESD_S=1 TX_B_JESD_S=1 RX_B_JESD_NP=16 TX_B_JESD_NP=16
+ *
+ * Asymmetric mode: with a single dual-link core and L=2, side B's lanes
+ * (FPGA lanes 12 and 13, quad 3) have no QPLL control.
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+
+#define DEVICE_PROFILE_NAME	"204C_8T8R_M8_L2_NP16_8p0_4x8.bin"
+
+#define HMC7044_PLL2_FREQ	(2500000000) // 2.5 GHz (2150...3200 MHz range)
+#define AION_VCO_FREQ_HZ	(2500000000) // 2.5 GHz (2375...2625 MHz range)
+
+#define SYSREF_CLK_MHz		(7812500) // HMC7044_PLL2_FREQ / 320
+
+#define OUT_CLK_SELECT		XCVR_PROGDIV_CLK
+/*
+ * 16.5 Gbps from the 250 MHz FPGA_REFCLK: QPLL1 at 8.25 GHz (N = 33) in GTY4 full-rate mode.
+ * QPLL0 can't reach it: its VCO range is 9.8 to 16.375 GHz.
+ */
+#define SYS_CLK_SELECT		XCVR_QPLL1
+
+#define WITH_AION 1
+#define WITH_AXI_AION_TRIG 0
+#define ASYNM_A_B_MODE 1
+
+#include "vcu118_ad9084.dts"
+
+/ {
+	model = "Analog Devices AD9088-FMCA-EBZ @Xilinx/vcu118 204C_M8_L2_NP16_8p0_8x4";
+};
+
+/* 16.5 Gbps lane rate: link clock and FPGA reference 16.5 GHz / 66 = 250 MHz */
+&hmc7044_c3 {
+	adi,divider = <320>;
+};
+
+&hmc7044_c8 {
+	adi,divider = <10>;
+};
+
+&hmc7044_c9 {
+	adi,divider = <10>;
+};
+
+&hmc7044_c10 {
+	adi,divider = <10>;
+};
+
+&hmc7044_c11 {
+	adi,divider = <10>;
+};
+
+&hmc7044_c12 {
+	adi,divider = <10>;
+};
+
+&trx0_ad9084 {
+	compatible = "adi,ad9088";
+};
