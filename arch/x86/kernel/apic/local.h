@@ -13,12 +13,16 @@
 #include <asm/irq_vectors.h>
 #include <asm/apic.h>
 
+void __init apic_install_default_driver(struct apic *driver);
+void __init apic_install_driver(struct apic *driver);
+
 /* X2APIC */
 u32 x2apic_get_apic_id(u32 id);
 
 void x2apic_send_IPI_all(int vector);
 void x2apic_send_IPI_allbutself(int vector);
 void x2apic_send_IPI_self(int vector);
+extern struct apic apic_x2apic_phys;
 extern u32 x2apic_max_apicid;
 
 /* IPI */

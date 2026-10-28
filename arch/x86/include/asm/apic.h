@@ -133,7 +133,8 @@ extern void sync_Arb_IDs(void);
 extern void init_bsp_APIC(void);
 extern void apic_intr_mode_select(void);
 extern void apic_intr_mode_init(void);
-extern void init_apic_mappings(void);
+void apic_early_init(void);
+void apic_finalize_early_init(void);
 void register_lapic_address(unsigned long address);
 extern void setup_boot_APIC_clock(void);
 extern void setup_secondary_APIC_clock(void);
@@ -183,7 +184,8 @@ extern void topology_reset_possible_cpus_up(void);
 #else /* !CONFIG_X86_LOCAL_APIC */
 static inline void lapic_shutdown(void) { }
 #define local_apic_timer_c2_ok		1
-static inline void init_apic_mappings(void) { }
+static inline void apic_early_init(void) { }
+static inline void apic_finalize_early_init(void) { }
 static inline void disable_local_APIC(void) { }
 # define setup_boot_APIC_clock x86_init_noop
 # define setup_secondary_APIC_clock x86_init_noop
@@ -254,7 +256,6 @@ static inline u32 native_apic_msr_read(u32 reg) { BUG(); }
 #define x2apic_mode		(0)
 #define	x2apic_supported()	(0)
 #endif /* !CONFIG_X86_X2APIC */
-extern void __init check_x2apic(void);
 
 struct irq_data;
 
@@ -365,9 +366,6 @@ extern int lapic_can_unplug_cpu(void);
 
 #ifdef CONFIG_X86_LOCAL_APIC
 extern struct apic_override __x86_apic_override;
-
-void __init apic_setup_apic_calls(void);
-void __init apic_install_driver(struct apic *driver);
 
 #define apic_update_callback(_callback, _fn) {					\
 		__x86_apic_override._callback = _fn;				\
@@ -486,7 +484,6 @@ static inline void apic_icr_write(u32 low, u32 high) { }
 static inline void apic_wait_icr_idle(void) { }
 static inline u32 safe_apic_wait_icr_idle(void) { return 0; }
 static inline void apic_native_eoi(void) { WARN_ON_ONCE(1); }
-static inline void apic_setup_apic_calls(void) { }
 static inline void apic_update_vector(unsigned int cpu, unsigned int vector, bool set) { }
 
 #define apic_update_callback(_callback, _fn) do { } while (0)
