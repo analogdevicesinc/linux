@@ -1,0 +1,48 @@
+What:		/sys/bus/platform/devices/<bpmp-device>/mbwt/<bandwidth-group>/<traffic-type>/bandwidth
+Date:		September 2026
+KernelVersion:	7.4
+Contact:	Aniruddha TVS Rao <anrao@nvidia.com>
+Description:
+		Provides access to Memory Bandwidth Throttler (MBWT)
+		controls exposed by BPMP firmware for PCIe traffic and GPU
+		traffic connected over the chip-to-chip link (NVCLINK) on
+		the path to DRAM.
+
+		The attributes are present only when BPMP firmware reports
+		support for the MBWT GET_BW and SET_BW requests through the
+		MBWT query ABI.
+
+		Each <bandwidth-group> directory identifies one PCIe bandwidth
+		group. The available groups and their directory names are
+		platform-specific. Current platforms use pcie0 through pcie5.
+		Each bandwidth group has a single shared cap for all traffic
+		in that group. A group may contain only PCIe devices, only a
+		GPU connected over NVCLINK, or both PCIe and GPU traffic in a
+		bifurcated topology.
+
+		The <traffic-type> directory selects the traffic type for the
+		selected group. The following traffic types may be available:
+
+		pcie_read
+			PCIe read traffic
+
+		pcie_write
+			PCIe write traffic
+
+		nvclink
+			GPU traffic connected over NVCLINK
+
+		Reading a bandwidth attribute returns the bandwidth cap in GB/s
+		reported by firmware for that bandwidth group and traffic
+		type.
+
+		Writing an integer to a bandwidth attribute programs the target
+		bandwidth cap in GB/s for that bandwidth group and traffic
+		type.
+
+		Examples:
+			cat .../mbwt/pcie0/pcie_write/bandwidth
+			echo 100 > .../mbwt/pcie0/pcie_write/bandwidth
+
+Users:		Platform integration and bandwidth tuning on systems with BPMP
+		firmware MBWT support.

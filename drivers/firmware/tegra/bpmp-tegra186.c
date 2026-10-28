@@ -325,6 +325,10 @@ static int tegra186_bpmp_init(struct tegra_bpmp *bpmp)
 	struct tegra186_bpmp *priv;
 	int err;
 
+	err = tegra_bpmp_init_channels(bpmp);
+	if (err < 0)
+		return err;
+
 	priv = devm_kzalloc(bpmp->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
@@ -352,12 +356,21 @@ static int tegra186_bpmp_init(struct tegra_bpmp *bpmp)
 
 	tegra186_bpmp_reset_channels(bpmp);
 
+	err = tegra_bpmp_init_ping(bpmp);
+	if (err < 0) {
+		mbox_free_channel(priv->mbox.channel);
+		tegra186_bpmp_teardown_channels(bpmp);
+		return err;
+	}
+
 	return 0;
 }
 
 static void tegra186_bpmp_deinit(struct tegra_bpmp *bpmp)
 {
 	struct tegra186_bpmp *priv = bpmp->priv;
+
+	tegra_bpmp_deinit_ping(bpmp);
 
 	mbox_free_channel(priv->mbox.channel);
 
@@ -373,6 +386,7 @@ static int tegra186_bpmp_resume(struct tegra_bpmp *bpmp)
 
 const struct tegra_bpmp_ops tegra186_bpmp_ops = {
 	.init = tegra186_bpmp_init,
+	.init_providers = tegra_bpmp_init_dt_providers,
 	.deinit = tegra186_bpmp_deinit,
 	.is_response_ready = tegra186_bpmp_is_message_ready,
 	.is_request_ready = tegra186_bpmp_is_message_ready,
