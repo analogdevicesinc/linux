@@ -210,6 +210,7 @@ struct ad9088_chan_map {
 	u8 side;
 	u8 fddc_pi;
 	u8 cddc_pi;
+	bool unrouted;
 };
 
 struct ad9088_phy {
