@@ -1733,7 +1733,7 @@ int aes_gcm_decrypt(u8 *dst, const u8 *src, size_t data_len, const u8 *authtag,
 		 * Clear the inauthentic decrypted data so that callers won't
 		 * receive it even if they fail to correctly handle errors.
 		 */
-		memset(dst, 0, data_len);
+		memzero_explicit(dst, data_len);
 	}
 	return err;
 }
@@ -2074,7 +2074,7 @@ int aes_ccm_decrypt(u8 *dst, const u8 *src, size_t data_len, const u8 *authtag,
 		 * Clear the inauthentic decrypted data so that callers won't
 		 * receive it even if they fail to correctly handle errors.
 		 */
-		memset(dst, 0, data_len);
+		memzero_explicit(dst, data_len);
 	}
 	return err;
 }
