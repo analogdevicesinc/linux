@@ -4311,18 +4311,22 @@ unlock_out:
 }
 
 static int prepare_atomic_write_begin(struct f2fs_sb_info *sbi,
-			struct folio *folio, loff_t pos, unsigned int len,
-			block_t *blk_addr, bool *node_changed)
+			struct inode *inode, pgoff_t index,
+			block_t *blk_addr, bool *node_changed,
+			bool check_reserved)
 {
-	struct inode *inode = folio->mapping->host;
 	struct inode *cow_inode = F2FS_I(inode)->cow_inode;
-	pgoff_t index = folio->index;
 	int err = 0;
 	block_t ori_blk_addr = NULL_ADDR;
 	bool cow_has_reserved_block = false;
+	bool append = ((loff_t)index << PAGE_SHIFT) >= i_size_read(inode);
 
-	/* If pos is beyond the end of file, reserve a new block in COW inode */
-	if ((pos & PAGE_MASK) >= i_size_read(inode))
+	/*
+	 * On the first attempt, an append write can skip the COW lookup and
+	 * reserve directly.  On retry, check the COW block first so the same
+	 * block is not reserved and accounted twice.
+	 */
+	if (append && !check_reserved)
 		goto reserve_block;
 
 	/* Look for the block in COW inode first */
@@ -4336,7 +4340,7 @@ static int prepare_atomic_write_begin(struct f2fs_sb_info *sbi,
 	if (*blk_addr == NEW_ADDR)
 		cow_has_reserved_block = true;
 
-	if (is_inode_flag_set(inode, FI_ATOMIC_REPLACE))
+	if (append || is_inode_flag_set(inode, FI_ATOMIC_REPLACE))
 		goto reserve_block;
 
 	/* Look for the block in the original inode */
@@ -4504,6 +4508,62 @@ static int prepare_large_folio_write_begin(struct inode *inode,
 	return 0;
 }
 
+static int prepare_large_folio_atomic_write_begin(struct inode *inode,
+		struct address_space *mapping, struct folio *folio, loff_t pos,
+		unsigned int len, bool retried)
+{
+	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
+	size_t ori_off = offset_in_folio(folio, pos);
+	pgoff_t start, end, index;
+	int err = 0;
+
+	len = min_t(unsigned int, len, folio_size(folio) - ori_off);
+
+	if (!f2fs_ffs_find_or_alloc(folio))
+		return -ENOMEM;
+
+	/* Inline data must have been converted before reaching here. */
+	f2fs_bug_on(sbi, f2fs_has_inline_data(inode));
+
+	start = folio->index + (ori_off >> PAGE_SHIFT);
+	end = folio->index + ((ori_off + len - 1) >> PAGE_SHIFT);
+
+	for (index = start; index <= end; index++) {
+		block_t blkaddr = NULL_ADDR;
+		bool node_changed = false;
+		size_t off = (index - folio->index) << PAGE_SHIFT;
+
+		err = prepare_atomic_write_begin(sbi, inode, index,
+						&blkaddr, &node_changed,
+						retried);
+		if (err)
+			return err;
+
+		if (f2fs_ffs_test_blk_uptodate(folio, index))
+			goto balance;
+
+		if (blkaddr == NEW_ADDR) {
+			folio_zero_segment(folio, off, off + PAGE_SIZE);
+			f2fs_ffs_mark_subrange_uptodate(folio, off, PAGE_SIZE);
+			goto balance;
+		}
+
+		if (!f2fs_is_valid_blkaddr(sbi, blkaddr,
+					   DATA_GENERIC_ENHANCE_READ))
+			return -EFSCORRUPTED;
+
+		err = f2fs_submit_page_read_sync(inode, folio, index,
+						blkaddr);
+		if (err)
+			return err;
+balance:
+		if (f2fs_balance_fs_folio_locked(folio, mapping, node_changed))
+			return -EAGAIN;
+	}
+
+	return 0;
+}
+
 static int f2fs_write_begin(const struct kiocb *iocb,
 			    struct address_space *mapping,
 			    loff_t pos, unsigned len, struct folio **foliop,
@@ -4514,6 +4574,7 @@ static int f2fs_write_begin(const struct kiocb *iocb,
 	struct folio *folio;
 	pgoff_t index = pos >> PAGE_SHIFT;
 	bool need_balance = false;
+	bool retried = false;
 	block_t blkaddr = NULL_ADDR;
 	fgf_t fgp = FGP_LOCK | FGP_WRITE | FGP_CREAT;
 	unsigned int blen;
@@ -4593,16 +4654,20 @@ repeat:
 	 */
 	f2fs_folio_wait_writeback(folio, false, true);
 
-	if (f2fs_is_atomic_file(inode))
-		err = prepare_atomic_write_begin(sbi, folio, pos, len,
-					&blkaddr, &need_balance);
+	if (f2fs_is_atomic_file(inode) && !folio_test_large(folio))
+		err = prepare_atomic_write_begin(sbi, inode, folio->index,
+					&blkaddr, &need_balance, retried);
 	else if (!folio_test_large(folio))
 		err = prepare_write_begin(sbi, folio, pos, blen,
 					&blkaddr, &need_balance);
+	else if (f2fs_is_atomic_file(inode))
+		err = prepare_large_folio_atomic_write_begin(inode,
+					mapping, folio, pos, len, retried);
 	else
 		err = prepare_large_folio_write_begin(inode, folio, pos, blen);
 	if (err) {
 		if (err == -EAGAIN) {
+			retried = true;
 			f2fs_folio_put(folio, true);
 			goto repeat;
 		}
@@ -4610,6 +4675,7 @@ repeat:
 	}
 
 	if (f2fs_balance_fs_folio_locked(folio, mapping, need_balance)) {
+		retried = true;
 		f2fs_folio_put(folio, true);
 		goto repeat;
 	}
