@@ -1012,6 +1012,19 @@ static int snd_ice1712_ews_add_controls(struct snd_ice1712 *ice)
 }
 
 
+static int snd_ice1712_ews_eeprom_init(struct snd_ice1712 *ice)
+{
+	if (ice->eeprom.subvendor == ICE1712_SUBDEVICE_DMX6FIRE &&
+	    !ice->dxr_enable) {
+		/* Set EEPROM value to limit active ADCs and DACs to 6;
+		 * also disable AC'97 as no hardware in standard 6fire card/box.
+		 * DXR extensions are not currently supported.
+		 */
+		ice->eeprom.data[ICE_EEP1_CODEC] = 0x3a;
+	}
+	return 0;
+}
+
 /* entry point */
 struct snd_ice1712_card_info snd_ice1712_ews_cards[] = {
 	{
@@ -1060,6 +1073,7 @@ struct snd_ice1712_card_info snd_ice1712_ews_cards[] = {
 		.subvendor = ICE1712_SUBDEVICE_DMX6FIRE,
 		.name = "TerraTec DMX6Fire",
 		.model = "dmx6fire",
+		.eeprom_init = snd_ice1712_ews_eeprom_init,
 		.chip_init = snd_ice1712_ews_init,
 		.build_controls = snd_ice1712_ews_add_controls,
 		.mpu401_1_name = "MIDI-Front DMX6fire",
