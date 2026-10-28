@@ -19,6 +19,7 @@
  */
 void snd_soc_card_debugfs_init(struct snd_soc_card *card);
 void snd_soc_card_debugfs_cleanup(struct snd_soc_card *card);
+void snd_soc_card_resume_init(struct snd_soc_card *card);
 
 /*
  * In soc-core
@@ -30,6 +31,10 @@ char *snd_soc_fmt_multiple_name(struct device *dev, struct snd_soc_dai_driver *d
 int snd_soc_add_controls(struct snd_card *card, struct device *dev,
 			 const struct snd_kcontrol_new *controls, int num_controls,
 			 const char *prefix, void *data);
+#ifdef CONFIG_PM_SLEEP
+void snd_soc_playback_digital_mute(struct snd_soc_card *card, int mute);
+void snd_soc_dapm_suspend_resume(struct snd_soc_card *card, int event);
+#endif
 
 /*
  * In soc-dai

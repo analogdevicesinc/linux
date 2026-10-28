@@ -457,7 +457,7 @@ static void snd_soc_flush_all_delayed_work(struct snd_soc_card *card)
 }
 
 #ifdef CONFIG_PM_SLEEP
-static void soc_playback_digital_mute(struct snd_soc_card *card, int mute)
+void snd_soc_playback_digital_mute(struct snd_soc_card *card, int mute)
 {
 	struct snd_soc_pcm_runtime *rtd;
 	struct snd_soc_dai *dai;
@@ -476,7 +476,7 @@ static void soc_playback_digital_mute(struct snd_soc_card *card, int mute)
 	}
 }
 
-static void soc_dapm_suspend_resume(struct snd_soc_card *card, int event)
+void snd_soc_dapm_suspend_resume(struct snd_soc_card *card, int event)
 {
 	struct snd_soc_pcm_runtime *rtd;
 	int stream;
@@ -513,7 +513,7 @@ int snd_soc_suspend(struct device *dev)
 	snd_power_change_state(card->snd_card, SNDRV_CTL_POWER_D3hot);
 
 	/* mute any active DACs */
-	soc_playback_digital_mute(card, 1);
+	snd_soc_playback_digital_mute(card, 1);
 
 	/* suspend all pcms */
 	for_each_card_rtds(card, rtd) {
@@ -528,7 +528,7 @@ int snd_soc_suspend(struct device *dev)
 	/* close any waiting streams */
 	snd_soc_flush_all_delayed_work(card);
 
-	soc_dapm_suspend_resume(card, SND_SOC_DAPM_STREAM_SUSPEND);
+	snd_soc_dapm_suspend_resume(card, SND_SOC_DAPM_STREAM_SUSPEND);
 
 	/* Recheck all endpoints too, their state is affected by suspend */
 	snd_soc_dapm_mark_endpoints_dirty(card);
@@ -589,51 +589,6 @@ int snd_soc_suspend(struct device *dev)
 }
 EXPORT_SYMBOL_GPL(snd_soc_suspend);
 
-/*
- * deferred resume work, so resume can complete before we finished
- * setting our codec back up, which can be very slow on I2C
- */
-static void soc_resume_deferred(struct work_struct *work)
-{
-	struct snd_soc_card *card =
-			container_of(work, struct snd_soc_card,
-				     deferred_resume_work);
-	struct snd_soc_component *component;
-
-	/*
-	 * our power state is still SNDRV_CTL_POWER_D3hot from suspend time,
-	 * so userspace apps are blocked from touching us
-	 */
-
-	dev_dbg(card->dev, "ASoC: starting resume work\n");
-
-	/* Bring us up into D2 so that DAPM starts enabling things */
-	snd_power_change_state(card->snd_card, SNDRV_CTL_POWER_D2);
-
-	snd_soc_card_resume_pre(card);
-
-	for_each_card_components(card, component) {
-		if (snd_soc_component_is_suspended(component))
-			snd_soc_component_resume(component);
-	}
-
-	soc_dapm_suspend_resume(card, SND_SOC_DAPM_STREAM_RESUME);
-
-	/* unmute any active DACs */
-	soc_playback_digital_mute(card, 0);
-
-	snd_soc_card_resume_post(card);
-
-	dev_dbg(card->dev, "ASoC: resume work completed\n");
-
-	/* Recheck all endpoints too, their state is affected by suspend */
-	snd_soc_dapm_mark_endpoints_dirty(card);
-	snd_soc_dapm_sync(snd_soc_card_to_dapm(card));
-
-	/* userspace can access us now we are back as we were before */
-	snd_power_change_state(card->snd_card, SNDRV_CTL_POWER_D0);
-}
-
 /* powers up audio subsystem after a suspend */
 int snd_soc_resume(struct device *dev)
 {
@@ -657,15 +612,9 @@ int snd_soc_resume(struct device *dev)
 }
 EXPORT_SYMBOL_GPL(snd_soc_resume);
 
-static void soc_resume_init(struct snd_soc_card *card)
-{
-	/* deferred resume work */
-	INIT_WORK(&card->deferred_resume_work, soc_resume_deferred);
-}
 #else
 #define snd_soc_suspend NULL
 #define snd_soc_resume NULL
-static inline void soc_resume_init(struct snd_soc_card *card) { }
 #endif
 
 struct of_phandle_args *snd_soc_copy_dai_args(struct device *dev,
@@ -1708,7 +1657,7 @@ static int snd_soc_bind_card(struct snd_soc_card *card)
 
 	snd_soc_card_debugfs_init(card);
 
-	soc_resume_init(card);
+	snd_soc_card_resume_init(card);
 
 	ret = snd_soc_dapm_new_controls(dapm, card->dapm_widgets,
 					card->num_dapm_widgets);
