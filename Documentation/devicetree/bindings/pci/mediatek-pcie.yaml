@@ -127,7 +127,7 @@ allOf:
         phy-names:
           const: pcie-phy1
 
-        power-domain: false
+        power-domains: false
 
       required:
         - resets
@@ -150,7 +150,7 @@ allOf:
           minItems: 2
           maxItems: 2
 
-        reset: false
+        resets: false
 
         reset-names: false
 
@@ -171,7 +171,7 @@ allOf:
         clocks:
           minItems: 6
 
-        reset: false
+        resets: false
 
         reset-names: false
 
@@ -193,7 +193,7 @@ allOf:
         clocks:
           minItems: 6
 
-        reset: false
+        resets: false
 
         reset-names: false
 
@@ -215,7 +215,7 @@ allOf:
         clock-names:
           maxItems: 1
 
-        reset: false
+        resets: false
 
         reset-names: false
 
@@ -223,7 +223,7 @@ allOf:
 
         phy-names: false
 
-        power-domain: false
+        power-domains: false
 
         mediatek,pbus-csr: false
 
