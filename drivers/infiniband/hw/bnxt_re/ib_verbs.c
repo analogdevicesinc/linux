@@ -4328,8 +4328,8 @@ int bnxt_re_poll_cq(struct ib_cq *ib_cq, int num_entries, struct ib_wc *wc)
 		ibdev_err(&cq->rdev->ibdev, "POLL CQ : no CQL to use");
 		goto exit;
 	}
-	cqe = &cq->cql[0];
 	while (budget) {
+		cqe = &cq->cql[0];
 		lib_qp = NULL;
 		ncqe = bnxt_qplib_poll_cq(&cq->qplib_cq, cqe, budget, &lib_qp);
 		if (lib_qp) {
