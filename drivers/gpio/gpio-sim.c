@@ -59,10 +59,10 @@ struct gpio_sim_attribute {
 	unsigned int offset;
 };
 
-static struct gpio_sim_attribute *
-to_gpio_sim_attr(struct device_attribute *dev_attr)
+static const struct gpio_sim_attribute *
+to_gpio_sim_attr(const struct device_attribute *dev_attr)
 {
-	return container_of(dev_attr, struct gpio_sim_attribute, dev_attr);
+	return container_of_const(dev_attr, struct gpio_sim_attribute, dev_attr);
 }
 
 static int gpio_sim_apply_pull(struct gpio_sim_chip *chip,
@@ -270,9 +270,9 @@ static void gpio_sim_dbg_show(struct seq_file *seq, struct gpio_chip *gc)
 }
 
 static ssize_t gpio_sim_sysfs_val_show(struct device *dev,
-				       struct device_attribute *attr, char *buf)
+				       const struct device_attribute *attr, char *buf)
 {
-	struct gpio_sim_attribute *line_attr = to_gpio_sim_attr(attr);
+	const struct gpio_sim_attribute *line_attr = to_gpio_sim_attr(attr);
 	struct gpio_sim_chip *chip = dev_get_drvdata(dev);
 	int val;
 
@@ -283,7 +283,7 @@ static ssize_t gpio_sim_sysfs_val_show(struct device *dev,
 }
 
 static ssize_t gpio_sim_sysfs_val_store(struct device *dev,
-					struct device_attribute *attr,
+					const struct device_attribute *attr,
 					const char *buf, size_t count)
 {
 	/*
@@ -299,10 +299,10 @@ static const char *const gpio_sim_sysfs_pull_strings[] = {
 };
 
 static ssize_t gpio_sim_sysfs_pull_show(struct device *dev,
-					struct device_attribute *attr,
+					const struct device_attribute *attr,
 					char *buf)
 {
-	struct gpio_sim_attribute *line_attr = to_gpio_sim_attr(attr);
+	const struct gpio_sim_attribute *line_attr = to_gpio_sim_attr(attr);
 	struct gpio_sim_chip *chip = dev_get_drvdata(dev);
 	int pull;
 
@@ -313,10 +313,10 @@ static ssize_t gpio_sim_sysfs_pull_show(struct device *dev,
 }
 
 static ssize_t gpio_sim_sysfs_pull_store(struct device *dev,
-					 struct device_attribute *attr,
+					 const struct device_attribute *attr,
 					 const char *buf, size_t len)
 {
-	struct gpio_sim_attribute *line_attr = to_gpio_sim_attr(attr);
+	const struct gpio_sim_attribute *line_attr = to_gpio_sim_attr(attr);
 	struct gpio_sim_chip *chip = dev_get_drvdata(dev);
 	int ret, pull;
 
@@ -361,7 +361,7 @@ static int gpio_sim_setup_sysfs(struct gpio_sim_chip *chip)
 	unsigned int num_lines = chip->gc.ngpio;
 	struct device *dev = chip->gc.parent;
 	struct attribute_group *attr_group;
-	struct attribute **attrs;
+	const struct attribute **attrs;
 	int i, ret;
 
 	chip->attr_groups = devm_kcalloc(dev, sizeof(*chip->attr_groups),
@@ -396,15 +396,15 @@ static int gpio_sim_setup_sysfs(struct gpio_sim_chip *chip)
 
 		val_dev_attr->attr.mode = pull_dev_attr->attr.mode = 0644;
 
-		val_dev_attr->show = gpio_sim_sysfs_val_show;
-		val_dev_attr->store = gpio_sim_sysfs_val_store;
-		pull_dev_attr->show = gpio_sim_sysfs_pull_show;
-		pull_dev_attr->store = gpio_sim_sysfs_pull_store;
+		val_dev_attr->show_const = gpio_sim_sysfs_val_show;
+		val_dev_attr->store_const = gpio_sim_sysfs_val_store;
+		pull_dev_attr->show_const = gpio_sim_sysfs_pull_show;
+		pull_dev_attr->store_const = gpio_sim_sysfs_pull_store;
 
 		attrs[0] = &val_dev_attr->attr;
 		attrs[1] = &pull_dev_attr->attr;
 
-		attr_group->attrs = attrs;
+		attr_group->attrs_const = attrs;
 		chip->attr_groups[i] = attr_group;
 	}
 
@@ -1037,7 +1037,7 @@ gpio_sim_device_config_live_store(struct config_item *item,
 
 CONFIGFS_ATTR(gpio_sim_device_config_, live);
 
-static struct configfs_attribute *gpio_sim_device_config_attrs[] = {
+static const struct configfs_attribute *const gpio_sim_device_config_attrs[] = {
 	&gpio_sim_device_config_attr_dev_name,
 	&gpio_sim_device_config_attr_live,
 	NULL
@@ -1154,7 +1154,7 @@ gpio_sim_bank_config_num_lines_store(struct config_item *item,
 
 CONFIGFS_ATTR(gpio_sim_bank_config_, num_lines);
 
-static struct configfs_attribute *gpio_sim_bank_config_attrs[] = {
+static const struct configfs_attribute *const gpio_sim_bank_config_attrs[] = {
 	&gpio_sim_bank_config_attr_chip_name,
 	&gpio_sim_bank_config_attr_label,
 	&gpio_sim_bank_config_attr_num_lines,
@@ -1228,7 +1228,7 @@ static ssize_t gpio_sim_line_config_valid_store(struct config_item *item,
 
 CONFIGFS_ATTR(gpio_sim_line_config_, valid);
 
-static struct configfs_attribute *gpio_sim_line_config_attrs[] = {
+static const struct configfs_attribute *const gpio_sim_line_config_attrs[] = {
 	&gpio_sim_line_config_attr_name,
 	&gpio_sim_line_config_attr_valid,
 	NULL
@@ -1364,7 +1364,7 @@ gpio_sim_hog_config_active_low_store(struct config_item *item,
 
 CONFIGFS_ATTR(gpio_sim_hog_config_, active_low);
 
-static struct configfs_attribute *gpio_sim_hog_config_attrs[] = {
+static const struct configfs_attribute *const gpio_sim_hog_config_attrs[] = {
 	&gpio_sim_hog_config_attr_name,
 	&gpio_sim_hog_config_attr_direction,
 	&gpio_sim_hog_config_attr_active_low,
@@ -1390,7 +1390,7 @@ static const struct configfs_item_operations gpio_sim_hog_config_item_ops = {
 
 static const struct config_item_type gpio_sim_hog_config_type = {
 	.ct_item_ops	= &gpio_sim_hog_config_item_ops,
-	.ct_attrs	= gpio_sim_hog_config_attrs,
+	.ct_attrs_const	= gpio_sim_hog_config_attrs,
 	.ct_owner	= THIS_MODULE,
 };
 
@@ -1444,7 +1444,7 @@ static const struct configfs_group_operations gpio_sim_line_config_group_ops = {
 static const struct config_item_type gpio_sim_line_config_type = {
 	.ct_item_ops	= &gpio_sim_line_config_item_ops,
 	.ct_group_ops	= &gpio_sim_line_config_group_ops,
-	.ct_attrs	= gpio_sim_line_config_attrs,
+	.ct_attrs_const	= gpio_sim_line_config_attrs,
 	.ct_owner       = THIS_MODULE,
 };
 
@@ -1505,7 +1505,7 @@ static const struct configfs_group_operations gpio_sim_bank_config_group_ops = {
 static const struct config_item_type gpio_sim_bank_config_group_type = {
 	.ct_item_ops	= &gpio_sim_bank_config_item_ops,
 	.ct_group_ops	= &gpio_sim_bank_config_group_ops,
-	.ct_attrs	= gpio_sim_bank_config_attrs,
+	.ct_attrs_const	= gpio_sim_bank_config_attrs,
 	.ct_owner	= THIS_MODULE,
 };
 
@@ -1560,7 +1560,7 @@ static const struct configfs_group_operations gpio_sim_device_config_group_ops =
 static const struct config_item_type gpio_sim_device_config_group_type = {
 	.ct_item_ops	= &gpio_sim_device_config_item_ops,
 	.ct_group_ops	= &gpio_sim_device_config_group_ops,
-	.ct_attrs	= gpio_sim_device_config_attrs,
+	.ct_attrs_const	= gpio_sim_device_config_attrs,
 	.ct_owner	= THIS_MODULE,
 };
 

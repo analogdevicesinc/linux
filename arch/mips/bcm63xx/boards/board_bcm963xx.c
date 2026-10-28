@@ -43,7 +43,7 @@ static struct board_info __initdata board_cvg834g = {
 	.expected_cpu_id = 0x3368,
 
 	.ephy_reset_gpio = 36,
-	.ephy_reset_gpio_flags = GPIOF_OUT_INIT_HIGH,
+
 	.has_pci = 1,
 	.has_uart0 = 1,
 	.has_uart1 = 1,
@@ -904,9 +904,11 @@ int __init board_register_devices(void)
 
 	platform_device_register(&bcm63xx_gpio_leds);
 
-	if (board.ephy_reset_gpio && board.ephy_reset_gpio_flags)
-		gpio_request_one(board.ephy_reset_gpio,
-				board.ephy_reset_gpio_flags, "ephy-reset");
+	if (board.ephy_reset_gpio) {
+		gpio_request(board.ephy_reset_gpio, "ephy-reset");
+		gpio_direction_output(board.ephy_reset_gpio, 1);
+		gpio_free(board.ephy_reset_gpio);
+	}
 
 	return 0;
 }

@@ -442,33 +442,33 @@ static umode_t gpio_is_visible(struct kobject *kobj, struct attribute *attr,
  */
 
 #if IS_ENABLED(CONFIG_GPIO_SYSFS_LEGACY)
-static ssize_t base_show(struct device *dev, struct device_attribute *attr,
-			 char *buf)
+static ssize_t base_show(struct device *dev,
+			 const struct device_attribute *attr, char *buf)
 {
 	const struct gpiodev_data *data = dev_get_drvdata(dev);
 
 	return sysfs_emit(buf, "%u\n", data->gdev->base);
 }
-static DEVICE_ATTR_RO(base);
+static const DEVICE_ATTR_RO(base);
 #endif /* CONFIG_GPIO_SYSFS_LEGACY */
 
-static ssize_t label_show(struct device *dev, struct device_attribute *attr,
-			  char *buf)
+static ssize_t label_show(struct device *dev,
+			  const struct device_attribute *attr, char *buf)
 {
 	const struct gpiodev_data *data = dev_get_drvdata(dev);
 
 	return sysfs_emit(buf, "%s\n", data->gdev->label);
 }
-static DEVICE_ATTR_RO(label);
+static const DEVICE_ATTR_RO(label);
 
-static ssize_t ngpio_show(struct device *dev, struct device_attribute *attr,
-			  char *buf)
+static ssize_t ngpio_show(struct device *dev,
+			  const struct device_attribute *attr, char *buf)
 {
 	const struct gpiodev_data *data = dev_get_drvdata(dev);
 
 	return sysfs_emit(buf, "%u\n", data->gdev->ngpio);
 }
-static DEVICE_ATTR_RO(ngpio);
+static const DEVICE_ATTR_RO(ngpio);
 
 static int export_gpio_desc(struct gpio_desc *desc)
 {
@@ -529,7 +529,7 @@ static int unexport_gpio_desc(struct gpio_desc *desc)
 }
 
 static ssize_t do_chip_export_store(struct device *dev,
-				    struct device_attribute *attr,
+				    const struct device_attribute *attr,
 				    const char *buf, ssize_t size,
 				    int (*handler)(struct gpio_desc *desc))
 {
@@ -555,28 +555,27 @@ static ssize_t do_chip_export_store(struct device *dev,
 }
 
 static ssize_t chip_export_store(struct device *dev,
-				 struct device_attribute *attr,
+				 const struct device_attribute *attr,
 				 const char *buf, size_t size)
 {
 	return do_chip_export_store(dev, attr, buf, size, export_gpio_desc);
 }
 
-static struct device_attribute dev_attr_export = __ATTR(export, 0200, NULL,
-							chip_export_store);
+static const struct device_attribute dev_attr_export =
+	__DEVICE_ATTR(export, 0200, NULL, chip_export_store);
 
 static ssize_t chip_unexport_store(struct device *dev,
-				   struct device_attribute *attr,
+				   const struct device_attribute *attr,
 				   const char *buf, size_t size)
 {
 	return do_chip_export_store(dev, attr, buf, size, unexport_gpio_desc);
 }
 
-static struct device_attribute dev_attr_unexport = __ATTR(unexport, 0200,
-							  NULL,
-							  chip_unexport_store);
+static const struct device_attribute dev_attr_unexport =
+	__DEVICE_ATTR(unexport, 0200, NULL, chip_unexport_store);
 
 #if IS_ENABLED(CONFIG_GPIO_SYSFS_LEGACY)
-static struct attribute *gpiochip_attrs[] = {
+static const struct attribute *const gpiochip_attrs[] = {
 	&dev_attr_base.attr,
 	&dev_attr_label.attr,
 	&dev_attr_ngpio.attr,
@@ -585,7 +584,7 @@ static struct attribute *gpiochip_attrs[] = {
 ATTRIBUTE_GROUPS(gpiochip);
 #endif /* CONFIG_GPIO_SYSFS_LEGACY */
 
-static struct attribute *gpiochip_ext_attrs[] = {
+static const struct attribute *const gpiochip_ext_attrs[] = {
 	&dev_attr_label.attr,
 	&dev_attr_ngpio.attr,
 	&dev_attr_export.attr,
