@@ -588,6 +588,12 @@ static int __init scf_torture_init(void)
 
 	scftorture_print_module_parms("Start of test");
 
+	if (!nthreads) {
+		SCFTORTOUT_ERRSTRING("nthreads must be nonzero");
+		firsterr = -EINVAL;
+		goto unwind;
+	}
+
 	if (weight_resched <= 0 &&
 	    weight_single <= 0 && weight_single_rpc <= 0 && weight_single_wait <= 0 &&
 	    weight_many <= 0 && weight_many_wait <= 0 &&
@@ -636,6 +642,11 @@ static int __init scf_torture_init(void)
 	scf_sel_add(weight_many_wait1, SCF_PRIM_MANY, true);
 	scf_sel_add(weight_all1, SCF_PRIM_ALL, false);
 	scf_sel_add(weight_all_wait1, SCF_PRIM_ALL, true);
+	if (!scf_sel_array_len) {
+		SCFTORTOUT_ERRSTRING("no supported operations selected");
+		firsterr = -EINVAL;
+		goto unwind;
+	}
 	scf_sel_dump();
 
 	if (onoff_interval > 0) {
