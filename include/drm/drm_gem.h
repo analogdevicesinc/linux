@@ -566,7 +566,7 @@ static inline void drm_gem_object_get(struct drm_gem_object *obj)
 	kref_get(&obj->refcount);
 }
 
-__attribute__((nonnull))
+__nonnull_args()
 static inline void
 __drm_gem_object_put(struct drm_gem_object *obj)
 {
