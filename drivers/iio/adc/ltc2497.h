@@ -55,6 +55,7 @@ struct ltc2497_channel_set {
 
 extern const struct ltc2497_channel_set ltc2497_chanset_ltc2497;
 extern const struct ltc2497_channel_set ltc2497_chanset_ltc2499;
+extern const struct ltc2497_channel_set ltc2497_chanset_ltc2493;
 
 struct ltc2497_chip_info {
 	const char *name;
