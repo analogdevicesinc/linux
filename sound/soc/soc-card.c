@@ -95,6 +95,28 @@ void snd_soc_card_resume_init(struct snd_soc_card *card)
 void snd_soc_card_resume_init(struct snd_soc_card *card) { }
 #endif /* CONFIG_PM_SLEEP */
 
+void snd_soc_card_fill_dummy_dai(struct snd_soc_card *card)
+{
+	struct snd_soc_dai_link *dai_link;
+	int i;
+
+	/*
+	 * COMP_DUMMY() creates size 0 array on dai_link.
+	 * Fill it as dummy DAI in case of CPU/Codec here.
+	 * Do nothing for Platform.
+	 */
+	for_each_card_prelinks(card, i, dai_link) {
+		if (dai_link->num_cpus == 0 && dai_link->cpus) {
+			dai_link->num_cpus	= 1;
+			dai_link->cpus		= &snd_soc_dummy_dlc;
+		}
+		if (dai_link->num_codecs == 0 && dai_link->codecs) {
+			dai_link->num_codecs	= 1;
+			dai_link->codecs	= &snd_soc_dummy_dlc;
+		}
+	}
+}
+
 struct snd_kcontrol *snd_soc_card_get_kcontrol(struct snd_soc_card *soc_card,
 					       const char *name)
 {
