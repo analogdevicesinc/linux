@@ -255,6 +255,7 @@ static void __send_message_no_waiter(struct bnxt_qplib_rcfw *rcfw,
 	 */
 	crsqe->is_internal_cmd = true;
 	crsqe->is_waiter_alive = false;
+	crsqe->resp = NULL;
 	crsqe->is_in_used = true;
 	crsqe->req_size = __get_cmdq_base_cmd_size(msg->req, msg->req_sz);
 
@@ -487,6 +488,7 @@ static int __bnxt_qplib_rcfw_send_message(struct bnxt_qplib_rcfw *rcfw,
 {
 	struct creq_qp_event *evnt = (struct creq_qp_event *)msg->resp;
 	struct bnxt_qplib_crsqe *crsqe;
+	bool pending;
 	u16 cookie;
 	int rc;
 	u8 opcode;
@@ -511,15 +513,21 @@ static int __bnxt_qplib_rcfw_send_message(struct bnxt_qplib_rcfw *rcfw,
 	else
 		rc = __poll_for_resp(rcfw, cookie);
 
-	if (rc) {
-		spin_lock_bh(&rcfw->cmdq.hwq.lock);
-		crsqe = &rcfw->crsqe_tbl[cookie];
+	spin_lock_bh(&rcfw->cmdq.hwq.lock);
+	crsqe = &rcfw->crsqe_tbl[cookie];
+	pending = false;
+	if (crsqe->resp == evnt) {
+		pending = true;
 		crsqe->is_waiter_alive = false;
-		if (rc == -ENODEV)
-			set_bit(FIRMWARE_STALL_DETECTED, &rcfw->cmdq.flags);
-		spin_unlock_bh(&rcfw->cmdq.hwq.lock);
-		return -ETIMEDOUT;
+		crsqe->resp = NULL;
 	}
+	if (rc == -ENODEV)
+		set_bit(FIRMWARE_STALL_DETECTED, &rcfw->cmdq.flags);
+	spin_unlock_bh(&rcfw->cmdq.hwq.lock);
+	if (rc)
+		return -ETIMEDOUT;
+	if (pending)
+		return 0;
 
 	if (evnt->status) {
 		/* failed with status */
@@ -703,8 +711,8 @@ static int bnxt_qplib_process_qp_event(struct bnxt_qplib_rcfw *rcfw,
 		is_waiter_alive = crsqe->is_waiter_alive;
 
 		crsqe->req_size = 0;
-		if (!is_waiter_alive)
-			crsqe->resp = NULL;
+		crsqe->resp = NULL;
+		crsqe->is_waiter_alive = false;
 
 		crsqe->is_in_used = false;
 
