@@ -30,7 +30,6 @@
 #include <linux/slab.h>
 #include <linux/of.h>
 #include <linux/of_graph.h>
-#include <linux/dmi.h>
 #include <linux/acpi.h>
 #include <linux/string_choices.h>
 #include <sound/core.h>
@@ -1075,170 +1074,6 @@ int snd_soc_runtime_set_dai_fmt(struct snd_soc_pcm_runtime *rtd,
 }
 EXPORT_SYMBOL_GPL(snd_soc_runtime_set_dai_fmt);
 
-#ifdef CONFIG_DMI
-/*
- * If a DMI filed contain strings in this blacklist (e.g.
- * "Type2 - Board Manufacturer" or "Type1 - TBD by OEM"), it will be taken
- * as invalid and dropped when setting the card long name from DMI info.
- */
-static const char * const dmi_blacklist[] = {
-	"To be filled by OEM",
-	"TBD by OEM",
-	"Default String",
-	"Board Manufacturer",
-	"Board Vendor Name",
-	"Board Product Name",
-	NULL,	/* terminator */
-};
-
-/*
- * Trim special characters, and replace '-' with '_' since '-' is used to
- * separate different DMI fields in the card long name. Only number and
- * alphabet characters and a few separator characters are kept.
- */
-static void cleanup_dmi_name(char *name)
-{
-	int i, j = 0;
-
-	for (i = 0; name[i]; i++) {
-		if (isalnum(name[i]) || (name[i] == '.')
-		    || (name[i] == '_'))
-			name[j++] = name[i];
-		else if (name[i] == '-')
-			name[j++] = '_';
-	}
-
-	name[j] = '\0';
-}
-
-/*
- * Check if a DMI field is valid, i.e. not containing any string
- * in the black list and not the empty string.
- */
-static int is_dmi_valid(const char *field)
-{
-	int i = 0;
-
-	if (!field[0])
-		return 0;
-
-	while (dmi_blacklist[i]) {
-		if (strstr(field, dmi_blacklist[i]))
-			return 0;
-		i++;
-	}
-
-	return 1;
-}
-
-/*
- * Append a string to dmi_longname with character cleanups.
- */
-#define DMI_LONGNAME_LEN	80
-static void append_dmi_string(char *dst, const char *str)
-{
-	size_t dst_len = DMI_LONGNAME_LEN;
-	size_t len;
-
-	len = strlen(dst);
-	snprintf(dst + len, dst_len - len, "-%s", str);
-
-	len++;	/* skip the separator "-" */
-	if (len < dst_len)
-		cleanup_dmi_name(dst + len);
-}
-
-/**
- * snd_soc_set_dmi_name() - Register DMI names to card
- * @card: The card to register DMI names
- *
- * An Intel machine driver may be used by many different devices but are
- * difficult for userspace to differentiate, since machine drivers usually
- * use their own name as the card short name and leave the card long name
- * blank. To differentiate such devices and fix bugs due to lack of
- * device-specific configurations, this function allows DMI info to be used
- * as the sound card long name, in the format of
- * "vendor-product-version-board"
- * (Character '-' is used to separate different DMI fields here).
- * This will help the user space to load the device-specific Use Case Manager
- * (UCM) configurations for the card.
- *
- * Possible card long names may be:
- * DellInc.-XPS139343-01-0310JH
- * ASUSTeKCOMPUTERINC.-T100TA-1.0-T100TA
- * Circuitco-MinnowboardMaxD0PLATFORM-D0-MinnowBoardMAX
- *
- * This function also supports flavoring the card longname to provide
- * the extra differentiation, like "vendor-product-version-board-flavor".
- *
- * We only keep number and alphabet characters and a few separator characters
- * in the card long name since UCM in the user space uses the card long names
- * as card configuration directory names and AudoConf cannot support special
- * characters like SPACE.
- *
- * Returns 0 on success, otherwise a negative error code.
- */
-static int snd_soc_set_dmi_name(struct snd_soc_card *card)
-{
-	const char *vendor, *product, *board;
-	char *dmi_longname;
-
-	if (card->long_name)
-		return 0; /* long name already set by driver or from DMI */
-
-	if (!dmi_available)
-		return 0;
-
-	/* make up dmi long name as: vendor-product-version-board */
-	vendor = dmi_get_system_info(DMI_BOARD_VENDOR);
-	if (!vendor || !is_dmi_valid(vendor)) {
-		dev_warn(card->dev, "ASoC: no DMI vendor name!\n");
-		return 0;
-	}
-
-	dmi_longname = devm_kzalloc(card->dev, DMI_LONGNAME_LEN, GFP_KERNEL);
-	if (!dmi_longname)
-		return -ENOMEM;
-
-	snprintf(dmi_longname, DMI_LONGNAME_LEN, "%s", vendor);
-	cleanup_dmi_name(dmi_longname);
-
-	product = dmi_get_system_info(DMI_PRODUCT_NAME);
-	if (product && is_dmi_valid(product)) {
-		const char *product_version = dmi_get_system_info(DMI_PRODUCT_VERSION);
-
-		append_dmi_string(dmi_longname, product);
-
-		/*
-		 * some vendors like Lenovo may only put a self-explanatory
-		 * name in the product version field
-		 */
-		if (product_version && is_dmi_valid(product_version))
-			append_dmi_string(dmi_longname, product_version);
-	}
-
-	board = dmi_get_system_info(DMI_BOARD_NAME);
-	if (board && is_dmi_valid(board)) {
-		if (!product || strcasecmp(board, product))
-			append_dmi_string(dmi_longname, board);
-	} else if (!product) {
-		/* fall back to using legacy name */
-		dev_warn(card->dev, "ASoC: no DMI board/product name!\n");
-		return 0;
-	}
-
-	/* set the card long name */
-	card->long_name = dmi_longname;
-
-	return 0;
-}
-#else
-static inline int snd_soc_set_dmi_name(struct snd_soc_card *card)
-{
-	return 0;
-}
-#endif /* CONFIG_DMI */
-
 static void soc_check_tplg_fes(struct snd_soc_card *card)
 {
 	struct snd_soc_component *component;
@@ -1520,7 +1355,7 @@ static int snd_soc_bind_card(struct snd_soc_card *card)
 		goto probe_end;
 
 	/* try to set some sane longname if DMI is available */
-	snd_soc_set_dmi_name(card);
+	snd_soc_card_set_dmi_name(card);
 
 	soc_setup_card_name(card, card->snd_card->shortname,
 			    card->name, NULL);

@@ -31,6 +31,7 @@ void snd_soc_card_aux_unbind(struct snd_soc_card *card);
 int snd_soc_card_aux_bind(struct snd_soc_card *card);
 int snd_soc_card_aux_probe(struct snd_soc_card *card);
 void snd_soc_card_aux_remove(struct snd_soc_card *card);
+int snd_soc_card_set_dmi_name(struct snd_soc_card *card);
 
 /*
  * In soc-core
