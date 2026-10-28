@@ -38,7 +38,6 @@ pub(crate) trait Encodable {
 ///     }
 /// }
 /// ```
-#[cfg_attr(not(CONFIG_KUNIT = "y"), expect(unused_macros))]
 macro_rules! nvkv_encode {
     (
         $(#[$attr:meta])*
@@ -65,6 +64,7 @@ macro_rules! nvkv_encode {
         }
     };
 }
+pub(crate) use nvkv_encode;
 
 impl<const KEY_ID: KeyId> Encodable for IndexedKey<u32, KEY_ID> {
     fn encode(&self, encoder: &mut Encoder) -> Result {

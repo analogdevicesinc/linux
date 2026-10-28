@@ -57,7 +57,6 @@ use crate::{
 ///     }
 /// }
 /// ```
-#[cfg_attr(not(CONFIG_KUNIT = "y"), expect(unused_macros))]
 macro_rules! nvkv_decode {
     // A schema which doesn't borrow from the stream. The macro uses a generic lifetime for the
     // [`Visit`] implementation but not for the struct itself. This allows omitting the unused

@@ -4,6 +4,8 @@
 use core::ops::Range;
 
 use kernel::{
+    alloc::ArrayVec,
+    bitfield,
     device,
     pci,
     prelude::*,
@@ -15,7 +17,19 @@ use kernel::{
 
 use crate::{
     gpu::Chipset,
-    gsp::GSP_PAGE_SIZE,
+    gsp::{
+        nvkv::{
+            nvkv_decode,
+            nvkv_encode,
+            Accumulated,
+            Encodable,
+            Encoder,
+            Key,
+            Required,
+            TruncatingArray, //
+        },
+        GSP_PAGE_SIZE, //
+    },
     num::IntoSafeCast,
     vgpu::VgpuState, //
 };
@@ -280,3 +294,144 @@ unsafe impl AsBytes for UnloadingGuestDriver {}
 // SAFETY: This struct only contains integer types for which all bit patterns
 // are valid.
 unsafe impl FromBytes for UnloadingGuestDriver {}
+
+/// The host CPU architecture.
+#[derive(Clone, Copy)]
+enum HostArch {
+    None = 0,
+    X86_64 = 1,
+    Ppc64le = 2,
+    Arm = 3,
+    Aarch64 = 4,
+    Riscv64 = 5,
+}
+
+// TODO[FPRI]: This is a temporary solution to be replaced with the corresponding derive macros once
+// they land.
+impl TryFrom<u32> for HostArch {
+    type Error = Error;
+
+    fn try_from(value: u32) -> Result<Self> {
+        match value {
+            0 => Ok(Self::None),
+            1 => Ok(Self::X86_64),
+            2 => Ok(Self::Ppc64le),
+            3 => Ok(Self::Arm),
+            4 => Ok(Self::Aarch64),
+            5 => Ok(Self::Riscv64),
+            _ => Err(EINVAL),
+        }
+    }
+}
+
+impl From<HostArch> for u32 {
+    fn from(value: HostArch) -> Self {
+        value as u32
+    }
+}
+
+nvkv_encode! {
+    /// A GSP registry entry.
+    struct RegKey {
+        key_name: Key<&'static [u8], 0x3070>,
+        key_value: Key<u32, 0x3071>,
+    }
+}
+
+impl Encodable for KVVec<RegKey> {
+    fn encode(&self, encoder: &mut Encoder) -> Result {
+        for regkey in self {
+            regkey.encode(encoder)?;
+        }
+        Ok(())
+    }
+}
+
+nvkv_encode! {
+    /// SR-IOV virtual function information.
+    struct VfInfo {
+        total_vfs: Key<u32, 0x0080>,
+        first_vf_offset: Key<u32, 0x0081>,
+        flags: Key<u64, 0x1003>,
+        first_bar0_address: Key<u64, 0x1050>,
+        first_bar1_address: Key<u64, 0x1051>,
+        first_bar2_address: Key<u64, 0x1052>,
+    }
+}
+
+nvkv_encode! {
+    /// Payload of the `GSP_INIT` command.
+    // TODO: expect() doesn't work here before rustc 1.97.0
+    // https://github.com/rust-lang/rust/pull/154377
+    #[allow(dead_code)]
+    struct GspInitRequest {
+        pci_device_id: Key<u32, 0x0001>,
+        pci_sub_device_id: Key<u32, 0x0002>,
+        pci_revision_id: Key<u32, 0x0003>,
+        pci_config_mirror_base: Key<u32, 0x0010>,
+        pci_config_mirror_size: Key<u32, 0x0011>,
+        host_arch: Key<HostArch, 0x0070, u32>,
+        bus_device_func: Key<u64, 0x1020>,
+        regkeys: KVVec<RegKey>,
+        vf_info: Option<VfInfo>,
+    }
+}
+
+// Decode:
+
+// Should decode with UnknownKeyPolicy::Ignore.
+nvkv_decode! {
+    /// Schema for the `GSP_INIT` response.
+    // TODO: expect() doesn't work here before rustc 1.97.0
+    // https://github.com/rust-lang/rust/pull/154377
+    #[allow(dead_code)]
+    struct GspInitResponseSchema => GspInitResponse {
+        gpu_name: TruncatingArray<u8, { GspInitResponse::MAX_GPU_NAME_LEN }, 0x2000>,
+        fb_regions: Accumulated<FbRegionSchema>,
+        bar1_pde_base: Required<Key<u64, 0x1020>>,
+        vmmu_segment_size: Key<u64, 0x1050>,
+    }
+}
+
+/// Payload of the `GSP_INIT` response.
+// TODO: expect() doesn't work here before rustc 1.97.0
+// https://github.com/rust-lang/rust/pull/154377
+#[allow(dead_code)]
+struct GspInitResponse {
+    gpu_name: ArrayVec<u8, { Self::MAX_GPU_NAME_LEN }>,
+    fb_regions: KVVec<FbRegion>,
+    bar1_pde_base: u64,
+    vmmu_segment_size: u64,
+}
+
+impl GspInitResponse {
+    const MAX_GPU_NAME_LEN: usize = 64;
+}
+
+nvkv_decode! {
+    /// Schema for one FB region of the `GSP_INIT` response.
+    struct FbRegionSchema => FbRegion {
+        base: Required<Key<u64, 0x1011>>,
+        limit: Required<Key<u64, 0x1012>>,
+        flags: Required<Key<FbRegionFlags, 0x0012, u32>>,
+        tag: Required<Key<u32, 0x0013>>,
+    }
+}
+
+bitfield! {
+    /// FB region attribute flags.
+    #[derive(Default)]
+    struct FbRegionFlags(u32) {
+        0:0 support_compressed => bool;
+        1:1 support_iso => bool;
+        2:2 protected => bool;
+    }
+}
+
+/// One FB memory region.
+struct FbRegion {
+    base: u64,
+    limit: u64,
+    flags: FbRegionFlags,
+    tag: u32,
+}
