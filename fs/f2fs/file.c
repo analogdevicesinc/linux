@@ -4904,6 +4904,7 @@ static int redirty_blocks(struct inode *inode, pgoff_t page_idx, int len)
 	struct address_space *mapping = inode->i_mapping;
 	struct folio *folio;
 	pgoff_t redirty_idx = page_idx;
+	pgoff_t end_idx = page_idx + len;
 	int page_len = 0, ret = 0;
 
 	filemap_invalidate_lock_shared(mapping);
@@ -4921,6 +4922,9 @@ static int redirty_blocks(struct inode *inode, pgoff_t page_idx, int len)
 	} while (page_len < len);
 
 	while (redirty_idx < page_idx) {
+		pgoff_t next_idx;
+		size_t off, dlen;
+
 		folio = filemap_lock_folio(mapping, redirty_idx);
 
 		/* It will never fail, when folio has pinned above */
@@ -4928,8 +4932,33 @@ static int redirty_blocks(struct inode *inode, pgoff_t page_idx, int len)
 
 		f2fs_folio_wait_writeback(folio, true, true);
 
+		/*
+		 * Only this cluster is rewritten, while a large folio can
+		 * cover more than one cluster, so mark the intersection of
+		 * the folio and [redirty_idx, end_idx).
+		 */
+		next_idx = min_t(pgoff_t, folio_next_index(folio), end_idx);
+		off = offset_in_folio(folio, (loff_t)redirty_idx << PAGE_SHIFT);
+		dlen = (size_t)(next_idx - redirty_idx) << PAGE_SHIFT;
+
+		if (folio_test_large(folio)) {
+			/*
+			 * A compressed inode can keep using large folios, in
+			 * which case the compression flag only works as a hint
+			 * until the inode is evicted.  Update the subpage dirty
+			 * bitmap as well, otherwise f2fs_write_cache_folios()
+			 * finds no dirty range and skips the whole folio.
+			 */
+			if (!f2fs_ffs_find_or_alloc(folio)) {
+				ret = -ENOMEM;
+				goto next;
+			}
+			f2fs_ffs_mark_subrange_dirty(folio, off, dlen);
+		}
+
 		folio_mark_dirty(folio);
 		folio_set_f2fs_gcing(folio);
+next:
 		redirty_idx = folio_next_index(folio);
 		folio_unlock(folio);
 		folio_put_refs(folio, 2);
@@ -5033,6 +5062,13 @@ static int f2fs_ioc_compress_file(struct file *filp)
 
 	if (!(filp->f_mode & FMODE_WRITE))
 		return -EBADF;
+
+	/*
+	 * The mapping is already using large folios, where the data is kept
+	 * uncompressed, so refuse to start compressing the file.
+	 */
+	if (mapping_large_folio_support(inode->i_mapping))
+		return -EOPNOTSUPP;
 
 	f2fs_balance_fs(sbi, true);
 
