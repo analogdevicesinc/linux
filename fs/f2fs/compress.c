@@ -1067,7 +1067,7 @@ static void cancel_cluster_writeback(struct compress_ctx *cc,
 		struct folio *folio = page_folio(cc->rpages[i]);
 
 		if (i < submitted) {
-			inode_inc_dirty_pages(cc->inode);
+			inode_inc_dirty_block(cc->inode);
 			folio_lock(folio);
 		}
 		folio_clear_f2fs_gcing(folio);
@@ -1415,7 +1415,7 @@ static int f2fs_write_compressed_pages(struct compress_ctx *cc,
 		}
 		(*submitted)++;
 unlock_continue:
-		inode_dec_dirty_pages(cc->inode);
+		inode_dec_dirty_block(cc->inode);
 		folio_unlock(fio.folio);
 	}
 
