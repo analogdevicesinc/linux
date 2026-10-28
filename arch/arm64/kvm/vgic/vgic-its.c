@@ -818,6 +818,38 @@ static u64 its_cmd_mask_field(u64 *its_cmd, int word, int shift, int size)
 #define its_cmd_get_validbit(cmd)	its_cmd_mask_field(cmd, 2, 63,  1)
 
 /*
+ * Only an LPI on a vCPU's AP list can be in its list registers, which the
+ * exit path folds back, and that exit moves the LPI to its target vCPU if
+ * the target has changed: pause both. Clear an LPI on no AP list before
+ * dropping the lock, so that nothing can put it in a list register first.
+ * Must be called with the its_lock mutex held.
+ */
+static void vgic_its_clear_pending(struct vgic_irq *irq)
+{
+	struct kvm_vcpu *vcpu, *target;
+
+	scoped_guard(raw_spinlock_irqsave, &irq->irq_lock) {
+		vcpu = irq->vcpu;
+		target = irq->target_vcpu;
+		if (!vcpu)
+			irq->pending_latch = false;
+	}
+
+	if (vcpu) {
+		if (target != vcpu)
+			kvm_pause_vcpu(target);
+		kvm_pause_vcpu(vcpu);
+
+		scoped_guard(raw_spinlock_irqsave, &irq->irq_lock)
+			irq->pending_latch = false;
+
+		kvm_resume_vcpu(vcpu);
+		if (target != vcpu)
+			kvm_resume_vcpu(target);
+	}
+}
+
+/*
  * The DISCARD command frees an Interrupt Translation Table Entry (ITTE).
  * Must be called with the its_lock mutex held.
  */
@@ -833,38 +865,9 @@ static int vgic_its_cmd_handle_discard(struct kvm *kvm, struct vgic_its *its,
 		struct its_device *device = find_its_device(its, device_id);
 		int ite_esz = vgic_its_get_abi(its)->ite_esz;
 		gpa_t gpa = device->itt_addr + ite->event_id * ite_esz;
-		struct vgic_irq *irq = ite->irq;
-		struct kvm_vcpu *vcpu, *target;
 
 		vgic_its_invalidate_cache(its);
-
-		/*
-		 * Only an LPI on a vCPU's AP list can be in its list registers,
-		 * which the exit path folds back, and that exit moves the LPI
-		 * to its target vCPU if the target has changed: pause both.
-		 * Clear an LPI on no AP list before dropping the lock, so that
-		 * nothing can put it in a list register first.
-		 */
-		scoped_guard(raw_spinlock_irqsave, &irq->irq_lock) {
-			vcpu = irq->vcpu;
-			target = irq->target_vcpu;
-			if (!vcpu)
-				irq->pending_latch = false;
-		}
-
-		if (vcpu) {
-			if (target != vcpu)
-				kvm_pause_vcpu(target);
-			kvm_pause_vcpu(vcpu);
-
-			scoped_guard(raw_spinlock_irqsave, &irq->irq_lock)
-				irq->pending_latch = false;
-
-			kvm_resume_vcpu(vcpu);
-			if (target != vcpu)
-				kvm_resume_vcpu(target);
-		}
-
+		vgic_its_clear_pending(ite->irq);
 		its_free_ite(kvm, ite);
 
 		return vgic_its_write_entry_lock(its, gpa, 0ULL, ite);
@@ -1309,10 +1312,10 @@ static int vgic_its_cmd_handle_clear(struct kvm *kvm, struct vgic_its *its,
 
 
 	ite = find_ite(its, device_id, event_id);
-	if (!ite)
+	if (!ite || !its_is_collection_mapped(ite->collection))
 		return E_ITS_CLEAR_UNMAPPED_INTERRUPT;
 
-	ite->irq->pending_latch = false;
+	vgic_its_clear_pending(ite->irq);
 
 	if (ite->irq->hw)
 		return irq_set_irqchip_state(ite->irq->host_irq,
