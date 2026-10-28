@@ -1571,6 +1571,12 @@ static int follow_automount(struct path *path, int *count, unsigned lookup_flags
 	return finish_automount(dentry->d_op->d_automount(path), path);
 }
 
+enum walk_flags {
+	WALK_TRAILING	= (1 << 0),
+	WALK_MORE	= (1 << 1),
+	WALK_NOFOLLOW	= (1 << 2),
+};
+
 /*
  * mount traversal - out-of-line part.  One note on ->d_flags accesses -
  * dentries are pinned but not locked here, so negative dentry can go
@@ -2008,10 +2014,8 @@ static int reserve_stack(struct nameidata *nd, struct path *link)
 	return -ENOMEM;
 }
 
-enum {WALK_TRAILING = 1, WALK_MORE = 2, WALK_NOFOLLOW = 4};
-
 static noinline const char *pick_link(struct nameidata *nd, struct path *link,
-		     struct inode *inode, int flags)
+		     struct inode *inode, enum walk_flags flags)
 {
 	struct saved *last;
 	const char *res;
@@ -2100,8 +2104,8 @@ all_done: // pure jump
  *
  * NOTE: dentry must be what nd->next_seq had been sampled from.
  */
-static noinline const char *step_into_slowpath(struct nameidata *nd, int flags,
-		     struct dentry *dentry)
+static noinline const char *step_into_slowpath(struct nameidata *nd,
+		     enum walk_flags flags, struct dentry *dentry)
 {
 	struct path path;
 	struct inode *inode;
@@ -2133,8 +2137,8 @@ static noinline const char *step_into_slowpath(struct nameidata *nd, int flags,
 	return pick_link(nd, &path, inode, flags);
 }
 
-static __always_inline const char *step_into(struct nameidata *nd, int flags,
-                    struct dentry *dentry)
+static __always_inline const char *step_into(struct nameidata *nd,
+		    enum walk_flags flags, struct dentry *dentry)
 {
 	/*
 	 * In the common case we are in rcu-walk and traversing over a non-mounted on
@@ -2268,7 +2272,8 @@ static const char *handle_dots(struct nameidata *nd, enum last_type type)
 	return NULL;
 }
 
-static __always_inline const char *walk_component(struct nameidata *nd, int flags)
+static __always_inline const char *walk_component(struct nameidata *nd,
+						  enum walk_flags flags)
 {
 	struct dentry *dentry;
 	/*
