@@ -157,25 +157,24 @@ EXPORT_SYMBOL(dln2_register_event_cb);
 void dln2_unregister_event_cb(struct platform_device *pdev, u16 id)
 {
 	struct dln2_dev *dln2 = dev_get_drvdata(pdev->dev.parent);
-	struct dln2_event_cb_entry *i;
+	struct dln2_event_cb_entry *i, *entry = NULL;
 	unsigned long flags;
-	bool found = false;
 
 	spin_lock_irqsave(&dln2->event_cb_lock, flags);
 
 	list_for_each_entry(i, &dln2->event_cb_list, list) {
 		if (i->id == id) {
 			list_del_rcu(&i->list);
-			found = true;
+			entry = i;
 			break;
 		}
 	}
 
 	spin_unlock_irqrestore(&dln2->event_cb_lock, flags);
 
-	if (found) {
+	if (entry) {
 		synchronize_rcu();
-		kfree(i);
+		kfree(entry);
 	}
 }
 EXPORT_SYMBOL(dln2_unregister_event_cb);
