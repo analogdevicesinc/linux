@@ -618,6 +618,28 @@ static int ad9088_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	return 0;
 }
 
+static bool ad9088_tx_summer_nth(const adi_apollo_txpath_misc_t *tx_mux, int num_cducs,
+				 unsigned int n, u8 *fduc, u8 *cduc)
+{
+	int i, f;
+
+	/* Find the n-th FDUC summed into a CDUC, in CDUC order. */
+	for (i = 0; i < num_cducs; i++) {
+		unsigned long summed = tx_mux->fduc_cduc_summer[i];
+
+		for_each_set_bit(f, &summed, ADI_APOLLO_FDUCS_PER_SIDE) {
+			if (n--)
+				continue;
+
+			*fduc = f;
+			*cduc = i;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 /**
  * ad9088_iiochan_to_fddc_cddc_from_profile - Map IIO channel to FDDC/CDDC/ADC/DAC using profile
  * @phy: Pointer to the ad9088_phy structure
@@ -629,6 +651,7 @@ static int ad9088_reg_access(struct iio_dev *indio_dev, unsigned int reg,
  * @adcdac_num: Output - ADC/DAC number (0-3 per side)
  * @adcdac_mask: Output - ADC/DAC bitmask (ADI_APOLLO_ADC_Ax or ADI_APOLLO_DAC_Ax)
  * @side: Output - Chip side (0=A, 1=B)
+ * @routed: Output - False if the TX FDUC is not summed into any CDUC
  *
  * This function derives the FDDC, CDDC, and ADC/DAC mapping from the profile's
  * mux configuration rather than using hardcoded values.
@@ -658,7 +681,8 @@ static int ad9088_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 static void ad9088_iiochan_to_fddc_cddc_from_profile(struct ad9088_phy *phy,
 						     const struct iio_chan_spec *chan, u8 *fddc_num,
 						     u32 *fddc_mask, u8 *cddc_num, u32 *cddc_mask,
-						     u8 *adcdac_num, u32 *adcdac_mask, u8 *side)
+						     u8 *adcdac_num, u32 *adcdac_mask, u8 *side,
+						     bool *routed)
 {
 	/* FDDC masks indexed by FDDC number (0-7) and side */
 	static const u32 fddc_masks[ADI_APOLLO_NUM_SIDES][8] = {
@@ -694,12 +718,13 @@ static void ad9088_iiochan_to_fddc_cddc_from_profile(struct ad9088_phy *phy,
 	u8 local_cddc_num;
 	u8 local_adcdac_num;
 
+	*routed = true;
+
 	if (chan->output) {
 		/* TX path: Use JRX sample_xbar_sel and fduc_cduc_summer */
 		const adi_apollo_jesd_rx_link_cfg_t *jrx_link;
 		const adi_apollo_txpath_misc_t *tx_mux;
 		u8 xbar_sel;
-		u8 fduc_bit;
 		int i, num_cducs;
 		int xbar_idx;
 		int m_side_a;
@@ -777,16 +802,22 @@ static void ad9088_iiochan_to_fddc_cddc_from_profile(struct ad9088_phy *phy,
 				local_fddc_num = xbar_to_phys_fduc[local_fddc_num];
 		}
 
-		fduc_bit = BIT(local_fddc_num);
-
 		local_cddc_num = 0;
 		num_cducs = is_8t8r ? 4 : ADI_APOLLO_CDDCS_PER_SIDE;
 
-		for (i = 0; i < num_cducs; i++) {
-			if (tx_mux->fduc_cduc_summer[i] & fduc_bit) {
-				local_cddc_num = i;
-				break;
+		/* All FDUCs of a side share the interpolation ratio */
+		if (!is_8t8r && phy->profile.tx_path[local_side].tx_fduc[0].drc_ratio ==
+		    ADI_APOLLO_FDUC_RATIO_1) {
+			*routed = ad9088_tx_summer_nth(tx_mux, num_cducs, local_fddc_num,
+						       &local_fddc_num, &local_cddc_num);
+		} else {
+			for (i = 0; i < num_cducs; i++) {
+				if (tx_mux->fduc_cduc_summer[i] & BIT(local_fddc_num)) {
+					local_cddc_num = i;
+					break;
+				}
 			}
+			*routed = i < num_cducs;
 		}
 
 		/*
@@ -1019,8 +1050,13 @@ const struct ad9088_chan_map *ad9088_get_chan_map(struct ad9088_phy *phy,
 	if (chan->address >= MAX_NUM_CHANNELIZER)
 		return NULL;
 
-	if (chan->output)
+	if (chan->output) {
+		/* No CDUC/DAC to control */
+		if (phy->tx_chan_map[chan->address].unrouted)
+			return NULL;
+
 		return &phy->tx_chan_map[chan->address];
+	}
 
 	return &phy->rx_chan_map[chan->address];
 }
@@ -4727,9 +4763,19 @@ static char *ad9088_label_writer(struct ad9088_phy *phy, const struct iio_chan_s
 {
 	u8 adcdac_num, cddc_num, fddc_num, side;
 	u32 adcdac_mask, cddc_mask, fddc_mask;
+	bool routed;
 
 	ad9088_iiochan_to_fddc_cddc_from_profile(phy, chan, &fddc_num, &fddc_mask, &cddc_num,
-						 &cddc_mask, &adcdac_num, &adcdac_mask, &side);
+						 &cddc_mask, &adcdac_num, &adcdac_mask, &side,
+						 &routed);
+
+	if (chan->output && !routed) {
+		phy->tx_chan_map[chan->address].unrouted = true;
+		snprintf(phy->tx_chan_labels[chan->channel], sizeof(phy->tx_chan_labels[0]),
+			 "Side-%c:FDUC%u->unrouted", side ? 'B' : 'A', fddc_num);
+
+		return phy->tx_chan_labels[chan->channel];
+	}
 
 	if (chan->output) {
 		phy->tx_chan_map[chan->address].fddc_num = fddc_num;
