@@ -3179,6 +3179,9 @@ do_map:
 
 			f2fs_folio_wait_writeback(folio, true, true);
 
+			f2fs_ffs_mark_subrange_dirty(folio,
+				offset_in_folio(folio, (loff_t)idx << PAGE_SHIFT),
+				PAGE_SIZE);
 			folio_mark_dirty(folio);
 			folio_set_f2fs_gcing(folio);
 			f2fs_folio_put(folio, true);
