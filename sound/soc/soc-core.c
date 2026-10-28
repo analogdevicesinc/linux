@@ -1076,36 +1076,6 @@ int snd_soc_runtime_set_dai_fmt(struct snd_soc_pcm_runtime *rtd,
 }
 EXPORT_SYMBOL_GPL(snd_soc_runtime_set_dai_fmt);
 
-static void soc_remove_link_dais(struct snd_soc_card *card)
-{
-	struct snd_soc_pcm_runtime *rtd;
-	int order;
-
-	for_each_comp_order(order) {
-		for_each_card_rtds(card, rtd) {
-			/* remove all rtd connected DAIs in good order */
-			snd_soc_pcm_dai_remove(rtd, order);
-		}
-	}
-}
-
-static int soc_probe_link_dais(struct snd_soc_card *card)
-{
-	struct snd_soc_pcm_runtime *rtd;
-	int order, ret;
-
-	for_each_comp_order(order) {
-		for_each_card_rtds(card, rtd) {
-			/* probe all rtd connected DAIs in good order */
-			ret = snd_soc_pcm_dai_probe(rtd, order);
-			if (ret)
-				return ret;
-		}
-	}
-
-	return 0;
-}
-
 static void soc_remove_link_components(struct snd_soc_card *card)
 {
 	struct snd_soc_component *component;
@@ -1503,7 +1473,7 @@ static void soc_cleanup_card_resources(struct snd_soc_card *card)
 	snd_soc_flush_all_delayed_work(card);
 
 	/* remove and free each DAI */
-	soc_remove_link_dais(card);
+	snd_soc_card_link_dais_remove(card);
 	soc_remove_link_components(card);
 
 	for_each_card_rtds_safe(card, rtd, n)
@@ -1623,7 +1593,7 @@ static int snd_soc_bind_card(struct snd_soc_card *card)
 	}
 
 	/* probe all DAI links on this card */
-	ret = soc_probe_link_dais(card);
+	ret = snd_soc_card_link_dais_probe(card);
 	if (ret < 0) {
 		dev_err(card->dev,
 			"ASoC: failed to instantiate card %d\n", ret);

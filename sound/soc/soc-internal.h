@@ -23,6 +23,8 @@ void snd_soc_card_resume_init(struct snd_soc_card *card);
 void snd_soc_card_fill_dummy_dai(struct snd_soc_card *card);
 int snd_soc_card_init_pcm_runtime(struct snd_soc_card *card,
 				  struct snd_soc_pcm_runtime *rtd);
+void snd_soc_card_link_dais_remove(struct snd_soc_card *card);
+int snd_soc_card_link_dais_probe(struct snd_soc_card *card);
 
 /*
  * In soc-core

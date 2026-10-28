@@ -166,6 +166,36 @@ err:
 	return ret;
 }
 
+void snd_soc_card_link_dais_remove(struct snd_soc_card *card)
+{
+	struct snd_soc_pcm_runtime *rtd;
+	int order;
+
+	for_each_comp_order(order) {
+		for_each_card_rtds(card, rtd) {
+			/* remove all rtd connected DAIs in good order */
+			snd_soc_pcm_dai_remove(rtd, order);
+		}
+	}
+}
+
+int snd_soc_card_link_dais_probe(struct snd_soc_card *card)
+{
+	struct snd_soc_pcm_runtime *rtd;
+	int order, ret;
+
+	for_each_comp_order(order) {
+		for_each_card_rtds(card, rtd) {
+			/* probe all rtd connected DAIs in good order */
+			ret = snd_soc_pcm_dai_probe(rtd, order);
+			if (ret)
+				return ret;
+		}
+	}
+
+	return 0;
+}
+
 struct snd_kcontrol *snd_soc_card_get_kcontrol(struct snd_soc_card *soc_card,
 					       const char *name)
 {
