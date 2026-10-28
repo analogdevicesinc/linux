@@ -25,6 +25,6 @@
 
 &mmc0 {
 	non-removable;
-
+	no-1-8-v;
 	status = "okay";
 };
