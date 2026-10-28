@@ -420,6 +420,22 @@ static const struct iio_chan_spec _name[] = {                           \
 LTC2497_DEFINE_CHANNELS(ltc2497core_channel, 0);
 LTC2497_DEFINE_CHANNELS(ltc2497core_channel_samp_freq, BIT(IIO_CHAN_INFO_SAMP_FREQ));
 
+/*
+ * The temperature channel is the last entry of each table, so a part without
+ * the sensor stops one short of it.
+ */
+const struct ltc2497_channel_set ltc2497_chanset_ltc2497 = {
+	.channels	= ltc2497core_channel,
+	.num_channels	= ARRAY_SIZE(ltc2497core_channel) - 1,
+};
+EXPORT_SYMBOL_NS_GPL(ltc2497_chanset_ltc2497, "LTC2497");
+
+const struct ltc2497_channel_set ltc2497_chanset_ltc2499 = {
+	.channels	= ltc2497core_channel_samp_freq,
+	.num_channels	= ARRAY_SIZE(ltc2497core_channel_samp_freq),
+};
+EXPORT_SYMBOL_NS_GPL(ltc2497_chanset_ltc2499, "LTC2497");
+
 static const struct iio_info ltc2497core_info = {
 	.read_raw = ltc2497core_read_raw,
 	.read_avail = ltc2497core_read_avail,
@@ -443,15 +459,8 @@ int ltc2497core_probe(struct device *dev, struct iio_dev *indio_dev)
 
 	indio_dev->info = &ltc2497core_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	if (ddata->chip_info->has_speed_mode)
-		indio_dev->channels = ltc2497core_channel_samp_freq;
-	else
-		indio_dev->channels = ltc2497core_channel;
-	/* Only the ltc2499 has a temperature channel; it is the last entry. */
-	if (ddata->chip_info->has_temp)
-		indio_dev->num_channels = ARRAY_SIZE(ltc2497core_channel);
-	else
-		indio_dev->num_channels = ARRAY_SIZE(ltc2497core_channel) - 1;
+	indio_dev->channels = ddata->chip_info->channel_set->channels;
+	indio_dev->num_channels = ddata->chip_info->channel_set->num_channels;
 
 	if (ddata->chip_info->has_rejection_mode) {
 		struct iio_chan_spec *channels;

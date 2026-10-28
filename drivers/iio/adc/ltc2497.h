@@ -44,8 +44,21 @@ enum ltc2497_rejection {
 	LTC2499_REJECT_60,
 };
 
+/*
+ * The set of channels a part exposes.  Each supported channel layout has one
+ * of these in the core; a part names its own through chip_info.
+ */
+struct ltc2497_channel_set {
+	const struct iio_chan_spec	*channels;
+	unsigned int			num_channels;
+};
+
+extern const struct ltc2497_channel_set ltc2497_chanset_ltc2497;
+extern const struct ltc2497_channel_set ltc2497_chanset_ltc2499;
+
 struct ltc2497_chip_info {
 	const char *name;
+	const struct ltc2497_channel_set *channel_set;
 	u32 resolution;
 	bool has_temp;
 	bool has_speed_mode;	/* SPD bit in the 2nd config byte (LTC2499/LTC2493) */
