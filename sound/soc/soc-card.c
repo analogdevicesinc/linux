@@ -10,6 +10,7 @@
 #include <linux/lockdep.h>
 #include <linux/rwsem.h>
 #include <sound/soc.h>
+#include <sound/soc-link.h>
 #include <sound/jack.h>
 #include "soc-internal.h"
 
@@ -115,6 +116,54 @@ void snd_soc_card_fill_dummy_dai(struct snd_soc_card *card)
 			dai_link->codecs	= &snd_soc_dummy_dlc;
 		}
 	}
+}
+
+int snd_soc_card_init_pcm_runtime(struct snd_soc_card *card,
+				  struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_dai_link *dai_link = rtd->dai_link;
+	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
+	int ret;
+
+	/* do machine specific initialization */
+	ret = snd_soc_link_init(rtd);
+	if (ret < 0)
+		return ret;
+
+	ret = snd_soc_runtime_set_dai_fmt(rtd, snd_soc_dai_auto_select_format(rtd));
+	if (ret)
+		goto err;
+
+	/* add DPCM sysfs entries */
+	soc_dpcm_debugfs_add(rtd);
+
+	/* create compress_device if driver is supporting */
+	ret = snd_soc_dai_compress_new(cpu_dai, rtd);
+	if (ret != -ENOTSUPP) { /* driver is supporting */
+		if (ret < 0)
+			goto err;
+		goto end;
+	}
+
+	/* create the pcm */
+	ret = soc_new_pcm(rtd);
+	if (ret < 0) {
+		dev_err(card->dev, "ASoC: can't create pcm %s :%d\n",
+			dai_link->stream_name, ret);
+		goto err;
+	}
+
+	ret = snd_soc_pcm_dai_new(rtd);
+	if (ret < 0)
+		goto err;
+end:
+	rtd->initialized = true;
+
+	return 0;
+err:
+	snd_soc_link_exit(rtd);
+
+	return ret;
 }
 
 struct snd_kcontrol *snd_soc_card_get_kcontrol(struct snd_soc_card *soc_card,

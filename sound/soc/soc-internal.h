@@ -21,6 +21,8 @@ void snd_soc_card_debugfs_init(struct snd_soc_card *card);
 void snd_soc_card_debugfs_cleanup(struct snd_soc_card *card);
 void snd_soc_card_resume_init(struct snd_soc_card *card);
 void snd_soc_card_fill_dummy_dai(struct snd_soc_card *card);
+int snd_soc_card_init_pcm_runtime(struct snd_soc_card *card,
+				  struct snd_soc_pcm_runtime *rtd);
 
 /*
  * In soc-core
