@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Entry points by which the knfsd core drives the optional NFSv4
- * subsystem: state lifecycle, the laundromat workqueue, the recovery
- * directory, junctions, the CLD notifier, and leases-net setup.
+ * subsystem: state lifecycle, the laundromat workqueue, junctions,
+ * the CLD notifier, and leases-net setup.
  *
  * Separated from nfsd.h so that the many translation units that
  * include nfsd.h but call none of these -- among them the NFSv2 and
@@ -31,8 +31,6 @@ int nfs4_state_start(void);
 int nfs4_state_start_net(struct net *net);
 void nfs4_state_shutdown(void);
 void nfs4_state_shutdown_net(struct net *net);
-int nfs4_reset_recoverydir(char *recdir);
-char * nfs4_recoverydir(void);
 bool nfsd4_spo_must_allow(struct svc_rqst *rqstp);
 int nfsd4_create_laundry_wq(void);
 void nfsd4_destroy_laundry_wq(void);
@@ -54,8 +52,6 @@ static inline int nfs4_state_start(void) { return 0; }
 static inline int nfs4_state_start_net(struct net *net) { return 0; }
 static inline void nfs4_state_shutdown(void) { }
 static inline void nfs4_state_shutdown_net(struct net *net) { }
-static inline int nfs4_reset_recoverydir(char *recdir) { return 0; }
-static inline char * nfs4_recoverydir(void) {return NULL; }
 static inline bool nfsd4_spo_must_allow(struct svc_rqst *rqstp)
 {
 	return false;

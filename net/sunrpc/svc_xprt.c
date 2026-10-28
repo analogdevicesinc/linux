@@ -170,6 +170,8 @@ static void svc_xprt_free(struct kref *kref)
 	struct svc_xprt *xprt =
 		container_of(kref, struct svc_xprt, xpt_ref);
 	struct module *owner = xprt->xpt_class->xcl_owner;
+
+	trace_svc_xprt_free(xprt);
 	if (test_bit(XPT_CACHE_AUTH, &xprt->xpt_flags))
 		svcauth_unix_info_release(xprt);
 	put_cred(xprt->xpt_cred);
@@ -179,7 +181,6 @@ static void svc_xprt_free(struct kref *kref)
 		xprt_put(xprt->xpt_bc_xprt);
 	if (xprt->xpt_bc_xps)
 		xprt_switch_put(xprt->xpt_bc_xps);
-	trace_svc_xprt_free(xprt);
 	xprt->xpt_ops->xpo_free(xprt);
 	module_put(owner);
 }
@@ -872,6 +873,8 @@ static void svc_handle_xprt(struct svc_rqst *rqstp, struct svc_xprt *xprt)
 		svc_xprt_received(xprt);
 	} else if (svc_xprt_reserve_slot(rqstp, xprt)) {
 		/* XPT_DATA|XPT_DEFERRED case: */
+		assign_bit(RQ_LOCAL, &rqstp->rq_flags,
+			   test_bit(XPT_LOCAL, &xprt->xpt_flags));
 		rqstp->rq_deferred = svc_deferred_dequeue(xprt);
 		if (rqstp->rq_deferred)
 			len = svc_deferred_recv(rqstp);
@@ -1291,9 +1294,9 @@ static void svc_revisit(struct cache_deferred_req *dreq, int too_many)
 		return;
 	}
 	dr->xprt = NULL;
+	trace_svc_defer_queue(dr);
 	list_add(&dr->handle.recent, &xprt->xpt_deferred);
 	spin_unlock(&xprt->xpt_lock);
-	trace_svc_defer_queue(dr);
 	svc_xprt_enqueue(xprt);
 	svc_xprt_put(xprt);
 }
@@ -1329,6 +1332,8 @@ static struct cache_deferred_req *svc_defer(struct cache_req *req)
 		memcpy(&dr->addr, &rqstp->rq_addr, rqstp->rq_addrlen);
 		dr->addrlen = rqstp->rq_addrlen;
 		dr->daddr = rqstp->rq_daddr;
+		dr->daddrlen = rqstp->rq_daddrlen;
+		dr->secure = test_bit(RQ_SECURE, &rqstp->rq_flags);
 		dr->argslen = rqstp->rq_arg.len >> 2;
 
 		memcpy(dr->args, rqstp->rq_arg.head[0].iov_base,
@@ -1362,7 +1367,14 @@ static noinline int svc_deferred_recv(struct svc_rqst *rqstp)
 	memcpy(&rqstp->rq_addr, &dr->addr, dr->addrlen);
 	rqstp->rq_addrlen     = dr->addrlen;
 	rqstp->rq_daddr       = dr->daddr;
+	rqstp->rq_daddrlen    = dr->daddrlen;
 	rqstp->rq_xprt_ctxt   = dr->xprt_ctxt;
+	/*
+	 * ->xpo_recvfrom() is bypassed for a deferred request, so the
+	 * replaying thread's RQ_SECURE is stale from whatever request
+	 * it handled last. Restore the value computed at receive time.
+	 */
+	assign_bit(RQ_SECURE, &rqstp->rq_flags, dr->secure);
 
 	dr->xprt_ctxt = NULL;
 	svc_xprt_received(rqstp->rq_xprt);
