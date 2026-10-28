@@ -616,6 +616,7 @@ struct scarlett2_config_set {
 	const unsigned int *input_gain_tlv;
 	const char *const *autogain_status_texts;
 	const struct scarlett2_config items[SCARLETT2_CONFIG_COUNT];
+	const int (*port_count)[SCARLETT2_PORT_DIRNS];
 };
 
 /* Map firmware versions to config sets per-device.
@@ -1412,6 +1413,7 @@ struct scarlett2_data {
 	struct delayed_work work;
 	const struct scarlett2_device_info *info;
 	const struct scarlett2_config_set *config_set;
+	const int (*port_count)[SCARLETT2_PORT_DIRNS];
 	const char *series_name;
 	__u8 bInterfaceNumber;
 	__u8 bEndpointAddress;
@@ -3158,7 +3160,7 @@ static int scarlett2_usb_set_mix(struct usb_mixer_interface *mixer,
 			     NULL, 0);
 }
 
-/* Convert a port number index (per info->port_count) to a hardware ID */
+/* Convert a port number index (per private->port_count) to a hardware ID */
 static u32 scarlett2_mux_src_num_to_id(
 	const int port_count[][SCARLETT2_PORT_DIRNS], int num)
 {
@@ -3202,8 +3204,7 @@ static u32 scarlett2_mux_id_to_num(
 static void scarlett2_usb_populate_mux(struct scarlett2_data *private,
 				       u32 mux_entry)
 {
-	const struct scarlett2_device_info *info = private->info;
-	const int (*port_count)[SCARLETT2_PORT_DIRNS] = info->port_count;
+	const int (*port_count)[SCARLETT2_PORT_DIRNS] = private->port_count;
 
 	int dst_idx, src_idx;
 
@@ -3342,7 +3343,7 @@ static int scarlett2_usb_set_mux(struct usb_mixer_interface *mixer)
 {
 	struct scarlett2_data *private = mixer->private_data;
 	const struct scarlett2_device_info *info = private->info;
-	const int (*port_count)[SCARLETT2_PORT_DIRNS] = info->port_count;
+	const int (*port_count)[SCARLETT2_PORT_DIRNS] = private->port_count;
 	int table;
 
 	struct {
@@ -7365,8 +7366,7 @@ static int scarlett2_mux_src_enum_ctl_info(struct snd_kcontrol *kctl,
 {
 	struct usb_mixer_elem_info *elem = kctl->private_data;
 	struct scarlett2_data *private = elem->head.mixer->private_data;
-	const struct scarlett2_device_info *info = private->info;
-	const int (*port_count)[SCARLETT2_PORT_DIRNS] = info->port_count;
+	const int (*port_count)[SCARLETT2_PORT_DIRNS] = private->port_count;
 	unsigned int item = uinfo->value.enumerated.item;
 	int items = private->num_mux_srcs;
 	int port_type;
@@ -7466,8 +7466,7 @@ static const struct snd_kcontrol_new scarlett2_mux_src_enum_ctl = {
 static int scarlett2_add_mux_enums(struct usb_mixer_interface *mixer)
 {
 	struct scarlett2_data *private = mixer->private_data;
-	const struct scarlett2_device_info *info = private->info;
-	const int (*port_count)[SCARLETT2_PORT_DIRNS] = info->port_count;
+	const int (*port_count)[SCARLETT2_PORT_DIRNS] = private->port_count;
 	int port_type, channel, i;
 
 	for (i = 0, port_type = 0;
@@ -8696,8 +8695,11 @@ static void scarlett2_count_io(struct scarlett2_data *private)
 {
 	const struct scarlett2_device_info *info = private->info;
 	const struct scarlett2_config_set *config_set = private->config_set;
-	const int (*port_count)[SCARLETT2_PORT_DIRNS] = info->port_count;
+	const int (*port_count)[SCARLETT2_PORT_DIRNS];
 	int port_type, srcs = 0, dsts = 0, i;
+
+	port_count = config_set->port_count ?: info->port_count;
+	private->port_count = port_count;
 
 	/* Count the number of mux sources and destinations */
 	for (port_type = 0;
