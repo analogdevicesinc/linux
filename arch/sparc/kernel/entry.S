@@ -252,7 +252,8 @@ smp4m_ticker:
 	WRITE_PAUSE
 	call	smp4m_percpu_timer_interrupt
 	 add	%sp, STACKFRAME_SZ, %o0
-	wr	%l0, PSR_ET, %psr
+	or	%l0, PSR_PIL, %g2	! keep PIL raised until rett
+	wr	%g2, PSR_ET, %psr
 	WRITE_PAUSE
 	RESTORE_ALL
 
@@ -353,7 +354,8 @@ smp4d_ticker:
 	WRITE_PAUSE
 	call	smp4d_percpu_timer_interrupt
 	 add	%sp, STACKFRAME_SZ, %o0
-	wr	%l0, PSR_ET, %psr
+	or	%l0, PSR_PIL, %g2	! keep PIL raised until rett
+	wr	%g2, PSR_ET, %psr
 	WRITE_PAUSE
 	RESTORE_ALL
 
@@ -407,7 +409,8 @@ smpleon_ipi:
 	WRITE_PAUSE
 	call	leonsmp_ipi_interrupt
 	 add	%sp, STACKFRAME_SZ, %o1 ! pt_regs
-	wr	%l0, PSR_ET, %psr
+	or	%l0, PSR_PIL, %g2	! keep PIL raised until rett
+	wr	%g2, PSR_ET, %psr
 	WRITE_PAUSE
 	RESTORE_ALL
 
@@ -825,8 +828,8 @@ sys_sigreturn:
 	be	1f
 	 nop
 
-	call	syscall_trace
-	 mov	1, %o1
+	call	syscall_trace_leave
+	 nop
 
 1:
 	/* We don't want to muck with user registers like a
@@ -845,9 +848,8 @@ sys_rt_sigreturn:
 	be	1f
 	 nop
 
-	add	%sp, STACKFRAME_SZ, %o0
-	call	syscall_trace
-	 mov	1, %o1
+	call	syscall_trace_leave
+	 add	%sp, STACKFRAME_SZ, %o0
 
 1:
 	/* We are returning to a signal handler. */
@@ -929,12 +931,11 @@ linux_sparc_ni_syscall:
 	 or     %l7, %lo(sys_ni_syscall), %l7
 
 linux_syscall_trace:
-	add	%sp, STACKFRAME_SZ, %o0
-	call	syscall_trace
-	 mov	0, %o1
-	cmp	%o0, 0
-	bne	3f
-	 mov	-ENOSYS, %o0
+	call	syscall_trace_enter
+	 add	%sp, STACKFRAME_SZ, %o0
+	cmp	%o0, -1
+	be	linux_syscall_trace_exit
+	 nop
 
 	/* Syscall tracing can modify the registers.  */
 	ld	[%sp + STACKFRAME_SZ + PT_G1], %g1
@@ -1006,7 +1007,7 @@ do_syscall:
 
 	ld	[%curptr + TI_FLAGS], %l5
 	mov	%i3, %o3
-	andcc	%l5, _TIF_SYSCALL_TRACE, %g0
+	andcc	%l5, _TIF_SYSCALL_TRACE | _TIF_SECCOMP, %g0
 	mov	%i4, %o4
 	bne	linux_syscall_trace
 	 mov	%i0, %l6
@@ -1049,11 +1050,14 @@ ret_sys_call:
 	b	ret_trap_entry
 	 st	%l2, [%sp + STACKFRAME_SZ + PT_NPC]
 
+linux_syscall_trace_exit:
+	/* The syscall was skipped - exit tracing */
+	ld	[%sp + STACKFRAME_SZ + PT_NPC], %l1
+
 linux_syscall_trace2:
-	add	%sp, STACKFRAME_SZ, %o0
-	mov	1, %o1
-	call	syscall_trace
-	 add	%l1, 0x4, %l2			/* npc = npc+4 */
+	call	syscall_trace_leave
+	 add	%sp, STACKFRAME_SZ, %o0
+	add	%l1, 0x4, %l2			/* npc = npc+4 */
 	st	%l1, [%sp + STACKFRAME_SZ + PT_PC]
 	b	ret_trap_entry
 	 st	%l2, [%sp + STACKFRAME_SZ + PT_NPC]

@@ -146,7 +146,7 @@ static int tick_add_compare(unsigned long adj)
 			     : "=r" (new_tick));
 	new_tick &= ~TICKCMP_IRQ_BIT;
 
-	return ((long)(new_tick - (orig_tick+adj))) > 0L;
+	return ((long)(new_tick - (orig_tick+adj))) >= 0L;
 }
 
 static unsigned long tick_add_tick(unsigned long adj)
@@ -277,7 +277,7 @@ static int stick_add_compare(unsigned long adj)
 			     : "=r" (new_tick));
 	new_tick &= ~TICKCMP_IRQ_BIT;
 
-	return ((long)(new_tick - (orig_tick+adj))) > 0L;
+	return ((long)(new_tick - (orig_tick+adj))) >= 0L;
 }
 
 static unsigned long stick_get_frequency(void)
@@ -411,7 +411,7 @@ static int hbtick_add_compare(unsigned long adj)
 
 	val2 = __hbird_read_stick() & ~TICKCMP_IRQ_BIT;
 
-	return ((long)(val2 - val)) > 0L;
+	return ((long)(val2 - val)) >= 0L;
 }
 
 static unsigned long hbtick_get_frequency(void)

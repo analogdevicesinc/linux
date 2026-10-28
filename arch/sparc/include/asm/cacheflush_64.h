@@ -38,11 +38,12 @@ void __flush_dcache_page(void *addr, int flush_icache);
 void flush_dcache_folio_impl(struct folio *folio);
 #ifdef CONFIG_SMP
 void smp_flush_dcache_folio_impl(struct folio *folio, int cpu);
-void flush_dcache_folio_all(struct mm_struct *mm, struct folio *folio);
 #else
 #define smp_flush_dcache_folio_impl(folio, cpu) flush_dcache_folio_impl(folio)
-#define flush_dcache_folio_all(mm, folio) flush_dcache_folio_impl(folio)
 #endif
+void flush_dcache_page_all(struct mm_struct *mm, struct page *page);
+void __flush_dcache_all(unsigned long size, unsigned long line_size);
+void flush_dcache_all(void);
 
 void __flush_dcache_range(unsigned long start, unsigned long end);
 #define ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE 1
@@ -74,9 +75,9 @@ void flush_ptrace_access(struct vm_area_struct *, struct page *,
 #define flush_dcache_mmap_lock(mapping)		do { } while (0)
 #define flush_dcache_mmap_unlock(mapping)	do { } while (0)
 
-#define flush_cache_vmap(start, end)		do { } while (0)
+void flush_cache_vmap(unsigned long start, unsigned long end);
 #define flush_cache_vmap_early(start, end)	do { } while (0)
-#define flush_cache_vunmap(start, end)		do { } while (0)
+#define flush_cache_vunmap(start, end)		flush_cache_vmap(start, end)
 
 #endif /* !__ASSEMBLER__ */
 

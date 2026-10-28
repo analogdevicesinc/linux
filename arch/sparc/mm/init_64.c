@@ -27,6 +27,7 @@
 #include <linux/percpu.h>
 #include <linux/mmzone.h>
 #include <linux/gfp.h>
+#include <linux/vmalloc.h>
 
 #include <asm/head.h>
 #include <asm/page.h>
@@ -213,6 +214,39 @@ inline void flush_dcache_folio_impl(struct folio *folio)
 	}
 #endif
 }
+
+#ifndef CONFIG_SMP
+void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
+{
+	struct folio *folio = page_folio(page);
+
+	if (tlb_type == hypervisor)
+		return;
+
+#ifdef CONFIG_DEBUG_DCFLUSH
+	atomic_inc(&dcpage_flushes);
+#endif
+
+#ifdef DCACHE_ALIASING_POSSIBLE
+	__flush_dcache_page(page_address(page),
+			    tlb_type == spitfire && folio_flush_mapping(folio));
+#else
+	if (tlb_type == spitfire && folio_flush_mapping(folio))
+		__flush_icache_page(page_to_phys(page));
+#endif
+}
+
+#ifdef DCACHE_ALIASING_POSSIBLE
+void flush_dcache_all(void)
+{
+	if (tlb_type == hypervisor)
+		return;
+
+	__flush_dcache_all(local_cpu_data().dcache_size,
+			   local_cpu_data().dcache_line_size);
+}
+#endif
+#endif /* !CONFIG_SMP */
 
 #define PG_dcache_dirty		PG_arch_1
 #define PG_dcache_cpu_shift	32UL
@@ -3049,6 +3083,37 @@ arch_initcall(report_memory);
 #else
 #define do_flush_tlb_kernel_range	__flush_tlb_kernel_range
 #endif
+
+/*
+ * The L1 D-cache is indexed with VA bit 13, so lines loaded through a
+ * vmalloc address outlive the mapping.  Stores through a mapping of the
+ * other colour do not update them, and a later load through their colour
+ * returns stale data.  Flush at unmap so vmalloc's lines do not follow
+ * the page back to the allocator, and at map time since anonymous user
+ * pages are freed without a flush (see tlb_batch_add()).  Past the
+ * D-cache size, one whole-cache flush is cheaper than a cross call per
+ * page.
+ */
+void flush_cache_vmap(unsigned long start, unsigned long end)
+{
+#ifdef DCACHE_ALIASING_POSSIBLE
+	/* The vmemmap has no aliases and is mapped before cross calls work. */
+	if (tlb_type == hypervisor || !is_vmalloc_or_module_addr((void *)start))
+		return;
+
+	if (end - start > cpu_data(raw_smp_processor_id()).dcache_size) {
+		flush_dcache_all();
+		return;
+	}
+
+	for (; start < end; start += PAGE_SIZE) {
+		struct page *page = vmalloc_to_page((void *)start);
+
+		if (page)
+			flush_dcache_page_all(NULL, page);
+	}
+#endif
+}
 
 void flush_tlb_kernel_range(unsigned long start, unsigned long end)
 {

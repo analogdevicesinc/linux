@@ -40,12 +40,11 @@ static inline void syscall_set_nr(struct task_struct *task,
 static inline void syscall_rollback(struct task_struct *task,
 				    struct pt_regs *regs)
 {
-	/* XXX This needs some thought.  On Sparc we don't
-	 * XXX save away the original %o0 value somewhere.
-	 * XXX Instead we hold it in register %l5 at the top
-	 * XXX level trap frame and pass this down to the signal
-	 * XXX dispatch code which is the only place that value
-	 * XXX ever was needed.
+	/* Every caller rolls back before the syscall has been invoked
+	 * (a ptrace entry abort or a seccomp user notification), and at
+	 * that point the arguments in pt_regs are still intact: the
+	 * return value only overwrites u_regs[UREG_I0] once the syscall
+	 * has actually run.  Nothing to undo.
 	 */
 }
 

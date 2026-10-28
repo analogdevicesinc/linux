@@ -242,6 +242,20 @@ __flush_dcache_page:	/* %o0=kaddr, %o1=flush_icache */
 	retl
 	 nop
 
+	/* Zeroing every D-cache tag invalidates the whole cache on
+	 * Spitfire and Cheetah alike.
+	 */
+	.align		32
+	.globl		__flush_dcache_all
+__flush_dcache_all:	/* %o0=D-cache size, %o1=D-cache line size */
+1:	subcc		%o0, %o1, %o0
+	stxa		%g0, [%o0] ASI_DCACHE_TAG
+	membar		#Sync
+	bne,pt		%icc, 1b
+	 nop
+	retl
+	 nop
+
 #endif /* DCACHE_ALIASING_POSSIBLE */
 
 	.previous
@@ -796,6 +810,17 @@ xcall_flush_dcache_page_cheetah: /* %g1 == physical page address */
 	sethi		%hi(PAGE_SIZE), %g3
 1:	subcc		%g3, (1 << 5), %g3
 	stxa		%g0, [%g1 + %g3] ASI_DCACHE_INVALIDATE
+	membar		#Sync
+	bne,pt		%icc, 1b
+	 nop
+	retry
+	nop
+
+	.align		32
+	.globl		xcall_flush_dcache_all
+xcall_flush_dcache_all: /* %g1 == D-cache size, %g7 == D-cache line size */
+1:	subcc		%g1, %g7, %g1
+	stxa		%g0, [%g1] ASI_DCACHE_TAG
 	membar		#Sync
 	bne,pt		%icc, 1b
 	 nop
