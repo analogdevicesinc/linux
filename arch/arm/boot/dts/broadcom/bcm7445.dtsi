@@ -132,7 +132,7 @@
 			interrupt-names = "hif";
 		};
 
-                aon_pm_l2_intc: interrupt-controller@410640 {
+		aon_pm_l2_intc: interrupt-controller@410640 {
 			compatible = "brcm,l2-intc";
 			reg = <0x410640 0x30>;
 			interrupt-controller;
