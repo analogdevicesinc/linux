@@ -1076,46 +1076,6 @@ int snd_soc_runtime_set_dai_fmt(struct snd_soc_pcm_runtime *rtd,
 }
 EXPORT_SYMBOL_GPL(snd_soc_runtime_set_dai_fmt);
 
-static void soc_remove_link_components(struct snd_soc_card *card)
-{
-	struct snd_soc_component *component;
-	struct snd_soc_pcm_runtime *rtd;
-	int i, order;
-
-	for_each_comp_order(order) {
-		for_each_card_rtds(card, rtd) {
-			for_each_rtd_components(rtd, i, component) {
-				if (component->driver->remove_order != order)
-					continue;
-
-				snd_soc_component_remove(component, 1);
-			}
-		}
-	}
-}
-
-static int soc_probe_link_components(struct snd_soc_card *card)
-{
-	struct snd_soc_component *component;
-	struct snd_soc_pcm_runtime *rtd;
-	int i, ret, order;
-
-	for_each_comp_order(order) {
-		for_each_card_rtds(card, rtd) {
-			for_each_rtd_components(rtd, i, component) {
-				if (component->driver->probe_order != order)
-					continue;
-
-				ret = snd_soc_component_probe(component, card);
-				if (ret < 0)
-					return ret;
-			}
-		}
-	}
-
-	return 0;
-}
-
 static void soc_unbind_aux_dev(struct snd_soc_card *card)
 {
 	struct snd_soc_component *component, *_component;
@@ -1474,7 +1434,7 @@ static void soc_cleanup_card_resources(struct snd_soc_card *card)
 
 	/* remove and free each DAI */
 	snd_soc_card_link_dais_remove(card);
-	soc_remove_link_components(card);
+	snd_soc_card_link_components_remove(card);
 
 	for_each_card_rtds_safe(card, rtd, n)
 		snd_soc_remove_pcm_runtime(card, rtd);
@@ -1575,7 +1535,7 @@ static int snd_soc_bind_card(struct snd_soc_card *card)
 		goto probe_end;
 
 	/* probe all components used by DAI links on this card */
-	ret = soc_probe_link_components(card);
+	ret = snd_soc_card_link_components_probe(card);
 	if (ret < 0) {
 		if (ret != -EPROBE_DEFER) {
 			dev_err(card->dev,

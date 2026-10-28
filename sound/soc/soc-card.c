@@ -196,6 +196,46 @@ int snd_soc_card_link_dais_probe(struct snd_soc_card *card)
 	return 0;
 }
 
+void snd_soc_card_link_components_remove(struct snd_soc_card *card)
+{
+	struct snd_soc_component *component;
+	struct snd_soc_pcm_runtime *rtd;
+	int i, order;
+
+	for_each_comp_order(order) {
+		for_each_card_rtds(card, rtd) {
+			for_each_rtd_components(rtd, i, component) {
+				if (component->driver->remove_order != order)
+					continue;
+
+				snd_soc_component_remove(component, 1);
+			}
+		}
+	}
+}
+
+int snd_soc_card_link_components_probe(struct snd_soc_card *card)
+{
+	struct snd_soc_component *component;
+	struct snd_soc_pcm_runtime *rtd;
+	int i, ret, order;
+
+	for_each_comp_order(order) {
+		for_each_card_rtds(card, rtd) {
+			for_each_rtd_components(rtd, i, component) {
+				if (component->driver->probe_order != order)
+					continue;
+
+				ret = snd_soc_component_probe(component, card);
+				if (ret < 0)
+					return ret;
+			}
+		}
+	}
+
+	return 0;
+}
+
 struct snd_kcontrol *snd_soc_card_get_kcontrol(struct snd_soc_card *soc_card,
 					       const char *name)
 {
