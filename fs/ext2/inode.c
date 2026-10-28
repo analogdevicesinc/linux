@@ -58,8 +58,10 @@ void ext2_write_failed(struct address_space *mapping, loff_t to)
 	struct inode *inode = mapping->host;
 
 	if (to > inode->i_size) {
+		filemap_invalidate_lock(mapping);
 		truncate_pagecache(inode, inode->i_size);
 		ext2_truncate_blocks(inode, inode->i_size);
+		filemap_invalidate_unlock(mapping);
 	}
 }
 
@@ -1236,9 +1238,7 @@ static void ext2_truncate_blocks(struct inode *inode, loff_t offset)
 	if (ext2_inode_is_fast_symlink(inode))
 		return;
 
-	filemap_invalidate_lock(inode->i_mapping);
 	__ext2_truncate_blocks(inode, offset);
-	filemap_invalidate_unlock(inode->i_mapping);
 }
 
 static int ext2_setsize(struct inode *inode, loff_t newsize)
