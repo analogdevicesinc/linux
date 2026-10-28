@@ -1075,39 +1075,6 @@ int snd_soc_runtime_set_dai_fmt(struct snd_soc_pcm_runtime *rtd,
 }
 EXPORT_SYMBOL_GPL(snd_soc_runtime_set_dai_fmt);
 
-static int soc_probe_aux_devices(struct snd_soc_card *card)
-{
-	struct snd_soc_component *component;
-	int order;
-	int ret;
-
-	for_each_comp_order(order) {
-		for_each_card_auxs(card, component) {
-			if (component->driver->probe_order != order)
-				continue;
-
-			ret = snd_soc_component_probe(component, card);
-			if (ret < 0)
-				return ret;
-		}
-	}
-
-	return 0;
-}
-
-static void soc_remove_aux_devices(struct snd_soc_card *card)
-{
-	struct snd_soc_component *comp, *_comp;
-	int order;
-
-	for_each_comp_order(order) {
-		for_each_card_auxs_safe(card, comp, _comp) {
-			if (comp->driver->remove_order == order)
-				snd_soc_component_remove(comp, 1);
-		}
-	}
-}
-
 #ifdef CONFIG_DMI
 /*
  * If a DMI filed contain strings in this blacklist (e.g.
@@ -1408,7 +1375,7 @@ static void soc_cleanup_card_resources(struct snd_soc_card *card)
 		snd_soc_remove_pcm_runtime(card, rtd);
 
 	/* remove auxiliary devices */
-	soc_remove_aux_devices(card);
+	snd_soc_card_aux_remove(card);
 	snd_soc_card_aux_unbind(card);
 
 	snd_soc_dapm_free(snd_soc_card_to_dapm(card));
@@ -1513,7 +1480,7 @@ static int snd_soc_bind_card(struct snd_soc_card *card)
 	}
 
 	/* probe auxiliary components */
-	ret = soc_probe_aux_devices(card);
+	ret = snd_soc_card_aux_probe(card);
 	if (ret < 0) {
 		dev_err(card->dev,
 			"ASoC: failed to probe aux component %d\n", ret);

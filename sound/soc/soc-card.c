@@ -267,6 +267,39 @@ int snd_soc_card_aux_bind(struct snd_soc_card *card)
 	return 0;
 }
 
+int snd_soc_card_aux_probe(struct snd_soc_card *card)
+{
+	struct snd_soc_component *component;
+	int order;
+	int ret;
+
+	for_each_comp_order(order) {
+		for_each_card_auxs(card, component) {
+			if (component->driver->probe_order != order)
+				continue;
+
+			ret = snd_soc_component_probe(component, card);
+			if (ret < 0)
+				return ret;
+		}
+	}
+
+	return 0;
+}
+
+void snd_soc_card_aux_remove(struct snd_soc_card *card)
+{
+	struct snd_soc_component *comp, *_comp;
+	int order;
+
+	for_each_comp_order(order) {
+		for_each_card_auxs_safe(card, comp, _comp) {
+			if (comp->driver->remove_order == order)
+				snd_soc_component_remove(comp, 1);
+		}
+	}
+}
+
 struct snd_kcontrol *snd_soc_card_get_kcontrol(struct snd_soc_card *soc_card,
 					       const char *name)
 {
