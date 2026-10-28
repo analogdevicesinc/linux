@@ -629,6 +629,7 @@ static int ad9088_reg_access(struct iio_dev *indio_dev, unsigned int reg,
  * @adcdac_num: Output - ADC/DAC number (0-3 per side)
  * @adcdac_mask: Output - ADC/DAC bitmask (ADI_APOLLO_ADC_Ax or ADI_APOLLO_DAC_Ax)
  * @side: Output - Chip side (0=A, 1=B)
+ * @routed: Output - False if the TX FDUC is not summed into any CDUC
  *
  * This function derives the FDDC, CDDC, and ADC/DAC mapping from the profile's
  * mux configuration rather than using hardcoded values.
@@ -658,7 +659,8 @@ static int ad9088_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 static void ad9088_iiochan_to_fddc_cddc_from_profile(struct ad9088_phy *phy,
 						     const struct iio_chan_spec *chan, u8 *fddc_num,
 						     u32 *fddc_mask, u8 *cddc_num, u32 *cddc_mask,
-						     u8 *adcdac_num, u32 *adcdac_mask, u8 *side)
+						     u8 *adcdac_num, u32 *adcdac_mask, u8 *side,
+						     bool *routed)
 {
 	/* FDDC masks indexed by FDDC number (0-7) and side */
 	static const u32 fddc_masks[ADI_APOLLO_NUM_SIDES][8] = {
@@ -693,6 +695,8 @@ static void ad9088_iiochan_to_fddc_cddc_from_profile(struct ad9088_phy *phy,
 	u8 local_fddc_num;
 	u8 local_cddc_num;
 	u8 local_adcdac_num;
+
+	*routed = true;
 
 	if (chan->output) {
 		/* TX path: Use JRX sample_xbar_sel and fduc_cduc_summer */
@@ -788,6 +792,7 @@ static void ad9088_iiochan_to_fddc_cddc_from_profile(struct ad9088_phy *phy,
 				break;
 			}
 		}
+		*routed = i < num_cducs;
 
 		/*
 		 * Determine DAC from mux0_sel.
@@ -1019,8 +1024,13 @@ const struct ad9088_chan_map *ad9088_get_chan_map(struct ad9088_phy *phy,
 	if (chan->address >= MAX_NUM_CHANNELIZER)
 		return NULL;
 
-	if (chan->output)
+	if (chan->output) {
+		/* No CDUC/DAC to control, don't let the attributes touch another channel's */
+		if (phy->tx_chan_map[chan->address].unrouted)
+			return NULL;
+
 		return &phy->tx_chan_map[chan->address];
+	}
 
 	return &phy->rx_chan_map[chan->address];
 }
@@ -4727,9 +4737,25 @@ static char *ad9088_label_writer(struct ad9088_phy *phy, const struct iio_chan_s
 {
 	u8 adcdac_num, cddc_num, fddc_num, side;
 	u32 adcdac_mask, cddc_mask, fddc_mask;
+	bool routed;
 
 	ad9088_iiochan_to_fddc_cddc_from_profile(phy, chan, &fddc_num, &fddc_mask, &cddc_num,
-						 &cddc_mask, &adcdac_num, &adcdac_mask, &side);
+						 &cddc_mask, &adcdac_num, &adcdac_mask, &side,
+						 &routed);
+
+	if (chan->output && !routed) {
+		/* I and Q are separate converters, warn once per channel */
+		if (chan->channel2 != IIO_MOD_Q)
+			dev_warn(&phy->spi->dev,
+				 "out_voltage%d: FDUC%u is not summed into any CDUC, channel disabled\n",
+				 chan->channel, fddc_num);
+
+		phy->tx_chan_map[chan->address].unrouted = true;
+		snprintf(phy->tx_chan_labels[chan->channel], sizeof(phy->tx_chan_labels[0]),
+			 "Side-%c:FDUC%u->unrouted", side ? 'B' : 'A', fddc_num);
+
+		return phy->tx_chan_labels[chan->channel];
+	}
 
 	if (chan->output) {
 		phy->tx_chan_map[chan->address].fddc_num = fddc_num;
