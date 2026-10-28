@@ -58,7 +58,7 @@ static struct powerdomain *mpu_pd, *core_pd, *per_pd, *cam_pd;
  * Prevent PER OFF if CORE is not in RETention or OFF as this would
  * disable PER wakeups completely.
  */
-static struct omap3_idle_statedata omap3_idle_data[] = {
+static const struct omap3_idle_statedata omap3_idle_data[] = {
 	{
 		.mpu_state = PWRDM_POWER_ON,
 		.core_state = PWRDM_POWER_ON,
@@ -108,7 +108,7 @@ static int omap3_enter_idle(struct cpuidle_device *dev,
 			    struct cpuidle_driver *drv,
 			    int index)
 {
-	struct omap3_idle_statedata *cx = &omap3_idle_data[index];
+	const struct omap3_idle_statedata *cx = &omap3_idle_data[index];
 	int error;
 
 	if (omap_irq_pending() || need_resched())
@@ -168,7 +168,7 @@ return_sleep_time:
 static int next_valid_state(struct cpuidle_device *dev,
 			    struct cpuidle_driver *drv, int index)
 {
-	struct omap3_idle_statedata *cx = &omap3_idle_data[index];
+	const struct omap3_idle_statedata *cx = &omap3_idle_data[index];
 	u32 mpu_deepest_state = PWRDM_POWER_RET;
 	u32 core_deepest_state = PWRDM_POWER_RET;
 	int idx;
@@ -221,7 +221,7 @@ static int omap3_enter_idle_bm(struct cpuidle_device *dev,
 {
 	int new_state_idx, ret;
 	u8 per_next_state, per_saved_state;
-	struct omap3_idle_statedata *cx;
+	const struct omap3_idle_statedata *cx;
 
 	/*
 	 * Use only C1 if CAM is active.
