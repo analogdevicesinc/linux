@@ -18,6 +18,7 @@
  *
  */
 
+#include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/iopoll.h>
@@ -60,8 +61,12 @@
 #define SDHI_VER_GEN2_SDR104	0xcb0d
 #define SDHI_VER_GEN3_SD	0xcc10
 #define SDHI_VER_GEN3_SDMMC	0xcd10
+#define SDHI_VER_RZ_G3L_SDMMC	0xce10
 
 #define SDHI_GEN3_MMC0_ADDR	0xee140000
+
+#define RZG3L_CLK_CTL_DIV9_DIV8		GENMASK(17, 16)
+#define RZG3L_CLK_CTL_DIV9_DIV8_SRC	GENMASK(9, 8)
 
 static void renesas_sdhi_sdbuf_width(struct tmio_mmc_host *host, int width)
 {
@@ -80,6 +85,7 @@ static void renesas_sdhi_sdbuf_width(struct tmio_mmc_host *host, int width)
 		break;
 	case SDHI_VER_GEN3_SD:
 	case SDHI_VER_GEN3_SDMMC:
+	case SDHI_VER_RZ_G3L_SDMMC:
 		if (width == 64)
 			val = HOST_MODE_GEN3_64BIT;
 		else if (width == 32)
@@ -205,14 +211,28 @@ static unsigned int renesas_sdhi_clk_update(struct tmio_mmc_host *host,
 	return renesas_sdhi_clk_get_rate(host, priv->clk);
 }
 
+static void renesas_sdhi_sclken(struct tmio_mmc_host *host, bool enable)
+{
+	if (host->pdata->flags & TMIO_MMC_INTERNAL_DIVIDER) {
+		u32 val = sd_ctrl_read32(host, CTL_SD_CARD_CLK_CTL);
+
+		val = enable ? val | CLK_CTL_SCLKEN : val & ~CLK_CTL_SCLKEN;
+		sd_ctrl_write32(host, CTL_SD_CARD_CLK_CTL, val);
+	} else {
+		u16 val = sd_ctrl_read16(host, CTL_SD_CARD_CLK_CTL);
+
+		val = enable ? val | CLK_CTL_SCLKEN : val & ~CLK_CTL_SCLKEN;
+		sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, val);
+	}
+}
+
 static void renesas_sdhi_set_clock(struct tmio_mmc_host *host,
 				   unsigned int new_clock)
 {
 	unsigned int clk_margin;
 	u64 clk = 0, clock;
 
-	sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, ~CLK_CTL_SCLKEN &
-		sd_ctrl_read16(host, CTL_SD_CARD_CLK_CTL));
+	renesas_sdhi_sclken(host, false);
 
 	if (new_clock == 0) {
 		host->mmc->actual_clock = 0;
@@ -243,12 +263,21 @@ static void renesas_sdhi_set_clock(struct tmio_mmc_host *host,
 	if (clock != SDHI_SD_CLK_CTL_DIV1)
 		host->mmc->actual_clock /= (1 << (ffs(clock) + 1));
 
-	sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, clock);
+	if (host->pdata->flags & TMIO_MMC_INTERNAL_DIVIDER) {
+		u64 tmp;
+
+		tmp = FIELD_GET(RZG3L_CLK_CTL_DIV9_DIV8_SRC, clk);
+		clock |= FIELD_PREP(RZG3L_CLK_CTL_DIV9_DIV8, tmp);
+		clock &= ~RZG3L_CLK_CTL_DIV9_DIV8_SRC;
+		sd_ctrl_write32(host, CTL_SD_CARD_CLK_CTL, clock);
+	} else {
+		sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, clock);
+	}
+
 	if (!(host->pdata->flags & TMIO_MMC_MIN_RCAR2))
 		usleep_range(10000, 11000);
 
-	sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, CLK_CTL_SCLKEN |
-		sd_ctrl_read16(host, CTL_SD_CARD_CLK_CTL));
+	renesas_sdhi_sclken(host, true);
 
 out:
 	/* HW engineers overrode docs: no sleep needed on R-Car2+ */
@@ -279,12 +308,14 @@ static int renesas_sdhi_card_busy(struct mmc_host *mmc)
 #define SH_MOBILE_SDHI_SCC_RVSCNTL	0x008
 #define SH_MOBILE_SDHI_SCC_RVSREQ	0x00A
 #define SH_MOBILE_SDHI_SCC_SMPCMP       0x00C
-#define SH_MOBILE_SDHI_SCC_TMPPORT2	0x00E
+#define SH_MOBILE_SDHI_SCC_TMPPORT2	0x00E /* G3L: SDm_SCC_HS400MODE1 */
+#define RZG3L_SDHI_SCC_HWADJ2		0x010
 #define SH_MOBILE_SDHI_SCC_TMPPORT3	0x014
 #define SH_MOBILE_SDHI_SCC_TMPPORT4	0x016
 #define SH_MOBILE_SDHI_SCC_TMPPORT5	0x018
 #define SH_MOBILE_SDHI_SCC_TMPPORT6	0x01A
 #define SH_MOBILE_SDHI_SCC_TMPPORT7	0x01C
+#define RZG3L_SDHI_SCC_HWADJ4		0x022
 
 #define SH_MOBILE_SDHI_SCC_DTCNTL_TAPEN		BIT(0)
 #define SH_MOBILE_SDHI_SCC_DTCNTL_TAPNUM_SHIFT	16
@@ -304,6 +335,9 @@ static int renesas_sdhi_card_busy(struct mmc_host *mmc)
 
 #define SH_MOBILE_SDHI_SCC_TMPPORT2_HS400OSEL	BIT(4)
 #define SH_MOBILE_SDHI_SCC_TMPPORT2_HS400EN	BIT(31)
+
+#define RZG3L_SDHI_SCC_HWADJ2_1_8V	0xff
+#define RZG3L_SDHI_SCC_HWADJ2_3_3V	0x3fff
 
 /* Definitions for values the SH_MOBILE_SDHI_SCC_TMPPORT4 register */
 #define SH_MOBILE_SDHI_SCC_TMPPORT4_DLL_ACC_START	BIT(0)
@@ -335,14 +369,22 @@ static void renesas_sdhi_set_hw_adjustment_delay(struct tmio_mmc_host *host,
 						 bool force_clear)
 {
 	struct renesas_sdhi *priv = host_to_priv(host);
+	bool hwadj2 = host->pdata->flags & TMIO_MMC_HWADJ;
 
 	if (!(host->pdata->flags & TMIO_MMC_TUNING_DELAY))
 		return;
 
-	if (host->mmc->ios.signal_voltage == MMC_SIGNAL_VOLTAGE_330 || force_clear)
+	if (host->mmc->ios.signal_voltage == MMC_SIGNAL_VOLTAGE_330 || force_clear) {
 		sd_scc_write32(host, priv, SH_MOBILE_SDHI_SCC_TMPPORT2, 0x0);
-	else
+		if (hwadj2)
+			sd_scc_write32(host, priv, RZG3L_SDHI_SCC_HWADJ2,
+				       RZG3L_SDHI_SCC_HWADJ2_3_3V);
+	} else {
 		sd_scc_write32(host, priv, SH_MOBILE_SDHI_SCC_TMPPORT2, 0x1);
+		if (hwadj2)
+			sd_scc_write32(host, priv, RZG3L_SDHI_SCC_HWADJ2,
+				       RZG3L_SDHI_SCC_HWADJ2_1_8V);
+	}
 }
 
 static int renesas_sdhi_start_signal_voltage_switch(struct mmc_host *mmc,
@@ -390,8 +432,7 @@ static unsigned int renesas_sdhi_init_tuning(struct tmio_mmc_host *host)
 	/* Initialize SCC */
 	sd_ctrl_write32_as_16_and_16(host, CTL_STATUS, 0x0);
 
-	sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, ~CLK_CTL_SCLKEN &
-			sd_ctrl_read16(host, CTL_SD_CARD_CLK_CTL));
+	renesas_sdhi_sclken(host, false);
 
 	/* set sampling clock selection range */
 	sd_scc_write32(host, priv, SH_MOBILE_SDHI_SCC_DTCNTL,
@@ -409,9 +450,10 @@ static unsigned int renesas_sdhi_init_tuning(struct tmio_mmc_host *host)
 	sd_scc_write32(host, priv, SH_MOBILE_SDHI_SCC_DT2FF, priv->scc_tappos);
 
 	renesas_sdhi_set_hw_adjustment_delay(host, false);
+	if (host->pdata->flags & TMIO_MMC_HWADJ)
+		sd_scc_write32(host, priv, RZG3L_SDHI_SCC_HWADJ4, 0x0);
 
-	sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, CLK_CTL_SCLKEN |
-			sd_ctrl_read16(host, CTL_SD_CARD_CLK_CTL));
+	renesas_sdhi_sclken(host, true);
 
 	/* Read TAPNUM */
 	return (sd_scc_read32(host, priv, SH_MOBILE_SDHI_SCC_DTCNTL) >>
@@ -426,8 +468,7 @@ static void renesas_sdhi_hs400_complete(struct mmc_host *mmc)
 	u32 bad_taps = priv->quirks ? priv->quirks->hs400_bad_taps : 0;
 	bool use_4tap = sdhi_has_quirk(priv, hs400_4taps);
 
-	sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, ~CLK_CTL_SCLKEN &
-		sd_ctrl_read16(host, CTL_SD_CARD_CLK_CTL));
+	renesas_sdhi_sclken(host, false);
 
 	/* Set HS400 mode */
 	sd_ctrl_write16(host, CTL_SDIF_MODE, SDIF_MODE_HS400 |
@@ -473,8 +514,7 @@ static void renesas_sdhi_hs400_complete(struct mmc_host *mmc)
 		       SH_MOBILE_SDHI_SCC_CKSEL_DTSEL |
 		       sd_scc_read32(host, priv, SH_MOBILE_SDHI_SCC_CKSEL));
 
-	sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, CLK_CTL_SCLKEN |
-			sd_ctrl_read16(host, CTL_SD_CARD_CLK_CTL));
+	renesas_sdhi_sclken(host, true);
 
 	if (priv->adjust_hs400_calib_table)
 		priv->needs_adjust_hs400 = true;
@@ -485,8 +525,7 @@ static void renesas_sdhi_disable_scc(struct mmc_host *mmc)
 	struct tmio_mmc_host *host = mmc_priv(mmc);
 	struct renesas_sdhi *priv = host_to_priv(host);
 
-	sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, ~CLK_CTL_SCLKEN &
-			sd_ctrl_read16(host, CTL_SD_CARD_CLK_CTL));
+	renesas_sdhi_sclken(host, false);
 
 	sd_scc_write32(host, priv, SH_MOBILE_SDHI_SCC_CKSEL,
 		       ~SH_MOBILE_SDHI_SCC_CKSEL_DTSEL &
@@ -498,8 +537,7 @@ static void renesas_sdhi_disable_scc(struct mmc_host *mmc)
 		       sd_scc_read32(host, priv,
 				     SH_MOBILE_SDHI_SCC_DTCNTL));
 
-	sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, CLK_CTL_SCLKEN |
-			sd_ctrl_read16(host, CTL_SD_CARD_CLK_CTL));
+	renesas_sdhi_sclken(host, true);
 }
 
 static u32 sd_scc_tmpport_read32(struct tmio_mmc_host *host,
@@ -573,8 +611,7 @@ static void renesas_sdhi_adjust_hs400_mode_disable(struct tmio_mmc_host *host)
 static void renesas_sdhi_reset_hs400_mode(struct tmio_mmc_host *host,
 					  struct renesas_sdhi *priv)
 {
-	sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, ~CLK_CTL_SCLKEN &
-			sd_ctrl_read16(host, CTL_SD_CARD_CLK_CTL));
+	renesas_sdhi_sclken(host, false);
 
 	/* Reset HS400 mode */
 	sd_ctrl_write16(host, CTL_SDIF_MODE, ~SDIF_MODE_HS400 &
@@ -590,8 +627,7 @@ static void renesas_sdhi_reset_hs400_mode(struct tmio_mmc_host *host,
 	if (sdhi_has_quirk(priv, hs400_calib_table) || sdhi_has_quirk(priv, hs400_bad_taps))
 		renesas_sdhi_adjust_hs400_mode_disable(host);
 
-	sd_ctrl_write16(host, CTL_SD_CARD_CLK_CTL, CLK_CTL_SCLKEN |
-			sd_ctrl_read16(host, CTL_SD_CARD_CLK_CTL));
+	renesas_sdhi_sclken(host, true);
 }
 
 static int renesas_sdhi_prepare_hs400_tuning(struct mmc_host *mmc, struct mmc_ios *ios)
