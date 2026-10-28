@@ -637,6 +637,8 @@ static ssize_t smu_v14_0_0_get_gpu_metrics(struct smu_context *smu,
 	gpu_metrics->average_dgpu_power = metrics.dGpuPower;
 	gpu_metrics->average_all_core_power = metrics.AllCorePower;
 	gpu_metrics->average_sys_power = metrics.Psys;
+	gpu_metrics->stapm_power_limit = metrics.StapmOpnLimit;
+	gpu_metrics->current_stapm_power_limit = metrics.StapmCurrentLimit;
 	memcpy(&gpu_metrics->average_core_power[0],
 		&metrics.CorePower[0],
 		sizeof(uint16_t) * 16);
