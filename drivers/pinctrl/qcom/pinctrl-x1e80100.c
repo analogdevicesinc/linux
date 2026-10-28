@@ -1855,6 +1855,7 @@ static struct platform_driver x1e80100_pinctrl_driver = {
 	.driver = {
 		.name = "x1e80100-tlmm",
 		.of_match_table = x1e80100_pinctrl_of_match,
+		.pm = &msm_pinctrl_dev_pm_ops,
 	},
 	.probe = x1e80100_pinctrl_probe,
 };
