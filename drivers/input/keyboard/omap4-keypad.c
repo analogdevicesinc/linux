@@ -461,16 +461,11 @@ static int omap4_keypad_probe(struct platform_device *pdev)
 	}
 
 	device_init_wakeup(dev, true);
-	error = dev_pm_set_wake_irq(dev, keypad_data->irq);
+	error = devm_pm_set_wake_irq(dev, keypad_data->irq);
 	if (error)
 		dev_warn(dev, "failed to set up wakeup irq: %d\n", error);
 
 	return 0;
-}
-
-static void omap4_keypad_remove(struct platform_device *pdev)
-{
-	dev_pm_clear_wake_irq(&pdev->dev);
 }
 
 static const struct of_device_id omap_keypad_dt_match[] = {
@@ -481,7 +476,6 @@ MODULE_DEVICE_TABLE(of, omap_keypad_dt_match);
 
 static struct platform_driver omap4_keypad_driver = {
 	.probe		= omap4_keypad_probe,
-	.remove		= omap4_keypad_remove,
 	.driver		= {
 		.name	= "omap4-keypad",
 		.of_match_table = omap_keypad_dt_match,

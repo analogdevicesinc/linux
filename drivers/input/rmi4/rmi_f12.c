@@ -58,6 +58,8 @@ struct f12_data {
 	const struct rmi_register_desc_item *data15;
 	u16 data15_offset;
 
+	u32 read_size;
+
 	unsigned long irq_mask[];
 };
 
@@ -269,8 +271,9 @@ static irqreturn_t rmi_f12_attention(int irq, void *ctx)
 		drvdata->attn_data.data += valid_bytes;
 		drvdata->attn_data.size -= valid_bytes;
 	} else {
+		valid_bytes = f12->read_size;
 		retval = rmi_read_block(rmi_dev, f12->data_addr,
-					sensor->data_pkt, sensor->pkt_size);
+					sensor->data_pkt, valid_bytes);
 		if (retval < 0) {
 			dev_err(&fn->dev, "Failed to read object data. Code: %d.\n",
 				retval);
@@ -278,9 +281,9 @@ static irqreturn_t rmi_f12_attention(int irq, void *ctx)
 		}
 	}
 
-	if (f12->data1)
+	if (f12->data1 && valid_bytes > f12->data1_offset)
 		rmi_f12_process_objects(f12, &sensor->data_pkt[f12->data1_offset],
-					valid_bytes);
+					valid_bytes - f12->data1_offset);
 
 	input_mt_sync_frame(sensor->input);
 
@@ -528,6 +531,17 @@ static int rmi_f12_probe(struct rmi_function *fn)
 
 		data_offset += item->reg_size;
 	}
+
+	/*
+	 * Only Data1 (object reports) is consumed when the data registers
+	 * are read from the device, so do not read the remaining registers
+	 * on every attention. On SMBus this transfer dominates the per-frame
+	 * cost and therefore limits the report rate.
+	 */
+	f12->read_size = sensor->pkt_size;
+	if (f12->data1)
+		f12->read_size = min_t(u32, sensor->pkt_size,
+				       f12->data1_offset + f12->data1->reg_size);
 
 	/* allocate the in-kernel tracking buffers */
 	sensor->tracking_pos = devm_kcalloc(&fn->dev, sensor->nbr_fingers,
