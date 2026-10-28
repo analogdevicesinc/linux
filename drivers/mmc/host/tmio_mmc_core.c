@@ -1170,8 +1170,10 @@ int tmio_mmc_host_probe(struct tmio_mmc_host *_host)
 	if (mmc->f_min == 0)
 		return -EINVAL;
 
-	if (!(pdata->flags & TMIO_MMC_HAS_IDLE_WAIT))
+	if (!(pdata->flags & TMIO_MMC_HAS_IDLE_WAIT)) {
 		_host->write16_hook = NULL;
+		_host->write32_hook = NULL;
+	}
 
 	if (pdata->flags & TMIO_MMC_USE_BUSY_TIMEOUT && !_host->get_timeout_cycles)
 		_host->get_timeout_cycles = tmio_mmc_get_timeout_cycles;
