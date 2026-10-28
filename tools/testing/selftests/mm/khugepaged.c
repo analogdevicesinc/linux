@@ -953,23 +953,25 @@ static void collapse_compound_extreme(struct collapse_context *c, struct mem_ops
 	void *p;
 	int i;
 
-	/*
-	 * This needs hpage_pmd_nr PMD-order allocations in a row, which the
-	 * allocator will not supply if the PMD is very large.
-	 */
-	if (hpage_pmd_size > (32UL << 20)) {
-		ksft_test_result_skip("%s: PMD too large for fault-time THP construction\n",
-				      __func__);
-		return;
-	}
-
 	p = ops->setup_area(1);
 	ksft_print_msg("Construct PTE page table full of different PTE-mapped compound pages\n");
 	for (i = 0; i < hpage_pmd_nr; i++) {
 		madvise(BASE_ADDR, hpage_pmd_size, MADV_HUGEPAGE);
 		ops->fault(BASE_ADDR, 0, hpage_pmd_size);
-		if (!ops->check_huge(BASE_ADDR, hpage_pmd_size, 1, hpage_pmd_size))
-			ksft_exit_fail_msg("Failed to allocate huge page\n");
+		if (!ops->check_huge(BASE_ADDR, hpage_pmd_size, 1, hpage_pmd_size)) {
+			/*
+			 * Constructing the PTE table requires hpage_pmd_nr
+			 * PMD-order allocations in a row.  Whether the
+			 * allocator can supply them depends on the memory
+			 * available on the machine, not on the kernel: skip
+			 * instead of failing the test run.
+			 */
+			ops->cleanup_area(BASE_ADDR - i * page_size,
+					  i * page_size + hpage_pmd_size);
+			ksft_test_result_skip("%s: Failed to allocate huge page\n",
+					      __func__);
+			return;
+		}
 		madvise(BASE_ADDR, hpage_pmd_size, MADV_NOHUGEPAGE);
 
 		p = mremap(BASE_ADDR - i * page_size,
