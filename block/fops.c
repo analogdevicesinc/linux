@@ -724,6 +724,9 @@ static ssize_t blkdev_buffered_write(struct kiocb *iocb, struct iov_iter *from)
 	struct inode *inode = bdev_file_inode(iocb->ki_filp);
 	ssize_t ret;
 
+	if (unlikely(iov_iter_is_dmabuf_map(from)))
+		return -EOPNOTSUPP;
+
 	/* Buffered fallback waits for writeback, which NOWAIT cannot allow. */
 	if (iocb->ki_flags & IOCB_NOWAIT)
 		return -EAGAIN;
@@ -812,9 +815,7 @@ static ssize_t blkdev_write_iter(struct kiocb *iocb, struct iov_iter *from)
 			} else {
 				ssize_t ret2;
 
-				inode_lock_shared(bd_inode);
 				ret2 = blkdev_buffered_write(iocb, from);
-				inode_unlock_shared(bd_inode);
 				ret = direct_write_fallback(iocb, from, ret,
 							    ret2);
 				need_sync = true;
