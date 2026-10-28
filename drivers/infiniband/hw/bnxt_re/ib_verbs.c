@@ -4909,6 +4909,8 @@ int bnxt_re_alloc_ucontext(struct ib_ucontext *ctx, struct ib_udata *udata)
 
 	return 0;
 cfail:
+	rdma_user_mmap_entry_remove(uctx->shpage_mmap);
+	uctx->shpage_mmap = NULL;
 	free_page((unsigned long)uctx->shpg);
 	uctx->shpg = NULL;
 fail:
