@@ -2271,7 +2271,8 @@ bool kvm_lapic_hv_timer_in_use(struct kvm_vcpu *vcpu)
 
 static void cancel_hv_timer(struct kvm_lapic *apic)
 {
-	WARN_ON(preemptible());
+	lockdep_assert_preemption_disabled();
+
 	WARN_ON(!apic->lapic_timer.hv_timer_in_use);
 	kvm_x86_call(cancel_hv_timer)(apic->vcpu);
 	apic->lapic_timer.hv_timer_in_use = false;
@@ -2283,7 +2284,8 @@ static bool start_hv_timer(struct kvm_lapic *apic)
 	struct kvm_vcpu *vcpu = apic->vcpu;
 	bool expired;
 
-	WARN_ON(preemptible());
+	lockdep_assert_preemption_disabled();
+
 	if (!kvm_can_use_hv_timer(vcpu))
 		return false;
 
@@ -2323,7 +2325,8 @@ static void start_sw_timer(struct kvm_lapic *apic)
 {
 	struct kvm_timer *ktimer = &apic->lapic_timer;
 
-	WARN_ON(preemptible());
+	lockdep_assert_preemption_disabled();
+
 	if (apic->lapic_timer.hv_timer_in_use)
 		cancel_hv_timer(apic);
 	if (!apic_lvtt_period(apic) && atomic_read(&ktimer->pending))
