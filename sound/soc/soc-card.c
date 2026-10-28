@@ -28,7 +28,7 @@ static inline int _soc_card_ret(struct snd_soc_card *card,
 }
 
 #ifdef CONFIG_DEBUG_FS
-void snd_soc_card_debugfs_init(struct snd_soc_card *card)
+static void snd_soc_card_debugfs_init(struct snd_soc_card *card)
 {
 	card->debugfs_card_root = debugfs_create_dir(card->name,
 						     snd_soc_debugfs_root);
@@ -36,14 +36,14 @@ void snd_soc_card_debugfs_init(struct snd_soc_card *card)
 	snd_soc_dapm_debugfs_init(snd_soc_card_to_dapm(card), card->debugfs_card_root);
 }
 
-void snd_soc_card_debugfs_cleanup(struct snd_soc_card *card)
+static void snd_soc_card_debugfs_cleanup(struct snd_soc_card *card)
 {
 	debugfs_remove_recursive(card->debugfs_card_root);
 	card->debugfs_card_root = NULL;
 }
 #else
-void snd_soc_card_debugfs_init(struct snd_soc_card *card) { }
-void snd_soc_card_debugfs_cleanup(struct snd_soc_card *card) { }
+static inline void snd_soc_card_debugfs_init(struct snd_soc_card *card) { }
+static inline void snd_soc_card_debugfs_cleanup(struct snd_soc_card *card) { }
 #endif /* CONFIG_DEBUG_FS */
 
 #ifdef CONFIG_PM_SLEEP
@@ -92,16 +92,16 @@ static void snd_soc_card_resume_deferred(struct work_struct *work)
 	snd_power_change_state(card->snd_card, SNDRV_CTL_POWER_D0);
 }
 
-void snd_soc_card_resume_init(struct snd_soc_card *card)
+static void snd_soc_card_resume_init(struct snd_soc_card *card)
 {
 	/* deferred resume work */
 	INIT_WORK(&card->deferred_resume_work, snd_soc_card_resume_deferred);
 }
 #else
-void snd_soc_card_resume_init(struct snd_soc_card *card) { }
+static inline void snd_soc_card_resume_init(struct snd_soc_card *card) { }
 #endif /* CONFIG_PM_SLEEP */
 
-void snd_soc_card_fill_dummy_dai(struct snd_soc_card *card)
+static void snd_soc_card_fill_dummy_dai(struct snd_soc_card *card)
 {
 	struct snd_soc_dai_link *dai_link;
 	int i;
@@ -123,8 +123,8 @@ void snd_soc_card_fill_dummy_dai(struct snd_soc_card *card)
 	}
 }
 
-int snd_soc_card_init_pcm_runtime(struct snd_soc_card *card,
-				  struct snd_soc_pcm_runtime *rtd)
+static int snd_soc_card_init_pcm_runtime(struct snd_soc_card *card,
+					 struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_dai_link *dai_link = rtd->dai_link;
 	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
@@ -171,7 +171,7 @@ err:
 	return ret;
 }
 
-void snd_soc_card_link_dais_remove(struct snd_soc_card *card)
+static void snd_soc_card_link_dais_remove(struct snd_soc_card *card)
 {
 	struct snd_soc_pcm_runtime *rtd;
 	int order;
@@ -184,7 +184,7 @@ void snd_soc_card_link_dais_remove(struct snd_soc_card *card)
 	}
 }
 
-int snd_soc_card_link_dais_probe(struct snd_soc_card *card)
+static int snd_soc_card_link_dais_probe(struct snd_soc_card *card)
 {
 	struct snd_soc_pcm_runtime *rtd;
 	int order, ret;
@@ -201,7 +201,7 @@ int snd_soc_card_link_dais_probe(struct snd_soc_card *card)
 	return 0;
 }
 
-void snd_soc_card_link_components_remove(struct snd_soc_card *card)
+static void snd_soc_card_link_components_remove(struct snd_soc_card *card)
 {
 	struct snd_soc_component *component;
 	struct snd_soc_pcm_runtime *rtd;
@@ -219,7 +219,7 @@ void snd_soc_card_link_components_remove(struct snd_soc_card *card)
 	}
 }
 
-int snd_soc_card_link_components_probe(struct snd_soc_card *card)
+static int snd_soc_card_link_components_probe(struct snd_soc_card *card)
 {
 	struct snd_soc_component *component;
 	struct snd_soc_pcm_runtime *rtd;
@@ -241,7 +241,7 @@ int snd_soc_card_link_components_probe(struct snd_soc_card *card)
 	return 0;
 }
 
-void snd_soc_card_aux_unbind(struct snd_soc_card *card)
+static void snd_soc_card_aux_unbind(struct snd_soc_card *card)
 {
 	struct snd_soc_component *component, *_component;
 
@@ -252,7 +252,7 @@ void snd_soc_card_aux_unbind(struct snd_soc_card *card)
 	}
 }
 
-int snd_soc_card_aux_bind(struct snd_soc_card *card)
+static int snd_soc_card_aux_bind(struct snd_soc_card *card)
 {
 	struct snd_soc_component *component;
 	struct snd_soc_aux_dev *aux;
@@ -272,7 +272,7 @@ int snd_soc_card_aux_bind(struct snd_soc_card *card)
 	return 0;
 }
 
-int snd_soc_card_aux_probe(struct snd_soc_card *card)
+static int snd_soc_card_aux_probe(struct snd_soc_card *card)
 {
 	struct snd_soc_component *component;
 	int order;
@@ -292,7 +292,7 @@ int snd_soc_card_aux_probe(struct snd_soc_card *card)
 	return 0;
 }
 
-void snd_soc_card_aux_remove(struct snd_soc_card *card)
+static void snd_soc_card_aux_remove(struct snd_soc_card *card)
 {
 	struct snd_soc_component *comp, *_comp;
 	int order;
@@ -408,7 +408,7 @@ static void append_dmi_string(char *dst, const char *str)
  *
  * Returns 0 on success, otherwise a negative error code.
  */
-int snd_soc_card_set_dmi_name(struct snd_soc_card *card)
+static int snd_soc_card_set_dmi_name(struct snd_soc_card *card)
 {
 	const char *vendor, *product, *board;
 	char *dmi_longname;
@@ -463,7 +463,7 @@ int snd_soc_card_set_dmi_name(struct snd_soc_card *card)
 	return 0;
 }
 #else
-int snd_soc_card_set_dmi_name(struct snd_soc_card *card)
+static inline int snd_soc_card_set_dmi_name(struct snd_soc_card *card)
 {
 	return 0;
 }
