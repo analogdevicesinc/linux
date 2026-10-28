@@ -80,10 +80,10 @@ static int loongson_i2s_hw_params(struct snd_pcm_substream *substream,
 		mclk_ratio = DIV_ROUND_CLOSEST(clk_rate, (sysclk * 2)) - 1;
 
 		/* According to 2k1000LA user manual, set bits == depth */
-		val |= (bits << 24);
-		val |= (bits << 16);
-		val |= (bclk_ratio << 8);
-		val |= mclk_ratio;
+		val = FIELD_PREP(LS_I2S_CFG_LR_LEN_MASK, bits) |
+		      FIELD_PREP(LS_I2S_CFG_TX_RES_DEPTH_MASK, bits) |
+		      FIELD_PREP(LS_I2S_CFG_BCLK_RATIO_MASK, bclk_ratio) |
+		      FIELD_PREP(LS_I2S_CFG_MCLK_RATIO_MASK, mclk_ratio);
 		regmap_write(i2s->regmap, LS_I2S_CFG, val);
 
 		break;
@@ -106,7 +106,8 @@ static int loongson_i2s_hw_params(struct snd_pcm_substream *substream,
 		}
 		regmap_update_bits(i2s->regmap, LS_I2S_CFG, mask, val);
 
-		val = (mclk_ratio_frac << 16) | mclk_ratio;
+		val = FIELD_PREP(LS_I2S_CFG1_MCLK_RATIO_FRAC_MASK, mclk_ratio_frac) |
+		      FIELD_PREP(LS_I2S_CFG1_MCLK_RATIO_MASK, mclk_ratio);
 		regmap_write(i2s->regmap, LS_I2S_CFG1, val);
 
 		break;
