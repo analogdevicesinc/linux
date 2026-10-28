@@ -312,11 +312,11 @@ static irqreturn_t ds1343_thread(int irq, void *dev_id)
 	unsigned int stat;
 	int res = 0;
 
-	rtc_lock(priv->rtc);
+	guard(rtc_ops)(priv->rtc);
 
 	res = regmap_read(priv->map, DS1343_STATUS_REG, &stat);
 	if (res)
-		goto out;
+		return IRQ_HANDLED;
 
 	if (stat & DS1343_IRQF0) {
 		stat &= ~DS1343_IRQF0;
@@ -328,8 +328,6 @@ static irqreturn_t ds1343_thread(int irq, void *dev_id)
 				   DS1343_A0IE, 0);
 	}
 
-out:
-	rtc_unlock(priv->rtc);
 	return IRQ_HANDLED;
 }
 
