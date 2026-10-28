@@ -420,6 +420,20 @@ static const struct iio_chan_spec _name[] = {                           \
 LTC2497_DEFINE_CHANNELS(ltc2497core_channel, 0);
 LTC2497_DEFINE_CHANNELS(ltc2497core_channel_samp_freq, BIT(IIO_CHAN_INFO_SAMP_FREQ));
 
+static const struct iio_chan_spec ltc2493_channel[] = {
+	LTC2497_CHAN(0, LTC2497_SGL, "CH0", BIT(IIO_CHAN_INFO_SAMP_FREQ)),
+	LTC2497_CHAN(1, LTC2497_SGL, "CH1", BIT(IIO_CHAN_INFO_SAMP_FREQ)),
+	LTC2497_CHAN(2, LTC2497_SGL, "CH2", BIT(IIO_CHAN_INFO_SAMP_FREQ)),
+	LTC2497_CHAN(3, LTC2497_SGL, "CH3", BIT(IIO_CHAN_INFO_SAMP_FREQ)),
+	LTC2497_CHAN_DIFF(0, LTC2497_DIFF, BIT(IIO_CHAN_INFO_SAMP_FREQ)),
+	LTC2497_CHAN_DIFF(1, LTC2497_DIFF, BIT(IIO_CHAN_INFO_SAMP_FREQ)),
+	LTC2497_CHAN_DIFF(0, LTC2497_DIFF | LTC2497_SIGN,
+			  BIT(IIO_CHAN_INFO_SAMP_FREQ)),
+	LTC2497_CHAN_DIFF(1, LTC2497_DIFF | LTC2497_SIGN,
+			  BIT(IIO_CHAN_INFO_SAMP_FREQ)),
+	LTC2497_TEMP_CHANNEL,
+};
+
 /*
  * The temperature channel is the last entry of each table, so a part without
  * the sensor stops one short of it.
@@ -435,6 +449,12 @@ const struct ltc2497_channel_set ltc2497_chanset_ltc2499 = {
 	.num_channels	= ARRAY_SIZE(ltc2497core_channel_samp_freq),
 };
 EXPORT_SYMBOL_NS_GPL(ltc2497_chanset_ltc2499, "LTC2497");
+
+const struct ltc2497_channel_set ltc2497_chanset_ltc2493 = {
+	.channels	= ltc2493_channel,
+	.num_channels	= ARRAY_SIZE(ltc2493_channel),
+};
+EXPORT_SYMBOL_NS_GPL(ltc2497_chanset_ltc2493, "LTC2497");
 
 static const struct iio_info ltc2497core_info = {
 	.read_raw = ltc2497core_read_raw,
