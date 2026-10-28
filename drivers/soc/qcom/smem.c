@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2015, Sony Mobile Communications AB.
  * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/debugfs.h>
@@ -87,6 +88,18 @@
 
 /* Processor/host identifier for the global partition */
 #define SMEM_GLOBAL_HOST	0xfffe
+
+/* Entry range check
+ * ptr >= start : Checks if ptr is at or past the start of the region
+ * ptr <= end   : Checks if ptr is within the region
+ * size <= end - ptr: Checks if size fits in the remaining space, using
+ *                    uintptr_t subtraction to avoid pointer overflow UB
+ *                    (safe because ptr <= end is checked first)
+ */
+#define IN_PARTITION_RANGE(ptr, size, start, end)		\
+	((void *)(ptr) >= (void *)(start) &&			\
+	 (void *)(ptr) <= (void *)(end) &&			\
+	 (size) <= (uintptr_t)(end) - (uintptr_t)(ptr))
 
 /**
   * struct smem_proc_comm - proc_comm communication struct (legacy)
