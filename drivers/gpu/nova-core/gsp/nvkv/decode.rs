@@ -3,17 +3,468 @@
 
 #![cfg_attr(not(CONFIG_KUNIT = "y"), expect(dead_code))]
 
-use kernel::prelude::*;
+use core::marker::PhantomData;
+
+use kernel::{
+    alloc::ArrayVec,
+    prelude::*, //
+};
+use pin_init::{
+    init_array_from_fn,
+    stack_try_pin_init, //
+};
 
 use crate::{
     gsp::nvkv::{
+        Array,
         Index,
+        Key,
         KeyId,
         Op,
         Opcode, //
     },
     num::IntoSafeCast, //
 };
+
+/// Defines a schema struct together with its [`Schema`] and [`Visit`] implementations that decode
+/// into `$target`.
+///
+/// Each member of the struct should implement [`Schema`] and [`Visit`]. For every
+/// `(key, index, value)` triple decoded from the NVKV stream, the generated parent [`Visit`]
+/// implementation will call each member in declaration order with that triple. If a member consumes
+/// that triple, it will stop there. Otherwise it will keep going until all members are tried.
+///
+/// The schema struct holds the state required by the schema implementation to do the decode. It's
+/// recommended to use one of the existing [`Schema`] kinds ([`Required`], [`Optional`],
+/// [`Accumulated`], [`Key`], [`Array`], [`TruncatingArray`], [`Indexed`]) for each member.
+///
+/// Use a lifetime on the schema struct if you want to borrow data directly from the encoded stream,
+/// for example, `Key<&'d [u8], KEY>`.
+///
+/// # Examples
+///
+/// ```
+/// nvkv_decode! {
+///     struct RequestSchema => Request {
+///         id: Required<Key<u32, 0x0001>>,
+///         name: Array<u8, 64, 0x0002>,
+///     }
+/// }
+///
+/// nvkv_decode! {
+///     struct NameSchema<'d> => Name<'d> {
+///         name: Key<&'d [u8], 0x0002>,
+///     }
+/// }
+/// ```
+#[cfg_attr(not(CONFIG_KUNIT = "y"), expect(unused_macros))]
+macro_rules! nvkv_decode {
+    // A schema which doesn't borrow from the stream. The macro uses a generic lifetime for the
+    // [`Visit`] implementation but not for the struct itself. This allows omitting the unused
+    // lifetime on the struct.
+    (
+        $(#[$attr:meta])*
+        $vis:vis struct $name:ident => $target:ty { $($fields:tt)* }
+    ) => {
+        $crate::gsp::nvkv::nvkv_decode!(
+            @impl ['data] [] $(#[$attr])* $vis struct $name => $target { $($fields)* }
+        );
+    };
+    // A schema which borrows from the stream for lifetime `$datalt`. The macro connects the
+    // [`Visit`] lifetime with the struct lifetime.
+    (
+        $(#[$attr:meta])*
+        $vis:vis struct $name:ident<$datalt:lifetime> => $target:ty { $($fields:tt)* }
+    ) => {
+        $crate::gsp::nvkv::nvkv_decode!(
+            @impl [$datalt] [<$datalt>] $(#[$attr])* $vis struct $name => $target { $($fields)* }
+        );
+    };
+    (@impl [$datalt:lifetime] [$($generics:tt)*]
+        $(#[$attr:meta])*
+        $vis:vis struct $name:ident => $target:ty {
+            $(
+                $(#[$field_attr:meta])*
+                $field_vis:vis $field:ident : $ty:ty
+            ),* $(,)?
+        }
+    ) => {
+        $(#[$attr])*
+        $vis struct $name $($generics)* {
+            $(
+                $(#[$field_attr])*
+                $field_vis $field: $ty,
+            )*
+        }
+
+        impl $($generics)* $crate::gsp::nvkv::Schema for $name $($generics)* {
+            type Target = $target;
+
+            fn init() -> impl ::kernel::prelude::Init<Self> {
+                ::pin_init::init!(Self {
+                    $( $field <- <$ty as $crate::gsp::nvkv::Schema>::init(), )*
+                })
+            }
+
+            fn finish(
+                &mut self,
+            ) -> impl ::kernel::prelude::Init<Self::Target, ::kernel::error::Error> + '_ {
+                let Self { $($field,)* } = self;
+                ::kernel::try_init!(Self::Target {
+                    $( $field <- $crate::gsp::nvkv::Schema::finish($field), )*
+                }? ::kernel::error::Error)
+            }
+        }
+
+        impl<$datalt> $crate::gsp::nvkv::Visit<$datalt> for $name $($generics)* {
+            fn visit(
+                &mut self,
+                key: $crate::gsp::nvkv::KeyId,
+                index: $crate::gsp::nvkv::Index,
+                value: $crate::gsp::nvkv::DecoderValue<$datalt>,
+            ) -> ::kernel::error::Result<bool> {
+                // TODO: This performs worst-case O(#fields) visit calls. Consider optimising this
+                // if it becomes a problem.
+                Ok(false
+                    $( || $crate::gsp::nvkv::Visit::visit(&mut self.$field, key, index, value)? )*)
+            }
+        }
+    };
+}
+pub(crate) use nvkv_decode;
+
+impl<T: Default, const KEY_ID: KeyId, As> Schema for Key<T, KEY_ID, As> {
+    type Target = T;
+
+    fn init() -> impl Init<Self> {
+        Self::default()
+    }
+
+    fn finish(&mut self) -> impl Init<Self::Target, Error> + '_ {
+        const_assert!(
+            size_of::<T>() <= Self::MAX_STACK_SIZE,
+            "`Key` here would materialize too large a value on the stack"
+        );
+
+        Ok(core::mem::take(&mut self.0))
+    }
+}
+
+impl<'data, T, const KEY_ID: KeyId, As> Visit<'data> for Key<T, KEY_ID, As>
+where
+    As: TryFrom<DecoderValue<'data>, Error = Error>,
+    T: TryFrom<As>,
+    Error: From<<T as TryFrom<As>>::Error>,
+{
+    fn visit(&mut self, key: KeyId, index: Index, value: DecoderValue<'data>) -> Result<bool> {
+        if key != KEY_ID {
+            Ok(false)
+        } else if index != Index::new::<0>() {
+            // Single values being set must be at index 0.
+            Err(EINVAL)
+        } else {
+            // Overwrite and take the latest value here.
+            self.0 = T::try_from(As::try_from(value)?)?;
+            Ok(true)
+        }
+    }
+}
+
+impl<T: Copy, const N: usize, const KEY_ID: KeyId> Array<T, N, KEY_ID> {
+    /// Replaces the elements with `elems`.
+    ///
+    /// Takes the [`Result`] for `elems` because this may be e.g. for an unrelated key.
+    fn set(&mut self, key: KeyId, index: Index, elems: Result<&[T]>) -> Result<bool> {
+        if key != KEY_ID {
+            return Ok(false);
+        }
+        // Require to be at index 0
+        if index != Index::new::<0>() {
+            return Err(EINVAL);
+        }
+        // Reject oversized and take the latest value.
+        self.vec.clear();
+        self.vec.extend_from_slice(elems?)?;
+        Ok(true)
+    }
+}
+
+impl<T: Copy, const N: usize, const KEY_ID: KeyId> Schema for Array<T, N, KEY_ID> {
+    type Target = ArrayVec<T, N>;
+
+    fn init() -> impl Init<Self> {
+        init!(Self {
+            vec <- ArrayVec::init_empty(),
+        })
+    }
+
+    fn finish(&mut self) -> impl Init<Self::Target, Error> + '_ {
+        ArrayVec::init_with(move |dst| {
+            dst.extend_from_slice(&self.vec)?;
+            self.vec.clear();
+            Ok(())
+        })
+    }
+}
+
+impl<'data, T: Copy + 'data, const N: usize, const KEY_ID: KeyId> Visit<'data>
+    for Array<T, N, KEY_ID>
+where
+    &'data [T]: TryFrom<DecoderValue<'data>, Error = Error>,
+{
+    fn visit(&mut self, key: KeyId, index: Index, value: DecoderValue<'data>) -> Result<bool> {
+        self.set(key, index, value.try_into())
+    }
+}
+
+/// A schema field for an array value under the NVKV key `KEY_ID` that keeps at most `N` elements.
+///
+/// Unlike [`Array`], a longer value is truncated to its first `N` elements instead of failing the
+/// decode.
+pub(crate) struct TruncatingArray<T, const N: usize, const KEY_ID: KeyId> {
+    array: Array<T, N, KEY_ID>,
+}
+
+impl<T: Copy, const N: usize, const KEY_ID: KeyId> Schema for TruncatingArray<T, N, KEY_ID> {
+    type Target = ArrayVec<T, N>;
+
+    fn init() -> impl Init<Self> {
+        init!(Self {
+            array <- Array::init(),
+        })
+    }
+
+    fn finish(&mut self) -> impl Init<Self::Target, Error> + '_ {
+        self.array.finish()
+    }
+}
+
+impl<'data, T: Copy + 'data, const N: usize, const KEY_ID: KeyId> Visit<'data>
+    for TruncatingArray<T, N, KEY_ID>
+where
+    &'data [T]: TryFrom<DecoderValue<'data>, Error = Error>,
+{
+    fn visit(&mut self, key: KeyId, index: Index, value: DecoderValue<'data>) -> Result<bool> {
+        let elems = <&[T]>::try_from(value).map(|elems| elems.get(..N).unwrap_or(elems));
+        self.array.set(key, index, elems)
+    }
+}
+
+/// A schema field that marks a child [`Schema`] as required.
+///
+/// `finish` fails with [`EINVAL`] if the child consumed no value.
+pub(crate) struct Required<S> {
+    inner: S,
+    parsed: bool,
+}
+
+impl<S: Schema> Schema for Required<S> {
+    type Target = S::Target;
+
+    fn init() -> impl Init<Self> {
+        init!(Self {
+            inner <- S::init(),
+            parsed: false,
+        })
+    }
+
+    fn finish(&mut self) -> impl Init<Self::Target, Error> + '_ {
+        let parsed = core::mem::take(&mut self.parsed);
+        self.inner
+            .finish()
+            .chain(move |_| if parsed { Ok(()) } else { Err(EINVAL) })
+    }
+}
+
+impl<'data, S: Visit<'data>> Visit<'data> for Required<S> {
+    fn visit(&mut self, key: KeyId, index: Index, value: DecoderValue<'data>) -> Result<bool> {
+        let consumed = self.inner.visit(key, index, value)?;
+        self.parsed |= consumed;
+        Ok(consumed)
+    }
+}
+
+/// A schema field which marks a child [`Schema`] as optional.
+pub(crate) struct Optional<S> {
+    inner: S,
+    parsed: bool,
+}
+
+impl<S> Optional<S> {
+    /// The maximum size in bytes we allow to materialize on the stack for the
+    /// [`Target`](Schema::Target) of an [`Optional`]. This is checked at compile
+    /// time.
+    const MAX_STACK_SIZE: usize = 512;
+}
+
+impl<S: Schema> Schema for Optional<S>
+where
+    S::Target: Default + Unpin,
+{
+    type Target = Option<S::Target>;
+
+    fn init() -> impl Init<Self> {
+        init!(Self {
+            inner <- S::init(),
+            parsed: false,
+        })
+    }
+
+    fn finish(&mut self) -> impl Init<Self::Target, Error> + '_ {
+        const_assert!(
+            size_of::<Self::Target>() <= Self::MAX_STACK_SIZE,
+            "`Optional` here would materialize too large a value on the stack"
+        );
+
+        if !core::mem::take(&mut self.parsed) {
+            return Ok(None);
+        }
+        stack_try_pin_init!(let value: S::Target =? self.inner.finish());
+        Ok(Some(core::mem::take(value.get_mut())))
+    }
+}
+
+impl<'data, S: Visit<'data>> Visit<'data> for Optional<S> {
+    fn visit(&mut self, key: KeyId, index: Index, value: DecoderValue<'data>) -> Result<bool> {
+        let consumed = self.inner.visit(key, index, value)?;
+        self.parsed |= consumed;
+        Ok(consumed)
+    }
+}
+
+/// Expects objects specified sequentially with index starting from zero.
+///
+/// This stores two [`Schema`]s which are initially empty. A [`Schema`] is expected to be complete
+/// when we get the next index.
+pub(crate) struct Accumulated<S: Schema> {
+    // Tracks the current index (starting from 0). When this advances, the schema `current` must be
+    // finished.
+    current_index: Index,
+
+    // The current `Schema` being constructed now.
+    current: S,
+
+    // Tracks empty schemas (one that has never consumed a key via `visit`), so we don't call
+    // `finish` on them.
+    current_started: bool,
+
+    // The next `Schema` to be constructed. This is required because we must consume a key intended
+    // for this Schema from the next index to know we can try calling `finish` on `current`.
+    next: S,
+
+    // The set of results generated by the completed schemas so far.
+    accumulated: KVVec<S::Target>,
+}
+
+impl<S: Schema> Schema for Accumulated<S> {
+    type Target = KVVec<S::Target>;
+
+    fn init() -> impl Init<Self> {
+        init!(Self {
+            current_index: Index::new::<0>(),
+            current <- S::init(),
+            current_started: false,
+            next <- S::init(),
+            accumulated: KVVec::new(),
+        })
+    }
+
+    fn finish(&mut self) -> impl Init<Self::Target, Error> + '_ {
+        if self.current_started {
+            self.accumulated
+                .try_push_init(self.current.finish(), GFP_KERNEL)?;
+            self.current_started = false;
+        }
+        self.current_index = Index::new::<0>();
+        Ok(core::mem::take(&mut self.accumulated))
+    }
+}
+
+impl<'data, S: Schema + Visit<'data>> Visit<'data> for Accumulated<S> {
+    fn visit(&mut self, key: KeyId, index: Index, value: DecoderValue<'data>) -> Result<bool> {
+        if index != self.current_index {
+            if !self.next.visit(key, Index::new::<0>(), value)? {
+                // Unrelated key to us.
+                return Ok(false);
+            }
+
+            // Require that objects at index k have all their keys sent before the k + 1 th object
+            // can be completed. Require that objects are sent contiguously in order from index 0.
+            if !self.current_started || index != self.current_index + 1 {
+                return Err(EINVAL);
+            }
+
+            // The current value must be finished. Push it and swap in `next`.
+            self.accumulated
+                .try_push_init(self.current.finish(), GFP_KERNEL)?;
+            core::mem::swap(&mut self.current, &mut self.next);
+            self.current_started = true;
+            self.current_index = index;
+            Ok(true)
+        } else {
+            let consumed = self.current.visit(key, Index::new::<0>(), value)?;
+            self.current_started |= consumed;
+            Ok(consumed)
+        }
+    }
+}
+
+/// A schema field that scatters indexed values into an array of `N` slots.
+///
+/// Values are decoded from the encoded stream using the type `As`, but then converted into `T` with
+/// [`From`], like the `As` parameter of [`Key`].
+pub(crate) struct Indexed<T, const N: usize, const KEY_ID: KeyId, As = T> {
+    slots: [T; N],
+    _as: PhantomData<As>,
+}
+
+/// Copies `elems`, converted to `T`, into `slots` at `start`.
+///
+/// Fails with [`EINVAL`] if the window does not fit in `slots`.
+fn scatter_window<T: From<As>, As: Copy>(slots: &mut [T], start: usize, elems: &[As]) -> Result {
+    let end = start.checked_add(elems.len()).ok_or(EINVAL)?;
+    // Reject indices outside of the declared array size.
+    let dst = slots.get_mut(start..end).ok_or(EINVAL)?;
+    for (d, &e) in dst.iter_mut().zip(elems) {
+        *d = T::from(e);
+    }
+    Ok(())
+}
+
+impl<T: Default, const N: usize, const KEY_ID: KeyId, As> Schema for Indexed<T, N, KEY_ID, As> {
+    type Target = [T; N];
+
+    fn init() -> impl Init<Self> {
+        init!(Self {
+            slots <- init_array_from_fn(|_| T::default()),
+            _as: PhantomData,
+        })
+    }
+
+    fn finish(&mut self) -> impl Init<Self::Target, Error> + '_ {
+        init_array_from_fn(|i| Ok::<_, Error>(core::mem::take(&mut self.slots[i])))
+    }
+}
+
+impl<'data, T, const N: usize, const KEY_ID: KeyId, As> Visit<'data> for Indexed<T, N, KEY_ID, As>
+where
+    T: From<As>,
+    As: Copy + TryFrom<DecoderValue<'data>, Error = Error> + 'data,
+    &'data [As]: TryFrom<DecoderValue<'data>, Error = Error>,
+{
+    fn visit(&mut self, key: KeyId, index: Index, value: DecoderValue<'data>) -> Result<bool> {
+        if key != KEY_ID {
+            return Ok(false);
+        }
+        let start = index.cast::<usize>().get();
+        // Accept both scalar vs scattered array setting for flexibility.
+        match <&[As]>::try_from(value) {
+            Ok(elems) => scatter_window(&mut self.slots, start, elems)?,
+            Err(_) => scatter_window(&mut self.slots, start, &[As::try_from(value)?])?,
+        }
+        Ok(true)
+    }
+}
 
 /// A decoded NVKV value.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -312,6 +763,133 @@ mod tests {
         Ok(())
     }
 
+    // Tests that decoding via the `nvkv_decode!` macro works correctly.
+    #[test]
+    fn decode_typed_struct() -> Result {
+        const SCALAR32_KEY: KeyId = 0x1234;
+        const SCALAR64_KEY: KeyId = 0x1235;
+        const ARRAY8_KEY: KeyId = 0x1236;
+        const ARRAY32_KEY: KeyId = 0x1237;
+        const ARRAY64_KEY: KeyId = 0x1238;
+        const OPT_PRESENT_KEY: KeyId = 0x1239;
+        const OPT_ABSENT_KEY: KeyId = 0x123a;
+        const OPT_ARRAY_KEY: KeyId = 0x123b;
+        const TRUNCATED_KEY: KeyId = 0x123c;
+        const CONVERTED_KEY: KeyId = 0x123d;
+        const X_KEY: KeyId = 0x0100;
+        const Y_KEY: KeyId = 0x0101;
+        const SLOT_KEY: KeyId = 0x0200;
+
+        const SCALAR32_VALUE: u32 = 0x89ab_cdef;
+        const SCALAR64_VALUE: u64 = 0x0123_4567_89ab_cdef;
+        const ARRAY8_VALUE: &[u8] = &[0x12, 0x34, 0x56];
+        const ARRAY32_VALUE: &[u32] = &[0x0123_4567, 0x89ab_cdef];
+        const ARRAY64_VALUE: &[u64] = &[0x0123_4567_89ab_cdef, 0xfedc_ba98_7654_3210];
+        const OPT_PRESENT_VALUE: u32 = 0x55;
+        const OPT_ARRAY_VALUE: &[u8] = &[0x77, 0x88];
+        const TRUNCATED_VALUE: &[u8] = &[0x9a, 0xbc, 0xde];
+        const CONVERTED_VALUE: u32 = 0x66;
+
+        // A value that is decoded from the `u32` it converts from.
+        #[derive(Default)]
+        struct Converted(u32);
+
+        impl From<u32> for Converted {
+            fn from(value: u32) -> Self {
+                Self(value)
+            }
+        }
+
+        nvkv_decode! {
+            struct PairSchema => Pair {
+                x: Required<Key<u32, X_KEY>>,
+                y: Required<Key<u32, Y_KEY>>,
+            }
+        }
+
+        struct Pair {
+            x: u32,
+            y: u32,
+        }
+
+        nvkv_decode! {
+            struct TestSchema => TestDecodable {
+                scalar32: Required<Key<u32, SCALAR32_KEY>>,
+                scalar64: Required<Key<u64, SCALAR64_KEY>>,
+                array8: Array<u8, 64, ARRAY8_KEY>,
+                array32: Array<u32, 64, ARRAY32_KEY>,
+                array64: Array<u64, 32, ARRAY64_KEY>,
+                opt_present: Optional<Key<u32, OPT_PRESENT_KEY>>,
+                opt_absent: Optional<Key<u32, OPT_ABSENT_KEY>>,
+                opt_array: Optional<Array<u8, 4, OPT_ARRAY_KEY>>,
+                truncated: TruncatingArray<u8, 2, TRUNCATED_KEY>,
+                converted: Key<Converted, CONVERTED_KEY, u32>,
+                pairs: Accumulated<PairSchema>,
+                slots: Indexed<u32, 4, SLOT_KEY>,
+            }
+        }
+
+        struct TestDecodable {
+            scalar32: u32,
+            scalar64: u64,
+            array8: ArrayVec<u8, 64>,
+            array32: ArrayVec<u32, 64>,
+            array64: ArrayVec<u64, 32>,
+            opt_present: Option<u32>,
+            opt_absent: Option<u32>,
+            opt_array: Option<ArrayVec<u8, 4>>,
+            truncated: ArrayVec<u8, 2>,
+            converted: Converted,
+            pairs: KVVec<Pair>,
+            slots: [u32; 4],
+        }
+
+        let index0 = Index::new::<0>();
+        let index1 = Index::new::<1>();
+        let index2 = Index::new::<2>();
+        let mut encoder = Encoder::new();
+        encoder.encode_u32(SCALAR32_KEY, index0, SCALAR32_VALUE)?;
+        encoder.encode_u64(SCALAR64_KEY, index0, SCALAR64_VALUE)?;
+        encoder.encode_array8(ARRAY8_KEY, index0, ARRAY8_VALUE)?;
+        encoder.encode_array32(ARRAY32_KEY, index0, ARRAY32_VALUE)?;
+        encoder.encode_array64(ARRAY64_KEY, index0, ARRAY64_VALUE)?;
+        encoder.encode_u32(OPT_PRESENT_KEY, index0, OPT_PRESENT_VALUE)?;
+        encoder.encode_array8(OPT_ARRAY_KEY, index0, OPT_ARRAY_VALUE)?;
+        encoder.encode_array8(TRUNCATED_KEY, index0, TRUNCATED_VALUE)?;
+        encoder.encode_u32(CONVERTED_KEY, index0, CONVERTED_VALUE)?;
+        encoder.encode_u32(X_KEY, index0, 1)?;
+        encoder.encode_u32(Y_KEY, index0, 2)?;
+        encoder.encode_u32(SLOT_KEY, index1, 20)?;
+        encoder.encode_u32(X_KEY, index1, 3)?;
+        encoder.encode_u32(Y_KEY, index1, 4)?;
+        encoder.encode_u32(SLOT_KEY, index0, 10)?;
+        encoder.encode_array32(SLOT_KEY, index2, &[30, 40])?;
+        let serialized = encoder.finish();
+
+        let decoder = Decoder::new(&serialized, UnknownKeyPolicy::Error);
+        let mut schema = KBox::init(TestSchema::init(), GFP_KERNEL)?;
+        let decoded = KBox::try_init(decoder.decode(&mut *schema)?, GFP_KERNEL)?;
+
+        assert_eq!(decoded.scalar32, SCALAR32_VALUE);
+        assert_eq!(decoded.scalar64, SCALAR64_VALUE);
+        assert_eq!(*decoded.array8, *ARRAY8_VALUE);
+        assert_eq!(*decoded.array32, *ARRAY32_VALUE);
+        assert_eq!(*decoded.array64, *ARRAY64_VALUE);
+        assert_eq!(decoded.opt_present, Some(OPT_PRESENT_VALUE));
+        assert_eq!(decoded.opt_absent, None);
+        assert_eq!(decoded.opt_array.as_deref(), Some(OPT_ARRAY_VALUE));
+        assert_eq!(*decoded.truncated, TRUNCATED_VALUE[..2]);
+        assert_eq!(decoded.converted.0, CONVERTED_VALUE);
+        assert_eq!(decoded.pairs.len(), 2);
+        assert_eq!(decoded.pairs[0].x, 1);
+        assert_eq!(decoded.pairs[0].y, 2);
+        assert_eq!(decoded.pairs[1].x, 3);
+        assert_eq!(decoded.pairs[1].y, 4);
+        assert_eq!(decoded.slots, [10, 20, 30, 40]);
+
+        Ok(())
+    }
+
     /// Records each visit as `(key, index, value)`, for tests on hand-built streams.
     #[derive(Default)]
     struct Recorder<'d> {
@@ -497,6 +1075,132 @@ mod tests {
             let mut schema = KBox::init(Recorder::init(), GFP_KERNEL)?;
             assert!(decoder.decode(&mut *schema).is_err());
         }
+
+        Ok(())
+    }
+
+    // Tests the error paths of the schema kinds.
+    #[test]
+    fn decode_typed_struct_errors() -> Result {
+        const VALUE_KEY: KeyId = 0x2200;
+        const SLOT_KEY: KeyId = 0x2201;
+        const BLOB_KEY: KeyId = 0x2202;
+        const X_KEY: KeyId = 0x2203;
+        const Y_KEY: KeyId = 0x2204;
+
+        let index0 = Index::new::<0>();
+        let index1 = Index::new::<1>();
+        let index2 = Index::new::<2>();
+
+        nvkv_decode! {
+            struct ValueSchema => Value {
+                value: Key<u32, VALUE_KEY>,
+            }
+        }
+
+        struct Value {
+            value: u32,
+        }
+
+        // A single value at a non-zero index.
+        let mut encoder = Encoder::new();
+        encoder.encode_u32(VALUE_KEY, index1, 1)?;
+        let serialized = encoder.finish();
+        let decoder = Decoder::new(&serialized, UnknownKeyPolicy::Error);
+        let mut schema = KBox::init(ValueSchema::init(), GFP_KERNEL)?;
+        assert!(decoder.decode(&mut *schema).is_err());
+
+        // A 64-bit value for a 32-bit key.
+        let mut encoder = Encoder::new();
+        encoder.encode_u64(VALUE_KEY, index0, 1)?;
+        let serialized = encoder.finish();
+        let decoder = Decoder::new(&serialized, UnknownKeyPolicy::Error);
+        let mut schema = KBox::init(ValueSchema::init(), GFP_KERNEL)?;
+        assert!(decoder.decode(&mut *schema).is_err());
+
+        nvkv_decode! {
+            struct SlotsSchema => Slots {
+                slots: Indexed<u32, 2, SLOT_KEY>,
+            }
+        }
+
+        struct Slots {
+            slots: [u32; 2],
+        }
+
+        // An index past the declared slots.
+        let mut encoder = Encoder::new();
+        encoder.encode_u32(SLOT_KEY, index2, 1)?;
+        let serialized = encoder.finish();
+        let decoder = Decoder::new(&serialized, UnknownKeyPolicy::Error);
+        let mut schema = KBox::init(SlotsSchema::init(), GFP_KERNEL)?;
+        assert!(decoder.decode(&mut *schema).is_err());
+
+        nvkv_decode! {
+            struct BlobSchema => Blob {
+                blob: Array<u8, 4, BLOB_KEY>,
+            }
+        }
+
+        struct Blob {
+            blob: ArrayVec<u8, 4>,
+        }
+
+        // An array longer than the declared capacity.
+        let mut encoder = Encoder::new();
+        encoder.encode_array8(BLOB_KEY, index0, &[0; 5])?;
+        let serialized = encoder.finish();
+        let decoder = Decoder::new(&serialized, UnknownKeyPolicy::Error);
+        let mut schema = KBox::init(BlobSchema::init(), GFP_KERNEL)?;
+        assert!(decoder.decode(&mut *schema).is_err());
+
+        nvkv_decode! {
+            struct PairSchema => Pair {
+                x: Required<Key<u32, X_KEY>>,
+                y: Required<Key<u32, Y_KEY>>,
+            }
+        }
+
+        struct Pair {
+            x: u32,
+            y: u32,
+        }
+
+        // Required keys that are missing are an error.
+        let mut encoder = Encoder::new();
+        encoder.encode_u32(X_KEY, index0, 1)?;
+        let serialized = encoder.finish();
+        let decoder = Decoder::new(&serialized, UnknownKeyPolicy::Error);
+        let mut schema = KBox::init(PairSchema::init(), GFP_KERNEL)?;
+        let init = decoder.decode(&mut *schema)?;
+        assert!(KBox::try_init(init, GFP_KERNEL).is_err());
+
+        nvkv_decode! {
+            struct PairsSchema => Pairs {
+                pairs: Accumulated<PairSchema>,
+            }
+        }
+
+        struct Pairs {
+            pairs: KVVec<Pair>,
+        }
+
+        // Accumulated objects must start at index 0.
+        let mut encoder = Encoder::new();
+        encoder.encode_u32(X_KEY, index1, 1)?;
+        let serialized = encoder.finish();
+        let decoder = Decoder::new(&serialized, UnknownKeyPolicy::Error);
+        let mut schema = KBox::init(PairsSchema::init(), GFP_KERNEL)?;
+        assert!(decoder.decode(&mut *schema).is_err());
+
+        // Accumulated objects must be complete before the next one starts.
+        let mut encoder = Encoder::new();
+        encoder.encode_u32(X_KEY, index0, 1)?;
+        encoder.encode_u32(X_KEY, index1, 2)?;
+        let serialized = encoder.finish();
+        let decoder = Decoder::new(&serialized, UnknownKeyPolicy::Error);
+        let mut schema = KBox::init(PairsSchema::init(), GFP_KERNEL)?;
+        assert!(decoder.decode(&mut *schema).is_err());
 
         Ok(())
     }

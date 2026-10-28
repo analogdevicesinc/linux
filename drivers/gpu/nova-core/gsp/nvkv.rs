@@ -9,7 +9,7 @@
 //! speaking, the function calls will map to some struct - for example, f(GPU_NAME_STRING_KEY, 0,
 //! b"some gpu") naturally maps to storing a &str with the GPU name.
 
-#![expect(unused_imports)]
+#![cfg_attr(not(CONFIG_KUNIT = "y"), expect(unused_imports))]
 
 use core::{
     marker::PhantomData,
@@ -20,6 +20,7 @@ use core::{
 };
 
 use kernel::{
+    alloc::ArrayVec,
     bitfield,
     num::Bounded, //
 };
@@ -96,6 +97,11 @@ impl<T, const KEY_ID: KeyId> IndexedKey<T, KEY_ID> {
     pub(crate) fn new(index: Index, value: T) -> Self {
         Self { index, value }
     }
+}
+
+/// A schema field for an array value under the NVKV key `KEY_ID`.
+pub(crate) struct Array<T, const N: usize, const KEY_ID: KeyId> {
+    vec: ArrayVec<T, N>,
 }
 
 bitfield! {
