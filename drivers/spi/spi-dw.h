@@ -36,6 +36,7 @@
 #define DW_SPI_CAP_CS_OVERRIDE		BIT(0)
 #define DW_SPI_CAP_DFS32		BIT(1)
 #define DW_SPI_CAP_EMODE		BIT(2)
+#define DW_SPI_CAP_DDR			BIT(3)
 
 /* Register offsets (Generic for both DWC APB SSI and DWC SSI IP-cores) */
 #define DW_SPI_CTRLR0			0x00
@@ -139,6 +140,7 @@
 
 /* Bit fields in SPI_CTRLR0 */
 #define DW_SPI_ENH_CTRLR0_CLK_STRETCH_EN	BIT(30)
+#define DW_SPI_ENH_CTRLR0_SPI_DDR_EN		BIT(16)
 #define DW_SPI_ENH_CTRLR0_WAIT_CYCLE_MASK	GENMASK(15, 11)
 #define DW_SPI_ENH_CTRLR0_INST_L_MASK		GENMASK(9, 8)
 #define DW_SPI_ENH_CTRLR0_INST_L_INST_L0	0x0

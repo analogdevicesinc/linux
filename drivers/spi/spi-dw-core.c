@@ -1269,9 +1269,11 @@ static u16 detect_enh_mode(struct dw_spi *dws)
 		goto disable_enh;
 
 	/* test clock stretching */
-	dw_writel(dws, DW_SPI_SPI_CTRLR0, DW_SPI_ENH_CTRLR0_CLK_STRETCH_EN);
-	if ((DW_SPI_ENH_CTRLR0_CLK_STRETCH_EN & dw_readl(dws, DW_SPI_SPI_CTRLR0)) !=
-	    DW_SPI_ENH_CTRLR0_CLK_STRETCH_EN) {
+	dw_writel(dws, DW_SPI_SPI_CTRLR0,
+		  DW_SPI_ENH_CTRLR0_CLK_STRETCH_EN | DW_SPI_ENH_CTRLR0_SPI_DDR_EN);
+
+	tmp_val = dw_readl(dws, DW_SPI_SPI_CTRLR0);
+	if (!(tmp_val & DW_SPI_ENH_CTRLR0_CLK_STRETCH_EN)) {
 		/*
 		 * If clock stretching is not enabled then do not use
 		 * enhanced mode.
@@ -1281,6 +1283,10 @@ static u16 detect_enh_mode(struct dw_spi *dws)
 	}
 
 	dws->caps |= DW_SPI_CAP_EMODE;
+
+	/* test DDR support, SPI_DDR_EN is read-only zero if not implemented */
+	if (tmp_val & DW_SPI_ENH_CTRLR0_SPI_DDR_EN)
+		dws->caps |= DW_SPI_CAP_DDR;
 
 disable_enh:
 	dw_writel(dws, DW_SPI_CTRLR0, tmp_ctrlr0);
