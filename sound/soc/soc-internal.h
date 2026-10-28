@@ -14,6 +14,13 @@
  */
 
 /*
+ * REMOVE ME
+ * Temporary definition
+ */
+void snd_soc_card_debugfs_init(struct snd_soc_card *card);
+void snd_soc_card_debugfs_cleanup(struct snd_soc_card *card);
+
+/*
  * In soc-core
  */
 extern struct mutex client_mutex;
