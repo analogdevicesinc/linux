@@ -2606,10 +2606,6 @@ static int smu_v14_0_2_od_restore_table_single(struct smu_context *smu, long inp
 	case PP_OD_EDIT_FAN_ZERO_RPM_STOP_TEMP:
 		od_table->OverDriveTable.FanZeroRpmStopTemp =
 					boot_overdrive_table->OverDriveTable.FanZeroRpmStopTemp;
-		break;
-	case PP_OD_EDIT_FAN_ZERO_RPM_STOP_TEMP:
-		od_table->OverDriveTable.FanZeroRpmStopTemp =
-					boot_overdrive_table->OverDriveTable.FanZeroRpmStopTemp;
 		od_table->OverDriveTable.FeatureCtrlMask |= BIT(PP_OD_FEATURE_ZERO_FAN_BIT);
 		break;
 	case PP_OD_EDIT_ACOUSTIC_LIMIT:
