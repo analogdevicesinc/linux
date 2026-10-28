@@ -1184,10 +1184,13 @@ static int soc_init_pcm_runtime(struct snd_soc_card *card,
 	/* add DPCM sysfs entries */
 	soc_dpcm_debugfs_add(rtd);
 
-	/* create compress_device if possible */
+	/* create compress_device if driver is supporting */
 	ret = snd_soc_dai_compress_new(cpu_dai, rtd);
-	if (ret != -ENOTSUPP)
-		goto err;
+	if (ret != -ENOTSUPP) { /* driver is supporting */
+		if (ret < 0)
+			goto err;
+		goto end;
+	}
 
 	/* create the pcm */
 	ret = soc_new_pcm(rtd);
@@ -1200,12 +1203,13 @@ static int soc_init_pcm_runtime(struct snd_soc_card *card,
 	ret = snd_soc_pcm_dai_new(rtd);
 	if (ret < 0)
 		goto err;
-
+end:
 	rtd->initialized = true;
 
 	return 0;
 err:
 	snd_soc_link_exit(rtd);
+
 	return ret;
 }
 
