@@ -874,7 +874,10 @@ static void rbio_endio_bio_list(struct bio *cur, blk_status_t status)
 static void rbio_orig_end_io(struct btrfs_raid_bio *rbio, blk_status_t status)
 {
 	struct bio *cur = bio_list_get(&rbio->bio_list);
-	struct bio *extra;
+
+	/* An RMW rbio must have RBIO_RMW_LOCKED_BIT set. */
+	if (rbio->operation == BTRFS_RBIO_WRITE)
+		ASSERT(test_bit(RBIO_RMW_LOCKED_BIT, &rbio->flags));
 
 	kfree(rbio->csum_buf);
 	bitmap_free(rbio->csum_bitmap);
@@ -888,21 +891,11 @@ static void rbio_orig_end_io(struct btrfs_raid_bio *rbio, blk_status_t status)
 	 */
 	bitmap_clear(&rbio->dbitmap, 0, rbio->stripe_nsectors);
 
-	/*
-	 * At this moment, rbio->bio_list is empty, however since rbio does not
-	 * always have RBIO_RMW_LOCKED_BIT set and rbio is still linked on the
-	 * hash list, rbio may be merged with others so that rbio->bio_list
-	 * becomes non-empty.
-	 * Once unlock_stripe() is done, rbio->bio_list will not be updated any
-	 * more and we can call bio_endio() on all queued bios.
-	 */
 	unlock_stripe(rbio);
-	extra = bio_list_get(&rbio->bio_list);
+	ASSERT(bio_list_empty(&rbio->bio_list));
 	free_raid_bio(rbio);
 
 	rbio_endio_bio_list(cur, status);
-	if (extra)
-		rbio_endio_bio_list(extra, status);
 }
 
 /*
@@ -2464,6 +2457,21 @@ static void rmw_rbio(struct btrfs_raid_bio *rbio)
 		}
 	}
 out:
+	/*
+	 * If we hit an error early, the rbio won't get
+	 * RBIO_RMW_LOCKED_BIT bit set, and can cause unexpected
+	 * merge during rbio_orig_end_io().
+	 *
+	 * So set that flag before calling rbio_orig_end_io(), and
+	 * we have to hold the bio_list_lock, to make sure
+	 * rbio_can_merge() and merge_rbio() are seeing a stable
+	 * flag.
+	 */
+	if (ret < 0) {
+		spin_lock(&rbio->bio_list_lock);
+		set_bit(RBIO_RMW_LOCKED_BIT, &rbio->flags);
+		spin_unlock(&rbio->bio_list_lock);
+	}
 	rbio_orig_end_io(rbio, errno_to_blk_status(ret));
 }
 
