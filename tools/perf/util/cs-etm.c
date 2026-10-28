@@ -434,7 +434,7 @@ static int cs_etm__map_unformatted_trace_ids(struct cs_etm_auxtrace *etm)
 			continue;
 
 		if (!intlist__empty(etmq->traceid_list)) {
-			pr_err("CS_ETM: Unformatted queue should't have trace ID\n");
+			pr_err("CS_ETM: Unformatted queue shouldn't have trace ID\n");
 			return -EINVAL;
 		}
 
