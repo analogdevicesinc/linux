@@ -326,15 +326,15 @@ void xe_uc_runtime_resume(struct xe_uc *uc)
 }
 
 /**
- * xe_uc_declare_wedged() - Declare UC wedged
+ * xe_uc_wedge_declare() - Declare UC wedged
  * @uc: the UC object
  *
  * Wedge the UC which stops all submission, saves desired debug state, and
  * cleans up anything which could timeout.
  */
-void xe_uc_declare_wedged(struct xe_uc *uc)
+void xe_uc_wedge_declare(struct xe_uc *uc)
 {
 	xe_gt_assert(uc_to_gt(uc), uc_to_xe(uc)->wedged.mode);
 
-	xe_guc_declare_wedged(&uc->guc);
+	xe_guc_wedge_declare(&uc->guc);
 }

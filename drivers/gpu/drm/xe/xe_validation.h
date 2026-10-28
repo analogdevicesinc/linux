@@ -48,9 +48,11 @@ static inline void xe_validation_lockdep(void)
  * XE_VALIDATION_OPT_OUT is for simplification of kunit tests where
  * exhaustive eviction isn't necessary.
  */
+#ifdef CONFIG_DRM_XE_DEBUG
 #define __XE_VAL_UNIMPLEMENTED -EINVAL
 #define XE_VALIDATION_UNIMPLEMENTED (xe_validation_lockdep(),		\
 				     (struct drm_exec *)ERR_PTR(__XE_VAL_UNIMPLEMENTED))
+#endif
 
 #define __XE_VAL_UNSUPPORTED -EOPNOTSUPP
 #define XE_VALIDATION_UNSUPPORTED ((struct drm_exec *)ERR_PTR(__XE_VAL_UNSUPPORTED))

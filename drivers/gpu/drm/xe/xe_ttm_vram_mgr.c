@@ -24,6 +24,7 @@
 #include "xe_mmio.h"
 #include "xe_pm.h"
 #include "xe_printk.h"
+#include "xe_ras.h"
 #include "xe_res_cursor.h"
 #include "xe_ttm_stolen_mgr.h"
 #include "xe_ttm_vram_mgr.h"
@@ -243,9 +244,9 @@ static void xe_ttm_vram_retry_queued_pages(struct xe_ttm_vram_mgr *mgr)
 			continue;
 		}
 		--mgr->n_queued_pages;
-		list_del_rcu(&pos->queued_link);
+		list_del(&pos->queued_link);
 		++mgr->n_offlined_pages;
-		list_add_rcu(&pos->offlined_link, &mgr->offlined_pages);
+		list_add(&pos->offlined_link, &mgr->offlined_pages);
 	}
 }
 
@@ -394,17 +395,17 @@ static void xe_ttm_vram_free_bad_pages(struct xe_ttm_vram_mgr *mgr)
 	struct xe_ttm_vram_offline_resource *pos, *n;
 
 	list_for_each_entry_safe(pos, n, &mgr->offlined_pages, offlined_link) {
-		list_del_rcu(&pos->offlined_link);
+		list_del(&pos->offlined_link);
 		xe_ttm_vram_buddy_free(mgr, &pos->blocks, pos->used_visible_size);
 		--mgr->n_offlined_pages;
-		kfree_rcu(pos, rcu);
+		kfree(pos);
 	}
 	list_for_each_entry_safe(pos, n, &mgr->queued_pages, queued_link) {
-		list_del_rcu(&pos->queued_link);
+		list_del(&pos->queued_link);
 		/* queued entries have no buddy reservation yet */
 		xe_ttm_vram_buddy_free(mgr, &pos->blocks, 0);
 		--mgr->n_queued_pages;
-		kfree_rcu(pos, rcu);
+		kfree(pos);
 	}
 }
 
@@ -687,6 +688,19 @@ static int xe_ttm_vram_purge_page(struct xe_device *xe, struct xe_bo *bo)
 		goto out;
 	}
 
+	/*
+	 * The caller's user+pinned check was lockless (mgr->lock only), so an
+	 * external pin can race in before we get here. Re-validate now that
+	 * we hold the reservation lock and reject the purge instead of
+	 * unpinning a BO userspace still expects to be resident. Request SBR
+	 * the same way the caller's own critical-BO check does.
+	 */
+	if (xe_bo_is_user(bo) && xe_bo_is_pinned(bo)) {
+		xe_bo_unlock(bo);
+		ret = -EIO;
+		goto out;
+	}
+
 	xe_bo_set_purgeable_state(bo, XE_MADV_PURGEABLE_DONTNEED);
 	ttm_bo_unmap_virtual(&bo->ttm);   /* nuke CPU mmap + VRAM IO mappings */
 	if (xe_bo_is_pinned(bo))
@@ -810,7 +824,7 @@ static int xe_ttm_vram_reserve_page_at_addr(struct xe_device *xe, u64 addr,
 			}
 			/* Queue free(to-be-purged) pages */
 			++vram_mgr->n_queued_pages;
-			list_add_rcu(&nentry->queued_link, &vram_mgr->queued_pages);
+			list_add(&nentry->queued_link, &vram_mgr->queued_pages);
 		} else {
 			/* Immediately offline unoccupied pages */
 			/* Queue free(to-be-reserved) pages */
@@ -824,11 +838,11 @@ static int xe_ttm_vram_reserve_page_at_addr(struct xe_device *xe, u64 addr,
 					"Page at addr:0x%llx still busy (%d), deferring reservation\n",
 					addr, ret);
 				++vram_mgr->n_queued_pages;
-				list_add_rcu(&nentry->queued_link, &vram_mgr->queued_pages);
+				list_add(&nentry->queued_link, &vram_mgr->queued_pages);
 				return 0;
 			}
 			++vram_mgr->n_offlined_pages;
-			list_add_rcu(&nentry->offlined_link, &vram_mgr->offlined_pages);
+			list_add(&nentry->offlined_link, &vram_mgr->offlined_pages);
 			return ret;
 		}
 	}
@@ -851,6 +865,13 @@ static int xe_ttm_vram_reserve_page_at_addr(struct xe_device *xe, u64 addr,
 		 */
 		ret = xe_ttm_vram_purge_page(xe, pbo);
 		xe_bo_put(pbo);
+		if (ret == -EIO) {
+			/* Raced into an external pin after the lockless check above */
+			drm_err(&xe->drm,
+				"%s: addr: 0x%llx became externally pinned, requesting SBR\n",
+				__func__, addr);
+			return ret;
+		}
 		if (ret)
 			drm_warn(&xe->drm, "Purge failed at addr:0x%llx, ret:%d\n", addr, ret);
 	}
@@ -886,11 +907,11 @@ static struct xe_vram_region *xe_ttm_vram_addr_to_region(struct xe_device *xe, u
 }
 
 /**
- * xe_ttm_vram_handle_addr_fault - Handle vram physical address error flaged
+ * xe_ttm_vram_handle_addr_fault - Handle vram physical address error flagged
  * @xe: pointer to parent device
  * @addr: physical faulty address
  *
- * Handle the physcial faulty address error on specific tile.
+ * Handle the physical faulty address error on specific tile.
  *
  * Returns 0 for success, negative error code otherwise as follow:
  * * %-EIO - critical BO or address outside any VRAM region; next action is reset.
@@ -933,7 +954,7 @@ int xe_ttm_vram_handle_addr_fault(struct xe_device *xe, u64 addr)
 	vram_mgr = &vr->ttm;
 	mm = &vram_mgr->mm;
 
-	if (xe->ras.disable_vram_page_offline) {
+	if (xe_ras_get_disable_vram_page_offline(xe)) {
 		xe_err(xe, "0x%llx is reported as corrupted address by HW\n",
 		       addr);
 		return -EOPNOTSUPP;
@@ -953,7 +974,7 @@ EXPORT_SYMBOL(xe_ttm_vram_handle_addr_fault);
  * debugfs interface for testing page offlining.
  *
  * Note: Executing this test will permanently retire the allocated
- * memory tracking pages. The driver must be rebinded (unbind and bind)
+ * memory tracking pages. The driver must be rebound (unbind and bind)
  * post-test execution to reclaim the reserved space, as these pages
  * cannot be freed or reclaimed dynamically while the current instance
  * remains active.
@@ -968,11 +989,12 @@ int xe_ttm_vram_inject_fault(struct xe_device *xe)
 	struct gpu_buddy *mm = &vram_mgr->mm;
 	u64 addr;
 
-	if (vr->actual_physical_size < PAGE_SIZE)
+	/* Stay within the buddy-managed range; CCS/GSM/DSM sit beyond usable_size */
+	if (vr->usable_size < PAGE_SIZE)
 		return -ENOSPC;
 
-	addr = vr->actual_physical_size - PAGE_SIZE;
-	while (addr < vr->actual_physical_size) {
+	addr = ALIGN_DOWN(vr->usable_size - PAGE_SIZE, PAGE_SIZE);
+	while (addr < vr->usable_size) {
 		struct gpu_buddy_block *block;
 		bool found = false;
 
@@ -1011,11 +1033,7 @@ static int vram_bad_pages_show(struct seq_file *m, void *unused)
 	struct xe_tile *tile;
 	u8 id;
 
-	man = ttm_manager_type(&xe->ttm, XE_PL_VRAM0);
-	if (man)
-		/* TODO Hook with RAS to show max_pages fetched from FW */
-		seq_printf(m, "max_pages: %d\n",
-			   to_xe_ttm_vram_mgr(man)->max_pages);
+	seq_printf(m, "max_pages: %u\n", xe_ras_get_max_pages(xe));
 
 	for_each_tile(tile, xe, id) {
 		struct xe_vram_region *vr = tile->mem.vram;
@@ -1025,16 +1043,16 @@ static int vram_bad_pages_show(struct seq_file *m, void *unused)
 			continue;
 		mgr = to_xe_ttm_vram_mgr(man);
 
-		rcu_read_lock();
+		mutex_lock(&mgr->lock);
 
-		list_for_each_entry_rcu(pos, &mgr->offlined_pages, offlined_link) {
+		list_for_each_entry(pos, &mgr->offlined_pages, offlined_link) {
 			u64 pfn;
 
 			pfn = (pos->addr + vr->dpa_base) >> PAGE_SHIFT;
 			seq_printf(m, "0x%016llx : 0x%016lx : R\n", pfn, PAGE_SIZE);
 		}
 
-		list_for_each_entry_rcu(pos, &mgr->queued_pages, queued_link) {
+		list_for_each_entry(pos, &mgr->queued_pages, queued_link) {
 			u64 pfn;
 
 			pfn = (pos->addr + vr->dpa_base) >> PAGE_SHIFT;
@@ -1042,7 +1060,7 @@ static int vram_bad_pages_show(struct seq_file *m, void *unused)
 				   pfn, PAGE_SIZE, pos->status ? 'F' : 'P');
 		}
 
-		rcu_read_unlock();
+		mutex_unlock(&mgr->lock);
 	}
 
 	return 0;

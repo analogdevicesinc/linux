@@ -74,3 +74,15 @@ config DRM_XE_ENABLE_SCHEDTIMEOUT_LIMIT
 	  to apply to applicable user. For elevated user, all above MIN
 	  and MAX values will apply when this configuration is enable to
 	  apply limitation. By default limitation is applied.
+config DRM_XE_SHRINKER_NON_PURGEABLE_SEEKS
+	int "Default seeks value of the non-purgeable bo shrinker"
+	default 8
+	range 1 64
+	help
+	  Default for the per-device shrinker_non_purgeable_seeks sysfs
+	  attribute. This is the cost, as reported to the core shrinker, of
+	  recreating non-purgeable buffer objects relative to purgeable
+	  ones, which use DEFAULT_SEEKS (2). Higher values reduce memory
+	  reclaim pressure on non-purgeable buffer objects, which need
+	  GPU idling and writeback to be reclaimed, in favour of purgeable
+	  ones and other kernel caches.

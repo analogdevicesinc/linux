@@ -14,10 +14,12 @@
  * enum xe_sysctrl_group - System Controller command groups
  *
  * @XE_SYSCTRL_GROUP_GFSP: GFSP group
+ * @XE_SYSCTRL_GROUP_DIAG: Diag group
  * @XE_SYSCTRL_GROUP_CORE: Core group
  */
 enum xe_sysctrl_group {
 	XE_SYSCTRL_GROUP_GFSP			= 0x01,
+	XE_SYSCTRL_GROUP_DIAG			= 0x02,
 	XE_SYSCTRL_GROUP_CORE			= 0xFF,
 };
 
@@ -30,6 +32,9 @@ enum xe_sysctrl_group {
  * @XE_SYSCTRL_CMD_GET_THRESHOLD: Retrieve error threshold
  * @XE_SYSCTRL_CMD_SET_THRESHOLD: Set error threshold
  * @XE_SYSCTRL_CMD_GET_PENDING_EVENT: Retrieve pending event
+ * @XE_SYSCTRL_CMD_PAGE_OFFLINE: Instruct firmware to offline/remove a page
+ * @XE_SYSCTRL_CMD_GET_OFFLINE_LIST: Retrieve list of all offlined pages from flash
+ * @XE_SYSCTRL_CMD_GET_OFFLINE_QUEUE: Retrieve list of offlined queued pages from firmware
  * @XE_SYSCTRL_CMD_GET_HEALTH: Retrieve gpu health
  * @XE_SYSCTRL_CMD_SET_HEALTH: Set gpu health
  */
@@ -40,6 +45,9 @@ enum xe_sysctrl_gfsp_cmd {
 	XE_SYSCTRL_CMD_GET_THRESHOLD		= 0x05,
 	XE_SYSCTRL_CMD_SET_THRESHOLD		= 0x06,
 	XE_SYSCTRL_CMD_GET_PENDING_EVENT	= 0x07,
+	XE_SYSCTRL_CMD_PAGE_OFFLINE		= 0x08,
+	XE_SYSCTRL_CMD_GET_OFFLINE_LIST		= 0x09,
+	XE_SYSCTRL_CMD_GET_OFFLINE_QUEUE	= 0x0A,
 	XE_SYSCTRL_CMD_GET_HEALTH		= 0x0B,
 	XE_SYSCTRL_CMD_SET_HEALTH		= 0x0C,
 };
@@ -47,11 +55,42 @@ enum xe_sysctrl_gfsp_cmd {
 /**
  * enum xe_sysctrl_core_cmd - Commands supported by Core group
  *
+ * @XE_SYSCTRL_CMD_LOOPBACK: Loopback test command
  * @XE_SYSCTRL_CMD_GET_APP_STATUS_BY_ID: Retrieve application status by ID
  */
 enum xe_sysctrl_core_cmd {
+	XE_SYSCTRL_CMD_LOOPBACK				= 0x03,
 	XE_SYSCTRL_CMD_GET_APP_STATUS_BY_ID		= 0x05,
 };
+
+/**
+ * enum xe_sysctrl_diag_cmd - Commands supported by Diag group
+ *
+ * @XE_SYSCTRL_CMD_DIAG_RAS_ERR_INJECT: RAS error injection
+ */
+enum xe_sysctrl_diag_cmd {
+	XE_SYSCTRL_CMD_DIAG_RAS_ERR_INJECT		= 0x7E,
+};
+
+/**
+ * struct xe_sysctrl_diag_ras_err_inj_req - DIAG_RAS_ERR_INJECT request payload
+ *
+ * Request payload for XE_SYSCTRL_CMD_DIAG_RAS_ERR_INJECT. The mailbox layer
+ * prepends the application message header before sending.
+ *
+ * @ras_block_id: RAS block (subsystem) to inject the error into
+ * @ras_sub_block_id: RAS sub-block (IP) within @ras_block_id
+ * @err_type: Type of test error to inject
+ * @reserved: Must be zero
+ * @params: Optional injection parameters (default 0)
+ */
+struct xe_sysctrl_diag_ras_err_inj_req {
+	u16 ras_block_id;
+	u16 ras_sub_block_id;
+	u16 err_type;
+	u16 reserved;
+	u32 params;
+} __packed;
 
 /**
  * struct xe_sysctrl_app_status_req - Get application status request
@@ -118,6 +157,10 @@ struct xe_sysctrl_mailbox_command {
 #define XE_SYSCTRL_MB_MAX_MESSAGE_SIZE	\
 	(XE_SYSCTRL_MB_FRAME_SIZE * XE_SYSCTRL_MB_MAX_FRAMES)
 
+#define XE_SYSCTRL_MB_MAX_DATA_SIZE	\
+	(XE_SYSCTRL_MB_MAX_MESSAGE_SIZE - sizeof(u32))
+
 #define XE_SYSCTRL_MB_DEFAULT_TIMEOUT_MS	500
+#define XE_SYSCTRL_MB_MAX_TIMEOUT_MS		60000
 
 #endif

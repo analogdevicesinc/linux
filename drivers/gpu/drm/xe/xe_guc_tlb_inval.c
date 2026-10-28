@@ -19,6 +19,7 @@
 #include "xe_sa.h"
 #include "xe_tlb_inval.h"
 #include "xe_vm.h"
+#include "xe_wedge.h"
 
 #include "regs/xe_guc_regs.h"
 
@@ -77,7 +78,7 @@ static int send_tlb_inval_ggtt(struct xe_tlb_inval *tlb_inval, u32 seqno)
 		};
 
 		return send_tlb_inval(guc, action, ARRAY_SIZE(action));
-	} else if (xe_device_uc_enabled(xe) && !xe_device_wedged(xe)) {
+	} else if (xe_device_uc_enabled(xe) && !xe_wedged(xe)) {
 		struct xe_mmio *mmio = &gt->mmio;
 
 		if (IS_SRIOV_VF(xe))
