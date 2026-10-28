@@ -139,8 +139,7 @@ static int omap3_enter_idle(struct cpuidle_device *dev,
 	 * Call idle CPU PM enter notifier chain to restore
 	 * VFP context.
 	 */
-	if (cx->mpu_state == PWRDM_POWER_OFF &&
-	    pwrdm_read_prev_pwrst(mpu_pd) == PWRDM_POWER_OFF)
+	if (cx->mpu_state == PWRDM_POWER_OFF)
 		cpu_pm_exit();
 
 out_clkdm_set:
