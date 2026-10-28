@@ -718,6 +718,14 @@ static int bnxt_qplib_process_qp_event(struct bnxt_qplib_rcfw *rcfw,
 			return rc;
 		}
 
+		if (!crsqe->is_in_used) {
+			dev_warn_ratelimited(&pdev->dev,
+					     "event %#x for cookie %#x with no outstanding command\n",
+					     qp_event->event, cookie);
+			spin_unlock(&hwq->lock);
+			return rc;
+		}
+
 		if (crsqe->is_internal_cmd && !qp_event->status)
 			atomic_dec(&rcfw->timeout_send);
 
