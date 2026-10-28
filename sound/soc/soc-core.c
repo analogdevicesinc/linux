@@ -2046,26 +2046,6 @@ int snd_soc_add_controls(struct snd_card *card, struct device *dev,
 }
 
 /**
- * snd_soc_add_card_controls - add an array of controls to a SoC card.
- * Convenience function to add a list of controls.
- *
- * @soc_card: SoC card to add controls to
- * @controls: array of controls to add
- * @num_controls: number of elements in the array
- *
- * Return 0 for success, else error.
- */
-int snd_soc_add_card_controls(struct snd_soc_card *soc_card,
-	const struct snd_kcontrol_new *controls, int num_controls)
-{
-	struct snd_card *card = soc_card->snd_card;
-
-	return snd_soc_add_controls(card, soc_card->dev, controls, num_controls,
-			NULL, soc_card);
-}
-EXPORT_SYMBOL_GPL(snd_soc_add_card_controls);
-
-/**
  * snd_soc_register_card - Register a card with the ASoC core
  *
  * @card: Card to register

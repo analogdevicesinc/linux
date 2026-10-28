@@ -10,6 +10,7 @@
 #include <linux/rwsem.h>
 #include <sound/soc.h>
 #include <sound/jack.h>
+#include "soc-internal.h"
 
 #define soc_card_ret(dai, ret) _soc_card_ret(dai, __func__, ret)
 static inline int _soc_card_ret(struct snd_soc_card *card,
@@ -259,3 +260,22 @@ void snd_soc_card_set_topology_name(struct snd_soc_card *card, const char *prefi
 	card->name = card->topology_shortname;
 }
 EXPORT_SYMBOL_GPL(snd_soc_card_set_topology_name);
+
+/**
+ * snd_soc_card_add_controls - add an array of controls to a SoC card.
+ * Convenience function to add a list of controls.
+ *
+ * @soc_card: SoC card to add controls to
+ * @controls: array of controls to add
+ * @num_controls: number of elements in the array
+ *
+ * Return 0 for success, else error.
+ */
+int snd_soc_card_add_controls(struct snd_soc_card *soc_card,
+			      const struct snd_kcontrol_new *controls, int num_controls)
+{
+	struct snd_card *card = soc_card->snd_card;
+
+	return snd_soc_add_controls(card, soc_card->dev, controls, num_controls, NULL, soc_card);
+}
+EXPORT_SYMBOL_GPL(snd_soc_card_add_controls);
