@@ -909,7 +909,8 @@ ieee80211_rx_monitor(struct ieee80211_local *local, struct sk_buff *origskb,
 
 		chandef = &sdata->vif.bss_conf.chanreq.oper;
 		if (chandef->chan &&
-		    chandef->chan->center_freq != status->freq)
+		    ieee80211_channel_to_khz(chandef->chan) !=
+		    ieee80211_rx_status_to_khz(status))
 			continue;
 
 		if (ieee80211_hw_check(&local->hw, NO_VIRTUAL_MONITOR) &&
@@ -5305,11 +5306,12 @@ drop:
 	dev_kfree_skb(skb);
 }
 
-static bool ieee80211_rx_valid_freq(int freq, struct ieee80211_link_data *link)
+static bool ieee80211_rx_valid_freq(struct ieee80211_rx_status *status,
+				    struct ieee80211_link_data *link)
 {
 	struct ieee80211_chanctx_conf *conf;
 
-	if (!freq || link->sdata->vif.type == NL80211_IFTYPE_NAN ||
+	if (!status->freq || link->sdata->vif.type == NL80211_IFTYPE_NAN ||
 	    link->sdata->vif.type == NL80211_IFTYPE_NAN_DATA)
 		return true;
 
@@ -5317,7 +5319,8 @@ static bool ieee80211_rx_valid_freq(int freq, struct ieee80211_link_data *link)
 	if (!conf || !conf->def.chan)
 		return false;
 
-	return freq == conf->def.chan->center_freq;
+	return ieee80211_rx_status_to_khz(status) ==
+	       ieee80211_channel_to_khz(conf->def.chan);
 }
 
 /*
@@ -5417,7 +5420,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
 				continue;
 
 			link = &sta->sdata->deflink;
-			if (!ieee80211_rx_valid_freq(status->freq, link))
+			if (!ieee80211_rx_valid_freq(status, link))
 				continue;
 
 			if (rx_data_pending) {
@@ -5441,7 +5444,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
 			sdata =	sta->sdata;
 			link = rcu_dereference(sdata->link[link_sta->link_id]);
 
-			if (!ieee80211_rx_valid_freq(status->freq, link))
+			if (!ieee80211_rx_valid_freq(status, link))
 				continue;
 
 			if (rx_data_pending) {
@@ -5511,7 +5514,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
 		 * RX using the station.
 		 */
 		if (link_sta && link &&
-		    ieee80211_rx_valid_freq(status->freq, link)) {
+		    ieee80211_rx_valid_freq(status, link)) {
 			if (rx_data_pending) {
 				ieee80211_prepare_and_rx_handle(&rx, skb, false);
 				rx_data_pending = false;
