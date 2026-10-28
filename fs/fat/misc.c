@@ -9,6 +9,7 @@
 
 #include "fat.h"
 #include <linux/iversion.h>
+#include <linux/blk_plug.h>
 
 /*
  * fat_fs_error reports a file system problem that might indicate fa data
@@ -353,9 +354,14 @@ EXPORT_SYMBOL_GPL(fat_update_time);
 int fat_sync_bhs(struct buffer_head **bhs, int nr_bhs)
 {
 	int i, err = 0;
+	struct blk_plug plug;
+
+	blk_start_plug(&plug);
 
 	for (i = 0; i < nr_bhs; i++)
-		write_dirty_buffer(bhs[i], 0);
+		write_dirty_buffer(bhs[i], REQ_SYNC);
+
+	blk_finish_plug(&plug);
 
 	for (i = 0; i < nr_bhs; i++) {
 		wait_on_buffer(bhs[i]);
@@ -363,4 +369,10 @@ int fat_sync_bhs(struct buffer_head **bhs, int nr_bhs)
 			err = -EIO;
 	}
 	return err;
+}
+
+void fat_brelse_array(struct buffer_head *bhs[], int n)
+{
+	while (--n >= 0)
+		brelse(bhs[n]);
 }
