@@ -6,6 +6,7 @@
 // Author: Yingkun Meng <mengyingkun@loongson.cn>
 //
 
+#include <linux/bitfield.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
@@ -69,6 +70,7 @@ static int loongson_i2s_hw_params(struct snd_pcm_substream *substream,
 	u32 fs = params_rate(params);
 	u32 bclk_ratio, mclk_ratio;
 	u32 mclk_ratio_frac;
+	u32 mask;
 	u32 val = 0;
 
 	switch (i2s->rev_id) {
@@ -92,14 +94,17 @@ static int loongson_i2s_hw_params(struct snd_pcm_substream *substream,
 		mclk_ratio_frac = DIV_ROUND_CLOSEST_ULL(((u64)clk_rate << 16),
 						    sysclk) - (mclk_ratio << 16);
 
-		regmap_read(i2s->regmap, LS_I2S_CFG, &val);
-		val |= (bits << 24);
-		val |= (bclk_ratio << 8);
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-			val |= (bits << 16);
-		else
-			val |= bits;
-		regmap_write(i2s->regmap, LS_I2S_CFG, val);
+		mask = LS_I2S_CFG_LR_LEN_MASK | LS_I2S_CFG_BCLK_RATIO_MASK;
+		val = FIELD_PREP(LS_I2S_CFG_LR_LEN_MASK, bits) |
+		      FIELD_PREP(LS_I2S_CFG_BCLK_RATIO_MASK, bclk_ratio);
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			mask |= LS_I2S_CFG_TX_RES_DEPTH_MASK;
+			val |= FIELD_PREP(LS_I2S_CFG_TX_RES_DEPTH_MASK, bits);
+		} else {
+			mask |= LS_I2S_CFG_RX_RES_DEPTH_MASK;
+			val |= FIELD_PREP(LS_I2S_CFG_RX_RES_DEPTH_MASK, bits);
+		}
+		regmap_update_bits(i2s->regmap, LS_I2S_CFG, mask, val);
 
 		val = (mclk_ratio_frac << 16) | mclk_ratio;
 		regmap_write(i2s->regmap, LS_I2S_CFG1, val);

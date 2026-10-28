@@ -40,6 +40,12 @@
 #define I2S_CTRL_RX_INT_EN	BIT(1)  /* RX interrupt enable */
 #define I2S_CTRL_TX_INT_EN	BIT(0)  /* TX interrupt enable */
 
+/* Loongson I2S Config Register */
+#define LS_I2S_CFG_LR_LEN_MASK		GENMASK(31, 24)
+#define LS_I2S_CFG_TX_RES_DEPTH_MASK	GENMASK(23, 16)
+#define LS_I2S_CFG_BCLK_RATIO_MASK	GENMASK(15, 8)
+#define LS_I2S_CFG_RX_RES_DEPTH_MASK	GENMASK(7, 0)		/* rev 1 */
+
 #define LS_I2S_DRVNAME		"loongson-i2s"
 
 struct loongson_idma_data {
