@@ -129,10 +129,7 @@ static void wcove_update_irq_mask(struct wcove_gpio *wg, irq_hw_number_t gpio)
 {
 	unsigned int mask, reg = to_ireg(gpio, IRQ_MASK, &mask);
 
-	if (wg->set_irq_mask)
-		regmap_set_bits(wg->regmap, reg, mask);
-	else
-		regmap_clear_bits(wg->regmap, reg, mask);
+	regmap_assign_bits(wg->regmap, reg, mask, wg->set_irq_mask);
 }
 
 static void wcove_update_irq_ctrl(struct wcove_gpio *wg, irq_hw_number_t gpio)
