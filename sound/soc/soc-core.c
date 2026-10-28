@@ -1455,7 +1455,6 @@ int snd_soc_component_register(struct snd_soc_component *component,
 			       struct snd_soc_dai_driver *dai_drv,
 			       int num_dai)
 {
-	struct snd_soc_card *card, *c;
 	int ret;
 	int i;
 	guard(mutex)(&client_mutex);
@@ -1483,8 +1482,7 @@ int snd_soc_component_register(struct snd_soc_component *component,
 	/* see for_each_component */
 	list_add(&component->list, snd_soc_component_get_list_head());
 
-	list_for_each_entry_safe(card, c, &unbind_card_list, list)
-		snd_soc_card_bind_call(card);
+	snd_soc_card_rebind();
 
 err_cleanup:
 	if (ret < 0)

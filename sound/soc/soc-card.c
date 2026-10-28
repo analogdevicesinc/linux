@@ -1097,6 +1097,14 @@ probe_end:
 	return ret;
 }
 
+void snd_soc_card_rebind(void)
+{
+	struct snd_soc_card *card, *c;
+
+	list_for_each_entry_safe(card, c, &unbind_card_list, list)
+		snd_soc_card_bind_call(card);
+}
+
 static void devm_snd_soc_card_bind_release(struct device *dev, void *res)
 {
 	snd_soc_unregister_card(*(struct snd_soc_card **)res);
