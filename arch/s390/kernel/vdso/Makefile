@@ -3,7 +3,8 @@
 
 # Include the generic Makefile to check the built vdso.
 include $(srctree)/lib/vdso/Makefile.include
-obj-vdso = vdso_user_wrapper.o note.o vgetrandom-chacha.o
+obj-vdso-y = vdso_user_wrapper.o note.o vgetrandom-chacha.o
+obj-vdso-$(CONFIG_FUTEX_ROBUST_UNLOCK) += vfutex.o
 obj-cvdso = vdso_generic.o getcpu.o vgetrandom.o
 VDSO_CFLAGS_REMOVE := -pg $(CC_FLAGS_FTRACE) $(CC_FLAGS_EXPOLINE)
 CFLAGS_REMOVE_getcpu.o = $(VDSO_CFLAGS_REMOVE)
@@ -16,8 +17,8 @@ endif
 
 # Build rules
 
-targets := $(obj-vdso) $(obj-cvdso) vdso.so vdso.so.dbg
-obj-vdso := $(addprefix $(obj)/, $(obj-vdso))
+targets := $(obj-vdso-y) $(obj-cvdso) vdso.so vdso.so.dbg
+obj-vdso := $(addprefix $(obj)/, $(obj-vdso-y))
 obj-cvdso := $(addprefix $(obj)/, $(obj-cvdso))
 
 KBUILD_AFLAGS_VDSO := $(KBUILD_AFLAGS) -DBUILD_VDSO

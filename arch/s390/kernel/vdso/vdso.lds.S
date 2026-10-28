@@ -110,6 +110,9 @@ VERSION
 		__kernel_rt_sigreturn;
 		__kernel_sigreturn;
 		__kernel_getrandom;
+#ifdef CONFIG_FUTEX_ROBUST_UNLOCK
+		__vdso_futex_robust_list64_try_unlock;
+#endif
 	local: *;
 	};
 }

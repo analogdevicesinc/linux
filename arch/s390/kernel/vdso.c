@@ -12,6 +12,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/futex.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/smp.h>
@@ -19,14 +20,31 @@
 #include <linux/vdso_datastore.h>
 #include <vdso/datapage.h>
 #include <asm/alternative.h>
+#include <asm/vdso/vsyscall.h>
+#include <asm/vdso-symbols.h>
 #include <asm/vdso.h>
 
 extern char vdso_start[], vdso_end[];
+
+static inline void vdso_futex_robust_unlock_update_ips(void)
+{
+#ifdef CONFIG_FUTEX_ROBUST_UNLOCK
+	unsigned long vdso = current->mm->context.vdso_base;
+	struct futex_mm_data *fd = &current->mm->futex;
+
+	futex_reset_cs_ranges(fd);
+	futex_set_vdso_cs_range(fd, 0,
+				vdso + vdso_offset___futex_list64_try_unlock_cs_start,
+				vdso + vdso_offset___futex_list64_try_unlock_cs_end,
+				false);
+#endif
+}
 
 static int vdso_mremap(const struct vm_special_mapping *sm,
 		       struct vm_area_struct *vma)
 {
 	current->mm->context.vdso_base = vma->vm_start;
+	vdso_futex_robust_unlock_update_ips();
 	return 0;
 }
 
@@ -73,6 +91,7 @@ static int map_vdso(unsigned long addr, unsigned long vdso_mapping_len)
 		rc = PTR_ERR(vma);
 	} else {
 		current->mm->context.vdso_base = vdso_text_start;
+		vdso_futex_robust_unlock_update_ips();
 		rc = 0;
 	}
 out:
