@@ -842,22 +842,24 @@ static int vgic_its_cmd_handle_discard(struct kvm *kvm, struct vgic_its *its,
 		 * Only an LPI on a vCPU's AP list can be in its list registers,
 		 * which the exit path folds back, and that exit moves the LPI
 		 * to its target vCPU if the target has changed: pause both.
+		 * Clear an LPI on no AP list before dropping the lock, so that
+		 * nothing can put it in a list register first.
 		 */
 		scoped_guard(raw_spinlock_irqsave, &irq->irq_lock) {
 			vcpu = irq->vcpu;
 			target = irq->target_vcpu;
+			if (!vcpu)
+				irq->pending_latch = false;
 		}
 
 		if (vcpu) {
 			if (target != vcpu)
 				kvm_pause_vcpu(target);
 			kvm_pause_vcpu(vcpu);
-		}
 
-		scoped_guard(raw_spinlock_irqsave, &irq->irq_lock)
-			irq->pending_latch = false;
+			scoped_guard(raw_spinlock_irqsave, &irq->irq_lock)
+				irq->pending_latch = false;
 
-		if (vcpu) {
 			kvm_resume_vcpu(vcpu);
 			if (target != vcpu)
 				kvm_resume_vcpu(target);
