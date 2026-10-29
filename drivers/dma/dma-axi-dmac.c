@@ -519,8 +519,21 @@ static bool axi_dmac_handle_cyclic_eot(struct axi_dmac_chan *chan,
 	return true;
 }
 
+/* The newest submitted descriptor, the only one the hardware may still hold */
+static bool axi_dmac_newest_submitted(struct axi_dmac_chan *chan,
+				      struct axi_dmac_desc *desc)
+{
+	struct axi_dmac_desc *next;
+
+	if (list_is_last(&desc->vdesc.node, &chan->active_descs))
+		return true;
+
+	next = list_next_entry(desc, vdesc.node);
+	return next->sg[0].hw->id == AXI_DMAC_SG_UNUSED;
+}
+
 static bool axi_dmac_transfer_done(struct axi_dmac_chan *chan,
-	unsigned int completed_transfers)
+	unsigned int completed_transfers, bool queued)
 {
 	struct axi_dmac_desc *active;
 	struct axi_dmac_sg *sg;
@@ -539,10 +552,29 @@ static bool axi_dmac_transfer_done(struct axi_dmac_chan *chan,
 			vchan_cyclic_callback(&active->vdesc);
 			start_next = axi_dmac_handle_cyclic_eot(chan, active);
 		} else {
-			list_del(&active->vdesc.node);
-			vchan_cookie_complete(&active->vdesc);
-			active = axi_dmac_active_desc(chan);
-			start_next = !!active;
+			/*
+			 * One EOT IRQ may cover several chains, so complete every
+			 * submitted chain whose transfer ID is marked done. A
+			 * chain still queued has not cleared the done bit left
+			 * by the older chain that had its ID.
+			 */
+			do {
+				sg = &active->sg[0];
+				if (sg->hw->id == AXI_DMAC_SG_UNUSED) /* Not yet submitted */
+					break;
+				if (queued && axi_dmac_newest_submitted(chan, active))
+					break;
+				if (!(BIT(sg->hw->id) & completed_transfers))
+					break;
+				list_del(&active->vdesc.node);
+				vchan_cookie_complete(&active->vdesc);
+				active = axi_dmac_active_desc(chan);
+			} while (active);
+			/*
+			 * Only this IRQ refills the queue, and it may have retired
+			 * more chains than the one it can start, so always try.
+			 */
+			start_next = true;
 		}
 	} else {
 		do {
@@ -597,9 +629,17 @@ static irqreturn_t axi_dmac_interrupt_handler(int irq, void *devid)
 	/* One or more transfers have finished */
 	if (pending & AXI_DMAC_IRQ_EOT) {
 		unsigned int completed;
+		bool queued = false;
 
+		/*
+		 * In hardware SG mode a submission can wait behind the running
+		 * chain. Sample the queue before the done bits, so that an empty
+		 * queue means every submission was accepted before that read.
+		 */
+		if (dmac->chan.hw_sg)
+			queued = axi_dmac_read(dmac, AXI_DMAC_REG_START_TRANSFER);
 		completed = axi_dmac_read(dmac, AXI_DMAC_REG_TRANSFER_DONE);
-		start_next = axi_dmac_transfer_done(&dmac->chan, completed);
+		start_next = axi_dmac_transfer_done(&dmac->chan, completed, queued);
 	}
 	/* Space has become available in the descriptor queue */
 	if ((pending & AXI_DMAC_IRQ_SOT) || start_next)
