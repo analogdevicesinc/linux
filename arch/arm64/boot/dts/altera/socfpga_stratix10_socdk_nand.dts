@@ -124,7 +124,7 @@
 	status = "okay";
 };
 
-&i2c2 {
+&i2c1 {
 	status = "okay";
 	clock-frequency = <100000>;
 	i2c-sda-falling-time-ns = <890>;  /* hcnt */
