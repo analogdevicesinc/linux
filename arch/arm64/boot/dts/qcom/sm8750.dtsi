@@ -6505,7 +6505,7 @@
 						compatible = "qcom,fastrpc-compute-cb";
 						reg = <12>;
 						iommus = <&apps_smmu 0x196c 0x0>,
-							 <&apps_smmu 0x0c2c 0x20>,
+							 <&apps_smmu 0x0c2c 0x0>,
 							 <&apps_smmu 0x0c0c 0x40>,
 							 <&apps_smmu 0x19cc 0x0>;
 						dma-coherent;
@@ -6526,7 +6526,7 @@
 						compatible = "qcom,fastrpc-compute-cb";
 						reg = <14>;
 						iommus = <&apps_smmu 0x196e 0x0>,
-							 <&apps_smmu 0x0c0e 0x20>,
+							 <&apps_smmu 0x0c0e 0x40>,
 							 <&apps_smmu 0x19ce 0x0>;
 						dma-coherent;
 					};
