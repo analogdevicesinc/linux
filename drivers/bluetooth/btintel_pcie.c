@@ -31,6 +31,8 @@
 
 #define VERSION "0.1"
 
+/* Runtime diagnostic logging bits loaded from LOG_MASK in the debug INI. */
+
 #define BTINTEL_PCI_DEVICE(dev, subdev)	\
 	.vendor = PCI_VENDOR_ID_INTEL,	\
 	.device = (dev),		\
@@ -206,13 +208,13 @@ static inline bool btintel_pcie_dbg_to_wifi(struct btintel_pcie_data *data)
 }
 
 /* Name of the optional INI file used to override the default dbg_path
- * (data->dbg_path_cache) and yoyo ini settings.
+ * (data->dbg_path_cache), yoyo ini settings and runtime log_mask.
  */
 #define BTINTEL_PCIE_DBG_INI_FILE "ibt_bt_dbg_cfg.ini"
 
-/* Loads optional "DBG_PATH=<value>" and ENABLE_INI=<value>
+/* Loads optional "DBG_PATH=<value>", "ENABLE_INI=<value>" and "LOG_MASK=<value>"
  * overrides from BTINTEL_PCIE_DBG_INI_FILE
- * and applies them to data->dbg_path_cache and data->enable_ini.
+ * and applies them to data->dbg_path_cache, data->enable_ini and data->log_mask.
  *
  * DBG_PATH accepts BTINTEL_PCIE_WIFI_DBGC (0x06, default) and
  * BTINTEL_PCIE_DRAM (0x01, legacy); an invalid or missing entry leaves
@@ -220,6 +222,9 @@ static inline bool btintel_pcie_dbg_to_wifi(struct btintel_pcie_data *data)
  *
  * ENABLE_INI accepts 1 (enabled) or 0 (disabled); an invalid or missing
  * entry leaves data->enable_ini unchanged.
+ *
+ * LOG_MASK accepts any u32 bitmask (see BTINTEL_PCIE_DUMP_TX and friends).
+ * An invalid or missing entry leaves data->log_mask unchanged.
  */
 static void btintel_pcie_load_dbg_path_from_ini(struct btintel_pcie_data *data)
 {
@@ -227,12 +232,13 @@ static void btintel_pcie_load_dbg_path_from_ini(struct btintel_pcie_data *data)
 	const char *ini_file = BTINTEL_PCIE_DBG_INI_FILE;
 	char *buf, *cursor, *line;
 	bool dbg_path_applied = false;
+	bool log_mask_applied = false;
 	int err;
 
 	err = request_firmware_direct(&fw, ini_file, &data->pdev->dev);
 	if (err < 0) {
-		BT_DBG("%s not found (%d), using dbg_path=0x%02x",
-		       ini_file, err, data->dbg_path_cache);
+		BT_DBG("%s not found (%d), using dbg_path=0x%02x log_mask=0x%08x",
+		       ini_file, err, data->dbg_path_cache, data->log_mask);
 		if (data->dbg_path_cache != BTINTEL_PCIE_DRAM)
 			data->enable_ini = false;
 		return;
@@ -261,9 +267,7 @@ static void btintel_pcie_load_dbg_path_from_ini(struct btintel_pcie_data *data)
 		line = strim(line);
 		val = strim(eq + 1);
 
-		/* Accept "DBG_PATH"/"dbg_path"
-		 * case-insensitively as the key.
-		 */
+		/* Keys are case-insensitive. */
 		if (!strcasecmp(line, "DBG_PATH")) {
 			BT_INFO("Read DBG_PATH from %s: '%s'", ini_file, val);
 
@@ -278,6 +282,18 @@ static void btintel_pcie_load_dbg_path_from_ini(struct btintel_pcie_data *data)
 			} else {
 				BT_WARN("Invalid DBG_PATH='%s' in %s, using dbg_path=0x%02x",
 					val, ini_file, data->dbg_path_cache);
+			}
+		} else if (!strcasecmp(line, "LOG_MASK")) {
+			BT_INFO("Read LOG_MASK from %s: '%s'", ini_file, val);
+
+			if (kstrtouint(val, 0, &parsed) == 0) {
+				data->log_mask = parsed;
+				log_mask_applied = true;
+				BT_INFO("WRT log_mask accepted: 0x%08x",
+					data->log_mask);
+			} else {
+				BT_WARN("Invalid LOG_MASK='%s' in %s, using log_mask=0x%08x",
+					val, ini_file, data->log_mask);
 			}
 		} else if (!strcasecmp(line, "ENABLE_INI")) {
 			BT_INFO("Read ENABLE_INI from %s: '%s'", ini_file, val);
@@ -303,6 +319,11 @@ static void btintel_pcie_load_dbg_path_from_ini(struct btintel_pcie_data *data)
 		BT_WARN("No valid DBG_PATH in %s, dbg_path=0x%02x", ini_file, data->dbg_path_cache);
 
 	BT_DBG("ENABLE_INI effective state: %u", data->enable_ini);
+
+	if (log_mask_applied)
+		BT_DBG("Loaded log_mask=0x%08x from %s", data->log_mask, ini_file);
+	else
+		BT_DBG("No valid LOG_MASK in %s, log_mask=0x%08x", ini_file, data->log_mask);
 
 	kfree(buf);
 }
@@ -4530,6 +4551,7 @@ static int btintel_pcie_probe(struct pci_dev *pdev,
 	data->boot_stage_cache = 0x00;
 	data->img_resp_cache = 0x00;
 	data->dbg_path_cache = BTINTEL_PCIE_WIFI_DBGC;
+	data->log_mask = 0;
 	data->pcie_alloc_init = false;
 	data->enable_ini = false;
 	btintel_pcie_yoyo_init(&data->yoyo);

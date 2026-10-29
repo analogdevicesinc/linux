@@ -717,6 +717,8 @@ struct btintel_pcie_ini_dump_info {
  * @boot_stage_cache: cached value of boot stage register
  * @img_resp_cache: cached value of image response register
  * @dbg_path_cache: cached debug output routing mode (BT DRAM or WiFi DBGC)
+ * @log_mask: runtime diagnostic logging mask loaded from LOG_MASK in the
+ *	debug INI file
  * @cnvi: CNVi register value
  * @cnvr: CNVr register value
  * @gp0_received: condition for gp0 interrupt
@@ -771,6 +773,7 @@ struct btintel_pcie_data {
 	u32	boot_stage_cache;
 	u32	img_resp_cache;
 	u32	dbg_path_cache;
+	u32	log_mask;
 	bool	enable_ini;
 	struct btintel_pcie_yoyo_ctx yoyo;
 
