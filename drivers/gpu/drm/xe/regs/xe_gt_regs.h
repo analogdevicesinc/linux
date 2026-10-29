@@ -22,6 +22,8 @@
 #define   MTL_CC_MASK					REG_GENMASK(12, 9)
 #define   MTL_CRST					0xf
 
+#define MIRROR_PM_DEBUG					XE_REG(0xc98)
+
 /* RPM unit config (Gen8+) */
 #define RPM_CONFIG0					XE_REG(0xd00)
 #define   RPM_CONFIG0_CRYSTAL_CLOCK_FREQ_MASK		REG_GENMASK(5, 3)
