@@ -1537,11 +1537,11 @@ int __init nfs_fs_proc_init(void)
 		goto error_0;
 
 	/* a file of servers with which we're dealing */
-	if (!proc_symlink("fs/nfsfs/servers", NULL, "../../net/nfsfs/servers"))
+	if (!proc_self_symlink("fs/nfsfs/servers", NULL, "../../net/nfsfs/servers"))
 		goto error_1;
 
 	/* a file of volumes that we have mounted */
-	if (!proc_symlink("fs/nfsfs/volumes", NULL, "../../net/nfsfs/volumes"))
+	if (!proc_self_symlink("fs/nfsfs/volumes", NULL, "../../net/nfsfs/volumes"))
 		goto error_1;
 
 	return 0;
