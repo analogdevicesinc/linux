@@ -189,7 +189,7 @@ def _pick_selector(kconf, selectors, arch):
 
 def resolve_all(kconf, seeds, arch):
     """
-    BFS over dependency graph starting from *seeds*.
+    Depth-first walk over the dependency graph starting from *seeds*.
     Returns the full set of transitive dependencies (including seeds).
 
     Hidden symbols cannot be set directly, and are excluded from the result:
@@ -276,16 +276,20 @@ def ensure_single_choice(kconf, symbols, file_syms):
         dropped = set(members) - {keep}
         result -= dropped
 
-        kept_files = sorted(_to_c(f) for f, syms in file_syms.items()
-                            if keep in syms and not syms & dropped)
-        for f, syms in sorted(file_syms.items()):
-            if not syms & dropped:
+        def needs(paths, syms):
+            return bool(paths) and all(p & syms for p in paths)
+
+        kept_files = sorted(_to_c(f) for f, paths in file_syms.items()
+                            if needs(paths, {keep}))
+        for f, paths in sorted(file_syms.items()):
+            if not needs(paths, dropped):
                 continue
             exclusive.append((_to_c(f), kept_files))
-            print(f"::warning file={_to_c(f)},line=0::Mutually exclusive "
-                  f"touched files, {_to_c(f)} cannot be compiled with "
+            print(f"::warning file={_to_c(f)},line=0::"
+                  f"File cannot be compiled with "
                   f"{', '.join(kept_files) or keep} "
-                  f"(choice {', '.join(sorted(dropped))} vs {keep})",
+                  f"(choice {', '.join(sorted(dropped))} vs {keep}).",
+                  "Are you sure this is reasonable?",
                   file=stderr)
     return result, exclusive
 
@@ -305,6 +309,15 @@ def _read_makefile_lines(mk):
     return joined
 
 
+def _has_token(line, token):
+    """
+    Whether *token* (e.g. 'foo.o', 'foo/') appears as a whole word in a
+    Makefile line, so 'foo.o' does not match 'bar-foo.o'.
+    """
+    return re.search(rf'(?<![\w.-]){re.escape(token)}(?![\w.-])',
+                     line) is not None
+
+
 def get_top_level_symbol_for(mk):
     """
     For an obj-y line in drivers/foo/Makefile, look in drivers/Makefile
@@ -316,7 +329,7 @@ def get_top_level_symbol_for(mk):
         return None, None
 
     for line in _read_makefile_lines(parent_mk):
-        if obj not in line:
+        if not _has_token(line, obj):
             continue
         match = re.search(r'obj-\$\(([^)]+)\)\s*[+:]?=', line)
         if match:
@@ -337,7 +350,7 @@ def _iter_makefile_matches(mk, obj, l_obj):
         print(f"{mk}: Looking for '{obj}'", file=stderr)
 
     for line in _read_makefile_lines(mk):
-        if obj not in line:
+        if not _has_token(line, obj):
             continue
 
         # obj-$(CONFIG_SYMBOL)
@@ -347,7 +360,7 @@ def _iter_makefile_matches(mk, obj, l_obj):
             continue
 
         # obj-y / lib-y
-        if re.search(r'(obj|lib)-y\s*[+:]?=', line):
+        if re.match(r'\s*(obj|lib)-y\s*[+:]?=', line):
             yield get_top_level_symbol_for(mk)
             continue
 
@@ -367,22 +380,26 @@ def _iter_makefile_matches(mk, obj, l_obj):
 
 def _resolve_obj_in_mk(mk, obj, l_obj):
     """Chase Makefile references until fully resolved. Returns set of symbols."""
-    symbols = set()
+    paths = []
     found = False
     for symbol, sub_obj in _iter_makefile_matches(mk, obj, l_obj):
         if symbol is None and sub_obj is None:
             continue
         found = True
+        syms = set()
         if symbol:
             if not symbol.startswith("CONFIG_"):
-                print(f"Symbol '{symbol}' does not start with 'CONFIG_' at '{mk}'",
-                      file=stderr)
+                print(f"Symbol '{symbol}' does not start with 'CONFIG_' "
+                      f"at '{mk}'", file=stderr)
             else:
-                symbols.add(symbol[7:])
+                syms.add(symbol[7:])
         if sub_obj:
-            more, _ = _resolve_obj_in_mk(mk, f"{sub_obj}.o", obj)
-            symbols |= more
-    return symbols, found
+            sub_paths, _ = _resolve_obj_in_mk(mk, f"{sub_obj}.o", obj)
+            if sub_paths:
+                paths += [p | syms for p in sub_paths]
+                continue
+        paths.append(frozenset(syms))
+    return paths, found
 
 
 def get_symbols_from_files(files, arch):
@@ -397,7 +414,7 @@ def get_symbols_from_files(files, arch):
     file_syms = {}
 
     for f in obj_files:
-        file_syms[f] = set()
+        file_syms[f] = []
         found = False
         base = path.basename(f)
         ldir = path.dirname(f)
@@ -405,9 +422,11 @@ def get_symbols_from_files(files, arch):
         while ldir:
             mk = path.join(ldir, "Makefile")
             if path.isfile(mk):
-                more, found = _resolve_obj_in_mk(mk, path.join(rdir, base), None)
-                symbols |= more
-                file_syms[f] |= more
+                paths, found = _resolve_obj_in_mk(mk, path.join(rdir, base),
+                                                  None)
+                for p in paths:
+                    symbols |= p
+                file_syms[f] += paths
                 if found:
                     break
             rdir = path.join(path.basename(ldir), rdir)
@@ -436,7 +455,7 @@ def main():
 
     resolved = resolve_all(kconf, seeds, arch)
     result, exclusive = ensure_single_choice(kconf, filter_symbols(resolved, arch),
-                                              file_syms)
+                                             file_syms)
     result = sorted(result)
 
     # Persist for assert_compiled, which must not fail on these files.

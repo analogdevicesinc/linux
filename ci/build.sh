@@ -1090,7 +1090,7 @@ assert_compiled () {
 		fail=1
 	done <<< "$files"
 
-	if [[ "$fail" == "true" ]]; then
+	if [[ "$fail" == "1" ]]; then
 		_fmt "::error ::$step_name: $error"
 	fi
 
