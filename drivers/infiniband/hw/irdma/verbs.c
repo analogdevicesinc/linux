@@ -3905,6 +3905,9 @@ static struct ib_mr *irdma_rereg_user_mr(struct ib_mr *ib_mr, int flags,
 	if (ret)
 		return ERR_PTR(ret);
 
+	if (!iwmr->is_hwreg)
+		return ERR_PTR(-EINVAL);
+
 	ret = irdma_hwdereg_mr(ib_mr);
 	if (ret)
 		return ERR_PTR(ret);
