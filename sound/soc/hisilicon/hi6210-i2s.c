@@ -168,9 +168,9 @@ static void hi6210_i2s_shutdown(struct snd_pcm_substream *substream,
 				struct snd_soc_dai *cpu_dai)
 {
 	struct hi6210_i2s *i2s = dev_get_drvdata(cpu_dai->dev);
-	int n;
+	int n = i2s->clocks;
 
-	for (n = 0; n < i2s->clocks; n++)
+	while (n--)
 		clk_disable_unprepare(i2s->clk[n]);
 
 	regmap_write(i2s->sysctrl, SC_PERIPH_RSTEN1, BIT(5));
