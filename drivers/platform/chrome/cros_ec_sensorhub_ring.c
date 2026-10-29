@@ -23,6 +23,14 @@
 /* Precision of fixed point for the m values from the filter */
 #define M_PRECISION BIT(23)
 
+/*
+ * Maximum clock drift between the EC and the AP, in Parts Per Million
+ * (PPM). m is computed from a time delta in ns over a time delta in us,
+ * so it is 1000 times the unitless drift: 1 PPM is M_PRECISION / 1000.
+ */
+#define MAX_DRIFT_PPM 5000LL
+#define MAX_M ((s64)(MAX_DRIFT_PPM * M_PRECISION / 1000))
+
 /* Only activate the filter once we have at least this many elements. */
 #define TS_HISTORY_THRESHOLD 8
 
@@ -289,6 +297,12 @@ cros_ec_sensor_ring_ts_filter_update(struct cros_ec_sensors_ts_filter_state
 		return; /* we already have this irq in the history */
 	dy = (state->y_history[0] + state->y_offset) - y;
 	m = div64_s64(dy * M_PRECISION, dx);
+	/*
+	 * Clamp the slope to the maximum expected clock drift. Interrupt
+	 * jitter can produce slopes much larger than any real clock drift,
+	 * which would otherwise corrupt the median filter history.
+	 */
+	m = clamp(m, -MAX_M, MAX_M);
 
 	/* Empty filter if we haven't seen any action in a while. */
 	if (-dx > TS_HISTORY_BORED_US)
