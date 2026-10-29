@@ -9,6 +9,7 @@
 #include <linux/ktime.h>
 #include <linux/mutex.h>
 
+#include "regs/xe_reg_defs.h"
 #include "xe_hw_engine_types.h"
 
 struct xe_device;
@@ -21,8 +22,12 @@ struct xe_gt;
  * of the register to dump its value during coredump for debug purpose.
  */
 struct xe_reg_desc {
-	/** @reg: The register */
-	struct xe_reg reg;
+	union {
+		/** @reg: The register */
+		struct xe_reg reg;
+		/** @mcr_reg: The mcr register */
+		struct xe_reg_mcr mcr_reg;
+	};
 	/** @name: Name of the register */
 	const char *name;
 };
@@ -102,6 +107,9 @@ struct xe_devcoredump_snapshot {
 		/** @guc.log: GuC log snapshot */
 		struct xe_guc_log_snapshot *log;
 	} guc;
+
+	/** @gam_pf_report: GAM PF report snapshot */
+	struct xe_dbg_reg_snapshot *gam_pf_report;
 
 	/** @ge: GuC Submission Engine snapshot */
 	struct xe_guc_submit_exec_queue_snapshot *ge;

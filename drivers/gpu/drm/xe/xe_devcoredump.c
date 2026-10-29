@@ -18,6 +18,7 @@
 #include "xe_device.h"
 #include "xe_exec_queue.h"
 #include "xe_force_wake.h"
+#include "xe_gt_mcr.h"
 #include "xe_gt_printk.h"
 #include "xe_gt_types.h"
 #include "xe_guc_capture.h"
@@ -74,6 +75,7 @@
 #define XE_COREDUMP_TIMEOUT_JIFFIES (60 * 60 * HZ)
 
 #define XE_REG_DESC(_reg, _name)	{ .reg = (_reg), .name = (_name) }
+#define XE_REG_DESC_MCR(_reg, _name)   { .mcr_reg = (_reg), .name = (_name) }
 
 static const struct xe_reg_desc xe_dbg_gt_guc_reglist[] = {
 	XE_REG_DESC(GUC_STATUS,	"GUC_STATUS"),
@@ -115,6 +117,11 @@ static const struct xe_reg_desc xe_dbg_media_gt_rpm_reglist[] = {
 	XE_REG_DESC(MIRROR_PM_DEBUG, "MIRROR_PM_DEBUG"),
 };
 
+static const struct xe_reg_desc xe_dbg_gam_pf_reglist[] = {
+	XE_REG_DESC_MCR(PAGE_FLTRPTQ_HEAD, "PAGE_FLTRPTQ_HEAD"),
+	XE_REG_DESC_MCR(PAGE_FLTRPTQ_TAIL, "PAGE_FLTRPTQ_TAIL"),
+};
+
 /**
  * struct xe_gt_regset - Struct for register descriptor list for GT
  *
@@ -134,12 +141,14 @@ struct xe_gt_regset {
  * @XE_DBG_REGSET_FUSE: Fuse register set
  * @XE_DBG_REGSET_RPM: RPM register set
  * @XE_DBG_REGSET_GUC: GUC register set
+ * @XE_DBG_REGSET_GAM_PF: GAM Pagefault registers set
  * @XE_DBG_REGSET_MAX: Number of debug register set types
  */
 enum xe_dbg_regset_type {
 	XE_DBG_REGSET_FUSE,
 	XE_DBG_REGSET_RPM,
 	XE_DBG_REGSET_GUC,
+	XE_DBG_REGSET_GAM_PF,
 	XE_DBG_REGSET_MAX,
 };
 
@@ -161,6 +170,10 @@ static const struct xe_gt_regset xe_dbg_regsets[XE_DBG_REGSET_MAX] = {
 					ARRAY_SIZE(xe_dbg_gt_guc_reglist) },
 		.gt[XE_GT_TYPE_MEDIA] = { xe_dbg_gt_guc_reglist,
 					  ARRAY_SIZE(xe_dbg_gt_guc_reglist) },
+	},
+	[XE_DBG_REGSET_GAM_PF] = {
+		.gt[XE_GT_TYPE_MAIN] = { xe_dbg_gam_pf_reglist,
+					ARRAY_SIZE(xe_dbg_gam_pf_reglist) },
 	},
 };
 
@@ -203,6 +216,23 @@ static const u32 *xe_dbg_find_value(const struct xe_dbg_reg_snapshot *snap,
 	return NULL;
 }
 
+static void xe_gam_pf_snapshot_print(struct drm_printer *p,
+				     const char *title,
+				     const struct xe_dbg_reg_snapshot *snap)
+{
+	const u32 *val1, *val2;
+
+	xe_dbg_reg_snapshot_print(p, title, snap);
+
+	if (!snap)
+		return;
+
+	val1 = xe_dbg_find_value(snap, PAGE_FLTRPTQ_HEAD.__reg);
+	val2 = xe_dbg_find_value(snap, PAGE_FLTRPTQ_TAIL.__reg);
+	if ((val1 && val2) && (*val1 != *val2))
+		drm_printf(p, "PF occurred, refer to dmesg log for PF info\n");
+}
+
 static void xe_gt_rpm_snapshot_print(struct drm_printer *p,
 				     const char *title,
 				     const struct xe_dbg_reg_snapshot *snap)
@@ -235,8 +265,13 @@ xe_dbg_reg_snapshot_capture_target(struct xe_gt *gt,
 
 	snap->desc	= reglist;
 	snap->num_regs = reglist->num_regs;
-	for (i = 0; i < reglist->num_regs; i++)
-		snap->values[i] = xe_mmio_read32(&gt->mmio, reglist->regs[i].reg);
+	for (i = 0; i < reglist->num_regs; i++) {
+		if (reglist->regs[i].reg.mcr)
+			snap->values[i] = xe_gt_mcr_unicast_read_any(gt,
+								     reglist->regs[i].mcr_reg);
+		else
+			snap->values[i] = xe_mmio_read32(&gt->mmio, reglist->regs[i].reg);
+	}
 
 	return snap;
 }
@@ -258,6 +293,12 @@ xe_dbg_gt_snapshot_capture(struct xe_gt *fault_gt, struct xe_gt *other_gt,
 
 	/* non-fault GT needs the caller's confirmed forcewake */
 	if (target_gt != fault_gt && target_gt != other_gt)
+		return NULL;
+
+	/* Capture GAM fault registers only where MCR steering is defined. */
+	if (type == XE_DBG_REGSET_GAM_PF &&
+	    (!xe_gt_mcr_check_reg(target_gt, PAGE_FLTRPTQ_HEAD.__reg) ||
+	     !xe_gt_mcr_check_reg(target_gt, PAGE_FLTRPTQ_TAIL.__reg)))
 		return NULL;
 
 	return xe_dbg_reg_snapshot_capture_target(target_gt,
@@ -316,6 +357,8 @@ static ssize_t __xe_devcoredump_read(char *buffer, ssize_t count,
 	drm_puts(&p, "\n**** GuC CT ****\n");
 	xe_guc_ct_snapshot_print(ss->guc.ct, &p, ss->gt);
 
+	xe_gam_pf_snapshot_print(&p, "GAM PF Report", ss->gam_pf_report);
+
 	drm_puts(&p, "\n**** Contexts ****\n");
 	xe_guc_exec_queue_snapshot_print(ss->ge, &p);
 
@@ -369,6 +412,9 @@ static void xe_devcoredump_snapshot_free(struct xe_devcoredump_snapshot *ss)
 	if (!IS_ERR_OR_NULL(ss->gt))
 		xe_guc_capture_put_matched_nodes(&ss->gt->uc.guc);
 	ss->matched_node = NULL;
+
+	xe_dbg_reg_snapshot_free(ss->gam_pf_report);
+	ss->gam_pf_report = NULL;
 
 	xe_guc_exec_queue_snapshot_free(ss->ge);
 	ss->ge = NULL;
@@ -566,6 +612,10 @@ static void xe_devcoredump_capture_gt_regs(struct xe_devcoredump_snapshot *ss,
 							  other_gt,
 							  XE_DBG_REGSET_GUC,
 							  XE_GT_TYPE_MEDIA);
+	ss->gam_pf_report = xe_dbg_gt_snapshot_capture(gt,
+						       other_gt,
+						       XE_DBG_REGSET_GAM_PF,
+						       XE_GT_TYPE_MAIN);
 }
 
 static void devcoredump_snapshot(struct xe_devcoredump *coredump,
