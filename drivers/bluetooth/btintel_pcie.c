@@ -35,6 +35,7 @@
 #define BTINTEL_PCIE_DUMP_TX		BIT(0)
 #define BTINTEL_PCIE_DUMP_RX		BIT(1)
 #define BTINTEL_PCIE_LOG_ALIVE_INTR	BIT(2)
+#define BTINTEL_PCIE_LOG_SX		BIT(3)
 
 #define BTINTEL_PCI_DEVICE(dev, subdev)	\
 	.vendor = PCI_VENDOR_ID_INTEL,	\
@@ -237,6 +238,30 @@ static const char *btintel_pcie_pkt_type_str(u8 pkt_type)
 	return "UNK";
 }
 
+static const char *btintel_pcie_pm_event_str(u32 event)
+{
+	switch (event) {
+	case PM_EVENT_ON:
+		return "ON";
+	case PM_EVENT_FREEZE:
+		return "FREEZE(S4/hibernation prep)";
+	case PM_EVENT_SUSPEND:
+		return "SUSPEND(S3/S0ix)";
+	case PM_EVENT_HIBERNATE:
+		return "HIBERNATE(S4)";
+	case PM_EVENT_THAW:
+		return "THAW";
+	case PM_EVENT_RESTORE:
+		return "RESTORE";
+	case PM_EVENT_RESUME:
+		return "RESUME";
+	case PM_EVENT_RECOVER:
+		return "RECOVER";
+	default:
+		return "UNKNOWN";
+	}
+}
+
 /* Returns true when firmware traces are routed to the WiFi DBGC. In that
  * mode the host must not allocate DBGC buffers and must not publish their
  * addresses in the context info.
@@ -263,7 +288,8 @@ static inline bool btintel_pcie_dbg_to_wifi(struct btintel_pcie_data *data)
  * entry leaves data->enable_ini unchanged.
  *
  * LOG_MASK accepts any u32 bitmask (see BTINTEL_PCIE_DUMP_TX and friends).
- * An invalid or missing entry leaves data->log_mask unchanged.
+ * The default enables alive interrupt and Sx logging; an invalid or missing
+ * entry leaves data->log_mask unchanged.
  */
 static void btintel_pcie_load_dbg_path_from_ini(struct btintel_pcie_data *data)
 {
@@ -1750,7 +1776,9 @@ static inline bool btintel_pcie_in_device_halt(struct btintel_pcie_data *data)
 static void btintel_pcie_wr_sleep_cntrl(struct btintel_pcie_data *data,
 					u32 dxstate)
 {
-	bt_dev_dbg(data->hdev, "writing sleep_ctl_reg: 0x%8.8x", dxstate);
+	if (data->log_mask & BTINTEL_PCIE_LOG_SX)
+		BT_INFO("%s: writing sleep_ctl_reg: 0x%8.8x",
+			btintel_pcie_dev_name(data), dxstate);
 	btintel_pcie_wr_reg32(data, BTINTEL_PCIE_CSR_IPC_SLEEP_CTL_REG, dxstate);
 }
 
@@ -4636,7 +4664,7 @@ static int btintel_pcie_probe(struct pci_dev *pdev,
 	data->boot_stage_cache = 0x00;
 	data->img_resp_cache = 0x00;
 	data->dbg_path_cache = BTINTEL_PCIE_WIFI_DBGC;
-	data->log_mask = BTINTEL_PCIE_LOG_ALIVE_INTR;
+	data->log_mask = BTINTEL_PCIE_LOG_ALIVE_INTR | BTINTEL_PCIE_LOG_SX;
 	data->pcie_alloc_init = false;
 	data->enable_ini = false;
 	btintel_pcie_yoyo_init(&data->yoyo);
@@ -4894,6 +4922,12 @@ static int btintel_pcie_suspend_late(struct device *dev, pm_message_t mesg)
 	else
 		dxstate = BTINTEL_PCIE_STATE_D3_COLD;
 
+	if (data->log_mask & BTINTEL_PCIE_LOG_SX)
+		bt_dev_info(data->hdev,
+			    "Sx suspend: event=%s(0x%x) dxstate=%u",
+			    btintel_pcie_pm_event_str(mesg.event),
+			    mesg.event, dxstate);
+
 	start = ktime_get();
 
 	/* Refer: 6.4.11.7 -> Platform power management */
@@ -4911,6 +4945,12 @@ static int btintel_pcie_suspend_late(struct device *dev, pm_message_t mesg)
 	bt_dev_dbg(data->hdev,
 		   "device entered into d3 state from d0 in %lld us",
 		   ktime_to_us(ktime_get() - start));
+
+	if (data->log_mask & BTINTEL_PCIE_LOG_SX)
+		bt_dev_info(data->hdev,
+			    "Sx suspend complete: d3 entry took %lld us",
+			    ktime_to_us(ktime_get() - start));
+
 	return err;
 }
 
@@ -4937,6 +4977,11 @@ static int btintel_pcie_resume_event(struct device *dev, pm_message_t mesg)
 	int err;
 
 	data = pci_get_drvdata(pdev);
+
+	if (data->log_mask & BTINTEL_PCIE_LOG_SX)
+		bt_dev_info(data->hdev, "Sx resume: event=%s(0x%x)",
+			    btintel_pcie_pm_event_str(mesg.event),
+			    mesg.event);
 
 	start = ktime_get();
 
