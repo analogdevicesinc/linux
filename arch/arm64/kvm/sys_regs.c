@@ -3275,6 +3275,14 @@ static u64 reset_mdcr(struct kvm_vcpu *vcpu, const struct sys_reg_desc *r)
 	return vcpu->kvm->arch.nr_pmu_counters;
 }
 
+static u64 reset_tcr_el2(struct kvm_vcpu *vcpu, const struct sys_reg_desc *r)
+{
+	__vcpu_assign_sys_reg(vcpu, r->reg,
+			      vcpu_has_feature(vcpu, KVM_ARM_VCPU_HAS_EL2_E2H0) ?
+			      TCR_EL2_RES1 : VHE_TCR_EL2_RES1);
+	return __vcpu_sys_reg(vcpu, r->reg);
+}
+
 /*
  * Architected system registers.
  * Important: Must be sorted ascending by Op0, Op1, CRn, CRm, Op2
@@ -3853,7 +3861,7 @@ static const struct sys_reg_desc sys_reg_descs[] = {
 
 	EL2_REG(TTBR0_EL2, access_rw, reset_val, 0),
 	EL2_REG(TTBR1_EL2, access_rw, reset_val, 0),
-	EL2_REG(TCR_EL2, access_rw, reset_val, TCR_EL2_RES1),
+	EL2_REG(TCR_EL2, access_rw, reset_tcr_el2, 0),
 	EL2_REG_FILTERED(TCR2_EL2, access_rw, reset_val, TCR2_EL2_RES1,
 			 tcr2_el2_visibility),
 	EL2_REG_VNCR(VTTBR_EL2, reset_val, 0),
