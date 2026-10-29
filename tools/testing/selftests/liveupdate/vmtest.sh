@@ -40,7 +40,7 @@ Options:
 	-t)	run test for target_arch (aarch64, x86_64)
 	-T)	test name to run (default: luo_kexec_simple)
 	-w)	custom workspace directory (default: creates temp dir)
-	-k)	keep workspace directory after successful test
+	-k)	keep workspace directory
 	-h)	display this help
 EOF
 }
