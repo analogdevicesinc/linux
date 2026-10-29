@@ -4445,6 +4445,7 @@
 			phy-names = "usb2-phy";
 			maximum-speed = "high-speed";
 			usb-role-switch;
+			dma-coherent;
 
 			port {
 				usb2_role_switch: endpoint {
@@ -5006,6 +5007,7 @@
 			phy-names = "usb2-phy", "usb3-phy";
 			maximum-speed = "super-speed";
 			usb-role-switch;
+			dma-coherent;
 
 			ports {
 				#address-cells = <1>;
