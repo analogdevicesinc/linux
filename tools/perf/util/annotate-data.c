@@ -2149,16 +2149,23 @@ static void print_annotated_data_header(struct hist_entry *he, struct evsel *evs
 	int nr_samples = he->stat.nr_events;
 	int width = 7;
 	const char *val_hdr = "Percent";
+	const char *evsel_name = evsel__name(evsel);
+	char buf[512];
+	int len;
 
 	if (evsel__is_group_event(evsel)) {
 		struct hist_entry *pair;
 
 		list_for_each_entry(pair, &he->pairs.head, pairs.node)
 			nr_samples += pair->stat.nr_events;
+
+		evsel__group_desc(evsel, buf, sizeof(buf));
+		evsel_name = buf;
 	}
 
-	printf("Annotate type: '%s' in %s (%d samples):\n",
-	       he->mem_type->self.type_name, dso__name(dso), nr_samples);
+	len = printf("Annotate type: '%s' in %s for %s (%d samples):\n",
+		     he->mem_type->self.type_name, dso__name(dso), evsel_name,
+		     nr_samples);
 
 	if (evsel__is_group_event(evsel)) {
 		struct evsel *pos;
@@ -2183,7 +2190,9 @@ static void print_annotated_data_header(struct hist_entry *he, struct evsel *evs
 		val_hdr = "Samples";
 	}
 
-	printf("============================================================================\n");
+	while (len-- > 1)
+		putchar('=');
+	putchar('\n');
 	printf("%*s %10s %10s  %s\n", (width + 1) * nr_members, val_hdr,
 	       "offset", "size", "field");
 }
