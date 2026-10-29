@@ -3122,6 +3122,7 @@
 				snps,dis-u2-entry-quirk;
 				phys = <&usb_1_hsphy>, <&usb_1_qmpphy QMP_USB43DP_USB3_PHY>;
 				phy-names = "usb2-phy", "usb3-phy";
+				dma-coherent;
 
 				ports {
 					#address-cells = <1>;
@@ -3201,6 +3202,7 @@
 				snps,dis-u2-entry-quirk;
 				phys = <&usb_2_hsphy>, <&usb_2_qmpphy>;
 				phy-names = "usb2-phy", "usb3-phy";
+				dma-coherent;
 			};
 		};
 
