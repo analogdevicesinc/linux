@@ -106,8 +106,9 @@ enum ice_tx_tstamp_work {
  * @offset: offset into timestamp block to get the real index
  * @len: length of the tstamps and in_use fields.
  * @init: if true, the tracker is initialized;
- * @disabled: set to true when new Tx timestamp requests are disabled, such as
- *            while the PHY Tx offset configuration has not yet completed.
+ * @disabled: set to true when new Tx timestamp requests are disabled. This
+ *            includes during E82X Vernier calibration, and for as long as the
+ *            PHY is considered stopped on E825.
  * @has_ready_bitmap: if true, the hardware has a valid Tx timestamp ready
  *                    bitmap register. If false, fall back to verifying new
  *                    timestamp values against previously cached copy.
