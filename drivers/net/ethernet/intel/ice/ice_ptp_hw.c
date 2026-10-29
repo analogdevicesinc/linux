@@ -2128,9 +2128,11 @@ int ice_stop_phy_timer_eth56g(struct ice_hw *hw, u8 port)
  * @hw: pointer to the HW struct
  * @port: the PHY port to start
  *
- * Start the clock of a PHY port. This must be done as part of the flow to
- * re-calibrate Tx and Rx timestamping offsets whenever the clock time is
- * initialized or when link speed changes.
+ * Perform a PHY soft reset and then start the clock for the PHY port.
+ *
+ * This must be done as part of the flow to re-calibrate Tx and Rx
+ * timestamping offsets whenever the clock time is initialized or when link
+ * speed changes.
  *
  * Return:
  * * %0     - success
@@ -2147,6 +2149,10 @@ int ice_start_phy_timer_eth56g(struct ice_hw *hw, u8 port)
 	tmr_idx = ice_get_ptp_src_clock_index(hw);
 
 	err = ice_stop_phy_timer_eth56g(hw, port);
+	if (err)
+		return err;
+
+	err = ice_ptp_phy_soft_reset_eth56g(hw, port);
 	if (err)
 		return err;
 
