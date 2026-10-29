@@ -32,6 +32,8 @@
 #define VERSION "0.1"
 
 /* Runtime diagnostic logging bits loaded from LOG_MASK in the debug INI. */
+#define BTINTEL_PCIE_DUMP_TX		BIT(0)
+#define BTINTEL_PCIE_DUMP_RX		BIT(1)
 
 #define BTINTEL_PCI_DEVICE(dev, subdev)	\
 	.vendor = PCI_VENDOR_ID_INTEL,	\
@@ -196,6 +198,42 @@ static inline char *btintel_pcie_alivectxt_state2str(u32 alive_intr_ctxt)
 	default:
 		return "unknown";
 	}
+}
+
+/* Returns hdev name once registered, else the PCI device name so that
+ * logs emitted before hci_register_dev() do not show "null".
+ */
+static const char *btintel_pcie_dev_name(struct btintel_pcie_data *data)
+{
+	return data->hdev ? data->hdev->name : dev_name(&data->pdev->dev);
+}
+
+/* Hex dump with "Bluetooth: <dev>: <tag> " prefix */
+static void btintel_pcie_hex_dump(struct btintel_pcie_data *data,
+				  const char *tag, const void *buf, size_t len)
+{
+	char prefix[64];
+
+	snprintf(prefix, sizeof(prefix), "Bluetooth: %s: %s ",
+		 btintel_pcie_dev_name(data), tag);
+	print_hex_dump(KERN_INFO, prefix, DUMP_PREFIX_OFFSET, 16, 1, buf, len,
+		       false);
+}
+
+static const char * const btintel_pcie_pkt_type_table[] = {
+	[HCI_COMMAND_PKT] = "CMD",
+	[HCI_ACLDATA_PKT] = "ACL",
+	[HCI_SCODATA_PKT] = "SCO",
+	[HCI_EVENT_PKT] = "EVT",
+	[HCI_ISODATA_PKT] = "ISO",
+};
+
+static const char *btintel_pcie_pkt_type_str(u8 pkt_type)
+{
+	if (pkt_type < ARRAY_SIZE(btintel_pcie_pkt_type_table) &&
+	    btintel_pcie_pkt_type_table[pkt_type])
+		return btintel_pcie_pkt_type_table[pkt_type];
+	return "UNK";
 }
 
 /* Returns true when firmware traces are routed to the WiFi DBGC. In that
@@ -2454,6 +2492,23 @@ static int btintel_pcie_recv_frame(struct btintel_pcie_data *data,
 	hdev->stat.byte_rx += plen;
 	skb_trim(skb, plen);
 
+	if (data->log_mask & BTINTEL_PCIE_DUMP_RX) {
+		if (pkt_type == HCI_EVENT_PKT)
+			bt_dev_info(hdev, "RX %s evt=0x%02x len=%u",
+				    btintel_pcie_pkt_type_str(pkt_type),
+				    ((struct hci_event_hdr *)skb->data)->evt,
+				    plen);
+		else if (pkt_type == HCI_ACLDATA_PKT)
+			bt_dev_info(hdev, "RX %s handle=0x%04x len=%u",
+				    btintel_pcie_pkt_type_str(pkt_type),
+				    le16_to_cpu(hci_acl_hdr(skb)->handle) & 0x0fff,
+				    plen);
+		else
+			bt_dev_info(hdev, "RX %s len=%u",
+				    btintel_pcie_pkt_type_str(pkt_type), plen);
+		btintel_pcie_hex_dump(data, "[RX]", skb->data, skb->len);
+	}
+
 	if (pcie_pkt_type == BTINTEL_PCIE_HCI_EVT_PKT)
 		ret = btintel_pcie_recv_event(hdev, skb);
 	else
@@ -3663,6 +3718,24 @@ static int btintel_pcie_send_frame(struct hci_dev *hdev,
 	default:
 		bt_dev_err(hdev, "Unknown HCI packet type");
 		return -EILSEQ;
+	}
+
+	if (data->log_mask & BTINTEL_PCIE_DUMP_TX) {
+		if (hci_skb_pkt_type(skb) == HCI_COMMAND_PKT)
+			bt_dev_info(hdev, "TX %s opcode=0x%04x len=%u",
+				    btintel_pcie_pkt_type_str(hci_skb_pkt_type(skb)),
+				    opcode, skb->len);
+		else if (hci_skb_pkt_type(skb) == HCI_ACLDATA_PKT &&
+			 skb->len >= HCI_ACL_HDR_SIZE)
+			bt_dev_info(hdev, "TX %s handle=0x%04x len=%u",
+				    btintel_pcie_pkt_type_str(hci_skb_pkt_type(skb)),
+				    le16_to_cpu(hci_acl_hdr(skb)->handle) & 0x0fff,
+				    skb->len);
+		else
+			bt_dev_info(hdev, "TX %s len=%u",
+				    btintel_pcie_pkt_type_str(hci_skb_pkt_type(skb)),
+				    skb->len);
+		btintel_pcie_hex_dump(data, "[TX]", skb->data, skb->len);
 	}
 
 	ret = btintel_pcie_send_sync(data, skb, type, opcode);
