@@ -234,7 +234,7 @@ static snd_pcm_uframes_t chv3_dma_pointer(struct snd_soc_component *component,
 	u32 frame_bytes, buffer_bytes;
 	u32 idx_bytes;
 
-	frame_bytes = substream->runtime->frame_bits * 8;
+	frame_bytes = substream->runtime->frame_bits / 8;
 	buffer_bytes = snd_pcm_lib_buffer_bytes(substream);
 
 	if (substream->pstr->stream == SNDRV_PCM_STREAM_CAPTURE) {
