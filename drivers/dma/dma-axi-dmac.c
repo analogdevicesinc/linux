@@ -1286,6 +1286,15 @@ static int axi_dmac_detect_caps(struct axi_dmac *dmac, unsigned int version)
 		chan->length_align_mask = chan->address_align_mask;
 	}
 
+	/* check ALLOW_UNALIGNED_SRC support */
+	if (chan->direction == DMA_MEM_TO_DEV && chan->src_width > 1) {
+		axi_dmac_write(dmac, AXI_DMAC_REG_SRC_ADDRESS, chan->src_width - 1);
+		if (axi_dmac_read(dmac, AXI_DMAC_REG_SRC_ADDRESS) == chan->src_width - 1) {
+			chan->max_length -= chan->src_width;
+			chan->address_align_mask = 0;
+		}
+	}
+
 	if (version < ADI_AXI_PCORE_VER(4, 6, 0) && !chan->hw_sg)
 		chan->hw_cyclic_hotfix = true;
 
