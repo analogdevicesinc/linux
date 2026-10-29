@@ -122,6 +122,15 @@ static const struct xe_reg_desc xe_dbg_gam_pf_reglist[] = {
 	XE_REG_DESC_MCR(PAGE_FLTRPTQ_TAIL, "PAGE_FLTRPTQ_TAIL"),
 };
 
+static const struct xe_reg_desc xe_dbg_xelp_l3_reglist[] = {
+	XE_REG_DESC_MCR(L3STAT_LBCF_GFX, "L3STAT_LBCF_GFX"),
+};
+
+static const struct xe_reg_desc xe_dbg_l3_node_reglist[] = {
+	XE_REG_DESC_MCR(L3_NODE_IDLE, "L3_NODE_IDLE"),
+	XE_REG_DESC_MCR(L3STAT_LBCF_GFX, "L3STAT_LBCF_GFX"),
+};
+
 /**
  * struct xe_gt_regset - Struct for register descriptor list for GT
  *
@@ -142,6 +151,8 @@ struct xe_gt_regset {
  * @XE_DBG_REGSET_RPM: RPM register set
  * @XE_DBG_REGSET_GUC: GUC register set
  * @XE_DBG_REGSET_GAM_PF: GAM Pagefault registers set
+ * @XE_DBG_REGSET_XELP_L3: Xe_LP L3 register set
+ * @XE_DBG_REGSET_L3_NODE: L3 Node register Set
  * @XE_DBG_REGSET_MAX: Number of debug register set types
  */
 enum xe_dbg_regset_type {
@@ -149,6 +160,8 @@ enum xe_dbg_regset_type {
 	XE_DBG_REGSET_RPM,
 	XE_DBG_REGSET_GUC,
 	XE_DBG_REGSET_GAM_PF,
+	XE_DBG_REGSET_XELP_L3,
+	XE_DBG_REGSET_L3_NODE,
 	XE_DBG_REGSET_MAX,
 };
 
@@ -174,6 +187,14 @@ static const struct xe_gt_regset xe_dbg_regsets[XE_DBG_REGSET_MAX] = {
 	[XE_DBG_REGSET_GAM_PF] = {
 		.gt[XE_GT_TYPE_MAIN] = { xe_dbg_gam_pf_reglist,
 					ARRAY_SIZE(xe_dbg_gam_pf_reglist) },
+	},
+	[XE_DBG_REGSET_XELP_L3] = {
+		.gt[XE_GT_TYPE_MAIN] = { xe_dbg_xelp_l3_reglist,
+					 ARRAY_SIZE(xe_dbg_xelp_l3_reglist) },
+	},
+	[XE_DBG_REGSET_L3_NODE] = {
+		.gt[XE_GT_TYPE_MAIN] = { xe_dbg_l3_node_reglist,
+					 ARRAY_SIZE(xe_dbg_l3_node_reglist) },
 	},
 };
 
@@ -359,6 +380,8 @@ static ssize_t __xe_devcoredump_read(char *buffer, ssize_t count,
 
 	xe_gam_pf_snapshot_print(&p, "GAM PF Report", ss->gam_pf_report);
 
+	xe_dbg_reg_snapshot_print(&p, "Node Status", ss->ns);
+
 	drm_puts(&p, "\n**** Contexts ****\n");
 	xe_guc_exec_queue_snapshot_print(ss->ge, &p);
 
@@ -415,6 +438,9 @@ static void xe_devcoredump_snapshot_free(struct xe_devcoredump_snapshot *ss)
 
 	xe_dbg_reg_snapshot_free(ss->gam_pf_report);
 	ss->gam_pf_report = NULL;
+
+	xe_dbg_reg_snapshot_free(ss->ns);
+	ss->ns = NULL;
 
 	xe_guc_exec_queue_snapshot_free(ss->ge);
 	ss->ge = NULL;
@@ -588,6 +614,10 @@ static void xe_devcoredump_deferred_snap_work(struct work_struct *work)
 static void xe_devcoredump_capture_gt_regs(struct xe_devcoredump_snapshot *ss,
 					   struct xe_gt *gt, struct xe_gt *other_gt)
 {
+	enum xe_dbg_regset_type l3_regset =
+		GRAPHICS_VERx100(gt_to_xe(gt)) < 1250 ?
+		XE_DBG_REGSET_XELP_L3 : XE_DBG_REGSET_L3_NODE;
+
 	ss->gt_fuse      = xe_dbg_gt_snapshot_capture(gt,
 						      other_gt,
 						      XE_DBG_REGSET_FUSE,
@@ -616,6 +646,10 @@ static void xe_devcoredump_capture_gt_regs(struct xe_devcoredump_snapshot *ss,
 						       other_gt,
 						       XE_DBG_REGSET_GAM_PF,
 						       XE_GT_TYPE_MAIN);
+	ss->ns = xe_dbg_gt_snapshot_capture(gt,
+					    other_gt,
+					    l3_regset,
+					    XE_GT_TYPE_MAIN);
 }
 
 static void devcoredump_snapshot(struct xe_devcoredump *coredump,
@@ -667,7 +701,6 @@ static void devcoredump_snapshot(struct xe_devcoredump *coredump,
 		if (job)
 			ss->job = xe_sched_job_snapshot_capture(job);
 		ss->vm = xe_vm_snapshot_capture(q->vm);
-
 		xe_engine_snapshot_capture_for_queue(q);
 	}
 
