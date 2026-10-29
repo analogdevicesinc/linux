@@ -4502,6 +4502,8 @@
 			snps,dis-u2-entry-quirk;
 
 			usb-role-switch;
+			dma-coherent;
+
 			status = "disabled";
 
 			ports {
@@ -4569,6 +4571,8 @@
 			snps,dis-u1-entry-quirk;
 			snps,dis-u2-entry-quirk;
 
+			dma-coherent;
+
 			status = "disabled";
 		};
 
@@ -4617,6 +4621,7 @@
 			snps,dis-u2-entry-quirk;
 
 			usb-role-switch;
+			dma-coherent;
 
 			status = "disabled";
 
