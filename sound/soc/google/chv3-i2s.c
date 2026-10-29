@@ -310,10 +310,8 @@ static int chv3_i2s_probe(struct platform_device *pdev)
 
 	res = devm_snd_soc_register_component(&pdev->dev, &chv3_i2s_comp,
 					      &chv3_i2s_dai, 1);
-	if (res) {
-		dev_err(&pdev->dev, "couldn't register component: %d\n", res);
+	if (res)
 		return res;
-	}
 
 	return 0;
 }
