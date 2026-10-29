@@ -34,6 +34,7 @@
 /* Runtime diagnostic logging bits loaded from LOG_MASK in the debug INI. */
 #define BTINTEL_PCIE_DUMP_TX		BIT(0)
 #define BTINTEL_PCIE_DUMP_RX		BIT(1)
+#define BTINTEL_PCIE_LOG_ALIVE_INTR	BIT(2)
 
 #define BTINTEL_PCI_DEVICE(dev, subdev)	\
 	.vendor = PCI_VENDOR_ID_INTEL,	\
@@ -783,9 +784,12 @@ static int btintel_pcie_send_sync(struct btintel_pcie_data *data,
 		data->alive_intr_ctxt =
 			(opcode == BTINTEL_HCI_OP_RESET ? BTINTEL_PCIE_INTEL_HCI_RESET1 :
 				BTINTEL_PCIE_HCI_RESET);
-		bt_dev_dbg(data->hdev, "sending cmd: 0x%4.4x alive context changed: %s  ->  %s",
-			   opcode, btintel_pcie_alivectxt_state2str(old_ctxt),
-			   btintel_pcie_alivectxt_state2str(data->alive_intr_ctxt));
+		if (data->log_mask & BTINTEL_PCIE_LOG_ALIVE_INTR) {
+			bt_dev_info(data->hdev, "sending cmd: 0x%4.4x alive context changed: %s  ->  %s",
+				    opcode, btintel_pcie_alivectxt_state2str(old_ctxt),
+				    btintel_pcie_alivectxt_state2str(data->alive_intr_ctxt));
+			bt_dev_info(data->hdev, "Driver waits on alive interrupt");
+		}
 	}
 
 	memcpy(skb_push(skb, BTINTEL_PCIE_HCI_TYPE_LEN), &pkt_type,
@@ -1692,6 +1696,10 @@ static int btintel_pcie_enable_bt(struct btintel_pcie_data *data)
 	btintel_pcie_wr_reg32(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG, reg);
 
 	/* MAC is ready. Enable BT FUNC */
+	if (data->log_mask & BTINTEL_PCIE_LOG_ALIVE_INTR)
+		BT_INFO("%s: Mac Init: Wait on Alive Interrupt",
+			btintel_pcie_dev_name(data));
+
 	btintel_pcie_set_reg_bits(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG,
 				  BTINTEL_PCIE_CSR_FUNC_CTRL_FUNC_INIT);
 
@@ -2184,12 +2192,14 @@ static void btintel_pcie_msix_gp0_handler(struct btintel_pcie_data *data)
 	 * with cached value and update it before it wake up the queue.
 	 */
 	reg = btintel_pcie_rd_reg32(data, BTINTEL_PCIE_CSR_BOOT_STAGE_REG);
+	if (data->log_mask & BTINTEL_PCIE_LOG_ALIVE_INTR)
+		BT_INFO("%s: Alive context: %s old_boot_stage: 0x%8.8x new_boot_stage: 0x%8.8x",
+			btintel_pcie_dev_name(data),
+			btintel_pcie_alivectxt_state2str(data->alive_intr_ctxt),
+			data->boot_stage_cache, reg);
 	if (reg != data->boot_stage_cache)
 		data->boot_stage_cache = reg;
 
-	bt_dev_dbg(data->hdev, "Alive context: %s old_boot_stage: 0x%8.8x new_boot_stage: 0x%8.8x",
-		   btintel_pcie_alivectxt_state2str(data->alive_intr_ctxt),
-		   data->boot_stage_cache, reg);
 	reg = btintel_pcie_rd_reg32(data, BTINTEL_PCIE_CSR_IMG_RESPONSE_REG);
 	if (reg != data->img_resp_cache)
 		data->img_resp_cache = reg;
@@ -2290,10 +2300,12 @@ static void btintel_pcie_msix_gp0_handler(struct btintel_pcie_data *data)
 		wake_up(&data->gp0_wait_q);
 	}
 
-	if (old_ctxt != data->alive_intr_ctxt)
-		bt_dev_dbg(data->hdev, "alive context changed: %s  ->  %s",
-			   btintel_pcie_alivectxt_state2str(old_ctxt),
-			   btintel_pcie_alivectxt_state2str(data->alive_intr_ctxt));
+	if (old_ctxt != data->alive_intr_ctxt &&
+	    (data->log_mask & BTINTEL_PCIE_LOG_ALIVE_INTR))
+		BT_INFO("%s: alive context changed: %s  ->  %s",
+			btintel_pcie_dev_name(data),
+			btintel_pcie_alivectxt_state2str(old_ctxt),
+			btintel_pcie_alivectxt_state2str(data->alive_intr_ctxt));
 }
 
 /* This function handles the MSX-X interrupt for rx queue 0 which is for TX
@@ -4624,7 +4636,7 @@ static int btintel_pcie_probe(struct pci_dev *pdev,
 	data->boot_stage_cache = 0x00;
 	data->img_resp_cache = 0x00;
 	data->dbg_path_cache = BTINTEL_PCIE_WIFI_DBGC;
-	data->log_mask = 0;
+	data->log_mask = BTINTEL_PCIE_LOG_ALIVE_INTR;
 	data->pcie_alloc_init = false;
 	data->enable_ini = false;
 	btintel_pcie_yoyo_init(&data->yoyo);
