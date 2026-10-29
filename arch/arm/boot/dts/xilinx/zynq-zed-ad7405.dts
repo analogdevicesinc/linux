@@ -30,7 +30,7 @@
 		regulator-always-on;
 	};
 
-	ad7405 {
+	ad7405: ad7405 {
 		compatible = "adi,ad7405";
 		clocks = <&axi_clk_gen>;
 		vdd1-supply = <&vdd1>;

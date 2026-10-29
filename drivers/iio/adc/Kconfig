@@ -326,7 +326,8 @@ config AD7405
 	depends on IIO_BACKEND
 	help
 	  Say yes here to build support for Analog Devices AD7405, ADUM7701,
-	  ADUM7702, ADUM7703 analog to digital converters (ADC).
+	  ADUM7702, ADUM7703, ADUM7801, ADUM7802, ADUM7811, ADUM7812 analog
+	  to digital converters (ADC).
 
 	  To compile this driver as a module, choose M here: the module will be
 	  called ad7405.

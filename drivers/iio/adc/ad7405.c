@@ -159,6 +159,26 @@ static const struct ad7405_chip_info adum7703_chip_info = {
 	.full_scale_mv = 320,
 };
 
+static const struct ad7405_chip_info adum7801_chip_info = {
+	.name = "adum7801",
+	.full_scale_mv = 320,
+};
+
+static const struct ad7405_chip_info adum7802_chip_info = {
+	.name = "adum7802",
+	.full_scale_mv = 64,
+};
+
+static const struct ad7405_chip_info adum7811_chip_info = {
+	.name = "adum7811",
+	.full_scale_mv = 320,
+};
+
+static const struct ad7405_chip_info adum7812_chip_info = {
+	.name = "adum7812",
+	.full_scale_mv = 64,
+};
+
 static const char * const ad7405_power_supplies[] = {
 	"vdd1",	"vdd2",
 };
@@ -233,6 +253,10 @@ static const struct of_device_id ad7405_of_match[] = {
 	{ .compatible = "adi,adum7701", .data = &adum7701_chip_info, },
 	{ .compatible = "adi,adum7702", .data = &adum7702_chip_info, },
 	{ .compatible = "adi,adum7703", .data = &adum7703_chip_info, },
+	{ .compatible = "adi,adum7801", .data = &adum7801_chip_info, },
+	{ .compatible = "adi,adum7802", .data = &adum7802_chip_info, },
+	{ .compatible = "adi,adum7811", .data = &adum7811_chip_info, },
+	{ .compatible = "adi,adum7812", .data = &adum7812_chip_info, },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ad7405_of_match);

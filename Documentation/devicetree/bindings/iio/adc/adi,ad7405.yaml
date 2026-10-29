@@ -20,6 +20,10 @@ description: |
   https://www.analog.com/media/en/technical-documentation/data-sheets/adum7701.pdf
   https://www.analog.com/media/en/technical-documentation/data-sheets/adum7702.pdf
   https://www.analog.com/media/en/technical-documentation/data-sheets/ADuM7703.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/adum7801.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/adum7802.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/adum7811.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/adum7812.pdf
 
 properties:
   compatible:
@@ -28,6 +32,10 @@ properties:
       - adi,adum7701
       - adi,adum7702
       - adi,adum7703
+      - adi,adum7801
+      - adi,adum7802
+      - adi,adum7811
+      - adi,adum7812
 
   clocks:
     maxItems: 1
