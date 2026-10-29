@@ -1316,9 +1316,12 @@ static int ioctl_get_cycle_timer(struct client *client, union ioctl_arg *arg)
 {
 	struct fw_cdev_get_cycle_timer *a = &arg->get_cycle_timer;
 	struct fw_cdev_get_cycle_timer2 ct2;
+	int ret;
 
 	ct2.clk_id = CLOCK_REALTIME;
-	ioctl_get_cycle_timer2(client, (union ioctl_arg *)&ct2);
+	ret = ioctl_get_cycle_timer2(client, (union ioctl_arg *)&ct2);
+	if (ret < 0)
+		return ret;
 
 	a->local_time = ct2.tv_sec * USEC_PER_SEC + ct2.tv_nsec / NSEC_PER_USEC;
 	a->cycle_timer = ct2.cycle_timer;
