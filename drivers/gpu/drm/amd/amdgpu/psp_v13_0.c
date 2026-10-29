@@ -917,7 +917,9 @@ static bool psp_v13_0_is_reload_needed(struct psp_context *psp)
 	switch (amdgpu_ip_version(psp->adev, MP0_HWIP, 0)) {
 	case IP_VERSION(13, 0, 2):
 	case IP_VERSION(13, 0, 6):
+	case IP_VERSION(13, 0, 12):
 	case IP_VERSION(13, 0, 14):
+	case IP_VERSION(13, 0, 15):
 		/* TOS version read from microcode header */
 		ucode_ver = psp->sos.fw_version;
 		/* Read TOS version from hardware */
