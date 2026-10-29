@@ -583,6 +583,9 @@ extern void sdev_enable_disk_events(struct scsi_device *sdev);
 extern int scsi_vpd_lun_id(struct scsi_device *, char *, size_t);
 extern int scsi_vpd_lun_serial(struct scsi_device *, char *, size_t);
 extern int scsi_vpd_tpg_id(struct scsi_device *, int *);
+int scsi_report_tpgs(struct scsi_device *sdev, unsigned char **buff,
+		     int *bufflen, bool ext_hdr, int timeout, int retries,
+		     const struct scsi_exec_args *args);
 
 #ifdef CONFIG_PM
 extern int scsi_autopm_get_device(struct scsi_device *);
