@@ -294,6 +294,14 @@ cros_ec_sensor_ring_ts_filter_update(struct cros_ec_sensors_ts_filter_state
 	if (-dx > TS_HISTORY_BORED_US)
 		state->history_len = 0;
 
+	/*
+	 * Also empty it if the EC and the AP disagree on the elapsed time
+	 * (dy, in ns), for instance when b was unwrapped to the wrong
+	 * overflow period after a long gap without events.
+	 */
+	if (abs(dy) > TS_HISTORY_BORED_US * NSEC_PER_USEC)
+		state->history_len = 0;
+
 	/* Move everything over, also update offset to all absolute coords .*/
 	for (i = state->history_len - 1; i >= 1; i--) {
 		state->x_history[i] = state->x_history[i - 1] + dx;
