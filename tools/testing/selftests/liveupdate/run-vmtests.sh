@@ -26,7 +26,7 @@ function usage() {
 	cat <<EOF
 $0 [-k] [-o output_dir] [-h]
 Options:
-	-k)	keep logs
+	-k)	keep logs and VM workspaces, including guest serial logs
 	-o)	specify output directory
 	-h)	display this help
 EOF
@@ -48,6 +48,8 @@ function fail() {
 }
 
 function main() {
+	local -a vmtest_args=()
+
 	while getopts 'hko:' opt; do
 		case $opt in
 		k) keep_logs=1 ;;
@@ -59,6 +61,7 @@ function main() {
 	done
 
 	if [ -n "$keep_logs" ]; then
+		vmtest_args+=(-k)
 		if [ -z "$output_dir" ]; then
 			output_dir="$SCRIPT_DIR/results_$(date +%Y%m%d_%H%M%S)"
 		fi;
@@ -74,7 +77,7 @@ function main() {
 
 			printf "  -> %-8s %-24s ... " "$arch" "$test_name"
 
-			"$TEST_RUNNER" -t "$arch" -T "$test_name" &> "$log"
+			"$TEST_RUNNER" "${vmtest_args[@]}" -t "$arch" -T "$test_name" &> "$log"
 			exit_code=$?
 
 			case $exit_code in
