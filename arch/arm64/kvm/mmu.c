@@ -2231,11 +2231,7 @@ out_unlock:
 	kvm_fault_unlock(kvm);
 	kfree(mapping);
 
-	/*
-	 * Mark the page dirty only if the fault is handled successfully,
-	 * making sure we adjust the canonical IPA if the mapping size has
-	 * been updated (via a THP upgrade, for example).
-	 */
+	/* Mark the page dirty only if the fault is handled successfully. */
 	if (writable && !ret)
 		mark_page_dirty_in_slot(kvm, s2fd->memslot,
 					gpa_to_gfn(canonical_ipa));
