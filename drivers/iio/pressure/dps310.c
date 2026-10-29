@@ -306,10 +306,9 @@ static int dps310_temp_workaround(struct dps310_data *data)
 	return regmap_write(data->regmap, 0x0f, 0x00);
 }
 
-static int dps310_startup(struct dps310_data *data)
+static int dps310_set_defaults(struct dps310_data *data)
 {
 	int rc;
-	int ready;
 
 	/*
 	 * Set up pressure sensor in single sample, one measurement per second
@@ -328,10 +327,14 @@ static int dps310_startup(struct dps310_data *data)
 		return rc;
 
 	/* Temp and pressure shifts are disabled when PRC <= 8 */
-	rc = regmap_write_bits(data->regmap, DPS310_CFG_REG,
-			       DPS310_PRS_SHIFT_EN | DPS310_TMP_SHIFT_EN, 0);
-	if (rc)
-		return rc;
+	return regmap_write_bits(data->regmap, DPS310_CFG_REG,
+				 DPS310_PRS_SHIFT_EN | DPS310_TMP_SHIFT_EN, 0);
+}
+
+static int dps310_startup(struct dps310_data *data)
+{
+	int rc;
+	int ready;
 
 	/* MEAS_CFG doesn't update correctly unless first written with 0 */
 	rc = regmap_write_bits(data->regmap, DPS310_MEAS_CFG,
@@ -548,6 +551,12 @@ static int dps310_reset_reinit(struct dps310_data *data)
 	int rc;
 
 	rc = dps310_reset_wait(data);
+	if (rc)
+		return rc;
+
+	/* Put back the configuration the reset cleared */
+	regcache_mark_dirty(data->regmap);
+	rc = regcache_sync_region(data->regmap, DPS310_PRS_CFG, DPS310_CFG_REG);
 	if (rc)
 		return rc;
 
@@ -1447,6 +1456,10 @@ static int dps310_probe(struct i2c_client *client)
 
 	/* The chip keeps its state across a warm reboot */
 	rc = dps310_reset_wait(data);
+	if (rc)
+		return rc;
+
+	rc = dps310_set_defaults(data);
 	if (rc)
 		return rc;
 
