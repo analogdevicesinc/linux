@@ -2101,6 +2101,10 @@ int kvm_init_nv_sysregs(struct kvm_vcpu *vcpu)
 	resx = get_reg_fixed_bits(kvm, HFGITR2_EL2);
 	set_sysreg_masks(kvm, HFGITR2_EL2, resx);
 
+	/* TCR_EL2 */
+	resx = get_reg_fixed_bits(kvm, TCR_EL2);
+	set_sysreg_masks(kvm, TCR_EL2, resx);
+
 	/* TCR2_EL2 */
 	resx = get_reg_fixed_bits(kvm, TCR2_EL2);
 	set_sysreg_masks(kvm, TCR2_EL2, resx);
