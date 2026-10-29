@@ -794,6 +794,15 @@ config REGULATOR_MAX77802
 	  Exynos5420/Exynos5800 SoCs to control various voltages.
 	  It includes support for control of voltage and ramp speed.
 
+config REGULATOR_MAX20355
+	tristate "Analog Devices MAX20355 Buck-Boost Regulator"
+	depends on MFD_MAX2035X
+	help
+	  Regulator driver for the buck-boost converter on the Analog
+	  Devices MAX20355 PMIC. Provides voltage readback and control
+	  for the 3.3W buck-boost that powers the PLC line. DVS is
+	  managed autonomously by hardware.
+
 config REGULATOR_MAX77826
 	tristate "Maxim 77826 regulator"
 	depends on I2C
