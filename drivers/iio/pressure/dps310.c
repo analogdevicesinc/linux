@@ -410,7 +410,7 @@ static int dps310_set_pres_precision(struct dps310_data *data, int val)
 	int rc;
 	u8 shift_en;
 
-	if (val < 0 || val > 128)
+	if (val < 1 || val > 128)
 		return -EINVAL;
 
 	shift_en = val >= 16 ? DPS310_PRS_SHIFT_EN : 0;
@@ -433,7 +433,7 @@ static int dps310_set_temp_precision(struct dps310_data *data, int val)
 	int rc;
 	u8 shift_en;
 
-	if (val < 0 || val > 128)
+	if (val < 1 || val > 128)
 		return -EINVAL;
 
 	shift_en = val >= 16 ? DPS310_TMP_SHIFT_EN : 0;
@@ -455,7 +455,7 @@ static int dps310_set_pres_samp_freq(struct dps310_data *data, int freq)
 {
 	u8 val;
 
-	if (freq < 0 || freq > 128)
+	if (freq < 1 || freq > 128)
 		return -EINVAL;
 
 	val = ilog2(freq) << 4;
@@ -469,7 +469,7 @@ static int dps310_set_temp_samp_freq(struct dps310_data *data, int freq)
 {
 	u8 val;
 
-	if (freq < 0 || freq > 128)
+	if (freq < 1 || freq > 128)
 		return -EINVAL;
 
 	val = ilog2(freq) << 4;
