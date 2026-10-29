@@ -1,0 +1,95 @@
+C mnt-walker-bail-sees-doomed
+
+(*
+ * Result: Never
+ *
+ * A lazy unmount: umount_tree() clears ->mnt_ns under write_seqlock()
+ * without setting MNT_SYNC_UMOUNT, and mntput_unheld() sets MNT_DOOMED
+ * (flags=3) when the sum says nothing else holds the mount.  A walker
+ * in __legitimize_mnt() that sees the seqcount change takes mount_lock
+ * and reads ->mnt_flags there.  Not both the walker finding no flag
+ * set (0:r3=0, it keeps the reference) and the mount being finished
+ * off (freed=1).  mount_lock orders the two critical sections: either
+ * the walker's comes first and the sum counts its increment, or the
+ * sum's does and the walker finds MNT_DOOMED.
+ *)
+
+{
+	mnt_ns=1;
+	gets_w=0;
+	puts_w=0;
+	gets_u=1;
+	puts_u=0;
+	flags=0;
+	seq=0;
+	freed=0;
+}
+
+P0(spinlock_t *mlock, int *seq, int *gets_w, int *puts_w, int *flags)
+{
+	int r0;
+	int r1;
+	int r2;
+	int r3;
+
+	r0 = READ_ONCE(*seq);
+	smp_rmb();
+	smp_rmb();
+	r1 = READ_ONCE(*seq);
+	if (r1 == 0) {
+		WRITE_ONCE(*gets_w, 1);
+		smp_mb();
+		smp_rmb();
+		r2 = READ_ONCE(*seq);
+		if (r2 != 0) {
+			spin_lock(mlock);
+			r3 = READ_ONCE(*flags);
+			if (r3 != 0) {
+				WRITE_ONCE(*puts_w, 1);
+			}
+			spin_unlock(mlock);
+		}
+	}
+}
+
+P1(spinlock_t *mlock, int *seq, int *mnt_ns, int *flags, int *gets_w, int *puts_w, int *gets_u, int *puts_u, int *freed)
+{
+	int r1;
+	int r2;
+	int r3;
+	int r4;
+
+	spin_lock(mlock);
+	WRITE_ONCE(*seq, 1);
+	smp_wmb();
+	WRITE_ONCE(*mnt_ns, 0);
+	smp_wmb();
+	WRITE_ONCE(*seq, 2);
+	spin_unlock(mlock);
+
+	spin_lock(mlock);
+	WRITE_ONCE(*seq, 3);
+	smp_wmb();
+	smp_mb();
+	r1 = READ_ONCE(*puts_w);
+	r2 = READ_ONCE(*puts_u);
+	smp_mb();
+	r3 = READ_ONCE(*gets_w);
+	r4 = READ_ONCE(*gets_u);
+	if (r3 == 0) {
+		WRITE_ONCE(*flags, 3);
+		WRITE_ONCE(*freed, 1);
+	}
+	if (r3 == 1) {
+		if (r1 == 1) {
+			WRITE_ONCE(*flags, 3);
+			WRITE_ONCE(*freed, 1);
+		}
+	}
+	smp_wmb();
+	WRITE_ONCE(*seq, 4);
+	spin_unlock(mlock);
+}
+
+filter (0:r0=0)
+exists (0:r1=0 /\ ~(0:r2=0) /\ 0:r3=0 /\ freed=1)
