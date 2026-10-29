@@ -1445,6 +1445,11 @@ static int dps310_probe(struct i2c_client *client)
 	if (rc)
 		return rc;
 
+	/* The chip keeps its state across a warm reboot */
+	rc = dps310_reset_wait(data);
+	if (rc)
+		return rc;
+
 	rc = dps310_startup(data);
 	if (rc)
 		return rc;
