@@ -304,6 +304,20 @@ cros_ec_sensor_ring_ts_filter_update(struct cros_ec_sensors_ts_filter_state
 	 */
 	m = clamp(m, -MAX_M, MAX_M);
 
+	/*
+	 * Detect ODR (Output Data Rate) or mode changes (e.g., transition from
+	 * active streaming to low-frequency batching). If the interval between
+	 * interrupts changes by more than 10x in either direction, reset the
+	 * filter history to avoid mixing slopes measured over very different
+	 * intervals.
+	 */
+	if (state->history_len > 1) {
+		s64 prev_dx = -state->x_history[1];
+
+		if (prev_dx > 0 && (-dx > 10 * prev_dx || prev_dx > 10 * -dx))
+			state->history_len = 0;
+	}
+
 	/* Empty filter if we haven't seen any action in a while. */
 	if (-dx > TS_HISTORY_BORED_US)
 		state->history_len = 0;
