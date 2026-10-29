@@ -1070,6 +1070,7 @@ assert_compiled () {
 	fi
 	files=$(_filter_arch_file_exceptions "$files")
 	[[ -z "$files" ]] && return 0
+	local exclusive=$(cat "$KBUILD_OUTPUT/defconfig_interlock" 2>/dev/null)
 	while read file; do
 		echo -e "\e[1m$file\e[0m"
 		abs_file=$(realpath .)/$file
@@ -1080,6 +1081,10 @@ assert_compiled () {
 		[[ "$file" == "tools/"* ]] && continue
 		if [[ "$file" == "arch/"* ]] && [[ ! "$file" == "arch/$ARCH/"* ]]; then
 			echo "Not compiled, but targets a different architecture." ; continue
+		fi
+		if [[ -n "$exclusive" ]] && grep -q "^$file " <<< "$exclusive"; then
+			echo "Not compiled, mutually exclusive with: $(grep "^$file " <<< "$exclusive" | cut -d' ' -f2-)"
+			continue
 		fi
 		echo "::error file=$file,line=0::$step_name: Was not compiled during kernel compilation."
 		fail=1
@@ -1143,7 +1148,10 @@ auto_set_kconfig() {
 	done <<< "$c_files"
 
 	local k_symbols=$(echo "$k_blocks" | awk -f $CI_WORKTREE/ci/touched_kconfig.awk)
-	symbols=$(python3 $CI_WORKTREE/ci/symbols_depend.py ${k_symbols[@]} "${o_files[@]}")
+	local interlock_file="$KBUILD_OUTPUT/defconfig_interlock"
+	symbols=$(INTERLOCK_FILE="$interlock_file" \
+		  python3 $CI_WORKTREE/ci/symbols_depend.py ${k_symbols[@]} "${o_files[@]}")
+	[[ -s "$interlock_file" ]] && _set_step_warn true
 	for sym in $symbols; do
 		scripts/config --file "$KBUILD_OUTPUT/.config" -e $sym
 	done

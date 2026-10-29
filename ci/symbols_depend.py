@@ -118,6 +118,8 @@ def get_symbol_deps(kconf, symbol, arch, allowlist):
         return set()
 
     deps = collect_syms_from_expr(sym.direct_dep)
+    if sym.choice is not None:
+        deps |= collect_syms_from_expr(sym.choice.direct_dep)
 
     allow = symbol if symbol in allowlist else None
     return filter_symbols(deps, arch, allow)
@@ -169,41 +171,123 @@ def is_hidden_sym(sym):
     return bool(sym.nodes) and not any(node.prompt for node in sym.nodes)
 
 
+def _pick_selector(kconf, selectors, arch):
+    """
+    Pick a single visible selector to resolve a hidden dependency. Prefer on
+    the active arch, then the fewest dependencies, then name.
+    """
+    arch_syms = set(arch_map.get(arch, []))
+    cands = []
+    for s in selectors:
+        sym = kconf.syms.get(s)
+        if sym is None or is_hidden_sym(sym):
+            continue
+        deps = collect_syms_from_expr(sym.direct_dep)
+        cands.append((not (deps & arch_syms), len(deps), s))
+    return min(cands)[2] if cands else None
+
+
 def resolve_all(kconf, seeds, arch):
     """
     BFS over dependency graph starting from *seeds*.
     Returns the full set of transitive dependencies (including seeds).
 
-    Hidden symbols (no prompt) cannot be set directly; collect the symbols that
-    select them (except transient hidden symbols), and excluded itself from the
-    list.
+    Hidden symbols cannot be set directly, and are excluded from the result:
+    * hidden seeds: collect all the symbols that select them.
+    * hidden dependencies: if no selector was already collected, collect a
+    single selector (see _pick_selector()).
     """
     seed_set = set(seeds)
     allowlist = seed_set.copy()
     visited = set()
     hidden = set()
+    hidden_deps = set()
     queue = list(seeds)
 
-    while queue:
-        sym_name = queue.pop()
-        if sym_name in visited:
-            continue
-        visited.add(sym_name)
-        if sym_name not in kconf.syms:
-            continue
-        sym = kconf.syms[sym_name]
-        if is_hidden_sym(sym):
-            hidden.add(sym_name)
-            if sym_name in seed_set:
-                for sel in get_selectors(kconf, sym_name):
-                    if sel not in visited:
-                        queue.append(sel)
-            continue
-        for dep in get_symbol_deps(kconf, sym_name, arch, allowlist):
-            if dep not in visited:
-                queue.append(dep)
+    while True:
+        while queue:
+            sym_name = queue.pop()
+            if sym_name in visited:
+                continue
+            visited.add(sym_name)
+            if sym_name not in kconf.syms:
+                continue
+            sym = kconf.syms[sym_name]
+            if is_hidden_sym(sym):
+                hidden.add(sym_name)
+                if sym_name in seed_set:
+                    for sel in get_selectors(kconf, sym_name):
+                        if sel not in visited:
+                            queue.append(sel)
+                else:
+                    hidden_deps.add(sym_name)
+                continue
+            for dep in get_symbol_deps(kconf, sym_name, arch, allowlist):
+                if dep not in visited:
+                    queue.append(dep)
+
+        # Satisfy hidden deps no collected symbol selects yet.
+        for sym_name in sorted(hidden_deps):
+            selectors = get_selectors(kconf, sym_name)
+            if selectors & visited:
+                continue
+            sel = _pick_selector(kconf, selectors, arch)
+            if sel is not None and sel not in visited:
+                if debug:
+                    print(f"{sym_name} is hidden, selecting it with {sel}",
+                          file=stderr)
+                queue.append(sel)
+                break
+        if not queue:
+            break
 
     return visited - hidden
+
+
+def _to_c(obj):
+    return obj[:-2] + '.c'
+
+
+def ensure_single_choice(kconf, symbols, file_syms):
+    """
+    The last item of a choice on .config takes effect, ensure one is
+    chosen, preferring non-default members.
+
+    Returns the reduced symbols and a list of (dropped_file, [kept_files]).
+    """
+    by_choice = {}
+    for s in symbols:
+        sym = kconf.syms.get(s)
+        if sym is not None and sym.choice is not None:
+            by_choice.setdefault(sym.choice, []).append(s)
+
+    result = set(symbols)
+    exclusive = []
+    for members in sorted(by_choice.values(), key=min):
+        if len(members) < 2:
+            continue
+        choice = kconf.syms[members[0]].choice
+        # First declared 'default' (or first member if none)
+        if choice.defaults:
+            default = choice.defaults[0][0].name
+        else:
+            default = choice.syms[0].name if choice.syms else None
+        keep = min(members, key=lambda s: (s == default, s))
+        dropped = set(members) - {keep}
+        result -= dropped
+
+        kept_files = sorted(_to_c(f) for f, syms in file_syms.items()
+                            if keep in syms and not syms & dropped)
+        for f, syms in sorted(file_syms.items()):
+            if not syms & dropped:
+                continue
+            exclusive.append((_to_c(f), kept_files))
+            print(f"::warning file={_to_c(f)},line=0::Mutually exclusive "
+                  f"touched files, {_to_c(f)} cannot be compiled with "
+                  f"{', '.join(kept_files) or keep} "
+                  f"(choice {', '.join(sorted(dropped))} vs {keep})",
+                  file=stderr)
+    return result, exclusive
 
 
 # Makefile .o -> CONFIG_SYMBOL resolution
@@ -304,13 +388,16 @@ def _resolve_obj_in_mk(mk, obj, l_obj):
 def get_symbols_from_files(files, arch):
     """
     Resolve .o targets and plain symbol names into a set of CONFIG symbols.
+    Also returns the symbols gating each .o target.
     """
     files = {f for f in files if f}
-    obj_files = [f for f in files if f.endswith('.o')]
+    obj_files = sorted(f for f in files if f.endswith('.o'))
     plain_syms = {f for f in files if not f.endswith('.o')}
     symbols = filter_symbols(plain_syms, arch)
+    file_syms = {}
 
     for f in obj_files:
+        file_syms[f] = set()
         found = False
         base = path.basename(f)
         ldir = path.dirname(f)
@@ -320,6 +407,7 @@ def get_symbols_from_files(files, arch):
             if path.isfile(mk):
                 more, found = _resolve_obj_in_mk(mk, path.join(rdir, base), None)
                 symbols |= more
+                file_syms[f] |= more
                 if found:
                     break
             rdir = path.join(path.basename(ldir), rdir)
@@ -327,7 +415,7 @@ def get_symbols_from_files(files, arch):
         if not found:
             print(f"Failed to find Makefile targeting {f}", file=stderr)
 
-    return symbols
+    return symbols, file_syms
 
 
 def main():
@@ -342,12 +430,21 @@ def main():
 
     kconf = init_kconfig()
 
-    seeds = get_symbols_from_files(set(argv[1:]), arch)
+    seeds, file_syms = get_symbols_from_files(set(argv[1:]), arch)
     print("Symbols of touched files:", file=stderr)
     print(seeds, file=stderr)
 
     resolved = resolve_all(kconf, seeds, arch)
-    result = filter_symbols(resolved, arch)
+    result, exclusive = ensure_single_choice(kconf, filter_symbols(resolved, arch),
+                                              file_syms)
+    result = sorted(result)
+
+    # Persist for assert_compiled, which must not fail on these files.
+    interlock_file = environ.get('INTERLOCK_FILE')
+    if interlock_file:
+        with open(interlock_file, 'w') as f:
+            for dropped, kept in exclusive:
+                f.write(f"{dropped} {' '.join(kept)}\n")
 
     print("Resolved symbols:", file=stderr)
     print(result, file=stderr)
