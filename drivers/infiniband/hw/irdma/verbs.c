@@ -3340,14 +3340,14 @@ static int irdma_map_mr_sg(struct ib_mr *ibmr, struct scatterlist *sg,
  * irdma_hwreg_mr - send cqp command for memory registration
  * @iwdev: irdma device
  * @iwmr: irdma mr pointer
+ * @pd: protection domain to register the MR with
  * @access: access for MR
  */
 static int irdma_hwreg_mr(struct irdma_device *iwdev, struct irdma_mr *iwmr,
-			  u16 access)
+			  struct ib_pd *pd, u16 access)
 {
 	struct irdma_pbl *iwpbl = &iwmr->iwpbl;
 	struct irdma_reg_ns_stag_info *stag_info;
-	struct ib_pd *pd = iwmr->ibmr.pd;
 	struct irdma_pd *iwpd = to_iwpd(pd);
 	struct irdma_pble_alloc *palloc = &iwpbl->pble_alloc;
 	struct irdma_cqp_request *cqp_request;
@@ -3401,8 +3401,8 @@ static int irdma_hwreg_mr(struct irdma_device *iwdev, struct irdma_mr *iwmr,
 	return ret;
 }
 
-static int irdma_reg_user_mr_type_mem(struct irdma_mr *iwmr, int access,
-				      bool create_stag)
+static int irdma_reg_user_mr_type_mem(struct irdma_mr *iwmr, struct ib_pd *pd,
+				      int access, bool create_stag)
 {
 	struct irdma_device *iwdev = to_iwdev(iwmr->ibmr.device);
 	struct irdma_pbl *iwpbl = &iwmr->iwpbl;
@@ -3447,7 +3447,7 @@ static int irdma_reg_user_mr_type_mem(struct irdma_mr *iwmr, int access,
 		iwmr->ibmr.lkey = stag;
 	}
 
-	err = irdma_hwreg_mr(iwdev, iwmr, access);
+	err = irdma_hwreg_mr(iwdev, iwmr, pd, access);
 	if (err)
 		goto err_hwreg;
 
@@ -3678,7 +3678,7 @@ static struct ib_mr *irdma_reg_user_mr(struct ib_pd *pd, u64 start, u64 len,
 			goto error;
 		break;
 	case IRDMA_MEMREG_TYPE_MEM:
-		err = irdma_reg_user_mr_type_mem(iwmr, access, true);
+		err = irdma_reg_user_mr_type_mem(iwmr, pd, access, true);
 		if (err)
 			goto error;
 
@@ -3758,7 +3758,7 @@ static struct ib_mr *irdma_reg_user_mr_dmabuf(struct ib_pd *pd, u64 start,
 		goto err_release;
 	}
 
-	err = irdma_reg_user_mr_type_mem(iwmr, access, true);
+	err = irdma_reg_user_mr_type_mem(iwmr, pd, access, true);
 	if (err)
 		goto err_iwmr;
 
@@ -3826,6 +3826,7 @@ static int irdma_hwdereg_mr(struct ib_mr *ib_mr)
 /*
  * irdma_rereg_mr_trans - Re-register a user MR for a change translation.
  * @iwmr: ptr of iwmr
+ * @pd: protection domain to register the MR with
  * @start: virtual start address
  * @len: length of mr
  * @virt: virtual address
@@ -3833,11 +3834,10 @@ static int irdma_hwdereg_mr(struct ib_mr *ib_mr)
  * Re-register a user memory region when a change translation is requested.
  * Re-register a new region while reusing the stag from the original registration.
  */
-static int irdma_rereg_mr_trans(struct irdma_mr *iwmr, u64 start, u64 len,
-				u64 virt)
+static int irdma_rereg_mr_trans(struct irdma_mr *iwmr, struct ib_pd *pd,
+				u64 start, u64 len, u64 virt)
 {
 	struct irdma_pbl *iwpbl = &iwmr->iwpbl;
-	struct ib_pd *pd = iwmr->ibmr.pd;
 	struct ib_umem *region;
 	int err;
 
@@ -3847,11 +3847,10 @@ static int irdma_rereg_mr_trans(struct irdma_mr *iwmr, u64 start, u64 len,
 
 	iwmr->region = region;
 	iwmr->ibmr.iova = virt;
-	iwmr->ibmr.pd = pd;
 	iwmr->len = region->length;
 	iwpbl->user_base = virt;
 
-	err = irdma_reg_user_mr_type_mem(iwmr, iwmr->access, false);
+	err = irdma_reg_user_mr_type_mem(iwmr, pd, iwmr->access, false);
 	if (err)
 		goto err;
 
@@ -3915,11 +3914,6 @@ static struct ib_mr *irdma_rereg_user_mr(struct ib_mr *ib_mr, int flags,
 	if (flags & IB_MR_REREG_ACCESS)
 		iwmr->access = new_access;
 
-	if (flags & IB_MR_REREG_PD) {
-		iwmr->ibmr.pd = new_pd;
-		iwmr->ibmr.device = new_pd->device;
-	}
-
 	if (flags & IB_MR_REREG_TRANS) {
 		if (iwpbl->pbl_allocated) {
 			irdma_free_pble(iwdev->rf->pble_rsrc,
@@ -3932,9 +3926,9 @@ static struct ib_mr *irdma_rereg_user_mr(struct ib_mr *ib_mr, int flags,
 			iwmr->region = NULL;
 		}
 
-		ret = irdma_rereg_mr_trans(iwmr, start, len, virt);
+		ret = irdma_rereg_mr_trans(iwmr, new_pd, start, len, virt);
 	} else {
-		ret = irdma_hwreg_mr(iwdev, iwmr, iwmr->access);
+		ret = irdma_hwreg_mr(iwdev, iwmr, new_pd, iwmr->access);
 	}
 
 	return ret ? ERR_PTR(ret) : NULL;
@@ -3983,7 +3977,7 @@ struct ib_mr *irdma_reg_phys_mr(struct ib_pd *pd, u64 addr, u64 size, int access
 	iwmr->pgaddrmem[0] = addr;
 	iwmr->len = size;
 	iwmr->page_size = SZ_4K;
-	ret = irdma_hwreg_mr(iwdev, iwmr, access);
+	ret = irdma_hwreg_mr(iwdev, iwmr, pd, access);
 	if (ret) {
 		irdma_free_stag(iwdev, stag);
 		goto err;
