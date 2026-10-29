@@ -38,6 +38,7 @@
 #define BTINTEL_PCIE_LOG_SX		BIT(3)
 #define BTINTEL_PCIE_LOG_MAC_ACCESS	BIT(4)
 #define BTINTEL_PCIE_LOG_TARGET_ACCESS	BIT(5)
+#define BTINTEL_PCIE_LOG_MBOX		BIT(6)
 
 #define BTINTEL_PCI_DEVICE(dev, subdev)	\
 	.vendor = PCI_VENDOR_ID_INTEL,	\
@@ -1915,10 +1916,11 @@ static int btintel_parse_mbox_tlv(struct btintel_pcie_data *data)
 	}
 	clear_bit(BTINTEL_PCIE_MBOX_PARSE_READY, &data->flags);
 
-	bt_dev_info(data->hdev,
-		    "mbox TLV parse started at %lld ns (%lld us after mbox interrupt)",
-		    ktime_to_ns(ktime_get()),
-		    ktime_to_us(ktime_sub(ktime_get(), data->mbox_intr_ts)));
+	if (data->log_mask & BTINTEL_PCIE_LOG_MBOX)
+		bt_dev_info(data->hdev,
+			    "mbox TLV parse started at %lld ns (%lld us after mbox interrupt)",
+			    ktime_to_ns(ktime_get()),
+			    ktime_to_us(ktime_sub(ktime_get(), data->mbox_intr_ts)));
 
 	memset(&data->dump_info, 0, sizeof(data->dump_info));
 
@@ -1956,8 +1958,8 @@ static int btintel_parse_mbox_tlv(struct btintel_pcie_data *data)
 	if (err)
 		goto exit_on_error;
 
-	print_hex_dump(KERN_INFO, "Bluetooth: mbox_tlv: ", DUMP_PREFIX_OFFSET, 16, 1,
-		       buffer, buffer_len, false);
+	if (data->log_mask & BTINTEL_PCIE_LOG_MBOX)
+		btintel_pcie_hex_dump(data, "mbox_tlv:", buffer, buffer_len);
 
 	ptr = buffer;
 	remaining = buffer_len;
@@ -2122,34 +2124,36 @@ static int btintel_parse_mbox_tlv(struct btintel_pcie_data *data)
 		remaining -= tlv_total;
 	}
 
-	bt_dev_info(data->hdev,
-		   "exception_dump: addr:0x%08x len:0x%08x",
-		   data->dump_info.exception_dump_addr,
-		   data->dump_info.exception_dump_len);
-	bt_dev_info(data->hdev,
-		   "dccm: start:0x%8.8x size:%u",
-		   data->dump_info.dccm_addr_start,
-		   data->dump_info.dccm_size);
-	bt_dev_info(data->hdev,
-		   "sds_fixed_rom: start:0x%8.8x size:%u",
-		   data->dump_info.sds_fixed_rom_addr_start,
-		   data->dump_info.sds_fixed_rom_size);
-	bt_dev_info(data->hdev,
-		   "sds: start:0x%8.8x size:%u",
-		   data->dump_info.sds_start_addr_start,
-		   data->dump_info.sds_start_size);
-	bt_dev_info(data->hdev,
-		   "sds_iosf: start:0x%8.8x size:%u",
-		   data->dump_info.sds_iosf_data_addr_start,
-		   data->dump_info.sds_iosf_data_size);
-	bt_dev_info(data->hdev,
-		   "ecl: start:0x%8.8x size:%u",
-		   data->dump_info.ecl_addr_start,
-		   data->dump_info.ecl_size);
-	bt_dev_info(data->hdev,
-		   "smem: start:0x%8.8x size:%u",
-		   data->dump_info.smem_addr_start,
-		   data->dump_info.smem_size);
+	if (data->log_mask & BTINTEL_PCIE_LOG_MBOX) {
+		bt_dev_info(data->hdev,
+			    "exception_dump: addr:0x%08x len:0x%08x",
+			    data->dump_info.exception_dump_addr,
+			    data->dump_info.exception_dump_len);
+		bt_dev_info(data->hdev,
+			    "dccm: start:0x%8.8x size:%u",
+			    data->dump_info.dccm_addr_start,
+			    data->dump_info.dccm_size);
+		bt_dev_info(data->hdev,
+			    "sds_fixed_rom: start:0x%8.8x size:%u",
+			    data->dump_info.sds_fixed_rom_addr_start,
+			    data->dump_info.sds_fixed_rom_size);
+		bt_dev_info(data->hdev,
+			    "sds: start:0x%8.8x size:%u",
+			    data->dump_info.sds_start_addr_start,
+			    data->dump_info.sds_start_size);
+		bt_dev_info(data->hdev,
+			    "sds_iosf: start:0x%8.8x size:%u",
+			    data->dump_info.sds_iosf_data_addr_start,
+			    data->dump_info.sds_iosf_data_size);
+		bt_dev_info(data->hdev,
+			    "ecl: start:0x%8.8x size:%u",
+			    data->dump_info.ecl_addr_start,
+			    data->dump_info.ecl_size);
+		bt_dev_info(data->hdev,
+			    "smem: start:0x%8.8x size:%u",
+			    data->dump_info.smem_addr_start,
+			    data->dump_info.smem_size);
+	}
 
 	vfree(buffer);
 	return 0;
@@ -2170,8 +2174,9 @@ static void btintel_pcie_msix_gp1_handler(struct btintel_pcie_data *data)
 		data->mbox.mbox1 = btintel_pcie_rd_reg32(data, BTINTEL_PCIE_CSR_MBOX_1_REG);
 		if (data->mbox.mbox1 ==
 		    BTINTEL_PCIE_BUILD_SPECIFIC_RESOURCES_MAPPING) {
-			bt_dev_info(data->hdev,
-				    "mailbox for target access");
+			if (data->log_mask & BTINTEL_PCIE_LOG_MBOX)
+				bt_dev_info(data->hdev,
+					    "mailbox for target access");
 			target_access = true;
 		}
 	}
@@ -2191,11 +2196,12 @@ static void btintel_pcie_msix_gp1_handler(struct btintel_pcie_data *data)
 	if (data->mbox.mbox_status & BTINTEL_PCIE_CSR_MBOX_STATUS_MBOX4)
 		data->mbox.mbox4 = btintel_pcie_rd_reg32(data, BTINTEL_PCIE_CSR_MBOX_4_REG);
 
-	bt_dev_dbg(data->hdev,
-		   "GP1: sts:0x%08x mb1:0x%08x mb2:0x%08x mb3:0x%08x mb4:0x%08x",
-		   data->mbox.mbox_status, data->mbox.mbox1,
-		   data->mbox.mbox2, data->mbox.mbox3,
-		   data->mbox.mbox4);
+	if (data->log_mask & BTINTEL_PCIE_LOG_MBOX)
+		bt_dev_info(data->hdev,
+			    "GP1: sts:0x%08x mb1:0x%08x mb2:0x%08x mb3:0x%08x mb4:0x%08x",
+			    data->mbox.mbox_status, data->mbox.mbox1,
+			    data->mbox.mbox2, data->mbox.mbox3,
+			    data->mbox.mbox4);
 
 	if (target_access &&
 	    !test_and_set_bit(BTINTEL_PCIE_MAIL_BOX_INTR,
@@ -2205,9 +2211,10 @@ static void btintel_pcie_msix_gp1_handler(struct btintel_pcie_data *data)
 		set_bit(BTINTEL_PCIE_MBOX_PARSE_PENDING, &data->flags);
 		data->mbox_intr_ts = ktime_get();
 
-		bt_dev_info(data->hdev,
-			    "mbox interrupt received at %lld ns; queuing mbox_work",
-			    ktime_to_ns(data->mbox_intr_ts));
+		if (data->log_mask & BTINTEL_PCIE_LOG_MBOX)
+			bt_dev_info(data->hdev,
+				    "mbox interrupt received at %lld ns; queuing mbox_work",
+				    ktime_to_ns(data->mbox_intr_ts));
 
 		WRITE_ONCE(data->debug_table_addr, addr);
 		WRITE_ONCE(data->debug_table_size, size);
