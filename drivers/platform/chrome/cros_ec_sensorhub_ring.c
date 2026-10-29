@@ -35,6 +35,13 @@
 /* To measure by how much the filter is overshooting, if it happens. */
 #define FUTURE_TS_ANALYTICS_COUNT_MAX 100
 
+/*
+ * A sample can reach the FIFO after the FIFO interrupt and before the FIFO
+ * is read, so its timestamp (a) can be slightly later than the interrupt
+ * one (b). This is how much later it is allowed to be.
+ */
+#define FIFO_TS_SLACK_US (1 * USEC_PER_SEC)
+
 static inline int
 cros_sensorhub_send_sample(struct cros_ec_sensorhub *sensorhub,
 			   struct cros_ec_sensors_ring_sample *sample)
@@ -441,14 +448,22 @@ cros_ec_sensor_ring_process_event(struct cros_ec_sensorhub *sensorhub,
 		(MOTIONSENSE_SENSOR_FLAG_ODR | MOTIONSENSE_SENSOR_FLAG_FLUSH);
 
 	if (in->flags & MOTIONSENSE_SENSOR_FLAG_TIMESTAMP && !async_flags) {
-		s64 a = in->timestamp;
 		s64 b = fifo_info->timestamp;
 		s64 c = fifo_timestamp;
+		s64 a;
 
-		cros_ec_sensor_ring_fix_overflow(&a, 1LL << 32,
-					  &sensorhub->overflow_a);
 		cros_ec_sensor_ring_fix_overflow(&b, 1LL << 32,
 					  &sensorhub->overflow_b);
+		/*
+		 * Derive a from b rather than unwrapping it on its own, so
+		 * that both always fall in the same overflow period. a is at
+		 * most FIFO_TS_SLACK_US later than b, but can be up to almost
+		 * a whole period earlier, when the sample stayed in the FIFO
+		 * while the FIFO interrupt was disabled, e.g. in suspend.
+		 */
+		a = b + FIFO_TS_SLACK_US -
+		    (u32)(fifo_info->timestamp + FIFO_TS_SLACK_US -
+			  in->timestamp);
 
 		if (sensorhub->tight_timestamps) {
 			cros_ec_sensor_ring_ts_filter_update(
