@@ -871,8 +871,10 @@ static int scsi_probe_lun(struct scsi_device *sdev, unsigned char *inq_result,
  * fails, e.g. with LOGICAL UNIT NOT SUPPORTED because no LU is mapped at
  * this LUN for this I_T nexus, sdev->access_state is left unchanged. The
  * ALUA device handler, if attached, keeps the state up to date later.
+ *
+ * Returns true if the state was read.
  */
-static void scsi_read_access_state(struct scsi_device *sdev)
+static bool scsi_read_access_state(struct scsi_device *sdev)
 {
 	/*
 	 * Each UNIT ATTENTION reports a different condition queued for this
@@ -902,15 +904,16 @@ static void scsi_read_access_state(struct scsi_device *sdev)
 	int group_id, len, k, off;
 	unsigned char *buff, *desc;
 	bool ext_hdr = true;
+	bool found = false;
 	int ret;
 
 	group_id = scsi_vpd_tpg_id(sdev, NULL);
 	if (group_id < 0)
-		return;
+		return false;
 
 	buff = kzalloc(bufflen, GFP_KERNEL);
 	if (!buff)
-		return;
+		return false;
 
  retry:
 	ret = scsi_report_tpgs(sdev, &buff, &bufflen, ext_hdr,
@@ -940,12 +943,14 @@ static void scsi_read_access_state(struct scsi_device *sdev)
 		off = 8 + (desc[7] * 4);
 		if (get_unaligned_be16(&desc[2]) == group_id) {
 			sdev->access_state = desc[0];
+			found = true;
 			break;
 		}
 	}
 
  out:
 	kfree(buff);
+	return found;
 }
 
 /**
@@ -1217,8 +1222,19 @@ static int scsi_add_lun(struct scsi_device *sdev, unsigned char *inq_result,
 	 * Read the ALUA state before the device is registered, so that
 	 * scsi_bus_match() can use it. This needs VPD page 0x83.
 	 */
-	if (scsi_device_tpgs(sdev))
-		scsi_read_access_state(sdev);
+	if (scsi_device_tpgs(sdev)) {
+		bool read = scsi_read_access_state(sdev);
+
+		/*
+		 * SPC-4 requires PQ 001b in the ALUA unavailable state, and
+		 * an unmapped LUN fails the command, so take this to be a
+		 * mapped LU that is unavailable. Decide once, like the
+		 * peripheral qualifier itself: access_state changes when the
+		 * ALUA state does.
+		 */
+		sdev->match_unavailable =
+			read && sdev->inq_periph_qual == SCSI_INQ_PQ_NOT_CON;
+	}
 
 	sdev->max_queue_depth = sdev->queue_depth;
 	WARN_ON_ONCE(sdev->max_queue_depth > sdev->budget_map.depth);

@@ -196,6 +196,12 @@ struct scsi_device {
 	 */
 	unsigned is_ata:1;
 
+	/*
+	 * Set if a ULD should be matched to a PQ 001b device in the ALUA
+	 * unavailable state.
+	 */
+	unsigned match_unavailable:1;
+
 	unsigned removable:1;
 	unsigned changed:1;	/* Data invalid due to media change */
 	unsigned busy:1;	/* Used to prevent races */
