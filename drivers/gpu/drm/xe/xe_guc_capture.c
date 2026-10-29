@@ -1716,6 +1716,7 @@ snapshot_print_by_list_order(struct xe_hw_engine_snapshot *snapshot, struct drm_
 	struct xe_devcoredump_snapshot *devcore_snapshot = &devcoredump->snapshot;
 	struct gcap_reg_list_info *reginfo = NULL;
 	u32 i, last_value = 0;
+	u32 last_address = 0;
 	bool low32_ready = false;
 
 	if (!list || !list->list || list->num_regs == 0)
@@ -1743,6 +1744,7 @@ snapshot_print_by_list_order(struct xe_hw_engine_snapshot *snapshot, struct drm_
 		switch (reg_desc->data_type) {
 		case REG_64BIT_LOW_DW:
 			last_value = value;
+			last_address = reg_desc->reg.addr;
 
 			/*
 			 * A 64 bit register define requires 2 consecutive
@@ -1774,7 +1776,10 @@ snapshot_print_by_list_order(struct xe_hw_engine_snapshot *snapshot, struct drm_
 			XE_WARN_ON(!low32_ready);
 			low32_ready = false;
 
-			drm_printf(p, "\t%s: 0x%016llx\n", reg_desc->regname, value_qw);
+			drm_printf(p, "\t%s: 0x%016llx [addr=0x%x]\n",
+				   reg_desc->regname,
+				   value_qw,
+				   last_address);
 			break;
 		}
 
@@ -1788,11 +1793,12 @@ snapshot_print_by_list_order(struct xe_hw_engine_snapshot *snapshot, struct drm_
 			XE_WARN_ON(low32_ready);
 
 			if (FIELD_GET(GUC_REGSET_STEERING_NEEDED, reg_desc->flags))
-				drm_printf(p, "\t%s[%u]: 0x%08x\n", reg_desc->regname,
-					   reg_desc->dss_id, value);
+				drm_printf(p, "\t%s[%u]: 0x%08x [addr=0x%x]\n",
+					   reg_desc->regname,
+					   reg_desc->dss_id, value, reg_desc->reg.addr);
 			else
-				drm_printf(p, "\t%s: 0x%08x\n", reg_desc->regname, value);
-
+				drm_printf(p, "\t%s: 0x%08x [addr=0x%x]\n",
+					   reg_desc->regname, value, reg_desc->reg.addr);
 			break;
 		}
 	}
