@@ -304,13 +304,29 @@ static struct axi_dmac_desc *axi_dmac_get_next_desc(struct axi_dmac *dmac,
 	return NULL;
 }
 
+/* Whether a submitted segment that has not been retired holds @id */
+static bool axi_dmac_id_busy(struct axi_dmac_chan *chan, unsigned int id)
+{
+	struct axi_dmac_desc *desc;
+	unsigned int i;
+
+	list_for_each_entry(desc, &chan->active_descs, vdesc.node) {
+		for (i = 0; i < desc->num_sgs; i++) {
+			if (desc->sg[i].hw->id == id)
+				return true;
+		}
+	}
+
+	return false;
+}
+
 static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 {
 	struct axi_dmac *dmac = chan_to_axi_dmac(chan);
 	struct axi_dmac_desc *desc;
 	struct axi_dmac_sg *sg;
 	unsigned int flags = 0;
-	unsigned int val;
+	unsigned int val, id;
 
 	desc = axi_dmac_get_next_desc(dmac, chan);
 	if (!desc)
@@ -328,6 +344,15 @@ static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 		return;
 	}
 
+	/*
+	 * Transfer IDs are two bits, and taking an ID clears its done bit and
+	 * makes it ambiguous for partial transfer reporting. Wait for the EOT
+	 * that retires the segment still holding it.
+	 */
+	id = axi_dmac_read(dmac, AXI_DMAC_REG_TRANSFER_ID);
+	if (axi_dmac_id_busy(chan, id))
+		return;
+
 	if (chan->hw_sg) {
 		chan->next_desc = NULL;
 	} else if (++desc->num_submitted == desc->num_sgs ||
@@ -339,7 +364,7 @@ static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 		flags |= AXI_DMAC_FLAG_LAST;
 	}
 
-	sg->hw->id = axi_dmac_read(dmac, AXI_DMAC_REG_TRANSFER_ID);
+	sg->hw->id = id;
 
 	if (!chan->hw_sg) {
 		if (axi_dmac_dest_is_mem(chan)) {
@@ -585,10 +610,9 @@ static bool axi_dmac_transfer_done(struct axi_dmac_chan *chan,
 				break;
 			active->num_completed++;
 			sg->hw->id = AXI_DMAC_SG_UNUSED;
-			if (sg->schedule_when_free) {
-				sg->schedule_when_free = false;
-				start_next = true;
-			}
+			sg->schedule_when_free = false;
+			/* Its ID is free again, which axi_dmac_start_transfer() may wait for */
+			start_next = true;
 
 			if (sg->partial_len)
 				axi_dmac_compute_residue(chan, active);
