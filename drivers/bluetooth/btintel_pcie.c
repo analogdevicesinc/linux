@@ -36,6 +36,7 @@
 #define BTINTEL_PCIE_DUMP_RX		BIT(1)
 #define BTINTEL_PCIE_LOG_ALIVE_INTR	BIT(2)
 #define BTINTEL_PCIE_LOG_SX		BIT(3)
+#define BTINTEL_PCIE_LOG_MAC_ACCESS	BIT(4)
 
 #define BTINTEL_PCI_DEVICE(dev, subdev)	\
 	.vendor = PCI_VENDOR_ID_INTEL,	\
@@ -1014,13 +1015,19 @@ static int btintel_pcie_get_mac_access(struct btintel_pcie_data *data)
 
 	do {
 		reg = btintel_pcie_rd_reg32(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG);
-		if (reg & BTINTEL_PCIE_CSR_FUNC_CTRL_MAC_ACCESS_STS)
+		if (reg & BTINTEL_PCIE_CSR_FUNC_CTRL_MAC_ACCESS_STS) {
+			if (data->log_mask & BTINTEL_PCIE_LOG_MAC_ACCESS)
+				bt_dev_info(data->hdev,
+					    "MAC access granted: func_ctrl: 0x%8.8x",
+					    reg);
 			return 0;
+		}
 		/* Need delay here for Target Access harwdware to settle down*/
 		usleep_range(1000, 1200);
 
 	} while (--retry > 0);
 
+	bt_dev_err(data->hdev, "MAC access timeout: func_ctrl: 0x%8.8x", reg);
 	return -ETIME;
 }
 
@@ -1033,6 +1040,10 @@ static void btintel_pcie_release_mac_access(struct btintel_pcie_data *data)
 	if (reg & BTINTEL_PCIE_CSR_FUNC_CTRL_MAC_ACCESS_REQ) {
 		reg &= ~BTINTEL_PCIE_CSR_FUNC_CTRL_MAC_ACCESS_REQ;
 		btintel_pcie_wr_reg32(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG, reg);
+
+		if (data->log_mask & BTINTEL_PCIE_LOG_MAC_ACCESS)
+			bt_dev_info(data->hdev,
+				    "MAC access released: func_ctrl: 0x%8.8x", reg);
 	}
 }
 
