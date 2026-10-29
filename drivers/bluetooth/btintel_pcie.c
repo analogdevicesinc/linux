@@ -37,6 +37,7 @@
 #define BTINTEL_PCIE_LOG_ALIVE_INTR	BIT(2)
 #define BTINTEL_PCIE_LOG_SX		BIT(3)
 #define BTINTEL_PCIE_LOG_MAC_ACCESS	BIT(4)
+#define BTINTEL_PCIE_LOG_TARGET_ACCESS	BIT(5)
 
 #define BTINTEL_PCI_DEVICE(dev, subdev)	\
 	.vendor = PCI_VENDOR_ID_INTEL,	\
@@ -1805,6 +1806,11 @@ static int btintel_pcie_read_device_mem(struct btintel_pcie_data *data,
 		bt_dev_err(data->hdev, "Failed to get mac access %d", err);
 		return err;
 	}
+
+	if (data->log_mask & BTINTEL_PCIE_LOG_TARGET_ACCESS)
+		bt_dev_info(data->hdev,
+			    "Target access read: dev_addr=0x%08x len=%d",
+			    dev_addr, len);
 
 	for (; len > 0; len -= 4, dev_addr += 4, val++)
 		*val = btintel_pcie_rd_dev_mem(data, dev_addr);
