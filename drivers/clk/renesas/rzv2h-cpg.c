@@ -75,11 +75,6 @@
 /* On RZ/G3E SoC we have two DSI PLLs */
 #define MAX_CPG_DSI_PLL		2
 
-#define CPG_PLLDSI_SMUX_LVDS_DUTY_NUM		4
-#define CPG_PLLDSI_SMUX_LVDS_DUTY_DEN		7
-#define CPG_PLLDSI_SMUX_DSI_RGB_DUTY_NUM	1
-#define CPG_PLLDSI_SMUX_DSI_RGB_DUTY_DEN	2
-
 /**
  * struct rzv2h_pll_dsi_info - PLL DSI information, holds the limits and parameters
  *
@@ -466,26 +461,6 @@ static int rzv2h_cpg_plldsi_smux_determine_rate(struct clk_hw *hw,
 	return clk_mux_ops.determine_rate(hw, req);
 }
 
-static int rzv2h_cpg_plldsi_smux_get_duty_cycle(struct clk_hw *hw,
-						struct clk_duty *duty)
-{
-	u8 parent = clk_mux_ops.get_parent(hw);
-
-	/*
-	 * CDIV7_DSIx_CLK - LVDS path (div7) - duty 4/7.
-	 * CSDIV_DSIx - DSI/RGB path (csdiv) - duty 1/2.
-	 */
-	if (parent == 0) {
-		duty->num = CPG_PLLDSI_SMUX_LVDS_DUTY_NUM;
-		duty->den = CPG_PLLDSI_SMUX_LVDS_DUTY_DEN;
-	} else {
-		duty->num = CPG_PLLDSI_SMUX_DSI_RGB_DUTY_NUM;
-		duty->den = CPG_PLLDSI_SMUX_DSI_RGB_DUTY_DEN;
-	}
-
-	return 0;
-}
-
 static int rzv2h_cpg_plldsi_smux_set_duty_cycle(struct clk_hw *hw,
 						struct clk_duty *duty)
 {
@@ -497,8 +472,7 @@ static int rzv2h_cpg_plldsi_smux_set_duty_cycle(struct clk_hw *hw,
 	 * - If duty > 50% (num/den > 1/2), select LVDS path (parent 0)
 	 * - Otherwise, select DSI/RGB path (parent 1)
 	 */
-	if (duty->num * CPG_PLLDSI_SMUX_DSI_RGB_DUTY_DEN >
-	    duty->den * CPG_PLLDSI_SMUX_DSI_RGB_DUTY_NUM)
+	if (duty->num * 2 > duty->den)
 		parent_idx = 0;
 	else
 		parent_idx = 1;
@@ -517,7 +491,6 @@ static const struct clk_ops rzv2h_cpg_plldsi_smux_ops = {
 	.determine_rate = rzv2h_cpg_plldsi_smux_determine_rate,
 	.get_parent = rzv2h_cpg_plldsi_smux_get_parent,
 	.set_parent = rzv2h_cpg_plldsi_smux_set_parent,
-	.get_duty_cycle = rzv2h_cpg_plldsi_smux_get_duty_cycle,
 	.set_duty_cycle = rzv2h_cpg_plldsi_smux_set_duty_cycle,
 };
 
@@ -890,6 +863,94 @@ rzv2h_cpg_fixed_mod_status_clk_register(const struct cpg_core_clk *core,
 	return &clk_hw_data->fix.hw;
 }
 
+static int rzv2h_cpg_plldsi_div_lvds_get_duty_cycle(struct clk_hw *hw,
+						    struct clk_duty *duty)
+{
+	struct clk_fixed_factor *fix = to_clk_fixed_factor(hw);
+
+	/*
+	 * An odd divider cannot generate a 50% duty cycle: the output stays
+	 * high for (div + 1) / 2 input clock cycles out of div, e.g. a divider
+	 * of 7 gives a duty cycle of 4/7.
+	 */
+	duty->num = DIV_ROUND_UP(fix->div, 2);
+	duty->den = fix->div;
+
+	return 0;
+}
+
+static int rzv2h_cpg_plldsi_div_lvds_determine_rate(struct clk_hw *hw,
+						    struct clk_rate_request *req)
+{
+	return clk_fixed_factor_ops.determine_rate(hw, req);
+}
+
+static int rzv2h_cpg_plldsi_div_lvds_set_rate(struct clk_hw *hw,
+					      unsigned long rate,
+					      unsigned long parent_rate)
+{
+	return clk_fixed_factor_ops.set_rate(hw, rate, parent_rate);
+}
+
+static unsigned long rzv2h_cpg_plldsi_div_lvds_recalc_rate(struct clk_hw *hw,
+							   unsigned long parent_rate)
+{
+	return clk_fixed_factor_ops.recalc_rate(hw, parent_rate);
+}
+
+static unsigned long
+rzv2h_cpg_plldsi_div_lvds_recalc_accuracy(struct clk_hw *hw,
+					  unsigned long parent_accuracy)
+{
+	return clk_fixed_factor_ops.recalc_accuracy(hw, parent_accuracy);
+}
+
+static const struct clk_ops rzv2h_cpg_plldsi_div_lvds_ops = {
+	.determine_rate = rzv2h_cpg_plldsi_div_lvds_determine_rate,
+	.set_rate = rzv2h_cpg_plldsi_div_lvds_set_rate,
+	.recalc_rate = rzv2h_cpg_plldsi_div_lvds_recalc_rate,
+	.recalc_accuracy = rzv2h_cpg_plldsi_div_lvds_recalc_accuracy,
+	.get_duty_cycle = rzv2h_cpg_plldsi_div_lvds_get_duty_cycle,
+};
+
+static struct clk_hw * __init
+rzv2h_cpg_plldsi_div_lvds_clk_register(const struct cpg_core_clk *core,
+				       struct rzv2h_cpg_priv *priv)
+{
+	struct clk_init_data init = { };
+	struct clk_fixed_factor *fix;
+	const struct clk_hw *parent;
+	const char *parent_name;
+	int ret;
+
+	WARN_DEBUG(core->parent >= priv->num_core_clks);
+	parent = priv->clks[core->parent];
+	if (IS_ERR(parent))
+		return ERR_CAST(parent);
+
+	parent_name = clk_hw_get_name(parent);
+
+	fix = devm_kzalloc(priv->dev, sizeof(*fix), GFP_KERNEL);
+	if (!fix)
+		return ERR_PTR(-ENOMEM);
+
+	init.name = core->name;
+	init.ops = &rzv2h_cpg_plldsi_div_lvds_ops;
+	init.flags = CLK_SET_RATE_PARENT;
+	init.parent_names = &parent_name;
+	init.num_parents = 1;
+
+	fix->hw.init = &init;
+	fix->mult = core->mult;
+	fix->div = core->div;
+
+	ret = devm_clk_hw_register(priv->dev, &fix->hw);
+	if (ret)
+		return ERR_PTR(ret);
+
+	return &fix->hw;
+}
+
 static struct clk_hw
 *rzv2h_cpg_clk_src_twocell_get(struct of_phandle_args *clkspec,
 			       void *data)
@@ -982,6 +1043,9 @@ rzv2h_cpg_register_core_clk(const struct cpg_core_clk *core,
 			priv->ff_mod_status_ops->is_enabled = rzv2h_clk_ff_mod_status_is_enabled;
 		}
 		clk_hw = rzv2h_cpg_fixed_mod_status_clk_register(core, priv);
+		break;
+	case CLK_TYPE_PLLDSI_DIV_LVDS:
+		clk_hw = rzv2h_cpg_plldsi_div_lvds_clk_register(core, priv);
 		break;
 	case CLK_TYPE_PLL:
 		clk_hw = rzv2h_cpg_pll_clk_register(core, priv, &rzv2h_cpg_pll_ops);
