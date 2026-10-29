@@ -4,13 +4,13 @@
 $id: http://devicetree.org/schemas/net/adi,axis-net.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Analog Devices AXI-Stream point-to-point Ethernet
+title: Analog Devices AXI-Stream point-to-point link
 
 maintainers:
   - Analog Devices Inc.
 
 description: |
-  A point-to-point Ethernet link carried over a pair of AXI-Stream DMA
+  A point-to-point network link carried over a pair of AXI-Stream DMA
   channels, used to connect two processors joined by FPGA fabric.
 
   Each side of the link needs two ADI AXI-DMAC instances configured in stream
@@ -21,17 +21,18 @@ description: |
 
   The receiving DMAC must be configured to terminate its transfer on TLAST, so
   that a posted maximum-size descriptor closes at the end of each frame rather
-  than coalescing consecutive frames.
+  than coalescing consecutive frames. The transmitting DMAC must accept
+  unaligned source addresses.
 
-  This binding is symmetric: an identical node is placed on each side of the
-  link, referencing that side's own DMACs.
-
-allOf:
-  - $ref: ethernet-controller.yaml#
+  adi,axis-net-eth exposes the link as an Ethernet interface. adi,axis-net-pipe
+  exposes it as an L3 point-to-point interface carrying raw IPv4 and IPv6
+  packets. Both sides of a link must use the same compatible.
 
 properties:
   compatible:
-    const: adi,axis-net
+    enum:
+      - adi,axis-net-eth
+      - adi,axis-net-pipe
 
   dmas:
     items:
@@ -48,13 +49,28 @@ required:
   - dmas
   - dma-names
 
+allOf:
+  - if:
+      properties:
+        compatible:
+          const: adi,axis-net-eth
+    then:
+      $ref: ethernet-controller.yaml#
+
 unevaluatedProperties: false
 
 examples:
   - |
     ethernet {
-        compatible = "adi,axis-net";
+        compatible = "adi,axis-net-eth";
         dmas = <&net_tx_dma 0>, <&net_rx_dma 0>;
         dma-names = "tx", "rx";
         local-mac-address = [00 0a 35 00 00 01];
+    };
+
+  - |
+    pipe {
+        compatible = "adi,axis-net-pipe";
+        dmas = <&pipe_tx_dma 0>, <&pipe_rx_dma 0>;
+        dma-names = "tx", "rx";
     };

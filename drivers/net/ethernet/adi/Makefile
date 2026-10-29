@@ -5,3 +5,4 @@
 
 obj-$(CONFIG_ADIN1110) += adin1110.o
 obj-$(CONFIG_ADI_AXIS_NET) += adi_axis_net.o
+adi_axis_net-y := adi_axis_net_core.o adi_axis_net_eth.o adi_axis_net_pipe.o
