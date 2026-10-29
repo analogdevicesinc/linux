@@ -168,6 +168,7 @@ struct axi_dmac_chan {
 	bool hw_cyclic;
 	bool hw_2d;
 	bool hw_sg;
+	bool hw_sg_last;
 	bool hw_cyclic_hotfix;
 };
 
@@ -355,6 +356,9 @@ static void axi_dmac_start_transfer(struct axi_dmac_chan *chan)
 
 	if (chan->hw_sg) {
 		chan->next_desc = NULL;
+		/* Older cores assert TLAST after every descriptor */
+		if (chan->hw_sg_last)
+			flags |= AXI_DMAC_FLAG_LAST;
 	} else if (++desc->num_submitted == desc->num_sgs ||
 		   desc->have_partial_xfer) {
 		if (desc->cyclic)
@@ -1284,6 +1288,9 @@ static int axi_dmac_detect_caps(struct axi_dmac *dmac, unsigned int version)
 
 	if (version < ADI_AXI_PCORE_VER(4, 6, 0) && !chan->hw_sg)
 		chan->hw_cyclic_hotfix = true;
+
+	if (version >= ADI_AXI_PCORE_VER(4, 5, 'f') && chan->hw_sg)
+		chan->hw_sg_last = true;
 
 	return 0;
 }
