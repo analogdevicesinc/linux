@@ -251,7 +251,7 @@ enum clk_types {
 		 .cfg.smux = _smux_packed, \
 		 .parent_names = _parent_names, \
 		 .num_parents = ARRAY_SIZE(_parent_names), \
-		 .flag = CLK_SET_RATE_PARENT, \
+		 .flag = CLK_SET_RATE_PARENT | CLK_SET_RATE_NO_REPARENT, \
 		 .mux_flags = CLK_MUX_HIWORD_MASK)
 
 /**

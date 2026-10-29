@@ -219,20 +219,6 @@ struct rzv2h_plldsi_div_clk {
 
 #define RZV2H_MAX_DIV_TABLES		(16)
 
-/**
- * struct rzv2h_plldsi_mux_clk - PLL DSI MUX clock
- *
- * @priv: CPG private data
- * @mux: mux clk
- */
-struct rzv2h_plldsi_mux_clk {
-	struct rzv2h_cpg_priv *priv;
-	struct clk_mux mux;
-};
-
-#define to_plldsi_clk_mux(_mux) \
-	container_of(_mux, struct rzv2h_plldsi_mux_clk, mux)
-
 static unsigned long rzv2h_cpg_plldsi_div_recalc_rate(struct clk_hw *hw,
 						      unsigned long parent_rate)
 {
@@ -474,52 +460,10 @@ static int rzv2h_cpg_plldsi_smux_set_parent(struct clk_hw *hw, u8 index)
 	return clk_mux_ops.set_parent(hw, index);
 }
 
-static int rzv2h_cpg_plldsi_smux_lvds_determine_rate(struct rzv2h_cpg_priv *priv,
-						     struct pll_clk *pll_clk,
-						     struct clk_rate_request *req)
-{
-	struct rzv2h_pll_div_pars *dsi_params;
-	struct rzv2h_pll_dsi_info *dsi_info;
-	u8 lvds_table[] = { 7 };
-	u64 rate_millihz;
-
-	dsi_info = &priv->pll_dsi_info[pll_clk->pll.instance];
-	dsi_params = &dsi_info->pll_dsi_parameters;
-
-	rate_millihz = mul_u32_u32(req->rate, MILLI);
-	if (!rzv2h_get_pll_divs_pars(dsi_info->pll_dsi_limits, dsi_params,
-				     lvds_table, ARRAY_SIZE(lvds_table), rate_millihz)) {
-		dev_err(priv->dev, "failed to determine rate for req->rate: %lu\n",
-			req->rate);
-		return -EINVAL;
-	}
-
-	req->rate = DIV_ROUND_CLOSEST_ULL(dsi_params->div.freq_millihz, MILLI);
-	req->best_parent_rate = req->rate;
-	dsi_info->req_pll_dsi_rate = req->best_parent_rate * dsi_params->div.divider_value;
-
-	return 0;
-}
-
 static int rzv2h_cpg_plldsi_smux_determine_rate(struct clk_hw *hw,
 						struct clk_rate_request *req)
 {
-	struct clk_mux *mux = to_clk_mux(hw);
-	struct rzv2h_plldsi_mux_clk *dsi_mux = to_plldsi_clk_mux(mux);
-	struct pll_clk *pll_clk = to_pll(clk_hw_get_parent(hw));
-	struct rzv2h_cpg_priv *priv = dsi_mux->priv;
-
-	/*
-	 * For LVDS output (parent index 0), calculate PLL parameters with
-	 * fixed divider value of 7. For DSI/RGB output (parent index 1) skip
-	 * PLL calculation here as it's handled by determine_rate of the
-	 * divider (up one level).
-	 */
-	if (!clk_mux_ops.get_parent(hw))
-		return rzv2h_cpg_plldsi_smux_lvds_determine_rate(priv, pll_clk, req);
-
-	req->best_parent_rate = req->rate;
-	return 0;
+	return clk_mux_ops.determine_rate(hw, req);
 }
 
 static int rzv2h_cpg_plldsi_smux_get_duty_cycle(struct clk_hw *hw,
@@ -581,8 +525,8 @@ static struct clk_hw * __init
 rzv2h_cpg_plldsi_smux_clk_register(const struct cpg_core_clk *core,
 				   struct rzv2h_cpg_priv *priv)
 {
-	struct rzv2h_plldsi_mux_clk *clk_hw_data;
 	struct clk_init_data init = {};
+	struct clk_mux *clk_hw_data;
 	struct clk_hw *clk_hw;
 	struct smuxed smux;
 	int ret;
@@ -598,22 +542,19 @@ rzv2h_cpg_plldsi_smux_clk_register(const struct cpg_core_clk *core,
 	if (!clk_hw_data)
 		return ERR_PTR(-ENOMEM);
 
-	clk_hw_data->priv = priv;
-
 	init.name = core->name;
 	init.ops = &rzv2h_cpg_plldsi_smux_ops;
 	init.flags = core->flag;
 	init.parent_names = core->parent_names;
 	init.num_parents = core->num_parents;
 
-	clk_hw_data->mux.reg = priv->base + smux.offset;
+	clk_hw_data->reg = priv->base + smux.offset;
+	clk_hw_data->shift = smux.shift;
+	clk_hw_data->mask = clk_div_mask(smux.width);
+	clk_hw_data->flags = core->mux_flags;
+	clk_hw_data->lock = &priv->rmw_lock;
 
-	clk_hw_data->mux.shift = smux.shift;
-	clk_hw_data->mux.mask = clk_div_mask(smux.width);
-	clk_hw_data->mux.flags = core->mux_flags;
-	clk_hw_data->mux.lock = &priv->rmw_lock;
-
-	clk_hw = &clk_hw_data->mux.hw;
+	clk_hw = &clk_hw_data->hw;
 	clk_hw->init = &init;
 
 	ret = devm_clk_hw_register(priv->dev, clk_hw);
