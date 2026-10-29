@@ -54,7 +54,7 @@
 			};
 
 			axis_net: ethernet-axis {
-				compatible = "adi,axis-net";
+				compatible = "adi,axis-net-eth";
 				dmas = <&axi_net_tx_dma 0>,
 				       <&axi_net_rx_dma 0>;
 				dma-names = "tx", "rx";
