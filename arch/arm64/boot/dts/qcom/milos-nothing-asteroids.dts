@@ -880,6 +880,12 @@
 	};
 };
 
+&ipa {
+	firmware-name = "qcom/milos/nothing/asteroids/ipa_fws.mbn";
+
+	status = "okay";
+};
+
 &pm7550_flash {
 	status = "okay";
 
