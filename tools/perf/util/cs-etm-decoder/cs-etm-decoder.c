@@ -511,7 +511,8 @@ cs_etm_decoder__buffer_exception(struct cs_etm_queue *etmq,
 				 struct cs_etm_packet_queue *queue,
 				 const ocsd_generic_trace_elem *elem,
 				 const uint8_t trace_chan_id)
-{	int ret = 0;
+{
+	int ret = 0;
 	struct cs_etm_packet *packet;
 
 	ret = cs_etm_decoder__buffer_packet(etmq, queue, elem, trace_chan_id,
@@ -521,6 +522,10 @@ cs_etm_decoder__buffer_exception(struct cs_etm_queue *etmq,
 
 	packet = &queue->packet_buffer[queue->tail];
 	packet->exception_number = elem->exception_number;
+	if (elem->context.el_valid)
+		packet->el = elem->context.exception_level;
+	if (elem->excep_ret_addr)
+		packet->pref_ret_addr = elem->en_addr;
 
 	return ret;
 }

@@ -2061,7 +2061,7 @@ static int cs_etm__exception(struct cs_etm_traceid_queue *tidq)
 	 * to generate branch sample for the instruction range before the
 	 * exception is trapped to kernel or before the exception returning.
 	 *
-	 * The exception packet includes the dummy address values, so don't
+	 * The exception packet does not describe an instruction range, so don't
 	 * swap PACKET with PREV_PACKET.  This keeps PREV_PACKET to be useful
 	 * for generating instruction and branch samples.
 	 */
@@ -2192,9 +2192,10 @@ static int cs_etm__get_data_block(struct cs_etm_queue *etmq)
 	return 1;
 }
 
+/* Check whether the instruction before ret_addr is an SVC. */
 static bool cs_etm__is_svc_instr(struct cs_etm_queue *etmq,
 				 struct cs_etm_traceid_queue *tidq,
-				 struct cs_etm_packet *packet, u64 end_addr)
+				 struct cs_etm_packet *packet, u64 ret_addr)
 {
 	/* Initialise to keep compiler happy */
 	u16 instr16 = 0;
@@ -2215,7 +2216,7 @@ static bool cs_etm__is_svc_instr(struct cs_etm_queue *etmq,
 		 * with 16 bits instruction and has no definition for 32bits;
 		 * so below only read 2 bytes as instruction size for T32.
 		 */
-		addr = end_addr - 2;
+		addr = ret_addr - 2;
 		cs_etm__frontend_mem_access(etmq, tidq, packet, addr,
 					    sizeof(instr16), (u8 *)&instr16);
 		if ((instr16 & 0xFF00) == 0xDF00)
@@ -2231,7 +2232,7 @@ static bool cs_etm__is_svc_instr(struct cs_etm_queue *etmq,
 		 * |  !1111  | 1 1 1 1 |        imm24            |
 		 * +---------+---------+-------------------------+
 		 */
-		addr = end_addr - 4;
+		addr = ret_addr - 4;
 		cs_etm__frontend_mem_access(etmq, tidq, packet, addr,
 					    sizeof(instr32), (u8 *)&instr32);
 		if ((instr32 & 0x0F000000) == 0x0F000000 &&
@@ -2248,7 +2249,7 @@ static bool cs_etm__is_svc_instr(struct cs_etm_queue *etmq,
 		 * | 1 1 0 1 0 1 0 0 0 0 0 |  imm16  | 0 0 0 0 1 |
 		 * +-----------------------+---------+-----------+
 		 */
-		addr = end_addr - 4;
+		addr = ret_addr - 4;
 		cs_etm__frontend_mem_access(etmq, tidq, packet, addr,
 					    sizeof(instr32), (u8 *)&instr32);
 		if ((instr32 & 0xFFE0001F) == 0xd4000001)
@@ -2267,7 +2268,6 @@ static bool cs_etm__is_syscall(struct cs_etm_queue *etmq,
 			       struct cs_etm_traceid_queue *tidq, u64 magic)
 {
 	struct cs_etm_packet *packet = tidq->packet;
-	struct cs_etm_packet *prev_packet = tidq->prev_packet;
 
 	if (magic == __perf_cs_etmv3_magic)
 		if (packet->exception_number == CS_ETMV3_EXC_SVC)
@@ -2280,8 +2280,8 @@ static bool cs_etm__is_syscall(struct cs_etm_queue *etmq,
 	 */
 	if (magic == __perf_cs_etmv4_magic || magic == __perf_cs_ete_magic) {
 		if (packet->exception_number == CS_ETMV4_EXC_CALL &&
-		    cs_etm__is_svc_instr(etmq, tidq, prev_packet,
-					 prev_packet->end_addr))
+		    cs_etm__is_svc_instr(etmq, tidq, packet,
+					 packet->pref_ret_addr))
 			return true;
 	}
 
@@ -2319,7 +2319,6 @@ static bool cs_etm__is_sync_exception(struct cs_etm_queue *etmq,
 				      u64 magic)
 {
 	struct cs_etm_packet *packet = tidq->packet;
-	struct cs_etm_packet *prev_packet = tidq->prev_packet;
 
 	if (magic == __perf_cs_etmv3_magic)
 		if (packet->exception_number == CS_ETMV3_EXC_SMC ||
@@ -2343,8 +2342,8 @@ static bool cs_etm__is_sync_exception(struct cs_etm_queue *etmq,
 		 * (SMC, HVC) are taken as sync exceptions.
 		 */
 		if (packet->exception_number == CS_ETMV4_EXC_CALL &&
-		    !cs_etm__is_svc_instr(etmq, tidq, prev_packet,
-					  prev_packet->end_addr))
+		    !cs_etm__is_svc_instr(etmq, tidq, packet,
+					  packet->pref_ret_addr))
 			return true;
 
 		/*
