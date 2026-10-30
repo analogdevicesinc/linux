@@ -132,6 +132,7 @@ static struct test_suite *generic_tests[] = {
 	&suite__hists_filter,
 	&suite__mmap_thread_lookup,
 	&suite__thread_maps_share,
+	&suite__thread_stack,
 	&suite__hists_output,
 	&suite__hists_cumulate,
 #ifdef HAVE_LIBTRACEEVENT

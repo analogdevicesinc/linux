@@ -1030,7 +1030,7 @@ static int thread_stack__trace_end(struct thread_stack *ts,
 	cp = call_path__findnew(cpr, ts->stack[ts->cnt - 1].cp, NULL, 0,
 				ts->kernel_start);
 
-	ret_addr = sample->ip + sample->insn_len;
+	ret_addr = sample->ret_addr ? sample->ret_addr : sample->ip + sample->insn_len;
 
 	return thread_stack__push_cp(ts, ret_addr, sample->time, ref, cp,
 				     false, true);
@@ -1154,7 +1154,8 @@ int thread_stack__process(struct thread *thread, struct comm *comm,
 		if (!sample->ip || !sample->addr)
 			return 0;
 
-		ret_addr = sample->ip + sample->insn_len;
+		/* Opcode fetching must not change a decoder-supplied return address. */
+		ret_addr = sample->ret_addr ? sample->ret_addr : sample->ip + sample->insn_len;
 		if (ret_addr == sample->addr)
 			return 0; /* Zero-length calls are excluded */
 

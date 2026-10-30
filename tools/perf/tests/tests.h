@@ -156,6 +156,7 @@ DECLARE_SUITE(expr);
 DECLARE_SUITE(hists_filter);
 DECLARE_SUITE(mmap_thread_lookup);
 DECLARE_SUITE(thread_maps_share);
+DECLARE_SUITE(thread_stack);
 DECLARE_SUITE(hists_output);
 DECLARE_SUITE(hists_cumulate);
 DECLARE_SUITE(switch_tracking);

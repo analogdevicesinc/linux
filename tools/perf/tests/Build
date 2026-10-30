@@ -30,6 +30,7 @@ perf-test-y += task-exit.o
 perf-test-y += sw-clock.o
 perf-test-y += mmap-thread-lookup.o
 perf-test-y += thread-maps-share.o
+perf-test-y += thread-stack.o
 perf-test-$(CONFIG_LIBTRACEEVENT) += switch-tracking.o
 perf-test-y += keep-tracking.o
 perf-test-y += code-reading.o

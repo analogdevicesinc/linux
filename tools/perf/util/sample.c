@@ -29,6 +29,7 @@ void perf_sample__init(struct perf_sample *sample, bool all)
 		sample->intr_regs = NULL;
 		sample->merged_callchain = false;
 		sample->callchain = NULL;
+		sample->ret_addr = 0;
 	}
 }
 
