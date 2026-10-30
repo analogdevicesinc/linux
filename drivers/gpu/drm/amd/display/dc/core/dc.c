@@ -6632,6 +6632,27 @@ void dc_lock_memory_clock_frequency(struct dc *dc)
 		dc->clk_mgr->funcs->set_hard_max_memclk(dc->clk_mgr);
 }
 
+/*
+ * Re-read the memclk DPM levels from PMFW (e.g. after an overdrive change),
+ * refresh the bounding box and WM ranges, and re-apply the UCLK hard min/max
+ * for the current mode. Returns the new max memclk in MHz, 0 if unsupported.
+ */
+unsigned int dc_refresh_memclk_states(struct dc *dc)
+{
+	if (!dc->clk_mgr || !dc->clk_mgr->bw_params ||
+	    !dc->clk_mgr->funcs->get_memclk_states_from_smu)
+		return 0;
+
+	dc_exit_ips_for_hw_access(dc);
+
+	dc_lock_memory_clock_frequency(dc);
+
+	if (dc->clk_mgr->funcs->notify_wm_ranges)
+		dc->clk_mgr->funcs->notify_wm_ranges(dc->clk_mgr);
+
+	return dc->clk_mgr->bw_params->max_memclk_mhz;
+}
+
 static void blank_and_force_memclk(struct dc *dc, bool apply, unsigned int memclk_mhz)
 {
 	(void)apply;

@@ -1186,6 +1186,12 @@ void dm_free_gpu_mem(struct amdgpu_device *adev,
 
 bool amdgpu_dm_is_headless(struct amdgpu_device *adev);
 
+#if defined(CONFIG_DRM_AMD_DC)
+void amdgpu_dm_update_memclk_states(struct amdgpu_device *adev);
+#else
+static inline void amdgpu_dm_update_memclk_states(struct amdgpu_device *adev) {}
+#endif
+
 bool amdgpu_dm_crtc_complete_writeback(struct amdgpu_crtc *acrtc);
 
 void retrieve_dmi_info(struct amdgpu_display_manager *dm);

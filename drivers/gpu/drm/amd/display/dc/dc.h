@@ -3265,6 +3265,8 @@ void dc_unlock_memory_clock_frequency(struct dc *dc);
 /* set min memory clock to the min required for current mode, max to maxDPM */
 void dc_lock_memory_clock_frequency(struct dc *dc);
 
+unsigned int dc_refresh_memclk_states(struct dc *dc);
+
 /* set soft max for memclk, to be used for AC/DC switching clock limitations */
 void dc_enable_dcmode_clk_limit(struct dc *dc, bool enable);
 
