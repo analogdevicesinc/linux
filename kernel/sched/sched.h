@@ -1308,7 +1308,7 @@ struct rq {
 	int membarrier_state;
 #endif
 
-	struct root_domain		*rd;
+	struct root_domain __rcu	*rd;
 	struct sched_domain __rcu	*sd;
 
 	struct balance_callback *balance_callback;
@@ -2217,6 +2217,9 @@ queue_balance_callback(struct rq *rq,
 	head->next = rq->balance_callback;
 	rq->balance_callback = head;
 }
+
+#define rcu_dereference_root_domain(p) \
+	rcu_dereference_all_check((p), lockdep_is_held(&sched_domains_mutex))
 
 #define rcu_dereference_sched_domain(p) \
 	rcu_dereference_all_check((p), lockdep_is_held(&sched_domains_mutex))
@@ -3134,7 +3137,7 @@ static inline void add_nr_running(struct rq *rq, unsigned count)
 	}
 
 	if (prev_nr < 2 && rq->nr_running >= 2)
-		set_rd_overloaded(rq->rd, 1);
+		set_rd_overloaded(rcu_dereference_root_domain(rq->rd), 1);
 
 	sched_update_tick_dependency(rq);
 }
