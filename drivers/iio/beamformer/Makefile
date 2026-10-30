@@ -5,4 +5,5 @@
 
 # When adding new entries keep the list in alphabetical order
 obj-$(CONFIG_ADAR1000) += adar1000.o
+obj-$(CONFIG_ADAR2001) += adar2001.o
 obj-$(CONFIG_ADAR3000) += adar300x.o
