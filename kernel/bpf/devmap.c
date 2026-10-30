@@ -731,7 +731,7 @@ int dev_map_generic_redirect(struct bpf_dtab_netdev *dst, struct sk_buff *skb,
 		return 0;
 
 	skb->dev = dst->dev;
-	generic_xdp_tx(skb, xdp_prog);
+	generic_xdp_tx(skb, xdp_prog, XDP_REDIRECT);
 
 	return 0;
 }

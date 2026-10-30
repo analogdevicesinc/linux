@@ -5855,7 +5855,8 @@ static u32 netif_receive_generic_xdp(struct sk_buff **pskb,
  * and DDOS attacks will be more effective. In-driver-XDP use dedicated TX
  * queues, so they do not have this starvation issue.
  */
-void generic_xdp_tx(struct sk_buff *skb, const struct bpf_prog *xdp_prog)
+void generic_xdp_tx(struct sk_buff *skb, const struct bpf_prog *xdp_prog,
+		    u32 act)
 {
 	struct net_device *dev = skb->dev;
 	struct netdev_queue *txq;
@@ -5872,7 +5873,7 @@ void generic_xdp_tx(struct sk_buff *skb, const struct bpf_prog *xdp_prog)
 	}
 	HARD_TX_UNLOCK(dev, txq);
 	if (free_skb) {
-		trace_xdp_exception(dev, xdp_prog, XDP_TX);
+		trace_xdp_exception(dev, xdp_prog, act);
 		dev_core_stats_tx_dropped_inc(dev);
 		kfree_skb(skb);
 	}
@@ -5900,7 +5901,7 @@ int do_xdp_generic(const struct bpf_prog *xdp_prog, struct sk_buff **pskb)
 					goto out_redir;
 				break;
 			case XDP_TX:
-				generic_xdp_tx(*pskb, xdp_prog);
+				generic_xdp_tx(*pskb, xdp_prog, XDP_TX);
 				break;
 			}
 			bpf_net_ctx_clear(bpf_net_ctx);
