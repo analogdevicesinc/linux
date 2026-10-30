@@ -4781,6 +4781,12 @@ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/luisbg/linux-befs.git
 F:	Documentation/filesystems/befs.rst
 F:	fs/befs/
 
+BENEWAKE TF-LUNA LIDAR IIO DRIVER
+M:	Vidhu Sarwal <vidhu.linux@gmail.com>
+L:	linux-iio@vger.kernel.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/iio/proximity/benewake,tf-luna.yaml
+
 BFQ I/O SCHEDULER
 M:	Yu Kuai <yukuai@fygo.io>
 L:	linux-block@vger.kernel.org
