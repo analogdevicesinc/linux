@@ -1713,7 +1713,10 @@ ANALOG DEVICES INC ADSP OTP DRIVER
 M:	Sam Winchenbach <sam.winchenbach@analog.com>
 L:	linux@analog.com
 S:	Supported
+F:	Documentation/ABI/testing/sysfs-driver-adsp-otp
+F:	Documentation/arch/arm/adi/adsp-otp.rst
 F:	Documentation/devicetree/bindings/nvmem/adi,adsp-otp.yaml
+F:	drivers/nvmem/adsp-otp*
 
 ANALOG DEVICES INC ADV7180 DRIVER
 M:	Lars-Peter Clausen <lars@metafoo.de>

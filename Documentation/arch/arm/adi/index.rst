@@ -8,3 +8,4 @@ Analog Devices ADSP-SC5xx processors
    :maxdepth: 1
 
    sc5xx-rom
+   adsp-otp

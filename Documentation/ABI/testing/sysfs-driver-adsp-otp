@@ -1,0 +1,58 @@
+What:		/sys/bus/platform/devices/<dev>/lock_state
+Date:		October 2026
+KernelVersion:	6.19
+Contact:	Sam Winchenbach <sam.winchenbach@analog.com>
+Description:
+		(RO) Lock state of the ADSP-SC5xx part, one of:
+
+		============  =============================================
+		open          The part is not locked. OTP can be programmed.
+		lock-pending  The lock is programmed, but it only takes
+		              effect at the next reset. Until then no
+		              further OTP programming is allowed. Read from
+		              the OTP, so this survives rebinding or
+		              reloading the driver.
+		locked        The part is locked. OTP can no longer be
+		              programmed.
+		unlocked      The part is in the "unlocked" state (e.g. for
+		              failure analysis). Customer OTP fields read as
+		              zero and cannot be programmed.
+		============  =============================================
+
+What:		/sys/bus/platform/devices/<dev>/lock
+Date:		October 2026
+KernelVersion:	6.19
+Contact:	Sam Winchenbach <sam.winchenbach@analog.com>
+Description:
+		(WO) Writing the exact string "permanently-lock" permanently
+		locks the part through the boot ROM. This cannot be undone.
+		After the next reset the boot ROM only boots signed images and
+		OTP access is restricted to secure bus requesters. Any other
+		string is rejected with EINVAL.
+
+		Root only.
+
+		The write fails before anything is programmed, leaving the
+		part unchanged, with:
+
+		======  ===================================================
+		EINVAL  The string written is not "permanently-lock".
+		EPERM   The customer public key secure boot would use (the
+		        first one not invalidated in boot_info) is blank, or
+		        all are invalidated: a locked part only boots
+		        streams authenticated with that key.
+		EROFS   The part is already locked, "unlocked", or a lock is
+		        pending, or the device is marked "read-only" in the
+		        device tree.
+		EBUSY   A SHARC+ core is neither held in reset nor idle
+		        (silicon anomaly 20000084).
+		======  ===================================================
+
+		EIO means a failure of the OTP controller or the boot ROM:
+		the OTP controller not ready or reporting an error, a failed
+		OTP read, the ROM reporting a failure while programming the
+		lock, or the lock not reading back as programmed. It can occur
+		before or after the lock was programmed, so after EIO the part
+		may already be locked. Read lock_state before proceeding:
+		"lock-pending" means the lock is programmed and takes effect
+		at the next reset, "open" that it is not.

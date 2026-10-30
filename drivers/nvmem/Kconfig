@@ -28,6 +28,29 @@ source "drivers/nvmem/layouts/Kconfig"
 
 # Devices
 
+config NVMEM_ADI_ADSP_OTP
+	tristate "ADI ADSP-SC58x OTP support"
+	depends on ARCH_SC58X || COMPILE_TEST
+	depends on HAS_IOMEM
+	depends on !CPU_BIG_ENDIAN
+	select ADI_ADSP_ROM if ADI_MACH_SC5XX && ARCH_SC58X && !ARM_LPAE
+	select MFD_SYSCON
+	help
+	  Say y here to enable access to the one-time programmable (OTP)
+	  memory of Analog Devices ADSP-SC58x processors, through the
+	  boot ROM API. The customer OTP area is exposed as an NVMEM
+	  device, with one cell per OTP field, and a sysfs attribute
+	  permanently locks the part for secure boot.
+
+	  This driver is intended for manufacturing images: it lets root
+	  read and program every customer OTP field, keys included, and
+	  lock the part. Programming and locking are irreversible. The
+	  device tree "read-only" property disables both. Programming
+	  requires the SHARC+ cores to be held in reset.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called nvmem-adsp-otp.
+
 config NVMEM_AN8855_EFUSE
 	tristate "Airoha AN8855 eFuse support"
 	depends on COMPILE_TEST
