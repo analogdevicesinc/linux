@@ -214,34 +214,33 @@ static void intel_panel_info(struct seq_file *m,
 		intel_seq_print_mode(m, 2, fixed_mode);
 }
 
-static void intel_dp_info(struct seq_file *m, struct intel_connector *connector)
+static void intel_dp_info(struct drm_printer *p, struct intel_connector *connector)
 {
 	struct intel_encoder *intel_encoder = intel_attached_encoder(connector);
 	struct intel_dp *intel_dp = enc_to_intel_dp(intel_encoder);
-	struct drm_printer p = drm_seq_file_printer(m);
 
-	seq_printf(m, "\tDPCD rev: %x\n", intel_dp->dpcd[DP_DPCD_REV]);
-	seq_printf(m, "\taudio support: %s\n",
+	drm_printf(p, "\tDPCD rev: %x\n", intel_dp->dpcd[DP_DPCD_REV]);
+	drm_printf(p, "\taudio support: %s\n",
 		   str_yes_no(connector->base.display_info.has_audio));
 
-	drm_dp_downstream_debug(&p, intel_dp->dpcd, intel_dp->downstream_ports,
+	drm_dp_downstream_debug(p, intel_dp->dpcd, intel_dp->downstream_ports,
 				connector->detect_edid, &intel_dp->aux);
 }
 
-static void intel_dp_mst_info(struct seq_file *m,
+static void intel_dp_mst_info(struct drm_printer *p,
 			      struct intel_connector *connector)
 {
 	bool has_audio = connector->base.display_info.has_audio;
 
-	seq_printf(m, "\taudio support: %s\n", str_yes_no(has_audio));
+	drm_printf(p, "\taudio support: %s\n", str_yes_no(has_audio));
 }
 
-static void intel_hdmi_info(struct seq_file *m,
+static void intel_hdmi_info(struct drm_printer *p,
 			    struct intel_connector *connector)
 {
 	bool has_audio = connector->base.display_info.has_audio;
 
-	seq_printf(m, "\taudio support: %s\n", str_yes_no(has_audio));
+	drm_printf(p, "\taudio support: %s\n", str_yes_no(has_audio));
 }
 
 static void intel_connector_info(struct seq_file *m,
@@ -270,13 +269,13 @@ static void intel_connector_info(struct seq_file *m,
 	case DRM_MODE_CONNECTOR_DisplayPort:
 	case DRM_MODE_CONNECTOR_eDP:
 		if (intel_connector->mst.dp)
-			intel_dp_mst_info(m, intel_connector);
+			intel_dp_mst_info(&p, intel_connector);
 		else
-			intel_dp_info(m, intel_connector);
+			intel_dp_info(&p, intel_connector);
 		dig_port = dp_to_dig_port(intel_attached_dp(intel_connector));
 		break;
 	case DRM_MODE_CONNECTOR_HDMIA:
-		intel_hdmi_info(m, intel_connector);
+		intel_hdmi_info(&p, intel_connector);
 		dig_port = hdmi_to_dig_port(intel_attached_hdmi(intel_connector));
 		break;
 	default:
