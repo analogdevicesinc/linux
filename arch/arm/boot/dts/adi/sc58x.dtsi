@@ -222,6 +222,12 @@
 			status = "okay";
 		};
 
+		otp: otp@31011000 {
+			compatible = "adi,adsp-sc589-otp";
+			reg = <0x31011000 0x100>;
+			adi,rcu = <&rcu>;
+		};
+
 		sram-controller@31080000 {
 			compatible = "adi,sram-controller";
 			reg = <0x31080000 0x100>;

@@ -189,6 +189,15 @@
 	status = "okay";
 };
 
+/*
+ * OTP programming and locking are irreversible: off by default. A
+ * manufacturing image removes this property, e.g. with U-Boot's
+ * "fdt rm /scb/otp@31011000 read-only".
+ */
+&otp {
+	read-only;
+};
+
 &i2s0_sport0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&sru_dai0>;
