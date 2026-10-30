@@ -1727,6 +1727,28 @@ static int cs_etm__synth_instruction_sample(struct cs_etm_queue *etmq,
 	return ret;
 }
 
+static int cs_etm__synth_last_instruction_sample(struct cs_etm_queue *etmq,
+						 struct cs_etm_traceid_queue *tidq)
+{
+	struct cs_etm_packet *packet = tidq->prev_packet;
+	int ret;
+
+	if (!etmq->etm->synth_opts.last_branch ||
+	    !etmq->etm->synth_opts.instructions)
+		return 0;
+
+	if (packet->sample_type != CS_ETM_RANGE)
+		return 0;
+
+	ret = cs_etm__synth_instruction_sample(etmq, tidq, packet,
+					       cs_etm__last_executed_instr(packet),
+					       tidq->period_instructions);
+	if (!ret)
+		tidq->period_instructions = 0;
+
+	return ret;
+}
+
 /*
  * The cs etm packet encodes an instruction range between a branch target
  * and the next taken branch. Generate sample accordingly.
@@ -2065,28 +2087,9 @@ static int cs_etm__flush(struct cs_etm_queue *etmq,
 	if (tidq->prev_packet->sample_type == CS_ETM_EMPTY)
 		goto swap_packet;
 
-	if (etmq->etm->synth_opts.last_branch &&
-	    etmq->etm->synth_opts.instructions &&
-	    tidq->prev_packet->sample_type == CS_ETM_RANGE) {
-		u64 addr;
-		/*
-		 * Generate a last branch event for the branches left in the
-		 * circular buffer at the end of the trace.
-		 *
-		 * Use the address of the end of the last reported execution
-		 * range
-		 */
-		addr = cs_etm__last_executed_instr(tidq->prev_packet);
-
-		err = cs_etm__synth_instruction_sample(
-			etmq, tidq, tidq->prev_packet, addr,
-			tidq->period_instructions);
-		if (err)
-			return err;
-
-		tidq->period_instructions = 0;
-
-	}
+	err = cs_etm__synth_last_instruction_sample(etmq, tidq);
+	if (err)
+		return err;
 
 	if (etm->synth_opts.branches &&
 	    tidq->prev_packet->sample_type == CS_ETM_RANGE) {
@@ -2108,8 +2111,6 @@ swap_packet:
 static int cs_etm__end_block(struct cs_etm_queue *etmq,
 			     struct cs_etm_traceid_queue *tidq)
 {
-	int err;
-
 	/*
 	 * It has no new packet coming and 'etmq->packet' contains the stale
 	 * packet which was set at the previous time with packets swapping;
@@ -2119,27 +2120,7 @@ static int cs_etm__end_block(struct cs_etm_queue *etmq,
 	 * event for the branches left in the circular buffer at the end of
 	 * the trace.
 	 */
-	if (etmq->etm->synth_opts.last_branch &&
-	    etmq->etm->synth_opts.instructions &&
-	    tidq->prev_packet->sample_type == CS_ETM_RANGE) {
-		u64 addr;
-
-		/*
-		 * Use the address of the end of the last reported execution
-		 * range.
-		 */
-		addr = cs_etm__last_executed_instr(tidq->prev_packet);
-
-		err = cs_etm__synth_instruction_sample(
-			etmq, tidq, tidq->prev_packet, addr,
-			tidq->period_instructions);
-		if (err)
-			return err;
-
-		tidq->period_instructions = 0;
-	}
-
-	return 0;
+	return cs_etm__synth_last_instruction_sample(etmq, tidq);
 }
 
 static int cs_etm__flush_stack_cb(struct thread *thread,
