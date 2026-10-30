@@ -176,15 +176,14 @@ static void intel_seq_print_mode(struct seq_file *m, int tabs,
 	seq_printf(m, DRM_MODE_FMT "\n", DRM_MODE_ARG(mode));
 }
 
-static void intel_encoder_info(struct seq_file *m,
-			       struct intel_crtc *crtc,
+static void intel_encoder_info(struct drm_printer *p,
 			       struct intel_encoder *encoder)
 {
-	struct intel_display *display = node_to_intel_display(m->private);
+	struct intel_display *display = to_intel_display(encoder);
 	struct drm_connector_list_iter conn_iter;
 	struct drm_connector *connector;
 
-	seq_printf(m, "\t[ENCODER:%d:%s]: connectors:\n",
+	drm_printf(p, "\t[ENCODER:%d:%s]: connectors:\n",
 		   encoder->base.base.id, encoder->base.name);
 
 	drm_connector_list_iter_begin(display->drm, &conn_iter);
@@ -195,7 +194,7 @@ static void intel_encoder_info(struct seq_file *m,
 		if (conn_state->best_encoder != &encoder->base)
 			continue;
 
-		seq_printf(m, "\t\t[CONNECTOR:%d:%s]\n",
+		drm_printf(p, "\t\t[CONNECTOR:%d:%s]\n",
 			   connector->base.id, connector->name);
 	}
 	drm_connector_list_iter_end(&conn_iter);
@@ -594,7 +593,7 @@ static void intel_crtc_info(struct seq_file *m, struct intel_crtc *crtc)
 
 	for_each_intel_encoder_mask(display->drm, encoder,
 				    crtc_state->uapi.encoder_mask)
-		intel_encoder_info(m, crtc, encoder);
+		intel_encoder_info(&p, encoder);
 
 	intel_plane_info(&p, crtc);
 
