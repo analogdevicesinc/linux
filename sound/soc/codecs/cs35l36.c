@@ -910,6 +910,9 @@ static int cs35l36_dai_set_sysclk(struct snd_soc_dai *dai, int clk_id,
 			snd_soc_component_get_drvdata(component);
 	int fs1, fs2;
 
+	if (!freq)
+		return 0;
+
 	if (freq > CS35L36_FS_NOM_6MHZ) {
 		fs1 = CS35L36_FS1_DEFAULT_VAL;
 		fs2 = CS35L36_FS2_DEFAULT_VAL;
