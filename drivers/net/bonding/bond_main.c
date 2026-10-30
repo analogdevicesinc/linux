@@ -2158,9 +2158,13 @@ skip_mac_set:
 		new_slave->last_rx = jiffies -
 			(2 * msecs_to_jiffies(bond->params.arp_interval) + 1);
 	} else {
+		/* Give a slave that starts UP a full arp_missed_max window.
+		 * Not seeding it later than last_link_up keeps bond_arp_rcv()
+		 * from trusting ARPs on backup slaves before the active one
+		 * got a reply.
+		 */
 		new_slave->last_link_up = jiffies;
-		new_slave->last_rx = jiffies -
-			(msecs_to_jiffies(bond->params.arp_interval) + 1);
+		new_slave->last_rx = new_slave->last_link_up;
 	}
 	for (i = 0; i < BOND_MAX_ARP_TARGETS; i++)
 		new_slave->target_last_arp_rx[i] = new_slave->last_rx;
