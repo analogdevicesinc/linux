@@ -348,25 +348,25 @@ static struct dentry *proc_lookupfd(struct inode *dir, struct dentry *dentry,
 
 /*
  * /proc/pid/fd needs a special permission handler so that a process can still
- * access /proc/self/fd after it has executed a setuid().
+ * access /proc/self/fd after it has executed a setuid(). A lookup that starts
+ * at a descriptor for the directory skips pid_revalidate(), so refresh the
+ * owner here.
  */
 int proc_fd_permission(const struct mnt_idmap *idmap,
 		       struct inode *inode, int mask)
 {
 	struct task_struct *p;
-	int rv;
 
-	rv = generic_permission(&nop_mnt_idmap, inode, mask);
-	if (rv == 0)
-		return rv;
+	scoped_guard(rcu) {
+		p = pid_task(proc_pid(inode), PIDTYPE_PID);
+		if (p) {
+			if (same_thread_group(p, current))
+				return 0;
+			pid_update_inode(p, inode);
+		}
+	}
 
-	rcu_read_lock();
-	p = pid_task(proc_pid(inode), PIDTYPE_PID);
-	if (p && same_thread_group(p, current))
-		rv = 0;
-	rcu_read_unlock();
-
-	return rv;
+	return generic_permission(&nop_mnt_idmap, inode, mask);
 }
 
 static int proc_fd_getattr(const struct mnt_idmap *idmap,
