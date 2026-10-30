@@ -2097,6 +2097,7 @@ static int update_parent_effective_cpumask(struct cpuset *cs, int cmd,
 							     parent->effective_xcpus);
 			if (!cpumask_empty(tmp->addmask))
 				isolated_cpus_release(cs, tmp->addmask);
+			/* Expansion of parent's effective_xcpus is handled below */
 		}
 		if (nocpu) {
 			part_error = PERR_NOCPUS;
@@ -2106,11 +2107,22 @@ static int update_parent_effective_cpumask(struct cpuset *cs, int cmd,
 						     parent->effective_xcpus);
 		} else if ((parent_prs == PRS_ISOLATED) &&
 			   ((old_prs == PRS_ROOT) || (old_prs == -PRS_ROOT))) {
+			/* Parent partition state changed to PRS_ISOLATED */
 			part_error = PERR_ISOPARENT;
 			if (old_prs == PRS_ROOT) {
 				cpumask_copy(tmp->addmask, cs->effective_xcpus);
 				adding = true;
 			}
+		} else if (is_partition_valid(cs) &&
+			   !cpumask_equal(tmp->delmask, cs->effective_xcpus)) {
+			/*
+			 * If there is an expansion of parent's effective_xcpus,
+			 * we may take more xcpus from parent. The parent's
+			 * effective_cpus should still have active CPUs or nocpu
+			 * should have been set.
+			 */
+			deleting = cpumask_andnot(tmp->delmask, tmp->delmask,
+						  cs->effective_xcpus);
 		} else if (is_partition_invalid(cs)) {
 			struct cgroup_subsys_state *css;
 			struct cpuset *child;
