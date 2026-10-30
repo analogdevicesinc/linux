@@ -1804,6 +1804,10 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 			rx->rx_fddc[map->fddc_pi].nco[0].nco_phase_inc_frac_b = frac_b;
 		}
 
+		ret = ad9088_ffh_fnco_follow(phy, chan, map, readin);
+		if (ret)
+			return ret;
+
 		return len;
 	case CDDC_NCO_PHASE:
 		ret = kstrtoll(buf, 10, &readin);
