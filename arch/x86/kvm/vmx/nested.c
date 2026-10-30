@@ -1508,33 +1508,6 @@ static int vmx_restore_vmx_ept_vpid_cap(struct vcpu_vmx *vmx, u64 data)
 	return 0;
 }
 
-static u64 *vmx_get_fixed0_msr(struct nested_vmx_msrs *msrs, u32 msr_index)
-{
-	switch (msr_index) {
-	case MSR_IA32_VMX_CR0_FIXED0:
-		return &msrs->cr0_fixed0;
-	case MSR_IA32_VMX_CR4_FIXED0:
-		return &msrs->cr4_fixed0;
-	default:
-		BUG();
-	}
-}
-
-static int vmx_restore_fixed0_msr(struct vcpu_vmx *vmx, u32 msr_index, u64 data)
-{
-	const u64 *msr = vmx_get_fixed0_msr(&vmcs_config.nested, msr_index);
-
-	/*
-	 * 1 bits (which indicates bits which "must-be-1" during VMX operation)
-	 * must be 1 in the restored value.
-	 */
-	if (!is_bitwise_subset(data, *msr, -1ULL))
-		return -EINVAL;
-
-	*vmx_get_fixed0_msr(&vmx->nested.msrs, msr_index) = data;
-	return 0;
-}
-
 /*
  * Called when userspace is restoring VMX MSRs.
  *
@@ -1577,8 +1550,9 @@ int vmx_set_vmx_msr(struct kvm_vcpu *vcpu, u32 msr_index, u64 data)
 	case MSR_IA32_VMX_MISC:
 		return vmx_restore_vmx_misc(vmx, data);
 	case MSR_IA32_VMX_CR0_FIXED0:
+		return data && data != vmcs_config.nested.cr0_fixed0;
 	case MSR_IA32_VMX_CR4_FIXED0:
-		return vmx_restore_fixed0_msr(vmx, msr_index, data);
+		return data && data != vmcs_config.nested.cr4_fixed0;
 	case MSR_IA32_VMX_CR0_FIXED1:
 	case MSR_IA32_VMX_CR4_FIXED1:
 		/*

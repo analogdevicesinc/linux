@@ -7713,7 +7713,10 @@ static void nested_vmx_cr_fixed1_bits_update(struct kvm_vcpu *vcpu)
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	struct kvm_cpuid_entry2 *entry;
 
+	vmx->nested.msrs.cr0_fixed0 = vmcs_config.nested.cr0_fixed0;
 	vmx->nested.msrs.cr0_fixed1 = 0xffffffff;
+
+	vmx->nested.msrs.cr4_fixed0 = vmcs_config.nested.cr4_fixed0;
 	vmx->nested.msrs.cr4_fixed1 = X86_CR4_PCE;
 
 #define cr4_fixed1_update(_cr4_mask, _reg, _cpuid_mask) do {		\

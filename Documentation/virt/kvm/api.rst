@@ -8764,10 +8764,11 @@ KVM_X86_QUIRK_STUFF_FEATURE_MSRS           By default, at vCPU creation, KVM set
                                            i.e. treats the feature MSRs like CPUID
                                            leaves and gives userspace full control of
                                            the vCPU model definition.  This quirk does
-                                           not affect VMX MSRs CR0/CR4_FIXED1 (0x487
-                                           and 0x489), as KVM does now allow them to
-                                           be set by userspace (KVM sets them based on
-                                           guest CPUID, for safety purposes).
+                                           not affect VMX MSRs CR0/CR4_FIXED{0,1}
+                                           (0x486 - 0x489), as KVM does now allow them
+                                           to be set by userspace (KVM sets them based
+                                           on the virtual CPU model, for simplicity and
+                                           safety purposes).
 
 KVM_X86_QUIRK_IGNORE_GUEST_PAT             By default, on Intel platforms, KVM ignores
                                            guest PAT and forces the effective memory
