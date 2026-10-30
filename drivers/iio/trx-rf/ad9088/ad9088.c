@@ -1245,9 +1245,8 @@ static int ad9088_clk_register(struct ad9088_phy *phy, const char *name,
 	switch (source) {
 	case RX_SAMPL_CLK:
 	case RX_SAMPL_CLK_LINK2:
-		init.ops = &bb_clk_ops;
-		break;
 	case TX_SAMPL_CLK:
+	case TX_SAMPL_CLK_LINK2:
 		init.ops = &bb_clk_ops;
 		break;
 	default:
@@ -5107,7 +5106,7 @@ static int ad9088_setup(struct ad9088_phy *phy)
 	struct spi_device *spi = phy->spi;
 	adi_apollo_device_t *device = &phy->ad9088;
 	u64 sample_rate;
-	int ret;
+	int i, ret;
 
 	if (!phy->profile.profile_cfg.is_8t8r) {
 		ret = adi_apollo_adc_mode_switch_enable_set(device, 1);
@@ -5164,15 +5163,27 @@ static int ad9088_setup(struct ad9088_phy *phy)
 			return dev_err_probe(&spi->dev, ret, "Failed to enable sniffer\n");
 	}
 
-	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->profile.dac_cfg[0].dac_sampling_rate_Hz,
-					    phy->profile.jrx[0].rx_link_cfg[0].link_total_ratio);
-	clk_set_rate_scaled(phy->clks[TX_SAMPL_CLK], sample_rate,
-			    &phy->clkscale[TX_SAMPL_CLK]);
+	for (i = 0; i < ADI_APOLLO_NUM_SIDES; i++) {
+		u32 tx_clk = i ? TX_SAMPL_CLK_LINK2 : TX_SAMPL_CLK;
+		u32 rx_clk = i ? RX_SAMPL_CLK_LINK2 : RX_SAMPL_CLK;
+		u64 conv_rate, ratio;
 
-	sample_rate = DIV_ROUND_CLOSEST_ULL(phy->profile.adc_cfg[0].adc_sampling_rate_Hz,
-					    phy->profile.jtx[0].tx_link_cfg[0].link_total_ratio);
-	clk_set_rate_scaled(phy->clks[RX_SAMPL_CLK], sample_rate,
-			    &phy->clkscale[RX_SAMPL_CLK]);
+		conv_rate = profile->dac_cfg[i].dac_sampling_rate_Hz;
+		ratio = profile->jrx[i].rx_link_cfg[0].link_total_ratio;
+		if (ratio) {
+			sample_rate = DIV_ROUND_CLOSEST_ULL(conv_rate, ratio);
+			clk_set_rate_scaled(phy->clks[tx_clk], sample_rate,
+					    &phy->clkscale[tx_clk]);
+		}
+
+		conv_rate = profile->adc_cfg[i].adc_sampling_rate_Hz;
+		ratio = profile->jtx[i].tx_link_cfg[0].link_total_ratio;
+		if (ratio) {
+			sample_rate = DIV_ROUND_CLOSEST_ULL(conv_rate, ratio);
+			clk_set_rate_scaled(phy->clks[rx_clk], sample_rate,
+					    &phy->clkscale[rx_clk]);
+		}
+	}
 
 	return 0;
 }
@@ -5771,11 +5782,8 @@ static int ad9088_probe(struct spi_device *spi)
 	if (!phy->clk_data)
 		return -ENOMEM;
 
-	/*
-	 * Even though we already allocate NUM_AD9088_CLKS, RX_SAMPL_CLK_LINK2 is still
-	 * not being registered, hence the -1.
-	 */
-	phy->clk_data->num = NUM_AD9088_CLKS - 1;
+	/* Side A, then side B (asymmetric A/B mode, one link per side) */
+	phy->clk_data->num = NUM_AD9088_CLKS;
 	ret = ad9088_clk_register(phy, "-rx_sampl_clk", __clk_get_name(dev_clk), NULL,
 				  CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED, RX_SAMPL_CLK);
 	if (ret)
@@ -5783,6 +5791,16 @@ static int ad9088_probe(struct spi_device *spi)
 
 	ret = ad9088_clk_register(phy, "-tx_sampl_clk", __clk_get_name(dev_clk), NULL,
 				  CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED, TX_SAMPL_CLK);
+	if (ret)
+		return ret;
+
+	ret = ad9088_clk_register(phy, "-rx_sampl_clk_link2", __clk_get_name(dev_clk), NULL,
+				  CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED, RX_SAMPL_CLK_LINK2);
+	if (ret)
+		return ret;
+
+	ret = ad9088_clk_register(phy, "-tx_sampl_clk_link2", __clk_get_name(dev_clk), NULL,
+				  CLK_GET_RATE_NOCACHE | CLK_IGNORE_UNUSED, TX_SAMPL_CLK_LINK2);
 	if (ret)
 		return ret;
 
