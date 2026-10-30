@@ -4312,10 +4312,6 @@ static void warn_about_uncommitted_trans(struct btrfs_fs_info *fs_info)
 			   trans->transid, dirty_bytes);
 		btrfs_cleanup_one_transaction(trans);
 
-		if (trans == fs_info->running_transaction)
-			fs_info->running_transaction = NULL;
-		list_del_init(&trans->list);
-
 		btrfs_put_transaction(trans);
 	}
 	ASSERT(!found);
@@ -4937,7 +4933,13 @@ void btrfs_cleanup_one_transaction(struct btrfs_transaction *cur_trans)
 				     EXTENT_DIRTY);
 	btrfs_destroy_pinned_extent(fs_info, &cur_trans->pinned_extents);
 
-	cur_trans->state =TRANS_STATE_COMPLETED;
+	spin_lock(&fs_info->trans_lock);
+	if (cur_trans == fs_info->running_transaction)
+		fs_info->running_transaction = NULL;
+	list_del_init(&cur_trans->list);
+	spin_unlock(&fs_info->trans_lock);
+
+	cur_trans->state = TRANS_STATE_COMPLETED;
 	wake_up(&cur_trans->commit_wait);
 }
 
@@ -4972,12 +4974,6 @@ static int btrfs_cleanup_transaction(struct btrfs_fs_info *fs_info)
 			spin_unlock(&fs_info->trans_lock);
 		}
 		btrfs_cleanup_one_transaction(t);
-
-		spin_lock(&fs_info->trans_lock);
-		if (t == fs_info->running_transaction)
-			fs_info->running_transaction = NULL;
-		list_del_init(&t->list);
-		spin_unlock(&fs_info->trans_lock);
 
 		btrfs_put_transaction(t);
 		spin_lock(&fs_info->trans_lock);
