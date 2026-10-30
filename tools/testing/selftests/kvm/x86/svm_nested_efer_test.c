@@ -193,23 +193,20 @@ static void test_host_initiated_lmsle(void)
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
 	u64 efer;
+	int r;
 
 	vm = vm_create_with_one_vcpu(&vcpu, NULL);
 	vcpu_set_cpuid_feature(vcpu, X86_FEATURE_EFER_LMSLE_MBZ);
 
-	/*
-	 * EFER_LMSLE_MBZ is a guest CPUID consistency check, not a host
-	 * capability, i.e. must not be enforced against host-initiated writes,
-	 * so that userspace can set MSRs before it sets guest CPUID.
-	 */
 	efer = vcpu_get_msr(vcpu, MSR_EFER);
 	TEST_ASSERT(!(efer & EFER_LMSLE), "EFER.LMSLE unexpectedly set");
 
-	vcpu_set_msr(vcpu, MSR_EFER, efer | EFER_LMSLE);
-	TEST_ASSERT_EQ(vcpu_get_msr(vcpu, MSR_EFER), efer | EFER_LMSLE);
+	r = _vcpu_set_msr(vcpu, MSR_EFER, efer | EFER_LMSLE);
+	TEST_ASSERT_EQ(r, 0);
+	TEST_ASSERT_EQ(vcpu_get_msr(vcpu, MSR_EFER), efer);
 
 	kvm_vm_free(vm);
-	ksft_test_result_pass("Host-initiated EFER.LMSLE=1 is allowed\n");
+	ksft_test_result_pass("KVM_SET_MSRS rejects EFER.LMSLE=1 with EFER_LMSLE_MBZ\n");
 }
 
 static void test_sregs_lmsle(void)
@@ -222,10 +219,6 @@ static void test_sregs_lmsle(void)
 	vm = vm_create_with_one_vcpu(&vcpu, NULL);
 	vcpu_set_cpuid_feature(vcpu, X86_FEATURE_EFER_LMSLE_MBZ);
 
-	/*
-	 * Unlike KVM_SET_MSRS, KVM_SET_SREGS runs the full set of guest CPUID
-	 * checks, i.e. rejects EFER.LMSLE even though it's host-initiated.
-	 */
 	vcpu_sregs_get(vcpu, &sregs);
 	TEST_ASSERT(!(sregs.efer & EFER_LMSLE), "EFER.LMSLE unexpectedly set");
 
@@ -275,7 +268,7 @@ int main(int argc, char *argv[])
 		test_sregs_lmsle();
 	} else {
 		ksft_test_result_skip("Guest EFER_LMSLE_MBZ=0\n");
-		ksft_test_result_skip("Host-initiated EFER.LMSLE=1 is allowed\n");
+		ksft_test_result_skip("KVM_SET_MSRS rejects EFER.LMSLE=1 with EFER_LMSLE_MBZ\n");
 		ksft_test_result_skip("KVM_SET_SREGS rejects EFER.LMSLE=1\n");
 	}
 
