@@ -1248,9 +1248,9 @@ nv50_mstc_destroy(struct drm_connector *connector)
 
 static const struct drm_connector_funcs
 nv50_mstc = {
-	.reset = nouveau_conn_reset,
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.destroy = nv50_mstc_destroy,
+	.atomic_create_state = nouveau_conn_atomic_create_state,
 	.atomic_duplicate_state = nouveau_conn_atomic_duplicate_state,
 	.atomic_destroy_state = nouveau_conn_atomic_destroy_state,
 	.atomic_set_property = nouveau_conn_atomic_set_property,
@@ -1262,6 +1262,7 @@ nv50_mstc_new(struct nv50_mstm *mstm, struct drm_dp_mst_port *port,
 	      const char *path, struct nv50_mstc **pmstc)
 {
 	struct drm_device *dev = mstm->outp->base.base.dev;
+	struct drm_connector_state *conn_state;
 	struct drm_crtc *crtc;
 	struct nv50_mstc *mstc;
 	int ret;
@@ -1273,15 +1274,18 @@ nv50_mstc_new(struct nv50_mstm *mstm, struct drm_dp_mst_port *port,
 
 	ret = drm_connector_dynamic_init(dev, &mstc->connector, &nv50_mstc,
 					 DRM_MODE_CONNECTOR_DisplayPort, NULL);
-	if (ret) {
-		kfree(*pmstc);
-		*pmstc = NULL;
-		return ret;
-	}
+	if (ret)
+		goto err_free;
 
 	drm_connector_helper_add(&mstc->connector, &nv50_mstc_help);
 
-	mstc->connector.funcs->reset(&mstc->connector);
+	conn_state = mstc->connector.funcs->atomic_create_state(&mstc->connector);
+	if (IS_ERR(conn_state)) {
+		ret = PTR_ERR(conn_state);
+		goto err_cleanup;
+	}
+	mstc->connector.state = conn_state;
+
 	nouveau_conn_attach_properties(&mstc->connector);
 
 	drm_for_each_crtc(crtc, dev) {
@@ -1297,6 +1301,13 @@ nv50_mstc_new(struct nv50_mstm *mstm, struct drm_dp_mst_port *port,
 	drm_connector_set_path_property(&mstc->connector, path);
 	drm_dp_mst_get_port_malloc(port);
 	return 0;
+
+err_cleanup:
+	drm_connector_cleanup(&mstc->connector);
+err_free:
+	kfree(*pmstc);
+	*pmstc = NULL;
+	return ret;
 }
 
 static void

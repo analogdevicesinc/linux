@@ -242,25 +242,10 @@ nouveau_conn_atomic_duplicate_state(struct drm_connector *connector)
 	return &asyc->state;
 }
 
-void
-nouveau_conn_reset(struct drm_connector *connector)
+static void
+nouveau_conn_atom_init(struct drm_connector *connector,
+		       struct nouveau_conn_atom *asyc)
 {
-	struct nouveau_connector *nv_connector = nouveau_connector(connector);
-	struct nouveau_conn_atom *asyc;
-
-	if (drm_drv_uses_atomic_modeset(connector->dev)) {
-		if (WARN_ON(!(asyc = kzalloc_obj(*asyc))))
-			return;
-
-		if (connector->state)
-			nouveau_conn_atomic_destroy_state(connector,
-							  connector->state);
-
-		__drm_atomic_helper_connector_reset(connector, &asyc->state);
-	} else {
-		asyc = &nv_connector->properties_state;
-	}
-
 	asyc->dither.mode = DITHERING_MODE_AUTO;
 	asyc->dither.depth = DITHERING_DEPTH_AUTO;
 	asyc->scaler.mode = DRM_MODE_SCALE_NONE;
@@ -278,6 +263,21 @@ nouveau_conn_reset(struct drm_connector *connector)
 			break;
 		}
 	}
+}
+
+struct drm_connector_state *
+nouveau_conn_atomic_create_state(struct drm_connector *connector)
+{
+	struct nouveau_conn_atom *asyc;
+
+	asyc = kzalloc_obj(*asyc);
+	if (WARN_ON(!asyc))
+		return ERR_PTR(-ENOMEM);
+
+	__drm_atomic_helper_connector_state_init(&asyc->state, connector);
+	nouveau_conn_atom_init(connector, asyc);
+
+	return &asyc->state;
 }
 
 void
@@ -1230,7 +1230,49 @@ nouveau_connector_helper_funcs = {
 static const struct drm_connector_funcs
 nouveau_connector_funcs = {
 	.dpms = drm_helper_connector_dpms,
-	.reset = nouveau_conn_reset,
+	.detect = nouveau_connector_detect,
+	.force = nouveau_connector_force,
+	.fill_modes = drm_helper_probe_single_connector_modes,
+	.set_property = nouveau_connector_set_property,
+	.destroy = nouveau_connector_destroy,
+	.atomic_create_state = nouveau_conn_atomic_create_state,
+	.atomic_duplicate_state = nouveau_conn_atomic_duplicate_state,
+	.atomic_destroy_state = nouveau_conn_atomic_destroy_state,
+	.atomic_set_property = nouveau_conn_atomic_set_property,
+	.atomic_get_property = nouveau_conn_atomic_get_property,
+	.late_register = nouveau_connector_late_register,
+	.early_unregister = nouveau_connector_early_unregister,
+};
+
+static const struct drm_connector_funcs
+nouveau_connector_funcs_lvds = {
+	.dpms = drm_helper_connector_dpms,
+	.detect = nouveau_connector_detect_lvds,
+	.force = nouveau_connector_force,
+	.fill_modes = drm_helper_probe_single_connector_modes,
+	.set_property = nouveau_connector_set_property,
+	.destroy = nouveau_connector_destroy,
+	.atomic_create_state = nouveau_conn_atomic_create_state,
+	.atomic_duplicate_state = nouveau_conn_atomic_duplicate_state,
+	.atomic_destroy_state = nouveau_conn_atomic_destroy_state,
+	.atomic_set_property = nouveau_conn_atomic_set_property,
+	.atomic_get_property = nouveau_conn_atomic_get_property,
+	.late_register = nouveau_connector_late_register,
+	.early_unregister = nouveau_connector_early_unregister,
+};
+
+/*
+ * Pre-nv50 doesn't support atomic modesetting: the connector property state
+ * lives in the embedded struct nouveau_connector.properties_state and
+ * drm_connector.state is left alone, as expected from a legacy driver.
+ *
+ * Those connectors must not expose atomic_create_state: the DRM core would
+ * then install the embedded state into drm_connector.state and eventually
+ * pass it to atomic_destroy_state, which frees it.
+ */
+static const struct drm_connector_funcs
+nouveau_connector_funcs_legacy = {
+	.dpms = drm_helper_connector_dpms,
 	.detect = nouveau_connector_detect,
 	.force = nouveau_connector_force,
 	.fill_modes = drm_helper_probe_single_connector_modes,
@@ -1245,9 +1287,8 @@ nouveau_connector_funcs = {
 };
 
 static const struct drm_connector_funcs
-nouveau_connector_funcs_lvds = {
+nouveau_connector_funcs_lvds_legacy = {
 	.dpms = drm_helper_connector_dpms,
-	.reset = nouveau_conn_reset,
 	.detect = nouveau_connector_detect_lvds,
 	.force = nouveau_connector_force,
 	.fill_modes = drm_helper_probe_single_connector_modes,
@@ -1361,7 +1402,9 @@ nouveau_connector_create(struct drm_device *dev, int index)
 	struct nouveau_drm *drm = nouveau_drm(dev);
 	struct nouveau_display *disp = nouveau_display(dev);
 	struct nouveau_connector *nv_connector = NULL;
+	struct drm_connector_state *conn_state;
 	struct drm_connector *connector;
+	const struct drm_connector_funcs *funcs;
 	struct drm_connector_list_iter conn_iter;
 	int type, ret = 0;
 	bool dummy;
@@ -1458,10 +1501,19 @@ nouveau_connector_create(struct drm_device *dev, int index)
 	}
 
 	type = drm_conntype_from_dcb(nv_connector->type);
-	if (type == DRM_MODE_CONNECTOR_LVDS)
-		drm_connector_init(dev, connector, &nouveau_connector_funcs_lvds, type);
-	else
-		drm_connector_init(dev, connector, &nouveau_connector_funcs, type);
+	if (type == DRM_MODE_CONNECTOR_LVDS) {
+		if (drm_drv_uses_atomic_modeset(dev))
+			funcs = &nouveau_connector_funcs_lvds;
+		else
+			funcs = &nouveau_connector_funcs_lvds_legacy;
+	} else {
+		if (drm_drv_uses_atomic_modeset(dev))
+			funcs = &nouveau_connector_funcs;
+		else
+			funcs = &nouveau_connector_funcs_legacy;
+	}
+
+	drm_connector_init(dev, connector, funcs, type);
 
 	switch (type) {
 	case DRM_MODE_CONNECTOR_LVDS:
@@ -1513,15 +1565,28 @@ nouveau_connector_create(struct drm_device *dev, int index)
 			ret = nvif_conn_event_ctor(&nv_connector->conn, "kmsDpIrq",
 						   nouveau_connector_irq, NVIF_CONN_EVENT_V0_IRQ,
 						   &nv_connector->irq);
-			if (ret) {
-				nvif_event_dtor(&nv_connector->hpd);
-				nvif_conn_dtor(&nv_connector->conn);
+			if (ret)
 				goto drm_conn_err;
-			}
 		}
 	}
 
-	connector->funcs->reset(connector);
+	if (drm_drv_uses_atomic_modeset(dev)) {
+		conn_state = connector->funcs->atomic_create_state(connector);
+		if (IS_ERR(conn_state)) {
+			ret = PTR_ERR(conn_state);
+			goto drm_conn_err;
+		}
+		connector->state = conn_state;
+	} else {
+		/* Pre-nv50 keeps its property state embedded in struct
+		 * nouveau_connector: drm_connector.state must remain NULL,
+		 * the DRM core expects legacy drivers to use
+		 * drm_connector.encoder.
+		 */
+		nouveau_conn_atom_init(connector,
+				       &nv_connector->properties_state);
+	}
+
 	nouveau_conn_attach_properties(connector);
 
 	/* Default scaling mode */
@@ -1566,6 +1631,10 @@ nouveau_connector_create(struct drm_device *dev, int index)
 	return connector;
 
 drm_conn_err:
+	nvif_event_dtor(&nv_connector->irq);
+	nvif_event_dtor(&nv_connector->hpd);
+	cancel_work_sync(&nv_connector->irq_work);
+	nvif_conn_dtor(&nv_connector->conn);
 	drm_connector_cleanup(connector);
 	kfree(nv_connector);
 	return ERR_PTR(ret);
