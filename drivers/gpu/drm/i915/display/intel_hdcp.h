@@ -12,6 +12,7 @@
 
 struct drm_connector;
 struct drm_connector_state;
+struct drm_printer;
 struct intel_atomic_state;
 struct intel_connector;
 struct intel_crtc_state;
@@ -19,7 +20,6 @@ struct intel_digital_port;
 struct intel_display;
 struct intel_encoder;
 struct intel_hdcp_shim;
-struct seq_file;
 enum port;
 
 void intel_hdcp_atomic_check(struct drm_connector *connector,
@@ -44,7 +44,7 @@ void intel_hdcp_component_fini(struct intel_display *display);
 void intel_hdcp_cleanup(struct intel_connector *connector);
 void intel_hdcp_handle_cp_irq(struct intel_connector *connector);
 
-void intel_hdcp_info(struct seq_file *m, struct intel_connector *connector);
+void intel_hdcp_info(struct drm_printer *p, struct intel_connector *connector);
 void intel_hdcp_connector_debugfs_add(struct intel_connector *connector);
 
 #endif /* __INTEL_HDCP_H__ */

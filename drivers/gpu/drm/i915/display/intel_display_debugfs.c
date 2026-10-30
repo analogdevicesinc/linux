@@ -285,7 +285,7 @@ static void intel_connector_info(struct seq_file *m,
 	if (dig_port != NULL && intel_encoder_is_tc(&dig_port->base))
 		intel_tc_info(&p, dig_port);
 
-	intel_hdcp_info(m, intel_connector);
+	intel_hdcp_info(&p, intel_connector);
 
 	seq_printf(m, "\tmax bpc: %u\n", connector->display_info.bpc);
 
