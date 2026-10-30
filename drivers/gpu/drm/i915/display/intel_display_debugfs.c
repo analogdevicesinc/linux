@@ -547,66 +547,66 @@ static void crtc_updates_add(struct intel_crtc *crtc)
 }
 #endif
 
-static void intel_crtc_info(struct seq_file *m, struct intel_crtc *crtc)
+static void intel_crtc_info(struct drm_printer *p, struct intel_crtc *crtc)
 {
-	struct intel_display *display = node_to_intel_display(m->private);
-	struct drm_printer p = drm_seq_file_printer(m);
+	struct intel_display *display = to_intel_display(crtc);
 	const struct intel_crtc_state *crtc_state =
 		to_intel_crtc_state(crtc->base.state);
 	struct intel_encoder *encoder;
 
-	seq_printf(m, "[CRTC:%d:%s]:\n",
+	drm_printf(p, "[CRTC:%d:%s]:\n",
 		   crtc->base.base.id, crtc->base.name);
 
-	seq_printf(m, "\tuapi: enable=%s, active=%s, mode=" DRM_MODE_FMT "\n",
+	drm_printf(p, "\tuapi: enable=%s, active=%s, mode=" DRM_MODE_FMT "\n",
 		   str_yes_no(crtc_state->uapi.enable),
 		   str_yes_no(crtc_state->uapi.active),
 		   DRM_MODE_ARG(&crtc_state->uapi.mode));
 
-	seq_printf(m, "\thw: enable=%s, active=%s\n",
+	drm_printf(p, "\thw: enable=%s, active=%s\n",
 		   str_yes_no(crtc_state->hw.enable), str_yes_no(crtc_state->hw.active));
-	seq_printf(m, "\tadjusted_mode=" DRM_MODE_FMT "\n",
+	drm_printf(p, "\tadjusted_mode=" DRM_MODE_FMT "\n",
 		   DRM_MODE_ARG(&crtc_state->hw.adjusted_mode));
-	seq_printf(m, "\tpipe__mode=" DRM_MODE_FMT "\n",
+	drm_printf(p, "\tpipe__mode=" DRM_MODE_FMT "\n",
 		   DRM_MODE_ARG(&crtc_state->hw.pipe_mode));
 
-	seq_printf(m, "\tpipe src=" DRM_RECT_FMT ", dither=%s, bpp=%d\n",
+	drm_printf(p, "\tpipe src=" DRM_RECT_FMT ", dither=%s, bpp=%d\n",
 		   DRM_RECT_ARG(&crtc_state->pipe_src),
 		   str_yes_no(crtc_state->dither), crtc_state->pipe_bpp);
-	seq_printf(m, "\tport_clock=%d, lane_count=%d\n",
+	drm_printf(p, "\tport_clock=%d, lane_count=%d\n",
 		   crtc_state->port_clock, crtc_state->lane_count);
 
-	intel_scaler_info(&p, crtc);
+	intel_scaler_info(p, crtc);
 
 	if (DISPLAY_VER(display) >= 9) {
 		u32 background = crtc_state->hw.background_color;
 
-		seq_printf(m, "\tbackground color (10bpc XRGB2101010): %08x\n", background);
+		drm_printf(p, "\tbackground color (10bpc XRGB2101010): %08x\n", background);
 	}
 
 	if (crtc_state->joiner_pipes)
-		seq_printf(m, "\tLinked to 0x%x pipes as a %s\n",
+		drm_printf(p, "\tLinked to 0x%x pipes as a %s\n",
 			   crtc_state->joiner_pipes,
 			   intel_crtc_is_joiner_secondary(crtc_state) ? "slave" : "master");
 
-	intel_vdsc_state_dump(&p, 1, crtc_state);
+	intel_vdsc_state_dump(p, 1, crtc_state);
 
 	for_each_intel_encoder_mask(display->drm, encoder,
 				    crtc_state->uapi.encoder_mask)
-		intel_encoder_info(&p, encoder);
+		intel_encoder_info(p, encoder);
 
-	intel_plane_info(&p, crtc);
+	intel_plane_info(p, crtc);
 
-	seq_printf(m, "\tunderrun reporting: cpu=%s pch=%s\n",
+	drm_printf(p, "\tunderrun reporting: cpu=%s pch=%s\n",
 		   str_yes_no(!crtc->cpu_fifo_underrun_disabled),
 		   str_yes_no(!crtc->pch_fifo_underrun_disabled));
 
-	crtc_updates_info(&p, crtc, 1);
+	crtc_updates_info(p, crtc, 1);
 }
 
 static int i915_display_info(struct seq_file *m, void *unused)
 {
 	struct intel_display *display = node_to_intel_display(m->private);
+	struct drm_printer p = drm_seq_file_printer(m);
 	struct intel_crtc *crtc;
 	struct drm_connector *connector;
 	struct drm_connector_list_iter conn_iter;
@@ -619,7 +619,7 @@ static int i915_display_info(struct seq_file *m, void *unused)
 	seq_printf(m, "CRTC info\n");
 	seq_printf(m, "---------\n");
 	for_each_intel_crtc(display, crtc)
-		intel_crtc_info(m, crtc);
+		intel_crtc_info(&p, crtc);
 
 	seq_printf(m, "\n");
 	seq_printf(m, "Connector info\n");
