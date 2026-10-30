@@ -2018,8 +2018,6 @@ static void irdma_srq_free_rsrc(struct irdma_pci_f *rf, struct irdma_srq *iwsrq)
  */
 static void irdma_cq_free_rsrc(struct irdma_pci_f *rf, struct irdma_cq *iwcq)
 {
-	struct irdma_sc_cq *cq = &iwcq->sc_cq;
-
 	if (!iwcq->user_mode) {
 		dma_free_coherent(rf->sc_dev.hw->device, iwcq->kmem.size,
 				  iwcq->kmem.va, iwcq->kmem.pa);
@@ -2056,7 +2054,7 @@ static void irdma_cq_free_rsrc(struct irdma_pci_f *rf, struct irdma_cq *iwcq)
 		}
 	}
 
-	irdma_free_rsrc(rf, rf->allocated_cqs, cq->cq_uk.cq_id);
+	irdma_free_rsrc(rf, rf->allocated_cqs, iwcq->cq_num);
 }
 
 /**
