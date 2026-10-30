@@ -3084,6 +3084,15 @@ int scsi_internal_device_unblock_nowait(struct scsi_device *sdev,
 		else
 			sdev->sdev_state = SDEV_CREATED;
 		break;
+	case SDEV_RUNNING:
+		/*
+		 * The device was set running through sysfs while it was
+		 * blocked, so its queue is still stopped. Finish the unblock.
+		 */
+		if (!sdev->queue_stopped)
+			return -EINVAL;
+		sdev->sdev_state = new_state;
+		break;
 	case SDEV_CANCEL:
 	case SDEV_OFFLINE:
 		break;
