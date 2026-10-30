@@ -1545,6 +1545,7 @@ S:	Supported
 W:	https://ez.analog.com/linux-software-drivers
 F:	Documentation/ABI/testing/sysfs-bus-iio-adar2001
 F:	Documentation/devicetree/bindings/iio/beamformer/adi,adar2001.yaml
+F:	drivers/iio/beamformer/adar2001.c
 
 ANALOG DEVICES INC ADF41513 DRIVER
 M:	Rodrigo Alencar <rodrigo.alencar@analog.com>
