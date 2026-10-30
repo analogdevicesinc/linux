@@ -25,6 +25,7 @@
 #include <linux/units.h>
 
 #include <linux/clk.h>
+#include <linux/clk/clkscale.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -116,6 +117,7 @@ struct axiadc_state {
 	void __iomem			*slave_regs;
 	struct iio_hw_consumer		*frontend;
 	struct clk 			*clk;
+	struct clock_scale		clkscale;
 	/* protect against device accesses */
 	struct mutex			lock;
 	unsigned int                    oversampling_ratio;
@@ -483,7 +485,11 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 			reg = axiadc_slave_read(st, 0x44);
 			*val = M2K_ADC_DO_SAMP_FREQ_READ(reg);
 		} else if (!IS_ERR(st->clk)) {
-			*val = clk_get_rate(st->clk);
+			u64 freq = clk_get_rate_scaled(st->clk, &st->clkscale);
+
+			*val = lower_32_bits(freq);
+			*val2 = upper_32_bits(freq);
+			return IIO_VAL_INT_64;
 		} else {
 			return -ENODEV;
 		}
@@ -843,6 +849,8 @@ static int adc_probe(struct platform_device *pdev)
 		if (!info->has_no_sample_clk)
 			return PTR_ERR(st->clk);
 	} else {
+		of_clk_get_scale(pdev->dev.of_node, "sampl_clk", &st->clkscale);
+
 		ret = clk_prepare_enable(st->clk);
 		if (ret)
 			return ret;
