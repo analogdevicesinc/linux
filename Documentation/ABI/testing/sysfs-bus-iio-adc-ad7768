@@ -1,0 +1,22 @@
+What:		/sys/bus/iio/devices/iio:deviceX/modulator_frequency
+KernelVersion:	7.4
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Sets the requested device-wide ADC modulator frequency in Hz. The
+		selected frequency and corresponding power mode are applied when
+		buffered capture starts. The available frequencies are derived from
+		the input master clock and the MCLK divider settings supported by the
+		device.
+
+		The output sampling frequency of each channel is the modulator
+		frequency divided by that channel mode's digital filter decimation
+		ratio. Changing the modulator frequency preserves each channel's
+		decimation setting and updates its requested sampling frequency. It
+		also changes the set of available per-channel sampling frequencies.
+
+What:		/sys/bus/iio/devices/iio:deviceX/modulator_frequency_available
+KernelVersion:	7.4
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading returns the list of device-wide ADC modulator frequencies
+		available with the current input master clock, in Hz.
