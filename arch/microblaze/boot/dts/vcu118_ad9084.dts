@@ -388,7 +388,7 @@
 		reg = <0x44ab0000 0x8000>;
 		dmas = <&rx_dma_b 0>;
 		dma-names = "rx";
-		clocks = <&trx0_ad9084 0>; /* FIXME */
+		clocks = <&trx0_ad9084 2>;
 		clock-names = "sampl_clk";
 		// jesd204-device;
 		// #jesd204-cells = <2>;
@@ -400,7 +400,7 @@
 		reg = <0x44bb0000 0x4000>;
 		dmas = <&tx_dma_b 0>;
 		dma-names = "tx";
-		clocks = <&trx0_ad9084 1>; /* FIXME */
+		clocks = <&trx0_ad9084 3>;
 		clock-names = "sampl_clk";
 		adi,axi-pl-fifo-enable;
 		adi,axi-data-offload-connected = <&axi_data_offload_tx_b>;
