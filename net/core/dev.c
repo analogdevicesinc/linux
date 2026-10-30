@@ -4181,10 +4181,12 @@ static struct sk_buff *validate_xmit_unreadable_skb(struct sk_buff *skb,
 
 	shinfo = skb_shinfo(skb);
 
+	/* All net_iovs in an unreadable skb share the same binding. */
 	if (shinfo->nr_frags > 0) {
 		niov = netmem_to_net_iov(skb_frag_netmem(&shinfo->frags[0]));
 		if (net_is_devmem_iov(niov) &&
-		    READ_ONCE(net_devmem_iov_binding(niov)->dev) != dev)
+		    (net_devmem_iov_binding(niov)->direction != DMA_TO_DEVICE ||
+		     READ_ONCE(net_devmem_iov_binding(niov)->dev) != dev))
 			goto out_free;
 	}
 

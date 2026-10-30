@@ -12,6 +12,7 @@
 #include <linux/mm.h>
 #include <linux/netdevice.h>
 #include <linux/types.h>
+#include <net/netdev_lock.h>
 #include <net/netdev_queues.h>
 #include <net/netdev_rx_queue.h>
 #include <net/page_pool/helpers.h>
@@ -19,12 +20,14 @@
 #include <net/sock.h>
 #include <net/tcp.h>
 
+#include "dev.h"
 #include "devmem.h"
 #include "mp_dmabuf_devmem.h"
 
 /* Device memory support */
 
 static DEFINE_XARRAY_FLAGS(net_devmem_dmabuf_bindings, XA_FLAGS_ALLOC1);
+#define NET_DEVMEM_BINDING_LIVE XA_MARK_1
 
 static const struct memory_provider_ops dmabuf_devmem_ops;
 
@@ -64,9 +67,89 @@ static void net_devmem_dmabuf_binding_release(struct percpu_ref *ref)
 	schedule_work(&binding->unbind_w);
 }
 
+static void
+net_devmem_dmabuf_binding_unmap(struct net_devmem_dmabuf_binding *binding)
+{
+	mutex_lock(&binding->lock);
+	if (binding->sgt) {
+		dma_resv_lock(binding->dmabuf->resv, NULL);
+		dma_buf_unmap_attachment(binding->attachment, binding->sgt,
+					 binding->direction);
+		dma_buf_unpin(binding->attachment);
+		dma_resv_unlock(binding->dmabuf->resv);
+		dma_buf_detach(binding->dmabuf, binding->attachment);
+		binding->sgt = NULL;
+		binding->attachment = NULL;
+	}
+	mutex_unlock(&binding->lock);
+}
+
+/**
+ * net_devmem_lock_dev() - lock a binding's net_device if still alive
+ * @binding:		devmem binding whose @dev pointer to lock
+ * @dev_tracker:	reftracker for the held net_device reference
+ *
+ * Safely dereference @binding->dev, acquire netdev_lock() on the device, and
+ * verify that @binding->dev has not been cleared while waiting for the lock.
+ *
+ * Invariant: @binding->dev is set once at bind time and is only ever cleared to
+ * NULL while holding netdev_lock(dev) (in mp_dmabuf_devmem_uninstall(),
+ * net_devmem_unbind_dmabuf(), or net_devmem_dev_unregister() during
+ * NETDEV_UNREGISTER before synchronize_net() and netdev_run_todo() free the
+ * net_device).
+ *
+ * Taking rcu_read_lock() guarantees that a non-NULL @dev read from
+ * @binding->dev has not yet completed unregister_netdevice_many_notify()
+ * (which waits for an RCU grace period via synchronize_net() after
+ * NETDEV_UNREGISTER before freeing the net_device), so netdev_hold() can
+ * safely acquire a reference before sleeping on netdev_lock(). Once
+ * netdev_lock(dev) is held, re-checking that READ_ONCE(binding->dev) == dev
+ * guarantees that the device has not yet been detached from @binding and
+ * cannot finish unregistering until net_devmem_unlock_dev().
+ *
+ * Return: The locked and held net_device if @binding->dev is still non-NULL,
+ * or NULL if already cleared.
+ */
+struct net_device *
+net_devmem_lock_dev(struct net_devmem_dmabuf_binding *binding,
+		    netdevice_tracker *dev_tracker)
+{
+	struct net_device *dev;
+
+	rcu_read_lock();
+	dev = READ_ONCE(binding->dev);
+	if (!dev) {
+		rcu_read_unlock();
+		return NULL;
+	}
+	netdev_hold(dev, dev_tracker, GFP_ATOMIC);
+	rcu_read_unlock();
+
+	netdev_lock(dev);
+	if (READ_ONCE(binding->dev) != dev) {
+		netdev_unlock(dev);
+		netdev_put(dev, dev_tracker);
+		return NULL;
+	}
+
+	return dev;
+}
+
+void net_devmem_unlock_dev(struct net_device *dev,
+			   netdevice_tracker *dev_tracker)
+{
+	if (!dev)
+		return;
+
+	netdev_unlock(dev);
+	netdev_put(dev, dev_tracker);
+}
+
 void __net_devmem_dmabuf_binding_free(struct work_struct *wq)
 {
 	struct net_devmem_dmabuf_binding *binding = container_of(wq, typeof(*binding), unbind_w);
+	netdevice_tracker dev_tracker;
+	struct net_device *dev = NULL;
 
 	if (binding->freelist)
 		WARN(binding->free_count != binding->area.num_niovs,
@@ -74,12 +157,12 @@ void __net_devmem_dmabuf_binding_free(struct work_struct *wq)
 		     binding->area.num_niovs, binding->free_count);
 
 	kvfree(binding->area.niovs);
-	dma_resv_lock(binding->dmabuf->resv, NULL);
-	dma_buf_unmap_attachment(binding->attachment, binding->sgt,
-				 binding->direction);
-	dma_buf_unpin(binding->attachment);
-	dma_resv_unlock(binding->dmabuf->resv);
-	dma_buf_detach(binding->dmabuf, binding->attachment);
+	if (binding->direction == DMA_FROM_DEVICE)
+		dev = net_devmem_lock_dev(binding, &dev_tracker);
+	net_devmem_dmabuf_binding_unmap(binding);
+	xa_erase(&net_devmem_dmabuf_bindings, binding->id);
+	net_devmem_unlock_dev(dev, &dev_tracker);
+
 	dma_buf_put(binding->dmabuf);
 	xa_destroy(&binding->bound_rxqs);
 	percpu_ref_exit(&binding->ref);
@@ -124,11 +207,13 @@ void net_devmem_unbind_dmabuf(struct net_devmem_dmabuf_binding *binding)
 	struct netdev_rx_queue *rxq;
 	unsigned long xa_idx;
 	unsigned int rxq_idx;
+	bool busy = false;
 
-	xa_erase(&net_devmem_dmabuf_bindings, binding->id);
+	xa_clear_mark(&net_devmem_dmabuf_bindings, binding->id,
+		      NET_DEVMEM_BINDING_LIVE);
 
 	/* Ensure no tx net_devmem_lookup_dmabuf() are in flight after the
-	 * erase.
+	 * mark is cleared.
 	 */
 	synchronize_net();
 
@@ -143,10 +228,43 @@ void net_devmem_unbind_dmabuf(struct net_devmem_dmabuf_binding *binding)
 
 		rxq_idx = get_netdev_rx_queue_index(rxq);
 
-		netif_mp_close_rxq(binding->dev, rxq_idx, &mp_params);
+		if (netif_mp_close_rxq(binding->dev, rxq_idx, &mp_params))
+			busy = true;
+	}
+
+	if (binding->direction == DMA_FROM_DEVICE && binding->dev && !busy) {
+		net_devmem_dmabuf_binding_unmap(binding);
+		WRITE_ONCE(binding->dev, NULL);
 	}
 
 	percpu_ref_kill(&binding->ref);
+}
+
+void net_devmem_dev_unregister(struct net_device *dev)
+{
+	struct net_devmem_dmabuf_binding *binding;
+	unsigned long xa_idx;
+
+	netdev_assert_locked(dev);
+
+	if (dev->reg_state != NETREG_UNREGISTERING)
+		return;
+
+	xa_lock(&net_devmem_dmabuf_bindings);
+	xa_for_each(&net_devmem_dmabuf_bindings, xa_idx, binding) {
+		if (binding->direction != DMA_FROM_DEVICE ||
+		    READ_ONCE(binding->dev) != dev ||
+		    xa_get_mark(&net_devmem_dmabuf_bindings, xa_idx,
+				NET_DEVMEM_BINDING_LIVE))
+			continue;
+
+		xa_unlock(&net_devmem_dmabuf_bindings);
+		if (!netif_is_queue_leasee(dev))
+			net_devmem_dmabuf_binding_unmap(binding);
+		xa_lock(&net_devmem_dmabuf_bindings);
+		WRITE_ONCE(binding->dev, NULL);
+	}
+	xa_unlock(&net_devmem_dmabuf_bindings);
 }
 
 int net_devmem_bind_dmabuf_to_queue(struct net_device *dev, u32 rxq_idx,
@@ -164,20 +282,16 @@ int net_devmem_bind_dmabuf_to_queue(struct net_device *dev, u32 rxq_idx,
 	if (binding->niov_shift != PAGE_SHIFT)
 		mp_params.rx_page_size = 1U << binding->niov_shift;
 
-	err = netif_mp_open_rxq(dev, rxq_idx, &mp_params, extack);
-	if (err)
-		return err;
-
 	rxq = __netif_get_rx_queue(dev, rxq_idx);
 	err = xa_alloc(&binding->bound_rxqs, &xa_idx, rxq, xa_limit_32b,
 		       GFP_KERNEL);
 	if (err)
-		goto err_close_rxq;
+		return err;
 
-	return 0;
+	err = netif_mp_open_rxq(dev, rxq_idx, &mp_params, extack);
+	if (err)
+		xa_erase(&binding->bound_rxqs, xa_idx);
 
-err_close_rxq:
-	netif_mp_close_rxq(dev, rxq_idx, &mp_params);
 	return err;
 }
 
@@ -345,6 +459,8 @@ net_devmem_bind_dmabuf(struct net_device *dev, void *vdev,
 			      GFP_KERNEL);
 	if (err < 0)
 		goto err_free_niovs;
+	xa_set_mark(&net_devmem_dmabuf_bindings, binding->id,
+		    NET_DEVMEM_BINDING_LIVE);
 
 	list_add(&binding->list, &priv->bindings);
 
@@ -375,9 +491,11 @@ err_put_dmabuf:
 struct net_devmem_dmabuf_binding *net_devmem_lookup_dmabuf(u32 id)
 {
 	struct net_devmem_dmabuf_binding *binding;
+	unsigned long xa_idx = id;
 
 	rcu_read_lock();
-	binding = xa_load(&net_devmem_dmabuf_bindings, id);
+	binding = xa_find(&net_devmem_dmabuf_bindings, &xa_idx, id,
+			  NET_DEVMEM_BINDING_LIVE);
 	if (binding) {
 		if (!net_devmem_dmabuf_binding_get(binding))
 			binding = NULL;
@@ -551,16 +669,17 @@ static void mp_dmabuf_devmem_uninstall(void *mp_priv,
 	unsigned long xa_idx;
 
 	xa_for_each(&binding->bound_rxqs, xa_idx, bound_rxq) {
-		if (bound_rxq == rxq) {
-			xa_erase(&binding->bound_rxqs, xa_idx);
-			if (xa_empty(&binding->bound_rxqs)) {
-				mutex_lock(&binding->lock);
-				ASSERT_EXCLUSIVE_WRITER(binding->dev);
-				WRITE_ONCE(binding->dev, NULL);
-				mutex_unlock(&binding->lock);
-			}
-			break;
+		if (bound_rxq != rxq)
+			continue;
+
+		xa_erase(&binding->bound_rxqs, xa_idx);
+		if (xa_empty(&binding->bound_rxqs)) {
+			if (!rxq->lease)
+				net_devmem_dmabuf_binding_unmap(binding);
+			ASSERT_EXCLUSIVE_WRITER(binding->dev);
+			WRITE_ONCE(binding->dev, NULL);
 		}
+		break;
 	}
 }
 
