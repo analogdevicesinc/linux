@@ -393,8 +393,8 @@ err:
 
 void da9055_device_exit(struct da9055 *da9055)
 {
-	regmap_del_irq_chip(da9055->chip_irq, da9055->irq_data);
 	mfd_remove_devices(da9055->dev);
+	regmap_del_irq_chip(da9055->chip_irq, da9055->irq_data);
 }
 
 MODULE_DESCRIPTION("Core support for the DA9055 PMIC");
