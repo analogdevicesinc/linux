@@ -56,7 +56,6 @@ struct mpfs_pinctrl {
 	struct device *dev;
 	struct regmap *regmap;
 	struct regmap *sysreg_regmap;
-	struct mutex mutex;
 	struct pinctrl_desc desc;
 };
 
@@ -677,7 +676,6 @@ static int mpfs_pinctrl_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mpfs_pinctrl *pctrl;
-	int ret;
 
 	pctrl = devm_kzalloc(dev, sizeof(*pctrl), GFP_KERNEL);
 	if (!pctrl)
@@ -702,10 +700,6 @@ static int mpfs_pinctrl_probe(struct platform_device *pdev)
 	pctrl->desc.custom_params = mpfs_pinctrl_custom_bindings;
 
 	pctrl->dev = dev;
-
-	ret = devm_mutex_init(dev, &pctrl->mutex);
-	if (ret)
-		return ret;
 
 	platform_set_drvdata(pdev, pctrl);
 
