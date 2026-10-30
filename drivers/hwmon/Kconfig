@@ -748,6 +748,17 @@ config SENSORS_MC33XS2410
 	  This driver can also be built as a module. If so, the module
 	  will be called mc33xs2410_hwmon.
 
+config SENSORS_FS1603
+	tristate "TDK FS1603 and compatible uPOL DC-DC converters"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  If you say yes here you get hardware monitoring support for the
+	  TDK FS1603, FS1604, FS1606 and FS1006 uPOL DC-DC converters.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called fs1603.
+
 config SENSORS_FSCHMD
 	tristate "Fujitsu Siemens Computers sensor chips"
 	depends on (X86 || COMPILE_TEST) && I2C

@@ -27513,6 +27513,14 @@ S:	Maintained
 F:	Documentation/hwmon/fs1412.rst
 F:	drivers/hwmon/pmbus/fs1412.c
 
+TDK FS1603 HARDWARE MONITOR DRIVER
+M:	Kevin Jia <kjia@nexthop.ai>
+L:	linux-hwmon@vger.kernel.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/hwmon/tdk,fs1603.yaml
+F:	Documentation/hwmon/fs1603.rst
+F:	drivers/hwmon/fs1603.c
+
 TEA5761 TUNER DRIVER
 M:	Mauro Carvalho Chehab <mchehab@kernel.org>
 L:	linux-media@vger.kernel.org
