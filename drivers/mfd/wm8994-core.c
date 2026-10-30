@@ -29,11 +29,13 @@
 static const struct mfd_cell wm8994_regulator_devs[] = {
 	{
 		.name = "wm8994-ldo",
+		.level = MFD_DEP_LEVEL_HIGH,
 		.id = 0,
 		.pm_runtime_no_callbacks = true,
 	},
 	{
 		.name = "wm8994-ldo",
+		.level = MFD_DEP_LEVEL_HIGH,
 		.id = 1,
 		.pm_runtime_no_callbacks = true,
 	},
@@ -595,7 +597,7 @@ err_enable:
 err_regulator_free:
 	regulator_bulk_free(wm8994->num_supplies, wm8994->supplies);
 err:
-	mfd_remove_devices(wm8994->dev);
+	mfd_remove_devices_late(wm8994->dev);
 	return ret;
 }
 
@@ -604,10 +606,11 @@ static void wm8994_device_exit(struct wm8994 *wm8994)
 	pm_runtime_get_sync(wm8994->dev);
 	pm_runtime_disable(wm8994->dev);
 	pm_runtime_put_noidle(wm8994->dev);
+	mfd_remove_devices(wm8994->dev);
 	wm8994_irq_exit(wm8994);
 	regulator_bulk_disable(wm8994->num_supplies, wm8994->supplies);
 	regulator_bulk_free(wm8994->num_supplies, wm8994->supplies);
-	mfd_remove_devices(wm8994->dev);
+	mfd_remove_devices_late(wm8994->dev);
 }
 
 static const struct of_device_id wm8994_of_match[] = {
