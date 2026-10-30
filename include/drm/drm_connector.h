@@ -1659,15 +1659,6 @@ struct drm_connector_funcs {
 	int (*dpms)(struct drm_connector *connector, int mode);
 
 	/**
-	 * @reset:
-	 *
-	 * Reset connector hardware and software state to off. This function isn't
-	 * called by the core directly, only through drm_mode_config_reset().
-	 * It's not a helper hook only for historical reasons.
-	 */
-	void (*reset)(struct drm_connector *connector);
-
-	/**
 	 * @detect:
 	 *
 	 * Check to see if anything is attached to the connector. The parameter

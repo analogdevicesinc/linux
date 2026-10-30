@@ -114,8 +114,6 @@ static int panel_bridge_attach(struct drm_bridge *bridge,
 			}
 
 			connector->state = conn_state;
-		} else if (connector->funcs->reset) {
-			connector->funcs->reset(connector);
 		}
 
 		drm_connector_register(connector);

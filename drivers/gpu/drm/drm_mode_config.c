@@ -315,9 +315,7 @@ void drm_mode_config_reset(struct drm_device *dev)
 
 	drm_connector_list_iter_begin(dev, &conn_iter);
 	drm_for_each_connector_iter(connector, &conn_iter) {
-		if (connector->funcs->reset)
-			connector->funcs->reset(connector);
-		else if (connector->funcs->atomic_create_state)
+		if (connector->funcs->atomic_create_state)
 			drm_mode_config_connector_reset_with_create_state(connector);
 	}
 	drm_connector_list_iter_end(&conn_iter);
