@@ -1580,7 +1580,7 @@ static struct perf_event_header finished_init_event = {
 
 static void record__adjust_affinity(struct record *rec, struct mmap *map)
 {
-	if (rec->opts.affinity != PERF_AFFINITY_SYS &&
+	if (map->core.cpu.cpu >= 0 && rec->opts.affinity != PERF_AFFINITY_SYS &&
 	    !bitmap_equal(thread->mask->affinity.bits, map->affinity_mask.bits,
 			  thread->mask->affinity.nbits)) {
 		bitmap_zero(thread->mask->affinity.bits, thread->mask->affinity.nbits);
