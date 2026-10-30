@@ -1582,6 +1582,33 @@ static int scsi_eh_try_stu(struct scsi_cmnd *scmd)
 	return 1;
 }
 
+/*
+ * Return true if @scmd completed with CHECK CONDITION and current (not
+ * deferred) sense data and store the normalized sense data in @sshdr.
+ */
+static bool scsi_cmd_current_sense(const struct scsi_cmnd *scmd,
+				   struct scsi_sense_hdr *sshdr)
+{
+	if ((scmd->eh_eflags & SCSI_EH_ABORT_SCHEDULED) ||
+	    host_byte(scmd->result) != DID_OK ||
+	    !scsi_status_is_check_condition(scmd->result))
+		return false;
+
+	return scsi_command_normalize_sense(scmd, sshdr) &&
+		!scsi_sense_is_deferred(sshdr);
+}
+
+static bool scsi_cmd_needs_stu(const struct scsi_cmnd *scmd)
+{
+	struct scsi_sense_hdr sshdr;
+
+	return scmd->device->allow_restart &&
+		scsi_cmd_current_sense(scmd, &sshdr) &&
+		(sshdr.sense_key == NOT_READY ||
+		 sshdr.sense_key == UNIT_ATTENTION) &&
+		sshdr.sense_code == LU_NOT_READY_INITIALIZING_COMMAND_REQUIRED;
+}
+
  /**
  * scsi_eh_stu - send START_UNIT if needed
  * @shost:	&scsi host being recovered.
@@ -1610,8 +1637,7 @@ static int scsi_eh_stu(struct Scsi_Host *shost,
 		}
 		stu_scmd = NULL;
 		list_for_each_entry(scmd, work_q, eh_entry)
-			if (scmd->device == sdev && SCSI_SENSE_VALID(scmd) &&
-			    scsi_check_sense(scmd) == FAILED ) {
+			if (scmd->device == sdev && scsi_cmd_needs_stu(scmd)) {
 				stu_scmd = scmd;
 				break;
 			}
