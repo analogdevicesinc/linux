@@ -442,7 +442,7 @@ static void intel_scaler_info(struct seq_file *m, struct intel_crtc *crtc)
 }
 
 #if IS_ENABLED(CONFIG_DRM_I915_DEBUG_VBLANK_EVADE)
-static void crtc_updates_info(struct seq_file *m,
+static void crtc_updates_info(struct drm_printer *p,
 			      struct intel_crtc *crtc,
 			      const char *hdr)
 {
@@ -452,7 +452,7 @@ static void crtc_updates_info(struct seq_file *m,
 	count = 0;
 	for (row = 0; row < ARRAY_SIZE(crtc->debug.vbl.times); row++)
 		count += crtc->debug.vbl.times[row];
-	seq_printf(m, "%sUpdates: %llu\n", hdr, count);
+	drm_printf(p, "%sUpdates: %llu\n", hdr, count);
 	if (!count)
 		return;
 
@@ -481,22 +481,25 @@ static void crtc_updates_info(struct seq_file *m,
 			columns[8 + x] = '\0';
 		}
 
-		seq_printf(m, "%s%s\n", hdr, columns);
+		drm_printf(p, "%s%s\n", hdr, columns);
 	}
 
-	seq_printf(m, "%sMin update: %lluns\n",
+	drm_printf(p, "%sMin update: %lluns\n",
 		   hdr, crtc->debug.vbl.min);
-	seq_printf(m, "%sMax update: %lluns\n",
+	drm_printf(p, "%sMax update: %lluns\n",
 		   hdr, crtc->debug.vbl.max);
-	seq_printf(m, "%sAverage update: %lluns\n",
+	drm_printf(p, "%sAverage update: %lluns\n",
 		   hdr, div64_u64(crtc->debug.vbl.sum, count));
-	seq_printf(m, "%sOverruns > %uus: %u\n",
+	drm_printf(p, "%sOverruns > %uus: %u\n",
 		   hdr, VBLANK_EVASION_TIME_US, crtc->debug.vbl.over);
 }
 
 static int crtc_updates_show(struct seq_file *m, void *data)
 {
-	crtc_updates_info(m, m->private, "");
+	struct drm_printer p = drm_seq_file_printer(m);
+
+	crtc_updates_info(&p, m->private, "");
+
 	return 0;
 }
 
@@ -534,7 +537,7 @@ static void crtc_updates_add(struct intel_crtc *crtc)
 }
 
 #else
-static void crtc_updates_info(struct seq_file *m,
+static void crtc_updates_info(struct drm_printer *p,
 			      struct intel_crtc *crtc,
 			      const char *hdr)
 {
@@ -599,7 +602,7 @@ static void intel_crtc_info(struct seq_file *m, struct intel_crtc *crtc)
 		   str_yes_no(!crtc->cpu_fifo_underrun_disabled),
 		   str_yes_no(!crtc->pch_fifo_underrun_disabled));
 
-	crtc_updates_info(m, crtc, "\t");
+	crtc_updates_info(&p, crtc, "\t");
 }
 
 static int i915_display_info(struct seq_file *m, void *unused)
