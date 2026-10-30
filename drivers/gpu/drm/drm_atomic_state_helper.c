@@ -436,26 +436,6 @@ __drm_atomic_helper_connector_reset(struct drm_connector *connector,
 EXPORT_SYMBOL(__drm_atomic_helper_connector_reset);
 
 /**
- * drm_atomic_helper_connector_reset - default &drm_connector_funcs.reset hook for connectors
- * @connector: drm connector
- *
- * Resets the atomic state for @connector by freeing the state pointer (which
- * might be NULL, e.g. at driver load time) and allocating a new empty state
- * object.
- */
-void drm_atomic_helper_connector_reset(struct drm_connector *connector)
-{
-	struct drm_connector_state *conn_state = kzalloc_obj(*conn_state);
-
-	if (connector->state)
-		__drm_atomic_helper_connector_destroy_state(connector->state);
-
-	kfree(connector->state);
-	__drm_atomic_helper_connector_reset(connector, conn_state);
-}
-EXPORT_SYMBOL(drm_atomic_helper_connector_reset);
-
-/**
  * drm_atomic_helper_connector_create_state - default &drm_connector_funcs.atomic_create_state hook for connectors
  * @connector: connector object
  *

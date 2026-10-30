@@ -314,8 +314,7 @@
  *
  * Initializes all HDMI resources from a @drm_connector_state without
  * actually allocating it. This is useful for HDMI drivers, in
- * combination with __drm_atomic_helper_connector_state_init(),
- * drm_atomic_helper_connector_reset(), or
+ * combination with __drm_atomic_helper_connector_state_init(), or
  * drm_atomic_helper_connector_create_state().
  */
 void __drm_atomic_helper_connector_hdmi_state_init(struct drm_connector_state *new_conn_state,
