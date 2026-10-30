@@ -1768,6 +1768,14 @@ static int cs_etm__synth_branch_sample(struct cs_etm_queue *etmq,
 	} dummy_bs;
 	u64 ip;
 
+	if (!etm->synth_opts.branches)
+		return 0;
+
+	if (!cs_etm__packet_has_taken_branch(tidq->prev_packet) &&
+	    !(tidq->prev_packet->flags & (PERF_IP_FLAG_TRACE_BEGIN |
+					  PERF_IP_FLAG_TRACE_END)))
+		return 0;
+
 	if (etm->branches_filter &&
 		!(etm->branches_filter & tidq->prev_packet->flags))
 		return 0;
@@ -2007,23 +2015,9 @@ static int cs_etm__sample(struct cs_etm_queue *etmq,
 		}
 	}
 
-	if (etm->synth_opts.branches) {
-		bool generate_sample = false;
-
-		/* Generate sample for tracing on packet */
-		if (tidq->prev_packet->sample_type == CS_ETM_DISCONTINUITY)
-			generate_sample = true;
-
-		/* Generate sample for branch taken packet */
-		if (cs_etm__packet_has_taken_branch(tidq->prev_packet))
-			generate_sample = true;
-
-		if (generate_sample) {
-			ret = cs_etm__synth_branch_sample(etmq, tidq);
-			if (ret)
-				return ret;
-		}
-	}
+	ret = cs_etm__synth_branch_sample(etmq, tidq);
+	if (ret)
+		return ret;
 
 	cs_etm__packet_swap(etm, tidq);
 
@@ -2091,12 +2085,9 @@ static int cs_etm__flush(struct cs_etm_queue *etmq,
 	if (err)
 		return err;
 
-	if (etm->synth_opts.branches &&
-	    tidq->prev_packet->sample_type == CS_ETM_RANGE) {
-		err = cs_etm__synth_branch_sample(etmq, tidq);
-		if (err)
-			return err;
-	}
+	err = cs_etm__synth_branch_sample(etmq, tidq);
+	if (err)
+		return err;
 
 swap_packet:
 	cs_etm__packet_swap(etm, tidq);
