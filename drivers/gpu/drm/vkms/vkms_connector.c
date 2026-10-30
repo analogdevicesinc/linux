@@ -37,7 +37,7 @@ static enum drm_connector_status vkms_connector_detect(struct drm_connector *con
 static const struct drm_connector_funcs vkms_connector_funcs = {
 	.detect = vkms_connector_detect,
 	.fill_modes = drm_helper_probe_single_connector_modes,
-	.reset = drm_atomic_helper_connector_reset,
+	.atomic_create_state = drm_atomic_helper_connector_create_state,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };
