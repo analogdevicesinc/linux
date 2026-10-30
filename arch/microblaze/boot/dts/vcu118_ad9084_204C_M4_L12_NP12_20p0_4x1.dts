@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9084 RevC
+ * https://analogdevicesinc.github.io/linux/drivers/iio-trx-rf/ad9088/
+ * https://analogdevicesinc.github.io/system-level/solutions/reference-designs/ad9084_ebz/user-guide/
+ *
+ * hdl_project: <ad9084_ebz/vcu118>
+ * board_revision: <Rev.C>
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+
+#define DEVICE_PROFILE_NAME	"204C_M4_L12_NP12_20p0_4x1.bin"
+
+#define HMC7044_PLL2_FREQ	(2500000000) // 2.5 GHz (2150...3200 MHz range)
+#define AION_VCO_FREQ_HZ	(2500000000) // 2.5 GHz (2375...2625 MHz range)
+
+/*
+ * OUT_CLK_SELECT options:
+ * XCVR_OUTCLK_PCS
+ * XCVR_OUTCLK_PMA
+ * XCVR_REFCLK
+ * XCVR_REFCLK_DIV2
+ * XCVR_PROGDIV_CLK	(GTHE3, GTHE4, GTYE4 only)
+ */
+#define OUT_CLK_SELECT		XCVR_PROGDIV_CLK
+
+/*
+ * SYS_CLK_SELECT options:
+ * XCVR_CPLL  (CPLL: GTHE3, GTHE4, GTYE4, GTXE2)
+ * XCVR_QPLL1 (QPLL1: GTHE3, GTHE4, GTYE4)
+ * XCVR_QPLL  (QPLL0: GTHE3, GTHE4, GTYE4, GTXE2)
+ */
+#define SYS_CLK_SELECT		XCVR_QPLL
+
+#define SYSREF_CLK_MHz		(10000000)
+
+#define WITH_AION 1
+#define WITH_AXI_AION_TRIG 0
+#define ASYNM_A_B_MODE 1
+
+#include "vcu118_ad9084.dts"
+
+&trx0_ad9084 {
+	rx_sampl_clk-clock-scales = <1 10>;
+	tx_sampl_clk-clock-scales = <1 10>;
+	/* Scale to up to 42.9GHz */
+	rx_sampl_clk_link2-clock-scales = <1 10>;
+	tx_sampl_clk_link2-clock-scales = <1 10>;
+};
+
+&axi_ad9084_core_tx {
+	sampl_clk-clock-scales = <1 10>;
+};
+
+&axi_ad9084_core_tx_b {
+	sampl_clk-clock-scales = <1 10>;
+};
+
+&axi_ad9084_core_rx_b {
+	sampl_clk-clock-scales = <1 10>;
+};
