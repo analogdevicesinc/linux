@@ -222,6 +222,17 @@ config SRF08
 	  To compile this driver as a module, choose M here: the
 	  module will be called srf08.
 
+config TF_LUNA
+	tristate "Benewake TF-Luna LiDAR distance sensor"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  Say Y here to build a driver for the Benewake TF-Luna LiDAR
+	  distance sensor connected over I2C.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called tf-luna.
+
 config VCNL3020
 	tristate "VCNL3020 proximity sensor"
 	select REGMAP_I2C
