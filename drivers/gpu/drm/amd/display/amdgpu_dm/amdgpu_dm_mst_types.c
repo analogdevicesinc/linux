@@ -258,7 +258,7 @@ EXPORT_IF_KUNIT(amdgpu_dm_mst_connector_early_unregister);
 static const struct drm_connector_funcs dm_dp_mst_connector_funcs = {
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.destroy = dm_dp_mst_connector_destroy,
-	.reset = amdgpu_dm_connector_funcs_reset,
+	.atomic_create_state = amdgpu_dm_connector_atomic_create_state,
 	.atomic_duplicate_state = amdgpu_dm_connector_atomic_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 	.atomic_set_property = amdgpu_dm_connector_atomic_set_property,
@@ -671,6 +671,7 @@ dm_dp_add_mst_connector(struct drm_dp_mst_topology_mgr *mgr,
 	struct drm_device *dev = master->base.dev;
 	struct amdgpu_device *adev = drm_to_adev(dev);
 	struct amdgpu_dm_connector *aconnector;
+	struct drm_connector_state *conn_state;
 	struct drm_connector *connector;
 	int i;
 
@@ -738,7 +739,13 @@ dm_dp_add_mst_connector(struct drm_dp_mst_topology_mgr *mgr,
 	 * Initialize connector state before adding the connectror to drm and
 	 * framebuffer lists
 	 */
-	amdgpu_dm_connector_funcs_reset(connector);
+	conn_state = amdgpu_dm_connector_atomic_create_state(connector);
+	if (!IS_ERR(conn_state)) {
+		if (connector->state)
+			connector->funcs->atomic_destroy_state(connector, connector->state);
+
+		connector->state = conn_state;
+	}
 
 	drm_dp_mst_get_port_malloc(port);
 

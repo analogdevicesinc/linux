@@ -50,7 +50,8 @@ struct drm_display_mode;
 struct drm_edid;
 struct drm_property;
 
-void amdgpu_dm_connector_funcs_reset(struct drm_connector *connector);
+struct drm_connector_state *
+amdgpu_dm_connector_atomic_create_state(struct drm_connector *connector);
 
 struct drm_connector_state *
 amdgpu_dm_connector_atomic_duplicate_state(struct drm_connector *connector);

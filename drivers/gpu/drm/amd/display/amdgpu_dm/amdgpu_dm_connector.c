@@ -1964,22 +1964,16 @@ STATIC_IFN_KUNIT void amdgpu_dm_connector_destroy(struct drm_connector *connecto
 }
 EXPORT_IF_KUNIT(amdgpu_dm_connector_destroy);
 
-void amdgpu_dm_connector_funcs_reset(struct drm_connector *connector)
+struct drm_connector_state *
+amdgpu_dm_connector_atomic_create_state(struct drm_connector *connector)
 {
-	struct dm_connector_state *old_state =
-		to_dm_connector_state(connector->state);
 	struct dm_connector_state *state;
 
 	state = kzalloc_obj(*state);
 	if (!state)
-		return;
+		return ERR_PTR(-ENOMEM);
 
-	if (connector->state)
-		__drm_atomic_helper_connector_destroy_state(connector->state);
-
-	kfree(old_state);
-
-	__drm_atomic_helper_connector_reset(connector, &state->base);
+	__drm_atomic_helper_connector_state_init(&state->base, connector);
 
 	state->scaling = RMX_OFF;
 	state->underscan_enable = false;
@@ -1995,8 +1989,10 @@ void amdgpu_dm_connector_funcs_reset(struct drm_connector *connector)
 		else
 			state->abm_level = amdgpu_dm_abm_level;
 	}
+
+	return &state->base;
 }
-EXPORT_IF_KUNIT(amdgpu_dm_connector_funcs_reset);
+EXPORT_IF_KUNIT(amdgpu_dm_connector_atomic_create_state);
 
 struct drm_connector_state *
 amdgpu_dm_connector_atomic_duplicate_state(struct drm_connector *connector)
@@ -2095,10 +2091,10 @@ STATIC_IFN_KUNIT void amdgpu_dm_connector_funcs_force(struct drm_connector *conn
 EXPORT_IF_KUNIT(amdgpu_dm_connector_funcs_force);
 
 static const struct drm_connector_funcs amdgpu_dm_connector_funcs = {
-	.reset = amdgpu_dm_connector_funcs_reset,
 	.detect = amdgpu_dm_connector_detect,
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.destroy = amdgpu_dm_connector_destroy,
+	.atomic_create_state = amdgpu_dm_connector_atomic_create_state,
 	.atomic_duplicate_state = amdgpu_dm_connector_atomic_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 	.atomic_set_property = amdgpu_dm_connector_atomic_set_property,
@@ -3231,8 +3227,16 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
 	 * Some of the properties below require access to state, like bpc.
 	 * Allocate some default initial connector state with our reset helper.
 	 */
-	if (aconnector->base.funcs->reset)
-		aconnector->base.funcs->reset(&aconnector->base);
+	if (!aconnector->base.state &&
+	    aconnector->base.funcs->atomic_create_state) {
+		struct drm_connector_state *conn_state;
+
+		conn_state = aconnector->base.funcs->atomic_create_state(&aconnector->base);
+		if (IS_ERR(conn_state))
+			return;
+
+		aconnector->base.state = conn_state;
+	}
 
 	aconnector->connector_id = link_index;
 	aconnector->bl_idx = -1;
