@@ -5,6 +5,7 @@
 
 #include <linux/completion.h>
 #include <linux/device.h>
+#include <linux/dma-mapping.h>
 #include <linux/idr.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
@@ -415,6 +416,14 @@ ATTRIBUTE_GROUPS(nsim_bus);
 static int nsim_bus_probe(struct device *dev)
 {
 	struct nsim_bus_dev *nsim_bus_dev = to_nsim_bus_dev(dev);
+
+	if (dma_pci_p2pdma_supported(dev) &&
+	    !dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
+		dev->dma_parms = &nsim_bus_dev->dma_parms;
+		dma_set_max_seg_size(dev, UINT_MAX);
+	} else {
+		dev->dma_mask = NULL;
+	}
 
 	return nsim_drv_probe(nsim_bus_dev);
 }
