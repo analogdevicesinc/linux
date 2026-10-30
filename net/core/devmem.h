@@ -26,8 +26,8 @@ struct net_devmem_dmabuf_binding {
 	 */
 	struct net_device *dev;
 	/* Opaque cookie identifying the virtual device (e.g. netkit) the user
-	 * called bind-tx on. Used only for pointer comparison. Never
-	 * dereferenced.
+	 * called bind-tx on. Used only for pointer comparison via READ_ONCE()
+	 * and cleared with WRITE_ONCE() on unregistration. Never dereferenced.
 	 */
 	void *vdev;
 	possible_net_t net;
@@ -45,6 +45,8 @@ struct net_devmem_dmabuf_binding {
 	 * those refs are dropped and the binding is no longer desired or in
 	 * use. RX bindings are unmapped earlier when their queues are closed or
 	 * uninstalled, unless a leased or busy queue may still use the binding.
+	 * TX bindings are also unmapped earlier if their device is
+	 * unregistered.
 	 *
 	 * net_devmem_net_iov_inc_ref() on dmabuf net_iovs will increment this
 	 * reference, making sure that the binding remains alive until all the

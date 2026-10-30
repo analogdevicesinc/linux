@@ -149,7 +149,7 @@ void __net_devmem_dmabuf_binding_free(struct work_struct *wq)
 {
 	struct net_devmem_dmabuf_binding *binding = container_of(wq, typeof(*binding), unbind_w);
 	netdevice_tracker dev_tracker;
-	struct net_device *dev = NULL;
+	struct net_device *dev;
 
 	if (binding->freelist)
 		WARN(binding->free_count != binding->area.num_niovs,
@@ -157,8 +157,7 @@ void __net_devmem_dmabuf_binding_free(struct work_struct *wq)
 		     binding->area.num_niovs, binding->free_count);
 
 	kvfree(binding->area.niovs);
-	if (binding->direction == DMA_FROM_DEVICE)
-		dev = net_devmem_lock_dev(binding, &dev_tracker);
+	dev = net_devmem_lock_dev(binding, &dev_tracker);
 	net_devmem_dmabuf_binding_unmap(binding);
 	xa_erase(&net_devmem_dmabuf_bindings, binding->id);
 	net_devmem_unlock_dev(dev, &dev_tracker);
@@ -252,11 +251,20 @@ void net_devmem_dev_unregister(struct net_device *dev)
 
 	xa_lock(&net_devmem_dmabuf_bindings);
 	xa_for_each(&net_devmem_dmabuf_bindings, xa_idx, binding) {
-		if (binding->direction != DMA_FROM_DEVICE ||
-		    READ_ONCE(binding->dev) != dev ||
-		    xa_get_mark(&net_devmem_dmabuf_bindings, xa_idx,
-				NET_DEVMEM_BINDING_LIVE))
-			continue;
+		if (binding->direction == DMA_FROM_DEVICE) {
+			if (READ_ONCE(binding->dev) != dev ||
+			    xa_get_mark(&net_devmem_dmabuf_bindings, xa_idx,
+					NET_DEVMEM_BINDING_LIVE))
+				continue;
+		} else {
+			if (READ_ONCE(binding->vdev) == dev)
+				WRITE_ONCE(binding->vdev, NULL);
+			if (READ_ONCE(binding->dev) != dev)
+				continue;
+			WRITE_ONCE(binding->vdev, NULL);
+			__xa_clear_mark(&net_devmem_dmabuf_bindings, xa_idx,
+					NET_DEVMEM_BINDING_LIVE);
+		}
 
 		xa_unlock(&net_devmem_dmabuf_bindings);
 		if (!netif_is_queue_leasee(dev))
