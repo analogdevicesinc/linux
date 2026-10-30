@@ -13,6 +13,8 @@
 #include <linux/kcsan-checks.h>
 #include <linux/types.h>
 
+struct task_struct;
+
 #ifdef CONFIG_KCSAN
 
 /*
@@ -66,9 +68,17 @@ struct kcsan_ctx {
  */
 void kcsan_init(void);
 
+/**
+ * kcsan_task_init - initialize KCSAN state of a new task
+ *
+ * @task: task to initialize; must have been copied from its parent already.
+ */
+void kcsan_task_init(struct task_struct *task);
+
 #else /* CONFIG_KCSAN */
 
 static inline void kcsan_init(void)			{ }
+static inline void kcsan_task_init(struct task_struct *task) { }
 
 #endif /* CONFIG_KCSAN */
 
