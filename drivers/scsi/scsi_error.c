@@ -27,6 +27,7 @@
 #include <linux/blkdev.h>
 #include <linux/delay.h>
 #include <linux/jiffies.h>
+#include <linux/ratelimit.h>
 
 #include <scsi/scsi.h>
 #include <scsi/scsi_cmnd.h>
@@ -56,6 +57,11 @@
  */
 #define BUS_RESET_SETTLE_TIME   (10)
 #define HOST_RESET_SETTLE_TIME  (10)
+
+/* Maximum number of TEST UNIT READY commands sent to clear a UNIT ATTENTION. */
+#define SCSI_EH_CLEAR_UA_TURS	4
+/* Delay in milliseconds before a TEST UNIT READY command is retried. */
+#define SCSI_EH_CLEAR_UA_RETRY_DELAY_MS	100
 
 static int scsi_eh_try_stu(struct scsi_cmnd *scmd);
 static enum scsi_disposition scsi_try_to_abort_cmd(const struct scsi_host_template *,
@@ -1671,6 +1677,130 @@ static int scsi_eh_stu(struct Scsi_Host *shost,
 	return list_empty(work_q);
 }
 
+static bool scsi_cmd_has_ua(const struct scsi_cmnd *scmd)
+{
+	struct scsi_sense_hdr sshdr;
+
+	return scsi_cmd_current_sense(scmd, &sshdr) &&
+		sshdr.sense_key == UNIT_ATTENTION;
+}
+
+static bool scsi_eh_send_tur_clear_ua(struct scsi_cmnd *scmd)
+{
+	static unsigned char tur_command[6] = { TEST_UNIT_READY };
+	struct Scsi_Host *shost = scmd->device->host;
+	u8 sense_buf[SCSI_SENSE_BUFFERSIZE];
+	struct scsi_sense_hdr sshdr;
+	enum scsi_disposition rtn;
+	bool cleared = false;
+	int i;
+
+	memcpy(sense_buf, scmd->sense_buffer, sizeof(sense_buf));
+
+	/*
+	 * The first TEST UNIT READY command consumes the pending UNIT
+	 * ATTENTION and the second TEST UNIT READY command verifies that the
+	 * condition has been cleared. Allow additional attempts in case
+	 * multiple UNIT ATTENTION conditions have been queued or in case the
+	 * device is temporarily busy or becoming ready.
+	 */
+	for (i = 0; i < SCSI_EH_CLEAR_UA_TURS; i++) {
+		if (scsi_host_eh_past_deadline(shost))
+			break;
+		rtn = scsi_send_eh_cmnd(scmd, tur_command, sizeof(tur_command),
+					scmd->device->eh_timeout, 0);
+		if (rtn == NEEDS_RETRY) {
+			if (i + 1 < SCSI_EH_CLEAR_UA_TURS)
+				msleep(SCSI_EH_CLEAR_UA_RETRY_DELAY_MS);
+			continue;
+		}
+		if (rtn != SUCCESS)
+			break;
+		if (!scsi_command_normalize_sense(scmd, &sshdr) ||
+		    sshdr.sense_key == NO_SENSE ||
+		    sshdr.sense_key == RECOVERED_ERROR) {
+			cleared = true;
+			break;
+		}
+		if (sshdr.sense_key != UNIT_ATTENTION)
+			break;
+	}
+
+	memcpy(scmd->sense_buffer, sense_buf, sizeof(sense_buf));
+	return cleared;
+}
+
+/**
+ * scsi_eh_clear_ua - clear pending UNIT ATTENTION conditions if needed
+ * @shost:	SCSI host being recovered.
+ * @work_q:	&list_head for pending commands.
+ * @done_q:	&list_head for processed commands.
+ *
+ * If commands fail repeatedly with UNIT ATTENTION because a target does not
+ * clear the condition for those commands (for example, WRITE), send
+ * TEST UNIT READY to clear the UNIT ATTENTION before escalating to a reset.
+ *
+ * Return: 1 if @work_q is empty, 0 otherwise.
+ */
+static int scsi_eh_clear_ua(struct Scsi_Host *shost,
+			    struct list_head *work_q,
+			    struct list_head *done_q)
+{
+	static DEFINE_RATELIMIT_STATE(rs, DEFAULT_RATELIMIT_INTERVAL,
+				      DEFAULT_RATELIMIT_BURST);
+	struct scsi_cmnd *scmd, *ua_scmd, *next;
+	struct scsi_device *sdev;
+
+	shost_for_each_device(sdev, shost) {
+		if (scsi_host_eh_past_deadline(shost)) {
+			SCSI_LOG_ERROR_RECOVERY(3,
+				sdev_printk(KERN_INFO, sdev,
+					    "%s: skip clear UA, past eh deadline\n",
+					    current->comm));
+			scsi_device_put(sdev);
+			break;
+		}
+
+		ua_scmd = NULL;
+		list_for_each_entry(scmd, work_q, eh_entry) {
+			if (scmd->device == sdev && scsi_cmd_has_ua(scmd)) {
+				ua_scmd = scmd;
+				break;
+			}
+		}
+
+		if (!ua_scmd)
+			continue;
+
+		SCSI_LOG_ERROR_RECOVERY(3,
+			sdev_printk(KERN_INFO, sdev,
+				    "%s: Sending TEST_UNIT_READY to clear UA\n",
+				    current->comm));
+
+		if (scsi_device_online(sdev)) {
+			if (!scsi_eh_send_tur_clear_ua(ua_scmd)) {
+				SCSI_LOG_ERROR_RECOVERY(3,
+					sdev_printk(KERN_INFO, sdev,
+						    "%s: Failed to clear UA\n",
+						    current->comm));
+				continue;
+			}
+			if (__ratelimit(&rs))
+				sdev_printk(KERN_INFO, sdev,
+					    "Cleared persistent UNIT ATTENTION\n");
+		}
+
+		sdev->expecting_cc_ua = 0;
+		list_for_each_entry_safe(scmd, next, work_q, eh_entry) {
+			if (scmd->device == sdev &&
+			    scsi_cmd_has_ua(scmd) &&
+			    scsi_eh_action(scmd, SUCCESS) == SUCCESS)
+				scsi_eh_finish_cmd(scmd, done_q);
+		}
+	}
+
+	return list_empty(work_q);
+}
 
 /**
  * scsi_eh_bus_device_reset - send bdr if needed
@@ -2302,6 +2432,7 @@ void scsi_eh_ready_devs(struct Scsi_Host *shost,
 			struct list_head *done_q)
 {
 	if (!scsi_eh_stu(shost, work_q, done_q) &&
+	    !scsi_eh_clear_ua(shost, work_q, done_q) &&
 	    !scsi_eh_bus_device_reset(shost, work_q, done_q) &&
 	    !scsi_eh_target_reset(shost, work_q, done_q) &&
 	    !scsi_eh_bus_reset(shost, work_q, done_q) &&
