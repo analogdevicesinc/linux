@@ -853,6 +853,10 @@ static int vf_guc_init_post_hwconfig(struct xe_guc *guc)
 {
 	int err;
 
+	err = xe_guc_ct_init_post_hwconfig(&guc->ct);
+	if (err)
+		return err;
+
 	err = xe_guc_submit_init(guc);
 	if (err)
 		return err;
