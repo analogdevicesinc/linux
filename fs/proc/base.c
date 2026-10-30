@@ -182,6 +182,10 @@ struct pid_entry {
 	NOD(NAME, (S_IFREG|(MODE)),			\
 		NULL, &proc_single_file_operations,	\
 		{ .proc_show = show } )
+#define ONE_EXEC(NAME, MODE, show)			\
+	NOD(NAME, (S_IFREG|(MODE)),			\
+		NULL, &proc_single_exec_file_operations,	\
+		{ .proc_show = show } )
 #define ATTR(LSMID, NAME, MODE)				\
 	NOD(NAME, (S_IFREG|(MODE)),			\
 		NULL, &proc_pid_attr_operations,	\
@@ -3360,12 +3364,42 @@ static int proc_pid_patch_state(struct seq_file *m, struct pid_namespace *ns,
 #endif /* CONFIG_LIVEPATCH */
 
 #ifdef CONFIG_KSM
+/* Like proc_single_file_operations, but the file keeps the exec id. */
+static int proc_single_exec_open(struct inode *inode, struct file *filp)
+{
+	return proc_exec_id_single_open(inode, filp, proc_single_show);
+}
+
+static const struct file_operations proc_single_exec_file_operations = {
+	.open		= proc_single_exec_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= proc_exec_id_single_release,
+};
+
+/* get_task_mm(), unless the task now runs a program the opener can't see */
+static struct mm_struct *proc_single_exec_mm(struct seq_file *m,
+					     struct task_struct *task)
+{
+	struct mm_struct *mm;
+	int err;
+
+	err = proc_exec_id_lock(m->file, task, m->private);
+	if (err)
+		return ERR_PTR(err);
+	mm = get_task_mm(task);
+	proc_exec_id_unlock(task);
+	return mm;
+}
+
 static int proc_pid_ksm_merging_pages(struct seq_file *m, struct pid_namespace *ns,
 				struct pid *pid, struct task_struct *task)
 {
 	struct mm_struct *mm;
 
-	mm = get_task_mm(task);
+	mm = proc_single_exec_mm(m, task);
+	if (IS_ERR(mm))
+		return PTR_ERR(mm);
 	if (mm) {
 		seq_printf(m, "%lu\n", mm->ksm_merging_pages);
 		mmput(mm);
@@ -3379,7 +3413,9 @@ static int proc_pid_ksm_stat(struct seq_file *m, struct pid_namespace *ns,
 	struct mm_struct *mm;
 	int ret = 0;
 
-	mm = get_task_mm(task);
+	mm = proc_single_exec_mm(m, task);
+	if (IS_ERR(mm))
+		return PTR_ERR(mm);
 	if (mm) {
 		seq_printf(m, "ksm_rmap_items %lu\n", mm->ksm_rmap_items);
 		seq_printf(m, "ksm_zero_pages %ld\n", mm_ksm_zero_pages(mm));
@@ -3532,8 +3568,8 @@ static const struct pid_entry tgid_base_stuff[] = {
 	ONE("seccomp_cache", S_IRUSR, proc_pid_seccomp_cache),
 #endif
 #ifdef CONFIG_KSM
-	ONE("ksm_merging_pages",  S_IRUSR, proc_pid_ksm_merging_pages),
-	ONE("ksm_stat",  S_IRUSR, proc_pid_ksm_stat),
+	ONE_EXEC("ksm_merging_pages",  S_IRUSR, proc_pid_ksm_merging_pages),
+	ONE_EXEC("ksm_stat",  S_IRUSR, proc_pid_ksm_stat),
 #endif
 };
 
@@ -3877,8 +3913,8 @@ static const struct pid_entry tid_base_stuff[] = {
 	ONE("seccomp_cache", S_IRUSR, proc_pid_seccomp_cache),
 #endif
 #ifdef CONFIG_KSM
-	ONE("ksm_merging_pages",  S_IRUSR, proc_pid_ksm_merging_pages),
-	ONE("ksm_stat",  S_IRUSR, proc_pid_ksm_stat),
+	ONE_EXEC("ksm_merging_pages",  S_IRUSR, proc_pid_ksm_merging_pages),
+	ONE_EXEC("ksm_stat",  S_IRUSR, proc_pid_ksm_stat),
 #endif
 };
 
