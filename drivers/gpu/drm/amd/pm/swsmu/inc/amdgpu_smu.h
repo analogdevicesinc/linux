@@ -434,6 +434,8 @@ struct smu_table_context {
 	void				*user_overdrive_table;
 
 	uint32_t			user_od_feature_mask;
+	/* Set when an OD commit/restore changed the UCLK levels */
+	bool				od_uclk_changed;
 
 	struct smu_driver_table driver_tables[SMU_DRIVER_TABLE_COUNT];
 };
@@ -1948,6 +1950,7 @@ int smu_get_ppt_limit(void *handle,
 		      enum pp_power_type pp_power_type);
 
 bool smu_mode1_reset_is_support(struct smu_context *smu);
+bool smu_od_uclk_changed(struct smu_context *smu);
 bool smu_link_reset_is_support(struct smu_context *smu);
 int smu_mode1_reset(struct smu_context *smu);
 int smu_link_reset(struct smu_context *smu);

@@ -3692,6 +3692,22 @@ static int smu_baco_set_state(void *handle, int state)
 	return ret;
 }
 
+/**
+ * smu_od_uclk_changed - test and clear the "UCLK OD changed" flag
+ * @smu: smu context
+ *
+ * The ASIC code sets the flag when an overdrive commit or restore changed the
+ * UCLK DPM levels, so that callers can tell DC to re-read them.
+ */
+bool smu_od_uclk_changed(struct smu_context *smu)
+{
+	bool changed = smu->smu_table.od_uclk_changed;
+
+	smu->smu_table.od_uclk_changed = false;
+
+	return changed;
+}
+
 bool smu_mode1_reset_is_support(struct smu_context *smu)
 {
 	bool ret = false;

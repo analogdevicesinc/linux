@@ -1288,6 +1288,28 @@ static int smu_v13_0_0_upload_overdrive_table(struct smu_context *smu,
 	return ret;
 }
 
+/*
+ * PMFW rebuilds the UCLK DPM levels from UclkFmin/UclkFmax. Re-read them, so
+ * that pp_dpm_mclk and the soft limits match, and flag the change for DC.
+ */
+static void smu_v13_0_0_od_refresh_uclk_table(struct smu_context *smu)
+{
+	struct smu_13_0_dpm_context *dpm_context = smu->smu_dpm.dpm_context;
+	int ret;
+
+	if (!smu_cmn_feature_is_enabled(smu, SMU_FEATURE_DPM_UCLK_BIT))
+		return;
+
+	ret = smu_v13_0_set_single_dpm_table(smu, SMU_UCLK,
+					     &dpm_context->dpm_tables.uclk_table);
+	if (ret) {
+		dev_err(smu->adev->dev, "Failed to refresh UCLK dpm table!\n");
+		return;
+	}
+
+	smu->smu_table.od_uclk_changed = true;
+}
+
 static int smu_v13_0_0_emit_clk_levels(struct smu_context *smu,
 				       enum smu_clk_type clk_type, char *buf,
 				       int *offset)
@@ -1653,6 +1675,7 @@ static int smu_v13_0_0_od_edit_dpm_table(struct smu_context *smu,
 	OverDriveTable_t *od = &od_table->OverDriveTable;
 	OverDriveTable_t *boot = &boot_od_table->OverDriveTable;
 	struct amdgpu_device *adev = smu->adev;
+	u32 prev_od_feature_mask = table_context->user_od_feature_mask;
 	uint32_t offset_of_voltageoffset;
 	int32_t minimum, maximum;
 	u32 next_mask;
@@ -2007,6 +2030,11 @@ static int smu_v13_0_0_od_edit_dpm_table(struct smu_context *smu,
 
 			table_context->user_od_feature_mask = next_mask;
 			od_table->OverDriveTable.FeatureCtrlMask = 0;
+
+			/* UCLK was customized before (restore) or is now (commit) */
+			if ((prev_od_feature_mask | next_mask) & BIT(PP_OD_FEATURE_UCLK_BIT))
+				smu_v13_0_0_od_refresh_uclk_table(smu);
+
 			memcpy((u8 *)user_od_table + offset_of_voltageoffset,
 			       (u8 *)od_table + offset_of_voltageoffset,
 			       sizeof(OverDriveTableExternal_t) - offset_of_voltageoffset);
@@ -2362,6 +2390,8 @@ static int smu_v13_0_0_restore_user_od_settings(struct smu_context *smu)
 			!!(next_mask & ~BIT(PP_OD_FEATURE_PPT_BIT));
 		memcpy(od_table, user_od_table, sizeof(OverDriveTableExternal_t));
 		od_table->OverDriveTable.FeatureCtrlMask = 0;
+		if (next_mask & BIT(PP_OD_FEATURE_UCLK_BIT))
+			smu_v13_0_0_od_refresh_uclk_table(smu);
 	}
 
 	return res;
