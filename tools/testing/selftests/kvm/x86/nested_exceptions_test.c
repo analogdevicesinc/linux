@@ -109,6 +109,51 @@ static void l1_svm_code(struct svm_test_data *svm)
 	GUEST_DONE();
 }
 
+static u64 l2_cr0;
+
+static void l2_vmx_cr0_test(bool use_lmsw)
+{
+	/*
+	 * DANGER!!!  DO NOT add anything that might cause the compiler to emit
+	 * a "string" operation, e.g. memset().  Compilers often generate SIMD
+	 * instructions for memset() and friends, and so will hit an #NM due to
+	 * CR0.TS being set in hardware.  Note, all ucalls trigger memset()!
+	 */
+	u64 cr0 = (get_cr0() ^ X86_CR0_MP);
+
+	if (use_lmsw)
+		lmsw(cr0);
+	else
+		set_cr0(cr0);
+
+	/*
+	 * Snapshot CR0 and let L1 check the value; as above, attempting to use
+	 * GUEST_ASSERT_EQ() => ucall will likely trigger a premature #NM and
+	 * result in a false pass (L1 will see the #NM and think all is well).
+	 */
+	l2_cr0 = get_cr0();
+
+	/* FNOP should #NM as CR0.TS is set vmcs12.CR0 and thus vmcs02. */
+	asm volatile("fnop" ::: "memory");
+
+	/*
+	 * Signal failure with a #UD, again to avoid ucall/memset().  If FNOP
+	 * somehow succeeds but then #NM is triggered by a SIMD instruction in
+	 * memset(), the test will get a false pass.
+	 */
+	asm volatile("ud2");
+}
+
+static void l2_mov_cr0_test(void)
+{
+	l2_vmx_cr0_test(false);
+}
+
+static void l2_lmsw_test(void)
+{
+	l2_vmx_cr0_test(true);
+}
+
 static void vmx_run_l2(void *l2_code, int vector, u32 error_code)
 {
 	vmwrite(GUEST_RIP, (u64)l2_code);
@@ -129,6 +174,8 @@ static void vmx_run_l2(void *l2_code, int vector, u32 error_code)
 
 static void l1_vmx_code(struct vmx_pages *vmx)
 {
+	unsigned long cr0;
+
 	prepare_for_vmx_operation(vmx);
 
 	load_vmcs(vmx);
@@ -152,6 +199,32 @@ static void l1_vmx_code(struct vmx_pages *vmx)
 	vmwrite(EXCEPTION_BITMAP, INTERCEPT_SS);
 	vmx_run_l2(l2_ss_injected_tf_test, FAKE_TRIPLE_FAULT_VECTOR, 0);
 	GUEST_ASSERT_EQ(vmread(VM_EXIT_REASON), EXIT_REASON_TRIPLE_FAULT);
+
+	/*
+	 * Validate KVM's CR0 mask+shadow emulation, for both MOV CR and LMSW.
+	 * Set TS and NE in the value loaded in hardware, to verify that doing
+	 * e.g. FNOP generates an #NM in L2, but clear the bits in L2's read
+	 * shadow and verify that L2 always sees '0' and can't set those bits.
+	 */
+	cr0 = vmread(GUEST_CR0) | X86_CR0_TS | X86_CR0_NE;
+	vmwrite(CR0_GUEST_HOST_MASK, X86_CR0_TS | X86_CR0_NE | X86_CR0_PE);
+	vmwrite(CR0_READ_SHADOW, cr0 & ~(X86_CR0_TS | X86_CR0_NE));
+	vmwrite(GUEST_CR0, cr0);
+	vmwrite(EXCEPTION_BITMAP, BIT_ULL(NM_VECTOR));
+
+	vmx_run_l2(l2_mov_cr0_test, NM_VECTOR, 0);
+	GUEST_ASSERT_EQ(l2_cr0, (cr0 & ~(X86_CR0_TS | X86_CR0_NE)) ^ X86_CR0_MP);
+	GUEST_ASSERT_EQ(vmread(GUEST_CR0), cr0 ^ X86_CR0_MP);
+
+	/*
+	 * LMSW preserves CR0.PE *if* CR0.PE=1.  Clear the bit in the shadow to
+	 * validate that KVM preserves CR0.PE in "hardware" even if L2 attempts
+	 * to clear CR0.PE via LMSW.
+	 */
+	vmwrite(CR0_READ_SHADOW, cr0 & ~(X86_CR0_TS | X86_CR0_NE | X86_CR0_PE));
+	vmx_run_l2(l2_lmsw_test, NM_VECTOR, 0);
+	GUEST_ASSERT_EQ(l2_cr0, cr0 & ~(X86_CR0_TS | X86_CR0_NE | X86_CR0_PE));
+	GUEST_ASSERT_EQ(vmread(GUEST_CR0), cr0);
 
 	GUEST_DONE();
 }

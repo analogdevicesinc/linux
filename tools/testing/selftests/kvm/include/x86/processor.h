@@ -617,6 +617,11 @@ static inline void set_cr0(u64 val)
 	__asm__ __volatile__("mov %0, %%cr0" : : "r" (val) : "memory");
 }
 
+static inline void lmsw(u8 val)
+{
+	__asm__ __volatile__("lmsw %w0" : : "r" (val) : "memory");
+}
+
 static inline u64 get_cr2(void)
 {
 	u64 cr2;
