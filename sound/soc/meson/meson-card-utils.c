@@ -309,7 +309,7 @@ int meson_card_probe(struct platform_device *pdev)
 	if (ret)
 		goto out_err;
 
-	ret = devm_snd_soc_register_card(dev, &priv->card);
+	ret = snd_soc_register_card(&priv->card);
 	if (ret)
 		goto out_err;
 
@@ -326,6 +326,7 @@ void meson_card_remove(struct platform_device *pdev)
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	struct meson_card *priv = snd_soc_card_get_drvdata(card);
 
+	snd_soc_unregister_card(card);
 	meson_card_clean_references(priv);
 }
 EXPORT_SYMBOL_GPL(meson_card_remove);
