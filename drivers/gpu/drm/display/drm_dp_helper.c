@@ -1683,68 +1683,67 @@ void drm_dp_downstream_debug(struct drm_printer *p,
 	int type = port_cap[0] & DP_DS_PORT_TYPE_MASK;
 	bool branch_device = drm_dp_is_branch(dpcd);
 
-	drm_printf(p, "\tDP branch device present: %s\n",
-		   str_yes_no(branch_device));
+	drm_printf_indent(p, 1, "DP branch device present: %s\n",
+			  str_yes_no(branch_device));
 
 	if (!branch_device)
 		return;
 
 	switch (type) {
 	case DP_DS_PORT_TYPE_DP:
-		drm_puts(p, "\t\tType: DisplayPort\n");
+		drm_printf_indent(p, 2, "Type: DisplayPort\n");
 		break;
 	case DP_DS_PORT_TYPE_VGA:
-		drm_puts(p, "\t\tType: VGA\n");
+		drm_printf_indent(p, 2, "Type: VGA\n");
 		break;
 	case DP_DS_PORT_TYPE_DVI:
-		drm_puts(p, "\t\tType: DVI\n");
+		drm_printf_indent(p, 2, "Type: DVI\n");
 		break;
 	case DP_DS_PORT_TYPE_HDMI:
-		drm_puts(p, "\t\tType: HDMI\n");
+		drm_printf_indent(p, 2, "Type: HDMI\n");
 		break;
 	case DP_DS_PORT_TYPE_NON_EDID:
-		drm_puts(p, "\t\tType: others without EDID support\n");
+		drm_printf_indent(p, 2, "Type: others without EDID support\n");
 		break;
 	case DP_DS_PORT_TYPE_DP_DUALMODE:
-		drm_puts(p, "\t\tType: DP++\n");
+		drm_printf_indent(p, 2, "Type: DP++\n");
 		break;
 	case DP_DS_PORT_TYPE_WIRELESS:
-		drm_puts(p, "\t\tType: Wireless\n");
+		drm_printf_indent(p, 2, "Type: Wireless\n");
 		break;
 	default:
-		drm_puts(p, "\t\tType: N/A\n");
+		drm_printf_indent(p, 2, "Type: N/A\n");
 	}
 
 	memset(id, 0, sizeof(id));
 	drm_dp_downstream_id(aux, id);
-	drm_printf(p, "\t\tID: %s\n", id);
+	drm_printf_indent(p, 2, "ID: %s\n", id);
 
 	len = drm_dp_dpcd_read_data(aux, DP_BRANCH_HW_REV, &rev[0], 1);
 	if (!len)
-		drm_printf(p, "\t\tHW: %d.%d\n",
-			   (rev[0] & 0xf0) >> 4, rev[0] & 0xf);
+		drm_printf_indent(p, 2, "HW: %d.%d\n", (rev[0] & 0xf0) >> 4, rev[0] & 0xf);
 
 	len = drm_dp_dpcd_read_data(aux, DP_BRANCH_SW_REV, rev, 2);
 	if (!len)
-		drm_printf(p, "\t\tSW: %d.%d\n", rev[0], rev[1]);
+		drm_printf_indent(p, 2, "SW: %d.%d\n", rev[0], rev[1]);
 
 	if (detailed_cap_info) {
 		clk = drm_dp_downstream_max_dotclock(dpcd, port_cap);
 		if (clk > 0)
-			drm_printf(p, "\t\tMax dot clock: %d kHz\n", clk);
+			drm_printf_indent(p, 2, "Max dot clock: %d kHz\n", clk);
 
 		clk = drm_dp_downstream_max_tmds_clock(dpcd, port_cap, drm_edid);
 		if (clk > 0)
-			drm_printf(p, "\t\tMax TMDS clock: %d kHz\n", clk);
+			drm_printf_indent(p, 2, "Max TMDS clock: %d kHz\n", clk);
 
 		clk = drm_dp_downstream_min_tmds_clock(dpcd, port_cap, drm_edid);
 		if (clk > 0)
-			drm_printf(p, "\t\tMin TMDS clock: %d kHz\n", clk);
+			drm_printf_indent(p, 2, "Min TMDS clock: %d kHz\n", clk);
 
 		bpc = drm_dp_downstream_max_bpc(dpcd, port_cap, drm_edid);
 
 		if (bpc > 0)
-			drm_printf(p, "\t\tMax bpc: %d\n", bpc);
+			drm_printf_indent(p, 2, "Max bpc: %d\n", bpc);
 	}
 }
 EXPORT_SYMBOL(drm_dp_downstream_debug);
