@@ -137,7 +137,8 @@ struct ad9088_jesd204_priv {
 enum ad9088_clocks {
 	RX_SAMPL_CLK,
 	TX_SAMPL_CLK,
-	RX_SAMPL_CLK_LINK2, /* Dual Link */
+	RX_SAMPL_CLK_LINK2, /* Side B */
+	TX_SAMPL_CLK_LINK2, /* Side B */
 	NUM_AD9088_CLKS,
 };
 
