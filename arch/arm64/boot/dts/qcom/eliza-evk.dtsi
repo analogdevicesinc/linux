@@ -98,7 +98,7 @@
 		compatible = "pcie-m2-e-connector";
 		vpcie3v3-supply = <&vreg_pcie_m_3p3>;
 		w-disable1-gpios = <&tlmm 35 GPIO_ACTIVE_LOW>;
-		w-disable2-gpios = <&pm8550vs_g_gpios 4 GPIO_ACTIVE_HIGH>;
+		w-disable2-gpios = <&pm8550vs_g_gpios 4 GPIO_ACTIVE_LOW>;
 
 		pinctrl-0 = <&m2_w_disable1>, <&m2_w_disable2>;
 		pinctrl-names = "default";
