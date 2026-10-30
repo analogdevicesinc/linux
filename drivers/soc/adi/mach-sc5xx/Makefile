@@ -3,3 +3,4 @@
 # todo modularize with kconfigs
 
 obj-y := rcu.o sec.o icc.o
+obj-$(CONFIG_ADI_ADSP_ROM) += rom-sc58x.o

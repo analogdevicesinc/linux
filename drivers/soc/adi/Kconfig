@@ -8,3 +8,18 @@ config ADI_MACH_SC5XX
 	  This enables machine-level support for Analog Devices SC5XX SoCs,
 	  including the Reset Control Unit, System Event Controller, and
 	  Inter-Core Communications drivers.
+
+config ADI_ADSP_ROM
+	bool "ADSP-SC58x boot ROM call support"
+	depends on ADI_MACH_SC5XX && ARCH_SC58X && !ARM_LPAE && !CPU_BIG_ENDIAN
+	help
+	  Support for calling boot ROM API functions from Linux, for
+	  drivers that need them (e.g. the OTP driver): the ADSP-SC58x
+	  implementation of linux/soc/adi/adsp-rom.h. The ROM runs on a
+	  private translation table with its regions mapped 1:1.
+	  Selected by the drivers that use it; there is no need to
+	  enable it by hand. Not available with LPAE, which uses a
+	  different translation table format (and which the Cortex-A5
+	  does not implement anyway), nor on big-endian kernels: the ROM
+	  is little-endian code and would run with the kernel's
+	  big-endian data accesses.
