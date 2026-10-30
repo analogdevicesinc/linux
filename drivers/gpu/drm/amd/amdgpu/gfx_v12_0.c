@@ -286,6 +286,8 @@ static void gfx_v12_0_ring_invalidate_tlbs(struct amdgpu_ring *ring,
 					   bool all_hub, uint8_t dst_sel);
 static void gfx_v12_0_set_safe_mode(struct amdgpu_device *adev, int xcc_id);
 static void gfx_v12_0_unset_safe_mode(struct amdgpu_device *adev, int xcc_id);
+static void gfx_v12_0_update_spm_vmid(struct amdgpu_device *adev, int xcc_id,
+				      unsigned int vmid);
 static void gfx_v12_0_userq_priv_fault_work(struct work_struct *work);
 static void gfx_v12_0_update_perf_clk(struct amdgpu_device *adev,
 				      bool enable);
@@ -775,10 +777,6 @@ static int gfx_v12_0_rlc_init(struct amdgpu_device *adev)
 		if (r)
 			return r;
 	}
-
-	/* init spm vmid with 0xf */
-	if (adev->gfx.rlc.funcs->update_spm_vmid)
-		adev->gfx.rlc.funcs->update_spm_vmid(adev, 0, adev->vm_manager.spm_vmid);
 
 	return 0;
 }
@@ -2151,6 +2149,12 @@ static int gfx_v12_0_rlc_resume(struct amdgpu_device *adev)
 
 		adev->gfx.rlc.funcs->start(adev);
 	}
+
+	/*
+	 * The RLC comes up with RLC_SPM_MC_CNTL cleared, program the SPM VMID
+	 * once it runs, also after a GPU reset or a resume.
+	 */
+	gfx_v12_0_update_spm_vmid(adev, 0, adev->vm_manager.spm_vmid);
 
 	return 0;
 }
