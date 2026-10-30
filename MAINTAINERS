@@ -4786,6 +4786,7 @@ M:	Vidhu Sarwal <vidhu.linux@gmail.com>
 L:	linux-iio@vger.kernel.org
 S:	Maintained
 F:	Documentation/devicetree/bindings/iio/proximity/benewake,tf-luna.yaml
+F:	drivers/iio/proximity/tf-luna.c
 
 BFQ I/O SCHEDULER
 M:	Yu Kuai <yukuai@fygo.io>
