@@ -1,0 +1,75 @@
+.. SPDX-License-Identifier: GPL-2.0-or-later
+
+Kernel driver fs1603
+====================
+
+Supported chips:
+
+  * TDK FS1603
+
+    Prefix: 'fs1603'
+
+    Datasheet: Publicly available at the TDK website
+
+  * TDK FS1604
+
+    Prefix: 'fs1604'
+
+    Datasheet: Publicly available at the TDK website
+
+  * TDK FS1606, FS1606-0600, FS1606-2500
+
+    Prefixes: 'fs1606', 'fs1606_0600', 'fs1606_2500'
+
+    Datasheet: Publicly available at the TDK website
+
+  * TDK FS1006-3300, FS1006-5000
+
+    Prefixes: 'fs1006_3300', 'fs1006_5000'
+
+    Datasheet: Publicly available at the TDK website
+
+Author:
+
+  * Kevin Jia <kjia@nexthop.ai>
+
+Description
+-----------
+
+The TDK FS160x and FS1006 are uPOL DC-DC converters with an integrated
+inductor. They report input voltage, output voltage, output current and
+temperature over a proprietary I2C register map. They are not PMBus devices,
+and their register numbers collide with PMBus command codes, so a PMBus driver
+must not be bound to them.
+
+The model is not auto-detected. It must be declared through the I2C device
+name or the devicetree compatible. The FS1606-2500 preset uses the voltage
+scaling of the FS1603, FS1604 and FS1006 rather than that of the base FS1606,
+and the FS1606-0600 applies a gain correction to the output current, so
+neither can be declared as an FS1606.
+
+The driver is read-only. On boards that use a feedback divider to reach a
+higher rail voltage, the output voltage is still reported for the rail, and the
+over-voltage threshold is scaled to the rail by the divider ratio, measured at
+probe from the output voltage and the feedback pin. TDK notes that current
+reporting does not apply in that configuration.
+
+Sysfs attributes
+----------------
+
+=================== == ========================================================
+in0_input           RO Input voltage in millivolts.
+in0_label           RO "vin"
+in1_input           RO Output voltage in millivolts.
+in1_label           RO "vout"
+in1_crit            RO Output over-voltage protection threshold in millivolts:
+                       the OV_Threshold percentage of the VOUT_SET target,
+                       scaled to the rail on boards with a feedback divider.
+in1_alarm           RO Output over-voltage status.
+curr1_input         RO Output current in milliamperes.
+curr1_alarm         RO Over-current status.
+temp1_input         RO Temperature in millidegrees Celsius.
+temp1_crit          RO Over-temperature protection threshold in millidegrees
+                       Celsius.
+temp1_alarm         RO Over-temperature status.
+=================== == ========================================================
