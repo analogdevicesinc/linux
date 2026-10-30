@@ -1664,9 +1664,6 @@ struct drm_connector_funcs {
 	 * Reset connector hardware and software state to off. This function isn't
 	 * called by the core directly, only through drm_mode_config_reset().
 	 * It's not a helper hook only for historical reasons.
-	 *
-	 * Atomic drivers can use __drm_atomic_helper_connector_reset() to reset
-	 * atomic state using this hook.
 	 */
 	void (*reset)(struct drm_connector *connector);
 
