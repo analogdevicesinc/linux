@@ -867,8 +867,14 @@ try_again:
 	/* Only if card supports 1.8v and UHS signaling */
 	if ((ocr & R4_18V_PRESENT) && card->sw_caps.sd3_bus_mode) {
 		err = mmc_sdio_init_uhs_card(card);
-		if (err)
-			goto remove;
+		if (err) {
+			pr_warn("%s: UHS init failed (%d), retrying without UHS\n",
+				mmc_hostname(host), err);
+			mmc_sdio_pre_init(host, ocr_card,
+					  oldcard ? NULL : card);
+			retries = 0;
+			goto try_again;
+		}
 	} else {
 		/*
 		 * Switch to high-speed (if supported).
