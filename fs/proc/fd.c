@@ -249,17 +249,33 @@ out_no_task:
 	return result;
 }
 
+/* fget_task_next(), unless the task now runs a program the opener can't see */
+static struct file *proc_fd_next(struct file *file, struct task_struct *task,
+				 unsigned int *fd)
+{
+	struct file *f;
+	int err;
+
+	err = proc_exec_id_lock(file, task, file->private_data);
+	if (err)
+		return ERR_PTR(err);
+	f = fget_task_next(task, fd);
+	proc_exec_id_unlock(task);
+	return f;
+}
+
 static int proc_readfd_common(struct file *file, struct dir_context *ctx,
 			      instantiate_t instantiate)
 {
-	struct task_struct *p = get_proc_task(file_inode(file));
+	struct task_struct *p __free(put_task) = NULL;
 	unsigned int fd;
 
+	p = get_proc_task(file_inode(file));
 	if (!p)
 		return -ENOENT;
 
 	if (!dir_emit_dots(file, ctx))
-		goto out;
+		return 0;
 
 	for (fd = ctx->pos - 2;; fd++) {
 		struct file *f;
@@ -267,10 +283,13 @@ static int proc_readfd_common(struct file *file, struct dir_context *ctx,
 		char name[10 + 1];
 		unsigned int len;
 
-		f = fget_task_next(p, &fd);
+		/* Don't hold off execve() across the copy to userspace. */
+		f = proc_fd_next(file, p, &fd);
+		if (IS_ERR(f))
+			return PTR_ERR(f);
 		ctx->pos = fd + 2LL;
 		if (!f)
-			break;
+			return 0;
 		data.mode = f->f_mode;
 		fput(f);
 		data.fd = fd;
@@ -279,12 +298,9 @@ static int proc_readfd_common(struct file *file, struct dir_context *ctx,
 		if (!proc_fill_cache(file, ctx,
 				     name, len, instantiate, p,
 				     &data))
-			break;
+			return 0;
 		cond_resched();
 	}
-out:
-	put_task_struct(p);
-	return 0;
 }
 
 static int proc_readfd_count(struct inode *inode, loff_t *count)
@@ -317,6 +333,8 @@ static int proc_fd_iterate(struct file *file, struct dir_context *ctx)
 }
 
 const struct file_operations proc_fd_operations = {
+	.open		= proc_exec_id_dir_open,
+	.release	= proc_exec_id_dir_release,
 	.read		= generic_read_dir,
 	.iterate_shared	= proc_fd_iterate,
 	.llseek		= generic_file_llseek,
@@ -410,6 +428,8 @@ const struct inode_operations proc_fdinfo_inode_operations = {
 };
 
 const struct file_operations proc_fdinfo_operations = {
+	.open		= proc_exec_id_dir_open,
+	.release	= proc_exec_id_dir_release,
 	.read		= generic_read_dir,
 	.iterate_shared	= proc_fdinfo_iterate,
 	.llseek		= generic_file_llseek,
