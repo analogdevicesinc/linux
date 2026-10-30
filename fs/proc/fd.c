@@ -24,7 +24,7 @@ static int seq_show(struct seq_file *m, void *v)
 {
 	struct inode *inode = file_inode(m->file);
 	struct files_struct *files = NULL;
-	int f_flags = 0, ret = -ENOENT;
+	int f_flags = 0, ret;
 	struct file *file = NULL;
 	struct task_struct *task;
 
@@ -32,6 +32,13 @@ static int seq_show(struct seq_file *m, void *v)
 	if (!task)
 		return -ENOENT;
 
+	ret = proc_exec_id_lock(m->file, task, m->private);
+	if (ret) {
+		put_task_struct(task);
+		return ret;
+	}
+
+	ret = -ENOENT;
 	task_lock(task);
 	files = task->files;
 	if (files) {
@@ -50,6 +57,7 @@ static int seq_show(struct seq_file *m, void *v)
 		spin_unlock(&files->file_lock);
 	}
 	task_unlock(task);
+	proc_exec_id_unlock(task);
 	put_task_struct(task);
 
 	if (ret)
@@ -75,7 +83,7 @@ out:
 
 static int seq_fdinfo_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, seq_show, NULL);
+	return proc_exec_id_single_open(inode, file, seq_show);
 }
 
 /*
@@ -110,7 +118,7 @@ static const struct file_operations proc_fdinfo_file_operations = {
 	.open		= seq_fdinfo_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
-	.release	= single_release,
+	.release	= proc_exec_id_single_release,
 };
 
 static bool tid_fd_mode(struct task_struct *task, unsigned fd, fmode_t *mode)
