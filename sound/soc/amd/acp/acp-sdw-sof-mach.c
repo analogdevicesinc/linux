@@ -382,7 +382,15 @@ static int mc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	amd_ctx->acp_rev = mach->mach_params.subsystem_rev;
-	amd_ctx->max_sdw_links = ACP63_SDW_MAX_LINKS;
+	switch (amd_ctx->acp_rev) {
+	case ACP7B_PCI_REV:
+	case ACP7F_PCI_REV:
+		amd_ctx->max_sdw_links = ACP7X_SDW_MAX_LINKS;
+		break;
+	default:
+		amd_ctx->max_sdw_links = ACP63_SDW_MAX_LINKS;
+		break;
+	}
 	ctx = devm_kzalloc(&pdev->dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
