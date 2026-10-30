@@ -165,15 +165,10 @@ static int i915_power_domain_info(struct seq_file *m, void *unused)
 	return 0;
 }
 
-static void intel_seq_print_mode(struct seq_file *m, int tabs,
-				 const struct drm_display_mode *mode)
+static void intel_print_mode(struct drm_printer *p, int indent,
+			     const struct drm_display_mode *mode)
 {
-	int i;
-
-	for (i = 0; i < tabs; i++)
-		seq_putc(m, '\t');
-
-	seq_printf(m, DRM_MODE_FMT "\n", DRM_MODE_ARG(mode));
+	drm_printf_indent(p, indent, DRM_MODE_FMT "\n", DRM_MODE_ARG(mode));
 }
 
 static void intel_encoder_info(struct drm_printer *p,
@@ -200,7 +195,7 @@ static void intel_encoder_info(struct drm_printer *p,
 	drm_connector_list_iter_end(&conn_iter);
 }
 
-static void intel_panel_info(struct seq_file *m,
+static void intel_panel_info(struct drm_printer *p,
 			     struct intel_connector *connector)
 {
 	const struct drm_display_mode *fixed_mode;
@@ -208,10 +203,10 @@ static void intel_panel_info(struct seq_file *m,
 	if (list_empty(&connector->panel.fixed_modes))
 		return;
 
-	seq_puts(m, "\tfixed modes:\n");
+	drm_puts(p, "\tfixed modes:\n");
 
 	list_for_each_entry(fixed_mode, &connector->panel.fixed_modes, head)
-		intel_seq_print_mode(m, 2, fixed_mode);
+		intel_print_mode(p, 2, fixed_mode);
 }
 
 static void intel_dp_info(struct drm_printer *p, struct intel_connector *connector)
@@ -289,11 +284,11 @@ static void intel_connector_info(struct seq_file *m,
 
 	seq_printf(m, "\tmax bpc: %u\n", connector->display_info.bpc);
 
-	intel_panel_info(m, intel_connector);
+	intel_panel_info(&p, intel_connector);
 
 	seq_printf(m, "\tmodes:\n");
 	list_for_each_entry(mode, &connector->modes, head)
-		intel_seq_print_mode(m, 2, mode);
+		intel_print_mode(&p, 2, mode);
 }
 
 static const char *plane_type(enum drm_plane_type type)
