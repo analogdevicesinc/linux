@@ -5628,22 +5628,19 @@ static int handle_set_cr0(struct kvm_vcpu *vcpu, unsigned long val)
 {
 	if (is_guest_mode(vcpu)) {
 		struct vmcs12 *vmcs12 = get_vmcs12(vcpu);
-		unsigned long orig_val = val;
+		u64 mask = vmcs12->cr0_guest_host_mask;
 
 		/*
-		 * We get here when L2 changed cr0 in a way that did not change
-		 * any of L1's shadowed bits (see nested_vmx_exit_handled_cr),
-		 * but did change L0 shadowed bits. So we first calculate the
-		 * effective cr0 value that L1 would like to write into the
-		 * hardware. It consists of the L2-owned bits from the new
-		 * value combined with the L1-owned bits from L1's guest_cr0.
+		 * L2 is writing a CR0 value that isn't modifying any of L1's
+		 * shadowed bits (see nested_vmx_exit_handled_cr()), but *is*
+		 * modifying L0 shadowed bits.  Set the "hardware" CR0 and the
+		 * read shadow using the L2-owned bits from the new value,
+		 * combined with the L1-owned bits.
 		 */
-		val = (val & ~vmcs12->cr0_guest_host_mask) |
-			(vmcs12->guest_cr0 & vmcs12->cr0_guest_host_mask);
-
-		if (kvm_set_cr0(vcpu, val))
+		val &= ~mask;
+		if (kvm_set_cr0(vcpu, val | (vmcs12->guest_cr0 & mask)))
 			return 1;
-		vmcs_writel(CR0_READ_SHADOW, orig_val);
+		vmcs_writel(CR0_READ_SHADOW, val | (vmcs12->cr0_read_shadow & mask));
 		return 0;
 	} else {
 		return kvm_set_cr0(vcpu, val);
@@ -5654,14 +5651,13 @@ static int handle_set_cr4(struct kvm_vcpu *vcpu, unsigned long val)
 {
 	if (is_guest_mode(vcpu)) {
 		struct vmcs12 *vmcs12 = get_vmcs12(vcpu);
-		unsigned long orig_val = val;
+		u64 mask = vmcs12->cr4_guest_host_mask;
 
 		/* analogously to handle_set_cr0 */
-		val = (val & ~vmcs12->cr4_guest_host_mask) |
-			(vmcs12->guest_cr4 & vmcs12->cr4_guest_host_mask);
-		if (kvm_set_cr4(vcpu, val))
+		val &= ~mask;
+		if (kvm_set_cr4(vcpu, val | (vmcs12->guest_cr4 & mask)))
 			return 1;
-		vmcs_writel(CR4_READ_SHADOW, orig_val);
+		vmcs_writel(CR4_READ_SHADOW, val | (vmcs12->cr4_read_shadow & mask));
 		return 0;
 	} else
 		return kvm_set_cr4(vcpu, val);
