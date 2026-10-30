@@ -2714,6 +2714,7 @@ static void memcg_enforce_high(struct mem_cgroup *memcg, unsigned int nr_pages,
 			       gfp_t gfp_mask)
 {
 	bool allow_spinning = gfpflags_allow_spinning(gfp_mask);
+	bool use_worker = !in_task() || (current->flags & PF_KTHREAD);
 
 	/*
 	 * If the hierarchy is above the normal consumption range, schedule
@@ -2732,8 +2733,12 @@ static void memcg_enforce_high(struct mem_cgroup *memcg, unsigned int nr_pages,
 		swap_high = page_counter_read(&memcg->swap) >
 			READ_ONCE(memcg->swap.high);
 
-		/* Don't bother a random interrupted task */
-		if (!in_task()) {
+		/*
+		 * Don't make an unrelated interrupted task handle this charge.
+		 * Kernel threads may be working for other tasks, so let a worker
+		 * reclaim instead.
+		 */
+		if (use_worker) {
 			if (mem_high) {
 				if (allow_spinning)
 					schedule_work(&memcg->high_work);
@@ -2759,6 +2764,10 @@ static void memcg_enforce_high(struct mem_cgroup *memcg, unsigned int nr_pages,
 			break;
 		}
 	} while ((memcg = parent_mem_cgroup(memcg)));
+
+	/* Interrupts and kernel threads stop here. */
+	if (use_worker)
+		return;
 
 	/*
 	 * Reclaim is set up above to be called from the userland
