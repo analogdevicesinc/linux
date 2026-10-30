@@ -425,8 +425,10 @@ static int mc_probe(struct platform_device *pdev)
 
 	card->components = devm_kasprintf(&pdev->dev, GFP_KERNEL,
 					  " cfg-amp:%d", amp_num);
-	if (!card->components)
+	if (!card->components) {
+		asoc_sdw_mc_dailink_exit_loop(card);
 		return -ENOMEM;
+	}
 
 	/* Register the card */
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
