@@ -5742,8 +5742,10 @@ static int handle_cr(struct kvm_vcpu *vcpu)
 		break;
 	case 3: /* lmsw */
 		val = (exit_qualification >> LMSW_SOURCE_DATA_SHIFT) & 0x0f;
-		trace_kvm_cr_write(0, (kvm_read_cr0_bits(vcpu, ~0xful) | val));
-		kvm_lmsw(vcpu, val);
+		val |= kvm_read_cr0_bits(vcpu, ~0x0eul);
+
+		trace_kvm_cr_write(cr, val);
+		(void)handle_set_cr0(vcpu, val);
 
 		return kvm_skip_emulated_instruction(vcpu);
 	default:
