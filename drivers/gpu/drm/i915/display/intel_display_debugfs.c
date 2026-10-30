@@ -412,7 +412,7 @@ static void intel_plane_info(struct drm_printer *p, struct intel_crtc *crtc)
 	}
 }
 
-static void intel_scaler_info(struct seq_file *m, struct intel_crtc *crtc)
+static void intel_scaler_info(struct drm_printer *p, struct intel_crtc *crtc)
 {
 	const struct intel_crtc_state *crtc_state =
 		to_intel_crtc_state(crtc->base.state);
@@ -421,7 +421,7 @@ static void intel_scaler_info(struct seq_file *m, struct intel_crtc *crtc)
 
 	/* Not all platforms have a scaler */
 	if (num_scalers) {
-		seq_printf(m, "\tnum_scalers=%d, scaler_users=%x scaler_id=%d scaling_filter=%d sharpness_strength=%d",
+		drm_printf(p, "\tnum_scalers=%d, scaler_users=%x scaler_id=%d scaling_filter=%d sharpness_strength=%d",
 			   num_scalers,
 			   crtc_state->scaler_state.scaler_users,
 			   crtc_state->scaler_state.scaler_id,
@@ -432,12 +432,12 @@ static void intel_scaler_info(struct seq_file *m, struct intel_crtc *crtc)
 			const struct intel_scaler *sc =
 				&crtc_state->scaler_state.scalers[i];
 
-			seq_printf(m, ", scalers[%d]: use=%s, mode=%x",
+			drm_printf(p, ", scalers[%d]: use=%s, mode=%x",
 				   i, str_yes_no(sc->in_use), sc->mode);
 		}
-		seq_puts(m, "\n");
+		drm_puts(p, "\n");
 	} else {
-		seq_puts(m, "\tNo scalers available on this platform\n");
+		drm_puts(p, "\tNo scalers available on this platform\n");
 	}
 }
 
@@ -577,7 +577,7 @@ static void intel_crtc_info(struct seq_file *m, struct intel_crtc *crtc)
 	seq_printf(m, "\tport_clock=%d, lane_count=%d\n",
 		   crtc_state->port_clock, crtc_state->lane_count);
 
-	intel_scaler_info(m, crtc);
+	intel_scaler_info(&p, crtc);
 
 	if (DISPLAY_VER(display) >= 9) {
 		u32 background = crtc_state->hw.background_color;
