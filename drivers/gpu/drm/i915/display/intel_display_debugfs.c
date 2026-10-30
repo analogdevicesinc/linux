@@ -219,12 +219,13 @@ static void intel_dp_info(struct seq_file *m, struct intel_connector *connector)
 {
 	struct intel_encoder *intel_encoder = intel_attached_encoder(connector);
 	struct intel_dp *intel_dp = enc_to_intel_dp(intel_encoder);
+	struct drm_printer p = drm_seq_file_printer(m);
 
 	seq_printf(m, "\tDPCD rev: %x\n", intel_dp->dpcd[DP_DPCD_REV]);
 	seq_printf(m, "\taudio support: %s\n",
 		   str_yes_no(connector->base.display_info.has_audio));
 
-	drm_dp_downstream_debug(m, intel_dp->dpcd, intel_dp->downstream_ports,
+	drm_dp_downstream_debug(&p, intel_dp->dpcd, intel_dp->downstream_ports,
 				connector->detect_edid, &intel_dp->aux);
 }
 
