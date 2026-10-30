@@ -5745,9 +5745,8 @@ static int handle_cr(struct kvm_vcpu *vcpu)
 		val |= kvm_read_cr0_bits(vcpu, ~0x0eul);
 
 		trace_kvm_cr_write(cr, val);
-		(void)handle_set_cr0(vcpu, val);
-
-		return kvm_skip_emulated_instruction(vcpu);
+		err = handle_set_cr0(vcpu, val);
+		return kvm_complete_insn_gp(vcpu, err);
 	default:
 		break;
 	}
