@@ -759,6 +759,7 @@ int rxe_requester(struct rxe_qp *qp)
 		req_retry(qp);
 		qp->req.need_retry = 0;
 		qp->req.send_wqe_valid = false;
+		qp->comp.comp_wqe_valid = false;
 	}
 
 	wqe = req_next_wqe(qp);
