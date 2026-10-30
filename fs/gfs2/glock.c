@@ -562,8 +562,10 @@ static void finish_xmote(struct gfs2_glock *gl, unsigned int ret)
 	/* Check for state != intended state */
 	if (unlikely(gl->gl_state != gl->gl_target)) {
 		struct gfs2_holder *gh = find_first_waiter(gl);
+		struct gfs2_sbd *sdp = glock_sbd(gl);
 
-		if (gh && !test_bit(GLF_DEMOTE_IN_PROGRESS, &gl->gl_flags)) {
+		if (gh && (!test_bit(GLF_DEMOTE_IN_PROGRESS, &gl->gl_flags) ||
+			   gfs2_withdrawn(sdp))) {
 			if (ret & LM_OUT_CANCELED) {
 				list_del_init(&gh->gh_list);
 				trace_gfs2_glock_queue(gh, 0);
@@ -596,7 +598,7 @@ static void finish_xmote(struct gfs2_glock *gl, unsigned int ret)
 			       "glock %u:%llu requested=%u ret=%u\n",
 			       glock_type(gl), glock_number(gl),
 			       gl->gl_req, ret);
-			GLOCK_BUG_ON(gl, 1);
+			gfs2_withdraw(sdp);
 		}
 		return;
 	}
