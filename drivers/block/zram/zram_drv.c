@@ -694,6 +694,7 @@ static void reset_bdev(struct zram *zram)
 	zram->disk->fops = &zram_devops;
 	kvfree(zram->bitmap);
 	zram->bitmap = NULL;
+	zram->bitmap_cursor = 0;
 	zram->nr_pages = 0;
 }
 
@@ -786,6 +787,7 @@ static ssize_t backing_dev_store(struct device *dev,
 	zram->bdev = I_BDEV(inode);
 	zram->backing_dev = backing_dev;
 	zram->bitmap = bitmap;
+	zram->bitmap_cursor = 0;
 	zram->nr_pages = nr_pages;
 
 	pr_info("setup backing device %s\n", file_name);
@@ -807,10 +809,19 @@ static unsigned long zram_reserve_bdev_block(struct zram *zram)
 {
 	unsigned long blk_idx;
 
-	blk_idx = find_next_zero_bit(zram->bitmap, zram->nr_pages, 0);
-	if (blk_idx == zram->nr_pages)
-		return INVALID_BDEV_BLOCK;
+	/* continue after the last allocated block */
+	blk_idx = find_next_zero_bit(zram->bitmap, zram->nr_pages,
+				     zram->bitmap_cursor);
+	/* wrap */
+	if (blk_idx == zram->nr_pages) {
+		blk_idx = find_next_zero_bit(zram->bitmap, zram->bitmap_cursor,
+					     0);
+		/* bitmap is full */
+		if (blk_idx == zram->bitmap_cursor)
+			return INVALID_BDEV_BLOCK;
+	}
 
+	zram->bitmap_cursor = blk_idx + 1;
 	set_bit(blk_idx, zram->bitmap);
 	atomic64_inc(&zram->stats.bd_count);
 	return blk_idx;
