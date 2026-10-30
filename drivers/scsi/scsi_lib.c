@@ -849,6 +849,9 @@ static void scsi_io_completion_action(struct scsi_cmnd *cmd, int result)
 				 */
 				cmd->device->changed = 1;
 				action = ACTION_FAIL;
+			} else if (cmd->allowed != SCSI_CMD_RETRIES_NO_LIMIT &&
+				   cmd->retries > max(cmd->allowed, 3)) {
+				action = ACTION_FAIL;
 			} else {
 				/* Must have been a power glitch, or a
 				 * bus reset.  Could not have been a
