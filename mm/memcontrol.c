@@ -2774,7 +2774,6 @@ static void memcg_enforce_high(struct mem_cgroup *memcg, unsigned int nr_pages,
 	 * when it rechecks the overage and simply bail out.
 	 */
 	if (current->memcg_nr_pages_over_high > MEMCG_CHARGE_BATCH &&
-	    !(current->flags & PF_MEMALLOC) &&
 	    gfpflags_allow_blocking(gfp_mask))
 		__mem_cgroup_handle_over_high(gfp_mask);
 }
@@ -2799,6 +2798,21 @@ retry:
 	if (consume_stock(memcg, nr_pages))
 		return ret;
 
+	/*
+	 * Reclaim may need memory to free memory. Let it go over the
+	 * limits for a while rather than fail or OOM kill. Doing this
+	 * before trying the limits also skips memory.high, so the
+	 * high_work worker can't queue itself from its own reclaim.
+	 */
+	if (unlikely(current->flags & PF_MEMALLOC)) {
+		/* Find the cgroup this charge puts over its limit, if any. */
+		for (mem_over_limit = memcg; mem_over_limit;
+		     mem_over_limit = parent_mem_cgroup(mem_over_limit))
+			if (mem_cgroup_margin(mem_over_limit) < nr_pages)
+				break;
+		goto force;
+	}
+
 	if (!allow_spinning)
 		/* Avoid the refill and flush of the older stock */
 		batch = nr_pages;
@@ -2820,15 +2834,6 @@ retry:
 		batch = nr_pages;
 		goto retry;
 	}
-
-	/*
-	 * Prevent unbounded recursion when reclaim operations need to
-	 * allocate memory. This might exceed the limits temporarily,
-	 * but we prefer facilitating memory reclaim and getting back
-	 * under the limit over triggering OOM kills in these cases.
-	 */
-	if (unlikely(current->flags & PF_MEMALLOC))
-		goto force;
 
 	if (unlikely(task_in_memcg_oom(current)))
 		goto nomem;
@@ -2925,9 +2930,9 @@ force:
 out:
 	/*
 	 * Don't forget to raise a MEMCG_MAX event for forced or rejected
-	 * requests.
+	 * requests. mem_over_limit is NULL if a PF_MEMALLOC charge fits.
 	 */
-	if (!raised_max_event)
+	if (!raised_max_event && mem_over_limit)
 		__memcg_memory_event(mem_over_limit, MEMCG_MAX, allow_spinning);
 
 	return ret;
