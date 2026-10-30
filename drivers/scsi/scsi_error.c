@@ -58,6 +58,16 @@
 #define BUS_RESET_SETTLE_TIME   (10)
 #define HOST_RESET_SETTLE_TIME  (10)
 
+/*
+ * Number of times a command is retried if it receives the same UNIT ATTENTION
+ * repeatedly before the error handler is invoked to clear that condition.
+ */
+#define SCSI_UA_RETRIES		2
+/*
+ * Maximum number of error handler invocations for a command with unlimited
+ * retries that keeps receiving the same UNIT ATTENTION.
+ */
+#define SCSI_UA_EH_ROUNDS	3
 /* Maximum number of TEST UNIT READY commands sent to clear a UNIT ATTENTION. */
 #define SCSI_EH_CLEAR_UA_TURS	4
 /* Delay in milliseconds before a TEST UNIT READY command is retried. */
@@ -565,17 +575,15 @@ static inline void set_scsi_ml_byte(struct scsi_cmnd *cmd, u8 status)
 }
 
 /**
- * scsi_check_sense - Examine scsi cmd sense
+ * __scsi_check_sense - Examine scsi cmd sense
  * @scmd:	Cmd to have sense checked.
+ * @escalate_ua: Whether to invoke the SCSI error handler for UNIT ATTENTION
+ *	conditions that persist after retries.
  *
- * Return value:
- *	SUCCESS or FAILED or NEEDS_RETRY or ADD_TO_MLQUEUE
- *
- * Notes:
- *	When a deferred error is detected the current command has
- *	not been executed and needs retrying.
+ * Return: SUCCESS, FAILED, NEEDS_RETRY or ADD_TO_MLQUEUE.
  */
-enum scsi_disposition scsi_check_sense(struct scsi_cmnd *scmd)
+static enum scsi_disposition __scsi_check_sense(struct scsi_cmnd *scmd,
+						bool escalate_ua)
 {
 	struct request *req = scsi_cmd_to_rq(scmd);
 	struct scsi_device *sdev = scmd->device;
@@ -723,6 +731,40 @@ enum scsi_disposition scsi_check_sense(struct scsi_cmnd *scmd)
 		    LU_NOT_READY_INITIALIZING_COMMAND_REQUIRED)
 			return FAILED;
 		/*
+		 * Retry a UNIT ATTENTION that is reported repeatedly with the
+		 * same additional sense code SCSI_UA_RETRIES times on the
+		 * normal completion path for non-removable block requests,
+		 * then invoke the error handler so TEST UNIT READY can clear a
+		 * stuck UNIT ATTENTION. Use a dedicated counter instead of
+		 * scmd->retries since the latter is also incremented for
+		 * other retry reasons and by the error handler. Comparing the
+		 * additional sense code prevents escalation if a target
+		 * reports multiple queued UNIT ATTENTION conditions.
+		 */
+		if (escalate_ua && sshdr.sense_key == UNIT_ATTENTION &&
+		    !sdev->removable && !scsi_noretry_cmd(scmd)) {
+			u8 asc = scsi_sense_asc(&sshdr);
+
+			if (scmd->ua_asc != asc) {
+				scmd->ua_asc = asc;
+				scmd->ua_count = 0;
+			}
+			if (scmd->ua_count < U8_MAX)
+				scmd->ua_count++;
+			if (scmd->ua_count <= SCSI_UA_RETRIES)
+				return NEEDS_RETRY;
+			/*
+			 * scsi_eh_flush_done_q() limits the number of error
+			 * handler invocations unless retries are unlimited.
+			 * Pass the UNIT ATTENTION upwards in the latter case
+			 * once SCSI_UA_EH_ROUNDS attempts to clear it failed.
+			 */
+			if (scmd->allowed == SCSI_CMD_RETRIES_NO_LIMIT &&
+			    scmd->ua_count > SCSI_UA_RETRIES + SCSI_UA_EH_ROUNDS)
+				return SUCCESS;
+			return FAILED;
+		}
+		/*
 		 * Pass the UA upwards for a determination in the completion
 		 * functions.
 		 */
@@ -795,6 +837,27 @@ enum scsi_disposition scsi_check_sense(struct scsi_cmnd *scmd)
 	default:
 		return SUCCESS;
 	}
+}
+
+/**
+ * scsi_check_sense - Examine scsi cmd sense
+ * @scmd:	Cmd to have sense checked.
+ *
+ * Return value:
+ *	SUCCESS or FAILED or NEEDS_RETRY or ADD_TO_MLQUEUE
+ *
+ * Notes:
+ *	When a deferred error is detected the current command has
+ *	not been executed and needs retrying.
+ *
+ *	Unlike the sense data evaluation by scsi_decide_disposition(), this
+ *	function never invokes the SCSI error handler for UNIT ATTENTION
+ *	conditions that persist after retries. Callers with their own error
+ *	handler, e.g. libata, rely on this.
+ */
+enum scsi_disposition scsi_check_sense(struct scsi_cmnd *scmd)
+{
+	return __scsi_check_sense(scmd, false);
 }
 EXPORT_SYMBOL_GPL(scsi_check_sense);
 
@@ -2271,7 +2334,7 @@ enum scsi_disposition scsi_decide_disposition(struct scsi_cmnd *scmd)
 	case SAM_STAT_TASK_ABORTED:
 		goto maybe_retry;
 	case SAM_STAT_CHECK_CONDITION:
-		rtn = scsi_check_sense(scmd);
+		rtn = __scsi_check_sense(scmd, true);
 		if (rtn == NEEDS_RETRY)
 			goto maybe_retry;
 		/* if rtn == FAILED, we have no sense information;

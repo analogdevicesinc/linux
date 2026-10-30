@@ -1272,6 +1272,8 @@ static void scsi_initialize_rq(struct request *rq)
 	init_rcu_head(&cmd->rcu);
 	cmd->jiffies_at_alloc = jiffies;
 	cmd->retries = 0;
+	cmd->ua_asc = 0;
+	cmd->ua_count = 0;
 }
 
 /**
