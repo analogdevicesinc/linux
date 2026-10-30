@@ -2359,12 +2359,12 @@ get_css:
 			update_parent_effective_cpumask(cp, partcmd_update, NULL, tmp);
 			/*
 			 * Capture current partition_root_state as it may have
-			 * changed. Recompute effective cpumask if changed.
+			 * changed. Always recompute effective cpumask as tmp->new_cpus
+			 * may be clobbered when update_sibling_cpumasks() is called
+			 * within update_parent_effective_cpumask().
 			 */
 			new_prs = cp->partition_root_state;
-			if (new_prs != old_prs) {
-				compute_effective_cpumask(tmp->new_cpus, cp, parent);
-			}
+			compute_effective_cpumask(tmp->new_cpus, cp, parent);
 		}
 
 		spin_lock_irq(&callback_lock);
