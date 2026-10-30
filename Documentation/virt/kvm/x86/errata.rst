@@ -85,3 +85,10 @@ memory.
 Note, this erratum does not affect AMD CPUs, which fully virtualize CR0.CD in
 hardware, i.e. put the CPU caches into "no fill" mode when CR0.CD=1, even when
 running in the guest.
+
+VM_CR
+-----
+KVM does not virtualize VM_CR (MSR_VM_CR) on AMD CPUs.  RDMSR always returns
+VM_CR.LOCK (bit 3) set and all other bits clear, and WRMSR silently ignores all
+writes without raising a #GP if reserved bits (bits 63:5) are set or if
+VM_CR.SVMDIS (bit 4) is set while EFER.SVME is set.
