@@ -2037,6 +2037,143 @@ void pid_update_inode(struct task_struct *task, struct inode *inode)
 }
 
 /*
+ * For files that check access when they're opened but look at the task whenever
+ * they're used. ->self_exec_id names the program: execve() bumps it under
+ * exec_update_lock and all threads share it, also the two that de_thread()
+ * swaps the pid between, so it doesn't matter which task get_proc_task()
+ * returns.
+ */
+
+/* Would the opener of @file be allowed to open it now? */
+static int proc_exec_id_permission(const struct file *file,
+				   struct task_struct *task)
+{
+	struct inode *inode = file_inode(file);
+	int mask = 0;
+
+	if (file->f_mode & FMODE_READ)
+		mask |= MAY_READ;
+	if (file->f_mode & FMODE_WRITE)
+		mask |= MAY_WRITE;
+
+	pid_update_inode(task, inode);
+	scoped_with_creds(file->f_cred)
+		return inode_permission(&nop_mnt_idmap, inode, mask);
+}
+
+/* For ->open(). ->permission() ran without exec_update_lock, so check again. */
+static u64 *proc_exec_id_open(struct inode *inode, struct file *file)
+{
+	struct task_struct *task __free(put_task) = NULL;
+	u64 *exec_id __free(kfree) = NULL;
+	int err;
+
+	exec_id = kzalloc_obj(*exec_id, GFP_KERNEL_ACCOUNT);
+	if (!exec_id)
+		return ERR_PTR(-ENOMEM);
+
+	/* The file won't find the task either, it never comes back. */
+	task = get_proc_task(inode);
+	if (!task)
+		return no_free_ptr(exec_id);
+
+	/* See proc_exec_id_lock(). */
+	if (same_thread_group(task, current)) {
+		*exec_id = task->self_exec_id;
+		return no_free_ptr(exec_id);
+	}
+
+	err = down_read_killable(&task->signal->exec_update_lock);
+	if (err)
+		return ERR_PTR(err);
+	*exec_id = task->self_exec_id;
+	err = proc_exec_id_permission(file, task);
+	up_read(&task->signal->exec_update_lock);
+	if (err)
+		return ERR_PTR(err);
+	return no_free_ptr(exec_id);
+}
+
+int proc_exec_id_single_open(struct inode *inode, struct file *file,
+			     int (*show)(struct seq_file *, void *))
+{
+	u64 *exec_id __free(kfree) = NULL;
+	int err;
+
+	exec_id = proc_exec_id_open(inode, file);
+	if (IS_ERR(exec_id))
+		return PTR_ERR(exec_id);
+
+	err = single_open(file, show, exec_id);
+	if (err)
+		return err;
+
+	retain_and_null_ptr(exec_id);
+	return 0;
+}
+
+int proc_exec_id_single_release(struct inode *inode, struct file *file)
+{
+	struct seq_file *m = file->private_data;
+
+	kfree(m->private);
+	return single_release(inode, file);
+}
+
+int proc_exec_id_dir_open(struct inode *inode, struct file *file)
+{
+	u64 *exec_id = proc_exec_id_open(inode, file);
+
+	if (IS_ERR(exec_id))
+		return PTR_ERR(exec_id);
+
+	file->private_data = exec_id;
+	return 0;
+}
+
+int proc_exec_id_dir_release(struct inode *inode, struct file *file)
+{
+	kfree(file->private_data);
+	return 0;
+}
+
+/*
+ * Pins the task's program until proc_exec_id_unlock(). If it changed since the
+ * open, the file only keeps working if its opener would be allowed to open it
+ * now. Whoever uses the file doesn't count. Our own threads need no lock,
+ * de_thread() waits for them before exec_update_lock is taken.
+ */
+int proc_exec_id_lock(const struct file *file, struct task_struct *task,
+		      u64 *exec_id)
+{
+	int err;
+
+	if (!same_thread_group(task, current)) {
+		err = down_read_killable(&task->signal->exec_update_lock);
+		if (err)
+			return err;
+	}
+
+	if (task->self_exec_id == READ_ONCE(*exec_id))
+		return 0;
+
+	err = proc_exec_id_permission(file, task);
+	if (err) {
+		proc_exec_id_unlock(task);
+		return err;
+	}
+
+	WRITE_ONCE(*exec_id, task->self_exec_id);
+	return 0;
+}
+
+void proc_exec_id_unlock(struct task_struct *task)
+{
+	if (!same_thread_group(task, current))
+		up_read(&task->signal->exec_update_lock);
+}
+
+/*
  * Rewrite the inode's ownerships here because the owning task may have
  * performed a setuid(), etc.
  *
