@@ -50,11 +50,11 @@ static void fsl_dcu_drm_connector_destroy(struct drm_connector *connector)
 }
 
 static const struct drm_connector_funcs fsl_dcu_drm_connector_funcs = {
+	.atomic_create_state = drm_atomic_helper_connector_create_state,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 	.destroy = fsl_dcu_drm_connector_destroy,
 	.fill_modes = drm_helper_probe_single_connector_modes,
-	.reset = drm_atomic_helper_connector_reset,
 };
 
 static int fsl_dcu_drm_connector_get_modes(struct drm_connector *connector)
