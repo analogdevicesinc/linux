@@ -1099,6 +1099,8 @@ patternProperties:
     description: Changzhou Milianke Electronic Technology Co., Ltd
   "^milkv,.*":
     description: MilkV Technology Co., Ltd
+  "^mingjun,.*":
+    description: Shenzhen Mingjun Optoelectronics Co., Ltd
   "^miniand,.*":
     description: Miniand Tech
   "^minix,.*":
