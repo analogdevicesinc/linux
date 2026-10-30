@@ -2457,6 +2457,11 @@ static int cs_etm__set_sample_flags(struct cs_etm_queue *etmq,
 			packet->flags = PERF_IP_FLAG_BRANCH |
 					PERF_IP_FLAG_RETURN;
 
+		/* Report branch that is not taken */
+		if ((packet->flags & PERF_IP_FLAG_BRANCH) &&
+		    !packet->last_instr_taken_branch)
+			packet->flags |= PERF_IP_FLAG_NOT_TAKEN;
+
 		/*
 		 * Decoder might insert a discontinuity in the middle of
 		 * instruction packets, fixup prev_packet with flag
