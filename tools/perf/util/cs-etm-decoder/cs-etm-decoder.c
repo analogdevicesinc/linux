@@ -514,6 +514,7 @@ cs_etm_decoder__buffer_exception(struct cs_etm_queue *etmq,
 {
 	int ret = 0;
 	struct cs_etm_packet *packet;
+	u8 last_instr_size = 0;
 
 	ret = cs_etm_decoder__buffer_packet(etmq, queue, elem, trace_chan_id,
 					    CS_ETM_EXCEPTION);
@@ -524,8 +525,34 @@ cs_etm_decoder__buffer_exception(struct cs_etm_queue *etmq,
 	packet->exception_number = elem->exception_number;
 	if (elem->context.el_valid)
 		packet->el = elem->context.exception_level;
-	if (elem->excep_ret_addr)
-		packet->pref_ret_addr = elem->en_addr;
+
+	/* RESET has no defined preferred return address. */
+	if (!elem->excep_ret_addr ||
+	    packet->exception_number == CS_ETMV4_EXC_RESET)
+		return ret;
+
+	packet->pref_ret_addr = elem->en_addr;
+
+	/*
+	 * T32 calls can be two or four bytes, requiring an instruction read
+	 * before pref_ret_addr to determine their size. Keep it for the
+	 * frontend's SVC check and leave start_addr unknown for its fallback.
+	 */
+	if (packet->isa != CS_ETM_ISA_A32 && packet->isa != CS_ETM_ISA_A64)
+		return ret;
+
+	/*
+	 * For A32 and A64, exception calls execute a four-byte SVC, HVC or
+	 * SMC and save the following PC. Other exceptions use the interrupted
+	 * or faulting PC, including traps on those instructions.
+	 *
+	 * With a shared branch target, no instruction has completed
+	 * at the target, so last_instr_size remains zero.
+	 */
+	if (elem->exception_number == CS_ETMV4_EXC_CALL)
+		last_instr_size = 4;
+	packet->start_addr = packet->pref_ret_addr - last_instr_size;
+	packet->last_instr_size = last_instr_size;
 
 	return ret;
 }
