@@ -2790,8 +2790,10 @@ static struct intel_sdvo_connector *intel_sdvo_connector_alloc(void)
 		return NULL;
 	}
 
-	__drm_atomic_helper_connector_reset(&sdvo_connector->base.base,
-					    &conn_state->base.base);
+	__drm_atomic_helper_connector_state_init(&conn_state->base.base,
+						 &sdvo_connector->base.base);
+
+	sdvo_connector->base.base.state = &conn_state->base.base;
 
 	intel_panel_init_alloc(&sdvo_connector->base);
 
