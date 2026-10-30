@@ -33,20 +33,14 @@ properties:
     description: Device clock name
 
   '#clock-cells':
-    const: 0
+    const: 1
 
   reset-gpios:
     maxItems: 1
 
   clock-output-names:
-    maxItems: 2
-
-  dev_clk-clock-scales:
-    description: |
-      Clock scaling factors for the device clock. Multiplier is
-      clock-scales[0] and divider is clock-scales[1].
-    $ref: /schemas/types.yaml#/definitions/uint32-array
-    maxItems: 2
+    minItems: 2
+    maxItems: 4
 
   adi,spi-3wire-enable:
     type: boolean
@@ -199,6 +193,15 @@ properties:
       Used to export FFT done status to external GPIO pin.
       Defaults to 18 if not specified.
 
+patternProperties:
+  "-clock-scales$":
+    description: |
+      Clock scaling factors for the device clock, and sample clocks.
+      Multiplier is clock-scales[0] and divider is clock-scales[1].
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItems: 2
+    maxItems: 2
+
 required:
   - compatible
   - adi,device-profile-fw-name
@@ -224,8 +227,9 @@ examples:
 
             dev_clk-clock-scales = <1 10>;
 
-            clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
-            #clock-cells = <0>;
+            clock-output-names = "rx_sampl_clk", "tx_sampl_clk",
+                                 "rx_sampl_clk_link2", "tx_sampl_clk_link2";
+            #clock-cells = <1>;
 
             adi,axi-hsci-connected = <&axi_hsci>;
 
