@@ -48,9 +48,9 @@ static const struct drm_connector_hdmi_funcs dummy_hdmi_funcs = {
 };
 
 static const struct drm_connector_funcs dummy_funcs = {
+	.atomic_create_state	= drm_atomic_helper_connector_create_state,
 	.atomic_destroy_state	= drm_atomic_helper_connector_destroy_state,
 	.atomic_duplicate_state	= drm_atomic_helper_connector_duplicate_state,
-	.reset			= drm_atomic_helper_connector_reset,
 };
 
 static int dummy_ddc_xfer(struct i2c_adapter *adapter,
@@ -202,9 +202,9 @@ static struct kunit_suite drmm_connector_init_test_suite = {
 };
 
 static const struct drm_connector_funcs dummy_dynamic_init_funcs = {
+	.atomic_create_state	= drm_atomic_helper_connector_create_state,
 	.atomic_destroy_state	= drm_atomic_helper_connector_destroy_state,
 	.atomic_duplicate_state	= drm_atomic_helper_connector_duplicate_state,
-	.reset			= drm_atomic_helper_connector_reset,
 	.destroy		= drm_connector_cleanup,
 };
 
