@@ -238,39 +238,38 @@ static void intel_hdmi_info(struct drm_printer *p,
 	drm_printf(p, "\taudio support: %s\n", str_yes_no(has_audio));
 }
 
-static void intel_connector_info(struct seq_file *m,
+static void intel_connector_info(struct drm_printer *p,
 				 struct drm_connector *connector)
 {
 	struct intel_connector *intel_connector = to_intel_connector(connector);
 	const struct drm_display_mode *mode;
-	struct drm_printer p = drm_seq_file_printer(m);
 	struct intel_digital_port *dig_port = NULL;
 
-	seq_printf(m, "[CONNECTOR:%d:%s]: status: %s\n",
+	drm_printf(p, "[CONNECTOR:%d:%s]: status: %s\n",
 		   connector->base.id, connector->name,
 		   drm_get_connector_status_name(connector->status));
 
 	if (connector->status == connector_status_disconnected)
 		return;
 
-	seq_printf(m, "\tphysical dimensions: %dx%dmm\n",
+	drm_printf(p, "\tphysical dimensions: %dx%dmm\n",
 		   connector->display_info.width_mm,
 		   connector->display_info.height_mm);
-	seq_printf(m, "\tsubpixel order: %s\n",
+	drm_printf(p, "\tsubpixel order: %s\n",
 		   drm_get_subpixel_order_name(connector->display_info.subpixel_order));
-	seq_printf(m, "\tCEA rev: %d\n", connector->display_info.cea_rev);
+	drm_printf(p, "\tCEA rev: %d\n", connector->display_info.cea_rev);
 
 	switch (connector->connector_type) {
 	case DRM_MODE_CONNECTOR_DisplayPort:
 	case DRM_MODE_CONNECTOR_eDP:
 		if (intel_connector->mst.dp)
-			intel_dp_mst_info(&p, intel_connector);
+			intel_dp_mst_info(p, intel_connector);
 		else
-			intel_dp_info(&p, intel_connector);
+			intel_dp_info(p, intel_connector);
 		dig_port = dp_to_dig_port(intel_attached_dp(intel_connector));
 		break;
 	case DRM_MODE_CONNECTOR_HDMIA:
-		intel_hdmi_info(&p, intel_connector);
+		intel_hdmi_info(p, intel_connector);
 		dig_port = hdmi_to_dig_port(intel_attached_hdmi(intel_connector));
 		break;
 	default:
@@ -278,17 +277,17 @@ static void intel_connector_info(struct seq_file *m,
 	}
 
 	if (dig_port != NULL && intel_encoder_is_tc(&dig_port->base))
-		intel_tc_info(&p, dig_port);
+		intel_tc_info(p, dig_port);
 
-	intel_hdcp_info(&p, intel_connector);
+	intel_hdcp_info(p, intel_connector);
 
-	seq_printf(m, "\tmax bpc: %u\n", connector->display_info.bpc);
+	drm_printf(p, "\tmax bpc: %u\n", connector->display_info.bpc);
 
-	intel_panel_info(&p, intel_connector);
+	intel_panel_info(p, intel_connector);
 
-	seq_printf(m, "\tmodes:\n");
+	drm_printf(p, "\tmodes:\n");
 	list_for_each_entry(mode, &connector->modes, head)
-		intel_print_mode(&p, 2, mode);
+		intel_print_mode(p, 2, mode);
 }
 
 static const char *plane_type(enum drm_plane_type type)
@@ -620,7 +619,7 @@ static int i915_display_info(struct seq_file *m, void *unused)
 	seq_printf(m, "--------------\n");
 	drm_connector_list_iter_begin(display->drm, &conn_iter);
 	drm_for_each_connector_iter(connector, &conn_iter)
-		intel_connector_info(m, connector);
+		intel_connector_info(&p, connector);
 	drm_connector_list_iter_end(&conn_iter);
 
 	drm_modeset_unlock_all(display->drm);
