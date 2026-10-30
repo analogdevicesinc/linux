@@ -265,11 +265,31 @@ static int create_dmic_dailinks(struct snd_soc_card *card,
 				struct snd_soc_dai_link **dai_links, int *be_id, int no_pcm)
 {
 	struct device *dev = card->dev;
+	struct asoc_sdw_mc_private *ctx = snd_soc_card_get_drvdata(card);
+	struct amd_mc_ctx *amd_ctx = (struct amd_mc_ctx *)ctx->private;
+	const char *cpu_dai_name;
 	int ret;
+
+	/*
+	 * For ACP7.B/7.F platforms the PDM controller is selected from ACPI
+	 * acp-audio-ep-port and stored in amd_ctx->pdm_sel. Use the
+	 * matching SOF DAI name ("acp-sof-dmic0" or "acp-sof-dmic1").
+	 * All other platforms use the generic "acp-sof-dmic" DAI.
+	 */
+	switch (amd_ctx->acp_rev) {
+	case ACP7B_PCI_REV:
+	case ACP7F_PCI_REV:
+		cpu_dai_name = (amd_ctx->pdm_sel == ACP7X_PDM_DMIC1) ?
+				"acp-sof-dmic1" : "acp-sof-dmic0";
+		break;
+	default:
+		cpu_dai_name = "acp-sof-dmic";
+		break;
+	}
 
 	ret = asoc_sdw_init_simple_dai_link(dev, *dai_links, be_id, "acp-dmic-codec",
 					    0, 1, // DMIC only supports capture
-					    "acp-sof-dmic", platform_component->name,
+					    cpu_dai_name, platform_component->name,
 					    "dmic-codec", "dmic-hifi", no_pcm,
 					    asoc_sdw_dmic_init, NULL);
 	if (ret)
@@ -378,6 +398,7 @@ static int sof_card_dai_links_create(struct snd_soc_card *card)
 static int mc_probe(struct platform_device *pdev)
 {
 	struct snd_soc_acpi_mach *mach = dev_get_platdata(&pdev->dev);
+	struct amd_pdm_pdata *pdm_pdata;
 	struct snd_soc_card *card;
 	struct amd_mc_ctx *amd_ctx;
 	struct asoc_sdw_mc_private *ctx;
@@ -398,6 +419,10 @@ static int mc_probe(struct platform_device *pdev)
 		amd_ctx->max_sdw_links = ACP63_SDW_MAX_LINKS;
 		break;
 	}
+	if (mach->pdata) {
+		pdm_pdata = mach->pdata;
+		amd_ctx->pdm_sel = pdm_pdata->pdm_sel;
+	}
 	ctx = devm_kzalloc(&pdev->dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
@@ -417,6 +442,23 @@ static int mc_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "Overriding quirk 0x%lx => 0x%x\n",
 			 sof_sdw_quirk, quirk_override);
 		sof_sdw_quirk = quirk_override;
+	}
+
+	/*
+	 * If ACPI did not set pdm_sel (no acp-audio-ep-port in _DSD), derive
+	 * it from the quirk bits. ACPI takes priority: quirks are only
+	 * consulted when pdm_sel is still zero. PDM controller selection is
+	 * only meaningful on ACP7B/7F platforms.
+	 * ASOC_SDW_ACP_DMIC selects DMIC0 (default); ASOC_SDW_ACP_DMIC1
+	 * overrides to DMIC1.
+	 */
+	if (!amd_ctx->pdm_sel &&
+	    (amd_ctx->acp_rev == ACP7B_PCI_REV ||
+	     amd_ctx->acp_rev == ACP7F_PCI_REV)) {
+		if (sof_sdw_quirk & ASOC_SDW_ACP_DMIC1)
+			amd_ctx->pdm_sel = ACP7X_PDM_DMIC1;
+		else if (sof_sdw_quirk & ASOC_SDW_ACP_DMIC)
+			amd_ctx->pdm_sel = ACP7X_PDM_DMIC0;
 	}
 
 	log_quirks(&pdev->dev);
