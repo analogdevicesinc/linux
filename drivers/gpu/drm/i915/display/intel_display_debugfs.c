@@ -344,7 +344,7 @@ static const char *plane_visibility(const struct intel_plane_state *plane_state)
 	return "hidden";
 }
 
-static void intel_plane_uapi_info(struct seq_file *m, struct intel_plane *plane)
+static void intel_plane_uapi_info(struct drm_printer *p, struct intel_plane *plane)
 {
 	const struct intel_plane_state *plane_state =
 		to_intel_plane_state(plane->base.state);
@@ -358,24 +358,24 @@ static void intel_plane_uapi_info(struct seq_file *m, struct intel_plane *plane)
 	plane_rotation(rot_str, sizeof(rot_str),
 		       plane_state->uapi.rotation);
 
-	seq_puts(m, "\t\tuapi: [FB:");
+	drm_puts(p, "\t\tuapi: [FB:");
 	if (fb)
-		seq_printf(m, "%d] %p4cc,0x%llx,%dx%d", fb->base.id,
+		drm_printf(p, "%d] %p4cc,0x%llx,%dx%d", fb->base.id,
 			   &fb->format->format, fb->modifier, fb->width,
 			   fb->height);
 	else
-		seq_puts(m, "0] n/a,0x0,0x0,");
-	seq_printf(m, ", visible=%s, src=" DRM_RECT_FP_FMT ", dst=" DRM_RECT_FMT
+		drm_puts(p, "0] n/a,0x0,0x0,");
+	drm_printf(p, ", visible=%s, src=" DRM_RECT_FP_FMT ", dst=" DRM_RECT_FMT
 		   ", rotation=%s\n", plane_visibility(plane_state),
 		   DRM_RECT_FP_ARG(&src), DRM_RECT_ARG(&dst), rot_str);
 
 	if (plane_state->planar_linked_plane)
-		seq_printf(m, "\t\tplanar: Linked to [PLANE:%d:%s] as a %s\n",
+		drm_printf(p, "\t\tplanar: Linked to [PLANE:%d:%s] as a %s\n",
 			   plane_state->planar_linked_plane->base.base.id, plane_state->planar_linked_plane->base.name,
 			   plane_state->is_y_plane ? "Y plane" : "UV plane");
 }
 
-static void intel_plane_hw_info(struct seq_file *m, struct intel_plane *plane)
+static void intel_plane_hw_info(struct drm_printer *p, struct intel_plane *plane)
 {
 	const struct intel_plane_state *plane_state =
 		to_intel_plane_state(plane->base.state);
@@ -388,7 +388,7 @@ static void intel_plane_hw_info(struct seq_file *m, struct intel_plane *plane)
 	plane_rotation(rot_str, sizeof(rot_str),
 		       plane_state->hw.rotation);
 
-	seq_printf(m, "\t\thw: [FB:%d] %p4cc,0x%llx,%dx%d, visible=%s, src="
+	drm_printf(p, "\t\thw: [FB:%d] %p4cc,0x%llx,%dx%d, visible=%s, src="
 		   DRM_RECT_FP_FMT ", dst=" DRM_RECT_FMT ", rotation=%s\n",
 		   fb->base.id, &fb->format->format,
 		   fb->modifier, fb->width, fb->height,
@@ -398,17 +398,17 @@ static void intel_plane_hw_info(struct seq_file *m, struct intel_plane *plane)
 		   rot_str);
 }
 
-static void intel_plane_info(struct seq_file *m, struct intel_crtc *crtc)
+static void intel_plane_info(struct drm_printer *p, struct intel_crtc *crtc)
 {
-	struct intel_display *display = node_to_intel_display(m->private);
+	struct intel_display *display = to_intel_display(crtc);
 	struct intel_plane *plane;
 
 	for_each_intel_plane_on_crtc(display->drm, crtc, plane) {
-		seq_printf(m, "\t[PLANE:%d:%s]: type=%s\n",
+		drm_printf(p, "\t[PLANE:%d:%s]: type=%s\n",
 			   plane->base.base.id, plane->base.name,
 			   plane_type(plane->base.type));
-		intel_plane_uapi_info(m, plane);
-		intel_plane_hw_info(m, plane);
+		intel_plane_uapi_info(p, plane);
+		intel_plane_hw_info(p, plane);
 	}
 }
 
@@ -593,7 +593,7 @@ static void intel_crtc_info(struct seq_file *m, struct intel_crtc *crtc)
 				    crtc_state->uapi.encoder_mask)
 		intel_encoder_info(m, crtc, encoder);
 
-	intel_plane_info(m, crtc);
+	intel_plane_info(&p, crtc);
 
 	seq_printf(m, "\tunderrun reporting: cpu=%s pch=%s\n",
 		   str_yes_no(!crtc->cpu_fifo_underrun_disabled),
