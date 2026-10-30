@@ -22,19 +22,20 @@
 
 static int seq_show(struct seq_file *m, void *v)
 {
+	struct inode *inode = file_inode(m->file);
 	struct files_struct *files = NULL;
 	int f_flags = 0, ret = -ENOENT;
 	struct file *file = NULL;
 	struct task_struct *task;
 
-	task = get_proc_task(m->private);
+	task = get_proc_task(inode);
 	if (!task)
 		return -ENOENT;
 
 	task_lock(task);
 	files = task->files;
 	if (files) {
-		unsigned int fd = proc_fd(m->private);
+		unsigned int fd = proc_fd(inode);
 
 		spin_lock(&files->file_lock);
 		file = files_lookup_fd_locked(files, fd);
@@ -74,7 +75,7 @@ out:
 
 static int seq_fdinfo_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, seq_show, inode);
+	return single_open(file, seq_show, NULL);
 }
 
 /*
