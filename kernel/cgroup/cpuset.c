@@ -2119,10 +2119,22 @@ static int update_parent_effective_cpumask(struct cpuset *cs, int cmd,
 			 * If there is an expansion of parent's effective_xcpus,
 			 * we may take more xcpus from parent. The parent's
 			 * effective_cpus should still have active CPUs or nocpu
-			 * should have been set.
+			 * should have been set. We also need to do a
+			 * housekeeping check for an isolated child with root
+			 * parent to make sure that it won't exhaust all the
+			 * active housekeeping CPUs.
 			 */
-			deleting = cpumask_andnot(tmp->delmask, tmp->delmask,
-						  cs->effective_xcpus);
+			cpumask_andnot(tmp->addmask, cs->effective_xcpus, tmp->delmask);
+			if ((parent_prs == PRS_ROOT) && (old_prs == PRS_ISOLATED) &&
+			    prstate_housekeeping_conflict(old_prs, parent_prs,
+							  tmp->delmask, tmp->addmask)) {
+				adding = cpumask_and(tmp->addmask, cs->effective_xcpus,
+						     tmp->delmask);
+				part_error = PERR_HKEEPING;
+			} else {
+				deleting = cpumask_andnot(tmp->delmask, tmp->delmask,
+							  cs->effective_xcpus);
+			}
 		} else if (is_partition_invalid(cs)) {
 			struct cgroup_subsys_state *css;
 			struct cpuset *child;
