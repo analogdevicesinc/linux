@@ -1088,8 +1088,10 @@ static int xfrm_add_sa(struct sk_buff *skb, struct nlmsghdr *nlh,
 		goto out;
 	}
 
+	spin_lock_bh(&x->lock);
 	if (x->km.state == XFRM_STATE_VOID)
 		x->km.state = XFRM_STATE_VALID;
+	spin_unlock_bh(&x->lock);
 
 	c.seq = nlh->nlmsg_seq;
 	c.portid = nlh->nlmsg_pid;
