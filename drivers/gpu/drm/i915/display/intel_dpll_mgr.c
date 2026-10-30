@@ -4798,7 +4798,7 @@ static bool dg2_mpllb_get_hw_state(struct intel_display *display,
 {
 	struct intel_encoder *encoder = dg2_get_intel_encoder(display, pll);
 	enum phy phy;
-	i915_reg_t enable_reg;
+	intel_reg_t enable_reg;
 	struct ref_tracker *wakeref;
 	bool ret = false;
 	u32 val;

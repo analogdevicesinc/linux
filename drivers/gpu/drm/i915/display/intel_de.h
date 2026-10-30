@@ -136,7 +136,7 @@ intel_de_rmw_fw(struct intel_display *display, intel_reg_t reg, u32 clear, u32 s
 
 static inline u64
 intel_de_read64_2x32_volatile_fw(struct intel_display *display,
-				 i915_reg_t lower_reg, i915_reg_t upper_reg)
+				 intel_reg_t lower_reg, intel_reg_t upper_reg)
 {
 	u32 old_upper, upper, lower;
 	int loop = 0;
