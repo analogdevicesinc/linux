@@ -1,0 +1,333 @@
+What:		/sys/bus/iio/devices/iio:deviceX/powerdown
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Writing 1 powers the device down, writing 0 powers it up.
+		Reading returns the current state. This is the inverse of the
+		PWRON register bit, which is exposed this way so that the
+		attribute matches the usual IIO powerdown convention.
+
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_low_bias
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_mid_bias
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_high_bias
+What:		/sys/bus/iio/devices/iio:deviceX/rf_amp1_bias
+What:		/sys/bus/iio/devices/iio:deviceX/rf_amp2_bias
+What:		/sys/bus/iio/devices/iio:deviceX/splitter1_bias
+What:		/sys/bus/iio/devices/iio:deviceX/splitter2_bias
+What:		/sys/bus/iio/devices/iio:deviceX/pa_bias
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Bias current trim codes for the three frequency multipliers,
+		the two RF amplifier stages, the two splitter stages and the
+		power amplifiers. Each is a raw 4-bit code, 0 to 15, with no
+		documented transfer function to a current, so no unit is
+		implied. Larger codes correspond to larger bias currents.
+
+		The eight codes occupy four registers as nibble pairs, so the
+		driver uses read-modify-write and writing one attribute does
+		not disturb its neighbour.
+
+What:		/sys/bus/iio/devices/iio:deviceX/splitter1_en
+What:		/sys/bus/iio/devices/iio:deviceX/splitter12_en
+What:		/sys/bus/iio/devices/iio:deviceX/splitter34_en
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable (1) or disable (0) the first splitter stage, the
+		splitter feeding outputs 1 and 2, and the splitter feeding
+		outputs 3 and 4. These take effect only while the transmit
+		sequencer is disabled.
+
+What:		/sys/bus/iio/devices/iio:deviceX/rf_amp_en
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable (1) or disable (0) the input RF amplifier. Takes effect
+		only while the multiplier sequencer is disabled.
+
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_low_state
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_mid_state
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_high_state
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Power state of the low, mid and high band frequency
+		multipliers, one of the strings listed in the matching
+		_available attribute:
+
+		- "sleep": block powered down.
+		- "ready": block biased but not driving the signal path.
+		  Selecting a band from ready is faster than from sleep.
+		- "active": block biased and driving the signal path.
+
+		Exactly one band is normally active at a time. Reading
+		returns -EIO if the hardware reports the undocumented fourth
+		encoding of the underlying bit pair.
+
+		These take effect only while the multiplier sequencer is
+		disabled.
+
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_low_state_available
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_mid_state_available
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_high_state_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Space separated list of the power states accepted by the
+		matching attribute.
+
+What:		/sys/bus/iio/devices/iio:deviceX/bandpass_filter
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Selects which bandpass filter path the multiplier output takes,
+		one of the strings listed in bandpass_filter_available: "low"
+		or "high". Takes effect only while the multiplier sequencer is
+		disabled.
+
+What:		/sys/bus/iio/devices/iio:deviceX/bandpass_filter_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Space separated list of the filter paths accepted by the
+		matching attribute.
+
+What:		/sys/bus/iio/devices/iio:deviceX/pa_notch_en
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable (1) or disable (0) the notch filter in front of the
+		power amplifiers. Takes effect only while the multiplier
+		sequencer is disabled.
+
+What:		/sys/bus/iio/devices/iio:deviceX/attenuation
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Raw code for the 5-bit step attenuator, 0 to 31. The datasheet
+		gives no code to decibel transfer function, so the value is
+		deliberately unscaled and carries no unit. Larger codes
+		correspond to more attenuation. Takes effect only while the
+		multiplier sequencer is disabled.
+
+What:		/sys/bus/iio/devices/iio:deviceX/adc_clock_frequency
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Clock frequency in Hz used by the on-chip 8-bit ADC, one of
+		the two values listed in adc_clock_frequency_available.
+
+What:		/sys/bus/iio/devices/iio:deviceX/adc_clock_frequency_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Space separated list of the ADC clock frequencies in Hz
+		accepted by adc_clock_frequency.
+
+What:		/sys/bus/iio/devices/iio:deviceX/tx_sequencer_en
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_sequencer_en
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable (1) or disable (0) the transmit or multiplier sequencer.
+
+		While a sequencer is enabled the path it owns is driven from
+		its mode table and the matching manual attributes have no
+		effect. The driver couples the control latch to this bit:
+		enabling a sequencer puts the latch in circuit, disabling it
+		bypasses the latch so that manual writes reach the blocks
+		without an external sequencer pin pulse.
+
+What:		/sys/bus/iio/devices/iio:deviceX/tx_sequencer_depth
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Number of transmit sequencer states in the loop, 1 to 70. The
+		sequencer steps state 1, 2, ... up to this value and then
+		wraps back to state 1. State 0 is outside the loop and is
+		entered only by tx_sequencer_reset.
+
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_sequencer_depth
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Number of multiplier sequencer states in the loop, 1 to 16.
+		The sequencer steps state 1, 2, ... up to this value and then
+		wraps back to state 1. State 0 is outside the loop and is
+		entered only by multiplier_sequencer_reset.
+
+What:		/sys/bus/iio/devices/iio:deviceX/tx_sleep_control
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_sleep_control
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Writing 1 routes the external sleep pin to the transmit or the
+		multiplier sequencer. At most one of the two may be set; an
+		attempt to set one while the other is already set is rejected
+		with -EINVAL rather than silently clearing the other.
+
+What:		/sys/bus/iio/devices/iio:deviceX/tx_sleep_hold
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_sleep_hold
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Writing 1 makes the sequencer hold its current state while the
+		sleep input is asserted, instead of resetting to state 0.
+
+What:		/sys/bus/iio/devices/iio:deviceX/tx_sequencer_advance
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_sequencer_advance
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Write-only. Writing 1 steps the sequencer on by one state.
+		Writing 0 is rejected with -EINVAL.
+
+		If the devicetree describes the external advance pin, the
+		driver pulses that pin. Otherwise it drives the SPI bit high
+		and then low, because the datasheet does not state that the
+		bit self-clears.
+
+What:		/sys/bus/iio/devices/iio:deviceX/tx_sequencer_reset
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_sequencer_reset
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Write-only. Writing 1 returns the sequencer to state 0, which
+		always applies mode 0. Writing 0 is rejected with -EINVAL.
+
+		If the devicetree describes the external reset pin, the driver
+		pulses that pin. Otherwise it drives the SPI bit high and then
+		low, because the datasheet does not state that the bit
+		self-clears.
+
+What:		/sys/bus/iio/devices/iio:deviceX/tx_current_state
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_current_state
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read-only. State the sequencer is currently pointing at.
+
+What:		/sys/bus/iio/devices/iio:deviceX/tx_current_mode
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_current_mode
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Read-only. Mode, 0 to 15, that the current state selects.
+
+What:		/sys/bus/iio/devices/iio:deviceX/tx_sequencer_table
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Binary attribute, 70 bytes, holding the transmit sequencer
+		state table. One byte per state, each byte a mode index 0 to
+		15. The file offset is the state number minus one: offset 0 is
+		state 1 and offset 69 is state 70. State 0 is hardwired to
+		mode 0 in the hardware, has no register field, and so is not
+		represented in the file.
+
+		Reads return the whole table. Writes may start at any offset
+		and cover any length; only the states actually covered are
+		reprogrammed. The hardware packs two states per register and
+		the driver does the packing, using read-modify-write where a
+		write covers only one of a register's two states.
+
+		If any byte of the write buffer exceeds 15 the whole write
+		fails with -EINVAL before any register is touched.
+
+		Writing the table does not change tx_sequencer_depth.
+
+		Load a whole table::
+
+			cat table.bin > tx_sequencer_table
+
+		Change state 5 only::
+
+			printf '\x03' | dd of=tx_sequencer_table bs=1 \
+				seek=4 conv=notrunc
+
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_sequencer_table
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Binary attribute, 16 bytes, holding the multiplier sequencer
+		state table. Same format, offset convention and write
+		semantics as tx_sequencer_table: offset 0 is state 1 and
+		offset 15 is state 16.
+
+What:		/sys/bus/iio/devices/iio:deviceX/tx_mode_table
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Binary attribute, 32 bytes, holding the transmit mode table.
+		Two bytes per mode, so mode m occupies offsets 2 * m and
+		2 * m + 1. The sequencer applies the row when it enters a state
+		selecting that mode.
+
+		Even byte, the power amplifier states, one two bit field per
+		output. Bits 7:6 are output 0, 5:4 output 1, 3:2 output 2 and
+		1:0 output 3. Each field is 0x0 for sleep, 0x2 for ready and
+		0x3 for active, matching out_altvoltageY_pa_state. 0x1 is
+		undocumented and rejected.
+
+		Odd byte, the splitter enables. Bit 2 is splitter1_en, bit 1 is
+		splitter12_en and bit 0 is splitter34_en. Bits 7:3 are unused.
+
+		Reads return the whole table. Writes may start at any offset and
+		cover any length; only the bytes covered are reprogrammed.
+		Writing both bytes of a row in one call makes the mode update
+		atomic against the sequencer.
+
+		If any even byte of the write buffer contains a 0x1 field the
+		whole write fails with -EINVAL before any register is touched.
+
+		Program mode 3 as output 0 active, the rest asleep, with
+		splitter1 and splitter12 enabled::
+
+			printf '\xc0\x06' | dd of=tx_mode_table bs=1 seek=6 \
+				conv=notrunc
+
+What:		/sys/bus/iio/devices/iio:deviceX/multiplier_mode_table
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Binary attribute, 32 bytes, holding the multiplier mode table.
+		Same two bytes per mode layout, offset convention and write
+		semantics as tx_mode_table.
+
+		Even byte, bit 6 is rf_amp_en, bits 5:4 are the low multiplier
+		state, 3:2 the mid state and 1:0 the high state. The two bit
+		state fields use the same encoding as in tx_mode_table and match
+		multiplier_low_state, multiplier_mid_state and
+		multiplier_high_state. Bit 7 is unused.
+
+		Odd byte, bit 7 is bandpass_filter, 0 for "high" and 1 for
+		"low". Bit 6 is pa_notch_en. Bits 4:0 are attenuation. Bit 5 is
+		unused.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_pa_state
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Power state of the power amplifier on output Y, one of the
+		strings listed in out_altvoltageY_pa_state_available: "sleep",
+		"ready" or "active". The three states have the same meaning as
+		for multiplier_low_state. Takes effect only while the transmit
+		sequencer is disabled.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_powerY_en
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable (1) or disable (0) the RF power detector on output Y.
+		The detectors are off after reset and draw current when on,
+		so the driver leaves them under explicit userspace control
+		rather than enabling one behind a read of in_powerY_raw.
+		in_powerY_raw is only meaningful once this is set.
+
+		in_powerY_raw is the raw 8-bit detector code from the shared
+		on-chip ADC. No in_powerY_scale or in_powerY_offset is
+		provided, because the datasheet gives no transfer function
+		from the detector code to an RF power and the response is
+		frequency dependent, so the reading is a relative indication
+		only.
