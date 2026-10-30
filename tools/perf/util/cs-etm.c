@@ -1391,8 +1391,7 @@ static inline int cs_etm__instr_size(struct cs_etm_queue *etmq,
 	if (packet->isa == CS_ETM_ISA_T32)
 		return cs_etm__t32_instr_size(etmq, tidq, packet, addr);
 
-	/* Otherwise, 4-byte instruction size for A32/A64 */
-	return 4;
+	return packet->last_instr_size;
 }
 
 static inline u64 cs_etm__first_executed_instr(struct cs_etm_packet *packet)
@@ -1571,6 +1570,15 @@ static void cs_etm__copy_insn(struct cs_etm_queue *etmq,
 	}
 
 	sample->insn_len = cs_etm__instr_size(etmq, tidq, packet, sample->ip);
+
+	/*
+	 * The instruction length should always fit within sample->insn,
+	 * but check it to prevent an out-of-bounds write.
+	 */
+	if (sample->insn_len > sizeof(sample->insn)) {
+		sample->insn_len = 0;
+		return;
+	}
 
 	cs_etm__frontend_mem_access(etmq, tidq, packet, sample->ip,
 				    sample->insn_len, (void *)sample->insn);
