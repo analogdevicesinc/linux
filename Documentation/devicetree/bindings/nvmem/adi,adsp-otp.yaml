@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/nvmem/adi,adsp-otp.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADSP processor OTP memory
+
+maintainers:
+  - Sam Winchenbach <sam.winchenbach@analog.com>
+
+description: |
+  Analog Devices ADSP processors contain one-time programmable (OTP)
+  memory that holds keys, boot configuration and general purpose customer
+  data. This binding currently covers the ADSP-SC58x family.
+
+  On the ADSP-SC58x the OTP is controlled by the OTP controller (OTPC).
+  Reading, programming and locking the OTP are done through functions of
+  the on-chip boot ROM, which implement the redundancy and error
+  correction scheme of the OTP array; the OTP array itself is therefore
+  not described here.
+
+  The SHARC+ cores can reach the OTP too, and simultaneous OTP accesses by
+  several cores can hang a core (silicon anomaly 20000084). The Reset
+  Control Unit (RCU) tells whether the SHARC+ cores are held in reset or
+  idle, so that the OTP is only programmed while they are.
+
+allOf:
+  - $ref: nvmem.yaml#
+
+properties:
+  compatible:
+    oneOf:
+      - const: adi,adsp-sc589-otp
+      - items:
+          - enum:
+              - adi,adsp-sc582-otp
+              - adi,adsp-sc583-otp
+              - adi,adsp-sc584-otp
+              - adi,adsp-sc587-otp
+          - const: adi,adsp-sc589-otp
+
+  reg:
+    items:
+      - description: OTP controller (OTPC) registers
+
+  adi,rcu:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description:
+      The Reset Control Unit (a syscon), whose core reset and message
+      registers report whether the SHARC+ cores are held in reset or
+      idle.
+
+required:
+  - compatible
+  - reg
+  - adi,rcu
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    otp@31011000 {
+        compatible = "adi,adsp-sc589-otp";
+        reg = <0x31011000 0x100>;
+        adi,rcu = <&rcu>;
+        read-only;
+    };
+...

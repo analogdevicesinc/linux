@@ -1709,6 +1709,12 @@ W:	https://ez.analog.com/linux-software-drivers
 F:	Documentation/devicetree/bindings/iio/frequency/adi,adrf6780.yaml
 F:	drivers/iio/frequency/adrf6780.c
 
+ANALOG DEVICES INC ADSP OTP DRIVER
+M:	Sam Winchenbach <sam.winchenbach@analog.com>
+L:	linux@analog.com
+S:	Supported
+F:	Documentation/devicetree/bindings/nvmem/adi,adsp-otp.yaml
+
 ANALOG DEVICES INC ADV7180 DRIVER
 M:	Lars-Peter Clausen <lars@metafoo.de>
 L:	linux-media@vger.kernel.org
