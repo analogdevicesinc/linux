@@ -4,6 +4,7 @@
 
 #include <linux/kernel.h>
 #include <linux/lz4.h>
+#include <linux/sizes.h>
 #include <linux/vmalloc.h>
 
 #include "backend_lz4hc.h"
@@ -46,7 +47,8 @@ static int lz4hc_setup_params(struct zcomp_params *params)
 
 	LZ4_resetStreamHC(dict_stream, params->level);
 	ret = LZ4_loadDictHC(dict_stream, params->dict, params->dict_sz);
-	if (ret != params->dict_sz) {
+	/* Only the last 64 KiB of a dictionary are of use */
+	if (ret != min_t(size_t, params->dict_sz, SZ_64K)) {
 		vfree(dict_stream);
 		return -EINVAL;
 	}
