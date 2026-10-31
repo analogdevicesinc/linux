@@ -367,6 +367,7 @@ struct hdac_bus {
 	spinlock_t reg_lock;
 	struct mutex cmd_mutex;
 	struct mutex lock;
+	struct mutex codec_bind_lock;	/* codec driver bind, card register */
 
 	/* DRM component interface */
 	struct drm_audio_component *audio_component;

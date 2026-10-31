@@ -2434,7 +2434,7 @@ static int azx_probe_continue(struct azx *chip, bool free_on_error)
 		}
 	}
 
-	err = snd_card_register(chip->card);
+	err = snd_hda_card_register(&chip->bus);
 	if (err < 0)
 		goto out_free;
 

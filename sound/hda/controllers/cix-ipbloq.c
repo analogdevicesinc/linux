@@ -80,7 +80,7 @@ static int cix_ipbloq_hda_probe_codec(struct cix_ipbloq_hda *hda)
 		return err;
 	}
 
-	err = snd_card_register(chip->card);
+	err = snd_hda_card_register(&chip->bus);
 	if (err < 0) {
 		dev_err(hda->dev, "card register failed: %d\n", err);
 		return err;

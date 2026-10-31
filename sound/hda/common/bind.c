@@ -104,6 +104,12 @@ static int hda_codec_driver_probe(struct device *dev)
 	if (WARN_ON(!codec->preset))
 		return -EINVAL;
 
+	/*
+	 * snd_card_register() below walks the device list of the card, which
+	 * the removal of another codec changes when it frees its PCMs.
+	 */
+	mutex_lock(&codec->bus->core.codec_bind_lock);
+
 	err = snd_hda_codec_set_name(codec, codec->preset->name);
 	if (err < 0)
 		goto error;
@@ -140,6 +146,7 @@ static int hda_codec_driver_probe(struct device *dev)
 	}
 
 	codec->core.lazy_cache = true;
+	mutex_unlock(&codec->bus->core.codec_bind_lock);
 	return 0;
 
  error_module:
@@ -153,6 +160,7 @@ static int hda_codec_driver_probe(struct device *dev)
  error:
 	snd_hda_codec_cleanup_for_unbind(codec);
 	codec->preset = NULL;
+	mutex_unlock(&codec->bus->core.codec_bind_lock);
 	return err;
 }
 
@@ -171,6 +179,7 @@ static int hda_codec_driver_remove(struct device *dev)
 		return codec->bus->core.ext_ops->hdev_detach(&codec->core);
 	}
 
+	guard(mutex)(&codec->bus->core.codec_bind_lock);
 	snd_hda_codec_disconnect_pcms(codec);
 	snd_hda_jack_tbl_disconnect(codec);
 	snd_refcount_sync(&codec->pcm_ref);
@@ -183,6 +192,23 @@ static int hda_codec_driver_remove(struct device *dev)
 	module_put(dev->driver->owner);
 	return 0;
 }
+
+/**
+ * snd_hda_card_register - register the card of an HD-audio bus
+ * @bus: HD-audio bus
+ *
+ * snd_card_register() walks the device list of the card, which codec driver
+ * probe and remove on the same bus change.  Register the card with them
+ * excluded.
+ *
+ * Return: zero or a negative error code.
+ */
+int snd_hda_card_register(struct hda_bus *bus)
+{
+	guard(mutex)(&bus->core.codec_bind_lock);
+	return snd_card_register(bus->card);
+}
+EXPORT_SYMBOL_GPL(snd_hda_card_register);
 
 static void hda_codec_driver_shutdown(struct device *dev)
 {
