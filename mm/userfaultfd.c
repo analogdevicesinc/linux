@@ -2431,6 +2431,8 @@ struct userfaultfd_wait_queue {
 	struct uffd_msg msg;
 	wait_queue_entry_t wq;
 	struct userfaultfd_ctx *ctx;
+	/* UFFD_EVENT_FORK: the context created for the child */
+	struct userfaultfd_ctx *fork_ctx;
 	bool waken;
 };
 
@@ -3007,14 +3009,8 @@ static void userfaultfd_event_wait_completion(struct userfaultfd_ctx *ctx,
 			 * didn't.
 			 */
 			__remove_wait_queue(&ctx->event_wqh, &ewq->wq);
-			if (ewq->msg.event == UFFD_EVENT_FORK) {
-				struct userfaultfd_ctx *new;
-
-				new = (struct userfaultfd_ctx *)
-					(unsigned long)
-					ewq->msg.arg.reserved.reserved1;
-				release_new_ctx = new;
-			}
+			if (ewq->msg.event == UFFD_EVENT_FORK)
+				release_new_ctx = ewq->fork_ctx;
 			break;
 		}
 
@@ -3112,7 +3108,7 @@ static void dup_fctx(struct userfaultfd_fork_ctx *fctx)
 	msg_init(&ewq.msg);
 
 	ewq.msg.event = UFFD_EVENT_FORK;
-	ewq.msg.arg.reserved.reserved1 = (unsigned long)fctx->new;
+	ewq.fork_ctx = fctx->new;
 
 	userfaultfd_event_wait_completion(ctx, &ewq);
 }
@@ -3424,7 +3420,6 @@ static int resolve_userfault_fork(struct userfaultfd_ctx *new,
 	if (fd < 0)
 		return fd;
 
-	msg->arg.reserved.reserved1 = 0;
 	msg->arg.fork.ufd = fd;
 	return 0;
 }
@@ -3502,9 +3497,7 @@ static ssize_t userfaultfd_ctx_read(struct userfaultfd_ctx *ctx, int no_wait,
 			*msg = uwq->msg;
 
 			if (uwq->msg.event == UFFD_EVENT_FORK) {
-				fork_nctx = (struct userfaultfd_ctx *)
-					(unsigned long)
-					uwq->msg.arg.reserved.reserved1;
+				fork_nctx = uwq->fork_ctx;
 				list_move(&uwq->wq.entry, &fork_event);
 				/*
 				 * fork_nctx can be freed as soon as
