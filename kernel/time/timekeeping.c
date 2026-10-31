@@ -1600,6 +1600,9 @@ int get_device_system_crosststamp(int (*get_time_fn)
 
 	do {
 		seq = read_seqcount_begin(&tkd->seq);
+		if (!tk->clock_valid)
+			return -ENODEV;
+
 		/*
 		 * Try to synchronously capture device time and a system
 		 * counter value calling back into the device driver
