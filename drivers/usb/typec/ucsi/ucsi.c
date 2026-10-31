@@ -2106,7 +2106,7 @@ static int ucsi_init(struct ucsi *ucsi)
 		goto err_reset;
 
 	if (!ucsi->cap.num_connectors) {
-		ret = -ENODEV;
+		ret = -EAGAIN;
 		goto err_reset;
 	}
 	/* Check if reserved bit set. This is out of spec but happens in buggy FW */
@@ -2172,6 +2172,16 @@ err_unregister:
 err_reset:
 	memset(&ucsi->cap, 0, sizeof(ucsi->cap));
 	ucsi_reset_ppm(ucsi);
+
+	/*
+	 * The only -EINVAL expected on this path is ucsi_read_error()'s:
+	 * the PPM rejected a standard command. Some PPMs do that, or
+	 * report zero connectors above, for a short while after boot
+	 * before they are ready. Report both as -EAGAIN so that
+	 * ucsi_init_work() can retry them, and only them.
+	 */
+	if (ret == -EINVAL)
+		ret = -EAGAIN;
 err:
 	return ret;
 }
@@ -2249,16 +2259,23 @@ static void ucsi_init_work(struct work_struct *work)
 	}
 
 	/*
-	 * On some platforms the PPM is not ready to answer commands
-	 * correctly for a short window during boot: standard commands are
-	 * rejected or GET_CAPABILITY reports zero connectors, seen as
-	 * -EINVAL or -ENODEV from ucsi_init(), and a retry moments later
-	 * succeeds (observed on Lenovo ThinkPad X1 Carbon Gen 14, where
-	 * this affects roughly half of all boots). Retry those like the
-	 * USB role switch wait instead of giving up on the first attempt.
+	 * -EPROBE_DEFER: the USB role switch is not registered yet. Wait
+	 * up to ten seconds for it.
+	 *
+	 * -EAGAIN: the PPM is not ready to answer commands correctly yet.
+	 * On some platforms that lasts for a short window during boot
+	 * (observed on Lenovo ThinkPad X1 Carbon Gen 14, where it affects
+	 * roughly half of all boots and a retry moments later succeeds).
+	 * One second is plenty for that.
+	 *
+	 * Anything else is not going to change with a retry, so report it
+	 * once and stop.
 	 */
-	if (ret == -EPROBE_DEFER || ret == -ENODEV || ret == -EINVAL) {
-		if (ucsi->work_count++ < UCSI_ROLE_SWITCH_WAIT_COUNT) {
+	if (ret == -EPROBE_DEFER || ret == -EAGAIN) {
+		int limit = ret == -EPROBE_DEFER ? UCSI_ROLE_SWITCH_WAIT_COUNT :
+						 UCSI_PPM_READY_WAIT_COUNT;
+
+		if (ucsi->work_count++ < limit) {
 			dev_dbg(ucsi->dev, "PPM init failed (%pe), retrying\n",
 				ERR_PTR(ret));
 			queue_delayed_work(system_dfl_long_wq, &ucsi->work,
