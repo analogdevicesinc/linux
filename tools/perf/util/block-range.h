@@ -72,5 +72,6 @@ static inline bool block_range_iter__valid(struct block_range_iter *iter)
 extern struct block_range *block_range__find(u64 addr);
 extern struct block_range_iter block_range__create(u64 start, u64 end);
 extern double block_range__coverage(struct block_range *br);
+extern void block_ranges__exit(void);
 
 #endif /* __PERF_BLOCK_RANGE_H */

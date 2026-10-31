@@ -174,6 +174,10 @@ static void process_branch_stack(struct branch_stack *bs, struct addr_location *
 		prev = &bi[i].to;
 	}
 
+	for (i = 0; i < (int)bs->nr; i++) {
+		addr_map_symbol__exit(&bi[i].to);
+		addr_map_symbol__exit(&bi[i].from);
+	}
 	free(bi);
 }
 
@@ -967,6 +971,7 @@ out_delete:
 #ifndef NDEBUG
 	perf_session__delete(annotate.session);
 #endif
+	block_ranges__exit();
 	annotation_options__exit();
 
 	return ret;
