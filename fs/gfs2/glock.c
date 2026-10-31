@@ -80,6 +80,21 @@ static const struct rhashtable_params ht_parms = {
 
 static struct rhashtable gl_hash_table;
 
+static const char *state2str(unsigned state)
+{
+	switch(state) {
+	case LM_ST_UNLOCKED:
+		return "UN";
+	case LM_ST_SHARED:
+		return "SH";
+	case LM_ST_DEFERRED:
+		return "DF";
+	case LM_ST_EXCLUSIVE:
+		return "EX";
+	}
+	return "??";
+}
+
 #define GLOCK_WAIT_TABLE_BITS 12
 #define GLOCK_WAIT_TABLE_SIZE (1 << GLOCK_WAIT_TABLE_BITS)
 static wait_queue_head_t glock_wait_table[GLOCK_WAIT_TABLE_SIZE] __cacheline_aligned;
@@ -2023,21 +2038,6 @@ void gfs2_wait_glocks(struct gfs2_sbd *sdp)
 	glock_hash_walk(dump_glock_func, sdp);
 	destroy_workqueue(sdp->sd_glock_wq);
 	sdp->sd_glock_wq = NULL;
-}
-
-static const char *state2str(unsigned state)
-{
-	switch(state) {
-	case LM_ST_UNLOCKED:
-		return "UN";
-	case LM_ST_SHARED:
-		return "SH";
-	case LM_ST_DEFERRED:
-		return "DF";
-	case LM_ST_EXCLUSIVE:
-		return "EX";
-	}
-	return "??";
 }
 
 static const char *hflags2str(char *buf, u16 flags, unsigned long iflags)
