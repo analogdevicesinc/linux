@@ -1092,6 +1092,7 @@ merge_chain_branch(struct callchain_cursor *cursor,
 		struct map_symbol ms = {
 			.thread = thread__get(list->ms.thread),
 			.map = map__get(list->ms.map),
+			.sym = list->ms.sym,
 		};
 		callchain_cursor_append(cursor, list->ip, &ms, false, NULL, 0, 0, 0, list->srcline);
 		list_del_init(&list->list);
