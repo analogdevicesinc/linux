@@ -343,7 +343,20 @@ static long rpmsg_eptdev_ioctl(struct file *fp, unsigned int cmd,
 			break;
 		}
 		set = !!arg;
-		ret = rpmsg_set_flow_control(eptdev->ept, set, eptdev->chinfo.dst);
+
+		ret = mutex_lock_interruptible(&eptdev->ept_lock);
+		if (ret)
+			break;
+
+		if (!eptdev->ept) {
+			mutex_unlock(&eptdev->ept_lock);
+			ret = -EPIPE;
+			break;
+		}
+
+		ret = rpmsg_set_flow_control(eptdev->ept, set,
+					     eptdev->chinfo.dst);
+		mutex_unlock(&eptdev->ept_lock);
 		break;
 	case RPMSG_DESTROY_EPT_IOCTL:
 		/* Don't allow to destroy a default endpoint. */
