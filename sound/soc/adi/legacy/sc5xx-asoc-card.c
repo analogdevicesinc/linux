@@ -21,10 +21,10 @@
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
 
-#include "../codecs/adau1372.h"
-#include "../codecs/adau1962.h"
-#include "../codecs/adau1977.h"
-#include "../codecs/adau17x1.h"
+#include "../../codecs/adau1372.h"
+#include "../../codecs/adau1962.h"
+#include "../../codecs/adau1977.h"
+#include "../../codecs/adau17x1.h"
 
 static const struct snd_soc_dapm_widget sc5xx_adau1761_dapm_widgets[] = {
 	SND_SOC_DAPM_LINE("In 1", NULL),

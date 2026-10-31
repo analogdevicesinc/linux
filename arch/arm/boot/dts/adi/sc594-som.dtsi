@@ -23,6 +23,13 @@
 		stdout-path = &uart1;
 	};
 
+	audio_clk: clock-24576000 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24576000>;
+		clock-output-names = "audio_clk";
+	};
+
 	aliases {
 	};
 
