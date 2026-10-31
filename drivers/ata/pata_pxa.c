@@ -96,7 +96,7 @@ static void pxa_bmdma_stop(struct ata_queued_cmd *qc)
 
 	status = dmaengine_tx_status(pd->dma_chan, pd->dma_cookie, NULL);
 	if (status != DMA_ERROR && status != DMA_COMPLETE &&
-	    wait_for_completion_timeout(&pd->dma_done, HZ))
+	    !wait_for_completion_timeout(&pd->dma_done, HZ))
 		ata_dev_err(qc->dev, "Timeout waiting for DMA completion!");
 
 	dmaengine_terminate_all(pd->dma_chan);
