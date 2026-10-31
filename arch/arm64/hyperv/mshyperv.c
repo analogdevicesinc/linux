@@ -11,6 +11,7 @@
 
 #include <linux/types.h>
 #include <linux/acpi.h>
+#include <linux/arm-rsi-cmds.h>
 #include <linux/export.h>
 #include <linux/errno.h>
 #include <linux/version.h>
@@ -60,12 +61,36 @@ static bool __init hyperv_detect_via_acpi(void)
 
 #endif
 
+/*
+ * In a Realm, the SMCCC call is handled by the RMM rather than by
+ * Hyper-V, so the vendor hypervisor UID query must be forwarded to the
+ * host with RSI_HOST_CALL, in the same way as hypercalls.
+ */
+static bool __init hyperv_realm_has_uuid(const uuid_t *hyperv_uuid)
+{
+	static struct rsi_host_call hc __initdata;
+	uuid_t uuid;
+
+	hc.gprs[0] = ARM_SMCCC_VENDOR_HYP_CALL_UID_FUNC_ID;
+
+	if (rsi_host_call(__pa_symbol(&hc)) != RSI_SUCCESS ||
+	    hc.gprs[0] == SMCCC_RET_NOT_SUPPORTED)
+		return false;
+
+	uuid = smccc_res_to_uuid(hc.gprs[0], hc.gprs[1], hc.gprs[2],
+				 hc.gprs[3]);
+	return uuid_equal(&uuid, hyperv_uuid);
+}
+
 static bool __init hyperv_detect_via_smccc(void)
 {
 	uuid_t hyperv_uuid = UUID_INIT(
 		0x58ba324d, 0x6447, 0x24cd,
 		0x75, 0x6c, 0xef, 0x8e,
 		0x24, 0x70, 0x59, 0x16);
+
+	if (is_realm_world())
+		return hyperv_realm_has_uuid(&hyperv_uuid);
 
 	return arm_smccc_hypervisor_has_uuid(&hyperv_uuid);
 }
