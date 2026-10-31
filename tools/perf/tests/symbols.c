@@ -2,8 +2,11 @@
 #include <linux/compiler.h>
 #include <linux/string.h>
 #include <sys/mman.h>
+#include <elf.h>
 #include <inttypes.h>
 #include <limits.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include "debug.h"
 #include "dso.h"
 #include "env.h"
@@ -308,9 +311,175 @@ out:
 	return ret;
 }
 
+#ifdef HAVE_LIBELF_SUPPORT
+static int write_test_elf(int fd)
+{
+	static const char shstrtab[] = "\0.shstrtab\0.text\0.strtab\0.symtab\0.dynsym";
+	static const char strtab[] = "\0zfun\0efun\0after_fun";
+	struct {
+		Elf64_Ehdr ehdr;
+		Elf64_Shdr shdrs[6];
+		char shstr[sizeof(shstrtab)];
+		char str[sizeof(strtab)];
+		Elf64_Sym symtab[3];
+		Elf64_Sym dynsym[2];
+		u8 text[0x60];
+	} img;
+
+	memset(&img, 0, sizeof(img));
+	memcpy(img.ehdr.e_ident, ELFMAG, SELFMAG);
+	img.ehdr.e_ident[EI_CLASS] = ELFCLASS64;
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+	img.ehdr.e_ident[EI_DATA] = ELFDATA2MSB;
+#else
+	img.ehdr.e_ident[EI_DATA] = ELFDATA2LSB;
+#endif
+	img.ehdr.e_ident[EI_VERSION] = EV_CURRENT;
+	img.ehdr.e_type = ET_DYN;
+	img.ehdr.e_machine = EM_X86_64;
+	img.ehdr.e_version = EV_CURRENT;
+	img.ehdr.e_shoff = offsetof(typeof(img), shdrs);
+	img.ehdr.e_ehsize = sizeof(Elf64_Ehdr);
+	img.ehdr.e_shentsize = sizeof(Elf64_Shdr);
+	img.ehdr.e_shnum = ARRAY_SIZE(img.shdrs);
+	img.ehdr.e_shstrndx = 1;
+
+	memcpy(img.shstr, shstrtab, sizeof(shstrtab));
+	memcpy(img.str, strtab, sizeof(strtab));
+
+	/* Section 1: .shstrtab */
+	img.shdrs[1].sh_name = 1;
+	img.shdrs[1].sh_type = SHT_STRTAB;
+	img.shdrs[1].sh_offset = offsetof(typeof(img), shstr);
+	img.shdrs[1].sh_size = sizeof(shstrtab);
+
+	/* Section 2: .text */
+	img.shdrs[2].sh_name = 11;
+	img.shdrs[2].sh_type = SHT_PROGBITS;
+	img.shdrs[2].sh_flags = SHF_ALLOC | SHF_EXECINSTR;
+	img.shdrs[2].sh_addr = 0x1000;
+	img.shdrs[2].sh_offset = offsetof(typeof(img), text);
+	img.shdrs[2].sh_size = sizeof(img.text);
+
+	/* Section 3: .strtab */
+	img.shdrs[3].sh_name = 17;
+	img.shdrs[3].sh_type = SHT_STRTAB;
+	img.shdrs[3].sh_flags = SHF_ALLOC;
+	img.shdrs[3].sh_offset = offsetof(typeof(img), str);
+	img.shdrs[3].sh_size = sizeof(strtab);
+
+	/*
+	 * Section 4: .symtab with zero-size zfun at 0x1010 and after_fun at
+	 * 0x1040, but without efun (simulating objcopy --strip-symbol=efun or
+	 * .gnu_debugdata minidebuginfo where exported symbols live only in
+	 * .dynsym).
+	 */
+	img.shdrs[4].sh_name = 25;
+	img.shdrs[4].sh_type = SHT_SYMTAB;
+	img.shdrs[4].sh_offset = offsetof(typeof(img), symtab);
+	img.shdrs[4].sh_size = sizeof(img.symtab);
+	img.shdrs[4].sh_link = 3;
+	img.shdrs[4].sh_info = 2;
+	img.shdrs[4].sh_entsize = sizeof(Elf64_Sym);
+
+	img.symtab[1].st_name = 1; /* zfun */
+	img.symtab[1].st_info = ELF64_ST_INFO(STB_LOCAL, STT_FUNC);
+	img.symtab[1].st_shndx = 2;
+	img.symtab[1].st_value = 0x1010;
+	img.symtab[1].st_size = 0;
+
+	img.symtab[2].st_name = 11; /* after_fun */
+	img.symtab[2].st_info = ELF64_ST_INFO(STB_GLOBAL, STT_FUNC);
+	img.symtab[2].st_shndx = 2;
+	img.symtab[2].st_value = 0x1040;
+	img.symtab[2].st_size = 0x10;
+
+	/* Section 5: .dynsym with efun at 0x1020..0x1030 */
+	img.shdrs[5].sh_name = 33;
+	img.shdrs[5].sh_type = SHT_DYNSYM;
+	img.shdrs[5].sh_flags = SHF_ALLOC;
+	img.shdrs[5].sh_offset = offsetof(typeof(img), dynsym);
+	img.shdrs[5].sh_size = sizeof(img.dynsym);
+	img.shdrs[5].sh_link = 3;
+	img.shdrs[5].sh_info = 1;
+	img.shdrs[5].sh_entsize = sizeof(Elf64_Sym);
+
+	img.dynsym[1].st_name = 6; /* efun */
+	img.dynsym[1].st_info = ELF64_ST_INFO(STB_GLOBAL, STT_FUNC);
+	img.dynsym[1].st_shndx = 2;
+	img.dynsym[1].st_value = 0x1020;
+	img.dynsym[1].st_size = 0x10;
+
+	return write(fd, &img, sizeof(img)) == (ssize_t)sizeof(img) ? 0 : -1;
+}
+
+static int test__elf_symtab_dynsym_fixup_end(struct test_suite *test __maybe_unused,
+					     int subtest __maybe_unused)
+{
+	char tmpfile[] = "/tmp/perf-test-symtab-dynsym-XXXXXX";
+	struct test_info ti;
+	struct map *map = NULL;
+	struct dso *dso;
+	u64 text_offs;
+	int fd, ret;
+
+	fd = mkstemp(tmpfile);
+	if (fd < 0)
+		return TEST_FAIL;
+
+	if (write_test_elf(fd)) {
+		close(fd);
+		unlink(tmpfile);
+		return TEST_FAIL;
+	}
+	close(fd);
+
+	ret = init_test_info(&ti);
+	if (ret != TEST_OK) {
+		unlink(tmpfile);
+		return ret;
+	}
+
+	ret = create_map(&ti, tmpfile, &map);
+	if (ret != TEST_OK)
+		goto out_exit;
+
+	dso = map__dso(map);
+	if (dso__load(dso, map) <= 0) {
+		ret = TEST_FAIL;
+		goto out_put;
+	}
+
+	/* Verify no overlapping or zero-length symbols exist. */
+	ret = test_dso(dso);
+	text_offs = 0x1000 - dso__text_offset(dso);
+	if (check_symbol(dso, text_offs + 0x14, "zfun", text_offs + 0x20))
+		ret = TEST_FAIL;
+	if (check_symbol(dso, text_offs + 0x24, "efun", text_offs + 0x30))
+		ret = TEST_FAIL;
+	if (check_symbol(dso, text_offs + 0x44, "after_fun", text_offs + 0x50))
+		ret = TEST_FAIL;
+
+out_put:
+	map__put(map);
+out_exit:
+	exit_test_info(&ti);
+	unlink(tmpfile);
+	return ret;
+}
+#else
+static int test__elf_symtab_dynsym_fixup_end(struct test_suite *test __maybe_unused,
+					     int subtest __maybe_unused)
+{
+	return TEST_SKIP;
+}
+#endif
+
 static struct test_case tests__symbols[] = {
 	TEST_CASE("Symbols", symbols),
 	TEST_CASE("Kallsyms symbol ends", kallsyms_fixup_end),
+	TEST_CASE("ELF zero-size symbol end across .symtab and .dynsym",
+		  elf_symtab_dynsym_fixup_end),
 	{ .name = NULL, }
 };
 
