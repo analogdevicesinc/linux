@@ -578,7 +578,7 @@ static void aes_cbcmac_blocks(u8 h[AES_BLOCK_SIZE],
 int aes_cmac_preparekey(struct aes_cmac_key *key, const u8 *in_key,
 			size_t key_len)
 {
-	u64 hi, lo, mask;
+	u64 hi, lo;
 	int err;
 
 	/* Prepare the AES key. */
@@ -596,9 +596,11 @@ int aes_cmac_preparekey(struct aes_cmac_key *key, const u8 *in_key,
 	hi = be64_to_cpu(key->k_final[0].w[0]);
 	lo = be64_to_cpu(key->k_final[0].w[1]);
 	for (int i = 0; i < 2; i++) {
-		mask = ((s64)hi >> 63) & 0x87;
+		unsigned long mask = (s64)hi >> 63;
+
+		OPTIMIZER_HIDE_VAR(mask);
 		hi = (hi << 1) ^ (lo >> 63);
-		lo = (lo << 1) ^ mask;
+		lo = (lo << 1) ^ (mask & 0x87);
 		key->k_final[i].w[0] = cpu_to_be64(hi);
 		key->k_final[i].w[1] = cpu_to_be64(lo);
 	}
