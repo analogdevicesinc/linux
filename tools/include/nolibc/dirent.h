@@ -75,6 +75,19 @@ DIR *opendir(const char *name)
 }
 
 static __attribute__((unused))
+int dirfd(DIR *dirp)
+{
+	int fd = __nolibc_dirfd(dirp);
+
+	if (fd < 0) {
+		SET_ERRNO(EINVAL);
+		return -1;
+	}
+
+	return fd;
+}
+
+static __attribute__((unused))
 int closedir(DIR *dirp)
 {
 	int fd = __nolibc_dirfd(dirp);
