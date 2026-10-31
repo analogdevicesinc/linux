@@ -2244,8 +2244,12 @@ struct xfrm_state *xfrm_state_migrate(struct xfrm_state *x,
 
 	xfrm_migrate_sync(xc, x);
 
-	if (xfrm_state_migrate_install(x, xc, m, extack) < 0)
+	/* Hold a reference for the caller before publishing the state. */
+	xfrm_state_hold(xc);
+	if (xfrm_state_migrate_install(x, xc, m, extack) < 0) {
+		xfrm_state_put(xc);
 		return NULL;
+	}
 
 	return xc;
 }
