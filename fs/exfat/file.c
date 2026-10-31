@@ -586,8 +586,8 @@ static int exfat_ioctl_fitrim(struct inode *inode, unsigned long arg)
 	if (copy_from_user(&range, (struct fstrim_range __user *)arg, sizeof(range)))
 		return -EFAULT;
 
-	range.minlen = max_t(unsigned int, range.minlen,
-				bdev_discard_granularity(inode->i_sb->s_bdev));
+	range.minlen = max_t(u64, range.minlen,
+			     bdev_discard_granularity(inode->i_sb->s_bdev));
 
 	ret = exfat_trim_fs(inode, &range);
 	if (ret < 0)
