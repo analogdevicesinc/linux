@@ -595,9 +595,9 @@ static void finish_xmote(struct gfs2_glock *gl, unsigned int ret)
 			break;
 		default: /* Everything else */
 			fs_err(glock_sbd(gl),
-			       "glock %u:%llu requested=%u ret=%u\n",
+			       "glock %u:%llu requested=%s ret=%u\n",
 			       glock_type(gl), glock_number(gl),
-			       gl->gl_req, ret);
+			       state2str(gl->gl_req), ret);
 			gfs2_withdraw(sdp);
 		}
 		return;
