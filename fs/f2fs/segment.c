@@ -1241,7 +1241,7 @@ static void __check_sit_bitmap(struct f2fs_sb_info *sbi,
 
 static void __init_discard_policy(struct f2fs_sb_info *sbi,
 				struct discard_policy *dpolicy,
-				int discard_type, unsigned int granularity)
+				int discard_type, u64 granularity)
 {
 	struct discard_cmd_control *dcc = SM_I(sbi)->dcc_info;
 

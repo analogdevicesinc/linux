@@ -522,7 +522,7 @@ struct discard_policy {
 	bool sync;			/* submit discard with REQ_SYNC flag */
 	bool ordered;			/* issue discard by lba order */
 	bool timeout;			/* discard timeout for put_super */
-	unsigned int granularity;	/* discard granularity */
+	u64 granularity;		/* discard granularity */
 };
 
 struct discard_cmd_control {

@@ -2808,8 +2808,8 @@ static int f2fs_ioc_fitrim(struct file *filp, unsigned long arg)
 	if (ret)
 		return ret;
 
-	range.minlen = max_t(unsigned int, range.minlen,
-			f2fs_hw_discard_granularity(sbi));
+	range.minlen = max_t(u64, range.minlen,
+			     f2fs_hw_discard_granularity(sbi));
 	ret = f2fs_trim_fs(sbi, &range);
 	mnt_drop_write_file(filp);
 	if (ret < 0)
