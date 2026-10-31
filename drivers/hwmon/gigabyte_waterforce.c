@@ -55,7 +55,7 @@ struct waterforce_data {
 	struct mutex buffer_lock;
 	/* For queueing multiple readers */
 	struct mutex status_report_request_mutex;
-	/* For reinitializing the completion below */
+	/* Protects status report data, timestamp, and completion below */
 	spinlock_t status_report_request_lock;
 	struct completion status_report_received;
 	struct completion fw_version_processed;
@@ -128,8 +128,10 @@ static int waterforce_get_status(struct waterforce_data *priv)
 	if (ret < 0)
 		return ret;
 
+	spin_lock_irq(&priv->status_report_request_lock);
 	if (!time_after(jiffies, priv->updated + msecs_to_jiffies(STATUS_VALIDITY))) {
 		/* Data is up to date */
+		spin_unlock_irq(&priv->status_report_request_lock);
 		goto unlock_and_return;
 	}
 
@@ -139,7 +141,6 @@ static int waterforce_get_status(struct waterforce_data *priv)
 	 * the raw event parsing and marked the priv->status_report_received
 	 * completion as done.
 	 */
-	spin_lock_irq(&priv->status_report_request_lock);
 	reinit_completion(&priv->status_report_received);
 	spin_unlock_irq(&priv->status_report_request_lock);
 
@@ -170,6 +171,8 @@ static int waterforce_read(struct device *dev, enum hwmon_sensor_types type,
 	if (ret < 0)
 		return ret;
 
+	ret = 0;
+	spin_lock_irq(&priv->status_report_request_lock);
 	switch (type) {
 	case hwmon_temp:
 		*val = priv->temp_input[channel];
@@ -183,14 +186,17 @@ static int waterforce_read(struct device *dev, enum hwmon_sensor_types type,
 			*val = DIV_ROUND_CLOSEST(priv->duty_input[channel] * 255, 100);
 			break;
 		default:
-			return -EOPNOTSUPP;
+			ret = -EOPNOTSUPP;
+			break;
 		}
 		break;
 	default:
-		return -EOPNOTSUPP;	/* unreachable */
+		ret = -EOPNOTSUPP;	/* unreachable */
+		break;
 	}
+	spin_unlock_irq(&priv->status_report_request_lock);
 
-	return 0;
+	return ret;
 }
 
 static int waterforce_read_string(struct device *dev, enum hwmon_sensor_types type,
@@ -276,18 +282,16 @@ static int waterforce_raw_event(struct hid_device *hdev, struct hid_report *repo
 	if (size <= WATERFORCE_TEMP_SENSOR)
 		return 0;
 
+	spin_lock_irqsave(&priv->status_report_request_lock, flags);
 	priv->temp_input[0] = data[WATERFORCE_TEMP_SENSOR] * 1000;
 	priv->speed_input[0] = get_unaligned_le16(data + WATERFORCE_FAN_SPEED);
 	priv->speed_input[1] = get_unaligned_le16(data + WATERFORCE_PUMP_SPEED);
 	priv->duty_input[0] = data[WATERFORCE_FAN_DUTY];
 	priv->duty_input[1] = data[WATERFORCE_PUMP_DUTY];
-
-	spin_lock_irqsave(&priv->status_report_request_lock, flags);
+	priv->updated = jiffies;
 	if (!completion_done(&priv->status_report_received))
 		complete_all(&priv->status_report_received);
 	spin_unlock_irqrestore(&priv->status_report_request_lock, flags);
-
-	priv->updated = jiffies;
 
 	return 0;
 }
