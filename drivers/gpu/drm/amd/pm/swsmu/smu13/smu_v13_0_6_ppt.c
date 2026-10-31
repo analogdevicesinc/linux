@@ -750,9 +750,7 @@ int smu_v13_0_6_get_metrics_table(struct smu_context *smu, void *metrics_table,
 	struct smu_table *table = &smu_table->driver_table;
 	int ret;
 
-	if (bypass_cache || !smu_table->metrics_time ||
-	    time_after(jiffies,
-		       smu_table->metrics_time + msecs_to_jiffies(1))) {
+	if (bypass_cache || smu_ms_cache_expired(smu_table->metrics_time, 1)) {
 		ret = smu_cmn_send_smc_msg(smu, SMU_MSG_GetMetricsTable, NULL);
 		if (ret) {
 			dev_info(smu->adev->dev,
@@ -770,7 +768,7 @@ int smu_v13_0_6_get_metrics_table(struct smu_context *smu, void *metrics_table,
 				min(16, table_size)))
 			return -EHWPOISON;
 
-		smu_table->metrics_time = jiffies;
+		smu_table_metrics_update_time(smu_table);
 	}
 
 	if (metrics_table)

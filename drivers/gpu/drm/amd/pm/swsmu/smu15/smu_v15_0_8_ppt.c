@@ -358,8 +358,7 @@ static int smu_v15_0_8_get_metrics_table_internal(struct smu_context *smu, uint3
 
 	mutex_lock(&smu_table->metrics_lock);
 
-	if (!tmo || !smu_table->metrics_time ||
-	    time_after(jiffies, smu_table->metrics_time + msecs_to_jiffies(tmo))) {
+	if (smu_ms_cache_expired(smu_table->metrics_time, tmo)) {
 		int ret = smu_cmn_send_smc_msg(smu, SMU_MSG_GetMetricsTable, NULL);
 		if (ret) {
 			dev_info(adev->dev,
@@ -376,7 +375,7 @@ static int smu_v15_0_8_get_metrics_table_internal(struct smu_context *smu, uint3
 			return ret;
 		}
 
-		smu_table->metrics_time = jiffies;
+		smu_table_metrics_update_time(smu_table);
 	}
 
 	if (data)
@@ -586,7 +585,7 @@ static int smu_v15_0_8_get_system_metrics_table(struct smu_context *smu)
 	if (ret)
 		return ret;
 
-	smu_table_cache_update_time(sys_table, jiffies);
+	smu_table_cache_update_time(sys_table);
 
 	return 0;
 }

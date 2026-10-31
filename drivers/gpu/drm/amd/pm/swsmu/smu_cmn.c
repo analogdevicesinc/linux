@@ -1230,8 +1230,7 @@ int smu_cmn_get_metrics_table(struct smu_context *smu,
 	int ret = 0;
 
 	if (bypass_cache ||
-	    !smu_table->metrics_time ||
-	    time_after(jiffies, smu_table->metrics_time + msecs_to_jiffies(1))) {
+	    smu_ms_cache_expired(smu_table->metrics_time, 1)) {
 		ret = smu_cmn_update_table(smu,
 				       SMU_TABLE_SMU_METRICS,
 				       0,
@@ -1241,7 +1240,7 @@ int smu_cmn_get_metrics_table(struct smu_context *smu,
 			dev_info(smu->adev->dev, "Failed to export SMU metrics table!\n");
 			return ret;
 		}
-		smu_table->metrics_time = jiffies;
+		smu_table_metrics_update_time(smu_table);
 	}
 
 	if (metrics_table)
