@@ -4726,8 +4726,8 @@ int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
 
 	/* Stage 4 - delete old state(s) */
 	if (nx_cur) {
-		xfrm_states_put(x_cur, nx_cur);
 		xfrm_states_delete(x_cur, nx_cur);
+		xfrm_states_put(x_cur, nx_cur);
 	}
 
 	/* Stage 5 - announce */
