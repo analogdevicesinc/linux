@@ -688,6 +688,7 @@ static ssize_t proc_scsi_devinfo_write(struct file *file,
 {
 	char *buffer;
 	ssize_t err = length;
+	int ret;
 
 	if (!buf || length>PAGE_SIZE)
 		return -EINVAL;
@@ -706,7 +707,9 @@ static ssize_t proc_scsi_devinfo_write(struct file *file,
 		goto out;
 	}
 
-	scsi_dev_info_list_add_str(buffer);
+	ret = scsi_dev_info_list_add_str(buffer);
+	if (ret)
+		err = ret;
 
 out:
 	kfree(buffer);
