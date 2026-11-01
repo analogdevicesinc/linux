@@ -1908,6 +1908,8 @@ igmp_qrv - INTEGER
 
 	Minimum: 1 (as specified by RFC6636 4.5)
 
+	Maximum: 255
+
 force_igmp_version - INTEGER
 	- 0 - (default) No enforcement of a IGMP version, IGMPv1/v2 fallback
 	  allowed. Will back to IGMPv3 mode again if all IGMPv1/v2 Querier
