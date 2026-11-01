@@ -10,6 +10,7 @@
 #include <linux/hid.h>
 #include <linux/hwmon.h>
 #include <linux/jiffies.h>
+#include <linux/ktime.h>
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include <linux/unaligned.h>
@@ -136,7 +137,7 @@ struct rog_ryujin_data {
 	unsigned long source_changed;	/* jiffies */
 
 	u8 *buffer;
-	unsigned long updated;	/* jiffies */
+	ktime_t updated;
 };
 
 static int rog_ryujin_percent_to_pwm(u16 val)
@@ -244,7 +245,8 @@ static int rog_ryujin_get_status(struct rog_ryujin_data *priv)
 {
 	int ret;
 
-	if (!time_after(jiffies, priv->updated + msecs_to_jiffies(STATUS_VALIDITY))) {
+	if (!ktime_after(ktime_get(),
+			 ktime_add_ms(priv->updated, STATUS_VALIDITY))) {
 		/* Data is up to date */
 		return 0;
 	}
@@ -281,7 +283,7 @@ static int rog_ryujin_get_status(struct rog_ryujin_data *priv)
 			return ret;
 	}
 
-	priv->updated = jiffies;
+	priv->updated = ktime_get();
 	return 0;
 }
 
@@ -707,7 +709,7 @@ static int rog_ryujin_probe(struct hid_device *hdev, const struct hid_device_id 
 	 * the initial empty data invalid for rog_ryujin_read() without the need for
 	 * a special case there.
 	 */
-	priv->updated = jiffies - msecs_to_jiffies(STATUS_VALIDITY);
+	priv->updated = ktime_sub_ms(ktime_get(), STATUS_VALIDITY + 1);
 	priv->source_changed = jiffies - msecs_to_jiffies(RYUJIN_SOURCE_CHANGE_INTERVAL);
 
 	ret = hid_parse(hdev);
