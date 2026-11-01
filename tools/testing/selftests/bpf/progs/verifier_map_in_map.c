@@ -85,6 +85,37 @@ l0_%=:	exit;						\
 	: __clobber_all);
 }
 
+/* max_entries of the map that is there at run time can be below 8 */
+SEC("socket")
+__description("map in map dynamic inner array lookup is nullable, key below max_entries")
+__failure __msg("invalid mem access 'map_value_or_null'")
+__naked void map_in_map_dynamic_inner_array_key_in_range(void)
+{
+	asm volatile ("					\
+	call %[bpf_get_prandom_u32];			\
+	r6 = r0;					\
+	r6 &= 7;					\
+	r1 = 0;						\
+	*(u32*)(r10 - 4) = r1;				\
+	r2 = r10;					\
+	r2 += -4;					\
+	r1 = %[map_in_map_dyn] ll;			\
+	call %[bpf_map_lookup_elem];			\
+	if r0 == 0 goto l0_%=;				\
+	*(u32*)(r10 - 8) = r6;				\
+	r2 = r10;					\
+	r2 += -8;					\
+	r1 = r0;					\
+	call %[bpf_map_lookup_elem];			\
+	r0 = *(u64 *)(r0 + 0);				\
+l0_%=:	exit;						\
+"	:
+	: __imm(bpf_get_prandom_u32),
+	  __imm(bpf_map_lookup_elem),
+	  __imm_addr(map_in_map_dyn)
+	: __clobber_all);
+}
+
 SEC("xdp")
 __description("map in map state pruning")
 __success __msg("processed 15 insns")
