@@ -128,7 +128,7 @@ struct g762_data {
 
 	/* g762 register cache */
 	bool valid;
-	unsigned long last_updated; /* in jiffies */
+	u64 last_updated; /* in jiffies */
 
 	u8 set_cnt;  /* controls fan rotation speed in closed-loop mode */
 	u8 act_cnt;  /* provides access to current fan RPM value */
@@ -202,7 +202,8 @@ static struct g762_data *g762_update_client(struct device *dev)
 	int ret = 0;
 
 	mutex_lock(&data->update_lock);
-	if (time_before(jiffies, data->last_updated + G762_UPDATE_INTERVAL) &&
+	if (time_before64(get_jiffies_64(),
+			  data->last_updated + G762_UPDATE_INTERVAL) &&
 	    likely(data->valid))
 		goto out;
 
@@ -236,7 +237,7 @@ static struct g762_data *g762_update_client(struct device *dev)
 		goto out;
 	data->fan_cmd2 = ret;
 
-	data->last_updated = jiffies;
+	data->last_updated = get_jiffies_64();
 	data->valid = true;
  out:
 	mutex_unlock(&data->update_lock);
