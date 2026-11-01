@@ -2316,7 +2316,7 @@ static int nldev_stat_del_doit(struct sk_buff *skb, struct nlmsghdr *nlh,
 	}
 	nlh = nlmsg_put(msg, NETLINK_CB(skb).portid, nlh->nlmsg_seq,
 			RDMA_NL_GET_TYPE(RDMA_NL_NLDEV,
-					 RDMA_NLDEV_CMD_STAT_SET),
+					 RDMA_NLDEV_CMD_STAT_DEL),
 			0, 0);
 	if (!nlh) {
 		ret = -EMSGSIZE;
