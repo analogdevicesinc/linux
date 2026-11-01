@@ -17,11 +17,11 @@
 #include <linux/delay.h>
 #include <linux/hid.h>
 #include <linux/hwmon.h>
-#include <linux/jiffies.h>
 #include <linux/ktime.h>
 #include <linux/limits.h>
 #include <linux/module.h>
 #include <linux/seq_file.h>
+#include <linux/spinlock.h>
 #include <linux/unaligned.h>
 
 #define USB_VENDOR_ID_AQUACOMPUTER	0x0c70
@@ -64,7 +64,7 @@ static const char *const aqc_device_names[] = {
 #define DRIVER_NAME			"aquacomputer_d5next"
 
 #define STATUS_REPORT_ID		0x01
-#define STATUS_UPDATE_INTERVAL		(2 * HZ)	/* In seconds */
+#define STATUS_UPDATE_INTERVAL		2000	/* In milliseconds */
 #define SERIAL_PART_OFFSET		2
 
 #define CTRL_REPORT_ID			0x03
@@ -655,7 +655,8 @@ struct aqc_data {
 	const char *const *voltage_label;
 	const char *const *current_label;
 
-	unsigned long updated;
+	spinlock_t status_lock;			/* Protect 'updated' flag */
+	ktime_t updated;
 };
 
 /* Converts from centi-percent */
@@ -1054,7 +1055,9 @@ static int aqc_legacy_read(struct aqc_data *priv)
 		break;
 	}
 
-	priv->updated = jiffies;
+	spin_lock_irq(&priv->status_lock);
+	priv->updated = ktime_get();
+	spin_unlock_irq(&priv->status_lock);
 	return 0;
 }
 
@@ -1064,8 +1067,14 @@ static int aqc_read(struct device *dev, enum hwmon_sensor_types type, u32 attr,
 	long power;
 	int ret;
 	struct aqc_data *priv = dev_get_drvdata(dev);
+	ktime_t updated;
 
-	if (time_after(jiffies, priv->updated + STATUS_UPDATE_INTERVAL)) {
+	spin_lock_irq(&priv->status_lock);
+	updated = priv->updated;
+	spin_unlock_irq(&priv->status_lock);
+
+	if (ktime_after(ktime_get(),
+			ktime_add_ms(updated, STATUS_UPDATE_INTERVAL))) {
 		if (priv->status_report_id != 0) {
 			/* Legacy devices require manual reads */
 			ret = aqc_legacy_read(priv);
@@ -1386,6 +1395,7 @@ static const struct hwmon_chip_info aqc_chip_info = {
 static int aqc_raw_event(struct hid_device *hdev, struct hid_report *report, u8 *data, int size)
 {
 	int i, j, sensor_value;
+	unsigned long flags;
 	struct aqc_data *priv;
 
 	if (report->id != STATUS_REPORT_ID || report->type != HID_INPUT_REPORT ||
@@ -1537,7 +1547,9 @@ static int aqc_raw_event(struct hid_device *hdev, struct hid_report *report, u8 
 		break;
 	}
 
-	priv->updated = jiffies;
+	spin_lock_irqsave(&priv->status_lock, flags);
+	priv->updated = ktime_get();
+	spin_unlock_irqrestore(&priv->status_lock, flags);
 
 	return 0;
 }
@@ -1605,7 +1617,8 @@ static int aqc_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	priv->hdev = hdev;
 	hid_set_drvdata(hdev, priv);
 
-	priv->updated = jiffies - STATUS_UPDATE_INTERVAL - 1;
+	spin_lock_init(&priv->status_lock);
+	priv->updated = ktime_sub_ms(ktime_get(), STATUS_UPDATE_INTERVAL + 1);
 
 	ret = hid_parse(hdev);
 	if (ret)
