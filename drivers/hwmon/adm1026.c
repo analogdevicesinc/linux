@@ -268,8 +268,8 @@ struct adm1026_data {
 
 	struct mutex update_lock;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_reading;	/* In jiffies */
-	unsigned long last_config;	/* In jiffies */
+	u64 last_reading;	/* In jiffies */
+	u64 last_config;	/* In jiffies */
 
 	u8 in[17];		/* Register value */
 	u8 in_max[17];		/* Register value */
@@ -332,9 +332,9 @@ static struct adm1026_data *adm1026_update_device(struct device *dev)
 	long value, alarms, gpio;
 
 	mutex_lock(&data->update_lock);
-	if (!data->valid
-	    || time_after(jiffies,
-			  data->last_reading + ADM1026_DATA_INTERVAL)) {
+	if (!data->valid ||
+	    time_after64(get_jiffies_64(),
+			 data->last_reading + ADM1026_DATA_INTERVAL)) {
 		/* Things that change quickly */
 		dev_dbg(&client->dev, "Reading sensor values\n");
 		for (i = 0; i <= 16; ++i) {
@@ -380,11 +380,12 @@ static struct adm1026_data *adm1026_update_device(struct device *dev)
 			ADM1026_REG_GPIO_STATUS_0_7);
 		data->gpio = gpio;
 
-		data->last_reading = jiffies;
+		data->last_reading = get_jiffies_64();
 	}	/* last_reading */
 
 	if (!data->valid ||
-	    time_after(jiffies, data->last_config + ADM1026_CONFIG_INTERVAL)) {
+	    time_after64(get_jiffies_64(),
+			 data->last_config + ADM1026_CONFIG_INTERVAL)) {
 		/* Things that don't change often */
 		dev_dbg(&client->dev, "Reading config values\n");
 		for (i = 0; i <= 16; ++i) {
@@ -464,7 +465,7 @@ static struct adm1026_data *adm1026_update_device(struct device *dev)
 			value >>= 2;
 		}
 
-		data->last_config = jiffies;
+		data->last_config = get_jiffies_64();
 	}	/* last_config */
 
 	data->valid = true;
