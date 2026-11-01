@@ -11,7 +11,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
-#include <linux/jiffies.h>
+#include <linux/ktime.h>
 #include <linux/i2c.h>
 #include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
@@ -66,7 +66,7 @@ struct adm1031_data {
 	struct mutex update_lock;
 	int chip_type;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	ktime_t last_updated;
 	unsigned int update_interval;	/* In milliseconds */
 	/*
 	 * The chan_select_table contains the possible configurations for
@@ -108,14 +108,14 @@ static struct adm1031_data *adm1031_update_device(struct device *dev)
 {
 	struct adm1031_data *data = dev_get_drvdata(dev);
 	struct i2c_client *client = data->client;
-	unsigned long next_update;
 	int chan;
 
 	mutex_lock(&data->update_lock);
 
-	next_update = data->last_updated
-	  + msecs_to_jiffies(data->update_interval);
-	if (time_after(jiffies, next_update) || !data->valid) {
+	if (!data->valid ||
+	    ktime_after(ktime_get(),
+			ktime_add_ms(data->last_updated,
+				     data->update_interval))) {
 
 		dev_dbg(&client->dev, "Starting adm1031 update\n");
 		for (chan = 0;
@@ -186,7 +186,7 @@ static struct adm1031_data *adm1031_update_device(struct device *dev)
 			  (adm1031_read_value(client,
 					ADM1031_REG_PWM) >> (4 * chan)) & 0x0f;
 		}
-		data->last_updated = jiffies;
+		data->last_updated = ktime_get();
 		data->valid = true;
 	}
 
