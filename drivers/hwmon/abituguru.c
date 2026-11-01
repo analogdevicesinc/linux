@@ -197,7 +197,7 @@ MODULE_PARM_DESC(verbose, "How verbose should the driver be? (0-3):\n"
 struct abituguru_data {
 	struct device *hwmon_dev;	/* hwmon registered device */
 	struct mutex update_lock;	/* protect access to data and uGuru */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;		/* In jiffies */
 	unsigned short addr;		/* uguru base address */
 	char uguru_ready;		/* is the uguru in ready state? */
 	unsigned char update_timeouts;	/*
@@ -1322,7 +1322,7 @@ static int abituguru_probe(struct platform_device *pdev)
 				ABIT_UGURU_MAX_RETRIES) != 5)
 			goto abituguru_probe_error;
 	}
-	data->last_updated = jiffies;
+	data->last_updated = get_jiffies_64();
 
 	/* Detect sensor types and fill the sysfs attr for bank1 */
 	sysfs_attr_i = 0;
@@ -1448,7 +1448,7 @@ static struct abituguru_data *abituguru_update_device(struct device *dev)
 	char success = 1;
 
 	mutex_lock(&data->update_lock);
-	if (time_after(jiffies, data->last_updated + HZ)) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ)) {
 		success = 0;
 		err = abituguru_read(data, ABIT_UGURU_ALARM_BANK, 0,
 				     data->alarms, 3, 0);
@@ -1491,7 +1491,7 @@ LEAVE_UPDATE:
 		}
 		/* On success set last_updated */
 		if (success)
-			data->last_updated = jiffies;
+			data->last_updated = get_jiffies_64();
 	}
 	mutex_unlock(&data->update_lock);
 
