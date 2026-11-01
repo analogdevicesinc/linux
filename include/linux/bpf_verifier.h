@@ -1308,6 +1308,8 @@ static inline bool bpf_ret_reg_pair(struct bpf_verifier_env *env, int subprog)
 
 struct bpf_call_summary {
 	u8 arg_slot_cnt;
+	/* the last of them are filled in by the verifier, the prog doesn't pass them */
+	u8 implicit_slot_cnt;
 	bool is_void;
 	bool fastcall;
 };
