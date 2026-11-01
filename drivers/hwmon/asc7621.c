@@ -78,8 +78,8 @@ struct asc7621_data {
 	struct device *class_dev;
 	struct mutex update_lock;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_high_reading;	/* In jiffies */
-	unsigned long last_low_reading;		/* In jiffies */
+	u64 last_high_reading;	/* In jiffies */
+	u64 last_low_reading;	/* In jiffies */
 	/*
 	 * Registers we care about occupy the corresponding index
 	 * in the array.  Registers we don't care about are left
@@ -1007,7 +1007,8 @@ static struct asc7621_data *asc7621_update_device(struct device *dev)
 	/* Read all the high priority registers */
 
 	if (!data->valid ||
-	    time_after(jiffies, data->last_high_reading + INTERVAL_HIGH)) {
+	    time_after64(get_jiffies_64(),
+			 data->last_high_reading + INTERVAL_HIGH)) {
 
 		for (i = 0; i < ARRAY_SIZE(asc7621_register_priorities); i++) {
 			if (asc7621_register_priorities[i] == PRI_HIGH) {
@@ -1015,13 +1016,14 @@ static struct asc7621_data *asc7621_update_device(struct device *dev)
 				    i2c_smbus_read_byte_data(client, i) & 0xff;
 			}
 		}
-		data->last_high_reading = jiffies;
+		data->last_high_reading = get_jiffies_64();
 	}			/* last_reading */
 
 	/* Read all the low priority registers. */
 
 	if (!data->valid ||
-	    time_after(jiffies, data->last_low_reading + INTERVAL_LOW)) {
+	    time_after64(get_jiffies_64(),
+			 data->last_low_reading + INTERVAL_LOW)) {
 
 		for (i = 0; i < ARRAY_SIZE(asc7621_params); i++) {
 			if (asc7621_register_priorities[i] == PRI_LOW) {
@@ -1029,7 +1031,7 @@ static struct asc7621_data *asc7621_update_device(struct device *dev)
 				    i2c_smbus_read_byte_data(client, i) & 0xff;
 			}
 		}
-		data->last_low_reading = jiffies;
+		data->last_low_reading = get_jiffies_64();
 	}			/* last_reading */
 
 	data->valid = true;
