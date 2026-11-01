@@ -51,7 +51,7 @@ struct ltc4245_data {
 	struct i2c_client *client;
 
 	bool valid;
-	unsigned long last_updated; /* in jiffies */
+	u64 last_updated; /* in jiffies */
 
 	/* Control registers */
 	u8 cregs[0x08];
@@ -88,7 +88,7 @@ static void ltc4245_update_gpios(struct device *dev)
 	 * If the last reading was too long ago, then we mark all old GPIO
 	 * readings as stale by setting them to -EAGAIN
 	 */
-	if (time_after(jiffies, data->last_updated + 5 * HZ)) {
+	if (time_after64(get_jiffies_64(), data->last_updated + 5 * HZ)) {
 		for (i = 0; i < ARRAY_SIZE(data->gpios); i++)
 			data->gpios[i] = -EAGAIN;
 	}
@@ -130,7 +130,8 @@ static struct ltc4245_data *ltc4245_update_device(struct device *dev)
 	s32 val;
 	int i;
 
-	if (time_after(jiffies, data->last_updated + HZ) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ) ||
+	    !data->valid) {
 		/* Read control registers -- 0x00 to 0x07 */
 		for (i = 0; i < ARRAY_SIZE(data->cregs); i++) {
 			val = i2c_smbus_read_byte_data(client, i);
@@ -152,7 +153,7 @@ static struct ltc4245_data *ltc4245_update_device(struct device *dev)
 		/* Update GPIO readings */
 		ltc4245_update_gpios(dev);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 
