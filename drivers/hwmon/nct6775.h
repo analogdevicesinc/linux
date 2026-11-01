@@ -93,7 +93,7 @@ struct nct6775_data {
 
 	struct mutex update_lock;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
 
 	/* Register values */
 	u8 bank;		/* current register bank */
