@@ -430,7 +430,7 @@ struct v3d_tfu_job {
 struct v3d_csd_job {
 	struct v3d_job base;
 
-	u32 timedout_batches;
+	u32 timedout_batches, timedout_sg_ids;
 
 	struct drm_v3d_submit_csd args;
 };
