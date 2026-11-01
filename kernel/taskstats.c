@@ -417,7 +417,7 @@ static int cgroupstats_user_cmd(struct sk_buff *skb, struct genl_info *info)
 	if (!na)
 		return -EINVAL;
 
-	fd = nla_get_u32(info->attrs[CGROUPSTATS_CMD_ATTR_FD]);
+	fd = nla_get_u32(na);
 	CLASS(fd, f)(fd);
 	if (fd_empty(f))
 		return -EBADF;
