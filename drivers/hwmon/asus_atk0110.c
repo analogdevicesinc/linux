@@ -164,7 +164,7 @@ struct atk_sensor_data {
 	u64 limit1;
 	u64 limit2;
 	u64 cached_value;
-	unsigned long last_updated; /* in jiffies */
+	u64 last_updated; /* in jiffies */
 	bool is_valid;
 	char const *acpi_name;
 };
@@ -221,7 +221,8 @@ static ssize_t atk_input_show(struct device *dev,
 	u64 value;
 	int err;
 
-	err = atk_read_value(s, &value);
+	scoped_guard(hwmon_lock, dev)
+		err = atk_read_value(s, &value);
 	if (err)
 		return err;
 
@@ -634,7 +635,7 @@ static int atk_read_value(struct atk_sensor_data *sensor, u64 *value)
 	int err;
 
 	if (!sensor->is_valid ||
-	    time_after(jiffies, sensor->last_updated + CACHE_TIME)) {
+	    time_after64(get_jiffies_64(), sensor->last_updated + CACHE_TIME)) {
 		if (sensor->data->old_interface)
 			err = atk_read_value_old(sensor, value);
 		else
@@ -644,7 +645,7 @@ static int atk_read_value(struct atk_sensor_data *sensor, u64 *value)
 			return err;
 
 		sensor->is_valid = true;
-		sensor->last_updated = jiffies;
+		sensor->last_updated = get_jiffies_64();
 		sensor->cached_value = *value;
 	} else {
 		*value = sensor->cached_value;
