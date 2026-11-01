@@ -106,7 +106,7 @@ struct vt1211_data {
 
 	struct mutex update_lock;
 	bool valid;			/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;		/* In jiffies */
 
 	/* Register values */
 	u8  in[6];
@@ -263,7 +263,8 @@ static struct vt1211_data *vt1211_update_device(struct device *dev)
 	mutex_lock(&data->update_lock);
 
 	/* registers cache is refreshed after 1 second */
-	if (time_after(jiffies, data->last_updated + HZ) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ) ||
+	    !data->valid) {
 		/* read VID */
 		data->vid = vt1211_read8(data, VT1211_REG_VID) & 0x1f;
 
@@ -329,7 +330,7 @@ static struct vt1211_data *vt1211_update_device(struct device *dev)
 		data->alarms = (vt1211_read8(data, VT1211_REG_ALARM2) << 8) |
 				vt1211_read8(data, VT1211_REG_ALARM1);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 
