@@ -375,7 +375,7 @@ struct hp_wmi_info {
 	bool alarm;
 	enum hwmon_sensor_types type;
 	long cached_val;
-	unsigned long last_updated;	/* In jiffies. */
+	u64 last_updated;		/* In jiffies. */
 
 };
 
@@ -1195,7 +1195,7 @@ static void interpret_info(struct hp_wmi_info *info)
 	const struct hp_wmi_numeric_sensor *nsensor = &info->nsensor;
 
 	info->cached_val = scale_numeric_sensor(nsensor);
-	info->last_updated = jiffies;
+	info->last_updated = get_jiffies_64();
 }
 
 /*
@@ -1214,9 +1214,9 @@ static int hp_wmi_update_info(struct hp_wmi_sensors *state,
 	u8 instance = info->instance;
 	int ret = 0;
 
-	if (time_after(jiffies, info->last_updated + HZ)) {
-		mutex_lock(&state->lock);
+	mutex_lock(&state->lock);
 
+	if (time_after64(get_jiffies_64(), info->last_updated + HZ)) {
 		wobj = wmidev_block_query(state->wdev, instance);
 		if (!wobj) {
 			ret = -EIO;
@@ -1228,10 +1228,10 @@ static int hp_wmi_update_info(struct hp_wmi_sensors *state,
 		interpret_info(info);
 
 		kfree(wobj);
+	}
 
 out_unlock:
-		mutex_unlock(&state->lock);
-	}
+	mutex_unlock(&state->lock);
 
 	return ret;
 }
