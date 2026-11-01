@@ -8,6 +8,7 @@
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#include <linux/atomic.h>
 #include <linux/module.h>
 #include <linux/jiffies.h>
 #include <linux/i2c.h>
@@ -165,8 +166,8 @@ struct adt7470_data {
 	struct mutex		lock;
 	char			sensors_valid;
 	char			limits_valid;
-	unsigned long		sensors_last_updated;	/* In jiffies */
-	unsigned long		limits_last_updated;	/* In jiffies */
+	atomic64_t		sensors_last_updated;	/* In jiffies */
+	atomic64_t		limits_last_updated;	/* In jiffies */
 	bool			use_pwm_framework;
 
 	int			num_temp_sensors;	/* -1 = probe */
@@ -463,44 +464,59 @@ static int adt7470_update_limits(struct adt7470_data *data)
 static struct adt7470_data *adt7470_update_device(struct device *dev)
 {
 	struct adt7470_data *data = dev_get_drvdata(dev);
-	unsigned long local_jiffies = jiffies;
+	u64 local_jiffies = get_jiffies_64();
 	int need_sensors = 1;
 	int need_limits = 1;
-	int err;
+	int err = 0;
 
 	/*
 	 * Figure out if we need to update the shadow registers.
 	 * Lockless means that we may occasionally report out of
 	 * date data.
 	 */
-	if (time_before(local_jiffies, data->sensors_last_updated +
-			SENSOR_REFRESH_INTERVAL) &&
-	    data->sensors_valid)
+	/* Pairs with smp_store_release() on sensors_valid. */
+	if (smp_load_acquire(&data->sensors_valid) &&
+	    time_before64(local_jiffies,
+			  (u64)atomic64_read(&data->sensors_last_updated) +
+			  SENSOR_REFRESH_INTERVAL))
 		need_sensors = 0;
 
-	if (time_before(local_jiffies, data->limits_last_updated +
-			LIMIT_REFRESH_INTERVAL) &&
-	    data->limits_valid)
+	/* Pairs with smp_store_release() on limits_valid. */
+	if (smp_load_acquire(&data->limits_valid) &&
+	    time_before64(local_jiffies,
+			  (u64)atomic64_read(&data->limits_last_updated) +
+			  LIMIT_REFRESH_INTERVAL))
 		need_limits = 0;
 
 	if (!need_sensors && !need_limits)
 		return data;
 
 	mutex_lock(&data->lock);
-	if (need_sensors) {
+	local_jiffies = get_jiffies_64();
+	if (need_sensors &&
+	    (!data->sensors_valid ||
+	     !time_before64(local_jiffies,
+			    (u64)atomic64_read(&data->sensors_last_updated) +
+			    SENSOR_REFRESH_INTERVAL))) {
 		err = adt7470_update_sensors(data);
 		if (err < 0)
 			goto out;
-		data->sensors_last_updated = local_jiffies;
-		data->sensors_valid = 1;
+		atomic64_set(&data->sensors_last_updated, local_jiffies);
+		/* Pairs with smp_load_acquire() in lockless fast-path. */
+		smp_store_release(&data->sensors_valid, 1);
 	}
 
-	if (need_limits) {
+	if (need_limits &&
+	    (!data->limits_valid ||
+	     !time_before64(local_jiffies,
+			    (u64)atomic64_read(&data->limits_last_updated) +
+			    LIMIT_REFRESH_INTERVAL))) {
 		err = adt7470_update_limits(data);
 		if (err < 0)
 			goto out;
-		data->limits_last_updated = local_jiffies;
-		data->limits_valid = 1;
+		atomic64_set(&data->limits_last_updated, local_jiffies);
+		/* Pairs with smp_load_acquire() in lockless fast-path. */
+		smp_store_release(&data->limits_valid, 1);
 	}
 out:
 	mutex_unlock(&data->lock);
