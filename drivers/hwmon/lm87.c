@@ -148,7 +148,7 @@ static int fan_from_reg(int reg, int div)
 struct lm87_data {
 	struct mutex update_lock;
 	bool valid; /* false until following fields are valid */
-	unsigned long last_updated; /* In jiffies */
+	u64 last_updated; /* In jiffies */
 
 	u8 channel;		/* register value */
 	u8 config;		/* original register value */
@@ -193,7 +193,8 @@ static struct lm87_data *lm87_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ) ||
+	    !data->valid) {
 		int i, j;
 
 		dev_dbg(&client->dev, "Updating data.\n");
@@ -256,7 +257,7 @@ static struct lm87_data *lm87_update_device(struct device *dev)
 				<< 8);
 		data->aout = lm87_read_value(client, LM87_REG_AOUT);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 
