@@ -56,7 +56,7 @@ struct lm77_data {
 	struct i2c_client	*client;
 	struct mutex		update_lock;
 	bool			valid;
-	unsigned long		last_updated;	/* In jiffies */
+	u64			last_updated;	/* In jiffies */
 	int			temp[t_num_temp]; /* index using temp_index */
 	u8			alarms;
 };
@@ -107,7 +107,7 @@ static struct lm77_data *lm77_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ + HZ / 2)
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ + HZ / 2)
 	    || !data->valid) {
 		dev_dbg(&client->dev, "Starting lm77 update\n");
 		for (i = 0; i < t_num_temp; i++) {
@@ -117,7 +117,7 @@ static struct lm77_data *lm77_update_device(struct device *dev)
 		}
 		data->alarms =
 			lm77_read_value(client, LM77_REG_TEMP) & 0x0007;
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 
