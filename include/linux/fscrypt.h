@@ -361,11 +361,6 @@ static inline bool fscrypt_is_bounce_page(struct page *page)
 	return page->mapping == NULL;
 }
 
-static inline struct page *fscrypt_pagecache_page(struct page *bounce_page)
-{
-	return (struct page *)page_private(bounce_page);
-}
-
 static inline bool fscrypt_is_bounce_folio(const struct folio *folio)
 {
 	return folio->mapping == NULL;
@@ -530,12 +525,6 @@ static inline int fscrypt_decrypt_block_inplace(const struct inode *inode,
 static inline bool fscrypt_is_bounce_page(struct page *page)
 {
 	return false;
-}
-
-static inline struct page *fscrypt_pagecache_page(struct page *bounce_page)
-{
-	WARN_ON_ONCE(1);
-	return ERR_PTR(-EINVAL);
 }
 
 static inline bool fscrypt_is_bounce_folio(const struct folio *folio)
