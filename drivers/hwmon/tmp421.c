@@ -14,7 +14,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
-#include <linux/jiffies.h>
+#include <linux/ktime.h>
 #include <linux/i2c.h>
 #include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
@@ -103,7 +103,7 @@ struct tmp421_data {
 	const struct hwmon_channel_info *info[2];
 	struct hwmon_chip_info chip;
 	bool valid;
-	unsigned long last_updated;
+	ktime_t last_updated;
 	unsigned long channels;
 	u8 config;
 	struct tmp421_channel channel[MAX_CHANNELS];
@@ -128,8 +128,8 @@ static int tmp421_update_device(struct tmp421_data *data)
 	int ret = 0;
 	int i;
 
-	if (time_after(jiffies, data->last_updated + (HZ / 2)) ||
-	    !data->valid) {
+	if (!data->valid ||
+	    ktime_after(ktime_get(), ktime_add_ms(data->last_updated, 500))) {
 		data->valid = false;
 		ret = i2c_smbus_read_byte_data(client, TMP421_CONFIG_REG_1);
 		if (ret < 0)
@@ -147,7 +147,7 @@ static int tmp421_update_device(struct tmp421_data *data)
 				return ret;
 			data->channel[i].temp |= ret;
 		}
-		data->last_updated = jiffies;
+		data->last_updated = ktime_get();
 		data->valid = true;
 	}
 	return 0;
