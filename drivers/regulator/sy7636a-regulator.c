@@ -7,8 +7,10 @@
 // Authors: Lars Ivar Miljeteig <lars.ivar.miljeteig@remarkable.com>
 //          Alistair Francis <alistair@alistair23.me>
 
+#include <linux/completion.h>
 #include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
+#include <linux/interrupt.h>
 #include <linux/mfd/sy7636a.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -17,11 +19,14 @@
 #include <linux/regulator/machine.h>
 #include <linux/regmap.h>
 
+#define PGOOD_TIMEOUT_MSECS 200
+
 struct sy7636a_data {
 	struct regmap *regmap;
 	struct gpio_desc *pgood_gpio;
 	struct gpio_desc *en_gpio;
 	struct gpio_desc *vcom_en_gpio;
+	struct completion pgood_completion;
 };
 
 static int sy7636a_get_vcom_voltage_sel(struct regulator_dev *rdev)
@@ -65,12 +70,43 @@ static int sy7636a_get_status(struct regulator_dev *rdev)
 	return ret;
 }
 
+static irqreturn_t sy7636a_pgood_handler(int irq, void *dev_id)
+{
+	struct sy7636a_data *data = dev_id;
+
+	complete(&data->pgood_completion);
+
+	return IRQ_HANDLED;
+}
+
+/* return once the rails are good, so that consumers can use them */
+static int sy7636a_enable(struct regulator_dev *rdev)
+{
+	struct sy7636a_data *data = dev_get_drvdata(rdev->dev.parent);
+	int ret;
+
+	reinit_completion(&data->pgood_completion);
+	ret = regulator_enable_regmap(rdev);
+	if (ret)
+		return ret;
+
+	wait_for_completion_timeout(&data->pgood_completion,
+				    msecs_to_jiffies(PGOOD_TIMEOUT_MSECS));
+	ret = gpiod_get_value_cansleep(data->pgood_gpio);
+	if (ret <= 0) {
+		regulator_disable_regmap(rdev);
+		return ret ? ret : -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
 static const struct regulator_ops sy7636a_vcom_volt_ops = {
 	.list_voltage = regulator_list_voltage_linear_range,
 	.map_voltage = regulator_map_voltage_linear_range,
 	.get_voltage_sel = sy7636a_get_vcom_voltage_sel,
 	.set_voltage_sel = sy7636a_set_vcom_voltage_sel,
-	.enable = regulator_enable_regmap,
+	.enable = sy7636a_enable,
 	.disable = regulator_disable_regmap,
 	.is_enabled = regulator_is_enabled_regmap,
 	.get_status = sy7636a_get_status,
@@ -104,7 +140,7 @@ static int sy7636a_regulator_probe(struct platform_device *pdev)
 	struct regulator_dev *rdev;
 	struct gpio_desc *gdp;
 	struct sy7636a_data *data;
-	int ret;
+	int irq, ret;
 
 	if (!regmap)
 		return -EPROBE_DEFER;
@@ -155,6 +191,18 @@ static int sy7636a_regulator_probe(struct platform_device *pdev)
 		dev_err(pdev->dev.parent, "Failed to initialize regulator: %d\n", ret);
 		return ret;
 	}
+
+	irq = gpiod_to_irq(data->pgood_gpio);
+	if (irq < 0)
+		return dev_err_probe(&pdev->dev, irq, "no power good interrupt\n");
+
+	init_completion(&data->pgood_completion);
+	ret = devm_request_threaded_irq(&pdev->dev, irq, NULL, sy7636a_pgood_handler,
+					IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+					"sy7636a-pgood", data);
+	if (ret)
+		return dev_err_probe(&pdev->dev, ret,
+				     "failed to request power good interrupt\n");
 
 	config.dev = &pdev->dev;
 	config.regmap = regmap;
