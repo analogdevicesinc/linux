@@ -95,10 +95,10 @@ static int rt722_sdca_btn_type(unsigned char *buffer)
 	return 0;
 }
 
-static unsigned int rt722_sdca_button_detect(struct rt722_sdca_priv *rt722)
+static int rt722_sdca_button_detect(struct rt722_sdca_priv *rt722)
 {
-	unsigned int btn_type = 0, offset, idx, val, owner;
-	int ret;
+	unsigned int offset, idx, val, owner;
+	int btn_type = 0, ret;
 	unsigned char buf[3];
 
 	/* get current UMP message owner */
@@ -106,7 +106,7 @@ static unsigned int rt722_sdca_button_detect(struct rt722_sdca_priv *rt722)
 		SDW_SDCA_CTL(FUNC_NUM_HID, RT722_SDCA_ENT_HID01,
 			RT722_SDCA_CTL_HIDTX_CURRENT_OWNER, 0), &owner);
 	if (ret < 0)
-		return 0;
+		return ret;
 
 	/* if owner is device then there is no button event from device */
 	if (owner == 1)
@@ -137,6 +137,9 @@ _end_btn_det_:
 		regmap_write(rt722->regmap,
 			SDW_SDCA_CTL(FUNC_NUM_HID, RT722_SDCA_ENT_HID01,
 				RT722_SDCA_CTL_HIDTX_CURRENT_OWNER, 0), 0x01);
+
+	if (ret < 0)
+		return ret;
 
 	return btn_type;
 }
@@ -206,6 +209,17 @@ static void rt722_sdca_jack_detect_handler(struct work_struct *work)
 	/* SDW_SCP_SDCA_INT_SDCA_8 is used for button detection */
 	if (rt722->scp_sdca_stat2 & SDW_SCP_SDCA_INT_SDCA_8)
 		btn_type = rt722_sdca_button_detect(rt722);
+
+	if (btn_type < 0) {
+		unsigned int mask = SND_JACK_HEADSET;
+
+		if (rt722->jack_type != SND_JACK_HEADSET)
+			mask |= SND_JACK_BTN_0 | SND_JACK_BTN_1 |
+				SND_JACK_BTN_2 | SND_JACK_BTN_3;
+
+		snd_soc_jack_report(rt722->hs_jack, rt722->jack_type, mask);
+		return;
+	}
 
 	if (rt722->jack_type == 0)
 		btn_type = 0;
