@@ -266,7 +266,7 @@ struct fschmd_data {
 	char watchdog_expect_close;
 	char watchdog_name[10]; /* must be unique to avoid sysfs conflict */
 	bool valid; /* false until following fields are valid */
-	unsigned long last_updated; /* in jiffies */
+	u64 last_updated; /* in jiffies */
 
 	/* register values */
 	u8 revision;            /* chip revision */
@@ -1301,7 +1301,8 @@ static struct fschmd_data *fschmd_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + 2 * HZ) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + 2 * HZ) ||
+	    !data->valid) {
 
 		for (i = 0; i < FSCHMD_NO_TEMP_SENSORS[data->kind]; i++) {
 			data->temp_act[i] = i2c_smbus_read_byte_data(client,
@@ -1353,7 +1354,7 @@ static struct fschmd_data *fschmd_update_device(struct device *dev)
 			data->volt[i] = i2c_smbus_read_byte_data(client,
 					       FSCHMD_REG_VOLT[data->kind][i]);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 
