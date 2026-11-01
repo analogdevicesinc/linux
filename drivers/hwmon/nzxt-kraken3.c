@@ -14,6 +14,7 @@
 #include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
 #include <linux/jiffies.h>
+#include <linux/ktime.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
@@ -105,7 +106,7 @@ struct kraken3_data {
 	 * was processed after requesting one.
 	 */
 	struct completion status_report_processed;
-	/* For locking the above completion */
+	/* For locking the above completion and updated timestamp */
 	spinlock_t status_completion_lock;
 
 	u8 *buffer;
@@ -119,7 +120,7 @@ struct kraken3_data {
 	enum kinds kind;
 	u8 firmware_version[3];
 
-	unsigned long updated;	/* jiffies */
+	ktime_t updated;
 };
 
 static umode_t kraken3_is_visible(const void *data, enum hwmon_sensor_types type, u32 attr,
@@ -248,6 +249,17 @@ static int kraken3_read_x53(struct kraken3_data *priv)
 	return 0;
 }
 
+static bool kraken3_is_stale(struct kraken3_data *priv)
+{
+	ktime_t updated;
+
+	spin_lock_bh(&priv->status_completion_lock);
+	updated = priv->updated;
+	spin_unlock_bh(&priv->status_completion_lock);
+
+	return ktime_after(ktime_get(), ktime_add_ms(updated, STATUS_VALIDITY));
+}
+
 /* Covers Z53 and KRAKEN2023 device kinds */
 static int kraken3_read_z53(struct kraken3_data *priv)
 {
@@ -256,7 +268,7 @@ static int kraken3_read_z53(struct kraken3_data *priv)
 	if (ret < 0)
 		return ret;
 
-	if (!time_after(jiffies, priv->updated + msecs_to_jiffies(STATUS_VALIDITY))) {
+	if (!kraken3_is_stale(priv)) {
 		/* Data is up to date */
 		goto unlock_and_return;
 	}
@@ -294,7 +306,7 @@ static int kraken3_read(struct device *dev, enum hwmon_sensor_types type, u32 at
 	struct kraken3_data *priv = dev_get_drvdata(dev);
 	int ret;
 
-	if (time_after(jiffies, priv->updated + msecs_to_jiffies(STATUS_VALIDITY))) {
+	if (kraken3_is_stale(priv)) {
 		if (priv->kind == X53)
 			ret = kraken3_read_x53(priv);
 		else
@@ -780,6 +792,7 @@ static int kraken3_raw_event(struct hid_device *hdev, struct hid_report *report,
 	priv->channel_info[0].reported_duty = kraken3_percent_to_pwm(data[PUMP_DUTY_OFFSET]);
 
 	spin_lock(&priv->status_completion_lock);
+	priv->updated = ktime_get();
 	if (priv->kind == X53 && !completion_done(&priv->status_report_processed)) {
 		/* Mark first X-series device report as received */
 		complete_all(&priv->status_report_processed);
@@ -793,8 +806,6 @@ static int kraken3_raw_event(struct hid_device *hdev, struct hid_report *report,
 			complete_all(&priv->status_report_processed);
 	}
 	spin_unlock(&priv->status_completion_lock);
-
-	priv->updated = jiffies;
 
 	return 0;
 }
@@ -886,11 +897,11 @@ static int kraken3_probe(struct hid_device *hdev, const struct hid_device_id *id
 	hid_set_drvdata(hdev, priv);
 
 	/*
-	 * Initialize ->updated to STATUS_VALIDITY seconds in the past, making
+	 * Initialize ->updated to STATUS_VALIDITY in the past, making
 	 * the initial empty data invalid for kraken3_read without the need for
 	 * a special case there.
 	 */
-	priv->updated = jiffies - msecs_to_jiffies(STATUS_VALIDITY);
+	priv->updated = ktime_sub_ms(ktime_get(), STATUS_VALIDITY + 1);
 
 	ret = hid_parse(hdev);
 	if (ret) {
