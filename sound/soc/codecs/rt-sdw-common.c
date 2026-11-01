@@ -187,6 +187,7 @@ EXPORT_SYMBOL_GPL(rt_sdca_headset_detect);
  *
  * A button type will be returned regarding to buffer,
  * it returns zero if buffer cannot be recognized.
+ * A negative errno is returned if a register read fails.
  */
 int rt_sdca_button_detect(struct regmap *map, unsigned int entity_id,
 	unsigned int hid_buf_addr, unsigned int hid_id)
@@ -199,7 +200,7 @@ int rt_sdca_button_detect(struct regmap *map, unsigned int entity_id,
 	ret = regmap_read(map, SDW_SDCA_CTL(SDCA_NUM_HID, entity_id,
 			RT_SDCA_CTL_HIDTX_CURRENT_OWNER, 0), &owner);
 	if (ret < 0)
-		return 0;
+		return ret;
 
 	/* if owner is device then there is no button event from device */
 	if (owner == 1)
@@ -228,6 +229,9 @@ _end_btn_det_:
 		regmap_write(map,
 			SDW_SDCA_CTL(SDCA_NUM_HID, entity_id,
 				RT_SDCA_CTL_HIDTX_CURRENT_OWNER, 0), 0x01);
+
+	if (ret < 0)
+		return ret;
 
 	return btn_type;
 }
