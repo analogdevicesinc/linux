@@ -2126,8 +2126,8 @@ static match_table_t tokens = {
 	{Opt_initiator_sid, "initiator_sid=%s"},
 	{Opt_sa_res_key, "sa_res_key=%s"},
 	{Opt_res_holder, "res_holder=%d"},
-	{Opt_res_type, "res_type=%d"},
-	{Opt_res_scope, "res_scope=%d"},
+	{Opt_res_type, "res_type=%x"},
+	{Opt_res_scope, "res_scope=%x"},
 	{Opt_res_all_tg_pt, "res_all_tg_pt=%d"},
 	{Opt_mapped_lun, "mapped_lun=%u"},
 	{Opt_target_fabric, "target_fabric=%s"},
@@ -2229,13 +2229,13 @@ static ssize_t target_pr_res_aptpl_metadata_store(struct config_item *item,
 			res_holder = arg;
 			break;
 		case Opt_res_type:
-			ret = match_int(args, &arg);
+			ret = match_hex(args, &arg);
 			if (ret)
 				goto out;
 			type = (u8)arg;
 			break;
 		case Opt_res_scope:
-			ret = match_int(args, &arg);
+			ret = match_hex(args, &arg);
 			if (ret)
 				goto out;
 			break;
