@@ -1411,6 +1411,39 @@ __naked void widened_reg_is_not_linked(void)
 	: __clobber_all);
 }
 
+extern int bpf_stream_print_stack(int stream_id) __weak __ksym;
+
+/*
+ * The verifier fills in r2, the implicit argument of the kfunc. The call clobbers r2 and nothing
+ * sets it: if r2 is live at the head of the loop it has no formula.
+ */
+SEC("syscall")
+__success __retval(0)
+__log_level(2)
+__msg("loop header at 1, header_count is 4 ")
+__not_msg("can't widen")
+__naked void kfunc_implicit_arg_in_a_loop(void)
+{
+	asm volatile (
+	"r6 = 0;"
+"1:"
+	"r1 = 2;"
+	"call %[bpf_stream_print_stack];"
+	"r6 += 1;"
+	"if r6 < 4 goto 1b;"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_stream_print_stack)
+	: __clobber_all);
+}
+
+/* to retain debug info for BTF generation */
+void kfunc_root(void)
+{
+	bpf_stream_print_stack(0);
+}
+
 /* The unknown SCEV of an unbound STACK_MISC slot must not prevent widening. */
 SEC("tracepoint")
 __success

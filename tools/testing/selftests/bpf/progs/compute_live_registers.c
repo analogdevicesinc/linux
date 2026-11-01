@@ -538,6 +538,19 @@ void gotox(void)
 
 #endif /* gotox: x86, arm64, riscv64 */
 
+extern int bpf_stream_vprintk(int stream_id, const char *fmt__str, const void *args,
+			      __u32 len__sz) __weak __ksym;
+
+/* The verifier fills in the implicit argument of the kfunc. The prog does not pass r5. */
+SEC("syscall")
+__log_level(2)
+__msg(": .1234..... (85) call bpf_stream_vprintk")
+int kfunc_implicit_arg(void *ctx)
+{
+	bpf_stream_printk(1 /* BPF_STDOUT */, "x");
+	return 0;
+}
+
 /* to retain debug info for BTF generation */
 void kfunc_root(void)
 {
