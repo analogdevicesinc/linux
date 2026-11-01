@@ -9,6 +9,7 @@
 #include <linux/hid.h>
 #include <linux/hwmon.h>
 #include <linux/jiffies.h>
+#include <linux/ktime.h>
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include <linux/unaligned.h>
@@ -67,7 +68,7 @@ struct waterforce_data {
 
 	u8 *buffer;
 	int firmware_version;
-	unsigned long updated;	/* jiffies */
+	ktime_t updated;
 };
 
 static umode_t waterforce_is_visible(const void *data,
@@ -129,7 +130,7 @@ static int waterforce_get_status(struct waterforce_data *priv)
 		return ret;
 
 	spin_lock_irq(&priv->status_report_request_lock);
-	if (!time_after(jiffies, priv->updated + msecs_to_jiffies(STATUS_VALIDITY))) {
+	if (!ktime_after(ktime_get(), ktime_add_ms(priv->updated, STATUS_VALIDITY))) {
 		/* Data is up to date */
 		spin_unlock_irq(&priv->status_report_request_lock);
 		goto unlock_and_return;
@@ -288,7 +289,7 @@ static int waterforce_raw_event(struct hid_device *hdev, struct hid_report *repo
 	priv->speed_input[1] = get_unaligned_le16(data + WATERFORCE_PUMP_SPEED);
 	priv->duty_input[0] = data[WATERFORCE_FAN_DUTY];
 	priv->duty_input[1] = data[WATERFORCE_PUMP_DUTY];
-	priv->updated = jiffies;
+	priv->updated = ktime_get();
 	if (!completion_done(&priv->status_report_received))
 		complete_all(&priv->status_report_received);
 	spin_unlock_irqrestore(&priv->status_report_request_lock, flags);
@@ -332,11 +333,11 @@ static int waterforce_probe(struct hid_device *hdev, const struct hid_device_id 
 	hid_set_drvdata(hdev, priv);
 
 	/*
-	 * Initialize priv->updated to STATUS_VALIDITY seconds in the past, making
+	 * Initialize priv->updated to STATUS_VALIDITY in the past, making
 	 * the initial empty data invalid for waterforce_read() without the need for
 	 * a special case there.
 	 */
-	priv->updated = jiffies - msecs_to_jiffies(STATUS_VALIDITY);
+	priv->updated = ktime_sub_ms(ktime_get(), STATUS_VALIDITY + 1);
 
 	ret = hid_parse(hdev);
 	if (ret) {
