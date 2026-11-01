@@ -9,7 +9,7 @@
 #include <linux/module.h>
 #include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
-#include <linux/jiffies.h>
+#include <linux/ktime.h>
 #include <linux/limits.h>
 #include <linux/mutex.h>
 #include <linux/dmi.h>
@@ -95,7 +95,7 @@ struct acpi_power_meter_resource {
 	u64		avg_interval;
 	bool		power_alarm;
 	int			sensors_valid;
-	unsigned long		sensors_last_updated;
+	ktime_t			sensors_last_updated;
 #define POWER_METER_TRIP_AVERAGE_MIN_IDX	0
 #define POWER_METER_TRIP_AVERAGE_MAX_IDX	1
 	s64			trip[2];
@@ -179,12 +179,11 @@ static int update_meter(struct acpi_power_meter_resource *resource)
 {
 	unsigned long long data;
 	acpi_status status;
-	unsigned long local_jiffies = jiffies;
 
-	if (!acpi_power_meter_is_unknown(resource->caps.sampling_time) &&
-	    time_before(local_jiffies, resource->sensors_last_updated +
-			msecs_to_jiffies(resource->caps.sampling_time)) &&
-	    resource->sensors_valid)
+	if (resource->sensors_valid &&
+	    !acpi_power_meter_is_unknown(resource->caps.sampling_time) &&
+	    ktime_ms_delta(ktime_get(), resource->sensors_last_updated) <
+	    resource->caps.sampling_time)
 		return 0;
 
 	status = acpi_evaluate_integer(resource->acpi_dev->handle, "_PMM",
@@ -197,7 +196,7 @@ static int update_meter(struct acpi_power_meter_resource *resource)
 
 	resource->power = data;
 	resource->sensors_valid = 1;
-	resource->sensors_last_updated = jiffies;
+	resource->sensors_last_updated = ktime_get();
 	return 0;
 }
 
