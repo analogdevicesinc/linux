@@ -131,7 +131,7 @@ static const u8 target_reg[] = {
 struct max6620_data {
 	struct i2c_client *client;
 	bool valid; /* false until following fields are valid */
-	unsigned long last_updated; /* in jiffies */
+	u64 last_updated; /* in jiffies */
 
 	/* register values */
 	u8 fancfg[4];
@@ -162,7 +162,8 @@ static int max6620_update_device(struct device *dev)
 	struct i2c_client *client = data->client;
 	int i, ret;
 
-	if (time_after(jiffies, data->last_updated + HZ) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ) ||
+	    !data->valid) {
 		for (i = 0; i < 4; i++) {
 			ret = i2c_smbus_read_byte_data(client, config_reg[i]);
 			if (ret < 0)
@@ -203,7 +204,7 @@ static int max6620_update_device(struct device *dev)
 			return ret;
 		data->fault |= (ret >> 4) & (ret & 0x0F);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 	return 0;
