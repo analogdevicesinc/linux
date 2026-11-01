@@ -98,7 +98,7 @@ static const u8 adt7411_in_alarm_bits[] = {
 };
 
 struct adt7411_data {
-	unsigned long next_update;
+	u64 next_update;
 	long vref_cached;
 	struct i2c_client *client;
 	bool use_ext_temp;
@@ -172,7 +172,7 @@ static ssize_t adt7411_set_bit(struct device *dev,
 	scoped_guard(hwmon_lock, dev) {
 		ret = adt7411_modify_bit(client, s_attr2->index, s_attr2->nr, flag);
 		/* force update */
-		data->next_update = jiffies;
+		data->next_update = get_jiffies_64();
 	}
 
 	return ret < 0 ? ret : count;
@@ -246,7 +246,7 @@ static int adt7411_update_vref(struct device *dev)
 	struct i2c_client *client = data->client;
 	int val;
 
-	if (time_after_eq(jiffies, data->next_update)) {
+	if (time_after_eq64(get_jiffies_64(), data->next_update)) {
 		val = i2c_smbus_read_byte_data(client, ADT7411_REG_CFG3);
 		if (val < 0)
 			return val;
@@ -260,7 +260,7 @@ static int adt7411_update_vref(struct device *dev)
 			data->vref_cached = 2250;
 		}
 
-		data->next_update = jiffies + HZ;
+		data->next_update = get_jiffies_64() + HZ;
 	}
 
 	return 0;
@@ -660,7 +660,7 @@ static int adt7411_probe(struct i2c_client *client)
 		return ret;
 
 	/* force update on first occasion */
-	data->next_update = jiffies;
+	data->next_update = get_jiffies_64();
 
 	hwmon_dev = devm_hwmon_device_register_with_info(dev, client->name,
 							 data,
