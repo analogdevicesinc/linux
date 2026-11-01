@@ -210,7 +210,9 @@ int apple_smc_get_key_info(struct apple_smc *smc, smc_key key, struct apple_smc_
 	u8 key_info[6];
 	int ret;
 
-	ret = apple_smc_cmd(smc, SMC_MSG_GET_KEY_INFO, key, 0, 0, NULL);
+	guard(mutex)(&smc->mutex);
+
+	ret = apple_smc_cmd_locked(smc, SMC_MSG_GET_KEY_INFO, key, 0, 0, NULL);
 	if (ret >= 0 && info) {
 		memcpy_fromio(key_info, smc->shmem.iomem, sizeof(key_info));
 		info->size = key_info[0];
