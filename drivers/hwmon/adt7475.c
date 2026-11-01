@@ -199,7 +199,7 @@ struct adt7475_data {
 	struct i2c_client *client;
 	struct mutex lock;
 
-	unsigned long measure_updated;
+	u64 measure_updated;
 	bool valid;
 
 	u8 config2;
@@ -2193,7 +2193,7 @@ static struct adt7475_data *adt7475_update_device(struct device *dev)
 	mutex_lock(&data->lock);
 
 	/* Measurement values update every 2 seconds */
-	if (time_after(jiffies, data->measure_updated + HZ * 2) ||
+	if (time_after64(get_jiffies_64(), data->measure_updated + HZ * 2) ||
 	    !data->valid) {
 		ret = adt7475_update_measure(dev);
 		if (ret) {
@@ -2201,7 +2201,7 @@ static struct adt7475_data *adt7475_update_device(struct device *dev)
 			mutex_unlock(&data->lock);
 			return ERR_PTR(ret);
 		}
-		data->measure_updated = jiffies;
+		data->measure_updated = get_jiffies_64();
 		data->valid = true;
 	}
 
