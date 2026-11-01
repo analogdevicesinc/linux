@@ -338,7 +338,7 @@ struct nct6683_data {
 
 	struct mutex update_lock;	/* used to protect sensor updates */
 	bool valid;			/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;		/* In jiffies */
 
 	/* Voltage attribute values */
 	u8 in[3][NCT6683_NUM_REG_MON];	/* [0]=in, [1]=in_max, [2]=in_min */
@@ -630,7 +630,8 @@ static struct nct6683_data *nct6683_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ) ||
+	    !data->valid) {
 		/* Measured voltages and limits */
 		for (i = 0; i < data->in_num; i++) {
 			for (j = 0; j < 3; j++) {
@@ -670,7 +671,7 @@ static struct nct6683_data *nct6683_update_device(struct device *dev)
 
 		nct6683_update_pwm(dev);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 
