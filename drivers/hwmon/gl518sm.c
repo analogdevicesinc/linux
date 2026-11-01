@@ -108,7 +108,7 @@ struct gl518_data {
 
 	struct mutex update_lock;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
 
 	u8 voltage_in[4];	/* Register values; [0] = VDD */
 	u8 voltage_min[4];	/* Register values; [0] = VDD */
@@ -155,7 +155,7 @@ static struct gl518_data *gl518_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ + HZ / 2)
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ + HZ / 2)
 	    || !data->valid) {
 		dev_dbg(&client->dev, "Starting gl518 update\n");
 
@@ -210,7 +210,7 @@ static struct gl518_data *gl518_update_device(struct device *dev)
 		data->voltage_in[3] =
 		    gl518_read_value(client, GL518_REG_VIN3);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 
