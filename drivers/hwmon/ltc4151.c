@@ -23,7 +23,7 @@
 #include <linux/i2c.h>
 #include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
-#include <linux/jiffies.h>
+#include <linux/ktime.h>
 
 /* chip registers */
 #define LTC4151_SENSE_H	0x00
@@ -38,7 +38,7 @@ struct ltc4151_data {
 
 	struct mutex update_lock;
 	bool valid;
-	unsigned long last_updated; /* in jiffies */
+	ktime_t last_updated;
 	unsigned int shunt; /* in micro ohms */
 
 	/* Registers */
@@ -57,7 +57,9 @@ static struct ltc4151_data *ltc4151_update_device(struct device *dev)
 	 * The chip's A/D updates 6 times per second
 	 * (Conversion Rate 6 - 9 Hz)
 	 */
-	if (time_after(jiffies, data->last_updated + HZ / 6) || !data->valid) {
+	if (ktime_after(ktime_get(),
+			ktime_add_ns(data->last_updated, NSEC_PER_SEC / 6)) ||
+	    !data->valid) {
 		int i;
 
 		dev_dbg(&client->dev, "Starting ltc4151 update\n");
@@ -76,7 +78,7 @@ static struct ltc4151_data *ltc4151_update_device(struct device *dev)
 			}
 			data->regs[i] = val;
 		}
-		data->last_updated = jiffies;
+		data->last_updated = ktime_get();
 		data->valid = true;
 	}
 abort:
