@@ -626,6 +626,8 @@ void handle_simple_irq(struct irq_desc *desc)
 
 	kstat_incr_irqs_this_cpu(desc);
 	handle_irq_event(desc);
+	if (unlikely(desc->istate & IRQS_PENDING))
+		check_irq_resend(desc, false);
 }
 EXPORT_SYMBOL_GPL(handle_simple_irq);
 
