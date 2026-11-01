@@ -146,7 +146,7 @@ struct abituguru3_data {
 	struct mutex update_lock;	/* protect access to data and uGuru */
 	unsigned short addr;		/* uguru base address */
 	bool valid;			/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;		/* In jiffies */
 
 	/*
 	 * For convenience the sysfs attr and their names are generated
@@ -1079,7 +1079,8 @@ static struct abituguru3_data *abituguru3_update_device(struct device *dev)
 	struct abituguru3_data *data = dev_get_drvdata(dev);
 
 	mutex_lock(&data->update_lock);
-	if (!data->valid || time_after(jiffies, data->last_updated + HZ)) {
+	if (!data->valid ||
+	    time_after64(get_jiffies_64(), data->last_updated + HZ)) {
 		/* Clear data->valid while updating */
 		data->valid = false;
 		/* Read alarms */
@@ -1114,7 +1115,7 @@ static struct abituguru3_data *abituguru3_update_device(struct device *dev)
 					data->settings[32 + i], 2) != 2)
 				goto LEAVE_UPDATE;
 		}
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 LEAVE_UPDATE:
