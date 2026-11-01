@@ -166,8 +166,8 @@ struct f71805f_data {
 
 	struct mutex update_lock;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
-	unsigned long last_limits;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
+	u64 last_limits;	/* In jiffies */
 
 	/* Register values */
 	u8 in[11];
@@ -337,7 +337,7 @@ static struct f71805f_data *f71805f_update_device(struct device *dev)
 	mutex_lock(&data->update_lock);
 
 	/* Limit registers cache is refreshed after 60 seconds */
-	if (time_after(jiffies, data->last_updated + 60 * HZ)
+	if (time_after64(get_jiffies_64(), data->last_limits + 60 * HZ)
 	 || !data->valid) {
 		for (nr = 0; nr < 11; nr++) {
 			if (!(data->has_in & (1 << nr)))
@@ -375,11 +375,11 @@ static struct f71805f_data *f71805f_update_device(struct device *dev)
 			}
 		}
 
-		data->last_limits = jiffies;
+		data->last_limits = get_jiffies_64();
 	}
 
 	/* Measurement registers cache is refreshed after 1 second */
-	if (time_after(jiffies, data->last_updated + HZ)
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ)
 	 || !data->valid) {
 		for (nr = 0; nr < 11; nr++) {
 			if (!(data->has_in & (1 << nr)))
@@ -403,7 +403,7 @@ static struct f71805f_data *f71805f_update_device(struct device *dev)
 			+ (f71805f_read8(data, F71805F_REG_STATUS(1)) << 8)
 			+ (f71805f_read8(data, F71805F_REG_STATUS(2)) << 16);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 
