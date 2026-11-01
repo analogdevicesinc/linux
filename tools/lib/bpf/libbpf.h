@@ -390,6 +390,17 @@ LIBBPF_API void bpf_program__set_ifindex(struct bpf_program *prog,
 LIBBPF_API const char *bpf_program__name(const struct bpf_program *prog);
 LIBBPF_API const char *bpf_program__section_name(const struct bpf_program *prog);
 LIBBPF_API bool bpf_program__autoload(const struct bpf_program *prog);
+
+/**
+ * @brief **bpf_program__set_autoload()** sets whether a BPF program is
+ * loaded automatically when its bpf_object is loaded.
+ *
+ * @param prog BPF program to update
+ * @param autoload true to load the program automatically, false to disable
+ * its loading
+ * @return 0 on success; -EINVAL if the object was already prepared or if the
+ * program is a subprogram
+ */
 LIBBPF_API int bpf_program__set_autoload(struct bpf_program *prog, bool autoload);
 LIBBPF_API bool bpf_program__autoattach(const struct bpf_program *prog);
 LIBBPF_API void bpf_program__set_autoattach(struct bpf_program *prog, bool autoattach);
@@ -2177,7 +2188,8 @@ enum bpf_prog_load_strategy {
  *
  * @param prog BPF program to update
  * @param strategy new load strategy for the program
- * @return 0 on success; negative error code if the object was already prepared
+ * @return 0 on success; -EINVAL if the object was already prepared, if the
+ * strategy is not a valid one, or if the program is a subprogram
  */
 LIBBPF_API int bpf_program__set_load_strategy(struct bpf_program *prog,
 					      enum bpf_prog_load_strategy strategy);
