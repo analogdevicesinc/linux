@@ -47,7 +47,7 @@ struct ad7418_data {
 	struct mutex		lock;
 	int			adc_max;	/* number of ADC channels */
 	bool			valid;
-	unsigned long		last_updated;	/* In jiffies */
+	u64			last_updated;	/* In jiffies */
 	s16			temp[3];	/* Register values */
 	u16			in[4];
 };
@@ -60,8 +60,8 @@ static int ad7418_update_device(struct device *dev)
 
 	mutex_lock(&data->lock);
 
-	if (time_after(jiffies, data->last_updated + HZ + HZ / 2)
-		|| !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ + HZ / 2) ||
+	    !data->valid) {
 		u8 cfg;
 		int i, ch;
 
@@ -110,7 +110,7 @@ static int ad7418_update_device(struct device *dev)
 		if (val < 0)
 			goto abort;
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 
