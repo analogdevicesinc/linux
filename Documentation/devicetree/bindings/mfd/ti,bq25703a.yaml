@@ -88,7 +88,7 @@ allOf:
         input-current-limit-microamp:
           minimum: 50000
           maximum: 6400000
-          default: 3250000
+          default: 3300000
         regulators:
           properties:
             vbus:
