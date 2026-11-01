@@ -62,7 +62,7 @@ struct adc128_data {
 	struct mutex update_lock;
 	u8 mode;		/* Operation mode */
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
 
 	u16 in[3][8];		/* Register value, normalized to 12 bit
 				 * 0: input voltage
@@ -84,7 +84,8 @@ static struct adc128_data *adc128_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ) ||
+	    !data->valid) {
 		for (i = 0; i < num_inputs[data->mode]; i++) {
 			rv = i2c_smbus_read_word_swapped(client,
 							 ADC128_REG_IN(i));
@@ -130,7 +131,7 @@ static struct adc128_data *adc128_update_device(struct device *dev)
 			goto abort;
 		data->alarms |= rv;
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 	goto done;
