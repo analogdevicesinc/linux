@@ -81,7 +81,7 @@ struct sht4x_data {
 	u32			heater_time;	/* in milli-seconds */
 	bool			valid;	/* validity of fields below */
 	long			update_interval;	/* in milli-seconds */
-	long			last_updated;	/* in jiffies */
+	u64			last_updated;	/* in jiffies */
 	s32			temperature;
 	s32			humidity;
 };
@@ -95,7 +95,7 @@ static int sht4x_read_values(struct sht4x_data *data)
 {
 	int ret;
 	u16 t_ticks, rh_ticks;
-	unsigned long next_update;
+	u64 next_update;
 	struct i2c_client *client = data->client;
 	u8 crc;
 	u8 cmd[SHT4X_CMD_LEN] = {SHT4X_CMD_MEASURE_HPM};
@@ -119,7 +119,7 @@ static int sht4x_read_values(struct sht4x_data *data)
 		next_update = data->last_updated +
 			msecs_to_jiffies(data->update_interval);
 
-		if (data->valid && time_before_eq(jiffies, next_update))
+		if (data->valid && time_before_eq64(get_jiffies_64(), next_update))
 			return 0;
 
 		ret = i2c_master_send(client, cmd, SHT4X_CMD_LEN);
@@ -157,7 +157,7 @@ static int sht4x_read_values(struct sht4x_data *data)
 		data->humidity = ((15625 * (int32_t)rh_ticks) >> 13) - 6000;
 	}
 
-	data->last_updated = jiffies;
+	data->last_updated = get_jiffies_64();
 	data->valid = true;
 	return 0;
 }
