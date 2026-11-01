@@ -2,6 +2,7 @@
 #
 # Makefile for the industrial I/O core.
 #
+subdir-ccflags-y += $(CFLAGS_CONTEXT_ANALYSIS)
 
 obj-$(CONFIG_IIO) += industrialio.o
 industrialio-y := industrialio-core.o industrialio-event.o inkern.o
