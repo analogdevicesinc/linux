@@ -344,10 +344,9 @@ bool alarm_start_timer(struct alarm *alarm, ktime_t expires, bool relative)
 	if (relative)
 		expires = ktime_add_safe(expires, base->get_ktime());
 
-	trace_alarmtimer_start(alarm, base->get_ktime());
-
 	guard(spinlock_irqsave)(&base->lock);
 	alarm->node.expires = expires;
+	trace_alarmtimer_start(alarm, base->get_ktime());
 	alarmtimer_enqueue(base, alarm);
 	if (!hrtimer_start_range_ns_user(&alarm->timer, expires, 0, HRTIMER_MODE_ABS)) {
 		alarmtimer_dequeue(base, alarm);
