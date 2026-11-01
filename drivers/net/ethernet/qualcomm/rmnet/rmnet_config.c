@@ -40,9 +40,9 @@ static int rmnet_unregister_real_device(struct net_device *real_dev)
 	if (port->nr_rmnet_devs)
 		return -EINVAL;
 
-	rmnet_map_tx_aggregate_exit(port);
-
 	netdev_rx_handler_unregister(real_dev);
+
+	rmnet_map_tx_aggregate_exit(port);
 
 	kfree(port);
 
