@@ -118,7 +118,7 @@ struct lm78_data {
 
 	struct mutex update_lock;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
 
 	u8 in[7];		/* Register value */
 	u8 in_max[7];		/* Register value */
@@ -733,7 +733,7 @@ static struct lm78_data *lm78_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ + HZ / 2)
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ + HZ / 2)
 	    || !data->valid) {
 
 		dev_dbg(dev, "Starting lm78 update\n");
@@ -769,7 +769,7 @@ static struct lm78_data *lm78_update_device(struct device *dev)
 		data->fan_div[1] = i >> 6;
 		data->alarms = lm78_read_value(data, LM78_REG_ALARM1) +
 		    (lm78_read_value(data, LM78_REG_ALARM2) << 8);
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 
 		data->fan_div[2] = 1;
