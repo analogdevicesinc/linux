@@ -41,10 +41,10 @@ void ptdump_walk_user_pgd_level_checkwx(void);
 #define pgprot_encrypted(prot)	__pgprot(cc_mkenc(pgprot_val(prot)))
 #define pgprot_decrypted(prot)	__pgprot(cc_mkdec(pgprot_val(prot)))
 
-#ifdef CONFIG_DEBUG_WX
-#define debug_checkwx_user()	ptdump_walk_user_pgd_level_checkwx()
+#ifdef CONFIG_CHECK_WX
+#define pgtable_checkwx_user()	ptdump_walk_user_pgd_level_checkwx()
 #else
-#define debug_checkwx_user()	do { } while (0)
+#define pgtable_checkwx_user()	do { } while (0)
 #endif
 
 extern spinlock_t pgd_lock;
@@ -66,7 +66,11 @@ extern pmdval_t early_pmd_flags;
 
 #ifndef __PAGETABLE_P4D_FOLDED
 #define set_pgd(pgdp, pgd)		native_set_pgd(pgdp, pgd)
-#define pgd_clear(pgd)			(pgtable_l5_enabled() ? native_pgd_clear(pgd) : 0)
+#define pgd_clear(pgdp)			\
+do {					\
+	if (pgtable_l5_enabled())	\
+		native_pgd_clear(pgdp);	\
+} while (0)
 #endif
 
 #ifndef set_p4d
@@ -806,7 +810,7 @@ static inline pmd_t pmd_modify(pmd_t pmd, pgprot_t newprot)
 	pmdval_t val = pmd_val(pmd), oldval = val;
 	pmd_t pmd_result;
 
-	val &= (_HPAGE_CHG_MASK & ~_PAGE_DIRTY);
+	val &= _HPAGE_CHG_MASK;
 	val |= check_pgprot(newprot) & ~_HPAGE_CHG_MASK;
 	val = flip_protnone_guard(oldval, val, PHYSICAL_PMD_PAGE_MASK);
 

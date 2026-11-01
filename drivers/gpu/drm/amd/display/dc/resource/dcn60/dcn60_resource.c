@@ -3,6 +3,7 @@
 // Copyright 2024 Advanced Micro Devices, Inc.
 
 #include "dm_services.h"
+#include "dm_helpers.h"
 #include "dc.h"
 
 #include "dcn32/dcn32_init.h"
@@ -11,6 +12,7 @@
 
 #include "resource.h"
 #include "include/irq_service_interface.h"
+#include "basics/conversion.h"
 
 #include "dcn20/dcn20_resource.h"
 #include "dcn30/dcn30_resource.h"
@@ -18,6 +20,7 @@
 #include "dcn321/dcn321_resource.h"
 #include "dcn401/dcn401_resource.h"
 #include "dcn42/dcn42_resource.h"
+#include "dcn60/dcn60_rmcm.h"
 #include "dcn60_resource.h"
 
 #include "dcn10/dcn10_ipp.h"
@@ -81,8 +84,10 @@
 
 #include "dc_state_priv.h"
 
-#include "dml2_0/dml2_wrapper.h"
-#include "dml2_0/dml21/dml21_wrapper.h"
+#include "dml2_wrapper/dml2_wrapper.h"
+#include "dml2_wrapper/dml21_wrapper/dml21_wrapper.h"
+
+#define LSDMA_CONTENTION_BUFFER_SIZE (64 * 1024 * 1024)
 
 #define DC_LOGGER_INIT(logger)
 
@@ -286,7 +291,7 @@ static const struct dcn31_vpg_mask vpg_mask = {
 #define apg_regs_init(id)\
 	APG_DCN31_REG_LIST_RI(id)
 
-static struct dcn31_apg_registers apg_regs[4];
+static struct dcn31_apg_registers apg_regs[5];
 
 static const struct dcn31_apg_shift apg_shift = {
 	DCN31_APG_MASK_SH_LIST(__SHIFT)
@@ -372,11 +377,11 @@ static const struct dcn30_hpo_frl_link_encoder_mask hpo_le_mask = {
 static struct dcn31_hpo_dp_stream_encoder_registers hpo_dp_stream_enc_regs[4];
 
 static const struct dcn31_hpo_dp_stream_encoder_shift hpo_dp_se_shift = {
-	DCN3_1_HPO_DP_STREAM_ENC_MASK_SH_LIST(__SHIFT)
+	DCN4_2_HPO_DP_STREAM_ENC_MASK_SH_LIST(__SHIFT)
 };
 
 static const struct dcn31_hpo_dp_stream_encoder_mask hpo_dp_se_mask = {
-	DCN3_1_HPO_DP_STREAM_ENC_MASK_SH_LIST(_MASK)
+	DCN4_2_HPO_DP_STREAM_ENC_MASK_SH_LIST(_MASK)
 };
 
 #define hpo_dp_link_encoder_reg_init(id)\
@@ -461,9 +466,7 @@ static struct dcn60_mpc_registers mpc_regs;
 	MPC_OUT_MUX_REG_LIST_DCN3_0_RI(0),\
 	MPC_OUT_MUX_REG_LIST_DCN3_0_RI(1),\
 	MPC_OUT_MUX_REG_LIST_DCN3_0_RI(2),\
-	MPC_OUT_MUX_REG_LIST_DCN3_0_RI(3),\
-	MPC_RMCM_REG_LIST_DCN42(0),\
-	MPC_RMCM_REG_LIST_DCN42(1)
+	MPC_OUT_MUX_REG_LIST_DCN3_0_RI(3)
 
 static const struct dcn60_mpc_shift mpc_shift = {
 	MPC_COMMON_MASK_SH_LIST_DCN6_0(__SHIFT)
@@ -668,6 +671,7 @@ static const struct dc_debug_options debug_defaults_drv = {
 			.enable_ppt_check = true,
 			.enable_offload_flip = true,
 			.enable_stall_recovery = true,
+			.alternate_channel_workaround = true,
 		}
 	},
 	.force_cositing = CHROMA_COSITING_NONE + 1,
@@ -998,7 +1002,7 @@ static struct dce_aux *dcn60_aux_engine_create(
 	uint32_t inst)
 {
 	struct aux_engine_dce110 *aux_engine =
-		kzalloc(sizeof(struct aux_engine_dce110), GFP_KERNEL);
+		kzalloc_obj(struct aux_engine_dce110);
 
 	if (!aux_engine)
 		return NULL;
@@ -1037,7 +1041,7 @@ static struct dce_i2c_hw *dcn60_i2c_hw_create(
 	uint32_t inst)
 {
 	struct dce_i2c_hw *dce_i2c_hw =
-		kzalloc(sizeof(struct dce_i2c_hw), GFP_KERNEL);
+		kzalloc_obj(struct dce_i2c_hw);
 
 	if (!dce_i2c_hw)
 		return NULL;
@@ -1061,7 +1065,7 @@ static struct clock_source *dcn60_clock_source_create(
 		bool dp_clk_src)
 {
 	struct dce110_clk_src *clk_src =
-		kzalloc(sizeof(struct dce110_clk_src), GFP_KERNEL);
+		kzalloc_obj(struct dce110_clk_src);
 
 	if (!clk_src)
 		return NULL;
@@ -1081,8 +1085,7 @@ static struct hubbub *dcn60_hubbub_create(struct dc_context *ctx)
 {
 	int i;
 
-	struct dcn20_hubbub *hubbub2 = kzalloc(sizeof(struct dcn20_hubbub),
-					  GFP_KERNEL);
+	struct dcn20_hubbub *hubbub2 = kzalloc_obj(struct dcn20_hubbub);
 
 	if (!hubbub2)
 		return NULL;
@@ -1136,7 +1139,7 @@ static struct hubp *dcn60_hubp_create(
 	uint32_t inst)
 {
 	struct dcn20_hubp *hubp2 =
-		kzalloc(sizeof(struct dcn20_hubp), GFP_KERNEL);
+		kzalloc_obj(struct dcn20_hubp);
 
 	if (!hubp2)
 		return NULL;
@@ -1168,7 +1171,7 @@ static struct dpp *dcn60_dpp_create(
 	uint32_t inst)
 {
 	struct dcn60_dpp *dpp60 =
-		kzalloc(sizeof(struct dcn60_dpp), GFP_KERNEL);
+		kzalloc_obj(struct dcn60_dpp);
 
 	if (!dpp60)
 		return NULL;
@@ -1194,8 +1197,7 @@ static struct mpc *dcn60_mpc_create(
 		int num_mpcc,
 		int num_rmu)
 {
-	struct dcn60_mpc *mpc60 = kzalloc(sizeof(struct dcn60_mpc),
-					  GFP_KERNEL);
+	struct dcn60_mpc *mpc60 = kzalloc_obj(struct dcn60_mpc);
 
 	if (!mpc60)
 		return NULL;
@@ -1218,7 +1220,7 @@ static struct output_pixel_processor *dcn60_opp_create(
 	struct dc_context *ctx, uint32_t inst)
 {
 	struct dcn20_opp *opp2 =
-		kzalloc(sizeof(struct dcn20_opp), GFP_KERNEL);
+		kzalloc_obj(struct dcn20_opp);
 
 	if (!opp2) {
 		BREAK_TO_DEBUGGER();
@@ -1242,7 +1244,7 @@ static struct timing_generator *dcn60_timing_generator_create(
 		uint32_t instance)
 {
 	struct optc *tgn10 =
-		kzalloc(sizeof(struct optc), GFP_KERNEL);
+		kzalloc_obj(struct optc);
 
 	if (!tgn10)
 		return NULL;
@@ -1282,7 +1284,7 @@ static struct link_encoder *dcn60_link_encoder_create(
 	const struct encoder_init_data *enc_init_data)
 {
 	struct dcn20_link_encoder *enc20 =
-		kzalloc(sizeof(struct dcn20_link_encoder), GFP_KERNEL);
+		kzalloc_obj(struct dcn20_link_encoder);
 
 	if (!enc20 || enc_init_data->hpd_source >= ARRAY_SIZE(link_enc_hpd_regs)) {
 		kfree(enc20);
@@ -1349,7 +1351,7 @@ static struct vpg *dcn60_vpg_create(
 	struct dc_context *ctx,
 	uint32_t inst)
 {
-	struct dcn31_vpg *vpg6 = kzalloc(sizeof(struct dcn31_vpg), GFP_KERNEL);
+	struct dcn31_vpg *vpg6 = kzalloc_obj(struct dcn31_vpg);
 
 	if (!vpg6)
 		return NULL;
@@ -1378,7 +1380,7 @@ static struct apg *dcn60_apg_create(
 	struct dc_context *ctx,
 	uint32_t inst)
 {
-	struct dcn31_apg *apg60 = kzalloc(sizeof(struct dcn31_apg), GFP_KERNEL);
+	struct dcn31_apg *apg60 = kzalloc_obj(struct dcn31_apg);
 
 	if (!apg60)
 		return NULL;
@@ -1388,7 +1390,8 @@ static struct apg *dcn60_apg_create(
 	apg_regs_init(0),
 	apg_regs_init(1),
 	apg_regs_init(2),
-	apg_regs_init(3);
+	apg_regs_init(3),
+	apg_regs_init(4);
 
 	apg31_construct(apg60, ctx, inst,
 			&apg_regs[inst],
@@ -1415,7 +1418,7 @@ static struct stream_encoder *dcn60_stream_encoder_create(
 	} else
 		return NULL;
 
-	enc1 = kzalloc(sizeof(struct dcn10_stream_encoder), GFP_KERNEL);
+	enc1 = kzalloc_obj(struct dcn10_stream_encoder);
 	vpg = dcn60_vpg_create(ctx, vpg_inst);
 	apg = dcn60_apg_create(ctx, apg_inst);
 
@@ -1462,7 +1465,7 @@ static struct hpo_frl_stream_encoder *dcn60_hpo_frl_stream_encoder_create(
 		return NULL;
 
 	/* allocate HPO stream encoder and create VPG, APG sub-blocks */
-	hpo_enc60 = kzalloc(sizeof(struct dcn401_hpo_frl_stream_encoder), GFP_KERNEL);
+	hpo_enc60 = kzalloc_obj(struct dcn401_hpo_frl_stream_encoder);
 	vpg = dcn60_vpg_create(ctx, vpg_inst);
 	apg = dcn60_apg_create(ctx, apg_inst);
 
@@ -1493,7 +1496,7 @@ static struct hpo_frl_link_encoder *dcn60_hpo_frl_link_encoder_create(
 	hpo_frl_link_encoder_reg_list(0);
 
 	/* allocate HPO link encoder */
-	hpo_link_enc = kzalloc(sizeof(struct dcn30_hpo_frl_link_encoder), GFP_KERNEL);
+	hpo_link_enc = kzalloc_obj(struct dcn30_hpo_frl_link_encoder);
 	if (!hpo_link_enc)
 		return NULL; /* out of memory */
 
@@ -1535,7 +1538,7 @@ static struct hpo_dp_stream_encoder *dcn60_hpo_dp_stream_encoder_create(
 	apg_inst = hpo_dp_inst;
 
 	/* allocate HPO stream encoder and create VPG sub-block */
-	hpo_dp_enc60 = kzalloc(sizeof(struct dcn31_hpo_dp_stream_encoder), GFP_KERNEL);
+	hpo_dp_enc60 = kzalloc_obj(struct dcn31_hpo_dp_stream_encoder);
 	vpg = dcn60_vpg_create(ctx, vpg_inst);
 	apg = dcn60_apg_create(ctx, apg_inst);
 
@@ -1568,7 +1571,7 @@ static struct hpo_dp_link_encoder *dcn60_hpo_dp_link_encoder_create(
 	struct dcn31_hpo_dp_link_encoder *hpo_dp_enc60;
 
 	/* allocate HPO link encoder */
-	hpo_dp_enc60 = kzalloc(sizeof(struct dcn31_hpo_dp_link_encoder), GFP_KERNEL);
+	hpo_dp_enc60 = kzalloc_obj(struct dcn31_hpo_dp_link_encoder);
 	if (!hpo_dp_enc60)
 		return NULL; /* out of memory */
 
@@ -1589,7 +1592,7 @@ static struct hpo_dp_link_encoder *dcn60_hpo_dp_link_encoder_create(
 static struct dce_hwseq *dcn60_hwseq_create(
 	struct dc_context *ctx)
 {
-	struct dce_hwseq *hws = kzalloc(sizeof(struct dce_hwseq), GFP_KERNEL);
+	struct dce_hwseq *hws = kzalloc_obj(struct dce_hwseq);
 
 #undef REG_STRUCT
 #define REG_STRUCT hwseq_reg
@@ -1623,6 +1626,12 @@ static void dcn60_dsc_destroy(struct display_stream_compressor **dsc)
 static void dcn60_resource_destruct(struct dcn60_resource_pool *pool)
 {
 	unsigned int i;
+
+	if (pool->base.lsdma_scratch.buffer) {
+		dm_helpers_free_gpu_mem(pool->base.ctx,
+				DC_MEM_ALLOC_TYPE_GART, pool->base.lsdma_scratch.buffer);
+		pool->base.lsdma_scratch.buffer = NULL;
+	}
 
 	for (i = 0; i < pool->base.stream_enc_count; i++) {
 		if (pool->base.stream_enc[i] != NULL) {
@@ -1685,6 +1694,8 @@ static void dcn60_resource_destruct(struct dcn60_resource_pool *pool)
 		kfree(TO_DCN20_MPC(pool->base.mpc));
 		pool->base.mpc = NULL;
 	}
+	for (i = 0; i < MAX_RMCM_INST; i++)
+		dcn60_rmcm_destroy(&pool->base.rmcm[i]);
 	if (pool->base.hubbub != NULL) {
 		kfree(TO_DCN20_HUBBUB(pool->base.hubbub));
 		pool->base.hubbub = NULL;
@@ -1784,7 +1795,7 @@ static struct display_stream_compressor *dcn60_dsc_create(
 	struct dc_context *ctx, uint32_t inst)
 {
 	struct dcn60_dsc *dsc =
-		kzalloc(sizeof(struct dcn60_dsc), GFP_KERNEL);
+		kzalloc_obj(struct dcn60_dsc);
 
 	if (!dsc) {
 		BREAK_TO_DEBUGGER();
@@ -1962,6 +1973,8 @@ static bool dcn60_resource_construct(
 	struct ddc_service_init_data ddc_init_data = {0};
 	uint32_t pipe_fuses = 0;
 	uint32_t num_pipes  = 4;
+	bool is_lite3 =
+		ASICREV_IS_DCN6_VARIANT_LITE3(ctx->asic_id.hw_internal_rev);
 
 #undef REG_STRUCT
 #define REG_STRUCT bios_regs
@@ -2024,9 +2037,9 @@ static bool dcn60_resource_construct(
 	dc->caps.cache_line_size = 64;
 	dc->caps.cache_num_ways = 16;
 
-	dc->caps.max_slave_planes = 2;
-	dc->caps.max_slave_yuv_planes = 2;
-	dc->caps.max_slave_rgb_planes = 2;
+	dc->caps.max_slave_planes = 3;
+	dc->caps.max_slave_yuv_planes = 3;
+	dc->caps.max_slave_rgb_planes = 3;
 	dc->caps.post_blend_color_processing = true;
 	dc->caps.force_dp_tps4_for_cp2520 = true;
 	dc->caps.hdmi_hpo = true;
@@ -2035,7 +2048,18 @@ static bool dcn60_resource_construct(
 	dc->caps.edp_dsc_support = true;
 	dc->caps.extended_aux_timeout_support = true;
 	dc->caps.dmcub_support = true;
+	dc->caps.utm_support = true;
 	dc->caps.max_v_total = (1 << 15) - 1;
+
+	pool->base.ctx = ctx;
+
+	if (dc->config.lsdma_peak_bw_contention_support) {
+		pool->base.lsdma_scratch.buffer = dm_helpers_allocate_gpu_mem(ctx,
+				DC_MEM_ALLOC_TYPE_GART, LSDMA_CONTENTION_BUFFER_SIZE,
+				&pool->base.lsdma_scratch.pa);
+		if (pool->base.lsdma_scratch.buffer)
+			pool->base.lsdma_scratch.size = LSDMA_CONTENTION_BUFFER_SIZE;
+	}
 
 	if (ASICREV_IS_GC_12_0_1_A0(dc->ctx->asic_id.hw_internal_rev))
 		dc->caps.dcc_plane_width_limit = 7680;
@@ -2075,6 +2099,7 @@ static bool dcn60_resource_construct(
 	dc->caps.color.mpc.ogam_rom_caps.hlg = 0;
 	dc->caps.color.mpc.ocsc = 1;
 	dc->caps.color.mpc.preblend = true;
+	dc->caps.color.mpc.max_gamut_remap_coeff = dc_fixpt_from_fraction(S3D12_MAX, DIVIDER);
 	/* HACK: Force FRL support until BIOS is ready. */
 	dc->config.force_hdmi21_frl_enc_enable = true;
 	dc->config.use_spl = true;
@@ -2105,6 +2130,7 @@ static bool dcn60_resource_construct(
 	dc->config.enable_windowed_mpo_odm = true;
 	dc->config.set_pipe_unlock_order = true; /* Need to ensure DET gets freed before allocating */
 	dc->config.dp_connector_no_native_i2c = true;
+	dc->caps.fused_io_supported = true;
 	/* read VBIOS LTTPR caps */
 	{
 		if (ctx->dc_bios->funcs->get_lttpr_caps) {
@@ -2264,6 +2290,16 @@ static bool dcn60_resource_construct(
 		goto create_fail;
 	}
 
+	/* RMCMs */
+	for (i = 0; i < pool->base.res_cap->num_rmcm && i < MAX_RMCM_INST; i++) {
+		pool->base.rmcm[i] = dcn60_rmcm_create(ctx, i);
+		if (pool->base.rmcm[i] == NULL) {
+			BREAK_TO_DEBUGGER();
+			dm_error("DC: failed to create rmcm%d!\n", i);
+			goto create_fail;
+		}
+	}
+
 	/* DSCs */
 	for (i = 0; i < pool->base.res_cap->num_dsc; i++) {
 		pool->base.dscs[i] = dcn60_dsc_create(ctx, i);
@@ -2341,6 +2377,10 @@ static bool dcn60_resource_construct(
 
 	dc->dml2_options.max_segments_per_hubp = 20;
 	dc->dml2_options.det_segment_size = DCN6_0_CRB_SEGMENT_SIZE_KB;
+	if (is_lite3) {
+		dc->dml2_options.gpuvm_enable = true;
+		dc->dml2_options.hostvm_enable = true;
+	}
 
 	/* SPL */
 	dc->caps.scl_caps.sharpener_support = true;
@@ -2363,7 +2403,7 @@ struct resource_pool *dcn60_create_resource_pool(
 		struct dc *dc)
 {
 	struct dcn60_resource_pool *pool =
-		kzalloc(sizeof(struct dcn60_resource_pool), GFP_KERNEL);
+		kzalloc_obj(struct dcn60_resource_pool);
 
 	if (!pool)
 		return NULL;

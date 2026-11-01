@@ -18,6 +18,13 @@
 
 static struct tc_action_ops act_gate_ops;
 
+/* A nested attribute's u16 nla_len caps it at 65532 bytes. tcf_gate_dump()
+ * emits each entry as 36 bytes (40 with the gate-open flag), so 4096 entries
+ * would need ~144-160 KiB and cannot be represented. 1024 matches the
+ * SJA1105 schedule-table capacity (SJA1110 provides 4096).
+ */
+#define GATE_ENTRIES_MAX	1024U
+
 static ktime_t gate_get_time(struct tcf_gate *gact)
 {
 	ktime_t mono = ktime_get();
@@ -240,7 +247,7 @@ static int tcf_gate_copy_entries(struct tcf_gate_params *dst,
 	list_for_each_entry(entry, &src->entries, list) {
 		struct tcfg_gate_entry *new;
 
-		new = kzalloc(sizeof(*new), GFP_ATOMIC);
+		new = kzalloc_obj(*new, GFP_ATOMIC);
 		if (!new) {
 			NL_SET_ERR_MSG(extack, "Not enough memory for entry");
 			return -ENOMEM;
@@ -275,6 +282,14 @@ static int parse_gate_list(struct nlattr *list_attr,
 		if (nla_type(n) != TCA_GATE_ONE_ENTRY) {
 			NL_SET_ERR_MSG(extack, "Attribute isn't type 'entry'");
 			continue;
+		}
+
+		if (i >= GATE_ENTRIES_MAX) {
+			NL_SET_ERR_MSG_FMT(extack,
+					   "Too many schedule entries, at most %u are supported",
+					   GATE_ENTRIES_MAX);
+			err = -E2BIG;
+			goto release_list;
 		}
 
 		entry = kzalloc_obj(*entry, GFP_ATOMIC);
@@ -415,7 +430,7 @@ static int tcf_gate_init(struct net *net, struct nlattr *nla,
 	if (err < 0)
 		goto release_idr;
 
-	p = kzalloc(sizeof(*p), GFP_KERNEL);
+	p = kzalloc_obj(*p);
 	if (!p) {
 		err = -ENOMEM;
 		goto chain_put;
@@ -654,7 +669,8 @@ static int tcf_gate_dump(struct sk_buff *skb, struct tc_action *a,
 			goto nla_put_failure;
 	}
 
-	nla_nest_end(skb, entry_list);
+	if (nla_nest_end_safe(skb, entry_list) < 0)
+		goto nla_put_failure;
 
 	tcf_tm_dump(&t, &gact->tcf_tm);
 	if (nla_put_64bit(skb, TCA_GATE_TM, sizeof(t), &t, TCA_GATE_PAD))
@@ -681,7 +697,35 @@ static void tcf_gate_stats_update(struct tc_action *a, u64 bytes, u64 packets,
 
 static size_t tcf_gate_get_fill_size(const struct tc_action *act)
 {
-	return nla_total_size(sizeof(struct tc_gate));
+	struct tcf_gate *gact = to_gate(act);
+	const struct tcf_gate_params *p;
+	struct tcfg_gate_entry *entry;
+	size_t size = nla_total_size(sizeof(struct tc_gate)) /* TCA_GATE_PARMS */
+		+ 3 * nla_total_size_64bit(sizeof(u64)) /* TCA_GATE_BASE_TIME
+							 * TCA_GATE_CYCLE_TIME
+							 * TCA_GATE_CYCLE_TIME_EXT
+							 */
+		+ nla_total_size(sizeof(s32)) /* TCA_GATE_CLOCKID */
+		+ nla_total_size(sizeof(u32)) /* TCA_GATE_FLAGS */
+		+ nla_total_size(sizeof(s32)) /* TCA_GATE_PRIORITY */
+		+ nla_total_size(0); /* TCA_GATE_ENTRY_LIST */
+	/* TCA_GATE_TM is budgeted by tcf_action_shared_attrs_size() */
+
+	rcu_read_lock();
+	p = rcu_dereference(gact->param);
+	if (p) {
+		list_for_each_entry_rcu(entry, &p->entries, list)
+			/* TCA_GATE_ONE_ENTRY nest and its attributes */
+			size += nla_total_size(0)
+				+ nla_total_size(sizeof(u32)) /* TCA_GATE_ENTRY_INDEX */
+				+ nla_total_size(0) /* TCA_GATE_ENTRY_GATE */
+				+ nla_total_size(sizeof(u32)) /* TCA_GATE_ENTRY_INTERVAL */
+				+ nla_total_size(sizeof(s32)) /* TCA_GATE_ENTRY_MAX_OCTETS */
+				+ nla_total_size(sizeof(s32)); /* TCA_GATE_ENTRY_IPV */
+	}
+	rcu_read_unlock();
+
+	return size;
 }
 
 static void tcf_gate_entry_destructor(void *priv)

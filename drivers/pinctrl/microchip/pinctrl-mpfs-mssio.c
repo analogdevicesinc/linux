@@ -86,7 +86,7 @@ static struct mpfs_pinctrl_bank_voltage mpfs_pinctrl_bank_voltages[8] = {
 	{ .uv = 1800000, .val = 4 },
 	{ .uv = 2500000, .val = 6 },
 	{ .uv = 3300000, .val = 8 },
-	{ .uv = 0, .val = 0x3f }, // pin unused
+	{ .uv = 0, .val = 0xf }, // pin unused
 };
 
 static int mpfs_pinctrl_get_drive_strength_ma(u32 drive_strength)
@@ -156,10 +156,10 @@ static void mpfs_pinctrl_set_bank_voltage(struct mpfs_pinctrl *pctrl, unsigned i
 	u32 val = FIELD_PREP(MPFS_PINCTRL_BANK_VOLTAGE_MASK, bank_voltage);
 
 	if (pin < MPFS_PINCTRL_BANK2_START)
-		regmap_assign_bits(pctrl->sysreg_regmap, MPFS_PINCTRL_MSSIO_BANK4_CFG_CR,
+		regmap_update_bits(pctrl->sysreg_regmap, MPFS_PINCTRL_MSSIO_BANK4_CFG_CR,
 				   MPFS_PINCTRL_BANK_VOLTAGE_MASK, val);
 	else
-		regmap_assign_bits(pctrl->sysreg_regmap, MPFS_PINCTRL_MSSIO_BANK2_CFG_CR,
+		regmap_update_bits(pctrl->sysreg_regmap, MPFS_PINCTRL_MSSIO_BANK2_CFG_CR,
 				   MPFS_PINCTRL_BANK_VOLTAGE_MASK, val);
 }
 
@@ -612,7 +612,7 @@ static void mpfs_pinctrl_pinconf_dbg_show(struct pinctrl_dev *pctrl_dev, struct 
 	reg = mpfs_pinctrl_pin_to_iocfg_reg(pin);
 	offset = mpfs_pinctrl_pin_to_iocfg_offset(pin);
 
-	seq_printf(seq, "pin: %u ", pin);
+	seq_printf(seq, " pin: %u ", pin);
 	seq_printf(seq, "reg: %x offset: %u ", reg, offset);
 
 	if (reg < 0 || offset < 0)

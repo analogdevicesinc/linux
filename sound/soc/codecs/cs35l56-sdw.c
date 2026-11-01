@@ -9,6 +9,7 @@
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/soundwire/sdw.h>
@@ -35,6 +36,9 @@
 
 #define CS35L56_LATE_READ_POLL_US	10
 #define CS35L56_LATE_READ_TIMEOUT_US	1000
+
+static DEFINE_MUTEX(cs35l56_fw_idle_wait_lock);
+static bool cs35l56_fw_idle_wait_pending;
 
 static int cs35l56_sdw_poll_mem_status(struct sdw_slave *peripheral,
 				       unsigned int mask,
@@ -265,11 +269,11 @@ static int cs35l56_sdw_read_prop(struct sdw_slave *peripheral)
 	if (ret == 0)
 		prop->clk_stop_mode1 = !!clock_stop_1;
 
-	ports = devm_kcalloc(cs35l56->base.dev, 2, sizeof(*ports), GFP_KERNEL);
+	ports = devm_kcalloc(cs35l56->base.dev, 3, sizeof(*ports), GFP_KERNEL);
 	if (!ports)
 		return -ENOMEM;
 
-	prop->source_ports = BIT(CS35L56_SDW1_CAPTURE_PORT);
+	prop->source_ports = BIT(CS35L56_SDW1_CAPTURE_PORT) | BIT(CS35L56_OT25_CAPTURE_PORT);
 	prop->sink_ports = BIT(CS35L56_SDW1_PLAYBACK_PORT);
 	prop->paging_support = true;
 	prop->use_domain_irq = true;
@@ -286,6 +290,11 @@ static int cs35l56_sdw_read_prop(struct sdw_slave *peripheral)
 	ports[1].num = CS35L56_SDW1_CAPTURE_PORT;
 	ports[1].type = SDW_DPN_FULL;
 	ports[1].ch_prep_timeout = 10;
+
+	/* DP4 - capture */
+	ports[2].num = CS35L56_OT25_CAPTURE_PORT;
+	ports[2].type = SDW_DPN_FULL;
+	ports[2].ch_prep_timeout = 10;
 	prop->src_dpn_prop = &ports[1];
 
 	dev_dbg(&peripheral->dev, "clock stop mode 1 supported: %s\n",
@@ -382,17 +391,34 @@ static int __maybe_unused cs35l56_sdw_runtime_resume(struct device *dev)
 	return 0;
 }
 
+static int cs35l56_sdw_system_suspend_prepare(struct device *dev)
+{
+	cs35l56_fw_idle_wait_pending = true;
+
+	return 0;
+}
+
 static int __maybe_unused cs35l56_sdw_system_suspend(struct device *dev)
 {
 	struct cs35l56_private *cs35l56 = dev_get_drvdata(dev);
+	int ret;
 
-	if (!cs35l56->base.init_done)
-		return 0;
+	if (cs35l56->sdw_attached)
+		cs35l56_mask_soundwire_interrupts(cs35l56);
 
-	/* runtime_resume unmasks the interrupt */
-	cs35l56_mask_soundwire_interrupts(cs35l56);
+	ret = cs35l56_system_suspend(dev);
+	if (ret < 0)
+		return ret;
 
-	return cs35l56_system_suspend(dev);
+	scoped_guard(mutex, &cs35l56_fw_idle_wait_lock) {
+		if (cs35l56_fw_idle_wait_pending && cs35l56->needs_wait_for_fw_idle) {
+			dev_dbg(cs35l56->base.dev, "Wait for FW timer expiry\n");
+			msleep(CS35L56_FW_REQ_ACTIVE_TIMEOUT_MS + 10);
+			cs35l56_fw_idle_wait_pending = false;
+		}
+	}
+
+	return 0;
 }
 
 static int cs35l56_sdw_probe(struct sdw_slave *peripheral, const struct sdw_device_id *id)
@@ -458,6 +484,7 @@ static void cs35l56_sdw_remove(struct sdw_slave *peripheral)
 }
 
 static const struct dev_pm_ops cs35l56_sdw_pm = {
+	.prepare = cs35l56_sdw_system_suspend_prepare,
 	SET_RUNTIME_PM_OPS(cs35l56_sdw_runtime_suspend, cs35l56_sdw_runtime_resume, NULL)
 	SYSTEM_SLEEP_PM_OPS(cs35l56_sdw_system_suspend, cs35l56_system_resume)
 	LATE_SYSTEM_SLEEP_PM_OPS(cs35l56_system_suspend_late, cs35l56_system_resume_early)

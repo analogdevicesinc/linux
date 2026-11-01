@@ -36,13 +36,12 @@ irqreturn_t nhi_msi(int irq, void *data);
 irqreturn_t ring_msix(int irq, void *data);
 int nhi_probe(struct tb_nhi *nhi);
 void nhi_shutdown(struct tb_nhi *nhi);
-void nhi_reset_interface(struct tb_nhi *nhi);
-
 extern const struct dev_pm_ops nhi_pm_ops;
 
 /**
  * struct tb_nhi_ops - NHI specific optional operations
  * @init: NHI specific initialization
+ * @add_links: Setup device links for tunneling native protocols
  * @suspend_noirq: NHI specific suspend_noirq hook
  * @resume_noirq: NHI specific resume_noirq hook
  * @runtime_suspend: NHI specific runtime_suspend hook
@@ -54,10 +53,10 @@ extern const struct dev_pm_ops nhi_pm_ops;
  * @release_ring_irq: NHI specific interrupt release hook
  * @is_present: Whether the device is currently present on the parent bus
  * @init_interrupts: NHI specific interrupt initialization hook
- * @reset_interface: Resets the host interface
  */
 struct tb_nhi_ops {
 	int (*init)(struct tb_nhi *nhi);
+	bool (*add_links)(struct tb_nhi *nhi);
 	int (*suspend_noirq)(struct tb_nhi *nhi, bool wakeup);
 	int (*resume_noirq)(struct tb_nhi *nhi);
 	int (*runtime_suspend)(struct tb_nhi *nhi);
@@ -69,7 +68,6 @@ struct tb_nhi_ops {
 	void (*release_ring_irq)(struct tb_ring *ring);
 	bool (*is_present)(struct tb_nhi *nhi);
 	int (*init_interrupts)(struct tb_nhi *nhi);
-	void (*reset_interface)(struct tb_nhi *nhi);
 };
 
 /*
@@ -120,24 +118,11 @@ struct tb_nhi_ops {
 #define PCI_DEVICE_ID_INTEL_PTL_P_NHI0			0xe433
 #define PCI_DEVICE_ID_INTEL_PTL_P_NHI1			0xe434
 
-#define PCI_DEVICE_ID_AMD_1AH_M60H_NHI0			0x1120
-#define PCI_DEVICE_ID_AMD_1AH_M60H_NHI1			0x1121
-#define PCI_DEVICE_ID_AMD_1AH_M68H_NHI0			0x113b
-#define PCI_DEVICE_ID_AMD_1AH_M68H_NHI1			0x113c
-#define PCI_DEVICE_ID_AMD_1AH_M80H_NHI0			0x1155
-#define PCI_DEVICE_ID_AMD_1AH_M80H_NHI1			0x1158
-#define PCI_DEVICE_ID_AMD_1AH_M80H_NHI2			0x1159
-#define PCI_DEVICE_ID_AMD_1AH_M24H_NHI0			0x151c
-#define PCI_DEVICE_ID_AMD_1AH_M24H_NHI1			0x151d
-#define PCI_DEVICE_ID_AMD_1AH_M70H_NHI0			0x158d
-#define PCI_DEVICE_ID_AMD_1AH_M70H_NHI1			0x158e
-
 #define PCI_CLASS_SERIAL_USB_USB4			0x0c0340
 
 /* Host interface quirks */
-#define QUIRK_AUTO_CLEAR_INT				BIT(0)
-#define QUIRK_E2E					BIT(1)
-#define QUIRK_RESET_DMA_ON_TEARDOWN			BIT(2)
+#define QUIRK_AUTO_CLEAR_INT	BIT(0)
+#define QUIRK_E2E		BIT(1)
 
 /*
  * Minimal number of vectors when we use MSI-X. Two for control channel

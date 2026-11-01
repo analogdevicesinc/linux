@@ -73,7 +73,7 @@ static unsigned long scpi_dvfs_recalc_rate(struct clk_hw *hw,
 	int idx = clk->scpi_ops->dvfs_get_idx(clk->id);
 	const struct scpi_opp *opp;
 
-	if (idx < 0)
+	if (idx < 0 || idx >= clk->info->count)
 		return 0;
 
 	opp = clk->info->opps + idx;
@@ -128,7 +128,7 @@ static int
 scpi_clk_ops_init(struct device *dev, const struct of_device_id *match,
 		  struct scpi_clk *sclk, const char *name)
 {
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	unsigned long min = 0, max = 0;
 	int ret;
 
@@ -272,10 +272,15 @@ static int scpi_clocks_probe(struct platform_device *pdev)
 		if (match->data != &scpi_dvfs_ops)
 			continue;
 		/* Add the virtual cpufreq device if it's DVFS clock provider */
+		if (cpufreq_dev)
+			continue;
 		cpufreq_dev = platform_device_register_simple("scpi-cpufreq",
-							      -1, NULL, 0);
-		if (IS_ERR(cpufreq_dev))
+							      PLATFORM_DEVID_NONE,
+							      NULL, 0);
+		if (IS_ERR(cpufreq_dev)) {
 			pr_warn("unable to register cpufreq device");
+			cpufreq_dev = NULL;
+		}
 	}
 	return 0;
 }

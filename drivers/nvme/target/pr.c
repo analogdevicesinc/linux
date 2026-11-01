@@ -51,6 +51,8 @@ u16 nvmet_set_feat_resv_notif_mask(struct nvmet_req *req, u32 mask)
 
 	if (nsid != U32_MAX) {
 		status = nvmet_req_find_ns(req);
+		if (status == (NVME_SC_INVALID_NS | NVME_STATUS_DNR))
+			return NVME_SC_INVALID_FIELD | NVME_STATUS_DNR;
 		if (status)
 			return status;
 		if (!req->ns->pr.enable)
@@ -75,6 +77,8 @@ u16 nvmet_get_feat_resv_notif_mask(struct nvmet_req *req)
 	u16 status;
 
 	status = nvmet_req_find_ns(req);
+	if (status == (NVME_SC_INVALID_NS | NVME_STATUS_DNR))
+		return NVME_SC_INVALID_FIELD | NVME_STATUS_DNR;
 	if (status)
 		return status;
 
@@ -145,7 +149,7 @@ static void nvmet_pr_add_resv_log(struct nvmet_ctrl *ctrl, u8 log_type,
 	log.nsid = cpu_to_le32(nsid);
 
 	if (!kfifo_put(&log_mgr->log_queue, log)) {
-		pr_info("a reservation log lost, cntlid:%d, log_type:%d, nsid:%d\n",
+		pr_info("a reservation log lost, cntlid:%d, log_type:%d, nsid:%u\n",
 			ctrl->cntlid, log_type, nsid);
 		log_mgr->lost_count++;
 	}
@@ -585,11 +589,11 @@ static u16 nvmet_pr_preempt(struct nvmet_req *req,
 				&ctrl->hostid, abort);
 	}
 
-	if (holder == reg) {
+	if (holder == reg && prkey == holder->rkey) {
 		status = nvmet_pr_update_reg_attr(pr, holder,
 				nvmet_pr_update_holder_rtype, &rtype);
 		if (!status && original_rtype != rtype)
-			nvmet_pr_resv_released(pr, &reg->hostid);
+			nvmet_pr_resv_released(pr, &ctrl->hostid);
 		return status;
 	}
 

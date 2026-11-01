@@ -35,6 +35,7 @@
 #include <linux/time.h>
 #include <linux/mm.h>
 #include <linux/mman.h>
+#include <linux/pseudo_fs.h>
 #include <linux/ptrace.h>
 #include <linux/dma-buf.h>
 #include <linux/processor.h>
@@ -70,18 +71,54 @@ static const struct class kfd_class = {
 };
 
 /*
- * Cache the address space of the chardev on first open so that the reset
- * path can drop all userspace mappings of doorbell and MMIO ranges via
- * unmap_mapping_range().
+ * Private pseudo-filesystem for KFD, Provides a stable, module-owned
+ * inode whose address_space is the unmap target for all /dev/kfd
+ * openers during GPU reset.
  */
-static struct address_space *kfd_dev_mapping;
+static struct vfsmount *kfd_fs_mnt;
+static int kfd_fs_cnt;
+
+static int kfd_fs_init_fs_context(struct fs_context *fc)
+{
+	return init_pseudo(fc, 0x4b464400 /* "KFD" */) ? 0 : -ENOMEM;
+}
+
+static struct file_system_type kfd_fs_type = {
+	.name		= "kfd",
+	.init_fs_context = kfd_fs_init_fs_context,
+	.kill_sb	= kill_anon_super,
+};
+
+static struct inode *kfd_fs_inode_new(void)
+{
+	struct inode *inode;
+	int r;
+
+	r = simple_pin_fs(&kfd_fs_type, &kfd_fs_mnt, &kfd_fs_cnt);
+	if (r < 0)
+		return ERR_PTR(r);
+
+	inode = alloc_anon_inode(kfd_fs_mnt->mnt_sb);
+	if (IS_ERR(inode))
+		simple_release_fs(&kfd_fs_mnt, &kfd_fs_cnt);
+
+	return inode;
+}
+
+static void kfd_fs_inode_free(struct inode *inode)
+{
+	if (inode) {
+		iput(inode);
+		simple_release_fs(&kfd_fs_mnt, &kfd_fs_cnt);
+	}
+}
+
+static struct inode *kfd_anon_inode;
 
 void kfd_dev_unmap_mapping_range(loff_t const holebegin, loff_t const holelen)
 {
-	struct address_space *mapping = READ_ONCE(kfd_dev_mapping);
-
-	if (mapping)
-		unmap_mapping_range(mapping, holebegin, holelen, 1);
+	if (kfd_anon_inode)
+		unmap_mapping_range(kfd_anon_inode->i_mapping, holebegin, holelen, 1);
 }
 
 static inline struct kfd_process_device *kfd_lock_pdd_by_id(struct kfd_process *p, __u32 gpu_id)
@@ -107,6 +144,13 @@ int kfd_chardev_init(void)
 {
 	int err = 0;
 
+	kfd_anon_inode = kfd_fs_inode_new();
+	if (IS_ERR(kfd_anon_inode)) {
+		err = PTR_ERR(kfd_anon_inode);
+		kfd_anon_inode = NULL;
+		return err;
+	}
+
 	kfd_char_dev_major = register_chrdev(0, kfd_dev_name, &kfd_fops);
 	err = kfd_char_dev_major;
 	if (err < 0)
@@ -130,6 +174,8 @@ err_device_create:
 err_class_create:
 	unregister_chrdev(kfd_char_dev_major, kfd_dev_name);
 err_register_chrdev:
+	kfd_fs_inode_free(kfd_anon_inode);
+	kfd_anon_inode = NULL;
 	return err;
 }
 
@@ -138,6 +184,8 @@ void kfd_chardev_exit(void)
 	device_destroy(&kfd_class, MKDEV(kfd_char_dev_major, 0));
 	class_unregister(&kfd_class);
 	unregister_chrdev(kfd_char_dev_major, kfd_dev_name);
+	kfd_fs_inode_free(kfd_anon_inode);
+	kfd_anon_inode = NULL;
 	kfd_device = NULL;
 }
 
@@ -150,12 +198,7 @@ static int kfd_open(struct inode *inode, struct file *filep)
 	if (iminor(inode) != 0)
 		return -ENODEV;
 
-	/*
-	 * /dev/kfd is a single chardev so all opens share one inode. Cache
-	 * its address_space on the first open for use by the reset path.
-	 */
-	if (!READ_ONCE(kfd_dev_mapping))
-		cmpxchg(&kfd_dev_mapping, NULL, inode->i_mapping);
+	filep->f_mapping = kfd_anon_inode->i_mapping;
 
 	is_32bit_user_mode = in_compat_syscall();
 
@@ -384,12 +427,10 @@ static int kfd_ioctl_create_queue(struct file *filep, struct kfd_process *p,
 		}
 	}
 
-	if (!pdd->qpd.proc_doorbells) {
-		err = kfd_alloc_process_doorbells(dev->kfd, pdd);
-		if (err) {
-			pr_debug("failed to allocate process doorbells\n");
-			goto err_bind_process;
-		}
+	err = kfd_alloc_process_doorbells(dev->kfd, pdd);
+	if (err) {
+		pr_debug("failed to allocate process doorbells\n");
+		goto err_bind_process;
 	}
 
 	err = kfd_queue_acquire_buffers(pdd, &q_properties);
@@ -1069,11 +1110,19 @@ static int kfd_ioctl_get_available_memory(struct file *filep,
 {
 	struct kfd_ioctl_get_available_memory_args *args = data;
 	struct kfd_process_device *pdd = kfd_lock_pdd_by_id(p, args->gpu_id);
+	struct amdgpu_device *adev;
+	size_t available;
 
 	if (!pdd)
 		return -EINVAL;
-	args->available = amdgpu_amdkfd_get_available_memory(pdd->dev->adev,
-							pdd->dev->node_id);
+
+	adev = pdd->dev->adev;
+	available = amdgpu_amdkfd_get_available_memory(adev, pdd->dev->node_id);
+	if (adev->apu_prefer_gtt)
+		args->available = ALIGN_DOWN(available, PAGE_SIZE);
+	else
+		args->available = ALIGN_DOWN(available, VRAM_AVAILABLITY_ALIGN);
+
 	kfd_unlock_pdd(pdd);
 	return 0;
 }
@@ -1261,6 +1310,9 @@ static int kfd_ioctl_free_memory_of_gpu(struct file *filep,
 		ret = -EINVAL;
 		goto err_unlock;
 	}
+
+	/* Queues a reset could not stop may still access the buffer */
+	kfd_process_wait_gpu_reset_complete(p);
 
 	ret = amdgpu_amdkfd_gpuvm_free_memory_of_gpu(pdd->dev->adev,
 				(struct kgd_mem *)mem, pdd->drm_priv, &size);
@@ -1921,13 +1973,13 @@ static int criu_checkpoint_devices(struct kfd_process *p,
 	struct kfd_criu_device_bucket *device_buckets = NULL;
 	int ret = 0, i;
 
-	device_buckets = kvcalloc(num_devices, sizeof(*device_buckets), GFP_KERNEL);
+	device_buckets = kvzalloc_objs(*device_buckets, num_devices);
 	if (!device_buckets) {
 		ret = -ENOMEM;
 		goto exit;
 	}
 
-	device_priv = kvcalloc(num_devices, sizeof(*device_priv), GFP_KERNEL);
+	device_priv = kvzalloc_objs(*device_priv, num_devices);
 	if (!device_priv) {
 		ret = -ENOMEM;
 		goto exit;
@@ -2047,17 +2099,17 @@ static int criu_checkpoint_bos(struct kfd_process *p,
 	int ret = 0, pdd_index, bo_index = 0, id;
 	void *mem;
 
-	bo_buckets = kvcalloc(num_bos, sizeof(*bo_buckets), GFP_KERNEL);
+	bo_buckets = kvzalloc_objs(*bo_buckets, num_bos);
 	if (!bo_buckets)
 		return -ENOMEM;
 
-	bo_privs = kvcalloc(num_bos, sizeof(*bo_privs), GFP_KERNEL);
+	bo_privs = kvzalloc_objs(*bo_privs, num_bos);
 	if (!bo_privs) {
 		ret = -ENOMEM;
 		goto exit;
 	}
 
-	files = kvcalloc(num_bos, sizeof(struct file *), GFP_KERNEL);
+	files = kvzalloc_objs(struct file *, num_bos);
 	if (!files) {
 		ret = -ENOMEM;
 		goto exit;
@@ -2412,11 +2464,9 @@ static int criu_restore_devices(struct kfd_process *p,
 			goto exit;
 		}
 
-		if (!pdd->qpd.proc_doorbells) {
-			ret = kfd_alloc_process_doorbells(dev->kfd, pdd);
-			if (ret)
-				goto exit;
-		}
+		ret = kfd_alloc_process_doorbells(dev->kfd, pdd);
+		if (ret)
+			goto exit;
 	}
 
 	/*
@@ -2588,7 +2638,7 @@ static int criu_restore_bos(struct kfd_process *p,
 	if (!bo_buckets)
 		return -ENOMEM;
 
-	files = kvcalloc(args->num_bos, sizeof(struct file *), GFP_KERNEL);
+	files = kvzalloc_objs(struct file *, args->num_bos);
 	if (!files) {
 		ret = -ENOMEM;
 		goto exit;
@@ -2826,6 +2876,7 @@ static int criu_process_info(struct file *filep,
 				struct kfd_process *p,
 				struct kfd_ioctl_criu_args *args)
 {
+	bool paused_here = false;
 	int ret = 0;
 
 	mutex_lock(&p->mutex);
@@ -2836,11 +2887,15 @@ static int criu_process_info(struct file *filep,
 		goto err_unlock;
 	}
 
-	ret = kfd_process_evict_queues(p, KFD_QUEUE_EVICTION_CRIU_CHECKPOINT);
-	if (ret)
-		goto err_unlock;
+	/* UNPAUSE restores the queues once, so evict them only once */
+	if (!p->queues_paused) {
+		ret = kfd_process_evict_queues(p, KFD_QUEUE_EVICTION_CRIU_CHECKPOINT);
+		if (ret)
+			goto err_unlock;
 
-	p->queues_paused = true;
+		p->queues_paused = true;
+		paused_here = true;
+	}
 
 	args->pid = task_pid_nr_ns(p->lead_thread,
 					task_active_pid_ns(p->lead_thread));
@@ -2855,7 +2910,7 @@ static int criu_process_info(struct file *filep,
 				args->priv_data_size);
 
 err_unlock:
-	if (ret) {
+	if (ret && paused_here) {
 		kfd_process_restore_queues(p);
 		p->queues_paused = false;
 	}

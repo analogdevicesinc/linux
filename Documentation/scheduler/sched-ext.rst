@@ -230,7 +230,7 @@ optional. The following modified excerpt is from
 
     void BPF_STRUCT_OPS(simple_exit, struct scx_exit_info *ei)
     {
-            exit_type = ei->type;
+            exit_type = ei->kind;
     }
 
     SEC(".struct_ops")
@@ -241,6 +241,21 @@ optional. The following modified excerpt is from
             .exit                   = (void *)simple_exit,
             .name                   = "simple",
     };
+
+Scheduler-Dependent Knobs
+-------------------------
+
+The fair-class scheduler enforces CPU controller settings such as
+``cpu.max``, ``cpu.weight`` and ``cpu.idle``. For sched_ext tasks, the
+scheduler core communicates these settings to the BPF scheduler
+through ``ops.cgroup_init()`` and reports subsequent changes through
+the corresponding ``ops.cgroup_set_*()`` callbacks. Similarly, per-task
+nice changes are converted to weights and reported through
+``ops.set_weight()``.
+
+Each BPF scheduler is responsible for implementing the scheduling
+semantics of these settings and may choose to ignore them. Consult the
+loaded scheduler's documentation before relying on these controls.
 
 Dispatch Queues
 ---------------
@@ -487,6 +502,19 @@ and edge cases, to name a few examples:
 * A sched_ext task can be preempted by a task from a higher-priority scheduling
   class, in which case it will exit the tick-dispatch loop even though it is runnable
   and has a non-zero slice.
+
+* Under proxy execution, sched_ext continues to observe the donor as the
+  current scheduling context. Accordingly, ``ops.running()`` and
+  ``ops.stopping()`` report when the donor's scheduling context becomes active
+  and inactive, even when the donor is blocked and a lock owner executes on its
+  behalf. The physical execution context is intentionally not reported through
+  these callbacks.
+
+  A blocked donor enters a running session only after proxy resolution finds
+  an execution context. The session remains active if only the physical
+  execution context changes while the donor remains the same. Running sessions
+  are tracked so that ``ops.running()`` and ``ops.stopping()`` remain paired
+  and are not emitted recursively.
 
 See the "Scheduling Cycle" section for a more detailed description of how
 a freshly woken up task gets on a CPU.

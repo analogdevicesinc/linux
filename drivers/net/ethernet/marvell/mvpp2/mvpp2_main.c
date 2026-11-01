@@ -5086,7 +5086,8 @@ static int mvpp2_change_mtu(struct net_device *dev, int mtu)
 			netdev_warn(dev, "mtu %d too high, switching to shared buffers", mtu);
 			mvpp2_bm_switch_buffers(priv, false);
 		}
-	} else {
+	} else if (priv->hw_version >= MVPP22 &&
+		   mvpp2_get_nrxqs(priv) * 2 <= MVPP2_BM_MAX_POOLS) {
 		bool jumbo = false;
 		int i;
 
@@ -5874,7 +5875,7 @@ static int mvpp2_simple_queue_vectors_init(struct mvpp2_port *port,
 	v->sw_thread_mask = *cpumask_bits(cpu_online_mask);
 	v->port = port;
 	v->irq = irq_of_parse_and_map(port_node, 0);
-	if (v->irq <= 0)
+	if (!v->irq)
 		return -EINVAL;
 	netif_napi_add(port->dev, &v->napi, mvpp2_poll);
 

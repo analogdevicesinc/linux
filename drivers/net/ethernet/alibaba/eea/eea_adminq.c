@@ -266,7 +266,7 @@ int eea_create_adminq(struct eea_net *enet, u32 qid)
 	u32 db_size, q_size, num;
 	struct eea_ring *ering;
 	struct eea_aq *aq;
-	int err = -ENOMEM;
+	int err;
 
 	num = enet->edev->rx_num + enet->edev->tx_num;
 	aq = &enet->adminq;
@@ -347,11 +347,12 @@ static void qcfg_fill(struct eea_aq_create *qcfg, struct eea_ring *ering,
 
 int eea_adminq_create_q(struct eea_net *enet, u32 num, u32 flags)
 {
-	int i, db_size, q_size, err = -ENOMEM;
 	struct eea_net_cfg *cfg;
 	struct eea_ring *ering;
+	int i, db_size, q_size;
 	struct eea_aq *aq;
 	u32 reply_len;
+	int err;
 
 	cfg = &enet->cfg;
 	aq = &enet->adminq;
@@ -439,8 +440,7 @@ int eea_adminq_dev_status(struct eea_net *enet,
 	q_num = enet->cfg.rx_ring_num + enet->cfg.tx_ring_num + 1;
 	io_num = enet->cfg.rx_ring_num + enet->cfg.tx_ring_num;
 
-	req = kcalloc(q_num, sizeof(struct eea_aq_queue_drv_status),
-		      GFP_KERNEL);
+	req = kzalloc_objs(struct eea_aq_queue_drv_status, q_num);
 	if (!req)
 		return -ENOMEM;
 
@@ -484,13 +484,13 @@ void eea_adminq_config_host_info(struct eea_net *enet)
 	struct device *dev = enet->edev->dma_dev;
 	struct eea_aq_host_info_cfg *cfg;
 	struct eea_aq_host_info_rep *rep;
-	int rc = -ENOMEM;
+	int rc;
 
-	cfg = kzalloc(sizeof(*cfg), GFP_KERNEL);
+	cfg = kzalloc_obj(*cfg);
 	if (!cfg)
 		return;
 
-	rep = kzalloc(sizeof(*rep), GFP_KERNEL);
+	rep = kzalloc_obj(*rep);
 	if (!rep)
 		goto err_free_cfg;
 
@@ -512,30 +512,24 @@ void eea_adminq_config_host_info(struct eea_net *enet)
 	cfg->pci_bdf            = cpu_to_le16(eea_pci_bdf(enet->edev));
 	cfg->pci_domain         = cpu_to_le32(eea_pci_domain_nr(enet->edev));
 
-	strscpy(cfg->os_ver_str, utsname()->release, sizeof(cfg->os_ver_str));
-	strscpy(cfg->isa_str, utsname()->machine, sizeof(cfg->isa_str));
+	strscpy(cfg->os_ver_str, utsname()->release);
+	strscpy(cfg->isa_str, utsname()->machine);
 
 	rc = eea_adminq_exec(enet, EEA_AQ_CMD_HOST_INFO,
 			     cfg, sizeof(*cfg), rep, sizeof(*rep), NULL);
+	if (rc)
+		goto err_free_rep;
 
-	if (!rc) {
-		if (rep->op_code == EEA_HINFO_REP_BAD)
-			dev_warn(dev, "The hardware-driven state validation may be abnormal.\n");
+	if (rep->op_code == EEA_HINFO_REP_BAD)
+		dev_warn(dev, "The hardware-driven state validation may be abnormal.\n");
 
-		if (rep->has_reply) {
-			char buf[EEA_HINFO_MAX_REP_LEN] = {0};
-
-			rep->reply_str[EEA_HINFO_MAX_REP_LEN - 1] = '\0';
-
-			string_escape_str(rep->reply_str, buf, sizeof(buf),
-					  ESCAPE_NP, NULL);
-
-			buf[EEA_HINFO_MAX_REP_LEN - 1] = '\0';
-
-			dev_warn(dev, "Device replied: %s\n", buf);
-		}
+	if (rep->has_reply) {
+		rep->reply_str[EEA_HINFO_MAX_REP_LEN - 1] = '\0';
+		dev_warn(dev, "Device replied: %*pEhp\n",
+			 (int)strlen(rep->reply_str), rep->reply_str);
 	}
 
+err_free_rep:
 	kfree(rep);
 err_free_cfg:
 	kfree(cfg);

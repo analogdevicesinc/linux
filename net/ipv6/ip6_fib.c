@@ -85,7 +85,7 @@ static void fib6_walker_link(struct net *net, struct fib6_walker *w)
 static void fib6_walker_unlink(struct net *net, struct fib6_walker *w)
 {
 	write_lock_bh(&net->ipv6.fib6_walker_lock);
-	list_del(&w->lh);
+	list_del_init(&w->lh);
 	write_unlock_bh(&net->ipv6.fib6_walker_lock);
 }
 
@@ -1019,12 +1019,6 @@ static int fib6_nh_drop_pcpu_from(struct fib6_nh *nh, void *_arg)
 
 static void fib6_drop_pcpu_from(struct fib6_info *f6i)
 {
-	/* Make sure rt6_make_pcpu_route() wont add other percpu routes
-	 * while we are cleaning them here.
-	 */
-	f6i->fib6_destroying = 1;
-	mb(); /* paired with the cmpxchg() in rt6_make_pcpu_route() */
-
 	if (f6i->nh) {
 		rcu_read_lock();
 		nexthop_for_each_fib6_nh(f6i->nh, fib6_nh_drop_pcpu_from, f6i);
@@ -1042,9 +1036,15 @@ static void fib6_purge_rt(struct fib6_info *rt, struct fib6_node *fn,
 {
 	struct fib6_table *table = rt->fib6_table;
 
-	/* Flush all cached dst in exception table */
-	rt6_flush_exceptions(rt);
+	/* Make sure rt6_make_pcpu_route() / rt6_insert_exception()
+	 * will not add other percpu / exception routes after cleaning
+	 * them up in __fib6_drop_pcpu_from() / rt6_flush_exceptions().
+	 */
+	rt->fib6_destroying = 1;
+	mb(); /* paired with the cmpxchg() in rt6_make_pcpu_route() */
+
 	fib6_drop_pcpu_from(rt);
+	rt6_flush_exceptions(rt);
 
 	if (rt->nh) {
 		spin_lock(&rt->nh->lock);
@@ -1228,9 +1228,7 @@ next_iter:
 			fib6_nsiblings++;
 		}
 		BUG_ON(fib6_nsiblings != rt->fib6_nsiblings);
-		rcu_read_lock();
 		rt6_multipath_rebalance(temp_sibling);
-		rcu_read_unlock();
 	}
 
 	/*
@@ -1274,9 +1272,7 @@ add:
 						   sibling->fib6_nsiblings - 1);
 				WRITE_ONCE(rt->fib6_nsiblings, 0);
 				list_del_rcu(&rt->fib6_siblings);
-				rcu_read_lock();
 				rt6_multipath_rebalance(next_sibling);
-				rcu_read_unlock();
 				return err;
 			}
 		}
@@ -2760,7 +2756,7 @@ static void *ipv6_route_seq_start(struct seq_file *seq, loff_t *pos)
 static bool ipv6_route_iter_active(struct ipv6_route_iter *iter)
 {
 	struct fib6_walker *w = &iter->w;
-	return w->node && !(w->state == FWS_U && w->node == w->root);
+	return w->node && !list_empty(&w->lh);
 }
 
 static void ipv6_route_native_seq_stop(struct seq_file *seq, void *v)

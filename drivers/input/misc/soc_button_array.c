@@ -15,6 +15,7 @@
 #include <linux/dmi.h>
 #include <linux/gpio/consumer.h>
 #include <linux/gpio_keys.h>
+#include <linux/platform_data/x86/soc.h>
 #include <linux/platform_device.h>
 
 static bool use_low_level_irq;
@@ -159,7 +160,7 @@ soc_button_device_create(struct platform_device *pdev,
 	struct gpio_keys_platform_data *gpio_keys_pdata;
 	const struct dmi_system_id *dmi_id;
 	int invalid_acpi_index = -1;
-	int error, gpio, irq;
+	int error, gpio, irq = 0;
 	int n_buttons = 0;
 
 	for (info = button_info; info->name; info++)
@@ -190,8 +191,9 @@ soc_button_device_create(struct platform_device *pdev,
 		error = soc_button_lookup_gpio(&pdev->dev, info->acpi_index, &gpio, &irq);
 		if (error || irq < 0) {
 			/*
-			 * Skip GPIO if not present. Note we deliberately
-			 * ignore -EPROBE_DEFER errors here. On some devices
+			 * Propagate -EPROBE_DEFER, skip button on other errors.
+			 *
+			 * -EPROBE_DEFER is ignored on Bay & Cherry Trail. Here
 			 * Intel is using so called virtual GPIOs which are not
 			 * GPIOs at all but some way for AML code to check some
 			 * random status bits without need a custom opregion.
@@ -200,6 +202,12 @@ soc_button_device_create(struct platform_device *pdev,
 			 * we do not have a driver for these so they will never
 			 * show up, therefore we ignore -EPROBE_DEFER.
 			 */
+			if ((error == -EPROBE_DEFER || irq == -EPROBE_DEFER) &&
+			    !(soc_intel_is_byt() || soc_intel_is_cht())) {
+				error = -EPROBE_DEFER;
+				goto err_free_mem;
+			}
+
 			continue;
 		}
 
@@ -368,7 +376,7 @@ static struct soc_button_info *soc_button_get_button_info(struct device *dev)
 		}
 	}
 
-	if (!btns_desc) {
+	if (!btns_desc || !btns_desc->package.count) {
 		dev_err(dev, "ACPI Button Descriptors not found\n");
 		button_info = ERR_PTR(-ENODEV);
 		goto out;
@@ -595,14 +603,14 @@ static const struct soc_device_data soc_device_MSHW0040 = {
 };
 
 static const struct acpi_device_id soc_button_acpi_match[] = {
-	{ "PNP0C40", (unsigned long)&soc_device_PNP0C40 },
-	{ "INT33D3", (unsigned long)&soc_device_INT33D3 },
-	{ "ID9001", (unsigned long)&soc_device_INT33D3 },
-	{ "ACPI0011", 0 },
+	{ .id = "PNP0C40", .driver_data = (unsigned long)&soc_device_PNP0C40 },
+	{ .id = "INT33D3", .driver_data = (unsigned long)&soc_device_INT33D3 },
+	{ .id = "ID9001", .driver_data = (unsigned long)&soc_device_INT33D3 },
+	{ .id = "ACPI0011" },
 
 	/* Microsoft Surface Devices (3th, 5th and 6th generation) */
-	{ "MSHW0028", (unsigned long)&soc_device_MSHW0028 },
-	{ "MSHW0040", (unsigned long)&soc_device_MSHW0040 },
+	{ .id = "MSHW0028", .driver_data = (unsigned long)&soc_device_MSHW0028 },
+	{ .id = "MSHW0040", .driver_data = (unsigned long)&soc_device_MSHW0040 },
 
 	{ }
 };

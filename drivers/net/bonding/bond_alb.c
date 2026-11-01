@@ -6,6 +6,7 @@
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
+#include <linux/ethtool.h>
 #include <linux/pkt_sched.h>
 #include <linux/spinlock.h>
 #include <linux/slab.h>
@@ -74,8 +75,8 @@ static inline u8 _simple_hash(const u8 *hash_start, int hash_size)
 static inline void tlb_init_table_entry(struct tlb_client_info *entry, int save_load)
 {
 	if (save_load) {
-		entry->load_history = 1 + entry->tx_bytes /
-				      BOND_TLB_REBALANCE_INTERVAL;
+		entry->load_history = 1 + div_u64(entry->tx_bytes,
+				      BOND_TLB_REBALANCE_INTERVAL);
 		entry->tx_bytes = 0;
 	}
 
@@ -133,6 +134,10 @@ static int tlb_initialize(struct bonding *bond)
 	if (!new_hashtbl)
 		return -ENOMEM;
 
+	bond_info->unbalanced_load = netdev_alloc_pcpu_stats(struct unbalanced_load_stats);
+	if (!bond_info->unbalanced_load)
+		goto out;
+
 	spin_lock_bh(&bond->mode_lock);
 
 	bond_info->tx_hashtbl = new_hashtbl;
@@ -143,6 +148,10 @@ static int tlb_initialize(struct bonding *bond)
 	spin_unlock_bh(&bond->mode_lock);
 
 	return 0;
+
+out:
+	kfree(new_hashtbl);
+	return -ENOMEM;
 }
 
 /* Must be called only after all slaves have been released */
@@ -154,14 +163,18 @@ static void tlb_deinitialize(struct bonding *bond)
 
 	kfree(bond_info->tx_hashtbl);
 	bond_info->tx_hashtbl = NULL;
+	free_percpu(bond_info->unbalanced_load);
+	bond_info->prev_total_unbalanced = 0;
 
 	spin_unlock_bh(&bond->mode_lock);
 }
 
 static long long compute_gap(struct slave *slave)
 {
-	return (s64) (slave->speed << 20) - /* Convert to Megabit per sec */
-	       (s64) (SLAVE_TLB_INFO(slave).load << 3); /* Bytes to bits */
+	u32 raw_speed = READ_ONCE(slave->speed);
+
+	return ((s64)raw_speed << 20) - /* Convert to bits per sec */
+	       ((s64)SLAVE_TLB_INFO(slave).load << 3); /* Bytes to bits */
 }
 
 static struct slave *tlb_get_least_loaded_slave(struct bonding *bond)
@@ -678,9 +691,15 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
 	if (arp->op_code == htons(ARPOP_REPLY)) {
 		/* the arp must be sent on the selected rx channel */
 		tx_slave = rlb_choose_channel(skb, bond, arp);
-		if (tx_slave)
+		if (tx_slave &&
+		    !ether_addr_equal_64bits(arp->mac_src,
+					     tx_slave->dev->dev_addr)) {
+			if (unlikely(skb_cow_head(skb, 0)))
+				return NULL;
+			arp = (struct arp_pkt *)skb_network_header(skb);
 			bond_hw_addr_copy(arp->mac_src, tx_slave->dev->dev_addr,
 					  tx_slave->dev->addr_len);
+		}
 		netdev_dbg(bond->dev, "(slave %s): Server sent ARP Reply packet\n",
 			   tx_slave ? tx_slave->dev->name : "NULL");
 	} else if (arp->op_code == htons(ARPOP_REQUEST)) {
@@ -875,7 +894,7 @@ static int rlb_initialize(struct bonding *bond)
 	spin_unlock_bh(&bond->mode_lock);
 
 	/* register to receive ARPs */
-	bond->recv_probe = rlb_arp_recv;
+	WRITE_ONCE(bond->recv_probe, rlb_arp_recv);
 
 	return 0;
 }
@@ -1281,10 +1300,10 @@ unwind:
 }
 
 /* determine if the packet is NA or NS */
-static bool alb_determine_nd(struct sk_buff *skb, struct bonding *bond)
+static bool alb_determine_nd(struct sk_buff *skb)
 {
-	struct ipv6hdr *ip6hdr;
-	struct icmp6hdr *hdr;
+	const struct ipv6hdr *ip6hdr;
+	const struct icmp6hdr *hdr;
 
 	if (!pskb_network_may_pull(skb, sizeof(*ip6hdr)))
 		return true;
@@ -1296,7 +1315,8 @@ static bool alb_determine_nd(struct sk_buff *skb, struct bonding *bond)
 	if (!pskb_network_may_pull(skb, sizeof(*ip6hdr) + sizeof(*hdr)))
 		return true;
 
-	hdr = icmp6_hdr(skb);
+	ip6hdr = ipv6_hdr(skb);
+	hdr = (const struct icmp6hdr *)(ip6hdr + 1);
 	return hdr->icmp6_type == NDISC_NEIGHBOUR_ADVERTISEMENT ||
 		hdr->icmp6_type == NDISC_NEIGHBOUR_SOLICITATION;
 }
@@ -1339,18 +1359,25 @@ static netdev_tx_t bond_do_alb_xmit(struct sk_buff *skb, struct bonding *bond,
 				    struct slave *tx_slave)
 {
 	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
-	struct ethhdr *eth_data = eth_hdr(skb);
 
 	if (!tx_slave) {
 		/* unbalanced or unassigned, send through primary */
 		tx_slave = rcu_dereference(bond->curr_active_slave);
-		if (bond->params.tlb_dynamic_lb)
-			bond_info->unbalanced_load += skb->len;
+		if (bond->params.tlb_dynamic_lb) {
+			struct unbalanced_load_stats *pcpu_load;
+
+			pcpu_load = this_cpu_ptr(bond_info->unbalanced_load);
+			u64_stats_update_begin(&pcpu_load->syncp);
+			u64_stats_add(&pcpu_load->tx_bytes, skb->len);
+			u64_stats_update_end(&pcpu_load->syncp);
+		}
 	}
 
 	if (tx_slave && bond_slave_can_tx(tx_slave)) {
 		if (tx_slave != rcu_access_pointer(bond->curr_active_slave)) {
-			ether_addr_copy(eth_data->h_source,
+			if (unlikely(skb_cow_head(skb, 0)))
+				return bond_tx_drop(bond->dev, skb);
+			ether_addr_copy(skb_eth_hdr(skb)->h_source,
 					tx_slave->dev->dev_addr);
 		}
 
@@ -1374,14 +1401,13 @@ struct slave *bond_xmit_tlb_slave_get(struct bonding *bond,
 	struct ethhdr *eth_data;
 	u32 hash_index;
 
-	skb_reset_mac_header(skb);
-	eth_data = eth_hdr(skb);
+	eth_data = skb_eth_hdr(skb);
 
 	/* Do not TX balance any multicast or broadcast */
 	if (!is_multicast_ether_addr(eth_data->h_dest)) {
 		switch (skb->protocol) {
 		case htons(ETH_P_IPV6):
-			if (alb_determine_nd(skb, bond))
+			if (alb_determine_nd(skb))
 				break;
 			fallthrough;
 		case htons(ETH_P_IP):
@@ -1427,8 +1453,7 @@ struct slave *bond_xmit_alb_slave_get(struct bonding *bond,
 	u32 hash_index = 0;
 	int hash_size = 0;
 
-	skb_reset_mac_header(skb);
-	eth_data = eth_hdr(skb);
+	eth_data = skb_eth_hdr(skb);
 
 	switch (ntohs(skb->protocol)) {
 	case ETH_P_IP: {
@@ -1467,7 +1492,7 @@ struct slave *bond_xmit_alb_slave_get(struct bonding *bond,
 			break;
 		}
 
-		if (alb_determine_nd(skb, bond)) {
+		if (alb_determine_nd(skb)) {
 			do_tx_balance = false;
 			break;
 		}
@@ -1529,6 +1554,29 @@ netdev_tx_t bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
 	return bond_do_alb_xmit(skb, bond, tx_slave);
 }
 
+static u64 reset_unbalanced_load(struct alb_bond_info *bond_info)
+{
+	u64 delta, tx_bytes, total_bytes = 0;
+	struct unbalanced_load_stats *p;
+	unsigned int start;
+	int i;
+
+	for_each_possible_cpu(i) {
+		p = per_cpu_ptr(bond_info->unbalanced_load, i);
+		do {
+			start = u64_stats_fetch_begin(&p->syncp);
+			tx_bytes = u64_stats_read(&p->tx_bytes);
+		} while (u64_stats_fetch_retry(&p->syncp, start));
+
+		total_bytes += tx_bytes;
+	}
+
+	delta = total_bytes - bond_info->prev_total_unbalanced;
+	bond_info->prev_total_unbalanced = total_bytes;
+
+	return div_u64(delta, BOND_TLB_REBALANCE_INTERVAL);
+}
+
 void bond_alb_monitor(struct work_struct *work)
 {
 	struct bonding *bond = container_of(work, struct bonding,
@@ -1571,10 +1619,11 @@ void bond_alb_monitor(struct work_struct *work)
 		bond_for_each_slave_rcu(bond, slave, iter) {
 			tlb_clear_slave(bond, slave, 1);
 			if (slave == rcu_access_pointer(bond->curr_active_slave)) {
-				SLAVE_TLB_INFO(slave).load =
-					bond_info->unbalanced_load /
-						BOND_TLB_REBALANCE_INTERVAL;
-				bond_info->unbalanced_load = 0;
+				u64 new_load = reset_unbalanced_load(bond_info);
+
+				spin_lock_bh(&bond->mode_lock);
+				SLAVE_TLB_INFO(slave).load = new_load;
+				spin_unlock_bh(&bond->mode_lock);
 			}
 		}
 		atomic_set(&bond_info->tx_rebalance_counter, 0);

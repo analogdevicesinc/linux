@@ -13,6 +13,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/reset.h>
+#include <linux/stringify.h>
 #include <linux/units.h>
 #include <linux/watchdog.h>
 
@@ -48,7 +49,7 @@
 static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default="
-		 __MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+		 __stringify(WATCHDOG_NOWAYOUT) ")");
 
 enum rzv2h_wdt_count_source {
 	COUNT_SOURCE_LOCO,
@@ -278,6 +279,7 @@ static int rzv2h_wdt_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct rzv2h_wdt_priv *priv;
 	struct clk *count_clk;
+	unsigned long rate;
 	int ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -314,8 +316,12 @@ static int rzv2h_wdt_probe(struct platform_device *pdev)
 		return dev_err_probe(dev, -EINVAL, "Invalid count source\n");
 	}
 
+	rate = clk_get_rate(count_clk);
+	if (!rate)
+		return dev_err_probe(dev, -EINVAL, "Invalid clock rate\n");
+
 	priv->wdev.max_hw_heartbeat_ms = (MILLI * priv->of_data->timeout_cycles *
-					  priv->of_data->cks_div) / clk_get_rate(count_clk);
+					  priv->of_data->cks_div) / rate;
 	dev_dbg(dev, "max hw timeout of %dms\n", priv->wdev.max_hw_heartbeat_ms);
 
 	ret = devm_pm_runtime_enable(dev);

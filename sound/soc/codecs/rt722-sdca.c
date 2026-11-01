@@ -24,6 +24,7 @@
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc-dapm.h>
+#include <sound/sdw.h>
 #include <sound/tlv.h>
 
 #include "rt722-sdca.h"
@@ -1442,11 +1443,10 @@ static int rt722_sdca_pcm_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_component *component = dai->component;
 	struct rt722_sdca_priv *rt722 = snd_soc_component_get_drvdata(component);
-	struct sdw_stream_config stream_config;
+	struct sdw_stream_config stream_config = {0};
 	struct sdw_port_config port_config;
-	enum sdw_data_direction direction;
 	struct sdw_stream_runtime *sdw_stream;
-	int retval, port, num_channels;
+	int retval, port;
 	unsigned int sampling_rate;
 
 	dev_dbg(dai->dev, "%s %s", __func__, dai->name);
@@ -1465,7 +1465,6 @@ static int rt722_sdca_pcm_hw_params(struct snd_pcm_substream *substream,
 	 * RT722_AIF3 with port = 6 for digital-mic capture
 	 */
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		direction = SDW_DATA_DIR_RX;
 		if (dai->id == RT722_AIF1)
 			port = 1;
 		else if (dai->id == RT722_AIF2)
@@ -1473,7 +1472,6 @@ static int rt722_sdca_pcm_hw_params(struct snd_pcm_substream *substream,
 		else
 			return -EINVAL;
 	} else {
-		direction = SDW_DATA_DIR_TX;
 		if (dai->id == RT722_AIF1)
 			port = 2;
 		else if (dai->id == RT722_AIF3)
@@ -1481,13 +1479,9 @@ static int rt722_sdca_pcm_hw_params(struct snd_pcm_substream *substream,
 		else
 			return -EINVAL;
 	}
-	stream_config.frame_rate = params_rate(params);
-	stream_config.ch_count = params_channels(params);
-	stream_config.bps = snd_pcm_format_width(params_format(params));
-	stream_config.direction = direction;
 
-	num_channels = params_channels(params);
-	port_config.ch_mask = GENMASK(num_channels - 1, 0);
+	/* SoundWire specific configuration */
+	snd_sdw_params_to_config(substream, params, &stream_config, &port_config);
 	port_config.num = port;
 
 	retval = sdw_stream_add_slave(rt722->slave, &stream_config,
@@ -1658,6 +1652,17 @@ int rt722_sdca_init(struct device *dev, struct regmap *regmap, struct sdw_slave 
 			&soc_sdca_dev_rt722, rt722_sdca_dai, ARRAY_SIZE(rt722_sdca_dai));
 }
 
+static const struct dmi_system_id dmi_dell_mono_spk_quirk_table[] = {
+	{
+		.ident = "Dell Pro 5 Micro P5M1270",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc"),
+			DMI_EXACT_MATCH(DMI_PRODUCT_SKU, "0EBA"),
+		}
+	},
+	{}
+};
+
 static void rt722_sdca_dmic_preset(struct rt722_sdca_priv *rt722)
 {
 	unsigned int mic_func_status;
@@ -1746,6 +1751,13 @@ static void rt722_sdca_amp_preset(struct rt722_sdca_priv *rt722)
 
 		if (rt722->hw_vid == RT722_VB)
 			regmap_write(rt722->regmap, 0x2f54, 0x00);
+
+		/* This Dell machine only uses the mono speaker */
+		if (dmi_check_system(dmi_dell_mono_spk_quirk_table)) {
+			rt722_sdca_index_write(rt722, RT722_VENDOR_REG, RT722_CLSD_CTRL2, 0x391a);
+			rt722_sdca_index_update_bits(rt722, RT722_VENDOR_REG,
+				RT722_MISC_CTRL2, 0x0010, 0x0010);
+		}
 
 		/* clear flag */
 		regmap_write(rt722->regmap,

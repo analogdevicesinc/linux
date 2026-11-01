@@ -339,7 +339,7 @@ xfs_bmap_update_get_group(
 
 	/*
 	 * Bump the intent count on behalf of the deferred rmap and refcount
-	 * intent items that that we can queue when we finish this bmap work.
+	 * intent items that we can queue when we finish this bmap work.
 	 * This new intent item will bump the intent count before the bmap
 	 * intent drops the intent count, ensuring that the intent count
 	 * remains nonzero across the transaction roll.
@@ -442,7 +442,7 @@ xfs_bui_validate(
 	if (!xfs_verify_ino(mp, map->me_owner))
 		return false;
 
-	if (!xfs_verify_fileext(mp, map->me_startoff, map->me_len))
+	if (!xfs_verify_fileext(map->me_startoff, map->me_len))
 		return false;
 
 	if (map->me_flags & XFS_BMAP_EXTENT_REALTIME)

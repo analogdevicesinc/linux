@@ -248,7 +248,7 @@ static int da9062_wdt_probe(struct platform_device *pdev)
 	return devm_watchdog_register_device(dev, &wdt->wdtdev);
 }
 
-static int __maybe_unused da9062_wdt_suspend(struct device *dev)
+static int da9062_wdt_suspend(struct device *dev)
 {
 	struct watchdog_device *wdd = dev_get_drvdata(dev);
 	struct da9062_watchdog *wdt = watchdog_get_drvdata(wdd);
@@ -256,13 +256,13 @@ static int __maybe_unused da9062_wdt_suspend(struct device *dev)
 	if (!wdt->use_sw_pm)
 		return 0;
 
-	if (watchdog_active(wdd))
+	if (watchdog_active(wdd) || watchdog_hw_running(wdd))
 		return da9062_wdt_stop(wdd);
 
 	return 0;
 }
 
-static int __maybe_unused da9062_wdt_resume(struct device *dev)
+static int da9062_wdt_resume(struct device *dev)
 {
 	struct watchdog_device *wdd = dev_get_drvdata(dev);
 	struct da9062_watchdog *wdt = watchdog_get_drvdata(wdd);
@@ -270,20 +270,20 @@ static int __maybe_unused da9062_wdt_resume(struct device *dev)
 	if (!wdt->use_sw_pm)
 		return 0;
 
-	if (watchdog_active(wdd))
+	if (watchdog_active(wdd) || watchdog_hw_running(wdd))
 		return da9062_wdt_start(wdd);
 
 	return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(da9062_wdt_pm_ops,
+static DEFINE_SIMPLE_DEV_PM_OPS(da9062_wdt_pm_ops,
 			 da9062_wdt_suspend, da9062_wdt_resume);
 
 static struct platform_driver da9062_wdt_driver = {
 	.probe = da9062_wdt_probe,
 	.driver = {
 		.name = "da9062-watchdog",
-		.pm = &da9062_wdt_pm_ops,
+		.pm = pm_sleep_ptr(&da9062_wdt_pm_ops),
 		.of_match_table = da9062_compatible_id_table,
 	},
 };

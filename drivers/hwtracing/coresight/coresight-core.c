@@ -1543,6 +1543,7 @@ coresight_init_device(struct coresight_desc *desc)
 	csdev->ops = desc->ops;
 	csdev->access = desc->access;
 	csdev->orphan = true;
+	csdev->flags = desc->flags;
 
 	if (desc->flags & CORESIGHT_DESC_CPU_BOUND) {
 		csdev->cpu = desc->cpu;
@@ -1679,7 +1680,7 @@ coresight_allocate_device_list(const char *prefix)
 			return list;
 	}
 
-	list = kzalloc(sizeof(*list), GFP_KERNEL);
+	list = kzalloc_obj(*list);
 	if (!list)
 		return NULL;
 

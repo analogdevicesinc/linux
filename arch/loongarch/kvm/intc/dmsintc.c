@@ -14,9 +14,6 @@ void dmsintc_inject_irq(struct kvm_vcpu *vcpu)
 	unsigned long vector[4], old;
 	struct dmsintc_state *ds = &vcpu->arch.dmsintc_state;
 
-	if (!ds)
-		return;
-
 	for (i = 0; i < 4; i++) {
 		old = atomic64_read(&(ds->vector_map[i]));
 		vector[i] = old ? atomic64_xchg(&(ds->vector_map[i]), 0) : 0;
@@ -43,42 +40,25 @@ void dmsintc_inject_irq(struct kvm_vcpu *vcpu)
 	}
 }
 
-int dmsintc_deliver_msi_to_vcpu(struct kvm *kvm,
-				struct kvm_vcpu *vcpu, u32 vector, int level)
-{
-	struct dmsintc_state *ds = &vcpu->arch.dmsintc_state;
-
-	if (!level)
-		return 0;
-	if (!vcpu || vector >= 256)
-		return -EINVAL;
-	if (!ds)
-		return -ENODEV;
-
-	if (!kvm_guest_has_msgint(&vcpu->arch))
-		return -EINVAL;
-
-	set_bit(vector, (unsigned long *)&ds->vector_map);
-	kvm_queue_irq(vcpu, INT_AVEC);
-	kvm_vcpu_kick(vcpu);
-
-	return 0;
-}
-
-int dmsintc_set_irq(struct kvm *kvm, u64 addr, int data, int level)
+int dmsintc_set_irq(struct kvm *kvm, u64 addr, int data)
 {
 	unsigned int irq, cpu;
 	struct kvm_vcpu *vcpu;
 
 	irq = (addr >> AVEC_IRQ_SHIFT) & AVEC_IRQ_MASK;
 	cpu = (addr >> AVEC_CPU_SHIFT) & kvm->arch.dmsintc->cpu_mask;
-	if (cpu >= KVM_MAX_VCPUS)
-		return -EINVAL;
 	vcpu = kvm_get_vcpu_by_cpuid(kvm, cpu);
 	if (!vcpu)
 		return -EINVAL;
 
-	return dmsintc_deliver_msi_to_vcpu(kvm, vcpu, irq, level);
+	if (!kvm_guest_has_msgint(&vcpu->arch))
+		return -EINVAL;
+
+	set_bit(irq, (unsigned long *)&vcpu->arch.dmsintc_state.vector_map);
+	kvm_queue_irq(vcpu, INT_AVEC);
+	kvm_vcpu_kick(vcpu);
+
+	return 0;
 }
 
 static int kvm_dmsintc_ctrl_access(struct kvm_device *dev,
@@ -149,7 +129,7 @@ static int kvm_dmsintc_create(struct kvm_device *dev, u32 type)
 		return -EINVAL;
 	}
 
-	s = kzalloc(sizeof(struct loongarch_dmsintc), GFP_KERNEL);
+	s = kzalloc_obj(struct loongarch_dmsintc);
 	if (!s)
 		return -ENOMEM;
 
@@ -179,4 +159,9 @@ static struct kvm_device_ops kvm_dmsintc_dev_ops = {
 int kvm_loongarch_register_dmsintc_device(void)
 {
 	return kvm_register_device_ops(&kvm_dmsintc_dev_ops, KVM_DEV_TYPE_LOONGARCH_DMSINTC);
+}
+
+void kvm_loongarch_unregister_dmsintc_device(void)
+{
+	kvm_unregister_device_ops(KVM_DEV_TYPE_LOONGARCH_DMSINTC);
 }

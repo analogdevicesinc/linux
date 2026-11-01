@@ -88,6 +88,10 @@ static void cifs_set_ops(struct inode *inode)
 		else
 			inode->i_data.a_ops = &cifs_addr_ops;
 		mapping_set_large_folios(inode->i_mapping);
+		if (tcon->ses->server->sign ||
+		    (tcon->ses->server->compression.enabled &&
+		     (tcon->share_flags & SMB2_SHAREFLAG_COMPRESS_DATA)))
+			mapping_set_stable_writes(inode->i_mapping);
 		break;
 	case S_IFDIR:
 		if (IS_AUTOMOUNT(inode)) {
@@ -454,7 +458,7 @@ static int cifs_get_unix_fattr(const unsigned char *full_path,
 	FILE_UNIX_BASIC_INFO find_data;
 	struct cifs_tcon *tcon;
 	struct tcon_link *tlink;
-	int rc, tmprc;
+	int rc;
 
 	cifs_dbg(FYI, "Getting info on %s\n", full_path);
 
@@ -484,8 +488,10 @@ static int cifs_get_unix_fattr(const unsigned char *full_path,
 
 	/* check for Minshall+French symlinks */
 	if (cifs_sb_flags(cifs_sb) & CIFS_MOUNT_MF_SYMLINKS) {
-		tmprc = check_mf_symlink(xid, tcon, cifs_sb, fattr, full_path);
-		cifs_dbg(FYI, "check_mf_symlink: %d\n", tmprc);
+		rc = cifs_check_mf_symlink(xid, tcon, cifs_sb, full_path,
+					   *pinode, fattr);
+		if (rc)
+			return rc;
 	}
 
 	if (S_ISLNK(fattr->cf_mode) && !fattr->cf_symlink_target) {
@@ -851,6 +857,7 @@ static void smb311_posix_info_to_fattr(struct cifs_fattr *fattr,
 	struct smb311_posix_qinfo *info = &data->posix_fi;
 	struct cifs_sb_info *cifs_sb = CIFS_SB(sb);
 	struct cifs_tcon *tcon = cifs_sb_master_tcon(cifs_sb);
+	unsigned int sbflags = cifs_sb_flags(cifs_sb);
 
 	memset(fattr, 0, sizeof(*fattr));
 
@@ -895,8 +902,12 @@ out_reparse:
 		fattr->cf_symlink_target = data->symlink_target;
 		data->symlink_target = NULL;
 	}
-	sid_to_id(cifs_sb, &data->posix_owner, fattr, SIDOWNER);
-	sid_to_id(cifs_sb, &data->posix_group, fattr, SIDGROUP);
+	fattr->cf_uid = cifs_sb->ctx->linux_uid;
+	fattr->cf_gid = cifs_sb->ctx->linux_gid;
+	if (!(sbflags & CIFS_MOUNT_OVERR_UID))
+		sid_to_id(cifs_sb, &data->posix_owner, fattr, SIDOWNER);
+	if (!(sbflags & CIFS_MOUNT_OVERR_GID))
+		sid_to_id(cifs_sb, &data->posix_group, fattr, SIDGROUP);
 
 	cifs_dbg(FYI, "POSIX query info: mode 0x%x uniqueid 0x%llx nlink %d\n",
 		fattr->cf_mode, fattr->cf_uniqueid, fattr->cf_nlink);
@@ -1430,8 +1441,8 @@ handle_mnt_opt:
 
 	/* check for Minshall+French symlinks */
 	if (sbflags & CIFS_MOUNT_MF_SYMLINKS) {
-		tmprc = check_mf_symlink(xid, tcon, cifs_sb, fattr, full_path);
-		cifs_dbg(FYI, "check_mf_symlink: %d\n", tmprc);
+		rc = cifs_check_mf_symlink(xid, tcon, cifs_sb, full_path,
+					   *inode, fattr);
 	}
 
 out:
@@ -1468,6 +1479,7 @@ out:
 static int smb311_posix_get_fattr(struct cifs_open_info_data *data,
 				  struct cifs_fattr *fattr,
 				  const char *full_path,
+				  struct inode *inode,
 				  struct super_block *sb,
 				  const unsigned int xid)
 {
@@ -1476,7 +1488,6 @@ static int smb311_posix_get_fattr(struct cifs_open_info_data *data,
 	struct cifs_sb_info *cifs_sb = CIFS_SB(sb);
 	struct cifs_tcon *tcon;
 	struct tcon_link *tlink;
-	int tmprc;
 	int rc = 0;
 
 	tlink = cifs_sb_tlink(cifs_sb);
@@ -1530,8 +1541,8 @@ static int smb311_posix_get_fattr(struct cifs_open_info_data *data,
 	 */
 	/* check for Minshall+French symlinks */
 	if (cifs_sb_flags(cifs_sb) & CIFS_MOUNT_MF_SYMLINKS) {
-		tmprc = check_mf_symlink(xid, tcon, cifs_sb, fattr, full_path);
-		cifs_dbg(FYI, "check_mf_symlink: %d\n", tmprc);
+		rc = cifs_check_mf_symlink(xid, tcon, cifs_sb, full_path,
+					   inode, fattr);
 	}
 
 out:
@@ -1554,7 +1565,7 @@ int smb311_posix_get_inode_info(struct inode **inode,
 		return 0;
 	}
 
-	rc = smb311_posix_get_fattr(data, &fattr, full_path, sb, xid);
+	rc = smb311_posix_get_fattr(data, &fattr, full_path, *inode, sb, xid);
 	if (rc)
 		goto out;
 
@@ -1706,7 +1717,7 @@ struct inode *cifs_root_iget(struct super_block *sb)
 
 	convert_delimiter(path, CIFS_DIR_SEP(cifs_sb));
 	if (tcon->posix_extensions)
-		rc = smb311_posix_get_fattr(NULL, &fattr, path, sb, xid);
+		rc = smb311_posix_get_fattr(NULL, &fattr, path, inode, sb, xid);
 	else
 		rc = cifs_get_fattr(NULL, sb, xid, NULL, &fattr, &inode, path);
 
@@ -1880,7 +1891,6 @@ cifs_rename_pending_delete(const char *full_path, struct dentry *dentry,
 
 	/* rename the file */
 	rc = CIFSSMBRenameOpenFile(xid, tcon, fid.netfid, NULL,
-				   cifs_sb->local_nls,
 				   cifs_remap(cifs_sb));
 	if (rc != 0) {
 		rc = -EBUSY;
@@ -1922,7 +1932,7 @@ out:
 	 */
 undo_rename:
 	CIFSSMBRenameOpenFile(xid, tcon, fid.netfid, dentry->d_name.name,
-				cifs_sb->local_nls, cifs_remap(cifs_sb));
+				cifs_remap(cifs_sb));
 undo_setattr:
 	if (dosattr != origattr) {
 		info_buf->Attributes = cpu_to_le32(origattr);
@@ -2010,8 +2020,7 @@ static int __cifs_unlink(struct inode *dir, struct dentry *dentry, bool sillyren
 	if (cap_unix(tcon->ses) && (CIFS_UNIX_POSIX_PATH_OPS_CAP &
 				le64_to_cpu(tcon->fsUnixInfo.Capability))) {
 		rc = CIFSPOSIXDelFile(xid, tcon, full_path,
-			SMB_POSIX_UNLINK_FILE_TARGET, cifs_sb->local_nls,
-			cifs_remap(cifs_sb));
+			SMB_POSIX_UNLINK_FILE_TARGET, cifs_remap(cifs_sb));
 		cifs_dbg(FYI, "posix del rc %d\n", rc);
 		if ((rc == 0) || (rc == -ENOENT))
 			goto psx_del_no_retry;
@@ -2232,7 +2241,7 @@ cifs_posix_mkdir(struct inode *inode, struct dentry *dentry, umode_t mode,
 	mode &= ~current_umask();
 	rc = CIFSPOSIXCreate(xid, tcon, SMB_O_DIRECTORY | SMB_O_CREAT, mode,
 			     NULL /* netfid */, info, &oplock, full_path,
-			     cifs_sb->local_nls, cifs_remap(cifs_sb));
+			     cifs_remap(cifs_sb));
 	if (rc == -EOPNOTSUPP)
 		goto posix_mkdir_out;
 	else if (rc) {
@@ -2276,7 +2285,7 @@ posix_mkdir_get_info:
 }
 #endif /* CONFIG_CIFS_ALLOW_INSECURE_LEGACY */
 
-struct dentry *cifs_mkdir(struct mnt_idmap *idmap, struct inode *inode,
+struct dentry *cifs_mkdir(const struct mnt_idmap *idmap, struct inode *inode,
 			  struct dentry *direntry, umode_t mode)
 {
 	int rc = 0;
@@ -2514,7 +2523,7 @@ cifs_do_rename(const unsigned int xid, struct dentry *from_dentry,
 	if (rc == 0) {
 		rc = CIFSSMBRenameOpenFile(xid, tcon, fid.netfid,
 				(const char *) to_dentry->d_name.name,
-				cifs_sb->local_nls, cifs_remap(cifs_sb));
+				cifs_remap(cifs_sb));
 		CIFSSMBClose(xid, tcon, fid.netfid);
 	}
 #endif /* CONFIG_CIFS_ALLOW_INSECURE_LEGACY */
@@ -2526,7 +2535,7 @@ do_rename_exit:
 }
 
 int
-cifs_rename2(struct mnt_idmap *idmap, struct inode *source_dir,
+cifs_rename2(const struct mnt_idmap *idmap, struct inode *source_dir,
 	     struct dentry *source_dentry, struct inode *target_dir,
 	     struct dentry *target_dentry, unsigned int flags)
 {
@@ -2932,7 +2941,7 @@ int cifs_revalidate_dentry(struct dentry *dentry)
 	return cifs_revalidate_mapping(inode);
 }
 
-int cifs_getattr(struct mnt_idmap *idmap, const struct path *path,
+int cifs_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		 struct kstat *stat, u32 request_mask, unsigned int flags)
 {
 	struct cifs_sb_info *cifs_sb = CIFS_SB(path->dentry);
@@ -2992,14 +3001,14 @@ int cifs_getattr(struct mnt_idmap *idmap, const struct path *path,
 		stat->attributes |= STATX_ATTR_ENCRYPTED;
 
 	/*
-	 * If on a multiuser mount without unix extensions or cifsacl being
-	 * enabled, and the admin hasn't overridden them, set the ownership
-	 * to the fsuid/fsgid of the current process.
+	 * If on a multiuser mount without unix extensions, posix extensions
+	 * or cifsacl being enabled, and the admin hasn't overridden them,
+	 * set the ownership to the fsuid/fsgid of the current process.
 	 */
 	sbflags = cifs_sb_flags(cifs_sb);
 	if ((sbflags & CIFS_MOUNT_MULTIUSER) &&
 	    !(sbflags & CIFS_MOUNT_CIFS_ACL) &&
-	    !tcon->unix_ext) {
+	    !tcon->unix_ext && !tcon->posix_extensions) {
 		if (!(sbflags & CIFS_MOUNT_OVERR_UID))
 			stat->uid = current_fsuid();
 		if (!(sbflags & CIFS_MOUNT_OVERR_GID))
@@ -3048,15 +3057,12 @@ int cifs_fiemap(struct inode *inode, struct fiemap_extent_info *fei, u64 start,
 	return -EOPNOTSUPP;
 }
 
-void cifs_setsize(struct inode *inode, loff_t offset)
+void cifs_setsize(struct inode *inode, loff_t old_size, loff_t offset)
 {
-	loff_t old_size;
 	u64 blocks = CIFS_INO_BLOCKS(offset);
 
 	spin_lock(&inode->i_lock);
-	old_size = i_size_read(inode);
 	i_size_write(inode, offset);
-
 	/*
 	 * Extending EOF does not allocate the intervening range. Only clamp
 	 * i_blocks on shrink; allocation growth comes from writes or from the
@@ -3066,26 +3072,34 @@ void cifs_setsize(struct inode *inode, loff_t offset)
 		inode->i_blocks = blocks;
 	spin_unlock(&inode->i_lock);
 	inode_set_mtime_to_ts(inode, inode_set_ctime_current(inode));
+
+	/*
+	 * Zero the tail of the folio straddling the old EOF so data dirtied
+	 * past EOF through an mmap isn't exposed.  truncate_pagecache() then
+	 * drops any pagecache beyond the new EOF, as in truncate_setsize().
+	 */
 	if (offset > old_size)
-		pagecache_isize_extended(inode, old_size, offset);
+		netfs_clear_stale_post_isize(inode, old_size, offset);
+
 	truncate_pagecache(inode, offset);
 	netfs_wait_for_outstanding_io(inode);
 }
 
-void cifs_resize_file_locked(struct inode *inode, loff_t offset)
+void cifs_resize_file_locked(struct inode *inode, loff_t old_size,
+			     loff_t offset)
 {
 	struct fscache_cookie *cookie = cifs_inode_cookie(inode);
 
 	lockdep_assert_held_write(&inode->i_rwsem);
 
 	netfs_resize_file(netfs_inode(inode), offset, true);
-	cifs_setsize(inode, offset);
+	cifs_setsize(inode, old_size, offset);
 
 	if (!cookie)
 		return;
 
 	fscache_use_cookie(cookie, true);
-	fscache_resize_cookie(cookie, offset);
+	fscache_resize_cookie(cookie, offset, offset < old_size);
 	cifs_fscache_unuse_inode_cookie(inode, true);
 }
 
@@ -3096,6 +3110,7 @@ int cifs_file_set_size(const unsigned int xid, struct dentry *dentry,
 	struct inode *inode = d_inode(dentry);
 	struct cifs_sb_info *cifs_sb = CIFS_SB(inode->i_sb);
 	struct cifsInodeInfo *cifsInode = CIFS_I(inode);
+	loff_t old_size = i_size_read(inode);
 	struct tcon_link *tlink = NULL;
 	struct cifs_tcon *tcon = NULL;
 	struct TCP_Server_Info *server;
@@ -3154,7 +3169,7 @@ int cifs_file_set_size(const unsigned int xid, struct dentry *dentry,
 
 set_size_out:
 	if (rc == 0)
-		cifs_resize_file_locked(inode, size);
+		cifs_resize_file_locked(inode, old_size, size);
 
 	return rc;
 }
@@ -3549,7 +3564,7 @@ cifs_setattr_exit:
 }
 
 int
-cifs_setattr(struct mnt_idmap *idmap, struct dentry *direntry,
+cifs_setattr(const struct mnt_idmap *idmap, struct dentry *direntry,
 	     struct iattr *attrs)
 {
 	struct cifs_sb_info *cifs_sb = CIFS_SB(direntry->d_sb);

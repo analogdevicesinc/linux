@@ -757,11 +757,15 @@ static void codec_release_pcms(struct hda_codec *codec)
  */
 void snd_hda_codec_cleanup_for_unbind(struct hda_codec *codec)
 {
+	struct hda_bus *bus = codec->bus;
+
 	if (codec->core.registered) {
 		/* pm_runtime_put() is called in snd_hdac_device_exit() */
 		pm_runtime_get_noresume(hda_codec_dev(codec));
 		pm_runtime_disable(hda_codec_dev(codec));
-		codec->core.registered = 0;
+		spin_lock_irq(&bus->core.reg_lock);
+		codec->core.registered = false;
+		spin_unlock_irq(&bus->core.reg_lock);
 	}
 
 	snd_hda_codec_disconnect_pcms(codec);
@@ -808,6 +812,8 @@ void snd_hda_codec_display_power(struct hda_codec *codec, bool enable)
  */
 void snd_hda_codec_register(struct hda_codec *codec)
 {
+	struct hda_bus *bus = codec->bus;
+
 	if (codec->core.registered)
 		return;
 	if (device_is_registered(hda_codec_dev(codec))) {
@@ -815,7 +821,9 @@ void snd_hda_codec_register(struct hda_codec *codec)
 		pm_runtime_enable(hda_codec_dev(codec));
 		/* it was powered up in snd_hda_codec_new(), now all done */
 		snd_hda_power_down(codec);
-		codec->core.registered = 1;
+		spin_lock_irq(&bus->core.reg_lock);
+		codec->core.registered = true;
+		spin_unlock_irq(&bus->core.reg_lock);
 	}
 }
 EXPORT_SYMBOL_GPL(snd_hda_codec_register);
@@ -921,7 +929,6 @@ snd_hda_codec_device_init(struct hda_bus *bus, unsigned int codec_addr,
 	snd_array_init(&codec->driver_pins, sizeof(struct hda_pincfg), 16);
 	snd_array_init(&codec->cvt_setups, sizeof(struct hda_cvt_setup), 8);
 	snd_array_init(&codec->spdif_out, sizeof(struct hda_spdif_out), 16);
-	snd_array_init(&codec->jacktbl, sizeof(struct hda_jack_tbl), 16);
 	snd_array_init(&codec->verbs, sizeof(struct hda_verb *), 8);
 	INIT_LIST_HEAD(&codec->conn_list);
 	INIT_LIST_HEAD(&codec->pcm_list_head);
@@ -1800,6 +1807,12 @@ int snd_hda_codec_reset(struct hda_codec *codec)
 {
 	struct hda_bus *bus = codec->bus;
 
+	/* ASoC: driver unbind frees the card, incl. the hwdep issuing the reset */
+	if (bus->core.ext_ops) {
+		codec_err(codec, "Codec reset is not supported with ASoC\n");
+		return -EOPNOTSUPP;
+	}
+
 	if (snd_hda_lock_devices(bus) < 0)
 		return -EBUSY;
 
@@ -2018,7 +2031,7 @@ int snd_hda_add_vmaster_hook(struct hda_codec *codec,
 	if (!hook->hook || !hook->sw_kctl)
 		return 0;
 	hook->codec = codec;
-	snd_ctl_add_vmaster_hook(hook->sw_kctl, vmaster_hook, hook);
+	snd_ctl_add_vmaster_hook(codec->card, hook->sw_kctl, vmaster_hook, hook);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(snd_hda_add_vmaster_hook);
@@ -2277,6 +2290,7 @@ static int snd_hda_spdif_default_put(struct snd_kcontrol *kcontrol,
 	int idx = kcontrol->private_value;
 	struct hda_spdif_out *spdif;
 	hda_nid_t nid;
+	unsigned int old_status;
 	unsigned short val;
 	int change;
 
@@ -2285,6 +2299,7 @@ static int snd_hda_spdif_default_put(struct snd_kcontrol *kcontrol,
 	guard(mutex)(&codec->spdif_mutex);
 	spdif = snd_array_elem(&codec->spdif_out, idx);
 	nid = spdif->nid;
+	old_status = spdif->status;
 	spdif->status = ucontrol->value.iec958.status[0] |
 		((unsigned int)ucontrol->value.iec958.status[1] << 8) |
 		((unsigned int)ucontrol->value.iec958.status[2] << 16) |
@@ -2295,7 +2310,7 @@ static int snd_hda_spdif_default_put(struct snd_kcontrol *kcontrol,
 	spdif->ctls = val;
 	if (change && nid != (u16)-1)
 		set_dig_out_convert(codec, nid, val & 0xff, (val >> 8) & 0xff);
-	return change;
+	return change || spdif->status != old_status;
 }
 
 #define snd_hda_spdif_out_switch_info	snd_ctl_boolean_mono_info
@@ -3038,6 +3053,7 @@ void snd_hda_codec_shutdown(struct hda_codec *codec)
 
 	codec->jackpoll_interval = 0; /* don't poll any longer */
 	cancel_delayed_work_sync(&codec->jackpoll_work);
+	snd_hdac_device_disable_unsol(&codec->core);
 	list_for_each_entry(cpcm, &codec->pcm_list_head, list)
 		snd_pcm_suspend_all(cpcm->pcm);
 
@@ -3772,7 +3788,7 @@ int snd_hda_multi_out_analog_open(struct hda_codec *codec,
 EXPORT_SYMBOL_GPL(snd_hda_multi_out_analog_open);
 
 /**
- * snd_hda_multi_out_analog_prepare - Preapre the analog outputs.
+ * snd_hda_multi_out_analog_prepare - Prepare the analog outputs.
  * @codec: the HDA codec
  * @mout: hda_multi_out object
  * @stream_tag: stream tag to assign

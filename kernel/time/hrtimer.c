@@ -780,7 +780,8 @@ static void hrtimer_switch_to_hres(void)
 		return;
 	}
 	base->hres_active = true;
-	hrtimer_resolution = HIGH_RES_NSEC;
+	if (hrtimer_resolution != HIGH_RES_NSEC)
+		hrtimer_resolution = HIGH_RES_NSEC;
 
 	tick_setup_sched_timer(true);
 	/* "Retrigger" the interrupt to get things going */
@@ -1263,13 +1264,23 @@ remove_and_enqueue_same_base(struct hrtimer *timer, struct hrtimer_clock_base *b
 {
 	bool was_first = false;
 
+	/*
+	 * Updating the sort key while @timer is queued can temporarily
+	 * make the tree inconsistent. This is safe under cpu_base->lock:
+	 * no other queue operation can observe that state.
+	 * hrtimer_can_update_in_place() either confirms that the new expiry
+	 * fits between the neighbours or timerqueue_linked_del() removes the
+	 * timer without consulting the expiry.
+	 */
+	hrtimer_set_expires_range_ns(timer, expires, delta_ns);
+	expires = hrtimer_get_expires(timer);
+
 	/* Remove it from the timer queue if active */
 	if (timer->is_queued) {
 		was_first = !timerqueue_linked_prev(&timer->node);
 
 		/* Try to update in place to avoid the de/enqueue dance */
 		if (hrtimer_can_update_in_place(timer, base, expires)) {
-			hrtimer_set_expires_range_ns(timer, expires, delta_ns);
 			trace_hrtimer_start(timer, mode, true);
 			if (was_first)
 				base->expires_next = expires;
@@ -1279,9 +1290,6 @@ remove_and_enqueue_same_base(struct hrtimer *timer, struct hrtimer_clock_base *b
 		debug_hrtimer_deactivate(timer);
 		timerqueue_linked_del(&base->active, &timer->node);
 	}
-
-	/* Set the new expiry time */
-	hrtimer_set_expires_range_ns(timer, expires, delta_ns);
 
 	debug_activate(timer, mode, timer->is_queued);
 	base->cpu_base->active_bases |= 1 << base->index;
@@ -1968,8 +1976,12 @@ EXPORT_SYMBOL_GPL(hrtimer_setup);
  * @clock_id:	The clock to be used
  * @mode:       The timer mode
  *
- * Similar to hrtimer_setup(), except that this one must be used if struct hrtimer is in stack
- * memory.
+ * Similar to hrtimer_setup(), except that this one must be used if struct
+ * hrtimer is in stack memory.
+ *
+ * Callers that do not use the hrtimer_on_stack cleanup class must call
+ * destroy_hrtimer_on_stack() before the stack storage goes out of scope. The
+ * cleanup class pairs setup and destruction automatically.
  */
 void hrtimer_setup_on_stack(struct hrtimer *timer,
 			    enum hrtimer_restart (*function)(struct hrtimer *),
@@ -1996,7 +2008,7 @@ bool hrtimer_active(const struct hrtimer *timer)
 		base = READ_ONCE(timer->base);
 		seq = raw_read_seqcount_begin(&base->seq);
 
-		if (timer->is_queued || base->running == timer)
+		if (timer->is_queued || READ_ONCE(base->running) == timer)
 			return true;
 
 	} while (read_seqcount_retry(&base->seq, seq) || base != READ_ONCE(timer->base));
@@ -2033,7 +2045,7 @@ static void __run_hrtimer(struct hrtimer_cpu_base *cpu_base, struct hrtimer_cloc
 	lockdep_assert_held(&cpu_base->lock);
 
 	debug_hrtimer_deactivate(timer);
-	base->running = timer;
+	WRITE_ONCE(base->running, timer);
 
 	/*
 	 * Separate the ->running assignment from the ->is_queued assignment.
@@ -2092,7 +2104,7 @@ static void __run_hrtimer(struct hrtimer_cpu_base *cpu_base, struct hrtimer_cloc
 	raw_write_seqcount_barrier(&base->seq);
 
 	WARN_ON_ONCE(base->running != timer);
-	base->running = NULL;
+	WRITE_ONCE(base->running, NULL);
 }
 
 static void __hrtimer_run_queues(struct hrtimer_cpu_base *cpu_base, ktime_t now,
@@ -2316,9 +2328,9 @@ void hrtimer_run_queues(void)
 static enum hrtimer_restart hrtimer_wakeup(struct hrtimer *timer)
 {
 	struct hrtimer_sleeper *t = container_of(timer, struct hrtimer_sleeper, timer);
-	struct task_struct *task = t->task;
+	struct task_struct *task = hrtimer_sleeper_task_get(t);
 
-	t->task = NULL;
+	hrtimer_sleeper_task_set(t, NULL);
 	if (task)
 		wake_up_process(task);
 
@@ -2347,7 +2359,7 @@ void hrtimer_sleeper_start_expires(struct hrtimer_sleeper *sl, enum hrtimer_mode
 
 	/* If already expired, clear the task pointer and set current state to running */
 	if (!hrtimer_start_expires_user(&sl->timer, mode)) {
-		sl->task = NULL;
+		hrtimer_sleeper_task_set(sl, NULL);
 		__set_current_state(TASK_RUNNING);
 	}
 }
@@ -2381,7 +2393,7 @@ static void __hrtimer_setup_sleeper(struct hrtimer_sleeper *sl, clockid_t clock_
 	}
 
 	__hrtimer_setup(&sl->timer, hrtimer_wakeup, clock_id, mode);
-	sl->task = current;
+	hrtimer_sleeper_task_set(sl, current);
 }
 
 /**
@@ -2425,17 +2437,17 @@ static int __sched do_nanosleep(struct hrtimer_sleeper *t, enum hrtimer_mode mod
 		set_current_state(TASK_INTERRUPTIBLE|TASK_FREEZABLE);
 		hrtimer_sleeper_start_expires(t, mode);
 
-		if (likely(t->task))
+		if (likely(hrtimer_sleeper_task_get(t)))
 			schedule();
 
 		hrtimer_cancel(&t->timer);
 		mode = HRTIMER_MODE_ABS;
 
-	} while (t->task && !signal_pending(current));
+	} while (hrtimer_sleeper_task_get(t) && !signal_pending(current));
 
 	__set_current_state(TASK_RUNNING);
 
-	if (!t->task)
+	if (!hrtimer_sleeper_task_get(t))
 		return 0;
 
 	restart = &current->restart_block;

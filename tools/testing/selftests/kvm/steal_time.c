@@ -27,6 +27,9 @@
 static void *st_gva[NR_VCPUS];
 static u64 guest_stolen_time[NR_VCPUS];
 
+static struct kvm_vm *vm_create_steal_time(u32 nr_vcpus, void *guest_code,
+					   struct kvm_vcpu *vcpus[]);
+
 #if defined(__x86_64__)
 
 /* steal_time must have 64-byte alignment */
@@ -73,12 +76,12 @@ static void steal_time_init(struct kvm_vcpu *vcpu, u32 i)
 	WRITE_AND_SYNC_TO_GUEST(vcpu->vm, st_gva[i],
 				(void *)(ST_GPA_BASE + i * STEAL_TIME_SIZE));
 
-	vcpu_set_msr(vcpu, MSR_KVM_STEAL_TIME, (ulong)st_gva[i] | KVM_MSR_ENABLED);
+	vcpu_set_msr(vcpu, MSR_KVM_STEAL_TIME, (unsigned long)st_gva[i] | KVM_MSR_ENABLED);
 }
 
 static void steal_time_dump(struct kvm_vm *vm, u32 vcpu_idx)
 {
-	struct kvm_steal_time *st = addr_gva2hva(vm, (ulong)st_gva[vcpu_idx]);
+	struct kvm_steal_time *st = addr_gva2hva(vm, (unsigned long)st_gva[vcpu_idx]);
 
 	ksft_print_msg("VCPU%d:\n", vcpu_idx);
 	ksft_print_msg("    steal:     %lld\n", st->steal);
@@ -102,7 +105,7 @@ static void check_steal_time_uapi(void)
 	vm = vm_create_with_one_vcpu(&vcpu, NULL);
 
 	ret = _vcpu_set_msr(vcpu, MSR_KVM_STEAL_TIME,
-			    (ulong)ST_GPA_BASE | KVM_STEAL_RESERVED_MASK);
+			    (unsigned long)ST_GPA_BASE | KVM_STEAL_RESERVED_MASK);
 	TEST_ASSERT(ret == 0, "Bad GPA didn't fail");
 
 	kvm_vm_free(vm);
@@ -151,7 +154,7 @@ static void guest_code(int cpu)
 
 	status = smccc(PV_TIME_ST, 0);
 	GUEST_ASSERT_NE(status, -1);
-	GUEST_ASSERT_EQ(status, (ulong)st_gva[cpu]);
+	GUEST_ASSERT_EQ(status, (unsigned long)st_gva[cpu]);
 
 	st = (struct st_time *)status;
 	GUEST_SYNC(0);
@@ -189,13 +192,13 @@ static void steal_time_init(struct kvm_vcpu *vcpu, u32 i)
 	/* ST_GPA_BASE is identity mapped */
 	WRITE_AND_SYNC_TO_GUEST(vm, st_gva[i], (void *)(ST_GPA_BASE + i * STEAL_TIME_SIZE));
 
-	st_ipa = (ulong)st_gva[i];
+	st_ipa = (unsigned long)st_gva[i];
 	vcpu_ioctl(vcpu, KVM_SET_DEVICE_ATTR, &dev);
 }
 
 static void steal_time_dump(struct kvm_vm *vm, u32 vcpu_idx)
 {
-	struct st_time *st = addr_gva2hva(vm, (ulong)st_gva[vcpu_idx]);
+	struct st_time *st = addr_gva2hva(vm, (unsigned long)st_gva[vcpu_idx]);
 
 	ksft_print_msg("VCPU%d:\n", vcpu_idx);
 	ksft_print_msg("    rev:     %d\n", st->rev);
@@ -210,23 +213,20 @@ static void check_steal_time_uapi(void)
 	u64 st_ipa;
 	int ret;
 
-	vm = vm_create_with_one_vcpu(&vcpu, NULL);
-
 	struct kvm_device_attr dev = {
 		.group = KVM_ARM_VCPU_PVTIME_CTRL,
 		.attr = KVM_ARM_VCPU_PVTIME_IPA,
 		.addr = (u64)&st_ipa,
 	};
 
+	vm = vm_create_steal_time(1, NULL, &vcpu);
 	vcpu_ioctl(vcpu, KVM_HAS_DEVICE_ATTR, &dev);
-	vm_userspace_mem_region_add(vm, VM_MEM_SRC_ANONYMOUS, ST_GPA_BASE, 1, 1, 0);
-	virt_map(vm, ST_GPA_BASE, ST_GPA_BASE, 1);
 
-	st_ipa = (ulong)ST_GPA_BASE | 1;
+	st_ipa = (unsigned long)ST_GPA_BASE | 1;
 	ret = __vcpu_ioctl(vcpu, KVM_SET_DEVICE_ATTR, &dev);
 	TEST_ASSERT(ret == -1 && errno == EINVAL, "Bad IPA didn't report EINVAL");
 
-	st_ipa = (ulong)ST_GPA_BASE;
+	st_ipa = (unsigned long)ST_GPA_BASE;
 	vcpu_ioctl(vcpu, KVM_SET_DEVICE_ATTR, &dev);
 
 	ret = __vcpu_ioctl(vcpu, KVM_SET_DEVICE_ATTR, &dev);
@@ -315,7 +315,7 @@ static void steal_time_init(struct kvm_vcpu *vcpu, u32 i)
 
 static void steal_time_dump(struct kvm_vm *vm, u32 vcpu_idx)
 {
-	struct sta_struct *st = addr_gva2hva(vm, (ulong)st_gva[vcpu_idx]);
+	struct sta_struct *st = addr_gva2hva(vm, (unsigned long)st_gva[vcpu_idx]);
 	int i;
 
 	pr_info("VCPU%d:\n", vcpu_idx);
@@ -451,7 +451,7 @@ static void steal_time_init(struct kvm_vcpu *vcpu, u32 i)
 
 static void steal_time_dump(struct kvm_vm *vm, u32 vcpu_idx)
 {
-	struct kvm_steal_time *st = addr_gva2hva(vm, (ulong)st_gva[vcpu_idx]);
+	struct kvm_steal_time *st = addr_gva2hva(vm, (unsigned long)st_gva[vcpu_idx]);
 
 	ksft_print_msg("VCPU%d:\n", vcpu_idx);
 	ksft_print_msg("    steal:     %lld\n", st->steal);
@@ -500,13 +500,27 @@ static void run_vcpu(struct kvm_vcpu *vcpu)
 	}
 }
 
+static struct kvm_vm *vm_create_steal_time(u32 nr_vcpus, void *guest_code,
+					   struct kvm_vcpu *vcpus[])
+{
+	unsigned int gpages;
+	struct kvm_vm *vm;
+
+	/* Create a VM and an identity mapped memslot for the steal time structure */
+	vm = vm_create_with_vcpus(nr_vcpus, guest_code, vcpus);
+	gpages = vm_calc_num_guest_pages(VM_MODE_DEFAULT, STEAL_TIME_SIZE * nr_vcpus);
+	vm_userspace_mem_region_add(vm, VM_MEM_SRC_ANONYMOUS, ST_GPA_BASE, 1, gpages, 0);
+	virt_map(vm, ST_GPA_BASE, ST_GPA_BASE, gpages);
+
+	return vm;
+}
+
 int main(int ac, char **av)
 {
 	struct kvm_vcpu *vcpus[NR_VCPUS];
 	struct kvm_vm *vm;
 	pthread_t thread;
 	cpu_set_t cpuset;
-	unsigned int gpages;
 	long stolen_time;
 	long run_delay;
 	bool verbose;
@@ -517,11 +531,7 @@ int main(int ac, char **av)
 	/* Set CPU affinity so we can force preemption of the VCPU */
 	cpu = pin_self_to_any_cpu();
 
-	/* Create a VM and an identity mapped memslot for the steal time structure */
-	vm = vm_create_with_vcpus(NR_VCPUS, guest_code, vcpus);
-	gpages = vm_calc_num_guest_pages(VM_MODE_DEFAULT, STEAL_TIME_SIZE * NR_VCPUS);
-	vm_userspace_mem_region_add(vm, VM_MEM_SRC_ANONYMOUS, ST_GPA_BASE, 1, gpages, 0);
-	virt_map(vm, ST_GPA_BASE, ST_GPA_BASE, gpages);
+	vm = vm_create_steal_time(NR_VCPUS, guest_code, vcpus);
 
 	ksft_print_header();
 	TEST_REQUIRE(is_steal_time_supported(vcpus[0]));
