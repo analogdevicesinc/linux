@@ -155,7 +155,7 @@ struct asus_wmi_sensor_info {
 };
 
 struct asus_wmi_wmi_info {
-	unsigned long source_last_updated[3];	/* in jiffies */
+	u64 source_last_updated[3];	/* in jiffies */
 	int sensor_count;
 
 	const struct asus_wmi_sensor_info **info[hwmon_max];
@@ -423,7 +423,8 @@ static int asus_wmi_get_cached_value_or_update(const struct asus_wmi_sensor_info
 
 	mutex_lock(&sensor_data->lock);
 
-	if (time_after(jiffies, sensor_data->wmi.source_last_updated[sensor->source] + HZ)) {
+	if (time_after64(get_jiffies_64(),
+			 sensor_data->wmi.source_last_updated[sensor->source] + HZ)) {
 		ret = asus_wmi_update_buffer(sensor->source);
 		if (ret)
 			goto unlock;
@@ -432,7 +433,7 @@ static int asus_wmi_get_cached_value_or_update(const struct asus_wmi_sensor_info
 		if (ret)
 			goto unlock;
 
-		sensor_data->wmi.source_last_updated[sensor->source] = jiffies;
+		sensor_data->wmi.source_last_updated[sensor->source] = get_jiffies_64();
 	}
 
 	*value = sensor->cached_value;
