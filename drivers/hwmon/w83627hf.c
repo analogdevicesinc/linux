@@ -356,7 +356,7 @@ struct w83627hf_data {
 
 	struct mutex update_lock;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
 
 	u8 in[9];		/* Register value */
 	u8 in_max[9];		/* Register value */
@@ -482,8 +482,8 @@ static struct w83627hf_data *w83627hf_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ + HZ / 2)
-	    || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ + HZ / 2) ||
+	    !data->valid) {
 		for (i = 0; i <= 8; i++) {
 			/* skip missing sensors */
 			if (((data->type == w83697hf) && (i == 1)) ||
@@ -559,7 +559,7 @@ static struct w83627hf_data *w83627hf_update_device(struct device *dev)
 		data->beep_mask = (i << 8) |
 		    w83627hf_read_value(data, W83781D_REG_BEEP_INTS1) |
 		    w83627hf_read_value(data, W83781D_REG_BEEP_INTS3) << 16;
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 
