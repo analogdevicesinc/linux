@@ -2672,8 +2672,8 @@ static void smu7_patch_ppt_v0_with_vdd_leakage(struct pp_hwmgr *hwmgr,
 }
 
 
-static int smu7_patch_vddc(struct pp_hwmgr *hwmgr,
-			      struct phm_clock_voltage_dependency_table *tab)
+static void smu7_patch_vddc(struct pp_hwmgr *hwmgr,
+			    struct phm_clock_voltage_dependency_table *tab)
 {
 	uint16_t i;
 	struct smu7_hwmgr *data = (struct smu7_hwmgr *)(hwmgr->backend);
@@ -2682,12 +2682,10 @@ static int smu7_patch_vddc(struct pp_hwmgr *hwmgr,
 		for (i = 0; i < tab->count; i++)
 			smu7_patch_ppt_v0_with_vdd_leakage(hwmgr, &tab->entries[i].v,
 						&data->vddc_leakage);
-
-	return 0;
 }
 
-static int smu7_patch_vddci(struct pp_hwmgr *hwmgr,
-			       struct phm_clock_voltage_dependency_table *tab)
+static void smu7_patch_vddci(struct pp_hwmgr *hwmgr,
+			     struct phm_clock_voltage_dependency_table *tab)
 {
 	uint16_t i;
 	struct smu7_hwmgr *data = (struct smu7_hwmgr *)(hwmgr->backend);
@@ -2696,12 +2694,10 @@ static int smu7_patch_vddci(struct pp_hwmgr *hwmgr,
 		for (i = 0; i < tab->count; i++)
 			smu7_patch_ppt_v0_with_vdd_leakage(hwmgr, &tab->entries[i].v,
 							&data->vddci_leakage);
-
-	return 0;
 }
 
-static int smu7_patch_vce_vddc(struct pp_hwmgr *hwmgr,
-				  struct phm_vce_clock_voltage_dependency_table *tab)
+static void smu7_patch_vce_vddc(struct pp_hwmgr *hwmgr,
+				struct phm_vce_clock_voltage_dependency_table *tab)
 {
 	uint16_t i;
 	struct smu7_hwmgr *data = (struct smu7_hwmgr *)(hwmgr->backend);
@@ -2710,13 +2706,11 @@ static int smu7_patch_vce_vddc(struct pp_hwmgr *hwmgr,
 		for (i = 0; i < tab->count; i++)
 			smu7_patch_ppt_v0_with_vdd_leakage(hwmgr, &tab->entries[i].v,
 							&data->vddc_leakage);
-
-	return 0;
 }
 
 
-static int smu7_patch_uvd_vddc(struct pp_hwmgr *hwmgr,
-				  struct phm_uvd_clock_voltage_dependency_table *tab)
+static void smu7_patch_uvd_vddc(struct pp_hwmgr *hwmgr,
+				struct phm_uvd_clock_voltage_dependency_table *tab)
 {
 	uint16_t i;
 	struct smu7_hwmgr *data = (struct smu7_hwmgr *)(hwmgr->backend);
@@ -2725,12 +2719,10 @@ static int smu7_patch_uvd_vddc(struct pp_hwmgr *hwmgr,
 		for (i = 0; i < tab->count; i++)
 			smu7_patch_ppt_v0_with_vdd_leakage(hwmgr, &tab->entries[i].v,
 							&data->vddc_leakage);
-
-	return 0;
 }
 
-static int smu7_patch_vddc_shed_limit(struct pp_hwmgr *hwmgr,
-					 struct phm_phase_shedding_limits_table *tab)
+static void smu7_patch_vddc_shed_limit(struct pp_hwmgr *hwmgr,
+				       struct phm_phase_shedding_limits_table *tab)
 {
 	uint16_t i;
 	struct smu7_hwmgr *data = (struct smu7_hwmgr *)(hwmgr->backend);
@@ -2739,12 +2731,10 @@ static int smu7_patch_vddc_shed_limit(struct pp_hwmgr *hwmgr,
 		for (i = 0; i < tab->count; i++)
 			smu7_patch_ppt_v0_with_vdd_leakage(hwmgr, &tab->entries[i].Voltage,
 							&data->vddc_leakage);
-
-	return 0;
 }
 
-static int smu7_patch_samu_vddc(struct pp_hwmgr *hwmgr,
-				   struct phm_samu_clock_voltage_dependency_table *tab)
+static void smu7_patch_samu_vddc(struct pp_hwmgr *hwmgr,
+				 struct phm_samu_clock_voltage_dependency_table *tab)
 {
 	uint16_t i;
 	struct smu7_hwmgr *data = (struct smu7_hwmgr *)(hwmgr->backend);
@@ -2753,12 +2743,10 @@ static int smu7_patch_samu_vddc(struct pp_hwmgr *hwmgr,
 		for (i = 0; i < tab->count; i++)
 			smu7_patch_ppt_v0_with_vdd_leakage(hwmgr, &tab->entries[i].v,
 							&data->vddc_leakage);
-
-	return 0;
 }
 
-static int smu7_patch_acp_vddc(struct pp_hwmgr *hwmgr,
-				  struct phm_acp_clock_voltage_dependency_table *tab)
+static void smu7_patch_acp_vddc(struct pp_hwmgr *hwmgr,
+				struct phm_acp_clock_voltage_dependency_table *tab)
 {
 	uint16_t i;
 	struct smu7_hwmgr *data = (struct smu7_hwmgr *)(hwmgr->backend);
@@ -2767,12 +2755,10 @@ static int smu7_patch_acp_vddc(struct pp_hwmgr *hwmgr,
 		for (i = 0; i < tab->count; i++)
 			smu7_patch_ppt_v0_with_vdd_leakage(hwmgr, &tab->entries[i].v,
 					&data->vddc_leakage);
-
-	return 0;
 }
 
-static int smu7_patch_limits_vddc(struct pp_hwmgr *hwmgr,
-				  struct phm_clock_and_voltage_limits *tab)
+static void smu7_patch_limits_vddc(struct pp_hwmgr *hwmgr,
+				   struct phm_clock_and_voltage_limits *tab)
 {
 	uint32_t vddc, vddci;
 	struct smu7_hwmgr *data = (struct smu7_hwmgr *)(hwmgr->backend);
@@ -2787,11 +2773,9 @@ static int smu7_patch_limits_vddc(struct pp_hwmgr *hwmgr,
 						   &data->vddci_leakage);
 		tab->vddci = vddci;
 	}
-
-	return 0;
 }
 
-static int smu7_patch_cac_vddc(struct pp_hwmgr *hwmgr, struct phm_cac_leakage_table *tab)
+static void smu7_patch_cac_vddc(struct pp_hwmgr *hwmgr, struct phm_cac_leakage_table *tab)
 {
 	uint32_t i;
 	uint32_t vddc;
@@ -2804,63 +2788,22 @@ static int smu7_patch_cac_vddc(struct pp_hwmgr *hwmgr, struct phm_cac_leakage_ta
 			tab->entries[i].Vddc = (uint16_t)vddc;
 		}
 	}
-
-	return 0;
 }
 
-static int smu7_patch_dependency_tables_with_leakage(struct pp_hwmgr *hwmgr)
+static void smu7_patch_dependency_tables_with_leakage(struct pp_hwmgr *hwmgr)
 {
-	int tmp;
-
-	tmp = smu7_patch_vddc(hwmgr, hwmgr->dyn_state.vddc_dependency_on_sclk);
-	if (tmp)
-		return -EINVAL;
-
-	tmp = smu7_patch_vddc(hwmgr, hwmgr->dyn_state.vddc_dependency_on_mclk);
-	if (tmp)
-		return -EINVAL;
-
-	tmp = smu7_patch_vddci(hwmgr, hwmgr->dyn_state.vddci_dependency_on_mclk);
-	if (tmp)
-		return -EINVAL;
-
-	tmp = smu7_patch_vddc(hwmgr, hwmgr->dyn_state.vddc_dependency_on_display_clock);
-	if (tmp)
-		return -EINVAL;
-
-	tmp = smu7_patch_vce_vddc(hwmgr, hwmgr->dyn_state.vce_clock_voltage_dependency_table);
-	if (tmp)
-		return -EINVAL;
-
-	tmp = smu7_patch_uvd_vddc(hwmgr, hwmgr->dyn_state.uvd_clock_voltage_dependency_table);
-	if (tmp)
-		return -EINVAL;
-
-	tmp = smu7_patch_samu_vddc(hwmgr, hwmgr->dyn_state.samu_clock_voltage_dependency_table);
-	if (tmp)
-		return -EINVAL;
-
-	tmp = smu7_patch_acp_vddc(hwmgr, hwmgr->dyn_state.acp_clock_voltage_dependency_table);
-	if (tmp)
-		return -EINVAL;
-
-	tmp = smu7_patch_vddc_shed_limit(hwmgr, hwmgr->dyn_state.vddc_phase_shed_limits_table);
-	if (tmp)
-		return -EINVAL;
-
-	tmp = smu7_patch_limits_vddc(hwmgr, &hwmgr->dyn_state.max_clock_voltage_on_ac);
-	if (tmp)
-		return -EINVAL;
-
-	tmp = smu7_patch_limits_vddc(hwmgr, &hwmgr->dyn_state.max_clock_voltage_on_dc);
-	if (tmp)
-		return -EINVAL;
-
-	tmp = smu7_patch_cac_vddc(hwmgr, hwmgr->dyn_state.cac_leakage_table);
-	if (tmp)
-		return -EINVAL;
-
-	return 0;
+	smu7_patch_vddc(hwmgr, hwmgr->dyn_state.vddc_dependency_on_sclk);
+	smu7_patch_vddc(hwmgr, hwmgr->dyn_state.vddc_dependency_on_mclk);
+	smu7_patch_vddci(hwmgr, hwmgr->dyn_state.vddci_dependency_on_mclk);
+	smu7_patch_vddc(hwmgr, hwmgr->dyn_state.vddc_dependency_on_display_clock);
+	smu7_patch_vce_vddc(hwmgr, hwmgr->dyn_state.vce_clock_voltage_dependency_table);
+	smu7_patch_uvd_vddc(hwmgr, hwmgr->dyn_state.uvd_clock_voltage_dependency_table);
+	smu7_patch_samu_vddc(hwmgr, hwmgr->dyn_state.samu_clock_voltage_dependency_table);
+	smu7_patch_acp_vddc(hwmgr, hwmgr->dyn_state.acp_clock_voltage_dependency_table);
+	smu7_patch_vddc_shed_limit(hwmgr, hwmgr->dyn_state.vddc_phase_shed_limits_table);
+	smu7_patch_limits_vddc(hwmgr, &hwmgr->dyn_state.max_clock_voltage_on_ac);
+	smu7_patch_limits_vddc(hwmgr, &hwmgr->dyn_state.max_clock_voltage_on_dc);
+	smu7_patch_cac_vddc(hwmgr, hwmgr->dyn_state.cac_leakage_table);
 }
 
 
