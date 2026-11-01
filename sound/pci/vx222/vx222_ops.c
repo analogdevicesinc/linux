@@ -321,7 +321,8 @@ static void vx2_dma_read(struct vx_core *chip, struct snd_pcm_runtime *runtime,
 /*
  * transfer counts bits to PLX
  */
-static int put_xilinx_data(struct vx_core *chip, unsigned int port, unsigned int counts, unsigned char data)
+static void put_xilinx_data(struct vx_core *chip, unsigned int port,
+			    unsigned int counts, unsigned char data)
 {
 	unsigned int i;
 
@@ -347,7 +348,6 @@ static int put_xilinx_data(struct vx_core *chip, unsigned int port, unsigned int
 		vx2_inl(chip, port);
 		udelay(1);
 	}
-	return 0;
 }
 
 /*
@@ -374,8 +374,7 @@ static int vx2_load_xilinx_binary(struct vx_core *chip, const struct firmware *x
 
 	image = xilinx->data;
 	for (i = 0; i < xilinx->size; i++, image++) {
-		if (put_xilinx_data(chip, port, 8, *image) < 0)
-			return -EINVAL;
+		put_xilinx_data(chip, port, 8, *image);
 		/* don't take too much time in this loop... */
 		cond_resched();
 	}
