@@ -99,7 +99,7 @@ struct occ {
 	int (*send_cmd)(struct occ *occ, u8 *cmd, size_t len, void *resp,
 			size_t resp_len);
 
-	unsigned long next_update;
+	u64 next_update;
 	struct mutex lock;		/* lock OCC access */
 	struct mutex hwmon_lock;		/* serialize hwmon registration/removal */
 
@@ -112,7 +112,7 @@ struct occ {
 	int error;                      /* final transfer error after retry */
 	int last_error;			/* latest transfer error */
 	unsigned int error_count;       /* number of xfr errors observed */
-	unsigned long last_safe;        /* time OCC entered "safe" state */
+	u64 last_safe;                  /* time OCC entered "safe" state */
 
 	/*
 	 * Store the previous state data for comparison in order to notify
