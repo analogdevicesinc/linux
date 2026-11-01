@@ -1000,7 +1000,7 @@ void clock_was_set(unsigned int bases)
 				cpumask_set_cpu(cpu, mask);
 		}
 		scoped_guard(preempt)
-			smp_call_function_many(mask, retrigger_next_event, NULL, 1);
+			on_each_cpu_mask(mask, retrigger_next_event, NULL, 1);
 	}
 	free_cpumask_var(mask);
 
