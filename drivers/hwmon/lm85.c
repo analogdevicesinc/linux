@@ -295,8 +295,8 @@ struct lm85_data {
 
 	struct mutex update_lock;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_reading;	/* In jiffies */
-	unsigned long last_config;	/* In jiffies */
+	u64 last_reading;	/* In jiffies */
+	u64 last_config;	/* In jiffies */
 
 	u8 in[8];		/* Register value */
 	u8 in_max[8];		/* Register value */
@@ -374,7 +374,8 @@ static struct lm85_data *lm85_update_device(struct device *dev)
 	mutex_lock(&data->update_lock);
 
 	if (!data->valid ||
-	     time_after(jiffies, data->last_reading + LM85_DATA_INTERVAL)) {
+	    time_after64(get_jiffies_64(),
+			 data->last_reading + LM85_DATA_INTERVAL)) {
 		/* Things that change quickly */
 		dev_dbg(&client->dev, "Reading sensor values\n");
 
@@ -463,11 +464,12 @@ static struct lm85_data *lm85_update_device(struct device *dev)
 			data->temp_ext[2] = ext1 >> 4;
 		}
 
-		data->last_reading = jiffies;
+		data->last_reading = get_jiffies_64();
 	}  /* last_reading */
 
 	if (!data->valid ||
-	     time_after(jiffies, data->last_config + LM85_CONFIG_INTERVAL)) {
+	    time_after64(get_jiffies_64(),
+			 data->last_config + LM85_CONFIG_INTERVAL)) {
 		/* Things that don't change often */
 		dev_dbg(&client->dev, "Reading config values\n");
 
@@ -538,7 +540,7 @@ static struct lm85_data *lm85_update_device(struct device *dev)
 			data->zone[2].hyst = i >> 4;
 		}
 
-		data->last_config = jiffies;
+		data->last_config = get_jiffies_64();
 	}  /* last_config */
 
 	data->valid = true;
