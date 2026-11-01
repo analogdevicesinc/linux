@@ -123,7 +123,7 @@ struct w83l786ng_data {
 	struct i2c_client *client;
 	struct mutex update_lock;
 	bool valid;			/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;		/* In jiffies */
 	unsigned long last_nonvolatile;	/* In jiffies, last time we update the
 					 * nonvolatile registers */
 
@@ -164,8 +164,8 @@ static struct w83l786ng_data *w83l786ng_update_device(struct device *dev)
 	u8 reg_tmp, pwmcfg;
 
 	mutex_lock(&data->update_lock);
-	if (time_after(jiffies, data->last_updated + HZ + HZ / 2)
-	    || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ + HZ / 2) ||
+	    !data->valid) {
 		dev_dbg(&client->dev, "Updating w83l786ng data.\n");
 
 		/* Update the voltages measured value and limits */
@@ -217,7 +217,7 @@ static struct w83l786ng_data *w83l786ng_update_device(struct device *dev)
 		data->tolerance[0] = reg_tmp & 0x0f;
 		data->tolerance[1] = (reg_tmp >> 4) & 0x0f;
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 
 	}
