@@ -181,7 +181,7 @@ struct asb100_data {
 	struct mutex lock;
 
 	struct mutex update_lock;
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;		/* In jiffies */
 
 	/* array of 2 pointers to subclients */
 	struct i2c_client *lm75[2];
@@ -940,8 +940,8 @@ static struct asb100_data *asb100_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ + HZ / 2)
-		|| !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ + HZ / 2) ||
+	    !data->valid) {
 
 		dev_dbg(&client->dev, "starting device update...\n");
 
@@ -990,7 +990,7 @@ static struct asb100_data *asb100_update_device(struct device *dev)
 		data->alarms = asb100_read_value(client, ASB100_REG_ALARM1) +
 			(asb100_read_value(client, ASB100_REG_ALARM2) << 8);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 
 		dev_dbg(&client->dev, "... device update complete\n");
