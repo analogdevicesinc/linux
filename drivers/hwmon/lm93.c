@@ -197,7 +197,7 @@ struct lm93_data {
 	struct i2c_client *client;
 
 	struct mutex update_lock;
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
 
 	/* client update function */
 	void (*update)(struct lm93_data *, struct i2c_client *);
@@ -904,11 +904,10 @@ static struct lm93_data *lm93_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + interval) ||
-		!data->valid) {
-
+	if (time_after64(get_jiffies_64(), data->last_updated + interval) ||
+	    !data->valid) {
 		data->update(data, client);
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 
