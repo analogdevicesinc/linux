@@ -998,25 +998,26 @@ static void mei_hbm_cl_res(struct mei_device *dev,
 			   struct mei_hbm_cl_cmd *rs,
 			   enum mei_cb_file_ops fop_type)
 {
-	struct mei_cl *cl;
+	struct mei_cl *cl = NULL;
 	struct mei_cl_cb *cb, *next;
 
-	cl = NULL;
 	list_for_each_entry_safe(cb, next, &dev->ctrl_rd_list, list) {
-
-		cl = cb->cl;
 
 		if (cb->fop_type != fop_type)
 			continue;
 
-		if (mei_hbm_cl_addr_equal(cl, rs)) {
+		if (mei_hbm_cl_addr_equal(cb->cl, rs)) {
 			list_del_init(&cb->list);
+			cl = cb->cl;
 			break;
 		}
 	}
 
-	if (!cl)
+	if (!cl) {
+		dev_dbg(&dev->dev, "Can't find request for cmd %02d (%02d:%02d)\n",
+			rs->hbm_cmd, rs->host_addr, rs->me_addr);
 		return;
+	}
 
 	switch (fop_type) {
 	case MEI_FOP_CONNECT:
