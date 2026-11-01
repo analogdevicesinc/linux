@@ -24,7 +24,7 @@ struct sy7636a_data {
 	struct gpio_desc *vcom_en_gpio;
 };
 
-static int sy7636a_get_vcom_voltage_op(struct regulator_dev *rdev)
+static int sy7636a_get_vcom_voltage_sel(struct regulator_dev *rdev)
 {
 	int ret;
 	unsigned int val, val_h;
@@ -37,9 +37,20 @@ static int sy7636a_get_vcom_voltage_op(struct regulator_dev *rdev)
 	if (ret)
 		return ret;
 
-	val |= (val_h << VCOM_ADJUST_CTRL_SHIFT);
+	/* VCOM[8] is bit 7 of register 0x02 */
+	return val | (val_h & BIT(7)) << 1;
+}
 
-	return (val & VCOM_ADJUST_CTRL_MASK) * VCOM_ADJUST_CTRL_SCAL;
+static int sy7636a_set_vcom_voltage_sel(struct regulator_dev *rdev, unsigned int sel)
+{
+	int ret;
+
+	ret = regmap_write(rdev->regmap, SY7636A_REG_VCOM_ADJUST_CTRL_L, sel & 0xff);
+	if (ret)
+		return ret;
+
+	return regmap_update_bits(rdev->regmap, SY7636A_REG_VCOM_ADJUST_CTRL_H, BIT(7),
+				  (sel & BIT(8)) >> 1);
 }
 
 static int sy7636a_get_status(struct regulator_dev *rdev)
@@ -55,11 +66,20 @@ static int sy7636a_get_status(struct regulator_dev *rdev)
 }
 
 static const struct regulator_ops sy7636a_vcom_volt_ops = {
-	.get_voltage = sy7636a_get_vcom_voltage_op,
+	.list_voltage = regulator_list_voltage_linear_range,
+	.map_voltage = regulator_map_voltage_linear_range,
+	.get_voltage_sel = sy7636a_get_vcom_voltage_sel,
+	.set_voltage_sel = sy7636a_set_vcom_voltage_sel,
 	.enable = regulator_enable_regmap,
 	.disable = regulator_disable_regmap,
 	.is_enabled = regulator_is_enabled_regmap,
 	.get_status = sy7636a_get_status,
+};
+
+/* 10 mV steps up to 5 V, higher codes also give 5 V */
+static const struct linear_range sy7636a_vcom_ranges[] = {
+	REGULATOR_LINEAR_RANGE(0, 0x000, 0x1f4, VCOM_ADJUST_CTRL_SCAL),
+	REGULATOR_LINEAR_RANGE(5000000, 0x1f5, 0x1ff, 0),
 };
 
 static const struct regulator_desc desc = {
@@ -68,6 +88,9 @@ static const struct regulator_desc desc = {
 	.ops = &sy7636a_vcom_volt_ops,
 	.type = REGULATOR_VOLTAGE,
 	.owner = THIS_MODULE,
+	.n_voltages = VCOM_ADJUST_CTRL_MASK + 1,
+	.linear_ranges = sy7636a_vcom_ranges,
+	.n_linear_ranges = ARRAY_SIZE(sy7636a_vcom_ranges),
 	.enable_reg = SY7636A_REG_OPERATION_MODE_CRL,
 	.enable_mask = SY7636A_OPERATION_MODE_CRL_ONOFF,
 	.regulators_node = of_match_ptr("regulators"),
