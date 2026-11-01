@@ -99,7 +99,7 @@ struct w83l785ts_data {
 	struct device *hwmon_dev;
 	struct mutex update_lock;
 	bool valid; /* false until following fields are valid */
-	unsigned long last_updated; /* in jiffies */
+	u64 last_updated; /* in jiffies */
 
 	/* registers values */
 	s8 temp[2]; /* 0: input, 1: critical limit */
@@ -260,14 +260,15 @@ static struct w83l785ts_data *w83l785ts_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (!data->valid || time_after(jiffies, data->last_updated + HZ * 2)) {
+	if (!data->valid ||
+	    time_after64(get_jiffies_64(), data->last_updated + HZ * 2)) {
 		dev_dbg(&client->dev, "Updating w83l785ts data.\n");
 		data->temp[0] = w83l785ts_read_value(client,
 				W83L785TS_REG_TEMP, data->temp[0]);
 		data->temp[1] = w83l785ts_read_value(client,
 				W83L785TS_REG_TEMP_OVER, data->temp[1]);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 
