@@ -67,7 +67,7 @@ struct ibmpex_bmc_data {
 	struct device		*bmc_device;
 	struct mutex		lock;
 	bool			valid;
-	unsigned long		last_updated;	/* In jiffies */
+	u64			last_updated;	/* In jiffies */
 
 	struct ipmi_addr	address;
 	struct completion	read_complete;
@@ -220,7 +220,8 @@ static void ibmpex_update_device(struct ibmpex_bmc_data *data)
 	int i, err;
 
 	mutex_lock(&data->lock);
-	if (time_before(jiffies, data->last_updated + REFRESH_INTERVAL) &&
+	if (time_before64(get_jiffies_64(),
+			  data->last_updated + REFRESH_INTERVAL) &&
 	    data->valid)
 		goto out;
 
@@ -238,7 +239,7 @@ static void ibmpex_update_device(struct ibmpex_bmc_data *data)
 			extract_value(data->rx_msg_data, 20);
 	}
 
-	data->last_updated = jiffies;
+	data->last_updated = get_jiffies_64();
 	data->valid = true;
 
 out:
