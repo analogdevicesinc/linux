@@ -226,8 +226,7 @@ static void tgid_stats_add_task(struct taskstats *stats,
 	/* calculate task elapsed time in nsec */
 	delta = now_ns - tsk->start_time;
 	/* Convert to micro seconds */
-	do_div(delta, NSEC_PER_USEC);
-	stats->ac_etime += delta;
+	stats->ac_etime += div_u64(delta, NSEC_PER_USEC);
 
 	task_cputime(tsk, &utime, &stime);
 	stats->ac_utime += div_u64(utime, NSEC_PER_USEC);
