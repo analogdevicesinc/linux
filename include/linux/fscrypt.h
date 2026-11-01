@@ -356,11 +356,6 @@ int fscrypt_decrypt_block_inplace(const struct inode *inode, struct page *page,
 				  unsigned int len, unsigned int offs,
 				  u64 lblk_num);
 
-static inline bool fscrypt_is_bounce_page(struct page *page)
-{
-	return page->mapping == NULL;
-}
-
 static inline bool fscrypt_is_bounce_folio(const struct folio *folio)
 {
 	return folio->mapping == NULL;
@@ -520,11 +515,6 @@ static inline int fscrypt_decrypt_block_inplace(const struct inode *inode,
 						unsigned int offs, u64 lblk_num)
 {
 	return -EOPNOTSUPP;
-}
-
-static inline bool fscrypt_is_bounce_page(struct page *page)
-{
-	return false;
 }
 
 static inline bool fscrypt_is_bounce_folio(const struct folio *folio)
