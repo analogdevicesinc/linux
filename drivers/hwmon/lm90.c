@@ -108,6 +108,7 @@
 #include <linux/jiffies.h>
 #include <linux/hwmon.h>
 #include <linux/kstrtox.h>
+#include <linux/ktime.h>
 #include <linux/module.h>
 #include <linux/property.h>
 #include <linux/regulator/consumer.h>
@@ -740,8 +741,8 @@ struct lm90_data {
 	bool shutdown;		/* true if shutting down */
 	bool valid;		/* true if register values are valid */
 	bool alarms_valid;	/* true if status register values are valid */
-	unsigned long last_updated; /* in jiffies */
-	unsigned long alarms_updated; /* in jiffies */
+	ktime_t last_updated;
+	ktime_t alarms_updated;
 	int kind;
 	u32 flags;
 
@@ -1160,7 +1161,9 @@ static int lm90_update_alarms_locked(struct lm90_data *data, bool force)
 		return 0;
 
 	if (force || !data->alarms_valid ||
-	    time_after(jiffies, data->alarms_updated + msecs_to_jiffies(data->update_interval))) {
+	    ktime_after(ktime_get(),
+			ktime_add_ms(data->alarms_updated,
+				     data->update_interval))) {
 		struct i2c_client *client = data->client;
 		bool check_enable;
 		u16 alarms;
@@ -1219,7 +1222,7 @@ static int lm90_update_alarms_locked(struct lm90_data *data, bool force)
 					max_t(int, HZ, msecs_to_jiffies(data->update_interval)));
 			}
 		}
-		data->alarms_updated = jiffies;
+		data->alarms_updated = ktime_get();
 		data->alarms_valid = true;
 	}
 	return 0;
@@ -1247,7 +1250,7 @@ static int lm90_update_device(struct device *dev)
 {
 	struct lm90_data *data = dev_get_drvdata(dev);
 	struct i2c_client *client = data->client;
-	unsigned long next_update;
+	ktime_t next_update;
 	int val;
 
 	if (!data->valid) {
@@ -1256,9 +1259,8 @@ static int lm90_update_device(struct device *dev)
 			return val;
 	}
 
-	next_update = data->last_updated +
-		      msecs_to_jiffies(data->update_interval);
-	if (time_after(jiffies, next_update) || !data->valid) {
+	next_update = ktime_add_ms(data->last_updated, data->update_interval);
+	if (ktime_after(ktime_get(), next_update) || !data->valid) {
 		dev_dbg(&client->dev, "Updating lm90 data.\n");
 
 		data->valid = false;
@@ -1304,7 +1306,7 @@ static int lm90_update_device(struct device *dev)
 		if (val < 0)
 			return val;
 
-		data->last_updated = jiffies;
+		data->last_updated = ktime_get();
 		data->valid = true;
 	}
 
