@@ -98,7 +98,7 @@ struct adm1025_data {
 	const struct attribute_group *groups[3];
 	struct mutex update_lock;
 	bool valid; /* false until following fields are valid */
-	unsigned long last_updated; /* in jiffies */
+	u64 last_updated; /* in jiffies */
 
 	u8 in[6];		/* register value */
 	u8 in_max[6];		/* register value */
@@ -118,7 +118,8 @@ static struct adm1025_data *adm1025_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ * 2) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ * 2) ||
+	    !data->valid) {
 		int i;
 
 		dev_dbg(&client->dev, "Updating data.\n");
@@ -147,7 +148,7 @@ static struct adm1025_data *adm1025_update_device(struct device *dev)
 			  | ((i2c_smbus_read_byte_data(client,
 			      ADM1025_REG_VID4) & 0x01) << 4);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 
