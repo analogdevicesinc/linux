@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 //
-// Functions to access SY3686A power management chip voltages
+// Functions to access SY7636A power management chip voltages
 //
 // Copyright (C) 2019 reMarkable AS - http://www.remarkable.com/
 //
