@@ -15,7 +15,7 @@
 #include <linux/err.h>
 #include <linux/mutex.h>
 #include <linux/device.h>
-#include <linux/jiffies.h>
+#include <linux/ktime.h>
 
 /* I2C command bytes */
 #define SHT21_TRIG_T_MEASUREMENT_HM  0xe3
@@ -29,7 +29,7 @@
  * struct sht21 - SHT21 device specific data
  * @client: I2C client device
  * @lock: mutex to protect measurement values
- * @last_update: time of last update (jiffies)
+ * @last_update: time of last update
  * @temperature: cached temperature measurement value
  * @humidity: cached humidity measurement value
  * @valid: only 0 before first measurement is taken
@@ -38,7 +38,7 @@
 struct sht21 {
 	struct i2c_client *client;
 	struct mutex lock;
-	unsigned long last_update;
+	ktime_t last_update;
 	int temperature;
 	int humidity;
 	bool valid;
@@ -93,7 +93,8 @@ static int sht21_update_measurements(struct device *dev)
 	 * SHT2x should not be active for more than 10% of the time - e.g.
 	 * maximum two measurements per second at 12bit accuracy shall be made.
 	 */
-	if (time_after(jiffies, sht21->last_update + HZ / 2) || !sht21->valid) {
+	if (!sht21->valid ||
+	    ktime_after(ktime_get(), ktime_add_ms(sht21->last_update, 500))) {
 		ret = i2c_smbus_read_word_swapped(client,
 						  SHT21_TRIG_T_MEASUREMENT_HM);
 		if (ret < 0)
@@ -104,7 +105,7 @@ static int sht21_update_measurements(struct device *dev)
 		if (ret < 0)
 			goto out;
 		sht21->humidity = sht21_rh_ticks_to_per_cent_mille(ret);
-		sht21->last_update = jiffies;
+		sht21->last_update = ktime_get();
 		sht21->valid = true;
 	}
 out:
