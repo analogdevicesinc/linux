@@ -1926,7 +1926,7 @@ struct bpf_call_arg_meta {
 
 	/* Only set by helper */
 	u64 msize_max_value;
-	s64 const_map_key;
+	u64 max_map_key;
 	struct btf *ret_btf;
 	struct btf_field *kptr_field;
 };
