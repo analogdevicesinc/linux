@@ -8,6 +8,7 @@
 #include <linux/hwmon.h>
 #include <linux/io.h>
 #include <linux/delay.h>
+#include <linux/jiffies.h>
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/auxiliary_bus.h>
@@ -30,7 +31,7 @@ struct kbatt {
 	struct mutex lock;
 	void __iomem *base;
 
-	unsigned long next_update; /* in jiffies */
+	u64 next_update; /* in jiffies */
 	bool alarm;
 };
 
@@ -38,7 +39,8 @@ static bool kbatt_alarm(struct kbatt *kbatt)
 {
 	mutex_lock(&kbatt->lock);
 
-	if (!kbatt->next_update || time_after(jiffies, kbatt->next_update)) {
+	if (!kbatt->next_update ||
+	    time_after64(get_jiffies_64(), kbatt->next_update)) {
 		/* switch load on */
 		iowrite8(KBATT_CONTROL_BAT_TEST,
 			 kbatt->base + KBATT_CONTROL_REG);
@@ -56,7 +58,7 @@ static bool kbatt_alarm(struct kbatt *kbatt)
 		/* switch load off */
 		iowrite8(0, kbatt->base + KBATT_CONTROL_REG);
 
-		kbatt->next_update = jiffies + KBATT_MAX_UPD_INTERVAL;
+		kbatt->next_update = get_jiffies_64() + KBATT_MAX_UPD_INTERVAL;
 	}
 
 	mutex_unlock(&kbatt->lock);
