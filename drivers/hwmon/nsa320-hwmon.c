@@ -37,7 +37,7 @@
 
 struct nsa320_hwmon {
 	struct mutex		update_lock;	/* lock GPIO operations */
-	unsigned long		last_updated;	/* jiffies */
+	u64			last_updated;	/* jiffies */
 	unsigned long		mcu_data;
 	struct gpio_desc	*act;
 	struct gpio_desc	*clk;
@@ -73,7 +73,8 @@ static s32 nsa320_hwmon_update(struct device *dev)
 
 	mcu_data = hwmon->mcu_data;
 
-	if (time_after(jiffies, hwmon->last_updated + HZ) || mcu_data == 0) {
+	if (time_after64(get_jiffies_64(), hwmon->last_updated + HZ) ||
+	    mcu_data == 0) {
 		gpiod_set_value(hwmon->act, 1);
 		msleep(100);
 
@@ -95,7 +96,7 @@ static s32 nsa320_hwmon_update(struct device *dev)
 			mcu_data = -EIO;
 		} else {
 			hwmon->mcu_data = mcu_data;
-			hwmon->last_updated = jiffies;
+			hwmon->last_updated = get_jiffies_64();
 		}
 	}
 
