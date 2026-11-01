@@ -297,6 +297,44 @@ static ssize_t adrv903x_debugfs_write(struct file *file,
 
 		return count;
 	}
+	case DBGFS_TX0_LOL_SOFT_RESET:
+	case DBGFS_TX1_LOL_SOFT_RESET:
+	case DBGFS_TX2_LOL_SOFT_RESET:
+	case DBGFS_TX3_LOL_SOFT_RESET:
+	case DBGFS_TX4_LOL_SOFT_RESET:
+	case DBGFS_TX5_LOL_SOFT_RESET:
+	case DBGFS_TX6_LOL_SOFT_RESET:
+	case DBGFS_TX7_LOL_SOFT_RESET: {
+		adi_adrv903x_TxLolReset_t reset = {
+			.channelMask = ADI_ADRV903X_TX0 << (entry->cmd - DBGFS_TX0_LOL_SOFT_RESET),
+			.resetType = ADI_ADRV903X_TX_LOL_SOFT_RESET,
+		};
+
+		ret = adrv903x_api_call(phy, adi_adrv903x_TxLolReset, &reset);
+		if (ret)
+			return ret;
+
+		return count;
+	}
+	case DBGFS_TX0_QEC_SOFT_RESET:
+	case DBGFS_TX1_QEC_SOFT_RESET:
+	case DBGFS_TX2_QEC_SOFT_RESET:
+	case DBGFS_TX3_QEC_SOFT_RESET:
+	case DBGFS_TX4_QEC_SOFT_RESET:
+	case DBGFS_TX5_QEC_SOFT_RESET:
+	case DBGFS_TX6_QEC_SOFT_RESET:
+	case DBGFS_TX7_QEC_SOFT_RESET: {
+		adi_adrv903x_TxQecReset_t reset = {
+			.channelMask = ADI_ADRV903X_TX0 << (entry->cmd - DBGFS_TX0_QEC_SOFT_RESET),
+			.resetType = ADI_ADRV903X_TX_QEC_TRACKING_CHANNEL_RESET,
+		};
+
+		ret = adrv903x_api_call(phy, adi_adrv903x_TxQecReset, &reset);
+		if (ret)
+			return ret;
+
+		return count;
+	}
 	case DBGFS_TX_TO_ORX_MAPPING:
 		if (ret != 1)
 			return -EINVAL;
@@ -402,6 +440,16 @@ void adrv903x_register_debugfs(struct iio_dev *indio_dev)
 	adrv903x_add_debugfs_entry(phy, "lo1_loop_bandwidth_khz", DBGFS_LO1_LOOP_BW);
 	adrv903x_add_debugfs_entry(phy, "lo0_phase_margin_degrees", DBGFS_LO0_PHASE_MARGIN);
 	adrv903x_add_debugfs_entry(phy, "lo1_phase_margin_degrees", DBGFS_LO1_PHASE_MARGIN);
+	for (i = CHAN_TX1; i < ADI_ADRV903X_MAX_TXCHANNELS; i++) {
+		if (i == CHAN_TX1 || i == CHAN_TX5 || !phy->chip_info->is_adrv9032r) {
+			adrv903x_add_debugfs_entry(phy,
+						   devm_kasprintf(&phy->spi->dev, GFP_KERNEL, "tx%d_lol_soft_reset", i),
+						   DBGFS_TX0_LOL_SOFT_RESET + i);
+			adrv903x_add_debugfs_entry(phy,
+						   devm_kasprintf(&phy->spi->dev, GFP_KERNEL, "tx%d_qec_channel_reset", i),
+						   DBGFS_TX0_QEC_SOFT_RESET + i);
+		}
+	}
 
 	for (i = 0; i < phy->adrv903x_debugfs_entry_index; i++) {
 		switch (phy->debugfs_entry[i].cmd) {
@@ -416,6 +464,24 @@ void adrv903x_register_debugfs(struct iio_dev *indio_dev)
 		case DBGFS_LO0_PHASE_MARGIN:
 		case DBGFS_LO1_PHASE_MARGIN:
 			mode = 0644;
+			break;
+		case DBGFS_TX0_LOL_SOFT_RESET:
+		case DBGFS_TX1_LOL_SOFT_RESET:
+		case DBGFS_TX2_LOL_SOFT_RESET:
+		case DBGFS_TX3_LOL_SOFT_RESET:
+		case DBGFS_TX4_LOL_SOFT_RESET:
+		case DBGFS_TX5_LOL_SOFT_RESET:
+		case DBGFS_TX6_LOL_SOFT_RESET:
+		case DBGFS_TX7_LOL_SOFT_RESET:
+		case DBGFS_TX0_QEC_SOFT_RESET:
+		case DBGFS_TX1_QEC_SOFT_RESET:
+		case DBGFS_TX2_QEC_SOFT_RESET:
+		case DBGFS_TX3_QEC_SOFT_RESET:
+		case DBGFS_TX4_QEC_SOFT_RESET:
+		case DBGFS_TX5_QEC_SOFT_RESET:
+		case DBGFS_TX6_QEC_SOFT_RESET:
+		case DBGFS_TX7_QEC_SOFT_RESET:
+			mode = 0200;
 			break;
 		default:
 			mode = 0444;
