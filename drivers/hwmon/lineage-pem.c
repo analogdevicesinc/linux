@@ -119,7 +119,7 @@ struct pem_data {
 	bool valid;
 	bool fans_supported;
 	int input_length;
-	unsigned long last_updated;	/* in jiffies */
+	u64 last_updated;	/* in jiffies */
 
 	u8 firmware_rev[FIRMWARE_REV_LEN];
 	u8 data_string[DATA_STRING_LEN];
@@ -149,7 +149,8 @@ static struct pem_data *pem_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ) ||
+	    !data->valid) {
 		int result;
 
 		/* Read data string */
@@ -185,7 +186,7 @@ static struct pem_data *pem_update_device(struct device *dev)
 
 		i2c_smbus_write_byte(client, PEM_CLEAR_INFO_FLAGS);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 abort:
