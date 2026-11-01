@@ -386,7 +386,7 @@ static struct taskstats *mk_reply(struct sk_buff *skb, int type, u32 pid)
 	if (!na)
 		goto err;
 
-	if (nla_put(skb, type, sizeof(pid), &pid) < 0) {
+	if (nla_put_u32(skb, type, pid)) {
 		nla_nest_cancel(skb, na);
 		goto err;
 	}
