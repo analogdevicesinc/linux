@@ -96,7 +96,6 @@ static void rmnet_unregister_bridge(struct rmnet_port *port)
 	if (port->rmnet_mode != RMNET_EPMODE_BRIDGE)
 		return;
 
-	rmnet_dev = port->rmnet_dev;
 	if (!port->nr_rmnet_devs) {
 		/* bridge device */
 		real_dev = port->bridge_ep;
@@ -113,6 +112,7 @@ static void rmnet_unregister_bridge(struct rmnet_port *port)
 		port->rmnet_mode = RMNET_EPMODE_VND;
 	}
 
+	rmnet_dev = netdev_master_upper_dev_get(bridge_dev);
 	netdev_upper_dev_unlink(bridge_dev, rmnet_dev);
 	rmnet_unregister_real_device(bridge_dev);
 }
@@ -163,7 +163,6 @@ static int rmnet_newlink(struct net_device *dev,
 		goto err2;
 
 	port->rmnet_mode = mode;
-	port->rmnet_dev = dev;
 
 	hlist_add_head_rcu(&ep->hlnode, &port->muxed_ep[mux_id]);
 
@@ -487,7 +486,6 @@ int rmnet_add_bridge(struct net_device *rmnet_dev,
 	slave_port = rmnet_get_port_rtnl(slave_dev);
 	slave_port->rmnet_mode = RMNET_EPMODE_BRIDGE;
 	slave_port->bridge_ep = real_dev;
-	slave_port->rmnet_dev = rmnet_dev;
 
 	port->rmnet_mode = RMNET_EPMODE_BRIDGE;
 	port->bridge_ep = slave_dev;

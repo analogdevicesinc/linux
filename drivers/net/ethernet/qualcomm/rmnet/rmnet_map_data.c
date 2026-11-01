@@ -543,10 +543,7 @@ static void rmnet_send_skb(struct rmnet_port *port, struct sk_buff *skb)
 {
 	if (skb_needs_linearize(skb, port->dev->features)) {
 		if (unlikely(__skb_linearize(skb))) {
-			struct rmnet_priv *priv;
-
-			priv = netdev_priv(port->rmnet_dev);
-			this_cpu_inc(priv->pcpu_stats->stats.tx_drops);
+			dev_core_stats_tx_dropped_inc(port->dev);
 			dev_kfree_skb_any(skb);
 			return;
 		}
