@@ -3290,6 +3290,25 @@ void userfaultfd_unmap_complete(struct mm_struct *mm, struct list_head *uf)
 	}
 }
 
+void userfaultfd_unmap_abort(struct list_head *uf)
+{
+	struct userfaultfd_unmap_ctx *unmap_ctx, *n;
+
+	if (!uf)
+		return;
+
+	list_for_each_entry_safe(unmap_ctx, n, uf, list) {
+		struct userfaultfd_ctx *ctx = unmap_ctx->ctx;
+
+		atomic_dec(&ctx->mmap_changing);
+		VM_WARN_ON_ONCE(atomic_read(&ctx->mmap_changing) < 0);
+		userfaultfd_ctx_put(ctx);
+
+		list_del(&unmap_ctx->list);
+		kfree(unmap_ctx);
+	}
+}
+
 static int userfaultfd_release(struct inode *inode, struct file *file)
 {
 	struct userfaultfd_ctx *ctx = file->private_data;
