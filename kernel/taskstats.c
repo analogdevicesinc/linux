@@ -159,10 +159,11 @@ static void exe_add_tsk(struct taskstats *stats, struct task_struct *tsk)
 	struct file *exe_file = get_task_exe_file(tsk);
 
 	if (exe_file) {
+		struct inode *inode = file_inode(exe_file);
+
 		/* Following cp_new_stat64() in stat.c . */
-		stats->ac_exe_dev =
-			huge_encode_dev(exe_file->f_inode->i_sb->s_dev);
-		stats->ac_exe_inode = exe_file->f_inode->i_ino;
+		stats->ac_exe_dev = huge_encode_dev(inode->i_sb->s_dev);
+		stats->ac_exe_inode = inode->i_ino;
 		fput(exe_file);
 	} else {
 		stats->ac_exe_dev = 0;
