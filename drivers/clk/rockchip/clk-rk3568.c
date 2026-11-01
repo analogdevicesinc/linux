@@ -1644,8 +1644,7 @@ static void __init rk3568_pmu_clk_init(struct device_node *np)
 	rockchip_clk_register_branches(ctx, rk3568_clk_pmu_branches,
 				       ARRAY_SIZE(rk3568_clk_pmu_branches));
 
-	rockchip_register_softrst(np, 1, reg_base + RK3568_PMU_SOFTRST_CON(0),
-				  ROCKCHIP_SOFTRST_HIWORD_MASK);
+	rockchip_register_softrst(np, 1, reg_base + RK3568_PMU_SOFTRST_CON(0));
 
 	rockchip_clk_protect_critical(rk3568_pmucru_critical_clocks,
 				      ARRAY_SIZE(rk3568_pmucru_critical_clocks));
@@ -1688,8 +1687,7 @@ static void __init rk3568_clk_init(struct device_node *np)
 	rockchip_clk_register_branches(ctx, rk3568_clk_branches,
 				       ARRAY_SIZE(rk3568_clk_branches));
 
-	rockchip_register_softrst(np, 30, reg_base + RK3568_SOFTRST_CON(0),
-				  ROCKCHIP_SOFTRST_HIWORD_MASK);
+	rockchip_register_softrst(np, 30, reg_base + RK3568_SOFTRST_CON(0));
 
 	rockchip_register_restart_notifier(ctx, RK3568_GLB_SRST_FST, NULL);
 

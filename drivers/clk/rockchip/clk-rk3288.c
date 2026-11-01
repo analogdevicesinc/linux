@@ -975,8 +975,7 @@ static void __init rk3288_common_init(struct device_node *np,
 			ARRAY_SIZE(rk3288_cpuclk_rates));
 
 	rockchip_register_softrst(np, 12,
-				  rk3288_cru_base + RK3288_SOFTRST_CON(0),
-				  ROCKCHIP_SOFTRST_HIWORD_MASK);
+				  rk3288_cru_base + RK3288_SOFTRST_CON(0));
 
 	rockchip_register_restart_notifier(ctx, RK3288_GLB_SRST_FST,
 					   rk3288_clk_shutdown);

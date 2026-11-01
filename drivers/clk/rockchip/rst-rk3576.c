@@ -646,6 +646,5 @@ void rk3576_rst_init(struct device_node *np, void __iomem *reg_base)
 	rockchip_register_softrst_lut(np,
 				      rk3576_register_offset,
 				      ARRAY_SIZE(rk3576_register_offset),
-				      reg_base + RK3576_SOFTRST_CON(0),
-				      ROCKCHIP_SOFTRST_HIWORD_MASK);
+				      reg_base + RK3576_SOFTRST_CON(0));
 }

@@ -1102,8 +1102,7 @@ static void __init rv1126_pmu_clk_init(struct device_node *np)
 	rockchip_clk_register_branches(ctx, rv1126_clk_pmu_branches,
 				       ARRAY_SIZE(rv1126_clk_pmu_branches));
 
-	rockchip_register_softrst(np, 2, reg_base + RV1126_PMU_SOFTRST_CON(0),
-				  ROCKCHIP_SOFTRST_HIWORD_MASK);
+	rockchip_register_softrst(np, 2, reg_base + RV1126_PMU_SOFTRST_CON(0));
 
 	rockchip_clk_of_add_provider(np, ctx);
 }
@@ -1138,8 +1137,7 @@ static void __init rv1126_clk_init(struct device_node *np)
 	rockchip_clk_register_branches(ctx, rv1126_clk_branches,
 				       ARRAY_SIZE(rv1126_clk_branches));
 
-	rockchip_register_softrst(np, 15, reg_base + RV1126_SOFTRST_CON(0),
-				  ROCKCHIP_SOFTRST_HIWORD_MASK);
+	rockchip_register_softrst(np, 15, reg_base + RV1126_SOFTRST_CON(0));
 
 	rockchip_register_restart_notifier(ctx, RV1126_GLB_SRST_FST, NULL);
 

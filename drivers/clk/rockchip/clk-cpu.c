@@ -544,12 +544,14 @@ struct clk *rockchip_clk_register_cpuclk_multi_pll(const char *name,
 					     GFP_KERNEL);
 		if (!cpuclk->rate_table) {
 			ret = -ENOMEM;
-			goto free_cpuclk;
+			goto unregister_notifier;
 		}
 	}
 
 	return hw->clk;
 
+unregister_notifier:
+	clk_notifier_unregister(hw->clk, &cpuclk->clk_nb);
 free_cpuclk:
 	kfree(cpuclk);
 unregister_clk:
