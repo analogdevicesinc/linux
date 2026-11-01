@@ -12,6 +12,7 @@
 
 /dts-v1/;
 #include <dt-bindings/input/input.h>
+#include <dt-bindings/leds/common.h>
 #include "rk3399.dtsi"
 
 / {
@@ -58,8 +59,22 @@
 		vin-supply = <&vcc3v3_sys_s3>;
 	};
 
+	beeper {
+		compatible = "gpio-beeper";
+		gpios = <&gpio4 RK_PD3 GPIO_ACTIVE_HIGH>;
+	};
+
 	chosen {
 		stdout-path = "serial2:1500000n8";
+	};
+
+	dc-charger {
+		compatible = "gpio-charger";
+		charger-type = "mains";
+		charge-status-gpios = <&gpio2 RK_PD3 GPIO_ACTIVE_HIGH>;
+		gpios = <&gpio0 RK_PA2 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&dcin_good>, <&charger_status>;
 	};
 
 	clkin_gmac: external-gmac-clock {
@@ -70,8 +85,8 @@
 	};
 
 	fan1 {
-		/* fan connected to P7 */
 		compatible = "pwm-fan";
+		label = "P7";
 		pwms = <&pwm0 0 40000 0>;
 		cooling-levels = <0 80 170 255>;
 		interrupt-parent = <&gpio4>;
@@ -81,8 +96,8 @@
 	};
 
 	fan2 {
-		/* fan connected to P6 */
 		compatible = "pwm-fan";
+		label = "P6";
 		pwms = <&pwm1 0 40000 0>;
 		cooling-levels = <0 80 170 255>;
 		interrupt-parent = <&gpio4>;
@@ -115,7 +130,8 @@
 	leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
-		pinctrl-0 = <&sys_grn_led_on &sys_red_led_on>;
+		pinctrl-0 = <&sys_grn_led_on &sys_red_led_on &netw_act_led_on
+			     &usb3_act_led_on &sata_err_led_on &sata_act_led>;
 
 		led-0 {
 			label = "helios64:green:status";
@@ -127,6 +143,60 @@
 			label = "helios64:red:fault";
 			gpios = <&gpio0 RK_PB5 GPIO_ACTIVE_HIGH>;
 			default-state = "keep";
+		};
+
+		led-2 {
+			color = <LED_COLOR_ID_BLUE>;
+			function = LED_FUNCTION_LAN;
+			gpios = <&gpio0 RK_PA4 GPIO_ACTIVE_HIGH>;
+		};
+
+		led-3 {
+			color = <LED_COLOR_ID_BLUE>;
+			function = LED_FUNCTION_USB;
+			gpios = <&gpio0 RK_PB3 GPIO_ACTIVE_HIGH>;
+		};
+
+		led-4 {
+			color = <LED_COLOR_ID_RED>;
+			function = LED_FUNCTION_DISK_ERR;
+			function-enumerator = <1>;
+			gpios = <&gpio2 RK_PA2 GPIO_ACTIVE_HIGH>;
+		};
+
+		led-5 {
+			color = <LED_COLOR_ID_RED>;
+			function = LED_FUNCTION_DISK_ERR;
+			function-enumerator = <2>;
+			gpios = <&gpio2 RK_PA3 GPIO_ACTIVE_HIGH>;
+		};
+
+		led-6 {
+			color = <LED_COLOR_ID_RED>;
+			function = LED_FUNCTION_DISK_ERR;
+			function-enumerator = <3>;
+			gpios = <&gpio2 RK_PA4 GPIO_ACTIVE_HIGH>;
+		};
+
+		led-7 {
+			color = <LED_COLOR_ID_RED>;
+			function = LED_FUNCTION_DISK_ERR;
+			function-enumerator = <4>;
+			gpios = <&gpio2 RK_PA5 GPIO_ACTIVE_HIGH>;
+		};
+
+		led-8 {
+			color = <LED_COLOR_ID_RED>;
+			function = LED_FUNCTION_DISK_ERR;
+			function-enumerator = <5>;
+			gpios = <&gpio2 RK_PA6 GPIO_ACTIVE_HIGH>;
+		};
+
+		led-9 {
+			color = <LED_COLOR_ID_BLUE>;
+			function = LED_FUNCTION_DISK_ACTIVITY;
+			gpios = <&gpio4 RK_PD4 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
 		};
 	};
 
@@ -271,6 +341,17 @@
 		regulator-max-microvolt = <12000000>;
 		vin-supply = <&vcc12v_dcin>;
 	};
+
+	vdd_log: regulator-vdd-log {
+		compatible = "pwm-regulator";
+		pwms = <&pwm2 0 25000 1>;
+		pwm-supply = <&vcc5v0_sys>;
+		regulator-name = "vdd_log";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <830000>;
+		regulator-max-microvolt = <1400000>;
+	};
 };
 
 /*
@@ -320,6 +401,7 @@
 };
 
 &emmc_phy {
+	rockchip,enable-strobe-pulldown;
 	status = "okay";
 };
 
@@ -336,6 +418,11 @@
 	snps,reset-active-low;
 	snps,reset-delays-us = <0 10000 50000>;
 	snps,reset-gpio = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
+	status = "okay";
+};
+
+&gpu {
+	mali-supply = <&vdd_gpu>;
 	status = "okay";
 };
 
@@ -370,6 +457,15 @@
 		#clock-cells = <1>;
 
 		regulators {
+			vdd_center: DCDC_REG1 {
+				regulator-name = "vdd_center";
+				regulator-always-on;
+				regulator-boot-on;
+				regulator-min-microvolt = <750000>;
+				regulator-max-microvolt = <1350000>;
+				regulator-ramp-delay = <6001>;
+			};
+
 			vdd_cpu_l: DCDC_REG2 {
 				regulator-name = "vdd_cpu_l";
 				regulator-always-on;
@@ -453,6 +549,25 @@
 			regulator-off-in-suspend;
 		};
 	};
+
+	vdd_gpu: regulator@41 {
+		compatible = "silergy,syr828";
+		reg = <0x41>;
+		fcs,suspend-voltage-selector = <1>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&vsel2_pin>;
+		regulator-name = "vdd_gpu";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <712500>;
+		regulator-max-microvolt = <1500000>;
+		regulator-ramp-delay = <1000>;
+		vin-supply = <&vcc5v0_sys>;
+
+		regulator-state-mem {
+			regulator-off-in-suspend;
+		};
+	};
 };
 
 &i2c2 {
@@ -460,6 +575,25 @@
 	i2c-scl-rising-time-ns = <160>;
 	i2c-scl-falling-time-ns = <30>;
 	status = "okay";
+
+	p5_gpio: gpio@20 {
+		compatible = "onnn,pca9655", "nxp,pca9555";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		/* All 16 lines go to pins 4-19 of the P5 GPIO header */
+		gpio-line-names = "PIN_4", "PIN_5", "PIN_6", "PIN_7",
+				  "PIN_8", "PIN_9", "PIN_10", "PIN_11",
+				  "PIN_12", "PIN_13", "PIN_14", "PIN_15",
+				  "PIN_16", "PIN_17", "PIN_18", "PIN_19";
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <RK_PB1 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&exp16_int_l>;
+		vcc-supply = <&vcc3v3_sys_s3>;
+	};
 
 	temp@4c {
 		compatible = "national,lm75";
@@ -501,6 +635,12 @@
 		};
 	};
 
+	expander {
+		exp16_int_l: exp16-int-l {
+			rockchip,pins = <0 RK_PB1 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
 	fan {
 		fan1_sense: fan1-sense {
 			rockchip,pins = <4 RK_PC5 RK_FUNC_GPIO &pcfg_pull_none>;
@@ -511,6 +651,16 @@
 		};
 	};
 
+	charger {
+		charger_status: charger-status {
+			rockchip,pins = <2 RK_PD3 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		dcin_good: dcin-good {
+			rockchip,pins = <0 RK_PA2 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
 	gmac {
 		gphy_reset: gphy-reset {
 			rockchip,pins = <3 RK_PB7 RK_FUNC_GPIO &pcfg_output_low>;
@@ -518,12 +668,32 @@
 	};
 
 	leds {
+		netw_act_led_on: netw-act-led-on {
+			rockchip,pins = <0 RK_PA4 RK_FUNC_GPIO &pcfg_pull_down>;
+		};
+
+		sata_act_led: sata-act-led {
+			rockchip,pins = <4 RK_PD4 RK_FUNC_GPIO &pcfg_pull_down>;
+		};
+
+		sata_err_led_on: sata-err-led-on {
+			rockchip,pins = <2 RK_PA2 RK_FUNC_GPIO &pcfg_pull_down>,
+					<2 RK_PA3 RK_FUNC_GPIO &pcfg_pull_down>,
+					<2 RK_PA4 RK_FUNC_GPIO &pcfg_pull_down>,
+					<2 RK_PA5 RK_FUNC_GPIO &pcfg_pull_down>,
+					<2 RK_PA6 RK_FUNC_GPIO &pcfg_pull_down>;
+		};
+
 		sys_grn_led_on: sys-grn-led-on {
 			rockchip,pins = <0 RK_PB4 RK_FUNC_GPIO &pcfg_pull_down>;
 		};
 
 		sys_red_led_on: sys-red-led-on {
 			rockchip,pins = <0 RK_PB5 RK_FUNC_GPIO &pcfg_pull_down>;
+		};
+
+		usb3_act_led_on: usb3-act-led-on {
+			rockchip,pins = <0 RK_PB3 RK_FUNC_GPIO &pcfg_pull_down>;
 		};
 	};
 
@@ -537,6 +707,10 @@
 	pmic {
 		pmic_int_l: pmic-int-l {
 			rockchip,pins = <0 RK_PB2 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		vsel2_pin: vsel2-pin {
+			rockchip,pins = <1 RK_PB6 RK_FUNC_GPIO &pcfg_pull_down>;
 		};
 	};
 
@@ -580,14 +754,21 @@
 	status = "okay";
 };
 
+&pwm2 {
+	status = "okay";
+};
+
 &saradc {
 	vref-supply = <&vcc1v8_s3>;
 	status = "okay";
 };
 
 &sdhci {
+	assigned-clock-rates = <150000000>;
 	bus-width = <8>;
 	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
 	non-removable;
 	vqmmc-supply = <&vcc1v8_sys_s0>;
 	status = "okay";
@@ -639,6 +820,15 @@
 	status = "okay";
 };
 
+&u2phy0 {
+	status = "okay";
+
+	host-port {
+		/* phy for &usb_host0_ehci and &usb_host0_ohci, M.2 slot */
+		status = "okay";
+	};
+};
+
 &u2phy1 {
 	status = "okay";
 
@@ -650,6 +840,14 @@
 };
 
 &uart2 {
+	status = "okay";
+};
+
+&usb_host0_ehci {
+	status = "okay";
+};
+
+&usb_host0_ohci {
 	status = "okay";
 };
 
