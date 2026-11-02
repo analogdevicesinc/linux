@@ -2619,6 +2619,9 @@ struct ieee80211_sta_aggregates {
  * or a MLD STA(multiple entries) are stored here.
  *
  * @sta: reference to owning STA
+ * @link_conf: The per-link BSS configuration for the link that the
+ *	station belongs to. During SMD Transition, this link might
+ *	not be in vif->links[].
  * @addr: MAC address of the Link STA. For non-MLO STA this is same as the addr
  *	in ieee80211_sta. For MLO Link STA this addr can be same or different
  *	from addr in ieee80211_sta (representing MLD STA addr)
@@ -2648,6 +2651,7 @@ struct ieee80211_sta_aggregates {
  */
 struct ieee80211_link_sta {
 	struct ieee80211_sta *sta;
+	struct ieee80211_bss_conf *link_conf;
 
 	u8 addr[ETH_ALEN];
 	u8 link_id;

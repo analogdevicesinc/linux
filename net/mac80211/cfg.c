@@ -2925,13 +2925,19 @@ static int ieee80211_add_station(struct wiphy *wiphy, struct wireless_dev *wdev,
 	 * but we need to have a link_mac in that case as well, so use the
 	 * STA's MAC address in that case.
 	 */
-	if (params->link_sta_params.link_id >= 0)
-		sta = sta_info_alloc_with_link(sdata, mac,
-					       params->link_sta_params.link_id,
-					       params->link_sta_params.link_mac ?: mac,
-					       GFP_KERNEL);
-	else
+	if (params->link_sta_params.link_id >= 0) {
+		struct ieee80211_link_data *link;
+
+		link = wiphy_dereference(wiphy,
+					 sdata->link[params->link_sta_params.link_id]);
+		if (!link)
+			return -ENOLINK;
+
+		sta = sta_info_alloc_with_link(link, mac,
+					       params->link_sta_params.link_mac ?: mac);
+	} else {
 		sta = sta_info_alloc(sdata, mac, GFP_KERNEL);
+	}
 
 	if (!sta)
 		return -ENOMEM;
@@ -6090,6 +6096,7 @@ ieee80211_add_link_station(struct wiphy *wiphy, struct net_device *dev,
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	struct ieee80211_local *local = wiphy_priv(wiphy);
+	struct ieee80211_link_data *link;
 	struct sta_info *sta;
 	int ret;
 
@@ -6104,6 +6111,10 @@ ieee80211_add_link_station(struct wiphy *wiphy, struct net_device *dev,
 
 	if (sta->sta.valid_links & BIT(params->link_id))
 		return -EALREADY;
+
+	link = wiphy_dereference(wiphy, sdata->link[params->link_id]);
+	if (!link)
+		return -ENOLINK;
 
 	ret = ieee80211_sta_allocate_link(sta, params->link_id);
 	if (ret)
@@ -6123,7 +6134,7 @@ ieee80211_add_link_station(struct wiphy *wiphy, struct net_device *dev,
 	}
 
 	/* ieee80211_sta_set_link_valid frees the link upon failure */
-	return ieee80211_sta_set_link_valid(sta, params->link_id);
+	return ieee80211_sta_set_link_valid(sta, link);
 }
 
 static int

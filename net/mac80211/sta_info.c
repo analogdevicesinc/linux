@@ -629,8 +629,25 @@ static void sta_info_add_link(struct sta_info *sta,
 	link_sta->agg.max_rc_amsdu_len = IEEE80211_MAX_MPDU_LEN_HT_BA;
 }
 
+static struct ieee80211_bss_conf *
+link_data_pub_link_conf(struct ieee80211_link_data *link)
+{
+	struct ieee80211_sub_if_data *sdata = link->sdata;
+	struct ieee80211_sub_if_data *bss_sdata = get_bss_sdata(sdata);
+
+	if (sdata == bss_sdata)
+		return link->conf;
+
+	if (link == &sdata->deflink)
+		return bss_sdata->deflink.conf;
+
+	return sdata_dereference(bss_sdata->vif.link_conf[link->link_id],
+				 bss_sdata);
+}
+
 static struct sta_info *
 __sta_info_alloc(struct ieee80211_sub_if_data *sdata,
+		 struct ieee80211_link_data *link,
 		 const u8 *addr, int link_id, const u8 *link_addr,
 		 gfp_t gfp)
 {
@@ -660,6 +677,9 @@ __sta_info_alloc(struct ieee80211_sub_if_data *sdata,
 	}
 
 	sta->sta.cur = &sta->sta.deflink.agg;
+	sta->sta.deflink.link_conf = link_data_pub_link_conf(link);
+	if (WARN_ON(!sta->sta.deflink.link_conf))
+		goto free;
 
 	spin_lock_init(&sta->lock);
 	spin_lock_init(&sta->ps_lock);
@@ -803,16 +823,15 @@ free:
 struct sta_info *sta_info_alloc(struct ieee80211_sub_if_data *sdata,
 				const u8 *addr, gfp_t gfp)
 {
-	return __sta_info_alloc(sdata, addr, -1, addr, gfp);
+	return __sta_info_alloc(sdata, &sdata->deflink, addr, -1, addr, gfp);
 }
 
-struct sta_info *sta_info_alloc_with_link(struct ieee80211_sub_if_data *sdata,
+struct sta_info *sta_info_alloc_with_link(struct ieee80211_link_data *link,
 					  const u8 *mld_addr,
-					  unsigned int link_id,
-					  const u8 *link_addr,
-					  gfp_t gfp)
+					  const u8 *link_addr)
 {
-	return __sta_info_alloc(sdata, mld_addr, link_id, link_addr, gfp);
+	return __sta_info_alloc(link->sdata, link, mld_addr, link->link_id,
+				link_addr, GFP_KERNEL);
 }
 
 static int sta_info_insert_check(struct sta_info *sta)
@@ -3473,12 +3492,15 @@ void ieee80211_sta_free_link(struct sta_info *sta, unsigned int link_id)
 	sta_remove_link(sta, link_id, false);
 }
 
-int ieee80211_sta_set_link_valid(struct sta_info *sta, unsigned int link_id)
+int ieee80211_sta_set_link_valid(struct sta_info *sta,
+				 struct ieee80211_link_data *link)
 {
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	struct link_sta_info *link_sta;
 	u16 old_links = sta->sta.valid_links;
+	int link_id = link->link_id;
 	u16 new_links = old_links | BIT(link_id);
+	struct ieee80211_bss_conf *link_conf;
 	int ret;
 
 	link_sta = rcu_dereference_protected(sta->link[link_id],
@@ -3495,6 +3517,11 @@ int ieee80211_sta_set_link_valid(struct sta_info *sta, unsigned int link_id)
 	/* we only modify under the mutex so this is fine */
 	rcu_read_unlock();
 
+	link_conf = link_data_pub_link_conf(link);
+	if (WARN_ON(!link_conf))
+		return -EINVAL;
+
+	link_sta->pub->link_conf = link_conf;
 	sta->sta.valid_links = new_links;
 
 	if (WARN_ON(!test_sta_flag(sta, WLAN_STA_INSERTED)))

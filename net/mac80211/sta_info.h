@@ -925,11 +925,9 @@ struct sta_info *sta_info_get_by_idx(struct ieee80211_sub_if_data *sdata,
  */
 struct sta_info *sta_info_alloc(struct ieee80211_sub_if_data *sdata,
 				const u8 *addr, gfp_t gfp);
-struct sta_info *sta_info_alloc_with_link(struct ieee80211_sub_if_data *sdata,
+struct sta_info *sta_info_alloc_with_link(struct ieee80211_link_data *link,
 					  const u8 *mld_addr,
-					  unsigned int link_id,
-					  const u8 *link_addr,
-					  gfp_t gfp);
+					  const u8 *link_addr);
 
 void sta_info_free(struct ieee80211_local *local, struct sta_info *sta);
 
@@ -1008,7 +1006,8 @@ void ieee80211_sta_expire(struct ieee80211_sub_if_data *sdata,
 
 int ieee80211_sta_allocate_link(struct sta_info *sta, unsigned int link_id);
 void ieee80211_sta_free_link(struct sta_info *sta, unsigned int link_id);
-int ieee80211_sta_set_link_valid(struct sta_info *sta, unsigned int link_id);
+int ieee80211_sta_set_link_valid(struct sta_info *sta,
+				 struct ieee80211_link_data *link);
 void ieee80211_sta_remove_link(struct sta_info *sta, unsigned int link_id);
 
 void ieee80211_sta_ps_deliver_wakeup(struct sta_info *sta);
