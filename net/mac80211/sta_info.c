@@ -677,9 +677,11 @@ __sta_info_alloc(struct ieee80211_sub_if_data *sdata,
 	}
 
 	sta->sta.cur = &sta->sta.deflink.agg;
-	sta->sta.deflink.link_conf = link_data_pub_link_conf(link);
-	if (WARN_ON(!sta->sta.deflink.link_conf))
-		goto free;
+	if (link) {
+		sta->sta.deflink.link_conf = link_data_pub_link_conf(link);
+		if (WARN_ON(!sta->sta.deflink.link_conf))
+			goto free;
+	}
 
 	spin_lock_init(&sta->lock);
 	spin_lock_init(&sta->ps_lock);
@@ -826,6 +828,62 @@ struct sta_info *sta_info_alloc(struct ieee80211_sub_if_data *sdata,
 	return __sta_info_alloc(sdata, &sdata->deflink, addr, -1, addr, gfp);
 }
 
+struct sta_info *
+sta_info_alloc_with_links(struct ieee80211_sub_if_data *sdata,
+			  const u8 *mld_addr,
+			  const u8 *link_addrs[IEEE80211_MLD_MAX_NUM_LINKS])
+{
+	struct ieee80211_local *local = sdata->local;
+	struct sta_info *sta;
+	int first = -1;
+
+	if (WARN_ON(!link_addrs))
+		return NULL;
+
+	for (int link_id = 0; link_id < IEEE80211_MLD_MAX_NUM_LINKS; link_id++) {
+		if (!link_addrs[link_id])
+			continue;
+		first = link_id;
+		break;
+	}
+
+	if (WARN_ON(first < 0))
+		return NULL;
+
+	sta = __sta_info_alloc(sdata, NULL, mld_addr, first,
+			       link_addrs[first], GFP_KERNEL);
+	if (!sta)
+		return NULL;
+
+	for (int link_id = 0; link_id < IEEE80211_MLD_MAX_NUM_LINKS; link_id++) {
+		struct sta_link_alloc *alloc;
+
+		if (!link_addrs[link_id] || link_id == first)
+			continue;
+
+		alloc = kzalloc_obj(*alloc);
+		if (!alloc)
+			goto free;
+
+		if (sta_info_alloc_link(local, &alloc->info, GFP_KERNEL)) {
+			kfree(alloc);
+			goto free;
+		}
+
+		sta_info_add_link(sta, link_id, &alloc->info, &alloc->sta);
+		memcpy(alloc->info.addr, link_addrs[link_id], ETH_ALEN);
+		memcpy(alloc->sta.addr, link_addrs[link_id], ETH_ALEN);
+
+		sta->sta.valid_links |= BIT(link_id);
+	}
+
+	return sta;
+
+free:
+	sta_info_free(local, sta);
+	return NULL;
+}
+
 struct sta_info *sta_info_alloc_with_link(struct ieee80211_link_data *link,
 					  const u8 *mld_addr,
 					  const u8 *link_addr)
@@ -969,9 +1027,25 @@ static int sta_info_insert_finish(struct sta_info *sta) __acquires(RCU)
 	if (err)
 		goto out_drop_sta;
 
-	if (sta->sta.valid_links) {
-		err = link_sta_info_hash_add(local, &sta->deflink);
+	for (int i = 0; i < ARRAY_SIZE(sta->link); i++) {
+		struct link_sta_info *link_sta;
+
+		if (!(sta->sta.valid_links & BIT(i)))
+			continue;
+
+		link_sta = wiphy_dereference(local->hw.wiphy, sta->link[i]);
+		if (WARN_ON(!link_sta))
+			continue;
+
+		err = link_sta_info_hash_add(local, link_sta);
 		if (err) {
+			for (int j = 0; j < i; j++) {
+				link_sta = wiphy_dereference(local->hw.wiphy,
+							     sta->link[j]);
+				if (link_sta)
+					link_sta_info_hash_del(local,
+							       link_sta);
+			}
 			sta_info_hash_del(local, sta);
 			goto out_drop_sta;
 		}
@@ -1037,8 +1111,16 @@ static int sta_info_insert_finish(struct sta_info *sta) __acquires(RCU)
 
 	return 0;
  out_remove:
-	if (sta->sta.valid_links)
-		link_sta_info_hash_del(local, &sta->deflink);
+	for (int i = 0; i < ARRAY_SIZE(sta->link); i++) {
+		struct link_sta_info *link_sta;
+
+		if (!(sta->sta.valid_links & BIT(i)))
+			continue;
+
+		link_sta = wiphy_dereference(local->hw.wiphy, sta->link[i]);
+		if (link_sta)
+			link_sta_info_hash_del(local, link_sta);
+	}
 	sta_info_hash_del(local, sta);
 	list_del_rcu(&sta->list);
  out_drop_sta:

@@ -928,6 +928,14 @@ struct sta_info *sta_info_alloc(struct ieee80211_sub_if_data *sdata,
 struct sta_info *sta_info_alloc_with_link(struct ieee80211_link_data *link,
 					  const u8 *mld_addr,
 					  const u8 *link_addr);
+/*
+ * Note: Unlike sta_info_alloc_with_link(), none of the link stations
+ * actually get a link_conf pointer! Must be set later.
+ */
+struct sta_info *
+sta_info_alloc_with_links(struct ieee80211_sub_if_data *sdata,
+			  const u8 *mld_addr,
+			  const u8 *link_addrs[IEEE80211_MLD_MAX_NUM_LINKS]);
 
 void sta_info_free(struct ieee80211_local *local, struct sta_info *sta);
 
