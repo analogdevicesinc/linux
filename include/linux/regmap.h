@@ -248,9 +248,9 @@ struct regmap_range {
  * check function will return true. "no_ranges" are searched first.
  */
 struct regmap_access_table {
-	const struct regmap_range *yes_ranges;
+	const struct regmap_range *yes_ranges __counted_by_ptr(n_yes_ranges);
 	unsigned int n_yes_ranges;
-	const struct regmap_range *no_ranges;
+	const struct regmap_range *no_ranges __counted_by_ptr(n_no_ranges);
 	unsigned int n_no_ranges;
 };
 
