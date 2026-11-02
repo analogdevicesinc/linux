@@ -89,10 +89,12 @@ static int alarmtimer_rtc_add_device(struct device *dev)
 
 	pdev = platform_device_register_data(dev, "alarmtimer",
 					     PLATFORM_DEVID_AUTO, NULL, 0);
-	if (!IS_ERR(pdev))
-		device_init_wakeup(&pdev->dev, true);
+	if (IS_ERR(pdev))
+		return PTR_ERR(pdev);
 
-	if (!IS_ERR(pdev) && try_module_get(rtc->owner)) {
+	device_init_wakeup(&pdev->dev, true);
+
+	if (try_module_get(rtc->owner)) {
 		WRITE_ONCE(rtcdev, rtc);
 		/* hold a reference so it doesn't go away */
 		get_device(dev);
