@@ -289,6 +289,8 @@ static const struct iio_event_spec apds9960_als_event_spec[] = {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) | \
 			BIT(IIO_CHAN_INFO_INT_TIME), \
+	.info_mask_shared_by_type_available = BIT(IIO_CHAN_INFO_SCALE) | \
+			BIT(IIO_CHAN_INFO_INT_TIME), \
 	.channel2 = IIO_MOD_LIGHT_##_colour, \
 	.address = APDS9960_REG_ALS_CHANNEL(_colour), \
 	.modified = 1, \
@@ -304,6 +306,7 @@ static const struct iio_chan_spec apds9960_channels[] = {
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 			BIT(IIO_CHAN_INFO_CALIBBIAS),
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),
+		.info_mask_shared_by_type_available = BIT(IIO_CHAN_INFO_SCALE),
 		.channel = 0,
 		.indexed = 0,
 		.scan_index = -1,
@@ -321,6 +324,8 @@ static const struct iio_chan_spec apds9960_channels[] = {
 		.type = IIO_INTENSITY,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |
+			BIT(IIO_CHAN_INFO_INT_TIME),
+		.info_mask_shared_by_type_available = BIT(IIO_CHAN_INFO_SCALE) |
 			BIT(IIO_CHAN_INFO_INT_TIME),
 		.channel2 = IIO_MOD_LIGHT_CLEAR,
 		.address = APDS9960_REG_ALS_CHANNEL(CLEAR),
@@ -370,19 +375,11 @@ static const int apds9960_int_time[][2] = {
 static const int apds9960_pxs_gain_map[] = {1, 2, 4, 8};
 static const int apds9960_als_gain_map[] = {1, 4, 16, 64};
 
-static IIO_CONST_ATTR(proximity_scale_available, "1 2 4 8");
-static IIO_CONST_ATTR(intensity_scale_available, "1 4 16 64");
-static IIO_CONST_ATTR_INT_TIME_AVAIL("0.028 0.1 0.2 0.7");
-
-static struct attribute *apds9960_attributes[] = {
-	&iio_const_attr_proximity_scale_available.dev_attr.attr,
-	&iio_const_attr_intensity_scale_available.dev_attr.attr,
-	&iio_const_attr_integration_time_available.dev_attr.attr,
-	NULL,
-};
-
-static const struct attribute_group apds9960_attribute_group = {
-	.attrs = apds9960_attributes,
+static const int apds9960_int_time_avail[] = {
+	0, 28000,
+	0, 100000,
+	0, 200000,
+	0, 700000,
 };
 
 static const struct reg_field apds9960_reg_field_int_als =
@@ -774,8 +771,39 @@ static int apds9960_write_event_config(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static int apds9960_read_avail(struct iio_dev *indio_dev,
+			       struct iio_chan_spec const *chan,
+			       const int **vals, int *type, int *length,
+			       long mask)
+{
+	switch (mask) {
+	case IIO_CHAN_INFO_SCALE:
+		switch (chan->type) {
+		case IIO_PROXIMITY:
+			*vals = apds9960_pxs_gain_map;
+			*length = ARRAY_SIZE(apds9960_pxs_gain_map);
+			break;
+		case IIO_INTENSITY:
+			*vals = apds9960_als_gain_map;
+			*length = ARRAY_SIZE(apds9960_als_gain_map);
+			break;
+		default:
+			return -EINVAL;
+		}
+		*type = IIO_VAL_INT;
+		return IIO_AVAIL_LIST;
+	case IIO_CHAN_INFO_INT_TIME:
+		*vals = apds9960_int_time_avail;
+		*type = IIO_VAL_INT_PLUS_MICRO;
+		*length = ARRAY_SIZE(apds9960_int_time_avail);
+		return IIO_AVAIL_LIST;
+	default:
+		return -EINVAL;
+	}
+}
+
 static const struct iio_info apds9960_info = {
-	.attrs = &apds9960_attribute_group,
+	.read_avail = apds9960_read_avail,
 	.read_raw = apds9960_read_raw,
 	.write_raw = apds9960_write_raw,
 	.read_event_value = apds9960_read_event,
