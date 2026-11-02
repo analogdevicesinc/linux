@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright 2015 Intel Deutschland GmbH
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  */
 #include <net/mac80211.h>
 #include "ieee80211_i.h"
@@ -715,4 +715,27 @@ int drv_link_sta_statistics(struct ieee80211_local *local,
 	trace_drv_return_int(local, ret);
 
 	return 0;
+}
+
+void drv_flush_sta(struct ieee80211_local *local,
+		   struct ieee80211_sub_if_data *sdata,
+		   struct sta_info *sta)
+{
+	might_sleep();
+	lockdep_assert_wiphy(local->hw.wiphy);
+
+	sdata = get_bss_sdata(sdata);
+
+	if (sdata && !check_sdata_in_driver(sdata))
+		return;
+
+	if (!sta->uploaded)
+		return;
+
+	trace_drv_flush_sta(local, sdata, &sta->sta);
+	if (local->ops->flush_sta)
+		local->ops->flush_sta(&local->hw, &sdata->vif, &sta->sta);
+	else
+		ieee80211_flush_queues(local, sdata, false);
+	trace_drv_return_void(local);
 }
