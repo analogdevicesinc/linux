@@ -2299,7 +2299,7 @@ static int snd_ice1712_init_eeprom(struct snd_ice1712 *ice)
 	return 0;
 }
 
-static int snd_ice1712_chip_init(struct snd_ice1712 *ice)
+static void snd_ice1712_chip_init(struct snd_ice1712 *ice)
 {
 	outb(ICE1712_RESET | ICE1712_NATIVE, ICEREG(ice, CONTROL));
 	udelay(200);
@@ -2343,8 +2343,6 @@ static int snd_ice1712_chip_init(struct snd_ice1712 *ice)
 	      ICE1712_IRQ_PBKDS | ICE1712_IRQ_CONCAP | ICE1712_IRQ_CONPBK : 0),
 	     ICEREG(ice, IRQMASK));
 	outb(0x00, ICEMT(ice, IRQ));
-
-	return 0;
 }
 
 int snd_ice1712_spdif_build_controls(struct snd_ice1712 *ice)
@@ -2517,8 +2515,7 @@ static int snd_ice1712_create(struct snd_card *card,
 	err = snd_ice1712_init_eeprom(ice);
 	if (err < 0)
 		return err;
-	if (snd_ice1712_chip_init(ice) < 0)
-		return -EIO;
+	snd_ice1712_chip_init(ice);
 
 	return 0;
 }
@@ -2696,10 +2693,7 @@ static int snd_ice1712_resume(struct device *dev)
 	else
 		rate = PRO_RATE_DEFAULT;
 
-	if (snd_ice1712_chip_init(ice) < 0) {
-		snd_card_disconnect(card);
-		return -EIO;
-	}
+	snd_ice1712_chip_init(ice);
 
 	ice->cur_rate = rate;
 
