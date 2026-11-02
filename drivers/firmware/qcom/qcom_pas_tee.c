@@ -244,9 +244,9 @@ static void *qcom_pas_tee_get_rsc_table(struct device *dev,
 	}
 
 	if (param[1].u.memref.size >= input_rt_size) {
+		size_t rt_shm_size = param[1].u.memref.size;
 		struct tee_shm *rt_shm __free(shm_free) =
-			tee_shm_alloc_kernel_buf(data->ctx,
-						 param[1].u.memref.size);
+			tee_shm_alloc_kernel_buf(data->ctx, rt_shm_size);
 		void *rt_shm_va;
 
 		if (IS_ERR_OR_NULL(rt_shm)) {
@@ -268,6 +268,12 @@ static void *qcom_pas_tee_get_rsc_table(struct device *dev,
 			dev_err(dev, "PAS get RT failed, pas_id: %d, ret: %d, err: 0x%x\n",
 				ctx->pas_id, ret, inv_arg.ret);
 			return ret ? ERR_PTR(ret) : ERR_PTR(-EINVAL);
+		}
+
+		if (param[1].u.memref.size > rt_shm_size) {
+			dev_err(dev, "PAS get RT returned too big size: %zu > %zu\n",
+				param[1].u.memref.size, rt_shm_size);
+			return ERR_PTR(-EINVAL);
 		}
 
 		if (param[1].u.memref.size) {
