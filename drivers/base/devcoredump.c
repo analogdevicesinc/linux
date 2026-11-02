@@ -433,10 +433,12 @@ void dev_coredumpm_timeout(struct device *dev, struct module *owner,
 	devcd->init_completed = true;
 	mutex_unlock(&devcd->mutex);
 	return;
+
  put_device:
 	mutex_unlock(&devcd->mutex);
 	cancel_delayed_work_sync(&devcd->del_wk);
 	put_device(&devcd->devcd_dev);
+	return;
 
  put_module:
 	module_put(owner);
