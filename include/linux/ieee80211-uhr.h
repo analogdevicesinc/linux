@@ -10,6 +10,7 @@
 #include <linux/types.h>
 #include <linux/bitfield.h>
 #include <linux/if_ether.h>
+#include <linux/unaligned.h>
 #include "ieee80211-eht.h"
 
 #define IEEE80211_UHR_OPER_PARAMS_DPS_ENA		0x0001
@@ -632,6 +633,7 @@ enum ieee80211_uhr_link_reconfig_response_type {
 enum ieee80211_uhr_link_reconfig_notify_type {
 	IEEE80211_UHR_LINK_RECONFIG_NOTIFY_DL_DRAINED		= 2,
 	IEEE80211_UHR_LINK_RECONFIG_NOTIFY_OMP_RESPONSE		= 3,
+	IEEE80211_UHR_LINK_RECONFIG_NOTIFY_ST_UPDATE		= 5,
 };
 
 enum ieee80211_uhr_mode_change_control {
@@ -820,5 +822,318 @@ ieee80211_uhr_param_update_ok(const void *elem, size_t len)
 	/* valid only if the whole data was consumed by tuples */
 	return (const u8 *)tuple == (const u8 *)elem + len;
 }
+
+struct ieee80211_smd_bss_trans_scs_list {
+	u8 n_ids;
+	u8 ids[];
+} __packed;
+
+static inline bool
+ieee80211_smd_bss_trans_scs_list_ok(const u8 **pos, size_t *remaining)
+{
+	const struct ieee80211_smd_bss_trans_scs_list *scs = (const void *)*pos;
+	size_t size;
+
+	if (*remaining < sizeof(*scs))
+		return false;
+
+	size = sizeof(*scs) + scs->n_ids;
+	if (*remaining < size)
+		return false;
+
+	*pos += size;
+	*remaining -= size;
+	return true;
+}
+
+enum ieee80211_st_control_prep_req {
+	IEEE80211_ST_CONTROL_PREP_REQ_NO_DL_SN_TRANSFER	= 0x01,
+	IEEE80211_ST_CONTROL_PREP_REQ_NO_UL_SN_TRANSFER	= 0x02,
+	IEEE80211_ST_CONTROL_PREP_REQ_SCS_LIST_PRESENT	= 0x04,
+};
+
+/**
+ * struct ieee80211_smd_bss_trans_params_prep_req - SMD BSS Transition Parameters
+ *	element in preparation request
+ * @st_control: ST control field, see &enum ieee80211_st_control_prep_req
+ * @listen_interval: listen interval
+ * @variable: variable (currently SCS list)
+ */
+struct ieee80211_smd_bss_trans_params_prep_req {
+	u8 st_control;
+	__le16 listen_interval;
+	u8 variable[];
+} __packed;
+
+enum ieee80211_st_control_prep_resp {
+	IEEE80211_ST_CONTROL_PREP_RESP_DL_BA_INFO_PRESENT	= 0x01,
+	IEEE80211_ST_CONTROL_PREP_RESP_UL_BA_INFO_PRESENT	= 0x02,
+	IEEE80211_ST_CONTROL_PREP_RESP_SCS_LIST_PRESENT		= 0x04,
+};
+
+/* Note: D2.0 - we expect this to change */
+struct ieee80211_smd_bss_trans_ext_ba_params {
+	__le16 ba_param_set;
+	u8 addba_ext_param_set;
+} __packed;
+
+struct ieee80211_smd_bss_trans_ba_info {
+	u8 tid_bitmap;
+	struct ieee80211_smd_bss_trans_ext_ba_params params[];
+} __packed;
+
+static inline bool
+ieee80211_smd_bss_trans_ba_info_ok(const u8 **pos, size_t *remaining)
+{
+	const struct ieee80211_smd_bss_trans_ba_info *ba = (const void *)*pos;
+	size_t size;
+
+	if (*remaining < sizeof(*ba))
+		return false;
+
+	/* one extended BA parameters entry per TID set in the bitmap */
+	size = sizeof(*ba) + hweight8(ba->tid_bitmap) * sizeof(ba->params[0]);
+	if (*remaining < size)
+		return false;
+
+	*pos += size;
+	*remaining -= size;
+	return true;
+}
+
+/**
+ * struct ieee80211_smd_bss_trans_params_prep_resp - SMD BSS Transition Parameters
+ *	element in preparation response
+ * @st_control: ST control field, see &enum ieee80211_st_control_prep_resp
+ * @variable: variable (DL BA info, UL BA info, SCS list)
+ */
+struct ieee80211_smd_bss_trans_params_prep_resp {
+	u8 st_control;
+	u8 variable[];
+} __packed;
+
+static inline bool
+ieee80211_smd_prep_resp_size_ok(const u8 *data, u8 len)
+{
+	const struct ieee80211_smd_bss_trans_params_prep_resp *params =
+		(const void *)data;
+	const u8 *pos = params->variable;
+	size_t remaining;
+
+	if (len < sizeof(*params))
+		return false;
+	remaining = len - sizeof(*params);
+
+	/* DL BA info, UL BA info and the SCS list follow in order, if present */
+	if ((params->st_control &
+	     IEEE80211_ST_CONTROL_PREP_RESP_DL_BA_INFO_PRESENT) &&
+	    !ieee80211_smd_bss_trans_ba_info_ok(&pos, &remaining))
+		return false;
+
+	if ((params->st_control &
+	     IEEE80211_ST_CONTROL_PREP_RESP_UL_BA_INFO_PRESENT) &&
+	    !ieee80211_smd_bss_trans_ba_info_ok(&pos, &remaining))
+		return false;
+
+	if ((params->st_control &
+	     IEEE80211_ST_CONTROL_PREP_RESP_SCS_LIST_PRESENT) &&
+	    !ieee80211_smd_bss_trans_scs_list_ok(&pos, &remaining))
+		return false;
+
+	return true;
+}
+
+/**
+ * ieee80211_smd_prep_resp_ba_info - get per-TID Block Ack info from a
+ *	preparation response element
+ * @data: the SMD BSS Transition Parameters (preparation response) element data,
+ *	which must already have passed ieee80211_smd_prep_resp_size_ok()
+ * @uplink: %true for the uplink BA info, %false for the downlink BA info
+ * @tid: the TID to look up
+ *
+ * Return: a pointer to the extended BA parameters for @tid in the requested
+ *	direction, or %NULL if that direction is not present or @tid is not set
+ *	in its TID bitmap.
+ */
+static inline const struct ieee80211_smd_bss_trans_ext_ba_params *
+ieee80211_smd_prep_resp_ba_info(const u8 *data, bool uplink, u8 tid)
+{
+	const struct ieee80211_smd_bss_trans_params_prep_resp *params =
+		(const void *)data;
+	const struct ieee80211_smd_bss_trans_ba_info *ba;
+	const u8 *pos = params->variable;
+
+	if (uplink) {
+		if (!(params->st_control &
+		      IEEE80211_ST_CONTROL_PREP_RESP_UL_BA_INFO_PRESENT))
+			return NULL;
+
+		/* the UL BA info follows the DL BA info, if present */
+		if (params->st_control &
+		    IEEE80211_ST_CONTROL_PREP_RESP_DL_BA_INFO_PRESENT) {
+			ba = (const void *)pos;
+			pos += sizeof(*ba) +
+			       hweight8(ba->tid_bitmap) * sizeof(ba->params[0]);
+		}
+	} else if (!(params->st_control &
+		     IEEE80211_ST_CONTROL_PREP_RESP_DL_BA_INFO_PRESENT)) {
+		return NULL;
+	}
+
+	ba = (const void *)pos;
+
+	if (!(ba->tid_bitmap & BIT(tid)))
+		return NULL;
+
+	/* entries are ordered by TID, one per bit set below @tid */
+	return &ba->params[hweight8(ba->tid_bitmap & (BIT(tid) - 1))];
+}
+
+enum ieee80211_st_control_exec_req {
+	IEEE80211_ST_CONTROL_EXEC_REQ_DL_TID_BITMAP_PRESENT	= 0x01,
+};
+
+/**
+ * struct ieee80211_smd_bss_trans_params_exec_req - SMD BSS Transition Parameters
+ *	element in execution request
+ * @st_control: ST control field, see &enum ieee80211_st_control_exec_req
+ * @variable: variable (currently DL TID bitmap)
+ */
+struct ieee80211_smd_bss_trans_params_exec_req {
+	u8 st_control;
+	u8 variable[];
+} __packed;
+
+enum ieee80211_st_control_exec_resp {
+	IEEE80211_ST_CONTROL_EXEC_RESP_NOM_MAX_DL_DRAIN_PRESENT	= 0x01,
+	IEEE80211_ST_CONTROL_EXEC_RESP_UL_SN_LIST_PRESENT	= 0x02,
+};
+
+struct ieee80211_smd_bss_trans_ul_sn_list {
+	u8 tid_bitmap;
+	/*
+	 * a list of 12-bit SNs for each TID in the bitmap,
+	 * then rounded up to be a full number of octets
+	 */
+	u8 variable[];
+} __packed;
+
+static inline bool
+ieee80211_smd_bss_trans_ul_sn_list_ok(const u8 **pos, size_t *remaining)
+{
+	const struct ieee80211_smd_bss_trans_ul_sn_list *sn =
+		(const void *)*pos;
+	size_t size;
+
+	if (*remaining < sizeof(*sn))
+		return false;
+
+	/* one 12-bit SN per TID set in the bitmap, padded to whole octets */
+	size = sizeof(*sn) + DIV_ROUND_UP(hweight8(sn->tid_bitmap) * 12, 8);
+	if (*remaining < size)
+		return false;
+
+	*pos += size;
+	*remaining -= size;
+	return true;
+}
+
+/**
+ * struct ieee80211_smd_bss_trans_params_exec_resp - SMD BSS Transition Parameters
+ *	element in execution response
+ * @st_control: ST control field, see &enum ieee80211_st_control_exec_resp
+ * @variable: variable (nominal maximum DL draining period duration,
+ *	Latest UL SN List)
+ */
+struct ieee80211_smd_bss_trans_params_exec_resp {
+	u8 st_control;
+	u8 variable[];
+} __packed;
+
+static inline bool
+ieee80211_smd_exec_resp_size_ok(const u8 *data, u8 len)
+{
+	const struct ieee80211_smd_bss_trans_params_exec_resp *params =
+		(const void *)data;
+	const u8 *pos = params->variable;
+	size_t remaining;
+
+	if (len < sizeof(*params))
+		return false;
+	remaining = len - sizeof(*params);
+
+	/* nominal maximum DL draining period duration */
+	if (params->st_control &
+	    IEEE80211_ST_CONTROL_EXEC_RESP_NOM_MAX_DL_DRAIN_PRESENT) {
+		if (remaining < sizeof(__le16))
+			return false;
+		pos += sizeof(__le16);
+		remaining -= sizeof(__le16);
+	}
+
+	/* Latest UL SN List */
+	if ((params->st_control &
+	     IEEE80211_ST_CONTROL_EXEC_RESP_UL_SN_LIST_PRESENT) &&
+	    !ieee80211_smd_bss_trans_ul_sn_list_ok(&pos, &remaining))
+		return false;
+
+	return true;
+}
+
+/**
+ * ieee80211_smd_exec_resp_ul_sn - get a per-TID uplink SN from an execution
+ *	response element
+ * @data: the SMD BSS Transition Parameters (execution response) element data,
+ *	which must already have passed ieee80211_smd_exec_resp_size_ok()
+ * @tid: the TID to look up
+ *
+ * Return: the 12-bit uplink sequence number for @tid, or -1 if the UL SN list
+ *	is not present or @tid is not set in its TID bitmap.
+ */
+static inline int
+ieee80211_smd_exec_resp_ul_sn(const u8 *data, u8 tid)
+{
+	const struct ieee80211_smd_bss_trans_params_exec_resp *params =
+		(const void *)data;
+	const struct ieee80211_smd_bss_trans_ul_sn_list *sn;
+	const u8 *pos = params->variable;
+	unsigned int offset, bit_offset;
+
+	if (!(params->st_control &
+	      IEEE80211_ST_CONTROL_EXEC_RESP_UL_SN_LIST_PRESENT))
+		return -1;
+
+	/* the UL SN list follows the nominal maximum DL draining duration */
+	if (params->st_control &
+	    IEEE80211_ST_CONTROL_EXEC_RESP_NOM_MAX_DL_DRAIN_PRESENT)
+		pos += sizeof(__le16);
+
+	sn = (const void *)pos;
+
+	if (!(sn->tid_bitmap & BIT(tid)))
+		return -1;
+
+	/* 12-bit SNs, ordered by TID, packed least-significant-bit first */
+	offset = hweight8(sn->tid_bitmap & (BIT(tid) - 1));
+	bit_offset = offset * 12;
+
+	return (get_unaligned_le16(&sn->variable[bit_offset / 8]) >>
+		(bit_offset % 8)) & 0xfff;
+}
+
+enum ieee80211_dl_data_drain_info_flags {
+	IEEE80211_DL_DATA_DRAIN_INFO_DRAIN_COMPLETED		= 0x01,
+	IEEE80211_DL_DATA_DRAIN_INFO_PER_TID_DL_BITMAP_PRESENT	= 0x02,
+};
+
+/**
+ * struct ieee80211_dl_data_drain_info - DL Data Drain Info field
+ * @flags: the info field with flags from &enum ieee80211_dl_data_drain_info_flags
+ * @variable: variable (Per-TID DL bitmap)
+ */
+struct ieee80211_dl_data_drain_info {
+	u8 flags;
+	u8 variable[];
+} __packed;
 
 #endif /* LINUX_IEEE80211_UHR_H */
