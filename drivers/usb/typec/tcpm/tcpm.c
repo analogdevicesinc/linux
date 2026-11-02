@@ -410,6 +410,9 @@ struct pd_timings {
 /* Convert microwatt to watt */
 #define UW_TO_W(pow)				(div_u64((pow), 1000000))
 
+/* Convert micro-Watt-hours to USB PD energy (increments of 0.1Wh) */
+#define UWH_TO_PD_ENERGY(energy)		(UW_TO_W((u64)(energy) * 10))
+
 /*
  * As per USB PD Spec Rev 3.18 (Sec. 6.5.13.11), the number of fixed batteries
  * that a port can be queried is restricted to 4.
@@ -1580,8 +1583,7 @@ static u16 tcpm_charge_to_energy(int charge, int voltage)
 {
 	u64 energy = div_u64((u64)charge * voltage, 1000000);
 
-	/* Battery telemetry is reported in increments of 0.1Wh */
-	return (u16)UW_TO_W(energy * 10);
+	return UWH_TO_PD_ENERGY(energy);
 }
 
 static int tcpm_pd_send_batt_status(struct tcpm_port *port)
@@ -1612,16 +1614,17 @@ static int tcpm_pd_send_batt_status(struct tcpm_port *port)
 	else
 		batt_present = val.intval > 0;
 
-	ret = power_supply_get_property(batt, POWER_SUPPLY_PROP_CHARGE_NOW,
-					&val);
+	ret = power_supply_get_property(batt, POWER_SUPPLY_PROP_ENERGY_NOW, &val);
 	if (!ret) {
-		charge_now = val.intval;
-		ret = power_supply_get_property(batt,
-						POWER_SUPPLY_PROP_VOLTAGE_AVG,
-						&val);
-		if (!ret)
-			present_charge = tcpm_charge_to_energy(charge_now,
-							       val.intval);
+		present_charge = UWH_TO_PD_ENERGY(val.intval);
+	} else {
+		ret = power_supply_get_property(batt, POWER_SUPPLY_PROP_CHARGE_NOW, &val);
+		if (!ret) {
+			charge_now = val.intval;
+			ret = power_supply_get_property(batt, POWER_SUPPLY_PROP_VOLTAGE_AVG, &val);
+			if (!ret)
+				present_charge = tcpm_charge_to_energy(charge_now, val.intval);
+		}
 	}
 
 	ret = power_supply_get_property(batt, POWER_SUPPLY_PROP_STATUS, &val);
@@ -1678,19 +1681,31 @@ static int tcpm_pd_send_batt_cap(struct tcpm_port *port)
 
 	invalid_ref = false;
 	batt = port->fixed_batt[batt_id];
-	ret = power_supply_get_property(batt, POWER_SUPPLY_PROP_VOLTAGE_AVG,
-					&val);
-	if (!ret) {
-		vol = val.intval;
-		ret = power_supply_get_property(batt,
-						POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
-						&val);
+
+	ret = power_supply_get_property(batt, POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN, &val);
+	if (!ret)
+		design_cap = UWH_TO_PD_ENERGY(val.intval);
+
+	ret = power_supply_get_property(batt, POWER_SUPPLY_PROP_ENERGY_FULL, &val);
+	if (!ret)
+		charge_cap = UWH_TO_PD_ENERGY(val.intval);
+
+	if (design_cap != BATTERY_PROPERTY_UNKNOWN && charge_cap != BATTERY_PROPERTY_UNKNOWN)
+		goto send_cap;
+
+	ret = power_supply_get_property(batt, POWER_SUPPLY_PROP_VOLTAGE_AVG, &val);
+	if (ret)
+		goto send_cap;
+
+	vol = val.intval;
+	if (design_cap == BATTERY_PROPERTY_UNKNOWN) {
+		ret = power_supply_get_property(batt, POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN, &val);
 		if (!ret)
 			design_cap = tcpm_charge_to_energy(val.intval, vol);
+	}
 
-		ret = power_supply_get_property(batt,
-						POWER_SUPPLY_PROP_CHARGE_FULL,
-						&val);
+	if (charge_cap == BATTERY_PROPERTY_UNKNOWN) {
+		ret = power_supply_get_property(batt, POWER_SUPPLY_PROP_CHARGE_FULL, &val);
 		if (!ret)
 			charge_cap = tcpm_charge_to_energy(val.intval, vol);
 	}
@@ -1756,7 +1771,8 @@ static void mod_enable_frs_delayed_work(struct tcpm_port *port, unsigned int del
 static void mod_vdm_discovery_cancel_delayed_work(struct tcpm_port *port)
 {
 	hrtimer_cancel(&port->vdm_discovery_timer);
-	kthread_cancel_work_sync(&port->vdm_discovery_work);
+	if (port->wq)
+		kthread_cancel_work_sync(&port->vdm_discovery_work);
 }
 
 static void mod_vdm_discovery_delayed_work(struct tcpm_port *port, unsigned int delay_ms)
@@ -7113,7 +7129,7 @@ static void tcpm_pd_event_handler(struct kthread_work *work)
 				port->upcoming_state = FR_SWAP_SEND;
 				ret = tcpm_ams_start(port, FAST_ROLE_SWAP);
 				if (ret == -EAGAIN)
-					port->upcoming_state = INVALID_STATE;
+					tcpm_set_state(port, ERROR_RECOVERY, 0);
 			} else {
 				tcpm_log(port, "Discarding FRS_SIGNAL! Not in sink ready");
 			}
@@ -8977,6 +8993,7 @@ void tcpm_unregister_port(struct tcpm_port *port)
 
 	port->registered = false;
 	kthread_destroy_worker(port->wq);
+	port->wq = NULL;
 
 	hrtimer_cancel(&port->vdm_discovery_timer);
 	hrtimer_cancel(&port->enable_frs_timer);

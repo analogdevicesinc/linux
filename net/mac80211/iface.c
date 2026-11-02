@@ -632,8 +632,9 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata, bool going_do
 				hw_reconf_flags |= IEEE80211_CONF_CHANGE_MONITOR;
 			}
 
-			ieee80211_adjust_monitor_flags(sdata, -1);
 		}
+
+		ieee80211_adjust_monitor_flags(sdata, -1);
 		break;
 	case NL80211_IFTYPE_NAN:
 		/* Check if any open NAN_DATA interfaces */
@@ -926,32 +927,30 @@ static void ieee80211_teardown_sdata(struct ieee80211_sub_if_data *sdata)
 	}
 }
 
-/*
- * The netdev can be unregistered without mac80211 doing it, e.g. by the netdev
- * core when cfg80211 couldn't move it out of a network namespace that's being
- * destroyed. Drop it from the interface list either way.
- */
-static void ieee80211_unlist_sdata(struct ieee80211_sub_if_data *sdata)
+static void ieee80211_uninit(struct net_device *dev)
 {
+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_sub_if_data *iter;
 
 	ASSERT_RTNL();
 
+	/*
+	 * The netdev can be unregistered without mac80211 doing it, e.g. by the
+	 * netdev core when cfg80211 couldn't move it out of a network namespace
+	 * that's being destroyed. If so, it's still listed and the wiphy mutex
+	 * isn't held yet.
+	 */
 	list_for_each_entry(iter, &local->interfaces, list) {
 		if (iter != sdata)
 			continue;
-		guard(mutex)(&local->iflist_mtx);
-		list_del_rcu(&sdata->list);
+		guard(wiphy)(local->hw.wiphy);
+		scoped_guard(mutex, &local->iflist_mtx)
+			list_del_rcu(&sdata->list);
+		ieee80211_teardown_sdata(sdata);
 		return;
 	}
-}
 
-static void ieee80211_uninit(struct net_device *dev)
-{
-	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
-
-	ieee80211_unlist_sdata(sdata);
 	ieee80211_teardown_sdata(sdata);
 }
 
@@ -993,13 +992,13 @@ static u16 ieee80211_monitor_select_queue(struct net_device *dev,
 	/* reset flags and info before parsing radiotap header */
 	memset(info, 0, sizeof(*info));
 
-	if (!ieee80211_parse_tx_radiotap(skb, dev, NULL))
+	if (!ieee80211_parse_tx_radiotap(skb, dev, NULL, false))
 		return 0; /* doesn't matter, frame will be dropped */
 
 	len_rthdr = ieee80211_get_radiotap_len(skb->data);
 	hdr = (struct ieee80211_hdr *)(skb->data + len_rthdr);
-	if (skb->len < len_rthdr + 2 ||
-	    skb->len < len_rthdr + ieee80211_hdrlen(hdr->frame_control))
+	if (skb_headlen(skb) < len_rthdr + 2 ||
+	    skb_headlen(skb) < len_rthdr + ieee80211_hdrlen(hdr->frame_control))
 		return 0; /* doesn't matter, frame will be dropped */
 
 	return ieee80211_select_queue_80211(sdata, skb, hdr);
@@ -1022,6 +1021,13 @@ static int ieee80211_netdev_fill_forward_path(struct net_device_path_ctx *ctx,
 	struct ieee80211_local *local;
 	struct sta_info *sta;
 	int ret = -ENOENT;
+
+	if (ctx->ieee80211) {
+		path->type = DEV_PATH_IEEE80211;
+		path->dev = ctx->dev;
+		ctx->dev = NULL;
+		return 0;
+	}
 
 	sdata = IEEE80211_DEV_TO_SUB_IF(ctx->dev);
 	local = sdata->local;
@@ -1706,11 +1712,8 @@ static void ieee80211_iface_process_skb(struct ieee80211_local *local,
 				break;
 
 			status = IEEE80211_SKB_RXCB(skb);
-			if (!status->link_valid)
-				link_sta = &sta->deflink;
-			else
-				link_sta = rcu_dereference_protected(sta->link[status->link_id],
-							lockdep_is_held(&local->hw.wiphy->mtx));
+			link_sta = wiphy_dereference(local->hw.wiphy,
+						     sta->link[status->link_id]);
 			if (link_sta)
 				ieee80211_ht_handle_chanwidth_notif(local, sdata, sta,
 								    link_sta, chanwidth,

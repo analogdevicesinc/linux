@@ -5732,12 +5732,12 @@ static int bond_xdp_set(struct net_device *dev, struct bpf_prog *prog,
 			bpf_prog_inc(prog);
 	}
 
-	if (prog) {
+	if (prog && !old_prog)
 		static_branch_inc(&bpf_master_redirect_enabled_key);
-	} else if (old_prog) {
-		bpf_prog_put(old_prog);
+	else if (!prog && old_prog)
 		static_branch_dec(&bpf_master_redirect_enabled_key);
-	}
+	if (old_prog)
+		bpf_prog_put(old_prog);
 
 	return 0;
 
@@ -6273,7 +6273,7 @@ static int __init bond_check_params(struct bond_params *params)
 	}
 
 	for (arp_ip_count = 0, i = 0;
-	     (arp_ip_count < BOND_MAX_ARP_TARGETS) && arp_ip_target[i]; i++) {
+	     (i < BOND_MAX_ARP_TARGETS) && arp_ip_target[i]; i++) {
 		__be32 ip;
 
 		/* not a complete check, but good enough to catch mistakes */

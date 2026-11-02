@@ -61,6 +61,7 @@ enum {
 	BT_SK_BIG_SYNC,
 	BT_SK_PA_SYNC,
 	BT_SK_KILLED,
+	BT_SK_CONNECTING,
 };
 
 struct iso_pinfo {
@@ -286,8 +287,11 @@ static void iso_chan_del(struct sock *sk, int err)
 
 	parent = bt_sk(sk)->parent;
 	if (parent) {
+		/* Unlinking the child allows the parent to be freed. */
+		sock_hold(parent);
 		bt_accept_unlink(sk);
 		parent->sk_data_ready(parent);
+		sock_put(parent);
 	} else {
 		sk->sk_state_change(sk);
 	}
@@ -350,6 +354,9 @@ static int __iso_chan_add(struct iso_conn *conn, struct sock *sk,
 		return -EBUSY;
 	}
 
+	if (iso_pi(sk)->conn)
+		return -EISCONN;
+
 	if (!conn->hcon) {
 		BT_ERR("conn->hcon missing");
 		return -EIO;
@@ -409,6 +416,11 @@ static int iso_connect_bis(struct sock *sk)
 
 	hci_dev_lock(hdev);
 	lock_sock(sk);
+
+	if (iso_pi(sk)->conn) {
+		err = -EISCONN;
+		goto unlock;
+	}
 
 	if (!bis_capable(hdev)) {
 		err = -EOPNOTSUPP;
@@ -561,6 +573,13 @@ static int iso_connect_cis(struct sock *sk)
 	}
 
 	lockdep_assert_held(&hcon->hdev->lock);
+
+	/* The socket lock keeps the current attachment and its hcon stable. */
+	if (iso_pi(sk)->conn && iso_pi(sk)->conn->hcon != hcon) {
+		hci_conn_drop(hcon);
+		err = -EISCONN;
+		goto unlock;
+	}
 
 	conn = iso_conn_add(hcon);
 	if (!conn) {
@@ -1269,17 +1288,26 @@ static int iso_sock_connect(struct socket *sock, struct sockaddr_unsized *addr,
 	    addr->sa_family != AF_BLUETOOTH)
 		return -EINVAL;
 
-	if (sk->sk_state != BT_OPEN && sk->sk_state != BT_BOUND)
-		return -EBADFD;
+	lock_sock(sk);
 
-	if (sk->sk_type != SOCK_SEQPACKET)
-		return -EINVAL;
+	if ((sk->sk_state != BT_OPEN && sk->sk_state != BT_BOUND) ||
+	    test_bit(BT_SK_CONNECTING, &iso_pi(sk)->flags)) {
+		err = -EBADFD;
+		goto done;
+	}
+
+	if (sk->sk_type != SOCK_SEQPACKET) {
+		err = -EINVAL;
+		goto done;
+	}
 
 	/* Check if the address type is of LE type */
-	if (!bdaddr_type_is_le(sa->iso_bdaddr_type))
-		return -EINVAL;
+	if (!bdaddr_type_is_le(sa->iso_bdaddr_type)) {
+		err = -EINVAL;
+		goto done;
+	}
 
-	lock_sock(sk);
+	set_bit(BT_SK_CONNECTING, &iso_pi(sk)->flags);
 
 	bacpy(&iso_pi(sk)->dst, &sa->iso_bdaddr);
 	iso_pi(sk)->dst_type = sa->iso_bdaddr_type;
@@ -1291,16 +1319,18 @@ static int iso_sock_connect(struct socket *sock, struct sockaddr_unsized *addr,
 	else
 		err = iso_connect_bis(sk);
 
-	if (err)
-		return err;
-
 	lock_sock(sk);
+
+	clear_bit(BT_SK_CONNECTING, &iso_pi(sk)->flags);
+	if (err)
+		goto done;
 
 	if (!test_bit(BT_SK_DEFER_SETUP, &bt_sk(sk)->flags)) {
 		err = bt_sock_wait_state(sk, BT_CONNECTED,
 					 sock_sndtimeo(sk, flags & O_NONBLOCK));
 	}
 
+done:
 	release_sock(sk);
 	return err;
 }
@@ -1339,6 +1369,11 @@ static int iso_listen_bis(struct sock *sk)
 
 	hci_dev_lock(hdev);
 	lock_sock(sk);
+
+	if (sk->sk_state != BT_BOUND || iso_pi(sk)->conn) {
+		err = -EBADFD;
+		goto unlock;
+	}
 
 	/* Fail if user set invalid QoS */
 	if (iso_pi(sk)->qos_user_set && !check_bcast_qos(&iso_pi(sk)->qos)) {
@@ -1942,10 +1977,7 @@ static int iso_sock_setsockopt(struct socket *sock, int level, int optname,
 		if (err)
 			break;
 
-		if (opt)
-			set_bit(BT_SK_DEFER_SETUP, &bt_sk(sk)->flags);
-		else
-			clear_bit(BT_SK_DEFER_SETUP, &bt_sk(sk)->flags);
+		assign_bit(BT_SK_DEFER_SETUP, &bt_sk(sk)->flags, opt);
 		break;
 
 	case BT_PKT_STATUS:
@@ -1953,10 +1985,7 @@ static int iso_sock_setsockopt(struct socket *sock, int level, int optname,
 		if (err)
 			break;
 
-		if (opt)
-			set_bit(BT_SK_PKT_STATUS, &bt_sk(sk)->flags);
-		else
-			clear_bit(BT_SK_PKT_STATUS, &bt_sk(sk)->flags);
+		assign_bit(BT_SK_PKT_STATUS, &bt_sk(sk)->flags, opt);
 		break;
 
 	case BT_PKT_SEQNUM:
@@ -1964,10 +1993,7 @@ static int iso_sock_setsockopt(struct socket *sock, int level, int optname,
 		if (err)
 			break;
 
-		if (opt)
-			set_bit(BT_SK_PKT_SEQNUM, &bt_sk(sk)->flags);
-		else
-			clear_bit(BT_SK_PKT_SEQNUM, &bt_sk(sk)->flags);
+		assign_bit(BT_SK_PKT_SEQNUM, &bt_sk(sk)->flags, opt);
 		break;
 
 	case BT_ISO_QOS:

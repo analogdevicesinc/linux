@@ -51,9 +51,9 @@ pub(crate) struct CouldNotDeliverCriticalIncrement;
 ///   about to drop the weak reference, then the strong increment could be processed after the
 ///   other thread has already exited, which would be too late.
 ///
-/// Note that trying to create a `ListArc` to the node can succeed even if `has_normal_push` is
+/// Note that trying to create a `ListArc` to the node can succeed even if `has_pushed_node` is
 /// set. This is because another thread might just have popped the node from a todo list, but not
-/// yet called `do_work`. However, if `has_normal_push` is false, then creating a `ListArc` should
+/// yet called `do_work`. However, if `has_pushed_node` is false, then creating a `ListArc` should
 /// always succeed.
 ///
 /// Like the other fields in `NodeInner`, the delivery state is protected by the process lock.
@@ -255,11 +255,7 @@ impl Node {
     }
 
     #[inline(never)]
-    pub(crate) fn full_debug_print(
-        &self,
-        m: &SeqFile,
-        owner_inner: &mut ProcessInner,
-    ) -> Result<()> {
+    pub(crate) fn full_debug_print(&self, m: &SeqFile, owner_inner: &mut ProcessInner) -> Result {
         let inner = self.inner.access_mut(owner_inner);
         seq_print!(
             m,
@@ -405,7 +401,7 @@ impl Node {
             !is_dead && !state.has_count
         } else {
             if state.count < count {
-                pr_err!("Failure: refcount underflow!");
+                pr_err_ratelimited!("Failure: refcount underflow!\n");
                 return None;
             }
             state.count -= count;
@@ -693,7 +689,7 @@ impl Node {
             .freeze_list
             .retain(|proc| !core::ptr::eq::<Process>(&**proc, p));
         if len == inner.freeze_list.len() {
-            pr_warn!(
+            pr_warn_ratelimited!(
                 "Could not remove freeze listener for {}\n",
                 p.pid_in_current_ns()
             );
@@ -738,14 +734,28 @@ impl DeliverToRead for Node {
         self.do_work_locked(writer, owner_inner)
     }
 
-    fn cancel(self: DArc<Self>) {}
+    fn cancel(self: DArc<Self>) {
+        let _drop_outside_lock;
+        let mut owner_inner = self.owner.inner.lock();
+
+        // We only do something on BINDER_THREAD_EXIT, not process exit.
+        if owner_inner.is_dead {
+            return;
+        }
+
+        // If BINDER_THREAD_EXIT is invoked on a thread with a pending node refcount update, we
+        // should move ourselves to ensure the refcount update is still delivered.
+        if let Some(node) = ListArc::try_from_arc_borrow(self.as_arc_borrow()) {
+            _drop_outside_lock = owner_inner.push_work(&self.owner, node);
+        }
+    }
 
     fn should_sync_wakeup(&self) -> bool {
         false
     }
 
     #[inline(never)]
-    fn debug_print(&self, m: &SeqFile, prefix: &str, _tprefix: &str) -> Result<()> {
+    fn debug_print(&self, m: &SeqFile, prefix: &str, _tprefix: &str) -> Result {
         seq_print!(
             m,
             "{}node work {}: u{:016x} c{:016x}\n",
@@ -1140,7 +1150,7 @@ impl DeliverToRead for NodeDeath {
     }
 
     #[inline(never)]
-    fn debug_print(&self, m: &SeqFile, prefix: &str, _tprefix: &str) -> Result<()> {
+    fn debug_print(&self, m: &SeqFile, prefix: &str, _tprefix: &str) -> Result {
         let inner = self.inner.lock();
 
         let dead_binder = inner.dead && !inner.notification_done;
