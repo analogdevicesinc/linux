@@ -346,6 +346,9 @@ static int ieee80211_stop_tx_ba_session_prep(struct sta_info *sta, u16 tid,
 	 */
 	if (test_bit(HT_AGG_STATE_STOPPING, &tid_tx->state)) {
 		spin_unlock_bh(&sta->lock);
+		/* the driver wasn't told yet, the caller can do that now */
+		if (test_and_clear_bit(HT_AGG_STATE_STOP_RCU, &tid_tx->state))
+			return 1;
 		if (reason != AGG_STOP_DESTROY_STA)
 			return -EALREADY;
 		ret = drv_ampdu_action(local, sta->sdata, &params);
@@ -395,14 +398,13 @@ static int ieee80211_stop_tx_ba_session_prep(struct sta_info *sta, u16 tid,
 }
 
 static void ieee80211_stop_tx_ba_session_finish(struct sta_info *sta, u16 tid,
-						enum ieee80211_agg_stop_reason reason)
+						bool destroy)
 {
 	struct ieee80211_ampdu_params params = {
 		.sta = &sta->sta,
 		.tid = tid,
-		.action = reason == AGG_STOP_DESTROY_STA ?
-				IEEE80211_AMPDU_TX_STOP_FLUSH :
-				IEEE80211_AMPDU_TX_STOP_CONT,
+		.action = destroy ? IEEE80211_AMPDU_TX_STOP_FLUSH :
+				    IEEE80211_AMPDU_TX_STOP_CONT,
 	};
 
 	lockdep_assert_wiphy(sta->local->hw.wiphy);
@@ -447,7 +449,37 @@ int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
 	if (!sta->local->in_reconfig)
 		synchronize_net();
 
-	ieee80211_stop_tx_ba_session_finish(sta, tid, reason);
+	ieee80211_stop_tx_ba_session_finish(sta, tid,
+					    reason == AGG_STOP_DESTROY_STA);
+
+	return 0;
+}
+
+/* like __ieee80211_stop_tx_ba_session() but tell the driver asynchronously */
+int ieee80211_stop_tx_ba_session_deferred(struct sta_info *sta, u16 tid,
+					  enum ieee80211_agg_stop_reason reason)
+{
+	struct tid_ampdu_tx *tid_tx;
+	int ret;
+
+	if (WARN_ON(reason == AGG_STOP_DESTROY_STA))
+		return -EINVAL;
+
+	ret = ieee80211_stop_tx_ba_session_prep(sta, tid, reason);
+	if (ret <= 0)
+		return ret;
+
+	if (sta->local->in_reconfig) {
+		ieee80211_stop_tx_ba_session_finish(sta, tid, false);
+		return 0;
+	}
+
+	tid_tx = rcu_dereference_protected_tid_tx(sta, tid);
+	set_bit(HT_AGG_STATE_STOP_RCU, &tid_tx->state);
+
+	/* cancel first so it waits for a new grace period, as for start */
+	wiphy_rcu_work_cancel(sta->local->hw.wiphy, &sta->ampdu_mlme.rcu_work);
+	wiphy_rcu_work_queue(sta->local->hw.wiphy, &sta->ampdu_mlme.rcu_work);
 
 	return 0;
 }
@@ -470,7 +502,8 @@ void ieee80211_sta_stop_tx_ba_sessions(struct sta_info *sta,
 		synchronize_net();
 
 	for_each_set_bit(tid, &tids, IEEE80211_NUM_TIDS)
-		ieee80211_stop_tx_ba_session_finish(sta, tid, reason);
+		ieee80211_stop_tx_ba_session_finish(sta, tid,
+						    reason == AGG_STOP_DESTROY_STA);
 }
 
 /*
@@ -624,8 +657,15 @@ void ieee80211_tx_ba_session_handle_rcu(struct sta_info *sta, int tid,
 
 	lockdep_assert_wiphy(sta->local->hw.wiphy);
 
-	if (!tid_tx ||
-	    !test_and_clear_bit(HT_AGG_STATE_START_RCU, &tid_tx->state))
+	if (!tid_tx)
+		return;
+
+	if (test_and_clear_bit(HT_AGG_STATE_STOP_RCU, &tid_tx->state)) {
+		ieee80211_stop_tx_ba_session_finish(sta, tid, false);
+		return;
+	}
+
+	if (!test_and_clear_bit(HT_AGG_STATE_START_RCU, &tid_tx->state))
 		return;
 
 	if (blocked)
@@ -1142,6 +1182,7 @@ void ieee80211_process_addba_resp(struct ieee80211_local *local,
 		}
 
 	} else {
-		__ieee80211_stop_tx_ba_session(sta, tid, AGG_STOP_DECLINED);
+		ieee80211_stop_tx_ba_session_deferred(sta, tid,
+						      AGG_STOP_DECLINED);
 	}
 }

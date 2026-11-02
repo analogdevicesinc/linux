@@ -411,13 +411,11 @@ static void ieee80211_ba_session_process(struct sta_info *sta, bool rcu_done)
 		if (!tid_tx)
 			continue;
 
-		if (!blocked &&
-		    test_and_clear_bit(HT_AGG_STATE_START_CB, &tid_tx->state))
-			ieee80211_start_tx_ba_cb(sta, tid, tid_tx);
-		if (test_and_clear_bit(HT_AGG_STATE_WANT_STOP, &tid_tx->state))
-			__ieee80211_stop_tx_ba_session(sta, tid,
-						       AGG_STOP_LOCAL_REQUEST);
-
+		/*
+		 * Do this before anything that could set the START_RCU or
+		 * STOP_RCU bits (e.g. WANT_STOP handling below), since then
+		 * the grace period hasn't elapsed yet for this TID.
+		 */
 		if (rcu_done) {
 			/* this may free tid_tx */
 			ieee80211_tx_ba_session_handle_rcu(sta, tid, blocked);
@@ -426,6 +424,13 @@ static void ieee80211_ba_session_process(struct sta_info *sta, bool rcu_done)
 			if (!tid_tx)
 				continue;
 		}
+
+		if (!blocked &&
+		    test_and_clear_bit(HT_AGG_STATE_START_CB, &tid_tx->state))
+			ieee80211_start_tx_ba_cb(sta, tid, tid_tx);
+		if (test_and_clear_bit(HT_AGG_STATE_WANT_STOP, &tid_tx->state))
+			ieee80211_stop_tx_ba_session_deferred(sta, tid,
+							      AGG_STOP_LOCAL_REQUEST);
 
 		if (test_and_clear_bit(HT_AGG_STATE_STOP_CB, &tid_tx->state))
 			ieee80211_stop_tx_ba_cb(sta, tid, tid_tx);
@@ -498,7 +503,8 @@ void ieee80211_process_delba(struct ieee80211_sub_if_data *sdata,
 		__ieee80211_stop_rx_ba_session(sta, tid, WLAN_BACK_INITIATOR, 0,
 					       true);
 	else
-		__ieee80211_stop_tx_ba_session(sta, tid, AGG_STOP_PEER_REQUEST);
+		ieee80211_stop_tx_ba_session_deferred(sta, tid,
+						      AGG_STOP_PEER_REQUEST);
 }
 
 enum nl80211_smps_mode
