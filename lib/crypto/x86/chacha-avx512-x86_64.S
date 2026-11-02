@@ -17,16 +17,20 @@ CTR2BL:	.octa 0x00000000000000000000000000000000
 CTR4BL:	.octa 0x00000000000000000000000000000002
 	.octa 0x00000000000000000000000000000003
 
-.section	.rodata.cst32.CTRBL, "aM", @progbits, 32
-.align 32
+.section	.rodata.cst64.CTRBL, "aM", @progbits, 64
+.align 64
 CTRBL:	.octa 0x00000003000000020000000100000000
 	.octa 0x00000007000000060000000500000004
+	.octa 0x0000000b0000000a0000000900000008
+	.octa 0x0000000f0000000e0000000d0000000c
 
 .text
 
 .macro _define_Vi	i
 .if VL == 32
 	.set	V\i,		%ymm\i
+.elseif VL == 64
+	.set	V\i,		%zmm\i
 .else
 	.error	"Unsupported vector length"
 .endif
@@ -487,6 +491,7 @@ SYM_FUNC_END(chacha_4block_xor_avx512vl)
 	# registers.
 	#
 	# VL=32 encrypts eight blocks in 256-bit ymm registers.
+	# VL=64 encrypts sixteen blocks in 512-bit zmm registers.
 
 	vzeroupper
 
@@ -704,6 +709,7 @@ SYM_FUNC_END(chacha_4block_xor_avx512vl)
 	vpunpckldq	V15,V14,V30
 	vpunpckhdq	V15,V14,V31
 
+.if VL == 32
 	# interleave 64-bit words in state n, n+2
 	vpunpcklqdq	V18,V16,V0
 	vpunpcklqdq	V19,V17,V1
@@ -830,6 +836,140 @@ SYM_FUNC_END(chacha_4block_xor_avx512vl)
 	jl		.Lxorpart\@
 	vpxord		0x01e0(%rdx),V0,V0
 	vmovdqu64	V0,0x01e0(%rsi)
+.else
+	# interleave 64-bit words in state n, n+2 -> zmm0..15
+	vpunpcklqdq	V18,V16,V0
+	vpunpckhqdq	V18,V16,V1
+	vpunpcklqdq	V19,V17,V2
+	vpunpckhqdq	V19,V17,V3
+	vpunpcklqdq	V22,V20,V4
+	vpunpckhqdq	V22,V20,V5
+	vpunpcklqdq	V23,V21,V6
+	vpunpckhqdq	V23,V21,V7
+	vpunpcklqdq	V26,V24,V8
+	vpunpckhqdq	V26,V24,V9
+	vpunpcklqdq	V27,V25,V10
+	vpunpckhqdq	V27,V25,V11
+	vpunpcklqdq	V30,V28,V12
+	vpunpckhqdq	V30,V28,V13
+	vpunpcklqdq	V31,V29,V14
+	vpunpckhqdq	V31,V29,V15
+
+	# interleave 128-bit lanes in state n, n+4 -> zmm16..31
+	vshufi64x2	$0x88,V4,V0,V16
+	vshufi64x2	$0x88,V12,V8,V20
+	vshufi64x2	$0xdd,V4,V0,V24
+	vshufi64x2	$0xdd,V12,V8,V28
+	vshufi64x2	$0x88,V5,V1,V17
+	vshufi64x2	$0x88,V13,V9,V21
+	vshufi64x2	$0xdd,V5,V1,V25
+	vshufi64x2	$0xdd,V13,V9,V29
+	vshufi64x2	$0x88,V6,V2,V18
+	vshufi64x2	$0x88,V14,V10,V22
+	vshufi64x2	$0xdd,V6,V2,V26
+	vshufi64x2	$0xdd,V14,V10,V30
+	vshufi64x2	$0x88,V7,V3,V19
+	vshufi64x2	$0x88,V15,V11,V23
+	vshufi64x2	$0xdd,V7,V3,V27
+	vshufi64x2	$0xdd,V15,V11,V31
+
+	# fuse the final 256-bit interleave into the xor/store ladder
+	vshufi64x2	$0x88,V20,V16,V0
+	cmp		$0x0040,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0000(%rdx),V0,V0
+	vmovdqu64	V0,0x0000(%rsi)
+
+	vshufi64x2	$0x88,V21,V17,V0
+	cmp		$0x0080,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0040(%rdx),V0,V0
+	vmovdqu64	V0,0x0040(%rsi)
+
+	vshufi64x2	$0x88,V22,V18,V0
+	cmp		$0x00c0,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0080(%rdx),V0,V0
+	vmovdqu64	V0,0x0080(%rsi)
+
+	vshufi64x2	$0x88,V23,V19,V0
+	cmp		$0x0100,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x00c0(%rdx),V0,V0
+	vmovdqu64	V0,0x00c0(%rsi)
+
+	vshufi64x2	$0x88,V28,V24,V0
+	cmp		$0x0140,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0100(%rdx),V0,V0
+	vmovdqu64	V0,0x0100(%rsi)
+
+	vshufi64x2	$0x88,V29,V25,V0
+	cmp		$0x0180,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0140(%rdx),V0,V0
+	vmovdqu64	V0,0x0140(%rsi)
+
+	vshufi64x2	$0x88,V30,V26,V0
+	cmp		$0x01c0,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0180(%rdx),V0,V0
+	vmovdqu64	V0,0x0180(%rsi)
+
+	vshufi64x2	$0x88,V31,V27,V0
+	cmp		$0x0200,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x01c0(%rdx),V0,V0
+	vmovdqu64	V0,0x01c0(%rsi)
+
+	vshufi64x2	$0xdd,V20,V16,V0
+	cmp		$0x0240,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0200(%rdx),V0,V0
+	vmovdqu64	V0,0x0200(%rsi)
+
+	vshufi64x2	$0xdd,V21,V17,V0
+	cmp		$0x0280,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0240(%rdx),V0,V0
+	vmovdqu64	V0,0x0240(%rsi)
+
+	vshufi64x2	$0xdd,V22,V18,V0
+	cmp		$0x02c0,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0280(%rdx),V0,V0
+	vmovdqu64	V0,0x0280(%rsi)
+
+	vshufi64x2	$0xdd,V23,V19,V0
+	cmp		$0x0300,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x02c0(%rdx),V0,V0
+	vmovdqu64	V0,0x02c0(%rsi)
+
+	vshufi64x2	$0xdd,V28,V24,V0
+	cmp		$0x0340,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0300(%rdx),V0,V0
+	vmovdqu64	V0,0x0300(%rsi)
+
+	vshufi64x2	$0xdd,V29,V25,V0
+	cmp		$0x0380,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0340(%rdx),V0,V0
+	vmovdqu64	V0,0x0340(%rsi)
+
+	vshufi64x2	$0xdd,V30,V26,V0
+	cmp		$0x03c0,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0380(%rdx),V0,V0
+	vmovdqu64	V0,0x0380(%rsi)
+
+	vshufi64x2	$0xdd,V31,V27,V0
+	cmp		$0x0400,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x03c0(%rdx),V0,V0
+	vmovdqu64	V0,0x03c0(%rsi)
+.endif
 
 .Ldone\@:
 	vzeroupper
@@ -858,3 +998,7 @@ SYM_FUNC_END(chacha_4block_xor_avx512vl)
 SYM_FUNC_START(chacha_8block_xor_avx512vl)
 	_chacha_words	vl=32
 SYM_FUNC_END(chacha_8block_xor_avx512vl)
+
+SYM_FUNC_START(chacha_16block_xor_avx512)
+	_chacha_words	vl=64
+SYM_FUNC_END(chacha_16block_xor_avx512)
