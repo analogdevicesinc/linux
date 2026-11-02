@@ -592,8 +592,7 @@ static int usdhi6_dma_setup(struct usdhi6_host *host, struct dma_chan *chan,
 	}
 
 	if (desc) {
-		desc->callback = usdhi6_dma_complete;
-		desc->callback_param = host;
+		dmaengine_desc_set_callback(desc, usdhi6_dma_complete, NULL, host);
 		cookie = dmaengine_submit(desc);
 	}
 

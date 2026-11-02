@@ -884,8 +884,7 @@ static int dw_mci_edmac_start_dma(struct dw_mci *host,
 	}
 
 	/* Set dw_mci_dmac_complete_dma as callback */
-	desc->callback = dw_mci_dmac_complete_dma;
-	desc->callback_param = (void *)host;
+	dmaengine_desc_set_callback(desc, dw_mci_dmac_complete_dma, NULL, (void *)host);
 	dmaengine_submit(desc);
 
 	/* Flush cache before write */

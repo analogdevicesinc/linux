@@ -395,8 +395,7 @@ static int mxcmci_start_cmd(struct mxcmci_host *host, struct mmc_command *cmd,
 
 	if (mxcmci_use_dma(host)) {
 		if (host->dma_dir == DMA_FROM_DEVICE) {
-			host->desc->callback = mxcmci_dma_callback;
-			host->desc->callback_param = host;
+			dmaengine_desc_set_callback(host->desc, mxcmci_dma_callback, NULL, host);
 		} else {
 			int_cntr |= INT_WRITE_OP_DONE_EN;
 		}

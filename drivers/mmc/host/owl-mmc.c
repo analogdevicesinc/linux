@@ -329,8 +329,7 @@ static int owl_mmc_prepare_data(struct owl_mmc_host *owl_host,
 
 	owl_host->data = data;
 
-	owl_host->desc->callback = owl_mmc_dma_complete;
-	owl_host->desc->callback_param = (void *)owl_host;
+	dmaengine_desc_set_callback(owl_host->desc, owl_mmc_dma_complete, NULL, (void *)owl_host);
 	data->error = 0;
 
 	return 0;

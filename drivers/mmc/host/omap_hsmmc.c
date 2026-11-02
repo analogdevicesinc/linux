@@ -1279,8 +1279,7 @@ static int omap_hsmmc_setup_dma_transfer(struct omap_hsmmc_host *host,
 		return -1;
 	}
 
-	tx->callback = omap_hsmmc_dma_callback;
-	tx->callback_param = host;
+	dmaengine_desc_set_callback(tx, omap_hsmmc_dma_callback, NULL, host);
 
 	/* Does not fail */
 	dmaengine_submit(tx);

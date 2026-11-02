@@ -1174,8 +1174,7 @@ atmci_prepare_data_dma(struct atmel_mci *host, struct mmc_data *data)
 		goto unmap_exit;
 
 	host->dma.data_desc = desc;
-	desc->callback = atmci_dma_complete;
-	desc->callback_param = host;
+	dmaengine_desc_set_callback(desc, atmci_dma_complete, NULL, host);
 
 	return iflags;
 unmap_exit:

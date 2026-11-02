@@ -506,8 +506,7 @@ void bcm2835_prepare_dma(struct bcm2835_host *host, struct mmc_data *data)
 		return;
 	}
 
-	desc->callback = bcm2835_dma_complete;
-	desc->callback_param = host;
+	dmaengine_desc_set_callback(desc, bcm2835_dma_complete, NULL, host);
 	host->dma_desc = desc;
 	host->dma_chan = dma_chan;
 	host->dma_dir = dir_data;

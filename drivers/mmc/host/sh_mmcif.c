@@ -299,8 +299,7 @@ static void sh_mmcif_start_dma_rx(struct sh_mmcif_host *host)
 	}
 
 	if (desc) {
-		desc->callback = sh_mmcif_dma_complete;
-		desc->callback_param = host;
+		dmaengine_desc_set_callback(desc, sh_mmcif_dma_complete, NULL, host);
 		cookie = dmaengine_submit(desc);
 		sh_mmcif_bitset(host, MMCIF_CE_BUF_ACC, BUF_ACC_DMAREN);
 		dma_async_issue_pending(chan);
@@ -349,8 +348,7 @@ static void sh_mmcif_start_dma_tx(struct sh_mmcif_host *host)
 	}
 
 	if (desc) {
-		desc->callback = sh_mmcif_dma_complete;
-		desc->callback_param = host;
+		dmaengine_desc_set_callback(desc, sh_mmcif_dma_complete, NULL, host);
 		cookie = dmaengine_submit(desc);
 		sh_mmcif_bitset(host, MMCIF_CE_BUF_ACC, BUF_ACC_DMAWEN);
 		dma_async_issue_pending(chan);

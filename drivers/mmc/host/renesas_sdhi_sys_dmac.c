@@ -196,8 +196,7 @@ static void renesas_sdhi_sys_dmac_start_dma_rx(struct tmio_mmc_host *host)
 
 	if (desc) {
 		reinit_completion(&priv->dma_priv.dma_dataend);
-		desc->callback = renesas_sdhi_sys_dmac_dma_callback;
-		desc->callback_param = host;
+		dmaengine_desc_set_callback(desc, renesas_sdhi_sys_dmac_dma_callback, NULL, host);
 
 		cookie = dmaengine_submit(desc);
 		if (cookie < 0) {
@@ -272,8 +271,7 @@ static void renesas_sdhi_sys_dmac_start_dma_tx(struct tmio_mmc_host *host)
 
 	if (desc) {
 		reinit_completion(&priv->dma_priv.dma_dataend);
-		desc->callback = renesas_sdhi_sys_dmac_dma_callback;
-		desc->callback_param = host;
+		dmaengine_desc_set_callback(desc, renesas_sdhi_sys_dmac_dma_callback, NULL, host);
 
 		cookie = dmaengine_submit(desc);
 		if (cookie < 0) {

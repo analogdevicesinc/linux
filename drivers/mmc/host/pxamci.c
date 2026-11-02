@@ -212,8 +212,7 @@ static void pxamci_setup_data(struct pxamci_host *host, struct mmc_data *data)
 	}
 
 	if (!(data->flags & MMC_DATA_READ)) {
-		tx->callback = pxamci_dma_irq;
-		tx->callback_param = host;
+		dmaengine_desc_set_callback(tx, pxamci_dma_irq, NULL, host);
 	}
 
 	host->dma_cookie = dmaengine_submit(tx);

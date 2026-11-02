@@ -291,8 +291,7 @@ static void moxart_transfer_dma(struct mmc_data *data, struct moxart_host *host)
 
 	if (desc) {
 		host->tx_desc = desc;
-		desc->callback = moxart_dma_complete;
-		desc->callback_param = host;
+		dmaengine_desc_set_callback(desc, moxart_dma_complete, NULL, host);
 		dmaengine_submit(desc);
 		dma_async_issue_pending(dma_chan);
 	}

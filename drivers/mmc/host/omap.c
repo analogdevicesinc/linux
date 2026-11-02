@@ -1050,8 +1050,7 @@ mmc_omap_prepare_data(struct mmc_omap_host *host, struct mmc_request *req)
 
 		OMAP_MMC_WRITE(host, BUF, buf);
 
-		tx->callback = mmc_omap_dma_callback;
-		tx->callback_param = host;
+		dmaengine_desc_set_callback(tx, mmc_omap_dma_callback, NULL, host);
 		dmaengine_submit(tx);
 		host->brs_received = 0;
 		host->dma_done = 0;

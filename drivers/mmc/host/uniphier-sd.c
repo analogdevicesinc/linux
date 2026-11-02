@@ -158,8 +158,7 @@ static void uniphier_sd_external_dma_start(struct tmio_mmc_host *host,
 	if (!desc)
 		goto unmap_sg;
 
-	desc->callback_result = uniphier_sd_external_dma_callback;
-	desc->callback_param = host;
+	dmaengine_desc_set_callback(desc, NULL, uniphier_sd_external_dma_callback, host);
 
 	cookie = dmaengine_submit(desc);
 	if (cookie < 0)

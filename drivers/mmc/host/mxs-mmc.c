@@ -234,14 +234,10 @@ static struct dma_async_tx_descriptor *mxs_mmc_prep_dma(
 
 	desc = dmaengine_prep_slave_sg(ssp->dmach,
 				sgl, sg_len, ssp->slave_dirn, flags);
-	if (desc) {
-		desc->callback = mxs_mmc_dma_irq_callback;
-		desc->callback_param = host;
-	} else {
-		if (data)
-			dma_unmap_sg(dma_dev, data->sg,
-				     data->sg_len, ssp->dma_dir);
-	}
+	if (desc)
+		dmaengine_desc_set_callback(desc, mxs_mmc_dma_irq_callback, NULL, host);
+	else if (data)
+		dma_unmap_sg(dma_dev, data->sg, data->sg_len, ssp->dma_dir);
 
 	return desc;
 }
