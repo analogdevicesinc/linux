@@ -16,7 +16,7 @@
 };
 
 &ad9528_0_c3 {
-	adi,channel-divider = <16>;
+	adi,channel-divider = <8>;
 };
 
 &ad9528_0_c1 {
@@ -32,8 +32,28 @@
 	jesd204-ignore-errors;
 };
 
+&axi_adrv904x_rx_jesd {
+	clocks = <&zynqmp_clk 71>, <&axi_rx_clkgen>, <&axi_adrv904x_adxcvr_rx 0>, <&axi_adrv904x_adxcvr_rx 1>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk", "link_clk";
+};
+
+&axi_adrv904x_tx_jesd {
+	clocks = <&zynqmp_clk 71>, <&axi_tx_clkgen>, <&axi_adrv904x_adxcvr_tx 0>, <&axi_adrv904x_adxcvr_tx 1>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk", "link_clk";
+};
+
 &axi_adrv904x_adxcvr_rx {
 	adi,sys-clk-select = <XCVR_CPLL>;
+	adi,out-clk-select = <XCVR_REFCLK>;
+	// adi,out-clk-select = <XCVR_PROGDIV_CLK>;
 	adi,use-lpm-enable;
 	adi,use-cpll-enable;
+};
+
+&axi_adrv904x_adxcvr_tx {
+	adi,sys-clk-select = <XCVR_QPLL>;
+	adi,out-clk-select = <XCVR_REFCLK>;
+	// adi,out-clk-select = <XCVR_PROGDIV_CLK>;
+	adi,use-lpm-enable;
+	// adi,use-cpll-enable;
 };

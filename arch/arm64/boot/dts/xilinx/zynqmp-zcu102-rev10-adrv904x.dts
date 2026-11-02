@@ -246,6 +246,10 @@
 			reg = <0x84a00000 0x6000>;
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
+
+			adi,axi-pl-fifo-enable;
+			adi,axi-data-offload-connected = <&axi_data_offload_rx>;
+
 			spibus-connected = <&trx0_adrv904x>;
 		};
 
@@ -275,9 +279,6 @@
 
 			#clock-cells = <0>;
 			clock-output-names = "jesd_rx_lane_clk";
-
-			adi,octets-per-frame = <4>;
-			adi,frames-per-multiframe = <32>;
 
 			jesd204-device;
 			#jesd204-cells = <2>;
