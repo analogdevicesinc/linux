@@ -25,7 +25,7 @@ struct pl353_smc_data {
 	struct clk		*aclk;
 };
 
-static int __maybe_unused pl353_smc_suspend(struct device *dev)
+static int pl353_smc_suspend(struct device *dev)
 {
 	struct pl353_smc_data *pl353_smc = dev_get_drvdata(dev);
 
@@ -35,7 +35,7 @@ static int __maybe_unused pl353_smc_suspend(struct device *dev)
 	return 0;
 }
 
-static int __maybe_unused pl353_smc_resume(struct device *dev)
+static int pl353_smc_resume(struct device *dev)
 {
 	struct pl353_smc_data *pl353_smc = dev_get_drvdata(dev);
 	int ret;
@@ -56,7 +56,7 @@ static int __maybe_unused pl353_smc_resume(struct device *dev)
 	return ret;
 }
 
-static SIMPLE_DEV_PM_OPS(pl353_smc_dev_pm_ops, pl353_smc_suspend,
+static DEFINE_SIMPLE_DEV_PM_OPS(pl353_smc_dev_pm_ops, pl353_smc_suspend,
 			 pl353_smc_resume);
 
 static const struct of_device_id pl353_smc_supported_children[] = {
@@ -121,7 +121,7 @@ MODULE_DEVICE_TABLE(amba, pl353_ids);
 static struct amba_driver pl353_smc_driver = {
 	.drv = {
 		.name = "pl353-smc",
-		.pm = &pl353_smc_dev_pm_ops,
+		.pm = pm_sleep_ptr(&pl353_smc_dev_pm_ops),
 	},
 	.id_table = pl353_ids,
 	.probe = pl353_smc_probe,
