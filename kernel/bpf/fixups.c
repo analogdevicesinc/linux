@@ -350,28 +350,31 @@ struct bpf_prog *bpf_patch_insn_data(struct bpf_verifier_env *env, u32 off,
 /*
  * Queue the replacement of insn 'off' by 'patch[0..len)' until
  * bpf_patch_list_commit(), see __bpf_patch_list_add(). Replacing one insn by
- * one moves nothing and is done right away.
+ * one moves nothing and is done right away in the program, unless 'off' has a
+ * queued patch: the commit takes the insn from there.
  */
 struct bpf_insn *bpf_patch_list_add(struct bpf_verifier_env *env, u32 off,
 				    const struct bpf_insn *patch, u32 len)
 {
 	struct bpf_patch_list *pl = &env->patch_list;
+	struct bpf_insn_patch *p = pl->cnt ? &pl->patches[pl->cnt - 1] : NULL;
 
 	if (bpf_rewrite_must_abort())
 		return ERR_PTR(-EINTR);
 
 	if (verifier_bug_if(!len || off >= env->prog->len ||
-			    (pl->cnt && off <= pl->patches[pl->cnt - 1].off),
+			    (p && (off < p->off || (off == p->off && !p->len))),
 			    env, "insn %u patched out of order", off))
 		return ERR_PTR(-EFAULT);
 
-	if (len == 1) {
+	if (len == 1 && (!p || off != p->off)) {
 		env->prog->insnsi[off] = *patch;
 		adjust_insn_aux_data(env, env->prog, off, 1, NULL,
 				     BPF_PATCH_KEEP_TARGET);
 		return &env->prog->insnsi[off];
 	}
 
+	/* -ERANGE takes a second patch with a 16-bit jump back out of it: no pass has one */
 	return __bpf_patch_list_add(pl, env->prog, off, patch, len);
 }
 
