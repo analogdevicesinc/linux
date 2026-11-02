@@ -634,15 +634,6 @@
 	};
 };
 
-/* GPU/GMU not fully functional yet on this platform. */
-&gmu {
-	status = "disabled";
-};
-
-&gpu {
-	status = "disabled";
-};
-
 &i2c0 {
 	clock-frequency = <400000>;
 
