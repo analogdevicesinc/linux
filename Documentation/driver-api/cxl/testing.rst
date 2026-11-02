@@ -122,6 +122,9 @@ A CXL KUnit test follows these rules:
 - Use exported interfaces where possible, importing the CXL symbol namespace as
   needed.
 
+For an example of testing mailbox command handling with a stub transport, see
+drivers/cxl/core/tests/mbox_kunit.c.
+
 When to add a test
 ==================
 
