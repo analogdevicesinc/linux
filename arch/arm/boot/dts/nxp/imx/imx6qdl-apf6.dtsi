@@ -41,6 +41,7 @@
 			reg = <1>;
 			interrupt-parent = <&gpio1>;
 			interrupts = <28 IRQ_TYPE_LEVEL_LOW>;
+			qca,clk-out-frequency = <125000000>;
 			status = "okay";
 		};
 	};
