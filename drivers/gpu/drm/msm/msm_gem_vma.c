@@ -1088,7 +1088,6 @@ vm_bind_job_lookup_ops(struct msm_vm_bind_job *job, struct drm_msm_vm_bind *args
 	}
 
 	if (ret) {
-		job->nr_ops = 0;
 		goto out;
 	}
 
@@ -1143,6 +1142,9 @@ out_unlock:
 		}
 	}
 out:
+	if (ret)
+		job->nr_ops = 0;
+
 	return ret;
 }
 
