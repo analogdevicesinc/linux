@@ -28,6 +28,7 @@ struct xe_device_desc {
 	enum xe_platform platform;
 
 	u8 dma_mask_size;
+	u8 late_bind_mask;
 	u8 max_remote_tiles:2;
 	u8 max_gt_per_tile:2;
 	u8 multi_lrc_mask;
@@ -49,7 +50,6 @@ struct xe_device_desc {
 	u8 has_heci_gscfi:1;
 	u8 has_heci_cscfi:1;
 	u8 has_i2c:1;
-	u8 has_late_bind:1;
 	u8 has_llc:1;
 	u8 has_mbx_power_limits:1;
 	u8 has_mbx_thermal_info:1;
