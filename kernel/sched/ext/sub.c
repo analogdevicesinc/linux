@@ -918,10 +918,11 @@ struct scx_dispatch_q *__scx_resolve_local_dsq(struct scx_sched *sch, struct rq 
 		return &rq->scx.local_dsq;
 
 	/*
-	 * The task must run on this CPU regardless of caps: the rq is draining
-	 * offline (BPF scheduler bypassed), the task is migration-disabled, or a
-	 * migration is pending. Admit despite the missing caps and count it.
-	 * Refuse preemptions.
+	 * The task must run on this CPU regardless of caps: ops.enqueue() is
+	 * skipped while the CPU is going down or before the root's
+	 * ops.cpu_online(), the task is migration-disabled, or a migration is
+	 * pending. Admit despite the missing caps and count it. Refuse
+	 * preemptions.
 	 */
 	if (unlikely(!scx_rq_online(rq) || is_migration_disabled(p) ||
 		     p->migration_pending)) {
