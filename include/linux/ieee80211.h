@@ -1193,7 +1193,7 @@ struct ieee80211_mgmt {
 				struct {
 					u8 dialog_token;
 					u8 type;
-					u8 count;
+					__le16 status_code;
 					u8 variable[];
 				} __packed uhr_link_reconf_resp;
 				struct {
