@@ -3114,6 +3114,7 @@ static int wm8994_aif3_hw_params(struct snd_pcm_substream *substream,
 	struct wm8994 *control = wm8994->wm8994;
 	int aif1_reg;
 	int aif1 = 0;
+	int ret;
 
 	switch (dai->id) {
 	case 3:
@@ -3146,7 +3147,16 @@ static int wm8994_aif3_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	return snd_soc_component_update_bits(component, aif1_reg, WM8994_AIF1_WL_MASK, aif1);
+	ret = snd_soc_component_update_bits(component, aif1_reg, WM8994_AIF1_WL_MASK, aif1);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * ASoC only marks the DAI hw_params as done when .hw_params() returns 0.
+	 * Since snd_soc_component_update_bits() may return 1, explicitly
+	 * return 0 to ensure the DAI is correctly marked.
+	 */
+	return 0;
 }
 
 static int wm8994_aif_mute(struct snd_soc_dai *codec_dai, int mute,
