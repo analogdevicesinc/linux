@@ -515,9 +515,14 @@ int drv_set_key(struct ieee80211_local *local,
 	if (!check_sdata_in_driver(sdata))
 		return -EIO;
 
-	if (WARN_ON(key->link_id >= 0 && sdata->vif.active_links &&
-		    !(sdata->vif.active_links & BIT(key->link_id))))
-		return -ENOLINK;
+	if (key->link_id >= 0) {
+		u16 active_links = sta ? sta->active_links :
+					 sdata->vif.active_links;
+
+		if (WARN_ON(active_links &&
+			    !(active_links & BIT(key->link_id))))
+			return -ENOLINK;
+	}
 
 	if (fips_enabled)
 		return -EOPNOTSUPP;
@@ -620,6 +625,8 @@ int drv_change_sta_links(struct ieee80211_local *local,
 
 	if (ret)
 		return ret;
+
+	sta->active_links = new_links;
 
 	/* during reconfig don't add it to debugfs again */
 	if (local->in_reconfig || local->resuming)

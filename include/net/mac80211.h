@@ -2727,6 +2727,8 @@ struct ieee80211_link_sta {
  *	would be assigned to link[link_id] where link_id is the id assigned
  *	by the AP.
  * @valid_links: bitmap of valid links, or 0 for non-MLO
+ * @active_links: bitmap of active links, always a subset of @valid_links;
+ *	unused (0) for non-MLO
  * @spp_amsdu: indicates whether the STA uses SPP A-MSDU or not.
  * @epp_peer: indicates that the peer is an EPP peer.
  * @cip: indicates whether the STA uses control frame protection or not.
@@ -2762,6 +2764,7 @@ struct ieee80211_sta {
 	struct ieee80211_txq *txq[IEEE80211_NUM_TIDS + 1];
 
 	u16 valid_links;
+	u16 active_links;
 	u16 ext_mld_capa_ops;
 	bool epp_peer;
 	struct ieee80211_link_sta deflink;

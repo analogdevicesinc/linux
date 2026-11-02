@@ -197,9 +197,13 @@ static int ieee80211_key_enable_hw_accel(struct ieee80211_key *key)
 		}
 	}
 
-	if (key->conf.link_id >= 0 && sdata->vif.active_links &&
-	    !(sdata->vif.active_links & BIT(key->conf.link_id)))
-		return 0;
+	if (key->conf.link_id >= 0) {
+		u16 active_links = sta ? sta->sta.active_links :
+					 sdata->vif.active_links;
+
+		if (active_links && !(active_links & BIT(key->conf.link_id)))
+			return 0;
+	}
 
 	ret = drv_set_key(key->local, SET_KEY, sdata,
 			  sta ? &sta->sta : NULL, &key->conf);

@@ -2935,6 +2935,14 @@ static int ieee80211_add_station(struct wiphy *wiphy, struct wireless_dev *wdev,
 
 		sta = sta_info_alloc_with_link(link, mac,
 					       params->link_sta_params.link_mac ?: mac);
+
+		/*
+		 * In this path (AP side), the link the station is created for
+		 * must be active, so just set the active links.
+		 */
+		if (sta)
+			sta->sta.active_links =
+				BIT(params->link_sta_params.link_id);
 	} else {
 		sta = sta_info_alloc(sdata, mac, GFP_KERNEL);
 	}

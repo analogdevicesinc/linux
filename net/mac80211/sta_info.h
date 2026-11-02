@@ -922,6 +922,7 @@ struct sta_info *sta_info_get_by_idx(struct ieee80211_sub_if_data *sdata,
 /*
  * Create a new STA info, caller owns returned structure
  * until sta_info_insert().
+ * Note: neither allocation function sets sta->sta.active_links!
  */
 struct sta_info *sta_info_alloc(struct ieee80211_sub_if_data *sdata,
 				const u8 *addr, gfp_t gfp);

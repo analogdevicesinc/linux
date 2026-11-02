@@ -10155,11 +10155,15 @@ static int ieee80211_prep_connection(struct ieee80211_sub_if_data *sdata,
 	}
 
 	if (!have_sta) {
-		if (mlo)
+		if (mlo) {
 			new_sta = sta_info_alloc_with_link(link, ap_mld_addr,
 							   cbss->bssid);
-		else
+			/* the auth/assoc link is currently the active link */
+			if (new_sta)
+				new_sta->sta.active_links = BIT(link_id);
+		} else {
 			new_sta = sta_info_alloc(sdata, ap_mld_addr, GFP_KERNEL);
+		}
 
 		if (!new_sta) {
 			err = -ENOMEM;

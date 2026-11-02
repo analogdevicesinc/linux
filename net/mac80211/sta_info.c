@@ -672,6 +672,7 @@ __sta_info_alloc(struct ieee80211_sub_if_data *sdata,
 		sta_info_add_link(sta, link_id, &sta->deflink,
 				  &sta->sta.deflink);
 		sta->sta.valid_links = BIT(link_id);
+		/* active_links isn't set yet */
 	} else {
 		sta_info_add_link(sta, 0, &sta->deflink, &sta->sta.deflink);
 	}
@@ -1087,7 +1088,7 @@ static int sta_info_insert_finish(struct sta_info *sta) __acquires(RCU)
 				continue;
 
 			ieee80211_link_sta_debugfs_add(link_sta);
-			if (sdata->vif.active_links & BIT(i))
+			if (sta->sta.active_links & BIT(i))
 				ieee80211_link_sta_debugfs_drv_add(link_sta);
 		}
 	} else {
@@ -2598,7 +2599,7 @@ void ieee80211_sta_recalc_aggregates(struct ieee80211_sta *pubsta)
 {
 	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
 
-	__ieee80211_sta_recalc_aggregates(sta, sta->sdata->vif.active_links);
+	__ieee80211_sta_recalc_aggregates(sta, sta->sta.active_links);
 }
 EXPORT_SYMBOL(ieee80211_sta_recalc_aggregates);
 
@@ -3647,6 +3648,13 @@ void ieee80211_sta_remove_link(struct sta_info *sta, unsigned int link_id)
 		ieee80211_unlink_link_sta_keys(sta->local, link_sta);
 
 	sta->sta.valid_links &= ~BIT(link_id);
+	sta->sta.active_links &= ~BIT(link_id);
+
+	WARN(!sta->sta.valid_links || !sta->sta.active_links,
+	     "STA %pM has no links after removing %d (valid:0x%x, active:0x%x)\n",
+	     sta->sta.addr, link_id,
+	     sta->sta.valid_links,
+	     sta->sta.active_links);
 
 	if (!WARN_ON(!test_sta_flag(sta, WLAN_STA_INSERTED)))
 		drv_change_sta_links(sdata->local, sdata, &sta->sta,
