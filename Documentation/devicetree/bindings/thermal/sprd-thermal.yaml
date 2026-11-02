@@ -47,7 +47,7 @@ properties:
     const: 0
 
 patternProperties:
-  "^([a-z]*-)?sensor(-section)?@[0-9]+$":
+  "^([a-z]*-)?sensor(-section)?@[0-9a-f]+$":
     type: object
     description:
       Represent one thermal sensor.

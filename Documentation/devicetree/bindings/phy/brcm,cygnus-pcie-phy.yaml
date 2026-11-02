@@ -30,7 +30,7 @@ properties:
     const: 0
 
 patternProperties:
-  "^pcie-phy@[0-9]+$":
+  "^pcie-phy@[0-9a-f]+$":
     type: object
     additionalProperties: false
     description: >

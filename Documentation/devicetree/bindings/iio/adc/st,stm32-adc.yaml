@@ -231,7 +231,7 @@ required:
   - '#size-cells'
 
 patternProperties:
-  "^adc@[0-9]+$":
+  "^adc@[0-9a-f]+$":
     type: object
     description:
       An ADC block node should contain at least one subnode, representing an

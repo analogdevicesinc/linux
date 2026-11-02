@@ -128,7 +128,7 @@ properties:
       - compatible
 
 patternProperties:
-  "^timer@[0-9]+$":
+  "^timer@([0-9a-f]|1[0-3])$":
     type: object
     additionalProperties: false
 

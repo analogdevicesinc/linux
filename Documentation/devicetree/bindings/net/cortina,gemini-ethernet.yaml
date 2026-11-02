@@ -35,7 +35,7 @@ properties:
 # They are not independent of each other since they share resources
 # in the parent node, and are thus children.
 patternProperties:
-  "^ethernet-port@[0-9]+$":
+  "^ethernet-port@[0-9a-f]+$":
     type: object
     unevaluatedProperties: false
     description: contains the resources for ethernet port

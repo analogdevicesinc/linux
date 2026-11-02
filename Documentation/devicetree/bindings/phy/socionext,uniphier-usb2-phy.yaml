@@ -29,7 +29,7 @@ properties:
     const: 0
 
 patternProperties:
-  "^phy@[0-9]+$":
+  "^phy@[0-3]$":
     type: object
     additionalProperties: false
 

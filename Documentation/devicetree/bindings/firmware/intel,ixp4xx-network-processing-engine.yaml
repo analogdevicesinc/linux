@@ -44,7 +44,7 @@ properties:
     const: 0
 
 patternProperties:
-  hss@[0-9]+$:
+  hss@[0-9a-f]+$:
     $ref: /schemas/net/intel,ixp4xx-hss.yaml#
     type: object
     description: Optional node for the High Speed Serial link (HSS), the

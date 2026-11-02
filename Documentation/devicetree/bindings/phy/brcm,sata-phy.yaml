@@ -46,7 +46,7 @@ properties:
     const: 0
 
 patternProperties:
-  "^sata-phy@[0-9]+$":
+  "^sata-phy@[0-9a-f]+$":
     type: object
     description: |
       Each port's PHY should be represented as a sub-node.
