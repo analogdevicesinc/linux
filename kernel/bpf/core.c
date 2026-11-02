@@ -663,6 +663,25 @@ struct bpf_insn *__bpf_patch_list_add(struct bpf_patch_list *pl,
 	return &pl->insns[p->start + len - 1];
 }
 
+/* Queue the removal of insn 'off'. Jumps to it land on the next insn that stays. */
+int __bpf_patch_list_del(struct bpf_patch_list *pl, const struct bpf_prog *prog,
+			 u32 off)
+{
+	struct bpf_insn_patch *p;
+	int err;
+
+	err = patch_list_reserve_patch(pl);
+	if (err)
+		return err;
+
+	p = &pl->patches[pl->cnt++];
+	p->off = off;
+	p->len = 0;
+	p->start = pl->insn_cnt;
+	p->orig = prog->insnsi[off];
+	return 0;
+}
+
 void bpf_patch_list_release(struct bpf_patch_list *pl)
 {
 	kvfree(pl->patches);
@@ -671,9 +690,43 @@ void bpf_patch_list_release(struct bpf_patch_list *pl)
 }
 
 /*
+ * Map the index of each line info record to its new one in img->new_linfo[].
+ * The record of a removed insn goes away: it gets the index of the next
+ * record. The last one before the next insn that stays moves to that insn
+ * instead, unless the insn has its own line info.
+ */
+static int patch_image_map_linfo(struct bpf_patch_image *img, const struct bpf_prog *prog)
+{
+	const struct bpf_line_info *linfo = prog->aux->linfo;
+	u32 i, j, pos, next, nr = prog->aux->nr_linfo;
+
+	img->new_linfo = kvmalloc_array(nr + 1, sizeof(u32), GFP_KERNEL_ACCOUNT);
+	if (!img->new_linfo)
+		return -ENOMEM;
+	img->nr_linfo = nr;
+
+	for (i = 0, j = 0; i < nr; i++) {
+		img->new_linfo[i] = j;
+		if (bpf_patch_image_deleted(img, linfo[i].insn_off)) {
+			pos = bpf_patch_image_remap(img, img->new_off, linfo[i].insn_off);
+			next = i + 1 < nr ?
+			       bpf_patch_image_remap(img, img->new_off, linfo[i + 1].insn_off) :
+			       U32_MAX;
+			if (pos >= img->new_cnt || next == pos)
+				continue;
+		}
+		j++;
+	}
+	img->new_linfo[nr] = j;
+	return 0;
+}
+
+/*
  * Build the image of 'prog' with the queued patches applied in img->insns,
  * without touching 'prog'. img->new_off[] maps each old insn to the start of
- * its patch. On -ERANGE, img->bad is the old insn whose jump got out of range.
+ * its patch, a removed insn to the next one that stays. img->new_linfo[] is
+ * there when insns are removed, see patch_image_map_linfo(). On -ERANGE,
+ * img->bad is the old insn whose jump got out of range.
  */
 int bpf_patch_list_build(const struct bpf_patch_list *pl, const struct bpf_prog *prog,
 			 struct bpf_patch_image *img)
@@ -689,10 +742,18 @@ int bpf_patch_list_build(const struct bpf_patch_list *pl, const struct bpf_prog 
 
 	for (i = 0, k = 0; i <= cnt; i++) {
 		img->new_off[i] = i + img->grow;
-		if (k < pl->cnt && pl->patches[k].off == i)
+		if (k < pl->cnt && pl->patches[k].off == i) {
+			img->del |= !pl->patches[k].len;
 			img->grow += pl->patches[k++].len - 1;
+		}
 	}
 	img->new_cnt = cnt + img->grow;
+
+	if (img->del && prog->aux->nr_linfo) {
+		err = patch_image_map_linfo(img, prog);
+		if (err)
+			return err;
+	}
 
 	img->insns = kvmalloc_array(img->new_cnt, sizeof(*img->insns), GFP_KERNEL_ACCOUNT);
 	if (!img->insns)
@@ -723,6 +784,7 @@ int bpf_patch_list_build(const struct bpf_patch_list *pl, const struct bpf_prog 
 void bpf_patch_image_free(struct bpf_patch_image *img)
 {
 	kvfree(img->insns);
+	kvfree(img->new_linfo);
 	kvfree(img->new_off);
 	memset(img, 0, sizeof(*img));
 }
@@ -734,17 +796,22 @@ void bpf_patch_image_free(struct bpf_patch_image *img)
  */
 void bpf_patch_image_install(struct bpf_prog *prog, const struct bpf_patch_image *img)
 {
-	u32 i;
+	struct bpf_line_info *linfo = prog->aux->linfo;
+	u32 i, j;
 
 	for (i = 0; i < prog->aux->size_poke_tab; i++)
 		prog->aux->poke_tab[i].insn_idx =
 			bpf_patch_image_remap(img, img->new_off,
 					      prog->aux->poke_tab[i].insn_idx);
 
-	for (i = 0; i < prog->aux->nr_linfo; i++)
-		prog->aux->linfo[i].insn_off =
-			bpf_patch_image_remap(img, img->new_off,
-					      prog->aux->linfo[i].insn_off);
+	for (i = 0, j = 0; i < prog->aux->nr_linfo; i++) {
+		if (img->new_linfo && img->new_linfo[i] == img->new_linfo[i + 1])
+			continue;
+		linfo[j] = linfo[i];
+		linfo[j++].insn_off = bpf_patch_image_remap(img, img->new_off,
+							    linfo[i].insn_off);
+	}
+	prog->aux->nr_linfo = j;
 
 	memcpy(prog->insnsi, img->insns, sizeof(*img->insns) * img->new_cnt);
 	prog->len = img->new_cnt;

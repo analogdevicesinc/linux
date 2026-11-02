@@ -254,8 +254,9 @@ void bpf_insn_array_adjust(struct bpf_map *map, u32 first, u32 len)
 }
 
 /*
- * Move each offset to new_off[offset], new_off[] covers [0, cnt]. Offsets
- * past the end of the old program only move by 'grow'.
+ * Move each offset to new_off[offset], new_off[] covers [0, cnt]. An insn is
+ * removed when it maps to the same offset as the next one. Offsets past the
+ * end of the old program only move by 'grow'.
  */
 void bpf_insn_array_remap(struct bpf_map *map, const u32 *new_off, u32 cnt, s32 grow)
 {
@@ -266,7 +267,10 @@ void bpf_insn_array_remap(struct bpf_map *map, const u32 *new_off, u32 cnt, s32 
 		off = insn_array->values[i].xlated_off;
 		if (off == INSN_DELETED)
 			continue;
-		insn_array->values[i].xlated_off = off <= cnt ? new_off[off] : off + grow;
+		if (off < cnt && new_off[off] == new_off[off + 1])
+			insn_array->values[i].xlated_off = INSN_DELETED;
+		else
+			insn_array->values[i].xlated_off = off <= cnt ? new_off[off] : off + grow;
 	}
 }
 

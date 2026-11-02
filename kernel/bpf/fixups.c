@@ -383,6 +383,22 @@ struct bpf_insn *bpf_patch_list_add(struct bpf_verifier_env *env, u32 off,
 	return __bpf_patch_list_add(pl, env->prog, off, patch, len);
 }
 
+/* Queue the removal of insn 'off' until bpf_patch_list_commit(). */
+int bpf_patch_list_del(struct bpf_verifier_env *env, u32 off)
+{
+	struct bpf_patch_list *pl = &env->patch_list;
+
+	if (bpf_rewrite_must_abort())
+		return -EINTR;
+
+	if (verifier_bug_if(off >= env->prog->len ||
+			    (pl->cnt && off <= pl->patches[pl->cnt - 1].off),
+			    env, "insn %u removed out of order", off))
+		return -EFAULT;
+
+	return __bpf_patch_list_del(pl, env->prog, off);
+}
+
 void bpf_patch_list_free(struct bpf_verifier_env *env)
 {
 	bpf_patch_list_release(&env->patch_list);
@@ -429,6 +445,32 @@ static void patch_list_adj_aux(struct bpf_prog *prog, struct bpf_insn_patch *p,
 	}
 }
 
+/*
+ * Let go of each range of removed insns: tell the device, whose driver finds
+ * them through the aux data of the old image, and free what their aux data
+ * points to. The commit can't fail anymore, so there is no check for a fatal
+ * signal between the calls of the driver.
+ */
+static void patch_list_drop_removed(struct bpf_verifier_env *env)
+{
+	bool offloaded = bpf_prog_is_offloaded(env->prog->aux);
+	struct bpf_patch_list *pl = &env->patch_list;
+	u32 k, n;
+
+	for (k = 0; k < pl->cnt; k = n) {
+		for (n = k; n < pl->cnt && !pl->patches[n].len &&
+		     pl->patches[n].off == pl->patches[k].off + n - k; n++)
+			;
+		if (n == k) {
+			n++;
+			continue;
+		}
+		if (offloaded)
+			bpf_prog_offload_remove_insns(env, pl->patches[k].off, n - k);
+		bpf_clear_insn_aux_data(env, pl->patches[k].off, n - k);
+	}
+}
+
 /* Fill 'data', the aux data of the new image, from the aux data of the old one. */
 static void patch_list_remap_aux(struct bpf_verifier_env *env,
 				 const struct bpf_patch_image *img,
@@ -441,9 +483,10 @@ static void patch_list_remap_aux(struct bpf_verifier_env *env,
 	for (i = 0, k = 0; i < img->cnt; i = end) {
 		if (k < pl->cnt && pl->patches[k].off == i) {
 			p = &pl->patches[k++];
-			patch_list_adj_aux(env->prog, p, &pl->insns[p->start],
-					   &env->insn_aux_data[i],
-					   &data[img->new_off[i]]);
+			if (p->len)
+				patch_list_adj_aux(env->prog, p, &pl->insns[p->start],
+						   &env->insn_aux_data[i],
+						   &data[img->new_off[i]]);
 			end = i + 1;
 			continue;
 		}
@@ -456,10 +499,76 @@ static void patch_list_remap_aux(struct bpf_verifier_env *env,
 	env->insn_aux_data_len = img->new_cnt;
 }
 
-/* Subprogs, and the function pointers that name them, follow their first insn. */
+/*
+ * Whether all insns from 'off' to the end of its subprog are removed. 'info'
+ * has the 'cnt' subprogs of the old image and the fake 'exit' subprog.
+ */
+static bool patch_list_subprog_gone(const struct bpf_subprog_info *info, u32 cnt,
+				    const u32 *new_off, u32 off)
+{
+	u32 l = 0, r = cnt, m;
+
+	/* find the next subprog */
+	while (l < r) {
+		m = (l + r) / 2;
+		if (info[m].start <= off)
+			l = m + 1;
+		else
+			r = m;
+	}
+	return new_off[off] == new_off[info[l].start];
+}
+
+/*
+ * Remove the subprogs whose insns are all removed, with their func_info. The
+ * passes that remove insns run before the hidden subprog, which has no
+ * func_info, is added.
+ */
+static void patch_list_del_subprogs(struct bpf_verifier_env *env,
+				    const u32 *new_off)
+{
+	struct bpf_subprog_info *info = env->subprog_info;
+	struct bpf_prog_aux *aux = env->prog->aux;
+	int i, j, exc_cb = env->exception_callback_subprog;
+
+	for (i = 0, j = 0; i < env->subprog_cnt; i++) {
+		if (new_off[info[i].start] == new_off[info[i + 1].start]) {
+			/* The exception callback is live, so it isn't removed. */
+			if (env->exception_callback_subprog > i)
+				exc_cb--;
+			continue;
+		}
+		if (i != j) {
+			info[j] = info[i];
+			if (aux->func_info)
+				aux->func_info[j] = aux->func_info[i];
+			if (aux->func_info_aux)
+				aux->func_info_aux[j] = aux->func_info_aux[i];
+		}
+		j++;
+	}
+	if (i == j)
+		return;
+
+	/* move fake 'exit' subprog as well */
+	info[j] = info[i];
+	/* func_info->insn_off is set after all code rewrites, in adjust_btf_func() */
+	if (aux->func_info)
+		aux->func_info_cnt -= i - j;
+	env->subprog_cnt = j;
+	env->exception_callback_subprog = exc_cb;
+}
+
+/*
+ * Subprogs, and the function pointers that name them, follow their first insn.
+ * A subprog whose insns are all removed goes away, and so do the pointers to
+ * it. Only the subprogs tell where a function ends, so move the pointers while
+ * the subprogs still have the starts in the old image.
+ */
 static void patch_list_remap_subprogs(struct bpf_verifier_env *env,
 				      const struct bpf_patch_image *img)
 {
+	struct bpf_subprog_info *info = env->subprog_info;
 	u32 i;
 
 	for (i = 0; i < env->func_ptr_cnt; i++) {
@@ -467,29 +576,53 @@ static void patch_list_remap_subprogs(struct bpf_verifier_env *env,
 
 		if (fp->xlated_off == BPF_FUNC_PTR_DELETED)
 			continue;
-		fp->xlated_off = bpf_patch_image_remap(img, img->new_off, fp->xlated_off);
+		if (bpf_patch_image_deleted(img, fp->xlated_off) &&
+		    patch_list_subprog_gone(info, env->subprog_cnt, img->new_off,
+					    fp->xlated_off))
+			fp->xlated_off = BPF_FUNC_PTR_DELETED;
+		else
+			fp->xlated_off = bpf_patch_image_remap(img, img->new_off,
+							       fp->xlated_off);
 	}
 
+	if (img->del)
+		patch_list_del_subprogs(env, img->new_off);
+
 	/* NOTE: fake 'exit' subprog should be updated as well. */
-	for (i = 0; i <= env->subprog_cnt; i++)
-		env->subprog_info[i].start =
-			bpf_patch_image_remap(img, img->new_off, env->subprog_info[i].start);
+	for (i = 0; i <= env->subprog_cnt; i++) {
+		info[i].start = bpf_patch_image_remap(img, img->new_off, info[i].start);
+		if (img->new_linfo)
+			info[i].linfo_idx =
+				img->new_linfo[min(info[i].linfo_idx, img->nr_linfo)];
+	}
 }
 
 /*
- * Apply all queued patches in one go. Everything that names an insn of the
- * old image follows it to the new one, a patched insn is named by the first
- * insn of its patch, like with bpf_patch_insn_data().
+ * Apply all queued patches and removals in one go. Everything that names an
+ * insn of the old image follows it to the new one. A patched insn is named by
+ * the first insn of its patch, like with bpf_patch_insn_data().
+ *
+ * An entry that names a removed insn:
+ *   jump, call, poke descriptor  names the next insn that stays
+ *   subprog                      too, or goes away when none of its insns stays
+ *   function pointer             follows its subprog or is BPF_FUNC_PTR_DELETED
+ *   line info                    goes away, but the next insn that stays takes
+ *                                the last record when it has none
+ *   aux data                     goes away
+ *   instruction array            is INSN_DELETED
  *
  * The order of the steps is a rule:
  * 1. All that can fail: build the new image aside and allocate memory. An
  *    error leaves the program and the env as they were.
- * 2. Move each table that names insns. The new value of an entry depends on
- *    its old value and on the maps of the image only. Between the first and
- *    the last step one part of the env describes the old image and another
- *    part the new one, so don't call a helper that reads prog->len, the insns
- *    or one of these tables from the env or the program.
- * 3. Install the new image.
+ * 2. Let go of the removed insns while all of the env describes the old image:
+ *    the helpers for that look at it.
+ * 3. Move each table that names insns. The new value of an entry depends on
+ *    its old value and on the maps of the image only. Function pointers need
+ *    the old subprogs too, see patch_list_remap_subprogs(). Between the first
+ *    and the last table one part of the env describes the old image and
+ *    another part the new one, so don't call a helper that reads prog->len,
+ *    the insns or one of these tables from the env or the program.
+ * 4. Install the new image.
  */
 int bpf_patch_list_commit(struct bpf_verifier_env *env)
 {
@@ -526,6 +659,9 @@ int bpf_patch_list_commit(struct bpf_verifier_env *env)
 		goto out;
 	env->prog = prog;
 	err = 0;
+
+	if (img.del)
+		patch_list_drop_removed(env);
 
 	patch_list_remap_aux(env, &img, data);
 	data = NULL;
