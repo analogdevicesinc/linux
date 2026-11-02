@@ -1745,7 +1745,7 @@ static void iwl_mld_link_set_2mhz_block(struct iwl_mld *mld,
 	struct ieee80211_link_sta *link_sta;
 	unsigned int link_id;
 
-	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+	for_each_sta_active_link(sta, link_sta, link_id) {
 		struct ieee80211_bss_conf *link_conf =
 			link_conf_dereference_protected(vif, link_id);
 		struct iwl_mld_link *mld_link =

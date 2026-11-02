@@ -2796,10 +2796,10 @@ static inline bool lockdep_sta_mutex_held(struct ieee80211_sta *pubsta)
 	rcu_dereference_check((sta)->link[link_id],		\
 			      lockdep_sta_mutex_held(sta))
 
-#define for_each_sta_active_link(vif, sta, link_sta, link_id)			\
+#define for_each_sta_active_link(sta, link_sta, link_id)			\
 	for (link_id = 0; link_id < ARRAY_SIZE((sta)->link); link_id++)		\
-		if ((!(vif)->active_links ||					\
-		     (vif)->active_links & BIT(link_id)) &&			\
+		if ((!(sta)->active_links ||					\
+		     (sta)->active_links & BIT(link_id)) &&			\
 		    ((link_sta) = link_sta_dereference_check(sta, link_id)))
 
 /**

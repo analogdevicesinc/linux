@@ -863,7 +863,7 @@ int iwl_mvm_tvqm_enable_txq(struct iwl_mvm *mvm,
 		unsigned int link_id;
 
 		rcu_read_lock();
-		for_each_sta_active_link(mvmsta->vif, sta, link_sta, link_id) {
+		for_each_sta_active_link(sta, link_sta, link_id) {
 			struct iwl_mvm_link_sta *link =
 				rcu_dereference_protected(mvmsta->link[link_id],
 							  lockdep_is_held(&mvm->mutex));

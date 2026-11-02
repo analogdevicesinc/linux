@@ -155,7 +155,7 @@ static void iwl_mld_mac_wifi_gen_sta_iter(void *_data,
 	if (mld_sta->vif != data->vif)
 		return;
 
-	for_each_sta_active_link(data->vif, sta, link_sta, link_id) {
+	for_each_sta_active_link(sta, link_sta, link_id) {
 		if (link_sta->he_cap.has_he)
 			data->support->he_support = 1;
 		if (link_sta->eht_cap.has_eht)

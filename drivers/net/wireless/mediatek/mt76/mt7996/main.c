@@ -1338,7 +1338,7 @@ u16 mt7996_mac_sta_links(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	unsigned int link_id;
 	u16 links = 0;
 
-	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+	for_each_sta_active_link(sta, link_sta, link_id) {
 		struct mt7996_sta_link *msta_link;
 
 		msta_link = mt7996_sta_link_protected(dev, msta, link_id);
@@ -2522,7 +2522,7 @@ static void mt7996_sta_set_4addr(struct ieee80211_hw *hw,
 	mutex_lock(&dev->mt76.mutex);
 
 	assign_bit(MT_WCID_FLAG_4ADDR, &msta->wcid_flags, enabled);
-	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+	for_each_sta_active_link(sta, link_sta, link_id) {
 		struct mt7996_sta_link *msta_link;
 		struct mt7996_vif_link *link;
 
@@ -2558,7 +2558,7 @@ static void mt7996_sta_set_decap_offload(struct ieee80211_hw *hw,
 	mutex_lock(&dev->mt76.mutex);
 
 	assign_bit(MT_WCID_FLAG_HDR_TRANS, &msta->wcid_flags, enabled);
-	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+	for_each_sta_active_link(sta, link_sta, link_id) {
 		struct mt7996_sta_link *msta_link;
 		struct mt7996_vif_link *link;
 
