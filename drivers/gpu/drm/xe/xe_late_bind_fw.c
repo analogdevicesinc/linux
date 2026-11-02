@@ -484,6 +484,19 @@ static void xe_late_bind_remove(void *arg)
 	}
 }
 
+static bool late_bind_mei_enabled(struct xe_device *xe)
+{
+	if (!IS_ENABLED(CONFIG_INTEL_MEI_LB))
+		return false;
+
+	/* MEI exposed as xe auxiliary device */
+	if (xe->info.has_heci_cscfi)
+		return IS_ENABLED(CONFIG_INTEL_MEI_GSC);
+
+	/* Standalone MEI PCI function */
+	return IS_ENABLED(CONFIG_INTEL_MEI_CSC);
+}
+
 /**
  * xe_late_bind_init() - add xe mei late binding component
  * @late_bind: pointer to late bind structure.
@@ -498,7 +511,7 @@ int xe_late_bind_init(struct xe_late_bind *late_bind)
 	if (!xe->info.late_bind_mask)
 		return 0;
 
-	if (!IS_ENABLED(CONFIG_INTEL_MEI_LB) || !IS_ENABLED(CONFIG_INTEL_MEI_GSC)) {
+	if (!late_bind_mei_enabled(xe)) {
 		drm_info(&xe->drm, "Can't init xe mei late bind missing mei component\n");
 		return 0;
 	}

@@ -488,6 +488,8 @@ static const struct xe_device_desc cri_desc = {
 	.has_sriov = true,
 	.has_sysctrl = true,
 	.has_temp_sentinel = true,
+	.late_bind_mask = BIT(XE_LB_FW_FAN_CONTROL) |
+			  BIT(XE_LB_FW_OCODE),
 	.max_gt_per_tile = 2,
 	MULTI_LRC_MASK,
 	.require_force_probe = true,
