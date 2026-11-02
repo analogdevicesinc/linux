@@ -50,6 +50,11 @@ enum adrv904x_tx_ext_info {
 	TX_LB_ADC,
 };
 
+enum adrv904x_lo_ext_info {
+	LO_LOOP_BW,
+	LO_LOOP_PM,
+};
+
 enum adrv904x_iio_voltage_in {
 	CHAN_RX1,
 	CHAN_RX2,
