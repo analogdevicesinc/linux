@@ -77,7 +77,6 @@ static int alarmtimer_rtc_add_device(struct device *dev)
 {
 	struct rtc_device *rtc = to_rtc_device(dev);
 	struct platform_device *pdev;
-	int ret = 0;
 
 	if (rtcdev)
 		return -EBUSY;
@@ -94,17 +93,16 @@ static int alarmtimer_rtc_add_device(struct device *dev)
 
 	device_init_wakeup(&pdev->dev, true);
 
-	if (try_module_get(rtc->owner)) {
-		WRITE_ONCE(rtcdev, rtc);
-		/* hold a reference so it doesn't go away */
-		get_device(dev);
-		pdev = NULL;
-	} else {
-		ret = -1;
+	if (!try_module_get(rtc->owner)) {
+		platform_device_unregister(pdev);
+		return -1;
 	}
 
-	platform_device_unregister(pdev);
-	return ret;
+	WRITE_ONCE(rtcdev, rtc);
+	/* Hold a reference so it doesn't go away */
+	get_device(dev);
+
+	return 0;
 }
 
 static inline void alarmtimer_rtc_timer_init(void)
