@@ -2154,7 +2154,10 @@ struct rt5640_priv {
 	bool hp_mute;
 	bool asrc_en;
 	bool irq_requested;
+	bool suspend_irq_disabled;
 	bool jd_gpio_irq_requested;
+	bool suspend_jd_gpio_irq_disabled;
+	bool resume_failed;
 
 	/* Jack and button detect data */
 	bool ovcd_irq_enabled;
