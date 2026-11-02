@@ -136,7 +136,11 @@ struct cfg80211_registered_device {
 
 	struct work_struct wiphy_work;
 	struct list_head wiphy_work_list;
-	/* protects the list above */
+	/* RCU works waiting for a grace period, in queueing order */
+	struct list_head wiphy_rcu_work_list;
+	struct rcu_head wiphy_rcu_work_head;
+	bool wiphy_rcu_work_pending;
+	/* protects the lists and pending flag above */
 	spinlock_t wiphy_work_lock;
 	bool suspended;
 

@@ -7222,6 +7222,66 @@ void wiphy_hrtimer_work_flush(struct wiphy *wiphy,
 bool wiphy_hrtimer_work_pending(struct wiphy *wiphy,
 				struct wiphy_hrtimer_work *hrwork);
 
+struct wiphy_rcu_work {
+	struct wiphy_work work;
+	struct list_head rcu_entry;
+	struct rcu_gp_seq rcu_state;
+};
+
+static inline void wiphy_rcu_work_init(struct wiphy_rcu_work *rwork,
+				       wiphy_work_func_t func)
+{
+	INIT_LIST_HEAD(&rwork->rcu_entry);
+	wiphy_work_init(&rwork->work, func);
+}
+
+/**
+ * wiphy_rcu_work_queue - queue work for the wiphy after an RCU grace period
+ * @wiphy: the wiphy to queue for
+ * @rwork: the RCU worker
+ *
+ * Queue the work to run (with the wiphy mutex held, see wiphy_work_queue())
+ * after a full RCU grace period has elapsed since this call. If the work is
+ * already pending do nothing. If a new grace period were needed, the caller
+ * has to handle that, e.g. by calling wiphy_rcu_work_cancel() first.
+ *
+ * This can be used to split operations that would need to synchronize_rcu()
+ * with the wiphy mutex held, but of course state may disappear without the
+ * mutex held.
+ *
+ * Can be called from any context.
+ *
+ * Return: %true if the work was queued, %false if it was already pending,
+ *	in which case it may run before a grace period relative to this call
+ *	has elapsed
+ */
+bool wiphy_rcu_work_queue(struct wiphy *wiphy, struct wiphy_rcu_work *rwork);
+
+/**
+ * wiphy_rcu_work_cancel - cancel previously queued RCU work
+ * @wiphy: the wiphy, for debug purposes
+ * @rwork: the RCU work to cancel
+ *
+ * Cancel the work *without* waiting for it or for an RCU grace period.
+ *
+ * Must be called with the wiphy mutex held.
+ */
+void wiphy_rcu_work_cancel(struct wiphy *wiphy, struct wiphy_rcu_work *rwork);
+
+/**
+ * wiphy_rcu_work_flush - run RCU work now if pending
+ * @wiphy: the wiphy
+ * @rwork: the RCU work to flush
+ *
+ * If the work is pending, wait for the RCU grace period it's waiting for
+ * (if it hasn't elapsed yet) and then run it immediately.
+ *
+ * Note: unlike wiphy_work_flush() this only runs the single work.
+ *
+ * Must be called with the wiphy mutex held.
+ */
+void wiphy_rcu_work_flush(struct wiphy *wiphy, struct wiphy_rcu_work *rwork);
+
 /**
  * enum ieee80211_ap_reg_power - regulatory power for an Access Point
  *
