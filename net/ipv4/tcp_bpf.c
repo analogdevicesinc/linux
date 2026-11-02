@@ -457,8 +457,22 @@ more_data:
 
 	switch (psock->eval) {
 	case __SK_PASS:
+		/* The push may sleep without the socket lock, and it may fail */
+		if (!psock->apply_bytes)
+			psock->eval = __SK_NONE;
+		origsize = msg->sg.size;
 		ret = tcp_bpf_push(sk, msg, tosend, flags, true);
 		if (unlikely(ret)) {
+			/* A part of it may have gone out */
+			sk_msg_apply_bytes(psock, origsize - msg->sg.size);
+			/* Another sender can use up the rest during the push */
+			if (!psock->apply_bytes) {
+				psock->eval = __SK_NONE;
+				if (psock->sk_redir) {
+					sock_put(psock->sk_redir);
+					psock->sk_redir = NULL;
+				}
+			}
 			*copied -= sk_msg_free(sk, msg);
 			break;
 		}
