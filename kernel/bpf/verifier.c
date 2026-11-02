@@ -6416,51 +6416,6 @@ struct bpf_func_ptr *bpf_map_func_ptrs(struct bpf_verifier_env *env,
 	return bpf_map_range_func_ptrs(env, map, 0, (u64)map->value_size, cnt);
 }
 
-/* instructions [off, off + len) replaced the instruction at 'off' */
-void bpf_adjust_func_ptrs(struct bpf_verifier_env *env, u32 off, u32 len)
-{
-	struct bpf_func_ptr *p;
-	u32 i;
-
-	if (len <= 1)
-		return;
-
-	for (i = 0; i < env->func_ptr_cnt; i++) {
-		p = &env->func_ptrs[i];
-		if (p->xlated_off <= off || p->xlated_off == BPF_FUNC_PTR_DELETED)
-			continue;
-		p->xlated_off += len - 1;
-	}
-}
-
-/*
- * Instructions [off, off + len) are about to be removed. It's called before
- * the starts of subprogs are adjusted. A subprog is gone when all of its
- * instructions are. Otherwise, e.g. when its first instruction is a nop,
- * it starts where the removed instructions did.
- */
-void bpf_adjust_func_ptrs_after_remove(struct bpf_verifier_env *env, u32 off, u32 len)
-{
-	struct bpf_func_ptr *p;
-	int subprog;
-	u32 i;
-
-	for (i = 0; i < env->func_ptr_cnt; i++) {
-		p = &env->func_ptrs[i];
-		if (p->xlated_off < off || p->xlated_off == BPF_FUNC_PTR_DELETED)
-			continue;
-		if (p->xlated_off >= off + len) {
-			p->xlated_off -= len;
-			continue;
-		}
-		subprog = bpf_find_subprog(env, p->xlated_off);
-		if (subprog > 0 && env->subprog_info[subprog + 1].start > off + len)
-			p->xlated_off = off;
-		else
-			p->xlated_off = BPF_FUNC_PTR_DELETED;
-	}
-}
-
 #define BTF_TYPE_SAFE_RCU(__type)  __PASTE(__type, __safe_rcu)
 #define BTF_TYPE_SAFE_RCU_OR_NULL(__type)  __PASTE(__type, __safe_rcu_or_null)
 #define BTF_TYPE_SAFE_TRUSTED(__type)  __PASTE(__type, __safe_trusted)
@@ -24240,6 +24195,7 @@ err_free_env:
 	if (env->insn_aux_data)
 		bpf_clear_insn_aux_data(env, 0, env->insn_aux_data_len);
 	vfree(env->insn_aux_data);
+	bpf_patch_list_free(env);
 	kvfree(env->fd_array);
 	bpf_free_scev(env);
 	bpf_stack_liveness_free(env);

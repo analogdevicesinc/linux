@@ -1372,22 +1372,6 @@ static inline bool bpf_dump_raw_ok(const struct cred *cred)
 	return kallsyms_show_value(cred);
 }
 
-struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
-				       const struct bpf_insn *patch, u32 len);
-
-#ifdef CONFIG_BPF_SYSCALL
-struct bpf_prog *bpf_patch_insn_data(struct bpf_verifier_env *env, u32 off,
-				     const struct bpf_insn *patch, u32 len);
-#else
-static inline struct bpf_prog *bpf_patch_insn_data(struct bpf_verifier_env *env, u32 off,
-						   const struct bpf_insn *patch, u32 len)
-{
-	return ERR_PTR(-ENOTSUPP);
-}
-#endif /* CONFIG_BPF_SYSCALL */
-
-int bpf_remove_insns(struct bpf_prog *prog, u32 off, u32 cnt);
-
 static inline bool xdp_return_frame_no_direct(void)
 {
 	struct bpf_redirect_info *ri = bpf_net_ctx_get_ri();
