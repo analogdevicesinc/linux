@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * ChaCha 256-bit cipher algorithm, x64 AVX-512VL functions
+ * ChaCha 256-bit cipher algorithm, x64 AVX-512 functions
  *
  * Copyright (C) 2018 Martin Willi
  */
