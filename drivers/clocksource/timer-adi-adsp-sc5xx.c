@@ -475,6 +475,8 @@ static int __init sc5xx_gptimer_controller_init(struct device_node *np)
 		    sc5xx_gptimer_init(timer_np,
 				       &gptimer_controller.timers[i]);
 		if (ret) {
+			/* Only expose the timers that were set up as counters */
+			gptimer_controller.num_timers = i;
 			of_node_put(timer_np);
 			return ret;
 		}
@@ -491,10 +493,13 @@ static int gptimer_counter_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct counter_count *adi_counts;
-	struct sc5xx_gptimer_controller *priv;
 	struct counter_device *counter;
 	u32 i;
 	int ret;
+
+	if (!gptimer_controller.base || !gptimer_controller.num_timers)
+		return dev_err_probe(dev, -ENODEV,
+				     "gptimer controller is not initialized\n");
 
 	adi_counts =
 	    devm_kcalloc(dev, gptimer_controller.num_timers,
@@ -502,18 +507,17 @@ static int gptimer_counter_probe(struct platform_device *pdev)
 	if (!adi_counts)
 		return -ENOMEM;
 
-	counter = devm_counter_alloc(dev, sizeof(*priv));
+	counter = devm_counter_alloc(dev, 0);
 	if (!counter)
 		return -ENOMEM;
 
-	priv = counter_priv(counter);
-
 	for (i = 0; i < gptimer_controller.num_timers; ++i) {
+		adi_counts[i].id = i;
 		adi_counts[i].name =
-		    kasprintf(GFP_KERNEL, "gptimer_counter%d", i);
+		    devm_kasprintf(dev, GFP_KERNEL, "gptimer_counter%d", i);
+		if (!adi_counts[i].name)
+			return -ENOMEM;
 	}
-
-	priv->clk = gptimer_controller.clk;
 
 	counter->name = dev_name(dev);
 	counter->parent = dev;
