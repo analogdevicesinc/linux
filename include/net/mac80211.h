@@ -4732,10 +4732,11 @@ struct ieee80211_prep_tx_info {
  *	resolve a path for hardware flow offloading
  * @can_activate_links: Checks if a specific active_links bitmap is
  *	supported by the driver.
- * @change_vif_links: Change the valid links on an interface, note that while
+ * @change_vif_links: Change the active links of an interface, note that while
  *	removing the old link information is still valid (link_conf pointer),
- *	but may immediately disappear after the function returns. The old or
- *	new links bitmaps may be 0 if going from/to a non-MLO situation.
+ *	but may immediately disappear after the function returns if the link(s)
+ *	is/are not just deactivated, but removed entirely. The old or new links
+ *	bitmaps may be 0 if going from/to a non-MLO situation.
  *	The @old array contains pointers to the old bss_conf structures
  *	that were already removed, in case they're needed.
  *	Note that removal of link should always succeed, so the return value
