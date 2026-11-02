@@ -1,0 +1,95 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.1
+---
+$id: http://devicetree.org/schemas/sound/adi,adsp-sport.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADSP SPORT (Serial Port) audio controller
+
+maintainers:
+  - Alvin Šipraga <alvin.sipraga@analog.com>
+
+description:
+  Analog Devices SPORT audio interface controller found on ADSP SoCs. A SPORT
+  consists of two half-duplex serial audio interfaces capable of operating in
+  common I2S/TDM modes.
+
+allOf:
+  - $ref: dai-common.yaml#
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          - enum:
+              - adi,adsp-sc571-sport
+              - adi,adsp-sc573-sport
+              - adi,adsp-sc584-sport
+              - adi,adsp-sc589-sport
+              - adi,adsp-sc594-sport
+              - adi,adsp-sc846-sport
+          - const: adi,adsp-sc598-sport
+      - const: adi,adsp-sc598-sport
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    items:
+      - description: Half A status/error interrupt
+      - description: Half B status/error interrupt
+
+  interrupt-names:
+    items:
+      - const: hsport-a
+      - const: hsport-b
+
+  dmas:
+    items:
+      - description: Half A DMA channel
+      - description: Half B DMA channel
+
+  dma-names:
+    items:
+      - const: hsport-a
+      - const: hsport-b
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    items:
+      - const: sclk
+
+  '#sound-dai-cells':
+    const: 1
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - interrupt-names
+  - dmas
+  - dma-names
+  - clocks
+  - '#sound-dai-cells'
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    i2s@31002000 {
+        compatible = "adi,adsp-sc598-sport";
+        reg = <0x31002000 0x100>;
+        interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>,
+                     <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>;
+        interrupt-names = "hsport-a", "hsport-b";
+        dmas = <&scb1_dma 0>, <&scb1_dma 1>;
+        dma-names = "hsport-a", "hsport-b";
+        clocks = <&clk 42>;
+        clock-names = "sclk";
+        #sound-dai-cells = <1>;
+        sound-name-prefix = "SPORT0";
+    };
