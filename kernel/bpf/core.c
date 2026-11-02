@@ -530,6 +530,226 @@ int bpf_remove_insns(struct bpf_prog *prog, u32 off, u32 cnt)
 	return err;
 }
 
+static int patch_list_reserve_patch(struct bpf_patch_list *pl)
+{
+	struct bpf_insn_patch *p;
+	u32 cap;
+
+	if (pl->cnt < pl->cap)
+		return 0;
+
+	cap = max(pl->cap * 2, 16U);
+	p = kvrealloc(pl->patches, array_size(cap, sizeof(*p)), GFP_KERNEL_ACCOUNT);
+	if (!p)
+		return -ENOMEM;
+	pl->patches = p;
+	pl->cap = cap;
+	return 0;
+}
+
+static int patch_list_reserve_insns(struct bpf_patch_list *pl, u32 cnt)
+{
+	struct bpf_insn *insns;
+	u32 cap;
+
+	if (pl->insn_cnt + cnt <= pl->insn_cap)
+		return 0;
+
+	cap = max3(pl->insn_cap * 2, pl->insn_cnt + cnt, 64U);
+	insns = kvrealloc(pl->insns, array_size(cap, sizeof(*insns)), GFP_KERNEL_ACCOUNT);
+	if (!insns)
+		return -ENOMEM;
+	pl->insns = insns;
+	pl->insn_cap = cap;
+	return 0;
+}
+
+/*
+ * Extract the pc-relative operand of a jump, a subprog call or a ld_imm64 of a
+ * subprog. gotox and a tail call pass for a jump to the next insn: nothing
+ * reads their 'off'.
+ */
+static bool insn_get_rel(const struct bpf_insn *insn, s64 *rel, bool *is_imm)
+{
+	u8 code = insn->code;
+
+	if (bpf_pseudo_func(insn) || bpf_pseudo_call(insn)) {
+		*rel = insn->imm;
+		*is_imm = true;
+		return true;
+	}
+	if ((BPF_CLASS(code) != BPF_JMP && BPF_CLASS(code) != BPF_JMP32) ||
+	    BPF_OP(code) == BPF_CALL || BPF_OP(code) == BPF_EXIT)
+		return false;
+
+	*is_imm = code == (BPF_JMP32 | BPF_JA);
+	*rel = *is_imm ? insn->imm : insn->off;
+	return true;
+}
+
+/* Set the pc-relative operand that insn_get_rel() extracted. */
+static int insn_set_rel(struct bpf_insn *insn, s64 rel, bool is_imm)
+{
+	if (is_imm) {
+		if (rel < S32_MIN || rel > S32_MAX)
+			return -ERANGE;
+		insn->imm = rel;
+	} else {
+		if (rel < S16_MIN || rel > S16_MAX)
+			return -ERANGE;
+		insn->off = rel;
+	}
+	return 0;
+}
+
+/*
+ * insn is number 'idx' of the 'len' insns that replace insn 'off' of the old
+ * image (an insn that isn't patched is its own patch of length 1). It lands
+ * at 'pos' of the new image. 'new_off' maps the old image to the new one.
+ */
+static int patch_list_adj_insn(struct bpf_insn *insn, const u32 *new_off,
+			       u32 cnt, u32 off, u32 idx, u32 len, u32 pos)
+{
+	bool is_imm;
+	s64 rel, tgt;
+
+	if (!insn_get_rel(insn, &rel, &is_imm))
+		return 0;
+
+	/* relative to the first insn of the patch */
+	tgt = (s64)idx + rel + 1;
+	if (tgt >= 0 && tgt < len)
+		return 0;
+
+	/* the patch pushed what follows 'off' down by len - 1 */
+	tgt = tgt < 0 ? off + tgt : off + tgt - len + 1;
+	if (tgt < 0 || tgt > cnt)
+		return -EFAULT;
+
+	rel = (s64)new_off[tgt] - pos - 1;
+	return insn_set_rel(insn, rel, is_imm);
+}
+
+/*
+ * Queue the replacement of insn 'off' of 'prog' by 'patch[0..len)'. Patches
+ * are queued in increasing order of 'off' and applied together, so a pass
+ * keeps addressing insns by their index in 'prog'. Jumps in the patch that
+ * leave it are relative to the patch placed at 'off'.
+ *
+ * Return the copy of the last insn of the patch, which stays valid until the
+ * next call.
+ *
+ * The caller sees to the order, to off < prog->len and to len > 0.
+ */
+struct bpf_insn *__bpf_patch_list_add(struct bpf_patch_list *pl,
+				      const struct bpf_prog *prog, u32 off,
+				      const struct bpf_insn *patch, u32 len)
+{
+	struct bpf_insn_patch *p;
+	int err;
+
+	err = patch_list_reserve_patch(pl) ?: patch_list_reserve_insns(pl, len);
+	if (err)
+		return ERR_PTR(err);
+
+	p = &pl->patches[pl->cnt++];
+	p->off = off;
+	p->len = len;
+	p->start = pl->insn_cnt;
+	p->orig = prog->insnsi[off];
+	memcpy(pl->insns + p->start, patch, len * sizeof(*patch));
+	pl->insn_cnt += len;
+
+	return &pl->insns[p->start + len - 1];
+}
+
+void bpf_patch_list_release(struct bpf_patch_list *pl)
+{
+	kvfree(pl->patches);
+	kvfree(pl->insns);
+	memset(pl, 0, sizeof(*pl));
+}
+
+/*
+ * Build the image of 'prog' with the queued patches applied in img->insns,
+ * without touching 'prog'. img->new_off[] maps each old insn to the start of
+ * its patch. On -ERANGE, img->bad is the old insn whose jump got out of range.
+ */
+int bpf_patch_list_build(const struct bpf_patch_list *pl, const struct bpf_prog *prog,
+			 struct bpf_patch_image *img)
+{
+	u32 cnt = prog->len, i, k, n;
+	int err;
+
+	memset(img, 0, sizeof(*img));
+	img->cnt = cnt;
+	img->new_off = kvmalloc_array(cnt + 1, sizeof(u32), GFP_KERNEL_ACCOUNT);
+	if (!img->new_off)
+		return -ENOMEM;
+
+	for (i = 0, k = 0; i <= cnt; i++) {
+		img->new_off[i] = i + img->grow;
+		if (k < pl->cnt && pl->patches[k].off == i)
+			img->grow += pl->patches[k++].len - 1;
+	}
+	img->new_cnt = cnt + img->grow;
+
+	img->insns = kvmalloc_array(img->new_cnt, sizeof(*img->insns), GFP_KERNEL_ACCOUNT);
+	if (!img->insns)
+		return -ENOMEM;
+
+	for (i = 0, k = 0; i < cnt; i++) {
+		const struct bpf_insn *src = &prog->insnsi[i];
+		u32 len = 1, pos = img->new_off[i];
+
+		if (k < pl->cnt && pl->patches[k].off == i) {
+			src = &pl->insns[pl->patches[k].start];
+			len = pl->patches[k++].len;
+		}
+
+		for (n = 0; n < len; n++) {
+			img->insns[pos + n] = src[n];
+			err = patch_list_adj_insn(&img->insns[pos + n], img->new_off,
+						  cnt, i, n, len, pos + n);
+			if (err) {
+				img->bad = i;
+				return err;
+			}
+		}
+	}
+	return 0;
+}
+
+void bpf_patch_image_free(struct bpf_patch_image *img)
+{
+	kvfree(img->insns);
+	kvfree(img->new_off);
+	memset(img, 0, sizeof(*img));
+}
+
+/*
+ * Move the poke descriptors and the line info of 'prog' along, then put the
+ * new image in 'prog', which has room for it. The new value of an entry
+ * depends on its old value and on the maps of 'img' only.
+ */
+void bpf_patch_image_install(struct bpf_prog *prog, const struct bpf_patch_image *img)
+{
+	u32 i;
+
+	for (i = 0; i < prog->aux->size_poke_tab; i++)
+		prog->aux->poke_tab[i].insn_idx =
+			bpf_patch_image_remap(img, img->new_off,
+					      prog->aux->poke_tab[i].insn_idx);
+
+	for (i = 0; i < prog->aux->nr_linfo; i++)
+		prog->aux->linfo[i].insn_off =
+			bpf_patch_image_remap(img, img->new_off,
+					      prog->aux->linfo[i].insn_off);
+
+	memcpy(prog->insnsi, img->insns, sizeof(*img->insns) * img->new_cnt);
+	prog->len = img->new_cnt;
+}
+
 static void bpf_prog_kallsyms_del_subprogs(struct bpf_prog *fp)
 {
 	int i;
