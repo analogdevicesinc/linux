@@ -383,6 +383,8 @@ static void netcons_wait_carrier(struct netpoll *np, struct net_device *ndev)
 
 	atmost = jiffies + netpoll_get_carrier_timeout() * HZ;
 	while (!netif_carrier_ok(ndev)) {
+		if (READ_ONCE(ndev->reg_state) != NETREG_REGISTERED)
+			break;
 		if (time_after(jiffies, atmost)) {
 			np_notice(np, "timeout waiting for carrier\n");
 			break;
