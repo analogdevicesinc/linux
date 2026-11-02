@@ -19,6 +19,14 @@ Supported chips:
 
     Datasheet: Not publicly available
 
+  * IT8607E
+
+    Prefix: 'it8607'
+
+    Addresses scanned: from Super I/O config space (8 I/O ports)
+
+    Datasheet: Not publicly available
+
   * IT8620E
 
     Prefix: 'it8620'
@@ -243,7 +251,7 @@ motherboard models.
 Description
 -----------
 
-This driver implements support for the IT8603E, IT8620E, IT8623E, IT8628E,
+This driver implements support for the IT8603E, IT8607E, IT8620E, IT8623E, IT8628E,
 IT8689E, IT8705F, IT8712F, IT8716F, IT8718F, IT8720F, IT8721F, IT8726F,
 IT8728F, IT8732F, IT8758E, IT8771E, IT8772E, IT8781F, IT8782F, IT8783E/F,
 IT8786E, IT8790E, IT8792E/IT8795E, IT87952E and SiS950 chips.
@@ -286,6 +294,12 @@ until a datasheet becomes available (hopefully.)
 The IT8603E/IT8623E is a custom design, hardware monitoring part is similar to
 IT8728F. It only supports 3 fans, 16-bit fan mode, and the full speed mode
 of the fan is not supported (value 0 of pwmX_enable).
+
+The IT8607E is found on the Intel NUC6i3SYB and NUC6i5SYB boards. The hardware
+monitoring part is treated as compatible with the IT8603E (16-bit fans, newer
+autopwm registers) because no datasheet is available. The BIOS keeps the
+environment controller hidden from ACPI, so the driver can only be loaded
+with ``ignore_resource_conflict=1``.
 
 The IT8620E and IT8628E are custom designs, hardware monitoring part is similar
 to IT8728F. It only supports 16-bit fan mode. Both chips support up to 6 fans.
