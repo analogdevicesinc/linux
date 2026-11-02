@@ -236,23 +236,6 @@ void bpf_insn_array_release(struct bpf_map *map)
 	atomic_set_release(&insn_array->used, 0);
 }
 
-void bpf_insn_array_adjust(struct bpf_map *map, u32 first, u32 len)
-{
-	struct bpf_insn_array *insn_array = cast_insn_array(map);
-	int i;
-
-	if (len <= 1)
-		return;
-
-	for (i = 0; i < map->max_entries; i++) {
-		if (insn_array->values[i].xlated_off < first)
-			continue;
-		if (insn_array->values[i].xlated_off == INSN_DELETED)
-			continue;
-		insn_array->values[i].xlated_off += len - 1;
-	}
-}
-
 /*
  * Move each offset to new_tgt[offset], new_off[] and new_tgt[] cover [0, cnt].
  * An insn is removed when new_off[] maps it to the same offset as the next
@@ -272,23 +255,6 @@ void bpf_insn_array_remap(struct bpf_map *map, const u32 *new_off, const u32 *ne
 			insn_array->values[i].xlated_off = INSN_DELETED;
 		else
 			insn_array->values[i].xlated_off = off <= cnt ? new_tgt[off] : off + grow;
-	}
-}
-
-void bpf_insn_array_adjust_after_remove(struct bpf_map *map, u32 off, u32 len)
-{
-	struct bpf_insn_array *insn_array = cast_insn_array(map);
-	int i;
-
-	for (i = 0; i < map->max_entries; i++) {
-		if (insn_array->values[i].xlated_off < off)
-			continue;
-		if (insn_array->values[i].xlated_off == INSN_DELETED)
-			continue;
-		if (insn_array->values[i].xlated_off < off + len)
-			insn_array->values[i].xlated_off = INSN_DELETED;
-		else
-			insn_array->values[i].xlated_off -= len;
 	}
 }
 
