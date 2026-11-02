@@ -3822,9 +3822,6 @@ static void _psr_flush_handle(struct intel_dp *intel_dp)
 		 */
 		intel_psr_force_update(intel_dp);
 	}
-
-	if (!intel_dp->psr.active && !intel_dp->psr.busy_frontbuffer_bits)
-		queue_work(display->wq.unordered, &intel_dp->psr.work);
 }
 
 /**
@@ -3856,6 +3853,10 @@ void intel_psr_flush(struct intel_display *display,
 		}
 
 		pipe_frontbuffer_bits &= psr_frontbuffer_mask(intel_dp);
+
+		if (pipe_frontbuffer_bits == 0)
+			goto unlock;
+
 		intel_dp->psr.busy_frontbuffer_bits &= ~pipe_frontbuffer_bits;
 
 		/*
@@ -3870,13 +3871,14 @@ void intel_psr_flush(struct intel_display *display,
 			psr2_dc3co_flush_locked(intel_dp, frontbuffer_bits);
 
 		if (origin == ORIGIN_FLIP)
-			goto unlock;
-
-		if (pipe_frontbuffer_bits == 0)
-			goto unlock;
+			goto rearm;
 
 		/* By definition flush = invalidate + flush */
 		_psr_flush_handle(intel_dp);
+
+rearm:
+		if (!intel_dp->psr.active && !intel_dp->psr.busy_frontbuffer_bits)
+			queue_work(display->wq.unordered, &intel_dp->psr.work);
 unlock:
 		mutex_unlock(&intel_dp->psr.lock);
 	}
