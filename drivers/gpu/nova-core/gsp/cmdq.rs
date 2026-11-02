@@ -603,7 +603,7 @@ impl CmdqInner<'_> {
             read_poll_timeout(
                 || Ok(self.gsp_mem.driver_read_area()),
                 |driver_area| !driver_area.0.is_empty(),
-                Delta::from_millis(1),
+                Delta::from_micros(1),
                 timeout,
             )
         }
