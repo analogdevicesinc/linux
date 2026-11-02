@@ -1690,11 +1690,14 @@ check_old:
  * change under it.
  * Return: true if at least one slot in the range is in zswap.
  */
-static bool zswap_is_present(swp_entry_t entry, unsigned int nr)
+bool zswap_is_present(swp_entry_t entry, unsigned int nr)
 {
 	pgoff_t offset = swp_offset(entry);
 	struct xarray *tree = swap_zswap_tree(entry);
 	unsigned long index = offset;
+
+	if (zswap_never_enabled() || xa_empty(tree))
+		return false;
 
 	/*
 	 * A pinned range is at most SWAPFILE_CLUSTER slots and is aligned to
