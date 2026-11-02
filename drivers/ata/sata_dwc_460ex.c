@@ -347,8 +347,7 @@ static struct dma_async_tx_descriptor *dma_dwc_xfer_setup(struct ata_queued_cmd 
 	if (!desc)
 		return NULL;
 
-	desc->callback = dma_dwc_xfer_done;
-	desc->callback_param = hsdev;
+	dmaengine_desc_set_callback(desc, dma_dwc_xfer_done, NULL, hsdev);
 
 	dev_dbg(hsdev->dev, "%s sg: 0x%p, count: %d addr: %pa\n", __func__,
 		qc->sg, qc->n_elem, &hsdev->dmadr);

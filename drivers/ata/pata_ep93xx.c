@@ -727,8 +727,7 @@ static void ep93xx_pata_dma_start(struct ata_queued_cmd *qc)
 		dev_err(qc->ap->dev, "failed to prepare slave for sg dma\n");
 		return;
 	}
-	txd->callback = NULL;
-	txd->callback_param = NULL;
+	dmaengine_desc_set_callback(txd, NULL, NULL, NULL);
 
 	if (dmaengine_submit(txd) < 0) {
 		dev_err(qc->ap->dev, "failed to submit dma transfer\n");

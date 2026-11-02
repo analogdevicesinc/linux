@@ -60,8 +60,7 @@ static enum ata_completion_errors pxa_qc_prep(struct ata_queued_cmd *qc)
 		ata_dev_err(qc->dev, "prep_slave_sg() failed\n");
 		return AC_ERR_OK;
 	}
-	tx->callback = pxa_ata_dma_irq;
-	tx->callback_param = pd;
+	dmaengine_desc_set_callback(tx, pxa_ata_dma_irq, NULL, pd);
 	pd->dma_cookie = dmaengine_submit(tx);
 
 	return AC_ERR_OK;

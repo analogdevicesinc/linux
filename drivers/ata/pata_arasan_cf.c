@@ -406,8 +406,7 @@ dma_xfer(struct arasan_cf_dev *acdev, dma_addr_t src, dma_addr_t dest, u32 len)
 		return -EAGAIN;
 	}
 
-	tx->callback = dma_callback;
-	tx->callback_param = acdev;
+	dmaengine_desc_set_callback(tx, dma_callback, NULL, acdev);
 	cookie = dmaengine_submit(tx);
 
 	ret = dma_submit_error(cookie);
