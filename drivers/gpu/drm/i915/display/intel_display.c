@@ -4557,10 +4557,6 @@ static int intel_crtc_atomic_check(struct intel_atomic_state *state,
 
 	}
 
-	ret = intel_psr2_sel_fetch_update(state, crtc);
-	if (ret)
-		return ret;
-
 	return 0;
 }
 
@@ -6098,6 +6094,19 @@ static int intel_atomic_check_crtcs(struct intel_atomic_state *state)
 		if (ret) {
 			drm_dbg_atomic(display->drm,
 				       "[CRTC:%d:%s] atomic driver check failed\n",
+				       crtc->base.base.id, crtc->base.name);
+			return ret;
+		}
+	}
+
+	/* Selective fetch needs the scaler state of all the joined pipes. */
+	for_each_new_intel_crtc_in_state(state, crtc, crtc_state) {
+		int ret;
+
+		ret = intel_psr2_sel_fetch_update(state, crtc);
+		if (ret) {
+			drm_dbg_atomic(display->drm,
+				       "[CRTC:%d:%s] selective fetch check failed\n",
 				       crtc->base.base.id, crtc->base.name);
 			return ret;
 		}
