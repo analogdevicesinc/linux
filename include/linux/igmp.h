@@ -14,6 +14,7 @@
 #include <linux/timer.h>
 #include <linux/in.h>
 #include <linux/ip.h>
+#include <linux/net.h>
 #include <linux/refcount.h>
 #include <linux/sockptr.h>
 #include <uapi/linux/igmp.h>
@@ -57,20 +58,21 @@ struct ip_mc_socklist {
 };
 
 struct ip_sf_list {
-	struct ip_sf_list	*sf_next;
+	struct ip_sf_list __rcu	*sf_next;
 	unsigned long		sf_count[2];	/* include/exclude counts */
 	__be32			sf_inaddr;
 	unsigned char		sf_gsresp;	/* include in g & s response? */
 	unsigned char		sf_oldin;	/* change state */
 	unsigned char		sf_crcount;	/* retrans. left to send */
+	struct rcu_head		rcu;
 };
 
 struct ip_mc_list {
 	struct in_device	*interface;
 	__be32			multiaddr;
 	unsigned int		sfmode;
-	struct ip_sf_list	*sources;
-	struct ip_sf_list	*tomb;
+	struct ip_sf_list __rcu	*sources;
+	struct ip_sf_list __rcu	*tomb;
 	unsigned long		sfcount[2];
 	union {
 		struct ip_mc_list *next;
@@ -272,7 +274,7 @@ extern int ip_mc_source(int add, int omode, struct sock *sk,
 		struct ip_mreq_source *mreqs, int ifindex);
 extern int ip_mc_msfilter(struct sock *sk, struct ip_msfilter *msf,int ifindex);
 extern int ip_mc_msfget(struct sock *sk, struct ip_msfilter *msf,
-			sockptr_t optval, sockptr_t optlen);
+			sockopt_t *opt);
 extern int ip_mc_gsfget(struct sock *sk, struct group_filter *gsf,
 			sockptr_t optval, size_t offset);
 extern int ip_mc_sf_allow(const struct sock *sk, __be32 local, __be32 rmt,

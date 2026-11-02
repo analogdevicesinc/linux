@@ -29,6 +29,8 @@
 
 #define GPIO_TEST_PROVIDER_NGPIO	4
 
+KUNIT_DEFINE_ACTION_WRAPPER(gpio_device_put_wrapper, gpio_device_put, struct gpio_device *);
+
 static void gpio_test_device_check_bound(struct kunit *test,
 					 struct device *dev, bool expected)
 {
@@ -737,6 +739,7 @@ static void gpio_hog_assert(struct kunit *test, unsigned int offset,
 	struct property_entry properties[2];
 	struct platform_device *pdev;
 	struct fwnode_handle *fwnode;
+	struct gpio_device *gdev;
 	struct gpio_desc *desc;
 	int ret;
 
@@ -755,9 +758,11 @@ static void gpio_hog_assert(struct kunit *test, unsigned int offset,
 	wait_for_device_probe();
 
 	/* The hog must have configured the line with the expected direction. */
-	struct gpio_device *gdev __free(gpio_device_put) =
-			gpio_device_find_by_label(GPIO_TEST_PROVIDER);
+	gdev = gpio_device_find_by_label(GPIO_TEST_PROVIDER);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, gdev);
+
+	ret = kunit_add_action_or_reset(test, gpio_device_put_wrapper, gdev);
+	KUNIT_ASSERT_EQ(test, ret, 0);
 
 	desc = gpio_device_get_desc(gdev, offset);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, desc);

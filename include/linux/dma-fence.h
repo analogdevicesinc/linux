@@ -141,6 +141,9 @@ struct dma_fence_ops {
 	 * compute the name at runtime, without having it to store permanently
 	 * for each fence, or build a cache of some sort.
 	 *
+	 * The returned string is RCU protected and can be freed after the fence
+	 * signaled and a RCU grace period passed.
+	 *
 	 * This callback is mandatory.
 	 */
 	const char * (*get_driver_name)(struct dma_fence *fence);
@@ -152,6 +155,9 @@ struct dma_fence_ops {
 	 * callback to allow drivers to compute the name at runtime, without
 	 * having it to store permanently for each fence, or build a cache of
 	 * some sort.
+	 *
+	 * The returned string is RCU protected and can be freed after the fence
+	 * signaled and a RCU grace period passed.
 	 *
 	 * This callback is mandatory.
 	 */
@@ -501,7 +507,7 @@ dma_fence_test_signaled_flag(struct dma_fence *fence)
  * Returns true if the fence was already signaled, false if not. Since this
  * function doesn't enable signaling, it is not guaranteed to ever return
  * true if dma_fence_add_callback(), dma_fence_wait() or
- * dma_fence_enable_sw_signaling() haven't been called before.
+ * dma_fence_enable_signaling() haven't been called before.
  *
  * This function requires &dma_fence.lock to be held.
  *

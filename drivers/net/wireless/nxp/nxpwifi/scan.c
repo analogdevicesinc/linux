@@ -1209,6 +1209,8 @@ int nxpwifi_update_bss_desc_with_ie(struct nxpwifi_adapter *adapter,
 				(u16)(current_ptr - bss_entry->beacon_buf);
 			break;
 		case WLAN_EID_HT_CAPABILITY:
+			if (element_len < sizeof(*bss_entry->bcn_ht_cap))
+				return -EINVAL;
 			bss_entry->bcn_ht_cap =
 				(struct ieee80211_ht_cap *)(current_ptr +
 							    elem_size);
@@ -1217,6 +1219,8 @@ int nxpwifi_update_bss_desc_with_ie(struct nxpwifi_adapter *adapter,
 				      bss_entry->beacon_buf);
 			break;
 		case WLAN_EID_HT_OPERATION:
+			if (element_len < sizeof(*bss_entry->bcn_ht_oper))
+				return -EINVAL;
 			bss_entry->bcn_ht_oper =
 				(struct ieee80211_ht_operation *)(current_ptr +
 								  elem_size);
@@ -1225,6 +1229,8 @@ int nxpwifi_update_bss_desc_with_ie(struct nxpwifi_adapter *adapter,
 				      bss_entry->beacon_buf);
 			break;
 		case WLAN_EID_VHT_CAPABILITY:
+			if (element_len < sizeof(*bss_entry->bcn_vht_cap))
+				return -EINVAL;
 			bss_entry->disable_11ac = false;
 			bss_entry->bcn_vht_cap = (void *)(current_ptr +
 							  elem_size);
@@ -1233,6 +1239,8 @@ int nxpwifi_update_bss_desc_with_ie(struct nxpwifi_adapter *adapter,
 				      bss_entry->beacon_buf);
 			break;
 		case WLAN_EID_VHT_OPERATION:
+			if (element_len < sizeof(*bss_entry->bcn_vht_oper))
+				return -EINVAL;
 			bss_entry->bcn_vht_oper =
 				(void *)(current_ptr + elem_size);
 			bss_entry->vht_info_offset =
@@ -1240,6 +1248,8 @@ int nxpwifi_update_bss_desc_with_ie(struct nxpwifi_adapter *adapter,
 				      bss_entry->beacon_buf);
 			break;
 		case WLAN_EID_BSS_COEX_2040:
+			if (!element_len)
+				return -EINVAL;
 			bss_entry->bcn_bss_co_2040 = current_ptr;
 			bss_entry->bss_co_2040_offset =
 				(u16)(current_ptr - bss_entry->beacon_buf);
@@ -1250,6 +1260,8 @@ int nxpwifi_update_bss_desc_with_ie(struct nxpwifi_adapter *adapter,
 				(u16)(current_ptr - bss_entry->beacon_buf);
 			break;
 		case WLAN_EID_OPMODE_NOTIF:
+			if (total_ie_len < sizeof(*bss_entry->oper_mode))
+				return -EINVAL;
 			bss_entry->oper_mode = (void *)current_ptr;
 			bss_entry->oper_mode_offset =
 				(u16)(current_ptr - bss_entry->beacon_buf);
@@ -1262,6 +1274,9 @@ int nxpwifi_update_bss_desc_with_ie(struct nxpwifi_adapter *adapter,
 
 			switch (elem->data[0]) {
 			case WLAN_EID_EXT_HE_CAPABILITY:
+				if (element_len <
+				    1 + sizeof(*bss_entry->bcn_he_cap))
+					return -EINVAL;
 				bss_entry->disable_11ax = false;
 				bss_entry->bcn_he_cap =
 					(void *)(current_ptr + elem_size + 1);
@@ -1270,6 +1285,9 @@ int nxpwifi_update_bss_desc_with_ie(struct nxpwifi_adapter *adapter,
 					      bss_entry->beacon_buf);
 				break;
 			case WLAN_EID_EXT_HE_OPERATION:
+				if (element_len <
+				    1 + sizeof(*bss_entry->bcn_he_oper))
+					return -EINVAL;
 				bss_entry->bcn_he_oper =
 					(void *)(current_ptr + elem_size + 1);
 				bss_entry->he_info_offset =
@@ -1341,15 +1359,14 @@ int nxpwifi_scan_networks(struct nxpwifi_private *priv,
 	adapter->scan_processing = true;
 	spin_unlock_bh(&adapter->nxpwifi_cmd_lock);
 
-	scan_cfg_out = kzalloc_obj(union nxpwifi_scan_cmd_config_tlv,
-				   GFP_KERNEL);
+	scan_cfg_out = kzalloc_obj(union nxpwifi_scan_cmd_config_tlv);
 	if (!scan_cfg_out) {
 		ret = -ENOMEM;
 		goto done;
 	}
 
 	scan_chan_list = kzalloc_objs(struct nxpwifi_chan_scan_param_set,
-				      NXPWIFI_USER_SCAN_CHAN_MAX, GFP_KERNEL);
+				      NXPWIFI_USER_SCAN_CHAN_MAX);
 	if (!scan_chan_list) {
 		kfree(scan_cfg_out);
 		ret = -ENOMEM;
@@ -1471,7 +1488,7 @@ static int nxpwifi_save_hidden_ssid_channels(struct nxpwifi_private *priv,
 	int chid;
 
 	/* Allocate and fill new bss descriptor */
-	bss_desc = kzalloc_obj(*bss_desc, GFP_KERNEL);
+	bss_desc = kzalloc_obj(*bss_desc);
 	if (!bss_desc)
 		return -ENOMEM;
 
@@ -1512,7 +1529,7 @@ static int nxpwifi_update_curr_bss_params(struct nxpwifi_private *priv,
 	int ret;
 
 	/* Allocate and fill new bss descriptor */
-	bss_desc = kzalloc_obj(*bss_desc, GFP_KERNEL);
+	bss_desc = kzalloc_obj(*bss_desc);
 	if (!bss_desc)
 		return -ENOMEM;
 
@@ -1751,7 +1768,7 @@ nxpwifi_active_scan_req_for_passive_chan(struct nxpwifi_private *priv)
 		nxpwifi_dbg(adapter, INFO, "No BSS with hidden SSID found on DFS channels\n");
 		return 0;
 	}
-	user_scan_cfg = kzalloc_obj(*user_scan_cfg, GFP_KERNEL);
+	user_scan_cfg = kzalloc_obj(*user_scan_cfg);
 
 	if (!user_scan_cfg)
 		return -ENOMEM;
@@ -2258,7 +2275,7 @@ int nxpwifi_stop_bg_scan(struct nxpwifi_private *priv)
 		return 0;
 	}
 
-	bgscan_cfg = kzalloc_obj(*bgscan_cfg, GFP_KERNEL);
+	bgscan_cfg = kzalloc_obj(*bgscan_cfg);
 	if (!bgscan_cfg)
 		return -ENOMEM;
 

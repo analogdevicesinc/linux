@@ -198,7 +198,7 @@ brcmf_cyw_external_auth(struct wiphy *wiphy, struct net_device *dev,
 {
 	struct brcmf_if *ifp;
 	struct brcmf_pub *drvr;
-	struct brcmf_auth_req_status_le auth_status;
+	struct brcmf_auth_req_status_le auth_status = {};
 	int ret = 0;
 
 	brcmf_dbg(TRACE, "Enter\n");
@@ -206,6 +206,9 @@ brcmf_cyw_external_auth(struct wiphy *wiphy, struct net_device *dev,
 	ifp = netdev_priv(dev);
 	drvr = ifp->drvr;
 	if (params->status == WLAN_STATUS_SUCCESS) {
+		if (params->pmkid)
+			memcpy(auth_status.pmkid, params->pmkid,
+			       WLAN_PMKID_LEN);
 		auth_status.flags = cpu_to_le16(BRCMF_EXTAUTH_SUCCESS);
 	} else {
 		bphy_err(drvr, "External authentication failed: status=%d\n",
@@ -367,10 +370,16 @@ static void brcmf_cyw_register_event_handlers(struct brcmf_pub *drvr)
 			    brcmf_notify_mgmt_tx_status);
 }
 
+static int brcmf_cyw_configure_sae_pwe(struct brcmf_if *ifp, u32 sae_pwe)
+{
+	return brcmf_fil_iovar_int_set(ifp, "extsae_pwe", sae_pwe);
+}
+
 const struct brcmf_fwvid_ops brcmf_cyw_ops = {
 	.set_sae_password = brcmf_cyw_set_sae_pwd,
 	.alloc_fweh_info = brcmf_cyw_alloc_fweh_info,
 	.activate_events = brcmf_cyw_activate_events,
 	.get_cfg80211_ops = brcmf_cyw_get_cfg80211_ops,
 	.register_event_handlers = brcmf_cyw_register_event_handlers,
+	.configure_sae_pwe = brcmf_cyw_configure_sae_pwe,
 };

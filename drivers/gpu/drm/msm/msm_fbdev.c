@@ -6,9 +6,9 @@
 
 #include <linux/fb.h>
 
+#include <drm/clients/drm_fbdev_helper.h>
 #include <drm/drm_drv.h>
 #include <drm/drm_crtc_helper.h>
-#include <drm/drm_fb_helper.h>
 #include <drm/drm_file.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_framebuffer.h>
@@ -155,6 +155,7 @@ int msm_fbdev_driver_fbdev_probe(struct drm_fb_helper *helper,
 	helper->fb = buffer->fb;
 
 	fbi->fbops = &msm_fb_ops;
+	fbi->flags |= FBINFO_VIRTFB; /* system memory */
 
 	drm_fb_helper_fill_info(fbi, helper, sizes);
 

@@ -61,10 +61,13 @@ static enum hrtimer_restart kvm_riscv_vcpu_hrtimer_expired(struct hrtimer *h)
 
 static int kvm_riscv_vcpu_timer_cancel(struct kvm_vcpu_timer *t)
 {
-	if (!t->init_done || !t->next_set)
+	if (!t->init_done)
 		return -EINVAL;
 
 	hrtimer_cancel(&t->hrt);
+
+	if (!t->next_set)
+		return -EINVAL;
 	t->next_set = false;
 
 	return 0;
@@ -132,11 +135,7 @@ bool kvm_riscv_vcpu_timer_pending(struct kvm_vcpu *vcpu)
 	struct kvm_vcpu_timer *t = &vcpu->arch.timer;
 	struct kvm_guest_timer *gt = &vcpu->kvm->arch.timer;
 
-	if (!kvm_riscv_delta_cycles2ns(t->next_cycles, gt, t) ||
-	    kvm_riscv_vcpu_has_interrupts(vcpu, 1UL << IRQ_VS_TIMER))
-		return true;
-	else
-		return false;
+	return !kvm_riscv_delta_cycles2ns(t->next_cycles, gt, t);
 }
 
 static void kvm_riscv_vcpu_timer_blocking(struct kvm_vcpu *vcpu)

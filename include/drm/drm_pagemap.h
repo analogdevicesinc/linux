@@ -2,6 +2,7 @@
 #ifndef _DRM_PAGEMAP_H_
 #define _DRM_PAGEMAP_H_
 
+#include <linux/bits.h>
 #include <linux/dma-direction.h>
 #include <linux/hmm.h>
 #include <linux/memremap.h>
@@ -257,11 +258,18 @@ struct drm_pagemap *drm_pagemap_create(struct drm_device *drm,
 
 struct drm_pagemap *drm_pagemap_page_to_dpagemap(struct page *page);
 
+struct drm_pagemap_devmem *drm_pagemap_page_to_devmem(struct page *page);
+
 void drm_pagemap_put(struct drm_pagemap *dpagemap);
 
 #else
 
 static inline struct drm_pagemap *drm_pagemap_page_to_dpagemap(struct page *page)
+{
+	return NULL;
+}
+
+static inline struct drm_pagemap_devmem *drm_pagemap_page_to_devmem(struct page *page)
 {
 	return NULL;
 }
@@ -339,6 +347,9 @@ struct drm_pagemap_migrate_details {
 
 #if IS_ENABLED(CONFIG_ZONE_DEVICE)
 
+#define DRM_PAGEMAP_ZDD_FLAG_MIGRATED	BIT(0)
+#define DRM_PAGEMAP_ZDD_FLAG_MASK	DRM_PAGEMAP_ZDD_FLAG_MIGRATED
+
 int drm_pagemap_migrate_to_devmem(struct drm_pagemap_devmem *devmem_allocation,
 				  struct mm_struct *mm,
 				  unsigned long start, unsigned long end,
@@ -373,7 +384,9 @@ static inline struct drm_pagemap_zdd *drm_pagemap_page_zone_device_data(struct p
 {
 	struct folio *folio = page_folio(page);
 
-	return folio_zone_device_data(folio);
+	return (struct drm_pagemap_zdd *)
+		((unsigned long)folio_zone_device_data(folio) &
+		 ~DRM_PAGEMAP_ZDD_FLAG_MASK);
 }
 
 #else

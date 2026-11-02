@@ -527,7 +527,10 @@ struct cgroup {
 
 	int nr_threaded_children;	/* # of live threaded child cgroups */
 
-	/* sequence number for cgroup.kill, serialized by css_set_lock. */
+	/*
+	 * Sequence number for cgroup.kill. Incremented with both cgroup_mutex
+	 * and css_set_lock held. Readers hold either one.
+	 */
 	unsigned int kill_seq;
 
 	struct kernfs_node *kn;		/* cgroup kernfs entry */
@@ -551,6 +554,14 @@ struct cgroup {
 
 	/* Private pointers for each registered subsystem */
 	struct cgroup_subsys_state __rcu *subsys[CGROUP_SUBSYS_COUNT];
+
+	/*
+	 * Effective css for each subsystem: the css of the nearest ancestor,
+	 * including this cgroup, that has the subsystem enabled, or the root
+	 * css if the subsystem isn't bound to this hierarchy. Updated under
+	 * cgroup_mutex and read under RCU.
+	 */
+	struct cgroup_subsys_state __rcu *e_css[CGROUP_SUBSYS_COUNT];
 
 	/*
 	 * Keep track of total number of dying CSSes at and below this cgroup.

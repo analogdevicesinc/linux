@@ -2160,6 +2160,47 @@ l0_%=:	r0 = 0;						\
 }
 
 /*
+ * The insn that forks is the head of a loop that scalar evolution counted. The state with
+ * [-1, 0] is kept there, and the state with 0 that is split off is within it.
+ */
+SEC("socket")
+__description("maybe_fork_scalars: AND at the head of a counted loop rejects OOB")
+__failure __msg("invalid access to map value")
+__naked void and_scalar_fork_at_long_loop_head_rejects_oob(void)
+{
+	asm volatile ("					\
+	r1 = 0;						\
+	*(u64*)(r10 - 8) = r1;				\
+	r2 = r10;					\
+	r2 += -8;					\
+	r1 = %[map_hash_8b] ll;				\
+	call %[bpf_map_lookup_elem];			\
+	if r0 == 0 goto l0_%=;				\
+	r9 = r0;					\
+	r7 = 0;						\
+	r6 = -1;					\
+l1_%=:	r6 &= 8;					\
+	/* r6 is 8 (current) or 0 (pushed) */		\
+	r6 ^= 8;					\
+	/* pushed path: r6 = 8, OOB for value_size=8 */	\
+	r1 = r9;					\
+	r1 += r6;					\
+	r0 = *(u8*)(r1 + 0);				\
+	r1 = *(u64*)(r9 + 0);				\
+	r6 = -1;					\
+	if r1 == 0 goto l2_%=;				\
+	r6 = 0;						\
+l2_%=:	r7 += 1;					\
+	if r7 < 100 goto l1_%=;				\
+l0_%=:	r0 = 0;						\
+	exit;						\
+"	:
+	: __imm(bpf_map_lookup_elem),
+	  __imm_addr(map_hash_8b)
+	: __clobber_all);
+}
+
+/*
  * Last jump can be detected as always taken because the intersection of R5 and
  * R7 32bit tnums produces a constant that isn't within R7's s32 bounds.
  */
@@ -2264,6 +2305,47 @@ __naked void deduce64_from_32_wrapping_32bit(void)
 2:	exit;								\
 	"
 	:: __imm(bpf_get_prandom_u32)
+	: __clobber_all);
+}
+
+/*
+ * Unprivileged variable pointer arithmetic on a PTR_TO_MAP_VALUE whose
+ * offset collapses to a constant. The Spectre-v1 speculative path snapshots
+ * the pointer while its r32 has just been blanked but its offset not yet
+ * synced; the following register move used to trip reg_bounds_sanity_check()
+ * ("const subreg tnum out of sync with range bounds"). With
+ * BPF_F_TEST_REG_INVARIANTS that violation turns into a load failure, so the
+ * unprivileged program must still load.
+ */
+SEC("socket")
+__success __success_unpriv
+__flag(BPF_F_TEST_REG_INVARIANTS)
+__naked void spec_ptr_alu_const_offset(void)
+{
+	asm volatile ("							\
+	call %[bpf_ktime_get_ns];					\
+	*(u64*)(r10 - 16) = r0;						\
+	r1 = 0;								\
+	*(u64*)(r10 - 8) = r1;						\
+	r2 = r10;							\
+	r2 += -8;							\
+	r1 = %[map_hash_8b] ll;						\
+	call %[bpf_map_lookup_elem];					\
+	if r0 == 0 goto l0_%=;						\
+	r1 = *(u64*)(r10 - 16);						\
+	r2 = 0x40000000;						\
+	if r1 > r2 goto l0_%=;						\
+	if r1 s> 1 goto l0_%=;		/* r1 in [0, 1] */		\
+	r0 += r1;			/* ptr += bounded scalar */	\
+	r9 = r0;			/* used to trip the warning */	\
+	*(u8*)(r0 + 0) = r1;						\
+l0_%=:	r0 = 0;								\
+	exit;								\
+	"
+	:
+	: __imm(bpf_ktime_get_ns),
+	  __imm(bpf_map_lookup_elem),
+	  __imm_addr(map_hash_8b)
 	: __clobber_all);
 }
 
