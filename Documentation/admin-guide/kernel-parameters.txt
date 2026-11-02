@@ -6242,7 +6242,7 @@ Kernel parameters
 	rcutorture.stall_only= [KNL]
 			Shut off all rcutorture kthreads other than the
 			RCU CPU stall-warning test kthreads.  The purpose
-			of this is to test production applictions'
+			of this is to test production applications'
 			reactions to CPU stalls, and with minimal
 			additional overhead.  Or you can omit the
 			stall-warning tests as well and get a heavy
@@ -7748,8 +7748,13 @@ Kernel parameters
 			trace_event=:mod:<module>
 
 			The value before :mod: will only enable specific events
-			that are part of the module. See the above mentioned
-			document for more information.
+			that are part of the module.
+
+			To apply a filter, use the :filter: keyword:
+
+			trace_event=...:filter:<filter>
+
+			See the above mentioned document for more information.
 
 	trace_instance=[instance-info]
 			[FTRACE] Create a ring buffer instance early in boot up.
