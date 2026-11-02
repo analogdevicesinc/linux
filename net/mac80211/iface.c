@@ -1252,6 +1252,7 @@ static void ieee80211_sdata_init(struct ieee80211_local *local,
 	 * MLD connection, we get a separate allocation for it.
 	 */
 	ieee80211_link_init(sdata, -1, &sdata->deflink, &sdata->vif.bss_conf);
+	ieee80211_link_attach(&sdata->deflink);
 }
 
 int ieee80211_add_virtual_monitor(struct ieee80211_local *local,

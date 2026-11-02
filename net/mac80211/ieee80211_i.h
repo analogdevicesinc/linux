@@ -2278,6 +2278,11 @@ void ieee80211_link_init(struct ieee80211_sub_if_data *sdata,
 			 int link_id,
 			 struct ieee80211_link_data *link,
 			 struct ieee80211_bss_conf *link_conf);
+struct ieee80211_link_data *
+ieee80211_alloc_link(struct ieee80211_sub_if_data *sdata, int link_id);
+void ieee80211_free_link(struct ieee80211_link_data *link);
+void ieee80211_link_attach(struct ieee80211_link_data *link);
+void ieee80211_link_detach(struct ieee80211_link_data *link);
 void ieee80211_link_stop(struct ieee80211_link_data *link);
 int ieee80211_vif_set_links(struct ieee80211_sub_if_data *sdata,
 			    u16 new_links, u16 dormant_links);
