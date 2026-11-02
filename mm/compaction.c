@@ -1601,7 +1601,12 @@ static void fast_isolate_freepages(struct compact_control *cc)
 		unsigned int order_scanned = 0;
 		unsigned long high_pfn = 0;
 
-		if (!area->nr_free)
+		/*
+		 * Opportunistic lockless check.  A false non-zero is fine, we
+		 * inspect the freelist under the lock.  A false zero is fine,
+		 * we just miss this order.
+		 */
+		if (!data_race(area->nr_free))
 			continue;
 
 		spin_lock_irqsave(&cc->zone->lock, flags);
@@ -2031,7 +2036,12 @@ static unsigned long fast_find_migrateblock(struct compact_control *cc)
 		unsigned long flags;
 		struct page *freepage;
 
-		if (!area->nr_free)
+		/*
+		 * Opportunistic lockless check.  A false non-zero is fine, we
+		 * inspect the freelist under the lock.  A false zero is fine,
+		 * we just miss this order.
+		 */
+		if (!data_race(area->nr_free))
 			continue;
 
 		spin_lock_irqsave(&cc->zone->lock, flags);
