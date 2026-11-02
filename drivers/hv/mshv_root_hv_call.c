@@ -643,8 +643,18 @@ int hv_unmap_vp_state_page(u64 partition_id, u32 vp_index, u32 type,
 {
 	int ret = hv_call_unmap_vp_state_page(partition_id, vp_index, type, input_vtl);
 
-	if (mshv_use_overlay_gpfn() && state_page)
-		__free_page(state_page);
+	if (mshv_use_overlay_gpfn() && state_page) {
+		/*
+		 * If the unmap failed, the hypervisor may still be using the
+		 * page as an overlay. Leak it rather than handing it back to
+		 * the page allocator.
+		 */
+		if (ret)
+			pr_err("%s: failed to unmap partition %llu vp %u state page type %u, leaking page: %d\n",
+			       __func__, partition_id, vp_index, type, ret);
+		else
+			__free_page(state_page);
+	}
 
 	return ret;
 }
@@ -995,8 +1005,18 @@ int hv_unmap_stats_page(enum hv_stats_object_type type,
 
 	ret = hv_call_unmap_stats_page(type, identity);
 
-	if (mshv_use_overlay_gpfn() && page_addr)
-		__free_page(virt_to_page(page_addr));
+	if (mshv_use_overlay_gpfn() && page_addr) {
+		/*
+		 * If the unmap failed, the hypervisor may still be updating the
+		 * overlay page. Leak it rather than handing it back to the page
+		 * allocator.
+		 */
+		if (ret)
+			pr_err("%s: failed to unmap stats page type %u, leaking page: %d\n",
+			       __func__, type, ret);
+		else
+			__free_page(virt_to_page(page_addr));
+	}
 
 	return ret;
 }
