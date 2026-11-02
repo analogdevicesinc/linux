@@ -6866,6 +6866,12 @@ void ieee80211_determine_our_sta_mode(struct ieee80211_sub_if_data *sdata,
 		goto out;
 	}
 
+	if (req && !req->ap_mld_addr) {
+		mlme_link_id_dbg(sdata, link_id,
+				 "UHR requires MLO, limiting to EHT\n");
+		goto out;
+	}
+
 	uhr_cap = ieee80211_get_uhr_iftype_cap_vif(sband, &sdata->vif);
 	if (!uhr_cap) {
 		mlme_link_id_dbg(sdata, link_id,
