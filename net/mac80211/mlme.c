@@ -2864,14 +2864,15 @@ static int ieee80211_send_assoc(struct ieee80211_sub_if_data *sdata)
 	}
 
 	pos = skb_tail_pointer(skb);
-	kfree(ifmgd->assoc_req_ies);
-	ifmgd->assoc_req_ies = kmemdup(ie_start, pos - ie_start, GFP_ATOMIC);
-	if (!ifmgd->assoc_req_ies) {
+	/* might already exist (on retry) */
+	kfree(assoc_data->req_elems);
+	assoc_data->req_elems = kmemdup(ie_start, pos - ie_start, GFP_ATOMIC);
+	if (!assoc_data->req_elems) {
 		dev_kfree_skb(skb);
 		return -ENOMEM;
 	}
 
-	ifmgd->assoc_req_ies_len = pos - ie_start;
+	assoc_data->req_elems_len = pos - ie_start;
 
 	info.link_id = assoc_data->assoc_link_id;
 	drv_mgd_prepare_tx(local, sdata, &info);
@@ -5471,6 +5472,7 @@ static void ieee80211_destroy_assoc_data(struct ieee80211_sub_if_data *sdata,
 		ieee80211_vif_set_links(sdata, 0, 0);
 	}
 
+	kfree(assoc_data->req_elems);
 	kfree(assoc_data);
 }
 
@@ -7623,8 +7625,8 @@ static void ieee80211_rx_mgmt_assoc_resp(struct ieee80211_sub_if_data *sdata,
 
 	resp.buf = (u8 *)mgmt;
 	resp.len = len;
-	resp.req_ies = ifmgd->assoc_req_ies;
-	resp.req_ies_len = ifmgd->assoc_req_ies_len;
+	resp.req_ies = assoc_data->req_elems;
+	resp.req_ies_len = assoc_data->req_elems_len;
 	cfg80211_rx_assoc_resp(sdata->dev, &resp);
 	assoc_status = status_code == WLAN_STATUS_SUCCESS ? ASSOC_SUCCESS :
 							    ASSOC_REJECTED;
@@ -11408,9 +11410,6 @@ void ieee80211_mgd_stop(struct ieee80211_sub_if_data *sdata)
 		ifmgd->teardown_skb = NULL;
 		ifmgd->orig_teardown_skb = NULL;
 	}
-	kfree(ifmgd->assoc_req_ies);
-	ifmgd->assoc_req_ies = NULL;
-	ifmgd->assoc_req_ies_len = 0;
 	spin_unlock_bh(&ifmgd->teardown_lock);
 	timer_delete_sync(&ifmgd->timer);
 }

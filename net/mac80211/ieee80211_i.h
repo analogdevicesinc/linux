@@ -508,6 +508,10 @@ struct ieee80211_mgd_assoc_data {
 	u8 fils_kek[FILS_MAX_KEK_LEN];
 	size_t fils_kek_len;
 
+	/* separately allocated, needs to be freed */
+	u8 *req_elems;
+	size_t req_elems_len;
+
 	size_t ie_len;
 	u8 *ie_pos; /* used to fill ie[] with link[].elems */
 	u8 ie[];
@@ -630,12 +634,6 @@ struct ieee80211_if_managed {
 	 * get stuck in a downgraded situation and flush takes forever.
 	 */
 	struct wiphy_delayed_work tx_tspec_wk;
-
-	/* Information elements from the last transmitted (Re)Association
-	 * Request frame.
-	 */
-	u8 *assoc_req_ies;
-	size_t assoc_req_ies_len;
 
 	struct wiphy_hrtimer_work ml_reconf_work;
 	u16 removed_links;
