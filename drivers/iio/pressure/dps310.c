@@ -1391,11 +1391,12 @@ err:
 	return IRQ_HANDLED;
 }
 
-static void dps310_reset(void *action_data)
+static void dps310_standby(void *action_data)
 {
 	struct dps310_data *data = action_data;
 
-	dps310_reset_wait(data);
+	regmap_write_bits(data->regmap, DPS310_MEAS_CFG,
+			  DPS310_MEAS_CTRL_BITS, 0);
 }
 
 static const struct regmap_config dps310_regmap_config = {
@@ -1449,8 +1450,7 @@ static int dps310_probe(struct i2c_client *client)
 	if (IS_ERR(data->regmap))
 		return PTR_ERR(data->regmap);
 
-	/* Register to run the device reset when the device is removed */
-	rc = devm_add_action_or_reset(dev, dps310_reset, data);
+	rc = devm_add_action_or_reset(dev, dps310_standby, data);
 	if (rc)
 		return rc;
 
