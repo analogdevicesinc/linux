@@ -132,7 +132,7 @@ __naked void patch_list_may_goto(void)
  */
 SEC("raw_tp")
 __description("patch list: jump pushed out of range by patches")
-__failure __msg("cannot be patched due to 16-bit range")
+__failure __msg("insn 2 cannot be patched due to 16-bit range")
 __naked void patch_list_jump_out_of_range(void)
 {
 	asm volatile ("					\
