@@ -699,7 +699,8 @@ static bool insn_is_nop(struct bpf_verifier_env *env, int i, int next)
 {
 	struct bpf_insn insn = env->prog->insnsi[i];
 
-	if (env->insn_aux_data[i].indirect_target)
+	/* keep a nospec insn, the barrier in front of it must stay */
+	if (env->insn_aux_data[i].indirect_target || env->insn_aux_data[i].nospec)
 		return false;
 	if (insn.off < 0 || i + 1 + insn.off > next)
 		return false;
