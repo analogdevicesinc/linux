@@ -669,14 +669,17 @@ static int dup_anon_vma(struct vm_area_struct *dst,
 }
 
 #ifdef CONFIG_DEBUG_VM_MAPLE_TREE
-#ifdef CONFIG_DEBUG_VM_RB
 static void validate_mm_anon_rmap(struct vm_area_struct *vma)
 {
-	struct anon_vma *anon_vma = READ_ONCE(vma->anon_vma);
+	struct anon_vma *anon_vma;
 	struct anon_vma_chain *avc;
+
+	if (!IS_ENABLED(CONFIG_DEBUG_VM_RB))
+		return;
 
 	vma_assert_stabilised(vma);
 
+	anon_vma = READ_ONCE(vma->anon_vma);
 	if (!anon_vma)
 		return;
 
@@ -685,11 +688,6 @@ static void validate_mm_anon_rmap(struct vm_area_struct *vma)
 		anon_rmap_tree_verify(avc);
 	anon_vma_unlock_read(anon_vma);
 }
-#else
-static void validate_mm_anon_rmap(struct vm_area_struct *vma)
-{
-}
-#endif
 
 void validate_mm(struct mm_struct *mm)
 {
