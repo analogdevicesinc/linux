@@ -971,7 +971,6 @@ struct platform_device *platform_device_register_full(const struct platform_devi
 	ret = platform_device_add(pdev);
 	if (ret) {
 err:
-		ACPI_COMPANION_SET(&pdev->dev, NULL);
 		platform_device_put(pdev);
 		return ERR_PTR(ret);
 	}
