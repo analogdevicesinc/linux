@@ -285,6 +285,22 @@ static void ieee80211_remove_tid_tx(struct sta_info *sta, int tid)
 	kfree_rcu(tid_tx, rcu_head);
 }
 
+static void ieee80211_agg_abort_start(struct sta_info *sta, int tid,
+				      struct tid_ampdu_tx *tid_tx)
+{
+	struct ieee80211_sub_if_data *sdata = sta->sdata;
+
+	spin_lock_bh(&sta->lock);
+	ieee80211_agg_splice_packets(sdata, tid_tx, tid);
+	ieee80211_assign_tid_tx(sta, tid, NULL);
+	ieee80211_agg_splice_finish(sdata, tid);
+	spin_unlock_bh(&sta->lock);
+
+	ieee80211_agg_start_txq(sta, tid, false);
+
+	kfree_rcu(tid_tx, rcu_head);
+}
+
 /* returns 1 if the driver must be notified after synchronize_net() */
 static int ieee80211_stop_tx_ba_session_prep(struct sta_info *sta, u16 tid,
 					     enum ieee80211_agg_stop_reason reason)
@@ -342,6 +358,12 @@ static int ieee80211_stop_tx_ba_session_prep(struct sta_info *sta, u16 tid,
 		ieee80211_assign_tid_tx(sta, tid, NULL);
 		spin_unlock_bh(&sta->lock);
 		kfree_rcu(tid_tx, rcu_head);
+		return 0;
+	}
+
+	if (test_bit(HT_AGG_STATE_START_RCU, &tid_tx->state)) {
+		spin_unlock_bh(&sta->lock);
+		ieee80211_agg_abort_start(sta, tid, tid_tx);
 		return 0;
 	}
 
@@ -529,7 +551,36 @@ static void ieee80211_send_addba_with_timeout(struct sta_info *sta,
 
 void ieee80211_tx_ba_session_handle_start(struct sta_info *sta, int tid)
 {
-	struct tid_ampdu_tx *tid_tx;
+	struct tid_ampdu_tx *tid_tx = rcu_dereference_protected_tid_tx(sta, tid);
+
+	/*
+	 * Start queuing up packets for this aggregation session.
+	 * We're going to release them once the driver is OK with
+	 * that.
+	 */
+	clear_bit(HT_AGG_STATE_WANT_START, &tid_tx->state);
+
+	/*
+	 * Make sure no packets are being processed before telling the
+	 * driver. This ensures that we have a valid starting sequence
+	 * number and that in-flight packets have been flushed out and
+	 * no packets for this TID will go into the driver during the
+	 * ampdu_action call.
+	 */
+	set_bit(HT_AGG_STATE_START_RCU, &tid_tx->state);
+
+	/*
+	 * Cancel first so it waits for a new grace period (if already
+	 * queued), that way the RCU work only runs after _all_ TIDs
+	 * have passed a grace period.
+	 */
+	wiphy_rcu_work_cancel(sta->local->hw.wiphy, &sta->ampdu_mlme.rcu_work);
+	wiphy_rcu_work_queue(sta->local->hw.wiphy, &sta->ampdu_mlme.rcu_work);
+}
+
+static void ieee80211_tx_ba_session_start_drv(struct sta_info *sta, int tid,
+					      struct tid_ampdu_tx *tid_tx)
+{
 	struct ieee80211_local *local = sta->local;
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	struct ieee80211_ampdu_params params = {
@@ -541,23 +592,6 @@ void ieee80211_tx_ba_session_handle_start(struct sta_info *sta, int tid)
 		.timeout = 0,
 	};
 	int ret;
-
-	tid_tx = rcu_dereference_protected_tid_tx(sta, tid);
-
-	/*
-	 * Start queuing up packets for this aggregation session.
-	 * We're going to release them once the driver is OK with
-	 * that.
-	 */
-	clear_bit(HT_AGG_STATE_WANT_START, &tid_tx->state);
-
-	/*
-	 * Make sure no packets are being processed. This ensures that
-	 * we have a valid starting sequence number and that in-flight
-	 * packets have been flushed out and no packets for this TID
-	 * will go into the driver during the ampdu_action call.
-	 */
-	synchronize_net();
 
 	tid_tx->ndp = ieee80211_s1g_use_ndp_ba(sdata, sta);
 	params.ssn = sta->tid_seq[tid] >> 4;
@@ -576,19 +610,28 @@ void ieee80211_tx_ba_session_handle_start(struct sta_info *sta, int tid)
 		ht_dbg(sdata,
 		       "BA request denied - HW unavailable for %pM tid %d\n",
 		       sta->sta.addr, tid);
-		spin_lock_bh(&sta->lock);
-		ieee80211_agg_splice_packets(sdata, tid_tx, tid);
-		ieee80211_assign_tid_tx(sta, tid, NULL);
-		ieee80211_agg_splice_finish(sdata, tid);
-		spin_unlock_bh(&sta->lock);
-
-		ieee80211_agg_start_txq(sta, tid, false);
-
-		kfree_rcu(tid_tx, rcu_head);
+		ieee80211_agg_abort_start(sta, tid, tid_tx);
 		return;
 	}
 
 	ieee80211_send_addba_with_timeout(sta, tid_tx);
+}
+
+void ieee80211_tx_ba_session_handle_rcu(struct sta_info *sta, int tid,
+					bool blocked)
+{
+	struct tid_ampdu_tx *tid_tx = rcu_dereference_protected_tid_tx(sta, tid);
+
+	lockdep_assert_wiphy(sta->local->hw.wiphy);
+
+	if (!tid_tx ||
+	    !test_and_clear_bit(HT_AGG_STATE_START_RCU, &tid_tx->state))
+		return;
+
+	if (blocked)
+		ieee80211_agg_abort_start(sta, tid, tid_tx);
+	else
+		ieee80211_tx_ba_session_start_drv(sta, tid, tid_tx);
 }
 
 void ieee80211_refresh_tx_agg_session_timer(struct ieee80211_sta *pubsta,

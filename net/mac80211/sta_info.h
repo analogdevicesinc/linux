@@ -122,6 +122,8 @@ enum ieee80211_sta_info_flags {
 #define HT_AGG_STATE_START_CB		6
 #define HT_AGG_STATE_STOP_CB		7
 #define HT_AGG_STATE_SENT_ADDBA		8
+/* waiting for an RCU grace period before telling the driver to start */
+#define HT_AGG_STATE_START_RCU		9
 
 DECLARE_EWMA(avg_signal, 10, 8)
 enum ieee80211_agg_stop_reason {
@@ -277,6 +279,8 @@ struct tid_ampdu_rx {
  * @unexpected_agg: bitmap indicating which TID already sent a delBA due to
  *	unexpected aggregation related frames outside a session
  * @work: work struct for starting/stopping aggregation
+ * @rcu_work: work struct for continuing to start TX aggregation
+ *	after an RCU grace period
  * @tid_tx: aggregation info for Tx per TID
  * @tid_start_tx: sessions where start was requested, not just protected
  *	by wiphy mutex but also sta->lock
@@ -295,6 +299,7 @@ struct sta_ampdu_mlme {
 	unsigned long unexpected_agg[BITS_TO_LONGS(IEEE80211_NUM_TIDS)];
 	/* tx */
 	struct wiphy_work work;
+	struct wiphy_rcu_work rcu_work;
 	struct tid_ampdu_tx __rcu *tid_tx[IEEE80211_NUM_TIDS];
 	struct tid_ampdu_tx *tid_start_tx[IEEE80211_NUM_TIDS];
 	unsigned long last_addba_req_time[IEEE80211_NUM_TIDS];

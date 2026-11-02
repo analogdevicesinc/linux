@@ -2405,7 +2405,10 @@ void ieee80211_start_tx_ba_cb(struct sta_info *sta, int tid,
 void ieee80211_stop_tx_ba_cb(struct sta_info *sta, int tid,
 			     struct tid_ampdu_tx *tid_tx);
 void ieee80211_ba_session_work(struct wiphy *wiphy, struct wiphy_work *work);
+void ieee80211_ba_session_rcu_work(struct wiphy *wiphy, struct wiphy_work *work);
 void ieee80211_tx_ba_session_handle_start(struct sta_info *sta, int tid);
+void ieee80211_tx_ba_session_handle_rcu(struct sta_info *sta, int tid,
+					bool blocked);
 void ieee80211_release_reorder_timeout(struct sta_info *sta, int tid);
 
 u8 ieee80211_mcs_to_chains(const struct ieee80211_mcs_info *mcs);
