@@ -160,8 +160,7 @@ static int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 		return -ENOMEM;
 
 	if (!block->cyclic) {
-		desc->callback_result = iio_dmaengine_buffer_block_done;
-		desc->callback_param = block;
+		dmaengine_desc_set_callback(desc, NULL, iio_dmaengine_buffer_block_done, block);
 	}
 
 	cookie = dmaengine_submit(desc);

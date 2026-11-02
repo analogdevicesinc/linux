@@ -477,8 +477,7 @@ static int rzt2h_adc_start_dma(struct iio_dev *indio_dev)
 	if (!desc)
 		return -EBUSY;
 
-	desc->callback = rzt2h_adc_dma_callback;
-	desc->callback_param = indio_dev;
+	dmaengine_desc_set_callback(desc, rzt2h_adc_dma_callback, NULL, indio_dev);
 
 	cookie = dmaengine_submit(desc);
 	ret = dma_submit_error(cookie);

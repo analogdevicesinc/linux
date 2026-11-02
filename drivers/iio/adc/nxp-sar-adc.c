@@ -696,8 +696,7 @@ static int nxp_sar_adc_start_cyclic_dma(struct iio_dev *indio_dev)
 	if (!desc)
 		return -EINVAL;
 
-	desc->callback = nxp_sar_adc_dma_cb;
-	desc->callback_param = indio_dev;
+	dmaengine_desc_set_callback(desc, nxp_sar_adc_dma_cb, NULL, indio_dev);
 	info->cookie = dmaengine_submit(desc);
 	ret = dma_submit_error(info->cookie);
 	if (ret) {
