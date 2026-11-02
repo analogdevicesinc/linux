@@ -203,7 +203,11 @@ struct bpf_insn *bpf_patch_list_add(struct bpf_verifier_env *env, u32 off,
 
 		*insn = *patch;
 		env->insn_aux_data[off].zext_dst = bpf_insn_def32(env->prog, insn) >= 0;
-		/* a new insn may access memory, systematically mark it non-stack */
+		/*
+		 * A non-memory accessing insn could have been replaced by a
+		 * memory accessing insn, systematically mark it for non-stack
+		 * access.
+		 */
 		env->insn_aux_data[off].non_stack_access = bpf_is_mem_insn(insn);
 		return insn;
 	}
@@ -270,14 +274,21 @@ static void patch_list_adj_aux(struct bpf_prog *prog, struct bpf_insn_patch *p,
 	u32 i;
 
 	*last = *old;
+	/* Recompute zext_dst: the last insn of the patch need not be the patched one. */
 	last->zext_dst = bpf_insn_def32(prog, &patch[p->len - 1]) >= 0;
 	memset(slot, 0, sizeof(*slot) * (p->len - 1));
 
 	for (i = 0; i < p->len - 1; i++) {
+		/* Expand the seen count of the patched insn to the patch. */
 		slot[i].seen = last->seen;
 		/* messages name the insn of the original program */
 		slot[i].orig_idx = last->orig_idx;
 		slot[i].zext_dst = bpf_insn_def32(prog, &patch[i]) >= 0;
+		/*
+		 * A copy of the patched insn keeps its marking. Any other
+		 * memory accessing insn is new, systematically mark it for
+		 * non-stack access.
+		 */
 		if (i >= p->target && !memcmp(&patch[i], orig, sizeof(*orig))) {
 			slot[i].non_stack_access = last->non_stack_access;
 			last->non_stack_access = false;
@@ -286,6 +297,11 @@ static void patch_list_adj_aux(struct bpf_prog *prog, struct bpf_insn_patch *p,
 		}
 	}
 
+	/*
+	 * The last insn could be a newly generated BPF_ST/BPF_LDX/BPF_STX,
+	 * systematically mark it for non-stack access if it is not the patched
+	 * insn, otherwise keep the original marking.
+	 */
 	if (bpf_is_mem_insn(&patch[p->len - 1]) &&
 	    memcmp(&patch[p->len - 1], orig, sizeof(*orig)))
 		last->non_stack_access = true;
