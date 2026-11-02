@@ -236,9 +236,13 @@ retry:
 		inode = fuse_iget(dir->i_sb, o->nodeid, o->generation,
 				  &o->attr, ATTR_TIMEOUT(o),
 				  attr_version, evict_ctr);
-		if (!inode)
-			inode = ERR_PTR(-ENOMEM);
+		if (!inode) {
+			d_lookup_done(dentry);
+			dput(dentry);
+			return -ENOMEM;
+		}
 
+		ihold(inode); /* d_splice_alias() eats a reference */
 		alias = d_splice_alias(inode, dentry);
 		d_lookup_done(dentry);
 		if (alias) {
@@ -246,15 +250,15 @@ retry:
 			dentry = alias;
 		}
 		if (IS_ERR(dentry)) {
-			if (!IS_ERR(inode)) {
-				struct fuse_inode *fi = get_fuse_inode(inode);
+			struct fuse_inode *fi = get_fuse_inode(inode);
 
-				spin_lock(&fi->lock);
-				fi->nlookup--;
-				spin_unlock(&fi->lock);
-			}
+			spin_lock(&fi->lock);
+			fi->nlookup--;
+			spin_unlock(&fi->lock);
+			iput(inode);
 			return PTR_ERR(dentry);
 		}
+		iput(inode);
 	}
 	if (fc->readdirplus_auto)
 		set_bit(FUSE_I_INIT_RDPLUS, &get_fuse_inode(inode)->state);
