@@ -99,12 +99,24 @@ befs_check_sb(struct super_block *sb)
 		return BEFS_ERR;
 	}
 
-
-	/* ag_shift also encodes the same information as blocks_per_ag in a
-	 * different way, non-fatal consistency check
+	/*
+	 * ag_shift is the log2 of the number of blocks in an allocation
+	 * group, so it determines how many allocation groups are needed to
+	 * cover all blocks of the file system. Since the start of a block
+	 * run within an allocation group is only 16 bits wide, an allocation
+	 * group cannot have more than 65536 blocks.
 	 */
-	if ((1 << befs_sb->ag_shift) != befs_sb->blocks_per_ag)
-		befs_error(sb, "ag_shift disagrees with blocks_per_ag.");
+
+	if (befs_sb->ag_shift < 1 || befs_sb->ag_shift > 16) {
+		befs_error(sb, "invalid ag_shift: %u", befs_sb->ag_shift);
+		return BEFS_ERR;
+	}
+
+	if (DIV_ROUND_UP_ULL(befs_sb->num_blocks, 1ULL << befs_sb->ag_shift) !=
+	    befs_sb->num_ags) {
+		befs_error(sb, "num_ags disagrees with num_blocks and ag_shift");
+		return BEFS_ERR;
+	}
 
 	if (befs_sb->log_start != befs_sb->log_end ||
 	    befs_sb->flags == BEFS_DIRTY) {
