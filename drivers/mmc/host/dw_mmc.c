@@ -3412,6 +3412,7 @@ void dw_mci_remove(struct dw_mci *host)
 	/* Stop the work before the timer that it can rearm. */
 	disable_work_sync(&host->bh_work);
 	dw_mci_stop_fault_timer(host);
+	hrtimer_cancel(&host->wd_timer);
 
 	/* disable clock to CIU */
 	mci_writel(host, CLKENA, 0);
