@@ -4618,6 +4618,49 @@ static u8 ieee80211_mgd_next_dialog_token(struct ieee80211_sub_if_data *sdata)
 	return sdata->u.mgd.dialog_token_alloc;
 }
 
+static void ieee80211_mgd_reset_ap_state(struct ieee80211_sub_if_data *sdata)
+{
+	struct ieee80211_if_managed *ifmgd = &sdata->u.mgd;
+	struct wiphy *wiphy = sdata->local->hw.wiphy;
+
+	ieee80211_stop_poll(sdata);
+	wiphy_work_cancel(wiphy, &ifmgd->monitor_work);
+	wiphy_work_cancel(wiphy, &ifmgd->beacon_connection_loss_work);
+	wiphy_work_cancel(wiphy, &ifmgd->csa_connection_drop_work);
+
+	/* existing TX TSPEC sessions no longer exist */
+	memset(ifmgd->tx_tspec, 0, sizeof(ifmgd->tx_tspec));
+	wiphy_delayed_work_cancel(wiphy, &ifmgd->tx_tspec_wk);
+
+	memset(&ifmgd->ttlm_info, 0, sizeof(ifmgd->ttlm_info));
+	wiphy_hrtimer_work_cancel(wiphy, &ifmgd->ttlm_work);
+
+	memset(&sdata->vif.neg_ttlm, 0, sizeof(sdata->vif.neg_ttlm));
+	wiphy_delayed_work_cancel(wiphy, &ifmgd->neg_ttlm_timeout_work);
+
+	ifmgd->removed_links = 0;
+	wiphy_hrtimer_work_cancel(wiphy, &ifmgd->ml_reconf_work);
+
+	wiphy_work_cancel(wiphy, &ifmgd->teardown_ttlm_work);
+
+	/*
+	 * if disconnection happens in the middle of the ML reconfiguration
+	 * flow, cfg80211 must called to release the BSS references obtained
+	 * when the flow started.
+	 */
+	ieee80211_ml_reconf_reset(sdata);
+
+	ifmgd->mcast_seq_last = IEEE80211_SN_MODULO;
+
+	ifmgd->epcs.dialog_token = 0;
+
+	ifmgd->uhr_omp.links = 0;
+	ifmgd->uhr_omp.acked = false;
+	ifmgd->uhr_omp.pending = 0;
+	ifmgd->uhr_omp.pending_init = 0;
+	wiphy_hrtimer_work_cancel(wiphy, &ifmgd->uhr_omp.status_work);
+}
+
 static void ieee80211_set_disassoc(struct ieee80211_sub_if_data *sdata,
 				   u16 stype, u16 reason, bool tx,
 				   u8 *frame_buf)
@@ -4646,8 +4689,6 @@ static void ieee80211_set_disassoc(struct ieee80211_sub_if_data *sdata,
 
 	if (WARN_ON(!ifmgd->associated))
 		return;
-
-	ieee80211_stop_poll(sdata);
 
 	ifmgd->associated = false;
 
@@ -4830,10 +4871,6 @@ static void ieee80211_set_disassoc(struct ieee80211_sub_if_data *sdata,
 	sdata->deflink.u.mgd.csa.ignored_same_chan = false;
 	ieee80211_vif_unblock_queues_csa(sdata);
 
-	/* existing TX TSPEC sessions no longer exist */
-	memset(ifmgd->tx_tspec, 0, sizeof(ifmgd->tx_tspec));
-	wiphy_delayed_work_cancel(local->hw.wiphy, &ifmgd->tx_tspec_wk);
-
 	sdata->vif.bss_conf.power_type = IEEE80211_REG_UNSET_AP;
 	sdata->vif.bss_conf.pwr_reduction = 0;
 	ieee80211_clear_tpe(&sdata->vif.bss_conf.tpe);
@@ -4842,39 +4879,14 @@ static void ieee80211_set_disassoc(struct ieee80211_sub_if_data *sdata,
 	sdata->vif.cfg.eml_med_sync_delay = 0;
 	sdata->vif.cfg.mld_capa_op = 0;
 
-	memset(&sdata->u.mgd.ttlm_info, 0,
-	       sizeof(sdata->u.mgd.ttlm_info));
-	wiphy_hrtimer_work_cancel(sdata->local->hw.wiphy, &ifmgd->ttlm_work);
-
-	memset(&sdata->vif.neg_ttlm, 0, sizeof(sdata->vif.neg_ttlm));
-	wiphy_delayed_work_cancel(sdata->local->hw.wiphy,
-				  &ifmgd->neg_ttlm_timeout_work);
-
-	sdata->u.mgd.removed_links = 0;
-	wiphy_hrtimer_work_cancel(sdata->local->hw.wiphy,
-				  &sdata->u.mgd.ml_reconf_work);
-
-	wiphy_work_cancel(sdata->local->hw.wiphy,
-			  &ifmgd->teardown_ttlm_work);
-
-	/* if disconnection happens in the middle of the ML reconfiguration
-	 * flow, cfg80211 must called to release the BSS references obtained
-	 * when the flow started.
-	 */
-	ieee80211_ml_reconf_reset(sdata);
+	ieee80211_mgd_reset_ap_state(sdata);
 
 	ieee80211_vif_set_links(sdata, 0, 0);
 
-	ifmgd->mcast_seq_last = IEEE80211_SN_MODULO;
-
 	ifmgd->epcs.enabled = false;
-	ifmgd->epcs.dialog_token = 0;
 
 	memset(ifmgd->userspace_selectors, 0,
 	       sizeof(ifmgd->userspace_selectors));
-
-	ifmgd->uhr_omp.pending = 0;
-	ifmgd->uhr_omp.pending_init = 0;
 }
 
 static void ieee80211_reset_ap_probe(struct ieee80211_sub_if_data *sdata)
