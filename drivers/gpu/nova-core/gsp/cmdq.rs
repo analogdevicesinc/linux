@@ -15,6 +15,7 @@ use kernel::{
     io::{
         io_project,
         poll::read_poll_timeout,
+        register::Array,
         Io, //
     },
     new_mutex,
@@ -496,7 +497,10 @@ impl<'cmdq> Cmdq<'cmdq> {
 
     /// Notifies the GSP that we have updated the command queue pointers.
     fn notify_gsp(bar: Bar0<'_>) {
-        bar.write_reg(regs::NV_PGSP_QUEUE_HEAD::zeroed().with_address(0u32));
+        bar.write(
+            Array::at(0),
+            regs::NV_PGSP_QUEUE_HEAD::zeroed().with_address(0u32),
+        );
     }
 
     /// Logs and consumes every message the GSP has already posted, and returns without waiting for
