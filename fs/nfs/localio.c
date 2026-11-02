@@ -82,6 +82,25 @@ static const struct kernel_param_ops localio_enabled_ops = {
 };
 module_param_cb(localio_enabled, &localio_enabled_ops, &localio_enabled, 0644);
 
+/*
+ * Seconds the LOCALIO probe waits for each reply.  With 0, the probe uses
+ * the NFS client's timeouts instead.
+ */
+static unsigned int localio_timeout __read_mostly = 10;
+
+static int localio_timeout_set(const char *val, const struct kernel_param *kp)
+{
+	return param_set_uint_minmax(val, kp, 0, 600);
+}
+
+static const struct kernel_param_ops localio_timeout_ops = {
+	.set = localio_timeout_set,
+	.get = param_get_uint,
+};
+module_param_cb(localio_timeout, &localio_timeout_ops, &localio_timeout, 0644);
+MODULE_PARM_DESC(localio_timeout,
+		 "LOCALIO probe timeout in seconds (default 10), 0 to use the mount's default");
+
 static void nfs_local_do_read(struct nfs_local_kiocb *iocb,
 			      const struct rpc_call_ops *call_ops);
 static void nfs_local_do_write(struct nfs_local_kiocb *iocb,
@@ -156,13 +175,45 @@ const struct rpc_program nfslocalio_program = {
 
 /*
  * nfs_init_localioclient - Initialise an NFS localio client connection
+ *
+ * A server that does not support LOCALIO may not answer its RPCs at all.
+ * The probe shares the NFS client's transport and runs beside its RPCs.
+ * With localio_timeout set, it gets a quiet, soft timeout of that many
+ * seconds of its own, whatever timeouts the mount uses.  With 0, it uses
+ * the NFS client's timeouts, as an NFS RPC would.
  */
 static struct rpc_clnt *nfs_init_localioclient(struct nfs_client *clp)
 {
-	struct rpc_clnt *rpcclient_localio;
+	unsigned int timeout_secs = READ_ONCE(localio_timeout);
+	struct rpc_clnt *parent = clp->cl_rpcclient;
+	struct rpc_clnt *probe = NULL, *rpcclient_localio;
 
-	rpcclient_localio = rpc_bind_new_program(clp->cl_rpcclient,
-						 &nfslocalio_program, 1);
+	/*
+	 * rpc_bind_new_program() pings the new program with the timeout of
+	 * the client it clones, so set the probe's timeout on a private
+	 * clone first.  The clone's cl_timeout points at the transport's
+	 * timeout: give it its own copy rather than write through it.
+	 */
+	if (timeout_secs) {
+		probe = rpc_clone_client(parent);
+		if (IS_ERR(probe))
+			return probe;
+		probe->cl_timeout_default = (struct rpc_timeout) {
+			.to_initval	= timeout_secs * HZ,
+			.to_maxval	= timeout_secs * HZ,
+			.to_retries	= 0,
+		};
+		probe->cl_timeout = &probe->cl_timeout_default;
+		probe->cl_softrtry = 1;
+		probe->cl_noretranstimeo = 0;
+		probe->cl_chatty = 0;
+		parent = probe;
+	}
+
+	rpcclient_localio = rpc_bind_new_program(parent, &nfslocalio_program, 1);
+	/* The new client holds a reference to its parent, the probe clone */
+	if (probe)
+		rpc_shutdown_client(probe);
 
 	dprintk_rcu("%s: server (%s) %s NFS LOCALIO.\n",
 		__func__, rpc_peeraddr2str(clp->cl_rpcclient, RPC_DISPLAY_ADDR),
