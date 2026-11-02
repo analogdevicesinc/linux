@@ -2398,6 +2398,8 @@ ieee80211_mgmt_ba(struct sk_buff *skb, const u8 *da,
 
 int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
 				   enum ieee80211_agg_stop_reason reason);
+void ieee80211_sta_stop_tx_ba_sessions(struct sta_info *sta,
+				       enum ieee80211_agg_stop_reason reason);
 void ieee80211_start_tx_ba_cb(struct sta_info *sta, int tid,
 			      struct tid_ampdu_tx *tid_tx);
 void ieee80211_stop_tx_ba_cb(struct sta_info *sta, int tid,

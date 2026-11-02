@@ -285,18 +285,16 @@ static void ieee80211_remove_tid_tx(struct sta_info *sta, int tid)
 	kfree_rcu(tid_tx, rcu_head);
 }
 
-int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
-				   enum ieee80211_agg_stop_reason reason)
+/* returns 1 if the driver must be notified after synchronize_net() */
+static int ieee80211_stop_tx_ba_session_prep(struct sta_info *sta, u16 tid,
+					     enum ieee80211_agg_stop_reason reason)
 {
 	struct ieee80211_local *local = sta->local;
 	struct tid_ampdu_tx *tid_tx;
 	struct ieee80211_ampdu_params params = {
 		.sta = &sta->sta,
 		.tid = tid,
-		.buf_size = 0,
-		.amsdu = false,
-		.timeout = 0,
-		.ssn = 0,
+		.action = IEEE80211_AMPDU_TX_STOP_FLUSH_CONT,
 	};
 	int ret;
 
@@ -306,10 +304,7 @@ int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
 	case AGG_STOP_DECLINED:
 	case AGG_STOP_LOCAL_REQUEST:
 	case AGG_STOP_PEER_REQUEST:
-		params.action = IEEE80211_AMPDU_TX_STOP_CONT;
-		break;
 	case AGG_STOP_DESTROY_STA:
-		params.action = IEEE80211_AMPDU_TX_STOP_FLUSH;
 		break;
 	default:
 		WARN_ON_ONCE(1);
@@ -337,7 +332,6 @@ int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
 		spin_unlock_bh(&sta->lock);
 		if (reason != AGG_STOP_DESTROY_STA)
 			return -EALREADY;
-		params.action = IEEE80211_AMPDU_TX_STOP_FLUSH_CONT;
 		ret = drv_ampdu_action(local, sta->sdata, &params);
 		WARN_ON_ONCE(ret);
 		return 0;
@@ -370,35 +364,32 @@ int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
 	 */
 	clear_bit(HT_AGG_STATE_OPERATIONAL, &tid_tx->state);
 
-	/*
-	 * There might be a few packets being processed right now (on
-	 * another CPU) that have already gotten past the aggregation
-	 * check when it was still OPERATIONAL and consequently have
-	 * IEEE80211_TX_CTL_AMPDU set. In that case, this code might
-	 * call into the driver at the same time or even before the
-	 * TX paths calls into it, which could confuse the driver.
-	 *
-	 * Wait for all currently running TX paths to finish before
-	 * telling the driver. New packets will not go through since
-	 * the aggregation session is no longer OPERATIONAL.
-	 */
-	if (!local->in_reconfig)
-		synchronize_net();
-
 	tid_tx->stop_initiator = reason == AGG_STOP_PEER_REQUEST ?
 					WLAN_BACK_RECIPIENT :
 					WLAN_BACK_INITIATOR;
 	tid_tx->tx_stop = reason == AGG_STOP_LOCAL_REQUEST;
 
-	ret = drv_ampdu_action(local, sta->sdata, &params);
+	return 1;
+}
 
-	/* HW shall not deny going back to legacy */
-	if (WARN_ON(ret)) {
-		/*
-		 * We may have pending packets get stuck in this case...
-		 * Not bothering with a workaround for now.
-		 */
-	}
+static void ieee80211_stop_tx_ba_session_finish(struct sta_info *sta, u16 tid,
+						enum ieee80211_agg_stop_reason reason)
+{
+	struct ieee80211_ampdu_params params = {
+		.sta = &sta->sta,
+		.tid = tid,
+		.action = reason == AGG_STOP_DESTROY_STA ?
+				IEEE80211_AMPDU_TX_STOP_FLUSH :
+				IEEE80211_AMPDU_TX_STOP_CONT,
+	};
+
+	lockdep_assert_wiphy(sta->local->hw.wiphy);
+
+	/*
+	 * HW shall not deny going back to legacy. If it does, we may have
+	 * pending packets get stuck, not bothering with a workaround for now.
+	 */
+	WARN_ON(drv_ampdu_action(sta->local, sta->sdata, &params));
 
 	/*
 	 * In the case of AGG_STOP_DESTROY_STA, the driver won't
@@ -409,8 +400,55 @@ int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
 	 * leaving it around ensures that we don't transmit packets
 	 * to the driver on this TID which might confuse it.
 	 */
+}
+
+/*
+ * There might be a few packets being processed right now (on another CPU)
+ * that have already gotten past the aggregation check when it was still
+ * OPERATIONAL and consequently have IEEE80211_TX_CTL_AMPDU set. In that
+ * case, telling the driver might happen at the same time or even before
+ * the TX paths calls into it, which could confuse the driver.
+ *
+ * Therefore, stopping is split into the _prep() part that clears the
+ * OPERATIONAL bit, and the _finish() part that tells the driver, and
+ * all currently running TX paths must have finished in between. New
+ * packets will not go through since the session is no longer OPERATIONAL.
+ */
+int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
+				   enum ieee80211_agg_stop_reason reason)
+{
+	int ret = ieee80211_stop_tx_ba_session_prep(sta, tid, reason);
+
+	if (ret <= 0)
+		return ret;
+
+	if (!sta->local->in_reconfig)
+		synchronize_net();
+
+	ieee80211_stop_tx_ba_session_finish(sta, tid, reason);
 
 	return 0;
+}
+
+void ieee80211_sta_stop_tx_ba_sessions(struct sta_info *sta,
+				       enum ieee80211_agg_stop_reason reason)
+{
+	unsigned long tids = 0;
+	int tid;
+
+	for (tid = 0; tid < IEEE80211_NUM_TIDS; tid++) {
+		if (ieee80211_stop_tx_ba_session_prep(sta, tid, reason) > 0)
+			__set_bit(tid, &tids);
+	}
+
+	if (!tids)
+		return;
+
+	if (!sta->local->in_reconfig)
+		synchronize_net();
+
+	for_each_set_bit(tid, &tids, IEEE80211_NUM_TIDS)
+		ieee80211_stop_tx_ba_session_finish(sta, tid, reason);
 }
 
 /*

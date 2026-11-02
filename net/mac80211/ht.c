@@ -296,8 +296,7 @@ void ieee80211_sta_tear_down_BA_sessions(struct sta_info *sta,
 					       reason != AGG_STOP_DESTROY_STA &&
 					       reason != AGG_STOP_PEER_REQUEST);
 
-	for (i = 0; i <  IEEE80211_NUM_TIDS; i++)
-		__ieee80211_stop_tx_ba_session(sta, i, reason);
+	ieee80211_sta_stop_tx_ba_sessions(sta, reason);
 
 	/*
 	 * In case the tear down is part of a reconfigure due to HW restart

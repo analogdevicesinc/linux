@@ -324,7 +324,6 @@ static void ieee80211_pairwise_rekey(struct ieee80211_key *old,
 {
 	struct ieee80211_local *local = new->local;
 	struct sta_info *sta = new->sta;
-	int i;
 
 	lockdep_assert_wiphy(local->hw.wiphy);
 
@@ -343,9 +342,8 @@ static void ieee80211_pairwise_rekey(struct ieee80211_key *old,
 			 * job done for the few ms we need it.)
 			 */
 			set_sta_flag(sta, WLAN_STA_BLOCK_BA);
-			for (i = 0; i <  IEEE80211_NUM_TIDS; i++)
-				__ieee80211_stop_tx_ba_session(sta, i,
-							       AGG_STOP_LOCAL_REQUEST);
+			ieee80211_sta_stop_tx_ba_sessions(sta,
+							  AGG_STOP_LOCAL_REQUEST);
 		}
 	} else if (old) {
 		/* Rekey without Extended Key ID.
