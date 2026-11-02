@@ -1403,9 +1403,9 @@ bool fib_lookup_good_nhc(const struct fib_nh_common *nhc, int fib_flags,
 	if (nhc->nhc_flags & RTNH_F_DEAD)
 		return false;
 
-	if (ip_ignore_linkdown(nhc->nhc_dev) &&
-	    nhc->nhc_flags & RTNH_F_LINKDOWN &&
-	    !(fib_flags & FIB_LOOKUP_IGNORE_LINKSTATE))
+	if (nhc->nhc_flags & RTNH_F_LINKDOWN &&
+	    !(fib_flags & FIB_LOOKUP_IGNORE_LINKSTATE) &&
+	    ip_ignore_linkdown(nhc->nhc_dev))
 		return false;
 
 	if (flp->flowi4_oif && flp->flowi4_oif != nhc->nhc_oif)
