@@ -57,10 +57,12 @@ enum xe_sysctrl_gfsp_cmd {
  *
  * @XE_SYSCTRL_CMD_LOOPBACK: Loopback test command
  * @XE_SYSCTRL_CMD_GET_APP_STATUS_BY_ID: Retrieve application status by ID
+ * @XE_SYSCTRL_CMD_SDK_API_VERSION: Get SDK API version
  */
 enum xe_sysctrl_core_cmd {
 	XE_SYSCTRL_CMD_LOOPBACK				= 0x03,
 	XE_SYSCTRL_CMD_GET_APP_STATUS_BY_ID		= 0x05,
+	XE_SYSCTRL_CMD_SDK_API_VERSION			= 0x06,
 };
 
 /**
@@ -125,6 +127,16 @@ enum xe_sysctrl_fw_status {
 	XE_SYSCTRL_FIRMWARE_APP_INITIALIZED,
 	XE_SYSCTRL_FIRMWARE_COMM_FAILURE,
 };
+
+/**
+ * struct xe_sysctrl_sdk_api_resp - Get sdk api version response
+ */
+struct xe_sysctrl_sdk_api_resp {
+	/** @sdk_api_version: SDK API version */
+	u16 sdk_api_version;
+	/** @reserved: Reserved for future use */
+	u16 reserved;
+} __packed;
 
 /**
  * struct xe_sysctrl_mailbox_command - System Controller mailbox command

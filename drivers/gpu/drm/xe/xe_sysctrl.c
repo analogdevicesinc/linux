@@ -217,3 +217,35 @@ bool xe_sysctrl_is_diag_fw_ready(struct xe_device *xe)
 	return xe_sysctrl_check_app_status(xe, XE_SYSCTRL_APP_DIAG) ==
 	       XE_SYSCTRL_FIRMWARE_APP_INITIALIZED;
 }
+
+/**
+ * xe_sysctrl_sdk_api_version - Get SDK API version
+ * @xe: Xe device
+ * @version: SDK API version
+ *
+ * Return: 0 on success, negative error code on failure.
+ */
+int xe_sysctrl_sdk_api_version(struct xe_device *xe, u16 *version)
+{
+	struct xe_sysctrl_sdk_api_resp resp = {};
+	struct xe_sysctrl_mailbox_command cmd = {};
+	size_t out_len = 0;
+	int ret;
+
+	xe_sysctrl_create_command(&cmd, XE_SYSCTRL_GROUP_CORE, XE_SYSCTRL_CMD_SDK_API_VERSION,
+				  0, 0, &resp, sizeof(resp));
+
+	ret = xe_sysctrl_send_command(&xe->sc, &cmd, &out_len);
+	if (ret)
+		return ret;
+
+	if (out_len != sizeof(resp)) {
+		xe_err(xe, "sysctrl: unexpected SDK API version length %zu (expected %zu)\n",
+		       out_len, sizeof(resp));
+		return -EPROTO;
+	}
+
+	*version = resp.sdk_api_version;
+
+	return 0;
+}
