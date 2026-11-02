@@ -69,25 +69,18 @@ static const struct {
 	},
 };
 
-static IIO_CONST_ATTR(temp_integration_time_available,
-		"0.00365 0.00635");
-
-static IIO_CONST_ATTR(humidityrelative_integration_time_available,
-		"0.0025 0.00385 0.0065");
-
-static IIO_CONST_ATTR(out_current_heater_raw_available,
-		"0 1");
-
-static struct attribute *hdc100x_attributes[] = {
-	&iio_const_attr_temp_integration_time_available.dev_attr.attr,
-	&iio_const_attr_humidityrelative_integration_time_available.dev_attr.attr,
-	&iio_const_attr_out_current_heater_raw_available.dev_attr.attr,
-	NULL
+static const int hdc100x_temp_int_time_avail[] = {
+	0, 3650,
+	0, 6350,
 };
 
-static const struct attribute_group hdc100x_attribute_group = {
-	.attrs = hdc100x_attributes,
+static const int hdc100x_humidity_int_time_avail[] = {
+	0, 2500,
+	0, 3850,
+	0, 6500,
 };
+
+static const int hdc100x_heater_avail[] = { 0, 1 };
 
 static const struct iio_chan_spec hdc100x_channels[] = {
 	{
@@ -97,6 +90,7 @@ static const struct iio_chan_spec hdc100x_channels[] = {
 			BIT(IIO_CHAN_INFO_SCALE) |
 			BIT(IIO_CHAN_INFO_INT_TIME) |
 			BIT(IIO_CHAN_INFO_OFFSET),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_INT_TIME),
 		.scan_index = 0,
 		.scan_type = {
 			.sign = 's',
@@ -111,6 +105,7 @@ static const struct iio_chan_spec hdc100x_channels[] = {
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 			BIT(IIO_CHAN_INFO_SCALE) |
 			BIT(IIO_CHAN_INFO_INT_TIME),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_INT_TIME),
 		.scan_index = 1,
 		.scan_type = {
 			.sign = 'u',
@@ -122,6 +117,7 @@ static const struct iio_chan_spec hdc100x_channels[] = {
 	{
 		.type = IIO_CURRENT,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_RAW),
 		.extend_name = "heater",
 		.output = 1,
 		.scan_index = -1,
@@ -328,10 +324,41 @@ err:
 	return IRQ_HANDLED;
 }
 
+static int hdc100x_read_avail(struct iio_dev *indio_dev,
+			      struct iio_chan_spec const *chan,
+			      const int **vals, int *type, int *length,
+			      long mask)
+{
+	switch (mask) {
+	case IIO_CHAN_INFO_INT_TIME:
+		switch (chan->type) {
+		case IIO_TEMP:
+			*vals = hdc100x_temp_int_time_avail;
+			*length = ARRAY_SIZE(hdc100x_temp_int_time_avail);
+			break;
+		case IIO_HUMIDITYRELATIVE:
+			*vals = hdc100x_humidity_int_time_avail;
+			*length = ARRAY_SIZE(hdc100x_humidity_int_time_avail);
+			break;
+		default:
+			return -EINVAL;
+		}
+		*type = IIO_VAL_INT_PLUS_MICRO;
+		return IIO_AVAIL_LIST;
+	case IIO_CHAN_INFO_RAW:
+		*vals = hdc100x_heater_avail;
+		*type = IIO_VAL_INT;
+		*length = ARRAY_SIZE(hdc100x_heater_avail);
+		return IIO_AVAIL_LIST;
+	default:
+		return -EINVAL;
+	}
+}
+
 static const struct iio_info hdc100x_info = {
 	.read_raw = hdc100x_read_raw,
 	.write_raw = hdc100x_write_raw,
-	.attrs = &hdc100x_attribute_group,
+	.read_avail = hdc100x_read_avail,
 };
 
 static int hdc100x_probe(struct i2c_client *client)
