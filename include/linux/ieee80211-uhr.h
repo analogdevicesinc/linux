@@ -612,17 +612,6 @@ ieee80211_uhr_dbe_cap(const struct ieee80211_uhr_cap *cap)
 	return (const void *)cap->variable;
 }
 
-#define IEEE80211_SMD_INFO_CAPA_DL_DATA_FWD		0x01
-#define IEEE80211_SMD_INFO_CAPA_MAX_NUM_PREP		0x0E
-#define IEEE80211_SMD_INFO_CAPA_TYPE			0x10
-#define IEEE80211_SMD_INFO_CAPA_PTK_PER_AP_MLD		0x20
-
-struct ieee80211_smd_info {
-	u8 id[ETH_ALEN];
-	u8 capa;
-	__le16 timeout;
-} __packed;
-
 enum ieee80211_protected_uhr_action {
 	IEEE80211_PROTECTED_UHR_ACTION_LINK_RECONFIG_REQUEST	= 0,
 	IEEE80211_PROTECTED_UHR_ACTION_LINK_RECONFIG_RESPONSE	= 1,
