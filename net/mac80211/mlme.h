@@ -32,6 +32,21 @@ void ieee80211_determine_our_sta_mode(struct ieee80211_sub_if_data *sdata,
 				      struct cfg80211_assoc_request *req,
 				      bool wmm_used, int link_id,
 				      struct ieee80211_conn_settings *conn);
+
+struct ieee80211_assoc_config_link_params {
+	struct link_sta_info *link_sta;
+	struct cfg80211_bss *cbss;
+	struct ieee80211_mgmt *mgmt;
+	enum ieee80211_parse_action_frame action_frame;
+	const u8 *elem_start;
+	unsigned int elem_len;
+	bool skip_bw_check;
+};
+
+bool ieee80211_assoc_config_link(struct ieee80211_mgd_assoc_data *assoc_data,
+				 struct ieee80211_link_data *link,
+				 const struct ieee80211_assoc_config_link_params *params,
+				 u64 *changed);
 int ieee80211_calc_channel(struct ieee80211_sub_if_data *sdata,
 			   struct ieee80211_link_data *link,
 			   struct link_sta_info *link_sta, int link_id,

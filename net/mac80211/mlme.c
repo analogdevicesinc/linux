@@ -1710,8 +1710,6 @@ static int ieee80211_config_bw(struct ieee80211_link_data *link,
 	u16 ht_opmode;
 	int ret;
 
-	memset(out, 0, sizeof(*out));
-
 	switch (stype) {
 	case IEEE80211_STYPE_BEACON:
 		frame = "beacon";
@@ -5975,33 +5973,32 @@ static void ieee80211_epcs_teardown(struct ieee80211_sub_if_data *sdata)
 	}
 }
 
-static bool ieee80211_assoc_config_link(struct ieee80211_link_data *link,
-					struct link_sta_info *link_sta,
-					struct cfg80211_bss *cbss,
-					struct ieee80211_mgmt *mgmt,
-					const u8 *elem_start,
-					unsigned int elem_len,
-					u64 *changed)
+bool ieee80211_assoc_config_link(struct ieee80211_mgd_assoc_data *assoc_data,
+				 struct ieee80211_link_data *link,
+				 const struct ieee80211_assoc_config_link_params *params,
+				 u64 *changed)
 {
+	struct link_sta_info *link_sta = params->link_sta;
+	struct cfg80211_bss *cbss = params->cbss;
+	struct ieee80211_mgmt *mgmt = params->mgmt;
 	struct ieee80211_sub_if_data *sdata = link->sdata;
-	struct ieee80211_mgd_assoc_data *assoc_data =
-		sdata->u.mgd.assoc_data ?: sdata->u.mgd.reconf.add_links_data;
 	struct ieee80211_bss_conf *bss_conf = link->conf;
 	struct ieee80211_local *local = sdata->local;
 	unsigned int link_id = link->link_id;
 	struct ieee80211_elems_parse_params parse_params = {
 		.mode = link->u.mgd.conn.mode,
-		.start = elem_start,
-		.len = elem_len,
+		.start = params->elem_start,
+		.len = params->elem_len,
 		.link_id = link_id == assoc_data->assoc_link_id ? -1 : link_id,
 		.from_ap = true,
 		.type = le16_to_cpu(mgmt->frame_control) & IEEE80211_FCTL_TYPE,
+		.action_frame = params->action_frame,
 	};
 	bool is_5ghz = cbss->channel->band == NL80211_BAND_5GHZ;
 	bool is_6ghz = cbss->channel->band == NL80211_BAND_6GHZ;
 	bool is_s1g = cbss->channel->band == NL80211_BAND_S1GHZ;
 	const struct cfg80211_bss_ies *bss_ies = NULL;
-	struct ieee80211_config_bw_out config_bw_out;
+	struct ieee80211_config_bw_out config_bw_out = {};
 	struct ieee802_11_elems *bss_elems = NULL;
 	struct ieee80211_supported_band *sband;
 	struct ieee802_11_elems *elems;
@@ -6247,7 +6244,8 @@ static bool ieee80211_assoc_config_link(struct ieee80211_link_data *link,
 	}
 
 	/* check/update if AP changed anything in assoc response vs. scan */
-	if (ieee80211_config_bw(link, elems,
+	if (!params->skip_bw_check &&
+	    ieee80211_config_bw(link, elems,
 				link_id == assoc_data->assoc_link_id,
 				le16_to_cpu(mgmt->frame_control) &
 					IEEE80211_FCTL_STYPE,
@@ -7277,6 +7275,13 @@ static bool ieee80211_assoc_success(struct ieee80211_sub_if_data *sdata,
 
 	for (link_id = 0; link_id < IEEE80211_MLD_MAX_NUM_LINKS; link_id++) {
 		struct cfg80211_bss *cbss = assoc_data->link[link_id].bss;
+		struct ieee80211_assoc_config_link_params params = {
+			.cbss = cbss,
+			.mgmt = mgmt,
+			.action_frame = IEEE80211_PARSE_ACTION_FRAME_UNSPECIFIED,
+			.elem_start = elem_start,
+			.elem_len = elem_len,
+		};
 		struct ieee80211_link_data *link;
 		struct link_sta_info *link_sta;
 
@@ -7320,9 +7325,9 @@ static bool ieee80211_assoc_success(struct ieee80211_sub_if_data *sdata,
 		if (err)
 			goto out_err;
 
-		if (!ieee80211_assoc_config_link(link, link_sta,
-						 assoc_data->link[link_id].bss,
-						 mgmt, elem_start, elem_len,
+		params.link_sta = link_sta;
+		if (!ieee80211_assoc_config_link(sdata->u.mgd.assoc_data,
+						 link, &params,
 						 &changed[link_id]))
 			goto out_err;
 
@@ -8604,7 +8609,7 @@ static void ieee80211_rx_mgmt_beacon(struct ieee80211_link_data *link,
 	size_t baselen;
 	struct ieee802_11_elems *elems;
 	struct ieee80211_local *local = sdata->local;
-	struct ieee80211_config_bw_out config_bw_out;
+	struct ieee80211_config_bw_out config_bw_out = {};
 	struct ieee80211_chanctx_conf *chanctx_conf;
 	struct ieee80211_supported_band *sband;
 	struct ieee80211_channel *chan;
@@ -11598,6 +11603,13 @@ ieee80211_process_ml_reconf_resp(struct ieee80211_sub_if_data *sdata,
 	link_mask = 0;
 	for (link_id = 0; link_id < IEEE80211_MLD_MAX_NUM_LINKS; link_id++) {
 		struct cfg80211_bss *cbss = add_links_data->link[link_id].bss;
+		struct ieee80211_assoc_config_link_params params = {
+			.cbss = cbss,
+			.mgmt = mgmt,
+			.action_frame = IEEE80211_PARSE_ACTION_FRAME_UNSPECIFIED,
+			.elem_start = pos,
+			.elem_len = len,
+		};
 		struct ieee80211_link_data *link;
 		struct link_sta_info *link_sta;
 		u64 changed = 0;
@@ -11649,10 +11661,9 @@ ieee80211_process_ml_reconf_resp(struct ieee80211_sub_if_data *sdata,
 						 add_links_data->link[link_id].bss))
 			goto disconnect;
 
-		if (!ieee80211_assoc_config_link(link, link_sta,
-						 add_links_data->link[link_id].bss,
-						 mgmt, pos, len,
-						 &changed))
+		params.link_sta = link_sta;
+		if (!ieee80211_assoc_config_link(sdata->u.mgd.reconf.add_links_data,
+						 link, &params, &changed))
 			goto disconnect;
 
 		/* The AP MLD indicated success for this link, but the station
