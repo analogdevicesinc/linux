@@ -242,4 +242,185 @@ __naked void patch_list_may_goto_gotol(void)
 	: __clobber_all);
 }
 
+/*
+ * The aux data follows its insn: the verifier still knows which insn loads
+ * from the ctx when the dead code and the nops in front of it are gone.
+ */
+SEC("socket")
+__description("patch list: ctx access behind removed insns")
+__success __retval(50) /* TEST_DATA_LEN without the Ethernet header */
+__naked void patch_list_ctx_behind_removed(void)
+{
+	asm volatile (
+	"r0 = 0;"
+	"if r0 == 0 goto l0_%=;"
+	"r0 = 1;"
+	"r0 = 2;"
+"l0_%=:"
+	"goto +0;"
+	"r0 = *(u32 *)(r1 + %[len]);"
+	"exit;"
+	:
+	: __imm_const(len, offsetof(struct __sk_buff, len))
+	: __clobber_all);
+}
+
+__naked __noinline __used
+static unsigned long patch_list_loop_at_start(void)
+{
+	asm volatile (
+"l0_%=:"
+	"r1 += -1;"
+	".8byte %[may_goto];"
+	"if r1 != 0 goto l0_%=;"
+	"r0 = r1;"
+	"exit;"
+	:
+	: __imm_insn(may_goto, BPF_RAW_INSN(BPF_JMP | BPF_JCOND, 0, 0, 1 /* offset */, 0))
+	: __clobber_all);
+}
+
+/*
+ * The setup of the may_goto count goes in front of the function. The call
+ * lands on the setup, the jump to the first insn of the function behind it.
+ * This is the code for the JITs that support the timed may_goto.
+ */
+SEC("raw_tp")
+__description("patch list: call of and jump to an insn with insns inserted in front")
+__arch_x86_64
+__arch_s390x
+__arch_arm64
+__arch_riscv64
+__arch_loongarch
+__success
+__xlated("0: r1 = 3")
+__xlated("1: call pc+1")
+__xlated("2: exit")
+__xlated("3: *(u64 *)(r10 -16) = 65535")
+__xlated("4: *(u64 *)(r10 -8) = 0")
+__xlated("5: r1 += -1")
+__xlated("...")
+__xlated("13: if r1 != 0x0 goto pc-9")
+__xlated("14: r0 = r1")
+__xlated("15: exit")
+__naked void patch_list_insert_in_front(void)
+{
+	asm volatile (
+	"r1 = 3;"
+	"call patch_list_loop_at_start;"
+	"exit;"
+	::: __clobber_all);
+}
+
+__naked __noinline __used
+static unsigned long patch_list_never_called(void)
+{
+	asm volatile (
+	"r0 = 100;"
+	"exit;"
+	);
+}
+
+__naked __noinline __used
+static unsigned long patch_list_nop_add1(void)
+{
+	asm volatile (
+	"goto +0;"
+	"r0 = r1;"
+	"r0 += 1;"
+	"exit;"
+	);
+}
+
+/*
+ * A function goes away as dead code, the one behind it loses its first insn,
+ * and the caller both loses and gets insns in front of the call.
+ */
+SEC("socket")
+__description("patch list: call over removed and patched insns")
+__success __retval(11)
+__naked void patch_list_call_over_removed(void)
+{
+	asm volatile (
+	"r1 = 1;"
+	"if r1 == 1 goto l0_%=;"
+	"call patch_list_never_called;"
+"l0_%=:"
+	"goto +0;"
+	"r2 = 2;"
+	"r0 = 12;"
+	"r0 /= r2;"
+	"r6 = r0;"
+	"r1 = 4;"
+	"call patch_list_nop_add1;"
+	"r0 += r6;"
+	"exit;"
+	::: __clobber_all);
+}
+
+/*
+ * A goto or a may_goto that jumps over nops only is a nop. The nops are not
+ * dead code: may_goto falls through to its nop, 'if' jumps to the other one.
+ */
+SEC("raw_tp")
+__description("patch list: may_goto over a nop")
+__success
+__xlated("0: r0 = 1")
+__xlated("1: exit")
+__naked void patch_list_may_goto_over_nop(void)
+{
+	asm volatile (
+	".8byte %[may_goto];"
+	"goto +0;"
+	"r0 = 1;"
+	"exit;"
+	:
+	: __imm_insn(may_goto, BPF_RAW_INSN(BPF_JMP | BPF_JCOND, 0, 0, 1 /* offset */, 0))
+	: __clobber_all);
+}
+
+SEC("raw_tp")
+__description("patch list: goto over a nop")
+__success
+__xlated("0: r0 = *(u64 *)(r1 +0)")
+__xlated("1: if r0 == 0x0 goto pc+0")
+__xlated("2: r0 = 1")
+__xlated("3: exit")
+__naked void patch_list_goto_over_nop(void)
+{
+	asm volatile (
+	"r0 = *(u64 *)(r1 + 0);"
+	"if r0 == 0 goto l0_%=;"
+	"goto l1_%=;"
+"l0_%=:"
+	"goto +0;"
+"l1_%=:"
+	"r0 = 1;"
+	"exit;"
+	::: __clobber_all);
+}
+
+/* this goto also jumps over an insn that stays */
+SEC("raw_tp")
+__description("patch list: goto over a nop and an insn")
+__success
+__xlated("0: r0 = *(u64 *)(r1 +0)")
+__xlated("1: if r0 == 0x0 goto pc+1")
+__xlated("2: goto pc+1")
+__xlated("3: r0 = 1")
+__xlated("4: exit")
+__naked void patch_list_goto_over_nop_and_insn(void)
+{
+	asm volatile (
+	"r0 = *(u64 *)(r1 + 0);"
+	"if r0 == 0 goto l0_%=;"
+	"goto l1_%=;"
+"l0_%=:"
+	"goto +0;"
+	"r0 = 1;"
+"l1_%=:"
+	"exit;"
+	::: __clobber_all);
+}
+
 char _license[] SEC("license") = "GPL";
