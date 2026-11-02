@@ -4741,11 +4741,13 @@ struct ieee80211_prep_tx_info {
  *	Note that removal of link should always succeed, so the return value
  *	will be ignored in a removal only case.
  *	This callback can sleep.
- * @change_sta_links: Change the valid links of a station, similar to
+ * @change_sta_links: Change the active links of a station, similar to
  *	@change_vif_links. This callback can sleep.
- *	Note that a sta can also be inserted or removed with valid links,
- *	i.e. passed to @sta_add/@sta_state with sta->valid_links not zero.
- *	In fact, cannot change from having valid_links and not having them.
+ *	Note that a sta can also be inserted or removed with active links,
+ *	i.e. passed to @sta_add/@sta_state with sta->valid_links not zero
+ *	(note vif->active_links needs to be considered with sta->valid_links).
+ *	It cannot, in fact, change between having valid_links and not having
+ *	any, since it either represents an MLD or not.
  * @set_hw_timestamp: Enable/disable HW timestamping of TM/FTM frames. This is
  *	not restored at HW reset by mac80211 so drivers need to take care of
  *	that.

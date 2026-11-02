@@ -3507,6 +3507,10 @@ int ieee80211_sta_set_link_valid(struct sta_info *sta, unsigned int link_id)
 	 */
 	ieee80211_sta_recalc_aggregates(&sta->sta);
 
+	/*
+	 * Note: this is a no-op when new links are added that
+	 * aren't actually active in the vif.
+	 */
 	ret = drv_change_sta_links(sdata->local, sdata, &sta->sta,
 				   old_links, new_links);
 	if (ret) {
