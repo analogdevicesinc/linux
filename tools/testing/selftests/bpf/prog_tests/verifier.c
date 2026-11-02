@@ -6,6 +6,7 @@
 #include "arena_noarena.skel.h"
 #include "arena_kfunc_jit.skel.h"
 #include "cap_helpers.h"
+#include "sysctl_helpers.h"
 #include "cb_refs.skel.h"
 #include "verifier_aggregate_arg.skel.h"
 #include "verifier_aggregate_ret.skel.h"
@@ -288,8 +289,20 @@ void test_verifier_netfilter_ctx(void)        { RUN(verifier_netfilter_ctx); }
 void test_verifier_netfilter_retcode(void)    { RUN(verifier_netfilter_retcode); }
 void test_verifier_bpf_fastcall(void)         { RUN(verifier_bpf_fastcall); }
 void test_verifier_or_jmp32_k(void)           { RUN(verifier_or_jmp32_k); }
-/* Serial: the xlated code is another one while another test sets bpf_jit_harden */
-void serial_test_verifier_patch_list(void)    { RUN(verifier_patch_list); }
+/*
+ * Run serially with bpf_jit_harden at 0: blinding changes the xlated insns that
+ * the tests compare, and other tests set the sysctl.
+ */
+void serial_test_verifier_patch_list(void)
+{
+	const char *harden = "/proc/sys/net/core/bpf_jit_harden";
+	char old[16] = {};
+
+	if (sysctl_set_or_fail(harden, old, "0"))
+		return;
+	RUN(verifier_patch_list);
+	sysctl_set_or_fail(harden, NULL, old);
+}
 void test_verifier_percpu_addr(void)          { RUN(verifier_percpu_addr); }
 void test_verifier_precision(void)            { RUN(verifier_precision); }
 void test_verifier_prevent_map_lookup(void)   { RUN(verifier_prevent_map_lookup); }
