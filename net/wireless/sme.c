@@ -491,6 +491,8 @@ void cfg80211_wdev_release_link_bsses(struct wireless_dev *wdev, u16 link_mask)
 				 &wdev->links[link].client.current_bss->pub);
 		wdev->links[link].client.current_bss = NULL;
 	}
+
+	wdev->valid_links &= ~link_mask;
 }
 
 static int cfg80211_sme_get_conn_ies(struct wireless_dev *wdev,

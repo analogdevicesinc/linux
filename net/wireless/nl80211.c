@@ -22224,7 +22224,6 @@ void cfg80211_links_removed(struct net_device *dev, u16 link_mask)
 		return;
 
 	cfg80211_wdev_release_link_bsses(wdev, link_mask);
-	wdev->valid_links &= ~link_mask;
 
 	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
 	if (!msg)
