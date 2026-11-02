@@ -2087,6 +2087,7 @@ static int update_parent_effective_cpumask(struct cpuset *cs, int cmd,
 							     parent->effective_xcpus);
 			if (!cpumask_empty(tmp->addmask))
 				isolated_cpus_release(cs, tmp->addmask);
+			/* Expansion of parent's effective_xcpus is handled below */
 		}
 		if (nocpu) {
 			part_error = PERR_NOCPUS;
@@ -2096,10 +2097,33 @@ static int update_parent_effective_cpumask(struct cpuset *cs, int cmd,
 						     parent->effective_xcpus);
 		} else if ((parent_prs == PRS_ISOLATED) &&
 			   ((old_prs == PRS_ROOT) || (old_prs == -PRS_ROOT))) {
+			/* Parent partition state changed to PRS_ISOLATED */
 			part_error = PERR_ISOPARENT;
 			if (old_prs == PRS_ROOT) {
 				cpumask_copy(tmp->addmask, cs->effective_xcpus);
 				adding = true;
+			}
+		} else if (is_partition_valid(cs) &&
+			   !cpumask_equal(tmp->delmask, cs->effective_xcpus)) {
+			/*
+			 * If there is an expansion of parent's effective_xcpus,
+			 * we may take more xcpus from parent. The parent's
+			 * effective_cpus should still have active CPUs or nocpu
+			 * should have been set. We also need to do a
+			 * housekeeping check for an isolated child with root
+			 * parent to make sure that it won't exhaust all the
+			 * active housekeeping CPUs.
+			 */
+			cpumask_andnot(tmp->addmask, cs->effective_xcpus, tmp->delmask);
+			if ((parent_prs == PRS_ROOT) && (old_prs == PRS_ISOLATED) &&
+			    prstate_housekeeping_conflict(old_prs, parent_prs,
+							  tmp->delmask, tmp->addmask)) {
+				adding = cpumask_and(tmp->addmask, cs->effective_xcpus,
+						     tmp->delmask);
+				part_error = PERR_HKEEPING;
+			} else {
+				deleting = cpumask_andnot(tmp->delmask, tmp->delmask,
+							  cs->effective_xcpus);
 			}
 		} else if (is_partition_invalid(cs)) {
 			struct cgroup_subsys_state *css;
@@ -2337,12 +2361,12 @@ get_css:
 			update_parent_effective_cpumask(cp, partcmd_update, NULL, tmp);
 			/*
 			 * Capture current partition_root_state as it may have
-			 * changed. Recompute effective cpumask if changed.
+			 * changed. Always recompute effective cpumask as tmp->new_cpus
+			 * may be clobbered when update_sibling_cpumasks() is called
+			 * within update_parent_effective_cpumask().
 			 */
 			new_prs = cp->partition_root_state;
-			if (new_prs != old_prs) {
-				compute_effective_cpumask(tmp->new_cpus, cp, parent);
-			}
+			compute_effective_cpumask(tmp->new_cpus, cp, parent);
 		}
 
 		spin_lock_irq(&callback_lock);
