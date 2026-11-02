@@ -663,6 +663,10 @@
 			try-power-role = "sink";
 			op-sink-microwatt = <2600000>;
 			slow-charger-loop;
+			pd-revision = /bits/ 8 <0x03 0x01 0x01 0x08>;
+			cc-debounce-time-ms = <170>;
+			ps-source-off-time-ms = <870>;
+			sink-wait-cap-time-ms = <450>;
 			/*
 			 * max77759 operating in reverse boost mode (0xA) can
 			 * source up to 1.5A while extboost can only do ~1A.
