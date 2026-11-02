@@ -1459,12 +1459,69 @@ static int cxl_port_peer_distance(struct cxl_port *port, struct cxl_region *cxlr
 	return distance;
 }
 
+/*
+ * Get the parent interleave ways and granularity.
+ *
+ * For address bit routing, use power-of-2 math for switch ports.
+ * Root interleave ways of 3, 6, or 12 are normalized to 1, 2, or 4
+ * in @out_iw.
+ */
+static int cxl_port_parent_interleave(struct cxl_port *port,
+				      struct cxl_region *cxlr,
+				      int *out_iw, int *out_ig)
+{
+	struct cxl_port *parent_port = to_cxl_port(port->dev.parent);
+	struct cxl_root_decoder *cxlrd = cxlr->cxlrd;
+	struct cxl_region_params *p = &cxlr->params;
+	int parent_iw, parent_ig;
+
+	if (is_cxl_root(parent_port)) {
+		/*
+		 * Root decoder IG is always set to value in CFMWS which
+		 * may be different than this region's IG.  We can use the
+		 * region's IG here since interleave_granularity_store()
+		 * does not allow interleaved host-bridges with
+		 * root IG != region IG.
+		 */
+		parent_ig = p->interleave_granularity;
+		parent_iw = cxlrd->cxlsd.cxld.interleave_ways;
+		if (!is_power_of_2(parent_iw))
+			parent_iw /= 3;
+	} else {
+		struct cxl_region_ref *parent_rr;
+		struct cxl_decoder *parent_cxld;
+
+		parent_rr = cxl_rr_load(parent_port, cxlr);
+		parent_cxld = parent_rr->decoder;
+		parent_ig = parent_cxld->interleave_granularity;
+		parent_iw = parent_cxld->interleave_ways;
+	}
+
+	if (!granularity_valid(parent_ig)) {
+		dev_dbg(&cxlr->dev, "%s:%s: invalid parent granularity: %d\n",
+			dev_name(parent_port->uport_dev),
+			dev_name(&parent_port->dev), parent_ig);
+		return -EINVAL;
+	}
+
+	if (!ways_valid(parent_iw)) {
+		dev_dbg(&cxlr->dev, "%s:%s: invalid parent interleave: %d\n",
+			dev_name(parent_port->uport_dev),
+			dev_name(&parent_port->dev), parent_iw);
+		return -EINVAL;
+	}
+
+	*out_iw = parent_iw;
+	*out_ig = parent_ig;
+
+	return 0;
+}
+
 static int cxl_switch_port_setup_targets(struct cxl_switch_decoder *cxlsd,
 					 struct cxl_region *cxlr,
 					 struct cxl_endpoint_decoder *cxled)
 {
 	struct cxl_port *port = to_cxl_port(cxlsd->cxld.dev.parent);
-	struct cxl_root_decoder *cxlrd = cxlr->cxlrd;
 	int parent_iw, parent_ig, ig, iw, rc, pos = cxled->pos;
 	struct cxl_port *parent_port = to_cxl_port(port->dev.parent);
 	struct cxl_region_ref *cxl_rr = cxl_rr_load(port, cxlr);
@@ -1498,45 +1555,9 @@ static int cxl_switch_port_setup_targets(struct cxl_switch_decoder *cxlsd,
 		goto add_target;
 	}
 
-	if (is_cxl_root(parent_port)) {
-		/*
-		 * Root decoder IG is always set to value in CFMWS which
-		 * may be different than this region's IG.  We can use the
-		 * region's IG here since interleave_granularity_store()
-		 * does not allow interleaved host-bridges with
-		 * root IG != region IG.
-		 */
-		parent_ig = p->interleave_granularity;
-		parent_iw = cxlrd->cxlsd.cxld.interleave_ways;
-		/*
-		 * For purposes of address bit routing, use power-of-2 math for
-		 * switch ports.
-		 */
-		if (!is_power_of_2(parent_iw))
-			parent_iw /= 3;
-	} else {
-		struct cxl_region_ref *parent_rr;
-		struct cxl_decoder *parent_cxld;
-
-		parent_rr = cxl_rr_load(parent_port, cxlr);
-		parent_cxld = parent_rr->decoder;
-		parent_ig = parent_cxld->interleave_granularity;
-		parent_iw = parent_cxld->interleave_ways;
-	}
-
-	if (!granularity_valid(parent_ig)) {
-		dev_dbg(&cxlr->dev, "%s:%s: invalid parent granularity: %d\n",
-			dev_name(parent_port->uport_dev),
-			dev_name(&parent_port->dev), parent_ig);
-		return -EINVAL;
-	}
-
-	if (!ways_valid(parent_iw)) {
-		dev_dbg(&cxlr->dev, "%s:%s: invalid parent interleave: %d\n",
-			dev_name(parent_port->uport_dev),
-			dev_name(&parent_port->dev), parent_iw);
-		return -EINVAL;
-	}
+	rc = cxl_port_parent_interleave(port, cxlr, &parent_iw, &parent_ig);
+	if (rc)
+		return rc;
 
 	iw = cxl_rr->nr_targets;
 	if (!ways_valid(iw)) {
