@@ -537,6 +537,16 @@ static int netcons_netpoll_setup(struct netconsole_target *nt)
 		rtnl_unlock();
 		netcons_wait_carrier(np, ndev);
 		rtnl_lock();
+
+		/* Check that ndev hasn't been unregistered when we released
+		 * the RTNL above.
+		 */
+		if (ndev->reg_state != NETREG_REGISTERED) {
+			np_err(np, "%s was unregistered while waiting for carrier, aborting\n",
+			       netcons_egress_dev(np, buf, sizeof(buf)));
+			err = -ENODEV;
+			goto put;
+		}
 	}
 
 	if (nt->local_ip.family == AF_UNSPEC) {
