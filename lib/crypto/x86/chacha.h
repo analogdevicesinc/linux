@@ -39,9 +39,14 @@ asmlinkage void chacha_8block_xor_avx512vl(const struct chacha_state *state,
 					   u8 *dst, const u8 *src, size_t len,
 					   int nrounds);
 
+asmlinkage void chacha_16block_xor_avx512(const struct chacha_state *state,
+					  u8 *dst, const u8 *src, size_t len,
+					  int nrounds);
+
 static __ro_after_init DEFINE_STATIC_KEY_FALSE(chacha_use_simd);
 static __ro_after_init DEFINE_STATIC_KEY_FALSE(chacha_use_avx2);
 static __ro_after_init DEFINE_STATIC_KEY_FALSE(chacha_use_avx512vl);
+static __ro_after_init DEFINE_STATIC_KEY_FALSE(chacha_use_avx512);
 
 static size_t chacha_advance(size_t len, size_t maxblocks)
 {
@@ -52,6 +57,23 @@ static size_t chacha_advance(size_t len, size_t maxblocks)
 static void chacha_dosimd(struct chacha_state *state, u8 *dst, const u8 *src,
 			  size_t bytes, int nrounds)
 {
+	if (static_branch_likely(&chacha_use_avx512)) {
+		while (bytes >= CHACHA_BLOCK_SIZE * 16) {
+			chacha_16block_xor_avx512(state, dst, src, bytes,
+						  nrounds);
+			bytes -= CHACHA_BLOCK_SIZE * 16;
+			src += CHACHA_BLOCK_SIZE * 16;
+			dst += CHACHA_BLOCK_SIZE * 16;
+			state->x[12] += 16;
+		}
+		if (bytes > CHACHA_BLOCK_SIZE * 8) {
+			chacha_16block_xor_avx512(state, dst, src, bytes,
+						  nrounds);
+			state->x[12] += chacha_advance(bytes, 16);
+			return;
+		}
+	}
+
 	if (static_branch_likely(&chacha_use_avx512vl)) {
 		while (bytes >= CHACHA_BLOCK_SIZE * 8) {
 			chacha_8block_xor_avx512vl(state, dst, src, bytes,
@@ -169,7 +191,11 @@ static void chacha_mod_init_arch(void)
 		static_branch_enable(&chacha_use_avx2);
 
 		if (boot_cpu_has(X86_FEATURE_AVX512VL) &&
-		    boot_cpu_has(X86_FEATURE_AVX512BW)) /* kmovq */
+		    boot_cpu_has(X86_FEATURE_AVX512BW)) { /* kmovq */
 			static_branch_enable(&chacha_use_avx512vl);
+
+			if (!boot_cpu_has(X86_FEATURE_PREFER_YMM))
+				static_branch_enable(&chacha_use_avx512);
+		}
 	}
 }
