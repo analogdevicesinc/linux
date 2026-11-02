@@ -275,6 +275,8 @@ static void *qcom_pas_tee_get_rsc_table(struct device *dev,
 			rt_buf = kmemdup(rt_shm_va, *output_rt_size, GFP_KERNEL);
 			if (!rt_buf)
 				return ERR_PTR(-ENOMEM);
+		} else {
+			*output_rt_size = 0;
 		}
 	} else {
 		*output_rt_size = 0;
