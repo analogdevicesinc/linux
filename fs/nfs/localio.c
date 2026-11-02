@@ -25,6 +25,7 @@
 #include <linux/nfs_xdr.h>
 
 #include "internal.h"
+#include "netns.h"
 #include "pnfs.h"
 #include "nfstrace.h"
 
@@ -55,7 +56,31 @@ struct nfs_local_fsync_ctx {
 };
 
 static bool localio_enabled __read_mostly = true;
-module_param(localio_enabled, bool, 0644);
+
+static void nfs_local_probe_all(void);
+
+/*
+ * localio_enabled is checked on every I/O, so turning it off stops LOCALIO
+ * at once and turning it back on resumes it for clients that use it.  A
+ * client that probed while it was off was disabled, and nothing probes it
+ * again: turning it on probes every client that does not use LOCALIO.
+ */
+static int localio_enabled_set(const char *val, const struct kernel_param *kp)
+{
+	bool was = READ_ONCE(localio_enabled);
+	int ret;
+
+	ret = param_set_bool(val, kp);
+	if (!ret && !was && READ_ONCE(localio_enabled))
+		nfs_local_probe_all();
+	return ret;
+}
+
+static const struct kernel_param_ops localio_enabled_ops = {
+	.set = localio_enabled_set,
+	.get = param_get_bool,
+};
+module_param_cb(localio_enabled, &localio_enabled_ops, &localio_enabled, 0644);
 
 static void nfs_local_do_read(struct nfs_local_kiocb *iocb,
 			      const struct rpc_call_ops *call_ops);
@@ -221,6 +246,30 @@ void nfs_local_probe_async(struct nfs_client *clp)
 		nfs_put_client(clp);	/* already queued, with its reference */
 }
 EXPORT_SYMBOL_GPL(nfs_local_probe_async);
+
+/* Probe every client, in every namespace, that does not use LOCALIO. */
+static void nfs_local_probe_all(void)
+{
+	struct nfs_client *clp;
+	struct net *net;
+
+	/* Set on the module command line: there are no clients yet. */
+	if (!nfs_net_id)
+		return;
+
+	down_read(&net_rwsem);
+	for_each_net(net) {
+		struct nfs_net *nn = net_generic(net, nfs_net_id);
+
+		spin_lock(&nn->nfs_client_lock);
+		list_for_each_entry(clp, &nn->nfs_client_list, cl_share_link)
+			if (clp->cl_cons_state == NFS_CS_READY &&
+			    !nfs_client_is_local(clp))
+				nfs_local_probe_async(clp);
+		spin_unlock(&nn->nfs_client_lock);
+	}
+	up_read(&net_rwsem);
+}
 
 static inline void nfs_local_file_put(struct nfsd_file *localio)
 {
