@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			adf4030_ref_clk: adf4030-ref-clk {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <100000000>;
+				clock-output-names = "adf4030_ref_clk";
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			adf4030: frequency@0 {
+				compatible = "adi,adf4030";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+				#clock-cells = <1>;
+
+				clocks = <&adf4030_ref_clk>;
+				clock-names = "refin";
+				clock-output-names = "adf4030_bsync_0";
+				label = "adf4030";
+
+				adi,cmos-3v3-enable;
+				adi,vco-frequency-hz = <2500000000>;
+				adi,bsync-frequency-hz = <12500000>;
+
+				channel@0 {
+					reg = <0>;
+					adi,extended-name = "BSYNC0";
+					adi,output-en;
+					adi,rcm = <1>;
+				};
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	__overrides__ {
+		ref_clk = <&adf4030_ref_clk>, "clock-frequency:0";
+		spimaxfreq = <&adf4030>, "spi-max-frequency:0";
+	};
+};
