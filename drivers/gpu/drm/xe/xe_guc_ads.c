@@ -389,6 +389,11 @@ static void guc_waklv_init(struct xe_guc_ads *ads)
 		guc_waklv_enable(ads, NULL, 0, &offset, &remain,
 				 GUC_WA_KLV_IGNORE_MULTIQ_CTX_COMPLETE_WITH_PREEMPT_IN_CSB);
 
+	/* On GuC 70.78 onwards, we enable GuC PRL-completion-IRQ workaround on applicable GMIDs */
+	if (XE_GT_WA(gt, 14028250015) && GUC_FIRMWARE_VER_AT_LEAST(&gt->uc.guc, 70, 78))
+		guc_waklv_enable(ads, NULL, 0, &offset, &remain,
+				 GUC_WA_KLV_PAGE_RECLAMATION_COMPLETION_TIMEOUT);
+
 	/*
 	 * On GuC firmware 70.66 and above, use the Feature KLV (shared with the
 	 * WA KLV buffer); older firmware uses GUC_CTL_DISABLE_MULTI_QUEUE in
