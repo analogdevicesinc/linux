@@ -12013,7 +12013,7 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 
  out_free:
 	rdev->scan_req = NULL;
-	kfree(request);
+	kfree_rcu(request, rcu_head);
 
 	return err;
 }

@@ -8314,6 +8314,10 @@ int reg_query_regdb_wmm(char *alpha2, int freq,
  *
  * @request: the corresponding scan request
  * @info: information about the completed scan
+ *
+ * After calling this, the driver must no longer use the request, except
+ * that readers within an RCU read-side critical section that started
+ * before this call may still access it.
  */
 void cfg80211_scan_done(struct cfg80211_scan_request *request,
 			struct cfg80211_scan_info *info);

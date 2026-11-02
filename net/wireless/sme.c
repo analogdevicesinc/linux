@@ -138,7 +138,7 @@ static int cfg80211_conn_scan(struct wireless_dev *wdev)
 		dev_hold(wdev->netdev);
 	} else {
 		rdev->scan_req = NULL;
-		kfree(request);
+		kfree_rcu(request, rcu_head);
 	}
 	return err;
 }

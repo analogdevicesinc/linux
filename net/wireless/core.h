@@ -27,6 +27,7 @@ extern struct mutex cfg80211_mutex;
 
 struct cfg80211_scan_request_int {
 	struct cfg80211_scan_info info;
+	struct rcu_head rcu_head;
 	bool notified;
 	/*
 	 * set while the request is handed to the driver, i.e. between

@@ -1057,9 +1057,9 @@ skip:
 		err = rdev_scan(rdev, request);
 		if (err) {
 			rdev->int_scan_req = old;
-			kfree(request);
+			kfree_rcu(request, rcu_head);
 		} else {
-			kfree(old);
+			kfree_rcu(old, rcu_head);
 		}
 
 		return err;
@@ -1106,7 +1106,7 @@ int cfg80211_scan(struct cfg80211_registered_device *rdev)
 	rdev_req->req.first_part = true;
 	err = rdev_scan(rdev, request);
 	if (err) {
-		kfree(request);
+		kfree_rcu(request, rcu_head);
 		return err;
 	}
 
@@ -1126,7 +1126,7 @@ static void cfg80211_put_scan_req(struct cfg80211_scan_request_int *req)
 	if (req->driver_owns)
 		req->stale = true;
 	else
-		kfree(req);
+		kfree_rcu(req, rcu_head);
 }
 
 void ___cfg80211_scan_done(struct cfg80211_registered_device *rdev,
@@ -1222,7 +1222,7 @@ void cfg80211_scan_done(struct cfg80211_scan_request *request,
 		 * The scan is already completed as far as we're concerned,
 		 * it was just kept around for the driver - done now, free it.
 		 */
-		kfree(intreq);
+		kfree_rcu(intreq, rcu_head);
 		return;
 	}
 
@@ -3713,7 +3713,7 @@ int cfg80211_wext_siwscan(struct net_device *dev,
 	}
 
  out:
-	kfree(creq);
+	kfree_rcu(creq, rcu_head);
 	return err;
 }
 
