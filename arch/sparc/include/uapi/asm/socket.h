@@ -154,6 +154,8 @@
 
 #define SO_PEERPIDFD_THREAD      0x0060
 
+#define SO_PASSCRED_THREAD       0x0061
+
 #if !defined(__KERNEL__)
 
 
