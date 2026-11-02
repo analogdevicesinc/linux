@@ -1375,8 +1375,7 @@ static int fsi_dma_transfer(struct fsi_priv *fsi, struct fsi_stream *io)
 		goto fsi_dma_transfer_err;
 	}
 
-	desc->callback		= fsi_dma_complete;
-	desc->callback_param	= io;
+	dmaengine_desc_set_callback(desc, fsi_dma_complete, NULL, io);
 
 	if (dmaengine_submit(desc) < 0) {
 		dev_err(dai->dev, "tx_submit() fail\n");

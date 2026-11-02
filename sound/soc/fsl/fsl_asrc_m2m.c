@@ -176,8 +176,7 @@ static int asrc_dmaconfig(struct fsl_asrc_pair *pair,
 		return -EINVAL;
 	}
 
-	pair->desc[dir]->callback = ASRC_xPUT_DMA_CALLBACK(dir);
-	pair->desc[dir]->callback_param = pair;
+	dmaengine_desc_set_callback(pair->desc[dir], ASRC_xPUT_DMA_CALLBACK(dir), NULL, pair);
 
 	return 0;
 }
