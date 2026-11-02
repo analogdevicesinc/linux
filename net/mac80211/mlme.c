@@ -26,6 +26,7 @@
 #include <linux/unaligned.h>
 
 #include "ieee80211_i.h"
+#include "mlme.h"
 #include "driver-ops.h"
 #include "rate.h"
 #include "led.h"
@@ -105,8 +106,7 @@ MODULE_PARM_DESC(probe_wait_ms,
  * has happened -- the work that runs from this timer will
  * do that.
  */
-static void run_again(struct ieee80211_sub_if_data *sdata,
-		      unsigned long timeout)
+void run_again(struct ieee80211_sub_if_data *sdata, unsigned long timeout)
 {
 	lockdep_assert_wiphy(sdata->local->hw.wiphy);
 
@@ -1536,8 +1536,8 @@ free:
 }
 EXPORT_SYMBOL_IF_MAC80211_KUNIT(ieee80211_determine_chan_mode);
 
-static void ieee80211_send_uhr_omp_req_dbe(struct ieee80211_sub_if_data *sdata,
-					   u16 link_mask, bool initial)
+void ieee80211_send_uhr_omp_req_dbe(struct ieee80211_sub_if_data *sdata,
+				    u16 link_mask, bool initial)
 {
 	struct ieee80211_mle_basic_common_info *common;
 	struct ieee80211_mle_per_sta_profile *per_sta;
@@ -2238,7 +2238,6 @@ static size_t ieee80211_add_before_reg_conn(struct sk_buff *skb,
 	return noffset;
 }
 
-#define PRESENT_ELEMS_MAX	8
 #define PRESENT_ELEM_EXT_OFFS	0x100
 
 static void
@@ -2248,16 +2247,15 @@ ieee80211_assoc_add_ml_elem(struct ieee80211_sub_if_data *sdata,
 			    const u16 *present_elems,
 			    struct ieee80211_mgd_assoc_data *assoc_data);
 
-static size_t
-ieee80211_add_link_elems(struct ieee80211_sub_if_data *sdata,
-			 struct sk_buff *skb, u16 *capab,
-			 const struct element *ext_capa,
-			 const u8 *extra_elems,
-			 size_t extra_elems_len,
-			 unsigned int link_id,
-			 struct ieee80211_link_data *link,
-			 u16 *present_elems,
-			 struct ieee80211_mgd_assoc_data *assoc_data)
+size_t ieee80211_add_link_elems(struct ieee80211_sub_if_data *sdata,
+				struct sk_buff *skb, u16 *capab,
+				const struct element *ext_capa,
+				const u8 *extra_elems,
+				size_t extra_elems_len,
+				unsigned int link_id,
+				struct ieee80211_link_data *link,
+				u16 *present_elems,
+				struct ieee80211_mgd_assoc_data *assoc_data)
 {
 	enum nl80211_iftype iftype = ieee80211_vif_type_p2p(&sdata->vif);
 	struct cfg80211_bss *cbss = assoc_data->link[link_id].bss;
@@ -2455,9 +2453,9 @@ ieee80211_add_link_elems(struct ieee80211_sub_if_data *sdata,
 	return offset;
 }
 
-static void ieee80211_add_non_inheritance_elem(struct sk_buff *skb,
-					       const u16 *outer,
-					       const u16 *inner)
+void ieee80211_add_non_inheritance_elem(struct sk_buff *skb,
+					const u16 *outer,
+					const u16 *inner)
 {
 	unsigned int skb_len = skb->len;
 	bool at_extension = false;
@@ -2629,11 +2627,10 @@ ieee80211_assoc_add_ml_elem(struct ieee80211_sub_if_data *sdata,
 	ieee80211_fragment_element(skb, ml_elem_len, WLAN_EID_FRAGMENT);
 }
 
-static int
-ieee80211_link_common_elems_size(struct ieee80211_sub_if_data *sdata,
-				 enum nl80211_iftype iftype,
-				 struct cfg80211_bss *cbss,
-				 size_t elems_len)
+int ieee80211_link_common_elems_size(struct ieee80211_sub_if_data *sdata,
+				     enum nl80211_iftype iftype,
+				     struct cfg80211_bss *cbss,
+				     size_t elems_len)
 {
 	struct ieee80211_local *local = sdata->local;
 	const struct ieee80211_sband_iftype_data *iftd;
@@ -4433,8 +4430,8 @@ static u64 ieee80211_handle_bss_capability(struct ieee80211_link_data *link,
 	return changed;
 }
 
-static u64 ieee80211_link_set_associated(struct ieee80211_link_data *link,
-					 struct cfg80211_bss *cbss)
+u64 ieee80211_link_set_associated(struct ieee80211_link_data *link,
+				  struct cfg80211_bss *cbss)
 {
 	struct ieee80211_sub_if_data *sdata = link->sdata;
 	struct ieee80211_bss_conf *bss_conf = link->conf;
@@ -4608,7 +4605,7 @@ static void ieee80211_ml_reconf_reset(struct ieee80211_sub_if_data *sdata)
 	}
 }
 
-static u8 ieee80211_mgd_next_dialog_token(struct ieee80211_sub_if_data *sdata)
+u8 ieee80211_mgd_next_dialog_token(struct ieee80211_sub_if_data *sdata)
 {
 	sdata->u.mgd.dialog_token_alloc++;
 
@@ -4618,7 +4615,7 @@ static u8 ieee80211_mgd_next_dialog_token(struct ieee80211_sub_if_data *sdata)
 	return sdata->u.mgd.dialog_token_alloc;
 }
 
-static void ieee80211_mgd_reset_ap_state(struct ieee80211_sub_if_data *sdata)
+void ieee80211_mgd_reset_ap_state(struct ieee80211_sub_if_data *sdata)
 {
 	struct ieee80211_if_managed *ifmgd = &sdata->u.mgd;
 	struct wiphy *wiphy = sdata->local->hw.wiphy;
@@ -5156,7 +5153,7 @@ static void ieee80211_report_disconnect(struct ieee80211_sub_if_data *sdata,
 	drv_event_callback(sdata->local, sdata, &event);
 }
 
-static void __ieee80211_disconnect(struct ieee80211_sub_if_data *sdata)
+void __ieee80211_disconnect(struct ieee80211_sub_if_data *sdata)
 {
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_if_managed *ifmgd = &sdata->u.mgd;
@@ -6506,9 +6503,9 @@ out:
 	return ret;
 }
 
-static int ieee80211_mgd_setup_link_sta(struct ieee80211_link_data *link,
-					struct link_sta_info *link_sta,
-					struct cfg80211_bss *cbss)
+int ieee80211_mgd_setup_link_sta(struct ieee80211_link_data *link,
+				 struct link_sta_info *link_sta,
+				 struct cfg80211_bss *cbss)
 {
 	struct ieee80211_sub_if_data *sdata = link->sdata;
 	struct ieee80211_local *local = sdata->local;
@@ -6663,12 +6660,11 @@ static u8 ieee80211_max_rx_chains(struct ieee80211_link_data *link,
 	return chains;
 }
 
-static void
-ieee80211_determine_our_sta_mode(struct ieee80211_sub_if_data *sdata,
-				 struct ieee80211_supported_band *sband,
-				 struct cfg80211_assoc_request *req,
-				 bool wmm_used, int link_id,
-				 struct ieee80211_conn_settings *conn)
+void ieee80211_determine_our_sta_mode(struct ieee80211_sub_if_data *sdata,
+				      struct ieee80211_supported_band *sband,
+				      struct cfg80211_assoc_request *req,
+				      bool wmm_used, int link_id,
+				      struct ieee80211_conn_settings *conn)
 {
 	struct ieee80211_sta_ht_cap sta_ht_cap = sband->ht_cap;
 	bool is_5ghz = sband->band == NL80211_BAND_5GHZ;
@@ -6917,37 +6913,34 @@ ieee80211_determine_our_sta_mode_assoc(struct ieee80211_sub_if_data *sdata,
 			       conn->bw_limit, tmp.bw_limit);
 }
 
-static int ieee80211_prep_channel(struct ieee80211_sub_if_data *sdata,
-				  struct ieee80211_link_data *link,
-				  struct link_sta_info *link_sta,
-				  int link_id,
-				  struct cfg80211_bss *cbss, bool mlo,
-				  struct ieee80211_conn_settings *conn,
-				  unsigned long *userspace_selectors)
+static int __ieee80211_calc_channel(struct ieee80211_sub_if_data *sdata,
+				    struct ieee80211_link_data *link,
+				    struct link_sta_info *link_sta,
+				    int link_id,
+				    struct cfg80211_bss *cbss, bool mlo,
+				    struct ieee80211_conn_settings *conn,
+				    unsigned long *userspace_selectors,
+				    struct ieee80211_chan_req *chanreq)
 {
 	struct ieee80211_local *local = sdata->local;
 	bool is_6ghz = cbss->channel->band == NL80211_BAND_6GHZ;
-	struct ieee80211_chan_req chanreq = {};
 	struct cfg80211_chan_def ap_chandef;
 	struct ieee802_11_elems *elems;
-	int ret;
 
 	lockdep_assert_wiphy(local->hw.wiphy);
 
-	rcu_read_lock();
+	guard(rcu)();
+
 	elems = ieee80211_determine_chan_mode(sdata, conn, cbss,
 					      link_sta, link_id,
-					      &chanreq, &ap_chandef,
+					      chanreq, &ap_chandef,
 					      userspace_selectors);
 
-	if (IS_ERR(elems)) {
-		rcu_read_unlock();
+	if (IS_ERR(elems))
 		return PTR_ERR(elems);
-	}
 
 	if (mlo && !elems->ml_basic) {
 		sdata_info(sdata, "Rejecting MLO as it is not supported by AP\n");
-		rcu_read_unlock();
 		kfree(elems);
 		return -EINVAL;
 	}
@@ -6970,20 +6963,36 @@ static int ieee80211_prep_channel(struct ieee80211_sub_if_data *sdata,
 
 		link->conf->tpe = elems->tpe;
 		ieee80211_rearrange_tpe(&link->conf->tpe, &ap_chandef,
-					&chanreq.oper);
+					&chanreq->oper);
 	}
-	rcu_read_unlock();
-	/* the element data was RCU protected so no longer valid anyway */
+
 	kfree(elems);
-	elems = NULL;
 
 	if (!link)
 		return 0;
 
-	rcu_read_lock();
 	link->needed_rx_chains = min(ieee80211_max_rx_chains(link, cbss),
 				     local->rx_chains);
-	rcu_read_unlock();
+
+	return 0;
+}
+
+static int ieee80211_prep_channel(struct ieee80211_sub_if_data *sdata,
+				  struct ieee80211_link_data *link,
+				  struct link_sta_info *link_sta,
+				  int link_id,
+				  struct cfg80211_bss *cbss, bool mlo,
+				  struct ieee80211_conn_settings *conn,
+				  unsigned long *userspace_selectors)
+{
+	struct ieee80211_chan_req chanreq = {};
+	int ret;
+
+	ret = __ieee80211_calc_channel(sdata, link, link_sta, link_id, cbss,
+				       mlo, conn, userspace_selectors,
+				       &chanreq);
+	if (ret || !link)
+		return ret;
 
 	/*
 	 * If this fails (possibly due to channel context sharing
@@ -7005,6 +7014,27 @@ static int ieee80211_prep_channel(struct ieee80211_sub_if_data *sdata,
 	}
 
 	return ret;
+}
+
+int ieee80211_calc_channel(struct ieee80211_sub_if_data *sdata,
+			   struct ieee80211_link_data *link,
+			   struct link_sta_info *link_sta,
+			   int link_id,
+			   struct cfg80211_bss *cbss, bool mlo,
+			   struct ieee80211_conn_settings *conn,
+			   unsigned long *userspace_selectors)
+{
+	struct ieee80211_chan_req chanreq = {};
+	int ret;
+
+	ret = __ieee80211_calc_channel(sdata, link, link_sta, link_id, cbss,
+				       mlo, conn, userspace_selectors,
+				       &chanreq);
+	if (ret || !link)
+		return ret;
+
+	link->conf->chanreq = chanreq;
+	return 0;
 }
 
 static bool ieee80211_get_dtim(const struct cfg80211_bss_ies *ies,
@@ -7039,6 +7069,28 @@ static bool ieee80211_get_dtim(const struct cfg80211_bss_ies *ies,
 		*dtim_period = idx->dtim_period;
 
 	return true;
+}
+
+void ieee80211_mgd_link_beacon_info(struct ieee80211_link_data *link,
+				    struct cfg80211_bss *cbss)
+{
+	if (!link->u.mgd.have_beacon) {
+		const struct cfg80211_bss_ies *ies;
+
+		rcu_read_lock();
+		ies = rcu_dereference(cbss->beacon_ies);
+		if (ies)
+			link->u.mgd.have_beacon = true;
+		else
+			ies = rcu_dereference(cbss->ies);
+		ieee80211_get_dtim(ies,
+				   &link->conf->sync_dtim_count,
+				   &link->u.mgd.dtim_period);
+		link->conf->beacon_int = cbss->beacon_interval;
+		rcu_read_unlock();
+	}
+
+	link->conf->dtim_period = link->u.mgd.dtim_period ?: 1;
 }
 
 static u16 ieee80211_get_ttlm(u8 bm_size, u8 *data)
@@ -7248,23 +7300,7 @@ static bool ieee80211_assoc_success(struct ieee80211_sub_if_data *sdata,
 		if (WARN_ON(!link_sta))
 			goto out_err;
 
-		if (!link->u.mgd.have_beacon) {
-			const struct cfg80211_bss_ies *ies;
-
-			rcu_read_lock();
-			ies = rcu_dereference(cbss->beacon_ies);
-			if (ies)
-				link->u.mgd.have_beacon = true;
-			else
-				ies = rcu_dereference(cbss->ies);
-			ieee80211_get_dtim(ies,
-					   &link->conf->sync_dtim_count,
-					   &link->u.mgd.dtim_period);
-			link->conf->beacon_int = cbss->beacon_interval;
-			rcu_read_unlock();
-		}
-
-		link->conf->dtim_period = link->u.mgd.dtim_period ?: 1;
+		ieee80211_mgd_link_beacon_info(link, cbss);
 
 		if (link_id != assoc_data->assoc_link_id) {
 			link->u.mgd.conn = assoc_data->link[link_id].conn;
@@ -10740,10 +10776,9 @@ ieee80211_setup_assoc_link(struct ieee80211_sub_if_data *sdata,
 	}
 }
 
-static int
-ieee80211_mgd_get_ap_ht_vht_capa(struct ieee80211_sub_if_data *sdata,
-				 struct ieee80211_mgd_assoc_data *assoc_data,
-				 int link_id)
+int ieee80211_mgd_get_ap_ht_vht_capa(struct ieee80211_sub_if_data *sdata,
+				     struct ieee80211_mgd_assoc_data *assoc_data,
+				     int link_id)
 {
 	struct cfg80211_bss *cbss = assoc_data->link[link_id].bss;
 	enum nl80211_band band = cbss->channel->band;
