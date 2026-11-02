@@ -104,11 +104,20 @@ static const int max44000_int_time_avail_ns_array[] = {
 	     6250000,
 	     1562500,
 };
-static const char max44000_int_time_avail_str[] =
-	"0.100 "
-	"0.025 "
-	"0.00625 "
-	"0.0015625";
+
+static const int max44000_int_time_avail[] = {
+	0, 100000000,
+	0, 25000000,
+	0, 6250000,
+	0, 1562500,
+};
+
+static const int max44000_scale_avail[] = {
+	0, 31250,
+	0, 125000,
+	0, 500000,
+	4, 0,
+};
 
 /* Available scales (internal to ulux) with pretty manual alignment: */
 static const int max44000_scale_avail_ulux_array[] = {
@@ -117,11 +126,6 @@ static const int max44000_scale_avail_ulux_array[] = {
 	   500000,
 	  4000000,
 };
-static const char max44000_scale_avail_str[] =
-	"0.03125 "
-	"0.125 "
-	"0.5 "
-	 "4";
 
 #define MAX44000_SCAN_INDEX_ALS 0
 #define MAX44000_SCAN_INDEX_PRX 1
@@ -132,6 +136,8 @@ static const struct iio_chan_spec max44000_channels[] = {
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |
 					    BIT(IIO_CHAN_INFO_INT_TIME),
+		.info_mask_shared_by_type_available =
+			BIT(IIO_CHAN_INFO_SCALE) | BIT(IIO_CHAN_INFO_INT_TIME),
 		.scan_index = MAX44000_SCAN_INDEX_ALS,
 		.scan_type = {
 			.sign		= 'u',
@@ -383,24 +389,32 @@ static int max44000_write_raw_get_fmt(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 }
 
-static IIO_CONST_ATTR(illuminance_integration_time_available, max44000_int_time_avail_str);
-static IIO_CONST_ATTR(illuminance_scale_available, max44000_scale_avail_str);
-
-static struct attribute *max44000_attributes[] = {
-	&iio_const_attr_illuminance_integration_time_available.dev_attr.attr,
-	&iio_const_attr_illuminance_scale_available.dev_attr.attr,
-	NULL
-};
-
-static const struct attribute_group max44000_attribute_group = {
-	.attrs = max44000_attributes,
-};
+static int max44000_read_avail(struct iio_dev *indio_dev,
+			       struct iio_chan_spec const *chan,
+			       const int **vals, int *type, int *length,
+			       long mask)
+{
+	switch (mask) {
+	case IIO_CHAN_INFO_SCALE:
+		*vals = max44000_scale_avail;
+		*type = IIO_VAL_INT_PLUS_MICRO;
+		*length = ARRAY_SIZE(max44000_scale_avail);
+		return IIO_AVAIL_LIST;
+	case IIO_CHAN_INFO_INT_TIME:
+		*vals = max44000_int_time_avail;
+		*type = IIO_VAL_INT_PLUS_NANO;
+		*length = ARRAY_SIZE(max44000_int_time_avail);
+		return IIO_AVAIL_LIST;
+	default:
+		return -EINVAL;
+	}
+}
 
 static const struct iio_info max44000_info = {
 	.read_raw		= max44000_read_raw,
 	.write_raw		= max44000_write_raw,
 	.write_raw_get_fmt	= max44000_write_raw_get_fmt,
-	.attrs			= &max44000_attribute_group,
+	.read_avail		= max44000_read_avail,
 };
 
 static bool max44000_readable_reg(struct device *dev, unsigned int reg)
