@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Multi-board MCS: the BSYNC reference comes from an external ADF4030 on
+ * BSYNC9 and the trigger from a Synchrona on ext_trig.
+ *
+ * hdl_project: <apollo_som_vu11p> RFPC=NYX ASYMMETRIC_A_B_MODE=0 AION_ENABLE=1 MCS_ENABLE=1
+ */
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/jesd204/device-states.h>
+
+#define ASYNM_A_B_MODE		0
+
+#include "vu11p-ad9084-vpx-nyx.dtso"
+
+/*
+ * Not under vu11p_fpga_region: that label is external to this overlay, so a
+ * second block on it becomes a second fragment, which the FPGA region rejects.
+ */
+&{/} {
+	axi_aion_trig: axi-aion-trig@88250000 {
+		compatible = "adi,axi-aion-trig-1.0.a";
+		reg = <0x0 0x88250000 0x0 0x1000>;
+		clocks = <&ltc6952 3>;
+		clock-names = "device_clk";
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+
+		io-channels = <&adf4030 2>;
+		io-channel-names = "bsync";
+	};
+};
+
+&adf4030 {
+	jesd204-inputs =
+		<&axi_aion_trig 0 FRAMER_LINK_A0_RX>,
+		<&axi_aion_trig 0 DEFRAMER_LINK_A0_TX>;
+
+	adi,bsync-autoalign-reference-channel = <9>;
+
+	/* DC-coupled input from the master ADF4030 through R783/R784. */
+	channel@9 {
+		/delete-property/ adi,output-en;
+		adi,link-rx-en;
+		adi,float-rx-en;
+	};
+};
+
+&trx0_ad9084 {
+	adi,trigger-sync-en;
+
+	/*
+	 * Post-setup stage 4 waits only ~1 s for TRIGGER_SYNC_DONE, so the
+	 * Synchrona trigger must be fired while both boards are paused after
+	 * stage 3, then both resumed.
+	 */
+	jesd204-stop-states = <
+		JESD204_FSM_STATE_OPT_POST_SETUP_STAGE1
+		JESD204_FSM_STATE_OPT_POST_SETUP_STAGE2
+		JESD204_FSM_STATE_OPT_POST_SETUP_STAGE3>;
+};

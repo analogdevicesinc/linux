@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+#include "vu11p-ad9084-vpx-revb-mcs.dtso"
+
+// RevB-1 uses LTC6955 (not -1) so not divider for ADF4382
+&adf4382 {
+	clocks = <&clkin_125>;
+};
+
+/* RevB-1 aligns to the master only without the ADF4030 receiver termination. */
+&adf4030 {
+	channel@9 {
+		/delete-property/ adi,link-rx-en;
+		/delete-property/ adi,float-rx-en;
+	};
+};
