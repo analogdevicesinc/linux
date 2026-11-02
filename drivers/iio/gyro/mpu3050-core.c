@@ -701,6 +701,8 @@ static const struct iio_chan_spec_ext_info mpu3050_ext_info[] = {
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
 			BIT(IIO_CHAN_INFO_CALIBBIAS),			\
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),	\
+		.info_mask_shared_by_type_available =			\
+			BIT(IIO_CHAN_INFO_SCALE),			\
 		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
 		.ext_info = mpu3050_ext_info,				\
 		.scan_index = index,					\
@@ -736,29 +738,33 @@ static const struct iio_chan_spec mpu3050_channels[] = {
 /* Four channels apart from timestamp, scan mask = 0x0f */
 static const unsigned long mpu3050_scan_masks[] = { 0xf, 0 };
 
-/*
- * These are just the hardcoded factors resulting from the more elaborate
- * calculations done with fractions in the scale raw get/set functions.
- */
-static IIO_CONST_ATTR(anglevel_scale_available,
-		      "0.000122070 "
-		      "0.000274658 "
-		      "0.000518798 "
-		      "0.001068115");
-
-static struct attribute *mpu3050_attributes[] = {
-	&iio_const_attr_anglevel_scale_available.dev_attr.attr,
-	NULL,
+static const int mpu3050_scale_avail[] = {
+	IIO_DEGREE_TO_RAD(250) * 2, U16_MAX,
+	IIO_DEGREE_TO_RAD(500) * 2, U16_MAX,
+	IIO_DEGREE_TO_RAD(1000) * 2, U16_MAX,
+	IIO_DEGREE_TO_RAD(2000) * 2, U16_MAX,
 };
 
-static const struct attribute_group mpu3050_attribute_group = {
-	.attrs = mpu3050_attributes,
-};
+static int mpu3050_read_avail(struct iio_dev *indio_dev,
+			      struct iio_chan_spec const *chan,
+			      const int **vals, int *type, int *length,
+			      long mask)
+{
+	switch (mask) {
+	case IIO_CHAN_INFO_SCALE:
+		*vals = mpu3050_scale_avail;
+		*type = IIO_VAL_FRACTIONAL;
+		*length = ARRAY_SIZE(mpu3050_scale_avail);
+		return IIO_AVAIL_LIST;
+	default:
+		return -EINVAL;
+	}
+}
 
 static const struct iio_info mpu3050_info = {
 	.read_raw = mpu3050_read_raw,
 	.write_raw = mpu3050_write_raw,
-	.attrs = &mpu3050_attribute_group,
+	.read_avail = mpu3050_read_avail,
 };
 
 /**
