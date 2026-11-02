@@ -203,15 +203,22 @@ void nfs_local_probe_async_work(struct work_struct *work)
 	struct nfs_client *clp =
 		container_of(work, struct nfs_client, cl_local_probe_work);
 
-	if (!refcount_inc_not_zero(&clp->cl_count))
-		return;
 	nfs_local_probe(clp);
+	/* The reference nfs_local_probe_async() took for this work */
 	nfs_put_client(clp);
 }
 
+/*
+ * The work is part of the client, so it holds a reference on the client
+ * from when it is queued until it has run: the last nfs_put_client()
+ * cannot free the client under a queued probe.
+ */
 void nfs_local_probe_async(struct nfs_client *clp)
 {
-	queue_work(nfsiod_workqueue, &clp->cl_local_probe_work);
+	if (!refcount_inc_not_zero(&clp->cl_count))
+		return;
+	if (!queue_work(nfsiod_workqueue, &clp->cl_local_probe_work))
+		nfs_put_client(clp);	/* already queued, with its reference */
 }
 EXPORT_SYMBOL_GPL(nfs_local_probe_async);
 
