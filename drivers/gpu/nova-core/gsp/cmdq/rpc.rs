@@ -354,7 +354,9 @@ impl CmdqInner<'_> {
         Error: From<M::InitError>,
     {
         match SplitState::new(command)? {
-            SplitState::Single(command) => self.send_command_element(RpcCommandElement(command)),
+            SplitState::Single(command) => self
+                .send_command_element(RpcCommandElement(command))
+                .map(|_| ()),
             SplitState::Split(command, mut continuations) => {
                 self.send_command_element(RpcCommandElement(command))?;
 
