@@ -25,6 +25,7 @@ struct memblock_region hyp_memory[HYP_MEMBLOCK_REGIONS];
 unsigned int hyp_memblock_nr;
 
 static u64 __io_map_base;
+static u64 __io_map_next;
 
 struct hyp_fixmap_slot {
 	u64 addr;
@@ -50,7 +51,7 @@ static int __pkvm_alloc_private_va_range(unsigned long start, size_t size)
 
 	hyp_assert_lock_held(&pkvm_pgd_lock);
 
-	if (!start || start < __io_map_base)
+	if (!start || start < __io_map_next)
 		return -EINVAL;
 
 	/* The allocated size is always a multiple of PAGE_SIZE */
@@ -60,7 +61,7 @@ static int __pkvm_alloc_private_va_range(unsigned long start, size_t size)
 	if (cur > __hyp_vmemmap)
 		return -ENOMEM;
 
-	__io_map_base = cur;
+	__io_map_next = cur;
 
 	return 0;
 }
@@ -70,7 +71,7 @@ static int __pkvm_alloc_private_va_range(unsigned long start, size_t size)
  * @size:	The size of the VA range to reserve.
  * @haddr:	The hypervisor virtual start address of the allocation.
  *
- * The private virtual address (VA) range is allocated above __io_map_base
+ * The private virtual address (VA) range is allocated above __io_map_next
  * and aligned based on the order of @size.
  *
  * Return: 0 on success or negative error code on failure.
@@ -81,13 +82,66 @@ int pkvm_alloc_private_va_range(size_t size, unsigned long *haddr)
 	int ret;
 
 	hyp_spin_lock(&pkvm_pgd_lock);
-	addr = __io_map_base;
+	addr = __io_map_next;
 	ret = __pkvm_alloc_private_va_range(addr, size);
 	hyp_spin_unlock(&pkvm_pgd_lock);
 
 	*haddr = addr;
 
 	return ret;
+}
+
+/**
+ * pkvm_map_private_va_range() - Map a physical range into the private VA range
+ * @haddr:	The virtual address in the private range.
+ * @phys:	The physical address to map.
+ * @size:	The size of the range to map.
+ *
+ * The hypervisor VA @haddr must have been first allocated with
+ * pkvm_alloc_private_va_range(). The created mapping can later be removed
+ * with pkvm_remove_mappings().
+ *
+ * Return: 0 on success, negative error code on failure.
+ */
+int pkvm_map_private_va_range(void *haddr, phys_addr_t phys, size_t size)
+{
+	unsigned long addr = (unsigned long)haddr;
+	int ret;
+
+	if (!PAGE_ALIGNED(addr | phys | size))
+		return -EINVAL;
+
+	guard(hyp_spinlock)(&pkvm_pgd_lock);
+
+	if (addr < __io_map_base || addr >= __io_map_next)
+		return -EINVAL;
+
+	if (size > __io_map_next - addr)
+		return -EINVAL;
+
+	ret = kvm_pgtable_hyp_map(&pkvm_pgtable, addr, size, phys, PAGE_HYP);
+	if (ret)
+		kvm_pgtable_hyp_unmap(&pkvm_pgtable, addr, size);
+
+	return ret;
+}
+
+/**
+ * pkvm_private_va_range_pa - Translate a private VA to a physical address.
+ * @va:		The private virtual address to translate.
+ *
+ * Return: The physical address corresponding to @va.
+ */
+phys_addr_t pkvm_private_va_range_pa(void *va)
+{
+	kvm_pte_t pte;
+	s8 level;
+
+	guard(hyp_spinlock)(&pkvm_pgd_lock);
+	WARN_ON(kvm_pgtable_get_leaf(&pkvm_pgtable, (u64)va, &pte, &level, 0));
+	WARN_ON(!kvm_pte_valid(pte));
+
+	return kvm_pte_to_phys(pte) + ((u64)va & (kvm_granule_size(level) - 1));
 }
 
 int __pkvm_create_private_mapping(phys_addr_t phys, size_t size,
@@ -144,6 +198,30 @@ int pkvm_create_mappings(void *from, void *to, enum kvm_pgtable_prot prot)
 	hyp_spin_unlock(&pkvm_pgd_lock);
 
 	return ret;
+}
+
+/**
+ * pkvm_remove_mappings - Remove mappings from the hypervisor page-table
+ * @from:	The starting virtual address of the range to remove
+ * @to:		The ending virtual address of the range to remove
+ *
+ * The range [@from, @to) can be a subset of the range previously mapped by
+ * pkvm_create_mappings(), as the latter enforces PTE-level mappings. However,
+ * it cannot be a subset of a range mapped by pkvm_map_private_va_range() as
+ * that function allows block mappings which the hypervisor page-table does not
+ * split.
+ */
+void pkvm_remove_mappings(void *from, void *to)
+{
+	u64 size;
+
+	WARN_ON(from > to);
+	to = PTR_ALIGN(to, PAGE_SIZE);
+	from = PTR_ALIGN_DOWN(from, PAGE_SIZE);
+	size = (u64)to - (u64)from;
+
+	guard(hyp_spinlock)(&pkvm_pgd_lock);
+	WARN_ON(kvm_pgtable_hyp_unmap(&pkvm_pgtable, (u64)from, size) != size);
 }
 
 int hyp_back_vmemmap(phys_addr_t back)
@@ -341,7 +419,7 @@ static int create_fixblock(void)
 		return -EINVAL;
 
 	hyp_spin_lock(&pkvm_pgd_lock);
-	addr = ALIGN(__io_map_base, PMD_SIZE);
+	addr = ALIGN(__io_map_next, PMD_SIZE);
 	ret = __pkvm_alloc_private_va_range(addr, PMD_SIZE);
 	if (ret)
 		goto unlock;
@@ -426,6 +504,7 @@ int hyp_create_idmap(u32 hyp_va_bits)
 	 */
 	__io_map_base = start & BIT(hyp_va_bits - 2);
 	__io_map_base ^= BIT(hyp_va_bits - 2);
+	__io_map_next = __io_map_base;
 	__hyp_vmemmap = __io_map_base | BIT(hyp_va_bits - 3);
 
 	return __pkvm_create_mappings(start, end - start, start, PAGE_HYP_EXEC);
@@ -433,19 +512,19 @@ int hyp_create_idmap(u32 hyp_va_bits)
 
 int pkvm_create_stack(phys_addr_t phys, unsigned long *haddr)
 {
-	unsigned long addr, prev_base;
+	unsigned long addr, prev_next;
 	size_t size;
 	int ret;
 
 	hyp_spin_lock(&pkvm_pgd_lock);
 
-	prev_base = __io_map_base;
+	prev_next = __io_map_next;
 	/*
 	 * Efficient stack verification using the NVHE_STACK_SHIFT bit implies
 	 * an alignment of our allocation on the order of the size.
 	 */
 	size = NVHE_STACK_SIZE * 2;
-	addr = ALIGN(__io_map_base, size);
+	addr = ALIGN(__io_map_next, size);
 
 	ret = __pkvm_alloc_private_va_range(addr, size);
 	if (!ret) {
@@ -461,13 +540,72 @@ int pkvm_create_stack(phys_addr_t phys, unsigned long *haddr)
 		ret = kvm_pgtable_hyp_map(&pkvm_pgtable, addr + NVHE_STACK_SIZE,
 					  NVHE_STACK_SIZE, phys, PAGE_HYP);
 		if (ret)
-			__io_map_base = prev_base;
+			__io_map_next = prev_next;
 	}
 	hyp_spin_unlock(&pkvm_pgd_lock);
 
 	*haddr = addr + size;
 
 	return ret;
+}
+
+static int check_page_ownership(phys_addr_t phys)
+{
+	kvm_pte_t pte;
+	bool host_ok;
+	int ret;
+
+	if (addr_is_memory(phys)) {
+		struct hyp_page *page = hyp_phys_to_page(phys);
+
+		if (get_hyp_state(page) != PKVM_PAGE_OWNED ||
+		    get_host_state(page) != PKVM_NOPAGE)
+			return -EPERM;
+	}
+
+	ret = kvm_pgtable_get_leaf(&host_mmu.pgt, phys, &pte, NULL, 0);
+	if (ret)
+		return ret;
+
+	/* Hyp text may stay host-readable, see fix_host_ownership_walker(). */
+	if (kvm_pte_valid(pte) && addr_is_hyp_text(phys))
+		host_ok = !(kvm_pgtable_stage2_pte_prot(pte) & KVM_PGTABLE_PROT_W);
+	else
+		host_ok = host_stage2_pte_is_hyp_owned(pte);
+
+	return host_ok ? 0 : -EPERM;
+}
+
+static int check_host_ownership_walker(const struct kvm_pgtable_visit_ctx *ctx,
+				       enum kvm_pgtable_walk_flags visit)
+{
+	phys_addr_t phys, end;
+	int ret;
+
+	if (!kvm_pte_valid(ctx->old))
+		return 0;
+
+	phys = kvm_pte_to_phys(ctx->old);
+	end = phys + kvm_granule_size(ctx->level);
+	for (; phys < end; phys += PAGE_SIZE) {
+		ret = check_page_ownership(phys);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+int pkvm_check_host_ownership(void)
+{
+	struct kvm_pgtable_walker walker = {
+		.cb	= check_host_ownership_walker,
+		.flags	= KVM_PGTABLE_WALK_LEAF,
+	};
+
+	/* The private range and the vmemmap share one quarter of the VA space. */
+	return kvm_pgtable_walk(&pkvm_pgtable, __io_map_base,
+				BIT(pkvm_pgtable.ia_bits - 2), &walker);
 }
 
 static void *admit_host_page(void *arg)

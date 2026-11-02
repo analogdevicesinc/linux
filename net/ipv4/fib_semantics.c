@@ -542,6 +542,9 @@ size_t fib_nlmsg_size(struct fib_info *fi)
 			struct fib_nh_common *nhc = fib_info_nhc(fi, i);
 			size_t nhsize;
 
+			if (!nhc)
+				break;
+
 			nhsize = fib_nexthop_nlmsg_size(nhc, nhs != 1);
 
 			if (nhs != 1)
@@ -610,13 +613,13 @@ static int fib_detect_death(struct fib_info *fi, int order,
 			    int dflt)
 {
 	const struct fib_nh_common *nhc = fib_info_nhc(fi, 0);
-	struct neighbour *n;
 	int state = NUD_NONE;
+	struct neighbour *n;
 
 	if (likely(nhc->nhc_gw_family == AF_INET))
-		n = neigh_lookup(&arp_tbl, &nhc->nhc_gw.ipv4, nhc->nhc_dev);
+		n = ipv4_neigh_lookup(nhc->nhc_dev, &nhc->nhc_gw.ipv4);
 	else if (IS_ENABLED(CONFIG_IPV6) && nhc->nhc_gw_family == AF_INET6)
-		n = neigh_lookup(&nd_tbl, &nhc->nhc_gw.ipv6, nhc->nhc_dev);
+		n = ipv6_neigh_lookup(nhc->nhc_dev, &nhc->nhc_gw.ipv6);
 	else
 		n = NULL;
 
@@ -874,7 +877,7 @@ static void fib_rebalance(struct fib_info *fi)
 	change_nexthops(fi) {
 		int upper_bound;
 
-		if (nexthop_nh->fib_nh_flags & RTNH_F_DEAD) {
+		if (!total || nexthop_nh->fib_nh_flags & RTNH_F_DEAD) {
 			upper_bound = -1;
 		} else if (ip_ignore_linkdown(nexthop_nh->fib_nh_dev) &&
 			   nexthop_nh->fib_nh_flags & RTNH_F_LINKDOWN) {
@@ -2176,6 +2179,15 @@ static bool fib_good_nh(const struct fib_nh *nh)
 	return !!(state & NUD_VALID);
 }
 
+static __be32 fib_nh_saddr(struct net *net, const struct fib_info *fi,
+			   struct fib_nh *nh, int genid)
+{
+	if (READ_ONCE(nh->nh_saddr_genid) == genid)
+		return READ_ONCE(nh->nh_saddr);
+
+	return fib_info_update_nhc_saddr(net, &nh->nh_common, fi->fib_scope);
+}
+
 void fib_select_multipath(struct fib_result *res, int hash,
 			  const struct flowi4 *fl4)
 {
@@ -2184,6 +2196,7 @@ void fib_select_multipath(struct fib_result *res, int hash,
 	bool use_neigh;
 	int score = -1;
 	__be32 saddr;
+	int genid;
 
 	if (unlikely(res->fi->nh)) {
 		nexthop_path_fib_result(res, hash);
@@ -2192,6 +2205,7 @@ void fib_select_multipath(struct fib_result *res, int hash,
 
 	use_neigh = READ_ONCE(net->ipv4.sysctl_fib_multipath_use_neigh);
 	saddr = fl4 ? fl4->saddr : 0;
+	genid = saddr ? atomic_read(&net->ipv4.dev_addr_genid) : 0;
 
 	change_nexthops(fi) {
 		int nh_upper_bound, nh_score = 0;
@@ -2204,7 +2218,7 @@ void fib_select_multipath(struct fib_result *res, int hash,
 		    (use_neigh && !fib_good_nh(nexthop_nh)))
 			continue;
 
-		if (saddr && nexthop_nh->nh_saddr == saddr)
+		if (saddr && fib_nh_saddr(net, fi, nexthop_nh, genid) == saddr)
 			nh_score += 2;
 		if (hash <= nh_upper_bound)
 			nh_score++;

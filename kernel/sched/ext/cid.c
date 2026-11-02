@@ -31,6 +31,7 @@ static struct scx_cid_tables *scx_cid_tables;	/* used only during alloc/free */
 #define SCX_CID_TOPO_NEG	(struct scx_cid_topo) {				\
 	.core_cid = -1, .core_idx = -1, .llc_cid = -1, .llc_idx = -1,		\
 	.node_cid = -1, .node_idx = -1, .shard_cid = -1, .shard_idx = -1,	\
+	.cluster_cid = -1, .cluster_idx = -1,					\
 }
 
 /*
@@ -98,16 +99,16 @@ static struct scx_cid_tables *scx_cid_alloc_tables(void)
 	u32 npossible = num_possible_cpus();
 	struct scx_cid_tables *tbls;
 
-	tbls = kzalloc_obj(*tbls, GFP_KERNEL);
+	tbls = kzalloc_obj(*tbls);
 	if (!tbls)
 		return NULL;
 
-	tbls->cid_to_cpu = kvcalloc(npossible, sizeof(*tbls->cid_to_cpu), GFP_KERNEL);
-	tbls->cpu_to_cid = kvcalloc(nr_cpu_ids, sizeof(*tbls->cpu_to_cid), GFP_KERNEL);
-	tbls->cid_to_shard = kvcalloc(npossible, sizeof(*tbls->cid_to_shard), GFP_KERNEL);
-	tbls->shard_node = kvcalloc(npossible, sizeof(*tbls->shard_node), GFP_KERNEL);
-	tbls->shard_ranges = kvcalloc(npossible, sizeof(*tbls->shard_ranges), GFP_KERNEL);
-	tbls->topo = kvcalloc(npossible, sizeof(*tbls->topo), GFP_KERNEL);
+	tbls->cid_to_cpu = kvzalloc_objs(*tbls->cid_to_cpu, npossible);
+	tbls->cpu_to_cid = kvzalloc_objs(*tbls->cpu_to_cid, nr_cpu_ids);
+	tbls->cid_to_shard = kvzalloc_objs(*tbls->cid_to_shard, npossible);
+	tbls->shard_node = kvzalloc_objs(*tbls->shard_node, npossible);
+	tbls->shard_ranges = kvzalloc_objs(*tbls->shard_ranges, npossible);
+	tbls->topo = kvzalloc_objs(*tbls->topo, npossible);
 
 	if (!tbls->cid_to_cpu || !tbls->cpu_to_cid || !tbls->cid_to_shard ||
 	    !tbls->shard_node || !tbls->shard_ranges || !tbls->topo) {
@@ -182,12 +183,14 @@ s32 scx_cid_init(struct scx_sched *sch)
 	cpumask_var_t to_walk __free(free_cpumask_var) = CPUMASK_VAR_NULL;
 	cpumask_var_t node_scratch __free(free_cpumask_var) = CPUMASK_VAR_NULL;
 	cpumask_var_t llc_scratch __free(free_cpumask_var) = CPUMASK_VAR_NULL;
+	cpumask_var_t cluster_scratch __free(free_cpumask_var) = CPUMASK_VAR_NULL;
 	cpumask_var_t core_scratch __free(free_cpumask_var) = CPUMASK_VAR_NULL;
 	cpumask_var_t llc_fallback __free(free_cpumask_var) = CPUMASK_VAR_NULL;
 	cpumask_var_t online_no_topo __free(free_cpumask_var) = CPUMASK_VAR_NULL;
 	struct scx_cid_tables *tbls;
 	u32 next_cid = 0;
 	s32 next_node_idx = 0, next_llc_idx = 0, next_core_idx = 0;
+	s32 next_cluster_idx = 0;
 	s32 next_shard_idx = 0;
 	u32 shard_size, max_cids;
 	u32 notopo_in_shard;
@@ -215,6 +218,7 @@ s32 scx_cid_init(struct scx_sched *sch)
 	if (!zalloc_cpumask_var(&to_walk, GFP_KERNEL) ||
 	    !zalloc_cpumask_var(&node_scratch, GFP_KERNEL) ||
 	    !zalloc_cpumask_var(&llc_scratch, GFP_KERNEL) ||
+	    !zalloc_cpumask_var(&cluster_scratch, GFP_KERNEL) ||
 	    !zalloc_cpumask_var(&core_scratch, GFP_KERNEL) ||
 	    !zalloc_cpumask_var(&llc_fallback, GFP_KERNEL) ||
 	    !zalloc_cpumask_var(&online_no_topo, GFP_KERNEL))
@@ -256,6 +260,7 @@ s32 scx_cid_init(struct scx_sched *sch)
 			u32 cores_per_shard, nr_large;
 			u32 shard_local = 0, cores_in_shard = 0, cids_in_shard = 0;
 			s32 shard_cid, shard_idx;
+			s32 cluster_cid = -1, cluster_idx = -1;
 
 			/* llc_scratch = node_scratch & this llc */
 			cpumask_and(llc_scratch, node_scratch, llc_mask);
@@ -268,15 +273,32 @@ s32 scx_cid_init(struct scx_sched *sch)
 			tbls->shard_node[shard_idx] = nid;
 
 			while (!cpumask_empty(llc_scratch)) {
-				s32 lcpu = cpumask_first(llc_scratch);
-				const struct cpumask *sib = topology_sibling_cpumask(lcpu);
-				s32 core_cid = next_cid;
-				s32 core_idx = next_core_idx++;
-				s32 ccpu;
+				const struct cpumask *sib;
+				s32 core_cid, core_idx, lcpu, ccpu;
 				u32 max_cores, cids_in_core;
 
-				/* core_scratch = llc_scratch & this core */
-				cpumask_and(core_scratch, llc_scratch, sib);
+				/*
+				 * Take the cores of one cluster before moving
+				 * on, so that a cluster is a contiguous cid
+				 * range like the core, LLC and node levels.
+				 */
+				if (cpumask_empty(cluster_scratch)) {
+					s32 xcpu = cpumask_first(llc_scratch);
+
+					cpumask_or(cluster_scratch, topology_cluster_cpumask(xcpu),
+						   topology_sibling_cpumask(xcpu));
+					cpumask_and(cluster_scratch, cluster_scratch, llc_scratch);
+					cluster_cid = next_cid;
+					cluster_idx = next_cluster_idx++;
+				}
+
+				lcpu = cpumask_first(cluster_scratch);
+				sib = topology_sibling_cpumask(lcpu);
+				core_cid = next_cid;
+				core_idx = next_core_idx++;
+
+				/* core_scratch = cluster_scratch & this core */
+				cpumask_and(core_scratch, cluster_scratch, sib);
 				if (WARN_ON_ONCE(!cpumask_test_cpu(lcpu, core_scratch)))
 					return -EINVAL;
 
@@ -287,6 +309,12 @@ s32 scx_cid_init(struct scx_sched *sch)
 				 * empty shard.
 				 */
 				cids_in_core = cpumask_weight(core_scratch);
+				if (cids_in_core > SCX_CID_SHARD_MAX_CPUS) {
+					scx_error(sch, "core with %u cpus exceeds max shard size %d",
+						  cids_in_core, SCX_CID_SHARD_MAX_CPUS);
+					return -E2BIG;
+				}
+
 				max_cores = cores_per_shard + (shard_local < nr_large ? 1 : 0);
 				if (cores_in_shard &&
 				    (cores_in_shard >= max_cores ||
@@ -316,8 +344,11 @@ s32 scx_cid_init(struct scx_sched *sch)
 						.node_idx = node_idx,
 						.shard_cid = shard_cid,
 						.shard_idx = shard_idx,
+						.cluster_cid = cluster_cid,
+						.cluster_idx = cluster_idx,
 					};
 
+					cpumask_clear_cpu(ccpu, cluster_scratch);
 					cpumask_clear_cpu(ccpu, llc_scratch);
 					cpumask_clear_cpu(ccpu, node_scratch);
 					cpumask_clear_cpu(ccpu, to_walk);
@@ -461,8 +492,8 @@ __bpf_kfunc_start_defs();
  * starts must be strictly increasing with the first entry 0 and all values <
  * num_possible_cpus(). The last shard extends to num_possible_cpus() and no
  * shard may span more than SCX_CID_SHARD_MAX_CPUS cids. Topo info
- * (core/LLC/node) is cleared and the shard layout is set from the input. On
- * invalid input, abort the scheduler.
+ * (core/cluster/LLC/node) is cleared and the shard layout is set from the
+ * input. On invalid input, abort the scheduler.
  */
 __bpf_kfunc void scx_bpf_cid_override(const s32 *cpu_to_cid__arena, u32 cpu_to_cid_cnt,
 				      const s32 *shard_start__arena, u32 shard_start_cnt,
@@ -490,7 +521,7 @@ __bpf_kfunc void scx_bpf_cid_override(const s32 *cpu_to_cid__arena, u32 cpu_to_c
 	 * region that arena fault recovery covers.
 	 */
 	alloced = zalloc_cpumask_var(&seen, GFP_KERNEL);
-	node_counts = kcalloc(nr_node_ids, sizeof(*node_counts), GFP_KERNEL);
+	node_counts = kzalloc_objs(*node_counts, nr_node_ids);
 	if (cpu_to_cid_cnt == nr_cpu_ids)
 		cpu_to_cid = kmemdup(cpu_to_cid__arena, cpu_to_cid_cnt * sizeof(s32),
 				     GFP_KERNEL);
@@ -638,6 +669,29 @@ __bpf_kfunc s32 scx_bpf_cid_to_cpu(s32 cid, const struct bpf_prog_aux *aux)
 	if (unlikely(!sch))
 		return -EINVAL;
 	return scx_cid_to_cpu(sch, cid);
+}
+
+/**
+ * scx_bpf_cid_node - Return the NUMA node the given @cid belongs to
+ * @cid: cid to look up
+ * @aux: implicit BPF argument to access bpf_prog_aux hidden from BPF progs
+ *
+ * Return NUMA_NO_NODE if @cid is invalid or there is no scheduler. Unlike
+ * scx_bpf_cpu_node(), this kfunc is available only with CID support, so BPF
+ * schedulers can use its presence to detect NUMA-aware CID lookups.
+ */
+__bpf_kfunc s32 scx_bpf_cid_node(s32 cid, const struct bpf_prog_aux *aux)
+{
+	struct scx_sched *sch;
+	s32 cpu;
+
+	guard(rcu)();
+
+	sch = scx_prog_sched(aux);
+	if (unlikely(!sch))
+		return NUMA_NO_NODE;
+	cpu = scx_cid_to_cpu(sch, cid);
+	return cpu < 0 ? NUMA_NO_NODE : cpu_to_node(cpu);
 }
 
 /**
@@ -912,30 +966,36 @@ bool scx_cmask_empty(const struct scx_cmask *m)
 /**
  * scx_bpf_cid_topo - Copy out per-cid topology info
  * @cid: cid to look up
- * @out__uninit: where to copy the topology info; fully written by this call
+ * @out: where to copy the topology info
+ * @out__sz: size of @out, the program's sizeof(struct scx_cid_topo)
  * @aux: implicit BPF argument to access bpf_prog_aux hidden from BPF progs
  *
- * Fill @out__uninit with the topology info for @cid. Trigger scx_error() if
- * @cid is out of range. If @cid is valid but in the no-topo section, all fields
- * are set to -1. All fields are also set to -1 when no cid tables have been
- * published yet, which a program may observe while racing the root enable.
+ * Fill @out with the topology info for @cid. Trigger scx_error() if @cid is out
+ * of range. If @cid is valid but in the no-topo section, all fields are set to
+ * -1. All fields are also set to -1 when no cid tables have been published yet,
+ * which a program may observe while racing the root enable.
+ *
+ * The program's struct may be older or newer than the kernel's. The smaller of
+ * @out__sz and the kernel's size is copied and the rest of @out is set to -1.
  */
-__bpf_kfunc void scx_bpf_cid_topo(s32 cid, struct scx_cid_topo *out__uninit,
+__bpf_kfunc void scx_bpf_cid_topo(s32 cid, struct scx_cid_topo *out, size_t out__sz,
 				  const struct bpf_prog_aux *aux)
 {
+	size_t len = min(out__sz, sizeof(*out));
 	struct scx_cid_topo *topo;
 	struct scx_sched *sch;
+
+	/* the error cases and fields the kernel lacks read as -1 */
+	memset(out, 0xff, out__sz);
 
 	guard(rcu)();
 
 	sch = scx_prog_sched(aux);
 	topo = rcu_dereference(scx_cid_topo);
-	if (unlikely(!sch) || !cid_valid(sch, cid) || unlikely(!topo)) {
-		*out__uninit = SCX_CID_TOPO_NEG;
+	if (unlikely(!sch) || !cid_valid(sch, cid) || unlikely(!topo))
 		return;
-	}
 
-	*out__uninit = topo[cid];
+	memcpy(out, &topo[cid], len);
 }
 
 __bpf_kfunc_end_defs();
@@ -952,6 +1012,7 @@ static const struct btf_kfunc_id_set scx_kfunc_set_init_cids = {
 
 BTF_KFUNCS_START(scx_kfunc_ids_cid)
 BTF_ID_FLAGS(func, scx_bpf_cid_to_cpu, KF_IMPLICIT_ARGS)
+BTF_ID_FLAGS(func, scx_bpf_cid_node, KF_IMPLICIT_ARGS)
 BTF_ID_FLAGS(func, scx_bpf_cpu_to_cid, KF_IMPLICIT_ARGS)
 BTF_ID_FLAGS(func, scx_bpf_cid_topo, KF_IMPLICIT_ARGS)
 BTF_KFUNCS_END(scx_kfunc_ids_cid)

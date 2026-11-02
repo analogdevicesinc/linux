@@ -123,24 +123,24 @@ static int sb_write_pointer(struct block_device *bdev, struct blk_zone *zones,
 	} else if (full[0] && full[1]) {
 		/* Compare two super blocks */
 		struct address_space *mapping = bdev->bd_mapping;
-		struct page *page[BTRFS_NR_SB_LOG_ZONES];
 		struct btrfs_super_block *super[BTRFS_NR_SB_LOG_ZONES];
 
 		for (int i = 0; i < BTRFS_NR_SB_LOG_ZONES; i++) {
 			u64 zone_end = (zones[i].start + zones[i].capacity) << SECTOR_SHIFT;
 			u64 bytenr = ALIGN_DOWN(zone_end, BTRFS_SUPER_INFO_SIZE) -
 						BTRFS_SUPER_INFO_SIZE;
+			struct folio *folio;
 
 			filemap_invalidate_lock_shared(mapping);
-			page[i] = read_cache_page_gfp(mapping,
-					bytenr >> PAGE_SHIFT, GFP_NOFS);
+			folio = mapping_read_folio_gfp(mapping, bytenr >> PAGE_SHIFT,
+						       GFP_NOFS);
 			filemap_invalidate_unlock_shared(mapping);
-			if (IS_ERR(page[i])) {
+			if (IS_ERR(folio)) {
 				if (i == 1)
 					btrfs_release_disk_super(super[0]);
-				return PTR_ERR(page[i]);
+				return PTR_ERR(folio);
 			}
-			super[i] = page_address(page[i]);
+			super[i] = folio_address(folio) + offset_in_folio(folio, bytenr);
 		}
 
 		if (btrfs_super_generation(super[0]) >
@@ -803,15 +803,6 @@ int btrfs_check_mountopts_zoned(const struct btrfs_fs_info *info,
 {
 	if (!btrfs_is_zoned(info))
 		return 0;
-
-	/*
-	 * Space cache writing is not COWed. Disable that to avoid write errors
-	 * in sequential zones.
-	 */
-	if (btrfs_raw_test_opt(*mount_opt, SPACE_CACHE)) {
-		btrfs_err(info, "zoned: space cache v1 is not supported");
-		return -EINVAL;
-	}
 
 	if (btrfs_raw_test_opt(*mount_opt, NODATACOW)) {
 		btrfs_err(info, "zoned: NODATACOW not supported");
@@ -2005,10 +1996,12 @@ out:
 	if (!ret) {
 		cache->meta_write_pointer = cache->alloc_offset + cache->start;
 		if (test_bit(BLOCK_GROUP_FLAG_ZONE_IS_ACTIVE, &cache->runtime_flags)) {
-			btrfs_get_block_group(cache);
 			spin_lock(&fs_info->zone_active_bgs_lock);
-			list_add_tail(&cache->active_bg_list,
-				      &fs_info->zone_active_bgs);
+			if (list_empty(&cache->active_bg_list)) {
+				btrfs_get_block_group(cache);
+				list_add_tail(&cache->active_bg_list,
+					      &fs_info->zone_active_bgs);
+			}
 			spin_unlock(&fs_info->zone_active_bgs_lock);
 		}
 	} else {
@@ -2626,16 +2619,13 @@ static int do_zone_finish(struct btrfs_block_group *block_group, bool fully_writ
 	down_read(&dev_replace->rwsem);
 	map = block_group->physical_map;
 	for (i = 0; i < map->num_stripes; i++) {
-
 		ret = call_zone_finish(block_group, &map->stripes[i]);
-		if (ret) {
-			up_read(&dev_replace->rwsem);
-			return ret;
-		}
+		if (ret)
+			break;
 	}
 	up_read(&dev_replace->rwsem);
 
-	if (!fully_written)
+	if (!ret && !fully_written)
 		btrfs_dec_block_group_ro(block_group);
 
 	spin_lock(&fs_info->zone_active_bgs_lock);
@@ -2648,7 +2638,7 @@ static int do_zone_finish(struct btrfs_block_group *block_group, bool fully_writ
 
 	clear_and_wake_up_bit(BTRFS_FS_NEED_ZONE_FINISH, &fs_info->flags);
 
-	return 0;
+	return ret;
 }
 
 int btrfs_zone_finish(struct btrfs_block_group *block_group)
@@ -2691,6 +2681,11 @@ bool btrfs_can_activate_zone(struct btrfs_fs_devices *fs_devices, u64 flags)
 
 		switch (flags & BTRFS_BLOCK_GROUP_PROFILE_MASK) {
 		case 0: /* single */
+		case BTRFS_BLOCK_GROUP_RAID0:
+		case BTRFS_BLOCK_GROUP_RAID1:
+		case BTRFS_BLOCK_GROUP_RAID1C3:
+		case BTRFS_BLOCK_GROUP_RAID1C4:
+		case BTRFS_BLOCK_GROUP_RAID10:
 			ret = (atomic_read(&zinfo->active_zones_left) >= (1 + reserved));
 			break;
 		case BTRFS_BLOCK_GROUP_DUP:
@@ -2713,6 +2708,7 @@ int btrfs_zone_finish_endio(struct btrfs_fs_info *fs_info, u64 logical, u64 leng
 {
 	struct btrfs_block_group *block_group;
 	u64 min_alloc_bytes;
+	int ret = 0;
 
 	if (!btrfs_is_zoned(fs_info))
 		return 0;
@@ -2732,11 +2728,11 @@ int btrfs_zone_finish_endio(struct btrfs_fs_info *fs_info, u64 logical, u64 leng
 	    block_group->start + block_group->zone_capacity)
 		goto out;
 
-	do_zone_finish(block_group, true);
+	ret = do_zone_finish(block_group, true);
 
 out:
 	btrfs_put_block_group(block_group);
-	return 0;
+	return ret;
 }
 
 static void btrfs_zone_finish_endio_workfn(struct work_struct *work)

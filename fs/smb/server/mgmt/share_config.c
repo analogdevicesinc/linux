@@ -8,6 +8,7 @@
 #include <linux/slab.h>
 #include <linux/rwsem.h>
 #include <linux/parser.h>
+#include <linux/dcache.h>
 #include <linux/namei.h>
 #include <linux/fs_struct.h>
 #include <linux/sched.h>
@@ -108,6 +109,7 @@ static void kill_share(struct ksmbd_share_config *share)
 		path_put(&share->vfs_path);
 	kfree(share->name);
 	kfree(share->path);
+	kfree(share->real_path);
 	kfree(share);
 }
 
@@ -146,9 +148,9 @@ static struct ksmbd_share_config *__share_lookup(const char *name)
 
 static int parse_veto_list(struct ksmbd_share_config *share,
 			   char *veto_list,
-			   int veto_list_sz)
+			   size_t veto_list_sz)
 {
-	int sz = 0;
+	size_t sz;
 
 	if (!veto_list_sz)
 		return 0;
@@ -156,7 +158,7 @@ static int parse_veto_list(struct ksmbd_share_config *share,
 	while (veto_list_sz > 0) {
 		struct ksmbd_veto_pattern *p;
 
-		sz = strlen(veto_list);
+		sz = strnlen(veto_list, veto_list_sz);
 		if (!sz)
 			break;
 
@@ -164,7 +166,7 @@ static int parse_veto_list(struct ksmbd_share_config *share,
 		if (!p)
 			return -ENOMEM;
 
-		p->pattern = kstrdup(veto_list, KSMBD_DEFAULT_GFP);
+		p->pattern = kstrndup(veto_list, sz, KSMBD_DEFAULT_GFP);
 		if (!p->pattern) {
 			kfree(p);
 			return -ENOMEM;
@@ -172,11 +174,51 @@ static int parse_veto_list(struct ksmbd_share_config *share,
 
 		list_add(&p->list, &share->veto_list);
 
+		if (sz == veto_list_sz)
+			break;
+
 		veto_list += sz + 1;
 		veto_list_sz -= (sz + 1);
 	}
 
 	return 0;
+}
+
+static int share_config_resolve_path(struct ksmbd_share_config *share)
+{
+	char *buf, *path;
+	int ret;
+
+	ret = kern_path(share->path, 0, &share->vfs_path);
+	if (ret)
+		return ret;
+
+	buf = kmalloc(PATH_MAX, KSMBD_DEFAULT_GFP);
+	if (!buf) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	path = d_path(&share->vfs_path, buf, PATH_MAX);
+	if (IS_ERR(path)) {
+		ret = PTR_ERR(path);
+		goto out_buf;
+	}
+
+	path = kstrdup(path, KSMBD_DEFAULT_GFP);
+	if (!path) {
+		ret = -ENOMEM;
+		goto out_buf;
+	}
+
+	share->real_path = path;
+	share->real_path_sz = strlen(path);
+out_buf:
+	kfree(buf);
+out:
+	if (ret)
+		path_put(&share->vfs_path);
+	return ret;
 }
 
 static struct ksmbd_share_config *share_config_request(struct ksmbd_work *work,
@@ -224,17 +266,28 @@ static struct ksmbd_share_config *share_config_request(struct ksmbd_work *work,
 	}
 
 	if (!test_share_config_flag(share, KSMBD_SHARE_FLAG_PIPE)) {
-		int path_len = PATH_MAX;
+		size_t path_len;
 
-		if (resp->payload_sz)
-			path_len = resp->payload_sz - resp->veto_list_sz;
-
-		share->path = kstrndup(ksmbd_share_config_path(resp), path_len,
-				      KSMBD_DEFAULT_GFP);
-		if (!share->path) {
-			ret = -ENOMEM;
+		if (resp->payload_sz <= resp->veto_list_sz) {
+			ret = -EINVAL;
 		} else {
-			ret = 0;
+			path_len = resp->payload_sz - resp->veto_list_sz;
+			if (resp->veto_list_sz)
+				path_len--;
+
+			if (!path_len) {
+				ret = -EINVAL;
+			} else {
+				share->path = kstrndup(
+					ksmbd_share_config_path(resp),
+					path_len, KSMBD_DEFAULT_GFP);
+				if (!share->path)
+					ret = -ENOMEM;
+				else
+					ret = 0;
+			}
+		}
+		if (share->path) {
 			share->path_sz = strlen(share->path);
 			while (share->path_sz > 1 &&
 			       share->path[share->path_sz - 1] == '/')
@@ -258,12 +311,12 @@ static struct ksmbd_share_config *share_config_request(struct ksmbd_work *work,
 			}
 
 			scoped_with_init_fs()
-				ret = kern_path(share->path, 0, &share->vfs_path);
+				ret = share_config_resolve_path(share);
 			ksmbd_revert_fsids(work);
 			if (ret) {
 				ksmbd_debug(SMB, "failed to access '%s'\n",
 					    share->path);
-				/* Avoid put_path() */
+				/* No path reference is retained on failure. */
 				kfree(share->path);
 				share->path = NULL;
 			}

@@ -356,7 +356,7 @@ static int bareudp_xmit_skb(struct sk_buff *skb, struct net_device *dev,
 	if (err)
 		goto free_dst;
 
-	skb_set_inner_protocol(skb, bareudp->ethertype);
+	skb_set_inner_protocol(skb, skb->protocol);
 	udp_tunnel_xmit_skb(rt, sk, skb, saddr, info->key.u.ipv4.dst,
 			    tos, ttl, df, sport, bareudp->port,
 			    !net_eq(bareudp->net, dev_net(bareudp->dev)),
@@ -424,6 +424,7 @@ static int bareudp6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
 	if (err)
 		goto free_dst;
 
+	skb_set_inner_protocol(skb, skb->protocol);
 	daddr = info->key.u.ipv6.dst;
 	udp_tunnel6_xmit_skb(dst, sk, skb, dev,
 			     &saddr, &daddr, prio, ttl,
@@ -589,6 +590,7 @@ static void bareudp_setup(struct net_device *dev)
 	dev->max_mtu = IP_MAX_MTU - BAREUDP_BASE_HLEN;
 	dev->type = ARPHRD_NONE;
 	netif_keep_dst(dev);
+	netif_set_tso_max_size(dev, GSO_MAX_SIZE);
 	dev->priv_flags |= IFF_NO_QUEUE;
 	dev->lltx = true;
 	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;

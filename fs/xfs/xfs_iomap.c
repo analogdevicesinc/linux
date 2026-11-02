@@ -358,7 +358,7 @@ out_unlock:
 	return error;
 
 out_trans_cancel:
-	xfs_trans_cancel(tp);
+	xfs_trans_cancel_error(tp, error);
 	goto out_unlock;
 }
 
@@ -1083,12 +1083,7 @@ xfs_zoned_direct_write_iomap_begin(
 			return error;
 	}
 
-	iomap->type = IOMAP_MAPPED;
-	iomap->flags = IOMAP_F_DIRTY;
-	iomap->bdev = ip->i_mount->m_rtdev_targp->bt_bdev;
-	iomap->offset = offset;
-	iomap->length = length;
-	iomap->flags = IOMAP_F_ANON_WRITE;
+	xfs_iomap_set_anon_write(ip, iomap, offset, length);
 	return 0;
 }
 
@@ -1594,6 +1589,37 @@ out:
 }
 
 static int
+xfs_zoned_fill_srcmap(
+	struct xfs_inode	*ip,
+	xfs_fileoff_t		offset_fsb,
+	xfs_fileoff_t		*end_fsb,
+	unsigned		flags,
+	struct iomap		*srcmap)
+{
+	struct xfs_bmbt_irec	smap;
+	struct xfs_iext_cursor	scur;
+
+	if (!xfs_iext_lookup_extent(ip, &ip->i_df, offset_fsb, &scur, &smap))
+		smap.br_startoff = *end_fsb; /* fake hole until EOF */
+	if (smap.br_startoff > offset_fsb) {
+		/*
+		 * There is a hole at @offset_fsb.  Only map until the end of
+		 * the of it.
+		 */
+		*end_fsb = min(*end_fsb, smap.br_startoff);
+		return 0;
+	}
+
+	/*
+	 * There is a data fork mapping, only map until the end of it.
+	 */
+	xfs_trim_extent(&smap, offset_fsb, *end_fsb - offset_fsb);
+	*end_fsb = min(*end_fsb, smap.br_startoff + smap.br_blockcount);
+	return xfs_bmbt_to_iomap(ip, srcmap, &smap, flags, 0,
+			xfs_iomap_inode_sequence(ip, 0));
+}
+
+static int
 xfs_zoned_buffered_write_iomap_begin(
 	struct inode		*inode,
 	loff_t			offset,
@@ -1660,24 +1686,10 @@ restart:
 	if (!IS_ALIGNED(offset, mp->m_sb.sb_blocksize) ||
 	    !IS_ALIGNED(offset + count, mp->m_sb.sb_blocksize) ||
 	    (flags & IOMAP_ZERO)) {
-		struct xfs_bmbt_irec	smap;
-		struct xfs_iext_cursor	scur;
-
-		if (!xfs_iext_lookup_extent(ip, &ip->i_df, offset_fsb, &scur,
-				&smap))
-			smap.br_startoff = end_fsb; /* fake hole until EOF */
-		if (smap.br_startoff > offset_fsb) {
-			end_fsb = min(end_fsb, smap.br_startoff);
-		} else {
-			end_fsb = min(end_fsb,
-				smap.br_startoff + smap.br_blockcount);
-			xfs_trim_extent(&smap, offset_fsb,
-					end_fsb - offset_fsb);
-			error = xfs_bmbt_to_iomap(ip, srcmap, &smap, flags, 0,
-					xfs_iomap_inode_sequence(ip, 0));
-			if (error)
-				goto out_unlock;
-		}
+		error = xfs_zoned_fill_srcmap(ip, offset_fsb, &end_fsb, flags,
+				srcmap);
+		if (error)
+			goto out_unlock;
 	}
 
 	if (!ip->i_cowfp)

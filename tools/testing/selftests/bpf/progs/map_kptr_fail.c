@@ -149,7 +149,7 @@ int reject_bad_type_match(struct __sk_buff *ctx)
 }
 
 SEC("?tc")
-__failure __msg("R1 type=untrusted_ptr_or_null_ expected=percpu_ptr_")
+__failure __msg("Possibly NULL pointer passed to trusted R1")
 int marked_as_untrusted_or_null(struct __sk_buff *ctx)
 {
 	struct map_value *v;
@@ -217,7 +217,7 @@ int reject_kptr_xchg_on_unref(struct __sk_buff *ctx)
 }
 
 SEC("?tc")
-__failure __msg("R1 type=rcu_ptr_or_null_ expected=percpu_ptr_")
+__failure __msg("Possibly NULL pointer passed to trusted R1")
 int mark_ref_as_untrusted_or_null(struct __sk_buff *ctx)
 {
 	struct map_value *v;
@@ -252,7 +252,7 @@ int reject_untrusted_store_to_ref(struct __sk_buff *ctx)
 }
 
 SEC("?tc")
-__failure __msg("release helper bpf_kptr_xchg expects referenced PTR_TO_BTF_ID passed to R2")
+__failure __msg("release function bpf_kptr_xchg expects referenced PTR_TO_BTF_ID passed to R2")
 int reject_untrusted_xchg(struct __sk_buff *ctx)
 {
 	struct prog_test_ref_kfunc *p;
@@ -291,7 +291,7 @@ int reject_bad_type_xchg(struct __sk_buff *ctx)
 }
 
 SEC("?tc")
-__failure __msg("invalid kptr access, R2 type=trusted_ptr_prog_test_ref_kfunc")
+__failure __msg("R2 must have zero offset when passed to release func")
 int reject_member_of_ref_xchg(struct __sk_buff *ctx)
 {
 	struct prog_test_ref_kfunc *ref_ptr;
@@ -364,7 +364,7 @@ int kptr_xchg_ref_state(struct __sk_buff *ctx)
 }
 
 SEC("?tc")
-__failure __msg("Possibly NULL pointer passed to helper R2")
+__success
 int kptr_xchg_possibly_null(struct __sk_buff *ctx)
 {
 	struct prog_test_ref_kfunc *p;
@@ -407,6 +407,43 @@ int reject_scalar_store_to_kptr(struct __sk_buff *ctx)
 
 	*(volatile u64 *)&v->unref_ptr = 0xBADC0DE;
 	return 0;
+}
+
+SEC("?tc")
+__description("reject imprecise scalar store to kptr after state pruning")
+__failure __msg("invalid kptr access, R7 type=scalar")
+__naked void reject_imprecise_scalar_store_to_kptr(void)
+{
+	asm volatile (
+		"r0 = 0;"
+		"*(u32 *)(r10 - 4) = r0;"
+		"r2 = r10;"
+		"r2 += -4;"
+		"r1 = %[array_map] ll;"
+		"call %[bpf_map_lookup_elem];"
+		"if r0 == 0 goto l2_%=;"
+		"r6 = r0;"
+		"r9 = *(u64 *)(r6 + 0);"
+		"if r9 != 0 goto l0_%=;"
+		"r7 = 0;"
+		".rept 10;"
+		"r5 = 1;"
+		".endr;"
+		"goto l1_%=;"
+	"l0_%=:"
+		"r7 = 0x4141414141414141 ll;"
+		".rept 10;"
+		"r5 = 1;"
+		".endr;"
+	"l1_%=:"
+		"*(u64 *)(r6 + 8) = r7;"
+	"l2_%=:"
+		"r0 = 0;"
+		"exit;"
+		:
+		: __imm(bpf_map_lookup_elem),
+		  __imm_addr(array_map)
+		: __clobber_all);
 }
 
 char _license[] SEC("license") = "GPL";

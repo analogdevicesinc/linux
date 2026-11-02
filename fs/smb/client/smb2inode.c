@@ -77,6 +77,17 @@ static int parse_posix_sids(struct cifs_open_info_data *data,
 
 	sidsbuf = (u8 *)qi + le16_to_cpu(qi->OutputBufferOffset) + qi_len;
 	sidsbuf_end = sidsbuf + out_len - qi_len;
+	if (sidsbuf_end < sidsbuf) {
+		cifs_dbg(VFS, "%s: server-supplied out_len %u caused pointer wraparound\n",
+			 __func__, out_len);
+		return -EINVAL;
+	}
+	if (sidsbuf_end > (u8 *)rsp_iov->iov_base + rsp_iov->iov_len) {
+		cifs_dbg(VFS, "%s: server-supplied out_len %u overruns iov by %td bytes\n",
+			 __func__, out_len,
+			 sidsbuf_end - ((u8 *)rsp_iov->iov_base + rsp_iov->iov_len));
+		return -EINVAL;
+	}
 
 	owner_len = posix_info_sid_size(sidsbuf, sidsbuf_end);
 	if (owner_len == -1)
@@ -189,9 +200,6 @@ static void set_next_compound(struct cifs_tcon *tcon,
 	(*num_rqst)++;
 }
 
-#define COMP_PID(cfile) ((cfile) ? (cfile)->fid.persistent_fid : COMPOUND_FID)
-#define COMP_VID(cfile) ((cfile) ? (cfile)->fid.volatile_fid : COMPOUND_FID)
-
 /*
  * note: If cfile is passed, the reference to it is dropped here.
  * So make sure that you do not reuse cfile after return from this func.
@@ -237,7 +245,7 @@ replay_again:
 	num_rqst = 0;
 	server = cifs_pick_channel(ses);
 
-	vars = kzalloc_obj(*vars, GFP_KERNEL);
+	vars = kzalloc_obj(*vars);
 	if (vars == NULL) {
 		rc = -ENOMEM;
 		goto out;
@@ -309,7 +317,7 @@ replay_again:
 		/* Operation */
 		switch (cmds[i]) {
 		case SMB2_OP_QUERY_INFO:
-			rqst[num_rqst].rq_iov = &vars->qi_iov;
+			rqst[num_rqst].rq_iov = vars->qi_iov;
 			rqst[num_rqst].rq_nvec = 1;
 
 			rc = SMB2_query_info_init(tcon, server,
@@ -326,7 +334,7 @@ replay_again:
 							     ses->Suid, full_path);
 			break;
 		case SMB2_OP_POSIX_QUERY_INFO:
-			rqst[num_rqst].rq_iov = &vars->qi_iov;
+			rqst[num_rqst].rq_iov = vars->qi_iov;
 			rqst[num_rqst].rq_nvec = 1;
 
 			/* TBD: fix following to allow for longer SIDs */
@@ -587,8 +595,10 @@ finished:
 		/* smb2_parse_contexts() fills idata->fi.IndexNumber */
 		rc = smb2_parse_contexts(server, &rsp_iov[0], &oparms->fid->epoch,
 					 oparms->fid->lease_key, &oplock, &idata->fi, NULL);
-		if (rc)
+		if (rc) {
 			cifs_dbg(VFS, "rc: %d parsing context of compound op\n", rc);
+			tmp_rc = rc;
+		}
 	}
 
 	for (i = 0; i < num_cmds; i++) {
@@ -1110,7 +1120,7 @@ smb2_unlink(const unsigned int xid, struct cifs_tcon *tcon, const char *name,
 	struct kvec close_iov;
 	int resp_buftype[2];
 	struct cifs_fid fid;
-	int flags = 0;
+	int flags = CIFS_CP_CREATE_CLOSE_OP;
 	__u8 oplock;
 	int rc;
 

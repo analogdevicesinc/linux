@@ -904,6 +904,7 @@ static struct drm_plane *tegra_primary_plane_create(struct drm_device *drm,
 						    struct tegra_dc *dc)
 {
 	unsigned long possible_crtcs = tegra_plane_get_possible_crtcs(drm);
+	unsigned int blend_caps = BIT(DRM_MODE_BLEND_COVERAGE);
 	enum drm_plane_type type = DRM_PLANE_TYPE_PRIMARY;
 	struct tegra_plane *plane;
 	unsigned int num_formats;
@@ -939,6 +940,7 @@ static struct drm_plane *tegra_primary_plane_create(struct drm_device *drm,
 	}
 
 	drm_plane_helper_add(&plane->base, &tegra_plane_helper_funcs);
+	drm_plane_create_blend_mode_property(&plane->base, blend_caps);
 	drm_plane_create_zpos_property(&plane->base, plane->index, 0, 255);
 
 	err = drm_plane_create_rotation_property(&plane->base,
@@ -1209,6 +1211,7 @@ static struct drm_plane *tegra_dc_cursor_plane_create(struct drm_device *drm,
 						      struct tegra_dc *dc)
 {
 	unsigned long possible_crtcs = tegra_plane_get_possible_crtcs(drm);
+	unsigned int blend_caps = BIT(DRM_MODE_BLEND_COVERAGE);
 	struct tegra_plane *plane;
 	unsigned int num_formats;
 	const u32 *formats;
@@ -1252,6 +1255,7 @@ static struct drm_plane *tegra_dc_cursor_plane_create(struct drm_device *drm,
 	}
 
 	drm_plane_helper_add(&plane->base, &tegra_cursor_plane_helper_funcs);
+	drm_plane_create_blend_mode_property(&plane->base, blend_caps);
 	drm_plane_create_zpos_immutable_property(&plane->base, 255);
 
 	return &plane->base;
@@ -1356,6 +1360,7 @@ static struct drm_plane *tegra_dc_overlay_plane_create(struct drm_device *drm,
 						       bool cursor)
 {
 	unsigned long possible_crtcs = tegra_plane_get_possible_crtcs(drm);
+	unsigned int blend_caps = BIT(DRM_MODE_BLEND_COVERAGE);
 	struct tegra_plane *plane;
 	unsigned int num_formats;
 	enum drm_plane_type type;
@@ -1394,6 +1399,7 @@ static struct drm_plane *tegra_dc_overlay_plane_create(struct drm_device *drm,
 	}
 
 	drm_plane_helper_add(&plane->base, &tegra_plane_helper_funcs);
+	drm_plane_create_blend_mode_property(&plane->base, blend_caps);
 	drm_plane_create_zpos_property(&plane->base, plane->index, 0, 255);
 
 	err = drm_plane_create_rotation_property(&plane->base,
@@ -1486,17 +1492,17 @@ static void tegra_dc_destroy(struct drm_crtc *crtc)
 	drm_crtc_cleanup(crtc);
 }
 
-static void tegra_crtc_reset(struct drm_crtc *crtc)
+static struct drm_crtc_state *tegra_crtc_create_state(struct drm_crtc *crtc)
 {
-	struct tegra_dc_state *state = kzalloc_obj(*state);
+	struct tegra_dc_state *state;
 
-	if (crtc->state)
-		tegra_crtc_atomic_destroy_state(crtc, crtc->state);
+	state = kzalloc_obj(*state);
+	if (!state)
+		return ERR_PTR(-ENOMEM);
 
-	if (state)
-		__drm_atomic_helper_crtc_reset(crtc, &state->base);
-	else
-		__drm_atomic_helper_crtc_reset(crtc, NULL);
+	__drm_atomic_helper_crtc_state_init(&state->base, crtc);
+
+	return &state->base;
 }
 
 static struct drm_crtc_state *
@@ -1905,7 +1911,7 @@ static const struct drm_crtc_funcs tegra_crtc_funcs = {
 	.page_flip = drm_atomic_helper_page_flip,
 	.set_config = drm_atomic_helper_set_config,
 	.destroy = tegra_dc_destroy,
-	.reset = tegra_crtc_reset,
+	.atomic_create_state = tegra_crtc_create_state,
 	.atomic_duplicate_state = tegra_crtc_atomic_duplicate_state,
 	.atomic_destroy_state = tegra_crtc_atomic_destroy_state,
 	.late_register = tegra_dc_late_register,

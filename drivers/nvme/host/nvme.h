@@ -323,6 +323,7 @@ struct nvme_fault_inject {
 #ifdef CONFIG_FAULT_INJECTION_DEBUG_FS
 	struct fault_attr attr;
 	struct dentry *parent;
+	u16 opcode;
 	bool dont_retry;	/* DNR, do not retry */
 	u16 status;		/* status code */
 #endif
@@ -414,7 +415,6 @@ struct nvme_ctrl {
 	unsigned long quirks;
 	struct nvme_id_power_state psd[32];
 	struct nvme_effects_log *effects;
-	struct xarray cels;
 	struct work_struct scan_work;
 	struct work_struct async_event_work;
 	struct delayed_work ka_work;
@@ -508,6 +508,8 @@ struct nvme_subsystem {
 		__guarded_by(&nvme_subsystems_lock);
 	struct list_head	nsheads
 		__guarded_by(&lock);
+	/* Command effects logs, indexed by CSI and protected by lock. */
+	struct xarray		cels;
 	char			subnqn[NVMF_NQN_SIZE];
 	char			serial[20];
 	char			model[40];
@@ -571,6 +573,7 @@ struct nvme_ns_head {
 
 	u16			nr_plids;
 	u16			*plids;
+	u32			write_stream_granularity;
 #ifdef CONFIG_NVME_MULTIPATH
 	struct bio_list		requeue_list
 		__guarded_by(&requeue_lock);
@@ -587,6 +590,7 @@ struct nvme_ns_head {
 #define NVME_NSHEAD_DISK_LIVE		0
 #define NVME_NSHEAD_QUEUE_IF_NO_PATH	1
 #define NVME_NSHEAD_CDEV_LIVE		2
+#define NVME_NSHEAD_FAIL_ON_CTRL_LOSS	3
 	struct nvme_ns __rcu_guarded	*current_path[];
 #endif
 };
@@ -665,6 +669,8 @@ struct nvme_ctrl_ops {
 	int (*get_address)(struct nvme_ctrl *ctrl, char *buf, int size);
 	void (*print_device_info)(struct nvme_ctrl *ctrl);
 	bool (*supports_pci_p2pdma)(struct nvme_ctrl *ctrl);
+	int (*init_dma_buf_io_ctx)(struct nvme_ctrl *ctrl,
+				   struct dma_buf_io_ctx *ctx);
 	unsigned long (*get_virt_boundary)(struct nvme_ctrl *ctrl, bool is_admin);
 };
 
@@ -1011,9 +1017,9 @@ int nvme_get_log(struct nvme_ctrl *ctrl, u32 nsid, u8 log_page, u8 lsp, u8 csi,
 void nvme_get_ns_head(struct nvme_ns_head *head);
 bool nvme_tryget_ns_head(struct nvme_ns_head *head);
 void nvme_put_ns_head(struct nvme_ns_head *head);
-int nvme_cdev_add(const char *name, struct cdev *cdev,
-		struct device *cdev_device,
-		const struct file_operations *fops, struct module *owner);
+int nvme_cdev_add(struct cdev *cdev, struct device *cdev_device,
+		const struct file_operations *fops, struct module *owner,
+		int ctrl, int head);
 void nvme_cdev_del(struct cdev *cdev, struct device *cdev_device);
 int nvme_ioctl(struct block_device *bdev, blk_mode_t mode,
 		unsigned int cmd, unsigned long arg);
@@ -1093,11 +1099,14 @@ extern struct device_attribute dev_attr_ana_grpid;
 extern struct device_attribute dev_attr_ana_state;
 extern struct device_attribute dev_attr_queue_depth;
 extern struct device_attribute dev_attr_numa_nodes;
+extern struct device_attribute dev_attr_path_state;
 extern struct device_attribute dev_attr_delayed_removal_secs;
+extern struct device_attribute dev_attr_fail_on_ctrl_loss;
 extern struct device_attribute dev_attr_multipath_failover_count;
 extern struct device_attribute dev_attr_io_requeue_no_usable_path_count;
 extern struct device_attribute dev_attr_io_fail_no_available_path_count;
 extern struct device_attribute subsys_attr_iopolicy;
+extern struct device_attribute subsys_attr_iopolicies;
 
 static inline bool nvme_disk_is_ns_head(struct gendisk *disk)
 {

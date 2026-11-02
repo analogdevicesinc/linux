@@ -5,6 +5,7 @@
 
 #include <linux/log2.h>
 #include <linux/math64.h>
+#include <linux/string_choices.h>
 
 #include <drm/drm_print.h>
 
@@ -189,7 +190,7 @@ int intel_cx0_wait_for_ack(struct intel_encoder *encoder,
 		drm_dbg_kms(display->drm,
 			    "PHY %c Error occurred during %s command. Status: 0x%x\n",
 			    phy_name(phy),
-			    command == XELPDP_PORT_P2M_COMMAND_READ_ACK ? "read" : "write", *val);
+			    str_read_write(command == XELPDP_PORT_P2M_COMMAND_READ_ACK), *val);
 		intel_cx0_bus_reset(encoder, lane);
 		return -EINVAL;
 	}
@@ -198,7 +199,7 @@ int intel_cx0_wait_for_ack(struct intel_encoder *encoder,
 		drm_dbg_kms(display->drm,
 			    "PHY %c Not a %s response. MSGBUS Status: 0x%x.\n",
 			    phy_name(phy),
-			    command == XELPDP_PORT_P2M_COMMAND_READ_ACK ? "read" : "write", *val);
+			    str_read_write(command == XELPDP_PORT_P2M_COMMAND_READ_ACK), *val);
 		intel_cx0_bus_reset(encoder, lane);
 		return -EINVAL;
 	}
@@ -2342,12 +2343,14 @@ static void intel_c10pll_dump_hw_state(struct drm_printer *p,
 static bool is_arrowlake_s_by_host_bridge(void)
 {
 	struct pci_dev *pdev = NULL;
-	u16 host_bridge_pci_dev_id;
+	while ((pdev = pci_get_class(PCI_CLASS_BRIDGE_HOST << 8, pdev))) {
+		if (IS_ARROWLAKE_S_BY_HOST_BRIDGE_ID(pdev->device)) {
+			pci_dev_put(pdev);
+			return true;
+		}
+	}
 
-	while ((pdev = pci_get_class(PCI_CLASS_BRIDGE_HOST << 8, pdev)))
-		host_bridge_pci_dev_id = pdev->device;
-
-	return pdev && IS_ARROWLAKE_S_BY_HOST_BRIDGE_ID(host_bridge_pci_dev_id);
+	return false;
 }
 
 static u16 intel_c20_hdmi_tmds_tx_cgf_1(struct intel_display *display)
@@ -3233,7 +3236,8 @@ static void intel_cx0pll_enable(struct intel_encoder *encoder,
 	 * 8. Program DDI_CLK_VALFREQ to match intended DDI
 	 * clock frequency.
 	 */
-	intel_de_write(display, DDI_CLK_VALFREQ(encoder->port), port_clock);
+	intel_de_write(display, DDI_CLK_VALFREQ(encoder->port),
+		       intel_ddi_link_symbol_clock(encoder, port_clock));
 
 	/*
 	 * 9. Set PORT_CLOCK_CTL register PCLK PLL Request
@@ -3406,7 +3410,7 @@ void intel_mtl_tbt_pll_enable_clock(struct intel_encoder *encoder, int port_cloc
 	 * clock frequency.
 	 */
 	intel_de_write(display, DDI_CLK_VALFREQ(encoder->port),
-		       port_clock);
+		       intel_ddi_link_symbol_clock(encoder, port_clock));
 }
 
 void intel_mtl_pll_enable(struct intel_encoder *encoder,

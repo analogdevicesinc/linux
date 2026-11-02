@@ -832,14 +832,13 @@ int main(int argc, char *argv[])
 	int i;
 
 	ksft_print_header();
-	ksft_set_plan(ARRAY_SIZE(tests));
 	if (cg_find_unified_root(root, sizeof(root), NULL))
 		ksft_exit_skip("cgroup v2 isn't mounted\n");
 
-	if (cg_read_strstr(root, "cgroup.subtree_control", "cpu"))
-		if (cg_write(root, "cgroup.subtree_control", "+cpu"))
-			ksft_exit_skip("Failed to set cpu controller\n");
+	if (cg_write(root, "cgroup.subtree_control", "+cpu"))
+		ksft_exit_skip("Failed to set cpu controller\n");
 
+	ksft_set_plan(ARRAY_SIZE(tests));
 	for (i = 0; i < ARRAY_SIZE(tests); i++) {
 		switch (tests[i].fn(root)) {
 		case KSFT_PASS:

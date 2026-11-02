@@ -1959,8 +1959,9 @@ static int npc_apply_custom_kpu_from_fs(struct rvu *rvu,
 	fw = rvu->kpu_fwdata;
 
 	/* Binary blob contains ikpu actions entries at start of data[0] */
-	profile->ikpu2 = devm_kcalloc(rvu->dev, 1,
-				      sizeof(ikpu_action_entries),
+	profile->ikpu2 = devm_kcalloc(rvu->dev,
+				      ARRAY_SIZE(ikpu_action_entries),
+				      sizeof(*profile->ikpu2),
 				      GFP_KERNEL);
 	if (!profile->ikpu2)
 		return -ENOMEM;
@@ -2957,10 +2958,9 @@ static void npc_mcam_free_all_entries(struct rvu *rvu, struct npc_mcam *mcam,
 			}
 		}
 
-		/* Disable the entry */
-		npc_enable_mcam_entry(rvu, mcam, blkaddr, index, false);
-
 		if (!cn20k_dft_rl) {
+			/* Disable the entry */
+			npc_enable_mcam_entry(rvu, mcam, blkaddr, index, false);
 			mcam->entry2pfvf_map[index] = NPC_MCAM_INVALID_MAP;
 			/* Free the entry in bitmap */
 			npc_mcam_clear_bit(mcam, index);

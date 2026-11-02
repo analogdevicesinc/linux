@@ -55,9 +55,12 @@ enum vc_intensity;
  *		Invoked by csi_M and printing to the console.
  * @con_switch: notifier about the console switch; it is supposed to return
  *		true if a redraw is needed.
- * @con_blank:  blank/unblank the console. The target mode is passed in @blank.
- *		@mode_switch is set if changing from/to text/graphics. The hook
- *		is supposed to return true if a redraw is needed.
+ * @con_blank:  blank the console. The preferred VESA blank mode is passed in
+ *		@blank. @mode_switch is set if changing from/to text/graphics.
+ *		The hook is supposed to return true if a redraw is needed.
+ * @con_unblank: unblank the console. The hook is supposed to return true if
+ *		a redraw is needed. @mode_switch is set if changing from/to
+ *		text/graphics.
  * @con_font_set: set console @vc font to @font with height @vpitch. @flags can
  *		be %KD_FONT_FLAG_DONT_RECALC. (optional)
  * @con_font_get: fetch the current font on @vc of height @vpitch into @font.
@@ -99,6 +102,7 @@ struct consw {
 	bool	(*con_switch)(struct vc_data *vc);
 	bool	(*con_blank)(struct vc_data *vc, enum vesa_blank_mode blank,
 			     bool mode_switch);
+	bool	(*con_unblank)(struct vc_data *vc, bool mode_switch);
 	int	(*con_font_set)(struct vc_data *vc,
 				const struct console_font *font,
 				unsigned int vpitch, unsigned int flags);
@@ -173,7 +177,7 @@ static inline void con_debug_leave(void) { }
  * @CON_BRL:		Indicates a braille device which is exempt from
  *			receiving the printk spam for obvious reasons.
  * @CON_EXTENDED:	The console supports the extended output format of
- *			/dev/kmesg which requires a larger output buffer.
+ *			/dev/kmsg which requires a larger output buffer.
  * @CON_SUSPENDED:	Indicates if a console is suspended. If true, the
  *			printing callbacks must not be called.
  * @CON_NBCON:		Console can operate outside of the legacy style console_lock
@@ -615,6 +619,15 @@ extern bool nbcon_allow_unsafe_takeover(void);
 extern bool nbcon_kdb_try_acquire(struct console *con,
 				  struct nbcon_write_context *wctxt);
 extern void nbcon_kdb_release(struct nbcon_write_context *wctxt);
+extern bool nbcon_write_context_is_braille(struct nbcon_write_context *wctxt);
+extern bool nbcon_braille_try_acquire(struct console *con,
+				      struct nbcon_write_context *wctxt);
+extern void nbcon_braille_release(struct nbcon_write_context *wctxt);
+
+static inline bool nbcon_is_braille(struct console *con)
+{
+	return con && (con->flags & CON_BRL);
+}
 
 /*
  * Check if the given console is currently capable and allowed to print
@@ -678,8 +691,14 @@ static inline void nbcon_reacquire_nobuf(struct nbcon_write_context *wctxt) { }
 static inline bool nbcon_kdb_try_acquire(struct console *con,
 					 struct nbcon_write_context *wctxt) { return false; }
 static inline void nbcon_kdb_release(struct nbcon_write_context *wctxt) { }
+static inline
+bool nbcon_write_context_is_braille(struct nbcon_write_context *wctxt) { return false; }
 static inline bool console_is_usable(struct console *con, short flags,
 				     bool use_atomic) { return false; }
+static inline bool nbcon_braille_try_acquire(struct console *con,
+					     struct nbcon_write_context *wctxt) { return false; }
+static inline void nbcon_braille_release(struct nbcon_write_context *wctxt) { }
+static inline bool nbcon_is_braille(struct console *con) { return false; }
 #endif
 
 extern int console_set_on_cmdline;

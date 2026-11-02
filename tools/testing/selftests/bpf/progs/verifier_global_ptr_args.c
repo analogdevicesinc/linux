@@ -56,6 +56,30 @@ int trusted_task_arg_nullable(void *ctx)
 	return res;
 }
 
+/*
+ * Check that the verifier does not use checkpoints created
+ * on path with r1 == 0 to prune path with r1 != 0.
+ */
+SEC("?tp_btf/task_newtask")
+__failure
+__flag(BPF_F_TEST_STATE_FREQ)
+__msg("R1 type=scalar expected=ptr_, trusted_ptr_, rcu_ptr_")
+__naked int null_btf_id_arg_global_subprog(void)
+{
+	asm volatile (
+		"call %[bpf_get_prandom_u32];"
+		"r1 = 42;"
+		"if r0 > 42 goto 1f;"
+		"r1 = 0;"
+	"1:"
+		"call subprog_trusted_task_nullable;"
+		"r0 = 0;"
+		"exit;"
+		:
+		: __imm(bpf_get_prandom_u32)
+		: __clobber_all);
+}
+
 __weak int subprog_trusted_task_nonnull(struct task_struct *task __arg_trusted)
 {
 	return task->pid + task->tgid;
@@ -63,7 +87,7 @@ __weak int subprog_trusted_task_nonnull(struct task_struct *task __arg_trusted)
 
 SEC("?kprobe")
 __failure __log_level(2)
-__msg("R1 type=scalar expected=ptr_, trusted_ptr_, rcu_ptr_")
+__msg("Possibly NULL pointer passed to trusted R1")
 __msg("Caller passes invalid args into func#1 ('subprog_trusted_task_nonnull')")
 int trusted_task_arg_nonnull_fail1(void *ctx)
 {
@@ -72,7 +96,7 @@ int trusted_task_arg_nonnull_fail1(void *ctx)
 
 SEC("?tp_btf/task_newtask")
 __failure __log_level(2)
-__msg("R1 type=trusted_ptr_or_null_ expected=ptr_, trusted_ptr_, rcu_ptr_")
+__msg("Possibly NULL pointer passed to trusted R1")
 __msg("Caller passes invalid args into func#1 ('subprog_trusted_task_nonnull')")
 int trusted_task_arg_nonnull_fail2(void *ctx)
 {
@@ -153,7 +177,7 @@ __weak int subprog_trusted_destroy(struct task_struct *task __arg_trusted)
 
 SEC("?tp_btf/task_newtask")
 __failure __log_level(2)
-__msg("release kfunc bpf_task_release expects referenced PTR_TO_BTF_ID passed to R1")
+__msg("release function bpf_task_release expects referenced PTR_TO_BTF_ID passed to R1")
 int BPF_PROG(trusted_destroy_fail, struct task_struct *task, u64 clone_flags)
 {
 	return subprog_trusted_destroy(task);
@@ -265,6 +289,41 @@ __weak int subprog_void_untrusted(void *p __arg_untrusted)
 	return *(int *)p;
 }
 
+__weak int subprog_trusted_bare(struct task_struct *task __arg_trusted)
+{
+	return task->pid;
+}
+
+SEC("tp_btf/task_newtask")
+__failure
+__msg("R1 must be referenced or trusted")
+__msg("Caller passes invalid args into func#{{.*}} ('subprog_trusted_bare')")
+int bare_to_trusted(void *ctx)
+{
+	struct task_struct *cur = bpf_get_current_task_btf();
+	struct task_struct *wakee;
+
+	if (!cur)
+		return 0;
+	wakee = cur->last_wakee;
+	if (!wakee)
+		return 0;
+	return subprog_trusted_bare(wakee);
+}
+
+SEC("tp_btf/task_newtask")
+__failure
+__msg("R1 must be referenced or trusted")
+__msg("Caller passes invalid args into func#{{.*}}")
+int memrcu_to_trusted(void *ctx)
+{
+	struct task_struct *cur = bpf_get_current_task_btf();
+
+	if (!cur)
+		return 0;
+	return subprog_trusted_task_nullable(cur->real_parent);
+}
+
 __weak int subprog_char_untrusted(char *p __arg_untrusted)
 {
 	return *(int *)p;
@@ -324,6 +383,60 @@ int anything_to_untrusted_mem(void *ctx)
 	subprog_char_untrusted(mem + offset);
 	subprog_enum_untrusted((void *)mem + offset);
 	return 0;
+}
+
+struct pkt_arg {
+	__u64 x;
+	__u8 pad[56];
+};
+
+__weak int subprog_pkt_ptr_no_change(struct pkt_arg *p)
+{
+	if (!p)
+		return 0;
+
+	return p->x;
+}
+
+SEC("?tc")
+__success
+int pkt_ptr_to_global_mem_arg_no_change(struct __sk_buff *skb)
+{
+	void *data = (void *)(long)skb->data;
+	void *data_end = (void *)(long)skb->data_end;
+	struct pkt_arg *p = data;
+
+	if ((void *)(p + 1) > data_end)
+		return 0;
+
+	return subprog_pkt_ptr_no_change(p);
+}
+
+__weak int subprog_pkt_ptr_changes_data(struct __sk_buff *skb __arg_ctx,
+					struct pkt_arg *p)
+{
+	if (!p)
+		return 0;
+
+	bpf_skb_pull_data(skb, 0);
+	return p->x;
+}
+
+SEC("?tc")
+__failure __log_level(2)
+__msg("cannot pass packet pointer R2")
+__msg("function may change packet data")
+__msg("Caller passes invalid args into func#{{[0-9]+}} ('subprog_pkt_ptr_changes_data')")
+int pkt_ptr_to_global_mem_arg_changes_data(struct __sk_buff *skb)
+{
+	void *data = (void *)(long)skb->data;
+	void *data_end = (void *)(long)skb->data_end;
+	struct pkt_arg *p = data;
+
+	if ((void *)(p + 1) > data_end)
+		return 0;
+
+	return subprog_pkt_ptr_changes_data(skb, p);
 }
 
 char _license[] SEC("license") = "GPL";

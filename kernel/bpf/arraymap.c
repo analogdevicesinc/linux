@@ -436,17 +436,17 @@ int bpf_percpu_array_update(struct bpf_map *map, void *key, void *value,
 	void __percpu *pptr;
 	void *ptr, *val;
 	u32 size;
-	int cpu;
+	int cpu, off = 0;
 
-	if (unlikely((map_flags & BPF_F_LOCK) || (u32)map_flags > BPF_F_ALL_CPUS))
-		/* unknown flags */
+	if (unlikely(((map_flags & BPF_EXIST_FLAGS) == BPF_EXIST_FLAGS) ||
+		     ((u32)map_flags & ~(BPF_EXIST_FLAGS | BPF_CPU_FLAGS))))
 		return -EINVAL;
 
 	if (unlikely(index >= array->map.max_entries))
 		/* all elements were pre-allocated, cannot insert a new one */
 		return -E2BIG;
 
-	if (unlikely(map_flags == BPF_NOEXIST))
+	if (unlikely(map_flags & BPF_NOEXIST))
 		/* all elements already exist */
 		return -EEXIST;
 
@@ -468,9 +468,10 @@ int bpf_percpu_array_update(struct bpf_map *map, void *key, void *value,
 	}
 	for_each_possible_cpu(cpu) {
 		ptr = per_cpu_ptr(pptr, cpu);
-		val = (map_flags & BPF_F_ALL_CPUS) ? value : value + size * cpu;
+		val = (map_flags & BPF_F_ALL_CPUS) ? value : value + off;
 		copy_map_value(map, ptr, val);
 		bpf_obj_cancel_fields(map, ptr);
+		off += size;
 	}
 unlock:
 	rcu_read_unlock();
@@ -1034,7 +1035,7 @@ static void *prog_fd_array_get_ptr(struct bpf_map *map,
 	}
 
 	mutex_lock(&prog->aux->ext_mutex);
-	is_extended = prog->aux->is_extended;
+	is_extended = prog->aux->freplace_link_cnt > 0;
 	if (!is_extended)
 		prog->aux->prog_array_member_cnt++;
 	mutex_unlock(&prog->aux->ext_mutex);

@@ -838,12 +838,11 @@ static int mvcos_key(void *to, const void *from, unsigned long size, u8 dst_key,
 	int exception = PGM_PROTECTION;
 
 	asm_inline volatile(
-		"       lr      %%r0,%[spec]\n"
-		"0:     mvcos   %[to],%[from],%[size]\n"
-		"1:     lhi     %[exc],0\n"
-		"2:\n"
-		EX_TABLE(0b, 2b)
-		EX_TABLE(1b, 2b)
+		"	lr	%%r0,%[spec]\n"
+		"0:	mvcos	%[to],%[from],%[size]\n"
+		"	lhi	%[exc],0\n"
+		"1:\n"
+		EX_TABLE_INSN(0b, 1b)
 		: [size] "+d" (size), [to] "=Q" (*(char *)to), [exc] "+d" (exception)
 		: [spec] "d" (spec.val), [from] "Q" (*(const char *)from)
 		: "memory", "cc", "0");
@@ -1589,11 +1588,24 @@ static inline int ___gaccess_shadow_fault(struct kvm_vcpu *vcpu, struct gmap *sg
 	parent = READ_ONCE(sg->parent);
 	if (!parent)
 		return -EAGAIN;
+retry:
 	scoped_guard(spinlock, &parent->children_lock) {
 		if (READ_ONCE(sg->parent) != parent)
 			return -EAGAIN;
 		sg->invalidated = false;
 		rc = _gaccess_do_shadow(vcpu->arch.mc, sg, saddr, walk);
+	}
+	if (rc == -ENOENT) {
+		struct kvm_memory_slot *slot;
+		struct guest_fault *entries;
+
+		entries = get_entries(walk);
+		slot = kvm_vcpu_gfn_to_memslot(vcpu, entries[LEVEL_MEM].gfn);
+		if (!slot)
+			return PGM_ADDRESSING;
+		rc = gmap_link(vcpu->arch.mc, parent, entries + LEVEL_MEM, slot);
+		if (!rc)
+			goto retry;
 	}
 	if (!rc)
 		kvm_s390_release_faultin_array(vcpu->kvm, walk->raw_entries, false);

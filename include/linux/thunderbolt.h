@@ -22,6 +22,7 @@ struct device;
 #include <linux/device.h>
 #include <linux/idr.h>
 #include <linux/list.h>
+#include <linux/lockdep.h>
 #include <linux/mutex.h>
 #include <linux/device-id/tb.h>
 #include <linux/pci.h>
@@ -369,7 +370,7 @@ int tb_xdomain_request(struct tb_xdomain *xd, const void *request,
  * @uuid: XDomain messages with this UUID are dispatched to this handler
  * @callback: Callback called with the XDomain message. Returning %1
  *	      here tells the XDomain core that the message was handled
- *	      by this handler and should not be forwared to other
+ *	      by this handler and should not be forwarded to other
  *	      handlers.
  * @data: Data passed with the callback
  * @list: Handlers are linked using this
@@ -506,6 +507,7 @@ void tb_service_properties_changed(struct tb_service *svc);
  * @iobase: MMIO space of the NHI
  * @tx_rings: All Tx rings available on this host controller
  * @rx_rings: All Rx rings available on this host controller
+ * @interrupt_mask: Shadow copy of the ring interrupt mask register
  * @going_away: The host controller device is about to disappear so when
  *		this flag is set, avoid touching the hardware anymore.
  * @iommu_dma_protection: An IOMMU will isolate external-facing ports.
@@ -527,6 +529,7 @@ struct tb_nhi {
 	void __iomem *iobase;
 	struct tb_ring **tx_rings;
 	struct tb_ring **rx_rings;
+	u32 *interrupt_mask;
 	bool going_away;
 	bool iommu_dma_protection;
 	struct work_struct interrupt_work;
@@ -552,6 +555,8 @@ struct tb_nhi {
  * @work: Interrupt work structure
  * @is_tx: Is the ring Tx or Rx
  * @running: Is the ring running
+ * @notify_pending: Controller has not been notified about the posted
+ *		    descriptors yet
  * @irq: MSI-X irq number if the ring uses MSI-X. %0 otherwise.
  * @vector: MSI-X vector number the ring uses (only set if @irq is > 0)
  * @flags: Ring specific flags
@@ -565,6 +570,7 @@ struct tb_nhi {
  * @interval_nsec: Interval counter if interrupt throttling is to be
  *		   used with this ring (in ns)
  * @wait: Used to signal that the ring may be empty now
+ * @lock_key: Lock validator class key per-ring
  */
 struct tb_ring {
 	spinlock_t lock;
@@ -580,6 +586,7 @@ struct tb_ring {
 	struct work_struct work;
 	bool is_tx:1;
 	bool running:1;
+	bool notify_pending:1;
 	int irq;
 	u8 vector;
 	unsigned int flags;
@@ -590,6 +597,7 @@ struct tb_ring {
 	void *poll_data;
 	unsigned int interval_nsec;
 	wait_queue_head_t wait;
+	struct lock_class_key lock_key;
 };
 
 /* Leave ring interrupt enabled on suspend */
@@ -669,7 +677,8 @@ bool tb_ring_flush(struct tb_ring *ring, unsigned int timeout_msec);
 void tb_ring_stop(struct tb_ring *ring);
 void tb_ring_free(struct tb_ring *ring);
 
-int __tb_ring_enqueue(struct tb_ring *ring, struct ring_frame *frame);
+int __tb_ring_enqueue(struct tb_ring *ring, struct ring_frame *frame, bool more);
+void tb_ring_notify(struct tb_ring *ring);
 
 /**
  * tb_ring_rx() - enqueue a frame on an RX ring
@@ -690,7 +699,24 @@ int __tb_ring_enqueue(struct tb_ring *ring, struct ring_frame *frame);
 static inline int tb_ring_rx(struct tb_ring *ring, struct ring_frame *frame)
 {
 	WARN_ON(ring->is_tx);
-	return __tb_ring_enqueue(ring, frame);
+	return __tb_ring_enqueue(ring, frame, false);
+}
+
+/**
+ * tb_ring_rx_more() - enqueue a frame on an RX ring without notifying
+ * @ring: Ring to enqueue the frame
+ * @frame: Frame to enqueue
+ *
+ * Same as tb_ring_rx() but does not notify the controller about the
+ * enqueued frame. The caller must call tb_ring_notify() once it is done
+ * enqueuing frames.
+ *
+ * Return: %-ESHUTDOWN if tb_ring_stop() has been called, %0 otherwise.
+ */
+static inline int tb_ring_rx_more(struct tb_ring *ring, struct ring_frame *frame)
+{
+	WARN_ON(ring->is_tx);
+	return __tb_ring_enqueue(ring, frame, true);
 }
 
 /**
@@ -711,11 +737,27 @@ static inline int tb_ring_rx(struct tb_ring *ring, struct ring_frame *frame)
 static inline int tb_ring_tx(struct tb_ring *ring, struct ring_frame *frame)
 {
 	WARN_ON(!ring->is_tx);
-	return __tb_ring_enqueue(ring, frame);
+	return __tb_ring_enqueue(ring, frame, false);
+}
+
+/**
+ * tb_ring_tx_more() - enqueue a frame on a TX ring without notifying
+ * @ring: Ring to enqueue the frame
+ * @frame: Frame to enqueue
+ *
+ * Same as tb_ring_rx_more() but for TX ring.
+ *
+ * Return: %-ESHUTDOWN if tb_ring_stop() has been called, %0 otherwise.
+ */
+static inline int tb_ring_tx_more(struct tb_ring *ring, struct ring_frame *frame)
+{
+	WARN_ON(!ring->is_tx);
+	return __tb_ring_enqueue(ring, frame, true);
 }
 
 /* Used only when the ring is in polling mode */
 struct ring_frame *tb_ring_poll(struct tb_ring *ring);
+bool tb_ring_poll_pending(struct tb_ring *ring);
 void tb_ring_poll_complete(struct tb_ring *ring);
 
 int tb_ring_throttling(struct tb_ring *ring, unsigned int interval_nsec);

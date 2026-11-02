@@ -14,16 +14,30 @@
 #include <linux/rfkill.h>
 #include <linux/workqueue.h>
 #include <linux/rtnetlink.h>
+#include <linux/wait_bit.h>
 #include <net/genetlink.h>
 #include <net/cfg80211.h>
 #include "reg.h"
 
+
+/* protects the wiphy list, wiphy netns changes and regulatory state */
+extern struct mutex cfg80211_mutex;
 
 #define WIPHY_IDX_INVALID	-1
 
 struct cfg80211_scan_request_int {
 	struct cfg80211_scan_info info;
 	bool notified;
+	/*
+	 * set while the request is handed to the driver, i.e. between
+	 * rdev_scan() and cfg80211_scan_done()
+	 */
+	bool driver_owns;
+	/*
+	 * set when cfg80211 is done with the request but the driver still
+	 * owns it, so that cfg80211_scan_done() knows to just free it
+	 */
+	bool stale;
 	/* must be last - variable members */
 	struct cfg80211_scan_request req;
 };
@@ -69,7 +83,9 @@ struct cfg80211_registered_device {
 	/* protected by RTNL only */
 	int num_running_ifaces;
 	int num_running_monitor_ifaces;
-	u64 cookie_counter;
+
+	/* atomic for unlocked users */
+	atomic64_t cookie_counter;
 
 	/* BSSes/scanning */
 	spinlock_t bss_lock;
@@ -104,6 +120,8 @@ struct cfg80211_registered_device {
 	struct work_struct destroy_work;
 	struct wiphy_work sched_scan_stop_wk;
 	struct work_struct sched_scan_res_wk;
+	struct wiphy_work reg_check_chans_wk;
+	struct work_struct reg_leave_nan_wk;
 
 	struct cfg80211_chan_def radar_chandef;
 	struct work_struct propagate_radar_detect_wk;
@@ -155,10 +173,10 @@ cfg80211_rdev_free_wowlan(struct cfg80211_registered_device *rdev)
 
 static inline u64 cfg80211_assign_cookie(struct cfg80211_registered_device *rdev)
 {
-	u64 r = ++rdev->cookie_counter;
+	u64 r = atomic64_inc_return(&rdev->cookie_counter);
 
 	if (WARN_ON(r == 0))
-		r = ++rdev->cookie_counter;
+		r = atomic64_inc_return(&rdev->cookie_counter);
 
 	return r;
 }
@@ -167,15 +185,10 @@ extern struct workqueue_struct *cfg80211_wq;
 extern struct list_head cfg80211_rdev_list;
 extern int cfg80211_rdev_list_generation;
 
-/* This is constructed like this so it can be used in if/else */
-static inline int for_each_rdev_check_rtnl(void)
-{
-	ASSERT_RTNL();
-	return 0;
-}
 #define for_each_rdev(rdev)						\
-	if (for_each_rdev_check_rtnl()) {} else				\
-		list_for_each_entry(rdev, &cfg80211_rdev_list, list)
+	list_for_each_entry_rcu(rdev, &cfg80211_rdev_list, list,	\
+				lockdep_rtnl_is_held() ||		\
+				lockdep_is_held(&cfg80211_mutex))
 
 enum bss_source_type {
 	BSS_SOURCE_DIRECT = 0,
@@ -249,6 +262,26 @@ void cfg80211_init_wdev(struct wireless_dev *wdev);
 void cfg80211_register_wdev(struct cfg80211_registered_device *rdev,
 			    struct wireless_dev *wdev);
 
+static inline void wdev_hold(struct wireless_dev *wdev)
+{
+	if (wdev->netdev) {
+		dev_hold(wdev->netdev);
+		return;
+	}
+
+	/* also not RTNL, but can't check that */
+	lockdep_assert_not_held(&wdev->wiphy->mtx);
+	refcount_inc(&wdev->refcnt);
+}
+
+static inline void wdev_put(struct wireless_dev *wdev)
+{
+	if (wdev->netdev)
+		dev_put(wdev->netdev);
+	else if (refcount_dec_and_test(&wdev->refcnt))
+		wake_up_var(&wdev->refcnt);
+}
+
 static inline bool cfg80211_has_monitors_only(struct cfg80211_registered_device *rdev)
 {
 	lockdep_assert_held(&rdev->wiphy.mtx);
@@ -280,8 +313,7 @@ struct cfg80211_event {
 			bool locally_generated;
 		} dc;
 		struct {
-			u8 bssid[ETH_ALEN];
-			struct ieee80211_channel *channel;
+			struct cfg80211_bss *bss;
 		} ij;
 		struct {
 			u8 peer_addr[ETH_ALEN];
@@ -344,8 +376,7 @@ int __cfg80211_join_ibss(struct cfg80211_registered_device *rdev,
 void cfg80211_clear_ibss(struct net_device *dev, bool nowext);
 int cfg80211_leave_ibss(struct cfg80211_registered_device *rdev,
 			struct net_device *dev, bool nowext);
-void __cfg80211_ibss_joined(struct net_device *dev, const u8 *bssid,
-			    struct ieee80211_channel *channel);
+void __cfg80211_ibss_joined(struct net_device *dev, struct cfg80211_bss *bss);
 int cfg80211_ibss_wext_join(struct cfg80211_registered_device *rdev,
 			    struct wireless_dev *wdev);
 
@@ -403,6 +434,10 @@ int cfg80211_mlme_mgmt_tx(struct cfg80211_registered_device *rdev,
 			  struct wireless_dev *wdev,
 			  struct cfg80211_mgmt_tx_params *params,
 			  u64 cookie);
+int cfg80211_mlme_mgmt_tx_unlocked(struct cfg80211_registered_device *rdev,
+				   struct wireless_dev *wdev,
+				   struct cfg80211_mgmt_tx_params *params,
+				   u64 cookie);
 void cfg80211_oper_and_ht_capa(struct ieee80211_ht_cap *ht_capa,
 			       const struct ieee80211_ht_cap *ht_capa_mask);
 void cfg80211_oper_and_vht_capa(struct ieee80211_vht_cap *vht_capa,
@@ -443,13 +478,16 @@ void cfg80211_sme_abandon_assoc(struct wireless_dev *wdev);
 
 /* internal helpers */
 bool cfg80211_supported_cipher_suite(struct wiphy *wiphy, u32 cipher);
+bool cfg80211_cigtk_supported(struct wireless_dev *wdev,
+			      struct genl_info *info);
 bool cfg80211_valid_key_idx(struct wireless_dev *wdev,
-			    int key_idx, bool pairwise,
+			    int key_idx, enum nl80211_key_type type,
 			    const u8 *mac_addr);
 int cfg80211_validate_key_settings(struct cfg80211_registered_device *rdev,
 				   struct wireless_dev *wdev,
 				   struct key_params *params, int key_idx,
-				   bool pairwise, const u8 *mac_addr);
+				   enum nl80211_key_type type,
+				   const u8 *mac_addr);
 void __cfg80211_scan_done(struct wiphy *wiphy, struct wiphy_work *wk);
 void ___cfg80211_scan_done(struct cfg80211_registered_device *rdev,
 			   bool send_message);
@@ -564,6 +602,10 @@ void cfg80211_stop_pd(struct cfg80211_registered_device *rdev,
 int cfg80211_nan_set_local_schedule(struct cfg80211_registered_device *rdev,
 				    struct wireless_dev *wdev,
 				    struct cfg80211_nan_local_sched *sched);
+
+int cfg80211_nan_set_non_evac_channels(struct cfg80211_registered_device *rdev,
+				       struct wireless_dev *wdev,
+				       struct cfg80211_nan_non_evac_channels *channels);
 
 struct cfg80211_internal_bss *
 cfg80211_bss_update(struct cfg80211_registered_device *rdev,

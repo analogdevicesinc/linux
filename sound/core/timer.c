@@ -1855,7 +1855,7 @@ static int snd_timer_user_info(struct file *file,
 		return -EBADFD;
 
 	struct snd_timer_info *info __free(kfree) =
-		kzalloc(sizeof(*info), GFP_KERNEL);
+		kzalloc_obj(*info);
 	if (! info)
 		return -ENOMEM;
 	info->card = t->card ? t->card->number : -1;
@@ -2173,9 +2173,11 @@ static long snd_utimer_ioctl(struct file *file, unsigned int ioctl, unsigned lon
 }
 
 static const struct file_operations snd_utimer_fops = {
+	.owner		=	THIS_MODULE,
 	.llseek		=	noop_llseek,
 	.release	=	snd_utimer_release,
 	.unlocked_ioctl	=	snd_utimer_ioctl,
+	.compat_ioctl	=	snd_utimer_ioctl,
 };
 
 static int snd_utimer_start(struct snd_timer *t)

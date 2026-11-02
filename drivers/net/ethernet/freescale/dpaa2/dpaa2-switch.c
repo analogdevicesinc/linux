@@ -616,7 +616,7 @@ static int dpaa2_switch_lag_fdb_add(struct dpaa2_switch_lag *lag,
 		goto out;
 	}
 
-	a = kzalloc(sizeof(*a), GFP_KERNEL);
+	a = kzalloc_obj(*a);
 	if (!a) {
 		err = -ENOMEM;
 		goto out;
@@ -1276,9 +1276,9 @@ static netdev_tx_t dpaa2_switch_port_tx(struct sk_buff *skb,
 	}
 
 	/* We'll be holding a back-reference to the skb until Tx confirmation */
-	skb = skb_unshare(skb, GFP_ATOMIC);
+	skb = skb_unclone_full(skb, GFP_ATOMIC);
 	if (unlikely(!skb)) {
-		/* skb_unshare() has already freed the skb */
+		/* skb_unclone_full() has already freed the skb */
 		net_err_ratelimited("%s: Error copying the socket buffer\n", net_dev->name);
 		goto err_exit;
 	}
@@ -4131,8 +4131,7 @@ static int dpaa2_switch_probe(struct fsl_mc_device *sw_dev)
 		goto err_free_fdbs;
 	}
 
-	ethsw->lags = kcalloc(ethsw->sw_attr.num_ifs, sizeof(*ethsw->lags),
-			      GFP_KERNEL);
+	ethsw->lags = kzalloc_objs(*ethsw->lags, ethsw->sw_attr.num_ifs);
 	if (!ethsw->lags) {
 		err = -ENOMEM;
 		goto err_free_filter;

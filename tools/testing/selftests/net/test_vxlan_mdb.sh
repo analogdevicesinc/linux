@@ -133,37 +133,7 @@ PAUSE=no
 
 log_test()
 {
-	local rc=$1
-	local expected=$2
-	local msg="$3"
-
-	if [ ${rc} -eq ${expected} ]; then
-		printf "TEST: %-60s  [ OK ]\n" "${msg}"
-		nsuccess=$((nsuccess+1))
-	else
-		ret=1
-		nfail=$((nfail+1))
-		printf "TEST: %-60s  [FAIL]\n" "${msg}"
-		if [ "$VERBOSE" = "1" ]; then
-			echo "    rc=$rc, expected $expected"
-		fi
-
-		if [ "${PAUSE_ON_FAIL}" = "yes" ]; then
-		echo
-			echo "hit enter to continue, 'q' to quit"
-			read a
-			[ "$a" = "q" ] && exit 1
-		fi
-	fi
-
-	if [ "${PAUSE}" = "yes" ]; then
-		echo
-		echo "hit enter to continue, 'q' to quit"
-		read a
-		[ "$a" = "q" ] && exit 1
-	fi
-
-	[ "$VERBOSE" = "1" ] && echo
+	log_test_expected "$1" "$2" "$3"
 }
 
 run_cmd()
@@ -685,6 +655,9 @@ star_g_common()
 	run_cmd "bridge -n $ns1 mdb add dev vx0 port vx0 grp $grp permanent filter_mode exclude source_list $grp dst $vtep_ip src_vni 10010"
 	log_test $? 255 "Invalid source in source list"
 
+	run_cmd "bridge -n $ns1 mdb add dev vx0 port vx0 grp $grp permanent filter_mode exclude source_list $all_zeros_grp dst $vtep_ip src_vni 10010"
+	log_test $? 255 "All-zeros source in source list"
+
 	run_cmd "bridge -n $ns1 mdb add dev vx0 port vx0 grp $grp permanent source_list $src1 dst $vtep_ip src_vni 10010"
 	log_test $? 255 "Source list without filter mode"
 }
@@ -783,6 +756,9 @@ sg_common()
 
 	run_cmd "bridge -n $ns1 mdb add dev vx0 port vx0 grp $grp src $grp permanent dst $vtep_ip src_vni 10010"
 	log_test $? 255 "(S, G) with an invalid source list"
+
+	run_cmd "bridge -n $ns1 mdb add dev vx0 port vx0 grp $grp src $all_zeros_grp permanent dst $vtep_ip src_vni 10010"
+	log_test $? 255 "(S, G) with an all-zeros source"
 
 	run_cmd "bridge -n $ns1 mdb add dev vx0 port vx0 grp $all_zeros_grp src $src permanent dst $vtep_ip src_vni 10010"
 	log_test $? 255 "All-zeros group with source"

@@ -192,12 +192,16 @@ xrep_orphanage_create(
 	/* Make sure the orphanage is owned by root. */
 	error = xrep_chown_orphanage(sc, XFS_I(orphanage_inode));
 	if (error)
-		goto out_dput_orphanage;
+		goto out_rele_orphanage;
 
 	/* Stash the reference for later and bail out. */
 	sc->orphanage = XFS_I(orphanage_inode);
 	sc->orphanage_ilock_flags = 0;
+	orphanage_inode = NULL;
 
+out_rele_orphanage:
+	if (orphanage_inode)
+		xchk_irele(sc, XFS_I(orphanage_inode));
 out_dput_orphanage:
 	end_creating(orphanage_dentry);
 out_dput_root:
@@ -546,7 +550,7 @@ xrep_adoption_move(
 	if (!xfs_inode_has_attr_fork(sc->ip) && xfs_has_parent(sc->mp)) {
 		int sf_size = xrep_adoption_attr_sizeof(adopt);
 
-		error = xfs_bmap_add_attrfork(sc->tp, sc->ip, sf_size, true);
+		error = xfs_bmap_add_attrfork(sc->tp, sc->ip, sf_size);
 		if (error)
 			return error;
 	}
