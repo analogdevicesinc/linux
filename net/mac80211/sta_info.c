@@ -2446,7 +2446,7 @@ void ieee80211_sta_ps_deliver_uapsd(struct sta_info *sta)
 void ieee80211_sta_block_awake(struct ieee80211_hw *hw,
 			       struct ieee80211_sta *pubsta, bool block)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 
 	trace_api_sta_block_awake(sta->local, pubsta, block);
 
@@ -2477,7 +2477,7 @@ EXPORT_SYMBOL(ieee80211_sta_block_awake);
 
 void ieee80211_sta_eosp(struct ieee80211_sta *pubsta)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	struct ieee80211_local *local = sta->local;
 
 	trace_api_eosp(local, pubsta);
@@ -2488,7 +2488,7 @@ EXPORT_SYMBOL(ieee80211_sta_eosp);
 
 void ieee80211_send_eosp_nullfunc(struct ieee80211_sta *pubsta, int tid)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	enum ieee80211_frame_release_type reason;
 	bool more_data;
 
@@ -2505,7 +2505,7 @@ EXPORT_SYMBOL(ieee80211_send_eosp_nullfunc);
 void ieee80211_sta_set_buffered(struct ieee80211_sta *pubsta,
 				u8 tid, bool buffered)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 
 	if (WARN_ON(tid >= IEEE80211_NUM_TIDS))
 		return;
@@ -2524,7 +2524,7 @@ EXPORT_SYMBOL(ieee80211_sta_set_buffered);
 void ieee80211_sta_register_airtime(struct ieee80211_sta *pubsta, u8 tid,
 				    u32 tx_airtime, u32 rx_airtime)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	struct ieee80211_local *local = sta->sdata->local;
 	u8 ac = ieee80211_ac_from_tid(tid);
 	u32 airtime = 0;
@@ -2592,7 +2592,7 @@ void __ieee80211_sta_recalc_aggregates(struct sta_info *sta, u16 active_links)
 
 void ieee80211_sta_recalc_aggregates(struct ieee80211_sta *pubsta)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 
 	__ieee80211_sta_recalc_aggregates(sta, sta->sta.active_links);
 }
@@ -3799,7 +3799,7 @@ void ieee80211_sta_set_max_amsdu_subframes(struct sta_info *sta,
 #ifdef CONFIG_LOCKDEP
 bool lockdep_sta_mutex_held(struct ieee80211_sta *pubsta)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 
 	return lockdep_is_held(&sta->local->hw.wiphy->mtx);
 }

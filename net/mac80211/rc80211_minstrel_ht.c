@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2010-2013 Felix Fietkau <nbd@openwrt.org>
- * Copyright (C) 2019-2022 Intel Corporation
+ * Copyright (C) 2019-2022, 2026 Intel Corporation
  */
 #include <linux/netdevice.h>
 #include <linux/types.h>
@@ -1865,7 +1865,7 @@ minstrel_ht_update_caps(void *priv, struct ieee80211_supported_band *sband,
 				vht_cap->vht_mcs.tx_mcs_map);
 	}
 
-	sta_info = container_of(sta, struct sta_info, sta);
+	sta_info = sta_from_pub(sta);
 	mi->use_short_preamble = test_sta_flag(sta_info, WLAN_STA_SHORT_PREAMBLE) &&
 				 sta_info->sdata->vif.bss_conf.use_short_preamble;
 

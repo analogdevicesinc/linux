@@ -793,6 +793,11 @@ struct sta_info {
 	struct ieee80211_sta sta;
 };
 
+static inline struct sta_info *sta_from_pub(struct ieee80211_sta *sta)
+{
+	return container_of(sta, struct sta_info, sta);
+}
+
 static inline int ieee80211_tdls_sta_link_id(struct sta_info *sta)
 {
 	/* TDLS STA can only have a single link */

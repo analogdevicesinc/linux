@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: ISC
 /*
  * Copyright (C) 2019 Felix Fietkau <nbd@nbd.name>
- * Copyright (C) 2021-2022 Intel Corporation
+ * Copyright (C) 2021-2022, 2026 Intel Corporation
  */
 
 #include <net/mac80211.h>
@@ -838,8 +838,7 @@ u32 ieee80211_calc_expected_tx_airtime(struct ieee80211_hw *hw,
 		band = conf->def.chan->band;
 
 	if (pubsta) {
-		struct sta_info *sta = container_of(pubsta, struct sta_info,
-						    sta);
+		struct sta_info *sta = sta_from_pub(pubsta);
 		struct ieee80211_tx_rate *tx_rate = &sta->deflink.tx_stats.last_rate;
 		struct rate_info *ri = &sta->deflink.tx_stats.last_rate_info;
 		u32 duration;

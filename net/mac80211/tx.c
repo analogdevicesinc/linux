@@ -4031,7 +4031,7 @@ begin:
 	tx.sdata = vif_to_sdata(info->control.vif);
 
 	if (txq->sta) {
-		tx.sta = container_of(txq->sta, struct sta_info, sta);
+		tx.sta = sta_from_pub(txq->sta);
 
 		if (unlikely(ieee80211_drop_unauth_port(&tx))) {
 			I802_DEBUG_INC(local->tx_handlers_drop_unauth_port);
@@ -4067,8 +4067,7 @@ begin:
 	}
 
 	if (info->control.flags & IEEE80211_TX_CTRL_FAST_XMIT) {
-		struct sta_info *sta = container_of(txq->sta, struct sta_info,
-						    sta);
+		struct sta_info *sta = sta_from_pub(txq->sta);
 		u8 pn_offs = 0;
 
 		if (tx.key &&
@@ -4176,7 +4175,7 @@ ieee80211_txq_set_active(struct txq_info *txqi)
 	if (!txqi->txq.sta)
 		return;
 
-	sta = container_of(txqi->txq.sta, struct sta_info, sta);
+	sta = sta_from_pub(txqi->txq.sta);
 	sta->airtime[txqi->txq.ac].last_active = jiffies;
 }
 
@@ -4188,7 +4187,7 @@ ieee80211_txq_keep_active(struct txq_info *txqi)
 	if (!txqi->txq.sta)
 		return false;
 
-	sta = container_of(txqi->txq.sta, struct sta_info, sta);
+	sta = sta_from_pub(txqi->txq.sta);
 	if (ieee80211_sta_deficit(sta, txqi->txq.ac) >= 0)
 		return false;
 
@@ -4230,8 +4229,7 @@ struct ieee80211_txq *ieee80211_next_txq(struct ieee80211_hw *hw, u8 ac)
 		found_eligible_txq = true;
 
 	if (txqi->txq.sta) {
-		struct sta_info *sta = container_of(txqi->txq.sta,
-						    struct sta_info, sta);
+		struct sta_info *sta = sta_from_pub(txqi->txq.sta);
 
 		if (ieee80211_sta_deficit(sta, txqi->txq.ac) < 0) {
 			sta->airtime[txqi->txq.ac].deficit +=
@@ -4319,7 +4317,7 @@ bool ieee80211_txq_airtime_check(struct ieee80211_hw *hw,
 	if (unlikely(txq->tid == IEEE80211_NUM_TIDS))
 		return true;
 
-	sta = container_of(txq->sta, struct sta_info, sta);
+	sta = sta_from_pub(txq->sta);
 	if (atomic_read(&sta->airtime[txq->ac].aql_tx_pending) <
 	    sta->airtime[txq->ac].aql_limit_low)
 		return true;
@@ -4346,7 +4344,7 @@ u32 ieee80211_txq_aql_pending(struct ieee80211_hw *hw,
 	if (!txq->sta)
 		return atomic_read(&local->aql_mc_pending_airtime);
 
-	sta = container_of(txq->sta, struct sta_info, sta);
+	sta = sta_from_pub(txq->sta);
 
 	return atomic_read(&sta->airtime[txq->ac].aql_tx_pending);
 }
@@ -4400,13 +4398,13 @@ bool ieee80211_txq_may_transmit(struct ieee80211_hw *hw,
 				       &local->active_txqs[ac]);
 			continue;
 		}
-		sta = container_of(iter->txq.sta, struct sta_info, sta);
+		sta = sta_from_pub(iter->txq.sta);
 		if (ieee80211_sta_deficit(sta, ac) < 0)
 			sta->airtime[ac].deficit += sta->airtime_weight;
 		list_move_tail(&iter->schedule_order, &local->active_txqs[ac]);
 	}
 
-	sta = container_of(txqi->txq.sta, struct sta_info, sta);
+	sta = sta_from_pub(txqi->txq.sta);
 	if (sta->airtime[ac].deficit >= 0)
 		goto out;
 
@@ -6446,7 +6444,7 @@ EXPORT_SYMBOL(ieee80211_get_buffered_bc);
 
 int ieee80211_reserve_tid(struct ieee80211_sta *pubsta, u8 tid)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	struct ieee80211_local *local = sdata->local;
 	int ret;
@@ -6510,7 +6508,7 @@ EXPORT_SYMBOL(ieee80211_reserve_tid);
 
 void ieee80211_unreserve_tid(struct ieee80211_sta *pubsta, u8 tid)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 
 	lockdep_assert_wiphy(sdata->local->hw.wiphy);

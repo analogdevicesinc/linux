@@ -1724,7 +1724,7 @@ static void sta_ps_end(struct sta_info *sta)
 
 void ieee80211_sta_ps_transition(struct ieee80211_sta *pubsta, bool start)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	bool in_ps;
 
 	WARN_ON(!ieee80211_hw_check(&sta->local->hw, AP_LINK_PS));
@@ -1743,7 +1743,7 @@ EXPORT_SYMBOL(ieee80211_sta_ps_transition);
 
 void ieee80211_sta_pspoll(struct ieee80211_sta *pubsta)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 
 	if (test_sta_flag(sta, WLAN_STA_SP))
 		return;
@@ -1757,7 +1757,7 @@ EXPORT_SYMBOL(ieee80211_sta_pspoll);
 
 void ieee80211_sta_uapsd_trigger(struct ieee80211_sta *pubsta, u8 tid)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	int ac = ieee80211_ac_from_tid(tid);
 
 	/*
@@ -4439,7 +4439,7 @@ void ieee80211_mark_rx_ba_filtered_frames(struct ieee80211_sta *pubsta, u8 tid,
 
 	__skb_queue_head_init(&frames);
 
-	sta = container_of(pubsta, struct sta_info, sta);
+	sta = sta_from_pub(pubsta);
 
 	local = sta->sdata->local;
 	WARN_ONCE(local->hw.max_rx_aggregation_subframes > 64,
@@ -5289,7 +5289,7 @@ static void __ieee80211_rx_handle_8023(struct ieee80211_hw *hw,
 	if (!link_pubsta)
 		goto drop;
 
-	sta = container_of(link_pubsta->sta, struct sta_info, sta);
+	sta = sta_from_pub(link_pubsta->sta);
 	if (sta->sta.valid_links)
 		link_id = link_pubsta->link_id;
 	if (!ieee80211_rx_data_set_sta(&rx, sta, link_id))
@@ -5398,8 +5398,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
 	 */
 	if (ieee80211_is_data(fc)) {
 		if (link_pubsta) {
-			sta = container_of(link_pubsta->sta, struct sta_info,
-					   sta);
+			sta = sta_from_pub(link_pubsta->sta);
 			link_sta = rcu_dereference(sta->link[link_pubsta->link_id]);
 
 			rx.sdata = sta->sdata;

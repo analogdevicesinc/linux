@@ -904,7 +904,7 @@ __ieee80211_iterate_stations(struct ieee80211_hw *hw,
 	lockdep_assert_wiphy(local->hw.wiphy);
 
 	if (prev)
-		sta = container_of(prev, struct sta_info, sta);
+		sta = sta_from_pub(prev);
 
 	sta = list_prepare_entry(sta, &local->sta_list, list);
 	list_for_each_entry_continue(sta, &local->sta_list, list) {

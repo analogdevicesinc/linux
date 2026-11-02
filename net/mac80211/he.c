@@ -265,8 +265,7 @@ ieee80211_he_spr_ie_to_bss_conf(struct ieee80211_vif *vif,
 bool ieee80211_prepare_rx_omi_bw(struct ieee80211_link_sta *pub_link_sta,
 				 enum ieee80211_sta_rx_bandwidth bw)
 {
-	struct sta_info *sta = container_of(pub_link_sta->sta,
-					    struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pub_link_sta->sta);
 	struct ieee80211_local *local = sta->sdata->local;
 	struct link_sta_info *link_sta =
 		sdata_dereference(sta->link[pub_link_sta->link_id], sta->sdata);
@@ -318,8 +317,7 @@ EXPORT_SYMBOL_GPL(ieee80211_prepare_rx_omi_bw);
 
 void ieee80211_finalize_rx_omi_bw(struct ieee80211_link_sta *pub_link_sta)
 {
-	struct sta_info *sta = container_of(pub_link_sta->sta,
-					    struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pub_link_sta->sta);
 	struct ieee80211_local *local = sta->sdata->local;
 	struct link_sta_info *link_sta =
 		sdata_dereference(sta->link[pub_link_sta->link_id], sta->sdata);

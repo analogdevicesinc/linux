@@ -555,7 +555,7 @@ void ieee80211_tx_ba_session_handle_start(struct sta_info *sta, int tid)
 void ieee80211_refresh_tx_agg_session_timer(struct ieee80211_sta *pubsta,
 					    u16 tid)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	struct tid_ampdu_tx *tid_tx;
 
 	if (WARN_ON_ONCE(tid >= IEEE80211_NUM_TIDS))
@@ -600,7 +600,7 @@ static void sta_tx_agg_session_timer_expired(struct timer_list *t)
 int ieee80211_start_tx_ba_session(struct ieee80211_sta *pubsta, u16 tid,
 				  u16 timeout)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	struct ieee80211_local *local = sdata->local;
 	struct tid_ampdu_tx *tid_tx;
@@ -868,7 +868,7 @@ EXPORT_SYMBOL(ieee80211_start_tx_ba_cb_irqsafe);
 
 int ieee80211_stop_tx_ba_session(struct ieee80211_sta *pubsta, u16 tid)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	struct ieee80211_local *local = sdata->local;
 	struct tid_ampdu_tx *tid_tx;

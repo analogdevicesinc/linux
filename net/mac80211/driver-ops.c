@@ -588,7 +588,7 @@ int drv_change_sta_links(struct ieee80211_local *local,
 			 struct ieee80211_sta *sta,
 			 u16 old_links, u16 new_links)
 {
-	struct sta_info *info = container_of(sta, struct sta_info, sta);
+	struct sta_info *info = sta_from_pub(sta);
 	struct link_sta_info *link_sta;
 	unsigned long links_to_add;
 	unsigned long links_to_rem;
