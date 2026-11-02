@@ -465,7 +465,8 @@ static void ieee80211_send_addba_with_timeout(struct sta_info *sta,
 
 	if (sta->sta.valid_links ||
 	    sta->sta.deflink.eht_cap.has_eht ||
-	    ieee80211_hw_check(&local->hw, STRICT)) {
+	    (ieee80211_hw_check(&local->hw, STRICT) &&
+	     sta->sta.deflink.he_cap.has_he)) {
 		buf_size = local->hw.max_tx_aggregation_subframes;
 	} else if (sta->sta.deflink.he_cap.has_he) {
 		buf_size = min_t(u16, local->hw.max_tx_aggregation_subframes,
