@@ -368,8 +368,8 @@ static ssize_t sta_agg_status_read(struct file *file, char __user *userbuf,
 static ssize_t sta_agg_status_do_write(struct wiphy *wiphy, struct file *file,
 				       char *buf, size_t count, void *data)
 {
+	bool start = false, tx, bar = false;
 	struct sta_info *sta = data;
-	bool start, tx;
 	unsigned long tid;
 	char *pos = buf;
 	int ret, timeout = 5000;
@@ -394,6 +394,10 @@ static ssize_t sta_agg_status_do_write(struct wiphy *wiphy, struct file *file,
 			return -EINVAL;
 	} else if (!strcmp(buf, "stop")) {
 		start = false;
+	} else if (!strcmp(buf, "bar")) {
+		if (!tx)
+			return -EINVAL;
+		bar = true;
 	} else {
 		return -EINVAL;
 	}
@@ -410,6 +414,24 @@ static ssize_t sta_agg_status_do_write(struct wiphy *wiphy, struct file *file,
 	ret = kstrtoul(buf, 0, &tid);
 	if (ret || tid >= IEEE80211_NUM_TIDS)
 		return -EINVAL;
+
+	if (bar) {
+		unsigned long ssn;
+
+		buf = strsep(&pos, " ");
+		if (buf) {
+			ret = kstrtoul(buf, 0, &ssn);
+			if (ret || ssn > IEEE80211_MAX_SN)
+				return -EINVAL;
+			ssn = IEEE80211_SN_TO_SEQ(ssn);
+		} else {
+			/* only correct if the driver uses mac80211's SNs */
+			ssn = sta->tid_seq[tid];
+		}
+
+		ieee80211_send_bar(&sta->sdata->vif, sta->sta.addr, tid, ssn);
+		return count;
+	}
 
 	if (tx) {
 		if (start)
