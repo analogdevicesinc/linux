@@ -35,6 +35,10 @@
 #define ADI_FILE ADI_COMMON_FILE_HAL
 
 #define ADRV904X_INIT_CALS_TIMEOUT_MS	60000
+#define ADRV904X_LO_LOOP_BW_MIN_KHZ	60
+#define ADRV904X_LO_LOOP_BW_MAX_KHZ	1000
+#define ADRV904X_LO_LOOP_PM_MIN_DEG	45
+#define ADRV904X_LO_LOOP_PM_MAX_DEG	75
 
 enum adrv904x_iio_dev_attr {
 	ADRV904X_INIT_CAL,
@@ -729,6 +733,102 @@ static ssize_t adrv904x_phy_tx_write(struct iio_dev *indio_dev,
 		.write = adrv904x_phy_tx_write, .private = _ident,             \
 	}
 
+static ssize_t adrv904x_phy_lo_read(struct iio_dev *indio_dev,
+				    uintptr_t private,
+				    const struct iio_chan_spec *chan, char *buf)
+{
+	struct adrv904x_rf_phy *phy = iio_priv(indio_dev);
+	adi_adrv904x_LoLoopFilterCfg_t lf = { };
+	int ret;
+
+	guard(mutex)(&phy->lock);
+
+	ret = adrv904x_api_call(phy, adi_adrv904x_LoLoopFilterGet,
+			       ADI_ADRV904X_LO0 + chan->channel, &lf);
+	if (ret)
+		return ret;
+
+	switch (private) {
+	case LO_LOOP_BW:
+		return sysfs_emit(buf, "%u\n", lf.loopBandwidth_kHz);
+	case LO_LOOP_PM:
+		return sysfs_emit(buf, "%u\n", lf.phaseMargin_degrees);
+	default:
+		return -EINVAL;
+	}
+}
+
+static ssize_t adrv904x_phy_lo_write(struct iio_dev *indio_dev,
+				     uintptr_t private,
+				     const struct iio_chan_spec *chan,
+				     const char *buf, size_t len)
+{
+	struct adrv904x_rf_phy *phy = iio_priv(indio_dev);
+	adi_adrv904x_LoName_e lo = ADI_ADRV904X_LO0 + chan->channel;
+	adi_adrv904x_LoConfigReadback_t loRb = { };
+	adi_adrv904x_LoLoopFilterCfg_t lf = { };
+	adi_adrv904x_LoConfig_t loConfig = { };
+	u32 val;
+	int ret;
+
+	ret = kstrtou32(buf, 10, &val);
+	if (ret)
+		return ret;
+
+	guard(mutex)(&phy->lock);
+
+	ret = adrv904x_api_call(phy, adi_adrv904x_LoLoopFilterGet, lo, &lf);
+	if (ret)
+		return ret;
+
+	switch (private) {
+	case LO_LOOP_BW:
+		if (val < ADRV904X_LO_LOOP_BW_MIN_KHZ ||
+		    val > ADRV904X_LO_LOOP_BW_MAX_KHZ)
+			return -EINVAL;
+		lf.loopBandwidth_kHz = val;
+		break;
+	case LO_LOOP_PM:
+		if (val < ADRV904X_LO_LOOP_PM_MIN_DEG ||
+		    val > ADRV904X_LO_LOOP_PM_MAX_DEG)
+			return -EINVAL;
+		lf.phaseMargin_degrees = val;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = adrv904x_api_call(phy, adi_adrv904x_LoLoopFilterSet, lo, &lf);
+	if (ret)
+		return ret;
+
+	/* New loop filter settings take effect on the next LO frequency set */
+	loRb.loName = lo;
+	ret = adrv904x_api_call(phy, adi_adrv904x_LoFrequencyGet, &loRb);
+	if (ret)
+		return ret;
+
+	loConfig.loName = lo;
+	loConfig.loFrequency_Hz = loRb.loFrequency_Hz;
+	ret = adrv904x_api_call(phy, adi_adrv904x_LoFrequencySet, &loConfig);
+	if (ret)
+		return ret;
+
+	return len;
+}
+
+#define _ADRV904X_EXT_LO_INFO(_name, _ident)                                   \
+	{                                                                      \
+		.name = _name, .read = adrv904x_phy_lo_read,                   \
+		.write = adrv904x_phy_lo_write, .private = _ident,             \
+	}
+
+static const struct iio_chan_spec_ext_info adrv904x_phy_lo_ext_info[] = {
+	_ADRV904X_EXT_LO_INFO("loop_bandwidth_khz", LO_LOOP_BW),
+	_ADRV904X_EXT_LO_INFO("loop_phase_margin_deg", LO_LOOP_PM),
+	{ }
+};
+
 static const struct iio_chan_spec_ext_info adrv904x_phy_rx_ext_info[] = {
 	_ADRV904X_EXT_RX_INFO("quadrature_tracking_en", RX_QEC),
 	_ADRV904X_EXT_RX_INFO("bb_dc_offset_tracking_en", RX_DIG_DC),
@@ -1009,6 +1109,7 @@ static const struct iio_chan_spec adrv904x_phy_chan[] = {
 		.channel = 0,
 		.extend_name = "LO1",
 		.info_mask_separate = BIT(IIO_CHAN_INFO_FREQUENCY),
+		.ext_info = adrv904x_phy_lo_ext_info,
 	},
 	{
 		/* LO2 */
@@ -1018,6 +1119,7 @@ static const struct iio_chan_spec adrv904x_phy_chan[] = {
 		.channel = 1,
 		.extend_name = "LO2",
 		.info_mask_separate = BIT(IIO_CHAN_INFO_FREQUENCY),
+		.ext_info = adrv904x_phy_lo_ext_info,
 	},
 	{
 		/* TX1 */
