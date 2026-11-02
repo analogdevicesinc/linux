@@ -1105,6 +1105,16 @@ struct ieee80211_link_data_managed {
 
 	int wmm_last_param_set;
 	int mu_edca_last_param_set;
+
+	struct {
+		struct wiphy_hrtimer_work work;
+		/* bitfields using BIT(IEEE80211_UHR_PARAM_UPDATE_MODE_ID_*) */
+		u8 disabling, updating;
+		/* DBE was already enabled when this update was noticed */
+		bool dbe_was_enabled;
+
+		struct ieee80211_uhr_npca_info npca;
+	} uhr_param_upd;
 };
 
 struct ieee80211_link_data_ap {
