@@ -61,7 +61,6 @@ static DEFINE_SPINLOCK(freezer_delta_lock);
 /* rtc timer and device for setting alarm wakeups at suspend */
 static struct rtc_timer		rtctimer;
 static struct rtc_device	*rtcdev;
-static DEFINE_SPINLOCK(rtcdev_lock);
 
 /**
  * alarmtimer_get_rtcdev - Return selected rtcdevice
@@ -70,12 +69,7 @@ static DEFINE_SPINLOCK(rtcdev_lock);
  */
 struct rtc_device *alarmtimer_get_rtcdev(void)
 {
-	struct rtc_device *ret;
-
-	guard(spinlock_irqsave)(&rtcdev_lock);
-	ret = rtcdev;
-
-	return ret;
+	return READ_ONCE(rtcdev);
 }
 EXPORT_SYMBOL_GPL(alarmtimer_get_rtcdev);
 
@@ -98,15 +92,13 @@ static int alarmtimer_rtc_add_device(struct device *dev)
 	if (!IS_ERR(pdev))
 		device_init_wakeup(&pdev->dev, true);
 
-	scoped_guard(spinlock_irqsave, &rtcdev_lock) {
-		if (!IS_ERR(pdev) && !rtcdev && try_module_get(rtc->owner)) {
-			rtcdev = rtc;
-			/* hold a reference so it doesn't go away */
-			get_device(dev);
-			pdev = NULL;
-		} else {
-			ret = -1;
-		}
+	if (!IS_ERR(pdev) && try_module_get(rtc->owner)) {
+		WRITE_ONCE(rtcdev, rtc);
+		/* hold a reference so it doesn't go away */
+		get_device(dev);
+		pdev = NULL;
+	} else {
+		ret = -1;
 	}
 
 	platform_device_unregister(pdev);
