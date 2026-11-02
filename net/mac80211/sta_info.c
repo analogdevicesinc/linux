@@ -3473,7 +3473,7 @@ void ieee80211_sta_free_link(struct sta_info *sta, unsigned int link_id)
 	sta_remove_link(sta, link_id, false);
 }
 
-int ieee80211_sta_activate_link(struct sta_info *sta, unsigned int link_id)
+int ieee80211_sta_set_link_valid(struct sta_info *sta, unsigned int link_id)
 {
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	struct link_sta_info *link_sta;

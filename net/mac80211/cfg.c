@@ -6122,8 +6122,8 @@ ieee80211_add_link_station(struct wiphy *wiphy, struct net_device *dev,
 		rate_control_rate_init(link_sta);
 	}
 
-	/* ieee80211_sta_activate_link frees the link upon failure */
-	return ieee80211_sta_activate_link(sta, params->link_id);
+	/* ieee80211_sta_set_link_valid frees the link upon failure */
+	return ieee80211_sta_set_link_valid(sta, params->link_id);
 }
 
 static int

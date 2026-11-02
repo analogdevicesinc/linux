@@ -1008,7 +1008,7 @@ void ieee80211_sta_expire(struct ieee80211_sub_if_data *sdata,
 
 int ieee80211_sta_allocate_link(struct sta_info *sta, unsigned int link_id);
 void ieee80211_sta_free_link(struct sta_info *sta, unsigned int link_id);
-int ieee80211_sta_activate_link(struct sta_info *sta, unsigned int link_id);
+int ieee80211_sta_set_link_valid(struct sta_info *sta, unsigned int link_id);
 void ieee80211_sta_remove_link(struct sta_info *sta, unsigned int link_id);
 
 void ieee80211_sta_ps_deliver_wakeup(struct sta_info *sta);
