@@ -18,7 +18,7 @@
 #include <drm/drm_panel.h>
 
 /*** Manufacturer Command Set ***/
-#define MCS_CMD_MODE_SW		0xFE /* CMD Mode Switch */
+#define MCS_CMD_MODE_SW		0xfe /* CMD Mode Switch */
 #define MCS_CMD1_UCS		0x00 /* User Command Set (UCS = CMD1) */
 #define MCS_CMD2_P0		0x01 /* Manufacture Command Set Page0 (CMD2 P0) */
 #define MCS_CMD2_P1		0x02 /* Manufacture Command Set Page1 (CMD2 P1) */
@@ -28,44 +28,44 @@
 /* CMD2 P0 commands (Display Options and Power) */
 #define MCS_STBCTR		0x12 /* TE1 Output Setting Zig-Zag Connection */
 #define MCS_SGOPCTR		0x16 /* Source Bias Current */
-#define MCS_SDCTR		0x1A /* Source Output Delay Time */
-#define MCS_INVCTR		0x1B /* Inversion Type */
+#define MCS_SDCTR		0x1a /* Source Output Delay Time */
+#define MCS_INVCTR		0x1b /* Inversion Type */
 #define MCS_EXT_PWR_IC		0x24 /* External PWR IC Control */
 #define MCS_SETAVDD		0x27 /* PFM Control for AVDD Output */
 #define MCS_SETAVEE		0x29 /* PFM Control for AVEE Output */
-#define MCS_BT2CTR		0x2B /* DDVDL Charge Pump Control */
-#define MCS_BT3CTR		0x2F /* VGH Charge Pump Control */
+#define MCS_BT2CTR		0x2b /* DDVDL Charge Pump Control */
+#define MCS_BT3CTR		0x2f /* VGH Charge Pump Control */
 #define MCS_BT4CTR		0x34 /* VGL Charge Pump Control */
 #define MCS_VCMCTR		0x46 /* VCOM Output Level Control */
 #define MCS_SETVGN		0x52 /* VG M/S N Control */
 #define MCS_SETVGP		0x54 /* VG M/S P Control */
-#define MCS_SW_CTRL		0x5F /* Interface Control for PFM and MIPI */
+#define MCS_SW_CTRL		0x5f /* Interface Control for PFM and MIPI */
 
 /* CMD2 P2 commands (GOA Timing Control) - no description in datasheet */
 #define GOA_VSTV1		0x00
 #define GOA_VSTV2		0x07
-#define GOA_VCLK1		0x0E
+#define GOA_VCLK1		0x0e
 #define GOA_VCLK2		0x17
 #define GOA_VCLK_OPT1		0x20
-#define GOA_BICLK1		0x2A
+#define GOA_BICLK1		0x2a
 #define GOA_BICLK2		0x37
 #define GOA_BICLK3		0x44
-#define GOA_BICLK4		0x4F
-#define GOA_BICLK_OPT1		0x5B
+#define GOA_BICLK4		0x4f
+#define GOA_BICLK_OPT1		0x5b
 #define GOA_BICLK_OPT2		0x60
-#define MCS_GOA_GPO1		0x6D
+#define MCS_GOA_GPO1		0x6d
 #define MCS_GOA_GPO2		0x71
 #define MCS_GOA_EQ		0x74
-#define MCS_GOA_CLK_GALLON	0x7C
-#define MCS_GOA_FS_SEL0		0x7E
+#define MCS_GOA_CLK_GALLON	0x7c
+#define MCS_GOA_FS_SEL0		0x7e
 #define MCS_GOA_FS_SEL1		0x87
 #define MCS_GOA_FS_SEL2		0x91
-#define MCS_GOA_FS_SEL3		0x9B
-#define MCS_GOA_BS_SEL0		0xAC
-#define MCS_GOA_BS_SEL1		0xB5
-#define MCS_GOA_BS_SEL2		0xBF
-#define MCS_GOA_BS_SEL3		0xC9
-#define MCS_GOA_BS_SEL4		0xD3
+#define MCS_GOA_FS_SEL3		0x9b
+#define MCS_GOA_BS_SEL0		0xac
+#define MCS_GOA_BS_SEL1		0xb5
+#define MCS_GOA_BS_SEL2		0xbf
+#define MCS_GOA_BS_SEL3		0xc9
+#define MCS_GOA_BS_SEL4		0xd3
 
 /* CMD2 P3 commands (Gamma) */
 #define MCS_GAMMA_VP		0x60 /* Gamma VP1~VP16 */
@@ -119,41 +119,41 @@ static void rm68200_init_sequence(struct mipi_dsi_multi_context *dsi_ctx)
 {
 	/* Enter CMD2 with page 0 */
 	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_CMD_MODE_SW, MCS_CMD2_P0);
-	dcs_write_cmd_seq(dsi_ctx, MCS_EXT_PWR_IC, 0xC0, 0x53, 0x00);
-	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_BT2CTR, 0xE5);
-	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_SETAVDD, 0x0A);
-	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_SETAVEE, 0x0A);
+	dcs_write_cmd_seq(dsi_ctx, MCS_EXT_PWR_IC, 0xc0, 0x53, 0x00);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_BT2CTR, 0xe5);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_SETAVDD, 0x0a);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_SETAVEE, 0x0a);
 	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_SGOPCTR, 0x52);
 	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_BT3CTR, 0x53);
-	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_BT4CTR, 0x5A);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_BT4CTR, 0x5a);
 	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_INVCTR, 0x00);
-	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_STBCTR, 0x0A);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_STBCTR, 0x0a);
 	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_SDCTR, 0x06);
 	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_VCMCTR, 0x56);
-	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_SETVGN, 0xA0, 0x00);
-	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_SETVGP, 0xA0, 0x00);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_SETVGN, 0xa0, 0x00);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_SETVGP, 0xa0, 0x00);
 	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_SW_CTRL, 0x11); /* 2 data lanes, see doc */
 
 	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_CMD_MODE_SW, MCS_CMD2_P2);
 	mipi_dsi_dcs_write_seq_multi(dsi_ctx, GOA_VSTV1, 0x05);
-	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x02, 0x0B);
-	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x03, 0x0F);
-	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x04, 0x7D, 0x00, 0x50);
-	dcs_write_cmd_seq(dsi_ctx, GOA_VSTV2, 0x05, 0x16, 0x0D, 0x11, 0x7D, 0x00,
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x02, 0x0b);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x03, 0x0f);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x04, 0x7d, 0x00, 0x50);
+	dcs_write_cmd_seq(dsi_ctx, GOA_VSTV2, 0x05, 0x16, 0x0d, 0x11, 0x7d, 0x00,
 			  0x50);
-	dcs_write_cmd_seq(dsi_ctx, GOA_VCLK1, 0x07, 0x08, 0x01, 0x02, 0x00, 0x7D,
+	dcs_write_cmd_seq(dsi_ctx, GOA_VCLK1, 0x07, 0x08, 0x01, 0x02, 0x00, 0x7d,
 			  0x00, 0x85, 0x08);
-	dcs_write_cmd_seq(dsi_ctx, GOA_VCLK2, 0x03, 0x04, 0x05, 0x06, 0x00, 0x7D,
+	dcs_write_cmd_seq(dsi_ctx, GOA_VCLK2, 0x03, 0x04, 0x05, 0x06, 0x00, 0x7d,
 			  0x00, 0x85, 0x08);
 	mipi_dsi_dcs_write_seq_multi(dsi_ctx, GOA_VCLK_OPT1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 				     0x00, 0x00, 0x00, 0x00);
 	dcs_write_cmd_seq(dsi_ctx, GOA_BICLK1, 0x07, 0x08);
-	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x2D, 0x01);
-	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x2F, 0x02, 0x00, 0x40, 0x05, 0x08, 0x54, 0x7D,
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x2d, 0x01);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x2f, 0x02, 0x00, 0x40, 0x05, 0x08, 0x54, 0x7d,
 				     0x00);
 	dcs_write_cmd_seq(dsi_ctx, GOA_BICLK2, 0x03, 0x04, 0x05, 0x06, 0x00);
-	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x3D, 0x40);
-	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x3F, 0x05, 0x08, 0x54, 0x7D, 0x00);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x3d, 0x40);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x3f, 0x05, 0x08, 0x54, 0x7d, 0x00);
 	mipi_dsi_dcs_write_seq_multi(dsi_ctx, GOA_BICLK3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 				     0x00, 0x00, 0x00, 0x00, 0x00);
 	mipi_dsi_dcs_write_seq_multi(dsi_ctx, GOA_BICLK4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -167,38 +167,38 @@ static void rm68200_init_sequence(struct mipi_dsi_multi_context *dsi_ctx)
 	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_GOA_EQ, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
 				     0x00, 0x00);
 	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_GOA_CLK_GALLON, 0x00, 0x00);
-	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_FS_SEL0, 0xBF, 0x02, 0x06, 0x14, 0x10,
-			  0x16, 0x12, 0x08, 0x3F);
-	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_FS_SEL1, 0x3F, 0x3F, 0x3F, 0x3F, 0x0C,
-			  0x0A, 0x0E, 0x3F, 0x3F, 0x00);
-	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_FS_SEL2, 0x04, 0x3F, 0x3F, 0x3F, 0x3F,
-			  0x05, 0x01, 0x3F, 0x3F, 0x0F);
-	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_FS_SEL3, 0x0B, 0x0D, 0x3F, 0x3F, 0x3F,
-			  0x3F);
-	dcs_write_cmd_seq(dsi_ctx, 0xA2, 0x3F, 0x09, 0x13, 0x17, 0x11, 0x15);
-	dcs_write_cmd_seq(dsi_ctx, 0xA9, 0x07, 0x03, 0x3F);
-	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_BS_SEL0, 0x3F, 0x05, 0x01, 0x17, 0x13,
-			  0x15, 0x11, 0x0F, 0x3F);
-	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_BS_SEL1, 0x3F, 0x3F, 0x3F, 0x3F, 0x0B,
-			  0x0D, 0x09, 0x3F, 0x3F, 0x07);
-	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_BS_SEL2, 0x03, 0x3F, 0x3F, 0x3F, 0x3F,
-			  0x02, 0x06, 0x3F, 0x3F, 0x08);
-	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_BS_SEL3, 0x0C, 0x0A, 0x3F, 0x3F, 0x3F,
-			  0x3F, 0x3F, 0x0E, 0x10, 0x14);
-	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_BS_SEL4, 0x12, 0x16, 0x00, 0x04, 0x3F);
-	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0xDC, 0x02);
-	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0xDE, 0x12);
+	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_FS_SEL0, 0xbf, 0x02, 0x06, 0x14, 0x10,
+			  0x16, 0x12, 0x08, 0x3f);
+	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_FS_SEL1, 0x3f, 0x3f, 0x3f, 0x3f, 0x0c,
+			  0x0a, 0x0e, 0x3f, 0x3f, 0x00);
+	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_FS_SEL2, 0x04, 0x3f, 0x3f, 0x3f, 0x3f,
+			  0x05, 0x01, 0x3f, 0x3f, 0x0f);
+	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_FS_SEL3, 0x0b, 0x0d, 0x3f, 0x3f, 0x3f,
+			  0x3f);
+	dcs_write_cmd_seq(dsi_ctx, 0xa2, 0x3f, 0x09, 0x13, 0x17, 0x11, 0x15);
+	dcs_write_cmd_seq(dsi_ctx, 0xa9, 0x07, 0x03, 0x3f);
+	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_BS_SEL0, 0x3f, 0x05, 0x01, 0x17, 0x13,
+			  0x15, 0x11, 0x0f, 0x3f);
+	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_BS_SEL1, 0x3f, 0x3f, 0x3f, 0x3f, 0x0b,
+			  0x0d, 0x09, 0x3f, 0x3f, 0x07);
+	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_BS_SEL2, 0x03, 0x3f, 0x3f, 0x3f, 0x3f,
+			  0x02, 0x06, 0x3f, 0x3f, 0x08);
+	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_BS_SEL3, 0x0c, 0x0a, 0x3f, 0x3f, 0x3f,
+			  0x3f, 0x3f, 0x0e, 0x10, 0x14);
+	dcs_write_cmd_seq(dsi_ctx, MCS_GOA_BS_SEL4, 0x12, 0x16, 0x00, 0x04, 0x3f);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0xdc, 0x02);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0xde, 0x12);
 
-	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_CMD_MODE_SW, 0x0E); /* No documentation */
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_CMD_MODE_SW, 0x0e); /* No documentation */
 	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x01, 0x75);
 
 	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_CMD_MODE_SW, MCS_CMD2_P3);
-	dcs_write_cmd_seq(dsi_ctx, MCS_GAMMA_VP, 0x00, 0x0C, 0x12, 0x0E, 0x06,
-			  0x12, 0x0E, 0x0B, 0x15, 0x0B, 0x10, 0x07, 0x0F,
-			  0x12, 0x0C, 0x00);
-	dcs_write_cmd_seq(dsi_ctx, MCS_GAMMA_VN, 0x00, 0x0C, 0x12, 0x0E, 0x06,
-			  0x12, 0x0E, 0x0B, 0x15, 0x0B, 0x10, 0x07, 0x0F,
-			  0x12, 0x0C, 0x00);
+	dcs_write_cmd_seq(dsi_ctx, MCS_GAMMA_VP, 0x00, 0x0c, 0x12, 0x0e, 0x06,
+			  0x12, 0x0e, 0x0b, 0x15, 0x0b, 0x10, 0x07, 0x0f,
+			  0x12, 0x0c, 0x00);
+	dcs_write_cmd_seq(dsi_ctx, MCS_GAMMA_VN, 0x00, 0x0c, 0x12, 0x0e, 0x06,
+			  0x12, 0x0e, 0x0b, 0x15, 0x0b, 0x10, 0x07, 0x0f,
+			  0x12, 0x0c, 0x00);
 
 	/* Exit CMD2 */
 	mipi_dsi_dcs_write_seq_multi(dsi_ctx, MCS_CMD_MODE_SW, MCS_CMD1_UCS);
