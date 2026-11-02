@@ -39,6 +39,8 @@ int __ieee80211_suspend(struct ieee80211_hw *hw, struct cfg80211_wowlan *wowlan,
 
 	ieee80211_del_virtual_monitor(local);
 
+	sta_info_destroy_flush(local);
+
 	if (ieee80211_hw_check(hw, AMPDU_AGGREGATION) &&
 	    !(wowlan && wowlan->any)) {
 		lockdep_assert_wiphy(local->hw.wiphy);

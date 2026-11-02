@@ -1631,6 +1631,13 @@ struct ieee80211_local {
 	struct rhltable link_sta_hash;
 	struct timer_list sta_cleanup;
 	int sta_generation;
+	/*
+	 * stations waiting to be destroyed: the first list is covered by
+	 * the grace period of the pending sta_destroy_work, the second has
+	 * those removed while the work was already pending
+	 */
+	struct list_head sta_destroy_list, sta_destroy_new;
+	struct wiphy_rcu_work sta_destroy_work;
 
 	struct sk_buff_head pending[IEEE80211_MAX_QUEUES];
 	struct tasklet_struct tx_pending_tasklet;

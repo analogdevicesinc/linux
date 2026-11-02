@@ -968,6 +968,7 @@ int sta_info_destroy_addr(struct ieee80211_sub_if_data *sdata,
 			  const u8 *addr);
 int sta_info_destroy_addr_bss(struct ieee80211_sub_if_data *sdata,
 			      const u8 *addr);
+void sta_info_destroy_flush(struct ieee80211_local *local);
 
 void sta_info_recalc_tim(struct sta_info *sta);
 

@@ -1144,6 +1144,9 @@ int sta_info_insert_rcu(struct sta_info *sta) __acquires(RCU)
 	might_sleep();
 	lockdep_assert_wiphy(local->hw.wiphy);
 
+	/* the driver must not see the new station before old ones are gone */
+	sta_info_destroy_flush(local);
+
 	err = sta_info_insert_check(sta);
 	if (err) {
 		sta_info_free(local, sta);
@@ -1486,6 +1489,11 @@ static int __must_check __sta_info_destroy_part1(struct sta_info *sta)
 	list_del_rcu(&sta->list);
 	sta->removed = true;
 
+	local->num_sta--;
+	local->sta_generation++;
+
+	ieee80211_sta_debugfs_remove(sta);
+
 	if (sta->uploaded)
 		drv_sta_pre_rcu_remove(local, sta->sdata, sta);
 
@@ -1693,9 +1701,6 @@ static void __sta_info_destroy_part2(struct sta_info *sta, bool recalc)
 
 	cancel_work_sync(&sta->drv_deliver_wk);
 
-	local->num_sta--;
-	local->sta_generation++;
-
 	while (sta->sta_state > IEEE80211_STA_NONE) {
 		ret = _sta_info_move_state(sta, sta->sta_state - 1, recalc);
 		if (ret) {
@@ -1718,8 +1723,6 @@ static void __sta_info_destroy_part2(struct sta_info *sta, bool recalc)
 
 	cfg80211_del_sta_sinfo(&sdata->wdev, sta->sta.addr, sinfo, GFP_KERNEL);
 	kfree(sinfo);
-
-	ieee80211_sta_debugfs_remove(sta);
 
 	ieee80211_destroy_frag_cache(&sta->frags);
 
@@ -1750,15 +1753,78 @@ int sta_info_destroy_addr(struct ieee80211_sub_if_data *sdata, const u8 *addr)
 	return __sta_info_destroy(sta);
 }
 
+static void sta_info_destroy_queue(struct ieee80211_local *local)
+{
+	lockdep_assert_wiphy(local->hw.wiphy);
+
+	if (list_empty(&local->sta_destroy_new))
+		return;
+
+	/*
+	 * If the work was actually queued now, its grace period covers all
+	 * stations removed so far, otherwise it's already pending and will
+	 * requeue itself for the new ones when it runs.
+	 */
+	if (wiphy_rcu_work_queue(local->hw.wiphy, &local->sta_destroy_work))
+		list_splice_tail_init(&local->sta_destroy_new,
+				      &local->sta_destroy_list);
+}
+
 int sta_info_destroy_addr_bss(struct ieee80211_sub_if_data *sdata,
 			      const u8 *addr)
 {
+	struct ieee80211_local *local = sdata->local;
 	struct sta_info *sta;
+	int err;
 
-	lockdep_assert_wiphy(sdata->local->hw.wiphy);
+	lockdep_assert_wiphy(local->hw.wiphy);
 
 	sta = sta_info_get_bss(sdata, addr);
-	return __sta_info_destroy(sta);
+
+	if (sdata->vif.type != NL80211_IFTYPE_AP &&
+	    sdata->vif.type != NL80211_IFTYPE_AP_VLAN)
+		return __sta_info_destroy(sta);
+
+	err = __sta_info_destroy_part1(sta);
+	if (err)
+		return err;
+
+	/* finish later, after an RCU grace period */
+	list_add_tail(&sta->free_list, &local->sta_destroy_new);
+	sta_info_destroy_queue(local);
+
+	return 0;
+}
+
+static void sta_info_destroy_work(struct wiphy *wiphy, struct wiphy_work *work)
+{
+	struct ieee80211_local *local =
+		container_of(work, struct ieee80211_local,
+			     sta_destroy_work.work);
+	struct sta_info *sta, *tmp;
+
+	lockdep_assert_wiphy(local->hw.wiphy);
+
+	list_for_each_entry_safe(sta, tmp, &local->sta_destroy_list, free_list) {
+		list_del(&sta->free_list);
+		__sta_info_destroy_part2(sta, true);
+	}
+
+	/* requeue for stations removed after the work was queued */
+	sta_info_destroy_queue(local);
+}
+
+/* finish destroying all stations that are pending, waiting if needed */
+void sta_info_destroy_flush(struct ieee80211_local *local)
+{
+	lockdep_assert_wiphy(local->hw.wiphy);
+
+	/* the work might requeue itself, flush it twice */
+	wiphy_rcu_work_flush(local->hw.wiphy, &local->sta_destroy_work);
+	wiphy_rcu_work_flush(local->hw.wiphy, &local->sta_destroy_work);
+
+	WARN_ON(!list_empty(&local->sta_destroy_list) ||
+		!list_empty(&local->sta_destroy_new));
 }
 
 static void sta_info_cleanup(struct timer_list *t)
@@ -1800,6 +1866,9 @@ int sta_info_init(struct ieee80211_local *local)
 
 	spin_lock_init(&local->tim_lock);
 	INIT_LIST_HEAD(&local->sta_list);
+	INIT_LIST_HEAD(&local->sta_destroy_list);
+	INIT_LIST_HEAD(&local->sta_destroy_new);
+	wiphy_rcu_work_init(&local->sta_destroy_work, sta_info_destroy_work);
 
 	timer_setup(&local->sta_cleanup, sta_info_cleanup, 0);
 	return 0;
@@ -1826,6 +1895,8 @@ int __sta_info_flush(struct ieee80211_sub_if_data *sdata, bool vlans,
 
 	WARN_ON(vlans && sdata->vif.type != NL80211_IFTYPE_AP);
 	WARN_ON(vlans && !sdata->bss);
+
+	sta_info_destroy_flush(local);
 
 	list_for_each_entry_safe(sta, tmp, &local->sta_list, list) {
 		if (sdata != sta->sdata &&
@@ -3588,6 +3659,8 @@ int ieee80211_sta_set_link_valid(struct sta_info *sta,
 
 	if (WARN_ON(old_links == new_links || !link_sta))
 		return -EINVAL;
+
+	sta_info_destroy_flush(sdata->local);
 
 	rcu_read_lock();
 	if (link_sta_info_hash_lookup(sdata->local, link_sta->addr)) {
