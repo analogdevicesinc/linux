@@ -6175,6 +6175,34 @@ static bool ieee80211_assoc_config_link(struct ieee80211_link_data *link,
 		goto out;
 	}
 
+	/* AIDs 56-63 are reserved in UHR APs (Critical Update Type/Counter) */
+	if (elems->unrestricted_ap_mode >= IEEE80211_CONN_MODE_UHR &&
+	    sdata->vif.cfg.aid >= 56 && sdata->vif.cfg.aid <= 63) {
+		link_info(link, "UHR AP %pM assigned AID %d, expect PS issues\n",
+			  link->u.mgd.bssid, sdata->vif.cfg.aid);
+		if (ieee80211_hw_check(&sdata->local->hw, STRICT)) {
+			ret = false;
+			goto out;
+		}
+	} else if (elems->unrestricted_ap_mode >= IEEE80211_CONN_MODE_EHT &&
+		   sdata->vif.cfg.aid == 2007) {
+		link_info(link, "EHT AP %pM assigned AID 2007, expect trigger issues\n",
+			  link->u.mgd.bssid);
+		if (ieee80211_hw_check(&sdata->local->hw, STRICT)) {
+			ret = false;
+			goto out;
+		}
+	} else if (sdata->vif.cfg.aid &&
+		   sdata->vif.cfg.aid < (1 << cbss->max_bssid_indicator)) {
+		link_info(link, "multi-BSSID AP %pM with MaxBSSID %d assigned AID %d, expect PS issues\n",
+			  link->u.mgd.bssid, cbss->max_bssid_indicator,
+			  sdata->vif.cfg.aid);
+		if (ieee80211_hw_check(&sdata->local->hw, STRICT)) {
+			ret = false;
+			goto out;
+		}
+	}
+
 	/* check/update if AP changed anything in assoc response vs. scan */
 	if (ieee80211_config_bw(link, elems,
 				link_id == assoc_data->assoc_link_id,

@@ -1851,6 +1851,9 @@ struct ieee802_11_elems {
 	u8 frame_type;
 	bool from_ap;
 
+	/* the AP mode, not restricted to the parse mode */
+	enum ieee80211_conn_mode unrestricted_ap_mode;
+
 	/* pointers to IEs */
 	const struct ieee80211_tdls_lnkie *lnk_id;
 	const struct ieee80211_ch_switch_timing *ch_sw_timing;

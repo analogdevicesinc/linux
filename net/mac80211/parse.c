@@ -69,6 +69,12 @@ struct ieee80211_elems_parse {
 	u8 scratch[] __counted_by(scratch_len);
 };
 
+static void ieee80211_update_unr_ap_mode(struct ieee802_11_elems *elems,
+					 enum ieee80211_conn_mode mode)
+{
+	elems->unrestricted_ap_mode = max(mode, elems->unrestricted_ap_mode);
+}
+
 static void
 ieee80211_parse_extension_element(u32 *crc,
 				  const struct element *elem,
@@ -94,6 +100,7 @@ ieee80211_parse_extension_element(u32 *crc,
 			elems->mu_edca_param_set = data;
 		break;
 	case WLAN_EID_EXT_HE_CAPABILITY:
+		ieee80211_update_unr_ap_mode(elems, IEEE80211_CONN_MODE_HE);
 		if (params->mode < IEEE80211_CONN_MODE_HE)
 			break;
 		if (ieee80211_he_capa_size_ok(data, len)) {
@@ -102,6 +109,7 @@ ieee80211_parse_extension_element(u32 *crc,
 		}
 		break;
 	case WLAN_EID_EXT_HE_OPERATION:
+		ieee80211_update_unr_ap_mode(elems, IEEE80211_CONN_MODE_HE);
 		if (params->mode < IEEE80211_CONN_MODE_HE)
 			break;
 		calc_crc = true;
@@ -137,6 +145,7 @@ ieee80211_parse_extension_element(u32 *crc,
 			elems->he_6ghz_capa = data;
 		break;
 	case WLAN_EID_EXT_EHT_CAPABILITY:
+		ieee80211_update_unr_ap_mode(elems, IEEE80211_CONN_MODE_EHT);
 		if (params->mode < IEEE80211_CONN_MODE_EHT)
 			break;
 		if (ieee80211_eht_capa_size_ok(elems->he_cap,
@@ -147,6 +156,7 @@ ieee80211_parse_extension_element(u32 *crc,
 		}
 		break;
 	case WLAN_EID_EXT_EHT_OPERATION:
+		ieee80211_update_unr_ap_mode(elems, IEEE80211_CONN_MODE_EHT);
 		if (params->mode < IEEE80211_CONN_MODE_EHT)
 			break;
 		if (ieee80211_eht_oper_size_ok(data, len))
@@ -211,6 +221,7 @@ ieee80211_parse_extension_element(u32 *crc,
 			elems->cip_cap = data;
 		break;
 	case WLAN_EID_EXT_UHR_OPER:
+		ieee80211_update_unr_ap_mode(elems, IEEE80211_CONN_MODE_UHR);
 		if (params->mode < IEEE80211_CONN_MODE_UHR)
 			break;
 		calc_crc = true;
@@ -220,6 +231,7 @@ ieee80211_parse_extension_element(u32 *crc,
 		}
 		break;
 	case WLAN_EID_EXT_UHR_CAPA:
+		ieee80211_update_unr_ap_mode(elems, IEEE80211_CONN_MODE_UHR);
 		if (params->mode < IEEE80211_CONN_MODE_UHR)
 			break;
 		calc_crc = true;
@@ -507,6 +519,8 @@ _ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params,
 			elems->ext_supp_rates_len = elen;
 			break;
 		case WLAN_EID_HT_CAPABILITY:
+			ieee80211_update_unr_ap_mode(elems,
+						     IEEE80211_CONN_MODE_HT);
 			if (params->mode < IEEE80211_CONN_MODE_HT)
 				break;
 			if (elen >= sizeof(struct ieee80211_ht_cap))
@@ -516,6 +530,8 @@ _ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params,
 					IEEE80211_PARSE_ERR_BAD_ELEM_SIZE;
 			break;
 		case WLAN_EID_HT_OPERATION:
+			ieee80211_update_unr_ap_mode(elems,
+						     IEEE80211_CONN_MODE_HT);
 			if (params->mode < IEEE80211_CONN_MODE_HT)
 				break;
 			if (elen >= sizeof(struct ieee80211_ht_operation))
@@ -525,6 +541,8 @@ _ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params,
 					IEEE80211_PARSE_ERR_BAD_ELEM_SIZE;
 			break;
 		case WLAN_EID_VHT_CAPABILITY:
+			ieee80211_update_unr_ap_mode(elems,
+						     IEEE80211_CONN_MODE_VHT);
 			if (params->mode < IEEE80211_CONN_MODE_VHT)
 				break;
 			if (elen >= sizeof(struct ieee80211_vht_cap))
@@ -534,6 +552,8 @@ _ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params,
 					IEEE80211_PARSE_ERR_BAD_ELEM_SIZE;
 			break;
 		case WLAN_EID_VHT_OPERATION:
+			ieee80211_update_unr_ap_mode(elems,
+						     IEEE80211_CONN_MODE_VHT);
 			if (params->mode < IEEE80211_CONN_MODE_VHT)
 				break;
 			if (elen >= sizeof(struct ieee80211_vht_operation)) {
