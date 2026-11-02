@@ -1064,6 +1064,7 @@ struct bpf_insn_patch {
 	u32 off;
 	u32 len;
 	u32 start;		/* first insn of the patch in bpf_patch_list.insns */
+	u32 target;		/* insn of the patch that jumps to 'off' land on */
 	struct bpf_insn orig;	/* the replaced insn when the patch was queued */
 };
 
@@ -1084,6 +1085,7 @@ struct bpf_patch_list {
 struct bpf_patch_image {
 	struct bpf_insn *insns;
 	u32 *new_off;
+	u32 *new_tgt;
 	u32 *new_linfo;
 	u32 cnt;
 	u32 new_cnt;
@@ -1110,6 +1112,8 @@ struct bpf_insn *__bpf_patch_list_add(struct bpf_patch_list *pl,
 				      const struct bpf_insn *patch, u32 len);
 int __bpf_patch_list_del(struct bpf_patch_list *pl, const struct bpf_prog *prog,
 			 u32 off);
+int __bpf_patch_list_insert(struct bpf_patch_list *pl, const struct bpf_prog *prog,
+			    u32 off, const struct bpf_insn *insns, u32 cnt);
 void bpf_patch_list_release(struct bpf_patch_list *pl);
 int bpf_patch_list_build(const struct bpf_patch_list *pl, const struct bpf_prog *prog,
 			 struct bpf_patch_image *img);
@@ -2082,6 +2086,8 @@ struct bpf_insn *bpf_patch_list_add(struct bpf_verifier_env *env, u32 off,
 int bpf_patch_list_commit(struct bpf_verifier_env *env);
 void bpf_patch_list_free(struct bpf_verifier_env *env);
 int bpf_patch_list_del(struct bpf_verifier_env *env, u32 off);
+int bpf_patch_list_insert(struct bpf_verifier_env *env, u32 off,
+			  const struct bpf_insn *insns, u32 cnt);
 
 int bpf_flip_opcode(u32 opcode);
 u8 bpf_rev_opcode(u8 opcode);

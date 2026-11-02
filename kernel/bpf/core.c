@@ -645,16 +645,19 @@ static int patch_list_move_down(struct bpf_insn *insns, u32 len, u32 by)
 /*
  * insn is number 'idx' of the 'len' insns that replace insn 'off' of the old
  * image (an insn that isn't patched is its own patch of length 1). It lands
- * at 'pos' of the new image. 'new_off' maps the old image to the new one.
+ * at 'pos' of the new image. 'new_off' maps the old image to the start of
+ * each patch, which calls go to, 'new_tgt' to where jumps go.
  */
 static int patch_list_adj_insn(struct bpf_insn *insn, const u32 *new_off,
-			       u32 cnt, u32 off, u32 idx, u32 len, u32 pos)
+			       const u32 *new_tgt, u32 cnt, u32 off, u32 idx,
+			       u32 len, u32 pos)
 {
-	bool is_imm;
+	bool is_imm, call;
 	s64 rel, tgt;
 
 	if (!insn_get_rel(insn, &rel, &is_imm))
 		return 0;
+	call = bpf_pseudo_func(insn) || bpf_pseudo_call(insn);
 
 	/* relative to the first insn of the patch */
 	tgt = (s64)idx + rel + 1;
@@ -666,7 +669,7 @@ static int patch_list_adj_insn(struct bpf_insn *insn, const u32 *new_off,
 	if (tgt < 0 || tgt > cnt)
 		return -EFAULT;
 
-	rel = (s64)new_off[tgt] - pos - 1;
+	rel = (s64)(call ? new_off : new_tgt)[tgt] - pos - 1;
 	return insn_set_rel(insn, rel, is_imm);
 }
 
@@ -715,6 +718,7 @@ struct bpf_insn *__bpf_patch_list_add(struct bpf_patch_list *pl,
 	p = &pl->patches[pl->cnt++];
 	p->off = off;
 	p->len = len;
+	p->target = 0;
 	p->start = pl->insn_cnt;
 	p->orig = prog->insnsi[off];
 	memcpy(pl->insns + p->start, patch, len * sizeof(*patch));
@@ -737,8 +741,53 @@ int __bpf_patch_list_del(struct bpf_patch_list *pl, const struct bpf_prog *prog,
 	p = &pl->patches[pl->cnt++];
 	p->off = off;
 	p->len = 0;
+	p->target = 0;
 	p->start = pl->insn_cnt;
 	p->orig = prog->insnsi[off];
+	return 0;
+}
+
+/*
+ * Queue 'insns[0..cnt)' to go in front of insn 'off'. Jumps to 'off',
+ * instruction arrays and poke descriptors still name the insn at 'off', while
+ * subprogs, line info, function pointers and calls that start at 'off' start
+ * at the first inserted insn. Inserting in front of a queued patch puts the
+ * insns in front of it. 'off' is the start of a subprog, so nothing falls
+ * through to the inserted insns.
+ */
+int __bpf_patch_list_insert(struct bpf_patch_list *pl, const struct bpf_prog *prog,
+			    u32 off, const struct bpf_insn *insns, u32 cnt)
+{
+	struct bpf_insn_patch *p = pl->cnt ? &pl->patches[pl->cnt - 1] : NULL;
+	int err;
+
+	if (!p || off != p->off) {
+		err = patch_list_reserve_patch(pl) ?: patch_list_reserve_insns(pl, 1);
+		if (err)
+			return err;
+		p = &pl->patches[pl->cnt++];
+		p->off = off;
+		p->len = 1;
+		p->target = 0;
+		p->start = pl->insn_cnt;
+		p->orig = prog->insnsi[off];
+		pl->insns[pl->insn_cnt++] = p->orig;
+	}
+
+	err = patch_list_reserve_insns(pl, cnt);
+	if (err)
+		return err;
+
+	/* the last patch is at the end of pl->insns */
+	err = patch_list_move_down(pl->insns + p->start, p->len, cnt);
+	if (err)
+		return err;
+	memmove(pl->insns + p->start + cnt, pl->insns + p->start,
+		p->len * sizeof(*insns));
+	memcpy(pl->insns + p->start, insns, cnt * sizeof(*insns));
+	p->len += cnt;
+	p->target += cnt;
+	pl->insn_cnt += cnt;
 	return 0;
 }
 
@@ -784,9 +833,10 @@ static int patch_image_map_linfo(struct bpf_patch_image *img, const struct bpf_p
 /*
  * Build the image of 'prog' with the queued patches applied in img->insns,
  * without touching 'prog'. img->new_off[] maps each old insn to the start of
- * its patch, a removed insn to the next one that stays. img->new_linfo[] is
- * there when insns are removed, see patch_image_map_linfo(). On -ERANGE,
- * img->bad is the old insn whose jump got out of range.
+ * its patch, img->new_tgt[] to where jumps to it land, both map a removed insn
+ * to the next one that stays. img->new_linfo[] is there when insns are
+ * removed, see patch_image_map_linfo(). On -ERANGE, img->bad is the old insn
+ * whose jump got out of range. No list has both removed and inserted insns.
  */
 int bpf_patch_list_build(const struct bpf_patch_list *pl, const struct bpf_prog *prog,
 			 struct bpf_patch_image *img)
@@ -797,12 +847,15 @@ int bpf_patch_list_build(const struct bpf_patch_list *pl, const struct bpf_prog 
 	memset(img, 0, sizeof(*img));
 	img->cnt = cnt;
 	img->new_off = kvmalloc_array(cnt + 1, sizeof(u32), GFP_KERNEL_ACCOUNT);
-	if (!img->new_off)
+	img->new_tgt = kvmalloc_array(cnt + 1, sizeof(u32), GFP_KERNEL_ACCOUNT);
+	if (!img->new_off || !img->new_tgt)
 		return -ENOMEM;
 
 	for (i = 0, k = 0; i <= cnt; i++) {
 		img->new_off[i] = i + img->grow;
+		img->new_tgt[i] = img->new_off[i];
 		if (k < pl->cnt && pl->patches[k].off == i) {
+			img->new_tgt[i] += pl->patches[k].target;
 			img->del |= !pl->patches[k].len;
 			img->grow += pl->patches[k++].len - 1;
 		}
@@ -831,7 +884,7 @@ int bpf_patch_list_build(const struct bpf_patch_list *pl, const struct bpf_prog 
 		for (n = 0; n < len; n++) {
 			img->insns[pos + n] = src[n];
 			err = patch_list_adj_insn(&img->insns[pos + n], img->new_off,
-						  cnt, i, n, len, pos + n);
+						  img->new_tgt, cnt, i, n, len, pos + n);
 			if (err) {
 				img->bad = i;
 				return err;
@@ -845,6 +898,7 @@ void bpf_patch_image_free(struct bpf_patch_image *img)
 {
 	kvfree(img->insns);
 	kvfree(img->new_linfo);
+	kvfree(img->new_tgt);
 	kvfree(img->new_off);
 	memset(img, 0, sizeof(*img));
 }
@@ -861,7 +915,7 @@ void bpf_patch_image_install(struct bpf_prog *prog, const struct bpf_patch_image
 
 	for (i = 0; i < prog->aux->size_poke_tab; i++)
 		prog->aux->poke_tab[i].insn_idx =
-			bpf_patch_image_remap(img, img->new_off,
+			bpf_patch_image_remap(img, img->new_tgt,
 					      prog->aux->poke_tab[i].insn_idx);
 
 	for (i = 0, j = 0; i < prog->aux->nr_linfo; i++) {
