@@ -1623,7 +1623,7 @@ config REGULATOR_SY7636A
 	tristate "Silergy SY7636A voltage regulator"
 	depends on MFD_SY7636A
 	help
-	  This driver supports Silergy SY3686A voltage regulator.
+	  This driver supports Silergy SY7636A voltage regulator.
 
 config REGULATOR_SY8106A
 	tristate "Silergy SY8106A regulator"
