@@ -1929,6 +1929,8 @@ struct ieee802_11_elems {
 	const struct ieee80211_uhr_operation *uhr_operation;
 	const struct ieee80211_cip_cap *cip_cap;
 	const struct ieee80211_uhr_parameters_update *uhr_param_upd;
+	const struct ieee80211_smd_bss_trans_params_prep_resp *smd_prep_resp;
+	const struct ieee80211_smd_bss_trans_params_exec_resp *smd_exec_resp;
 
 	/* not the order in the psd values is per element, not per chandef */
 	struct ieee80211_parsed_tpe tpe;
@@ -2567,6 +2569,26 @@ static inline void ieee80211_tx_skb(struct ieee80211_sub_if_data *sdata,
 }
 
 /**
+ * enum ieee80211_parse_action_frame - action frame context for element parsing
+ *
+ * Some elements reuse the same element ID for different structures depending
+ * on which action frame they appear in. This selects the action frame the
+ * elements came from so the parser can extract the correct variant.
+ *
+ * @IEEE80211_PARSE_ACTION_FRAME_UNSPECIFIED: not one of the action frames that
+ *	need such disambiguation - parse elements normally
+ * @IEEE80211_PARSE_ACTION_FRAME_ST_PREP_RESP: SMD transition preparation
+ *	response
+ * @IEEE80211_PARSE_ACTION_FRAME_ST_EXEC_RESP: SMD transition execution
+ *	response
+ */
+enum ieee80211_parse_action_frame {
+	IEEE80211_PARSE_ACTION_FRAME_UNSPECIFIED = 0,
+	IEEE80211_PARSE_ACTION_FRAME_ST_PREP_RESP,
+	IEEE80211_PARSE_ACTION_FRAME_ST_EXEC_RESP,
+};
+
+/**
  * struct ieee80211_elems_parse_params - element parsing parameters
  * @mode: connection mode for parsing
  * @start: pointer to the elements
@@ -2585,6 +2607,9 @@ static inline void ieee80211_tx_skb(struct ieee80211_sub_if_data *sdata,
  *	(or re-association) response frame if this is given
  * @from_ap: frame is received from an AP (currently used only
  *	for EHT capabilities parsing)
+ * @action_frame: which action frame the elements came from, to
+ *	disambiguate elements that reuse the same element ID across different
+ *	action frames, or %IEEE80211_PARSE_ACTION_FRAME_UNSPECIFIED
  */
 struct ieee80211_elems_parse_params {
 	enum ieee80211_conn_mode mode;
@@ -2596,6 +2621,7 @@ struct ieee80211_elems_parse_params {
 	struct cfg80211_bss *bss;
 	int link_id;
 	bool from_ap;
+	enum ieee80211_parse_action_frame action_frame;
 };
 
 struct ieee802_11_elems *

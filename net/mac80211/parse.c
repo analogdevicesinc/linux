@@ -248,6 +248,20 @@ ieee80211_parse_extension_element(u32 *crc,
 		elems_parse->uhr_param_upd.start = params->start;
 		elems_parse->uhr_param_upd.len = params->len;
 		break;
+	case WLAN_EID_EXT_BSS_SMD_TRANS_PARAMS:
+		switch (params->action_frame) {
+		case IEEE80211_PARSE_ACTION_FRAME_ST_PREP_RESP:
+			if (ieee80211_smd_prep_resp_size_ok(data, len))
+				elems->smd_prep_resp = data;
+			break;
+		case IEEE80211_PARSE_ACTION_FRAME_ST_EXEC_RESP:
+			if (ieee80211_smd_exec_resp_size_ok(data, len))
+				elems->smd_exec_resp = data;
+			break;
+		default:
+			break;
+		}
+		break;
 	}
 
 	if (crc && calc_crc)
@@ -362,6 +376,10 @@ _ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params,
 	case IEEE80211_FTYPE_EXT | IEEE80211_STYPE_S1G_BEACON:
 		break;
 	}
+
+	WARN(params->type != (IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_ACTION) &&
+	     params->action_frame != IEEE80211_PARSE_ACTION_FRAME_UNSPECIFIED,
+	     "action frame type specified for non-action frame\n");
 
 	for_each_element(elem, params->start, params->len) {
 		const struct element *subelem;
