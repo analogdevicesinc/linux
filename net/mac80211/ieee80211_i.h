@@ -2625,7 +2625,7 @@ struct ieee80211_elems_parse_params {
 };
 
 struct ieee802_11_elems *
-ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params);
+ieee802_11_parse_elems_full(const struct ieee80211_elems_parse_params *params);
 
 static inline struct ieee802_11_elems *
 ieee802_11_parse_elems(const u8 *start, size_t len, u8 type,

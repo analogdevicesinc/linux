@@ -940,9 +940,9 @@ static size_t ieee802_11_find_bssid_profile(const u8 *start, size_t len,
 	return 0;
 }
 
-static void
+static int
 ieee80211_mle_get_sta_prof(struct ieee80211_elems_parse *elems_parse,
-			   u8 link_id)
+			   int link_id)
 {
 	struct ieee802_11_elems *elems = &elems_parse->elems;
 	const struct ieee80211_multi_link_elem *ml = elems->ml_basic;
@@ -952,6 +952,7 @@ ieee80211_mle_get_sta_prof(struct ieee80211_elems_parse *elems_parse,
 	for_each_mle_subelement(sub, (u8 *)ml, ml_len) {
 		struct ieee80211_mle_per_sta_profile *prof = (void *)sub->data;
 		ssize_t sta_prof_len;
+		int prof_link_id;
 		u16 control;
 
 		if (sub->id != IEEE80211_MLE_SUBELEM_PER_STA_PROFILE)
@@ -959,16 +960,18 @@ ieee80211_mle_get_sta_prof(struct ieee80211_elems_parse *elems_parse,
 
 		if (!ieee80211_mle_basic_sta_prof_size_ok(sub->data,
 							  sub->datalen))
-			return;
+			return -1;
 
 		control = le16_to_cpu(prof->control);
+		prof_link_id = u16_get_bits(control,
+					    IEEE80211_MLE_STA_CONTROL_LINK_ID);
 
-		if (link_id != u16_get_bits(control,
-					    IEEE80211_MLE_STA_CONTROL_LINK_ID))
+		/* a link_id of -1 matches the first per-STA profile */
+		if (link_id != -1 && link_id != prof_link_id)
 			continue;
 
 		if (!(control & IEEE80211_MLE_STA_CONTROL_COMPLETE_PROFILE))
-			return;
+			return -1;
 
 		/* the sub element can be fragmented */
 		sta_prof_len =
@@ -981,27 +984,36 @@ ieee80211_mle_get_sta_prof(struct ieee80211_elems_parse *elems_parse,
 						    IEEE80211_MLE_SUBELEM_FRAGMENT);
 
 		if (sta_prof_len < 0)
-			return;
+			return -1;
 
 		elems->prof = (void *)elems_parse->scratch_pos;
 		elems->sta_prof_len = sta_prof_len;
 		elems_parse->scratch_pos += sta_prof_len;
 
-		return;
+		return prof_link_id;
 	}
+
+	return -1;
 }
 
 static const struct element *
 ieee80211_prep_mle_link_parse(struct ieee80211_elems_parse *elems_parse,
-			      struct ieee80211_elems_parse_params *params,
-			      struct ieee80211_elems_parse_params *sub)
+			      const struct ieee80211_elems_parse_params *params,
+			      struct ieee80211_elems_parse_params *sub,
+			      struct ieee80211_elems_parse_params *base)
 {
 	struct ieee802_11_elems *elems = &elems_parse->elems;
+	struct ieee80211_elems_parse_params new_base = *base;
 	struct ieee80211_mle_per_sta_profile *prof;
 	const struct element *ml_basic_elem = NULL;
+	size_t fixed_len = 4; /* capa/status */
 	const struct element *tmp, *ret;
 	ssize_t ml_len;
 	const u8 *end;
+
+	/* also AID in ST preparation response */
+	if (params->action_frame == IEEE80211_PARSE_ACTION_FRAME_ST_PREP_RESP)
+		fixed_len += 2;
 
 	if (params->mode < IEEE80211_CONN_MODE_EHT)
 		return NULL;
@@ -1040,26 +1052,68 @@ ieee80211_prep_mle_link_parse(struct ieee80211_elems_parse *elems_parse,
 	if (params->link_id == -1)
 		return NULL;
 
-	ieee80211_mle_get_sta_prof(elems_parse, params->link_id);
+	/*
+	 * Per 35.3.3.5.2 "Inheritance from first Per-STA Profile subelement",
+	 * (Draft P802.11bn D1.5) the inheritance base is the first link and
+	 * not the outer frame elements (which don't exist) for the case of
+	 *  - EPP Capabilities And Operation Parameters frame,
+	 *  - UHR Neighboring AP Probe Response frame,
+	 *  - ST preparation request frame,
+	 *  - ST preparation response frame, and
+	 *  - ST execution response frame.
+	 *
+	 * We currently only parse the latter two.
+	 */
+	if (params->action_frame == IEEE80211_PARSE_ACTION_FRAME_ST_PREP_RESP ||
+	    params->action_frame == IEEE80211_PARSE_ACTION_FRAME_ST_EXEC_RESP) {
+		int first_link_id = ieee80211_mle_get_sta_prof(elems_parse, -1);
+
+		prof = elems->prof;
+		if (first_link_id >= 0 && prof &&
+		    elems->sta_prof_len >=
+		    sizeof(*prof) + prof->sta_info_len - 1 + fixed_len) {
+			/*
+			 * point the base parsing (to be inherited from)
+			 * to the first per-STA profile elements
+			 */
+			new_base.start = prof->variable +
+					 prof->sta_info_len - 1 + fixed_len;
+			end = (const u8 *)prof + elems->sta_prof_len;
+			new_base.len = end - new_base.start;
+			/* no link ID to look for and in MLE */
+			new_base.link_id = -1;
+
+			/* if it's the requested link, that's it */
+			if (first_link_id == params->link_id) {
+				*base = new_base;
+				elems_parse->inside_multilink = true;
+				return NULL;
+			}
+		}
+	}
+
+	if (ieee80211_mle_get_sta_prof(elems_parse, params->link_id) < 0) {
+		elems->prof = NULL;
+		elems->sta_prof_len = 0;
+		return NULL;
+	}
 	prof = elems->prof;
 
-	if (!prof)
-		return NULL;
-
-	/* check if we have the 4 bytes for the fixed part in assoc response */
-	if (elems->sta_prof_len < sizeof(*prof) + prof->sta_info_len - 1 + 4) {
+	/* check if we have the bytes for the fixed part */
+	if (elems->sta_prof_len < sizeof(*prof) + prof->sta_info_len -
+				  1 + fixed_len) {
 		elems->prof = NULL;
 		elems->sta_prof_len = 0;
 		return NULL;
 	}
 
 	/*
-	 * Skip the capability information and the status code that are expected
-	 * as part of the station profile in association response frames. Note
-	 * the -1 is because the 'sta_info_len' is accounted to as part of the
-	 * per-STA profile, but not part of the 'u8 variable[]' portion.
+	 * Skip the fixed fields that are expected as part of the station
+	 * profile. Note the -1 is because the 'sta_info_len' is accounted
+	 * to as part of the per-STA profile, but not part of the
+	 * 'u8 variable[]' portion.
 	 */
-	sub->start = prof->variable + prof->sta_info_len - 1 + 4;
+	sub->start = prof->variable + prof->sta_info_len - 1 + fixed_len;
 	end = (const u8 *)prof + elems->sta_prof_len;
 	sub->len = end - sub->start;
 
@@ -1067,6 +1121,12 @@ ieee80211_prep_mle_link_parse(struct ieee80211_elems_parse *elems_parse,
 	sub->type = params->type;
 	sub->from_ap = params->from_ap;
 	sub->link_id = -1;
+
+	/* we changed the base for "first link" inheritance */
+	if (new_base.start != base->start) {
+		*base = new_base;
+		elems_parse->inside_multilink = true;
+	}
 
 	ret = cfg80211_find_ext_elem(WLAN_EID_EXT_NON_INHERITANCE,
 				     sub->start, sub->len);
@@ -1105,8 +1165,9 @@ ieee80211_mle_defrag(struct ieee80211_elems_parse *elems_parse,
 }
 
 struct ieee802_11_elems *
-ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params)
+ieee802_11_parse_elems_full(const struct ieee80211_elems_parse_params *params)
 {
+	struct ieee80211_elems_parse_params base = *params;
 	struct ieee80211_elems_parse_params sub = {};
 	struct ieee80211_elems_parse *elems_parse;
 	const struct element *non_inherit = NULL;
@@ -1186,14 +1247,14 @@ ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params)
 		 * the applicable profile, if requested by params->link_id >= 0.
 		 */
 		non_inherit = ieee80211_prep_mle_link_parse(elems_parse, params,
-							    &sub);
+							    &sub, &base);
 		inside_multilink = true;
 	}
 
 	elems_parse->skip_vendor =
 		cfg80211_find_elem(WLAN_EID_VENDOR_SPECIFIC,
 				   sub.start, sub.len);
-	elems->crc = _ieee802_11_parse_elems_full(params, elems_parse,
+	elems->crc = _ieee802_11_parse_elems_full(&base, elems_parse,
 						  non_inherit);
 
 	/* Override with nontransmitted/per-STA profile if found */
