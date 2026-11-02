@@ -134,7 +134,7 @@ struct rog_ryujin_data {
 	u16 speed_input[6];	/* Pump, internal fan and four controller fan speeds in RPM */
 	u8 duty_input[3];	/* Pump, internal fan and controller fan duty in PWM */
 	u8 pump_source;		/* Pump control source from the cooler duty report */
-	unsigned long source_changed;	/* jiffies */
+	ktime_t source_changed;
 
 	u8 *buffer;
 	ktime_t updated;
@@ -340,25 +340,25 @@ static int rog_ryujin_read_string(struct device *dev, enum hwmon_sensor_types ty
  */
 static int rog_ryujin_write_cooler_duty(struct rog_ryujin_data *priv, const u8 *set_cmd)
 {
-	unsigned long interval = msecs_to_jiffies(RYUJIN_SOURCE_CHANGE_INTERVAL);
 	u8 source = set_cmd[RYUJIN_SET_COOLER_CHANNEL_OFFSET];
-	unsigned long elapsed, timeout;
+	ktime_t timeout;
+	s64 elapsed;
 	int ret;
 
 	if (!priv->info->duty_channel || source == priv->pump_source)
 		return rog_ryujin_execute_cmd(priv, set_cmd, SET_CMD_LENGTH,
 					      &priv->cooler_duty_set);
 
-	elapsed = jiffies - priv->source_changed;
-	if (elapsed < interval)
-		msleep(jiffies_to_msecs(interval - elapsed));
+	elapsed = ktime_ms_delta(ktime_get(), priv->source_changed);
+	if (elapsed < RYUJIN_SOURCE_CHANGE_INTERVAL)
+		msleep(RYUJIN_SOURCE_CHANGE_INTERVAL - elapsed);
 
 	ret = rog_ryujin_execute_cmd(priv, set_cmd, SET_CMD_LENGTH, &priv->cooler_duty_set);
 	if (ret < 0)
 		return ret;
 
-	priv->source_changed = jiffies;
-	timeout = jiffies + msecs_to_jiffies(RYUJIN_SOURCE_CHANGE_TIMEOUT);
+	priv->source_changed = ktime_get();
+	timeout = ktime_add_ms(priv->source_changed, RYUJIN_SOURCE_CHANGE_TIMEOUT);
 	do {
 		msleep(100);
 		ret = rog_ryujin_execute_cmd(priv, get_cooler_duty_cmd, GET_CMD_LENGTH,
@@ -367,7 +367,7 @@ static int rog_ryujin_write_cooler_duty(struct rog_ryujin_data *priv, const u8 *
 			return ret;
 		if (priv->pump_source == source)
 			return 0;
-	} while (time_before(jiffies, timeout));
+	} while (ktime_before(ktime_get(), timeout));
 
 	return -ETIMEDOUT;
 }
@@ -703,7 +703,7 @@ static int rog_ryujin_probe(struct hid_device *hdev, const struct hid_device_id 
 	 * a special case there.
 	 */
 	priv->updated = ktime_sub_ms(ktime_get(), STATUS_VALIDITY + 1);
-	priv->source_changed = jiffies - msecs_to_jiffies(RYUJIN_SOURCE_CHANGE_INTERVAL);
+	priv->source_changed = ktime_sub_ms(ktime_get(), RYUJIN_SOURCE_CHANGE_INTERVAL);
 
 	ret = hid_parse(hdev);
 	if (ret) {
