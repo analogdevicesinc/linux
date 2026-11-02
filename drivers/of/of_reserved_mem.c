@@ -66,11 +66,11 @@ static int __init early_init_dt_alloc_reserved_memory_arch(phys_addr_t size,
  */
 #if defined(CONFIG_GENERIC_EARLY_IOREMAP) && !defined(CONFIG_PPC64)
 #include <asm/early_ioremap.h>
-static inline void *early_array_map(void *array, size_t size)
+static inline void * __init early_array_map(void *array, size_t size)
 {
 	return early_memremap(__pa(array), size);
 }
-static inline void early_array_unmap(void *map, size_t size)
+static inline void __init early_array_unmap(void *map, size_t size)
 {
 	early_memunmap(map, size);
 }
