@@ -59,7 +59,7 @@ static int feiyang_prepare(struct drm_panel *panel)
 
 	ret = regulator_enable(ctx->avdd);
 	if (ret)
-		return ret;
+		goto disable_dvdd;
 
 	/* T3 (dvdd rise + avdd start + avdd rise) T3 >= 20ms */
 	msleep(20);
@@ -84,10 +84,21 @@ static int feiyang_prepare(struct drm_panel *panel)
 		ret = mipi_dsi_dcs_write_buffer(dsi, cmd->data,
 						FEIYANG_INIT_CMD_LEN);
 		if (ret < 0)
-			return ret;
+			goto assert_reset;
 	}
 
 	return 0;
+
+assert_reset:
+	gpiod_set_value(ctx->reset, 0);
+	regulator_disable(ctx->avdd);
+
+	/* Preserve the AVDD-to-DVDD shutdown delay from unprepare(). */
+	msleep(10);
+
+disable_dvdd:
+	regulator_disable(ctx->dvdd);
+	return ret;
 }
 
 static int feiyang_enable(struct drm_panel *panel)
