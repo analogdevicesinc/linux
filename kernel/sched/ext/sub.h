@@ -247,7 +247,7 @@ static inline bool scx_task_can_stay_on_cpu(struct rq *rq, struct task_struct *p
 	if (unlikely(is_migration_disabled(p)))
 		return true;
 
-	/* check caps against the sched running a bypassed task */
+	/* check caps against the sched hosting a bypassed task */
 	return likely(!scx_missing_caps(scx_exec_sched(scx_task_sched(p), cpu), cpu,
 					SCX_CAP_BASE));
 }

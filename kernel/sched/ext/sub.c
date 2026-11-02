@@ -967,7 +967,7 @@ bool scx_task_reenq_on_cap_revoke(struct rq *rq, struct task_struct *p)
 	if (is_migration_disabled(p) || p == scx_rescuee(rq))
 		return false;
 
-	/* check caps against the sched running a bypassed task */
+	/* check caps against the sched hosting a bypassed task */
 	missing = scx_missing_caps(scx_exec_sched(scx_task_sched(p), cpu), cpu,
 				   scx_caps_for_task(p));
 	if (likely(!missing))
