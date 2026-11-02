@@ -277,17 +277,26 @@ static int rm68200_prepare(struct drm_panel *panel)
 
 	ret = mipi_dsi_dcs_exit_sleep_mode(dsi);
 	if (ret)
-		return ret;
+		goto assert_reset;
 
 	msleep(125);
 
 	ret = mipi_dsi_dcs_set_display_on(dsi);
 	if (ret)
-		return ret;
+		goto assert_reset;
 
 	msleep(20);
 
 	return 0;
+
+assert_reset:
+	if (ctx->reset_gpio) {
+		gpiod_set_value_cansleep(ctx->reset_gpio, 1);
+		msleep(20);
+	}
+	/* Balance the regulator enable count on prepare failure. */
+	regulator_disable(ctx->supply);
+	return ret;
 }
 
 static int rm68200_get_modes(struct drm_panel *panel,
