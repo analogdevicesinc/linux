@@ -26,6 +26,10 @@ properties:
       - const: adi,max20830
       - items:
           - enum:
+              - adi,ltm4739
+              - adi,ltm4740
+              - adi,max20810
+              - adi,max20815
               - adi,max20830c
               - adi,max20840c
           - const: adi,max20830
