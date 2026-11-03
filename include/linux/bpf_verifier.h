@@ -727,6 +727,7 @@ struct bpf_backedge {
 	 * Conditional jumps within the loop that dominate 'from' and have
 	 * a successor outside the loop, nearest first. latches[0] is the
 	 * latch; the remaining entries are additional exit conditions.
+	 * One of them may leave the loop by way of a flag, see bpf_edge_leaves_loop().
 	 * Each usable condition tells iterations in which the back edge is
 	 * not taken, so keeping only a subset is sound.
 	 */
@@ -1504,6 +1505,8 @@ void bpf_free_kfunc_btf_tab(struct bpf_kfunc_btf_tab *tab);
 int mark_chain_precision(struct bpf_verifier_env *env, int regno);
 
 int bpf_is_state_visited(struct bpf_verifier_env *env, int insn_idx);
+bool bpf_edge_leaves_loop(struct bpf_verifier_env *env, int h, int n, int t);
+bool bpf_jump_leaves_loop(struct bpf_verifier_env *env, int h, int n);
 int bpf_split_cur_state(struct bpf_verifier_env *env);
 int bpf_update_branch_counts(struct bpf_verifier_env *env, struct bpf_verifier_state *st);
 

@@ -2025,7 +2025,6 @@ static int match_linear_latch(struct bpf_verifier_env *env,
 	struct bpf_insn *insn = &env->prog->insnsi[latch_idx];
 	struct scev *scev = env->scev;
 	struct env *latch_env;
-	u32 true_branch_loop;
 	u32 true_branch_tgt;
 	u32 src_reg_scev;
 	u32 dst_reg_scev;
@@ -2036,9 +2035,7 @@ static int match_linear_latch(struct bpf_verifier_env *env,
 	latch->jmp32 = BPF_CLASS(insn->code) == BPF_JMP32;
 	/* Flip the condition if true branch jumps out of the loop. */
 	true_branch_tgt = latch_idx + bpf_jmp_offset(insn) + 1;
-	true_branch_loop = bpf_loop_at_index(env, true_branch_tgt);
-	if (true_branch_loop != header &&
-	    !bpf_is_nested_loop(env, true_branch_loop, header))
+	if (bpf_edge_leaves_loop(env, header, latch_idx, true_branch_tgt))
 		op = bpf_rev_opcode(op);
 	switch (op) {
 	case BPF_JSLT:
