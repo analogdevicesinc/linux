@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
+#define __SANE_USERSPACE_TYPES__
 
 /* kselftest for allocinfo ioctl
  * allocinfo ioctl retrieves allocinfo data through ioctl
