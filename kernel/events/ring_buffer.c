@@ -246,14 +246,13 @@ __perf_output_begin(struct perf_output_handle *handle,
 	handle->size = (1UL << page_shift) - offset;
 
 	if (unlikely(have_lost)) {
-		lost_event.header.size = sizeof(lost_event);
-		lost_event.header.type = PERF_RECORD_LOST;
-		lost_event.header.misc = 0;
 		lost_event.id          = event->id;
 		lost_event.lost        = local_xchg(&rb->lost, 0);
 
 		/* XXX mostly redundant; @data is already fully initializes */
-		perf_event_header__init_id(&lost_event.header, data, event);
+		perf_event_header__init(&lost_event.header, data,
+					PERF_RECORD_LOST, /* misc= */ 0,
+					sizeof(lost_event), event);
 		perf_output_put(handle, lost_event);
 		perf_event__output_id_sample(event, handle, data);
 	}
@@ -635,11 +634,10 @@ static struct page *rb_alloc_aux_page(int node, int order)
 		/*
 		 * Communicate the allocation size to the driver:
 		 * if we managed to secure a high-order allocation,
-		 * set its first page's private to this order;
-		 * !PagePrivate(page) means it's just a normal page.
+		 * set its first page's private to this order, otherwise page's
+		 * private remains zero.
 		 */
 		split_page(page, order);
-		SetPagePrivate(page);
 		set_page_private(page, order);
 	}
 
@@ -650,7 +648,7 @@ static void rb_free_aux_page(struct perf_buffer *rb, int idx)
 {
 	struct page *page = virt_to_page(rb->aux_pages[idx]);
 
-	ClearPagePrivate(page);
+	set_page_private(page, 0);
 	__free_page(page);
 }
 

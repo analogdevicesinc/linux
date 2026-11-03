@@ -865,7 +865,7 @@ static ssize_t infos_show(struct device *dev, struct device_attribute *attr,
 		len += sysfs_emit_at(page, len, "SFUN value         : %#x\n",
 			       (uint) temp);
 	/*
-	 * The HWRS method return informations about the hardware.
+	 * The HWRS method return information about the hardware.
 	 * 0x80 bit is for WLAN, 0x100 for Bluetooth.
 	 * 0x40 for WWAN, 0x10 for WIMAX.
 	 * The significance of others is yet to be found.
@@ -1882,7 +1882,7 @@ static int asus_acpi_probe(struct platform_device *pdev)
 	if (result && result != -ENODEV)
 		goto fail_pega_rfkill;
 
-	result = acpi_dev_install_notify_handler(device, ACPI_DEVICE_NOTIFY,
+	result = acpi_dev_install_notify_handler(device, ACPI_ALL_NOTIFY,
 						 asus_acpi_notify, asus);
 	if (result)
 		goto fail_pega_rfkill;
@@ -1912,7 +1912,7 @@ static void asus_acpi_remove(struct platform_device *pdev)
 {
 	struct asus_laptop *asus = platform_get_drvdata(pdev);
 
-	acpi_dev_remove_notify_handler(asus->device, ACPI_DEVICE_NOTIFY,
+	acpi_dev_remove_notify_handler(asus->device, ACPI_ALL_NOTIFY,
 				       asus_acpi_notify);
 	asus_backlight_exit(asus);
 	asus_rfkill_exit(asus);

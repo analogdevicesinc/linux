@@ -1269,7 +1269,7 @@ struct wx_rss_flow_map {
 	u8 flag;
 };
 
-enum wx_pf_flags {
+enum wx_flags {
 	WX_FLAG_MULTI_64_FUNC,
 	WX_FLAG_SWFW_RING,
 	WX_FLAG_VMDQ_ENABLED,
@@ -1291,13 +1291,13 @@ enum wx_pf_flags {
 	WX_FLAG_RX_MERGE_ENABLED,
 	WX_FLAG_TXHEAD_WB_ENABLED,
 	WX_FLAG_NEED_PCIE_RECOVERY,
-	WX_PF_FLAGS_NBITS               /* must be last */
+	WX_FLAGS_NBITS               /* must be last */
 };
 
 struct wx {
 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
 	DECLARE_BITMAP(state, WX_STATE_NBITS);
-	DECLARE_BITMAP(flags, WX_PF_FLAGS_NBITS);
+	DECLARE_BITMAP(flags, WX_FLAGS_NBITS);
 
 	void *priv;
 	u8 __iomem *hw_addr;
@@ -1430,6 +1430,8 @@ struct wx {
 	unsigned long last_overflow_check;
 	unsigned long last_rx_ptp_check;
 	unsigned long ptp_tx_start;
+	/* protects ptp_tx_skb, ptp_tx_start and the in-progress state bit */
+	spinlock_t ptp_tx_lock;
 	seqlock_t hw_tc_lock; /* seqlock for ptp */
 	struct cyclecounter hw_cc;
 	struct timecounter hw_tc;

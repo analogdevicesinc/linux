@@ -11,6 +11,7 @@
 
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_blend.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_fb_dma_helper.h>
 #include <drm/drm_fourcc.h>
@@ -231,10 +232,10 @@ static const struct drm_plane_helper_funcs vs_cursor_plane_helper_funcs = {
 };
 
 static const struct drm_plane_funcs vs_cursor_plane_funcs = {
+	.atomic_create_state	= drm_atomic_helper_plane_create_state,
 	.atomic_destroy_state	= drm_atomic_helper_plane_destroy_state,
 	.atomic_duplicate_state	= drm_atomic_helper_plane_duplicate_state,
 	.disable_plane		= drm_atomic_helper_disable_plane,
-	.reset			= drm_atomic_helper_plane_reset,
 	.update_plane		= drm_atomic_helper_update_plane,
 };
 
@@ -269,6 +270,7 @@ struct drm_plane *vs_cursor_plane_init(struct drm_device *drm_dev,
 		return plane;
 
 	drm_plane_helper_add(plane, &vs_cursor_plane_helper_funcs);
+	drm_plane_create_blend_mode_property(plane, BIT(DRM_MODE_BLEND_COVERAGE));
 
 	return plane;
 }

@@ -15,6 +15,7 @@
 #include <drm/drm_print.h>
 #include <drm/drm_vblank.h>
 #include <drm/drm_bridge.h>
+#include <drm/drm_panel.h>
 
 #include "komeda_dev.h"
 #include "komeda_kms.h"

@@ -5,7 +5,7 @@
 
 #include "xe_pm.h"
 
-#include <linux/fault-inject.h>
+#include <linux/error-injection.h>
 #include <linux/pm_runtime.h>
 #include <linux/suspend.h>
 #include <linux/dmi.h>
@@ -1073,6 +1073,24 @@ void xe_pm_d3cold_allowed_toggle(struct xe_device *xe)
 		xe->d3cold.allowed = false;
 
 	mutex_unlock(&xe->d3cold.lock);
+}
+
+/**
+ * xe_pm_wait_all_c6() - Wait for all GTs to enter C6.
+ * @xe: xe device instance
+ *
+ * Return: 0 on success, -EAGAIN on failure
+ */
+int xe_pm_wait_all_c6(struct xe_device *xe)
+{
+	struct xe_gt *gt;
+	u8 id;
+
+	for_each_gt(gt, xe, id)
+		if (xe_gt_idle_wait_for_c6(gt, 200))
+			return -EAGAIN;
+
+	return 0;
 }
 
 /**

@@ -70,6 +70,8 @@
 #include "xe_wa.h"
 #include "xe_wopcm.h"
 
+#define GRDOM_RESET_TIMEOUT_MS	5
+
 struct xe_gt *xe_gt_alloc(struct xe_tile *tile)
 {
 	struct xe_device *xe = tile_to_xe(tile);
@@ -828,10 +830,13 @@ static int do_gt_reset(struct xe_gt *gt)
 	xe_gsc_wa_14015076503(gt, true);
 
 	xe_mmio_write32(&gt->mmio, GDRST, GRDOM_FULL);
-	err = xe_mmio_wait32(&gt->mmio, GDRST, GRDOM_FULL, 0, 5000, NULL, false);
+	err = xe_mmio_wait32(&gt->mmio, GDRST, GRDOM_FULL, 0,
+			     GRDOM_RESET_TIMEOUT_MS * USEC_PER_MSEC,
+			     NULL, false);
 	if (err)
-		xe_gt_err(gt, "failed to clear GRDOM_FULL (%pe)\n",
-			  ERR_PTR(err));
+		xe_log_err(gt, GT, err,
+			   "full graphics reset not completed in %u ms\n",
+			   GRDOM_RESET_TIMEOUT_MS);
 
 	xe_gsc_wa_14015076503(gt, false);
 

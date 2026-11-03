@@ -12,6 +12,7 @@
 #include <drm/drm_device.h>
 #include <drm/drm_gem_atomic_helper.h>
 #include <drm/drm_modes.h>
+#include <drm/drm_panic_helper.h>
 
 struct drm_format_info;
 struct drm_scanout_buffer;
@@ -144,7 +145,8 @@ void drm_sysfb_plane_atomic_destroy_state(struct drm_plane *plane,
 	.disable_plane = drm_atomic_helper_disable_plane, \
 	.atomic_create_state = drm_sysfb_plane_atomic_create_state, \
 	.atomic_duplicate_state = drm_sysfb_plane_atomic_duplicate_state, \
-	.atomic_destroy_state = drm_sysfb_plane_atomic_destroy_state
+	.atomic_destroy_state = drm_sysfb_plane_atomic_destroy_state, \
+	DRM_PANIC_PLANE_FUNCS
 
 /*
  * CRTC
@@ -192,7 +194,7 @@ int drm_sysfb_connector_helper_get_modes(struct drm_connector *connector);
 	.get_modes = drm_sysfb_connector_helper_get_modes
 
 #define DRM_SYSFB_CONNECTOR_FUNCS \
-	.reset = drm_atomic_helper_connector_reset, \
+	.atomic_create_state = drm_atomic_helper_connector_create_state, \
 	.fill_modes = drm_helper_probe_single_connector_modes, \
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state, \
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state

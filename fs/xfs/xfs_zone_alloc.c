@@ -26,6 +26,7 @@
 #include "xfs_zones.h"
 #include "xfs_trace.h"
 #include "xfs_mru_cache.h"
+#include <linux/bio-integrity.h>
 
 static void
 xfs_open_zone_free_rcu(
@@ -438,6 +439,26 @@ xfs_init_open_zone(
 }
 
 /*
+ * Claim one of the free zones. User allocations may not dip into the pool
+ * reserved for guaranteeing GC forward progress.
+ */
+static bool
+xfs_claim_free_zone(
+	struct xfs_zone_info	*zi,
+	bool			is_gc)
+{
+	int			min_free = is_gc ? 1 : XFS_MIN_FREE_GC_ZONES;
+	int			free = atomic_read(&zi->zi_nr_free_zones);
+
+	do {
+		if (free < min_free)
+			return false;
+	} while (!atomic_try_cmpxchg(&zi->zi_nr_free_zones, &free, free - 1));
+
+	return true;
+}
+
+/*
  * Find a completely free zone, open it, and return a reference.
  */
 struct xfs_open_zone *
@@ -450,6 +471,9 @@ xfs_open_zone(
 	XA_STATE		(xas, &mp->m_groups[XG_TYPE_RTG].xa, 0);
 	struct xfs_group	*xg;
 
+	if (!xfs_claim_free_zone(zi, is_gc))
+		return NULL;
+
 	/*
 	 * Pick the free zone with lowest index. Zones in the beginning of the
 	 * address space typically provides higher bandwidth than those at the
@@ -460,11 +484,19 @@ xfs_open_zone(
 		if (atomic_inc_not_zero(&xg->xg_active_ref))
 			goto found;
 	xas_unlock(&xas);
+
+	/*
+	 * We should not end up here as we claimed a free zone before looking
+	 * through the free zone list. The free zone counter and the number
+	 * of zones marked as free must be out of sync.
+	 */
+	WARN_ON_ONCE(1);
+
+	atomic_inc(&zi->zi_nr_free_zones);
 	return NULL;
 
 found:
 	xas_clear_mark(&xas, XFS_RTG_FREE);
-	atomic_dec(&zi->zi_nr_free_zones);
 	xas_unlock(&xas);
 
 	set_current_state(TASK_RUNNING);
@@ -475,14 +507,13 @@ static struct xfs_open_zone *
 xfs_try_open_zone(
 	struct xfs_mount	*mp,
 	enum rw_hint		write_hint)
+		__releases(&mp->m_zone_info->zi_open_zones_lock)
+		__acquires(&mp->m_zone_info->zi_open_zones_lock)
 {
 	struct xfs_zone_info	*zi = mp->m_zone_info;
 	struct xfs_open_zone	*oz;
 
 	if (zi->zi_nr_open_zones >= mp->m_max_open_zones - XFS_OPEN_GC_ZONES)
-		return NULL;
-	if (atomic_read(&zi->zi_nr_free_zones) <
-	    XFS_GC_ZONES - XFS_OPEN_GC_ZONES)
 		return NULL;
 
 	/*
@@ -818,7 +849,7 @@ xfs_get_cached_zone(
 		spin_unlock(&ip->i_flags_lock);
 	}
 
-	if (!atomic_inc_not_zero(&oz->oz_ref))
+	if (oz && !atomic_inc_not_zero(&oz->oz_ref))
 		oz = NULL;
 out_unlock:
 	rcu_read_unlock();
@@ -826,7 +857,7 @@ out_unlock:
 }
 
 /*
- * Stash our zone in the inode so that is is reused for future allocations.
+ * Stash our zone in the inode so that it is reused for future allocations.
  *
  * The open_zone structure will be pinned until either the inode is freed or
  * until the cached open zone is replaced with a different one because the
@@ -908,6 +939,9 @@ xfs_zone_alloc_and_submit(
 
 	if (xfs_is_shutdown(mp))
 		goto out_error;
+
+	if (ioend->io_flags & IOMAP_IOEND_INTEGRITY)
+		fs_bio_integrity_generate(&ioend->io_bio);
 
 	/*
 	 * If we don't have a locally cached zone in this write context, see if

@@ -38,8 +38,10 @@
 struct drm_pagemap_shrinker;
 struct intel_display;
 struct intel_dg_nvm_dev;
+struct xe_cpu_bind;
 struct xe_ggtt;
 struct xe_i2c;
+struct xe_mmio_gem;
 struct xe_pat_ops;
 struct xe_pxp;
 struct xe_ttm_stolen_mgr;
@@ -88,9 +90,7 @@ enum xe_page_size_alloc_ctrl_mode {
 
 #define XE_VRAM_FLAGS_NEED64K		BIT(0)
 
-#define XE_GT0		0
-#define XE_GT1		1
-#define XE_MAX_TILES_PER_DEVICE	(XE_GT1 + 1)
+#define XE_MAX_TILES_PER_DEVICE 2
 
 /*
  * Highest GT/tile count for any platform.  Used only for memory allocation
@@ -115,6 +115,12 @@ struct xe_device {
 
 	/** @devcoredump: device coredump */
 	struct xe_devcoredump devcoredump;
+
+	/** @desc: device descriptor */
+	const struct xe_device_desc *desc;
+
+	/** @subplatform_desc: subplatform descriptor */
+	const struct xe_subplatform_desc *subplatform_desc;
 
 	/** @info: device info */
 	struct intel_device_info {
@@ -173,6 +179,8 @@ struct xe_device {
 		u8 has_cached_pt:1;
 		/** @info.has_device_atomics_on_smem: Supports device atomics on SMEM */
 		u8 has_device_atomics_on_smem:1;
+		/** @info.has_device_uid: Device supports unique 64-bit GPU SOC ID */
+		u8 has_device_uid:1;
 		/** @info.has_drm_ras: Device supports drm_ras (Reliability, Availability, Serviceability) */
 		u8 has_drm_ras:1;
 		/** @info.has_fan_control: Device supports fan control */
@@ -223,6 +231,8 @@ struct xe_device {
 		u8 has_usm:1;
 		/** @info.has_64bit_timestamp: Device supports 64-bit timestamps */
 		u8 has_64bit_timestamp:1;
+		/** @info.has_pt_mirror: Device has PT mirroring across tiles */
+		u8 has_pt_mirror:1;
 		/** @info.is_dgfx: is discrete device */
 		u8 is_dgfx:1;
 		/** @info.needs_scratch: needs scratch page for oob prefetch to work */
@@ -256,6 +266,9 @@ struct xe_device {
 		 */
 		bool oob_initialized;
 	} wa_active;
+
+	/** @device_uid: unique 64-bit GPU SOC identifier */
+	u64 device_uid;
 
 	/** @survivability: survivability information for device */
 	struct xe_survivability survivability;
@@ -572,6 +585,9 @@ struct xe_device {
 	/** @sc: System Controller */
 	struct xe_sysctrl sc;
 
+	/** @cpu_bind: CPU bind object */
+	struct xe_cpu_bind *cpu_bind;
+
 	/** @atomic_svm_timeslice_ms: Atomic SVM fault timeslice MS */
 	u32 atomic_svm_timeslice_ms;
 
@@ -689,6 +705,18 @@ struct xe_file {
 
 	/** @refcount: ref count of this xe file */
 	struct kref refcount;
+
+	/** @mmio_gem: MMIO GEM objects for this xe file */
+	struct {
+		/**
+		 * @mmio_gem.lock: Protects allocation and attach of MMIO
+		 * GEM objects on first use (singleton). All MMIO GEM access
+		 * should be guarded by this lock. Prefer scoped_guard().
+		 */
+		struct mutex lock;
+		/** @mmio_gem.pci_barrier: MMIO GEM object for PCI barrier mmap. */
+		struct xe_mmio_gem *pci_barrier;
+	} mmio_gem;
 };
 
 #endif

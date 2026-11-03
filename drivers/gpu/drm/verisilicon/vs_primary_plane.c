@@ -160,10 +160,10 @@ static const struct drm_plane_helper_funcs vs_primary_plane_helper_funcs = {
 };
 
 static const struct drm_plane_funcs vs_primary_plane_funcs = {
+	.atomic_create_state	= vs_plane_create_state,
 	.atomic_destroy_state	= vs_plane_destroy_state,
 	.atomic_duplicate_state	= vs_plane_duplicate_state,
 	.disable_plane		= drm_atomic_helper_disable_plane,
-	.reset			= vs_plane_reset,
 	.update_plane		= drm_atomic_helper_update_plane,
 };
 
@@ -173,8 +173,8 @@ struct drm_plane *vs_primary_plane_init(struct drm_device *drm_dev, struct vs_dc
 
 	plane = drmm_universal_plane_alloc(drm_dev, struct drm_plane, dev, 0,
 					   &vs_primary_plane_funcs,
-					   dc->identity.formats->array,
-					   dc->identity.formats->num,
+					   dc->identity.formats->primary_array,
+					   dc->identity.formats->primary_num,
 					   NULL,
 					   DRM_PLANE_TYPE_PRIMARY,
 					   NULL);

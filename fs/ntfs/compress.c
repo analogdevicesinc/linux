@@ -182,8 +182,8 @@ static int ntfs_decompress(struct page *dest_pages[], int completed_pages[],
 	u8 *dp_addr;		/* Current pointer into dp. */
 	u8 *dp_sb_start;	/* Start of current sub-block in dp. */
 	u8 *dp_sb_end;		/* End of current sb in dp (dp_sb_start + NTFS_SB_SIZE). */
-	u16 do_sb_start;	/* @dest_ofs when starting this sub-block. */
-	u16 do_sb_end;		/* @dest_ofs of end of this sb (do_sb_start + NTFS_SB_SIZE). */
+	int do_sb_start;	/* @dest_ofs when starting this sub-block. */
+	int do_sb_end;		/* @dest_ofs of end of this sb (do_sb_start + NTFS_SB_SIZE). */
 
 	/* Variables for tag and token parsing. */
 	u8 tag;			/* Current tag. */
@@ -1450,7 +1450,7 @@ static int ntfs_write_cb(struct ntfs_inode *ni, loff_t pos, struct page **pages,
 	ni->runlist.rl = rl;
 	rlc = NULL;
 
-	err = ntfs_attr_update_mapping_pairs(ni, 0);
+	err = ntfs_attr_update_mapping_pairs_locked(ni, 0, ni);
 	up_write(&ni->runlist.lock);
 	if (err)
 		err = -EIO;

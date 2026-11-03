@@ -108,9 +108,6 @@ struct xrep_abt {
 
 	struct xfs_scrub	*sc;
 
-	/* Number of non-null records in @free_records. */
-	uint64_t		nr_real_records;
-
 	/* get_records()'s position in the free space record array. */
 	xfarray_idx_t		array_cur;
 
@@ -227,7 +224,10 @@ xrep_abt_walk_rmap(
 	void				*priv)
 {
 	struct xrep_abt			*ra = priv;
-	int				error;
+	int				error = 0;
+
+	if (xchk_should_terminate(ra->sc, &error))
+		return error;
 
 	/* Record all the OWN_AG blocks... */
 	if (rec->rm_owner == XFS_RMAP_OWN_AG) {
@@ -338,7 +338,7 @@ xrep_cntbt_extent_cmp(
 }
 
 /*
- * Sort the free extents by length so so that we can put the records into the
+ * Sort the free extents by length so that we can put the records into the
  * cntbt in the correct order.  Don't let userspace kill us if we're resorting
  * after allocating btree blocks.
  */
@@ -370,7 +370,7 @@ xrep_abt_find_freespace(
 
 	xagb_bitmap_init(&ra->not_allocbt_blocks);
 
-	xrep_ag_btcur_init(sc, &sc->sa);
+	xrep_ag_btcur_init(sc);
 
 	/*
 	 * Iterate all the reverse mappings to find gaps in the physical
@@ -403,11 +403,10 @@ xrep_abt_find_freespace(
 	if (error)
 		goto err_agfl;
 
-	ra->nr_real_records = xfarray_length(ra->free_records);
 err_agfl:
 	xfs_trans_brelse(sc->tp, agfl_bp);
 err:
-	xchk_ag_btcur_free(&sc->sa);
+	xchk_ag_btcur_free(sc);
 	xagb_bitmap_destroy(&ra->not_allocbt_blocks);
 	return error;
 }
@@ -446,15 +445,17 @@ xrep_abt_reserve_space(
 		uint64_t		required;
 		unsigned int		desired;
 		unsigned int		len;
+		const uint64_t		nr_records =
+			xfarray_length(ra->free_records);
 
 		/* Compute how many blocks we'll need. */
 		error = xfs_btree_bload_compute_geometry(cnt_cur,
-				&ra->new_cntbt.bload, ra->nr_real_records);
+				&ra->new_cntbt.bload, nr_records);
 		if (error)
 			break;
 
 		error = xfs_btree_bload_compute_geometry(bno_cur,
-				&ra->new_bnobt.bload, ra->nr_real_records);
+				&ra->new_bnobt.bload, nr_records);
 		if (error)
 			break;
 
@@ -470,7 +471,7 @@ xrep_abt_reserve_space(
 		desired = required - allocated;
 
 		/* We need space but there's none left; bye! */
-		if (ra->nr_real_records == 0) {
+		if (nr_records == 0) {
 			error = -ENOSPC;
 			break;
 		}
@@ -517,10 +518,9 @@ xrep_abt_reserve_space(
 		 * records (but doesn't break the sorting order), so we must
 		 * go around the loop once more to re-run _bload_init.
 		 */
-		error = xfarray_unset(ra->free_records, record_nr);
+		error = xfarray_trim(ra->free_records, 1);
 		if (error)
 			break;
-		ra->nr_real_records--;
 		record_nr--;
 	} while (1);
 
@@ -571,7 +571,7 @@ xrep_abt_dispose_one(
  * allocation, and blocks that didn't get used can be freed via the usual
  * (deferred) means.
  */
-STATIC void
+STATIC int
 xrep_abt_dispose_reservations(
 	struct xrep_abt		*ra,
 	int			error)
@@ -582,9 +582,13 @@ xrep_abt_dispose_reservations(
 		goto junkit;
 
 	list_for_each_entry_safe(resv, n, &ra->new_bnobt.resv_list, list) {
-		error = xrep_abt_dispose_one(ra, resv);
-		if (error)
+		int		error2 = xrep_abt_dispose_one(ra, resv);
+
+		if (error2) {
+			if (!error)
+				error = error2;
 			goto junkit;
+		}
 	}
 
 junkit:
@@ -596,6 +600,7 @@ junkit:
 
 	xrep_newbt_cancel(&ra->new_bnobt);
 	xrep_newbt_cancel(&ra->new_cntbt);
+	return error;
 }
 
 /* Retrieve free space data for bulk load. */
@@ -655,14 +660,10 @@ xrep_abt_reset_counters(
 
 	/*
 	 * Compute the contribution to agf_btreeblks for the new free space
-	 * btrees.  This is the computed btree size minus anything we didn't
-	 * use.
+	 * btrees.  This is the computed btree size minus the root block.
 	 */
 	freesp_btreeblks += ra->new_bnobt.bload.nr_blocks - 1;
 	freesp_btreeblks += ra->new_cntbt.bload.nr_blocks - 1;
-
-	freesp_btreeblks -= xrep_newbt_unused_blocks(&ra->new_bnobt);
-	freesp_btreeblks -= xrep_newbt_unused_blocks(&ra->new_cntbt);
 
 	/*
 	 * The AGF header contains extra information related to the free space
@@ -801,7 +802,9 @@ xrep_abt_build_new_trees(
 		goto err_newbt;
 
 	/* Dispose of any unused blocks and the accounting information. */
-	xrep_abt_dispose_reservations(ra, error);
+	error = xrep_abt_dispose_reservations(ra, error);
+	if (error)
+		return error;
 
 	return xrep_roll_ag_trans(sc);
 
@@ -812,8 +815,7 @@ err_cur:
 	xfs_btree_del_cursor(cnt_cur, error);
 	xfs_btree_del_cursor(bno_cur, error);
 err_newbt:
-	xrep_abt_dispose_reservations(ra, error);
-	return error;
+	return xrep_abt_dispose_reservations(ra, error);
 }
 
 /*

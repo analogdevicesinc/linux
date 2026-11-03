@@ -8,6 +8,7 @@
 
 #include <linux/workqueue.h>
 
+struct xe_device;
 struct xe_gt;
 struct xe_pagefault;
 
@@ -29,6 +30,88 @@ enum xe_pagefault_type {
 	XE_PAGEFAULT_TYPE_WRITE_ACCESS_VIOLATION	= 1,
 	/** @XE_PAGEFAULT_TYPE_ATOMIC_ACCESS_VIOLATION: Atomic access violation */
 	XE_PAGEFAULT_TYPE_ATOMIC_ACCESS_VIOLATION	= 2,
+};
+
+/**
+ * enum xe_pagefault_error - Xe page fault servicing error
+ *
+ * Uniquely identifies the high-level point at which servicing of a page
+ * fault failed. Encoded into the reserved low bits of
+ * &xe_pagefault.consumer.page_addr (which is always page aligned) so the
+ * failure reason can be threaded back up to xe_pagefault_print() without
+ * growing the size of struct xe_pagefault. See xe_pagefault_set_error() and
+ * xe_pagefault_error_to_str().
+ */
+enum xe_pagefault_error {
+	/** @XE_PAGEFAULT_ERROR_NONE: No error recorded */
+	XE_PAGEFAULT_ERROR_NONE = 0,
+	/**
+	 * @XE_PAGEFAULT_ERROR_VM_NOT_FOUND: VM lookup by ASID failed, e.g.
+	 * the VM's file descriptor was already closed and the ASID has been
+	 * torn down
+	 */
+	XE_PAGEFAULT_ERROR_VM_NOT_FOUND,
+	/**
+	 * @XE_PAGEFAULT_ERROR_VM_NOT_IN_FAULT_MODE: VM found by ASID lookup
+	 * but is not in fault mode
+	 */
+	XE_PAGEFAULT_ERROR_VM_NOT_IN_FAULT_MODE,
+	/** @XE_PAGEFAULT_ERROR_VM_CLOSED: VM found but already closed */
+	XE_PAGEFAULT_ERROR_VM_CLOSED,
+	/** @XE_PAGEFAULT_ERROR_VMA_NOT_FOUND: No VMA covers the faulted address */
+	XE_PAGEFAULT_ERROR_VMA_NOT_FOUND,
+	/**
+	 * @XE_PAGEFAULT_ERROR_READ_ONLY_VIOLATION: Write/atomic fault on a
+	 * read-only VMA
+	 */
+	XE_PAGEFAULT_ERROR_READ_ONLY_VIOLATION,
+	/**
+	 * @XE_PAGEFAULT_ERROR_VMA_NEEDS_VRAM_CHECK: Failed determining if VMA
+	 * requires VRAM for an atomic access
+	 */
+	XE_PAGEFAULT_ERROR_VMA_NEEDS_VRAM_CHECK,
+	/**
+	 * @XE_PAGEFAULT_ERROR_VMA_ATOMIC_USERPTR: Atomic access requires VRAM
+	 * but VMA is a userptr, which is unsupported
+	 */
+	XE_PAGEFAULT_ERROR_VMA_ATOMIC_USERPTR,
+	/** @XE_PAGEFAULT_ERROR_VMA_USERPTR_PIN: Userptr page pin/repin failed */
+	XE_PAGEFAULT_ERROR_VMA_USERPTR_PIN,
+	/**
+	 * @XE_PAGEFAULT_ERROR_VMA_VALIDATE: Failed to lock/validate VMA's BO
+	 * or migrate it to VRAM
+	 */
+	XE_PAGEFAULT_ERROR_VMA_VALIDATE,
+	/** @XE_PAGEFAULT_ERROR_VMA_REBIND: Failed to rebind VMA into page tables */
+	XE_PAGEFAULT_ERROR_VMA_REBIND,
+	/**
+	 * @XE_PAGEFAULT_ERROR_SVM_GARBAGE_COLLECTOR: Failed processing
+	 * pending SVM garbage collection (unmaps) prior to servicing the
+	 * fault
+	 */
+	XE_PAGEFAULT_ERROR_SVM_GARBAGE_COLLECTOR,
+	/**
+	 * @XE_PAGEFAULT_ERROR_SVM_RANGE_NOT_FOUND: Failed to find or insert
+	 * an SVM range covering the faulted address
+	 */
+	XE_PAGEFAULT_ERROR_SVM_RANGE_NOT_FOUND,
+	/** @XE_PAGEFAULT_ERROR_SVM_REBIND: Failed to rebind an SVM range into page tables */
+	XE_PAGEFAULT_ERROR_SVM_REBIND,
+	/**
+	 * @XE_PAGEFAULT_ERROR_SVM_NEEDS_VRAM_CHECK: Failed determining if SVM
+	 * VMA requires VRAM for an atomic access
+	 */
+	XE_PAGEFAULT_ERROR_SVM_NEEDS_VRAM_CHECK,
+	/**
+	 * @XE_PAGEFAULT_ERROR_SVM_VMA_NOT_FOUND: SVM VMA re-lookup after a
+	 * range split failed to find a covering VMA
+	 */
+	XE_PAGEFAULT_ERROR_SVM_VMA_NOT_FOUND,
+	/**
+	 * @XE_PAGEFAULT_ERROR_SVM_SERVICE_FAILED: SVM range population,
+	 * migration, or bind failed
+	 */
+	XE_PAGEFAULT_ERROR_SVM_SERVICE_FAILED,
 };
 
 /** struct xe_pagefault_ops - Xe pagefault ops (producer) */
@@ -56,6 +139,16 @@ struct xe_pagefault_ops {
 	 * Page fault producer ends acknowledgment from the consumer.
 	 */
 	void (*ack_fault_end)(void *private);
+	/**
+	 * @print: Print pagefault info
+	 * @pf: Page fault
+	 * @err_str: Consumer servicing error string
+	 *
+	 * Print pagefault identification fields decoded from producer,
+	 * along with consumer-specific @err_str prints.
+	 * Must be implemented by all producers.
+	 */
+	void (*print)(struct xe_pagefault *pf, const char *err_str);
 };
 
 /**
@@ -112,8 +205,13 @@ struct xe_pagefault {
 				u8 engine_class_instance;
 #define XE_PAGEFAULT_ENGINE_CLASS_MASK		GENMASK(3, 0)
 #define XE_PAGEFAULT_ENGINE_INSTANCE_MASK	GENMASK(7, 4)
-				/** @consumer.asid: address space ID */
-				u32 asid;
+				/**
+				 * @consumer.id: address space ID and SRCID, folded into one
+				 * to keep size compact
+				 */
+				u32 id;
+#define XE_PAGEFAULT_ASID_MASK	GENMASK(23, 0)
+#define XE_PAGEFAULT_SRCID_MASK	GENMASK(31, 24)
 			};
 			/**
 			 * @consumer.end_addr: end address of page fault,
@@ -156,6 +254,8 @@ struct xe_pagefault {
  * queue to absorb the device’s worst-case number of outstanding faults.
  */
 struct xe_pagefault_queue {
+	/** @xe: Back-pointer to the Xe device */
+	struct xe_device *xe;
 	/**
 	 * @data: Data in queue containing struct xe_pagefault, protected by
 	 * @lock

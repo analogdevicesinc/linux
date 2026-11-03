@@ -136,19 +136,15 @@ void vs_plane_destroy_state(struct drm_plane *plane,
 }
 
 /* Called during init to allocate the plane's atomic state. */
-void vs_plane_reset(struct drm_plane *plane)
+struct drm_plane_state *vs_plane_create_state(struct drm_plane *plane)
 {
 	struct vs_plane_state *vs_state;
 
-	if (plane->state) {
-		__drm_atomic_helper_plane_destroy_state(plane->state);
-		kfree(plane->state);
-		plane->state = NULL;
-	}
-
 	vs_state = kzalloc_obj(*vs_state);
 	if (!vs_state)
-		return;
+		return ERR_PTR(-ENOMEM);
 
-	__drm_atomic_helper_plane_reset(plane, &vs_state->base);
+	__drm_atomic_helper_plane_state_init(&vs_state->base, plane);
+
+	return &vs_state->base;
 }

@@ -29,7 +29,6 @@
 #include <drm/drm_device.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_of.h>
-#include <drm/drm_panel.h>
 #include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
 
@@ -1567,15 +1566,6 @@ int analogix_dp_bind(struct analogix_dp_device *dp, struct drm_device *drm_dev)
 	if (ret)
 		goto err_unregister_aux;
 
-	if (dp->plat_data->panel) {
-		dp->plat_data->next_bridge = devm_drm_panel_bridge_add(dp->dev,
-								       dp->plat_data->panel);
-		if (IS_ERR(dp->plat_data->next_bridge)) {
-			ret = PTR_ERR(dp->plat_data->next_bridge);
-			goto err_unregister_aux;
-		}
-	}
-
 	ret = drm_bridge_attach(dp->encoder, bridge, NULL, DRM_BRIDGE_ATTACH_NO_CONNECTOR);
 	if (ret) {
 		DRM_ERROR("failed to create bridge (%d)\n", ret);
@@ -1647,6 +1637,11 @@ struct drm_dp_aux *analogix_dp_get_aux(struct analogix_dp_device *dp)
 }
 EXPORT_SYMBOL_GPL(analogix_dp_get_aux);
 
+static void analogix_dp_put_bridge(void *data)
+{
+	drm_bridge_put(data);
+}
+
 static int analogix_dp_aux_done_probing(struct drm_dp_aux *aux)
 {
 	struct analogix_dp_device *dp = to_dp(aux);
@@ -1655,14 +1650,25 @@ static int analogix_dp_aux_done_probing(struct drm_dp_aux *aux)
 	int ret;
 
 	/*
-	 * If drm_of_find_panel_or_bridge() returns -ENODEV, there may be no valid panel
-	 * or bridge nodes. The driver should go on for the driver-free bridge or the DP
-	 * mode applications.
+	 * If of_drm_get_bridge_by_endpoint() returns -ENODEV, there may be no
+	 * valid panel or bridge nodes. The driver should go on for the
+	 * driver-free bridge or the DP mode applications.
 	 */
-	ret = drm_of_find_panel_or_bridge(dp->dev->of_node, port, 0,
-					  &plat_data->panel, &plat_data->next_bridge);
-	if (ret && ret != -ENODEV)
-		return ret;
+	plat_data->next_bridge = of_drm_get_bridge_by_endpoint(dp->dev->of_node,
+							       port, 0);
+	if (IS_ERR(plat_data->next_bridge)) {
+		if (PTR_ERR(plat_data->next_bridge) == -ENODEV)
+			plat_data->next_bridge = NULL;
+		else
+			return PTR_ERR(plat_data->next_bridge);
+	}
+
+	if (plat_data->next_bridge) {
+		ret = devm_add_action_or_reset(dp->dev, analogix_dp_put_bridge,
+					       plat_data->next_bridge);
+		if (ret)
+			return ret;
+	}
 
 	return component_add(dp->dev, plat_data->ops);
 }

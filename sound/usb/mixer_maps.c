@@ -505,6 +505,14 @@ static const struct usbmix_connector_map gigabyte_b450_connector_map[] = {
 	{}
 };
 
+/* Audient EVO4: Rename FU 10 from 'EVO4 ' to 'Master' according to the
+ * ALSA naming convention
+ */
+static const struct usbmix_name_map audient_evo4_map[] = {
+	{ 10, "Master Playback" },
+	{}
+};
+
 /* Audient iD14 MkI and MkII: FU 12 sits on the monitor mixer branch but is
  * traced through to the Speaker output terminal, so it is named "Speaker
  * Playback Volume".  On MkII it controls only 4 of 6 playback channels.  MkI
@@ -528,6 +536,15 @@ static const struct usbmix_name_map audient_id14_map[] = {
  */
 static const struct usbmix_name_map audient_id24_map[] = {
 	{ 12, "Monitor Mix Playback" },	/* FU, partial channel coverage */
+	{}
+};
+
+/*
+ * The GC553Pro returns no data for GET_CUR on its advertised mute control.
+ * SET_CUR succeeds but does not mute capture, so skip the control entirely.
+ */
+static const struct usbmix_name_map avermedia_gc553pro_map[] = {
+	{ 3, NULL, UAC_FU_MUTE },
 	{}
 };
 
@@ -578,6 +595,10 @@ static const struct usbmix_ctl_map usbmix_ctl_maps[] = {
 		.selector_map = c400_selectors,
 	},
 	{
+		.id = USB_ID(0x07ca, 0x1553),
+		.map = avermedia_gc553pro_map,
+	},
+	{
 		.id = USB_ID(0x08bb, 0x2702),
 		.map = linex_map,
 	},
@@ -618,6 +639,11 @@ static const struct usbmix_ctl_map usbmix_ctl_maps[] = {
 		/* Audient iD14 MkI */
 		.id = USB_ID(0x2708, 0x0002),
 		.map = audient_id14_map,
+	},
+	{
+		/* Audient EVO4 MkI */
+		.id = USB_ID(0x2708, 0x0006),
+		.map = audient_evo4_map,
 	},
 	{
 		/* Audient iD14 MkII */
@@ -734,6 +760,10 @@ static const struct usbmix_ctl_map usbmix_ctl_maps[] = {
 	},
 	{	/* MSI MAG X570S Torpedo Max */
 		.id = USB_ID(0x0db0, 0xa073),
+		.map = msi_mpg_x570s_carbon_max_wifi_alc4080_map,
+	},
+	{	/* MSI MAG B850M MORTAR WIFI */
+		.id = USB_ID(0x0db0, 0xcc78),
 		.map = msi_mpg_x570s_carbon_max_wifi_alc4080_map,
 	},
 	{	/* MSI TRX40 */

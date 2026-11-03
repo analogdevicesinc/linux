@@ -56,7 +56,7 @@ static inline void xe_guc_ct_irq_handler(struct xe_guc_ct *ct)
 int xe_guc_ct_send(struct xe_guc_ct *ct, const u32 *action, u32 len,
 		   u32 g2h_len, u32 num_g2h);
 int xe_guc_ct_send_locked(struct xe_guc_ct *ct, const u32 *action, u32 len,
-			  bool defer_flush);
+			  u32 g2h_len, u32 num_g2h, bool defer_flush);
 int xe_guc_ct_send_recv(struct xe_guc_ct *ct, const u32 *action, u32 len,
 			u32 *response_buffer);
 static inline int

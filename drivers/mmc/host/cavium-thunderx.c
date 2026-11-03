@@ -157,11 +157,8 @@ error:
 	for (i = 0; i < CAVIUM_MAX_MMC; i++) {
 		if (host->slot[i])
 			cvm_mmc_of_slot_remove(host->slot[i]);
-		if (host->slot_pdev[i]) {
-			get_device(&host->slot_pdev[i]->dev);
+		if (host->slot_pdev[i])
 			of_platform_device_destroy(&host->slot_pdev[i]->dev, NULL);
-			put_device(&host->slot_pdev[i]->dev);
-		}
 	}
 	clk_disable_unprepare(host->clk);
 	return ret;
@@ -173,9 +170,12 @@ static void thunder_mmc_remove(struct pci_dev *pdev)
 	u64 dma_cfg;
 	int i;
 
-	for (i = 0; i < CAVIUM_MAX_MMC; i++)
+	for (i = 0; i < CAVIUM_MAX_MMC; i++) {
 		if (host->slot[i])
 			cvm_mmc_of_slot_remove(host->slot[i]);
+		if (host->slot_pdev[i])
+			of_platform_device_destroy(&host->slot_pdev[i]->dev, NULL);
+	}
 
 	dma_cfg = readq(host->dma_base + MIO_EMM_DMA_CFG(host));
 	dma_cfg &= ~MIO_EMM_DMA_CFG_EN;

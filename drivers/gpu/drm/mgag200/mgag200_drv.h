@@ -17,6 +17,7 @@
 #include <drm/drm_encoder.h>
 #include <drm/drm_gem.h>
 #include <drm/drm_gem_shmem_helper.h>
+#include <drm/drm_panic_helper.h>
 #include <drm/drm_plane.h>
 
 #include "mgag200_reg.h"
@@ -386,7 +387,8 @@ int mgag200_primary_plane_helper_get_scanout_buffer(struct drm_plane *plane,
 	.update_plane = drm_atomic_helper_update_plane, \
 	.disable_plane = drm_atomic_helper_disable_plane, \
 	.destroy = drm_plane_cleanup, \
-	DRM_GEM_SHADOW_PLANE_FUNCS
+	DRM_GEM_SHADOW_PLANE_FUNCS, \
+	DRM_PANIC_PLANE_FUNCS
 
 void mgag200_crtc_fill_gamma(struct mga_device *mdev, const struct drm_format_info *format);
 void mgag200_crtc_load_gamma(struct mga_device *mdev,

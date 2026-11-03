@@ -202,6 +202,7 @@ struct xe_device;
  * @access_type: type of address access that resulted in fault
  * @fault_type: type of fault reported
  * @fault_level: fault level of the fault
+ * @srcid: ID of the faulting hardware unit
  */
 struct xe_vm_fault_entry {
 	struct list_head list;
@@ -210,6 +211,7 @@ struct xe_vm_fault_entry {
 	u8 access_type;
 	u8 fault_type;
 	u8 fault_level;
+	u8 srcid;
 };
 
 struct xe_vm {
@@ -260,7 +262,7 @@ struct xe_vm {
 	struct xe_device *xe;
 
 	/* exec queue used for (un)binding vma's */
-	struct xe_exec_queue *q[XE_MAX_TILES_PER_DEVICE];
+	struct xe_exec_queue *q;
 
 	/** @lru_bulk_move: Bulk LRU move list for this VM's BOs */
 	struct ttm_lru_bulk_move lru_bulk_move;
@@ -315,7 +317,7 @@ struct xe_vm {
 	 * @rftree: range fence tree to track updates to page table structure.
 	 * Used to implement conflict tracking between independent bind engines.
 	 */
-	struct xe_range_fence_tree rftree[XE_MAX_TILES_PER_DEVICE];
+	struct xe_range_fence_tree rftree;
 
 	const struct xe_pt_ops *pt_ops;
 
@@ -555,6 +557,10 @@ struct xe_vma_ops {
 	u32 num_syncs;
 	/** @pt_update_ops: page table update operations */
 	struct xe_vm_pgtable_update_ops pt_update_ops[XE_MAX_TILES_PER_DEVICE];
+	/** @start: start address of ops */
+	u64 start;
+	/** @last: last address of ops */
+	u64 last;
 	/** @flag: signify the properties within xe_vma_ops*/
 #define XE_VMA_OPS_FLAG_HAS_SVM_PREFETCH	BIT(0)
 #define XE_VMA_OPS_FLAG_MADVISE			BIT(1)
@@ -564,6 +570,10 @@ struct xe_vma_ops {
 #define XE_VMA_OPS_FLAG_MODIFIES_GPUVA		BIT(5)
 #define XE_VMA_OPS_FLAG_DOWNGRADE_LOCK		BIT(6)
 #define XE_VMA_OPS_FLAG_HAS_SVM_VALID_RANGE	BIT(7)
+#define XE_VMA_OPS_FLAG_WAIT_VM_BOOKKEEP	BIT(8)
+#define XE_VMA_OPS_FLAG_WAIT_VM_KERNEL		BIT(9)
+#define XE_VMA_OPS_FLAG_NEEDS_INVALIDATION	BIT(10)
+#define XE_VMA_OPS_FLAG_NEEDS_SVM_LOCK		BIT(11)
 	u32 flags;
 #ifdef TEST_VM_OPS_ERROR
 	/** @inject_error: inject error to test error handling */

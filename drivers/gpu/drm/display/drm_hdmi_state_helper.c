@@ -562,6 +562,10 @@ hdmi_clock_valid(const struct drm_connector *connector,
 	if (info->max_tmds_clock && clock > info->max_tmds_clock * 1000)
 		return MODE_CLOCK_HIGH;
 
+	if (connector->hdmi.max_tmds_char_rate &&
+	    clock > connector->hdmi.max_tmds_char_rate)
+		return MODE_CLOCK_HIGH;
+
 	if (funcs && funcs->tmds_char_rate_valid) {
 		enum drm_mode_status status;
 
@@ -591,6 +595,9 @@ hdmi_compute_clock(const struct drm_connector *connector,
 		return -EINVAL;
 
 	conn_state->hdmi.tmds_char_rate = clock;
+
+	/* TODO: also check drm_display_info.hdmi.scdc.scrambling.low_rates */
+	conn_state->hdmi.scrambler_needed = (clock > HDMI_1_3_TMDS_CHAR_RATE_MAX_HZ);
 
 	return 0;
 }
@@ -1352,18 +1359,36 @@ drm_atomic_helper_connector_hdmi_clear_audio_infoframe(struct drm_connector *con
 }
 EXPORT_SYMBOL(drm_atomic_helper_connector_hdmi_clear_audio_infoframe);
 
-static void
+static int
 drm_atomic_helper_connector_hdmi_update(struct drm_connector *connector,
+					struct drm_modeset_acquire_ctx *ctx,
 					enum drm_connector_status status)
 {
 	const struct drm_edid *drm_edid;
+	int ret;
 
 	if (status == connector_status_disconnected) {
-		// TODO: also handle scramber, HDMI sink disconnected.
+		/*
+		 * .detect_ctx() can only ever return a drm_connector_status or
+		 * -EDEADLK. Handle deadlocks, and report any !EDEADLK error.
+		 */
+		ret = drm_connector_hdmi_sync_scdc(connector, false, ctx);
+		if (ret) {
+			if (ret == -EDEADLK)
+				return ret;
+
+			drm_warn(connector->dev, "Ignored SCDC sync error: %d\n", ret);
+		}
+
 		drm_connector_hdmi_audio_plugged_notify(connector, false);
-		drm_edid_connector_update(connector, NULL);
+
+		ret = drm_edid_connector_update(connector, NULL);
+		if (ret)
+			drm_warn(connector->dev, "Ignored EDID update error: %d\n", ret);
+
 		drm_connector_cec_phys_addr_invalidate(connector);
-		return;
+
+		return 0;
 	}
 
 	if (connector->hdmi.funcs->read_edid)
@@ -1376,24 +1401,43 @@ drm_atomic_helper_connector_hdmi_update(struct drm_connector *connector,
 	drm_edid_free(drm_edid);
 
 	if (status == connector_status_connected) {
-		// TODO: also handle scramber, HDMI sink is now connected.
+		/*
+		 * .detect_ctx() can only ever return a drm_connector_status or
+		 * -EDEADLK. Handle deadlocks, and report any !EDEADLK error.
+		 */
+		ret = drm_connector_hdmi_sync_scdc(connector, true, ctx);
+		if (ret) {
+			if (ret == -EDEADLK)
+				return ret;
+
+			drm_warn(connector->dev, "Ignored SCDC sync error: %d\n", ret);
+		}
+
 		drm_connector_hdmi_audio_plugged_notify(connector, true);
 		drm_connector_cec_phys_addr_set(connector);
 	}
+
+	return 0;
 }
 
 /**
  * drm_atomic_helper_connector_hdmi_hotplug - Handle the hotplug event for the HDMI connector
  * @connector: A pointer to the HDMI connector
+ * @ctx: Lock acquisition context to be used for resetting CRTC
  * @status: Connection status
  *
  * This function should be called as a part of the .detect() / .detect_ctx()
  * callbacks for all status changes.
+ *
+ * Returns:
+ * Zero on success, error code on failure.
+ * If @ctx is set, it might also return -EDEADLK.
  */
-void drm_atomic_helper_connector_hdmi_hotplug(struct drm_connector *connector,
-					      enum drm_connector_status status)
+int drm_atomic_helper_connector_hdmi_hotplug(struct drm_connector *connector,
+					     struct drm_modeset_acquire_ctx *ctx,
+					     enum drm_connector_status status)
 {
-	drm_atomic_helper_connector_hdmi_update(connector, status);
+	return drm_atomic_helper_connector_hdmi_update(connector, ctx, status);
 }
 EXPORT_SYMBOL(drm_atomic_helper_connector_hdmi_hotplug);
 
@@ -1408,6 +1452,27 @@ EXPORT_SYMBOL(drm_atomic_helper_connector_hdmi_hotplug);
  */
 void drm_atomic_helper_connector_hdmi_force(struct drm_connector *connector)
 {
-	drm_atomic_helper_connector_hdmi_update(connector, connector->status);
+	drm_atomic_helper_connector_hdmi_update(connector, NULL, connector->status);
 }
 EXPORT_SYMBOL(drm_atomic_helper_connector_hdmi_force);
+
+/**
+ * drm_atomic_helper_connector_hdmi_force_ctx - HDMI Connector implementation
+ * of the force_ctx callback
+ * @connector: A pointer to the HDMI connector
+ * @ctx: Lock acquisition context to be used for resetting CRTC
+ *
+ * This function implements the .force_ctx() callback for the HDMI connectors.
+ * It can either be used directly as the callback or should be called from
+ * within the .force_ctx() callback implementation to maintain the HDMI-specific
+ * connector's data.
+ *
+ * Returns:
+ * Zero on success, error code on failure, including -EDEADLK.
+ */
+int drm_atomic_helper_connector_hdmi_force_ctx(struct drm_connector *connector,
+					       struct drm_modeset_acquire_ctx *ctx)
+{
+	return drm_atomic_helper_connector_hdmi_update(connector, ctx, connector->status);
+}
+EXPORT_SYMBOL(drm_atomic_helper_connector_hdmi_force_ctx);

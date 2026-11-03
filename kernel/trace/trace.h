@@ -191,7 +191,7 @@ struct trace_array;
 struct trace_array_cpu {
 	local_t			disabled;
 
-	unsigned long		entries;
+	unsigned long		capacity;
 	unsigned long		saved_latency;
 	unsigned long		critical_start;
 	unsigned long		critical_end;
@@ -227,6 +227,7 @@ struct array_buffer {
 struct trace_options {
 	struct tracer			*tracer;
 	struct trace_option_dentry	*topts;
+	int				nr_topts;
 };
 
 struct trace_pid_list *trace_pid_list_alloc(void);
@@ -730,7 +731,7 @@ ssize_t tracing_nsecs_read(unsigned long *ptr, char __user *ubuf,
 ssize_t tracing_nsecs_write(unsigned long *ptr, const char __user *ubuf,
 			    size_t cnt, loff_t *ppos);
 
-void trace_set_buffer_entries(struct array_buffer *buf, unsigned long val);
+void trace_set_buffer_capacity(struct array_buffer *buf, unsigned long val);
 
 /*
  * Should be used after trace_array_get(), trace_types_lock
@@ -1004,9 +1005,6 @@ struct ftrace_hash {
 	unsigned long		flags;
 	struct rcu_head		rcu;
 };
-
-struct ftrace_func_entry *
-ftrace_lookup_ip(struct ftrace_hash *hash, unsigned long ip);
 
 static __always_inline bool ftrace_hash_empty(struct ftrace_hash *hash)
 {
@@ -1825,7 +1823,8 @@ static inline bool is_string_field(struct ftrace_event_field *field)
 	       field->filter_type == FILTER_RDYN_STRING ||
 	       field->filter_type == FILTER_STATIC_STRING ||
 	       field->filter_type == FILTER_PTR_STRING ||
-	       field->filter_type == FILTER_COMM;
+	       field->filter_type == FILTER_COMM ||
+	       field->filter_type == FILTER_WITHIN;
 }
 
 static inline bool is_function_field(struct ftrace_event_field *field)
@@ -1952,6 +1951,7 @@ struct event_trigger_data {
 
 struct enable_trigger_data {
 	struct trace_event_file		*file;
+	struct trace_event_call		*call;
 	bool				enable;
 	bool				hist;
 };
@@ -2287,7 +2287,6 @@ static inline const char *get_syscall_name(int syscall)
 void trace_event_init(void);
 void trace_event_update_all(struct trace_eval_map **map, int len, struct module *mod);
 /* Used from boot time tracer */
-extern int ftrace_set_clr_event(struct trace_array *tr, char *buf, int set);
 extern int trigger_process_regex(struct trace_event_file *file, char *buff);
 #else
 static inline void __init trace_event_init(void) { }
@@ -2507,3 +2506,8 @@ static inline int rv_init_interface(void)
 	})
 
 #endif /* _LINUX_KERNEL_TRACE_H */
+
+#if IS_ENABLED(CONFIG_KUNIT)
+void ftrace_parse_event_string(char *buf, char **match, char **sub, char **event, char **mod,
+			       bool handle_filter, char **filter);
+#endif

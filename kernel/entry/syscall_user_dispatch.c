@@ -45,11 +45,7 @@ bool syscall_user_dispatch(struct pt_regs *regs)
 		return false;
 
 	if (likely(sd->selector)) {
-		/*
-		 * access_ok() is performed once, at prctl time, when
-		 * the selector is loaded by userspace.
-		 */
-		if (unlikely(__get_user(state, sd->selector))) {
+		if (unlikely(get_user(state, untagged_addr(sd->selector)))) {
 			force_exit_sig(SIGSEGV);
 			return true;
 		}
@@ -178,7 +174,7 @@ int syscall_user_dispatch_set_config(struct task_struct *task, unsigned long siz
 					      (char __user *)(uintptr_t)cfg.selector);
 }
 
-#ifdef CONFIG_PROC_SYSCTL
+#ifdef CONFIG_SYSCTL
 static const struct ctl_table syscall_user_dispatch_sysctls[] = {
 	{
 		.procname	= "syscall_user_dispatch",
@@ -195,4 +191,4 @@ static int __init syscall_user_dispatch_sysctl_init(void)
 	return 0;
 }
 late_initcall(syscall_user_dispatch_sysctl_init);
-#endif /* CONFIG_PROC_SYSCTL */
+#endif /* CONFIG_SYSCTL */

@@ -898,6 +898,7 @@ static int mchp_sparx5_probe(struct platform_device *pdev)
 		dev_info(sparx5->dev, "MAC addr was not set, use random MAC\n");
 		eth_random_addr(sparx5->base_mac);
 		sparx5->base_mac[5] = 0;
+		sparx5->base_mac_assign_type = NET_ADDR_RANDOM;
 	}
 
 	sparx5->fdma_irq = platform_get_irq_byname(sparx5->pdev, "fdma");
@@ -1063,6 +1064,8 @@ static const struct sparx5_consts sparx5_consts = {
 	.n_gates             = 1024,
 	.n_sdlbs             = 4096,
 	.n_dsm_cal_taxis     = 8,
+	.n_tas_gcl           = 10000,
+	.n_tas_lists         = 128,
 	.buf_size            = 4194280,
 	.qres_max_prio_idx   = 630,
 	.qres_max_colour_idx = 638,

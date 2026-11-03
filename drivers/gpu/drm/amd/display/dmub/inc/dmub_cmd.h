@@ -582,7 +582,14 @@ union replay_debug_flags {
 		 */
 		uint32_t enable_sub_feature_visual_confirm : 1;
 
-		uint32_t reserved : 16;
+		/**
+		 * 0x10000 (bit 16)
+		 * @enable_oem_visual_confirm: Enable OEM visual confirm
+		 * Black = state 0, Blue = state non-zero, Green = frame skipping active
+		 */
+		uint32_t enable_oem_visual_confirm : 1;
+
+		uint32_t reserved : 15;
 	} bitfields;
 
 	uint32_t u32All;
@@ -743,7 +750,14 @@ union pr_debug_flags {
 		 */
 		uint32_t force_hubp_on : 1;
 
-		uint32_t reserved : 24;
+		/**
+		 * 0x100 (bit 8)
+		 * @enable_oem_visual_confirm: Enable OEM visual confirm
+		 * Black = state 0, Blue = state non-zero
+		 */
+		uint32_t enable_oem_visual_confirm : 1;
+
+		uint32_t reserved : 23;
 	} bitfields;
 
 	uint32_t u32All;
@@ -1004,7 +1018,8 @@ union dmub_fw_meta_feature_bits {
 		uint32_t shared_state_link_detection : 1; /**< 1 supports link detection via shared state */
 		uint32_t cursor_offload_v1_support: 1; /**< 1 supports cursor offload */
 		uint32_t inbox0_lock_support: 1; /**< 1 supports inbox0 lock mechanism */
-		uint32_t reserved : 29;
+		uint32_t inbox0_lock_split: 1; /**< 1 supports inbox0 lock acquire/release split mechanism */
+		uint32_t reserved : 28;
 	} bits; /**< status bits */
 	uint32_t all; /**< 32-bit access to status bits */
 };
@@ -1167,6 +1182,16 @@ enum dmub_ips_comand_type {
 	 * Query IPS residency information for a given IPS mode
 	 */
 	DMUB_CMD__IPS_QUERY_RESIDENCY_INFO = 1,
+};
+
+/**
+ * enum dmub_dc_bls_command_type - DC_BLS subcommands.
+ */
+enum dmub_dc_bls_command_type {
+	/**
+	 * Placeholder for block-level initialization of the DCHVM
+	 */
+	DMUB_CMD__DC_BLS_DCHVM_INIT = 0,
 };
 
 /**
@@ -1749,6 +1774,30 @@ enum dmub_gpint_command {
 	 *       1 - Enable panel polarity
 	 */
 	DMUB_GPINT__PANEL_POLARITY_DEBUG_ENABLE = 140,
+	/**
+	 * DESC: Reset the boot-time cumulative PHY-off residency counter.
+	 * PARAMS: [7:0] panel_inst
+	 * RETURN: 0 (ACK)
+	 */
+	DMUB_GPINT__REPLAY_RESET_CUMULATIVE_RESIDENCY = 141,
+	/**
+	 * DESC: Query boot-time cumulative PHY-off residency, low 32 bits (microseconds).
+	 * PARAMS: [7:0] panel_inst
+	 * RETURN: Lower 32 bits of accumulated PHY-off time in microseconds.
+	 */
+	DMUB_GPINT__REPLAY_GET_CUMULATIVE_RESIDENCY_US_LO = 142,
+	/**
+	 * DESC: Query boot-time cumulative PHY-off residency, high 32 bits (microseconds).
+	 * PARAMS: [7:0] panel_inst
+	 * RETURN: Upper 32 bits of accumulated PHY-off time in microseconds.
+	 */
+	DMUB_GPINT__REPLAY_GET_CUMULATIVE_RESIDENCY_US_HI = 143,
+	/**
+	 * DESC: Compute + log cumulative PHY-off residency snapshot; return milli-percent.
+	 * PARAMS: [7:0] panel_inst
+	 * RETURN: Residency in milli-percent (0-100000). Also emits DMUB trace log.
+	 */
+	DMUB_GPINT__REPLAY_SNAPSHOT_CUMULATIVE_RESIDENCY = 144,
 };
 
 /**
@@ -2003,6 +2052,16 @@ enum dmub_cmd_type {
 	 * Command type use for all Panel Polarity commands.
 	 */
 	DMUB_CMD__PANEL_POLARITY = 97,
+
+	/**
+	 * Command type used for all DC_BLS commands.
+	 */
+	DMUB_CMD__DC_BLS = 98,
+
+	/**
+	 * Command type used to notify nbif az pme restore.
+	 */
+	DMUB_CMD__NBIF_AZ_PME_RESTORE = 99,
 
 	/**
 	 * Command type use for VBIOS shared commands.
@@ -2758,6 +2817,7 @@ struct dmub_fams2_stream_static_state {
 			uint8_t is_drr : 1; // stream is DRR enabled
 			uint8_t clamp_vtotal_min : 1; // clamp vtotal to min instead of nominal
 			uint8_t min_ttu_vblank_usable : 1; // if min ttu vblank is above wm, no force pstate is needed in blank
+			uint8_t imm_restore_drr : 1; // does not wait to latch DRR vtotal on restore
 		} bits;
 		uint8_t all;
 	} config;
@@ -2790,6 +2850,7 @@ struct dmub_fams2_cmd_stream_static_base_state {
 			uint8_t is_drr : 1; // stream is DRR enabled
 			uint8_t clamp_vtotal_min : 1; // clamp vtotal to min instead of nominal
 			uint8_t min_ttu_vblank_usable : 1; // if min ttu vblank is above wm, no force pstate is needed in blank
+			uint8_t imm_restore_drr : 1; // does not wait to latch DRR vtotal on restore
 		} bits;
 		uint8_t all;
 	} config;
@@ -2971,6 +3032,9 @@ struct dmub_clocks {
 	uint32_t dppclk_khz; /**< dppclk kHz */
 	uint32_t dcfclk_khz; /**< dcfclk kHz */
 	uint32_t dcfclk_deep_sleep_khz; /**< dcfclk deep sleep kHz */
+	uint32_t dpm0_dispclk_khz; /**< DPM0 (minimum) dispclk kHz from SMU DPM table, 0 if unknown */
+	uint32_t dpm0_dppclk_khz; /**< DPM0 (minimum) dppclk kHz from SMU DPM table, 0 if unknown */
+	uint32_t max_bypass_clk_khz; /**< max dispclk/dppclk achievable on a bypass source (no PLL) kHz, 0 if unknown */
 };
 
 /**
@@ -3586,6 +3650,28 @@ struct dmub_rb_cmd_query_hpd_state {
 	 * Data passed from driver to FW in a DMUB_CMD__QUERY_HPD_STATE command.
 	 */
 	struct dmub_cmd_hpd_state_query_data data;
+};
+
+/**
+ * Data passed from driver to FW in a DMUB_CMD__NBIF_AZ_PME_RESTORE command.
+ */
+struct dmub_cmd_nbif_az_pme_restore_data {
+	uint8_t az_inst; /**< Azalia codec endpoint instance */
+	uint8_t pad[3]; /**< Alignment */
+};
+
+/**
+ * Definition of a DMUB_CMD__NBIF_AZ_PME_RESTORE command.
+ */
+struct dmub_rb_cmd_nbif_az_pme_restore {
+	/**
+	 * Command header.
+	 */
+	struct dmub_cmd_header header;
+	/**
+	 * Data passed from driver to FW in a DMUB_CMD__NBIF_AZ_PME_RESTORE command.
+	 */
+	struct dmub_cmd_nbif_az_pme_restore_data data;
 };
 
 /**
@@ -7122,6 +7208,25 @@ struct dmub_rb_cmd_ips_residency_cntl {
 };
 
 /**
+ * Data passed from driver to FW in a DMUB_CMD__DC_BLS_DCHVM_INIT command.
+ */
+struct dmub_cmd_dc_bls_dchvm_init_data {
+	/**
+	 * The value to program to rIOMMU PCTRL register. x86 cannot access this SMN
+	 * register, so the write is performed by DMCUB on the driver's behalf.
+	 */
+	uint32_t riommu_pctrl_val;
+};
+
+/**
+ * Definition of a DMUB_CMD__DC_BLS_DCHVM_INIT command.
+ */
+struct dmub_rb_cmd_dc_bls_dchvm_init {
+	struct dmub_cmd_header header;
+	struct dmub_cmd_dc_bls_dchvm_init_data data;
+};
+
+/**
  * Data passed from FW to driver in a DMUB_CMD__IPS_QUERY_RESIDENCY_INFO command.
  */
 struct dmub_cmd_ips_query_residency_info_data {
@@ -7743,6 +7848,11 @@ union dmub_rb_cmd {
 	 * Definition of a DMUB_CMD__QUERY_HPD_STATE command.
 	 */
 	struct dmub_rb_cmd_query_hpd_state query_hpd;
+
+	/**
+	 * Definition of a DMUB_CMD__NBIF_AZ_PME_RESTORE command.
+	 */
+	struct dmub_rb_cmd_nbif_az_pme_restore nbif_az_pme_restore;
 	/**
 	 * Definition of a DMUB_CMD__SECURE_DISPLAY command.
 	 */
@@ -7917,6 +8027,8 @@ union dmub_rb_cmd {
 	struct dmub_rb_cmd_panel_polarity_enable panel_polarity_enable;
 	struct dmub_rb_cmd_panel_polarity_get_bias panel_polarity_get_bias;
 	struct dmub_rb_cmd_panel_polarity_reset panel_polarity_reset;
+
+	struct dmub_rb_cmd_dc_bls_dchvm_init dc_bls_dchvm_init;
 };
 
 /**

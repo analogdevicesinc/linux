@@ -128,6 +128,12 @@ struct xe_svm_range *xe_svm_range_find_or_insert(struct xe_vm *vm, u64 addr,
 int xe_svm_range_get_pages(struct xe_vm *vm, struct xe_svm_range *range,
 			   struct drm_gpusvm_ctx *ctx);
 
+void xe_svm_devmem_lru_bump(struct drm_pagemap_devmem *devmem_allocation);
+
+void xe_svm_range_prefetch_lru_bump(struct xe_vm *vm, struct xe_vma *vma,
+				    struct xe_svm_range *range,
+				    struct drm_pagemap *dpagemap);
+
 bool xe_svm_range_needs_migrate_to_vram(struct xe_svm_range *range, struct xe_vma *vma,
 					const struct drm_pagemap *dpagemap);
 
@@ -218,6 +224,19 @@ static inline unsigned long xe_svm_range_end(struct xe_svm_range *range)
 static inline unsigned long xe_svm_range_size(struct xe_svm_range *range)
 {
 	return drm_gpusvm_range_size(&range->base);
+}
+
+/**
+ * xe_svm_range_first_dma() - Resolve the device address array of a SVM range
+ * @range: SVM range
+ * @contiguous: Where to store whether one entry spans the whole range
+ *
+ * Return: Pointer to the first device address, NULL if none is populated.
+ */
+static inline const struct drm_pagemap_addr *
+xe_svm_range_first_dma(struct xe_svm_range *range, bool *contiguous)
+{
+	return drm_gpusvm_pages_first_dma(&range->pages, contiguous);
 }
 
 void xe_svm_flush(struct xe_vm *vm);
@@ -343,6 +362,18 @@ int xe_svm_range_get_pages(struct xe_vm *vm, struct xe_svm_range *range,
 	return -EINVAL;
 }
 
+static inline
+void xe_svm_devmem_lru_bump(struct drm_pagemap_devmem *devmem_allocation)
+{
+}
+
+static inline
+void xe_svm_range_prefetch_lru_bump(struct xe_vm *vm, struct xe_vma *vma,
+				    struct xe_svm_range *range,
+				    struct drm_pagemap *dpagemap)
+{
+}
+
 static inline struct xe_svm_range *to_xe_range(struct drm_gpusvm_range *r)
 {
 	return NULL;
@@ -434,6 +465,13 @@ static inline struct drm_pagemap *xe_drm_pagemap_from_fd(int fd, u32 region_inst
 static inline bool xe_svm_range_is_removed(struct xe_svm_range *range)
 {
 	return false;
+}
+
+static inline const struct drm_pagemap_addr *
+xe_svm_range_first_dma(struct xe_svm_range *range, bool *contiguous)
+{
+	*contiguous = false;
+	return NULL;
 }
 
 #define xe_svm_range_has_dma_mapping(...) false

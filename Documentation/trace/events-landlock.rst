@@ -6,7 +6,7 @@ Landlock Trace Events
 =====================
 
 :Author: Mickaël Salaün
-:Date: August 2026
+:Date: October 2026
 
 Landlock emits trace events for sandbox lifecycle operations and access
 denials.  These events can be consumed by ftrace (for human-readable
@@ -31,10 +31,12 @@ Landlock trace events are organized in four categories:
 **Syscall events** are emitted during Landlock system calls:
 
 - ``landlock_create_ruleset``: a new ruleset is created
-- ``landlock_add_rule_fs``: a filesystem rule is added to a ruleset
-- ``landlock_add_rule_net``: a network port rule is added to a ruleset
+- ``landlock_add_rule_path_beneath``: a filesystem rule is added to a ruleset
+- ``landlock_add_rule_net_port``: a network port rule is added to a ruleset
 - ``landlock_create_domain``: a new domain is created from a ruleset
 - ``landlock_enforce_domain``: a domain is enforced on a thread
+- ``landlock_add_rule_namespace``: a namespace rule is added to a ruleset
+- ``landlock_add_rule_capability``: a capability rule is added to a ruleset
 
 **Denial events** are emitted when an access is denied:
 
@@ -44,11 +46,13 @@ Landlock trace events are organized in four categories:
 - ``landlock_deny_scope_signal``: signal delivery denied
 - ``landlock_deny_scope_abstract_unix_socket``: abstract unix socket
   access denied
+- ``landlock_deny_permission_namespace``: namespace use denied
+- ``landlock_deny_permission_capability``: capability use denied
 
 **Rule evaluation events** are emitted during rule matching:
 
-- ``landlock_check_rule_fs``: a filesystem rule is evaluated
-- ``landlock_check_rule_net``: a network port rule is evaluated
+- ``landlock_check_rule_inode``: an inode-keyed rule is evaluated
+- ``landlock_check_rule_net_port``: a network-port-keyed rule is evaluated
 
 **Lifecycle events**:
 
@@ -84,7 +88,7 @@ Landlock, not from regular file permissions::
   $ LC_ALL=C LL_FS_RO=/usr:/lib:/lib64:/bin:/etc/ld.so.cache LL_FS_RW=/tmp \
       ./sandboxer cat /etc/passwd
   $ cat /sys/kernel/tracing/trace_pipe
-  cat-127 [...] landlock_create_ruleset: ruleset=195cc6b76.0 handled_fs=execute|write_file|read_file|read_dir|remove_dir|remove_file|make_char|make_dir|make_reg|make_sock|make_fifo|make_block|make_sym|refer|truncate|ioctl_dev|resolve_unix handled_net= scoped=
+  cat-127 [...] landlock_create_ruleset: ruleset=195cc6b76.0 handled_fs=execute|write_file|read_file|read_dir|remove_dir|remove_file|make_char|make_dir|make_reg|make_sock|make_fifo|make_block|make_sym|refer|truncate|ioctl_dev|resolve_unix handled_net= scoped= handled_permissions=
   cat-127 [...] landlock_create_domain: domain=195cc6b7c parent=0 ruleset=195cc6b76.6
   cat-127 [...] landlock_enforce_domain: domain=195cc6b7c complete=1 process_wide=1 no_new_privs=1
   cat-127 [...] landlock_deny_access_fs: domain=195cc6b7c same_exec=0 logged=0 blockers=read_file dev=0:17 ino=5901179 path=/etc/passwd
@@ -119,10 +123,13 @@ in some field formats:
   Audit uses string ``dev="<s_id>"``.  Numeric format is more precise
   for machine parsing.
 
-- **Denied access field**: The ``deny_access_fs`` and ``deny_access_net``
-  tracepoints use the ``blockers=`` field name (same as audit).  Both
-  render the blocked access rights as names: audit prefixes the category
-  and separates with commas (e.g., ``blockers=fs.read_file``), while the
+- **Blocker field**: Denial tracepoints that carry a blocker use the
+  ``blockers=`` field name (same as audit).  The ``deny_access_fs`` and
+  ``deny_access_net`` tracepoints render the blocked access rights, the
+  ``deny_permission_namespace`` and ``deny_permission_capability``
+  tracepoints render the blocked permission, and a ``change_topology``
+  denial renders its request type.  Audit prefixes the category and
+  separates with commas (e.g., ``blockers=fs.read_file``), while the
   tracepoints omit the category (carried by the event name) and separate
   with ``|`` (e.g., ``blockers=read_file``).  Scope and ptrace
   tracepoints omit ``blockers`` because the event name identifies the
@@ -141,10 +148,10 @@ in some field formats:
   treated as untrusted input and escaped in the trace text output so it
   cannot inject field separators or control characters.
 
-- **Other party's domain**: A scope or ptrace denial compares the
-  subject's denying domain (``domain=``, always the enforcing domain and
-  never the current task) with the other party's domain, so these
-  tracepoints also report the other party's domain as a scalar ID:
+- **Other party's domain**: A scope or ptrace denial compares the subject's
+  denying domain (``domain=``), which is the enforcing domain and not
+  necessarily the current task's domain, with the other party's domain.
+  These tracepoints also report the other party's domain as a scalar ID:
   ``tracee_domain=`` (ptrace), ``target_domain=`` (signal), and
   ``peer_domain=`` (abstract unix socket).  It is ``0`` when the other
   party is unsandboxed, and otherwise a domain ID that a consumer resolves
@@ -160,10 +167,34 @@ Ruleset versioning
 ==================
 
 Syscall events include a ruleset version (``ruleset=<hex_id>.<version>``)
-that tracks the number of rules added to the ruleset.  The version is
-incremented on each ``landlock_add_rule()`` call and frozen at
-``landlock_restrict_self()`` time.  This enables trace consumers to
-correlate a domain with the exact set of rules it was created from.
+that tracks the number of successful add-rule calls on the ruleset.  The
+version is incremented on each successful ``landlock_add_rule()`` call and
+frozen at ``landlock_restrict_self()`` time.  Namespace and capability calls
+increment it even when their effective known masks are empty or already
+present, so the event stream preserves every successful call.  This enables
+trace consumers to correlate a domain with the exact rule history from which
+it was created.
+
+Permission rule and denial events
+=================================
+
+``landlock_create_ruleset`` reports handled permissions as symbolic names in
+``handled_permissions=``.  ``landlock_add_rule_namespace`` and
+``landlock_add_rule_capability`` report ``permissions=`` plus the effective
+known allowed and quiet member masks.  Capability masks and the raw
+``CLONE_NEW*`` namespace masks are printed in hexadecimal.  Unknown-only input
+therefore appears as zero while still advancing the ruleset version, and adding
+a member already present still emits an event.
+
+``landlock_deny_permission_namespace`` reports the denied raw
+``CLONE_NEW*`` value.  ``namespace_id`` is zero for namespace creation and is
+the exact target namespace ID for :manpage:`setns(2)`.
+``landlock_deny_permission_capability`` reports the denied ``CAP_*`` number.
+Like every denial event, both include the denying domain, ``same_exec``, and
+``logged``.
+
+Per-member quiet masks suppress audit submission but never these trace events,
+which report ``logged=0``.
 
 Domain enforcement
 ==================
@@ -189,7 +220,7 @@ rather than the caller's, so correlate those to the syscall by domain ID.
 Interpreting check_rule events
 ==============================
 
-The ``check_rule_fs`` and ``check_rule_net`` events expose the per-layer
+The ``check_rule_inode`` and ``check_rule_net_port`` events expose the per-layer
 rule evaluation, which is useful for understanding *why* a specific
 access is allowed or denied.
 
@@ -231,9 +262,10 @@ contribution, not the final decision:
   through another matching rule, or the right is denied and appears in the
   ``blockers=`` field of the corresponding ``deny_access`` event.
 
-To reconstruct the decision for an object, aggregate the ``grants=``
-groups of all ``check_rule`` events emitted for that object during the
-check.
+For an access check that a consumer can delimit, aggregate the ``grants=``
+groups of all matching ``check_rule`` events.  These events do not carry a
+request ID; use their execution context and generic tracepoints to separate
+concurrent or successive checks of the same object.
 
 .. note::
 
@@ -244,29 +276,31 @@ check.
 
 For example, a program sandboxed with read and execute access to the
 whole filesystem reads ``/etc/passwd``; both the ``execve()`` and the
-read match the rule covering ``/`` (inode 2), so ``check_rule_fs`` fires
+read match the rule covering ``/`` (inode 2), so ``check_rule_inode`` fires
 with the requested rights intersected against what that rule grants.
 The ``access_request=`` mask includes ``truncate`` because the file-open hook
 evaluates that optional right alongside the required access, but the
 rule does not grant it, so ``truncate`` never appears in ``grants=``::
 
-  cat-127 [...] landlock_check_rule_fs: domain=1e40cb56f access_request=execute|read_file|truncate dev=0:17 ino=2 grants={execute|read_file}
-  cat-127 [...] landlock_check_rule_fs: domain=1e40cb56f access_request=read_file|truncate dev=0:17 ino=2 grants={read_file}
+  cat-127 [...] landlock_check_rule_inode: domain=1e40cb56f access_request=execute|read_file|truncate dev=0:17 ino=2 grants={execute|read_file}
+  cat-127 [...] landlock_check_rule_inode: domain=1e40cb56f access_request=read_file|truncate dev=0:17 ino=2 grants={read_file}
 
 The ``[...]`` replaces the ftrace CPU, flags, and timestamp columns.  A
 single ``grants=`` group means the enforcing domain has one layer.  With
 two nested sandboxes that each grant the same rights, the rule spans both
 layers, so ``grants=`` has one group per layer::
 
-  cat-128 [...] landlock_check_rule_fs: domain=184788b52 access_request=execute|read_file|truncate dev=0:17 ino=2 grants={execute|read_file,execute|read_file}
-  cat-128 [...] landlock_check_rule_fs: domain=184788b52 access_request=read_file|truncate dev=0:17 ino=2 grants={read_file,read_file}
+  cat-128 [...] landlock_check_rule_inode: domain=184788b52 access_request=execute|read_file|truncate dev=0:17 ino=2 grants={execute|read_file,execute|read_file}
+  cat-128 [...] landlock_check_rule_inode: domain=184788b52 access_request=read_file|truncate dev=0:17 ino=2 grants={read_file,read_file}
 
 eBPF access
 ===========
 
-eBPF programs attached via ``BPF_RAW_TRACEPOINT`` can access the
-tracepoint arguments directly through BTF.  The arguments include both
-standard kernel objects and Landlock-internal objects:
+BTF-enabled raw tracepoint programs attached through libbpf
+``SEC("tp_btf/...")`` sections receive typed callback arguments.  The
+event prototypes in `Event reference`_ document their argument layouts.
+The arguments include both standard kernel objects and Landlock-internal
+objects:
 
 - Standard kernel objects (``struct task_struct``, ``struct sock``,
   ``struct path``, ``struct dentry``) can be used with existing BPF
@@ -277,7 +311,7 @@ standard kernel objects and Landlock-internal objects:
   Internal struct layouts may change between kernel versions; use CO-RE
   for field relocation.
 
-A stateful eBPF program observes the full event stream and maintains
+A stateful eBPF program attached before sandbox construction can maintain
 per-domain state in BPF maps:
 
 1. On ``landlock_create_domain``: record the domain ID and parent (the
@@ -287,22 +321,26 @@ per-domain state in BPF maps:
    ``domain=`` key (join to the ``create_domain`` recorded in step 1),
    building the per-domain thread set; filter ``complete==1`` for a
    one-event-per-operation summary.
-3. On ``landlock_deny_access_*``: look up the domain, decide whether
-   to count, alert, or ignore the denial based on custom policy.
+3. On ``landlock_deny_*``: look up the domain, decide whether to count,
+   alert, or ignore the denial based on custom policy.
 4. On ``landlock_free_domain``: clean up the per-domain state, log
    final statistics.
 
 This approach requires no kernel modification and no Landlock-specific
-BPF helpers.  The Landlock IDs serve as correlation keys across events.
+BPF helpers.  Landlock IDs serve as correlation keys within one boot.
+Records exported through tracing or BPF buffers can be lost, and records
+from different CPUs are not globally ordered, so consumers must detect and
+reconcile incomplete state.
 
 Audit filtering equivalence
 ===========================
 
-The ``logged`` field reflects the domain's log policy but not the global
-``audit_enabled`` toggle, so it does not change when audit is turned on
-or off.  When audit is enabled, ``logged==1`` selects the denials the
-domain submits to audit (audit-side rate-limiting and exclude rules may
-still drop some), so a stateless ftrace filter can select them::
+The ``logged`` field reflects the domain's log policy and per-request quiet
+selection, but not the global ``audit_enabled`` toggle, so it does not
+change when audit is turned on or off.  When audit is enabled, ``logged==1``
+selects the denials the domain submits to audit (audit-side rate-limiting and
+exclude rules may still drop some), so a stateless ftrace filter can select
+them::
 
     # Show only denials that audit would also log:
     echo 'logged==1' > \

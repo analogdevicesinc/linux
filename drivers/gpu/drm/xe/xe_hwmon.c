@@ -101,11 +101,6 @@ enum sensor_attr_power {
 
 #define PWR_ATTR_TO_STR(attr)	(((attr) == hwmon_power_max) ? "PL1" : "PL2")
 
-/*
- * Timeout for power limit write mailbox command.
- */
-#define PL_WRITE_MBX_TIMEOUT_MS	(1)
-
 /* Index of memory controller in READ_THERMAL_DATA output */
 #define TEMP_INDEX_MCTRL	2
 
@@ -252,7 +247,7 @@ static int xe_hwmon_pcode_rmw_power_limit(const struct xe_hwmon *hwmon, u32 attr
 							     (channel == CHANNEL_CARD) ?
 							     WRITE_PSYSGPU_POWER_LIMIT :
 							     WRITE_PACKAGE_POWER_LIMIT, 0),
-							     val0, val1, PL_WRITE_MBX_TIMEOUT_MS);
+							     val0, val1, PCODE_DEFAULT_TIMEOUT_MS);
 	if (ret)
 		drm_dbg(&hwmon->xe->drm, "write failed ch %d val0 0x%08x, val1 0x%08x, ret %d\n",
 			channel, val0, val1, ret);
