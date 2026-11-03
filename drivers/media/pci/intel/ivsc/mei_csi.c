@@ -29,6 +29,7 @@
 #include <media/ipu-bridge.h>
 #include <media/v4l2-async.h>
 #include <media/v4l2-ctrls.h>
+#include <media/v4l2-device.h>
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-subdev.h>
 
@@ -513,7 +514,7 @@ static int mei_csi_notify_bound(struct v4l2_async_notifier *notifier,
 				struct v4l2_async_connection *asd)
 {
 	struct mei_csi *csi = notifier_to_csi(notifier);
-	int pad;
+	int pad, ret;
 
 	pad = media_entity_get_fwnode_pad(&subdev->entity, asd->match.fwnode,
 					  MEDIA_PAD_FL_SOURCE);
@@ -522,10 +523,14 @@ static int mei_csi_notify_bound(struct v4l2_async_notifier *notifier,
 
 	csi->remote = &subdev->entity.pads[pad];
 
-	return media_create_pad_link(&subdev->entity, pad,
-				     &csi->subdev.entity, CSI_PAD_SINK,
-				     MEDIA_LNK_FL_ENABLED |
-				     MEDIA_LNK_FL_IMMUTABLE);
+	ret = media_create_pad_link(&subdev->entity, pad,
+				    &csi->subdev.entity, CSI_PAD_SINK,
+				    MEDIA_LNK_FL_ENABLED |
+				    MEDIA_LNK_FL_IMMUTABLE);
+	if (ret)
+		return ret;
+
+	return v4l2_device_register_subdev_nodes(subdev->v4l2_dev);
 }
 
 static void mei_csi_notify_unbind(struct v4l2_async_notifier *notifier,
