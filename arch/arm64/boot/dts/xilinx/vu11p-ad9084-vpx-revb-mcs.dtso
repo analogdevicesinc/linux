@@ -40,9 +40,14 @@
 
 	adi,bsync-autoalign-reference-channel = <9>;
 
-	/* DC-coupled input from the master ADF4030 through R783/R784. */
+	/*
+	 * DC-coupled input from the master ADF4030 through R783/R784. With the
+	 * master's voltage-mode driver it only toggles with the receiver's
+	 * AC-coupled bias enabled.
+	 */
 	channel@9 {
 		/delete-property/ adi,output-en;
+		adi,ac-coupled-en;
 		adi,link-rx-en;
 		adi,float-rx-en;
 	};
