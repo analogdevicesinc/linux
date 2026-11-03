@@ -117,9 +117,9 @@ gpr_port_t *gpr_alloc_port(struct apr_device *gdev, struct device *dev,
 	id = idr_alloc_cyclic(&pr->svcs_idr, svc, GPR_DYNAMIC_PORT_START,
 			      GPR_DYNAMIC_PORT_END, GFP_ATOMIC);
 	if (id < 0) {
+		spin_unlock(&pr->svcs_lock);
 		dev_err(dev, "Unable to allocate dynamic GPR src port\n");
 		kfree(port);
-		spin_unlock(&pr->svcs_lock);
 		return ERR_PTR(id);
 	}
 
