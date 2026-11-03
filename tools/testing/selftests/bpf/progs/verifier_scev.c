@@ -1528,6 +1528,34 @@ __naked void eval_expr_unallocated_stack_bound(void)
 "	::: __clobber_all);
 }
 
+const volatile __u32 rodata_bound = 10;
+volatile __u32 data_bound = 10;
+
+/*
+ * for (i = 0; i < bound; i++): the bound is loaded in each iteration. It gives the count when the
+ * map is read-only. If not, the second jump does.
+ */
+#define BOUND_IN_MAP_TEST(name, bound, count)					\
+SEC("socket")									\
+__success __retval(10) __log_level(2)						\
+__msg("loop header at 3, header_count is [0.." #count "]")			\
+__naked void name(void)								\
+{										\
+	asm volatile (								\
+	"r6 = 0;"								\
+	"r7 = %[" #bound "] ll;"						\
+"1:	r6 += 1;"								\
+	"r1 = *(u32 *)(r7 + 0);"						\
+	"if r6 >= r1 goto 2f;"							\
+	"if r6 < 16 goto 1b;"							\
+"2:	r0 = r6;"								\
+	"exit;"									\
+	:: __imm_addr(bound) : __clobber_all);					\
+}
+
+BOUND_IN_MAP_TEST(bound_in_rodata, rodata_bound, 10)
+BOUND_IN_MAP_TEST(bound_in_data, data_bound, 16)
+
 SEC("xdp")
 __success
 __log_level(2)
