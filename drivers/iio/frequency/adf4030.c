@@ -1437,11 +1437,11 @@ static int adf4030_parse_fw(struct adf4030_state *st)
 		return ret;
 
 	st->bsync_autoalign_iter = 8;
-	device_property_read_u32(dev, "adi,bsync-autoalign-interation-count",
+	device_property_read_u32(dev, "adi,bsync-autoalign-iteration-count",
 				 &st->bsync_autoalign_iter);
 
 	st->bsync_autoalign_theshold_fs = 1400;
-	device_property_read_u32(dev, "adi,bsync-autoalign-thehsold-fs",
+	device_property_read_u32(dev, "adi,bsync-autoalign-threshold-fs",
 				 &st->bsync_autoalign_theshold_fs);
 
 	if (device_property_read_string_array(dev, "clock-output-names",
