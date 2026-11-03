@@ -3065,6 +3065,72 @@ PARTIAL_SPILL_TEST(partial_spill32_unknown, u32, 1000000, NOT_UNROLLED,
 	"*(u32 *)(r10 - 8) = r0;", SPILL32_INC)
 
 /*
+ * 'u32 i' in fp-8 is a counter: SPILL32_INC is 'i++'. It has a formula. The rows are those of
+ * RANGE_TEST: r6 is the first value, r7 is the bound, r9 is the number of iterations.
+ */
+#define SPILL32_LOOP(body)	"*(u32 *)(r10 - 8) = r6; 1:" LIMIT_ITERATIONS body
+#define SPILL32_LOAD		"r1 = *(u32 *)(r10 - 8);"
+#define SPILL32_COUNTED(count, range)								\
+	__retval(count)										\
+	__msg("loop header at {{[0-9]+}}, header_count is [0.." #count "] ")			\
+	__msg("loop header at {{[0-9]+}}, widening *fp-8 to " range " ")			\
+	__msg("loop header at {{[0-9]+}}, clamping *fp-8 to " range " ")
+
+/* On big-endian '*(u32 *)(r10 - 8)' is the high half of the slot: there is no formula for it. */
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+/* Only the low half of the register that is stored at first gets to the slot */
+RANGE_TEST(spill32_inc, "", 7ULL << 32, 7ULL << 32, 1, 5, 5,
+	   SPILL32_LOOP(SPILL32_INC "if r1 != r7 goto 1b;"),
+	   __msg("  *fp-8=(spill32 (+ *fp-8 1)) / (spill32 (linear (zext32 *fp-8) 1))")
+	   SPILL32_COUNTED(5, "0..4"))
+/* The jump tests a second load of the counter */
+RANGE_TEST(spill32_second_load, "", 0, 0, 1, 5, 5,
+	   SPILL32_LOOP(SPILL32_INC SPILL32_LOAD "if w1 != w7 goto 1b;"),
+	   SPILL32_COUNTED(5, "0..4"))
+/* What a compiler makes without 32-bit insns */
+RANGE_TEST(spill32_add64, "", 0, 0, 1, 5, 5,
+	   SPILL32_LOOP(SPILL32_LOAD "r1 += 1; *(u32 *)(r10 - 8) = r1; r1 <<= 32; r1 >>= 32;"
+			"if r1 != r7 goto 1b;"), SPILL32_COUNTED(5, "0..4"))
+/* 'first + step * count' is 0..8. The latch lets 5 through. */
+RANGE_TEST(spill32_first_is_a_range, "", 0, 3, 1, 6, 6,
+	   SPILL32_LOOP(SPILL32_INC "if w1 < w7 goto 1b;"), SPILL32_COUNTED(6, "0..5"))
+RANGE_TEST(spill32_first_is_a_range_pre, "", 0, 3, 1, 6, 6,
+	   SPILL32_LOOP(SPILL32_LOAD "if r1 >= r7 goto 2f;" SPILL32_INC "goto 1b;"),
+	   SPILL32_COUNTED(7, "0..6"))
+/* Explore with 2 in the slot first, with 0 next. The second state is not equal to the first. */
+RANGE_TEST(spill32_first_is_precise, "", 0, 0, 1, 0, 1,
+	   "if r7 == 0 goto +1; r6 = 2;" SPILL32_LOOP(SPILL32_INC "if w1 != 5 goto 1b;"),
+	   __flag(BPF_F_TEST_STATE_FREQ)
+	   __msg("header_count is [0..3] ") __msg("header_count is [0..5] "))
+/* The counter makes the address of a spill. Such a loop is not summarized, as with a register. */
+PARTIAL_SPILL_TEST(spill32_is_a_stack_offset, u32, 4,
+	"can't widen *fp-8, expr is (spill32 (+ *fp-8 8)), requires exact stack-offset tracking",
+	SPILL32_0, SPILL32_LOAD "r2 = r10; r2 += -48; r2 += r1; *(u64 *)(r2 + 0) = r6;"
+	"w1 += 8; *(u32 *)(r10 - 8) = r1;")
+/* But there is no exact address to lose when nothing is known about the number */
+PARTIAL_SPILL_TEST(spill32_unknown_is_a_stack_offset, u32, 1000000,
+	"widening *fp-8 to 0..0xffffffff step 1",
+	"*(u32 *)(r10 - 8) = r0;", SPILL32_LOAD "r2 = r1; r2 &= 24; r3 = r10; r3 += -48; r3 += r2;"
+	"*(u64 *)(r3 + 0) = r6; w1 += 8; *(u32 *)(r10 - 8) = r1;")
+#endif
+
+/* A step above S16_MAX has no range, as with a register */
+PARTIAL_SPILL_TEST(spill32_large_step, u32, 4, "can't widen *fp-8, expr is (spill32 ",
+	SPILL32_0, SPILL32_LOAD "w1 += 0x8000; *(u32 *)(r10 - 8) = r1;")
+/* No formula: the slot holds 64 bits when the loop starts, */
+RANGE_TEST(spill32_first_is_64bit, "", 0, 0, 1, 5, 5,
+	   "*(u64 *)(r10 - 8) = r6; 1:" LIMIT_ITERATIONS SPILL32_INC "if w1 != w7 goto 1b;",
+	   NO_COUNT)
+/* the load extends the sign, */
+RANGE_TEST(spill32_sext_load, "", 0, 0, 1, 5, 5,
+	   SPILL32_LOOP(SPILL32_INC "r1 = *(s32 *)(r10 - 8); if r1 != r7 goto 1b;"), NO_COUNT)
+/* the sum is made from a different slot. */
+RANGE_TEST(spill32_other_slot, "", 0, 0, 1, 5, 5,
+	   "*(u32 *)(r10 - 16) = r6;"
+	   SPILL32_LOOP(SPILL32_LOAD "if w1 == w7 goto 2f; r1 = *(u32 *)(r10 - 16); w1 += 1;"
+			"*(u32 *)(r10 - 8) = r1; goto 1b;"), NO_COUNT)
+
+/*
  * r7 starts as 1 + 6*k and invariant r8 as 1 + 9*k (0 <= k <= 3).
  * The (any r7 r8) union must preserve base 1 and step gcd(6, 9) = 3.
  */
