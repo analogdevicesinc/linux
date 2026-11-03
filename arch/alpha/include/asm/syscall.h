@@ -94,7 +94,7 @@ static inline void syscall_set_return_value(struct task_struct *task,
 					struct pt_regs *regs,
 					int error, long val)
 {
-
+	task_thread_info(task)->syscall_meta |= ALPHA_SYSCALL_META_RESULT;
 	if (error) {
 		/* error is negative errno in this tree */
 		regs->r0  = (unsigned long)(-error);  /* positive errno */

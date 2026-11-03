@@ -567,7 +567,6 @@ asmlinkage unsigned long
 alpha_syscall_enter_select(struct pt_regs *regs, long syscall)
 {
 	struct thread_info *ti = current_thread_info();
-	unsigned long saved_r0 = regs->r0;
 	unsigned long saved_r19 = regs->r19;
 	unsigned long fn = (unsigned long)sys_ni_syscall;
 	long nr = syscall;
@@ -584,21 +583,19 @@ alpha_syscall_enter_select(struct pt_regs *regs, long syscall)
 
 	permit = syscall_enter_from_user_mode_randomize_stack(regs, &nr);
 
-	/*
-	 * Alpha cannot preset the full -ENOSYS return state before generic
-	 * entry handling, because r19 is still syscall argument 4 on the
-	 * normal dispatch path. So provide the default -ENOSYS result only
-	 * here, after we know no real syscall will be invoked, and only if
-	 * entry work did not already change the return state.
-	 */
-	if (unlikely(!permit || (unsigned long)nr >= NR_syscalls)) {
-		if (!(ti->syscall_meta & ALPHA_SYSCALL_META_ROLLBACK) &&
-		    regs->r0 == saved_r0 && regs->r19 == saved_r19)
+	if (unlikely(!permit || nr == -1)) {
+		/* r19 is still argument 4 unless a hook supplied a result. */
+		if (!(ti->syscall_meta & (ALPHA_SYSCALL_META_RESULT |
+					 ALPHA_SYSCALL_META_ROLLBACK)))
 			syscall_set_return_value(current, regs, -ENOSYS, 0);
 
 		ti->syscall_meta |= ALPHA_SYSCALL_META_SKIP;
 		return fn;	/* ignored by asm when SKIP is set */
 	}
+
+	/* Invalid numbers other than -1 must invoke sys_ni_syscall(). */
+	if (unlikely((unsigned long)nr >= NR_syscalls))
+		return fn;
 
 	instrumentation_begin();
 	{
@@ -633,24 +630,6 @@ alpha_finish_syscall_to_user_mode(struct pt_regs *regs, long ret)
 	}
 
 	if (meta & ALPHA_SYSCALL_META_SKIP) {
-	/*
-	 * Skip-dispatch path: ptrace/seccomp may already have installed
-	 * the return state in r0/r19. Preserve it unless the syscall was
-	 * skipped with no explicit return value.
-	 *
-	 * Generic PTRACE_SET_SYSCALL_INFO changes only the syscall-number
-	 * shadow, so r1 == -1 while r0 still contains the original Alpha
-	 * syscall number. Legacy PTRACE_POKEUSR based skipping can leave
-	 * r0 == -1 with a3/r19 still indicating success. Both represent
-	 * an unhandled skipped syscall and should become ENOSYS/a3=1.
-	 */
-		if (regs->r1 == (unsigned long)-1 &&
-		   (regs->r0 == ti->syscall_saved_nr ||
-		    regs->r0 == (unsigned long)-1)) {
-			regs->r0 = ENOSYS;
-			regs->r19 = 1;
-		}
-
 		instrumentation_end();
 
 		syscall_exit_to_user_mode(regs);

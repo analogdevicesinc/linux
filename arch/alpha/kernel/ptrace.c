@@ -280,21 +280,6 @@ static void alpha_elf_gregs_set(struct task_struct *child,
 
 	if (nwords > 32)
 		ti->pcb.unique = src[32];
-
-/*
- * PTRACE_SETREGSET can be used at a syscall-entry stop to skip the
- * syscall by setting the syscall number to -1.  The seccomp/ptrace
- * selftests use this to synthesize errno returns.
- *
- * Alpha uses r19/a3 as the error flag, so a skipped syscall with a
- * small positive r0 and a clear r19 must be normalized to an error
- * return.
- */
-	if (pt->r1 == (unsigned long)-1 &&
-	    pt->r19 == 0 &&
-	    pt->r0 > 0 &&
-	    pt->r0 < MAX_ERRNO)
-		pt->r19 = 1;
 }
 
 static int
@@ -328,7 +313,8 @@ put_reg(struct task_struct *task, unsigned long regno, unsigned long data)
 	 * mutable syscall number in regs->r1.
 	 */
 
-	if (regno == 0 && regs->r1 == old_r0 &&
+	if (regno == 0 && regs->r1 != (unsigned long)-1 &&
+	    regs->r1 == old_r0 &&
 		(data == (unsigned long)-1 ||
 		(regs->r19 == 0 && data < NR_syscalls))) {
 		regs->r1 = data;
@@ -339,6 +325,9 @@ put_reg(struct task_struct *task, unsigned long regno, unsigned long data)
 	 */
 		if (data == (unsigned long)-1)
 			regs->r19 = 0;
+	} else if (regno == 0) {
+		/* Once dispatch is cancelled, even -1 is a valid result. */
+		task_thread_info(task)->syscall_meta |= ALPHA_SYSCALL_META_RESULT;
 	}
 	return 0;
 }
@@ -535,6 +524,7 @@ static int alpha_regset_set(struct task_struct *target,
 {
 	elf_gregset_t gregs;
 	unsigned int nwords;
+	bool writes_r0 = count && pos < sizeof(elf_greg_t);
 
 	if (pos + count > sizeof(gregs))
 		return -EIO;
@@ -551,6 +541,9 @@ static int alpha_regset_set(struct task_struct *target,
 
 	nwords = sizeof(gregs) / sizeof(elf_greg_t);
 	alpha_elf_gregs_set(target, gregs, nwords);
+	/* Only count r0 bytes actually supplied, not the preserved registers. */
+	if (writes_r0)
+		task_thread_info(target)->syscall_meta |= ALPHA_SYSCALL_META_RESULT;
 
 	return 0;
 }
