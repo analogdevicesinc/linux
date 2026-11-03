@@ -391,15 +391,17 @@ static void stmfts_parse_events(struct stmfts_data *sdata)
 		u8 *event = &sdata->data[i * STMFTS_EVENT_SIZE];
 
 		switch (event[0]) {
+		case STMFTS_EV_NO_EVENT:
+			return;
+
 		case STMFTS_EV_CONTROLLER_READY:
 		case STMFTS_EV_SLEEP_OUT_CONTROLLER_READY:
 		case STMFTS_EV_STATUS:
 			complete(&sdata->cmd_done);
 			fallthrough;
 
-		case STMFTS_EV_NO_EVENT:
 		case STMFTS_EV_DEBUG:
-			return;
+			continue;
 		}
 
 		switch (event[0] & STMFTS_MASK_EVENT_ID) {
@@ -442,19 +444,19 @@ static void stmfts5_parse_events(struct stmfts_data *sdata)
 		u8 *event = &sdata->data[i * STMFTS_EVENT_SIZE];
 
 		switch (event[0]) {
-		case STMFTS5_EV_CONTROLLER_READY:
-			complete(&sdata->cmd_done);
-			fallthrough;
-
 		case STMFTS_EV_NO_EVENT:
 			goto sync;
+
+		case STMFTS5_EV_CONTROLLER_READY:
+			complete(&sdata->cmd_done);
+			continue;
 		}
 
 		switch (event[0] & STMFTS5_MASK_EVENT_ID) {
 		case STMFTS5_EV_STATUS_UPDATE:
 		case STMFTS5_EV_USER_REPORT:
 		case STMFTS5_EV_DEBUG:
-			goto sync;
+			continue;
 
 		case STMFTS5_EV_MULTI_TOUCH_ENTER:
 		case STMFTS5_EV_MULTI_TOUCH_MOTION:
