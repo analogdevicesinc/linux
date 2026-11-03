@@ -81,6 +81,7 @@
 #define PCI_DEVICE_ID_GLI_9750		0x9750
 #define PCI_DEVICE_ID_GLI_9763E		0xe763
 #define PCI_DEVICE_ID_GLI_9767		0x9767
+#define PCI_DEVICE_ID_GLI_9768		0x9768
 
 /*
  * PCI device class and mask
