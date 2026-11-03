@@ -10,8 +10,15 @@
 
 struct device;
 
+enum es8328_type {
+	ES8328_TYPE_ES8328 = 1,
+	ES8328_TYPE_ES8388,
+};
+
 extern const struct regmap_config es8328_regmap_config;
-int es8328_probe(struct device *dev, struct regmap *regmap);
+extern const struct regmap_config es8388_regmap_config;
+int es8328_probe(struct device *dev, struct regmap *regmap,
+		 enum es8328_type type);
 
 #define ES8328_DACLVOL 46
 #define ES8328_DACRVOL 47
