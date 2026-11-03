@@ -770,6 +770,15 @@ static int transfer(struct bpf_verifier_env *env, struct env *e, int idx)
 		switch (mode) {
 		case BPF_MEM:
 		case BPF_MEMSX:
+			/*
+			 * for (i = 0; i < nr_cpus; i++) with "const volatile int nr_cpus":
+			 * bpf_compute_const_regs() knows what is loaded from a read-only map.
+			 */
+			if (insn->src_reg != BPF_REG_FP && idx + 1 < env->prog->len &&
+			    (env->insn_aux_data[idx + 1].const_reg_mask & BIT(dst))) {
+				imm = env->insn_aux_data[idx + 1].const_reg_vals[dst];
+				return replace_reg(scev, e, dst, imm_expr(scev, imm));
+			}
 			return maybe_load_fp(scev, e, insn);
 		default:
 			goto mark_dst_unknown;
