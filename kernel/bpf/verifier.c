@@ -15104,6 +15104,14 @@ scan_all_maps:
 		 * analyzed separately.
 		 */
 		return (struct arg_access_info) {};
+	case ARG_ANYTHING:
+		/*
+		 * A number that the program is free to choose. bpf_probe_read_kernel() and
+		 * the like may read what it points to. check_func_arg() does not look at
+		 * the number: do_check() keeps what it knows about the stack over the call.
+		 */
+		info.may_write = false;
+		return info;
 	default:
 		return info;
 	}
