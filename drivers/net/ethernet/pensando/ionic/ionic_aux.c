@@ -2,6 +2,8 @@
 /* Copyright (C) 2018-2025, Advanced Micro Devices, Inc. */
 
 #include <linux/kernel.h>
+#include <linux/ionic/ionic_hwmon.h>
+
 #include "ionic.h"
 #include "ionic_lif.h"
 #include "ionic_aux.h"
@@ -17,10 +19,38 @@ static bool ionic_rdma_supported(struct ionic *ionic)
 	return le64_to_cpu(ionic->ident.lif.capabilities) & IONIC_LIF_CAP_RDMA;
 }
 
+static bool ionic_hwmon_supported(struct ionic *ionic)
+{
+	return le64_to_cpu(ionic->ident.dev.capabilities) & IONIC_DEV_CAP_HWMON;
+}
+
+static int ionic_hwmon_prepare(struct ionic *ionic)
+{
+	void *buf;
+
+	if (ionic->hwmon_caps_buf)
+		return 0;
+
+	buf = dmam_alloc_coherent(ionic->dev, IONIC_HWMON_CAPS_BUF_SIZE,
+				  &ionic->hwmon_caps_pa, GFP_KERNEL);
+	if (!buf) {
+		dev_warn(ionic->dev, "Failed to allocate hwmon buffer\n");
+		return -ENOMEM;
+	}
+
+	ionic->hwmon_caps_buf = buf;
+	return 0;
+}
+
 static const struct ionic_aux_type_info ionic_aux_types[IONIC_AUX_MAX] = {
 	[IONIC_AUX_RDMA] = {
 		.name = "rdma",
 		.supported = ionic_rdma_supported,
+	},
+	[IONIC_AUX_HWMON] = {
+		.name = "hwmon",
+		.supported = ionic_hwmon_supported,
+		.prepare = ionic_hwmon_prepare,
 	},
 };
 
@@ -116,6 +146,85 @@ void ionic_auxbus_unregister(struct ionic_lif *lif)
 
 	mutex_unlock(&lif->adev_lock);
 }
+
+static struct ionic_lif *ionic_hwmon_lif(struct auxiliary_device *adev)
+{
+	return container_of(adev, struct ionic_aux_dev, adev)->lif;
+}
+
+int ionic_hwmon_get_caps(struct auxiliary_device *adev, u8 max_ver,
+			 const void **buf, size_t *len, u8 *ver)
+{
+	struct ionic_lif *lif = ionic_hwmon_lif(adev);
+	struct ionic *ionic = lif->ionic;
+	struct ionic_admin_ctx ctx = {
+		.work = COMPLETION_INITIALIZER_ONSTACK(ctx.work),
+		.comp.comp.status = IONIC_RC_EIO,
+		.cmd.hwmon_getcaps = {
+			.opcode = IONIC_CMD_HWMON_GETCAPS,
+			.ver = max_ver,
+			.lif_index = cpu_to_le16(lif->index),
+			.resp_buf_len = cpu_to_le32(IONIC_HWMON_CAPS_BUF_SIZE),
+			.resp_dma_addr = cpu_to_le64(ionic->hwmon_caps_pa),
+		},
+	};
+	int err;
+
+	if (!ionic->hwmon_caps_buf)
+		return -ENODEV;
+
+	memset(ionic->hwmon_caps_buf, 0, IONIC_HWMON_CAPS_BUF_SIZE);
+
+	err = ionic_adminq_post_wait_nomsg(lif, &ctx);
+	if (err)
+		return err;
+
+	if (ctx.comp.comp.status)
+		return ionic_error_to_errno(ctx.comp.comp.status);
+
+	*buf = ionic->hwmon_caps_buf;
+	*len = IONIC_HWMON_CAPS_BUF_SIZE;
+	*ver = ctx.comp.hwmon_getcaps.ver;
+
+	return 0;
+}
+EXPORT_SYMBOL_NS_GPL(ionic_hwmon_get_caps, "NET_IONIC");
+
+int ionic_hwmon_get_attr(struct auxiliary_device *adev, u8 type, u8 channel,
+			 u8 attr, u32 *val)
+{
+	struct ionic_lif *lif = ionic_hwmon_lif(adev);
+	struct ionic_admin_ctx ctx = {
+		.work = COMPLETION_INITIALIZER_ONSTACK(ctx.work),
+		.comp.comp.status = IONIC_RC_EIO,
+		.cmd.hwmon_getattr = {
+			.opcode = IONIC_CMD_HWMON_GETATTR,
+			.lif_index = cpu_to_le16(lif->index),
+			.sensor_type = type,
+			.channel = channel,
+			.attr = attr,
+		},
+	};
+	int err;
+
+	err = ionic_adminq_post_wait_nomsg(lif, &ctx);
+	if (err)
+		return err;
+
+	if (ctx.comp.comp.status)
+		return ionic_error_to_errno(ctx.comp.comp.status);
+
+	*val = le32_to_cpu(ctx.comp.hwmon_getattr.attr_value);
+
+	return 0;
+}
+EXPORT_SYMBOL_NS_GPL(ionic_hwmon_get_attr, "NET_IONIC");
+
+struct device *ionic_hwmon_dev(struct auxiliary_device *adev)
+{
+	return ionic_hwmon_lif(adev)->ionic->dev;
+}
+EXPORT_SYMBOL_NS_GPL(ionic_hwmon_dev, "NET_IONIC");
 
 void ionic_request_rdma_reset(struct ionic_lif *lif)
 {

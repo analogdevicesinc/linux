@@ -135,4 +135,44 @@ struct ionic_hwmon_caps_hdr {
 	__le16	n_channels[];
 };
 
+struct auxiliary_device;
+struct device;
+
+/**
+ * ionic_hwmon_get_caps - Read the sensor capabilities from the device
+ * @adev:    ionic "hwmon" auxiliary device
+ * @max_ver: highest capabilities buffer layout version the caller parses
+ * @buf:     set to the capabilities buffer
+ * @len:     set to the length of @buf
+ * @ver:     set to the layout version of @buf, as reported by the device
+ *
+ * The buffer belongs to ionic and is overwritten by the next call.
+ *
+ * Return: zero or negative error status
+ */
+int ionic_hwmon_get_caps(struct auxiliary_device *adev, u8 max_ver,
+			 const void **buf, size_t *len, u8 *ver);
+
+/**
+ * ionic_hwmon_get_attr - Read one sensor attribute from the device
+ * @adev:    ionic "hwmon" auxiliary device
+ * @type:    sensor type from enum ionic_hwmon_sensor_type
+ * @channel: channel index within @type
+ * @attr:    attribute ID from the attribute enum for @type
+ * @val:     set to the attribute value, in the units documented for
+ *           struct ionic_hwmon_getattr_comp
+ *
+ * Return: zero or negative error status
+ */
+int ionic_hwmon_get_attr(struct auxiliary_device *adev, u8 type, u8 channel,
+			 u8 attr, u32 *val);
+
+/**
+ * ionic_hwmon_dev - Device to parent the hwmon device to
+ * @adev: ionic "hwmon" auxiliary device
+ *
+ * Return: the PCI function's device
+ */
+struct device *ionic_hwmon_dev(struct auxiliary_device *adev);
+
 #endif /* _LINUX_IONIC_HWMON_H_ */

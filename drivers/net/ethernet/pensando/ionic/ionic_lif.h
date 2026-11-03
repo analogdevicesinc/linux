@@ -182,6 +182,7 @@ struct ionic_phc;
 
 enum ionic_aux_type {
 	IONIC_AUX_RDMA,
+	IONIC_AUX_HWMON,
 	IONIC_AUX_MAX,
 };
 
