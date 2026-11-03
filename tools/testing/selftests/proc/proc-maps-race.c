@@ -623,7 +623,7 @@ static bool query_addr_at(int maps_fd, void *addr,
 	memset(&q, 0, sizeof(q));
 	q.size = sizeof(q);
 	/* Find the VMA at the split address */
-	q.query_addr = (unsigned long long)addr;
+	q.query_addr = (unsigned long long)(uintptr_t)addr;
 	q.query_flags = 0;
 	if (ioctl(maps_fd, PROCMAP_QUERY, &q))
 		return false;
