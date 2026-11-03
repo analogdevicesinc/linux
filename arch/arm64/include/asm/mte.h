@@ -94,6 +94,7 @@ static inline bool try_page_mte_tagging(struct page *page)
 }
 
 void mte_zero_clear_page_tags(void *addr);
+void mte_clear_folio_tags(struct folio *folio);
 void mte_sync_tags(pte_t pte, unsigned int nr_pages);
 void mte_copy_page_tags(void *kto, const void *kfrom);
 void mte_thread_init_user(void);
@@ -124,6 +125,9 @@ static inline bool try_page_mte_tagging(struct page *page)
 	return false;
 }
 static inline void mte_zero_clear_page_tags(void *addr)
+{
+}
+static inline void mte_clear_folio_tags(struct folio *folio)
 {
 }
 static inline void mte_sync_tags(pte_t pte, unsigned int nr_pages)
