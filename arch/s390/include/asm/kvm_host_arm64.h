@@ -8,6 +8,7 @@
 #include <asm/debug.h>
 
 #define vcpu_gp_regs(v)		((v)->arch.sae_block.gpr)
+enum vcpu_sysreg;
 
 #include <arm64/kvm_host.h>
 #include <arm64/ptrace.h>
