@@ -584,6 +584,14 @@
 			io-channels = <&adf4030 1>, <&adf4382 0>;
 			io-channel-names = "bsync", "clk";
 #endif /* WITH_AION */
+
+			/*
+			 * MCS tracking steps the ADF4382 delay through GPIO_29 (DELADJ)
+			 * and GPIO_30 (DELSTR); the driver defaults, 16 and 15, are the
+			 * evaluation board's pins and reach the FPGA here.
+			 */
+			adi,clock-align-delay-adjust-gpio-num = /bits/ 8 <29>;
+			adi,clock-align-delay-strobe-gpio-num = /bits/ 8 <30>;
 		};
 
 	};
