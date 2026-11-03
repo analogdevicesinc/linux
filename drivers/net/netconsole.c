@@ -1005,6 +1005,13 @@ static ssize_t ratelimit_interval_ms_show(struct config_item *item, char *buf)
 			  jiffies_to_msecs(READ_ONCE(nt->ratelimit.interval)));
 }
 
+static ssize_t ratelimit_burst_show(struct config_item *item, char *buf)
+{
+	struct netconsole_target *nt = to_target(item);
+
+	return sysfs_emit(buf, "%d\n", READ_ONCE(nt->ratelimit.burst));
+}
+
 /* configfs helper to display if cpu_nr sysdata feature is enabled */
 static ssize_t sysdata_cpu_nr_enabled_show(struct config_item *item, char *buf)
 {
@@ -1422,6 +1429,31 @@ static ssize_t ratelimit_interval_ms_store(struct config_item *item,
 	return count;
 }
 
+static ssize_t ratelimit_burst_store(struct config_item *item, const char *buf,
+				     size_t count)
+{
+	struct netconsole_target *nt = to_target(item);
+	unsigned int burst;
+	ssize_t ret;
+
+	ret = kstrtouint(buf, 10, &burst);
+	if (ret)
+		return ret;
+
+	if (burst > INT_MAX)
+		return -ERANGE;
+
+	/* Restart the interval as ratelimit_interval_ms_store() does, so the
+	 * new burst is spendable right away.
+	 */
+	dynamic_netconsole_mutex_lock();
+	WRITE_ONCE(nt->ratelimit.burst, burst);
+	ratelimit_state_reset_interval(&nt->ratelimit, nt->ratelimit.interval);
+	dynamic_netconsole_mutex_unlock();
+
+	return count;
+}
+
 struct userdatum {
 	struct config_item item;
 	char value[MAX_EXTRADATA_VALUE_LEN];
@@ -1787,6 +1819,7 @@ CONFIGFS_ATTR(, remote_mac);
 CONFIGFS_ATTR(, release);
 CONFIGFS_ATTR_RO(, transmit_errors);
 CONFIGFS_ATTR(, ratelimit_interval_ms);
+CONFIGFS_ATTR(, ratelimit_burst);
 
 static struct configfs_attribute *netconsole_target_attrs[] = {
 	&attr_enabled,
@@ -1801,6 +1834,7 @@ static struct configfs_attribute *netconsole_target_attrs[] = {
 	&attr_remote_mac,
 	&attr_transmit_errors,
 	&attr_ratelimit_interval_ms,
+	&attr_ratelimit_burst,
 	NULL,
 };
 
