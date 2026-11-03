@@ -299,7 +299,7 @@ static bool depot_init_pool(void **prealloc)
 		/* Bail out if we reached the pool limit. */
 		WARN_ON_ONCE(pools_num > stack_max_pools); /* should never happen */
 		WARN_ON_ONCE(!new_pool); /* to avoid unnecessary pre-allocation */
-		WARN_ONCE(1, "Stack depot reached limit capacity");
+		pr_warn_once("Stack depot reached limit capacity\n");
 		return false;
 	}
 
