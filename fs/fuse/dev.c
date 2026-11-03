@@ -1157,6 +1157,16 @@ static int fuse_try_move_folio(struct fuse_copy_state *cs, struct folio **foliop
 		goto out_fallback;
 
 	/*
+	 * A swap backed, anonymous or mapped folio can never be moved into the
+	 * page cache.  fuse_check_folio() would catch these below, but only
+	 * after the steal has already removed the folio from its mapping, so
+	 * check them here, while the answer is still meaningful.
+	 */
+	if (folio_test_swapbacked(newfolio) || folio_test_anon(newfolio) ||
+	    folio_mapped(newfolio))
+		goto out_fallback;
+
+	/*
 	 * This is a new and locked page, it shouldn't be mapped or
 	 * have any special flags on it
 	 */
