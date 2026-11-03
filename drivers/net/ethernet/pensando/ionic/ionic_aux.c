@@ -6,41 +6,47 @@
 #include "ionic_lif.h"
 #include "ionic_aux.h"
 
-static DEFINE_IDA(aux_ida);
+struct ionic_aux_type_info {
+	const char *name;
+	bool (*supported)(struct ionic *ionic);
+	int (*prepare)(struct ionic *ionic);
+};
+
+static bool ionic_rdma_supported(struct ionic *ionic)
+{
+	return le64_to_cpu(ionic->ident.lif.capabilities) & IONIC_LIF_CAP_RDMA;
+}
+
+static const struct ionic_aux_type_info ionic_aux_types[IONIC_AUX_MAX] = {
+	[IONIC_AUX_RDMA] = {
+		.name = "rdma",
+		.supported = ionic_rdma_supported,
+	},
+};
 
 static void ionic_auxbus_release(struct device *dev)
 {
 	struct ionic_aux_dev *ionic_adev;
 
 	ionic_adev = container_of(dev, struct ionic_aux_dev, adev.dev);
-	ida_free(&aux_ida, ionic_adev->adev.id);
 	kfree(ionic_adev);
 }
 
-int ionic_auxbus_register(struct ionic_lif *lif)
+static struct ionic_aux_dev *ionic_auxbus_add(struct ionic_lif *lif,
+					      const char *name)
 {
 	struct ionic_aux_dev *ionic_adev;
 	struct auxiliary_device *aux_dev;
-	int err, id;
-
-	if (!(le64_to_cpu(lif->ionic->ident.lif.capabilities) & IONIC_LIF_CAP_RDMA))
-		return 0;
+	int err;
 
 	ionic_adev = kzalloc_obj(*ionic_adev);
 	if (!ionic_adev)
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 
 	aux_dev = &ionic_adev->adev;
 
-	id = ida_alloc(&aux_ida, GFP_KERNEL);
-	if (id < 0) {
-		dev_err(lif->ionic->dev, "Failed to allocate aux id: %d\n", id);
-		kfree(ionic_adev);
-		return id;
-	}
-
-	aux_dev->id = id;
-	aux_dev->name = "rdma";
+	aux_dev->id = lif->ionic->aux_id;
+	aux_dev->name = name;
 	aux_dev->dev.parent = &lif->ionic->pdev->dev;
 	aux_dev->dev.release = ionic_auxbus_release;
 	ionic_adev->lif = lif;
@@ -48,9 +54,8 @@ int ionic_auxbus_register(struct ionic_lif *lif)
 	if (err) {
 		dev_err(lif->ionic->dev, "Failed to initialize %s aux device: %d\n",
 			aux_dev->name, err);
-		ida_free(&aux_ida, id);
 		kfree(ionic_adev);
-		return err;
+		return ERR_PTR(err);
 	}
 
 	err = auxiliary_device_add(aux_dev);
@@ -58,24 +63,57 @@ int ionic_auxbus_register(struct ionic_lif *lif)
 		dev_err(lif->ionic->dev, "Failed to add %s aux device: %d\n",
 			aux_dev->name, err);
 		auxiliary_device_uninit(aux_dev);
-		return err;
+		return ERR_PTR(err);
 	}
 
-	lif->ionic_adev = ionic_adev;
-	return 0;
+	return ionic_adev;
+}
+
+static void ionic_auxbus_del(struct ionic_aux_dev *ionic_adev)
+{
+	auxiliary_device_delete(&ionic_adev->adev);
+	auxiliary_device_uninit(&ionic_adev->adev);
+}
+
+void ionic_auxbus_register(struct ionic_lif *lif)
+{
+	const struct ionic_aux_type_info *type;
+	struct ionic_aux_dev *ionic_adev;
+	int i;
+
+	mutex_lock(&lif->adev_lock);
+
+	for (i = 0; i < IONIC_AUX_MAX; i++) {
+		type = &ionic_aux_types[i];
+
+		if (!type->supported(lif->ionic))
+			continue;
+
+		if (type->prepare && type->prepare(lif->ionic))
+			continue;
+
+		ionic_adev = ionic_auxbus_add(lif, type->name);
+		if (!IS_ERR(ionic_adev))
+			lif->aux_devs[i] = ionic_adev;
+	}
+
+	mutex_unlock(&lif->adev_lock);
 }
 
 void ionic_auxbus_unregister(struct ionic_lif *lif)
 {
+	int i;
+
 	mutex_lock(&lif->adev_lock);
-	if (!lif->ionic_adev)
-		goto out;
 
-	auxiliary_device_delete(&lif->ionic_adev->adev);
-	auxiliary_device_uninit(&lif->ionic_adev->adev);
+	for (i = IONIC_AUX_MAX - 1; i >= 0; i--) {
+		if (!lif->aux_devs[i])
+			continue;
 
-	lif->ionic_adev = NULL;
-out:
+		ionic_auxbus_del(lif->aux_devs[i]);
+		lif->aux_devs[i] = NULL;
+	}
+
 	mutex_unlock(&lif->adev_lock);
 }
 

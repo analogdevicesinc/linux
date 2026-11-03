@@ -180,6 +180,11 @@ struct ionic_qtype_info {
 
 struct ionic_phc;
 
+enum ionic_aux_type {
+	IONIC_AUX_RDMA,
+	IONIC_AUX_MAX,
+};
+
 #define IONIC_LIF_NAME_MAX_SZ		32
 struct ionic_lif {
 	struct net_device *netdev;
@@ -225,7 +230,7 @@ struct ionic_lif {
 	dma_addr_t info_pa;
 	u32 info_sz;
 	struct ionic_qtype_info qtype_info[IONIC_QTYPE_MAX];
-	struct ionic_aux_dev *ionic_adev;
+	struct ionic_aux_dev *aux_devs[IONIC_AUX_MAX];
 	struct mutex adev_lock;	/* lock for aux_dev actions */
 
 	u8 rss_hash_key[IONIC_RSS_HASH_KEY_SIZE];

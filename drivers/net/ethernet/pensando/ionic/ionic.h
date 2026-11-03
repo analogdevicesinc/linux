@@ -49,6 +49,7 @@ struct ionic {
 	struct ionic_identity ident;
 	struct workqueue_struct *wq;
 	struct ionic_lif *lif;
+	int aux_id;
 	unsigned int nnqs_per_lif;
 	unsigned int neqs_per_lif;
 	unsigned int ntxqs_per_lif;
