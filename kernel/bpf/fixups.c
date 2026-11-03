@@ -1694,7 +1694,7 @@ int bpf_fixup_call_args(struct bpf_verifier_env *env)
 		return -EINVAL;
 	}
 	for (i = 0; i < env->subprog_cnt; i++) {
-		if (bpf_in_stack_arg_cnt(&env->subprog_info[i])) {
+		if (env->subprog_info[i].stack_arg_cnt) {
 			verbose(env, "stack args are not supported in non-JITed programs\n");
 			return -EINVAL;
 		}

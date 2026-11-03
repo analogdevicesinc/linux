@@ -8742,8 +8742,7 @@ static int btf_validate_return_type(struct bpf_verifier_env *env, struct btf *bt
 }
 
 static int btf_check_arg_slots(struct bpf_verifier_log *log, const char *tname,
-			       bool is_global, u32 slot_cnt,
-			       struct bpf_subprog_info *sub)
+			       bool is_global, u32 slot_cnt)
 {
 	if (slot_cnt <= MAX_BPF_FUNC_REG_ARGS)
 		return 0;
@@ -8755,12 +8754,7 @@ static int btf_check_arg_slots(struct bpf_verifier_log *log, const char *tname,
 			tname, slot_cnt, MAX_BPF_FUNC_REG_ARGS);
 		return -EINVAL;
 	}
-	if (!bpf_jit_supports_stack_args()) {
-		bpf_log(log, "JIT does not support function %s() with %d argument slots\n",
-			tname, slot_cnt);
-		return -EFAULT;
-	}
-	sub->stack_arg_cnt = slot_cnt - MAX_BPF_FUNC_REG_ARGS;
+	/* The code of a static function tells which stack arguments it takes */
 	return 0;
 }
 
@@ -8827,13 +8821,15 @@ int btf_prepare_func_args(struct bpf_verifier_env *env, int subprog)
 	}
 	args = (const struct btf_param *)(t + 1);
 	nargs = btf_type_vlen(t);
-	sub->arg_slot_cnt = nargs;
+	sub->arg_slot_cnt = min_t(u32, nargs, MAX_BPF_FUNC_ARGS);
 	if (nargs > MAX_BPF_FUNC_ARGS) {
+		if (!is_global) /* not fatal for static funcs */
+			return -EINVAL;
 		bpf_log(log, "kernel supports at most %d parameters, function %s has %d\n",
 			MAX_BPF_FUNC_ARGS, tname, nargs);
 		return -EFAULT;
 	}
-	err = btf_check_arg_slots(log, tname, is_global, nargs, sub);
+	err = btf_check_arg_slots(log, tname, is_global, nargs);
 	if (err)
 		return err;
 
@@ -9022,7 +9018,7 @@ skip_pointer:
 		return -EINVAL;
 	}
 
-	err = btf_check_arg_slots(log, tname, is_global, slots_used, sub);
+	err = btf_check_arg_slots(log, tname, is_global, slots_used);
 	if (err)
 		return err;
 	sub->arg_slot_cnt = slots_used;

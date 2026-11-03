@@ -1765,6 +1765,8 @@ struct bpf_func_info_aux {
 	bool unreliable;
 	/* The function returns in R0:R2 */
 	bool ret_reg_pair;
+	/* The code of a static function loads stack arguments */
+	bool stack_args;
 	bool called[BPF_FUNC_CTX_CNT];
 	bool verified[BPF_FUNC_CTX_CNT];
 	bool called_with_pkt_ptrs;
