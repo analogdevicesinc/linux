@@ -729,7 +729,7 @@ __msg("scev at header 3:")
 __msg_next("  r6=(any r6 (+ r6 1)) / ?")
 __msg_next("  r7=(any (+ r7 1) 0) / ?")
 __msg_next("  r8=(+ r8 1) / (linear r8 1)")
-__msg("loop header at 3, unsupported loop: multiple backedges")
+__msg("loop header at 3, can't compute iterations count")
 __naked void nested_loops_shared_header(void)
 {
 	asm volatile ("					\

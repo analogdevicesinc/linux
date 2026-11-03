@@ -351,8 +351,9 @@ struct bpf_loop_iters {
 	/* [0, max] at the entry, and the loop only clears bits */
 	unsigned long mask_regs[BITS_TO_LONGS(BPF_SCEV_REGS_NUM)];
 	/*
-	 * The variable that the latch tests, or -1, and what it can be at the
-	 * loop header: what it is at the entry or what the latch lets through.
+	 * The variable that the latches of all back edges test, or -1, and what
+	 * it can be at the loop header: what it is at the entry or what one of
+	 * the latches lets through.
 	 */
 	int iv_reg;
 	struct cnum64 iv_range;
@@ -726,8 +727,8 @@ struct bpf_backedge {
 	 * Conditional jumps within the loop that dominate 'from' and have
 	 * a successor outside the loop, nearest first. latches[0] is the
 	 * latch; the remaining entries are additional exit conditions.
-	 * Each usable condition gives an upper bound on the iteration count,
-	 * so keeping only a subset is sound.
+	 * Each usable condition tells iterations in which the back edge is
+	 * not taken, so keeping only a subset is sound.
 	 */
 	int latches[MAX_LATCHES];
 	u8 latches_cnt;

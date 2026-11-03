@@ -2639,6 +2639,31 @@ static bool compute_backedge_taken_max(struct bpf_verifier_env *env, struct bpf_
 }
 
 /*
+ * @latch is false in iteration @cnt, counted from 0. That is the end of a loop with one back
+ * edge. A loop with several back edges may go on through another one and get to @latch
+ * again. Return the last iteration in which @latch is still false:
+ * - '<', '>' and the like stay false until the variable leaves [lo, hi] of latch_domain():
+ *   a number wraps around, the offset of a pointer gets too large to tell,
+ * - '!=' is false in one iteration. Which one is known for constants only.
+ */
+static u64 latch_false_until(const struct linear_latch *latch, const struct scev_value *initial,
+			     const struct scev_value *step_val, const struct scev_value *bound,
+			     u64 cnt)
+{
+	bool sign = is_signed_op(latch->op) || initial->ptr_reg >= 0;
+	struct latch_domain d;
+	u64 step;
+
+	if (latch->op == BPF_JNE)
+		return scev_value_is_const(initial) && scev_value_is_const(bound) ? cnt : 0;
+
+	step = latch->jmp32 || latch->zext32 ? (u64)(s64)(s32)step_val->umin : step_val->umin;
+	latch_domain(latch, initial, bound, sign, &d);
+	/* The first value is in [lo, hi]. do_check() rejects a pointer with a larger offset. */
+	return (s64)step < 0 ? div64_u64(d.imin - d.lo, -step) : div64_u64(d.hi - d.imax, step);
+}
+
+/*
  * Loop with post-condition:
  *
  *    r0 = 0
@@ -2667,7 +2692,7 @@ static bool compute_backedge_taken_max(struct bpf_verifier_env *env, struct bpf_
 static bool compute_max_iters(struct bpf_verifier_env *env,
 			      struct bpf_func_state *st,
 			      struct linear_latch *latch,
-			      struct bpf_loop_iters *iters)
+			      struct bpf_loop_iters *iters, u64 *false_until)
 {
 	struct bpf_insn_aux_data *aux = env->insn_aux_data;
 	struct bpf_loop *loop = aux[bpf_loop_at_index(env, latch->insn_idx)].loop;
@@ -2764,11 +2789,12 @@ static bool compute_max_iters(struct bpf_verifier_env *env,
 	}
 
 counted:
+	*false_until = latch_false_until(latch, &initial_val, &step_val, &bound_val,
+					 backedge_taken_count);
 	/* The header executes once on entry and once for each taken backedge, hence +1. */
 	iters->max_header_count = backedge_taken_count + 1;
 	/*
 	 * The latch is a conditional jump with one jump target exiting the loop.
-	 * Linear latch is matched only if the loop has a single backedge.
 	 * The loop still, however can have multiple exits.
 	 * In such case, conservatively assume that non-latch exit can happen
 	 * at any iteration, thus setting minimal number of iterations as 0.
@@ -3146,57 +3172,32 @@ static bool reg_is_zero_to_max(const struct bpf_reg_state *reg)
 	       cnum32_is_subset(reg->r32, cnum32_from_cnum64(r64)) && reg->step <= 1;
 }
 
-int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_state *st,
-			   struct bpf_loop_iters *iters)
+/*
+ * A jump that leaves the loop and dominates @backedge tells in which iterations @backedge can
+ * be taken: in none from the count of the jump to @false_until. That bounds the iterations of
+ * the loop only if it has no other back edge. Keep the jump with the smallest count.
+ * Return 1 if there is one.
+ */
+static int count_backedge(struct bpf_verifier_env *env, struct bpf_func_state *st, int insn_idx,
+			  struct bpf_backedge *backedge, struct bpf_loop_iters *iters,
+			  struct linear_latch *best, u64 *false_until)
 {
-	struct bpf_func_state *cur_func = st->frame[st->curframe];
-	struct bpf_insn_aux_data *aux = env->insn_aux_data;
 	struct bpf_verifier_log *log = &env->log;
-	struct scev *scev = env->scev;
-	struct env *header_env;
-	struct linear_latch latch, best;
-	struct linear_coefs coefs;
-	struct bpf_backedge *backedge;
 	struct bpf_loop_iters tmp;
-	struct bpf_loop *loop;
-	int insn_idx = st->insn_idx;
+	struct linear_latch latch;
 	bool found = false;
 	int linear_latch;
 	int latch_idx;
-	int err, j;
-	u32 r;
-
-	if (!env->allow_uninit_stack)
-		return 0;
-
-	/*
-	 * If insn_idx is a loop header for a reducible loop with a single backedge.
-	 * loop is NULL for secondary entries to irreducible loops.
-	 */
-	loop = aux[insn_idx].loop;
-	if (!loop || loop->irreducible || loop->backedges_cnt != 1 || loop->backedges_overflow ||
-	    loop->nested_exits_overflow) {
-		if (log->level & BPF_LOG_LEVEL2)
-			bpf_log(log, "loop header at %d, unsupported loop:%s%s%s\n", insn_idx,
-				!loop || loop->irreducible ? " irreducible" : "",
-				loop && loop->backedges_cnt > 1 ? " multiple backedges" : "",
-				loop && loop->nested_exits_overflow ?
-				" too many exits of a nested loop" : "");
-		return 0;
-	}
+	u64 until;
+	int j;
 
 	/* If this backedge has a latch */
-	backedge = &loop->backedges[0];
 	if (!backedge->latches_cnt) {
 		if (log->level & BPF_LOG_LEVEL2)
 			bpf_log(log, "loop header at %d, latch not identified\n", insn_idx);
 		return 0;
 	}
 
-	/*
-	 * Every condition dominating the backedge bounds the number of
-	 * iterations from above, keep the smallest bound.
-	 */
 	for (j = 0; j < backedge->latches_cnt; j++) {
 		latch_idx = backedge->latches[j];
 		linear_latch = match_linear_latch(env, insn_idx, latch_idx, &latch);
@@ -3208,7 +3209,7 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 					insn_idx, j ? "exit" : "latch", latch_idx);
 			continue;
 		}
-		if (!compute_max_iters(env, cur_func, &latch, &tmp)) {
+		if (!compute_max_iters(env, st, &latch, &tmp, &until)) {
 			if (log->level & BPF_LOG_LEVEL2)
 				bpf_log(log,
 					"loop header at %d, can't compute iterations count at %d\n",
@@ -3219,18 +3220,107 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 			iters->max_header_count = tmp.max_header_count;
 			iters->iv_reg = tmp.iv_reg;
 			iters->iv_range = tmp.iv_range;
-			best = latch;
+			*false_until = until;
+			*best = latch;
 		}
 		iters->min_header_count = found ? min(iters->min_header_count, tmp.min_header_count)
 						: tmp.min_header_count;
 		found = true;
 	}
-	if (!found) {
+	if (!found && (log->level & BPF_LOG_LEVEL2))
+		bpf_log(log, "loop header at %d, can't compute iterations count\n", insn_idx);
+	return found;
+}
+
+/* Two jumps that test the same thing: in each iteration both are true or both are false. */
+static bool same_latch(const struct linear_latch *a, const struct linear_latch *b)
+{
+	return a->base_expr == b->base_expr && a->step_expr == b->step_expr &&
+	       a->bound_expr == b->bound_expr && a->op == b->op &&
+	       a->zext32 == b->zext32 && a->jmp32 == b->jmp32;
+}
+
+int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_state *st,
+			   struct bpf_loop_iters *iters)
+{
+	struct bpf_func_state *cur_func = st->frame[st->curframe];
+	struct bpf_insn_aux_data *aux = env->insn_aux_data;
+	struct bpf_verifier_log *log = &env->log;
+	struct scev *scev = env->scev;
+	struct env *header_env;
+	struct linear_latch latch, first;
+	struct linear_coefs coefs;
+	struct bpf_loop_iters tmp;
+	struct bpf_loop *loop;
+	int insn_idx = st->insn_idx;
+	u64 until, false_until;
+	bool same = true;
+	int err, i;
+	u32 r;
+
+	if (!env->allow_uninit_stack)
+		return 0;
+
+	/*
+	 * If insn_idx is a loop header for a reducible loop.
+	 * loop is NULL for secondary entries to irreducible loops.
+	 */
+	loop = aux[insn_idx].loop;
+	if (!loop || loop->irreducible || loop->backedges_overflow ||
+	    loop->nested_exits_overflow) {
 		if (log->level & BPF_LOG_LEVEL2)
-			bpf_log(log, "loop header at %d, can't compute iterations count\n", insn_idx);
+			bpf_log(log, "loop header at %d, unsupported loop:%s%s%s\n", insn_idx,
+				!loop || loop->irreducible ? " irreducible" : "",
+				loop && loop->backedges_overflow ? " too many backedges" : "",
+				loop && loop->nested_exits_overflow ?
+				" too many exits of a nested loop" : "");
 		return 0;
 	}
-	latch = best;
+
+	/*
+	 * A register that is linear at the header is 'first value + slope * k' in iteration k
+	 * whatever back edges were taken. So the jumps that dominate a back edge say in
+	 * which iterations it can be taken. The loop ends, at the latest, in an iteration
+	 * in which no back edge can be taken.
+	 */
+	bitmap_zero(iters->precise_regs, REGS_NUM);
+	for (i = 0; i < loop->backedges_cnt; i++) {
+		err = count_backedge(env, cur_func, insn_idx, &loop->backedges[i],
+				     i ? &tmp : iters, &latch, &until);
+		if (err <= 0)
+			return err;
+		err = mark_expr_precise(env, cur_func, latch.base_expr, iters->precise_regs) ?:
+		      mark_expr_precise(env, cur_func, latch.step_expr, iters->precise_regs) ?:
+		      mark_expr_precise(env, cur_func, latch.bound_expr, iters->precise_regs);
+		if (err)
+			return err;
+		if (!i) {
+			false_until = until;
+			first = latch;
+			continue;
+		}
+		same &= same_latch(&first, &latch);
+		false_until = min(false_until, until);
+		iters->max_header_count = max(iters->max_header_count, tmp.max_header_count);
+		iters->min_header_count = min(iters->min_header_count, tmp.min_header_count);
+		/* at the header the variable is what one of the latches lets through */
+		if (iters->iv_reg >= 0 && iters->iv_reg == tmp.iv_reg)
+			iters->iv_range = cnum64_union(iters->iv_range, tmp.iv_range);
+		else
+			iters->iv_reg = -1;
+	}
+	/*
+	 * When the latches that were kept are the same test, the first iteration in which it's
+	 * false is the last one. Otherwise take the largest count and make sure that the latches
+	 * which became false earlier are false still.
+	 */
+	if (!same && iters->max_header_count - 1 > false_until) {
+		if (log->level & BPF_LOG_LEVEL2)
+			bpf_log(log,
+				"loop header at %d, a latch may be true again in iteration %u\n",
+				insn_idx, iters->max_header_count - 1);
+		return 0;
+	}
 
 	if (iters->max_header_count == 0) {
 		if (log->level & BPF_LOG_LEVEL2)
@@ -3364,17 +3454,6 @@ cant_widen:
 		}
 		return 0;
 	}
-
-	bitmap_zero(iters->precise_regs, REGS_NUM);
-	err = mark_expr_precise(env, cur_func, latch.base_expr, iters->precise_regs);
-	if (err)
-		return err;
-	err = mark_expr_precise(env, cur_func, latch.step_expr, iters->precise_regs);
-	if (err)
-		return err;
-	err = mark_expr_precise(env, cur_func, latch.bound_expr, iters->precise_regs);
-	if (err)
-		return err;
 
 	return 1;
 }
