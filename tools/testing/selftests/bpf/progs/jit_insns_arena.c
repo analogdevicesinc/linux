@@ -47,7 +47,7 @@ int arena_zero_off(void *ctx)
 	/* Accesses through two base registers */
 	asm volatile ("					\
 	r7 = %[res];					\
-	r7 = addr_space_cast(r7, 0x0, 0x1);		\
+	r7 = addr_space_cast(r7, 0, 1);		\
 	r1 = r7;					\
 	r8 = 0x1122334455667788 ll;			\
 	*(u64 *)(r7 + 0) = r8;				\
@@ -93,12 +93,12 @@ int cast_to_user(void *ctx)
 	/* The user address comes back from the kernel one, NULL stays NULL */
 	asm volatile ("					\
 	r7 = %[page];					\
-	r1 = addr_space_cast(r7, 0x0, 0x1);		\
-	r1 = addr_space_cast(r1, 0x1, 0x0);		\
+	r1 = addr_space_cast(r7, 0, 1);		\
+	r1 = addr_space_cast(r1, 1, 0);		\
 	r9 = r1;					\
 	r9 ^= r7;					\
 	r2 = 0;						\
-	r2 = addr_space_cast(r2, 0x1, 0x0);		\
+	r2 = addr_space_cast(r2, 1, 0);		\
 	r9 |= r2;					\
 	%[res] = r9;					\
 "	: [res]"=r"(res)

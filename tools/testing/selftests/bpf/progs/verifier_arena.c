@@ -524,7 +524,7 @@ int scalar_add_arena_ptr(void *ctx)
 
 	asm volatile (
 		"%[arena_ptr] = 8192;"
-		"%[arena_ptr] = addr_space_cast(%[arena_ptr], 0x0, 0x1);"
+		"%[arena_ptr] = addr_space_cast(%[arena_ptr], 0, 1);"
 		"%[scalar] = 12;"
 		"%[scalar] += %[arena_ptr];"
 		: [scalar] "=r"(scalar),
@@ -549,9 +549,9 @@ int arena_ptr_add_arena_ptr(void *ctx)
 
 	asm volatile (
 		"%[arena_ptr1] = 8192;"
-		"%[arena_ptr1] = addr_space_cast(%[arena_ptr1], 0x0, 0x1);"
+		"%[arena_ptr1] = addr_space_cast(%[arena_ptr1], 0, 1);"
 		"%[arena_ptr2] = 4096;"
-		"%[arena_ptr2] = addr_space_cast(%[arena_ptr2], 0x0, 0x1);"
+		"%[arena_ptr2] = addr_space_cast(%[arena_ptr2], 0, 1);"
 		"%[arena_ptr2] += %[arena_ptr1];"
 		: [arena_ptr2] "=r"(arena_ptr2),
 		  [arena_ptr1] "=&r"(arena_ptr1)
@@ -574,7 +574,7 @@ int mixed_arena_scalar_alu64_scalar_first(void *ctx)
 		asm volatile (
 			"r9 = %[arena] ll;"
 			"%[reg] = 0;"
-			"%[reg] = addr_space_cast(%[reg], 0x0, 0x1);"
+			"%[reg] = addr_space_cast(%[reg], 0, 1);"
 			: [reg] "=r"(reg)
 			: __imm_addr(arena)
 			: "r9"
@@ -596,7 +596,7 @@ int mixed_arena_scalar_alu64_arena_first(void *ctx)
 	asm volatile (
 		"r9 = %[arena] ll;"
 		"%[reg] = 0;"
-		"%[reg] = addr_space_cast(%[reg], 0x0, 0x1);"
+		"%[reg] = addr_space_cast(%[reg], 0, 1);"
 		: [reg] "=r"(reg)
 		: __imm_addr(arena)
 		: "r9"
@@ -635,7 +635,7 @@ int scalar_xor_arena_ptr(void *ctx)
 
 	asm volatile (
 		"%[arena_ptr] = 8192;"
-		"%[arena_ptr] = addr_space_cast(%[arena_ptr], 0x0, 0x1);"
+		"%[arena_ptr] = addr_space_cast(%[arena_ptr], 0, 1);"
 		"%[scalar] = 12;"
 		"%[scalar] ^= %[arena_ptr];"
 		: [scalar] "=r"(scalar),
@@ -660,7 +660,7 @@ int arena_ptr_add_to_non_arena_ptr(void *ctx)
 
 	asm volatile (
 		"%[arena_ptr] = 8192;"
-		"%[arena_ptr] = addr_space_cast(%[arena_ptr], 0x0, 0x1);"
+		"%[arena_ptr] = addr_space_cast(%[arena_ptr], 0, 1);"
 		"%[dst] = %[ctx];"
 		"%[dst] += %[arena_ptr];"
 		: [arena_ptr] "=&r"(arena_ptr),
@@ -685,7 +685,7 @@ int non_arena_ptr_add_to_arena_ptr(void *ctx)
 
 	asm volatile (
 		"%[arena_ptr] = 8192;"
-		"%[arena_ptr] = addr_space_cast(%[arena_ptr], 0x0, 0x1);"
+		"%[arena_ptr] = addr_space_cast(%[arena_ptr], 0, 1);"
 		"%[src] = %[ctx];"
 		"%[arena_ptr] += %[src];"
 		: [arena_ptr] "=&r"(arena_ptr),

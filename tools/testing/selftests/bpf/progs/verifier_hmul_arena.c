@@ -29,7 +29,7 @@ __naked void uhmul64_arena_ptr(void)
 	asm volatile (
 	"r1 = %[arena] ll;"
 	"r0 = 1;"
-	"r0 = addr_space_cast(r0, 0x0, 0x1);"
+	"r0 = addr_space_cast(r0, 0, 1);"
 	".8byte %[hmul];"
 	"exit;"
 	:
@@ -48,7 +48,7 @@ __naked void shmul64_arena_ptr(void)
 	asm volatile (
 	"r1 = %[arena] ll;"
 	"r1 = 1;"
-	"r1 = addr_space_cast(r1, 0x0, 0x1);"
+	"r1 = addr_space_cast(r1, 0, 1);"
 	"r0 = 2;"
 	".8byte %[hmul];"
 	"exit;"
