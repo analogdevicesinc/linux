@@ -109,17 +109,10 @@ typedef elf_fpreg_t elf_fpregset_t[ELF_NFPREG];
 
 struct pt_regs;
 struct thread_info;
-struct task_struct;
 extern void dump_elf_thread(elf_greg_t *dest, struct pt_regs *pt,
 			    struct thread_info *ti);
 #define ELF_CORE_COPY_REGS(DEST, REGS) \
 	dump_elf_thread(DEST, REGS, current_thread_info());
-
-/* Similar, but for a thread other than current.  */
-
-extern int dump_elf_task(elf_greg_t *dest, struct task_struct *task);
-#define ELF_CORE_COPY_TASK_REGS(TASK, DEST) \
-	dump_elf_task(*(DEST), TASK)
 
 /* This yields a mask that user programs can use to figure out what
    instruction set this CPU supports.  This is trivial on Alpha, 

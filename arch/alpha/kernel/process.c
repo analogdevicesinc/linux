@@ -344,20 +344,6 @@ dump_elf_thread(elf_greg_t *dest, struct pt_regs *pt, struct thread_info *ti)
 }
 EXPORT_SYMBOL(dump_elf_thread);
 
-int
-dump_elf_task(elf_greg_t *dest, struct task_struct *task)
-{
-	dump_elf_thread(dest, task_pt_regs(task), task_thread_info(task));
-	return 1;
-}
-EXPORT_SYMBOL(dump_elf_task);
-
-int elf_core_copy_task_fpregs(struct task_struct *t, elf_fpregset_t *fpu)
-{
-	memcpy(fpu, task_thread_info(t)->fp, 32 * 8);
-	return 1;
-}
-
 /*
  * Return saved PC of a blocked thread.  This assumes the frame
  * pointer is the 6th saved long on the kernel stack and that the

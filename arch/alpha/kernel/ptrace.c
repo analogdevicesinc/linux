@@ -506,16 +506,7 @@ long arch_ptrace(struct task_struct *child, long request,
 	return ret;
 }
 
-/*
- * Minimal regset support for Alpha.
- *
- * Alpha-specific notes:
- *  - Do NOT use ELF_CORE_COPY_REGS(): it uses current_thread_info(),
- *    which is wrong for non-current tasks.
- *  - dump_elf_task() returns 1 unconditionally in this tree, while
- *    regset_get should return 0 on success. So call dump_elf_thread()
- *    directly and return membuf_write()'s result.
- */
+/* Ptrace and ELF core dumps share the same Alpha register layouts. */
 static int alpha_regset_set(struct task_struct *target,
 			    const struct user_regset *regset,
 			    unsigned int pos, unsigned int count,
@@ -588,10 +579,8 @@ static int alpha_fpregset_get(struct task_struct *target,
 			      const struct user_regset *regset,
 			      struct membuf to)
 {
-	elf_fpregset_t fpregs;
-
-	alpha_elf_fpregs_get(target, fpregs);
-	return membuf_write(&to, fpregs, sizeof(fpregs));
+	return membuf_write(&to, task_thread_info(target)->fp,
+			    sizeof(elf_fpregset_t));
 }
 
 enum alpha_regset {
