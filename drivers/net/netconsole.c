@@ -49,6 +49,7 @@
 #include <linux/rtnetlink.h>
 #include <linux/workqueue.h>
 #include <linux/delay.h>
+#include <linux/ratelimit.h>
 
 MODULE_AUTHOR("Matt Mackall <mpm@selenic.com>");
 MODULE_DESCRIPTION("Console driver for network interfaces");
@@ -196,6 +197,7 @@ struct netcons_userdata {
  * @sysdata:		Cached, formatted string of append
  * @sysdata_fields:	Sysdata features enabled.
  * @msgcounter:	Message sent counter.
+ * @ratelimit:	Token bucket used to rate limit messages
  * @stats:	Packet send stats for the target. Used for debugging.
  * @state:	State of the target.
  *		Visible from userspace (read-write).
@@ -239,6 +241,8 @@ struct netconsole_target {
 	u32			sysdata_fields;
 	/* protected by target_list_lock */
 	u32			msgcounter;
+	/* carries its own lock, writers hold dynamic_netconsole_mutex */
+	struct ratelimit_state	ratelimit;
 #endif
 	struct netconsole_target_stats stats;
 	enum target_state	state;
@@ -301,6 +305,26 @@ static void dynamic_netconsole_mutex_unlock(void)
 	mutex_unlock(&dynamic_netconsole_mutex);
 }
 
+static void netconsole_ratelimit_init(struct netconsole_target *nt)
+{
+	ratelimit_state_init(&nt->ratelimit, 0, DEFAULT_RATELIMIT_BURST);
+	/* The flag keeps ___ratelimit() from reporting the suppressed count
+	 * itself, which would printk() from inside the console being
+	 * serviced. Nothing calls ratelimit_state_exit(), so the count is
+	 * never reported on release either.
+	 */
+	ratelimit_set_flags(&nt->ratelimit, RATELIMIT_MSG_ON_RELEASE);
+}
+
+static bool netconsole_ratelimited(struct netconsole_target *nt)
+{
+	/* A limit meant for steady-state logging must not eat a crash dump. */
+	if (netconsole_kernel_dying())
+		return false;
+
+	return !__ratelimit(&nt->ratelimit);
+}
+
 #else	/* !CONFIG_NETCONSOLE_DYNAMIC */
 
 static int __init dynamic_netconsole_init(void)
@@ -335,6 +359,15 @@ static void dynamic_netconsole_mutex_lock(void)
 
 static void dynamic_netconsole_mutex_unlock(void)
 {
+}
+
+static void netconsole_ratelimit_init(struct netconsole_target *nt)
+{
+}
+
+static bool netconsole_ratelimited(struct netconsole_target *nt)
+{
+	return false;
 }
 
 #endif	/* CONFIG_NETCONSOLE_DYNAMIC */
@@ -712,6 +745,7 @@ static struct netconsole_target *alloc_and_init(void)
 	nt->remote_port = 6666;
 	eth_broadcast_addr(nt->remote_mac);
 	nt->state = STATE_DISABLED;
+	netconsole_ratelimit_init(nt);
 	INIT_WORK(&nt->resume_wq, process_resume_target);
 	/* Set up the skb pool primitives once; enabling only refills it. */
 	skb_queue_head_init(&nt->skb_pool);
@@ -2524,6 +2558,9 @@ static void netconsole_write(struct nbcon_write_context *wctxt, bool extended)
 	list_for_each_entry(nt, &target_list, list) {
 		if (nt->extended != extended || nt->state != STATE_ENABLED ||
 		    !netif_running(nt->np.dev))
+			continue;
+
+		if (netconsole_ratelimited(nt))
 			continue;
 
 		/* If nbcon_enter_unsafe() fails, just return given netconsole
