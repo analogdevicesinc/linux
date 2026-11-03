@@ -164,11 +164,6 @@
 &i2c1 {
 	/* Hardware monitoring SMBus */
 	status = "okay";
-
-	w83773g@4c {
-		compatible = "nuvoton,w83773g";
-		reg = <0x4c>;
-	};
 };
 
 &i2c2 {
