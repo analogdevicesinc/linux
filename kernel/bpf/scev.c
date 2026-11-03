@@ -666,7 +666,7 @@ static int transfer(struct bpf_verifier_env *env, struct env *e, int idx)
 	u8 mode = BPF_MODE(insn->code);
 	u32 dst = insn->dst_reg;
 	u32 src = insn->src_reg;
-	u32 op, sext;
+	u32 op, sext, l, r;
 	bool need_bswap;
 	int i, id;
 	s64 imm;
@@ -725,6 +725,18 @@ static int transfer(struct bpf_verifier_env *env, struct env *e, int idx)
 				id = imm_expr(scev, insn->imm);
 			else
 				goto mark_dst_unknown;
+
+			/*
+			 * 'r1 <<= 32; r1 >>= 32' is (u32)r1 for cpu v1 and v2. Only here both
+			 * shifts are known to be 64-bit ones: the result of a 32-bit shift is
+			 * (zext32 ...), and (>> x 32) is 'w1 >>= w2' with 32 in w2 as well,
+			 * which shifts by 0.
+			 */
+			if (class == BPF_ALU64 && op == BPF_RSH && id >= 0 &&
+			    is_imm(scev, id, &imm) && imm == 32 &&
+			    is_binop(scev, BPF_LSH, reg2expr[dst], &l, &r) &&
+			    is_imm(scev, r, &imm) && imm == 32)
+				return replace_reg(scev, e, dst, expr1(scev, ZEXT32, l));
 
 			id = expr2(scev, op, reg2expr[dst], id);
 
@@ -1484,6 +1496,18 @@ static int simplify(struct scev *scev, u32 id, void *priv)
 {
 	int a, b, l, r, t, base, slope;
 	s64 imm1, imm2;
+
+	/* (- x imm) -> (+ x -imm) */
+	if (is_binop(scev, BPF_SUB, id, &l, &r) &&
+	    is_imm(scev, r, &imm1) && imm1 != S64_MIN)
+		return expr2(scev, BPF_ADD, l, imm_expr(scev, -imm1));
+
+	/* (+ (+ x imm) imm) -> (+ x imm) */
+	if (is_add(scev, id, &l, &r) &&
+	    is_imm(scev, r, &imm2) &&
+	    is_add(scev, l, &a, &b) &&
+	    is_imm(scev, b, &imm1))
+		return expr2(scev, BPF_ADD, a, imm_expr(scev, (s64)((u64)imm1 + (u64)imm2)));
 
 	/* (+ (linear base slope) imm) -> (linear (+ base imm) slope) */
 	if (is_add(scev, id, &l, &r) &&

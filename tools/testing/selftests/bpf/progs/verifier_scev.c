@@ -298,8 +298,8 @@ __naked void expr_chain(void)
 1:							\
 	if r6 == 2 goto 2f;				\
 	r6 += 1;					\
-	r6 <<= 32;					\
-	r6 >>= 32;					\
+	r6 <<= 16;					\
+	r6 >>= 16;					\
 	w6 += 1;					\
 	r6 = -r6;					\
 	w6 = -w6;					\
