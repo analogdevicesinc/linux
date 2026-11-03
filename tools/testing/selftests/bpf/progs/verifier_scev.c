@@ -1012,6 +1012,131 @@ POST_COND_TEST32(post32_slt_wrap,  "s<",        INT32_MAX - 3,    2,        INT3
 POST_COND_TEST32(post32_sgt_wrap,  "s>", (__u32)INT32_MIN + 3,  -2u, (__u32)INT32_MIN, "can't compute iterations count")
 POST_COND_TEST32(post32_lt_wrap,   "<",                    -4,    2,               -1, "can't compute iterations count")
 
+/*
+ * The first value of the counter or the bound of the loop is a range: the verifier sees only the
+ * jumps that put r6 into [first_min, first_max] and r7 into [bound_min, bound_max]. An atomic add
+ * hides what they are at run time: the two values that are the furthest apart.
+ * r9 counts how many times the header is executed, and ends the loops that have no count.
+ */
+#define RANGE_TEST(name, sign, first_min, first_max, _step, bound_min, bound_max, loop, expect)	\
+SEC("socket")											\
+__success __log_level(2)									\
+expect												\
+__naked void name(void)										\
+{												\
+	asm volatile (										\
+		"r1 = %[first] ll;"								\
+		"*(u64 *)(r10 - 8) = 0;"							\
+		"lock *(u64 *)(r10 - 8) += r1;"							\
+		"r6 = *(u64 *)(r10 - 8);"							\
+		"r1 = %[bound] ll;"								\
+		"*(u64 *)(r10 - 8) = 0;"							\
+		"lock *(u64 *)(r10 - 8) += r1;"							\
+		"r7 = *(u64 *)(r10 - 8);"							\
+		"r9 = 0;"									\
+		"r1 = %[fmin] ll; if r6 " sign "< r1 goto 2f;"					\
+		"r1 = %[fmax] ll; if r6 " sign "> r1 goto 2f;"					\
+		"r1 = %[bmin] ll; if r7 " sign "< r1 goto 2f;"					\
+		"r1 = %[bmax] ll; if r7 " sign "> r1 goto 2f;"					\
+		loop										\
+		"2: r0 = r9;"									\
+		"exit;"										\
+		:										\
+		: __imm_const(first, (__s64)(_step) > 0 ? first_min : first_max),		\
+		  __imm_const(bound, (__s64)(_step) > 0 ? bound_max : bound_min),		\
+		  __imm_const(fmin, first_min), __imm_const(fmax, first_max),			\
+		  __imm_const(bmin, bound_min), __imm_const(bmax, bound_max),			\
+		  __imm_const(step, _step)							\
+		: __clobber_all);								\
+}
+
+#define LOOP_HEAD	"1: r8 = %[step] ll;" LIMIT_ITERATIONS
+#define PRE(exit_op)	LOOP_HEAD "if r6 " exit_op " r7 goto 2f; r6 += r8; goto 1b;"
+#define POST(add, jump)	LOOP_HEAD add "; if " jump " goto 1b;"
+
+/* 'count' is what the verifier has and what r9 is at run time. 'range' is r6 at the header. */
+#define COUNTED(count, range)									\
+	__retval(count)										\
+	__msg("loop header at {{[0-9]+}}, header_count is [0.." #count "] ")			\
+	__msg("loop header at {{[0-9]+}}, widening r6 to " range " ")				\
+	__msg("loop header at {{[0-9]+}}, clamping r6 to " range " ")
+#define NO_COUNT										\
+	__msg("loop header at {{[0-9]+}}, can't compute iterations count")			\
+	__not_msg("header_count is")
+
+#define M64 ITER_U64_MAX
+#define M32 ITER_U32_MAX
+/*
+ * Example: range_lt
+ *
+ *    u64 r6 = 1..4, r7 = 8..12;
+ *    while (r6 < r7)                // r6 ∈ [1,3,...,11,13]
+ *        r6 += 2;
+ */
+/*         name           sign  first     step   bound   loop         expected */
+RANGE_TEST(range_lt,        "",  1,  4,     2,   8, 12,  PRE(">="),   COUNTED(7, "1..13"))
+RANGE_TEST(range_le,        "",  0,  2,     2,   6,  9,  PRE(">"),    COUNTED(6, "0..11"))
+RANGE_TEST(range_gt,        "", 10, 14,    -2,   3,  5,  PRE("<="),   COUNTED(7, "2..14"))
+RANGE_TEST(range_ge,        "", 10, 14,    -2,   4,  5,  PRE("<"),    COUNTED(7, "2..14"))
+RANGE_TEST(range_slt,      "s", -5,  5,     2,   5,  7,  PRE("s>="),  COUNTED(7, "-5..8"))
+RANGE_TEST(range_ne_up,     "",  0,  3,     1,   3,  6,  PRE("=="),   COUNTED(7, "0..6"))
+RANGE_TEST(range_ne_down,   "",  8, 10,    -1,   4,  8,  PRE("=="),   COUNTED(7, "4..10"))
+/* the order of unsigned numbers says nothing about -1..3, the order of signed numbers does */
+RANGE_TEST(range_ne_signed, "s", -3, -1,    1,  -1,  3,  PRE("=="),   COUNTED(7, "-3..3"))
+/* The jump tests r6 after the addition. At the header r6 is a step behind. */
+RANGE_TEST(range_post_lt,   "",  3, 10,     2,  14, 15,  POST("r6 += r8", "r6 < r7"),
+	   COUNTED(6, "3..14"))
+/* 32 bits. r6 is negative at the entry and zero extended after that. */
+RANGE_TEST(range32_slt,    "s", -5,  5,     2,   7,  9,  POST("w6 += w8", "w6 s< w7"),
+	   COUNTED(7, "-5..0xffffffff"))
+/* Only the jump has 32 bits. The low half says nothing about r6: it's 'first + step * count'. */
+RANGE_TEST(range32_jump,    "",  3, 10,     2,  13, 15,  POST("r6 += r8", "w6 < w7"),
+	   COUNTED(6, "3..20"))
+
+#define COUNTED_2G(range)									\
+	__msg("loop header at {{[0-9]+}}, header_count is [0..2147483{{[0-9]+}}] ")		\
+	__msg("loop header at {{[0-9]+}}, widening r6 to " range " ")
+/* Too long to unroll: only the count ends the loop for the verifier */
+RANGE_TEST(range_long,      "",  0,  0,     1,   0, 0x7fffffff,
+	   "1: r8 = %[step] ll; if r6 >= r7 goto 2f; r6 += r8; goto 1b;", COUNTED_2G("0..0x7fffffff"))
+/* 'first + step' wraps around for a part of the range: the loop starts anywhere */
+RANGE_TEST(range_first_wraps_s64, "s", ITER_S64_MAX - 5, ITER_S64_MAX - 1, 2,
+	   ITER_S64_MAX - 1, ITER_S64_MAX - 1, POST("r6 += r8", "r6 s< r7"), NO_COUNT)
+RANGE_TEST(range_first_wraps_u32, "", 0, 3, -2, 5, 5, POST("w6 += w8", "w6 > w7"),
+	   COUNTED_2G("0..0xffffffff"))
+RANGE_TEST(range_first_wraps_s32, "", INT32_MAX - 5, INT32_MAX - 1, 2, INT32_MAX - 1, INT32_MAX - 1,
+	   POST("w6 += w8", "w6 s< w7"), COUNTED_2G("0..0xffffffff"))
+
+/*
+ * The value that ends the loop can wrap around.
+ *
+ * Example: range_lt_wrap
+ *
+ *    u64 M = U64_MAX, r6 = M-9..M-5, r7 = M-3..M;
+ *    while (r6 < r7)                // M-1 < M, and the next value is 1
+ *        r6 += 2;
+ */
+RANGE_TEST(range_lt_wrap,   "", M64 - 9, M64 - 5,  2, M64 - 3, M64,      PRE(">="), NO_COUNT)
+RANGE_TEST(range_le_wrap,   "", M64 - 9, M64 - 5,  2, M64 - 3, M64 - 1,  PRE(">"),  NO_COUNT)
+RANGE_TEST(range_gt_wrap,   "",       5,       9, -2,       0,       3,  PRE("<="), NO_COUNT)
+RANGE_TEST(range_ge_wrap,   "",       5,       9, -2,       1,       3,  PRE("<"),  NO_COUNT)
+/* a 32-bit addition wraps around at 2^32, also under a 64-bit jump */
+RANGE_TEST(range32_add_wrap, "", M32 - 9, M32 - 5, 2, M32 - 3, M32,
+	   POST("w6 += w8", "r6 < r7"), NO_COUNT)
+RANGE_TEST(range32_ne_far,  "", M32 - 5, M32 - 3,  1, M32 - 1, M32 + 3,
+	   POST("w6 += w8", "r6 != r7"), NO_COUNT)
+/* the first jump tests what enters the loop, and that is not zero extended */
+RANGE_TEST(range32_first_is_wide, "", 0, M32 + 9,  2,      15,      20,
+	   LOOP_HEAD "if r6 >= r7 goto 2f; w6 += w8; goto 1b;", NO_COUNT)
+/* The counter moves away from the exit. */
+RANGE_TEST(range_lt_dir,    "",  3, 10,    -2,  15, 20,  PRE(">="),   NO_COUNT)
+RANGE_TEST(range_le_dir,    "",  3, 10,    -2,  15, 20,  PRE(">"),    NO_COUNT)
+RANGE_TEST(range_gt_dir,    "", 10, 20,     2,   3,  5,  PRE("<="),   NO_COUNT)
+RANGE_TEST(range_ge_dir,    "", 10, 20,     2,   3,  5,  PRE("<"),    NO_COUNT)
+/* '!=' can step over the bound, or start behind it. */
+RANGE_TEST(range_ne_step2,  "",  0,  3,     2,   3,  8,  PRE("=="),   NO_COUNT)
+RANGE_TEST(range_ne_behind, "",  0,  4,     1,   3,  8,  PRE("=="),   NO_COUNT)
+
 SEC("xdp")
 __success
 __log_level(2)
@@ -3359,6 +3484,38 @@ __naked void ptr_stack_other_frame(void)
 	exit;						\
 "	::: __clobber_all);
 }
+
+/*
+ * r6 is fp-63 + r0. The jump compares addresses. fp-1 is below fp+0: they have the order of signed
+ * offsets, as long as base + offset does not wrap around. Nothing limits the offset of a pointer
+ * that is compared only: fp-63 + 0..2^62 can be a small address.
+ */
+#define PTR_RANGE_TEST(name, offset, first, step, op, bound, expect)		\
+SEC("socket")									\
+__success __log_level(2)							\
+expect										\
+__naked void name(void)								\
+{										\
+	asm volatile (								\
+	"call %[bpf_get_prandom_u32];"						\
+	offset									\
+	"r6 = r10;"								\
+	"r6 += -63;"								\
+	"r6 += r0;"								\
+	"r7 = r10;"								\
+	"r9 = 0;"								\
+"1:"	LIMIT_ITERATIONS							\
+	first " += " #step ";"							\
+	"if " first " " op " " bound " goto 1b;"				\
+"2:	r0 = 0;"								\
+	"exit;"									\
+	:: __imm(bpf_get_prandom_u32) : __clobber_all);				\
+}
+
+PTR_RANGE_TEST(ptr_first_is_below_or_at_fp, "r0 &= 63;", "r6", 1, "<=", "r7",
+	       __msg("loop header at {{[0-9]+}}, header_count is [0..64] "))
+PTR_RANGE_TEST(ptr_first_offset_is_wide, "r0 >>= 2;", "r6", 1, "<", "r7", NO_COUNT)
+PTR_RANGE_TEST(ptr_bound_offset_is_wide, "r0 >>= 2;", "r7", -1, ">", "r6", NO_COUNT)
 
 SEC("xdp")
 __success
