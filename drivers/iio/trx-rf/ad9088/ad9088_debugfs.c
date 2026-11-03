@@ -19,6 +19,7 @@ enum ad9088_debugfs_cmd {
 	DBGFS_DEV_CHIP_INFO,
 	DBGFS_DEV_TEMP_INFO,
 	DBGFS_HSCI_ENABLE,
+	DBGFS_HSCI_RELINK,
 	DBGFS_CLK_PWR_STAT,
 	DBGFS_GENERIC,
 	DBGFS_JRX_PHASE_ADJUST_CALC,
@@ -585,6 +586,34 @@ static ssize_t ad9088_debugfs_write(struct file *file,
 			return -ENODEV;
 		}
 		break;
+	case DBGFS_HSCI_RELINK:
+		if (!phy->hsci)
+			return -ENODEV;
+
+		if (!val)
+			break;
+
+		ret = adi_apollo_hal_active_protocol_set(&phy->ad9088,
+							 ADI_APOLLO_HAL_PROTOCOL_SPI0);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_hal_active_protocol_set");
+		if (ret)
+			return ret;
+
+		ret = adi_apollo_device_hsci_configure(&phy->ad9088,
+						       &phy->ad9088.hal_info.hsci_desc.hsci_config);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_device_hsci_configure");
+		if (ret)
+			return ret;
+
+		ret = adi_apollo_hal_active_protocol_set(&phy->ad9088,
+							 ADI_APOLLO_HAL_PROTOCOL_HSCI);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+						"adi_apollo_hal_active_protocol_set");
+		if (ret)
+			return ret;
+		break;
 	case DBGFS_GENERIC:
 		if (ret < 1)
 			return -EINVAL;
@@ -904,6 +933,8 @@ void ad9088_debugfs_register(struct iio_dev *indio_dev)
 				 "temperature_status", DBGFS_DEV_TEMP_INFO);
 	ad9088_add_debugfs_entry(phy, indio_dev,
 				 "hsci_enable", DBGFS_HSCI_ENABLE);
+	ad9088_add_debugfs_entry(phy, indio_dev,
+				 "hsci_relink", DBGFS_HSCI_RELINK);
 	ad9088_add_debugfs_entry(phy, indio_dev,
 				 "misc", DBGFS_GENERIC);
 	ad9088_add_debugfs_entry(phy, indio_dev,
