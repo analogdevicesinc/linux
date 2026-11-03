@@ -33,9 +33,18 @@ static inline bool in_entry_save_code(unsigned long pc)
 	(current_thread_info()->syscall_meta \
 	|= ALPHA_SYSCALL_META_FORCE_SUCCESS)
 
-static inline unsigned long regs_return_value(struct pt_regs *regs)
+#define is_syscall_success is_syscall_success
+static inline int is_syscall_success(struct pt_regs *regs)
 {
-	return regs->r0;
+	return !regs->r19;
+}
+
+static inline long regs_return_value(struct pt_regs *regs)
+{
+	/* For user-mode registers, a3 is an error flag only at syscall exit. */
+	if (is_syscall_success(regs) || !user_mode(regs))
+		return regs->r0;
+	return -regs->r0;
 }
 
 unsigned long user_stack_pointer(struct pt_regs *regs);
