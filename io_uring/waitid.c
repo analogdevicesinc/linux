@@ -294,7 +294,7 @@ int io_waitid_prep(struct io_kiocb *req, const struct io_uring_sqe *sqe)
 	if (sqe->addr || sqe->buf_index || sqe->addr3 || sqe->waitid_flags)
 		return -EINVAL;
 
-	iwa = io_uring_alloc_async_data(NULL, req);
+	iwa = io_uring_alloc_async_data(req);
 	if (unlikely(!iwa))
 		return -ENOMEM;
 	iwa->req = req;

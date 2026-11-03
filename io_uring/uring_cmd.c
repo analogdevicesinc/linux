@@ -190,7 +190,7 @@ int io_uring_cmd_prep(struct io_kiocb *req, const struct io_uring_sqe *sqe)
 
 	ioucmd->cmd_op = READ_ONCE(sqe->cmd_op);
 
-	ac = io_uring_alloc_async_data(&req->ctx->cmd_cache, req);
+	ac = io_uring_alloc_cached_async_data(&req->ctx->cmd_cache, req);
 	if (!ac)
 		return -ENOMEM;
 	if (ac->vec.iovec)
