@@ -920,7 +920,7 @@ int mlxsw_hwmon_init(struct mlxsw_core *mlxsw_core,
 	return 0;
 
 err_linecards_event_ops_register:
-	hwmon_device_unregister(mlxsw_hwmon->line_cards[0].hwmon_dev);
+	hwmon_device_unregister(hwmon_dev);
 err_hwmon_register:
 err_temp_gearbox_init:
 err_temp_module_init:
