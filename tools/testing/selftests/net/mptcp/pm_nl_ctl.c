@@ -70,7 +70,7 @@ static int nl_error(struct nlmsghdr *nh)
 	uint32_t off;
 
 	if (len < sizeof(struct nlmsgerr)) {
-		error(1, 0, "netlink error message truncated %d min %ld", len,
+		error(1, 0, "netlink error message truncated %d min %zu", len,
 		      sizeof(struct nlmsgerr));
 		return -1;
 	}
