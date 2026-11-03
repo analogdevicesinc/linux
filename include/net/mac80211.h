@@ -5451,7 +5451,8 @@ void ieee80211_restart_hw(struct ieee80211_hw *hw);
  */
 void ieee80211_rx_list(struct ieee80211_hw *hw,
 		       struct ieee80211_link_sta *link_sta,
-		       struct sk_buff *skb, struct list_head *list);
+		       struct sk_buff *skb, struct list_head *list)
+	__must_hold_shared(RCU);
 
 /**
  * ieee80211_rx_napi - receive frame from NAPI context
@@ -6789,9 +6790,10 @@ struct ieee80211_sta *ieee80211_find_sta(struct ieee80211_vif *vif,
  *
  * DO NOT USE THIS FUNCTION with localaddr NULL if at all possible.
  */
-struct ieee80211_sta *ieee80211_find_sta_by_ifaddr(struct ieee80211_hw *hw,
-					       const u8 *addr,
-					       const u8 *localaddr);
+struct ieee80211_sta *
+ieee80211_find_sta_by_ifaddr(struct ieee80211_hw *hw, const u8 *addr,
+			     const u8 *localaddr)
+	__must_hold_shared(RCU);
 
 /**
  * ieee80211_find_sta_by_link_addrs - find STA by link addresses
@@ -6809,7 +6811,8 @@ struct ieee80211_sta *
 ieee80211_find_sta_by_link_addrs(struct ieee80211_hw *hw,
 				 const u8 *addr,
 				 const u8 *localaddr,
-				 unsigned int *link_id);
+				 unsigned int *link_id)
+	__must_hold_shared(RCU);
 
 /**
  * ieee80211_sta_block_awake - block station from waking up

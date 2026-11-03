@@ -733,6 +733,7 @@ ieee80211_mesh_update_bss_params(struct ieee80211_sub_if_data *sdata,
 
 bool ieee80211_mesh_xmit_fast(struct ieee80211_sub_if_data *sdata,
 			      struct sk_buff *skb, u32 ctrl_flags)
+	__must_hold_shared(RCU)
 {
 	struct ieee80211_if_mesh *ifmsh = &sdata->u.mesh;
 	struct ieee80211_mesh_fast_tx_key key = {

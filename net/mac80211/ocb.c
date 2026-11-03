@@ -85,7 +85,7 @@ void ieee80211_ocb_rx_no_sta(struct ieee80211_sub_if_data *sdata,
 }
 
 static struct sta_info *ieee80211_ocb_finish_sta(struct sta_info *sta)
-	__acquires(RCU)
+	__acquires_shared(RCU)
 {
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	u8 addr[ETH_ALEN];

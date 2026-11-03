@@ -2089,6 +2089,7 @@ static int ieee80211_skb_resize(struct ieee80211_sub_if_data *sdata,
 
 void ieee80211_xmit(struct ieee80211_sub_if_data *sdata,
 		    struct sta_info *sta, struct sk_buff *skb)
+	__must_hold_shared(RCU)
 {
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
@@ -2773,6 +2774,7 @@ static int ieee80211_ap_tx_addr_get(struct ieee80211_sub_if_data *sdata,
 static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
 					   struct sk_buff *skb,
 					   struct sta_info *sta)
+	__must_hold_shared(RCU)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_local *local = sdata->local;
@@ -6537,6 +6539,7 @@ void __ieee80211_tx_skb_tid_band(struct ieee80211_sub_if_data *sdata,
 				 struct sk_buff *skb, struct sta_info *sta,
 				 int tid, int link_id,
 				 enum nl80211_band band)
+	__must_hold_shared(RCU)
 {
 	const struct ieee80211_hdr *hdr = (void *)skb->data;
 	int ac = ieee80211_ac_from_tid(tid);

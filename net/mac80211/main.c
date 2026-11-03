@@ -610,7 +610,6 @@ static int ieee80211_ifa_changed(struct notifier_block *nb,
 	 * by the !wdev->registered check above.
 	 */
 	mutex_lock_nested(&local->hw.wiphy->mtx, 1);
-	__acquire(&local->hw.wiphy->mtx);
 
 	/* Copy the addresses to the vif config list */
 	ifa = rtnl_dereference(idev->ifa_list);

@@ -195,6 +195,7 @@ static void cleanup_single_sta(struct sta_info *sta)
 
 struct rhlist_head *sta_info_hash_lookup(struct ieee80211_local *local,
 					 const u8 *addr)
+	__must_hold_shared(RCU)
 {
 	return rhltable_lookup(&local->sta_hash, addr, sta_rht_params);
 }
@@ -249,6 +250,7 @@ struct sta_info *sta_info_get_bss(struct ieee80211_sub_if_data *sdata,
 
 struct rhlist_head *link_sta_info_hash_lookup(struct ieee80211_local *local,
 					      const u8 *addr)
+	__must_hold_shared(RCU)
 {
 	return rhltable_lookup(&local->link_sta_hash, addr,
 			       link_sta_rht_params);
@@ -283,6 +285,7 @@ ieee80211_find_sta_by_link_addrs(struct ieee80211_hw *hw,
 				 const u8 *addr,
 				 const u8 *localaddr,
 				 unsigned int *link_id)
+	__must_hold_shared(RCU)
 {
 	struct ieee80211_local *local = hw_to_local(hw);
 	struct link_sta_info *link_sta;
@@ -317,6 +320,7 @@ EXPORT_SYMBOL_GPL(ieee80211_find_sta_by_link_addrs);
 
 struct sta_info *sta_info_get_by_addrs(struct ieee80211_local *local,
 				       const u8 *sta_addr, const u8 *vif_addr)
+	__must_hold_shared(RCU)
 {
 	struct rhlist_head *tmp;
 	struct sta_info *sta;
@@ -997,7 +1001,8 @@ ieee80211_recalc_p2p_go_ps_allowed(struct ieee80211_sub_if_data *sdata)
 	}
 }
 
-static int sta_info_insert_finish(struct sta_info *sta) __acquires(RCU)
+static int sta_info_insert_finish(struct sta_info *sta)
+	__acquires_shared(RCU)
 {
 	struct ieee80211_local *local = sta->local;
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
@@ -1136,7 +1141,8 @@ static int sta_info_insert_finish(struct sta_info *sta) __acquires(RCU)
 	return err;
 }
 
-int sta_info_insert_rcu(struct sta_info *sta) __acquires(RCU)
+int sta_info_insert_rcu(struct sta_info *sta)
+	__acquires_shared(RCU)
 {
 	struct ieee80211_local *local = sta->local;
 	int err;
@@ -1964,6 +1970,7 @@ void ieee80211_sta_expire(struct ieee80211_sub_if_data *sdata,
 struct ieee80211_sta *ieee80211_find_sta_by_ifaddr(struct ieee80211_hw *hw,
 						   const u8 *addr,
 						   const u8 *localaddr)
+	__must_hold_shared(RCU)
 {
 	struct ieee80211_local *local = hw_to_local(hw);
 	struct rhlist_head *tmp;

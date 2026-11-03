@@ -896,7 +896,8 @@ void ieee80211_assign_tid_tx(struct sta_info *sta, int tid,
 #define STA_INFO_CLEANUP_INTERVAL (10 * HZ)
 
 struct rhlist_head *sta_info_hash_lookup(struct ieee80211_local *local,
-					 const u8 *addr);
+					 const u8 *addr)
+	__must_hold_shared(RCU);
 
 /*
  * Get a STA info, must be under RCU read lock.
@@ -909,14 +910,16 @@ struct sta_info *sta_info_get_bss(struct ieee80211_sub_if_data *sdata,
 
 /* user must hold wiphy mutex or be in RCU critical section */
 struct sta_info *sta_info_get_by_addrs(struct ieee80211_local *local,
-				       const u8 *sta_addr, const u8 *vif_addr);
+				       const u8 *sta_addr, const u8 *vif_addr)
+	__must_hold_shared(RCU);
 
 #define for_each_sta_info(local, _addr, _sta, _tmp)			\
 	rhl_for_each_entry_rcu(_sta, _tmp,				\
 			       sta_info_hash_lookup(local, _addr), hash_node)
 
 struct rhlist_head *link_sta_info_hash_lookup(struct ieee80211_local *local,
-					      const u8 *addr);
+					      const u8 *addr)
+	__must_hold_shared(RCU);
 
 #define for_each_link_sta_info(local, _addr, _sta, _tmp)		\
 	rhl_for_each_entry_rcu(_sta, _tmp,				\
@@ -961,7 +964,8 @@ void sta_info_free(struct ieee80211_local *local, struct sta_info *sta);
  * without it held.
  */
 int sta_info_insert(struct sta_info *sta);
-int sta_info_insert_rcu(struct sta_info *sta) __acquires(RCU);
+int sta_info_insert_rcu(struct sta_info *sta)
+	__acquires_shared(RCU);
 
 int __must_check __sta_info_destroy(struct sta_info *sta);
 int sta_info_destroy_addr(struct ieee80211_sub_if_data *sdata,

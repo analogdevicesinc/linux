@@ -2859,6 +2859,7 @@ ieee80211_deliver_skb(struct ieee80211_rx_data *rx)
 static bool
 ieee80211_rx_mesh_fast_forward(struct ieee80211_sub_if_data *sdata,
 			       struct sk_buff *skb, int hdrlen)
+	__must_hold_shared(RCU)
 {
 	struct ieee80211_if_mesh *ifmsh = &sdata->u.mesh;
 	struct ieee80211_mesh_fast_tx_key key = {
@@ -2924,6 +2925,7 @@ ieee80211_rx_mesh_fast_forward(struct ieee80211_sub_if_data *sdata,
 static ieee80211_rx_result
 ieee80211_rx_mesh_data(struct ieee80211_sub_if_data *sdata, struct sta_info *sta,
 		       struct sk_buff *skb)
+	__must_hold_shared(RCU)
 {
 #ifdef CONFIG_MAC80211_MESH
 	struct ieee80211_if_mesh *ifmsh = &sdata->u.mesh;
@@ -3107,6 +3109,7 @@ rx_accept:
 
 static ieee80211_rx_result debug_noinline
 __ieee80211_rx_h_amsdu(struct ieee80211_rx_data *rx, u8 data_offset)
+	__must_hold_shared(RCU)
 {
 	struct net_device *dev = rx->sdata->dev;
 	struct sk_buff *skb = rx->skb;
@@ -3193,6 +3196,7 @@ __ieee80211_rx_h_amsdu(struct ieee80211_rx_data *rx, u8 data_offset)
 
 static ieee80211_rx_result debug_noinline
 ieee80211_rx_h_amsdu(struct ieee80211_rx_data *rx)
+	__must_hold_shared(RCU)
 {
 	struct sk_buff *skb = rx->skb;
 	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(skb);
@@ -3250,6 +3254,7 @@ ieee80211_rx_h_amsdu(struct ieee80211_rx_data *rx)
 
 static ieee80211_rx_result debug_noinline
 ieee80211_rx_h_data(struct ieee80211_rx_data *rx)
+	__must_hold_shared(RCU)
 {
 	struct ieee80211_sub_if_data *sdata = rx->sdata;
 	struct ieee80211_local *local = rx->local;
@@ -4039,6 +4044,7 @@ ieee80211_rx_h_action_post_userspace(struct ieee80211_rx_data *rx)
 
 static ieee80211_rx_result debug_noinline
 ieee80211_rx_h_action_return(struct ieee80211_rx_data *rx)
+	__must_hold_shared(RCU)
 {
 	struct ieee80211_local *local = rx->local;
 	struct ieee80211_mgmt *mgmt = (struct ieee80211_mgmt *) rx->skb->data;
@@ -4193,6 +4199,7 @@ static void ieee80211_rx_handlers_result(struct ieee80211_rx_data *rx,
 
 static void ieee80211_rx_handlers(struct ieee80211_rx_data *rx,
 				  struct sk_buff_head *frames)
+	__must_hold_shared(RCU)
 {
 	ieee80211_rx_result res;
 	struct sk_buff *skb;
@@ -4274,6 +4281,7 @@ static void ieee80211_rx_handlers(struct ieee80211_rx_data *rx,
 }
 
 static void ieee80211_invoke_rx_handlers(struct ieee80211_rx_data *rx)
+	__must_hold_shared(RCU)
 {
 	struct sk_buff_head reorder_release;
 	ieee80211_rx_result res;
@@ -4390,6 +4398,7 @@ static bool ieee80211_rx_data_set_sta(struct ieee80211_rx_data *rx,
  * it has to be invoked under RCU read lock.
  */
 void ieee80211_release_reorder_timeout(struct sta_info *sta, int tid)
+	__must_hold_shared(RCU)
 {
 	struct sk_buff_head frames;
 	struct ieee80211_rx_data rx = {
@@ -4736,6 +4745,9 @@ static bool ieee80211_accept_frame(struct ieee80211_rx_data *rx)
 	return false;
 }
 
+/* only used within the function, see comment below */
+token_context_lock(check_fast_rx);
+
 void ieee80211_check_fast_rx(struct sta_info *sta)
 {
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
@@ -4751,7 +4763,7 @@ void ieee80211_check_fast_rx(struct sta_info *sta)
 	bool assign = false;
 	bool offload;
 
-	/* use sparse to check that we don't return without updating */
+	/* use context analysis to check that we don't return without updating */
 	__acquire(check_fast_rx);
 
 	BUILD_BUG_ON(sizeof(fastrx.rfc1042_hdr) != sizeof(rfc1042_header));
@@ -5026,6 +5038,7 @@ static void ieee80211_rx_8023(struct ieee80211_rx_data *rx,
 
 static bool ieee80211_invoke_fast_rx(struct ieee80211_rx_data *rx,
 				     struct ieee80211_fast_rx *fast_rx)
+	__must_hold_shared(RCU)
 {
 	struct sk_buff *skb = rx->skb;
 	struct ieee80211_hdr *hdr = (void *)skb->data;
@@ -5187,6 +5200,7 @@ static bool ieee80211_invoke_fast_rx(struct ieee80211_rx_data *rx,
  */
 static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
 					    struct sk_buff *skb, bool consume)
+	__must_hold_shared(RCU)
 {
 	struct ieee80211_local *local = rx->local;
 	struct ieee80211_sub_if_data *sdata = rx->sdata;
@@ -5341,6 +5355,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
 					 struct ieee80211_link_sta *link_pubsta,
 					 struct sk_buff *skb,
 					 struct list_head *list)
+	__must_hold_shared(RCU)
 {
 	struct ieee80211_local *local = hw_to_local(hw);
 	struct ieee80211_sub_if_data *sdata;
@@ -5590,6 +5605,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
 void ieee80211_rx_list(struct ieee80211_hw *hw,
 		       struct ieee80211_link_sta *link_pubsta,
 		       struct sk_buff *skb, struct list_head *list)
+	__must_hold_shared(RCU)
 {
 	struct ieee80211_local *local = hw_to_local(hw);
 	struct ieee80211_rate *rate = NULL;

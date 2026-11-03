@@ -2418,7 +2418,8 @@ void ieee80211_tx_ba_session_handle_rcu(struct sta_info *sta, int tid,
 					bool blocked);
 int ieee80211_stop_tx_ba_session_deferred(struct sta_info *sta, u16 tid,
 					  enum ieee80211_agg_stop_reason reason);
-void ieee80211_release_reorder_timeout(struct sta_info *sta, int tid);
+void ieee80211_release_reorder_timeout(struct sta_info *sta, int tid)
+	__must_hold_shared(RCU);
 
 u8 ieee80211_mcs_to_chains(const struct ieee80211_mcs_info *mcs);
 enum nl80211_smps_mode
@@ -2545,12 +2546,14 @@ void ieee80211_clear_tpe(struct ieee80211_parsed_tpe *tpe);
 void ieee80211_set_wmm_default(struct ieee80211_link_data *link,
 			       bool bss_notify, bool enable_qos);
 void ieee80211_xmit(struct ieee80211_sub_if_data *sdata,
-		    struct sta_info *sta, struct sk_buff *skb);
+		    struct sta_info *sta, struct sk_buff *skb)
+	__must_hold_shared(RCU);
 
 void __ieee80211_tx_skb_tid_band(struct ieee80211_sub_if_data *sdata,
 				 struct sk_buff *skb, struct sta_info *sta,
 				 int tid, int link_id,
-				 enum nl80211_band band);
+				 enum nl80211_band band)
+	__must_hold_shared(RCU);
 
 static inline bool ieee80211_require_encrypted_assoc(__le16 fc,
 						     struct sta_info *sta)

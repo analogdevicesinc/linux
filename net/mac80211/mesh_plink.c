@@ -591,7 +591,7 @@ mesh_sta_info_alloc(struct ieee80211_sub_if_data *sdata, u8 *addr,
 static struct sta_info *
 mesh_sta_info_get(struct ieee80211_sub_if_data *sdata,
 		  u8 *addr, struct ieee802_11_elems *elems,
-		  struct ieee80211_rx_status *rx_status) __acquires(RCU)
+		  struct ieee80211_rx_status *rx_status) __acquires_shared(RCU)
 {
 	struct sta_info *sta = NULL;
 

@@ -20,6 +20,9 @@
 #include "driver-ops.h"
 #include "wme.h"
 
+/* used for checking agg queue refcount */
+token_context_lock(agg_queue, __reentrant_ctx_lock);
+
 /**
  * DOC: TX A-MPDU aggregation
  *
