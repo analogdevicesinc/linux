@@ -9630,11 +9630,14 @@ static int check_arg_const_str(struct bpf_verifier_env *env,
 	return 0;
 }
 
-/* Returns constant key value in `value` if possible, else negative error */
-static int get_constant_map_key(struct bpf_verifier_env *env,
-				struct bpf_reg_state *key,
-				u32 key_size,
-				s64 *value)
+/*
+ * Returns the largest value of the key in `value` if it is below `max_entries`,
+ * else negative error
+ */
+static int get_max_map_key(struct bpf_verifier_env *env,
+			   struct bpf_reg_state *key,
+			   u32 key_size, u32 max_entries,
+			   u64 *value)
 {
 	struct bpf_func_state *state = bpf_func(env, key);
 	struct bpf_stack_state *ss;
@@ -9676,12 +9679,17 @@ static int get_constant_map_key(struct bpf_verifier_env *env,
 	if (spill_size != key_size)
 		return -EOPNOTSUPP;
 
+	/*
+	 * The slot has the range of the 64-bit register that was spilled. A value
+	 * below max_entries fits in the 4 bytes of the key.
+	 */
 	reg = &ss->spilled_ptr;
-	if (!tnum_is_const(reg->var_off))
-		/* Stack value not statically known */
+	if (reg_umax(reg) >= max_entries)
+		/* The lookup can return NULL: nothing depends on the key */
 		return -EOPNOTSUPP;
 
-	/* We are relying on a constant value. So mark as precise
+	/*
+	 * We are relying on the range of the key. So mark as precise
 	 * to prevent pruning on it.
 	 */
 	bpf_bt_set_frame_slot(&env->bt, key->frameno, spi);
@@ -9689,7 +9697,7 @@ static int get_constant_map_key(struct bpf_verifier_env *env,
 	if (err < 0)
 		return err;
 
-	*value = reg->var_off.value;
+	*value = reg_umax(reg);
 	return 0;
 }
 
@@ -9872,9 +9880,10 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 arg, u32 slot, u32 p
 		if (err)
 			return err;
 		if (can_elide_value_nullness(meta->map.ptr)) {
-			err = get_constant_map_key(env, reg, key_size, &meta->const_map_key);
+			err = get_max_map_key(env, reg, key_size, meta->map.ptr->max_entries,
+					      &meta->max_map_key);
 			if (err < 0) {
-				meta->const_map_key = -1;
+				meta->max_map_key = U64_MAX;
 				if (err == -EOPNOTSUPP)
 					err = 0;
 				else
@@ -12536,8 +12545,8 @@ static int update_loop_inline_state(struct bpf_verifier_env *env, u32 subprogno)
 }
 
 /* Returns whether or not the given map can potentially elide
- * lookup return value nullness check. This is possible if the key
- * is statically known.
+ * lookup return value nullness check. This is possible if the largest
+ * value of the key is statically known.
  */
 static bool can_elide_value_nullness(const struct bpf_map *map)
 {
@@ -12915,8 +12924,7 @@ static int check_helper_call(struct bpf_verifier_env *env, struct bpf_insn *insn
 
 		if (func_id == BPF_FUNC_map_lookup_elem &&
 		    can_elide_value_nullness(meta.map.ptr) &&
-		    meta.const_map_key >= 0 &&
-		    meta.const_map_key < meta.map.ptr->max_entries)
+		    meta.max_map_key < meta.map.ptr->max_entries)
 			ret_flag &= ~PTR_MAYBE_NULL;
 
 		regs[BPF_REG_0].map_ptr = meta.map.ptr;
