@@ -1471,6 +1471,33 @@ __naked void widen_subprog_probe_read(void)
 	::: __clobber_all);
 }
 
+/*
+ * The address of a stack slot is passed as a number. The helper may read what is there. It doesn't
+ * write, so the counter in the slot next to it is intact.
+ */
+SEC("tracepoint")
+__success __log_level(2)
+__msg("loop header at 2, header_count is 10")
+__naked void stack_address_as_a_number(void)
+{
+	asm volatile ("					\
+	*(u64 *)(r10 - 8) = 0;				\
+	*(u64 *)(r10 - 16) = 0;				\
+1:	r1 = r10;					\
+	r1 += -24;					\
+	r2 = 8;						\
+	r3 = r10;					\
+	r3 += -16;					\
+	call %[bpf_probe_read_kernel];			\
+	r1 = *(u64 *)(r10 - 8);				\
+	r1 += 1;					\
+	*(u64 *)(r10 - 8) = r1;				\
+	if r1 < 10 goto 1b;				\
+	r0 = 0;						\
+	exit;						\
+"	:: __imm(bpf_probe_read_kernel) : __clobber_all);
+}
+
 /* An induction variable whose range overflows s64 is widened to the full range. */
 SEC("socket")
 __success
