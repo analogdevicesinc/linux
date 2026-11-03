@@ -191,7 +191,8 @@ static void chacha_mod_init_arch(void)
 		static_branch_enable(&chacha_use_avx2);
 
 		if (boot_cpu_has(X86_FEATURE_AVX512VL) &&
-		    boot_cpu_has(X86_FEATURE_AVX512BW)) { /* kmovq */
+		    boot_cpu_has(X86_FEATURE_AVX512BW) &&
+		    boot_cpu_has(X86_FEATURE_BMI2)) {
 			static_branch_enable(&chacha_use_avx512vl);
 
 			if (!boot_cpu_has(X86_FEATURE_PREFER_YMM))

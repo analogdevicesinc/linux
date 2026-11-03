@@ -189,15 +189,13 @@ SYM_FUNC_START(chacha_2block_xor_avx512vl)
 
 .Lxorpart2:
 	# xor remaining bytes from partial register into output
-	mov		%rcx,%rax
+	mov		%rcx,%r9
+	and		$~0xf,%r9
 	and		$0xf,%rcx
 	jz		.Ldone2
-	mov		%rax,%r9
-	and		$~0xf,%r9
 
-	mov		$1,%rax
-	shld		%cl,%rax,%rax
-	sub		$1,%rax
+	mov		$-1,%rax
+	bzhi		%rcx,%rax,%rax
 	kmovq		%rax,%k1
 
 	vmovdqu8	(%rdx,%r9),%xmm1{%k1}{z}
@@ -455,15 +453,13 @@ SYM_FUNC_START(chacha_4block_xor_avx512vl)
 
 .Lxorpart4:
 	# xor remaining bytes from partial register into output
-	mov		%rcx,%rax
+	mov		%rcx,%r9
+	and		$~0xf,%r9
 	and		$0xf,%rcx
 	jz		.Ldone4
-	mov		%rax,%r9
-	and		$~0xf,%r9
 
-	mov		$1,%rax
-	shld		%cl,%rax,%rax
-	sub		$1,%rax
+	mov		$-1,%rax
+	bzhi		%rcx,%rax,%rax
 	kmovq		%rax,%k1
 
 	vmovdqu8	(%rdx,%r9),%xmm1{%k1}{z}
@@ -977,15 +973,13 @@ SYM_FUNC_END(chacha_4block_xor_avx512vl)
 
 .Lxorpart\@:
 	# xor remaining bytes from partial register into output
-	mov		%rcx,%rax
+	mov		%rcx,%r9
+	and		$~(VL - 1),%r9
 	and		$(VL - 1),%rcx
 	jz		.Ldone\@
-	mov		%rax,%r9
-	and		$~(VL - 1),%r9
 
-	mov		$1,%rax
-	shld		%cl,%rax,%rax
-	sub		$1,%rax
+	mov		$-1,%rax
+	bzhi		%rcx,%rax,%rax
 	kmovq		%rax,%k1
 
 	vmovdqu8	(%rdx,%r9),V1{%k1}{z}
