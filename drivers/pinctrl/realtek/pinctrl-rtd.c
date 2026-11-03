@@ -252,6 +252,9 @@ static const struct pinctrl_pin_desc
 static const struct rtd_pin_config_desc
 	*rtd_pinctrl_find_config(struct rtd_pinctrl *data, unsigned int pin)
 {
+	if (pin >= data->info->num_configs)
+		return NULL;
+
 	if (data->info->configs[pin].name)
 		return &data->info->configs[pin];
 
