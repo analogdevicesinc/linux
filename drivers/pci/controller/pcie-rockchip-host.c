@@ -1027,6 +1027,7 @@ static struct platform_driver rockchip_pcie_driver = {
 		.name = "rockchip-pcie",
 		.of_match_table = rockchip_pcie_of_match,
 		.pm = &rockchip_pcie_pm_ops,
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 	.probe = rockchip_pcie_probe,
 	.remove = rockchip_pcie_remove,
