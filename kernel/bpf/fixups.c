@@ -1776,6 +1776,51 @@ static int may_goto_expand(struct bpf_insn *insn_buf, int off, int reach,
 }
 
 /*
+ * Timed may_goto. All may_goto of a prog use one count and one timestamp: per-cpu memory of the
+ * prog, set in the first insns of the main prog, and by the callers of async callbacks.
+ * @reg holds the address. It is a register that is dead at the may_goto, or R0 that is saved at
+ * @save_off in the stack. See may_goto_expand() for @off and @reach.
+ */
+static int may_goto_expand_timed(struct bpf_insn *insn_buf, int off, int reach,
+				 struct bpf_timed_may_goto __percpu *tmg, int reg, int save_off)
+{
+	struct bpf_insn ld_tmg[] = { BPF_LD_IMM64(reg, (__force unsigned long)tmg) };
+	int cnt = 0, jmp, tail_cnt = save_off ? 6 : 5;
+
+	if (save_off)
+		insn_buf[cnt++] = BPF_STX_MEM(BPF_DW, BPF_REG_10, reg, save_off);
+	insn_buf[cnt++] = ld_tmg[0];
+	insn_buf[cnt++] = ld_tmg[1];
+	insn_buf[cnt++] = BPF_MOV64_PERCPU_REG(reg, reg);
+	insn_buf[cnt++] = BPF_LDX_MEM(BPF_DW, BPF_REG_AX, reg, 0);
+	if (save_off) {
+		insn_buf[cnt++] = BPF_JMP_IMM(BPF_JNE, BPF_REG_AX, 0, 2);
+		insn_buf[cnt++] = BPF_LDX_MEM(BPF_DW, reg, BPF_REG_10, save_off);
+		jmp = cnt++;
+		insn_buf[jmp] = BPF_JMP32_A(off >= 0 ? off + tail_cnt : off - jmp);
+	} else {
+		jmp = cnt;
+		off = off >= 0 ? off + tail_cnt : off - jmp;
+		reach = reach >= 0 ? reach + tail_cnt : reach - jmp;
+		if (reach == (s16)reach) {
+			insn_buf[cnt++] = BPF_JMP_IMM(BPF_JEQ, BPF_REG_AX, 0, off);
+		} else {
+			insn_buf[cnt++] = BPF_JMP_IMM(BPF_JNE, BPF_REG_AX, 0, 1);
+			insn_buf[cnt++] = BPF_JMP32_A(off >= 0 ? off : off - 1);
+		}
+	}
+	insn_buf[cnt++] = BPF_ALU64_IMM(BPF_SUB, BPF_REG_AX, 1);
+	insn_buf[cnt++] = BPF_JMP_IMM(BPF_JNE, BPF_REG_AX, 0, 2);
+	/* AX is the argument and the return value */
+	insn_buf[cnt++] = BPF_MOV64_REG(BPF_REG_AX, reg);
+	insn_buf[cnt++] = BPF_EMIT_CALL(arch_bpf_timed_may_goto);
+	insn_buf[cnt++] = BPF_STX_MEM(BPF_DW, reg, BPF_REG_AX, 0);
+	if (save_off)
+		insn_buf[cnt++] = BPF_LDX_MEM(BPF_DW, reg, BPF_REG_10, save_off);
+	return cnt;
+}
+
+/*
  * The offset of may_goto at 'idx' once the patches queued in front are applied.
  * The patches that a forward may_goto jumps over aren't queued yet, so its
  * offset stays as it is.
@@ -1815,6 +1860,9 @@ int bpf_do_misc_fixups(struct bpf_verifier_env *env)
 	struct bpf_subprog_info *subprogs = env->subprog_info;
 	u16 stack_depth = subprogs[cur_subprog].stack_depth;
 	u16 stack_depth_extra = 0;
+	/* arch_bpf_timed_may_goto() takes and returns AX in a cpu register: for JITs only */
+	bool timed_may_goto = prog->jit_requested && bpf_jit_supports_timed_may_goto();
+	struct bpf_timed_may_goto __percpu *tmg = NULL;
 
 	if (env->seen_exception && !env->exception_callback_subprog) {
 		struct bpf_insn *patch = insn_buf;
@@ -2050,39 +2098,29 @@ int bpf_do_misc_fixups(struct bpf_verifier_env *env)
 			goto next_insn;
 		}
 
-		if (bpf_is_may_goto_insn(insn) && bpf_jit_supports_timed_may_goto()) {
-			int stack_off_cnt = -stack_depth - 16;
-			/*
-			 * AX is used as an argument to pass in stack_off_cnt
-			 * (to add to r10/fp), and also as the return value of
-			 * the call to arch_bpf_timed_may_goto.
-			 */
-			struct bpf_insn tail[] = {
-				BPF_ALU64_IMM(BPF_SUB, BPF_REG_AX, 1),
-				BPF_JMP_IMM(BPF_JNE, BPF_REG_AX, 0, 2),
-				BPF_MOV64_IMM(BPF_REG_AX, stack_off_cnt),
-				BPF_EMIT_CALL(arch_bpf_timed_may_goto),
-				BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_AX, stack_off_cnt),
-			};
+		if (bpf_is_may_goto_insn(insn) && timed_may_goto) {
+			u16 live = env->insn_aux_data[i].live_regs_before;
+			int reg, save_off = 0;
 
-			/*
-			 * Two 8 byte slots, depth-16 stores the count, and
-			 * depth-8 stores the start timestamp of the loop.
-			 *
-			 * The starting value of count is BPF_MAX_TIMED_LOOPS
-			 * (0xffff).  Every iteration loads it and subs it by 1,
-			 * until the value becomes 0 in AX (thus, 1 in stack),
-			 * after which we call arch_bpf_timed_may_goto, which
-			 * either sets AX to 0xffff to keep looping, or to 0
-			 * upon timeout. AX is then stored into the stack. In
-			 * the next iteration, we either see 0 and break out, or
-			 * continue iterating until the next time value is 0
-			 * after subtraction, rinse and repeat.
-			 */
-			stack_depth_extra = 16;
-			cnt = may_goto_expand(insn_buf, insn->off,
-					      may_goto_off(env, insn, i),
-					      stack_off_cnt, tail, ARRAY_SIZE(tail));
+			/* a register that is dead here holds the address of the count */
+			for (reg = BPF_REG_0; reg <= BPF_REG_9; reg++)
+				if (!(live & BIT(reg)))
+					break;
+			if (reg > BPF_REG_9) {
+				reg = BPF_REG_0;
+				save_off = -stack_depth - 8;
+				stack_depth_extra = 8;
+			}
+			if (!tmg) {
+				tmg = alloc_percpu_gfp(struct bpf_timed_may_goto,
+						       GFP_KERNEL_ACCOUNT);
+				if (!tmg)
+					return -ENOMEM;
+				prog->aux->timed_may_goto = tmg;
+			}
+			prog->jit_required = 1;
+			cnt = may_goto_expand_timed(insn_buf, insn->off, may_goto_off(env, insn, i),
+						    tmg, reg, save_off);
 
 			insn = bpf_patch_list_add(env, i, insn_buf, cnt);
 			if (IS_ERR(insn))
@@ -2640,23 +2678,51 @@ next_insn:
 
 	env->prog->aux->stack_depth = subprogs[0].stack_depth;
 	for (i = 0; i < env->subprog_cnt; i++) {
-		int slots = bpf_jit_supports_timed_may_goto() ? 2 : 1;
 		int stack_slots = subprogs[i].stack_extra / 8;
+		/* an invocation begins, see bpf_timed_may_goto_save() for async callbacks */
+		bool main_prog = tmg && !i;
+		/* only a helper calls it, in a loop that ends when it returns 1 */
+		bool loop_cb = tmg && i && subprogs[i].is_loop_cb && !subprogs[i].is_called &&
+			       !subprogs[i].is_async_cb;
 
-		if (!stack_slots)
+		if (timed_may_goto ? !main_prog && !loop_cb : !stack_slots)
 			continue;
-		/* We need two slots in case timed may_goto is supported. */
-		if (stack_slots > slots) {
+		if (stack_slots > 1) {
 			verifier_bug(env, "stack_slots supports may_goto only");
 			return -EFAULT;
 		}
 
 		cnt = 0;
 		stack_depth = subprogs[i].stack_depth;
-		if (bpf_jit_supports_timed_may_goto()) {
-			insn_buf[cnt++] = BPF_ST_MEM(BPF_DW, BPF_REG_FP, -stack_depth,
-						     BPF_MAX_TIMED_LOOPS);
-			insn_buf[cnt++] = BPF_ST_MEM(BPF_DW, BPF_REG_FP, -stack_depth + 8, 0);
+		if (timed_may_goto) {
+			struct bpf_insn ld_tmg[] = {
+				BPF_LD_IMM64(BPF_REG_0, (__force unsigned long)tmg)
+			};
+			int count_off = offsetof(struct bpf_timed_may_goto, count);
+			int timestamp_off = offsetof(struct bpf_timed_may_goto, timestamp);
+			int owner_off = offsetof(struct bpf_timed_may_goto, owner);
+
+			/* R0 has nothing at the entry */
+			insn_buf[cnt++] = ld_tmg[0];
+			insn_buf[cnt++] = ld_tmg[1];
+			insn_buf[cnt++] = BPF_MOV64_PERCPU_REG(BPF_REG_0, BPF_REG_0);
+			if (main_prog) {
+				insn_buf[cnt++] = BPF_ST_MEM(BPF_DW, BPF_REG_0, count_off,
+							     BPF_MAX_TIMED_LOOPS);
+				insn_buf[cnt++] = BPF_ST_MEM(BPF_DW, BPF_REG_0, timestamp_off, 0);
+				insn_buf[cnt++] = BPF_ST_MEM(BPF_DW, BPF_REG_0, owner_off, 0);
+			} else {
+				/*
+				 * The time is up, but the helper would call the function again and
+				 * again. End its loop. The verifier has seen that: the loop can end
+				 * after each call.
+				 */
+				insn_buf[cnt++] = BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_0,
+							      count_off);
+				insn_buf[cnt++] = BPF_JMP_IMM(BPF_JNE, BPF_REG_0, 0, 2);
+				insn_buf[cnt++] = BPF_MOV64_IMM(BPF_REG_0, 1);
+				insn_buf[cnt++] = BPF_EXIT_INSN();
+			}
 		} else {
 			/* Add ST insn to subprog prologue to init extra stack */
 			insn_buf[cnt++] = BPF_ST_MEM(BPF_DW, BPF_REG_FP, -stack_depth,

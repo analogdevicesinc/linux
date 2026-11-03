@@ -91,22 +91,26 @@ __description("patch list: may_goto between patched insns")
 __arch_x86_64
 __arch_arm64
 __success
-__xlated("0: *(u64 *)(r10 -16) = 65535")
-__xlated("1: *(u64 *)(r10 -8) = 0")
-__xlated("2: call")
-__xlated("3: r1 = r0")
-__xlated("4: if r1 != 0x0 goto pc+2")
-__xlated("5: w0 ^= w0")
-__xlated("6: goto pc+1")
-__xlated("7: r0 /= r1")
-__xlated("8: r12 = *(u64 *)(r10 -16)")
-__xlated("9: if r12 == 0x0 goto pc+9")
+__xlated("0: r0 = ")
+__xlated("2: r0 = &(void __percpu *)(r0)")
+__xlated("3: *(u64 *)(r0 +0) = 65535")
 __xlated("...")
-__xlated("15: if r1 != 0x0 goto pc+2")
-__xlated("16: w0 ^= w0")
-__xlated("17: goto pc+1")
-__xlated("18: r0 /= r1")
-__xlated("19: exit")
+__xlated("6: call")
+__xlated("7: r1 = r0")
+__xlated("8: if r1 != 0x0 goto pc+2")
+__xlated("9: w0 ^= w0")
+__xlated("10: goto pc+1")
+__xlated("11: r0 /= r1")
+__xlated("12: r2 = ")
+__xlated("14: r2 = &(void __percpu *)(r2)")
+__xlated("15: r12 = *(u64 *)(r2 +0)")
+__xlated("16: if r12 == 0x0 goto pc+9")
+__xlated("...")
+__xlated("22: if r1 != 0x0 goto pc+2")
+__xlated("23: w0 ^= w0")
+__xlated("24: goto pc+1")
+__xlated("25: r0 /= r1")
+__xlated("26: exit")
 __naked void patch_list_may_goto(void)
 {
 	asm volatile (
@@ -214,10 +218,10 @@ __description("patch list: backward may_goto expanded to gotol")
 __arch_x86_64
 __arch_arm64
 __success
-__xlated("8: if r6 != 0x0 goto pc-3")
+__xlated("12: if r6 != 0x0 goto pc-3")
 __xlated("...")
-__xlated("32776: if r12 != 0x0 goto pc+1")
-__xlated("32777: gotol pc-32770")
+__xlated("32783: if r12 != 0x0 goto pc+1")
+__xlated("32784: gotol pc-32773")
 __naked void patch_list_may_goto_gotol(void)
 {
 	asm volatile ("					\
@@ -273,7 +277,7 @@ static unsigned long patch_list_loop_at_start(void)
 	"r1 += -1;"
 	".8byte %[may_goto];"
 	"if r1 != 0 goto l0_%=;"
-	"r0 = r1;"
+	"r0 = 0;"
 	"exit;"
 	:
 	: __imm_insn(may_goto, BPF_RAW_INSN(BPF_JMP | BPF_JCOND, 0, 0, 1 /* offset */, 0))
@@ -281,8 +285,9 @@ static unsigned long patch_list_loop_at_start(void)
 }
 
 /*
- * The setup of the may_goto count goes in front of the function. The call
- * lands on the setup, the jump to the first insn of the function behind it.
+ * The check of the may_goto count goes in front of the callback of bpf_loop().
+ * The call of the inlined bpf_loop() lands on the check, the jump to the first
+ * insn of the callback behind it.
  * This is the code for the JITs that support the timed may_goto.
  */
 SEC("raw_tp")
@@ -293,23 +298,33 @@ __arch_arm64
 __arch_riscv64
 __arch_loongarch
 __success
-__xlated("0: r1 = 3")
-__xlated("1: call pc+1")
-__xlated("2: exit")
-__xlated("3: *(u64 *)(r10 -16) = 65535")
-__xlated("4: *(u64 *)(r10 -8) = 0")
-__xlated("5: r1 += -1")
+__xlated("23: call pc+7")
 __xlated("...")
-__xlated("13: if r1 != 0x0 goto pc-9")
-__xlated("14: r0 = r1")
-__xlated("15: exit")
+__xlated("30: exit")
+__xlated("31: r0 = ")
+__xlated("33: r0 = &(void __percpu *)(r0)")
+__xlated("34: r0 = *(u64 *)(r0 +0)")
+__xlated("35: if r0 != 0x0 goto pc+2")
+__xlated("36: r0 = 1")
+__xlated("37: exit")
+__xlated("38: r1 += -1")
+__xlated("...")
+__xlated("49: if r1 != 0x0 goto pc-12")
+__xlated("50: r0 = 0")
+__xlated("51: exit")
 __naked void patch_list_insert_in_front(void)
 {
 	asm volatile (
 	"r1 = 3;"
-	"call patch_list_loop_at_start;"
+	"r2 = %[patch_list_loop_at_start] ll;"
+	"r3 = 0;"
+	"r4 = 0;"
+	"call %[bpf_loop];"
 	"exit;"
-	::: __clobber_all);
+	:
+	: __imm_addr(patch_list_loop_at_start),
+	  __imm(bpf_loop)
+	: __clobber_all);
 }
 
 __naked __noinline __used

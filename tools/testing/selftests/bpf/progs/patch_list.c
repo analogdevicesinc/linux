@@ -39,7 +39,7 @@ static int fn_3001(void)
 	asm volatile ("exit;");
 }
 
-/* the setup of the may_goto count goes in front of it */
+/* the setup of the may_goto count goes in front of it, or of fn_1001() when may_goto is timed */
 __naked __noinline __used
 static int fn_4001(void)
 {

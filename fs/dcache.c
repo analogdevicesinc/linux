@@ -359,32 +359,48 @@ static inline int dname_external(const struct dentry *dentry)
 	return dentry->d_name.name != dentry->d_shortname.string;
 }
 
-void take_dentry_name_snapshot(struct name_snapshot *name, struct dentry *dentry)
+static bool try_name_snapshot(struct name_snapshot *name, struct dentry *dentry)
 {
-	unsigned seq;
-	const unsigned char *s;
+	const unsigned char *s = READ_ONCE(dentry->d_name.name);
+	struct external_name *p;
 
-	rcu_read_lock();
-retry:
-	seq = read_seqcount_begin(&dentry->d_seq);
-	s = READ_ONCE(dentry->d_name.name);
 	name->name.hash_len = dentry->d_name.hash_len;
 	name->name.name = name->inline_name.string;
 	if (likely(s == dentry->d_shortname.string)) {
 		name->inline_name = dentry->d_shortname;
-	} else {
-		struct external_name *p;
-		p = container_of(s, struct external_name, name[0]);
-		// get a valid reference
-		if (unlikely(!atomic_inc_not_zero(&p->count)))
-			goto retry;
-		name->name.name = s;
+		return true;
 	}
-	if (read_seqcount_retry(&dentry->d_seq, seq)) {
+
+	// Try to get a valid external reference
+	//
+	// In case we fail to get a ref, 'name.name' will
+	// point to the inline_name, which we leave as an
+	// empty name. release_dentry_name_snapshot() can
+	// be called regardless.
+	p = container_of(s, struct external_name, name[0]);
+	if (unlikely(!atomic_inc_not_zero(&p->count))) {
+		name->name.len = 0;
+		name->inline_name.string[0] = 0;
+		return false;
+	}
+
+	// We got a ref and the name is now needs to be
+	// free'd regardless of whether the sequence count
+	// matches or not
+	name->name.name = s;
+	return true;
+}
+
+bool take_dentry_name_snapshot(struct name_snapshot *name, struct dentry *dentry)
+{
+	guard(rcu)();
+	for (;;) {
+		unsigned seq = read_seqcount_begin(&dentry->d_seq);
+		bool retval = try_name_snapshot(name, dentry);
+		if (!read_seqcount_retry(&dentry->d_seq, seq))
+			return retval;
 		release_dentry_name_snapshot(name);
-		goto retry;
 	}
-	rcu_read_unlock();
 }
 EXPORT_SYMBOL(take_dentry_name_snapshot);
 
@@ -452,10 +468,9 @@ static void dentry_free(struct dentry *dentry)
 }
 
 /*
- * If inode is unlinked and doesn't have any aliases (i.e., all fds pointing to
- * it are closed), it is pretty much dead. Except that file handle lookup could
- * still revive it which causes issues to fsnotify. So once inode reaches this
- * state we make sure to block creating any new aliases.
+ * When inode is unlinked and doesn't have any aliases (i.e., all fds pointing
+ * to it are closed) we report FS_DELETE_SELF to fsnotify and cleanup all inode
+ * marks.
  */
 static bool inode_notify_dead(struct inode *inode)
 {
@@ -2312,12 +2327,7 @@ static struct dentry *__d_obtain_alias(struct inode *inode, bool disconnected)
 
 	sb = inode->i_sb;
 
-	spin_lock(&inode->i_lock);
-	if (!inode_notify_dead(inode))
-		res = __d_find_any_alias(inode);	/* existing alias? */
-	else
-		res = ERR_PTR(-ESTALE);
-	spin_unlock(&inode->i_lock);
+	res = d_find_any_alias(inode); /* existing alias? */
 	if (res)
 		goto out;
 
@@ -2329,10 +2339,7 @@ static struct dentry *__d_obtain_alias(struct inode *inode, bool disconnected)
 
 	security_d_instantiate(new, inode);
 	spin_lock(&inode->i_lock);
-	if (!inode_notify_dead(inode))
-		res = __d_find_any_alias(inode);	/* recheck under lock */
-	else
-		res = ERR_PTR(-ESTALE);
+	res = __d_find_any_alias(inode); /* recheck under lock */
 	if (likely(!res)) { /* still no alias, attach a disconnected dentry */
 		unsigned add_flags = d_flags_for_inode(inode);
 

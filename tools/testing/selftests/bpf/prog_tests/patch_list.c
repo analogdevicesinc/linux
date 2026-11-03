@@ -45,11 +45,24 @@ static int run(struct bpf_program *prog)
 }
 #endif
 
+/* One of the insns that set the may_goto count, in the stack or in per-cpu memory. */
+static bool is_may_goto_setup(const struct bpf_insn *insn)
+{
+	switch (insn->code) {
+	case BPF_ST | BPF_MEM | BPF_DW:
+	case BPF_LD | BPF_IMM | BPF_DW:
+	case 0: /* the second half of ld_imm64 */
+	case BPF_ALU64 | BPF_MOV | BPF_X:
+		return true;
+	}
+	return false;
+}
+
 /* Whether 'r0 = mark' is at 'off', or behind the insns inserted in front of a function. */
 static bool mark_is_at(const struct bpf_insn *insns, __u32 cnt, __u32 off, bool func_start,
 		       int mark)
 {
-	while (func_start && off < cnt && insns[off].code == (BPF_ST | BPF_MEM | BPF_DW))
+	while (func_start && off < cnt && is_may_goto_setup(&insns[off]))
 		off++;
 	return off < cnt && insns[off].code == (BPF_ALU64 | BPF_MOV | BPF_K) &&
 	       insns[off].dst_reg == BPF_REG_0 && insns[off].imm == mark;
