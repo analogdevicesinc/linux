@@ -16358,6 +16358,7 @@ static int adjust_ptr_min_max_vals(struct bpf_verifier_env *env, struct bpf_insn
 	const char *reason;
 	int ret, bounds_ret;
 	bool to_scalar;
+	s64 smax;
 
 	dst_reg = &regs[dst];
 	/*
@@ -16513,12 +16514,18 @@ static int adjust_ptr_min_max_vals(struct bpf_verifier_env *env, struct bpf_insn
 			if (!known)
 				dst_reg->id = ++env->id_gen;
 			/*
-			 * Clear range for unknown addends since we can't know
-			 * where the pkt pointer ended up. Also clear AT_PKT_END /
+			 * The range is what umax of the pointer may get to, see
+			 * check_packet_access(). umax of the addend was added to it
+			 * and the pointer moved by that much at most, so the range
+			 * holds. Clear it if the addend may be negative: umax says
+			 * nothing then. Clear it if umax got to it: it permits no
+			 * byte at or after the pointer, and it would only keep equal
+			 * states apart in regsafe(). Also clear AT_PKT_END /
 			 * BEYOND_PKT_END from prior comparison as any pointer
 			 * arithmetic invalidates them.
 			 */
-			if (!known || dst_reg->range < 0)
+			if (dst_reg->range < 0 ||
+			    (!known && (smin_val < 0 || reg_umax(dst_reg) >= dst_reg->range)))
 				memset(&dst_reg->raw, 0, sizeof(dst_reg->raw));
 		}
 		break;
@@ -16611,11 +16618,18 @@ static int adjust_ptr_min_max_vals(struct bpf_verifier_env *env, struct bpf_insn
 	 * A packet pointer that keeps its id or range is checked against a
 	 * range set from the checked pointer's umax, so var_off must not tighten
 	 * its umax. r32 must still match var_off for reg_bounds_sanity_check().
+	 * A sum with a new id is different: progs rely on what var_off and the
+	 * step tell about it (alignment, umin). No other pointer has its id, so
+	 * it is enough that its range loses what its umax loses.
 	 */
-	if (reg_is_pkt_pointer(dst_reg) && (known || dst_reg->range > 0))
+	if (reg_is_pkt_pointer(dst_reg) &&
+	    (known || (opcode == BPF_SUB && dst_reg->range > 0))) {
 		__update_reg32_bounds(dst_reg);
-	else
+	} else {
+		smax = reg_smax(dst_reg);
 		reg_bounds_sync(dst_reg);
+		bpf_trim_pkt_range(dst_reg, smax);
+	}
 	bounds_ret = sanitize_check_bounds(env, insn, dst_reg);
 	if (bounds_ret == -EACCES)
 		return bounds_ret;
