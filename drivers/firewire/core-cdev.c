@@ -672,9 +672,8 @@ static int init_request(struct client *client,
 			struct fw_cdev_send_request *request,
 			int destination_id, int speed)
 {
-	struct outbound_transaction_event *e;
+	struct outbound_transaction_event *e __free(kfree) = NULL;
 	void *payload;
-	int ret;
 
 	if (request->tcode != TCODE_STREAM_DATA &&
 	    (request->length > 4096 || request->length > 512 << speed))
@@ -705,24 +704,19 @@ static int init_request(struct client *client,
 		payload = rsp->data;
 	}
 
-	if (request->data && copy_from_user(payload, u64_to_uptr(request->data), request->length)) {
-		ret = -EFAULT;
-		goto failed;
-	}
+	if (request->data && copy_from_user(payload, u64_to_uptr(request->data), request->length))
+		return -EFAULT;
 
-	ret = add_client_resource(client, &e->r.resource, release_transaction);
+	int ret = add_client_resource(client, &e->r.resource, release_transaction);
 	if (ret < 0)
-		goto failed;
+		return ret;
 
 	fw_send_request_with_tstamp(client->device->card, &e->r.transaction, request->tcode,
 				    destination_id, request->generation, speed, request->offset,
 				    payload, request->length, complete_transaction, e);
+	retain_and_null_ptr(e);
+
 	return 0;
-
- failed:
-	kfree(e);
-
-	return ret;
 }
 
 static int ioctl_send_request(struct client *client, union ioctl_arg *arg)
