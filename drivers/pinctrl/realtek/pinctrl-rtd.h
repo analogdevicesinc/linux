@@ -96,6 +96,9 @@ struct rtd_pin_reg_list {
 		.smt_offset = _smt_off, \
 		.power_offset = _pow_off, \
 		.curr_type = _curr_type, \
+		.input_volt_offset = NA, \
+		.slew_rate_offset = NA, \
+		.hvil_offset = NA, \
 	}
 
 #define RTK_PIN_CONFIG_V2(_name, _reg_off, _base_bit, _pud_en_off, \
@@ -112,6 +115,8 @@ struct rtd_pin_reg_list {
 		.power_offset = _pow_off, \
 		.input_volt_offset = _input_volt_off, \
 		.curr_type = _curr_type, \
+		.slew_rate_offset = NA, \
+		.hvil_offset = NA, \
 	}
 
 #define RTK_PIN_CONFIG_I2C(_name, _reg_off, _base_bit, _pud_en_off, \
