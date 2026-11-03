@@ -17,7 +17,6 @@
 #include <linux/stddef.h>
 #include <linux/unistd.h>
 #include <linux/ptrace.h>
-#include <linux/slab.h>
 #include <linux/user.h>
 #include <linux/screen_info.h>
 #include <linux/delay.h>
@@ -365,22 +364,6 @@ int page_is_ram(unsigned long pfn)
 
 	return 0;
 }
-
-static int __init
-register_cpus(void)
-{
-	int i;
-
-	for_each_possible_cpu(i) {
-		struct cpu *p = kzalloc_obj(*p);
-		if (!p)
-			return -ENOMEM;
-		register_cpu(p, i);
-	}
-	return 0;
-}
-
-arch_initcall(register_cpus);
 
 #ifdef CONFIG_MAGIC_SYSRQ
 static void sysrq_reboot_handler(u8 unused)
