@@ -936,7 +936,7 @@ struct bpf_verifier_log *bpf_log_attr_create_vlog(struct bpf_log_attr *attr_log,
 						  u32 size);
 int bpf_log_attr_finalize(struct bpf_log_attr *attr, struct bpf_verifier_log *log);
 
-#define BPF_MAX_SUBPROGS 256
+#define BPF_MAX_SUBPROGS 1024
 
 /*
  * A pointer to a static subprog in the value of a frozen read-only array map:
