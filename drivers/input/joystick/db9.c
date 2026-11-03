@@ -253,7 +253,8 @@ static unsigned char db9_saturn_read_packet(struct parport *port, unsigned char 
 /*
  * db9_saturn_report() analyzes packet and reports.
  */
-static int db9_saturn_report(unsigned char id, unsigned char data[60], struct input_dev *devs[], int n, int max_pads)
+static int db9_saturn_report(unsigned char id, unsigned char data[66],
+			      struct input_dev *devs[], int n, int max_pads)
 {
 	struct input_dev *dev;
 	int tmp, i, j;
@@ -321,7 +322,7 @@ static int db9_saturn_report(unsigned char id, unsigned char data[60], struct in
 
 static int db9_saturn(int mode, struct parport *port, struct input_dev *devs[])
 {
-	unsigned char id, data[60];
+	unsigned char id, data[66];
 	int type, n, max_pads;
 	int tmp, i;
 
