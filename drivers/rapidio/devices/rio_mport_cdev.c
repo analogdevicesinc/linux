@@ -717,8 +717,7 @@ static int do_dma_request(struct mport_dma_req *req,
 		goto err_out;
 	}
 
-	tx->callback = dma_xfer_callback;
-	tx->callback_param = req;
+	dmaengine_desc_set_callback(tx, dma_xfer_callback, NULL, req);
 
 	req->status = DMA_IN_PROGRESS;
 	kref_get(&req->refcount);
