@@ -62,6 +62,16 @@ static inline unsigned int pshift(void)
 	return __page_shift;
 }
 
+static inline uint64_t ptr_to_u64(const void *ptr)
+{
+	return (uintptr_t)ptr;
+}
+
+static inline void *u64_to_ptr(uint64_t val)
+{
+	return (void *)(uintptr_t)val;
+}
+
 static inline void force_read_pages(char *addr, unsigned int nr_pages,
 				    size_t pagesize)
 {

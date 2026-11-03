@@ -196,8 +196,8 @@ static int hmm_dmirror_cmd(int fd,
 	int ret;
 
 	/* Simulate a device reading system memory. */
-	cmd.addr = (__u64)buffer->ptr;
-	cmd.ptr = (__u64)buffer->mirror;
+	cmd.addr = ptr_to_u64(buffer->ptr);
+	cmd.ptr = ptr_to_u64(buffer->mirror);
 	cmd.npages = npages;
 
 	for (;;) {

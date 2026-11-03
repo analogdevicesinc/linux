@@ -341,17 +341,17 @@ static void uffd_wp_unpopulated_test(uffd_global_test_opts_t *gopts, uffd_test_a
 	pagemap_fd = pagemap_open();
 
 	/* Test applying pte marker to anon unpopulated */
-	wp_range(gopts->uffd, (uint64_t)gopts->area_dst, gopts->page_size, true);
+	wp_range(gopts->uffd, ptr_to_u64(gopts->area_dst), gopts->page_size, true);
 	value = pagemap_get_entry(pagemap_fd, gopts->area_dst);
 	pagemap_check_wp(value, true);
 
 	/* Test unprotect on anon pte marker */
-	wp_range(gopts->uffd, (uint64_t)gopts->area_dst, gopts->page_size, false);
+	wp_range(gopts->uffd, ptr_to_u64(gopts->area_dst), gopts->page_size, false);
 	value = pagemap_get_entry(pagemap_fd, gopts->area_dst);
 	pagemap_check_wp(value, false);
 
 	/* Test zap on anon marker */
-	wp_range(gopts->uffd, (uint64_t)gopts->area_dst, gopts->page_size, true);
+	wp_range(gopts->uffd, ptr_to_u64(gopts->area_dst), gopts->page_size, true);
 	if (madvise(gopts->area_dst, gopts->page_size, MADV_DONTNEED))
 		err("madvise(MADV_DONTNEED) failed");
 	value = pagemap_get_entry(pagemap_fd, gopts->area_dst);
@@ -366,7 +366,7 @@ static void uffd_wp_unpopulated_test(uffd_global_test_opts_t *gopts, uffd_test_a
 		err("madvise(MADV_DONTNEED) failed");
 
 	/* Test read-zero-page upon pte marker */
-	wp_range(gopts->uffd, (uint64_t)gopts->area_dst, gopts->page_size, true);
+	wp_range(gopts->uffd, ptr_to_u64(gopts->area_dst), gopts->page_size, true);
 	*(volatile char *)gopts->area_dst;
 	/* Drop it to make pte none again */
 	if (madvise(gopts->area_dst, gopts->page_size, MADV_DONTNEED))
@@ -389,7 +389,7 @@ static void uffd_wp_fork_test_common(uffd_global_test_opts_t *gopts, uffd_test_a
 
 	/* Touch the page */
 	*gopts->area_dst = 1;
-	wp_range(gopts->uffd, (uint64_t)gopts->area_dst, gopts->page_size, true);
+	wp_range(gopts->uffd, ptr_to_u64(gopts->area_dst), gopts->page_size, true);
 	value = pagemap_get_entry(pagemap_fd, gopts->area_dst);
 	pagemap_check_wp(value, true);
 	if (pagemap_test_fork(gopts, with_event, false)) {
@@ -430,7 +430,7 @@ static void uffd_wp_fork_test_common(uffd_global_test_opts_t *gopts, uffd_test_a
 	}
 
 	/* Unprotect; this tests swap pte modifications */
-	wp_range(gopts->uffd, (uint64_t)gopts->area_dst, gopts->page_size, false);
+	wp_range(gopts->uffd, ptr_to_u64(gopts->area_dst), gopts->page_size, false);
 	value = pagemap_get_entry(pagemap_fd, gopts->area_dst);
 	pagemap_check_wp(value, false);
 
@@ -469,7 +469,7 @@ static void uffd_wp_fork_pin_test_common(uffd_global_test_opts_t *gopts,
 
 	/* Touch the page */
 	*gopts->area_dst = 1;
-	wp_range(gopts->uffd, (uint64_t)gopts->area_dst, gopts->page_size, true);
+	wp_range(gopts->uffd, ptr_to_u64(gopts->area_dst), gopts->page_size, true);
 
 	/*
 	 * 1. First pin, then fork().  This tests fork() special path when
@@ -675,7 +675,7 @@ static void uffd_rwp_async_test(uffd_global_test_opts_t *gopts,
 		err("register failure");
 
 	/* RW-protect all pages (sets protnone) */
-	rwprotect_range(gopts->uffd, (uint64_t)gopts->area_dst,
+	rwprotect_range(gopts->uffd, ptr_to_u64(gopts->area_dst),
 			 nr_pages * page_size, true);
 
 	/* Access all pages — should auto-resolve, no faults */
@@ -739,7 +739,7 @@ static void uffd_rwp_sync_test(uffd_global_test_opts_t *gopts,
 		err("register failure");
 
 	/* RW-protect all pages */
-	rwprotect_range(gopts->uffd, (uint64_t)gopts->area_dst,
+	rwprotect_range(gopts->uffd, ptr_to_u64(gopts->area_dst),
 			 nr_pages * page_size, true);
 
 	/* Start fault handler thread */
@@ -816,7 +816,7 @@ static void uffd_rwp_pagemap_test(uffd_global_test_opts_t *gopts,
 			  nr_pages * page_size))
 		err("register failure");
 
-	rwprotect_range(gopts->uffd, (uint64_t)gopts->area_dst,
+	rwprotect_range(gopts->uffd, ptr_to_u64(gopts->area_dst),
 			 nr_pages * page_size, true);
 
 	/* Touch first half of pages to re-activate them (async auto-resolve) */
@@ -825,7 +825,7 @@ static void uffd_rwp_pagemap_test(uffd_global_test_opts_t *gopts,
 		(void)*page;
 	}
 
-	uint64_t start = (uint64_t)gopts->area_dst;
+	uint64_t start = ptr_to_u64(gopts->area_dst);
 	uint64_t boundary = start + (nr_pages / 2) * page_size;
 	uint64_t end = start + nr_pages * page_size;
 
@@ -844,7 +844,7 @@ static void uffd_rwp_pagemap_test(uffd_global_test_opts_t *gopts,
 	pm_arg.size = sizeof(pm_arg);
 	pm_arg.start = start;
 	pm_arg.end = end;
-	pm_arg.vec = (uint64_t)regions;
+	pm_arg.vec = ptr_to_u64(regions);
 	pm_arg.vec_len = ARRAY_SIZE(regions);
 	pm_arg.category_mask = PAGE_IS_ACCESSED;
 	pm_arg.return_mask = PAGE_IS_ACCESSED;
@@ -897,7 +897,7 @@ static void uffd_rwp_mprotect_test(uffd_global_test_opts_t *gopts,
 	if (uffd_register_rwp(gopts->uffd, gopts->area_dst,
 			      nr_pages * page_size))
 		err("register failure");
-	rwprotect_range(gopts->uffd, (uint64_t)gopts->area_dst,
+	rwprotect_range(gopts->uffd, ptr_to_u64(gopts->area_dst),
 			nr_pages * page_size, true);
 
 	/* Round-trip mprotect(): PROT_NONE -> PROT_READ|PROT_WRITE */
@@ -937,9 +937,9 @@ static void uffd_rwp_mprotect_test(uffd_global_test_opts_t *gopts,
 
 	memset(&pm_arg, 0, sizeof(pm_arg));
 	pm_arg.size = sizeof(pm_arg);
-	pm_arg.start = (uint64_t)gopts->area_dst;
-	pm_arg.end = (uint64_t)gopts->area_dst + nr_pages * page_size;
-	pm_arg.vec = (uint64_t)regions;
+	pm_arg.start = ptr_to_u64(gopts->area_dst);
+	pm_arg.end = ptr_to_u64(gopts->area_dst) + nr_pages * page_size;
+	pm_arg.vec = ptr_to_u64(regions);
 	pm_arg.vec_len = ARRAY_SIZE(regions);
 	pm_arg.category_mask = PAGE_IS_ACCESSED;
 	pm_arg.category_inverted = PAGE_IS_ACCESSED;
@@ -982,7 +982,7 @@ static void uffd_rwp_gup_test(uffd_global_test_opts_t *gopts,
 	if (uffd_register_rwp(gopts->uffd, gopts->area_dst, gopts->page_size))
 		err("register failure");
 
-	rwprotect_range(gopts->uffd, (uint64_t)gopts->area_dst,
+	rwprotect_range(gopts->uffd, ptr_to_u64(gopts->area_dst),
 			gopts->page_size, true);
 
 	if (pipe(pipefd))
@@ -1045,7 +1045,7 @@ static void uffd_rwp_async_toggle_test(uffd_global_test_opts_t *gopts,
 		err("register failure");
 
 	/* Phase 1: async detection — RW-protect, access first half */
-	rwprotect_range(gopts->uffd, (uint64_t)gopts->area_dst,
+	rwprotect_range(gopts->uffd, ptr_to_u64(gopts->area_dst),
 			 nr_pages * page_size, true);
 
 	for (p = 0; p < nr_pages / 2; p++) {
@@ -1092,7 +1092,7 @@ static void uffd_rwp_async_toggle_test(uffd_global_test_opts_t *gopts,
 	set_async_mode(gopts->uffd, true);
 
 	/* RW-protect and access again — should auto-resolve */
-	rwprotect_range(gopts->uffd, (uint64_t)gopts->area_dst,
+	rwprotect_range(gopts->uffd, ptr_to_u64(gopts->area_dst),
 			 nr_pages * page_size, true);
 
 	for (p = 0; p < nr_pages; p++) {
@@ -1127,7 +1127,7 @@ static void uffd_rwp_close_test(uffd_global_test_opts_t *gopts,
 			  nr_pages * page_size))
 		err("register failure");
 
-	rwprotect_range(gopts->uffd, (uint64_t)gopts->area_dst,
+	rwprotect_range(gopts->uffd, ptr_to_u64(gopts->area_dst),
 			 nr_pages * page_size, true);
 
 	/* Close uffd — should restore protnone PTEs */
@@ -1169,7 +1169,7 @@ static void uffd_rwp_fork_test(uffd_global_test_opts_t *gopts,
 
 	/* Populate + RWP-protect */
 	*gopts->area_dst = 1;
-	rwprotect_range(gopts->uffd, (uint64_t)gopts->area_dst,
+	rwprotect_range(gopts->uffd, ptr_to_u64(gopts->area_dst),
 			page_size, true);
 
 	/* Parent: verify uffd-wp bit is set before fork */
@@ -1223,7 +1223,7 @@ static void uffd_rwp_fork_pin_test(uffd_global_test_opts_t *gopts,
 	}
 
 	/* RWP-protect: PTE is now PAGE_NONE + uffd bit. */
-	rwprotect_range(gopts->uffd, (uint64_t)gopts->area_dst, page_size, true);
+	rwprotect_range(gopts->uffd, ptr_to_u64(gopts->area_dst), page_size, true);
 
 	pagemap_fd = pagemap_open();
 	value = pagemap_get_entry(pagemap_fd, gopts->area_dst);
@@ -1332,7 +1332,7 @@ static void uffd_rwp_swap_cow_test(uffd_global_test_opts_t *gopts,
 	*gopts->area_dst = 0x11;
 
 	/* RWP-protect: PTE becomes PAGE_NONE + uffd bit (still exclusive). */
-	rwprotect_range(gopts->uffd, (uint64_t)gopts->area_dst, page_size, true);
+	rwprotect_range(gopts->uffd, ptr_to_u64(gopts->area_dst), page_size, true);
 
 	/*
 	 * Swap the page out while it is still exclusive: a shared (forked)
@@ -1498,7 +1498,7 @@ static int faulting_process(uffd_global_test_opts_t *gopts, int signal_test, boo
 						/* This is a WP request */
 						assert(steps == 2);
 						wp_range(gopts->uffd,
-							 (__u64)gopts->area_dst +
+							 ptr_to_u64(gopts->area_dst) +
 							 offset,
 							 gopts->page_size, false);
 					}

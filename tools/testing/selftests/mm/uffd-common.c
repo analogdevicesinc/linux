@@ -488,7 +488,7 @@ void uffd_handle_page_fault(uffd_global_test_opts_t *gopts, struct uffd_msg *msg
 		 */
 
 		area = (uint8_t *)(gopts->area_dst +
-		       ((char *)msg->arg.pagefault.address -
+		       ((char *)u64_to_ptr(msg->arg.pagefault.address) -
 		       gopts->area_dst_alias));
 		for (b = 0; b < gopts->page_size; ++b)
 			area[b] = ~area[b];

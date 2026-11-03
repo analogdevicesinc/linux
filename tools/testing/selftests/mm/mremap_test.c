@@ -17,6 +17,7 @@
 #include <stdbool.h>
 
 #include "kselftest.h"
+#include "vm_util.h"
 
 #define EXPECT_SUCCESS 0
 #define EXPECT_FAILURE 1
@@ -190,7 +191,7 @@ retry:
 	if (addr < mmap_min_addr)
 		goto retry;
 
-	src_addr = mmap((void *) addr, c.region_size, PROT_READ | PROT_WRITE,
+	src_addr = mmap(u64_to_ptr(addr), c.region_size, PROT_READ | PROT_WRITE,
 					MAP_FIXED_NOREPLACE | MAP_ANONYMOUS | MAP_SHARED,
 					-1, 0);
 	if (src_addr == MAP_FAILED) {
@@ -206,8 +207,8 @@ retry:
 	 * requested alignment of 2MB. This is done to reduce coincidental
 	 * alignment in the tests.
 	 */
-	if (((unsigned long long) src_addr & (c.src_alignment - 1)) ||
-			!((unsigned long long) src_addr & c.src_alignment)) {
+	if ((ptr_to_u64(src_addr) & (c.src_alignment - 1)) ||
+			!(ptr_to_u64(src_addr) & c.src_alignment)) {
 		munmap(src_addr, c.region_size);
 		goto retry;
 	}
@@ -996,15 +997,15 @@ static long long remap_region(struct config c, unsigned int threshold_mb,
 	align_mask = ~(c.dest_alignment - 1);
 	/* Offset of destination address from the end of the source region */
 	offset = (c.overlapping) ? -c.dest_alignment : c.dest_alignment;
-	addr = (void *) (((unsigned long long) src_addr + c.region_size
+	addr = u64_to_ptr((ptr_to_u64(src_addr) + c.region_size
 			  + offset) & align_mask);
 
 	/* Remap after the destination block preamble. */
 	addr += c.dest_preamble_size;
 
 	/* See comment in get_source_mapping() */
-	if (!((unsigned long long) addr & c.dest_alignment))
-		addr = (void *) ((unsigned long long) addr | c.dest_alignment);
+	if (!(ptr_to_u64(addr) & c.dest_alignment))
+		addr = u64_to_ptr(ptr_to_u64(addr) | c.dest_alignment);
 
 	/* Don't destroy existing mappings unless expected to overlap. */
 	while (!is_remap_region_valid(addr - c.dest_preamble_size,
