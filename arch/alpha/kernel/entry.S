@@ -8,9 +8,6 @@
 #include <asm/asm-offsets.h>
 #include <asm/thread_info.h>
 #include <asm/pal.h>
-#include <asm/errno.h>
-#include <asm/unistd.h>
-#include <linux/errno.h>
 
 	.text
 	.set noat
@@ -479,9 +476,6 @@ CFI_END_OSF_FRAME entDbg
 	.cfi_rel_offset	$gp, 16
 entSys:
 	SAVE_ALL
-	ldq	$1, 0($sp)	/* syscall nr from saved r0 */
-	stq	$1, 8($sp)	/* regs->r1 = shadow syscall nr */
-
 	lda	$8, 0x3fff
 	bic	$sp, $8, $8
 
@@ -492,47 +486,13 @@ entSys:
 	.globl	__entry_save_end
 __entry_save_end:
 
-	mov	$0, $1
 	lda	$16, 7
 	call_pal PAL_swpipl
-	mov	$1, $0
 	mov	$sp, $16
-	mov	$0, $17	 /* pv = selected syscall function */
 
+	/* Keep the complete user context above all C call frames. */
 	DO_SWITCH_STACK
-	jsr	$26, alpha_syscall_enter_select
-	ldgp	$gp, 0($26)
-	UNDO_SWITCH_STACK
-
-	/*
-	 * C returned syscall function pointer in $0.
-	 * It also stored SKIP in TI_SYSCALL_META if dispatch is skipped.
-	 */
-	lda	$8, 0x3fff
-	bic	$sp, $8, $8
-	ldq	$3, TI_SYSCALL_META($8)
-	lda	$6, ALPHA_SYSCALL_META_SKIP
-	and	$3, $6, $6
-	bne	$6, skip_dispatch
-
-
-	mov	$0, $27
-	ldq	$16, SP_OFF+24($sp)
-	ldq	$17, SP_OFF+32($sp)
-	ldq	$18, SP_OFF+40($sp)
-	ldq	$19, 72($sp)
-	ldq	$20, 80($sp)
-	ldq	$21, 88($sp)
-
-	jsr	$26, ($27), sys_ni_syscall
-	ldgp	$gp, 0($26)
-
-skip_dispatch:
-	mov	$0, $17		/* raw ret; ignored if SKIP is set */
-	mov	$sp, $16	/* regs */
-
-	DO_SWITCH_STACK
-	jsr	$26, alpha_finish_syscall_to_user_mode
+	jsr	$26, alpha_syscall
 	ldgp	$gp, 0($26)
 	UNDO_SWITCH_STACK
 
@@ -546,25 +506,6 @@ restore_other:
 	.cfi_remember_state
 	RESTORE_ALL
 	call_pal PAL_rti
-
-ret_to_user_from_syscall:
-	lda	$8, 0x3fff
-	bic	$sp, $8, $8
-
-	mov	$sp, $16
-	DO_SWITCH_STACK
-	jsr	$26, alpha_syscall_exit_to_user_mode
-	ldgp	$gp, 0($26)
-	UNDO_SWITCH_STACK
-	br	restore_all
-
-	.align	4
-	.globl	ret_from_sys_call
-ret_from_sys_call:
-	ldq	$0, SP_OFF($sp)
-	and	$0, 8, $0
-	beq	$0, ret_to_kernel
-	br	ret_to_user_from_syscall
 
 ret_from_exception:
 	ldq	$0, SP_OFF($sp)
@@ -729,72 +670,3 @@ ret_from_kernel_thread:
 	jsr	$26, ($9)
 	br	$31, ret_to_user_from_exception
 .end ret_from_kernel_thread
-
-
-/*
- * Special system calls.  Most of these are special in that they either
- * have to play switch_stack games.
- */
-
-.macro	fork_like name
-	.align	4
-	.globl	alpha_\name
-	.ent	alpha_\name
-alpha_\name:
-	.prologue 0
-	bsr	$1, do_switch_stack
-	// NB: if anyone adds preemption, this block will need to be protected
-	ldl	$1, TI_STATUS($8)
-	and	$1, TS_SAVED_FP, $3
-	or	$1, TS_SAVED_FP, $2
-	bne	$3, 1f
-	stl	$2, TI_STATUS($8)
-	bsr	$26, __save_fpu
-1:
-	jsr	$26, sys_\name
-	ldq	$26, 56($sp)
-	lda	$sp, SWITCH_STACK_SIZE($sp)
-	ret
-.end	alpha_\name
-.endm
-
-fork_like fork
-fork_like vfork
-fork_like clone
-fork_like clone3
-
-.macro	sigreturn_like name
-	.align	4
-	.globl	sys_\name
-	.ent	sys_\name
-sys_\name:
-	.prologue 0
-	mov	$sp, $10
-	lda	$sp, -SWITCH_STACK_SIZE($sp)
-	jsr	$26, do_\name
-1:	br	$1, undo_switch_stack
-	br	ret_from_sys_call
-.end sys_\name
-.endm
-
-sigreturn_like sigreturn
-sigreturn_like rt_sigreturn
-
-	.align	4
-	.globl	alpha_syscall_zero
-	.ent	alpha_syscall_zero
-alpha_syscall_zero:
-	.prologue 0
-	/* Special because it needs to do something opposite to
-	   force_successful_syscall_return().  We use the saved
-	   syscall number for that, zero meaning "not an error".
-	   That works nicely, but for real syscall 0 we need to
-	   make sure that this logics doesn't get confused.
-	   Store a non-zero there - -ENOSYS we need in register
-	   for our return value will do just fine.
-	  */
-	lda	$0, -ENOSYS
-	unop
-	stq	$0, 0($sp)
-	ret
-.end alpha_syscall_zero

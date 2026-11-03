@@ -29,12 +29,8 @@ static inline long syscall_get_error(struct task_struct *task,
 
 
 /*
- * Alpha syscall ABI / kernel conventions:
- *  - PAL provides syscall number in r0 on entry.
- *  - The kernel tracks the active syscall number in regs->r1 (mutable) and
- *    preserves the original syscall number in regs->r2 for rollback/restart.
- *  - Return value is in regs->r0, with regs->r19 ("a3") as the error flag
- *    (0=success, 1=error; on error regs->r0 holds positive errno).
+ * The syscall number arrives in r0. Entry saves the original in thread_info
+ * for rollback and restart, while tracers can change the number in r1.
  */
 
 static inline long syscall_get_nr(struct task_struct *task,
@@ -80,14 +76,8 @@ static inline void syscall_set_arguments(struct task_struct *task,
 	regs->r21 = args[5];
 }
 /*
- * Set return value for a syscall.
- * Alpha uses r0 for return value and r19 ("a3") as the error indicator:
- *   a3 = 0 => success
- *   a3 = 1 => error, and userspace interprets r0 as errno (positive).
- *
- * The kernel reports errors to userspace by setting a3=1 and placing a
- * positive errno value in r0. Some syscall paths do this in entry.S,
- * while others (e.g. seccomp/ptrace helpers) use syscall_set_return_value().
+ * On error, r0 holds a positive errno and a3 is set.
+ * On success, r0 holds the result and a3 is clear.
  */
 
 static inline void syscall_set_return_value(struct task_struct *task,

@@ -57,6 +57,7 @@ register unsigned long *current_stack_pointer __asm__ ("$30");
 
 #define ALPHA_SYSCALL_META_SKIP			0x2
 #define ALPHA_SYSCALL_META_FORCE_SUCCESS	0x4
+#define ALPHA_SYSCALL_META_RESTORED		0x8
 #define ALPHA_SYSCALL_META_ROLLBACK		0x10
 #define ALPHA_SYSCALL_META_RESULT			0x20
 
