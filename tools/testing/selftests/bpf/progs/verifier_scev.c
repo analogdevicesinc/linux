@@ -3064,6 +3064,91 @@ __naked void conditional_scalar_assignment_gcd(void)
 }
 
 /*
+ * Registers that have no linear formula, and the state that enters the loop stands for all
+ * iterations all the same. r7 is what @init makes of an unknown number, r8 is unknown.
+ */
+#define NOT_LINEAR_TEST(name, init, op, expect)					\
+SEC("socket")									\
+__success __log_level(2)							\
+expect										\
+__naked void name(void)								\
+{										\
+	asm volatile (								\
+	"call %[bpf_get_prandom_u32];"						\
+	"r8 = r0;"								\
+	"call %[bpf_get_prandom_u32];"						\
+	"r7 = r0;"								\
+	init									\
+	"r6 = 0;"								\
+"1:"	op									\
+	"r6 += 1;"								\
+	"if r6 < 8 goto 1b;"							\
+	"r0 = r7;"								\
+	"r0 &= 1;"								\
+	"exit;"									\
+	:: __imm(bpf_get_prandom_u32) : __clobber_all);				\
+}
+
+/* [0, max] that loses bits is in [0, max], and a bit that is 0 stays 0 */
+#define LOSES_BITS(max)	__msg("r7 stays in 0.." #max ", it loses bits only")
+#define UNROLLED(expr)	__msg("can't widen r7, expr is " expr) __not_msg("it loses bits only")
+
+NOT_LINEAR_TEST(and_clears_a_bit, "r7 &= 255;", "r1 = 1; r1 <<= r6; r1 ^= -1; r7 &= r1;",
+		LOSES_BITS(255))
+NOT_LINEAR_TEST(and_on_the_right, "r7 &= 255;", "r1 = r8; r1 &= r7; r7 = r1;", LOSES_BITS(255))
+NOT_LINEAR_TEST(and_0_or_64, "r7 &= 64;", "r7 &= r8;", LOSES_BITS(64))
+NOT_LINEAR_TEST(zext32_or_nothing, "r7 >>= 8;", "if r8 == 0 goto +1; w7 = w7;",
+		LOSES_BITS(72057594037927935))
+/* 64..127 can become 0 */
+NOT_LINEAR_TEST(and_64_to_127, "r7 &= 63; r7 |= 64;", "r7 &= 127;", UNROLLED("(& r7 127)"))
+/* '>>' does not make a number greater, but iterations one by one tell more: 0 after 8 shifts */
+NOT_LINEAR_TEST(rsh_on_one_path, "r7 &= 255;", "if r8 == 0 goto +1; r7 >>= 1;",
+		UNROLLED("(any r7 (>> r7 1))"))
+NOT_LINEAR_TEST(rsh_then_and, "r7 &= 255;", "r7 >>= 1; r7 &= r8;", UNROLLED("(& (>> r7 1) r8)"))
+NOT_LINEAR_TEST(lsh_grows, "r7 &= 15;", "r7 <<= 1;", UNROLLED("(<< r7 1)"))
+
+/* bpf_compute_const_regs() knows that r7 is the same constant in each iteration */
+#define NOT_CHANGED	__msg("widening r6 to 0..7")
+NOT_LINEAR_TEST(same_constant, "r7 = 17;", "r7 &= 31;", NOT_CHANGED)
+NOT_LINEAR_TEST(same_wide_constant, "r7 = 0xffffffff00000011 ll;", "r7 &= -239;", NOT_CHANGED)
+
+#ifdef __BPF_FEATURE_ADDR_SPACE_CAST
+struct {
+	__uint(type, BPF_MAP_TYPE_ARENA);
+	__uint(map_flags, BPF_F_MMAPABLE);
+	__uint(max_entries, 1);
+} arena SEC(".maps");
+
+/* The offset of a pointer to arena is not tracked */
+#define ARENA_TEST(name, op, expect)						\
+SEC("syscall")									\
+__log_level(2)									\
+expect										\
+__naked void name(void)								\
+{										\
+	asm volatile (								\
+	"r1 = %[arena] ll;"							\
+	"r6 = 0;"								\
+	"r6 = addr_space_cast(r6, 0, 1);"					\
+	"r7 = 0;"								\
+"1:	*(u64 *)(r6 + 0) = r7;"							\
+	op									\
+	"r7 += 1;"								\
+	"if r7 < 100 goto 1b;"							\
+	"r0 = 0;"								\
+	"exit;"									\
+	:: __imm_addr(arena) : __clobber_all);					\
+}
+
+#define NOT_UNROLLED100	__msg("loop header at 5, widening r7 to 0..99 step 1")
+/* A loop that moves the pointer is not unrolled */
+ARENA_TEST(arena_pointer_moves, "r6 += 8;", __success NOT_UNROLLED100)
+/* The loop makes a number of it: the state that returns to the loop header tells */
+ARENA_TEST(arena_pointer_becomes_a_number, "if r7 != 5 goto +1; r6 = 4096;",
+	   __failure NOT_UNROLLED100 __msg("R6 invalid mem access 'scalar'"))
+#endif
+
+/*
  * r7 = ctx->data;
  * r8 = r7
  * for (r6 = 0; r6 < 10 && random() != 42; r7++, r6++);
