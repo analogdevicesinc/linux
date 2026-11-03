@@ -2,6 +2,8 @@
 obj-$(CONFIG_CFG80211) += cfg80211.o
 obj-y += tests/
 
+CONTEXT_ANALYSIS := y
+
 obj-$(CONFIG_WEXT_CORE) += wext-core.o
 obj-$(CONFIG_WEXT_PROC) += wext-proc.o
 obj-$(CONFIG_WEXT_PRIV) += wext-priv.o

@@ -230,11 +230,12 @@ cfg80211_get_dev_from_info(struct net *netns, struct genl_info *info)
  *
  * Returns with wiphy mutex held unless there was an error.
  */
-static struct wireless_dev *
-nl80211_lock_and_recheck(struct cfg80211_registered_device *rdev,
-			 struct net *netns, u32 wdev_id)
+static int nl80211_lock_and_recheck(struct cfg80211_registered_device *rdev,
+				    struct net *netns, u32 wdev_id,
+				    struct wireless_dev **wdev)
+	__cond_acquires(0, &rdev->wiphy.mtx)
 {
-	struct wireless_dev *wdev;
+	struct wireless_dev *tmp;
 
 	wiphy_lock(&rdev->wiphy);
 
@@ -242,7 +243,7 @@ nl80211_lock_and_recheck(struct cfg80211_registered_device *rdev,
 	    !net_eq(wiphy_net(&rdev->wiphy), netns)) {
 		wiphy_unlock(&rdev->wiphy);
 		put_device(&rdev->wiphy.dev);
-		return ERR_PTR(-ENODEV);
+		return -ENODEV;
 	}
 
 	/*
@@ -251,19 +252,22 @@ nl80211_lock_and_recheck(struct cfg80211_registered_device *rdev,
 	 */
 	put_device(&rdev->wiphy.dev);
 
-	if (!wdev_id)
-		return NULL;
+	if (!wdev_id) {
+		*wdev = NULL;
+		return 0;
+	}
 
-	list_for_each_entry(wdev, &rdev->wiphy.wdev_list, list) {
-		if (wdev->identifier != wdev_id)
+	list_for_each_entry(tmp, &rdev->wiphy.wdev_list, list) {
+		if (tmp->identifier != wdev_id)
 			continue;
-		if (wdev->netdev && !net_eq(dev_net(wdev->netdev), netns))
+		if (tmp->netdev && !net_eq(dev_net(tmp->netdev), netns))
 			break;
-		return wdev;
+		*wdev = tmp;
+		return 0;
 	}
 	wiphy_unlock(&rdev->wiphy);
 
-	return ERR_PTR(-ENODEV);
+	return -ENODEV;
 }
 
 /* like nl80211_lock_and_recheck() but under RCU, for wdev_hold() */
@@ -290,36 +294,51 @@ nl80211_wdev_by_id_rcu(struct cfg80211_registered_device *rdev,
 /*
  * Must have wdev_hold(), acquire the wiphy mutex. This has to
  * look up the wdev again (otherwise it could deadlock against
- * wdev removal), so it can return an error pointer.
+ * wdev removal), so it can return NULL.
  */
-static struct wireless_dev *
-__nl80211_lock_held_wdev(struct cfg80211_registered_device *rdev,
-			 struct net *netns, struct wireless_dev *wdev)
+static int __nl80211_lock_held_wdev(struct cfg80211_registered_device *rdev,
+				    struct net *netns,
+				    struct wireless_dev *wdev)
+	__cond_acquires(0, &rdev->wiphy.mtx)
 {
 	u32 wdev_id = wdev->identifier;
+	struct wireless_dev *tmp;
+	int err;
 
 	/* the wdev reference was keeping the wiphy alive */
 	get_device(&rdev->wiphy.dev);
 	wdev_put(wdev);
 
-	return nl80211_lock_and_recheck(rdev, netns, wdev_id);
+	err = nl80211_lock_and_recheck(rdev, netns, wdev_id, &tmp);
+	if (err)
+		return err;
+
+	if (WARN_ON(!tmp || tmp != wdev)) {
+		wiphy_unlock(&rdev->wiphy);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
-static struct wireless_dev *
-nl80211_lock_held_wdev(struct cfg80211_registered_device *rdev,
-		       struct genl_info *info, struct wireless_dev *wdev)
+static int nl80211_lock_held_wdev(struct cfg80211_registered_device *rdev,
+				  struct genl_info *info,
+				  struct wireless_dev *wdev)
+	__cond_acquires(0, &rdev->wiphy.mtx)
 {
+	int err;
+
 	info->user_ptr[1] = NULL;
-	wdev = __nl80211_lock_held_wdev(rdev, genl_info_net(info), wdev);
-	if (IS_ERR(wdev))
-		return wdev;
+	err = __nl80211_lock_held_wdev(rdev, genl_info_net(info), wdev);
+	if (err)
+		return err;
 
 	if (!wdev_running(wdev)) {
 		wiphy_unlock(&rdev->wiphy);
-		return ERR_PTR(-ENETDOWN);
+		return -ENETDOWN;
 	}
 
-	return wdev;
+	return 0;
 }
 
 static int validate_beacon_head(const struct nlattr *attr,
@@ -1358,6 +1377,7 @@ static int __nl80211_prepare_wdev_dump(struct netlink_callback *cb,
 				       struct cfg80211_registered_device **rdev,
 				       struct wireless_dev **wdev,
 				       struct nlattr **attrbuf, bool lock)
+	__cond_acquires(0, &(*rdev)->wiphy.mtx)
 {
 	struct net *netns = sock_net(cb->skb->sk);
 	u32 wdev_id;
@@ -1410,13 +1430,15 @@ static int __nl80211_prepare_wdev_dump(struct netlink_callback *cb,
 		if (!*wdev)
 			return -ENODEV;
 	} else {
+		int ret;
+
 		get_device(&(*rdev)->wiphy.dev);
 		rcu_read_unlock();
 
 		/* things may have changed since the lookup or last dumpit */
-		*wdev = nl80211_lock_and_recheck(*rdev, netns, wdev_id);
-		if (IS_ERR(*wdev))
-			return PTR_ERR(*wdev);
+		ret = nl80211_lock_and_recheck(*rdev, netns, wdev_id, wdev);
+		if (ret)
+			return ret;
 	}
 
 	/* 0 is the first index - add 1 to parse only once */
@@ -1430,6 +1452,7 @@ static int nl80211_prepare_wdev_dump(struct netlink_callback *cb,
 				     struct cfg80211_registered_device **rdev,
 				     struct wireless_dev **wdev,
 				     struct nlattr **attrbuf)
+	__cond_acquires(0, &(*rdev)->wiphy.mtx)
 {
 	return __nl80211_prepare_wdev_dump(cb, rdev, wdev, attrbuf, true);
 }
@@ -5381,6 +5404,8 @@ static int nl80211_new_interface(struct sk_buff *skb, struct genl_info *info)
 }
 
 static int nl80211_del_interface(struct sk_buff *skb, struct genl_info *info)
+	/* clang cannot see pre_doit acquiring it for us */
+	__must_hold(&((struct cfg80211_registered_device *)info->user_ptr[0])->wiphy.mtx)
 {
 	struct cfg80211_registered_device *rdev = info->user_ptr[0];
 	struct wireless_dev *wdev = info->user_ptr[1];
@@ -8958,6 +8983,7 @@ static int nl80211_fill_station_info(struct cfg80211_registered_device *rdev,
 
 static int nl80211_dump_station(struct sk_buff *skb,
 				struct netlink_callback *cb)
+	__context_unsafe("can't cope with the locked variable")
 {
 	struct cfg80211_registered_device *rdev;
 	struct wireless_dev *wdev;
@@ -9044,12 +9070,10 @@ static int nl80211_dump_station(struct sk_buff *skb,
 				memset(&ctx->sinfo, 0, sizeof(ctx->sinfo));
 
 				/* this fails if the wdev is being removed */
-				wdev = __nl80211_lock_held_wdev(rdev, netns,
-								wdev);
-				if (IS_ERR(wdev)) {
-					err = PTR_ERR(wdev);
+				err = __nl80211_lock_held_wdev(rdev, netns,
+							       wdev);
+				if (err)
 					goto out_err;
-				}
 
 				/* try again locked now */
 				locked = true;
@@ -9168,6 +9192,7 @@ static int nl80211_dump_station_done(struct netlink_callback *cb)
 }
 
 static int nl80211_get_station(struct sk_buff *skb, struct genl_info *info)
+	__context_unsafe("can't cope with the locked variable")
 {
 	struct cfg80211_registered_device *rdev = info->user_ptr[0];
 	struct wireless_dev *wdev = info->user_ptr[1];
@@ -9218,11 +9243,8 @@ static int nl80211_get_station(struct sk_buff *skb, struct genl_info *info)
 		/* the wdev pointer is only valid until unlocking after this */
 		info->user_ptr[1] = NULL;
 		/* can fail if the wdev is being removed */
-		wdev = __nl80211_lock_held_wdev(rdev, genl_info_net(info),
-						wdev);
-		if (IS_ERR(wdev)) {
-			err = PTR_ERR(wdev);
-		} else {
+		err = __nl80211_lock_held_wdev(rdev, genl_info_net(info), wdev);
+		if (!err) {
 			locked = true;
 			err = rdev_get_station(rdev, wdev, mac_addr, &sinfo);
 		}
@@ -10340,8 +10362,6 @@ static int nl80211_dump_mpath(struct sk_buff *skb,
 	err = nl80211_prepare_wdev_dump(cb, &rdev, &wdev, NULL);
 	if (err)
 		return err;
-	/* nl80211_prepare_wdev_dump acquired it in the successful case */
-	__acquire(&rdev->wiphy.mtx);
 
 	if (!rdev->ops->dump_mpath) {
 		err = -EOPNOTSUPP;
@@ -10540,8 +10560,6 @@ static int nl80211_dump_mpp(struct sk_buff *skb,
 	err = nl80211_prepare_wdev_dump(cb, &rdev, &wdev, NULL);
 	if (err)
 		return err;
-	/* nl80211_prepare_wdev_dump acquired it in the successful case */
-	__acquire(&rdev->wiphy.mtx);
 
 	if (!rdev->ops->dump_mpp) {
 		err = -EOPNOTSUPP;
@@ -13096,8 +13114,6 @@ static int nl80211_dump_scan(struct sk_buff *skb, struct netlink_callback *cb)
 		kfree(attrbuf);
 		return err;
 	}
-	/* nl80211_prepare_wdev_dump acquired it in the successful case */
-	__acquire(&rdev->wiphy.mtx);
 
 	dump_include_use_data =
 		attrbuf[NL80211_ATTR_BSS_DUMP_INCLUDE_USE_DATA];
@@ -13236,8 +13252,6 @@ static int nl80211_dump_survey(struct sk_buff *skb, struct netlink_callback *cb)
 		kfree(attrbuf);
 		return res;
 	}
-	/* nl80211_prepare_wdev_dump acquired it in the successful case */
-	__acquire(&rdev->wiphy.mtx);
 
 	/* prepare_wdev_dump parsed the attributes */
 	radio_stats = attrbuf[NL80211_ATTR_SURVEY_RADIO_STATS];
@@ -15440,10 +15454,8 @@ static int nl80211_tx_mgmt(struct sk_buff *skb, struct genl_info *info)
 	/* pre_doit didn't lock the wiphy mutex, try without */
 	err = cfg80211_mlme_mgmt_tx_unlocked(rdev, wdev, &params, cookie);
 	if (err == -EAGAIN) {
-		wdev = nl80211_lock_held_wdev(rdev, info, wdev);
-		if (IS_ERR(wdev)) {
-			err = PTR_ERR(wdev);
-		} else {
+		err = nl80211_lock_held_wdev(rdev, info, wdev);
+		if (!err) {
 			err = nl80211_tx_mgmt_locked(rdev, wdev, &params,
 						     cookie);
 			wiphy_unlock(&rdev->wiphy);
@@ -20137,6 +20149,7 @@ static bool nl80211_need_wdev_ref(u32 internal_flags)
 static int nl80211_pre_doit(const struct genl_split_ops *ops,
 			    struct sk_buff *skb,
 			    struct genl_info *info)
+	__context_unsafe("can't cope with the need_rtnl variable")
 {
 	struct cfg80211_registered_device *rdev = NULL;
 	struct net *netns = genl_info_net(info);
@@ -20206,11 +20219,9 @@ static int nl80211_pre_doit(const struct genl_split_ops *ops,
 			wiphy_lock(&rdev->wiphy);
 		} else {
 			/* without rtnl, things may have changed since lookup */
-			wdev = nl80211_lock_and_recheck(rdev, netns, wdev_id);
-			if (IS_ERR(wdev)) {
-				err = PTR_ERR(wdev);
+			err = nl80211_lock_and_recheck(rdev, netns, wdev_id, &wdev);
+			if (err)
 				goto out;
-			}
 		}
 		locked = true;
 	} else if (rdev && !need_rtnl) {
