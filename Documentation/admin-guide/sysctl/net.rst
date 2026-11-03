@@ -90,6 +90,9 @@ Values:
 	- 1 - enable the JIT
 	- 2 - enable the JIT and ask the compiler to emit traces on kernel log.
 
+With CONFIG_BPF_JIT_ALWAYS_ON the value is 1 and cannot be changed. x86_64 and
+arm64 always enable this option.
+
 bpf_jit_harden
 --------------
 

@@ -404,7 +404,8 @@ Example output from dmesg::
     [ 3389.935852] JIT code: 00000040: eb 02 31 c0 c9 c3
 
 When CONFIG_BPF_JIT_ALWAYS_ON is enabled, bpf_jit_enable is permanently set to 1 and
-setting any other value than that will return in failure. This is even the case for
+setting any other value than that will return in failure. x86_64 and arm64 always
+enable it. This is even the case for
 setting bpf_jit_enable to 2, since dumping the final JIT image into the kernel log
 is discouraged and introspection through bpftool (under tools/bpf/bpftool/) is the
 generally recommended approach instead.
