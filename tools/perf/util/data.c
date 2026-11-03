@@ -531,7 +531,7 @@ bool has_kcore_dir(const char *path)
 	if (dir) {
 		while (d && !result) {
 			d = readdir(dir);
-			result = d ? strncmp(d->d_name, name, n) : false;
+			result = d ? !strncmp(d->d_name, name, n) : false;
 		}
 		closedir(dir);
 	}
