@@ -4,6 +4,7 @@
  */
 
 #include <linux/init.h>
+#include <linux/irq-entry-common.h>
 #include <linux/sched.h>
 #include <linux/irq.h>
 #include <linux/kernel_stat.h>
@@ -41,38 +42,25 @@ EXPORT_SYMBOL(perf_irq);
  * The main interrupt entry point.
  */
 
-asmlinkage void
+asmlinkage noinstr void
 do_entInt(unsigned long type, unsigned long vector,
 	  unsigned long la_ptr, struct pt_regs *regs)
 {
+	irqentry_state_t state;
 	struct pt_regs *old_regs;
 
-	/*
-	 * Disable interrupts during IRQ handling.
-	 * Note that there is no matching local_irq_enable() due to
-	 * severe problems with RTI at IPL0 and some MILO PALcode
-	 * (namely LX164).
-	 *
-	 * PALcode has already raised PS.IPL to the level of the interrupt
-	 * being delivered.  For an IPL 7 entry - a machine check or a system
-	 * event - that is IPL_MAX, which is what arch_irqs_disabled() tests
-	 * for, so local_irq_disable() would decide interrupts were already
-	 * off and skip trace_hardirqs_off().  lockdep would then spend the
-	 * whole handler believing interrupts are enabled.  Drive the
-	 * annotation from lockdep's own state rather than the hardware IPL.
-	 */
+	/* PALcode raises IPL only to the level of the delivered interrupt. */
 	raw_local_irq_disable();
-	if (lockdep_hardirqs_enabled())
-		trace_hardirqs_off();
+	state = irqentry_enter(regs);
 
+	instrumentation_begin();
+	irq_enter_rcu();
 	old_regs = set_irq_regs(regs);
 
 	switch (type) {
 	case 0:
 #ifdef CONFIG_SMP
-		irq_enter();
 		handle_ipi(regs);
-		irq_exit();
 		break;
 #else
 		irq_err_count++;
@@ -80,23 +68,16 @@ do_entInt(unsigned long type, unsigned long vector,
 		break;
 #endif
 	case 1:
-		/* handle_irq() already does irq_enter()/irq_exit() */
 		handle_irq(RTC_IRQ);
 		break;
 	case 2:
-		irq_enter();
 		alpha_mv.machine_check(vector, la_ptr);
-		irq_exit();
 		break;
 	case 3:
-		irq_enter();
 		alpha_mv.device_interrupt(vector);
-		irq_exit();
 		break;
 	case 4:
-		irq_enter();
 		perf_irq(la_ptr, regs);
-		irq_exit();
 		break;
 	default:
 		pr_crit("Hardware intr %lu %lx? Huh?\n", type, vector);
@@ -105,11 +86,11 @@ do_entInt(unsigned long type, unsigned long vector,
 	}
 
 	set_irq_regs(old_regs);
+	irq_exit_rcu();
+	instrumentation_end();
 
-	/*
-	 * Intentionally no local_irq_enable(): Alpha historically avoids
-	 * enabling at IPL0 here due to PAL/RTI issues (LX164/MILO note).
-	 */
+	/* Do not lower IPL here before PAL_rti (LX164/MILO PALcode). */
+	irqentry_exit(regs, state);
 }
 
 void notrace lockdep_on_restore(unsigned long ps,

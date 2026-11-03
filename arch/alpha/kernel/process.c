@@ -136,7 +136,7 @@ common_shutdown_1(void *generic_ptr)
 		/* If we've gotten here after SysRq-b, leave interrupt
 		   context before taking over the console. */
 		if (in_hardirq())
-			irq_exit();
+			irq_exit_rcu();
 		/* This has the effect of resetting the VGA video origin.  */
 		console_lock();
 		do_take_over_console(&dummy_con, 0, MAX_NR_CONSOLES-1, 1);

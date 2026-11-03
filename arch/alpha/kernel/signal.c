@@ -538,11 +538,12 @@ do_signal(struct pt_regs *regs, unsigned long r0, unsigned long r19)
 		ptrace_set_bpt(current);	/* re-set breakpoint */
 }
 
-asmlinkage void alpha_exit_to_user_mode(struct pt_regs *regs)
+asmlinkage noinstr void alpha_exit_to_user_mode(struct pt_regs *regs)
 {
+	instrumentation_begin();
 	local_irq_disable();
-	irqentry_exit_to_user_mode_prepare(regs);
-	exit_to_user_mode();
+	instrumentation_end();
+	irqentry_exit_to_user_mode(regs);
 }
 
 void arch_do_signal_or_restart(struct pt_regs *regs)

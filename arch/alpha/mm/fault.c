@@ -5,6 +5,7 @@
  *  Copyright (C) 1995  Linus Torvalds
  */
 
+#include <linux/irq-entry-common.h>
 #include <linux/sched/signal.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
@@ -130,9 +131,9 @@ static bool is_prefetch(struct pt_regs *regs)
 	       (1ul << (insn >> 26) & 0x30f00001400ul);
 }
 
-asmlinkage void
-do_page_fault(unsigned long address, unsigned long mmcsr,
-	      long cause, struct pt_regs *regs)
+static void
+handle_page_fault(unsigned long address, unsigned long mmcsr,
+		  long cause, struct pt_regs *regs)
 {
 	struct vm_area_struct * vma;
 	struct mm_struct *mm = current->mm;
@@ -308,4 +309,22 @@ retry:
 		goto no_context;
 	}
 #endif
+}
+
+asmlinkage noinstr void
+do_page_fault(unsigned long address, unsigned long mmcsr,
+	      long cause, struct pt_regs *regs)
+{
+	irqentry_state_t state;
+
+	raw_local_irq_disable();
+	state = irqentry_enter(regs);
+
+	instrumentation_begin();
+	local_irq_restore(regs->ps);
+	handle_page_fault(address, mmcsr, cause, regs);
+	local_irq_disable();
+	instrumentation_end();
+
+	irqentry_exit(regs, state);
 }

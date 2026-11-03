@@ -10,6 +10,7 @@
  */
 
 #include <linux/cpu.h>
+#include <linux/irq-entry-common.h>
 #include <linux/jiffies.h>
 #include <linux/mm.h>
 #include <linux/sched/signal.h>
@@ -174,9 +175,9 @@ long alpha_fp_emul_imprecise(struct pt_regs *regs, unsigned long writemask);
 long alpha_fp_emul (unsigned long pc, unsigned long summary);
 #endif
 
-asmlinkage void
-do_entArith(unsigned long summary, unsigned long write_mask,
-	    struct pt_regs *regs)
+static void
+handle_entArith(unsigned long summary, unsigned long write_mask,
+		struct pt_regs *regs)
 {
 	long si_code = FPE_FLTINV;
 
@@ -196,25 +197,29 @@ do_entArith(unsigned long summary, unsigned long write_mask,
 	send_sig_fault_trapno(SIGFPE, si_code, (void __user *) regs->pc, 0, current);
 }
 
-asmlinkage void
-do_entIF(unsigned long type, struct pt_regs *regs)
+asmlinkage noinstr void
+do_entArith(unsigned long summary, unsigned long write_mask,
+	    struct pt_regs *regs)
+{
+	irqentry_state_t state;
+
+	raw_local_irq_disable();
+	state = irqentry_enter(regs);
+
+	instrumentation_begin();
+	local_irq_restore(regs->ps);
+	handle_entArith(summary, write_mask, regs);
+	local_irq_disable();
+	instrumentation_end();
+
+	irqentry_exit(regs, state);
+}
+
+static void
+handle_entIF(unsigned long type, struct pt_regs *regs)
 {
 	int signo, code;
 
-	if (type == 3) { /* FEN fault */
-		/* Irritating users can call PAL_clrfen to disable the
-		   FPU for the process.  The kernel will then trap in
-		   do_switch_stack and undo_switch_stack when we try
-		   to save and restore the FP registers.
-
-		   Given that GCC by default generates code that uses the
-		   FP registers, PAL_clrfen is not useful except for DoS
-		   attacks.  So turn the bleeding FPU back on and be done
-		   with it.  */
-		current_thread_info()->pcb.flags |= 1;
-		__reload_thread(&current_thread_info()->pcb);
-		return;
-	}
 	if (!user_mode(regs)) {
 		if (type == 1) {
 			const unsigned int *data
@@ -330,6 +335,34 @@ do_entIF(unsigned long type, struct pt_regs *regs)
 	send_sig_fault(SIGILL, ILL_ILLOPC, (void __user *)regs->pc, current);
 }
 
+asmlinkage noinstr void
+do_entIF(unsigned long type, struct pt_regs *regs)
+{
+	irqentry_state_t state;
+
+	raw_local_irq_disable();
+	if (type == 3) {
+		/*
+		 * Kernel FEN faults can interrupt entry or exit while saving user FP
+		 * state or restoring it. Re-enable the FPU without running entry hooks.
+		 */
+		current_thread_info()->pcb.flags |= 1;
+		__reload_thread(&current_thread_info()->pcb);
+		if (!user_mode(regs))
+			return;
+	}
+	state = irqentry_enter(regs);
+
+	instrumentation_begin();
+	local_irq_restore(regs->ps);
+	if (type != 3)
+		handle_entIF(type, regs);
+	local_irq_disable();
+	instrumentation_end();
+
+	irqentry_exit(regs, state);
+}
+
 /* There is an ifdef in the PALcode in MILO that enables a 
    "kernel debugging entry point" as an unprivileged call_pal.
 
@@ -337,12 +370,29 @@ do_entIF(unsigned long type, struct pt_regs *regs)
    several versions of MILO included in distributions have it enabled,
    and if we don't put something on the entry point we'll oops.  */
 
-asmlinkage void
-do_entDbg(struct pt_regs *regs)
+static void
+handle_entDbg(struct pt_regs *regs)
 {
 	die_if_kernel("Instruction fault", regs, 0, NULL);
 
 	force_sig_fault(SIGILL, ILL_ILLOPC, (void __user *)regs->pc);
+}
+
+asmlinkage noinstr void
+do_entDbg(struct pt_regs *regs)
+{
+	irqentry_state_t state;
+
+	raw_local_irq_disable();
+	state = irqentry_enter(regs);
+
+	instrumentation_begin();
+	local_irq_restore(regs->ps);
+	handle_entDbg(regs);
+	local_irq_disable();
+	instrumentation_end();
+
+	irqentry_exit(regs, state);
 }
 
 
@@ -649,7 +699,7 @@ s_reg_to_mem (unsigned long s_reg)
 static int unauser_reg_offsets[32] = {
 	R(r0), R(r1), R(r2), R(r3), R(r4), R(r5), R(r6), R(r7), R(r8),
 	/* r9 ... r15 are stored in front of regs.  */
-	-64, -56, -48, -40, -32, -24, -16,	/* padding at -8 */
+	-64, -56, -48, -40, -32, -24, -16,	/* r26 at -8 */
 	R(r16), R(r17), R(r18),
 	R(r19), R(r20), R(r21), R(r22), R(r23), R(r24), R(r25), R(r26),
 	R(r27), R(r28), R(gp),
@@ -658,9 +708,9 @@ static int unauser_reg_offsets[32] = {
 
 #undef R
 
-asmlinkage void
-do_entUnaUser(void __user * va, unsigned long opcode,
-	      unsigned long reg, struct pt_regs *regs)
+static void
+handle_entUnaUser(void __user *va, unsigned long opcode,
+		  unsigned long reg, struct pt_regs *regs)
 {
 	static DEFINE_RATELIMIT_STATE(ratelimit, 5 * HZ, 5);
 
@@ -911,6 +961,24 @@ give_sigbus:
 	regs->pc -= 4;
 	send_sig_fault(SIGBUS, BUS_ADRALN, va, current);
 	return;
+}
+
+asmlinkage noinstr void
+do_entUnaUser(void __user *va, unsigned long opcode,
+	      unsigned long reg, struct pt_regs *regs)
+{
+	irqentry_state_t state;
+
+	raw_local_irq_disable();
+	state = irqentry_enter(regs);
+
+	instrumentation_begin();
+	local_irq_restore(regs->ps);
+	handle_entUnaUser(va, opcode, reg, regs);
+	local_irq_disable();
+	instrumentation_end();
+
+	irqentry_exit(regs, state);
 }
 
 void
