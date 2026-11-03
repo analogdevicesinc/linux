@@ -2738,8 +2738,9 @@ static bool compute_max_iters(struct bpf_verifier_env *env,
 	struct scev *scev = env->scev;
 	struct scev_value initial_val, step_val, bound_val;
 	u64 step, bound, initial, total_change, backedge_taken_count;
-	bool konst;
+	struct linear_latch counted;
 	u8 op = latch->op;
+	bool konst, sign32 = latch->jmp32 && is_signed_op(op);
 
 	iters->iv_reg = -1;
 
@@ -2761,6 +2762,23 @@ static bool compute_max_iters(struct bpf_verifier_env *env,
 
 	if (!scev_value_is_const(&step_val))
 		return false;
+	/*
+	 * 'i >= 0 && i < 128' is one unsigned test. A counter that goes down stays below 128.
+	 * The loop ends when it gets below 0. A 64-bit jump compares all 64 bits of the bound.
+	 * The latch of the caller stays as it is: same_latch() compares what the prog tests.
+	 */
+	if ((op == BPF_JLT || op == BPF_JLE) && initial_val.ptr_reg < 0 &&
+	    (latch->jmp32 || latch->zext32 ?
+	     (s32)step_val.umin < 0 && initial_val.u32_min < bound_val.u32_max &&
+	     (latch->jmp32 ? bound_val.u32_max : bound_val.umax) <= S32_MAX :
+	     (s64)step_val.umin < 0 && initial_val.umin < bound_val.umax &&
+	     bound_val.umax <= S64_MAX)) {
+		counted = *latch;
+		latch = &counted;
+		op = latch->op = BPF_JSGE;
+		bound_val = (struct scev_value){ .ptr_reg = -1 };
+		sign32 = true;
+	}
 	konst = scev_value_is_const(&initial_val) && scev_value_is_const(&bound_val);
 	if (!konst) {
 		if (!compute_backedge_taken_max(env, st, latch, &initial_val, &step_val, &bound_val,
@@ -2785,7 +2803,7 @@ static bool compute_max_iters(struct bpf_verifier_env *env,
 		 * With the above constraint doing `l: w0 += 1; if r0 s< 256 goto l;`
 		 *                is equivalent to `l: w0 += 1; if r0 < 256 goto l;`
 		 */
-		if (latch->jmp32 && is_signed_op(op)) {
+		if (sign32) {
 			initial = (s64)(s32)(u32)initial;
 			bound   = (s64)(s32)(u32)bound;
 			step    = (s64)(s32)(u32)step;
@@ -2803,7 +2821,15 @@ static bool compute_max_iters(struct bpf_verifier_env *env,
 				"scev: mixed-width latch has operands outside 32-bit ranges\n");
 		return false;
 	}
-
+	/*
+	 * 7 goes down to -1, -8 goes up to 0: on the wrong side of the bound as unsigned
+	 * numbers, on the right side as signed ones. From 4 up to 1 is wrong both ways.
+	 */
+	if (op == BPF_JNE && latch->zext32 && ((s64)step < 0 ? initial < bound : initial > bound)) {
+		initial = (s64)(s32)(u32)initial;
+		bound   = (s64)(s32)(u32)bound;
+		sign32 = true;
+	}
 
 	if (!compute_backedge_taken_count(op, initial_val.ptr_reg >= 0, initial, step, bound,
 					  &backedge_taken_count))
@@ -2819,7 +2845,7 @@ static bool compute_max_iters(struct bpf_verifier_env *env,
 	if (latch->zext32 || latch->jmp32) {
 		/* total_change is guaranteed not to overflow at this point */
 		total_change = initial + step * backedge_taken_count;
-		if (latch->jmp32 && is_signed_op(op)) {
+		if (sign32) {
 			if ((s64)total_change < S32_MIN || (s64)total_change > S32_MAX)
 				return false;
 		} else {

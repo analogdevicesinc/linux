@@ -869,7 +869,7 @@ PRE__COND_TEST (pre_sge_false,     "s<",                -2,           -2,       
 PRE__COND_TEST (pre_ne_false,      "==",                 7,            2,                7, "header_count is 1 ")
 
 /*
- * The counter moves away from the exit; bound fallback verification.
+ * An unsigned counter goes down and leaves the range below 0.
  *
  * Example: pre_lt_dir
  *
@@ -878,8 +878,19 @@ PRE__COND_TEST (pre_ne_false,      "==",                 7,            2,       
  *        r6 -= 2;                   // r6 ∈ [3,1,U64_MAX]
  *    }
  */
-PRE__COND_TEST2(pre_lt_dir,        ">=",                 5,           -2,                7, "can't compute iterations count")
-PRE__COND_TEST2(pre_le_dir,        ">",                  5,           -2,                7, "can't compute iterations count")
+PRE__COND_TEST2(pre_lt_dir,        ">=",                 5,           -2,                7, "header_count is [0..4] ")
+PRE__COND_TEST2(pre_le_dir,        ">",                  5,           -2,                7, "header_count is [0..4] ")
+
+/*
+ * The counter moves away from the exit; bound fallback verification.
+ *
+ * Example: pre_gt_dir
+ *
+ *    u64 r6 = 5, r9 = 0;
+ *    while (++r9 < 8 && r6 > 3) {   // r6 ∈ [5,7,...,19]
+ *        r6 += 2;                   // r6 ∈ [7,9,...,19]
+ *    }
+ */
 PRE__COND_TEST2(pre_gt_dir,        "<=",                 5,            2,                3, "can't compute iterations count")
 PRE__COND_TEST2(pre_ge_dir,        "<",                  5,            2,                3, "can't compute iterations count")
 PRE__COND_TEST2(pre_slt_dir,       "s>=",               -1,           -2,                1, "can't compute iterations count")
@@ -1128,9 +1139,10 @@ RANGE_TEST(range32_ne_far,  "", M32 - 5, M32 - 3,  1, M32 - 1, M32 + 3,
 /* the first jump tests what enters the loop, and that is not zero extended */
 RANGE_TEST(range32_first_is_wide, "", 0, M32 + 9,  2,      15,      20,
 	   LOOP_HEAD "if r6 >= r7 goto 2f; w6 += w8; goto 1b;", NO_COUNT)
+/* An unsigned counter goes down and leaves the range below 0. */
+RANGE_TEST(range_lt_dir,    "",  3, 10,    -2,  15, 20,  PRE(">="),   COUNTED(7, "-2..10"))
+RANGE_TEST(range_le_dir,    "",  3, 10,    -2,  15, 20,  PRE(">"),    COUNTED(7, "-2..10"))
 /* The counter moves away from the exit. */
-RANGE_TEST(range_lt_dir,    "",  3, 10,    -2,  15, 20,  PRE(">="),   NO_COUNT)
-RANGE_TEST(range_le_dir,    "",  3, 10,    -2,  15, 20,  PRE(">"),    NO_COUNT)
 RANGE_TEST(range_gt_dir,    "", 10, 20,     2,   3,  5,  PRE("<="),   NO_COUNT)
 RANGE_TEST(range_ge_dir,    "", 10, 20,     2,   3,  5,  PRE("<"),    NO_COUNT)
 /* '!=' can step over the bound, or start behind it. */
