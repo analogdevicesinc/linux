@@ -13,6 +13,11 @@ struct {
 	__type(value, long long);
 } map_hash_8b SEC(".maps");
 
+struct {
+	__uint(type, BPF_MAP_TYPE_RINGBUF);
+	__uint(max_entries, 4096);
+} ringbuf SEC(".maps");
+
 #if defined(__BPF_FEATURE_STACK_ARGUMENT)
 
 struct {
@@ -436,6 +441,218 @@ __naked void stack_arg_shared_store(void)
 		"r0 = 0;"
 		"exit;"
 		:: __imm(bpf_get_prandom_u32)
+		: __clobber_all
+	);
+}
+
+/* r1 - r5 and all 19 slots. Its prototype has no parameters: what it takes is seen in its code. */
+__naked __noinline __used
+static unsigned long subprog_24args(void)
+{
+	asm volatile (
+		"r0 = r1;"
+		"r0 += r2;"
+		"r0 += r3;"
+		"r0 += r4;"
+		"r0 += r5;"
+		"r1 = *(u64 *)(r11 + 8);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 16);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 24);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 32);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 40);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 48);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 56);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 64);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 72);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 80);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 88);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 96);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 104);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 112);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 120);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 128);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 136);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 144);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 152);"
+		"r0 += r1;"
+		"exit;"
+		::: __clobber_all
+	);
+}
+
+SEC("tc")
+__description("stack_arg: static subprog with 24 args")
+__success __retval(300)
+__naked void stack_arg_24args(void)
+{
+	asm volatile (
+		"r1 = 1;"
+		"r2 = 2;"
+		"r3 = 3;"
+		"r4 = 4;"
+		"r5 = 5;"
+		"*(u64 *)(r11 - 152) = 24;"
+		"*(u64 *)(r11 - 144) = 23;"
+		"*(u64 *)(r11 - 136) = 22;"
+		"*(u64 *)(r11 - 128) = 21;"
+		"*(u64 *)(r11 - 120) = 20;"
+		"*(u64 *)(r11 - 112) = 19;"
+		"*(u64 *)(r11 - 104) = 18;"
+		"*(u64 *)(r11 - 96) = 17;"
+		"*(u64 *)(r11 - 88) = 16;"
+		"*(u64 *)(r11 - 80) = 15;"
+		"*(u64 *)(r11 - 72) = 14;"
+		"*(u64 *)(r11 - 64) = 13;"
+		"*(u64 *)(r11 - 56) = 12;"
+		"*(u64 *)(r11 - 48) = 11;"
+		"*(u64 *)(r11 - 40) = 10;"
+		"*(u64 *)(r11 - 32) = 9;"
+		"*(u64 *)(r11 - 24) = 8;"
+		"*(u64 *)(r11 - 16) = 7;"
+		"*(u64 *)(r11 - 8) = 6;"
+		"call subprog_24args;"
+		"exit;"
+		::: __clobber_all
+	);
+}
+
+__naked __noinline __used
+static unsigned long returns_arg22(void)
+{
+	asm volatile (
+		"r0 = *(u64 *)(r11 + 136);"
+		"exit;"
+		::: __clobber_all
+	);
+}
+
+/* A dynptr and a slice of it, which has two ids: its own and the one of the dynptr */
+#define SLICE(dynptr, slice)			\
+	"r1 = r6;"				\
+	"r2 = 8;"				\
+	"r3 = 0;"				\
+	"r4 = r10;"				\
+	"r4 += -" #dynptr ";"			\
+	"call %[bpf_dynptr_from_mem];"		\
+	"r1 = r10;"				\
+	"r1 += -" #dynptr ";"			\
+	"r2 = 0;"				\
+	"r3 = 8;"				\
+	"call %[bpf_dynptr_data];"		\
+	"*(u64 *)(r10 - " #slice ") = r0;"
+
+#define SLICE_ARG(slice, arg)			\
+	"r1 = *(u64 *)(r10 - " #slice ");"	\
+	"*(u64 *)(r11 - " #arg ") = r1;"
+
+/*
+ * The 16 slices in front of it have 32 ids. What the subprog returns is still the slice of
+ * the dynptr that is submitted.
+ */
+SEC("tc")
+__description("stack_arg: ids of the last of 17 slices")
+__failure __msg("R6 invalid mem access 'scalar'")
+__naked void stack_arg_ids_of_17_slices(void)
+{
+	asm volatile (
+		"r1 = 0;"
+		"*(u64 *)(r10 - 408) = r1;"
+		"r2 = r10;"
+		"r2 += -408;"
+		"r1 = %[map_hash_8b] ll;"
+		"call %[bpf_map_lookup_elem];"
+		"if r0 == 0 goto 2f;"
+		"r6 = r0;"
+		SLICE(16, 280)
+		SLICE(32, 288)
+		SLICE(48, 296)
+		SLICE(64, 304)
+		SLICE(80, 312)
+		SLICE(96, 320)
+		SLICE(112, 328)
+		SLICE(128, 336)
+		SLICE(144, 344)
+		SLICE(160, 352)
+		SLICE(176, 360)
+		SLICE(192, 368)
+		SLICE(208, 376)
+		SLICE(224, 384)
+		SLICE(240, 392)
+		SLICE(256, 400)
+		"r1 = %[ringbuf] ll;"
+		"r2 = 8;"
+		"r3 = 0;"
+		"r4 = r10;"
+		"r4 += -272;"
+		"call %[bpf_ringbuf_reserve_dynptr];"
+		"r1 = r10;"
+		"r1 += -272;"
+		"r2 = 0;"
+		"r3 = 8;"
+		"call %[bpf_dynptr_data];"
+		"if r0 == 0 goto 1f;"
+		"*(u64 *)(r11 - 136) = r0;"
+		SLICE_ARG(400, 128)
+		SLICE_ARG(392, 120)
+		SLICE_ARG(384, 112)
+		SLICE_ARG(376, 104)
+		SLICE_ARG(368, 96)
+		SLICE_ARG(360, 88)
+		SLICE_ARG(352, 80)
+		SLICE_ARG(344, 72)
+		SLICE_ARG(336, 64)
+		SLICE_ARG(328, 56)
+		SLICE_ARG(320, 48)
+		SLICE_ARG(312, 40)
+		SLICE_ARG(304, 32)
+		SLICE_ARG(296, 24)
+		SLICE_ARG(288, 16)
+		SLICE_ARG(280, 8)
+		"call returns_arg22;"
+		"r6 = r0;"
+		"r1 = r10;"
+		"r1 += -272;"
+		"r2 = 0;"
+		"call %[bpf_ringbuf_submit_dynptr];"
+		"r1 = 0;"
+		"*(u64 *)(r6 + 0) = r1;"
+		"r0 = 0;"
+		"exit;"
+	"1:"
+		"r1 = r10;"
+		"r1 += -272;"
+		"r2 = 0;"
+		"call %[bpf_ringbuf_discard_dynptr];"
+	"2:"
+		"r0 = 0;"
+		"exit;"
+		:
+		: __imm(bpf_map_lookup_elem),
+		  __imm(bpf_dynptr_from_mem),
+		  __imm(bpf_dynptr_data),
+		  __imm(bpf_ringbuf_reserve_dynptr),
+		  __imm(bpf_ringbuf_submit_dynptr),
+		  __imm(bpf_ringbuf_discard_dynptr),
+		  __imm_addr(map_hash_8b),
+		  __imm_addr(ringbuf)
 		: __clobber_all
 	);
 }
