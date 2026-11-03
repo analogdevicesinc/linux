@@ -361,7 +361,7 @@ static void __init free_rmp_segment_table(void)
 		kfree(desc);
 	}
 
-	free_page((unsigned long)rmp_segment_table);
+	kfree(rmp_segment_table);
 
 	rmp_segment_table = NULL;
 }
@@ -369,13 +369,9 @@ static void __init free_rmp_segment_table(void)
 /* Allocate the table used to index into the RMP segments */
 static bool __init alloc_rmp_segment_table(void)
 {
-	struct page *page;
-
-	page = alloc_page(__GFP_ZERO);
-	if (!page)
+	rmp_segment_table = kzalloc(RST_SIZE, GFP_KERNEL);
+	if (!rmp_segment_table)
 		return false;
-
-	rmp_segment_table = page_address(page);
 
 	return true;
 }
