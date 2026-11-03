@@ -1621,6 +1621,59 @@ __naked void latch_base_differs_from_step(void)
 "	::: __clobber_all);
 }
 
+/* Additions and subtractions of constants are one step. Two 64-bit shifts by 32 are (u32)r6. */
+#define ONE_STEP_TEST(name, first, body, jump, expr, ret)			\
+SEC("socket")									\
+__success __retval(ret) __log_level(2)						\
+__msg("  r6=" expr)								\
+__msg("loop header at 1, header_count is 8 ")					\
+__naked void name(void)								\
+{										\
+	asm volatile (								\
+	"r6 = " #first ";"							\
+"1:"	body									\
+	"if r6 " jump " goto 1b;"						\
+	"r0 = r6;"								\
+	"exit;"									\
+	::: __clobber_all);							\
+}
+
+ONE_STEP_TEST(add_add, 0, "r6 += 1; r6 += 1;", "< 16", "(+ r6 2) / (linear r6 2)", 16)
+ONE_STEP_TEST(sub, 16, "r6 -= 2;", "> 0", "(+ r6 -2) / (linear r6 -2)", 0)
+ONE_STEP_TEST(two_shifts_by_32, 0, "r6 += 2; r6 <<= 32; r6 >>= 32;", "< 16",
+	      "(zext32 (+ r6 2)) / (zext32 (linear r6 2))", 16)
+
+/*
+ * @shifts are not (u32)r7: a 32-bit shift by a register that has 32 in it shifts by 32 & 31 = 0.
+ * If they are taken for (u32)r7 then r7 is in [first, first + 7] and the read of r9 is dead code.
+ */
+#define NO_ZEXT32_TEST(name, first, shifts)					\
+SEC("socket")									\
+__failure __msg("R9 !read_ok")							\
+__naked void name(void)								\
+{										\
+	asm volatile (								\
+	"r7 = " #first ";"							\
+	"r8 = 0;"								\
+"1:	r1 = r7;"								\
+	"r1 -= " #first ";"							\
+	"if r1 < 8 goto 2f;"							\
+	"r0 = *(u64 *)(r9 + 0);"						\
+"2:	r7 += 1;"								\
+	shifts									\
+	"r8 += 1;"								\
+	"if r8 < 8 goto 1b;"							\
+	"r0 = 0;"								\
+	"exit;"									\
+	::: __clobber_all);							\
+}
+
+NO_ZEXT32_TEST(rsh32_by_reg_32, 100, "r7 <<= 32; r2 = 32; w7 >>= w2;")
+NO_ZEXT32_TEST(lsh32_by_reg_32, 100, "r2 = 32; w7 <<= w2; r7 >>= 32;")
+NO_ZEXT32_TEST(lsh_by_16, 100, "r7 <<= 16; r7 >>= 32;")
+NO_ZEXT32_TEST(rsh_by_33, 100, "r7 <<= 32; r7 >>= 33;")
+NO_ZEXT32_TEST(arsh_by_32, 0x7ffffffe, "r7 <<= 32; r7 s>>= 32;")
+
 SEC("xdp")
 __success
 __log_level(2)
