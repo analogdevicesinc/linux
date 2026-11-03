@@ -2733,6 +2733,65 @@ __naked void clamp_nested_unrolled_loop_state_pruning(void)
 }
 
 /*
+ * A number in a part of the stack slot fp-8. There is no formula for it, but the state has its
+ * value. If the loop makes the next value from it, each iteration has a new one: the loop is
+ * verified one iteration at a time. If not, the body is verified at most two times.
+ */
+#define PARTIAL_SPILL_TEST(name, sz, count, msg, first, body)			\
+SEC("socket")									\
+__success __log_level(2)							\
+__msg("loop header at {{[0-9]+}}, header_count is " #count)			\
+__msg("loop header at {{[0-9]+}}, " msg)					\
+__naked void name(void)								\
+{										\
+	asm volatile (								\
+	"call %[bpf_get_prandom_u32];"						\
+	"w0 = w0;"								\
+	"r1 = 0;"								\
+	"r6 = 0;"								\
+	first									\
+"1:"	body									\
+	"r6 += 1;"								\
+	"if r6 < " #count " goto 1b;"						\
+	"r0 = *(" #sz " *)(r10 - 8);"						\
+	"exit;"									\
+	:: __imm(bpf_get_prandom_u32) : __clobber_all);				\
+}
+
+#define SPILL32_0	"*(u32 *)(r10 - 8) = r1;"
+#define SPILL32_INC	"r1 = *(u32 *)(r10 - 8); w1 += 1; *(u32 *)(r10 - 8) = r1;"
+#define NOT_UNROLLED	"widening r6 to 0..0xf423f step 1"
+
+/* 'if (...) cnt++' */
+PARTIAL_SPILL_TEST(partial_spill32_inc, u32, 10, "can't widen *fp-8, expr is (any *fp-8 (spill32 ",
+	SPILL32_0, "if r6 & 1 goto 2f;" SPILL32_INC "2:")
+PARTIAL_SPILL_TEST(partial_spill16_inc, u16, 10, "can't widen *fp-8, expr is (spill16 ",
+	"*(u16 *)(r10 - 8) = r1;", "r1 = *(u16 *)(r10 - 8); w1 += 1; *(u16 *)(r10 - 8) = r1;")
+/* A loop in the loop does it */
+PARTIAL_SPILL_TEST(partial_spill32_inc_in_nested_loop, u32, 10, "can't widen *fp-8, expr is ?",
+	SPILL32_0, "r7 = 0; 2:" SPILL32_INC "r7 += 1; if r7 < 3 goto 2b;")
+/* Two slots feed each other */
+PARTIAL_SPILL_TEST(partial_spill32_two_slots, u32, 10, "can't widen *fp-8, expr is (spill32 ",
+	SPILL32_0 "*(u32 *)(r10 - 16) = r1;",
+	"r2 = *(u32 *)(r10 - 16);" SPILL32_INC "*(u32 *)(r10 - 16) = r1; *(u32 *)(r10 - 8) = r2;")
+/* 'if (...) found = 1' */
+PARTIAL_SPILL_TEST(partial_spill32_flag, u32, 1000000, NOT_UNROLLED,
+	SPILL32_0, "if r6 != 77 goto 2f; r1 = 1; *(u32 *)(r10 - 8) = r1; 2:")
+/* 'prev = last; last = i' */
+PARTIAL_SPILL_TEST(partial_spill32_copy_of_counter, u32, 1000000, NOT_UNROLLED,
+	SPILL32_0, "r7 = *(u32 *)(r10 - 8); *(u32 *)(r10 - 8) = r6;")
+/* A copy of a partial spill that the loop does not change */
+PARTIAL_SPILL_TEST(partial_spill32_copy_of_invariant, u32, 1000000, NOT_UNROLLED,
+	SPILL32_0 "r1 = 5; *(u32 *)(r10 - 16) = r1;",
+	"r7 = *(u32 *)(r10 - 8); r1 = *(u32 *)(r10 - 16); *(u32 *)(r10 - 8) = r1;")
+/* The loop writes the partial spill before it reads it. Only the other half of the slot is live. */
+PARTIAL_SPILL_TEST(partial_spill32_dead_at_the_head, u32, 1000000, NOT_UNROLLED,
+	SPILL32_0, "call %[bpf_get_prandom_u32]; *(u32 *)(r10 - 8) = r0; r1 = *(u32 *)(r10 - 4);")
+/* Nothing is known about the 32 bits in the partial spill: they are their own widening */
+PARTIAL_SPILL_TEST(partial_spill32_unknown, u32, 1000000, NOT_UNROLLED,
+	"*(u32 *)(r10 - 8) = r0;", SPILL32_INC)
+
+/*
  * r7 starts as 1 + 6*k and invariant r8 as 1 + 9*k (0 <= k <= 3).
  * The (any r7 r8) union must preserve base 1 and step gcd(6, 9) = 3.
  */
