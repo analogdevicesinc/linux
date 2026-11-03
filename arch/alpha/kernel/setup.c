@@ -241,26 +241,6 @@ reserve_std_resources(void)
 	for ((_cluster) = (memdesc)->cluster, (i) = 0;		\
 	     (i) < (memdesc)->numclusters; (i)++, (_cluster)++)
 
-static unsigned long __init
-get_mem_size_limit(char *s)
-{
-        unsigned long end = 0;
-        char *from = s;
-
-        end = simple_strtoul(from, &from, 0);
-        if ( *from == 'K' || *from == 'k' ) {
-                end = end << 10;
-                from++;
-        } else if ( *from == 'M' || *from == 'm' ) {
-                end = end << 20;
-                from++;
-        } else if ( *from == 'G' || *from == 'g' ) {
-                end = end << 30;
-                from++;
-        }
-        return end >> PAGE_SHIFT; /* Return the PFN of the limit. */
-}
-
 #ifdef CONFIG_BLK_DEV_INITRD
 void * __init
 move_initrd(unsigned long mem_limit)
@@ -486,7 +466,7 @@ setup_arch(char **cmdline_p)
 			continue;
 		}
 		if (strncmp(p, "mem=", 4) == 0) {
-			mem_size_limit = get_mem_size_limit(p+4);
+			mem_size_limit = memparse(p + 4, NULL) >> PAGE_SHIFT;
 			continue;
 		}
 		if (strncmp(p, "srmcons", 7) == 0) {
@@ -499,7 +479,7 @@ setup_arch(char **cmdline_p)
 		}
 		if (strncmp(p, "gartsize=", 9) == 0) {
 			alpha_agpgart_size =
-				get_mem_size_limit(p+9) << PAGE_SHIFT;
+				memparse(p + 9, NULL) & PAGE_MASK;
 			continue;
 		}
 #ifdef CONFIG_VERBOSE_MCHECK
