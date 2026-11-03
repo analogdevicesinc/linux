@@ -2665,15 +2665,23 @@ static void modecpy(u8 *dest, const u8 *src, int n, bool changeable)
 /**
  *	ata_msense_caching - Simulate MODE SENSE caching info page
  *	@id: device IDENTIFY data
- *	@buf: output buffer
+ *	@buf: Output buffer for the mode page, including the mode page header
  *	@changeable: whether changeable parameters are requested
  *
  *	Generate a caching info page, which conditionally indicates
  *	write caching to the SCSI layer, depending on device
  *	capabilities.
  *
+ *	The mode page is written to @buf starting with its mode page header,
+ *	so offsets in @buf are the byte numbers of the mode page. For MODE
+ *	SENSE, the mode parameter header and the block descriptors are written
+ *	by ata_scsiop_mode_sense().
+ *
  *	LOCKING:
  *	None.
+ *
+ *	RETURNS:
+ *	Length of the mode page, including the mode page header.
  */
 static unsigned int ata_msense_caching(u16 *id, u8 *buf, bool changeable)
 {
@@ -2687,8 +2695,25 @@ static unsigned int ata_msense_caching(u16 *id, u8 *buf, bool changeable)
 	return sizeof(def_cache_mpage);
 }
 
-/*
- * Simulate MODE SENSE control mode page, sub-page 0.
+/**
+ *	ata_msense_control_spg0 - Simulate MODE SENSE for control sub-page 0
+ *	@dev: ATA device of interest
+ *	@buf: Output buffer for the mode page, including the mode page header
+ *	@changeable: whether changeable parameters are requested
+ *
+ *	Simulate MODE SENSE control mode page, sub-page 0, which reports the
+ *	sense data format (D_SENSE) used for the device.
+ *
+ *	The mode page is written to @buf starting with its mode page header,
+ *	so offsets in @buf are the byte numbers of the mode page. For MODE
+ *	SENSE, the mode parameter header and the block descriptors are written
+ *	by ata_scsiop_mode_sense().
+ *
+ *	LOCKING:
+ *	None.
+ *
+ *	RETURNS:
+ *	Length of the mode page, including the mode page header.
  */
 static unsigned int ata_msense_control_spg0(struct ata_device *dev, u8 *buf,
 					    bool changeable)
@@ -2720,9 +2745,27 @@ static inline u16 ata_xlat_cdl_limit(u8 *buf)
 	return min_t(u32, limit / 10000, 65535);
 }
 
-/*
- * Simulate MODE SENSE control mode page, sub-pages 07h and 08h
- * (command duration limits T2A and T2B mode pages).
+/**
+ *	ata_msense_control_spgt2 - Simulate MODE SENSE for CDL T2A/T2B pages
+ *	@dev: ATA device of interest
+ *	@buf: Output buffer for the mode page, including the mode page header
+ *	@spg: Sub-page code, CDL_T2A_SUB_MPAGE or CDL_T2B_SUB_MPAGE
+ *
+ *	Simulate MODE SENSE control mode page, sub-pages 07h and 08h
+ *	(command duration limits T2A and T2B mode pages), from the command
+ *	duration limit descriptors read from the device.
+ *
+ *	The mode page is written to @buf starting with its mode page header,
+ *	so offsets in @buf are the byte numbers of the mode page. For MODE
+ *	SENSE, the mode parameter header and the block descriptors are written
+ *	by ata_scsiop_mode_sense().
+ *
+ *	LOCKING:
+ *	None.
+ *
+ *	RETURNS:
+ *	Length of the mode page, including the mode page header, or 0 if the
+ *	device does not support command duration limits.
  */
 static unsigned int ata_msense_control_spgt2(struct ata_device *dev, u8 *buf,
 					     u8 spg)
@@ -2779,9 +2822,25 @@ static unsigned int ata_msense_control_spgt2(struct ata_device *dev, u8 *buf,
 	return CDL_T2_SUB_MPAGE_LEN;
 }
 
-/*
- * Simulate MODE SENSE control mode page, sub-page f2h
- * (ATA feature control mode page).
+/**
+ *	ata_msense_control_ata_feature - Simulate ATA Feature Control page
+ *	@dev: ATA device of interest
+ *	@buf: Output buffer for the mode page, including the mode page header
+ *
+ *	Simulate MODE SENSE control mode page, sub-page f2h (ATA feature
+ *	control mode page), which reports whether command duration limits are
+ *	enabled.
+ *
+ *	The mode page is written to @buf starting with its mode page header,
+ *	so offsets in @buf are the byte numbers of the mode page. For MODE
+ *	SENSE, the mode parameter header and the block descriptors are written
+ *	by ata_scsiop_mode_sense().
+ *
+ *	LOCKING:
+ *	None.
+ *
+ *	RETURNS:
+ *	Length of the mode page, including the mode page header.
  */
 static unsigned int ata_msense_control_ata_feature(struct ata_device *dev,
 						   u8 *buf)
@@ -2807,14 +2866,23 @@ static unsigned int ata_msense_control_ata_feature(struct ata_device *dev,
 /**
  *	ata_msense_control - Simulate MODE SENSE control mode page
  *	@dev: ATA device of interest
- *	@buf: output buffer
+ *	@buf: Output buffer for the mode pages, including the page headers
  *	@spg: sub-page code
  *	@changeable: whether changeable parameters are requested
  *
- *	Generate a generic MODE SENSE control mode page.
+ *	Generate sub-page @spg of the control mode page, or all supported
+ *	sub-pages of the control mode page if @spg is ALL_SUB_MPAGES.
+ *
+ *	The mode pages are written to @buf one after the other, each starting
+ *	with its mode page header. For MODE SENSE, the mode parameter header
+ *	and the block descriptors are written by ata_scsiop_mode_sense().
  *
  *	LOCKING:
  *	None.
+ *
+ *	RETURNS:
+ *	Total length of the mode pages written to @buf, including their mode
+ *	page headers.
  */
 static unsigned int ata_msense_control(struct ata_device *dev, u8 *buf,
 				       u8 spg, bool changeable)
@@ -2842,13 +2910,21 @@ static unsigned int ata_msense_control(struct ata_device *dev, u8 *buf,
 
 /**
  *	ata_msense_rw_recovery - Simulate MODE SENSE r/w error recovery page
- *	@buf: output buffer
+ *	@buf: Output buffer for the mode page, including the mode page header
  *	@changeable: whether changeable parameters are requested
  *
  *	Generate a generic MODE SENSE r/w error recovery page.
  *
+ *	The mode page is written to @buf starting with its mode page header,
+ *	so offsets in @buf are the byte numbers of the mode page. For MODE
+ *	SENSE, the mode parameter header and the block descriptors are written
+ *	by ata_scsiop_mode_sense().
+ *
  *	LOCKING:
  *	None.
+ *
+ *	RETURNS:
+ *	Length of the mode page, including the mode page header.
  */
 static unsigned int ata_msense_rw_recovery(u8 *buf, bool changeable)
 {
