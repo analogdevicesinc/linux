@@ -14,7 +14,7 @@
 
 static bool pxa2xx_spi_idma_filter(struct dma_chan *chan, void *param)
 {
-	return param == chan->device->dev;
+	return param == dmaengine_get_provider_device(chan);
 }
 
 static int

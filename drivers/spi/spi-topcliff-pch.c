@@ -808,7 +808,7 @@ static bool pch_spi_filter(struct dma_chan *chan, void *slave)
 	struct pch_dma_slave *param = slave;
 
 	if ((chan->chan_id == param->chan_id) &&
-	    (param->dma_dev == chan->device->dev)) {
+	    (param->dma_dev == dmaengine_get_provider_device(chan))) {
 		chan->private = param;
 		return true;
 	} else {

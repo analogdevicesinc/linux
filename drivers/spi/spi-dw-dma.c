@@ -27,7 +27,7 @@ static bool dw_spi_dma_chan_filter(struct dma_chan *chan, void *param)
 {
 	struct dw_dma_slave *s = param;
 
-	if (s->dma_dev != chan->device->dev)
+	if (s->dma_dev != dmaengine_get_provider_device(chan))
 		return false;
 
 	chan->private = s;
