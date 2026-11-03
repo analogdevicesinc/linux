@@ -584,6 +584,16 @@ recheck:
 		goto unlock;
 
 	/*
+	 * Reject SCHED_DEADLINE on exited tasks. A zombie will never be
+	 * scheduled again, so sched_dl_overflow() would charge total_bw
+	 * that nothing will ever release.
+	 */
+	if (dl_policy(policy) && p->exit_state) {
+		retval = -ESRCH;
+		goto unlock;
+	}
+
+	/*
 	 * If not changing anything there's no need to proceed further,
 	 * but store a possible modification of reset_on_fork.
 	 */
