@@ -398,6 +398,9 @@ void test_tracing_struct(void)
 	if (test__start_subtest("tgt_prog_unreliable"))
 		test_tgt_prog_unreliable("unreliable_entry", "callee_unreliable",
 					 "unreliable BTF and stack arguments");
+	if (test__start_subtest("tgt_prog_takes_6th"))
+		test_tgt_prog_unreliable("unreliable_entry", "callee_takes_6th",
+					 "unreliable BTF and stack arguments");
 	if (test__start_subtest("tgt_prog_returns_pair"))
 		test_tgt_prog_unreliable("odd_exit", "callee_takes_r5",
 					 "with a >8 byte return value");
