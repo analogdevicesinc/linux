@@ -143,7 +143,7 @@
 			ranges = <0x0 0x98000000 0x200000>;
 
 			crt: syscon@0 {
-				compatible = "syscon", "simple-mfd";
+				compatible = "realtek,rtd1619-crt", "syscon", "simple-mfd";
 				reg = <0x0 0x1000>;
 				reg-io-width = <4>;
 				#address-cells = <1>;
@@ -152,7 +152,7 @@
 			};
 
 			iso: syscon@7000 {
-				compatible = "syscon", "simple-mfd";
+				compatible = "realtek,rtd1619-iso", "syscon", "simple-mfd";
 				reg = <0x7000 0x1000>;
 				reg-io-width = <4>;
 				#address-cells = <1>;
@@ -161,7 +161,7 @@
 			};
 
 			sb2: syscon@1a000 {
-				compatible = "syscon", "simple-mfd";
+				compatible = "realtek,rtd1619-sb2", "syscon", "simple-mfd";
 				reg = <0x1a000 0x1000>;
 				reg-io-width = <4>;
 				#address-cells = <1>;
@@ -170,7 +170,7 @@
 			};
 
 			misc: syscon@1b000 {
-				compatible = "syscon", "simple-mfd";
+				compatible = "realtek,rtd1619-misc", "syscon", "simple-mfd";
 				reg = <0x1b000 0x1000>;
 				reg-io-width = <4>;
 				#address-cells = <1>;
@@ -179,7 +179,8 @@
 			};
 
 			scpu_wrapper: syscon@1d000 {
-				compatible = "syscon", "simple-mfd";
+				compatible = "realtek,rtd1619-scpu-wrapper",
+					     "syscon", "simple-mfd";
 				reg = <0x1d000 0x1000>;
 				reg-io-width = <4>;
 				#address-cells = <1>;
