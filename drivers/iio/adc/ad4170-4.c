@@ -20,6 +20,7 @@
 #include <linux/err.h>
 #include <linux/gpio/driver.h>
 #include <linux/iio/buffer.h>
+#include <linux/iio/buffer-dmaengine.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/trigger.h>
 #include <linux/iio/trigger_consumer.h>
@@ -32,6 +33,8 @@
 #include <linux/property.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
+#include <linux/spi/offload/consumer.h>
+#include <linux/spi/offload/provider.h>
 #include <linux/spi/spi.h>
 #include <linux/time.h>
 #include <linux/types.h>
@@ -449,6 +452,10 @@ struct ad4170_state {
 	struct regmap *regmap;
 	int sps_tbl[ARRAY_SIZE(ad4170_filt_names)][AD4170_MAX_FS_TBL_SIZE][2];
 	__be32 bounce_buffer[AD4170_MAX_ADC_CHANNELS];
+	struct spi_offload *offload;
+	struct spi_offload_trigger *offload_trigger;
+	struct spi_message offload_msg;
+	struct spi_transfer offload_xfer;
 	struct spi_message msg;
 	struct spi_transfer xfer;
 	struct iio_trigger *trig;
@@ -463,6 +470,10 @@ struct ad4170_state {
 	 * to live in their own cache lines.
 	 */
 	u8 rx_buf[4] __aligned(IIO_DMA_MINALIGN);
+};
+
+static const struct spi_offload_config ad4170_spi_offload_config = {
+	.capability_flags = SPI_OFFLOAD_CAP_TRIGGER | SPI_OFFLOAD_CAP_RX_STREAM_DMA,
 };
 
 static void ad4170_fill_sps_tbl(struct ad4170_state *st)
@@ -2796,6 +2807,79 @@ static const struct iio_buffer_setup_ops ad4170_buffer_ops = {
 	.validate_scan_mask = ad4170_validate_scan_mask,
 };
 
+static bool ad4170_offload_validate_scan_mask(struct iio_dev *indio_dev,
+					      const unsigned long *scan_mask)
+{
+	return bitmap_weight(scan_mask, iio_get_masklength(indio_dev)) == 1;
+}
+
+static int ad4170_offload_buffer_postenable(struct iio_dev *indio_dev)
+{
+	struct ad4170_state *st = iio_priv(indio_dev);
+	struct spi_offload_trigger_config config = {
+		.type = SPI_OFFLOAD_TRIGGER_DATA_READY,
+	};
+	int ret;
+
+	st->offload_xfer.len =
+		spi_bpw_to_bytes(ad4170_channel_template.scan_type.realbits);
+	st->offload_xfer.bits_per_word =
+		ad4170_channel_template.scan_type.realbits;
+	st->offload_xfer.offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
+
+	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
+	st->offload_msg.offload = st->offload;
+
+	ret = spi_optimize_message(st->spi, &st->offload_msg);
+	if (ret)
+		return ret;
+
+	if (st->spi->irq)
+		disable_irq(st->spi->irq);
+
+	ret = ad4170_buffer_postenable(indio_dev);
+	if (ret)
+		goto err_enable_irq;
+
+	ret = spi_offload_trigger_enable(st->offload, st->offload_trigger,
+					 &config);
+	if (ret)
+		goto err_chip_off;
+
+	return 0;
+
+err_chip_off:
+	ad4170_buffer_predisable(indio_dev);
+err_enable_irq:
+	if (st->spi->irq)
+		enable_irq(st->spi->irq);
+	spi_unoptimize_message(&st->offload_msg);
+	return ret;
+}
+
+static int ad4170_offload_buffer_predisable(struct iio_dev *indio_dev)
+{
+	struct ad4170_state *st = iio_priv(indio_dev);
+	int ret;
+
+	spi_offload_trigger_disable(st->offload, st->offload_trigger);
+
+	ret = ad4170_buffer_predisable(indio_dev);
+
+	if (st->spi->irq)
+		enable_irq(st->spi->irq);
+
+	spi_unoptimize_message(&st->offload_msg);
+
+	return ret;
+}
+
+static const struct iio_buffer_setup_ops ad4170_offload_buffer_ops = {
+	.postenable = ad4170_offload_buffer_postenable,
+	.predisable = ad4170_offload_buffer_predisable,
+	.validate_scan_mask = ad4170_offload_validate_scan_mask,
+};
+
 static irqreturn_t ad4170_trigger_handler(int irq, void *p)
 {
 	struct iio_poll_func *pf = p;
@@ -2830,10 +2914,12 @@ static irqreturn_t ad4170_irq_handler(int irq, void *dev_id)
 	struct iio_dev *indio_dev = dev_id;
 	struct ad4170_state *st = iio_priv(indio_dev);
 
-	if (iio_buffer_enabled(indio_dev))
-		iio_trigger_poll(st->trig);
-	else
+	if (iio_buffer_enabled(indio_dev)) {
+		if (!st->offload)
+			iio_trigger_poll(st->trig);
+	} else {
 		complete(&st->completion);
+	}
 
 	return IRQ_HANDLED;
 };
@@ -2932,6 +3018,80 @@ static int ad4170_regulator_setup(struct ad4170_state *st)
 	return 0;
 }
 
+static bool ad4170_offload_trigger_match(struct spi_offload_trigger *trigger,
+					 enum spi_offload_trigger_type type,
+					 u64 *args, u32 nargs)
+{
+	return type == SPI_OFFLOAD_TRIGGER_DATA_READY && nargs == 0;
+}
+
+static int ad4170_offload_trigger_request(struct spi_offload_trigger *trigger,
+					  enum spi_offload_trigger_type type,
+					  u64 *args, u32 nargs)
+{
+	return 0;
+}
+
+static const struct spi_offload_trigger_ops ad4170_spi_offload_ops = {
+	.match = ad4170_offload_trigger_match,
+	.request = ad4170_offload_trigger_request,
+};
+
+static int ad4170_spi_offload_probe(struct iio_dev *indio_dev,
+				    struct ad4170_state *st)
+{
+	struct device *dev = &st->spi->dev;
+	struct spi_offload_trigger_info trigger_info = {
+		.fwnode = dev_fwnode(dev),
+		.ops = &ad4170_spi_offload_ops,
+		.priv = st,
+	};
+	struct dma_chan *rx_dma;
+	unsigned int i;
+	int ret;
+
+	ret = devm_spi_offload_trigger_register(dev, &trigger_info);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Failed to register SPI offload trigger\n");
+
+	st->offload_trigger = devm_spi_offload_trigger_get(dev, st->offload,
+							   SPI_OFFLOAD_TRIGGER_DATA_READY);
+	if (IS_ERR(st->offload_trigger))
+		return dev_err_probe(dev, PTR_ERR(st->offload_trigger),
+				     "Failed to get SPI offload trigger\n");
+
+	rx_dma = devm_spi_offload_rx_stream_request_dma_chan(dev, st->offload);
+	if (IS_ERR(rx_dma))
+		return dev_err_probe(dev, PTR_ERR(rx_dma),
+				     "Failed to request RX DMA channel\n");
+
+	ret = devm_iio_dmaengine_buffer_setup_with_handle(dev, indio_dev, rx_dma,
+							  IIO_BUFFER_DIRECTION_IN);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Failed to setup DMAengine buffer\n");
+
+	/*
+	 * The SPI Engine writes each sample right-aligned in a 32-bit word in
+	 * CPU byte order, and DMA cannot insert soft timestamps.
+	 */
+	for (i = 0; i < indio_dev->num_channels; i++) {
+		if (st->chans[i].type == IIO_TIMESTAMP)
+			continue;
+
+		st->chans[i].scan_type.shift = 0;
+		st->chans[i].scan_type.endianness = IIO_CPU;
+	}
+
+	/* The soft timestamp channel is always the last one. */
+	indio_dev->num_channels--;
+
+	indio_dev->setup_ops = &ad4170_offload_buffer_ops;
+
+	return 0;
+}
+
 static int ad4170_probe(struct spi_device *spi)
 {
 	const struct ad4170_chip_info *chip;
@@ -2981,26 +3141,43 @@ static int ad4170_probe(struct spi_device *spi)
 
 	init_completion(&st->completion);
 
+	st->offload = devm_spi_offload_get(dev, spi, &ad4170_spi_offload_config);
+	ret = PTR_ERR_OR_ZERO(st->offload);
+	if (ret == -ENODEV)
+		st->offload = NULL;
+	else if (ret)
+		return dev_err_probe(dev, ret, "Failed to get SPI offload\n");
+
+	if (st->offload) {
+		ret = ad4170_spi_offload_probe(indio_dev, st);
+		if (ret)
+			return ret;
+	}
+
 	if (spi->irq) {
 		ret = devm_request_irq(dev, spi->irq, &ad4170_irq_handler,
 				       IRQF_NO_THREAD, indio_dev->name, indio_dev);
 		if (ret)
 			return ret;
 
-		ret = ad4170_trigger_setup(indio_dev);
-		if (ret)
-			return ret;
+		if (!st->offload) {
+			ret = ad4170_trigger_setup(indio_dev);
+			if (ret)
+				return ret;
+		}
 	}
 
-	ret = ad4170_prepare_spi_message(st);
-	if (ret)
-		return dev_err_probe(dev, ret, "Failed to prepare SPI message\n");
+	if (!st->offload) {
+		ret = ad4170_prepare_spi_message(st);
+		if (ret)
+			return dev_err_probe(dev, ret, "Failed to prepare SPI message\n");
 
-	ret = devm_iio_triggered_buffer_setup(dev, indio_dev, NULL,
-					      &ad4170_trigger_handler,
-					      &ad4170_buffer_ops);
-	if (ret)
-		return dev_err_probe(dev, ret, "Failed to setup read buffer\n");
+		ret = devm_iio_triggered_buffer_setup(dev, indio_dev, NULL,
+						      &ad4170_trigger_handler,
+						      &ad4170_buffer_ops);
+		if (ret)
+			return dev_err_probe(dev, ret, "Failed to setup read buffer\n");
+	}
 
 	return devm_iio_device_register(dev, indio_dev);
 }
@@ -3035,3 +3212,4 @@ MODULE_AUTHOR("Ana-Maria Cusco <ana-maria.cusco@analog.com>");
 MODULE_AUTHOR("Marcelo Schmitt <marcelo.schmitt@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD4170 SPI driver");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS("IIO_DMAENGINE_BUFFER");

@@ -146,6 +146,8 @@ config AD4170_4
 	select REGMAP_SPI
 	select IIO_BUFFER
 	select IIO_TRIGGERED_BUFFER
+	select IIO_BUFFER_DMAENGINE
+	select SPI_OFFLOAD
 	depends on COMMON_CLK
 	depends on GPIOLIB
 	help
