@@ -1921,12 +1921,22 @@ ieee80211_rx_h_sta_process(struct ieee80211_rx_data *rx)
 	    !(status->rx_flags & IEEE80211_RX_DEFERRED_RELEASE) &&
 	    (rx->sdata->vif.type == NL80211_IFTYPE_AP ||
 	     rx->sdata->vif.type == NL80211_IFTYPE_AP_VLAN)) {
-		if (test_sta_flag(sta, WLAN_STA_PS_STA)) {
-			if (!ieee80211_has_pm(hdr->frame_control))
-				sta_ps_end(sta);
-		} else {
-			if (ieee80211_has_pm(hdr->frame_control))
-				sta_ps_start(sta);
+		if (ieee80211_is_data(hdr->frame_control) ||
+		    ieee80211_is_action(hdr->frame_control) ||
+		    ieee80211_is_disassoc(hdr->frame_control) ||
+		    ieee80211_is_deauth(hdr->frame_control)) {
+			if (test_sta_flag(sta, WLAN_STA_PS_STA)) {
+				if (!ieee80211_has_pm(hdr->frame_control))
+					sta_ps_end(sta);
+			} else {
+				if (ieee80211_has_pm(hdr->frame_control))
+					sta_ps_start(sta);
+			}
+		} else if (test_sta_flag(sta, WLAN_STA_PS_STA) &&
+			   (ieee80211_is_auth(hdr->frame_control) ||
+			    ieee80211_is_assoc_req(hdr->frame_control) ||
+			    ieee80211_is_reassoc_req(hdr->frame_control))) {
+			sta_ps_end(sta);
 		}
 	}
 
