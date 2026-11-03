@@ -16,23 +16,29 @@
 #include "es8328.h"
 
 static const struct i2c_device_id es8328_id[] = {
-	{ .name = "es8328" },
-	{ .name = "es8388" },
+	{ .name = "es8328", .driver_data = ES8328_TYPE_ES8328 },
+	{ .name = "es8388", .driver_data = ES8328_TYPE_ES8388 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, es8328_id);
 
 static const struct of_device_id es8328_of_match[] = {
-	{ .compatible = "everest,es8328", },
-	{ .compatible = "everest,es8388", },
+	{ .compatible = "everest,es8328", .data = (void *)ES8328_TYPE_ES8328 },
+	{ .compatible = "everest,es8388", .data = (void *)ES8328_TYPE_ES8388 },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, es8328_of_match);
 
 static int es8328_i2c_probe(struct i2c_client *i2c)
 {
-	return es8328_probe(&i2c->dev,
-			devm_regmap_init_i2c(i2c, &es8328_regmap_config));
+	enum es8328_type type = (unsigned long)i2c_get_match_data(i2c);
+	const struct regmap_config *config;
+
+	config = type == ES8328_TYPE_ES8388 ? &es8388_regmap_config
+					    : &es8328_regmap_config;
+
+	return es8328_probe(&i2c->dev, devm_regmap_init_i2c(i2c, config),
+			    type);
 }
 
 static struct i2c_driver es8328_i2c_driver = {
