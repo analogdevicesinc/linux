@@ -21,7 +21,7 @@ void *io_cache_alloc_new(struct io_alloc_cache *cache, gfp_t gfp);
 static inline bool io_alloc_cache_put(struct io_alloc_cache *cache,
 				      void *entry)
 {
-	if (cache->nr_cached < cache->max_cached) {
+	if (likely(cache->nr_cached < cache->max_cached)) {
 		if (!kasan_mempool_poison_object(entry))
 			return false;
 		cache->entries[cache->nr_cached++] = entry;
@@ -32,7 +32,7 @@ static inline bool io_alloc_cache_put(struct io_alloc_cache *cache,
 
 static inline void *io_alloc_cache_get(struct io_alloc_cache *cache)
 {
-	if (cache->nr_cached) {
+	if (likely(cache->nr_cached)) {
 		void *entry = cache->entries[--cache->nr_cached];
 
 		/*
