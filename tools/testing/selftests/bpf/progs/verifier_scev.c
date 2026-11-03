@@ -520,15 +520,15 @@ __msg("r1 = load_acquire((u8 *)(r10 -8)) {{.*}}; r1 1 -> (zext8 -8)")
 __msg("r1 = load_acquire((u16 *)(r10 -8)) {{.*}}; r1 1 -> (zext16 -8)")
 __msg("r1 = load_acquire((u32 *)(r10 -8)) {{.*}}; r1 1 -> (zext32 -8)")
 #else
-__msg("r1 = *(u32 *)(r10 -8) {{.*}}; r1 1 -> _")
-__msg("r1 = *(u16 *)(r10 -8) {{.*}}; r1 1 -> _")
-__msg("r1 = *(u8 *)(r10 -8) {{.*}}; r1 1 -> _")
-__msg("r1 = *(s32 *)(r10 -8) {{.*}}; r1 1 -> _")
-__msg("r1 = *(s16 *)(r10 -8) {{.*}}; r1 1 -> _")
-__msg("r1 = *(s8 *)(r10 -8) {{.*}}; r1 1 -> _")
-__msg("r1 = load_acquire((u8 *)(r10 -8)) {{.*}}; r1 1 -> _")
-__msg("r1 = load_acquire((u16 *)(r10 -8)) {{.*}}; r1 1 -> _")
-__msg("r1 = load_acquire((u32 *)(r10 -8)) {{.*}}; r1 1 -> _")
+__msg("r1 = *(u32 *)(r10 -8) {{.*}}; r1 1 -> (>> -8 32)")
+__msg("r1 = *(u16 *)(r10 -8) {{.*}}; r1 1 -> (>> -8 48)")
+__msg("r1 = *(u8 *)(r10 -8) {{.*}}; r1 1 -> (>> -8 56)")
+__msg("r1 = *(s32 *)(r10 -8) {{.*}}; r1 1 -> (s>> -8 32)")
+__msg("r1 = *(s16 *)(r10 -8) {{.*}}; r1 1 -> (s>> -8 48)")
+__msg("r1 = *(s8 *)(r10 -8) {{.*}}; r1 1 -> (s>> -8 56)")
+__msg("r1 = load_acquire((u8 *)(r10 -8)) {{.*}}; r1 1 -> (>> -8 56)")
+__msg("r1 = load_acquire((u16 *)(r10 -8)) {{.*}}; r1 1 -> (>> -8 48)")
+__msg("r1 = load_acquire((u32 *)(r10 -8)) {{.*}}; r1 1 -> (>> -8 32)")
 #endif
 __msg("r2 = load_acquire((u64 *)(r10 -8)) {{.*}}; r2 2 -> -8")
 __msg("store_release((u8 *)(r10 -8), r1) {{.*}}; *fp-8 -8 -> (spill8 1)")
@@ -2646,7 +2646,7 @@ __naked __noinline __used static int scrub_slot_callee(void)
 }
 
 /*
- * The callee turns the caller's fp-8 into misc, so the states at the call site
+ * The callee turns the caller's fp-4 from zero into misc, so the states at the call site
  * differ between the first and the second iteration, while the states inside
  * the callee are identical. Verification fails with an infinite loop error if
  * states.c:current_loop() does not search upper frames for active loops.
@@ -2661,21 +2661,21 @@ __msg("12: safe")
 __naked void clamp_callee_state_pruning(void)
 {
 	asm volatile ("					\
-	w1 = 1;						\
-	*(u32 *)(r10 - 8) = r1;				\
+	r1 = 0;						\
+	*(u32 *)(r10 - 4) = r1;				\
 	r6 = 0;						\
 1:	r1 = r10;					\
 	r1 += -8;					\
 	call scrub_slot_callee;				\
 	r6 += 1;					\
 	if r6 < 10 goto 1b;				\
-	r0 = *(u32 *)(r10 - 8);				\
+	r0 = *(u32 *)(r10 - 4);				\
 	exit;						\
 "	::: __clobber_all);
 }
 
 /*
- * The inner loop turns fp-8 from a spill into misc. On the next outer
+ * The inner loop turns the byte at fp-4 from zero into misc. On the next outer
  * iteration, the states inside the inner loop match its first invocation.
  */
 SEC("socket")
@@ -2688,16 +2688,16 @@ __msg("loop header at 3, clamping r6 to 0..9 step 1")
 __naked void clamp_nested_loop_state_pruning(void)
 {
 	asm volatile ("					\
-	w1 = 1;						\
-	*(u32 *)(r10 - 8) = r1;				\
+	r1 = 0;						\
+	*(u16 *)(r10 - 4) = r1;				\
 	r6 = 0;						\
 1:	r7 = 0;						\
-2:	*(u32 *)(r10 - 4) = 1;				\
+2:	*(u8 *)(r10 - 4) = 1;				\
 	r7 += 1;					\
 	if r7 < 3 goto 2b;				\
 	r6 += 1;					\
 	if r6 < 10 goto 1b;				\
-	r0 = *(u32 *)(r10 - 8);				\
+	r0 = *(u16 *)(r10 - 4);				\
 	exit;						\
 "	::: __clobber_all);
 }

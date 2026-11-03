@@ -616,9 +616,10 @@ static int mk_fill(struct scev *scev, int id, u8 code)
 	bool sx = BPF_MODE(code) == BPF_MEMSX;
 
 #ifdef __BIG_ENDIAN
-	/* A narrow fill from a DW spill reads high bits on big-endian. */
+	/* A narrow fill reads the high bits of the slot on big-endian. */
 	if (BPF_SIZE(code) != BPF_DW)
-		return OPAQUE_EXPR_ID;
+		return expr2(scev, sx ? BPF_ARSH : BPF_RSH, id,
+			     imm_expr(scev, 64 - BITS_PER_BYTE * bpf_size_to_bytes(BPF_SIZE(code))));
 #endif
 
 	switch (BPF_SIZE(code)) {
@@ -2369,6 +2370,48 @@ static bool is_unbound_scev_reg(struct bpf_verifier_env *env, const struct bpf_f
 	       reg->r64.size == U64_MAX && reg->r32.size == U32_MAX;
 }
 
+/*
+ * scev_reg_for_read() has scev->unknown_reg for a partial spill, because a part does not tell
+ * what the 8 bytes of the slot are. But the state has the value of the spilled bytes.
+ * Does it know something about them? If not, they are their own widening too.
+ */
+static bool is_known_partial_spill(const struct bpf_func_state *st, u32 r)
+{
+	const struct bpf_stack_state *stack = scev_regno_to_stack(st, r);
+	const struct bpf_reg_state *reg;
+	u64 max;
+
+	if (!stack || !bpf_is_spilled_reg(stack) || bpf_spill_size(stack) == BPF_REG_SIZE)
+		return false;
+	reg = &stack->spilled_ptr;
+	max = GENMASK_ULL(bpf_spill_size(stack) * BITS_PER_BYTE - 1, 0);
+	return (reg->var_off.mask & max) != max || reg->r64.size < max || reg->r32.size < max ||
+	       reg->step > 1;
+}
+
+/*
+ * Is @id made from a partial spill that the loop changes? '?' can be made from anything.
+ * @self is the slot whose next value is @id, as long as only (any ...) is above @id:
+ * (any self ...) tells that one of the paths does not change the slot.
+ */
+static bool made_from_partial_spill(struct scev *scev, const struct bpf_func_state *st,
+				    const struct env *header_env, u32 id, int self, u32 lvl)
+{
+	const struct expr *e = &scev->exprs[id];
+	u32 i;
+
+	if (lvl >= EXPR_STACK_DEPTH || e->op == UNKNOWN)
+		return true;
+	if (e->op == REG)
+		return (int)e->params[0] != self && is_known_partial_spill(st, e->params[0]) &&
+		       header_env->reg2expr[e->params[0]] != id;
+	for (i = 0; i < op_params_num(e->op); i++)
+		if (made_from_partial_spill(scev, st, header_env, e->params[i],
+					    e->op == ANY ? self : -1, lvl + 1))
+			return true;
+	return false;
+}
+
 /* Main logic in verifier.c forbids varying offsets for certain register types. */
 static bool is_widenable_reg_type(const struct bpf_reg_state *reg)
 {
@@ -2700,8 +2743,20 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 		 * However, that would require tracking STACK_MISC writes in the
 		 * liveness analysis. Not implemented yet.
 		 */
-		if (is_unbound_scev_reg(env, cur_func, r))
+		if (is_unbound_scev_reg(env, cur_func, r)) {
+			/*
+			 * Nothing widens the value that the state has for a partial spill. A
+			 * value that is made from itself can be a new one in each iteration:
+			 * treat it like a register that has no formula. It's in the half
+			 * of the slot that is farther from fp.
+			 */
+			if (is_known_partial_spill(cur_func, r) &&
+			    bpf_stack_slot_alive(env, st->curframe, (r - MAX_BPF_REG) * 2 + 1) &&
+			    made_from_partial_spill(scev, cur_func, header_env,
+						    header_env->reg2expr[r], r, 0))
+				goto cant_widen;
 			continue;
+		}
 
 		r_scev = header_env->reg2scev[r];
 		reg = scev_reg_for_linear(cur_func, r);
