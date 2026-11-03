@@ -239,6 +239,16 @@ static bool is_zext32(struct scev *scev, int id, u32 *left)
 	return is_unop(scev, ZEXT32, id, left);
 }
 
+/* The low half of the slot is the low half of @left. The other half is not known. */
+static bool is_spill32(struct scev *scev, int id, u32 *left)
+{
+#ifdef __BIG_ENDIAN
+	/* '*(u32 *)(r10 - 8) = rX' writes the high half, see mk_fill() */
+	return false;
+#endif
+	return is_unop(scev, SPILL32, id, left);
+}
+
 static bool is_any(struct scev *scev, int id, u32 *left, u32 *right)
 {
 	return is_binop(scev, ANY, id, left, right);
@@ -255,6 +265,14 @@ static bool is_linear_or_linear32(struct scev *scev, int id, u32 *base, u32 *slo
 
 	*zext32 = is_zext32(scev, id, &t);
 	return is_linear(scev, *zext32 ? t : id, base, slope);
+}
+
+/* What a register is at the entry of the loop, or the low half of that. */
+static bool is_reg_or_low32(struct scev *scev, int id, u32 *reg)
+{
+	u32 t;
+
+	return is_reg(scev, id, reg) || (is_zext32(scev, id, &t) && is_reg(scev, t, reg));
 }
 
 static bool is_opaque(struct scev *scev, int id)
@@ -1546,6 +1564,26 @@ static int simplify(struct scev *scev, u32 id, void *priv)
 	if (is_zext32(scev, id, &a) && is_zext32(scev, a, &b))
 		return a;
 
+	/*
+	 * '*(u32 *)(r10 - 8) = rX' stores the low half of rX:
+	 * (spill32 (zext32 $a)) -> (spill32 $a)
+	 * (spill32 (+ (zext32 $a) $b)) -> (spill32 (+ $a $b))
+	 */
+	if (is_spill32(scev, id, &t) && is_zext32(scev, t, &a))
+		return expr1(scev, SPILL32, a);
+	if (is_spill32(scev, id, &t) && is_add(scev, t, &l, &b) && is_zext32(scev, l, &a))
+		return expr1(scev, SPILL32, expr2(scev, BPF_ADD, a, b));
+
+	/*
+	 * 'rX = *(u32 *)(r10 - 8)' loads what was stored:
+	 * (zext32 (spill32 $a)) -> (zext32 $a)
+	 * (zext32 (+ (spill32 $a) $b)) -> (zext32 (+ $a $b))
+	 */
+	if (is_zext32(scev, id, &t) && is_spill32(scev, t, &a))
+		return expr1(scev, ZEXT32, a);
+	if (is_zext32(scev, id, &t) && is_add(scev, t, &l, &b) && is_spill32(scev, l, &a))
+		return expr1(scev, ZEXT32, expr2(scev, BPF_ADD, a, b));
+
 	return id;
 }
 
@@ -1598,6 +1636,22 @@ static int compute_header_scevs(struct bpf_verifier_env *env, struct env *header
 			header_env->reg2scev[ra] = id;
 			continue;
 		}
+		/*
+		 * rA = (spill32 (+ rA IMM)) -> (spill32 (linear (zext32 rA) IMM))
+		 * The low half of the slot counts. Nothing is known about the other half.
+		 */
+		if (is_spill32(scev, ra_expr, &t) &&
+		    is_add(scev, t, &l, &r) &&
+		    is_reg(scev, l, &rb) &&
+		    is_imm(scev, r, &imm) &&
+		    ra == rb) {
+			id = expr2(scev, LINEAR_SCEV, expr1(scev, ZEXT32, l), r);
+			id = expr1(scev, SPILL32, id);
+			if (id < 0)
+				return id;
+			header_env->reg2scev[ra] = id;
+			continue;
+		}
 		/* rA = rA -> rA*/
 		if (is_reg(scev, ra_expr, &rb) && ra == rb) {
 			header_env->reg2scev[ra] = ra_expr;
@@ -1632,7 +1686,13 @@ static int compute_insn_scevs(struct bpf_verifier_env *env, struct env *eheader,
 	int id, reg;
 
 	for (reg = 0; reg < REGS_NUM; reg++) {
-		id = einsn->reg2expr[reg];
+		/*
+		 * Simplify first. 'store, load, test' of a 32-bit counter on the stack with the
+		 * equation of the header in it is deeper than EXPR_STACK_DEPTH.
+		 */
+		id = transform_expr(scev, einsn->reg2expr[reg], NULL, simplify);
+		if (id < 0)
+			return id;
 		id = transform_expr_once(scev, 0, id, eheader->reg2scev, instantiate_header_scevs);
 		if (id < 0)
 			return id;
@@ -1827,6 +1887,16 @@ static struct bpf_reg_state *scev_reg_for_linear(struct bpf_func_state *st, u32 
 	return &stack->spilled_ptr;
 }
 
+/* '*(u32 *)(r10 - 8) = rX' left a number in the low half of the slot. */
+static struct bpf_reg_state *scev_reg_for_spill32(struct bpf_func_state *st, u32 r)
+{
+	struct bpf_stack_state *stack = scev_regno_to_stack(st, r);
+
+	if (!stack || bpf_spill_size(stack) != 4 || stack->spilled_ptr.type != SCALAR_VALUE)
+		return NULL;
+	return &stack->spilled_ptr;
+}
+
 /*
  * Return a borrowed value; never use it as a widening destination.
  * NULL denotes no readable value.
@@ -2010,6 +2080,7 @@ static int match_linear_latch(struct bpf_verifier_env *env,
 	 *           base_expr                    |
 	 * - (linear (+ register imm) step)       |
 	 *           ^----------------------------'
+	 * 'register' is (zext32 *fp-8) for a 32-bit counter on the stack.
 	 */
 	if (!is_linear_or_linear32(scev, dst_reg_scev,
 				   &latch->base_expr, &latch->step_expr, &latch->zext32))
@@ -2029,12 +2100,12 @@ static int match_linear_latch(struct bpf_verifier_env *env,
 		return false;
 
 	/* (linear register step) */
-	if (is_reg(scev, latch->base_expr, &t))
+	if (is_reg_or_low32(scev, latch->base_expr, &t))
 		return true;
 
 	/* (linear (+ register imm) step) */
 	if (is_add(scev, latch->base_expr, &l, &r) &&
-	    is_reg(scev, l, &t) &&
+	    is_reg_or_low32(scev, l, &t) &&
 	    loop_invariant(scev, r))
 		return true;
 
@@ -2164,6 +2235,16 @@ static bool eval_expr(struct bpf_verifier_env *env, struct scev *scev,
 		result->s32_min = reg_s32_min(reg);
 		result->s32_max = reg_s32_max(reg);
 		result->ptr_reg = reg->type == SCALAR_VALUE ? -1 : (int)regno;
+		return true;
+	} else if (is_zext32(scev, id, &l) && is_reg(scev, l, &regno)) {
+		reg = scev_reg_for_spill32(st, regno);
+		if (!reg)
+			return false;
+		result->umin = result->smin = result->u32_min = reg_u32_min(reg);
+		result->umax = result->smax = result->u32_max = reg_u32_max(reg);
+		result->s32_min = reg_s32_min(reg);
+		result->s32_max = reg_s32_max(reg);
+		result->ptr_reg = -1;
 		return true;
 	} else if (is_imm(scev, id, &imm)) {
 		result->umin = result->umax = imm;
@@ -2401,8 +2482,8 @@ static void latch_iv_range(struct bpf_verifier_env *env, struct bpf_func_state *
 	s64 c = 0;
 
 	l = latch->base_expr;
-	if (!is_reg(scev, l, &regno)) {
-		if (!is_add(scev, latch->base_expr, &l, &r) || !is_reg(scev, l, &regno) ||
+	if (!is_reg_or_low32(scev, l, &regno)) {
+		if (!is_add(scev, latch->base_expr, &l, &r) || !is_reg_or_low32(scev, l, &regno) ||
 		    !eval_expr(env, scev, st, r, &off) || !scev_value_is_const(&off) ||
 		    off.ptr_reg >= 0)
 			return;
@@ -2474,7 +2555,7 @@ static bool compute_backedge_taken_max(struct bpf_verifier_env *env, struct bpf_
 	 */
 	if (latch->zext32 && !latch->jmp32) {
 		l = latch->base_expr;
-		if (!is_reg(scev, l, &r) && !is_add(scev, latch->base_expr, &l, &r))
+		if (!is_reg_or_low32(scev, l, &r) && !is_add(scev, latch->base_expr, &l, &r))
 			return false;
 		if (!eval_expr(env, scev, st, l, &reg_val) || reg_val.umax > U32_MAX)
 			return false;
@@ -2881,18 +2962,47 @@ struct linear_coefs {
 	u32 base_reg;
 	s64 slope;
 	bool zext32;
+	/* the low half of a stack slot */
+	bool spill32;
 };
+
+static bool is_simple_slope(struct scev *scev, u32 id, s64 *slope)
+{
+	return is_imm(scev, id, slope) &&
+	       *slope <= S16_MAX &&
+	       *slope >= S16_MIN &&
+	       *slope != 0;
+}
 
 static bool is_simple_linear(struct scev *scev, u32 id, struct linear_coefs *out)
 {
 	u32 base, slope;
 
+	out->spill32 = false;
 	return is_linear_or_linear32(scev, id, &base, &slope, &out->zext32) &&
 	       is_reg(scev, base, &out->base_reg) &&
-	       is_imm(scev, slope, &out->slope) &&
-	       out->slope <= S16_MAX &&
-	       out->slope >= S16_MIN &&
-	       out->slope != 0;
+	       is_simple_slope(scev, slope, &out->slope);
+}
+
+/*
+ * A 32-bit counter that lives on the stack: the SCEV of slot @r is
+ * (spill32 (linear (zext32 @r) slope)) and there is a 32-bit number in the slot in @st.
+ * Return what is known about that number.
+ */
+static struct bpf_reg_state *spill32_counter(struct scev *scev, struct bpf_func_state *st,
+					     u32 id, u32 r, struct linear_coefs *out)
+{
+	u32 t, base, slope;
+
+	if (!is_spill32(scev, id, &t) ||
+	    !is_linear(scev, t, &base, &slope) ||
+	    !is_zext32(scev, base, &t) ||
+	    !is_reg(scev, t, &out->base_reg) || out->base_reg != r ||
+	    !is_simple_slope(scev, slope, &out->slope))
+		return NULL;
+	out->zext32 = true;
+	out->spill32 = true;
+	return scev_reg_for_spill32(st, r);
 }
 
 static struct cnum64 cnum64_zext32(struct cnum32 r32)
@@ -2906,13 +3016,22 @@ static void linear_bounds(struct bpf_reg_state *reg, u32 max_header_count,
 {
 	s64 slope = coefs->slope;
 	s64 slope_abs = slope < 0 ? -slope : slope;
-	s64 min_val = reg_smin(reg);
-	s64 max_val = reg_smax(reg);
+	struct bpf_reg_state low;
+	s64 min_val, max_val;
 	struct cnum64 r64;
 	struct cnum32 r32;
 	s64 total_change;
 	bool overflow;
 
+	if (coefs->spill32) {
+		/* what 'rX = *(u32 *)(r10 - 8)' loads */
+		low = *reg;
+		low.var_off = tnum_subreg(reg->var_off);
+		low.r64 = cnum64_zext32(reg->r32);
+		reg = &low;
+	}
+	min_val = reg_smin(reg);
+	max_val = reg_smax(reg);
 	overflow = check_mul_overflow(slope, (s64)max_header_count - 1, &total_change) ||
 		   (slope > 0 && check_add_overflow(max_val, total_change, &max_val)) ||
 		   (slope < 0 && check_add_overflow(min_val, total_change, &min_val));
@@ -2981,7 +3100,7 @@ static int mark_expr_precise(struct bpf_verifier_env *env, struct bpf_func_state
 		if (!(order & PRE) || !is_reg(scev, id, &r))
 			continue;
 		/* Synthetic values have no spilled register to mark precise. */
-		reg = scev_reg_for_linear(st, r);
+		reg = scev_reg_for_linear(st, r) ?: scev_reg_for_spill32(st, r);
 		if (reg && reg->type == SCALAR_VALUE)
 			__set_bit(r, precise_regs);
 	}
@@ -3147,6 +3266,17 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 
 		if (!scev_reg_alive(env, st, r))
 			continue;
+
+		r_scev = header_env->reg2scev[r];
+		if (spill32_counter(scev, cur_func, r_scev, r, &coefs)) {
+			/* There is no exact offset to lose if nothing is known about the number */
+			if (test_bit(r, loop->store_base_regs) &&
+			    is_known_partial_spill(cur_func, r)) {
+				spill_base = true;
+				goto cant_widen;
+			}
+			continue;
+		}
 		/*
 		 * A heuristic:
 		 * Ignore SCEVs computed for unbound values and treat those as widened.
@@ -3175,7 +3305,6 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 		if (is_const_scev_reg(env, insn_idx, r))
 			continue;
 
-		r_scev = header_env->reg2scev[r];
 		reg = scev_reg_for_linear(cur_func, r);
 		/*
 		 * The offset of a pointer to arena is not tracked: what enters the loop stands
@@ -3299,7 +3428,7 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 	struct bpf_func_state *entry_func = loop_entry->frame[loop_entry->curframe];
 	struct bpf_verifier_log *log = &env->log;
 	struct scev *scev = env->scev;
-	struct bpf_reg_state *reg;
+	struct bpf_reg_state *reg, *spill32;
 	struct env *header_env;
 	struct linear_coefs coefs;
 	struct bounds bounds;
@@ -3319,8 +3448,13 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 
 	header_env = find_header_env(scev, insn_idx);
 	for (r = 0; r < REGS_NUM; r++) {
-		if (!scev_reg_alive(env, st, r) || is_unbound_scev_reg(env, cur_func, r) ||
-		    is_const_scev_reg(env, insn_idx, r))
+		if (!scev_reg_alive(env, st, r))
+			continue;
+
+		r_expr = header_env->reg2scev[r];
+		spill32 = spill32_counter(scev, cur_func, r_expr, r, &coefs);
+		if (!spill32 && (is_unbound_scev_reg(env, cur_func, r) ||
+				 is_const_scev_reg(env, insn_idx, r)))
 			continue;
 
 		reg = scev_reg_for_linear(cur_func, r);
@@ -3343,10 +3477,11 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 			continue;
 		}
 
-		r_expr = header_env->reg2scev[r];
 		/* If SCEV for r is (linear <reg> <slope>)*/
-		if (is_simple_linear(scev, r_expr, &coefs) && coefs.base_reg == r) {
-			err = scev_reg_for_write(env, cur_func, r, &reg);
+		if (spill32 || (is_simple_linear(scev, r_expr, &coefs) && coefs.base_reg == r)) {
+			/* the other half of the slot stays as it is */
+			reg = spill32;
+			err = reg ? 0 : scev_reg_for_write(env, cur_func, r, &reg);
 			if (err)
 				return err;
 			linear_bounds(reg, iters->max_header_count, &coefs, &bounds);
@@ -3403,7 +3538,7 @@ int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *cur
 	struct linear_coefs coefs;
 	struct env *header_env;
 	struct bounds bounds;
-	u32 r;
+	u32 r, r_scev;
 	int err;
 
 	if (entry_state->curframe != cur_func_state->frameno) {
@@ -3414,9 +3549,14 @@ int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *cur
 
 	header_env = find_header_env(scev, insn_idx);
 	for (r = 0; r < REGS_NUM; r++) {
+		r_scev = header_env->reg2scev[r];
+		entry_reg = spill32_counter(scev, entry_st, r_scev, r, &coefs);
+		reg = spill32_counter(scev, cur_func_state, r_scev, r, &coefs);
+		if (entry_reg && reg)
+			goto clamp;
+
 		/* If SCEV for r is (linear <reg> <slope>)*/
-		if (!is_simple_linear(scev, header_env->reg2scev[r], &coefs) ||
-		    coefs.base_reg != r)
+		if (!is_simple_linear(scev, r_scev, &coefs) || coefs.base_reg != r)
 			continue;
 
 		entry_reg = scev_reg_for_linear(entry_st, r);
@@ -3440,7 +3580,7 @@ int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *cur
 		if (!is_widenable_reg_type(entry_reg) ||
 		    (coefs.zext32 && entry_reg->type != SCALAR_VALUE))
 			continue;
-
+clamp:
 		linear_bounds(entry_reg, max_header_count, &coefs, &bounds);
 		if (r == entry->iv_reg)
 			iv_bounds(&bounds, entry->iv_range);
