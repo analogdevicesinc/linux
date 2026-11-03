@@ -105,6 +105,9 @@ struct xe_sysctrl_mailbox_command {
 
 	/** @data_out_len: Size of output buffer in bytes (0 if no response expected) */
 	size_t data_out_len;
+
+	/** @timeout_ms: Response timeout in ms, or 0 for %XE_SYSCTRL_MB_DEFAULT_TIMEOUT_MS */
+	unsigned int timeout_ms;
 };
 
 /* Modify as needed */

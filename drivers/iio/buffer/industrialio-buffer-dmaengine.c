@@ -88,9 +88,6 @@ static int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	unsigned int i;
 	int nents;
 
-	max_size = min(block->size, dmaengine_buffer->max_size);
-	max_size = round_down(max_size, dmaengine_buffer->align);
-
 	if (queue->buffer.direction == IIO_BUFFER_DIRECTION_IN)
 		dma_dir = DMA_DEV_TO_MEM;
 	else
@@ -104,10 +101,13 @@ static int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	if (block->sg_table) {
 		unsigned long flags;
 
-		sgl = block->sg_table->sgl;
-		nents = sg_nents_for_len(sgl, block->bytes_used);
-		if (nents < 0)
-			return nents;
+		/*
+		 * Only the first sgt->nents entries carry a valid
+		 * sg_dma_address()/sg_dma_len() pair as mapping the table may
+		 * have coalesced entries, in which case nents is smaller than
+		 * orig_nents.
+		 */
+		nents = block->sg_table->nents;
 
 		vecs = kmalloc_objs(*vecs, nents, GFP_ATOMIC);
 		if (!vecs)
@@ -115,13 +115,16 @@ static int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 
 		len_total = block->bytes_used;
 
-		for (i = 0; i < nents; i++) {
+		sgl = block->sg_table->sgl;
+		for (i = 0; i < nents && len_total; i++) {
 			vecs[i].addr = sg_dma_address(sgl);
 			vecs[i].len = min(sg_dma_len(sgl), len_total);
 			len_total -= vecs[i].len;
 
 			sgl = sg_next(sgl);
 		}
+
+		nents = i;
 
 		if (block->cyclic)
 			flags = DMA_PREP_REPEAT;
@@ -251,6 +254,7 @@ static const struct iio_dev_attr *iio_dmaengine_buffer_attrs[] = {
  */
 static struct iio_buffer *iio_dmaengine_buffer_alloc(struct dma_chan *chan)
 {
+	struct device *dma_dev = dmaengine_get_dma_device(chan);
 	struct dmaengine_buffer *dmaengine_buffer;
 	unsigned int width, src_width, dest_width;
 	struct dma_slave_caps caps;
@@ -278,9 +282,9 @@ static struct iio_buffer *iio_dmaengine_buffer_alloc(struct dma_chan *chan)
 	INIT_LIST_HEAD(&dmaengine_buffer->active);
 	dmaengine_buffer->chan = chan;
 	dmaengine_buffer->align = width;
-	dmaengine_buffer->max_size = dma_get_max_seg_size(chan->device->dev);
+	dmaengine_buffer->max_size = dma_get_max_seg_size(dma_dev);
 
-	iio_dma_buffer_init(&dmaengine_buffer->queue, chan->device->dev,
+	iio_dma_buffer_init(&dmaengine_buffer->queue, dma_dev,
 			    &iio_dmaengine_default_ops);
 
 	dmaengine_buffer->queue.buffer.attrs = iio_dmaengine_buffer_attrs;

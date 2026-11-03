@@ -8,6 +8,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <string.h>
@@ -16,6 +17,7 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <time.h>
 
 #include <linux/ovpn.h>
@@ -470,6 +472,33 @@ static int ovpn_parse_key_direction(const char *dir, struct ovpn_ctx *ctx)
 	return 0;
 }
 
+/* openvpn 2.7.6 and later always set TCP_NODELAY, so mirror that by
+ * default. Peers running 2.7.0 to 2.7.5 still leave Nagle enabled, and
+ * mixed-version deployments will keep doing so for a while, so let the
+ * selftests exercise that configuration too by setting OVPN_TCP_NODELAY=0.
+ */
+static bool ovpn_tcp_nodelay_wanted(void)
+{
+	const char *env = getenv("OVPN_TCP_NODELAY");
+
+	return !env || strcmp(env, "0");
+}
+
+static int ovpn_tcp_nodelay(int socket)
+{
+	int opt = 1;
+	int ret;
+
+	if (!ovpn_tcp_nodelay_wanted())
+		return 0;
+
+	ret = setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
+	if (ret < 0)
+		perror("setsockopt for TCP_NODELAY");
+
+	return ret;
+}
+
 static int ovpn_socket(struct ovpn_ctx *ctx, sa_family_t family, int proto)
 {
 	struct sockaddr_storage local_sock = { 0 };
@@ -606,6 +635,12 @@ static int ovpn_accept(struct ovpn_ctx *ctx)
 		goto err;
 	}
 
+	if (ovpn_tcp_nodelay(ret) < 0) {
+		close(ret);
+		ret = -1;
+		goto err;
+	}
+
 	return ret;
 err:
 	close(ctx->socket);
@@ -622,6 +657,10 @@ static int ovpn_connect(struct ovpn_ctx *ovpn)
 		perror("cannot create socket");
 		return -1;
 	}
+
+	ret = ovpn_tcp_nodelay(s);
+	if (ret < 0)
+		goto err;
 
 	switch (ovpn->remote.in4.sin_family) {
 	case AF_INET:
@@ -648,6 +687,26 @@ static int ovpn_connect(struct ovpn_ctx *ovpn)
 err:
 	close(s);
 	return ret;
+}
+
+static int ovpn_nl_put_vpn_addr(struct nl_msg *msg,
+				const struct ovpn_ctx *ovpn)
+{
+	if (!ovpn->peer_ip_set)
+		return 0;
+
+	switch (ovpn->peer_ip.in4.sin_family) {
+	case AF_INET:
+		return nla_put_u32(msg, OVPN_A_PEER_VPN_IPV4,
+				   ovpn->peer_ip.in4.sin_addr.s_addr);
+	case AF_INET6:
+		return nla_put(msg, OVPN_A_PEER_VPN_IPV6,
+			       sizeof(struct in6_addr),
+			       &ovpn->peer_ip.in6.sin6_addr);
+	default:
+		fprintf(stderr, "Invalid family for peer address\n");
+		return -EAFNOSUPPORT;
+	}
 }
 
 static int ovpn_new_peer(struct ovpn_ctx *ovpn, bool is_tcp)
@@ -691,22 +750,9 @@ static int ovpn_new_peer(struct ovpn_ctx *ovpn, bool is_tcp)
 		}
 	}
 
-	if (ovpn->peer_ip_set) {
-		switch (ovpn->peer_ip.in4.sin_family) {
-		case AF_INET:
-			NLA_PUT_U32(ctx->nl_msg, OVPN_A_PEER_VPN_IPV4,
-				    ovpn->peer_ip.in4.sin_addr.s_addr);
-			break;
-		case AF_INET6:
-			NLA_PUT(ctx->nl_msg, OVPN_A_PEER_VPN_IPV6,
-				sizeof(struct in6_addr),
-				&ovpn->peer_ip.in6.sin6_addr);
-			break;
-		default:
-			fprintf(stderr, "Invalid family for peer address\n");
-			goto nla_put_failure;
-		}
-	}
+	ret = ovpn_nl_put_vpn_addr(ctx->nl_msg, ovpn);
+	if (ret)
+		goto nla_put_failure;
 
 	nla_nest_end(ctx->nl_msg, attr);
 
@@ -732,6 +778,10 @@ static int ovpn_set_peer(struct ovpn_ctx *ovpn)
 		    ovpn->keepalive_interval);
 	NLA_PUT_U32(ctx->nl_msg, OVPN_A_PEER_KEEPALIVE_TIMEOUT,
 		    ovpn->keepalive_timeout);
+
+	ret = ovpn_nl_put_vpn_addr(ctx->nl_msg, ovpn);
+	if (ret)
+		goto nla_put_failure;
 	nla_nest_end(ctx->nl_msg, attr);
 
 	ret = ovpn_nl_msg_send(ctx, NULL);
@@ -1730,13 +1780,14 @@ static void usage(const char *cmd)
 	fprintf(stderr, "\tmark: socket FW mark value\n");
 
 	fprintf(stderr,
-		"* set_peer <iface> <peer_id> <keepalive_interval> <keepalive_timeout>: set peer attributes\n");
+		"* set_peer <iface> <peer_id> <keepalive_interval> <keepalive_timeout> [vpnaddr]: set peer attributes\n");
 	fprintf(stderr, "\tiface: ovpn interface name\n");
 	fprintf(stderr, "\tpeer_id: peer ID of the peer to modify\n");
 	fprintf(stderr,
 		"\tkeepalive_interval: interval for sending ping messages\n");
 	fprintf(stderr,
 		"\tkeepalive_timeout: time after which a peer is timed out\n");
+	fprintf(stderr, "\tvpnaddr: peer VPN IP\n");
 
 	fprintf(stderr, "* del_peer <iface> <peer_id>: delete peer\n");
 	fprintf(stderr, "\tiface: ovpn interface name\n");
@@ -2090,6 +2141,8 @@ static int ovpn_run_cmd(struct ovpn_ctx *ovpn)
 			return ret;
 
 		ret = ovpn_new_peer(ovpn, false);
+		if (ret < 0)
+			return ret;
 		ovpn_waitbg();
 		break;
 	case CMD_NEW_MULTI_PEER:
@@ -2330,6 +2383,12 @@ static int ovpn_parse_cmd_args(struct ovpn_ctx *ovpn, int argc, char *argv[])
 			fprintf(stderr,
 				"keepalive interval value out of range\n");
 			return -1;
+		}
+
+		if (argc > 6) {
+			ret = ovpn_parse_remote(ovpn, NULL, NULL, argv[6]);
+			if (ret < 0)
+				return -1;
 		}
 		break;
 	case CMD_DEL_PEER:

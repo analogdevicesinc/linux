@@ -9,6 +9,7 @@
 #include <drm/drm_managed.h>
 #include <drm/drm_pagemap.h>
 #include <drm/drm_pagemap_util.h>
+#include <drm/ttm/ttm_bo.h>
 
 #include "xe_bo.h"
 #include "xe_exec_queue_types.h"
@@ -1623,6 +1624,73 @@ int xe_svm_range_get_pages(struct xe_vm *vm, struct xe_svm_range *range,
 	}
 
 	return err;
+}
+
+/**
+ * xe_svm_devmem_lru_bump() - Move a range's backing BO to the TTM LRU tail
+ * @devmem_allocation: The device-memory allocation backing the range's pages
+ *
+ * Intended as a &drm_gpusvm_ctx.devmem_fn, so drm_gpusvm_get_pages() calls it
+ * under the GPUSVM notifier lock. That lock sits in the reclaim path, so
+ * dma-resv cannot be acquired blocking beneath it; dma-resv is also the outer
+ * lock of the notifier when memory is allocated and migrated, so a blocking
+ * acquire here would invert that order. Hence the trylock. The BO is private
+ * (dedicated dma-resv), so the trylock succeeds unless the BO is being moved
+ * elsewhere (e.g. eviction); a contended BO is simply skipped.
+ *
+ * A shared device_private_page_owner can hand us allocations backed by a
+ * foreign driver; skip anything that is not an Xe BO before casting.
+ */
+void xe_svm_devmem_lru_bump(struct drm_pagemap_devmem *devmem_allocation)
+{
+#if IS_ENABLED(CONFIG_DRM_XE_PAGEMAP)
+	struct xe_bo *bo;
+
+	if (devmem_allocation->ops != &dpagemap_devmem_ops)
+		return;
+
+	bo = to_xe_bo(devmem_allocation);
+
+	if (!dma_resv_trylock(bo->ttm.base.resv))
+		return;
+
+	ttm_bo_move_to_lru_tail_unlocked(&bo->ttm);
+	dma_resv_unlock(bo->ttm.base.resv);
+#endif
+}
+
+/**
+ * xe_svm_range_prefetch_lru_bump() - Bump the TTM LRU for an already-valid range
+ * @vm: Pointer to the struct xe_vm
+ * @vma: Pointer to the VMA covering the range
+ * @range: Pointer to the xe SVM range structure
+ * @dpagemap: Target pagemap of the prefetch, or %NULL for system memory
+ *
+ * A valid range skips migration and binding, so nothing else refreshes its
+ * backing BOs on the LRU. Re-fault the CPU pages without touching the DMA
+ * mappings (@no_dma_map) and move each backing BO to the LRU tail.
+ *
+ * Prefetching is a best-effort optimization, so any failure is ignored; a
+ * later fault will refault the range.
+ */
+void xe_svm_range_prefetch_lru_bump(struct xe_vm *vm, struct xe_vma *vma,
+				    struct xe_svm_range *range,
+				    struct drm_pagemap *dpagemap)
+{
+	struct drm_gpusvm_ctx ctx = {
+		.read_only = xe_vma_read_only(vma),
+		.device_private_page_owner =
+			xe_svm_private_page_owner(vm, !dpagemap),
+		.no_dma_map = 1,
+		.devmem_fn = xe_svm_devmem_lru_bump,
+	};
+
+	guard(mutex)(&range->lock);
+
+	if (xe_svm_range_is_removed(range))
+		return;
+
+	xe_svm_range_get_pages(vm, range, &ctx);
 }
 
 /**

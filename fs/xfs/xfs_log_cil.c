@@ -1370,7 +1370,7 @@ xlog_cil_cleanup_whiteouts(
  * allocation context. However, we do not want to block on memory reclaim
  * recursing back into the filesystem because this push may have been triggered
  * by memory reclaim itself. Hence we really need to run under full GFP_NOFS
- * contraints here.
+ * constraints here.
  */
 static void
 xlog_cil_push_work(
@@ -1562,10 +1562,13 @@ xlog_cil_push_work(
 		}
 
 		/*
-		 * We need to issue a pre-flush so that the ordering for this
-		 * checkpoint is correctly preserved down to stable storage.
+		 * We need to issue a pre-flush on the device containing the log
+		 * so that the ordering for this checkpoint is correctly
+		 * preserved down to stable storage.
+		 * There is no need for an extra flush on devices that only
+		 * contain data or non-log metadata.
 		 */
-		ctx->commit_iclog->ic_flags |= XLOG_ICL_NEED_FLUSH;
+		ctx->commit_iclog->ic_flags |= XLOG_ICL_NEED_FLUSH_LOG;
 	}
 
 	/*

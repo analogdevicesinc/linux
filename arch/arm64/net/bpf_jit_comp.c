@@ -11,6 +11,7 @@
 #include <linux/bitfield.h>
 #include <linux/bpf.h>
 #include <linux/cfi.h>
+#include <linux/extable.h>
 #include <linux/filter.h>
 #include <linux/memory.h>
 #include <linux/printk.h>
@@ -22,7 +23,6 @@
 #include <asm/debug-monitors.h>
 #include <asm/insn.h>
 #include <asm/text-patching.h>
-#include <asm/set_memory.h>
 
 #include "bpf_jit.h"
 
@@ -600,6 +600,8 @@ static int build_prologue(struct jit_ctx *ctx, bool ebpf_from_cbpf)
 		 * 12 registers are on the stack
 		 */
 		emit(A64_SUB_I(1, A64_SP, A64_FP, 96), ctx);
+		/* The callback may use its own BPF stack, set up fp for it. */
+		ctx->fp_used = true;
 	}
 
 	/* Stack must be multiples of 16B */
@@ -1043,8 +1045,9 @@ static void __maybe_unused build_bhb_mitigation(struct jit_ctx *ctx)
 	}
 }
 
-static void build_epilogue(struct jit_ctx *ctx, bool was_classic)
+static void build_epilogue(struct jit_ctx *ctx, bool was_classic, bool unwind)
 {
+	const u8 tmp = bpf2a64[TMP_REG_1];
 	const u8 r0 = bpf2a64[BPF_REG_0];
 	const u8 ptr = bpf2a64[TCCNT_PTR];
 
@@ -1071,6 +1074,10 @@ static void build_epilogue(struct jit_ctx *ctx, bool was_classic)
 	/* Authenticate lr */
 	if (IS_ENABLED(CONFIG_ARM64_PTR_AUTH_KERNEL))
 		emit(A64_AUTIASP, ctx);
+
+	/* tmp is the offset of the pad, see emit_unwind_exit() */
+	if (unwind)
+		emit(A64_ADD(1, A64_LR, A64_LR, tmp), ctx);
 
 	emit(A64_RET(A64_LR), ctx);
 }
@@ -1220,6 +1227,82 @@ static int add_exception_handler(const struct bpf_insn *insn,
 	return 0;
 }
 
+/*
+ * There is no branch for unwind_goto, only an extable entry
+ *   { .insn = ret_addr - 1, .fixup = pad - ret_addr }
+ * where ret_addr is the return address of the call in front of it. unwind_exit
+ * adds .fixup to its LR.
+ * ret_addr - 1, because what follows the call can have an entry of its own.
+ * No insn starts there, so a fault cannot hit the entry.
+ * 'bl foo; mov x8, x0' is in front of unwind_goto. The pad doesn't miss the mov:
+ * r0 is x8 and the epilogue of the callee copies it to x0 and leaves x8 as it is.
+ */
+static int add_unwind_exentry(struct jit_ctx *ctx, int pad)
+{
+	int ret_addr = ctx->idx - 1;
+	struct exception_table_entry *ex;
+	off_t ins_offset;
+
+	if (!ctx->image)
+		/* First pass */
+		return 0;
+
+	if (!ctx->prog->aux->extable ||
+	    WARN_ON_ONCE(ctx->exentry_idx >= ctx->prog->aux->num_exentries))
+		return -EINVAL;
+
+	ex = &ctx->prog->aux->extable[ctx->exentry_idx];
+	ins_offset = (long)&ctx->ro_image[ret_addr] - 1 - (long)&ex->insn;
+	if (WARN_ON_ONCE(ins_offset >= 0 || ins_offset < INT_MIN))
+		return -ERANGE;
+
+	/* switch ex to rw buffer for writing */
+	ex = (void *)ctx->image + ((void *)ex - (void *)ctx->ro_image);
+	ex->insn = ins_offset;
+	ex->fixup = (ctx->offset[pad] - ret_addr) * AARCH64_INSN_SIZE;
+	ex->type = EX_TYPE_BPF;
+
+	ctx->exentry_idx++;
+	return 0;
+}
+
+static long bpf_unwind_fixup(u64 lr)
+{
+	const struct exception_table_entry *e;
+
+	e = search_bpf_extables(ptrauth_strip_kernel_insn_pac(lr) - 1);
+	/*
+	 * The verifier made sure that unwind_goto follows a call in a prog. When
+	 * the kernel called an async callback, it's exit.
+	 */
+	return e ? e->fixup : 0;
+}
+
+/*
+ * unwind_exit: return to the pad. LR in the frame record is signed. Instead of
+ * signing the address of the pad, let the epilogue authenticate LR as it is and
+ * add the offset of the pad to it. r0 and r2 are returned.
+ */
+static void emit_unwind_exit(struct jit_ctx *ctx)
+{
+	const u8 tmp = bpf2a64[TMP_REG_1];
+	const u8 r0 = bpf2a64[BPF_REG_0];
+	const u8 r2 = bpf2a64[BPF_REG_2];
+
+	emit(A64_PUSH(r0, r2, A64_SP), ctx);
+	emit(A64_LDR64I(A64_R(0), A64_FP, 8), ctx);
+	emit_call((u64)bpf_unwind_fixup, ctx);
+	emit(A64_MOV(1, tmp, A64_R(0)), ctx);
+	emit(A64_POP(r0, r2, A64_SP), ctx);
+	build_epilogue(ctx, false, true);
+}
+
+static const struct bpf_jit_arg_abi arm64_arg_abi = {
+	.nr_arg_regs		= 8,
+	.even_reg_align		= true,
+	.even_stack_align	= true,
+};
+
 static const u8 stack_arg_reg[] = { A64_R(5), A64_R(6), A64_R(7) };
 
 #define NR_STACK_ARG_REGS	ARRAY_SIZE(stack_arg_reg)
@@ -1262,19 +1345,20 @@ static void emit_stack_arg_store_imm(s32 imm, s16 bpf_off, const u8 tmp, struct 
  * kern_vm_start. A nullable arg preserves NULL by skipping the add, tested
  * on the truncated value as arena NULL is offset 0.
  */
-static int emit_kfunc_arena_args(struct jit_ctx *ctx, const struct bpf_insn *insn)
+static int emit_kfunc_arena_args(struct jit_ctx *ctx, const struct btf_func_model *fm)
 {
 	const u8 arena_vm_base = bpf2a64[ARENA_VM_START];
-	const struct btf_func_model *fm;
-	int i;
+	int i, slot;
 
-	fm = bpf_jit_find_kfunc_model(ctx->prog, insn);
-	if (!fm)
-		return -EINVAL;
-
-	for (i = 0; i < min_t(int, fm->nr_args, MAX_BPF_FUNC_REG_ARGS); i++) {
-		const u8 reg = bpf2a64[BPF_REG_1 + i];
+	for (i = 0, slot = 0; i < fm->nr_args; i++) {
+		u32 arg_regs = (fm->arg_size[i] + 7) / 8;
 		u8 flags = fm->arg_flags[i];
+		u8 reg;
+
+		if (slot + arg_regs > MAX_BPF_FUNC_REG_ARGS)
+			break;
+		reg = bpf2a64[BPF_REG_1 + slot];
+		slot += arg_regs;
 
 		if (!(flags & BTF_FMODEL_ARENA_ARG))
 			continue;
@@ -1291,6 +1375,52 @@ static int emit_kfunc_arena_args(struct jit_ctx *ctx, const struct bpf_insn *ins
 	}
 
 	return 0;
+}
+
+static bool a64_arg_on_stack(u8 slot)
+{
+	return slot >= arm64_arg_abi.nr_arg_regs;
+}
+
+static s32 a64_arg_stack_off(u8 slot)
+{
+	return (slot - arm64_arg_abi.nr_arg_regs) * sizeof(u64);
+}
+
+/*
+ * Move the arguments AAPCS64 places somewhere other than the argument slot the
+ * BPF calling convention gave them. Slot N is X(N) up to the eighth, and the
+ * outgoing stack argument area from SP beyond it, both for the slot an
+ * argument comes from and for the one it goes to.
+ *
+ * AAPCS64 only ever moves an argument to a higher slot, so no move here ever
+ * takes BPF_JIT_ARG_TMP: bpf_jit_plan_arg_moves() hands out the scratch only
+ * for a convention that moves one down, which needs a register to carry the
+ * value past its own destination.
+ */
+static void emit_kfunc_arg_moves(struct jit_ctx *ctx, const struct btf_func_model *fm)
+{
+	struct bpf_jit_arg_move moves[BPF_JIT_MAX_ARG_MOVES];
+	const u8 tmp = bpf2a64[TMP_REG_1];
+	u32 i, n;
+
+	n = bpf_jit_plan_arg_moves(&arm64_arg_abi, fm, moves);
+
+	for (i = 0; i < n; i++) {
+		u8 dst = moves[i].dst, src = moves[i].src, reg;
+
+		if (a64_arg_on_stack(src)) {
+			reg = tmp;
+			emit(A64_LDR64I(reg, A64_SP, a64_arg_stack_off(src)), ctx);
+		} else {
+			reg = src;
+		}
+
+		if (a64_arg_on_stack(dst))
+			emit(A64_STR64I(reg, A64_SP, a64_arg_stack_off(dst)), ctx);
+		else if (reg != dst)
+			emit(A64_MOV(1, dst, reg), ctx);
+	}
 }
 
 /* JITs an eBPF instruction.
@@ -1439,13 +1569,8 @@ static int build_insn(const struct bpf_verifier_env *env, const struct bpf_insn 
 	case BPF_ALU | BPF_END | BPF_FROM_LE:
 	case BPF_ALU | BPF_END | BPF_FROM_BE:
 	case BPF_ALU64 | BPF_END | BPF_FROM_LE:
-#ifdef CONFIG_CPU_BIG_ENDIAN
-		if (BPF_CLASS(code) == BPF_ALU && BPF_SRC(code) == BPF_FROM_BE)
-			goto emit_bswap_uxt;
-#else /* !CONFIG_CPU_BIG_ENDIAN */
 		if (BPF_CLASS(code) == BPF_ALU && BPF_SRC(code) == BPF_FROM_LE)
 			goto emit_bswap_uxt;
-#endif
 		switch (imm) {
 		case 16:
 			emit(A64_REV16(is64, dst, dst), ctx);
@@ -1716,9 +1841,15 @@ emit_cond_jmp:
 		if (ret < 0)
 			return ret;
 		if (insn->src_reg == BPF_PSEUDO_KFUNC_CALL) {
-			ret = emit_kfunc_arena_args(ctx, insn);
+			const struct btf_func_model *fm;
+
+			fm = bpf_jit_find_kfunc_model(ctx->prog, insn);
+			if (!fm)
+				return -EINVAL;
+			ret = emit_kfunc_arena_args(ctx, fm);
 			if (ret < 0)
 				return ret;
+			emit_kfunc_arg_moves(ctx, fm);
 		}
 		emit_call(func_addr, ctx);
 		/*
@@ -1730,13 +1861,34 @@ emit_cond_jmp:
 			emit(A64_MOV(1, r0, A64_R(0)), ctx);
 		break;
 	}
+	/* indirect call of a bpf subprog, dst holds its address */
+	case BPF_JMP | BPF_CALL | BPF_X:
+		/*
+		 * It's the same as a direct call of a subprog that is out of
+		 * range of BL: the subprog starts with BTI JC, the arguments
+		 * are in place, and the registers that hold the tail call
+		 * counter and the private stack are callee saved.
+		 */
+		emit(A64_BLR(dst), ctx);
+		emit(A64_MOV(1, bpf2a64[BPF_REG_0], A64_R(0)), ctx);
+		break;
 	/* tail call */
 	case BPF_JMP | BPF_TAIL_CALL:
 		if (emit_bpf_tail_call(ctx))
 			return -EFAULT;
 		break;
+	/* unwind_goto. The verifier expanded may_goto. */
+	case BPF_JMP | BPF_JCOND:
+		ret = add_unwind_exentry(ctx, i + 1 + off);
+		if (ret)
+			return ret;
+		break;
 	/* function return */
 	case BPF_JMP | BPF_EXIT:
+		if (bpf_is_unwind_exit(insn) && bpf_prog_can_unwind(ctx->prog)) {
+			emit_unwind_exit(ctx);
+			break;
+		}
 		/* Optimization: when last instruction is EXIT,
 		   simply fallthrough to epilogue. */
 		if (i == ctx->prog->len - 1)
@@ -2213,8 +2365,10 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_verifier_env *env, struct bpf_pr
 	if (ctx.offset == NULL)
 		goto out_off;
 
-	ctx.user_vm_start = bpf_arena_get_user_vm_start(prog->aux->arena);
-	ctx.arena_vm_start = bpf_arena_get_kern_vm_start(prog->aux->arena);
+	if (bpf_prog_uses_arena_insns(prog)) {
+		ctx.user_vm_start = bpf_arena_get_user_vm_start(prog->aux->arena);
+		ctx.arena_vm_start = bpf_arena_get_kern_vm_start(prog->aux->arena);
+	}
 
 	out_cnt = bpf_out_stack_arg_cnt(env, prog);
 	if (out_cnt) {
@@ -2239,7 +2393,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_verifier_env *env, struct bpf_pr
 		goto out_off;
 
 	ctx.epilogue_offset = ctx.idx;
-	build_epilogue(&ctx, was_classic);
+	build_epilogue(&ctx, was_classic, false);
 	build_plt(&ctx);
 
 	extable_align = __alignof__(struct exception_table_entry);
@@ -2296,7 +2450,7 @@ skip_init_ctx:
 		WARN_ON_ONCE(ctx.idx != ctx.epilogue_offset))
 		goto out_free_hdr;
 
-	build_epilogue(&ctx, was_classic);
+	build_epilogue(&ctx, was_classic, false);
 	build_plt(&ctx);
 
 	/* Extra pass to validate JITed code. */
@@ -2388,6 +2542,21 @@ bool bpf_jit_supports_kfunc_call(void)
 	return true;
 }
 
+bool bpf_jit_supports_kfunc_ret_reg_pair(void)
+{
+	return true;
+}
+
+bool bpf_jit_supports_unwind(void)
+{
+	return true;
+}
+
+const struct bpf_jit_arg_abi *bpf_jit_arg_abi(void)
+{
+	return &arm64_arg_abi;
+}
+
 bool bpf_jit_supports_stack_args(void)
 {
 	return true;
@@ -2416,10 +2585,21 @@ bool bpf_jit_supports_subprog_tailcalls(void)
 	return true;
 }
 
-static void invoke_bpf_prog(struct jit_ctx *ctx, struct bpf_tramp_node *node,
-			    int bargs_off, int retval_off, int run_ctx_off,
-			    bool save_ret)
+bool bpf_jit_supports_callx(void)
 {
+	return true;
+}
+
+bool bpf_jit_supports_large_stack(void)
+{
+	return true;
+}
+
+static void invoke_bpf_prog(struct jit_ctx *ctx, struct bpf_tramp_image *im,
+			    struct bpf_tramp_node *node, int bargs_off,
+			    int retval_off, int run_ctx_off, bool save_ret)
+{
+	void *skip;
 	__le32 *branch;
 	u64 enter_prog;
 	u64 exit_prog;
@@ -2428,6 +2608,10 @@ static void invoke_bpf_prog(struct jit_ctx *ctx, struct bpf_tramp_node *node,
 
 	enter_prog = (u64)bpf_trampoline_enter(p);
 	exit_prog = (u64)bpf_trampoline_exit(p);
+
+	/* nop, patched to skip this prog when it is detached */
+	skip = ctx->ro_image + ctx->idx;
+	emit(A64_NOP, ctx);
 
 	if (node->cookie == 0) {
 		/* if cookie is zero, one instruction is enough to store it */
@@ -2481,11 +2665,13 @@ static void invoke_bpf_prog(struct jit_ctx *ctx, struct bpf_tramp_node *node,
 	emit(A64_ADD_I(1, A64_R(2), A64_SP, run_ctx_off), ctx);
 
 	emit_call(exit_prog, ctx);
+
+	bpf_tramp_image_add_skip(im, p, skip, ctx->ro_image + ctx->idx);
 }
 
-static void invoke_bpf_mod_ret(struct jit_ctx *ctx, struct bpf_tramp_nodes *tn,
-			       int bargs_off, int retval_off, int run_ctx_off,
-			       __le32 **branches)
+static void invoke_bpf_mod_ret(struct jit_ctx *ctx, struct bpf_tramp_image *im,
+			       struct bpf_tramp_nodes *tn, int bargs_off,
+			       int retval_off, int run_ctx_off, __le32 **branches)
 {
 	int i;
 
@@ -2494,7 +2680,7 @@ static void invoke_bpf_mod_ret(struct jit_ctx *ctx, struct bpf_tramp_nodes *tn,
 	 */
 	emit(A64_STR64I(A64_ZR, A64_SP, retval_off), ctx);
 	for (i = 0; i < tn->nr_nodes; i++) {
-		invoke_bpf_prog(ctx, tn->nodes[i], bargs_off, retval_off,
+		invoke_bpf_prog(ctx, im, tn->nodes[i], bargs_off, retval_off,
 				run_ctx_off, true);
 		/* if (*(u64 *)(sp + retval_off) !=  0)
 		 *	goto do_fexit;
@@ -2524,33 +2710,41 @@ struct arg_aux {
 	 * arguments to be properly aligned)
 	 */
 	int ostack_for_args;
+	/* where AAPCS64 puts each argument slot: an argument register below
+	 * the eighth, an on-stack argument slot from it up
+	 */
+	u8 pos_of_slot[MAX_BPF_FUNC_ARG_SLOTS];
 };
 
 static int calc_arg_aux(const struct btf_func_model *m,
 			 struct arg_aux *a)
 {
-	int stack_slots, nregs, slots, i;
+	int slots, i, slot, total;
+
+	total = bpf_jit_place_args(&arm64_arg_abi, m, a->pos_of_slot);
+	if (total > MAX_BPF_FUNC_ARGS)
+		return -ENOTSUPP;
 
 	/* verifier ensures m->nr_args <= MAX_BPF_FUNC_ARGS */
-	for (i = 0, nregs = 0; i < m->nr_args; i++) {
+	for (i = 0, slot = 0; i < m->nr_args; i++) {
 		slots = (m->arg_size[i] + 7) / 8;
-		if (nregs + slots <= 8) /* passed through register ? */
-			nregs += slots;
-		else
+		if (a64_arg_on_stack(a->pos_of_slot[slot])) /* passed through register ? */
 			break;
+		slot += slots;
 	}
 
 	a->args_in_regs = i;
-	a->regs_for_args = nregs;
+	a->regs_for_args = slot;
 	a->ostack_for_args = 0;
 	a->bstack_for_args = 0;
 
 	/* the rest arguments are passed through stack */
-	for (; i < m->nr_args; i++) {
-		stack_slots = (m->arg_size[i] + 7) / 8;
-		a->bstack_for_args += stack_slots * 8;
-		a->ostack_for_args = a->ostack_for_args + stack_slots * 8;
-	}
+	for (; i < m->nr_args; i++)
+		a->bstack_for_args += ((m->arg_size[i] + 7) / 8) * 8;
+
+	/* the outgoing area reaches the last slot, over any alignment hole */
+	if (a->bstack_for_args)
+		a->ostack_for_args = a64_arg_stack_off(a->pos_of_slot[total - 1]) + 8;
 
 	return 0;
 }
@@ -2559,15 +2753,9 @@ static void clear_garbage(struct jit_ctx *ctx, int reg, int effective_bytes)
 {
 	if (effective_bytes) {
 		int garbage_bits = 64 - 8 * effective_bytes;
-#ifdef CONFIG_CPU_BIG_ENDIAN
-		/* garbage bits are at the right end */
-		emit(A64_LSR(1, reg, reg, garbage_bits), ctx);
-		emit(A64_LSL(1, reg, reg, garbage_bits), ctx);
-#else
 		/* garbage bits are at the left end */
 		emit(A64_LSL(1, reg, reg, garbage_bits), ctx);
 		emit(A64_LSR(1, reg, reg, garbage_bits), ctx);
-#endif
 	}
 }
 
@@ -2597,7 +2785,7 @@ static void save_args(struct jit_ctx *ctx, int bargs_off, int oargs_off,
 {
 	u8 tmp = bpf2a64[TMP_REG_1];
 	u8 base_lo = bpf2a64[TMP_REG_2];
-	int i, reg, doff, soff, slots;
+	int i, reg, slot, soff, slots;
 
 	/* only the low 32 bits of the base take part in the subtraction */
 	if (arena_base)
@@ -2606,12 +2794,13 @@ static void save_args(struct jit_ctx *ctx, int bargs_off, int oargs_off,
 	/* store arguments to the stack for the bpf program, or restore
 	 * arguments from stack for the original function
 	 */
-	for (i = 0, reg = 0; i < a->args_in_regs; i++) {
+	for (i = 0, slot = 0; i < a->args_in_regs; i++) {
 		bool arena_arg = arena_base && (m->arg_flags[i] & BTF_FMODEL_ARENA_ARG);
 		bool nullable = m->arg_flags[i] & BTF_FMODEL_NULLABLE_ARG;
 
 		slots = (m->arg_size[i] + 7) / 8;
 		while (slots-- > 0) {
+			reg = a->pos_of_slot[slot++];
 			if (for_call_origin) {
 				emit(A64_LDR64I(reg, A64_SP, bargs_off), ctx);
 			} else if (arena_arg) {
@@ -2620,7 +2809,6 @@ static void save_args(struct jit_ctx *ctx, int bargs_off, int oargs_off,
 			} else {
 				emit(A64_STR64I(reg, A64_SP, bargs_off), ctx);
 			}
-			reg++;
 			bargs_off += 8;
 		}
 	}
@@ -2632,9 +2820,11 @@ static void save_args(struct jit_ctx *ctx, int bargs_off, int oargs_off,
 	 * (FP/LR) frames, so the arguments start at FP + 32. A struct_ops
 	 * callback is called indirectly and only the FP/LR frame is saved, so
 	 * they start at FP + 16.
+	 *
+	 * The outgoing area mirrors the incoming one, hole and all; only the
+	 * bpf program takes the arguments packed.
 	 */
 	soff = is_struct_ops ? 16 : 32;
-	doff = (for_call_origin ? oargs_off : bargs_off);
 
 	/* save on stack arguments */
 	for (i = a->args_in_regs; i < m->nr_args; i++) {
@@ -2644,7 +2834,9 @@ static void save_args(struct jit_ctx *ctx, int bargs_off, int oargs_off,
 		slots = (m->arg_size[i] + 7) / 8;
 		/* verifier ensures arg_size <= 16, so slots equals 1 or 2 */
 		while (slots-- > 0) {
-			emit(A64_LDR64I(tmp, A64_FP, soff), ctx);
+			int off = a64_arg_stack_off(a->pos_of_slot[slot++]);
+
+			emit(A64_LDR64I(tmp, A64_FP, soff + off), ctx);
 			/* if there is unused space in the last slot, clear
 			 * the garbage contained in the space.
 			 */
@@ -2659,19 +2851,21 @@ static void save_args(struct jit_ctx *ctx, int bargs_off, int oargs_off,
 			 */
 			if (arena_arg)
 				emit_arena_arg_conv(ctx, tmp, tmp, nullable, base_lo);
-			emit(A64_STR64I(tmp, A64_SP, doff), ctx);
-			soff += 8;
-			doff += 8;
+			if (for_call_origin)
+				emit(A64_STR64I(tmp, A64_SP, oargs_off + off), ctx);
+			else
+				emit(A64_STR64I(tmp, A64_SP, bargs_off), ctx);
+			bargs_off += 8;
 		}
 	}
 }
 
-static void restore_args(struct jit_ctx *ctx, int bargs_off, int nregs)
+static void restore_args(struct jit_ctx *ctx, int bargs_off, const struct arg_aux *a)
 {
-	int reg;
+	int slot;
 
-	for (reg = 0; reg < nregs; reg++) {
-		emit(A64_LDR64I(reg, A64_SP, bargs_off), ctx);
+	for (slot = 0; slot < a->regs_for_args; slot++) {
+		emit(A64_LDR64I(a->pos_of_slot[slot], A64_SP, bargs_off), ctx);
 		bargs_off += 8;
 	}
 }
@@ -2880,7 +3074,7 @@ static int prepare_trampoline(struct jit_ctx *ctx, struct bpf_tramp_image *im,
 			store_func_meta(ctx, meta, func_meta_off);
 			cookie_bargs_off--;
 		}
-		invoke_bpf_prog(ctx, fentry->nodes[i], bargs_off,
+		invoke_bpf_prog(ctx, im, fentry->nodes[i], bargs_off,
 				retval_off, run_ctx_off,
 				flags & BPF_TRAMP_F_RET_FENTRY_RET);
 	}
@@ -2891,7 +3085,7 @@ static int prepare_trampoline(struct jit_ctx *ctx, struct bpf_tramp_image *im,
 		if (!branches)
 			return -ENOMEM;
 
-		invoke_bpf_mod_ret(ctx, fmod_ret, bargs_off, retval_off,
+		invoke_bpf_mod_ret(ctx, im, fmod_ret, bargs_off, retval_off,
 				   run_ctx_off, branches);
 	}
 
@@ -2904,9 +3098,6 @@ static int prepare_trampoline(struct jit_ctx *ctx, struct bpf_tramp_image *im,
 		emit(A64_RET(A64_R(10)), ctx);
 		/* store return value */
 		emit(A64_STR64I(A64_R(0), A64_SP, retval_off), ctx);
-		/* reserve a nop for bpf_tramp_image_put */
-		im->ip_after_call = ctx->ro_image + ctx->idx;
-		emit(A64_NOP, ctx);
 	}
 
 	/* update the branches saved in invoke_bpf_mod_ret with cbnz */
@@ -2928,12 +3119,11 @@ static int prepare_trampoline(struct jit_ctx *ctx, struct bpf_tramp_image *im,
 			store_func_meta(ctx, meta, func_meta_off);
 			cookie_bargs_off--;
 		}
-		invoke_bpf_prog(ctx, fexit->nodes[i], bargs_off, retval_off,
+		invoke_bpf_prog(ctx, im, fexit->nodes[i], bargs_off, retval_off,
 				run_ctx_off, false);
 	}
 
 	if (flags & BPF_TRAMP_F_CALL_ORIG) {
-		im->ip_epilogue = ctx->ro_image + ctx->idx;
 		/* for the first pass, assume the worst case */
 		if (!ctx->image)
 			ctx->idx += 4;
@@ -2943,7 +3133,7 @@ static int prepare_trampoline(struct jit_ctx *ctx, struct bpf_tramp_image *im,
 	}
 
 	if (flags & BPF_TRAMP_F_RESTORE_REGS)
-		restore_args(ctx, bargs_off, a->regs_for_args);
+		restore_args(ctx, bargs_off, a);
 
 	/* restore callee saved register x19 and x20 */
 	emit(A64_LDR64I(A64_R(19), A64_SP, regs_off), ctx);
@@ -2992,7 +3182,7 @@ int arch_bpf_trampoline_size(const struct btf_func_model *m, u32 flags,
 		.image = NULL,
 		.idx = 0,
 	};
-	struct bpf_tramp_image im;
+	struct bpf_tramp_image im = {};
 	struct arg_aux aaux;
 	int ret;
 
@@ -3232,21 +3422,22 @@ int bpf_arch_text_poke(void *ip, enum bpf_text_poke_type old_t,
 		 */
 		plt_target = (u64)&dummy_tramp;
 
-	if (plt_target) {
-		/* non-zero plt_target indicates we're patching a bpf prog,
-		 * which is read only.
-		 */
-		if (set_memory_rw(PAGE_MASK & ((uintptr_t)&plt->target), 1))
-			return -EFAULT;
-		WRITE_ONCE(plt->target, plt_target);
-		set_memory_ro(PAGE_MASK & ((uintptr_t)&plt->target), 1);
-		/* since plt target points to either the new trampoline
-		 * or dummy_tramp, even if another CPU reads the old plt
-		 * target value before fetching the bl instruction to plt,
-		 * it will be brought back by dummy_tramp, so no barrier is
-		 * required here.
-		 */
-	}
+	/*
+	 * non-zero plt_target indicates we're patching a bpf prog,
+	 * which is read only. The prog may share its page in the bpf
+	 * prog pack with other progs, so write the aligned target
+	 * through the text patching fixmap without flipping the
+	 * page permissions to avoid racing with concurrent pokers.
+	 *
+	 * since plt target points to either the new trampoline
+	 * or dummy_tramp, even if another CPU reads the old plt
+	 * target value before fetching the bl instruction to plt,
+	 * it will be brought back by dummy_tramp, so no barrier is
+	 * required here.
+	 */
+	if (plt_target &&
+	    aarch64_insn_write_literal_u64(&plt->target, plt_target))
+		return -EFAULT;
 
 	/* if the old target and the new target are both long jumps, no
 	 * patching is required
@@ -3279,6 +3470,10 @@ int bpf_arch_text_poke(void *ip, enum bpf_text_poke_type old_t,
 	 *    longer reachable, since bpf_tramp_image_put() function already
 	 *    uses percpu_ref and task-based rcu to do the sync, no need to call
 	 *    the sync version here, see bpf_tramp_image_put() for details.
+	 *
+	 * 3. when a detached prog is patched out of a trampoline, a CPU that
+	 *    still executes the old nop calls the prog before it went through
+	 *    a quiescent state, and the prog is freed after grace periods.
 	 */
 	ret = aarch64_insn_patch_text_nosync(ip, new_insn);
 out:

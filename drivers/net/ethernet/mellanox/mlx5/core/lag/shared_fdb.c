@@ -35,8 +35,7 @@ bool mlx5_lag_shared_fdb_supported_filter(struct mlx5_lag *ldev, u32 filter)
 
 	if (is_mdev_switchdev_mode(dev0) &&
 	    mlx5_eswitch_vport_match_metadata_enabled(dev0->priv.eswitch) &&
-	    mlx5_esw_offloads_devcom_is_ready(dev0->priv.eswitch) &&
-	    MLX5_CAP_ESW(dev0, esw_shared_ingress_acl))
+	    mlx5_esw_offloads_devcom_is_ready(dev0->priv.eswitch))
 		ret = true;
 
 	return ret;
@@ -270,6 +269,7 @@ err_rescan_drivers:
 			pf->sd_fdb_active = false;
 		}
 		mlx5_lag_destroy_single_fdb_filter(ldev, group_id);
+		mlx5_lag_unload_reps_from_locked(ldev, filter);
 	}
 err_add_devices:
 	mlx5_lag_add_devices_filter(ldev, filter);

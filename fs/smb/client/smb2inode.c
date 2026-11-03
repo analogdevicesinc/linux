@@ -200,9 +200,6 @@ static void set_next_compound(struct cifs_tcon *tcon,
 	(*num_rqst)++;
 }
 
-#define COMP_PID(cfile) ((cfile) ? (cfile)->fid.persistent_fid : COMPOUND_FID)
-#define COMP_VID(cfile) ((cfile) ? (cfile)->fid.volatile_fid : COMPOUND_FID)
-
 /*
  * note: If cfile is passed, the reference to it is dropped here.
  * So make sure that you do not reuse cfile after return from this func.
@@ -320,7 +317,7 @@ replay_again:
 		/* Operation */
 		switch (cmds[i]) {
 		case SMB2_OP_QUERY_INFO:
-			rqst[num_rqst].rq_iov = &vars->qi_iov;
+			rqst[num_rqst].rq_iov = vars->qi_iov;
 			rqst[num_rqst].rq_nvec = 1;
 
 			rc = SMB2_query_info_init(tcon, server,
@@ -337,7 +334,7 @@ replay_again:
 							     ses->Suid, full_path);
 			break;
 		case SMB2_OP_POSIX_QUERY_INFO:
-			rqst[num_rqst].rq_iov = &vars->qi_iov;
+			rqst[num_rqst].rq_iov = vars->qi_iov;
 			rqst[num_rqst].rq_nvec = 1;
 
 			/* TBD: fix following to allow for longer SIDs */
@@ -598,8 +595,10 @@ finished:
 		/* smb2_parse_contexts() fills idata->fi.IndexNumber */
 		rc = smb2_parse_contexts(server, &rsp_iov[0], &oparms->fid->epoch,
 					 oparms->fid->lease_key, &oplock, &idata->fi, NULL);
-		if (rc)
+		if (rc) {
 			cifs_dbg(VFS, "rc: %d parsing context of compound op\n", rc);
+			tmp_rc = rc;
+		}
 	}
 
 	for (i = 0; i < num_cmds; i++) {
@@ -1121,7 +1120,7 @@ smb2_unlink(const unsigned int xid, struct cifs_tcon *tcon, const char *name,
 	struct kvec close_iov;
 	int resp_buftype[2];
 	struct cifs_fid fid;
-	int flags = 0;
+	int flags = CIFS_CP_CREATE_CLOSE_OP;
 	__u8 oplock;
 	int rc;
 

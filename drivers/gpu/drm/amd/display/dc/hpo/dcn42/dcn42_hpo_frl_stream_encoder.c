@@ -209,4 +209,6 @@ void dcn42_hpo_frl_stream_encoder_construct(
 	enc42->hpo_se_shift = hpo_se_shift;
 	enc42->hpo_se_mask = hpo_se_mask;
 	enc42->base.stream_enc_inst = vpg->inst;
+	enc42->base.inst = enc42->base.stream_enc_inst;
+
 }

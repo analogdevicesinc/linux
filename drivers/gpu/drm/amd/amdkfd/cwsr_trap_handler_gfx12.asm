@@ -246,28 +246,15 @@ L_SKIP_RESTORE:
 	s_getreg_b32	s_save_state_priv, hwreg(HW_REG_WAVE_STATE_PRIV)	//save STATUS since we will change SCC
 
 #if VMEM_ON_TRAP_ENTRY_WA
-	s_getreg_b32	ttmp14, hwreg(HW_REG_WAVE_EXCP_FLAG_PRIV)
-	s_bitcmp1_b32	ttmp14, SQ_WAVE_EXCP_FLAG_PRIV_WAVE_START_SHIFT
-	s_cbranch_scc0	L_NOT_WAVE_START
-
-	s_setreg_imm32_b32	hwreg(HW_REG_WAVE_EXCP_FLAG_PRIV, SQ_WAVE_EXCP_FLAG_PRIV_WAVE_START_SHIFT, 1), 0
-
-	s_mov_b64	[ttmp2, ttmp3], 0
-	v_mov_b32	v1, 0
-	global_prefetch_b8	v1, [ttmp2, ttmp3] scope:SCOPE_SE th:TH_LOAD_RT
-
-	s_rfe_b64	[ttmp0, ttmp1]
-
-L_NOT_WAVE_START:
 	s_mov_b32	ttmp14, exec_lo
 	s_mov_b32	exec_lo, 1
-	v_readlane_b32	ttmp15, v1, 0
 
-	s_mov_b64	[ttmp2, ttmp3], 0
-	v_mov_b32	v1, 0
-	global_prefetch_b8	v1, [ttmp2, ttmp3] scope:SCOPE_SE th:TH_LOAD_RT
+	// No-op prefetch to random address 0xFFFFFFFFxxxxxxxx.
+	// Avoids user allocations which may be functionally affected by prefetch.
+	s_mov_b32	ttmp2, 0
+	s_mov_b32	ttmp3, 0xFFFFFFFF
+	global_prefetch_b8	v0, [ttmp2, ttmp3] scope:SCOPE_SE th:TH_LOAD_RT
 
-	v_writelane_b32	v1, ttmp15, 0
 	s_mov_b32	exec_lo, ttmp14
 #endif
 

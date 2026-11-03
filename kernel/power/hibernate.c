@@ -106,11 +106,17 @@ bool hibernation_in_progress(void)
 	return !atomic_read(&hibernate_atomic);
 }
 
+__weak bool arch_hibernation_available(void)
+{
+	return true;
+}
+
 bool hibernation_available(void)
 {
 	return nohibernate == 0 &&
 		!security_locked_down(LOCKDOWN_HIBERNATION) &&
-		!secretmem_active() && !cxl_mem_active();
+		!secretmem_active() && !cxl_mem_active() &&
+		arch_hibernation_available();
 }
 
 /**
@@ -408,9 +414,18 @@ int hibernation_snapshot(int platform_mode)
 	if (error)
 		goto Close;
 
+	error = dpm_prepare(PMSG_FREEZE);
+	if (error)
+		goto Complete;
+
+	/* Preallocate image memory before freezing kernel threads and shutting down devices. */
+	error = hibernate_preallocate_memory();
+	if (error)
+		goto Complete;
+
 	error = freeze_kernel_threads();
 	if (error)
-		goto Close;
+		goto Cleanup;
 
 	if (hibernation_test(TEST_FREEZER)) {
 
@@ -421,15 +436,6 @@ int hibernation_snapshot(int platform_mode)
 		freezer_test_done = true;
 		goto Thaw;
 	}
-
-	error = dpm_prepare(PMSG_FREEZE);
-	if (error)
-		goto Complete;
-
-	/* Preallocate image memory before shutting down devices. */
-	error = hibernate_preallocate_memory();
-	if (error)
-		goto Complete;
 
 	console_suspend_all();
 	pm_restrict_gfp_mask();
@@ -464,10 +470,12 @@ int hibernation_snapshot(int platform_mode)
 	platform_end(platform_mode);
 	return error;
 
- Complete:
-	dpm_complete(PMSG_RECOVER);
  Thaw:
 	thaw_kernel_threads();
+ Cleanup:
+	swsusp_free();
+ Complete:
+	dpm_complete(PMSG_RECOVER);
 	goto Close;
 }
 

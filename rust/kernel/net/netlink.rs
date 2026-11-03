@@ -11,8 +11,8 @@
 use kernel::{
     alloc::{self, AllocError},
     error::to_result,
+    num::casts::u16_as_usize,
     prelude::*,
-    transmute::AsBytes,
     types::Opaque,
     ThisModule,
 };
@@ -20,6 +20,11 @@ use kernel::{
 use core::{
     mem::ManuallyDrop,
     ptr::NonNull, //
+};
+
+use zerocopy::{
+    Immutable,
+    IntoBytes, //
 };
 
 /// The default netlink message size.
@@ -84,11 +89,19 @@ impl GenlMsg {
     #[inline]
     fn put<T>(&mut self, attrtype: c_int, value: &T) -> Result
     where
-        T: ?Sized + AsBytes,
+        T: ?Sized + IntoBytes + Immutable,
     {
+        // `nla_len` is a 16-bit field that encodes the total attribute length
+        // (header + payload). Subtracting the header size from `u16::MAX` gives
+        // the largest payload that still fits within that field.
+        const MAX_PAYLOAD_LEN: usize = u16_as_usize(u16::MAX) - size_of::<bindings::nlattr>();
+
         let skb = self.skb.skb.as_ptr();
         let len = size_of_val(value);
         let ptr = core::ptr::from_ref(value).cast::<c_void>();
+        if len > MAX_PAYLOAD_LEN {
+            return Err(EMSGSIZE);
+        }
         // SAFETY: `skb` is valid by `NetlinkSkBuff` type invariants, and the provided value is
         // readable and initialized for its `size_of` bytes.
         to_result(unsafe { bindings::nla_put(skb, attrtype, len as c_int, ptr) })

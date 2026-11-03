@@ -330,6 +330,8 @@ struct dpp_funcs {
 			uint32_t height
 			);
 
+	void (*refresh_cursor_state)(struct dpp *dpp_base);
+
 	void (*dpp_set_hdr_multiplier)(
 			struct dpp *dpp_base,
 			uint32_t multiplier);

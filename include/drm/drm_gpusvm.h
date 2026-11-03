@@ -274,6 +274,11 @@ struct drm_gpusvm {
  *              pages as valid; the caller revalidates the snapshot itself, see
  *              drm_gpusvm_get_pages(). @devmem_only is rejected and no page
  *              type check is performed, so @allow_mixed has no effect.
+ * @devmem_fn: Optional callback invoked under the notifier lock, once per
+ *             contiguous run of pages backed by the same &drm_pagemap_devmem.
+ *             Must not sleep and must be idempotent, as a non-contiguous
+ *             allocation is reported more than once. Fires even with
+ *             @no_dma_map. May be NULL.
  *
  * Context that is DRM GPUSVM is operating in (i.e. user arguments).
  */
@@ -281,6 +286,7 @@ struct drm_gpusvm_ctx {
 	void *device_private_page_owner;
 	unsigned long check_pages_threshold;
 	unsigned long timeslice_ms;
+	void (*devmem_fn)(struct drm_pagemap_devmem *devmem);
 	unsigned int in_notifier :1;
 	unsigned int read_only :1;
 	unsigned int devmem_possible :1;

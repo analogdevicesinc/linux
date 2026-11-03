@@ -11,12 +11,12 @@ struct dma_fence;
 struct drm_file;
 struct drm_gem_object;
 struct drm_scanout_buffer;
-struct i915_gtt_view;
 struct i915_vma;
 struct intel_display;
 struct intel_dpt;
 struct intel_fb_pin_params;
 struct intel_frontbuffer;
+struct intel_gtt_view;
 struct intel_hdcp_gsc_context;
 struct intel_panic;
 struct intel_stolen_node;
@@ -53,9 +53,9 @@ void intel_parent_fb_pin_dpt_unpin(struct intel_display *display,
 struct i915_vma *intel_parent_fb_pin_reuse_vma(struct intel_display *display,
 					       struct i915_vma *old_ggtt_vma,
 					       struct drm_gem_object *old_obj,
-					       const struct i915_gtt_view *old_view,
+					       const struct intel_gtt_view *old_view,
 					       struct drm_gem_object *new_obj,
-					       const struct i915_gtt_view *new_view,
+					       const struct intel_gtt_view *new_view,
 					       u32 *out_offset);
 void intel_parent_fb_pin_get_map(struct intel_display *display,
 				 struct i915_vma *vma, struct iosys_map *map);

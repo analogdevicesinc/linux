@@ -71,7 +71,6 @@ bool enable_gcm_256 = true;
 bool require_gcm_256; /* false by default */
 bool enable_negotiate_signing; /* false by default */
 unsigned int global_secflags = CIFSSEC_DEF;
-/* unsigned int ntlmv2_support = 0; */
 
 /*
  * Global transaction id (XID) information
@@ -402,7 +401,7 @@ out_unlock:
 	return rc;
 }
 
-static int cifs_permission(struct mnt_idmap *idmap,
+static int cifs_permission(const struct mnt_idmap *idmap,
 			   struct inode *inode, int mask)
 {
 	unsigned int sbflags = cifs_sb_flags(CIFS_SB(inode));
@@ -464,7 +463,6 @@ cifs_alloc_inode(struct super_block *sb)
 	 * Can not set i_flags here - they get immediately overwritten to zero
 	 * by the VFS.
 	 */
-	/* cifs_inode->netfs.inode.i_flags = S_NOATIME | S_NOCMTIME; */
 	INIT_LIST_HEAD(&cifs_inode->openFileList);
 	INIT_LIST_HEAD(&cifs_inode->llist);
 	INIT_LIST_HEAD(&cifs_inode->deferred_closes);
@@ -858,8 +856,6 @@ static void cifs_umount_begin(struct super_block *sb)
 	spin_unlock(&tcon->tc_lock);
 	spin_unlock(&cifs_tcp_ses_lock);
 
-	/* cancel_brl_requests(tcon); */ /* BB mark all brl mids as exiting */
-	/* cancel_notify_requests(tcon); */
 	if (tcon->ses && tcon->ses->server) {
 		cifs_dbg(FYI, "wake up tasks now - umount begin not complete\n");
 		wake_up_all(&tcon->ses->server->request_q);
@@ -1197,8 +1193,8 @@ int cifs_fileattr_get(struct dentry *dentry, struct file_kattr *fa)
 	struct inode *inode = d_inode(dentry);
 	u32 attrs;
 
-	/* Preserve FS_COMPR_FL previously reported by cifs_ioctl(). */
-	if (CIFS_I(inode)->cifsAttrs & ATTR_COMPRESSED)
+	/* Report the cached SMB compressed attribute as FS_COMPR_FL. */
+	if (READ_ONCE(CIFS_I(inode)->cifsAttrs) & ATTR_COMPRESSED)
 		fa->flags |= FS_COMPR_FL;
 
 	/*
@@ -1259,6 +1255,7 @@ const struct inode_operations cifs_dir_inode_ops = {
 	.get_acl = cifs_get_acl,
 	.set_acl = cifs_set_acl,
 	.fileattr_get = cifs_fileattr_get,
+	.fileattr_set = cifs_fileattr_set,
 };
 
 const struct inode_operations cifs_file_inode_ops = {
@@ -1270,6 +1267,7 @@ const struct inode_operations cifs_file_inode_ops = {
 	.get_acl = cifs_get_acl,
 	.set_acl = cifs_set_acl,
 	.fileattr_get = cifs_fileattr_get,
+	.fileattr_set = cifs_fileattr_set,
 };
 
 const char *cifs_get_link(struct dentry *dentry, struct inode *inode,
@@ -1332,7 +1330,7 @@ static int cifs_precopy_set_eof(struct inode *src_inode, struct cifsInodeInfo *s
 		goto set_failed;
 
 	netfs_resize_file(&src_cifsi->netfs, src_end, true);
-	fscache_resize_cookie(cifs_inode_cookie(src_inode), src_end);
+	fscache_resize_cookie(cifs_inode_cookie(src_inode), src_end, false);
 	return 0;
 
 set_failed:
@@ -1412,6 +1410,7 @@ static loff_t cifs_remap_file_range(struct file *src_file, loff_t off,
 	 * server could even support copy of range where source = target
 	 */
 	lock_two_nondirectories(target_inode, src_inode);
+	filemap_invalidate_lock(target_inode->i_mapping);
 
 	if (len == 0) {
 		loff_t src_size = i_size_read(src_inode);
@@ -1467,9 +1466,15 @@ static loff_t cifs_remap_file_range(struct file *src_file, loff_t off,
 	i_size = target_inode->i_size;
 	spin_unlock(&target_inode->i_lock);
 
-	/* Discard all the folios that overlap the destination region. */
+	/*
+	 * Discard all the folios that overlap the destination region.  Start at
+	 * the old EOF when extending so the folio straddling it, which may hold
+	 * data written past EOF through an mmap, is dropped too.
+	 */
 	cifs_dbg(FYI, "about to discard pages %llx-%llx\n", fstart, fend);
-	truncate_inode_pages_range(&target_inode->i_data, fstart, fend);
+	truncate_inode_pages_range(&target_inode->i_data,
+				   min(fstart, i_size), fend);
+	netfs_wait_for_outstanding_io(target_inode);
 
 	fscache_invalidate(cifs_inode_cookie(target_inode), NULL, i_size, 0);
 
@@ -1508,6 +1513,7 @@ static loff_t cifs_remap_file_range(struct file *src_file, loff_t off,
 	if (rc)
 		CIFS_I(target_inode)->time = 0;
 unlock:
+	filemap_invalidate_unlock(target_inode->i_mapping);
 	/* although unlocking in the reverse order from locking is not
 	   strictly necessary here it is a little cleaner to be consistent */
 	unlock_two_nondirectories(src_inode, target_inode);
@@ -1530,6 +1536,9 @@ ssize_t cifs_file_copychunk_range(unsigned int xid,
 	struct cifs_tcon *src_tcon;
 	struct cifs_tcon *target_tcon;
 	ssize_t rc;
+
+	if (len == 0)
+		return 0;
 
 	cifs_dbg(FYI, "copychunk range\n");
 
@@ -1560,6 +1569,7 @@ ssize_t cifs_file_copychunk_range(unsigned int xid,
 	 * server could even support copy of range where source = target
 	 */
 	lock_two_nondirectories(target_inode, src_inode);
+	filemap_invalidate_lock(target_inode->i_mapping);
 
 	cifs_dbg(FYI, "about to flush pages\n");
 
@@ -1581,10 +1591,28 @@ ssize_t cifs_file_copychunk_range(unsigned int xid,
 	/* Flush and invalidate all the folios in the destination region.  If
 	 * the copy was successful, then some of the flush is extra overhead,
 	 * but we need to allow for the copy failing in some way (eg. ENOSPC).
+	 *
+	 * Start at the old EOF when extending so the folio straddling it, which
+	 * may hold data written past EOF through an mmap, is dropped too.
 	 */
-	rc = filemap_invalidate_inode(target_inode, true, destoff, destoff + len - 1);
-	if (rc)
-		goto unlock;
+	if (target_inode->i_mapping->nrpages) {
+		loff_t fstart = min(destoff, i_size_read(target_inode));
+		loff_t fend = destoff + len - 1;
+
+		unmap_mapping_pages(target_inode->i_mapping,
+				    fstart >> PAGE_SHIFT,
+				    (fend >> PAGE_SHIFT) -
+				    (fstart >> PAGE_SHIFT) + 1,
+				    false);
+		rc = filemap_write_and_wait_range(target_inode->i_mapping,
+						  fstart, fend);
+		if (rc)
+			goto unlock;
+		invalidate_inode_pages2_range(target_inode->i_mapping,
+					      fstart >> PAGE_SHIFT,
+					      fend >> PAGE_SHIFT);
+	}
+	netfs_wait_for_outstanding_io(target_inode);
 
 	fscache_invalidate(cifs_inode_cookie(target_inode), NULL,
 			   i_size_read(target_inode), 0);
@@ -1596,9 +1624,9 @@ ssize_t cifs_file_copychunk_range(unsigned int xid,
 		if (rc > 0 && destoff + rc > i_size_read(target_inode)) {
 			truncate_setsize(target_inode, destoff + rc);
 			netfs_resize_file(&target_cifsi->netfs,
-					  i_size_read(target_inode), true);
+					  destoff + rc, true);
 			fscache_resize_cookie(cifs_inode_cookie(target_inode),
-					      i_size_read(target_inode));
+					      destoff + rc, false);
 		}
 		if (rc > 0) {
 			spin_lock(&target_inode->i_lock);
@@ -1616,6 +1644,7 @@ ssize_t cifs_file_copychunk_range(unsigned int xid,
 	CIFS_I(target_inode)->time = 0;
 
 unlock:
+	filemap_invalidate_unlock(target_inode->i_mapping);
 	/* although unlocking in the reverse order from locking is not
 	 * strictly necessary here it is a little cleaner to be consistent
 	 */
@@ -1990,7 +2019,6 @@ init_cifs(void)
 	if (rc)
 		return rc;
 
-	cifs_proc_init();
 	INIT_LIST_HEAD(&cifs_tcp_ses_list);
 /*
  *  Initialize Global counters
@@ -2039,10 +2067,8 @@ init_cifs(void)
 	cifsiod_wq = alloc_workqueue("cifsiod",
 				     WQ_FREEZABLE | WQ_MEM_RECLAIM | WQ_PERCPU,
 				     0);
-	if (!cifsiod_wq) {
-		rc = -ENOMEM;
-		goto out_clean_proc;
-	}
+	if (!cifsiod_wq)
+		return -ENOMEM;
 
 	/*
 	 * Consider in future setting limit!=0 maybe to min(num_of_cores - 1, 3)
@@ -2133,19 +2159,22 @@ init_cifs(void)
 	if (rc)
 		goto out_cifs_swn_init;
 
+	cifs_proc_init();
+
 	rc = register_filesystem(&cifs_fs_type);
 	if (rc)
-		goto out_init_cifs_idmap;
+		goto out_clean_proc;
 
 	rc = register_filesystem(&smb3_fs_type);
 	if (rc) {
 		unregister_filesystem(&cifs_fs_type);
-		goto out_init_cifs_idmap;
+		goto out_clean_proc;
 	}
 
 	return 0;
 
-out_init_cifs_idmap:
+out_clean_proc:
+	cifs_proc_clean();
 	exit_cifs_idmap();
 out_cifs_swn_init:
 #ifdef CONFIG_CIFS_SWN_UPCALL
@@ -2181,8 +2210,6 @@ out_destroy_decrypt_wq:
 	destroy_workqueue(decrypt_wq);
 out_destroy_cifsiod_wq:
 	destroy_workqueue(cifsiod_wq);
-out_clean_proc:
-	cifs_proc_clean();
 	return rc;
 }
 
@@ -2192,6 +2219,7 @@ exit_cifs(void)
 	cifs_dbg(NOISY, "exit_smb3\n");
 	unregister_filesystem(&cifs_fs_type);
 	unregister_filesystem(&smb3_fs_type);
+	cifs_proc_clean();
 	cifs_release_automount_timer();
 	exit_cifs_idmap();
 #ifdef CONFIG_CIFS_SWN_UPCALL
@@ -2214,7 +2242,6 @@ exit_cifs(void)
 	destroy_workqueue(serverclose_wq);
 	destroy_workqueue(cfid_put_wq);
 	destroy_workqueue(cifsiod_wq);
-	cifs_proc_clean();
 }
 
 MODULE_AUTHOR("Steve French");
@@ -2222,7 +2249,6 @@ MODULE_LICENSE("GPL");	/* combination of LGPL + GPL source behaves as GPL */
 MODULE_DESCRIPTION
 	("VFS to access SMB3 servers e.g. Samba, Macs, Azure and Windows (and "
 	"also older servers complying with the SNIA CIFS Specification)");
-MODULE_VERSION(CIFS_VERSION);
 MODULE_SOFTDEP("nls");
 MODULE_SOFTDEP("aes");
 MODULE_SOFTDEP("aead2");

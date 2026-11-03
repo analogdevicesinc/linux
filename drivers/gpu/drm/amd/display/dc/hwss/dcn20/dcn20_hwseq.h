@@ -114,8 +114,7 @@ void dcn20_hubp_pg_control(
 		unsigned int hubp_inst,
 		bool power_on);
 void dcn20_program_triple_buffer(
-	const struct dc *dc,
-	struct pipe_ctx *pipe_ctx,
+	struct hubp *hubp,
 	bool enable_triple_buffer);
 void dcn20_enable_writeback(
 		struct dc *dc,

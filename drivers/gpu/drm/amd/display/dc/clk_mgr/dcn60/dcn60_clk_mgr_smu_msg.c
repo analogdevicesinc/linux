@@ -398,29 +398,19 @@ void dcn60_smu_indicate_pstate_status(struct clk_mgr_internal *clk_mgr,
 		bool allow_fclk, bool allow_uclk,
 		bool wait_resp, bool drr_enable, bool alt_ch_enable)
 {
-	//TODO: Re-enable this function once PMFW has support for this message
-	// Temporary until message is implemented on PMFW side
-	(void)clk_mgr;
-	(void)allow_fclk;
-	(void)allow_uclk;
-	(void)wait_resp;
-	(void)drr_enable;
-	(void)alt_ch_enable;
+	DALSMC_IndicatePstateStatus_arg_t arg = {};
 
-	//DALSMC_IndicatePstateStatus_arg_t arg = {};
+	smu_print("SMU Indicate pstate status: allow_fclk=%d allow_uclk=%d wait_resp=%d drr_enable=%d alt_ch_enable=%d\n",
+			allow_fclk, allow_uclk, wait_resp, drr_enable, alt_ch_enable);
 
-	//smu_print("SMU Indicate pstate status: allow_fclk=%d allow_uclk=%d wait_resp=%d drr_enable=%d alt_ch_enable=%d\n",
-	//		allow_fclk, allow_uclk, wait_resp, drr_enable, alt_ch_enable);
+	arg.AllowFclk = allow_fclk ? 1 : 0;
+	arg.AllowUclk = allow_uclk ? 1 : 0;
+	arg.WaitResp  = wait_resp ? 1 : 0;
+	arg.DrrEnable = drr_enable ? 1 : 0;
+	arg.AltCh = alt_ch_enable ? 1 : 0;
 
-	//arg.AllowFclk = allow_fclk ? 1 : 0;
-	//arg.AllowUclk = allow_uclk ? 1 : 0;
-	//arg.WaitResp  = wait_resp ? 1 : 0;
-	//arg.DrrEnable = drr_enable ? 1 : 0;
-	//arg.AltCh = alt_ch_enable ? 1 : 0;
-
-	// DALSMC_MSG_IndicatePstateStatus not defined in latest dalsmc.h header. Comment out for now.
-	//dcn60_smu_send_msg_with_args(clk_mgr,
-	//		DALSMC_MSG_IndicatePstateStatus, arg.Args, NULL, NULL);
+	dcn60_smu_send_msg_with_args(clk_mgr,
+			DALSMC_MSG_IndicatePstateStatus, arg.Args, NULL, NULL);
 }
 
 static bool dcn60_smu_transfer_table_smu_2_dram(struct clk_mgr_internal *clk_mgr,

@@ -94,9 +94,9 @@ void intel_parent_fb_pin_dpt_unpin(struct intel_display *display,
 struct i915_vma *intel_parent_fb_pin_reuse_vma(struct intel_display *display,
 					       struct i915_vma *old_ggtt_vma,
 					       struct drm_gem_object *old_obj,
-					       const struct i915_gtt_view *old_view,
+					       const struct intel_gtt_view *old_view,
 					       struct drm_gem_object *new_obj,
-					       const struct i915_gtt_view *new_view,
+					       const struct intel_gtt_view *new_view,
 					       u32 *out_offset)
 {
 	if (!display->parent->fb_pin->reuse_vma)

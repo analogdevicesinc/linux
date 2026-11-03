@@ -433,6 +433,8 @@ struct smu_table_context {
 	void                            *boot_overdrive_table;
 	void				*user_overdrive_table;
 
+	uint32_t			user_od_feature_mask;
+
 	struct smu_driver_table driver_tables[SMU_DRIVER_TABLE_COUNT];
 };
 
@@ -486,7 +488,6 @@ struct smu_power_gate {
 
 struct smu_power_context {
 	void *power_context;
-	uint32_t power_context_size;
 	struct smu_power_gate power_gate;
 };
 
@@ -1620,6 +1621,19 @@ struct pptable_funcs {
 	 */
 	ssize_t (*get_xcp_metrics)(struct smu_context *smu, int xcp_id,
 				   void *table);
+	/**
+	 * @get_npm_cap: Return NPM sysfs capability bitmap.
+	 *
+	 * Two bits per field (R then W). Both 0 means the field is
+	 * unsupported.
+	 */
+	u64 (*get_npm_cap)(struct smu_context *smu);
+
+	/**
+	 * @set_npm_limit: Set node power limit in watts.
+	 */
+	int (*set_npm_limit)(struct smu_context *smu, uint32_t limit);
+
 	/**
 	 * @ras_send_msg: Send a message with a parameter from Ras
 	 * &msg: Type of message.

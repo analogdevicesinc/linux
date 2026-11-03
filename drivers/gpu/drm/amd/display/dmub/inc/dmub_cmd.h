@@ -582,7 +582,14 @@ union replay_debug_flags {
 		 */
 		uint32_t enable_sub_feature_visual_confirm : 1;
 
-		uint32_t reserved : 16;
+		/**
+		 * 0x10000 (bit 16)
+		 * @enable_oem_visual_confirm: Enable OEM visual confirm
+		 * Black = state 0, Blue = state non-zero, Green = frame skipping active
+		 */
+		uint32_t enable_oem_visual_confirm : 1;
+
+		uint32_t reserved : 15;
 	} bitfields;
 
 	uint32_t u32All;
@@ -743,7 +750,14 @@ union pr_debug_flags {
 		 */
 		uint32_t force_hubp_on : 1;
 
-		uint32_t reserved : 24;
+		/**
+		 * 0x100 (bit 8)
+		 * @enable_oem_visual_confirm: Enable OEM visual confirm
+		 * Black = state 0, Blue = state non-zero
+		 */
+		uint32_t enable_oem_visual_confirm : 1;
+
+		uint32_t reserved : 23;
 	} bitfields;
 
 	uint32_t u32All;
@@ -1004,7 +1018,8 @@ union dmub_fw_meta_feature_bits {
 		uint32_t shared_state_link_detection : 1; /**< 1 supports link detection via shared state */
 		uint32_t cursor_offload_v1_support: 1; /**< 1 supports cursor offload */
 		uint32_t inbox0_lock_support: 1; /**< 1 supports inbox0 lock mechanism */
-		uint32_t reserved : 29;
+		uint32_t inbox0_lock_split: 1; /**< 1 supports inbox0 lock acquire/release split mechanism */
+		uint32_t reserved : 28;
 	} bits; /**< status bits */
 	uint32_t all; /**< 32-bit access to status bits */
 };
@@ -2042,6 +2057,11 @@ enum dmub_cmd_type {
 	 * Command type used for all DC_BLS commands.
 	 */
 	DMUB_CMD__DC_BLS = 98,
+
+	/**
+	 * Command type used to notify nbif az pme restore.
+	 */
+	DMUB_CMD__NBIF_AZ_PME_RESTORE = 99,
 
 	/**
 	 * Command type use for VBIOS shared commands.
@@ -3630,6 +3650,28 @@ struct dmub_rb_cmd_query_hpd_state {
 	 * Data passed from driver to FW in a DMUB_CMD__QUERY_HPD_STATE command.
 	 */
 	struct dmub_cmd_hpd_state_query_data data;
+};
+
+/**
+ * Data passed from driver to FW in a DMUB_CMD__NBIF_AZ_PME_RESTORE command.
+ */
+struct dmub_cmd_nbif_az_pme_restore_data {
+	uint8_t az_inst; /**< Azalia codec endpoint instance */
+	uint8_t pad[3]; /**< Alignment */
+};
+
+/**
+ * Definition of a DMUB_CMD__NBIF_AZ_PME_RESTORE command.
+ */
+struct dmub_rb_cmd_nbif_az_pme_restore {
+	/**
+	 * Command header.
+	 */
+	struct dmub_cmd_header header;
+	/**
+	 * Data passed from driver to FW in a DMUB_CMD__NBIF_AZ_PME_RESTORE command.
+	 */
+	struct dmub_cmd_nbif_az_pme_restore_data data;
 };
 
 /**
@@ -7806,6 +7848,11 @@ union dmub_rb_cmd {
 	 * Definition of a DMUB_CMD__QUERY_HPD_STATE command.
 	 */
 	struct dmub_rb_cmd_query_hpd_state query_hpd;
+
+	/**
+	 * Definition of a DMUB_CMD__NBIF_AZ_PME_RESTORE command.
+	 */
+	struct dmub_rb_cmd_nbif_az_pme_restore nbif_az_pme_restore;
 	/**
 	 * Definition of a DMUB_CMD__SECURE_DISPLAY command.
 	 */

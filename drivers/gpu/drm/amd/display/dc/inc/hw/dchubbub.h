@@ -216,6 +216,8 @@ struct hubbub_funcs {
 
 	void (*apply_DEDCN21_147_wa)(struct hubbub *hubbub);
 
+	void (*soft_reset)(struct hubbub *hubbub, bool reset);
+
 	void (*force_wm_propagate_to_pipes)(struct hubbub *hubbub);
 
 	void (*hubbub_read_state)(struct hubbub *hubbub, struct dcn_hubbub_state *hubbub_state);
@@ -225,6 +227,8 @@ struct hubbub_funcs {
 	void (*init_watermarks)(struct hubbub *hubbub);
 
 	void (*hubbub_read_reg_state)(struct hubbub *hubbub, struct dcn_hubbub_reg_state *hubbub_reg_state);
+
+	void (*set_sdpif_port_control)(struct hubbub *hubbub, bool ignore_cstate_req);
 
 	/**
 	 * @program_det_size:
@@ -301,6 +305,7 @@ struct hubbub_funcs {
 struct hubbub {
 	const struct hubbub_funcs *funcs;
 	struct dc_context *ctx;
+	int inst;
 	bool riommu_active;
 };
 

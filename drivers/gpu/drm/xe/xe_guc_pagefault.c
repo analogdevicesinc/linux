@@ -4,9 +4,11 @@
  */
 
 #include "abi/guc_actions_abi.h"
+#include "xe_gt_printk.h"
 #include "xe_guc.h"
 #include "xe_guc_ct.h"
 #include "xe_guc_pagefault.h"
+#include "xe_hw_engine.h"
 #include "xe_pagefault.h"
 #include "xe_pagefault_types.h"
 
@@ -55,7 +57,8 @@ static void guc_ack_fault(struct xe_pagefault *pf, int err)
 	bool write_only = guc->pagefault_ack_counter++ &
 		(XE_GUC_PAGEFAULT_FLUSH_PERIOD - 1);
 
-	xe_guc_ct_send_locked(&guc->ct, action, ARRAY_SIZE(action),
+	/* Pagefault acks are fire-and-forget, no G2H reply expected. */
+	xe_guc_ct_send_locked(&guc->ct, action, ARRAY_SIZE(action), 0, 0,
 			      write_only);
 }
 
@@ -68,10 +71,40 @@ static void guc_ack_fault_end(void *private)
 	xe_guc_ct_unlock(&guc->ct);
 }
 
+static void xe_guc_pagefault_print(struct xe_pagefault *pf,
+				   const char *err_str)
+{
+	const u32 *msg = pf->producer.msg;
+	u32 engine_class = FIELD_GET(PFD_ENG_CLASS, msg[0]);
+
+	xe_gt_info(pf->gt, "\n\tASID: %lu\n"
+		   "\tFaulted Address: 0x%08lx%08lx\n"
+		   "\tFaultType: %lu\n"
+		   "\tAccessType: %lu\n"
+		   "\tFaultLevel: %lu\n"
+		   "\tEngineClass: %u %s\n"
+		   "\tEngineInstance: %lu\n"
+		   "\tSRCID: 0x%02lx\n"
+		   "\tError: %s\n",
+		   FIELD_GET(PFD_ASID, msg[1]),
+		   FIELD_GET(PFD_VIRTUAL_ADDR_HI, msg[3]),
+		   FIELD_GET(PFD_VIRTUAL_ADDR_LO, msg[2]) <<
+		   PFD_VIRTUAL_ADDR_LO_SHIFT,
+		   FIELD_GET(PFD_FAULT_TYPE, msg[2]),
+		   FIELD_GET(PFD_ACCESS_TYPE, msg[2]),
+		   FIELD_GET(PFD_FAULT_LEVEL, msg[0]),
+		   engine_class,
+		   xe_hw_engine_class_to_str(engine_class),
+		   FIELD_GET(PFD_ENG_INSTANCE, msg[0]),
+		   FIELD_GET(PFD_SRC_ID, msg[0]),
+		   err_str);
+}
+
 static const struct xe_pagefault_ops guc_pagefault_ops = {
 	.ack_fault_begin = guc_ack_fault_begin,
 	.ack_fault = guc_ack_fault,
 	.ack_fault_end = guc_ack_fault_end,
+	.print = xe_guc_pagefault_print,
 };
 
 /**

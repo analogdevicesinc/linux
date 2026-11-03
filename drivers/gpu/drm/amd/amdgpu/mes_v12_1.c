@@ -236,16 +236,16 @@ static int mes_v12_1_submit_pkt_and_poll_completion(struct amdgpu_mes *mes,
 	if (r < 1 || !*status_ptr) {
 		if (misc_op_str)
 			dev_err(adev->dev,
-				"MES(%d, %d) failed to respond to msg=%s (%s)\n",
-				xcc_id, pipe, op_str, misc_op_str);
+				"MES(%d, %d) failed to respond to msg=%s (%s) fence_wait_ret=%ld status=0x%x\n",
+				xcc_id, pipe, op_str, misc_op_str, r, *status_ptr);
 		else if (op_str)
 			dev_err(adev->dev,
-				"MES(%d, %d) failed to respond to msg=%s\n",
-				xcc_id, pipe, op_str);
+				"MES(%d, %d) failed to respond to msg=%s fence_wait_ret=%ld status=0x%x\n",
+				xcc_id, pipe, op_str, r, *status_ptr);
 		else
 			dev_err(adev->dev,
-				"MES(%d, %d) failed to respond to msg=%d\n",
-				xcc_id, pipe, x_pkt->header.opcode);
+				"MES(%d, %d) failed to respond to msg=%d fence_wait_ret=%ld status=0x%x\n",
+				xcc_id, pipe, x_pkt->header.opcode, r, *status_ptr);
 
 		while (halt_if_hws_hang)
 			schedule();
@@ -685,8 +685,8 @@ static int mes_v12_1_set_hw_resources(struct amdgpu_mes *mes,
 	mes_set_hw_res_pkt.header.dwsize = API_FRAME_SIZE_IN_DWORDS;
 
 	if (pipe == AMDGPU_MES_SCHED_PIPE) {
-		mes_set_hw_res_pkt.vmid_mask_mmhub = mes->vmid_mask_mmhub;
-		mes_set_hw_res_pkt.vmid_mask_gfxhub = mes->vmid_mask_gfxhub;
+		mes_set_hw_res_pkt.vmid_mask_mmhub = adev->vm_manager.vmid_uq_mask_mmhub;
+		mes_set_hw_res_pkt.vmid_mask_gfxhub = adev->vm_manager.vmid_uq_mask_gfxhub;
 		mes_set_hw_res_pkt.gds_size = adev->gds.gds_size;
 		mes_set_hw_res_pkt.paging_vmid = 0;
 

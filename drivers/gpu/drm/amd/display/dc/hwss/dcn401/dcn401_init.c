@@ -111,7 +111,7 @@ static const struct hw_sequencer_funcs dcn401_funcs = {
 	.is_pipe_topology_transition_seamless = dcn32_is_pipe_topology_transition_seamless,
 	.dmub_hw_control_lock = dcn401_dmub_hw_control_lock,
 	.fams2_update_config = dcn401_fams2_update_config,
-	.dmub_hw_control_lock_fast = dcn401_dmub_hw_control_lock_fast,
+	.is_dmub_hw_lock_supported = dcn401_is_dmub_hw_lock_supported,
 	.program_outstanding_updates = dcn401_program_outstanding_updates,
 	.wait_for_all_pending_updates = dcn30_wait_for_all_pending_updates,
 	.detect_pipe_changes = dcn401_detect_pipe_changes,
@@ -125,6 +125,7 @@ static const struct hw_sequencer_funcs dcn401_funcs = {
 };
 
 static const struct hwseq_private_funcs dcn401_private_funcs = {
+	.build_cursor_pos_update_params = dcn401_build_cursor_pos_update_params,
 	.init_pipes = dcn10_init_pipes,
 	.plane_atomic_disconnect = dcn10_plane_atomic_disconnect,
 	.plane_atomic_disconnect_sequence = dcn401_plane_atomic_disconnect_sequence,

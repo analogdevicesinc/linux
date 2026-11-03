@@ -204,15 +204,20 @@ void dcn50_update_dchubp_dpp(
 		pipe_ctx->stream->cursor_attributes.address.quad_part != 0) {
 		if (dc_dmub_srv_is_cursor_offload_enabled(dc) && dc->hwss.abort_cursor_offload_update) {
 			struct pipe_ctx *top_pipe = resource_get_otg_master(pipe_ctx);
+			struct dpp *dpp[MAX_PIPES];
+			struct hubp *hubp[MAX_PIPES];
 
-			if (top_pipe)
+			if (top_pipe) {
+				uint8_t pipe_count =
+					hwss_build_cursor_offload_pipe_list(pipe_ctx, dpp, hubp);
+
 				dc->hwss.abort_cursor_offload_update(dc->ctx->dmub_srv->dmub,
-					pipe_ctx->plane_res.dpp, pipe_ctx->plane_res.hubp,
-					top_pipe->pipe_idx);
+					dpp, hubp, pipe_count, top_pipe->pipe_idx);
+			}
 		}
 
 		dc->hwss.set_cursor_attribute(pipe_ctx);
-		dc->hwss.set_cursor_position(pipe_ctx);
+		hwss_program_cursor_position(dc, pipe_ctx);
 
 		if (dc->hwss.set_cursor_sdr_white_level)
 			dc->hwss.set_cursor_sdr_white_level(pipe_ctx);
@@ -315,7 +320,7 @@ void dcn50_update_dchubp_dpp_sequence(struct dc *dc,
 			plane_state->update_bits.input_csc_change ||
 			plane_state->update_bits.color_space_change ||
 			plane_state->update_bits.coeff_reduction_change) {
-		hwss_add_dpp_setup_dpp(seq_state, pipe_ctx);
+		hwss_add_dpp_setup_dpp(seq_state, dpp, plane_state);
 
 		/* Step 8: DPP cursor matrix setup */
 		if (dpp->funcs->set_cursor_matrix) {
@@ -325,7 +330,7 @@ void dcn50_update_dchubp_dpp_sequence(struct dc *dc,
 
 		/* Step 9: DPP program bias and scale */
 		if (dpp->funcs->dpp_program_bias_and_scale)
-			hwss_add_dpp_program_bias_and_scale(seq_state, pipe_ctx);
+			hwss_add_dpp_program_bias_and_scale(seq_state, dpp, plane_state);
 	}
 
 	/* Step 10: MPCC updates */

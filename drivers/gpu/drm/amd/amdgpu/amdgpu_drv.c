@@ -188,6 +188,7 @@ char *amdgpu_disable_cu;
 char *amdgpu_virtual_display;
 int amdgpu_enforce_isolation = -1;
 int amdgpu_modeset = -1;
+int amdgpu_iommu_perfopt = -1;
 
 /* Specifies the default granularity for SVM, used in buffer
  * migration and restoration of backing memory when handling
@@ -227,7 +228,9 @@ uint amdgpu_dc_visual_confirm;
 int amdgpu_async_gfx_ring = 1;
 int amdgpu_mcbp = -1;
 int amdgpu_discovery = -1;
-int amdgpu_mes_log_enable = 0;
+int amdgpu_mes_log_enable;
+int amdgpu_mes_dbgext_buffer_size;
+int amdgpu_mes_dbgext_options = 1;
 int amdgpu_uni_mes = 1;
 int amdgpu_noretry = -1;
 int amdgpu_force_asic_type = -1;
@@ -395,6 +398,17 @@ module_param_named(fw_load_type, amdgpu_fw_load_type, int, 0444);
  */
 MODULE_PARM_DESC(aspm, "ASPM support (1 = enable, 0 = disable, -1 = auto)");
 module_param_named(aspm, amdgpu_aspm, int, 0444);
+
+/**
+ * DOC: iommu_perfopt (int)
+ * Control the AMD IOMMU PerfOpt DMA-latency optimization
+ * (0 = disable; -1 = enable on supported devices).
+ * This arms the IOMMU PerfOpt control (IOMMU spec, MMIO Offset 016Ch, EFR PerfOptSup / PerfOptEn)
+ * Arming it disables ATS, PRI, PASID and SVA for the GPU and removes IOMMU DMA containment for it,
+ * trading isolation for lower DMA latency.
+ */
+MODULE_PARM_DESC(iommu_perfopt, "Control IOMMU PerfOpt DMA-latency optimization (-1 = enable on supported devices, 0 = disable)");
+module_param_named(iommu_perfopt, amdgpu_iommu_perfopt, int, 0444);
 
 /**
  * DOC: runpm (int)
@@ -701,6 +715,33 @@ MODULE_PARM_DESC(mes_log_enable,
 module_param_named(mes_log_enable, amdgpu_mes_log_enable, int, 0444);
 
 /**
+ * DOC: mes_dbgext_buffer_size (int)
+ * Size in KB of the MES firmware debug-extension log buffer. The MES firmware
+ * writes log messages into this buffer and the driver drains and prints them to
+ * dmesg. Requires an MES firmware image built with debug extension support.
+ * (0 = disabled at boot (default))
+ *
+ * The feature can also be toggled at runtime via the per-device debugfs file
+ * <debugfs>/dri/N/amdgpu_mes_dbgext (echo 1/0 to enable/disable); when enabled
+ * at runtime with this parameter left at 0, a small default buffer is used.
+ */
+MODULE_PARM_DESC(mes_dbgext_buffer_size,
+	"MES firmware debug-extension log buffer size in KB (0 = disabled (default))");
+module_param_named(mes_dbgext_buffer_size, amdgpu_mes_dbgext_buffer_size, int, 0444);
+
+/**
+ * DOC: mes_dbgext_options (int)
+ * MES firmware debug-extension option bits sent to the firmware (u64_all).
+ * bit0 = trigger_interrupt_per_new_msg: when set, the firmware raises an
+ * interrupt per message and the driver collects them via the interrupt path;
+ * when clear, the driver polls the log buffer with a kthread instead.
+ * (default 1 = interrupt driven)
+ */
+MODULE_PARM_DESC(mes_dbgext_options,
+	"MES debug-extension option bits (bit0: 1 = interrupt (default), 0 = polling)");
+module_param_named(mes_dbgext_options, amdgpu_mes_dbgext_options, int, 0444);
+
+/**
  * DOC: uni_mes (int)
  * Enable Unified Micro Engine Scheduler. This is a new engine pipe for unified scheduler.
  * (0 = disabled (default), 1 = enabled)
@@ -762,11 +803,11 @@ MODULE_PARM_DESC(hws_max_conc_proc,
  * DOC: cwsr_enable (int)
  * CWSR(compute wave store and resume) allows the GPU to preempt shader execution in
  * the middle of a compute wave. Default is 1 to enable this feature. Setting 0
- * disables it.
+ * disables it as only in non-HWS mode.
  */
 int cwsr_enable = 1;
 module_param(cwsr_enable, int, 0444);
-MODULE_PARM_DESC(cwsr_enable, "CWSR enable (0 = Off, 1 = On (Default))");
+MODULE_PARM_DESC(cwsr_enable, "CWSR enable (0 = Off (debugging only), 1 = On (Default))");
 
 /**
  * DOC: max_num_of_queues_per_device (int)
@@ -2680,6 +2721,14 @@ static int amdgpu_pmops_suspend_noirq(struct device *dev)
 	struct amdgpu_device *adev = drm_to_adev(drm_dev);
 	int r;
 
+	/*
+	 * A GPU parked by vga_switcheroo has no power and no PCIe link, so the
+	 * ASIC reset below would fail and abort the whole noirq suspend phase.
+	 * Bail out like amdgpu_device_prepare/suspend/resume() already do.
+	 */
+	if (drm_dev->switch_power_state == DRM_SWITCH_POWER_OFF)
+		return 0;
+
 	if (amdgpu_acpi_should_gpu_reset(adev)) {
 		amdgpu_device_lock_reset_domain(adev->reset_domain);
 		r = amdgpu_asic_reset(adev);
@@ -2937,19 +2986,6 @@ static int amdgpu_pmops_runtime_suspend(struct device *dev)
 	return 0;
 }
 
-static void amdgpu_restore_umd_profile_pstate_after_runpm(struct amdgpu_device *adev)
-{
-	enum amd_dpm_forced_level level;
-	uint32_t profile_mode_mask = AMD_DPM_FORCED_LEVEL_PROFILE_STANDARD |
-		AMD_DPM_FORCED_LEVEL_PROFILE_MIN_SCLK |
-		AMD_DPM_FORCED_LEVEL_PROFILE_MIN_MCLK |
-		AMD_DPM_FORCED_LEVEL_PROFILE_PEAK;
-
-	level = amdgpu_dpm_get_performance_level(adev);
-	if (level & profile_mode_mask)
-		amdgpu_asic_update_umd_stable_pstate(adev, true);
-}
-
 static int amdgpu_pmops_runtime_resume(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
@@ -2995,7 +3031,6 @@ static int amdgpu_pmops_runtime_resume(struct device *dev)
 	if (adev->pm.rpm_mode == AMDGPU_RUNPM_PX)
 		drm_dev->switch_power_state = DRM_SWITCH_POWER_ON;
 
-	amdgpu_restore_umd_profile_pstate_after_runpm(adev);
 	adev->in_runpm = false;
 	return 0;
 }
@@ -3017,25 +3052,6 @@ static int amdgpu_drm_release(struct inode *inode, struct file *filp)
 	}
 
 	return drm_release(inode, filp);
-}
-
-long amdgpu_drm_ioctl(struct file *filp,
-		      unsigned int cmd, unsigned long arg)
-{
-	struct drm_file *file_priv = filp->private_data;
-	struct drm_device *dev;
-	long ret;
-
-	dev = file_priv->minor->dev;
-	ret = pm_runtime_get_sync(dev->dev);
-	if (ret < 0)
-		goto out;
-
-	ret = drm_ioctl(filp, cmd, arg);
-
-out:
-	pm_runtime_put_autosuspend(dev->dev);
-	return ret;
 }
 
 static const struct dev_pm_ops amdgpu_pm_ops = {
@@ -3070,12 +3086,12 @@ static const struct file_operations amdgpu_driver_kms_fops = {
 	.open = drm_open,
 	.flush = amdgpu_flush,
 	.release = amdgpu_drm_release,
-	.unlocked_ioctl = amdgpu_drm_ioctl,
+	.unlocked_ioctl = drm_ioctl,
 	.mmap = drm_gem_mmap,
 	.poll = drm_poll,
 	.read = drm_read,
 #ifdef CONFIG_COMPAT
-	.compat_ioctl = amdgpu_kms_compat_ioctl,
+	.compat_ioctl = drm_compat_ioctl,
 #endif
 #ifdef CONFIG_PROC_FS
 	.show_fdinfo = drm_show_fdinfo,

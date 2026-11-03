@@ -50,15 +50,6 @@ static void dm_test_wait_for_idle(struct kunit *test)
 }
 
 /**
- * dm_test_soft_reset - Test placeholder soft-reset callback returns success
- * @test: The KUnit test context
- */
-static void dm_test_soft_reset(struct kunit *test)
-{
-	KUNIT_EXPECT_EQ(test, dm_soft_reset(NULL), 0);
-}
-
-/**
  * dm_test_set_clockgating_state - Test placeholder clockgating callback returns success
  * @test: The KUnit test context
  */
@@ -1681,6 +1672,35 @@ struct dm_test_vblank_ctx {
 	struct drm_pending_vblank_event *event;
 };
 
+static int dm_test_vblank_enable(struct drm_crtc *crtc)
+{
+	return 0;
+}
+
+static void dm_test_vblank_disable(struct drm_crtc *crtc)
+{
+}
+
+static u32 dm_test_vblank_counter(struct drm_crtc *crtc)
+{
+	return 0;
+}
+
+static const struct drm_crtc_funcs dm_test_vblank_crtc_funcs = {
+	.enable_vblank = dm_test_vblank_enable,
+	.disable_vblank = dm_test_vblank_disable,
+	.get_vblank_counter = dm_test_vblank_counter,
+};
+
+static void dm_test_vblank_ctx_cleanup(void *data)
+{
+	struct amdgpu_crtc *acrtc = data;
+
+	if (drm_dev_has_vblank(acrtc->base.dev))
+		drm_crtc_vblank_off(&acrtc->base);
+	list_del_init(&acrtc->base.head);
+}
+
 /*
  * A CRTC with one active plane and a pending vblank event. There is no
  * initialised vblank, so drm_crtc_vblank_get() fails, which the function under
@@ -1702,9 +1722,15 @@ static struct dm_test_vblank_ctx *dm_test_vblank_ctx_alloc(struct kunit *test)
 	KUNIT_ASSERT_NOT_NULL(test, ctx->event);
 
 	ctx->acrtc->base.dev = &ctx->adev->ddev;
+	ctx->acrtc->base.funcs = &dm_test_vblank_crtc_funcs;
+	INIT_LIST_HEAD(&ctx->acrtc->base.head);
+	list_add_tail(&ctx->acrtc->base.head,
+		      &ctx->adev->ddev.mode_config.crtc_list);
 	ctx->acrtc->base.state = &ctx->acrtc_state->base;
 	ctx->acrtc_state->base.event = ctx->event;
 	ctx->acrtc_state->active_planes = 1;
+	KUNIT_ASSERT_EQ(test,
+			kunit_add_action_or_reset(test, dm_test_vblank_ctx_cleanup, ctx->acrtc), 0);
 
 	return ctx;
 }
@@ -4186,7 +4212,13 @@ static struct dm_test_irq_mgmt_ctx *dm_test_irq_mgmt_ctx_alloc(struct kunit *tes
 
 	ctx->adev->mode_info.num_crtc = 1;
 	ctx->acrtc->base.dev = &ctx->adev->ddev;
+	ctx->acrtc->base.funcs = &dm_test_vblank_crtc_funcs;
+	INIT_LIST_HEAD(&ctx->acrtc->base.head);
+	list_add_tail(&ctx->acrtc->base.head,
+		      &ctx->adev->ddev.mode_config.crtc_list);
 	ctx->acrtc->crtc_id = 0;
+	KUNIT_ASSERT_EQ(test,
+			kunit_add_action_or_reset(test, dm_test_vblank_ctx_cleanup, ctx->acrtc), 0);
 
 	ctx->acrtc_state->stream = dm_kunit_alloc_stream(test, NULL);
 	timing = &ctx->acrtc_state->stream->timing;
@@ -5176,7 +5208,6 @@ static void dm_test_gpureset_toggle_interrupts_dcn(struct kunit *test)
 static struct kunit_case amdgpu_dm_tests[] = {
 	/* Simple DM callbacks */
 	KUNIT_CASE(dm_test_wait_for_idle),
-	KUNIT_CASE(dm_test_soft_reset),
 	KUNIT_CASE(dm_test_set_clockgating_state),
 	KUNIT_CASE(dm_test_set_powergating_state),
 	KUNIT_CASE(dm_test_bandwidth_update),

@@ -434,6 +434,12 @@ static int route4_set_parms(struct net *net, struct tcf_proto *tp,
 	if (handle && (!fold || nhandle == (handle & ~0x7F00)))
 		nhandle |= handle & 0x7F00;
 
+	if (fold && !tb[TCA_ROUTE4_TO] && !tb[TCA_ROUTE4_FROM] &&
+	    !tb[TCA_ROUTE4_IIF] && nhandle != fold->handle) {
+		NL_SET_ERR_MSG(extack, "Routing attributes required");
+		return -EINVAL;
+	}
+
 	if (handle && !fold && nhandle != handle) {
 		NL_SET_ERR_MSG_FMT(extack,
 				   "Handle mismatch constructed: %x (expected: %x)",
@@ -657,7 +663,8 @@ static int route4_dump(struct net *net, struct tcf_proto *tp, void *fh,
 	if (tcf_exts_dump(skb, &f->exts) < 0)
 		goto nla_put_failure;
 
-	nla_nest_end(skb, nest);
+	if (nla_nest_end_safe(skb, nest) < 0)
+		goto nla_put_failure;
 
 	if (tcf_exts_dump_stats(skb, &f->exts) < 0)
 		goto nla_put_failure;

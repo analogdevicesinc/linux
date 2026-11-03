@@ -157,6 +157,7 @@ struct amdgpu_watchdog_timer {
  * Modules parameters.
  */
 extern int amdgpu_modeset;
+extern int amdgpu_iommu_perfopt;
 extern unsigned int amdgpu_vram_limit;
 extern int amdgpu_vis_vram_limit;
 extern int amdgpu_gart_size;
@@ -217,6 +218,8 @@ extern int amdgpu_async_gfx_ring;
 extern int amdgpu_mcbp;
 extern int amdgpu_discovery;
 extern int amdgpu_mes_log_enable;
+extern int amdgpu_mes_dbgext_buffer_size;
+extern int amdgpu_mes_dbgext_options;
 extern int amdgpu_uni_mes;
 extern int amdgpu_noretry;
 extern int amdgpu_force_asic_type;
@@ -842,8 +845,17 @@ struct amdgpu_device {
 	struct mutex	mn_lock;
 	DECLARE_HASHTABLE(mn_hash, 7);
 
-	/* tracking pinned memory */
+	/* tracking pinned memory
+	 *
+	 *	vram_pin_size = sum(vram_pin_size_xcp[]) + vram_pin_size_common
+	 *
+	 * vram_pin_size         total pin size in device
+	 * vram_pin_size_xcp[i]  pins owned by partition i (bo->xcp_id = i, i >= 0)
+	 * vram_pin_size_common  pins not owned by any partition, bo->xcp_id = -1
+	 */
 	atomic64_t vram_pin_size;
+	atomic64_t vram_pin_size_xcp[MAX_XCP];
+	atomic64_t vram_pin_size_common;
 	atomic64_t visible_pin_size;
 	atomic64_t gart_pin_size;
 

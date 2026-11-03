@@ -415,7 +415,9 @@ static void dm_test_output_color_space_default_rgb_full(struct kunit *test)
 {
 	struct dc_crtc_timing timing = {};
 	struct drm_connector_state state = {};
+	struct drm_connector *connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
 
+	state.connector = connector;
 	timing.pixel_encoding = PIXEL_ENCODING_RGB;
 	state.colorspace = DRM_MODE_COLORIMETRY_DEFAULT;
 	state.hdmi.broadcast_rgb = DRM_HDMI_BROADCAST_RGB_AUTO;
@@ -565,7 +567,9 @@ static void dm_test_output_color_space_bt2020_rgb(struct kunit *test)
 {
 	struct dc_crtc_timing timing = {};
 	struct drm_connector_state state = {};
+	struct drm_connector *connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
 
+	state.connector = connector;
 	timing.pixel_encoding = PIXEL_ENCODING_RGB;
 	state.colorspace = DRM_MODE_COLORIMETRY_BT2020_RGB;
 
@@ -585,6 +589,110 @@ static void dm_test_output_color_space_bt2020_rgb_limited(struct kunit *test)
 	timing.pixel_encoding = PIXEL_ENCODING_RGB;
 	state.colorspace = DRM_MODE_COLORIMETRY_BT2020_RGB;
 	state.hdmi.broadcast_rgb = DRM_HDMI_BROADCAST_RGB_LIMITED;
+
+	KUNIT_EXPECT_EQ(test, (int)amdgpu_dm_get_output_color_space(&timing, &state),
+			(int)COLOR_SPACE_2020_RGB_LIMITEDRANGE);
+}
+
+/**
+ * dm_test_output_color_space_default_rgb_auto_hdmi_cta - Automatic follows the CTA-861 default
+ * @test: The KUnit test context
+ */
+static void dm_test_output_color_space_default_rgb_auto_hdmi_cta(struct kunit *test)
+{
+	struct dc_crtc_timing timing = {};
+	struct drm_connector_state state = {};
+	struct drm_connector *connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
+
+	connector->display_info.is_hdmi = true;
+	timing.pixel_encoding = PIXEL_ENCODING_RGB;
+	timing.vic = 32;
+	state.connector = connector;
+	state.colorspace = DRM_MODE_COLORIMETRY_DEFAULT;
+	state.hdmi.broadcast_rgb = DRM_HDMI_BROADCAST_RGB_AUTO;
+
+	KUNIT_EXPECT_EQ(test, (int)amdgpu_dm_get_output_color_space(&timing, &state),
+			(int)COLOR_SPACE_SRGB_LIMITED);
+}
+
+/**
+ * dm_test_output_color_space_default_rgb_auto_hdmi_vga - 640x480 (VIC 1) stays full range
+ * @test: The KUnit test context
+ */
+static void dm_test_output_color_space_default_rgb_auto_hdmi_vga(struct kunit *test)
+{
+	struct dc_crtc_timing timing = {};
+	struct drm_connector_state state = {};
+	struct drm_connector *connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
+
+	connector->display_info.is_hdmi = true;
+	timing.pixel_encoding = PIXEL_ENCODING_RGB;
+	timing.vic = 1;
+	state.connector = connector;
+	state.colorspace = DRM_MODE_COLORIMETRY_DEFAULT;
+	state.hdmi.broadcast_rgb = DRM_HDMI_BROADCAST_RGB_AUTO;
+
+	KUNIT_EXPECT_EQ(test, (int)amdgpu_dm_get_output_color_space(&timing, &state),
+			(int)COLOR_SPACE_SRGB);
+}
+
+/**
+ * dm_test_output_color_space_default_rgb_auto_dp_cta - Automatic on a non-HDMI sink is full range
+ * @test: The KUnit test context
+ */
+static void dm_test_output_color_space_default_rgb_auto_dp_cta(struct kunit *test)
+{
+	struct dc_crtc_timing timing = {};
+	struct drm_connector_state state = {};
+	struct drm_connector *connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
+
+	timing.pixel_encoding = PIXEL_ENCODING_RGB;
+	timing.vic = 32;
+	state.connector = connector;
+	state.colorspace = DRM_MODE_COLORIMETRY_DEFAULT;
+	state.hdmi.broadcast_rgb = DRM_HDMI_BROADCAST_RGB_AUTO;
+
+	KUNIT_EXPECT_EQ(test, (int)amdgpu_dm_get_output_color_space(&timing, &state),
+			(int)COLOR_SPACE_SRGB);
+}
+
+/**
+ * dm_test_output_color_space_default_rgb_full_hdmi_cta - Full overrides the CTA-861 default
+ * @test: The KUnit test context
+ */
+static void dm_test_output_color_space_default_rgb_full_hdmi_cta(struct kunit *test)
+{
+	struct dc_crtc_timing timing = {};
+	struct drm_connector_state state = {};
+	struct drm_connector *connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
+
+	connector->display_info.is_hdmi = true;
+	timing.pixel_encoding = PIXEL_ENCODING_RGB;
+	timing.vic = 32;
+	state.connector = connector;
+	state.colorspace = DRM_MODE_COLORIMETRY_DEFAULT;
+	state.hdmi.broadcast_rgb = DRM_HDMI_BROADCAST_RGB_FULL;
+
+	KUNIT_EXPECT_EQ(test, (int)amdgpu_dm_get_output_color_space(&timing, &state),
+			(int)COLOR_SPACE_SRGB);
+}
+
+/**
+ * dm_test_output_color_space_bt2020_rgb_auto_hdmi_cta - BT.2020 RGB follows the same default
+ * @test: The KUnit test context
+ */
+static void dm_test_output_color_space_bt2020_rgb_auto_hdmi_cta(struct kunit *test)
+{
+	struct dc_crtc_timing timing = {};
+	struct drm_connector_state state = {};
+	struct drm_connector *connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
+
+	connector->display_info.is_hdmi = true;
+	timing.pixel_encoding = PIXEL_ENCODING_RGB;
+	timing.vic = 32;
+	state.connector = connector;
+	state.colorspace = DRM_MODE_COLORIMETRY_BT2020_RGB;
+	state.hdmi.broadcast_rgb = DRM_HDMI_BROADCAST_RGB_AUTO;
 
 	KUNIT_EXPECT_EQ(test, (int)amdgpu_dm_get_output_color_space(&timing, &state),
 			(int)COLOR_SPACE_2020_RGB_LIMITEDRANGE);
@@ -653,7 +761,9 @@ static void dm_test_output_color_space_bt2020_ycc_rgb_encoding(struct kunit *tes
 {
 	struct dc_crtc_timing timing = {};
 	struct drm_connector_state state = {};
+	struct drm_connector *connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
 
+	state.connector = connector;
 	timing.pixel_encoding = PIXEL_ENCODING_RGB;
 	state.colorspace = DRM_MODE_COLORIMETRY_BT2020_YCC;
 
@@ -1466,6 +1576,46 @@ static void dm_test_decide_crtc_timing_no_crtc_clock(struct kunit *test)
 
 	KUNIT_EXPECT_EQ(test, drm_mode.crtc_clock, 0);
 	KUNIT_EXPECT_EQ(test, drm_mode.crtc_hdisplay, 0);
+}
+
+static void dm_test_decide_crtc_timing_sink_mode_same_totals(struct kunit *test)
+{
+	struct drm_display_mode native_mode = {
+		DRM_MODE("3840x2160", DRM_MODE_TYPE_DRIVER, 594000, 3840, 4016, 4104,
+			 4400, 0, 2160, 2168, 2178, 2250, 0,
+			 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC) };
+	struct drm_display_mode drm_mode = {
+		DRM_MODE("4096x2160", DRM_MODE_TYPE_DRIVER, 594000, 4096, 4184, 4272,
+			 4400, 0, 2160, 2168, 2178, 2250, 0,
+			 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC) };
+
+	drm_mode_set_crtcinfo(&native_mode, 0);
+	drm_mode_set_crtcinfo(&drm_mode, 0);
+
+	decide_crtc_timing_for_drm_display_mode(&drm_mode, &native_mode, false);
+
+	KUNIT_EXPECT_EQ(test, drm_mode.crtc_hdisplay, 4096);
+	KUNIT_EXPECT_EQ(test, drm_mode.crtc_hsync_start, 4184);
+}
+
+static void dm_test_decide_crtc_timing_inserted_mode(struct kunit *test)
+{
+	struct drm_display_mode native_mode = {
+		DRM_MODE("3840x2160", DRM_MODE_TYPE_DRIVER, 594000, 3840, 4016, 4104,
+			 4400, 0, 2160, 2168, 2178, 2250, 0,
+			 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC) };
+	struct drm_display_mode drm_mode;
+
+	drm_mode_set_crtcinfo(&native_mode, 0);
+	drm_mode = native_mode;
+	drm_mode.hdisplay = 1920;
+	drm_mode.vdisplay = 1080;
+	drm_mode_set_crtcinfo(&drm_mode, 0);
+
+	decide_crtc_timing_for_drm_display_mode(&drm_mode, &native_mode, false);
+
+	KUNIT_EXPECT_EQ(test, drm_mode.crtc_hdisplay, 3840);
+	KUNIT_EXPECT_EQ(test, drm_mode.crtc_vdisplay, 2160);
 }
 
 /* Tests for amdgpu_dm_connector_funcs_reset() */
@@ -2735,7 +2885,7 @@ static void dm_test_update_subconnector_dp_with_sink(struct kunit *test)
 
 	update_subconnector_property(aconnector);
 
-	KUNIT_EXPECT_EQ(test, drm_object_property_get_value(&aconnector->base.base,
+	KUNIT_EXPECT_EQ(test, drm_object_property_get_default_value(&aconnector->base.base,
 				aconnector->base.dev->mode_config.dp_subconnector_property,
 				&val), 0);
 	KUNIT_EXPECT_EQ(test, (int)val, (int)DRM_MODE_SUBCONNECTOR_VGA);
@@ -2778,7 +2928,7 @@ static void dm_test_update_subconnector_dp_no_sink(struct kunit *test)
 
 	update_subconnector_property(aconnector);
 
-	KUNIT_EXPECT_EQ(test, drm_object_property_get_value(&aconnector->base.base,
+	KUNIT_EXPECT_EQ(test, drm_object_property_get_default_value(&aconnector->base.base,
 				aconnector->base.dev->mode_config.dp_subconnector_property,
 				&val), 0);
 	KUNIT_EXPECT_EQ(test, (int)val, (int)DRM_MODE_SUBCONNECTOR_Unknown);
@@ -2827,7 +2977,7 @@ static void dm_test_update_subconnector_non_dp_noop(struct kunit *test)
 	update_subconnector_property(aconnector);
 
 	/* Non-DP connector: value must remain what we seeded */
-	KUNIT_EXPECT_EQ(test, drm_object_property_get_value(&aconnector->base.base,
+	KUNIT_EXPECT_EQ(test, drm_object_property_get_default_value(&aconnector->base.base,
 				aconnector->base.dev->mode_config.dp_subconnector_property,
 				&val), 0);
 	KUNIT_EXPECT_EQ(test, (int)val, (int)DRM_MODE_SUBCONNECTOR_VGA);
@@ -3339,7 +3489,7 @@ static uint64_t dm_test_panel_prop_value(struct kunit *test,
 	uint64_t val = ~0ULL;
 
 	KUNIT_EXPECT_EQ(test,
-		drm_object_property_get_value(&ctx->aconnector->base.base,
+		drm_object_property_get_default_value(&ctx->aconnector->base.base,
 			ctx->drm->mode_config.panel_type_property, &val), 0);
 	return val;
 }
@@ -3597,6 +3747,7 @@ static struct dm_test_fill_ctx *dm_test_fill_ctx_alloc(struct kunit *test)
 
 	ctx->conn_state = drmm_kzalloc(ctx->drm, sizeof(*ctx->conn_state), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, ctx->conn_state);
+	ctx->conn_state->connector = &ctx->aconnector->base;
 	ctx->stream = kunit_kzalloc(test, sizeof(*ctx->stream), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, ctx->stream);
 	ctx->mode = kunit_kzalloc(test, sizeof(*ctx->mode), GFP_KERNEL);
@@ -4066,6 +4217,7 @@ static struct dm_test_stream_ctx *dm_test_stream_ctx_alloc(struct kunit *test)
 
 	ctx->dm_state = kunit_kzalloc(test, sizeof(*ctx->dm_state), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, ctx->dm_state);
+	ctx->dm_state->base.connector = &ctx->aconnector->base;
 	ctx->dm_state->scaling = RMX_OFF;
 
 	ctx->mode = kunit_kzalloc(test, sizeof(*ctx->mode), GFP_KERNEL);
@@ -5733,9 +5885,11 @@ static void dm_test_native_mode_copies_preferred(struct kunit *test)
 	mode->clock = 148500;
 	mode->hdisplay = 1920;
 	mode->vdisplay = 1080;
+	mutex_lock(&ctx->drm->mode_config.mutex);
 	drm_mode_probed_add(&ctx->aconnector->base, mode);
 
 	amdgpu_dm_get_native_mode(&ctx->aconnector->base);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
 
 	KUNIT_EXPECT_EQ(test, ctx->aenc->native_mode.hdisplay, 1920);
 	KUNIT_EXPECT_EQ(test, ctx->aenc->native_mode.vdisplay, 1080);
@@ -5788,8 +5942,10 @@ static void dm_test_add_common_modes_non_edp_noop(struct kunit *test)
 	ctx->aenc->native_mode.hdisplay = 1920;
 	ctx->aenc->native_mode.vdisplay = 1200;
 
+	mutex_lock(&ctx->drm->mode_config.mutex);
 	amdgpu_dm_connector_add_common_modes(&ctx->aenc->base,
 					     &ctx->aconnector->base);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
 
 	KUNIT_EXPECT_EQ(test, ctx->aconnector->num_modes, 0);
 }
@@ -5809,8 +5965,10 @@ static void dm_test_add_common_modes_edp_adds(struct kunit *test)
 	ctx->aenc->native_mode.hdisplay = 1920;
 	ctx->aenc->native_mode.vdisplay = 1200;
 
+	mutex_lock(&ctx->drm->mode_config.mutex);
 	amdgpu_dm_connector_add_common_modes(&ctx->aenc->base,
 					     &ctx->aconnector->base);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
 
 	KUNIT_EXPECT_EQ(test, ctx->aconnector->num_modes, 10);
 }
@@ -5887,12 +6045,18 @@ static struct amdgpu_dm_connector *dm_test_fs_setup(struct kunit *test)
 static void dm_test_add_fs_modes_generates(struct kunit *test)
 {
 	struct amdgpu_dm_connector *aconnector = dm_test_fs_setup(test);
+	unsigned int count, duplicate_count;
 
 	aconnector->min_vfreq = 20;
 	aconnector->max_vfreq = 60;
 
-	KUNIT_EXPECT_EQ(test, (int)add_fs_modes(aconnector), 8);
-	KUNIT_EXPECT_EQ(test, (int)add_fs_modes(aconnector), 0);
+	mutex_lock(&aconnector->base.dev->mode_config.mutex);
+	count = add_fs_modes(aconnector);
+	duplicate_count = add_fs_modes(aconnector);
+	mutex_unlock(&aconnector->base.dev->mode_config.mutex);
+
+	KUNIT_EXPECT_EQ(test, count, 8);
+	KUNIT_EXPECT_EQ(test, duplicate_count, 0);
 }
 
 /**
@@ -6638,6 +6802,7 @@ dm_test_cvs_ctx_alloc(struct kunit *test, int connector_type)
 
 	ctx->dm_state = kunit_kzalloc(test, sizeof(*ctx->dm_state), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, ctx->dm_state);
+	ctx->dm_state->base.connector = &ctx->aconnector->base;
 	ctx->dm_state->base.max_requested_bpc = 4;
 
 	ctx->mode = kunit_kzalloc(test, sizeof(*ctx->mode), GFP_KERNEL);
@@ -6692,6 +6857,7 @@ static void dm_test_create_validate_stream_writeback(struct kunit *test)
 
 	dm_state = kunit_kzalloc(test, sizeof(*dm_state), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, dm_state);
+	dm_state->base.connector = &wbcon->base.base;
 	dm_state->scaling = RMX_OFF;
 
 	mode = kunit_kzalloc(test, sizeof(*mode), GFP_KERNEL);
@@ -6940,6 +7106,7 @@ static struct dm_test_cvs_dc *dm_test_cvs_dc_alloc(struct kunit *test)
 
 	c->dm_state = kunit_kzalloc(test, sizeof(*c->dm_state), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, c->dm_state);
+	c->dm_state->base.connector = &c->aconnector->base;
 	c->dm_state->base.max_requested_bpc = 8;
 	c->dm_state->scaling = RMX_OFF;
 
@@ -6993,6 +7160,39 @@ static void dm_test_create_validate_stream_prune_context(struct kunit *test)
 								    c->mode,
 								    c->dm_state,
 								    NULL));
+}
+
+static enum dc_pixel_encoding dm_test_cvs_first_encoding;
+
+static bool dm_test_cvs_record_first_encoding(struct timing_generator *tg,
+					      const struct dc_crtc_timing *timing)
+{
+	if (dm_test_cvs_first_encoding == PIXEL_ENCODING_UNDEFINED)
+		dm_test_cvs_first_encoding = timing->pixel_encoding;
+
+	return false;
+}
+
+/**
+ * dm_test_create_validate_stream_hdmi_rgb_first - HDMI tries RGB before YCbCr 4:4:4
+ * @test: The KUnit test context
+ */
+static void dm_test_create_validate_stream_hdmi_rgb_first(struct kunit *test)
+{
+	struct dm_test_cvs_dc *c = dm_test_cvs_dc_alloc(test);
+
+	c->link->connector_signal = SIGNAL_TYPE_HDMI_TYPE_A;
+	c->aconnector->base.display_info.color_formats =
+		BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR444);
+	c->tgfuncs->validate_timing = dm_test_cvs_record_first_encoding;
+	dm_test_cvs_first_encoding = PIXEL_ENCODING_UNDEFINED;
+
+	KUNIT_EXPECT_NULL(test,
+			  amdgpu_dm_create_validate_stream_for_sink(&c->aconnector->base,
+								    c->mode,
+								    c->dm_state,
+								    NULL));
+	KUNIT_EXPECT_EQ(test, (int)dm_test_cvs_first_encoding, (int)PIXEL_ENCODING_RGB);
 }
 
 /* Further tests for amdgpu_dm_connector_mode_valid() */
@@ -8010,9 +8210,13 @@ static void dm_test_get_modes_noedid_default(struct kunit *test)
 {
 	struct dm_test_gm_ctx *ctx =
 		dm_test_gm_ctx_alloc(test, DRM_MODE_CONNECTOR_DisplayPort);
+	int count;
 
-	KUNIT_EXPECT_GT(test,
-			amdgpu_dm_connector_get_modes(&ctx->aconnector->base), 0);
+	mutex_lock(&ctx->drm->mode_config.mutex);
+	count = amdgpu_dm_connector_get_modes(&ctx->aconnector->base);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
+
+	KUNIT_EXPECT_GT(test, count, 0);
 }
 
 /**
@@ -8028,10 +8232,12 @@ static void dm_test_get_modes_noedid_128b_adds_more(struct kunit *test)
 		dm_test_gm_ctx_alloc(test, DRM_MODE_CONNECTOR_DisplayPort);
 	int n_8b, n_128b;
 
+	mutex_lock(&ctx->drm->mode_config.mutex);
 	n_8b = amdgpu_dm_connector_get_modes(&ctx->aconnector->base);
 
 	ctx->link_srv->dp_get_encoding_format = dm_test_gm_enc_128b;
 	n_128b = amdgpu_dm_connector_get_modes(&ctx->aconnector->base);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
 
 	KUNIT_EXPECT_GT(test, n_128b, n_8b);
 }
@@ -8050,7 +8256,9 @@ static void dm_test_get_modes_noedid_analog_adds_common(struct kunit *test)
 	struct dc_sink *sink;
 	int n_base, n_analog;
 
+	mutex_lock(&ctx->drm->mode_config.mutex);
 	n_base = amdgpu_dm_connector_get_modes(&ctx->aconnector->base);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
 
 	sink = kunit_kzalloc(test, sizeof(*sink), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, sink);
@@ -8058,7 +8266,9 @@ static void dm_test_get_modes_noedid_analog_adds_common(struct kunit *test)
 	ctx->aconnector->dc_sink = sink;
 	ctx->link->link_id.id = CONNECTOR_ID_VGA;
 
+	mutex_lock(&ctx->drm->mode_config.mutex);
 	n_analog = amdgpu_dm_connector_get_modes(&ctx->aconnector->base);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
 
 	KUNIT_EXPECT_GT(test, n_analog, n_base);
 }
@@ -8075,6 +8285,7 @@ static void dm_test_get_modes_with_edid(struct kunit *test)
 	struct dm_test_gm_ctx *ctx =
 		dm_test_gm_ctx_alloc(test, DRM_MODE_CONNECTOR_eDP);
 	const struct drm_edid *drm_edid;
+	int count;
 
 	drm_edid = drm_edid_alloc(dm_test_uad_edid, sizeof(dm_test_uad_edid));
 	KUNIT_ASSERT_NOT_NULL(test, drm_edid);
@@ -8084,8 +8295,11 @@ static void dm_test_get_modes_with_edid(struct kunit *test)
 	ctx->aenc->native_mode.hdisplay = 1920;
 	ctx->aenc->native_mode.vdisplay = 1200;
 
-	KUNIT_EXPECT_GT(test,
-			amdgpu_dm_connector_get_modes(&ctx->aconnector->base), 0);
+	mutex_lock(&ctx->drm->mode_config.mutex);
+	count = amdgpu_dm_connector_get_modes(&ctx->aconnector->base);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
+
+	KUNIT_EXPECT_GT(test, count, 0);
 
 	drm_edid_free(drm_edid);
 	ctx->aconnector->drm_edid = NULL;
@@ -8606,6 +8820,7 @@ static struct dc_link *dm_test_frl_add_hdmi_link(struct kunit *test, struct dm_t
 	KUNIT_ASSERT_NOT_NULL(test, link->local_sink);
 	link->connector_signal = SIGNAL_TYPE_HDMI_TYPE_A;
 	link->frl_link_settings.frl_link_rate = HDMI_FRL_LINK_RATE_3GBPS;
+	link->link_status.link_active = true;
 
 	return link;
 }
@@ -9607,6 +9822,7 @@ static void dm_test_conn_init_get_modes_hook(struct kunit *test)
 		dm_test_conn_init_ctx_alloc(test, SIGNAL_TYPE_HDMI_TYPE_A);
 	const struct drm_connector_helper_funcs *helper;
 	struct drm_connector *connector = &ctx->aconnector->base;
+	int count;
 
 	KUNIT_ASSERT_EQ(test,
 			amdgpu_dm_connector_init(ctx->dm, ctx->aconnector, 0,
@@ -9616,7 +9832,11 @@ static void dm_test_conn_init_get_modes_hook(struct kunit *test)
 	KUNIT_ASSERT_NOT_NULL(test, helper);
 	KUNIT_ASSERT_NOT_NULL(test, helper->get_modes);
 
-	KUNIT_EXPECT_GT(test, helper->get_modes(connector), 0);
+	mutex_lock(&ctx->drm->mode_config.mutex);
+	count = helper->get_modes(connector);
+	mutex_unlock(&ctx->drm->mode_config.mutex);
+
+	KUNIT_EXPECT_GT(test, count, 0);
 	KUNIT_EXPECT_GT(test, ctx->aconnector->num_modes, 0);
 }
 
@@ -9787,6 +10007,11 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_output_color_space_oprgb),
 	KUNIT_CASE(dm_test_output_color_space_bt2020_rgb),
 	KUNIT_CASE(dm_test_output_color_space_bt2020_rgb_limited),
+	KUNIT_CASE(dm_test_output_color_space_default_rgb_auto_hdmi_cta),
+	KUNIT_CASE(dm_test_output_color_space_default_rgb_auto_hdmi_vga),
+	KUNIT_CASE(dm_test_output_color_space_default_rgb_auto_dp_cta),
+	KUNIT_CASE(dm_test_output_color_space_default_rgb_full_hdmi_cta),
+	KUNIT_CASE(dm_test_output_color_space_bt2020_rgb_auto_hdmi_cta),
 	KUNIT_CASE(dm_test_output_color_space_bt2020_ycc),
 	KUNIT_CASE(dm_test_output_color_space_default_ycbcr709_y_only),
 	KUNIT_CASE(dm_test_output_color_space_default_ycbcr601),
@@ -9847,6 +10072,8 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_decide_crtc_timing_matching_mode),
 	KUNIT_CASE(dm_test_decide_crtc_timing_no_copy),
 	KUNIT_CASE(dm_test_decide_crtc_timing_no_crtc_clock),
+	KUNIT_CASE(dm_test_decide_crtc_timing_sink_mode_same_totals),
+	KUNIT_CASE(dm_test_decide_crtc_timing_inserted_mode),
 	/* amdgpu_dm_connector_funcs_reset */
 	KUNIT_CASE(dm_test_funcs_reset_sets_defaults),
 	KUNIT_CASE(dm_test_funcs_reset_edp_abm_level),
@@ -10105,6 +10332,7 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_create_validate_stream_force_ycbcr444),
 	KUNIT_CASE(dm_test_create_validate_stream_prune_timing),
 	KUNIT_CASE(dm_test_create_validate_stream_prune_context),
+	KUNIT_CASE(dm_test_create_validate_stream_hdmi_rgb_first),
 	/* amdgpu_dm_update_connector_after_detect */
 	KUNIT_CASE(dm_test_update_after_detect_mst_noop),
 	KUNIT_CASE(dm_test_update_after_detect_sink_unchanged),

@@ -189,9 +189,6 @@ void hubp60_cursor_set_attributes(
 	enum cursor_lines_per_chunk lpc = hubp2_get_lines_per_chunk(
 		attr->width, attr->color_format);
 
-	//Round cursor width up to next multiple of 64
-	uint32_t cursor_width = ((attr->width + 63) / 64) * 64;
-
 	hubp->curs_attr = *attr;
 
 	if (!hubp->cursor_offload) {
@@ -201,7 +198,7 @@ void hubp60_cursor_set_attributes(
 			CURSOR_SURFACE_ADDRESS, attr->address.low_part);
 
 		REG_UPDATE_2(CURSOR_SIZE,
-			CURSOR_WIDTH, cursor_width,
+			CURSOR_WIDTH, attr->width,
 			CURSOR_HEIGHT, attr->height);
 
 		REG_UPDATE_4(CURSOR_CONTROL,
@@ -427,6 +424,7 @@ static struct hubp_funcs dcn60_hubp_funcs = {
 	.mem_program_viewport = hubp401_set_viewport,
 	.set_cursor_attributes	= hubp60_cursor_set_attributes,
 	.set_cursor_position	= hubp401_cursor_set_position,
+	.refresh_cursor_state	= hubp401_cursor_refresh_state,
 	.hubp_clk_cntl = hubp2_clk_cntl,
 	.hubp_vtg_sel = hubp2_vtg_sel,
 	.dmdata_set_attributes = hubp3_dmdata_set_attributes,

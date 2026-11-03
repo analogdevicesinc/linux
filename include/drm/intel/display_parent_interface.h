@@ -16,11 +16,11 @@ struct drm_mode_fb_cmd2;
 struct drm_plane_state;
 struct drm_scanout_buffer;
 struct fb_info;
-struct i915_gtt_view;
 struct i915_vma;
 struct intel_dpt;
 struct intel_dsb_buffer;
 struct intel_frontbuffer;
+struct intel_gtt_view;
 struct intel_hdcp_gsc_context;
 struct intel_initial_plane_config;
 struct intel_panic;
@@ -31,7 +31,7 @@ struct seq_file;
 struct vm_area_struct;
 
 struct intel_fb_pin_params {
-	const struct i915_gtt_view *view;
+	const struct intel_gtt_view *view;
 	unsigned int alignment;
 	unsigned int phys_alignment;
 	unsigned int vtd_guard;
@@ -101,9 +101,9 @@ struct intel_display_fb_pin_interface {
 			  struct i915_vma *ggtt_vma);
 	struct i915_vma *(*reuse_vma)(struct i915_vma *old_ggtt_vma,
 				      struct drm_gem_object *old_obj,
-				      const struct i915_gtt_view *old_view,
+				      const struct intel_gtt_view *old_view,
 				      struct drm_gem_object *new_obj,
-				      const struct i915_gtt_view *new_view,
+				      const struct intel_gtt_view *new_view,
 				      u32 *out_offset);
 	void (*get_map)(struct i915_vma *vma, struct iosys_map *map);
 };
@@ -196,6 +196,7 @@ struct intel_display_rpm_interface {
 	void (*put_unchecked)(const struct drm_device *drm);
 
 	bool (*suspended)(const struct drm_device *drm);
+	bool (*pme_enabled)(const struct drm_device *drm); /* Optional */
 	void (*assert_held)(const struct drm_device *drm);
 	void (*assert_block)(const struct drm_device *drm);
 	void (*assert_unblock)(const struct drm_device *drm);

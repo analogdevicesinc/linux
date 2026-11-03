@@ -30,7 +30,6 @@
 
 #include "dce/dmub_hw_lock_mgr.h"
 #include "dcn10/dcn10_cm_common.h"
-#include "dcn10/dcn10_hubbub.h"
 #include "dcn20/dcn20_optc.h"
 #include "dcn20/dcn20_hwseq.h"
 #include "dcn30/dcn30_cm_common.h"
@@ -1045,11 +1044,12 @@ void dcn401_disable_link_output(struct dc_link *link,
 	dc->link_srv->dp_trace_source_sequence(link, DPCD_SOURCE_SEQ_AFTER_DISABLE_LINK_PHY);
 }
 
-void dcn401_set_cursor_position(struct pipe_ctx *pipe_ctx)
+void dcn401_build_cursor_pos_update_params(const struct pipe_ctx *pipe_ctx,
+		struct dc_cursor_position *pos_out,
+		struct dc_cursor_mi_param *param_out)
 {
 	struct dc_cursor_position pos_cpy = pipe_ctx->stream->cursor_position;
 	struct hubp *hubp = pipe_ctx->plane_res.hubp;
-	struct dpp *dpp = pipe_ctx->plane_res.dpp;
 	struct dc_cursor_mi_param param = {
 		.pixel_clk_khz = pipe_ctx->stream->timing.pix_clk_100hz / 10,
 		.ref_clk_khz = pipe_ctx->stream->ctx->dc->res_pool->ref_clocks.dchub_ref_clock_inKhz,
@@ -1073,6 +1073,11 @@ void dcn401_set_cursor_position(struct pipe_ctx *pipe_ctx)
 	int y_pos = pos_cpy.y;
 	int recout_x_pos = 0;
 	int recout_y_pos = 0;
+	int x_pos_viewport = 0;
+	int x_hot_viewport = 0;
+	int dst_x_offset = 0;
+	int rec_x_offset = 0;
+	int rec_y_offset = 0;
 
 	if ((pipe_ctx->top_pipe != NULL) || (pipe_ctx->bottom_pipe != NULL)) {
 		if ((pipe_ctx->plane_state->src_rect.width != pipe_ctx->plane_res.scl_data.viewport.width) ||
@@ -1215,8 +1220,59 @@ void dcn401_set_cursor_position(struct pipe_ctx *pipe_ctx)
 	pos_cpy.x = x_pos;
 	pos_cpy.y = y_pos;
 
-	hubp->funcs->set_cursor_position(hubp, &pos_cpy, &param);
-	dpp->funcs->set_cursor_position(dpp, &pos_cpy, &param, hubp->curs_attr.width, hubp->curs_attr.height);
+	/* Precompute the HW destination offset so the executor only programs
+	 * registers. Translate cursor x position from rect space into viewport
+	 * space; CURSOR_DST_X_OFFSET is relative to the viewport start position.
+	 */
+	if (param.recout.width) {
+		x_pos_viewport = pos_cpy.x * param.viewport.width / param.recout.width;
+		x_hot_viewport = pos_cpy.x_hotspot * param.viewport.width / param.recout.width;
+	} else {
+		ASSERT(!pos_cpy.enable || pos_cpy.x == 0);
+		ASSERT(!pos_cpy.enable || pos_cpy.x_hotspot == 0);
+	}
+
+	/* pixel_clk_khz is 0 when no timing is programmed on the stream */
+	if (param.pixel_clk_khz) {
+		dst_x_offset = x_pos_viewport - x_hot_viewport *
+				(1 + hubp->curs_attr.attribute_flags.bits.ENABLE_MAGNIFICATION);
+		dst_x_offset = (dst_x_offset >= 0) ? dst_x_offset : 0;
+		dst_x_offset *= param.ref_clk_khz;
+		dst_x_offset /= param.pixel_clk_khz;
+
+		ASSERT(param.h_scale_ratio.value);
+
+		if (param.h_scale_ratio.value)
+			dst_x_offset = dc_fixpt_floor(dc_fixpt_div(
+				dc_fixpt_from_int(dst_x_offset),
+				param.h_scale_ratio));
+
+		param.dst_x_offset = dst_x_offset;
+	}
+
+	/* Cursor rectangle cache origin: derived from the final cursor position
+	 * minus hotspot, clamped to 0, offset by the recout origin. Precompute
+	 * here so the executor only stores the value.
+	 */
+	rec_x_offset = pos_cpy.x - pos_cpy.x_hotspot;
+	rec_y_offset = pos_cpy.y - pos_cpy.y_hotspot;
+	if (rec_x_offset < 0)
+		rec_x_offset = 0;
+	if (rec_y_offset < 0)
+		rec_y_offset = 0;
+	param.cur_rect_x = rec_x_offset + param.recout.x;
+	param.cur_rect_y = rec_y_offset + param.recout.y;
+
+	*pos_out = pos_cpy;
+	*param_out = param;
+}
+
+void dcn401_set_cursor_position(struct hubp *hubp, struct dpp *dpp,
+		const struct dc_cursor_position *pos,
+		const struct dc_cursor_mi_param *param)
+{
+	hubp->funcs->set_cursor_position(hubp, pos, param);
+	dpp->funcs->set_cursor_position(dpp, pos, param, hubp->curs_attr.width, hubp->curs_attr.height);
 }
 
 static bool dcn401_check_no_memory_request_for_cab(struct dc *dc)
@@ -1579,20 +1635,10 @@ bool dcn401_dmub_hw_control_lock(struct dc *dc,
 	return true;
 }
 
-void dcn401_dmub_hw_control_lock_fast(union block_sequence_params *params)
+bool dcn401_is_dmub_hw_lock_supported(const struct dc *dc)
 {
-	struct dc *dc = params->dmub_hw_control_lock_fast_params.dc;
-	bool lock = params->dmub_hw_control_lock_fast_params.lock;
-
-	if (params->dmub_hw_control_lock_fast_params.is_required) {
-		union dmub_inbox0_cmd_lock_hw hw_lock_cmd = { 0 };
-
-		hw_lock_cmd.bits.command_code = DMUB_INBOX0_CMD__HW_LOCK;
-		hw_lock_cmd.bits.hw_lock_client = HW_LOCK_CLIENT_DRIVER;
-		hw_lock_cmd.bits.lock = lock;
-		hw_lock_cmd.bits.should_release = !lock;
-		dmub_hw_lock_mgr_inbox0_cmd(dc->ctx->dmub_srv, hw_lock_cmd);
-	}
+	/* Inbox0 HW lock is unconditionally available on this generation. */
+	return dc && dc->ctx && dc->ctx->dmub_srv && dc->ctx->dmub_srv->dmub;
 }
 
 void dcn401_fams2_update_config(struct dc *dc, struct dc_state *context, bool enable)
@@ -1683,6 +1729,22 @@ void dcn401_update_odm(struct dc *dc, struct dc_state *context,
 				opp_heads[i]->stream_res.opp,
 				opp_heads[i]->stream->timing.pixel_encoding,
 				resource_is_pipe_type(opp_heads[i], OTG_MASTER));
+
+		// Plane-less OPP heads are skipped by program_pipe, where the OPP
+		// formatter is normally configured, so set it up for them here.
+		if (!opp_heads[i]->plane_state &&
+				opp_heads[i]->stream_res.opp->funcs->opp_set_dyn_expansion &&
+				opp_heads[i]->stream_res.opp->funcs->opp_program_fmt) {
+			opp_heads[i]->stream_res.opp->funcs->opp_set_dyn_expansion(
+					opp_heads[i]->stream_res.opp,
+					COLOR_SPACE_YCBCR601,
+					opp_heads[i]->stream->timing.display_color_depth,
+					opp_heads[i]->stream->signal);
+			opp_heads[i]->stream_res.opp->funcs->opp_program_fmt(
+					opp_heads[i]->stream_res.opp,
+					&opp_heads[i]->stream->bit_depth_params,
+					&opp_heads[i]->stream->clamping);
+		}
 	}
 
 	update_dsc_for_odm_change(dc, context, otg_master);
@@ -1717,54 +1779,11 @@ static void dcn401_add_dsc_sequence_for_odm_change(struct dc *dc, struct dc_stat
 
 	/* Process new DSC configuration if DSC is enabled */
 	if (otg_master->stream_res.dsc && otg_master->stream->timing.flags.DSC) {
-		struct dc_stream_state *stream = otg_master->stream;
-		struct pipe_ctx *odm_pipe;
-		int opp_cnt = 1;
-		int last_dsc_calc = 0;
-		bool should_use_dto_dscclk = (dc->res_pool->dccg->funcs->set_dto_dscclk != NULL) &&
-				stream->timing.pix_clk_100hz > 480000;
-
-		/* Count ODM pipes */
-		for (odm_pipe = otg_master->next_odm_pipe; odm_pipe; odm_pipe = odm_pipe->next_odm_pipe)
-			opp_cnt++;
-
-		int num_slices_h = stream->timing.dsc_cfg.num_slices_h / opp_cnt;
-
-		/* Step 1: Set DTO DSCCLK for main DSC if needed */
-		if (should_use_dto_dscclk) {
-			hwss_add_dccg_set_dto_dscclk(seq_state, dc->res_pool->dccg,
-					otg_master->stream_res.dsc->inst, num_slices_h);
+		if (!hwss_add_dsc_sequence_for_stream(seq_state, otg_master,
+				otg_master->dsc_padding_params.dsc_hactive_padding, NULL)) {
+			ASSERT(false);
+			return;
 		}
-
-		/* Step 2: Calculate and set DSC config for main DSC */
-		last_dsc_calc = *seq_state->num_steps;
-		hwss_add_dsc_calculate_and_set_config(seq_state, otg_master, true, opp_cnt);
-
-		/* Step 3: Enable main DSC block */
-		hwss_add_dsc_enable_with_opp(seq_state, otg_master);
-
-		/* Step 4: Configure and enable ODM DSC blocks */
-		for (odm_pipe = otg_master->next_odm_pipe; odm_pipe; odm_pipe = odm_pipe->next_odm_pipe) {
-			if (!odm_pipe->stream_res.dsc)
-				continue;
-
-			/* Set DTO DSCCLK for ODM DSC if needed */
-			if (should_use_dto_dscclk) {
-				hwss_add_dccg_set_dto_dscclk(seq_state, dc->res_pool->dccg,
-						odm_pipe->stream_res.dsc->inst, num_slices_h);
-			}
-
-			/* Calculate and set DSC config for ODM DSC */
-			last_dsc_calc = *seq_state->num_steps;
-			hwss_add_dsc_calculate_and_set_config(seq_state, odm_pipe, true, opp_cnt);
-
-			/* Enable ODM DSC block */
-			hwss_add_dsc_enable_with_opp(seq_state, odm_pipe);
-		}
-
-		/* Step 5: Configure DSC in timing generator */
-		hwss_add_tg_set_dsc_config(seq_state, otg_master->stream_res.tg,
-			&seq_state->steps[last_dsc_calc].params.dsc_calculate_and_set_config_params.dsc_optc_cfg, true);
 	} else if (otg_master->stream_res.dsc && !otg_master->stream->timing.flags.DSC) {
 		/* Disable DSC in OPTC */
 		hwss_add_tg_set_dsc_config(seq_state, otg_master->stream_res.tg, NULL, false);
@@ -1819,6 +1838,20 @@ void dcn401_update_odm_sequence(struct dc *dc, struct dc_state *context,
 		/* Add OPP program left edge extra pixel operation */
 		hwss_add_opp_program_left_edge_extra_pixel(seq_state, opp_heads[i]->stream_res.opp,
 			opp_heads[i]->stream->timing.pixel_encoding, resource_is_pipe_type(opp_heads[i], OTG_MASTER));
+
+		//Plane-less OPP heads are skipped by program_pipe, where the OPP
+		// formatter is normally configured, so set it up for them here.
+		if (!opp_heads[i]->plane_state &&
+				opp_heads[i]->stream_res.opp->funcs->opp_set_dyn_expansion &&
+				opp_heads[i]->stream_res.opp->funcs->opp_program_fmt) {
+			hwss_add_opp_set_dyn_expansion(seq_state, opp_heads[i]->stream_res.opp,
+				COLOR_SPACE_YCBCR601,
+				opp_heads[i]->stream->timing.display_color_depth,
+				opp_heads[i]->stream->signal);
+			hwss_add_opp_program_fmt(seq_state, opp_heads[i]->stream_res.opp,
+				&opp_heads[i]->stream->bit_depth_params,
+				&opp_heads[i]->stream->clamping);
+		}
 	}
 
 	/* Add DSC update operations to sequence */
@@ -2488,7 +2521,8 @@ void dcn401_program_pipe_sequence(
 			false,
 			pipe_ctx->stream_res.test_pattern_params.width,
 			pipe_ctx->stream_res.test_pattern_params.height,
-			pipe_ctx->stream_res.test_pattern_params.offset);
+			pipe_ctx->stream_res.test_pattern_params.offset,
+			dc->debug.disable_dynamic_expansion_for_test_pattern);
 	}
 
 	if (pipe_ctx->plane_state
@@ -2533,7 +2567,7 @@ void dcn401_program_front_end_for_ctx(
 
 				/*turn off triple buffer for full update*/
 				dc->hwss.program_triplebuffer(
-					dc, pipe, pipe->plane_state->triplebuffer_flips);
+					pipe->plane_res.hubp, pipe->plane_state->triplebuffer_flips);
 			}
 		}
 	}
@@ -3213,8 +3247,10 @@ void dcn401_plane_atomic_disconnect_sequence(struct dc *dc,
 	// Phantom pipes have OTG disabled by default, so MPCC_STATUS will never assert idle,
 	// so don't wait for MPCC_IDLE in the programming sequence
 	if (dc_state_get_pipe_subvp_type(state, pipe_ctx) != SUBVP_PHANTOM) {
-		/* Step 2: Set MPCC disconnect pending flag */
-		hwss_add_opp_set_mpcc_disconnect_pending(seq_state, opp, pipe_ctx->plane_res.mpcc_inst, true);
+		/* Step 2: Set MPCC disconnect pending flag. Set here rather than as a sequence step
+		 * because the post-unlock build phase reads it to decide what to emit.
+		 */
+		opp->mpcc_disconnect_pending[pipe_ctx->plane_res.mpcc_inst] = true;
 	}
 
 	/* Step 3: Set optimized required flag */
@@ -3277,7 +3313,8 @@ void dcn401_blank_pixel_data_sequence(
 			true,
 			odm_slice_src.width,
 			odm_slice_src.height,
-			odm_slice_src.x);
+			odm_slice_src.x,
+			dc->debug.disable_dynamic_expansion_for_test_pattern);
 
 		odm_pipe = odm_pipe->next_odm_pipe;
 	}
@@ -3294,7 +3331,8 @@ void dcn401_blank_pixel_data_sequence(
 		true,
 		odm_slice_src.width,
 		odm_slice_src.height,
-		odm_slice_src.x);
+		odm_slice_src.x,
+		dc->debug.disable_dynamic_expansion_for_test_pattern);
 
 	/* Handle ABM level setting when not blanking */
 	if (!blank) {
@@ -3686,7 +3724,7 @@ void dcn401_update_dchubp_dpp_sequence(struct dc *dc,
 			plane_state->update_bits.input_csc_change ||
 			plane_state->update_bits.color_space_change ||
 			plane_state->update_bits.coeff_reduction_change) {
-		hwss_add_dpp_setup_dpp(seq_state, pipe_ctx);
+		hwss_add_dpp_setup_dpp(seq_state, dpp, plane_state);
 
 		/* Step 8: DPP cursor matrix setup */
 		if (dpp->funcs->set_cursor_matrix) {
@@ -3696,7 +3734,7 @@ void dcn401_update_dchubp_dpp_sequence(struct dc *dc,
 
 		/* Step 9: DPP program bias and scale */
 		if (dpp->funcs->dpp_program_bias_and_scale)
-			hwss_add_dpp_program_bias_and_scale(seq_state, pipe_ctx);
+			hwss_add_dpp_program_bias_and_scale(seq_state, dpp, plane_state);
 	}
 
 	/* Step 10: MPCC updates */
@@ -4069,7 +4107,7 @@ bool dcn401_hw_wa_force_recovery_sequence(struct dc *dc,
 	}
 
 	/* Step 2: DCHUBBUB_GLOBAL_SOFT_RESET=1 */
-	hwss_add_hubbub_soft_reset(seq_state, dc->res_pool->hubbub, hubbub1_soft_reset, true);
+	hwss_add_hubbub_soft_reset(seq_state, dc->res_pool->hubbub, true);
 
 	/* Step 3: Set HUBP_DISABLE=1 for all active pipes */
 	for (i = 0; i < dc->res_pool->pipe_count; i++) {
@@ -4094,7 +4132,7 @@ bool dcn401_hw_wa_force_recovery_sequence(struct dc *dc,
 	}
 
 	/* Step 5: DCHUBBUB_GLOBAL_SOFT_RESET=0 */
-	hwss_add_hubbub_soft_reset(seq_state, dc->res_pool->hubbub, hubbub1_soft_reset, false);
+	hwss_add_hubbub_soft_reset(seq_state, dc->res_pool->hubbub, false);
 
 	/* Step 6: Set HUBP_BLANK_EN=0 for all active pipes */
 	for (i = 0; i < dc->res_pool->pipe_count; i++) {

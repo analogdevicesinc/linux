@@ -126,9 +126,12 @@ static const struct hw_sequencer_funcs dcn351_funcs = {
 	.calculate_pix_rate_divider = dcn32_calculate_pix_rate_divider,
 	.setup_hpo_hw_control = dcn35_setup_hpo_hw_control,
 	.get_underflow_debug_data = dcn30_get_underflow_debug_data,
+	.dmub_hw_control_lock = dcn35_dmub_hw_control_lock,
+	.is_dmub_hw_lock_supported = dcn35_is_dmub_hw_lock_supported,
 };
 
 static const struct hwseq_private_funcs dcn351_private_funcs = {
+	.build_cursor_pos_update_params = dcn10_build_cursor_pos_update_params,
 	.init_pipes = dcn35_init_pipes,
 	.plane_atomic_disconnect = dcn10_plane_atomic_disconnect,
 	.update_mpcc = dcn20_update_mpcc,

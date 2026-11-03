@@ -34,8 +34,10 @@ static const struct ras_mp1_ip_func *ras_mp1_get_ip_funcs(
 	case IP_VERSION(13, 0, 6):
 	case IP_VERSION(13, 0, 14):
 	case IP_VERSION(13, 0, 12):
+	case IP_VERSION(13, 0, 15):
 		return &mp1_ras_func_v13_0;
 	case IP_VERSION(15, 0, 8):
+	case IP_VERSION(15, 0, 3):
 		return &mp1_ras_func_v15_0;
 	default:
 		RAS_DEV_ERR(ras_core->dev,
@@ -181,6 +183,19 @@ int ras_mp1_set_debug_mode(struct ras_core_context *ras_core, bool enable)
 		return -EOPNOTSUPP;
 
 	return mp1->ip_func->set_debug_mode(ras_core, enable);
+}
+
+int ras_mp1_check_feature_status(struct ras_core_context *ras_core,
+		enum ras_mp1_feature_id feature_id, u32 *status)
+{
+	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
+
+	if (!mp1->sys_func ||
+	    !mp1->sys_func->check_ras_feature_status)
+		return -EOPNOTSUPP;
+
+	return mp1->sys_func->check_ras_feature_status(ras_core,
+				feature_id, status);
 }
 
 int ras_mp1_sw_init(struct ras_core_context *ras_core)

@@ -394,14 +394,12 @@ void dcn20_disable_vga(
 }
 
 void dcn20_program_triple_buffer(
-	const struct dc *dc,
-	struct pipe_ctx *pipe_ctx,
+	struct hubp *hubp,
 	bool enable_triple_buffer)
 {
-	(void)dc;
-	if (pipe_ctx->plane_res.hubp && pipe_ctx->plane_res.hubp->funcs) {
-		pipe_ctx->plane_res.hubp->funcs->hubp_enable_tripleBuffer(
-			pipe_ctx->plane_res.hubp,
+	if (hubp && hubp->funcs) {
+		hubp->funcs->hubp_enable_tripleBuffer(
+			hubp,
 			enable_triple_buffer);
 	}
 }
@@ -460,7 +458,8 @@ void dcn20_init_blank(
 			&black_color,
 			otg_active_width,
 			otg_active_height,
-			0);
+			0,
+			dc->debug.disable_dynamic_expansion_for_test_pattern);
 
 	if (num_opps == 2) {
 		bottom_opp->funcs->opp_set_disp_pattern_generator(
@@ -471,7 +470,8 @@ void dcn20_init_blank(
 				&black_color,
 				otg_active_width,
 				otg_active_height,
-				0);
+				0,
+				dc->debug.disable_dynamic_expansion_for_test_pattern);
 	}
 
 	hws->funcs.wait_for_blank_complete(opp);
@@ -1840,15 +1840,20 @@ void dcn20_update_dchubp_dpp(
 			pipe_ctx->stream->cursor_attributes.address.quad_part != 0) {
 		if (dc_dmub_srv_is_cursor_offload_enabled(dc) && dc->hwss.abort_cursor_offload_update) {
 			struct pipe_ctx *top_pipe = resource_get_otg_master(pipe_ctx);
+			struct dpp *dpp[MAX_PIPES];
+			struct hubp *hubp[MAX_PIPES];
 
-			if (top_pipe)
+			if (top_pipe) {
+				uint8_t pipe_count =
+					hwss_build_cursor_offload_pipe_list(pipe_ctx, dpp, hubp);
+
 				dc->hwss.abort_cursor_offload_update(dc->ctx->dmub_srv->dmub,
-					pipe_ctx->plane_res.dpp, pipe_ctx->plane_res.hubp,
-					top_pipe->pipe_idx);
+					dpp, hubp, pipe_count, top_pipe->pipe_idx);
+			}
 		}
 
 		dc->hwss.set_cursor_attribute(pipe_ctx);
-		dc->hwss.set_cursor_position(pipe_ctx);
+		hwss_program_cursor_position(dc, pipe_ctx);
 
 		if (dc->hwss.set_cursor_sdr_white_level)
 			dc->hwss.set_cursor_sdr_white_level(pipe_ctx);
@@ -2110,7 +2115,7 @@ void dcn20_program_front_end_for_ctx(
 				ASSERT(!pipe->plane_state->triplebuffer_flips);
 				/*turn off triple buffer for full update*/
 				dc->hwss.program_triplebuffer(
-					dc, pipe, pipe->plane_state->triplebuffer_flips);
+					pipe->plane_res.hubp, pipe->plane_state->triplebuffer_flips);
 			}
 		}
 	}
@@ -3341,7 +3346,7 @@ void dcn20_set_disp_pattern_generator(const struct dc *dc,
 		const struct tg_color *solid_color,
 		int width, int height, int offset)
 {
-	(void)dc;
 	pipe_ctx->stream_res.opp->funcs->opp_set_disp_pattern_generator(pipe_ctx->stream_res.opp, test_pattern,
-			color_space, color_depth, solid_color, width, height, offset);
+			color_space, color_depth, solid_color, width, height, offset,
+			dc->debug.disable_dynamic_expansion_for_test_pattern);
 }

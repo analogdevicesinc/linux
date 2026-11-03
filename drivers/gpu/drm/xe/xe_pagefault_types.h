@@ -139,6 +139,16 @@ struct xe_pagefault_ops {
 	 * Page fault producer ends acknowledgment from the consumer.
 	 */
 	void (*ack_fault_end)(void *private);
+	/**
+	 * @print: Print pagefault info
+	 * @pf: Page fault
+	 * @err_str: Consumer servicing error string
+	 *
+	 * Print pagefault identification fields decoded from producer,
+	 * along with consumer-specific @err_str prints.
+	 * Must be implemented by all producers.
+	 */
+	void (*print)(struct xe_pagefault *pf, const char *err_str);
 };
 
 /**

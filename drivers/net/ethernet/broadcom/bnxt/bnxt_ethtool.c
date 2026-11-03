@@ -4601,6 +4601,7 @@ static int bnxt_set_tunable(struct net_device *dev,
 			if (netif_running(dev))
 				return -EBUSY;
 			bp->rx_copybreak = rx_copybreak;
+			bnxt_set_ring_params(bp);
 		}
 		return 0;
 	case ETHTOOL_PFC_PREVENTION_TOUT:
@@ -5733,7 +5734,8 @@ const struct ethtool_ops bnxt_ethtool_ops = {
 	.op_needs_rtnl			= ETHTOOL_OP_NEEDS_RTNL_SCHANNELS |
 					  ETHTOOL_OP_NEEDS_RTNL_SRINGPARAM |
 					  ETHTOOL_OP_NEEDS_RTNL_SCOALESCE |
-					  ETHTOOL_OP_NEEDS_RTNL_RSS,
+					  ETHTOOL_OP_NEEDS_RTNL_RSS |
+					  ETHTOOL_OP_NEEDS_RTNL_TEST,
 	.supported_coalesce_params = ETHTOOL_COALESCE_USECS |
 				     ETHTOOL_COALESCE_MAX_FRAMES |
 				     ETHTOOL_COALESCE_USECS_IRQ |

@@ -313,6 +313,8 @@ void hubp401_cursor_set_position(
 	const struct dc_cursor_position *pos,
 	const struct dc_cursor_mi_param *param);
 
+void hubp401_cursor_refresh_state(struct hubp *hubp);
+
 void hubp401_read_state(struct hubp *hubp);
 
 bool hubp401_construct(

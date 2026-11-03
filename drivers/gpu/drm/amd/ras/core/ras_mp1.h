@@ -25,7 +25,20 @@
 #define __RAS_MP1_H__
 #include "ras.h"
 
+#define MAX_UE_BANKS_PER_QUERY  12
+#define MAX_CE_BANKS_PER_QUERY  12
+
+enum ras_mp1_feature_id {
+	RAS_MP1_FEATURE_PMFW_EEPROM,
+	RAS_MP1_FEATURE_MAX
+};
+
 enum ras_mp1_msg_id {
+	RAS_MP1_MSG_QueryValidMcaCount,
+	RAS_MP1_MSG_McaBankDumpDW,
+	RAS_MP1_MSG_ClearMcaOnRead,
+	RAS_MP1_MSG_QueryValidMcaCeCount,
+	RAS_MP1_MSG_McaBankCeDumpDW,
 	RAS_MP1_MSG_GetRasTableVersion,
 	RAS_MP1_MSG_GetRmaStatus,
 	RAS_MP1_MSG_GetBadPageCount,
@@ -40,9 +53,29 @@ enum ras_mp1_msg_id {
 };
 
 struct eeprom_err_record {
-	u64 timestamp;
-	u64 mca_addr;
-	u64 ipid;
+	union {
+		struct {
+			u32 timestamp_low;
+			u32 timestamp_high;
+		};
+		u64 timestamp;
+	};
+
+	union {
+		struct {
+			u32 mca_addr_low;
+			u32 mca_addr_high;
+		};
+		u64 mca_addr;
+	};
+
+	union {
+		struct {
+			u32 ipid_low;
+			u32 ipid_high;
+		};
+		u64 ipid;
+	};
 };
 
 enum ras_err_type;
@@ -94,4 +127,6 @@ int ras_mp1_reset_ras_table(struct ras_core_context *ras_core,
 int ras_mp1_get_record_count(struct ras_core_context *ras_core, u32 *count);
 int ras_mp1_get_record(struct ras_core_context *ras_core,
 		u32 idx, struct eeprom_err_record *rec);
+int ras_mp1_check_feature_status(struct ras_core_context *ras_core,
+		enum ras_mp1_feature_id feature_id, u32 *status);
 #endif

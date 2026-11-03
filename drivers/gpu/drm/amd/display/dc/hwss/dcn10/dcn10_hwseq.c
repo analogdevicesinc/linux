@@ -542,16 +542,16 @@ static void dcn10_log_color_state(struct dc *dc,
 		 dc->caps.color.dpp.ogam_ram,
 		 dc->caps.color.dpp.ocsc);
 
-	DTN_INFO("MPCC:  OPP  DPP  MPCCBOT  MODE  ALPHA_MODE  PREMULT  OVERLAP_ONLY  IDLE\n");
+	DTN_INFO("MPCC:  OPP  DPP  MPCCBOT  MODE  ALPHA_MODE  PREMULT  OVERLAP_ONLY  IDLE  SHAPER  3DLUT  3DLUT_SIZE\n");
 	for (i = 0; i < pool->mpcc_count; i++) {
 		struct mpcc_state s = {0};
 
 		pool->mpc->funcs->read_mpcc_state(pool->mpc, i, &s);
 		if (s.opp_id != 0xf)
-			DTN_INFO("[%2d]:  %2xh  %2xh  %6xh  %4d  %10d  %7d  %12d  %4d\n",
+			DTN_INFO("[%2d]:  %2xh  %2xh  %6xh  %4d  %10d  %7d  %12d  %4d  %6d  %5d  %10d\n",
 				i, s.opp_id, s.dpp_id, s.bot_mpcc_id,
 				s.mode, s.alpha_mode, s.pre_multiplied_alpha, s.overlap_only,
-				s.idle);
+				s.idle, s.shaper_lut_mode, s.lut3d_mode, s.lut3d_size);
 	}
 	DTN_INFO("\n");
 	DTN_INFO("MPC Color Caps: gamut_remap:%d, 3dlut:%d, ogam_ram:%d, ocsc:%d\n\n",
@@ -3168,15 +3168,20 @@ static void dcn10_update_dchubp_dpp(
 	if (pipe_ctx->stream->cursor_attributes.address.quad_part != 0) {
 		if (dc_dmub_srv_is_cursor_offload_enabled(dc) && dc->hwss.abort_cursor_offload_update) {
 			struct pipe_ctx *top_pipe = resource_get_otg_master(pipe_ctx);
+			struct dpp *dpp[MAX_PIPES];
+			struct hubp *hubp[MAX_PIPES];
 
-			if (top_pipe)
+			if (top_pipe) {
+				uint8_t pipe_count =
+					hwss_build_cursor_offload_pipe_list(pipe_ctx, dpp, hubp);
+
 				dc->hwss.abort_cursor_offload_update(dc->ctx->dmub_srv->dmub,
-					pipe_ctx->plane_res.dpp, pipe_ctx->plane_res.hubp,
-					top_pipe->pipe_idx);
+					dpp, hubp, pipe_count, top_pipe->pipe_idx);
+			}
 		}
 
 		dc->hwss.set_cursor_attribute(pipe_ctx);
-		dc->hwss.set_cursor_position(pipe_ctx);
+		hwss_program_cursor_position(dc, pipe_ctx);
 
 		if (dc->hwss.set_cursor_sdr_white_level)
 			dc->hwss.set_cursor_sdr_white_level(pipe_ctx);
@@ -3729,11 +3734,11 @@ void dcn10_update_dchub(struct dce_hwseq *hws, struct dchub_init_data *dh_data)
 	hubbub->funcs->update_dchub(hubbub, dh_data);
 }
 
-void dcn10_set_cursor_position(struct pipe_ctx *pipe_ctx)
+void dcn10_build_cursor_pos_update_params(const struct pipe_ctx *pipe_ctx,
+		struct dc_cursor_position *pos_out,
+		struct dc_cursor_mi_param *param_out)
 {
 	struct dc_cursor_position pos_cpy = pipe_ctx->stream->cursor_position;
-	struct hubp *hubp = pipe_ctx->plane_res.hubp;
-	struct dpp *dpp = pipe_ctx->plane_res.dpp;
 	struct dc_cursor_mi_param param = {
 		.pixel_clk_khz = pipe_ctx->stream->timing.pix_clk_100hz / 10,
 		.ref_clk_khz = pipe_ctx->stream->ctx->dc->res_pool->ref_clocks.dchub_ref_clock_inKhz,
@@ -3949,8 +3954,16 @@ void dcn10_set_cursor_position(struct pipe_ctx *pipe_ctx)
 			pipe_ctx->plane_res.scl_data.viewport.height - pos_cpy.y;
 	}
 
-	hubp->funcs->set_cursor_position(hubp, &pos_cpy, &param);
-	dpp->funcs->set_cursor_position(dpp, &pos_cpy, &param, hubp->curs_attr.width, hubp->curs_attr.height);
+	*pos_out = pos_cpy;
+	*param_out = param;
+}
+
+void dcn10_set_cursor_position(struct hubp *hubp, struct dpp *dpp,
+		const struct dc_cursor_position *pos,
+		const struct dc_cursor_mi_param *param)
+{
+	hubp->funcs->set_cursor_position(hubp, pos, param);
+	dpp->funcs->set_cursor_position(dpp, pos, param, hubp->curs_attr.width, hubp->curs_attr.height);
 }
 
 void dcn10_set_cursor_attribute(struct pipe_ctx *pipe_ctx)

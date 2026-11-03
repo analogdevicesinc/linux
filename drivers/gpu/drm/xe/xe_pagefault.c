@@ -13,8 +13,8 @@
 #include "xe_gt_printk.h"
 #include "xe_gt_types.h"
 #include "xe_gt_stats.h"
-#include "xe_hw_engine.h"
 #include "xe_log.h"
+#include "xe_migrate.h"
 #include "xe_pagefault.h"
 #include "xe_pagefault_types.h"
 #include "xe_pm.h"
@@ -267,6 +267,7 @@ static struct xe_vm *xe_pagefault_asid_to_vm(struct xe_pagefault *pf, u32 asid)
 static int xe_pagefault_service(struct xe_pagefault *pf)
 {
 	struct xe_gt *gt = pf->gt;
+	struct xe_device *xe = gt_to_xe(gt);
 	struct xe_vm *vm;
 	struct xe_vma *vma = NULL;
 	int err;
@@ -278,8 +279,15 @@ static int xe_pagefault_service(struct xe_pagefault *pf)
 		return -EFAULT;
 
 	vm = xe_pagefault_asid_to_vm(pf, asid);
-	if (IS_ERR(vm))
-		return PTR_ERR(vm);
+	if (IS_ERR(vm)) {
+		err = PTR_ERR(vm);
+		trace_xe_pagefault_fail(xe, NULL, NULL, asid,
+					xe_pagefault_addr(pf),
+					xe_pagefault_get_error(pf), err);
+		return err;
+	}
+
+	xe_migrate_ulls_enter(gt_to_tile(gt)->migrate);
 
 	down_read(&vm->lock);
 
@@ -312,6 +320,11 @@ static int xe_pagefault_service(struct xe_pagefault *pf)
 		err = xe_pagefault_handle_vma(gt, vma, pf, atomic);
 
 unlock_vm:
+	if (err)
+		trace_xe_pagefault_fail(xe, vm, vma, asid,
+					xe_pagefault_addr(pf),
+					xe_pagefault_get_error(pf), err);
+
 	up_read(&vm->lock);
 	xe_vm_put(vm);
 
@@ -607,36 +620,12 @@ static const char *xe_pagefault_error_to_str(enum xe_pagefault_error error)
 
 static void xe_pagefault_print(struct xe_pagefault *pf)
 {
-	u8 engine_class = FIELD_GET(XE_PAGEFAULT_ENGINE_CLASS_MASK,
-				    pf->consumer.engine_class_instance);
-	u64 addr = xe_pagefault_addr(pf);
+	enum xe_pagefault_error err = xe_pagefault_get_error(pf);
 
-	xe_gt_info(pf->gt, "\n\tASID: %lu\n"
-		   "\tFaulted Address: 0x%08x%08x\n"
-		   "\tFaultType: %lu\n"
-		   "\tAccessType: %lu\n"
-		   "\tFaultLevel: %lu\n"
-		   "\tEngineClass: %d %s\n"
-		   "\tEngineInstance: %lu\n"
-		   "\tSRCID: 0x%02lx\n"
-		   "\tError: %s\n",
-		   FIELD_GET(XE_PAGEFAULT_ASID_MASK,
-			     pf->consumer.id),
-		   upper_32_bits(addr),
-		   lower_32_bits(addr),
-		   FIELD_GET(XE_PAGEFAULT_TYPE_MASK,
-			     pf->consumer.fault_type_level),
-		   FIELD_GET(XE_PAGEFAULT_ACCESS_TYPE_MASK,
-			     pf->consumer.access_type),
-		   FIELD_GET(XE_PAGEFAULT_LEVEL_MASK,
-			     pf->consumer.fault_type_level),
-		   engine_class,
-		   xe_hw_engine_class_to_str(engine_class),
-		   FIELD_GET(XE_PAGEFAULT_ENGINE_INSTANCE_MASK,
-			     pf->consumer.engine_class_instance),
-		   FIELD_GET(XE_PAGEFAULT_SRCID_MASK,
-			     pf->consumer.id),
-		   xe_pagefault_error_to_str(xe_pagefault_get_error(pf)));
+	if (WARN_ON_ONCE(!pf->producer.ops->print))
+		return;
+
+	pf->producer.ops->print(pf, xe_pagefault_error_to_str(err));
 }
 
 static void xe_pagefault_save_to_vm(struct xe_device *xe, struct xe_pagefault *pf)

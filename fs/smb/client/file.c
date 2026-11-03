@@ -516,8 +516,7 @@ int cifs_posix_open(const char *full_path, struct inode **pinode,
 
 	posix_flags = cifs_posix_convert_flags(f_flags);
 	rc = CIFSPOSIXCreate(xid, tcon, posix_flags, mode, pnetfid, presp_data,
-			     poplock, full_path, cifs_sb->local_nls,
-			     cifs_remap(cifs_sb));
+			     poplock, full_path, cifs_remap(cifs_sb));
 	cifs_put_tlink(tlink);
 
 	if (rc)
@@ -621,6 +620,10 @@ retry_open:
 	}
 	if (rdwr_for_fscache == 2)
 		cifs_invalidate_cache(inode, FSCACHE_INVAL_DIO_WRITE);
+
+	if (server->vals->protocol_id > SMB20_PROT_ID &&
+	    *oplock != SMB2_OPLOCK_LEVEL_NONE)
+		CIFS_I(inode)->lease_granted = true;
 
 	/* TODO: Add support for calling posix query info but with passing in fid */
 	if (tcon->unix_ext)
@@ -1012,11 +1015,14 @@ static int cifs_do_truncate(const unsigned int xid, struct dentry *dentry)
 	}
 	mapping_set_error(inode->i_mapping, rc);
 
+	netfs_wait_for_outstanding_io(inode);
+
 	cfile = find_writable_file(cinode, FIND_FSUID_ONLY);
 	rc = cifs_file_flush(xid, inode, cfile);
 	if (!rc) {
 		if (cfile) {
 			struct netfs_inode *ictx = netfs_inode(inode);
+			loff_t old_size = i_size_read(inode);
 
 			tcon = tlink_tcon(cfile->tlink);
 			server = tcon->ses->server;
@@ -1025,7 +1031,7 @@ static int cifs_do_truncate(const unsigned int xid, struct dentry *dentry)
 							cfile, 0, false);
 			if (!rc) {
 				netfs_resize_file(&cinode->netfs, 0, true);
-				cifs_setsize(inode, 0);
+				cifs_setsize(inode, old_size, 0);
 				cifs_invalidate_cache(inode, 0);
 			}
 			netfs_wb_end(ictx);

@@ -335,13 +335,12 @@ int smu_v15_0_init_power(struct smu_context *smu)
 {
 	struct smu_power_context *smu_power = &smu->smu_power;
 
-	if (smu_power->power_context || smu_power->power_context_size != 0)
+	if (smu_power->power_context)
 		return -EINVAL;
 
-	smu_power->power_context = kzalloc_obj(struct smu_15_0_dpm_context);
+	smu_power->power_context = kzalloc_obj(struct smu_15_0_power_context);
 	if (!smu_power->power_context)
 		return -ENOMEM;
-	smu_power->power_context_size = sizeof(struct smu_15_0_dpm_context);
 
 	return 0;
 }
@@ -350,12 +349,11 @@ int smu_v15_0_fini_power(struct smu_context *smu)
 {
 	struct smu_power_context *smu_power = &smu->smu_power;
 
-	if (!smu_power->power_context || smu_power->power_context_size == 0)
+	if (!smu_power->power_context)
 		return -EINVAL;
 
 	kfree(smu_power->power_context);
 	smu_power->power_context = NULL;
-	smu_power->power_context_size = 0;
 
 	return 0;
 }

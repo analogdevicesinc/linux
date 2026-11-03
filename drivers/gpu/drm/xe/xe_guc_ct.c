@@ -8,7 +8,7 @@
 #include <linux/bitfield.h>
 #include <linux/circ_buf.h>
 #include <linux/delay.h>
-#include <linux/fault-inject.h>
+#include <linux/error-injection.h>
 
 #include <kunit/static_stub.h>
 
@@ -376,7 +376,8 @@ int xe_guc_ct_init(struct xe_guc_ct *ct)
 					  XE_BO_FLAG_SYSTEM |
 					  XE_BO_FLAG_GGTT |
 					  XE_BO_FLAG_GGTT_INVALIDATE |
-					  XE_BO_FLAG_PINNED_NORESTORE);
+					  XE_BO_FLAG_PINNED_NORESTORE |
+					  xe_guc_bo_wa_flags(gt));
 	if (IS_ERR(bo))
 		return PTR_ERR(bo);
 
@@ -386,7 +387,8 @@ int xe_guc_ct_init(struct xe_guc_ct *ct)
 					  XE_BO_FLAG_SYSTEM |
 					  XE_BO_FLAG_GGTT |
 					  XE_BO_FLAG_GGTT_INVALIDATE |
-					  XE_BO_FLAG_PINNED_NORESTORE);
+					  XE_BO_FLAG_PINNED_NORESTORE |
+					  xe_guc_bo_wa_flags(gt));
 	if (IS_ERR(bo))
 		return PTR_ERR(bo);
 
@@ -1288,10 +1290,22 @@ int xe_guc_ct_send(struct xe_guc_ct *ct, const u32 *action, u32 len,
  * @ct: GuC CT object
  * @action: payload dwords (HxG header dword is expected at @action[-1])
  * @len: number of payload dwords in @action
+ * @g2h_len: G2H response space to reserve in dwords, or 0
+ * @num_g2h: number of G2H messages expected, or 0
  * @defer_flush: defer publishing/doorbell for batching
  *
  * Sends a single H2G message to the GuC CT buffer while the caller already
  * holds @ct->lock.
+ *
+ * Callers that expect the GuC to reply with a G2H message must reserve the
+ * matching credit via @g2h_len / @num_g2h. The G2H receive path releases that
+ * credit unconditionally when the reply arrives, so failing to reserve it here
+ * corrupts the G2H accounting and kills the CT channel.
+ *
+ * Reserving G2H credit may wait for, and process, outstanding G2H messages, so
+ * this must not be called with a non-zero @g2h_len from a G2H handler. Handlers
+ * should use xe_guc_ct_send_g2h_handler(), with any reply credit reserved up
+ * front by the H2G that triggered the handler.
  *
  * If @defer_flush is false, the function completes the submission immediately:
  * it makes the payload visible to the device, updates the H2G descriptor and
@@ -1310,11 +1324,12 @@ int xe_guc_ct_send(struct xe_guc_ct *ct, const u32 *action, u32 len,
  *   Must be called with @ct->lock held.
  */
 int xe_guc_ct_send_locked(struct xe_guc_ct *ct, const u32 *action, u32 len,
-			  bool defer_flush)
+			  u32 g2h_len, u32 num_g2h, bool defer_flush)
 {
 	int ret;
 
-	ret = guc_ct_send_locked(ct, action, len, 0, 0, NULL, defer_flush);
+	ret = guc_ct_send_locked(ct, action, len, g2h_len, num_g2h, NULL,
+				 defer_flush);
 	if (ret == -EDEADLK)
 		kick_reset(ct);
 

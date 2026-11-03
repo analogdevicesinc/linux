@@ -1049,7 +1049,7 @@ static struct rect calculate_mpc_slice_in_timing_active(
 	return mpc_rec;
 }
 
-static void calculate_adjust_recout_for_visual_confirm(struct pipe_ctx *pipe_ctx,
+static void calculate_adjust_recout_for_visual_confirm(const struct pipe_ctx *pipe_ctx,
 	unsigned int *base_offset, unsigned int *dpp_offset)
 {
 	struct dc *dc = pipe_ctx->stream->ctx->dc;
@@ -1070,7 +1070,7 @@ static void calculate_adjust_recout_for_visual_confirm(struct pipe_ctx *pipe_ctx
 }
 
 static void reverse_adjust_recout_for_visual_confirm(struct rect *recout,
-		struct pipe_ctx *pipe_ctx)
+		const struct pipe_ctx *pipe_ctx)
 {
 	unsigned int dpp_offset, base_offset;
 
@@ -1775,7 +1775,7 @@ bool resource_build_scaling_params(struct pipe_ctx *pipe_ctx)
 	return res;
 }
 
-bool resource_can_pipe_disable_cursor(struct pipe_ctx *pipe_ctx)
+bool resource_can_pipe_disable_cursor(const struct pipe_ctx *pipe_ctx)
 {
 	struct pipe_ctx *test_pipe, *split_pipe;
 	struct rect r1 = pipe_ctx->plane_res.scl_data.recout;
@@ -3019,7 +3019,7 @@ static inline int find_fixed_dio_link_enc(const struct dc_link *link)
 {
 	/* virtual links own their link encoder directly and are never
 	 * registered into pool->link_encoders[]. */
-	if (link->connector_signal == SIGNAL_TYPE_VIRTUAL)
+	if (link->link_id.id == CONNECTOR_ID_VIRTUAL)
 		return -1;
 
 	/* the 8b10b dp phy can only use fixed link encoder */
@@ -4886,7 +4886,7 @@ static void calculate_timing_params_for_dsc_with_padding(struct pipe_ctx *pipe_c
 #if defined(CONFIG_DRM_AMD_DC_FP)
 	uint32_t hactive;
 	uint32_t ceil_slice_width;
-	if (stream && stream->timing.flags.DSC) {
+	if (stream && stream->timing.flags.DSC && stream->signal == SIGNAL_TYPE_HDMI_FRL) {
 		hactive = stream->timing.h_addressable + stream->timing.h_border_left + stream->timing.h_border_right;
 
 		/* Assume if determined slices does not divide Hactive evenly, Hborrow is needed for padding*/

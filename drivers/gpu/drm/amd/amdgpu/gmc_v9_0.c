@@ -2179,10 +2179,22 @@ static int gmc_v9_0_hw_init(struct amdgpu_ip_block *ip_block)
 	 * (type 2), which flushes both. Due to a race condition with
 	 * concurrent memory accesses using the same TLB cache line, we still
 	 * need a second TLB flush after this.
+	 *
+	 * GC 9.4.3, 9.4.4 and 9.5.0 hit a similar race.
 	 */
-	adev->gmc.flush_tlb_needs_extra_type_2 =
-		amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 4, 0) &&
-		adev->gmc.xgmi.num_physical_nodes;
+	switch (amdgpu_ip_version(adev, GC_HWIP, 0)) {
+	case IP_VERSION(9, 4, 0):
+		adev->gmc.flush_tlb_needs_extra_type_2 =
+			adev->gmc.xgmi.num_physical_nodes;
+		break;
+	case IP_VERSION(9, 4, 3):
+	case IP_VERSION(9, 4, 4):
+	case IP_VERSION(9, 5, 0):
+		adev->gmc.flush_tlb_needs_extra_type_2 = true;
+		break;
+	default:
+		break;
+	}
 
 	/* The sequence of these two function calls matters.*/
 	gmc_v9_0_init_golden_registers(adev);
@@ -2313,12 +2325,6 @@ static int gmc_v9_0_wait_for_idle(struct amdgpu_ip_block *ip_block)
 	return 0;
 }
 
-static int gmc_v9_0_soft_reset(struct amdgpu_ip_block *ip_block)
-{
-	/* XXX for emulation.*/
-	return 0;
-}
-
 static int gmc_v9_0_set_clockgating_state(struct amdgpu_ip_block *ip_block,
 					enum amd_clockgating_state state)
 {
@@ -2357,7 +2363,6 @@ const struct amd_ip_funcs gmc_v9_0_ip_funcs = {
 	.suspend = gmc_v9_0_suspend,
 	.resume = gmc_v9_0_resume,
 	.wait_for_idle = gmc_v9_0_wait_for_idle,
-	.soft_reset = gmc_v9_0_soft_reset,
 	.set_clockgating_state = gmc_v9_0_set_clockgating_state,
 	.set_powergating_state = gmc_v9_0_set_powergating_state,
 	.get_clockgating_state = gmc_v9_0_get_clockgating_state,

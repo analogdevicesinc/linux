@@ -1309,6 +1309,10 @@ struct replay_settings {
 	uint16_t frame_skip_number;
 	/* Current Panel Replay events */
 	uint32_t replay_events;
+	/* Last ABM periodic keep-alive FFU allowed bit sent to DMUB (VESA PR) */
+	bool last_abm_periodic_ffu_allowed;
+	/* System is in DC mode */
+	bool system_in_dc;
 };
 
 /* To split out "global" and "per-panel" config settings.

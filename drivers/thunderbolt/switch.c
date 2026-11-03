@@ -19,6 +19,9 @@
 
 #include "tb.h"
 
+/* How long a hop is given to drain when a path is deactivated */
+#define TB_PORT_PENDING_TIMEOUT		500 /* ms */
+
 /* Switch NVM support */
 
 struct nvm_auth_status {
@@ -712,6 +715,7 @@ static int tb_init_port(struct tb_port *port)
 	int cap;
 
 	INIT_LIST_HEAD(&port->list);
+	port->pp_timeout_msec = TB_PORT_PENDING_TIMEOUT;
 
 	/* Control adapter does not have configuration space */
 	if (!port->port)
@@ -774,6 +778,7 @@ static int tb_port_alloc_hopid(struct tb_port *port, bool in, int min_hopid,
 {
 	int port_max_hopid;
 	struct ida *ida;
+	int ret;
 
 	if (in) {
 		port_max_hopid = port->config.max_in_hop_id;
@@ -793,7 +798,11 @@ static int tb_port_alloc_hopid(struct tb_port *port, bool in, int min_hopid,
 	if (max_hopid < 0 || max_hopid > port_max_hopid)
 		max_hopid = port_max_hopid;
 
-	return ida_alloc_range(ida, min_hopid, max_hopid, GFP_KERNEL);
+	ret = ida_alloc_range(ida, min_hopid, max_hopid, GFP_KERNEL);
+	if (ret >= 0)
+		tb_switch_get(port->sw);
+
+	return ret;
 }
 
 /**
@@ -832,6 +841,7 @@ int tb_port_alloc_out_hopid(struct tb_port *port, int min_hopid, int max_hopid)
 void tb_port_release_in_hopid(struct tb_port *port, int hopid)
 {
 	ida_free(&port->in_hopids, hopid);
+	tb_switch_put(port->sw);
 }
 
 /**
@@ -842,6 +852,7 @@ void tb_port_release_in_hopid(struct tb_port *port, int hopid)
 void tb_port_release_out_hopid(struct tb_port *port, int hopid)
 {
 	ida_free(&port->out_hopids, hopid);
+	tb_switch_put(port->sw);
 }
 
 static inline bool tb_switch_is_reachable(const struct tb_switch *parent,

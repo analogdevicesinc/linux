@@ -365,6 +365,7 @@ static void dm_test_check_native_cursor_state_rejects_offset(struct kunit *test)
 	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
 	struct amdgpu_crtc *acrtc;
 	struct drm_plane *plane;
+	struct drm_framebuffer *fb;
 	struct drm_plane_state *old_plane_state;
 	struct drm_plane_state *new_plane_state;
 	int ret;
@@ -373,6 +374,8 @@ static void dm_test_check_native_cursor_state_rejects_offset(struct kunit *test)
 	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, plane);
+	fb = kunit_kzalloc(test, sizeof(*fb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fb);
 	old_plane_state = kunit_kzalloc(test, sizeof(*old_plane_state), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, old_plane_state);
 	new_plane_state = kunit_kzalloc(test, sizeof(*new_plane_state), GFP_KERNEL);
@@ -381,6 +384,7 @@ static void dm_test_check_native_cursor_state_rejects_offset(struct kunit *test)
 	acrtc->base.dev = &adev->ddev;
 	old_plane_state->crtc = &acrtc->base;
 	new_plane_state->crtc = &acrtc->base;
+	new_plane_state->fb = fb;
 	new_plane_state->src_x = 1;
 	plane->state = old_plane_state;
 

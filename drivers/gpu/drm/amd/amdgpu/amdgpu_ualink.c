@@ -56,6 +56,10 @@ static int amdgpu_ualink_remote_shootdown(struct amdgpu_device *adev,
 					  u32 size_in_pages, u32 flush_type);
 static void __amdgpu_ualink_activate_vpod_locked(struct amdgpu_device *adev);
 static bool amdgpu_ualink_vpod_membership_changed(struct amdgpu_device *adev);
+static void amdgpu_ualink_reset_peer_rings(struct amdgpu_device *adev,
+					   u32 remote_accel_id);
+static int amdgpu_ualink_ring_resync_ptrs(struct amdgpu_device *adev,
+					  u32 remote_accel_id);
 
 #define STRIP_NPA(addr)						\
 	(((u64)(addr) & ~AMDGPU_UALINK_NPA_ADDR_GPUID_MASK))
@@ -133,14 +137,21 @@ static bool __check_vpod_info(struct amdgpu_device *adev,
 			 vpod->size, ppod->size);
 		return false;
 	}
-	if (vpod->addr_mode >= AMDGPU_UALINK_ADDR_MODE_MAX) {
+
+	switch (vpod->addr_mode) {
+	case AMDGPU_UALINK_ADDR_MODE_SOURCE_ALIAS:
+		break;
+	case AMDGPU_UALINK_ADDR_MODE_SOURCE_IDENT:
 		dev_warn(adev->dev,
-			 "UALINK: invalid addr mode %u\n",
+			 "UALINK: source-identification addr mode is not supported\n");
+		return false;
+	default:
+		dev_warn(adev->dev, "UALINK: invalid addr mode %u\n",
 			 vpod->addr_mode);
 		return false;
 	}
-	weight =
-		bitmap_weight(vpod->active_accel_bits, AMDGPU_UALINK_ACCEL_MAX);
+
+	weight = bitmap_weight(vpod->active_accel_bits, AMDGPU_UALINK_ACCEL_MAX);
 	if (weight != vpod->size) {
 		dev_warn(adev->dev,
 			 "UALINK: vPod size doesn't match vpod_active_accels list: %u != %u\n",
@@ -162,13 +173,15 @@ amdgpu_ualink_info_set_accel_state(struct amdgpu_device *adev,
 				   struct amdgpu_ualink_info *info,
 				   enum psp_gfx_ual_config_state cfg_state)
 {
-	enum amdgpu_ualink_accel_state cur = info->accel_state;
+	enum amdgpu_ualink_accel_state cur;
 	enum amdgpu_ualink_accel_state target;
 	bool ppod_validated;
 	bool vpod_validated;
 
 	if (!info)
 		return;
+
+	cur = info->accel_state;
 
 	ppod_validated = cur >= AMDGPU_UALINK_ACCEL_STATE_PPOD_CONFIGURED &&
 			 cur <= AMDGPU_UALINK_ACCEL_STATE_ACTIVE;
@@ -1345,8 +1358,7 @@ static ssize_t ualink_vpod_config_commit_store(struct kobject *kobj,
 	if (info->vpod.id != AMDGPU_UALINK_VPOD_ID_INVALID &&
 	    !__check_vpod_info(adev, info)) {
 		dev_err(adev->dev,
-			"UALINK: vpod-commit __check_vpod_info() failed: %d\n",
-			r);
+			"UALINK: vpod-commit __check_vpod_info() failed\n");
 		return -EINVAL;
 	}
 
@@ -1820,7 +1832,7 @@ static void amdgpu_ualink_npa_mm_fini(struct amdgpu_device *adev)
 static void amdgpu_generate_ualink_handle(struct amdgpu_device *adev,
 				   struct amdgpu_ualink_handle *handle)
 {
-	bool unique;
+	bool unique = false;
 
 	do {
 		handle->handle_lo = get_random_u64();
@@ -2282,11 +2294,23 @@ static void amdgpu_ualink_process_hello_msg(struct amdgpu_device *adev,
 						generation_count);
 	}
 
+	/* Peer may have rebooted. */
+	r = amdgpu_ualink_ring_resync_ptrs(adev, sender_acc_id);
+	if (r < 0) {
+		dev_err(adev->dev,
+			"HELLO: resync sender AccId %u ptrs failed %d\n",
+			sender_acc_id, r);
+		goto out_set_state;
+	}
+	if (r)
+		amdgpu_ualink_reset_peer_rings(adev, sender_acc_id);
+
 	r = amdgpu_ualink_send_hello_ack_msg(adev, sender_acc_id);
 	if (r)
 		dev_err(adev->dev, "HELLO-ACK: send failed to remote AccId:%u\n",
 			sender_acc_id);
 
+out_set_state:
 	mutex_lock(&conn_state->lock);
 	if (r) {
 		conn_state->state = AMDGPU_UALINK_CONN_NOT_READY;
@@ -2301,6 +2325,14 @@ static void amdgpu_ualink_process_hello_msg(struct amdgpu_device *adev,
 		conn_state->generation_count++;
 	}
 	mutex_unlock(&conn_state->lock);
+}
+
+/* True if nothing is exported to, or imported from, this remote accelerator. */
+static bool amdgpu_ualink_peer_idle(struct amdgpu_device *adev, u32 remote_accel_id)
+{
+	/* Unlocked: a racing import at worst costs one redundant ring resync. */
+	return list_empty(&adev->ualink.imp_handles_list[remote_accel_id]) &&
+	       list_empty(&adev->ualink.exp_handles_list[remote_accel_id]);
 }
 
 static int amdgpu_ualink_setup_connection(struct amdgpu_device *adev,
@@ -2324,16 +2356,31 @@ static int amdgpu_ualink_setup_connection(struct amdgpu_device *adev,
 	 * already done by another thread.
 	 */
 	mutex_lock(&conn_state->lock);
-	if (conn_state->state == AMDGPU_UALINK_CONN_ESTABLISHED) {
-		r = 0;
-		goto out;
-	} else if (conn_state->state == AMDGPU_UALINK_CONN_IN_PROGRESS ||
-		   conn_state->state == AMDGPU_UALINK_CONN_PENDING) {
+	if (conn_state->state == AMDGPU_UALINK_CONN_IN_PROGRESS ||
+	    conn_state->state == AMDGPU_UALINK_CONN_PENDING) {
 		r = -EAGAIN;
 		goto out;
 	}
 
+	if (conn_state->state == AMDGPU_UALINK_CONN_ESTABLISHED &&
+	    !amdgpu_ualink_peer_idle(adev, remote_acc_id)) {
+		r = 0;
+		goto out;
+	}
+
+	/* Peer is idle or not connected, it may have rebooted. Skip the
+	 * handshake if the rings are still in sync, it would reset the remote.
+	 */
+	r = amdgpu_ualink_ring_resync_ptrs(adev, remote_acc_id);
+	if (r < 0)
+		goto out;
+	if (!r && conn_state->state == AMDGPU_UALINK_CONN_ESTABLISHED)
+		goto out;
+
+	amdgpu_ualink_reset_peer_rings(adev, remote_acc_id);
+
 	conn_state->state = AMDGPU_UALINK_CONN_IN_PROGRESS;
+
 	mutex_unlock(&conn_state->lock);
 
 	/* Send HELLO message */
@@ -2895,19 +2942,12 @@ static void amdgpu_ualink_exp_cleanup_worker(struct work_struct *work)
 	amdgpu_bo_unref(&bo);
 	exp_xa_node->bo = NULL;
 
-	/* Build the full npa_release_bitmap before sending any NPA-REVOKE. */
-	for_each_set_bit(remote_acc_id, exp_xa_node->importers_bitmap,
-				 AMDGPU_UALINK_ACCEL_MAX) {
-		imp_entry = &exp_xa_node->importer_entries[remote_acc_id];
-		if (!amdgpu_ualink_check_conn_ready(adev, remote_acc_id,
-					imp_entry->generation_count)) {
-			clear_bit(remote_acc_id,
-				  exp_xa_node->importers_bitmap);
-			continue;
-		}
-
-		set_bit(remote_acc_id, exp_xa_node->npa_release_bitmap);
-	}
+	/* Seed npa_release_bitmap with all importers before any NPA-REVOKE, so
+	 * the release IRQ only sees it empty once every responder has replied.
+	 * Dead peers are dropped from it in the send loop below.
+	 */
+	bitmap_copy(exp_xa_node->npa_release_bitmap,
+		    exp_xa_node->importers_bitmap, AMDGPU_UALINK_ACCEL_MAX);
 
 	/* Send NPA-REVOKE to all importers which have imported this memory.
 	 * On send failure clear the bit (no response will arrive) and mark the
@@ -2915,6 +2955,21 @@ static void amdgpu_ualink_exp_cleanup_worker(struct work_struct *work)
 	 */
 	for_each_set_bit(remote_acc_id, exp_xa_node->importers_bitmap,
 				 AMDGPU_UALINK_ACCEL_MAX) {
+		imp_entry = &exp_xa_node->importer_entries[remote_acc_id];
+
+		/* Re-check the connection right before the send: concurrent
+		 * cleanup workers all seed the bitmap while the peer is still
+		 * ESTABLISHED, so once its egress dies and the first worker
+		 * marks it NOT_READY, this skips the rest instead of flooding
+		 * the log with failed LSDMA sends to the same dead peer.
+		 */
+		if (!amdgpu_ualink_check_conn_ready(adev, remote_acc_id,
+					imp_entry->generation_count)) {
+			clear_bit(remote_acc_id,
+				  exp_xa_node->npa_release_bitmap);
+			continue;
+		}
+
 		dev_dbg(adev->dev,
 			"EXP-CLEANUP: Sending NPA-REVOKE to remote:%u\n",
 			remote_acc_id);
@@ -2925,7 +2980,6 @@ static void amdgpu_ualink_exp_cleanup_worker(struct work_struct *work)
 				remote_acc_id);
 			clear_bit(remote_acc_id, exp_xa_node->npa_release_bitmap);
 
-			imp_entry = &exp_xa_node->importer_entries[remote_acc_id];
 			amdgpu_ualink_handle_connection_reset(adev, remote_acc_id,
 						AMDGPU_UALINK_CONN_NOT_READY,
 						imp_entry->generation_count);
@@ -3008,12 +3062,7 @@ static void amdgpu_ualink_invalidate_import_mappings(struct amdgpu_bo *bo)
 		}
 	}
 
-	/* FIXME: This should be after the "if", but needs a fix to make sure
-	 * DMABuf imports are initialized in the right VM list.
-	 */
-	amdgpu_vm_bo_invalidate(bo, false);
-	if (!bo->tbo.resource || bo->tbo.resource->mem_type == TTM_PL_SYSTEM)
-		goto fini;
+	amdgpu_vm_bo_move(bo, NULL, false);
 
 	r = ttm_bo_validate(&bo->tbo, &placement, &ctx);
 	if (r) {
@@ -3247,16 +3296,35 @@ static void amdgpu_ualink_process_npa_revoke_msg(struct amdgpu_device *adev,
 		return;
 	}
 
-	WRITE_ONCE(imp_xa_node->node_state, AMDGPU_UALINK_NODE_TEARDOWN);
-	list_del_init(&imp_xa_node->list);
-	xa_unlock(&adev->ualink.imp_xa);
+	switch (READ_ONCE(imp_xa_node->node_state)) {
+	case AMDGPU_UALINK_NODE_READY:
+		WRITE_ONCE(imp_xa_node->node_state, AMDGPU_UALINK_NODE_TEARDOWN);
+		list_del_init(&imp_xa_node->list);
+		xa_unlock(&adev->ualink.imp_xa);
 
-	/* Invalidate the GPUVM mappings */
-	bo = gem_to_amdgpu_bo(imp_xa_node->dmabuf->priv);
-	amdgpu_ualink_invalidate_import_mappings(bo);
+		/* Invalidate the GPUVM mappings */
+		bo = gem_to_amdgpu_bo(imp_xa_node->dmabuf->priv);
+		amdgpu_ualink_invalidate_import_mappings(bo);
 
-	/* Drop the refcount for the node */
-	amdgpu_ualink_imp_xa_entry_put(imp_xa_node);
+		/* Drop the refcount for the node */
+		amdgpu_ualink_imp_xa_entry_put(imp_xa_node);
+		break;
+	case AMDGPU_UALINK_NODE_PENDING:
+		/* The import is still building the dma-buf and nothing has
+		 * been handed to user-space yet. The importing thread sees
+		 * the teardown state and unwinds.
+		 */
+		WRITE_ONCE(imp_xa_node->node_state, AMDGPU_UALINK_NODE_TEARDOWN);
+		xa_unlock(&adev->ualink.imp_xa);
+		break;
+	default:
+		/* NPA-REVOKE always follows NPA-RSP, so a NOT_READY node means
+		 * a stale revoke, and a node in teardown is already being
+		 * released by whoever moved it there.
+		 */
+		xa_unlock(&adev->ualink.imp_xa);
+		return;
+	}
 
 	r = amdgpu_ualink_send_npa_release_msg(adev, remote_acc_id, handle);
 	if (r)
@@ -3670,7 +3738,7 @@ static int amdgpu_ualink_do_import_handle(struct amdgpu_device *adev,
 		dev_warn(adev->dev,
 			"IMPORT: NPA-REQ send failed to remote AccId:%u\n",
 			remote_acc_id);
-		return r;
+		goto reset_conn;
 	}
 
 	/* Wait for the NPA_RSP to come back */
@@ -3719,9 +3787,20 @@ static int amdgpu_ualink_do_import_handle(struct amdgpu_device *adev,
 		return r;
 	}
 
-	/* Add this node to the imported handles list for the remote GPU */
+	/* Add this node to the imported handles list for the remote GPU,
+	 * unless the exporter revoked the handle while the import was in
+	 * flight. The dmabuf is released with the last node reference.
+	 */
 	xa_lock(&adev->ualink.imp_xa);
+	if (READ_ONCE(imp_xa_node->node_state) == AMDGPU_UALINK_NODE_TEARDOWN) {
+		xa_unlock(&adev->ualink.imp_xa);
+		dev_dbg(adev->dev,
+			"IMPORT: handle:%llx:%llx revoked during import\n",
+			handle.handle_hi, handle.handle_lo);
+		return -EINVAL;
+	}
 	list_add(&imp_xa_node->list, &adev->ualink.imp_handles_list[remote_acc_id]);
+	WRITE_ONCE(imp_xa_node->node_state, AMDGPU_UALINK_NODE_READY);
 	xa_unlock(&adev->ualink.imp_xa);
 
 	return 0;
@@ -3897,9 +3976,6 @@ int amdgpu_ualink_import_handle(struct drm_device *dev,
 					"IMPORT: XA import failed for handle:%llx:%llx\n",
 					handle.handle_hi, handle.handle_lo);
 			goto cleanup;
-		} else {
-			WRITE_ONCE(imp_xa_node->node_state,
-				   AMDGPU_UALINK_NODE_READY);
 		}
 	}
 
@@ -3982,8 +4058,7 @@ int amdgpu_ualink_export_handle(struct drm_device *dev, struct drm_file *filp,
 		if (IS_ERR(exp_xa_node->dmabuf)) {
 			r = PTR_ERR(exp_xa_node->dmabuf);
 			dev_err(adev->dev, "Failed to generate DMABuf for the BO\n");
-			kfree(exp_xa_node);
-			goto out;
+			goto err_unref_bo;
 		}
 
 		xa_lock(&adev->ualink.exp_xa);
@@ -3994,13 +4069,22 @@ int amdgpu_ualink_export_handle(struct drm_device *dev, struct drm_file *filp,
 		xa_unlock(&adev->ualink.exp_xa);
 		if (r) {
 			dev_err(adev->dev, "Failed to insert exp_xa_node into XA: %d\n", r);
-			dma_buf_put(exp_xa_node->dmabuf);
-			amdgpu_bo_unref(&robj);
-			kfree(exp_xa_node);
-			goto out;
+			goto err_put_dmabuf;
+		}
+
+		r = amdgpu_bo_reserve(robj, false);
+		if (r)
+			goto err_erase_xa;
+
+		if (robj->ualink_handle_lo) {
+			amdgpu_bo_unreserve(robj);
+			r = -EAGAIN;
+			goto err_erase_xa;
 		}
 
 		robj->ualink_handle_lo = handle.handle_lo;
+		amdgpu_bo_unreserve(robj);
+
 		/* Return the generated handle back to the caller */
 		*handle_out = handle;
 	} else {
@@ -4017,6 +4101,16 @@ int amdgpu_ualink_export_handle(struct drm_device *dev, struct drm_file *filp,
 			handle_out->handle_hi = exp_xa_node->handle.handle_hi;
 	}
 
+	drm_gem_object_put(gobj);
+	return 0;
+
+err_erase_xa:
+	xa_erase(&adev->ualink.exp_xa, handle.handle_lo);
+err_put_dmabuf:
+	dma_buf_put(exp_xa_node->dmabuf);
+err_unref_bo:
+	amdgpu_bo_unref(&exp_xa_node->bo);
+	kfree(exp_xa_node);
 out:
 	drm_gem_object_put(gobj);
 	return r;
@@ -4031,10 +4125,15 @@ int amdgpu_gem_ualink_handle_ioctl(struct drm_device *dev, void *data,
 	u32 gem_handle;
 	int r, fd = -1;
 
-	if (adev->ualink.info->accel_state !=
-	    AMDGPU_UALINK_ACCEL_STATE_ACTIVE) {
-		dev_err(adev->dev,
-			"ualink device is not in active state in vpod\n");
+	/* The ioctl is registered for every amdgpu device, but the UALink
+	 * software state only exists on ASICs that instantiate the UALink IP
+	 * block. Bail out if it is absent, and short-circuit before the
+	 * accel_state dereference below.
+	 */
+	if (!adev->ualink.info ||
+	    adev->ualink.info->accel_state != AMDGPU_UALINK_ACCEL_STATE_ACTIVE) {
+		dev_dbg(adev->dev,
+			"ualink device not available or not in active state\n");
 		return -EOPNOTSUPP;
 	}
 
@@ -5511,6 +5610,34 @@ static void amdgpu_ualink_emit_update_wb_addr(u32 **cpu_addr_p, u32 wb_data,
 typedef void (*ualink_emit_packet)(u32 **cpu_addr_p, u32 wb, u32 dw0,
 				   u32 dw1, u32 dw2, u32 dw3);
 
+/*
+ * Refresh rptr from the writeback and check the ring has room for one more
+ * command. The caller must hold the peer lock.
+ *
+ * Return 0 on success or a negative error code.
+ */
+static int amdgpu_ualink_ring_check_space(struct amdgpu_device *adev,
+					  u32 remote_accel_id,
+					  struct amdgpu_ualink_ring *ring,
+					  struct amdgpu_ualink_wb *wb_cpu)
+{
+	ring->rptr = READ_ONCE(wb_cpu->rptr);
+
+	if (WARN_ON_ONCE(ring->rptr > ring->wptr)) {
+		dev_err(adev->dev, "accel_id %u ring overflow wptr 0x%llx rptr 0x%llx\n",
+			remote_accel_id, ring->wptr, ring->rptr);
+		return -EFAULT;
+	}
+
+	if ((ring->wptr + 1 - ring->rptr) >= ring->rb_size) {
+		dev_err(adev->dev, "accel_id %u command ring full wptr 0x%llx rptr 0x%llx\n",
+			remote_accel_id, ring->wptr, ring->rptr);
+		return -ENOSPC;
+	}
+
+	return 0;
+}
+
 static int amdgpu_ualink_send_command(struct amdgpu_device *adev,
 				      u32 remote_accel_id,
 				      struct amdgpu_ualink_ring *ring,
@@ -5536,6 +5663,10 @@ static int amdgpu_ualink_send_command(struct amdgpu_device *adev,
 
 	peer = &remote->peer[remote_accel_id];
 
+	r = amdgpu_ualink_ring_check_space(adev, remote_accel_id, ring, wb_cpu);
+	if (r)
+		goto out;
+
 	/*
 	 * 3 sdma copy commands: write data to ring buffer, update wptr, ring doorbell
 	 *
@@ -5552,25 +5683,7 @@ static int amdgpu_ualink_send_command(struct amdgpu_device *adev,
 				     ndw * 4, AMDGPU_IB_POOL_IMMEDIATE,
 				     AMDGPU_KERNEL_JOB_ID_TTM_COPY_BUFFER, &job);
 	if (r)
-		return r;
-
-	mutex_lock(&peer->lock);
-
-	ring->rptr = READ_ONCE(wb_cpu->rptr);
-
-	if (WARN_ON_ONCE(ring->rptr > ring->wptr)) {
-		dev_err(adev->dev, "accel_id %u ring overflow wptr 0x%llx rptr 0x%llx\n",
-			remote_accel_id, ring->wptr, ring->rptr);
-		r = -EFAULT;
-		goto unlock_free;
-	}
-
-	if ((ring->wptr + 1 - ring->rptr) >= ring->rb_size) {
-		dev_err(adev->dev, "accel_id %u command ring full wptr 0x%llx rptr 0x%llx\n",
-			remote_accel_id, ring->wptr, ring->rptr);
-		r = -ENOSPC;
-		goto unlock_free;
-	}
+		goto out;
 
 	ib = &job->ibs[0];
 	src = ib->gpu_addr + ndw_copy_cmd * 4;
@@ -5628,12 +5741,11 @@ static int amdgpu_ualink_send_command(struct amdgpu_device *adev,
 			dev_dbg(adev->dev,
 				"remote %u lsdma copy failed (r %d), skip completion wait\n",
 				remote_accel_id, r);
-			mutex_unlock(&peer->lock);
 			return r;
 		}
 
 		goto out_wait_complete;
-        }
+	}
 
 	sdma_ring = &adev->sdma.instance[0].ring;
 
@@ -5664,12 +5776,9 @@ static int amdgpu_ualink_send_command(struct amdgpu_device *adev,
 	if (r <= 0) {
 		dev_dbg(adev->dev, "remote %u sdma fence wait return r %d\n",
 			remote_accel_id, r);
-
 		if (r == 0)
 			r = -ETIME;
-
-		mutex_unlock(&peer->lock);
-		return r;
+		goto out;
 	}
 
 out_wait_complete:
@@ -5678,21 +5787,15 @@ out_wait_complete:
 	 */
 	r = amdgpu_ualink_remote_wait_timeout(adev, remote_accel_id, wb_cpu, seq);
 
-	/* increase local copy ring wptr, only if FW not timeout */
+	/*
+	 * Advance wptr unless the remote timed out, even if the FW returned an
+	 * error status. On timeout the caller resets the connection, which
+	 * resyncs wptr from the remote in amdgpu_ualink_setup_connection.
+	 */
 	if (r != -ETIME)
 		ring->wptr++;
 
-	/*
-	 * Release ring lock after the remote FW handle command completes to
-	 * prevent race conditions.
-	 */
-	mutex_unlock(&peer->lock);
-	return r;
-
-
-unlock_free:
-	mutex_unlock(&peer->lock);
-	amdgpu_job_free(job);
+out:
 	dev_dbg(adev->dev, "ret r = %d\n", r);
 	return r;
 }
@@ -5730,6 +5833,196 @@ static void amdgpu_ualink_get_wb_addr(struct amdgpu_device *adev,
 
 	dev_dbg(adev->dev, "source %d remote %d wb npa 0x%llx\n", accel_id,
 		remote_accel_id, npa + offset);
+}
+
+struct amdgpu_ualink_wptr_fence_cb {
+	struct dma_fence_cb base;
+	u64 *wptr_cpu;
+	u64 result;
+};
+
+static void amdgpu_ualink_read_wptr_fence_cb(struct dma_fence *fence,
+					     struct dma_fence_cb *cb)
+{
+	struct amdgpu_ualink_wptr_fence_cb *wptr_cb;
+
+	wptr_cb = container_of(cb, typeof(*wptr_cb), base);
+	wptr_cb->result = *wptr_cb->wptr_cpu;
+}
+
+static int amdgpu_ualink_read_remote_wptr(struct amdgpu_device *adev,
+					  u32 remote_accel_id,
+					  struct amdgpu_ualink_ring *ring,
+					  u64 *wptr)
+{
+	struct amdgpu_ualink_remote *remote = to_remote(adev);
+	struct amdgpu_ualink_peer *peer = &remote->peer[remote_accel_id];
+	struct amdgpu_ualink_wptr_fence_cb wptr_cb = { };
+	struct amdgpu_ring *sdma_ring;
+	struct dma_fence *fence;
+	struct amdgpu_job *job;
+	struct amdgpu_ib *ib;
+	u32 ndw, ndw_copy_cmd;
+	u64 wptr_gpu, *wptr_cpu;
+	int r;
+
+	*wptr = 0;
+
+	/* Refuse remote access unless active */
+	if (adev->ualink.info->accel_state != AMDGPU_UALINK_ACCEL_STATE_ACTIVE)
+		return -ESHUTDOWN;
+
+	/* 1 sdma copy command to read wptr */
+	ndw_copy_cmd = ALIGN(adev->mman.buffer_funcs->copy_num_dw, 8);
+
+	/* wptr 2 dwords */
+	ndw = ndw_copy_cmd + 2;
+	r = amdgpu_job_alloc_with_ib(adev, &peer->entity, AMDGPU_FENCE_OWNER_VM,
+				     ndw * 4, AMDGPU_IB_POOL_IMMEDIATE,
+				     AMDGPU_KERNEL_JOB_ID_TTM_COPY_BUFFER, &job);
+	if (r)
+		return r;
+
+	ib = &job->ibs[0];
+	wptr_gpu = ib->gpu_addr + ndw_copy_cmd * 4;
+	wptr_cpu = (u64 *)(ib->ptr + ndw_copy_cmd);
+
+	dev_dbg(adev->dev, "read wptr from remote %u npa gart wptr 0x%llx use %s\n",
+		remote_accel_id, ring->wptr_npa_gart,
+		remote->use_lsdma ? "lsdma" : "sdma");
+
+	if (remote->use_lsdma) {
+		r = amdgpu_lsdma_copy_mem(adev, ring->wptr_npa_gart, wptr_gpu, 8);
+		if (!r)
+			*wptr = *wptr_cpu;
+		amdgpu_job_free(job);
+		goto out;
+	}
+
+	wptr_cb.wptr_cpu = wptr_cpu;
+
+	amdgpu_emit_copy_buffer(adev, ib, ring->wptr_npa_gart, wptr_gpu, 8, 0);
+
+	sdma_ring = &adev->sdma.instance[0].ring;
+	amdgpu_ring_pad_ib(sdma_ring, ib);
+	WARN_ON(ib->length_dw > ndw_copy_cmd);
+
+	fence = amdgpu_job_submit(job);
+
+	r = dma_fence_add_callback(fence, &wptr_cb.base,
+				   amdgpu_ualink_read_wptr_fence_cb);
+	if (r == -ENOENT) {
+		/* Fence already signaled; the callback won't run, do it inline. */
+		amdgpu_ualink_read_wptr_fence_cb(fence, &wptr_cb.base);
+		r = 0;
+		goto out_put_fence;
+	} else if (r) {
+		/* -EINVAL: NULL fence or func, not expected here. */
+		goto out_put_fence;
+	}
+
+	r = dma_fence_wait_timeout(fence, false, AMDGPU_FENCE_JIFFIES_TIMEOUT);
+	if (r > 0) {
+		r = 0;	/* read wptr successfully */
+		goto out_put_fence;
+	}
+
+	dev_dbg(adev->dev, "remote %u sdma fence wait return r %d\n",
+		remote_accel_id, r);
+
+	if (r == 0)
+		r = -ETIME;
+
+	/*
+	 * Timed out: the callback is still armed and wptr_cb is on our stack.
+	 * Cancel it so it can't fire after we return and write into the freed
+	 * stack frame.
+	 */
+	dma_fence_remove_callback(fence, &wptr_cb.base);
+
+out_put_fence:
+	if (!r)
+		*wptr = wptr_cb.result;
+	dma_fence_put(fence);
+
+out:
+	dev_dbg(adev->dev, "remote %u wptr 0x%llx return %d\n",
+		remote_accel_id, *wptr, r);
+	return r;
+}
+
+/**
+ * amdgpu_ualink_ring_resync_ptrs - sync local ring pointers from remote
+ * @adev: amdgpu device pointer
+ * @remote_accel_id: remote accelerator ID
+ *
+ * After a reboot on either side the two ends disagree on wptr. Read the remote
+ * wptr of both peer rings and adopt it as the local wptr and rptr.
+ *
+ * Return 0 if both rings already match, 1 if they were resynced, or a negative
+ * error code if a remote read failed, leaving the rings untouched.
+ */
+static int amdgpu_ualink_ring_resync_ptrs(struct amdgpu_device *adev,
+					  u32 remote_accel_id)
+{
+	struct amdgpu_ualink_peer *peer = &to_remote(adev)->peer[remote_accel_id];
+	struct amdgpu_ualink_wb *int_wb, *tlb_wb;
+	u64 int_wptr, tlb_wptr;
+	int r;
+
+	/* ring->wptr and ring->rptr are owned by the send path. */
+	guard(mutex)(&peer->lock);
+
+	/* Read both before updating either, so a failure changes nothing. */
+	r = amdgpu_ualink_read_remote_wptr(adev, remote_accel_id,
+					   &peer->interrupt, &int_wptr);
+	if (!r)
+		r = amdgpu_ualink_read_remote_wptr(adev, remote_accel_id,
+						   &peer->shootdown, &tlb_wptr);
+	if (r) {
+		dev_dbg(adev->dev, "accel_id %u read remote %u wptr failed %d\n",
+			ualink_accel_id(adev), remote_accel_id, r);
+		return r;
+	}
+
+	if (peer->interrupt.wptr == int_wptr && peer->shootdown.wptr == tlb_wptr) {
+		dev_dbg(adev->dev, "accel_id %u wptr 0x%llx 0x%llx is same as remote %u\n",
+			ualink_accel_id(adev), int_wptr, tlb_wptr, remote_accel_id);
+		return 0;
+	}
+
+	dev_dbg(adev->dev,
+		"accel_id %u wptr 0x%llx 0x%llx sync to remote %u wptr 0x%llx 0x%llx\n",
+		ualink_accel_id(adev), peer->interrupt.wptr, peer->shootdown.wptr,
+		remote_accel_id, int_wptr, tlb_wptr);
+
+	amdgpu_ualink_get_wb_addr(adev, remote_accel_id, &int_wb, NULL,
+				  RB_TYPE_REMOTE_INTERRUPT);
+	amdgpu_ualink_get_wb_addr(adev, remote_accel_id, &tlb_wb, NULL,
+				  RB_TYPE_TLB_INV);
+
+	peer->interrupt.wptr = int_wptr;
+	peer->interrupt.rptr = int_wptr;
+	peer->shootdown.wptr = tlb_wptr;
+	peer->shootdown.rptr = tlb_wptr;
+
+	/* Drop the stale writeback rptr, it disagrees with the resynced wptr. */
+	WRITE_ONCE(int_wb->rptr, int_wptr);
+	WRITE_ONCE(tlb_wb->rptr, tlb_wptr);
+	return 1;
+}
+
+static void amdgpu_ualink_reset_peer_rings(struct amdgpu_device *adev,
+					   u32 remote_accel_id)
+{
+	struct amdgpu_ualink_peer *peer = &to_remote(adev)->peer[remote_accel_id];
+
+	dev_dbg(adev->dev, "remote accel_id %u\n", remote_accel_id);
+
+	guard(mutex)(&peer->lock);
+
+	peer->interrupt.ready = false;
+	peer->shootdown.ready = false;
 }
 
 static int amdgpu_ualink_update_wb_address(struct amdgpu_device *adev,
@@ -5788,12 +6081,14 @@ static int amdgpu_ualink_remote_shootdown(struct amdgpu_device *adev,
 	struct amdgpu_ualink_ring *ring;
 	int r;
 
-	dev_dbg(adev->dev, "skip remote shootdown to remote_accel_id %u\n",
+	dev_dbg(adev->dev, "send remote shootdown to remote_accel_id %u\n",
 		remote_accel_id);
-	return 0;
 
 	peer = &remote->peer[remote_accel_id];
 	ring = &peer->shootdown;
+
+	guard(mutex)(&peer->lock);
+
 	if (!ring->ready) {
 		dev_dbg(adev->dev, "accel_id %u ring not ready\n", remote_accel_id);
 		r = amdgpu_ualink_update_wb_address(adev, remote_accel_id,
@@ -5802,11 +6097,11 @@ static int amdgpu_ualink_remote_shootdown(struct amdgpu_device *adev,
 			return r;
 	}
 
-	r = amdgpu_ualink_send_command(adev, remote_accel_id, ring, ring->wb_cpu,
-				       amdgpu_ualink_emit_shootdown,
-				       flush_type, upper_32_bits(addr),
-				       lower_32_bits(addr), size_in_pages);
-	return r;
+	return amdgpu_ualink_send_command(adev, remote_accel_id, ring,
+					  ring->wb_cpu,
+					  amdgpu_ualink_emit_shootdown,
+					  flush_type, upper_32_bits(addr),
+					  lower_32_bits(addr), size_in_pages);
 }
 
 /**
@@ -5835,6 +6130,9 @@ static int amdgpu_ualink_remote_interrupt(struct amdgpu_device *adev,
 
 	peer = &remote->peer[remote_accel_id];
 	ring = &peer->interrupt;
+
+	guard(mutex)(&peer->lock);
+
 	if (!ring->ready) {
 		dev_dbg(adev->dev, "accel_id %u ring not ready\n", remote_accel_id);
 		r = amdgpu_ualink_update_wb_address(adev, remote_accel_id,
@@ -5843,10 +6141,10 @@ static int amdgpu_ualink_remote_interrupt(struct amdgpu_device *adev,
 			return r;
 	}
 
-	r = amdgpu_ualink_send_command(adev, remote_accel_id, ring, ring->wb_cpu,
-				       amdgpu_ualink_emit_interrupt,
-				       dw0, dw1, dw2, dw3);
-	return r;
+	return amdgpu_ualink_send_command(adev, remote_accel_id, ring,
+					  ring->wb_cpu,
+					  amdgpu_ualink_emit_interrupt,
+					  dw0, dw1, dw2, dw3);
 }
 
 /**
@@ -5875,6 +6173,7 @@ static int amdgpu_ualink_peer_remote_init(struct amdgpu_device *adev)
 	flags = amdgpu_ttm_tt_pte_flags(adev, bo->tbo.ttm, bo->tbo.resource);
 	flags |= AMDGPU_PTE_SNOOPED | AMDGPU_PTE_PRT_GFX12 | AMDGPU_PTE_BUS_ATOMICS;
 	flags &= ~AMDGPU_PTE_VALID;
+	flags &= ~AMDGPU_PTE_SYSTEM;
 	/* PTE.X=0 turn off RPC checks for RBs, wptr and doorbell NPA address */
 	flags &= ~AMDGPU_PTE_EXECUTABLE;
 

@@ -944,6 +944,7 @@ struct kernel_ethtool_ts_info {
 #define ETHTOOL_OP_NEEDS_RTNL_SPAUSEPARAM	BIT(6)
 #define ETHTOOL_OP_NEEDS_RTNL_RSS		BIT(7)
 #define ETHTOOL_OP_NEEDS_RTNL_GLINK		BIT(8)
+#define ETHTOOL_OP_NEEDS_RTNL_TEST		BIT(9)
 
 /**
  * struct ethtool_ops - optional netdev operations
@@ -981,6 +982,7 @@ struct kernel_ethtool_ts_info {
  *	 - netdev_update_features()
  *	 - netif_set_real_num_tx_queues()
  *	 - ethtool_op_get_link() (syncs link watch under rtnl_lock)
+ *	 - netif_open() / netif_close() (used by @self_test)
  *
  * @get_drvinfo: Report driver/device information. Modern drivers no
  *	longer have to implement this callback. Most fields are
@@ -1023,7 +1025,9 @@ struct kernel_ethtool_ts_info {
  *	types should be set in @supported_coalesce_params.
  *	Returns a negative error code or zero.
  * @get_ringparam: Report ring sizes
- * @set_ringparam: Set ring sizes.  Returns a negative error code or zero.
+ * @set_ringparam: Set ring sizes. The &struct ethtool_ringparam argument is
+ *	also an output; drivers which normalize requested sizes must update it
+ *	with the applied sizes. Returns a negative error code or zero.
  * @get_pause_stats: Report pause frame statistics. Drivers must not zero
  *	statistics which they don't report. The stats structure is initialized
  *	to ETHTOOL_STAT_NOT_SET indicating driver does not report statistics.

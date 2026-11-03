@@ -9,6 +9,7 @@
 #include <linux/component.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
+#include <linux/string.h>
 #include <linux/timer.h>
 
 #include <drm/drm_atomic_helper.h>
@@ -273,14 +274,9 @@ int vidi_connection_ioctl(struct drm_device *drm_dev, void *data,
 
 		size = (hdr.extensions + 1) * EDID_LENGTH;
 
-		edid_buf = kmalloc(size, GFP_KERNEL);
-		if (!edid_buf)
-			return -ENOMEM;
-
-		if (copy_from_user(edid_buf, edid_userptr, size)) {
-			kfree(edid_buf);
-			return -EFAULT;
-		}
+		edid_buf = memdup_user(edid_userptr, size);
+		if (IS_ERR(edid_buf))
+			return PTR_ERR(edid_buf);
 
 		drm_edid = drm_edid_alloc(edid_buf, size);
 		kfree(edid_buf);

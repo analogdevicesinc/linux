@@ -680,6 +680,8 @@ void hubbub2_construct(struct dcn20_hubbub *hubbub,
 {
 	hubbub->base.ctx = ctx;
 
+	hubbub->base.inst = 0;
+
 	hubbub->base.funcs = &hubbub2_funcs;
 
 	hubbub->regs = hubbub_regs;

@@ -231,13 +231,6 @@ STATIC_IFN_KUNIT int dm_wait_for_idle(struct amdgpu_ip_block *ip_block)
 }
 EXPORT_IF_KUNIT(dm_wait_for_idle);
 
-STATIC_IFN_KUNIT int dm_soft_reset(struct amdgpu_ip_block *ip_block)
-{
-	/* XXX todo */
-	return 0;
-}
-EXPORT_IF_KUNIT(dm_soft_reset);
-
 /*
  * DC will program planes with their z-order determined by their ordering
  * in the dc_surface_updates array. This comparator is used to sort them
@@ -454,6 +447,8 @@ STATIC_IFN_KUNIT int amdgpu_dm_init_power_module(struct amdgpu_display_manager *
 		init_data[i].use_custom_backlight_caps = false;
 		init_data[i].custom_backlight_caps_config_no = 0;
 		init_data[i].use_linear_backlight_curve = false;
+		if (amdgpu_dc_debug_mask & DC_DISABLE_CUSTOM_BRIGHTNESS_CURVE)
+			init_data[i].use_linear_backlight_curve = true;
 		init_data[i].def_varibright_enable = 0;
 		init_data[i].varibright_level = 0;
 		/*
@@ -604,13 +599,6 @@ static int amdgpu_dm_init(struct amdgpu_device *adev)
 
 	init_data.flags.enable_mipi_converter_optimization = true;
 
-	/*
-	 * Request HW cursor offload so DMUB programs the cursor; cursor
-	 * updates then avoid the DMUB inbox0 HW lock during mclk switches.
-	 * dc_dmub_srv_cursor_offload_init() self-gates on FW capability.
-	 */
-	init_data.flags.enable_cursor_offload = true;
-
 	init_data.dcn_reg_offsets = adev->reg_offset[DCE_HWIP][0];
 	init_data.nbio_reg_offsets = adev->reg_offset[NBIO_HWIP][0];
 	init_data.clk_reg_offsets = adev->reg_offset[CLK_HWIP][0];
@@ -728,7 +716,7 @@ static int amdgpu_dm_init(struct amdgpu_device *adev)
 
 	dc_hardware_init(adev->dm.dc);
 
-	/* Enable cursor offload if the DMUB firmware supports it. */
+	/* Enable cursor offload if the ASIC supports it. */
 	dc_dmub_srv_cursor_offload_init(adev->dm.dc);
 
 	/* GOP/vBIOS may leave an OPTC enabled for a display present at power-on
@@ -1636,9 +1624,14 @@ static int dm_suspend(struct amdgpu_ip_block *ip_block)
 		dc_allow_idle_optimizations(adev->dm.dc, false);
 
 		dm->cached_dc_state = dc_state_create_copy(dm->dc->current_state);
+		if (!dm->cached_dc_state) {
+			drm_err(adev_to_drm(adev),
+				"Failed to allocate cached DC state during suspend\n");
+			mutex_unlock(&dm->dc_lock);
+			return -ENOMEM;
+		}
 
-		if (dm->cached_dc_state)
-			dm_gpureset_toggle_interrupts(adev, dm->cached_dc_state, false);
+		dm_gpureset_toggle_interrupts(adev, dm->cached_dc_state, false);
 
 		res = amdgpu_dm_commit_zero_streams(dm->dc);
 		if (res != DC_OK) {
@@ -2028,10 +2021,6 @@ static int dm_resume(struct amdgpu_ip_block *ip_block)
 	/* On resume we need to rewrite the MSTM control bits to enable MST*/
 	s3_handle_mst(ddev, false);
 
-	/* Exit IPS before the detection loop's first AUX/DDC access. */
-	scoped_guard(mutex, &dm->dc_lock)
-		dc_exit_ips_for_hw_access(dm->dc);
-
 	/* Do detection*/
 	drm_connector_list_iter_begin(ddev, &iter);
 	drm_for_each_connector_iter(connector, &iter) {
@@ -2146,7 +2135,6 @@ static const struct amd_ip_funcs amdgpu_dm_funcs = {
 	.suspend = dm_suspend,
 	.resume = dm_resume,
 	.wait_for_idle = dm_wait_for_idle,
-	.soft_reset = dm_soft_reset,
 	.set_clockgating_state = dm_set_clockgating_state,
 	.set_powergating_state = dm_set_powergating_state,
 };
@@ -3771,6 +3759,13 @@ STATIC_IFN_KUNIT void amdgpu_dm_enable_self_refresh(struct amdgpu_display_manage
 	struct amdgpu_dm_connector *aconn =
 		(struct amdgpu_dm_connector *)acrtc_state->stream->dm_stream_context;
 
+	if (!acrtc_state->base.async_flip) {
+		amdgpu_dm_psr_set_event(dm, acrtc_state->stream, false,
+			psr_event_immediate_flip, false);
+		amdgpu_dm_replay_set_event(dm, acrtc_state->stream, false,
+			replay_event_immediate_flip, false);
+	}
+
 	/* Decrement skip count when SR is enabled and we're doing fast updates. */
 	if (acrtc_state->update_type == UPDATE_TYPE_FAST &&
 	    (psr->psr_feature_enabled || pr->replay_feature_enabled)) {
@@ -4150,6 +4145,8 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 			if (acrtc_state->freesync_vrr_info_changed) {
 				bundle->stream_update.vrr_infopacket =
 					&acrtc_state->stream->vrr_infopacket;
+				bundle->stream_update.vtem_infopacket =
+					&acrtc_state->stream->vtem_infopacket;
 				bundle->stream_update.vsp_infopacket =
 					&acrtc_state->stream->vsp_infopacket;
 				stream_update_needed = true;
@@ -4227,6 +4224,18 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 			spin_unlock_irqrestore(&pcrtc->dev->event_lock, flags);
 		}
 		mutex_lock(&dm->dc_lock);
+		/*
+		 * Tearing (immediate) flips cannot work with panel self-refresh
+		 * features. The event is cleared by
+		 * amdgpu_dm_enable_self_refresh() once async flips stop.
+		 */
+		if (immediate_flip) {
+			dc_exit_ips_for_hw_access(dm->dc);
+			amdgpu_dm_psr_set_event(dm, acrtc_state->stream, true,
+				psr_event_immediate_flip, true);
+			amdgpu_dm_replay_set_event(dm, acrtc_state->stream, true,
+				replay_event_immediate_flip, true);
+		}
 		update_planes_and_stream_adapter(dm->dc,
 					 planes_count,
 					 acrtc_state->stream,
@@ -4695,8 +4704,6 @@ static void amdgpu_dm_commit_streams(struct drm_atomic_commit *state,
 
 			if (dm_old_crtc_state->stream)
 				remove_stream(adev, acrtc, dm_old_crtc_state->stream);
-
-			pm_runtime_get_noresume(dev->dev);
 
 			acrtc->enabled = true;
 			acrtc->hw_mode = new_crtc_state->mode;
@@ -5281,8 +5288,13 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_commit *state)
 #ifdef CONFIG_DEBUG_FS
 		enum amdgpu_dm_pipe_crc_source cur_crc_src;
 #endif
-		/* Count number of newly disabled CRTCs for dropping PM refs later. */
-		if (old_crtc_state->active && !new_crtc_state->active)
+		/*
+		 * One runtime PM reference per active CRTC: take it when the
+		 * CRTC turns on, count it when it turns off for dropping later.
+		 */
+		if (!old_crtc_state->active && new_crtc_state->active)
+			pm_runtime_get_noresume(dev->dev);
+		else if (old_crtc_state->active && !new_crtc_state->active)
 			crtc_disable_count++;
 
 		dm_new_crtc_state = to_dm_crtc_state(new_crtc_state);
@@ -5713,8 +5725,10 @@ STATIC_IFN_KUNIT int dm_update_crtc_state(struct amdgpu_display_manager *dm,
 
 skip_modeset:
 	/* Release extra reference */
-	if (new_stream)
+	if (new_stream) {
 		dc_stream_release(new_stream);
+		new_stream = NULL;
+	}
 	new_stream = NULL;
 
 	/*

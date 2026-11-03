@@ -1040,6 +1040,9 @@ int kgd2kfd_post_reset(struct kfd_dev *kfd)
 	if (!kfd->init_complete)
 		return 0;
 
+	for (i = 0; i < kfd->num_nodes; i++)
+		kfd_dqm_set_queues_as_reset(kfd->nodes[i]->dqm);
+
 	for (i = 0; i < kfd->num_nodes; i++) {
 		ret = kfd_resume(kfd->nodes[i]);
 		if (ret)
@@ -1811,7 +1814,14 @@ void kgd2kfd_teardown_processes(struct amdgpu_device *adev)
 
 	mutex_unlock(&kfd_processes_mutex);
 
-	/* wait all kfd processes use adev terminate */
+	/* kfd.dev may already be freed on surprise removal */
+	if (!adev->kfd.dev)
+		return;
+
+	/*
+	 * Wait for all KFD processes using adev to terminate. Must be
+	 * unbounded: device state is freed once they are gone.
+	 */
 	while (!!atomic_read(&adev->kfd.dev->kfd_processes_count))
 		cond_resched();
 }

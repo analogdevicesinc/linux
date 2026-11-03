@@ -781,6 +781,8 @@ void dcn10_link_encoder_construct(
 	if (enc10->base.ctx->dc->debug.hdmi20_disable) {
 		enc10->base.features.flags.bits.HDMI_6GB_EN = 0;
 	}
+
+	enc10->base.inst = (unsigned int)enc10->base.preferred_engine;
 }
 
 bool dcn10_link_encoder_validate_output_with_stream(

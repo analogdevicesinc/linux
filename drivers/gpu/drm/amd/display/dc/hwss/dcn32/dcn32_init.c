@@ -118,7 +118,7 @@ static const struct hw_sequencer_funcs dcn32_funcs = {
 	.disable_phantom_streams = dcn32_disable_phantom_streams,
 	.subvp_pipe_control_lock = dcn32_subvp_pipe_control_lock,
 	.update_visual_confirm_color = dcn10_update_visual_confirm_color,
-	.subvp_pipe_control_lock_fast = dcn32_subvp_pipe_control_lock_fast,
+	.is_subvp_hw_lock_supported = dcn32_is_subvp_hw_lock_supported,
 	.update_phantom_vp_position = dcn32_update_phantom_vp_position,
 	.update_dsc_pg = dcn32_update_dsc_pg,
 	.apply_update_flags_for_phantom = dcn32_apply_update_flags_for_phantom,
@@ -130,6 +130,7 @@ static const struct hw_sequencer_funcs dcn32_funcs = {
 };
 
 static const struct hwseq_private_funcs dcn32_private_funcs = {
+	.build_cursor_pos_update_params = dcn10_build_cursor_pos_update_params,
 	.init_pipes = dcn10_init_pipes,
 	.plane_atomic_disconnect = dcn10_plane_atomic_disconnect,
 	.update_mpcc = dcn20_update_mpcc,

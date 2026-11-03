@@ -468,6 +468,7 @@
 #define   L3_SQ_DISABLE_COAMA_2WAY_COH		REG_BIT(30)
 #define   L3_SQ_DISABLE_COAMA			REG_BIT(22)
 #define   COMPMEMRD256BOVRFETCHEN		REG_BIT(20)
+#define   NONCOMPMEMRD256BOVRFETCHEN		REG_BIT(14)
 
 #define L3SQCREG3				XE_REG_MCR(0xb108)
 #define   COMPPWOVERFETCHEN			REG_BIT(28)
@@ -636,7 +637,7 @@
  *   [4-6]     RSVD
  *   [7]       Disabled
  */
-#define CCS_MODE				XE_REG(0x14804, XE_REG_OPTION_MASKED)
+#define CCS_MODE				XE_REG(0x14804)
 #define   CCS_MODE_CSLICE_0_3_MASK		REG_GENMASK(11, 0) /* 3 bits per cslice */
 #define   CCS_MODE_CSLICE_MASK			0x7 /* CCS0-3 + rsvd */
 #define   CCS_MODE_CSLICE_WIDTH			ilog2(CCS_MODE_CSLICE_MASK + 1)
