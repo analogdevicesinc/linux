@@ -3419,6 +3419,22 @@ static void mvpp2_isr_handle_ptp(struct mvpp2_port *port)
 		mvpp2_isr_handle_ptp_queue(port, 1);
 }
 
+static void mvpp2_tx_hwtstamp_flush(struct mvpp2_port *port)
+{
+	struct mvpp2_hwtstamp_queue *queue;
+	int nq, i;
+
+	for (nq = 0; nq < ARRAY_SIZE(port->tx_hwtstamp_queue); nq++) {
+		queue = &port->tx_hwtstamp_queue[nq];
+		for (i = 0; i < ARRAY_SIZE(queue->skb); i++) {
+			if (!queue->skb[i])
+				continue;
+			dev_kfree_skb_any(queue->skb[i]);
+			queue->skb[i] = NULL;
+		}
+	}
+}
+
 static void mvpp2_isr_handle_link(struct mvpp2_port *port,
 				  struct phylink_pcs *pcs, bool link)
 {
@@ -4914,6 +4930,7 @@ static int mvpp2_stop(struct net_device *dev)
 		free_irq(port->port_irq, port);
 
 	mvpp2_irqs_deinit(port);
+	mvpp2_tx_hwtstamp_flush(port);
 	if (!port->has_tx_irqs) {
 		for (thread = 0; thread < port->priv->nthreads; thread++) {
 			port_pcpu = per_cpu_ptr(port->pcpu, thread);
