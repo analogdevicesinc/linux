@@ -1574,4 +1574,4 @@ int max_ser_change_address(struct i2c_adapter *adapter, u8 addr, u8 new_addr)
 EXPORT_SYMBOL_GPL(max_ser_change_address);
 
 MODULE_LICENSE("GPL");
-MODULE_IMPORT_NS("I2C_ATR");
+MODULE_IMPORT_NS(I2C_ATR);

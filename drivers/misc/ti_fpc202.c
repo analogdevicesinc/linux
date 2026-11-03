@@ -435,4 +435,4 @@ module_i2c_driver(fpc202_driver);
 MODULE_AUTHOR("Romain Gantois <romain.gantois@bootlin.com>");
 MODULE_DESCRIPTION("TI FPC202 Dual Port Controller driver");
 MODULE_LICENSE("GPL");
-MODULE_IMPORT_NS("I2C_ATR");
+MODULE_IMPORT_NS(I2C_ATR);
