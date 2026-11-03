@@ -154,6 +154,7 @@ restore_sigcontext(struct sigcontext __user *sc, struct pt_regs *regs)
 	struct switch_stack *sw = (struct switch_stack *)regs - 1;
 
 	current->restart_block.fn = do_no_restart_syscall;
+	current_thread_info()->syscall_saved_nr = 0;
 	current_thread_info()->status |= TS_SAVED_FP | TS_RESTORE_FP;
 
 	sw->r26 = (unsigned long) ret_from_sys_call;
@@ -497,17 +498,20 @@ do_signal(struct pt_regs *regs, unsigned long r0, unsigned long r19)
 	unsigned long single_stepping = ptrace_cancel_bpt(current);
 	struct ksignal ksig;
 
+	/* Consume restart state once, even if the exit loop repeats. */
+	current_thread_info()->syscall_saved_nr = 0;
+
 	/* This lets the debugger run, ... */
 	if (get_signal(&ksig)) {
 		/* ... so re-check the single stepping. */
 		single_stepping |= ptrace_cancel_bpt(current);
 		/* Whee!  Actually deliver the signal.  */
-		if (r0)
+		if (r0 && regs->r19)
 			syscall_restart(r0, r19, regs, &ksig.ka);
 		handle_signal(&ksig, regs);
 	} else {
 		single_stepping |= ptrace_cancel_bpt(current);
-		if (r0) {
+		if (r0 && regs->r19) {
 			switch (regs->r0) {
 			case ERESTARTNOHAND:
 			case ERESTARTSYS:
@@ -571,6 +575,7 @@ alpha_syscall_enter_select(struct pt_regs *regs, long syscall)
 
 	ti->syscall_meta = 0;
 	ti->syscall_saved_nr = syscall;
+	ti->syscall_saved_r19 = saved_r19;
 
 	if (!(ti->status & TS_SAVED_FP)) {
 		ti->status |= TS_SAVED_FP;
@@ -614,7 +619,9 @@ alpha_finish_syscall_to_user_mode(struct pt_regs *regs, long ret)
 	unsigned long meta = ti->syscall_meta;
 
 	ti->syscall_meta = 0;
-	ti->syscall_saved_r19 = regs->r19;
+	/* Entry work may have replaced argument 4 with the a3 error flag. */
+	if (!(meta & ALPHA_SYSCALL_META_SKIP))
+		ti->syscall_saved_r19 = regs->r19;
 
 	instrumentation_begin();
 
