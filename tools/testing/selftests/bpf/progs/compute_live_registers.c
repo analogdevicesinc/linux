@@ -378,7 +378,6 @@ __naked void ldabs(void)
 }
 
 
-#ifdef __BPF_FEATURE_ADDR_SPACE_CAST
 SEC("?fentry.s/" SYS_PREFIX "sys_getpgid")
 __log_level(2)
 __msg(" 6: .12345.... (85) call bpf_arena_alloc_pages")
@@ -403,7 +402,6 @@ __naked void addr_space_cast(void)
 		  __imm_addr(arena)
 		: __clobber_all);
 }
-#endif
 
 static __used __naked int aux1(void)
 {

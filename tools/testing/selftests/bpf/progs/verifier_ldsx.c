@@ -257,8 +257,6 @@ __naked void ldsx_ctx_8(void)
 	: __clobber_all);
 }
 
-#ifdef __BPF_FEATURE_ADDR_SPACE_CAST
-
 struct {
 	__uint(type, BPF_MAP_TYPE_ARENA);
 	__uint(map_flags, BPF_F_MMAPABLE);
@@ -450,8 +448,6 @@ void kfunc_root(void)
 {
 	bpf_arena_alloc_pages(0, 0, 0, 0, 0);
 }
-
-#endif /* __BPF_FEATURE_ADDR_SPACE_CAST */
 
 #else
 

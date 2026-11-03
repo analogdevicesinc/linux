@@ -32,7 +32,6 @@ struct {
 #define VAL_SUM	0x11224578aaccef10
 #endif
 
-#if defined(__BPF_FEATURE_ADDR_SPACE_CAST)
 SEC("syscall")
 __success __retval(0)
 int arena_zero_off(void *ctx)
@@ -106,6 +105,5 @@ int cast_to_user(void *ctx)
 	: "r1", "r2", "r7", "r9");
 	return res != 0;
 }
-#endif
 
 char _license[] SEC("license") = "GPL";

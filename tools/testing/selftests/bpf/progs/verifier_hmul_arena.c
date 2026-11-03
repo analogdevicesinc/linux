@@ -5,8 +5,6 @@
 #include "bpf_misc.h"
 #include "../../../include/linux/filter.h"
 
-#if defined(__BPF_FEATURE_ADDR_SPACE_CAST)
-
 #define BPF_UHMUL64_IMM(DST, IMM) \
 	BPF_RAW_INSN(BPF_ALU64 | BPF_MUL | BPF_K, DST, 0, BPF_UHMUL, IMM)
 
@@ -57,18 +55,5 @@ __naked void shmul64_arena_ptr(void)
 	  __imm_insn(hmul, BPF_SHMUL64_REG(BPF_REG_0, BPF_REG_1))
 	: __clobber_all);
 }
-
-#else
-
-SEC("socket")
-__description("HMUL arena tests require compiler support for addr_space_cast")
-__skip("compiler doesn't support addr_space_cast")
-__success
-int dummy_test(void)
-{
-	return 0;
-}
-
-#endif
 
 char _license[] SEC("license") = "GPL";
