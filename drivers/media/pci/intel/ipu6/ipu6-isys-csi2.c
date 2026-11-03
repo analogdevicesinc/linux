@@ -823,6 +823,8 @@ static int ipu6_isys_csi2_set_sel(struct v4l2_subdev *sd,
 	/* Only vertical cropping is supported */
 	sel->r.left = 0;
 	sel->r.width = sink_ffmt->width;
+	sel->r.top = clamp_t(s32, sel->r.top, 0,
+			     sink_ffmt->height - IPU6_ISYS_MIN_HEIGHT);
 	/* Non-bayer formats can't be single line cropped */
 	if (!ipu6_isys_is_bayer_format(sink_ffmt->code))
 		sel->r.top &= ~1;
