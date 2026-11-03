@@ -348,6 +348,8 @@ struct bpf_loop_iters {
 	u32 min_header_count;   /* min number of times header is executed */
 	u32 max_header_count;   /* max number of times header is executed */
 	unsigned long precise_regs[BITS_TO_LONGS(BPF_SCEV_REGS_NUM)];
+	/* [0, max] at the entry, and the loop only clears bits */
+	unsigned long mask_regs[BITS_TO_LONGS(BPF_SCEV_REGS_NUM)];
 	/*
 	 * The variable that the latch tests, or -1, and what it can be at the
 	 * loop header: what it is at the entry or what the latch lets through.
@@ -851,12 +853,14 @@ struct bpf_insn_aux_data {
 	/*
 	 * Bitmask of R0-R9 that hold known values at this instruction.
 	 * const_reg_mask: scalar constants that fit in 32 bits.
+	 * const_reg_wide_mask: scalar constants that don't, there is no val.
 	 * const_reg_map_mask: map pointers, val is map_index into used_maps[].
 	 * const_reg_subprog_mask: subprog pointers, val is subprog number.
 	 * const_reg_vals[i] holds the 32-bit value for register i.
 	 * Populated by compute_const_regs() pre-pass.
 	 */
 	u16 const_reg_mask;
+	u16 const_reg_wide_mask;
 	u16 const_reg_map_mask;
 	u16 const_reg_subprog_mask;
 	u32 const_reg_vals[10];

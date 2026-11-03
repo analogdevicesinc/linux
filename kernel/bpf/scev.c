@@ -2754,6 +2754,21 @@ static bool made_from_partial_spill(struct scev *scev, const struct bpf_func_sta
 	return false;
 }
 
+/*
+ * bpf_compute_const_regs() has @r as a constant at @insn_idx, the head of a loop: it's the same in
+ * every iteration. do_check() takes a value that a range adds to it, or to what is computed
+ * from it, for a bug.
+ * That pass knows no types: arithmetic on a pointer to arena runs in 32 bits, and a pointer and a
+ * number can have one constant. As for a pointer to arena below, this is not relied on.
+ */
+static bool is_const_scev_reg(struct bpf_verifier_env *env, int insn_idx, u32 r)
+{
+	struct bpf_insn_aux_data *aux = &env->insn_aux_data[insn_idx];
+
+	return r < ARRAY_SIZE(aux->const_reg_vals) &&
+	       ((aux->const_reg_mask | aux->const_reg_wide_mask) & BIT(r));
+}
+
 /* Main logic in verifier.c forbids varying offsets for certain register types. */
 static bool is_widenable_reg_type(const struct bpf_reg_state *reg)
 {
@@ -2967,6 +2982,45 @@ static int mark_expr_precise(struct bpf_verifier_env *env, struct bpf_func_state
 	return 0;
 }
 
+/*
+ * Does @id have no bit that register @r doesn't have at the head of the loop? 'x & e' and the
+ * low bits of x lose bits only. 'x >> e', 'x / e' and 'x % e' are not greater than x as well, but
+ * iterations one by one tell more about them: a number that is halved 8 times.
+ */
+static bool expr_loses_bits_only(struct scev *scev, u32 id, u32 r, int depth)
+{
+	struct expr *e = &scev->exprs[id];
+	u32 regno;
+
+	if (is_reg(scev, id, &regno))
+		return regno == r;
+	if (depth > 8)
+		return false;
+	switch (e->op) {
+	case BPF_AND:
+		return expr_loses_bits_only(scev, e->params[0], r, depth + 1) ||
+		       expr_loses_bits_only(scev, e->params[1], r, depth + 1);
+	case ANY:
+		return expr_loses_bits_only(scev, e->params[0], r, depth + 1) &&
+		       expr_loses_bits_only(scev, e->params[1], r, depth + 1);
+	case ZEXT8:
+	case ZEXT16:
+	case ZEXT32:
+		return expr_loses_bits_only(scev, e->params[0], r, depth + 1);
+	default:
+		return false;
+	}
+}
+
+/* The ranges of @reg are [0, max]. So no bit is known to be 1. */
+static bool reg_is_zero_to_max(const struct bpf_reg_state *reg)
+{
+	struct cnum64 r64 = cnum64_from_urange(0, reg_umax(reg));
+
+	return cnum64_is_subset(reg->r64, r64) &&
+	       cnum32_is_subset(reg->r32, cnum32_from_cnum64(r64)) && reg->step <= 1;
+}
+
 int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_state *st,
 			   struct bpf_loop_iters *iters)
 {
@@ -3077,6 +3131,7 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 	if (err)
 		return err;
 
+	bitmap_zero(iters->mask_regs, REGS_NUM);
 	header_env = find_header_env(scev, insn_idx);
 	for (r = 0; r < REGS_NUM; r++) {
 		struct bpf_reg_state *reg;
@@ -3110,8 +3165,19 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 			continue;
 		}
 
+		if (is_const_scev_reg(env, insn_idx, r))
+			continue;
+
 		r_scev = header_env->reg2scev[r];
 		reg = scev_reg_for_linear(cur_func, r);
+		/*
+		 * The offset of a pointer to arena is not tracked: what enters the loop stands
+		 * for all iterations. If the loop makes something else of it the state that
+		 * returns to the head is not covered by the state at the head, and the body is
+		 * verified again from that state.
+		 */
+		if (reg && reg->type == PTR_TO_ARENA)
+			continue;
 		/* If SCEV for r is (linear <reg> <slope>) */
 		if (reg && is_simple_linear(scev, r_scev, &coefs) && is_widenable_reg_type(reg)) {
 			/* 32-bit ALU operations on pointers convert them to scalars */
@@ -3135,6 +3201,18 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 				spill_base = true;
 				goto cant_widen;
 			}
+			continue;
+		}
+
+		/*
+		 * [0, max] that loses bits is in [0, max], a bit that is 0 stays 0: what enters
+		 * the loop stands for all iterations as it is. 64 or [64, 127] does not: it
+		 * can become 0.
+		 */
+		if (reg && reg->type == SCALAR_VALUE && !test_bit(r, loop->store_base_regs) &&
+		    reg_is_zero_to_max(reg) &&
+		    expr_loses_bits_only(scev, header_env->reg2expr[r], r, 0)) {
+			__set_bit(r, iters->mask_regs);
 			continue;
 		}
 cant_widen:
@@ -3234,8 +3312,29 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 
 	header_env = find_header_env(scev, insn_idx);
 	for (r = 0; r < REGS_NUM; r++) {
-		if (!scev_reg_alive(env, st, r) || is_unbound_scev_reg(env, cur_func, r))
+		if (!scev_reg_alive(env, st, r) || is_unbound_scev_reg(env, cur_func, r) ||
+		    is_const_scev_reg(env, insn_idx, r))
 			continue;
+
+		reg = scev_reg_for_linear(cur_func, r);
+		if (reg && reg->type == PTR_TO_ARENA)
+			continue;
+
+		if (test_bit(r, iters->mask_regs)) {
+			/* The range stays. It's no longer equal to the registers with its id. */
+			err = scev_reg_for_write(env, cur_func, r, &reg);
+			if (err)
+				return err;
+			if (log->level & BPF_LOG_LEVEL2) {
+				bpf_log(log, "loop header at %d, ", insn_idx);
+				log_reg(env, r);
+				bpf_log(log, " stays in 0..%llu, it loses bits only\n",
+					reg_umax(reg));
+			}
+			scratch_widened_reg_id(env, reg);
+			mark_scev_reg_scratched(env, r);
+			continue;
+		}
 
 		r_expr = header_env->reg2scev[r];
 		/* If SCEV for r is (linear <reg> <slope>)*/
@@ -3325,6 +3424,14 @@ int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *cur
 		 * They say nothing about the value that is in the register now.
 		 */
 		if (reg->type != entry_reg->type)
+			continue;
+
+		/*
+		 * bpf_compute_loop_iters() gives no range to a pointer to arena that moves, and
+		 * it does not look at dead registers. Set a range only where it would.
+		 */
+		if (!is_widenable_reg_type(entry_reg) ||
+		    (coefs.zext32 && entry_reg->type != SCALAR_VALUE))
 			continue;
 
 		linear_bounds(entry_reg, max_header_count, &coefs, &bounds);
