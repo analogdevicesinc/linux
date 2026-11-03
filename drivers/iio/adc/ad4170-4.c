@@ -60,6 +60,7 @@
  */
 #define AD4170_CONFIG_A_REG				0x00
 #define AD4170_DATA_24B_REG				0x1E
+#define AD4170_DATA_PER_CHANNEL_REG(x)			(0x2A + 4 * (x))
 #define AD4170_PIN_MUXING_REG				0x69
 #define AD4170_CLOCK_CTRL_REG				0x6B
 #define AD4170_ADC_CTRL_REG				0x71
@@ -456,6 +457,10 @@ struct ad4170_state {
 	struct spi_offload_trigger *offload_trigger;
 	struct spi_message offload_msg;
 	struct spi_transfer offload_xfer;
+	/* Multichannel offload: per channel data register reads */
+	bool offload_per_chan;
+	struct spi_transfer offload_seq_xfer[3 * AD4170_MAX_ADC_CHANNELS];
+	u8 offload_seq_tx[AD4170_MAX_ADC_CHANNELS][AD4170_SPI_INST_PHASE_LEN];
 	struct spi_message msg;
 	struct spi_transfer xfer;
 	struct iio_trigger *trig;
@@ -473,7 +478,8 @@ struct ad4170_state {
 };
 
 static const struct spi_offload_config ad4170_spi_offload_config = {
-	.capability_flags = SPI_OFFLOAD_CAP_TRIGGER | SPI_OFFLOAD_CAP_RX_STREAM_DMA,
+	.capability_flags = SPI_OFFLOAD_CAP_TRIGGER | SPI_OFFLOAD_CAP_RX_STREAM_DMA |
+			    SPI_OFFLOAD_CAP_TX_STATIC_DATA,
 };
 
 static void ad4170_fill_sps_tbl(struct ad4170_state *st)
@@ -2807,10 +2813,65 @@ static const struct iio_buffer_setup_ops ad4170_buffer_ops = {
 	.validate_scan_mask = ad4170_validate_scan_mask,
 };
 
-static bool ad4170_offload_validate_scan_mask(struct iio_dev *indio_dev,
-					      const unsigned long *scan_mask)
+static void ad4170_offload_init_per_chan_msg(struct iio_dev *indio_dev)
 {
-	return bitmap_weight(scan_mask, iio_get_masklength(indio_dev)) == 1;
+	struct ad4170_state *st = iio_priv(indio_dev);
+	struct spi_transfer *xfer = st->offload_seq_xfer;
+	unsigned int chan_index, n = 0;
+
+	memset(st->offload_seq_xfer, 0, sizeof(st->offload_seq_xfer));
+	iio_for_each_active_channel(indio_dev, chan_index) {
+		u8 *tx = st->offload_seq_tx[n++];
+		unsigned int reg;
+
+		reg = AD4170_DATA_PER_CHANNEL_REG(chan_index);
+		put_unaligned_be16(AD4170_REG_READ_MASK | reg, tx);
+		xfer->tx_buf = tx;
+		xfer->len = sizeof(st->offload_seq_tx[0]);
+		xfer->bits_per_word = 8;
+		xfer++;
+
+		xfer->len = 2;
+		xfer->bits_per_word = 8;
+		xfer++;
+
+		xfer->len = 1;
+		xfer->bits_per_word = 8;
+		xfer->offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
+		xfer++;
+	}
+
+	spi_message_init_with_transfers(&st->offload_msg, st->offload_seq_xfer,
+					3 * n);
+}
+
+static int ad4170_offload_per_chan_stop(struct iio_dev *indio_dev)
+{
+	struct ad4170_state *st = iio_priv(indio_dev);
+	unsigned int i;
+	int ret;
+
+	ret = regmap_update_bits(st->regmap, AD4170_ADC_CTRL_REG,
+				 AD4170_ADC_CTRL_MULTI_DATA_REG_SEL_MSK |
+				 AD4170_ADC_CTRL_MODE_MSK,
+				 AD4170_ADC_CTRL_MULTI_DATA_REG_SEL_MSK |
+				 FIELD_PREP(AD4170_ADC_CTRL_MODE_MSK,
+					    AD4170_ADC_CTRL_MODE_IDLE));
+	if (ret)
+		return ret;
+
+	for (i = 0; i < indio_dev->num_channels; i++) {
+		const struct iio_chan_spec *chan = &indio_dev->channels[i];
+
+		if (chan->type == IIO_TIMESTAMP)
+			continue;
+
+		ret = ad4170_set_channel_enable(st, chan->address, false);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
 
 static int ad4170_offload_buffer_postenable(struct iio_dev *indio_dev)
@@ -2828,6 +2889,10 @@ static int ad4170_offload_buffer_postenable(struct iio_dev *indio_dev)
 	st->offload_xfer.offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
 
 	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
+	st->offload_per_chan = bitmap_weight(indio_dev->active_scan_mask,
+					     iio_get_masklength(indio_dev)) > 1;
+	if (st->offload_per_chan)
+		ad4170_offload_init_per_chan_msg(indio_dev);
 	st->offload_msg.offload = st->offload;
 
 	ret = spi_optimize_message(st->spi, &st->offload_msg);
@@ -2837,7 +2902,14 @@ static int ad4170_offload_buffer_postenable(struct iio_dev *indio_dev)
 	if (st->spi->irq)
 		disable_irq(st->spi->irq);
 
-	ret = ad4170_buffer_postenable(indio_dev);
+	if (st->offload_per_chan)
+		ret = regmap_update_bits(st->regmap, AD4170_ADC_CTRL_REG,
+					 AD4170_ADC_CTRL_MULTI_DATA_REG_SEL_MSK |
+					 AD4170_ADC_CTRL_MODE_MSK,
+					 FIELD_PREP(AD4170_ADC_CTRL_MODE_MSK,
+						    AD4170_ADC_CTRL_MODE_CONT));
+	else
+		ret = ad4170_buffer_postenable(indio_dev);
 	if (ret)
 		goto err_enable_irq;
 
@@ -2849,7 +2921,10 @@ static int ad4170_offload_buffer_postenable(struct iio_dev *indio_dev)
 	return 0;
 
 err_chip_off:
-	ad4170_buffer_predisable(indio_dev);
+	if (st->offload_per_chan)
+		ad4170_offload_per_chan_stop(indio_dev);
+	else
+		ad4170_buffer_predisable(indio_dev);
 err_enable_irq:
 	if (st->spi->irq)
 		enable_irq(st->spi->irq);
@@ -2864,7 +2939,16 @@ static int ad4170_offload_buffer_predisable(struct iio_dev *indio_dev)
 
 	spi_offload_trigger_disable(st->offload, st->offload_trigger);
 
-	ret = ad4170_buffer_predisable(indio_dev);
+	if (st->offload_per_chan) {
+		/*
+		 * Keep the offload program intact until any in-flight execution
+		 * completes. Normal SPI transfers will run after it releases the
+		 * execution module.
+		 */
+		ret = ad4170_offload_per_chan_stop(indio_dev);
+	} else {
+		ret = ad4170_buffer_predisable(indio_dev);
+	}
 
 	if (st->spi->irq)
 		enable_irq(st->spi->irq);
@@ -2877,7 +2961,7 @@ static int ad4170_offload_buffer_predisable(struct iio_dev *indio_dev)
 static const struct iio_buffer_setup_ops ad4170_offload_buffer_ops = {
 	.postenable = ad4170_offload_buffer_postenable,
 	.predisable = ad4170_offload_buffer_predisable,
-	.validate_scan_mask = ad4170_offload_validate_scan_mask,
+	.validate_scan_mask = ad4170_validate_scan_mask,
 };
 
 static irqreturn_t ad4170_trigger_handler(int irq, void *p)
