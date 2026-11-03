@@ -555,7 +555,7 @@ int bpf_compute_loops(struct bpf_verifier_env *env)
 				 *  s: ...
 				 *   }
 				 */
-				/* Enclosing loops inherit the overflow, see below */
+				/* Enclosing loops get nested_exits_overflow, see below */
 				if (aux[t].loop->exits_overflow)
 					break;
 				err = add_exit(aux[t].loop, i, s);
@@ -572,7 +572,7 @@ int bpf_compute_loops(struct bpf_verifier_env *env)
 		if (!loop || !loop->exits_overflow)
 			continue;
 		for (t = aux[i].loop_header; t >= 0; t = aux[t].loop_header)
-			aux[t].loop->exits_overflow = true;
+			aux[t].loop->nested_exits_overflow = true;
 	}
 
 	if (env->log.level & BPF_LOG_LEVEL2) {
@@ -587,6 +587,8 @@ int bpf_compute_loops(struct bpf_verifier_env *env)
 				bpf_log(log, ", irreducible");
 			if (loop->exits_overflow)
 				bpf_log(log, ", too many exits");
+			if (loop->nested_exits_overflow)
+				bpf_log(log, ", too many exits of a nested loop");
 			bpf_log(log, "\n");
 			for (j = 0; j < loop->backedges_cnt; j++) {
 				backedge = &loop->backedges[j];

@@ -746,7 +746,10 @@ struct bpf_loop {
 	int exits_cnt;
 	bool irreducible;
 	bool backedges_overflow;
+	/* @exits is cut at MAX_LOOP_EXITS. Only a loop around this one needs all of them. */
 	bool exits_overflow;
+	/* @exits of a loop in this one is cut. Then @exits of this loop can lack exits too. */
+	bool nested_exits_overflow;
 	/*
 	 * Loop-entry registers used to compute stack addresses for loads,
 	 * stores and calls requiring fixed stack offsets, in this and nested

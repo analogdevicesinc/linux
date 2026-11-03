@@ -1260,10 +1260,16 @@ static int join_successor(struct bpf_verifier_env *env, int cur_header, int succ
 	return 0;
 }
 
-/* Unsupported loops get only an unknown header environment. */
+/*
+ * Unsupported loops get only an unknown header environment.
+ * A nested loop is processed as a single instruction, its exits are the successors: all of
+ * them are needed. No result for the loop itself depends on the list of its own exits:
+ * mark_latches() prepares them for the loop around, and compute_max_iters() asks if there is
+ * only one, which a list that is cut does not have.
+ */
 static bool can_compute_loop_scev(const struct bpf_loop *loop)
 {
-	return !loop->irreducible && !loop->exits_overflow;
+	return !loop->irreducible && !loop->nested_exits_overflow;
 }
 
 static int compute_scev_for_loop(struct bpf_verifier_env *env, int cur_header)
@@ -3050,12 +3056,13 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 	 */
 	loop = aux[insn_idx].loop;
 	if (!loop || loop->irreducible || loop->backedges_cnt != 1 || loop->backedges_overflow ||
-	    loop->exits_overflow) {
+	    loop->nested_exits_overflow) {
 		if (log->level & BPF_LOG_LEVEL2)
 			bpf_log(log, "loop header at %d, unsupported loop:%s%s%s\n", insn_idx,
 				!loop || loop->irreducible ? " irreducible" : "",
 				loop && loop->backedges_cnt > 1 ? " multiple backedges" : "",
-				loop && loop->exits_overflow ? " too many exits" : "");
+				loop && loop->nested_exits_overflow ?
+				" too many exits of a nested loop" : "");
 		return 0;
 	}
 
