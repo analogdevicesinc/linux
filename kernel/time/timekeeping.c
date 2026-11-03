@@ -1778,6 +1778,7 @@ static int __timekeeping_inject_offset(struct tk_data *tkd, const struct timespe
 		struct tk_read_base *tkr_mono = &tks->tkr_mono;
 		ktime_t now, offs;
 
+		tk_update_ktime_data(tks);
 		/* Get the current time */
 		now = ktime_add_ns(tkr_mono->base, timekeeping_get_ns(tkr_mono));
 		/* Add the relative offset change */
