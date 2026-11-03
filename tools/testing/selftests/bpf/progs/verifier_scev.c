@@ -858,15 +858,15 @@ PRE__COND_TEST (pre_gt_sign,       "<=",  ITER_S64_MIN + 1,           -1, ITER_S
  *        r6 += 2;                   // unreachable
  *    }
  */
-PRE__COND_TEST (pre_lt_false,      ">=",                 7,            2,                7, "can't compute iterations count")
-PRE__COND_TEST (pre_le_false,      ">",                  8,            2,                7, "can't compute iterations count")
-PRE__COND_TEST (pre_gt_false,      "<=",                 3,           -2,                3, "can't compute iterations count")
-PRE__COND_TEST (pre_ge_false,      "<",                  2,           -2,                3, "can't compute iterations count")
-PRE__COND_TEST (pre_slt_false,     "s>=",                1,            2,                1, "can't compute iterations count")
-PRE__COND_TEST (pre_sle_false,     "s>",                 2,            2,                1, "can't compute iterations count")
-PRE__COND_TEST (pre_sgt_false,     "s<=",               -1,           -2,               -1, "can't compute iterations count")
-PRE__COND_TEST (pre_sge_false,     "s<",                -2,           -2,               -1, "can't compute iterations count")
-PRE__COND_TEST (pre_ne_false,      "==",                 7,            2,                7, "can't compute iterations count")
+PRE__COND_TEST (pre_lt_false,      ">=",                 7,            2,                7, "header_count is 1 ")
+PRE__COND_TEST (pre_le_false,      ">",                  8,            2,                7, "header_count is 1 ")
+PRE__COND_TEST (pre_gt_false,      "<=",                 3,           -2,                3, "header_count is 1 ")
+PRE__COND_TEST (pre_ge_false,      "<",                  2,           -2,                3, "header_count is 1 ")
+PRE__COND_TEST (pre_slt_false,     "s>=",                1,            2,                1, "header_count is 1 ")
+PRE__COND_TEST (pre_sle_false,     "s>",                 2,            2,                1, "header_count is 1 ")
+PRE__COND_TEST (pre_sgt_false,     "s<=",               -1,           -2,               -1, "header_count is 1 ")
+PRE__COND_TEST (pre_sge_false,     "s<",                -2,           -2,               -1, "header_count is 1 ")
+PRE__COND_TEST (pre_ne_false,      "==",                 7,            2,                7, "header_count is 1 ")
 
 /*
  * The counter moves away from the exit; bound fallback verification.

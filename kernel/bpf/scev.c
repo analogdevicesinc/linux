@@ -2274,11 +2274,49 @@ static bool is_signed_op(u8 op)
 	}
 }
 
-static bool compute_backedge_taken_count(u8 op, u64 initial, u64 step, u64 bound, u64 *result)
+/*
+ * Is the latch false in the first iteration, whatever the first value and the bound are in
+ * their ranges? For a signed comparison the sign bit is flipped, see struct latch_domain.
+ */
+static bool latch_false_at_once(u8 op, u64 imin, u64 imax, u64 bmin, u64 bmax)
 {
-	u64 rem, diff, backedge_taken_count;
+	switch (op) {
+	case BPF_JLT:
+	case BPF_JSLT:
+		return imin >= bmax;
+	case BPF_JLE:
+	case BPF_JSLE:
+		return imin > bmax;
+	case BPF_JGT:
+	case BPF_JSGT:
+		return imax <= bmin;
+	case BPF_JGE:
+	case BPF_JSGE:
+		return imax < bmin;
+	case BPF_JNE:
+		return imin == bmax && imax == bmin;
+	default:
+		return false;
+	}
+}
+
+static bool compute_backedge_taken_count(u8 op, bool ptrs, u64 initial, u64 step, u64 bound,
+					 u64 *result)
+{
+	u64 rem, diff, backedge_taken_count, bias = is_signed_op(op) || ptrs ? 1ULL << 63 : 0;
 	bool up, down;
 
+	/*
+	 * The back edge is not taken. That is a count, and a better one than that of
+	 * another exit, which may be true for a long time.
+	 * @ptrs: the numbers are offsets from one base. Addresses have the order of signed
+	 * offsets, see compute_backedge_taken_max(). The formulas below give up on an offset
+	 * that gets to the other side of 0.
+	 */
+	if (latch_false_at_once(op, initial ^ bias, initial ^ bias, bound ^ bias, bound ^ bias)) {
+		*result = 0;
+		return true;
+	}
 	if (step == 0)
 		return false;
 	down = (s64)step < 0;
@@ -2293,13 +2331,10 @@ static bool compute_backedge_taken_count(u8 op, u64 initial, u64 step, u64 bound
 		 * The backedge_taken_count is the size of this set.
 		 */
 		if (/*
-		     * If the condition is initially true, decreasing values won't
-		     * change that without underflow. If the condition is initially false,
-		     * the main pass would do a single iteration anyway.
+		     * The condition is initially true, decreasing values won't
+		     * change that without underflow.
 		     */
 		    down ||
-		    /* Is the latch condition false on the first iteration? */
-		    initial >= bound ||
 		    /* Count iterations satisfying the strict inequality, including i=0. */
 		    check_add_overflow(div64_u64(diff - 1, step), 1, &backedge_taken_count) ||
 		    /*
@@ -2311,7 +2346,7 @@ static bool compute_backedge_taken_count(u8 op, u64 initial, u64 step, u64 bound
 		break;
 	case BPF_JLE:
 		/* E.g.: 3 + 2*i ≤ 7 ⇔ 2*i ≤ 4 ⇔ i ∈ [0,1,2]. */
-		if (down || initial > bound ||
+		if (down ||
 		    /* Count iterations satisfying the non-strict inequality. */
 		    check_add_overflow(div64_u64(diff, step), 1, &backedge_taken_count) ||
 		    backedge_taken_count > div64_u64(U64_MAX - initial, step))
@@ -2319,7 +2354,7 @@ static bool compute_backedge_taken_count(u8 op, u64 initial, u64 step, u64 bound
 		break;
 	case BPF_JGT:
 		/* E.g.: 7 - 2*i > 3 ⇔ 2*i < 4 ⇔ i ∈ [0,1]. */
-		if (up || initial <= bound ||
+		if (up ||
 		    check_add_overflow(div64_u64(-diff - 1, -step), 1, &backedge_taken_count) ||
 		    /*
 		     * The last iteration underflows the counter if:
@@ -2333,13 +2368,13 @@ static bool compute_backedge_taken_count(u8 op, u64 initial, u64 step, u64 bound
 		break;
 	case BPF_JGE:
 		/* E.g.: 7 - 2*i ≥ 3 ⇔ 2*i ≤ 4 ⇔ i ∈ [0,1,2]. */
-		if (up || initial < bound ||
+		if (up ||
 		    check_add_overflow(div64_u64(-diff, -step), 1, &backedge_taken_count) ||
 		    backedge_taken_count > div64_u64(initial, -step))
 			return false;
 		break;
 	case BPF_JSLT:
-		if (down || (s64)initial >= (s64)bound ||
+		if (down ||
 		    check_add_overflow(div64_u64(diff - 1, step), 1, &backedge_taken_count) ||
 		    /*
 		     * Check if the last iteration overflows the signed counter:
@@ -2349,13 +2384,13 @@ static bool compute_backedge_taken_count(u8 op, u64 initial, u64 step, u64 bound
 			return false;
 		break;
 	case BPF_JSLE:
-		if (down || (s64)initial > (s64)bound ||
+		if (down ||
 		    check_add_overflow(div64_u64(diff, step), 1, &backedge_taken_count) ||
 		    backedge_taken_count > div64_u64((u64)S64_MAX - initial, step))
 			return false;
 		break;
 	case BPF_JSGT:
-		if (up || (s64)initial <= (s64)bound ||
+		if (up ||
 		    check_add_overflow(div64_u64(-diff - 1, -step), 1, &backedge_taken_count) ||
 		    /*
 		     * The last iteration underflows the signed counter if:
@@ -2368,7 +2403,7 @@ static bool compute_backedge_taken_count(u8 op, u64 initial, u64 step, u64 bound
 			return false;
 		break;
 	case BPF_JSGE:
-		if (up || (s64)initial < (s64)bound ||
+		if (up ||
 		    check_add_overflow(div64_u64(-diff, -step), 1, &backedge_taken_count) ||
 		    backedge_taken_count > div64_u64(initial - (u64)S64_MIN, -step))
 			return false;
@@ -2381,7 +2416,7 @@ static bool compute_backedge_taken_count(u8 op, u64 initial, u64 step, u64 bound
 		diff = down ? -diff : diff;
 		step = down ? -step : step;
 		backedge_taken_count = div64_u64_rem(diff, step, &rem);
-		if (diff == 0 || rem != 0)
+		if (rem != 0)
 			return false;
 		break;
 	default:
@@ -2573,6 +2608,10 @@ static bool compute_backedge_taken_max(struct bpf_verifier_env *env, struct bpf_
 	if (initial->ptr_reg >= 0 &&
 	    (d.imin < d.lo || d.imax > d.hi || d.bmin < d.lo || d.bmax > d.hi))
 		return false;
+	if (latch_false_at_once(latch->op, d.imin, d.imax, d.bmin, d.bmax)) {
+		*result = 0;
+		return true;
+	}
 
 	/*
 	 * The value that ends the loop must not wrap around. It is less than a step
@@ -2581,7 +2620,7 @@ static bool compute_backedge_taken_max(struct bpf_verifier_env *env, struct bpf_
 	switch (latch->op) {
 	case BPF_JLT:
 	case BPF_JSLT:
-		if (down || d.imin >= d.bmax ||
+		if (down ||
 		    check_add_overflow(div64_u64(d.bmax - d.imin - 1, step), 1, &cnt) ||
 		    d.bmax > d.hi || step - 1 > d.hi - d.bmax)
 			return false;
@@ -2589,7 +2628,7 @@ static bool compute_backedge_taken_max(struct bpf_verifier_env *env, struct bpf_
 		break;
 	case BPF_JLE:
 	case BPF_JSLE:
-		if (down || d.imin > d.bmax ||
+		if (down ||
 		    check_add_overflow(div64_u64(d.bmax - d.imin, step), 1, &cnt) ||
 		    d.bmax > d.hi || step > d.hi - d.bmax)
 			return false;
@@ -2597,7 +2636,7 @@ static bool compute_backedge_taken_max(struct bpf_verifier_env *env, struct bpf_
 		break;
 	case BPF_JGT:
 	case BPF_JSGT:
-		if (!down || d.imax <= d.bmin ||
+		if (!down ||
 		    check_add_overflow(div64_u64(d.imax - d.bmin - 1, step), 1, &cnt) ||
 		    d.bmin < d.lo || step - 1 > d.bmin - d.lo)
 			return false;
@@ -2605,7 +2644,7 @@ static bool compute_backedge_taken_max(struct bpf_verifier_env *env, struct bpf_
 		break;
 	case BPF_JGE:
 	case BPF_JSGE:
-		if (!down || d.imax < d.bmin ||
+		if (!down ||
 		    check_add_overflow(div64_u64(d.imax - d.bmin, step), 1, &cnt) ||
 		    d.bmin < d.lo || step > d.bmin - d.lo)
 			return false;
@@ -2766,7 +2805,8 @@ static bool compute_max_iters(struct bpf_verifier_env *env,
 	}
 
 
-	if (!compute_backedge_taken_count(op, initial, step, bound, &backedge_taken_count))
+	if (!compute_backedge_taken_count(op, initial_val.ptr_reg >= 0, initial, step, bound,
+					  &backedge_taken_count))
 		return false;
 
 	/*
@@ -2789,7 +2829,9 @@ static bool compute_max_iters(struct bpf_verifier_env *env,
 	}
 
 counted:
-	*false_until = latch_false_until(latch, &initial_val, &step_val, &bound_val,
+	/* A latch that is false at once may be on its way to the values for which it's true. */
+	*false_until = !backedge_taken_count ? 0 :
+		       latch_false_until(latch, &initial_val, &step_val, &bound_val,
 					 backedge_taken_count);
 	/* The header executes once on entry and once for each taken backedge, hence +1. */
 	iters->max_header_count = backedge_taken_count + 1;
