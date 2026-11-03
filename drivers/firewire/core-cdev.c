@@ -55,9 +55,9 @@ struct client {
 	struct fw_device *device;
 
 	struct mutex mutex;
-	bool in_shutdown;
+	bool in_shutdown __guarded_by(mutex);
 	struct xarray resource_xa;
-	struct list_head event_list;
+	struct list_head event_list __guarded_by(mutex);
 	wait_queue_head_t wait;
 	wait_queue_head_t tx_flush_wait;
 	u64 bus_reset_closure;
@@ -317,7 +317,7 @@ static int fw_device_op_open(struct inode *inode, struct file *file)
 	client->device = device;
 	mutex_init(&client->mutex);
 	xa_init_flags(&client->resource_xa, XA_FLAGS_ALLOC1 | XA_FLAGS_LOCK_BH);
-	INIT_LIST_HEAD(&client->event_list);
+	context_unsafe(INIT_LIST_HEAD(&client->event_list));
 	init_waitqueue_head(&client->wait);
 	init_waitqueue_head(&client->tx_flush_wait);
 	context_unsafe(INIT_LIST_HEAD(&client->phy_receiver_link));
@@ -1960,8 +1960,10 @@ static int fw_device_op_release(struct inode *inode, struct file *file)
 	}
 	xa_destroy(&client->resource_xa);
 
-	list_for_each_entry_safe(event, next_event, &client->event_list, link)
-		kfree(event);
+	scoped_guard(mutex, &client->mutex) {
+		list_for_each_entry_safe(event, next_event, &client->event_list, link)
+			kfree(event);
+	}
 
 	client_put(client);
 
@@ -1977,7 +1979,8 @@ static __poll_t fw_device_op_poll(struct file *file, poll_table * pt)
 
 	if (fw_device_is_shutdown(client->device))
 		mask |= EPOLLHUP | EPOLLERR;
-	if (!list_empty(&client->event_list))
+
+	if (context_unsafe(!list_empty(&client->event_list)))
 		mask |= EPOLLIN | EPOLLRDNORM;
 
 	return mask;
