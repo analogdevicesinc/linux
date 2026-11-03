@@ -66,6 +66,10 @@ BTF_SET_START(bpf_lsm_current_hooks)
 #ifdef CONFIG_SECURITY_NETWORK
 BTF_ID(func, bpf_lsm_sk_alloc_security)
 BTF_ID(func, bpf_lsm_sk_free_security)
+/* sock->sk is NULL in sock_create_lite() */
+BTF_ID(func, bpf_lsm_socket_post_create)
+/* sock is NULL in ip_cmsg_recv_security() */
+BTF_ID(func, bpf_lsm_socket_getpeersec_dgram)
 #endif
 BTF_SET_END(bpf_lsm_current_hooks)
 
@@ -95,6 +99,7 @@ void bpf_lsm_find_cgroup_shim(const struct bpf_prog *prog,
 			     bpf_func_t *bpf_func)
 {
 	const struct btf_param *args __maybe_unused;
+	u32 id __maybe_unused = 0;
 
 	if (btf_type_vlen(prog->aux->attach_func_proto) < 1 ||
 	    btf_id_set_contains(&bpf_lsm_current_hooks,
@@ -105,10 +110,12 @@ void bpf_lsm_find_cgroup_shim(const struct bpf_prog *prog,
 
 #ifdef CONFIG_NET
 	args = btf_params(prog->aux->attach_func_proto);
+	/* args[0].type is the id of the pointer. btf_sock_ids[] has structs. */
+	btf_type_resolve_ptr(prog->aux->attach_btf, args[0].type, &id);
 
-	if (args[0].type == btf_sock_ids[BTF_SOCK_TYPE_SOCKET])
+	if (id == btf_sock_ids[BTF_SOCK_TYPE_SOCKET])
 		*bpf_func = __cgroup_bpf_run_lsm_socket;
-	else if (args[0].type == btf_sock_ids[BTF_SOCK_TYPE_SOCK])
+	else if (id == btf_sock_ids[BTF_SOCK_TYPE_SOCK])
 		*bpf_func = __cgroup_bpf_run_lsm_sock;
 	else
 #endif
