@@ -3930,6 +3930,8 @@ static inline void *mas_next_no_node(struct ma_state *mas)
 static inline void *mas_prev_no_node(struct ma_state *mas, unsigned long index,
 		unsigned long min)
 {
+	void *entry;
+
 	mas->index = 0;
 	if (mas_is_none(mas)) {
 		mas->last = ULONG_MAX;
@@ -3940,7 +3942,13 @@ static inline void *mas_prev_no_node(struct ma_state *mas, unsigned long index,
 	if (!index || min)
 		return NULL;
 
-	return mas_root(mas);
+	entry = mas_root(mas);
+	if (!entry) {
+		mas->status = ma_none;
+		mas->last = ULONG_MAX;
+	}
+
+	return entry;
 }
 
 /*
