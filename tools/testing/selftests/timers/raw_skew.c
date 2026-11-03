@@ -91,7 +91,7 @@ void get_monotonic_and_raw(struct timespec *mon, struct timespec *raw)
 
 int main(int argc, char **argv)
 {
-	struct timespec mon, raw, start, end;
+	struct timespec mon = {}, raw, start, end;
 	long long delta1, delta2, interval, eppm, ppm;
 	long tick_nom;
 	struct timex tx1, tx2;
