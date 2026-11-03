@@ -3748,8 +3748,10 @@ static void rvu_dbg_npc_init(struct rvu *rvu)
 	debugfs_create_file("mcam_rules", 0444, rvu->rvu_dbg.npc, rvu,
 			    &rvu_dbg_npc_mcam_rules_fops);
 
-	debugfs_create_file("rx_miss_act_stats", 0444, rvu->rvu_dbg.npc, rvu,
-			    &rvu_dbg_npc_rx_miss_act_fops);
+	/* RX miss action counter is not available on cn20k */
+	if (!is_cn20k(rvu->pdev))
+		debugfs_create_file("rx_miss_act_stats", 0444, rvu->rvu_dbg.npc,
+				    rvu, &rvu_dbg_npc_rx_miss_act_fops);
 
 	if (is_cn20k(rvu->pdev))
 		npc_cn20k_debugfs_init(rvu);
