@@ -263,8 +263,7 @@ xfs_refcount_update(
 int
 xfs_refcount_insert(
 	struct xfs_btree_cur		*cur,
-	struct xfs_refcount_irec	*irec,
-	int				*i)
+	struct xfs_refcount_irec	*irec)
 {
 	int				error;
 
@@ -275,16 +274,7 @@ xfs_refcount_insert(
 	cur->bc_rec.rc.rc_refcount = irec->rc_refcount;
 	cur->bc_rec.rc.rc_domain = irec->rc_domain;
 
-	error = xfs_btree_insert(cur, i);
-	if (error)
-		goto out_error;
-	if (XFS_IS_CORRUPT(cur->bc_mp, *i != 1)) {
-		xfs_btree_mark_sick(cur);
-		error = -EFSCORRUPTED;
-		goto out_error;
-	}
-
-out_error:
+	error = xfs_btree_insert(cur);
 	if (error)
 		trace_xfs_refcount_insert_error(cur, error, _RET_IP_);
 	return error;
@@ -298,8 +288,7 @@ out_error:
  */
 STATIC int
 xfs_refcount_delete(
-	struct xfs_btree_cur	*cur,
-	int			*i)
+	struct xfs_btree_cur	*cur)
 {
 	struct xfs_refcount_irec	irec;
 	int			found_rec;
@@ -314,12 +303,7 @@ xfs_refcount_delete(
 		goto out_error;
 	}
 	trace_xfs_refcount_delete(cur, &irec);
-	error = xfs_btree_delete(cur, i);
-	if (XFS_IS_CORRUPT(cur->bc_mp, *i != 1)) {
-		xfs_btree_mark_sick(cur);
-		error = -EFSCORRUPTED;
-		goto out_error;
-	}
+	error = xfs_btree_delete(cur);
 	if (error)
 		goto out_error;
 	error = xfs_refcount_lookup_ge(cur, irec.rc_domain, irec.rc_startblock,
@@ -463,15 +447,11 @@ xfs_refcount_split_extent(
 	/* Insert the left extent. */
 	tmp = rcext;
 	tmp.rc_blockcount = agbno - rcext.rc_startblock;
-	error = xfs_refcount_insert(cur, &tmp, &found_rec);
+	error = xfs_refcount_insert(cur, &tmp);
 	if (error)
 		goto out_error;
-	if (XFS_IS_CORRUPT(cur->bc_mp, found_rec != 1)) {
-		xfs_btree_mark_sick(cur);
-		error = -EFSCORRUPTED;
-		goto out_error;
-	}
-	return error;
+
+	return 0;
 
 out_error:
 	trace_xfs_refcount_split_extent_error(cur, error, _RET_IP_);
@@ -516,24 +496,14 @@ xfs_refcount_merge_center_extents(
 		goto out_error;
 	}
 
-	error = xfs_refcount_delete(cur, &found_rec);
+	error = xfs_refcount_delete(cur);
 	if (error)
 		goto out_error;
-	if (XFS_IS_CORRUPT(cur->bc_mp, found_rec != 1)) {
-		xfs_btree_mark_sick(cur);
-		error = -EFSCORRUPTED;
-		goto out_error;
-	}
 
 	if (center->rc_refcount > 1) {
-		error = xfs_refcount_delete(cur, &found_rec);
+		error = xfs_refcount_delete(cur);
 		if (error)
 			goto out_error;
-		if (XFS_IS_CORRUPT(cur->bc_mp, found_rec != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto out_error;
-		}
 	}
 
 	/* Enlarge the left extent. */
@@ -590,14 +560,9 @@ xfs_refcount_merge_left_extent(
 			goto out_error;
 		}
 
-		error = xfs_refcount_delete(cur, &found_rec);
+		error = xfs_refcount_delete(cur);
 		if (error)
 			goto out_error;
-		if (XFS_IS_CORRUPT(cur->bc_mp, found_rec != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto out_error;
-		}
 	}
 
 	/* Enlarge the left extent. */
@@ -657,14 +622,9 @@ xfs_refcount_merge_right_extent(
 			goto out_error;
 		}
 
-		error = xfs_refcount_delete(cur, &found_rec);
+		error = xfs_refcount_delete(cur);
 		if (error)
 			goto out_error;
-		if (XFS_IS_CORRUPT(cur->bc_mp, found_rec != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto out_error;
-		}
 	}
 
 	/* Enlarge the right extent. */
@@ -1154,7 +1114,7 @@ xfs_refcount_adjust_extents(
 {
 	struct xfs_refcount_irec	ext, tmp;
 	int				error;
-	int				found_rec, found_tmp;
+	int				found_rec;
 
 	/* Merging did all the work already. */
 	if (*aglen == 0)
@@ -1196,16 +1156,9 @@ xfs_refcount_adjust_extents(
 			 */
 			cur->bc_refc.nr_ops++;
 			if (tmp.rc_refcount) {
-				error = xfs_refcount_insert(cur, &tmp,
-						&found_tmp);
+				error = xfs_refcount_insert(cur, &tmp);
 				if (error)
 					goto out_error;
-				if (XFS_IS_CORRUPT(cur->bc_mp,
-						   found_tmp != 1)) {
-					xfs_btree_mark_sick(cur);
-					error = -EFSCORRUPTED;
-					goto out_error;
-				}
 			} else {
 				error = xrefc_free_extent(cur, &tmp);
 				if (error)
@@ -1255,14 +1208,9 @@ xfs_refcount_adjust_extents(
 			if (error)
 				goto out_error;
 		} else if (ext.rc_refcount == 1) {
-			error = xfs_refcount_delete(cur, &found_rec);
+			error = xfs_refcount_delete(cur);
 			if (error)
 				goto out_error;
-			if (XFS_IS_CORRUPT(cur->bc_mp, found_rec != 1)) {
-				xfs_btree_mark_sick(cur);
-				error = -EFSCORRUPTED;
-				goto out_error;
-			}
 			goto advloop;
 		} else {
 			error = xrefc_free_extent(cur, &ext);
@@ -1803,7 +1751,7 @@ xfs_refcount_adjust_cow_extents(
 {
 	struct xfs_refcount_irec	ext, tmp;
 	int				error;
-	int				found_rec, found_tmp;
+	int				found_rec;
 
 	if (aglen == 0)
 		return 0;
@@ -1846,15 +1794,9 @@ xfs_refcount_adjust_cow_extents(
 
 		trace_xfs_refcount_modify_extent(cur, &tmp);
 
-		error = xfs_refcount_insert(cur, &tmp,
-				&found_tmp);
+		error = xfs_refcount_insert(cur, &tmp);
 		if (error)
 			goto out_error;
-		if (XFS_IS_CORRUPT(cur->bc_mp, found_tmp != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto out_error;
-		}
 		break;
 	case XFS_REFCOUNT_ADJUST_COW_FREE:
 		/* Removing a CoW reservation, there should be one extent. */
@@ -1876,14 +1818,9 @@ xfs_refcount_adjust_cow_extents(
 
 		ext.rc_refcount = 0;
 		trace_xfs_refcount_modify_extent(cur, &ext);
-		error = xfs_refcount_delete(cur, &found_rec);
+		error = xfs_refcount_delete(cur);
 		if (error)
 			goto out_error;
-		if (XFS_IS_CORRUPT(cur->bc_mp, found_rec != 1)) {
-			xfs_btree_mark_sick(cur);
-			error = -EFSCORRUPTED;
-			goto out_error;
-		}
 		break;
 	default:
 		ASSERT(0);
