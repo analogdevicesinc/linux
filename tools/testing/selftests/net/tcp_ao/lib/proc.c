@@ -56,7 +56,7 @@ static struct netstat *lookup_get(struct netstat *ns,
 
 static struct netstat *lookup_get_column(struct netstat *ns, const char *line)
 {
-	char *column;
+	const char *column;
 
 	column = strchr(line, ':');
 	if (!column)
