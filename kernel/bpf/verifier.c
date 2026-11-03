@@ -465,6 +465,7 @@ static int bpf_compute_subprog_ret_regs(struct bpf_verifier_env *env)
 			return -EFAULT;
 		if (ret_regs_cnt(size) > 1) {
 			subprog_info(env, subprog)->ret_reg_pair = true;
+			subprog_aux(env, subprog)->ret_reg_pair = true;
 			env->prog->jit_required = 1;
 		}
 	}
@@ -22990,7 +22991,9 @@ int bpf_check_attach_target(struct bpf_verifier_log *log,
 				return ret;
 		}
 
-		if (tgt_info->fmodel.ret_size > 8 &&
+		/* The model for unreliable BTF has a u64. The function still returns R0:R2. */
+		if ((tgt_info->fmodel.ret_size > 8 ||
+		     (tgt_prog && tgt_prog->aux->func_info_aux[subprog].ret_reg_pair)) &&
 		    attach_uses_trampoline_retval(prog->expected_attach_type)) {
 			bpf_log(log,
 				"Attach to function %s with a >8 byte return value is not supported for this attach type\n",

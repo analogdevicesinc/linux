@@ -1763,6 +1763,8 @@ struct bpf_subprog_arg_info {
 struct bpf_func_info_aux {
 	u16 linkage;
 	bool unreliable;
+	/* The function returns in R0:R2 */
+	bool ret_reg_pair;
 	bool called[BPF_FUNC_CTX_CNT];
 	bool verified[BPF_FUNC_CTX_CNT];
 	bool called_with_pkt_ptrs;
