@@ -313,11 +313,6 @@ static const char * const fifo_names[] = {
 static const char fifo_names[6][1];
 #endif
 
-#ifdef DEBUG
-/* pointer to most recently allocated wl/wlc */
-static struct brcms_c_info *wlc_info_dbg = (struct brcms_c_info *) (NULL);
-#endif
-
 /* Mapping of ieee80211 AC numbers to tx fifos */
 static const u8 ac_to_fifo_mapping[IEEE80211_NUM_ACS] = {
 	[IEEE80211_AC_VO]	= TX_AC_VO_FIFO,
@@ -7874,10 +7869,6 @@ brcms_c_attach(struct brcms_info *wl, struct bcma_device *core, uint unit,
 		goto fail;
 	wlc->wiphy = wl->wiphy;
 	pub = wlc->pub;
-
-#if defined(DEBUG)
-	wlc_info_dbg = wlc;
-#endif
 
 	wlc->band = wlc->bandstate[0];
 	wlc->core = wlc->corestate;
