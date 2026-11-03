@@ -2238,6 +2238,44 @@ __naked void one_backedge_two_exits(void)
 	: __clobber_all);
 }
 
+__naked __noinline __used static int returns_zero(void)
+{
+	asm volatile ("					\
+	r0 = 0;						\
+	exit;						\
+"	::: __clobber_all);
+}
+
+/*
+ * A loop that the compiler unrolls in part has an exit for every 'break' and 'return' in every
+ * copy of its body. How many there are says nothing about the number of iterations.
+ * Scalar evolution takes a nested loop for one insn, and its exits are the successors of this insn.
+ * The list of exits is not complete: the loop around has no formulas.
+ */
+SEC("xdp")
+__success __log_level(2)
+__msg("loop at 1, too many exits, too many exits of a nested loop")
+__msg("loop at 2, nested in 1, too many exits")
+__msg("loop header at 1, unsupported loop: too many exits of a nested loop")
+__msg("loop header at 2, header_count is [0..4] ")
+__naked void loop_around_301_exits(void)
+{
+	asm volatile ("					\
+	r7 = 0;						\
+3:	r6 = 0;						\
+1:	call returns_zero;				\
+	.rept 300;					\
+	if r0 == 7 goto 2f;				\
+	.endr;						\
+	r6 += 1;					\
+	if r6 != 4 goto 1b;				\
+	r7 += 1;					\
+	if r7 != 4 goto 3b;				\
+2:	r0 = 0;						\
+	exit;						\
+"	::: __clobber_all);
+}
+
 SEC("xdp")
 __success
 __log_level(2)
