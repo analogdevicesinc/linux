@@ -1009,7 +1009,7 @@ static void l2tp_session_queue_purge(struct l2tp_session *session)
 }
 
 /* UDP encapsulation receive handler. See net/ipv4/udp.c for details. */
-int l2tp_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+static int l2tp_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
 {
 	struct l2tp_session *session = NULL;
 	struct l2tp_tunnel *tunnel = NULL;
@@ -1108,7 +1108,6 @@ pass:
 
 	return 1;
 }
-EXPORT_SYMBOL_GPL(l2tp_udp_encap_recv);
 
 /* UDP encapsulation receive error handler. See net/ipv4/udp.c for details. */
 static void l2tp_udp_encap_err_recv(struct sock *sk, struct sk_buff *skb, int err,
