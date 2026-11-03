@@ -11325,6 +11325,20 @@ static void gen_subprog_arg_proto(const struct bpf_subprog_info *sub, const stru
 	}
 }
 
+/*
+ * The argument slots that the code of a static subprog takes, whatever its BTF says.
+ * Liveness errs on the safe side: a callx in the subprog counts as a read of r1-r5.
+ * But it misses r3-r5 of bpf_trace_printk() and the flags of bpf_get_branch_snapshot(), which
+ * their protos do not declare. Such a subprog prints or passes a wrong number under a tracer.
+ * The helpers are safe with any value there: the verifier never checks these registers.
+ */
+static u32 code_arg_slots(struct bpf_verifier_env *env, struct bpf_subprog_info *sub)
+{
+	u32 live_regs = env->insn_aux_data[sub->start].live_regs_before;
+
+	return fls((live_regs & GENMASK(BPF_REG_5, BPF_REG_1)) >> BPF_REG_1);
+}
+
 static int btf_check_func_arg_match(struct bpf_verifier_env *env, int subprog, struct btf *btf)
 {
 	struct bpf_subprog_info *sub = subprog_info(env, subprog);
@@ -11361,10 +11375,13 @@ static int btf_check_func_arg_match(struct bpf_verifier_env *env, int subprog, s
 	meta.func_proto = func_proto;
 
 	/*
-	 * Check if all register arguments declared in BTF are initialized.
-	 * If they aren't the BTF is unreliable.
+	 * Check if all register arguments declared in BTF are initialized,
+	 * and if the code takes no other arguments: a trampoline keeps only
+	 * what BTF declares. If not, the BTF is unreliable.
 	 */
 	if (!bpf_subprog_is_global(env, subprog)) {
+		if (code_arg_slots(env, sub) > sub->arg_slot_cnt)
+			return -EINVAL;
 		for (i = 0; i < min_t(u32, sub->arg_slot_cnt, MAX_BPF_FUNC_REG_ARGS); i++)
 			if (caller->regs[BPF_REG_1 + i].type == NOT_INIT)
 				return -EINVAL;
