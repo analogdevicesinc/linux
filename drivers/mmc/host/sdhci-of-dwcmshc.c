@@ -1120,6 +1120,15 @@ static int sg2042_init(struct device *dev, struct sdhci_host *host,
 					     ARRAY_SIZE(clk_ids), clk_ids);
 }
 
+static int dwcmshc_adsp_sc598_init(struct device *dev, struct sdhci_host *host,
+				   struct dwcmshc_priv *dwc_priv)
+{
+	static const char * const clk_ids[] = {"timer"};
+
+	return dwcmshc_get_enable_other_clks(mmc_dev(host->mmc), dwc_priv,
+					     ARRAY_SIZE(clk_ids), clk_ids);
+}
+
 static const struct sdhci_ops sdhci_dwcmshc_ops = {
 	.set_clock		= sdhci_set_clock,
 	.set_bus_width		= sdhci_set_bus_width,
@@ -1200,6 +1209,15 @@ static const struct dwcmshc_pltfm_data sdhci_dwcmshc_pdata = {
 		.quirks = SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN,
 		.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 	},
+};
+
+static const struct dwcmshc_pltfm_data sdhci_dwcmshc_adsp_sc598_pdata = {
+	.pdata = {
+		.ops = &sdhci_dwcmshc_ops,
+		.quirks = SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN,
+		.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+	},
+	.init = dwcmshc_adsp_sc598_init,
 };
 
 #ifdef CONFIG_ACPI
@@ -1342,6 +1360,10 @@ static const struct of_device_id sdhci_dwcmshc_dt_ids[] = {
 	{
 		.compatible = "rockchip,rk3568-dwcmshc",
 		.data = &sdhci_dwcmshc_rk35xx_pdata,
+	},
+	{
+		.compatible = "adi,adsp-sc598-dwcmshc",
+		.data = &sdhci_dwcmshc_adsp_sc598_pdata,
 	},
 	{
 		.compatible = "snps,dwcmshc-sdhci",
