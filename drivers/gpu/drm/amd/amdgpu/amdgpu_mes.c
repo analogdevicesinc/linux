@@ -109,6 +109,7 @@ static inline u32 amdgpu_mes_get_hqd_mask(u32 num_pipe,
 }
 
 static void amdgpu_mes_userq_notify_unmap_work_handler(struct work_struct *work);
+static void amdgpu_mes_dbgext_work_fn(struct work_struct *work);
 
 int amdgpu_mes_init(struct amdgpu_device *adev)
 {
@@ -129,6 +130,8 @@ int amdgpu_mes_init(struct amdgpu_device *adev)
 	mutex_init(&adev->mes.dbgext_lock);
 	mutex_init(&adev->mes.dbgext_drain_lock);
 	spin_lock_init(&adev->mes.dbgext_notify_lock);
+	/* stopping the debug extension cancels it, even if it never started */
+	INIT_WORK(&adev->mes.dbgext_work, amdgpu_mes_dbgext_work_fn);
 
 	for (i = 0; i < AMDGPU_MAX_MES_PIPES * num_xcc; i++)
 		spin_lock_init(&adev->mes.ring_lock[i]);
@@ -1765,7 +1768,6 @@ static int amdgpu_mes_dbgext_start_locked(struct amdgpu_device *adev)
 			return r;
 		}
 		mes->dbgext_log_size = size;
-		INIT_WORK(&mes->dbgext_work, amdgpu_mes_dbgext_work_fn);
 	} else {
 		/*
 		 * Resume: the log buffer is kept allocated across a suspend/
