@@ -877,9 +877,12 @@ PRE__COND_TEST (pre_ne_false,      "==",                 7,            2,       
  *    while (++r9 <= 8 && r6 < 7) {  // r6 ∈ [5,3,1,U64_MAX]
  *        r6 -= 2;                   // r6 ∈ [3,1,U64_MAX]
  *    }
+ *
+ * From above S64_MAX it's a long way down.
  */
 PRE__COND_TEST2(pre_lt_dir,        ">=",                 5,           -2,                7, "header_count is [0..4] ")
 PRE__COND_TEST2(pre_le_dir,        ">",                  5,           -2,                7, "header_count is [0..4] ")
+PRE__COND_TEST2(pre_lt_dir_high,   ">=",  ITER_S64_MIN + 5,           -2, ITER_S64_MIN + 7, "can't compute iterations count")
 
 /*
  * The counter moves away from the exit; bound fallback verification.
@@ -1011,6 +1014,12 @@ POST_COND_TEST32(post32_le,        "<=",                   -9,    2,            
 POST_COND_TEST32(post32_gt,        ">",                    -1,  -2u,               -7, "header_count is [0..3] ")
 POST_COND_TEST32(post32_ge,        ">=",                   -1,  -2u,               -7, "header_count is [0..4] ")
 POST_COND_TEST32(post32_ne,        "!=",                   -1,  -2u,               -7, "header_count is [0..3] ")
+/* across 0: in order as signed numbers. From 4 up to 1 goes all the way around. */
+POST_COND_TEST32(post32_ne_to_m1,   "!=",                    3,  -1u,               -1, "header_count is [0..4] ")
+POST_COND_TEST32(post32_ne_to_0,    "!=",                   -4,    1,                0, "header_count is [0..4] ")
+POST_COND_TEST32(post32_ne_to_m1_2, "!=",                    3,  -2u,               -1, "header_count is [0..2] ")
+POST_COND_TEST32(post32_ne_miss,    "!=",                    4,  -2u,               -1, "can't compute iterations count")
+POST_COND_TEST32(post32_ne_around,  "!=",                    4,    1,                1, "can't compute iterations count")
 
 /* An exit exactly at S32_MAX is accepted as well. */
 POST_COND_TEST32(post32_slt_max,   "s<",        INT32_MAX - 6,    2,        INT32_MAX, "header_count is [0..3] ")
