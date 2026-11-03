@@ -648,6 +648,10 @@ int cfg80211_assoc_ml_reconf(struct cfg80211_registered_device *rdev,
 			     struct net_device *dev,
 			     struct cfg80211_ml_reconf_req *req);
 
+int cfg80211_prepare_st(struct cfg80211_registered_device *rdev,
+			struct net_device *dev,
+			struct cfg80211_st_prep_request *req);
+
 /**
  * struct cfg80211_colocated_ap - colocated AP information
  *

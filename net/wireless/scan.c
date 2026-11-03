@@ -3481,13 +3481,12 @@ void cfg80211_bss_iter(struct wiphy *wiphy,
 }
 EXPORT_SYMBOL(cfg80211_bss_iter);
 
-void cfg80211_update_assoc_bss_entry(struct wireless_dev *wdev,
-				     unsigned int link_id,
-				     struct ieee80211_channel *chan)
+static void cfg80211_update_bss_channel(struct wireless_dev *wdev,
+				       struct cfg80211_internal_bss *cbss,
+				       struct ieee80211_channel *chan)
 {
 	struct wiphy *wiphy = wdev->wiphy;
 	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
-	struct cfg80211_internal_bss *cbss = wdev->links[link_id].client.current_bss;
 	struct cfg80211_internal_bss *new = NULL;
 	struct cfg80211_internal_bss *bss;
 	struct cfg80211_bss *nontrans_bss;
@@ -3549,6 +3548,25 @@ void cfg80211_update_assoc_bss_entry(struct wireless_dev *wdev,
 done:
 	spin_unlock_bh(&rdev->bss_lock);
 }
+
+void cfg80211_update_assoc_bss_entry(struct wireless_dev *wdev,
+				     unsigned int link_id,
+				     struct ieee80211_channel *chan)
+{
+	cfg80211_update_bss_channel(wdev,
+				    wdev->links[link_id].client.current_bss,
+				    chan);
+}
+
+void cfg80211_st_update_bss_channel(struct net_device *dev,
+				    struct cfg80211_bss *bss,
+				    struct ieee80211_channel *chan)
+{
+	lockdep_assert_wiphy(dev->ieee80211_ptr->wiphy);
+
+	cfg80211_update_bss_channel(dev->ieee80211_ptr, bss_from_pub(bss), chan);
+}
+EXPORT_SYMBOL(cfg80211_st_update_bss_channel);
 
 #ifdef CONFIG_CFG80211_WEXT
 static struct cfg80211_registered_device *

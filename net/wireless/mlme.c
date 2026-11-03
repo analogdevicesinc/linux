@@ -211,6 +211,20 @@ void cfg80211_auth_timeout(struct net_device *dev, const u8 *addr)
 }
 EXPORT_SYMBOL(cfg80211_auth_timeout);
 
+static void cfg80211_unhold_link_bss_list(struct wiphy *wiphy,
+					  struct cfg80211_bss **links)
+{
+	for (int i = 0; i < IEEE80211_MLD_MAX_NUM_LINKS; i++) {
+		struct cfg80211_bss *bss = links[i];
+
+		if (!bss)
+			continue;
+
+		cfg80211_unhold_bss(bss_from_pub(bss));
+		cfg80211_put_bss(wiphy, bss);
+	}
+}
+
 void cfg80211_assoc_failure(struct net_device *dev,
 			    struct cfg80211_assoc_failure *data)
 {
@@ -218,7 +232,6 @@ void cfg80211_assoc_failure(struct net_device *dev,
 	struct wiphy *wiphy = wdev->wiphy;
 	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
 	const u8 *addr = data->ap_mld_addr ?: data->bss[0]->bssid;
-	int i;
 
 	trace_cfg80211_send_assoc_failure(dev, data);
 
@@ -229,15 +242,7 @@ void cfg80211_assoc_failure(struct net_device *dev,
 		cfg80211_sme_abandon_assoc(wdev);
 	}
 
-	for (i = 0; i < ARRAY_SIZE(data->bss); i++) {
-		struct cfg80211_bss *bss = data->bss[i];
-
-		if (!bss)
-			continue;
-
-		cfg80211_unhold_bss(bss_from_pub(bss));
-		cfg80211_put_bss(wiphy, bss);
-	}
+	cfg80211_unhold_link_bss_list(wiphy, data->bss);
 }
 EXPORT_SYMBOL(cfg80211_assoc_failure);
 
@@ -1577,3 +1582,204 @@ void cfg80211_mlo_reconf_add_done(struct net_device *dev,
 	nl80211_mlo_reconf_add_done(dev, data);
 }
 EXPORT_SYMBOL(cfg80211_mlo_reconf_add_done);
+
+static bool cfg80211_st_check_ssid(struct wireless_dev *wdev,
+				   struct cfg80211_st_prep_request *req)
+{
+	if (!wdev->u.client.ssid_len)
+		return false;
+
+	guard(rcu)();
+
+	for (int link_id = 0; link_id < ARRAY_SIZE(req->links); link_id++) {
+		const struct element *ssid;
+
+		if (!req->links[link_id].bss)
+			continue;
+
+		/*
+		 * Check SSID, but don't bother for hidden networks.
+		 * Yes, this ignores the old-style "zeroed out SSID"
+		 * hidden networks, I _really_ hope those don't exist
+		 * any more ...
+		 */
+		ssid = ieee80211_bss_get_elem(req->links[link_id].bss,
+					      WLAN_EID_SSID);
+		if (!ssid ||
+		    (ssid->datalen &&
+		     (ssid->datalen != wdev->u.client.ssid_len ||
+		      memcmp(ssid->data, wdev->u.client.ssid, ssid->datalen))))
+			return false;
+	}
+
+	return true;
+}
+
+int cfg80211_prepare_st(struct cfg80211_registered_device *rdev,
+			struct net_device *dev,
+			struct cfg80211_st_prep_request *req)
+{
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	int link_id, err;
+
+	lockdep_assert_wiphy(wdev->wiphy);
+
+	if (!cfg80211_st_check_ssid(wdev, req)) {
+		for (link_id = 0; link_id < ARRAY_SIZE(req->links); link_id++)
+			cfg80211_put_bss(&rdev->wiphy, req->links[link_id].bss);
+		return -EINVAL;
+	}
+
+	/*
+	 * The caller passes ownership of one reference per target BSS; take a
+	 * hold in addition so the BSSes stay in the scan list for the duration
+	 * of the transition. On success ownership of the reference and hold
+	 * passes to the driver, which hands each one back via the preparation
+	 * response (rejected links), the transition switch callback (accepted
+	 * links) or the abandon callback.
+	 */
+	for (link_id = 0; link_id < ARRAY_SIZE(req->links); link_id++) {
+		if (!req->links[link_id].bss)
+			continue;
+		cfg80211_hold_bss(bss_from_pub(req->links[link_id].bss));
+	}
+
+	err = rdev_prepare_st(rdev, dev, req);
+	if (err) {
+		for (link_id = 0; link_id < ARRAY_SIZE(req->links); link_id++) {
+			if (!req->links[link_id].bss)
+				continue;
+			cfg80211_unhold_bss(bss_from_pub(req->links[link_id].bss));
+			cfg80211_put_bss(&rdev->wiphy, req->links[link_id].bss);
+		}
+	}
+
+	return err;
+}
+
+void cfg80211_rx_st_preparation_response(struct net_device *dev,
+					 struct cfg80211_st_preparation_resp_data *data)
+{
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	struct wiphy *wiphy = wdev->wiphy;
+	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
+
+	lockdep_assert_wiphy(wiphy);
+
+	trace_cfg80211_rx_st_preparation_response(dev, data->ap_mld_addr,
+						  data->buf, data->len,
+						  data->links);
+
+	if (WARN_ON(!wdev->valid_links))
+		return;
+
+	if (WARN_ON(wdev->iftype != NL80211_IFTYPE_STATION &&
+		    wdev->iftype != NL80211_IFTYPE_P2P_CLIENT))
+		return;
+
+	/* release the rejected links handed back by the driver */
+	cfg80211_unhold_link_bss_list(wiphy, data->links);
+
+	nl80211_st_preparation_response(rdev, dev, data);
+}
+EXPORT_SYMBOL(cfg80211_rx_st_preparation_response);
+
+void cfg80211_rx_st_execution_response(struct net_device *dev,
+				       struct cfg80211_st_execution_resp_data *data)
+{
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	struct wiphy *wiphy = wdev->wiphy;
+	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
+
+	lockdep_assert_wiphy(wiphy);
+
+	trace_cfg80211_rx_st_execution_response(dev, data);
+
+	if (WARN_ON(!wdev->valid_links))
+		return;
+
+	if (WARN_ON(wdev->iftype != NL80211_IFTYPE_STATION &&
+		    wdev->iftype != NL80211_IFTYPE_P2P_CLIENT))
+		return;
+
+	nl80211_st_execution_response(rdev, dev, data);
+}
+EXPORT_SYMBOL(cfg80211_rx_st_execution_response);
+
+void cfg80211_st_switched(struct net_device *dev,
+			  struct cfg80211_st_switched_data *data)
+{
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	struct wiphy *wiphy = wdev->wiphy;
+
+	lockdep_assert_wiphy(wiphy);
+
+	trace_cfg80211_st_switched(dev, data);
+
+	if (WARN_ON(!wdev->valid_links))
+		return;
+
+	if (WARN_ON(wdev->iftype != NL80211_IFTYPE_STATION &&
+		    wdev->iftype != NL80211_IFTYPE_P2P_CLIENT))
+		return;
+
+	ether_addr_copy(wdev->u.client.connected_addr, data->ap_mld_addr);
+
+	cfg80211_wdev_release_link_bsses(wdev, ~0);
+
+	for (int link_id = 0; link_id < IEEE80211_MLD_MAX_NUM_LINKS; link_id++) {
+		struct cfg80211_bss *bss = data->links[link_id].bss;
+
+		if (!bss)
+			continue;
+		wdev->links[link_id].client.current_bss = bss_from_pub(bss);
+		if (!WARN_ON(!data->links[link_id].addr))
+			ether_addr_copy(wdev->links[link_id].addr,
+					data->links[link_id].addr);
+		wdev->valid_links |= BIT(link_id);
+	}
+}
+EXPORT_SYMBOL(cfg80211_st_switched);
+
+void cfg80211_st_done(struct net_device *dev)
+{
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	struct wiphy *wiphy = wdev->wiphy;
+	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
+
+	lockdep_assert_wiphy(wiphy);
+
+	trace_cfg80211_st_done(dev);
+
+	if (WARN_ON(!wdev->valid_links))
+		return;
+
+	if (WARN_ON(wdev->iftype != NL80211_IFTYPE_STATION &&
+		    wdev->iftype != NL80211_IFTYPE_P2P_CLIENT))
+		return;
+
+	nl80211_st_done(rdev, dev);
+}
+EXPORT_SYMBOL(cfg80211_st_done);
+
+void cfg80211_st_abandoned(struct net_device *dev,
+			   struct cfg80211_bss *links[IEEE80211_MLD_MAX_NUM_LINKS])
+{
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	struct wiphy *wiphy = wdev->wiphy;
+
+	lockdep_assert_wiphy(wiphy);
+
+	trace_cfg80211_st_abandoned(dev, links);
+
+	if (WARN_ON(!wdev->valid_links))
+		return;
+
+	if (WARN_ON(wdev->iftype != NL80211_IFTYPE_STATION &&
+		    wdev->iftype != NL80211_IFTYPE_P2P_CLIENT))
+		return;
+
+	/* release the links handed back by the driver */
+	cfg80211_unhold_link_bss_list(wiphy, links);
+}
+EXPORT_SYMBOL(cfg80211_st_abandoned);

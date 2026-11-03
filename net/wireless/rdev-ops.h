@@ -1713,4 +1713,46 @@ rdev_set_epcs(struct cfg80211_registered_device *rdev,
 	return ret;
 }
 
+static inline int rdev_prepare_st(struct cfg80211_registered_device *rdev,
+				  struct net_device *dev,
+				  struct cfg80211_st_prep_request *req)
+{
+	struct wiphy *wiphy = &rdev->wiphy;
+	int ret;
+
+	trace_rdev_prepare_st(wiphy, dev, req);
+	ret = rdev->ops->prepare_st(wiphy, dev, req);
+	trace_rdev_return_int(wiphy, ret);
+
+	return ret;
+}
+
+static inline int rdev_execute_st(struct cfg80211_registered_device *rdev,
+				  struct net_device *dev,
+				  struct cfg80211_st_exec_request *req)
+{
+	struct wiphy *wiphy = &rdev->wiphy;
+	int ret;
+
+	trace_rdev_execute_st(wiphy, dev, req);
+	ret = rdev->ops->execute_st(wiphy, dev, req);
+	trace_rdev_return_int(wiphy, ret);
+
+	return ret;
+}
+
+static inline int rdev_abandon_st(struct cfg80211_registered_device *rdev,
+				  struct net_device *dev,
+				  const u8 *ap_mld_addr, bool local_only)
+{
+	struct wiphy *wiphy = &rdev->wiphy;
+	int ret;
+
+	trace_rdev_abandon_st(wiphy, dev, ap_mld_addr, local_only);
+	ret = rdev->ops->abandon_st(wiphy, dev, ap_mld_addr, local_only);
+	trace_rdev_return_int(wiphy, ret);
+
+	return ret;
+}
+
 #endif /* __CFG80211_RDEV_OPS */

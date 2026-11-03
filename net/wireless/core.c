@@ -1181,6 +1181,13 @@ int wiphy_register(struct wiphy *wiphy)
 		return -EINVAL;
 #endif
 
+	if (WARN_ON(wiphy->flags & WIPHY_FLAG_SMD_TRANSITION_CLIENT &&
+		    (!(wiphy->flags & WIPHY_FLAG_SUPPORTS_MLO) ||
+		     !rdev->ops->prepare_st ||
+		     !rdev->ops->execute_st ||
+		     !rdev->ops->abandon_st)))
+		return -EINVAL;
+
 	if (!wiphy->max_num_akm_suites)
 		wiphy->max_num_akm_suites = NL80211_MAX_NR_AKM_SUITES;
 	else if (wiphy->max_num_akm_suites < NL80211_MAX_NR_AKM_SUITES ||

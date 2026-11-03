@@ -344,6 +344,64 @@
  */
 
 /**
+ * DOC: SMD Transition
+ *
+ * If not offloaded, SMD Transition is done via the commands
+ * %NL80211_CMD_PREPARE_SMD_TRANSITION and %NL80211_CMD_EXECUTE_SMD_TRANSITION.
+ *
+ * The original association must have been to the SMD.
+ *
+ * Note that the links are expected to be sent in the UHR link reconfiguration
+ * frame in ascending order of link ID, which is important for element
+ * inheritance, and userspace can make use of receiver inheritance behaviour
+ * by including elements only in the lowest link ID link. Note that currently
+ * there's no mechanism for non-inheritance.
+ *
+ * Upon successful SMD preparation, the underlying driver will create the
+ * station entry with link stations for the new AP MLD, which then allows
+ * the pairwise key to be installed if needed; if per-SMD PTK is used the
+ * driver handles it.
+ *
+ * The result of the preparation is indicated to userspace using the prepare
+ * command as a notification, including
+ *  - %NL80211_ATTR_MLD_ADDR (the requested AP MLD's address)
+ *  - %NL80211_ATTR_REQ_IE (the request frame's elements)
+ *  - %NL80211_ATTR_FRAME (the response frame, if any; if no response was
+ *    received due to a timeout, this attribute is not present)
+ *
+ * There may be a driver-specific limit on how many preparations can be pending
+ * at any given time. Currently, no advertisement of such limits exists as the
+ * initial implementation is intended to proceed to SMD Transition execution
+ * immediately. Drivers should return -EALREADY when there's already one with
+ * the requested AP MLD, and -EBUSY if another preparation isn't possible.
+ *
+ * In case a preparation is no longer used or e.g. MIC failure occurred, it can
+ * be abandoned with the %NL80211_CMD_ABANDON_SMD_TRANSITION command (given the
+ * target AP MLD address).
+ *
+ * After successful SMD preparation, userspace may use the newly created state
+ * by sending the %NL80211_CMD_EXECUTE_SMD_TRANSITION command. This command
+ * includes the target AP MLD address, as well as optionally the
+ * %NL80211_ATTR_TID_BITMAP attribute controlling which downlink TIDs are
+ * requested for draining, if not given all TIDs are requested. If per-AP MLD
+ * PTK mode is used, %NL80211_ATTR_IE needs to carry the MIC element.
+ *
+ * The result of the SMD Transition execution is indicated to userspace in the
+ * %NL80211_CMD_EXECUTE_SMD_TRANSITION event, which also carries AP MLD address
+ * and - except in cases of timeout - the response frame as well as executed
+ * links (%NL80211_ATTR_MLO_LINKS with link ID, BSSID and local link address).
+ * There might be fewer links here if the target AP MLD removed a link between
+ * preparation and execution.
+ *
+ * Given internal state switches, failure or timeout of SMD Transition execution
+ * may lead to disconnection, rather than staying connected to the old AP MLD,
+ * which is then indicated by appropriate disconnect events.
+ *
+ * Any prepared SMD transitions are dropped when disconnecting or executing one
+ * of them.
+ */
+
+/**
  * enum nl80211_commands - supported nl80211 commands
  *
  * @NL80211_CMD_UNSPEC: unspecified command to catch errors
@@ -1468,6 +1526,39 @@
  *	and multiple can be nested in %NL80211_ATTR_MLO_LINKS but then the
  *	update isn't atomic if any failures happen.
  *	Only supported with %NL80211_EXT_FEATURE_UPDATE_BEACON.
+ *
+ * @NL80211_CMD_PREPARE_SMD_TRANSITION: Prepare an SMD transition to a new
+ *	AP MLD in the SMD, which needs to be specified like in an association
+ *	request command (%NL80211_ATTR_MLD_ADDR, %NL80211_ATTR_MLO_LINKS,
+ *	elements can be specified for the UHR link reconfiguration request
+ *	frame, %NL80211_ATTR_IE for the outer frame elements).
+ *	The driver is responsible for sending the link reconfiguration request,
+ *	handling the response, but also forwards the response to userspace to
+ *	handle it. See the SMD Transition documentation section.
+ *	This is also used as an event notification to carry the ST preparation
+ *	response, carrying the target AP MLD address (%NL80211_ATTR_MLD_ADDR),
+ *	response frame (%NL80211_ATTR_FRAME) and request elements
+ *	(%NL80211_ATTR_REQ_IE).
+ * @NL80211_CMD_ABANDON_SMD_TRANSITION: Abandon a prepared SMD transition.
+ *	Requires %NL80211_ATTR_MLD_ADDR identifying the target AP MLD,
+ *	can optionally use %NL80211_ATTR_LOCAL_STATE_CHANGE to not transmit
+ *	a frame.
+ * @NL80211_CMD_EXECUTE_SMD_TRANSITION: Execute an SMD transition that was
+ *	previously prepared. The AP's MLD address must be given (in the
+ *	%NL80211_ATTR_MLD_ADDR attribute).
+ *	This is also used as an event notification to carry the ST execution
+ *	response, carrying the AP MLD address (%NL80211_ATTR_MLD_ADDR), the
+ *	response frame (%NL80211_ATTR_FRAME, except on timeout) and a nested
+ *	%NL80211_ATTR_MLO_LINKS array with the %NL80211_ATTR_MLO_LINK_ID, local
+ *	link address (%NL80211_ATTR_MAC) and %NL80211_ATTR_BSSID each.
+ *
+ * @NL80211_CMD_COMPLETED_SMD_TRANSITION: Notification that a previously
+ *	executed SMD transition has completed and the STA is now connected to
+ *	the target AP MLD. Carries the target AP MLD address
+ *	(%NL80211_ATTR_MLD_ADDR) and the per-link BSSIDs and local link
+ *	addresses (%NL80211_ATTR_MLO_LINKS, each nested link with
+ *	%NL80211_ATTR_MLO_LINK_ID, %NL80211_ATTR_BSSID and %NL80211_ATTR_MAC).
+ *
  * @NL80211_CMD_MAX: highest used command number
  * @__NL80211_CMD_AFTER_LAST: internal use
  */
@@ -1749,6 +1840,11 @@ enum nl80211_commands {
 	NL80211_CMD_NAN_SET_NON_EVAC_CHANNELS,
 
 	NL80211_CMD_UPDATE_BEACON,
+
+	NL80211_CMD_PREPARE_SMD_TRANSITION,
+	NL80211_CMD_ABANDON_SMD_TRANSITION,
+	NL80211_CMD_EXECUTE_SMD_TRANSITION,
+	NL80211_CMD_COMPLETED_SMD_TRANSITION,
 
 	/* add new commands above here */
 

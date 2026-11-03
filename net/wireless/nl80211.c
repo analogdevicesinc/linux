@@ -3438,6 +3438,9 @@ static int nl80211_send_wiphy(struct cfg80211_registered_device *rdev,
 			if (rdev->wiphy.sar_capa)
 				CMD(set_sar_specs, SET_SAR_SPECS);
 			CMD(assoc_ml_reconf, ASSOC_MLO_RECONF);
+
+			if (rdev->wiphy.flags & WIPHY_FLAG_SMD_TRANSITION_CLIENT)
+				CMD(execute_st, EXECUTE_SMD_TRANSITION);
 		}
 #undef CMD
 
@@ -5464,6 +5467,8 @@ static int nl80211_validate_key_link_id(struct genl_info *info,
 					struct wireless_dev *wdev,
 					int link_id, bool pairwise)
 {
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+
 	if (pairwise) {
 		if (link_id != -1) {
 			GENL_SET_ERR_MSG(info,
@@ -5480,7 +5485,9 @@ static int nl80211_validate_key_link_id(struct genl_info *info,
 					 "link ID must be set for MLO group key");
 			return -EINVAL;
 		}
-		if (!(wdev->valid_links & BIT(link_id))) {
+		/* for SMD transition support the driver must check itself */
+		if (!(wdev->valid_links & BIT(link_id)) &&
+		    !(rdev->wiphy.flags & WIPHY_FLAG_SMD_TRANSITION_CLIENT)) {
 			GENL_SET_ERR_MSG(info, "invalid link ID for MLO group key");
 			return -EINVAL;
 		}
@@ -20030,6 +20037,148 @@ nl80211_epcs_cfg(struct sk_buff *skb, struct genl_info *info)
 	return rdev_set_epcs(rdev, dev, val);
 }
 
+static int nl80211_prepare_st(struct sk_buff *skb, struct genl_info *info)
+{
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct net_device *dev = info->user_ptr[1];
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	struct cfg80211_st_prep_request req = {};
+	bool have_link = false;
+	int err;
+
+	if (!wdev->valid_links)
+		return -EINVAL;
+
+	if (!(rdev->wiphy.flags & WIPHY_FLAG_SMD_TRANSITION_CLIENT))
+		return -EOPNOTSUPP;
+
+	if (dev->ieee80211_ptr->conn_owner_nlportid &&
+	    dev->ieee80211_ptr->conn_owner_nlportid != info->snd_portid)
+		return -EPERM;
+
+	if (wdev->iftype != NL80211_IFTYPE_STATION &&
+	    wdev->iftype != NL80211_IFTYPE_P2P_CLIENT)
+		return -EOPNOTSUPP;
+
+	if (!info->attrs[NL80211_ATTR_MLD_ADDR] ||
+	    !info->attrs[NL80211_ATTR_MLO_LINKS])
+		return -EINVAL;
+
+	req.ap_mld_addr = nla_data(info->attrs[NL80211_ATTR_MLD_ADDR]);
+
+	if (ether_addr_equal(req.ap_mld_addr, wdev->u.client.connected_addr))
+		return -EINVAL;
+
+	if (info->attrs[NL80211_ATTR_IE]) {
+		req.elems = nla_data(info->attrs[NL80211_ATTR_IE]);
+		req.elems_len = nla_len(info->attrs[NL80211_ATTR_IE]);
+	}
+
+	if (info->attrs[NL80211_ATTR_EXT_MLD_CAPA_AND_OPS])
+		req.ext_mld_capa_ops =
+			nla_get_u16(info->attrs[NL80211_ATTR_EXT_MLD_CAPA_AND_OPS]);
+
+	err = nl80211_process_links(rdev, req.links,
+				    IEEE80211_MLD_MAX_NUM_LINKS,
+				    NULL, 0, info);
+	if (err)
+		goto free;
+
+	for (int link_id = 0; link_id < ARRAY_SIZE(req.links); link_id++) {
+		if (req.links[link_id].bss) {
+			have_link = true;
+			break;
+		}
+	}
+
+	if (!have_link) {
+		err = -EINVAL;
+		goto free;
+	}
+
+	return cfg80211_prepare_st(rdev, dev, &req);
+free:
+	for (int link_id = 0; link_id < ARRAY_SIZE(req.links); link_id++)
+		cfg80211_put_bss(&rdev->wiphy, req.links[link_id].bss);
+	return err;
+}
+
+static int nl80211_execute_st(struct sk_buff *skb, struct genl_info *info)
+{
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct net_device *dev = info->user_ptr[1];
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	struct cfg80211_st_exec_request req = {
+		.drain_tids = 0xFF, /* only 8 TIDs in ST preparation */
+	};
+
+	if (!wdev->valid_links)
+		return -EINVAL;
+
+	if (!(rdev->wiphy.flags & WIPHY_FLAG_SMD_TRANSITION_CLIENT))
+		return -EOPNOTSUPP;
+
+	if (dev->ieee80211_ptr->conn_owner_nlportid &&
+	    dev->ieee80211_ptr->conn_owner_nlportid != info->snd_portid)
+		return -EPERM;
+
+	if (wdev->iftype != NL80211_IFTYPE_STATION &&
+	    wdev->iftype != NL80211_IFTYPE_P2P_CLIENT)
+		return -EOPNOTSUPP;
+
+	if (!info->attrs[NL80211_ATTR_MLD_ADDR])
+		return -EINVAL;
+
+	req.ap_mld_addr = nla_data(info->attrs[NL80211_ATTR_MLD_ADDR]);
+
+	if (info->attrs[NL80211_ATTR_TID_BITMAP]) {
+		u16 drain_tids =
+			nla_get_u16(info->attrs[NL80211_ATTR_TID_BITMAP]);
+
+		if (drain_tids > 0xFF)
+			return -EINVAL;
+
+		req.drain_tids = drain_tids;
+	}
+
+	if (info->attrs[NL80211_ATTR_IE]) {
+		req.elems = nla_data(info->attrs[NL80211_ATTR_IE]);
+		req.elems_len = nla_len(info->attrs[NL80211_ATTR_IE]);
+	}
+
+	return rdev_execute_st(rdev, dev, &req);
+}
+
+static int nl80211_abandon_st(struct sk_buff *skb, struct genl_info *info)
+{
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct net_device *dev = info->user_ptr[1];
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	const u8 *ap_mld_addr;
+
+	if (!wdev->valid_links)
+		return -EINVAL;
+
+	if (dev->ieee80211_ptr->conn_owner_nlportid &&
+	    dev->ieee80211_ptr->conn_owner_nlportid != info->snd_portid)
+		return -EPERM;
+
+	if (!(rdev->wiphy.flags & WIPHY_FLAG_SMD_TRANSITION_CLIENT))
+		return -EOPNOTSUPP;
+
+	if (wdev->iftype != NL80211_IFTYPE_STATION &&
+	    wdev->iftype != NL80211_IFTYPE_P2P_CLIENT)
+		return -EOPNOTSUPP;
+
+	if (!info->attrs[NL80211_ATTR_MLD_ADDR])
+		return -EINVAL;
+
+	ap_mld_addr = nla_data(info->attrs[NL80211_ATTR_MLD_ADDR]);
+
+	return rdev_abandon_st(rdev, dev, ap_mld_addr,
+			       info->attrs[NL80211_ATTR_LOCAL_STATE_CHANGE]);
+}
+
 #define NL80211_FLAG_NEED_WIPHY		0x01
 #define NL80211_FLAG_NEED_NETDEV	0x02
 #define NL80211_FLAG_NEED_RTNL		0x04
@@ -21378,6 +21527,24 @@ static const struct genl_small_ops nl80211_small_ops[] = {
 		.internal_flags = IFLAGS(NL80211_FLAG_NEED_NETDEV_UP |
 					 NL80211_FLAG_NO_WIPHY_MTX),
 	},
+	{
+		.cmd = NL80211_CMD_PREPARE_SMD_TRANSITION,
+		.doit = nl80211_prepare_st,
+		.flags = GENL_UNS_ADMIN_PERM,
+		.internal_flags = IFLAGS(NL80211_FLAG_NEED_NETDEV_UP),
+	},
+	{
+		.cmd = NL80211_CMD_EXECUTE_SMD_TRANSITION,
+		.doit = nl80211_execute_st,
+		.flags = GENL_UNS_ADMIN_PERM,
+		.internal_flags = IFLAGS(NL80211_FLAG_NEED_NETDEV_UP),
+	},
+	{
+		.cmd = NL80211_CMD_ABANDON_SMD_TRANSITION,
+		.doit = nl80211_abandon_st,
+		.flags = GENL_UNS_ADMIN_PERM,
+		.internal_flags = IFLAGS(NL80211_FLAG_NEED_NETDEV_UP),
+	},
 };
 
 static struct genl_family nl80211_fam __ro_after_init = {
@@ -21720,6 +21887,7 @@ struct nl80211_mlme_event {
 	const u8 *req_ies;
 	size_t req_ies_len;
 	bool reconnect;
+	const u8 *mld_addr;
 };
 
 static void nl80211_send_mlme_event(struct cfg80211_registered_device *rdev,
@@ -21742,10 +21910,15 @@ static void nl80211_send_mlme_event(struct cfg80211_registered_device *rdev,
 
 	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
 	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex) ||
-	    nla_put(msg, NL80211_ATTR_FRAME, event->buf_len, event->buf) ||
+	    (event->buf_len &&
+	     nla_put(msg, NL80211_ATTR_FRAME, event->buf_len, event->buf)) ||
 	    (event->req_ies &&
 	     nla_put(msg, NL80211_ATTR_REQ_IE, event->req_ies_len,
 		     event->req_ies)))
+		goto nla_put_failure;
+
+	if (event->mld_addr &&
+	    nla_put(msg, NL80211_ATTR_MLD_ADDR, ETH_ALEN, event->mld_addr))
 		goto nla_put_failure;
 
 	if (event->reconnect &&
@@ -22296,6 +22469,169 @@ void nl80211_mlo_reconf_add_done(struct net_device *dev,
 	};
 
 	nl80211_send_mlme_event(rdev, dev, &event, GFP_KERNEL);
+}
+
+void nl80211_st_preparation_response(struct cfg80211_registered_device *rdev,
+				     struct net_device *dev,
+				     struct cfg80211_st_preparation_resp_data *data)
+{
+	struct nl80211_mlme_event event = {
+		.cmd = NL80211_CMD_PREPARE_SMD_TRANSITION,
+		.buf = data->buf,
+		.buf_len = data->len,
+		.req_ies = data->req_elems,
+		.req_ies_len = data->req_elems_len,
+		.mld_addr = data->ap_mld_addr,
+	};
+
+	nl80211_send_mlme_event(rdev, dev, &event, GFP_KERNEL);
+}
+
+void nl80211_st_execution_response(struct cfg80211_registered_device *rdev,
+				   struct net_device *dev,
+				   struct cfg80211_st_execution_resp_data *data)
+{
+	size_t link_info_size = NLA_HDRLEN +
+				nla_total_size(sizeof(u8)) +
+				nla_total_size(ETH_ALEN) +
+				nla_total_size(ETH_ALEN);
+	struct nlattr *nested;
+	struct sk_buff *msg;
+	int link_count = 0;
+	void *hdr;
+	int i = 1;
+
+	for (unsigned int link = 0; link < IEEE80211_MLD_MAX_NUM_LINKS; link++) {
+		if (!data->links[link].bssid ||
+		    WARN_ON(!data->links[link].local_addr))
+			continue;
+
+		link_count++;
+	}
+
+	msg = nlmsg_new(100 + data->len + link_info_size * link_count,
+			GFP_KERNEL);
+	if (!msg)
+		return;
+
+	hdr = nl80211hdr_put(msg, 0, 0, 0, NL80211_CMD_EXECUTE_SMD_TRANSITION);
+	if (!hdr) {
+		nlmsg_free(msg);
+		return;
+	}
+
+	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
+	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex) ||
+	    nla_put(msg, NL80211_ATTR_MLD_ADDR, ETH_ALEN, data->ap_mld_addr))
+		goto nla_put_failure;
+
+	if (!data->len)
+		goto send;
+
+	if (nla_put(msg, NL80211_ATTR_FRAME, data->len, data->buf))
+		goto nla_put_failure;
+
+	nested = nla_nest_start(msg, NL80211_ATTR_MLO_LINKS);
+	if (!nested)
+		goto nla_put_failure;
+
+	for (unsigned int link = 0; link < IEEE80211_MLD_MAX_NUM_LINKS; link++) {
+		const u8 *bssid = data->links[link].bssid;
+		const u8 *local_addr = data->links[link].local_addr;
+		struct nlattr *nested_mlo_links;
+
+		if (!bssid || !local_addr)
+			continue;
+
+		nested_mlo_links = nla_nest_start(msg, i);
+		if (!nested_mlo_links)
+			goto nla_put_failure;
+
+		if (nla_put_u8(msg, NL80211_ATTR_MLO_LINK_ID, link) ||
+		    nla_put(msg, NL80211_ATTR_BSSID, ETH_ALEN, bssid) ||
+		    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, local_addr))
+			goto nla_put_failure;
+
+		nla_nest_end(msg, nested_mlo_links);
+		i++;
+	}
+	nla_nest_end(msg, nested);
+
+send:
+	genlmsg_end(msg, hdr);
+
+	genlmsg_multicast_netns(&nl80211_fam, wiphy_net(&rdev->wiphy), msg, 0,
+				NL80211_MCGRP_MLME, GFP_KERNEL);
+	return;
+
+ nla_put_failure:
+	nlmsg_free(msg);
+}
+
+void nl80211_st_done(struct cfg80211_registered_device *rdev,
+		     struct net_device *dev)
+{
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	struct nlattr *nested;
+	struct sk_buff *msg;
+	void *hdr;
+	int i = 1;
+
+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+	if (!msg)
+		return;
+
+	hdr = nl80211hdr_put(msg, 0, 0, 0,
+			     NL80211_CMD_COMPLETED_SMD_TRANSITION);
+	if (!hdr) {
+		nlmsg_free(msg);
+		return;
+	}
+
+	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
+	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex) ||
+	    nla_put(msg, NL80211_ATTR_MLD_ADDR, ETH_ALEN,
+		    wdev->u.client.connected_addr))
+		goto nla_put_failure;
+
+	nested = nla_nest_start(msg, NL80211_ATTR_MLO_LINKS);
+	if (!nested)
+		goto nla_put_failure;
+
+	for (unsigned int link = 0; link < IEEE80211_MLD_MAX_NUM_LINKS; link++) {
+		struct cfg80211_internal_bss *bss;
+		struct nlattr *nested_mlo_links;
+
+		if (!(wdev->valid_links & BIT(link)))
+			continue;
+
+		bss = wdev->links[link].client.current_bss;
+		if (WARN_ON(!bss))
+			continue;
+
+		nested_mlo_links = nla_nest_start(msg, i);
+		if (!nested_mlo_links)
+			goto nla_put_failure;
+
+		if (nla_put_u8(msg, NL80211_ATTR_MLO_LINK_ID, link) ||
+		    nla_put(msg, NL80211_ATTR_BSSID, ETH_ALEN, bss->pub.bssid) ||
+		    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN,
+			    wdev->links[link].addr))
+			goto nla_put_failure;
+
+		nla_nest_end(msg, nested_mlo_links);
+		i++;
+	}
+	nla_nest_end(msg, nested);
+
+	genlmsg_end(msg, hdr);
+
+	genlmsg_multicast_netns(&nl80211_fam, wiphy_net(&rdev->wiphy), msg, 0,
+				NL80211_MCGRP_MLME, GFP_KERNEL);
+	return;
+
+ nla_put_failure:
+	nlmsg_free(msg);
 }
 
 void nl80211_send_ibss_bssid(struct cfg80211_registered_device *rdev,
