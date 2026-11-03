@@ -265,7 +265,7 @@ static int max_ser_i2c_mux_init(struct max_ser_priv *priv)
 	if (!priv->mux)
 		return -ENOMEM;
 
-	return i2c_mux_add_adapter(priv->mux, 0, 0);
+	return i2c_mux_add_adapter(priv->mux, 0, 0, 0);
 }
 
 static int max_ser_i2c_adapter_init(struct max_ser_priv *priv)

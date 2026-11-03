@@ -1226,7 +1226,7 @@ static int max_des_i2c_mux_init(struct max_des_priv *priv)
 		if (!link->enabled)
 			continue;
 
-		ret = i2c_mux_add_adapter(priv->mux, 0, i);
+		ret = i2c_mux_add_adapter(priv->mux, 0, i, 0);
 		if (ret)
 			goto err_add_adapters;
 	}
