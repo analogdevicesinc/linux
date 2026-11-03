@@ -431,10 +431,6 @@ static void vhost_zerocopy_complete(struct sk_buff *skb,
 	rcu_read_unlock_bh();
 }
 
-static const struct ubuf_info_ops vhost_ubuf_ops = {
-	.complete = vhost_zerocopy_complete,
-};
-
 static inline unsigned long busy_clock(void)
 {
 	return local_clock() >> 10;
@@ -926,7 +922,7 @@ static void handle_tx_zerocopy(struct vhost_net *net, struct socket *sock)
 			vq->heads[nvq->upend_idx].len = VHOST_DMA_IN_PROGRESS;
 			ubuf->ctx = nvq->ubufs;
 			ubuf->desc = nvq->upend_idx;
-			ubuf->ubuf.ops = &vhost_ubuf_ops;
+			ubuf->ubuf.type = UBUF_TYPE_VHOST;
 			ubuf->ubuf.flags = SKBFL_ZEROCOPY_FRAG;
 			refcount_set(&ubuf->ubuf.refcnt, 1);
 			msg.msg_control = &ctl;
@@ -1895,15 +1891,25 @@ static struct miscdevice vhost_net_misc = {
 
 static int __init vhost_net_init(void)
 {
+	int rc;
+
 	if (experimental_zcopytx)
 		vhost_net_enable_zcopy(VHOST_NET_VQ_TX);
-	return misc_register(&vhost_net_misc);
+
+	net_zcopy_register(UBUF_TYPE_VHOST, vhost_zerocopy_complete);
+
+	rc = misc_register(&vhost_net_misc);
+	if (rc)
+		net_zcopy_register(UBUF_TYPE_VHOST, NULL);
+
+	return rc;
 }
 module_init(vhost_net_init);
 
 static void __exit vhost_net_exit(void)
 {
 	misc_deregister(&vhost_net_misc);
+	net_zcopy_register(UBUF_TYPE_VHOST, NULL);
 }
 module_exit(vhost_net_exit);
 

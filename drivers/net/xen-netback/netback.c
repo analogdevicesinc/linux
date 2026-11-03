@@ -1158,7 +1158,7 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
 	uarg = skb_shinfo(skb)->destructor_arg;
 	/* increase inflight counter to offset decrement in callback */
 	atomic_inc(&queue->inflight_packets);
-	uarg->ops->complete(NULL, uarg, true);
+	net_zcopy_complete(NULL, uarg, true);
 	skb_shinfo(skb)->destructor_arg = NULL;
 
 	/* Fill the skb with the new (local) frags. */
@@ -1314,10 +1314,6 @@ static void xenvif_zerocopy_callback(struct sk_buff *skb,
 		queue->stats.tx_zerocopy_fail++;
 	xenvif_skb_zerocopy_complete(queue);
 }
-
-const struct ubuf_info_ops xenvif_ubuf_ops = {
-	.complete = xenvif_zerocopy_callback,
-};
 
 static inline void xenvif_tx_dealloc_action(struct xenvif_queue *queue)
 {
@@ -1760,6 +1756,8 @@ static int __init netback_init(void)
 		fatal_skb_slots = XEN_NETBK_LEGACY_SLOTS_MAX;
 	}
 
+	net_zcopy_register(UBUF_TYPE_XENVIF, xenvif_zerocopy_callback);
+
 	rc = xenvif_xenbus_init();
 	if (rc)
 		goto failed_init;
@@ -1771,6 +1769,7 @@ static int __init netback_init(void)
 	return 0;
 
 failed_init:
+	net_zcopy_register(UBUF_TYPE_XENVIF, NULL);
 	return rc;
 }
 
@@ -1782,6 +1781,7 @@ static void __exit netback_fini(void)
 	debugfs_remove_recursive(xen_netback_dbg_root);
 #endif /* CONFIG_DEBUG_FS */
 	xenvif_xenbus_fini();
+	net_zcopy_register(UBUF_TYPE_XENVIF, NULL);
 }
 module_exit(netback_fini);
 

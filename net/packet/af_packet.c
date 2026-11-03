@@ -2607,10 +2607,6 @@ static void tpacket_ubuf_complete(struct sk_buff *skb, struct ubuf_info *uarg,
 	sk_free(&po->sk);
 }
 
-static const struct ubuf_info_ops tpacket_ubuf_ops = {
-	.complete = tpacket_ubuf_complete,
-};
-
 static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
 		struct net_device *dev, void *data, int tp_len,
 		__be16 proto, unsigned char *addr, int hlen, int copylen,
@@ -2943,7 +2939,7 @@ tpacket_error:
 		}
 		uarg->po = po;
 		uarg->ph = ph;
-		uarg->ubuf.ops = &tpacket_ubuf_ops;
+		uarg->ubuf.type = UBUF_TYPE_TPACKET;
 		uarg->ubuf.flags = SKBFL_ZEROCOPY_FRAG;
 		refcount_set(&uarg->ubuf.refcnt, 1);
 
@@ -4936,6 +4932,7 @@ static void __exit packet_exit(void)
 	proto_unregister(&packet_proto);
 	unregister_netdevice_notifier(&packet_netdev_notifier);
 	unregister_pernet_subsys(&packet_net_ops);
+	net_zcopy_register(UBUF_TYPE_TPACKET, NULL);
 }
 
 static int __init packet_init(void)
@@ -4951,6 +4948,8 @@ static int __init packet_init(void)
 	rc = proto_register(&packet_proto, 0);
 	if (rc)
 		goto out_notifier;
+
+	net_zcopy_register(UBUF_TYPE_TPACKET, tpacket_ubuf_complete);
 	rc = sock_register(&packet_family_ops);
 	if (rc)
 		goto out_proto;
@@ -4958,6 +4957,7 @@ static int __init packet_init(void)
 	return 0;
 
 out_proto:
+	net_zcopy_register(UBUF_TYPE_TPACKET, NULL);
 	proto_unregister(&packet_proto);
 out_notifier:
 	unregister_netdevice_notifier(&packet_netdev_notifier);

@@ -1954,12 +1954,10 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
 		skb->protocol = eth_type_trans(skb, tun->dev);
 
 	/* copy skb_ubuf_info for callback when skb has no error */
-	if (zerocopy) {
+	if (zerocopy)
 		skb_zcopy_init(skb, msg_control);
-	} else if (msg_control) {
-		struct ubuf_info *uarg = msg_control;
-		uarg->ops->complete(NULL, uarg, false);
-	}
+	else if (msg_control)
+		net_zcopy_complete(NULL, msg_control, false);
 
 	skb_reset_network_header(skb);
 	skb_probe_transport_header(skb);
