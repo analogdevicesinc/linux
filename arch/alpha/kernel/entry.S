@@ -426,11 +426,11 @@ ret_from_exception:
 	beq	$0, restore_other
 	br	restore_all
 
-ret_to_user_from_exception:
-
-	mov	$sp, $16
+ret_from_fork_common:
+	mov	$17, $16
+	mov	$sp, $17
 	DO_SWITCH_STACK
-	jsr	$26, alpha_exit_to_user_mode
+	jsr	$26, alpha_ret_from_fork
 	ldgp	$gp, 0($26)
 	UNDO_SWITCH_STACK
 	br	restore_all
@@ -557,9 +557,9 @@ alpha_switch_to:
 	.align	4
 	.ent	ret_from_fork
 ret_from_fork:
-	lda	$26, ret_to_user_from_exception
-	mov	$17, $16
-	jmp	$31, schedule_tail
+	mov	$31, $18
+	mov	$31, $19
+	br	$31, ret_from_fork_common
 .end ret_from_fork
 
 /*
@@ -569,10 +569,7 @@ ret_from_fork:
 	.globl	ret_from_kernel_thread
 	.ent	ret_from_kernel_thread
 ret_from_kernel_thread:
-	mov	$17, $16
-	jsr	$26, schedule_tail
-	mov	$9, $27
-	mov	$10, $16
-	jsr	$26, ($9)
-	br	$31, ret_to_user_from_exception
+	mov	$9, $18
+	mov	$10, $19
+	br	$31, ret_from_fork_common
 .end ret_from_kernel_thread

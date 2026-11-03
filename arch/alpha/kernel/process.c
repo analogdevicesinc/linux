@@ -10,6 +10,7 @@
  */
 
 #include <linux/cpu.h>
+#include <linux/entry-common.h>
 #include <linux/errno.h>
 #include <linux/module.h>
 #include <linux/sched.h>
@@ -224,6 +225,21 @@ flush_thread(void)
 
 	/* Clean slate for TLS.  */
 	current_thread_info()->pcb.unique = 0;
+}
+
+/* The assembly stub keeps the complete user switch_stack below regs. */
+asmlinkage noinstr void alpha_ret_from_fork(struct task_struct *prev,
+					 struct pt_regs *regs,
+					 int (*fn)(void *), void *fn_arg)
+{
+	instrumentation_begin();
+	schedule_tail(prev);
+	if (fn)
+		fn(fn_arg);
+	instrumentation_end();
+
+	/* A kernel thread may return after a successful kernel_execve(). */
+	syscall_exit_to_user_mode(regs);
 }
 
 /*

@@ -164,14 +164,16 @@ extern void entDbg(void);
 /* pci.c */
 extern void pcibios_claim_one_bus(struct pci_bus *);
 
+/* process.c */
+extern void alpha_ret_from_fork(struct task_struct *prev, struct pt_regs *regs,
+				int (*fn)(void *), void *fn_arg);
+
 /* ptrace.c */
 extern int ptrace_set_bpt (struct task_struct *child);
 extern int ptrace_cancel_bpt (struct task_struct *child);
 
 /* signal.c */
-extern void alpha_schedule_user_work(void);
 extern void do_signal(struct pt_regs *regs, unsigned long r0, unsigned long r19);
-extern void alpha_exit_to_user_mode(struct pt_regs *regs);
 
 /* syscall.c */
 extern void alpha_syscall(struct pt_regs *regs);
