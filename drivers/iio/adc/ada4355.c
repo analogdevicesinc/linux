@@ -8,7 +8,6 @@
  * Copyright 2025 Analog Devices Inc.
  */
 
-#include <linux/bitfield.h>
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
@@ -70,16 +69,6 @@
  *   bit 2 = frame alignment error monitoring
  */
 #define ADA4355_ENABLE_ERROR_MASK           0x00C8
-
-/*
- * HDL custom register: word offset 0x33 -> byte address 0x00CC, read-only
- * status of the frame aligner; any write clears the re-alignment counter.
- * Reads 0 on bitstreams that predate it, which shows as "aligned 0".
- */
-#define ADA4355_ALIGN_STATUS                0x00CC
-#define ADA4355_ALIGN_SHIFT_CNT             GENMASK(2, 0)
-#define ADA4355_ALIGN_LOCKED                BIT(3)
-#define ADA4355_ALIGN_REALIGN_CNT           GENMASK(15, 8)
 
 /*
  * Zynq-7000 uses IDELAYE2, whose tap counter is 5 bits wide. Sweeping further
@@ -574,14 +563,7 @@ static int ada4355_post_setup(struct iio_dev *indio_dev)
 	}
 	dev_info(dev, "ada4355_post_setup: TEST_MODE restored to normal input\n");
 
-	/* The IDELAY sweep breaks frame lock dozens of times; count only from here. */
-	axiadc_write(axi_adc_st, ADA4355_ALIGN_STATUS, 0);
-	mdelay(1);
-	val = axiadc_read(axi_adc_st, ADA4355_ALIGN_STATUS);
-	dev_info(dev, "frame align: shift_cnt %lu aligned %lu realign %lu  IDELAY lane0 %u lane1 %u frame %u\n",
-		 FIELD_GET(ADA4355_ALIGN_SHIFT_CNT, val),
-		 FIELD_GET(ADA4355_ALIGN_LOCKED, val),
-		 FIELD_GET(ADA4355_ALIGN_REALIGN_CNT, val),
+	dev_info(dev, "IDELAY lane0 %u lane1 %u frame %u\n",
 		 axiadc_read(axi_adc_st, 0x800), axiadc_read(axi_adc_st, 0x804),
 		 axiadc_read(axi_adc_st, 0x808));
 
