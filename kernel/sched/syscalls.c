@@ -675,8 +675,19 @@ change:
 	prev_class = p->sched_class;
 	next_class = __setscheduler_class(policy, newprio);
 
-	if (prev_class != next_class)
+	if (prev_class != next_class) {
+		/*
+		 * SCHED_FLAG_KEEP_PARAMS prevents the class change from
+		 * actually happening (it skips __setscheduler_params and
+		 * the sched_class assignment). Reject contradictory
+		 * requests that ask for a class change with KEEP_PARAMS.
+		 */
+		if (attr->sched_flags & SCHED_FLAG_KEEP_PARAMS) {
+			retval = -EINVAL;
+			goto unlock;
+		}
 		queue_flags |= DEQUEUE_CLASS;
+	}
 
 	scx_prepare_setscheduler(p, policy);
 
