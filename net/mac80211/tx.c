@@ -6564,7 +6564,6 @@ void __ieee80211_tx_skb_tid_band(struct ieee80211_sub_if_data *sdata,
 		link = IEEE80211_LINK_UNSPECIFIED;
 	} else {
 		/* otherwise must be addressed from a link */
-		rcu_read_lock();
 		for (link = 0; link < ARRAY_SIZE(sdata->vif.link_conf); link++) {
 			struct ieee80211_bss_conf *link_conf;
 
@@ -6574,7 +6573,6 @@ void __ieee80211_tx_skb_tid_band(struct ieee80211_sub_if_data *sdata,
 			if (memcmp(link_conf->addr, hdr->addr2, ETH_ALEN) == 0)
 				break;
 		}
-		rcu_read_unlock();
 
 		if (WARN_ON_ONCE(link == ARRAY_SIZE(sdata->vif.link_conf)))
 			link = ffs(sdata->vif.active_links) - 1;

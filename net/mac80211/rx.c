@@ -2985,7 +2985,6 @@ ieee80211_rx_mesh_data(struct ieee80211_sub_if_data *sdata, struct sta_info *sta
 		else
 			return RX_DROP_U_MESH_BAD_AE;
 
-		rcu_read_lock();
 		mppath = mpp_path_lookup(sdata, proxied_addr);
 		if (!mppath) {
 			mpp_path_add(sdata, proxied_addr, eth->h_source);
@@ -3002,8 +3001,6 @@ ieee80211_rx_mesh_data(struct ieee80211_sub_if_data *sdata, struct sta_info *sta
 		/* flush fast xmit cache if the address path changed */
 		if (update)
 			mesh_fast_tx_flush_addr(sdata, proxied_addr);
-
-		rcu_read_unlock();
 	}
 
 	/* Frame has reached destination.  Don't forward */
