@@ -6,11 +6,36 @@
 
 #include <kunit/test.h>
 #include <linux/iio/iio.h>
+#include <linux/string.h>
 
-#define IIO_TEST_FORMAT_EXPECT_EQ(_test, _buf, _ret, _val) do { \
-		KUNIT_EXPECT_EQ(_test, strlen(_buf), _ret); \
-		KUNIT_EXPECT_STREQ(_test, (_buf), (_val)); \
-	} while (0)
+#define IIO_TEST_FORMAT_POISON	0x5a
+
+/*
+ * Check the formatted string including its NUL terminator, and that nothing
+ * beyond it was written. _val must be a string literal. The buffer is poisoned
+ * again afterwards for the next check.
+ */
+#define IIO_TEST_FORMAT_EXPECT_EQ(_test, _buf, _ret, _val)			  \
+do {										  \
+	size_t sz = sizeof(_val);						  \
+										  \
+	KUNIT_EXPECT_EQ(_test, _ret, (ssize_t)sz - 1);				  \
+	KUNIT_EXPECT_MEMEQ(_test, _buf, _val, sz);				  \
+	KUNIT_EXPECT_NULL(_test,						  \
+		memchr_inv((_buf) + sz, IIO_TEST_FORMAT_POISON, PAGE_SIZE - sz)); \
+	memset(_buf, IIO_TEST_FORMAT_POISON, PAGE_SIZE);			  \
+} while (0)
+
+static char *iio_test_format_alloc_buf(struct kunit *test)
+{
+	char *buf;
+
+	buf = kunit_kmalloc(test, PAGE_SIZE, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, buf);
+	memset(buf, IIO_TEST_FORMAT_POISON, PAGE_SIZE);
+
+	return buf;
+}
 
 static void iio_test_iio_format_value_integer(struct kunit *test)
 {
@@ -18,8 +43,7 @@ static void iio_test_iio_format_value_integer(struct kunit *test)
 	int val;
 	int ret;
 
-	buf = kunit_kmalloc(test, PAGE_SIZE, GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, buf);
+	buf = iio_test_format_alloc_buf(test);
 
 	val = 42;
 	ret = iio_format_value(buf, IIO_VAL_INT, 1, &val);
@@ -48,8 +72,7 @@ static void iio_test_iio_format_value_fixedpoint(struct kunit *test)
 	char *buf;
 	int ret;
 
-	buf = kunit_kmalloc(test, PAGE_SIZE, GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, buf);
+	buf = iio_test_format_alloc_buf(test);
 
 	/* positive >= 1 */
 	values[0] = 1;
@@ -109,8 +132,7 @@ static void iio_test_iio_format_value_fractional(struct kunit *test)
 	char *buf;
 	int ret;
 
-	buf = kunit_kmalloc(test, PAGE_SIZE, GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, buf);
+	buf = iio_test_format_alloc_buf(test);
 
 	/* positive < 1 */
 	values[0] = 1;
@@ -149,8 +171,7 @@ static void iio_test_iio_format_value_fractional_log2(struct kunit *test)
 	char *buf;
 	int ret;
 
-	buf = kunit_kmalloc(test, PAGE_SIZE, GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, buf);
+	buf = iio_test_format_alloc_buf(test);
 
 	/* positive < 1 */
 	values[0] = 123;
@@ -189,8 +210,7 @@ static void iio_test_iio_format_value_multiple(struct kunit *test)
 	char *buf;
 	int ret;
 
-	buf = kunit_kmalloc(test, PAGE_SIZE, GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, buf);
+	buf = iio_test_format_alloc_buf(test);
 
 	ret = iio_format_value(buf, IIO_VAL_INT_MULTIPLE,
 			       ARRAY_SIZE(values), values);
@@ -203,8 +223,7 @@ static void iio_test_iio_format_value_integer_64(struct kunit *test)
 	char *buf;
 	int ret;
 
-	buf = kunit_kmalloc(test, PAGE_SIZE, GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, buf);
+	buf = iio_test_format_alloc_buf(test);
 
 	iio_val_s64_decompose(24, &values[0], &values[1]);
 	ret = iio_format_value(buf, IIO_VAL_INT_64, ARRAY_SIZE(values), values);
@@ -241,8 +260,7 @@ static void iio_test_iio_format_value_decimal_64(struct kunit *test)
 	char *buf;
 	int ret;
 
-	buf = kunit_kmalloc(test, PAGE_SIZE, GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, buf);
+	buf = iio_test_format_alloc_buf(test);
 
 	/* DECIMAL64_MILLI: positive >= 1, value 1.234 */
 	iio_val_s64_decompose(1234, &values[0], &values[1]);
