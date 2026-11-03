@@ -4633,7 +4633,7 @@ static int check_stack_write(struct bpf_verifier_env *env,
 static int check_stack_arg_write(struct bpf_verifier_env *env, struct bpf_func_state *state,
 				 int off, struct bpf_reg_state *value_reg)
 {
-	int max_stack_arg_regs = MAX_BPF_FUNC_ARGS - MAX_BPF_FUNC_REG_ARGS;
+	int max_stack_arg_regs = MAX_STACK_ARG_SLOTS;
 	struct bpf_subprog_info *subprog = &env->subprog_info[state->subprogno];
 	int spi = -off / BPF_REG_SIZE - 1;
 	struct bpf_reg_state *arg;
@@ -15257,7 +15257,7 @@ static void prepare_subprog_args(struct bpf_verifier_env *env)
 				cnt = max(cnt, insn->off / BPF_REG_SIZE);
 		}
 		sub->stack_args_from_code = true;
-		sub->code_stack_args = min(cnt, MAX_BPF_FUNC_ARGS - MAX_BPF_FUNC_REG_ARGS);
+		sub->code_stack_args = min(cnt, MAX_STACK_ARG_SLOTS);
 		/* incoming + max outgoing. Calls add the latter. */
 		sub->stack_arg_cnt = sub->code_stack_args;
 		if (env->prog->aux->func_info_aux)

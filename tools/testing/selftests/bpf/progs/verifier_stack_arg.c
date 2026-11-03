@@ -443,7 +443,7 @@ __naked void stack_arg_shared_store(void)
 SEC("tc")
 __description("stack_arg: write beyond max outgoing depth")
 __failure
-__msg("stack arg write offset -80 exceeds max 7 stack args")
+__msg("stack arg write offset -160 exceeds max 19 stack args")
 __naked void stack_arg_write_beyond_max(void)
 {
 	asm volatile (
@@ -452,8 +452,8 @@ __naked void stack_arg_write_beyond_max(void)
 		"r3 = 3;"
 		"r4 = 4;"
 		"r5 = 5;"
-		/* Write to offset -80, way beyond any callee's needs */
-		"*(u64 *)(r11 - 80) = 99;"
+		/* Write to offset -160, way beyond any callee's needs */
+		"*(u64 *)(r11 - 160) = 99;"
 		"*(u64 *)(r11 - 16) = 20;"
 		"*(u64 *)(r11 - 8) = 10;"
 		"call subprog_7args;"
