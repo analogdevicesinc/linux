@@ -1332,6 +1332,7 @@ void otx2_cleanup_tx_cqes(struct otx2_nic *pfvf, struct otx2_cq_queue *cq)
 	struct nix_cqe_tx_s *cqe;
 	struct netdev_queue *txq;
 	int processed_cqe = 0;
+	int xsk_frames = 0;
 	struct sg_list *sg;
 	int qidx;
 
@@ -1348,6 +1349,10 @@ void otx2_cleanup_tx_cqes(struct otx2_nic *pfvf, struct otx2_cq_queue *cq)
 
 		if (!cqe)
 			continue;
+		if (cq->cq_type == CQ_XDP) {
+			otx2_xdp_snd_pkt_handler(pfvf, sq, cqe, &xsk_frames);
+			continue;
+		}
 		sg = &sq->sg[cqe->comp.sqe_id];
 		skb = (struct sk_buff *)sg->skb;
 		if (skb) {
@@ -1358,6 +1363,9 @@ void otx2_cleanup_tx_cqes(struct otx2_nic *pfvf, struct otx2_cq_queue *cq)
 			sg->skb = (u64)NULL;
 		}
 	}
+
+	if (xsk_frames && sq->xsk_pool)
+		xsk_tx_completed(sq->xsk_pool, xsk_frames);
 
 	if (likely(tx_pkts)) {
 		if (qidx >= pfvf->hw.tx_queues)
