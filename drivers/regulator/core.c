@@ -44,6 +44,7 @@ static LIST_HEAD(regulator_ena_gpio_list);
 static LIST_HEAD(regulator_supply_alias_list);
 static LIST_HEAD(regulator_coupler_list);
 static bool has_full_constraints;
+static bool regulator_suspending;
 
 static const struct bus_type regulator_bus;
 
@@ -3463,10 +3464,15 @@ int regulator_disable_deferred(struct regulator *regulator, int ms)
 {
 	struct regulator_dev *rdev = regulator->rdev;
 
-	if (!ms)
+	if (!ms || READ_ONCE(regulator_suspending))
 		return regulator_disable(regulator);
 
 	regulator_lock(rdev);
+	if (unlikely(READ_ONCE(regulator_suspending))) {
+		regulator_unlock(rdev);
+		return regulator_disable(regulator);
+	}
+
 	regulator->deferred_disables++;
 	mod_delayed_work(system_power_efficient_wq, &rdev->disable_work,
 			 msecs_to_jiffies(ms));
@@ -6327,6 +6333,24 @@ void regulator_unregister(struct regulator_dev *rdev)
 EXPORT_SYMBOL_GPL(regulator_unregister);
 
 #ifdef CONFIG_SUSPEND
+static int regulator_prepare(struct device *dev)
+{
+	struct regulator_dev *rdev = dev_to_rdev(dev);
+
+	regulator_lock(rdev);
+	WRITE_ONCE(regulator_suspending, true);
+	regulator_unlock(rdev);
+
+	flush_delayed_work(&rdev->disable_work);
+
+	return 0;
+}
+
+static void regulator_complete(struct device *dev)
+{
+	WRITE_ONCE(regulator_suspending, false);
+}
+
 /**
  * regulator_suspend - prepare regulators for system wide suspend
  * @dev: ``&struct device`` pointer that is passed to _regulator_suspend()
@@ -6380,6 +6404,8 @@ static int regulator_resume(struct device *dev)
 }
 #else /* !CONFIG_SUSPEND */
 
+#define regulator_prepare	NULL
+#define regulator_complete	NULL
 #define regulator_suspend	NULL
 #define regulator_resume	NULL
 
@@ -6387,6 +6413,8 @@ static int regulator_resume(struct device *dev)
 
 #ifdef CONFIG_PM
 static const struct dev_pm_ops __maybe_unused regulator_pm_ops = {
+	.prepare	= regulator_prepare,
+	.complete	= regulator_complete,
 	.suspend	= regulator_suspend,
 	.resume		= regulator_resume,
 };
