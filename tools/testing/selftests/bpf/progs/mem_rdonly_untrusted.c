@@ -51,6 +51,22 @@ int ldx_is_ok_bad_addr(void *ctx)
 	return p[0x7fff];
 }
 
+SEC("syscall")
+__success
+__retval(0)
+int ldx_is_ok_tagged_user_addr(void *ctx)
+{
+	struct task_struct *task = bpf_get_current_task_btf();
+	char *p;
+
+	if (!bpf_core_enum_value_exists(enum bpf_features, BPF_FEAT_RDONLY_CAST_TO_VOID))
+		return 42;
+
+	/* arm64 ignores the top byte of a user address */
+	p = bpf_rdonly_cast((void *)(task->mm->arg_start | 1ul << 60), 0);
+	return *p;
+}
+
 SEC("socket")
 __success
 __retval(1)
