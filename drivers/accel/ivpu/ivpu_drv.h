@@ -238,6 +238,7 @@ extern bool ivpu_force_snoop;
 #define IVPU_TEST_MODE_CLK_RELINQ_DISABLE BIT(11)
 #define IVPU_TEST_MODE_CLK_RELINQ_ENABLE  BIT(12)
 #define IVPU_TEST_MODE_D0I2_DISABLE       BIT(13)
+#define IVPU_TEST_MODE_PROF_FREQ_HIGH     BIT(14)
 extern int ivpu_test_mode;
 
 struct ivpu_file_priv *ivpu_file_priv_get(struct ivpu_file_priv *file_priv);
