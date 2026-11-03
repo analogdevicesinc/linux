@@ -106,6 +106,7 @@ Hardware Monitoring Kernel Drivers
    ina3221
    inspur-ipsps1
    intel-m10-bmc-hwmon
+   ionic-hwmon
    ir35221
    ir38064
    ir36021

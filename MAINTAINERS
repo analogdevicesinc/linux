@@ -1285,6 +1285,14 @@ F:	Documentation/networking/device_drivers/ethernet/amd/pds_core.rst
 F:	drivers/net/ethernet/amd/pds_core/
 F:	include/linux/pds/
 
+AMD PENSANDO IONIC HARDWARE MONITORING DRIVER
+M:	Brett Creeley <brett.creeley@amd.com>
+L:	linux-hwmon@vger.kernel.org
+S:	Maintained
+F:	Documentation/hwmon/ionic-hwmon.rst
+F:	drivers/hwmon/ionic-hwmon.c
+F:	include/linux/ionic/ionic_hwmon.h
+
 AMD PENSANDO RDMA DRIVER
 M:	Abhijit Gangurde <abhijit.gangurde@amd.com>
 M:	Allen Hubbe <allen.hubbe@amd.com>
