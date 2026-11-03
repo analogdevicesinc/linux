@@ -226,8 +226,8 @@ static inline union tcp_addr gen_tcp_addr(union tcp_addr net, size_t n)
 	union tcp_addr ret = net;
 
 #ifdef IPV6_TEST
-	ret.a6.s6_addr32[3] = htonl(n & (BIT(32) - 1));
-	ret.a6.s6_addr32[2] = htonl((n >> 32) & (BIT(32) - 1));
+	ret.a6.s6_addr32[3] = htonl((uint64_t)n & 0xffffffff);
+	ret.a6.s6_addr32[2] = htonl((uint64_t)n >> 32);
 #else
 	ret.a4.s_addr = htonl(ntohl(net.a4.s_addr) + n);
 #endif
