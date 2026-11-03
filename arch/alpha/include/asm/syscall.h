@@ -105,14 +105,16 @@ static inline void syscall_set_return_value(struct task_struct *task,
 	}
 }
 
-/* Restore the original syscall nr after seccomp/ptrace modified regs->r1. */
+/* Preserve the original syscall registers for a skipped syscall. */
 
 static inline void syscall_rollback(struct task_struct *task,
 					struct pt_regs *regs)
 {
 	unsigned long nr = task_thread_info(task)->syscall_saved_nr;
 
+	regs->r0 = nr;
 	regs->r1 = nr;
+	task_thread_info(task)->syscall_meta |= ALPHA_SYSCALL_META_ROLLBACK;
 }
 
 static inline bool arch_syscall_is_vdso_sigreturn(struct pt_regs *regs)

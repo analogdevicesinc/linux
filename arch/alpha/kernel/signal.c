@@ -587,10 +587,11 @@ alpha_syscall_enter_select(struct pt_regs *regs, long syscall)
 	 * entry work did not already change the return state.
 	 */
 	if (unlikely(!permit || (unsigned long)nr >= NR_syscalls)) {
-		if (regs->r0 == saved_r0 && regs->r19 == saved_r19)
+		if (!(ti->syscall_meta & ALPHA_SYSCALL_META_ROLLBACK) &&
+		    regs->r0 == saved_r0 && regs->r19 == saved_r19)
 			syscall_set_return_value(current, regs, -ENOSYS, 0);
 
-		ti->syscall_meta = ALPHA_SYSCALL_META_SKIP;
+		ti->syscall_meta |= ALPHA_SYSCALL_META_SKIP;
 		return fn;	/* ignored by asm when SKIP is set */
 	}
 
@@ -616,6 +617,13 @@ alpha_finish_syscall_to_user_mode(struct pt_regs *regs, long ret)
 	ti->syscall_saved_r19 = regs->r19;
 
 	instrumentation_begin();
+
+	if (meta & ALPHA_SYSCALL_META_ROLLBACK) {
+		ti->syscall_saved_nr = 0;
+		instrumentation_end();
+		syscall_exit_to_user_mode(regs);
+		return;
+	}
 
 	if (meta & ALPHA_SYSCALL_META_SKIP) {
 	/*
