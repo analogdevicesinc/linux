@@ -134,6 +134,9 @@ static int al3010_read_raw(struct iio_dev *indio_dev,
 			return ret;
 
 		gain = FIELD_GET(AL3010_GAIN_MASK, gain);
+		if (gain >= ARRAY_SIZE(al3010_scales))
+			return -EINVAL;
+
 		*val = al3010_scales[gain][0];
 		*val2 = al3010_scales[gain][1];
 
