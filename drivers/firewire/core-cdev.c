@@ -443,6 +443,7 @@ static void for_each_client(struct fw_device *device,
 }
 
 static void queue_bus_reset_event(struct client *client)
+__must_hold(&client->device->client_list_mutex)
 {
 	struct bus_reset_event *e;
 	struct client_resource *resource;
