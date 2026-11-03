@@ -1040,13 +1040,19 @@ void mlx5_esw_vport_disable(struct mlx5_eswitch *esw, struct mlx5_vport *vport)
 	    (vport->info.ipsec_crypto_enabled || vport->info.ipsec_packet_enabled))
 		esw->enabled_ipsec_vf_count--;
 
+	/* Clear rx-mode before esw_vport_change_handle_locked(): on
+	 * MLX5_VPORT_PROMISC_CHANGE it calls esw_update_vport_mc_promisc()
+	 * when vport->allmulti_rule is set, repopulating mc_list with FDB
+	 * rules that dangle once the FDB is destroyed. NULL allmulti_rule
+	 * here skips that path.
+	 */
+	esw_apply_vport_rx_mode(esw, vport, false, false);
 	/* We don't assume VFs will cleanup after themselves.
 	 * Calling vport change handler while vport is disabled will cleanup
 	 * the vport resources.
 	 */
 	esw_vport_change_handle_locked(vport);
 	vport->enabled_events = 0;
-	esw_apply_vport_rx_mode(esw, vport, false, false);
 	esw_vport_cleanup(esw, vport);
 	esw->enabled_vports--;
 
@@ -1234,6 +1240,11 @@ static int mlx5_esw_host_functions_enabled_query(struct mlx5_eswitch *esw)
 {
 	struct mlx5_esw_pf_info host_pf_info;
 	const u32 *query_host_out;
+
+	if (!mlx5_core_is_pf(esw->dev)) {
+		esw->esw_funcs.host_funcs_disabled = true;
+		return 0;
+	}
 
 	if (!mlx5_core_is_ecpf_esw_manager(esw->dev))
 		return 0;
@@ -2288,8 +2299,7 @@ static int mlx5_esw_spfs_init(struct mlx5_eswitch *esw)
 	if (!num_entries)
 		goto out_free;
 
-	esw_funcs->spfs = kcalloc(num_entries, sizeof(*esw_funcs->spfs),
-				  GFP_KERNEL);
+	esw_funcs->spfs = kzalloc_objs(*esw_funcs->spfs, num_entries);
 	if (!esw_funcs->spfs) {
 		err = -ENOMEM;
 		goto out_free;
@@ -2455,13 +2465,20 @@ static int mlx5_esw_vports_init(struct mlx5_eswitch *esw)
 		}
 	}
 
-	if (mlx5_ecpf_vport_exists(dev) ||
-	    mlx5_core_is_ecpf_esw_manager(dev)) {
+	if (mlx5_ecpf_vport_exists(dev)) {
 		err = mlx5_esw_vport_alloc(esw, idx, MLX5_VPORT_ECPF);
 		if (err)
 			goto err;
 		idx++;
 	}
+
+	if (!xa_load(&esw->vports, esw->manager_vport)) {
+		err = mlx5_esw_vport_alloc(esw, idx, esw->manager_vport);
+		if (err)
+			goto err;
+		idx++;
+	}
+
 	err = mlx5_esw_vport_alloc(esw, idx, MLX5_VPORT_UPLINK);
 	if (err)
 		goto err;
@@ -2946,7 +2963,7 @@ bool mlx5_esw_hold(struct mlx5_core_dev *mdev)
 {
 	struct mlx5_eswitch *esw = mdev->priv.eswitch;
 
-	/* e.g. VF doesn't have eswitch so nothing to do */
+	/* Not an eswitch manager, so there is no mode lock to take */
 	if (!mlx5_esw_allowed(esw))
 		return true;
 
@@ -3094,7 +3111,7 @@ void mlx5_eswitch_unblock_ipsec(struct mlx5_core_dev *dev)
 	struct mlx5_eswitch *esw = dev->priv.eswitch;
 
 	if (!mlx5_esw_allowed(esw))
-		/* Failure means no eswitch => core dev is not a PF */
+		/* Not an eswitch manager, so nothing was blocked */
 		return;
 
 	mutex_lock(&esw->state_lock);

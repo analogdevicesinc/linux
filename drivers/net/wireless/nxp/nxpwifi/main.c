@@ -5,6 +5,7 @@
  * Copyright 2011-2024 NXP
  */
 
+#include <linux/string_choices.h>
 #include <linux/suspend.h>
 
 #include "main.h"
@@ -32,7 +33,7 @@ static struct nxpwifi_adapter *nxpwifi_register(void *card, struct device *dev,
 	int ret = 0;
 	int i;
 
-	adapter = kzalloc_obj(*adapter, GFP_KERNEL);
+	adapter = kzalloc_obj(*adapter);
 	if (!adapter)
 		return ERR_PTR(-ENOMEM);
 
@@ -55,7 +56,7 @@ static struct nxpwifi_adapter *nxpwifi_register(void *card, struct device *dev,
 	for (i = 0; i < NXPWIFI_MAX_BSS_NUM; i++) {
 		/* Allocate memory for private structure */
 		adapter->priv[i] =
-			kzalloc_obj(struct nxpwifi_private, GFP_KERNEL);
+			kzalloc_obj(struct nxpwifi_private);
 		if (!adapter->priv[i]) {
 			ret = -ENOMEM;
 			goto error;
@@ -603,14 +604,18 @@ static int _nxpwifi_fw_dpc(const struct firmware *firmware, void *context)
 	maybe_quirk_fw_disable_ds(adapter);
 
 	if (!adapter->wiphy) {
-		if (nxpwifi_register_cfg80211(adapter)) {
+		ret = nxpwifi_register_cfg80211(adapter);
+
+		if (ret) {
 			nxpwifi_dbg(adapter, ERROR,
 				    "cannot register with cfg80211\n");
 			goto err_init_fw;
 		}
 	}
 
-	if (nxpwifi_init_channel_scan_gap(adapter)) {
+	ret = nxpwifi_init_channel_scan_gap(adapter);
+
+	if (ret) {
 		nxpwifi_dbg(adapter, ERROR,
 			    "could not init channel stats table\n");
 		goto err_init_chan_scan;
@@ -623,6 +628,7 @@ static int _nxpwifi_fw_dpc(const struct firmware *firmware, void *context)
 	if (IS_ERR(wdev)) {
 		nxpwifi_dbg(adapter, ERROR,
 			    "cannot create default STA interface\n");
+		ret = PTR_ERR(wdev);
 		rtnl_unlock();
 		goto err_add_intf;
 	}
@@ -632,6 +638,7 @@ static int _nxpwifi_fw_dpc(const struct firmware *firmware, void *context)
 	if (IS_ERR(wdev)) {
 		nxpwifi_dbg(adapter, ERROR,
 			    "cannot create AP interface\n");
+		ret = PTR_ERR(wdev);
 		rtnl_unlock();
 		goto err_add_intf;
 	}
@@ -644,7 +651,7 @@ static int _nxpwifi_fw_dpc(const struct firmware *firmware, void *context)
 	goto done;
 
 err_add_intf:
-	vfree(adapter->chan_stats);
+	kfree(adapter->chan_stats);
 err_init_chan_scan:
 	wiphy_unregister(adapter->wiphy);
 	wiphy_free(adapter->wiphy);
@@ -1088,8 +1095,8 @@ void nxpwifi_drv_info_dump(struct nxpwifi_adapter *adapter)
 			     atomic_read(&priv->wmm_tx_pending[3]));
 		p += sprintf(p, "media_state=\"%s\"\n", !priv->media_connected ?
 			     "Disconnected" : "Connected");
-		p += sprintf(p, "carrier %s\n", (netif_carrier_ok(priv->netdev)
-			     ? "on" : "off"));
+		p += sprintf(p, "carrier %s\n",
+			     str_on_off(netif_carrier_ok(priv->netdev)));
 		for (idx = 0; idx < priv->netdev->num_tx_queues; idx++) {
 			txq = netdev_get_tx_queue(priv->netdev, idx);
 			p += sprintf(p, "tx queue %d:%s  ", idx,
@@ -1106,14 +1113,17 @@ void nxpwifi_drv_info_dump(struct nxpwifi_adapter *adapter)
 			p += adapter->if_ops.reg_dump(adapter, p);
 	}
 	p += sprintf(p, "\n=== more debug information\n");
-	debug_info = kzalloc_obj(*debug_info, GFP_KERNEL);
+	debug_info = kzalloc_obj(*debug_info);
 	if (debug_info) {
 		for (i = 0; i < adapter->priv_num; i++) {
 			if (!adapter->priv[i]->netdev)
 				continue;
 			priv = adapter->priv[i];
 			nxpwifi_get_debug_info(priv, debug_info);
-			p += nxpwifi_debug_info_to_buffer(priv, p, debug_info);
+			p += nxpwifi_debug_info_to_buffer(priv, p,
+					  NXPWIFI_FW_DUMP_SIZE -
+					  (p - (char *)adapter->devdump_data),
+					  debug_info);
 			break;
 		}
 		kfree(debug_info);
@@ -1242,7 +1252,7 @@ void nxpwifi_init_priv_params(struct nxpwifi_private *priv,
 
 	if (GET_BSS_ROLE(priv) == NXPWIFI_BSS_ROLE_STA ||
 	    GET_BSS_ROLE(priv) == NXPWIFI_BSS_ROLE_UAP) {
-		priv->hist_data = kmalloc_obj(*priv->hist_data, GFP_KERNEL);
+		priv->hist_data = kmalloc_obj(*priv->hist_data);
 		if (priv->hist_data)
 			nxpwifi_hist_data_reset(priv);
 	}
@@ -1384,7 +1394,7 @@ static void nxpwifi_uninit_sw(struct nxpwifi_adapter *adapter)
 	wiphy_free(adapter->wiphy);
 	adapter->wiphy = NULL;
 
-	vfree(adapter->chan_stats);
+	kfree(adapter->chan_stats);
 	nxpwifi_free_cmd_buffers(adapter);
 }
 

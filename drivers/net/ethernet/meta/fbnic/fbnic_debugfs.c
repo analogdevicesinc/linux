@@ -181,8 +181,8 @@ static int fbnic_dbg_tcq_desc_seq_show(struct seq_file *s, void *v)
 static int fbnic_dbg_bdq_desc_seq_show(struct seq_file *s, void *v)
 {
 	struct fbnic_ring *ring = s->private;
+	unsigned int i, desc_count;
 	char hdr[80];
-	int i;
 
 	/* Generate header on first entry */
 	fbnic_dbg_ring_show(s);
@@ -197,7 +197,8 @@ static int fbnic_dbg_bdq_desc_seq_show(struct seq_file *s, void *v)
 		return 0;
 	}
 
-	for (i = 0; i < (ring->size_mask + 1) * FBNIC_BD_FRAG_COUNT; i++) {
+	desc_count = (ring->size_mask + 1) * fbnic_bd_page_count(ring);
+	for (i = 0; i < desc_count; i++) {
 		u64 bd = le64_to_cpu(ring->desc[i]);
 
 		seq_printf(s, "%04x %#04llx %#014llx\n", i,
@@ -539,8 +540,8 @@ static void fbnic_dbg_fw_mbx_display(struct seq_file *s,
 	/* Generate header */
 	seq_puts(s, mbx_idx == FBNIC_IPC_MBX_RX_IDX ? "Rx\n" : "Tx\n");
 
-	seq_printf(s, "Rdy: %d Head: %d Tail: %d\n",
-		   mbx->ready, mbx->head, mbx->tail);
+	seq_printf(s, "Rdy: %d Head: %d Tail: %d resp_error: %llu\n",
+		   mbx->ready, mbx->head, mbx->tail, mbx->resp_error);
 
 	snprintf(hdr, sizeof(hdr), "%3s %-4s %s %-12s %s %-3s %-16s\n",
 		 "Idx", "Len", "E", "Addr", "F", "H", "Raw");

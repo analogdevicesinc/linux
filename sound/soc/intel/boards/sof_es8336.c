@@ -360,6 +360,15 @@ static const struct dmi_system_id sof_es8336_quirk_table[] = {
 		.driver_data = (void *)(SOF_ES8336_HEADPHONE_GPIO |
 					SOC_ES8336_HEADSET_MIC1)
 	},
+	{
+		.callback = sof_es8336_quirk_cb,
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HUAWEI"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "NDZ-WXX9"),
+		},
+		.driver_data = (void *)(SOF_ES8336_HEADPHONE_GPIO |
+					SOC_ES8336_HEADSET_MIC1)
+	},
 	{}
 };
 
@@ -693,11 +702,11 @@ static int sof_es8336_probe(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
-	codec_dev = acpi_get_first_physical_node(adev);
+	codec_dev = acpi_bus_get_primary_device(adev);
 	acpi_dev_put(adev);
 	if (!codec_dev)
 		return -EPROBE_DEFER;
-	priv->codec_dev = get_device(codec_dev);
+	priv->codec_dev = codec_dev;
 
 	ret = snd_soc_fixup_dai_links_platform_name(&sof_es8336_card,
 						    mach->mach_params.platform);

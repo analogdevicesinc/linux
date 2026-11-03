@@ -416,6 +416,15 @@ static void configfs_remove_dir(struct dentry *d)
 	if (d_really_is_positive(d)) {
 		if (unlikely(simple_rmdir(d_inode(parent), d)))
 			pr_warn("remove_dir (%pd): attributes remain", d);
+		else
+			/*
+			 * configfs_get_config_item() takes a hashed dentry as
+			 * proof that ->s_element is still alive.  Our caller
+			 * is about to drop the last reference to the item and
+			 * the VFS will not unhash until after we return, so
+			 * unhash it here.
+			 */
+			d_drop(d);
 	}
 
 	pr_debug(" o %pd removing done (%d)\n", d, d_count(d));
@@ -461,7 +470,7 @@ static struct dentry * configfs_lookup(struct inode *dir,
 		 */
 		if ((sd->s_type & CONFIGFS_NOT_PINNED) &&
 		    !strcmp(configfs_get_name(sd), dentry->d_name.name)) {
-			struct configfs_attribute *attr = sd->s_element;
+			const struct configfs_attribute *attr = sd->s_element;
 			umode_t mode = (attr->ca_mode & S_IALLUGO) | S_IFREG;
 
 			dentry->d_fsdata = configfs_get(sd);
@@ -622,8 +631,8 @@ static int populate_attrs(struct config_item *item)
 {
 	const struct config_item_type *t = item->ci_type;
 	const struct configfs_group_operations *ops;
-	struct configfs_attribute *attr;
-	struct configfs_bin_attribute *bin_attr;
+	const struct configfs_attribute *attr;
+	const struct configfs_bin_attribute *bin_attr;
 	int error = 0;
 	int i;
 
@@ -632,8 +641,8 @@ static int populate_attrs(struct config_item *item)
 
 	ops = t->ct_group_ops;
 
-	if (t->ct_attrs) {
-		for (i = 0; (attr = t->ct_attrs[i]) != NULL; i++) {
+	if (t->ct_attrs_const) {
+		for (i = 0; (attr = t->ct_attrs_const[i]) != NULL; i++) {
 			if (ops && ops->is_visible && !ops->is_visible(item, attr, i))
 				continue;
 
@@ -1286,7 +1295,7 @@ out_root_unlock:
 }
 EXPORT_SYMBOL(configfs_depend_item_unlocked);
 
-static struct dentry *configfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *configfs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				     struct dentry *dentry, umode_t mode)
 {
 	int ret = 0;

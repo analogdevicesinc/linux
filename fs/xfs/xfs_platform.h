@@ -50,6 +50,7 @@
 #include <linux/xattr.h>
 #include <linux/mnt_idmapping.h>
 #include <linux/debugfs.h>
+#include <linux/iversion.h>
 #include <asm/page.h>
 #include <asm/div64.h>
 #include <asm/param.h>
@@ -115,10 +116,6 @@ typedef __u32			xfs_nlink_t;
 #define xfs_blockgc_secs	xfs_params.blockgc_timer.val
 
 #define current_cpu()		(raw_smp_processor_id())
-#define current_set_flags_nested(sp, f)		\
-		(*(sp) = current->flags, current->flags |= (f))
-#define current_restore_flags_nested(sp, f)	\
-		(current->flags = ((current->flags & ~(f)) | (*(sp) & (f))))
 
 #define NBBY		8		/* number of bits per byte */
 
@@ -153,7 +150,7 @@ static inline void delay(long ticks)
 /*
  * XFS wrapper structure for sysfs support. It depends on external data
  * structures and is embedded in various internal data structures to implement
- * the XFS sysfs object heirarchy. Define it here for broad access throughout
+ * the XFS sysfs object hierarchy. Define it here for broad access throughout
  * the codebase.
  */
 struct xfs_kobj {
@@ -288,16 +285,5 @@ int xfs_rw_bdev(struct block_device *bdev, sector_t sector, unsigned int count,
 #else
 # define PTR_FMT "%p"
 #endif
-
-/*
- * Helper for IO routines to grab backing pages from allocated kernel memory.
- */
-static inline struct page *
-kmem_to_page(void *addr)
-{
-	if (is_vmalloc_addr(addr))
-		return vmalloc_to_page(addr);
-	return virt_to_page(addr);
-}
 
 #endif /* _XFS_PLATFORM_H */

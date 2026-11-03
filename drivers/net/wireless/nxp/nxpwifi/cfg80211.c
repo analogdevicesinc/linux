@@ -99,12 +99,14 @@ static void *nxpwifi_cfg80211_get_adapter(struct wiphy *wiphy)
 /* cfg80211 operation handler to delete a network key. */
 static int
 nxpwifi_cfg80211_del_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-			 int link_id, u8 key_index, bool pairwise,
+			 int link_id, u8 key_index,
+			 enum nl80211_key_type type,
 			 const u8 *mac_addr)
 {
 	struct nxpwifi_private *priv = nxpwifi_netdev_get_priv(wdev->netdev);
 	static const u8 bc_mac[] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-	const u8 *peer_mac = pairwise ? mac_addr : bc_mac;
+	const u8 *peer_mac =
+		(type == NL80211_KEYTYPE_PAIRWISE) ? mac_addr : bc_mac;
 	int ret;
 
 	ret = nxpwifi_set_encode(priv, NULL, NULL, 0, key_index, peer_mac, 1);
@@ -426,7 +428,8 @@ nxpwifi_cfg80211_set_default_key(struct wiphy *wiphy, struct net_device *netdev,
 /* cfg80211 handler for adding an 802.11 encryption key. */
 static int
 nxpwifi_cfg80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-			 int link_id, u8 key_index, bool pairwise,
+			 int link_id, u8 key_index,
+			 enum nl80211_key_type type,
 			 const u8 *mac_addr, struct key_params *params)
 {
 	struct nxpwifi_private *priv = nxpwifi_netdev_get_priv(wdev->netdev);
@@ -436,7 +439,7 @@ nxpwifi_cfg80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 	int ret;
 
 	eth_broadcast_addr(bc_mac);
-	peer_mac = pairwise ? mac_addr : bc_mac;
+	peer_mac = (type == NL80211_KEYTYPE_PAIRWISE) ? mac_addr : bc_mac;
 
 	if (GET_BSS_ROLE(priv) == NXPWIFI_BSS_ROLE_UAP &&
 	    (params->cipher == WLAN_CIPHER_SUITE_WEP40 ||
@@ -641,7 +644,7 @@ nxpwifi_cfg80211_set_wiphy_params(struct wiphy *wiphy, int radio_idx, u32 change
 
 	switch (priv->bss_role) {
 	case NXPWIFI_BSS_ROLE_UAP:
-		bss_cfg = kzalloc_obj(*bss_cfg, GFP_KERNEL);
+		bss_cfg = kzalloc_obj(*bss_cfg);
 		if (!bss_cfg) {
 			ret = -ENOMEM;
 			break;
@@ -844,8 +847,7 @@ nxpwifi_change_vif_to_sta(struct net_device *dev,
 	update_vif_type_counter(adapter, type, 1);
 	dev->ieee80211_ptr->iftype = type;
 
-	if (nxpwifi_set_bss_mode(priv))
-		return -1;
+	ret = nxpwifi_set_bss_mode(priv);
 
 	if (ret)
 		goto done;
@@ -888,8 +890,7 @@ nxpwifi_change_vif_to_ap(struct net_device *dev,
 	update_vif_type_counter(adapter, type, 1);
 	dev->ieee80211_ptr->iftype = type;
 
-	if (nxpwifi_set_bss_mode(priv))
-		return -1;
+	ret = nxpwifi_set_bss_mode(priv);
 
 	if (ret)
 		goto done;
@@ -1539,9 +1540,11 @@ nxpwifi_cfg80211_del_station(struct wiphy *wiphy, struct wireless_dev *wdev,
 
 	eth_zero_addr(deauth_mac);
 
+	rcu_read_lock();
 	sta_node = nxpwifi_get_sta_entry(priv, params->mac);
 	if (sta_node)
 		ether_addr_copy(deauth_mac, params->mac);
+	rcu_read_unlock();
 
 	if (is_valid_ether_addr(deauth_mac)) {
 		ret = nxpwifi_uap_sta_deauth(priv, deauth_mac);
@@ -1713,7 +1716,7 @@ static int nxpwifi_cfg80211_start_ap(struct wiphy *wiphy,
 	if (!nxpwifi_is_channel_setting_allowable(priv, params->chandef.chan))
 		return -EOPNOTSUPP;
 
-	bss_cfg = kzalloc_obj(*bss_cfg, GFP_KERNEL);
+	bss_cfg = kzalloc_obj(*bss_cfg);
 	if (!bss_cfg)
 		return -ENOMEM;
 
@@ -1866,7 +1869,7 @@ nxpwifi_cfg80211_scan(struct wiphy *wiphy,
 	if (!nxpwifi_stop_bg_scan(priv))
 		cfg80211_sched_scan_stopped_locked(priv->wdev.wiphy, 0);
 
-	user_scan_cfg = kzalloc_obj(*user_scan_cfg, GFP_KERNEL);
+	user_scan_cfg = kzalloc_obj(*user_scan_cfg);
 	if (!user_scan_cfg)
 		return -ENOMEM;
 
@@ -1973,7 +1976,7 @@ nxpwifi_cfg80211_sched_scan_start(struct wiphy *wiphy,
 		   request->n_channels, request->scan_plans->interval,
 		   (int)request->ie_len);
 
-	bgscan_cfg = kzalloc_obj(*bgscan_cfg, GFP_KERNEL);
+	bgscan_cfg = kzalloc_obj(*bgscan_cfg);
 	if (!bgscan_cfg)
 		return -ENOMEM;
 
@@ -2304,7 +2307,7 @@ nxpwifi_setup_he_caps(struct nxpwifi_private *priv,
 	if (!hw_he_cap_len)
 		return;
 
-	iftype_data = kmalloc_obj(*iftype_data, GFP_KERNEL);
+	iftype_data = kmalloc_obj(*iftype_data);
 	if (!iftype_data)
 		return;
 	memset(iftype_data, 0, sizeof(*iftype_data));
@@ -2759,7 +2762,7 @@ static int nxpwifi_set_mef_filter(struct nxpwifi_private *priv,
 	if (wowlan->n_patterns || wowlan->magic_pkt)
 		num_entries++;
 
-	mef_entry = kzalloc_objs(*mef_entry, num_entries, GFP_KERNEL);
+	mef_entry = kzalloc_objs(*mef_entry, num_entries);
 	if (!mef_entry)
 		return -ENOMEM;
 
@@ -3227,7 +3230,7 @@ static int nxpwifi_tm_cmd(struct wiphy *wiphy, struct wireless_dev *wdev,
 		if (!tb[NXPWIFI_TM_ATTR_DATA])
 			return -EINVAL;
 
-		hostcmd = kzalloc_obj(*hostcmd, GFP_KERNEL);
+		hostcmd = kzalloc_obj(*hostcmd);
 		if (!hostcmd)
 			return -ENOMEM;
 
@@ -3323,6 +3326,7 @@ nxpwifi_cfg80211_authenticate(struct wiphy *wiphy,
 	struct nxpwifi_adapter *adapter = priv->adapter;
 	struct sk_buff *skb;
 	u16 pkt_len, auth_alg;
+	size_t frame_len;
 	int ret;
 	struct ieee80211_mgmt *mgmt;
 	struct nxpwifi_txinfo *tx_info;
@@ -3396,13 +3400,25 @@ nxpwifi_cfg80211_authenticate(struct wiphy *wiphy,
 
 	nxpwifi_cancel_scan(adapter);
 
-	pkt_len = (u16)req->ie_len + req->auth_data_len +
-		NXPWIFI_MGMT_HEADER_LEN + NXPWIFI_AUTH_BODY_LEN;
+	frame_len = req->ie_len + req->auth_data_len +
+		sizeof(struct ieee80211_hdr_3addr) + NXPWIFI_AUTH_BODY_LEN;
 
 	if (req->auth_data_len >= 4)
-		pkt_len -= 4;
+		frame_len -= 4;
 
-	mgmt = kzalloc(pkt_len, GFP_KERNEL);
+	/* nxpwifi_form_mgmt_frame() inserts address4, so the frame handed to
+	 * the firmware is ETH_ALEN longer than the one built here.
+	 */
+	if (frame_len > U16_MAX - ETH_ALEN) {
+		nxpwifi_dbg(adapter, ERROR,
+			    "auth frame too long: %zu bytes\n", frame_len);
+		return -EINVAL;
+	}
+	pkt_len = frame_len + ETH_ALEN;
+
+	mgmt = kzalloc(frame_len, GFP_KERNEL);
+	if (!mgmt)
+		return -ENOMEM;
 
 	skb = dev_alloc_skb(NXPWIFI_MIN_DATA_HEADER_LEN +
 			    NXPWIFI_MGMT_FRAME_HEADER_SIZE +
@@ -3410,6 +3426,7 @@ nxpwifi_cfg80211_authenticate(struct wiphy *wiphy,
 	if (!skb) {
 		nxpwifi_dbg(adapter, ERROR,
 			    "allocate skb failed for management frame\n");
+		kfree(mgmt);
 		return -ENOMEM;
 	}
 
@@ -3448,7 +3465,7 @@ nxpwifi_cfg80211_authenticate(struct wiphy *wiphy,
 		memcpy((u8 *)varptr, req->ie, req->ie_len);
 	}
 
-	nxpwifi_form_mgmt_frame(skb, (const u8 *)mgmt, pkt_len);
+	nxpwifi_form_mgmt_frame(skb, (const u8 *)mgmt, frame_len);
 	kfree(mgmt);
 	priv->auth_flag = HOST_MLME_AUTH_PENDING;
 	priv->auth_alg = auth_alg;
@@ -3729,8 +3746,9 @@ int nxpwifi_init_channel_scan_gap(struct nxpwifi_adapter *adapter)
 	 * additional active scan request for hidden SSIDs on passive channels.
 	 */
 	adapter->num_in_chan_stats = 2 * (n_channels_bg + n_channels_a);
-	adapter->chan_stats = vmalloc(array_size(sizeof(*adapter->chan_stats),
-						 adapter->num_in_chan_stats));
+	adapter->chan_stats = kcalloc(adapter->num_in_chan_stats,
+				      sizeof(*adapter->chan_stats),
+				      GFP_KERNEL);
 
 	if (!adapter->chan_stats)
 		return -ENOMEM;

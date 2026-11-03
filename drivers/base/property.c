@@ -526,7 +526,7 @@ int fwnode_property_match_string(const struct fwnode_handle *fwnode,
 	if (nval == 0)
 		return -ENODATA;
 
-	const char **values __free(kfree) = kcalloc(nval, sizeof(*values), GFP_KERNEL);
+	const char **values __free(kfree) = kzalloc_objs(*values, nval);
 	if (!values)
 		return -ENOMEM;
 
@@ -705,7 +705,7 @@ bool fwnode_name_eq(const struct fwnode_handle *fwnode, const char *name)
 EXPORT_SYMBOL_GPL(fwnode_name_eq);
 
 /**
- * fwnode_get_parent - Return parent firwmare node
+ * fwnode_get_parent - Return parent firmware node
  * @fwnode: Firmware whose parent is retrieved
  *
  * The caller is responsible for calling fwnode_handle_put() on the returned

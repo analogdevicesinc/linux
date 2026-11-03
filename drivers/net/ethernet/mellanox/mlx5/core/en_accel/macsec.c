@@ -75,6 +75,7 @@ struct mlx5e_macsec_rx_sc;
 struct mlx5e_macsec_rx_sc_xarray_element {
 	u32 fs_id;
 	struct mlx5e_macsec_rx_sc *rx_sc;
+	struct rcu_head rcu_head;
 };
 
 struct mlx5e_macsec_rx_sc {
@@ -839,7 +840,7 @@ static void macsec_del_rxsc_ctx(struct mlx5e_macsec *macsec, struct mlx5e_macsec
 	list_del_rcu(&rx_sc->rx_sc_list_element);
 	xa_erase(&macsec->sc_xarray, rx_sc->sc_xarray_element->fs_id);
 	dst_release(&rx_sc->md_dst->dst);
-	kfree(rx_sc->sc_xarray_element);
+	kfree_rcu(rx_sc->sc_xarray_element, rcu_head);
 	kfree_rcu_mightsleep(rx_sc);
 }
 
@@ -1724,6 +1725,8 @@ void mlx5e_macsec_build_netdev(struct mlx5e_priv *priv)
 	mlx5_core_dbg(priv->mdev, "mlx5e: MACsec acceleration enabled\n");
 	netdev->macsec_ops = &macsec_offload_ops;
 	netdev->features |= NETIF_F_HW_MACSEC;
+	netdev->hw_features |= NETIF_F_HW_MACSEC;
+	netdev->vlan_features |= NETIF_F_HW_MACSEC;
 	netif_keep_dst(netdev);
 }
 

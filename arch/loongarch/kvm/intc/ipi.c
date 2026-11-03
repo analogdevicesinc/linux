@@ -423,15 +423,12 @@ static int kvm_ipi_create(struct kvm_device *dev, u32 type)
 	mutex_unlock(&kvm->slots_lock);
 	if (ret < 0) {
 		kvm_pr_unimpl("%s: Initialize IOCSR dev failed, ret = %d\n", __func__, ret);
-		goto err;
+		kfree(s);
+		return ret;
 	}
 
 	kvm->arch.ipi = s;
 	return 0;
-
-err:
-	kfree(s);
-	return -EFAULT;
 }
 
 static void kvm_ipi_destroy(struct kvm_device *dev)
@@ -462,4 +459,9 @@ static struct kvm_device_ops kvm_ipi_dev_ops = {
 int kvm_loongarch_register_ipi_device(void)
 {
 	return kvm_register_device_ops(&kvm_ipi_dev_ops, KVM_DEV_TYPE_LOONGARCH_IPI);
+}
+
+void kvm_loongarch_unregister_ipi_device(void)
+{
+	kvm_unregister_device_ops(KVM_DEV_TYPE_LOONGARCH_IPI);
 }

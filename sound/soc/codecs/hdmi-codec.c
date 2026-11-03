@@ -426,10 +426,14 @@ static int hdmi_codec_iec958_default_put(struct snd_kcontrol *kcontrol,
 	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
 	struct hdmi_codec_priv *hcp = snd_soc_component_get_drvdata(component);
 
+	if (!memcmp(hcp->iec_status, ucontrol->value.iec958.status,
+		    sizeof(hcp->iec_status)))
+		return 0;
+
 	memcpy(hcp->iec_status, ucontrol->value.iec958.status,
 	       sizeof(hcp->iec_status));
 
-	return 0;
+	return 1;
 }
 
 static int hdmi_codec_iec958_mask_get(struct snd_kcontrol *kcontrol,
@@ -471,8 +475,12 @@ static int hdmi_codec_startup(struct snd_pcm_substream *substream,
 		if (ret)
 			return ret;
 
-		snd_parse_eld(dai->dev, &hcp->eld_parsed,
-			      hcp->eld, sizeof(hcp->eld));
+		/* An empty ELD means no sink is connected; nothing to parse. */
+		if (hcp->eld[0])
+			snd_parse_eld(dai->dev, &hcp->eld_parsed,
+				      hcp->eld, sizeof(hcp->eld));
+		else
+			memset(&hcp->eld_parsed, 0, sizeof(hcp->eld_parsed));
 
 		ret = snd_pcm_hw_constraint_eld(substream->runtime, hcp->eld);
 		if (ret)

@@ -39,18 +39,6 @@
 #define MMIO_RANGE_OFFSET	0x0c
 #define MMIO_MISC_OFFSET	0x10
 
-/* Masks, shifts and macros to parse the device range capability */
-#define MMIO_RANGE_LD_MASK	0xff000000
-#define MMIO_RANGE_FD_MASK	0x00ff0000
-#define MMIO_RANGE_BUS_MASK	0x0000ff00
-#define MMIO_RANGE_LD_SHIFT	24
-#define MMIO_RANGE_FD_SHIFT	16
-#define MMIO_RANGE_BUS_SHIFT	8
-#define MMIO_GET_LD(x)  (((x) & MMIO_RANGE_LD_MASK) >> MMIO_RANGE_LD_SHIFT)
-#define MMIO_GET_FD(x)  (((x) & MMIO_RANGE_FD_MASK) >> MMIO_RANGE_FD_SHIFT)
-#define MMIO_GET_BUS(x) (((x) & MMIO_RANGE_BUS_MASK) >> MMIO_RANGE_BUS_SHIFT)
-#define MMIO_MSI_NUM(x)	((x) & 0x1f)
-
 /* Used offsets into the MMIO space */
 #define MMIO_DEV_TABLE_OFFSET   0x0000
 #define MMIO_CMD_BUF_OFFSET     0x0008
@@ -65,6 +53,7 @@
 #define MMIO_MSI_ADDR_LO_OFFSET	0x015C
 #define MMIO_MSI_ADDR_HI_OFFSET	0x0160
 #define MMIO_MSI_DATA_OFFSET	0x0164
+#define MMIO_PERF_OPT_OFFSET	0x016C
 #define MMIO_INTCAPXT_EVT_OFFSET	0x0170
 #define MMIO_INTCAPXT_PPR_OFFSET	0x0178
 #define MMIO_INTCAPXT_GALOG_OFFSET	0x0180
@@ -99,6 +88,8 @@
 #define FEATURE_GLX		GENMASK_ULL(15, 14)
 #define FEATURE_GAM_VAPIC	BIT_ULL(21)
 #define FEATURE_PASMAX		GENMASK_ULL(36, 32)
+#define FEATURE_PERF_OPT	BIT_ULL(45)
+#define PERF_OPT_EN		BIT(13)
 #define FEATURE_GIOSUP		BIT_ULL(48)
 #define FEATURE_HASUP		BIT_ULL(49)
 #define FEATURE_EPHSUP		BIT_ULL(50)
@@ -247,7 +238,6 @@
 
 /* constants to configure the command buffer */
 #define CMD_BUFFER_SIZE    8192
-#define CMD_BUFFER_UNINITIALIZED 1
 #define CMD_BUFFER_ENTRIES 512
 #define MMIO_CMD_SIZE_SHIFT 56
 #define MMIO_CMD_SIZE_512 (0x9ULL << MMIO_CMD_SIZE_SHIFT)
@@ -670,6 +660,9 @@ struct amd_iommu {
 	/* Extended features 2 */
 	u64 features2;
 
+	/* Devices requesting PerfOpt; the shared PERF_OPT_EN bit is on while >0. Protected by @lock. */
+	int perfopt_refcount;
+
 	/* PCI device id of the IOMMU device */
 	u16 devid;
 
@@ -831,6 +824,7 @@ struct iommu_dev_data {
 	u8 ppr          :1;		  /* Enable device PPR support */
 	bool use_vapic;			  /* Enable device to use vapic mode */
 	bool defer_attach;
+	bool perfopt;
 
 	struct ratelimit_state rs;        /* Ratelimit IOPF messages */
 };
