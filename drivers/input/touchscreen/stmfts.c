@@ -241,8 +241,7 @@ static void stmfts_report_contact_event(struct stmfts_data *sdata,
 	input_mt_slot(sdata->input, slot_id);
 
 	input_mt_report_slot_state(sdata->input, MT_TOOL_FINGER, true);
-	input_report_abs(sdata->input, ABS_MT_POSITION_X, x);
-	input_report_abs(sdata->input, ABS_MT_POSITION_Y, y);
+	touchscreen_report_pos(sdata->input, &sdata->prop, x, y, true);
 	input_report_abs(sdata->input, ABS_MT_TOUCH_MAJOR, maj);
 	input_report_abs(sdata->input, ABS_MT_TOUCH_MINOR, min);
 	input_report_abs(sdata->input, ABS_MT_PRESSURE, area);
@@ -344,8 +343,7 @@ static void stmfts5_report_contact_event(struct stmfts_data *sdata,
 	input_mt_slot(sdata->input, touch_id);
 	input_mt_report_slot_state(sdata->input, tool, true);
 
-	input_report_abs(sdata->input, ABS_MT_POSITION_X, x);
-	input_report_abs(sdata->input, ABS_MT_POSITION_Y, y);
+	touchscreen_report_pos(sdata->input, &sdata->prop, x, y, true);
 	input_report_abs(sdata->input, ABS_MT_TOUCH_MAJOR, maj);
 	input_report_abs(sdata->input, ABS_MT_TOUCH_MINOR, min);
 	input_report_abs(sdata->input, ABS_MT_PRESSURE, area);
@@ -375,8 +373,7 @@ static void stmfts_report_hover_event(struct stmfts_data *sdata,
 	u16 y = (event[3] << 4) | (event[4] & STMFTS_MASK_Y_LSB);
 	u8 z = event[5];
 
-	input_report_abs(sdata->input, ABS_X, x);
-	input_report_abs(sdata->input, ABS_Y, y);
+	touchscreen_report_pos(sdata->input, &sdata->prop, x, y, false);
 	input_report_abs(sdata->input, ABS_DISTANCE, z);
 
 	input_sync(sdata->input);
