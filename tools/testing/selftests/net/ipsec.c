@@ -2030,7 +2030,7 @@ static int __write_desc(int test_desc_fd, struct xfrm_desc *desc)
 	if (ret == sizeof(*desc))
 		return 0;
 
-	pr_err("Writing test's desc failed %ld", ret);
+	pr_err("Writing test's desc failed %zd", ret);
 
 	return -1;
 }

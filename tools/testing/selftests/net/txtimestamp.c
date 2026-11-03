@@ -188,12 +188,13 @@ static void __print_timestamp(const char *name, struct timespec *cur,
 		return;
 
 	if (cfg_print_nsec)
-		fprintf(stderr, "  %s: %lu s %lu ns (seq=%u, len=%u)",
-				name, cur->tv_sec, cur->tv_nsec,
+		fprintf(stderr, "  %s: %lld s %ld ns (seq=%u, len=%u)",
+				name, (long long)cur->tv_sec, (long)cur->tv_nsec,
 				key, payload_len);
 	else
-		fprintf(stderr, "  %s: %lu s %lu us (seq=%u, len=%u)",
-				name, cur->tv_sec, cur->tv_nsec / NSEC_PER_USEC,
+		fprintf(stderr, "  %s: %lld s %ld us (seq=%u, len=%u)",
+				name, (long long)cur->tv_sec,
+				(long)(cur->tv_nsec / NSEC_PER_USEC),
 				key, payload_len);
 
 	if (cur != &ts_usr) {
