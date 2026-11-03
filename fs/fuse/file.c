@@ -2999,6 +2999,7 @@ static ssize_t __fuse_copy_file_range(struct file *file_in, loff_t pos_in,
 	struct fuse_write_out outarg;
 	struct fuse_copy_file_range_out outarg_64;
 	u64 bytes_copied;
+	loff_t old_size;
 	ssize_t err;
 	/* mark unstable when write-back is not used, and file_out gets
 	 * extended */
@@ -3022,6 +3023,14 @@ static ssize_t __fuse_copy_file_range(struct file *file_in, loff_t pos_in,
 	err = file_modified(file_out);
 	if (err)
 		goto out;
+
+	/*
+	 * Copying to an offset past EOF extends the file over a hole.  Drop the
+	 * cache over the newly exposed range before the new size is published.
+	 */
+	old_size = i_size_read(inode_out);
+	if (pos_out > old_size)
+		truncate_pagecache_range(inode_out, old_size, pos_out - 1);
 
 	/*
 	 * Write out dirty pages in the destination file before sending the COPY
