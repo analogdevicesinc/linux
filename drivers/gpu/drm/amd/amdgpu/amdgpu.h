@@ -958,6 +958,7 @@ struct amdgpu_device {
 	bool                            debug_enable_ce_cs;
 	bool                            debug_hibernation_thaw_resume_gpu;
 	bool                            debug_disable_ip_block_soft_reset;
+	bool                            debug_disable_userptr_size_limit;
 
 	/* Protection for the following isolation structure */
 	struct mutex                    enforce_isolation_mutex;

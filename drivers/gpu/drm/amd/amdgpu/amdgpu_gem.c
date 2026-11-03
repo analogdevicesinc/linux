@@ -567,8 +567,14 @@ int amdgpu_gem_userptr_ioctl(struct drm_device *dev, void *data,
 		return -EFAULT;
 
 	/* Userptrs are for temporary uploads, not a general memory allocator */
-	if (args->size == 0 || args->size > SZ_1G)
+	if (args->size == 0)
 		return -EINVAL;
+	if (args->size > SZ_1G && !adev->debug_disable_userptr_size_limit) {
+		dev_warn_once(adev->dev,
+			      "userptr size %llu exceeds 1GiB, set amdgpu.debug_mask=0x4000 to lift the limit\n",
+			      args->size);
+		return -EINVAL;
+	}
 
 	/* reject unknown flag values */
 	if (args->flags & ~(AMDGPU_GEM_USERPTR_READONLY |
