@@ -576,8 +576,7 @@ static int imx219_init_controls(struct imx219 *imx219)
 
 	if (ctrl_hdlr->error) {
 		ret = ctrl_hdlr->error;
-		dev_err(&client->dev, "%s control init failed (%d)\n",
-			__func__, ret);
+		dev_err_probe(&client->dev, ret, "Control init failed\n");
 		goto error;
 	}
 
@@ -844,7 +843,7 @@ static int imx219_set_pad_format(struct v4l2_subdev *sd,
 	const struct imx219_mode *mode;
 	struct v4l2_mbus_framefmt *format;
 	struct v4l2_rect *crop;
-	unsigned int bin_h, bin_v;
+	unsigned int bin_h, bin_v, binning;
 
 	mode = v4l2_find_nearest_size(supported_modes,
 				      ARRAY_SIZE(supported_modes),
@@ -863,9 +862,12 @@ static int imx219_set_pad_format(struct v4l2_subdev *sd,
 	bin_h = min(IMX219_PIXEL_ARRAY_WIDTH / format->width, 2U);
 	bin_v = min(IMX219_PIXEL_ARRAY_HEIGHT / format->height, 2U);
 
+	/* Ensure bin_h and bin_v are same to avoid 1:2 or 2:1 stretching */
+	binning = min(bin_h, bin_v);
+
 	crop = v4l2_subdev_state_get_crop(state, 0);
-	crop->width = format->width * bin_h;
-	crop->height = format->height * bin_v;
+	crop->width = format->width * binning;
+	crop->height = format->height * binning;
 	crop->left = (IMX219_NATIVE_WIDTH - crop->width) / 2;
 	crop->top = (IMX219_NATIVE_HEIGHT - crop->height) / 2;
 
@@ -1051,17 +1053,15 @@ static int imx219_identify_module(struct imx219 *imx219)
 	u64 val;
 
 	ret = cci_read(imx219->regmap, IMX219_REG_CHIP_ID, &val, NULL);
-	if (ret) {
-		dev_err(&client->dev, "failed to read chip id %x\n",
-			IMX219_CHIP_ID);
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(&client->dev, ret,
+				     "failed to read chip id %x\n",
+				     IMX219_CHIP_ID);
 
-	if (val != IMX219_CHIP_ID) {
-		dev_err(&client->dev, "chip id mismatch: %x!=%llx\n",
-			IMX219_CHIP_ID, val);
-		return -EIO;
-	}
+	if (val != IMX219_CHIP_ID)
+		return dev_err_probe(&client->dev, -EIO,
+				     "chip id mismatch: %x!=%llx\n",
+				     IMX219_CHIP_ID, val);
 
 	return 0;
 }
@@ -1076,20 +1076,19 @@ static int imx219_check_hwcfg(struct device *dev, struct imx219 *imx219)
 	int ret = -EINVAL;
 
 	endpoint = fwnode_graph_get_next_endpoint(dev_fwnode(dev), NULL);
-	if (!endpoint) {
-		dev_err(dev, "endpoint node not found\n");
-		return -EINVAL;
-	}
+	if (!endpoint)
+		return dev_err_probe(dev, -EINVAL, "endpoint node not found\n");
 
 	if (v4l2_fwnode_endpoint_alloc_parse(endpoint, &ep_cfg)) {
-		dev_err(dev, "could not parse endpoint\n");
+		dev_err_probe(dev, -EINVAL, "could not parse endpoint\n");
 		goto error_out;
 	}
 
 	/* Check the number of MIPI CSI2 data lanes */
 	if (ep_cfg.bus.mipi_csi2.num_data_lanes != 2 &&
 	    ep_cfg.bus.mipi_csi2.num_data_lanes != 4) {
-		dev_err(dev, "only 2 or 4 data lanes are currently supported\n");
+		dev_err_probe(dev, -EINVAL,
+			      "only 2 or 4 data lanes are currently supported\n");
 		goto error_out;
 	}
 	imx219->lanes = ep_cfg.bus.mipi_csi2.num_data_lanes;
@@ -1124,8 +1123,9 @@ static int imx219_check_hwcfg(struct device *dev, struct imx219 *imx219)
 
 	if (ret || !(link_freq_bitmap & BIT(0))) {
 		ret = -EINVAL;
-		dev_err(dev, "Link frequency not supported: %lld\n",
-			ep_cfg.link_frequencies[0]);
+		dev_err_probe(dev, -EINVAL,
+			      "Link frequency not supported: %lld\n",
+			      ep_cfg.link_frequencies[0]);
 	}
 
 error_out:
@@ -1153,31 +1153,25 @@ static int imx219_probe(struct i2c_client *client)
 		return -EINVAL;
 
 	imx219->regmap = devm_cci_regmap_init_i2c(client, 16);
-	if (IS_ERR(imx219->regmap)) {
-		ret = PTR_ERR(imx219->regmap);
-		dev_err(dev, "failed to initialize CCI: %d\n", ret);
-		return ret;
-	}
+	if (IS_ERR(imx219->regmap))
+		return dev_err_probe(dev, PTR_ERR(imx219->regmap),
+				     "failed to initialize CCI\n");
 
 	/* Get system clock (xclk) */
 	imx219->xclk = devm_clk_get(dev, NULL);
-	if (IS_ERR(imx219->xclk)) {
-		dev_err(dev, "failed to get xclk\n");
-		return PTR_ERR(imx219->xclk);
-	}
+	if (IS_ERR(imx219->xclk))
+		return dev_err_probe(dev, PTR_ERR(imx219->xclk),
+				     "failed to get xclk\n");
 
 	imx219->xclk_freq = clk_get_rate(imx219->xclk);
-	if (imx219->xclk_freq != IMX219_XCLK_FREQ) {
-		dev_err(dev, "xclk frequency not supported: %d Hz\n",
-			imx219->xclk_freq);
-		return -EINVAL;
-	}
+	if (imx219->xclk_freq != IMX219_XCLK_FREQ)
+		return dev_err_probe(dev, -EINVAL,
+				     "xclk frequency not supported: %d Hz\n",
+				     imx219->xclk_freq);
 
 	ret = imx219_get_regulators(imx219);
-	if (ret) {
-		dev_err(dev, "failed to get regulators\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to get regulators\n");
 
 	/* Request optional enable pin */
 	imx219->reset_gpio = devm_gpiod_get_optional(dev, "reset",
@@ -1229,14 +1223,14 @@ static int imx219_probe(struct i2c_client *client)
 
 	ret = media_entity_pads_init(&imx219->sd.entity, 1, &imx219->pad);
 	if (ret) {
-		dev_err(dev, "failed to init entity pads: %d\n", ret);
+		dev_err_probe(dev, ret, "failed to init entity pads\n");
 		goto error_handler_free;
 	}
 
 	imx219->sd.state_lock = imx219->ctrl_handler.lock;
 	ret = v4l2_subdev_init_finalize(&imx219->sd);
 	if (ret < 0) {
-		dev_err(dev, "subdev init error: %d\n", ret);
+		dev_err_probe(dev, ret, "subdev init error\n");
 		goto error_media_entity;
 	}
 
@@ -1245,7 +1239,8 @@ static int imx219_probe(struct i2c_client *client)
 
 	ret = v4l2_async_register_subdev_sensor(&imx219->sd);
 	if (ret < 0) {
-		dev_err(dev, "failed to register sensor sub-device: %d\n", ret);
+		dev_err_probe(dev, ret,
+			      "failed to register sensor sub-device\n");
 		goto error_subdev_cleanup;
 	}
 
