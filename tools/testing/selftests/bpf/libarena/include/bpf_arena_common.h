@@ -49,7 +49,16 @@ void __arena* bpf_arena_alloc_pages(void *map, void __arena *addr, __u32 page_cn
 int bpf_arena_reserve_pages(void *map, void __arena *addr, __u32 page_cnt) __ksym __weak;
 void bpf_arena_free_pages(void *map, void __arena *ptr, __u32 page_cnt) __ksym __weak;
 
-#define arena_base(map) ((void __arena *)((struct bpf_arena *)(map))->user_vm_start)
+/*
+ * The map definition is smaller than struct bpf_arena.
+ * barrier_var() hides that from -Warray-bounds of GCC.
+ */
+#define arena_base(map)							\
+	({								\
+		struct bpf_arena *___arena = (void *)(map);		\
+		barrier_var(___arena);					\
+		(void __arena *)___arena->user_vm_start;		\
+	})
 
 #else /* when compiled as user space code */
 
