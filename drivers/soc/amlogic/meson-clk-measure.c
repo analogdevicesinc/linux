@@ -182,7 +182,7 @@ static const struct meson_msr_id clk_msr_axg[] = {
 	CLK_MSR_ID(2, "ring_osc_out_ee_2"),
 	CLK_MSR_ID(3, "a53_ring_osc"),
 	CLK_MSR_ID(4, "gp0_pll"),
-	CLK_MSR_ID(5, "gp1_pll"),
+	CLK_MSR_ID(5, "hifi_pll"),
 	CLK_MSR_ID(7, "clk81"),
 	CLK_MSR_ID(9, "encl"),
 	CLK_MSR_ID(17, "sys_pll_div16"),
