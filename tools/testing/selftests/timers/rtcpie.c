@@ -111,8 +111,8 @@ int main(int argc, char **argv)
 			timersub(&end, &start, &diff);
 			if (diff.tv_sec > 0 ||
 			    diff.tv_usec > ((1000000L / tmp) * 1.10)) {
-				fprintf(stderr, "\nPIE delta error: %ld.%06ld should be close to 0.%06ld\n",
-				       diff.tv_sec, diff.tv_usec,
+				fprintf(stderr, "\nPIE delta error: %lld.%06lld should be close to 0.%06lu\n",
+				       (long long)diff.tv_sec, (long long)diff.tv_usec,
 				       (1000000L / tmp));
 				fflush(stdout);
 				exit(-1);
