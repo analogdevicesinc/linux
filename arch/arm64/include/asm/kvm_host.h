@@ -582,6 +582,9 @@ enum vcpu_sysreg {
 	GCR_EL1,	/* Tag Control Register */
 	TFSRE0_EL1,	/* Tag Fault Status Register (EL0) */
 
+	/* Random stuff */
+	ACCDATA_EL1,	/* Accelerator Data */
+
 	POR_EL0,	/* Permission Overlay Register 0 (EL0) */
 
 	/* FP/SIMD/SVE */
