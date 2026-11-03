@@ -118,7 +118,7 @@ struct inbound_transaction_resource {
 	struct fw_card *card;
 	struct fw_request *request;
 	bool is_fcp;
-	void *data;
+	void *data __counted_by_ptr(length);
 	size_t length;
 };
 
