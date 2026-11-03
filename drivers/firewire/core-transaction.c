@@ -590,12 +590,18 @@ void fw_send_phy_config(struct fw_card *card,
 	wait_for_completion_timeout(&phy_config_done, timeout);
 }
 
+static DEFINE_SPINLOCK(address_handler_list_lock);
+static __guarded_by(RCU, &address_handler_list_lock) LIST_HEAD(address_handler_list);
+
 static struct fw_address_handler *lookup_overlapping_address_handler(
 	struct list_head *list, unsigned long long offset, size_t length)
+__must_hold(address_handler_list_lock)
 {
 	struct fw_address_handler *handler;
 
-	list_for_each_entry_rcu(handler, list, link) {
+	lockdep_assert_held(&address_handler_list_lock);
+
+	list_for_each_entry(handler, list, link) {
 		if (handler->offset < offset + length &&
 		    offset < handler->offset + handler->length)
 			return handler;
@@ -613,6 +619,7 @@ static bool is_enclosing_handler(struct fw_address_handler *handler,
 
 static struct fw_address_handler *lookup_enclosing_address_handler(
 	struct list_head *list, unsigned long long offset, size_t length)
+__must_hold_shared(RCU)
 {
 	struct fw_address_handler *handler;
 
@@ -623,9 +630,6 @@ static struct fw_address_handler *lookup_enclosing_address_handler(
 
 	return NULL;
 }
-
-static DEFINE_SPINLOCK(address_handler_list_lock);
-static LIST_HEAD(address_handler_list);
 
 /**
  * var fw_high_memory_region - An address range for high memory.
