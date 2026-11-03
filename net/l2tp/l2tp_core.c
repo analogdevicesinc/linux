@@ -1092,16 +1092,12 @@ static int l2tp_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
 	tunnel = session->tunnel;
 
 	/* Check protocol version */
-	if (version != tunnel->version) {
-		l2tp_session_put(session);
+	if (version != tunnel->version)
 		goto invalid;
-	}
 
 	if (version == L2TP_HDR_VER_3 &&
-	    l2tp_v3_ensure_opt_in_linear(session, skb, &ptr, &optr)) {
-		l2tp_session_put(session);
+	    l2tp_v3_ensure_opt_in_linear(session, skb, &ptr, &optr))
 		goto invalid;
-	}
 
 	l2tp_recv_common(session, skb, ptr, optr, hdrflags, length);
 	l2tp_session_put(session);
@@ -1109,7 +1105,11 @@ static int l2tp_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
 	return 0;
 
 invalid:
+	/* The session reference is the only thing keeping the tunnel alive
+	 * here, so account the invalid packet before dropping it.
+	 */
 	atomic_long_inc(&tunnel->stats.rx_invalid);
+	l2tp_session_put(session);
 
 pass:
 	/* Put UDP header back */
