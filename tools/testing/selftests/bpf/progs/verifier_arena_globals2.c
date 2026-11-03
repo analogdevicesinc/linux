@@ -30,9 +30,9 @@ char __arena global_data[ARENA_PAGES][PAGE_SIZE];
 
 SEC("syscall")
 __success __retval(0)
+__skip_without_arena
 int check_reserve2(void *ctx)
 {
-#if defined(__BPF_FEATURE_ADDR_SPACE_CAST)
 	void __arena *guard;
 	int ret;
 
@@ -42,7 +42,6 @@ int check_reserve2(void *ctx)
 	ret = bpf_arena_reserve_pages(&arena, guard, 1);
 	if (!ret)
 		return 1;
-#endif
 	return 0;
 }
 
