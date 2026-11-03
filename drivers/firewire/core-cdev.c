@@ -48,7 +48,7 @@
 #define FW_CDEV_VERSION_EVENT_ASYNC_TSTAMP	6
 
 static DEFINE_MUTEX(phy_receiver_list_mutex);
-static LIST_HEAD(phy_receiver_list);
+static LIST_HEAD_GUARDED(phy_receiver_list, phy_receiver_list_mutex);
 
 struct client {
 	u32 version;
@@ -68,7 +68,7 @@ struct client {
 	struct fw_iso_buffer buffer;
 	unsigned long vm_start;
 
-	struct list_head phy_receiver_link;
+	struct list_head phy_receiver_link __guarded_by(phy_receiver_list_mutex);
 	u64 phy_receiver_closure;
 
 	struct list_head link;
@@ -320,7 +320,7 @@ static int fw_device_op_open(struct inode *inode, struct file *file)
 	INIT_LIST_HEAD(&client->event_list);
 	init_waitqueue_head(&client->wait);
 	init_waitqueue_head(&client->tx_flush_wait);
-	INIT_LIST_HEAD(&client->phy_receiver_link);
+	context_unsafe(INIT_LIST_HEAD(&client->phy_receiver_link));
 	INIT_LIST_HEAD(&client->link);
 	kref_init(&client->kref);
 	mutex_init(&client->iso_context_mutex);
