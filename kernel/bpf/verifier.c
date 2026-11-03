@@ -16815,10 +16815,11 @@ static void scalar_min_max_shmul(struct bpf_reg_state *dst_reg,
 static void scalar32_min_max_udiv(struct bpf_reg_state *dst_reg,
 				  struct bpf_reg_state *src_reg)
 {
-	u32 src_val = reg_u32_min(src_reg); /* non-zero, const divisor */
+	u32 src_min = reg_u32_min(src_reg), src_max = reg_u32_max(src_reg); /* src_max isn't 0 */
 
-	reg_set_urange32(dst_reg, reg_u32_min(dst_reg) / src_val,
-			 reg_u32_max(dst_reg) / src_val);
+	/* The largest divisor gives the smallest result, but for x / 0 = 0 */
+	reg_set_urange32(dst_reg, src_min ? reg_u32_min(dst_reg) / src_max : 0,
+			 reg_u32_max(dst_reg) / (src_min ?: 1));
 
 	/* Reset other ranges/tnum to unbounded/unknown. */
 	reset_reg64_and_tnum(dst_reg);
@@ -16827,10 +16828,11 @@ static void scalar32_min_max_udiv(struct bpf_reg_state *dst_reg,
 static void scalar_min_max_udiv(struct bpf_reg_state *dst_reg,
 				struct bpf_reg_state *src_reg)
 {
-	u64 src_val = reg_umin(src_reg); /* non-zero, const divisor */
+	u64 src_min = reg_umin(src_reg), src_max = reg_umax(src_reg); /* src_max isn't 0 */
 
-	reg_set_urange64(dst_reg, div64_u64(reg_umin(dst_reg), src_val),
-			 div64_u64(reg_umax(dst_reg), src_val));
+	/* The largest divisor gives the smallest result, but for x / 0 = 0 */
+	reg_set_urange64(dst_reg, src_min ? div64_u64(reg_umin(dst_reg), src_max) : 0,
+			 div64_u64(reg_umax(dst_reg), src_min ?: 1));
 
 	/* Reset other ranges/tnum to unbounded/unknown. */
 	reset_reg32_and_tnum(dst_reg);
@@ -16911,17 +16913,17 @@ reset:
 static void scalar32_min_max_umod(struct bpf_reg_state *dst_reg,
 				  struct bpf_reg_state *src_reg)
 {
-	u32 src_val = reg_u32_min(src_reg); /* non-zero, const divisor */
-	u32 res_max = src_val - 1;
+	u32 src_min = reg_u32_min(src_reg), src_max = reg_u32_max(src_reg); /* src_max isn't 0 */
 
 	/*
-	 * If dst_umax <= res_max, the result remains unchanged.
-	 * e.g., [2, 5] % 10 = [2, 5].
+	 * If dst_umax < src_min, the result remains unchanged.
+	 * e.g., [2, 5] % [10, 20] = [2, 5].
 	 */
-	if (reg_u32_max(dst_reg) <= res_max)
+	if (reg_u32_max(dst_reg) < src_min)
 		return;
 
-	reg_set_urange32(dst_reg, 0, min(reg_u32_max(dst_reg), res_max));
+	/* The result is below the divisor and not above x, and x % 0 = x */
+	reg_set_urange32(dst_reg, 0, min(reg_u32_max(dst_reg), src_min ? src_max - 1 : U32_MAX));
 
 	/* Reset other ranges/tnum to unbounded/unknown. */
 	reset_reg64_and_tnum(dst_reg);
@@ -16930,17 +16932,17 @@ static void scalar32_min_max_umod(struct bpf_reg_state *dst_reg,
 static void scalar_min_max_umod(struct bpf_reg_state *dst_reg,
 				struct bpf_reg_state *src_reg)
 {
-	u64 src_val = reg_umin(src_reg); /* non-zero, const divisor */
-	u64 res_max = src_val - 1;
+	u64 src_min = reg_umin(src_reg), src_max = reg_umax(src_reg); /* src_max isn't 0 */
 
 	/*
-	 * If dst_umax <= res_max, the result remains unchanged.
-	 * e.g., [2, 5] % 10 = [2, 5].
+	 * If dst_umax < src_min, the result remains unchanged.
+	 * e.g., [2, 5] % [10, 20] = [2, 5].
 	 */
-	if (reg_umax(dst_reg) <= res_max)
+	if (reg_umax(dst_reg) < src_min)
 		return;
 
-	reg_set_urange64(dst_reg, 0, min(reg_umax(dst_reg), res_max));
+	/* The result is below the divisor and not above x, and x % 0 = x */
+	reg_set_urange64(dst_reg, 0, min(reg_umax(dst_reg), src_min ? src_max - 1 : U64_MAX));
 
 	/* Reset other ranges/tnum to unbounded/unknown. */
 	reset_reg32_and_tnum(dst_reg);
@@ -17284,16 +17286,16 @@ static void scalar_min_max_rsh(struct bpf_reg_state *dst_reg,
 static void scalar32_min_max_arsh(struct bpf_reg_state *dst_reg,
 				  struct bpf_reg_state *src_reg)
 {
-	u64 umin_val = reg_u32_min(src_reg);
+	u32 umin_val = reg_u32_min(src_reg), umax_val = reg_u32_max(src_reg);
+	s32 smin = reg_s32_min(dst_reg), smax = reg_s32_max(dst_reg);
 
-	/* Upon reaching here, src_known is true and
-	 * umax_val is equal to umin_val.
+	/*
+	 * A larger count brings the result closer to 0, or to -1.
 	 * Blow away the dst_reg umin_value/umax_value and rely on
 	 * dst_reg var_off to refine the result.
 	 */
-	reg_set_srange32(dst_reg,
-			 (u32)(((s32)reg_s32_min(dst_reg)) >> umin_val),
-			 (u32)(((s32)reg_s32_max(dst_reg)) >> umin_val));
+	reg_set_srange32(dst_reg, smin >> (smin < 0 ? umin_val : umax_val),
+			 smax >> (smax < 0 ? umax_val : umin_val));
 
 	dst_reg->var_off = tnum_arshift(tnum_subreg(dst_reg->var_off), umin_val, 32);
 
@@ -17304,13 +17306,12 @@ static void scalar32_min_max_arsh(struct bpf_reg_state *dst_reg,
 static void scalar_min_max_arsh(struct bpf_reg_state *dst_reg,
 				struct bpf_reg_state *src_reg)
 {
-	u64 umin_val = reg_umin(src_reg);
+	u64 umin_val = reg_umin(src_reg), umax_val = reg_umax(src_reg);
+	s64 smin = reg_smin(dst_reg), smax = reg_smax(dst_reg);
 
-	/* Upon reaching here, src_known is true and umax_val is equal
-	 * to umin_val.
-	 */
-	reg_set_srange64(dst_reg, reg_smin(dst_reg) >> umin_val,
-			 reg_smax(dst_reg) >> umin_val);
+	/* A larger count brings the result closer to 0, or to -1 */
+	reg_set_srange64(dst_reg, smin >> (smin < 0 ? umin_val : umax_val),
+			 smax >> (smax < 0 ? umax_val : umin_val));
 
 	dst_reg->var_off = tnum_arshift(dst_reg->var_off, umin_val, 64);
 
@@ -17401,22 +17402,19 @@ static bool is_safe_to_compute_dst_reg_range(struct bpf_insn *insn,
 	case BPF_END:
 		return true;
 
-	/*
-	 * Division and modulo operators range is only safe to compute when the
-	 * divisor is a constant.
-	 */
+	/* The range of a signed division or modulo is computed for a constant divisor only */
 	case BPF_DIV:
 	case BPF_MOD:
-		return src_is_const;
+		return src_is_const || !insn->off;
 
-	/* Shift operators range is only computable if shift dimension operand
-	 * is a constant. Shifts greater than 31 or 63 are undefined. This
-	 * includes shifts by a negative number.
+	/*
+	 * Shifts greater than 31 or 63 are undefined. This includes shifts by
+	 * a negative number.
 	 */
 	case BPF_LSH:
 	case BPF_RSH:
 	case BPF_ARSH:
-		return (src_is_const && reg_umax(src_reg) < insn_bitness);
+		return reg_umax(src_reg) < insn_bitness;
 	default:
 		return false;
 	}
@@ -17485,6 +17483,11 @@ static int adjust_scalar_min_max_vals(struct bpf_verifier_env *env,
 			return sanitize_err(env, insn, ret);
 	}
 
+	/* The count of a shift is a range: a bit of dst_reg can end up in more than one place */
+	if ((opcode == BPF_LSH || opcode == BPF_RSH || opcode == BPF_ARSH) &&
+	    reg_umin(&src_reg) != reg_umax(&src_reg))
+		dst_reg->var_off = tnum_unknown;
+
 	/* Calculate sign/unsigned bounds and tnum for alu32 and alu64 bit ops.
 	 * There are two classes of instructions: The first class we track both
 	 * alu32 and alu64 sign/unsigned bounds independently this provides the
@@ -17547,7 +17550,7 @@ static int adjust_scalar_min_max_vals(struct bpf_verifier_env *env,
 		break;
 	case BPF_DIV:
 		/* BPF div specification: x / 0 = 0 */
-		if ((alu32 && reg_u32_min(&src_reg) == 0) || (!alu32 && reg_umin(&src_reg) == 0)) {
+		if ((alu32 && reg_u32_max(&src_reg) == 0) || (!alu32 && reg_umax(&src_reg) == 0)) {
 			___mark_reg_known(dst_reg, 0);
 			break;
 		}
@@ -17565,7 +17568,7 @@ static int adjust_scalar_min_max_vals(struct bpf_verifier_env *env,
 		break;
 	case BPF_MOD:
 		/* BPF mod specification: x % 0 = x */
-		if ((alu32 && reg_u32_min(&src_reg) == 0) || (!alu32 && reg_umin(&src_reg) == 0))
+		if ((alu32 && reg_u32_max(&src_reg) == 0) || (!alu32 && reg_umax(&src_reg) == 0))
 			break;
 		if (alu32)
 			if (off == 1)
