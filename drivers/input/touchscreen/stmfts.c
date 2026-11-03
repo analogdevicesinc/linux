@@ -232,6 +232,12 @@ static void stmfts_report_contact_event(struct stmfts_data *sdata,
 	u8 orientation = event[6];
 	u8 area = event[7];
 
+	if (slot_id >= STMFTS_MAX_FINGERS) {
+		dev_warn(&sdata->client->dev,
+			 "invalid slot ID %u\n", slot_id);
+		return;
+	}
+
 	input_mt_slot(sdata->input, slot_id);
 
 	input_mt_report_slot_state(sdata->input, MT_TOOL_FINGER, true);
@@ -249,6 +255,12 @@ static void stmfts_report_contact_release(struct stmfts_data *sdata,
 					  const u8 event[])
 {
 	u8 slot_id = (event[0] & STMFTS_MASK_TOUCH_ID) >> 4;
+
+	if (slot_id >= STMFTS_MAX_FINGERS) {
+		dev_warn(&sdata->client->dev,
+			 "invalid slot ID %u\n", slot_id);
+		return;
+	}
 
 	input_mt_slot(sdata->input, slot_id);
 	input_mt_report_slot_inactive(sdata->input);
@@ -281,6 +293,12 @@ static void stmfts5_report_contact_event(struct stmfts_data *sdata,
 	/* Distance is 0 for touching, max for hovering */
 	int distance = 0;
 	unsigned int tool;
+
+	if (touch_id >= STMFTS_MAX_FINGERS) {
+		dev_warn(&sdata->client->dev,
+			 "invalid slot ID %u\n", touch_id);
+		return;
+	}
 
 	switch (touch_type) {
 	case STMFTS_TOUCH_TYPE_STYLUS:
@@ -339,6 +357,12 @@ static void stmfts5_report_contact_release(struct stmfts_data *sdata,
 {
 	/* format: touch ID is in high 4 bits of event[1] */
 	u8 touch_id = (event[1] & STMFTS_MASK_TOUCH_ID) >> 4;
+
+	if (touch_id >= STMFTS_MAX_FINGERS) {
+		dev_warn(&sdata->client->dev,
+			 "invalid slot ID %u\n", touch_id);
+		return;
+	}
 
 	input_mt_slot(sdata->input, touch_id);
 	input_mt_report_slot_inactive(sdata->input);
