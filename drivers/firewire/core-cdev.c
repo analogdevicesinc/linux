@@ -960,7 +960,7 @@ static void release_descriptor(struct client *client,
 static int ioctl_add_descriptor(struct client *client, union ioctl_arg *arg)
 {
 	struct fw_cdev_add_descriptor *a = &arg->add_descriptor;
-	struct descriptor_resource *r;
+	struct descriptor_resource *r __free(kfree) = NULL;
 	int ret;
 
 	/* Access policy: Allow this ioctl only on local nodes' device files. */
@@ -974,11 +974,8 @@ static int ioctl_add_descriptor(struct client *client, union ioctl_arg *arg)
 	if (r == NULL)
 		return -ENOMEM;
 
-	if (copy_from_user(r->data, u64_to_uptr(a->data),
-			   flex_array_size(r, data, a->length))) {
-		ret = -EFAULT;
-		goto failed;
-	}
+	if (copy_from_user(r->data, u64_to_uptr(a->data), flex_array_size(r, data, a->length)))
+		return -EFAULT;
 
 	r->descriptor.length    = a->length;
 	r->descriptor.immediate = a->immediate;
@@ -987,20 +984,16 @@ static int ioctl_add_descriptor(struct client *client, union ioctl_arg *arg)
 
 	ret = fw_core_add_descriptor(&r->descriptor);
 	if (ret < 0)
-		goto failed;
+		return ret;
 
 	ret = add_client_resource(client, &r->resource, release_descriptor);
 	if (ret < 0) {
 		fw_core_remove_descriptor(&r->descriptor);
-		goto failed;
+		return ret;
 	}
-	a->handle = r->resource.handle;
+	a->handle = no_free_ptr(r)->resource.handle;
 
 	return 0;
- failed:
-	kfree(r);
-
-	return ret;
 }
 
 static int ioctl_remove_descriptor(struct client *client, union ioctl_arg *arg)
