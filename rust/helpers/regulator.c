@@ -26,9 +26,10 @@ __rust_helper struct regulator *rust_helper_regulator_get(struct device *dev,
 	return regulator_get(dev, id);
 }
 
-__rust_helper int rust_helper_regulator_enable(struct regulator *regulator)
+__rust_helper int rust_helper_regulator_enable_and_wait(struct regulator *regulator,
+							unsigned int wait_us)
 {
-	return regulator_enable(regulator);
+	return regulator_enable_and_wait(regulator, wait_us);
 }
 
 __rust_helper int rust_helper_regulator_disable(struct regulator *regulator)
