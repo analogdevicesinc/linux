@@ -1142,7 +1142,7 @@ int do_ipv6_setsockopt(struct sock *sk, int level, int optname, sockptr_t optval
 int ipv6_setsockopt(struct sock *sk, int level, int optname, sockptr_t optval,
 		    unsigned int optlen);
 int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
-		       sockptr_t optval, sockptr_t optlen);
+		       sockopt_t *sopt);
 int ipv6_getsockopt(struct sock *sk, int level, int optname,
 		    char __user *optval, int __user *optlen);
 

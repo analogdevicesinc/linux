@@ -1912,8 +1912,7 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, sockptr_t optval,
  *	Getsock opt support for the multicast routing system.
  */
 
-int ip6_mroute_getsockopt(struct sock *sk, int optname, sockptr_t optval,
-			  sockptr_t optlen)
+int ip6_mroute_getsockopt(struct sock *sk, int optname, sockopt_t *sopt)
 {
 	int olr;
 	int val;
@@ -1944,16 +1943,12 @@ int ip6_mroute_getsockopt(struct sock *sk, int optname, sockptr_t optval,
 		return -ENOPROTOOPT;
 	}
 
-	if (copy_from_sockptr(&olr, optlen, sizeof(int)))
-		return -EFAULT;
-
-	olr = min_t(int, olr, sizeof(int));
+	olr = min_t(int, sopt->optlen, sizeof(int));
 	if (olr < 0)
 		return -EINVAL;
 
-	if (copy_to_sockptr(optlen, &olr, sizeof(int)))
-		return -EFAULT;
-	if (copy_to_sockptr(optval, &val, olr))
+	sopt->optlen = olr;
+	if (copy_to_iter(&val, olr, &sopt->iter_out) != olr)
 		return -EFAULT;
 	return 0;
 }

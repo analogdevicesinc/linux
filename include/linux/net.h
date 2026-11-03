@@ -51,6 +51,19 @@ int sockptr_to_sockopt(sockopt_t *opt, sockptr_t optval, sockptr_t optlen,
 		       struct kvec *kvec);
 
 /*
+ * Point a sockopt_t at a user-backed (optval, len) pair whose length is
+ * already known, e.g. because the caller applied its own optlen quirks
+ * before this point.
+ */
+static inline void sockopt_set_user(sockopt_t *opt, char __user *optval,
+				    int len)
+{
+	iov_iter_ubuf(&opt->iter_out, ITER_DEST, optval, len);
+	iov_iter_ubuf(&opt->iter_in, ITER_SOURCE, optval, len);
+	opt->optlen = len;
+}
+
+/*
  * Initialize a user-backed sockopt_t from the (optval, optlen) __user pair of
  * a getsockopt() callback. Used by transitional __user getsockopt wrappers
  * while the proto-layer callbacks are converted to take a sockopt_t; the
@@ -66,9 +79,7 @@ static inline int sockopt_init_user(sockopt_t *opt, char __user *optval,
 	if (len < 0)
 		return -EINVAL;
 
-	iov_iter_ubuf(&opt->iter_out, ITER_DEST, optval, len);
-	iov_iter_ubuf(&opt->iter_in, ITER_SOURCE, optval, len);
-	opt->optlen = len;
+	sockopt_set_user(opt, optval, len);
 
 	return 0;
 }

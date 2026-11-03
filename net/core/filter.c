@@ -5864,10 +5864,20 @@ static int sol_ipv6_sockopt(struct sock *sk, int optname,
 		return -EINVAL;
 	}
 
-	if (getopt)
-		return do_ipv6_getsockopt(sk, SOL_IPV6, optname,
-					  KERNEL_SOCKPTR(optval),
-					  KERNEL_SOCKPTR(optlen));
+	if (getopt) {
+		struct kvec kvec;
+		sockopt_t opt;
+		int err;
+
+		err = sockptr_to_sockopt(&opt, KERNEL_SOCKPTR(optval),
+					 KERNEL_SOCKPTR(optlen), &kvec);
+		if (err)
+			return err;
+
+		err = do_ipv6_getsockopt(sk, SOL_IPV6, optname, &opt);
+		*optlen = opt.optlen;
+		return err;
+	}
 
 	return do_ipv6_setsockopt(sk, SOL_IPV6, optname,
 				  KERNEL_SOCKPTR(optval), *optlen);
