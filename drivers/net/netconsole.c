@@ -83,7 +83,8 @@ MODULE_PARM_DESC(netconsole, " netconsole=[src-port]@[src-ip]/[dev],[tgt-port]@<
 
 static bool oops_only;
 module_param(oops_only, bool, 0600);
-MODULE_PARM_DESC(oops_only, "Only log oops messages");
+MODULE_PARM_DESC(oops_only,
+		 "Only log oops messages, everything once the kernel died");
 
 #define NETCONSOLE_PARAM_TARGET_PREFIX "cmdline"
 
@@ -95,6 +96,17 @@ static int __init option_setup(char *opt)
 }
 __setup("netconsole=", option_setup);
 #endif	/* MODULE */
+
+/* The kernel is dying, or has died.
+ *
+ * oops_in_progress only spans the printing of the crash. netconsole is
+ * CON_NBCON_ATOMIC_UNSAFE, so the records reach the target later, from the
+ * printer thread, with the flag already cleared. TAINT_DIE outlives it.
+ */
+static bool netconsole_kernel_dying(void)
+{
+	return oops_in_progress || test_taint(TAINT_DIE);
+}
 
 /* Linked list of all configured targets */
 static LIST_HEAD(target_list);
@@ -2506,7 +2518,7 @@ static void netconsole_write(struct nbcon_write_context *wctxt, bool extended)
 {
 	struct netconsole_target *nt;
 
-	if (oops_only && !oops_in_progress)
+	if (oops_only && !netconsole_kernel_dying())
 		return;
 
 	list_for_each_entry(nt, &target_list, list) {
