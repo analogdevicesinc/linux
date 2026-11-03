@@ -16,6 +16,7 @@
 #include "regs/xe_engine_regs.h"
 #include "regs/xe_gt_regs.h"
 #include "regs/xe_guc_regs.h"
+#include "regs/xe_mert_regs.h"
 #include "regs/xe_regs.h"
 #include "xe_device_types.h"
 #include "xe_force_wake.h"
@@ -1031,4 +1032,10 @@ void xe_wa_apply_tile_workarounds(struct xe_tile *tile)
 
 	if (XE_DEVICE_WA(tile->xe, 22010954014))
 		xe_mmio_rmw32(mmio, XEHP_CLOCK_GATE_DIS, 0, SGSI_SIDECLK_DIS);
+
+	if (XE_DEVICE_WA(tile->xe, 14028586678))
+		xe_mmio_rmw32(mmio, DWNSTRM_ACCESS_MODE_GAMREQ_MERTSS,
+			      DWNSTRM_ACCESS_MODE_L3_CLOS |
+			      DWNSTRM_ACCESS_MODE_L3_POLICY,
+			      REG_FIELD_PREP(DWNSTRM_ACCESS_MODE_L3_CLOS, 3));
 }
