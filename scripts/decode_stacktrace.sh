@@ -346,7 +346,7 @@ handle_line() {
 	echo "${spaces[$last]}${symbol}${module:+ ${module}}${info_str:+ ${info_str}}"
 }
 
-while read line; do
+while IFS= read -r line || [[ -n $line ]]; do
 	# Strip unexpected carriage return at end of line
 	line=${line%$'\r'}
 
