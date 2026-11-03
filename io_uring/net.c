@@ -189,10 +189,10 @@ static struct io_async_msghdr *io_msg_alloc_async(struct io_kiocb *req)
 	struct io_ring_ctx *ctx = req->ctx;
 	struct io_async_msghdr *hdr;
 
-	hdr = io_uring_alloc_cached_async_data(&ctx->netmsg_cache, req);
-	if (!hdr)
+	if (!io_uring_alloc_cached_async_data(&ctx->netmsg_cache, req))
 		return NULL;
 
+	hdr = req->async_data;
 	/* If the async data was cached, we might have an iov cached inside. */
 	if (hdr->vec.iovec)
 		req->flags |= REQ_F_NEED_CLEANUP;

@@ -30,7 +30,8 @@ static inline bool io_alloc_cache_put(struct io_alloc_cache *cache,
 	return false;
 }
 
-static inline void *io_alloc_cache_get(struct io_alloc_cache *cache)
+static inline bool io_alloc_cache_get(struct io_alloc_cache *cache,
+				      void **entry_out)
 {
 	if (likely(cache->nr_cached)) {
 		void *entry = cache->entries[--cache->nr_cached];
@@ -45,20 +46,20 @@ static inline void *io_alloc_cache_get(struct io_alloc_cache *cache)
 		if (cache->init_clear)
 			memset(entry, 0, cache->init_clear);
 #endif
-		return entry;
+		*entry_out = entry;
+		return true;
 	}
 
-	return NULL;
+	return false;
 }
 
-static inline void *io_cache_alloc(struct io_alloc_cache *cache, gfp_t gfp)
+static inline bool io_cache_alloc(struct io_alloc_cache *cache, gfp_t gfp,
+				  void **obj)
 {
-	void *obj;
-
-	obj = io_alloc_cache_get(cache);
-	if (obj)
-		return obj;
-	return io_cache_alloc_new(cache, gfp);
+	if (io_alloc_cache_get(cache, obj))
+		return true;
+	*obj = io_cache_alloc_new(cache, gfp);
+	return *obj;
 }
 
 static inline void io_cache_free(struct io_alloc_cache *cache, void *obj)

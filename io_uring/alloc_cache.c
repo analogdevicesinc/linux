@@ -10,7 +10,7 @@ void io_alloc_cache_free(struct io_alloc_cache *cache,
 	if (!cache->entries)
 		return;
 
-	while ((entry = io_alloc_cache_get(cache)) != NULL)
+	while (io_alloc_cache_get(cache, &entry))
 		free(entry);
 
 	kvfree(cache->entries);

@@ -338,14 +338,15 @@ static inline ssize_t io_fixup_restart_res(ssize_t ret)
 	}
 }
 
-static inline void *
+static inline bool
 io_uring_alloc_cached_async_data(struct io_alloc_cache *cache,
 				 struct io_kiocb *req)
 {
-	req->async_data = io_cache_alloc(cache, GFP_KERNEL);
-	if (req->async_data)
-		req->flags |= REQ_F_ASYNC_DATA;
-	return req->async_data;
+	if (!io_cache_alloc(cache, GFP_KERNEL, &req->async_data))
+		return false;
+
+	req->flags |= REQ_F_ASYNC_DATA;
+	return true;
 }
 
 static inline void *io_uring_alloc_async_data(struct io_kiocb *req)

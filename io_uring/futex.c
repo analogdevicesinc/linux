@@ -328,8 +328,7 @@ int io_futex_wait(struct io_kiocb *req, unsigned int issue_flags)
 	}
 
 	io_ring_submit_lock(ctx, issue_flags);
-	ifd = io_cache_alloc(&ctx->futex_cache, GFP_NOWAIT);
-	if (!ifd) {
+	if (!io_cache_alloc(&ctx->futex_cache, GFP_NOWAIT, (void **)&ifd)) {
 		ret = -ENOMEM;
 		goto done_unlock;
 	}
