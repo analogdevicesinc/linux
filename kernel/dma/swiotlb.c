@@ -2012,6 +2012,19 @@ static int rmem_swiotlb_device_init(struct reserved_mem *rmem,
 	mem = rmem->priv;
 	if (!mem) {
 		struct io_tlb_pool *pool;
+		unsigned long aligned_nslabs = ALIGN_DOWN(nslabs, IO_TLB_SEGSIZE);
+
+		if (aligned_nslabs != nslabs) {
+			dev_warn(dev, "Restricted DMA pool size %zu is not a multiple of %lu, rounding down to %lu bytes\n",
+				 (size_t)rmem->size,
+				 (unsigned long)IO_TLB_SEGSIZE << IO_TLB_SHIFT,
+				 aligned_nslabs << IO_TLB_SHIFT);
+			nslabs = aligned_nslabs;
+		}
+		if (!nslabs) {
+			dev_err(dev, "Restricted DMA pool is too small\n");
+			return -EINVAL;
+		}
 
 		mem = kzalloc_obj(*mem);
 		if (!mem)
@@ -2039,7 +2052,7 @@ static int rmem_swiotlb_device_init(struct reserved_mem *rmem,
 
 			mem->cc_shared = true;
 			ret = set_memory_decrypted((unsigned long)phys_to_virt(rmem->base),
-						   rmem->size >> PAGE_SHIFT);
+						   (nslabs << IO_TLB_SHIFT) >> PAGE_SHIFT);
 			if (ret) {
 				dev_err(dev, "Failed to decrypt restricted DMA pool\n");
 				kfree(pool->areas);
