@@ -2035,10 +2035,19 @@ static int match_linear_latch(struct bpf_verifier_env *env,
 	return false;
 }
 
+/* What is known about a scalar or about the offset of a pointer. */
 struct scev_value {
-	u64 value;	/* scalar value or a pointer offset */
+	u64 umin, umax;
+	s64 smin, smax;
+	u32 u32_min, u32_max;
+	s32 s32_min, s32_max;
 	int ptr_reg;	/* SCEV register identifying the pointer origin, or -1. */
 };
+
+static bool scev_value_is_const(const struct scev_value *v)
+{
+	return v->umin == v->umax;
+}
 
 static void log_scev_value(struct bpf_verifier_env *env, struct bpf_func_state *st,
 			   const struct scev_value *v)
@@ -2049,8 +2058,10 @@ static void log_scev_value(struct bpf_verifier_env *env, struct bpf_func_state *
 		reg = scev_reg_for_read(env, st, v->ptr_reg);
 		log_reg(env, v->ptr_reg);
 		bpf_log(&env->log, " (%s)", reg ? reg_type_str(env, reg->type) : "unavailable");
+	} else if (scev_value_is_const(v)) {
+		bpf_log(&env->log, "scalar %llu", v->umin);
 	} else {
-		bpf_log(&env->log, "scalar %llu", v->value);
+		bpf_log(&env->log, "scalar %llu..%llu", v->umin, v->umax);
 	}
 }
 
@@ -2091,13 +2102,38 @@ static bool scev_value_add(struct bpf_verifier_env *env, struct bpf_func_state *
 			   const struct scev_value *a, const struct scev_value *b,
 			   struct scev_value *result)
 {
+	bool min_wraps, max_wraps;
+
 	if (a->ptr_reg >= 0 && b->ptr_reg >= 0) {
 		if (env->log.level & BPF_LOG_LEVEL2)
 			log_incompatible_scev_values(env, "can't add two pointers", st, a, b);
 		return false;
 	}
-	result->value = a->value + b->value;
 	result->ptr_reg = a->ptr_reg >= 0 ? a->ptr_reg : b->ptr_reg;
+
+	/* when both ends wrap around it is a range still */
+	min_wraps = check_add_overflow(a->umin, b->umin, &result->umin);
+	max_wraps = check_add_overflow(a->umax, b->umax, &result->umax);
+	if (min_wraps != max_wraps) {
+		result->umin = 0;
+		result->umax = U64_MAX;
+	}
+	if (check_add_overflow(a->smin, b->smin, &result->smin) ||
+	    check_add_overflow(a->smax, b->smax, &result->smax)) {
+		result->smin = S64_MIN;
+		result->smax = S64_MAX;
+	}
+	min_wraps = check_add_overflow(a->u32_min, b->u32_min, &result->u32_min);
+	max_wraps = check_add_overflow(a->u32_max, b->u32_max, &result->u32_max);
+	if (min_wraps != max_wraps) {
+		result->u32_min = 0;
+		result->u32_max = U32_MAX;
+	}
+	if (check_add_overflow(a->s32_min, b->s32_min, &result->s32_min) ||
+	    check_add_overflow(a->s32_max, b->s32_max, &result->s32_max)) {
+		result->s32_min = S32_MIN;
+		result->s32_max = S32_MAX;
+	}
 	return true;
 }
 
@@ -2111,13 +2147,23 @@ static bool eval_expr(struct bpf_verifier_env *env, struct scev *scev,
 
 	if (is_reg(scev, id, &regno)) {
 		reg = scev_reg_for_read(env, st, regno);
-		if (!reg || reg->type == NOT_INIT || !tnum_is_const(reg->var_off))
+		if (!reg || reg->type == NOT_INIT)
 			return false;
-		result->value = reg->var_off.value;
+		result->umin = reg_umin(reg);
+		result->umax = reg_umax(reg);
+		result->smin = reg_smin(reg);
+		result->smax = reg_smax(reg);
+		result->u32_min = reg_u32_min(reg);
+		result->u32_max = reg_u32_max(reg);
+		result->s32_min = reg_s32_min(reg);
+		result->s32_max = reg_s32_max(reg);
 		result->ptr_reg = reg->type == SCALAR_VALUE ? -1 : (int)regno;
 		return true;
 	} else if (is_imm(scev, id, &imm)) {
-		result->value = imm;
+		result->umin = result->umax = imm;
+		result->smin = result->smax = imm;
+		result->u32_min = result->u32_max = imm;
+		result->s32_min = result->s32_max = imm;
 		result->ptr_reg = -1;
 		return true;
 	} else if (is_add(scev, id, &l, &r) &&
@@ -2260,6 +2306,252 @@ static bool compute_backedge_taken_count(u8 op, u64 initial, u64 step, u64 bound
 }
 
 /*
+ * The first value of the induction variable at the latch and the bound it is
+ * compared with, as ranges of unsigned numbers. For a signed comparison the sign
+ * bit is flipped: that keeps the order and the differences.
+ * [lo, hi] is what the variable can be without wrapping around.
+ */
+struct latch_domain {
+	u64 imin, imax;
+	u64 bmin, bmax;
+	u64 lo, hi;
+};
+
+static void latch_domain(const struct linear_latch *latch, const struct scev_value *initial,
+			 const struct scev_value *bound, bool sign, struct latch_domain *d)
+{
+	u64 bias;
+
+	if (latch->jmp32) {
+		bias = sign ? 1U << 31 : 0;
+		d->imin = (sign ? (u32)initial->s32_min : initial->u32_min) ^ bias;
+		d->imax = (sign ? (u32)initial->s32_max : initial->u32_max) ^ bias;
+		d->bmin = (sign ? (u32)bound->s32_min : bound->u32_min) ^ bias;
+		d->bmax = (sign ? (u32)bound->s32_max : bound->u32_max) ^ bias;
+		d->lo = 0;
+		d->hi = U32_MAX;
+		return;
+	}
+	bias = sign ? 1ULL << 63 : 0;
+	d->bmin = (sign ? (u64)bound->smin : bound->umin) ^ bias;
+	d->bmax = (sign ? (u64)bound->smax : bound->umax) ^ bias;
+	if (latch->zext32) {
+		/* zero extended, so it is not negative */
+		d->imin = initial->u32_min ^ bias;
+		d->imax = initial->u32_max ^ bias;
+		d->lo = bias;
+		d->hi = bias + U32_MAX;
+		return;
+	}
+	d->imin = (sign ? (u64)initial->smin : initial->umin) ^ bias;
+	d->imax = (sign ? (u64)initial->smax : initial->umax) ^ bias;
+	d->lo = 0;
+	d->hi = U64_MAX;
+	/* It's base + offset that must not wrap around. The limit is that of reg_not_null(). */
+	if (initial->ptr_reg >= 0) {
+		d->lo = bias - BPF_MAX_VAR_OFF;
+		d->hi = bias + BPF_MAX_VAR_OFF;
+	}
+}
+
+/*
+ * '!=' with a step of one ends when the variable gets to the bound, given that
+ * it is on the right side of the bound to begin with.
+ */
+static bool count_ne_ranges(const struct latch_domain *d, bool down, u64 *cnt)
+{
+	if (d->bmin < d->lo || d->bmax > d->hi)
+		return false;
+	if (down ? d->imin < d->bmax : d->imax > d->bmin)
+		return false;
+	*cnt = down ? d->imax - d->bmin : d->bmax - d->imin;
+	return true;
+}
+
+static bool domain_add(const struct latch_domain *d, u64 v, s64 delta, u64 *res)
+{
+	if (delta >= 0 ? (u64)delta > d->hi - v : -(u64)delta > v - d->lo)
+		return false;
+	*res = v + delta;
+	return true;
+}
+
+/*
+ * The number of iterations depends on the first value, so 'first + slope * count'
+ * is far off when the first value is a range. There is a better bound for
+ * the variable that the latch tests. At the loop header it is
+ * - what it is at the entry, or
+ * - a value that the latch let through, @last is the last of them, plus what
+ *   is added between the latch and the header.
+ */
+static void latch_iv_range(struct bpf_verifier_env *env, struct bpf_func_state *st,
+			   const struct linear_latch *latch, const struct latch_domain *d,
+			   bool sign, bool down, u64 step, u64 last, struct bpf_loop_iters *iters)
+{
+	struct scev *scev = env->scev;
+	struct scev_value off, reg_val;
+	u64 bias, min, max, next;
+	u32 l, r, regno;
+	s64 c = 0;
+
+	l = latch->base_expr;
+	if (!is_reg(scev, l, &regno)) {
+		if (!is_add(scev, latch->base_expr, &l, &r) || !is_reg(scev, l, &regno) ||
+		    !eval_expr(env, scev, st, r, &off) || !scev_value_is_const(&off) ||
+		    off.ptr_reg >= 0)
+			return;
+		c = latch->jmp32 || latch->zext32 ? (s32)off.smin : off.smin;
+		if (c == S64_MIN)
+			return;
+	}
+	/* the lower half says nothing about a value that does not fit in it */
+	if (latch->jmp32 &&
+	    (!latch->zext32 || !eval_expr(env, scev, st, l, &reg_val) || reg_val.umax > U32_MAX))
+		return;
+	if (last < d->lo || last > d->hi ||
+	    !domain_add(d, d->imin, -c, &min) ||
+	    !domain_add(d, d->imax, -c, &max) ||
+	    !domain_add(d, last, -c, &next) ||
+	    !domain_add(d, next, down ? -(s64)step : (s64)step, &next))
+		return;
+	if (down)
+		min = min(min, next);
+	else
+		max = max(max, next);
+
+	if (latch->jmp32) {
+		bias = sign ? 1U << 31 : 0;
+		min ^= bias;
+		max ^= bias;
+		/* negative as s32 is large as zero extended u64 */
+		if (min > max)
+			return;
+		iters->iv_range = cnum64_from_urange(min, max);
+	} else if (sign) {
+		bias = 1ULL << 63;
+		iters->iv_range = cnum64_from_srange(min ^ bias, max ^ bias);
+	} else {
+		iters->iv_range = cnum64_from_urange(min, max);
+	}
+	iters->iv_reg = regno;
+}
+
+/*
+ * The first value or the bound is not a constant. The count is for the pair that is
+ * the furthest apart.
+ */
+static bool compute_backedge_taken_max(struct bpf_verifier_env *env, struct bpf_func_state *st,
+				       const struct linear_latch *latch,
+				       const struct scev_value *initial,
+				       const struct scev_value *step_val,
+				       const struct scev_value *bound,
+				       struct bpf_loop_iters *iters, u64 *result)
+{
+	struct scev *scev = env->scev;
+	bool sign = is_signed_op(latch->op), down;
+	struct scev_value reg_val;
+	struct latch_domain d;
+	/* the last value that the latch lets through */
+	u64 step, cnt, last;
+	u32 l, r;
+
+	/*
+	 * The jump compares addresses, the ranges are those of the offsets from one base.
+	 * fp-1 is below fp+0: whatever the op is, addresses have the order of signed offsets,
+	 * as long as base + offset does not wrap around.
+	 */
+	if (initial->ptr_reg >= 0)
+		sign = true;
+	/*
+	 * (zext32 (linear ...)) is zext32() of something in all iterations but
+	 * the first one at the loop header, where it is what the register has.
+	 */
+	if (latch->zext32 && !latch->jmp32) {
+		l = latch->base_expr;
+		if (!is_reg(scev, l, &r) && !is_add(scev, latch->base_expr, &l, &r))
+			return false;
+		if (!eval_expr(env, scev, st, l, &reg_val) || reg_val.umax > U32_MAX)
+			return false;
+	}
+
+	step = latch->jmp32 || latch->zext32 ? (u64)(s64)(s32)step_val->umin : step_val->umin;
+	if (!step)
+		return false;
+	down = (s64)step < 0;
+	if (down)
+		step = -step;
+
+	latch_domain(latch, initial, bound, sign, &d);
+	/* nothing limits the offset of a pointer that is compared only */
+	if (initial->ptr_reg >= 0 &&
+	    (d.imin < d.lo || d.imax > d.hi || d.bmin < d.lo || d.bmax > d.hi))
+		return false;
+
+	/*
+	 * The value that ends the loop must not wrap around. It is less than a step
+	 * away from the bound whatever the first value is.
+	 */
+	switch (latch->op) {
+	case BPF_JLT:
+	case BPF_JSLT:
+		if (down || d.imin >= d.bmax ||
+		    check_add_overflow(div64_u64(d.bmax - d.imin - 1, step), 1, &cnt) ||
+		    d.bmax > d.hi || step - 1 > d.hi - d.bmax)
+			return false;
+		last = d.bmax - 1;
+		break;
+	case BPF_JLE:
+	case BPF_JSLE:
+		if (down || d.imin > d.bmax ||
+		    check_add_overflow(div64_u64(d.bmax - d.imin, step), 1, &cnt) ||
+		    d.bmax > d.hi || step > d.hi - d.bmax)
+			return false;
+		last = d.bmax;
+		break;
+	case BPF_JGT:
+	case BPF_JSGT:
+		if (!down || d.imax <= d.bmin ||
+		    check_add_overflow(div64_u64(d.imax - d.bmin - 1, step), 1, &cnt) ||
+		    d.bmin < d.lo || step - 1 > d.bmin - d.lo)
+			return false;
+		last = d.bmin + 1;
+		break;
+	case BPF_JGE:
+	case BPF_JSGE:
+		if (!down || d.imax < d.bmin ||
+		    check_add_overflow(div64_u64(d.imax - d.bmin, step), 1, &cnt) ||
+		    d.bmin < d.lo || step > d.bmin - d.lo)
+			return false;
+		last = d.bmin;
+		break;
+	case BPF_JNE:
+		if (step != 1)
+			return false;
+		if (!count_ne_ranges(&d, down, &cnt)) {
+			sign = true;
+			latch_domain(latch, initial, bound, true, &d);
+			if (!count_ne_ranges(&d, down, &cnt))
+				return false;
+		}
+		if (!cnt)
+			return false;
+		last = down ? d.bmin + 1 : d.bmax - 1;
+		break;
+	default:
+		return false;
+	}
+
+	/*
+	 * A 32-bit latch sees the lower half of the step. The register at the header can be
+	 * a 64-bit variable that moves by all of it: the range is for a step that is the same.
+	 */
+	if (step_val->umin == (down ? -step : step))
+		latch_iv_range(env, st, latch, &d, sign, down, step, last, iters);
+	*result = cnt;
+	return true;
+}
+
+/*
  * Loop with post-condition:
  *
  *    r0 = 0
@@ -2295,7 +2587,10 @@ static bool compute_max_iters(struct bpf_verifier_env *env,
 	struct scev *scev = env->scev;
 	struct scev_value initial_val, step_val, bound_val;
 	u64 step, bound, initial, total_change, backedge_taken_count;
+	bool konst;
 	u8 op = latch->op;
+
+	iters->iv_reg = -1;
 
 	if (!eval_expr(env, scev, st, latch->base_expr, &initial_val) ||
 	    !eval_expr(env, scev, st, latch->step_expr, &step_val) ||
@@ -2313,9 +2608,22 @@ static bool compute_max_iters(struct bpf_verifier_env *env,
 	if (!scev_value_compatible(env, st, &initial_val, &bound_val, latch))
 		return false;
 
-	initial = initial_val.value;
-	step = step_val.value;
-	bound = bound_val.value;
+	if (!scev_value_is_const(&step_val))
+		return false;
+	konst = scev_value_is_const(&initial_val) && scev_value_is_const(&bound_val);
+	if (!konst) {
+		if (!compute_backedge_taken_max(env, st, latch, &initial_val, &step_val, &bound_val,
+						iters, &backedge_taken_count))
+			return false;
+		/* as below */
+		if (backedge_taken_count >= U32_MAX - 1)
+			return false;
+		goto counted;
+	}
+
+	initial = initial_val.umin;
+	step = step_val.umin;
+	bound = bound_val.umin;
 
 	/*
 	 * The code below only handles mixed 64-bit/32-bit comparisons/recurrences
@@ -2336,9 +2644,9 @@ static bool compute_max_iters(struct bpf_verifier_env *env,
 			step    = (s64)(s32)(u32)step;
 		}
 	}
-	if (latch->zext32 ^ latch->jmp32 && (initial != initial_val.value ||
-					     bound != bound_val.value ||
-					     step != step_val.value)) {
+	if (latch->zext32 ^ latch->jmp32 && (initial != initial_val.umin ||
+					     bound != bound_val.umin ||
+					     step != step_val.umin)) {
 		if (env->log.level & BPF_LOG_LEVEL2)
 			bpf_log(&env->log,
 				"scev: mixed-width latch has operands outside 32-bit ranges\n");
@@ -2368,6 +2676,7 @@ static bool compute_max_iters(struct bpf_verifier_env *env,
 		}
 	}
 
+counted:
 	/* The header executes once on entry and once for each taken backedge, hence +1. */
 	iters->max_header_count = backedge_taken_count + 1;
 	/*
@@ -2377,7 +2686,7 @@ static bool compute_max_iters(struct bpf_verifier_env *env,
 	 * In such case, conservatively assume that non-latch exit can happen
 	 * at any iteration, thus setting minimal number of iterations as 0.
 	 */
-	iters->min_header_count = loop->exits_cnt == 1 ? iters->max_header_count : 0;
+	iters->min_header_count = konst && loop->exits_cnt == 1 ? iters->max_header_count : 0;
 	return true;
 }
 
@@ -2626,6 +2935,14 @@ static void linear_bounds(struct bpf_reg_state *reg, u32 max_header_count,
 	out->r32 = r32;
 }
 
+static void iv_bounds(struct bounds *bounds, struct cnum64 iv_range)
+{
+	struct cnum64 r64 = cnum64_intersect(bounds->r64, iv_range);
+
+	if (!cnum64_is_empty(r64))
+		bounds->r64 = r64;
+}
+
 static int mark_expr_precise(struct bpf_verifier_env *env, struct bpf_func_state *st, u32 id,
 			     unsigned long *precise_regs)
 {
@@ -2720,6 +3037,8 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 		}
 		if (!found || tmp.max_header_count < iters->max_header_count) {
 			iters->max_header_count = tmp.max_header_count;
+			iters->iv_reg = tmp.iv_reg;
+			iters->iv_range = tmp.iv_range;
 			best = latch;
 		}
 		iters->min_header_count = found ? min(iters->min_header_count, tmp.min_header_count)
@@ -2925,6 +3244,8 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 			if (err)
 				return err;
 			linear_bounds(reg, iters->max_header_count, &coefs, &bounds);
+			if (r == iters->iv_reg)
+				iv_bounds(&bounds, iters->iv_range);
 			if (log->level & BPF_LOG_LEVEL2) {
 				bpf_log(log, "loop header at %d, widening ", insn_idx);
 				log_reg(env, r);
@@ -2965,9 +3286,11 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 }
 
 int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *cur_func_state, u32 insn_idx,
-			struct bpf_verifier_state *entry_state, u32 max_header_count)
+			const struct loop_stack_entry *entry)
 {
+	struct bpf_verifier_state *entry_state = entry->entry_state;
 	struct bpf_func_state *entry_st = entry_state->frame[entry_state->curframe];
+	u32 max_header_count = entry->max_header_count;
 	struct bpf_verifier_log *log = &env->log;
 	struct bpf_reg_state *reg, *entry_reg;
 	struct scev *scev = env->scev;
@@ -3005,6 +3328,8 @@ int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *cur
 			continue;
 
 		linear_bounds(entry_reg, max_header_count, &coefs, &bounds);
+		if (r == entry->iv_reg)
+			iv_bounds(&bounds, entry->iv_range);
 		if (log->level & BPF_LOG_LEVEL2) {
 			bpf_log(log, "loop header at %d, clamping ", insn_idx);
 			log_reg(env, r);

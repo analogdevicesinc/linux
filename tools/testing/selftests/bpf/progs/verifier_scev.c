@@ -1188,7 +1188,8 @@ __success
 __log_level(2)
 __msg("scev at header 2:")
 __msg_next("  *fp-8=(+ *fp-8 1) / (linear *fp-8 1)")
-__msg("loop header at 2, can't compute iterations count")
+/* whatever is in the other bytes of the slot */
+__msg("loop header at 2, header_count is [0..266] ")
 __not_msg("widening")
 __naked void no_widen_small_spill_counter(void)
 {
@@ -2526,7 +2527,8 @@ __naked void sibling_inner_loops(void)
 SEC("socket")
 __success
 __log_level(2)
-__msg("loop header at 0, can't compute iterations count")
+/* whatever is in the slot */
+__msg("loop header at 0, header_count is [0..11] ")
 __naked void uninit_slot_counter(void)
 {
 	asm volatile ("					\
