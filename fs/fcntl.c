@@ -120,6 +120,7 @@ void file_f_owner_release(struct file *file)
 	f_owner = file_f_owner(file);
 	if (f_owner) {
 		put_pid(f_owner->pid);
+		put_cred(f_owner->cred);
 		kfree(f_owner);
 	}
 }
@@ -140,10 +141,9 @@ void __f_setown(struct file *filp, struct pid *pid, enum pid_type type,
 		f_owner->pid_type = type;
 
 		if (pid) {
-			const struct cred *cred = current_cred();
 			security_file_set_fowner(filp);
-			f_owner->uid = cred->uid;
-			f_owner->euid = cred->euid;
+			put_cred(f_owner->cred);
+			f_owner->cred = get_current_cred();
 		}
 	}
 	write_unlock_irq(&f_owner->lock);
@@ -315,9 +315,12 @@ static int f_getowner_uids(struct file *filp, unsigned long arg)
 
 	f_owner = file_f_owner(filp);
 	if (f_owner) {
+		const struct cred *cred;
+
 		read_lock_irq(&f_owner->lock);
-		src[0] = from_kuid(user_ns, f_owner->uid);
-		src[1] = from_kuid(user_ns, f_owner->euid);
+		cred = f_owner->cred;
+		src[0] = from_kuid(user_ns, cred ? cred->uid : GLOBAL_ROOT_UID);
+		src[1] = from_kuid(user_ns, cred ? cred->euid : GLOBAL_ROOT_UID);
 		read_unlock_irq(&f_owner->lock);
 	}
 
@@ -847,10 +850,8 @@ static inline int sigio_perm(struct task_struct *p,
 
 	rcu_read_lock();
 	cred = __task_cred(p);
-	ret = ((uid_eq(fown->euid, GLOBAL_ROOT_UID) ||
-		uid_eq(fown->euid, cred->suid) || uid_eq(fown->euid, cred->uid) ||
-		uid_eq(fown->uid,  cred->suid) || uid_eq(fown->uid,  cred->uid)) &&
-	       !security_file_send_sigiotask(p, fown, sig));
+	ret = cred_ids_allow_sigio(fown->cred, cred) &&
+	      !security_file_send_sigiotask(p, fown, sig);
 	rcu_read_unlock();
 	return ret;
 }
