@@ -1107,6 +1107,7 @@ const struct file_operations exfat_file_operations = {
 	.splice_write	= iter_file_splice_write,
 	.fallocate	= exfat_fallocate,
 	.setlease	= generic_setlease,
+	.fop_flags	= FOP_DONTCACHE,
 };
 
 const struct inode_operations exfat_file_inode_operations = {
