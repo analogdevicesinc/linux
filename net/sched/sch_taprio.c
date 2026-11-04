@@ -239,6 +239,18 @@ static s32 get_cycle_time_elapsed(struct sched_gate_list *sched, ktime_t time)
 	return time_elapsed;
 }
 
+/*
+ * Netlink accepts any s64 cycle_time_extension. Saturate positive overflow
+ * so comparisons remain monotonic in end_time.
+ */
+static ktime_t taprio_cycle_ext_end(ktime_t end_time, s64 extension)
+{
+	if (extension > 0 && end_time > KTIME_MAX - extension)
+		return KTIME_MAX;
+
+	return ktime_add_ns(end_time, extension);
+}
+
 static ktime_t get_interval_end_time(struct sched_gate_list *sched,
 				     struct sched_gate_list *admin,
 				     struct sched_entry *entry,
@@ -249,7 +261,8 @@ static ktime_t get_interval_end_time(struct sched_gate_list *sched,
 
 	cycle_end = ktime_add_ns(intv_start, sched->cycle_time - cycle_elapsed);
 	intv_end = ktime_add_ns(intv_start, entry->interval);
-	cycle_ext_end = ktime_add(cycle_end, sched->cycle_time_extension);
+	cycle_ext_end =
+		taprio_cycle_ext_end(cycle_end, sched->cycle_time_extension);
 
 	if (ktime_before(intv_end, cycle_end))
 		return intv_end;
@@ -916,7 +929,8 @@ static bool should_change_schedules(const struct sched_gate_list *admin,
 	 * next schedule base_time, we can extend the current schedule
 	 * for that amount.
 	 */
-	extension_time = ktime_add_ns(end_time, oper->cycle_time_extension);
+	extension_time = taprio_cycle_ext_end(end_time,
+					      oper->cycle_time_extension);
 
 	/* FIXME: the IEEE 802.1Q-2018 Specification isn't clear about
 	 * how precisely the extension should be made. So after
